@@ -7,7 +7,7 @@ use crate::{
     change_detection::{MaybeLocation, MutUntyped},
     component::{ComponentId, Mutable},
     entity::Entity,
-    event::{BufferedEvent, EntityEvent, Event, EventId, Events, SendBatchIds},
+    event::{BufferedEvent, EntityEvent, Event, EventId, EventKey, Events, WriteBatchIds},
     lifecycle::{HookContext, INSERT, REPLACE},
     observer::{Observers, TriggerTargets},
     prelude::{Component, QueryState},
@@ -96,9 +96,11 @@ impl<'w> DeferredWorld<'w> {
     /// If you do not need to ensure the above hooks are triggered, and your component
     /// is mutable, prefer using [`get_mut`](DeferredWorld::get_mut).
     #[inline]
-    pub(crate) fn modify_component<T: Component, R>(
+    #[track_caller]
+    pub(crate) fn modify_component_with_relationship_hook_mode<T: Component, R>(
         &mut self,
         entity: Entity,
+        relationship_hook_mode: RelationshipHookMode,
         f: impl FnOnce(&mut T) -> R,
     ) -> Result<Option<R>, EntityMutableFetchError> {
         // If the component is not registered, then it doesn't exist on this entity, so no action required.
@@ -106,12 +108,17 @@ impl<'w> DeferredWorld<'w> {
             return Ok(None);
         };
 
-        self.modify_component_by_id(entity, component_id, move |component| {
-            // SAFETY: component matches the component_id collected in the above line
-            let mut component = unsafe { component.with_type::<T>() };
+        self.modify_component_by_id_with_relationship_hook_mode(
+            entity,
+            component_id,
+            relationship_hook_mode,
+            move |component| {
+                // SAFETY: component matches the component_id collected in the above line
+                let mut component = unsafe { component.with_type::<T>() };
 
-            f(&mut component)
-        })
+                f(&mut component)
+            },
+        )
     }
 
     /// Temporarily removes a [`Component`] identified by the provided
@@ -126,13 +133,15 @@ impl<'w> DeferredWorld<'w> {
     /// If you do not need to ensure the above hooks are triggered, and your component
     /// is mutable, prefer using [`get_mut_by_id`](DeferredWorld::get_mut_by_id).
     ///
-    /// You should prefer the typed [`modify_component`](DeferredWorld::modify_component)
+    /// You should prefer the typed [`modify_component_with_relationship_hook_mode`](DeferredWorld::modify_component_with_relationship_hook_mode)
     /// whenever possible.
     #[inline]
-    pub(crate) fn modify_component_by_id<R>(
+    #[track_caller]
+    pub(crate) fn modify_component_by_id_with_relationship_hook_mode<R>(
         &mut self,
         entity: Entity,
         component_id: ComponentId,
+        relationship_hook_mode: RelationshipHookMode,
         f: impl for<'a> FnOnce(MutUntyped<'a>) -> R,
     ) -> Result<Option<R>, EntityMutableFetchError> {
         let entity_cell = self.get_entity_mut(entity)?;
@@ -155,7 +164,7 @@ impl<'w> DeferredWorld<'w> {
                 entity,
                 [component_id].into_iter(),
                 MaybeLocation::caller(),
-                RelationshipHookMode::Run,
+                relationship_hook_mode,
             );
             if archetype.has_replace_observer() {
                 self.trigger_observers(
@@ -195,7 +204,7 @@ impl<'w> DeferredWorld<'w> {
                 entity,
                 [component_id].into_iter(),
                 MaybeLocation::caller(),
-                RelationshipHookMode::Run,
+                relationship_hook_mode,
             );
             if archetype.has_insert_observer() {
                 self.trigger_observers(
@@ -498,30 +507,51 @@ impl<'w> DeferredWorld<'w> {
         unsafe { self.world.get_non_send_resource_mut() }
     }
 
-    /// Sends a [`BufferedEvent`].
-    /// This method returns the [ID](`EventId`) of the sent `event`,
-    /// or [`None`] if the `event` could not be sent.
+    /// Writes a [`BufferedEvent`].
+    /// This method returns the [ID](`EventId`) of the written `event`,
+    /// or [`None`] if the `event` could not be written.
     #[inline]
+    pub fn write_event<E: BufferedEvent>(&mut self, event: E) -> Option<EventId<E>> {
+        self.write_event_batch(core::iter::once(event))?.next()
+    }
+
+    /// Writes a [`BufferedEvent`].
+    /// This method returns the [ID](`EventId`) of the written `event`,
+    /// or [`None`] if the `event` could not be written.
+    #[inline]
+    #[deprecated(since = "0.17.0", note = "Use `DeferredWorld::write_event` instead.")]
     pub fn send_event<E: BufferedEvent>(&mut self, event: E) -> Option<EventId<E>> {
-        self.send_event_batch(core::iter::once(event))?.next()
+        self.write_event(event)
     }
 
-    /// Sends the default value of the [`BufferedEvent`] of type `E`.
-    /// This method returns the [ID](`EventId`) of the sent `event`,
-    /// or [`None`] if the `event` could not be sent.
+    /// Writes the default value of the [`BufferedEvent`] of type `E`.
+    /// This method returns the [ID](`EventId`) of the written `event`,
+    /// or [`None`] if the `event` could not be written.
     #[inline]
+    pub fn write_event_default<E: BufferedEvent + Default>(&mut self) -> Option<EventId<E>> {
+        self.write_event(E::default())
+    }
+
+    /// Writes the default value of the [`BufferedEvent`] of type `E`.
+    /// This method returns the [ID](`EventId`) of the written `event`,
+    /// or [`None`] if the `event` could not be written.
+    #[inline]
+    #[deprecated(
+        since = "0.17.0",
+        note = "Use `DeferredWorld::write_event_default` instead."
+    )]
     pub fn send_event_default<E: BufferedEvent + Default>(&mut self) -> Option<EventId<E>> {
-        self.send_event(E::default())
+        self.write_event_default::<E>()
     }
 
-    /// Sends a batch of [`BufferedEvent`]s from an iterator.
-    /// This method returns the [IDs](`EventId`) of the sent `events`,
-    /// or [`None`] if the `event` could not be sent.
+    /// Writes a batch of [`BufferedEvent`]s from an iterator.
+    /// This method returns the [IDs](`EventId`) of the written `events`,
+    /// or [`None`] if the `event` could not be written.
     #[inline]
-    pub fn send_event_batch<E: BufferedEvent>(
+    pub fn write_event_batch<E: BufferedEvent>(
         &mut self,
         events: impl IntoIterator<Item = E>,
-    ) -> Option<SendBatchIds<E>> {
+    ) -> Option<WriteBatchIds<E>> {
         let Some(mut events_resource) = self.get_resource_mut::<Events<E>>() else {
             log::error!(
                 "Unable to send event `{}`\n\tEvent must be added to the app with `add_event()`\n\thttps://docs.rs/bevy/*/bevy/app/struct.App.html#method.add_event ",
@@ -529,7 +559,22 @@ impl<'w> DeferredWorld<'w> {
             );
             return None;
         };
-        Some(events_resource.send_batch(events))
+        Some(events_resource.write_batch(events))
+    }
+
+    /// Writes a batch of [`BufferedEvent`]s from an iterator.
+    /// This method returns the [IDs](`EventId`) of the written `events`,
+    /// or [`None`] if the `event` could not be written.
+    #[inline]
+    #[deprecated(
+        since = "0.17.0",
+        note = "Use `DeferredWorld::write_event_batch` instead."
+    )]
+    pub fn send_event_batch<E: BufferedEvent>(
+        &mut self,
+        events: impl IntoIterator<Item = E>,
+    ) -> Option<WriteBatchIds<E>> {
+        self.write_event_batch(events)
     }
 
     /// Gets a pointer to the resource with the id [`ComponentId`] if it exists.
@@ -736,18 +781,18 @@ impl<'w> DeferredWorld<'w> {
     /// Triggers all event observers for [`ComponentId`] in target.
     ///
     /// # Safety
-    /// Caller must ensure observers listening for `event` can accept ZST pointers
+    /// Caller must ensure observers listening for `event_key` can accept ZST pointers
     #[inline]
     pub(crate) unsafe fn trigger_observers(
         &mut self,
-        event: ComponentId,
+        event_key: EventKey,
         target: Option<Entity>,
         components: impl Iterator<Item = ComponentId> + Clone,
         caller: MaybeLocation,
     ) {
         Observers::invoke::<_>(
             self.reborrow(),
-            event,
+            event_key,
             target,
             target,
             components,
@@ -760,11 +805,11 @@ impl<'w> DeferredWorld<'w> {
     /// Triggers all event observers for [`ComponentId`] in target.
     ///
     /// # Safety
-    /// Caller must ensure `E` is accessible as the type represented by `event`
+    /// Caller must ensure `E` is accessible as the type represented by `event_key`
     #[inline]
     pub(crate) unsafe fn trigger_observers_with_data<E, T>(
         &mut self,
-        event: ComponentId,
+        event_key: EventKey,
         current_target: Option<Entity>,
         original_target: Option<Entity>,
         components: impl Iterator<Item = ComponentId> + Clone,
@@ -776,7 +821,7 @@ impl<'w> DeferredWorld<'w> {
     {
         Observers::invoke::<_>(
             self.reborrow(),
-            event,
+            event_key,
             current_target,
             original_target,
             components.clone(),
@@ -804,7 +849,7 @@ impl<'w> DeferredWorld<'w> {
             }
             Observers::invoke::<_>(
                 self.reborrow(),
-                event,
+                event_key,
                 Some(current_target),
                 original_target,
                 components.clone(),

@@ -153,6 +153,3 @@ impl FromReflect for &'static Location<'static> {
         reflect.try_downcast_ref::<Self>().copied()
     }
 }
-
-#[cfg(feature = "functions")]
-crate::func::macros::impl_function_traits!(&'static Location<'static>);

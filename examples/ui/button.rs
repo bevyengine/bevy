@@ -72,7 +72,7 @@ fn setup(mut commands: Commands, assets: Res<AssetServer>) {
     commands.spawn(button(&assets));
 }
 
-fn button(asset_server: &AssetServer) -> impl Bundle + use<> {
+fn button(asset_server: &AssetServer) -> impl Bundle {
     (
         Node {
             width: Val::Percent(100.0),
@@ -93,9 +93,9 @@ fn button(asset_server: &AssetServer) -> impl Bundle + use<> {
                 align_items: AlignItems::Center,
                 ..default()
             },
-            BorderColor::all(Color::BLACK),
+            BorderColor::all(Color::WHITE),
             BorderRadius::MAX,
-            BackgroundColor(NORMAL_BUTTON),
+            BackgroundColor(Color::BLACK),
             children![(
                 Text::new("Button"),
                 TextFont {

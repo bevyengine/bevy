@@ -3,8 +3,8 @@
 use crate::{
     experimental::{UiChildren, UiRootNodes},
     ui_transform::UiGlobalTransform,
-    CalculatedClip, ComputedNodeTarget, DefaultUiCamera, Display, Node, OverflowAxis, UiScale,
-    UiTargetCamera,
+    CalculatedClip, ComputedNodeTarget, DefaultUiCamera, Display, Node, OverflowAxis, OverrideClip,
+    UiScale, UiTargetCamera,
 };
 
 use super::ComputedNode;
@@ -12,7 +12,7 @@ use bevy_ecs::{
     change_detection::DetectChangesMut,
     entity::Entity,
     hierarchy::ChildOf,
-    query::{Changed, With},
+    query::{Changed, Has, With},
     system::{Commands, Query, Res},
 };
 use bevy_math::{Rect, UVec2};
@@ -28,6 +28,7 @@ pub fn update_clipping_system(
         &ComputedNode,
         &UiGlobalTransform,
         Option<&mut CalculatedClip>,
+        Has<OverrideClip>,
     )>,
     ui_children: UiChildren,
 ) {
@@ -50,14 +51,21 @@ fn update_clipping(
         &ComputedNode,
         &UiGlobalTransform,
         Option<&mut CalculatedClip>,
+        Has<OverrideClip>,
     )>,
     entity: Entity,
     mut maybe_inherited_clip: Option<Rect>,
 ) {
-    let Ok((node, computed_node, transform, maybe_calculated_clip)) = node_query.get_mut(entity)
+    let Ok((node, computed_node, transform, maybe_calculated_clip, has_override_clip)) =
+        node_query.get_mut(entity)
     else {
         return;
     };
+
+    // If the UI node entity has an `OverrideClip` component, discard any inherited clip rect
+    if has_override_clip {
+        maybe_inherited_clip = None;
+    }
 
     // If `display` is None, clip the entire node and all its descendants by replacing the inherited clip with a default rect (which is empty)
     if node.display == Display::None {
@@ -104,8 +112,8 @@ fn update_clipping(
 
         clip_rect.min.x += clip_inset.left;
         clip_rect.min.y += clip_inset.top;
-        clip_rect.max.x -= clip_inset.right;
-        clip_rect.max.y -= clip_inset.bottom;
+        clip_rect.max.x -= clip_inset.right + computed_node.scrollbar_size.x;
+        clip_rect.max.y -= clip_inset.bottom + computed_node.scrollbar_size.y;
 
         clip_rect = clip_rect
             .inflate(node.overflow_clip_margin.margin.max(0.) / computed_node.inverse_scale_factor);
@@ -213,8 +221,8 @@ mod tests {
     use bevy_image::Image;
     use bevy_math::UVec2;
     use bevy_render::camera::Camera;
-    use bevy_render::camera::ManualTextureViews;
     use bevy_render::camera::RenderTarget;
+    use bevy_render::texture::ManualTextureViews;
     use bevy_utils::default;
     use bevy_window::PrimaryWindow;
     use bevy_window::Window;

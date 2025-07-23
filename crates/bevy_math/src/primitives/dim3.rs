@@ -31,6 +31,7 @@ pub struct Sphere {
     /// The radius of the sphere
     pub radius: f32,
 }
+
 impl Primitive3d for Sphere {}
 
 impl Default for Sphere {
@@ -105,6 +106,7 @@ pub struct Plane3d {
     /// Half of the width and height of the plane
     pub half_size: Vec2,
 }
+
 impl Primitive3d for Plane3d {}
 
 impl Default for Plane3d {
@@ -175,6 +177,7 @@ pub struct InfinitePlane3d {
     /// The normal of the plane. The plane will be placed perpendicular to this direction
     pub normal: Dir3,
 }
+
 impl Primitive3d for InfinitePlane3d {}
 
 impl Default for InfinitePlane3d {
@@ -351,6 +354,7 @@ pub struct Line3d {
     /// The direction of the line
     pub direction: Dir3,
 }
+
 impl Primitive3d for Line3d {}
 
 /// A line segment defined by two endpoints in 3D space.
@@ -370,7 +374,17 @@ pub struct Segment3d {
     /// The endpoints of the line segment.
     pub vertices: [Vec3; 2],
 }
+
 impl Primitive3d for Segment3d {}
+
+impl Default for Segment3d {
+    /// Returns the default [`Segment3d`] with endpoints at `(0.0, 0.0, 0.0)` and `(1.0, 0.0, 0.0)`.
+    fn default() -> Self {
+        Self {
+            vertices: [Vec3::new(0.0, 0.0, 0.0), Vec3::new(1.0, 0.0, 0.0)],
+        }
+    }
+}
 
 impl Segment3d {
     /// Create a new `Segment3d` from its endpoints.
@@ -543,6 +557,38 @@ impl Segment3d {
         self.reverse();
         self
     }
+
+    /// Returns the point on the [`Segment3d`] that is closest to the specified `point`.
+    #[inline(always)]
+    pub fn closest_point(&self, point: Vec3) -> Vec3 {
+        //       `point`
+        //           x
+        //          ^|
+        //         / |
+        //`offset`/  |
+        //       /   |  `segment_vector`
+        //      x----.-------------->x
+        //      0    t               1
+        let segment_vector = self.vertices[1] - self.vertices[0];
+        let offset = point - self.vertices[0];
+        // The signed projection of `offset` onto `segment_vector`, scaled by the length of the segment.
+        let projection_scaled = segment_vector.dot(offset);
+
+        // `point` is too far "left" in the picture
+        if projection_scaled <= 0.0 {
+            return self.vertices[0];
+        }
+
+        let length_squared = segment_vector.length_squared();
+        // `point` is too far "right" in the picture
+        if projection_scaled >= length_squared {
+            return self.vertices[1];
+        }
+
+        // Point lies somewhere in the middle, we compute the closest point by finding the parameter along the line.
+        let t = projection_scaled / length_squared;
+        self.vertices[0] + t * segment_vector
+    }
 }
 
 impl From<[Vec3; 2]> for Segment3d {
@@ -578,6 +624,7 @@ pub struct Polyline3d<const N: usize> {
     #[cfg_attr(feature = "serialize", serde(with = "super::serde::array"))]
     pub vertices: [Vec3; N],
 }
+
 impl<const N: usize> Primitive3d for Polyline3d<N> {}
 
 impl<const N: usize> FromIterator<Vec3> for Polyline3d<N> {
@@ -648,6 +695,7 @@ pub struct Cuboid {
     /// Half of the width, height and depth of the cuboid
     pub half_size: Vec3,
 }
+
 impl Primitive3d for Cuboid {}
 
 impl Default for Cuboid {
@@ -742,6 +790,7 @@ pub struct Cylinder {
     /// The half height of the cylinder
     pub half_height: f32,
 }
+
 impl Primitive3d for Cylinder {}
 
 impl Default for Cylinder {
@@ -820,6 +869,7 @@ pub struct Capsule3d {
     /// Half the height of the capsule, excluding the hemispheres
     pub half_length: f32,
 }
+
 impl Primitive3d for Capsule3d {}
 
 impl Default for Capsule3d {
@@ -890,6 +940,7 @@ pub struct Cone {
     /// The height of the cone
     pub height: f32,
 }
+
 impl Primitive3d for Cone {}
 
 impl Default for Cone {
@@ -974,6 +1025,7 @@ pub struct ConicalFrustum {
     /// The height of the frustum
     pub height: f32,
 }
+
 impl Primitive3d for ConicalFrustum {}
 
 impl Default for ConicalFrustum {
@@ -1030,6 +1082,7 @@ pub struct Torus {
     #[doc(alias = "radius_of_revolution")]
     pub major_radius: f32,
 }
+
 impl Primitive3d for Torus {}
 
 impl Default for Torus {
@@ -1326,6 +1379,7 @@ pub struct Tetrahedron {
     /// The vertices of the tetrahedron.
     pub vertices: [Vec3; 4],
 }
+
 impl Primitive3d for Tetrahedron {}
 
 impl Default for Tetrahedron {
@@ -1433,6 +1487,7 @@ pub struct Extrusion<T: Primitive2d> {
     /// Half of the depth of the extrusion
     pub half_depth: f32,
 }
+
 impl<T: Primitive2d> Primitive3d for Extrusion<T> {}
 
 impl<T: Primitive2d> Extrusion<T> {
@@ -1516,6 +1571,55 @@ mod tests {
             sphere.closest_point(Vec3::new(0.25, 0.1, 0.3)),
             Vec3::new(0.25, 0.1, 0.3)
         );
+    }
+
+    #[test]
+    fn segment_closest_point() {
+        assert_eq!(
+            Segment3d::new(Vec3::new(0.0, 0.0, 0.0), Vec3::new(3.0, 0.0, 0.0))
+                .closest_point(Vec3::new(1.0, 6.0, -2.0)),
+            Vec3::new(1.0, 0.0, 0.0)
+        );
+
+        let segments = [
+            Segment3d::new(Vec3::new(0.0, 0.0, 0.0), Vec3::new(0.0, 0.0, 0.0)),
+            Segment3d::new(Vec3::new(0.0, 0.0, 0.0), Vec3::new(1.0, 0.0, 0.0)),
+            Segment3d::new(Vec3::new(1.0, 0.0, 2.0), Vec3::new(0.0, 1.0, -2.0)),
+            Segment3d::new(
+                Vec3::new(1.0, 0.0, 0.0),
+                Vec3::new(1.0, 5.0 * f32::EPSILON, 0.0),
+            ),
+        ];
+        let points = [
+            Vec3::new(0.0, 0.0, 0.0),
+            Vec3::new(1.0, 0.0, 0.0),
+            Vec3::new(-1.0, 1.0, 2.0),
+            Vec3::new(1.0, 1.0, 1.0),
+            Vec3::new(-1.0, 0.0, 0.0),
+            Vec3::new(5.0, -1.0, 0.5),
+            Vec3::new(1.0, f32::EPSILON, 0.0),
+        ];
+
+        for point in points.iter() {
+            for segment in segments.iter() {
+                let closest = segment.closest_point(*point);
+                assert!(
+                    point.distance_squared(closest) <= point.distance_squared(segment.point1()),
+                    "Closest point must always be at least as close as either vertex."
+                );
+                assert!(
+                    point.distance_squared(closest) <= point.distance_squared(segment.point2()),
+                    "Closest point must always be at least as close as either vertex."
+                );
+                assert!(
+                    point.distance_squared(closest) <= point.distance_squared(segment.center()),
+                    "Closest point must always be at least as close as the center."
+                );
+                let closest_to_closest = segment.closest_point(closest);
+                // Closest point must already be on the segment
+                assert_relative_eq!(closest_to_closest, closest);
+            }
+        }
     }
 
     #[test]

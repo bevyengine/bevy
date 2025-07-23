@@ -122,9 +122,9 @@ fn on_trigger_menu(trigger: On<OpenContextMenu>, mut commands: Commands) {
         );
 }
 
-fn context_item(text: &str, col: Srgba) -> impl Bundle + use<> {
+fn context_item(text: &str, col: Srgba) -> impl Bundle {
     (
-        Name::new(format!("item-{}", text)),
+        Name::new(format!("item-{text}")),
         ContextMenuItem(col),
         Button,
         Node {
@@ -143,7 +143,7 @@ fn context_item(text: &str, col: Srgba) -> impl Bundle + use<> {
     )
 }
 
-fn background_and_button() -> impl Bundle + use<> {
+fn background_and_button() -> impl Bundle {
     (
         Name::new("background"),
         Node {

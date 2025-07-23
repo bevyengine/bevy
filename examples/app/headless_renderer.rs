@@ -19,16 +19,16 @@ use bevy::{
     prelude::*,
     render::{
         camera::RenderTarget,
-        render_asset::{RenderAssetUsages, RenderAssets},
+        render_asset::RenderAssets,
         render_graph::{self, NodeRunError, RenderGraph, RenderGraphContext, RenderLabel},
         render_resource::{
-            Buffer, BufferDescriptor, BufferUsages, CommandEncoderDescriptor, Extent3d, Maintain,
-            MapMode, TexelCopyBufferInfo, TexelCopyBufferLayout, TextureDimension, TextureFormat,
-            TextureUsages,
+            Buffer, BufferDescriptor, BufferUsages, CommandEncoderDescriptor, Extent3d, MapMode,
+            PollType, TexelCopyBufferInfo, TexelCopyBufferLayout, TextureFormat, TextureUsages,
         },
         renderer::{RenderContext, RenderDevice, RenderQueue},
         Extract, Render, RenderApp, RenderSystems,
     },
+    window::ExitCondition,
     winit::WinitPlugin,
 };
 use crossbeam_channel::{Receiver, Sender};
@@ -41,7 +41,6 @@ use std::{
     },
     time::Duration,
 };
-
 // To communicate between the main world and the render world we need a channel.
 // Since the main world and render world run in parallel, there will always be a frame of latency
 // between the data sent from the render world and the data received in the main world
@@ -93,7 +92,7 @@ fn main() {
                     primary_window: None,
                     // Don’t automatically exit due to having no windows.
                     // Instead, the code in `update()` will explicitly produce an `AppExit` event.
-                    exit_condition: bevy::window::ExitCondition::DontExit,
+                    exit_condition: ExitCondition::DontExit,
                     ..default()
                 })
                 // WinitPlugin will panic in environments without a display server.
@@ -248,25 +247,14 @@ fn setup_render_target(
     };
 
     // This is the texture that will be rendered to.
-    let mut render_target_image = Image::new_fill(
-        size,
-        TextureDimension::D2,
-        &[0; 4],
-        TextureFormat::bevy_default(),
-        RenderAssetUsages::default(),
-    );
-    render_target_image.texture_descriptor.usage |=
-        TextureUsages::COPY_SRC | TextureUsages::RENDER_ATTACHMENT | TextureUsages::TEXTURE_BINDING;
+    let mut render_target_image =
+        Image::new_target_texture(size.width, size.height, TextureFormat::bevy_default());
+    render_target_image.texture_descriptor.usage |= TextureUsages::COPY_SRC;
     let render_target_image_handle = images.add(render_target_image);
 
     // This is the texture that will be copied to.
-    let cpu_image = Image::new_fill(
-        size,
-        TextureDimension::D2,
-        &[0; 4],
-        TextureFormat::bevy_default(),
-        RenderAssetUsages::default(),
-    );
+    let cpu_image =
+        Image::new_target_texture(size.width, size.height, TextureFormat::bevy_default());
     let cpu_image_handle = images.add(cpu_image);
 
     commands.spawn(ImageCopier::new(
@@ -460,7 +448,9 @@ fn receive_image_from_buffer(
         // `Maintain::Wait` will cause the thread to wait on native but not on WebGpu.
 
         // This blocks until the gpu is done executing everything
-        render_device.poll(Maintain::wait()).panic_on_timeout();
+        render_device
+            .poll(PollType::Wait)
+            .expect("Failed to poll device for map async");
 
         // This blocks until the buffer is mapped
         r.recv().expect("Failed to receive the map_async message");

@@ -35,6 +35,7 @@ pub struct Circle {
     /// The radius of the circle
     pub radius: f32,
 }
+
 impl Primitive2d for Circle {}
 
 impl Default for Circle {
@@ -124,6 +125,7 @@ pub struct Arc2d {
     /// Half the angle defining the arc
     pub half_angle: f32,
 }
+
 impl Primitive2d for Arc2d {}
 
 impl Default for Arc2d {
@@ -290,6 +292,7 @@ pub struct CircularSector {
     #[cfg_attr(all(feature = "serialize", feature = "alloc"), serde(flatten))]
     pub arc: Arc2d,
 }
+
 impl Primitive2d for CircularSector {}
 
 impl Default for CircularSector {
@@ -433,6 +436,7 @@ pub struct CircularSegment {
     #[cfg_attr(all(feature = "serialize", feature = "alloc"), serde(flatten))]
     pub arc: Arc2d,
 }
+
 impl Primitive2d for CircularSegment {}
 
 impl Default for CircularSegment {
@@ -453,6 +457,7 @@ impl Measured2d for CircularSegment {
         self.chord_length() + self.arc_length()
     }
 }
+
 impl CircularSegment {
     /// Create a new [`CircularSegment`] from a `radius`, and an `angle`
     #[inline(always)]
@@ -788,6 +793,7 @@ pub struct Ellipse {
     /// This corresponds to the two perpendicular radii defining the ellipse.
     pub half_size: Vec2,
 }
+
 impl Primitive2d for Ellipse {}
 
 impl Default for Ellipse {
@@ -939,6 +945,7 @@ pub struct Annulus {
     /// The outer circle of the annulus
     pub outer_circle: Circle,
 }
+
 impl Primitive2d for Annulus {}
 
 impl Default for Annulus {
@@ -1036,6 +1043,7 @@ pub struct Rhombus {
     /// Size of the horizontal and vertical diagonals of the rhombus
     pub half_diagonals: Vec2,
 }
+
 impl Primitive2d for Rhombus {}
 
 impl Default for Rhombus {
@@ -1171,6 +1179,7 @@ pub struct Plane2d {
     /// The normal of the plane. The plane will be placed perpendicular to this direction
     pub normal: Dir2,
 }
+
 impl Primitive2d for Plane2d {}
 
 impl Default for Plane2d {
@@ -1213,6 +1222,7 @@ pub struct Line2d {
     /// and its opposite direction
     pub direction: Dir2,
 }
+
 impl Primitive2d for Line2d {}
 
 /// A line segment defined by two endpoints in 2D space.
@@ -1232,7 +1242,17 @@ pub struct Segment2d {
     /// The endpoints of the line segment.
     pub vertices: [Vec2; 2],
 }
+
 impl Primitive2d for Segment2d {}
+
+impl Default for Segment2d {
+    /// Returns the default [`Segment2d`] with endpoints at `(0.0, 0.0)` and `(1.0, 0.0)`.
+    fn default() -> Self {
+        Self {
+            vertices: [Vec2::new(0.0, 0.0), Vec2::new(1.0, 0.0)],
+        }
+    }
+}
 
 impl Segment2d {
     /// Create a new `Segment2d` from its endpoints.
@@ -1469,6 +1489,38 @@ impl Segment2d {
         self.reverse();
         self
     }
+
+    /// Returns the point on the [`Segment2d`] that is closest to the specified `point`.
+    #[inline(always)]
+    pub fn closest_point(&self, point: Vec2) -> Vec2 {
+        //       `point`
+        //           x
+        //          ^|
+        //         / |
+        //`offset`/  |
+        //       /   |  `segment_vector`
+        //      x----.-------------->x
+        //      0    t               1
+        let segment_vector = self.vertices[1] - self.vertices[0];
+        let offset = point - self.vertices[0];
+        // The signed projection of `offset` onto `segment_vector`, scaled by the length of the segment.
+        let projection_scaled = segment_vector.dot(offset);
+
+        // `point` is too far "left" in the picture
+        if projection_scaled <= 0.0 {
+            return self.vertices[0];
+        }
+
+        let length_squared = segment_vector.length_squared();
+        // `point` is too far "right" in the picture
+        if projection_scaled >= length_squared {
+            return self.vertices[1];
+        }
+
+        // Point lies somewhere in the middle, we compute the closest point by finding the parameter along the line.
+        let t = projection_scaled / length_squared;
+        self.vertices[0] + t * segment_vector
+    }
 }
 
 impl From<[Vec2; 2]> for Segment2d {
@@ -1504,6 +1556,7 @@ pub struct Polyline2d<const N: usize> {
     #[cfg_attr(feature = "serialize", serde(with = "super::serde::array"))]
     pub vertices: [Vec2; N],
 }
+
 impl<const N: usize> Primitive2d for Polyline2d<N> {}
 
 impl<const N: usize> FromIterator<Vec2> for Polyline2d<N> {
@@ -1573,6 +1626,7 @@ pub struct Triangle2d {
     /// The vertices of the triangle
     pub vertices: [Vec2; 3],
 }
+
 impl Primitive2d for Triangle2d {}
 
 impl Default for Triangle2d {
@@ -1745,6 +1799,7 @@ pub struct Rectangle {
     /// Half of the width and height of the rectangle
     pub half_size: Vec2,
 }
+
 impl Primitive2d for Rectangle {}
 
 impl Default for Rectangle {
@@ -1838,6 +1893,7 @@ pub struct Polygon<const N: usize> {
     #[cfg_attr(feature = "serialize", serde(with = "super::serde::array"))]
     pub vertices: [Vec2; N],
 }
+
 impl<const N: usize> Primitive2d for Polygon<N> {}
 
 impl<const N: usize> FromIterator<Vec2> for Polygon<N> {
@@ -1892,6 +1948,7 @@ pub struct ConvexPolygon<const N: usize> {
     #[cfg_attr(feature = "serialize", serde(with = "super::serde::array"))]
     vertices: [Vec2; N],
 }
+
 impl<const N: usize> Primitive2d for ConvexPolygon<N> {}
 
 /// An error that happens when creating a [`ConvexPolygon`].
@@ -2013,6 +2070,7 @@ pub struct RegularPolygon {
     /// The number of sides
     pub sides: u32,
 }
+
 impl Primitive2d for RegularPolygon {}
 
 impl Default for RegularPolygon {
@@ -2160,6 +2218,7 @@ pub struct Capsule2d {
     /// Half the height of the capsule, excluding the semicircles
     pub half_length: f32,
 }
+
 impl Primitive2d for Capsule2d {}
 
 impl Default for Capsule2d {
@@ -2268,6 +2327,52 @@ mod tests {
         assert_eq!(rhombus.closest_point(Vec2::X * 10.0), Vec2::ZERO);
         assert_eq!(rhombus.closest_point(Vec2::NEG_ONE * 0.2), Vec2::ZERO);
         assert_eq!(rhombus.closest_point(Vec2::new(-0.55, 0.35)), Vec2::ZERO);
+    }
+
+    #[test]
+    fn segment_closest_point() {
+        assert_eq!(
+            Segment2d::new(Vec2::new(0.0, 0.0), Vec2::new(3.0, 0.0))
+                .closest_point(Vec2::new(1.0, 6.0)),
+            Vec2::new(1.0, 0.0)
+        );
+
+        let segments = [
+            Segment2d::new(Vec2::new(0.0, 0.0), Vec2::new(0.0, 0.0)),
+            Segment2d::new(Vec2::new(0.0, 0.0), Vec2::new(1.0, 0.0)),
+            Segment2d::new(Vec2::new(1.0, 0.0), Vec2::new(0.0, 1.0)),
+            Segment2d::new(Vec2::new(1.0, 0.0), Vec2::new(1.0, 5.0 * f32::EPSILON)),
+        ];
+        let points = [
+            Vec2::new(0.0, 0.0),
+            Vec2::new(1.0, 0.0),
+            Vec2::new(-1.0, 1.0),
+            Vec2::new(1.0, 1.0),
+            Vec2::new(-1.0, 0.0),
+            Vec2::new(5.0, -1.0),
+            Vec2::new(1.0, f32::EPSILON),
+        ];
+
+        for point in points.iter() {
+            for segment in segments.iter() {
+                let closest = segment.closest_point(*point);
+                assert!(
+                    point.distance_squared(closest) <= point.distance_squared(segment.point1()),
+                    "Closest point must always be at least as close as either vertex."
+                );
+                assert!(
+                    point.distance_squared(closest) <= point.distance_squared(segment.point2()),
+                    "Closest point must always be at least as close as either vertex."
+                );
+                assert!(
+                    point.distance_squared(closest) <= point.distance_squared(segment.center()),
+                    "Closest point must always be at least as close as the center."
+                );
+                let closest_to_closest = segment.closest_point(closest);
+                // Closest point must already be on the segment
+                assert_relative_eq!(closest_to_closest, closest);
+            }
+        }
     }
 
     #[test]

@@ -1,13 +1,12 @@
 //! Adds motion vector support to skyboxes. See [`SkyboxPrepassPipeline`] for details.
 
-use bevy_asset::{load_embedded_asset, Handle};
+use bevy_asset::{load_embedded_asset, AssetServer, Handle};
 use bevy_ecs::{
     component::Component,
     entity::Entity,
     query::{Has, With},
     resource::Resource,
     system::{Commands, Query, Res, ResMut},
-    world::{FromWorld, World},
 };
 use bevy_render::{
     render_resource::{
@@ -27,7 +26,7 @@ use crate::{
         prepass_target_descriptors, MotionVectorPrepass, NormalPrepass, PreviousViewData,
         PreviousViewUniforms,
     },
-    Skybox,
+    FullscreenShader, Skybox,
 };
 
 /// This pipeline writes motion vectors to the prepass for all [`Skybox`]es.
@@ -38,7 +37,8 @@ use crate::{
 #[derive(Resource)]
 pub struct SkyboxPrepassPipeline {
     bind_group_layout: BindGroupLayout,
-    shader: Handle<Shader>,
+    fullscreen_shader: FullscreenShader,
+    fragment_shader: Handle<Shader>,
 }
 
 /// Used to specialize the [`SkyboxPrepassPipeline`].
@@ -58,24 +58,26 @@ pub struct RenderSkyboxPrepassPipeline(pub CachedRenderPipelineId);
 #[derive(Component)]
 pub struct SkyboxPrepassBindGroup(pub BindGroup);
 
-impl FromWorld for SkyboxPrepassPipeline {
-    fn from_world(world: &mut World) -> Self {
-        let render_device = world.resource::<RenderDevice>();
-
-        Self {
-            bind_group_layout: render_device.create_bind_group_layout(
-                "skybox_prepass_bind_group_layout",
-                &BindGroupLayoutEntries::sequential(
-                    ShaderStages::FRAGMENT,
-                    (
-                        uniform_buffer::<ViewUniform>(true),
-                        uniform_buffer::<PreviousViewData>(true),
-                    ),
+pub fn init_skybox_prepass_pipeline(
+    mut commands: Commands,
+    render_device: Res<RenderDevice>,
+    fullscreen_shader: Res<FullscreenShader>,
+    asset_server: Res<AssetServer>,
+) {
+    commands.insert_resource(SkyboxPrepassPipeline {
+        bind_group_layout: render_device.create_bind_group_layout(
+            "skybox_prepass_bind_group_layout",
+            &BindGroupLayoutEntries::sequential(
+                ShaderStages::FRAGMENT,
+                (
+                    uniform_buffer::<ViewUniform>(true),
+                    uniform_buffer::<PreviousViewData>(true),
                 ),
             ),
-            shader: load_embedded_asset!(world, "skybox_prepass.wgsl"),
-        }
-    }
+        ),
+        fullscreen_shader: fullscreen_shader.clone(),
+        fragment_shader: load_embedded_asset!(asset_server.as_ref(), "skybox_prepass.wgsl"),
+    });
 }
 
 impl SpecializedRenderPipeline for SkyboxPrepassPipeline {
@@ -85,9 +87,7 @@ impl SpecializedRenderPipeline for SkyboxPrepassPipeline {
         RenderPipelineDescriptor {
             label: Some("skybox_prepass_pipeline".into()),
             layout: vec![self.bind_group_layout.clone()],
-            push_constant_ranges: vec![],
-            vertex: crate::fullscreen_vertex_shader::fullscreen_shader_vertex_state(),
-            primitive: default(),
+            vertex: self.fullscreen_shader.to_vertex_state(),
             depth_stencil: Some(DepthStencilState {
                 format: CORE_3D_DEPTH_FORMAT,
                 depth_write_enabled: false,
@@ -101,12 +101,11 @@ impl SpecializedRenderPipeline for SkyboxPrepassPipeline {
                 alpha_to_coverage_enabled: false,
             },
             fragment: Some(FragmentState {
-                shader: self.shader.clone(),
-                shader_defs: vec![],
-                entry_point: "fragment".into(),
+                shader: self.fragment_shader.clone(),
                 targets: prepass_target_descriptors(key.normal_prepass, true, false),
+                ..default()
             }),
-            zero_initialize_workgroup_memory: false,
+            ..default()
         }
     }
 }

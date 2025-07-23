@@ -165,7 +165,7 @@ mod text {
                 &mut commands,
                 300. * Vec3::X + y * Vec3::Y,
                 justify,
-                Some(TextBounds::new(150., 55.)),
+                Some(TextBounds::new(150., 60.)),
             );
         }
 
@@ -221,6 +221,9 @@ mod text {
                 Transform::from_translation(dest + Vec3::Z),
                 anchor,
                 DespawnOnExitState(super::Scene::Text),
+                ShowAabbGizmo {
+                    color: Some(palettes::tailwind::AMBER_400.into()),
+                },
                 children![
                     (
                         TextSpan::new(format!("{}, {}\n", anchor.x, anchor.y)),

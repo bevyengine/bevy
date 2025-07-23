@@ -63,16 +63,24 @@ fn mat4x4_to_mat3x3(m: mat4x4<f32>) -> mat3x3<f32> {
     return mat3x3<f32>(m[0].xyz, m[1].xyz, m[2].xyz);
 }
 
-// Creates an orthonormal basis given a Z vector and an up vector (which becomes
-// Y after orthonormalization).
+// Copy the sign bit from B onto A.
+// copysign allows proper handling of negative zero to match the rust implementation of orthonormalize
+fn copysign(a: f32, b: f32) -> f32 {
+    return bitcast<f32>((bitcast<u32>(a) & 0x7FFFFFFF) | (bitcast<u32>(b) & 0x80000000));
+}
+
+// Constructs a right-handed orthonormal basis from a given unit Z vector.
 //
-// The results are equivalent to the Gram-Schmidt process [1].
+// NOTE: requires unit-length (normalized) input to function properly.
 //
-// [1]: https://math.stackexchange.com/a/1849294
-fn orthonormalize(z_unnormalized: vec3<f32>, up: vec3<f32>) -> mat3x3<f32> {
-    let z_basis = normalize(z_unnormalized);
-    let x_basis = normalize(cross(z_basis, up));
-    let y_basis = cross(z_basis, x_basis);
+// https://jcgt.org/published/0006/01/01/paper.pdf
+// this method of constructing a basis from a vec3 is also used by `glam::Vec3::any_orthonormal_pair`
+fn orthonormalize(z_basis: vec3<f32>) -> mat3x3<f32> {
+    let sign = copysign(1.0, z_basis.z);
+    let a = -1.0 / (sign + z_basis.z);
+    let b = z_basis.x * z_basis.y * a;
+    let x_basis = vec3(1.0 + sign * z_basis.x * z_basis.x * a, sign * b, -sign * z_basis.x);
+    let y_basis = vec3(b, sign + z_basis.y * z_basis.y * a, -z_basis.y);
     return mat3x3(x_basis, y_basis, z_basis);
 }
 
@@ -104,17 +112,11 @@ fn project_onto(lhs: vec3<f32>, rhs: vec3<f32>) -> vec3<f32> {
 // are likely most useful when raymarching, for example, where complete numeric
 // accuracy can be sacrificed for greater sample count.
 
-fn fast_sqrt(x: f32) -> f32 {
-    let n = bitcast<f32>(0x1fbd1df5 + (bitcast<i32>(x) >> 1u));
-    // One Newton's method iteration for better precision
-    return 0.5 * (n + x / n);
-}
-
 // Slightly less accurate than fast_acos_4, but much simpler.
 fn fast_acos(in_x: f32) -> f32 {
     let x = abs(in_x);
     var res = -0.156583 * x + HALF_PI;
-    res *= fast_sqrt(1.0 - x);
+    res *= sqrt(1.0 - x);
     return select(PI - res, res, in_x >= 0.0);
 }
 
@@ -131,7 +133,7 @@ fn fast_acos_4(x: f32) -> f32 {
     s = -0.2121144 * x1 + 1.5707288;
     s = 0.0742610 * x2 + s;
     s = -0.0187293 * x3 + s;
-    s = fast_sqrt(1.0 - x1) * s;
+    s = sqrt(1.0 - x1) * s;
 
 	// acos function mirroring
     return select(PI - s, s, x >= 0.0);

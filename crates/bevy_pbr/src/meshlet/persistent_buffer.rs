@@ -71,7 +71,7 @@ impl<T: PersistentGpuBufferable> PersistentGpuBuffer<T> {
             let mut buffer_view = render_queue
                 .write_buffer_with(&self.buffer, buffer_slice.start, buffer_slice_size)
                 .unwrap();
-            data.write_bytes_le(metadata, &mut buffer_view);
+            data.write_bytes_le(metadata, &mut buffer_view, buffer_slice.start);
         }
 
         let queue_saturation = queue_count as f32 / self.write_queue.capacity() as f32;
@@ -123,5 +123,10 @@ pub trait PersistentGpuBufferable {
 
     /// Convert `self` + `metadata` into bytes (little-endian), and write to the provided buffer slice.
     /// Any bytes not written to in the slice will be zeroed out when uploaded to the GPU.
-    fn write_bytes_le(&self, metadata: Self::Metadata, buffer_slice: &mut [u8]);
+    fn write_bytes_le(
+        &self,
+        metadata: Self::Metadata,
+        buffer_slice: &mut [u8],
+        buffer_offset: BufferAddress,
+    );
 }

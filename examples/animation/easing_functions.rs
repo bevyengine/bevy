@@ -107,7 +107,7 @@ fn setup(mut commands: Commands) {
 
                     // Label
                     p.spawn((
-                        Text2d(format!("{:?}", function)),
+                        Text2d(format!("{function:?}")),
                         text_font.clone(),
                         TextColor(color),
                         Transform::from_xyz(0.0, -half_size.y - 15.0, 0.0),
@@ -140,7 +140,7 @@ fn display_curves(
     let now = ((time.elapsed_secs() % (duration + time_margin * 2.0) - time_margin) / duration)
         .clamp(0.0, 1.0);
 
-    ui_text.0 = format!("Progress: {:.2}", now);
+    ui_text.0 = format!("Progress: {now:.2}");
 
     for (EaseFunctionPlot(function, color), transform, children) in &ease_functions {
         let center = transform.translation.xy();

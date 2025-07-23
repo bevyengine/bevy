@@ -92,7 +92,7 @@ fn stress_test(num_entities: u32, num_components: u32, num_systems: u32) {
                 // * fragmenting_value_vtable is None
                 unsafe {
                     ComponentDescriptor::new_with_layout(
-                        format!("Component{}", i).to_string(),
+                        format!("Component{i}").to_string(),
                         StorageType::Table,
                         Layout::new::<u8>(),
                         None,
@@ -182,10 +182,7 @@ fn main() {
         .nth(1)
         .and_then(|string| string.parse::<u32>().ok())
         .unwrap_or_else(|| {
-            println!(
-                "No valid number of entities provided, using default {}",
-                DEFAULT_NUM_ENTITIES
-            );
+            println!("No valid number of entities provided, using default {DEFAULT_NUM_ENTITIES}");
             DEFAULT_NUM_ENTITIES
         });
     let num_components = std::env::args()
@@ -194,8 +191,7 @@ fn main() {
         .and_then(|n| if n >= 10 { Some(n) } else { None })
         .unwrap_or_else(|| {
             println!(
-                "No valid number of components provided (>= 10), using default {}",
-                DEFAULT_NUM_COMPONENTS
+                "No valid number of components provided (>= 10), using default {DEFAULT_NUM_COMPONENTS}"
             );
             DEFAULT_NUM_COMPONENTS
         });
@@ -203,10 +199,7 @@ fn main() {
         .nth(3)
         .and_then(|string| string.parse::<u32>().ok())
         .unwrap_or_else(|| {
-            println!(
-                "No valid number of systems provided, using default {}",
-                DEFAULT_NUM_SYSTEMS
-            );
+            println!("No valid number of systems provided, using default {DEFAULT_NUM_SYSTEMS}");
             DEFAULT_NUM_SYSTEMS
         });
 
