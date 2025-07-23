@@ -50,17 +50,19 @@
 //! Entities with disabling components are still present in the [`World`] and can be accessed directly,
 //! using methods on [`World`] or [`Commands`](crate::prelude::Commands).
 //!
-//! As default query filters are implemented through a resource, it's possible to temporarily ignore any default filters by using [`World::resource_scope`](crate::prelude::World).
+//! As default query filters are implemented through a resource,
+//! it's possible to temporarily ignore any default filters by using [`World::resource_scope`](crate::prelude::World).
 //!
 //! ```
 //! use bevy_ecs::prelude::*;
+//! use bevy_ecs::entity_disabling::{DefaultQueryFilters, Disabled};
 //!
 //! let mut world = World::default();
 //!
 //! #[derive(Component)]
 //! struct CustomDisabled;
 //!
-//! world.register_default_query_filter::<CustomDisabled>();
+//! world.register_disabling_component::<CustomDisabled>();
 //!
 //! world.spawn(Disabled);
 //! world.spawn(CustomDisabled);
@@ -68,9 +70,9 @@
 //! // resource_scope removes DefaultQueryFilters temporarily before re-inserting into the world.
 //! world.resource_scope(|world: &mut World, _: Mut<DefaultQueryFilters>| {
 //!     // within this scope, we can query like no components are disabled.
-//!     assert_eq!(world.query::<Disabled>().query(&world).count(), 1);
-//!     assert_eq!(world.query::<CustomDisabled>().query(&world).count(), 1);
-//!     assert_eq!(world.query::<()>.query(&world).count(), world.entities().len() as usize);
+//!     assert_eq!(world.query::<&Disabled>().query(&world).count(), 1);
+//!     assert_eq!(world.query::<&CustomDisabled>().query(&world).count(), 1);
+//!     assert_eq!(world.query::<()>().query(&world).count(), world.entities().len() as usize);
 //! })
 //! ```
 //!
