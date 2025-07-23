@@ -1537,8 +1537,6 @@ impl From<(Vec2, Vec2)> for Segment2d {
 }
 
 /// A series of connected line segments in 2D space.
-///
-/// For a version without generics: [`BoxedPolyline2d`]
 #[cfg(feature = "alloc")]
 #[derive(Clone, Debug, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
@@ -1864,8 +1862,6 @@ impl Measured2d for Rectangle {
 }
 
 /// A polygon with N vertices.
-///
-/// For a version without generics: [`BoxedPolygon`]
 #[cfg(feature = "alloc")]
 #[derive(Clone, Debug, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]

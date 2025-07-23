@@ -605,8 +605,6 @@ impl From<(Vec3, Vec3)> for Segment3d {
 }
 
 /// A series of connected line segments in 3D space.
-///
-/// For a version without generics: [`BoxedPolyline3d`]
 #[cfg(feature = "alloc")]
 #[derive(Clone, Debug, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
