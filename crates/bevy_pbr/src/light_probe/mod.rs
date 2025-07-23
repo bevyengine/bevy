@@ -305,7 +305,7 @@ impl Plugin for LightProbePlugin {
 
         embedded_asset!(app, "environment_filter.wgsl");
         embedded_asset!(app, "downsample.wgsl");
-        embedded_asset!(app, "copy_mip0.wgsl");
+        embedded_asset!(app, "copy.wgsl");
 
         app.add_plugins(ExtractInstancesPlugin::<EnvironmentMapIds>::new())
             .add_plugins(SyncComponentPlugin::<GeneratedEnvironmentMapLight>::default())
