@@ -222,10 +222,6 @@ fn spawn_row(
         },
         Prompt::new(label),
         PromptColor::new(GRAY_600),
-        Node {
-            width: Val::Px(200.),
-            ..Default::default()
-        },
         TextColor(Color::WHITE),
         TabIndex(0),
         DemoInput,
@@ -254,6 +250,7 @@ fn spawn_row(
     commands
         .spawn((
             Node {
+                flex_direction: FlexDirection::Column,
                 width: Val::Px(200.),
                 grid_row,
                 grid_column: GridPlacement::start(1),
