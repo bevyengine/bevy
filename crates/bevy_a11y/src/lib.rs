@@ -10,7 +10,7 @@
 //!
 //! This crate provides accessibility integration for the engine. It exposes the
 //! [`AccessibilityPlugin`]. This plugin integrates `AccessKit`, a Rust crate
-//! providing OS-agonstic accessibility primitives, with Bevy's ECS.
+//! providing OS-agnostic accessibility primitives, with Bevy's ECS.
 //!
 //! ## Some notes on utility
 //!
