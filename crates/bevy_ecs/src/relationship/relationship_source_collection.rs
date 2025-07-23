@@ -72,13 +72,7 @@ pub trait RelationshipSourceCollection {
     /// Add multiple entities to collection at once.
     ///
     /// May be faster than repeatedly calling [`Self::add`].
-    fn extend_from_iter(&mut self, entities: impl IntoIterator<Item = Entity>) {
-        // The method name shouldn't conflict with `Extend::extend` as it's in the rust prelude and
-        // would always conflict with it.
-        for entity in entities {
-            self.add(entity);
-        }
-    }
+    fn extend_from_iter(&mut self, entities: impl IntoIterator<Item = Entity>);
 }
 
 /// This trait signals that a [`RelationshipSourceCollection`] is ordered.
@@ -580,6 +574,10 @@ impl RelationshipSourceCollection for BTreeSet<Entity> {
 
     fn shrink_to_fit(&mut self) {
         // BTreeSet doesn't have a capacity
+    }
+
+    fn extend_from_iter(&mut self, entities: impl IntoIterator<Item = Entity>) {
+        self.extend(entities);
     }
 }
 
