@@ -500,9 +500,10 @@ mod tests {
     use bevy_platform::collections::HashMap;
     use bevy_ptr::OwningPtr;
 
-    use crate::component::ComponentId;
     use crate::{
         change_detection::MaybeLocation,
+        component::ComponentId,
+        entity_disabling::Internal,
         observer::{Observer, Replace},
         prelude::*,
         traversal::Traversal,
@@ -716,8 +717,15 @@ mod tests {
 
         world.spawn(A).flush();
         assert_eq!(vec!["add_2", "add_1"], world.resource::<Order>().0);
-        // Our A entity plus our two observers
-        assert_eq!(world.entity_count(), 3);
+        // we have one A entity and two observers
+        assert_eq!(world.query::<&A>().query(&world).count(), 1);
+        assert_eq!(
+            world
+                .query_filtered::<&Observer, Allows<Internal>>()
+                .query(&world)
+                .count(),
+            2
+        );
     }
 
     #[test]
