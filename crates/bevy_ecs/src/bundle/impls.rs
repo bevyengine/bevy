@@ -1,11 +1,14 @@
-use core::any::TypeId;
+use core::any::{Any, TypeId};
 
 use bevy_ptr::OwningPtr;
 use variadics_please::all_tuples;
 
 use crate::{
     bundle::{Bundle, BundleEffect, BundleFromComponents, DynamicBundle, NoBundleEffect},
-    component::{Component, ComponentId, Components, ComponentsRegistrator, StorageType},
+    component::{
+        Component, ComponentId, ComponentKey, Components, ComponentsRegistrator, StorageType,
+    },
+    fragmenting_value::FragmentingValue,
     world::EntityWorldMut,
 };
 
@@ -19,6 +22,22 @@ unsafe impl<C: Component> Bundle for C {
 
     fn get_component_ids(components: &Components, ids: &mut impl FnMut(Option<ComponentId>)) {
         ids(components.get_id(TypeId::of::<C>()));
+    }
+
+    #[inline]
+    fn get_fragmenting_values<'a>(
+        &'a self,
+        components: &mut ComponentsRegistrator,
+        values: &mut impl FnMut(ComponentId, &'a dyn FragmentingValue),
+    ) {
+        if let Some(key) = (self as &dyn Any).downcast_ref::<<C::Key as ComponentKey>::KeyType>() {
+            C::component_ids(components, &mut |id| values(id, key));
+        }
+    }
+
+    #[inline(always)]
+    fn has_fragmenting_values() -> bool {
+        C::is_fragmenting_value_component()
     }
 }
 
@@ -70,6 +89,23 @@ macro_rules! tuple_impl {
 
             fn get_component_ids(components: &Components, ids: &mut impl FnMut(Option<ComponentId>)){
                 $(<$name as Bundle>::get_component_ids(components, ids);)*
+            }
+
+            fn get_fragmenting_values<'a>(&'a self, components: &mut ComponentsRegistrator, values: &mut impl FnMut(ComponentId, &'a dyn FragmentingValue)) {
+                #[allow(
+                    non_snake_case,
+                    reason = "The names of these variables are provided by the caller, not by us."
+                )]
+                let ($($name,)*) = &self;
+                $(
+                    $name.get_fragmenting_values(components, &mut *values);
+                )*
+
+            }
+
+            #[inline(always)]
+            fn has_fragmenting_values() -> bool {
+                false $(|| <$name as Bundle>::has_fragmenting_values())*
             }
         }
 

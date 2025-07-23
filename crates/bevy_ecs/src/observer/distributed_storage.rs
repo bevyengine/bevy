@@ -13,8 +13,8 @@ use core::any::Any;
 
 use crate::{
     component::{
-        ComponentCloneBehavior, ComponentId, ComponentsRegistrator, Mutable, RequiredComponents,
-        StorageType,
+        ComponentCloneBehavior, ComponentId, ComponentsRegistrator, Mutable, NoKey,
+        RequiredComponents, StorageType,
     },
     entity::Entity,
     entity_disabling::Internal,
@@ -322,6 +322,7 @@ impl Observer {
 impl Component for Observer {
     const STORAGE_TYPE: StorageType = StorageType::SparseSet;
     type Mutability = Mutable;
+    type Key = NoKey<Self>;
     fn on_add() -> Option<ComponentHook> {
         Some(|world, context| {
             let Some(observe) = world.get::<Self>(context.entity) else {
@@ -465,6 +466,7 @@ impl ObservedBy {
 impl Component for ObservedBy {
     const STORAGE_TYPE: StorageType = StorageType::SparseSet;
     type Mutability = Mutable;
+    type Key = NoKey<Self>;
 
     fn on_remove() -> Option<ComponentHook> {
         Some(|mut world, HookContext { entity, .. }| {

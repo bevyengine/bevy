@@ -14,13 +14,14 @@ pub use tick::*;
 
 use crate::{
     entity::EntityMapper,
+    fragmenting_value::FragmentingValue,
     lifecycle::ComponentHook,
     system::{Local, SystemParam},
     world::{FromWorld, World},
 };
 use alloc::vec::Vec;
 pub use bevy_ecs_macros::Component;
-use core::{fmt::Debug, marker::PhantomData, ops::Deref};
+use core::{any::TypeId, fmt::Debug, marker::PhantomData, ops::Deref};
 
 /// A data type that can be used to store data for an [entity].
 ///
@@ -497,6 +498,9 @@ pub trait Component: Send + Sync + 'static {
     /// * For a component to be immutable, this type must be [`Immutable`].
     type Mutability: ComponentMutability;
 
+    /// A type used to define the "component key" of this component. Currently can be set to [`NoKey`] or [`SelfKey`].
+    type Key: ComponentKey<ValueType = Self>;
+
     /// Gets the `on_add` [`ComponentHook`] for this [`Component`] if one is defined.
     fn on_add() -> Option<ComponentHook> {
         None
@@ -625,6 +629,12 @@ pub trait Component: Send + Sync + 'static {
     /// You can use the turbofish (`::<A,B,C>`) to specify parameters when a function is generic, using either M or _ for the type of the mapper parameter.
     #[inline]
     fn map_entities<E: EntityMapper>(_this: &mut Self, _mapper: &mut E) {}
+
+    /// Returns `true` if this component is a [`FragmentingValue`] component and its value can be used to fragment archetypes.
+    #[inline(always)]
+    fn is_fragmenting_value_component() -> bool {
+        TypeId::of::<<Self::Key as ComponentKey>::KeyType>() == TypeId::of::<Self>()
+    }
 }
 
 mod private {
@@ -683,6 +693,44 @@ impl private::Seal for Mutable {}
 impl ComponentMutability for Mutable {
     const MUTABLE: bool = true;
 }
+
+/// This trait defines a concept of "component key". Component keys are components that fragment archetype by value, also known as
+/// "fragmenting components". Right now the only supported keys are [`NoKey`] - default behavior, and [`SelfKey`] - the component
+/// itself acts as the fragmenting key. Defining other key as a component might be used in the future to define component groups.
+pub trait ComponentKey: private::Seal {
+    /// The value that will be used to fragment the archetypes.
+    type KeyType: FragmentingValue;
+    /// The component this key is set to. Currently used only for validation.
+    type ValueType: Component;
+    /// A `const` to assert values not enforceable by type system at compile time.
+    /// Sadly this doesn't work with `cargo check`, but it will still fail when running `cargo build`.
+    const INVARIANT_ASSERT: ();
+}
+
+/// This component doesn't have a fragmenting key. This is the default behavior.
+pub struct NoKey<C>(PhantomData<C>);
+
+impl<C> private::Seal for NoKey<C> {}
+impl<C: Component> ComponentKey for NoKey<C> {
+    type KeyType = ();
+    type ValueType = C;
+    const INVARIANT_ASSERT: () = ();
+}
+
+/// Select other component as the key of this component. Currently this doesn't do anything useful, but in the future it might be
+/// possible to define component groups by selecting common key component.
+pub struct OtherComponentKey<C, K>(PhantomData<(C, K)>);
+
+impl<C, K> private::Seal for OtherComponentKey<C, K> {}
+impl<C: Component, K: FragmentingValue + Component> ComponentKey for OtherComponentKey<C, K> {
+    type KeyType = K;
+    type ValueType = C;
+    const INVARIANT_ASSERT: () = ();
+}
+
+/// Set this component as the fragmenting key. This means every different value of this component (as defined by [`PartialEq::eq`])
+/// will exist only in it's own archetype.
+pub type SelfKey<C> = OtherComponentKey<C, C>;
 
 /// The storage used for a specific component type.
 ///
