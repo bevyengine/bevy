@@ -129,19 +129,15 @@ pub trait Relationship: Component + Sized {
             return;
         }
         // For one-to-one relationships, remove existing relationship before adding new one
-        let current_source_to_remove = if let Ok(target_entity_ref) =
-            world.get_entity(target_entity)
-        {
-            if let Some(relationship_target) = target_entity_ref.get::<Self::RelationshipTarget>() {
+        let current_source_to_remove = world
+            .get_entity(target_entity)
+            .ok()
+            .and_then(|target_entity_ref| target_entity_ref.get::<Self::RelationshipTarget>())
+            .and_then(|relationship_target| {
                 relationship_target
                     .collection()
                     .source_to_remove_before_add()
-            } else {
-                None
-            }
-        } else {
-            None
-        };
+            });
 
         if let Some(current_source) = current_source_to_remove {
             world.commands().entity(current_source).try_remove::<Self>();
