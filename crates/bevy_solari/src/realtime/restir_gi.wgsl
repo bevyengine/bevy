@@ -155,16 +155,12 @@ fn load_spatial_reservoir(pixel_id: vec2<u32>, depth: f32, world_position: vec3<
     let spatial_pixel_index = spatial_pixel_id.x + spatial_pixel_id.y * u32(view.viewport.z);
     var spatial_reservoir = gi_reservoirs_b[spatial_pixel_index];
 
-    var jacobian = jacobian(
+    spatial_reservoir.unbiased_contribution_weight *= jacobian(
         world_position,
         spatial_world_position,
         spatial_reservoir.sample_point_world_position,
         spatial_reservoir.sample_point_world_normal
     );
-    if jacobian > 10.0 || jacobian < 0.1 {
-        return empty_reservoir();
-    }
-    spatial_reservoir.unbiased_contribution_weight *= jacobian;
 
     spatial_reservoir.unbiased_contribution_weight *= trace_point_visibility(world_position, spatial_reservoir.sample_point_world_position);
 
@@ -187,9 +183,11 @@ fn jacobian(
     let q = spatial_world_position - sample_point_world_position;
     let rl = length(r);
     let ql = length(q);
+    let rl2 = min(rl * rl, 500.0); // Clamping is biased, but decreases noise
+    let ql2 = min(ql * ql, 500.0);
     let phi_r = saturate(dot(r / rl, sample_point_world_normal));
     let phi_q = saturate(dot(q / ql, sample_point_world_normal));
-    let jacobian = (phi_r * ql * ql) / (phi_q * rl * rl);
+    let jacobian = (phi_r * ql2) / (phi_q * rl2);
     return select(jacobian, 0.0, isinf(jacobian) || isnan(jacobian));
 }
 
