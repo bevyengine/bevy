@@ -9,7 +9,7 @@ use crate::{
     world::World,
 };
 
-/// Category of errors encountered during schedule construction.
+/// Category of errors encountered during [`Schedule::initialize`](crate::schedule::Schedule::initialize).
 #[non_exhaustive]
 #[derive(Error, Debug)]
 pub enum ScheduleBuildError {
@@ -21,7 +21,13 @@ pub enum ScheduleBuildError {
     HierarchyCycle(Vec<Vec<NodeId>>),
     /// The hierarchy of system sets contains redundant edges.
     ///
-    /// This error is disabled by default, but can be opted-in using [`ScheduleBuildSettings`].
+    /// This error defaults to a warning, but can be upgraded to an error
+    /// by setting [`ScheduleBuildSettings::hierarchy_detection`] to [`LogLevel::Error`].
+    ///
+    /// See [`ScheduleBuildWarning::HierarchyRedundancy`] for its warning variant.
+    ///
+    /// [`ScheduleBuildSettings::hierarchy_detection`]: crate::schedule::ScheduleBuildSettings::hierarchy_detection
+    /// [`LogLevel::Error`]: crate::schedule::LogLevel::Error
     #[error("The hierarchy of system sets contains redundant edges: {0:?}")]
     HierarchyRedundancy(Vec<(NodeId, NodeId)>),
     /// A system (set) has been told to run before itself.
@@ -41,7 +47,13 @@ pub enum ScheduleBuildError {
     SystemTypeSetAmbiguity(SystemSetKey),
     /// Systems with conflicting access have indeterminate run order.
     ///
-    /// This error is disabled by default, but can be opted-in using [`ScheduleBuildSettings`].
+    /// This error is disabled by default, but can be enabled by setting
+    /// [`ScheduleBuildSettings::ambiguity_detection`] to [`LogLevel::Error`].
+    ///
+    /// See [`ScheduleBuildWarning::Ambiguity`] for its warning variant.
+    ///
+    /// [`ScheduleBuildSettings::ambiguity_detection`]: crate::schedule::ScheduleBuildSettings
+    /// [`LogLevel::Error`]: crate::schedule::LogLevel::Error
     #[error("Systems with conflicting access have indeterminate run order: {0:?}")]
     Ambiguity(Vec<(SystemKey, SystemKey, Vec<ComponentId>)>),
     /// Tried to run a schedule before all of its systems have been initialized.
@@ -49,18 +61,30 @@ pub enum ScheduleBuildError {
     Uninitialized,
 }
 
-/// Warnings encountered during schedule construction.
+/// Category of warnings encountered during [`Schedule::initialize`](crate::schedule::Schedule::initialize).
 #[non_exhaustive]
 #[derive(Error, Debug)]
 pub enum ScheduleBuildWarning {
     /// The hierarchy of system sets contains redundant edges.
     ///
-    /// This error is disabled by default, but can be opted-in using [`ScheduleBuildSettings`].
+    /// This warning is enabled by default, but can be disabled by setting
+    /// [`ScheduleBuildSettings::hierarchy_detection`] to [`LogLevel::Ignore`]
+    /// or upgraded to a [`ScheduleBuildError`] by setting it to [`LogLevel::Error`].
+    ///
+    /// [`ScheduleBuildSettings::hierarchy_detection`]: crate::schedule::ScheduleBuildSettings::hierarchy_detection
+    /// [`LogLevel::Ignore`]: crate::schedule::LogLevel::Ignore
+    /// [`LogLevel::Error`]: crate::schedule::LogLevel::Error
     #[error("The hierarchy of system sets contains redundant edges: {0:?}")]
     HierarchyRedundancy(Vec<(NodeId, NodeId)>),
     /// Systems with conflicting access have indeterminate run order.
     ///
-    /// This error is disabled by default, but can be opted-in using [`ScheduleBuildSettings`].
+    /// This warning is disabled by default, but can be enabled by setting
+    /// [`ScheduleBuildSettings::ambiguity_detection`] to [`LogLevel::Warn`]
+    /// or upgraded to a [`ScheduleBuildError`] by setting it to [`LogLevel::Error`].
+    ///
+    /// [`ScheduleBuildSettings::ambiguity_detection`]: crate::schedule::ScheduleBuildSettings::ambiguity_detection
+    /// [`LogLevel::Warn`]: crate::schedule::LogLevel::Warn
+    /// [`LogLevel::Error`]: crate::schedule::LogLevel::Error
     #[error("Systems with conflicting access have indeterminate run order: {0:?}")]
     Ambiguity(Vec<(SystemKey, SystemKey, Vec<ComponentId>)>),
 }
