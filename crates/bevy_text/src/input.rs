@@ -31,7 +31,6 @@ use bevy_ecs::hierarchy::ChildOf;
 use bevy_ecs::lifecycle::HookContext;
 use bevy_ecs::prelude::ReflectComponent;
 use bevy_ecs::query::Changed;
-use bevy_ecs::query::Has;
 use bevy_ecs::query::Or;
 use bevy_ecs::resource::Resource;
 use bevy_ecs::schedule::IntoScheduleConfigs;
@@ -141,9 +140,11 @@ impl TextInputBuffer {
     }
 }
 
-/// Marks a text input buffer as only supporting single line editing
+/// The number of lines the buffer will display at once.
+/// Limited by the size of the target.
+/// If equal or less than 0, will fill the target space.
 #[derive(Component, Default, Debug)]
-pub struct SingleLineTextInput;
+pub struct TextInputVisibleLines(pub f32);
 
 /// Component containing the change history for a text input.
 /// Text input entities without this component will ignore undo and redo actions.
@@ -245,8 +246,8 @@ impl Default for TextInputAttributes {
     }
 }
 
-/// Any actions that modify a text input's text have to pass this filter,
-/// otherwise the action will not be applied
+/// Any actions that modify a text input's text so that it fails
+/// to pass the filter are not applied.
 #[derive(Component)]
 pub enum TextInputFilter {
     /// Positive integer input
@@ -269,10 +270,10 @@ pub enum TextInputFilter {
 }
 
 impl TextInputFilter {
-    /// The text passes the filter
+    /// Returns true if the text passes the filter
     pub fn is_match(&self, text: &str) -> bool {
-        /// Always passes if the input is empty, this could become optional
-        if text.is_empty() {
+        // Always passes if the input is empty unless using a custom filter
+        if text.is_empty() && !matches!(self, Self::Custom(_)) {
             return true;
         }
 
@@ -534,7 +535,7 @@ pub fn update_text_input_buffers(
         &mut SpaceAdvance,
         Ref<TextInputTarget>,
         Ref<TextInputAttributes>,
-        Has<SingleLineTextInput>,
+        Ref<TextInputVisibleLines>,
     )>,
     mut font_system: ResMut<CosmicFontSystem>,
     mut text_pipeline: ResMut<TextPipeline>,
@@ -542,11 +543,11 @@ pub fn update_text_input_buffers(
 ) {
     let font_system = &mut font_system.0;
     let font_id_map = &mut text_pipeline.map_handle_to_font_id;
-    for (mut input_buffer, mut space_advance, target, attributes, is_single_line) in
+    for (mut input_buffer, mut space_advance, target, attributes, lines) in
         text_input_query.iter_mut()
     {
         let _ = input_buffer.editor.with_buffer_mut(|buffer| {
-            if target.is_changed() || attributes.is_changed() {
+            if target.is_changed() || attributes.is_changed() || lines.is_changed() {
                 let line_height = attributes.line_height.eval(attributes.font_size);
                 let metrics =
                     Metrics::new(attributes.font_size, line_height).scale(target.scale_factor);
@@ -605,8 +606,8 @@ pub fn update_text_input_buffers(
                     .unwrap_or(0.0)
                     * buffer.metrics().font_size;
 
-                let height = if is_single_line {
-                    metrics.line_height
+                let height = if 0. < lines.0 {
+                    (metrics.line_height * lines.0).max(target.size.y)
                 } else {
                     target.size.y
                 };
