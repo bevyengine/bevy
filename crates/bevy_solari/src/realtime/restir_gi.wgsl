@@ -155,7 +155,7 @@ fn load_spatial_reservoir(pixel_id: vec2<u32>, depth: f32, world_position: vec3<
     let spatial_pixel_index = spatial_pixel_id.x + spatial_pixel_id.y * u32(view.viewport.z);
     var spatial_reservoir = gi_reservoirs_b[spatial_pixel_index];
 
-    let jacobian = jacobian(
+    var jacobian = jacobian(
         world_position,
         spatial_world_position,
         spatial_reservoir.sample_point_world_position,
