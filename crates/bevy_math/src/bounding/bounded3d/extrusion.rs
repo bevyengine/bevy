@@ -344,7 +344,7 @@ mod tests {
 
     #[test]
     fn polyline() {
-        let polyline = Polyline2d::<4>::new([
+        let polyline = Polyline2d::new([
             Vec2::ONE,
             Vec2::new(-1.0, 1.0),
             Vec2::NEG_ONE,
