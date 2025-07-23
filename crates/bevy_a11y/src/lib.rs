@@ -85,16 +85,27 @@ use serde::{Deserialize, Serialize};
 #[cfg(all(feature = "bevy_reflect", feature = "serialize"))]
 use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 
-/// Wrapper struct for [`accesskit::ActionRequest`]. Required to allow it to be used as an `Event`.
+/// Wrapper struct for [`accesskit::ActionRequest`].
+///
+/// This newtype is required to use `ActionRequest` as a Bevy `Event`.
 #[derive(BufferedEvent, Deref, DerefMut)]
 #[cfg_attr(feature = "serialize", derive(Serialize, Deserialize))]
 pub struct ActionRequest(pub accesskit::ActionRequest);
 
-/// Resource that tracks whether an assistive technology has requested
-/// accessibility information.
+/// Tracks whether an assistive technology has requested accessibility
+/// information.
 ///
-/// Useful if a third-party plugin needs to conditionally integrate with
-/// `AccessKit`
+/// This type is a [`Resource`] initialized by the
+/// [`AccessibilityPlugin`]. It may be useful if a third-party plugin needs to
+/// conditionally integrate with `AccessKit`.
+///
+/// In other words, this resource represents whether accessibility providers
+/// are "turned on" or "turned off" across an entire Bevy `App`.
+///
+/// By default, it is set to `false`, indicating that nothing has requested
+/// accessibility information yet.
+///
+/// [`Resource`]: bevy_ecs::resource::Resource
 #[derive(Resource, Default, Clone, Debug, Deref, DerefMut)]
 #[cfg_attr(
     feature = "bevy_reflect",
@@ -104,24 +115,42 @@ pub struct ActionRequest(pub accesskit::ActionRequest);
 pub struct AccessibilityRequested(Arc<AtomicBool>);
 
 impl AccessibilityRequested {
-    /// Returns `true` if an access technology is active and accessibility tree
+    /// Checks if any assistive technology has requested accessibility
+    /// information.
+    ///
+    /// If so, this method returns `true`, indicating that accessibility tree
     /// updates should be sent.
     pub fn get(&self) -> bool {
         self.load(Ordering::SeqCst)
     }
 
-    /// Sets whether accessibility updates were requested by an access technology.
+    /// Sets the app's preference for sending accessibility updates.
+    ///
+    /// If the `value` argument is `true`, this method requests that the app,
+    /// including both Bevy and third-party interfaces, provides updates to
+    /// accessibility information.
+    ///
+    /// Setting with `false` requests that the entire app stops providing these
+    /// updates.
     pub fn set(&self, value: bool) {
         self.store(value, Ordering::SeqCst);
     }
 }
 
-/// Resource whose value determines whether the accessibility tree is updated
-/// via the ECS.
+/// Determines whether Bevy's ECS updates the accessibility tree.
+///
+/// This [`Resource`] tells Bevy internals whether it should be handling
+/// `AccessKit` updates (`true`), or if something else is doing that (`false`).
+///
+/// It defaults to `true`. So, by default, Bevy is configured to maintain the
+/// `AccessKit` tree.
 ///
 /// Set to `false` in cases where an external GUI library is sending
-/// accessibility updates instead. Without this, the external library and ECS
-/// will generate conflicting updates.
+/// accessibility updates instead. When this option is set inconsistently with
+/// that requirement, the external library and ECS will generate conflicting
+/// updates.
+///
+/// [`Resource`]: bevy_ecs::resource::Resource
 #[derive(Resource, Clone, Debug, Deref, DerefMut)]
 #[cfg_attr(feature = "serialize", derive(Serialize, Deserialize))]
 #[cfg_attr(
@@ -142,12 +171,12 @@ impl Default for ManageAccessibilityUpdates {
 }
 
 impl ManageAccessibilityUpdates {
-    /// Returns `true` if the ECS should update the accessibility tree.
+    /// Returns `true` if Bevy's ECS should update the accessibility tree.
     pub fn get(&self) -> bool {
         self.0
     }
 
-    /// Sets whether the ECS should update the accessibility tree.
+    /// Sets whether Bevy's ECS should update the accessibility tree.
     pub fn set(&mut self, value: bool) {
         self.0 = value;
     }
@@ -216,7 +245,9 @@ impl From<Node> for AccessibilityNode {
     }
 }
 
-/// Set enum for the systems relating to accessibility
+/// A system set relating to accessibility.
+///
+/// Helps run accessibility updates all at once.
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
 #[cfg_attr(feature = "serialize", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
@@ -225,7 +256,7 @@ impl From<Node> for AccessibilityNode {
     reflect(Serialize, Deserialize, Clone)
 )]
 pub enum AccessibilitySystems {
-    /// Update the accessibility tree
+    /// Update the accessibility tree.
     Update,
 }
 
@@ -233,7 +264,19 @@ pub enum AccessibilitySystems {
 #[deprecated(since = "0.17.0", note = "Renamed to `AccessibilitySystems`.")]
 pub type AccessibilitySystem = AccessibilitySystems;
 
-/// Plugin managing non-GUI aspects of integrating with accessibility APIs.
+/// Plugin managing integration with accessibility APIs.
+///
+/// Note that it doesn't handle GUI aspects of this integration, instead
+/// providing helpful resources for other interfaces to utilize.
+///
+/// ## Behavior
+///
+/// This plugin's main role is to initialize the [`AccessibilityRequested`] and
+/// [`ManageAccessibilityUpdates`] resources to their default values, meaning:
+///
+/// - no assistive technologies have requested accessibility information yet,
+///   and
+/// - Bevy's ECS will manage updates to the accessibility tree.
 #[derive(Default)]
 pub struct AccessibilityPlugin;
 
