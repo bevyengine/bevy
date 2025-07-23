@@ -6,18 +6,16 @@ use crate::{
 };
 use bevy_ecs::{
     change_detection::{DetectChanges, DetectChangesMut},
-    entity::Entity,
-    hierarchy::{ChildOf, Children},
+    entity::{Entity, EntityHashSet},
+    hierarchy::Children,
     lifecycle::RemovedComponents,
-    query::With,
-    system::{Query, ResMut},
+    system::{Local, Query, ResMut},
     world::Ref,
 };
 
 use bevy_math::{Affine2, Vec2};
 use bevy_sprite::BorderRect;
 use thiserror::Error;
-use tracing::warn;
 use ui_surface::UiSurface;
 
 use bevy_text::ComputedTextBlock;
@@ -71,6 +69,7 @@ pub enum LayoutError {
 
 /// Updates the UI's layout tree, computes the new layout geometry and then updates the sizes and transforms of all the UI nodes.
 pub fn ui_layout_system(
+    mut just_added_node: Local<EntityHashSet>,
     mut ui_surface: ResMut<UiSurface>,
     ui_root_node_query: UiRootNodes,
     mut node_query: Query<(
@@ -79,7 +78,7 @@ pub fn ui_layout_system(
         Option<&mut ContentSize>,
         Ref<ComputedNodeTarget>,
     )>,
-    computed_node_query: Query<(Entity, Ref<Node>, Option<Ref<ChildOf>>), With<ComputedNode>>,
+    //added_node_query: Query<(), Added<Node>>,
     ui_children: UiChildren,
     mut node_update_query: Query<(
         &mut ComputedNode,
@@ -102,10 +101,15 @@ pub fn ui_layout_system(
         ui_surface.try_remove_node_context(entity);
     }
 
+    just_added_node.clear();
+
     // Sync Node and ContentSize to Taffy for all nodes
     node_query
         .iter_mut()
         .for_each(|(entity, node, content_size, computed_target)| {
+            if node.is_added() {
+                just_added_node.insert(entity);
+            }
             if computed_target.is_changed()
                 || node.is_changed()
                 || content_size
@@ -126,26 +130,6 @@ pub fn ui_layout_system(
         ui_surface.try_remove_children(entity);
     }
 
-    computed_node_query
-        .iter()
-        .for_each(|(entity, node, maybe_child_of)| {
-            if let Some(child_of) = maybe_child_of {
-                // Note: This does not cover the case where a parent's Node component was removed.
-                // Users are responsible for fixing hierarchies if they do that (it is not recommended).
-                // Detecting it here would be a permanent perf burden on the hot path.
-                if child_of.is_changed() && !ui_children.is_ui_node(child_of.parent()) {
-                    warn!(
-                        "Node ({entity}) is in a non-UI entity hierarchy. You are using an entity \
-with UI components as a child of an entity without UI components, your UI layout may be broken."
-                    );
-                }
-            }
-
-            if node.is_added() || ui_children.is_changed(entity) {
-                ui_surface.update_children(entity, ui_children.iter_ui_children(entity));
-            }
-        });
-
     // clean up removed nodes after syncing children to avoid potential panic (invalid SlotMap key used)
     ui_surface.remove_entities(
         removed_nodes
@@ -153,14 +137,37 @@ with UI components as a child of an entity without UI components, your UI layout
             .filter(|entity| !node_query.contains(*entity)),
     );
 
-    // Re-sync changed children: avoid layout glitches caused by removed nodes that are still set as a child of another node
-    computed_node_query.iter().for_each(|(entity, node, _)| {
-        if node.is_added() || ui_children.is_changed(entity) {
-            ui_surface.update_children(entity, ui_children.iter_ui_children(entity));
-        }
-    });
-
     for ui_root_entity in ui_root_node_query.iter() {
+        fn update_children_recursively(
+            ui_surface: &mut UiSurface,
+            ui_children: &UiChildren,
+            just_added_node: &EntityHashSet,
+            entity: Entity,
+        ) {
+            if ui_surface.entity_to_taffy.contains_key(&entity)
+                && (just_added_node.contains(&entity)
+                    || ui_children.is_changed(entity)
+                    || ui_children
+                        .iter_ui_children(entity)
+                        .any(|child| just_added_node.contains(&child)))
+            {
+                ui_surface.update_children(entity, ui_children.iter_ui_children(entity));
+            }
+
+            for child in ui_children.iter_ui_children(entity) {
+                update_children_recursively(ui_surface, ui_children, just_added_node, child);
+            }
+        }
+
+        for ui_root_entity in ui_root_node_query.iter() {
+            update_children_recursively(
+                &mut ui_surface,
+                &ui_children,
+                &just_added_node,
+                ui_root_entity,
+            );
+        }
+
         let (_, _, _, computed_target) = node_query.get(ui_root_entity).unwrap();
 
         ui_surface.compute_layout(
@@ -668,6 +675,29 @@ mod tests {
 
         // There should be one child of the root node after fixing it
         assert_eq!(ui_surface.taffy.child_count(taffy_root.id), 1);
+    }
+
+    #[test]
+    fn node_addition_should_sync_parent_and_children() {
+        let (mut world, mut ui_schedule) = setup_ui_test_world();
+
+        let d = world.spawn(Node::default()).id();
+        let c = world.spawn(()).add_child(d).id();
+        let b = world.spawn(Node::default()).id();
+        let a = world.spawn(Node::default()).add_children(&[b, c]).id();
+
+        ui_schedule.run(&mut world);
+
+        // fix the invalid middle node by inserting a Node
+        world.entity_mut(c).insert(Node::default());
+
+        ui_schedule.run(&mut world);
+
+        let ui_surface = world.resource::<UiSurface>();
+        for (entity, n) in [(a, 2), (b, 0), (c, 1), (d, 0)] {
+            let taffy_id = ui_surface.entity_to_taffy[&entity].id;
+            assert_eq!(ui_surface.taffy.child_count(taffy_id), n);
+        }
     }
 
     /// regression test for >=0.13.1 root node layouts
