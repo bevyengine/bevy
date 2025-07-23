@@ -5,10 +5,7 @@ use bevy::prelude::*;
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .add_systems(
-            Startup,
-            (setup_sprites, setup_texture_atlas).after(setup_camera),
-        )
+        .add_systems(Startup, (setup_sprites, setup_texture_atlas, setup_camera))
         .add_systems(Update, animate_sprite)
         .run();
 }
@@ -143,7 +140,6 @@ fn setup_texture_atlas(
     asset_server: Res<AssetServer>,
     mut texture_atlas_layouts: ResMut<Assets<TextureAtlasLayout>>,
 ) {
-    commands.spawn(Camera2d);
     let gabe = asset_server.load("textures/rpg/chars/gabe/gabe-idle-run.png");
     let animation_indices_gabe = AnimationIndices { first: 0, last: 6 };
     let gabe_atlas = TextureAtlas {
