@@ -169,11 +169,19 @@ fn spawn_row(
     is_password: bool,
 ) {
     let update_target = commands
-        .spawn((Text::default(), TextColor(Color::WHITE)))
+        .spawn((
+            Text::default(),
+            TextColor(Color::WHITE),
+            TextLayout::new_with_no_wrap(),
+        ))
         .id();
 
     let submit_target = commands
-        .spawn((Text::default(), TextColor(Color::WHITE)))
+        .spawn((
+            Text::default(),
+            TextColor(Color::WHITE),
+            TextLayout::new_with_no_wrap(),
+        ))
         .id();
 
     commands
