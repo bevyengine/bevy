@@ -600,6 +600,47 @@ impl<'w> EntityMut<'w> {
     /// Gets mutable access to the component of type `T` for the current entity.
     /// Returns `None` if the entity does not have a component of type `T`.
     ///
+    /// This only requires `&self`, and so may be used to get mutable access to multiple components.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// #
+    /// #[derive(Component)]
+    /// struct X(usize);
+    /// #[derive(Component)]
+    /// struct Y(usize);
+    ///
+    /// # let mut world = World::default();
+    /// let mut entity = world.spawn((X(0), Y(0))).into_mutable();
+    /// // Get mutable access to two components at once
+    /// // SAFETY: We don't take any other references to `X` from this entity
+    /// let mut x = unsafe { entity.get_mut_unchecked::<X>() }.unwrap();
+    /// // SAFETY: We don't take any other references to `Y` from this entity
+    /// let mut y = unsafe { entity.get_mut_unchecked::<Y>() }.unwrap();
+    /// *x = X(1);
+    /// *y = Y(1);
+    /// ```
+    ///
+    /// # Safety
+    ///
+    /// No other references to the same component may exist at the same time as the returned reference.
+    ///
+    /// # See also
+    ///
+    /// - [`get_mut`](Self::get_mut) for the safe version.
+    #[inline]
+    pub unsafe fn get_mut_unchecked<T: Component<Mutability = Mutable>>(&self) -> Option<Mut<T>> {
+        // SAFETY:
+        // - `EntityMut` has full access to the entity
+        // - Caller ensures no other references to the component exist at the same time
+        unsafe { self.cell.get_mut() }
+    }
+
+    /// Gets mutable access to the component of type `T` for the current entity.
+    /// Returns `None` if the entity does not have a component of type `T`.
+    ///
     /// # Safety
     ///
     /// - `T` must be a mutable component
