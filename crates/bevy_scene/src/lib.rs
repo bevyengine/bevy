@@ -53,7 +53,9 @@ use {
     bevy_asset::AssetApp,
     bevy_ecs::schedule::IntoScheduleConfigs,
     bevy_ecs::{
-        entity_disabling::DefaultQueryFilters, resource::IsResource, resource::ResourceEntity,
+        entity_disabling::{DefaultQueryFilters, Internal},
+        resource::IsResource,
+        resource::ResourceEntity,
     },
 };
 
@@ -71,6 +73,7 @@ impl Plugin for ScenePlugin {
             .register_type::<SceneRoot>()
             .register_type::<DynamicSceneRoot>()
             .register_type::<IsResource>()
+            .register_type::<Internal>()
             .register_type::<ResourceEntity<DefaultQueryFilters>>()
             .add_systems(SpawnScene, (scene_spawner, scene_spawner_system).chain());
 
@@ -130,9 +133,7 @@ mod tests {
     use bevy_ecs::{
         component::Component,
         entity::Entity,
-        entity_disabling::Internal,
         hierarchy::{ChildOf, Children},
-        query::Allows,
         reflect::{AppTypeRegistry, ReflectComponent},
         world::World,
     };
@@ -313,11 +314,7 @@ mod tests {
             scene
                 .world
                 .insert_resource(world.resource::<AppTypeRegistry>().clone());
-            let entities: Vec<Entity> = scene
-                .world
-                .query_filtered::<Entity, Allows<Internal>>()
-                .iter(&scene.world)
-                .collect();
+            let entities: Vec<Entity> = scene.world.query::<Entity>().iter(&scene.world).collect();
             DynamicSceneBuilder::from_world(&scene.world)
                 .extract_entities(entities.into_iter())
                 .build()
