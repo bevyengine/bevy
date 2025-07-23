@@ -8,11 +8,55 @@
 
 //! Reusable accessibility primitives
 //!
-//! As of Bevy version 0.15 `accesskit` is no longer re-exported from this crate.
+//! This crate provides accessibility integration for the engine. It exposes the
+//! [`AccessibilityPlugin`]. This plugin integrates `AccessKit`, a Rust crate
+//! providing OS-agonstic accessibility primitives, with Bevy's ECS.
 //!
-//! If you need to use `accesskit`, you will need to add it as a separate dependency in your `Cargo.toml`.
+//! ## Some notes on utility
 //!
-//! Make sure to use the same version of `accesskit` as Bevy.
+//! While this crate defines useful types for accessibility, it does not
+//! actually power accessibility features in Bevy.
+//!
+//! Instead, it helps other interfaces coordinate their approach to
+//! accessibility. Binary authors should add the [`AccessibilityPlugin`], while
+//! library maintainers may use the [`AccessibilityRequested`] and
+//! [`ManageAccessibilityUpdates`] resources.
+//!
+//! The [`AccessibilityNode`] component is useful in both cases. It helps
+//! describe an entity in terms of its accessibility factors through an
+//! `AccessKit` "node".
+//!
+//! Typical UI concepts, like buttons, checkboxes, and textboxes, are easily
+//! described by this component, though, technically, it can represent any kind
+//! of Bevy [`Entity`].
+//!
+//! ## This crate no longer re-exports `AccessKit`
+//!
+//! As of Bevy version 0.15, [the `accesskit` crate][accesskit_crate] is no
+//! longer re-exported from this crate.[^accesskit_node_confusion] If you need
+//! to use `AccessKit` yourself, you'll have to add it as a separate dependency
+//! in your project's `Cargo.toml`.
+//!
+//! Make sure to use the same version of the `accesskit` crate as Bevy.
+//! Otherwise, you may experience errors similar to: "Perhaps two different
+//! versions of crate `accesskit` are being used?"
+//!
+//! [accesskit_crate]: https://crates.io/crates/accesskit
+//! [`Entity`]: bevy_ecs::entity::Entity
+//!
+//! <!--
+//! note: multi-line footnotes need to be indented like this!
+//!
+//! please do not remove the indentation, or the second paragraph will display
+//! at the end of the module docs, **before** the footnotes...
+//! -->
+//!
+//! [^accesskit_node_confusion]: Some users were confused about `AccessKit`'s
+//!  `Node` type, sometimes thinking it was Bevy UI's primary way to define
+//!  nodes!
+//!
+//!     For this reason, its re-export was removed by default. Users who need
+//!     its types can instead manually depend on the `accesskit` crate.
 
 #[cfg(feature = "std")]
 extern crate std;
