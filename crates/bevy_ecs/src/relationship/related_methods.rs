@@ -300,6 +300,8 @@ impl<'w> EntityWorldMut<'w> {
     /// This entity will not be despawned.
     pub fn despawn_related<S: RelationshipTarget>(&mut self) -> &mut Self {
         if let Some(sources) = self.get::<S>() {
+            // We have to collect here to defer removal, allowing observers and hooks to see this data
+            // before it is finally removed.
             let sources = sources.iter().collect::<Vec<_>>();
             self.world_scope(|world| {
                 for entity in sources {
