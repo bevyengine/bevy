@@ -49,7 +49,7 @@ use crate::{
         RequiredComponents, RequiredComponentsError, Tick,
     },
     entity::{Entities, Entity, EntityDoesNotExistError},
-    entity_disabling::{DefaultQueryFilters, Internal},
+    entity_disabling::DefaultQueryFilters,
     event::{Event, EventId, Events, WriteBatchIds},
     lifecycle::RemovedComponentEvents,
     observer::Observers,
