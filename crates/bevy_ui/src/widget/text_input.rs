@@ -21,6 +21,7 @@ use crate::UiSystems;
 use bevy_app::Plugin;
 use bevy_app::PostUpdate;
 use bevy_asset::Assets;
+use bevy_color::palettes::css::PALE_GOLDENROD;
 use bevy_ecs::change_detection::DetectChanges;
 use bevy_ecs::change_detection::DetectChangesMut;
 use bevy_ecs::component::Component;
@@ -66,6 +67,8 @@ use bevy_text::TextPipeline;
 use bevy_text::TextSelectionBlockColor;
 use bevy_time::Time;
 use taffy::AvailableSpace;
+use taffy::MaybeMath;
+use taffy::MaybeResolve;
 
 pub struct TextInputPlugin;
 
@@ -73,7 +76,7 @@ impl Plugin for TextInputPlugin {
     fn build(&self, app: &mut bevy_app::App) {
         app.add_systems(
             PostUpdate,
-            (update_line_input_attributes, measure_line)
+            (update_line_input_attributes, measure_lines)
                 .in_set(UiSystems::Content)
                 .before(UiSystems::Layout),
         );
@@ -250,49 +253,64 @@ fn on_move_clear_multi_click(move_event: On<Pointer<Move>>, mut commands: Comman
     }
 }
 
-fn measure_line(
-    _fonts: Res<Assets<Font>>,
-    mut query: Query<
-        (
-            Entity,
-            Ref<ComputedNodeTarget>,
-            Ref<TextFont>,
-            Mut<ContentSize>,
-        ),
-        (With<Node>, With<TextInput>),
-    >,
-    mut _text_pipeline: ResMut<TextPipeline>,
-    mut _font_system: ResMut<CosmicFontSystem>,
+fn measure_lines(
+    mut commands: Commands,
+    mut query: Query<(
+        Entity,
+        Ref<ComputedNodeTarget>,
+        Ref<TextFont>,
+        Ref<TextInputVisibleLines>,
+    )>,
 ) {
-    for (_entity, target, text_font, mut content_size) in query.iter_mut() {
-        if target.is_changed() || text_font.is_changed() {
+    for (entity, target, text_font, lines) in query.iter_mut() {
+        if target.is_changed() || text_font.is_changed() || lines.is_changed() {
+            if lines.0 <= 0. {
+                commands.entity(entity).remove::<ContentSize>();
+            }
             let line_height = match text_font.line_height {
                 bevy_text::LineHeight::Px(px) => px,
                 bevy_text::LineHeight::RelativeToFont(r) => r * text_font.font_size,
             } * target.scale_factor;
-
-            content_size.set(crate::NodeMeasure::Custom(Box::new(LineHeightMeasure {
-                line_height,
-            })));
+            let height = lines.0 * line_height;
+            commands.entity(entity).insert(ContentSize {
+                measure: Some(crate::NodeMeasure::Custom(Box::new(InputMeasure {
+                    height,
+                }))),
+            });
         }
     }
 }
 
-struct LineHeightMeasure {
-    line_height: f32,
+/// Measure that automatically sets a Text Input's height
+struct InputMeasure {
+    // height in target pixels
+    height: f32,
 }
 
-impl Measure for LineHeightMeasure {
-    fn measure(&mut self, measure_args: MeasureArgs, _style: &taffy::Style) -> Vec2 {
+impl Measure for InputMeasure {
+    fn measure(&mut self, measure_args: MeasureArgs, style: &taffy::Style) -> Vec2 {
+        let parent_width = measure_args.available_width.into_option();
+        let s_width = style.size.width.maybe_resolve(parent_width);
+        let s_min_width = style.min_size.width.maybe_resolve(parent_width);
+        let s_max_width = style.max_size.width.maybe_resolve(parent_width);
+        let width = measure_args
+            .width
+            .or(s_width)
+            .or(s_min_width)
+            .maybe_clamp(s_min_width, s_max_width);
+
+        let size = taffy::Size {
+            width,
+            height: Some(self.height),
+        }
+        .maybe_apply_aspect_ratio(style.aspect_ratio);
+
         Vec2::new(
-            measure_args
-                .width
-                .unwrap_or_else(|| match measure_args.available_width {
-                    AvailableSpace::Definite(x) => x,
-                    AvailableSpace::MinContent => 0.,
-                    AvailableSpace::MaxContent => 0.,
-                }),
-            self.line_height,
+            size.width
+                .or(parent_width)
+                .maybe_clamp(s_min_width, s_max_width)
+                .unwrap_or(0.),
+            self.height,
         )
     }
 }

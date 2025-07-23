@@ -12,6 +12,7 @@ use bevy::input_focus::InputFocus;
 use bevy::prelude::*;
 use bevy::text::Prompt;
 use bevy::text::PromptColor;
+use bevy::text::TextInputVisibleLines;
 use bevy::text::TextSelectionBlockColor;
 use bevy::ui::widget::NextFocus;
 use bevy::ui::widget::TextBox;
@@ -44,10 +45,10 @@ fn setup(mut commands: Commands) {
             },
             Node {
                 width: Val::Percent(50.),
-                height: Val::Percent(50.),
                 ..default()
             },
             BackgroundColor(NAVY.into()),
+            TextInputVisibleLines(8.),
             TextInputSubmitBehaviour {
                 clear_on_submit: true,
                 navigate_on_submit: NextFocus::Navigate(NavAction::Next),

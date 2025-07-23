@@ -85,7 +85,6 @@ fn update_targets(mut text_input_node_query: Query<(&ComputedNode, &mut TextInpu
             size: node.size(),
             scale_factor: node.inverse_scale_factor.recip(),
         };
-
         target.set_if_neq(new_target);
     }
 }
