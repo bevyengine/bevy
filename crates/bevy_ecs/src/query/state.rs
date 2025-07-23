@@ -1850,7 +1850,6 @@ mod tests {
     #[test]
     fn can_transmute_empty_tuple() {
         let mut world = World::new();
-
         world.register_component::<A>();
         let entity = world.spawn(A(10)).id();
 
@@ -2226,7 +2225,6 @@ mod tests {
         let mut df = DefaultQueryFilters::from_world(&mut world);
         df.register_disabling_component(world.register_component::<Table>());
         world.insert_resource(df);
-        world.register_disabling_component::<Table>();
 
         let mut query = QueryState::<()>::new(&mut world);
         // If the filter is instead a table components, the query can still be dense

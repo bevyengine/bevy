@@ -130,7 +130,6 @@ pub fn world_query_get(criterion: &mut Criterion) {
                 &WideTable<4>,
                 &WideTable<5>,
             )>();
-            let offset = world.resource_count();
 
             bencher.iter(|| {
                 for entity in &entities {
@@ -165,7 +164,6 @@ pub fn world_query_get(criterion: &mut Criterion) {
                 &WideSparse<4>,
                 &WideSparse<5>,
             )>();
-            let offset = world.resource_count();
 
             bencher.iter(|| {
                 for entity in &entities {

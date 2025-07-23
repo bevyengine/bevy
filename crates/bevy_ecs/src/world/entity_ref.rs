@@ -5041,8 +5041,8 @@ mod tests {
     use crate::{
         change_detection::{MaybeLocation, MutUntyped},
         component::ComponentId,
+        entity_disabling::Internal,
         prelude::*,
-        resource::IsResource,
         system::{assert_is_system, RunSystemOnce as _},
         world::{error::EntityComponentError, DeferredWorld, FilteredEntityMut, FilteredEntityRef},
     };
@@ -5491,7 +5491,7 @@ mod tests {
 
         world.spawn(TestComponent(0)).insert(TestComponent2(0));
 
-        let mut query = world.query::<EntityRefExcept<(TestComponent, IsResource)>>();
+        let mut query = world.query::<EntityRefExcept<(TestComponent, Internal)>>();
 
         let mut found = false;
         for entity_ref in query.iter_mut(&mut world) {
@@ -5551,7 +5551,7 @@ mod tests {
 
         fn system(
             _: Query<&mut TestComponent>,
-            query: Query<EntityRefExcept<(TestComponent, IsResource)>>,
+            query: Query<EntityRefExcept<(TestComponent, Internal)>>,
         ) {
             for entity_ref in query.iter() {
                 assert!(matches!(
@@ -5569,7 +5569,7 @@ mod tests {
         let mut world = World::new();
         world.spawn(TestComponent(0)).insert(TestComponent2(0));
 
-        let mut query = world.query::<EntityMutExcept<(TestComponent, IsResource)>>();
+        let mut query = world.query::<EntityMutExcept<(TestComponent, Internal)>>();
 
         let mut found = false;
         for mut entity_mut in query.iter_mut(&mut world) {
@@ -5636,7 +5636,7 @@ mod tests {
 
         fn system(
             _: Query<&mut TestComponent>,
-            mut query: Query<EntityMutExcept<(TestComponent, IsResource)>>,
+            mut query: Query<EntityMutExcept<(TestComponent, Internal)>>,
         ) {
             for mut entity_mut in query.iter_mut() {
                 assert!(entity_mut

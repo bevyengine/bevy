@@ -2669,7 +2669,6 @@ mod tests {
     #[test]
     fn query_iter_sorts() {
         let mut world = World::new();
-
         for i in 0..100 {
             world.spawn(A(i as f32));
             world.spawn((A(i as f32), Sparse(i)));
