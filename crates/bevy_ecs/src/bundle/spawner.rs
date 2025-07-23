@@ -40,6 +40,8 @@ impl<'w> BundleSpawner<'w> {
 
     /// Same as [`BundleSpawner::new`] but doesn't require to pass [`Bundle`] by value and ignores [`FragmentingValue`] components.
     /// This should be used only if it is known that `T` doesn't have fragmenting value components.
+    ///
+    /// [`FragmentingValue`]: crate::fragmenting_value::FragmentingValue
     #[inline]
     pub(crate) fn new_uniform<T: Bundle>(world: &'w mut World, change_tick: Tick) -> Self {
         // SAFETY: These come from the same world. `world.components_registrator` can't be used since we borrow other fields too.
