@@ -415,8 +415,11 @@ impl Components {
 
         // Get all the new requiree components, i.e. `requiree` and all the components that `requiree` is required by.
         // SAFETY: The caller ensures that the `requiree` is valid.
-        let new_requiree_components =
-            unsafe { self.get_required_by(requiree).debug_checked_unwrap() }.clone();
+        let requiree_required_by = unsafe { self.get_required_by(requiree).debug_checked_unwrap() };
+        let new_requiree_components = [requiree]
+            .into_iter()
+            .chain(requiree_required_by.iter().cloned())
+            .collect::<IndexSet<_, FixedHasher>>();
 
         // We now need to update the required and required_by components of all the components
         // directly or indirectly involved.
@@ -427,7 +430,8 @@ impl Components {
         // Luckily this is exactly the depth-first order, which is guaranteed to be the order of `new_requiree_components`.
 
         // Update the inherited required components of all requiree components (directly or indirectly).
-        for &indirect_requiree in &new_requiree_components {
+        // Skip the first one (requiree) because we already udpates it.
+        for &indirect_requiree in &new_requiree_components[1..] {
             // SAFETY: `indirect_requiree` comes from `self` so it must be valid.
             self.required_components_scope(indirect_requiree, |this, required_components| {
                 // Rebuild the inherited required components.
@@ -444,11 +448,13 @@ impl Components {
                     .debug_checked_unwrap()
             };
 
-            for &requiree in [&requiree].into_iter().chain(&new_requiree_components) {
-                // This preserves the `required_by` invariant because any component that requires `requiree`
-                // is also contained in `new_requiree_components` and will be added after it.
-                required_by.insert_before(required_by.len(), requiree);
-            }
+            // Remove and re-add all the components in `new_requiree_components`
+            // This preserves the invariant of `required_by` because `new_requiree_components`
+            // satisfies its invariant, due to being `requiree` followed by its `required_by` components,
+            // and because any component not in `new_requiree_components` cannot require a component in it,
+            // since if that was the case it would appear in the `required_by` for `requiree`.
+            required_by.retain(|id| !new_requiree_components.contains(id));
+            required_by.extend(&new_requiree_components);
         }
 
         Ok(())
