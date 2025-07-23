@@ -603,7 +603,7 @@ pub fn prepare_generated_environment_map_bind_groups(
                     ..Default::default()
                 });
 
-                // Split layout (current behaviour)
+                // Split layout (current behavior)
                 let first = render_device.create_bind_group(
                     "downsampling_first_bind_group",
                     &layouts.downsampling_first,
