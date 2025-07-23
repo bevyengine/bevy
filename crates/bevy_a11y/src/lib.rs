@@ -153,19 +153,64 @@ impl ManageAccessibilityUpdates {
     }
 }
 
-/// Component to wrap a [`accesskit::Node`], representing this entity to the platform's
-/// accessibility API.
+/// Represents an entity to `AccessKit` through an [`accesskit::Node`].
 ///
-/// If an entity has a parent, and that parent also has an `AccessibilityNode`,
-/// the entity's node will be a child of the parent's node.
+/// Platform-specific accessibility APIs utilize `AccessKit` nodes in their
+/// accessibility frameworks. So, this component acts as a translation between
+/// "Bevy entity" and "platform-agnostic accessibility element".
 ///
-/// If the entity doesn't have a parent, or if the immediate parent doesn't have
-/// an `AccessibilityNode`, its node will be an immediate child of the primary window.
+/// ## Organization in the `AccessKit` Accessibility Tree
+///
+/// `AccessKit` allows users to form a "tree of nodes" providing accessibility
+/// information. That tree is **not** Bevy's ECS!
+///
+/// To explain, let's say this component is added to an entity, `E`.
+///
+/// ### Parent and Child
+///
+/// If `E` has a parent, `P`, and `P` also has this `AccessibilityNode`
+/// component, then `E`'s `AccessKit` node will be a child of `P`'s `AccessKit`
+/// node.
+///
+/// Resulting `AccessKit` tree:
+/// - P
+///     - E
+///
+/// In other words, parent-child relationships are maintained, but only if both
+/// have this component.
+///
+/// ### On the Window
+///
+/// If `E` doesn't have a parent, or if the immediate parent doesn't have an
+/// `AccessibilityNode`, its `AccessKit` node will be an immediate child of the
+/// primary window.
+///
+/// Resulting `AccessKit` tree:
+/// - Primary window
+///     - E
+///
+/// When there's no `AccessKit`-compatible parent, the child lacks hierarchical
+/// information in `AccessKit`. As such, it is placed directly under the
+/// primary window on the `AccessKit` tree.
+///
+/// This behavior may or may not be intended, so please utilize
+/// `AccessibilityNode`s with care.
 #[derive(Component, Clone, Deref, DerefMut)]
 #[cfg_attr(feature = "serialize", derive(Serialize, Deserialize))]
-pub struct AccessibilityNode(pub Node);
+pub struct AccessibilityNode(
+    /// A representation of this component's entity to `AccessKit`.
+    ///
+    /// Note that, with its parent struct acting as just a newtype, users are
+    /// intended to directly update this field.
+    pub Node,
+);
 
 impl From<Node> for AccessibilityNode {
+    /// Converts an [`accesskit::Node`] into the Bevy Engine
+    /// [`AccessibilityNode`] newtype.
+    ///
+    /// Doing so allows it to be inserted onto Bevy entities, representing Bevy
+    /// entities in the `AccessKit` tree.
     fn from(node: Node) -> Self {
         Self(node)
     }
