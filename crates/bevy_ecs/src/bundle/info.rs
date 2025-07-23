@@ -162,6 +162,7 @@ impl BundleInfo {
     }
 
     /// Returns the length of the explicit components part of the [`contributed_components`](Self::contributed_components) list.
+    #[inline]
     pub(super) fn explicit_components_len(&self) -> usize {
         self.contributed_components.len() - self.required_component_constructors.len()
     }
