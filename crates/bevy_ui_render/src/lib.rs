@@ -22,7 +22,7 @@ use bevy_reflect::prelude::ReflectDefault;
 use bevy_reflect::Reflect;
 use bevy_ui::widget::{
     GlobalTextInputState, ImageNode, TextCursorBlinkTimer, TextCursorStyle, TextShadow,
-    TextUnderCursorColor, ViewportNode,
+    ViewportNode,
 };
 use bevy_ui::{
     BackgroundColor, BorderColor, CalculatedClip, ComputedNode, ComputedNodeTarget, Display, Node,
@@ -69,8 +69,8 @@ use gradient::GradientPlugin;
 
 use bevy_platform::collections::{HashMap, HashSet};
 use bevy_text::{
-    ComputedTextBlock, PositionedGlyph, PromptColor, PromptLayout, TextBackgroundColor, TextColor,
-    TextInputBuffer, TextLayoutInfo, TextSelectionBlockColor,
+    ComputedTextBlock, PositionedGlyph, PromptColor, PromptLayout, SpaceAdvance,
+    TextBackgroundColor, TextColor, TextInputBuffer, TextLayoutInfo, TextSelectionBlockColor,
 };
 use bevy_transform::components::GlobalTransform;
 use box_shadow::BoxShadowPlugin;
@@ -1021,8 +1021,9 @@ pub fn extract_text_input_nodes(
             &TextSelectionBlockColor,
             &TextCursorStyle,
             &TextCursorBlinkTimer,
-            &TextUnderCursorColor,
+            //&TextUnderCursorColor,
             &TextInputBuffer,
+            &SpaceAdvance,
             Option<&PromptLayout>,
             Option<&PromptColor>,
         )>,
@@ -1046,8 +1047,9 @@ pub fn extract_text_input_nodes(
         block_color,
         cursor_style,
         blink_timer,
-        _under_color,
+        //_under_color,
         buffer,
+        space_advance,
         maybe_prompt_layout,
         maybe_prompt_color,
     ) in &uinode_query
@@ -1163,41 +1165,41 @@ pub fn extract_text_input_nodes(
             continue;
         }
 
-        if let Some((position, size, _affinity)) = text_layout_info.cursor {
-            let (cursor_size, cursor_position, cursor_z_offset) = if modifiers.overwrite {
-                (size * Vec2::new(1., cursor_style.height), position, -0.001)
-            } else {
-                let cursor_size = size * Vec2::new(cursor_style.width, cursor_style.height);
-                (
-                    cursor_size,
-                    position - 0.5 * (size.x - cursor_size.x) * Vec2::X,
-                    0.,
-                )
-            };
+        let Some((position, size, _affinity)) = text_layout_info.cursor else {
+            continue;
+        };
 
-            extracted_uinodes.uinodes.push(ExtractedUiNode {
-                render_entity: commands.spawn(TemporaryRenderEntity).id(),
-                z_order: uinode.stack_index as f32 + stack_z_offsets::TEXT + cursor_z_offset,
-                clip,
-                image: AssetId::default(),
-                transform: transform * Affine2::from_translation(cursor_position),
-                extracted_camera_entity,
-                item: ExtractedUiItem::Node {
-                    color: cursor_style.color.into(),
-                    rect: Rect {
-                        min: Vec2::ZERO,
-                        max: cursor_size,
-                    },
-                    atlas_scaling: None,
-                    flip_x: false,
-                    flip_y: false,
-                    border: uinode.border(),
-                    border_radius: uinode.border_radius(),
-                    node_type: NodeType::Rect,
+        let (w, cursor_z_offset) = if modifiers.overwrite {
+            (size.x, -0.001)
+        } else {
+            (cursor_style.width * **space_advance, 0.)
+        };
+
+        let cursor_size = Vec2::new(w, cursor_style.height * size.y).ceil();
+        let cursor_position = position - 0.5 * (size.x - cursor_size.x) * Vec2::X;
+
+        extracted_uinodes.uinodes.push(ExtractedUiNode {
+            render_entity: commands.spawn(TemporaryRenderEntity).id(),
+            z_order: uinode.stack_index as f32 + stack_z_offsets::TEXT + cursor_z_offset,
+            clip,
+            image: AssetId::default(),
+            transform: transform * Affine2::from_translation(cursor_position),
+            extracted_camera_entity,
+            item: ExtractedUiItem::Node {
+                color: cursor_style.color.into(),
+                rect: Rect {
+                    min: Vec2::ZERO,
+                    max: cursor_size,
                 },
-                main_entity: entity.into(),
-            });
-        }
+                atlas_scaling: None,
+                flip_x: false,
+                flip_y: false,
+                border: uinode.border(),
+                border_radius: uinode.border_radius(),
+                node_type: NodeType::Rect,
+            },
+            main_entity: entity.into(),
+        });
     }
 }
 
