@@ -36,7 +36,7 @@
 //!
 //! ## Default query filters
 //!
-//! In Bevy, entity disabling is implemented through the construction of a global "default query filter".
+//! In Bevy, entity disabling is implemented through the construction of a global "default query filter" resource.
 //! Queries which do not explicitly mention the disabled component will not include entities with that component.
 //! If an entity has multiple disabling components, it will only be included in queries that mention all of them.
 //!
@@ -49,6 +49,32 @@
 //!
 //! Entities with disabling components are still present in the [`World`] and can be accessed directly,
 //! using methods on [`World`] or [`Commands`](crate::prelude::Commands).
+//!
+//! As default query filters are implemented through a resource,
+//! it's possible to temporarily ignore any default filters by using [`World::resource_scope`](crate::prelude::World).
+//!
+//! ```
+//! use bevy_ecs::prelude::*;
+//! use bevy_ecs::entity_disabling::{DefaultQueryFilters, Disabled};
+//!
+//! let mut world = World::default();
+//!
+//! #[derive(Component)]
+//! struct CustomDisabled;
+//!
+//! world.register_disabling_component::<CustomDisabled>();
+//!
+//! world.spawn(Disabled);
+//! world.spawn(CustomDisabled);
+//!
+//! // resource_scope removes DefaultQueryFilters temporarily before re-inserting into the world.
+//! world.resource_scope(|world: &mut World, _: Mut<DefaultQueryFilters>| {
+//!     // within this scope, we can query like no components are disabled.
+//!     assert_eq!(world.query::<&Disabled>().query(&world).count(), 1);
+//!     assert_eq!(world.query::<&CustomDisabled>().query(&world).count(), 1);
+//!     assert_eq!(world.query::<()>().query(&world).count(), world.entities().len() as usize);
+//! })
+//! ```
 //!
 //! ### Warnings
 //!
@@ -237,8 +263,10 @@ mod tests {
 
     use super::*;
     use crate::{
+        observer::Observer,
         prelude::{Add, EntityMut, EntityRef, On, World},
         query::{Has, With},
+        system::SystemIdMarker,
     };
     use alloc::{vec, vec::Vec};
 
@@ -355,7 +383,7 @@ mod tests {
         world.register_system(|| {});
         let mut query = world.query::<()>();
         assert_eq!(query.iter(&world).count(), 0);
-        let mut query = world.query_filtered::<(), With<Internal>>();
+        let mut query = world.query_filtered::<&SystemIdMarker, With<Internal>>();
         assert_eq!(query.iter(&world).count(), 1);
 
         #[derive(Component)]
@@ -363,7 +391,7 @@ mod tests {
         world.add_observer(|_: On<Add, A>| {});
         let mut query = world.query::<()>();
         assert_eq!(query.iter(&world).count(), 0);
-        let mut query = world.query_filtered::<(), With<Internal>>();
-        assert_eq!(query.iter(&world).count(), 2);
+        let mut query = world.query_filtered::<&Observer, With<Internal>>();
+        assert_eq!(query.iter(&world).count(), 1);
     }
 }
