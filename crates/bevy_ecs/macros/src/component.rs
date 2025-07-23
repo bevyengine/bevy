@@ -968,15 +968,16 @@ fn relationship_field<'a>(
             span,
             format!("{derive} derive expected named structs with a single field or with a field annotated with #[relationship].")
         )),
-        Fields::Unnamed(fields) => fields
-            .unnamed
-            .len()
-            .eq(&1)
-            .then(|| fields.unnamed.first())
-            .flatten()
+        Fields::Unnamed(fields) if fields.unnamed.len() == 1 => Ok(fields.unnamed.first().unwrap()),
+        Fields::Unnamed(fields) => fields.unnamed.iter().find(|field| {
+                field
+                    .attrs
+                    .iter()
+                    .any(|attr| attr.path().is_ident(RELATIONSHIP))
+            })
             .ok_or(syn::Error::new(
                 span,
-                format!("{derive} derive expected unnamed structs with one field."),
+                format!("{derive} derive expected unnamed structs with one field or with a field annotated with #[relationship]."),
             )),
         Fields::Unit => Err(syn::Error::new(
             span,
