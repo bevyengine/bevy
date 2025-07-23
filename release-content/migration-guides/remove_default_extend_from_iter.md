@@ -6,7 +6,7 @@ pull_requests: [20255]
 The `extend_from_iter` method in the `RelationshipSourceCollection` trait no longer has a default implementation. If you have implemented a custom relationship source collection, you must now provide your own implementation of this method.
 
 ```rust
-// Before: method was option plementation
+// Before: method was optional due to default implementation
 impl RelationshipSourceCollection for MyCustomCollection {
     // ... other required methods
     // extend_from_iter was automatically provided
