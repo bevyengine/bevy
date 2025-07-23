@@ -6,9 +6,10 @@ use crate::{
 };
 use bevy_ecs::{
     change_detection::{DetectChanges, DetectChangesMut},
-    entity::{Entity, EntityHashSet},
+    entity::Entity,
     hierarchy::Children,
     lifecycle::RemovedComponents,
+    query::Added,
     system::{Local, Query, ResMut},
     world::Ref,
 };
@@ -69,17 +70,16 @@ pub enum LayoutError {
 
 /// Updates the UI's layout tree, computes the new layout geometry and then updates the sizes and transforms of all the UI nodes.
 pub fn ui_layout_system(
-    mut just_added_node: Local<EntityHashSet>,
     mut ui_surface: ResMut<UiSurface>,
     ui_root_node_query: UiRootNodes,
+    ui_children: UiChildren,
     mut node_query: Query<(
         Entity,
         Ref<Node>,
         Option<&mut ContentSize>,
         Ref<ComputedNodeTarget>,
     )>,
-    //added_node_query: Query<(), Added<Node>>,
-    ui_children: UiChildren,
+    added_node_query: Query<(), Added<Node>>,
     mut node_update_query: Query<(
         &mut ComputedNode,
         &UiTransform,
@@ -96,20 +96,16 @@ pub fn ui_layout_system(
     mut removed_content_sizes: RemovedComponents<ContentSize>,
     mut removed_nodes: RemovedComponents<Node>,
 ) {
+    let _ = added_node_query;
     // When a `ContentSize` component is removed from an entity, we need to remove the measure from the corresponding taffy node.
     for entity in removed_content_sizes.read() {
         ui_surface.try_remove_node_context(entity);
     }
 
-    just_added_node.clear();
-
     // Sync Node and ContentSize to Taffy for all nodes
     node_query
         .iter_mut()
         .for_each(|(entity, node, content_size, computed_target)| {
-            if node.is_added() {
-                just_added_node.insert(entity);
-            }
             if computed_target.is_changed()
                 || node.is_changed()
                 || content_size
@@ -141,21 +137,21 @@ pub fn ui_layout_system(
         fn update_children_recursively(
             ui_surface: &mut UiSurface,
             ui_children: &UiChildren,
-            just_added_node: &EntityHashSet,
+            added_node_query: &Query<(), Added<Node>>,
             entity: Entity,
         ) {
             if ui_surface.entity_to_taffy.contains_key(&entity)
-                && (just_added_node.contains(&entity)
+                && (added_node_query.contains(entity)
                     || ui_children.is_changed(entity)
                     || ui_children
                         .iter_ui_children(entity)
-                        .any(|child| just_added_node.contains(&child)))
+                        .any(|child| added_node_query.contains(child)))
             {
                 ui_surface.update_children(entity, ui_children.iter_ui_children(entity));
             }
 
             for child in ui_children.iter_ui_children(entity) {
-                update_children_recursively(ui_surface, ui_children, just_added_node, child);
+                update_children_recursively(ui_surface, ui_children, added_node_query, child);
             }
         }
 
@@ -163,7 +159,7 @@ pub fn ui_layout_system(
             update_children_recursively(
                 &mut ui_surface,
                 &ui_children,
-                &just_added_node,
+                &added_node_query,
                 ui_root_entity,
             );
         }
