@@ -311,7 +311,8 @@ impl Components {
     /// # Safety
     ///
     /// - `requiree` must have been registered in `self`
-    /// - all components in `required_components` must have been registered in `self`.
+    /// - all components in `required_components` must have been registered in `self`;
+    /// - this is called with `requiree` before being called on any component requiring `requiree`.
     pub(crate) unsafe fn register_required_by(
         &mut self,
         requiree: ComponentId,
@@ -320,6 +321,10 @@ impl Components {
         for &required in required_components.all.keys() {
             // SAFETY: the caller guarantees that all components in `required_components` have been registered in `self`.
             let required_by = unsafe { self.get_required_by_mut(required).debug_checked_unwrap() };
+            // This preserves the invarant of `required_by` because:
+            // - components requiring `required` and required by `requiree` are already initialized at this point
+            //   and hence registered in `required_by` before `requiree`;
+            // - components requiring `requiree` cannot exist yet, as this is called on `requiree` before them.
             required_by.insert(requiree);
         }
     }
@@ -440,6 +445,8 @@ impl Components {
             };
 
             for &requiree in [&requiree].into_iter().chain(&new_requiree_components) {
+                // This preserves the `required_by` invariant because any component that requires `requiree`
+                // is also contained in `new_requiree_components` and will be added after it.
                 required_by.insert_before(required_by.len(), requiree);
             }
         }

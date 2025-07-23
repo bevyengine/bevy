@@ -231,7 +231,8 @@ impl<'w> ComponentsRegistrator<'w> {
         T::register_required_components(id, &mut required_components_registrator);
         // SAFETY:
         // - `id` was just registered in `self`
-        // - RequiredComponentsRegistrator guarantees that only components from `self` are included in `required_components`.
+        // - RequiredComponentsRegistrator guarantees that only components from `self` are included in `required_components`;
+        // - we just initialized the component with id `id` so no component requiring it can exist yet.
         unsafe {
             self.components
                 .register_required_by(id, &required_components);
