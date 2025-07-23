@@ -237,8 +237,10 @@ mod tests {
 
     use super::*;
     use crate::{
+        observer::Observer,
         prelude::{Add, EntityMut, EntityRef, On, World},
         query::{Has, With},
+        system::SystemIdMarker,
     };
     use alloc::{vec, vec::Vec};
 
@@ -355,7 +357,7 @@ mod tests {
         world.register_system(|| {});
         let mut query = world.query::<()>();
         assert_eq!(query.iter(&world).count(), 0);
-        let mut query = world.query_filtered::<(), With<Internal>>();
+        let mut query = world.query_filtered::<&SystemIdMarker, With<Internal>>();
         assert_eq!(query.iter(&world).count(), 1);
 
         #[derive(Component)]
@@ -363,7 +365,7 @@ mod tests {
         world.add_observer(|_: On<Add, A>| {});
         let mut query = world.query::<()>();
         assert_eq!(query.iter(&world).count(), 0);
-        let mut query = world.query_filtered::<(), With<Internal>>();
-        assert_eq!(query.iter(&world).count(), 2);
+        let mut query = world.query_filtered::<&Observer, With<Internal>>();
+        assert_eq!(query.iter(&world).count(), 1);
     }
 }

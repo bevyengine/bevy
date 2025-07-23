@@ -390,9 +390,9 @@ mod tests {
         let mut world = World::new();
         let e = world.spawn((TableStored("abc"), A(123))).id();
         let f = world.spawn((TableStored("def"), A(456))).id();
-        assert_eq!(world.entities.len(), 2);
+        assert_eq!(world.query::<&TableStored>().query(&world).count(), 2);
         assert!(world.despawn(e));
-        assert_eq!(world.entities.len(), 1);
+        assert_eq!(world.query::<&TableStored>().query(&world).count(), 1);
         assert!(world.get::<TableStored>(e).is_none());
         assert!(world.get::<A>(e).is_none());
         assert_eq!(world.get::<TableStored>(f).unwrap().0, "def");
@@ -405,9 +405,9 @@ mod tests {
 
         let e = world.spawn((TableStored("abc"), SparseStored(123))).id();
         let f = world.spawn((TableStored("def"), SparseStored(456))).id();
-        assert_eq!(world.entities.len(), 2);
+        assert_eq!(world.query::<&TableStored>().query(&world).count(), 2);
         assert!(world.despawn(e));
-        assert_eq!(world.entities.len(), 1);
+        assert_eq!(world.query::<&TableStored>().query(&world).count(), 1);
         assert!(world.get::<TableStored>(e).is_none());
         assert!(world.get::<SparseStored>(e).is_none());
         assert_eq!(world.get::<TableStored>(f).unwrap().0, "def");
@@ -1647,25 +1647,26 @@ mod tests {
 
         let mut q1 = world.query::<&A>();
         let mut q2 = world.query::<&SparseStored>();
+        let mut q3 = world.query::<()>();
 
-        assert_eq!(q1.iter(&world).len(), 1);
-        assert_eq!(q2.iter(&world).len(), 1);
-        assert_eq!(world.entity_count(), 2);
+        assert_eq!(q1.query(&world).count(), 1);
+        assert_eq!(q2.query(&world).count(), 1);
+        assert_eq!(q3.query(&world).count(), 2);
 
         world.clear_entities();
 
         assert_eq!(
-            q1.iter(&world).len(),
+            q1.query(&world).count(),
             0,
             "world should not contain table components"
         );
         assert_eq!(
-            q2.iter(&world).len(),
+            q2.query(&world).count(),
             0,
             "world should not contain sparse set components"
         );
         assert_eq!(
-            world.entity_count(),
+            q3.query(&world).count(),
             0,
             "world should not have any entities"
         );
