@@ -4187,7 +4187,7 @@ mod tests {
         let b1 = world.spawn(B(1)).id();
         let b2 = world.spawn(B(2)).id();
 
-        #[expect(deprecated, reason = "remove this test in in 0.17.0")]
+        #[expect(deprecated, reason = "remove this test in 0.17.0")]
         for mut entity in world.iter_entities_mut() {
             if let Some(mut a) = entity.get_mut::<A>() {
                 a.0 -= 1;
