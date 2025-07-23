@@ -1,10 +1,10 @@
 #import bevy_core_pipeline::tonemapping::tonemapping_luminance as luminance
 #import bevy_pbr::pbr_functions::calculate_tbn_mikktspace
-#import bevy_pbr::utils::{rand_f, rand_vec2f}
+#import bevy_pbr::utils::{rand_f, rand_vec2f, sample_cosine_hemisphere}
 #import bevy_render::maths::PI
 #import bevy_render::view::View
 #import bevy_solari::brdf::evaluate_brdf
-#import bevy_solari::sampling::{sample_random_light, sample_cosine_hemisphere, sample_ggx_vndf, ggx_vndf_pdf}
+#import bevy_solari::sampling::{sample_random_light, sample_ggx_vndf, ggx_vndf_pdf}
 #import bevy_solari::scene_bindings::{trace_ray, resolve_ray_hit_full, ResolvedRayHitFull, RAY_T_MIN, RAY_T_MAX}
 
 @group(1) @binding(0) var accumulation_texture: texture_storage_2d<rgba32float, read_write>;
