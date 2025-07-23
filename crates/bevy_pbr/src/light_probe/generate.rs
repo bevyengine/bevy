@@ -32,10 +32,10 @@ use bevy_render::{
         ComputePipelineDescriptor, Extent3d, FilterMode, PipelineCache, Sampler,
         SamplerBindingType, SamplerDescriptor, ShaderDefVal, ShaderStages, ShaderType,
         StorageTextureAccess, Texture, TextureAspect, TextureDescriptor, TextureDimension,
-        TextureFormat, TextureSampleType, TextureUsages, TextureView, TextureViewDescriptor,
-        TextureViewDimension, UniformBuffer,
+        TextureFormat, TextureFormatFeatureFlags, TextureSampleType, TextureUsages, TextureView,
+        TextureViewDescriptor, TextureViewDimension, UniformBuffer,
     },
-    renderer::{RenderContext, RenderDevice, RenderQueue},
+    renderer::{RenderAdapter, RenderContext, RenderDevice, RenderQueue},
     settings::WgpuFeatures,
     sync_world::RenderEntity,
     texture::{CachedTexture, GpuImage, TextureCache},
@@ -94,61 +94,116 @@ pub struct GeneratorPipelines {
     pub irradiance: CachedComputePipelineId,
 }
 
+/// Configuration for downsampling strategy based on device limits
+#[derive(Resource, Clone, Copy, Debug, PartialEq, Eq)]
+pub struct DownsamplingConfig {
+    // can bind ≥12 storage textures and use read-write storage textures
+    pub combine_bind_group: bool,
+}
+
+// The number of storage textures required to combine the bind group
+const REQUIRED_STORAGE_TEXTURES: u32 = 12;
+
 /// Initializes all render-world resources used by the environment-map generator once on
 /// [`bevy_render::RenderStartup`].
 pub fn initialize_generated_environment_map_resources(
     mut commands: Commands,
     render_device: Res<RenderDevice>,
+    render_adapter: Res<RenderAdapter>,
     pipeline_cache: Res<PipelineCache>,
     asset_server: Res<AssetServer>,
 ) {
+    // Determine whether we can use a single, large bind group for all mip outputs
+    let storage_texture_limit = render_device.limits().max_storage_textures_per_shader_stage;
+
+    // Determine whether we can read and write to the same rgba16f storage texture
+    let read_write_support = render_adapter
+        .get_texture_format_features(TextureFormat::Rgba16Float)
+        .flags
+        .contains(TextureFormatFeatureFlags::STORAGE_READ_WRITE);
+
+    // Combine the bind group and use read-write storage if it is supported
+    let combine_bind_group =
+        storage_texture_limit >= REQUIRED_STORAGE_TEXTURES && read_write_support;
+
     // Output mips are write-only
     let mips =
         texture_storage_2d_array(TextureFormat::Rgba16Float, StorageTextureAccess::WriteOnly);
 
     // Bind group layouts
-    let downsampling_first = render_device.create_bind_group_layout(
-        "downsampling_first_bind_group_layout",
-        &BindGroupLayoutEntries::sequential(
-            ShaderStages::COMPUTE,
-            (
-                // Source mip0
-                texture_2d_array(TextureSampleType::Float { filterable: true }),
-                mips, // Output mip 1
-                mips, // Output mip 2
-                mips, // Output mip 3
-                mips, // Output mip 4
-                mips, // Output mip 5
-                mips, // Output mip 6
-                // Linear sampler
-                sampler(SamplerBindingType::Filtering),
-                // Uniforms
-                uniform_buffer::<DownsamplingConstants>(false),
+    let (downsampling_first, downsampling_second) = if combine_bind_group {
+        // One big bind group layout containing all outputs 1–12
+        let downsampling = render_device.create_bind_group_layout(
+            "downsampling_bind_group_layout_combined",
+            &BindGroupLayoutEntries::sequential(
+                ShaderStages::COMPUTE,
+                (
+                    sampler(SamplerBindingType::Filtering),
+                    uniform_buffer::<DownsamplingConstants>(false),
+                    texture_2d_array(TextureSampleType::Float { filterable: true }),
+                    mips, // 1
+                    mips, // 2
+                    mips, // 3
+                    mips, // 4
+                    mips, // 5
+                    texture_storage_2d_array(
+                        TextureFormat::Rgba16Float,
+                        StorageTextureAccess::ReadWrite,
+                    ), // 6
+                    mips, // 7
+                    mips, // 8
+                    mips, // 9
+                    mips, // 10
+                    mips, // 11
+                    mips, // 12
+                ),
             ),
-        ),
-    );
+        );
 
-    let downsampling_second = render_device.create_bind_group_layout(
-        "downsampling_second_bind_group_layout",
-        &BindGroupLayoutEntries::sequential(
-            ShaderStages::COMPUTE,
-            (
-                // Input mip6 read-only
-                texture_2d_array(TextureSampleType::Float { filterable: true }),
-                mips, // Output mip 7
-                mips, // Output mip 8
-                mips, // Output mip 9
-                mips, // Output mip 10
-                mips, // Output mip 11
-                mips, // Output mip 12
-                // Linear sampler
-                sampler(SamplerBindingType::Filtering),
-                // Uniforms
-                uniform_buffer::<DownsamplingConstants>(false),
+        (downsampling.clone(), downsampling)
+    } else {
+        // Split layout: first pass outputs 1–6, second pass outputs 7–12 (input mip6 read-only)
+
+        let downsampling_first = render_device.create_bind_group_layout(
+            "downsampling_first_bind_group_layout",
+            &BindGroupLayoutEntries::sequential(
+                ShaderStages::COMPUTE,
+                (
+                    sampler(SamplerBindingType::Filtering),
+                    uniform_buffer::<DownsamplingConstants>(false),
+                    // Input mip 0
+                    texture_2d_array(TextureSampleType::Float { filterable: true }),
+                    mips, // 1
+                    mips, // 2
+                    mips, // 3
+                    mips, // 4
+                    mips, // 5
+                    mips, // 6
+                ),
             ),
-        ),
-    );
+        );
 
+        let downsampling_second = render_device.create_bind_group_layout(
+            "downsampling_second_bind_group_layout",
+            &BindGroupLayoutEntries::sequential(
+                ShaderStages::COMPUTE,
+                (
+                    sampler(SamplerBindingType::Filtering),
+                    uniform_buffer::<DownsamplingConstants>(false),
+                    // Input mip 6
+                    texture_2d_array(TextureSampleType::Float { filterable: true }),
+                    mips, // 7
+                    mips, // 8
+                    mips, // 9
+                    mips, // 10
+                    mips, // 11
+                    mips, // 12
+                ),
+            ),
+        );
+
+        (downsampling_first, downsampling_second)
+    };
     let radiance = render_device.create_bind_group_layout(
         "radiance_bind_group_layout",
         &BindGroupLayoutEntries::sequential(
@@ -227,11 +282,13 @@ pub fn initialize_generated_environment_map_resources(
 
     // Pipelines
     let features = render_device.features();
-    let shader_defs = if features.contains(WgpuFeatures::SUBGROUP) {
-        vec![ShaderDefVal::Int("SUBGROUP_SUPPORT".into(), 1)]
-    } else {
-        vec![]
-    };
+    let mut shader_defs = vec![];
+    if features.contains(WgpuFeatures::SUBGROUP) {
+        shader_defs.push(ShaderDefVal::Int("SUBGROUP_SUPPORT".into(), 1));
+    }
+    if combine_bind_group {
+        shader_defs.push(ShaderDefVal::Int("COMBINE_BIND_GROUP".into(), 1));
+    }
 
     let downsampling_shader = load_embedded_asset!(asset_server.as_ref(), "downsample.wgsl");
     let env_filter_shader = load_embedded_asset!(asset_server.as_ref(), "environment_filter.wgsl");
@@ -245,14 +302,15 @@ pub fn initialize_generated_environment_map_resources(
         shader: downsampling_shader.clone(),
         shader_defs: {
             let mut defs = shader_defs.clone();
-            defs.push(ShaderDefVal::Int("FIRST_PASS".into(), 1));
+            if !combine_bind_group {
+                defs.push(ShaderDefVal::Int("FIRST_PASS".into(), 1));
+            }
             defs
         },
         entry_point: Some("downsample_first".into()),
         zero_initialize_workgroup_memory: false,
     });
 
-    // Second pass for remaining mip Levels (6-12)
     let downsample_second = pipeline_cache.queue_compute_pipeline(ComputePipelineDescriptor {
         label: Some("downsampling_second_pipeline".into()),
         layout: vec![layouts.downsampling_second.clone()],
@@ -260,7 +318,9 @@ pub fn initialize_generated_environment_map_resources(
         shader: downsampling_shader,
         shader_defs: {
             let mut defs = shader_defs.clone();
-            defs.push(ShaderDefVal::Int("SECOND_PASS".into(), 1));
+            if !combine_bind_group {
+                defs.push(ShaderDefVal::Int("SECOND_PASS".into(), 1));
+            }
             defs
         },
         entry_point: Some("downsample_second".into()),
@@ -312,6 +372,7 @@ pub fn initialize_generated_environment_map_resources(
     commands.insert_resource(layouts);
     commands.insert_resource(samplers);
     commands.insert_resource(pipelines);
+    commands.insert_resource(DownsamplingConfig { combine_bind_group });
 }
 
 pub fn extract_generated_environment_map_entities(
@@ -458,6 +519,7 @@ pub fn prepare_generated_environment_map_bind_groups(
     samplers: Res<GeneratorSamplers>,
     render_images: Res<RenderAssets<GpuImage>>,
     bluenoise: Res<Bluenoise>,
+    config: Res<DownsamplingConfig>,
     mut commands: Commands,
 ) {
     // Skip until the blue-noise texture is available to avoid panicking.
@@ -505,48 +567,77 @@ pub fn prepare_generated_environment_map_bind_groups(
             }
         };
 
-        let downsampling_first_bind_group = render_device.create_bind_group(
-            "downsampling_first_bind_group",
-            &layouts.downsampling_first,
-            &BindGroupEntries::sequential((
-                // Source mip0
-                &input_env_map_first,
-                // Destination mips 1 – 6
-                &mip_storage(1),
-                &mip_storage(2),
-                &mip_storage(3),
-                &mip_storage(4),
-                &mip_storage(5),
-                &mip_storage(6),
-                &samplers.linear,
-                &downsampling_constants_buffer,
-            )),
-        );
+        // Depending on device limits, build either a combined or split bind group layout
+        let (downsampling_first_bind_group, downsampling_second_bind_group) =
+            if config.combine_bind_group {
+                // Combined layout expects destinations 1–12 in both bind groups
+                let bind_group = render_device.create_bind_group(
+                    "downsampling_bind_group_combined_first",
+                    &layouts.downsampling_first,
+                    &BindGroupEntries::sequential((
+                        &samplers.linear,
+                        &downsampling_constants_buffer,
+                        &input_env_map_first,
+                        &mip_storage(1),
+                        &mip_storage(2),
+                        &mip_storage(3),
+                        &mip_storage(4),
+                        &mip_storage(5),
+                        &mip_storage(6),
+                        &mip_storage(7),
+                        &mip_storage(8),
+                        &mip_storage(9),
+                        &mip_storage(10),
+                        &mip_storage(11),
+                        &mip_storage(12),
+                    )),
+                );
 
-        let input_env_map_second = env_map_texture.create_view(&TextureViewDescriptor {
-            dimension: Some(TextureViewDimension::D2Array),
-            base_mip_level: min(6, last_mip),
-            mip_level_count: Some(1),
-            ..Default::default()
-        });
+                (bind_group.clone(), bind_group)
+            } else {
+                // Split path requires a separate view for mip6 input
+                let input_env_map_second = env_map_texture.create_view(&TextureViewDescriptor {
+                    dimension: Some(TextureViewDimension::D2Array),
+                    base_mip_level: min(6, last_mip),
+                    mip_level_count: Some(1),
+                    ..Default::default()
+                });
 
-        let downsampling_second_bind_group = render_device.create_bind_group(
-            "downsampling_second_bind_group",
-            &layouts.downsampling_second,
-            &BindGroupEntries::sequential((
-                // Input mip6: read-only
-                &input_env_map_second,
-                // Destination mips 7 – 12
-                &mip_storage(7),
-                &mip_storage(8),
-                &mip_storage(9),
-                &mip_storage(10),
-                &mip_storage(11),
-                &mip_storage(12),
-                &samplers.linear,
-                &downsampling_constants_buffer,
-            )),
-        );
+                // Split layout (current behaviour)
+                let first = render_device.create_bind_group(
+                    "downsampling_first_bind_group",
+                    &layouts.downsampling_first,
+                    &BindGroupEntries::sequential((
+                        &samplers.linear,
+                        &downsampling_constants_buffer,
+                        &input_env_map_first,
+                        &mip_storage(1),
+                        &mip_storage(2),
+                        &mip_storage(3),
+                        &mip_storage(4),
+                        &mip_storage(5),
+                        &mip_storage(6),
+                    )),
+                );
+
+                let second = render_device.create_bind_group(
+                    "downsampling_second_bind_group",
+                    &layouts.downsampling_second,
+                    &BindGroupEntries::sequential((
+                        &samplers.linear,
+                        &downsampling_constants_buffer,
+                        &input_env_map_second,
+                        &mip_storage(7),
+                        &mip_storage(8),
+                        &mip_storage(9),
+                        &mip_storage(10),
+                        &mip_storage(11),
+                        &mip_storage(12),
+                    )),
+                );
+
+                (first, second)
+            };
 
         // Create radiance map bind groups for each mip level
         let num_mips = mip_count as usize;
