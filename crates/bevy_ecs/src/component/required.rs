@@ -321,7 +321,7 @@ impl Components {
         for &required in required_components.all.keys() {
             // SAFETY: the caller guarantees that all components in `required_components` have been registered in `self`.
             let required_by = unsafe { self.get_required_by_mut(required).debug_checked_unwrap() };
-            // This preserves the invarant of `required_by` because:
+            // This preserves the invariant of `required_by` because:
             // - components requiring `required` and required by `requiree` are already initialized at this point
             //   and hence registered in `required_by` before `requiree`;
             // - components requiring `requiree` cannot exist yet, as this is called on `requiree` before them.
@@ -430,7 +430,7 @@ impl Components {
         // Luckily this is exactly the depth-first order, which is guaranteed to be the order of `new_requiree_components`.
 
         // Update the inherited required components of all requiree components (directly or indirectly).
-        // Skip the first one (requiree) because we already udpates it.
+        // Skip the first one (requiree) because we already updates it.
         for &indirect_requiree in &new_requiree_components[1..] {
             // SAFETY: `indirect_requiree` comes from `self` so it must be valid.
             self.required_components_scope(indirect_requiree, |this, required_components| {
