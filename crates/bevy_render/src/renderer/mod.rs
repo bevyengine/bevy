@@ -1,10 +1,10 @@
 mod graph_runner;
 mod render_device;
 
+use crate::WgpuWrapper;
 use bevy_derive::{Deref, DerefMut};
 #[cfg(not(all(target_arch = "wasm32", target_feature = "atomics")))]
 use bevy_tasks::ComputeTaskPool;
-use bevy_utils::WgpuWrapper;
 pub use graph_runner::*;
 pub use render_device::*;
 use tracing::{debug, error, info, info_span, warn};

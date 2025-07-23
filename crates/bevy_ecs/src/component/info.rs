@@ -645,6 +645,7 @@ impl Components {
     ///
     /// # See also
     ///
+    /// * [`ComponentIdFor`](super::ComponentIdFor)
     /// * [`Components::get_id()`]
     /// * [`Components::resource_id()`]
     /// * [`World::component_id()`](crate::world::World::component_id)

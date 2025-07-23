@@ -1,5 +1,6 @@
 //! Resources are unique, singleton-like data types that can be accessed from systems and stored in the [`World`](crate::world::World).
 
+use crate::entity_disabling::Internal;
 use crate::prelude::Component;
 use crate::prelude::ReflectComponent;
 use bevy_reflect::prelude::ReflectDefault;
@@ -90,7 +91,7 @@ pub trait Resource: Send + Sync + 'static {}
 /// This component comes with a hook that ensures that at most one entity has this component for any given `R`:
 /// adding this component to an entity (or spawning an entity with this component) will despawn any other entity with this component.
 #[derive(Component, Debug)]
-#[require(IsResource)]
+#[require(Internal, IsResource)]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Component, Default))]
 pub struct ResourceEntity<R: Resource>(#[reflect(ignore)] PhantomData<R>);
 

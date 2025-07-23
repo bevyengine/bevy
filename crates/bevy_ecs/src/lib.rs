@@ -97,7 +97,7 @@ pub mod prelude {
             common_conditions::*, ApplyDeferred, IntoScheduleConfigs, IntoSystemSet, Schedule,
             Schedules, SystemCondition, SystemSet,
         },
-        spawn::{Spawn, SpawnRelated},
+        spawn::{Spawn, SpawnIter, SpawnRelated, SpawnWith, WithOneRelated, WithRelated},
         system::{
             Command, Commands, Deferred, EntityCommand, EntityCommands, In, InMut, InRef,
             IntoSystem, Local, NonSend, NonSendMut, ParamSet, Populated, Query, ReadOnlySystem,
@@ -138,10 +138,22 @@ pub mod __macro_exports {
 
 /// Event sent when a hotpatch happens.
 ///
-/// Systems should refresh their inner pointers.
+/// Can be used for causing custom behavior on hot-patch.
 #[cfg(feature = "hotpatching")]
 #[derive(BufferedEvent, Default)]
 pub struct HotPatched;
+
+/// Resource which "changes" when a hotpatch happens.
+///
+/// Exists solely for change-detection, which allows systems to
+/// know whether a hotpatch happened even if they only run irregularily and would
+/// miss the event.
+///
+/// Used by Executors and other places which run systems
+/// [`System::refresh_hotpatch`](crate::system::System::refresh_hotpatch) only when necessary.
+#[cfg(feature = "hotpatching")]
+#[derive(resource::Resource, Default)]
+pub struct HotPatchChanges;
 
 #[cfg(test)]
 mod tests {
@@ -378,9 +390,9 @@ mod tests {
         let mut world = World::new();
         let e = world.spawn((TableStored("abc"), A(123))).id();
         let f = world.spawn((TableStored("def"), A(456))).id();
-        assert_eq!(world.entity_count(), 2);
+        assert_eq!(world.query::<&TableStored>().query(&world).count(), 2);
         assert!(world.despawn(e));
-        assert_eq!(world.entity_count(), 1);
+        assert_eq!(world.query::<&TableStored>().query(&world).count(), 1);
         assert!(world.get::<TableStored>(e).is_none());
         assert!(world.get::<A>(e).is_none());
         assert_eq!(world.get::<TableStored>(f).unwrap().0, "def");
@@ -393,9 +405,9 @@ mod tests {
 
         let e = world.spawn((TableStored("abc"), SparseStored(123))).id();
         let f = world.spawn((TableStored("def"), SparseStored(456))).id();
-        assert_eq!(world.entity_count(), 2);
+        assert_eq!(world.query::<&TableStored>().query(&world).count(), 2);
         assert!(world.despawn(e));
-        assert_eq!(world.entity_count(), 1);
+        assert_eq!(world.query::<&TableStored>().query(&world).count(), 1);
         assert!(world.get::<TableStored>(e).is_none());
         assert!(world.get::<SparseStored>(e).is_none());
         assert_eq!(world.get::<TableStored>(f).unwrap().0, "def");
@@ -1635,25 +1647,26 @@ mod tests {
 
         let mut q1 = world.query::<&A>();
         let mut q2 = world.query::<&SparseStored>();
+        let mut q3 = world.query::<()>();
 
-        assert_eq!(q1.iter(&world).len(), 1);
-        assert_eq!(q2.iter(&world).len(), 1);
-        assert_eq!(world.entity_count(), 2);
+        assert_eq!(q1.query(&world).count(), 1);
+        assert_eq!(q2.query(&world).count(), 1);
+        assert_eq!(q3.query(&world).count(), 2);
 
         world.clear_entities();
 
         assert_eq!(
-            q1.iter(&world).len(),
+            q1.query(&world).count(),
             0,
             "world should not contain table components"
         );
         assert_eq!(
-            q2.iter(&world).len(),
+            q2.query(&world).count(),
             0,
             "world should not contain sparse set components"
         );
         assert_eq!(
-            world.entity_count(),
+            q3.query(&world).count(),
             0,
             "world should not have any entities"
         );

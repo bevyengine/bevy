@@ -37,7 +37,7 @@ struct Animations {
     graph_handle: Handle<AnimationGraph>,
 }
 
-#[derive(Event, EntityEvent, Reflect, Clone)]
+#[derive(EntityEvent, Reflect, Clone)]
 struct OnStep;
 
 fn observe_on_step(
