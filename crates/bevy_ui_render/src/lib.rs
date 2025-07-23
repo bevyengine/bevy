@@ -21,7 +21,7 @@ mod debug_overlay;
 use bevy_reflect::prelude::ReflectDefault;
 use bevy_reflect::Reflect;
 use bevy_ui::widget::{
-    ImageNode, TextCursorBlinkTimer, TextCursorStyle, TextInputModifiers, TextShadow,
+    GlobalTextInputState, ImageNode, TextCursorBlinkTimer, TextCursorStyle, TextShadow,
     TextUnderCursorColor, ViewportNode,
 };
 use bevy_ui::{
@@ -1027,7 +1027,7 @@ pub fn extract_text_input_nodes(
             Option<&PromptColor>,
         )>,
     >,
-    modifiers: Extract<Res<TextInputModifiers>>,
+    modifiers: Extract<Res<GlobalTextInputState>>,
     camera_map: Extract<UiCameraMap>,
 ) {
     let mut start = extracted_uinodes.glyphs.len();

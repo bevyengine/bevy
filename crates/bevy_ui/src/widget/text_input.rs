@@ -1,10 +1,12 @@
 #![allow(missing_docs)]
 
+use crate::widget::on_focused_keyboard_input;
+use crate::widget::NextFocus;
+use crate::widget::SingleLineInputField;
 use crate::widget::TextCursorBlinkTimer;
 use crate::widget::TextCursorStyle;
-use crate::widget::TextInputModifiers;
 use crate::widget::TextInputMultiClickCounter;
-use crate::widget::TextInputOverwriteMode;
+use crate::widget::TextInputSubmitBehaviour;
 use crate::widget::TextUnderCursorColor;
 use crate::widget::MULTI_CLICK_PERIOD;
 use crate::ComputedNode;
@@ -35,10 +37,7 @@ use bevy_ecs::system::ResMut;
 use bevy_ecs::world::DeferredWorld;
 use bevy_ecs::world::Mut;
 use bevy_ecs::world::Ref;
-use bevy_input::keyboard::Key;
-use bevy_input::keyboard::KeyboardInput;
-use bevy_input::ButtonState;
-use bevy_input_focus::FocusedInput;
+use bevy_input_focus::tab_navigation::NavAction;
 use bevy_input_focus::InputFocus;
 use bevy_math::IVec2;
 use bevy_math::Rect;
@@ -52,8 +51,6 @@ use bevy_picking::pointer::PointerButton;
 use bevy_text::CosmicFontSystem;
 use bevy_text::Font;
 use bevy_text::Justify;
-use bevy_text::Motion;
-use bevy_text::SingleLineTextInput;
 use bevy_text::SpaceAdvance;
 use bevy_text::TextColor;
 use bevy_text::TextFont;
@@ -63,6 +60,7 @@ use bevy_text::TextInputAttributes;
 use bevy_text::TextInputBuffer;
 use bevy_text::TextInputTarget;
 use bevy_text::TextInputUndoHistory;
+use bevy_text::TextInputVisibleLines;
 use bevy_text::TextLayoutInfo;
 use bevy_text::TextPipeline;
 use bevy_text::TextSelectionBlockColor;
@@ -99,8 +97,13 @@ impl Plugin for TextInputPlugin {
     TextCursorBlinkTimer,
     TextInputUndoHistory,
     SpaceAdvance,
-    SingleLineTextInput,
+    SingleLineInputField,
+    TextInputVisibleLines(1.),
     TextUnderCursorColor,
+    TextInputSubmitBehaviour {
+        clear_on_submit: false,
+        navigate_on_submit: NextFocus::Navigate(NavAction::Next),
+    },
     ContentSize
 )]
 #[component(
@@ -244,177 +247,6 @@ fn on_multi_click_set_selection(
 fn on_move_clear_multi_click(move_event: On<Pointer<Move>>, mut commands: Commands) {
     if let Ok(mut entity) = commands.get_entity(move_event.target()) {
         entity.try_remove::<TextInputMultiClickCounter>();
-    }
-}
-
-fn on_focused_keyboard_input(
-    trigger: On<FocusedInput<KeyboardInput>>,
-    mut query: Query<&mut TextInputActions, With<TextInput>>,
-    mut modifiers: ResMut<TextInputModifiers>,
-    mut overwrite_mode: ResMut<TextInputOverwriteMode>,
-) {
-    if let Ok(mut actions) = query.get_mut(trigger.target()) {
-        let keyboard_input = &trigger.event().input;
-        match keyboard_input.logical_key {
-            Key::Shift => {
-                modifiers.shift = keyboard_input.state == ButtonState::Pressed;
-                return;
-            }
-            Key::Control => {
-                modifiers.command = keyboard_input.state == ButtonState::Pressed;
-                return;
-            }
-            Key::Insert => {
-                if keyboard_input.state.is_pressed() && !keyboard_input.repeat {
-                    modifiers.overwrite = !modifiers.overwrite;
-                }
-                return;
-            }
-            #[cfg(target_os = "macos")]
-            Key::Super => {
-                modifiers.command = keyboard_input.state == ButtonState::Pressed;
-                return;
-            }
-            _ => {}
-        };
-
-        if keyboard_input.state.is_pressed() {
-            if modifiers.command {
-                match &keyboard_input.logical_key {
-                    Key::Character(str) => {
-                        if let Some(char) = str.chars().next() {
-                            // convert to lowercase so that the commands work with capslock on
-                            match (char.to_ascii_lowercase(), modifiers.shift) {
-                                ('c', false) => {
-                                    // copy
-                                    actions.queue(TextInputAction::Copy);
-                                }
-                                ('x', false) => {
-                                    // cut
-                                    actions.queue(TextInputAction::Cut);
-                                }
-                                ('v', false) => {
-                                    // paste
-                                    actions.queue(TextInputAction::Paste);
-                                }
-                                ('z', false) => {
-                                    actions.queue(TextInputAction::Undo);
-                                }
-                                #[cfg(target_os = "macos")]
-                                ('z', true) => {
-                                    actions.queue(TextInputAction::Redo);
-                                }
-                                #[cfg(not(target_os = "macos"))]
-                                ('y', false) => {
-                                    actions.queue(TextInputAction::Redo);
-                                }
-                                ('a', false) => {
-                                    // select all
-                                    actions.queue(TextInputAction::SelectAll);
-                                }
-                                _ => {
-                                    // not recognised, ignore
-                                }
-                            }
-                        }
-                    }
-                    Key::ArrowLeft => {
-                        actions.queue(TextInputAction::Motion {
-                            motion: Motion::PreviousWord,
-                            with_select: modifiers.shift,
-                        });
-                    }
-                    Key::ArrowRight => {
-                        actions.queue(TextInputAction::Motion {
-                            motion: Motion::NextWord,
-                            with_select: modifiers.shift,
-                        });
-                    }
-                    Key::ArrowUp => {
-                        // use for history
-                    }
-                    Key::ArrowDown => {
-                        // use for history
-                    }
-                    Key::Home => {
-                        actions.queue(TextInputAction::motion(
-                            Motion::BufferStart,
-                            modifiers.shift,
-                        ));
-                    }
-                    Key::End => {
-                        actions.queue(TextInputAction::motion(Motion::BufferEnd, modifiers.shift));
-                    }
-                    _ => {
-                        // not recognised, ignore
-                    }
-                }
-            } else {
-                match &keyboard_input.logical_key {
-                    Key::Character(_) | Key::Space => {
-                        let str = if let Key::Character(str) = &keyboard_input.logical_key {
-                            str.chars()
-                        } else {
-                            " ".chars()
-                        };
-                        for char in str {
-                            actions.queue(if overwrite_mode.0 {
-                                TextInputAction::Overwrite(char)
-                            } else {
-                                TextInputAction::Insert(char)
-                            });
-                        }
-                    }
-                    Key::Enter => actions.queue(TextInputAction::Submit),
-                    Key::Backspace => {
-                        actions.queue(TextInputAction::Backspace);
-                    }
-                    Key::Delete => {
-                        if modifiers.shift {
-                            actions.queue(TextInputAction::Cut);
-                        } else {
-                            actions.queue(TextInputAction::Delete);
-                        }
-                    }
-                    Key::PageUp => {
-                        actions.queue(TextInputAction::motion(Motion::PageUp, modifiers.shift));
-                    }
-                    Key::PageDown => {
-                        actions.queue(TextInputAction::motion(Motion::PageDown, modifiers.shift));
-                    }
-                    Key::ArrowLeft => {
-                        actions.queue(TextInputAction::motion(Motion::Left, modifiers.shift));
-                    }
-                    Key::ArrowRight => {
-                        actions.queue(TextInputAction::motion(Motion::Right, modifiers.shift));
-                    }
-                    Key::ArrowUp => {
-                        actions.queue(TextInputAction::motion(Motion::Up, modifiers.shift));
-                    }
-                    Key::ArrowDown => {
-                        actions.queue(TextInputAction::motion(Motion::Down, modifiers.shift));
-                    }
-                    Key::Home => {
-                        actions.queue(TextInputAction::motion(Motion::Home, modifiers.shift));
-                    }
-                    Key::End => {
-                        actions.queue(TextInputAction::motion(Motion::End, modifiers.shift));
-                    }
-                    Key::Escape => {
-                        actions.queue(TextInputAction::Escape);
-                    }
-                    Key::Insert => {
-                        if modifiers.shift {
-                            overwrite_mode.0 = !overwrite_mode.0;
-                        } else {
-                            // paste
-                            actions.queue(TextInputAction::Paste);
-                        }
-                    }
-                    _ => {}
-                }
-            }
-        }
     }
 }
 

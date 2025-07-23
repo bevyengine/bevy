@@ -141,7 +141,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 
 fn inputs_grid(commands: &mut RelatedSpawnerCommands<ChildOf>) {
     for (n, (label, input_filter, password)) in [
-        ("Normal", None, false),
+        ("text", None, false),
         ("alphanumeric", Some(TextInputFilter::Alphanumeric), false),
         ("decimal", Some(TextInputFilter::Decimal), false),
         ("hex", Some(TextInputFilter::Hex), false),

@@ -2,13 +2,17 @@
 
 use bevy::color::palettes::css::NAVY;
 use bevy::color::palettes::css::RED;
+use bevy::input_focus::tab_navigation::NavAction;
+use bevy::input_focus::tab_navigation::TabGroup;
 use bevy::input_focus::tab_navigation::TabIndex;
 use bevy::input_focus::tab_navigation::TabNavigationPlugin;
 use bevy::input_focus::InputDispatchPlugin;
 use bevy::input_focus::InputFocus;
 use bevy::prelude::*;
 use bevy::text::LineHeight;
+use bevy::ui::widget::NextFocus;
 use bevy::ui::widget::TextInput;
+use bevy::ui::widget::TextInputSubmitBehaviour;
 use bevy::window::WindowResolution;
 
 fn main() {
@@ -46,20 +50,27 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 width: Val::Percent(50.),
                 ..default()
             },
+            TextInputSubmitBehaviour {
+                clear_on_submit: true,
+                navigate_on_submit: NextFocus::Navigate(NavAction::Next),
+            },
             BackgroundColor(NAVY.into()),
         ))
         .id();
 
     commands
-        .spawn(Node {
-            width: Val::Percent(100.),
-            height: Val::Percent(100.),
-            justify_content: JustifyContent::Center,
-            align_items: AlignItems::Center,
-            flex_direction: FlexDirection::Column,
-            row_gap: Val::Px(10.),
-            ..Default::default()
-        })
+        .spawn((
+            Node {
+                width: Val::Percent(100.),
+                height: Val::Percent(100.),
+                justify_content: JustifyContent::Center,
+                align_items: AlignItems::Center,
+                flex_direction: FlexDirection::Column,
+                row_gap: Val::Px(10.),
+                ..Default::default()
+            },
+            TabGroup::default(),
+        ))
         .add_child(id);
 
     commands.insert_resource(InputFocus(Some(id)));
