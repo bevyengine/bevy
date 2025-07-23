@@ -23,6 +23,15 @@ impl<'w> EntityWorldMut<'w> {
         self
     }
 
+    /// Spawns an empty entity related to this entity (with the `R` relationship)
+    pub fn with_related_empty<R: Relationship>(&mut self) -> &mut Self {
+        let parent = self.id();
+        self.world_scope(|world| {
+            world.spawn(R::from(parent));
+        });
+        self
+    }
+
     /// Spawns entities related to this entity (with the `R` relationship) by taking a function that operates on a [`RelatedSpawner`].
     pub fn with_related_entities<R: Relationship>(
         &mut self,
@@ -409,6 +418,13 @@ impl<'a> EntityCommands<'a> {
     pub fn with_related<R: Relationship>(&mut self, bundle: impl Bundle) -> &mut Self {
         let parent = self.id();
         self.commands.spawn((bundle, R::from(parent)));
+        self
+    }
+
+    /// Spawns an empty entity related to this entity (with the `R` relationship)
+    pub fn with_related_empty<R: Relationship>(&mut self) -> &mut Self {
+        let parent = self.id();
+        self.commands.spawn(R::from(parent));
         self
     }
 
@@ -881,5 +897,42 @@ mod tests {
         parent.replace_related::<Child>(&[child1]);
         let data = parent.get::<Parent>().unwrap().data;
         assert_eq!(data, 42);
+    }
+
+    #[test]
+    fn with_related_empty_works() {
+        let mut world = World::new();
+
+        let mut parent = world.spawn_empty();
+        let parent_id = parent.id();
+
+        parent.with_related_empty::<ChildOf>();
+
+        let children = parent.get::<Children>().unwrap();
+        assert_eq!(children.collection().len(), 1);
+
+        let child_id = children.collection()[0];
+        let child_relationship = world.get::<ChildOf>(child_id).unwrap();
+        assert_eq!(child_relationship.0, parent_id);
+    }
+
+    #[test]
+    fn with_related_empty_commands_works() {
+        use crate::world::CommandQueue;
+
+        let mut world = World::new();
+        let mut queue = CommandQueue::default();
+        let mut commands = Commands::new(&mut queue, &world);
+
+        let parent_id = commands.spawn_empty().with_related_empty::<ChildOf>().id();
+
+        queue.apply(&mut world);
+
+        let children = world.get::<Children>(parent_id).unwrap();
+        assert_eq!(children.collection().len(), 1);
+
+        let child_id = children.collection()[0];
+        let child_relationship = world.get::<ChildOf>(child_id).unwrap();
+        assert_eq!(child_relationship.0, parent_id);
     }
 }
