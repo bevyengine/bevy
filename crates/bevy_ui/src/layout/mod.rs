@@ -96,7 +96,6 @@ pub fn ui_layout_system(
     mut removed_content_sizes: RemovedComponents<ContentSize>,
     mut removed_nodes: RemovedComponents<Node>,
 ) {
-    let _ = added_node_query;
     // When a `ContentSize` component is removed from an entity, we need to remove the measure from the corresponding taffy node.
     for entity in removed_content_sizes.read() {
         ui_surface.try_remove_node_context(entity);
@@ -140,12 +139,11 @@ pub fn ui_layout_system(
             added_node_query: &Query<(), Added<Node>>,
             entity: Entity,
         ) {
-            if ui_surface.entity_to_taffy.contains_key(&entity)
-                && (added_node_query.contains(entity)
-                    || ui_children.is_changed(entity)
-                    || ui_children
-                        .iter_ui_children(entity)
-                        .any(|child| added_node_query.contains(child)))
+            if added_node_query.contains(entity)
+                || ui_children.is_changed(entity)
+                || ui_children
+                    .iter_ui_children(entity)
+                    .any(|child| added_node_query.contains(child))
             {
                 ui_surface.update_children(entity, ui_children.iter_ui_children(entity));
             }
