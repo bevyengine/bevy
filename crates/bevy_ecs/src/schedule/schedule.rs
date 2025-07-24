@@ -1491,9 +1491,9 @@ impl ScheduleGraph {
             (LogLevel::Warn, true) => Ok(Some(ScheduleBuildWarning::HierarchyRedundancy(
                 transitive_edges.to_vec(),
             ))),
-            (LogLevel::Error, true) => Err(ScheduleBuildError::HierarchyRedundancy(
-                transitive_edges.to_vec(),
-            )),
+            (LogLevel::Error, true) => {
+                Err(ScheduleBuildWarning::HierarchyRedundancy(transitive_edges.to_vec()).into())
+            }
             _ => Ok(None),
         }
     }
@@ -1635,7 +1635,9 @@ impl ScheduleGraph {
     ) -> Result<Option<ScheduleBuildWarning>, ScheduleBuildError> {
         match (self.settings.ambiguity_detection, !conflicts.is_empty()) {
             (LogLevel::Warn, true) => Ok(Some(ScheduleBuildWarning::Ambiguity(conflicts.to_vec()))),
-            (LogLevel::Error, true) => Err(ScheduleBuildError::Ambiguity(conflicts.to_vec())),
+            (LogLevel::Error, true) => {
+                Err(ScheduleBuildWarning::Ambiguity(conflicts.to_vec()).into())
+            }
             _ => Ok(None),
         }
     }
@@ -1701,13 +1703,14 @@ pub enum LogLevel {
 #[derive(Clone, Debug)]
 pub struct ScheduleBuildSettings {
     /// Determines whether the presence of ambiguities (systems with conflicting access but indeterminate order)
-    /// is only logged or also results in an [`Ambiguity`](ScheduleBuildError::Ambiguity) error.
+    /// is only logged or also results in an [`Ambiguity`](ScheduleBuildWarning::Ambiguity)
+    /// warning or error.
     ///
     /// Defaults to [`LogLevel::Ignore`].
     pub ambiguity_detection: LogLevel,
     /// Determines whether the presence of redundant edges in the hierarchy of system sets is only
-    /// logged or also results in a [`HierarchyRedundancy`](ScheduleBuildError::HierarchyRedundancy)
-    /// error.
+    /// logged or also results in a [`HierarchyRedundancy`](ScheduleBuildWarning::HierarchyRedundancy)
+    /// warning or error.
     ///
     /// Defaults to [`LogLevel::Warn`].
     pub hierarchy_detection: LogLevel,

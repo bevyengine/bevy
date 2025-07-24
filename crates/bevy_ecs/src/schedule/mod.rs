@@ -702,7 +702,9 @@ mod tests {
             let result = schedule.initialize(&mut world);
             assert!(matches!(
                 result,
-                Err(ScheduleBuildError::HierarchyRedundancy(_))
+                Err(ScheduleBuildError::Elevated(
+                    ScheduleBuildWarning::HierarchyRedundancy(_)
+                ))
             ));
         }
 
@@ -764,7 +766,12 @@ mod tests {
 
             schedule.add_systems((res_ref, res_mut));
             let result = schedule.initialize(&mut world);
-            assert!(matches!(result, Err(ScheduleBuildError::Ambiguity(_))));
+            assert!(matches!(
+                result,
+                Err(ScheduleBuildError::Elevated(
+                    ScheduleBuildWarning::Ambiguity(_)
+                ))
+            ));
         }
     }
 

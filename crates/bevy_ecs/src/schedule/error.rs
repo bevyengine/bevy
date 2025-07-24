@@ -19,17 +19,6 @@ pub enum ScheduleBuildError {
     /// The hierarchy of system sets contains a cycle.
     #[error("The hierarchy of system sets contains a cycle: {0:?}")]
     HierarchyCycle(Vec<Vec<NodeId>>),
-    /// The hierarchy of system sets contains redundant edges.
-    ///
-    /// This error defaults to a warning, but can be upgraded to an error
-    /// by setting [`ScheduleBuildSettings::hierarchy_detection`] to [`LogLevel::Error`].
-    ///
-    /// See [`ScheduleBuildWarning::HierarchyRedundancy`] for its warning variant.
-    ///
-    /// [`ScheduleBuildSettings::hierarchy_detection`]: crate::schedule::ScheduleBuildSettings::hierarchy_detection
-    /// [`LogLevel::Error`]: crate::schedule::LogLevel::Error
-    #[error("The hierarchy of system sets contains redundant edges: {0:?}")]
-    HierarchyRedundancy(Vec<(NodeId, NodeId)>),
     /// A system (set) has been told to run before itself.
     #[error("`{0:?}` has been told to run before itself.")]
     DependencyLoop(NodeId),
@@ -45,20 +34,12 @@ pub enum ScheduleBuildError {
     /// Tried to order a system (set) relative to all instances of some system function.
     #[error("Tried to order against `{0:?}` in a schedule that has more than one `{0:?}` instance. `{0:?}` is a `SystemTypeSet` and cannot be used for ordering if ambiguous. Use a different set without this restriction.")]
     SystemTypeSetAmbiguity(SystemSetKey),
-    /// Systems with conflicting access have indeterminate run order.
-    ///
-    /// This error is disabled by default, but can be enabled by setting
-    /// [`ScheduleBuildSettings::ambiguity_detection`] to [`LogLevel::Error`].
-    ///
-    /// See [`ScheduleBuildWarning::Ambiguity`] for its warning variant.
-    ///
-    /// [`ScheduleBuildSettings::ambiguity_detection`]: crate::schedule::ScheduleBuildSettings
-    /// [`LogLevel::Error`]: crate::schedule::LogLevel::Error
-    #[error("Systems with conflicting access have indeterminate run order: {0:?}")]
-    Ambiguity(Vec<(SystemKey, SystemKey, Vec<ComponentId>)>),
     /// Tried to run a schedule before all of its systems have been initialized.
     #[error("Tried to run a schedule before all of its systems have been initialized.")]
     Uninitialized,
+    /// A warning that was elevated to an error.
+    #[error(transparent)]
+    Elevated(#[from] ScheduleBuildWarning),
 }
 
 /// Category of warnings encountered during [`Schedule::initialize`](crate::schedule::Schedule::initialize).
@@ -67,7 +48,7 @@ pub enum ScheduleBuildError {
 pub enum ScheduleBuildWarning {
     /// The hierarchy of system sets contains redundant edges.
     ///
-    /// This warning is enabled by default, but can be disabled by setting
+    /// This warning is **enabled** by default, but can be disabled by setting
     /// [`ScheduleBuildSettings::hierarchy_detection`] to [`LogLevel::Ignore`]
     /// or upgraded to a [`ScheduleBuildError`] by setting it to [`LogLevel::Error`].
     ///
@@ -78,7 +59,7 @@ pub enum ScheduleBuildWarning {
     HierarchyRedundancy(Vec<(NodeId, NodeId)>),
     /// Systems with conflicting access have indeterminate run order.
     ///
-    /// This warning is disabled by default, but can be enabled by setting
+    /// This warning is **disabled** by default, but can be enabled by setting
     /// [`ScheduleBuildSettings::ambiguity_detection`] to [`LogLevel::Warn`]
     /// or upgraded to a [`ScheduleBuildError`] by setting it to [`LogLevel::Error`].
     ///
@@ -108,9 +89,6 @@ impl ScheduleBuildError {
             ScheduleBuildError::HierarchyCycle(cycles) => {
                 Self::hierarchy_cycle_to_string(cycles, graph)
             }
-            ScheduleBuildError::HierarchyRedundancy(transitive_edges) => {
-                Self::hierarchy_redundancy_to_string(transitive_edges, graph)
-            }
             ScheduleBuildError::DependencyLoop(node_id) => {
                 Self::dependency_loop_to_string(node_id, graph)
             }
@@ -126,10 +104,8 @@ impl ScheduleBuildError {
             ScheduleBuildError::SystemTypeSetAmbiguity(set) => {
                 Self::system_type_set_ambiguity_to_string(set, graph)
             }
-            ScheduleBuildError::Ambiguity(ambiguities) => {
-                Self::ambiguity_to_string(ambiguities, graph, world.components())
-            }
             ScheduleBuildError::Uninitialized => Self::uninitialized_to_string(),
+            ScheduleBuildError::Elevated(e) => e.to_string(graph, world),
         }
     }
 
