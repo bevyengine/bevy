@@ -6,6 +6,7 @@ mod dim2;
 pub use dim2::*;
 mod dim3;
 pub use dim3::*;
+use glam::{Vec2, Vec3};
 mod polygon;
 #[cfg(feature = "serialize")]
 mod serde;
@@ -47,4 +48,30 @@ pub trait Measured3d {
 
     /// Get the volume of the shape
     fn volume(&self) -> f32;
+}
+
+/// A trait for uniformly scaling shapes
+pub trait ScaleUniform {
+    /// Scale this primitive by the provided factor.
+    fn scale_uniform(&self, scale: f32) -> Self;
+}
+
+/// A trait for scaling 2D shapes non-uniformly
+pub trait ScaleNonUniform2d: ScaleUniform {
+    /// The type of the scaled primitive.
+    /// Most shapes will be the same when scaled but i.e. a [`Circle`] may become an [`Ellipse`] when scaled.
+    type Output;
+
+    /// Scale the primitive along the X- and Y-axis
+    fn scale(&self, scale: Vec2) -> Self::Output;
+}
+
+/// A trait for scaling 3D shapes non-uniformly
+pub trait ScaleNonUniform3d: ScaleUniform {
+    /// The type of the scaled primitive.
+    /// Most shapes will be the same when scaled but i.e. a [`Sphere`] may become an `Ellipsoid` when scaled.
+    type Output;
+
+    /// Scale the primitive along the X-, Y- and Z-axis
+    fn scale(&self, scale: Vec3) -> Self::Output;
 }
