@@ -19,7 +19,7 @@ This entity is inserted and removed alongside resources and doesn't do anything 
 This changes `World::entities().len()` as there are more entities than you might expect there to be.
 For example, a new world, no longer contains zero entities.
 This is mostly important for unit tests.
-If there is any place you are currently using `world.entities().len()`, we recommened you instead use a query `world.query<RelevantComponent>().query(&world).count()`.
+If there is any place you are currently using `world.entities().len()`, we recommend you instead use a query `world.query<RelevantComponent>().query(&world).count()`.
 
 Meanwhile, resource entities are also tagged with `IsResource` and `Internal` marker components.
 For more information, checkout the migration guide for internal entities.
