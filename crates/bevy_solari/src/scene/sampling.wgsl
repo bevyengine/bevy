@@ -3,7 +3,15 @@
 #import bevy_pbr::lighting::D_GGX
 #import bevy_pbr::utils::{rand_f, rand_vec2f, rand_u, rand_range_u}
 #import bevy_render::maths::{PI_2, orthonormalize}
-#import bevy_solari::scene_bindings::{trace_ray, RAY_T_MIN, RAY_T_MAX, light_sources, directional_lights, LightSource, LIGHT_SOURCE_KIND_DIRECTIONAL, resolve_triangle_data_full}
+#import bevy_solari::scene_bindings::{trace_ray, RAY_T_MIN, RAY_T_MAX, light_sources, directional_lights, LightSource, LIGHT_SOURCE_KIND_DIRECTIONAL, resolve_triangle_data_full, ResolvedRayHitFull}
+
+fn power_heuristic(f: f32, g: f32) -> f32 {
+    return f * f / (f * f + g * g);
+}
+
+fn balance_heuristic(f: f32, g: f32) -> f32 {
+    return f / (f + g);
+}
 
 // https://gpuopen.com/download/Bounded_VNDF_Sampling_for_Smith-GGX_Reflections.pdf (Listing 1)
 fn sample_ggx_vndf(wi_tangent: vec3<f32>, roughness: f32, rng: ptr<function, u32>) -> vec3<f32> {
@@ -78,6 +86,12 @@ fn sample_random_light(ray_origin: vec3<f32>, origin_world_normal: vec3<f32>, rn
     var light_contribution = calculate_resolved_light_contribution(sample.resolved_light_sample, ray_origin, origin_world_normal);
     light_contribution.radiance *= trace_light_visibility(ray_origin, sample.resolved_light_sample.world_position);
     return light_contribution;
+}
+
+fn random_light_pdf(hit: ResolvedRayHitFull) -> f32 {
+    let light_count = arrayLength(&light_sources);
+    let p_light = 1.0 / f32(light_count);
+    return p_light / (hit.triangle_area * f32(hit.triangle_count));
 }
 
 fn generate_random_light_sample(rng: ptr<function, u32>) -> GenerateRandomLightSampleResult {
