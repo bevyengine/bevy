@@ -22,7 +22,7 @@ use bevy_reflect::prelude::*;
 /// ```
 ///
 /// [`LightPlugin`]: crate::LightPlugin
-#[derive(Resource, Component, Clone, Debug, Reflect)]
+#[derive(Resource, Clone, Debug, Reflect)]
 #[reflect(Resource, Component, Debug, Default, Clone)]
 #[require(Camera)]
 pub struct AmbientLight {

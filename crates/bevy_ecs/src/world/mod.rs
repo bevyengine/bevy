@@ -3744,7 +3744,7 @@ mod tests {
         Drop(ID),
     }
 
-    #[derive(Resource, Component)]
+    #[derive(Resource)]
     struct MayPanicInDrop {
         drop_log: Arc<Mutex<Vec<DropLogItem>>>,
         expected_panic_flag: Arc<AtomicBool>,

@@ -432,17 +432,17 @@ mod tests {
         No,
     }
 
-    #[derive(Component, Resource, Debug, Eq, PartialEq, Default)]
+    #[derive(Resource, Debug, Eq, PartialEq, Default)]
     struct A;
-    #[derive(Component, Resource)]
+    #[derive(Resource)]
     struct B;
-    #[derive(Component, Resource)]
+    #[derive(Resource)]
     struct C;
-    #[derive(Component, Resource)]
+    #[derive(Resource)]
     struct D;
-    #[derive(Component, Resource)]
+    #[derive(Resource)]
     struct E;
-    #[derive(Component, Resource)]
+    #[derive(Resource)]
     struct F;
 
     #[derive(Component, Debug)]

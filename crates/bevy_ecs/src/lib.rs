@@ -183,7 +183,7 @@ mod tests {
     };
     use std::sync::Mutex;
 
-    #[derive(Component, Resource, Debug, PartialEq, Eq, Hash, Clone, Copy)]
+    #[derive(Resource, Debug, PartialEq, Eq, Hash, Clone, Copy)]
     struct A(usize);
     #[derive(Component, Debug, PartialEq, Eq, Hash, Clone, Copy)]
     struct B(usize);
