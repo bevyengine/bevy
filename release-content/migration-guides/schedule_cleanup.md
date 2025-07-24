@@ -37,6 +37,11 @@ take or return `SystemKey` or `SystemSetKey`. Wrap/unwrap them as necessary.
 - `ScheduleGraph::system_at`: Use `ScheduleGraph::systems` and `Systems::index` (`systems[key]`).
 - `ScheduleGraph::systems`: Use `ScheduleGraph::systems` and `Systems::iter`.
 
+The following enum variants were replaced:
+
+- `ScheduleBuildError::HierarchyRedundancy` with `ScheduleBuildError::Elevated(ScheduleBuildWarning::HierarchyRedundancy)`
+- `ScheduleBuildError::Ambiguity` with `ScheduleBuildError::Elevated(ScheduleBuildWarning::Ambiguity)`
+
 The following functions were removed:
 
 - `NodeId::index`: You should match on and use the `SystemKey` and `SystemSetKey` instead.
