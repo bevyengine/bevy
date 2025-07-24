@@ -1387,7 +1387,7 @@ mod tests {
         let mut world = World::new();
         world.init_resource::<Order>();
         let entities = world
-            .spawn_batch(std::iter::repeat_n((), 4))
+            .spawn_batch(core::iter::repeat_n((), 4))
             .collect::<Vec<_>>();
         let observer = Observer::new(|_: On<EventA>, mut order: ResMut<Order>| {
             order.observed("a");
