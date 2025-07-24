@@ -1381,4 +1381,22 @@ mod tests {
         assert_eq!(4, *counter.0.get(&a_id).unwrap());
         assert_eq!(3, *counter.0.get(&b_id).unwrap());
     }
+
+    #[test]
+    fn observer_watch_entities() {
+        let mut world = World::new();
+        world.init_resource::<Order>();
+        let entities = world
+            .spawn_batch(std::iter::repeat_n((), 4))
+            .collect::<Vec<_>>();
+        let observer = Observer::new(|_: On<EventA>, mut order: ResMut<Order>| {
+            order.observed("a");
+        });
+        world.spawn(observer.with_entities(entities.iter().copied().take(2)));
+
+        world.trigger_targets(EventA, [entities[0], entities[1]]);
+        assert_eq!(vec!["a", "a"], world.resource::<Order>().0);
+        world.trigger_targets(EventA, [entities[2], entities[3]]);
+        assert_eq!(vec!["a", "a"], world.resource::<Order>().0);
+    }
 }
