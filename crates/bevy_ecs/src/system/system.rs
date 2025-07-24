@@ -8,7 +8,7 @@ use core::fmt::{Debug, Display};
 use log::warn;
 
 use crate::{
-    component::{CheckChangeTicks, ComponentId, Tick},
+    component::{CheckChangeTicks, Tick},
     error::BevyError,
     query::FilteredAccessSet,
     schedule::InternedSystemSet,
@@ -181,7 +181,7 @@ pub trait System: Send + Sync + 'static {
     /// Initialize the system.
     ///
     /// Returns a [`FilteredAccessSet`] with the access required to run the system.
-    fn initialize(&mut self, _world: &mut World) -> FilteredAccessSet<ComponentId>;
+    fn initialize(&mut self, _world: &mut World) -> FilteredAccessSet;
 
     /// Checks any [`Tick`]s stored on this system and wraps their value if they get too old.
     ///
