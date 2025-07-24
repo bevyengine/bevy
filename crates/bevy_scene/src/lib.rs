@@ -121,7 +121,10 @@ mod tests {
     use bevy_asset::{AssetPlugin, Assets};
     use bevy_ecs::{
         component::Component,
+        entity::Entity,
+        entity_disabling::Internal,
         hierarchy::{ChildOf, Children},
+        query::Allows,
         reflect::{AppTypeRegistry, ReflectComponent},
         world::World,
     };
@@ -302,8 +305,13 @@ mod tests {
             scene
                 .world
                 .insert_resource(world.resource::<AppTypeRegistry>().clone());
+            let entities: Vec<Entity> = scene
+                .world
+                .query_filtered::<Entity, Allows<Internal>>()
+                .iter(&scene.world)
+                .collect();
             DynamicSceneBuilder::from_world(&scene.world)
-                .extract_entities(scene.world.iter_entities().map(|entity| entity.id()))
+                .extract_entities(entities.into_iter())
                 .build()
         };
 
