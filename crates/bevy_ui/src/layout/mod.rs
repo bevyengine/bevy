@@ -139,11 +139,12 @@ pub fn ui_layout_system(
             added_node_query: &Query<(), Added<Node>>,
             entity: Entity,
         ) {
-            if added_node_query.contains(entity)
-                || ui_children.is_changed(entity)
-                || ui_children
-                    .iter_ui_children(entity)
-                    .any(|child| added_node_query.contains(child))
+            if ui_surface.entity_to_taffy.contains_key(&entity)
+                && (added_node_query.contains(entity)
+                    || ui_children.is_changed(entity)
+                    || ui_children
+                        .iter_ui_children(entity)
+                        .any(|child| added_node_query.contains(child)))
             {
                 ui_surface.update_children(entity, ui_children.iter_ui_children(entity));
             }
