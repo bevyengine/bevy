@@ -99,6 +99,11 @@ pub fn derive_buffered_event(input: TokenStream) -> TokenStream {
 }
 
 pub fn derive_resource(input: TokenStream) -> TokenStream {
+    // The resource derive *also* implements the Component trait
+    // We generate the Component implementation first, then add the Resource implementation,
+    // so then we can pick up all of the attributes from the Component derive
+    let component_derive_token_stream = derive_component(input.clone());
+
     let mut ast = parse_macro_input!(input as DeriveInput);
     let bevy_ecs_path: Path = crate::bevy_ecs_path();
 
@@ -110,10 +115,15 @@ pub fn derive_resource(input: TokenStream) -> TokenStream {
     let struct_name = &ast.ident;
     let (impl_generics, type_generics, where_clause) = &ast.generics.split_for_impl();
 
-    TokenStream::from(quote! {
+    let resource_impl_token_stream = TokenStream::from(quote! {
         impl #impl_generics #bevy_ecs_path::resource::Resource for #struct_name #type_generics #where_clause {
         }
-    })
+    });
+
+    resource_impl_token_stream
+        .into_iter()
+        .chain(component_derive_token_stream.into_iter())
+        .collect()
 }
 
 /// Component derive syntax is documented on both the macro and the trait.
