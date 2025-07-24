@@ -1,8 +1,11 @@
 //! Light probes for baked global illumination.
 
-use bevy_app::{App, Plugin};
-use bevy_asset::AssetId;
-use bevy_core_pipeline::core_3d::Camera3d;
+use bevy_app::{App, Plugin, Update};
+use bevy_asset::{embedded_asset, AssetId};
+use bevy_core_pipeline::core_3d::{
+    graph::{Core3d, Node3d},
+    Camera3d,
+};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     component::Component,
@@ -13,7 +16,7 @@ use bevy_ecs::{
     system::{Commands, Local, Query, Res, ResMut},
 };
 use bevy_image::Image;
-use bevy_light::{EnvironmentMapLight, LightProbe};
+use bevy_light::{EnvironmentMapLight, GeneratedEnvironmentMapLight, LightProbe};
 use bevy_math::{Affine3A, FloatOrd, Mat4, Vec3A, Vec4};
 use bevy_platform::collections::HashMap;
 use bevy_render::{
@@ -21,24 +24,36 @@ use bevy_render::{
     load_shader_library,
     primitives::{Aabb, Frustum},
     render_asset::RenderAssets,
+    render_graph::RenderGraphExt,
     render_resource::{DynamicUniformBuffer, Sampler, ShaderType, TextureView},
     renderer::{RenderAdapter, RenderDevice, RenderQueue},
     settings::WgpuFeatures,
+    sync_component::SyncComponentPlugin,
     sync_world::RenderEntity,
     texture::{FallbackImage, GpuImage},
     view::ExtractedView,
-    Extract, ExtractSchedule, Render, RenderApp, RenderSystems,
+    Extract, ExtractSchedule, Render, RenderApp, RenderStartup, RenderSystems,
 };
 use bevy_transform::{components::Transform, prelude::GlobalTransform};
 use tracing::error;
 
 use core::{hash::Hash, ops::Deref};
 
-use crate::light_probe::environment_map::EnvironmentMapIds;
+use crate::{
+    generate::{
+        extract_generated_environment_map_entities, generate_environment_map_light,
+        initialize_generated_environment_map_resources,
+        prepare_generated_environment_map_bind_groups,
+        prepare_generated_environment_map_intermediate_textures, DownsamplingNode, FilteringNode,
+        GeneratorNode,
+    },
+    light_probe::environment_map::EnvironmentMapIds,
+};
 
 use self::irradiance_volume::IrradianceVolume;
 
 pub mod environment_map;
+pub mod generate;
 pub mod irradiance_volume;
 
 /// The maximum number of each type of light probe that each view will consider.
@@ -288,7 +303,13 @@ impl Plugin for LightProbePlugin {
         load_shader_library!(app, "environment_map.wgsl");
         load_shader_library!(app, "irradiance_volume.wgsl");
 
-        app.add_plugins(ExtractInstancesPlugin::<EnvironmentMapIds>::new());
+        embedded_asset!(app, "environment_filter.wgsl");
+        embedded_asset!(app, "downsample.wgsl");
+        embedded_asset!(app, "copy.wgsl");
+
+        app.add_plugins(ExtractInstancesPlugin::<EnvironmentMapIds>::new())
+            .add_plugins(SyncComponentPlugin::<GeneratedEnvironmentMapLight>::default())
+            .add_systems(Update, generate_environment_map_light);
 
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
@@ -297,13 +318,41 @@ impl Plugin for LightProbePlugin {
         render_app
             .init_resource::<LightProbesBuffer>()
             .init_resource::<EnvironmentMapUniformBuffer>()
+            .add_render_graph_node::<DownsamplingNode>(Core3d, GeneratorNode::Downsampling)
+            .add_render_graph_node::<FilteringNode>(Core3d, GeneratorNode::Filtering)
+            .add_render_graph_edges(
+                Core3d,
+                (
+                    Node3d::EndPrepasses,
+                    GeneratorNode::Downsampling,
+                    GeneratorNode::Filtering,
+                    Node3d::StartMainPass,
+                ),
+            )
             .add_systems(ExtractSchedule, gather_environment_map_uniform)
             .add_systems(ExtractSchedule, gather_light_probes::<EnvironmentMapLight>)
             .add_systems(ExtractSchedule, gather_light_probes::<IrradianceVolume>)
             .add_systems(
+                ExtractSchedule,
+                extract_generated_environment_map_entities.after(generate_environment_map_light),
+            )
+            .add_systems(
                 Render,
-                (upload_light_probes, prepare_environment_uniform_buffer)
+                prepare_generated_environment_map_bind_groups
+                    .in_set(RenderSystems::PrepareBindGroups),
+            )
+            .add_systems(
+                Render,
+                (
+                    upload_light_probes,
+                    prepare_environment_uniform_buffer,
+                    prepare_generated_environment_map_intermediate_textures,
+                )
                     .in_set(RenderSystems::PrepareResources),
+            )
+            .add_systems(
+                RenderStartup,
+                initialize_generated_environment_map_resources,
             );
     }
 }
