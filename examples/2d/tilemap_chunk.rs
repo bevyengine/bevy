@@ -2,7 +2,7 @@
 
 use bevy::{
     prelude::*,
-    sprite::{TilemapChunk, TilemapChunkIndices},
+    sprite::{TileData, TilemapChunk, TilemapChunkTileData},
 };
 use rand::{Rng, SeedableRng};
 use rand_chacha::ChaCha8Rng;
@@ -28,9 +28,15 @@ fn setup(mut commands: Commands, assets: Res<AssetServer>) {
 
     let chunk_size = UVec2::splat(64);
     let tile_display_size = UVec2::splat(8);
-    let indices: Vec<Option<u16>> = (0..chunk_size.element_product())
+    let tile_data: Vec<Option<TileData>> = (0..chunk_size.element_product())
         .map(|_| rng.gen_range(0..5))
-        .map(|i| if i == 0 { None } else { Some(i - 1) })
+        .map(|i| {
+            if i == 0 {
+                None
+            } else {
+                Some(TileData::from_tileset_index(i - 1))
+            }
+        })
         .collect();
 
     commands.spawn((
@@ -40,7 +46,7 @@ fn setup(mut commands: Commands, assets: Res<AssetServer>) {
             tileset: assets.load("textures/array_texture.png"),
             ..default()
         },
-        TilemapChunkIndices(indices),
+        TilemapChunkTileData(tile_data),
         UpdateTimer(Timer::from_seconds(0.1, TimerMode::Repeating)),
     ));
 
@@ -65,16 +71,16 @@ fn update_tileset_image(
 
 fn update_tilemap(
     time: Res<Time>,
-    mut query: Query<(&mut TilemapChunkIndices, &mut UpdateTimer)>,
+    mut query: Query<(&mut TilemapChunkTileData, &mut UpdateTimer)>,
     mut rng: ResMut<SeededRng>,
 ) {
-    for (mut indices, mut timer) in query.iter_mut() {
+    for (mut tile_data, mut timer) in query.iter_mut() {
         timer.tick(time.delta());
 
         if timer.just_finished() {
             for _ in 0..50 {
-                let index = rng.gen_range(0..indices.len());
-                indices[index] = Some(rng.gen_range(0..5));
+                let index = rng.gen_range(0..tile_data.len());
+                tile_data[index] = Some(TileData::from_tileset_index(rng.gen_range(0..5)));
             }
         }
     }

@@ -10,7 +10,7 @@ use bevy_ecs::{
     hierarchy::{ChildOf, Children},
     lifecycle::RemovedComponents,
     query::With,
-    system::{Commands, Query, ResMut},
+    system::{Query, ResMut},
     world::Ref,
 };
 
@@ -71,7 +71,6 @@ pub enum LayoutError {
 
 /// Updates the UI's layout tree, computes the new layout geometry and then updates the sizes and transforms of all the UI nodes.
 pub fn ui_layout_system(
-    mut commands: Commands,
     mut ui_surface: ResMut<UiSurface>,
     ui_root_node_query: UiRootNodes,
     mut node_query: Query<(
@@ -80,7 +79,7 @@ pub fn ui_layout_system(
         Option<&mut ContentSize>,
         Ref<ComputedNodeTarget>,
     )>,
-    computed_node_query: Query<(Entity, Option<Ref<ChildOf>>), With<ComputedNode>>,
+    computed_node_query: Query<(Entity, Ref<Node>, Option<Ref<ChildOf>>), With<ComputedNode>>,
     ui_children: UiChildren,
     mut node_update_query: Query<(
         &mut ComputedNode,
@@ -129,7 +128,7 @@ pub fn ui_layout_system(
 
     computed_node_query
         .iter()
-        .for_each(|(entity, maybe_child_of)| {
+        .for_each(|(entity, node, maybe_child_of)| {
             if let Some(child_of) = maybe_child_of {
                 // Note: This does not cover the case where a parent's Node component was removed.
                 // Users are responsible for fixing hierarchies if they do that (it is not recommended).
@@ -142,7 +141,7 @@ with UI components as a child of an entity without UI components, your UI layout
                 }
             }
 
-            if ui_children.is_changed(entity) {
+            if node.is_added() || ui_children.is_changed(entity) {
                 ui_surface.update_children(entity, ui_children.iter_ui_children(entity));
             }
         });
@@ -155,8 +154,8 @@ with UI components as a child of an entity without UI components, your UI layout
     );
 
     // Re-sync changed children: avoid layout glitches caused by removed nodes that are still set as a child of another node
-    computed_node_query.iter().for_each(|(entity, _)| {
-        if ui_children.is_changed(entity) {
+    computed_node_query.iter().for_each(|(entity, node, _)| {
+        if node.is_added() || ui_children.is_changed(entity) {
             ui_surface.update_children(entity, ui_children.iter_ui_children(entity));
         }
     });
@@ -172,7 +171,6 @@ with UI components as a child of an entity without UI components, your UI layout
         );
 
         update_uinode_geometry_recursive(
-            &mut commands,
             ui_root_entity,
             &mut ui_surface,
             true,
@@ -188,7 +186,6 @@ with UI components as a child of an entity without UI components, your UI layout
 
     // Returns the combined bounding box of the node and any of its overflowing children.
     fn update_uinode_geometry_recursive(
-        commands: &mut Commands,
         entity: Entity,
         ui_surface: &mut UiSurface,
         inherited_use_rounding: bool,
@@ -307,16 +304,19 @@ with UI components as a child of an entity without UI components, your UI layout
                     .max(0.);
             }
 
+            node.bypass_change_detection().scrollbar_size =
+                Vec2::new(layout.scrollbar_size.width, layout.scrollbar_size.height);
+
             let scroll_position: Vec2 = maybe_scroll_position
                 .map(|scroll_pos| {
                     Vec2::new(
                         if style.overflow.x == OverflowAxis::Scroll {
-                            scroll_pos.x
+                            scroll_pos.x * inverse_target_scale_factor.recip()
                         } else {
                             0.0
                         },
                         if style.overflow.y == OverflowAxis::Scroll {
-                            scroll_pos.y
+                            scroll_pos.y * inverse_target_scale_factor.recip()
                         } else {
                             0.0
                         },
@@ -324,24 +324,16 @@ with UI components as a child of an entity without UI components, your UI layout
                 })
                 .unwrap_or_default();
 
-            let max_possible_offset = (content_size - layout_size).max(Vec2::ZERO);
-            let clamped_scroll_position = scroll_position.clamp(
-                Vec2::ZERO,
-                max_possible_offset * inverse_target_scale_factor,
-            );
+            let max_possible_offset =
+                (content_size - layout_size + node.scrollbar_size).max(Vec2::ZERO);
+            let clamped_scroll_position = scroll_position.clamp(Vec2::ZERO, max_possible_offset);
 
-            if clamped_scroll_position != scroll_position {
-                commands
-                    .entity(entity)
-                    .insert(ScrollPosition(clamped_scroll_position));
-            }
+            let physical_scroll_position = clamped_scroll_position.floor();
 
-            let physical_scroll_position =
-                (clamped_scroll_position / inverse_target_scale_factor).round();
+            node.bypass_change_detection().scroll_position = physical_scroll_position;
 
             for child_uinode in ui_children.iter_ui_children(entity) {
                 update_uinode_geometry_recursive(
-                    commands,
                     child_uinode,
                     ui_surface,
                     use_rounding,
@@ -655,6 +647,27 @@ mod tests {
         let ui_surface = world.resource::<UiSurface>();
         assert!(ui_surface.entity_to_taffy.contains_key(&ui_entity));
         assert_eq!(ui_surface.entity_to_taffy.len(), 1);
+    }
+
+    #[test]
+    fn node_addition_should_sync_children() {
+        let (mut world, mut ui_schedule) = setup_ui_test_world();
+
+        // spawn an invalid UI root node
+        let root_node = world.spawn(()).with_child(Node::default()).id();
+
+        ui_schedule.run(&mut world);
+
+        // fix the invalid root node by inserting a Node
+        world.entity_mut(root_node).insert(Node::default());
+
+        ui_schedule.run(&mut world);
+
+        let ui_surface = world.resource_mut::<UiSurface>();
+        let taffy_root = ui_surface.entity_to_taffy[&root_node];
+
+        // There should be one child of the root node after fixing it
+        assert_eq!(ui_surface.taffy.child_count(taffy_root.id), 1);
     }
 
     /// regression test for >=0.13.1 root node layouts

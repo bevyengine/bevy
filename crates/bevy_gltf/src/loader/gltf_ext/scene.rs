@@ -45,7 +45,7 @@ pub(crate) fn node_transform(node: &Node, convert_coordinates: bool) -> Transfor
         },
     };
     if convert_coordinates {
-        if node.camera().is_some() {
+        if node.camera().is_some() || node.light().is_some() {
             transform.convert_camera_coordinates()
         } else {
             transform.convert_coordinates()

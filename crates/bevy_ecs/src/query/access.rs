@@ -165,6 +165,32 @@ impl<T: SparseSetIndex> Access<T> {
         }
     }
 
+    /// Creates an [`Access`] with read access to all components.
+    /// This is equivalent to calling `read_all()` on `Access::new()`,
+    /// but is available in a `const` context.
+    pub(crate) const fn new_read_all() -> Self {
+        let mut access = Self::new();
+        access.reads_all_resources = true;
+        // Note that we cannot use `read_all_components()`
+        // because `FixedBitSet::clear()` is not `const`.
+        access.component_read_and_writes_inverted = true;
+        access
+    }
+
+    /// Creates an [`Access`] with read access to all components.
+    /// This is equivalent to calling `read_all()` on `Access::new()`,
+    /// but is available in a `const` context.
+    pub(crate) const fn new_write_all() -> Self {
+        let mut access = Self::new();
+        access.reads_all_resources = true;
+        access.writes_all_resources = true;
+        // Note that we cannot use `write_all_components()`
+        // because `FixedBitSet::clear()` is not `const`.
+        access.component_read_and_writes_inverted = true;
+        access.component_writes_inverted = true;
+        access
+    }
+
     fn add_component_sparse_set_index_read(&mut self, index: usize) {
         if !self.component_read_and_writes_inverted {
             self.component_read_and_writes.grow_and_insert(index);
@@ -1225,10 +1251,11 @@ impl<T: SparseSetIndex> FilteredAccess<T> {
             .flat_map(|f| f.without.ones().map(T::get_sparse_set_index))
     }
 
-    /// Returns true if the index is used by this `FilteredAccess` in any way
+    /// Returns true if the index is used by this `FilteredAccess` in filters or archetypal access.
+    /// This includes most ways to access a component, but notably excludes `EntityRef` and `EntityMut`
+    /// along with anything inside `Option<T>`.
     pub fn contains(&self, index: T) -> bool {
-        self.access().has_component_read(index.clone())
-            || self.access().has_archetypal(index.clone())
+        self.access().has_archetypal(index.clone())
             || self.filter_sets.iter().any(|f| {
                 f.with.contains(index.sparse_set_index())
                     || f.without.contains(index.sparse_set_index())
