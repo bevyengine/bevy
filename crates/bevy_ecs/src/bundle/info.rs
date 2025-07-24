@@ -72,7 +72,7 @@ pub struct BundleInfo {
     /// must have its storage initialized (i.e. columns created in tables, sparse set created),
     /// and the range (0..`explicit_components_len`) must be in the same order as the source bundle
     /// type writes its components in.
-    pub(super) contributed_components: Vec<ComponentId>,
+    pub(super) contributed_component_ids: Vec<ComponentId>,
 
     /// The list of constructors for all required components indirectly contributed by this bundle.
     pub(super) required_component_constructors: Vec<RequiredComponentConstructor>,
@@ -150,7 +150,7 @@ impl BundleInfo {
         // - is in the same order as the source bundle type
         BundleInfo {
             id,
-            contributed_components: component_ids,
+            contributed_component_ids: component_ids,
             required_component_constructors: required_components,
         }
     }
@@ -164,7 +164,7 @@ impl BundleInfo {
     /// Returns the length of the explicit components part of the [`contributed_components`](Self::contributed_components) list.
     #[inline]
     pub(super) fn explicit_components_len(&self) -> usize {
-        self.contributed_components.len() - self.required_component_constructors.len()
+        self.contributed_component_ids.len() - self.required_component_constructors.len()
     }
 
     /// Returns the [ID](ComponentId) of each component explicitly defined in this bundle (ex: Required Components are excluded).
@@ -172,14 +172,14 @@ impl BundleInfo {
     /// For all components contributed by this bundle (including Required Components), see [`BundleInfo::contributed_components`]
     #[inline]
     pub fn explicit_components(&self) -> &[ComponentId] {
-        &self.contributed_components[0..self.explicit_components_len()]
+        &self.contributed_component_ids[0..self.explicit_components_len()]
     }
 
     /// Returns the [ID](ComponentId) of each Required Component needed by this bundle. This _does not include_ Required Components that are
     /// explicitly provided by the bundle.
     #[inline]
     pub fn required_components(&self) -> &[ComponentId] {
-        &self.contributed_components[self.explicit_components_len()..]
+        &self.contributed_component_ids[self.explicit_components_len()..]
     }
 
     /// Returns the [ID](ComponentId) of each component contributed by this bundle. This includes Required Components.
@@ -187,7 +187,7 @@ impl BundleInfo {
     /// For only components explicitly defined in this bundle, see [`BundleInfo::explicit_components`]
     #[inline]
     pub fn contributed_components(&self) -> &[ComponentId] {
-        &self.contributed_components
+        &self.contributed_component_ids
     }
 
     /// Returns an iterator over the [ID](ComponentId) of each component explicitly defined in this bundle (ex: this excludes Required Components).
@@ -248,7 +248,9 @@ impl BundleInfo {
         // bundle_info.component_ids are also in "bundle order"
         let mut bundle_component = 0;
         let after_effect = bundle.get_components(&mut |storage_type, component_ptr| {
-            let component_id = *self.contributed_components.get_unchecked(bundle_component);
+            let component_id = *self
+                .contributed_component_ids
+                .get_unchecked(bundle_component);
             // SAFETY: bundle_component is a valid index for this bundle
             let status = unsafe { bundle_component_status.get_status(bundle_component) };
             match storage_type {
