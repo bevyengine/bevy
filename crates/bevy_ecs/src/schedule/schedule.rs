@@ -913,6 +913,38 @@ impl ScheduleGraph {
         self.set_systems.get(&system_set_id).cloned()
     }
 
+    /// Remove system from schedule. This will cause the schedule to be rebuilt the next time it is run.
+    /// This also removes and dependencies on that system. Use [`systems_in_set`] to get the [`SystemKey`]
+    /// Returns count of the number of systems removed
+    pub fn remove_systems<M>(&mut self, system_set: impl IntoSystemSet<M>) -> usize {
+        let set = system_set.into_system_set();
+        let interned = set.intern();
+        let Some(keys) = self.systems_in_set(set) else {
+            return 0;
+        };
+        self.changed = true;
+        for &key in &keys {
+            self.systems.remove(key);
+
+            self.hierarchy.graph.remove_node(key.into());
+            self.dependency.graph.remove_node(key.into());
+            self.ambiguous_with.remove_node(key.into());
+            self.ambiguous_with_all.remove(&NodeId::from(key));
+        }
+
+        let Some(set_key) = self.system_sets.get_key(interned) else {
+            return 0;
+        };
+        self.system_sets.remove(set_key);
+        self.set_systems.remove(&set_key);
+        self.hierarchy.graph.remove_node(set_key.into());
+        self.dependency.graph.remove_node(set_key.into());
+        self.ambiguous_with.remove_node(set_key.into());
+        self.ambiguous_with_all.remove(&NodeId::from(set_key));
+
+        keys.len()
+    }
+
     /// Update the internal graphs (hierarchy, dependency, ambiguity) by adding a single [`GraphInfo`]
     fn update_graphs(&mut self, id: NodeId, graph_info: GraphInfo) {
         self.changed = true;
@@ -1365,6 +1397,7 @@ impl ScheduleGraph {
             .zip(schedule.systems.drain(..))
             .zip(schedule.system_conditions.drain(..))
         {
+            // TODO: change this code to just drop the system and conditions if the key doesn't exist
             self.systems.node_mut(key).inner = Some(system);
             *self.systems.get_conditions_mut(key).unwrap() = conditions;
         }
@@ -1374,6 +1407,7 @@ impl ScheduleGraph {
             .drain(..)
             .zip(schedule.set_conditions.drain(..))
         {
+            // TODO: change this code to just drop the system and conditions if the key doesn't exist
             *self.system_sets.get_conditions_mut(key).unwrap() = conditions;
         }
 
@@ -2598,4 +2632,47 @@ mod tests {
         );
         schedule.run(&mut world);
     }
+
+    #[test]
+    fn get_a_system_key() {
+        fn test_system() {}
+
+        let mut schedule = Schedule::default();
+        schedule.add_systems(test_system);
+        let mut world = World::default();
+        let _ = schedule.initialize(&mut world);
+
+        let keys = schedule.graph().systems_in_set(test_system).unwrap();
+        assert_eq!(keys.len(), 1);
+    }
+
+    #[test]
+    fn get_system_keys_in_set() {
+        fn system_1() {}
+        fn system_2() {}
+
+        let mut schedule = Schedule::default();
+        schedule.add_systems((system_1, system_2).in_set(TestSet::First));
+        let mut world = World::default();
+        let _ = schedule.initialize(&mut world);
+
+        let keys = schedule.graph().systems_in_set(TestSet::First).unwrap();
+        assert_eq!(keys.len(), 2);
+    }
+
+    #[test]
+    fn get_system_keys_with_same_name() {
+        fn test_system() {}
+
+        let mut schedule = Schedule::default();
+        schedule.add_systems((test_system, test_system));
+        let mut world = World::default();
+        let _ = schedule.initialize(&mut world);
+
+        let keys = schedule.graph().systems_in_set(test_system).unwrap();
+        assert_eq!(keys.len(), 2);
+    }
+
+    #[test]
+    fn remove_a_system_after_running() {}
 }

@@ -554,6 +554,24 @@ impl Systems {
         key
     }
 
+    pub fn remove(&mut self, key: SystemKey) -> bool {
+        let mut found = false;
+        if self.nodes.remove(key).is_some() {
+            found = true;
+        }
+
+        if self.conditions.remove(key).is_some() {
+            found = true;
+        }
+
+        if let Some(index) = self.uninit.iter().position(|value| *value == key) {
+            self.uninit.remove(index);
+            found = true;
+        }
+
+        found
+    }
+
     /// Returns `true` if all systems in this container have been initialized.
     pub fn is_initialized(&self) -> bool {
         self.uninit.is_empty()
@@ -719,6 +737,15 @@ impl SystemSets {
             current_conditions.extend(new_conditions.into_iter().map(ConditionWithAccess::new));
         }
         key
+    }
+
+    pub fn remove(&mut self, key: SystemSetKey) -> bool {
+        self.sets.remove(key);
+        self.conditions.remove(key);
+        if let Some(index) = self.uninit.iter().position(|uninit| uninit.key == key) {
+            self.uninit.remove(index);
+        }
+        true
     }
 
     /// Returns `true` if all system sets' conditions in this container have
