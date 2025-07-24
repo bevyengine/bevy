@@ -92,6 +92,14 @@ pub enum ScheduleBuildWarning {
 impl ScheduleBuildError {
     /// Renders the error as a human-readable string with node identifiers
     /// replaced with their names.
+    ///
+    /// The given `graph` and `world` are used to resolve the names of the nodes
+    /// and components involved in the error. The same `graph` and `world`
+    /// should be used as those used to [`initialize`] the [`Schedule`]. Failure
+    /// to do so will result in incorrect or incomplete error messages.
+    ///
+    /// [`initialize`]: crate::schedule::Schedule::initialize
+    /// [`Schedule`]: crate::schedule::Schedule
     pub fn to_string(&self, graph: &ScheduleGraph, world: &World) -> String {
         match self {
             ScheduleBuildError::HierarchyLoop(node_id) => {
