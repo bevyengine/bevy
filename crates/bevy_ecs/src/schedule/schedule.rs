@@ -683,6 +683,8 @@ pub struct ScheduleGraph {
     hierarchy: Dag<NodeId>,
     /// Directed acyclic graph of the dependency (which systems/sets have to run before which other systems/sets)
     dependency: Dag<NodeId>,
+    /// Map of systems in each set
+    set_systems: HashMap<SystemSetKey, Vec<SystemKey>>,
     ambiguous_with: UnGraph<NodeId>,
     /// Nodes that are allowed to have ambiguous ordering relationship with any other systems.
     pub ambiguous_with_all: HashSet<NodeId>,
@@ -701,6 +703,7 @@ impl ScheduleGraph {
             system_sets: SystemSets::default(),
             hierarchy: Dag::new(),
             dependency: Dag::new(),
+            set_systems: HashMap::new(),
             ambiguous_with: UnGraph::default(),
             ambiguous_with_all: HashSet::default(),
             conflicting_systems: Vec::new(),
@@ -899,6 +902,17 @@ impl ScheduleGraph {
         AnonymousSet::new(id)
     }
 
+    /// Returns iterator over all [`SystemId`]'s in a [SystemSet]
+    /// Returns `None` if the label is not found or the schedule is not built
+    pub fn systems_in_set<M>(&self, system_set: impl IntoSystemSet<M>) -> Option<Vec<SystemKey>> {
+        if self.changed {
+            return None;
+        }
+        let set = system_set.into_system_set();
+        let system_set_id = self.system_sets.get_key(set.intern())?;
+        self.set_systems.get(&system_set_id).cloned()
+    }
+
     /// Update the internal graphs (hierarchy, dependency, ambiguity) by adding a single [`GraphInfo`]
     fn update_graphs(&mut self, id: NodeId, graph_info: GraphInfo) {
         self.changed = true;
@@ -1036,6 +1050,7 @@ impl ScheduleGraph {
 
         // flatten: combine `in_set` with `ambiguous_with` information
         let ambiguous_with_flattened = self.get_ambiguous_with_flattened(&set_systems);
+        self.set_systems = set_systems;
 
         // check for conflicts
         let conflicting_systems = self.get_conflicting_systems(
