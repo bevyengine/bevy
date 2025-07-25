@@ -418,8 +418,8 @@ impl Components {
         let requiree_required_by = unsafe { self.get_required_by(requiree).debug_checked_unwrap() };
         let new_requiree_components = [requiree]
             .into_iter()
-            .chain(requiree_required_by.iter().cloned())
-            .collect::<IndexSet<_, FixedHasher>>();
+            .chain(requiree_required_by.iter().copied())
+            .collect::<Vec<_>>();
 
         // We now need to update the required and required_by components of all the components
         // directly or indirectly involved.
