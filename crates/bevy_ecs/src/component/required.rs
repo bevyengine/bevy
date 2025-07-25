@@ -427,7 +427,8 @@ impl Components {
         // Since computing the required components of some component depends on the required components of
         // other components, and while we do this operations not all required components are up-to-date, we need
         // to ensure we update components in such a way that we update a component after the components it depends on.
-        // Luckily this is exactly the depth-first order, which is guaranteed to be the order of `new_requiree_components`.
+        // Luckily, `new_requiree_components` comes from `ComponentInfo::required_by`, which guarantees an order
+        // with that property.
 
         // Update the inherited required components of all requiree components (directly or indirectly).
         // Skip the first one (requiree) because we already updates it.
