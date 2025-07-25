@@ -412,7 +412,7 @@ impl Components {
         let new_required_components = required_components.all[old_required_count..]
             .keys()
             .copied()
-            .collect::<IndexSet<_, FixedHasher>>();
+            .collect::<Vec<_>>();
 
         // Get all the new requiree components, i.e. `requiree` and all the components that `requiree` is required by.
         // SAFETY: The caller ensures that the `requiree` is valid.
@@ -420,7 +420,7 @@ impl Components {
         let new_requiree_components = [requiree]
             .into_iter()
             .chain(requiree_required_by.iter().copied())
-            .collect::<Vec<_>>();
+            .collect::<IndexSet<_, FixedHasher>>();
 
         // We now need to update the required and required_by components of all the components
         // directly or indirectly involved.
