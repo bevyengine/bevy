@@ -6,7 +6,7 @@ use bevy_camera::{
 use bevy_color::Color;
 use bevy_ecs::prelude::*;
 use bevy_image::Image;
-use bevy_math::{Mat4, Vec4};
+use bevy_math::{Dir3, Mat3, Mat4, Vec3};
 use bevy_reflect::prelude::*;
 use bevy_transform::components::{GlobalTransform, Transform};
 
@@ -17,6 +17,8 @@ use crate::cluster::{ClusterVisibilityClass, GlobalVisibleClusterableObjects};
 /// Behaves like a point light in a perfectly absorbent housing that
 /// shines light only in a given direction. The direction is taken from
 /// the transform, and can be specified with [`Transform::looking_at`](Transform::looking_at).
+///
+/// To control the resolution of the shadow maps, use the [`crate::DirectionalLightShadowMap`] resource.
 #[derive(Component, Debug, Clone, Copy, Reflect)]
 #[reflect(Component, Default, Debug, Clone)]
 #[require(Frustum, VisibleMeshEntities, Transform, Visibility, VisibilityClass)]
@@ -153,31 +155,35 @@ impl Default for SpotLight {
     }
 }
 
-// this method of constructing a basis from a vec3 is used by glam::Vec3::any_orthonormal_pair
-// we will also construct it in the fragment shader and need our implementations to match,
-// so we reproduce it here to avoid a mismatch if glam changes. we also switch the handedness
-// could move this onto transform but it's pretty niche
+/// Constructs a right-handed orthonormal basis from a given unit Z vector.
+///
+/// This method of constructing a basis from a [`Vec3`] is used by [`bevy_math::Vec3::any_orthonormal_pair`]
+// we will also construct it in the fragment shader and need our implementations to match exactly,
+// so we reproduce it here to avoid a mismatch if glam changes.
+// See bevy_render/maths.wgsl:orthonormalize
+pub fn orthonormalize(z_basis: Dir3) -> Mat3 {
+    let sign = 1f32.copysign(z_basis.z);
+    let a = -1.0 / (sign + z_basis.z);
+    let b = z_basis.x * z_basis.y * a;
+    let x_basis = Vec3::new(
+        1.0 + sign * z_basis.x * z_basis.x * a,
+        sign * b,
+        -sign * z_basis.x,
+    );
+    let y_basis = Vec3::new(b, sign + z_basis.y * z_basis.y * a, -z_basis.y);
+    Mat3::from_cols(x_basis, y_basis, z_basis.into())
+}
+/// Constructs a right-handed orthonormal basis with translation, using only the forward direction and translation of a given [`GlobalTransform`].
+///
+/// This is a version of [`orthonormalize`] which also includes translation.
 pub fn spot_light_world_from_view(transform: &GlobalTransform) -> Mat4 {
     // the matrix z_local (opposite of transform.forward())
-    let fwd_dir = transform.back().extend(0.0);
+    let fwd_dir = transform.back();
 
-    let sign = 1f32.copysign(fwd_dir.z);
-    let a = -1.0 / (fwd_dir.z + sign);
-    let b = fwd_dir.x * fwd_dir.y * a;
-    let up_dir = Vec4::new(
-        1.0 + sign * fwd_dir.x * fwd_dir.x * a,
-        sign * b,
-        -sign * fwd_dir.x,
-        0.0,
-    );
-    let right_dir = Vec4::new(-b, -sign - fwd_dir.y * fwd_dir.y * a, fwd_dir.y, 0.0);
-
-    Mat4::from_cols(
-        right_dir,
-        up_dir,
-        fwd_dir,
-        transform.translation().extend(1.0),
-    )
+    let basis = orthonormalize(fwd_dir);
+    let mut mat = Mat4::from_mat3(basis);
+    mat.w_axis = transform.translation().extend(1.0);
+    mat
 }
 
 pub fn spot_light_clip_from_view(angle: f32, near_z: f32) -> Mat4 {
