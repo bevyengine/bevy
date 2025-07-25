@@ -1,5 +1,7 @@
-use bevy_ecs::system::{Commands, SystemId, SystemInput};
-use bevy_ecs::world::{DeferredWorld, World};
+use bevy_ecs::system::{Commands, EntityCommands, IntoSystem, SystemId, SystemInput};
+use bevy_ecs::world::{DeferredWorld, EntityWorldMut, World};
+
+use crate::owner::OwnedBy;
 
 /// A callback defines how we want to be notified when a widget changes state. Unlike an event
 /// or observer, callbacks are intended for "point-to-point" communication that cuts across the
@@ -109,5 +111,90 @@ impl Notify for DeferredWorld<'_> {
             }
             Callback::Ignore => (),
         }
+    }
+}
+
+/// Methods for registering scoped callbacks.
+pub trait RegisterOwnedCallback {
+    /// Registers a scoped one-shot system, with no input, that will be removed when the parent
+    /// entity is despawned.
+    fn register_owned_callback<M, I: IntoSystem<(), (), M> + 'static>(
+        &mut self,
+        callback: I,
+    ) -> Callback;
+
+    /// Registers a scoped one-shot systemm, with input, that will be removed when the
+    /// parent entity is despawned.
+    fn register_owned_callback_with<
+        M,
+        A: SystemInput + Send + 'static,
+        I: IntoSystem<A, (), M> + 'static,
+    >(
+        &mut self,
+        callback: I,
+    ) -> Callback<A>;
+}
+
+impl RegisterOwnedCallback for EntityCommands<'_> {
+    fn register_owned_callback<M, I: IntoSystem<(), (), M> + 'static>(
+        &mut self,
+        callback: I,
+    ) -> Callback {
+        let system_id = self.commands().register_system(callback);
+        let owner = self.id();
+        self.commands()
+            .entity(owner)
+            .add_one_related::<OwnedBy>(system_id.entity());
+        Callback::System(system_id)
+    }
+
+    fn register_owned_callback_with<
+        M,
+        A: SystemInput + Send + 'static,
+        I: IntoSystem<A, (), M> + 'static,
+    >(
+        &mut self,
+        callback: I,
+    ) -> Callback<A> {
+        let owner = self.id();
+        let system_id = self.commands().register_system(callback);
+        self.commands()
+            .entity(owner)
+            .add_one_related::<OwnedBy>(system_id.entity());
+        Callback::System(system_id)
+    }
+}
+
+impl RegisterOwnedCallback for EntityWorldMut<'_> {
+    fn register_owned_callback<M, I: IntoSystem<(), (), M> + 'static>(
+        &mut self,
+        callback: I,
+    ) -> Callback {
+        let owner = self.id();
+        let system_id = self.world_scope(|world| world.register_system(callback));
+        self.world_scope(|world| {
+            world
+                .entity_mut(owner)
+                .add_one_related::<OwnedBy>(system_id.entity());
+        });
+        Callback::System(system_id)
+    }
+
+    fn register_owned_callback_with<
+        M,
+        A: SystemInput + Send + 'static,
+        I: IntoSystem<A, (), M> + 'static,
+    >(
+        &mut self,
+        callback: I,
+    ) -> Callback<A> {
+        let owner = self.id();
+        let system_id = self.world_scope(|world| world.register_system(callback));
+        self.world_scope(|world| {
+            world
+                .entity_mut(owner)
+                .add_one_related::<OwnedBy>(system_id.entity());
+        });
+        Callback::System(system_id)
     }
 }
