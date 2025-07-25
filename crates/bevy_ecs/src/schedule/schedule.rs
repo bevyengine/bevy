@@ -379,7 +379,10 @@ impl Schedule {
         self
     }
 
-    pub fn remove_systems_in_set<M>(&mut self, set: impl IntoSystemSet<M>) -> usize {
+    pub fn remove_systems_in_set<M>(
+        &mut self,
+        set: impl IntoSystemSet<M>,
+    ) -> Result<usize, ScheduleError> {
         self.graph.remove_systems(set)
     }
 
@@ -907,25 +910,37 @@ impl ScheduleGraph {
     }
 
     /// Returns iterator over all [`SystemId`]'s in a [SystemSet]
-    /// Returns `None` if the label is not found or the schedule is not built
-    pub fn systems_in_set<M>(&self, system_set: impl IntoSystemSet<M>) -> Option<Vec<SystemKey>> {
+    /// Returns `ScheduleBuildError::Uninitialized` if schedule has been changed and `Self::initialize`
+    /// has not been called.
+    pub fn systems_in_set<M>(
+        &self,
+        system_set: impl IntoSystemSet<M>,
+    ) -> Result<Vec<SystemKey>, ScheduleError> {
         if self.changed {
-            return None;
+            return Err(ScheduleError::Uninitialized);
         }
         let set = system_set.into_system_set();
-        let system_set_id = self.system_sets.get_key(set.intern())?;
-        self.set_systems.get(&system_set_id).cloned()
+        let system_set_id = self
+            .system_sets
+            .get_key(set.intern())
+            .ok_or(ScheduleError::NotFound)?;
+        self.set_systems
+            .get(&system_set_id)
+            .cloned()
+            .ok_or(ScheduleError::NotFound)
     }
 
     /// Remove system from schedule. This will cause the schedule to be rebuilt the next time it is run.
     /// This also removes and dependencies on that system. Use [`systems_in_set`] to get the [`SystemKey`]
     /// Returns count of the number of systems removed
-    pub fn remove_systems<M>(&mut self, system_set: impl IntoSystemSet<M>) -> usize {
+    pub fn remove_systems<M>(
+        &mut self,
+        system_set: impl IntoSystemSet<M>,
+    ) -> Result<usize, ScheduleError> {
         let set = system_set.into_system_set();
         let interned = set.intern();
-        let Some(keys) = self.systems_in_set(set) else {
-            return 0;
-        };
+        let keys = self.systems_in_set(set)?;
+
         self.changed = true;
         for &key in &keys {
             self.systems.remove(key);
@@ -937,7 +952,7 @@ impl ScheduleGraph {
         }
 
         let Some(set_key) = self.system_sets.get_key(interned) else {
-            return 0;
+            return Ok(keys.len());
         };
         self.system_sets.remove(set_key);
         self.set_systems.remove(&set_key);
@@ -946,7 +961,7 @@ impl ScheduleGraph {
         self.ambiguous_with.remove_node(set_key.into());
         self.ambiguous_with_all.remove(&NodeId::from(set_key));
 
-        keys.len()
+        Ok(keys.len())
     }
 
     /// Update the internal graphs (hierarchy, dependency, ambiguity) by adding a single [`GraphInfo`]
@@ -2690,11 +2705,10 @@ mod tests {
         let mut schedule = Schedule::default();
         schedule.add_systems(system);
         let mut world = World::default();
-        // TODO: needing to call initialize before calling remove_systems_in_set is a big footgun
         schedule.initialize(&mut world).unwrap();
 
         let remove_count = schedule.remove_systems_in_set(system);
-        assert_eq!(remove_count, 1);
+        assert_eq!(remove_count.unwrap(), 1);
 
         // schedule has changed, so we check initializing again
         schedule.initialize(&mut world).unwrap();
@@ -2708,11 +2722,10 @@ mod tests {
         let mut schedule = Schedule::default();
         schedule.add_systems((system, system));
         let mut world = World::default();
-        // TODO: needing to call initialize before calling remove_systems_in_set is a big footgun
         let _ = schedule.initialize(&mut world);
 
         let remove_count = schedule.remove_systems_in_set(system);
-        assert_eq!(remove_count, 2);
+        assert_eq!(remove_count.unwrap(), 2);
 
         // schedule has changed, so we check initializing again
         schedule.initialize(&mut world).unwrap();
@@ -2727,11 +2740,10 @@ mod tests {
         let mut schedule = Schedule::default();
         schedule.add_systems((system_1, system_2).chain());
         let mut world = World::default();
-        // TODO: needing to call initialize before calling remove_systems_in_set is a big footgun
         let _ = schedule.initialize(&mut world);
 
         let remove_count = schedule.remove_systems_in_set(system_1);
-        assert_eq!(remove_count, 1);
+        assert_eq!(remove_count.unwrap(), 1);
 
         // schedule has changed, so we check initializing again
         schedule.initialize(&mut world).unwrap();

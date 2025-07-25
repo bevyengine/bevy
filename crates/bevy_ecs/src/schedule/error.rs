@@ -259,3 +259,14 @@ impl ScheduleBuildWarning {
         }
     }
 }
+
+/// Error returned from some `Schedule` methods
+#[derive(Error, Debug)]
+pub enum ScheduleError {
+    /// Operation cannot be completed because the schedule has changed and `Schedule::initialize` needs to be called
+    #[error("Operation cannot be completed because the schedule has changed and `Schedule::initialize` needs to be called")]
+    Uninitialized,
+    /// Method could not find key
+    #[error("Not Found")]
+    NotFound,
+}
