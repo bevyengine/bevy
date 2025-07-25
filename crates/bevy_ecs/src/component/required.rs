@@ -208,7 +208,7 @@ impl RequiredComponents {
         let entry = match self.direct.entry(component_id) {
             indexmap::map::Entry::Vacant(entry) => entry,
             indexmap::map::Entry::Occupied(_) =>
-                panic!("Error while registrating required component {component_id:?}: already directly required"),
+                panic!("Error while registering required component {component_id:?}: already directly required"),
         };
 
         // Insert into `direct`.
