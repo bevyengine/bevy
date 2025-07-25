@@ -109,7 +109,7 @@ fn setup(
             MeshMaterial3d(debug_material.clone()),
             Transform::default()
                 .with_scale(Vec3::splat(0.2))
-                .with_rotation(Quat::from_rotation_y(PI))
+                .looking_to(Vec3::Z, Vec3::Y)
                 .with_translation(Vec3::new(x as f32 / 2.0, 0.0, 0.3)),
         ));
     }

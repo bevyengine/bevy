@@ -75,10 +75,13 @@ fn setup(
     let helmet_scene = asset_server
         .load(GltfAssetLabel::Scene(0).from_asset("models/FlightHelmet/FlightHelmet.gltf"));
 
-    commands.spawn(SceneRoot(helmet_scene.clone()));
+    commands.spawn((
+        SceneRoot(helmet_scene.clone()),
+        Transform::default().looking_to(Vec3::Z, Vec3::Y),
+    ));
     commands.spawn((
         SceneRoot(helmet_scene),
-        Transform::from_xyz(-4.0, 0.0, -3.0),
+        Transform::from_xyz(-4.0, 0.0, -3.0).looking_to(Vec3::Z, Vec3::Y),
     ));
 
     let mut forward_mat: StandardMaterial = Color::srgb(0.1, 0.2, 0.1).into();

@@ -41,17 +41,20 @@ fn setup_scene(mut commands: Commands, asset_server: Res<AssetServer>) {
     let flight_helmet = asset_server
         .load(GltfAssetLabel::Scene(0).from_asset("models/FlightHelmet/FlightHelmet.gltf"));
     // This model will keep its original materials
-    commands.spawn(SceneRoot(flight_helmet.clone()));
+    commands.spawn((
+        SceneRoot(flight_helmet.clone()),
+        Transform::default().looking_to(Vec3::Z, Dir3::Y),
+    ));
     // This model will be tinted red
     commands.spawn((
         SceneRoot(flight_helmet.clone()),
-        Transform::from_xyz(-1.25, 0., 0.),
+        Transform::from_xyz(-1.25, 0., 0.).looking_to(Vec3::Z, Dir3::Y),
         ColorOverride(palettes::tailwind::RED_300.into()),
     ));
     // This model will be tinted green
     commands.spawn((
         SceneRoot(flight_helmet),
-        Transform::from_xyz(1.25, 0., 0.),
+        Transform::from_xyz(1.25, 0., 0.).looking_to(Vec3::Z, Dir3::Y),
         ColorOverride(palettes::tailwind::GREEN_300.into()),
     ));
 }

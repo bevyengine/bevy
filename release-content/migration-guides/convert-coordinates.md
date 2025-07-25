@@ -1,7 +1,7 @@
 ---
 title: Allow importing glTFs with a corrected coordinate system
 authors: ["@janhohenheim"]
-pull_requests: [19633, 19685, 19816]
+pull_requests: [19633, 19685, 19816, 20099]
 ---
 
 glTF uses the following coordinate system:
@@ -16,7 +16,8 @@ and Bevy uses:
 - up: Y
 - right: X
 
-This means that to correctly import glTFs into Bevy, vertex data should be rotated by 180 degrees around the Y axis.  
+This means that to correctly import glTFs into Bevy, vertex data should be rotated by 180 degrees around the Y axis.
+
 For the longest time, Bevy has simply ignored this distinction. That caused issues when working across programs, as most software respects the
 glTF coordinate system when importing and exporting glTFs. Your scene might have looked correct in Blender, Maya, TrenchBroom, etc. but everything would be flipped when importing it into Bevy!
 
@@ -84,7 +85,7 @@ After opting into the new behavior, your scene will be oriented such that your m
 For example, Blender assumes -Y to be forward, so exporting the following model to glTF and loading it in Bevy with the new settings will ensure everything is
 oriented the right way across all programs in your pipeline:
 
-<!-- TODO: Add png from PR description -->
+<!-- TODO: Add Fox PNG from https://github.com/bevyengine/bevy/pull/19633 description -->
 ![Blender Coordinate System](blender-coords.png)
 
 If you opt into this, please let us know how it's working out! Is your scene looking like you expected? Are the animations playing correctly? Is the camera at the right place? Are the lights shining from the right spots?

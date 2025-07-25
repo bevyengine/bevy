@@ -54,10 +54,13 @@ fn setup_mesh_and_animation(
     // containing our mesh once it has loaded.
     let mesh_scene = SceneRoot(asset_server.load(GltfAssetLabel::Scene(0).from_asset(GLTF_PATH)));
 
+    // Make sure the mesh is looking at the camera
+    let transform = Transform::default().looking_to(Vec3::Z, Vec3::Y);
+
     // Spawn an entity with our components, and connect it to an observer that
     // will trigger when the scene is loaded and spawned.
     commands
-        .spawn((animation_to_play, mesh_scene))
+        .spawn((animation_to_play, mesh_scene, transform))
         .observe(play_animation_when_ready);
 }
 

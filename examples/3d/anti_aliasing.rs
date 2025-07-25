@@ -279,9 +279,13 @@ fn setup(
     }
 
     // Flight Helmet
-    commands.spawn(SceneRoot(asset_server.load(
-        GltfAssetLabel::Scene(0).from_asset("models/FlightHelmet/FlightHelmet.gltf"),
-    )));
+    commands.spawn((
+        SceneRoot(
+            asset_server
+                .load(GltfAssetLabel::Scene(0).from_asset("models/FlightHelmet/FlightHelmet.gltf")),
+        ),
+        Transform::default().looking_to(Vec3::Z, Vec3::Y),
+    ));
 
     // Light
     commands.spawn((
