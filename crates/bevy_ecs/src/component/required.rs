@@ -485,6 +485,10 @@ impl Components {
                         .get_required_components_mut(self.component_id)
                         .debug_checked_unwrap()
                 };
+
+                debug_assert!(required_components.direct.is_empty());
+                debug_assert!(required_components.all.is_empty());
+
                 *required_components = core::mem::take(&mut self.required_components);
             }
         }
