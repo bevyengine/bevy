@@ -134,14 +134,14 @@ impl BundleInfo {
         }
 
         let required_components = depth_first_components
-            .iter()
-            .filter(|&(required_id, _)| !explicit_component_ids.contains(required_id))
-            .inspect(|&(&required_id, _)| {
+            .into_iter()
+            .filter(|&(required_id, _)| !explicit_component_ids.contains(&required_id))
+            .inspect(|&(required_id, _)| {
                 // SAFETY: These ids came out of the passed `components`, so they must be valid.
                 storages.prepare_component(unsafe { components.get_info_unchecked(required_id) });
                 component_ids.push(required_id);
             })
-            .map(|(_, required_component)| required_component.constructor.clone())
+            .map(|(_, required_component)| required_component.constructor)
             .collect::<Vec<_>>();
 
         // SAFETY: The caller ensures that component_ids:
