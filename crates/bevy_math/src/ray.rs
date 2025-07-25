@@ -55,7 +55,7 @@ impl Ray2d {
     }
 }
 
-/// Controls which faces of the plane a ray can intersect.
+/// Represents the side of the plane intersected by a ray.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
@@ -67,15 +67,13 @@ impl Ray2d {
     all(feature = "serialize", feature = "bevy_reflect"),
     reflect(Deserialize, Serialize)
 )]
-pub enum PlaneIntersectionMode {
-    /// Intersects only the front face of the plane
+pub enum HitSide {
+    /// The ray intersected the front side of the plane.
     /// (the side from which the plane normal points towards the ray).
-    FrontFaceOnly,
-    /// Intersects only the back face of the plane
+    Front,
+    /// The ray intersected the back side of the plane.
     /// (the side opposite to the normal).
-    BackFaceOnly,
-    /// Intersects both faces of the plane.
-    Both,
+    Back,
 }
 
 /// An infinite half-line starting at `origin` and going in `direction` in 3D space.
@@ -110,26 +108,23 @@ impl Ray3d {
         self.origin + *self.direction * distance
     }
 
-    /// Get the distance to a plane if the ray intersects it
-    /// `plane_hit_mode` specifies which faces of the plane a ray can intersect
+    /// Get the distance to a plane and intersection side if the ray intersects it
     #[inline]
     pub fn intersect_plane(
         &self,
         plane_origin: Vec3,
         plane: InfinitePlane3d,
-        plane_hit_mode: PlaneIntersectionMode,
-    ) -> Option<f32> {
+    ) -> Option<(f32, HitSide)> {
         let denominator = plane.normal.dot(*self.direction);
         if ops::abs(denominator) > f32::EPSILON {
             let distance = (plane_origin - self.origin).dot(*plane.normal) / denominator;
-            if distance > f32::EPSILON
-                && match plane_hit_mode {
-                    PlaneIntersectionMode::Both => true,
-                    PlaneIntersectionMode::FrontFaceOnly => denominator < 0.0,
-                    PlaneIntersectionMode::BackFaceOnly => denominator > 0.0,
-                }
-            {
-                return Some(distance);
+            if distance > f32::EPSILON {
+                let side = match denominator < 0.0 {
+                    true => HitSide::Front,
+                    false => HitSide::Back,
+                };
+
+                return Some((distance, side));
             }
         }
         None
@@ -181,145 +176,44 @@ mod tests {
     }
 
     #[test]
-    fn intersect_plane_3d_both() {
+    fn intersect_plane_3d() {
         let ray = Ray3d::new(Vec3::ZERO, Dir3::Z);
 
         // Orthogonal, and test that an inverse plane_normal has the same result
         assert_eq!(
-            ray.intersect_plane(
-                Vec3::Z,
-                InfinitePlane3d::new(Vec3::Z),
-                PlaneIntersectionMode::Both
-            ),
-            Some(1.0)
+            ray.intersect_plane(Vec3::Z, InfinitePlane3d::new(Vec3::Z)),
+            Some((1.0, HitSide::Back))
         );
         assert_eq!(
-            ray.intersect_plane(
-                Vec3::Z,
-                InfinitePlane3d::new(Vec3::NEG_Z),
-                PlaneIntersectionMode::Both
-            ),
-            Some(1.0)
+            ray.intersect_plane(Vec3::Z, InfinitePlane3d::new(Vec3::NEG_Z)),
+            Some((1.0, HitSide::Front))
         );
         assert!(ray
-            .intersect_plane(
-                Vec3::NEG_Z,
-                InfinitePlane3d::new(Vec3::Z),
-                PlaneIntersectionMode::Both
-            )
+            .intersect_plane(Vec3::NEG_Z, InfinitePlane3d::new(Vec3::Z))
             .is_none());
         assert!(ray
-            .intersect_plane(
-                Vec3::NEG_Z,
-                InfinitePlane3d::new(Vec3::NEG_Z),
-                PlaneIntersectionMode::Both
-            )
+            .intersect_plane(Vec3::NEG_Z, InfinitePlane3d::new(Vec3::NEG_Z))
             .is_none());
 
         // Diagonal
         assert_eq!(
-            ray.intersect_plane(
-                Vec3::Z,
-                InfinitePlane3d::new(Vec3::ONE),
-                PlaneIntersectionMode::Both
-            ),
-            Some(1.0)
+            ray.intersect_plane(Vec3::Z, InfinitePlane3d::new(Vec3::ONE)),
+            Some((1.0, HitSide::Back))
         );
         assert!(ray
-            .intersect_plane(
-                Vec3::NEG_Z,
-                InfinitePlane3d::new(Vec3::ONE),
-                PlaneIntersectionMode::Both
-            )
+            .intersect_plane(Vec3::NEG_Z, InfinitePlane3d::new(Vec3::ONE))
             .is_none());
 
         // Parallel
         assert!(ray
-            .intersect_plane(
-                Vec3::X,
-                InfinitePlane3d::new(Vec3::X),
-                PlaneIntersectionMode::Both
-            )
+            .intersect_plane(Vec3::X, InfinitePlane3d::new(Vec3::X))
             .is_none());
 
         // Parallel with simulated rounding error
         assert!(ray
             .intersect_plane(
                 Vec3::X,
-                InfinitePlane3d::new(Vec3::X + Vec3::Z * f32::EPSILON),
-                PlaneIntersectionMode::Both
-            )
-            .is_none());
-    }
-
-    #[test]
-    fn intersect_plane_3d_only_front() {
-        let ray = Ray3d::new(Vec3::ZERO, Dir3::Z);
-
-        // Orthogonal, and test that ray intersects only the front face
-        assert!(ray
-            .intersect_plane(
-                Vec3::Z,
-                InfinitePlane3d::new(Vec3::Z),
-                PlaneIntersectionMode::FrontFaceOnly
-            )
-            .is_none());
-        assert_eq!(
-            ray.intersect_plane(
-                Vec3::Z,
-                InfinitePlane3d::new(Vec3::NEG_Z),
-                PlaneIntersectionMode::FrontFaceOnly
-            ),
-            Some(1.0)
-        );
-        assert!(ray
-            .intersect_plane(
-                Vec3::NEG_Z,
-                InfinitePlane3d::new(Vec3::Z),
-                PlaneIntersectionMode::FrontFaceOnly
-            )
-            .is_none());
-        assert!(ray
-            .intersect_plane(
-                Vec3::NEG_Z,
-                InfinitePlane3d::new(Vec3::NEG_Z),
-                PlaneIntersectionMode::FrontFaceOnly
-            )
-            .is_none());
-    }
-
-    #[test]
-    fn intersect_plane_3d_only_back() {
-        let ray = Ray3d::new(Vec3::ZERO, Dir3::Z);
-
-        // Orthogonal, and test that ray intersects only the back face
-        assert_eq!(
-            ray.intersect_plane(
-                Vec3::Z,
-                InfinitePlane3d::new(Vec3::Z),
-                PlaneIntersectionMode::BackFaceOnly
-            ),
-            Some(1.0)
-        );
-        assert!(ray
-            .intersect_plane(
-                Vec3::Z,
-                InfinitePlane3d::new(Vec3::NEG_Z),
-                PlaneIntersectionMode::BackFaceOnly
-            )
-            .is_none());
-        assert!(ray
-            .intersect_plane(
-                Vec3::NEG_Z,
-                InfinitePlane3d::new(Vec3::Z),
-                PlaneIntersectionMode::BackFaceOnly
-            )
-            .is_none());
-        assert!(ray
-            .intersect_plane(
-                Vec3::NEG_Z,
-                InfinitePlane3d::new(Vec3::NEG_Z),
-                PlaneIntersectionMode::BackFaceOnly
+                InfinitePlane3d::new(Vec3::X + Vec3::Z * f32::EPSILON)
             )
             .is_none());
     }

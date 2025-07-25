@@ -16,7 +16,7 @@
 use bevy::{
     color::palettes::css::*,
     core_pipeline::Skybox,
-    math::{uvec3, vec3, PlaneIntersectionMode},
+    math::{uvec3, vec3},
     pbr::{
         irradiance_volume::IrradianceVolume, ExtendedMaterial, MaterialExtension, NotShadowCaster,
     },
@@ -466,11 +466,8 @@ fn handle_mouse_clicks(
     let Ok(ray) = camera.viewport_to_world(camera_transform, mouse_position) else {
         return;
     };
-    let Some(ray_distance) = ray.intersect_plane(
-        Vec3::ZERO,
-        InfinitePlane3d::new(Vec3::Y),
-        PlaneIntersectionMode::Both,
-    ) else {
+    let Some((ray_distance, _)) = ray.intersect_plane(Vec3::ZERO, InfinitePlane3d::new(Vec3::Y))
+    else {
         return;
     };
     let plane_intersection = ray.origin + ray.direction.normalize() * ray_distance;
