@@ -4,6 +4,7 @@ use bevy_ecs::{
     component::Component,
     entity::Entity,
     hierarchy::ChildOf,
+    query::{With, Without},
     reflect::ReflectComponent,
     resource::Resource,
     schedule::IntoScheduleConfigs,
@@ -74,40 +75,31 @@ pub(crate) fn update_cursor(
     mut commands: Commands,
     hover_map: Option<Res<HoverMap>>,
     parent_query: Query<&ChildOf>,
-    cursor_query: Query<&EntityCursor>,
-    mut q_windows: Query<(Entity, &mut Window, Option<&CursorIcon>)>,
+    cursor_query: Query<&EntityCursor, Without<Window>>,
+    q_windows: Query<(Entity, Option<&CursorIcon>), With<Window>>,
     r_default_cursor: Res<DefaultCursor>,
 ) {
-    let cursor = hover_map.and_then(|hover_map| match hover_map.get(&PointerId::Mouse) {
-        Some(hover_set) => hover_set.keys().find_map(|entity| {
-            cursor_query.get(*entity).ok().or_else(|| {
-                parent_query
-                    .iter_ancestors(*entity)
-                    .find_map(|e| cursor_query.get(e).ok())
-            })
-        }),
-        None => None,
-    });
+    let cursor = hover_map
+        .and_then(|hover_map| match hover_map.get(&PointerId::Mouse) {
+            Some(hover_set) => hover_set.keys().find_map(|entity| {
+                cursor_query.get(*entity).ok().or_else(|| {
+                    parent_query
+                        .iter_ancestors(*entity)
+                        .find_map(|e| cursor_query.get(e).ok())
+                })
+            }),
+            None => None,
+        })
+        .unwrap_or(&r_default_cursor.0);
 
-    let mut windows_to_change: Vec<Entity> = Vec::new();
-    for (entity, _window, prev_cursor) in q_windows.iter_mut() {
-        match (cursor, prev_cursor) {
-            (Some(cursor), Some(prev_cursor)) if cursor.eq_cursor_icon(prev_cursor) => continue,
-            (None, None) => continue,
-            _ => {
-                windows_to_change.push(entity);
+    for (entity, prev_cursor) in q_windows.iter() {
+        if let Some(prev_cursor) = prev_cursor {
+            if cursor.eq_cursor_icon(prev_cursor) {
+                continue;
             }
         }
+        commands.entity(entity).insert(cursor.to_cursor_icon());
     }
-    windows_to_change.iter().for_each(|entity| {
-        if let Some(cursor) = cursor {
-            commands.entity(*entity).insert(cursor.to_cursor_icon());
-        } else {
-            commands
-                .entity(*entity)
-                .insert(r_default_cursor.0.to_cursor_icon());
-        }
-    });
 }
 
 /// Plugin that supports automatically changing the cursor based on the hovered entity.
