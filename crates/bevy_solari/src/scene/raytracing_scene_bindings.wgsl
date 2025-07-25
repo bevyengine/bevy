@@ -8,6 +8,7 @@ struct InstanceGeometryIds {
     vertex_buffer_offset: u32,
     index_buffer_id: u32,
     index_buffer_offset: u32,
+    triangle_count: u32,
 }
 
 struct VertexBuffer { vertices: array<PackedVertex> }
@@ -115,6 +116,7 @@ struct ResolvedRayHitFull {
     world_tangent: vec4<f32>,
     uv: vec2<f32>,
     triangle_area: f32,
+    triangle_count: u32,
     material: ResolvedMaterial,
 }
 
@@ -192,5 +194,5 @@ fn resolve_triangle_data_full(instance_id: u32, triangle_id: u32, barycentrics: 
 
     let resolved_material = resolve_material(material, uv);
 
-    return ResolvedRayHitFull(world_position, world_normal, geometric_world_normal, world_tangent, uv, triangle_area, resolved_material);
+    return ResolvedRayHitFull(world_position, world_normal, geometric_world_normal, world_tangent, uv, triangle_area, instance_geometry_ids.triangle_count, resolved_material);
 }

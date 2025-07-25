@@ -190,6 +190,7 @@ pub fn prepare_raytracing_scene_bindings(
             vertex_buffer_offset: vertex_slice.range.start,
             index_buffer_id,
             index_buffer_offset: index_slice.range.start,
+            triangle_count: (index_slice.range.len() / 3) as u32,
         });
 
         material_ids.get_mut().push(material_id);
@@ -352,6 +353,7 @@ struct GpuInstanceGeometryIds {
     vertex_buffer_offset: u32,
     index_buffer_id: u32,
     index_buffer_offset: u32,
+    triangle_count: u32,
 }
 
 #[derive(ShaderType)]
