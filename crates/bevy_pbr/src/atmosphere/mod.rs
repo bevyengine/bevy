@@ -42,8 +42,10 @@ use bevy_core_pipeline::core_3d::graph::Node3d;
 use bevy_ecs::{
     component::Component,
     query::{Changed, QueryItem, With},
-    schedule::IntoScheduleConfigs,
-    system::{lifetimeless::Read, Query},
+    resource::Resource,
+    schedule::{common_conditions::resource_exists, IntoScheduleConfigs, SystemSet},
+    system::{lifetimeless::Read, Commands, Query, Res},
+    world::World,
 };
 use bevy_math::{UVec2, UVec3, Vec3};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
@@ -52,6 +54,7 @@ use bevy_render::{
     load_shader_library,
     render_resource::{DownlevelFlags, ShaderType, SpecializedRenderPipelines},
     view::Hdr,
+    RenderStartup,
 };
 use bevy_render::{
     extract_component::{ExtractComponent, ExtractComponentPlugin},
@@ -68,12 +71,14 @@ use resources::{
 };
 use tracing::warn;
 
+use crate::resources::{
+    init_atmosphere_bind_group_layouts, init_atmosphere_lut_pipelines, init_atmosphere_samplers,
+    init_render_sky_bind_group_layouts,
+};
+
 use self::{
     node::{AtmosphereLutsNode, AtmosphereNode, RenderSkyNode},
-    resources::{
-        prepare_atmosphere_bind_groups, prepare_atmosphere_textures, AtmosphereBindGroupLayouts,
-        AtmosphereLutPipelines, AtmosphereSamplers,
-    },
+    resources::{prepare_atmosphere_bind_groups, prepare_atmosphere_textures},
 };
 
 #[doc(hidden)]
@@ -100,40 +105,39 @@ impl Plugin for AtmospherePlugin {
                 UniformComponentPlugin::<Atmosphere>::default(),
                 UniformComponentPlugin::<AtmosphereSettings>::default(),
             ));
-    }
 
-    fn finish(&self, app: &mut App) {
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
         };
 
-        let render_adapter = render_app.world().resource::<RenderAdapter>();
-
-        if !render_adapter
-            .get_downlevel_capabilities()
-            .flags
-            .contains(DownlevelFlags::COMPUTE_SHADERS)
-        {
-            warn!("AtmospherePlugin not loaded. GPU lacks support for compute shaders.");
-            return;
-        }
-
-        if !render_adapter
-            .get_texture_format_features(TextureFormat::Rgba16Float)
-            .allowed_usages
-            .contains(TextureUsages::STORAGE_BINDING)
-        {
-            warn!("AtmospherePlugin not loaded. GPU lacks support: TextureFormat::Rgba16Float does not support TextureUsages::STORAGE_BINDING.");
-            return;
-        }
-
         render_app
-            .init_resource::<AtmosphereBindGroupLayouts>()
-            .init_resource::<RenderSkyBindGroupLayouts>()
-            .init_resource::<AtmosphereSamplers>()
-            .init_resource::<AtmosphereLutPipelines>()
             .init_resource::<AtmosphereTransforms>()
             .init_resource::<SpecializedRenderPipelines<RenderSkyBindGroupLayouts>>()
+            .configure_sets(
+                RenderStartup,
+                AtmosphereSystems
+                    .after(check_atmosphere_supported)
+                    .run_if(resource_exists::<AtmosphereSupported>),
+            )
+            .configure_sets(
+                Render,
+                AtmosphereSystems.run_if(resource_exists::<AtmosphereSupported>),
+            )
+            .add_systems(RenderStartup, check_atmosphere_supported)
+            .add_systems(
+                RenderStartup,
+                (
+                    add_atmosphere_render_graph_nodes,
+                    init_render_sky_bind_group_layouts,
+                    init_atmosphere_samplers,
+                    (
+                        init_atmosphere_bind_group_layouts,
+                        init_atmosphere_lut_pipelines,
+                    )
+                        .chain(),
+                )
+                    .in_set(AtmosphereSystems),
+            )
             .add_systems(
                 Render,
                 (
@@ -142,34 +146,64 @@ impl Plugin for AtmospherePlugin {
                     prepare_atmosphere_textures.in_set(RenderSystems::PrepareResources),
                     prepare_atmosphere_transforms.in_set(RenderSystems::PrepareResources),
                     prepare_atmosphere_bind_groups.in_set(RenderSystems::PrepareBindGroups),
-                ),
-            )
-            .add_render_graph_node::<ViewNodeRunner<AtmosphereLutsNode>>(
-                Core3d,
-                AtmosphereNode::RenderLuts,
-            )
-            .add_render_graph_edges(
-                Core3d,
-                (
-                    // END_PRE_PASSES -> RENDER_LUTS -> MAIN_PASS
-                    Node3d::EndPrepasses,
-                    AtmosphereNode::RenderLuts,
-                    Node3d::StartMainPass,
-                ),
-            )
-            .add_render_graph_node::<ViewNodeRunner<RenderSkyNode>>(
-                Core3d,
-                AtmosphereNode::RenderSky,
-            )
-            .add_render_graph_edges(
-                Core3d,
-                (
-                    Node3d::MainOpaquePass,
-                    AtmosphereNode::RenderSky,
-                    Node3d::MainTransparentPass,
-                ),
+                )
+                    .in_set(AtmosphereSystems),
             );
     }
+}
+
+#[derive(SystemSet, Hash, PartialEq, Eq, Clone, Debug)]
+struct AtmosphereSystems;
+
+#[derive(Resource)]
+struct AtmosphereSupported;
+
+fn check_atmosphere_supported(mut commands: Commands, render_adapter: Res<RenderAdapter>) {
+    if !render_adapter
+        .get_downlevel_capabilities()
+        .flags
+        .contains(DownlevelFlags::COMPUTE_SHADERS)
+    {
+        warn!("AtmospherePlugin not loaded. GPU lacks support for compute shaders.");
+        return;
+    }
+
+    if !render_adapter
+        .get_texture_format_features(TextureFormat::Rgba16Float)
+        .allowed_usages
+        .contains(TextureUsages::STORAGE_BINDING)
+    {
+        warn!("AtmospherePlugin not loaded. GPU lacks support: TextureFormat::Rgba16Float does not support TextureUsages::STORAGE_BINDING.");
+        return;
+    }
+
+    commands.insert_resource(AtmosphereSupported);
+}
+
+fn add_atmosphere_render_graph_nodes(world: &mut World) {
+    world
+        .add_render_graph_node::<ViewNodeRunner<AtmosphereLutsNode>>(
+            Core3d,
+            AtmosphereNode::RenderLuts,
+        )
+        .add_render_graph_edges(
+            Core3d,
+            (
+                // END_PRE_PASSES -> RENDER_LUTS -> MAIN_PASS
+                Node3d::EndPrepasses,
+                AtmosphereNode::RenderLuts,
+                Node3d::StartMainPass,
+            ),
+        )
+        .add_render_graph_node::<ViewNodeRunner<RenderSkyNode>>(Core3d, AtmosphereNode::RenderSky)
+        .add_render_graph_edges(
+            Core3d,
+            (
+                Node3d::MainOpaquePass,
+                AtmosphereNode::RenderSky,
+                Node3d::MainTransparentPass,
+            ),
+        );
 }
 
 /// This component describes the atmosphere of a planet, and when added to a camera
