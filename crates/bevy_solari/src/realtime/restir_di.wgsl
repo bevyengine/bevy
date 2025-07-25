@@ -195,7 +195,7 @@ fn load_spatial_reservoir(pixel_id: vec2<u32>, depth: f32, world_position: vec3<
 }
 
 fn get_neighbor_pixel_id(center_pixel_id: vec2<u32>, rng: ptr<function, u32>) -> vec2<u32> {
-    var spatial_id = vec2<f32>(center_pixel_id) + sample_disk(SPATIAL_REUSE_RADIUS_PIXELS, rng);
+    var spatial_id = vec2<f32>(center_pixel_id) + sample_disk(SPATIAL_REUSE_RADIUS_PIXELS - 1.0, rng) + 1.0;
     spatial_id = clamp(spatial_id, vec2(0.0), view.viewport.zw - 1.0);
     return vec2<u32>(spatial_id);
 }
@@ -266,7 +266,6 @@ fn merge_reservoirs(
     diffuse_brdf: vec3<f32>,
     rng: ptr<function, u32>,
 ) -> ReservoirMergeResult {
-    // TODO: Balance heuristic MIS weights
     let mis_weight_denominator = 1.0 / (canonical_reservoir.confidence_weight + other_reservoir.confidence_weight);
 
     let canonical_mis_weight = canonical_reservoir.confidence_weight * mis_weight_denominator;
