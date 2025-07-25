@@ -379,6 +379,10 @@ impl Schedule {
         self
     }
 
+    pub fn remove_systems_in_set<M>(&mut self, set: impl IntoSystemSet<M>) -> usize {
+        self.graph.remove_systems(set)
+    }
+
     /// Suppress warnings and errors that would result from systems in these sets having ambiguities
     /// (conflicting access but indeterminate order) with systems in `set`.
     #[track_caller]
@@ -1398,8 +1402,13 @@ impl ScheduleGraph {
             .zip(schedule.system_conditions.drain(..))
         {
             // TODO: change this code to just drop the system and conditions if the key doesn't exist
-            self.systems.node_mut(key).inner = Some(system);
-            *self.systems.get_conditions_mut(key).unwrap() = conditions;
+            if let Some(node) = self.systems.node_mut(key) {
+                node.inner = Some(system);
+            }
+
+            if let Some(node_conditions) = self.systems.get_conditions_mut(key) {
+                *node_conditions = conditions;
+            }
         }
 
         for (key, conditions) in schedule
@@ -1407,8 +1416,9 @@ impl ScheduleGraph {
             .drain(..)
             .zip(schedule.set_conditions.drain(..))
         {
-            // TODO: change this code to just drop the system and conditions if the key doesn't exist
-            *self.system_sets.get_conditions_mut(key).unwrap() = conditions;
+            if let Some(node_conditions) = self.system_sets.get_conditions_mut(key) {
+                *node_conditions = conditions;
+            }
         }
 
         let (new_schedule, warnings) = self.build_schedule(world, ignored_ambiguities)?;
@@ -1416,7 +1426,7 @@ impl ScheduleGraph {
 
         // move systems into new schedule
         for &key in &schedule.system_ids {
-            let system = self.systems.node_mut(key).inner.take().unwrap();
+            let system = self.systems.node_mut(key).unwrap().inner.take().unwrap();
             let conditions = core::mem::take(self.systems.get_conditions_mut(key).unwrap());
             schedule.systems.push(system);
             schedule.system_conditions.push(conditions);
@@ -2670,9 +2680,61 @@ mod tests {
         let _ = schedule.initialize(&mut world);
 
         let keys = schedule.graph().systems_in_set(test_system).unwrap();
-        assert_eq!(keys.len(), 2);
+        assert_ne!(keys[0], keys[1]);
     }
 
     #[test]
-    fn remove_a_system_after_running() {}
+    fn remove_a_system() {
+        fn system() {}
+
+        let mut schedule = Schedule::default();
+        schedule.add_systems(system);
+        let mut world = World::default();
+        // TODO: needing to call initialize before calling remove_systems_in_set is a big footgun
+        schedule.initialize(&mut world).unwrap();
+
+        let remove_count = schedule.remove_systems_in_set(system);
+        assert_eq!(remove_count, 1);
+
+        // schedule has changed, so we check initializing again
+        schedule.initialize(&mut world).unwrap();
+        assert_eq!(schedule.graph().systems.len(), 0);
+    }
+
+    #[test]
+    fn remove_multiple_systems() {
+        fn system() {}
+
+        let mut schedule = Schedule::default();
+        schedule.add_systems((system, system));
+        let mut world = World::default();
+        // TODO: needing to call initialize before calling remove_systems_in_set is a big footgun
+        let _ = schedule.initialize(&mut world);
+
+        let remove_count = schedule.remove_systems_in_set(system);
+        assert_eq!(remove_count, 2);
+
+        // schedule has changed, so we check initializing again
+        schedule.initialize(&mut world).unwrap();
+        assert_eq!(schedule.graph().systems.len(), 0);
+    }
+
+    #[test]
+    fn remove_a_system_with_dependencies() {
+        fn system_1() {}
+        fn system_2() {}
+
+        let mut schedule = Schedule::default();
+        schedule.add_systems((system_1, system_2).chain());
+        let mut world = World::default();
+        // TODO: needing to call initialize before calling remove_systems_in_set is a big footgun
+        let _ = schedule.initialize(&mut world);
+
+        let remove_count = schedule.remove_systems_in_set(system_1);
+        assert_eq!(remove_count, 1);
+
+        // schedule has changed, so we check initializing again
+        schedule.initialize(&mut world).unwrap();
+        assert_eq!(schedule.graph().systems.len(), 1);
+    }
 }

@@ -493,8 +493,8 @@ impl Systems {
     /// # Panics
     ///
     /// If the system with the given key does not exist in this container.
-    pub(crate) fn node_mut(&mut self, key: SystemKey) -> &mut SystemNode {
-        &mut self.nodes[key]
+    pub(crate) fn node_mut(&mut self, key: SystemKey) -> Option<&mut SystemNode> {
+        self.nodes.get_mut(key)
     }
 
     /// Returns `true` if the system with the given key has conditions.
