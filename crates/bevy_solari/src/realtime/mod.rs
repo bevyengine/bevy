@@ -2,26 +2,26 @@ mod extract;
 mod node;
 mod prepare;
 
-use crate::SolariPlugins;
+use crate::{scene::init_raytracing_scene_bindings, SolariSystems};
 use bevy_app::{App, Plugin};
 use bevy_asset::embedded_asset;
 use bevy_core_pipeline::{
     core_3d::graph::{Core3d, Node3d},
     prepass::{DeferredPrepass, DepthPrepass, MotionVectorPrepass},
 };
-use bevy_ecs::{component::Component, reflect::ReflectComponent, schedule::IntoScheduleConfigs};
+use bevy_ecs::{
+    component::Component, reflect::ReflectComponent, schedule::IntoScheduleConfigs, world::World,
+};
 use bevy_pbr::DefaultOpaqueRendererMethod;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
     render_graph::{RenderGraphExt, ViewNodeRunner},
-    renderer::RenderDevice,
     view::Hdr,
-    ExtractSchedule, Render, RenderApp, RenderSystems,
+    ExtractSchedule, Render, RenderApp, RenderStartup, RenderSystems,
 };
 use extract::extract_solari_lighting;
 use node::SolariLightingNode;
 use prepare::prepare_solari_lighting_resources;
-use tracing::warn;
 
 /// Raytraced direct and indirect lighting.
 ///
@@ -37,33 +37,27 @@ impl Plugin for SolariLightingPlugin {
 
         app.register_type::<SolariLighting>()
             .insert_resource(DefaultOpaqueRendererMethod::deferred());
-    }
 
-    fn finish(&self, app: &mut App) {
-        let render_app = app.sub_app_mut(RenderApp);
-
-        let render_device = render_app.world().resource::<RenderDevice>();
-        let features = render_device.features();
-        if !features.contains(SolariPlugins::required_wgpu_features()) {
-            warn!(
-                "SolariLightingPlugin not loaded. GPU lacks support for required features: {:?}.",
-                SolariPlugins::required_wgpu_features().difference(features)
-            );
+        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
-        }
+        };
+
         render_app
-            .add_systems(ExtractSchedule, extract_solari_lighting)
+            .add_systems(
+                RenderStartup,
+                add_solari_lighting_render_graph_nodes
+                    .after(init_raytracing_scene_bindings)
+                    .in_set(SolariSystems),
+            )
+            .add_systems(
+                ExtractSchedule,
+                extract_solari_lighting.in_set(SolariSystems),
+            )
             .add_systems(
                 Render,
-                prepare_solari_lighting_resources.in_set(RenderSystems::PrepareResources),
-            )
-            .add_render_graph_node::<ViewNodeRunner<SolariLightingNode>>(
-                Core3d,
-                node::graph::SolariLightingNode,
-            )
-            .add_render_graph_edges(
-                Core3d,
-                (Node3d::EndMainPass, node::graph::SolariLightingNode),
+                prepare_solari_lighting_resources
+                    .in_set(RenderSystems::PrepareResources)
+                    .in_set(SolariSystems),
             );
     }
 }
@@ -92,4 +86,19 @@ impl Default for SolariLighting {
             reset: true, // No temporal history on the first frame
         }
     }
+}
+
+// We only want to add these render graph nodes and edges if Solari required features are present.
+// Making this a system that runs at RenderStartup allows a run condition to check for required
+// features first.
+fn add_solari_lighting_render_graph_nodes(world: &mut World) {
+    world
+        .add_render_graph_node::<ViewNodeRunner<SolariLightingNode>>(
+            Core3d,
+            node::graph::SolariLightingNode,
+        )
+        .add_render_graph_edges(
+            Core3d,
+            (Node3d::EndMainPass, node::graph::SolariLightingNode),
+        );
 }
