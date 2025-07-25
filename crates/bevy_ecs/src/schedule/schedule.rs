@@ -379,11 +379,18 @@ impl Schedule {
         self
     }
 
+    /// Removes all systems in a [`SystemSet`]. This will cause the schedule to be rebuilt when
+    /// the schedule is run again. A [`ScheduleError`] is returned if the schedule needs to be
+    /// [`Schedule::initialize`]'d or the `set` is not found.
+    ///
+    /// Note that this can remove all systems of a type if you pass
+    /// the system to this function as systems implicitly create a set based
+    /// on the system type.
     pub fn remove_systems_in_set<M>(
         &mut self,
         set: impl IntoSystemSet<M>,
     ) -> Result<usize, ScheduleError> {
-        self.graph.remove_systems(set)
+        self.graph.remove_systems_in_set(set)
     }
 
     /// Suppress warnings and errors that would result from systems in these sets having ambiguities
@@ -930,10 +937,8 @@ impl ScheduleGraph {
             .ok_or(ScheduleError::NotFound)
     }
 
-    /// Remove system from schedule. This will cause the schedule to be rebuilt the next time it is run.
-    /// This also removes and dependencies on that system. Use [`systems_in_set`] to get the [`SystemKey`]
-    /// Returns count of the number of systems removed
-    pub fn remove_systems<M>(
+    /// Remove all systems in a set and any dependencies on those systems and set.
+    pub fn remove_systems_in_set<M>(
         &mut self,
         system_set: impl IntoSystemSet<M>,
     ) -> Result<usize, ScheduleError> {

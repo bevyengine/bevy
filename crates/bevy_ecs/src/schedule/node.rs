@@ -554,7 +554,8 @@ impl Systems {
         key
     }
 
-    pub fn remove(&mut self, key: SystemKey) -> bool {
+    /// Remove a system with [`SystemKey`]
+    pub(crate) fn remove(&mut self, key: SystemKey) -> bool {
         let mut found = false;
         if self.nodes.remove(key).is_some() {
             found = true;
@@ -739,7 +740,8 @@ impl SystemSets {
         key
     }
 
-    pub fn remove(&mut self, key: SystemSetKey) -> bool {
+    /// Remove a set with a [`SystemSetKey`]
+    pub(crate) fn remove(&mut self, key: SystemSetKey) -> bool {
         self.sets.remove(key);
         self.conditions.remove(key);
         if let Some(index) = self.uninit.iter().position(|uninit| uninit.key == key) {
