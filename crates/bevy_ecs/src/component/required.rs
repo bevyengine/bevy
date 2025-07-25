@@ -144,7 +144,7 @@ impl RequiredComponents {
     /// Registers the [`Component`] `C` as an explicitly required component.
     ///
     /// If the component was not already registered as an explicit required component then it is added
-    /// as one, potentially overriding the constructor of a inherited required component, otherwise it's ignored.
+    /// as one, potentially overriding the constructor of a inherited required component, otherwise panics.
     ///
     /// # Safety
     ///
@@ -164,7 +164,7 @@ impl RequiredComponents {
     /// Registers the [`Component`] with the given `component_id` ID as an explicitly required component.
     ///
     /// If the component was not already registered as an explicit required component then it is added
-    /// as one, potentially overriding the constructor of a inherited required component, otherwise it's ignored.
+    /// as one, potentially overriding the constructor of a inherited required component, otherwise panics.
     ///
     /// # Safety
     ///
@@ -190,7 +190,7 @@ impl RequiredComponents {
     /// Registers the [`Component`] with the given `component_id` ID as an explicitly required component.
     ///
     /// If the component was not already registered as an explicit required component then it is added
-    /// as one, potentially overriding the constructor of a inherited required component, otherwise it's ignored.
+    /// as one, potentially overriding the constructor of a inherited required component, otherwise panics.
     ///
     /// # Safety
     ///
@@ -207,7 +207,8 @@ impl RequiredComponents {
         // If already registered as a direct required component then bail.
         let entry = match self.direct.entry(component_id) {
             indexmap::map::Entry::Vacant(entry) => entry,
-            indexmap::map::Entry::Occupied(_) => return,
+            indexmap::map::Entry::Occupied(_) =>
+                panic!("Error while registrating required component {component_id:?}: already directly required"),
         };
 
         // Insert into `direct`.
@@ -575,7 +576,7 @@ impl<'a, 'w> RequiredComponentsRegistrator<'a, 'w> {
     /// Registers the [`Component`] `C` as an explicitly required component.
     ///
     /// If the component was not already registered as an explicit required component then it is added
-    /// as one, potentially overriding the constructor of a inherited required component, otherwise it's ignored.
+    /// as one, potentially overriding the constructor of a inherited required component, otherwise panics.
     pub fn register_required<C: Component>(&mut self, constructor: fn() -> C) {
         // SAFETY: we internally guarantee that all components in `required_components`
         // are registered in `components`
@@ -588,7 +589,7 @@ impl<'a, 'w> RequiredComponentsRegistrator<'a, 'w> {
     /// Registers the [`Component`] with the given `component_id` ID as an explicitly required component.
     ///
     /// If the component was not already registered as an explicit required component then it is added
-    /// as one, potentially overriding the constructor of a inherited required component, otherwise it's ignored.
+    /// as one, potentially overriding the constructor of a inherited required component, otherwise panics.
     ///
     /// # Safety
     ///
@@ -613,7 +614,7 @@ impl<'a, 'w> RequiredComponentsRegistrator<'a, 'w> {
     /// Registers the [`Component`] with the given `component_id` ID as an explicitly required component.
     ///
     /// If the component was not already registered as an explicit required component then it is added
-    /// as one, potentially overriding the constructor of a inherited required component, otherwise it's ignored.
+    /// as one, potentially overriding the constructor of a inherited required component, otherwise panics.
     ///
     /// # Safety
     ///
