@@ -169,7 +169,7 @@ pub struct DirectionalLightTexture {
     pub tiled: bool,
 }
 
-/// Controls the resolution of [`DirectionalLight`] shadow maps.
+/// Controls the resolution of [`DirectionalLight`] and [`SpotLight`](crate::SpotLight) shadow maps.
 ///
 /// ```
 /// # use bevy_app::prelude::*;
