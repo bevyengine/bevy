@@ -106,9 +106,9 @@ pub struct DownsamplingConfig {
     pub combine_bind_group: bool,
 }
 
-pub struct GeneratedEnvironmentMapPlugin;
+pub struct EnvironmentMapGenerationPlugin;
 
-impl Plugin for GeneratedEnvironmentMapPlugin {
+impl Plugin for EnvironmentMapGenerationPlugin {
     fn build(&self, _: &mut App) {}
     fn finish(&self, app: &mut App) {
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
@@ -126,7 +126,7 @@ impl Plugin for GeneratedEnvironmentMapPlugin {
                 .contains(DownlevelFlags::COMPUTE_SHADERS);
 
             if !limit_support || !downlevel_support {
-                info!("GeneratedEnvironmentMapLights are not supported on this device");
+                info!("Disabling EnvironmentMapGenerationPlugin because compute is not supported on this platform. This is safe to ignore if you are not using EnvironmentMapGenerationPlugin.");
                 return;
             }
         } else {

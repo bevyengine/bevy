@@ -35,7 +35,7 @@ use tracing::error;
 use core::{hash::Hash, ops::Deref};
 
 use crate::{
-    generate::GeneratedEnvironmentMapPlugin, light_probe::environment_map::EnvironmentMapIds,
+    generate::EnvironmentMapGenerationPlugin, light_probe::environment_map::EnvironmentMapIds,
 };
 
 use self::irradiance_volume::IrradianceVolume;
@@ -292,7 +292,7 @@ impl Plugin for LightProbePlugin {
         load_shader_library!(app, "irradiance_volume.wgsl");
 
         app.add_plugins((
-            GeneratedEnvironmentMapPlugin,
+            EnvironmentMapGenerationPlugin,
             ExtractInstancesPlugin::<EnvironmentMapIds>::new(),
         ));
 
