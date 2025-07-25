@@ -75,6 +75,8 @@ fn copysign(a: f32, b: f32) -> f32 {
 //
 // https://jcgt.org/published/0006/01/01/paper.pdf
 // this method of constructing a basis from a vec3 is also used by `glam::Vec3::any_orthonormal_pair`
+// the construction of the orthonormal basis up and right vectors here needs to precisely match the rust
+// implementation in bevy_light/spot_light.rs:spot_light_world_from_view
 fn orthonormalize(z_basis: vec3<f32>) -> mat3x3<f32> {
     let sign = copysign(1.0, z_basis.z);
     let a = -1.0 / (sign + z_basis.z);
