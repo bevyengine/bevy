@@ -396,7 +396,7 @@ impl Components {
 
         // Third step: update the required components and required_by of all the indirect requirements/requirees.
 
-        // Borrow again otherwise it conflicts with the `self.register_required_component_single` call.
+        // Borrow again otherwise it conflicts with the `self.required_components_scope` call.
         // SAFETY: The caller ensures that the `requiree` is valid.
         let required_components = unsafe {
             self.get_required_components_mut(requiree)
