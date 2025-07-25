@@ -11,12 +11,15 @@
 //! This module provides realtime filtering via [`bevy_light::GeneratedEnvironmentMapLight`].
 //! For prefiltered environment maps, see [`bevy_light::EnvironmentMapLight`].
 //! These components are intended to be added to a camera.
-use bevy_asset::{load_embedded_asset, AssetServer, Assets};
+use bevy_app::{App, Plugin, Update};
+use bevy_asset::{embedded_asset, load_embedded_asset, AssetServer, Assets};
+use bevy_core_pipeline::core_3d::graph::{Core3d, Node3d};
 use bevy_ecs::{
     component::Component,
     entity::Entity,
     query::{QueryState, With, Without},
     resource::Resource,
+    schedule::IntoScheduleConfigs,
     system::{lifetimeless::Read, Commands, Query, Res, ResMut},
     world::{FromWorld, World},
 };
@@ -25,11 +28,11 @@ use bevy_math::{Quat, UVec2, Vec2};
 use bevy_render::{
     diagnostic::RecordDiagnostics,
     render_asset::{RenderAssetUsages, RenderAssets},
-    render_graph::{Node, NodeRunError, RenderGraphContext, RenderLabel},
+    render_graph::{Node, NodeRunError, RenderGraphContext, RenderGraphExt, RenderLabel},
     render_resource::{
         binding_types::*, AddressMode, BindGroup, BindGroupEntries, BindGroupLayout,
         BindGroupLayoutEntries, CachedComputePipelineId, ComputePassDescriptor,
-        ComputePipelineDescriptor, Extent3d, FilterMode, PipelineCache, Sampler,
+        ComputePipelineDescriptor, DownlevelFlags, Extent3d, FilterMode, PipelineCache, Sampler,
         SamplerBindingType, SamplerDescriptor, ShaderDefVal, ShaderStages, ShaderType,
         StorageTextureAccess, Texture, TextureAspect, TextureDescriptor, TextureDimension,
         TextureFormat, TextureFormatFeatureFlags, TextureSampleType, TextureUsages, TextureView,
@@ -37,9 +40,10 @@ use bevy_render::{
     },
     renderer::{RenderAdapter, RenderContext, RenderDevice, RenderQueue},
     settings::WgpuFeatures,
+    sync_component::SyncComponentPlugin,
     sync_world::RenderEntity,
     texture::{CachedTexture, GpuImage, TextureCache},
-    Extract,
+    Extract, ExtractSchedule, Render, RenderApp, RenderStartup, RenderSystems,
 };
 
 // Implementation: generate diffuse and specular cubemaps required by PBR
@@ -58,6 +62,7 @@ use bevy_render::{
 
 use bevy_light::{EnvironmentMapLight, GeneratedEnvironmentMapLight};
 use core::cmp::min;
+use tracing::info;
 
 use crate::Bluenoise;
 
@@ -99,6 +104,78 @@ pub struct GeneratorPipelines {
 pub struct DownsamplingConfig {
     // can bind ≥12 storage textures and use read-write storage textures
     pub combine_bind_group: bool,
+}
+
+pub struct GeneratedEnvironmentMapPlugin;
+
+impl Plugin for GeneratedEnvironmentMapPlugin {
+    fn build(&self, _: &mut App) {}
+    fn finish(&self, app: &mut App) {
+        if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
+            let adapter = render_app.world().resource::<RenderAdapter>();
+            let device = render_app.world().resource::<RenderDevice>();
+
+            // Cubemap SPD requires at least 6 storage textures
+            let limit_support = device.limits().max_storage_textures_per_shader_stage >= 6
+                && device.limits().max_compute_workgroup_storage_size != 0
+                && device.limits().max_compute_workgroup_size_x != 0;
+
+            let downlevel_support = adapter
+                .get_downlevel_capabilities()
+                .flags
+                .contains(DownlevelFlags::COMPUTE_SHADERS);
+
+            if !limit_support || !downlevel_support {
+                info!("GeneratedEnvironmentMapLights are not supported on this device");
+                return;
+            }
+        } else {
+            return;
+        }
+
+        embedded_asset!(app, "environment_filter.wgsl");
+        embedded_asset!(app, "downsample.wgsl");
+        embedded_asset!(app, "copy.wgsl");
+
+        app.add_plugins(SyncComponentPlugin::<GeneratedEnvironmentMapLight>::default())
+            .add_systems(Update, generate_environment_map_light);
+
+        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
+            return;
+        };
+
+        render_app
+            .init_resource::<Bluenoise>()
+            .add_render_graph_node::<DownsamplingNode>(Core3d, GeneratorNode::Downsampling)
+            .add_render_graph_node::<FilteringNode>(Core3d, GeneratorNode::Filtering)
+            .add_render_graph_edges(
+                Core3d,
+                (
+                    Node3d::EndPrepasses,
+                    GeneratorNode::Downsampling,
+                    GeneratorNode::Filtering,
+                    Node3d::StartMainPass,
+                ),
+            )
+            .add_systems(
+                ExtractSchedule,
+                extract_generated_environment_map_entities.after(generate_environment_map_light),
+            )
+            .add_systems(
+                Render,
+                prepare_generated_environment_map_bind_groups
+                    .in_set(RenderSystems::PrepareBindGroups),
+            )
+            .add_systems(
+                Render,
+                prepare_generated_environment_map_intermediate_textures
+                    .in_set(RenderSystems::PrepareResources),
+            )
+            .add_systems(
+                RenderStartup,
+                initialize_generated_environment_map_resources,
+            );
+    }
 }
 
 // The number of storage textures required to combine the bind group

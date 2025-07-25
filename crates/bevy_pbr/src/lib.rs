@@ -133,7 +133,7 @@ pub mod graph {
 
 use crate::{deferred::DeferredPbrLightingPlugin, graph::NodePbr};
 use bevy_app::prelude::*;
-use bevy_asset::{embedded_asset, load_embedded_asset, AssetApp, AssetPath, Assets, Handle};
+use bevy_asset::{io::embedded::GetAssetServer, AssetApp, AssetPath, Assets, Handle};
 use bevy_core_pipeline::core_3d::graph::{Core3d, Node3d};
 use bevy_ecs::prelude::*;
 use bevy_image::Image;
@@ -186,10 +186,18 @@ impl Default for PbrPlugin {
 }
 
 /// A resource that stores the spatio-temporal blue noise texture.
-#[derive(Resource)]
+#[derive(Resource, Clone)]
 pub struct Bluenoise {
     /// Texture handle for spatio-temporal blue noise
     pub texture: Handle<Image>,
+}
+
+impl FromWorld for Bluenoise {
+    fn from_world(world: &mut World) -> Self {
+        Self {
+            texture: world.get_asset_server().load("textures/stbn.ktx2"),
+        }
+    }
 }
 
 impl Plugin for PbrPlugin {
@@ -280,19 +288,12 @@ impl Plugin for PbrPlugin {
                 },
             );
 
-        // Load the Spatio-temporal blue noise texture
-        embedded_asset!(app, "stbn.ktx2");
-        let bluenoise_texture = load_embedded_asset!(app, "stbn.ktx2");
-
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
         };
 
         // Extract the required data from the main world
         render_app
-            .insert_resource(Bluenoise {
-                texture: bluenoise_texture,
-            })
             .add_systems(
                 RenderStartup,
                 (
