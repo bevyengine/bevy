@@ -1,4 +1,4 @@
-use crate::renderer::WgpuWrapper;
+use crate::WgpuWrapper;
 use crate::{
     render_resource::*,
     renderer::{RenderAdapter, RenderDevice},
@@ -14,7 +14,7 @@ use bevy_ecs::{
 use bevy_platform::collections::{hash_map::EntryRef, HashMap, HashSet};
 use bevy_tasks::Task;
 use bevy_utils::default;
-use core::{future::Future, hash::Hash, mem, ops::Deref};
+use core::{future::Future, hash::Hash, mem};
 use naga::valid::Capabilities;
 use std::sync::{Mutex, PoisonError};
 use thiserror::Error;
@@ -80,6 +80,13 @@ pub struct CachedPipeline {
 }
 
 /// State of a cached pipeline inserted into a [`PipelineCache`].
+#[cfg_attr(
+    not(target_arch = "wasm32"),
+    expect(
+        clippy::large_enum_variant,
+        reason = "See https://github.com/bevyengine/bevy/issues/19220"
+    )
+)]
 #[derive(Debug)]
 pub enum CachedPipelineState {
     /// The pipeline GPU object is queued for creation.
@@ -135,7 +142,7 @@ struct ShaderCache {
     composer: naga_oil::compose::Composer,
 }
 
-#[derive(Clone, PartialEq, Eq, Debug, Hash)]
+#[derive(serde::Serialize, serde::Deserialize, Clone, PartialEq, Eq, Debug, Hash)]
 pub enum ShaderDefVal {
     Bool(String, bool),
     Int(String, i32),
@@ -189,33 +196,42 @@ impl ShaderCache {
         }
     }
 
+    #[expect(
+        clippy::result_large_err,
+        reason = "See https://github.com/bevyengine/bevy/issues/19220"
+    )]
     fn add_import_to_composer(
         composer: &mut naga_oil::compose::Composer,
         import_path_shaders: &HashMap<ShaderImport, AssetId<Shader>>,
         shaders: &HashMap<AssetId<Shader>, Shader>,
         import: &ShaderImport,
     ) -> Result<(), PipelineCacheError> {
-        if !composer.contains_module(&import.module_name()) {
-            if let Some(shader_handle) = import_path_shaders.get(import) {
-                if let Some(shader) = shaders.get(shader_handle) {
-                    for import in &shader.imports {
-                        Self::add_import_to_composer(
-                            composer,
-                            import_path_shaders,
-                            shaders,
-                            import,
-                        )?;
-                    }
-
-                    composer.add_composable_module(shader.into())?;
-                }
-            }
-            // if we fail to add a module the composer will tell us what is missing
+        // Early out if we've already imported this module
+        if composer.contains_module(&import.module_name()) {
+            return Ok(());
         }
+
+        // Check if the import is available (this handles the recursive import case)
+        let shader = import_path_shaders
+            .get(import)
+            .and_then(|handle| shaders.get(handle))
+            .ok_or(PipelineCacheError::ShaderImportNotYetAvailable)?;
+
+        // Recurse down to ensure all import dependencies are met
+        for import in &shader.imports {
+            Self::add_import_to_composer(composer, import_path_shaders, shaders, import)?;
+        }
+
+        composer.add_composable_module(shader.into())?;
+        // if we fail to add a module the composer will tell us what is missing
 
         Ok(())
     }
 
+    #[expect(
+        clippy::result_large_err,
+        reason = "See https://github.com/bevyengine/bevy/issues/19220"
+    )]
     fn get(
         &mut self,
         render_device: &RenderDevice,
@@ -555,13 +571,13 @@ impl LayoutCache {
 /// The cache stores existing render and compute pipelines allocated on the GPU, as well as
 /// pending creation. Pipelines inserted into the cache are identified by a unique ID, which
 /// can be used to retrieve the actual GPU object once it's ready. The creation of the GPU
-/// pipeline object is deferred to the [`RenderSet::Render`] step, just before the render
+/// pipeline object is deferred to the [`RenderSystems::Render`] step, just before the render
 /// graph starts being processed, as this requires access to the GPU.
 ///
 /// Note that the cache does not perform automatic deduplication of identical pipelines. It is
 /// up to the user not to insert the same pipeline twice to avoid wasting GPU resources.
 ///
-/// [`RenderSet::Render`]: crate::RenderSet::Render
+/// [`RenderSystems::Render`]: crate::RenderSystems::Render
 #[derive(Resource)]
 pub struct PipelineCache {
     layout_cache: Arc<Mutex<LayoutCache>>,
@@ -853,14 +869,14 @@ impl PipelineCache {
                 let fragment_data = descriptor.fragment.as_ref().map(|fragment| {
                     (
                         fragment_module.unwrap(),
-                        fragment.entry_point.deref(),
+                        fragment.entry_point.as_deref(),
                         fragment.targets.as_slice(),
                     )
                 });
 
                 // TODO: Expose the rest of this somehow
                 let compilation_options = PipelineCompilationOptions {
-                    constants: &default(),
+                    constants: &[],
                     zero_initialize_workgroup_memory: descriptor.zero_initialize_workgroup_memory,
                 };
 
@@ -873,7 +889,7 @@ impl PipelineCache {
                     primitive: descriptor.primitive,
                     vertex: RawVertexState {
                         buffers: &vertex_buffer_layouts,
-                        entry_point: Some(descriptor.vertex.entry_point.deref()),
+                        entry_point: descriptor.vertex.entry_point.as_deref(),
                         module: &vertex_module,
                         // TODO: Should this be the same as the fragment compilation options?
                         compilation_options: compilation_options.clone(),
@@ -881,7 +897,7 @@ impl PipelineCache {
                     fragment: fragment_data
                         .as_ref()
                         .map(|(module, entry_point, targets)| RawFragmentState {
-                            entry_point: Some(entry_point),
+                            entry_point: entry_point.as_deref(),
                             module,
                             targets,
                             // TODO: Should this be the same as the vertex compilation options?
@@ -939,10 +955,10 @@ impl PipelineCache {
                     label: descriptor.label.as_deref(),
                     layout: layout.as_ref().map(|layout| -> &PipelineLayout { layout }),
                     module: &compute_module,
-                    entry_point: Some(&descriptor.entry_point),
+                    entry_point: descriptor.entry_point.as_deref(),
                     // TODO: Expose the rest of this somehow
                     compilation_options: PipelineCompilationOptions {
-                        constants: &default(),
+                        constants: &[],
                         zero_initialize_workgroup_memory: descriptor
                             .zero_initialize_workgroup_memory,
                     },
@@ -959,10 +975,10 @@ impl PipelineCache {
 
     /// Process the pipeline queue and create all pending pipelines if possible.
     ///
-    /// This is generally called automatically during the [`RenderSet::Render`] step, but can
+    /// This is generally called automatically during the [`RenderSystems::Render`] step, but can
     /// be called manually to force creation at a different time.
     ///
-    /// [`RenderSet::Render`]: crate::RenderSet::Render
+    /// [`RenderSystems::Render`]: crate::RenderSystems::Render
     pub fn process_queue(&mut self) {
         let mut waiting_pipelines = mem::take(&mut self.waiting_pipelines);
         let mut pipelines = mem::take(&mut self.pipelines);
@@ -1101,6 +1117,13 @@ fn create_pipeline_task(
 }
 
 /// Type of error returned by a [`PipelineCache`] when the creation of a GPU pipeline object failed.
+#[cfg_attr(
+    not(target_arch = "wasm32"),
+    expect(
+        clippy::large_enum_variant,
+        reason = "See https://github.com/bevyengine/bevy/issues/19220"
+    )
+)]
 #[derive(Error, Debug)]
 pub enum PipelineCacheError {
     #[error(
@@ -1138,8 +1161,12 @@ fn get_capabilities(features: Features, downlevel: DownlevelFlags) -> Capabiliti
         features.contains(Features::SAMPLED_TEXTURE_AND_STORAGE_BUFFER_ARRAY_NON_UNIFORM_INDEXING),
     );
     capabilities.set(
-        Capabilities::UNIFORM_BUFFER_AND_STORAGE_TEXTURE_ARRAY_NON_UNIFORM_INDEXING,
-        features.contains(Features::UNIFORM_BUFFER_AND_STORAGE_TEXTURE_ARRAY_NON_UNIFORM_INDEXING),
+        Capabilities::STORAGE_TEXTURE_ARRAY_NON_UNIFORM_INDEXING,
+        features.contains(Features::STORAGE_TEXTURE_ARRAY_NON_UNIFORM_INDEXING),
+    );
+    capabilities.set(
+        Capabilities::UNIFORM_BUFFER_ARRAY_NON_UNIFORM_INDEXING,
+        features.contains(Features::UNIFORM_BUFFER_BINDING_ARRAYS),
     );
     // TODO: This needs a proper wgpu feature
     capabilities.set(
@@ -1177,6 +1204,10 @@ fn get_capabilities(features: Features, downlevel: DownlevelFlags) -> Capabiliti
         downlevel.contains(DownlevelFlags::MULTISAMPLED_SHADING),
     );
     capabilities.set(
+        Capabilities::RAY_QUERY,
+        features.contains(Features::EXPERIMENTAL_RAY_QUERY),
+    );
+    capabilities.set(
         Capabilities::DUAL_SOURCE_BLENDING,
         features.contains(Features::DUAL_SOURCE_BLENDING),
     );
@@ -1207,6 +1238,14 @@ fn get_capabilities(features: Features, downlevel: DownlevelFlags) -> Capabiliti
     capabilities.set(
         Capabilities::TEXTURE_INT64_ATOMIC,
         features.contains(Features::TEXTURE_INT64_ATOMIC),
+    );
+    capabilities.set(
+        Capabilities::SHADER_FLOAT16,
+        features.contains(Features::SHADER_F16),
+    );
+    capabilities.set(
+        Capabilities::RAY_HIT_VERTEX_POSITION,
+        features.intersects(Features::EXPERIMENTAL_RAY_HIT_VERTEX_RETURN),
     );
 
     capabilities

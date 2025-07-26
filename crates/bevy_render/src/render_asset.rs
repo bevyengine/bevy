@@ -1,6 +1,6 @@
 use crate::{
     render_resource::AsBindGroupError, Extract, ExtractSchedule, MainWorld, Render, RenderApp,
-    RenderSet, Res,
+    RenderSystems, Res,
 };
 use bevy_app::{App, Plugin, SubApp};
 pub use bevy_asset::RenderAssetUsages;
@@ -27,14 +27,18 @@ pub enum PrepareAssetError<E: Send + Sync + 'static> {
 
 /// The system set during which we extract modified assets to the render world.
 #[derive(SystemSet, Clone, PartialEq, Eq, Debug, Hash)]
-pub struct ExtractAssetsSet;
+pub struct AssetExtractionSystems;
+
+/// Deprecated alias for [`AssetExtractionSystems`].
+#[deprecated(since = "0.17.0", note = "Renamed to `AssetExtractionSystems`.")]
+pub type ExtractAssetsSet = AssetExtractionSystems;
 
 /// Describes how an asset gets extracted and prepared for rendering.
 ///
 /// In the [`ExtractSchedule`] step the [`RenderAsset::SourceAsset`] is transferred
 /// from the "main world" into the "render world".
 ///
-/// After that in the [`RenderSet::PrepareAssets`] step the extracted asset
+/// After that in the [`RenderSystems::PrepareAssets`] step the extracted asset
 /// is transformed into its GPU-representation of type [`RenderAsset`].
 pub trait RenderAsset: Send + Sync + 'static + Sized {
     /// The representation of the asset in the "main world".
@@ -69,6 +73,7 @@ pub trait RenderAsset: Send + Sync + 'static + Sized {
         source_asset: Self::SourceAsset,
         asset_id: AssetId<Self::SourceAsset>,
         param: &mut SystemParamItem<Self::Param>,
+        previous_asset: Option<&Self>,
     ) -> Result<Self, PrepareAssetError<Self::SourceAsset>>;
 
     /// Called whenever the [`RenderAsset::SourceAsset`] has been removed.
@@ -88,7 +93,7 @@ pub trait RenderAsset: Send + Sync + 'static + Sized {
 /// and prepares them for the GPU. They can then be accessed from the [`RenderAssets`] resource.
 ///
 /// Therefore it sets up the [`ExtractSchedule`] and
-/// [`RenderSet::PrepareAssets`] steps for the specified [`RenderAsset`].
+/// [`RenderSystems::PrepareAssets`] steps for the specified [`RenderAsset`].
 ///
 /// The `AFTER` generic parameter can be used to specify that `A::prepare_asset` should not be run until
 /// `prepare_assets::<AFTER>` has completed. This allows the `prepare_asset` function to depend on another
@@ -120,11 +125,11 @@ impl<A: RenderAsset, AFTER: RenderAssetDependency + 'static> Plugin
                 .init_resource::<PrepareNextFrameAssets<A>>()
                 .add_systems(
                     ExtractSchedule,
-                    extract_render_asset::<A>.in_set(ExtractAssetsSet),
+                    extract_render_asset::<A>.in_set(AssetExtractionSystems),
                 );
             AFTER::register_system(
                 render_app,
-                prepare_assets::<A>.in_set(RenderSet::PrepareAssets),
+                prepare_assets::<A>.in_set(RenderSystems::PrepareAssets),
             );
         }
     }
@@ -351,7 +356,8 @@ pub fn prepare_assets<A: RenderAsset>(
             0
         };
 
-        match A::prepare_asset(extracted_asset, id, &mut param) {
+        let previous_asset = render_assets.get(id);
+        match A::prepare_asset(extracted_asset, id, &mut param, previous_asset) {
             Ok(prepared_asset) => {
                 render_assets.insert(id, prepared_asset);
                 bpf.write_bytes(write_bytes);
@@ -378,7 +384,7 @@ pub fn prepare_assets<A: RenderAsset>(
         // we remove previous here to ensure that if we are updating the asset then
         // any users will not see the old asset after a new asset is extracted,
         // even if the new asset is not yet ready or we are out of bytes to write.
-        render_assets.remove(id);
+        let previous_asset = render_assets.remove(id);
 
         let write_bytes = if let Some(size) = A::byte_len(&extracted_asset) {
             if bpf.exhausted() {
@@ -390,7 +396,7 @@ pub fn prepare_assets<A: RenderAsset>(
             0
         };
 
-        match A::prepare_asset(extracted_asset, id, &mut param) {
+        match A::prepare_asset(extracted_asset, id, &mut param, previous_asset.as_ref()) {
             Ok(prepared_asset) => {
                 render_assets.insert(id, prepared_asset);
                 bpf.write_bytes(write_bytes);
@@ -493,14 +499,14 @@ impl RenderAssetBytesPerFrameLimiter {
     }
 
     /// Decreases the available bytes for the current frame.
-    fn write_bytes(&self, bytes: usize) {
+    pub(crate) fn write_bytes(&self, bytes: usize) {
         if self.max_bytes.is_some() && bytes > 0 {
             self.bytes_written.fetch_add(bytes, Ordering::Relaxed);
         }
     }
 
     /// Returns `true` if there are no remaining bytes available for writing this frame.
-    fn exhausted(&self) -> bool {
+    pub(crate) fn exhausted(&self) -> bool {
         if let Some(max_bytes) = self.max_bytes {
             let bytes_written = self.bytes_written.load(Ordering::Relaxed);
             bytes_written >= max_bytes

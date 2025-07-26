@@ -1,10 +1,11 @@
 use crate::{
-    DrawMesh2d, Mesh2d, Mesh2dPipeline, Mesh2dPipelineKey, RenderMesh2dInstances,
-    SetMesh2dBindGroup, SetMesh2dViewBindGroup, ViewKeyCache, ViewSpecializationTicks,
+    init_mesh_2d_pipeline, DrawMesh2d, Mesh2d, Mesh2dPipeline, Mesh2dPipelineKey,
+    RenderMesh2dInstances, SetMesh2dBindGroup, SetMesh2dViewBindGroup, ViewKeyCache,
+    ViewSpecializationTicks,
 };
 use bevy_app::{App, Plugin, PostUpdate};
 use bevy_asset::prelude::AssetChanged;
-use bevy_asset::{AsAssetId, Asset, AssetApp, AssetEvents, AssetId, AssetServer, Handle};
+use bevy_asset::{AsAssetId, Asset, AssetApp, AssetEventSystems, AssetId, AssetServer, Handle};
 use bevy_core_pipeline::{
     core_2d::{
         AlphaMask2d, AlphaMask2dBinKey, BatchSetKey2d, Opaque2d, Opaque2dBinKey, Transparent2d,
@@ -25,6 +26,7 @@ use bevy_render::camera::extract_cameras;
 use bevy_render::render_phase::{DrawFunctionId, InputUniformIndex};
 use bevy_render::render_resource::CachedRenderPipelineId;
 use bevy_render::view::RenderVisibleEntities;
+use bevy_render::RenderStartup;
 use bevy_render::{
     mesh::{MeshVertexBufferLayoutRef, RenderMesh},
     render_asset::{
@@ -43,7 +45,7 @@ use bevy_render::{
     renderer::RenderDevice,
     sync_world::{MainEntity, MainEntityHashMap},
     view::{ExtractedView, ViewVisibility},
-    Extract, ExtractSchedule, Render, RenderApp, RenderSet,
+    Extract, ExtractSchedule, Render, RenderApp, RenderSystems,
 };
 use bevy_utils::Parallel;
 use core::{hash::Hash, marker::PhantomData};
@@ -273,7 +275,7 @@ where
             .add_plugins(RenderAssetPlugin::<PreparedMaterial2d<M>>::default())
             .add_systems(
                 PostUpdate,
-                check_entities_needing_specialization::<M>.after(AssetEvents),
+                check_entities_needing_specialization::<M>.after(AssetEventSystems),
             );
 
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
@@ -286,6 +288,10 @@ where
                 .init_resource::<RenderMaterial2dInstances<M>>()
                 .init_resource::<SpecializedMeshPipelines<Material2dPipeline<M>>>()
                 .add_systems(
+                    RenderStartup,
+                    init_material_2d_pipeline::<M>.after(init_mesh_2d_pipeline),
+                )
+                .add_systems(
                     ExtractSchedule,
                     (
                         extract_entities_needs_specialization::<M>.after(extract_cameras),
@@ -296,20 +302,14 @@ where
                     Render,
                     (
                         specialize_material2d_meshes::<M>
-                            .in_set(RenderSet::PrepareMeshes)
+                            .in_set(RenderSystems::PrepareMeshes)
                             .after(prepare_assets::<PreparedMaterial2d<M>>)
                             .after(prepare_assets::<RenderMesh>),
                         queue_material2d_meshes::<M>
-                            .in_set(RenderSet::QueueMeshes)
+                            .in_set(RenderSystems::QueueMeshes)
                             .after(prepare_assets::<PreparedMaterial2d<M>>),
                     ),
                 );
-        }
-    }
-
-    fn finish(&self, app: &mut App) {
-        if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
-            render_app.init_resource::<Material2dPipeline<M>>();
         }
     }
 }
@@ -331,7 +331,6 @@ pub fn extract_mesh_materials_2d<M: Material2d>(
             Or<(Changed<ViewVisibility>, Changed<MeshMaterial2d<M>>)>,
         >,
     >,
-    mut removed_visibilities_query: Extract<RemovedComponents<ViewVisibility>>,
     mut removed_materials_query: Extract<RemovedComponents<MeshMaterial2d<M>>>,
 ) {
     for (entity, view_visibility, material) in &changed_meshes_query {
@@ -342,10 +341,7 @@ pub fn extract_mesh_materials_2d<M: Material2d>(
         }
     }
 
-    for entity in removed_visibilities_query
-        .read()
-        .chain(removed_materials_query.read())
-    {
+    for entity in removed_materials_query.read() {
         // Only queue a mesh for removal if we didn't pick it up above.
         // It's possible that a necessary component was removed and re-added in
         // the same frame.
@@ -410,7 +406,7 @@ where
     fn clone(&self) -> Self {
         Self {
             mesh_key: self.mesh_key,
-            bind_group_data: self.bind_group_data.clone(),
+            bind_group_data: self.bind_group_data,
         }
     }
 }
@@ -467,28 +463,29 @@ where
     }
 }
 
-impl<M: Material2d> FromWorld for Material2dPipeline<M> {
-    fn from_world(world: &mut World) -> Self {
-        let asset_server = world.resource::<AssetServer>();
-        let render_device = world.resource::<RenderDevice>();
-        let material2d_layout = M::bind_group_layout(render_device);
+pub fn init_material_2d_pipeline<M: Material2d>(
+    mut commands: Commands,
+    render_device: Res<RenderDevice>,
+    asset_server: Res<AssetServer>,
+    mesh_2d_pipeline: Res<Mesh2dPipeline>,
+) {
+    let material2d_layout = M::bind_group_layout(&render_device);
 
-        Material2dPipeline {
-            mesh2d_pipeline: world.resource::<Mesh2dPipeline>().clone(),
-            material2d_layout,
-            vertex_shader: match M::vertex_shader() {
-                ShaderRef::Default => None,
-                ShaderRef::Handle(handle) => Some(handle),
-                ShaderRef::Path(path) => Some(asset_server.load(path)),
-            },
-            fragment_shader: match M::fragment_shader() {
-                ShaderRef::Default => None,
-                ShaderRef::Handle(handle) => Some(handle),
-                ShaderRef::Path(path) => Some(asset_server.load(path)),
-            },
-            marker: PhantomData,
-        }
-    }
+    commands.insert_resource(Material2dPipeline::<M> {
+        mesh2d_pipeline: mesh_2d_pipeline.clone(),
+        material2d_layout,
+        vertex_shader: match M::vertex_shader() {
+            ShaderRef::Default => None,
+            ShaderRef::Handle(handle) => Some(handle),
+            ShaderRef::Path(path) => Some(asset_server.load(path)),
+        },
+        fragment_shader: match M::fragment_shader() {
+            ShaderRef::Default => None,
+            ShaderRef::Handle(handle) => Some(handle),
+            ShaderRef::Path(path) => Some(asset_server.load(path)),
+        },
+        marker: PhantomData,
+    });
 }
 
 pub(super) type DrawMaterial2d<M> = (
@@ -753,7 +750,7 @@ pub fn specialize_material2d_meshes<M: Material2d>(
                 &material2d_pipeline,
                 Material2dKey {
                     mesh_key,
-                    bind_group_data: material_2d.key.clone(),
+                    bind_group_data: material_2d.key,
                 },
                 &mesh.layout,
             );
@@ -967,7 +964,9 @@ impl<M: Material2d> RenderAsset for PreparedMaterial2d<M> {
             transparent_draw_functions,
             material_param,
         ): &mut SystemParamItem<Self::Param>,
+        _: Option<&Self>,
     ) -> Result<Self, PrepareAssetError<Self::SourceAsset>> {
+        let bind_group_data = material.bind_group_data();
         match material.as_bind_group(&pipeline.material2d_layout, render_device, material_param) {
             Ok(prepared) => {
                 let mut mesh_pipeline_key_bits = Mesh2dPipelineKey::empty();
@@ -986,7 +985,7 @@ impl<M: Material2d> RenderAsset for PreparedMaterial2d<M> {
                 Ok(PreparedMaterial2d {
                     bindings: prepared.bindings,
                     bind_group: prepared.bind_group,
-                    key: prepared.data,
+                    key: bind_group_data,
                     properties: Material2dProperties {
                         depth_bias: material.depth_bias(),
                         alpha_mode: material.alpha_mode(),

@@ -17,11 +17,11 @@ pub trait FreelyMutableState: States {
     fn register_state(schedule: &mut Schedule) {
         schedule.configure_sets((
             ApplyStateTransition::<Self>::default()
-                .in_set(StateTransitionSteps::DependentTransitions),
-            ExitSchedules::<Self>::default().in_set(StateTransitionSteps::ExitSchedules),
+                .in_set(StateTransitionSystems::DependentTransitions),
+            ExitSchedules::<Self>::default().in_set(StateTransitionSystems::ExitSchedules),
             TransitionSchedules::<Self>::default()
-                .in_set(StateTransitionSteps::TransitionSchedules),
-            EnterSchedules::<Self>::default().in_set(StateTransitionSteps::EnterSchedules),
+                .in_set(StateTransitionSystems::TransitionSchedules),
+            EnterSchedules::<Self>::default().in_set(StateTransitionSystems::EnterSchedules),
         ));
 
         schedule

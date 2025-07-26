@@ -76,7 +76,7 @@ impl BevyError {
                             break;
                         }
                     }
-                    writeln!(f, "{}", line)?;
+                    writeln!(f, "{line}")?;
                 }
                 if !full_backtrace {
                     if std::thread::panicking() {

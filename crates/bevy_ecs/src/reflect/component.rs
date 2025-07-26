@@ -70,7 +70,7 @@ use crate::{
     },
 };
 use bevy_reflect::{FromReflect, FromType, PartialReflect, Reflect, TypePath, TypeRegistry};
-use disqualified::ShortName;
+use bevy_utils::prelude::DebugName;
 
 /// A struct used to operate on reflected [`Component`] trait of a type.
 ///
@@ -118,9 +118,9 @@ pub struct ReflectComponentFns {
     /// Function pointer implementing [`ReflectComponent::contains()`].
     pub contains: fn(FilteredEntityRef) -> bool,
     /// Function pointer implementing [`ReflectComponent::reflect()`].
-    pub reflect: fn(FilteredEntityRef) -> Option<&dyn Reflect>,
+    pub reflect: for<'w> fn(FilteredEntityRef<'w, '_>) -> Option<&'w dyn Reflect>,
     /// Function pointer implementing [`ReflectComponent::reflect_mut()`].
-    pub reflect_mut: fn(FilteredEntityMut) -> Option<Mut<dyn Reflect>>,
+    pub reflect_mut: for<'w> fn(FilteredEntityMut<'w, '_>) -> Option<Mut<'w, dyn Reflect>>,
     /// Function pointer implementing [`ReflectComponent::map_entities()`].
     pub map_entities: fn(&mut dyn Reflect, &mut dyn EntityMapper),
     /// Function pointer implementing [`ReflectComponent::reflect_unchecked_mut()`].
@@ -189,12 +189,15 @@ impl ReflectComponent {
     }
 
     /// Returns whether entity contains this [`Component`]
-    pub fn contains<'a>(&self, entity: impl Into<FilteredEntityRef<'a>>) -> bool {
+    pub fn contains<'w, 's>(&self, entity: impl Into<FilteredEntityRef<'w, 's>>) -> bool {
         (self.0.contains)(entity.into())
     }
 
     /// Gets the value of this [`Component`] type from the entity as a reflected reference.
-    pub fn reflect<'a>(&self, entity: impl Into<FilteredEntityRef<'a>>) -> Option<&'a dyn Reflect> {
+    pub fn reflect<'w, 's>(
+        &self,
+        entity: impl Into<FilteredEntityRef<'w, 's>>,
+    ) -> Option<&'w dyn Reflect> {
         (self.0.reflect)(entity.into())
     }
 
@@ -203,10 +206,10 @@ impl ReflectComponent {
     /// # Panics
     ///
     /// Panics if [`Component`] is immutable.
-    pub fn reflect_mut<'a>(
+    pub fn reflect_mut<'w, 's>(
         &self,
-        entity: impl Into<FilteredEntityMut<'a>>,
-    ) -> Option<Mut<'a, dyn Reflect>> {
+        entity: impl Into<FilteredEntityMut<'w, 's>>,
+    ) -> Option<Mut<'w, dyn Reflect>> {
         (self.0.reflect_mut)(entity.into())
     }
 
@@ -308,7 +311,8 @@ impl<C: Component + Reflect + TypePath> FromType<C> for ReflectComponent {
             },
             apply: |mut entity, reflected_component| {
                 if !C::Mutability::MUTABLE {
-                    let name = ShortName::of::<C>();
+                    let name = DebugName::type_name::<C>();
+                    let name = name.shortname();
                     panic!("Cannot call `ReflectComponent::apply` on component {name}. It is immutable, and cannot modified through reflection");
                 }
 
@@ -357,7 +361,8 @@ impl<C: Component + Reflect + TypePath> FromType<C> for ReflectComponent {
             reflect: |entity| entity.get::<C>().map(|c| c as &dyn Reflect),
             reflect_mut: |entity| {
                 if !C::Mutability::MUTABLE {
-                    let name = ShortName::of::<C>();
+                    let name = DebugName::type_name::<C>();
+                    let name = name.shortname();
                     panic!("Cannot call `ReflectComponent::reflect_mut` on component {name}. It is immutable, and cannot modified through reflection");
                 }
 
@@ -370,7 +375,8 @@ impl<C: Component + Reflect + TypePath> FromType<C> for ReflectComponent {
             },
             reflect_unchecked_mut: |entity| {
                 if !C::Mutability::MUTABLE {
-                    let name = ShortName::of::<C>();
+                    let name = DebugName::type_name::<C>();
+                    let name = name.shortname();
                     panic!("Cannot call `ReflectComponent::reflect_unchecked_mut` on component {name}. It is immutable, and cannot modified through reflection");
                 }
 

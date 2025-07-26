@@ -9,7 +9,7 @@ use crate::{
     storage::{GpuShaderStorageBuffer, ShaderStorageBuffer},
     sync_world::MainEntity,
     texture::GpuImage,
-    ExtractSchedule, MainWorld, Render, RenderApp, RenderSet,
+    ExtractSchedule, MainWorld, Render, RenderApp, RenderSystems,
 };
 use async_channel::{Receiver, Sender};
 use bevy_app::{App, Plugin};
@@ -19,7 +19,7 @@ use bevy_ecs::schedule::IntoScheduleConfigs;
 use bevy_ecs::{
     change_detection::ResMut,
     entity::Entity,
-    event::Event,
+    event::EntityEvent,
     prelude::{Component, Resource, World},
     system::{Query, Res},
 };
@@ -60,8 +60,10 @@ impl Plugin for GpuReadbackPlugin {
                 .add_systems(
                     Render,
                     (
-                        prepare_buffers.in_set(RenderSet::PrepareResources),
-                        map_buffers.after(render_system).in_set(RenderSet::Render),
+                        prepare_buffers.in_set(RenderSystems::PrepareResources),
+                        map_buffers
+                            .after(render_system)
+                            .in_set(RenderSystems::Render),
                     ),
                 );
         }
@@ -75,7 +77,10 @@ impl Plugin for GpuReadbackPlugin {
 #[derive(Component, ExtractComponent, Clone, Debug)]
 pub enum Readback {
     Texture(Handle<Image>),
-    Buffer(Handle<ShaderStorageBuffer>),
+    Buffer {
+        buffer: Handle<ShaderStorageBuffer>,
+        start_offset_and_size: Option<(u64, u64)>,
+    },
 }
 
 impl Readback {
@@ -84,9 +89,21 @@ impl Readback {
         Self::Texture(image)
     }
 
-    /// Create a readback component for a buffer using the given handle.
+    /// Create a readback component for a full buffer using the given handle.
     pub fn buffer(buffer: Handle<ShaderStorageBuffer>) -> Self {
-        Self::Buffer(buffer)
+        Self::Buffer {
+            buffer,
+            start_offset_and_size: None,
+        }
+    }
+
+    /// Create a readback component for a buffer range using the given handle, a start offset in bytes
+    /// and a number of bytes to read.
+    pub fn buffer_range(buffer: Handle<ShaderStorageBuffer>, start_offset: u64, size: u64) -> Self {
+        Self::Buffer {
+            buffer,
+            start_offset_and_size: Some((start_offset, size)),
+        }
     }
 }
 
@@ -94,7 +111,7 @@ impl Readback {
 ///
 /// The event contains the data as a `Vec<u8>`, which can be interpreted as the raw bytes of the
 /// requested buffer or texture.
-#[derive(Event, Deref, DerefMut, Reflect, Debug)]
+#[derive(EntityEvent, Deref, DerefMut, Reflect, Debug)]
 #[reflect(Debug)]
 pub struct ReadbackComplete(pub Vec<u8>);
 
@@ -191,9 +208,8 @@ enum ReadbackSource {
         size: Extent3d,
     },
     Buffer {
-        src_start: u64,
-        dst_start: u64,
         buffer: Buffer,
+        start_offset_and_size: Option<(u64, u64)>,
     },
 }
 
@@ -264,16 +280,30 @@ fn prepare_buffers(
                     });
                 }
             }
-            Readback::Buffer(buffer) => {
+            Readback::Buffer {
+                buffer,
+                start_offset_and_size,
+            } => {
                 if let Some(ssbo) = ssbos.get(buffer) {
-                    let size = ssbo.buffer.size();
+                    let full_size = ssbo.buffer.size();
+                    let size = start_offset_and_size
+                        .map(|(start, size)| {
+                            let end = start + size;
+                            if end > full_size {
+                                panic!(
+                                    "Tried to read past the end of the buffer (start: {start}, \
+                                    size: {size}, buffer size: {full_size})."
+                                );
+                            }
+                            size
+                        })
+                        .unwrap_or(full_size);
                     let buffer = buffer_pool.get(&render_device, size);
                     let (tx, rx) = async_channel::bounded(1);
                     readbacks.requested.push(GpuReadback {
                         entity: entity.id(),
                         src: ReadbackSource::Buffer {
-                            src_start: 0,
-                            dst_start: 0,
+                            start_offset_and_size: *start_offset_and_size,
                             buffer: ssbo.buffer.clone(),
                         },
                         buffer,
@@ -305,17 +335,11 @@ pub(crate) fn submit_readback_commands(world: &World, command_encoder: &mut Comm
                 );
             }
             ReadbackSource::Buffer {
-                src_start,
-                dst_start,
                 buffer,
+                start_offset_and_size,
             } => {
-                command_encoder.copy_buffer_to_buffer(
-                    buffer,
-                    *src_start,
-                    &readback.buffer,
-                    *dst_start,
-                    buffer.size(),
-                );
+                let (src_start, size) = start_offset_and_size.unwrap_or((0, buffer.size()));
+                command_encoder.copy_buffer_to_buffer(buffer, src_start, &readback.buffer, 0, size);
             }
         }
     }

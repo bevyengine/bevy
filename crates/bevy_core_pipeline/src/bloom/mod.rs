@@ -2,14 +2,19 @@ mod downsampling_pipeline;
 mod settings;
 mod upsampling_pipeline;
 
+use bevy_image::ToExtents;
 pub use settings::{Bloom, BloomCompositeMode, BloomPrefilter};
 
 use crate::{
+    bloom::{
+        downsampling_pipeline::init_bloom_downsampling_pipeline,
+        upsampling_pipeline::init_bloom_upscaling_pipeline,
+    },
     core_2d::graph::{Core2d, Node2d},
     core_3d::graph::{Core3d, Node3d},
 };
 use bevy_app::{App, Plugin};
-use bevy_asset::{load_internal_asset, weak_handle, Handle};
+use bevy_asset::embedded_asset;
 use bevy_color::{Gray, LinearRgba};
 use bevy_ecs::{prelude::*, query::QueryItem};
 use bevy_math::{ops, UVec2};
@@ -19,12 +24,12 @@ use bevy_render::{
     extract_component::{
         ComponentUniforms, DynamicUniformIndex, ExtractComponentPlugin, UniformComponentPlugin,
     },
-    render_graph::{NodeRunError, RenderGraphApp, RenderGraphContext, ViewNode, ViewNodeRunner},
+    render_graph::{NodeRunError, RenderGraphContext, RenderGraphExt, ViewNode, ViewNodeRunner},
     render_resource::*,
     renderer::{RenderContext, RenderDevice},
     texture::{CachedTexture, TextureCache},
     view::ViewTarget,
-    Render, RenderApp, RenderSet,
+    Render, RenderApp, RenderStartup, RenderSystems,
 };
 use downsampling_pipeline::{
     prepare_downsampling_pipeline, BloomDownsamplingPipeline, BloomDownsamplingPipelineIds,
@@ -36,15 +41,13 @@ use upsampling_pipeline::{
     prepare_upsampling_pipeline, BloomUpsamplingPipeline, UpsamplingPipelineIds,
 };
 
-const BLOOM_SHADER_HANDLE: Handle<Shader> = weak_handle!("c9190ddc-573b-4472-8b21-573cab502b73");
-
 const BLOOM_TEXTURE_FORMAT: TextureFormat = TextureFormat::Rg11b10Ufloat;
 
 pub struct BloomPlugin;
 
 impl Plugin for BloomPlugin {
     fn build(&self, app: &mut App) {
-        load_internal_asset!(app, BLOOM_SHADER_HANDLE, "bloom.wgsl", Shader::from_wgsl);
+        embedded_asset!(app, "bloom.wgsl");
 
         app.register_type::<Bloom>();
         app.register_type::<BloomPrefilter>();
@@ -61,12 +64,19 @@ impl Plugin for BloomPlugin {
             .init_resource::<SpecializedRenderPipelines<BloomDownsamplingPipeline>>()
             .init_resource::<SpecializedRenderPipelines<BloomUpsamplingPipeline>>()
             .add_systems(
+                RenderStartup,
+                (
+                    init_bloom_downsampling_pipeline,
+                    init_bloom_upscaling_pipeline,
+                ),
+            )
+            .add_systems(
                 Render,
                 (
-                    prepare_downsampling_pipeline.in_set(RenderSet::Prepare),
-                    prepare_upsampling_pipeline.in_set(RenderSet::Prepare),
-                    prepare_bloom_textures.in_set(RenderSet::PrepareResources),
-                    prepare_bloom_bind_groups.in_set(RenderSet::PrepareBindGroups),
+                    prepare_downsampling_pipeline.in_set(RenderSystems::Prepare),
+                    prepare_upsampling_pipeline.in_set(RenderSystems::Prepare),
+                    prepare_bloom_textures.in_set(RenderSystems::PrepareResources),
+                    prepare_bloom_bind_groups.in_set(RenderSystems::PrepareBindGroups),
                 ),
             )
             // Add bloom to the 3d render graph
@@ -81,15 +91,6 @@ impl Plugin for BloomPlugin {
                 Core2d,
                 (Node2d::EndMainPass, Node2d::Bloom, Node2d::Tonemapping),
             );
-    }
-
-    fn finish(&self, app: &mut App) {
-        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
-            return;
-        };
-        render_app
-            .init_resource::<BloomDownsamplingPipeline>()
-            .init_resource::<BloomUpsamplingPipeline>();
     }
 }
 
@@ -123,7 +124,7 @@ impl ViewNode for BloomNode {
             bloom_settings,
             upsampling_pipeline_ids,
             downsampling_pipeline_ids,
-        ): QueryItem<'w, Self::ViewQuery>,
+        ): QueryItem<'w, '_, Self::ViewQuery>,
         world: &'w World,
     ) -> Result<(), NodeRunError> {
         if bloom_settings.intensity == 0.0 {
@@ -349,26 +350,22 @@ fn prepare_bloom_textures(
     views: Query<(Entity, &ExtractedCamera, &Bloom)>,
 ) {
     for (entity, camera, bloom) in &views {
-        if let Some(UVec2 {
-            x: width,
-            y: height,
-        }) = camera.physical_viewport_size
-        {
+        if let Some(viewport) = camera.physical_viewport_size {
             // How many times we can halve the resolution minus one so we don't go unnecessarily low
             let mip_count = bloom.max_mip_dimension.ilog2().max(2) - 1;
-            let mip_height_ratio = if height != 0 {
-                bloom.max_mip_dimension as f32 / height as f32
+            let mip_height_ratio = if viewport.y != 0 {
+                bloom.max_mip_dimension as f32 / viewport.y as f32
             } else {
                 0.
             };
 
             let texture_descriptor = TextureDescriptor {
                 label: Some("bloom_texture"),
-                size: Extent3d {
-                    width: ((width as f32 * mip_height_ratio).round() as u32).max(1),
-                    height: ((height as f32 * mip_height_ratio).round() as u32).max(1),
-                    depth_or_array_layers: 1,
-                },
+                size: (viewport.as_vec2() * mip_height_ratio)
+                    .round()
+                    .as_uvec2()
+                    .max(UVec2::ONE)
+                    .to_extents(),
                 mip_level_count: mip_count,
                 sample_count: 1,
                 dimension: TextureDimension::D2,

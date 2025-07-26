@@ -8,11 +8,11 @@ use bevy_color::LinearRgba;
 use bevy_ecs::{prelude::*, query::QueryItem};
 use bevy_render::{
     camera::ExtractedCamera,
-    render_graph::{NodeRunError, RenderGraphApp, RenderGraphContext, ViewNode, ViewNodeRunner},
+    render_graph::{NodeRunError, RenderGraphContext, RenderGraphExt, ViewNode, ViewNodeRunner},
     render_resource::*,
     renderer::RenderContext,
     view::{Msaa, ViewTarget},
-    Render, RenderApp, RenderSet,
+    Render, RenderApp, RenderSystems,
 };
 
 /// This enables "msaa writeback" support for the `core_2d` and `core_3d` pipelines, which can be enabled on cameras
@@ -26,7 +26,7 @@ impl Plugin for MsaaWritebackPlugin {
         };
         render_app.add_systems(
             Render,
-            prepare_msaa_writeback_pipelines.in_set(RenderSet::Prepare),
+            prepare_msaa_writeback_pipelines.in_set(RenderSystems::Prepare),
         );
         {
             render_app
@@ -61,7 +61,7 @@ impl ViewNode for MsaaWritebackNode {
         &self,
         _graph: &mut RenderGraphContext,
         render_context: &mut RenderContext<'w>,
-        (target, blit_pipeline_id, msaa): QueryItem<'w, Self::ViewQuery>,
+        (target, blit_pipeline_id, msaa): QueryItem<'w, '_, Self::ViewQuery>,
         world: &'w World,
     ) -> Result<(), NodeRunError> {
         if *msaa == Msaa::Off {
@@ -98,11 +98,8 @@ impl ViewNode for MsaaWritebackNode {
             occlusion_query_set: None,
         };
 
-        let bind_group = render_context.render_device().create_bind_group(
-            None,
-            &blit_pipeline.texture_bind_group,
-            &BindGroupEntries::sequential((post_process.source, &blit_pipeline.sampler)),
-        );
+        let bind_group =
+            blit_pipeline.create_bind_group(render_context.render_device(), post_process.source);
 
         let mut render_pass = render_context
             .command_encoder()
