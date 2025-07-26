@@ -519,16 +519,12 @@ impl Schedule {
                 .get_resource_or_init::<Schedules>()
                 .ignored_scheduling_ambiguities
                 .clone();
-            self.warnings =
-                self.graph
-                    .update_schedule(world, &mut self.executable, &ignored_ambiguities)?;
-            for warning in &self.warnings {
-                warn!(
-                    "{:?} schedule built successfully, however: {}",
-                    self.label,
-                    warning.to_string(&self.graph, world)
-                );
-            }
+            self.warnings = self.graph.update_schedule(
+                world,
+                &mut self.executable,
+                &ignored_ambiguities,
+                self.label,
+            )?;
             self.graph.changed = false;
             self.executor_initialized = false;
         }
@@ -1338,6 +1334,7 @@ impl ScheduleGraph {
         world: &mut World,
         schedule: &mut SystemSchedule,
         ignored_ambiguities: &BTreeSet<ComponentId>,
+        schedule_label: InternedScheduleLabel,
     ) -> Result<Vec<ScheduleBuildWarning>, ScheduleBuildError> {
         if !self.systems.is_initialized() || !self.system_sets.is_initialized() {
             return Err(ScheduleBuildError::Uninitialized);
@@ -1364,6 +1361,14 @@ impl ScheduleGraph {
 
         let (new_schedule, warnings) = self.build_schedule(world, ignored_ambiguities)?;
         *schedule = new_schedule;
+
+        for warning in &warnings {
+            warn!(
+                "{:?} schedule built successfully, however: {}",
+                schedule_label,
+                warning.to_string(self, world)
+            );
+        }
 
         // move systems into new schedule
         for &key in &schedule.system_ids {
