@@ -480,6 +480,8 @@ impl RelationshipTargetCloneBehaviorHierarchy
 
 #[cfg(test)]
 mod tests {
+    use core::marker::PhantomData;
+
     use crate::prelude::{ChildOf, Children};
     use crate::world::World;
     use crate::{component::Component, entity::Entity};
@@ -570,6 +572,19 @@ mod tests {
             foo: u8,
             bar: u8,
         }
+
+        // No assert necessary, looking to make sure compilation works with the macros
+    }
+
+    #[test]
+    fn relationship_with_multiple_unnamed_non_target_fields_compiles() {
+        #[derive(Component)]
+        #[relationship(relationship_target=Target<T>)]
+        struct Source<T: Send + Sync + 'static>(#[relationship] Entity, PhantomData<T>);
+
+        #[derive(Component)]
+        #[relationship_target(relationship=Source<T>)]
+        struct Target<T: Send + Sync + 'static>(#[relationship] Vec<Entity>, PhantomData<T>);
 
         // No assert necessary, looking to make sure compilation works with the macros
     }
