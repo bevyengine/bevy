@@ -238,41 +238,16 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
 
     let requires = &attrs.requires;
     let mut register_required = Vec::with_capacity(attrs.requires.iter().len());
-    let mut register_recursive_requires = Vec::with_capacity(attrs.requires.iter().len());
     if let Some(requires) = requires {
         for require in requires {
             let ident = &require.path;
-            register_recursive_requires.push(quote! {
-                <#ident as #bevy_ecs_path::component::Component>::register_required_components(
-                    requiree,
-                    components,
-                    required_components,
-                    inheritance_depth + 1,
-                    recursion_check_stack
-                );
+            let constructor = match &require.func {
+                Some(func) => quote! { || { let x: #ident = (#func)().into(); x } },
+                None => quote! { <#ident as Default>::default },
+            };
+            register_required.push(quote! {
+                required_components.register_required::<#ident>(#constructor);
             });
-            match &require.func {
-                Some(func) => {
-                    register_required.push(quote! {
-                        components.register_required_components_manual::<Self, #ident>(
-                            required_components,
-                            || { let x: #ident = (#func)().into(); x },
-                            inheritance_depth,
-                            recursion_check_stack
-                        );
-                    });
-                }
-                None => {
-                    register_required.push(quote! {
-                        components.register_required_components_manual::<Self, #ident>(
-                            required_components,
-                            <#ident as Default>::default,
-                            inheritance_depth,
-                            recursion_check_stack
-                        );
-                    });
-                }
-            }
         }
     }
     let struct_name = &ast.ident;
@@ -319,18 +294,10 @@ pub fn derive_component(input: TokenStream) -> TokenStream {
             const STORAGE_TYPE: #bevy_ecs_path::component::StorageType = #storage;
             type Mutability = #mutable_type;
             fn register_required_components(
-                requiree: #bevy_ecs_path::component::ComponentId,
-                components: &mut #bevy_ecs_path::component::ComponentsRegistrator,
-                required_components: &mut #bevy_ecs_path::component::RequiredComponents,
-                inheritance_depth: u16,
-                recursion_check_stack: &mut #bevy_ecs_path::__macro_exports::Vec<#bevy_ecs_path::component::ComponentId>
+                _requiree: #bevy_ecs_path::component::ComponentId,
+                required_components: &mut #bevy_ecs_path::component::RequiredComponentsRegistrator,
             ) {
-                #bevy_ecs_path::component::enforce_no_required_components_recursion(components, recursion_check_stack);
-                let self_id = components.register_component::<Self>();
-                recursion_check_stack.push(self_id);
                 #(#register_required)*
-                #(#register_recursive_requires)*
-                recursion_check_stack.pop();
             }
 
             #on_add
