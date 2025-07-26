@@ -935,7 +935,7 @@ impl ScheduleGraph {
         AnonymousSet::new(id)
     }
 
-    /// Returns iterator over all [`SystemId`]'s in a [SystemSet]
+    /// Returns iterator over all [`SystemKey`]'s in a [`SystemSet`]
     /// Returns `ScheduleBuildError::Uninitialized` if schedule has been changed and `Self::initialize`
     /// has not been called.
     pub fn systems_in_set(
