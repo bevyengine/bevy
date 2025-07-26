@@ -342,3 +342,10 @@ pub fn log_components() -> impl EntityCommand {
         info!("Entity {}: {debug_infos:?}", entity.id());
     }
 }
+
+impl EntityWorldMut<'_> {
+    /// Runs the given [`EntityCommand`] immediately.
+    pub fn run_command<C: EntityCommand<Out>, Out>(self, entity_command: C) -> Out {
+        entity_command.apply(self)
+    }
+}
