@@ -715,13 +715,9 @@ pub fn conditional_render_set<S: SystemSet + Clone, M>(
     struct EnabledRenderSet<T>(PhantomData<fn() -> T>);
     impl<T: 'static> Resource for EnabledRenderSet<T> {}
 
-    let mut resource = Some(EnabledRenderSet::<S>(PhantomData));
     let condition = condition.pipe(move |In(condition): In<bool>, mut commands: Commands| {
-        let resource = resource
-            .take()
-            .expect("Resource has not been taken since this system only runs once");
         if condition {
-            commands.insert_resource(resource);
+            commands.insert_resource(EnabledRenderSet::<S>(PhantomData));
         }
     });
     render_app
