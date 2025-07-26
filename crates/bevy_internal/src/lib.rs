@@ -27,6 +27,8 @@ pub use bevy_asset as asset;
 pub use bevy_audio as audio;
 #[cfg(feature = "bevy_camera")]
 pub use bevy_camera as camera;
+#[cfg(feature = "bevy_camera_controllers")]
+pub use bevy_camera_controllers as camera_controllers;
 #[cfg(feature = "bevy_color")]
 pub use bevy_color as color;
 #[cfg(feature = "bevy_core_pipeline")]

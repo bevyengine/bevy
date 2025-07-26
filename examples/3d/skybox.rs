@@ -1,9 +1,7 @@
 //! Load a cubemap texture onto a cube like a skybox and cycle through different compressed texture formats
 
-#[path = "../helpers/camera_controller.rs"]
-mod camera_controller;
-
 use bevy::{
+    camera_controllers::free_cam::{FreeCamController, FreeCamPlugin},
     core_pipeline::Skybox,
     image::CompressedImageFormats,
     prelude::*,
@@ -12,7 +10,6 @@ use bevy::{
         renderer::RenderDevice,
     },
 };
-use camera_controller::{CameraController, CameraControllerPlugin};
 use std::f32::consts::PI;
 
 const CUBEMAPS: &[(&str, CompressedImageFormats)] = &[
@@ -37,7 +34,7 @@ const CUBEMAPS: &[(&str, CompressedImageFormats)] = &[
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .add_plugins(CameraControllerPlugin)
+        .add_plugins(FreeCamPlugin)
         .add_systems(Startup, setup)
         .add_systems(
             Update,
@@ -72,7 +69,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn((
         Camera3d::default(),
         Transform::from_xyz(0.0, 0.0, 8.0).looking_at(Vec3::ZERO, Vec3::Y),
-        CameraController::default(),
+        FreeCamController::default(),
         Skybox {
             image: skybox_handle.clone(),
             brightness: 1000.0,
