@@ -71,6 +71,7 @@ pub use bevy_ecs_macros::Bundle;
 
 use crate::{
     component::{ComponentId, Components, ComponentsRegistrator, StorageType},
+    fragmenting_value::FragmentingValue,
     world::EntityWorldMut,
 };
 use bevy_ptr::OwningPtr;
@@ -202,6 +203,16 @@ pub unsafe trait Bundle: DynamicBundle + Send + Sync + 'static {
 
     /// Gets this [`Bundle`]'s component ids. This will be [`None`] if the component has not been registered.
     fn get_component_ids(components: &Components, ids: &mut impl FnMut(Option<ComponentId>));
+
+    /// Returns all component values that can fragment the archetype.
+    fn get_fragmenting_values<'a>(
+        &'a self,
+        components: &mut ComponentsRegistrator,
+        values: &mut impl FnMut(ComponentId, &'a dyn FragmentingValue),
+    );
+
+    /// Returns `true` if this bundle contains any components that can fragment the archetype by value.
+    fn has_fragmenting_values() -> bool;
 }
 
 /// Creates a [`Bundle`] by taking it from internal storage.
