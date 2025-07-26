@@ -1421,7 +1421,6 @@ impl ScheduleGraph {
             .zip(schedule.systems.drain(..))
             .zip(schedule.system_conditions.drain(..))
         {
-            // TODO: change this code to just drop the system and conditions if the key doesn't exist
             if let Some(node) = self.systems.node_mut(key) {
                 node.inner = Some(system);
             }
