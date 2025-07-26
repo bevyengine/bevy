@@ -15,9 +15,9 @@ use core::{
 use derive_more::{Deref, DerefMut};
 
 cfg_if::cfg_if! {
-    if #[cfg(feature = "async_executor")] {
-        type ExecutorInner<'a> = async_executor::Executor<'a>;
-        type LocalExecutorInner<'a> = async_executor::LocalExecutor<'a>;
+    if #[cfg(feature = "std")] {
+        type ExecutorInner<'a> = crate::async_executor::Executor<'a>;
+        type LocalExecutorInner<'a> = crate::async_executor::LocalExecutor<'a>;
     } else {
         type ExecutorInner<'a> = crate::edge_executor::Executor<'a, 64>;
         type LocalExecutorInner<'a> = crate::edge_executor::LocalExecutor<'a, 64>;

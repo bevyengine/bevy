@@ -42,7 +42,9 @@ pub type BoxedFuture<'a, T> = core::pin::Pin<Box<dyn ConditionalSendFuture<Outpu
 
 pub mod futures;
 
-#[cfg(not(feature = "async_executor"))]
+#[cfg(feature = "std")]
+mod async_executor;
+#[cfg(not(feature = "std"))]
 mod edge_executor;
 
 mod executor;
