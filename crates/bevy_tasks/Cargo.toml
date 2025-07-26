@@ -33,6 +33,7 @@ std = [
   "bevy_platform/std",
   "fastrand/std",
   "dep:slab",
+  "dep:thread_local",
   "dep:concurrent-queue",
   "dep:pin-project-lite",
 ]
@@ -65,6 +66,7 @@ derive_more = { version = "2", default-features = false, features = [
 cfg-if = "1.0.0"
 slab = { version = "0.4", optional = true }
 pin-project-lite = { version = "0.2", optional = true }
+thread_local = { version = "1.1", optional = true }
 fastrand = { version = "2.3", optional = true, default-features = false }
 async-channel = { version = "2.3.0", optional = true }
 async-io = { version = "2.0.0", optional = true }
