@@ -363,7 +363,7 @@ struct GpuLightSource {
 impl GpuLightSource {
     fn new_emissive_mesh_light(instance_id: u32, triangle_count: u32) -> GpuLightSource {
         if triangle_count > u16::MAX as u32 {
-            panic!("Too triangles in an emissive mesh, maximum is 65535.");
+            panic!("Too many triangles ({triangle_count}) in an emissive mesh, maximum is 65535.");
         }
 
         Self {
