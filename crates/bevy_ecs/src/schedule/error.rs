@@ -269,4 +269,7 @@ pub enum ScheduleError {
     /// Method could not find key
     #[error("Not Found")]
     NotFound,
+    /// Error initializing schedule
+    #[error("{0}")]
+    ScheduleBuildError(ScheduleBuildError),
 }

@@ -407,7 +407,9 @@ impl Schedule {
         world: &mut World,
     ) -> Result<usize, ScheduleError> {
         if self.graph.changed {
-            self.graph.initialize(world);
+            if let Err(e) = self.initialize(world) {
+                return Err(ScheduleError::ScheduleBuildError(e));
+            }
         }
         self.graph.remove_systems_in_set(set)
     }
