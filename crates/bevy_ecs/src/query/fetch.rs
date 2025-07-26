@@ -308,8 +308,8 @@ pub unsafe trait QueryData: WorldQuery {
     /// Called when constructing a [`QueryLens`](crate::system::QueryLens) or calling [`QueryState::from_builder`](super::QueryState::from_builder)
     fn provide_extra_access(
         _state: &mut Self::State,
-        _access: &mut Access<ComponentId>,
-        _available_access: &Access<ComponentId>,
+        _access: &mut Access,
+        _available_access: &Access,
     ) {
     }
 
@@ -391,7 +391,7 @@ unsafe impl WorldQuery for Entity {
     ) {
     }
 
-    fn update_component_access(_state: &Self::State, _access: &mut FilteredAccess<ComponentId>) {}
+    fn update_component_access(_state: &Self::State, _access: &mut FilteredAccess) {}
 
     fn init_state(_world: &mut World) {}
 
@@ -481,7 +481,7 @@ unsafe impl WorldQuery for EntityLocation {
     ) {
     }
 
-    fn update_component_access(_state: &Self::State, _access: &mut FilteredAccess<ComponentId>) {}
+    fn update_component_access(_state: &Self::State, _access: &mut FilteredAccess) {}
 
     fn init_state(_world: &mut World) {}
 
@@ -642,7 +642,7 @@ unsafe impl WorldQuery for SpawnDetails {
     ) {
     }
 
-    fn update_component_access(_state: &Self::State, _access: &mut FilteredAccess<ComponentId>) {}
+    fn update_component_access(_state: &Self::State, _access: &mut FilteredAccess) {}
 
     fn init_state(_world: &mut World) {}
 
@@ -757,7 +757,7 @@ unsafe impl<'a> WorldQuery for EntityRef<'a> {
     ) {
     }
 
-    fn update_component_access(_state: &Self::State, access: &mut FilteredAccess<ComponentId>) {
+    fn update_component_access(_state: &Self::State, access: &mut FilteredAccess) {
         assert!(
             !access.access().has_any_component_write(),
             "EntityRef conflicts with a previous access in this query. Shared access cannot coincide with exclusive access.",
@@ -860,7 +860,7 @@ unsafe impl<'a> WorldQuery for EntityMut<'a> {
     ) {
     }
 
-    fn update_component_access(_state: &Self::State, access: &mut FilteredAccess<ComponentId>) {
+    fn update_component_access(_state: &Self::State, access: &mut FilteredAccess) {
         assert!(
             !access.access().has_any_component_read(),
             "EntityMut conflicts with a previous access in this query. Exclusive access cannot coincide with any other accesses.",
@@ -922,7 +922,7 @@ impl ReleaseStateQueryData for EntityMut<'_> {
 /// SAFETY: The accesses of `Self::ReadOnly` are a subset of the accesses of `Self`
 unsafe impl WorldQuery for FilteredEntityRef<'_, '_> {
     type Fetch<'w> = EntityFetch<'w>;
-    type State = Access<ComponentId>;
+    type State = Access;
 
     fn shrink_fetch<'wlong: 'wshort, 'wshort>(fetch: Self::Fetch<'wlong>) -> Self::Fetch<'wshort> {
         fetch
@@ -960,10 +960,7 @@ unsafe impl WorldQuery for FilteredEntityRef<'_, '_> {
     ) {
     }
 
-    fn update_component_access(
-        state: &Self::State,
-        filtered_access: &mut FilteredAccess<ComponentId>,
-    ) {
+    fn update_component_access(state: &Self::State, filtered_access: &mut FilteredAccess) {
         assert!(
             filtered_access.access().is_compatible(state),
             "FilteredEntityRef conflicts with a previous access in this query. Exclusive access cannot coincide with any other accesses.",
@@ -1002,8 +999,8 @@ unsafe impl QueryData for FilteredEntityRef<'_, '_> {
     #[inline]
     fn provide_extra_access(
         state: &mut Self::State,
-        access: &mut Access<ComponentId>,
-        available_access: &Access<ComponentId>,
+        access: &mut Access,
+        available_access: &Access,
     ) {
         // Claim any extra access that doesn't conflict with other subqueries
         // This is used when constructing a `QueryLens` or creating a query from a `QueryBuilder`
@@ -1043,7 +1040,7 @@ unsafe impl ReadOnlyQueryData for FilteredEntityRef<'_, '_> {}
 /// SAFETY: The accesses of `Self::ReadOnly` are a subset of the accesses of `Self`
 unsafe impl WorldQuery for FilteredEntityMut<'_, '_> {
     type Fetch<'w> = EntityFetch<'w>;
-    type State = Access<ComponentId>;
+    type State = Access;
 
     fn shrink_fetch<'wlong: 'wshort, 'wshort>(fetch: Self::Fetch<'wlong>) -> Self::Fetch<'wshort> {
         fetch
@@ -1081,10 +1078,7 @@ unsafe impl WorldQuery for FilteredEntityMut<'_, '_> {
     ) {
     }
 
-    fn update_component_access(
-        state: &Self::State,
-        filtered_access: &mut FilteredAccess<ComponentId>,
-    ) {
+    fn update_component_access(state: &Self::State, filtered_access: &mut FilteredAccess) {
         assert!(
             filtered_access.access().is_compatible(state),
             "FilteredEntityMut conflicts with a previous access in this query. Exclusive access cannot coincide with any other accesses.",
@@ -1123,8 +1117,8 @@ unsafe impl<'a, 'b> QueryData for FilteredEntityMut<'a, 'b> {
     #[inline]
     fn provide_extra_access(
         state: &mut Self::State,
-        access: &mut Access<ComponentId>,
-        available_access: &Access<ComponentId>,
+        access: &mut Access,
+        available_access: &Access,
     ) {
         // Claim any extra access that doesn't conflict with other subqueries
         // This is used when constructing a `QueryLens` or creating a query from a `QueryBuilder`
@@ -1164,7 +1158,7 @@ where
     B: Bundle,
 {
     type Fetch<'w> = EntityFetch<'w>;
-    type State = Access<ComponentId>;
+    type State = Access;
 
     fn shrink_fetch<'wlong: 'wshort, 'wshort>(fetch: Self::Fetch<'wlong>) -> Self::Fetch<'wshort> {
         fetch
@@ -1195,10 +1189,7 @@ where
 
     unsafe fn set_table<'w, 's>(_: &mut Self::Fetch<'w>, _: &'s Self::State, _: &'w Table) {}
 
-    fn update_component_access(
-        state: &Self::State,
-        filtered_access: &mut FilteredAccess<ComponentId>,
-    ) {
+    fn update_component_access(state: &Self::State, filtered_access: &mut FilteredAccess) {
         let access = filtered_access.access_mut();
         assert!(
             access.is_compatible(state),
@@ -1280,7 +1271,7 @@ where
     B: Bundle,
 {
     type Fetch<'w> = EntityFetch<'w>;
-    type State = Access<ComponentId>;
+    type State = Access;
 
     fn shrink_fetch<'wlong: 'wshort, 'wshort>(fetch: Self::Fetch<'wlong>) -> Self::Fetch<'wshort> {
         fetch
@@ -1311,10 +1302,7 @@ where
 
     unsafe fn set_table<'w, 's>(_: &mut Self::Fetch<'w>, _: &'s Self::State, _: &'w Table) {}
 
-    fn update_component_access(
-        state: &Self::State,
-        filtered_access: &mut FilteredAccess<ComponentId>,
-    ) {
+    fn update_component_access(state: &Self::State, filtered_access: &mut FilteredAccess) {
         let access = filtered_access.access_mut();
         assert!(
             access.is_compatible(state),
@@ -1426,7 +1414,7 @@ unsafe impl WorldQuery for &Archetype {
     ) {
     }
 
-    fn update_component_access(_state: &Self::State, _access: &mut FilteredAccess<ComponentId>) {}
+    fn update_component_access(_state: &Self::State, _access: &mut FilteredAccess) {}
 
     fn init_state(_world: &mut World) {}
 
@@ -1569,10 +1557,7 @@ unsafe impl<T: Component> WorldQuery for &T {
         unsafe { fetch.components.set_table(table_data) };
     }
 
-    fn update_component_access(
-        &component_id: &ComponentId,
-        access: &mut FilteredAccess<ComponentId>,
-    ) {
+    fn update_component_access(&component_id: &ComponentId, access: &mut FilteredAccess) {
         assert!(
             !access.access().has_component_write(component_id),
             "&{} conflicts with a previous access in this query. Shared access cannot coincide with exclusive access.",
@@ -1755,10 +1740,7 @@ unsafe impl<'__w, T: Component> WorldQuery for Ref<'__w, T> {
         unsafe { fetch.components.set_table(table_data) };
     }
 
-    fn update_component_access(
-        &component_id: &ComponentId,
-        access: &mut FilteredAccess<ComponentId>,
-    ) {
+    fn update_component_access(&component_id: &ComponentId, access: &mut FilteredAccess) {
         assert!(
             !access.access().has_component_write(component_id),
             "&{} conflicts with a previous access in this query. Shared access cannot coincide with exclusive access.",
@@ -1964,10 +1946,7 @@ unsafe impl<'__w, T: Component> WorldQuery for &'__w mut T {
         unsafe { fetch.components.set_table(table_data) };
     }
 
-    fn update_component_access(
-        &component_id: &ComponentId,
-        access: &mut FilteredAccess<ComponentId>,
-    ) {
+    fn update_component_access(&component_id: &ComponentId, access: &mut FilteredAccess) {
         assert!(
             !access.access().has_component_read(component_id),
             "&mut {} conflicts with a previous access in this query. Mutable component access must be unique.",
@@ -2111,10 +2090,7 @@ unsafe impl<'__w, T: Component> WorldQuery for Mut<'__w, T> {
     }
 
     // NOT forwarded to `&mut T`
-    fn update_component_access(
-        &component_id: &ComponentId,
-        access: &mut FilteredAccess<ComponentId>,
-    ) {
+    fn update_component_access(&component_id: &ComponentId, access: &mut FilteredAccess) {
         // Update component access here instead of in `<&mut T as WorldQuery>` to avoid erroneously referencing
         // `&mut T` in error message.
         assert!(
@@ -2254,7 +2230,7 @@ unsafe impl<T: WorldQuery> WorldQuery for Option<T> {
         }
     }
 
-    fn update_component_access(state: &T::State, access: &mut FilteredAccess<ComponentId>) {
+    fn update_component_access(state: &T::State, access: &mut FilteredAccess) {
         // FilteredAccess::add_[write,read] adds the component to the `with` filter.
         // Those methods are called on `access` in `T::update_component_access`.
         // But in `Option<T>`, we specifically don't filter on `T`,
@@ -2438,10 +2414,7 @@ unsafe impl<T: Component> WorldQuery for Has<T> {
         *fetch = table.has_column(*state);
     }
 
-    fn update_component_access(
-        &component_id: &Self::State,
-        access: &mut FilteredAccess<ComponentId>,
-    ) {
+    fn update_component_access(&component_id: &Self::State, access: &mut FilteredAccess) {
         access.access_mut().add_archetypal(component_id);
     }
 
@@ -2536,8 +2509,8 @@ macro_rules! impl_tuple_query_data {
             #[inline]
             fn provide_extra_access(
                 state: &mut Self::State,
-                access: &mut Access<ComponentId>,
-                available_access: &Access<ComponentId>,
+                access: &mut Access,
+                available_access: &Access,
             ) {
                 let ($($name,)*) = state;
                 $($name::provide_extra_access($name, access, available_access);)*
@@ -2651,7 +2624,7 @@ macro_rules! impl_anytuple_fetch {
                 )*
             }
 
-            fn update_component_access(state: &Self::State, access: &mut FilteredAccess<ComponentId>) {
+            fn update_component_access(state: &Self::State, access: &mut FilteredAccess) {
                 // update the filters (Or<(With<$name>,)>)
                 let ($($name,)*) = state;
 
@@ -2813,7 +2786,7 @@ unsafe impl<D: QueryData> WorldQuery for NopWorldQuery<D> {
     #[inline(always)]
     unsafe fn set_table<'w>(_fetch: &mut (), _state: &D::State, _table: &Table) {}
 
-    fn update_component_access(_state: &D::State, _access: &mut FilteredAccess<ComponentId>) {}
+    fn update_component_access(_state: &D::State, _access: &mut FilteredAccess) {}
 
     fn init_state(world: &mut World) -> Self::State {
         D::init_state(world)
@@ -2897,7 +2870,7 @@ unsafe impl<T: ?Sized> WorldQuery for PhantomData<T> {
     ) {
     }
 
-    fn update_component_access(_state: &Self::State, _access: &mut FilteredAccess<ComponentId>) {}
+    fn update_component_access(_state: &Self::State, _access: &mut FilteredAccess) {}
 
     fn init_state(_world: &mut World) -> Self::State {}
 
@@ -3099,11 +3072,7 @@ mod tests {
             ) {
             }
 
-            fn update_component_access(
-                _state: &Self::State,
-                _access: &mut FilteredAccess<ComponentId>,
-            ) {
-            }
+            fn update_component_access(_state: &Self::State, _access: &mut FilteredAccess) {}
 
             fn init_state(_world: &mut World) {}
 

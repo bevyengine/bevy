@@ -10,7 +10,7 @@ use bevy_platform::collections::HashMap;
 use slotmap::{new_key_type, Key, KeyData, SecondaryMap, SlotMap};
 
 use crate::{
-    component::{CheckChangeTicks, ComponentId, Tick},
+    component::{CheckChangeTicks, Tick},
     prelude::{SystemIn, SystemSet},
     query::FilteredAccessSet,
     schedule::{
@@ -35,7 +35,7 @@ pub struct SystemWithAccess {
     pub system: ScheduleSystem,
     /// The access returned by [`System::initialize`].
     /// This will be empty if the system has not been initialized yet.
-    pub access: FilteredAccessSet<ComponentId>,
+    pub access: FilteredAccessSet,
 }
 
 impl SystemWithAccess {
@@ -104,7 +104,7 @@ impl System for SystemWithAccess {
     }
 
     #[inline]
-    fn initialize(&mut self, world: &mut World) -> FilteredAccessSet<ComponentId> {
+    fn initialize(&mut self, world: &mut World) -> FilteredAccessSet {
         self.system.initialize(world)
     }
 
@@ -135,7 +135,7 @@ pub struct ConditionWithAccess {
     pub condition: BoxedCondition,
     /// The access returned by [`System::initialize`].
     /// This will be empty if the system has not been initialized yet.
-    pub access: FilteredAccessSet<ComponentId>,
+    pub access: FilteredAccessSet,
 }
 
 impl ConditionWithAccess {
@@ -204,7 +204,7 @@ impl System for ConditionWithAccess {
     }
 
     #[inline]
-    fn initialize(&mut self, world: &mut World) -> FilteredAccessSet<ComponentId> {
+    fn initialize(&mut self, world: &mut World) -> FilteredAccessSet {
         self.condition.initialize(world)
     }
 
