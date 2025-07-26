@@ -53,12 +53,15 @@ fn pathtrace(@builtin(global_invocation_id) global_id: vec3<u32>) {
             }
             radiance += mis_weight * throughput * ray_hit.material.emissive;
 
-            // Sample direct lighting
-            let direct_lighting = sample_random_light(ray_hit.world_position, ray_hit.world_normal, &rng);
-            let pdf_of_bounce = brdf_pdf(wo, direct_lighting.wi, ray_hit);
-            mis_weight = power_heuristic(1.0 / direct_lighting.inverse_pdf, pdf_of_bounce);
-            let direct_lighting_brdf = evaluate_brdf(ray_hit.world_normal, wo, direct_lighting.wi, ray_hit.material);
-            radiance += mis_weight * throughput * direct_lighting.radiance * direct_lighting.inverse_pdf * direct_lighting_brdf;
+            // Sample direct lighting, but only if the surface is not mirror-like
+            let is_perfectly_specular = ray_hit.material.roughness < 0.0001 && ray_hit.material.metallic > 0.9999;
+            if !is_perfectly_specular {
+                let direct_lighting = sample_random_light(ray_hit.world_position, ray_hit.world_normal, &rng);
+                let pdf_of_bounce = brdf_pdf(wo, direct_lighting.wi, ray_hit);
+                mis_weight = power_heuristic(1.0 / direct_lighting.inverse_pdf, pdf_of_bounce);
+                let direct_lighting_brdf = evaluate_brdf(ray_hit.world_normal, wo, direct_lighting.wi, ray_hit.material);
+                radiance += mis_weight * throughput * direct_lighting.radiance * direct_lighting.inverse_pdf * direct_lighting_brdf;
+            }
 
             // Sample new ray direction from the material BRDF for next bounce
             let next_bounce = importance_sample_next_bounce(wo, ray_hit, &rng);
@@ -72,7 +75,7 @@ fn pathtrace(@builtin(global_invocation_id) global_id: vec3<u32>) {
             // Update throughput for next bounce
             let brdf = evaluate_brdf(ray_hit.world_normal, wo, next_bounce.wi, ray_hit.material);
             let cos_theta = dot(next_bounce.wi, ray_hit.world_normal);
-            throughput *= next_bounce.mis_weight * (brdf * cos_theta) / next_bounce.pdf;
+            throughput *= (brdf * cos_theta) / next_bounce.pdf;
 
             // Russian roulette for early termination
             let p = luminance(throughput);
@@ -92,7 +95,6 @@ fn pathtrace(@builtin(global_invocation_id) global_id: vec3<u32>) {
 
 struct NextBounce {
     wi: vec3<f32>,
-    mis_weight: f32,
     pdf: f32,
     perfectly_specular_bounce: bool,
 }
@@ -100,7 +102,7 @@ struct NextBounce {
 fn importance_sample_next_bounce(wo: vec3<f32>, ray_hit: ResolvedRayHitFull, rng: ptr<function, u32>) -> NextBounce {
     let is_perfectly_specular = ray_hit.material.roughness < 0.0001 && ray_hit.material.metallic > 0.9999;
     if is_perfectly_specular {
-        return NextBounce(reflect(-wo, ray_hit.world_normal), 1.0, 1.0, true);
+        return NextBounce(reflect(-wo, ray_hit.world_normal), 1.0, true);
     }
     let diffuse_weight = mix(mix(0.4f, 0.9f, ray_hit.material.perceptual_roughness), 0.f, ray_hit.material.metallic);
     let specular_weight = 1.0 - diffuse_weight;
@@ -126,9 +128,8 @@ fn importance_sample_next_bounce(wo: vec3<f32>, ray_hit: ResolvedRayHitFull, rng
     let diffuse_pdf = dot(wi, ray_hit.world_normal) / PI;
     let specular_pdf = ggx_vndf_pdf(wo_tangent, wi_tangent, ray_hit.material.roughness);
     let pdf = (diffuse_weight * diffuse_pdf) + (specular_weight * specular_pdf);
-    let mis_weight = select(balance_heuristic(specular_pdf, diffuse_pdf), balance_heuristic(diffuse_pdf, specular_pdf), diffuse_selected);
 
-    return NextBounce(wi, mis_weight, pdf, false);
+    return NextBounce(wi, pdf, false);
 }
 
 fn brdf_pdf(wo: vec3<f32>, wi: vec3<f32>, ray_hit: ResolvedRayHitFull) -> f32 {
