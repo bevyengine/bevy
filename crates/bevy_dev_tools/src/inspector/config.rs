@@ -35,7 +35,7 @@ impl Default for InspectorConfig {
             window_width: 800.0,
             window_height: 900.0,
             window_title: "Bevy Entity Inspector".to_string(),
-            auto_refresh_interval: 0.5,
+            auto_refresh_interval: 0.1, // Update 10 times per second for real-time feel
             max_entities_per_group: 50,
             show_component_counts: true,
             show_entity_ids: true,

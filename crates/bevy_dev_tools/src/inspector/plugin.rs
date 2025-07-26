@@ -8,6 +8,7 @@ use super::data_sources::*;
 use super::systems::{
     handle_inspector_toggle, spawn_inspector_window, update_inspector_content,
     handle_disclosure_interactions, handle_entity_selection, handle_detailed_view,
+    handle_panel_resize,
 };
 
 /// Main inspector plugin that provides entity and component inspection capabilities
@@ -217,16 +218,27 @@ impl Plugin for InspectorPlugin {
         };
         app.insert_resource(data_source);
 
-        // Add systems (Bevy supports up to 6 systems in a tuple)
+        // Add systems - split into multiple calls to avoid tuple limit
         app.add_systems(
             Update,
             (
                 handle_inspector_toggle,
                 spawn_inspector_window,
-                update_inspector_content,
+            ),
+        );
+        
+        app.add_systems(
+            Update,
+            update_inspector_content,
+        );
+        
+        app.add_systems(
+            Update,
+            (
                 handle_disclosure_interactions,
                 handle_entity_selection,
                 handle_detailed_view,
+                handle_panel_resize,
             ),
         );
     }

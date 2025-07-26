@@ -57,6 +57,30 @@ pub struct PropertyInspector {
     pub component_type_name: String,
 }
 
+/// Resizable panel divider/splitter
+#[derive(Component)]
+pub struct ResizeHandle {
+    pub target_panel: Entity,
+    pub resize_direction: ResizeDirection,
+    pub is_dragging: bool,
+    pub last_cursor_pos: Option<bevy_math::Vec2>,
+}
+
+/// Direction for resizing panels
+#[derive(Debug, Clone)]
+pub enum ResizeDirection {
+    Horizontal,
+    Vertical,
+}
+
+/// Resizable panel that can be resized by dragging handles
+#[derive(Component)]
+pub struct ResizablePanel {
+    pub min_size: f32,
+    pub max_size: f32,
+    pub current_size: f32,
+}
+
 impl DisclosureTriangleWidget {
     /// Spawn a disclosure triangle button
     pub fn spawn(
@@ -67,7 +91,7 @@ impl DisclosureTriangleWidget {
         is_expanded: bool,
         styling: &InspectorStyling,
     ) -> Entity {
-        let triangle_symbol = if is_expanded { "▼" } else { "▶" };
+        let triangle_symbol = if is_expanded { "v" } else { ">" };
         let text = format!("{} {} ({})", triangle_symbol, group_name, entity_count);
         
         let entity = commands
@@ -170,7 +194,7 @@ impl CollapsiblePanel {
                 InspectorMarker,
             ))
             .with_children(|parent| {
-                let symbol = if is_expanded { "▼" } else { "▶" };
+                let symbol = if is_expanded { "v" } else { ">" };
                 parent.spawn((
                     Text::new(format!("{} {}", symbol, title)),
                     TextFont {
@@ -361,6 +385,43 @@ impl ComponentBadge {
     }
 }
 
+impl ResizeHandle {
+    /// Spawn a resize handle between panels
+    pub fn spawn(
+        commands: &mut Commands,
+        parent: Entity,
+        target_panel: Entity,
+        direction: ResizeDirection,
+    ) -> Entity {
+        let (width, height, cursor_style) = match direction {
+            ResizeDirection::Horizontal => (Val::Px(4.0), Val::Percent(100.0), "col-resize"),
+            ResizeDirection::Vertical => (Val::Percent(100.0), Val::Px(4.0), "row-resize"),
+        };
+        
+        let entity = commands
+            .spawn((
+                Button,
+                Node {
+                    width,
+                    height,
+                    ..Default::default()
+                },
+                BackgroundColor(Color::srgba(0.25, 0.27, 0.31, 1.0)),
+                ResizeHandle {
+                    target_panel,
+                    resize_direction: direction,
+                    is_dragging: false,
+                    last_cursor_pos: None,
+                },
+                InspectorMarker,
+            ))
+            .id();
+            
+        commands.entity(parent).add_child(entity);
+        entity
+    }
+}
+
 impl SearchBox {
     /// Spawn a search input box
     pub fn spawn(
@@ -388,7 +449,7 @@ impl SearchBox {
             ))
             .with_children(|parent| {
                 parent.spawn((
-                    Text::new(format!("🔍 {}", placeholder)),
+                    Text::new(format!("Search: {}", placeholder)),
                     TextFont {
                         font_size: styling.font_size_normal,
                         ..Default::default()
