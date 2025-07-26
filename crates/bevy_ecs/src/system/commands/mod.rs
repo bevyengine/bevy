@@ -2391,8 +2391,8 @@ mod tests {
     use crate::{
         component::Component,
         resource::Resource,
-        system::Commands,
-        world::{CommandQueue, FromWorld, World},
+        system::{command, Commands, EntityCommand},
+        world::{CommandQueue, EntityWorldMut, FromWorld, World},
     };
     use alloc::{string::String, sync::Arc, vec, vec::Vec};
     use core::{
@@ -2802,5 +2802,28 @@ mod tests {
             Some(expected),
             world.entities().entity_get_spawned_or_despawned_at(id)
         );
+    }
+
+    #[test]
+    fn world_run_command() {
+        let mut world = World::new();
+        world.run_command(command::insert_resource(W(0u32)));
+        assert!(world.get_resource::<W<u32>>().is_some());
+    }
+
+    #[test]
+    fn entity_run_command() {
+        struct InsertW(u32);
+        impl EntityCommand for InsertW {
+            fn apply(self, mut entity: EntityWorldMut) {
+                entity.insert(W(self.0));
+            }
+        }
+
+        let mut world = World::new();
+        let entity = world.spawn_empty();
+        let id = entity.id();
+        entity.run_command(InsertW(0));
+        assert!(world.get::<W<u32>>(id).is_some());
     }
 }

@@ -245,3 +245,10 @@ pub fn write_event<E: BufferedEvent>(event: E) -> impl Command {
 pub fn send_event<E: BufferedEvent>(event: E) -> impl Command {
     write_event(event)
 }
+
+impl World {
+    /// Runs the given [`Command`] immediately.
+    pub fn run_command<C: Command<Out>, Out>(&mut self, command: C) -> Out {
+        command.apply(self)
+    }
+}
