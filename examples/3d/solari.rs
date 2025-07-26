@@ -87,7 +87,7 @@ fn add_raytracing_meshes_on_scene_load(
     mut commands: Commands,
     args: Res<Args>,
 ) {
-    // Ensure meshes are bevy_solari compatible
+    // Ensure meshes are Solari compatible
     for (_, mesh) in meshes.iter_mut() {
         mesh.remove_attribute(Mesh::ATTRIBUTE_UV_1.id);
         mesh.remove_attribute(Mesh::ATTRIBUTE_COLOR.id);
@@ -113,8 +113,13 @@ fn add_raytracing_meshes_on_scene_load(
         }
     }
 
-    // Increase material emissive intensity to make it prettier for the example
+    // Adjust scene materials to better demo Solari features
     for (_, material) in materials.iter_mut() {
         material.emissive *= 200.0;
+
+        if material.base_color.to_linear() == LinearRgba::new(0.5, 0.5, 0.5, 1.0) {
+            material.metallic = 1.0;
+            material.perceptual_roughness = 0.15;
+        }
     }
 }
