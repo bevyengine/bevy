@@ -145,7 +145,6 @@ impl Plugin for EnvironmentMapGenerationPlugin {
         };
 
         render_app
-            .init_resource::<Bluenoise>()
             .add_render_graph_node::<DownsamplingNode>(Core3d, GeneratorNode::Downsampling)
             .add_render_graph_node::<FilteringNode>(Core3d, GeneratorNode::Filtering)
             .add_render_graph_edges(
@@ -366,6 +365,10 @@ pub fn initialize_generated_environment_map_resources(
     if combine_bind_group {
         shader_defs.push(ShaderDefVal::Int("COMBINE_BIND_GROUP".into(), 1));
     }
+    #[cfg(feature = "bluenoise_texture")]
+    {
+        shader_defs.push(ShaderDefVal::Int("HAS_BLUE_NOISE".into(), 1));
+    }
 
     let downsampling_shader = load_embedded_asset!(asset_server.as_ref(), "downsample.wgsl");
     let env_filter_shader = load_embedded_asset!(asset_server.as_ref(), "environment_filter.wgsl");
@@ -410,7 +413,7 @@ pub fn initialize_generated_environment_map_resources(
         layout: vec![layouts.radiance.clone()],
         push_constant_ranges: vec![],
         shader: env_filter_shader.clone(),
-        shader_defs: vec![],
+        shader_defs: shader_defs.clone(),
         entry_point: Some("generate_radiance_map".into()),
         zero_initialize_workgroup_memory: false,
     });
@@ -421,7 +424,7 @@ pub fn initialize_generated_environment_map_resources(
         layout: vec![layouts.irradiance.clone()],
         push_constant_ranges: vec![],
         shader: env_filter_shader,
-        shader_defs: vec![],
+        shader_defs: shader_defs.clone(),
         entry_point: Some("generate_irradiance_map".into()),
         zero_initialize_workgroup_memory: false,
     });
@@ -716,6 +719,15 @@ pub fn prepare_generated_environment_map_bind_groups(
                 (first, second)
             };
 
+        // create a 2d array view of the bluenoise texture
+        let stbn_texture_view = stbn_texture
+            .texture
+            .clone()
+            .create_view(&TextureViewDescriptor {
+                dimension: Some(TextureViewDimension::D2Array),
+                ..Default::default()
+            });
+
         // Create radiance map bind groups for each mip level
         let num_mips = mip_count as usize;
         let mut radiance_bind_groups = Vec::with_capacity(num_mips);
@@ -749,7 +761,7 @@ pub fn prepare_generated_environment_map_bind_groups(
                     &samplers.linear,
                     &mip_storage_view,
                     &radiance_constants_buffer,
-                    &stbn_texture.texture_view,
+                    &stbn_texture_view,
                 )),
             );
 
@@ -786,7 +798,7 @@ pub fn prepare_generated_environment_map_bind_groups(
                 &samplers.linear,
                 &irradiance_map,
                 &irradiance_constants_buffer,
-                &stbn_texture.texture_view,
+                &stbn_texture_view,
             )),
         );
 
