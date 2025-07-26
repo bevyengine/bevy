@@ -125,7 +125,6 @@ unused_qualifications = "warn"
 [features]
 default = [
   "std",
-  "async_executor",
   "android-game-activity",
   "android_shared_stdcxx",
   "animation",
@@ -553,9 +552,6 @@ custom_cursor = ["bevy_internal/custom_cursor"]
 
 # Experimental support for nodes that are ignored for UI layouting
 ghost_nodes = ["bevy_internal/ghost_nodes"]
-
-# Uses `async-executor` as a task execution backend.
-async_executor = ["std", "bevy_internal/async_executor"]
 
 # Allows access to the `std` crate.
 std = ["bevy_internal/std"]

@@ -10,7 +10,7 @@ keywords = ["bevy"]
 rust-version = "1.85.0"
 
 [features]
-default = ["std", "bevy_reflect", "bevy_ecs/async_executor"]
+default = ["std", "bevy_reflect"]
 
 # Functionality
 

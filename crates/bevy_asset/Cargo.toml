@@ -27,9 +27,7 @@ bevy_ecs = { path = "../bevy_ecs", version = "0.17.0-dev", default-features = fa
 bevy_reflect = { path = "../bevy_reflect", version = "0.17.0-dev", default-features = false, features = [
   "uuid",
 ] }
-bevy_tasks = { path = "../bevy_tasks", version = "0.17.0-dev", default-features = false, features = [
-  "async_executor",
-] }
+bevy_tasks = { path = "../bevy_tasks", version = "0.17.0-dev", default-features = false }
 bevy_utils = { path = "../bevy_utils", version = "0.17.0-dev", default-features = false }
 bevy_platform = { path = "../bevy_platform", version = "0.17.0-dev", default-features = false, features = [
   "std",
