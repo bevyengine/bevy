@@ -143,7 +143,6 @@ pub struct TaskPool {
 
 impl TaskPool {
     thread_local! {
-        static LOCAL_EXECUTOR: crate::executor::LocalExecutor<'static> = const { crate::executor::LocalExecutor::new() };
         static THREAD_EXECUTOR: Arc<ThreadExecutor<'static>> = Arc::new(ThreadExecutor::new());
     }
 
@@ -187,28 +186,20 @@ impl TaskPool {
 
                 thread_builder
                     .spawn(move || {
-                        TaskPool::LOCAL_EXECUTOR.with(|local_executor| {
-                            if let Some(on_thread_spawn) = on_thread_spawn {
-                                on_thread_spawn();
-                                drop(on_thread_spawn);
+                        if let Some(on_thread_spawn) = on_thread_spawn {
+                            on_thread_spawn();
+                            drop(on_thread_spawn);
+                        }
+                        let _destructor = CallOnDrop(on_thread_destroy);
+                        loop {
+                            let res =
+                                std::panic::catch_unwind(|| block_on(ex.run(shutdown_rx.recv())));
+                            if let Ok(value) = res {
+                                // Use unwrap_err because we expect a Closed error
+                                value.unwrap_err();
+                                break;
                             }
-                            let _destructor = CallOnDrop(on_thread_destroy);
-                            loop {
-                                let res = std::panic::catch_unwind(|| {
-                                    let tick_forever = async move {
-                                        loop {
-                                            local_executor.tick().await;
-                                        }
-                                    };
-                                    block_on(ex.run(tick_forever.or(shutdown_rx.recv())))
-                                });
-                                if let Ok(value) = res {
-                                    // Use unwrap_err because we expect a Closed error
-                                    value.unwrap_err();
-                                    break;
-                                }
-                            }
-                        });
+                        }
                     })
                     .expect("Failed to spawn thread.")
             })
@@ -578,25 +569,7 @@ impl TaskPool {
     where
         T: 'static,
     {
-        Task::new(TaskPool::LOCAL_EXECUTOR.with(|executor| executor.spawn(future)))
-    }
-
-    /// Runs a function with the local executor. Typically used to tick
-    /// the local executor on the main thread as it needs to share time with
-    /// other things.
-    ///
-    /// ```
-    /// use bevy_tasks::TaskPool;
-    ///
-    /// TaskPool::new().with_local_executor(|local_executor| {
-    ///     local_executor.try_tick();
-    /// });
-    /// ```
-    pub fn with_local_executor<F, R>(&self, f: F) -> R
-    where
-        F: FnOnce(&crate::executor::LocalExecutor) -> R,
-    {
-        Self::LOCAL_EXECUTOR.with(f)
+        Task::new(self.executor.spawn_local(future))
     }
 }
 

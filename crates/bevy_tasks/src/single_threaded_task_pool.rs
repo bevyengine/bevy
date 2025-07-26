@@ -4,25 +4,12 @@ use core::{cell::RefCell, future::Future, marker::PhantomData, mem};
 
 use crate::Task;
 
-#[cfg(feature = "std")]
-use std::thread_local;
-
 #[cfg(not(feature = "std"))]
 use bevy_platform::sync::{Mutex, PoisonError};
 
-#[cfg(feature = "std")]
-use crate::executor::LocalExecutor;
+use crate::executor::Executor;
 
-#[cfg(not(feature = "std"))]
-use crate::executor::Executor as LocalExecutor;
-
-#[cfg(feature = "std")]
-thread_local! {
-    static LOCAL_EXECUTOR: LocalExecutor<'static> = const { LocalExecutor::new() };
-}
-
-#[cfg(not(feature = "std"))]
-static LOCAL_EXECUTOR: LocalExecutor<'static> = const { LocalExecutor::new() };
+static EXECUTOR: Executor = Executor::new();
 
 #[cfg(feature = "std")]
 type ScopeResult<T> = alloc::rc::Rc<RefCell<Option<T>>>;
@@ -147,9 +134,9 @@ impl TaskPool {
         // Any usages of the references passed into `Scope` must be accessed through
         // the transmuted reference for the rest of this function.
 
-        let executor = &LocalExecutor::new();
+        let executor = &Executor::new();
         // SAFETY: As above, all futures must complete in this function so we can change the lifetime
-        let executor: &'env LocalExecutor<'env> = unsafe { mem::transmute(executor) };
+        let executor: &'env Executor<'env> = unsafe { mem::transmute(executor) };
 
         let results: RefCell<Vec<ScopeResult<T>>> = RefCell::new(Vec::new());
         // SAFETY: As above, all futures must complete in this function so we can change the lifetime
@@ -203,21 +190,17 @@ impl TaskPool {
             if #[cfg(all(target_arch = "wasm32", feature = "web"))] {
                 Task::wrap_future(future)
             } else if #[cfg(feature = "std")] {
-                LOCAL_EXECUTOR.with(|executor| {
-                    let task = executor.spawn(future);
-                    // Loop until all tasks are done
-                    while executor.try_tick() {}
+                let task = EXECUTOR.spawn_local(future);
+                // Loop until all tasks are done
+                while EXECUTOR.try_tick() {}
 
-                    Task::new(task)
-                })
+                Task::new(task)
             } else {
-                {
-                    let task = LOCAL_EXECUTOR.spawn(future);
-                    // Loop until all tasks are done
-                    while LOCAL_EXECUTOR.try_tick() {}
+                EXECUTOR.spawn_local(future);
+                // Loop until all tasks are done
+                while EXECUTOR.try_tick() {}
 
-                    Task::new(task)
-                }
+                Task::new(task)
             }
         }
     }
@@ -232,28 +215,6 @@ impl TaskPool {
     {
         self.spawn(future)
     }
-
-    /// Runs a function with the local executor. Typically used to tick
-    /// the local executor on the main thread as it needs to share time with
-    /// other things.
-    ///
-    /// ```
-    /// use bevy_tasks::TaskPool;
-    ///
-    /// TaskPool::new().with_local_executor(|local_executor| {
-    ///     local_executor.try_tick();
-    /// });
-    /// ```
-    pub fn with_local_executor<F, R>(&self, f: F) -> R
-    where
-        F: FnOnce(&LocalExecutor) -> R,
-    {
-        #[cfg(feature = "std")]
-        return LOCAL_EXECUTOR.with(f);
-
-        #[cfg(not(feature = "std"))]
-        return f(&LOCAL_EXECUTOR);
-    }
 }
 
 /// A `TaskPool` scope for running one or more non-`'static` futures.
@@ -261,7 +222,7 @@ impl TaskPool {
 /// For more information, see [`TaskPool::scope`].
 #[derive(Debug)]
 pub struct Scope<'scope, 'env: 'scope, T> {
-    executor: &'scope LocalExecutor<'scope>,
+    executor: &'scope Executor<'scope>,
     // Vector to gather results of all futures spawned during scope run
     results: &'env RefCell<Vec<ScopeResult<T>>>,
 
@@ -313,7 +274,7 @@ impl<'scope, 'env, T: Send + 'env> Scope<'scope, 'env, T> {
                 *lock = Some(temp_result);
             }
         };
-        self.executor.spawn(f).detach();
+        self.executor.spawn_local(f).detach();
     }
 }
 

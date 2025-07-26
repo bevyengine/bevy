@@ -1,6 +1,7 @@
 use super::TaskPool;
 use bevy_platform::sync::OnceLock;
 use core::ops::Deref;
+use crate::executor::Executor;
 
 macro_rules! taskpool {
     ($(#[$attr:meta])* ($static:ident, $type:ident)) => {
@@ -83,24 +84,9 @@ taskpool! {
 /// This function *must* be called on the main thread, or the task pools will not be updated appropriately.
 #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
 pub fn tick_global_task_pools_on_main_thread() {
-    COMPUTE_TASK_POOL
-        .get()
-        .unwrap()
-        .with_local_executor(|compute_local_executor| {
-            ASYNC_COMPUTE_TASK_POOL
-                .get()
-                .unwrap()
-                .with_local_executor(|async_local_executor| {
-                    IO_TASK_POOL
-                        .get()
-                        .unwrap()
-                        .with_local_executor(|io_local_executor| {
-                            for _ in 0..100 {
-                                compute_local_executor.try_tick();
-                                async_local_executor.try_tick();
-                                io_local_executor.try_tick();
-                            }
-                        });
-                });
-        });
+    for _ in 0..100 {
+        if !Executor::try_tick_local() {
+            break;
+        }
+    }
 }

@@ -1,43 +1,30 @@
+use std::cell::RefCell;
+use std::collections::VecDeque;
 use std::fmt;
 use std::marker::PhantomData;
 use std::panic::{RefUnwindSafe, UnwindSafe};
 use std::pin::Pin;
-use std::rc::Rc;
 use std::sync::atomic::{AtomicBool, AtomicPtr, Ordering};
 use std::sync::{Arc, Mutex, MutexGuard, RwLock, TryLockError};
 use std::task::{Context, Poll, Waker};
 
-use async_task::{Builder, Runnable};
+use async_task::{Builder, Runnable, Task};
+use bevy_platform::prelude::Vec;
 use concurrent_queue::ConcurrentQueue;
 use futures_lite::{future, prelude::*};
 use pin_project_lite::pin_project;
-use bevy_platform::prelude::Vec;
 use slab::Slab;
+use thread_local::ThreadLocal;
+
+static LOCAL_QUEUE: ThreadLocal<RefCell<LocalQueue>> = ThreadLocal::new();
+
+#[derive(Default)]
+struct LocalQueue {
+    queue: VecDeque<Runnable>,
+    active: Slab<Waker>,
+}
 
 /// An async executor.
-///
-/// # Examples
-///
-/// A multi-threaded executor:
-///
-/// ```
-/// use async_channel::unbounded;
-/// use async_executor::Executor;
-/// use easy_parallel::Parallel;
-/// use futures_lite::future;
-///
-/// let ex = Executor::new();
-/// let (signal, shutdown) = unbounded::<()>();
-///
-/// Parallel::new()
-///     // Run four executor threads.
-///     .each(0..4, |_| future::block_on(ex.run(shutdown.recv())))
-///     // Run the main future on the current thread.
-///     .finish(|| future::block_on(async {
-///         println!("Hello world!");
-///         drop(signal);
-///     }));
-/// ```
 pub struct Executor<'a> {
     /// The executor state.
     state: AtomicPtr<State>,
@@ -70,14 +57,6 @@ impl fmt::Debug for Executor<'_> {
 
 impl<'a> Executor<'a> {
     /// Creates a new executor.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use async_executor::Executor;
-    ///
-    /// let ex = Executor::new();
-    /// ```
     pub const fn new() -> Executor<'a> {
         Executor {
             state: AtomicPtr::new(std::ptr::null_mut()),
@@ -85,141 +64,20 @@ impl<'a> Executor<'a> {
         }
     }
 
-    /// Returns `true` if there are no unfinished tasks.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use async_executor::Executor;
-    ///
-    /// let ex = Executor::new();
-    /// assert!(ex.is_empty());
-    ///
-    /// let task = ex.spawn(async {
-    ///     println!("Hello world");
-    /// });
-    /// assert!(!ex.is_empty());
-    ///
-    /// assert!(ex.try_tick());
-    /// assert!(ex.is_empty());
-    /// ```
-    pub fn is_empty(&self) -> bool {
-        self.state().active().is_empty()
-    }
-
     /// Spawns a task onto the executor.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use async_executor::Executor;
-    ///
-    /// let ex = Executor::new();
-    ///
-    /// let task = ex.spawn(async {
-    ///     println!("Hello world");
-    /// });
-    /// ```
     pub fn spawn<T: Send + 'a>(&self, future: impl Future<Output = T> + Send + 'a) -> Task<T> {
         let mut active = self.state().active();
 
-        #[expect(
-            unsafe_code,
-            reason = "unsized coercion is an unstable feature for non-std types"
-        )]
-        // SAFETY: `T` and the future are `Send`.
-        unsafe { self.spawn_inner(future, &mut active) }
-    }
-
-    /// Spawns many tasks onto the executor.
-    ///
-    /// As opposed to the [`spawn`] method, this locks the executor's inner task lock once and
-    /// spawns all of the tasks in one go. With large amounts of tasks this can improve
-    /// contention.
-    ///
-    /// For very large numbers of tasks the lock is occasionally dropped and re-acquired to
-    /// prevent runner thread starvation. It is assumed that the iterator provided does not
-    /// block; blocking iterators can lock up the internal mutex and therefore the entire
-    /// executor.
-    ///
-    /// ## Example
-    ///
-    /// ```
-    /// use async_executor::Executor;
-    /// use futures_lite::{stream, prelude::*};
-    /// use std::future::ready;
-    ///
-    /// # futures_lite::future::block_on(async {
-    /// let mut ex = Executor::new();
-    ///
-    /// let futures = [
-    ///     ready(1),
-    ///     ready(2),
-    ///     ready(3)
-    /// ];
-    ///
-    /// // Spawn all of the futures onto the executor at once.
-    /// let mut tasks = vec![];
-    /// ex.spawn_many(futures, &mut tasks);
-    ///
-    /// // Await all of them.
-    /// let results = ex.run(async move {
-    ///     stream::iter(tasks).then(|x| x).collect::<Vec<_>>().await
-    /// }).await;
-    /// assert_eq!(results, [1, 2, 3]);
-    /// # });
-    /// ```
-    ///
-    /// [`spawn`]: Executor::spawn
-    pub fn spawn_many<T: Send + 'a, F: Future<Output = T> + Send + 'a>(
-        &self,
-        futures: impl IntoIterator<Item = F>,
-        handles: &mut impl Extend<Task<F::Output>>,
-    ) {
-        let mut active = Some(self.state().active());
-
-        // Convert the futures into tasks.
-        let tasks = futures.into_iter().enumerate().map(move |(i, future)| {
-            #[expect(
-                unsafe_code,
-                reason = "unsized coercion is an unstable feature for non-std types"
-            )]
-            // SAFETY: `T` and the future are `Send`.
-            let task = unsafe { self.spawn_inner(future, active.as_mut().unwrap()) };
-
-            // Yield the lock every once in a while to ease contention.
-            if i.wrapping_sub(1) % 500 == 0 {
-                drop(active.take());
-                active = Some(self.state().active());
-            }
-
-            task
-        });
-
-        // Push the tasks to the user's collection.
-        handles.extend(tasks);
-    }
-
-    #[expect(
-        unsafe_code,
-        reason = "unsized coercion is an unstable feature for non-std types"
-    )]
-    /// Spawn a future while holding the inner lock.
-    ///
-    /// # Safety
-    ///
-    /// If this is an `Executor`, `F` and `T` must be `Send`.
-    unsafe fn spawn_inner<T: 'a>(
-        &self,
-        future: impl Future<Output = T> + 'a,
-        active: &mut Slab<Waker>,
-    ) -> Task<T> {
         // Remove the task from the set of active tasks when the future finishes.
         let entry = active.vacant_entry();
         let index = entry.key();
         let state = self.state_as_arc();
         let future = AsyncCallOnDrop::new(future, move || drop(state.active().try_remove(index)));
 
+        #[expect(
+            unsafe_code,
+            reason = "unsized coercion is an unstable feature for non-std types"
+        )]
         // Create the task and register it in the set of active tasks.
         //
         // SAFETY:
@@ -242,10 +100,62 @@ impl<'a> Executor<'a> {
         // `self.schedule()` is `Send`, `Sync` and `'static`, as checked below.
         // Therefore we do not need to worry about what is done with the
         // `Waker`.
-        let (runnable, task) = Builder::new()
-            .propagate_panic(true)
-            .spawn_unchecked(|()| future, self.schedule());
+        let (runnable, task) = unsafe {
+            Builder::new()
+                .propagate_panic(true)
+                .spawn_unchecked(|()| future, self.schedule())
+        };
         entry.insert(runnable.waker());
+
+        runnable.schedule();
+        task
+    }
+
+    /// Spawns a non-Send task onto the executor.
+    pub fn spawn_local<T: 'a>(&self, future: impl Future<Output = T> + 'a) -> Task<T> {
+        // Remove the task from the set of active tasks when the future finishes.
+        let local_queue: &'static RefCell<LocalQueue> = LOCAL_QUEUE.get_or_default();
+        let mut local_state = local_queue.borrow_mut();
+        let entry = local_state.active.vacant_entry();
+        let index = entry.key();
+        let future = AsyncCallOnDrop::new(future, move || {
+            drop(local_queue.borrow_mut().active.try_remove(index))
+        });
+
+        #[expect(
+            unsafe_code,
+            reason = "Builder::spawn_local requires a 'static lifetime"
+        )]
+        // Create the task and register it in the set of active tasks.
+        //
+        // SAFETY:
+        //
+        // If `future` is not `Send`, this must be a `LocalExecutor` as per this
+        // function's unsafe precondition. Since `LocalExecutor` is `!Sync`,
+        // `try_tick`, `tick` and `run` can only be called from the origin
+        // thread of the `LocalExecutor`. Similarly, `spawn` can only  be called
+        // from the origin thread, ensuring that `future` and the executor share
+        // the same origin thread. The `Runnable` can be scheduled from other
+        // threads, but because of the above `Runnable` can only be called or
+        // dropped on the origin thread.
+        //
+        // `future` is not `'static`, but we make sure that the `Runnable` does
+        // not outlive `'a`. When the executor is dropped, the `active` field is
+        // drained and all of the `Waker`s are woken. Then, the queue inside of
+        // the `Executor` is drained of all of its runnables. This ensures that
+        // runnables are dropped and this precondition is satisfied.
+        //
+        // `self.schedule()` is `Send`, `Sync` and `'static`, as checked below.
+        // Therefore we do not need to worry about what is done with the
+        // `Waker`.
+        let (runnable, task) = unsafe {
+            Builder::new()
+                .propagate_panic(true)
+                .spawn_unchecked(|()| future, self.schedule_local())
+        };
+        entry.insert(runnable.waker());
+
+        drop(local_state);
 
         runnable.schedule();
         task
@@ -258,7 +168,7 @@ impl<'a> Executor<'a> {
     /// # Examples
     ///
     /// ```
-    /// use async_executor::Executor;
+    /// use crate::async_executor::Executor;
     ///
     /// let ex = Executor::new();
     /// assert!(!ex.try_tick()); // no tasks to run
@@ -272,6 +182,16 @@ impl<'a> Executor<'a> {
         self.state().try_tick()
     }
 
+    pub fn try_tick_local() -> bool {
+        if let Some(runnable) = LOCAL_QUEUE.get_or_default().borrow_mut().queue.pop_back() {
+            // Run the task.
+            runnable.run();
+            true
+        } else {
+            false
+        }
+    }
+
     /// Runs a single task.
     ///
     /// Running a task means simply polling its future once.
@@ -281,7 +201,7 @@ impl<'a> Executor<'a> {
     /// # Examples
     ///
     /// ```
-    /// use async_executor::Executor;
+    /// use crate::async_executor::Executor;
     /// use futures_lite::future;
     ///
     /// let ex = Executor::new();
@@ -300,7 +220,7 @@ impl<'a> Executor<'a> {
     /// # Examples
     ///
     /// ```
-    /// use async_executor::Executor;
+    /// use crate::async_executor::Executor;
     /// use futures_lite::future;
     ///
     /// let ex = Executor::new();
@@ -322,6 +242,16 @@ impl<'a> Executor<'a> {
         move |runnable| {
             state.queue.push(runnable).unwrap();
             state.notify();
+        }
+    }
+
+    /// Returns a function that schedules a runnable task when it gets woken up.
+    fn schedule_local(&self) -> impl Fn(Runnable) + 'static {
+        let local_queue: &'static RefCell<LocalQueue> = LOCAL_QUEUE.get_or_default();
+        // TODO: If possible, push into the current local queue and notify the ticker.
+        move |runnable| {
+            local_queue.borrow_mut().queue.push_back(runnable);
+            // state.notify();
         }
     }
 
@@ -367,7 +297,9 @@ impl<'a> Executor<'a> {
         )]
         // SAFETY: So long as an Executor lives, it's state pointer will always be valid
         // when accessed through state_ptr.
-        unsafe { &*self.state_ptr() }
+        unsafe {
+            &*self.state_ptr()
+        }
     }
 
     // Clones the inner state Arc
@@ -414,243 +346,6 @@ impl Drop for Executor<'_> {
 impl<'a> Default for Executor<'a> {
     fn default() -> Executor<'a> {
         Executor::new()
-    }
-}
-
-/// A thread-local executor.
-///
-/// The executor can only be run on the thread that created it.
-///
-/// # Examples
-///
-/// ```
-/// use async_executor::LocalExecutor;
-/// use futures_lite::future;
-///
-/// let local_ex = LocalExecutor::new();
-///
-/// future::block_on(local_ex.run(async {
-///     println!("Hello world!");
-/// }));
-/// ```
-pub struct LocalExecutor<'a> {
-    /// The inner executor.
-    inner: Executor<'a>,
-
-    /// Makes the type `!Send` and `!Sync`.
-    _marker: PhantomData<Rc<()>>,
-}
-
-impl UnwindSafe for LocalExecutor<'_> {}
-impl RefUnwindSafe for LocalExecutor<'_> {}
-
-impl fmt::Debug for LocalExecutor<'_> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        debug_executor(&self.inner, "LocalExecutor", f)
-    }
-}
-
-impl<'a> LocalExecutor<'a> {
-    /// Creates a single-threaded executor.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use async_executor::LocalExecutor;
-    ///
-    /// let local_ex = LocalExecutor::new();
-    /// ```
-    pub const fn new() -> LocalExecutor<'a> {
-        LocalExecutor {
-            inner: Executor::new(),
-            _marker: PhantomData,
-        }
-    }
-
-    /// Returns `true` if there are no unfinished tasks.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use async_executor::LocalExecutor;
-    ///
-    /// let local_ex = LocalExecutor::new();
-    /// assert!(local_ex.is_empty());
-    ///
-    /// let task = local_ex.spawn(async {
-    ///     println!("Hello world");
-    /// });
-    /// assert!(!local_ex.is_empty());
-    ///
-    /// assert!(local_ex.try_tick());
-    /// assert!(local_ex.is_empty());
-    /// ```
-    pub fn is_empty(&self) -> bool {
-        self.inner().is_empty()
-    }
-
-    /// Spawns a task onto the executor.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use async_executor::LocalExecutor;
-    ///
-    /// let local_ex = LocalExecutor::new();
-    ///
-    /// let task = local_ex.spawn(async {
-    ///     println!("Hello world");
-    /// });
-    /// ```
-    pub fn spawn<T: 'a>(&self, future: impl Future<Output = T> + 'a) -> Task<T> {
-        let mut active = self.inner().state().active();
-
-        #[expect(
-            unsafe_code,
-            reason = "unsized coercion is an unstable feature for non-std types"
-        )]
-        // SAFETY: This executor is not thread safe, so the future and its result
-        //         cannot be sent to another thread.
-        unsafe { self.inner().spawn_inner(future, &mut active) }
-    }
-
-    /// Spawns many tasks onto the executor.
-    ///
-    /// As opposed to the [`spawn`] method, this locks the executor's inner task lock once and
-    /// spawns all of the tasks in one go. With large amounts of tasks this can improve
-    /// contention.
-    ///
-    /// It is assumed that the iterator provided does not block; blocking iterators can lock up
-    /// the internal mutex and therefore the entire executor. Unlike [`Executor::spawn`], the
-    /// mutex is not released, as there are no other threads that can poll this executor.
-    ///
-    /// ## Example
-    ///
-    /// ```
-    /// use async_executor::LocalExecutor;
-    /// use futures_lite::{stream, prelude::*};
-    /// use std::future::ready;
-    ///
-    /// # futures_lite::future::block_on(async {
-    /// let mut ex = LocalExecutor::new();
-    ///
-    /// let futures = [
-    ///     ready(1),
-    ///     ready(2),
-    ///     ready(3)
-    /// ];
-    ///
-    /// // Spawn all of the futures onto the executor at once.
-    /// let mut tasks = vec![];
-    /// ex.spawn_many(futures, &mut tasks);
-    ///
-    /// // Await all of them.
-    /// let results = ex.run(async move {
-    ///     stream::iter(tasks).then(|x| x).collect::<Vec<_>>().await
-    /// }).await;
-    /// assert_eq!(results, [1, 2, 3]);
-    /// # });
-    /// ```
-    ///
-    /// [`spawn`]: LocalExecutor::spawn
-    /// [`Executor::spawn_many`]: Executor::spawn_many
-    pub fn spawn_many<T: 'a, F: Future<Output = T> + 'a>(
-        &self,
-        futures: impl IntoIterator<Item = F>,
-        handles: &mut impl Extend<Task<F::Output>>,
-    ) {
-        let mut active = self.inner().state().active();
-
-        // Convert all of the futures to tasks.
-        let tasks = futures.into_iter().map(|future| {
-            #[expect(
-                unsafe_code,
-                reason = "unsized coercion is an unstable feature for non-std types"
-            )]
-            // SAFETY: This executor is not thread safe, so the future and its result
-            //         cannot be sent to another thread.
-            unsafe { self.inner().spawn_inner(future, &mut active) }
-
-            // As only one thread can spawn or poll tasks at a time, there is no need
-            // to release lock contention here.
-        });
-
-        // Push them to the user's collection.
-        handles.extend(tasks);
-    }
-
-    /// Attempts to run a task if at least one is scheduled.
-    ///
-    /// Running a scheduled task means simply polling its future once.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use async_executor::LocalExecutor;
-    ///
-    /// let ex = LocalExecutor::new();
-    /// assert!(!ex.try_tick()); // no tasks to run
-    ///
-    /// let task = ex.spawn(async {
-    ///     println!("Hello world");
-    /// });
-    /// assert!(ex.try_tick()); // a task was found
-    /// ```
-    pub fn try_tick(&self) -> bool {
-        self.inner().try_tick()
-    }
-
-    /// Runs a single task.
-    ///
-    /// Running a task means simply polling its future once.
-    ///
-    /// If no tasks are scheduled when this method is called, it will wait until one is scheduled.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use async_executor::LocalExecutor;
-    /// use futures_lite::future;
-    ///
-    /// let ex = LocalExecutor::new();
-    ///
-    /// let task = ex.spawn(async {
-    ///     println!("Hello world");
-    /// });
-    /// future::block_on(ex.tick()); // runs the task
-    /// ```
-    pub async fn tick(&self) {
-        self.inner().tick().await
-    }
-
-    /// Runs the executor until the given future completes.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use async_executor::LocalExecutor;
-    /// use futures_lite::future;
-    ///
-    /// let local_ex = LocalExecutor::new();
-    ///
-    /// let task = local_ex.spawn(async { 1 + 2 });
-    /// let res = future::block_on(local_ex.run(async { task.await * 2 }));
-    ///
-    /// assert_eq!(res, 6);
-    /// ```
-    pub async fn run<T>(&self, future: impl Future<Output = T>) -> T {
-        self.inner().run(future).await
-    }
-
-    /// Returns a reference to the inner executor.
-    fn inner(&self) -> &Executor<'a> {
-        &self.inner
-    }
-}
-
-impl<'a> Default for LocalExecutor<'a> {
-    fn default() -> LocalExecutor<'a> {
-        LocalExecutor::new()
     }
 }
 
@@ -709,17 +404,21 @@ impl State {
     }
 
     pub(crate) fn try_tick(&self) -> bool {
-        match self.queue.pop() {
-            Err(_) => false,
-            Ok(runnable) => {
-                // Notify another ticker now to pick up where this ticker left off, just in case
-                // running the task takes a long time.
-                self.notify();
+        let runnable = self
+            .queue
+            .pop()
+            .ok()
+            .or_else(|| LOCAL_QUEUE.get_or_default().borrow_mut().queue.pop_back());
+        if let Some(runnable) = runnable {
+            // Notify another ticker now to pick up where this ticker left off, just in case
+            // running the task takes a long time.
+            self.notify();
 
-                // Run the task.
-                runnable.run();
-                true
-            }
+            // Run the task.
+            runnable.run();
+            true
+        } else {
+            false
         }
     }
 
@@ -884,7 +583,15 @@ impl Ticker<'_> {
 
     /// Waits for the next runnable task to run.
     async fn runnable(&mut self) -> Runnable {
-        self.runnable_with(|| self.state.queue.pop().ok()).await
+        self.runnable_with(|| {
+            LOCAL_QUEUE
+                .get_or_default()
+                .borrow_mut()
+                .queue
+                .pop_back()
+                .or_else(|| self.state.queue.pop().ok())
+        })
+        .await
     }
 
     /// Waits for the next runnable task to run, given a function that searches for a task.
@@ -951,6 +658,9 @@ struct Runner<'a> {
 
     /// Bumped every time a runnable task is found.
     ticks: usize,
+
+    // The thread local state of the executor for the current thread.
+    local_state: &'static RefCell<LocalQueue>,
 }
 
 impl Runner<'_> {
@@ -961,6 +671,7 @@ impl Runner<'_> {
             ticker: Ticker::new(state),
             local: Arc::new(ConcurrentQueue::bounded(512)),
             ticks: 0,
+            local_state: LOCAL_QUEUE.get_or_default(),
         };
         state
             .local_queues
@@ -975,6 +686,10 @@ impl Runner<'_> {
         let runnable = self
             .ticker
             .runnable_with(|| {
+                if let Some(r) = self.local_state.borrow_mut().queue.pop_back() {
+                    return Some(r);
+                }
+
                 // Try the local queue.
                 if let Ok(r) = self.local.pop() {
                     return Some(r);
@@ -1179,40 +894,39 @@ impl<Fut: Future, Cleanup: FnMut()> Future for AsyncCallOnDrop<Fut, Cleanup> {
     }
 }
 
-fn _ensure_send_and_sync() {
-    use futures_lite::future::pending;
+#[cfg(test)]
+mod test {
+    fn _ensure_send_and_sync() {
+        fn is_send<T: Send>(_: T) {}
+        fn is_sync<T: Sync>(_: T) {}
+        fn is_static<T: 'static>(_: T) {}
 
-    fn is_send<T: Send>(_: T) {}
-    fn is_sync<T: Sync>(_: T) {}
-    fn is_static<T: 'static>(_: T) {}
+        is_send::<Executor<'_>>(Executor::new());
+        is_sync::<Executor<'_>>(Executor::new());
 
-    is_send::<Executor<'_>>(Executor::new());
-    is_sync::<Executor<'_>>(Executor::new());
+        let ex = Executor::new();
+        is_send(ex.tick());
+        is_sync(ex.tick());
+        is_send(ex.schedule());
+        is_sync(ex.schedule());
+        is_static(ex.schedule());
 
-    let ex = Executor::new();
-    is_send(ex.run(pending::<()>()));
-    is_sync(ex.run(pending::<()>()));
-    is_send(ex.tick());
-    is_sync(ex.tick());
-    is_send(ex.schedule());
-    is_sync(ex.schedule());
-    is_static(ex.schedule());
-
-    /// ```compile_fail
-    /// use async_executor::LocalExecutor;
-    /// use futures_lite::future::pending;
-    ///
-    /// fn is_send<T: Send>(_: T) {}
-    /// fn is_sync<T: Sync>(_: T) {}
-    ///
-    /// is_send::<LocalExecutor<'_>>(LocalExecutor::new());
-    /// is_sync::<LocalExecutor<'_>>(LocalExecutor::new());
-    ///
-    /// let ex = LocalExecutor::new();
-    /// is_send(ex.run(pending::<()>()));
-    /// is_sync(ex.run(pending::<()>()));
-    /// is_send(ex.tick());
-    /// is_sync(ex.tick());
-    /// ```
-    fn _negative_test() {}
+        /// ```compile_fail
+        /// use crate::async_executor::LocalExecutor;
+        /// use futures_lite::future::pending;
+        ///
+        /// fn is_send<T: Send>(_: T) {}
+        /// fn is_sync<T: Sync>(_: T) {}
+        ///
+        /// is_send::<LocalExecutor<'_>>(LocalExecutor::new());
+        /// is_sync::<LocalExecutor<'_>>(LocalExecutor::new());
+        ///
+        /// let ex = LocalExecutor::new();
+        /// is_send(ex.run(pending::<()>()));
+        /// is_sync(ex.run(pending::<()>()));
+        /// is_send(ex.tick());
+        /// is_sync(ex.tick());
+        /// ```
+        fn _negative_test() {}
+    }
 }
