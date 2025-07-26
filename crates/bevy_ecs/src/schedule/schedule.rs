@@ -399,7 +399,7 @@ impl Schedule {
     /// let mut world = World::default();
     ///
     /// // remove the system
-    /// schedule.remove_systems_in_set(my_system);
+    /// schedule.remove_systems_in_set(my_system, &mut world);
     /// ```
     pub fn remove_systems_in_set<M>(
         &mut self,
