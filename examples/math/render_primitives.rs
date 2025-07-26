@@ -197,33 +197,6 @@ const SEGMENT_3D: Segment3d = Segment3d {
     ],
 };
 
-const POLYLINE_2D: Polyline2d<4> = Polyline2d {
-    vertices: [
-        Vec2::new(-BIG_2D, -SMALL_2D),
-        Vec2::new(-SMALL_2D, SMALL_2D),
-        Vec2::new(SMALL_2D, -SMALL_2D),
-        Vec2::new(BIG_2D, SMALL_2D),
-    ],
-};
-const POLYLINE_3D: Polyline3d<4> = Polyline3d {
-    vertices: [
-        Vec3::new(-BIG_3D, -SMALL_3D, -SMALL_3D),
-        Vec3::new(SMALL_3D, SMALL_3D, 0.0),
-        Vec3::new(-SMALL_3D, -SMALL_3D, 0.0),
-        Vec3::new(BIG_3D, SMALL_3D, SMALL_3D),
-    ],
-};
-
-const POLYGON_2D: Polygon<5> = Polygon {
-    vertices: [
-        Vec2::new(-BIG_2D, -SMALL_2D),
-        Vec2::new(BIG_2D, -SMALL_2D),
-        Vec2::new(BIG_2D, SMALL_2D),
-        Vec2::new(0.0, 0.0),
-        Vec2::new(-BIG_2D, SMALL_2D),
-    ],
-};
-
 const REGULAR_POLYGON: RegularPolygon = RegularPolygon {
     circumcircle: Circle { radius: BIG_2D },
     sides: 5,
@@ -452,8 +425,31 @@ fn draw_gizmos_2d(mut gizmos: Gizmos, state: Res<State<PrimitiveSelected>>, time
         PrimitiveSelected::Segment => {
             drop(gizmos.primitive_2d(&SEGMENT_2D, isometry, color));
         }
-        PrimitiveSelected::Polyline => gizmos.primitive_2d(&POLYLINE_2D, isometry, color),
-        PrimitiveSelected::Polygon => gizmos.primitive_2d(&POLYGON_2D, isometry, color),
+        PrimitiveSelected::Polyline => gizmos.primitive_2d(
+            &Polyline2d {
+                vertices: vec![
+                    Vec2::new(-BIG_2D, -SMALL_2D),
+                    Vec2::new(-SMALL_2D, SMALL_2D),
+                    Vec2::new(SMALL_2D, -SMALL_2D),
+                    Vec2::new(BIG_2D, SMALL_2D),
+                ],
+            },
+            isometry,
+            color,
+        ),
+        PrimitiveSelected::Polygon => gizmos.primitive_2d(
+            &Polygon {
+                vertices: vec![
+                    Vec2::new(-BIG_2D, -SMALL_2D),
+                    Vec2::new(BIG_2D, -SMALL_2D),
+                    Vec2::new(BIG_2D, SMALL_2D),
+                    Vec2::new(0.0, 0.0),
+                    Vec2::new(-BIG_2D, SMALL_2D),
+                ],
+            },
+            isometry,
+            color,
+        ),
         PrimitiveSelected::RegularPolygon => {
             gizmos.primitive_2d(&REGULAR_POLYGON, isometry, color);
         }
@@ -667,7 +663,18 @@ fn draw_gizmos_3d(mut gizmos: Gizmos, state: Res<State<PrimitiveSelected>>, time
         PrimitiveSelected::Plane => drop(gizmos.primitive_3d(&PLANE_3D, isometry, color)),
         PrimitiveSelected::Line => gizmos.primitive_3d(&LINE3D, isometry, color),
         PrimitiveSelected::Segment => gizmos.primitive_3d(&SEGMENT_3D, isometry, color),
-        PrimitiveSelected::Polyline => gizmos.primitive_3d(&POLYLINE_3D, isometry, color),
+        PrimitiveSelected::Polyline => gizmos.primitive_3d(
+            &Polyline3d {
+                vertices: vec![
+                    Vec3::new(-BIG_3D, -SMALL_3D, -SMALL_3D),
+                    Vec3::new(SMALL_3D, SMALL_3D, 0.0),
+                    Vec3::new(-SMALL_3D, -SMALL_3D, 0.0),
+                    Vec3::new(BIG_3D, SMALL_3D, SMALL_3D),
+                ],
+            },
+            isometry,
+            color,
+        ),
         PrimitiveSelected::Polygon => {}
         PrimitiveSelected::RegularPolygon => {}
         PrimitiveSelected::Capsule => drop(
