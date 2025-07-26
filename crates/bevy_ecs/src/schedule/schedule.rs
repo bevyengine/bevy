@@ -386,6 +386,25 @@ impl Schedule {
     /// Note that this can remove all systems of a type if you pass
     /// the system to this function as systems implicitly create a set based
     /// on the system type.
+    ///
+    /// ## Example
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// #
+    /// # fn my_system() {}
+    /// #
+    /// let mut schedule = Schedule::default();
+    /// // add the system to the schedule
+    /// schedule.add_systems(my_system);
+    /// let mut world = World::default();
+    ///
+    /// // we need to run initialize before removing the system to
+    /// // generate which systems are in which sets
+    /// schedule.initialize(&mut world).unwrap();
+    ///
+    /// // remove the system
+    /// schedule.remove_systems_in_set(my_system);
+    /// ```
     pub fn remove_systems_in_set<M>(
         &mut self,
         set: impl IntoSystemSet<M>,
@@ -919,17 +938,16 @@ impl ScheduleGraph {
     /// Returns iterator over all [`SystemId`]'s in a [SystemSet]
     /// Returns `ScheduleBuildError::Uninitialized` if schedule has been changed and `Self::initialize`
     /// has not been called.
-    pub fn systems_in_set<M>(
+    pub fn systems_in_set(
         &self,
-        system_set: impl IntoSystemSet<M>,
+        system_set: InternedSystemSet,
     ) -> Result<Vec<SystemKey>, ScheduleError> {
         if self.changed {
             return Err(ScheduleError::Uninitialized);
         }
-        let set = system_set.into_system_set();
         let system_set_id = self
             .system_sets
-            .get_key(set.intern())
+            .get_key(system_set)
             .ok_or(ScheduleError::NotFound)?;
         self.set_systems
             .get(&system_set_id)
@@ -944,7 +962,7 @@ impl ScheduleGraph {
     ) -> Result<usize, ScheduleError> {
         let set = system_set.into_system_set();
         let interned = set.intern();
-        let keys = self.systems_in_set(set)?;
+        let keys = self.systems_in_set(interned)?;
 
         self.changed = true;
         for &key in &keys {
@@ -1844,7 +1862,7 @@ mod tests {
 
     use crate::{
         error::{ignore, panic, DefaultErrorHandler, Result},
-        prelude::{ApplyDeferred, Res, Resource},
+        prelude::{ApplyDeferred, IntoSystemSet, Res, Resource},
         schedule::{
             tests::ResMut, IntoScheduleConfigs, Schedule, ScheduleBuildSettings, SystemSet,
         },
@@ -2671,7 +2689,10 @@ mod tests {
         let mut world = World::default();
         let _ = schedule.initialize(&mut world);
 
-        let keys = schedule.graph().systems_in_set(test_system).unwrap();
+        let keys = schedule
+            .graph()
+            .systems_in_set(test_system.into_system_set().intern())
+            .unwrap();
         assert_eq!(keys.len(), 1);
     }
 
@@ -2685,7 +2706,10 @@ mod tests {
         let mut world = World::default();
         let _ = schedule.initialize(&mut world);
 
-        let keys = schedule.graph().systems_in_set(TestSet::First).unwrap();
+        let keys = schedule
+            .graph()
+            .systems_in_set(TestSet::First.into_system_set().intern())
+            .unwrap();
         assert_eq!(keys.len(), 2);
     }
 
@@ -2698,7 +2722,10 @@ mod tests {
         let mut world = World::default();
         let _ = schedule.initialize(&mut world);
 
-        let keys = schedule.graph().systems_in_set(test_system).unwrap();
+        let keys = schedule
+            .graph()
+            .systems_in_set(test_system.into_system_set().intern())
+            .unwrap();
         assert_ne!(keys[0], keys[1]);
     }
 
