@@ -3,11 +3,11 @@ use crate::renderer::{
 };
 use alloc::borrow::Cow;
 
-use wgpu::DxcShaderModel;
 pub use wgpu::{
     Backends, Dx12Compiler, Features as WgpuFeatures, Gles3MinorVersion, InstanceFlags,
     Limits as WgpuLimits, MemoryHints, PowerPreference,
 };
+use wgpu::{DxcShaderModel, MemoryBudgetThresholds};
 
 /// Configures the priority used when automatically configuring the features/limits of `wgpu`.
 #[derive(Clone)]
@@ -53,6 +53,8 @@ pub struct WgpuSettings {
     pub instance_flags: InstanceFlags,
     /// This hints to the WGPU device about the preferred memory allocation strategy.
     pub memory_hints: MemoryHints,
+    /// The thresholds for device memory budget.
+    pub instance_memory_budget_thresholds: MemoryBudgetThresholds,
     /// If true, will force wgpu to use a software renderer, if available.
     pub force_fallback_adapter: bool,
     /// The name of the adapter to use.
@@ -107,15 +109,10 @@ impl Default for WgpuSettings {
                 Dx12Compiler::StaticDxc
             } else {
                 let dxc = "dxcompiler.dll";
-                let dxil = "dxil.dll";
 
-                if cfg!(target_os = "windows")
-                    && std::fs::metadata(dxc).is_ok()
-                    && std::fs::metadata(dxil).is_ok()
-                {
+                if cfg!(target_os = "windows") && std::fs::metadata(dxc).is_ok() {
                     Dx12Compiler::DynamicDxc {
                         dxc_path: String::from(dxc),
-                        dxil_path: String::from(dxil),
                         max_shader_model: DxcShaderModel::V6_7,
                     }
                 } else {
@@ -140,6 +137,7 @@ impl Default for WgpuSettings {
             gles3_minor_version,
             instance_flags,
             memory_hints: MemoryHints::default(),
+            instance_memory_budget_thresholds: MemoryBudgetThresholds::default(),
             force_fallback_adapter: false,
             adapter_name: None,
         }

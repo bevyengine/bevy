@@ -84,6 +84,7 @@ impl ViewNode for MotionBlurNode {
             label: Some("motion_blur_pass"),
             color_attachments: &[Some(RenderPassColorAttachment {
                 view: post_process.destination,
+                depth_slice: None,
                 resolve_target: None,
                 ops: Operations::default(),
             })],
