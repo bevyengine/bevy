@@ -398,17 +398,17 @@ impl Schedule {
     /// schedule.add_systems(my_system);
     /// let mut world = World::default();
     ///
-    /// // we need to run initialize before removing the system to
-    /// // generate which systems are in which sets
-    /// schedule.initialize(&mut world).unwrap();
-    ///
     /// // remove the system
     /// schedule.remove_systems_in_set(my_system);
     /// ```
     pub fn remove_systems_in_set<M>(
         &mut self,
         set: impl IntoSystemSet<M>,
+        world: &mut World,
     ) -> Result<usize, ScheduleError> {
+        if self.graph.changed {
+            self.graph.initialize(world);
+        }
         self.graph.remove_systems_in_set(set)
     }
 
@@ -2736,9 +2736,8 @@ mod tests {
         let mut schedule = Schedule::default();
         schedule.add_systems(system);
         let mut world = World::default();
-        schedule.initialize(&mut world).unwrap();
 
-        let remove_count = schedule.remove_systems_in_set(system);
+        let remove_count = schedule.remove_systems_in_set(system, &mut world);
         assert_eq!(remove_count.unwrap(), 1);
 
         // schedule has changed, so we check initializing again
@@ -2753,9 +2752,8 @@ mod tests {
         let mut schedule = Schedule::default();
         schedule.add_systems((system, system));
         let mut world = World::default();
-        let _ = schedule.initialize(&mut world);
 
-        let remove_count = schedule.remove_systems_in_set(system);
+        let remove_count = schedule.remove_systems_in_set(system, &mut world);
         assert_eq!(remove_count.unwrap(), 2);
 
         // schedule has changed, so we check initializing again
@@ -2771,9 +2769,8 @@ mod tests {
         let mut schedule = Schedule::default();
         schedule.add_systems((system_1, system_2).chain());
         let mut world = World::default();
-        let _ = schedule.initialize(&mut world);
 
-        let remove_count = schedule.remove_systems_in_set(system_1);
+        let remove_count = schedule.remove_systems_in_set(system_1, &mut world);
         assert_eq!(remove_count.unwrap(), 1);
 
         // schedule has changed, so we check initializing again
