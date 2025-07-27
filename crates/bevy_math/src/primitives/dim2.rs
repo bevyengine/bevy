@@ -1521,6 +1521,32 @@ impl Segment2d {
         let t = projection_scaled / length_squared;
         self.vertices[0] + t * segment_vector
     }
+
+    /// Returns the point of intersection between this [`Segment2d`] and another, if it exists.
+    #[inline(always)]
+    pub fn intersect(&self, other: Self) -> Option<Vec2> {
+        let p = self.point1();
+        let q = other.point1();
+        let r = self.scaled_direction();
+        let s = other.scaled_direction();
+
+        let r_cross_s = r.perp_dot(s);
+        let q_minus_p = q - p;
+
+        if r_cross_s != 0.0 {
+            let t = q_minus_p.perp_dot(s / r_cross_s);
+            let u = q_minus_p.perp_dot(r / r_cross_s);
+
+            let t_in_range = (0.0..=1.0).contains(&t);
+            let u_in_range = (0.0..=1.0).contains(&u);
+
+            if t_in_range && u_in_range {
+                return Some(p + t * r);
+            }
+        }
+
+        None
+    }
 }
 
 impl From<[Vec2; 2]> for Segment2d {
@@ -2373,6 +2399,29 @@ mod tests {
                 assert_relative_eq!(closest_to_closest, closest);
             }
         }
+    }
+
+    #[test]
+    fn segment_intersect() {
+        let isec = Segment2d::new(Vec2::new(0.0, 0.0), Vec2::new(2.0, 2.0))
+            .intersect(Segment2d::new(Vec2::new(0.0, 2.0), Vec2::new(2.0, 0.0)));
+        assert_eq!(isec, Some(Vec2::new(1.0, 1.0)));
+
+        let isec = Segment2d::new(Vec2::new(0.0, 0.0), Vec2::new(2.0, 0.0))
+            .intersect(Segment2d::new(Vec2::new(0.0, 1.0), Vec2::new(2.0, 1.0)));
+        assert_eq!(isec, None);
+
+        let isec = Segment2d::new(Vec2::new(0.0, 0.0), Vec2::new(1.0, 1.0))
+            .intersect(Segment2d::new(Vec2::new(2.0, 2.0), Vec2::new(3.0, 3.0)));
+        assert_eq!(isec, None);
+
+        let isec = Segment2d::new(Vec2::new(0.0, 0.0), Vec2::new(1.0, 1.0))
+            .intersect(Segment2d::new(Vec2::new(1.0, 1.0), Vec2::new(2.0, 0.0)));
+        assert_eq!(isec, Some(Vec2::new(1.0, 1.0)));
+
+        let isec = Segment2d::new(Vec2::new(0.0, 0.0), Vec2::new(1.0, 0.0))
+            .intersect(Segment2d::new(Vec2::new(2.0, 0.0), Vec2::new(3.0, 0.0)));
+        assert_eq!(isec, None);
     }
 
     #[test]
