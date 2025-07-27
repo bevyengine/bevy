@@ -34,9 +34,7 @@ use bevy_render::{
 };
 use bevy_render::{
     diagnostic::RecordDiagnostics,
-    mesh::RenderMesh,
     primitives::{CascadesFrusta, CubemapFrusta, Frustum, HalfSpace},
-    render_asset::RenderAssets,
     render_graph::{Node, NodeRunError, RenderGraphContext},
     render_phase::*,
     render_resource::*,
@@ -1678,16 +1676,14 @@ pub fn check_views_lights_need_specialization(
 }
 
 pub fn specialize_shadows(
+    params: SpecializeMeshParams<EntitySpecializationTicks, RenderMeshInstances>,
     prepass_pipeline: Res<PrepassPipeline>,
-    (render_meshes, render_mesh_instances, render_materials, render_material_instances): (
-        Res<RenderAssets<RenderMesh>>,
-        Res<RenderMeshInstances>,
+    (render_materials, render_material_instances): (
         Res<ErasedRenderAssets<PreparedMaterial>>,
         Res<RenderMaterialInstances>,
     ),
     shadow_render_phases: Res<ViewBinnedRenderPhases<Shadow>>,
     mut pipelines: ResMut<SpecializedMeshPipelines<PrepassPipelineSpecializer>>,
-    pipeline_cache: Res<PipelineCache>,
     render_lightmaps: Res<RenderLightmaps>,
     view_lights: Query<(Entity, &ViewLightEntities), With<ExtractedView>>,
     view_light_entities: Query<(&LightEntity, &ExtractedView)>,
@@ -1700,8 +1696,6 @@ pub fn specialize_shadows(
     light_key_cache: Res<LightKeyCache>,
     mut specialized_material_pipeline_cache: ResMut<SpecializedShadowMaterialPipelineCache>,
     light_specialization_ticks: Res<LightSpecializationTicks>,
-    entity_specialization_ticks: Res<EntitySpecializationTicks>,
-    ticks: SystemChangeTick,
 ) {
     // Record the retained IDs of all shadow views so that we can expire old
     // pipeline IDs.
@@ -1766,18 +1760,22 @@ pub fn specialize_shadows(
                     continue;
                 };
 
-                let Some(mesh_instance) =
-                    render_mesh_instances.render_mesh_queue_data(visible_entity)
+                let Some(mesh_instance) = params
+                    .render_mesh_instances
+                    .render_mesh_queue_data(visible_entity)
                 else {
                     continue;
                 };
-                let entity_tick = entity_specialization_ticks.get(&visible_entity).unwrap();
+                let entity_tick = params
+                    .entity_specialization_ticks
+                    .get(&visible_entity)
+                    .unwrap();
                 let last_specialized_tick = view_specialized_material_pipeline_cache
                     .get(&visible_entity)
                     .map(|(tick, _)| *tick);
                 let needs_specialization = last_specialized_tick.is_none_or(|tick| {
-                    view_tick.is_newer_than(tick, ticks.this_run())
-                        || entity_tick.is_newer_than(tick, ticks.this_run())
+                    view_tick.is_newer_than(tick, params.ticks.this_run())
+                        || entity_tick.is_newer_than(tick, params.ticks.this_run())
                 });
                 if !needs_specialization {
                     continue;
@@ -1795,7 +1793,7 @@ pub fn specialize_shadows(
                 {
                     continue;
                 }
-                let Some(mesh) = render_meshes.get(mesh_instance.mesh_asset_id) else {
+                let Some(mesh) = params.render_meshes.get(mesh_instance.mesh_asset_id) else {
                     continue;
                 };
 
@@ -1832,7 +1830,7 @@ pub fn specialize_shadows(
                     properties: material.properties.clone(),
                 };
                 let pipeline_id = pipelines.specialize(
-                    &pipeline_cache,
+                    &params.pipeline_cache,
                     &material_pipeline_specializer,
                     erased_key,
                     &mesh.layout,
@@ -1846,7 +1844,7 @@ pub fn specialize_shadows(
                 };
 
                 view_specialized_material_pipeline_cache
-                    .insert(visible_entity, (ticks.this_run(), pipeline_id));
+                    .insert(visible_entity, (params.ticks.this_run(), pipeline_id));
             }
         }
     }
