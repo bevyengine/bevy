@@ -116,9 +116,15 @@ pub fn insert_resource<R: Resource>(resource: R) -> impl Command {
 }
 
 /// A [`Command`] that removes a [`Resource`] from the world.
-pub fn remove_resource<R: Resource>() -> impl Command {
-    move |world: &mut World| {
-        world.remove_resource::<R>();
+/// 
+/// Returns an error if the resource does not exist.
+pub fn remove_resource<R: Resource>() -> impl Command<Result> {
+    move |world: &mut World| -> Result {
+        let component_id = world.components.get_valid_resource_id(core::any::TypeId::of::<R>())
+            .ok_or(crate::world::error::ResourceFetchError::NotRegistered)?;
+        world.remove_resource::<R>()
+            .ok_or(crate::world::error::ResourceFetchError::DoesNotExist(component_id))?;
+        Ok(())
     }
 }
 
@@ -244,4 +250,50 @@ pub fn write_event<E: BufferedEvent>(event: E) -> impl Command {
 #[deprecated(since = "0.17.0", note = "Use `write_event` instead.")]
 pub fn send_event<E: BufferedEvent>(event: E) -> impl Command {
     write_event(event)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{resource::Resource, world::World};
+
+    #[derive(Resource, Default)]
+    struct TestResource(i32);
+
+    #[test]
+    fn test_remove_resource_success() {
+        let mut world = World::new();
+        world.insert_resource(TestResource(42));
+        
+        let command = remove_resource::<TestResource>();
+        let result = command.apply(&mut world);
+        
+        assert!(result.is_ok());
+        assert!(!world.contains_resource::<TestResource>());
+    }
+
+    #[test]
+    fn test_remove_resource_not_registered() {
+        let mut world = World::new();
+        
+        let command = remove_resource::<TestResource>();
+        let result = command.apply(&mut world);
+        
+        assert!(result.is_err());
+        // Should be NotRegistered error since resource was never added
+    }
+
+    #[test]
+    fn test_remove_resource_not_present() {
+        let mut world = World::new();
+        // Register the resource type but don't insert it
+        world.init_resource::<TestResource>();
+        world.remove_resource::<TestResource>(); // Remove it
+        
+        let command = remove_resource::<TestResource>();
+        let result = command.apply(&mut world);
+        
+        assert!(result.is_err());
+        // Should be DoesNotExist error since resource was removed
+    }
 }
