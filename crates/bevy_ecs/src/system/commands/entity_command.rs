@@ -198,11 +198,18 @@ pub fn remove_with_requires<T: Bundle>() -> impl EntityCommand {
 }
 
 /// An [`EntityCommand`] that removes a dynamic component from an entity.
+///
+/// Returns an error if the component does not exist on the entity.
 #[track_caller]
-pub fn remove_by_id(component_id: ComponentId) -> impl EntityCommand {
+pub fn remove_by_id(component_id: ComponentId) -> impl EntityCommand<Result<(), crate::world::error::EntityComponentError>> {
     let caller = MaybeLocation::caller();
-    move |mut entity: EntityWorldMut| {
-        entity.remove_by_id_with_caller(component_id, caller);
+    move |mut entity: EntityWorldMut| -> Result<(), crate::world::error::EntityComponentError> {
+        if entity.contains_id(component_id) {
+            entity.remove_by_id_with_caller(component_id, caller);
+            Ok(())
+        } else {
+            Err(crate::world::error::EntityComponentError::MissingComponent(component_id))
+        }
     }
 }
 

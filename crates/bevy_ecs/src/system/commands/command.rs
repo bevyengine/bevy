@@ -236,19 +236,29 @@ pub fn trigger_targets(
 }
 
 /// A [`Command`] that writes an arbitrary [`BufferedEvent`].
+/// 
+/// Returns an error if the [`Events<E>`] resource does not exist.
 #[track_caller]
-pub fn write_event<E: BufferedEvent>(event: E) -> impl Command {
+pub fn write_event<E: BufferedEvent>(event: E) -> impl Command<Result> {
     let caller = MaybeLocation::caller();
-    move |world: &mut World| {
-        let mut events = world.resource_mut::<Events<E>>();
-        events.write_with_caller(event, caller);
+    move |world: &mut World| -> Result {
+        let component_id = world.components.get_valid_resource_id(core::any::TypeId::of::<Events<E>>())
+            .ok_or(crate::world::error::ResourceFetchError::NotRegistered)?;
+        
+        match world.get_resource_mut::<Events<E>>() {
+            Some(mut events) => {
+                events.write_with_caller(event, caller);
+                Ok(())
+            }
+            None => Err(crate::world::error::ResourceFetchError::DoesNotExist(component_id).into()),
+        }
     }
 }
 
 /// A [`Command`] that writes an arbitrary [`BufferedEvent`].
 #[track_caller]
 #[deprecated(since = "0.17.0", note = "Use `write_event` instead.")]
-pub fn send_event<E: BufferedEvent>(event: E) -> impl Command {
+pub fn send_event<E: BufferedEvent>(event: E) -> impl Command<Result> {
     write_event(event)
 }
 
