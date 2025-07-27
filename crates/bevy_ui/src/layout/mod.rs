@@ -160,7 +160,6 @@ pub fn ui_layout_system(
             &added_node_query,
             ui_root_entity,
         );
-        }
 
         let (_, _, _, computed_target) = node_query.get(ui_root_entity).unwrap();
 
