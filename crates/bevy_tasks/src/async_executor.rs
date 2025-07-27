@@ -7,6 +7,7 @@ use std::pin::Pin;
 use std::sync::atomic::{AtomicBool, AtomicPtr, Ordering};
 use std::sync::{Arc, Mutex, MutexGuard, RwLock, TryLockError};
 use std::task::{Context, Poll, Waker};
+use std::thread::{Thread, ThreadId};
 
 use async_task::{Builder, Runnable, Task};
 use bevy_platform::prelude::Vec;
@@ -16,12 +17,93 @@ use pin_project_lite::pin_project;
 use slab::Slab;
 use thread_local::ThreadLocal;
 
-static LOCAL_QUEUE: ThreadLocal<RefCell<LocalQueue>> = ThreadLocal::new();
+static THREAD_LOCAL_STATE: ThreadLocal<ThreadLocalState> = ThreadLocal::new();
 
-#[derive(Default)]
-struct LocalQueue {
-    queue: VecDeque<Runnable>,
-    active: Slab<Waker>,
+struct ThreadLocalState {
+    thread_id: ThreadId,
+    thread_locked_queue: ConcurrentQueue<Runnable>,
+    local_queue: RefCell<VecDeque<Runnable>>,
+    local_active: RefCell<Slab<Waker>>,
+}
+
+impl Default for ThreadLocalState {
+    fn default() -> Self {
+        Self {
+            thread_id: std::thread::current().id(),
+            thread_locked_queue: ConcurrentQueue::unbounded(),
+            local_queue: RefCell::new(VecDeque::new()),
+            local_active: RefCell::new(Slab::new()),
+        }
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct ThreadSpawner<'a> {
+    thread_id: ThreadId,
+    target_queue: &'static ConcurrentQueue<Runnable>,
+    state: Arc<State>,
+    _marker: PhantomData<&'a ()>,
+}
+
+impl<'a> ThreadSpawner<'a> {
+    /// Spawns a task onto the executor.
+    pub fn spawn<T: Send + 'a>(&self, future: impl Future<Output = T> + Send + 'a) -> Task<T> {
+        let mut active = self.state.active();
+
+        // Remove the task from the set of active tasks when the future finishes.
+        let entry = active.vacant_entry();
+        let index = entry.key();
+        let state = self.state.clone();
+        let future = AsyncCallOnDrop::new(future, move || drop(state.active().try_remove(index)));
+
+        #[expect(
+            unsafe_code,
+            reason = "unsized coercion is an unstable feature for non-std types"
+        )]
+        // Create the task and register it in the set of active tasks.
+        //
+        // SAFETY:
+        //
+        // If `future` is not `Send`, this must be a `LocalExecutor` as per this
+        // function's unsafe precondition. Since `LocalExecutor` is `!Sync`,
+        // `try_tick`, `tick` and `run` can only be called from the origin
+        // thread of the `LocalExecutor`. Similarly, `spawn` can only  be called
+        // from the origin thread, ensuring that `future` and the executor share
+        // the same origin thread. The `Runnable` can be scheduled from other
+        // threads, but because of the above `Runnable` can only be called or
+        // dropped on the origin thread.
+        //
+        // `future` is not `'static`, but we make sure that the `Runnable` does
+        // not outlive `'a`. When the executor is dropped, the `active` field is
+        // drained and all of the `Waker`s are woken. Then, the queue inside of
+        // the `Executor` is drained of all of its runnables. This ensures that
+        // runnables are dropped and this precondition is satisfied.
+        //
+        // `self.schedule()` is `Send`, `Sync` and `'static`, as checked below.
+        // Therefore we do not need to worry about what is done with the
+        // `Waker`.
+        let (runnable, task) = unsafe {
+            Builder::new()
+                .propagate_panic(true)
+                .spawn_unchecked(|()| future, self.schedule())
+        };
+        entry.insert(runnable.waker());
+
+        runnable.schedule();
+        task
+    }
+
+    /// Returns a function that schedules a runnable task when it gets woken up.
+    fn schedule(&self) -> impl Fn(Runnable) + Send + Sync + 'static {
+        let thread_id = self.thread_id;
+        let queue: &'static ConcurrentQueue<Runnable> = self.target_queue;
+        let state = self.state.clone();
+
+        move |runnable| {
+            queue.push(runnable).unwrap();
+            state.notify_specific_thread(thread_id);
+        }
+    }
 }
 
 /// An async executor.
@@ -114,12 +196,12 @@ impl<'a> Executor<'a> {
     /// Spawns a non-Send task onto the executor.
     pub fn spawn_local<T: 'a>(&self, future: impl Future<Output = T> + 'a) -> Task<T> {
         // Remove the task from the set of active tasks when the future finishes.
-        let local_queue: &'static RefCell<LocalQueue> = LOCAL_QUEUE.get_or_default();
-        let mut local_state = local_queue.borrow_mut();
-        let entry = local_state.active.vacant_entry();
+        let local_state: &'static ThreadLocalState = THREAD_LOCAL_STATE.get_or_default();
+        let mut local_active = local_state.local_active.borrow_mut();
+        let entry = local_active.vacant_entry();
         let index = entry.key();
         let future = AsyncCallOnDrop::new(future, move || {
-            drop(local_queue.borrow_mut().active.try_remove(index))
+            drop(local_state.local_active.borrow_mut().try_remove(index))
         });
 
         #[expect(
@@ -155,35 +237,28 @@ impl<'a> Executor<'a> {
         };
         entry.insert(runnable.waker());
 
-        drop(local_state);
+        drop(local_active);
 
         runnable.schedule();
         task
     }
 
-    /// Attempts to run a task if at least one is scheduled.
-    ///
-    /// Running a scheduled task means simply polling its future once.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use crate::async_executor::Executor;
-    ///
-    /// let ex = Executor::new();
-    /// assert!(!ex.try_tick()); // no tasks to run
-    ///
-    /// let task = ex.spawn(async {
-    ///     println!("Hello world");
-    /// });
-    /// assert!(ex.try_tick()); // a task was found
-    /// ```
-    pub fn try_tick(&self) -> bool {
-        self.state().try_tick()
+    pub fn current_thread_spawner(&self) -> ThreadSpawner<'a> {
+        ThreadSpawner {
+            thread_id: std::thread::current().id(),
+            target_queue: &THREAD_LOCAL_STATE.get_or_default().thread_locked_queue,
+            state: self.state_as_arc(),
+            _marker: PhantomData,
+        }
     }
 
     pub fn try_tick_local() -> bool {
-        if let Some(runnable) = LOCAL_QUEUE.get_or_default().borrow_mut().queue.pop_back() {
+        if let Some(runnable) = THREAD_LOCAL_STATE
+            .get_or_default()
+            .local_queue
+            .borrow_mut()
+            .pop_back()
+        {
             // Run the task.
             runnable.run();
             true
@@ -192,44 +267,7 @@ impl<'a> Executor<'a> {
         }
     }
 
-    /// Runs a single task.
-    ///
-    /// Running a task means simply polling its future once.
-    ///
-    /// If no tasks are scheduled when this method is called, it will wait until one is scheduled.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use crate::async_executor::Executor;
-    /// use futures_lite::future;
-    ///
-    /// let ex = Executor::new();
-    ///
-    /// let task = ex.spawn(async {
-    ///     println!("Hello world");
-    /// });
-    /// future::block_on(ex.tick()); // runs the task
-    /// ```
-    pub async fn tick(&self) {
-        self.state().tick().await;
-    }
-
     /// Runs the executor until the given future completes.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use crate::async_executor::Executor;
-    /// use futures_lite::future;
-    ///
-    /// let ex = Executor::new();
-    ///
-    /// let task = ex.spawn(async { 1 + 2 });
-    /// let res = future::block_on(ex.run(async { task.await * 2 }));
-    ///
-    /// assert_eq!(res, 6);
-    /// ```
     pub async fn run<T>(&self, future: impl Future<Output = T>) -> T {
         self.state().run(future).await
     }
@@ -247,11 +285,12 @@ impl<'a> Executor<'a> {
 
     /// Returns a function that schedules a runnable task when it gets woken up.
     fn schedule_local(&self) -> impl Fn(Runnable) + 'static {
-        let local_queue: &'static RefCell<LocalQueue> = LOCAL_QUEUE.get_or_default();
+        let state = self.state_as_arc();
+        let local_state: &'static ThreadLocalState = THREAD_LOCAL_STATE.get_or_default();
         // TODO: If possible, push into the current local queue and notify the ticker.
         move |runnable| {
-            local_queue.borrow_mut().queue.push_back(runnable);
-            // state.notify();
+            local_state.local_queue.borrow_mut().push_back(runnable);
+            state.notify_specific_thread(local_state.thread_id);
         }
     }
 
@@ -403,28 +442,17 @@ impl State {
         }
     }
 
-    pub(crate) fn try_tick(&self) -> bool {
-        let runnable = self
-            .queue
-            .pop()
-            .ok()
-            .or_else(|| LOCAL_QUEUE.get_or_default().borrow_mut().queue.pop_back());
-        if let Some(runnable) = runnable {
-            // Notify another ticker now to pick up where this ticker left off, just in case
-            // running the task takes a long time.
-            self.notify();
-
-            // Run the task.
-            runnable.run();
-            true
-        } else {
-            false
+    /// Notifies a sleeping ticker.
+    #[inline]
+    fn notify_specific_thread(&self, thread_id: ThreadId) {
+        let waker = self
+            .sleepers
+            .lock()
+            .unwrap()
+            .notify_specific_thread(thread_id);
+        if let Some(w) = waker {
+            w.wake();
         }
-    }
-
-    pub(crate) async fn tick(&self) {
-        let runnable = Ticker::new(self).runnable().await;
-        runnable.run();
     }
 
     pub async fn run<T>(&self, future: impl Future<Output = T>) -> T {
@@ -447,6 +475,12 @@ impl State {
     }
 }
 
+impl fmt::Debug for State {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        debug_state(self, "State", f)
+    }
+}
+
 /// A list of sleeping tickers.
 struct Sleepers {
     /// Number of sleeping tickers (both notified and unnotified).
@@ -455,7 +489,7 @@ struct Sleepers {
     /// IDs and wakers of sleeping unnotified tickers.
     ///
     /// A sleeping ticker is notified when its waker is missing from this list.
-    wakers: Vec<(usize, Waker)>,
+    wakers: Vec<(usize, ThreadId, Waker)>,
 
     /// Reclaimed IDs.
     free_ids: Vec<usize>,
@@ -469,7 +503,8 @@ impl Sleepers {
             None => self.count + 1,
         };
         self.count += 1;
-        self.wakers.push((id, waker.clone()));
+        self.wakers
+            .push((id, std::thread::current().id(), waker.clone()));
         id
     }
 
@@ -479,12 +514,13 @@ impl Sleepers {
     fn update(&mut self, id: usize, waker: &Waker) -> bool {
         for item in &mut self.wakers {
             if item.0 == id {
-                item.1.clone_from(waker);
+                item.2.clone_from(waker);
                 return false;
             }
         }
 
-        self.wakers.push((id, waker.clone()));
+        self.wakers
+            .push((id, std::thread::current().id(), waker.clone()));
         true
     }
 
@@ -514,10 +550,23 @@ impl Sleepers {
     /// If a ticker was notified already or there are no tickers, `None` will be returned.
     fn notify(&mut self) -> Option<Waker> {
         if self.wakers.len() == self.count {
-            self.wakers.pop().map(|item| item.1)
+            self.wakers.pop().map(|item| item.2)
         } else {
             None
         }
+    }
+
+    /// Returns notification waker for a sleeping ticker.
+    ///
+    /// If a ticker was notified already or there are no tickers, `None` will be returned.
+    fn notify_specific_thread(&mut self, thread_id: ThreadId) -> Option<Waker> {
+        for i in (0..self.wakers.len()).rev() {
+            if self.wakers[i].1 == thread_id {
+                let (_, _, waker) = self.wakers.remove(i);
+                return Some(waker);
+            }
+        }
+        None
     }
 }
 
@@ -579,19 +628,6 @@ impl Ticker<'_> {
                 .store(sleepers.is_notified(), Ordering::Release);
         }
         self.sleeping = 0;
-    }
-
-    /// Waits for the next runnable task to run.
-    async fn runnable(&mut self) -> Runnable {
-        self.runnable_with(|| {
-            LOCAL_QUEUE
-                .get_or_default()
-                .borrow_mut()
-                .queue
-                .pop_back()
-                .or_else(|| self.state.queue.pop().ok())
-        })
-        .await
     }
 
     /// Waits for the next runnable task to run, given a function that searches for a task.
@@ -660,7 +696,7 @@ struct Runner<'a> {
     ticks: usize,
 
     // The thread local state of the executor for the current thread.
-    local_state: &'static RefCell<LocalQueue>,
+    local_state: &'static ThreadLocalState,
 }
 
 impl Runner<'_> {
@@ -671,7 +707,7 @@ impl Runner<'_> {
             ticker: Ticker::new(state),
             local: Arc::new(ConcurrentQueue::bounded(512)),
             ticks: 0,
-            local_state: LOCAL_QUEUE.get_or_default(),
+            local_state: THREAD_LOCAL_STATE.get_or_default(),
         };
         state
             .local_queues
@@ -686,7 +722,7 @@ impl Runner<'_> {
         let runnable = self
             .ticker
             .runnable_with(|| {
-                if let Some(r) = self.local_state.borrow_mut().queue.pop_back() {
+                if let Some(r) = self.local_state.local_queue.borrow_mut().pop_back() {
                     return Some(r);
                 }
 
@@ -722,6 +758,12 @@ impl Runner<'_> {
                     if let Ok(r) = self.local.pop() {
                         return Some(r);
                     }
+                }
+
+                if let Ok(r) = self.local_state.thread_locked_queue.pop() {
+                    // Do not steal from this queue. If other threads steal
+                    // from this current thread, the task will be moved.
+                    return Some(r);
                 }
 
                 None
@@ -896,6 +938,8 @@ impl<Fut: Future, Cleanup: FnMut()> Future for AsyncCallOnDrop<Fut, Cleanup> {
 
 #[cfg(test)]
 mod test {
+    use super::Executor;
+
     fn _ensure_send_and_sync() {
         fn is_send<T: Send>(_: T) {}
         fn is_sync<T: Sync>(_: T) {}
@@ -910,6 +954,8 @@ mod test {
         is_send(ex.schedule());
         is_sync(ex.schedule());
         is_static(ex.schedule());
+        is_send(ex.current_thread_spawner());
+        is_sync(ex.current_thread_spawner());
 
         /// ```compile_fail
         /// use crate::async_executor::LocalExecutor;

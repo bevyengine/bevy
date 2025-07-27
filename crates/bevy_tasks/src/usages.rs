@@ -1,7 +1,7 @@
 use super::TaskPool;
+use crate::executor::Executor;
 use bevy_platform::sync::OnceLock;
 use core::ops::Deref;
-use crate::executor::Executor;
 
 macro_rules! taskpool {
     ($(#[$attr:meta])* ($static:ident, $type:ident)) => {
