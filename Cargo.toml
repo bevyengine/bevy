@@ -579,8 +579,12 @@ gltf_convert_coordinates_default = [
 # Enable collecting debug information about systems and components to help with diagnostics
 debug = ["bevy_internal/debug"]
 
-# Include spatio-temporal blue noise KTX2 file used by generated environment maps
-bluenoise_texture = ["bevy_internal/bluenoise_texture", "ktx2", "bevy_image/zstd"]
+# Include spatio-temporal blue noise KTX2 file used by generated environment maps, Solari and atmosphere
+bluenoise_texture = [
+  "bevy_internal/bluenoise_texture",
+  "ktx2",
+  "bevy_image/zstd",
+]
 
 [dependencies]
 bevy_internal = { path = "crates/bevy_internal", version = "0.17.0-dev", default-features = false }

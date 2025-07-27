@@ -137,7 +137,7 @@ use bevy_asset::{AssetApp, AssetPath, Assets, Handle, RenderAssetUsages};
 use bevy_core_pipeline::core_3d::graph::{Core3d, Node3d};
 use bevy_ecs::prelude::*;
 #[cfg(feature = "bluenoise_texture")]
-use bevy_image::{CompressedImageFormats, ImageSampler, ImageType};
+use bevy_image::{CompressedImageFormats, ImageType};
 use bevy_image::{Image, ImageSampler};
 use bevy_render::{
     alpha::AlphaMode,
@@ -285,11 +285,9 @@ impl Plugin for PbrPlugin {
                 },
             );
 
-        let has_bluenoise = if let Some(render_app) = app.get_sub_app(RenderApp) {
+        let has_bluenoise = app.get_sub_app(RenderApp).map_or(false, |render_app| {
             render_app.world().is_resource_added::<Bluenoise>()
-        } else {
-            true
-        };
+        });
 
         if !has_bluenoise {
             let mut images = app.world_mut().resource_mut::<Assets<Image>>();
