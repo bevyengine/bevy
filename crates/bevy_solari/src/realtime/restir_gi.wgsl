@@ -4,11 +4,12 @@
 #import bevy_pbr::pbr_deferred_types::unpack_24bit_normal
 #import bevy_pbr::prepass_bindings::PreviousViewUniforms
 #import bevy_pbr::rgb9e5::rgb9e5_to_vec3_
-#import bevy_pbr::utils::{rand_f, sample_uniform_hemisphere, sample_disk, octahedral_decode}
-#import bevy_render::maths::{PI, PI_2}
+#import bevy_pbr::utils::{rand_f, sample_uniform_hemisphere, uniform_hemisphere_inverse_pdf, sample_disk, octahedral_decode}
+#import bevy_render::maths::PI
 #import bevy_render::view::View
 #import bevy_solari::sampling::{sample_random_light, trace_point_visibility}
 #import bevy_solari::scene_bindings::{trace_ray, resolve_ray_hit_full, RAY_T_MIN, RAY_T_MAX}
+#import bevy_solari::world_cache::query_world_cache
 
 @group(1) @binding(0) var view_output: texture_storage_2d<rgba16float, read_write>;
 @group(1) @binding(5) var<storage, read_write> gi_reservoirs_a: array<Reservoir>;
@@ -100,12 +101,17 @@ fn generate_initial_reservoir(world_position: vec3<f32>, world_normal: vec3<f32>
     reservoir.sample_point_world_normal = sample_point.world_normal;
     reservoir.confidence_weight = 1.0;
 
-    let sample_point_diffuse_brdf = sample_point.material.base_color / PI;
+#ifdef NO_WORLD_CACHE
     let direct_lighting = sample_random_light(sample_point.world_position, sample_point.world_normal, rng);
-    reservoir.radiance = direct_lighting.radiance * sample_point_diffuse_brdf;
+    reservoir.radiance = direct_lighting.radiance;
+    reservoir.unbiased_contribution_weight = direct_lighting.inverse_pdf * uniform_hemisphere_inverse_pdf();
+#else
+    reservoir.radiance = query_world_cache(sample_point.world_position, sample_point.world_normal);
+    reservoir.unbiased_contribution_weight = uniform_hemisphere_inverse_pdf();
+#endif
 
-    let inverse_uniform_hemisphere_pdf = PI_2;
-    reservoir.unbiased_contribution_weight = direct_lighting.inverse_pdf * inverse_uniform_hemisphere_pdf;
+    let sample_point_diffuse_brdf = sample_point.material.base_color / PI;
+    reservoir.radiance *= sample_point_diffuse_brdf;
 
     return reservoir;
 }

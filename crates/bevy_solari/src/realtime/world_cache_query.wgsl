@@ -8,7 +8,7 @@ const WORLD_CACHE_MAX_SEARCH_STEPS: u32 = 10u;
 /// Controls the base size of each cache cell
 const WORLD_CACHE_POSITION_DISCRETIZATION_FACTOR: f32 = 2.0;
 /// Controls the normal quantization of each cell
-const WORLD_CACHE_NORMAL_DISCRETIZATION_FACTOR: f32 = 2.0;
+const WORLD_CACHE_NORMAL_DISCRETIZATION_FACTOR: f32 = 100.0;
 
 /// Marker value for an empty cell
 const WORLD_CACHE_EMPTY_CELL: u32 = 0u;
@@ -20,23 +20,28 @@ alias world_cache_life_type = atomic<u32>;
 #endif
 
 struct WorldCacheGeometryData {
-    position: vec3<f32>,
-    padding1: u32,
-    normal: vec3<f32>,
-    padding2: u32
+    world_position: vec3<f32>,
+    padding_a: u32,
+    world_normal: vec3<f32>,
+    padding_b: u32
 }
 
 @group(1) @binding(14) var<storage, read_write> world_cache_checksums: array<atomic<u32>, #{WORLD_CACHE_SIZE}>;
 @group(1) @binding(15) var<storage, read_write> world_cache_life: array<world_cache_life_type, #{WORLD_CACHE_SIZE}>;
 @group(1) @binding(16) var<storage, read_write> world_cache_radiance: array<vec4<f32>, #{WORLD_CACHE_SIZE}>;
 @group(1) @binding(17) var<storage, read_write> world_cache_geometry_data: array<WorldCacheGeometryData, #{WORLD_CACHE_SIZE}>;
+@group(1) @binding(18) var<storage, read_write> world_cache_active_cells_new_radiance: array<vec3<f32>, #{WORLD_CACHE_SIZE}>;
+@group(1) @binding(19) var<storage, read_write> world_cache_a: array<u32, #{WORLD_CACHE_SIZE}>;
+@group(1) @binding(20) var<storage, read_write> world_cache_b: array<u32, 1024u>;
+@group(1) @binding(21) var<storage, read_write> world_cache_active_cell_indices: array<u32, #{WORLD_CACHE_SIZE}>;
+@group(1) @binding(22) var<storage, read_write> world_cache_active_cells_count: u32;
 
 fn query_world_cache(world_position: vec3<f32>, world_normal: vec3<f32>) -> vec3<f32> {
     var key = compute_key(world_position, world_normal);
     let checksum = compute_checksum(world_position, world_normal);
 
     for (var i = 0u; i < WORLD_CACHE_MAX_SEARCH_STEPS; i++) {
-        let existing_checksum = atomicCompareExchangeWeak(&world_cache_checksums(key), WORLD_CACHE_EMPTY_CELL, checksum).old_value;.
+        let existing_checksum = atomicCompareExchangeWeak(&world_cache_checksums[key], WORLD_CACHE_EMPTY_CELL, checksum).old_value;
         if existing_checksum == checksum {
             // Cache entry already exists - get radiance and reset cell lifetime
             atomicStore(&world_cache_life[key], WORLD_CACHE_CELL_LIFETIME);
@@ -44,8 +49,8 @@ fn query_world_cache(world_position: vec3<f32>, world_normal: vec3<f32>) -> vec3
         } else if existing_checksum == WORLD_CACHE_EMPTY_CELL {
             // Cell is empty - reset cell lifetime so that it starts getting updated next frame
             atomicStore(&world_cache_life[key], WORLD_CACHE_CELL_LIFETIME);
-            world_cache_geometry_data[key].position = world_position;
-            world_cache_geometry_data[key].normal = world_normal;
+            world_cache_geometry_data[key].world_position = world_position;
+            world_cache_geometry_data[key].world_normal = world_normal;
             return vec3(0.0);
         } else {
             // Collision - jump to another entry
@@ -81,7 +86,7 @@ fn compute_checksum(world_position: vec3<f32>, world_normal: vec3<f32>) -> u32 {
 }
 
 fn quantize_position(world_position: vec3<f32>) -> vec3<f32> {
-    return floor(world_position / WORLD_CACHE_POSITION_DISCRETIZATION_FACTOR);
+    return floor((world_position + 0.0001) * WORLD_CACHE_POSITION_DISCRETIZATION_FACTOR);
 }
 
 fn quantize_normal(world_normal: vec3<f32>) -> vec3<f32> {
@@ -100,5 +105,5 @@ fn iqint_hash(input: u32) -> u32 {
 }
 
 fn wrap_key(key: u32) -> u32 {
-    return key & (WORLD_CACHE_SIZE - 1u);
+    return key & (#{WORLD_CACHE_SIZE} - 1u);
 }
