@@ -1125,7 +1125,10 @@ impl FromWorld for GpuPreprocessingSupport {
         let downlevel_support = adapter
             .get_downlevel_capabilities()
             .flags
-            .contains(DownlevelFlags::COMPUTE_SHADERS);
+            .contains(
+                DownlevelFlags::COMPUTE_SHADERS |
+                DownlevelFlags::DEPTH_TEXTURE_AND_BUFFER_COPIES
+            );
 
         let max_supported_mode = if device.limits().max_compute_workgroup_size_x == 0
             || is_non_supported_android_device(adapter)
