@@ -49,11 +49,11 @@ fn check_transforms(
             if *frame_count == 1 {
                 let current_affine = global_transform.affine();
                 if (previous.0.translation - current_affine.translation).length() < 0.001 {
-                    println!("✅ SUCCESS: PreviousGlobalTransform correctly initialized to GlobalTransform");
+                    println!("SUCCESS: PreviousGlobalTransform correctly initialized to GlobalTransform");
                 } else {
-                    println!("❌ FAIL: PreviousGlobalTransform not initialized correctly");
-                    println!("  Current: {:?}", current_affine.translation);
-                    println!("  Previous: {:?}", previous.0.translation);
+                    println!("FAIL: PreviousGlobalTransform not initialized correctly");
+                    println!("Current: {:?}", current_affine.translation);
+                    println!("Previous: {:?}", previous.0.translation);
                 }
             }
         } else {
