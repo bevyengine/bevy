@@ -296,7 +296,7 @@ mod tests {
 
         assert!(result.is_err());
         let error = result.unwrap_err();
-		let error_ref = error.downcast_ref::<crate::world::error::ResourceFetchError>();
+        let error_ref = error.downcast_ref::<crate::world::error::ResourceFetchError>();
         assert!(error_ref.is_some());
         assert!(matches!(
             error_ref.unwrap(),
