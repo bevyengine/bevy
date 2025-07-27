@@ -1534,8 +1534,8 @@ impl Segment2d {
         let q_minus_p = q - p;
 
         if r_cross_s != 0.0 {
-            let t = q_minus_p.perp_dot(s / r_cross_s);
-            let u = q_minus_p.perp_dot(r / r_cross_s);
+            let t = q_minus_p.perp_dot(s) / r_cross_s;
+            let u = q_minus_p.perp_dot(r) / r_cross_s;
 
             let t_in_range = (0.0..=1.0).contains(&t);
             let u_in_range = (0.0..=1.0).contains(&u);
