@@ -295,7 +295,16 @@ mod tests {
         let result = command.apply(&mut world);
 
         assert!(result.is_err());
-        // Should be NotRegistered error since resource was never added
+        let error = result.unwrap_err();
+        assert!(error
+            .downcast_ref::<crate::world::error::ResourceFetchError>()
+            .is_some());
+        assert!(matches!(
+            error
+                .downcast_ref::<crate::world::error::ResourceFetchError>()
+                .unwrap(),
+            crate::world::error::ResourceFetchError::NotRegistered
+        ));
     }
 
     #[test]
@@ -309,6 +318,15 @@ mod tests {
         let result = command.apply(&mut world);
 
         assert!(result.is_err());
-        // Should be DoesNotExist error since resource was removed
+        let error = result.unwrap_err();
+        assert!(error
+            .downcast_ref::<crate::world::error::ResourceFetchError>()
+            .is_some());
+        assert!(matches!(
+            error
+                .downcast_ref::<crate::world::error::ResourceFetchError>()
+                .unwrap(),
+            crate::world::error::ResourceFetchError::DoesNotExist(_)
+        ));
     }
 }
