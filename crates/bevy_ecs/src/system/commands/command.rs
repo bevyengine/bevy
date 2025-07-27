@@ -116,14 +116,17 @@ pub fn insert_resource<R: Resource>(resource: R) -> impl Command {
 }
 
 /// A [`Command`] that removes a [`Resource`] from the world.
-/// 
+///
 /// Returns an error if the resource does not exist.
 pub fn remove_resource<R: Resource>() -> impl Command<Result> {
     move |world: &mut World| -> Result {
-        let component_id = world.components.get_valid_resource_id(core::any::TypeId::of::<R>())
+        let component_id = world
+            .components
+            .get_valid_resource_id(core::any::TypeId::of::<R>())
             .ok_or(crate::world::error::ResourceFetchError::NotRegistered)?;
-        world.remove_resource::<R>()
-            .ok_or(crate::world::error::ResourceFetchError::DoesNotExist(component_id))?;
+        world.remove_resource::<R>().ok_or(
+            crate::world::error::ResourceFetchError::DoesNotExist(component_id),
+        )?;
         Ok(())
     }
 }
@@ -236,15 +239,17 @@ pub fn trigger_targets(
 }
 
 /// A [`Command`] that writes an arbitrary [`BufferedEvent`].
-/// 
+///
 /// Returns an error if the [`Events<E>`] resource does not exist.
 #[track_caller]
 pub fn write_event<E: BufferedEvent>(event: E) -> impl Command<Result> {
     let caller = MaybeLocation::caller();
     move |world: &mut World| -> Result {
-        let component_id = world.components.get_valid_resource_id(core::any::TypeId::of::<Events<E>>())
+        let component_id = world
+            .components
+            .get_valid_resource_id(core::any::TypeId::of::<Events<E>>())
             .ok_or(crate::world::error::ResourceFetchError::NotRegistered)?;
-        
+
         match world.get_resource_mut::<Events<E>>() {
             Some(mut events) => {
                 events.write_with_caller(event, caller);
@@ -274,10 +279,10 @@ mod tests {
     fn test_remove_resource_success() {
         let mut world = World::new();
         world.insert_resource(TestResource(42));
-        
+
         let command = remove_resource::<TestResource>();
         let result = command.apply(&mut world);
-        
+
         assert!(result.is_ok());
         assert!(!world.contains_resource::<TestResource>());
     }
@@ -285,10 +290,10 @@ mod tests {
     #[test]
     fn test_remove_resource_not_registered() {
         let mut world = World::new();
-        
+
         let command = remove_resource::<TestResource>();
         let result = command.apply(&mut world);
-        
+
         assert!(result.is_err());
         // Should be NotRegistered error since resource was never added
     }
@@ -299,10 +304,10 @@ mod tests {
         // Register the resource type but don't insert it
         world.init_resource::<TestResource>();
         world.remove_resource::<TestResource>(); // Remove it
-        
+
         let command = remove_resource::<TestResource>();
         let result = command.apply(&mut world);
-        
+
         assert!(result.is_err());
         // Should be DoesNotExist error since resource was removed
     }

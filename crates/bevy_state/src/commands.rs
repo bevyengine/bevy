@@ -41,9 +41,11 @@ impl CommandsStatesExt for Commands<'_, '_> {
 
     fn try_set_state<S: FreelyMutableState>(&mut self, state: S) {
         self.queue(move |w: &mut World| -> Result {
-            let component_id = w.components().get_valid_resource_id(core::any::TypeId::of::<NextState<S>>())
+            let component_id = w
+                .components()
+                .get_valid_resource_id(core::any::TypeId::of::<NextState<S>>())
                 .ok_or(bevy_ecs::world::error::ResourceFetchError::NotRegistered)?;
-            
+
             match w.get_resource_mut::<NextState<S>>() {
                 Some(mut next) => {
                     if let NextState::Pending(prev) = &*next {
@@ -54,7 +56,9 @@ impl CommandsStatesExt for Commands<'_, '_> {
                     next.set(state);
                     Ok(())
                 }
-                None => Err(bevy_ecs::world::error::ResourceFetchError::DoesNotExist(component_id).into()),
+                None => Err(
+                    bevy_ecs::world::error::ResourceFetchError::DoesNotExist(component_id).into(),
+                ),
             }
         });
     }
