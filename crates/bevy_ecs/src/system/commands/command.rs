@@ -273,12 +273,12 @@ mod tests {
     use crate::{resource::Resource, world::World};
 
     #[derive(Resource, Default)]
-    struct TestResource(i32);
+    struct TestResource;
 
     #[test]
     fn test_remove_resource_success() {
         let mut world = World::new();
-        world.insert_resource(TestResource(42));
+        world.insert_resource(TestResource);
 
         let command = remove_resource::<TestResource>();
         let result = command.apply(&mut world);
