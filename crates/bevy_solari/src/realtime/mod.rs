@@ -34,6 +34,9 @@ impl Plugin for SolariLightingPlugin {
         embedded_asset!(app, "presample_light_tiles.wgsl");
         embedded_asset!(app, "restir_di.wgsl");
         embedded_asset!(app, "restir_gi.wgsl");
+        embedded_asset!(app, "world_cache_compact.wgsl");
+        embedded_asset!(app, "world_cache_query.wgsl");
+        embedded_asset!(app, "world_cache_update.wgsl");
 
         app.register_type::<SolariLighting>()
             .insert_resource(DefaultOpaqueRendererMethod::deferred());
