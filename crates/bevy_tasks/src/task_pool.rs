@@ -315,17 +315,9 @@ impl TaskPool {
         // If an `external_executor` is passed, use that. Otherwise, get the executor stored
         // in the `THREAD_EXECUTOR` thread local.
         if let Some(external_spawner) = external_spawner {
-            self.scope_with_executor_inner(
-                external_spawner,
-                scope_spawner,
-                f,
-            )
+            self.scope_with_executor_inner(external_spawner, scope_spawner, f)
         } else {
-            self.scope_with_executor_inner(
-                scope_spawner.clone(),
-                scope_spawner,
-                f,
-            )
+            self.scope_with_executor_inner(scope_spawner.clone(), scope_spawner, f)
         }
     }
 
