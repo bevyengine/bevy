@@ -1,7 +1,6 @@
 use alloc::{boxed::Box, vec::Vec};
 use bevy_platform::cell::SyncUnsafeCell;
-use bevy_platform::sync::Arc;
-use bevy_tasks::{ComputeTaskPool, Scope, TaskPool, ThreadExecutor};
+use bevy_tasks::{ComputeTaskPool, Scope, TaskPool, ThreadSpawner};
 use concurrent_queue::ConcurrentQueue;
 use core::{any::Any, panic::AssertUnwindSafe};
 use fixedbitset::FixedBitSet;
@@ -272,12 +271,10 @@ impl SystemExecutor for MultiThreadedExecutor {
         let thread_executor = world
             .get_resource::<MainThreadExecutor>()
             .map(|e| e.0.clone());
-        let thread_executor = thread_executor.as_deref();
 
         let environment = &Environment::new(self, schedule, world);
 
         ComputeTaskPool::get_or_init(TaskPool::default).scope_with_executor(
-            false,
             thread_executor,
             |scope| {
                 let context = Context {
@@ -866,7 +863,7 @@ unsafe fn evaluate_and_fold_conditions(
 
 /// New-typed [`ThreadExecutor`] [`Resource`] that is used to run systems on the main thread
 #[derive(Resource, Clone)]
-pub struct MainThreadExecutor(pub Arc<ThreadExecutor<'static>>);
+pub struct MainThreadExecutor(pub ThreadSpawner<'static>);
 
 impl Default for MainThreadExecutor {
     fn default() -> Self {
@@ -877,7 +874,7 @@ impl Default for MainThreadExecutor {
 impl MainThreadExecutor {
     /// Creates a new executor that can be used to run systems on the main thread.
     pub fn new() -> Self {
-        MainThreadExecutor(TaskPool::get_thread_executor())
+        MainThreadExecutor(ComputeTaskPool::get().current_thread_spawner())
     }
 }
 

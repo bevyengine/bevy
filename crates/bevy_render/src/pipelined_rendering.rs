@@ -186,7 +186,7 @@ fn renderer_extract(app_world: &mut World, _world: &mut World) {
             // we use a scope here to run any main thread tasks that the render world still needs to run
             // while we wait for the render world to be received.
             if let Some(mut render_app) = ComputeTaskPool::get()
-                .scope_with_executor(true, Some(&*main_thread_executor.0), |s| {
+                .scope_with_executor(Some(main_thread_executor.0.clone()), |s| {
                     s.spawn(async { render_channels.recv().await });
                 })
                 .pop()
