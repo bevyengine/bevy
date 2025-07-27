@@ -90,7 +90,7 @@ use bevy_image::{CompressedImageFormatSupport, CompressedImageFormats};
 use bevy_utils::prelude::default;
 pub use extract_param::Extract;
 
-use bevy_window::{PrimaryWindow, RawHandleWrapperHolder};
+use bevy_window::{PrimaryWindow, RawDisplayHandleWrapper, RawHandleWrapperHolder};
 use experimental::occlusion_culling::OcclusionCullingPlugin;
 use globals::GlobalsPlugin;
 use render_asset::{
@@ -355,6 +355,11 @@ impl Plugin for RenderPlugin {
                         .single(app.world())
                         .ok()
                         .cloned();
+
+                    let display_handle = app
+                        .world()
+                        .get_resource::<RawDisplayHandleWrapper>().unwrap();
+
                     let settings = render_creation.clone();
                     let async_renderer = async move {
                         let instance = wgpu::Instance::new(&wgpu::InstanceDescriptor {
@@ -371,6 +376,7 @@ impl Plugin for RenderPlugin {
                                 },
                                 noop: wgpu::NoopBackendOptions { enable: false },
                             },
+                            display: Some(display_handle.0),
                         });
 
                         let surface = primary_window.and_then(|wrapper| {

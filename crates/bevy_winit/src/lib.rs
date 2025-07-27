@@ -17,7 +17,8 @@ extern crate alloc;
 use bevy_derive::Deref;
 use bevy_reflect::prelude::ReflectDefault;
 use bevy_reflect::Reflect;
-use bevy_window::{RawHandleWrapperHolder, WindowEvent};
+use bevy_window::{RawDisplayHandleWrapper, RawHandleWrapperHolder, WindowEvent};
+use raw_window_handle::HasDisplayHandle;
 use core::cell::RefCell;
 use core::marker::PhantomData;
 use winit::{event_loop::EventLoop, window::WindowId};
@@ -134,6 +135,7 @@ impl<T: BufferedEvent> Plugin for WinitPlugin<T> {
         app.init_resource::<WinitMonitors>()
             .init_resource::<WinitSettings>()
             .insert_resource(DisplayHandleWrapper(event_loop.owned_display_handle()))
+            .insert_resource(RawDisplayHandleWrapper(event_loop.display_handle().unwrap().as_raw()))
             .add_event::<RawWinitWindowEvent>()
             .set_runner(|app| winit_runner(app, event_loop))
             .add_systems(

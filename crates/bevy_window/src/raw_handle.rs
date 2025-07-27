@@ -4,13 +4,21 @@
 )]
 
 use alloc::sync::Arc;
-use bevy_ecs::prelude::Component;
+use bevy_ecs::{prelude::Component, resource::Resource};
 use bevy_platform::sync::Mutex;
 use core::{any::Any, marker::PhantomData, ops::Deref};
 use raw_window_handle::{
     DisplayHandle, HandleError, HasDisplayHandle, HasWindowHandle, RawDisplayHandle,
     RawWindowHandle, WindowHandle,
 };
+
+unsafe impl Send for RawDisplayHandleWrapper {}
+// SAFETY: This is safe for the same reasons as the Send impl above.
+unsafe impl Sync for RawDisplayHandleWrapper {}
+
+#[derive(Debug, Clone, Resource)]
+pub struct RawDisplayHandleWrapper(pub RawDisplayHandle);
+
 
 /// A wrapper over a window.
 ///
