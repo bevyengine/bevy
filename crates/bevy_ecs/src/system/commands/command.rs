@@ -296,13 +296,10 @@ mod tests {
 
         assert!(result.is_err());
         let error = result.unwrap_err();
-        assert!(error
-            .downcast_ref::<crate::world::error::ResourceFetchError>()
-            .is_some());
+		let error_ref = error.downcast_ref::<crate::world::error::ResourceFetchError>();
+        assert!(error_ref.is_some());
         assert!(matches!(
-            error
-                .downcast_ref::<crate::world::error::ResourceFetchError>()
-                .unwrap(),
+            error_ref.unwrap(),
             crate::world::error::ResourceFetchError::NotRegistered
         ));
     }
