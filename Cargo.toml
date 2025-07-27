@@ -4614,3 +4614,11 @@ description = "Gallery of Feathers Widgets"
 category = "UI (User Interface)"
 wasm = true
 hidden = true
+
+[patch.crates-io]
+wgpu = { git = "https://github.com/MarijnS95/wgpu", branch = "instance-for-raw-display-handle" }
+wgpu-types = { git = "https://github.com/MarijnS95/wgpu", branch = "instance-for-raw-display-handle" }
+wgpu-hal = { git = "https://github.com/MarijnS95/wgpu", branch = "instance-for-raw-display-handle" }
+wgpu-core = { git = "https://github.com/MarijnS95/wgpu", branch = "instance-for-raw-display-handle" }
+wgpu-info = { git = "https://github.com/MarijnS95/wgpu", branch = "instance-for-raw-display-handle" }
+wgpu-macros = { git = "https://github.com/MarijnS95/wgpu", branch = "instance-for-raw-display-handle" }
