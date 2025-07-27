@@ -154,13 +154,12 @@ pub fn ui_layout_system(
             }
         }
 
-        for ui_root_entity in ui_root_node_query.iter() {
-            update_children_recursively(
-                &mut ui_surface,
-                &ui_children,
-                &added_node_query,
-                ui_root_entity,
-            );
+        update_children_recursively(
+            &mut ui_surface,
+            &ui_children,
+            &added_node_query,
+            ui_root_entity,
+        );
         }
 
         let (_, _, _, computed_target) = node_query.get(ui_root_entity).unwrap();
