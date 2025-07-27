@@ -1,3 +1,6 @@
+//! Test example that verifies PreviousGlobalTransform is correctly initialized
+//! to match GlobalTransform on the first frame for new entities.
+
 use bevy::pbr::PreviousGlobalTransform;
 use bevy::prelude::*;
 
