@@ -65,7 +65,8 @@ impl ViewNode for MainTransmissivePass3dNode {
             render_context.add_command_buffer_generation_task(move |render_device| {
                 // Run the transmissive pass, sorted back-to-front
                 #[cfg(feature = "trace")]
-                let _main_transmissive_pass_3d_span = info_span!("main_transmissive_pass_3d").entered();
+                let _main_transmissive_pass_3d_span =
+                    info_span!("main_transmissive_pass_3d").entered();
 
                 // Command encoder setup
                 let mut command_encoder =
@@ -95,13 +96,14 @@ impl ViewNode for MainTransmissivePass3dNode {
                             physical_target_size.to_extents(),
                         );
 
-                        let render_pass = command_encoder.begin_render_pass(&RenderPassDescriptor {
-                            label: Some("main_transmissive_pass_3d"),
-                            color_attachments: &color_attachments,
-                            depth_stencil_attachment: depth_stencil_attachment.clone(),
-                            timestamp_writes: None,
-                            occlusion_query_set: None,
-                        });
+                        let render_pass =
+                            command_encoder.begin_render_pass(&RenderPassDescriptor {
+                                label: Some("main_transmissive_pass_3d"),
+                                color_attachments: &color_attachments,
+                                depth_stencil_attachment: depth_stencil_attachment.clone(),
+                                timestamp_writes: None,
+                                occlusion_query_set: None,
+                            });
                         let mut render_pass = TrackedRenderPass::new(&render_device, render_pass);
 
                         if let Some(viewport) = camera.viewport.as_ref() {
@@ -109,10 +111,15 @@ impl ViewNode for MainTransmissivePass3dNode {
                         }
 
                         // render items in range
-                        if let Err(err) =
-                            transmissive_phase.render_range(&mut render_pass, world, view_entity, range)
-                        {
-                            error!("Error encountered while rendering the transmissive phase {err:?}");
+                        if let Err(err) = transmissive_phase.render_range(
+                            &mut render_pass,
+                            world,
+                            view_entity,
+                            range,
+                        ) {
+                            error!(
+                                "Error encountered while rendering the transmissive phase {err:?}"
+                            );
                         }
                     }
                 } else {
@@ -126,10 +133,13 @@ impl ViewNode for MainTransmissivePass3dNode {
                     let mut render_pass = TrackedRenderPass::new(&render_device, render_pass);
 
                     if let Some(viewport) = camera.viewport.as_ref() {
-                        render_pass.set_camera_viewport(&viewport.with_override(resolution_override));
+                        render_pass
+                            .set_camera_viewport(&viewport.with_override(resolution_override));
                     }
 
-                    if let Err(err) = transmissive_phase.render(&mut render_pass, world, view_entity) {
+                    if let Err(err) =
+                        transmissive_phase.render(&mut render_pass, world, view_entity)
+                    {
                         error!("Error encountered while rendering the transmissive phase {err:?}");
                     }
                 }

@@ -60,7 +60,8 @@ impl ViewNode for MainTransparentPass3dNode {
             render_context.add_command_buffer_generation_task(move |render_device| {
                 // Run the transparent pass, sorted back-to-front
                 #[cfg(feature = "trace")]
-                let _main_transparent_pass_3d_span = info_span!("main_transparent_pass_3d").entered();
+                let _main_transparent_pass_3d_span =
+                    info_span!("main_transparent_pass_3d").entered();
 
                 // Command encoder setup
                 let mut command_encoder =
