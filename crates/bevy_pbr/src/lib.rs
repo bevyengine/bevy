@@ -285,9 +285,9 @@ impl Plugin for PbrPlugin {
                 },
             );
 
-        let has_bluenoise = app.get_sub_app(RenderApp).map_or(false, |render_app| {
-            render_app.world().is_resource_added::<Bluenoise>()
-        });
+        let has_bluenoise = app
+            .get_sub_app(RenderApp)
+            .is_some_and(|render_app| render_app.world().is_resource_added::<Bluenoise>());
 
         if !has_bluenoise {
             let mut images = app.world_mut().resource_mut::<Assets<Image>>();
