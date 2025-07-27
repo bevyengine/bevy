@@ -5,8 +5,8 @@ use bevy_image::ToExtents;
 use bevy_render::{
     camera::{ExtractedCamera, MainPassResolutionOverride},
     render_graph::{NodeRunError, RenderGraphContext, ViewNode},
-    render_phase::ViewSortedRenderPhases,
-    render_resource::{RenderPassDescriptor, StoreOp},
+    render_phase::{TrackedRenderPass, ViewSortedRenderPhases},
+    render_resource::{CommandEncoderDescriptor, RenderPassDescriptor, StoreOp},
     renderer::RenderContext,
     view::{ExtractedView, ViewDepthTexture, ViewTarget},
 };
@@ -31,14 +31,16 @@ impl ViewNode for MainTransmissivePass3dNode {
         Option<&'static MainPassResolutionOverride>,
     );
 
-    fn run(
+    fn run<'w>(
         &self,
         graph: &mut RenderGraphContext,
-        render_context: &mut RenderContext,
+        render_context: &mut RenderContext<'w>,
         (camera, view, camera_3d, target, transmission, depth, resolution_override): QueryItem<
+            'w,
+            '_,
             Self::ViewQuery,
         >,
-        world: &World,
+        world: &'w World,
     ) -> Result<(), NodeRunError> {
         let view_entity = graph.view_entity();
 
@@ -52,72 +54,88 @@ impl ViewNode for MainTransmissivePass3dNode {
             return Ok(());
         };
 
-        let physical_target_size = camera.physical_target_size.unwrap();
-
-        let render_pass_descriptor = RenderPassDescriptor {
-            label: Some("main_transmissive_pass_3d"),
-            color_attachments: &[Some(target.get_color_attachment())],
-            depth_stencil_attachment: Some(depth.get_attachment(StoreOp::Store)),
-            timestamp_writes: None,
-            occlusion_query_set: None,
-        };
-
-        // Run the transmissive pass, sorted back-to-front
-        // NOTE: Scoped to drop the mutable borrow of render_context
-        #[cfg(feature = "trace")]
-        let _main_transmissive_pass_3d_span = info_span!("main_transmissive_pass_3d").entered();
-
         if !transmissive_phase.items.is_empty() {
+            let physical_target_size = camera.physical_target_size.unwrap();
             let screen_space_specular_transmission_steps =
                 camera_3d.screen_space_specular_transmission_steps;
-            if screen_space_specular_transmission_steps > 0 {
-                let transmission =
-                    transmission.expect("`ViewTransmissionTexture` should exist at this point");
 
-                // `transmissive_phase.items` are depth sorted, so we split them into N = `screen_space_specular_transmission_steps`
-                // ranges, rendering them back-to-front in multiple steps, allowing multiple levels of transparency.
-                //
-                // Note: For the sake of simplicity, we currently split items evenly among steps. In the future, we
-                // might want to use a more sophisticated heuristic (e.g. based on view bounds, or with an exponential
-                // falloff so that nearby objects have more levels of transparency available to them)
-                for range in split_range(
-                    0..transmissive_phase.items.len(),
-                    screen_space_specular_transmission_steps,
-                ) {
-                    // Copy the main texture to the transmission texture, allowing to use the color output of the
-                    // previous step (or of the `Opaque3d` phase, for the first step) as a transmissive color input
-                    render_context.command_encoder().copy_texture_to_texture(
-                        target.main_texture().as_image_copy(),
-                        transmission.texture.as_image_copy(),
-                        physical_target_size.to_extents(),
-                    );
+            let color_attachments = [Some(target.get_color_attachment())];
+            let depth_stencil_attachment = Some(depth.get_attachment(StoreOp::Store));
 
-                    let mut render_pass =
-                        render_context.begin_tracked_render_pass(render_pass_descriptor.clone());
+            render_context.add_command_buffer_generation_task(move |render_device| {
+                // Run the transmissive pass, sorted back-to-front
+                #[cfg(feature = "trace")]
+                let _main_transmissive_pass_3d_span = info_span!("main_transmissive_pass_3d").entered();
+
+                // Command encoder setup
+                let mut command_encoder =
+                    render_device.create_command_encoder(&CommandEncoderDescriptor {
+                        label: Some("main_transmissive_pass_3d_command_encoder"),
+                    });
+
+                if screen_space_specular_transmission_steps > 0 {
+                    let transmission =
+                        transmission.expect("`ViewTransmissionTexture` should exist at this point");
+
+                    // `transmissive_phase.items` are depth sorted, so we split them into N = `screen_space_specular_transmission_steps`
+                    // ranges, rendering them back-to-front in multiple steps, allowing multiple levels of transparency.
+                    //
+                    // Note: For the sake of simplicity, we currently split items evenly among steps. In the future, we
+                    // might want to use a more sophisticated heuristic (e.g. based on view bounds, or with an exponential
+                    // falloff so that nearby objects have more levels of transparency available to them)
+                    for range in split_range(
+                        0..transmissive_phase.items.len(),
+                        screen_space_specular_transmission_steps,
+                    ) {
+                        // Copy the main texture to the transmission texture, allowing to use the color output of the
+                        // previous step (or of the `Opaque3d` phase, for the first step) as a transmissive color input
+                        command_encoder.copy_texture_to_texture(
+                            target.main_texture().as_image_copy(),
+                            transmission.texture.as_image_copy(),
+                            physical_target_size.to_extents(),
+                        );
+
+                        let render_pass = command_encoder.begin_render_pass(&RenderPassDescriptor {
+                            label: Some("main_transmissive_pass_3d"),
+                            color_attachments: &color_attachments,
+                            depth_stencil_attachment: depth_stencil_attachment.clone(),
+                            timestamp_writes: None,
+                            occlusion_query_set: None,
+                        });
+                        let mut render_pass = TrackedRenderPass::new(&render_device, render_pass);
+
+                        if let Some(viewport) = camera.viewport.as_ref() {
+                            render_pass.set_camera_viewport(viewport);
+                        }
+
+                        // render items in range
+                        if let Err(err) =
+                            transmissive_phase.render_range(&mut render_pass, world, view_entity, range)
+                        {
+                            error!("Error encountered while rendering the transmissive phase {err:?}");
+                        }
+                    }
+                } else {
+                    let render_pass = command_encoder.begin_render_pass(&RenderPassDescriptor {
+                        label: Some("main_transmissive_pass_3d"),
+                        color_attachments: &color_attachments,
+                        depth_stencil_attachment,
+                        timestamp_writes: None,
+                        occlusion_query_set: None,
+                    });
+                    let mut render_pass = TrackedRenderPass::new(&render_device, render_pass);
 
                     if let Some(viewport) = camera.viewport.as_ref() {
-                        render_pass.set_camera_viewport(viewport);
+                        render_pass.set_camera_viewport(&viewport.with_override(resolution_override));
                     }
 
-                    // render items in range
-                    if let Err(err) =
-                        transmissive_phase.render_range(&mut render_pass, world, view_entity, range)
-                    {
+                    if let Err(err) = transmissive_phase.render(&mut render_pass, world, view_entity) {
                         error!("Error encountered while rendering the transmissive phase {err:?}");
                     }
                 }
-            } else {
-                let mut render_pass =
-                    render_context.begin_tracked_render_pass(render_pass_descriptor);
 
-                if let Some(viewport) = camera.viewport.as_ref() {
-                    render_pass.set_camera_viewport(&viewport.with_override(resolution_override));
-                }
-
-                if let Err(err) = transmissive_phase.render(&mut render_pass, world, view_entity) {
-                    error!("Error encountered while rendering the transmissive phase {err:?}");
-                }
-            }
+                command_encoder.finish()
+            });
         }
 
         Ok(())
