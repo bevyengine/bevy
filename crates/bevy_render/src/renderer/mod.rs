@@ -243,6 +243,18 @@ pub async fn initialize_renderer(
         // err on the side of being conservative. We can't claim 'higher' limits that are supported
         // but we can constrain to 'lower' limits.
         limits = wgpu::Limits {
+            max_mesh_multiview_count: limits
+                .max_mesh_multiview_count
+                .min(constrained_limits.max_mesh_multiview_count),
+            max_mesh_output_layers: limits
+                .max_mesh_output_layers
+                .min(constrained_limits.max_mesh_output_layers),
+            max_task_workgroup_total_count: limits
+                .max_task_workgroup_total_count
+                .min(constrained_limits.max_task_workgroup_total_count),
+            max_task_workgroups_per_dimension: limits
+                .max_task_workgroups_per_dimension
+                .min(constrained_limits.max_task_workgroups_per_dimension),
             max_texture_dimension_1d: limits
                 .max_texture_dimension_1d
                 .min(constrained_limits.max_texture_dimension_1d),
