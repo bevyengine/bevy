@@ -640,8 +640,9 @@ pub fn update_password_masks(
         if buffer.editor.redraw() || mask.is_changed() {
             buffer.editor.shape_as_needed(font_system, false);
             let mask_text: String = buffer.get_text().chars().map(|_| mask.mask_char).collect();
-            mask.editor = buffer.editor.clone();
-            let mut editor = mask.editor.borrow_with(font_system);
+            let mask_editor = &mut mask.bypass_change_detection().editor;
+            *mask_editor = buffer.editor.clone();
+            let mut editor = mask_editor.borrow_with(font_system);
             let selection = editor.selection();
             let cursor = editor.cursor();
             editor.action(Action::Motion(Motion::BufferStart));
@@ -730,7 +731,6 @@ impl<'b> Iterator for ScrollingLayoutRunIter<'b> {
 
 /// Update text input buffers
 pub fn update_text_input_layouts(
-    mut local: Local<usize>,
     mut textures: ResMut<Assets<Image>>,
     mut texture_atlases: ResMut<Assets<TextureAtlasLayout>>,
     mut text_query: Query<(
@@ -744,7 +744,6 @@ pub fn update_text_input_layouts(
     mut swash_cache: ResMut<crate::pipeline::SwashCache>,
     mut font_atlas_sets: ResMut<FontAtlasSets>,
 ) {
-    *local += 1;
     let font_system = &mut font_system.0;
     for (mut layout_info, mut buffer, attributes, mut maybe_password_mask, space_advance) in
         text_query.iter_mut()
@@ -758,6 +757,7 @@ pub fn update_text_input_layouts(
             .as_mut()
             .filter(|mask| !mask.show_password)
         {
+            buffer.editor.set_redraw(false);
             &mut password_mask.bypass_change_detection().editor
         } else {
             &mut buffer.editor
@@ -765,7 +765,6 @@ pub fn update_text_input_layouts(
         editor.shape_as_needed(font_system, false);
 
         if editor.redraw() || force_redraw {
-            println!("redraw buffer: {}", *local);
             layout_info.glyphs.clear();
             layout_info.section_rects.clear();
             layout_info.selection_rects.clear();
