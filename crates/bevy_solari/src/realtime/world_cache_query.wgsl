@@ -36,6 +36,7 @@ struct WorldCacheGeometryData {
 @group(1) @binding(21) var<storage, read_write> world_cache_active_cell_indices: array<u32, #{WORLD_CACHE_SIZE}>;
 @group(1) @binding(22) var<storage, read_write> world_cache_active_cells_count: u32;
 
+#ifndef WORLD_CACHE_NON_ATOMIC_LIFE_BUFFER
 fn query_world_cache(world_position: vec3<f32>, world_normal: vec3<f32>) -> vec3<f32> {
     var key = compute_key(world_position, world_normal);
     let checksum = compute_checksum(world_position, world_normal);
@@ -60,6 +61,7 @@ fn query_world_cache(world_position: vec3<f32>, world_normal: vec3<f32>) -> vec3
 
     return vec3(0.0);
 }
+#endif
 
 fn compute_key(world_position: vec3<f32>, world_normal: vec3<f32>) -> u32 {
     let world_position_quantized = bitcast<vec3<u32>>(quantize_position(world_position));

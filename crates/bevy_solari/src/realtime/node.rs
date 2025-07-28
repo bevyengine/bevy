@@ -334,35 +334,38 @@ impl FromWorld for SolariLightingNode {
                 ),
             );
 
-        let create_pipeline =
-            |label: &'static str,
-             entry_point: &'static str,
-             shader: Handle<Shader>,
-             extra_bind_group_layout: Option<&BindGroupLayout>| {
-                let mut layout = vec![
-                    scene_bindings.bind_group_layout.clone(),
-                    bind_group_layout.clone(),
-                ];
-                if let Some(extra_bind_group_layout) = extra_bind_group_layout {
-                    layout.push(extra_bind_group_layout.clone());
-                }
+        let create_pipeline = |label: &'static str,
+                               entry_point: &'static str,
+                               shader: Handle<Shader>,
+                               extra_bind_group_layout: Option<&BindGroupLayout>,
+                               extra_shader_defs: Vec<ShaderDefVal>| {
+            let mut layout = vec![
+                scene_bindings.bind_group_layout.clone(),
+                bind_group_layout.clone(),
+            ];
+            if let Some(extra_bind_group_layout) = extra_bind_group_layout {
+                layout.push(extra_bind_group_layout.clone());
+            }
 
-                pipeline_cache.queue_compute_pipeline(ComputePipelineDescriptor {
-                    label: Some(label.into()),
-                    layout,
-                    push_constant_ranges: vec![PushConstantRange {
-                        stages: ShaderStages::COMPUTE,
-                        range: 0..8,
-                    }],
-                    shader,
-                    shader_defs: vec![ShaderDefVal::UInt(
-                        "WORLD_CACHE_SIZE".into(),
-                        WORLD_CACHE_SIZE as u32,
-                    )],
-                    entry_point: Some(entry_point.into()),
-                    ..default()
-                })
-            };
+            let mut shader_defs = vec![ShaderDefVal::UInt(
+                "WORLD_CACHE_SIZE".into(),
+                WORLD_CACHE_SIZE as u32,
+            )];
+            shader_defs.extend_from_slice(&extra_shader_defs);
+
+            pipeline_cache.queue_compute_pipeline(ComputePipelineDescriptor {
+                label: Some(label.into()),
+                layout,
+                push_constant_ranges: vec![PushConstantRange {
+                    stages: ShaderStages::COMPUTE,
+                    range: 0..8,
+                }],
+                shader,
+                shader_defs,
+                entry_point: Some(entry_point.into()),
+                ..default()
+            })
+        };
 
         Self {
             bind_group_layout: bind_group_layout.clone(),
@@ -373,66 +376,77 @@ impl FromWorld for SolariLightingNode {
                 "decay_world_cache",
                 load_embedded_asset!(world, "world_cache_compact.wgsl"),
                 Some(&bind_group_layout_world_cache_active_cells_dispatch),
+                vec!["WORLD_CACHE_NON_ATOMIC_LIFE_BUFFER".into()],
             ),
             compact_world_cache_single_block_pipeline: create_pipeline(
                 "solari_lighting_compact_world_cache_single_block_pipeline",
                 "compact_world_cache_single_block",
                 load_embedded_asset!(world, "world_cache_compact.wgsl"),
                 Some(&bind_group_layout_world_cache_active_cells_dispatch),
+                vec!["WORLD_CACHE_NON_ATOMIC_LIFE_BUFFER".into()],
             ),
             compact_world_cache_blocks_pipeline: create_pipeline(
                 "solari_lighting_compact_world_cache_blocks_pipeline",
                 "compact_world_cache_blocks",
                 load_embedded_asset!(world, "world_cache_compact.wgsl"),
                 Some(&bind_group_layout_world_cache_active_cells_dispatch),
+                vec![],
             ),
             compact_world_cache_write_active_cells_pipeline: create_pipeline(
                 "solari_lighting_compact_world_cache_write_active_cells_pipeline",
                 "compact_world_cache_write_active_cells",
                 load_embedded_asset!(world, "world_cache_compact.wgsl"),
                 Some(&bind_group_layout_world_cache_active_cells_dispatch),
+                vec!["WORLD_CACHE_NON_ATOMIC_LIFE_BUFFER".into()],
             ),
             sample_for_world_cache_pipeline: create_pipeline(
                 "solari_lighting_sample_for_world_cache_pipeline",
                 "sample_radiance",
                 load_embedded_asset!(world, "world_cache_update.wgsl"),
                 None,
+                vec![],
             ),
             blend_new_world_cache_samples_pipeline: create_pipeline(
                 "solari_lighting_blend_new_world_cache_samples_pipeline",
                 "blend_new_samples",
                 load_embedded_asset!(world, "world_cache_update.wgsl"),
                 None,
+                vec![],
             ),
             presample_light_tiles_pipeline: create_pipeline(
                 "solari_lighting_presample_light_tiles_pipeline",
                 "presample_light_tiles",
                 load_embedded_asset!(world, "presample_light_tiles.wgsl"),
                 None,
+                vec![],
             ),
             di_initial_and_temporal_pipeline: create_pipeline(
                 "solari_lighting_di_initial_and_temporal_pipeline",
                 "initial_and_temporal",
                 load_embedded_asset!(world, "restir_di.wgsl"),
                 None,
+                vec![],
             ),
             di_spatial_and_shade_pipeline: create_pipeline(
                 "solari_lighting_di_spatial_and_shade_pipeline",
                 "spatial_and_shade",
                 load_embedded_asset!(world, "restir_di.wgsl"),
                 None,
+                vec![],
             ),
             gi_initial_and_temporal_pipeline: create_pipeline(
                 "solari_lighting_gi_initial_and_temporal_pipeline",
                 "initial_and_temporal",
                 load_embedded_asset!(world, "restir_gi.wgsl"),
                 None,
+                vec![],
             ),
             gi_spatial_and_shade_pipeline: create_pipeline(
                 "solari_lighting_gi_spatial_and_shade_pipeline",
                 "spatial_and_shade",
                 load_embedded_asset!(world, "restir_gi.wgsl"),
                 None,
+                vec![],
             ),
         }
     }
