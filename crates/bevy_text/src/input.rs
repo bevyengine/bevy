@@ -36,6 +36,7 @@ use bevy_ecs::resource::Resource;
 use bevy_ecs::schedule::IntoScheduleConfigs;
 use bevy_ecs::schedule::SystemSet;
 use bevy_ecs::system::Commands;
+use bevy_ecs::system::Local;
 use bevy_ecs::system::Query;
 use bevy_ecs::system::Res;
 use bevy_ecs::system::ResMut;
@@ -318,6 +319,8 @@ impl TextInputFilter {
 /// by replacing the characters with `mask_char`.
 #[derive(Component)]
 pub struct TextInputPasswordMask {
+    /// If true the password will not be hidden
+    pub show_password: bool,
     /// Char that will replace the masked input characters, by default `*`
     pub mask_char: char,
     /// Buffer mirroring the actual text input buffer but only containing `mask_char`s
@@ -327,6 +330,7 @@ pub struct TextInputPasswordMask {
 impl Default for TextInputPasswordMask {
     fn default() -> Self {
         Self {
+            show_password: false,
             mask_char: '*',
             editor: Editor::new(Buffer::new_empty(Metrics::new(20.0, 20.0))),
         }
@@ -633,7 +637,7 @@ pub fn update_password_masks(
 ) {
     let font_system = &mut cosmic_font_system.0;
     for (mut buffer, mut mask) in text_input_query.iter_mut() {
-        if buffer.is_changed() || mask.is_changed() {
+        if buffer.editor.redraw() || mask.is_changed() {
             buffer.editor.shape_as_needed(font_system, false);
             let mask_text: String = buffer.get_text().chars().map(|_| mask.mask_char).collect();
             mask.editor = buffer.editor.clone();
@@ -726,6 +730,7 @@ impl<'b> Iterator for ScrollingLayoutRunIter<'b> {
 
 /// Update text input buffers
 pub fn update_text_input_layouts(
+    mut local: Local<usize>,
     mut textures: ResMut<Assets<Image>>,
     mut texture_atlases: ResMut<Assets<TextureAtlasLayout>>,
     mut text_query: Query<(
@@ -739,25 +744,35 @@ pub fn update_text_input_layouts(
     mut swash_cache: ResMut<crate::pipeline::SwashCache>,
     mut font_atlas_sets: ResMut<FontAtlasSets>,
 ) {
+    *local += 1;
     let font_system = &mut font_system.0;
     for (mut layout_info, mut buffer, attributes, mut maybe_password_mask, space_advance) in
         text_query.iter_mut()
     {
-        let editor = if let Some(password_mask) = maybe_password_mask.as_mut() {
+        let force_redraw = maybe_password_mask
+            .as_mut()
+            .map(|mask| mask.is_changed() && mask.show_password)
+            .unwrap_or(false);
+
+        let editor = if let Some(password_mask) = maybe_password_mask
+            .as_mut()
+            .filter(|mask| !mask.show_password)
+        {
             &mut password_mask.bypass_change_detection().editor
         } else {
             &mut buffer.editor
         };
         editor.shape_as_needed(font_system, false);
-        let selection = editor.selection_bounds();
 
-        if editor.redraw() {
+        if editor.redraw() || force_redraw {
+            println!("redraw buffer: {}", *local);
             layout_info.glyphs.clear();
             layout_info.section_rects.clear();
             layout_info.selection_rects.clear();
             layout_info.cursor_index = None;
             layout_info.cursor = None;
 
+            let selection = editor.selection_bounds();
             let cursor_position = editor.cursor_position();
             let cursor = editor.cursor();
 
