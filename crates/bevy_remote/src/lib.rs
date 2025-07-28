@@ -136,6 +136,7 @@
 //!   - `components` (optional): An array of [fully-qualified type names] of components to fetch,
 //!     see _below_ example for a query to list all the type names in **your** project.
 //!   - `option` (optional): An array of fully-qualified type names of components to fetch optionally.
+//!     to fetch all reflectable components, you can pass in the string `"all"`.
 //!   - `has` (optional): An array of fully-qualified type names of components whose presence will be
 //!     reported as boolean values.
 //! - `filter` (optional):
@@ -143,8 +144,8 @@
 //!     on entities in order for them to be included in results.
 //!   - `without` (optional): An array of fully-qualified type names of components that must *not* be
 //!     present on entities in order for them to be included in results.
-//!   - `strict` (optional): A flag to enable strict mode which will fail if any one of the
-//!     components is not present or can not be reflected. Defaults to false.
+//! - `strict` (optional): A flag to enable strict mode which will fail if any one of the components
+//!   is not present or can not be reflected. Defaults to false.
 //!
 //! `result`: An array, each of which is an object containing:
 //! - `entity`: The ID of a query-matching entity.
@@ -153,7 +154,141 @@
 //! - `has`: A map associating each type name from `has` to a boolean value indicating whether or not the
 //!   entity has that component. If `has` was empty or omitted, this key will be omitted in the response.
 //!
+//! ### Example
+//! To use the query API and retrieve Transform data for all entities that have a Transform
+//! use this query:
 //!
+//! ```json
+//! {
+//!     "jsonrpc": "2.0",
+//!     "method": "bevy/query",
+//!     "id": 0,
+//!     "params": {
+//!         "data": {
+//!             "components": ["bevy_transform::components::transform::Transform"]
+//!             "option": [],
+//!             "has": []
+//!        },
+//!        "filter": {
+//!           "with": [],
+//!           "without": []
+//!         },
+//!         "strict": false
+//!     }
+//! }
+//! ```
+//!
+//!
+//! To query all entities and all of their Reflectable components (and retrieve their values), you can pass in "all" for the option field:
+//! ```json
+//! {
+//!     "jsonrpc": "2.0",
+//!     "method": "bevy/query",
+//!     "id": 0,
+//!     "params": {
+//!         "data": {
+//!             "components": []
+//!             "option": "all",
+//!             "has": []
+//!        },
+//!        "filter": {
+//!            "with": [],
+//!           "without": []
+//!         },
+//!         "strict": false
+//!     }
+//! }
+//! ```
+//!
+//! This should return you something like the below (in a larger list):
+//! ```json
+//! {
+//!      "components": {
+//!        "bevy_core_pipeline::core_3d::camera_3d::Camera3d": {
+//!          "depth_load_op": {
+//!            "Clear": 0.0
+//!          },
+//!          "depth_texture_usages": 16,
+//!          "screen_space_specular_transmission_quality": "Medium",
+//!          "screen_space_specular_transmission_steps": 1
+//!        },
+//!        "bevy_core_pipeline::tonemapping::DebandDither": "Enabled",
+//!        "bevy_core_pipeline::tonemapping::Tonemapping": "TonyMcMapface",
+//!        "bevy_pbr::cluster::ClusterConfig": {
+//!          "FixedZ": {
+//!         "dynamic_resizing": true,
+//!            "total": 4096,
+//!            "z_config": {
+//!              "far_z_mode": "MaxClusterableObjectRange",
+//!              "first_slice_depth": 5.0
+//!            },
+//!            "z_slices": 24
+//!          }
+//!        },
+//!        "bevy_render::camera::camera::Camera": {
+//!          "clear_color": "Default",
+//!          "is_active": true,
+//!          "msaa_writeback": true,
+//!          "order": 0,
+//!          "sub_camera_view": null,
+//!          "target": {
+//!            "Window": "Primary"
+//!          },
+//!       "viewport": null
+//!        },
+//!        "bevy_render::camera::projection::Projection": {
+//!          "Perspective": {
+//!            "aspect_ratio": 1.7777777910232544,
+//!            "far": 1000.0,
+//!            "fov": 0.7853981852531433,
+//!            "near": 0.10000000149011612
+//!          }
+//!        },
+//!        "bevy_render::primitives::Frustum": {},
+//!     "bevy_render::sync_world::RenderEntity": 4294967291,
+//!        "bevy_render::sync_world::SyncToRenderWorld": {},
+//!        "bevy_render::view::Msaa": "Sample4",
+//!        "bevy_render::view::visibility::InheritedVisibility": true,
+//!        "bevy_render::view::visibility::ViewVisibility": false,
+//!        "bevy_render::view::visibility::Visibility": "Inherited",
+//!        "bevy_render::view::visibility::VisibleEntities": {},
+//!        "bevy_transform::components::global_transform::GlobalTransform": [
+//!          0.9635179042816162,
+//!          -3.725290298461914e-9,
+//!          0.26764383912086487,
+//!          0.11616238951683044,
+//!          0.9009039402008056,
+//!          -0.4181846082210541,
+//!          -0.24112138152122495,
+//!          0.4340185225009918,
+//!          0.8680371046066284,
+//!          -2.5,
+//!          4.5,
+//!          9.0
+//!        ],
+//!        "bevy_transform::components::transform::Transform": {
+//!       "rotation": [
+//!            -0.22055435180664065,
+//!            -0.13167093694210052,
+//!            -0.03006339818239212,
+//!            0.9659786224365234
+//!          ],
+//!          "scale": [
+//!            1.0,
+//!            1.0,
+//!            1.0
+//!       ],
+//!          "translation": [
+//!            -2.5,
+//!          4.5,
+//!            9.0
+//!          ]
+//!        },
+//!        "bevy_transform::components::transform::TransformTreeChanged": null
+//!      },
+//!      "entity": 4294967261
+//!},
+//! ```
 //!
 //! ### `bevy/spawn`
 //!
@@ -364,17 +499,19 @@
 //! [fully-qualified type names]: bevy_reflect::TypePath::type_path
 //! [fully-qualified type name]: bevy_reflect::TypePath::type_path
 
+extern crate alloc;
+
 use async_channel::{Receiver, Sender};
 use bevy_app::{prelude::*, MainScheduleOrder};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     entity::Entity,
     resource::Resource,
-    schedule::{IntoSystemConfigs, IntoSystemSetConfigs, ScheduleLabel, SystemSet},
+    schedule::{IntoScheduleConfigs, ScheduleLabel, SystemSet},
     system::{Commands, In, IntoSystem, ResMut, System, SystemId},
     world::World,
 };
-use bevy_platform_support::collections::HashMap;
+use bevy_platform::collections::HashMap;
 use bevy_utils::prelude::default;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -383,6 +520,7 @@ use std::sync::RwLock;
 pub mod builtin_methods;
 #[cfg(feature = "http")]
 pub mod http;
+pub mod schemas;
 
 const CHANNEL_SIZE: usize = 16;
 
@@ -474,6 +612,10 @@ impl Default for RemotePlugin {
                 builtin_methods::BRP_MUTATE_COMPONENT_METHOD,
                 builtin_methods::process_remote_mutate_component_request,
             )
+            .with_method(
+                builtin_methods::RPC_DISCOVER_METHOD,
+                builtin_methods::process_remote_list_methods_request,
+            )
             .with_watching_method(
                 builtin_methods::BRP_GET_AND_WATCH_METHOD,
                 builtin_methods::process_remote_get_watching_request,
@@ -534,38 +676,43 @@ impl Plugin for RemotePlugin {
             .insert_after(Last, RemoteLast);
 
         app.insert_resource(remote_methods)
+            .init_resource::<schemas::SchemaTypesMetadata>()
             .init_resource::<RemoteWatchingRequests>()
             .add_systems(PreStartup, setup_mailbox_channel)
             .configure_sets(
                 RemoteLast,
-                (RemoteSet::ProcessRequests, RemoteSet::Cleanup).chain(),
+                (RemoteSystems::ProcessRequests, RemoteSystems::Cleanup).chain(),
             )
             .add_systems(
                 RemoteLast,
                 (
                     (process_remote_requests, process_ongoing_watching_requests)
                         .chain()
-                        .in_set(RemoteSet::ProcessRequests),
-                    remove_closed_watching_requests.in_set(RemoteSet::Cleanup),
+                        .in_set(RemoteSystems::ProcessRequests),
+                    remove_closed_watching_requests.in_set(RemoteSystems::Cleanup),
                 ),
             );
     }
 }
 
 /// Schedule that contains all systems to process Bevy Remote Protocol requests
-#[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash, Default)]
 pub struct RemoteLast;
 
 /// The systems sets of the [`RemoteLast`] schedule.
 ///
 /// These can be useful for ordering.
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
-pub enum RemoteSet {
+pub enum RemoteSystems {
     /// Processing of remote requests.
     ProcessRequests,
     /// Cleanup (remove closed watchers etc)
     Cleanup,
 }
+
+/// Deprecated alias for [`RemoteSystems`].
+#[deprecated(since = "0.17.0", note = "Renamed to `RemoteSystems`.")]
+pub type RemoteSet = RemoteSystems;
 
 /// A type to hold the allowed types of systems to be used as method handlers.
 #[derive(Debug)]
@@ -630,6 +777,11 @@ impl RemoteMethods {
     /// Get a [`RemoteMethodSystemId`] with its method name.
     pub fn get(&self, method: &str) -> Option<&RemoteMethodSystemId> {
         self.0.get(method)
+    }
+
+    /// Get a [`Vec<String>`] with method names.
+    pub fn methods(&self) -> Vec<String> {
+        self.0.keys().cloned().collect()
     }
 }
 

@@ -3,7 +3,7 @@
 use bevy::{
     asset::{
         io::{Reader, VecReader},
-        AssetLoader, CompleteErasedLoadedAsset, LoadContext, LoadDirectError,
+        AssetLoader, ErasedLoadedAsset, LoadContext, LoadDirectError,
     },
     prelude::*,
     reflect::TypePath,
@@ -14,7 +14,7 @@ use thiserror::Error;
 
 #[derive(Asset, TypePath)]
 struct GzAsset {
-    uncompressed: CompleteErasedLoadedAsset,
+    uncompressed: ErasedLoadedAsset,
 }
 
 #[derive(Default)]

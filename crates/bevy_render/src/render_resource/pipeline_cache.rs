@@ -1,4 +1,3 @@
-use crate::renderer::WgpuWrapper;
 use crate::{
     render_resource::*,
     renderer::{RenderAdapter, RenderDevice},
@@ -11,10 +10,11 @@ use bevy_ecs::{
     resource::Resource,
     system::{Res, ResMut},
 };
-use bevy_platform_support::collections::{hash_map::EntryRef, HashMap, HashSet};
+use bevy_platform::collections::{hash_map::EntryRef, HashMap, HashSet};
 use bevy_tasks::Task;
 use bevy_utils::default;
-use core::{future::Future, hash::Hash, mem, ops::Deref};
+use bevy_utils::WgpuWrapper;
+use core::{future::Future, hash::Hash, mem};
 use naga::valid::Capabilities;
 use std::sync::{Mutex, PoisonError};
 use thiserror::Error;
@@ -80,6 +80,13 @@ pub struct CachedPipeline {
 }
 
 /// State of a cached pipeline inserted into a [`PipelineCache`].
+#[cfg_attr(
+    not(target_arch = "wasm32"),
+    expect(
+        clippy::large_enum_variant,
+        reason = "See https://github.com/bevyengine/bevy/issues/19220"
+    )
+)]
 #[derive(Debug)]
 pub enum CachedPipelineState {
     /// The pipeline GPU object is queued for creation.
@@ -127,13 +134,15 @@ struct ShaderData {
 
 struct ShaderCache {
     data: HashMap<AssetId<Shader>, ShaderData>,
+    #[cfg(feature = "shader_format_wesl")]
+    asset_paths: HashMap<wesl::syntax::ModulePath, AssetId<Shader>>,
     shaders: HashMap<AssetId<Shader>, Shader>,
     import_path_shaders: HashMap<ShaderImport, AssetId<Shader>>,
     waiting_on_import: HashMap<ShaderImport, Vec<AssetId<Shader>>>,
     composer: naga_oil::compose::Composer,
 }
 
-#[derive(Clone, PartialEq, Eq, Debug, Hash)]
+#[derive(serde::Serialize, serde::Deserialize, Clone, PartialEq, Eq, Debug, Hash)]
 pub enum ShaderDefVal {
     Bool(String, bool),
     Int(String, i32),
@@ -179,39 +188,50 @@ impl ShaderCache {
         Self {
             composer,
             data: Default::default(),
+            #[cfg(feature = "shader_format_wesl")]
+            asset_paths: Default::default(),
             shaders: Default::default(),
             import_path_shaders: Default::default(),
             waiting_on_import: Default::default(),
         }
     }
 
+    #[expect(
+        clippy::result_large_err,
+        reason = "See https://github.com/bevyengine/bevy/issues/19220"
+    )]
     fn add_import_to_composer(
         composer: &mut naga_oil::compose::Composer,
         import_path_shaders: &HashMap<ShaderImport, AssetId<Shader>>,
         shaders: &HashMap<AssetId<Shader>, Shader>,
         import: &ShaderImport,
     ) -> Result<(), PipelineCacheError> {
-        if !composer.contains_module(&import.module_name()) {
-            if let Some(shader_handle) = import_path_shaders.get(import) {
-                if let Some(shader) = shaders.get(shader_handle) {
-                    for import in &shader.imports {
-                        Self::add_import_to_composer(
-                            composer,
-                            import_path_shaders,
-                            shaders,
-                            import,
-                        )?;
-                    }
-
-                    composer.add_composable_module(shader.into())?;
-                }
-            }
-            // if we fail to add a module the composer will tell us what is missing
+        // Early out if we've already imported this module
+        if composer.contains_module(&import.module_name()) {
+            return Ok(());
         }
+
+        // Check if the import is available (this handles the recursive import case)
+        let shader = import_path_shaders
+            .get(import)
+            .and_then(|handle| shaders.get(handle))
+            .ok_or(PipelineCacheError::ShaderImportNotYetAvailable)?;
+
+        // Recurse down to ensure all import dependencies are met
+        for import in &shader.imports {
+            Self::add_import_to_composer(composer, import_path_shaders, shaders, import)?;
+        }
+
+        composer.add_composable_module(shader.into())?;
+        // if we fail to add a module the composer will tell us what is missing
 
         Ok(())
     }
 
+    #[expect(
+        clippy::result_large_err,
+        reason = "See https://github.com/bevyengine/bevy/issues/19220"
+    )]
     fn get(
         &mut self,
         render_device: &RenderDevice,
@@ -223,6 +243,7 @@ impl ShaderCache {
             .shaders
             .get(&id)
             .ok_or(PipelineCacheError::ShaderNotLoaded(id))?;
+
         let data = self.data.entry(id).or_default();
         let n_asset_imports = shader
             .imports()
@@ -267,6 +288,44 @@ impl ShaderCache {
                 let shader_source = match &shader.source {
                     #[cfg(feature = "shader_format_spirv")]
                     Source::SpirV(data) => make_spirv(data),
+                    #[cfg(feature = "shader_format_wesl")]
+                    Source::Wesl(_) => {
+                        if let ShaderImport::AssetPath(path) = shader.import_path() {
+                            let shader_resolver =
+                                ShaderResolver::new(&self.asset_paths, &self.shaders);
+                            let module_path = wesl::syntax::ModulePath::from_path(path);
+                            let mut compiler_options = wesl::CompileOptions {
+                                imports: true,
+                                condcomp: true,
+                                lower: true,
+                                ..default()
+                            };
+
+                            for shader_def in shader_defs {
+                                match shader_def {
+                                    ShaderDefVal::Bool(key, value) => {
+                                        compiler_options.features.insert(key.clone(), value);
+                                    }
+                                    _ => debug!(
+                                        "ShaderDefVal::Int and ShaderDefVal::UInt are not supported in wesl",
+                                    ),
+                                }
+                            }
+
+                            let compiled = wesl::compile(
+                                &module_path,
+                                &shader_resolver,
+                                &wesl::EscapeMangler,
+                                &compiler_options,
+                            )
+                            .unwrap();
+
+                            let naga = naga::front::wgsl::parse_str(&compiled.to_string()).unwrap();
+                            ShaderSource::Naga(Cow::Owned(naga))
+                        } else {
+                            panic!("Wesl shaders must be imported from a file");
+                        }
+                    }
                     #[cfg(not(feature = "shader_format_spirv"))]
                     Source::SpirV(_) => {
                         unimplemented!(
@@ -306,7 +365,28 @@ impl ShaderCache {
                             },
                         )?;
 
-                        ShaderSource::Naga(Cow::Owned(naga))
+                        #[cfg(not(feature = "decoupled_naga"))]
+                        {
+                            ShaderSource::Naga(Cow::Owned(naga))
+                        }
+
+                        #[cfg(feature = "decoupled_naga")]
+                        {
+                            let mut validator = naga::valid::Validator::new(
+                                naga::valid::ValidationFlags::all(),
+                                self.composer.capabilities,
+                            );
+                            let module_info = validator.validate(&naga).unwrap();
+                            let wgsl = Cow::Owned(
+                                naga::back::wgsl::write_string(
+                                    &naga,
+                                    &module_info,
+                                    naga::back::wgsl::WriterFlags::empty(),
+                                )
+                                .unwrap(),
+                            );
+                            ShaderSource::Wgsl(wgsl)
+                        }
                     }
                 };
 
@@ -398,6 +478,13 @@ impl ShaderCache {
             }
         }
 
+        #[cfg(feature = "shader_format_wesl")]
+        if let Source::Wesl(_) = shader.source {
+            if let ShaderImport::AssetPath(path) = shader.import_path() {
+                self.asset_paths
+                    .insert(wesl::syntax::ModulePath::from_path(path), id);
+            }
+        }
         self.shaders.insert(id, shader);
         pipelines_to_queue
     }
@@ -409,6 +496,40 @@ impl ShaderCache {
         }
 
         pipelines_to_queue
+    }
+}
+
+#[cfg(feature = "shader_format_wesl")]
+pub struct ShaderResolver<'a> {
+    asset_paths: &'a HashMap<wesl::syntax::ModulePath, AssetId<Shader>>,
+    shaders: &'a HashMap<AssetId<Shader>, Shader>,
+}
+
+#[cfg(feature = "shader_format_wesl")]
+impl<'a> ShaderResolver<'a> {
+    pub fn new(
+        asset_paths: &'a HashMap<wesl::syntax::ModulePath, AssetId<Shader>>,
+        shaders: &'a HashMap<AssetId<Shader>, Shader>,
+    ) -> Self {
+        Self {
+            asset_paths,
+            shaders,
+        }
+    }
+}
+
+#[cfg(feature = "shader_format_wesl")]
+impl<'a> wesl::Resolver for ShaderResolver<'a> {
+    fn resolve_source(
+        &self,
+        module_path: &wesl::syntax::ModulePath,
+    ) -> Result<Cow<str>, wesl::ResolveError> {
+        let asset_id = self.asset_paths.get(module_path).ok_or_else(|| {
+            wesl::ResolveError::ModuleNotFound(module_path.clone(), "Invalid asset id".to_string())
+        })?;
+
+        let shader = self.shaders.get(asset_id).unwrap();
+        Ok(Cow::Borrowed(shader.source.as_str()))
     }
 }
 
@@ -450,13 +571,13 @@ impl LayoutCache {
 /// The cache stores existing render and compute pipelines allocated on the GPU, as well as
 /// pending creation. Pipelines inserted into the cache are identified by a unique ID, which
 /// can be used to retrieve the actual GPU object once it's ready. The creation of the GPU
-/// pipeline object is deferred to the [`RenderSet::Render`] step, just before the render
+/// pipeline object is deferred to the [`RenderSystems::Render`] step, just before the render
 /// graph starts being processed, as this requires access to the GPU.
 ///
 /// Note that the cache does not perform automatic deduplication of identical pipelines. It is
 /// up to the user not to insert the same pipeline twice to avoid wasting GPU resources.
 ///
-/// [`RenderSet::Render`]: crate::RenderSet::Render
+/// [`RenderSystems::Render`]: crate::RenderSystems::Render
 #[derive(Resource)]
 pub struct PipelineCache {
     layout_cache: Arc<Mutex<LayoutCache>>,
@@ -503,7 +624,10 @@ impl PipelineCache {
     /// See [`PipelineCache::queue_render_pipeline()`].
     #[inline]
     pub fn get_render_pipeline_state(&self, id: CachedRenderPipelineId) -> &CachedPipelineState {
-        &self.pipelines[id.0].state
+        // If the pipeline id isn't in `pipelines`, it's queued in `new_pipelines`
+        self.pipelines
+            .get(id.0)
+            .map_or(&CachedPipelineState::Queued, |pipeline| &pipeline.state)
     }
 
     /// Get the state of a cached compute pipeline.
@@ -511,12 +635,18 @@ impl PipelineCache {
     /// See [`PipelineCache::queue_compute_pipeline()`].
     #[inline]
     pub fn get_compute_pipeline_state(&self, id: CachedComputePipelineId) -> &CachedPipelineState {
-        &self.pipelines[id.0].state
+        // If the pipeline id isn't in `pipelines`, it's queued in `new_pipelines`
+        self.pipelines
+            .get(id.0)
+            .map_or(&CachedPipelineState::Queued, |pipeline| &pipeline.state)
     }
 
     /// Get the render pipeline descriptor a cached render pipeline was inserted from.
     ///
     /// See [`PipelineCache::queue_render_pipeline()`].
+    ///
+    /// **Note**: Be careful calling this method. It will panic if called with a pipeline that
+    /// has been queued but has not yet been processed by [`PipelineCache::process_queue()`].
     #[inline]
     pub fn get_render_pipeline_descriptor(
         &self,
@@ -531,6 +661,9 @@ impl PipelineCache {
     /// Get the compute pipeline descriptor a cached render pipeline was inserted from.
     ///
     /// See [`PipelineCache::queue_compute_pipeline()`].
+    ///
+    /// **Note**: Be careful calling this method. It will panic if called with a pipeline that
+    /// has been queued but has not yet been processed by [`PipelineCache::process_queue()`].
     #[inline]
     pub fn get_compute_pipeline_descriptor(
         &self,
@@ -552,7 +685,7 @@ impl PipelineCache {
     #[inline]
     pub fn get_render_pipeline(&self, id: CachedRenderPipelineId) -> Option<&RenderPipeline> {
         if let CachedPipelineState::Ok(Pipeline::RenderPipeline(pipeline)) =
-            &self.pipelines[id.0].state
+            &self.pipelines.get(id.0)?.state
         {
             Some(pipeline)
         } else {
@@ -586,7 +719,7 @@ impl PipelineCache {
     #[inline]
     pub fn get_compute_pipeline(&self, id: CachedComputePipelineId) -> Option<&ComputePipeline> {
         if let CachedPipelineState::Ok(Pipeline::ComputePipeline(pipeline)) =
-            &self.pipelines[id.0].state
+            &self.pipelines.get(id.0)?.state
         {
             Some(pipeline)
         } else {
@@ -736,14 +869,14 @@ impl PipelineCache {
                 let fragment_data = descriptor.fragment.as_ref().map(|fragment| {
                     (
                         fragment_module.unwrap(),
-                        fragment.entry_point.deref(),
+                        fragment.entry_point.as_deref(),
                         fragment.targets.as_slice(),
                     )
                 });
 
                 // TODO: Expose the rest of this somehow
                 let compilation_options = PipelineCompilationOptions {
-                    constants: &default(),
+                    constants: &[],
                     zero_initialize_workgroup_memory: descriptor.zero_initialize_workgroup_memory,
                 };
 
@@ -756,7 +889,7 @@ impl PipelineCache {
                     primitive: descriptor.primitive,
                     vertex: RawVertexState {
                         buffers: &vertex_buffer_layouts,
-                        entry_point: Some(descriptor.vertex.entry_point.deref()),
+                        entry_point: descriptor.vertex.entry_point.as_deref(),
                         module: &vertex_module,
                         // TODO: Should this be the same as the fragment compilation options?
                         compilation_options: compilation_options.clone(),
@@ -764,7 +897,7 @@ impl PipelineCache {
                     fragment: fragment_data
                         .as_ref()
                         .map(|(module, entry_point, targets)| RawFragmentState {
-                            entry_point: Some(entry_point),
+                            entry_point: entry_point.as_deref(),
                             module,
                             targets,
                             // TODO: Should this be the same as the vertex compilation options?
@@ -822,10 +955,10 @@ impl PipelineCache {
                     label: descriptor.label.as_deref(),
                     layout: layout.as_ref().map(|layout| -> &PipelineLayout { layout }),
                     module: &compute_module,
-                    entry_point: Some(&descriptor.entry_point),
+                    entry_point: descriptor.entry_point.as_deref(),
                     // TODO: Expose the rest of this somehow
                     compilation_options: PipelineCompilationOptions {
-                        constants: &default(),
+                        constants: &[],
                         zero_initialize_workgroup_memory: descriptor
                             .zero_initialize_workgroup_memory,
                     },
@@ -842,10 +975,10 @@ impl PipelineCache {
 
     /// Process the pipeline queue and create all pending pipelines if possible.
     ///
-    /// This is generally called automatically during the [`RenderSet::Render`] step, but can
+    /// This is generally called automatically during the [`RenderSystems::Render`] step, but can
     /// be called manually to force creation at a different time.
     ///
-    /// [`RenderSet::Render`]: crate::RenderSet::Render
+    /// [`RenderSystems::Render`]: crate::RenderSystems::Render
     pub fn process_queue(&mut self) {
         let mut waiting_pipelines = mem::take(&mut self.waiting_pipelines);
         let mut pipelines = mem::take(&mut self.pipelines);
@@ -984,6 +1117,13 @@ fn create_pipeline_task(
 }
 
 /// Type of error returned by a [`PipelineCache`] when the creation of a GPU pipeline object failed.
+#[cfg_attr(
+    not(target_arch = "wasm32"),
+    expect(
+        clippy::large_enum_variant,
+        reason = "See https://github.com/bevyengine/bevy/issues/19220"
+    )
+)]
 #[derive(Error, Debug)]
 pub enum PipelineCacheError {
     #[error(
@@ -1021,8 +1161,12 @@ fn get_capabilities(features: Features, downlevel: DownlevelFlags) -> Capabiliti
         features.contains(Features::SAMPLED_TEXTURE_AND_STORAGE_BUFFER_ARRAY_NON_UNIFORM_INDEXING),
     );
     capabilities.set(
-        Capabilities::UNIFORM_BUFFER_AND_STORAGE_TEXTURE_ARRAY_NON_UNIFORM_INDEXING,
-        features.contains(Features::UNIFORM_BUFFER_AND_STORAGE_TEXTURE_ARRAY_NON_UNIFORM_INDEXING),
+        Capabilities::STORAGE_TEXTURE_ARRAY_NON_UNIFORM_INDEXING,
+        features.contains(Features::STORAGE_TEXTURE_ARRAY_NON_UNIFORM_INDEXING),
+    );
+    capabilities.set(
+        Capabilities::UNIFORM_BUFFER_ARRAY_NON_UNIFORM_INDEXING,
+        features.contains(Features::UNIFORM_BUFFER_BINDING_ARRAYS),
     );
     // TODO: This needs a proper wgpu feature
     capabilities.set(
@@ -1060,6 +1204,10 @@ fn get_capabilities(features: Features, downlevel: DownlevelFlags) -> Capabiliti
         downlevel.contains(DownlevelFlags::MULTISAMPLED_SHADING),
     );
     capabilities.set(
+        Capabilities::RAY_QUERY,
+        features.contains(Features::EXPERIMENTAL_RAY_QUERY),
+    );
+    capabilities.set(
         Capabilities::DUAL_SOURCE_BLENDING,
         features.contains(Features::DUAL_SOURCE_BLENDING),
     );
@@ -1090,6 +1238,14 @@ fn get_capabilities(features: Features, downlevel: DownlevelFlags) -> Capabiliti
     capabilities.set(
         Capabilities::TEXTURE_INT64_ATOMIC,
         features.contains(Features::TEXTURE_INT64_ATOMIC),
+    );
+    capabilities.set(
+        Capabilities::SHADER_FLOAT16,
+        features.contains(Features::SHADER_F16),
+    );
+    capabilities.set(
+        Capabilities::RAY_HIT_VERTEX_POSITION,
+        features.intersects(Features::EXPERIMENTAL_RAY_HIT_VERTEX_RETURN),
     );
 
     capabilities

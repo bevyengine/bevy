@@ -1,4 +1,5 @@
 use core::fmt;
+use indexmap::IndexSet;
 use proc_macro2::Span;
 
 use crate::{
@@ -12,13 +13,17 @@ use crate::{
     where_clause_options::WhereClauseOptions,
     REFLECT_ATTRIBUTE_NAME, TYPE_NAME_ATTRIBUTE_NAME, TYPE_PATH_ATTRIBUTE_NAME,
 };
-use quote::{quote, ToTokens};
+use quote::{format_ident, quote, ToTokens};
 use syn::token::Comma;
 
+use crate::enum_utility::{EnumVariantOutputData, ReflectCloneVariantBuilder, VariantBuilder};
+use crate::field_attributes::CloneBehavior;
 use crate::generics::generate_generics;
+use bevy_macro_utils::fq_std::{FQClone, FQOption, FQResult};
 use syn::{
     parse_str, punctuated::Punctuated, spanned::Spanned, Data, DeriveInput, Field, Fields,
-    GenericParam, Generics, Ident, LitStr, Meta, Path, PathSegment, Type, TypeParam, Variant,
+    GenericParam, Generics, Ident, LitStr, Member, Meta, Path, PathSegment, Type, TypeParam,
+    Variant,
 };
 
 pub(crate) enum ReflectDerive<'a> {
@@ -266,7 +271,7 @@ impl<'a> ReflectDerive<'a> {
         {
             return Err(syn::Error::new(
                 meta.type_path().span(),
-                format!("a #[{TYPE_PATH_ATTRIBUTE_NAME} = \"...\"] attribute must be specified when using {provenance}")
+                format!("a #[{TYPE_PATH_ATTRIBUTE_NAME} = \"...\"] attribute must be specified when using {provenance}"),
             ));
         }
 
@@ -477,7 +482,6 @@ impl<'a> ReflectMeta<'a> {
         where_clause_options: &WhereClauseOptions,
     ) -> proc_macro2::TokenStream {
         crate::registration::impl_get_type_registration(
-            self,
             where_clause_options,
             None,
             Option::<core::iter::Empty<&Type>>::None,
@@ -510,25 +514,27 @@ impl<'a> StructField<'a> {
         };
 
         let ty = self.reflected_type();
-        let custom_attributes = self.attrs.custom_attributes.to_tokens(bevy_reflect_path);
 
-        #[cfg_attr(
-            not(feature = "documentation"),
-            expect(
-                unused_mut,
-                reason = "Needs to be mutable if `documentation` feature is enabled.",
-            )
-        )]
         let mut info = quote! {
-            #field_info::new::<#ty>(#name).with_custom_attributes(#custom_attributes)
+            #field_info::new::<#ty>(#name)
         };
+
+        let custom_attributes = &self.attrs.custom_attributes;
+        if !custom_attributes.is_empty() {
+            let custom_attributes = custom_attributes.to_tokens(bevy_reflect_path);
+            info.extend(quote! {
+                .with_custom_attributes(#custom_attributes)
+            });
+        }
 
         #[cfg(feature = "documentation")]
         {
             let docs = &self.doc;
-            info.extend(quote! {
-                .with_docs(#docs)
-            });
+            if !docs.is_empty() {
+                info.extend(quote! {
+                    .with_docs(#docs)
+                });
+            }
         }
 
         info
@@ -545,6 +551,31 @@ impl<'a> StructField<'a> {
 
     pub fn attrs(&self) -> &FieldAttributes {
         &self.attrs
+    }
+
+    /// Generates a [`Member`] based on this field.
+    ///
+    /// If the field is unnamed, the declaration index is used.
+    /// This allows this member to be used for both active and ignored fields.
+    pub fn to_member(&self) -> Member {
+        match &self.data.ident {
+            Some(ident) => Member::Named(ident.clone()),
+            None => Member::Unnamed(self.declaration_index.into()),
+        }
+    }
+
+    /// Returns a token stream for generating a `FieldId` for this field.
+    pub fn field_id(&self, bevy_reflect_path: &Path) -> proc_macro2::TokenStream {
+        match &self.data.ident {
+            Some(ident) => {
+                let name = ident.to_string();
+                quote!(#bevy_reflect_path::FieldId::Named(#bevy_reflect_path::__macro_exports::alloc_utils::Cow::Borrowed(#name)))
+            }
+            None => {
+                let index = self.declaration_index;
+                quote!(#bevy_reflect_path::FieldId::Unnamed(#index))
+            }
+        }
     }
 }
 
@@ -567,7 +598,6 @@ impl<'a> ReflectStruct<'a> {
         where_clause_options: &WhereClauseOptions,
     ) -> proc_macro2::TokenStream {
         crate::registration::impl_get_type_registration(
-            self.meta(),
             where_clause_options,
             self.serialization_data(),
             Some(self.active_types().iter()),
@@ -575,10 +605,11 @@ impl<'a> ReflectStruct<'a> {
     }
 
     /// Get a collection of types which are exposed to the reflection API
-    pub fn active_types(&self) -> Vec<Type> {
+    pub fn active_types(&self) -> IndexSet<Type> {
+        // Collect into an `IndexSet` to eliminate duplicate types.
         self.active_fields()
             .map(|field| field.reflected_type().clone())
-            .collect()
+            .collect::<IndexSet<_>>()
     }
 
     /// Get an iterator of fields which are exposed to the reflection API.
@@ -601,7 +632,7 @@ impl<'a> ReflectStruct<'a> {
     }
 
     pub fn where_clause_options(&self) -> WhereClauseOptions {
-        WhereClauseOptions::new_with_fields(self.meta(), self.active_types().into_boxed_slice())
+        WhereClauseOptions::new_with_types(self.meta(), self.active_types())
     }
 
     /// Generates a `TokenStream` for `TypeInfo::Struct` or `TypeInfo::TupleStruct` construction.
@@ -624,18 +655,19 @@ impl<'a> ReflectStruct<'a> {
             .active_fields()
             .map(|field| field.to_info_tokens(bevy_reflect_path));
 
-        let custom_attributes = self
-            .meta
-            .attrs
-            .custom_attributes()
-            .to_tokens(bevy_reflect_path);
-
         let mut info = quote! {
             #bevy_reflect_path::#info_struct::new::<Self>(&[
                 #(#field_infos),*
             ])
-            .with_custom_attributes(#custom_attributes)
         };
+
+        let custom_attributes = self.meta.attrs.custom_attributes();
+        if !custom_attributes.is_empty() {
+            let custom_attributes = custom_attributes.to_tokens(bevy_reflect_path);
+            info.extend(quote! {
+                .with_custom_attributes(#custom_attributes)
+            });
+        }
 
         if let Some(generics) = generate_generics(self.meta()) {
             info.extend(quote! {
@@ -646,13 +678,133 @@ impl<'a> ReflectStruct<'a> {
         #[cfg(feature = "documentation")]
         {
             let docs = self.meta().doc();
-            info.extend(quote! {
-                .with_docs(#docs)
-            });
+            if !docs.is_empty() {
+                info.extend(quote! {
+                    .with_docs(#docs)
+                });
+            }
         }
 
         quote! {
             #bevy_reflect_path::TypeInfo::#info_variant(#info)
+        }
+    }
+    /// Returns the `Reflect::reflect_clone` impl, if any, as a `TokenStream`.
+    pub fn get_clone_impl(&self) -> Option<proc_macro2::TokenStream> {
+        let bevy_reflect_path = self.meta().bevy_reflect_path();
+
+        if let container_clone @ Some(_) = self.meta().attrs().get_clone_impl(bevy_reflect_path) {
+            return container_clone;
+        }
+
+        let mut tokens = proc_macro2::TokenStream::new();
+
+        for field in self.fields().iter() {
+            let field_ty = field.reflected_type();
+            let member = field.to_member();
+            let accessor = self.access_for_field(field, false);
+
+            match &field.attrs.clone {
+                CloneBehavior::Default => {
+                    let value = if field.attrs.ignore.is_ignored() {
+                        let field_id = field.field_id(bevy_reflect_path);
+
+                        quote! {
+                            return #FQResult::Err(#bevy_reflect_path::ReflectCloneError::FieldNotCloneable {
+                                field: #field_id,
+                                variant: #FQOption::None,
+                                container_type_path:  #bevy_reflect_path::__macro_exports::alloc_utils::Cow::Borrowed(
+                                    <Self as #bevy_reflect_path::TypePath>::type_path()
+                                )
+                            })
+                        }
+                    } else {
+                        quote! {
+                            <#field_ty as #bevy_reflect_path::PartialReflect>::reflect_clone_and_take(#accessor)?
+                        }
+                    };
+
+                    tokens.extend(quote! {
+                        #member: #value,
+                    });
+                }
+                CloneBehavior::Trait => {
+                    tokens.extend(quote! {
+                        #member: #FQClone::clone(#accessor),
+                    });
+                }
+                CloneBehavior::Func(clone_fn) => {
+                    tokens.extend(quote! {
+                        #member: #clone_fn(#accessor),
+                    });
+                }
+            }
+        }
+
+        let ctor = match self.meta.remote_ty() {
+            Some(ty) => {
+                let ty = ty.as_expr_path().ok()?.to_token_stream();
+                quote! {
+                    Self(#ty {
+                        #tokens
+                    })
+                }
+            }
+            None => {
+                quote! {
+                    Self {
+                        #tokens
+                    }
+                }
+            }
+        };
+
+        Some(quote! {
+            #[inline]
+            #[allow(unreachable_code, reason = "Ignored fields without a `clone` attribute will early-return with an error")]
+            fn reflect_clone(&self) -> #FQResult<#bevy_reflect_path::__macro_exports::alloc_utils::Box<dyn #bevy_reflect_path::Reflect>, #bevy_reflect_path::ReflectCloneError> {
+                 #FQResult::Ok(#bevy_reflect_path::__macro_exports::alloc_utils::Box::new(#ctor))
+            }
+        })
+    }
+
+    /// Generates an accessor for the given field.
+    ///
+    /// The mutability of the access can be controlled by the `is_mut` parameter.
+    ///
+    /// Generally, this just returns something like `&self.field`.
+    /// However, if the struct is a remote wrapper, this then becomes `&self.0.field` in order to access the field on the inner type.
+    ///
+    /// If the field itself is a remote type, the above accessor is further wrapped in a call to `ReflectRemote::as_wrapper[_mut]`.
+    pub fn access_for_field(
+        &self,
+        field: &StructField<'a>,
+        is_mutable: bool,
+    ) -> proc_macro2::TokenStream {
+        let bevy_reflect_path = self.meta().bevy_reflect_path();
+        let member = field.to_member();
+
+        let prefix_tokens = if is_mutable { quote!(&mut) } else { quote!(&) };
+
+        let accessor = if self.meta.is_remote_wrapper() {
+            quote!(self.0.#member)
+        } else {
+            quote!(self.#member)
+        };
+
+        match &field.attrs.remote {
+            Some(wrapper_ty) => {
+                let method = if is_mutable {
+                    format_ident!("as_wrapper_mut")
+                } else {
+                    format_ident!("as_wrapper")
+                };
+
+                quote! {
+                    <#wrapper_ty as #bevy_reflect_path::ReflectRemote>::#method(#prefix_tokens #accessor)
+                }
+            }
+            None => quote!(#prefix_tokens #accessor),
         }
     }
 }
@@ -687,10 +839,11 @@ impl<'a> ReflectEnum<'a> {
     }
 
     /// Get a collection of types which are exposed to the reflection API
-    pub fn active_types(&self) -> Vec<Type> {
+    pub fn active_types(&self) -> IndexSet<Type> {
+        // Collect into an `IndexSet` to eliminate duplicate types.
         self.active_fields()
             .map(|field| field.reflected_type().clone())
-            .collect()
+            .collect::<IndexSet<_>>()
     }
 
     /// Get an iterator of fields which are exposed to the reflection API
@@ -699,7 +852,7 @@ impl<'a> ReflectEnum<'a> {
     }
 
     pub fn where_clause_options(&self) -> WhereClauseOptions {
-        WhereClauseOptions::new_with_fields(self.meta(), self.active_types().into_boxed_slice())
+        WhereClauseOptions::new_with_types(self.meta(), self.active_types())
     }
 
     /// Returns the `GetTypeRegistration` impl as a `TokenStream`.
@@ -710,10 +863,9 @@ impl<'a> ReflectEnum<'a> {
         where_clause_options: &WhereClauseOptions,
     ) -> proc_macro2::TokenStream {
         crate::registration::impl_get_type_registration(
-            self.meta(),
             where_clause_options,
             None,
-            Some(self.active_fields().map(StructField::reflected_type)),
+            Some(self.active_types().iter()),
         )
     }
 
@@ -726,18 +878,19 @@ impl<'a> ReflectEnum<'a> {
             .iter()
             .map(|variant| variant.to_info_tokens(bevy_reflect_path));
 
-        let custom_attributes = self
-            .meta
-            .attrs
-            .custom_attributes()
-            .to_tokens(bevy_reflect_path);
-
         let mut info = quote! {
             #bevy_reflect_path::EnumInfo::new::<Self>(&[
                 #(#variants),*
             ])
-            .with_custom_attributes(#custom_attributes)
         };
+
+        let custom_attributes = self.meta.attrs.custom_attributes();
+        if !custom_attributes.is_empty() {
+            let custom_attributes = custom_attributes.to_tokens(bevy_reflect_path);
+            info.extend(quote! {
+                .with_custom_attributes(#custom_attributes)
+            });
+        }
 
         if let Some(generics) = generate_generics(self.meta()) {
             info.extend(quote! {
@@ -748,14 +901,61 @@ impl<'a> ReflectEnum<'a> {
         #[cfg(feature = "documentation")]
         {
             let docs = self.meta().doc();
-            info.extend(quote! {
-                .with_docs(#docs)
-            });
+            if !docs.is_empty() {
+                info.extend(quote! {
+                    .with_docs(#docs)
+                });
+            }
         }
 
         quote! {
             #bevy_reflect_path::TypeInfo::Enum(#info)
         }
+    }
+
+    /// Returns the `Reflect::reflect_clone` impl, if any, as a `TokenStream`.
+    pub fn get_clone_impl(&self) -> Option<proc_macro2::TokenStream> {
+        let bevy_reflect_path = self.meta().bevy_reflect_path();
+
+        if let container_clone @ Some(_) = self.meta().attrs().get_clone_impl(bevy_reflect_path) {
+            return container_clone;
+        }
+
+        let this = Ident::new("this", Span::call_site());
+        let EnumVariantOutputData {
+            variant_patterns,
+            variant_constructors,
+            ..
+        } = ReflectCloneVariantBuilder::new(self).build(&this);
+
+        let inner = quote! {
+            match #this {
+                #(#variant_patterns => #variant_constructors),*
+            }
+        };
+
+        let body = if variant_patterns.is_empty() {
+            // enum variant is empty, so &self will never exist
+            quote!(unreachable!())
+        } else if self.meta.is_remote_wrapper() {
+            quote! {
+                let #this = <Self as #bevy_reflect_path::ReflectRemote>::as_remote(self);
+                #FQResult::Ok(#bevy_reflect_path::__macro_exports::alloc_utils::Box::new(<Self as #bevy_reflect_path::ReflectRemote>::into_wrapper(#inner)))
+            }
+        } else {
+            quote! {
+                let #this = self;
+                #FQResult::Ok(#bevy_reflect_path::__macro_exports::alloc_utils::Box::new(#inner))
+            }
+        };
+
+        Some(quote! {
+            #[inline]
+            #[allow(unreachable_code, reason = "Ignored fields without a `clone` attribute will early-return with an error")]
+            fn reflect_clone(&self) -> #FQResult<#bevy_reflect_path::__macro_exports::alloc_utils::Box<dyn #bevy_reflect_path::Reflect>, #bevy_reflect_path::ReflectCloneError> {
+                #body
+            }
+        })
     }
 }
 
@@ -805,26 +1005,26 @@ impl<'a> EnumVariant<'a> {
             }
         };
 
-        let custom_attributes = self.attrs.custom_attributes.to_tokens(bevy_reflect_path);
-
-        #[cfg_attr(
-            not(feature = "documentation"),
-            expect(
-                unused_mut,
-                reason = "Needs to be mutable if `documentation` feature is enabled.",
-            )
-        )]
         let mut info = quote! {
             #bevy_reflect_path::#info_struct::new(#args)
-                .with_custom_attributes(#custom_attributes)
         };
+
+        let custom_attributes = &self.attrs.custom_attributes;
+        if !custom_attributes.is_empty() {
+            let custom_attributes = custom_attributes.to_tokens(bevy_reflect_path);
+            info.extend(quote! {
+                .with_custom_attributes(#custom_attributes)
+            });
+        }
 
         #[cfg(feature = "documentation")]
         {
             let docs = &self.doc;
-            info.extend(quote! {
-                .with_docs(#docs)
-            });
+            if !docs.is_empty() {
+                info.extend(quote! {
+                    .with_docs(#docs)
+                });
+            }
         }
 
         quote! {
@@ -897,7 +1097,7 @@ pub(crate) enum ReflectTypePath<'a> {
         reason = "Not currently used but may be useful in the future due to its generality."
     )]
     Anonymous {
-        qualified_type: Type,
+        qualified_type: Box<Type>,
         long_type_path: StringExpr,
         short_type_path: StringExpr,
     },

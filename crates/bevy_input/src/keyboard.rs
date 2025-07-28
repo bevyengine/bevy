@@ -69,7 +69,7 @@ use crate::{ButtonInput, ButtonState};
 use bevy_ecs::{
     change_detection::DetectChangesMut,
     entity::Entity,
-    event::{Event, EventReader},
+    event::{BufferedEvent, EventReader},
     system::ResMut,
 };
 
@@ -92,13 +92,14 @@ use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 ///
 /// ## Usage
 ///
-/// The event is consumed inside of the [`keyboard_input_system`]
-/// to update the [`ButtonInput<KeyCode>`](ButtonInput<KeyCode>) resource.
-#[derive(Event, Debug, Clone, PartialEq, Eq, Hash)]
+/// The event is consumed inside of the [`keyboard_input_system`] to update the
+/// [`ButtonInput<KeyCode>`](ButtonInput<KeyCode>) and
+/// [`ButtonInput<Key>`](ButtonInput<Key>) resources.
+#[derive(BufferedEvent, Debug, Clone, PartialEq, Eq, Hash)]
 #[cfg_attr(
     feature = "bevy_reflect",
     derive(Reflect),
-    reflect(Debug, PartialEq, Hash)
+    reflect(Debug, PartialEq, Hash, Clone)
 )]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
@@ -107,8 +108,12 @@ use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 )]
 pub struct KeyboardInput {
     /// The physical key code of the key.
+    ///
+    /// This corresponds to the location of the key independent of the keyboard layout.
     pub key_code: KeyCode,
-    /// The logical key of the input
+    /// The logical key of the input.
+    ///
+    /// This corresponds to the actual key taking keyboard layout into account.
     pub logical_key: Key,
     /// The press state of the key.
     pub state: ButtonState,
@@ -139,8 +144,8 @@ pub struct KeyboardInput {
 /// when, for example, switching between windows with 'Alt-Tab' or using any other
 /// OS specific key combination that leads to Bevy window losing focus and not receiving any
 /// input events
-#[derive(Event, Debug, Clone, PartialEq, Eq)]
-#[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
+#[derive(BufferedEvent, Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Clone, PartialEq))]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
     all(feature = "serialize", feature = "bevy_reflect"),
@@ -148,32 +153,46 @@ pub struct KeyboardInput {
 )]
 pub struct KeyboardFocusLost;
 
-/// Updates the [`ButtonInput<KeyCode>`] resource with the latest [`KeyboardInput`] events.
+/// Updates the [`ButtonInput<KeyCode>`] and [`ButtonInput<Key>`] resources with the latest [`KeyboardInput`] events.
 ///
 /// ## Differences
 ///
-/// The main difference between the [`KeyboardInput`] event and the [`ButtonInput<KeyCode>`] resources is that
+/// The main difference between the [`KeyboardInput`] event and the [`ButtonInput`] resources are that
 /// the latter has convenient functions such as [`ButtonInput::pressed`], [`ButtonInput::just_pressed`] and [`ButtonInput::just_released`] and is window id agnostic.
+///
+/// There is a [`ButtonInput`] for both [`KeyCode`] and [`Key`] as they are both useful in different situations, see their documentation for the details.
 pub fn keyboard_input_system(
-    mut key_input: ResMut<ButtonInput<KeyCode>>,
+    mut keycode_input: ResMut<ButtonInput<KeyCode>>,
+    mut key_input: ResMut<ButtonInput<Key>>,
     mut keyboard_input_events: EventReader<KeyboardInput>,
     mut focus_events: EventReader<KeyboardFocusLost>,
 ) {
-    // Avoid clearing if it's not empty to ensure change detection is not triggered.
+    // Avoid clearing if not empty to ensure change detection is not triggered.
+    keycode_input.bypass_change_detection().clear();
     key_input.bypass_change_detection().clear();
+
     for event in keyboard_input_events.read() {
         let KeyboardInput {
-            key_code, state, ..
+            key_code,
+            logical_key,
+            state,
+            ..
         } = event;
         match state {
-            ButtonState::Pressed => key_input.press(*key_code),
-            ButtonState::Released => key_input.release(*key_code),
+            ButtonState::Pressed => {
+                keycode_input.press(*key_code);
+                key_input.press(logical_key.clone());
+            }
+            ButtonState::Released => {
+                keycode_input.release(*key_code);
+                key_input.release(logical_key.clone());
+            }
         }
     }
 
     // Release all cached input to avoid having stuck input when switching between windows in os
     if !focus_events.is_empty() {
-        key_input.release_all();
+        keycode_input.release_all();
         focus_events.clear();
     }
 }
@@ -190,7 +209,11 @@ pub fn keyboard_input_system(
 /// - Correctly match key press and release events.
 /// - On non-web platforms, support assigning keybinds to virtually any key through a UI.
 #[derive(Debug, Clone, Ord, PartialOrd, Copy, PartialEq, Eq, Hash)]
-#[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Clone, PartialEq, Hash)
+)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
     all(feature = "serialize", feature = "bevy_reflect"),
@@ -216,13 +239,13 @@ pub enum NativeKeyCode {
 /// It is used as the generic `T` value of an [`ButtonInput`] to create a `Res<ButtonInput<KeyCode>>`.
 ///
 /// Code representing the location of a physical key
-/// This mostly conforms to the UI Events Specification's [`KeyboardEvent.code`] with a few
+/// This mostly conforms to the [`UI Events Specification's KeyboardEvent.code`] with a few
 /// exceptions:
 /// - The keys that the specification calls `MetaLeft` and `MetaRight` are named `SuperLeft` and
 ///   `SuperRight` here.
 /// - The key that the specification calls "Super" is reported as `Unidentified` here.
 ///
-/// [`KeyboardEvent.code`]: https://w3c.github.io/uievents-code/#code-value-tables
+/// [`UI Events Specification's KeyboardEvent.code`]: https://w3c.github.io/uievents-code/#code-value-tables
 ///
 /// ## Updating
 ///
@@ -231,7 +254,7 @@ pub enum NativeKeyCode {
 #[cfg_attr(
     feature = "bevy_reflect",
     derive(Reflect),
-    reflect(Debug, Hash, PartialEq)
+    reflect(Debug, Hash, PartialEq, Clone)
 )]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
@@ -727,7 +750,7 @@ pub enum KeyCode {
 #[cfg_attr(
     feature = "bevy_reflect",
     derive(Reflect),
-    reflect(Debug, Hash, PartialEq)
+    reflect(Debug, Hash, PartialEq, Clone)
 )]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
@@ -752,6 +775,19 @@ pub enum NativeKey {
 
 /// The logical key code of a [`KeyboardInput`].
 ///
+/// This contains the actual value that is produced by pressing the key. This is
+/// useful when you need the actual letters, and for symbols like `+` and `-`
+/// when implementing zoom, as they can be in different locations depending on
+/// the keyboard layout.
+///
+/// In many cases you want the key location instead, for example when
+/// implementing WASD controls so the keys are located the same place on QWERTY
+/// and other layouts. In that case use [`KeyCode`] instead.
+///
+/// ## Usage
+///
+/// It is used as the generic `T` value of an [`ButtonInput`] to create a `Res<ButtonInput<Key>>`.
+///
 /// ## Technical
 ///
 /// Its values map 1 to 1 to winit's Key.
@@ -760,7 +796,7 @@ pub enum NativeKey {
 #[cfg_attr(
     feature = "bevy_reflect",
     derive(Reflect),
-    reflect(Debug, Hash, PartialEq)
+    reflect(Debug, Hash, PartialEq, Clone)
 )]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(

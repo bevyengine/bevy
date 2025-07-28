@@ -19,7 +19,11 @@ use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 /// This component is synchronized with `winit` through `bevy_winit`, but is effectively
 /// read-only as `winit` does not support changing monitor properties.
 #[derive(Component, Debug, Clone)]
-#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Component, Debug))]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Component, Debug, Clone)
+)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
     all(feature = "serialize", feature = "bevy_reflect"),
@@ -44,7 +48,11 @@ pub struct Monitor {
 
 /// A marker component for the primary monitor
 #[derive(Component, Debug, Clone)]
-#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Component, Debug))]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Component, Debug, Clone)
+)]
 pub struct PrimaryMonitor;
 
 impl Monitor {
@@ -55,8 +63,8 @@ impl Monitor {
 }
 
 /// Represents a video mode that a monitor supports
-#[derive(Debug, Clone)]
-#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Debug, Clone))]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
     all(feature = "serialize", feature = "bevy_reflect"),

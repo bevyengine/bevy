@@ -1,17 +1,17 @@
 //! A scene showcasing screen space ambient occlusion.
 
 use bevy::{
-    core_pipeline::experimental::taa::{TemporalAntiAliasPlugin, TemporalAntiAliasing},
+    anti_aliasing::taa::TemporalAntiAliasing,
     math::ops,
     pbr::{ScreenSpaceAmbientOcclusion, ScreenSpaceAmbientOcclusionQualityLevel},
     prelude::*,
-    render::camera::TemporalJitter,
+    render::{camera::TemporalJitter, view::Hdr},
 };
 use std::f32::consts::PI;
 
 fn main() {
     App::new()
-        .add_plugins((DefaultPlugins, TemporalAntiAliasPlugin))
+        .add_plugins(DefaultPlugins)
         .add_systems(Startup, setup)
         .add_systems(Update, update)
         .run();
@@ -25,11 +25,8 @@ fn setup(
 ) {
     commands.spawn((
         Camera3d::default(),
-        Camera {
-            hdr: true,
-            ..default()
-        },
         Transform::from_xyz(-2.0, 2.0, -2.0).looking_at(Vec3::ZERO, Vec3::Y),
+        Hdr,
         Msaa::Off,
         ScreenSpaceAmbientOcclusion::default(),
         TemporalAntiAliasing::default(),
@@ -179,8 +176,7 @@ fn update(
 
     if let Some(thickness) = ssao.map(|s| s.constant_object_thickness) {
         text.push_str(&format!(
-            "Constant object thickness: {} (Up/Down)\n\n",
-            thickness
+            "Constant object thickness: {thickness} (Up/Down)\n\n"
         ));
     }
 

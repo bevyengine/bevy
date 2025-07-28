@@ -49,8 +49,10 @@ git checkout v0.4.0
   - [Dev tools](#dev-tools)
   - [Diagnostics](#diagnostics)
   - [ECS (Entity Component System)](#ecs-entity-component-system)
+  - [Embedded](#embedded)
   - [Games](#games)
   - [Gizmos](#gizmos)
+  - [Helpers](#helpers)
   - [Input](#input)
   - [Math](#math)
   - [Movement](#movement)
@@ -65,6 +67,7 @@ git checkout v0.4.0
   - [Tools](#tools)
   - [Transforms](#transforms)
   - [UI (User Interface)](#ui-user-interface)
+  - [Usage](#usage)
   - [Window](#window)
 
 - [Tests](#tests)
@@ -105,7 +108,7 @@ Example | Description
 [2D Bloom](../examples/2d/bloom_2d.rs) | Illustrates bloom post-processing in 2d
 [2D Rotation](../examples/2d/rotation.rs) | Demonstrates rotating entities in 2D with quaternions
 [2D Shapes](../examples/2d/2d_shapes.rs) | Renders simple 2D primitive shapes like circles and polygons
-[2D Viewport To World](../examples/2d/2d_viewport_to_world.rs) | Demonstrates how to use the `Camera::viewport_to_world_2d` method
+[2D Viewport To World](../examples/2d/2d_viewport_to_world.rs) | Demonstrates how to use the `Camera::viewport_to_world_2d` method with a dynamic viewport and camera.
 [2D Wireframe](../examples/2d/wireframe_2d.rs) | Showcases wireframes for 2d meshes
 [Arc 2D Meshes](../examples/2d/mesh2d_arcs.rs) | Demonstrates UV-mapping of the circular segment and sector primitives
 [CPU Drawing](../examples/2d/cpu_draw.rs) | Manually read/write the pixels of a texture
@@ -126,6 +129,7 @@ Example | Description
 [Sprite Tile](../examples/2d/sprite_tile.rs) | Renders a sprite tiled in a grid
 [Text 2D](../examples/2d/text2d.rs) | Generates text in 2D
 [Texture Atlas](../examples/2d/texture_atlas.rs) | Generates a texture atlas (sprite sheet) from individual sprites
+[Tilemap Chunk](../examples/2d/tilemap_chunk.rs) | Renders a tilemap chunk
 [Transparency in 2D](../examples/2d/transparency_2d.rs) | Demonstrates transparency in 2d
 
 ## 3D Rendering
@@ -156,11 +160,13 @@ Example | Description
 [Fog volumes](../examples/3d/fog_volumes.rs) | Demonstrates fog volumes
 [Generate Custom Mesh](../examples/3d/generate_custom_mesh.rs) | Simple showcase of how to generate a custom mesh with a custom texture
 [Irradiance Volumes](../examples/3d/irradiance_volumes.rs) | Demonstrates irradiance volumes
+[Light Textures](../examples/3d/light_textures.rs) | Demonstrates light textures
 [Lighting](../examples/3d/lighting.rs) | Illustrates various lighting options in a simple scene
 [Lightmaps](../examples/3d/lightmaps.rs) | Rendering a scene with baked lightmaps
 [Lines](../examples/3d/lines.rs) | Create a custom material to draw 3d lines
 [Load glTF](../examples/3d/load_gltf.rs) | Loads and renders a glTF file as a scene
 [Load glTF extras](../examples/3d/load_gltf_extras.rs) | Loads and renders a glTF file as a scene, including the gltf extras
+[Manual Material Implementation](../examples/3d/manual_material.rs) | Demonstrates how to implement a material manually using the mid-level render APIs
 [Mesh Ray Cast](../examples/3d/mesh_ray_cast.rs) | Demonstrates ray casting with the `MeshRayCast` system parameter
 [Meshlet](../examples/3d/meshlet.rs) | Meshlet rendering for dense high-poly scenes (experimental)
 [Mixed lighting](../examples/3d/mixed_lighting.rs) | Demonstrates how to combine baked and dynamic lighting
@@ -182,6 +188,7 @@ Example | Description
 [Shadow Biases](../examples/3d/shadow_biases.rs) | Demonstrates how shadow biases affect shadows in a 3d scene
 [Shadow Caster and Receiver](../examples/3d/shadow_caster_receiver.rs) | Demonstrates how to prevent meshes from casting/receiving shadows in a 3d scene
 [Skybox](../examples/3d/skybox.rs) | Load a cubemap texture onto a cube like a skybox and cycle through different compressed texture formats.
+[Solari](../examples/3d/solari.rs) | Demonstrates realtime dynamic raytraced lighting using Bevy Solari.
 [Specular Tint](../examples/3d/specular_tint.rs) | Demonstrates specular tints and maps
 [Spherical Area Lights](../examples/3d/spherical_area_lights.rs) | Demonstrates how point light radius values affect light behavior
 [Split Screen](../examples/3d/split_screen.rs) | Demonstrates how to render two cameras to the same window to accomplish "split screen"
@@ -251,7 +258,7 @@ Example | Description
 [Embedded Asset](../examples/asset/embedded_asset.rs) | Embed an asset in the application binary and load it
 [Extra asset source](../examples/asset/extra_source.rs) | Load an asset from a non-standard asset source
 [Hot Reloading of Assets](../examples/asset/hot_asset_reloading.rs) | Demonstrates automatic reloading of assets when modified on disk
-[Mult-asset synchronization](../examples/asset/multi_asset_sync.rs) | Demonstrates how to wait for multiple assets to be loaded.
+[Multi-asset synchronization](../examples/asset/multi_asset_sync.rs) | Demonstrates how to wait for multiple assets to be loaded.
 [Repeated texture configuration](../examples/asset/repeated_texture.rs) | How to configure the texture to repeat instead of the default clamp to edges
 
 ## Async Tasks
@@ -277,6 +284,7 @@ Example | Description
 
 Example | Description
 --- | ---
+[2D on Bevy UI](../examples/camera/2d_on_ui.rs) | Shows how to render 2D objects on top of Bevy UI
 [2D top-down camera](../examples/camera/2d_top_down_camera.rs) | A 2D top-down camera smoothly following player movements
 [Camera Orbit](../examples/camera/camera_orbit.rs) | Shows how to orbit a static scene using pitch, yaw, and roll.
 [Custom Projection](../examples/camera/custom_projection.rs) | Shows how to create custom camera projections.
@@ -309,12 +317,13 @@ Example | Description
 [Dynamic ECS](../examples/ecs/dynamic.rs) | Dynamically create components, spawn entities with those components and query those components
 [ECS Guide](../examples/ecs/ecs_guide.rs) | Full guide to Bevy's ECS
 [Entity disabling](../examples/ecs/entity_disabling.rs) | Demonstrates how to hide entities from the ECS without deleting them
+[Error handling](../examples/ecs/error_handling.rs) | How to return and handle errors across the ECS
 [Event](../examples/ecs/event.rs) | Illustrates event creation, activation, and reception
 [Fallible System Parameters](../examples/ecs/fallible_params.rs) | Systems are skipped if their parameters cannot be acquired
-[Fallible Systems](../examples/ecs/fallible_systems.rs) | Systems that return results to handle errors
 [Fixed Timestep](../examples/ecs/fixed_timestep.rs) | Shows how to create systems that run every fixed timestep, rather than every tick
 [Generic System](../examples/ecs/generic_system.rs) | Shows how to create systems that can be reused with different types
 [Hierarchy](../examples/ecs/hierarchy.rs) | Creates a hierarchy of parents and children entities
+[Hotpatching Systems](../examples/ecs/hotpatching_systems.rs) | Demonstrates how to hotpatch systems
 [Immutable Components](../examples/ecs/immutable_components.rs) | Demonstrates the creation and utility of immutable components
 [Iter Combinations](../examples/ecs/iter_combinations.rs) | Shows how to iterate over combinations of query results
 [Nondeterministic System Order](../examples/ecs/nondeterministic_system_order.rs) | Systems run in parallel, but their order isn't always deterministic. Here's how to detect and fix this.
@@ -327,10 +336,17 @@ Example | Description
 [Run Conditions](../examples/ecs/run_conditions.rs) | Run systems only when one or multiple conditions are met
 [Send and receive events](../examples/ecs/send_and_receive_events.rs) | Demonstrates how to send and receive events of the same type in a single system
 [Startup System](../examples/ecs/startup_system.rs) | Demonstrates a startup system (one that runs once when the app starts up)
+[State Scoped](../examples/ecs/state_scoped.rs) | Shows how to spawn entities that are automatically despawned either when entering or exiting specific game states.
 [System Closure](../examples/ecs/system_closure.rs) | Show how to use closures as systems, and how to configure `Local` variables by capturing external state
 [System Parameter](../examples/ecs/system_param.rs) | Illustrates creating custom system parameters with `SystemParam`
 [System Piping](../examples/ecs/system_piping.rs) | Pipe the output of one system into a second, allowing you to handle any errors gracefully
 [System Stepping](../examples/ecs/system_stepping.rs) | Demonstrate stepping through systems in order of execution.
+
+## Embedded
+
+Example | Description
+--- | ---
+[`no_std` Compatible Library](../examples/no_std/library/src/lib.rs) | Example library compatible with `std` and `no_std` targets
 
 ## Games
 
@@ -351,6 +367,13 @@ Example | Description
 [3D Gizmos](../examples/gizmos/3d_gizmos.rs) | A scene showcasing 3D gizmos
 [Axes](../examples/gizmos/axes.rs) | Demonstrates the function of axes gizmos
 [Light Gizmos](../examples/gizmos/light_gizmos.rs) | A scene showcasing light gizmos
+
+## Helpers
+
+Example | Description
+--- | ---
+[Camera Controller](../examples/helpers/camera_controller.rs) | Example Free-Cam Styled Camera Controller
+[Widgets](../examples/helpers/widgets.rs) | Example UI Widgets
 
 ## Input
 
@@ -438,6 +461,7 @@ Example | Description
 [Custom Render Phase](../examples/shader/custom_render_phase.rs) | Shows how to make a complete render phase
 [Custom Vertex Attribute](../examples/shader/custom_vertex_attribute.rs) | A shader that reads a mesh's custom vertex attribute
 [Custom phase item](../examples/shader/custom_phase_item.rs) | Demonstrates how to enqueue custom draw commands in a render phase
+[Extended Bindless Material](../examples/shader/extended_material_bindless.rs) | Demonstrates bindless `ExtendedMaterial`
 [Extended Material](../examples/shader/extended_material.rs) | A custom shader that builds on the standard material
 [GPU readback](../examples/shader/gpu_readback.rs) | A very simple compute shader that writes to a buffer that is read by the cpu
 [Instancing](../examples/shader/custom_shader_instancing.rs) | A shader that renders a mesh multiple times in one draw call using low level rendering api
@@ -447,6 +471,7 @@ Example | Description
 [Material - Bindless](../examples/shader/shader_material_bindless.rs) | Demonstrates how to make materials that use bindless textures
 [Material - GLSL](../examples/shader/shader_material_glsl.rs) | A shader that uses the GLSL shading language
 [Material - Screenspace Texture](../examples/shader/shader_material_screenspace_texture.rs) | A shader that samples a texture with view-independent UV coordinates
+[Material - WESL](../examples/shader/shader_material_wesl.rs) | A shader that uses WESL
 [Material Prepass](../examples/shader/shader_prepass.rs) | A shader that uses the various textures generated by the prepass
 [Post Processing - Custom Render Pass](../examples/shader/custom_post_processing.rs) | A custom post processing effect, using a custom render pass that runs after the main pass
 [Shader Defs](../examples/shader/shader_defs.rs) | A shader that uses "shaders defs" (a bevy tool to selectively toggle parts of a shader)
@@ -485,6 +510,7 @@ Example | Description
 [Many Foxes](../examples/stress_tests/many_foxes.rs) | Loads an animated fox model and spawns lots of them. Good for testing skinned mesh performance. Takes an unsigned integer argument for the number of foxes to spawn. Defaults to 1000
 [Many Gizmos](../examples/stress_tests/many_gizmos.rs) | Test rendering of many gizmos
 [Many Glyphs](../examples/stress_tests/many_glyphs.rs) | Simple benchmark to test text rendering.
+[Many Gradients](../examples/stress_tests/many_gradients.rs) | Stress test for gradient rendering performance
 [Many Lights](../examples/stress_tests/many_lights.rs) | Simple benchmark to test rendering many point lights. Run with `WGPU_SETTINGS_PRIO=webgl2` to restrict to uniform buffers and max 256 lights
 [Many Sprites](../examples/stress_tests/many_sprites.rs) | Displays many sprites in a grid arrangement! Used for performance testing. Use `--colored` to enable color tinted sprites.
 [Many Text2d](../examples/stress_tests/many_text2d.rs) | Displays many Text2d! Used for performance testing.
@@ -524,20 +550,27 @@ Example | Description
 [Box Shadow](../examples/ui/box_shadow.rs) | Demonstrates how to create a node with a shadow
 [Button](../examples/ui/button.rs) | Illustrates creating and updating a button
 [CSS Grid](../examples/ui/grid.rs) | An example for CSS Grid layout
+[Core Widgets](../examples/ui/core_widgets.rs) | Demonstrates use of core (headless) widgets in Bevy UI
+[Core Widgets (w/Observers)](../examples/ui/core_widgets_observers.rs) | Demonstrates use of core (headless) widgets in Bevy UI, with Observers
 [Directional Navigation](../examples/ui/directional_navigation.rs) | Demonstration of Directional Navigation between UI elements
 [Display and Visibility](../examples/ui/display_and_visibility.rs) | Demonstrates how Display and Visibility work in the UI.
+[Drag to Scroll](../examples/ui/drag_to_scroll.rs) | This example tests scale factor, dragging and scrolling
 [Flex Layout](../examples/ui/flex_layout.rs) | Demonstrates how the AlignItems and JustifyContent properties can be composed to layout nodes and position text
 [Font Atlas Debug](../examples/ui/font_atlas_debug.rs) | Illustrates how FontAtlases are populated (used to optimize text rendering internally)
 [Ghost Nodes](../examples/ui/ghost_nodes.rs) | Demonstrates the use of Ghost Nodes to skip entities in the UI layout hierarchy
+[Gradients](../examples/ui/gradients.rs) | An example demonstrating gradients
 [Overflow](../examples/ui/overflow.rs) | Simple example demonstrating overflow behavior
 [Overflow Clip Margin](../examples/ui/overflow_clip_margin.rs) | Simple example demonstrating the OverflowClipMargin style property
 [Overflow and Clipping Debug](../examples/ui/overflow_debug.rs) | An example to debug overflow and clipping behavior
 [Relative Cursor Position](../examples/ui/relative_cursor_position.rs) | Showcases the RelativeCursorPosition component
 [Render UI to Texture](../examples/ui/render_ui_to_texture.rs) | An example of rendering UI as a part of a 3D world
 [Scroll](../examples/ui/scroll.rs) | Demonstrates scrolling UI containers
+[Scrollbars](../examples/ui/scrollbars.rs) | Demonstrates use of core scrollbar in Bevy UI
 [Size Constraints](../examples/ui/size_constraints.rs) | Demonstrates how the to use the size constraints to control the size of a UI node.
+[Stacked Gradients](../examples/ui/stacked_gradients.rs) | An example demonstrating stacked gradients
 [Tab Navigation](../examples/ui/tab_navigation.rs) | Demonstration of Tab Navigation between UI elements
 [Text](../examples/ui/text.rs) | Illustrates creating and updating text
+[Text Background Colors](../examples/ui/text_background_colors.rs) | Demonstrates text background colors
 [Text Debug](../examples/ui/text_debug.rs) | An example for debugging text layout
 [Text Wrap Debug](../examples/ui/text_wrap_debug.rs) | Demonstrates text wrapping
 [Transparency UI](../examples/ui/transparency_ui.rs) | Demonstrates transparency for UI
@@ -547,9 +580,18 @@ Example | Description
 [UI Texture Atlas Slice](../examples/ui/ui_texture_atlas_slice.rs) | Illustrates how to use 9 Slicing for TextureAtlases in UI
 [UI Texture Slice](../examples/ui/ui_texture_slice.rs) | Illustrates how to use 9 Slicing in UI
 [UI Texture Slice Flipping and Tiling](../examples/ui/ui_texture_slice_flip_and_tile.rs) | Illustrates how to flip and tile images with 9 Slicing in UI
+[UI Transform](../examples/ui/ui_transform.rs) | An example demonstrating how to translate, rotate and scale UI elements.
 [UI Z-Index](../examples/ui/z_index.rs) | Demonstrates how to control the relative depth (z-position) of UI elements
 [Viewport Debug](../examples/ui/viewport_debug.rs) | An example for debugging viewport coordinates
+[Viewport Node](../examples/ui/viewport_node.rs) | Demonstrates how to create a viewport node with picking support
 [Window Fallthrough](../examples/ui/window_fallthrough.rs) | Illustrates how to access `winit::window::Window`'s `hittest` functionality.
+
+## Usage
+
+Example | Description
+--- | ---
+[Context Menu](../examples/usage/context_menu.rs) | Example of a context menu
+[Cooldown](../examples/usage/cooldown.rs) | Example for cooldown on button clicks
 
 ## Window
 
@@ -759,6 +801,7 @@ Bevy has a helper to build its examples:
 
 - Build for WebGL2: `cargo run -p build-wasm-example -- --api webgl2 load_gltf`
 - Build for WebGPU: `cargo run -p build-wasm-example -- --api webgpu load_gltf`
+- Debug: `cargo run -p build-wasm-example -- --debug --api webgl2 load_gltf`
 
 This helper will log the command used to build the examples.
 
@@ -772,7 +815,7 @@ In browsers, audio is not authorized to start without being triggered by an user
 
 On the web, it's useful to reduce the size of the files that are distributed.
 With rust, there are many ways to improve your executable sizes, starting with
-the steps described in [the quick-start guide](https://bevyengine.org/learn/quick-start/getting-started/setup/#compile-with-performance-optimizations).
+the steps described in [the quick-start guide](https://bevy.org/learn/quick-start/getting-started/setup/#compile-with-performance-optimizations).
 
 Now, when building the executable, use `--profile wasm-release` instead of `--release`:
 
@@ -794,14 +837,14 @@ may not be worth keeping due to compilation time increases.
 For a small project with a basic 3d model and two lights,
 the generated file sizes are, as of July 2022, as follows:
 
-|profile                           | wasm-opt | no wasm-opt |
-|----------------------------------|----------|-------------|
-|Default                           | 8.5M     | 13.0M       |
-|opt-level = "z"                   | 6.1M     | 12.7M       |
-|"z" + lto = "thin"                | 5.9M     | 12M         |
-|"z" + lto = "fat"                 | 5.1M     | 9.4M        |
-|"z" + "thin" + codegen-units = 1  | 5.3M     | 11M         |
-|"z" + "fat"  + codegen-units = 1  | 4.8M     | 8.5M        |
+profile                           | wasm-opt | no wasm-opt
+----------------------------------|----------|-------------
+Default                           | 8.5M     | 13.0M
+opt-level = "z"                   | 6.1M     | 12.7M
+"z" + lto = "thin"                | 5.9M     | 12M
+"z" + lto = "fat"                 | 5.1M     | 9.4M
+"z" + "thin" + codegen-units = 1  | 5.3M     | 11M
+"z" + "fat"  + codegen-units = 1  | 4.8M     | 8.5M
 
 ### Loading Assets
 

@@ -76,7 +76,10 @@ use bevy_ecs_macros::{Component, Resource};
 use smallvec::SmallVec;
 
 #[cfg(feature = "bevy_reflect")]
-use {crate::reflect::ReflectComponent, bevy_reflect::Reflect};
+use {
+    crate::reflect::ReflectComponent, bevy_reflect::std_traits::ReflectDefault,
+    bevy_reflect::Reflect,
+};
 
 /// A marker component for disabled entities.
 ///
@@ -92,12 +95,12 @@ use {crate::reflect::ReflectComponent, bevy_reflect::Reflect};
 /// See [the module docs] for more info.
 ///
 /// [the module docs]: crate::entity_disabling
-#[derive(Component, Clone, Debug)]
+#[derive(Component, Clone, Debug, Default)]
 #[cfg_attr(
     feature = "bevy_reflect",
     derive(Reflect),
     reflect(Component),
-    reflect(Debug)
+    reflect(Debug, Clone, Default)
 )]
 // This component is registered as a disabling component during World::bootstrap
 pub struct Disabled;
@@ -175,7 +178,7 @@ impl DefaultQueryFilters {
     }
 
     /// Get an iterator over all of the components which disable entities when present.
-    pub fn disabling_ids(&self) -> impl Iterator<Item = ComponentId> + use<'_> {
+    pub fn disabling_ids(&self) -> impl Iterator<Item = ComponentId> {
         self.disabling.iter().copied()
     }
 
@@ -202,7 +205,7 @@ mod tests {
 
     use super::*;
     use crate::{
-        prelude::World,
+        prelude::{EntityMut, EntityRef, World},
         query::{Has, With},
     };
     use alloc::{vec, vec::Vec};
@@ -275,30 +278,42 @@ mod tests {
         let mut world = World::new();
         world.register_disabling_component::<CustomDisabled>();
 
+        // Use powers of two so we can uniquely identify the set of matching archetypes from the count.
         world.spawn_empty();
-        world.spawn(Disabled);
-        world.spawn(CustomDisabled);
-        world.spawn((Disabled, CustomDisabled));
+        world.spawn_batch((0..2).map(|_| Disabled));
+        world.spawn_batch((0..4).map(|_| CustomDisabled));
+        world.spawn_batch((0..8).map(|_| (Disabled, CustomDisabled)));
 
         let mut query = world.query::<()>();
         assert_eq!(1, query.iter(&world).count());
 
-        let mut query = world.query_filtered::<(), With<Disabled>>();
+        let mut query = world.query::<EntityRef>();
         assert_eq!(1, query.iter(&world).count());
+
+        let mut query = world.query::<EntityMut>();
+        assert_eq!(1, query.iter(&world).count());
+
+        let mut query = world.query_filtered::<(), With<Disabled>>();
+        assert_eq!(2, query.iter(&world).count());
 
         let mut query = world.query::<Has<Disabled>>();
-        assert_eq!(2, query.iter(&world).count());
+        assert_eq!(3, query.iter(&world).count());
 
         let mut query = world.query_filtered::<(), With<CustomDisabled>>();
-        assert_eq!(1, query.iter(&world).count());
+        assert_eq!(4, query.iter(&world).count());
 
         let mut query = world.query::<Has<CustomDisabled>>();
-        assert_eq!(2, query.iter(&world).count());
+        assert_eq!(5, query.iter(&world).count());
 
         let mut query = world.query_filtered::<(), (With<Disabled>, With<CustomDisabled>)>();
-        assert_eq!(1, query.iter(&world).count());
+        assert_eq!(8, query.iter(&world).count());
 
         let mut query = world.query::<(Has<Disabled>, Has<CustomDisabled>)>();
-        assert_eq!(4, query.iter(&world).count());
+        assert_eq!(15, query.iter(&world).count());
+
+        // This seems like it ought to count as a mention of `Disabled`, but it does not.
+        // We don't consider read access, since that would count `EntityRef` as a mention of *all* components.
+        let mut query = world.query::<Option<&Disabled>>();
+        assert_eq!(1, query.iter(&world).count());
     }
 }

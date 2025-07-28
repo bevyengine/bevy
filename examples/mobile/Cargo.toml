@@ -9,7 +9,7 @@ license = "MIT OR Apache-2.0"
 
 [lib]
 name = "bevy_mobile_example"
-crate-type = ["staticlib", "cdylib"]
+crate-type = ["lib", "cdylib"]
 
 [dependencies]
 bevy = { path = "../../" }

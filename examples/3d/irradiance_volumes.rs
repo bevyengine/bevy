@@ -259,7 +259,6 @@ fn spawn_irradiance_volume(commands: &mut Commands, assets: &ExampleAssets) {
             intensity: IRRADIANCE_VOLUME_INTENSITY,
             ..default()
         },
-        LightProbe,
     ));
 }
 

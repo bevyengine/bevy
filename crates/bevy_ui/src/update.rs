@@ -2,22 +2,22 @@
 
 use crate::{
     experimental::{UiChildren, UiRootNodes},
-    CalculatedClip, ComputedNodeTarget, DefaultUiCamera, Display, Node, OverflowAxis, UiScale,
-    UiTargetCamera,
+    ui_transform::UiGlobalTransform,
+    CalculatedClip, ComputedNodeTarget, DefaultUiCamera, Display, Node, OverflowAxis, OverrideClip,
+    UiScale, UiTargetCamera,
 };
 
 use super::ComputedNode;
 use bevy_ecs::{
     change_detection::DetectChangesMut,
-    entity::{hash_set::EntityHashSet, Entity},
+    entity::Entity,
     hierarchy::ChildOf,
-    query::{Changed, With},
-    system::{Commands, Local, Query, Res},
+    query::{Changed, Has, With},
+    system::{Commands, Query, Res},
 };
 use bevy_math::{Rect, UVec2};
 use bevy_render::camera::Camera;
 use bevy_sprite::BorderRect;
-use bevy_transform::components::GlobalTransform;
 
 /// Updates clipping for all nodes
 pub fn update_clipping_system(
@@ -26,8 +26,9 @@ pub fn update_clipping_system(
     mut node_query: Query<(
         &Node,
         &ComputedNode,
-        &GlobalTransform,
+        &UiGlobalTransform,
         Option<&mut CalculatedClip>,
+        Has<OverrideClip>,
     )>,
     ui_children: UiChildren,
 ) {
@@ -48,17 +49,23 @@ fn update_clipping(
     node_query: &mut Query<(
         &Node,
         &ComputedNode,
-        &GlobalTransform,
+        &UiGlobalTransform,
         Option<&mut CalculatedClip>,
+        Has<OverrideClip>,
     )>,
     entity: Entity,
     mut maybe_inherited_clip: Option<Rect>,
 ) {
-    let Ok((node, computed_node, global_transform, maybe_calculated_clip)) =
+    let Ok((node, computed_node, transform, maybe_calculated_clip, has_override_clip)) =
         node_query.get_mut(entity)
     else {
         return;
     };
+
+    // If the UI node entity has an `OverrideClip` component, discard any inherited clip rect
+    if has_override_clip {
+        maybe_inherited_clip = None;
+    }
 
     // If `display` is None, clip the entire node and all its descendants by replacing the inherited clip with a default rect (which is empty)
     if node.display == Display::None {
@@ -91,10 +98,7 @@ fn update_clipping(
         maybe_inherited_clip
     } else {
         // Find the current node's clipping rect and intersect it with the inherited clipping rect, if one exists
-        let mut clip_rect = Rect::from_center_size(
-            global_transform.translation().truncate(),
-            computed_node.size(),
-        );
+        let mut clip_rect = Rect::from_center_size(transform.translation, computed_node.size());
 
         // Content isn't clipped at the edges of the node but at the edges of the region specified by [`Node::overflow_clip_margin`].
         //
@@ -108,8 +112,8 @@ fn update_clipping(
 
         clip_rect.min.x += clip_inset.left;
         clip_rect.min.y += clip_inset.top;
-        clip_rect.max.x -= clip_inset.right;
-        clip_rect.max.y -= clip_inset.bottom;
+        clip_rect.max.x -= clip_inset.right + computed_node.scrollbar_size.x;
+        clip_rect.max.y -= clip_inset.bottom + computed_node.scrollbar_size.y;
 
         clip_rect = clip_rect
             .inflate(node.overflow_clip_margin.margin.max(0.) / computed_node.inverse_scale_factor);
@@ -139,9 +143,7 @@ pub fn update_ui_context_system(
     mut computed_target_query: Query<&mut ComputedNodeTarget>,
     ui_children: UiChildren,
     reparented_nodes: Query<(Entity, &ChildOf), (Changed<ChildOf>, With<ComputedNodeTarget>)>,
-    mut visited: Local<EntityHashSet>,
 ) {
-    visited.clear();
     let default_camera_entity = default_ui_camera.get();
 
     for root_entity in ui_root_nodes.iter() {
@@ -172,12 +174,11 @@ pub fn update_ui_context_system(
             },
             &ui_children,
             &mut computed_target_query,
-            &mut visited,
         );
     }
 
     for (entity, child_of) in reparented_nodes.iter() {
-        let Ok(computed_target) = computed_target_query.get(child_of.parent) else {
+        let Ok(computed_target) = computed_target_query.get(child_of.parent()) else {
             continue;
         };
 
@@ -186,7 +187,6 @@ pub fn update_ui_context_system(
             *computed_target,
             &ui_children,
             &mut computed_target_query,
-            &mut visited,
         );
     }
 }
@@ -196,24 +196,14 @@ fn update_contexts_recursively(
     inherited_computed_target: ComputedNodeTarget,
     ui_children: &UiChildren,
     query: &mut Query<&mut ComputedNodeTarget>,
-    visited: &mut EntityHashSet,
 ) {
-    if !visited.insert(entity) {
-        return;
-    }
     if query
         .get_mut(entity)
         .map(|mut computed_target| computed_target.set_if_neq(inherited_computed_target))
         .unwrap_or(false)
     {
         for child in ui_children.iter_ui_children(entity) {
-            update_contexts_recursively(
-                child,
-                inherited_computed_target,
-                ui_children,
-                query,
-                visited,
-            );
+            update_contexts_recursively(child, inherited_computed_target, ui_children, query);
         }
     }
 }
@@ -225,14 +215,14 @@ mod tests {
     use bevy_core_pipeline::core_2d::Camera2d;
     use bevy_ecs::event::Events;
     use bevy_ecs::hierarchy::ChildOf;
-    use bevy_ecs::schedule::IntoSystemConfigs;
+    use bevy_ecs::schedule::IntoScheduleConfigs;
     use bevy_ecs::schedule::Schedule;
     use bevy_ecs::world::World;
     use bevy_image::Image;
     use bevy_math::UVec2;
     use bevy_render::camera::Camera;
-    use bevy_render::camera::ManualTextureViews;
     use bevy_render::camera::RenderTarget;
+    use bevy_render::texture::ManualTextureViews;
     use bevy_utils::default;
     use bevy_window::PrimaryWindow;
     use bevy_window::Window;

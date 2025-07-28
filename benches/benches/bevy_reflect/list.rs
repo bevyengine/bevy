@@ -10,7 +10,7 @@ use criterion::{
 criterion_group!(
     benches,
     concrete_list_apply,
-    concrete_list_clone_dynamic,
+    concrete_list_to_dynamic_list,
     dynamic_list_apply,
     dynamic_list_push
 );
@@ -81,20 +81,20 @@ fn concrete_list_apply(criterion: &mut Criterion) {
     list_apply(&mut group, "empty_base_concrete_patch", empty_base, patch);
 
     list_apply(&mut group, "empty_base_dynamic_patch", empty_base, |size| {
-        patch(size).clone_dynamic()
+        patch(size).to_dynamic_list()
     });
 
     list_apply(&mut group, "same_len_concrete_patch", full_base, patch);
 
     list_apply(&mut group, "same_len_dynamic_patch", full_base, |size| {
-        patch(size).clone_dynamic()
+        patch(size).to_dynamic_list()
     });
 
     group.finish();
 }
 
-fn concrete_list_clone_dynamic(criterion: &mut Criterion) {
-    let mut group = create_group(criterion, bench!("concrete_list_clone_dynamic"));
+fn concrete_list_to_dynamic_list(criterion: &mut Criterion) {
+    let mut group = create_group(criterion, bench!("concrete_list_to_dynamic_list"));
 
     for size in SIZES {
         group.throughput(Throughput::Elements(size as u64));
@@ -105,7 +105,7 @@ fn concrete_list_clone_dynamic(criterion: &mut Criterion) {
             |bencher, &size| {
                 let v = iter::repeat_n(0, size).collect::<Vec<_>>();
 
-                bencher.iter(|| black_box(&v).clone_dynamic());
+                bencher.iter(|| black_box(&v).to_dynamic_list());
             },
         );
     }
@@ -127,7 +127,7 @@ fn dynamic_list_push(criterion: &mut Criterion) {
                 let dst = DynamicList::default();
 
                 bencher.iter_batched(
-                    || (src.clone(), dst.clone_dynamic()),
+                    || (src.clone(), dst.to_dynamic_list()),
                     |(src, mut dst)| {
                         for item in src {
                             dst.push(item);
@@ -145,20 +145,20 @@ fn dynamic_list_push(criterion: &mut Criterion) {
 fn dynamic_list_apply(criterion: &mut Criterion) {
     let mut group = create_group(criterion, bench!("dynamic_list_apply"));
 
-    let empty_base = |_: usize| || Vec::<u64>::new().clone_dynamic();
+    let empty_base = |_: usize| || Vec::<u64>::new().to_dynamic_list();
     let full_base = |size: usize| move || iter::repeat_n(0, size).collect::<Vec<u64>>();
     let patch = |size: usize| iter::repeat_n(1, size).collect::<Vec<u64>>();
 
     list_apply(&mut group, "empty_base_concrete_patch", empty_base, patch);
 
     list_apply(&mut group, "empty_base_dynamic_patch", empty_base, |size| {
-        patch(size).clone_dynamic()
+        patch(size).to_dynamic_list()
     });
 
     list_apply(&mut group, "same_len_concrete_patch", full_base, patch);
 
     list_apply(&mut group, "same_len_dynamic_patch", full_base, |size| {
-        patch(size).clone_dynamic()
+        patch(size).to_dynamic_list()
     });
 
     group.finish();

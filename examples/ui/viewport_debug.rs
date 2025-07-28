@@ -1,8 +1,8 @@
 //! A simple example for debugging viewport coordinates
 //!
-//! This example creates two uinode trees, one using viewport coordinates and one using pixel coordinates,
+//! This example creates two UI node trees, one using viewport coordinates and one using pixel coordinates,
 //! and then switches between them once per second using the `Display` style property.
-//! If there are no problems both layouts should be identical, except for the color of the margin changing which is used to signal that the displayed uinode tree has changed
+//! If there are no problems both layouts should be identical, except for the color of the margin changing which is used to signal that the displayed UI node tree has changed
 //! (red for viewport, yellow for pixel).
 use bevy::{color::palettes::css::*, prelude::*};
 
@@ -75,7 +75,7 @@ fn spawn_with_viewport_coords(commands: &mut Commands) {
                 flex_wrap: FlexWrap::Wrap,
                 ..default()
             },
-            BorderColor(PALETTE[0].into()),
+            BorderColor::all(PALETTE[0].into()),
             Coords::Viewport,
         ))
         .with_children(|builder| {
@@ -87,7 +87,7 @@ fn spawn_with_viewport_coords(commands: &mut Commands) {
                     ..default()
                 },
                 BackgroundColor(PALETTE[2].into()),
-                BorderColor(PALETTE[9].into()),
+                BorderColor::all(PALETTE[9].into()),
             ));
 
             builder.spawn((
@@ -107,7 +107,7 @@ fn spawn_with_viewport_coords(commands: &mut Commands) {
                     ..default()
                 },
                 BackgroundColor(PALETTE[4].into()),
-                BorderColor(PALETTE[8].into()),
+                BorderColor::all(PALETTE[8].into()),
             ));
 
             builder.spawn((
@@ -118,7 +118,7 @@ fn spawn_with_viewport_coords(commands: &mut Commands) {
                     ..default()
                 },
                 BackgroundColor(PALETTE[5].into()),
-                BorderColor(PALETTE[8].into()),
+                BorderColor::all(PALETTE[8].into()),
             ));
 
             builder.spawn((
@@ -138,7 +138,7 @@ fn spawn_with_viewport_coords(commands: &mut Commands) {
                     ..default()
                 },
                 BackgroundColor(PALETTE[7].into()),
-                BorderColor(PALETTE[9].into()),
+                BorderColor::all(PALETTE[9].into()),
             ));
         });
 }
@@ -153,7 +153,7 @@ fn spawn_with_pixel_coords(commands: &mut Commands) {
                 flex_wrap: FlexWrap::Wrap,
                 ..default()
             },
-            BorderColor(PALETTE[1].into()),
+            BorderColor::all(PALETTE[1].into()),
             Coords::Pixel,
         ))
         .with_children(|builder| {
@@ -165,7 +165,7 @@ fn spawn_with_pixel_coords(commands: &mut Commands) {
                     ..default()
                 },
                 BackgroundColor(PALETTE[2].into()),
-                BorderColor(PALETTE[9].into()),
+                BorderColor::all(PALETTE[9].into()),
             ));
 
             builder.spawn((
@@ -185,7 +185,7 @@ fn spawn_with_pixel_coords(commands: &mut Commands) {
                     ..default()
                 },
                 BackgroundColor(PALETTE[4].into()),
-                BorderColor(PALETTE[8].into()),
+                BorderColor::all(PALETTE[8].into()),
             ));
 
             builder.spawn((
@@ -196,7 +196,7 @@ fn spawn_with_pixel_coords(commands: &mut Commands) {
                     ..default()
                 },
                 BackgroundColor(PALETTE[5].into()),
-                BorderColor(PALETTE[8].into()),
+                BorderColor::all(PALETTE[8].into()),
             ));
 
             builder.spawn((
@@ -216,7 +216,7 @@ fn spawn_with_pixel_coords(commands: &mut Commands) {
                     ..default()
                 },
                 BackgroundColor(PALETTE[7].into()),
-                BorderColor(PALETTE[9].into()),
+                BorderColor::all(PALETTE[9].into()),
             ));
         });
 }

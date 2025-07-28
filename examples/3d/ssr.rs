@@ -3,8 +3,9 @@
 use std::ops::Range;
 
 use bevy::{
+    anti_aliasing::fxaa::Fxaa,
     color::palettes::css::{BLACK, WHITE},
-    core_pipeline::{fxaa::Fxaa, Skybox},
+    core_pipeline::Skybox,
     image::{
         ImageAddressMode, ImageFilterMode, ImageLoaderSettings, ImageSampler,
         ImageSamplerDescriptor,
@@ -15,7 +16,10 @@ use bevy::{
         DefaultOpaqueRendererMethod, ExtendedMaterial, MaterialExtension, ScreenSpaceReflections,
     },
     prelude::*,
-    render::render_resource::{AsBindGroup, ShaderRef, ShaderType},
+    render::{
+        render_resource::{AsBindGroup, ShaderRef, ShaderType},
+        view::Hdr,
+    },
 };
 
 /// This example uses a shader source file from the assets subdirectory
@@ -226,10 +230,7 @@ fn spawn_camera(commands: &mut Commands, asset_server: &AssetServer) {
         .spawn((
             Camera3d::default(),
             Transform::from_translation(vec3(-1.25, 2.25, 4.5)).looking_at(Vec3::ZERO, Vec3::Y),
-            Camera {
-                hdr: true,
-                ..default()
-            },
+            Hdr,
             Msaa::Off,
         ))
         .insert(EnvironmentMapLight {

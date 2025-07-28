@@ -5,7 +5,7 @@ use bevy_reflect::prelude::*;
 
 /// Anchoring options for [`ConeMeshBuilder`]
 #[derive(Debug, Copy, Clone, Default, Reflect)]
-#[reflect(Default, Debug)]
+#[reflect(Default, Debug, Clone)]
 pub enum ConeAnchor {
     #[default]
     /// Midpoint between the tip of the cone and the center of its base.
@@ -18,7 +18,7 @@ pub enum ConeAnchor {
 
 /// A builder used for creating a [`Mesh`] with a [`Cone`] shape.
 #[derive(Clone, Copy, Debug, Reflect)]
-#[reflect(Default, Debug)]
+#[reflect(Default, Debug, Clone)]
 pub struct ConeMeshBuilder {
     /// The [`Cone`] shape.
     pub cone: Cone,

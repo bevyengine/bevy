@@ -20,9 +20,13 @@ struct ParallelCommandQueue {
 /// [`Bundle`](crate::prelude::Bundle) type need to be spawned, consider using
 /// [`Commands::spawn_batch`] for better performance.
 ///
-/// Note: Because command application order will depend on how many threads are ran, non-commutative commands may result in non-deterministic results.
+/// # Note
 ///
-/// Example:
+/// Because command application order will depend on how many threads are ran,
+/// non-commutative commands may result in non-deterministic results.
+///
+/// # Example
+///
 /// ```
 /// # use bevy_ecs::prelude::*;
 /// # use bevy_tasks::ComputeTaskPool;

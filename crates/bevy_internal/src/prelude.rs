@@ -1,12 +1,9 @@
 #[doc(hidden)]
 pub use crate::{
-    app::prelude::*, ecs::prelude::*, reflect::prelude::*, time::prelude::*, utils::prelude::*,
+    app::prelude::*, ecs::prelude::*, input::prelude::*, math::prelude::*, platform::prelude::*,
+    reflect::prelude::*, time::prelude::*, transform::prelude::*, utils::prelude::*,
     DefaultPlugins, MinimalPlugins,
 };
-
-#[doc(hidden)]
-#[cfg(any(feature = "libm", feature = "std"))]
-pub use crate::{input::prelude::*, math::prelude::*, transform::prelude::*};
 
 #[doc(hidden)]
 #[cfg(feature = "bevy_log")]
@@ -65,6 +62,10 @@ pub use crate::text::prelude::*;
 #[doc(hidden)]
 #[cfg(feature = "bevy_ui")]
 pub use crate::ui::prelude::*;
+
+#[doc(hidden)]
+#[cfg(feature = "bevy_ui_render")]
+pub use crate::ui_render::prelude::*;
 
 #[doc(hidden)]
 #[cfg(feature = "bevy_gizmos")]

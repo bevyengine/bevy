@@ -1,13 +1,13 @@
 #![cfg_attr(docsrs, feature(doc_auto_cfg))]
 
-//! [![Bevy Logo](https://bevyengine.org/assets/bevy_logo_docs.svg)](https://bevyengine.org)
+//! [![Bevy Logo](https://bevy.org/assets/bevy_logo_docs.svg)](https://bevy.org)
 //!
 //! Bevy is an open-source modular game engine built in Rust, with a focus on developer productivity
 //! and performance.
 //!
-//! Check out the [Bevy website](https://bevyengine.org) for more information, read the
-//! [Quick Start Guide](https://bevyengine.org/learn/quick-start/introduction) for a step-by-step introduction, and [engage with our
-//! community](https://bevyengine.org/community/) if you have any questions or ideas!
+//! Check out the [Bevy website](https://bevy.org) for more information, read the
+//! [Quick Start Guide](https://bevy.org/learn/quick-start/introduction) for a step-by-step introduction, and [engage with our
+//! community](https://bevy.org/community/) if you have any questions or ideas!
 //!
 //! ## Example
 //!
@@ -26,7 +26,7 @@
 //! }
 //! ```
 //!
-//! Don't let the simplicity of the example above fool you. Bevy is a [fully featured game engine](https://bevyengine.org)
+//! Don't let the simplicity of the example above fool you. Bevy is a [fully featured game engine](https://bevy.org)
 //! and it gets more powerful every day!
 //!
 //! ## This Crate
@@ -41,8 +41,8 @@
 //! with `bevy_` appended to the front, e.g. `app` -> [`bevy_app`](https://docs.rs/bevy_app/*/bevy_app/).
 #![doc = include_str!("../docs/cargo_features.md")]
 #![doc(
-    html_logo_url = "https://bevyengine.org/assets/icon.png",
-    html_favicon_url = "https://bevyengine.org/assets/icon.png"
+    html_logo_url = "https://bevy.org/assets/icon.png",
+    html_favicon_url = "https://bevy.org/assets/icon.png"
 )]
 #![no_std]
 

@@ -2,24 +2,37 @@
     clippy::module_inception,
     reason = "This instance of module inception is being discussed; see #17353."
 )]
-use core::fmt::Debug;
+use bevy_utils::prelude::DebugName;
+use bitflags::bitflags;
+use core::fmt::{Debug, Display};
 use log::warn;
-use thiserror::Error;
 
 use crate::{
-    archetype::ArchetypeComponentId,
-    component::{ComponentId, Tick},
-    query::Access,
+    component::{CheckChangeTicks, ComponentId, Tick},
+    error::BevyError,
+    query::FilteredAccessSet,
     schedule::InternedSystemSet,
     system::{input::SystemInput, SystemIn},
     world::{unsafe_world_cell::UnsafeWorldCell, DeferredWorld, World},
 };
 
-use alloc::{borrow::Cow, boxed::Box, vec::Vec};
-use core::any::TypeId;
+use alloc::{boxed::Box, vec::Vec};
+use core::any::{Any, TypeId};
 
-use super::IntoSystem;
+use super::{IntoSystem, SystemParamValidationError};
 
+bitflags! {
+    /// Bitflags representing system states and requirements.
+    #[derive(Clone, Copy, PartialEq, Eq, Hash)]
+    pub struct SystemStateFlags: u8 {
+        /// Set if system cannot be sent across threads
+        const NON_SEND       = 1 << 0;
+        /// Set if system requires exclusive World access
+        const EXCLUSIVE      = 1 << 1;
+        /// Set if system has deferred buffers.
+        const DEFERRED       = 1 << 2;
+    }
+}
 /// An ECS system that can be added to a [`Schedule`](crate::schedule::Schedule)
 ///
 /// Systems are functions with all arguments implementing
@@ -30,32 +43,42 @@ use super::IntoSystem;
 ///
 /// Systems are executed in parallel, in opportunistic order; data access is managed automatically.
 /// It's possible to specify explicit execution order between specific systems,
-/// see [`IntoSystemConfigs`](crate::schedule::IntoSystemConfigs).
+/// see [`IntoScheduleConfigs`](crate::schedule::IntoScheduleConfigs).
 #[diagnostic::on_unimplemented(message = "`{Self}` is not a system", label = "invalid system")]
 pub trait System: Send + Sync + 'static {
     /// The system's input.
     type In: SystemInput;
     /// The system's output.
     type Out;
+
     /// Returns the system's name.
-    fn name(&self) -> Cow<'static, str>;
+    fn name(&self) -> DebugName;
     /// Returns the [`TypeId`] of the underlying system type.
     #[inline]
     fn type_id(&self) -> TypeId {
         TypeId::of::<Self>()
     }
-    /// Returns the system's component [`Access`].
-    fn component_access(&self) -> &Access<ComponentId>;
-    /// Returns the system's archetype component [`Access`].
-    fn archetype_component_access(&self) -> &Access<ArchetypeComponentId>;
+
+    /// Returns the [`SystemStateFlags`] of the system.
+    fn flags(&self) -> SystemStateFlags;
+
     /// Returns true if the system is [`Send`].
-    fn is_send(&self) -> bool;
+    #[inline]
+    fn is_send(&self) -> bool {
+        !self.flags().intersects(SystemStateFlags::NON_SEND)
+    }
 
     /// Returns true if the system must be run exclusively.
-    fn is_exclusive(&self) -> bool;
+    #[inline]
+    fn is_exclusive(&self) -> bool {
+        self.flags().intersects(SystemStateFlags::EXCLUSIVE)
+    }
 
     /// Returns true if system has deferred buffers.
-    fn has_deferred(&self) -> bool;
+    #[inline]
+    fn has_deferred(&self) -> bool {
+        self.flags().intersects(SystemStateFlags::DEFERRED)
+    }
 
     /// Runs the system with the given input in the world. Unlike [`System::run`], this function
     /// can be called in parallel with other systems and may break Rust's aliasing rules
@@ -67,13 +90,19 @@ pub trait System: Send + Sync + 'static {
     /// # Safety
     ///
     /// - The caller must ensure that [`world`](UnsafeWorldCell) has permission to access any world data
-    ///   registered in `archetype_component_access`. There must be no conflicting
+    ///   registered in the access returned from [`System::initialize`]. There must be no conflicting
     ///   simultaneous accesses while the system is running.
-    /// - The method [`System::update_archetype_component_access`] must be called at some
-    ///   point before this one, with the same exact [`World`]. If [`System::update_archetype_component_access`]
-    ///   panics (or otherwise does not return for any reason), this method must not be called.
-    unsafe fn run_unsafe(&mut self, input: SystemIn<'_, Self>, world: UnsafeWorldCell)
-        -> Self::Out;
+    /// - If [`System::is_exclusive`] returns `true`, then it must be valid to call
+    ///   [`UnsafeWorldCell::world_mut`] on `world`.
+    unsafe fn run_unsafe(
+        &mut self,
+        input: SystemIn<'_, Self>,
+        world: UnsafeWorldCell,
+    ) -> Result<Self::Out, RunSystemError>;
+
+    /// Refresh the inner pointer based on the latest hot patch jump table
+    #[cfg(feature = "hotpatching")]
+    fn refresh_hotpatch(&mut self);
 
     /// Runs the system with the given input in the world.
     ///
@@ -82,15 +111,32 @@ pub trait System: Send + Sync + 'static {
     /// Unlike [`System::run_unsafe`], this will apply deferred parameters *immediately*.
     ///
     /// [`run_readonly`]: ReadOnlySystem::run_readonly
-    fn run(&mut self, input: SystemIn<'_, Self>, world: &mut World) -> Self::Out {
+    fn run(
+        &mut self,
+        input: SystemIn<'_, Self>,
+        world: &mut World,
+    ) -> Result<Self::Out, RunSystemError> {
+        let ret = self.run_without_applying_deferred(input, world)?;
+        self.apply_deferred(world);
+        Ok(ret)
+    }
+
+    /// Runs the system with the given input in the world.
+    ///
+    /// [`run_readonly`]: ReadOnlySystem::run_readonly
+    fn run_without_applying_deferred(
+        &mut self,
+        input: SystemIn<'_, Self>,
+        world: &mut World,
+    ) -> Result<Self::Out, RunSystemError> {
         let world_cell = world.as_unsafe_world_cell();
-        self.update_archetype_component_access(world_cell);
+        // SAFETY:
+        // - We have exclusive access to the entire world.
+        unsafe { self.validate_param_unsafe(world_cell) }?;
         // SAFETY:
         // - We have exclusive access to the entire world.
         // - `update_archetype_component_access` has been called.
-        let ret = unsafe { self.run_unsafe(input, world_cell) };
-        self.apply_deferred(world);
-        ret
+        unsafe { self.run_unsafe(input, world_cell) }
     }
 
     /// Applies any [`Deferred`](crate::system::Deferred) system parameters (or other system buffers) of this system to the world.
@@ -105,7 +151,7 @@ pub trait System: Send + Sync + 'static {
     /// Validates that all parameters can be acquired and that system can run without panic.
     /// Built-in executors use this to prevent invalid systems from running.
     ///
-    /// However calling and respecting [`System::validate_param_unsafe`] or it's safe variant
+    /// However calling and respecting [`System::validate_param_unsafe`] or its safe variant
     /// is not a strict requirement, both [`System::run`] and [`System::run_unsafe`]
     /// should provide their own safety mechanism to prevent undefined behavior.
     ///
@@ -116,39 +162,32 @@ pub trait System: Send + Sync + 'static {
     /// # Safety
     ///
     /// - The caller must ensure that [`world`](UnsafeWorldCell) has permission to access any world data
-    ///   registered in `archetype_component_access`. There must be no conflicting
+    ///   registered in the access returned from [`System::initialize`]. There must be no conflicting
     ///   simultaneous accesses while the system is running.
-    /// - The method [`System::update_archetype_component_access`] must be called at some
-    ///   point before this one, with the same exact [`World`]. If [`System::update_archetype_component_access`]
-    ///   panics (or otherwise does not return for any reason), this method must not be called.
-    unsafe fn validate_param_unsafe(&mut self, world: UnsafeWorldCell) -> bool;
+    unsafe fn validate_param_unsafe(
+        &mut self,
+        world: UnsafeWorldCell,
+    ) -> Result<(), SystemParamValidationError>;
 
     /// Safe version of [`System::validate_param_unsafe`].
     /// that runs on exclusive, single-threaded `world` pointer.
-    fn validate_param(&mut self, world: &World) -> bool {
+    fn validate_param(&mut self, world: &World) -> Result<(), SystemParamValidationError> {
         let world_cell = world.as_unsafe_world_cell_readonly();
-        self.update_archetype_component_access(world_cell);
         // SAFETY:
         // - We have exclusive access to the entire world.
-        // - `update_archetype_component_access` has been called.
         unsafe { self.validate_param_unsafe(world_cell) }
     }
 
     /// Initialize the system.
-    fn initialize(&mut self, _world: &mut World);
-
-    /// Update the system's archetype component [`Access`].
     ///
-    /// ## Note for implementors
-    /// `world` may only be used to access metadata. This can be done in safe code
-    /// via functions such as [`UnsafeWorldCell::archetypes`].
-    fn update_archetype_component_access(&mut self, world: UnsafeWorldCell);
+    /// Returns a [`FilteredAccessSet`] with the access required to run the system.
+    fn initialize(&mut self, _world: &mut World) -> FilteredAccessSet<ComponentId>;
 
     /// Checks any [`Tick`]s stored on this system and wraps their value if they get too old.
     ///
     /// This method must be called periodically to ensure that change detection behaves correctly.
     /// When using bevy's default configuration, this will be called for you as needed.
-    fn check_change_tick(&mut self, change_tick: Tick);
+    fn check_change_tick(&mut self, check: CheckChangeTicks);
 
     /// Returns the system's default [system sets](crate::schedule::SystemSet).
     ///
@@ -182,14 +221,24 @@ pub trait System: Send + Sync + 'static {
 ///
 /// This must only be implemented for system types which do not mutate the `World`
 /// when [`System::run_unsafe`] is called.
+#[diagnostic::on_unimplemented(
+    message = "`{Self}` is not a read-only system",
+    label = "invalid read-only system"
+)]
 pub unsafe trait ReadOnlySystem: System {
     /// Runs this system with the given input in the world.
     ///
     /// Unlike [`System::run`], this can be called with a shared reference to the world,
     /// since this system is known not to modify the world.
-    fn run_readonly(&mut self, input: SystemIn<'_, Self>, world: &World) -> Self::Out {
+    fn run_readonly(
+        &mut self,
+        input: SystemIn<'_, Self>,
+        world: &World,
+    ) -> Result<Self::Out, RunSystemError> {
         let world = world.as_unsafe_world_cell_readonly();
-        self.update_archetype_component_access(world);
+        // SAFETY:
+        // - We have read-only access to the entire world.
+        unsafe { self.validate_param_unsafe(world) }?;
         // SAFETY:
         // - We have read-only access to the entire world.
         // - `update_archetype_component_access` has been called.
@@ -200,9 +249,16 @@ pub unsafe trait ReadOnlySystem: System {
 /// A convenience type alias for a boxed [`System`] trait object.
 pub type BoxedSystem<In = (), Out = ()> = Box<dyn System<In = In, Out = Out>>;
 
-pub(crate) fn check_system_change_tick(last_run: &mut Tick, this_run: Tick, system_name: &str) {
-    if last_run.check_tick(this_run) {
-        let age = this_run.relative_to(*last_run).get();
+/// A convenience type alias for a boxed [`ReadOnlySystem`] trait object.
+pub type BoxedReadOnlySystem<In = (), Out = ()> = Box<dyn ReadOnlySystem<In = In, Out = Out>>;
+
+pub(crate) fn check_system_change_tick(
+    last_run: &mut Tick,
+    check: CheckChangeTicks,
+    system_name: DebugName,
+) {
+    if last_run.check_tick(check) {
+        let age = check.present_tick().relative_to(*last_run).get();
         warn!(
             "System '{system_name}' has not run for {age} ticks. \
             Changes older than {} ticks will not be detected.",
@@ -352,29 +408,48 @@ impl RunSystemOnce for &mut World {
     {
         let mut system: T::System = IntoSystem::into_system(system);
         system.initialize(self);
-        if system.validate_param(self) {
-            Ok(system.run(input, self))
-        } else {
-            Err(RunSystemError::InvalidParams(system.name()))
-        }
+        system.run(input, self)
     }
 }
 
 /// Running system failed.
-#[derive(Error)]
+#[derive(Debug)]
 pub enum RunSystemError {
     /// System could not be run due to parameters that failed validation.
-    ///
-    /// This can occur because the data required by the system was not present in the world.
-    #[error("The data required by the system {0:?} was not found in the world and the system did not run due to failed parameter validation.")]
-    InvalidParams(Cow<'static, str>),
+    /// This is not considered an error.
+    Skipped(SystemParamValidationError),
+    /// System returned an error or failed required parameter validation.
+    Failed(BevyError),
 }
 
-impl Debug for RunSystemError {
+impl Display for RunSystemError {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
-            Self::InvalidParams(arg0) => f.debug_tuple("InvalidParams").field(arg0).finish(),
+            Self::Skipped(err) => write!(
+                f,
+                "System did not run due to failed parameter validation: {err}"
+            ),
+            Self::Failed(err) => write!(f, "{err}"),
         }
+    }
+}
+
+impl<E: Any> From<E> for RunSystemError
+where
+    BevyError: From<E>,
+{
+    fn from(mut value: E) -> Self {
+        // Specialize the impl so that a skipped `SystemParamValidationError`
+        // is converted to `Skipped` instead of `Failed`.
+        // Note that the `downcast_mut` check is based on the static type,
+        // and can be optimized out after monomorphization.
+        let any: &mut dyn Any = &mut value;
+        if let Some(err) = any.downcast_mut::<SystemParamValidationError>() {
+            if err.skipped {
+                return Self::Skipped(core::mem::replace(err, SystemParamValidationError::EMPTY));
+            }
+        }
+        Self::Failed(From::from(value))
     }
 }
 
@@ -382,6 +457,7 @@ impl Debug for RunSystemError {
 mod tests {
     use super::*;
     use crate::prelude::*;
+    use alloc::string::ToString;
 
     #[test]
     fn run_system_once() {
@@ -451,8 +527,10 @@ mod tests {
 
         let mut world = World::default();
         // This fails because `T` has not been added to the world yet.
-        let result = world.run_system_once(system.warn_param_missing());
+        let result = world.run_system_once(system);
 
-        assert!(matches!(result, Err(RunSystemError::InvalidParams(_))));
+        assert!(matches!(result, Err(RunSystemError::Failed { .. })));
+        let expected = "Parameter `Res<T>` failed validation: Resource does not exist\n";
+        assert!(result.unwrap_err().to_string().contains(expected));
     }
 }

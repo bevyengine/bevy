@@ -25,7 +25,6 @@ fn main() {
             TimerMode::Repeating,
         )))
         .init_state::<GameState>()
-        .enable_state_scoped_entities::<GameState>()
         .add_systems(Startup, setup_cameras)
         .add_systems(OnEnter(GameState::Playing), setup)
         .add_systems(
@@ -42,7 +41,7 @@ fn main() {
         .add_systems(OnEnter(GameState::GameOver), display_score)
         .add_systems(
             Update,
-            gameover_keyboard.run_if(in_state(GameState::GameOver)),
+            game_over_keyboard.run_if(in_state(GameState::GameOver)),
         )
         .run();
 }
@@ -121,7 +120,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut game: ResMu
     game.player.move_cooldown = Timer::from_seconds(0.3, TimerMode::Once);
 
     commands.spawn((
-        StateScoped(GameState::Playing),
+        DespawnOnExitState(GameState::Playing),
         PointLight {
             intensity: 2_000_000.0,
             shadows_enabled: true,
@@ -140,7 +139,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut game: ResMu
                 .map(|i| {
                     let height = rng.gen_range(-0.1..0.1);
                     commands.spawn((
-                        StateScoped(GameState::Playing),
+                        DespawnOnExitState(GameState::Playing),
                         Transform::from_xyz(i as f32, height - 0.2, j as f32),
                         SceneRoot(cell_scene.clone()),
                     ));
@@ -154,7 +153,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut game: ResMu
     game.player.entity = Some(
         commands
             .spawn((
-                StateScoped(GameState::Playing),
+                DespawnOnExitState(GameState::Playing),
                 Transform {
                     translation: Vec3::new(
                         game.player.i as f32,
@@ -178,7 +177,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut game: ResMu
 
     // scoreboard
     commands.spawn((
-        StateScoped(GameState::Playing),
+        DespawnOnExitState(GameState::Playing),
         Text::new("Score:"),
         TextFont {
             font_size: 33.0,
@@ -204,7 +203,7 @@ fn move_player(
     mut transforms: Query<&mut Transform>,
     time: Res<Time>,
 ) {
-    if game.player.move_cooldown.tick(time.delta()).finished() {
+    if game.player.move_cooldown.tick(time.delta()).is_finished() {
         let mut moved = false;
         let mut rotation = 0.0;
 
@@ -315,7 +314,7 @@ fn spawn_bonus(
     mut rng: ResMut<Random>,
 ) {
     // make sure we wait enough time before spawning the next cake
-    if !timer.0.tick(time.delta()).finished() {
+    if !timer.0.tick(time.delta()).is_finished() {
         return;
     }
 
@@ -340,7 +339,7 @@ fn spawn_bonus(
     game.bonus.entity = Some(
         commands
             .spawn((
-                StateScoped(GameState::Playing),
+                DespawnOnExitState(GameState::Playing),
                 Transform::from_xyz(
                     game.bonus.i as f32,
                     game.board[game.bonus.j][game.bonus.i].height + 0.2,
@@ -378,7 +377,7 @@ fn scoreboard_system(game: Res<Game>, mut display: Single<&mut Text>) {
 }
 
 // restart the game when pressing spacebar
-fn gameover_keyboard(
+fn game_over_keyboard(
     mut next_state: ResMut<NextState<GameState>>,
     keyboard_input: Res<ButtonInput<KeyCode>>,
 ) {
@@ -390,7 +389,7 @@ fn gameover_keyboard(
 // display the number of cake eaten before losing
 fn display_score(mut commands: Commands, game: Res<Game>) {
     commands.spawn((
-        StateScoped(GameState::GameOver),
+        DespawnOnExitState(GameState::GameOver),
         Node {
             width: Val::Percent(100.),
             align_items: AlignItems::Center,

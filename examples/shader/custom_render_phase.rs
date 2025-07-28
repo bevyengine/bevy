@@ -12,6 +12,7 @@
 
 use std::ops::Range;
 
+use bevy::pbr::SetMeshViewEmptyBindGroup;
 use bevy::{
     core_pipeline::core_3d::graph::{Core3d, Node3d},
     ecs::{
@@ -23,7 +24,7 @@ use bevy::{
         DrawMesh, MeshInputUniform, MeshPipeline, MeshPipelineKey, MeshPipelineViewLayoutKey,
         MeshUniform, RenderMeshInstances, SetMeshBindGroup, SetMeshViewBindGroup,
     },
-    platform_support::collections::HashSet,
+    platform::collections::HashSet,
     prelude::*,
     render::{
         batching::{
@@ -33,12 +34,12 @@ use bevy::{
             },
             GetBatchData, GetFullBatchData,
         },
-        camera::ExtractedCamera,
+        camera::{ExtractedCamera, MainPassResolutionOverride},
         extract_component::{ExtractComponent, ExtractComponentPlugin},
         mesh::{allocator::MeshAllocator, MeshVertexBufferLayoutRef, RenderMesh},
         render_asset::RenderAssets,
         render_graph::{
-            NodeRunError, RenderGraphApp, RenderGraphContext, RenderLabel, ViewNode, ViewNodeRunner,
+            NodeRunError, RenderGraphContext, RenderGraphExt, RenderLabel, ViewNode, ViewNodeRunner,
         },
         render_phase::{
             sort_phase_system, AddRenderCommand, CachedRenderPipelinePhaseItem, DrawFunctionId,
@@ -46,15 +47,15 @@ use bevy::{
             SortedRenderPhasePlugin, ViewSortedRenderPhases,
         },
         render_resource::{
-            CachedRenderPipelineId, ColorTargetState, ColorWrites, Face, FragmentState, FrontFace,
-            MultisampleState, PipelineCache, PolygonMode, PrimitiveState, RenderPassDescriptor,
-            RenderPipelineDescriptor, SpecializedMeshPipeline, SpecializedMeshPipelineError,
-            SpecializedMeshPipelines, TextureFormat, VertexState,
+            CachedRenderPipelineId, ColorTargetState, ColorWrites, Face, FragmentState,
+            PipelineCache, PrimitiveState, RenderPassDescriptor, RenderPipelineDescriptor,
+            SpecializedMeshPipeline, SpecializedMeshPipelineError, SpecializedMeshPipelines,
+            TextureFormat, VertexState,
         },
         renderer::RenderContext,
         sync_world::MainEntity,
         view::{ExtractedView, RenderVisibleEntities, RetainedViewEntity, ViewTarget},
-        Extract, Render, RenderApp, RenderDebugFlags, RenderSet,
+        Extract, Render, RenderApp, RenderDebugFlags, RenderStartup, RenderSystems,
     },
 };
 use nonmax::NonMaxU32;
@@ -126,14 +127,15 @@ impl Plugin for MeshStencilPhasePlugin {
             .init_resource::<DrawFunctions<Stencil3d>>()
             .add_render_command::<Stencil3d, DrawMesh3dStencil>()
             .init_resource::<ViewSortedRenderPhases<Stencil3d>>()
+            .add_systems(RenderStartup, init_stencil_pipeline)
             .add_systems(ExtractSchedule, extract_camera_phases)
             .add_systems(
                 Render,
                 (
-                    queue_custom_meshes.in_set(RenderSet::QueueMeshes),
-                    sort_phase_system::<Stencil3d>.in_set(RenderSet::PhaseSort),
+                    queue_custom_meshes.in_set(RenderSystems::QueueMeshes),
+                    sort_phase_system::<Stencil3d>.in_set(RenderSystems::PhaseSort),
                     batch_and_prepare_sorted_render_phase::<Stencil3d, StencilPipeline>
-                        .in_set(RenderSet::PrepareResources),
+                        .in_set(RenderSystems::PrepareResources),
                 ),
             );
 
@@ -141,16 +143,6 @@ impl Plugin for MeshStencilPhasePlugin {
             .add_render_graph_node::<ViewNodeRunner<CustomDrawNode>>(Core3d, CustomDrawPassLabel)
             // Tell the node to run after the main pass
             .add_render_graph_edges(Core3d, (Node3d::MainOpaquePass, CustomDrawPassLabel));
-    }
-
-    fn finish(&self, app: &mut App) {
-        // We need to get the render app from the main app
-        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
-            return;
-        };
-        // The pipeline needs the RenderDevice to be created and it's only available once plugins
-        // are initialized
-        render_app.init_resource::<StencilPipeline>();
     }
 }
 
@@ -165,13 +157,16 @@ struct StencilPipeline {
     /// This isn't required, it's only done like this for simplicity.
     shader_handle: Handle<Shader>,
 }
-impl FromWorld for StencilPipeline {
-    fn from_world(world: &mut World) -> Self {
-        Self {
-            mesh_pipeline: MeshPipeline::from_world(world),
-            shader_handle: world.resource::<AssetServer>().load(SHADER_ASSET_PATH),
-        }
-    }
+
+fn init_stencil_pipeline(
+    mut commands: Commands,
+    mesh_pipeline: Res<MeshPipeline>,
+    asset_server: Res<AssetServer>,
+) {
+    commands.insert_resource(StencilPipeline {
+        mesh_pipeline: mesh_pipeline.clone(),
+        shader_handle: asset_server.load(SHADER_ASSET_PATH),
+    });
 }
 
 // For more information on how SpecializedMeshPipeline work, please look at the
@@ -192,48 +187,43 @@ impl SpecializedMeshPipeline for StencilPipeline {
         }
         // This will automatically generate the correct `VertexBufferLayout` based on the vertex attributes
         let vertex_buffer_layout = layout.0.get_layout(&vertex_attributes)?;
-
+        let view_layout = self
+            .mesh_pipeline
+            .get_view_layout(MeshPipelineViewLayoutKey::from(key));
         Ok(RenderPipelineDescriptor {
             label: Some("Specialized Mesh Pipeline".into()),
             // We want to reuse the data from bevy so we use the same bind groups as the default
             // mesh pipeline
             layout: vec![
                 // Bind group 0 is the view uniform
-                self.mesh_pipeline
-                    .get_view_layout(MeshPipelineViewLayoutKey::from(key))
-                    .clone(),
-                // Bind group 1 is the mesh uniform
+                view_layout.main_layout.clone(),
+                // Bind group 1 is empty
+                view_layout.empty_layout.clone(),
+                // Bind group 2 is the mesh uniform
                 self.mesh_pipeline.mesh_layouts.model_only.clone(),
             ],
-            push_constant_ranges: vec![],
             vertex: VertexState {
                 shader: self.shader_handle.clone(),
-                shader_defs: vec![],
-                entry_point: "vertex".into(),
                 buffers: vec![vertex_buffer_layout],
+                ..default()
             },
             fragment: Some(FragmentState {
                 shader: self.shader_handle.clone(),
-                shader_defs: vec![],
-                entry_point: "fragment".into(),
                 targets: vec![Some(ColorTargetState {
                     format: TextureFormat::bevy_default(),
                     blend: None,
                     write_mask: ColorWrites::ALL,
                 })],
+                ..default()
             }),
             primitive: PrimitiveState {
                 topology: key.primitive_topology(),
-                front_face: FrontFace::Ccw,
                 cull_mode: Some(Face::Back),
-                polygon_mode: PolygonMode::Fill,
                 ..default()
             },
-            depth_stencil: None,
             // It's generally recommended to specialize your pipeline for MSAA,
             // but it's not always possible
-            multisample: MultisampleState::default(),
-            zero_initialize_workgroup_memory: false,
+            ..default()
         })
     }
 }
@@ -243,8 +233,10 @@ type DrawMesh3dStencil = (
     SetItemPipeline,
     // This will set the view bindings in group 0
     SetMeshViewBindGroup<0>,
-    // This will set the mesh bindings in group 1
-    SetMeshBindGroup<1>,
+    // This will set an empty bind group in group 1
+    SetMeshViewEmptyBindGroup<1>,
+    // This will set the mesh bindings in group 2
+    SetMeshBindGroup<2>,
     // This will draw the mesh
     DrawMesh,
 );
@@ -382,6 +374,7 @@ impl GetBatchData for StencilPipeline {
         Some((mesh_uniform, None))
     }
 }
+
 impl GetFullBatchData for StencilPipeline {
     type BufferInputData = MeshInputUniform;
 
@@ -582,13 +575,14 @@ impl ViewNode for CustomDrawNode {
         &'static ExtractedCamera,
         &'static ExtractedView,
         &'static ViewTarget,
+        Option<&'static MainPassResolutionOverride>,
     );
 
     fn run<'w>(
         &self,
         graph: &mut RenderGraphContext,
         render_context: &mut RenderContext<'w>,
-        (camera, view, target): QueryItem<'w, Self::ViewQuery>,
+        (camera, view, target, resolution_override): QueryItem<'w, '_, Self::ViewQuery>,
         world: &'w World,
     ) -> Result<(), NodeRunError> {
         // First, we need to get our phases resource
@@ -618,7 +612,7 @@ impl ViewNode for CustomDrawNode {
         });
 
         if let Some(viewport) = camera.viewport.as_ref() {
-            render_pass.set_camera_viewport(viewport);
+            render_pass.set_camera_viewport(&viewport.with_override(resolution_override));
         }
 
         // Render the phase

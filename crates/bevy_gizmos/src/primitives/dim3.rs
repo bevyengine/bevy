@@ -228,10 +228,7 @@ where
             return;
         }
 
-        let isometry: Isometry3d = isometry.into();
-        let transformed = primitive
-            .rotated(isometry.rotation)
-            .translated(isometry.translation.into());
+        let transformed = primitive.transformed(isometry);
         self.line(transformed.point1(), transformed.point2(), color);
     }
 }
