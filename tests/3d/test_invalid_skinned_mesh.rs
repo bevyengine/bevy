@@ -57,7 +57,7 @@ fn setup_environment(
         }),
         EnvironmentMapLight {
             intensity: 20_000.0,
-            ..EnvironmentMapLight::solid_color(&mut *image_assets, Color::WHITE)
+            ..EnvironmentMapLight::solid_color(&mut image_assets, Color::WHITE)
         },
         // Add motion blur so we can check if it's working for skinned meshes.
         // This also exercises the renderer's prepass path.
