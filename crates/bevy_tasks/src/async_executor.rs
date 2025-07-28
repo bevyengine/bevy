@@ -1,4 +1,8 @@
-use std::cell::RefCell;
+#![expect(
+    unsafe_code,
+    reason = "Executor code requires unsafe code for dealing with non-'static lifetimes"
+)]
+
 use std::collections::VecDeque;
 use std::fmt;
 use std::marker::PhantomData;
@@ -7,7 +11,7 @@ use std::pin::Pin;
 use std::sync::atomic::{AtomicBool, AtomicPtr, Ordering};
 use std::sync::{Arc, Mutex, MutexGuard, RwLock, TryLockError};
 use std::task::{Context, Poll, Waker};
-use std::thread::{Thread, ThreadId};
+use std::thread::ThreadId;
 
 use async_task::{Builder, Runnable, Task};
 use bevy_platform::prelude::Vec;
@@ -24,18 +28,54 @@ pub(crate) fn install_runtime_into_current_thread() {
     tls.executor_thread.store(true, Ordering::Relaxed);
 }
 
-std::thread_local! {
-    static LOCAL_QUEUE: LocalQueue = const {
-        LocalQueue  {
-            local_queue: RefCell::new(VecDeque::new()),
-            local_active: RefCell::new(Slab::new()),
+// Do not access this directly, use `with_local_queue` instead.
+cfg_if::cfg_if! {
+    if #[cfg(all(debug_assertions, not(miri)))] {
+        use std::cell::RefCell;
+
+        std::thread_local! {
+            static LOCAL_QUEUE: RefCell<LocalQueue> = const {
+                RefCell::new(LocalQueue  {
+                    local_queue: VecDeque::new(),
+                    local_active:Slab::new(),
+                })
+            };
         }
-    };
+    } else {
+        use std::cell::UnsafeCell;
+
+        std::thread_local! {
+            static LOCAL_QUEUE: UnsafeCell<LocalQueue> = const {
+                UnsafeCell::new(LocalQueue  {
+                    local_queue: VecDeque::new(),
+                    local_active:Slab::new(),
+                })
+            };
+        }
+    }
+}
+
+/// # Safety
+/// This must not be accessed at the same time as LOCAL_QUEUE in any way.
+#[inline(always)]
+unsafe fn with_local_queue<T>(f: impl FnOnce(&mut LocalQueue) -> T) -> T {
+    LOCAL_QUEUE.with(|tls| {
+        cfg_if::cfg_if! {
+            if #[cfg(all(debug_assertions, not(miri)))] {
+                f(&mut *tls.borrow_mut())
+            } else {
+                // SAFETY: This value is in thread local storage and thus can only be accesed
+                // from one thread. The caller guarantees that this function is not used with
+                // LOCAL_QUEUE in any way.
+                f(unsafe { &mut *tls.get() })
+            }
+        }
+    })
 }
 
 struct LocalQueue {
-    local_queue: RefCell<VecDeque<Runnable>>,
-    local_active: RefCell<Slab<Waker>>,
+    local_queue: VecDeque<Runnable>,
+    local_active: Slab<Waker>,
 }
 
 struct ThreadLocalState {
@@ -75,10 +115,6 @@ impl<'a> ThreadSpawner<'a> {
         let state = self.state.clone();
         let future = AsyncCallOnDrop::new(future, move || drop(state.active().try_remove(index)));
 
-        #[expect(
-            unsafe_code,
-            reason = "unsized coercion is an unstable feature for non-std types"
-        )]
         // Create the task and register it in the set of active tasks.
         //
         // SAFETY:
@@ -131,21 +167,8 @@ pub struct Executor<'a> {
     state: AtomicPtr<State>,
 
     /// Makes the `'a` lifetime invariant.
-    _marker: PhantomData<std::cell::UnsafeCell<&'a ()>>,
+    _marker: PhantomData<&'a ()>,
 }
-
-#[expect(
-    unsafe_code,
-    reason = "unsized coercion is an unstable feature for non-std types"
-)]
-// SAFETY: Executor stores no thread local state that can be accessed via other thread.
-unsafe impl Send for Executor<'_> {}
-#[expect(
-    unsafe_code,
-    reason = "unsized coercion is an unstable feature for non-std types"
-)]
-// SAFETY: Executor internally synchronizes all of it's operations internally.
-unsafe impl Sync for Executor<'_> {}
 
 impl UnwindSafe for Executor<'_> {}
 impl RefUnwindSafe for Executor<'_> {}
@@ -175,10 +198,6 @@ impl<'a> Executor<'a> {
         let state = self.state_as_arc();
         let future = AsyncCallOnDrop::new(future, move || drop(state.active().try_remove(index)));
 
-        #[expect(
-            unsafe_code,
-            reason = "unsized coercion is an unstable feature for non-std types"
-        )]
         // Create the task and register it in the set of active tasks.
         //
         // SAFETY:
@@ -215,49 +234,51 @@ impl<'a> Executor<'a> {
     /// Spawns a non-Send task onto the executor.
     pub fn spawn_local<T: 'a>(&self, future: impl Future<Output = T> + 'a) -> Task<T> {
         // Remove the task from the set of active tasks when the future finishes.
-        let (runnable, task) = LOCAL_QUEUE.with(|tls| {
-            let mut local_active = tls.local_active.borrow_mut();
-            let entry = local_active.vacant_entry();
-            let index = entry.key();
-            let future = AsyncCallOnDrop::new(future, move || {
-                LOCAL_QUEUE.with(|tls| drop(tls.local_active.borrow_mut().try_remove(index)));
-            });
+        //
+        // SAFETY: There are no instances where the value is accessed mutably
+        // from multiple locations simultaneously.
+        let (runnable, task) = unsafe {
+            with_local_queue(|tls| {
+                let entry = tls.local_active.vacant_entry();
+                let index = entry.key();
+                // SAFETY: There are no instances where the value is accessed mutably
+                // from multiple locations simultaneously. This AsyncCallOnDrop will be
+                // invoked after the surrounding scope has exited in either a
+                // `try_tick_local` or `run` call.
+                let future = AsyncCallOnDrop::new(future, move || {
+                    with_local_queue(|tls| drop(tls.local_active.try_remove(index)));
+                });
 
-            #[expect(
-                unsafe_code,
-                reason = "Builder::spawn_local requires a 'static lifetime"
-            )]
-            // Create the task and register it in the set of active tasks.
-            //
-            // SAFETY:
-            //
-            // If `future` is not `Send`, this must be a `LocalExecutor` as per this
-            // function's unsafe precondition. Since `LocalExecutor` is `!Sync`,
-            // `try_tick`, `tick` and `run` can only be called from the origin
-            // thread of the `LocalExecutor`. Similarly, `spawn` can only  be called
-            // from the origin thread, ensuring that `future` and the executor share
-            // the same origin thread. The `Runnable` can be scheduled from other
-            // threads, but because of the above `Runnable` can only be called or
-            // dropped on the origin thread.
-            //
-            // `future` is not `'static`, but we make sure that the `Runnable` does
-            // not outlive `'a`. When the executor is dropped, the `active` field is
-            // drained and all of the `Waker`s are woken. Then, the queue inside of
-            // the `Executor` is drained of all of its runnables. This ensures that
-            // runnables are dropped and this precondition is satisfied.
-            //
-            // `self.schedule()` is `Send`, `Sync` and `'static`, as checked below.
-            // Therefore we do not need to worry about what is done with the
-            // `Waker`.
-            let (runnable, task) = unsafe {
-                Builder::new()
+                // Create the task and register it in the set of active tasks.
+                //
+                // SAFETY:
+                //
+                // If `future` is not `Send`, this must be a `LocalExecutor` as per this
+                // function's unsafe precondition. Since `LocalExecutor` is `!Sync`,
+                // `try_tick`, `tick` and `run` can only be called from the origin
+                // thread of the `LocalExecutor`. Similarly, `spawn` can only  be called
+                // from the origin thread, ensuring that `future` and the executor share
+                // the same origin thread. The `Runnable` can be scheduled from other
+                // threads, but because of the above `Runnable` can only be called or
+                // dropped on the origin thread.
+                //
+                // `future` is not `'static`, but we make sure that the `Runnable` does
+                // not outlive `'a`. When the executor is dropped, the `active` field is
+                // drained and all of the `Waker`s are woken. Then, the queue inside of
+                // the `Executor` is drained of all of its runnables. This ensures that
+                // runnables are dropped and this precondition is satisfied.
+                //
+                // `self.schedule()` is `Send`, `Sync` and `'static`, as checked below.
+                // Therefore we do not need to worry about what is done with the
+                // `Waker`.
+                let (runnable, task) = Builder::new()
                     .propagate_panic(true)
-                    .spawn_unchecked(|()| future, self.schedule_local())
-            };
-            entry.insert(runnable.waker());
+                    .spawn_unchecked(|()| future, self.schedule_local());
+                entry.insert(runnable.waker());
 
-            (runnable, task)
-        });
+                (runnable, task)
+            })
+        };
 
         runnable.schedule();
         task
@@ -273,15 +294,13 @@ impl<'a> Executor<'a> {
     }
 
     pub fn try_tick_local() -> bool {
-        LOCAL_QUEUE.with(|tls| {
-            if let Some(runnable) = tls.local_queue.borrow_mut().pop_back() {
-                // Run the task.
-                runnable.run();
-                true
-            } else {
-                false
-            }
-        })
+        // SAFETY: There are no instances where the value is accessed mutably
+        // from multiple locations simultaneously. As the Runnable is run after
+        // this scope closes, the AsyncCallOnDrop around the future will be invoked
+        // without overlapping mutable accssses.
+        unsafe { with_local_queue(|tls| tls.local_queue.pop_back()) }
+            .map(|runnable| runnable.run())
+            .is_some()
     }
 
     /// Runs the executor until the given future completes.
@@ -322,9 +341,12 @@ impl<'a> Executor<'a> {
         let state = self.state_as_arc();
         let local_state: &'static ThreadLocalState = THREAD_LOCAL_STATE.get_or_default();
         move |runnable| {
-            LOCAL_QUEUE.with(|tls| {
-                tls.local_queue.borrow_mut().push_back(runnable);
-            });
+            // SAFETY: This value is in thread local storage and thus can only be accesed
+            // from one thread. There are no instances where the value is accessed mutably
+            // from multiple locations simultaneously.
+            unsafe {
+                with_local_queue(|tls| tls.local_queue.push_back(runnable));
+            }
             state.notify_specific_thread(local_state.thread_id, false);
         }
     }
@@ -335,18 +357,13 @@ impl<'a> Executor<'a> {
         #[cold]
         fn alloc_state(atomic_ptr: &AtomicPtr<State>) -> *mut State {
             let state = Arc::new(State::new());
-            // TODO: Switch this to use cast_mut once the MSRV can be bumped past 1.65
-            let ptr = Arc::into_raw(state) as *mut State;
+            let ptr = Arc::into_raw(state).cast_mut();
             if let Err(actual) = atomic_ptr.compare_exchange(
                 std::ptr::null_mut(),
                 ptr,
                 Ordering::AcqRel,
                 Ordering::Acquire,
             ) {
-                #[expect(
-                    unsafe_code,
-                    reason = "unsized coercion is an unstable feature for non-std types"
-                )]
                 // SAFETY: This was just created from Arc::into_raw.
                 drop(unsafe { Arc::from_raw(ptr) });
                 actual
@@ -365,24 +382,14 @@ impl<'a> Executor<'a> {
     /// Returns a reference to the inner state.
     #[inline]
     fn state(&self) -> &State {
-        #[expect(
-            unsafe_code,
-            reason = "unsized coercion is an unstable feature for non-std types"
-        )]
         // SAFETY: So long as an Executor lives, it's state pointer will always be valid
         // when accessed through state_ptr.
-        unsafe {
-            &*self.state_ptr()
-        }
+        unsafe { &*self.state_ptr() }
     }
 
     // Clones the inner state Arc
     #[inline]
     fn state_as_arc(&self) -> Arc<State> {
-        #[expect(
-            unsafe_code,
-            reason = "unsized coercion is an unstable feature for non-std types"
-        )]
         // SAFETY: So long as an Executor lives, it's state pointer will always be a valid
         // Arc when accessed through state_ptr.
         let arc = unsafe { Arc::from_raw(self.state_ptr()) };
@@ -399,10 +406,6 @@ impl Drop for Executor<'_> {
             return;
         }
 
-        #[expect(
-            unsafe_code,
-            reason = "unsized coercion is an unstable feature for non-std types"
-        )]
         // SAFETY: As ptr is not null, it was allocated via Arc::new and converted
         // via Arc::into_raw in state_ptr.
         let state = unsafe { Arc::from_raw(ptr) };
@@ -761,7 +764,9 @@ impl Runner<'_> {
             .ticker
             .runnable_with(|| {
                 {
-                    let local_pop = LOCAL_QUEUE.with(|tls| tls.local_queue.borrow_mut().pop_back());
+                    // SAFETY: There are no instances where the value is accessed mutably
+                    // from multiple locations simultaneously.
+                    let local_pop = unsafe { with_local_queue(|tls| tls.local_queue.pop_back()) };
                     if let Some(r) = local_pop {
                         return Some(r);
                     }
@@ -885,10 +890,6 @@ fn debug_executor(executor: &Executor<'_>, name: &str, f: &mut fmt::Formatter<'_
         return f.debug_tuple(name).field(&Uninitialized).finish();
     }
 
-    #[expect(
-        unsafe_code,
-        reason = "unsized coercion is an unstable feature for non-std types"
-    )]
     // SAFETY: If the state pointer is not null, it must have been
     // allocated properly by Arc::new and converted via Arc::into_raw
     // in state_ptr.
