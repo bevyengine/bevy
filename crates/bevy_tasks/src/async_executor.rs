@@ -19,6 +19,11 @@ use thread_local::ThreadLocal;
 
 static THREAD_LOCAL_STATE: ThreadLocal<ThreadLocalState> = ThreadLocal::new();
 
+pub(crate) fn install_runtime_into_current_thread() {
+    let tls = THREAD_LOCAL_STATE.get_or_default();
+    tls.executor_thread.store(true, Ordering::Relaxed);
+}
+
 std::thread_local! {
     static LOCAL_QUEUE: LocalQueue = const {
         LocalQueue  {
@@ -34,6 +39,7 @@ struct LocalQueue {
 }
 
 struct ThreadLocalState {
+    executor_thread: AtomicBool,
     thread_id: ThreadId,
     stealable_queue: ConcurrentQueue<Runnable>,
     thread_locked_queue: ConcurrentQueue<Runnable>,
@@ -42,6 +48,7 @@ struct ThreadLocalState {
 impl Default for ThreadLocalState {
     fn default() -> Self {
         Self {
+            executor_thread: AtomicBool::new(false),
             thread_id: std::thread::current().id(),
             stealable_queue: ConcurrentQueue::bounded(512),
             thread_locked_queue: ConcurrentQueue::unbounded(),
@@ -213,9 +220,7 @@ impl<'a> Executor<'a> {
             let entry = local_active.vacant_entry();
             let index = entry.key();
             let future = AsyncCallOnDrop::new(future, move || {
-                LOCAL_QUEUE.with(|tls| {
-                    drop(tls.local_active.borrow_mut().try_remove(index))
-                });
+                LOCAL_QUEUE.with(|tls| drop(tls.local_active.borrow_mut().try_remove(index)));
             });
 
             #[expect(
@@ -269,11 +274,7 @@ impl<'a> Executor<'a> {
 
     pub fn try_tick_local() -> bool {
         LOCAL_QUEUE.with(|tls| {
-            if let Some(runnable) = tls
-                .local_queue
-                .borrow_mut()
-                .pop_back()
-            {
+            if let Some(runnable) = tls.local_queue.borrow_mut().pop_back() {
                 // Run the task.
                 runnable.run();
                 true
@@ -293,19 +294,23 @@ impl<'a> Executor<'a> {
         let state = self.state_as_arc();
 
         move |runnable| {
-            // Attempt to push onto the local queue first, because we know that
-            // this thread is awake.
-            // let runnable = if let Some(local_state) = THREAD_LOCAL_STATE.get() {
-            //     match local_state.stealable_queue.push(runnable) {
-            //         Ok(()) => {
-            //             state.notify_specific_thread(local_state.thread_id, true);
-            //             return;
-            //         }
-            //         Err(r) => r.into_inner(),
-            //     }
-            // } else {
-            //     runnable
-            // };
+            // Attempt to push onto the local queue first in dedicated executor threads,
+            // because we know that this thread is awake and always processing new tasks.
+            let runnable = if let Some(local_state) = THREAD_LOCAL_STATE.get() {
+                if local_state.executor_thread.load(Ordering::Relaxed) {
+                    match local_state.stealable_queue.push(runnable) {
+                        Ok(()) => {
+                            state.notify_specific_thread(local_state.thread_id, true);
+                            return;
+                        }
+                        Err(r) => r.into_inner(),
+                    }
+                } else {
+                    runnable
+                }
+            } else {
+                runnable
+            };
             // Otherwise push onto the global queue instead.
             state.queue.push(runnable).unwrap();
             state.notify();
@@ -316,7 +321,6 @@ impl<'a> Executor<'a> {
     fn schedule_local(&self) -> impl Fn(Runnable) + 'static {
         let state = self.state_as_arc();
         let local_state: &'static ThreadLocalState = THREAD_LOCAL_STATE.get_or_default();
-        // TODO: If possible, push into the current local queue and notify the ticker.
         move |runnable| {
             LOCAL_QUEUE.with(|tls| {
                 tls.local_queue.borrow_mut().push_back(runnable);
@@ -757,9 +761,7 @@ impl Runner<'_> {
             .ticker
             .runnable_with(|| {
                 {
-                    let local_pop = LOCAL_QUEUE.with(|tls| {
-                        tls.local_queue.borrow_mut().pop_back()
-                    });
+                    let local_pop = LOCAL_QUEUE.with(|tls| tls.local_queue.borrow_mut().pop_back());
                     if let Some(r) = local_pop {
                         return Some(r);
                     }
@@ -831,7 +833,7 @@ impl Drop for Runner<'_> {
                 .iter()
                 .enumerate()
                 .rev()
-                .find(|(_, local)| !std::ptr::eq(**local, &self.local_state.stealable_queue))
+                .find(|(_, local)| std::ptr::eq(**local, &self.local_state.stealable_queue))
             {
                 stealer_queues.remove(idx);
             }
