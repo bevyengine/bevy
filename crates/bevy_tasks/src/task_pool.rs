@@ -176,6 +176,8 @@ impl TaskPool {
 
                 thread_builder
                     .spawn(move || {
+                        crate::async_executor::install_runtime_into_current_thread();
+
                         if let Some(on_thread_spawn) = on_thread_spawn {
                             on_thread_spawn();
                             drop(on_thread_spawn);
