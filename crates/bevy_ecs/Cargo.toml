@@ -69,7 +69,7 @@ std = [
   "bevy_utils/std",
   "bitflags/std",
   "concurrent-queue/std",
-  "disqualified/alloc",
+  "disqualified?/alloc",
   "fixedbitset/std",
   "indexmap/std",
   "serde?/std",
