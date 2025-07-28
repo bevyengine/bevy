@@ -160,6 +160,8 @@ In its examples, Bevy targets the minimum Android API that Play Store  <!-- mark
 [requires](https://developer.android.com/distribute/best-practices/develop/target-sdk) to upload and update apps. <!-- markdown-link-check-enable -->
 Users of older phones may want to use an older API when testing. By default, Bevy uses [`GameActivity`](https://developer.android.com/games/agdk/game-activity), which only works for Android API level 31 and higher, so if you want to use older API, you need to switch to `NativeActivity`.
 
+Keep in mind that if you are using `bevy_audio` the minimum supported Android API version is 26 (Android 8/Oreo).
+
 To use `NativeActivity`, you need to edit it in `cargo.toml` manually like this:
 
 ```toml
