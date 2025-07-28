@@ -412,7 +412,7 @@ mod tests {
 
     #[test]
     fn test_audio_sink() {
-        let (sink, _queue_rx) = Sink::new_idle();
+        let (sink, _queue_rx) = Sink::new();
         let audio_sink = AudioSink::new(sink);
         test_audio_sink_playback(audio_sink);
     }
