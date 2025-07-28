@@ -52,7 +52,7 @@ The default feature set enables most of the expected features of a game engine, 
 |std|Allows access to the `std` crate.|
 |sysinfo_plugin|Enables system information diagnostic plugin|
 |tonemapping_luts|Include tonemapping Look Up Tables KTX2 files. If everything is pink, you need to enable this feature or change the `Tonemapping` method for your `Camera2d` or `Camera3d`.|
-|vorbis|OGG/VORBIS audio format support|
+|vorbis|OGG/VORBIS audio format support (through `lewton`)|
 |webgl2|Enable some limitations to be able to use WebGL2. Please refer to the [WebGL2 and WebGPU](https://github.com/bevyengine/bevy/tree/latest/examples#webgl2-and-webgpu) section of the examples README for more information on how to run Wasm builds with WebGPU.|
 |x11|X11 display server support|
 |zstd_rust|For KTX2 Zstandard decompression using pure rust [ruzstd](https://crates.io/crates/ruzstd). This is the safe default. For maximum performance, use "zstd_c".|
@@ -88,7 +88,7 @@ The default feature set enables most of the expected features of a game engine, 
 |exr|EXR image format support|
 |ff|Farbfeld image format support|
 |file_watcher|Enables watching the filesystem for Bevy Asset hot-reloading|
-|flac|FLAC audio format support|
+|flac|FLAC audio format support (through `claxon`)|
 |ghost_nodes|Experimental support for nodes that are ignored for UI layouting|
 |gif|GIF image format support|
 |glam_assert|Enable assertions to check the validity of parameters passed to glam|
@@ -99,7 +99,7 @@ The default feature set enables most of the expected features of a game engine, 
 |libm|Uses the `libm` maths library instead of the one provided in `std` and `core`.|
 |meshlet|Enables the meshlet renderer for dense high-poly scenes (experimental)|
 |meshlet_processor|Enables processing meshes into meshlet meshes for bevy_pbr|
-|mp3|MP3 audio format support|
+|mp3|MP3 audio format support (through `minimp3`)|
 |pbr_anisotropy_texture|Enable support for anisotropy texture in the `StandardMaterial`, at the risk of blowing past the global, per-shader texture limit on older/lower-end GPUs|
 |pbr_clustered_decals|Enable support for Clustered Decals|
 |pbr_light_textures|Enable support for Light Textures|
@@ -116,12 +116,13 @@ The default feature set enables most of the expected features of a game engine, 
 |shader_format_wesl|Enable support for shaders in WESL|
 |spirv_shader_passthrough|Enable passthrough loading for SPIR-V shaders (Only supported on Vulkan, shader capabilities and extensions must agree with the platform implementation)|
 |statically-linked-dxc|Statically linked DXC shader compiler for DirectX 12|
-|symphonia-aac|AAC audio format support (through symphonia)|
-|symphonia-all|AAC, FLAC, MP3, MP4, OGG/VORBIS, and WAV audio formats support (through symphonia)|
-|symphonia-flac|FLAC audio format support (through symphonia)|
-|symphonia-isomp4|MP4 audio format support (through symphonia)|
-|symphonia-vorbis|OGG/VORBIS audio format support (through symphonia)|
-|symphonia-wav|WAV audio format support (through symphonia)|
+|symphonia-aac|AAC audio format support (through `symphonia`)|
+|symphonia-all|AAC, FLAC, MP3, MP4, OGG/VORBIS, and WAV audio formats support (through `symphonia`)|
+|symphonia-flac|FLAC audio format support (through `symphonia`)|
+|symphonia-isomp4|MP4 audio format support (through `symphonia`)|
+|symphonia-mp3|MP3 audio format support (through `symphonia`)|
+|symphonia-vorbis|OGG/VORBIS audio format support (through `symphonia`)|
+|symphonia-wav|WAV audio format support (through `symphonia`)|
 |tga|TGA image format support|
 |tiff|TIFF image format support|
 |trace|Tracing support|
@@ -129,7 +130,7 @@ The default feature set enables most of the expected features of a game engine, 
 |trace_tracy|Tracing support, exposing a port for Tracy|
 |trace_tracy_memory|Tracing support, with memory profiling, exposing a port for Tracy|
 |track_location|Enables source location tracking for change detection and spawning/despawning, which can assist with debugging|
-|wav|WAV audio format support|
+|wav|WAV audio format support (through `hound`)|
 |wayland|Wayland display server support|
 |web|Enables use of browser APIs. Note this is currently only applicable on `wasm32` architectures.|
 |webgpu|Enable support for WebGPU in Wasm. When enabled, this feature will override the `webgl2` feature and you won't be able to run Wasm builds with WebGL2, only with WebGPU.|
