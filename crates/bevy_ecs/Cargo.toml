@@ -48,6 +48,9 @@ bevy_debug_stepping = []
 ## This will often provide more detailed error messages.
 track_location = []
 
+## Enables debug strings
+debug = ["dep:disqualified"]
+
 # Executor Backend
 
 ## Uses `async-executor` as a task execution backend.
@@ -99,7 +102,7 @@ bevy_platform = { path = "../bevy_platform", version = "0.17.0-dev", default-fea
 ] }
 
 bitflags = { version = "2.3", default-features = false }
-disqualified = { version = "1.0", default-features = false }
+disqualified = { version = "1.0", default-features = false, optional = true }
 fixedbitset = { version = "0.5", default-features = false }
 serde = { version = "1", default-features = false, features = [
   "alloc",
