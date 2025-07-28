@@ -18,7 +18,7 @@ bevy_reflect = { path = "../bevy_reflect", version = "0.18.0-dev" }
 bevy_transform = { path = "../bevy_transform", version = "0.18.0-dev" }
 
 # other
-rodio = { version = "0.21", default-features = false }
+rodio = { version = "0.21", default-features = false, features = ["playback"] }
 tracing = { version = "0.1", default-features = false, features = ["std"] }
 
 [target.'cfg(target_os = "android")'.dependencies]
@@ -28,6 +28,7 @@ cpal = { version = "0.16", optional = true }
 # TODO: Assuming all wasm builds are for the browser. Require `no_std` support to break assumption.
 rodio = { version = "0.21", default-features = false, features = [
   "wasm-bindgen",
+  "playback",
 ] }
 bevy_app = { path = "../bevy_app", version = "0.18.0-dev", default-features = false, features = [
   "web",
@@ -37,16 +38,24 @@ bevy_reflect = { path = "../bevy_reflect", version = "0.18.0-dev", default-featu
 ] }
 
 [features]
-mp3 = ["rodio/mp3"]
-flac = ["rodio/flac"]
-wav = ["rodio/wav"]
-vorbis = ["rodio/vorbis"]
+default = ["mp3", "flac", "wav", "vorbis"]
+mp3 = ["rodio/minimp3"]
+flac = ["rodio/claxon"]
+wav = ["rodio/hound"]
+vorbis = ["rodio/lewton"]
 symphonia-aac = ["rodio/symphonia-aac"]
-symphonia-all = ["rodio/symphonia-all"]
-symphonia-flac = ["rodio/symphonia-flac"]
-symphonia-isomp4 = ["rodio/symphonia-isomp4"]
-symphonia-vorbis = ["rodio/symphonia-vorbis"]
-symphonia-wav = ["rodio/symphonia-wav"]
+symphonia-all = [
+  "rodio/flac",
+  "rodio/mp3",
+  "rodio/mp4",
+  "rodio/vorbis",
+  "rodio/wav",
+]
+symphonia-flac = ["rodio/flac"]
+symphonia-isomp4 = ["rodio/mp4"]
+symphonia-mp3 = ["rodio/mp3"]
+symphonia-vorbis = ["rodio/vorbis"]
+symphonia-wav = ["rodio/wav"]
 # Enable using a shared stdlib for cxx on Android.
 android_shared_stdcxx = ["cpal/oboe-shared-stdcxx"]
 
