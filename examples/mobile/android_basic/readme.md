@@ -47,6 +47,8 @@ Bevy by default targets Android API level 33 in its examples which is the <!-- m
 [Play Store's minimum API to upload or update apps](https://developer.android.com/distribute/best-practices/develop/target-sdk). <!-- markdown-link-check-enable -->
 Users of older phones may want to use an older API when testing.
 
+Keep in mind that if you are using `bevy_audio` the minimum supported Android API version is 26 (Android 8/Oreo).
+
 To use a different API, the following fields must be updated in `Cargo.toml`:
 
 ```toml
