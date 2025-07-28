@@ -18,6 +18,7 @@ use bevy_reflect::prelude::ReflectDefault;
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::Reflect;
 use core::{any::TypeId, marker::PhantomData};
+#[cfg(feature = "debug")]
 use disqualified::ShortName;
 use thiserror::Error;
 
@@ -43,7 +44,7 @@ impl<I, O> RegisteredSystem<I, O> {
 #[cfg_attr(feature = "bevy_reflect", reflect(Debug, Default, Clone))]
 struct TypeIdAndName {
     type_id: TypeId,
-
+    #[cfg(feature = "debug")]
     name: &'static str,
 }
 
@@ -51,6 +52,7 @@ impl TypeIdAndName {
     fn new<T: 'static>() -> Self {
         Self {
             type_id: TypeId::of::<T>(),
+            #[cfg(feature = "debug")]
             name: core::any::type_name::<T>(),
         }
     }
@@ -60,6 +62,7 @@ impl Default for TypeIdAndName {
     fn default() -> Self {
         Self {
             type_id: TypeId::of::<()>(),
+            #[cfg(feature = "debug")]
             name: core::any::type_name::<()>(),
         }
     }
@@ -562,7 +565,11 @@ pub enum RegisteredSystemError<I: SystemInput = (), O = ()> {
     #[error("System returned error: {0}")]
     Failed(BevyError),
     /// [`SystemId`] had different input and/or output types than [`SystemIdMarker`]
-    #[error("Could not get system from `{}`, entity was `SystemId<{}, {}>`", ShortName::of::<SystemId<I, O>>(), ShortName(.1.input_type_id.name), ShortName(.1.output_type_id.name))]
+    #[cfg_attr(feature = "debug", error("Could not get system from `{}`, entity was `SystemId<{}, {}>`", ShortName::of::<SystemId<I, O>>(), ShortName(.1.input_type_id.name), ShortName(.1.output_type_id.name)))]
+    #[cfg_attr(
+        not(feature = "debug"),
+        error("There was a mismatch between the `SystemId` and the entities system.")
+    )]
     IncorrectType(SystemId<I, O>, SystemIdMarker),
 }
 
