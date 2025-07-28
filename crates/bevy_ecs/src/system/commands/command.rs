@@ -245,17 +245,18 @@ pub fn trigger_targets(
 pub fn write_event<E: BufferedEvent>(event: E) -> impl Command<Result> {
     let caller = MaybeLocation::caller();
     move |world: &mut World| -> Result {
-        let component_id = world
-            .components
-            .get_valid_resource_id(core::any::TypeId::of::<Events<E>>())
-            .ok_or(crate::world::error::ResourceFetchError::NotRegistered)?;
-
         match world.get_resource_mut::<Events<E>>() {
             Some(mut events) => {
                 events.write_with_caller(event, caller);
                 Ok(())
             }
-            None => Err(crate::world::error::ResourceFetchError::DoesNotExist(component_id).into()),
+            None => {
+                let component_id = world
+                    .components
+                    .get_valid_resource_id(core::any::TypeId::of::<Events<E>>())
+                    .ok_or(crate::world::error::ResourceFetchError::NotRegistered)?;
+                Err(crate::world::error::ResourceFetchError::DoesNotExist(component_id).into())
+            }
         }
     }
 }
