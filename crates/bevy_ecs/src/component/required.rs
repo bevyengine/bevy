@@ -253,13 +253,14 @@ impl<'w> ComponentsRegistrator<'w> {
 
         // SAFETY: We just created the components.
         unsafe {
-            self.register_required_components_manual_unchecked::<R>(
-                requiree,
-                required,
-                required_components,
-                constructor,
-                inheritance_depth,
-            );
+            self.components
+                .register_required_components_manual_unchecked::<R>(
+                    requiree,
+                    required,
+                    required_components,
+                    constructor,
+                    inheritance_depth,
+                );
         }
     }
 }
