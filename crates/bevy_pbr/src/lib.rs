@@ -181,7 +181,8 @@ pub struct PbrPlugin {
     /// This requires compute shader support and so will be forcibly disabled if
     /// the platform doesn't support those.
     pub use_gpu_instance_buffer_builder: bool,
-    /// Controls if the default environment map light is added to every [`Camera3d`].
+    /// Controls if the default environment map light is added to every
+    /// [`Camera3d`](bevy_core_pipeline::prelude::Camera3d).
     pub default_environment_map_light: bool,
     /// Debugging flags that can optionally be set when constructing the renderer.
     pub debug_flags: RenderDebugFlags,
