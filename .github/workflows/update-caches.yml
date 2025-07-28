@@ -87,7 +87,7 @@ jobs:
             target: aarch64-linux-android
           - os: macos-14
             toolchain: stable
-            target: aarch64-apple-ios-sim
+            target: arm64-apple-ios-simulator
 
     steps:
       # prepare the date - used to rebuild the cache daily to update the cache for rust nightly, even if no change on Bevy dependencies
