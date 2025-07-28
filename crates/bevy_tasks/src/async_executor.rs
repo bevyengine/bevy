@@ -144,18 +144,25 @@ impl<'a> ThreadSpawner<'a> {
         };
         entry.insert(runnable.waker());
 
-        runnable.schedule();
+        // Instead of directly scheduling this task, it's put into the onto the
+        // thread locked queue to be moved to the target thread, where it will
+        // either be run immediately or flushed into the thread's local queue.
+        self.target_queue.push(runnable).unwrap();
         task
     }
 
     /// Returns a function that schedules a runnable task when it gets woken up.
     fn schedule(&self) -> impl Fn(Runnable) + Send + Sync + 'static {
         let thread_id = self.thread_id;
-        let queue: &'static ConcurrentQueue<Runnable> = self.target_queue;
         let state = self.state.clone();
 
         move |runnable| {
-            queue.push(runnable).unwrap();
+            // SAFETY: This value is in thread local storage and thus can only be accesed
+            // from one thread. There are no instances where the value is accessed mutably
+            // from multiple locations simultaneously.
+            unsafe {
+                with_local_queue(|tls| tls.local_queue.push_back(runnable));
+            }
             state.notify_specific_thread(thread_id, false);
         }
     }
@@ -298,7 +305,7 @@ impl<'a> Executor<'a> {
         // from multiple locations simultaneously. As the Runnable is run after
         // this scope closes, the AsyncCallOnDrop around the future will be invoked
         // without overlapping mutable accssses.
-        unsafe { with_local_queue(|tls| tls.local_queue.pop_back()) }
+        unsafe { with_local_queue(|tls| tls.local_queue.pop_front()) }
             .map(|runnable| runnable.run())
             .is_some()
     }
@@ -763,13 +770,11 @@ impl Runner<'_> {
         let runnable = self
             .ticker
             .runnable_with(|| {
-                {
-                    // SAFETY: There are no instances where the value is accessed mutably
-                    // from multiple locations simultaneously.
-                    let local_pop = unsafe { with_local_queue(|tls| tls.local_queue.pop_back()) };
-                    if let Some(r) = local_pop {
-                        return Some(r);
-                    }
+                // SAFETY: There are no instances where the value is accessed mutably
+                // from multiple locations simultaneously.
+                let local_pop = unsafe { with_local_queue(|tls| tls.local_queue.pop_front()) };
+                if let Some(r) = local_pop {
+                    return Some(r);
                 }
 
                 // Try the local queue.
@@ -810,6 +815,13 @@ impl Runner<'_> {
                 if let Ok(r) = self.local_state.thread_locked_queue.pop() {
                     // Do not steal from this queue. If other threads steal
                     // from this current thread, the task will be moved.
+                    //
+                    // Instead, flush all queued tasks into the local queue to
+                    // minimize the effort required to scan for these tasks.
+                    //
+                    // SAFETY: This is not being used at the same time as any
+                    // access to LOCAL_QUEUE.
+                    unsafe { flush_to_local(&self.local_state.thread_locked_queue) };
                     return Some(r);
                 }
 
@@ -864,11 +876,34 @@ fn steal<T>(src: &ConcurrentQueue<T>, dest: &ConcurrentQueue<T>) {
 
         // Steal tasks.
         for _ in 0..count {
-            if let Ok(t) = src.pop() {
-                assert!(dest.push(t).is_ok());
-            } else {
-                break;
+            match src.pop() {
+                Ok(t) => assert!(dest.push(t).is_ok()),
+                Err(_) => break,
             }
+        }
+    }
+}
+
+/// Flushes all of the items from a queue into the thread local queue.
+///
+/// # Safety
+/// This must not be accessed at the same time as LOCAL_QUEUE in any way.
+unsafe fn flush_to_local(src: &ConcurrentQueue<Runnable>) {
+    let count = src.len();
+
+    if count > 0 {
+        // SAFETY: Caller assures that LOCAL_QUEUE does not have any
+        // overlapping accesses.
+        unsafe {
+            with_local_queue(|tls| {
+                // Steal tasks.
+                for _ in 0..count {
+                    match src.pop() {
+                        Ok(t) => tls.local_queue.push_front(t),
+                        Err(_) => break,
+                    }
+                }
+            })
         }
     }
 }
