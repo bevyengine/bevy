@@ -19,7 +19,7 @@ bevy_transform = { path = "../bevy_transform", version = "0.18.0-dev" }
 
 # other
 # TODO: Remove `coreaudio-sys` dep below when updating `cpal`.
-rodio = { version = "0.20", default-features = false }
+rodio = { version = "0.21", default-features = false }
 tracing = { version = "0.1", default-features = false, features = ["std"] }
 
 [target.'cfg(target_os = "android")'.dependencies]
@@ -32,7 +32,7 @@ coreaudio-sys = { version = "0.2.17", default-features = false }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 # TODO: Assuming all wasm builds are for the browser. Require `no_std` support to break assumption.
-rodio = { version = "0.20", default-features = false, features = [
+rodio = { version = "0.21", default-features = false, features = [
   "wasm-bindgen",
 ] }
 bevy_app = { path = "../bevy_app", version = "0.18.0-dev", default-features = false, features = [
