@@ -18,17 +18,11 @@ bevy_reflect = { path = "../bevy_reflect", version = "0.18.0-dev" }
 bevy_transform = { path = "../bevy_transform", version = "0.18.0-dev" }
 
 # other
-# TODO: Remove `coreaudio-sys` dep below when updating `cpal`.
 rodio = { version = "0.21", default-features = false }
 tracing = { version = "0.1", default-features = false, features = ["std"] }
 
 [target.'cfg(target_os = "android")'.dependencies]
 cpal = { version = "0.16", optional = true }
-
-[target.'cfg(target_vendor = "apple")'.dependencies]
-# NOTE: Explicitly depend on this patch version to fix:
-# https://github.com/bevyengine/bevy/issues/18893
-coreaudio-sys = { version = "0.2.17", default-features = false }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 # TODO: Assuming all wasm builds are for the browser. Require `no_std` support to break assumption.
