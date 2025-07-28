@@ -761,10 +761,10 @@ You need to install the correct rust targets:
 
 - `aarch64-apple-ios`: iOS devices
 - `x86_64-apple-ios`: iOS simulator on x86 processors
-- `aarch64-apple-ios-sim`: iOS simulator on Apple processors
+- `arm64-apple-ios-simulator`: iOS simulator on Apple processors
 
 ```sh
-rustup target add aarch64-apple-ios x86_64-apple-ios aarch64-apple-ios-sim
+rustup target add aarch64-apple-ios x86_64-apple-ios arm64-apple-ios-simulator
 ```
 
 #### Build & Run
