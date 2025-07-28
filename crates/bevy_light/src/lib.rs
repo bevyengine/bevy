@@ -28,6 +28,10 @@ use cluster::{
     GlobalVisibleClusterableObjects, VisibleClusterableObjects,
 };
 mod ambient_light;
+#[expect(
+    deprecated,
+    reason = "AmbientLight has been replaced by EnvironmentMapLight"
+)]
 pub use ambient_light::AmbientLight;
 mod probe;
 pub use probe::{EnvironmentMapLight, IrradianceVolume, LightProbe};
