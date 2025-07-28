@@ -80,7 +80,7 @@ jobs:
             target: aarch64-linux-android
           - os: macos-latest
             toolchain: stable
-            target: aarch64-apple-ios-sim
+            target: arm64-apple-ios-simulator
 
     steps:
       - name: Get Date
