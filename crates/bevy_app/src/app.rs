@@ -504,6 +504,11 @@ impl App {
     }
 
     /// Returns `true` if the [`Plugin`] has already been added.
+    ///
+    /// # Note
+    ///
+    /// This method simply checks the plugin by [`core::any::type_name`], so it not always
+    /// returns a correct result.
     pub fn is_plugin_added<T>(&self) -> bool
     where
         T: Plugin,
