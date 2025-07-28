@@ -179,6 +179,18 @@ impl Schedules {
         self
     }
 
+    /// Removes all systems in a [`SystemSet`]. This will cause the schedule to be rebuilt when
+    /// the schedule is run again. A [`ScheduleError`] is returned if the schedule needs to be
+    /// [`Schedule::initialize`]'d or the `set` is not found.
+    pub fn remove_systems_in_set<M>(
+        &mut self,
+        schedule: impl ScheduleLabel,
+        set: impl IntoSystemSet<M>,
+        world: &mut World,
+    ) -> Result<usize, ScheduleError> {
+        self.entry(schedule).remove_systems_in_set(set, world)
+    }
+
     /// Configures a collection of system sets in the provided schedule, adding any sets that do not exist.
     #[track_caller]
     pub fn configure_sets<M>(
