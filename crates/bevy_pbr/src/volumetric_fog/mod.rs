@@ -46,11 +46,11 @@ use bevy_render::{
     render_graph::{RenderGraphExt, ViewNodeRunner},
     render_resource::SpecializedRenderPipelines,
     sync_component::SyncComponentPlugin,
-    ExtractSchedule, Render, RenderApp, RenderSystems,
+    ExtractSchedule, Render, RenderApp, RenderStartup, RenderSystems,
 };
 use render::{VolumetricFogNode, VolumetricFogPipeline, VolumetricFogUniformBuffer};
 
-use crate::graph::NodePbr;
+use crate::{graph::NodePbr, volumetric_fog::render::init_volumetric_fog_pipeline};
 
 pub mod render;
 
@@ -84,6 +84,7 @@ impl Plugin for VolumetricFogPlugin {
             })
             .init_resource::<SpecializedRenderPipelines<VolumetricFogPipeline>>()
             .init_resource::<VolumetricFogUniformBuffer>()
+            .add_systems(RenderStartup, init_volumetric_fog_pipeline)
             .add_systems(ExtractSchedule, render::extract_volumetric_fog)
             .add_systems(
                 Render,
@@ -94,16 +95,7 @@ impl Plugin for VolumetricFogPlugin {
                         .in_set(RenderSystems::Prepare)
                         .before(prepare_core_3d_depth_textures),
                 ),
-            );
-    }
-
-    fn finish(&self, app: &mut App) {
-        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
-            return;
-        };
-
-        render_app
-            .init_resource::<VolumetricFogPipeline>()
+            )
             .add_render_graph_node::<ViewNodeRunner<VolumetricFogNode>>(
                 Core3d,
                 NodePbr::VolumetricFog,

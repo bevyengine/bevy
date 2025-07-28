@@ -127,7 +127,7 @@
 //!
 //! [Blender]: http://blender.org/
 //!
-//! [baking tool]: https://docs.blender.org/manual/en/latest/render/eevee/render_settings/indirect_lighting.html
+//! [baking tool]: https://docs.blender.org/manual/en/latest/render/eevee/light_probes/volume.html
 //!
 //! [`bevy-baked-gi`]: https://github.com/pcwalton/bevy-baked-gi
 //!

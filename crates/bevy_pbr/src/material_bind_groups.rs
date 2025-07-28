@@ -8,7 +8,7 @@ use crate::Material;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     resource::Resource,
-    world::{FromWorld, World},
+    system::{Commands, Res},
 };
 use bevy_platform::collections::{HashMap, HashSet};
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
@@ -1742,28 +1742,25 @@ impl MaterialBindlessSlab {
     }
 }
 
-impl FromWorld for FallbackBindlessResources {
-    fn from_world(world: &mut World) -> Self {
-        let render_device = world.resource::<RenderDevice>();
-        FallbackBindlessResources {
-            filtering_sampler: render_device.create_sampler(&SamplerDescriptor {
-                label: Some("fallback filtering sampler"),
-                ..default()
-            }),
-            non_filtering_sampler: render_device.create_sampler(&SamplerDescriptor {
-                label: Some("fallback non-filtering sampler"),
-                mag_filter: FilterMode::Nearest,
-                min_filter: FilterMode::Nearest,
-                mipmap_filter: FilterMode::Nearest,
-                ..default()
-            }),
-            comparison_sampler: render_device.create_sampler(&SamplerDescriptor {
-                label: Some("fallback comparison sampler"),
-                compare: Some(CompareFunction::Always),
-                ..default()
-            }),
-        }
-    }
+pub fn init_fallback_bindless_resources(mut commands: Commands, render_device: Res<RenderDevice>) {
+    commands.insert_resource(FallbackBindlessResources {
+        filtering_sampler: render_device.create_sampler(&SamplerDescriptor {
+            label: Some("fallback filtering sampler"),
+            ..default()
+        }),
+        non_filtering_sampler: render_device.create_sampler(&SamplerDescriptor {
+            label: Some("fallback non-filtering sampler"),
+            mag_filter: FilterMode::Nearest,
+            min_filter: FilterMode::Nearest,
+            mipmap_filter: FilterMode::Nearest,
+            ..default()
+        }),
+        comparison_sampler: render_device.create_sampler(&SamplerDescriptor {
+            label: Some("fallback comparison sampler"),
+            compare: Some(CompareFunction::Always),
+            ..default()
+        }),
+    });
 }
 
 impl MaterialBindGroupNonBindlessAllocator {
