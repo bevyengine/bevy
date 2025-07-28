@@ -594,7 +594,7 @@ impl<I: SystemInput, O> core::fmt::Debug for RegisteredSystemError<I, O> {
             Self::Skipped(arg0) => f.debug_tuple("Skipped").field(arg0).finish(),
             Self::Failed(arg0) => f.debug_tuple("Failed").field(arg0).finish(),
             Self::IncorrectType(arg0, arg1) => f
-                .debug_tuple("MaybeIncorrectType")
+                .debug_tuple("IncorrectType")
                 .field(arg0)
                 .field(arg1)
                 .finish(),
