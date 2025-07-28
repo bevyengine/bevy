@@ -740,7 +740,7 @@ Keep in mind that if you are using `bevy_audio` the minimum supported Android AP
 To use `NativeActivity`, you need to edit it in `cargo.toml` manually like this:
 
 ```toml
-bevy = { version = "0.14", default-features = false, features = ["android-native-activity", ...] }
+bevy = { version = "0.16", default-features = false, features = ["android-native-activity", ...] }
 ```
 
 Then build it as the [Build & Run](#build--run) section stated above.
