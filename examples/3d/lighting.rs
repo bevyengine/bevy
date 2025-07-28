@@ -288,7 +288,7 @@ fn update_exposure(
 
 fn toggle_ambient_light(
     key_input: Res<ButtonInput<KeyCode>>,
-    mut environment_map_lights: Query<&mut EnvironmentMapLight>,
+    environment_map_lights: Query<&mut EnvironmentMapLight>,
     text: Single<Entity, With<Text>>,
     mut writer: TextUiWriter,
 ) {
