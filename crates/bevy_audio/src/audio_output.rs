@@ -6,42 +6,25 @@ use bevy_asset::{Asset, Assets};
 use bevy_ecs::{prelude::*, system::SystemParam};
 use bevy_math::Vec3;
 use bevy_transform::prelude::GlobalTransform;
-use rodio::{OutputStream, OutputStreamHandle, Sink, Source, SpatialSink};
+use rodio::{OutputStream, OutputStreamBuilder, Sink, Source, SpatialSink};
 use tracing::warn;
 
 use crate::{AudioSink, AudioSinkPlayback};
 
 /// Used internally to play audio on the current "audio device"
-///
-/// ## Note
-///
-/// Initializing this resource will leak [`OutputStream`]
-/// using [`std::mem::forget`].
-/// This is done to avoid storing this in the struct (and making this `!Send`)
-/// while preventing it from dropping (to avoid halting of audio).
-///
-/// This is fine when initializing this once (as is default when adding this plugin),
-/// since the memory cost will be the same.
-/// However, repeatedly inserting this resource into the app will **leak more memory**.
 #[derive(Resource)]
 pub(crate) struct AudioOutput {
-    stream_handle: Option<OutputStreamHandle>,
+    stream: Option<OutputStream>,
 }
 
 impl Default for AudioOutput {
     fn default() -> Self {
-        if let Ok((stream, stream_handle)) = OutputStream::try_default() {
-            // We leak `OutputStream` to prevent the audio from stopping.
-            core::mem::forget(stream);
-            Self {
-                stream_handle: Some(stream_handle),
-            }
-        } else {
-            warn!("No audio device found.");
-            Self {
-                stream_handle: None,
-            }
-        }
+        let stream = OutputStreamBuilder::open_default_stream()
+            .inspect_err(|_err| {
+                warn!("No audio device found.");
+            })
+            .ok();
+        Self { stream }
     }
 }
 
@@ -111,12 +94,13 @@ pub(crate) fn play_queued_audio_system<Source: Asset + Decodable>(
     default_spatial_scale: Res<DefaultSpatialScale>,
     mut commands: Commands,
 ) where
-    f32: rodio::cpal::FromSample<Source::DecoderItem>,
+    f32: rodio::cpal::FromSample<rodio::Sample>,
 {
-    let Some(stream_handle) = audio_output.stream_handle.as_ref() else {
+    let Some(stream) = audio_output.stream.as_ref() else {
         // audio output unavailable; cannot play sound
         return;
     };
+    let mixer = stream.mixer();
 
     for (entity, source_handle, settings, maybe_emitter_transform) in &query_nonplaying {
         let Some(audio_source) = audio_sources.get(&source_handle.0) else {
@@ -144,18 +128,12 @@ pub(crate) fn play_queued_audio_system<Source: Asset + Decodable>(
                 Vec3::ZERO.into()
             };
 
-            let sink = match SpatialSink::try_new(
-                stream_handle,
+            let sink = SpatialSink::connect_new(
+                mixer,
                 emitter_translation,
                 (left_ear * scale).into(),
                 (right_ear * scale).into(),
-            ) {
-                Ok(sink) => sink,
-                Err(err) => {
-                    warn!("Error creating spatial sink: {err:?}");
-                    continue;
-                }
-            };
+            );
 
             let decoder = audio_source.decoder();
 
@@ -226,14 +204,7 @@ pub(crate) fn play_queued_audio_system<Source: Asset + Decodable>(
                     .insert((sink, PlaybackRemoveMarker)),
             };
         } else {
-            let sink = match Sink::try_new(stream_handle) {
-                Ok(sink) => sink,
-                Err(err) => {
-                    warn!("Error creating sink: {err:?}");
-                    continue;
-                }
-            };
-
+            let sink = Sink::connect_new(mixer);
             let decoder = audio_source.decoder();
 
             match settings.mode {
@@ -359,7 +330,7 @@ pub(crate) fn cleanup_finished_audio<T: Decodable + Asset>(
 
 /// Run Condition to only play audio if the audio output is available
 pub(crate) fn audio_output_available(audio_output: Res<AudioOutput>) -> bool {
-    audio_output.stream_handle.is_some()
+    audio_output.stream.is_some()
 }
 
 /// Updates spatial audio sinks when emitter positions change.

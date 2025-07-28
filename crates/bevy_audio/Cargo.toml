@@ -38,7 +38,6 @@ bevy_reflect = { path = "../bevy_reflect", version = "0.18.0-dev", default-featu
 ] }
 
 [features]
-default = ["mp3", "flac", "wav", "vorbis"]
 mp3 = ["rodio/minimp3"]
 flac = ["rodio/claxon"]
 wav = ["rodio/hound"]
