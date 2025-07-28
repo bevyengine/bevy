@@ -513,7 +513,8 @@ impl PluginGroupBuilder {
     ///
     /// # Panics
     ///
-    /// Panics if one of the plugin in the group was already added to the application.
+    /// Panics if one of the plugin in the group was already added to the application while
+    /// `do_skip_duplicate` set to `false`.
     #[track_caller]
     pub fn finish(mut self, app: &mut App, do_skip_duplicate: bool) {
         for ty in &self.order {
