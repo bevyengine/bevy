@@ -23,7 +23,6 @@ use bevy_asset::embedded_asset;
 use bevy_ecs::query::With;
 use bevy_text::{TextColor, TextFont};
 use bevy_ui_render::UiMaterialPlugin;
-use bevy_winit::cursor::CursorIcon;
 
 use crate::{
     alpha_pattern::{AlphaPatternMaterial, AlphaPatternResource},
