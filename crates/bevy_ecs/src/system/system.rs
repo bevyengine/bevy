@@ -494,16 +494,19 @@ mod tests {
         assert_eq!(*world.resource::<Counter>(), Counter(2));
     }
 
+    #[derive(Component)]
+    struct A;
+
     fn spawn_entity(mut commands: Commands) {
-        commands.spawn_empty();
+        commands.spawn(A);
     }
 
     #[test]
     fn command_processing() {
         let mut world = World::new();
-        assert_eq!(world.entities.len(), 0);
+        assert_eq!(world.query::<&A>().query(&world).count(), 0);
         world.run_system_once(spawn_entity).unwrap();
-        assert_eq!(world.entities.len(), 1);
+        assert_eq!(world.query::<&A>().query(&world).count(), 1);
     }
 
     #[test]

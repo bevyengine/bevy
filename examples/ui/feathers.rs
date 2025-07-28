@@ -7,8 +7,8 @@ use bevy::{
     },
     feathers::{
         controls::{
-            button, checkbox, radio, slider, toggle_switch, ButtonProps, ButtonVariant,
-            CheckboxProps, SliderProps, ToggleSwitchProps,
+            button, checkbox, color_swatch, radio, slider, toggle_switch, ButtonProps,
+            ButtonVariant, CheckboxProps, SliderProps, ToggleSwitchProps,
         },
         dark_theme::create_dark_theme,
         rounded_corners::RoundedCorners,
@@ -276,6 +276,7 @@ fn demo_root(commands: &mut Commands) -> impl Bundle {
                     },
                     (SliderStep(10.), SliderPrecision(2)),
                 ),
+                color_swatch(()),
             ]
         ),],
     )
