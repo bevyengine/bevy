@@ -555,7 +555,7 @@ impl App {
     /// [`PluginGroup`]s. See [`Plugins`] for more details.
     ///
     /// Also see [`App::add_plugins_if_new`]
-    /// 
+    ///
     /// ## Examples
     /// ```
     /// # use bevy_app::{prelude::*, PluginGroupBuilder, NoopPluginGroup as MinimalPlugins};
@@ -592,7 +592,7 @@ impl App {
     }
 
     /// Installs a [`Plugin`] collection and skips the duplicate plugins.
-    /// 
+    ///
     /// Also see See [`App::add_plugins`]
     ///
     /// ## Examples
@@ -618,7 +618,7 @@ impl App {
     ///     // This will work and result in plugins A, B, and C being added.
     ///     .add_plugins_if_new((B, C));
     /// ```
-    /// 
+    ///
     /// # Note
     /// If a plugin overrides [Plugin::is_unique] to return false, it can be
     /// added multiple times even if it was already added. This behavior matches [App::add_plugins].
