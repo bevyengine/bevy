@@ -620,8 +620,8 @@ impl App {
     /// ```
     ///
     /// # Note
-    /// If a plugin overrides [Plugin::is_unique] to return false, it can be
-    /// added multiple times even if it was already added. This behavior matches [App::add_plugins].
+    /// If a plugin overrides [`Plugin::is_unique`] to return false, it can be
+    /// added multiple times even if it was already added. This behavior matches [`App::add_plugins`].
     #[track_caller]
     pub fn add_plugins_if_new<M>(&mut self, plugins: impl Plugins<M>) -> &mut Self {
         if matches!(
