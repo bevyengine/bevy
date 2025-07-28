@@ -3488,8 +3488,19 @@ path = "examples/ui/text_input.rs"
 doc-scrape-examples = true
 
 [package.metadata.example.ui_text_input]
-name = "text_input"
+name = "Text Input"
 description = "Example demonstrating multiple text inputs"
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
+name = "password_input"
+path = "examples/ui/password_input.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.password_input]
+name = "Password Input"
+description = "Example demonstrating a password input field"
 category = "UI (User Interface)"
 wasm = true
 

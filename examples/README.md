@@ -572,6 +572,7 @@ Example | Description
 [Text](../examples/ui/text.rs) | Illustrates creating and updating text
 [Single Line Text Input](ui/line_input_node.rs) | An example demonstrating a single line text input
 [Text Input](ui/text_input.rs) | An example demonstrating text inputs
+[Password Input](ui/password_input.rs) | An example demonstrating a password input field
 [Text Box](../examples/ui/text_box.rs) | An example demonstrating a text input
 [Text Background Colors](../examples/ui/text_background_colors.rs) | Demonstrates text background colors
 [Text Debug](../examples/ui/text_debug.rs) | An example for debugging text layout
