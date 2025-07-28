@@ -28,7 +28,12 @@ pub struct RadioButtonText;
 pub const BUTTON_BORDER: UiRect = UiRect::all(Val::Px(1.0));
 
 /// The color of the border that surrounds buttons.
-pub const BUTTON_BORDER_COLOR: BorderColor = BorderColor::all(Color::WHITE);
+pub const BUTTON_BORDER_COLOR: BorderColor = BorderColor {
+    left: Color::WHITE,
+    right: Color::WHITE,
+    top: Color::WHITE,
+    bottom: Color::WHITE,
+};
 
 /// The amount of rounding to apply to button corners.
 pub const BUTTON_BORDER_RADIUS_SIZE: Val = Val::Px(6.0);
