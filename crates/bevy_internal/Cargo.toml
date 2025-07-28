@@ -96,6 +96,7 @@ symphonia-aac = ["bevy_audio/symphonia-aac"]
 symphonia-all = ["bevy_audio/symphonia-all"]
 symphonia-flac = ["bevy_audio/symphonia-flac"]
 symphonia-isomp4 = ["bevy_audio/symphonia-isomp4"]
+symphonia-mp3 = ["bevy_audio/symphonia-mp3"]
 symphonia-vorbis = ["bevy_audio/symphonia-vorbis"]
 symphonia-wav = ["bevy_audio/symphonia-wav"]
 
