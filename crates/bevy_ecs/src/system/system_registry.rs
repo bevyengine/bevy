@@ -41,17 +41,27 @@ impl<I, O> RegisteredSystem<I, O> {
 #[derive(Debug, Clone, Copy)]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
 #[cfg_attr(feature = "bevy_reflect", reflect(Debug, Default, Clone))]
-struct TypeIdAndName(TypeId, &'static str);
+struct TypeIdAndName {
+    type_id: TypeId,
+
+    name: &'static str,
+}
 
 impl TypeIdAndName {
     fn new<T: 'static>() -> Self {
-        Self(TypeId::of::<T>(), core::any::type_name::<T>())
+        Self {
+            type_id: TypeId::of::<T>(),
+            name: core::any::type_name::<T>(),
+        }
     }
 }
 
 impl Default for TypeIdAndName {
     fn default() -> Self {
-        Self(TypeId::of::<()>(), core::any::type_name::<()>())
+        Self {
+            type_id: TypeId::of::<()>(),
+            name: core::any::type_name::<()>(),
+        }
     }
 }
 
@@ -378,8 +388,8 @@ impl World {
             return Err(RegisteredSystemError::SystemNotCached);
         };
 
-        if system_id_marker.input_type_id.0 != TypeId::of::<I>()
-            || system_id_marker.output_type_id.0 != TypeId::of::<O>()
+        if system_id_marker.input_type_id.type_id != TypeId::of::<I>()
+            || system_id_marker.output_type_id.type_id != TypeId::of::<O>()
         {
             return Err(RegisteredSystemError::IncorrectType(id, *system_id_marker));
         }
@@ -552,7 +562,7 @@ pub enum RegisteredSystemError<I: SystemInput = (), O = ()> {
     #[error("System returned error: {0}")]
     Failed(BevyError),
     /// [`SystemId`] had different input and/or output types than [`SystemIdMarker`]
-    #[error("Could not get system from `{}`, entity was `SystemId<{}, {}>`", ShortName::of::<SystemId<I, O>>(), ShortName(.1.input_type_id.1), ShortName(.1.output_type_id.1))]
+    #[error("Could not get system from `{}`, entity was `SystemId<{}, {}>`", ShortName::of::<SystemId<I, O>>(), ShortName(.1.input_type_id.name), ShortName(.1.output_type_id.name))]
     IncorrectType(SystemId<I, O>, SystemIdMarker),
 }
 
