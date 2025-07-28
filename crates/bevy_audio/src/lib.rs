@@ -108,7 +108,7 @@ impl AddAudioSource for App {
     fn add_audio_source<T>(&mut self) -> &mut Self
     where
         T: Decodable + Asset,
-        f32: rodio::cpal::FromSample<T::DecoderItem>,
+        f32: rodio::cpal::FromSample<Sample>,
     {
         self.init_asset::<T>().add_systems(
             PostUpdate,

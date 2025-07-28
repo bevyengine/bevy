@@ -54,7 +54,7 @@ impl Iterator for SineDecoder {
 // `Source` is what allows the audio source to be played by bevy.
 // This trait provides information on the audio.
 impl Source for SineDecoder {
-    fn current_frame_len(&self) -> Option<usize> {
+    fn current_span_len(&self) -> Option<usize> {
         None
     }
 
@@ -73,8 +73,6 @@ impl Source for SineDecoder {
 
 // Finally `Decodable` can be implemented for our `SineAudio`.
 impl Decodable for SineAudio {
-    type DecoderItem = <SineDecoder as Iterator>::Item;
-
     type Decoder = SineDecoder;
 
     fn decoder(&self) -> Self::Decoder {

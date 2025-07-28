@@ -31,9 +31,10 @@ impl AsRef<[u8]> for AudioSource {
 /// This asset loader supports different audio formats based on the enable Bevy features.
 /// The feature `bevy/vorbis` enables loading from `.ogg` files and is enabled by default.
 /// Other file endings can be loaded from with additional features:
-/// `.mp3` with `bevy/mp3`
-/// `.flac` with `bevy/flac`
-/// `.wav` with `bevy/wav`
+/// `.mp3` with `bevy/mp3` or `bevy/symphonia-mp3`
+/// `.flac` with `bevy/flac` or `bevy/symphonia-flac`
+/// `.wav` with `bevy/wav` or `bevy/symphonia-wav`
+/// The `bevy/symphonia-all` feature will enable all file endings.
 #[derive(Default, TypePath)]
 pub struct AudioLoader;
 
@@ -57,17 +58,33 @@ impl AssetLoader for AudioLoader {
 
     fn extensions(&self) -> &[&str] {
         &[
-            #[cfg(feature = "mp3")]
+            #[cfg(any(feature = "mp3", feature = "symphonia-mp3", feature = "symphonia-all"))]
             "mp3",
-            #[cfg(feature = "flac")]
+            #[cfg(any(
+                feature = "flac",
+                feature = "symphonia-flac",
+                feature = "symphonia-all"
+            ))]
             "flac",
-            #[cfg(feature = "wav")]
+            #[cfg(any(feature = "wav", feature = "symphonia-wav", feature = "symphonia-all"))]
             "wav",
-            #[cfg(feature = "vorbis")]
+            #[cfg(any(
+                feature = "vorbis",
+                feature = "symphonia-vorbis",
+                feature = "symphonia-all"
+            ))]
             "oga",
-            #[cfg(feature = "vorbis")]
+            #[cfg(any(
+                feature = "vorbis",
+                feature = "symphonia-vorbis",
+                feature = "symphonia-all"
+            ))]
             "ogg",
-            #[cfg(feature = "vorbis")]
+            #[cfg(any(
+                feature = "vorbis",
+                feature = "symphonia-vorbis",
+                feature = "symphonia-all"
+            ))]
             "spx",
         ]
     }
@@ -80,22 +97,16 @@ impl AssetLoader for AudioLoader {
 /// This trait is implemented for [`AudioSource`].
 /// Check the example [`decodable`](https://github.com/bevyengine/bevy/blob/latest/examples/audio/decodable.rs) for how to implement this trait on a custom type.
 pub trait Decodable: Send + Sync + 'static {
-    /// The type of the audio samples.
-    /// Usually a [`u16`], [`i16`] or [`f32`], as those implement [`rodio::Sample`].
-    /// Other types can implement the [`rodio::Sample`] trait as well.
-    type DecoderItem: rodio::Sample + Send + Sync;
-
     /// The type of the iterator of the audio samples,
-    /// which iterates over samples of type [`Self::DecoderItem`].
+    /// which iterates over samples of type [`rodio::Sample`].
     /// Must be a [`rodio::Source`] so that it can provide information on the audio it is iterating over.
-    type Decoder: rodio::Source + Send + Iterator<Item = Self::DecoderItem>;
+    type Decoder: rodio::Source + Send + Iterator<Item = rodio::Sample>;
 
     /// Build and return a [`Self::Decoder`] of the implementing type
     fn decoder(&self) -> Self::Decoder;
 }
 
 impl Decodable for AudioSource {
-    type DecoderItem = <rodio::Decoder<Cursor<AudioSource>> as Iterator>::Item;
     type Decoder = rodio::Decoder<Cursor<AudioSource>>;
 
     fn decoder(&self) -> Self::Decoder {
@@ -115,5 +126,5 @@ pub trait AddAudioSource {
     fn add_audio_source<T>(&mut self) -> &mut Self
     where
         T: Decodable + Asset,
-        f32: rodio::cpal::FromSample<T::DecoderItem>;
+        f32: rodio::cpal::FromSample<rodio::Sample>;
 }
