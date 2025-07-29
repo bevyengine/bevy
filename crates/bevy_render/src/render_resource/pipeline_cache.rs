@@ -380,38 +380,8 @@ impl ShaderCache {
                     }
                 };
 
-                let module_descriptor = ShaderModuleDescriptor {
-                    label: None,
-                    source: shader_source,
-                };
-
-                render_device
-                    .wgpu_device()
-                    .push_error_scope(wgpu::ErrorFilter::Validation);
-
-                let shader_module = WgpuWrapper::new(match shader.validate_shader {
-                    ValidateShader::Enabled => {
-                        render_device.create_and_validate_shader_module(module_descriptor)
-                    }
-                    // SAFETY: we are interfacing with shader code, which may contain undefined behavior,
-                    // such as indexing out of bounds.
-                    // The checks required are prohibitively expensive and a poor default for game engines.
-                    ValidateShader::Disabled => unsafe {
-                        render_device.create_shader_module(module_descriptor)
-                    },
-                });
-
-                let error = render_device.wgpu_device().pop_error_scope();
-
-                // `now_or_never` will return Some if the future is ready and None otherwise.
-                // On native platforms, wgpu will yield the error immediately while on wasm it may take longer since the browser APIs are asynchronous.
-                // So to keep the complexity of the ShaderCache low, we will only catch this error early on native platforms,
-                // and on wasm the error will be handled by wgpu and crash the application.
-                if let Some(Some(wgpu::Error::Validation { description, .. })) =
-                    bevy_tasks::futures::now_or_never(error)
-                {
-                    return Err(PipelineCacheError::CreateShaderModule(description));
-                }
+                let shader_module =
+                    load_module(render_device, shader_source, &shader.validate_shader)?;
 
                 entry.insert(Arc::new(shader_module))
             }
@@ -554,6 +524,47 @@ impl LayoutCache {
             })
             .clone()
     }
+}
+
+fn load_module(
+    render_device: &RenderDevice,
+    shader_source: ShaderSource,
+    validate_shader: &ValidateShader,
+) -> Result<WgpuWrapper<ShaderModule>, PipelineCacheError> {
+    let module_descriptor = ShaderModuleDescriptor {
+        label: None,
+        source: shader_source,
+    };
+
+    render_device
+        .wgpu_device()
+        .push_error_scope(wgpu::ErrorFilter::Validation);
+
+    let shader_module = WgpuWrapper::new(match validate_shader {
+        ValidateShader::Enabled => {
+            render_device.create_and_validate_shader_module(module_descriptor)
+        }
+        // SAFETY: we are interfacing with shader code, which may contain undefined behavior,
+        // such as indexing out of bounds.
+        // The checks required are prohibitively expensive and a poor default for game engines.
+        ValidateShader::Disabled => unsafe {
+            render_device.create_shader_module(module_descriptor)
+        },
+    });
+
+    let error = render_device.wgpu_device().pop_error_scope();
+
+    // `now_or_never` will return Some if the future is ready and None otherwise.
+    // On native platforms, wgpu will yield the error immediately while on wasm it may take longer since the browser APIs are asynchronous.
+    // So to keep the complexity of the ShaderCache low, we will only catch this error early on native platforms,
+    // and on wasm the error will be handled by wgpu and crash the application.
+    if let Some(Some(wgpu::Error::Validation { description, .. })) =
+        bevy_tasks::futures::now_or_never(error)
+    {
+        return Err(PipelineCacheError::CreateShaderModule(description));
+    }
+
+    Ok(shader_module)
 }
 
 /// Cache for render and compute pipelines.
