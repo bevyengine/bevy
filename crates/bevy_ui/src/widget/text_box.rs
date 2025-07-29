@@ -50,6 +50,8 @@ use bevy_picking::events::Pointer;
 use bevy_picking::events::Press;
 use bevy_picking::hover::HoverMap;
 use bevy_picking::pointer::PointerButton;
+use bevy_text::Justify;
+use bevy_text::LineBreak;
 use bevy_text::Motion;
 use bevy_text::TextFont;
 use bevy_text::TextInputAction;
@@ -146,7 +148,6 @@ impl Default for TextUnderCursorColor {
     TextInputMultiClickCounter,
     TextInputBuffer,
     TextInputTarget,
-    TextLayout,
     TextInputAttributes,
     TextInputActions,
     TextLayoutInfo,
@@ -162,7 +163,14 @@ impl Default for TextUnderCursorColor {
     on_add = on_add_text_input_node,
     on_remove = on_remove_input_focus,
 )]
-pub struct TextBox();
+pub struct TextBox {
+    /// maximum number of chars
+    pub max_chars: Option<usize>,
+    /// justification
+    pub justify: Justify,
+    /// line break
+    pub line_break: LineBreak,
+}
 
 fn on_add_text_input_node(mut world: DeferredWorld, context: HookContext) {
     for mut observer in [
