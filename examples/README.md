@@ -567,7 +567,7 @@ Example | Description
 [Render UI to Texture](../examples/ui/render_ui_to_texture.rs) | An example of rendering UI as a part of a 3D world
 [Scroll](../examples/ui/scroll.rs) | Demonstrates scrolling UI containers
 [Scrollbars](../examples/ui/scrollbars.rs) | Demonstrates use of core scrollbar in Bevy UI
-[Single Line Text Input](../examples/ui/line_input_node.rs) | Example demonstrating a single line text input
+[Single Line Text Input](../examples/ui/text_field.rs) | Example demonstrating a single line text input
 [Size Constraints](../examples/ui/size_constraints.rs) | Demonstrates how the to use the size constraints to control the size of a UI node.
 [Stacked Gradients](../examples/ui/stacked_gradients.rs) | An example demonstrating stacked gradients
 [Tab Navigation](../examples/ui/tab_navigation.rs) | Demonstration of Tab Navigation between UI elements

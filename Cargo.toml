@@ -3505,11 +3505,11 @@ category = "UI (User Interface)"
 wasm = true
 
 [[example]]
-name = "line_input_node"
-path = "examples/ui/line_input_node.rs"
+name = "text_field"
+path = "examples/ui/text_field.rs"
 doc-scrape-examples = true
 
-[package.metadata.example.line_input_node]
+[package.metadata.example.text_field]
 name = "Single Line Text Input"
 description = "Example demonstrating a single line text input"
 category = "UI (User Interface)"
