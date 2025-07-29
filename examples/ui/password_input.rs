@@ -2,7 +2,6 @@
 
 use bevy::color::palettes::css::NAVY;
 use bevy::color::palettes::css::YELLOW;
-use bevy::color::palettes::tailwind::GRAY_600;
 use bevy::core_widgets::Activate;
 use bevy::core_widgets::Callback;
 use bevy::core_widgets::CoreButton;
@@ -13,10 +12,8 @@ use bevy::input_focus::InputDispatchPlugin;
 use bevy::picking::hover::Hovered;
 use bevy::prelude::*;
 use bevy::text::Prompt;
-use bevy::text::PromptColor;
 use bevy::text::TextInputPasswordMask;
 use bevy::text::TextInputValue;
-use bevy::ui::widget::TextInput;
 use bevy_ecs::relationship::RelatedSpawner;
 
 const FONT_PATH: &'static str = "fonts/FiraSans-Bold.ttf";
@@ -85,12 +82,11 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                             BorderColor::all(Color::WHITE),
                             BackgroundColor(Color::BLACK),
                             children![(
-                                TextInput {
+                                InputField {
                                     justify: Justify::Left,
                                 },
                                 TextFont { font, ..default() },
                                 Prompt::new("enter a password"),
-                                PromptColor::new(GRAY_600),
                                 TextColor(Color::WHITE),
                                 TabIndex(0),
                                 TextInputValue::default(),

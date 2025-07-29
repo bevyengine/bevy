@@ -1,5 +1,7 @@
 #![allow(missing_docs)]
 
+use std::time::Duration;
+
 use crate::ComputedNode;
 use crate::Node;
 use crate::UiGlobalTransform;
@@ -7,7 +9,11 @@ use crate::UiScale;
 use crate::UiSystems;
 use bevy_app::Plugin;
 use bevy_app::PostUpdate;
+use bevy_color::palettes::tailwind::BLUE_900;
+use bevy_color::palettes::tailwind::GRAY_300;
 use bevy_color::palettes::tailwind::GRAY_400;
+use bevy_color::palettes::tailwind::GRAY_950;
+use bevy_color::palettes::tailwind::SKY_300;
 use bevy_color::Color;
 use bevy_ecs::change_detection::DetectChangesMut;
 use bevy_ecs::component::Component;
@@ -34,6 +40,7 @@ use bevy_input_focus::FocusedInput;
 use bevy_input_focus::InputFocus;
 use bevy_math::IVec2;
 use bevy_math::Rect;
+use bevy_math::Vec2;
 use bevy_picking::events::Click;
 use bevy_picking::events::Drag;
 use bevy_picking::events::Move;
@@ -43,7 +50,6 @@ use bevy_picking::hover::HoverMap;
 use bevy_picking::pointer::PointerButton;
 use bevy_text::Motion;
 use bevy_text::SpaceAdvance;
-use bevy_text::TextColor;
 use bevy_text::TextFont;
 use bevy_text::TextInputAction;
 use bevy_text::TextInputActions;
@@ -55,7 +61,6 @@ use bevy_text::TextInputUndoHistory;
 use bevy_text::TextInputVisibleLines;
 use bevy_text::TextLayout;
 use bevy_text::TextLayoutInfo;
-use bevy_text::TextSelectionBlockColor;
 use bevy_time::Time;
 
 pub struct TextBoxPlugin;
@@ -126,19 +131,16 @@ impl Default for TextUnderCursorColor {
 #[require(
     Node,
     TextFont,
-    TextColor,
-    TextSelectionBlockColor,
+    InputStyle,
     TextInputMultiClickCounter,
     TextInputBuffer,
     TextInputTarget,
     TextLayout,
     TextInputAttributes,
     TextInputActions,
-    TextCursorStyle,
     TextLayoutInfo,
     TextCursorBlinkTimer,
     TextInputUndoHistory,
-    TextUnderCursorColor,
     SpaceAdvance,
     TextInputSubmitBehaviour {
         clear_on_submit: false,
@@ -172,21 +174,35 @@ fn on_remove_input_focus(mut world: DeferredWorld, context: HookContext) {
     }
 }
 
-#[derive(Component, Debug)]
-pub struct TextCursorStyle {
-    pub color: Color,
-    pub width: f32,
-    pub height: f32,
-    pub blink_interval: f32,
+/// Visual styling for a text input widget.
+#[derive(Component, Clone)]
+pub struct InputStyle {
+    /// Text color
+    pub text_color: Color,
+    /// Color of text under an overwrite cursor
+    pub overwrite_text_color: Color,
+    /// Color of input prompt (if set)
+    pub prompt_color: Color,
+    /// Color of the cursor.
+    pub cursor_color: Color,
+    /// Size of the insert cursor relative to the space advance width and line height.
+    pub cursor_size: Vec2,
+    /// How long the cursor blinks for.
+    pub cursor_blink_interval: Duration,
+    /// Color of selection blocks
+    pub selection_color: Color,
 }
 
-impl Default for TextCursorStyle {
+impl Default for InputStyle {
     fn default() -> Self {
         Self {
-            color: GRAY_400.into(),
-            width: 0.2,
-            height: 1.,
-            blink_interval: 0.5,
+            text_color: GRAY_300.into(),
+            overwrite_text_color: GRAY_950.into(),
+            prompt_color: SKY_300.into(),
+            cursor_color: GRAY_400.into(),
+            cursor_size: Vec2::new(0.2, 1.),
+            cursor_blink_interval: Duration::from_secs_f32(0.5),
+            selection_color: BLUE_900.into(),
         }
     }
 }
@@ -202,7 +218,7 @@ pub fn update_cursor_visibility(
     input_focus: Res<InputFocus>,
     mut query: Query<(
         Entity,
-        &TextCursorStyle,
+        &InputStyle,
         &TextInputActions,
         &mut TextCursorBlinkTimer,
     )>,
@@ -213,7 +229,8 @@ pub fn update_cursor_visibility(
             .is_some_and(|focused_entity| focused_entity == entity)
         {
             Some(if actions.queue.is_empty() {
-                (timer.0.unwrap_or(0.) + time.delta_secs()).rem_euclid(style.blink_interval * 2.)
+                (timer.0.unwrap_or(0.) + time.delta_secs())
+                    .rem_euclid(style.cursor_blink_interval.as_secs_f32() * 2.)
             } else {
                 0.
             })

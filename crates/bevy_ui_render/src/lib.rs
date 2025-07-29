@@ -21,8 +21,7 @@ mod debug_overlay;
 use bevy_reflect::prelude::ReflectDefault;
 use bevy_reflect::Reflect;
 use bevy_ui::widget::{
-    GlobalTextInputState, ImageNode, TextCursorBlinkTimer, TextCursorStyle, TextShadow,
-    ViewportNode,
+    GlobalTextInputState, ImageNode, InputStyle, TextCursorBlinkTimer, TextShadow, ViewportNode,
 };
 use bevy_ui::{
     BackgroundColor, BorderColor, CalculatedClip, ComputedNode, ComputedNodeTarget, Display, Node,
@@ -70,7 +69,7 @@ use gradient::GradientPlugin;
 use bevy_platform::collections::{HashMap, HashSet};
 use bevy_text::{
     ComputedTextBlock, PositionedGlyph, PromptLayout, SpaceAdvance, TextBackgroundColor, TextColor,
-    TextInputBuffer, TextLayoutInfo, TextSelectionBlockColor,
+    TextInputBuffer, TextLayoutInfo,
 };
 use bevy_transform::components::GlobalTransform;
 use box_shadow::BoxShadowPlugin;
@@ -1017,11 +1016,8 @@ pub fn extract_text_input_nodes(
             Option<&CalculatedClip>,
             &ComputedNodeTarget,
             &TextLayoutInfo,
-            &TextColor,
-            &TextSelectionBlockColor,
-            &TextCursorStyle,
+            &InputStyle,
             &TextCursorBlinkTimer,
-            //&TextUnderCursorColor,
             &TextInputBuffer,
             &SpaceAdvance,
             Option<&PromptLayout>,
@@ -1041,17 +1037,15 @@ pub fn extract_text_input_nodes(
         inherited_visibility,
         clip,
         camera,
-        text_layout_info,
-        color,
-        block_color,
-        cursor_style,
+        layout_info,
+        input_style,
         blink_timer,
-        //_under_color,
         buffer,
         space_advance,
         maybe_prompt_layout,
     ) in &uinode_query
     {
+        println!("Text input update");
         // Skip if not visible or if size is set to zero (e.g. when a parent is set to `Display::None`)
         if !inherited_visibility.get() || uinode.is_empty() {
             continue;
@@ -1077,11 +1071,10 @@ pub fn extract_text_input_nodes(
         let (layout, color) = if buffer.is_empty() && maybe_prompt_layout.is_some() {
             (
                 maybe_prompt_layout.unwrap().layout(),
-                //maybe_prompt_color.map(|pc| pc.0).unwrap_or(color.0),
-                color.0,
+                input_style.prompt_color,
             )
         } else {
-            (text_layout_info, color.0)
+            (layout_info, input_style.text_color)
         };
 
         let transform = transform * Affine2::from_translation(-0.5 * uinode.size() - layout.scroll);
@@ -1089,7 +1082,7 @@ pub fn extract_text_input_nodes(
 
         let blink = blink_timer
             .0
-            .is_none_or(|t| cursor_style.blink_interval < t);
+            .is_none_or(|t| input_style.cursor_blink_interval.as_secs_f32() < t);
 
         for (i, rect) in layout.selection_rects.iter().enumerate() {
             let size = if (1..layout.selection_rects.len()).contains(&i) {
@@ -1108,7 +1101,7 @@ pub fn extract_text_input_nodes(
                         min: Vec2::ZERO,
                         max: size,
                     },
-                    color: LinearRgba::from(block_color.0),
+                    color: LinearRgba::from(input_style.selection_color),
                     atlas_scaling: None,
                     flip_x: false,
                     flip_y: false,
@@ -1164,18 +1157,18 @@ pub fn extract_text_input_nodes(
             continue;
         }
 
-        let Some((position, size, _affinity)) = text_layout_info.cursor else {
+        let Some((position, layout_cursor_size, _affinity)) = layout_info.cursor else {
             continue;
         };
 
         let (w, cursor_z_offset) = if modifiers.overwrite {
-            (size.x, -0.001)
+            (layout_cursor_size.x, -0.001)
         } else {
-            (cursor_style.width * **space_advance, 0.)
+            (input_style.cursor_size.x * **space_advance, 0.)
         };
 
-        let cursor_size = Vec2::new(w, cursor_style.height * size.y).ceil();
-        let cursor_position = position - 0.5 * (size.x - cursor_size.x) * Vec2::X;
+        let cursor_size = Vec2::new(w, input_style.cursor_size.y * layout_cursor_size.y).ceil();
+        let cursor_position = position - 0.5 * (layout_cursor_size.x - cursor_size.x) * Vec2::X;
 
         extracted_uinodes.uinodes.push(ExtractedUiNode {
             render_entity: commands.spawn(TemporaryRenderEntity).id(),
@@ -1185,7 +1178,7 @@ pub fn extract_text_input_nodes(
             transform: transform * Affine2::from_translation(cursor_position),
             extracted_camera_entity,
             item: ExtractedUiItem::Node {
-                color: cursor_style.color.into(),
+                color: input_style.cursor_color.into(),
                 rect: Rect {
                     min: Vec2::ZERO,
                     max: cursor_size,

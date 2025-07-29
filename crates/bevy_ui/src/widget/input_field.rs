@@ -1,13 +1,12 @@
 #![allow(missing_docs)]
 
 use crate::widget::on_focused_keyboard_input;
+use crate::widget::InputStyle;
 use crate::widget::NextFocus;
 use crate::widget::SingleLineInputField;
 use crate::widget::TextCursorBlinkTimer;
-use crate::widget::TextCursorStyle;
 use crate::widget::TextInputMultiClickCounter;
 use crate::widget::TextInputSubmitBehaviour;
-use crate::widget::TextUnderCursorColor;
 use crate::widget::MULTI_CLICK_PERIOD;
 use crate::ComputedNode;
 use crate::ComputedNodeTarget;
@@ -47,7 +46,6 @@ use bevy_picking::events::Press;
 use bevy_picking::pointer::PointerButton;
 use bevy_text::Justify;
 use bevy_text::SpaceAdvance;
-use bevy_text::TextColor;
 use bevy_text::TextFont;
 use bevy_text::TextInputAction;
 use bevy_text::TextInputActions;
@@ -57,7 +55,6 @@ use bevy_text::TextInputTarget;
 use bevy_text::TextInputUndoHistory;
 use bevy_text::TextInputVisibleLines;
 use bevy_text::TextLayoutInfo;
-use bevy_text::TextSelectionBlockColor;
 use bevy_time::Time;
 use taffy::MaybeMath;
 use taffy::MaybeResolve;
@@ -80,21 +77,18 @@ impl Plugin for TextInputPlugin {
 #[require(
     Node,
     TextFont,
-    TextColor,
-    TextSelectionBlockColor,
+    InputStyle,
     TextInputMultiClickCounter,
     TextInputBuffer,
     TextInputTarget,
     TextInputAttributes,
     TextInputActions,
-    TextCursorStyle,
     TextLayoutInfo,
     TextCursorBlinkTimer,
     TextInputUndoHistory,
     SpaceAdvance,
     SingleLineInputField,
     TextInputVisibleLines(1.),
-    TextUnderCursorColor,
     TextInputSubmitBehaviour {
         clear_on_submit: false,
         navigate_on_submit: NextFocus::Navigate(NavAction::Next),

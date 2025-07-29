@@ -2,7 +2,6 @@
 
 use bevy::color::palettes::css::NAVY;
 use bevy::color::palettes::css::YELLOW;
-use bevy::color::palettes::tailwind::GRAY_600;
 use bevy::core_widgets::Activate;
 use bevy::core_widgets::Callback;
 use bevy::core_widgets::CoreButton;
@@ -15,7 +14,6 @@ use bevy::picking::hover::Hovered;
 use bevy::prelude::*;
 use bevy::text::Clipboard;
 use bevy::text::Prompt;
-use bevy::text::PromptColor;
 use bevy::text::TextInputFilter;
 use bevy::text::TextInputPasswordMask;
 use bevy::text::TextInputSubmit;
@@ -221,8 +219,6 @@ fn spawn_row(
             justify: Justify::Left,
         },
         Prompt::new(label),
-        PromptColor::new(GRAY_600),
-        TextColor(Color::WHITE),
         TabIndex(0),
         DemoInput,
         TextInputValue::default(),

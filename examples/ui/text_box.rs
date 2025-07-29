@@ -11,7 +11,6 @@ use bevy::input_focus::InputDispatchPlugin;
 use bevy::input_focus::InputFocus;
 use bevy::prelude::*;
 use bevy::text::Prompt;
-use bevy::text::PromptColor;
 use bevy::text::TextInputVisibleLines;
 use bevy::text::TextSelectionBlockColor;
 use bevy::ui::widget::NextFocus;
@@ -34,11 +33,8 @@ fn setup(mut commands: Commands) {
         .spawn((
             TextBox::default(),
             Prompt::new("please type here.."),
-            PromptColor::new(LIGHT_BLUE),
-            TextSelectionBlockColor::new(LIGHT_BLUE),
             TabIndex(0),
             AutoFocus,
-            TextColor(Color::WHITE),
             TextFont {
                 font_size: 35.,
                 ..Default::default()
