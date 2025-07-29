@@ -75,6 +75,8 @@ pub struct TextField {
     pub max_chars: Option<usize>,
     /// justification
     pub justify: Justify,
+    /// Clear text input contents and history on submit
+    pub clear_on_submit: bool,
 }
 
 fn on_add_text_input_node(mut world: DeferredWorld, context: HookContext) {
@@ -293,6 +295,7 @@ pub fn update_text_field_attributes(
             line_height: font.line_height,
             max_chars: text_field.max_chars,
             lines: Some(1.),
+            clear_on_submit: text_field.clear_on_submit,
         });
     }
 }

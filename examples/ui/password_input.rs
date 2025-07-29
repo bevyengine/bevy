@@ -88,6 +88,7 @@ fn setup(mut commands: Commands) {
                                 TextField {
                                     max_chars: Some(MAX_PASSWORD_LENGTH),
                                     justify: Justify::Left,
+                                    clear_on_submit: true,
                                 },
                                 Prompt::new("enter a password"),
                                 TextColor(Color::WHITE),

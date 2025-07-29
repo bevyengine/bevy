@@ -28,7 +28,6 @@ use bevy_ecs::hierarchy::ChildOf;
 use bevy_ecs::lifecycle::HookContext;
 use bevy_ecs::prelude::ReflectComponent;
 use bevy_ecs::query::Changed;
-use bevy_ecs::query::Has;
 use bevy_ecs::query::Or;
 use bevy_ecs::resource::Resource;
 use bevy_ecs::schedule::IntoScheduleConfigs;
@@ -250,6 +249,8 @@ pub struct TextInputAttributes {
     /// Limited by the size of the target.
     /// If None or equal or less than 0, will fill the target space.
     pub lines: Option<f32>,
+    /// Clear on submit
+    pub clear_on_submit: bool,
 }
 
 impl Default for TextInputAttributes {
@@ -263,6 +264,7 @@ impl Default for TextInputAttributes {
             line_break: Default::default(),
             max_chars: None,
             lines: None,
+            clear_on_submit: false,
         }
     }
 }
@@ -512,7 +514,6 @@ pub fn apply_text_input_actions(
         Option<&TextInputFilter>,
         Option<&mut TextInputUndoHistory>,
         Option<&mut TextInputValue>,
-        Has<ClearOnSubmit>,
     )>,
     mut clipboard: ResMut<Clipboard>,
 ) {
@@ -524,7 +525,6 @@ pub fn apply_text_input_actions(
         maybe_filter,
         mut maybe_history,
         maybe_value,
-        clear_on_submit,
     ) in text_input_query.iter_mut()
     {
         for action in text_input_actions.queue.drain(..) {
@@ -538,7 +538,7 @@ pub fn apply_text_input_actions(
                         entity,
                     );
 
-                    if clear_on_submit {
+                    if attribs.clear_on_submit {
                         apply_text_input_action(
                             buffer.editor.borrow_with(&mut font_system),
                             maybe_history.as_mut().map(|history| history.as_mut()),

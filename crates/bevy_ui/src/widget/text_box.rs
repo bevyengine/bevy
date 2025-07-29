@@ -122,6 +122,7 @@ fn update_attributes(
             line_height: font.line_height,
             max_chars: None,
             lines: text_box.lines,
+            clear_on_submit: text_box.clear_on_submit,
         });
     }
 }
@@ -168,7 +169,10 @@ pub struct TextBox {
     pub justify: Justify,
     /// line break
     pub line_break: LineBreak,
+    /// Number of visible lines
     pub lines: Option<f32>,
+    /// Clear text input contents and history on submit
+    pub clear_on_submit: bool,
 }
 
 fn on_add_text_input_node(mut world: DeferredWorld, context: HookContext) {

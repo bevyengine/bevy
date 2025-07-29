@@ -260,6 +260,7 @@ fn spawn_row(
         TextField {
             max_chars: None,
             justify: Justify::Left,
+            clear_on_submit: is_password,
         },
         Prompt::new(label),
         TabIndex(0),
@@ -284,7 +285,6 @@ fn spawn_row(
 
     if is_password {
         input.insert(TextInputPasswordMask::default());
-        input.insert(ClearOnSubmit);
     }
 
     let input_id = input.id();

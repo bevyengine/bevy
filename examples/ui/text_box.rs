@@ -32,6 +32,7 @@ fn setup(mut commands: Commands) {
         .spawn((
             TextBox {
                 lines: Some(8.),
+                clear_on_submit: true,
                 ..Default::default()
             },
             Prompt::new("please type here.."),
