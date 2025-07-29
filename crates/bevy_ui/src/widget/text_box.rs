@@ -2,6 +2,8 @@
 
 use std::time::Duration;
 
+use crate::widget::measure_lines;
+use crate::widget::update_text_field_attributes;
 use crate::ComputedNode;
 use crate::Node;
 use crate::UiGlobalTransform;
@@ -61,8 +63,6 @@ use bevy_text::TextInputBuffer;
 use bevy_text::TextInputSystems;
 use bevy_text::TextInputTarget;
 use bevy_text::TextInputUndoHistory;
-use bevy_text::TextInputVisibleLines;
-use bevy_text::TextLayout;
 use bevy_text::TextLayoutInfo;
 use bevy_time::Time;
 
@@ -76,11 +76,17 @@ impl Plugin for TextBoxPlugin {
             .add_systems(
                 PostUpdate,
                 (
-                    mouse_wheel_scroll,
-                    update_targets,
                     update_attributes,
-                    update_cursor_visibility,
+                    update_text_field_attributes,
+                    measure_lines,
                 )
+                    .chain()
+                    .after(UiSystems::Prepare)
+                    .before(UiSystems::Layout),
+            )
+            .add_systems(
+                PostUpdate,
+                (mouse_wheel_scroll, update_targets, update_cursor_visibility)
                     .after(UiSystems::Layout)
                     .before(TextInputSystems)
                     .before(bevy_text::update_text_input_buffers),
@@ -108,17 +114,18 @@ fn update_targets(mut text_input_node_query: Query<(&ComputedNode, &mut TextInpu
 }
 
 fn update_attributes(
-    mut text_input_node_query: Query<(&TextFont, &TextLayout, &mut TextInputAttributes)>,
+    mut text_input_node_query: Query<(&TextBox, &TextFont, &mut TextInputAttributes)>,
 ) {
-    for (font, layout, mut attributes) in text_input_node_query.iter_mut() {
+    for (text_box, font, mut attributes) in text_input_node_query.iter_mut() {
         attributes.set_if_neq(TextInputAttributes {
             font: font.font.clone(),
             font_size: font.font_size,
             font_smoothing: font.font_smoothing,
-            justify: layout.justify,
-            line_break: layout.linebreak,
+            justify: text_box.justify,
+            line_break: text_box.line_break,
             line_height: font.line_height,
             max_chars: None,
+            lines: text_box.lines,
         });
     }
 }
@@ -157,7 +164,6 @@ impl Default for TextUnderCursorColor {
         clear_on_submit: false,
         navigate_on_submit: NextFocus::Clear,
     },
-    TextInputVisibleLines(0.)
 )]
 #[component(
     on_add = on_add_text_input_node,
@@ -170,6 +176,7 @@ pub struct TextBox {
     pub justify: Justify,
     /// line break
     pub line_break: LineBreak,
+    pub lines: Option<f32>,
 }
 
 fn on_add_text_input_node(mut world: DeferredWorld, context: HookContext) {

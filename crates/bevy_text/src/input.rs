@@ -159,12 +159,6 @@ impl TextInputBuffer {
     }
 }
 
-/// The number of lines the buffer will display at once.
-/// Limited by the size of the target.
-/// If equal or less than 0, will fill the target space.
-#[derive(Component, Default, Debug)]
-pub struct TextInputVisibleLines(pub f32);
-
 /// Component containing the change history for a text input.
 /// Text input entities without this component will ignore undo and redo actions.
 #[derive(Component, Debug, Default)]
@@ -252,6 +246,10 @@ pub struct TextInputAttributes {
     /// Any edits that extend the length above `max_chars` are ignored.
     /// If set on a buffer longer than `max_chars` the buffer will be truncated.
     pub max_chars: Option<usize>,
+    /// The number of lines the buffer will display at once.
+    /// Limited by the size of the target.
+    /// If None or equal or less than 0, will fill the target space.
+    pub lines: Option<f32>,
 }
 
 impl Default for TextInputAttributes {
@@ -264,6 +262,7 @@ impl Default for TextInputAttributes {
             justify: Default::default(),
             line_break: Default::default(),
             max_chars: None,
+            lines: None,
         }
     }
 }
@@ -591,7 +590,6 @@ pub fn update_text_input_buffers(
         &mut TextInputBuffer,
         Ref<TextInputTarget>,
         Ref<TextInputAttributes>,
-        Ref<TextInputVisibleLines>,
     )>,
     mut font_system: ResMut<CosmicFontSystem>,
     mut text_pipeline: ResMut<TextPipeline>,
@@ -599,7 +597,7 @@ pub fn update_text_input_buffers(
 ) {
     let font_system = &mut font_system.0;
     let font_id_map = &mut text_pipeline.map_handle_to_font_id;
-    for (mut input_buffer, target, attributes, lines) in text_input_query.iter_mut() {
+    for (mut input_buffer, target, attributes) in text_input_query.iter_mut() {
         let TextInputBuffer {
             editor,
             space_advance,
@@ -607,7 +605,7 @@ pub fn update_text_input_buffers(
         } = input_buffer.as_mut();
 
         let _ = editor.with_buffer_mut(|buffer| {
-            if target.is_changed() || attributes.is_changed() || lines.is_changed() {
+            if target.is_changed() || attributes.is_changed() {
                 let line_height = attributes.line_height.eval(attributes.font_size);
                 let metrics =
                     Metrics::new(attributes.font_size, line_height).scale(target.scale_factor);
@@ -666,8 +664,8 @@ pub fn update_text_input_buffers(
                     .unwrap_or(0.0)
                     * buffer.metrics().font_size;
 
-                let height = if 0. < lines.0 {
-                    (metrics.line_height * lines.0).max(target.size.y)
+                let height = if let Some(lines) = attributes.lines.filter(|lines| 0. < *lines) {
+                    (metrics.line_height * lines).max(target.size.y)
                 } else {
                     target.size.y
                 };

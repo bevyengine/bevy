@@ -251,7 +251,7 @@ fn spawn_row(
 
     let mut input = commands.spawn((
         TextField {
-            max_chars: usize::MAX,
+            max_chars: None,
             justify: Justify::Left,
         },
         Prompt::new(label),

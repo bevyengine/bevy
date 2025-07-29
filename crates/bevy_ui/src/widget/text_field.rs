@@ -53,7 +53,6 @@ use bevy_text::TextInputAttributes;
 use bevy_text::TextInputBuffer;
 use bevy_text::TextInputTarget;
 use bevy_text::TextInputUndoHistory;
-use bevy_text::TextInputVisibleLines;
 use bevy_text::TextLayoutInfo;
 use bevy_time::Time;
 use taffy::MaybeMath;
@@ -87,7 +86,6 @@ impl Plugin for TextInputPlugin {
     TextCursorBlinkTimer,
     TextInputUndoHistory,
     SingleLineInputField,
-    TextInputVisibleLines(1.),
     TextInputSubmitBehaviour {
         clear_on_submit: false,
         navigate_on_submit: NextFocus::Navigate(NavAction::Next),
@@ -242,25 +240,26 @@ fn on_move_clear_multi_click(move_event: On<Pointer<Move>>, mut commands: Comman
     }
 }
 
-fn measure_lines(
+pub fn measure_lines(
     mut commands: Commands,
     mut query: Query<(
         Entity,
         Ref<ComputedNodeTarget>,
         Ref<TextFont>,
-        Ref<TextInputVisibleLines>,
+        Ref<TextInputAttributes>,
     )>,
 ) {
-    for (entity, target, text_font, lines) in query.iter_mut() {
-        if target.is_changed() || text_font.is_changed() || lines.is_changed() {
-            if lines.0 <= 0. {
+    for (entity, target, text_font, attribs) in query.iter_mut() {
+        if target.is_changed() || text_font.is_changed() || attribs.is_changed() {
+            let Some(lines) = attribs.lines.filter(|lines| 0. < *lines) else {
                 commands.entity(entity).remove::<ContentSize>();
-            }
+                continue;
+            };
             let line_height = match text_font.line_height {
                 bevy_text::LineHeight::Px(px) => px,
                 bevy_text::LineHeight::RelativeToFont(r) => r * text_font.font_size,
             } * target.scale_factor;
-            let height = lines.0 * line_height;
+            let height = lines * line_height;
             commands.entity(entity).insert(ContentSize {
                 measure: Some(crate::NodeMeasure::Custom(Box::new(InputMeasure {
                     height,
@@ -304,7 +303,7 @@ impl Measure for InputMeasure {
     }
 }
 
-fn update_text_field_attributes(
+pub fn update_text_field_attributes(
     mut text_input_node_query: Query<
         (&TextField, &TextFont, &mut TextInputAttributes),
         With<TextField>,
@@ -319,6 +318,7 @@ fn update_text_field_attributes(
             line_break: bevy_text::LineBreak::NoWrap,
             line_height: font.line_height,
             max_chars: text_field.max_chars,
+            lines: Some(1.),
         });
     }
 }
