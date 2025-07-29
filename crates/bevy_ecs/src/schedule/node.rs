@@ -487,12 +487,8 @@ impl Systems {
         self.nodes.get_mut(key).and_then(|node| node.get_mut())
     }
 
-    /// Returns a mutable reference to the system with the given key, panicking
-    /// if it does not exist.
-    ///
-    /// # Panics
-    ///
-    /// If the system with the given key does not exist in this container.
+    /// Returns a mutable reference to the system with the given key. Will return
+    /// `None` if the key does not exist.
     pub(crate) fn node_mut(&mut self, key: SystemKey) -> Option<&mut SystemNode> {
         self.nodes.get_mut(key)
     }
