@@ -99,10 +99,10 @@ pub mod prelude {
         },
         spawn::{Spawn, SpawnIter, SpawnRelated, SpawnWith, WithOneRelated, WithRelated},
         system::{
-            Command, Commands, Deferred, EntityCommand, EntityCommands, In, InMut, InRef,
+            Command, Commands, Deferred, EntityCommand, EntityCommands, If, In, InMut, InRef,
             IntoSystem, Local, NonSend, NonSendMut, ParamSet, Populated, Query, ReadOnlySystem,
             Res, ResMut, Single, System, SystemIn, SystemInput, SystemParamBuilder,
-            SystemParamFunction, When,
+            SystemParamFunction,
         },
         world::{
             EntityMut, EntityRef, EntityWorldMut, FilteredResources, FilteredResourcesMut,
