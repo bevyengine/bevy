@@ -17,7 +17,6 @@ use bevy_app::Plugin;
 use bevy_app::PostUpdate;
 use bevy_asset::Assets;
 use bevy_asset::Handle;
-use bevy_color::Color;
 use bevy_derive::Deref;
 use bevy_derive::DerefMut;
 use bevy_ecs::change_detection::DetectChanges;
@@ -1138,7 +1137,7 @@ pub struct TextInputSubmit {
 /// Optional component.
 #[derive(Default, Component, Clone, Debug, Reflect, Deref, DerefMut)]
 #[reflect(Component, Default, Debug)]
-#[require(PromptStyle, PromptLayout)]
+#[require(PromptLayout)]
 pub struct Prompt(pub String);
 
 impl Prompt {
@@ -1148,35 +1147,14 @@ impl Prompt {
     }
 }
 
-/// The color of the prompt's text.
-/// If not present, the text input's `TextColor` is used.
-#[derive(Default, Component, Clone, Debug, Reflect)]
-#[reflect(Component, Default, Debug)]
-pub struct PromptColor(pub Color);
-
-impl PromptColor {
-    /// A new propmpt color
-    pub fn new(color: impl Into<Color>) -> Self {
-        Self(color.into())
-    }
-}
-
-/// Prompt displayed when the input is empty (including whitespace).
-#[derive(Default, Component, Clone, Debug, Reflect)]
-#[reflect(Component, Default, Debug)]
-pub struct PromptStyle {
-    /// line break
-    pub line_break: LineBreak,
-    /// prompt justification
-    pub justify: Justify,
-}
-
 /// Layout for the prompt text
 #[derive(Component)]
 pub struct PromptLayout {
-    /// propmpt's cosmic-text buffer (not an Editor as isn't editable)
+    /// Prompt's cosmic-text buffer (not an Editor as isn't editable)
     buffer: Buffer,
-    /// prompt's text layout, displayed when the text input is empty
+    /// Prompt's text layout, displayed when the text input is empty.
+    /// Doesn't reuse the editor's `TextLayoutInfo` as otherwise the prompt would need a relayout
+    /// everytime it was displayed.
     layout: TextLayoutInfo,
 }
 
@@ -1208,12 +1186,17 @@ pub fn text_input_prompt_system(
     mut text_query: Query<
         (
             &Prompt,
-            &PromptStyle,
+            &TextInputAttributes,
             &TextInputTarget,
             &TextFont,
             &mut PromptLayout,
         ),
-        Or<(Changed<Prompt>, Changed<TextFont>, Changed<Prompt>)>,
+        Or<(
+            Changed<Prompt>,
+            Changed<TextInputAttributes>,
+            Changed<TextFont>,
+            Changed<TextInputTarget>,
+        )>,
     >,
 ) {
     for (prompt, style, target, text_font, mut prompt_layout) in text_query.iter_mut() {
