@@ -4,10 +4,10 @@ authors: ["@hymm"]
 pull_requests: [20298]
 ---
 
-A long requested feature has come to Bevy! You can now remove systems from a schedule. 
-The previous recommended way of preventing a scheduled system from running was to use `RunCondition`'s. 
+A long requested feature has come to Bevy! You can now remove systems from a schedule.
+The previous recommended way of preventing a scheduled system from running was to use `RunCondition`'s.
 You will still use this for most situations as removing a system will cause the schedule to be rebuilt.
-This process can be slow since the schedule checking logic is complex. But in situations where this is 
+This process can be slow since the schedule checking logic is complex. But in situations where this is
 not a problem, you can now call `remove_systems_in_set`. The advantage of this is that this will remove the
 cost of the run condition being checked.
 
