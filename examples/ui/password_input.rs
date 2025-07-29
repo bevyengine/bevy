@@ -17,7 +17,6 @@ use bevy::text::TextInputValue;
 use bevy::ui::widget::TextField;
 use bevy_ecs::relationship::RelatedSpawner;
 
-const FONT_PATH: &'static str = "fonts/FiraSans-Bold.ttf";
 const MAX_PASSWORD_LENGTH: usize = 20;
 
 fn main() {
@@ -29,12 +28,14 @@ fn main() {
             CoreWidgetsPlugins,
         ))
         .add_systems(Startup, setup)
+        .add_systems(Update, update_char_count)
         .run();
 }
 
-fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
-    let font = asset_server.load(FONT_PATH);
+#[derive(Component)]
+struct CharCountNode;
 
+fn setup(mut commands: Commands) {
     // UI camera
     commands.spawn(Camera2d);
 
@@ -83,9 +84,9 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                             BackgroundColor(Color::BLACK),
                             children![(
                                 TextField {
-                                    justify: Justify::Left,
+                                    max_chars: MAX_PASSWORD_LENGTH,
+                                    justify: Justify::Center,
                                 },
-                                TextFont { font, ..default() },
                                 Prompt::new("enter a password"),
                                 TextColor(Color::WHITE),
                                 TabIndex(0),
@@ -115,9 +116,26 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 )),
                 Spawn((
                     Node::default(),
-                    children![(Text::new(format!("{MAX_PASSWORD_LENGTH} characters left.")),)]
+                    children![(
+                        Text::new(format!("{MAX_PASSWORD_LENGTH} characters left.")),
+                        CharCountNode,
+                    )]
                 ))
             )),
         )],
     ));
+}
+
+fn update_char_count(
+    value_query: Query<&TextInputValue, Changed<TextInputValue>>,
+    mut text_query: Query<&mut Text, With<CharCountNode>>,
+) {
+    if let Ok(value) = value_query.single() {
+        if let Ok(mut text) = text_query.single_mut() {
+            text.0 = format!(
+                "{} characters left.",
+                MAX_PASSWORD_LENGTH - value.get().chars().count()
+            );
+        }
+    }
 }
