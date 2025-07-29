@@ -38,23 +38,23 @@ bevy_reflect = { path = "../bevy_reflect", version = "0.18.0-dev", default-featu
 ] }
 
 [features]
-mp3 = ["rodio/minimp3"]
-flac = ["rodio/claxon"]
-wav = ["rodio/hound"]
-vorbis = ["rodio/lewton"]
-symphonia-aac = ["rodio/symphonia-aac"]
-symphonia-all = [
+fallback-mp3 = ["rodio/minimp3"]
+fallback-flac = ["rodio/claxon"]
+fallback-wav = ["rodio/hound"]
+fallback-vorbis = ["rodio/lewton"]
+mp3 = ["rodio/mp3"]
+mp4 = ["rodio/mp4"]
+flac = ["rodio/flac"]
+wav = ["rodio/wav"]
+vorbis = ["rodio/vorbis"]
+aac = ["rodio/symphonia-aac"]
+audio-all = [
   "rodio/flac",
   "rodio/mp3",
   "rodio/mp4",
   "rodio/vorbis",
   "rodio/wav",
 ]
-symphonia-flac = ["rodio/flac"]
-symphonia-isomp4 = ["rodio/mp4"]
-symphonia-mp3 = ["rodio/mp3"]
-symphonia-vorbis = ["rodio/vorbis"]
-symphonia-wav = ["rodio/wav"]
 # Enable using a shared stdlib for cxx on Android.
 android_shared_stdcxx = ["cpal/oboe-shared-stdcxx"]
 
