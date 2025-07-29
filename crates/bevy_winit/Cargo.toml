@@ -57,7 +57,7 @@ cfg-if = "1.0"
 raw-window-handle = "0.6"
 bytemuck = { version = "1.5", optional = true }
 wgpu-types = { version = "25", optional = true }
-accesskit = "0.19"
+accesskit = "0.21"
 tracing = { version = "0.1", default-features = false, features = ["std"] }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
