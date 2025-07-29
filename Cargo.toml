@@ -3487,7 +3487,7 @@ name = "text_input"
 path = "examples/ui/text_input.rs"
 doc-scrape-examples = true
 
-[package.metadata.example.ui_text_input]
+[package.metadata.example.text_input]
 name = "Text Input"
 description = "Example demonstrating multiple text inputs"
 category = "UI (User Interface)"
