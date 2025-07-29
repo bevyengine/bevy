@@ -42,9 +42,7 @@ use bevy_text::TextInputAction;
 use bevy_text::TextInputActions;
 use bevy_text::TextInputAttributes;
 use bevy_text::TextInputBuffer;
-use bevy_text::TextInputTarget;
 use bevy_text::TextInputUndoHistory;
-use bevy_text::TextLayoutInfo;
 use bevy_time::Time;
 use taffy::MaybeMath;
 use taffy::MaybeResolve;
@@ -57,10 +55,6 @@ use taffy::MaybeResolve;
     TextInputStyle,
     TextInputMultiClickCounter,
     TextInputBuffer,
-    TextInputTarget,
-    TextInputAttributes,
-    TextInputActions,
-    TextLayoutInfo,
     TextCursorBlinkTimer,
     TextInputUndoHistory,
     SingleLineInputField,

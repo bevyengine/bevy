@@ -72,7 +72,7 @@ impl Plugin for TextInputPlugin {
             .add_systems(
                 PostUpdate,
                 (
-                    update_attributes,
+                    update_text_box_attributes,
                     update_text_field_attributes,
                     measure_lines,
                 )
@@ -110,7 +110,7 @@ fn update_targets(mut text_input_node_query: Query<(&ComputedNode, &mut TextInpu
     }
 }
 
-fn update_attributes(
+fn update_text_box_attributes(
     mut text_input_node_query: Query<(&TextBox, &TextFont, &mut TextInputAttributes)>,
 ) {
     for (text_box, font, mut attributes) in text_input_node_query.iter_mut() {
@@ -152,10 +152,6 @@ impl Default for TextUnderCursorColor {
     TextInputStyle,
     TextInputMultiClickCounter,
     TextInputBuffer,
-    TextInputTarget,
-    TextInputAttributes,
-    TextInputActions,
-    TextLayoutInfo,
     TextCursorBlinkTimer,
     TextInputUndoHistory
 )]

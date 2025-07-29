@@ -81,6 +81,7 @@ fn get_cosmic_text_buffer_contents(buffer: &Buffer) -> String {
 /// To determine if the `TextLayoutInfo` needs to be updated check the `redraw` method on the `editor` buffer.
 /// Change detection is not reliable as the editor needs to be borrowed mutably during updates.
 #[derive(Component, Debug)]
+#[require(TextInputAttributes, TextInputTarget, TextInputActions, TextLayoutInfo)]
 pub struct TextInputBuffer {
     /// The cosmic text editor buffer
     pub editor: Editor<'static>,
