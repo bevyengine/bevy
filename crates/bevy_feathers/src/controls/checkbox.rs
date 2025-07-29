@@ -1,5 +1,5 @@
 use bevy_app::{Plugin, PreUpdate};
-use bevy_core_widgets::{Callback, CoreCheckbox};
+use bevy_core_widgets::{Callback, CoreCheckbox, ValueChange};
 use bevy_ecs::{
     bundle::Bundle,
     children,
@@ -20,10 +20,10 @@ use bevy_ui::{
     AlignItems, BorderRadius, Checked, Display, FlexDirection, InteractionDisabled, JustifyContent,
     Node, PositionType, UiRect, UiTransform, Val,
 };
-use bevy_winit::cursor::CursorIcon;
 
 use crate::{
     constants::{fonts, size},
+    cursor::EntityCursor,
     font_styles::InheritableFont,
     handle_or_path::HandleOrPath,
     theme::{ThemeBackgroundColor, ThemeBorderColor, ThemeFontColor},
@@ -34,8 +34,12 @@ use crate::{
 #[derive(Default)]
 pub struct CheckboxProps {
     /// Change handler
-    pub on_change: Callback<In<bool>>,
+    pub on_change: Callback<In<ValueChange<bool>>>,
 }
+
+/// Marker for the checkbox frame (contains both checkbox and label)
+#[derive(Component, Default, Clone)]
+struct CheckboxFrame;
 
 /// Marker for the checkbox outline
 #[derive(Component, Default, Clone)]
@@ -68,8 +72,9 @@ pub fn checkbox<C: SpawnableList<ChildOf> + Send + Sync + 'static, B: Bundle>(
         CoreCheckbox {
             on_change: props.on_change,
         },
+        CheckboxFrame,
         Hovered::default(),
-        CursorIcon::System(bevy_window::SystemCursorIcon::Pointer),
+        EntityCursor::System(bevy_window::SystemCursorIcon::Pointer),
         TabIndex(0),
         ThemeFontColor(tokens::CHECKBOX_TEXT),
         InheritableFont {
@@ -124,7 +129,7 @@ fn update_checkbox_styles(
             &ThemeFontColor,
         ),
         (
-            With<CoreCheckbox>,
+            With<CheckboxFrame>,
             Or<(Changed<Hovered>, Added<Checked>, Added<InteractionDisabled>)>,
         ),
     >,
@@ -173,7 +178,7 @@ fn update_checkbox_styles_remove(
             &Hovered,
             &ThemeFontColor,
         ),
-        With<CoreCheckbox>,
+        With<CheckboxFrame>,
     >,
     q_children: Query<&Children>,
     mut q_outline: Query<(&ThemeBackgroundColor, &ThemeBorderColor), With<CheckboxOutline>>,

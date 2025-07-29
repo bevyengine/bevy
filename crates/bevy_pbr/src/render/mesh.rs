@@ -15,6 +15,9 @@ use bevy_ecs::{
     system::{lifetimeless::*, SystemParamItem, SystemState},
 };
 use bevy_image::{BevyDefault, ImageSampler, TextureFormatPixelInfo};
+use bevy_light::{
+    EnvironmentMapLight, NotShadowCaster, NotShadowReceiver, TransmittedShadowReceiver,
+};
 use bevy_math::{Affine3, Rect, UVec2, Vec3, Vec4};
 use bevy_platform::collections::{hash_map::Entry, HashMap};
 use bevy_render::{
@@ -52,7 +55,6 @@ use material_bind_groups::MaterialBindingId;
 use tracing::{error, warn};
 
 use self::irradiance_volume::IRRADIANCE_VOLUMES_ARE_USABLE;
-use crate::environment_map::EnvironmentMapLight;
 use crate::irradiance_volume::IrradianceVolume;
 use crate::{
     render::{
@@ -1450,8 +1452,6 @@ pub fn extract_meshes_for_gpu_building(
         >,
     >,
     all_meshes_query: Extract<Query<GpuMeshExtractionQuery>>,
-    mut removed_visibilities_query: Extract<RemovedComponents<ViewVisibility>>,
-    mut removed_global_transforms_query: Extract<RemovedComponents<GlobalTransform>>,
     mut removed_meshes_query: Extract<RemovedComponents<Mesh3d>>,
     gpu_culling_query: Extract<Query<(), (With<Camera>, Without<NoIndirectDrawing>)>>,
     meshes_to_reextract_next_frame: ResMut<MeshesToReextractNextFrame>,
@@ -1507,11 +1507,7 @@ pub fn extract_meshes_for_gpu_building(
     }
 
     // Also record info about each mesh that became invisible.
-    for entity in removed_visibilities_query
-        .read()
-        .chain(removed_global_transforms_query.read())
-        .chain(removed_meshes_query.read())
-    {
+    for entity in removed_meshes_query.read() {
         // Only queue a mesh for removal if we didn't pick it up above.
         // It's possible that a necessary component was removed and re-added in
         // the same frame.
@@ -3020,7 +3016,7 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMeshBindGroup<I> {
             );
         };
 
-        let mut dynamic_offsets: [u32; 3] = Default::default();
+        let mut dynamic_offsets: [u32; 5] = Default::default();
         let mut offset_count = 0;
         if let PhaseItemExtraIndex::DynamicOffset(dynamic_offset) = item.extra_index() {
             dynamic_offsets[offset_count] = dynamic_offset;

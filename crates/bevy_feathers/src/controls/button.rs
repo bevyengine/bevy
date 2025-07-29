@@ -1,5 +1,5 @@
 use bevy_app::{Plugin, PreUpdate};
-use bevy_core_widgets::{Callback, CoreButton};
+use bevy_core_widgets::{Activate, Callback, CoreButton};
 use bevy_ecs::{
     bundle::Bundle,
     component::Component,
@@ -9,15 +9,15 @@ use bevy_ecs::{
     query::{Added, Changed, Has, Or},
     schedule::IntoScheduleConfigs,
     spawn::{SpawnRelated, SpawnableList},
-    system::{Commands, Query},
+    system::{Commands, In, Query},
 };
 use bevy_input_focus::tab_navigation::TabIndex;
 use bevy_picking::{hover::Hovered, PickingSystems};
 use bevy_ui::{AlignItems, InteractionDisabled, JustifyContent, Node, Pressed, UiRect, Val};
-use bevy_winit::cursor::CursorIcon;
 
 use crate::{
     constants::{fonts, size},
+    cursor::EntityCursor,
     font_styles::InheritableFont,
     handle_or_path::HandleOrPath,
     rounded_corners::RoundedCorners,
@@ -45,7 +45,7 @@ pub struct ButtonProps {
     /// Rounded corners options
     pub corners: RoundedCorners,
     /// Click handler
-    pub on_click: Callback,
+    pub on_click: Callback<In<Activate>>,
 }
 
 /// Template function to spawn a button.
@@ -73,7 +73,7 @@ pub fn button<C: SpawnableList<ChildOf> + Send + Sync + 'static, B: Bundle>(
         },
         props.variant,
         Hovered::default(),
-        CursorIcon::System(bevy_window::SystemCursorIcon::Pointer),
+        EntityCursor::System(bevy_window::SystemCursorIcon::Pointer),
         TabIndex(0),
         props.corners.to_border_radius(4.0),
         ThemeBackgroundColor(tokens::BUTTON_BG),

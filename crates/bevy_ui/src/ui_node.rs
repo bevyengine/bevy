@@ -42,6 +42,14 @@ pub struct ComputedNode {
     ///
     /// Automatically calculated by [`super::layout::ui_layout_system`].
     pub content_size: Vec2,
+    /// Space allocated for scrollbars.
+    ///
+    /// Automatically calculated by [`super::layout::ui_layout_system`].
+    pub scrollbar_size: Vec2,
+    /// Resolved offset of scrolled content
+    ///
+    /// Automatically calculated by [`super::layout::ui_layout_system`].
+    pub scroll_position: Vec2,
     /// The width of this node's outline.
     /// If this value is `Auto`, negative or `0.` then no outline will be rendered.
     /// Outline updates bypass change detection.
@@ -305,6 +313,8 @@ impl ComputedNode {
         stack_index: 0,
         size: Vec2::ZERO,
         content_size: Vec2::ZERO,
+        scrollbar_size: Vec2::ZERO,
+        scroll_position: Vec2::ZERO,
         outline_width: 0.,
         outline_offset: 0.,
         unrounded_size: Vec2::ZERO,
@@ -418,6 +428,9 @@ pub struct Node {
     ///
     /// <https://developer.mozilla.org/en-US/docs/Web/CSS/overflow>
     pub overflow: Overflow,
+
+    /// How much space in logical pixels should be reserved for scrollbars when overflow is set to scroll or auto on an axis.
+    pub scrollbar_width: f32,
 
     /// How the bounds of clipped content should be determined
     ///
@@ -703,6 +716,7 @@ impl Node {
         aspect_ratio: None,
         overflow: Overflow::DEFAULT,
         overflow_clip_margin: OverflowClipMargin::DEFAULT,
+        scrollbar_width: 0.,
         row_gap: Val::ZERO,
         column_gap: Val::ZERO,
         grid_auto_flow: GridAutoFlow::DEFAULT,
@@ -2591,6 +2605,17 @@ impl ResolvedBorderRadius {
     };
 }
 
+impl From<ResolvedBorderRadius> for [f32; 4] {
+    fn from(radius: ResolvedBorderRadius) -> Self {
+        [
+            radius.top_left,
+            radius.top_right,
+            radius.bottom_right,
+            radius.bottom_left,
+        ]
+    }
+}
+
 #[derive(Component, Clone, Debug, Default, PartialEq, Reflect, Deref, DerefMut)]
 #[reflect(Component, PartialEq, Default, Clone)]
 #[cfg_attr(
@@ -2768,61 +2793,6 @@ impl<'w, 's> DefaultUiCamera<'w, 's> {
                 .max_by_key(|(e, c)| (c.order, *e))
                 .map(|(e, _)| e)
         })
-    }
-}
-
-/// Marker for controlling whether Ui is rendered with or without anti-aliasing
-/// in a camera. By default, Ui is always anti-aliased.
-///
-/// **Note:** This does not affect text anti-aliasing. For that, use the `font_smoothing` property of the [`TextFont`](bevy_text::TextFont) component.
-///
-/// ```
-/// use bevy_core_pipeline::prelude::*;
-/// use bevy_ecs::prelude::*;
-/// use bevy_ui::prelude::*;
-///
-/// fn spawn_camera(mut commands: Commands) {
-///     commands.spawn((
-///         Camera2d,
-///         // This will cause all Ui in this camera to be rendered without
-///         // anti-aliasing
-///         UiAntiAlias::Off,
-///     ));
-/// }
-/// ```
-#[derive(Component, Clone, Copy, Default, Debug, Reflect, Eq, PartialEq)]
-#[reflect(Component, Default, PartialEq, Clone)]
-pub enum UiAntiAlias {
-    /// UI will render with anti-aliasing
-    #[default]
-    On,
-    /// UI will render without anti-aliasing
-    Off,
-}
-
-/// Number of shadow samples.
-/// A larger value will result in higher quality shadows.
-/// Default is 4, values higher than ~10 offer diminishing returns.
-///
-/// ```
-/// use bevy_core_pipeline::prelude::*;
-/// use bevy_ecs::prelude::*;
-/// use bevy_ui::prelude::*;
-///
-/// fn spawn_camera(mut commands: Commands) {
-///     commands.spawn((
-///         Camera2d,
-///         BoxShadowSamples(6),
-///     ));
-/// }
-/// ```
-#[derive(Component, Clone, Copy, Debug, Reflect, Eq, PartialEq)]
-#[reflect(Component, Default, PartialEq, Clone)]
-pub struct BoxShadowSamples(pub u32);
-
-impl Default for BoxShadowSamples {
-    fn default() -> Self {
-        Self(4)
     }
 }
 

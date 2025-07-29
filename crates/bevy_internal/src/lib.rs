@@ -25,6 +25,8 @@ pub use bevy_app as app;
 pub use bevy_asset as asset;
 #[cfg(feature = "bevy_audio")]
 pub use bevy_audio as audio;
+#[cfg(feature = "bevy_camera")]
+pub use bevy_camera as camera;
 #[cfg(feature = "bevy_color")]
 pub use bevy_color as color;
 #[cfg(feature = "bevy_core_pipeline")]
@@ -48,9 +50,13 @@ pub use bevy_image as image;
 pub use bevy_input as input;
 #[cfg(feature = "bevy_input_focus")]
 pub use bevy_input_focus as input_focus;
+#[cfg(feature = "bevy_light")]
+pub use bevy_light as light;
 #[cfg(feature = "bevy_log")]
 pub use bevy_log as log;
 pub use bevy_math as math;
+#[cfg(feature = "bevy_mesh")]
+pub use bevy_mesh as mesh;
 #[cfg(feature = "bevy_pbr")]
 pub use bevy_pbr as pbr;
 #[cfg(feature = "bevy_picking")]
@@ -77,6 +83,8 @@ pub use bevy_time as time;
 pub use bevy_transform as transform;
 #[cfg(feature = "bevy_ui")]
 pub use bevy_ui as ui;
+#[cfg(feature = "bevy_ui_render")]
+pub use bevy_ui_render as ui_render;
 pub use bevy_utils as utils;
 #[cfg(feature = "bevy_window")]
 pub use bevy_window as window;

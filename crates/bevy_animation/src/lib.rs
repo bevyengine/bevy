@@ -1021,8 +1021,8 @@ pub fn advance_animations(
 }
 
 /// A type alias for [`EntityMutExcept`] as used in animation.
-pub type AnimationEntityMut<'w> =
-    EntityMutExcept<'w, (AnimationTarget, AnimationPlayer, AnimationGraphHandle)>;
+pub type AnimationEntityMut<'w, 's> =
+    EntityMutExcept<'w, 's, (AnimationTarget, AnimationPlayer, AnimationGraphHandle)>;
 
 /// A system that modifies animation targets (e.g. bones in a skinned mesh)
 /// according to the currently-playing animations.
@@ -1534,7 +1534,7 @@ mod tests {
 
     use super::*;
 
-    #[derive(Event, EntityEvent, Reflect, Clone)]
+    #[derive(EntityEvent, Reflect, Clone)]
     struct A;
 
     #[track_caller]

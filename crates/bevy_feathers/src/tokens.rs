@@ -99,3 +99,24 @@ pub const RADIO_MARK_DISABLED: &str = "feathers.radio.mark.disabled";
 pub const RADIO_TEXT: &str = "feathers.radio.text";
 /// Radio label text (disabled)
 pub const RADIO_TEXT_DISABLED: &str = "feathers.radio.text.disabled";
+
+// Toggle Switch
+
+/// Switch background around the checkmark
+pub const SWITCH_BG: &str = "feathers.switch.bg";
+/// Switch border around the checkmark (disabled)
+pub const SWITCH_BG_DISABLED: &str = "feathers.switch.bg.disabled";
+/// Switch background around the checkmark
+pub const SWITCH_BG_CHECKED: &str = "feathers.switch.bg.checked";
+/// Switch border around the checkmark (disabled)
+pub const SWITCH_BG_CHECKED_DISABLED: &str = "feathers.switch.bg.checked.disabled";
+/// Switch border around the checkmark
+pub const SWITCH_BORDER: &str = "feathers.switch.border";
+/// Switch border around the checkmark (hovered)
+pub const SWITCH_BORDER_HOVER: &str = "feathers.switch.border.hover";
+/// Switch border around the checkmark (disabled)
+pub const SWITCH_BORDER_DISABLED: &str = "feathers.switch.border.disabled";
+/// Switch slide
+pub const SWITCH_SLIDE: &str = "feathers.switch.slide";
+/// Switch slide (disabled)
+pub const SWITCH_SLIDE_DISABLED: &str = "feathers.switch.slide.disabled";
