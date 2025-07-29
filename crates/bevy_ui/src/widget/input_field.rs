@@ -6,8 +6,8 @@ use crate::widget::NextFocus;
 use crate::widget::SingleLineInputField;
 use crate::widget::TextCursorBlinkTimer;
 use crate::widget::TextInputMultiClickCounter;
+use crate::widget::TextInputMultiClickDelay;
 use crate::widget::TextInputSubmitBehaviour;
-use crate::widget::MULTI_CLICK_PERIOD;
 use crate::ComputedNode;
 use crate::ComputedNodeTarget;
 use crate::ContentSize;
@@ -45,7 +45,6 @@ use bevy_picking::events::Pointer;
 use bevy_picking::events::Press;
 use bevy_picking::pointer::PointerButton;
 use bevy_text::Justify;
-use bevy_text::SpaceAdvance;
 use bevy_text::TextFont;
 use bevy_text::TextInputAction;
 use bevy_text::TextInputActions;
@@ -86,7 +85,6 @@ impl Plugin for TextInputPlugin {
     TextLayoutInfo,
     TextCursorBlinkTimer,
     TextInputUndoHistory,
-    SpaceAdvance,
     SingleLineInputField,
     TextInputVisibleLines(1.),
     TextInputSubmitBehaviour {
@@ -184,6 +182,7 @@ fn on_text_input_dragged(
 fn on_multi_click_set_selection(
     click: On<Pointer<Click>>,
     time: Res<Time>,
+    multi_click_delay: Res<TextInputMultiClickDelay>,
     mut text_input_nodes: Query<(&ComputedNode, &UiGlobalTransform, &mut TextInputActions)>,
     mut multi_click_datas: Query<&mut TextInputMultiClickCounter>,
     mut commands: Commands,
@@ -199,7 +198,7 @@ fn on_multi_click_set_selection(
     let now = time.elapsed_secs();
     if let Ok(mut multi_click_data) = multi_click_datas.get_mut(click.target()) {
         if now - multi_click_data.last_click_time
-            <= MULTI_CLICK_PERIOD * multi_click_data.click_count as f32
+            <= multi_click_delay.as_secs_f32() * multi_click_data.click_count as f32
         {
             let rect = Rect::from_center_size(transform.translation, node.size());
 

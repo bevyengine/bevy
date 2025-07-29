@@ -68,7 +68,7 @@ use gradient::GradientPlugin;
 
 use bevy_platform::collections::{HashMap, HashSet};
 use bevy_text::{
-    ComputedTextBlock, PositionedGlyph, PromptLayout, SpaceAdvance, TextBackgroundColor, TextColor,
+    ComputedTextBlock, PositionedGlyph, PromptLayout, TextBackgroundColor, TextColor,
     TextInputBuffer, TextLayoutInfo,
 };
 use bevy_transform::components::GlobalTransform;
@@ -1019,7 +1019,6 @@ pub fn extract_text_input_nodes(
             &InputStyle,
             &TextCursorBlinkTimer,
             &TextInputBuffer,
-            &SpaceAdvance,
             Option<&PromptLayout>,
         )>,
     >,
@@ -1041,7 +1040,6 @@ pub fn extract_text_input_nodes(
         input_style,
         blink_timer,
         buffer,
-        space_advance,
         maybe_prompt_layout,
     ) in &uinode_query
     {
@@ -1164,7 +1162,7 @@ pub fn extract_text_input_nodes(
         let (w, cursor_z_offset) = if modifiers.overwrite {
             (layout_cursor_size.x, -0.001)
         } else {
-            (input_style.cursor_size.x * **space_advance, 0.)
+            (input_style.cursor_size.x * buffer.space_advance, 0.)
         };
 
         let cursor_size = Vec2::new(w, input_style.cursor_size.y * layout_cursor_size.y).ceil();
