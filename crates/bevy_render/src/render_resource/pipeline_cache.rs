@@ -271,23 +271,6 @@ impl ShaderCache {
         let module = match data.processed_shaders.entry_ref(shader_defs) {
             EntryRef::Occupied(entry) => entry.into_mut(),
             EntryRef::Vacant(entry) => {
-                let mut shader_defs = shader_defs.to_vec();
-                #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
-                {
-                    shader_defs.push("NO_ARRAY_TEXTURES_SUPPORT".into());
-                    shader_defs.push("NO_CUBE_ARRAY_TEXTURES_SUPPORT".into());
-                    shader_defs.push("SIXTEEN_BYTE_ALIGNMENT".into());
-                }
-
-                if cfg!(target_abi = "sim") {
-                    shader_defs.push("NO_CUBE_ARRAY_TEXTURES_SUPPORT".into());
-                }
-
-                shader_defs.push(ShaderDefVal::UInt(
-                    String::from("AVAILABLE_STORAGE_BUFFER_BINDINGS"),
-                    render_device.limits().max_storage_buffers_per_shader_stage,
-                ));
-
                 debug!(
                     "processing shader {}, with shader defs {:?}",
                     id, shader_defs
@@ -351,8 +334,8 @@ impl ShaderCache {
 
                         let shader_defs = shader_defs
                             .into_iter()
-                            .chain(shader.shader_defs.iter().cloned())
-                            .map(|def| match def {
+                            .chain(shader.shader_defs.iter())
+                            .map(|def| match def.clone() {
                                 ShaderDefVal::Bool(k, v) => {
                                     (k, naga_oil::compose::ShaderDefValue::Bool(v))
                                 }
@@ -593,6 +576,7 @@ pub struct PipelineCache {
     pipelines: Vec<CachedPipeline>,
     waiting_pipelines: HashSet<CachedPipelineId>,
     new_pipelines: Mutex<Vec<CachedPipeline>>,
+    global_shader_defs: Vec<ShaderDefVal>,
     /// If `true`, disables asynchronous pipeline compilation.
     /// This has no effect on macOS, wasm, or without the `multi_threaded` feature.
     synchronous_pipeline_compilation: bool,
@@ -615,6 +599,23 @@ impl PipelineCache {
         render_adapter: RenderAdapter,
         synchronous_pipeline_compilation: bool,
     ) -> Self {
+        let mut global_shader_defs = Vec::new();
+        #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
+        {
+            global_shader_defs.push("NO_ARRAY_TEXTURES_SUPPORT".into());
+            global_shader_defs.push("NO_CUBE_ARRAY_TEXTURES_SUPPORT".into());
+            global_shader_defs.push("SIXTEEN_BYTE_ALIGNMENT".into());
+        }
+
+        if cfg!(target_abi = "sim") {
+            global_shader_defs.push("NO_CUBE_ARRAY_TEXTURES_SUPPORT".into());
+        }
+
+        global_shader_defs.push(ShaderDefVal::UInt(
+            String::from("AVAILABLE_STORAGE_BUFFER_BINDINGS"),
+            device.limits().max_storage_buffers_per_shader_stage,
+        ));
+
         Self {
             shader_cache: Arc::new(Mutex::new(ShaderCache::new(
                 device.features(),
@@ -625,6 +626,7 @@ impl PipelineCache {
             waiting_pipelines: default(),
             new_pipelines: default(),
             pipelines: default(),
+            global_shader_defs,
             synchronous_pipeline_compilation,
         }
     }
@@ -1079,7 +1081,10 @@ impl PipelineCache {
                 // PERF: Instead of blocking waiting for the shader cache lock, try again next frame if the lock is currently held
                 AssetEvent::Added { id } | AssetEvent::Modified { id } => {
                     if let Some(shader) = shaders.get(*id) {
-                        cache.set_shader(*id, shader.clone());
+                        let mut shader = shader.clone();
+                        shader.shader_defs.extend(cache.global_shader_defs.clone());
+
+                        cache.set_shader(*id, shader);
                     }
                 }
                 AssetEvent::Removed { id } => cache.remove_shader(*id),
