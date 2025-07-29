@@ -200,8 +200,7 @@ use crate::prelude::ReflectComponent;
 ///
 /// Note that the [`Observer`] component is not added to the entity it is observing. Observers should always be their own entities!
 ///
-/// You can call [`Observer::watch_entity`] more than once, which allows you to watch multiple entities with the same [`Observer`].
-/// serves as the "source of truth" of the observer.
+/// You can call [`Observer::watch_entity`] more than once or [`Observer::watch_entities`] to watch multiple entities with the same [`Observer`].
 ///
 /// [`SystemParam`]: crate::system::SystemParam
 pub struct Observer {
@@ -269,28 +268,44 @@ impl Observer {
         }
     }
 
-    /// Observe the given `entity`. This will cause the [`Observer`] to run whenever the [`Event`] is triggered
-    /// for the `entity`.
+    /// Observes the given `entity` (in addition to any entity already being observed).
+    /// This will cause the [`Observer`] to run whenever the [`Event`] is triggered for the `entity`.
+    /// Note that if this is called _after_ an [`Observer`] is spawned, it will produce no effects.
     pub fn with_entity(mut self, entity: Entity) -> Self {
-        self.descriptor.entities.push(entity);
+        self.watch_entity(entity);
         self
     }
 
-    /// Observe the given `entity`. This will cause the [`Observer`] to run whenever the [`Event`] is triggered
-    /// for the `entity`.
+    /// Observes the given `entities` (in addition to any entity already being observed).
+    /// This will cause the [`Observer`] to run whenever the [`Event`] is triggered for any of these `entities`.
+    /// Note that if this is called _after_ an [`Observer`] is spawned, it will produce no effects.
+    pub fn with_entities<I: IntoIterator<Item = Entity>>(mut self, entities: I) -> Self {
+        self.watch_entities(entities);
+        self
+    }
+
+    /// Observes the given `entity` (in addition to any entity already being observed).
+    /// This will cause the [`Observer`] to run whenever the [`Event`] is triggered for the `entity`.
     /// Note that if this is called _after_ an [`Observer`] is spawned, it will produce no effects.
     pub fn watch_entity(&mut self, entity: Entity) {
         self.descriptor.entities.push(entity);
     }
 
-    /// Observe the given `component`. This will cause the [`Observer`] to run whenever the [`Event`] is triggered
+    /// Observes the given `entity` (in addition to any entity already being observed).
+    /// This will cause the [`Observer`] to run whenever the [`Event`] is triggered for any of these `entities`.
+    /// Note that if this is called _after_ an [`Observer`] is spawned, it will produce no effects.
+    pub fn watch_entities<I: IntoIterator<Item = Entity>>(&mut self, entities: I) {
+        self.descriptor.entities.extend(entities);
+    }
+
+    /// Observes the given `component`. This will cause the [`Observer`] to run whenever the [`Event`] is triggered
     /// with the given component target.
     pub fn with_component(mut self, component: ComponentId) -> Self {
         self.descriptor.components.push(component);
         self
     }
 
-    /// Observe the given `event_key`. This will cause the [`Observer`] to run whenever an event with the given [`EventKey`]
+    /// Observes the given `event_key`. This will cause the [`Observer`] to run whenever an event with the given [`EventKey`]
     /// is triggered.
     /// # Safety
     /// The type of the `event_key` [`EventKey`] _must_ match the actual value
@@ -300,7 +315,7 @@ impl Observer {
         self
     }
 
-    /// Set the error handler to use for this observer.
+    /// Sets the error handler to use for this observer.
     ///
     /// See the [`error` module-level documentation](crate::error) for more information.
     pub fn with_error_handler(mut self, error_handler: fn(BevyError, ErrorContext)) -> Self {
