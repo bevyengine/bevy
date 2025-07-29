@@ -276,12 +276,12 @@ impl TextInputFilter {
             TextInputFilter::PositiveInteger => text.chars().all(|c| c.is_ascii_digit()),
             TextInputFilter::Integer => text
                 .strip_prefix('-')
-                .unwrap_or(&text)
+                .unwrap_or(text)
                 .chars()
                 .all(|c| c.is_ascii_digit()),
             TextInputFilter::Decimal => text
                 .strip_prefix('-')
-                .unwrap_or(&text)
+                .unwrap_or(text)
                 .chars()
                 .try_fold(true, |is_int, c| match c {
                     '.' if is_int => Ok(false),
