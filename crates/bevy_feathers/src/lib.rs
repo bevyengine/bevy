@@ -23,12 +23,11 @@ use bevy_asset::embedded_asset;
 use bevy_ecs::query::With;
 use bevy_text::{TextColor, TextFont};
 use bevy_ui_render::UiMaterialPlugin;
-use bevy_winit::cursor::CursorIcon;
 
 use crate::{
     alpha_pattern::{AlphaPatternMaterial, AlphaPatternResource},
     controls::ControlsPlugin,
-    cursor::{CursorIconPlugin, DefaultCursorIcon},
+    cursor::{CursorIconPlugin, DefaultCursor, EntityCursor},
     theme::{ThemedText, UiTheme},
 };
 
@@ -69,7 +68,7 @@ impl Plugin for FeathersPlugin {
             UiMaterialPlugin::<AlphaPatternMaterial>::default(),
         ));
 
-        app.insert_resource(DefaultCursorIcon(CursorIcon::System(
+        app.insert_resource(DefaultCursor(EntityCursor::System(
             bevy_window::SystemCursorIcon::Default,
         )));
 
