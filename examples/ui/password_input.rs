@@ -6,6 +6,7 @@ use bevy::core_widgets::Activate;
 use bevy::core_widgets::Callback;
 use bevy::core_widgets::CoreButton;
 use bevy::core_widgets::CoreWidgetsPlugins;
+use bevy::ecs::relationship::RelatedSpawner;
 use bevy::input_focus::tab_navigation::TabIndex;
 use bevy::input_focus::tab_navigation::TabNavigationPlugin;
 use bevy::input_focus::InputDispatchPlugin;
@@ -16,7 +17,6 @@ use bevy::text::TextInputPasswordMask;
 use bevy::text::TextInputValue;
 use bevy::ui::widget::TextField;
 use bevy::ui::widget::TextInputPlugin;
-use bevy_ecs::relationship::RelatedSpawner;
 
 const MAX_PASSWORD_LENGTH: usize = 10;
 
