@@ -156,7 +156,7 @@ fn on_multi_click_set_selection(
     time: Res<Time>,
     multi_click_delay: Res<TextInputMultiClickPeriod>,
     mut text_input_nodes: Query<(&ComputedNode, &UiGlobalTransform, &mut TextInputActions)>,
-    mut multi_click_datas: Query<&mut TextInputMultiClickCounter>,
+    mut multi_click_data: Query<&mut TextInputMultiClickCounter>,
     mut commands: Commands,
 ) {
     if click.button != PointerButton::Primary {
@@ -168,7 +168,7 @@ fn on_multi_click_set_selection(
     };
 
     let now = time.elapsed_secs();
-    if let Ok(mut multi_click_data) = multi_click_datas.get_mut(click.target()) {
+    if let Ok(mut multi_click_data) = multi_click_data.get_mut(click.target()) {
         if now - multi_click_data.last_click_time
             <= multi_click_delay.as_secs_f32() * multi_click_data.click_count as f32
         {

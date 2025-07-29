@@ -522,7 +522,7 @@ pub fn on_focused_keyboard_input(
                 actions.queue(TextInputAction::motion(Motion::BufferEnd, is_shift_pressed));
             }
             _ => {
-                // not recognised, ignore
+                // not recognized, ignore
             }
         }
     } else {
