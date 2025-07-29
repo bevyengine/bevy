@@ -51,7 +51,6 @@ use bevy_text::TextInputAction;
 use bevy_text::TextInputActions;
 use bevy_text::TextInputAttributes;
 use bevy_text::TextInputBuffer;
-use bevy_text::TextInputEvent;
 use bevy_text::TextInputTarget;
 use bevy_text::TextInputUndoHistory;
 use bevy_text::TextInputVisibleLines;
@@ -78,7 +77,6 @@ impl Plugin for TextInputPlugin {
 #[require(
     Node,
     TextFont,
-    Justify,
     TextInputStyle,
     TextInputMultiClickCounter,
     TextInputBuffer,
@@ -100,16 +98,11 @@ impl Plugin for TextInputPlugin {
     on_add = on_add_text_input_node,
     on_remove = on_remove_input_focus,
 )]
-pub struct TextField(pub String);
-
-impl TextField {
-    pub fn new(text: impl Into<String>) -> Self {
-        Self(text.into())
-    }
-
-    pub fn empty() -> Self {
-        Self(String::new())
-    }
+pub struct TextField {
+    /// maximum number of chars
+    pub max_chars: usize,
+    /// justification
+    pub justify: Justify,
 }
 
 fn on_add_text_input_node(mut world: DeferredWorld, context: HookContext) {
@@ -119,7 +112,6 @@ fn on_add_text_input_node(mut world: DeferredWorld, context: HookContext) {
         Observer::new(on_multi_click_set_selection),
         Observer::new(on_move_clear_multi_click),
         Observer::new(on_focused_keyboard_input),
-        Observer::new(on_contents_changed),
     ] {
         observer.watch_entity(context.entity);
         world.commands().spawn(observer);
@@ -130,14 +122,6 @@ fn on_remove_input_focus(mut world: DeferredWorld, context: HookContext) {
     let mut input_focus = world.resource_mut::<InputFocus>();
     if input_focus.0 == Some(context.entity) {
         input_focus.0 = None;
-    }
-}
-
-fn on_contents_changed(trigger: On<TextInputEvent>, mut text_field: Query<&mut TextField>) {
-    if let TextInputEvent::TextChanged { text, text_input } = trigger.event() {
-        if let Ok(mut contents) = text_field.get_mut(*text_input) {
-            contents.0 = text.clone();
-        }
     }
 }
 

@@ -87,11 +87,6 @@ impl Plugin for TextInputPlugin {
 #[derive(Component)]
 pub struct ClearOnSubmit;
 
-/// Marker component, dispatch a [`TextInputEvent::TextChanged`] event on any change
-/// to the text contained in the input buffer.
-#[derive(Component)]
-pub struct SendTextOnChanges;
-
 /// Basic clipboard implementation that only works within the bevy app.
 #[derive(Resource, Default)]
 pub struct Clipboard(pub String);
@@ -210,7 +205,7 @@ impl TextInputTarget {
 pub struct TextInputValue(String);
 
 impl TextInputValue {
-    /// New text, when insert replaces the current text in the text buffer
+    /// New text, when inserted replaces the current text in the text buffer
     pub fn new(value: impl Into<String>) -> Self {
         Self(value.into())
     }
@@ -519,7 +514,6 @@ pub fn apply_text_input_actions(
         Option<&mut TextInputUndoHistory>,
         Option<&mut TextInputValue>,
         Has<ClearOnSubmit>,
-        Has<SendTextOnChanges>,
     )>,
     mut clipboard: ResMut<Clipboard>,
 ) {
@@ -532,14 +526,8 @@ pub fn apply_text_input_actions(
         mut maybe_history,
         maybe_value,
         clear_on_submit,
-        send_text_on_changes,
     ) in text_input_query.iter_mut()
     {
-        let previous = if send_text_on_changes && maybe_value.is_none() {
-            Some(buffer.get_text())
-        } else {
-            None
-        };
         for action in text_input_actions.queue.drain(..) {
             match action {
                 TextInputAction::Submit => {
@@ -560,6 +548,10 @@ pub fn apply_text_input_actions(
                             &mut clipboard,
                             TextInputAction::Clear,
                         );
+
+                        if let Some(history) = maybe_history.as_mut() {
+                            history.clear();
+                        }
                     }
                 }
                 action => {
@@ -580,31 +572,12 @@ pub fn apply_text_input_actions(
             }
         }
 
-        if maybe_value.is_some() || send_text_on_changes {
-            let contents = buffer.get_text();
-            if let Some(mut value) = maybe_value {
-                if value.0 != contents {
-                    value.0 = contents;
-                    if send_text_on_changes {
-                        commands.trigger_targets(
-                            TextInputEvent::TextChanged {
-                                text: value.0.clone(),
-                                text_input: entity,
-                            },
-                            entity,
-                        );
-                    }
-                }
-            } else {
-                if previous.is_some_and(|previous| previous != contents) {
-                    commands.trigger_targets(
-                        TextInputEvent::TextChanged {
-                            text: contents,
-                            text_input: entity,
-                        },
-                        entity,
-                    );
-                }
+        let contents = buffer.get_text();
+        if let Some(mut value) = maybe_value {
+            if value.0 != contents {
+                value.0 = contents;
+                commands
+                    .trigger_targets(TextInputEvent::ValueChanged { text_input: entity }, entity);
             }
         }
     }
@@ -1196,10 +1169,9 @@ pub enum TextInputEvent {
         /// The source text input entity
         text_input: Entity,
     },
-    /// The contents of the text input changed due to an edit action
-    TextChanged {
-        /// The new text input contents
-        text: String,
+    /// The contents of the text input changed due to an edit action.
+    /// Dispatched if a text input entity has a [`TextInputValue`] component.
+    ValueChanged {
         /// The source text input entity
         text_input: Entity,
     },

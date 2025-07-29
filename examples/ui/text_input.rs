@@ -20,6 +20,7 @@ use bevy::text::TextInputPasswordMask;
 use bevy::text::TextInputValue;
 use bevy::ui::widget::TextField;
 use bevy_ecs::relationship::RelatedSpawnerCommands;
+use hyper::upgrade::on;
 
 fn main() {
     App::new()
@@ -43,11 +44,22 @@ const FONT_OPTIONS: [[&'static str; 2]; 3] = [
     ["fonts/Orbitron-Medium.ttf", "Orbitron"],
 ];
 
+#[derive(Resource)]
+struct Sounds {
+    pressed: Handle<AudioSource>,
+    invalid: Handle<AudioSource>,
+}
+
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     // UI camera
     commands.spawn(Camera2d);
 
     let last_submission = commands.spawn(Text::new("None")).id();
+
+    commands.insert_resource(Sounds {
+        pressed: asset_server.load("sounds/key_press.ogg"),
+        invalid: asset_server.load("sounds/invalid_key.ogg"),
+    });
 
     commands
         .spawn(Node {
@@ -136,6 +148,28 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     }
                 }
             },
+        )
+        .observe(
+            |on_text_input_event: On<TextInputEvent>,
+             sounds: Res<Sounds>,
+             mut commands: Commands| {
+                match on_text_input_event.event() {
+                    TextInputEvent::InvalidInput { .. } => {
+                        commands.spawn((
+                            AudioPlayer::new(sounds.invalid.clone()),
+                            PlaybackSettings::DESPAWN,
+                        ));
+                    }
+                    TextInputEvent::ValueChanged { .. } => {
+                        println!("changed");
+                        commands.spawn((
+                            AudioPlayer::new(sounds.pressed.clone()),
+                            PlaybackSettings::DESPAWN,
+                        ));
+                    }
+                    _ => {}
+                }
+            },
         );
 }
 
@@ -217,7 +251,10 @@ fn spawn_row(
         .add_child(submit_target);
 
     let mut input = commands.spawn((
-        TextField::empty(),
+        TextField {
+            max_chars: usize::MAX,
+            justify: Justify::Left,
+        },
         Prompt::new(label),
         TabIndex(0),
         DemoInput,

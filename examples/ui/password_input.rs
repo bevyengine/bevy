@@ -42,7 +42,6 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         |_: In<Activate>, mut query: Query<&mut TextInputPasswordMask>| {
             for mut password in query.iter_mut() {
                 password.show_password = !password.show_password;
-                println!("show = {}", password.show_password);
             }
         },
     );

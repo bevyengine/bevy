@@ -1043,7 +1043,6 @@ pub fn extract_text_input_nodes(
         maybe_prompt_layout,
     ) in &uinode_query
     {
-        println!("Text input update");
         // Skip if not visible or if size is set to zero (e.g. when a parent is set to `Display::None`)
         if !inherited_visibility.get() || uinode.is_empty() {
             continue;
