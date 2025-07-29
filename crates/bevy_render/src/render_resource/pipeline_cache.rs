@@ -795,9 +795,9 @@ impl PipelineCache {
         id
     }
 
-    fn set_shader(&mut self, id: AssetId<Shader>, shader: &Shader) {
+    fn set_shader(&mut self, id: AssetId<Shader>, shader: Shader) {
         let mut shader_cache = self.shader_cache.lock().unwrap();
-        let pipelines_to_queue = shader_cache.set_shader(id, shader.clone());
+        let pipelines_to_queue = shader_cache.set_shader(id, shader);
         for cached_pipeline in pipelines_to_queue {
             self.pipelines[cached_pipeline].state = CachedPipelineState::Queued;
             self.waiting_pipelines.insert(cached_pipeline);
@@ -1079,7 +1079,7 @@ impl PipelineCache {
                 // PERF: Instead of blocking waiting for the shader cache lock, try again next frame if the lock is currently held
                 AssetEvent::Added { id } | AssetEvent::Modified { id } => {
                     if let Some(shader) = shaders.get(*id) {
-                        cache.set_shader(*id, shader);
+                        cache.set_shader(*id, shader.clone());
                     }
                 }
                 AssetEvent::Removed { id } => cache.remove_shader(*id),
