@@ -145,7 +145,8 @@ impl Plugin for TextPlugin {
                 text_input_prompt_system,
             )
                 .chain()
-                .in_set(TextInputSystems),
+                .in_set(TextInputSystems)
+                .ambiguous_with(Text2dUpdateSystems),
         );
 
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
