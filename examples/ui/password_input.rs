@@ -13,6 +13,7 @@ use bevy::picking::hover::Hovered;
 use bevy::prelude::*;
 use bevy::text::Prompt;
 use bevy::text::TextInputPasswordMask;
+use bevy::text::TextInputPlugin;
 use bevy::text::TextInputValue;
 use bevy::ui::widget::TextField;
 use bevy_ecs::relationship::RelatedSpawner;
@@ -26,6 +27,7 @@ fn main() {
             InputDispatchPlugin,
             TabNavigationPlugin,
             CoreWidgetsPlugins,
+            TextInputPlugin,
         ))
         .add_systems(Startup, setup)
         .add_systems(Update, update_char_count)

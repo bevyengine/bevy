@@ -8,11 +8,17 @@ use bevy::input_focus::InputDispatchPlugin;
 use bevy::input_focus::InputFocus;
 use bevy::prelude::*;
 use bevy::text::Prompt;
+use bevy::text::TextInputPlugin;
 use bevy::ui::widget::TextBox;
 
 fn main() {
     App::new()
-        .add_plugins((DefaultPlugins, InputDispatchPlugin, TabNavigationPlugin))
+        .add_plugins((
+            DefaultPlugins,
+            TextInputPlugin,
+            InputDispatchPlugin,
+            TabNavigationPlugin,
+        ))
         .add_systems(Startup, setup)
         .run();
 }

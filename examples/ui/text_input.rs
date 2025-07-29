@@ -6,17 +6,18 @@ use bevy::core_widgets::Activate;
 use bevy::core_widgets::Callback;
 use bevy::core_widgets::CoreButton;
 use bevy::core_widgets::CoreWidgetsPlugins;
-use bevy::input_focus::tab_navigation::TabGroup;
-use bevy::input_focus::tab_navigation::TabIndex;
-use bevy::input_focus::tab_navigation::TabNavigationPlugin;
+use bevy::input_focus::tab_navigation::*;
 use bevy::input_focus::InputDispatchPlugin;
+use bevy::input_focus::InputFocus;
 use bevy::picking::hover::Hovered;
 use bevy::prelude::*;
+use bevy::text::ClearOnSubmit;
 use bevy::text::Clipboard;
 use bevy::text::Prompt;
 use bevy::text::TextInputEvent;
 use bevy::text::TextInputFilter;
 use bevy::text::TextInputPasswordMask;
+use bevy::text::TextInputPlugin;
 use bevy::text::TextInputValue;
 use bevy::ui::widget::TextField;
 use bevy_ecs::relationship::RelatedSpawnerCommands;
@@ -25,6 +26,7 @@ fn main() {
     App::new()
         .add_plugins((
             DefaultPlugins,
+            TextInputPlugin,
             InputDispatchPlugin,
             TabNavigationPlugin,
             CoreWidgetsPlugins,
@@ -151,6 +153,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         .observe(
             |on_text_input_event: On<TextInputEvent>,
              sounds: Res<Sounds>,
+             tab_nav: TabNavigation,
+             mut input_focus: ResMut<InputFocus>,
              mut commands: Commands| {
                 match on_text_input_event.event() {
                     TextInputEvent::InvalidInput { .. } => {
@@ -160,13 +164,16 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         ));
                     }
                     TextInputEvent::ValueChanged { .. } => {
-                        println!("changed");
                         commands.spawn((
                             AudioPlayer::new(sounds.pressed.clone()),
                             PlaybackSettings::DESPAWN,
                         ));
                     }
-                    _ => {}
+                    TextInputEvent::Submission { .. } => {
+                        if let Ok(target) = tab_nav.navigate(&input_focus, NavAction::Next) {
+                            input_focus.set(target);
+                        }
+                    }
                 }
             },
         );
@@ -277,6 +284,7 @@ fn spawn_row(
 
     if is_password {
         input.insert(TextInputPasswordMask::default());
+        input.insert(ClearOnSubmit);
     }
 
     let input_id = input.id();

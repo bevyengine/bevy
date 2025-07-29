@@ -295,7 +295,4 @@ fn build_text_interop(app: &mut App) {
         PostUpdate,
         AmbiguousWithUpdateText2dLayout.ambiguous_with(bevy_text::update_text2d_layout),
     );
-
-    app.add_plugins(widget::TextBoxPlugin);
-    app.add_plugins(widget::TextInputPlugin);
 }

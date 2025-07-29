@@ -1,5 +1,7 @@
 //! Example demonstrating bordered UI nodes
 
+mod line_input_node;
+
 use bevy::{color::palettes::css::*, ecs::spawn::SpawnIter, prelude::*};
 
 fn main() {

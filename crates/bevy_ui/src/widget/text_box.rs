@@ -71,7 +71,6 @@ pub struct TextBoxPlugin;
 impl Plugin for TextBoxPlugin {
     fn build(&self, app: &mut bevy_app::App) {
         app.init_resource::<GlobalTextInputState>()
-            .init_resource::<InputFocus>()
             .init_resource::<TextInputMultiClickDelay>()
             .add_systems(
                 PostUpdate,

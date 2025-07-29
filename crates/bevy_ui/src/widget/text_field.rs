@@ -55,19 +55,6 @@ use bevy_time::Time;
 use taffy::MaybeMath;
 use taffy::MaybeResolve;
 
-pub struct TextInputPlugin;
-
-impl Plugin for TextInputPlugin {
-    fn build(&self, app: &mut bevy_app::App) {
-        app.add_systems(
-            PostUpdate,
-            (update_text_field_attributes, measure_lines)
-                .in_set(UiSystems::Content)
-                .before(UiSystems::Layout),
-        );
-    }
-}
-
 /// Main single line text input component
 #[derive(Component, Debug, Default)]
 #[require(
