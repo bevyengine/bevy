@@ -14,11 +14,11 @@ use bevy::picking::hover::Hovered;
 use bevy::prelude::*;
 use bevy::text::Clipboard;
 use bevy::text::Prompt;
+use bevy::text::TextInputEvent;
 use bevy::text::TextInputFilter;
 use bevy::text::TextInputPasswordMask;
-use bevy::text::TextInputSubmit;
 use bevy::text::TextInputValue;
-use bevy::ui::widget::TextInput;
+use bevy::ui::widget::TextField;
 use bevy_ecs::relationship::RelatedSpawnerCommands;
 
 fn main() {
@@ -129,9 +129,11 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 });
         })
         .observe(
-            move |on_submit: On<TextInputSubmit>, mut text_query: Query<&mut Text>| {
-                if let Ok(mut text) = text_query.get_mut(last_submission) {
-                    text.0 = on_submit.event().text.clone();
+            move |on_submit: On<TextInputEvent>, mut text_query: Query<&mut Text>| {
+                if let TextInputEvent::Submission { text, .. } = on_submit.event() {
+                    if let Ok(mut text_node) = text_query.get_mut(last_submission) {
+                        text_node.0 = text.clone();
+                    }
                 }
             },
         );
@@ -215,7 +217,7 @@ fn spawn_row(
         .add_child(submit_target);
 
     let mut input = commands.spawn((
-        TextInput {
+        TextField {
             justify: Justify::Left,
         },
         Prompt::new(label),
@@ -230,9 +232,11 @@ fn spawn_row(
     }
 
     input.observe(
-        move |on_submit: On<TextInputSubmit>, mut text_query: Query<&mut Text>| {
-            if let Ok(mut text) = text_query.get_mut(submit_target) {
-                text.0 = on_submit.event().text.clone();
+        move |on_submit: On<TextInputEvent>, mut text_query: Query<&mut Text>| {
+            if let TextInputEvent::Submission { text, .. } = on_submit.event() {
+                if let Ok(mut target) = text_query.get_mut(submit_target) {
+                    target.0 = text.clone();
+                }
             }
         },
     );

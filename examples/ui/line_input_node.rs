@@ -11,7 +11,7 @@ use bevy::input_focus::InputFocus;
 use bevy::prelude::*;
 use bevy::text::LineHeight;
 use bevy::ui::widget::NextFocus;
-use bevy::ui::widget::TextInput;
+use bevy::ui::widget::TextField;
 use bevy::ui::widget::TextInputSubmitBehaviour;
 use bevy::window::WindowResolution;
 
@@ -37,7 +37,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn(Camera2d);
     let id = commands
         .spawn((
-            TextInput::default(),
+            TextField::default(),
             TabIndex(0),
             TextColor(RED.into()),
             TextFont {

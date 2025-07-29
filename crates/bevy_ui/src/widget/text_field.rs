@@ -97,7 +97,7 @@ impl Plugin for TextInputPlugin {
     on_add = on_add_text_input_node,
     on_remove = on_remove_input_focus,
 )]
-pub struct TextInput {
+pub struct TextField {
     pub justify: Justify,
 }
 
@@ -301,7 +301,7 @@ impl Measure for InputMeasure {
 }
 
 fn update_line_input_attributes(
-    mut text_input_node_query: Query<(&TextFont, &TextInput, &mut TextInputAttributes)>,
+    mut text_input_node_query: Query<(&TextFont, &TextField, &mut TextInputAttributes)>,
 ) {
     for (font, line_input, mut attributes) in text_input_node_query.iter_mut() {
         attributes.set_if_neq(TextInputAttributes {

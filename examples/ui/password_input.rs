@@ -14,6 +14,7 @@ use bevy::prelude::*;
 use bevy::text::Prompt;
 use bevy::text::TextInputPasswordMask;
 use bevy::text::TextInputValue;
+use bevy::ui::widget::TextField;
 use bevy_ecs::relationship::RelatedSpawner;
 
 const FONT_PATH: &'static str = "fonts/FiraSans-Bold.ttf";
@@ -82,7 +83,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                             BorderColor::all(Color::WHITE),
                             BackgroundColor(Color::BLACK),
                             children![(
-                                InputField {
+                                TextField {
                                     justify: Justify::Left,
                                 },
                                 TextFont { font, ..default() },

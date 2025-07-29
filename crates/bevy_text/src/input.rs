@@ -527,7 +527,7 @@ pub fn apply_text_input_actions(
             match action {
                 TextInputAction::Submit => {
                     commands.trigger_targets(
-                        TextInputSubmit {
+                        TextInputEvent::Submission {
                             text: buffer.get_text(),
                             text_input: entity,
                         },
@@ -1127,11 +1127,26 @@ fn apply_text_input_action(
 #[derive(EntityEvent, Clone, Debug, Component, Reflect)]
 #[entity_event(traversal = &'static ChildOf, auto_propagate)]
 #[reflect(Component, Clone)]
-pub struct TextInputSubmit {
-    /// The submitted text
-    pub text: String,
-    /// The source text input input
-    pub text_input: Entity,
+pub enum TextInputEvent {
+    /// The input recieved an invalid input that was filtered
+    InvalidInput {
+        /// The source text input entity
+        text_input: Entity,
+    },
+    /// Text from the input was submitted
+    Submission {
+        /// The submitted text
+        text: String,
+        /// The source text input entity
+        text_input: Entity,
+    },
+    /// The contents of the text input changed due to an edit action
+    ContentsChanged {
+        /// The new text input contents
+        text: String,
+        /// The source text input entity
+        text_input: Entity,
+    },
 }
 
 /// Prompt displayed when the input is empty (including whitespace).
