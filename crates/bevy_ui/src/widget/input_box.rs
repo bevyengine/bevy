@@ -15,6 +15,8 @@ use bevy_color::palettes::tailwind::GRAY_400;
 use bevy_color::palettes::tailwind::GRAY_950;
 use bevy_color::palettes::tailwind::SKY_300;
 use bevy_color::Color;
+use bevy_derive::Deref;
+use bevy_derive::DerefMut;
 use bevy_ecs::change_detection::DetectChangesMut;
 use bevy_ecs::component::Component;
 use bevy_ecs::entity::Entity;
@@ -49,7 +51,6 @@ use bevy_picking::events::Press;
 use bevy_picking::hover::HoverMap;
 use bevy_picking::pointer::PointerButton;
 use bevy_text::Motion;
-use bevy_text::SpaceAdvance;
 use bevy_text::TextFont;
 use bevy_text::TextInputAction;
 use bevy_text::TextInputActions;
@@ -69,6 +70,7 @@ impl Plugin for TextBoxPlugin {
     fn build(&self, app: &mut bevy_app::App) {
         app.init_resource::<GlobalTextInputState>()
             .init_resource::<InputFocus>()
+            .init_resource::<TextInputMultiClickDelay>()
             .add_systems(
                 PostUpdate,
                 (
@@ -81,6 +83,15 @@ impl Plugin for TextBoxPlugin {
                     .before(TextInputSystems)
                     .before(bevy_text::update_text_input_buffers),
             );
+    }
+}
+
+#[derive(Resource, Deref, DerefMut)]
+pub struct TextInputMultiClickDelay(pub Duration);
+
+impl Default for TextInputMultiClickDelay {
+    fn default() -> Self {
+        Self(Duration::from_secs_f32(0.5))
     }
 }
 
@@ -141,7 +152,6 @@ impl Default for TextUnderCursorColor {
     TextLayoutInfo,
     TextCursorBlinkTimer,
     TextInputUndoHistory,
-    SpaceAdvance,
     TextInputSubmitBehaviour {
         clear_on_submit: false,
         navigate_on_submit: NextFocus::Clear,
@@ -247,8 +257,6 @@ pub struct GlobalTextInputState {
     pub overwrite: bool,
 }
 
-pub(crate) const MULTI_CLICK_PERIOD: f32 = 0.5; // seconds
-
 #[derive(Component, Default, Debug)]
 pub struct TextInputMultiClickCounter {
     pub(crate) last_click_time: f32,
@@ -316,6 +324,7 @@ fn on_text_input_dragged(
 fn on_multi_click_set_selection(
     click: On<Pointer<Click>>,
     time: Res<Time>,
+    multi_click_delay: Res<TextInputMultiClickDelay>,
     mut text_input_nodes: Query<(&ComputedNode, &UiGlobalTransform, &mut TextInputActions)>,
     mut multi_click_datas: Query<&mut TextInputMultiClickCounter>,
     mut commands: Commands,
@@ -331,7 +340,7 @@ fn on_multi_click_set_selection(
     let now = time.elapsed_secs();
     if let Ok(mut multi_click_data) = multi_click_datas.get_mut(click.target()) {
         if now - multi_click_data.last_click_time
-            <= MULTI_CLICK_PERIOD * multi_click_data.click_count as f32
+            <= multi_click_delay.as_secs_f32() * multi_click_data.click_count as f32
         {
             let rect = Rect::from_center_size(transform.translation, node.size());
 
