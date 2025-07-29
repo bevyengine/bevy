@@ -12,7 +12,6 @@ use bevy::input_focus::InputFocus;
 use bevy::prelude::*;
 use bevy::text::Prompt;
 use bevy::text::TextInputVisibleLines;
-use bevy::text::TextSelectionBlockColor;
 use bevy::ui::widget::NextFocus;
 use bevy::ui::widget::TextBox;
 use bevy::ui::widget::TextInputSubmitBehaviour;
