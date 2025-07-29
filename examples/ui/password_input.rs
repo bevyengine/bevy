@@ -17,7 +17,7 @@ use bevy::text::TextInputValue;
 use bevy::ui::widget::TextField;
 use bevy_ecs::relationship::RelatedSpawner;
 
-const MAX_PASSWORD_LENGTH: usize = 20;
+const MAX_PASSWORD_LENGTH: usize = 10;
 
 fn main() {
     App::new()

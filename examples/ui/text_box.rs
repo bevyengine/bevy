@@ -1,6 +1,4 @@
 //! minimal text input example
-
-use bevy::color::palettes::css::LIGHT_BLUE;
 use bevy::color::palettes::css::NAVY;
 use bevy::input_focus::tab_navigation::NavAction;
 use bevy::input_focus::tab_navigation::TabGroup;
