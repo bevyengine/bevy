@@ -40,7 +40,7 @@ pub struct TextEntity {
 #[derive(Component, Debug, Clone, Reflect)]
 #[reflect(Component, Debug, Default, Clone)]
 pub struct ComputedTextBlock {
-    /// Buffer for managing text layout and creating [`TextLayoutInfo`].
+    /// Buffer for managing text layout and creating [`TextLayoutInfo`](crate::pipeline::TextLayoutInfo).
     ///
     /// This is private because buffer contents are always refreshed from ECS state when writing glyphs to
     /// `TextLayoutInfo`. If you want to control the buffer contents manually or use the `cosmic-text`
@@ -68,13 +68,13 @@ pub struct ComputedTextBlock {
 impl ComputedTextBlock {
     /// Accesses entities in this block.
     ///
-    /// Can be used to look up [`TextFont`] components for glyphs in [`TextLayoutInfo`] using the `span_index`
+    /// Can be used to look up [`TextFont`] components for glyphs in [`TextLayoutInfo`](crate::pipeline::TextLayoutInfo) using the `span_index`
     /// stored there.
     pub fn entities(&self) -> &[TextEntity] {
         &self.entities
     }
 
-    /// Indicates if the text needs to be refreshed in [`TextLayoutInfo`].
+    /// Indicates if the text needs to be refreshed in [`TextLayoutInfo`](crate::pipeline::TextLayoutInfo).
     ///
     /// Updated automatically by [`detect_text_needs_rerender`] and cleared
     /// by [`TextPipeline`](crate::TextPipeline) methods.
@@ -107,7 +107,7 @@ impl Default for ComputedTextBlock {
 ///
 /// A block of text is composed of text spans, which each have a separate string value and [`TextFont`]. Text
 /// spans associated with a text block are collected into [`ComputedTextBlock`] for layout, and then inserted
-/// to [`TextLayoutInfo`] for rendering.
+/// to [`TextLayoutInfo`](crate::pipeline::TextLayoutInfo) for rendering.
 ///
 /// See [`Text2d`](crate::Text2d) for the core component of 2d text, and `Text` in `bevy_ui` for UI text.
 #[derive(Component, Debug, Copy, Clone, Default, Reflect)]
