@@ -1,7 +1,3 @@
-#![allow(missing_docs)]
-
-use std::time::Duration;
-
 use crate::widget::measure_lines;
 use crate::widget::update_text_field_attributes;
 use crate::ComputedNode;
@@ -65,6 +61,7 @@ use bevy_text::TextInputTarget;
 use bevy_text::TextInputUndoHistory;
 use bevy_text::TextLayoutInfo;
 use bevy_time::Time;
+use std::time::Duration;
 
 pub struct TextBoxPlugin;
 

@@ -1,5 +1,3 @@
-#![allow(missing_docs)]
-
 use crate::widget::on_focused_keyboard_input;
 use crate::widget::SingleLineInputField;
 use crate::widget::TextCursorBlinkTimer;
@@ -14,9 +12,6 @@ use crate::MeasureArgs;
 use crate::Node;
 use crate::UiGlobalTransform;
 use crate::UiScale;
-use crate::UiSystems;
-use bevy_app::Plugin;
-use bevy_app::PostUpdate;
 use bevy_ecs::change_detection::DetectChanges;
 use bevy_ecs::change_detection::DetectChangesMut;
 use bevy_ecs::component::Component;
@@ -25,7 +20,6 @@ use bevy_ecs::lifecycle::HookContext;
 use bevy_ecs::observer::Observer;
 use bevy_ecs::observer::On;
 use bevy_ecs::query::With;
-use bevy_ecs::schedule::IntoScheduleConfigs;
 use bevy_ecs::system::Commands;
 use bevy_ecs::system::Query;
 use bevy_ecs::system::Res;
