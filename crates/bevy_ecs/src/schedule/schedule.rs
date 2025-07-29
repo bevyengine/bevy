@@ -188,7 +188,9 @@ impl Schedules {
         set: impl IntoSystemSet<M>,
         world: &mut World,
     ) -> Result<usize, ScheduleError> {
-        self.entry(schedule).remove_systems_in_set(set, world)
+        self.get_mut(schedule)
+            .ok_or(ScheduleError::ScheduleNotFound)?
+            .remove_systems_in_set(set, world)
     }
 
     /// Configures a collection of system sets in the provided schedule, adding any sets that do not exist.
@@ -969,11 +971,11 @@ impl ScheduleGraph {
         let system_set_id = self
             .system_sets
             .get_key(system_set)
-            .ok_or(ScheduleError::NotFound)?;
+            .ok_or(ScheduleError::SetNotFound)?;
         self.set_systems
             .get(&system_set_id)
             .cloned()
-            .ok_or(ScheduleError::NotFound)
+            .ok_or(ScheduleError::SetNotFound)
     }
 
     /// Remove all systems in a set and any dependencies on those systems and set.

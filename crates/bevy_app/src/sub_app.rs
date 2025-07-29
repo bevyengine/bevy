@@ -228,10 +228,9 @@ impl SubApp {
         schedule: impl ScheduleLabel,
         set: impl IntoSystemSet<M>,
     ) -> Result<usize, ScheduleError> {
-        self.world
-            .resource_scope(|world, mut schedules: Mut<Schedules>| {
-                schedules.remove_systems_in_set(schedule, set, world)
-            })
+        self.world.schedule_scope(schedule, |world, schedule| {
+            schedule.remove_systems_in_set(set, world)
+        })
     }
 
     /// See [`App::register_system`].
