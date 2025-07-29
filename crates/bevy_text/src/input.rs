@@ -1251,10 +1251,9 @@ pub fn text_input_prompt_system(
 
         buffer.shape_until_scroll(&mut font_system, false);
 
-        let box_size = buffer_dimensions(&buffer);
+        let box_size = buffer_dimensions(buffer);
         let result = buffer.layout_runs().try_for_each(|run| {
-            let result = run
-                .glyphs
+            run.glyphs
                 .iter()
                 .map(move |layout_glyph| (layout_glyph, run.line_y, run.line_i))
                 .try_for_each(|(layout_glyph, line_y, line_i)| {
@@ -1322,9 +1321,7 @@ pub fn text_input_prompt_system(
                     };
                     layout.glyphs.push(pos_glyph);
                     Ok(())
-                });
-
-            result
+                })
         });
 
         prompt_layout.layout.size = target.scale_factor.recip() * box_size;
