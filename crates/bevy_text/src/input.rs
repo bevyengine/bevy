@@ -60,7 +60,7 @@ pub struct TextInputSystems;
 #[derive(Resource, Default)]
 pub struct Clipboard(pub String);
 
-/// Get the text from th a cosmic text buffer
+/// Get the text from a cosmic text buffer
 fn get_cosmic_text_buffer_contents(buffer: &Buffer) -> String {
     buffer
         .lines
@@ -212,7 +212,7 @@ pub struct TextInputAttributes {
     pub justify: Justify,
     /// Controls text antialiasing
     pub font_smoothing: FontSmoothing,
-    /// Maximum number of glpyhs the text input buffer can contain.
+    /// Maximum number of glyphs the text input buffer can contain.
     /// Any edits that extend the length above `max_chars` are ignored.
     /// If set on a buffer longer than `max_chars` the buffer will be truncated.
     pub max_chars: Option<usize>,
@@ -1120,13 +1120,13 @@ fn apply_text_input_action(
     true
 }
 
-/// Event dispatched when a text input recieves the [`TextInputAction::Submit`] action.
+/// Event dispatched when a text input receives the [`TextInputAction::Submit`] action.
 /// Contains a copy of the buffer contents at the time when when the action was applied.
 #[derive(EntityEvent, Clone, Debug, Component, Reflect)]
 #[entity_event(traversal = &'static ChildOf, auto_propagate)]
 #[reflect(Component, Clone)]
 pub enum TextInputEvent {
-    /// The input recieved an invalid input that was filtered
+    /// The input received an invalid input that was filtered
     InvalidInput {
         /// The source text input entity
         text_input: Entity,
