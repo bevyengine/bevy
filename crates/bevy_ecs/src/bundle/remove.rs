@@ -337,6 +337,7 @@ impl BundleInfo {
             let mut next_table_components;
             let mut next_sparse_set_components;
             let next_table_id;
+            let next_value_components;
             {
                 let current_archetype = &mut archetypes[archetype_id];
                 let mut removed_table_components = Vec::new();
@@ -383,6 +384,14 @@ impl BundleInfo {
                             .get_id_or_insert(&next_table_components, components)
                     }
                 };
+
+                next_value_components = current_archetype
+                    .components_with_fragmenting_values()
+                    .filter(|(id, _)| {
+                        removed_sparse_set_components.binary_search(id).is_err()
+                            && removed_table_components.binary_search(id).is_err()
+                    })
+                    .collect();
             }
 
             let (new_archetype_id, is_new_created) = archetypes.get_id_or_insert(
@@ -391,6 +400,7 @@ impl BundleInfo {
                 next_table_id,
                 next_table_components,
                 next_sparse_set_components,
+                next_value_components,
             );
             (Some(new_archetype_id), is_new_created)
         };
