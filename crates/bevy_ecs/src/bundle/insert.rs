@@ -433,7 +433,7 @@ impl BundleInfo {
         }
         let mut new_table_components = Vec::new();
         let mut new_sparse_set_components = Vec::new();
-        let mut bundle_status = Vec::with_capacity(self.explicit_components_len);
+        let mut bundle_status = Vec::with_capacity(self.explicit_components_len());
         let mut added_required_components = Vec::new();
         let mut added = Vec::new();
         let mut existing = Vec::new();
@@ -457,7 +457,7 @@ impl BundleInfo {
 
         for (index, component_id) in self.iter_required_components().enumerate() {
             if !current_archetype.contains(component_id) {
-                added_required_components.push(self.required_components[index].clone());
+                added_required_components.push(self.required_component_constructors[index].clone());
                 added.push(component_id);
                 // SAFETY: component_id exists
                 let component_info = unsafe { components.get_info_unchecked(component_id) };

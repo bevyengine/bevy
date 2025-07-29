@@ -304,18 +304,39 @@ mod gizmos {
     pub fn setup(mut commands: Commands) {
         commands.spawn((
             Camera3d::default(),
-            Transform::from_xyz(-2.0, 2.5, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
+            Transform::from_xyz(-1.0, 2.5, 6.5).looking_at(Vec3::ZERO, Vec3::Y),
             DespawnOnExitState(super::Scene::Gizmos),
         ));
     }
 
     pub fn draw_gizmos(mut gizmos: Gizmos) {
         gizmos.cuboid(
-            Transform::from_translation(Vec3::X * 2.0).with_scale(Vec3::splat(2.0)),
+            Transform::from_translation(Vec3::X * -1.75).with_scale(Vec3::splat(1.25)),
             RED,
         );
         gizmos
-            .sphere(Isometry3d::from_translation(Vec3::X * -2.0), 1.0, GREEN)
+            .sphere(Isometry3d::from_translation(Vec3::X * -3.5), 0.75, GREEN)
             .resolution(30_000 / 3);
+
+        // 3d grids with all variations of outer edges on or off
+        for i in 0..8 {
+            let x = 1.5 * (i % 4) as f32;
+            let y = 1.0 * (0.5 - (i / 4) as f32);
+            let mut grid = gizmos.grid_3d(
+                Isometry3d::from_translation(Vec3::new(x, y, 0.0)),
+                UVec3::new(5, 4, 3),
+                Vec3::splat(0.175),
+                Color::WHITE,
+            );
+            if i & 1 > 0 {
+                grid = grid.outer_edges_x();
+            }
+            if i & 2 > 0 {
+                grid = grid.outer_edges_y();
+            }
+            if i & 4 > 0 {
+                grid.outer_edges_z();
+            }
+        }
     }
 }
