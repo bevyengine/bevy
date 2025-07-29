@@ -2,7 +2,7 @@ use crate::widget::on_focused_keyboard_input;
 use crate::widget::SingleLineInputField;
 use crate::widget::TextCursorBlinkTimer;
 use crate::widget::TextInputMultiClickCounter;
-use crate::widget::TextInputMultiClickDelay;
+use crate::widget::TextInputMultiClickPeriod;
 use crate::widget::TextInputStyle;
 use crate::ComputedNode;
 use crate::ComputedNodeTarget;
@@ -160,7 +160,7 @@ fn on_text_input_dragged(
 fn on_multi_click_set_selection(
     click: On<Pointer<Click>>,
     time: Res<Time>,
-    multi_click_delay: Res<TextInputMultiClickDelay>,
+    multi_click_delay: Res<TextInputMultiClickPeriod>,
     mut text_input_nodes: Query<(&ComputedNode, &UiGlobalTransform, &mut TextInputActions)>,
     mut multi_click_datas: Query<&mut TextInputMultiClickCounter>,
     mut commands: Commands,

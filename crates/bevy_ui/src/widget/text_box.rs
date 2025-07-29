@@ -68,7 +68,7 @@ pub struct TextInputPlugin;
 impl Plugin for TextInputPlugin {
     fn build(&self, app: &mut bevy_app::App) {
         app.init_resource::<GlobalTextInputState>()
-            .init_resource::<TextInputMultiClickDelay>()
+            .init_resource::<TextInputMultiClickPeriod>()
             .add_systems(
                 PostUpdate,
                 (
@@ -90,10 +90,11 @@ impl Plugin for TextInputPlugin {
     }
 }
 
+/// Controls how long until the button has to be pressed again to register a multi-click.
 #[derive(Resource, Deref, DerefMut)]
-pub struct TextInputMultiClickDelay(pub Duration);
+pub struct TextInputMultiClickPeriod(pub Duration);
 
-impl Default for TextInputMultiClickDelay {
+impl Default for TextInputMultiClickPeriod {
     fn default() -> Self {
         Self(Duration::from_secs_f32(0.5))
     }
@@ -335,7 +336,7 @@ fn on_text_input_dragged(
 fn on_multi_click_set_selection(
     click: On<Pointer<Click>>,
     time: Res<Time>,
-    multi_click_delay: Res<TextInputMultiClickDelay>,
+    multi_click_delay: Res<TextInputMultiClickPeriod>,
     mut text_input_nodes: Query<(&ComputedNode, &UiGlobalTransform, &mut TextInputActions)>,
     mut multi_click_datas: Query<&mut TextInputMultiClickCounter>,
     mut commands: Commands,
