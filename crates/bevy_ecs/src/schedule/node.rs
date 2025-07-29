@@ -665,7 +665,7 @@ impl SystemSets {
         self.sets.get(key).map(|set| &**set)
     }
 
-    /// Returns the kkey for the given system set, returns None if it does not exist.
+    /// Returns the key for the given system set, returns None if it does not exist.
     pub fn get_key(&self, set: InternedSystemSet) -> Option<SystemSetKey> {
         self.ids.get(&set).copied()
     }

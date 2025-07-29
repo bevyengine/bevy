@@ -949,9 +949,16 @@ impl ScheduleGraph {
         AnonymousSet::new(id)
     }
 
-    /// Returns iterator over all [`SystemKey`]'s in a [`SystemSet`]
-    /// Returns `ScheduleBuildError::Uninitialized` if schedule has been changed and `Self::initialize`
-    /// has not been called.
+    /// Returns a `Vec` containing all [`SystemKey`]s in a [`SystemSet`].
+    ///
+    /// # Errors
+    ///
+    /// This method may return an error. It'll be:
+    /// 
+    /// - `ScheduleError::Uninitialized` if the schedule has been changed,
+    ///   and `Self::initialize` has not been called.
+    /// - `ScheduleError::NotFound` if `system_set` isn't present in the
+    ///   schedule.
     pub fn systems_in_set(
         &self,
         system_set: InternedSystemSet,
