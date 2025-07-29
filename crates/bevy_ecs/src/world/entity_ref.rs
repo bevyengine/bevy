@@ -2288,6 +2288,8 @@ impl<'w> EntityWorldMut<'w> {
     /// # Panics
     ///
     /// If the entity has been despawned while this `EntityWorldMut` is still alive.
+    // Implementation note: Using this forbids components in this bundle to add more required components
+    // See `Bundles::verify_to_refresh_required_components`
     #[track_caller]
     pub fn remove_with_requires<T: Bundle>(&mut self) -> &mut Self {
         self.remove_with_requires_with_caller::<T>(MaybeLocation::caller())
