@@ -127,9 +127,9 @@ fn on_text_input_dragged(
         return;
     }
 
-    if !input_focus
+    if input_focus
         .0
-        .is_some_and(|input_focus_entity| input_focus_entity == trigger.target())
+        .is_none_or(|input_focus_entity| input_focus_entity != trigger.target())
     {
         return;
     }
