@@ -13,9 +13,9 @@ use bevy::picking::hover::Hovered;
 use bevy::prelude::*;
 use bevy::text::Prompt;
 use bevy::text::TextInputPasswordMask;
-use bevy::text::TextInputPlugin;
 use bevy::text::TextInputValue;
 use bevy::ui::widget::TextField;
+use bevy::ui::widget::TextInputPlugin;
 use bevy_ecs::relationship::RelatedSpawner;
 
 const MAX_PASSWORD_LENGTH: usize = 10;
