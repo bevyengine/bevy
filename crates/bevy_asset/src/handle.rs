@@ -7,6 +7,7 @@ use bevy_reflect::{std_traits::ReflectDefault, Reflect, TypePath};
 use core::{
     any::TypeId,
     hash::{Hash, Hasher},
+    marker::PhantomData,
 };
 use crossbeam_channel::{Receiver, Sender};
 use disqualified::ShortName;
@@ -118,7 +119,7 @@ impl core::fmt::Debug for StrongHandle {
 /// avoiding the need to store multiple copies of the same data.
 ///
 /// If a [`Handle`] is [`Handle::Strong`], the [`Asset`] will be kept
-/// alive until the [`Handle`] is dropped. If a [`Handle`] is [`Handle::Weak`], it does not necessarily reference a live [`Asset`],
+/// alive until the [`Handle`] is dropped. If a [`Handle`] is [`Handle::Uuid`], it does not necessarily reference a live [`Asset`],
 /// nor will it keep assets alive.
 ///
 /// Modifying a *handle* will change which existing asset is referenced, but modifying the *asset*
@@ -134,38 +135,27 @@ pub enum Handle<A: Asset> {
     /// A "strong" reference to a live (or loading) [`Asset`]. If a [`Handle`] is [`Handle::Strong`], the [`Asset`] will be kept
     /// alive until the [`Handle`] is dropped. Strong handles also provide access to additional asset metadata.
     Strong(Arc<StrongHandle>),
-    /// A "weak" reference to an [`Asset`]. If a [`Handle`] is [`Handle::Weak`], it does not necessarily reference a live [`Asset`],
-    /// nor will it keep assets alive.
-    Weak(AssetId<A>),
+    /// A reference to an [`Asset`] using a stable-across-runs / const identifier. Dropping this
+    /// handle will not result in the asset being dropped.
+    Uuid(Uuid, #[reflect(ignore, clone)] PhantomData<fn() -> A>),
 }
 
 impl<T: Asset> Clone for Handle<T> {
     fn clone(&self) -> Self {
         match self {
             Handle::Strong(handle) => Handle::Strong(handle.clone()),
-            Handle::Weak(id) => Handle::Weak(*id),
+            Handle::Uuid(uuid, ..) => Handle::Uuid(*uuid, PhantomData),
         }
     }
 }
 
 impl<A: Asset> Handle<A> {
-    /// Create a new [`Handle::Weak`] with the given [`u128`] encoding of a [`Uuid`].
-    #[deprecated(
-        since = "0.16.0",
-        note = "use the `weak_handle!` macro with a UUID string instead"
-    )]
-    pub const fn weak_from_u128(value: u128) -> Self {
-        Handle::Weak(AssetId::Uuid {
-            uuid: Uuid::from_u128(value),
-        })
-    }
-
     /// Returns the [`AssetId`] of this [`Asset`].
     #[inline]
     pub fn id(&self) -> AssetId<A> {
         match self {
             Handle::Strong(handle) => handle.id.typed_unchecked(),
-            Handle::Weak(id) => *id,
+            Handle::Uuid(uuid, ..) => AssetId::Uuid { uuid: *uuid },
         }
     }
 
@@ -174,14 +164,14 @@ impl<A: Asset> Handle<A> {
     pub fn path(&self) -> Option<&AssetPath<'static>> {
         match self {
             Handle::Strong(handle) => handle.path.as_ref(),
-            Handle::Weak(_) => None,
+            Handle::Uuid(..) => None,
         }
     }
 
-    /// Returns `true` if this is a weak handle.
+    /// Returns `true` if this is a uuid handle.
     #[inline]
-    pub fn is_weak(&self) -> bool {
-        matches!(self, Handle::Weak(_))
+    pub fn is_uuid(&self) -> bool {
+        matches!(self, Handle::Uuid(..))
     }
 
     /// Returns `true` if this is a strong handle.
@@ -190,18 +180,9 @@ impl<A: Asset> Handle<A> {
         matches!(self, Handle::Strong(_))
     }
 
-    /// Creates a [`Handle::Weak`] clone of this [`Handle`], which will not keep the referenced [`Asset`] alive.
-    #[inline]
-    pub fn clone_weak(&self) -> Self {
-        match self {
-            Handle::Strong(handle) => Handle::Weak(handle.id.typed_unchecked::<A>()),
-            Handle::Weak(id) => Handle::Weak(*id),
-        }
-    }
-
     /// Converts this [`Handle`] to an "untyped" / "generic-less" [`UntypedHandle`], which stores the [`Asset`] type information
-    /// _inside_ [`UntypedHandle`]. This will return [`UntypedHandle::Strong`] for [`Handle::Strong`] and [`UntypedHandle::Weak`] for
-    /// [`Handle::Weak`].
+    /// _inside_ [`UntypedHandle`]. This will return [`UntypedHandle::Strong`] for [`Handle::Strong`] and [`UntypedHandle::Uuid`] for
+    /// [`Handle::Uuid`].
     #[inline]
     pub fn untyped(self) -> UntypedHandle {
         self.into()
@@ -210,7 +191,7 @@ impl<A: Asset> Handle<A> {
 
 impl<A: Asset> Default for Handle<A> {
     fn default() -> Self {
-        Handle::Weak(AssetId::default())
+        Handle::Uuid(AssetId::<A>::DEFAULT_UUID, PhantomData)
     }
 }
 
@@ -226,7 +207,7 @@ impl<A: Asset> core::fmt::Debug for Handle<A> {
                     handle.path
                 )
             }
-            Handle::Weak(id) => write!(f, "WeakHandle<{name}>({:?})", id.internal()),
+            Handle::Uuid(uuid, ..) => write!(f, "UuidHandle<{name}>({uuid:?})"),
         }
     }
 }
@@ -296,8 +277,13 @@ impl<A: Asset> From<&mut Handle<A>> for UntypedAssetId {
 pub enum UntypedHandle {
     /// A strong handle, which will keep the referenced [`Asset`] alive until all strong handles are dropped.
     Strong(Arc<StrongHandle>),
-    /// A weak handle, which does not keep the referenced [`Asset`] alive.
-    Weak(UntypedAssetId),
+    /// A UUID handle, which does not keep the referenced [`Asset`] alive.
+    Uuid {
+        /// An identifier that records the underlying asset type.
+        type_id: TypeId,
+        /// The UUID provided during asset registration.
+        uuid: Uuid,
+    },
 }
 
 impl UntypedHandle {
@@ -306,7 +292,10 @@ impl UntypedHandle {
     pub fn id(&self) -> UntypedAssetId {
         match self {
             UntypedHandle::Strong(handle) => handle.id,
-            UntypedHandle::Weak(id) => *id,
+            UntypedHandle::Uuid { type_id, uuid } => UntypedAssetId::Uuid {
+                uuid: *uuid,
+                type_id: *type_id,
+            },
         }
     }
 
@@ -315,16 +304,7 @@ impl UntypedHandle {
     pub fn path(&self) -> Option<&AssetPath<'static>> {
         match self {
             UntypedHandle::Strong(handle) => handle.path.as_ref(),
-            UntypedHandle::Weak(_) => None,
-        }
-    }
-
-    /// Creates an [`UntypedHandle::Weak`] clone of this [`UntypedHandle`], which will not keep the referenced [`Asset`] alive.
-    #[inline]
-    pub fn clone_weak(&self) -> UntypedHandle {
-        match self {
-            UntypedHandle::Strong(handle) => UntypedHandle::Weak(handle.id),
-            UntypedHandle::Weak(id) => UntypedHandle::Weak(*id),
+            UntypedHandle::Uuid { .. } => None,
         }
     }
 
@@ -333,7 +313,7 @@ impl UntypedHandle {
     pub fn type_id(&self) -> TypeId {
         match self {
             UntypedHandle::Strong(handle) => handle.id.type_id(),
-            UntypedHandle::Weak(id) => id.type_id(),
+            UntypedHandle::Uuid { type_id, .. } => *type_id,
         }
     }
 
@@ -342,7 +322,7 @@ impl UntypedHandle {
     pub fn typed_unchecked<A: Asset>(self) -> Handle<A> {
         match self {
             UntypedHandle::Strong(handle) => Handle::Strong(handle),
-            UntypedHandle::Weak(id) => Handle::Weak(id.typed_unchecked::<A>()),
+            UntypedHandle::Uuid { uuid, .. } => Handle::Uuid(uuid, PhantomData),
         }
     }
 
@@ -357,10 +337,7 @@ impl UntypedHandle {
             TypeId::of::<A>(),
             "The target Handle<A>'s TypeId does not match the TypeId of this UntypedHandle"
         );
-        match self {
-            UntypedHandle::Strong(handle) => Handle::Strong(handle),
-            UntypedHandle::Weak(id) => Handle::Weak(id.typed_unchecked::<A>()),
-        }
+        self.typed_unchecked()
     }
 
     /// Converts to a typed Handle. This will panic if the internal [`TypeId`] does not match the given asset type `A`
@@ -388,7 +365,7 @@ impl UntypedHandle {
     pub fn meta_transform(&self) -> Option<&MetaTransform> {
         match self {
             UntypedHandle::Strong(handle) => handle.meta_transform.as_ref(),
-            UntypedHandle::Weak(_) => None,
+            UntypedHandle::Uuid { .. } => None,
         }
     }
 }
@@ -421,12 +398,9 @@ impl core::fmt::Debug for UntypedHandle {
                     handle.path
                 )
             }
-            UntypedHandle::Weak(id) => write!(
-                f,
-                "WeakHandle{{ type_id: {:?}, id: {:?} }}",
-                id.type_id(),
-                id.internal()
-            ),
+            UntypedHandle::Uuid { type_id, uuid } => {
+                write!(f, "UuidHandle{{ type_id: {type_id:?}, uuid: {uuid:?} }}",)
+            }
         }
     }
 }
@@ -486,7 +460,10 @@ impl<A: Asset> From<Handle<A>> for UntypedHandle {
     fn from(value: Handle<A>) -> Self {
         match value {
             Handle::Strong(handle) => UntypedHandle::Strong(handle),
-            Handle::Weak(id) => UntypedHandle::Weak(id.into()),
+            Handle::Uuid(uuid, _) => UntypedHandle::Uuid {
+                type_id: TypeId::of::<A>(),
+                uuid,
+            },
         }
     }
 }
@@ -502,34 +479,35 @@ impl<A: Asset> TryFrom<UntypedHandle> for Handle<A> {
             return Err(UntypedAssetConversionError::TypeIdMismatch { expected, found });
         }
 
-        match value {
-            UntypedHandle::Strong(handle) => Ok(Handle::Strong(handle)),
-            UntypedHandle::Weak(id) => {
-                let Ok(id) = id.try_into() else {
-                    return Err(UntypedAssetConversionError::TypeIdMismatch { expected, found });
-                };
-                Ok(Handle::Weak(id))
-            }
-        }
+        Ok(match value {
+            UntypedHandle::Strong(handle) => Handle::Strong(handle),
+            UntypedHandle::Uuid { uuid, .. } => Handle::Uuid(uuid, PhantomData),
+        })
     }
 }
 
-/// Creates a weak [`Handle`] from a string literal containing a UUID.
+/// Creates a [`Handle`] from a string literal containing a UUID.
 ///
 /// # Examples
 ///
 /// ```
-/// # use bevy_asset::{Handle, weak_handle};
-/// # type Shader = ();
-/// const SHADER: Handle<Shader> = weak_handle!("1347c9b7-c46a-48e7-b7b8-023a354b7cac");
+/// # use bevy_asset::{Handle, uuid_handle};
+/// # type Image = ();
+/// const IMAGE: Handle<Image> = uuid_handle!("1347c9b7-c46a-48e7-b7b8-023a354b7cac");
 /// ```
 #[macro_export]
-macro_rules! weak_handle {
+macro_rules! uuid_handle {
     ($uuid:expr) => {{
-        $crate::Handle::Weak($crate::AssetId::Uuid {
-            uuid: $crate::uuid::uuid!($uuid),
-        })
+        $crate::Handle::Uuid($crate::uuid::uuid!($uuid), core::marker::PhantomData)
     }};
+}
+
+#[deprecated = "Use uuid_handle! instead"]
+#[macro_export]
+macro_rules! weak_handle {
+    ($uuid:expr) => {
+        uuid_handle!($uuid)
+    };
 }
 
 /// Errors preventing the conversion of to/from an [`UntypedHandle`] and a [`Handle`].
@@ -554,6 +532,7 @@ mod tests {
     use bevy_platform::hash::FixedHasher;
     use bevy_reflect::PartialReflect;
     use core::hash::BuildHasher;
+    use uuid::Uuid;
 
     use super::*;
 
@@ -570,14 +549,11 @@ mod tests {
     /// Typed and Untyped `Handles` should be equivalent to each other and themselves
     #[test]
     fn equality() {
-        let typed = AssetId::<TestAsset>::Uuid { uuid: UUID_1 };
-        let untyped = UntypedAssetId::Uuid {
+        let typed = Handle::<TestAsset>::Uuid(UUID_1, PhantomData);
+        let untyped = UntypedHandle::Uuid {
             type_id: TypeId::of::<TestAsset>(),
             uuid: UUID_1,
         };
-
-        let typed = Handle::Weak(typed);
-        let untyped = UntypedHandle::Weak(untyped);
 
         assert_eq!(
             Ok(typed.clone()),
@@ -596,21 +572,16 @@ mod tests {
     fn ordering() {
         assert!(UUID_1 < UUID_2);
 
-        let typed_1 = AssetId::<TestAsset>::Uuid { uuid: UUID_1 };
-        let typed_2 = AssetId::<TestAsset>::Uuid { uuid: UUID_2 };
-        let untyped_1 = UntypedAssetId::Uuid {
+        let typed_1 = Handle::<TestAsset>::Uuid(UUID_1, PhantomData);
+        let typed_2 = Handle::<TestAsset>::Uuid(UUID_2, PhantomData);
+        let untyped_1 = UntypedHandle::Uuid {
             type_id: TypeId::of::<TestAsset>(),
             uuid: UUID_1,
         };
-        let untyped_2 = UntypedAssetId::Uuid {
+        let untyped_2 = UntypedHandle::Uuid {
             type_id: TypeId::of::<TestAsset>(),
             uuid: UUID_2,
         };
-
-        let typed_1 = Handle::Weak(typed_1);
-        let typed_2 = Handle::Weak(typed_2);
-        let untyped_1 = UntypedHandle::Weak(untyped_1);
-        let untyped_2 = UntypedHandle::Weak(untyped_2);
 
         assert!(typed_1 < typed_2);
         assert!(untyped_1 < untyped_2);
@@ -628,14 +599,11 @@ mod tests {
     /// Typed and Untyped `Handles` should be equivalently hashable to each other and themselves
     #[test]
     fn hashing() {
-        let typed = AssetId::<TestAsset>::Uuid { uuid: UUID_1 };
-        let untyped = UntypedAssetId::Uuid {
+        let typed = Handle::<TestAsset>::Uuid(UUID_1, PhantomData);
+        let untyped = UntypedHandle::Uuid {
             type_id: TypeId::of::<TestAsset>(),
             uuid: UUID_1,
         };
-
-        let typed = Handle::Weak(typed);
-        let untyped = UntypedHandle::Weak(untyped);
 
         assert_eq!(
             hash(&typed),
@@ -648,14 +616,11 @@ mod tests {
     /// Typed and Untyped `Handles` should be interchangeable
     #[test]
     fn conversion() {
-        let typed = AssetId::<TestAsset>::Uuid { uuid: UUID_1 };
-        let untyped = UntypedAssetId::Uuid {
+        let typed = Handle::<TestAsset>::Uuid(UUID_1, PhantomData);
+        let untyped = UntypedHandle::Uuid {
             type_id: TypeId::of::<TestAsset>(),
             uuid: UUID_1,
         };
-
-        let typed = Handle::Weak(typed);
-        let untyped = UntypedHandle::Weak(untyped);
 
         assert_eq!(typed, Handle::try_from(untyped.clone()).unwrap());
         assert_eq!(UntypedHandle::from(typed.clone()), untyped);

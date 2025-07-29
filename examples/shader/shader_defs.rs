@@ -61,12 +61,12 @@ impl Material for CustomMaterial {
     }
 
     fn specialize(
-        _pipeline: &MaterialPipeline<Self>,
+        _pipeline: &MaterialPipeline,
         descriptor: &mut RenderPipelineDescriptor,
         _layout: &MeshVertexBufferLayoutRef,
         key: MaterialPipelineKey<Self>,
     ) -> Result<(), SpecializedMeshPipelineError> {
-        if key.bind_group_data.is_red {
+        if key.bind_group_data.is_red == 1 {
             let fragment = descriptor.fragment.as_mut().unwrap();
             fragment.shader_defs.push("IS_RED".into());
         }
@@ -86,16 +86,19 @@ struct CustomMaterial {
 // This key is used to identify a specific permutation of this material pipeline.
 // In this case, we specialize on whether or not to configure the "IS_RED" shader def.
 // Specialization keys should be kept as small / cheap to hash as possible,
-// as they will be used to look up the pipeline for each drawn entity with this material type.
-#[derive(Eq, PartialEq, Hash, Clone)]
+// as they will be used to look up the pipeline for each drawn entity with this material type,
+// Which is why they are required to be `bytemuck::Pod` and `bytemuck::Zeroable` for materials
+// that use the `AsBindGroup` derive macro.
+#[repr(C)]
+#[derive(Eq, PartialEq, Hash, Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
 struct CustomMaterialKey {
-    is_red: bool,
+    is_red: u32,
 }
 
 impl From<&CustomMaterial> for CustomMaterialKey {
     fn from(material: &CustomMaterial) -> Self {
         Self {
-            is_red: material.is_red,
+            is_red: material.is_red as u32,
         }
     }
 }

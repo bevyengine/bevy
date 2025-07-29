@@ -1096,6 +1096,10 @@ mod tests {
         });
     }
 
+    #[expect(
+        clippy::neg_multiply,
+        reason = "Clippy doesn't like this, but it's correct"
+    )]
     #[test]
     fn mapping() {
         let curve = FunctionCurve::new(Interval::EVERYWHERE, |t| t * 3.0 + 1.0);

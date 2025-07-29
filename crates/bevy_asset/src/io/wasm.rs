@@ -47,7 +47,7 @@ fn js_value_to_err(context: &str) -> impl FnOnce(JsValue) -> std::io::Error + '_
             }
         };
 
-        std::io::Error::new(std::io::ErrorKind::Other, message)
+        std::io::Error::other(message)
     }
 }
 
@@ -62,10 +62,7 @@ impl HttpWasmAssetReader {
             let worker: web_sys::WorkerGlobalScope = global.unchecked_into();
             worker.fetch_with_str(path.to_str().unwrap())
         } else {
-            let error = std::io::Error::new(
-                std::io::ErrorKind::Other,
-                "Unsupported JavaScript global context",
-            );
+            let error = std::io::Error::other("Unsupported JavaScript global context");
             return Err(AssetReaderError::Io(error.into()));
         };
         let resp_value = JsFuture::from(promise)
@@ -81,7 +78,10 @@ impl HttpWasmAssetReader {
                 let reader = VecReader::new(bytes);
                 Ok(reader)
             }
-            404 => Err(AssetReaderError::NotFound(path)),
+            // Some web servers, including itch.io's CDN, return 403 when a requested file isn't present.
+            // TODO: remove handling of 403 as not found when it's easier to configure
+            // see https://github.com/bevyengine/bevy/pull/19268#pullrequestreview-2882410105
+            403 | 404 => Err(AssetReaderError::NotFound(path)),
             status => Err(AssetReaderError::HttpError(status)),
         }
     }
