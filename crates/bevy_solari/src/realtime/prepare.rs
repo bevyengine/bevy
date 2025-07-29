@@ -12,7 +12,7 @@ use bevy_render::{
     camera::ExtractedCamera,
     render_resource::{
         Buffer, BufferDescriptor, BufferUsages, Texture, TextureDescriptor, TextureDimension,
-        TextureFormat, TextureUsages, TextureView, TextureViewDescriptor,
+        TextureUsages, TextureView, TextureViewDescriptor,
     },
     renderer::RenderDevice,
 };
