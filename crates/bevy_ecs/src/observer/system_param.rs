@@ -181,7 +181,7 @@ impl<'w, E, B: Bundle> DerefMut for On<'w, E, B> {
 pub struct ObserverTrigger {
     /// The [`Entity`] of the observer handling the trigger.
     pub observer: Entity,
-    /// The [`Event`] the trigger targeted.
+    /// The [`EventKey`] the trigger targeted.
     pub event_key: EventKey,
     /// The [`ComponentId`]s the trigger targeted.
     pub components: SmallVec<[ComponentId; 2]>,

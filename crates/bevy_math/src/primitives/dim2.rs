@@ -1245,6 +1245,15 @@ pub struct Segment2d {
 
 impl Primitive2d for Segment2d {}
 
+impl Default for Segment2d {
+    /// Returns the default [`Segment2d`] with endpoints at `(0.0, 0.0)` and `(1.0, 0.0)`.
+    fn default() -> Self {
+        Self {
+            vertices: [Vec2::new(0.0, 0.0), Vec2::new(1.0, 0.0)],
+        }
+    }
+}
+
 impl Segment2d {
     /// Create a new `Segment2d` from its endpoints.
     #[inline(always)]
@@ -1479,6 +1488,38 @@ impl Segment2d {
     pub fn reversed(mut self) -> Self {
         self.reverse();
         self
+    }
+
+    /// Returns the point on the [`Segment2d`] that is closest to the specified `point`.
+    #[inline(always)]
+    pub fn closest_point(&self, point: Vec2) -> Vec2 {
+        //       `point`
+        //           x
+        //          ^|
+        //         / |
+        //`offset`/  |
+        //       /   |  `segment_vector`
+        //      x----.-------------->x
+        //      0    t               1
+        let segment_vector = self.vertices[1] - self.vertices[0];
+        let offset = point - self.vertices[0];
+        // The signed projection of `offset` onto `segment_vector`, scaled by the length of the segment.
+        let projection_scaled = segment_vector.dot(offset);
+
+        // `point` is too far "left" in the picture
+        if projection_scaled <= 0.0 {
+            return self.vertices[0];
+        }
+
+        let length_squared = segment_vector.length_squared();
+        // `point` is too far "right" in the picture
+        if projection_scaled >= length_squared {
+            return self.vertices[1];
+        }
+
+        // Point lies somewhere in the middle, we compute the closest point by finding the parameter along the line.
+        let t = projection_scaled / length_squared;
+        self.vertices[0] + t * segment_vector
     }
 }
 
@@ -2286,6 +2327,52 @@ mod tests {
         assert_eq!(rhombus.closest_point(Vec2::X * 10.0), Vec2::ZERO);
         assert_eq!(rhombus.closest_point(Vec2::NEG_ONE * 0.2), Vec2::ZERO);
         assert_eq!(rhombus.closest_point(Vec2::new(-0.55, 0.35)), Vec2::ZERO);
+    }
+
+    #[test]
+    fn segment_closest_point() {
+        assert_eq!(
+            Segment2d::new(Vec2::new(0.0, 0.0), Vec2::new(3.0, 0.0))
+                .closest_point(Vec2::new(1.0, 6.0)),
+            Vec2::new(1.0, 0.0)
+        );
+
+        let segments = [
+            Segment2d::new(Vec2::new(0.0, 0.0), Vec2::new(0.0, 0.0)),
+            Segment2d::new(Vec2::new(0.0, 0.0), Vec2::new(1.0, 0.0)),
+            Segment2d::new(Vec2::new(1.0, 0.0), Vec2::new(0.0, 1.0)),
+            Segment2d::new(Vec2::new(1.0, 0.0), Vec2::new(1.0, 5.0 * f32::EPSILON)),
+        ];
+        let points = [
+            Vec2::new(0.0, 0.0),
+            Vec2::new(1.0, 0.0),
+            Vec2::new(-1.0, 1.0),
+            Vec2::new(1.0, 1.0),
+            Vec2::new(-1.0, 0.0),
+            Vec2::new(5.0, -1.0),
+            Vec2::new(1.0, f32::EPSILON),
+        ];
+
+        for point in points.iter() {
+            for segment in segments.iter() {
+                let closest = segment.closest_point(*point);
+                assert!(
+                    point.distance_squared(closest) <= point.distance_squared(segment.point1()),
+                    "Closest point must always be at least as close as either vertex."
+                );
+                assert!(
+                    point.distance_squared(closest) <= point.distance_squared(segment.point2()),
+                    "Closest point must always be at least as close as either vertex."
+                );
+                assert!(
+                    point.distance_squared(closest) <= point.distance_squared(segment.center()),
+                    "Closest point must always be at least as close as the center."
+                );
+                let closest_to_closest = segment.closest_point(closest);
+                // Closest point must already be on the segment
+                assert_relative_eq!(closest_to_closest, closest);
+            }
+        }
     }
 
     #[test]

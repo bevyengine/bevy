@@ -128,6 +128,21 @@ pub trait Relationship: Component + Sized {
             world.commands().entity(entity).remove::<Self>();
             return;
         }
+        // For one-to-one relationships, remove existing relationship before adding new one
+        let current_source_to_remove = world
+            .get_entity(target_entity)
+            .ok()
+            .and_then(|target_entity_ref| target_entity_ref.get::<Self::RelationshipTarget>())
+            .and_then(|relationship_target| {
+                relationship_target
+                    .collection()
+                    .source_to_remove_before_add()
+            });
+
+        if let Some(current_source) = current_source_to_remove {
+            world.commands().entity(current_source).try_remove::<Self>();
+        }
+
         if let Ok(mut entity_commands) = world.commands().get_entity(target_entity) {
             // Deferring is necessary for batch mode
             entity_commands
@@ -465,6 +480,8 @@ impl RelationshipTargetCloneBehaviorHierarchy
 
 #[cfg(test)]
 mod tests {
+    use core::marker::PhantomData;
+
     use crate::prelude::{ChildOf, Children};
     use crate::world::World;
     use crate::{component::Component, entity::Entity};
@@ -555,6 +572,19 @@ mod tests {
             foo: u8,
             bar: u8,
         }
+
+        // No assert necessary, looking to make sure compilation works with the macros
+    }
+
+    #[test]
+    fn relationship_with_multiple_unnamed_non_target_fields_compiles() {
+        #[derive(Component)]
+        #[relationship(relationship_target=Target<T>)]
+        struct Source<T: Send + Sync + 'static>(#[relationship] Entity, PhantomData<T>);
+
+        #[derive(Component)]
+        #[relationship_target(relationship=Source<T>)]
+        struct Target<T: Send + Sync + 'static>(#[relationship] Vec<Entity>, PhantomData<T>);
 
         // No assert necessary, looking to make sure compilation works with the macros
     }

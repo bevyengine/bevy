@@ -781,18 +781,18 @@ impl<'w> DeferredWorld<'w> {
     /// Triggers all event observers for [`ComponentId`] in target.
     ///
     /// # Safety
-    /// Caller must ensure observers listening for `event` can accept ZST pointers
+    /// Caller must ensure observers listening for `event_key` can accept ZST pointers
     #[inline]
     pub(crate) unsafe fn trigger_observers(
         &mut self,
-        event: EventKey,
+        event_key: EventKey,
         target: Option<Entity>,
         components: impl Iterator<Item = ComponentId> + Clone,
         caller: MaybeLocation,
     ) {
         Observers::invoke::<_>(
             self.reborrow(),
-            event,
+            event_key,
             target,
             target,
             components,
@@ -805,11 +805,11 @@ impl<'w> DeferredWorld<'w> {
     /// Triggers all event observers for [`ComponentId`] in target.
     ///
     /// # Safety
-    /// Caller must ensure `E` is accessible as the type represented by `event`
+    /// Caller must ensure `E` is accessible as the type represented by `event_key`
     #[inline]
     pub(crate) unsafe fn trigger_observers_with_data<E, T>(
         &mut self,
-        event: EventKey,
+        event_key: EventKey,
         current_target: Option<Entity>,
         original_target: Option<Entity>,
         components: impl Iterator<Item = ComponentId> + Clone,
@@ -821,7 +821,7 @@ impl<'w> DeferredWorld<'w> {
     {
         Observers::invoke::<_>(
             self.reborrow(),
-            event,
+            event_key,
             current_target,
             original_target,
             components.clone(),
@@ -849,7 +849,7 @@ impl<'w> DeferredWorld<'w> {
             }
             Observers::invoke::<_>(
                 self.reborrow(),
-                event,
+                event_key,
                 Some(current_target),
                 original_target,
                 components.clone(),
