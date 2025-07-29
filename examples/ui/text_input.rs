@@ -20,7 +20,6 @@ use bevy::text::TextInputPasswordMask;
 use bevy::text::TextInputValue;
 use bevy::ui::widget::TextField;
 use bevy_ecs::relationship::RelatedSpawnerCommands;
-use hyper::upgrade::on;
 
 fn main() {
     App::new()
