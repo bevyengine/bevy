@@ -100,7 +100,7 @@ impl Plugin for TextInputPlugin {
 )]
 pub struct TextField {
     /// maximum number of chars
-    pub max_chars: usize,
+    pub max_chars: Option<usize>,
     /// justification
     pub justify: Justify,
 }
@@ -306,19 +306,19 @@ impl Measure for InputMeasure {
 
 fn update_text_field_attributes(
     mut text_input_node_query: Query<
-        (&TextFont, &Justify, &mut TextInputAttributes),
+        (&TextField, &TextFont, &mut TextInputAttributes),
         With<TextField>,
     >,
 ) {
-    for (font, justify, mut attributes) in text_input_node_query.iter_mut() {
+    for (text_field, font, mut attributes) in text_input_node_query.iter_mut() {
         attributes.set_if_neq(TextInputAttributes {
             font: font.font.clone(),
             font_size: font.font_size,
             font_smoothing: font.font_smoothing,
-            justify: *justify,
+            justify: text_field.justify,
             line_break: bevy_text::LineBreak::NoWrap,
             line_height: font.line_height,
-            max_chars: None,
+            max_chars: text_field.max_chars,
         });
     }
 }
