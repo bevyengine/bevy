@@ -1,6 +1,6 @@
 use crate::FullscreenShader;
 use bevy_app::{App, Plugin};
-use bevy_asset::{embedded_asset, load_embedded_asset, Handle};
+use bevy_asset::{embedded_asset, load_embedded_asset, AssetServer, Handle};
 use bevy_ecs::prelude::*;
 use bevy_render::{
     render_resource::{
@@ -8,7 +8,7 @@ use bevy_render::{
         *,
     },
     renderer::RenderDevice,
-    RenderApp,
+    RenderApp, RenderStartup,
 };
 use bevy_utils::default;
 
@@ -19,18 +19,14 @@ impl Plugin for BlitPlugin {
     fn build(&self, app: &mut App) {
         embedded_asset!(app, "blit.wgsl");
 
-        if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
-            render_app.allow_ambiguous_resource::<SpecializedRenderPipelines<BlitPipeline>>();
-        }
-    }
-
-    fn finish(&self, app: &mut App) {
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
         };
+
         render_app
-            .init_resource::<BlitPipeline>()
-            .init_resource::<SpecializedRenderPipelines<BlitPipeline>>();
+            .allow_ambiguous_resource::<SpecializedRenderPipelines<BlitPipeline>>()
+            .init_resource::<SpecializedRenderPipelines<BlitPipeline>>()
+            .add_systems(RenderStartup, init_blit_pipeline);
     }
 }
 
@@ -42,30 +38,31 @@ pub struct BlitPipeline {
     pub fragment_shader: Handle<Shader>,
 }
 
-impl FromWorld for BlitPipeline {
-    fn from_world(render_world: &mut World) -> Self {
-        let render_device = render_world.resource::<RenderDevice>();
-
-        let layout = render_device.create_bind_group_layout(
-            "blit_bind_group_layout",
-            &BindGroupLayoutEntries::sequential(
-                ShaderStages::FRAGMENT,
-                (
-                    texture_2d(TextureSampleType::Float { filterable: false }),
-                    sampler(SamplerBindingType::NonFiltering),
-                ),
+pub fn init_blit_pipeline(
+    mut commands: Commands,
+    render_device: Res<RenderDevice>,
+    fullscreen_shader: Res<FullscreenShader>,
+    asset_server: Res<AssetServer>,
+) {
+    let layout = render_device.create_bind_group_layout(
+        "blit_bind_group_layout",
+        &BindGroupLayoutEntries::sequential(
+            ShaderStages::FRAGMENT,
+            (
+                texture_2d(TextureSampleType::Float { filterable: false }),
+                sampler(SamplerBindingType::NonFiltering),
             ),
-        );
+        ),
+    );
 
-        let sampler = render_device.create_sampler(&SamplerDescriptor::default());
+    let sampler = render_device.create_sampler(&SamplerDescriptor::default());
 
-        BlitPipeline {
-            layout,
-            sampler,
-            fullscreen_shader: render_world.resource::<FullscreenShader>().clone(),
-            fragment_shader: load_embedded_asset!(render_world, "blit.wgsl"),
-        }
-    }
+    commands.insert_resource(BlitPipeline {
+        layout,
+        sampler,
+        fullscreen_shader: fullscreen_shader.clone(),
+        fragment_shader: load_embedded_asset!(asset_server.as_ref(), "blit.wgsl"),
+    });
 }
 
 impl BlitPipeline {
