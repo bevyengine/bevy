@@ -110,12 +110,15 @@ fn get_cosmic_text_buffer_contents(buffer: &Buffer) -> String {
 pub struct TextInputBuffer {
     /// The cosmic text editor buffer
     pub editor: Editor<'static>,
+    /// Space advance width for the current font
+    pub space_advance: f32,
 }
 
 impl Default for TextInputBuffer {
     fn default() -> Self {
         Self {
             editor: Editor::new(Buffer::new_empty(Metrics::new(20.0, 20.0))),
+            space_advance: 20.,
         }
     }
 }
@@ -222,10 +225,6 @@ fn on_insert_text_input_value(mut world: DeferredWorld, context: HookContext) {
         }
     }
 }
-
-/// Width of a space advance in pixels
-#[derive(Component, PartialEq, Debug, Default, Deref, DerefMut)]
-pub struct SpaceAdvance(f32);
 
 /// Common text input properties set by the user that
 /// require a layout recomputation or font update on changes.
@@ -563,7 +562,6 @@ pub fn apply_text_input_actions(
 pub fn update_text_input_buffers(
     mut text_input_query: Query<(
         &mut TextInputBuffer,
-        &mut SpaceAdvance,
         Ref<TextInputTarget>,
         Ref<TextInputAttributes>,
         Ref<TextInputVisibleLines>,
@@ -574,10 +572,14 @@ pub fn update_text_input_buffers(
 ) {
     let font_system = &mut font_system.0;
     let font_id_map = &mut text_pipeline.map_handle_to_font_id;
-    for (mut input_buffer, mut space_advance, target, attributes, lines) in
-        text_input_query.iter_mut()
-    {
-        let _ = input_buffer.editor.with_buffer_mut(|buffer| {
+    for (mut input_buffer, target, attributes, lines) in text_input_query.iter_mut() {
+        let TextInputBuffer {
+            editor,
+            space_advance,
+            ..
+        } = input_buffer.as_mut();
+
+        let _ = editor.with_buffer_mut(|buffer| {
             if target.is_changed() || attributes.is_changed() || lines.is_changed() {
                 let line_height = attributes.line_height.eval(attributes.font_size);
                 let metrics =
@@ -622,7 +624,7 @@ pub fn update_text_input_buffers(
                     buffer_line.set_align(align);
                 }
 
-                space_advance.0 = font_id_map
+                *space_advance = font_id_map
                     .get(&attributes.font.id())
                     .and_then(|(id, ..)| font_system.get_font(*id))
                     .and_then(|font| {
@@ -645,7 +647,7 @@ pub fn update_text_input_buffers(
 
                 buffer.set_size(
                     font_system,
-                    Some(target.size.x - space_advance.0),
+                    Some(target.size.x - *space_advance),
                     Some(height),
                 );
 
@@ -780,15 +782,13 @@ pub fn update_text_input_layouts(
         &mut TextInputBuffer,
         &TextInputAttributes,
         Option<&mut TextInputPasswordMask>,
-        &SpaceAdvance,
     )>,
     mut font_system: ResMut<CosmicFontSystem>,
     mut swash_cache: ResMut<crate::pipeline::SwashCache>,
     mut font_atlas_sets: ResMut<FontAtlasSets>,
 ) {
     let font_system = &mut font_system.0;
-    for (mut layout_info, mut buffer, attributes, mut maybe_password_mask, space_advance) in
-        text_query.iter_mut()
+    for (mut layout_info, mut buffer, attributes, mut maybe_password_mask) in text_query.iter_mut()
     {
         // Force a redraw when a password is revealed or hidden
         let force_redraw = maybe_password_mask
@@ -796,6 +796,7 @@ pub fn update_text_input_layouts(
             .map(|mask| mask.is_changed() && mask.show_password)
             .unwrap_or(false);
 
+        let space_advance = buffer.space_advance;
         let editor = if let Some(password_mask) = maybe_password_mask
             .as_mut()
             .filter(|mask| !mask.show_password)
@@ -823,7 +824,7 @@ pub fn update_text_input_layouts(
                 let box_size = buffer_dimensions(buffer);
                 let line_height = buffer.metrics().line_height;
                 if let Some((x, y)) = cursor_position {
-                    let size = Vec2::new(space_advance.0, line_height);
+                    let size = Vec2::new(space_advance, line_height);
                     layout_info.cursor = Some((
                         IVec2::new(x, y).as_vec2() + 0.5 * size,
                         size,
