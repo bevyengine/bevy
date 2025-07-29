@@ -32,13 +32,13 @@ pub use async_task::FallibleTask;
 /// If you require an executor _without_ the `Send` and `Sync` requirements, consider
 /// using [`LocalExecutor`] instead.
 #[derive(Deref, DerefMut, Default)]
-pub struct Executor<'a>(ExecutorInner<'a>);
+pub(crate) struct Executor<'a>(ExecutorInner<'a>);
 
 impl Executor<'_> {
     /// Construct a new [`Executor`]
     #[expect(clippy::allow_attributes, reason = "This lint may not always trigger.")]
     #[allow(dead_code, reason = "not all feature flags require this function")]
-    pub const fn new() -> Self {
+    pub fn new() -> Self {
         Self(ExecutorInner::new())
     }
 
