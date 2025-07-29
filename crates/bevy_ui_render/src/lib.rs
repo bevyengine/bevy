@@ -69,8 +69,8 @@ use gradient::GradientPlugin;
 
 use bevy_platform::collections::{HashMap, HashSet};
 use bevy_text::{
-    ComputedTextBlock, PositionedGlyph, PromptColor, PromptLayout, SpaceAdvance,
-    TextBackgroundColor, TextColor, TextInputBuffer, TextLayoutInfo, TextSelectionBlockColor,
+    ComputedTextBlock, PositionedGlyph, PromptLayout, SpaceAdvance, TextBackgroundColor, TextColor,
+    TextInputBuffer, TextLayoutInfo, TextSelectionBlockColor,
 };
 use bevy_transform::components::GlobalTransform;
 use box_shadow::BoxShadowPlugin;
@@ -1025,7 +1025,6 @@ pub fn extract_text_input_nodes(
             &TextInputBuffer,
             &SpaceAdvance,
             Option<&PromptLayout>,
-            Option<&PromptColor>,
         )>,
     >,
     modifiers: Extract<Res<GlobalTextInputState>>,
@@ -1051,7 +1050,6 @@ pub fn extract_text_input_nodes(
         buffer,
         space_advance,
         maybe_prompt_layout,
-        maybe_prompt_color,
     ) in &uinode_query
     {
         // Skip if not visible or if size is set to zero (e.g. when a parent is set to `Display::None`)
@@ -1079,7 +1077,8 @@ pub fn extract_text_input_nodes(
         let (layout, color) = if buffer.is_empty() && maybe_prompt_layout.is_some() {
             (
                 maybe_prompt_layout.unwrap().layout(),
-                maybe_prompt_color.map(|pc| pc.0).unwrap_or(color.0),
+                //maybe_prompt_color.map(|pc| pc.0).unwrap_or(color.0),
+                color.0,
             )
         } else {
             (text_layout_info, color.0)
