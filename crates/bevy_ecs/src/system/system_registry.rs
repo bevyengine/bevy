@@ -1,5 +1,3 @@
-#[cfg(feature = "bevy_reflect")]
-use crate::reflect::ReflectComponent;
 #[cfg(feature = "hotpatching")]
 use crate::{change_detection::DetectChanges, HotPatchChanges};
 use crate::{
@@ -14,12 +12,8 @@ use crate::{
 };
 use alloc::boxed::Box;
 use bevy_ecs_macros::{Component, Resource};
-use bevy_reflect::prelude::ReflectDefault;
-#[cfg(feature = "bevy_reflect")]
-use bevy_reflect::Reflect;
+use bevy_utils::prelude::DebugName;
 use core::{any::TypeId, marker::PhantomData};
-#[cfg(feature = "debug")]
-use disqualified::ShortName;
 use thiserror::Error;
 
 /// A small wrapper for [`BoxedSystem`] that also keeps track whether or not the system has been initialized.
@@ -39,21 +33,17 @@ impl<I, O> RegisteredSystem<I, O> {
     }
 }
 
-#[derive(Debug, Clone, Copy)]
-#[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
-#[cfg_attr(feature = "bevy_reflect", reflect(Debug, Default, Clone))]
+#[derive(Debug, Clone)]
 struct TypeIdAndName {
     type_id: TypeId,
-    #[cfg(feature = "debug")]
-    name: &'static str,
+    name: DebugName,
 }
 
 impl TypeIdAndName {
     fn new<T: 'static>() -> Self {
         Self {
             type_id: TypeId::of::<T>(),
-            #[cfg(feature = "debug")]
-            name: core::any::type_name::<T>(),
+            name: DebugName::type_name::<T>(),
         }
     }
 }
@@ -62,16 +52,13 @@ impl Default for TypeIdAndName {
     fn default() -> Self {
         Self {
             type_id: TypeId::of::<()>(),
-            #[cfg(feature = "debug")]
-            name: core::any::type_name::<()>(),
+            name: DebugName::type_name::<()>(),
         }
     }
 }
 
 /// Marker [`Component`](bevy_ecs::component::Component) for identifying [`SystemId`] [`Entity`]s.
-#[derive(Debug, Default, Clone, Copy, Component)]
-#[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
-#[cfg_attr(feature = "bevy_reflect", reflect(Debug, Default, Clone, Component))]
+#[derive(Debug, Default, Clone, Component)]
 pub struct SystemIdMarker {
     input_type_id: TypeIdAndName,
     output_type_id: TypeIdAndName,
@@ -394,7 +381,10 @@ impl World {
         if system_id_marker.input_type_id.type_id != TypeId::of::<I>()
             || system_id_marker.output_type_id.type_id != TypeId::of::<O>()
         {
-            return Err(RegisteredSystemError::IncorrectType(id, *system_id_marker));
+            return Err(RegisteredSystemError::IncorrectType(
+                id,
+                system_id_marker.clone(),
+            ));
         }
 
         // Take ownership of system trait object
@@ -565,11 +555,7 @@ pub enum RegisteredSystemError<I: SystemInput = (), O = ()> {
     #[error("System returned error: {0}")]
     Failed(BevyError),
     /// [`SystemId`] had different input and/or output types than [`SystemIdMarker`]
-    #[cfg_attr(feature = "debug", error("Could not get system from `{}`, entity was `SystemId<{}, {}>`", ShortName::of::<SystemId<I, O>>(), ShortName(.1.input_type_id.name), ShortName(.1.output_type_id.name)))]
-    #[cfg_attr(
-        not(feature = "debug"),
-        error("There was a mismatch between the `SystemId` and the entities system.")
-    )]
+    #[error("Could not get system from `{}`, entity was `SystemId<{}, {}>`", DebugName::type_name::<SystemId<I, O>>(), .1.input_type_id.name, .1.output_type_id.name)]
     IncorrectType(SystemId<I, O>, SystemIdMarker),
 }
 

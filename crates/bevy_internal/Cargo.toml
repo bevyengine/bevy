@@ -372,7 +372,7 @@ gltf_convert_coordinates_default = [
   "bevy_gltf?/gltf_convert_coordinates_default",
 ]
 
-debug = ["bevy_ecs/debug", "bevy_utils/debug"]
+debug = ["bevy_utils/debug"]
 
 [dependencies]
 # bevy (no_std)
