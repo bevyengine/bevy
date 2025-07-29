@@ -2,7 +2,6 @@
 
 use bevy::color::palettes::css::NAVY;
 use bevy::color::palettes::css::RED;
-use bevy::input_focus::tab_navigation::NavAction;
 use bevy::input_focus::tab_navigation::TabGroup;
 use bevy::input_focus::tab_navigation::TabIndex;
 use bevy::input_focus::tab_navigation::TabNavigationPlugin;
@@ -10,9 +9,7 @@ use bevy::input_focus::InputDispatchPlugin;
 use bevy::input_focus::InputFocus;
 use bevy::prelude::*;
 use bevy::text::LineHeight;
-use bevy::ui::widget::NextFocus;
 use bevy::ui::widget::TextField;
-use bevy::ui::widget::TextInputSubmitBehaviour;
 use bevy::window::WindowResolution;
 
 fn main() {
@@ -37,7 +34,10 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn(Camera2d);
     let id = commands
         .spawn((
-            TextField::default(),
+            TextField {
+                justify: Justify::Right,
+                ..default()
+            },
             TabIndex(0),
             TextColor(RED.into()),
             TextFont {
@@ -49,10 +49,6 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             Node {
                 width: Val::Percent(50.),
                 ..default()
-            },
-            TextInputSubmitBehaviour {
-                clear_on_submit: true,
-                navigate_on_submit: NextFocus::Navigate(NavAction::Next),
             },
             BackgroundColor(NAVY.into()),
         ))

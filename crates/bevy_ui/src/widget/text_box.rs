@@ -159,11 +159,7 @@ impl Default for TextUnderCursorColor {
     TextInputActions,
     TextLayoutInfo,
     TextCursorBlinkTimer,
-    TextInputUndoHistory,
-    TextInputSubmitBehaviour {
-        clear_on_submit: false,
-        navigate_on_submit: NextFocus::Clear,
-    },
+    TextInputUndoHistory
 )]
 #[component(
     on_add = on_add_text_input_node,
@@ -425,12 +421,6 @@ pub fn mouse_wheel_scroll(
     }
 }
 
-#[derive(Component)]
-pub struct TextInputSubmitBehaviour {
-    pub clear_on_submit: bool,
-    pub navigate_on_submit: NextFocus,
-}
-
 pub enum NextFocus {
     Stay,
     Clear,
@@ -445,17 +435,11 @@ impl Default for NextFocus {
 
 pub fn on_focused_keyboard_input(
     mut trigger: On<FocusedInput<KeyboardInput>>,
-    mut query: Query<(
-        &mut TextInputActions,
-        &TextInputSubmitBehaviour,
-        Has<SingleLineInputField>,
-    )>,
+    mut query: Query<(&mut TextInputActions, Has<SingleLineInputField>)>,
     mut modifiers: ResMut<GlobalTextInputState>,
     keyboard_state: Res<ButtonInput<Key>>,
-    tab_navigation: bevy_input_focus::tab_navigation::TabNavigation,
-    mut input_focus: ResMut<InputFocus>,
 ) {
-    let Ok((mut actions, behaviour, is_single_line)) = query.get_mut(trigger.target()) else {
+    let Ok((mut actions, is_single_line)) = query.get_mut(trigger.target()) else {
         return;
     };
 
@@ -564,25 +548,6 @@ pub fn on_focused_keyboard_input(
             Key::Enter => {
                 if is_single_line || is_shift_pressed {
                     actions.queue(TextInputAction::Submit);
-                    if behaviour.clear_on_submit {
-                        actions.queue(TextInputAction::Clear);
-                    }
-                    match &behaviour.navigate_on_submit {
-                        NextFocus::Clear => {
-                            input_focus.clear();
-                        }
-                        NextFocus::Navigate(nav_action) => {
-                            if let Ok(next_tab) = tab_navigation.navigate(&input_focus, *nav_action)
-                            {
-                                if next_tab == trigger.target() {
-                                    input_focus.clear();
-                                } else {
-                                    input_focus.set(next_tab);
-                                }
-                            }
-                        }
-                        _ => {}
-                    }
                 } else {
                     actions.queue(TextInputAction::NewLine);
                 }

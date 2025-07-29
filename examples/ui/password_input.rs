@@ -84,8 +84,8 @@ fn setup(mut commands: Commands) {
                             BackgroundColor(Color::BLACK),
                             children![(
                                 TextField {
-                                    max_chars: MAX_PASSWORD_LENGTH,
-                                    justify: Justify::Center,
+                                    max_chars: Some(MAX_PASSWORD_LENGTH),
+                                    justify: Justify::Left,
                                 },
                                 Prompt::new("enter a password"),
                                 TextColor(Color::WHITE),

@@ -1,6 +1,5 @@
 //! minimal text input example
 use bevy::color::palettes::css::NAVY;
-use bevy::input_focus::tab_navigation::NavAction;
 use bevy::input_focus::tab_navigation::TabGroup;
 use bevy::input_focus::tab_navigation::TabIndex;
 use bevy::input_focus::tab_navigation::TabNavigationPlugin;
@@ -9,10 +8,7 @@ use bevy::input_focus::InputDispatchPlugin;
 use bevy::input_focus::InputFocus;
 use bevy::prelude::*;
 use bevy::text::Prompt;
-use bevy::text::TextInputVisibleLines;
-use bevy::ui::widget::NextFocus;
 use bevy::ui::widget::TextBox;
-use bevy::ui::widget::TextInputSubmitBehaviour;
 
 fn main() {
     App::new()
@@ -28,7 +24,10 @@ fn setup(mut commands: Commands) {
     let tid = commands.spawn(Text::new("TextBox example")).id();
     let id = commands
         .spawn((
-            TextBox::default(),
+            TextBox {
+                lines: Some(8.),
+                ..Default::default()
+            },
             Prompt::new("please type here.."),
             TabIndex(0),
             AutoFocus,
@@ -41,11 +40,6 @@ fn setup(mut commands: Commands) {
                 ..default()
             },
             BackgroundColor(NAVY.into()),
-            TextInputVisibleLines(8.),
-            TextInputSubmitBehaviour {
-                clear_on_submit: true,
-                navigate_on_submit: NextFocus::Navigate(NavAction::Next),
-            },
         ))
         .id();
 

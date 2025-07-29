@@ -1,13 +1,11 @@
 #![allow(missing_docs)]
 
 use crate::widget::on_focused_keyboard_input;
-use crate::widget::NextFocus;
 use crate::widget::SingleLineInputField;
 use crate::widget::TextCursorBlinkTimer;
 use crate::widget::TextInputMultiClickCounter;
 use crate::widget::TextInputMultiClickDelay;
 use crate::widget::TextInputStyle;
-use crate::widget::TextInputSubmitBehaviour;
 use crate::ComputedNode;
 use crate::ComputedNodeTarget;
 use crate::ContentSize;
@@ -34,7 +32,6 @@ use bevy_ecs::system::Res;
 use bevy_ecs::system::ResMut;
 use bevy_ecs::world::DeferredWorld;
 use bevy_ecs::world::Ref;
-use bevy_input_focus::tab_navigation::NavAction;
 use bevy_input_focus::InputFocus;
 use bevy_math::IVec2;
 use bevy_math::Rect;
@@ -86,10 +83,6 @@ impl Plugin for TextInputPlugin {
     TextCursorBlinkTimer,
     TextInputUndoHistory,
     SingleLineInputField,
-    TextInputSubmitBehaviour {
-        clear_on_submit: false,
-        navigate_on_submit: NextFocus::Navigate(NavAction::Next),
-    },
     ContentSize
 )]
 #[component(
