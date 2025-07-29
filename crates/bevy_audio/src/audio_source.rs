@@ -30,11 +30,11 @@ impl AsRef<[u8]> for AudioSource {
 ///
 /// This asset loader supports different audio formats based on the enable Bevy features.
 /// The feature `bevy/vorbis` enables loading from `.ogg` files and is enabled by default.
-/// Other file endings can be loaded from with additional features:
-/// `.mp3` with `bevy/mp3` or `bevy/symphonia-mp3`
-/// `.flac` with `bevy/flac` or `bevy/symphonia-flac`
-/// `.wav` with `bevy/wav` or `bevy/symphonia-wav`
-/// The `bevy/symphonia-all` feature will enable all file endings.
+/// Other file extensions can be loaded from with additional features:
+/// `.mp3` with `bevy/mp3` or `bevy/fallback-mp3`
+/// `.flac` with `bevy/flac` or `bevy/fallback-flac`
+/// `.wav` with `bevy/wav` or `bevy/fallback-wav`
+/// The `bevy/audio-all` feature will enable all file extensions.
 #[derive(Default, TypePath)]
 pub struct AudioLoader;
 
