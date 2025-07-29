@@ -63,9 +63,9 @@ use bevy_text::TextLayoutInfo;
 use bevy_time::Time;
 use std::time::Duration;
 
-pub struct TextBoxPlugin;
+pub struct TextInputPlugin;
 
-impl Plugin for TextBoxPlugin {
+impl Plugin for TextInputPlugin {
     fn build(&self, app: &mut bevy_app::App) {
         app.init_resource::<GlobalTextInputState>()
             .init_resource::<TextInputMultiClickDelay>()

@@ -8,8 +8,8 @@ use bevy::input_focus::InputDispatchPlugin;
 use bevy::input_focus::InputFocus;
 use bevy::prelude::*;
 use bevy::text::Prompt;
-use bevy::text::TextInputPlugin;
 use bevy::ui::widget::TextBox;
+use bevy::ui::widget::TextInputPlugin;
 
 fn main() {
     App::new()

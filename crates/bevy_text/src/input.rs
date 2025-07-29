@@ -13,8 +13,6 @@ use crate::TextError;
 use crate::TextFont;
 use crate::TextLayoutInfo;
 use crate::TextPipeline;
-use bevy_app::Plugin;
-use bevy_app::PostUpdate;
 use bevy_asset::Assets;
 use bevy_asset::Handle;
 use bevy_derive::Deref;
@@ -30,7 +28,6 @@ use bevy_ecs::prelude::ReflectComponent;
 use bevy_ecs::query::Changed;
 use bevy_ecs::query::Or;
 use bevy_ecs::resource::Resource;
-use bevy_ecs::schedule::IntoScheduleConfigs;
 use bevy_ecs::schedule::SystemSet;
 use bevy_ecs::system::Commands;
 use bevy_ecs::system::Query;
@@ -55,36 +52,9 @@ use cosmic_text::Metrics;
 pub use cosmic_text::Motion;
 use cosmic_text::Selection;
 use std::collections::VecDeque;
-
-/// Text input plugin text input, recieves edit actions and updates the text input's buffer and layout.
-/// Input event handling and rendering is left to the widget implementation.
-pub struct TextInputPlugin;
-
 /// Systems handling text input update and layout
-
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
 pub struct TextInputSystems;
-
-impl Plugin for TextInputPlugin {
-    fn build(&self, app: &mut bevy_app::App) {
-        app.init_resource::<Clipboard>().add_systems(
-            PostUpdate,
-            (
-                update_text_input_buffers,
-                apply_text_input_actions,
-                update_password_masks,
-                update_text_input_layouts,
-                text_input_prompt_system,
-            )
-                .chain()
-                .in_set(TextInputSystems),
-        );
-    }
-}
-
-/// Marker component, clear the text input on recieving a submit action
-#[derive(Component)]
-pub struct ClearOnSubmit;
 
 /// Basic clipboard implementation that only works within the bevy app.
 #[derive(Resource, Default)]

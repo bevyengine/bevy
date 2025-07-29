@@ -11,15 +11,14 @@ use bevy::input_focus::InputDispatchPlugin;
 use bevy::input_focus::InputFocus;
 use bevy::picking::hover::Hovered;
 use bevy::prelude::*;
-use bevy::text::ClearOnSubmit;
 use bevy::text::Clipboard;
 use bevy::text::Prompt;
 use bevy::text::TextInputEvent;
 use bevy::text::TextInputFilter;
 use bevy::text::TextInputPasswordMask;
-use bevy::text::TextInputPlugin;
 use bevy::text::TextInputValue;
 use bevy::ui::widget::TextField;
+use bevy::ui::widget::TextInputPlugin;
 use bevy_ecs::relationship::RelatedSpawnerCommands;
 
 fn main() {

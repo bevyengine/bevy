@@ -9,8 +9,8 @@ use bevy::input_focus::InputDispatchPlugin;
 use bevy::input_focus::InputFocus;
 use bevy::prelude::*;
 use bevy::text::LineHeight;
-use bevy::text::TextInputPlugin;
 use bevy::ui::widget::TextField;
+use bevy::ui::widget::TextInputPlugin;
 use bevy::window::WindowResolution;
 
 fn main() {

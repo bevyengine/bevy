@@ -135,7 +135,18 @@ impl Plugin for TextPlugin {
             )
             .add_systems(Last, trim_cosmic_cache);
 
-        app.add_plugins(TextInputPlugin);
+        app.init_resource::<Clipboard>().add_systems(
+            PostUpdate,
+            (
+                update_text_input_buffers,
+                apply_text_input_actions,
+                update_password_masks,
+                update_text_input_layouts,
+                text_input_prompt_system,
+            )
+                .chain()
+                .in_set(TextInputSystems),
+        );
 
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app.add_systems(
