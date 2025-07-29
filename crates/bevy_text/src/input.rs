@@ -57,7 +57,11 @@ pub use cosmic_text::Motion;
 use cosmic_text::Selection;
 use std::collections::VecDeque;
 
+/// Text input plugin text input, recieves edit actions and updates the text input's buffer and layout.
+/// Input event handling and rendering is left to the widget implementation.
 pub struct TextInputPlugin;
+
+/// Systems handling text input update and layout
 
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
 pub struct TextInputSystems;
@@ -768,14 +772,14 @@ impl<'b> Iterator for ScrollingLayoutRunIter<'b> {
     }
 }
 
-/// Update text input buffers
+/// Updates the `TextLayoutInfo` for each text input for rendering.
 pub fn update_text_input_layouts(
     mut textures: ResMut<Assets<Image>>,
     mut texture_atlases: ResMut<Assets<TextureAtlasLayout>>,
     mut text_query: Query<(
         &mut TextLayoutInfo,
         &mut TextInputBuffer,
-        &mut TextInputAttributes,
+        &TextInputAttributes,
         Option<&mut TextInputPasswordMask>,
         &SpaceAdvance,
     )>,
