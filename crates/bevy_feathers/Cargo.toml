@@ -36,6 +36,7 @@ accesskit = "0.19"
 
 [features]
 default = []
+custom_cursor = ["bevy_winit/custom_cursor"]
 
 [lints]
 workspace = true
