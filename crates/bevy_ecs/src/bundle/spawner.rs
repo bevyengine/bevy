@@ -108,7 +108,7 @@ impl<'w> BundleSpawner<'w> {
                 table,
                 sparse_sets,
                 &SpawnBundleStatus,
-                bundle_info.required_components.iter(),
+                bundle_info.required_component_constructors.iter(),
                 entity,
                 table_row,
                 self.change_tick,
