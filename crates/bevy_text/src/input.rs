@@ -505,7 +505,7 @@ pub fn apply_text_input_actions(
                     if attribs.clear_on_submit {
                         apply_text_input_action(
                             buffer.editor.borrow_with(&mut font_system),
-                            maybe_history.as_mut().map(|history| history.as_mut()),
+                            maybe_history.as_mut().map(AsMut::as_mut),
                             maybe_filter,
                             attribs.max_chars,
                             &mut clipboard,
@@ -520,7 +520,7 @@ pub fn apply_text_input_actions(
                 action => {
                     if !apply_text_input_action(
                         buffer.editor.borrow_with(&mut font_system),
-                        maybe_history.as_mut().map(|history| history.as_mut()),
+                        maybe_history.as_mut().map(AsMut::as_mut),
                         maybe_filter,
                         attribs.max_chars,
                         &mut clipboard,
@@ -591,17 +591,16 @@ pub fn update_text_input_buffers(
                     .style(face_info.style)
                     .weight(face_info.weight);
 
-                let mut text = buffer
-                    .lines
-                    .iter()
-                    .map(|buffer_line| buffer_line.text())
-                    .fold(String::new(), |mut out, line| {
+                let mut text = buffer.lines.iter().map(BufferLine::text).fold(
+                    String::new(),
+                    |mut out, line| {
                         if !out.is_empty() {
                             out.push('\n');
                         }
                         out.push_str(line);
                         out
-                    });
+                    },
+                );
 
                 if let Some(max_chars) = attributes.max_chars {
                     text.truncate(max_chars);
@@ -619,10 +618,7 @@ pub fn update_text_input_buffers(
                     .and_then(|font| {
                         let face = font.rustybuzz();
                         face.glyph_index(' ')
-                            .and_then(|gid| {
-                                let h = face.glyph_hor_advance(gid);
-                                h
-                            })
+                            .and_then(|gid| face.glyph_hor_advance(gid))
                             .map(|advance| advance as f32 / face.units_per_em() as f32)
                     })
                     .unwrap_or(0.0)
