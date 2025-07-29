@@ -1065,14 +1065,12 @@ pub fn extract_text_input_nodes(
                 .unwrap_or(node_rect),
         );
 
-        let (layout, color) = if buffer.is_empty() && maybe_prompt_layout.is_some() {
-            (
-                maybe_prompt_layout.unwrap().layout(),
-                input_style.prompt_color,
-            )
-        } else {
-            (layout_info, input_style.text_color)
-        };
+        let (layout, color) =
+            if let Some(prompt_layout) = maybe_prompt_layout.filter(|_| buffer.is_empty()) {
+                (prompt_layout.layout(), input_style.prompt_color)
+            } else {
+                (layout_info, input_style.text_color)
+            };
 
         let transform = transform * Affine2::from_translation(-0.5 * uinode.size() - layout.scroll);
         let color = color.to_linear();
