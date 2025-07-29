@@ -124,12 +124,22 @@ impl CachedPipelineState {
     }
 }
 
-#[derive(Default)]
 struct ShaderData {
     pipelines: HashSet<CachedPipelineId>,
     processed_shaders: HashMap<Box<[ShaderDefVal]>, Arc<WgpuWrapper<ShaderModule>>>,
     resolved_imports: HashMap<ShaderImport, AssetId<Shader>>,
     dependents: HashSet<AssetId<Shader>>,
+}
+
+impl Default for ShaderData {
+    fn default() -> Self {
+        Self {
+            pipelines: Default::default(),
+            processed_shaders: Default::default(),
+            resolved_imports: Default::default(),
+            dependents: Default::default(),
+        }
+    }
 }
 
 struct ShaderCache {
