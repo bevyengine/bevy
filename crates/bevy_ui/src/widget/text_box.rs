@@ -59,7 +59,6 @@ use bevy_text::TextInputBuffer;
 use bevy_text::TextInputSystems;
 use bevy_text::TextInputTarget;
 use bevy_text::TextInputUndoHistory;
-use bevy_text::TextLayoutInfo;
 use bevy_time::Time;
 use std::time::Duration;
 
@@ -433,7 +432,7 @@ impl Default for NextFocus {
 pub fn on_focused_keyboard_input(
     mut trigger: On<FocusedInput<KeyboardInput>>,
     mut query: Query<(&mut TextInputActions, Has<SingleLineInputField>)>,
-    mut modifiers: ResMut<GlobalTextInputState>,
+    mut modifiers: Option<ResMut<GlobalTextInputState>>,
     keyboard_state: Res<ButtonInput<Key>>,
 ) {
     let Ok((mut actions, is_single_line)) = query.get_mut(trigger.target()) else {
@@ -535,11 +534,16 @@ pub fn on_focused_keyboard_input(
                     " ".chars()
                 };
                 for char in str {
-                    actions.queue(if modifiers.overwrite {
-                        TextInputAction::Overwrite(char)
-                    } else {
-                        TextInputAction::Insert(char)
-                    });
+                    actions.queue(
+                        if modifiers
+                            .as_ref()
+                            .is_some_and(|modifiers| modifiers.overwrite)
+                        {
+                            TextInputAction::Overwrite(char)
+                        } else {
+                            TextInputAction::Insert(char)
+                        },
+                    );
                 }
             }
             Key::Enter => {
@@ -599,7 +603,9 @@ pub fn on_focused_keyboard_input(
                 }
             }
             Key::Insert => {
-                modifiers.overwrite = !modifiers.overwrite;
+                if let Some(modifiers) = modifiers.as_mut() {
+                    modifiers.overwrite = !modifiers.overwrite;
+                }
             }
             _ => {}
         }

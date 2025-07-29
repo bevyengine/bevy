@@ -1022,7 +1022,7 @@ pub fn extract_text_input_nodes(
             Option<&PromptLayout>,
         )>,
     >,
-    modifiers: Extract<Res<GlobalTextInputState>>,
+    modifiers: Extract<Option<Res<GlobalTextInputState>>>,
     camera_map: Extract<UiCameraMap>,
 ) {
     let mut start = extracted_uinodes.glyphs.len();
@@ -1158,7 +1158,10 @@ pub fn extract_text_input_nodes(
             continue;
         };
 
-        let (w, cursor_z_offset) = if modifiers.overwrite {
+        let (w, cursor_z_offset) = if modifiers
+            .as_ref()
+            .is_some_and(|modifiers| modifiers.overwrite)
+        {
             (layout_cursor_size.x, -0.001)
         } else {
             (input_style.cursor_size.x * buffer.space_advance, 0.)
