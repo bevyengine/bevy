@@ -1,5 +1,3 @@
-#![allow(missing_docs)]
-
 use crate::buffer_dimensions;
 use crate::load_font_to_fontdb;
 use crate::CosmicFontSystem;
@@ -36,7 +34,6 @@ use bevy_ecs::resource::Resource;
 use bevy_ecs::schedule::IntoScheduleConfigs;
 use bevy_ecs::schedule::SystemSet;
 use bevy_ecs::system::Commands;
-use bevy_ecs::system::Local;
 use bevy_ecs::system::Query;
 use bevy_ecs::system::Res;
 use bevy_ecs::system::ResMut;
@@ -101,9 +98,14 @@ fn get_cosmic_text_buffer_contents(buffer: &Buffer) -> String {
         })
 }
 
-/// Text input buffer
+/// The text input buffer.
+/// Primary component that contains the text layout.
+///
+/// To determine if the `TextLayoutInfo` needs to be updated check the `redraw` method on the `editor` buffer.
+/// Change detection is not reliable as the editor needs to be borrowed mutably during updates.
 #[derive(Component, Debug)]
 pub struct TextInputBuffer {
+    /// The cosmic text editor buffer
     pub editor: Editor<'static>,
 }
 
@@ -179,6 +181,7 @@ pub struct TextInputTarget {
 }
 
 impl TextInputTarget {
+    /// Returns true if the target has zero or negative size.
     pub fn is_empty(&self) -> bool {
         (self.scale_factor * self.size).cmple(Vec2::ZERO).all()
     }
@@ -221,15 +224,28 @@ fn on_insert_text_input_value(mut world: DeferredWorld, context: HookContext) {
 #[derive(Component, PartialEq, Debug, Default, Deref, DerefMut)]
 pub struct SpaceAdvance(f32);
 
-/// Common text input attributes
+/// Common text input properties set by the user that
+/// require a layout recomputation or font update on changes.
 #[derive(Component, Debug, PartialEq)]
 pub struct TextInputAttributes {
+    /// The text input's font, also used for any prompt or password mask.
+    /// A text input's glyphs must all be from the same font.
     pub font: Handle<Font>,
+    /// The size of the font.
+    /// A text input's glyphs must all be the same size.
     pub font_size: f32,
+    /// The height of each line.
+    /// A text input's lines must all be the same height.
     pub line_height: LineHeight,
+    /// Determines how lines will be broken
     pub line_break: LineBreak,
+    /// The horizontal alignment for all the text in the text input buffer.
     pub justify: Justify,
+    /// Controls text antialiasing
     pub font_smoothing: FontSmoothing,
+    /// Maximum number of glpyhs the text input buffer can contain.
+    /// Any edits that extend the length above `max_chars` are ignored.
+    /// If set on a buffer longer than `max_chars` the buffer will be truncated.
     pub max_chars: Option<usize>,
 }
 
@@ -317,6 +333,10 @@ impl TextInputFilter {
 
 /// Add this component to hide the text input buffer contents
 /// by replacing the characters with `mask_char`.
+///
+/// Should only be used with monospaced fonts.
+/// With variable width fonts mouse picking and horizontal scrolling
+/// may not work correctly.
 #[derive(Component)]
 pub struct TextInputPasswordMask {
     /// If true the password will not be hidden
@@ -351,7 +371,7 @@ impl TextInputActions {
     }
 }
 
-/// Text input commands
+/// Deferred text input edit and navigation actions applied by the `apply_text_input_actions` system.
 #[derive(Debug)]
 pub enum TextInputAction {
     /// Copy the selected text into the clipboard. Does nothing if no text selected.
@@ -394,7 +414,11 @@ pub enum TextInputAction {
     Drag(IVec2),
     /// Scroll vertically by the given number of lines.
     /// Negative values scroll upwards towards the start of the text, positive downwards to the end of the text.
-    Scroll { lines: i32 },
+    Scroll {
+        /// Number of lines to scroll.
+        /// Negative values scroll upwards towards the start of the text, positive downwards to the end of the text.
+        lines: i32,
+    },
     /// Undo the previous action.
     Undo,
     /// Redo an undone action. Must directly follow an Undo.
@@ -630,7 +654,10 @@ pub fn update_text_input_buffers(
     }
 }
 
-/// Update password masks to mirror the underlying `TextInputBuffer`
+/// Update password masks to mirror the underlying `TextInputBuffer`.
+///
+/// With variable sized fonts the glyph geometry of the password mask editor buffer may not match the
+/// underlying editor buffer, possibly resulting in incorrect scrolling and mouse interactions.
 pub fn update_password_masks(
     mut text_input_query: Query<(&mut TextInputBuffer, &mut TextInputPasswordMask)>,
     mut cosmic_font_system: ResMut<CosmicFontSystem>,
@@ -662,19 +689,25 @@ pub fn update_password_masks(
 /// bottom line when scrolling up.
 #[derive(Debug)]
 pub struct ScrollingLayoutRunIter<'b> {
+    /// Cosmic text buffer
     buffer: &'b Buffer,
-    line_i: usize,
-    layout_i: usize,
+    /// Index of the current `BufferLine` (The paragraphs of text before line-breaking)
+    paragraph_index: usize,
+    /// Index of the current `LayoutLine`, a horizontal line of glyphs from the current `BufferLine` (The individual lines of a paragraph after line-breaking)
+    broken_line_index: usize,
+    /// Total height of the lines iterated so far
     total_height: f32,
+    /// The y-coordinate of the top of the current `LayoutLine`.
     line_top: f32,
 }
 
 impl<'b> ScrollingLayoutRunIter<'b> {
+    /// Returns a new iterator that iterates the visible lines of the `buffer`.
     pub fn new(buffer: &'b Buffer) -> Self {
         Self {
             buffer,
-            line_i: buffer.scroll().line,
-            layout_i: 0,
+            paragraph_index: buffer.scroll().line,
+            broken_line_index: 0,
             total_height: 0.0,
             line_top: 0.0,
         }
@@ -685,11 +718,14 @@ impl<'b> Iterator for ScrollingLayoutRunIter<'b> {
     type Item = cosmic_text::LayoutRun<'b>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        while let Some(line) = self.buffer.lines.get(self.line_i) {
+        // Iterate paragraphs
+        while let Some(line) = self.buffer.lines.get(self.paragraph_index) {
             let shape = line.shape_opt()?;
             let layout = line.layout_opt()?;
-            while let Some(layout_line) = layout.get(self.layout_i) {
-                self.layout_i += 1;
+
+            // Iterate the paragraph's lines after line-breaking
+            while let Some(layout_line) = layout.get(self.broken_line_index) {
+                self.broken_line_index += 1;
 
                 let line_height = layout_line
                     .line_height_opt
@@ -699,30 +735,33 @@ impl<'b> Iterator for ScrollingLayoutRunIter<'b> {
                 let line_top = self.line_top - self.buffer.scroll().vertical;
                 let glyph_height = layout_line.max_ascent + layout_line.max_descent;
                 let centering_offset = (line_height - glyph_height) / 2.0;
-                let line_y = line_top + centering_offset + layout_line.max_ascent;
+                let line_bottom = line_top + centering_offset + layout_line.max_ascent;
                 if let Some(height) = self.buffer.size().1 {
-                    if line_y > height + line_height {
+                    if height + line_height < line_bottom {
+                        // The line is below the target bound's bottom edge.
+                        // No more lines are visible, return `None` to end the iteration.
                         return None;
                     }
                 }
                 self.line_top += line_height;
-                if line_y < 0.0 {
+                if line_bottom < 0.0 {
+                    // The bottom of the line is above the target's bounds top edge and not visible. Skip it.
                     continue;
                 }
 
                 return Some(cosmic_text::LayoutRun {
-                    line_i: self.line_i,
+                    line_i: self.paragraph_index,
                     text: line.text(),
                     rtl: shape.rtl,
                     glyphs: &layout_line.glyphs,
-                    line_y,
+                    line_y: line_bottom,
                     line_top,
                     line_height,
                     line_w: layout_line.w,
                 });
             }
-            self.line_i += 1;
-            self.layout_i = 0;
+            self.paragraph_index += 1;
+            self.broken_line_index = 0;
         }
 
         None
@@ -748,6 +787,7 @@ pub fn update_text_input_layouts(
     for (mut layout_info, mut buffer, attributes, mut maybe_password_mask, space_advance) in
         text_query.iter_mut()
     {
+        // Force a redraw when a password is revealed or hidden
         let force_redraw = maybe_password_mask
             .as_mut()
             .map(|mask| mask.is_changed() && mask.show_password)
@@ -757,6 +797,7 @@ pub fn update_text_input_layouts(
             .as_mut()
             .filter(|mask| !mask.show_password)
         {
+            // The underlying buffer isn't visible, but set redraw to false as though it has been to avoid unnecessary reupdates.
             buffer.editor.set_redraw(false);
             &mut password_mask.bypass_change_detection().editor
         } else {
@@ -1110,6 +1151,7 @@ impl Prompt {
 pub struct PromptColor(pub Color);
 
 impl PromptColor {
+    /// A new propmpt color
     pub fn new(color: impl Into<Color>) -> Self {
         Self(color.into())
     }
@@ -1119,7 +1161,9 @@ impl PromptColor {
 #[derive(Default, Component, Clone, Debug, Reflect)]
 #[reflect(Component, Default, Debug)]
 pub struct PromptStyle {
+    /// line break
     pub line_break: LineBreak,
+    /// prompt justification
     pub justify: Justify,
 }
 
