@@ -421,9 +421,7 @@ impl Schedule {
         world: &mut World,
     ) -> Result<usize, ScheduleError> {
         if self.graph.changed {
-            if let Err(e) = self.initialize(world) {
-                return Err(ScheduleError::ScheduleBuildError(e));
-            }
+            self.initialize(world)?;
         }
         self.graph.remove_systems_in_set(set)
     }
@@ -956,7 +954,7 @@ impl ScheduleGraph {
     /// # Errors
     ///
     /// This method may return an error. It'll be:
-    /// 
+    ///
     /// - `ScheduleError::Uninitialized` if the schedule has been changed,
     ///   and `Self::initialize` has not been called.
     /// - `ScheduleError::NotFound` if `system_set` isn't present in the

@@ -276,3 +276,9 @@ pub enum ScheduleError {
     #[error("{0}")]
     ScheduleBuildError(ScheduleBuildError),
 }
+
+impl From<ScheduleBuildError> for ScheduleError {
+    fn from(value: ScheduleBuildError) -> Self {
+        Self::ScheduleBuildError(value)
+    }
+}
