@@ -744,9 +744,7 @@ impl SystemSets {
     pub(crate) fn remove(&mut self, key: SystemSetKey) -> bool {
         self.sets.remove(key);
         self.conditions.remove(key);
-        if let Some(index) = self.uninit.iter().position(|uninit| uninit.key == key) {
-            self.uninit.remove(index);
-        }
+        self.uninit.retain(|uninit| uninit.key != key);
         true
     }
 
