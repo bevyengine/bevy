@@ -389,7 +389,7 @@ impl ShaderCache {
                     .wgpu_device()
                     .push_error_scope(wgpu::ErrorFilter::Validation);
 
-                let shader_module = match shader.validate_shader {
+                let shader_module = WgpuWrapper::new(match shader.validate_shader {
                     ValidateShader::Enabled => {
                         render_device.create_and_validate_shader_module(module_descriptor)
                     }
@@ -399,7 +399,7 @@ impl ShaderCache {
                     ValidateShader::Disabled => unsafe {
                         render_device.create_shader_module(module_descriptor)
                     },
-                };
+                });
 
                 let error = render_device.wgpu_device().pop_error_scope();
 
@@ -413,7 +413,7 @@ impl ShaderCache {
                     return Err(PipelineCacheError::CreateShaderModule(description));
                 }
 
-                entry.insert(Arc::new(WgpuWrapper::new(shader_module)))
+                entry.insert(Arc::new(shader_module))
             }
         };
 
