@@ -58,33 +58,17 @@ impl AssetLoader for AudioLoader {
 
     fn extensions(&self) -> &[&str] {
         &[
-            #[cfg(any(feature = "mp3", feature = "symphonia-mp3", feature = "symphonia-all"))]
+            #[cfg(any(feature = "mp3", feature = "fallback-mp3", feature = "audio-all"))]
             "mp3",
-            #[cfg(any(
-                feature = "flac",
-                feature = "symphonia-flac",
-                feature = "symphonia-all"
-            ))]
+            #[cfg(any(feature = "flac", feature = "fallback-flac", feature = "audio-all"))]
             "flac",
-            #[cfg(any(feature = "wav", feature = "symphonia-wav", feature = "symphonia-all"))]
+            #[cfg(any(feature = "wav", feature = "fallback-wav", feature = "audio-all"))]
             "wav",
-            #[cfg(any(
-                feature = "vorbis",
-                feature = "symphonia-vorbis",
-                feature = "symphonia-all"
-            ))]
+            #[cfg(any(feature = "vorbis", feature = "fallback-vorbis", feature = "audio-all"))]
             "oga",
-            #[cfg(any(
-                feature = "vorbis",
-                feature = "symphonia-vorbis",
-                feature = "symphonia-all"
-            ))]
+            #[cfg(any(feature = "vorbis", feature = "fallback-vorbis", feature = "audio-all"))]
             "ogg",
-            #[cfg(any(
-                feature = "vorbis",
-                feature = "symphonia-vorbis",
-                feature = "symphonia-all"
-            ))]
+            #[cfg(any(feature = "vorbis", feature = "fallback-vorbis", feature = "audio-all"))]
             "spx",
         ]
     }
