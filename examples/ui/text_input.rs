@@ -6,6 +6,7 @@ use bevy::core_widgets::Activate;
 use bevy::core_widgets::Callback;
 use bevy::core_widgets::CoreButton;
 use bevy::core_widgets::CoreWidgetsPlugins;
+use bevy::ecs::relationship::RelatedSpawnerCommands;
 use bevy::input_focus::tab_navigation::*;
 use bevy::input_focus::InputDispatchPlugin;
 use bevy::input_focus::InputFocus;
@@ -19,7 +20,6 @@ use bevy::text::TextInputPasswordMask;
 use bevy::text::TextInputValue;
 use bevy::ui::widget::TextField;
 use bevy::ui::widget::TextInputPlugin;
-use bevy_ecs::relationship::RelatedSpawnerCommands;
 
 fn main() {
     App::new()
