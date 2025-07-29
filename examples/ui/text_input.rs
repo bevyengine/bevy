@@ -38,7 +38,7 @@ fn main() {
 #[derive(Component)]
 struct DemoInput;
 
-const FONT_OPTIONS: [[&'static str; 2]; 3] = [
+const FONT_OPTIONS: [[&str; 2]; 3] = [
     ["fonts/FiraMono-Medium.ttf", "FiraMono"],
     ["fonts/FiraSans-Bold.ttf", "FiraSans"],
     ["fonts/Orbitron-Medium.ttf", "Orbitron"],
