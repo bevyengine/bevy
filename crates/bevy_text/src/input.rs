@@ -28,6 +28,7 @@ use bevy_ecs::hierarchy::ChildOf;
 use bevy_ecs::lifecycle::HookContext;
 use bevy_ecs::prelude::ReflectComponent;
 use bevy_ecs::query::Changed;
+use bevy_ecs::query::Has;
 use bevy_ecs::query::Or;
 use bevy_ecs::resource::Resource;
 use bevy_ecs::schedule::IntoScheduleConfigs;
@@ -81,6 +82,15 @@ impl Plugin for TextInputPlugin {
         );
     }
 }
+
+/// Marker component, clear the text input on recieving a submit action
+#[derive(Component)]
+pub struct ClearOnSubmit;
+
+/// Marker component, dispatch a [`TextInputEvent::TextChanged`] event on any change
+/// to the text contained in the input buffer.
+#[derive(Component)]
+pub struct SendTextOnChanges;
 
 /// Basic clipboard implementation that only works within the bevy app.
 #[derive(Resource, Default)]
@@ -147,6 +157,11 @@ impl TextInputBuffer {
                 || (buffer.lines.len() == 1 && buffer.lines[0].text().is_empty())
         })
     }
+
+    /// Get the text contained in the text buffer
+    pub fn get_text(&self) -> String {
+        self.editor.with_buffer(get_cosmic_text_buffer_contents)
+    }
 }
 
 /// The number of lines the buffer will display at once.
@@ -167,13 +182,6 @@ impl TextInputUndoHistory {
     /// Clear the history for the text input
     pub fn clear(&mut self) {
         self.changes.clear();
-    }
-}
-
-impl TextInputBuffer {
-    /// Get the text contained in the text buffer
-    pub fn get_text(&self) -> String {
-        self.editor.with_buffer(get_cosmic_text_buffer_contents)
     }
 }
 
@@ -510,6 +518,8 @@ pub fn apply_text_input_actions(
         Option<&TextInputFilter>,
         Option<&mut TextInputUndoHistory>,
         Option<&mut TextInputValue>,
+        Has<ClearOnSubmit>,
+        Has<SendTextOnChanges>,
     )>,
     mut clipboard: ResMut<Clipboard>,
 ) {
@@ -521,8 +531,15 @@ pub fn apply_text_input_actions(
         maybe_filter,
         mut maybe_history,
         maybe_value,
+        clear_on_submit,
+        send_text_on_changes,
     ) in text_input_query.iter_mut()
     {
+        let previous = if send_text_on_changes && maybe_value.is_none() {
+            Some(buffer.get_text())
+        } else {
+            None
+        };
         for action in text_input_actions.queue.drain(..) {
             match action {
                 TextInputAction::Submit => {
@@ -533,24 +550,61 @@ pub fn apply_text_input_actions(
                         },
                         entity,
                     );
+
+                    if clear_on_submit {
+                        apply_text_input_action(
+                            buffer.editor.borrow_with(&mut font_system),
+                            maybe_history.as_mut().map(|history| history.as_mut()),
+                            maybe_filter,
+                            attribs.max_chars,
+                            &mut clipboard,
+                            TextInputAction::Clear,
+                        );
+                    }
                 }
                 action => {
-                    apply_text_input_action(
+                    if !apply_text_input_action(
                         buffer.editor.borrow_with(&mut font_system),
                         maybe_history.as_mut().map(|history| history.as_mut()),
                         maybe_filter,
                         attribs.max_chars,
                         &mut clipboard,
                         action,
-                    );
+                    ) {
+                        commands.trigger_targets(
+                            TextInputEvent::InvalidInput { text_input: entity },
+                            entity,
+                        );
+                    }
                 }
             }
         }
 
-        if let Some(mut value) = maybe_value {
+        if maybe_value.is_some() || send_text_on_changes {
             let contents = buffer.get_text();
-            if value.0 != contents {
-                value.0 = contents;
+            if let Some(mut value) = maybe_value {
+                if value.0 != contents {
+                    value.0 = contents;
+                    if send_text_on_changes {
+                        commands.trigger_targets(
+                            TextInputEvent::TextChanged {
+                                text: value.0.clone(),
+                                text_input: entity,
+                            },
+                            entity,
+                        );
+                    }
+                }
+            } else {
+                if previous.is_some_and(|previous| previous != contents) {
+                    commands.trigger_targets(
+                        TextInputEvent::TextChanged {
+                            text: contents,
+                            text_input: entity,
+                        },
+                        entity,
+                    );
+                }
             }
         }
     }
@@ -965,7 +1019,7 @@ fn apply_text_input_action(
     max_chars: Option<usize>,
     clipboard_contents: &mut ResMut<Clipboard>,
     action: TextInputAction,
-) {
+) -> bool {
     editor.start_change();
 
     match action {
@@ -1096,11 +1150,11 @@ fn apply_text_input_action(
     }
 
     let Some(mut change) = editor.finish_change() else {
-        return;
+        return true;
     };
 
     if change.items.is_empty() {
-        return;
+        return true;
     }
 
     if maybe_filter.is_some() || max_chars.is_some() {
@@ -1110,7 +1164,7 @@ fn apply_text_input_action(
         {
             change.reverse();
             editor.apply_change(&change);
-            return;
+            return false;
         }
     }
 
@@ -1120,6 +1174,8 @@ fn apply_text_input_action(
 
     // Set redraw manually, sometimes the editor doesn't set it automatically.
     editor.set_redraw(true);
+
+    true
 }
 
 /// Event dispatched when a text input recieves the [`TextInputAction::Submit`] action.
@@ -1141,7 +1197,7 @@ pub enum TextInputEvent {
         text_input: Entity,
     },
     /// The contents of the text input changed due to an edit action
-    ContentsChanged {
+    TextChanged {
         /// The new text input contents
         text: String,
         /// The source text input entity

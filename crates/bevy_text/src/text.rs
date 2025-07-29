@@ -243,7 +243,9 @@ impl From<String> for TextSpan {
 ///
 /// _Has no affect on a single line text entity_, unless used together with a
 /// [`TextBounds`](super::bounds::TextBounds) component with an explicit `width` value.
-#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Hash, Reflect, Serialize, Deserialize)]
+#[derive(
+    Debug, Default, Clone, Copy, PartialEq, Eq, Hash, Reflect, Serialize, Deserialize, Component,
+)]
 #[reflect(Serialize, Deserialize, Clone, PartialEq, Hash)]
 pub enum Justify {
     /// Leftmost character is immediately to the right of the render position.

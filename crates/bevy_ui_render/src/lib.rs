@@ -21,7 +21,7 @@ mod debug_overlay;
 use bevy_reflect::prelude::ReflectDefault;
 use bevy_reflect::Reflect;
 use bevy_ui::widget::{
-    GlobalTextInputState, ImageNode, InputStyle, TextCursorBlinkTimer, TextShadow, ViewportNode,
+    GlobalTextInputState, ImageNode, TextCursorBlinkTimer, TextInputStyle, TextShadow, ViewportNode,
 };
 use bevy_ui::{
     BackgroundColor, BorderColor, CalculatedClip, ComputedNode, ComputedNodeTarget, Display, Node,
@@ -1016,7 +1016,7 @@ pub fn extract_text_input_nodes(
             Option<&CalculatedClip>,
             &ComputedNodeTarget,
             &TextLayoutInfo,
-            &InputStyle,
+            &TextInputStyle,
             &TextCursorBlinkTimer,
             &TextInputBuffer,
             Option<&PromptLayout>,

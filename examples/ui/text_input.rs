@@ -217,9 +217,7 @@ fn spawn_row(
         .add_child(submit_target);
 
     let mut input = commands.spawn((
-        TextField {
-            justify: Justify::Left,
-        },
+        TextField::empty(),
         Prompt::new(label),
         TabIndex(0),
         DemoInput,

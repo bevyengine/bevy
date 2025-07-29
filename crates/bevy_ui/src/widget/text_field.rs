@@ -1,12 +1,12 @@
 #![allow(missing_docs)]
 
 use crate::widget::on_focused_keyboard_input;
-use crate::widget::InputStyle;
 use crate::widget::NextFocus;
 use crate::widget::SingleLineInputField;
 use crate::widget::TextCursorBlinkTimer;
 use crate::widget::TextInputMultiClickCounter;
 use crate::widget::TextInputMultiClickDelay;
+use crate::widget::TextInputStyle;
 use crate::widget::TextInputSubmitBehaviour;
 use crate::ComputedNode;
 use crate::ComputedNodeTarget;
@@ -26,6 +26,7 @@ use bevy_ecs::entity::Entity;
 use bevy_ecs::lifecycle::HookContext;
 use bevy_ecs::observer::Observer;
 use bevy_ecs::observer::On;
+use bevy_ecs::query::With;
 use bevy_ecs::schedule::IntoScheduleConfigs;
 use bevy_ecs::system::Commands;
 use bevy_ecs::system::Query;
@@ -50,6 +51,7 @@ use bevy_text::TextInputAction;
 use bevy_text::TextInputActions;
 use bevy_text::TextInputAttributes;
 use bevy_text::TextInputBuffer;
+use bevy_text::TextInputEvent;
 use bevy_text::TextInputTarget;
 use bevy_text::TextInputUndoHistory;
 use bevy_text::TextInputVisibleLines;
@@ -64,7 +66,7 @@ impl Plugin for TextInputPlugin {
     fn build(&self, app: &mut bevy_app::App) {
         app.add_systems(
             PostUpdate,
-            (update_line_input_attributes, measure_lines)
+            (update_text_field_attributes, measure_lines)
                 .in_set(UiSystems::Content)
                 .before(UiSystems::Layout),
         );
@@ -76,7 +78,8 @@ impl Plugin for TextInputPlugin {
 #[require(
     Node,
     TextFont,
-    InputStyle,
+    Justify,
+    TextInputStyle,
     TextInputMultiClickCounter,
     TextInputBuffer,
     TextInputTarget,
@@ -97,8 +100,16 @@ impl Plugin for TextInputPlugin {
     on_add = on_add_text_input_node,
     on_remove = on_remove_input_focus,
 )]
-pub struct TextField {
-    pub justify: Justify,
+pub struct TextField(pub String);
+
+impl TextField {
+    pub fn new(text: impl Into<String>) -> Self {
+        Self(text.into())
+    }
+
+    pub fn empty() -> Self {
+        Self(String::new())
+    }
 }
 
 fn on_add_text_input_node(mut world: DeferredWorld, context: HookContext) {
@@ -108,6 +119,7 @@ fn on_add_text_input_node(mut world: DeferredWorld, context: HookContext) {
         Observer::new(on_multi_click_set_selection),
         Observer::new(on_move_clear_multi_click),
         Observer::new(on_focused_keyboard_input),
+        Observer::new(on_contents_changed),
     ] {
         observer.watch_entity(context.entity);
         world.commands().spawn(observer);
@@ -118,6 +130,14 @@ fn on_remove_input_focus(mut world: DeferredWorld, context: HookContext) {
     let mut input_focus = world.resource_mut::<InputFocus>();
     if input_focus.0 == Some(context.entity) {
         input_focus.0 = None;
+    }
+}
+
+fn on_contents_changed(trigger: On<TextInputEvent>, mut text_field: Query<&mut TextField>) {
+    if let TextInputEvent::TextChanged { text, text_input } = trigger.event() {
+        if let Ok(mut contents) = text_field.get_mut(*text_input) {
+            contents.0 = text.clone();
+        }
     }
 }
 
@@ -300,15 +320,18 @@ impl Measure for InputMeasure {
     }
 }
 
-fn update_line_input_attributes(
-    mut text_input_node_query: Query<(&TextFont, &TextField, &mut TextInputAttributes)>,
+fn update_text_field_attributes(
+    mut text_input_node_query: Query<
+        (&TextFont, &Justify, &mut TextInputAttributes),
+        With<TextField>,
+    >,
 ) {
-    for (font, line_input, mut attributes) in text_input_node_query.iter_mut() {
+    for (font, justify, mut attributes) in text_input_node_query.iter_mut() {
         attributes.set_if_neq(TextInputAttributes {
             font: font.font.clone(),
             font_size: font.font_size,
             font_smoothing: font.font_smoothing,
-            justify: line_input.justify,
+            justify: *justify,
             line_break: bevy_text::LineBreak::NoWrap,
             line_height: font.line_height,
             max_chars: None,

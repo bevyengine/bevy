@@ -142,7 +142,7 @@ impl Default for TextUnderCursorColor {
 #[require(
     Node,
     TextFont,
-    InputStyle,
+    TextInputStyle,
     TextInputMultiClickCounter,
     TextInputBuffer,
     TextInputTarget,
@@ -186,7 +186,7 @@ fn on_remove_input_focus(mut world: DeferredWorld, context: HookContext) {
 
 /// Visual styling for a text input widget.
 #[derive(Component, Clone)]
-pub struct InputStyle {
+pub struct TextInputStyle {
     /// Text color
     pub text_color: Color,
     /// Color of text under an overwrite cursor
@@ -203,7 +203,7 @@ pub struct InputStyle {
     pub selection_color: Color,
 }
 
-impl Default for InputStyle {
+impl Default for TextInputStyle {
     fn default() -> Self {
         Self {
             text_color: GRAY_300.into(),
@@ -228,7 +228,7 @@ pub fn update_cursor_visibility(
     input_focus: Res<InputFocus>,
     mut query: Query<(
         Entity,
-        &InputStyle,
+        &TextInputStyle,
         &TextInputActions,
         &mut TextCursorBlinkTimer,
     )>,
