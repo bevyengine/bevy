@@ -1,7 +1,7 @@
 ---
 title: Observer Overhaul
-authors: ["@Jondolf", "@alice-i-cecile", "@hukasu", "oscar-benderstone", "Zeophlite"]
-pull_requests: [19596, 19663, 19611, 19935]
+authors: ["@Jondolf", "@alice-i-cecile", "@hukasu", "oscar-benderstone", "Zeophlite", "gwafotapa"]
+pull_requests: [19596, 19663, 19611, 19935, 20274]
 ---
 
 ## Rename `Trigger` to `On`
@@ -50,3 +50,7 @@ this opens up the possibility for the debug tools to show more meaningful names 
 
 Internally, each `Event` type would generate a `Component` type, allowing us to use the corresponding `ComponentId` to track the event.
 We have newtyped this to `EventKey` to help separate these concerns.
+
+## Watch multiple entities
+
+To watch multiple entities with the same observer you previously had to call `Observer::with_entity` or `Observer::watch_entity` for each entity. New methods `Observer::with_entities` and `Observer::watch_entities` have been added for your convenience.
