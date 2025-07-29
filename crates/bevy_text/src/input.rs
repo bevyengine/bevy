@@ -13,6 +13,7 @@ use crate::TextError;
 use crate::TextFont;
 use crate::TextLayoutInfo;
 use crate::TextPipeline;
+use alloc::collections::VecDeque;
 use bevy_asset::Assets;
 use bevy_asset::Handle;
 use bevy_derive::Deref;
@@ -46,12 +47,12 @@ use bevy_reflect::Reflect;
 use cosmic_text::Action;
 use cosmic_text::BorrowedWithFontSystem;
 use cosmic_text::Buffer;
+use cosmic_text::BufferLine;
 use cosmic_text::Edit;
 use cosmic_text::Editor;
 use cosmic_text::Metrics;
 pub use cosmic_text::Motion;
 use cosmic_text::Selection;
-use std::collections::VecDeque;
 /// Systems handling text input update and layout
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
 pub struct TextInputSystems;
@@ -65,7 +66,7 @@ fn get_cosmic_text_buffer_contents(buffer: &Buffer) -> String {
     buffer
         .lines
         .iter()
-        .map(|buffer_line| buffer_line.text())
+        .map(BufferLine::text)
         .fold(String::new(), |mut out, line| {
             if !out.is_empty() {
                 out.push('\n');
@@ -273,29 +274,21 @@ impl TextInputFilter {
 
         match self {
             TextInputFilter::PositiveInteger => text.chars().all(|c| c.is_ascii_digit()),
-            TextInputFilter::Integer => {
-                let rest = if text.starts_with('-') {
-                    &text[1..]
-                } else {
-                    text
-                };
-                rest.chars().all(|c| c.is_ascii_digit())
-            }
-            TextInputFilter::Decimal => {
-                let rest = if text.starts_with('-') {
-                    &text[1..]
-                } else {
-                    text
-                };
-
-                rest.chars()
-                    .try_fold(true, |is_int, c| match c {
-                        '.' if is_int => Ok(false),
-                        c if c.is_ascii_digit() => Ok(is_int),
-                        _ => Err(()),
-                    })
-                    .is_ok()
-            }
+            TextInputFilter::Integer => text
+                .strip_prefix('-')
+                .unwrap_or(&text)
+                .chars()
+                .all(|c| c.is_ascii_digit()),
+            TextInputFilter::Decimal => text
+                .strip_prefix('-')
+                .unwrap_or(&text)
+                .chars()
+                .try_fold(true, |is_int, c| match c {
+                    '.' if is_int => Ok(false),
+                    c if c.is_ascii_digit() => Ok(is_int),
+                    _ => Err(()),
+                })
+                .is_ok(),
             TextInputFilter::Hex => text.chars().all(|c| c.is_ascii_hexdigit()),
             TextInputFilter::Alphanumeric => text.chars().all(|c| c.is_ascii_alphanumeric()),
             TextInputFilter::Custom(is_match) => is_match(text),
