@@ -827,8 +827,7 @@ pub fn update_text_input_layouts(
                         }
                     }
 
-                    let result = run
-                        .glyphs
+                    run.glyphs
                         .iter()
                         .map(move |layout_glyph| (layout_glyph, run.line_y, run.line_i))
                         .try_for_each(|(layout_glyph, line_y, line_i)| {
@@ -911,9 +910,7 @@ pub fn update_text_input_layouts(
                             }
 
                             Ok(())
-                        });
-
-                    result
+                        })
                 });
 
                 // Check result.
@@ -933,8 +930,6 @@ pub fn update_text_input_layouts(
                     layout_info.scroll =
                         editor.with_buffer(|buffer| Vec2::new(buffer.scroll().horizontal, 0.));
 
-                    layout_info.size.x = layout_info.size.x;
-                    layout_info.size.y = layout_info.size.y;
                     editor.set_redraw(false);
                 }
             }
@@ -1037,14 +1032,14 @@ fn apply_text_input_action(
         TextInputAction::Undo => {
             if let Some(history) = maybe_history.as_mut() {
                 for action in history.changes.undo() {
-                    apply_action(&mut editor, action)
+                    apply_action(&mut editor, action);
                 }
             }
         }
         TextInputAction::Redo => {
             if let Some(history) = maybe_history.as_mut() {
                 for action in history.changes.redo() {
-                    apply_action(&mut editor, action)
+                    apply_action(&mut editor, action);
                 }
             }
         }
