@@ -124,14 +124,14 @@ impl CachedPipelineState {
     }
 }
 
-struct ShaderData {
+struct ShaderData<ShaderModule> {
     pipelines: HashSet<CachedPipelineId>,
-    processed_shaders: HashMap<Box<[ShaderDefVal]>, Arc<WgpuWrapper<ShaderModule>>>,
+    processed_shaders: HashMap<Box<[ShaderDefVal]>, Arc<ShaderModule>>,
     resolved_imports: HashMap<ShaderImport, AssetId<Shader>>,
     dependents: HashSet<AssetId<Shader>>,
 }
 
-impl Default for ShaderData {
+impl<T> Default for ShaderData<T> {
     fn default() -> Self {
         Self {
             pipelines: Default::default(),
@@ -142,8 +142,13 @@ impl Default for ShaderData {
     }
 }
 
-struct ShaderCache {
-    data: HashMap<AssetId<Shader>, ShaderData>,
+struct ShaderCache<ShaderModule, RenderDevice> {
+    data: HashMap<AssetId<Shader>, ShaderData<ShaderModule>>,
+    load_module: fn(
+        &RenderDevice,
+        ShaderSource,
+        &ValidateShader,
+    ) -> Result<ShaderModule, PipelineCacheError>,
     #[cfg(feature = "shader_format_wesl")]
     asset_paths: HashMap<wesl::syntax::ModulePath, AssetId<Shader>>,
     shaders: HashMap<AssetId<Shader>, Shader>,
@@ -181,10 +186,17 @@ impl ShaderDefVal {
     }
 }
 
-impl ShaderCache {
-    fn new(features: Features, downlevel: DownlevelFlags) -> Self {
+impl<ShaderModule, RenderDevice> ShaderCache<ShaderModule, RenderDevice> {
+    fn new(
+        features: Features,
+        downlevel: DownlevelFlags,
+        load_module: fn(
+            &RenderDevice,
+            ShaderSource,
+            &ValidateShader,
+        ) -> Result<ShaderModule, PipelineCacheError>,
+    ) -> Self {
         let capabilities = get_capabilities(features, downlevel);
-
         #[cfg(debug_assertions)]
         let composer = naga_oil::compose::Composer::default();
         #[cfg(not(debug_assertions))]
@@ -194,6 +206,7 @@ impl ShaderCache {
 
         Self {
             composer,
+            load_module,
             data: Default::default(),
             #[cfg(feature = "shader_format_wesl")]
             asset_paths: Default::default(),
@@ -245,7 +258,7 @@ impl ShaderCache {
         pipeline: CachedPipelineId,
         id: AssetId<Shader>,
         shader_defs: &[ShaderDefVal],
-    ) -> Result<Arc<WgpuWrapper<ShaderModule>>, PipelineCacheError> {
+    ) -> Result<Arc<ShaderModule>, PipelineCacheError> {
         let shader = self
             .shaders
             .get(&id)
@@ -381,7 +394,7 @@ impl ShaderCache {
                 };
 
                 let shader_module =
-                    load_module(render_device, shader_source, &shader.validate_shader)?;
+                    (self.load_module)(render_device, shader_source, &shader.validate_shader)?;
 
                 entry.insert(Arc::new(shader_module))
             }
@@ -582,7 +595,7 @@ fn load_module(
 #[derive(Resource)]
 pub struct PipelineCache {
     layout_cache: Arc<Mutex<LayoutCache>>,
-    shader_cache: Arc<Mutex<ShaderCache>>,
+    shader_cache: Arc<Mutex<ShaderCache<WgpuWrapper<ShaderModule>, RenderDevice>>>,
     device: RenderDevice,
     pipelines: Vec<CachedPipeline>,
     waiting_pipelines: HashSet<CachedPipelineId>,
@@ -631,6 +644,7 @@ impl PipelineCache {
             shader_cache: Arc::new(Mutex::new(ShaderCache::new(
                 device.features(),
                 render_adapter.get_downlevel_capabilities().flags,
+                load_module,
             ))),
             device,
             layout_cache: default(),
