@@ -182,11 +182,8 @@ impl ShaderDefVal {
 }
 
 impl ShaderCache {
-    fn new(render_device: &RenderDevice, render_adapter: &RenderAdapter) -> Self {
-        let capabilities = get_capabilities(
-            render_device.features(),
-            render_adapter.get_downlevel_capabilities().flags,
-        );
+    fn new(features: Features, downlevel: DownlevelFlags) -> Self {
+        let capabilities = get_capabilities(features, downlevel);
 
         #[cfg(debug_assertions)]
         let composer = naga_oil::compose::Composer::default();
@@ -619,7 +616,10 @@ impl PipelineCache {
         synchronous_pipeline_compilation: bool,
     ) -> Self {
         Self {
-            shader_cache: Arc::new(Mutex::new(ShaderCache::new(&device, &render_adapter))),
+            shader_cache: Arc::new(Mutex::new(ShaderCache::new(
+                device.features(),
+                render_adapter.get_downlevel_capabilities().flags,
+            ))),
             device,
             layout_cache: default(),
             waiting_pipelines: default(),
