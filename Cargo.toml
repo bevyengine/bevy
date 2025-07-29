@@ -492,37 +492,37 @@ zstd_rust = ["bevy_internal/zstd_rust"]
 zstd_c = ["bevy_internal/zstd_c"]
 
 # FLAC audio format support (through `claxon`)
-flac = ["bevy_internal/flac"]
+fallback-flac = ["bevy_internal/flac"]
 
 # MP3 audio format support (through `minimp3`)
-mp3 = ["bevy_internal/mp3"]
+fallback-mp3 = ["bevy_internal/mp3"]
 
 # OGG/VORBIS audio format support (through `lewton`)
-vorbis = ["bevy_internal/vorbis"]
+fallback-vorbis = ["bevy_internal/vorbis"]
 
 # WAV audio format support (through `hound`)
-wav = ["bevy_internal/wav"]
+fallback-wav = ["bevy_internal/wav"]
 
 # AAC audio format support (through `symphonia`)
-symphonia-aac = ["bevy_internal/symphonia-aac"]
+aac = ["bevy_internal/aac"]
 
 # AAC, FLAC, MP3, MP4, OGG/VORBIS, and WAV audio formats support (through `symphonia`)
-symphonia-all = ["bevy_internal/symphonia-all"]
+audio-all = ["bevy_internal/audio-all"]
 
 # FLAC audio format support (through `symphonia`)
-symphonia-flac = ["bevy_internal/symphonia-flac"]
+flac = ["bevy_internal/flac"]
 
-# MP4 audio format support (through `symphonia`)
-symphonia-isomp4 = ["bevy_internal/symphonia-isomp4"]
+# MP4 audio format support (through `symphonia`). It also enables AAC support.
+mp4 = ["bevy_internal/mp4"]
 
 # MP3 audio format support (through `symphonia`)
-symphonia-mp3 = ["bevy_internal/symphonia-mp3"]
+mp3 = ["bevy_internal/mp3"]
 
 # OGG/VORBIS audio format support (through `symphonia`)
-symphonia-vorbis = ["bevy_internal/symphonia-vorbis"]
+vorbis = ["bevy_internal/vorbis"]
 
 # WAV audio format support (through `symphonia`)
-symphonia-wav = ["bevy_internal/symphonia-wav"]
+wav = ["bevy_internal/wav"]
 
 # Enable serialization support through serde
 serialize = ["bevy_internal/serialize"]
