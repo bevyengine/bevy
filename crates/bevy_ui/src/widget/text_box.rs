@@ -74,17 +74,16 @@ impl Plugin for TextInputPlugin {
                     update_text_box_attributes,
                     update_text_field_attributes,
                     measure_lines,
+                    mouse_wheel_scroll,
                 )
                     .chain()
-                    .after(UiSystems::Prepare)
-                    .before(UiSystems::Layout),
+                    .in_set(UiSystems::Content),
             )
             .add_systems(
                 PostUpdate,
-                (mouse_wheel_scroll, update_targets, update_cursor_visibility)
-                    .after(UiSystems::Layout)
-                    .before(TextInputSystems)
-                    .before(bevy_text::update_text_input_buffers),
+                (update_targets, update_cursor_visibility)
+                    .in_set(UiSystems::PostLayout)
+                    .before(TextInputSystems),
             );
     }
 }
