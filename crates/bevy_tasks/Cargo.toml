@@ -28,8 +28,8 @@ multi_threaded = [
 ## on `no_std` targets, but provides access to certain additional features on
 ## supported platforms.
 std = [
-  "futures-lite/std", 
-  "async-task/std", 
+  "futures-lite/std",
+  "async-task/std",
   "bevy_platform/std",
   "fastrand/std",
   "dep:slab",
@@ -44,11 +44,7 @@ critical-section = ["bevy_platform/critical-section"]
 
 ## Enables use of browser APIs.
 ## Note this is currently only applicable on `wasm32` architectures.
-web = [
-  "bevy_platform/web",
-  "dep:wasm-bindgen-futures",
-  "dep:futures-channel",
-]
+web = ["bevy_platform/web", "dep:wasm-bindgen-futures", "dep:futures-channel"]
 
 [dependencies]
 bevy_platform = { path = "../bevy_platform", version = "0.17.0-dev", default-features = false, features = [
