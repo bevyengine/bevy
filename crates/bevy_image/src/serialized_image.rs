@@ -15,7 +15,7 @@ use wgpu_types::{
 ///
 /// But there are still some valid use cases for serializing a [`Image`], namely transferring meshes between processes.
 /// To support this, you can create a [`SerializedImage`] from a [`Image`] with [`SerializedImage::from_image`],
-/// and then deserialize it with [`SerializedImage::into_mesh`].
+/// and then deserialize it with [`SerializedImage::into_image`].
 ///
 /// The caveats are:
 /// - The image representation is not valid across different versions of Bevy.
