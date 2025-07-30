@@ -19,12 +19,32 @@ use naga::valid::Capabilities;
 use std::sync::{Mutex, PoisonError};
 use thiserror::Error;
 use tracing::{debug, error};
-#[cfg(feature = "shader_format_spirv")]
-use wgpu::util::make_spirv;
 use wgpu::{
     DownlevelFlags, Features, PipelineCompilationOptions,
     VertexBufferLayout as RawVertexBufferLayout,
 };
+
+/// Source of a shader module.
+///
+/// The source will be parsed and validated.
+///
+/// Any necessary shader translation (e.g. from WGSL to SPIR-V or vice versa)
+/// will be done internally by wgpu.
+///
+/// This type is unique to the Rust API of `wgpu`. In the WebGPU specification,
+/// only WGSL source code strings are accepted.
+///
+/// This is roughly equivalent to wgpu::ShaderSource
+#[expect(clippy::large_enum_variant)]
+#[derive(Clone, Debug)]
+pub enum ShaderCacheSource<'a> {
+    /// SPIR-V module represented as a slice of words.
+    SpirV(&'a [u8]),
+    /// WGSL module as a string slice.
+    Wgsl(String),
+    /// Naga module.
+    Naga(naga::Module),
+}
 
 /// A descriptor for a [`Pipeline`].
 ///
@@ -146,7 +166,7 @@ struct ShaderCache<ShaderModule, RenderDevice> {
     data: HashMap<AssetId<Shader>, ShaderData<ShaderModule>>,
     load_module: fn(
         &RenderDevice,
-        ShaderSource,
+        ShaderCacheSource,
         &ValidateShader,
     ) -> Result<ShaderModule, PipelineCacheError>,
     #[cfg(feature = "shader_format_wesl")]
@@ -192,7 +212,7 @@ impl<ShaderModule, RenderDevice> ShaderCache<ShaderModule, RenderDevice> {
         downlevel: DownlevelFlags,
         load_module: fn(
             &RenderDevice,
-            ShaderSource,
+            ShaderCacheSource,
             &ValidateShader,
         ) -> Result<ShaderModule, PipelineCacheError>,
     ) -> Self {
@@ -289,8 +309,7 @@ impl<ShaderModule, RenderDevice> ShaderCache<ShaderModule, RenderDevice> {
                     id, shader_defs
                 );
                 let shader_source = match &shader.source {
-                    #[cfg(feature = "shader_format_spirv")]
-                    Source::SpirV(data) => make_spirv(data),
+                    Source::SpirV(data) => ShaderCacheSource::SpirV(data.as_ref()),
                     #[cfg(feature = "shader_format_wesl")]
                     Source::Wesl(_) => {
                         if let ShaderImport::AssetPath(path) = shader.import_path() {
@@ -324,16 +343,10 @@ impl<ShaderModule, RenderDevice> ShaderCache<ShaderModule, RenderDevice> {
                             .unwrap();
 
                             let naga = naga::front::wgsl::parse_str(&compiled.to_string()).unwrap();
-                            ShaderSource::Naga(Cow::Owned(naga))
+                            ShaderCacheSource::Naga(naga)
                         } else {
                             panic!("Wesl shaders must be imported from a file");
                         }
-                    }
-                    #[cfg(not(feature = "shader_format_spirv"))]
-                    Source::SpirV(_) => {
-                        unimplemented!(
-                            "Enable feature \"shader_format_spirv\" to use SPIR-V shaders"
-                        )
                     }
                     _ => {
                         for import in shader.imports() {
@@ -370,7 +383,7 @@ impl<ShaderModule, RenderDevice> ShaderCache<ShaderModule, RenderDevice> {
 
                         #[cfg(not(feature = "decoupled_naga"))]
                         {
-                            ShaderSource::Naga(Cow::Owned(naga))
+                            ShaderCacheSource::Naga(naga)
                         }
 
                         #[cfg(feature = "decoupled_naga")]
@@ -380,15 +393,13 @@ impl<ShaderModule, RenderDevice> ShaderCache<ShaderModule, RenderDevice> {
                                 self.composer.capabilities,
                             );
                             let module_info = validator.validate(&naga).unwrap();
-                            let wgsl = Cow::Owned(
-                                naga::back::wgsl::write_string(
-                                    &naga,
-                                    &module_info,
-                                    naga::back::wgsl::WriterFlags::empty(),
-                                )
-                                .unwrap(),
-                            );
-                            ShaderSource::Wgsl(wgsl)
+                            let wgsl = naga::back::wgsl::write_string(
+                                &naga,
+                                &module_info,
+                                naga::back::wgsl::WriterFlags::empty(),
+                            )
+                            .unwrap();
+                            ShaderCacheSource::Wgsl(wgsl)
                         }
                     }
                 };
@@ -541,9 +552,19 @@ impl LayoutCache {
 
 fn load_module(
     render_device: &RenderDevice,
-    shader_source: ShaderSource,
+    shader_source: ShaderCacheSource,
     validate_shader: &ValidateShader,
 ) -> Result<WgpuWrapper<ShaderModule>, PipelineCacheError> {
+    let shader_source = match shader_source {
+        #[cfg(feature = "shader_format_spirv")]
+        ShaderCacheSource::SpirV(data) => wgpu::util::make_spirv(data),
+        #[cfg(not(feature = "shader_format_spirv"))]
+        ShaderCacheSource::SpirV(_) => {
+            unimplemented!("Enable feature \"shader_format_spirv\" to use SPIR-V shaders")
+        }
+        ShaderCacheSource::Wgsl(src) => ShaderSource::Wgsl(Cow::Owned(src)),
+        ShaderCacheSource::Naga(src) => ShaderSource::Naga(Cow::Owned(src)),
+    };
     let module_descriptor = ShaderModuleDescriptor {
         label: None,
         source: shader_source,
