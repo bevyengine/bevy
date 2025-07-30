@@ -31,7 +31,7 @@ pub enum ButtonAction {
 #[derive(Component)]
 pub struct PasteTarget;
 
-fn setup(mut commands: Commands) {
+fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     // UI camera
     commands.spawn(Camera2d);
 
@@ -73,6 +73,10 @@ fn setup(mut commands: Commands) {
                     BackgroundColor(Color::BLACK),
                     children![(
                         Text::new("Nothing pasted yet."),
+                        TextFont {
+                            font: asset_server.load("fonts/NotoNaskhArabic-Medium.ttf"),
+                            ..default()
+                        },
                         TextColor(GREY.into()),
                         PasteTarget
                     )],
