@@ -359,7 +359,7 @@ impl ToExtents for UVec3 {
     }
 }
 
-/// A 2D image.
+/// An image, optimized for usage in rendering.
 ///
 /// ## Transmission
 ///
