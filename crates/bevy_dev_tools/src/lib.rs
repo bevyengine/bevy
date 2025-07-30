@@ -15,8 +15,9 @@ pub mod ci_testing;
 
 pub mod fps_overlay;
 pub mod frame_time_graph;
-/// In-game inspector and editor tools for real-time debugging.
-pub mod inspector;
+
+
+pub mod entity_inspector;
 
 pub mod picking_debug;
 

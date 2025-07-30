@@ -672,8 +672,14 @@ doc-scrape-examples = true
 
 # Inspector
 [[example]]
-name = "inspector"
-path = "examples/dev_tools/inspector.rs"
+name = "inspector_3d"
+path = "examples/inspector/entity_inspector_3d.rs"
+doc-scrape-examples = true
+required-features = ["bevy_dev_tools"]
+
+[[example]]
+name = "inspector_minimal"
+path = "examples/inspector/entity_inspector_minimal.rs"
 doc-scrape-examples = true
 required-features = ["bevy_dev_tools"]
 
