@@ -70,7 +70,7 @@ pub enum ValidateShader {
     Enabled,
 }
 
-/// A an "unprocessed" shader. It can contain preprocessor directives.
+/// An "unprocessed" shader. It can contain preprocessor directives.
 #[derive(Asset, TypePath, Debug, Clone)]
 pub struct Shader {
     pub path: String,
