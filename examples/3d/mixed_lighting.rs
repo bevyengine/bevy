@@ -157,7 +157,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, app_status: Res
 fn spawn_camera(commands: &mut Commands) {
     commands
         .spawn(Camera3d::default())
-        .insert(Transform::from_xyz(-0.7, 0.7, 1.0).looking_at(vec3(0.0, 0.3, 0.0), Vec3::Y));
+        .insert(Transform::from_xyz(0.7, 0.7, -1.0).looking_at(vec3(0.0, 0.3, 0.0), Vec3::Y));
 }
 
 /// Spawns the scene.

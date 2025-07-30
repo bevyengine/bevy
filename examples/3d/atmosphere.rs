@@ -110,7 +110,7 @@ fn setup_terrain_scene(
         ),
         Transform::from_xyz(-1.0, 0.0, -0.5)
             .with_scale(Vec3::splat(0.5))
-            .with_rotation(Quat::from_rotation_y(PI / 2.0)),
+            .with_rotation(Quat::from_rotation_y(-PI / 2.0)),
     ));
 }
 
