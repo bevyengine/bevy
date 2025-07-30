@@ -269,7 +269,7 @@ impl SystemExecutor for MultiThreadedExecutor {
         }
 
         let thread_executor = world
-            .get_resource::<MainThreadExecutor>()
+            .get_resource::<MainThreadSpawner>()
             .map(|e| e.0.clone());
 
         let environment = &Environment::new(self, schedule, world);
@@ -861,20 +861,20 @@ unsafe fn evaluate_and_fold_conditions(
         .fold(true, |acc, res| acc && res)
 }
 
-/// New-typed [`ThreadExecutor`] [`Resource`] that is used to run systems on the main thread
+/// New-typed [`ThreadSpawner`] [`Resource`] that is used to run systems on the main thread
 #[derive(Resource, Clone)]
-pub struct MainThreadExecutor(pub ThreadSpawner<'static>);
+pub struct MainThreadSpawner(pub ThreadSpawner<'static>);
 
-impl Default for MainThreadExecutor {
+impl Default for MainThreadSpawner {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl MainThreadExecutor {
+impl MainThreadSpawner {
     /// Creates a new executor that can be used to run systems on the main thread.
     pub fn new() -> Self {
-        MainThreadExecutor(ComputeTaskPool::get().current_thread_spawner())
+        MainThreadSpawner(ComputeTaskPool::get().current_thread_spawner())
     }
 }
 

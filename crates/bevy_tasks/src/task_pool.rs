@@ -136,7 +136,8 @@ pub struct TaskPool {
 }
 
 impl TaskPool {
-    /// Each thread will only have one `ThreadExecutor`, otherwise, there are good chances they will deadlock
+    /// Creates a [`ThreadSpawner`] for this current thread of execution.
+    /// Can be used to spawn new tasks to execute exclusively on this thread.
     pub fn current_thread_spawner(&self) -> ThreadSpawner<'static> {
         self.executor.current_thread_spawner()
     }
@@ -299,9 +300,9 @@ impl TaskPool {
         self.scope_with_executor_inner(scope_spawner.clone(), scope_spawner, f)
     }
 
-    /// This allows passing an external executor to spawn tasks on. When you pass an external executor
-    /// [`Scope::spawn_on_scope`] spawns is then run on the thread that [`ThreadExecutor`] is being ticked on.
-    /// If [`None`] is passed the scope will use a [`ThreadExecutor`] that is ticked on the current thread.
+    /// This allows passing an external [`ThreadSpawner`] to spawn tasks to. When you pass an external spawner
+    /// [`Scope::spawn_on_scope`] spawns is then run on the thread that [`ThreadSpawner`] originated from.
+    /// If [`None`] is passed the scope will use a [`ThreadSpawner`] that is ticked on the current thread.
     ///
     /// See [`Self::scope`] for more details in general about how scopes work.
     pub fn scope_with_executor<'env, F, T>(
