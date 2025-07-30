@@ -141,7 +141,7 @@ impl SerializedImage {
             texture_view_descriptor: self
                 .texture_view_descriptor
                 .map(SerializedTextureViewDescriptor::into_texture_view_descriptor),
-            asset_usage: RenderAssetUsages::all(),
+            asset_usage: RenderAssetUsages::RENDER_WORLD,
             copy_on_resize: false,
         }
     }
