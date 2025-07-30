@@ -34,7 +34,6 @@ naga_oil = { version = "0.18", default-features = false, features = [
 naga_oil = { version = "0.18" }
 
 [features]
-default = []
 shader_format_glsl = ["naga/glsl-in", "naga/wgsl-out", "naga_oil/glsl"]
 shader_format_spirv = ["naga/spv-in", "naga/spv-out"]
 shader_format_wesl = ["wesl"]

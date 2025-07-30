@@ -30,6 +30,7 @@ pub enum ShaderCacheSource<'a> {
     /// WGSL module as a string slice.
     Wgsl(String),
     /// Naga module.
+    #[cfg(not(feature = "decoupled_naga"))]
     Naga(naga::Module),
 }
 
@@ -233,8 +234,7 @@ impl<ShaderModule, RenderDevice> ShaderCache<ShaderModule, RenderDevice> {
                             )
                             .unwrap();
 
-                            let naga = naga::front::wgsl::parse_str(&compiled.to_string()).unwrap();
-                            ShaderCacheSource::Naga(naga)
+                            ShaderCacheSource::Wgsl(compiled.to_string())
                         } else {
                             panic!("Wesl shaders must be imported from a file");
                         }

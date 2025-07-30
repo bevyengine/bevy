@@ -9,6 +9,18 @@ license = "MIT OR Apache-2.0"
 keywords = ["bevy"]
 
 [features]
+# Bevy users should _never_ turn this feature on.
+#
+# Bevy/wgpu developers can turn this feature on to test a newer version of wgpu without needing to also update naga_oil.
+#
+# When turning this feature on, you can add the following to bevy/Cargo.toml (not this file), and then run `cargo update`:
+# [patch.crates-io]
+# wgpu = { git = "https://github.com/gfx-rs/wgpu", rev = "..." }
+# wgpu-core = { git = "https://github.com/gfx-rs/wgpu", rev = "..." }
+# wgpu-hal = { git = "https://github.com/gfx-rs/wgpu", rev = "..." }
+# wgpu-types = { git = "https://github.com/gfx-rs/wgpu", rev = "..." }
+decoupled_naga = ["bevy_shader/decoupled_naga"]
+
 # Enables compressed KTX2 UASTC texture output on the asset processor
 compressed_image_saver = ["bevy_image/compressed_image_saver"]
 

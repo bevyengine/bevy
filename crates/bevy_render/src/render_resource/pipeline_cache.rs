@@ -165,6 +165,7 @@ fn load_module(
             unimplemented!("Enable feature \"shader_format_spirv\" to use SPIR-V shaders")
         }
         ShaderCacheSource::Wgsl(src) => ShaderSource::Wgsl(Cow::Owned(src)),
+        #[cfg(not(feature = "decoupled_naga"))]
         ShaderCacheSource::Naga(src) => ShaderSource::Naga(Cow::Owned(src)),
     };
     let module_descriptor = ShaderModuleDescriptor {
