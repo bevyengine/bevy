@@ -2619,7 +2619,7 @@ impl<'w, 'q, Q: QueryData, F: QueryFilter> From<&'q mut Query<'w, '_, Q, F>>
 ///
 /// Use [`Option<Single<D, F>>`] instead to run the system but get `None` when there are zero or multiple matching entities.
 ///
-/// Use [`When<Single<D, F>>`](crate::system::When) instead to skip the system when there are zero or multiple matching entities.
+/// Use [`If<Single<D, F>>`](crate::system::If) instead to skip the system when there are zero or multiple matching entities.
 ///
 /// See [`Query`] for more details.
 ///
@@ -2670,7 +2670,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Single<'w, 's, D, F> {
 /// This [`SystemParam`](crate::system::SystemParam) fails validation if no matching entities exist.
 /// This will cause the system to fail, according to the rules laid out in [`SystemParamValidationError`](crate::system::SystemParamValidationError).
 ///
-/// Use [`When<Populated<D, F>>`](crate::system::When) instead to skip the system when there are zero matching entities.
+/// Use [`If<Populated<D, F>>`](crate::system::If) instead to skip the system when there are zero matching entities.
 ///
 /// Much like [`Query::is_empty`] the worst case runtime will be `O(n)` where `n` is the number of *potential* matches.
 /// This can be notably expensive for queries that rely on non-archetypal filters such as [`Added`](crate::query::Added),
