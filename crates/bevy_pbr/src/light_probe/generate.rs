@@ -467,9 +467,9 @@ pub fn extract_generated_environment_map_entities(
     render_images: Res<RenderAssets<GpuImage>>,
 ) {
     for (entity, filtered_env_map, env_map_light) in query.iter() {
-        let env_map = render_images
-            .get(&filtered_env_map.environment_map)
-            .expect("Environment map not found");
+        let Some(env_map) = render_images.get(&filtered_env_map.environment_map) else {
+            continue;
+        };
 
         let diffuse_map = render_images.get(&env_map_light.diffuse_map);
         let specular_map = render_images.get(&env_map_light.specular_map);
