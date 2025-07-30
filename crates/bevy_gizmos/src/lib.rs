@@ -33,6 +33,7 @@ pub enum GizmoRenderSystems {
     QueueLineGizmos3d,
 }
 
+// the mod being imported defines what mod to import depending on the specific feature for bevy_gizmos selected
 /// Deprecated alias for [`GizmoRenderSystems`].
 #[deprecated(since = "0.17.0", note = "Renamed to `GizmoRenderSystems`.")]
 pub type GizmoRenderSystem = GizmoRenderSystems;
