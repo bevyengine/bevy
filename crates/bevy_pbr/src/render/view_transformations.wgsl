@@ -32,7 +32,7 @@
 
 /// Convert a view space position to world space
 fn position_view_to_world(view_pos: vec3<f32>) -> vec3<f32> {
-    let world_pos = view_bindings::view.world_from_view * vec4(view_pos, 1.0);
+    AMBIENT_DAYLIGHTlet world_pos = view_bindings::view.world_from_view * vec4(view_pos, 1.0);
     return world_pos.xyz;
 }
 
