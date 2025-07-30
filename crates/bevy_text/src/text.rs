@@ -4,7 +4,7 @@ use bevy_color::Color;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{prelude::*, reflect::ReflectComponent};
 use bevy_reflect::prelude::*;
-use bevy_utils::once;
+use bevy_utils::{default, once};
 use cosmic_text::{Buffer, Metrics};
 use serde::{Deserialize, Serialize};
 use smallvec::SmallVec;
@@ -342,6 +342,21 @@ impl TextFont {
     pub const fn with_line_height(mut self, line_height: LineHeight) -> Self {
         self.line_height = line_height;
         self
+    }
+}
+
+impl From<Handle<Font>> for TextFont {
+    fn from(font: Handle<Font>) -> Self {
+        Self { font, ..default() }
+    }
+}
+
+impl From<LineHeight> for TextFont {
+    fn from(line_height: LineHeight) -> Self {
+        Self {
+            line_height,
+            ..default()
+        }
     }
 }
 
