@@ -119,12 +119,21 @@ pub struct TextLayout {
     pub justify: Justify,
     /// How the text should linebreak when running out of the bounds determined by `max_size`.
     pub linebreak: LineBreak,
+    /// The vertical height of a line of text, from the top of one line to the top of the
+    /// next.
+    ///
+    /// Defaults to `LineHeight::RelativeToFont(1.2)`
+    pub line_height: LineHeight,
 }
 
 impl TextLayout {
     /// Makes a new [`TextLayout`].
-    pub const fn new(justify: Justify, linebreak: LineBreak) -> Self {
-        Self { justify, linebreak }
+    pub const fn new(justify: Justify, linebreak: LineBreak, line_height: LineHeight) -> Self {
+        Self {
+            justify,
+            linebreak,
+            line_height,
+        }
     }
 
     /// Makes a new [`TextLayout`] with the specified [`Justify`].
@@ -143,6 +152,11 @@ impl TextLayout {
         Self::default().with_no_wrap()
     }
 
+    /// Makes a new [`TextLayout`] with the specified [`LineHeight`].
+    pub fn new_with_line_height(line_height: LineHeight) -> Self {
+        Self::default().with_line_height(line_height)
+    }
+
     /// Returns this [`TextLayout`] with the specified [`Justify`].
     pub const fn with_justify(mut self, justify: Justify) -> Self {
         self.justify = justify;
@@ -159,6 +173,12 @@ impl TextLayout {
     /// Hard wrapping, where text contains an explicit linebreak such as the escape sequence `\n`, will still occur.
     pub const fn with_no_wrap(mut self) -> Self {
         self.linebreak = LineBreak::NoWrap;
+        self
+    }
+
+    /// Returns this [`TextLayout`] with the specified [`LineHeight`].
+    pub const fn with_line_height(mut self, line_height: LineHeight) -> Self {
+        self.line_height = line_height;
         self
     }
 }
@@ -295,11 +315,6 @@ pub struct TextFont {
     /// A new font atlas is generated for every combination of font handle and scaled font size
     /// which can have a strong performance impact.
     pub font_size: f32,
-    /// The vertical height of a line of text, from the top of one line to the top of the
-    /// next.
-    ///
-    /// Defaults to `LineHeight::RelativeToFont(1.2)`
-    pub line_height: LineHeight,
     /// The antialiasing method to use when rendering text.
     pub font_smoothing: FontSmoothing,
 }
@@ -332,12 +347,6 @@ impl TextFont {
         self.font_smoothing = font_smoothing;
         self
     }
-
-    /// Returns this [`TextFont`] with the specified [`LineHeight`].
-    pub const fn with_line_height(mut self, line_height: LineHeight) -> Self {
-        self.line_height = line_height;
-        self
-    }
 }
 
 impl Default for TextFont {
@@ -345,7 +354,6 @@ impl Default for TextFont {
         Self {
             font: Default::default(),
             font_size: 20.0,
-            line_height: LineHeight::default(),
             font_smoothing: Default::default(),
         }
     }

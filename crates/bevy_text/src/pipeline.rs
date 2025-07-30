@@ -17,7 +17,7 @@ use cosmic_text::{Attrs, Buffer, Family, Metrics, Shaping, Wrap};
 
 use crate::{
     error::TextError, ComputedTextBlock, Font, FontAtlasSets, FontSmoothing, Justify, LineBreak,
-    PositionedGlyph, TextBounds, TextEntity, TextFont, TextLayout,
+    LineHeight, PositionedGlyph, TextBounds, TextEntity, TextFont, TextLayout,
 };
 
 /// A wrapper resource around a [`cosmic_text::FontSystem`]
@@ -90,6 +90,7 @@ impl TextPipeline {
         linebreak: LineBreak,
         justify: Justify,
         bounds: TextBounds,
+        line_height: LineHeight,
         scale_factor: f64,
         computed: &mut ComputedTextBlock,
         font_system: &mut CosmicFontSystem,
@@ -99,7 +100,7 @@ impl TextPipeline {
         // Collect span information into a vec. This is necessary because font loading requires mut access
         // to FontSystem, which the cosmic-text Buffer also needs.
         let mut font_size: f32 = 0.;
-        let mut line_height: f32 = 0.0;
+        let mut max_line_height: f32 = 0.0;
         let mut spans: Vec<(usize, &str, &TextFont, FontFaceInfo, Color)> =
             core::mem::take(&mut self.spans_buffer)
                 .into_iter()
@@ -132,7 +133,7 @@ impl TextPipeline {
 
             // Get max font size for use in cosmic Metrics.
             font_size = font_size.max(text_font.font_size);
-            line_height = line_height.max(text_font.line_height.eval(text_font.font_size));
+            max_line_height = max_line_height.max(line_height.eval(text_font.font_size));
 
             // Load Bevy fonts into cosmic-text's font system.
             let face_info = load_font_to_fontdb(
@@ -153,7 +154,7 @@ impl TextPipeline {
             spans.push((span_index, span, text_font, face_info, color));
         }
 
-        let mut metrics = Metrics::new(font_size, line_height).scale(scale_factor as f32);
+        let mut metrics = Metrics::new(font_size, max_line_height).scale(scale_factor as f32);
         // Metrics of 0.0 cause `Buffer::set_metrics` to panic. We hack around this by 'falling
         // through' to call `Buffer::set_rich_text` with zero spans so any cached text will be cleared without
         // deallocating the buffer.
@@ -171,7 +172,14 @@ impl TextPipeline {
             .map(|(span_index, span, text_font, font_info, color)| {
                 (
                     *span,
-                    get_attrs(*span_index, text_font, *color, font_info, scale_factor),
+                    get_attrs(
+                        *span_index,
+                        text_font,
+                        *color,
+                        font_info,
+                        max_line_height,
+                        scale_factor,
+                    ),
                 )
             });
 
@@ -256,6 +264,7 @@ impl TextPipeline {
             layout.linebreak,
             layout.justify,
             bounds,
+            layout.line_height,
             scale_factor,
             computed,
             font_system,
@@ -395,6 +404,7 @@ impl TextPipeline {
         entity: Entity,
         fonts: &Assets<Font>,
         text_spans: impl Iterator<Item = (Entity, usize, &'a str, &'a TextFont, Color)>,
+        line_height: LineHeight,
         scale_factor: f64,
         layout: &TextLayout,
         computed: &mut ComputedTextBlock,
@@ -412,6 +422,7 @@ impl TextPipeline {
             layout.linebreak,
             layout.justify,
             MIN_WIDTH_CONTENT_BOUNDS,
+            line_height,
             scale_factor,
             computed,
             font_system,
@@ -530,6 +541,7 @@ fn get_attrs<'a>(
     text_font: &TextFont,
     color: Color,
     face_info: &'a FontFaceInfo,
+    line_height: f32,
     scale_factor: f64,
 ) -> Attrs<'a> {
     Attrs::new()
@@ -541,7 +553,7 @@ fn get_attrs<'a>(
         .metrics(
             Metrics {
                 font_size: text_font.font_size,
-                line_height: text_font.line_height.eval(text_font.font_size),
+                line_height,
             }
             .scale(scale_factor as f32),
         )
