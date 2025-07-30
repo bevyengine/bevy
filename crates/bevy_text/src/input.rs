@@ -1171,7 +1171,7 @@ impl Default for PromptLayout {
     }
 }
 
-/// Generate a new text prompt layout when the the prompt or its target has changed
+/// Generates a new text prompt layout when a prompt's text or its target's geometry has changed.
 pub fn update_text_input_prompt_layouts(
     mut textures: ResMut<Assets<Image>>,
     fonts: Res<Assets<Font>>,
