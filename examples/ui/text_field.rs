@@ -9,6 +9,7 @@ use bevy::input_focus::InputDispatchPlugin;
 use bevy::input_focus::InputFocus;
 use bevy::prelude::*;
 use bevy::text::LineHeight;
+use bevy::text::TextInputValue;
 use bevy::ui::widget::TextField;
 use bevy::ui::widget::TextInputPlugin;
 use bevy::window::WindowResolution;
@@ -36,14 +37,12 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn(Camera2d);
     let id = commands
         .spawn((
-            TextField {
-                justify: Justify::Right,
-                ..default()
-            },
+            TextField::default(),
             TabIndex(0),
             TextColor(RED.into()),
+            TextInputValue::new("ماذا يعني لوريم إيبسوم الم؟"),
             TextFont {
-                font: asset_server.load("fonts/Orbitron-Medium.ttf"),
+                font: asset_server.load("fonts/NotoNaskhArabic-Medium.ttf"),
                 font_size: 30.,
                 line_height: LineHeight::Px(50.),
                 ..Default::default()
