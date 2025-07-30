@@ -359,7 +359,7 @@ impl ToExtents for UVec3 {
     }
 }
 
-#[derive(Asset, Debug, Clone)]
+#[derive(Asset, Debug, Clone, PartialEq)]
 #[cfg_attr(
     feature = "bevy_reflect",
     derive(Reflect),
