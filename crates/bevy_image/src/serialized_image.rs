@@ -12,6 +12,7 @@ use wgpu_types::{
 /// [`Image`] does not implement [`Serialize`] / [`Deserialize`] because it is made with the renderer in mind.
 /// It is not a general-purpose image implementation, and its internals are subject to frequent change.
 /// As such, storing a [`Image`] on disk is highly discouraged.
+/// Use an existing image asset format such as `.png` instead!
 ///
 /// But there are still some valid use cases for serializing a [`Image`], namely transferring meshes between processes.
 /// To support this, you can create a [`SerializedImage`] from a [`Image`] with [`SerializedImage::from_image`],
