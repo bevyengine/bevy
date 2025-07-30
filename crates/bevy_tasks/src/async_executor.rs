@@ -3,18 +3,18 @@
     reason = "Executor code requires unsafe code for dealing with non-'static lifetimes"
 )]
 
-use std::collections::VecDeque;
-use std::fmt;
-use std::marker::PhantomData;
-use std::panic::{RefUnwindSafe, UnwindSafe};
-use std::pin::Pin;
-use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::{Arc, Mutex, MutexGuard, RwLock, TryLockError};
-use std::task::{Context, Poll, Waker};
+use core::marker::PhantomData;
+use core::panic::{RefUnwindSafe, UnwindSafe};
+use core::pin::Pin;
+use core::sync::atomic::{AtomicBool, Ordering};
+use core::task::{Context, Poll, Waker};
 use std::thread::ThreadId;
 
+use alloc::collections::VecDeque;
+use alloc::fmt;
 use async_task::{Builder, Runnable, Task};
 use bevy_platform::prelude::Vec;
+use bevy_platform::sync::{Arc, Mutex, MutexGuard, PoisonError, RwLock, TryLockError};
 use concurrent_queue::ConcurrentQueue;
 use futures_lite::{future, prelude::*};
 use pin_project_lite::pin_project;
@@ -31,7 +31,7 @@ pub(crate) fn install_runtime_into_current_thread() {
 // Do not access this directly, use `with_local_queue` instead.
 cfg_if::cfg_if! {
     if #[cfg(all(debug_assertions, not(miri)))] {
-        use std::cell::RefCell;
+        use core::cell::RefCell;
 
         std::thread_local! {
             static LOCAL_QUEUE: RefCell<LocalQueue> = const {
@@ -42,7 +42,7 @@ cfg_if::cfg_if! {
             };
         }
     } else {
-        use std::cell::UnsafeCell;
+        use core::cell::UnsafeCell;
 
         std::thread_local! {
             static LOCAL_QUEUE: UnsafeCell<LocalQueue> = const {
@@ -56,13 +56,13 @@ cfg_if::cfg_if! {
 }
 
 /// # Safety
-/// This must not be accessed at the same time as LOCAL_QUEUE in any way.
+/// This must not be accessed at the same time as `LOCAL_QUEUE` in any way.
 #[inline(always)]
 unsafe fn with_local_queue<T>(f: impl FnOnce(&mut LocalQueue) -> T) -> T {
     LOCAL_QUEUE.with(|tls| {
         cfg_if::cfg_if! {
             if #[cfg(all(debug_assertions, not(miri)))] {
-                f(&mut *tls.borrow_mut())
+                f(&mut tls.borrow_mut())
             } else {
                 // SAFETY: This value is in thread local storage and thus can only be accesed
                 // from one thread. The caller guarantees that this function is not used with
@@ -96,6 +96,8 @@ impl Default for ThreadLocalState {
     }
 }
 
+/// A task spawner for a specific thread. Must be created by calling [`TaskPool::current_thread_spawner`]
+/// from the target thread.
 #[derive(Clone, Debug)]
 pub struct ThreadSpawner<'a> {
     thread_id: ThreadId,
@@ -291,7 +293,7 @@ impl<'a> Executor<'a> {
         // this scope closes, the AsyncCallOnDrop around the future will be invoked
         // without overlapping mutable accssses.
         unsafe { with_local_queue(|tls| tls.local_queue.pop_front()) }
-            .map(|runnable| runnable.run())
+            .map(Runnable::run)
             .is_some()
     }
 
@@ -392,7 +394,7 @@ impl State {
 
     /// Returns a reference to currently active tasks.
     fn active(&self) -> MutexGuard<'_, Slab<Waker>> {
-        self.active.lock().unwrap_or_else(|e| e.into_inner())
+        self.active.lock().unwrap_or_else(PoisonError::into_inner)
     }
 
     /// Notifies a sleeping ticker.
@@ -725,7 +727,7 @@ impl Runner<'_> {
 
                 // Remove this runner's local queue.
                 let iter =
-                    iter.filter(|local| !std::ptr::eq(**local, &self.local_state.stealable_queue));
+                    iter.filter(|local| !core::ptr::eq(**local, &self.local_state.stealable_queue));
 
                 // Try stealing from each local queue in the list.
                 for local in iter {
@@ -773,7 +775,7 @@ impl Drop for Runner<'_> {
                 .iter()
                 .enumerate()
                 .rev()
-                .find(|(_, local)| std::ptr::eq(**local, &self.local_state.stealable_queue))
+                .find(|(_, local)| core::ptr::eq(**local, &self.local_state.stealable_queue))
             {
                 stealer_queues.remove(idx);
             }
@@ -789,7 +791,7 @@ impl Drop for Runner<'_> {
 /// Steals some items from one queue into another.
 fn steal<T>(src: &ConcurrentQueue<T>, dest: &ConcurrentQueue<T>) {
     // Half of `src`'s length rounded up.
-    let mut count = (src.len() + 1) / 2;
+    let mut count = src.len().div_ceil(2);
 
     if count > 0 {
         // Don't steal more than fits into the queue.
@@ -810,12 +812,12 @@ fn steal<T>(src: &ConcurrentQueue<T>, dest: &ConcurrentQueue<T>) {
 /// Flushes all of the items from a queue into the thread local queue.
 ///
 /// # Safety
-/// This must not be accessed at the same time as LOCAL_QUEUE in any way.
+/// This must not be accessed at the same time as `LOCAL_QUEUE` in any way.
 unsafe fn flush_to_local(src: &ConcurrentQueue<Runnable>) {
     let count = src.len();
 
     if count > 0 {
-        // SAFETY: Caller assures that LOCAL_QUEUE does not have any
+        // SAFETY: Caller assures that `LOCAL_QUEUE` does not have any
         // overlapping accesses.
         unsafe {
             with_local_queue(|tls| {
@@ -826,7 +828,7 @@ unsafe fn flush_to_local(src: &ConcurrentQueue<Runnable>) {
                         Err(_) => break,
                     }
                 }
-            })
+            });
         }
     }
 }
