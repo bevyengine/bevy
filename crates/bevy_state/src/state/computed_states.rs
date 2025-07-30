@@ -137,6 +137,6 @@ mod tests {
 
         assert!(world.query::<&TestComponent>().single(world).is_ok());
         world.run_schedule(StateTransition);
-        assert_eq!(world.query::<&TestComponent>().iter().len(), 1);
+        assert_eq!(world.query::<&TestComponent>().iter(world).len(), 0);
     }
 }
