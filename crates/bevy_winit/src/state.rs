@@ -529,7 +529,11 @@ impl<T: BufferedEvent> ApplicationHandler<T> for WinitAppRunnerState<T> {
                     .iter()
                     .all(|(_, w)| !w.is_visible().unwrap_or(false));
                 if !exiting
-                    && (self.startup_forced_updates > 0 || headless || all_invisible || reactive)
+                    && (self.startup_forced_updates > 0
+                        || headless
+                        || all_invisible
+                        || reactive
+                        || self.window_event_received)
                 {
                     self.redraw_requested(event_loop);
                 }
