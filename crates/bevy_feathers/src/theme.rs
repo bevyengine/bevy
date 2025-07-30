@@ -18,7 +18,7 @@ use bevy_text::TextColor;
 use bevy_ui::{BackgroundColor, BorderColor};
 
 /// A collection of properties that make up a theme.
-#[derive(Default, Clone, Reflect)]
+#[derive(Default, Clone, Reflect, Debug)]
 pub struct ThemeProps {
     /// Map of design tokens to colors.
     pub color: HashMap<String, Color>,
@@ -26,7 +26,7 @@ pub struct ThemeProps {
 }
 
 /// The currently selected user interface theme. Overwriting this resource changes the theme.
-#[derive(Resource, Default, Reflect)]
+#[derive(Resource, Default, Reflect, Debug)]
 #[reflect(Resource)]
 pub struct UiTheme(pub ThemeProps);
 
