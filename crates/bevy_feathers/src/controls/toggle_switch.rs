@@ -18,10 +18,10 @@ use bevy_ecs::{
 use bevy_input_focus::tab_navigation::TabIndex;
 use bevy_picking::{hover::Hovered, PickingSystems};
 use bevy_ui::{BorderRadius, Checked, InteractionDisabled, Node, PositionType, UiRect, Val};
-use bevy_winit::cursor::CursorIcon;
 
 use crate::{
     constants::size,
+    cursor::EntityCursor,
     theme::{ThemeBackgroundColor, ThemeBorderColor},
     tokens,
 };
@@ -63,7 +63,7 @@ pub fn toggle_switch<B: Bundle>(props: ToggleSwitchProps, overrides: B) -> impl 
         ThemeBorderColor(tokens::SWITCH_BORDER),
         AccessibilityNode(accesskit::Node::new(Role::Switch)),
         Hovered::default(),
-        CursorIcon::System(bevy_window::SystemCursorIcon::Pointer),
+        EntityCursor::System(bevy_window::SystemCursorIcon::Pointer),
         TabIndex(0),
         overrides,
         children![(
