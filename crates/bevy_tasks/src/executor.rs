@@ -31,7 +31,7 @@ pub use async_task::FallibleTask;
 ///
 /// If you require an executor _without_ the `Send` and `Sync` requirements, consider
 /// using [`LocalExecutor`] instead.
-#[derive(Deref, DerefMut, Default)]
+#[derive(Deref, DerefMut)]
 pub(crate) struct Executor<'a>(ExecutorInner<'a>);
 
 impl Executor<'_> {

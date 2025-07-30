@@ -474,6 +474,10 @@ impl<'scope, 'env, T: Send + 'scope> Scope<'scope, 'env, T> {
         self.spawned.push(task).unwrap();
     }
 
+    #[expect(
+        unsafe_code,
+        reason = "ThreadSpawner::spawn otherwise requries 'static Futures"
+    )]
     /// Spawns a scoped future onto the thread the scope is run on. The scope *must* outlive
     /// the provided future. The results of the future will be returned as a part of
     /// [`TaskPool::scope`]'s return value.  Users should generally prefer to use
@@ -481,15 +485,22 @@ impl<'scope, 'env, T: Send + 'scope> Scope<'scope, 'env, T> {
     ///
     /// For more information, see [`TaskPool::scope`].
     pub fn spawn_on_scope<Fut: Future<Output = T> + 'scope + Send>(&self, f: Fut) {
-        let task = self
-            .scope_spawner
-            .spawn(AssertUnwindSafe(f).catch_unwind())
-            .fallible();
+        // SAFETY: The scope call that generated this `Scope` ensures that the created
+        // Task does not outlive 'scope.
+        let task = unsafe {
+            self.scope_spawner
+                .spawn_scoped(AssertUnwindSafe(f).catch_unwind())
+                .fallible()
+        };
         // ConcurrentQueue only errors when closed or full, but we never
         // close and use an unbounded queue, so it is safe to unwrap
         self.spawned.push(task).unwrap();
     }
 
+    #[expect(
+        unsafe_code,
+        reason = "ThreadSpawner::spawn otherwise requries 'static Futures"
+    )]
     /// Spawns a scoped future onto the thread of the external thread executor.
     /// This is typically the main thread. The scope *must* outlive
     /// the provided future. The results of the future will be returned as a part of
@@ -498,10 +509,13 @@ impl<'scope, 'env, T: Send + 'scope> Scope<'scope, 'env, T> {
     ///
     /// For more information, see [`TaskPool::scope`].
     pub fn spawn_on_external<Fut: Future<Output = T> + 'scope + Send>(&self, f: Fut) {
-        let task = self
-            .external_spawner
-            .spawn(AssertUnwindSafe(f).catch_unwind())
-            .fallible();
+        // SAFETY: The scope call that generated this `Scope` ensures that the created
+        // Task does not outlive 'scope.
+        let task = unsafe {
+            self.external_spawner
+                .spawn_scoped(AssertUnwindSafe(f).catch_unwind())
+                .fallible()
+        };
         // ConcurrentQueue only errors when closed or full, but we never
         // close and use an unbounded queue, so it is safe to unwrap
         self.spawned.push(task).unwrap();
