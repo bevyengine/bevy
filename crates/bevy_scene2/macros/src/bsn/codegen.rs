@@ -140,6 +140,15 @@ impl<const ALLOW_FLAT: bool> Bsn<ALLOW_FLAT> {
                         )
                     }
                 }
+                BsnEntry::NameExpression(expr_tokens) => {
+                    quote! {
+                        <#bevy_ecs::name::Name as PatchGetTemplate>::patch(
+                            move |value| {
+                                *value = Name({#expr_tokens}.into());
+                            }
+                        )
+                    }
+                }
             });
         }
 

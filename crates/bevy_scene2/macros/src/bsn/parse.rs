@@ -73,7 +73,11 @@ impl Parse for BsnEntry {
             BsnEntry::InheritedScene(input.parse::<BsnInheritedScene>()?)
         } else if input.peek(Token![#]) {
             input.parse::<Token![#]>()?;
-            BsnEntry::Name(input.parse::<Ident>()?)
+            if input.peek(Brace) {
+                BsnEntry::NameExpression(braced_tokens(input)?)
+            } else {
+                BsnEntry::Name(input.parse::<Ident>()?)
+            }
         } else if input.peek(Brace) {
             BsnEntry::SceneExpression(braced_tokens(input)?)
         } else if input.peek(Bracket) {

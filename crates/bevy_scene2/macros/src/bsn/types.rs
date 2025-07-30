@@ -12,6 +12,7 @@ pub struct Bsn<const ALLOW_FLAT: bool> {
 #[derive(Debug)]
 pub enum BsnEntry {
     Name(Ident),
+    NameExpression(TokenStream),
     GetTemplatePatch(BsnType),
     TemplatePatch(BsnType),
     GetTemplateConstructor(BsnConstructor),
