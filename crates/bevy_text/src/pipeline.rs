@@ -133,6 +133,8 @@ impl TextPipeline {
 
             // Get max font size for use in cosmic Metrics.
             font_size = font_size.max(text_font.font_size);
+
+            // If a relative line height was chosen, base it on the largest font size in the text block.
             max_line_height = max_line_height.max(line_height.eval(text_font.font_size));
 
             // Load Bevy fonts into cosmic-text's font system.

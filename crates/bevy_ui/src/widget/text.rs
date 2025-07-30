@@ -231,6 +231,7 @@ fn create_text_measure<'a>(
         entity,
         fonts,
         spans,
+        block.line_height,
         scale_factor,
         &block,
         computed.as_mut(),

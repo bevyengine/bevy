@@ -359,15 +359,18 @@ impl Default for TextFont {
     }
 }
 
-/// Specifies the height of each line of text for `Text` and `Text2d`
+/// Specifies the height of each line of text for `Text` and `Text2d`.
 ///
-/// Default is 1.2x the font size
+/// LineHeight is set per text block, not per text span.
+/// If a `RelativeToFont` value is used, the resolved line height will be based on the size of the largest font in the text block.
+///
+/// Default is 1.2x the font size.
 #[derive(Debug, Clone, Copy, PartialEq, Reflect)]
 #[reflect(Debug, Clone, PartialEq)]
 pub enum LineHeight {
     /// Set line height to a specific number of pixels
     Px(f32),
-    /// Set line height to a multiple of the font size
+    /// Set line height to a multiple of the size of the largest font in the text block
     RelativeToFont(f32),
 }
 
