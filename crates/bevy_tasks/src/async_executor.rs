@@ -66,7 +66,7 @@ unsafe fn with_local_queue<T>(f: impl FnOnce(&mut LocalQueue) -> T) -> T {
             if #[cfg(all(debug_assertions, not(miri)))] {
                 f(&mut tls.borrow_mut())
             } else {
-                // SAFETY: This value is in thread local storage and thus can only be accesed
+                // SAFETY: This value is in thread local storage and thus can only be accessed
                 // from one thread. The caller guarantees that this function is not used with
                 // LOCAL_QUEUE in any way.
                 f(unsafe { &mut *tls.get() })
@@ -165,7 +165,7 @@ impl<'a> ThreadSpawner<'a> {
         let state = self.state.clone();
 
         move |runnable| {
-            // SAFETY: This value is in thread local storage and thus can only be accesed
+            // SAFETY: This value is in thread local storage and thus can only be accessed
             // from one thread. There are no instances where the value is accessed mutably
             // from multiple locations simultaneously.
             unsafe {
@@ -337,7 +337,7 @@ impl<'a> Executor<'a> {
         let state = self.state.clone();
         let local_state: &'static ThreadLocalState = THREAD_LOCAL_STATE.get_or_default();
         move |runnable| {
-            // SAFETY: This value is in thread local storage and thus can only be accesed
+            // SAFETY: This value is in thread local storage and thus can only be accessed
             // from one thread. There are no instances where the value is accessed mutably
             // from multiple locations simultaneously.
             unsafe {
