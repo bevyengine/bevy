@@ -477,7 +477,7 @@ impl<'scope, 'env, T: Send + 'scope> Scope<'scope, 'env, T> {
 
     #[expect(
         unsafe_code,
-        reason = "ThreadSpawner::spawn otherwise requries 'static Futures"
+        reason = "ThreadSpawner::spawn otherwise requires 'static Futures"
     )]
     /// Spawns a scoped future onto the thread the scope is run on. The scope *must* outlive
     /// the provided future. The results of the future will be returned as a part of
@@ -500,7 +500,7 @@ impl<'scope, 'env, T: Send + 'scope> Scope<'scope, 'env, T> {
 
     #[expect(
         unsafe_code,
-        reason = "ThreadSpawner::spawn otherwise requries 'static Futures"
+        reason = "ThreadSpawner::spawn otherwise requires 'static Futures"
     )]
     /// Spawns a scoped future onto the thread of the external thread executor.
     /// This is typically the main thread. The scope *must* outlive
