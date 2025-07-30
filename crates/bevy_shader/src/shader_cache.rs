@@ -19,9 +19,12 @@ use wgpu_types::{DownlevelFlags, Features};
 /// only WGSL source code strings are accepted.
 ///
 /// This is roughly equivalent to `wgpu::ShaderSource`
-#[expect(
-    clippy::large_enum_variant,
-    reason = "naga modules are the most common use, and are large"
+#[cfg_attr(
+    not(feature = "decoupled_naga"),
+    expect(
+        clippy::large_enum_variant,
+        reason = "naga modules are the most common use, and are large"
+    )
 )]
 #[derive(Clone, Debug)]
 pub enum ShaderCacheSource<'a> {
