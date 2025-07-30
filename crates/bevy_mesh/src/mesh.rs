@@ -111,7 +111,7 @@ pub const VERTEX_ATTRIBUTE_BUFFER_ID: u64 = 10;
 ///   which means that Bevy would *only* render the "front" of each triangle, which
 ///   is the side of the triangle from where the vertices appear in a *counter-clockwise* order.
 ///
-/// ## Transmission
+/// ## Remote Inspection
 ///
 /// To transmit a [`Mesh`] between two running Bevy apps, e.g. through BRP, use [`SerializedMesh`].
 /// This type is only meant for short-term transmission between same versions and should not be stored anywhere.

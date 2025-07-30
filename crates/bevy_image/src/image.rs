@@ -361,7 +361,7 @@ impl ToExtents for UVec3 {
 
 /// An image, optimized for usage in rendering.
 ///
-/// ## Transmission
+/// ## Remote Inspection
 ///
 /// To transmit an [`Image`] between two running Bevy apps, e.g. through BRP, use [`SerializedImage`](crate::SerializedImage).
 /// This type is only meant for short-term transmission between same versions and should not be stored anywhere.
