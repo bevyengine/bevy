@@ -119,7 +119,7 @@ impl TextInputBuffer {
     /// True if the buffer is empty
     pub fn is_empty(&self) -> bool {
         self.with_buffer(|buffer| {
-            buffer.lines.len() == 0
+            buffer.lines.is_empty()
                 || (buffer.lines.len() == 1 && buffer.lines[0].text().is_empty())
         })
     }
