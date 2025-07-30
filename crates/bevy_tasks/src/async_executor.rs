@@ -105,8 +105,23 @@ pub struct ThreadSpawner<'a> {
 }
 
 impl<'a> ThreadSpawner<'a> {
+    /// Spawns a task onto the specific target thread.
+    pub fn spawn<T: Send + 'static>(
+        &self,
+        future: impl Future<Output = T> + Send + 'static,
+    ) -> Task<T> {
+        // SAFETY: T and `future` are both 'static, so the Task is guaranteed to not outlive it.
+        unsafe { self.spawn_scoped(future) }
+    }
+
     /// Spawns a task onto the executor.
-    pub fn spawn<T: Send + 'a>(&self, future: impl Future<Output = T> + Send + 'a) -> Task<T> {
+    ///
+    /// # Safety
+    /// The caller must ensure that the returned Task does not outlive 'a.
+    pub unsafe fn spawn_scoped<T: Send + 'a>(
+        &self,
+        future: impl Future<Output = T> + Send + 'a,
+    ) -> Task<T> {
         let mut active = self.state.active();
 
         // Remove the task from the set of active tasks when the future finishes.
@@ -119,24 +134,13 @@ impl<'a> ThreadSpawner<'a> {
         //
         // SAFETY:
         //
-        // If `future` is not `Send`, this must be a `LocalExecutor` as per this
-        // function's unsafe precondition. Since `LocalExecutor` is `!Sync`,
-        // `try_tick`, `tick` and `run` can only be called from the origin
-        // thread of the `LocalExecutor`. Similarly, `spawn` can only  be called
-        // from the origin thread, ensuring that `future` and the executor share
-        // the same origin thread. The `Runnable` can be scheduled from other
-        // threads, but because of the above `Runnable` can only be called or
-        // dropped on the origin thread.
-        //
-        // `future` is not `'static`, but we make sure that the `Runnable` does
-        // not outlive `'a`. When the executor is dropped, the `active` field is
-        // drained and all of the `Waker`s are woken. Then, the queue inside of
-        // the `Executor` is drained of all of its runnables. This ensures that
-        // runnables are dropped and this precondition is satisfied.
-        //
-        // `self.schedule()` is `Send`, `Sync` and `'static`, as checked below.
-        // Therefore we do not need to worry about what is done with the
-        // `Waker`.
+        // - `future` is `Send`. Therefore we do not need to worry about what thread
+        //   the produced `Runnable` is used and dropped from.
+        // - `future` is not `'static`, but the caller must make sure that the Task
+        //   and thus the `Runnable` will not outlive `'a`.
+        // - `self.schedule()` is `Send`, `Sync` and `'static`, as checked below.
+        //   Therefore we do not need to worry about what is done with the
+        //   `Waker`.
         let (runnable, task) = unsafe {
             Builder::new()
                 .propagate_panic(true)
@@ -209,24 +213,16 @@ impl<'a> Executor<'a> {
         //
         // SAFETY:
         //
-        // If `future` is not `Send`, this must be a `LocalExecutor` as per this
-        // function's unsafe precondition. Since `LocalExecutor` is `!Sync`,
-        // `try_tick`, `tick` and `run` can only be called from the origin
-        // thread of the `LocalExecutor`. Similarly, `spawn` can only  be called
-        // from the origin thread, ensuring that `future` and the executor share
-        // the same origin thread. The `Runnable` can be scheduled from other
-        // threads, but because of the above `Runnable` can only be called or
-        // dropped on the origin thread.
-        //
-        // `future` is not `'static`, but we make sure that the `Runnable` does
-        // not outlive `'a`. When the executor is dropped, the `active` field is
-        // drained and all of the `Waker`s are woken. Then, the queue inside of
-        // the `Executor` is drained of all of its runnables. This ensures that
-        // runnables are dropped and this precondition is satisfied.
-        //
-        // `self.schedule()` is `Send`, `Sync` and `'static`, as checked below.
-        // Therefore we do not need to worry about what is done with the
-        // `Waker`.
+        // - `future` is `Send`. Therefore we do not need to worry about what thread
+        //   the produced `Runnable` is used and dropped from.
+        // - `future` is not `'static`, but we make sure that the `Runnable` does
+        //   not outlive `'a`. When the executor is dropped, the `active` field is
+        //   drained and all of the `Waker`s are woken. Then, the queue inside of
+        //   the `Executor` is drained of all of its runnables. This ensures that
+        //   runnables are dropped and this precondition is satisfied.
+        // - `self.schedule()` is `Send`, `Sync` and `'static`, as checked below.
+        //   Therefore we do not need to worry about what is done with the
+        //   `Waker`.
         let (runnable, task) = unsafe {
             Builder::new()
                 .propagate_panic(true)
@@ -239,7 +235,7 @@ impl<'a> Executor<'a> {
     }
 
     /// Spawns a non-Send task onto the executor.
-    pub fn spawn_local<T: 'a>(&self, future: impl Future<Output = T> + 'a) -> Task<T> {
+    pub fn spawn_local<T: 'static>(&self, future: impl Future<Output = T> + 'static) -> Task<T> {
         // Remove the task from the set of active tasks when the future finishes.
         //
         // SAFETY: There are no instances where the value is accessed mutably
@@ -260,24 +256,13 @@ impl<'a> Executor<'a> {
                 //
                 // SAFETY:
                 //
-                // If `future` is not `Send`, this must be a `LocalExecutor` as per this
-                // function's unsafe precondition. Since `LocalExecutor` is `!Sync`,
-                // `try_tick`, `tick` and `run` can only be called from the origin
-                // thread of the `LocalExecutor`. Similarly, `spawn` can only  be called
-                // from the origin thread, ensuring that `future` and the executor share
-                // the same origin thread. The `Runnable` can be scheduled from other
-                // threads, but because of the above `Runnable` can only be called or
-                // dropped on the origin thread.
-                //
-                // `future` is not `'static`, but we make sure that the `Runnable` does
-                // not outlive `'a`. When the executor is dropped, the `active` field is
-                // drained and all of the `Waker`s are woken. Then, the queue inside of
-                // the `Executor` is drained of all of its runnables. This ensures that
-                // runnables are dropped and this precondition is satisfied.
-                //
-                // `self.schedule()` is `Send`, `Sync` and `'static`, as checked below.
-                // Therefore we do not need to worry about what is done with the
-                // `Waker`.
+                // - `future` is not `Send`, but the produced `Runnable` does is bound
+                //   to thread-local storage and thus cannot leave this thread of execution.
+                // - `future` is `'static`.
+                // - `self.schedule_local()` is not `Send` or `Sync` so all instances
+                //   must not leave the current thread of execution, and it does not
+                //   all of them are bound vy use of thread-local storage.
+                // - `self.schedule_local()` is `'static`, as checked below.
                 let (runnable, task) = Builder::new()
                     .propagate_panic(true)
                     .spawn_unchecked(|()| future, self.schedule_local());
@@ -823,7 +808,7 @@ fn steal<T>(src: &ConcurrentQueue<T>, dest: &ConcurrentQueue<T>) {
 }
 
 /// Flushes all of the items from a queue into the thread local queue.
-/// 
+///
 /// # Safety
 /// This must not be accessed at the same time as LOCAL_QUEUE in any way.
 unsafe fn flush_to_local(src: &ConcurrentQueue<Runnable>) {
