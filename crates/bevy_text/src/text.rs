@@ -361,7 +361,7 @@ impl Default for TextFont {
 
 /// Specifies the height of each line of text for `Text` and `Text2d`.
 ///
-/// LineHeight is set per text block, not per text span.
+/// `LineHeight` is set per text block, not per text span.
 /// If a `RelativeToFont` value is used, the resolved line height will be based on the size of the largest font in the text block.
 ///
 /// Default is 1.2x the font size.
