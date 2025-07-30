@@ -359,6 +359,12 @@ impl ToExtents for UVec3 {
     }
 }
 
+/// A 2D image.
+///
+/// ## Transmission
+///
+/// To transmit an [`Image`] between two running Bevy apps, e.g. through BRP, use [`SerializedImage`](crate::SerializedImage).
+/// This type is only meant for short-term transmission between same versions and should not be stored anywhere.
 #[derive(Asset, Debug, Clone, PartialEq)]
 #[cfg_attr(
     feature = "bevy_reflect",
