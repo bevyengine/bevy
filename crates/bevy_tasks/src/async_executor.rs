@@ -2,6 +2,10 @@
     unsafe_code,
     reason = "Executor code requires unsafe code for dealing with non-'static lifetimes"
 )]
+#![expect(
+    clippy::unused_unit,
+    reason = "False positive detection on {Async}CallOnDrop"
+)]
 
 use core::marker::PhantomData;
 use core::panic::{RefUnwindSafe, UnwindSafe};
@@ -100,6 +104,8 @@ impl Default for ThreadLocalState {
 
 /// A task spawner for a specific thread. Must be created by calling [`TaskPool::current_thread_spawner`]
 /// from the target thread.
+///
+/// [`TaskPool::current_thread_spawner`]: crate::TaskPool::current_thread_spawner
 #[derive(Clone, Debug)]
 pub struct ThreadSpawner<'a> {
     thread_id: ThreadId,
@@ -902,7 +908,6 @@ impl<F: FnMut()> Drop for CallOnDrop<F> {
 }
 
 pin_project! {
-    #[expect(clippy::unused_unit)]
     /// A wrapper around a future, running a closure when dropped.
     struct AsyncCallOnDrop<Fut, Cleanup: FnMut()> {
         #[pin]
