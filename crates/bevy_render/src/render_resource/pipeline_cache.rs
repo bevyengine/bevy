@@ -64,7 +64,7 @@ pub enum Pipeline {
     ComputePipeline(ComputePipeline),
 }
 
-type CachedPipelineId = usize;
+pub type CachedPipelineId = usize;
 
 /// Index of a cached render pipeline in a [`PipelineCache`].
 #[derive(Copy, Clone, Debug, Hash, Eq, PartialEq, PartialOrd, Ord)]
@@ -162,7 +162,7 @@ impl<T> Default for ShaderData<T> {
     }
 }
 
-struct ShaderCache<ShaderModule, RenderDevice> {
+pub struct ShaderCache<ShaderModule, RenderDevice> {
     data: HashMap<AssetId<Shader>, ShaderData<ShaderModule>>,
     load_module: fn(
         &RenderDevice,
@@ -174,7 +174,7 @@ struct ShaderCache<ShaderModule, RenderDevice> {
     shaders: HashMap<AssetId<Shader>, Shader>,
     import_path_shaders: HashMap<ShaderImport, AssetId<Shader>>,
     waiting_on_import: HashMap<ShaderImport, Vec<AssetId<Shader>>>,
-    composer: naga_oil::compose::Composer,
+    pub composer: naga_oil::compose::Composer,
 }
 
 #[derive(serde::Serialize, serde::Deserialize, Clone, PartialEq, Eq, Debug, Hash)]
@@ -207,7 +207,7 @@ impl ShaderDefVal {
 }
 
 impl<ShaderModule, RenderDevice> ShaderCache<ShaderModule, RenderDevice> {
-    fn new(
+    pub fn new(
         features: Features,
         downlevel: DownlevelFlags,
         load_module: fn(
@@ -272,7 +272,7 @@ impl<ShaderModule, RenderDevice> ShaderCache<ShaderModule, RenderDevice> {
         clippy::result_large_err,
         reason = "See https://github.com/bevyengine/bevy/issues/19220"
     )]
-    fn get(
+    pub fn get(
         &mut self,
         render_device: &RenderDevice,
         pipeline: CachedPipelineId,
@@ -433,7 +433,7 @@ impl<ShaderModule, RenderDevice> ShaderCache<ShaderModule, RenderDevice> {
         pipelines_to_queue
     }
 
-    fn set_shader(&mut self, id: AssetId<Shader>, shader: Shader) -> Vec<CachedPipelineId> {
+    pub fn set_shader(&mut self, id: AssetId<Shader>, shader: Shader) -> Vec<CachedPipelineId> {
         let pipelines_to_queue = self.clear(id);
         let path = shader.import_path();
         self.import_path_shaders.insert(path.clone(), id);
@@ -473,7 +473,7 @@ impl<ShaderModule, RenderDevice> ShaderCache<ShaderModule, RenderDevice> {
         pipelines_to_queue
     }
 
-    fn remove(&mut self, id: AssetId<Shader>) -> Vec<CachedPipelineId> {
+    pub fn remove(&mut self, id: AssetId<Shader>) -> Vec<CachedPipelineId> {
         let pipelines_to_queue = self.clear(id);
         if let Some(shader) = self.shaders.remove(&id) {
             self.import_path_shaders.remove(shader.import_path());
