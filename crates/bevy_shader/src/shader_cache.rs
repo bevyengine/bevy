@@ -1,4 +1,4 @@
-use crate::render_resource::shader::*;
+use crate::shader::*;
 use alloc::sync::Arc;
 use bevy_asset::AssetId;
 use bevy_platform::collections::{hash_map::EntryRef, HashMap, HashSet};
@@ -6,7 +6,7 @@ use core::hash::Hash;
 use naga::valid::Capabilities;
 use thiserror::Error;
 use tracing::{debug, error};
-use wgpu::{DownlevelFlags, Features};
+use wgpu_types::{DownlevelFlags, Features};
 
 /// Source of a shader module.
 ///
