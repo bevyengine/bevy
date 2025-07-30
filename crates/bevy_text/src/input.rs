@@ -1172,7 +1172,7 @@ impl Default for PromptLayout {
 }
 
 /// Generate a new text prompt layout when the the prompt or its target has changed
-pub fn text_input_prompt_system(
+pub fn update_text_input_prompt_layouts(
     mut textures: ResMut<Assets<Image>>,
     fonts: Res<Assets<Font>>,
     mut font_system: ResMut<CosmicFontSystem>,
