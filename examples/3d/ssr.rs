@@ -101,13 +101,7 @@ fn main() {
     App::new()
         .insert_resource(DefaultOpaqueRendererMethod::deferred())
         .init_resource::<AppSettings>()
-        .add_plugins(DefaultPlugins.set(WindowPlugin {
-            primary_window: Some(Window {
-                title: "Bevy Screen Space Reflections Example".into(),
-                ..default()
-            }),
-            ..default()
-        }))
+        .add_plugins(DefaultPlugins)
         .add_plugins(MaterialPlugin::<ExtendedMaterial<StandardMaterial, Water>>::default())
         .add_systems(Startup, setup)
         .add_systems(Update, rotate_model)

@@ -189,7 +189,7 @@ fn main() {
         .insert_resource(cfg)
         .add_plugins((
             DefaultPlugins.set(WindowPlugin {
-                primary_window: None,
+                spawn_primary_window: false,
                 exit_condition: ExitCondition::DontExit,
                 ..default()
             }),

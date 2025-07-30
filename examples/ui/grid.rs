@@ -1,18 +1,18 @@
 //! Demonstrates how CSS Grid layout can be used to lay items out in a 2D grid
-use bevy::{color::palettes::css::*, prelude::*};
+use bevy::{color::palettes::css::*, prelude::*, window::PrimaryWindow};
 
 fn main() {
     App::new()
-        .add_plugins(DefaultPlugins.set(WindowPlugin {
-            primary_window: Some(Window {
-                resolution: [800., 600.].into(),
-                title: "Bevy CSS Grid Layout Example".to_string(),
-                ..default()
-            }),
-            ..default()
-        }))
+        .add_plugins(DefaultPlugins)
+        .add_observer(configure_window)
         .add_systems(Startup, spawn_layout)
         .run();
+}
+
+fn configure_window(trigger: On<Add, PrimaryWindow>, mut window: Query<&mut Window>) {
+    let mut window = window.get_mut(trigger.target()).unwrap();
+    window.title = "Bevy CSS Grid Layout Example".to_string();
+    window.resolution = [800., 600.].into();
 }
 
 fn spawn_layout(mut commands: Commands, asset_server: Res<AssetServer>) {
