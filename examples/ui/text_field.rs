@@ -1,5 +1,6 @@
 //! minimal text input example
 
+use bevy::clipboard::ClipboardPlugin;
 use bevy::color::palettes::css::NAVY;
 use bevy::color::palettes::css::RED;
 use bevy::input_focus::tab_navigation::TabGroup;

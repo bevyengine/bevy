@@ -135,7 +135,7 @@ impl Plugin for TextPlugin {
             )
             .add_systems(Last, trim_cosmic_cache);
 
-        app.init_resource::<Clipboard>().add_systems(
+        app.add_systems(
             PostUpdate,
             (
                 update_text_input_buffers,

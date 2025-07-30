@@ -16,6 +16,8 @@ use crate::TextPipeline;
 use alloc::collections::VecDeque;
 use bevy_asset::Assets;
 use bevy_asset::Handle;
+use bevy_clipboard::Clipboard;
+use bevy_clipboard::ClipboardRead;
 use bevy_derive::Deref;
 use bevy_derive::DerefMut;
 use bevy_ecs::change_detection::DetectChanges;
@@ -28,7 +30,6 @@ use bevy_ecs::lifecycle::HookContext;
 use bevy_ecs::prelude::ReflectComponent;
 use bevy_ecs::query::Changed;
 use bevy_ecs::query::Or;
-use bevy_ecs::resource::Resource;
 use bevy_ecs::schedule::SystemSet;
 use bevy_ecs::system::Commands;
 use bevy_ecs::system::Query;
@@ -56,10 +57,6 @@ use cosmic_text::Selection;
 /// Systems handling text input update and layout
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
 pub struct TextInputSystems;
-
-/// Basic clipboard implementation that only works within the bevy app.
-#[derive(Resource, Default)]
-pub struct Clipboard(pub String);
 
 /// Get the text from a cosmic text buffer
 fn get_cosmic_text_buffer_contents(buffer: &Buffer) -> String {
@@ -350,6 +347,8 @@ pub enum TextInputAction {
     Cut,
     /// Insert the contents of the clipboard at the current cursor position. Does nothing if the clipboard is empty.
     Paste,
+    InsertString(String),
+    PasteDeferred(ClipboardRead),
     /// Move the cursor with some motion.
     Motion {
         /// The motion to perform.
@@ -479,7 +478,7 @@ pub fn apply_text_input_actions(
         Option<&mut TextInputUndoHistory>,
         Option<&mut TextInputValue>,
     )>,
-    mut clipboard: ResMut<Clipboard>,
+    mut clipboard: Option<ResMut<Clipboard>>,
 ) {
     for (
         entity,
@@ -491,8 +490,33 @@ pub fn apply_text_input_actions(
         maybe_value,
     ) in text_input_query.iter_mut()
     {
-        for action in text_input_actions.queue.drain(..) {
+        while let Some(action) = text_input_actions.queue.pop_front() {
             match action {
+                TextInputAction::Paste => {
+                    if let Some(clipboard) = clipboard.as_mut() {
+                        text_input_actions
+                            .queue
+                            .push_front(TextInputAction::PasteDeferred(clipboard.fetch_text()));
+                    }
+                }
+                TextInputAction::PasteDeferred(mut clipboard_read) => {
+                    if let Some(text) = clipboard_read.poll_result() {
+                        if let Ok(text) = text {
+                            let _ = apply_text_input_action(
+                                buffer.editor.borrow_with(&mut font_system),
+                                maybe_history.as_mut().map(AsMut::as_mut),
+                                maybe_filter,
+                                attribs.max_chars,
+                                clipboard.as_mut(),
+                                TextInputAction::InsertString(text),
+                            );
+                        }
+                    } else {
+                        text_input_actions
+                            .queue
+                            .push_front(TextInputAction::PasteDeferred(clipboard_read));
+                    }
+                }
                 TextInputAction::Submit => {
                     commands.trigger_targets(
                         TextInputEvent::Submission {
@@ -508,7 +532,7 @@ pub fn apply_text_input_actions(
                             maybe_history.as_mut().map(AsMut::as_mut),
                             maybe_filter,
                             attribs.max_chars,
-                            &mut clipboard,
+                            clipboard.as_mut(),
                             TextInputAction::Clear,
                         );
 
@@ -523,7 +547,7 @@ pub fn apply_text_input_actions(
                         maybe_history.as_mut().map(AsMut::as_mut),
                         maybe_filter,
                         attribs.max_chars,
-                        &mut clipboard,
+                        clipboard.as_mut(),
                         action,
                     ) {
                         commands.trigger_targets(
@@ -943,7 +967,7 @@ fn apply_text_input_action(
     mut maybe_history: Option<&mut TextInputUndoHistory>,
     maybe_filter: Option<&TextInputFilter>,
     max_chars: Option<usize>,
-    clipboard_contents: &mut ResMut<Clipboard>,
+    clipboard: Option<&mut ResMut<Clipboard>>,
     action: TextInputAction,
 ) -> bool {
     editor.start_change();
@@ -951,17 +975,21 @@ fn apply_text_input_action(
     match action {
         TextInputAction::Copy => {
             if let Some(text) = editor.copy_selection() {
-                clipboard_contents.0 = text;
+                if let Some(clipboard) = clipboard {
+                    clipboard.set_text(text);
+                }
             }
         }
         TextInputAction::Cut => {
             if let Some(text) = editor.copy_selection() {
-                clipboard_contents.0 = text;
+                if let Some(clipboard) = clipboard {
+                    clipboard.set_text(text);
+                }
                 editor.delete_selection();
             }
         }
-        TextInputAction::Paste => {
-            editor.insert_string(&clipboard_contents.0, None);
+        TextInputAction::InsertString(text) => {
+            editor.insert_string(&text, None);
         }
         TextInputAction::Motion {
             motion,
@@ -1072,7 +1100,7 @@ fn apply_text_input_action(
             editor.action(Action::Motion(Motion::End));
             editor.insert_string(&text, None);
         }
-        TextInputAction::Submit => {}
+        _ => {}
     }
 
     let Some(mut change) = editor.finish_change() else {
