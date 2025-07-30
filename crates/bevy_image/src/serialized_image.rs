@@ -1,6 +1,6 @@
 use crate::{Image, ImageSampler};
-use alloc::fmt::Debug;
 use bevy_asset::RenderAssetUsages;
+use core::fmt::Debug;
 use serde::{Deserialize, Serialize};
 use wgpu_types::{
     TextureAspect, TextureDataOrder, TextureDescriptor, TextureFormat, TextureUsages,
@@ -140,7 +140,7 @@ impl SerializedImage {
             sampler: self.sampler,
             texture_view_descriptor: self
                 .texture_view_descriptor
-                .map(|descriptor| descriptor.into_texture_view_descriptor()),
+                .map(SerializedTextureViewDescriptor::into_texture_view_descriptor),
             asset_usage: RenderAssetUsages::all(),
             copy_on_resize: false,
         }
