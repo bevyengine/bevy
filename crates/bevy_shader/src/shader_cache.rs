@@ -18,8 +18,11 @@ use wgpu_types::{DownlevelFlags, Features};
 /// This type is unique to the Rust API of `wgpu`. In the WebGPU specification,
 /// only WGSL source code strings are accepted.
 ///
-/// This is roughly equivalent to wgpu::ShaderSource
-#[expect(clippy::large_enum_variant)]
+/// This is roughly equivalent to `wgpu::ShaderSource`
+#[expect(
+    clippy::large_enum_variant,
+    reason = "naga modules are the most common use, and are large"
+)]
 #[derive(Clone, Debug)]
 pub enum ShaderCacheSource<'a> {
     /// SPIR-V module represented as a slice of words.
@@ -208,13 +211,13 @@ impl<ShaderModule, RenderDevice> ShaderCache<ShaderModule, RenderDevice> {
                                 imports: true,
                                 condcomp: true,
                                 lower: true,
-                                ..default()
+                                ..Default::default()
                             };
 
                             for shader_def in shader_defs {
                                 match shader_def {
                                     ShaderDefVal::Bool(key, value) => {
-                                        compiler_options.features.insert(key.clone(), value);
+                                        compiler_options.features.insert(key.clone(), *value);
                                     }
                                     _ => debug!(
                                         "ShaderDefVal::Int and ShaderDefVal::UInt are not supported in wesl",
@@ -247,7 +250,7 @@ impl<ShaderModule, RenderDevice> ShaderCache<ShaderModule, RenderDevice> {
                         }
 
                         let shader_defs = shader_defs
-                            .into_iter()
+                            .iter()
                             .chain(shader.shader_defs.iter())
                             .map(|def| match def.clone() {
                                 ShaderDefVal::Bool(k, v) => {
@@ -395,17 +398,17 @@ impl<'a> wesl::Resolver for ShaderResolver<'a> {
     fn resolve_source(
         &self,
         module_path: &wesl::syntax::ModulePath,
-    ) -> Result<Cow<str>, wesl::ResolveError> {
+    ) -> Result<alloc::borrow::Cow<str>, wesl::ResolveError> {
         let asset_id = self.asset_paths.get(module_path).ok_or_else(|| {
             wesl::ResolveError::ModuleNotFound(module_path.clone(), "Invalid asset id".to_string())
         })?;
 
         let shader = self.shaders.get(asset_id).unwrap();
-        Ok(Cow::Borrowed(shader.source.as_str()))
+        Ok(alloc::borrow::Cow::Borrowed(shader.source.as_str()))
     }
 }
 
-/// Type of error returned by a [`PipelineCache`] when the creation of a GPU pipeline object failed.
+/// Type of error returned by a `PipelineCache` when the creation of a GPU pipeline object failed.
 #[cfg_attr(
     not(target_arch = "wasm32"),
     expect(

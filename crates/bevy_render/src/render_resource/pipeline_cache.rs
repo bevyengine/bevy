@@ -148,6 +148,10 @@ impl LayoutCache {
     }
 }
 
+#[expect(
+    clippy::result_large_err,
+    reason = "See https://github.com/bevyengine/bevy/issues/19220"
+)]
 fn load_module(
     render_device: &RenderDevice,
     shader_source: ShaderCacheSource,

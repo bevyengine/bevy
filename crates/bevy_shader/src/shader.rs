@@ -2,8 +2,7 @@ use super::ShaderDefVal;
 use alloc::borrow::Cow;
 use bevy_asset::{io::Reader, Asset, AssetLoader, AssetPath, Handle, LoadContext};
 use bevy_reflect::TypePath;
-use core::marker::Copy;
-use std::num::NonZero;
+use core::{marker::Copy, num::NonZero};
 use thiserror::Error;
 
 #[derive(Copy, Clone, Hash, Eq, PartialEq, PartialOrd, Ord, Debug)]
@@ -71,8 +70,7 @@ pub enum ValidateShader {
     Enabled,
 }
 
-/// A shader, as defined by its [`ShaderSource`](wgpu::ShaderSource) and [`ShaderStage`](naga::ShaderStage)
-/// This is an "unprocessed" shader. It can contain preprocessor directives.
+/// A an "unprocessed" shader. It can contain preprocessor directives.
 #[derive(Asset, TypePath, Debug, Clone)]
 pub struct Shader {
     pub path: String,

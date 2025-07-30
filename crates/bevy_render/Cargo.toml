@@ -25,7 +25,7 @@ shader_format_spirv = ["bevy_shader/shader_format_spirv", "wgpu/spirv"]
 shader_format_wesl = ["bevy_shader/shader_format_wesl"]
 
 # Enable SPIR-V shader passthrough
-spirv_shader_passthrough = ["bevy_shader/spirv_shader_passthrough", "wgpu/spirv"]
+spirv_shader_passthrough = ["wgpu/spirv"]
 
 # Statically linked DXC shader compiler for DirectX 12
 # TODO: When wgpu switches to DirectX 12 instead of Vulkan by default on windows, make this a default feature
