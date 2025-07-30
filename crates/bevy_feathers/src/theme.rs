@@ -7,11 +7,13 @@ use bevy_ecs::{
     lifecycle::Insert,
     observer::On,
     query::Changed,
+    reflect::ReflectComponent,
     resource::Resource,
     system::{Commands, Query, Res},
 };
 use bevy_log::warn_once;
 use bevy_platform::collections::HashMap;
+use bevy_reflect::Reflect;
 use bevy_text::TextColor;
 use bevy_ui::{BackgroundColor, BorderColor};
 
@@ -52,6 +54,8 @@ impl UiTheme {
 #[derive(Component, Clone, Copy)]
 #[require(BackgroundColor)]
 #[component(immutable)]
+#[derive(Reflect)]
+#[reflect(Component, Clone)]
 pub struct ThemeBackgroundColor(pub &'static str);
 
 /// Component which causes the border color of an entity to be set based on a theme color.
@@ -59,16 +63,23 @@ pub struct ThemeBackgroundColor(pub &'static str);
 #[derive(Component, Clone, Copy)]
 #[require(BorderColor)]
 #[component(immutable)]
+#[derive(Reflect)]
+#[reflect(Component, Clone)]
 pub struct ThemeBorderColor(pub &'static str);
 
 /// Component which causes the inherited text color of an entity to be set based on a theme color.
 #[derive(Component, Clone, Copy)]
 #[component(immutable)]
+#[derive(Reflect)]
+#[reflect(Component, Clone)]
+
 pub struct ThemeFontColor(pub &'static str);
 
 /// A marker component that is used to indicate that the text entity wants to opt-in to using
 /// inherited text styles.
-#[derive(Component)]
+#[derive(Component, Reflect)]
+#[reflect(Component)]
+
 pub struct ThemedText;
 
 pub(crate) fn update_theme(
