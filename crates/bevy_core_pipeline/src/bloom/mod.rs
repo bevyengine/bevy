@@ -186,6 +186,7 @@ impl ViewNode for BloomNode {
                         label: Some("bloom_downsampling_first_pass"),
                         color_attachments: &[Some(RenderPassColorAttachment {
                             view,
+                            depth_slice: None,
                             resolve_target: None,
                             ops: Operations::default(),
                         })],
@@ -210,6 +211,7 @@ impl ViewNode for BloomNode {
                         label: Some("bloom_downsampling_pass"),
                         color_attachments: &[Some(RenderPassColorAttachment {
                             view,
+                            depth_slice: None,
                             resolve_target: None,
                             ops: Operations::default(),
                         })],
@@ -234,6 +236,7 @@ impl ViewNode for BloomNode {
                         label: Some("bloom_upsampling_pass"),
                         color_attachments: &[Some(RenderPassColorAttachment {
                             view,
+                            depth_slice: None,
                             resolve_target: None,
                             ops: Operations {
                                 load: LoadOp::Load,
