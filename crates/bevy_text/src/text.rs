@@ -1,6 +1,6 @@
-use crate::{Font, TextSpanAccess, TextSpanComponent};
+use crate::{Font, TextLayoutInfo, TextSpanAccess, TextSpanComponent};
 use bevy_asset::Handle;
-use bevy_color::{palettes::css::DARK_GOLDENROD, Color};
+use bevy_color::Color;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{prelude::*, reflect::ReflectComponent};
 use bevy_reflect::prelude::*;
@@ -68,13 +68,13 @@ pub struct ComputedTextBlock {
 impl ComputedTextBlock {
     /// Accesses entities in this block.
     ///
-    /// Can be used to look up [`TextFont`] components for glyphs in [`TextLayoutInfo`](crate::pipeline::TextLayoutInfo) using the `span_index`
+    /// Can be used to look up [`TextFont`] components for glyphs in [`TextLayoutInfo`] using the `span_index`
     /// stored there.
     pub fn entities(&self) -> &[TextEntity] {
         &self.entities
     }
 
-    /// Indicates if the text needs to be refreshed in [`TextLayoutInfo`](crate::pipeline::TextLayoutInfo).
+    /// Indicates if the text needs to be refreshed in [`TextLayoutInfo`].
     ///
     /// Updated automatically by [`detect_text_needs_rerender`] and cleared
     /// by [`TextPipeline`](crate::TextPipeline) methods.
@@ -107,11 +107,12 @@ impl Default for ComputedTextBlock {
 ///
 /// A block of text is composed of text spans, which each have a separate string value and [`TextFont`]. Text
 /// spans associated with a text block are collected into [`ComputedTextBlock`] for layout, and then inserted
-/// to [`TextLayoutInfo`](crate::pipeline::TextLayoutInfo) for rendering.
+/// to [`TextLayoutInfo`] for rendering.
 ///
 /// See [`Text2d`](crate::Text2d) for the core component of 2d text, and `Text` in `bevy_ui` for UI text.
 #[derive(Component, Debug, Copy, Clone, Default, Reflect)]
 #[reflect(Component, Default, Debug, Clone)]
+#[require(ComputedTextBlock, TextLayoutInfo)]
 pub struct TextLayout {
     /// The text's internal alignment.
     /// Should not affect its position within a container.
