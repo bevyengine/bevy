@@ -71,6 +71,7 @@ fn spawn(mut commands: Commands, asset_server: Res<AssetServer>) {
             TextLayout {
                 justify: Justify::Center,
                 linebreak: LineBreak::AnyCharacter,
+                ..default()
             },
             TextBounds::default(),
         ))

@@ -10,7 +10,7 @@ use bevy::{
     math::ops,
     prelude::*,
     sprite::Anchor,
-    text::{FontSmoothing, LineBreak, TextBounds},
+    text::{FontSmoothing, LineBreak, LineHeight, TextBounds},
 };
 
 fn main() {
@@ -78,7 +78,11 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         children![(
             Text2d::new("this text wraps in the box\n(Unicode linebreaks)"),
             slightly_smaller_text_font.clone(),
-            TextLayout::new(Justify::Left, LineBreak::WordBoundary),
+            TextLayout::new(
+                Justify::Left,
+                LineBreak::WordBoundary,
+                LineHeight::default()
+            ),
             // Wrap text in the rectangle
             TextBounds::from(box_size),
             // Ensure the text is drawn on top of the box
@@ -94,7 +98,11 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         children![(
             Text2d::new("this text wraps in the box\n(AnyCharacter linebreaks)"),
             slightly_smaller_text_font.clone(),
-            TextLayout::new(Justify::Left, LineBreak::AnyCharacter),
+            TextLayout::new(
+                Justify::Left,
+                LineBreak::AnyCharacter,
+                LineHeight::default()
+            ),
             // Wrap text in the rectangle
             TextBounds::from(other_box_size),
             // Ensure the text is drawn on top of the box
