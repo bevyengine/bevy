@@ -315,6 +315,11 @@ impl TextFont {
         Self::default().with_font_size(font_size)
     }
 
+    /// Returns a new [`TextFont`] with the specified line height.
+    pub fn from_line_height(line_height: LineHeight) -> Self {
+        Self::default().with_line_height(line_height)
+    }
+
     /// Returns this [`TextFont`] with the specified font face handle.
     pub fn with_font(mut self, font: Handle<Font>) -> Self {
         self.font = font;
