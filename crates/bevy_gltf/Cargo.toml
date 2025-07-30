@@ -36,7 +36,6 @@ bevy_scene = { path = "../bevy_scene", version = "0.17.0-dev", features = [
 ] }
 bevy_transform = { path = "../bevy_transform", version = "0.17.0-dev" }
 bevy_tasks = { path = "../bevy_tasks", version = "0.17.0-dev" }
-bevy_utils = { path = "../bevy_utils", version = "0.17.0-dev" }
 bevy_platform = { path = "../bevy_platform", version = "0.17.0-dev", default-features = false, features = [
   "std",
   "serialize",
@@ -63,7 +62,7 @@ itertools = "0.14"
 percent-encoding = "2.1"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0.140"
-smallvec = "1.11"
+smallvec = { version = "1", default-features = false }
 tracing = { version = "0.1", default-features = false, features = ["std"] }
 bevy_log = { path = "../bevy_log", version = "0.17.0-dev" }
 

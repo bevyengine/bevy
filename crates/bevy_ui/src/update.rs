@@ -112,8 +112,8 @@ fn update_clipping(
 
         clip_rect.min.x += clip_inset.left;
         clip_rect.min.y += clip_inset.top;
-        clip_rect.max.x -= clip_inset.right;
-        clip_rect.max.y -= clip_inset.bottom;
+        clip_rect.max.x -= clip_inset.right + computed_node.scrollbar_size.x;
+        clip_rect.max.y -= clip_inset.bottom + computed_node.scrollbar_size.y;
 
         clip_rect = clip_rect
             .inflate(node.overflow_clip_margin.margin.max(0.) / computed_node.inverse_scale_factor);
@@ -221,8 +221,8 @@ mod tests {
     use bevy_image::Image;
     use bevy_math::UVec2;
     use bevy_render::camera::Camera;
-    use bevy_render::camera::ManualTextureViews;
     use bevy_render::camera::RenderTarget;
+    use bevy_render::texture::ManualTextureViews;
     use bevy_utils::default;
     use bevy_window::PrimaryWindow;
     use bevy_window::Window;

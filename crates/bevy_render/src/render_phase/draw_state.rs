@@ -1,5 +1,4 @@
 use crate::{
-    camera::Viewport,
     diagnostic::internal::{Pass, PassKind, WritePipelineStatistics, WriteTimestamp},
     render_resource::{
         BindGroup, BindGroupId, Buffer, BufferId, BufferSlice, RenderPipeline, RenderPipelineId,
@@ -7,6 +6,7 @@ use crate::{
     },
     renderer::RenderDevice,
 };
+use bevy_camera::Viewport;
 use bevy_color::LinearRgba;
 use bevy_utils::default;
 use core::ops::Range;

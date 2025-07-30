@@ -1,5 +1,6 @@
 mod fallback_image;
 mod gpu_image;
+mod manual_texture_view;
 mod texture_attachment;
 mod texture_cache;
 
@@ -14,11 +15,13 @@ use bevy_image::{
 };
 pub use fallback_image::*;
 pub use gpu_image::*;
+pub use manual_texture_view::*;
 pub use texture_attachment::*;
 pub use texture_cache::*;
 
 use crate::{
-    render_asset::RenderAssetPlugin, renderer::RenderDevice, Render, RenderApp, RenderSystems,
+    extract_resource::ExtractResourcePlugin, render_asset::RenderAssetPlugin,
+    renderer::RenderDevice, Render, RenderApp, RenderSystems,
 };
 use bevy_app::{App, Plugin};
 use bevy_asset::{uuid_handle, AssetApp, Assets, Handle};
@@ -74,10 +77,14 @@ impl Plugin for ImagePlugin {
             app.init_asset_loader::<HdrTextureLoader>();
         }
 
-        app.add_plugins(RenderAssetPlugin::<GpuImage>::default())
-            .register_type::<Image>()
-            .init_asset::<Image>()
-            .register_asset_reflect::<Image>();
+        app.add_plugins((
+            RenderAssetPlugin::<GpuImage>::default(),
+            ExtractResourcePlugin::<ManualTextureViews>::default(),
+        ))
+        .init_resource::<ManualTextureViews>()
+        .register_type::<Image>()
+        .init_asset::<Image>()
+        .register_asset_reflect::<Image>();
 
         let mut image_assets = app.world_mut().resource_mut::<Assets<Image>>();
 

@@ -2031,6 +2031,40 @@ impl<'w, 's, D: QueryData, F: QueryFilter> Query<'w, 's, D, F> {
         self.as_nop().get(entity).is_ok()
     }
 
+    /// Counts the number of entities that match the query.
+    ///
+    /// This is equivalent to `self.iter().count()` but may be more efficient in some cases.
+    ///
+    /// If [`F::IS_ARCHETYPAL`](QueryFilter::IS_ARCHETYPAL) is `true`,
+    /// this will do work proportional to the number of matched archetypes or tables, but will not iterate each entity.
+    /// If it is `false`, it will have to do work for each entity.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// #
+    /// # #[derive(Component)]
+    /// # struct InRange;
+    /// #
+    /// fn targeting_system(in_range_query: Query<&InRange>) {
+    ///     let count = in_range_query.count();
+    ///     println!("{count} targets in range!");
+    /// }
+    /// # bevy_ecs::system::assert_is_system(targeting_system);
+    /// ```
+    pub fn count(&self) -> usize {
+        let iter = self.as_nop().into_iter();
+        if F::IS_ARCHETYPAL {
+            // For archetypal queries, the `size_hint()` is exact,
+            // and we can get the count from the archetype and table counts.
+            iter.size_hint().0
+        } else {
+            // If we have non-archetypal filters, we have to check each entity.
+            iter.count()
+        }
+    }
+
     /// Returns a [`QueryLens`] that can be used to construct a new [`Query`] giving more
     /// restrictive access to the entities matched by the current query.
     ///

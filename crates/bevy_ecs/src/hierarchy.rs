@@ -455,15 +455,13 @@ pub fn validate_parent_has_component<C: Component>(
     let Some(child_of) = entity_ref.get::<ChildOf>() else {
         return;
     };
-    if !world
-        .get_entity(child_of.parent())
-        .is_ok_and(|e| e.contains::<C>())
-    {
+    let parent = child_of.parent();
+    if !world.get_entity(parent).is_ok_and(|e| e.contains::<C>()) {
         // TODO: print name here once Name lives in bevy_ecs
         let name: Option<String> = None;
         let debug_name = DebugName::type_name::<C>();
         warn!(
-            "warning[B0004]: {}{name} with the {ty_name} component has a parent without {ty_name}.\n\
+            "warning[B0004]: {}{name} with the {ty_name} component has a parent ({parent}) without {ty_name}.\n\
             This will cause inconsistent behaviors! See: https://bevy.org/learn/errors/b0004",
             caller.map(|c| format!("{c}: ")).unwrap_or_default(),
             ty_name = debug_name.shortname(),

@@ -13,7 +13,6 @@ use bevy_ecs::{
 use bevy_image::prelude::*;
 use bevy_math::{Affine2, FloatOrd, Rect, Vec2};
 use bevy_platform::collections::HashMap;
-use bevy_render::sync_world::MainEntity;
 use bevy_render::{
     render_asset::RenderAssets,
     render_phase::*,
@@ -23,6 +22,7 @@ use bevy_render::{
     view::*,
     Extract, ExtractSchedule, Render, RenderSystems,
 };
+use bevy_render::{sync_world::MainEntity, RenderStartup};
 use bevy_sprite::{SliceScaleMode, SpriteAssetEvents, SpriteImageMode, TextureSlicer};
 use bevy_ui::widget;
 use bevy_utils::default;
@@ -42,6 +42,7 @@ impl Plugin for UiTextureSlicerPlugin {
                 .init_resource::<UiTextureSliceMeta>()
                 .init_resource::<UiTextureSliceImageBindGroups>()
                 .init_resource::<SpecializedRenderPipelines<UiTextureSlicePipeline>>()
+                .add_systems(RenderStartup, init_ui_texture_slice_pipeline)
                 .add_systems(
                     ExtractSchedule,
                     extract_ui_texture_slices.in_set(RenderUiSystems::ExtractTextureSlice),
@@ -53,12 +54,6 @@ impl Plugin for UiTextureSlicerPlugin {
                         prepare_ui_slices.in_set(RenderSystems::PrepareBindGroups),
                     ),
                 );
-        }
-    }
-
-    fn finish(&self, app: &mut App) {
-        if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
-            render_app.init_resource::<UiTextureSlicePipeline>();
         }
     }
 }
@@ -110,35 +105,35 @@ pub struct UiTextureSlicePipeline {
     pub shader: Handle<Shader>,
 }
 
-impl FromWorld for UiTextureSlicePipeline {
-    fn from_world(world: &mut World) -> Self {
-        let render_device = world.resource::<RenderDevice>();
+pub fn init_ui_texture_slice_pipeline(
+    mut commands: Commands,
+    render_device: Res<RenderDevice>,
+    asset_server: Res<AssetServer>,
+) {
+    let view_layout = render_device.create_bind_group_layout(
+        "ui_texture_slice_view_layout",
+        &BindGroupLayoutEntries::single(
+            ShaderStages::VERTEX_FRAGMENT,
+            uniform_buffer::<ViewUniform>(true),
+        ),
+    );
 
-        let view_layout = render_device.create_bind_group_layout(
-            "ui_texture_slice_view_layout",
-            &BindGroupLayoutEntries::single(
-                ShaderStages::VERTEX_FRAGMENT,
-                uniform_buffer::<ViewUniform>(true),
+    let image_layout = render_device.create_bind_group_layout(
+        "ui_texture_slice_image_layout",
+        &BindGroupLayoutEntries::sequential(
+            ShaderStages::FRAGMENT,
+            (
+                texture_2d(TextureSampleType::Float { filterable: true }),
+                sampler(SamplerBindingType::Filtering),
             ),
-        );
+        ),
+    );
 
-        let image_layout = render_device.create_bind_group_layout(
-            "ui_texture_slice_image_layout",
-            &BindGroupLayoutEntries::sequential(
-                ShaderStages::FRAGMENT,
-                (
-                    texture_2d(TextureSampleType::Float { filterable: true }),
-                    sampler(SamplerBindingType::Filtering),
-                ),
-            ),
-        );
-
-        UiTextureSlicePipeline {
-            view_layout,
-            image_layout,
-            shader: load_embedded_asset!(world, "ui_texture_slice.wgsl"),
-        }
-    }
+    commands.insert_resource(UiTextureSlicePipeline {
+        view_layout,
+        image_layout,
+        shader: load_embedded_asset!(asset_server.as_ref(), "ui_texture_slice.wgsl"),
+    });
 }
 
 #[derive(Clone, Copy, Hash, PartialEq, Eq)]
