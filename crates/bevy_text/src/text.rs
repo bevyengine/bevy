@@ -401,30 +401,6 @@ impl TextColor {
     pub const WHITE: Self = TextColor(Color::WHITE);
 }
 
-/// The color of the text selection block.
-#[derive(Component, Copy, Clone, Debug, Deref, DerefMut, Reflect, PartialEq)]
-#[reflect(Component, Default, Debug, PartialEq, Clone)]
-pub struct TextSelectionBlockColor(pub Color);
-
-impl Default for TextSelectionBlockColor {
-    fn default() -> Self {
-        Self::new(DARK_GOLDENROD)
-    }
-}
-
-impl<T: Into<Color>> From<T> for TextSelectionBlockColor {
-    fn from(color: T) -> Self {
-        Self(color.into())
-    }
-}
-
-impl TextSelectionBlockColor {
-    /// Set the text selection color
-    pub fn new(color: impl Into<Color>) -> Self {
-        Self(color.into())
-    }
-}
-
 /// The background color of the text for this section.
 #[derive(Component, Copy, Clone, Debug, Deref, DerefMut, Reflect, PartialEq)]
 #[reflect(Component, Default, Debug, PartialEq, Clone)]
