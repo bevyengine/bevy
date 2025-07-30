@@ -26,11 +26,8 @@ cfg_if::cfg_if! {
 pub use async_task::FallibleTask;
 
 /// Wrapper around a multi-threading-aware async executor.
-/// Spawning will generally require tasks to be `Send` and `Sync` to allow multiple
+/// spawning will generally require tasks to be `send` and `sync` to allow multiple
 /// threads to send/receive/advance tasks.
-///
-/// If you require an executor _without_ the `Send` and `Sync` requirements, consider
-/// using [`LocalExecutor`] instead.
 #[derive(Deref, DerefMut)]
 pub(crate) struct Executor<'a>(ExecutorInner<'a>);
 

@@ -902,6 +902,7 @@ impl<F: FnMut()> Drop for CallOnDrop<F> {
 }
 
 pin_project! {
+    #[expect(clippy::unused_unit)]
     /// A wrapper around a future, running a closure when dropped.
     struct AsyncCallOnDrop<Fut, Cleanup: FnMut()> {
         #[pin]
@@ -930,7 +931,6 @@ impl<Fut: Future, Cleanup: FnMut()> Future for AsyncCallOnDrop<Fut, Cleanup> {
 #[cfg(test)]
 mod test {
     use super::Executor;
-    use super::ThreadLocalState;
     use super::THREAD_LOCAL_STATE;
 
     fn _ensure_send_and_sync() {
