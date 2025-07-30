@@ -21,6 +21,8 @@ use pin_project_lite::pin_project;
 use slab::Slab;
 use thread_local::ThreadLocal;
 
+// ThreadLocalState *must* stay `Sync` due to a currently existing soundness hole.
+// See: https://github.com/Amanieu/thread_local-rs/issues/75
 static THREAD_LOCAL_STATE: ThreadLocal<ThreadLocalState> = ThreadLocal::new();
 
 pub(crate) fn install_runtime_into_current_thread() {
