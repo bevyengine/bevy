@@ -191,7 +191,7 @@ impl AsBindGroup for BindlessMaterial {
     }
 }
 
-impl Material for BindlessMaterial {
+impl BevyMaterial for BindlessMaterial {
     fn fragment_shader() -> ShaderRef {
         SHADER_ASSET_PATH.into()
     }

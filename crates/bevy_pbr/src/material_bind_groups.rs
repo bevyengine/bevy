@@ -4,7 +4,7 @@
 //! allocator manages each bind group, assigning slots to materials as
 //! appropriate.
 
-use crate::Material;
+use crate::BevyMaterial;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     resource::Resource,
@@ -1630,7 +1630,7 @@ where
 /// into account.
 pub fn material_uses_bindless_resources<M>(render_device: &RenderDevice) -> bool
 where
-    M: Material,
+    M: BevyMaterial,
 {
     M::bindless_slot_count().is_some_and(|bindless_slot_count| {
         M::bindless_supported(render_device) && bindless_slot_count.resolve() > 1

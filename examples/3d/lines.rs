@@ -71,7 +71,7 @@ struct LineMaterial {
     color: LinearRgba,
 }
 
-impl Material for LineMaterial {
+impl BevyMaterial for LineMaterial {
     fn fragment_shader() -> ShaderRef {
         SHADER_ASSET_PATH.into()
     }

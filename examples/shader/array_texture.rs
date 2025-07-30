@@ -90,7 +90,7 @@ struct ArrayTextureMaterial {
     array_texture: Handle<Image>,
 }
 
-impl Material for ArrayTextureMaterial {
+impl BevyMaterial for ArrayTextureMaterial {
     fn fragment_shader() -> ShaderRef {
         SHADER_ASSET_PATH.into()
     }

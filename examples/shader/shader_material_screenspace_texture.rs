@@ -66,7 +66,7 @@ struct CustomMaterial {
     texture: Handle<Image>,
 }
 
-impl Material for CustomMaterial {
+impl BevyMaterial for CustomMaterial {
     fn fragment_shader() -> ShaderRef {
         SHADER_ASSET_PATH.into()
     }

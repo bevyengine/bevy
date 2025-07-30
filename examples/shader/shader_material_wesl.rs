@@ -115,7 +115,7 @@ impl From<&CustomMaterial> for CustomMaterialKey {
     }
 }
 
-impl Material for CustomMaterial {
+impl BevyMaterial for CustomMaterial {
     fn fragment_shader() -> ShaderRef {
         FRAGMENT_SHADER_ASSET_PATH.into()
     }

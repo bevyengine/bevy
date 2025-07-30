@@ -597,7 +597,7 @@ impl Default for PerMethodSettings {
     }
 }
 
-impl Material for ColorGradientMaterial {
+impl BevyMaterial for ColorGradientMaterial {
     fn fragment_shader() -> ShaderRef {
         SHADER_ASSET_PATH.into()
     }

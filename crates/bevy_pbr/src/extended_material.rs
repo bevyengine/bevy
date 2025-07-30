@@ -15,7 +15,7 @@ use bevy_render::{
     renderer::RenderDevice,
 };
 
-use crate::{Material, MaterialPipeline, MaterialPipelineKey, MeshPipeline, MeshPipelineKey};
+use crate::{BevyMaterial, MaterialPipeline, MaterialPipelineKey, MeshPipeline, MeshPipelineKey};
 
 pub struct MaterialExtensionPipeline {
     pub mesh_pipeline: MeshPipeline,
@@ -128,14 +128,14 @@ pub trait MaterialExtension: Asset + AsBindGroup + Clone + Sized {
 #[derive(Asset, Clone, Debug, Reflect)]
 #[reflect(type_path = false)]
 #[reflect(Clone)]
-pub struct ExtendedMaterial<B: Material, E: MaterialExtension> {
+pub struct ExtendedMaterial<B: BevyMaterial, E: MaterialExtension> {
     pub base: B,
     pub extension: E,
 }
 
 impl<B, E> Default for ExtendedMaterial<B, E>
 where
-    B: Material + Default,
+    B: BevyMaterial + Default,
     E: MaterialExtension + Default,
 {
     fn default() -> Self {
@@ -155,9 +155,9 @@ pub struct MaterialExtensionBindGroupData<B, E> {
 
 // We don't use the `TypePath` derive here due to a bug where `#[reflect(type_path = false)]`
 // causes the `TypePath` derive to not generate an implementation.
-impl_type_path!((in bevy_pbr::extended_material) ExtendedMaterial<B: Material, E: MaterialExtension>);
+impl_type_path!((in bevy_pbr::extended_material) ExtendedMaterial<B: BevyMaterial, E: MaterialExtension>);
 
-impl<B: Material, E: MaterialExtension> AsBindGroup for ExtendedMaterial<B, E> {
+impl<B: BevyMaterial, E: MaterialExtension> AsBindGroup for ExtendedMaterial<B, E> {
     type Data = MaterialExtensionBindGroupData<B::Data, E::Data>;
     type Param = (<B as AsBindGroup>::Param, <E as AsBindGroup>::Param);
 
@@ -290,7 +290,7 @@ impl<B: Material, E: MaterialExtension> AsBindGroup for ExtendedMaterial<B, E> {
     }
 }
 
-impl<B: Material, E: MaterialExtension> Material for ExtendedMaterial<B, E> {
+impl<B: BevyMaterial, E: MaterialExtension> BevyMaterial for ExtendedMaterial<B, E> {
     fn vertex_shader() -> ShaderRef {
         match E::vertex_shader() {
             ShaderRef::Default => B::vertex_shader(),

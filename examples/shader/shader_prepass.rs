@@ -154,7 +154,7 @@ struct CustomMaterial {
 
 /// Not shown in this example, but if you need to specialize your material, the specialize
 /// function will also be used by the prepass
-impl Material for CustomMaterial {
+impl BevyMaterial for CustomMaterial {
     fn fragment_shader() -> ShaderRef {
         MATERIAL_SHADER_ASSET_PATH.into()
     }
@@ -196,7 +196,7 @@ struct PrepassOutputMaterial {
     settings: ShowPrepassSettings,
 }
 
-impl Material for PrepassOutputMaterial {
+impl BevyMaterial for PrepassOutputMaterial {
     fn fragment_shader() -> ShaderRef {
         PREPASS_SHADER_ASSET_PATH.into()
     }

@@ -1361,7 +1361,7 @@ impl From<&StandardMaterial> for StandardMaterialKey {
     }
 }
 
-impl Material for StandardMaterial {
+impl BevyMaterial for StandardMaterial {
     fn fragment_shader() -> ShaderRef {
         shader_ref(bevy_asset::embedded_path!("render/pbr.wgsl"))
     }

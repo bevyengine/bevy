@@ -1,5 +1,5 @@
 use crate::{
-    ExtendedMaterial, Material, MaterialExtension, MaterialExtensionKey, MaterialExtensionPipeline,
+    ExtendedMaterial, BevyMaterial, MaterialExtension, MaterialExtensionKey, MaterialExtensionPipeline,
     MaterialPlugin, StandardMaterial,
 };
 use bevy_app::{App, Plugin};
@@ -74,7 +74,7 @@ pub struct ForwardDecal;
 ///
 /// [`StandardMaterial`] comes with out of the box support for forward decals.
 #[expect(type_alias_bounds, reason = "Type alias generics not yet stable")]
-pub type ForwardDecalMaterial<B: Material> = ExtendedMaterial<B, ForwardDecalMaterialExt>;
+pub type ForwardDecalMaterial<B: BevyMaterial> = ExtendedMaterial<B, ForwardDecalMaterialExt>;
 
 /// Material extension for a [`ForwardDecal`].
 ///

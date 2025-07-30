@@ -1605,7 +1605,7 @@ fn despawn_entities(commands: &mut Commands, entities: Vec<Entity>) {
 
 // These will be extracted in the material extraction, which will also clear the needs_specialization
 // collection.
-pub fn check_light_entities_needing_specialization<M: Material>(
+pub fn check_light_entities_needing_specialization<M: BevyMaterial>(
     needs_specialization: Query<Entity, (With<MeshMaterial3d<M>>, Changed<NotShadowCaster>)>,
     mut entities_needing_specialization: ResMut<EntitiesNeedingSpecialization<M>>,
     mut removed_components: RemovedComponents<NotShadowCaster>,

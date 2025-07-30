@@ -94,9 +94,9 @@ use tracing::error;
 ///     color_texture: Handle<Image>,
 /// }
 ///
-/// // All functions on `Material` have default impls. You only need to implement the
+/// // All functions on `BevyMaterial` have default impls. You only need to implement the
 /// // functions that are relevant for your material.
-/// impl Material for CustomMaterial {
+/// impl BevyMaterial for CustomMaterial {
 ///     fn fragment_shader() -> ShaderRef {
 ///         "shaders/custom_material.wgsl".into()
 ///     }
@@ -126,7 +126,7 @@ use tracing::error;
 /// @group(3) @binding(1) var color_texture: texture_2d<f32>;
 /// @group(3) @binding(2) var color_sampler: sampler;
 /// ```
-pub trait Material: Asset + AsBindGroup + Clone + Sized {
+pub trait BevyMaterial: Asset + AsBindGroup + Clone + Sized {
     /// Returns this material's vertex shader. If [`ShaderRef::Default`] is returned, the default mesh vertex shader
     /// will be used.
     fn vertex_shader() -> ShaderRef {
@@ -314,7 +314,7 @@ impl Plugin for MaterialsPlugin {
 
 /// Adds the necessary ECS resources and render logic to enable rendering entities using the given [`Material`]
 /// asset type.
-pub struct MaterialPlugin<M: Material> {
+pub struct MaterialPlugin<M: BevyMaterial> {
     /// Controls if the prepass is enabled for the Material.
     /// For more information about what a prepass is, see the [`bevy_core_pipeline::prepass`] docs.
     ///
@@ -328,7 +328,7 @@ pub struct MaterialPlugin<M: Material> {
     pub _marker: PhantomData<M>,
 }
 
-impl<M: Material> Default for MaterialPlugin<M> {
+impl<M: BevyMaterial> Default for MaterialPlugin<M> {
     fn default() -> Self {
         Self {
             prepass_enabled: true,
@@ -339,7 +339,7 @@ impl<M: Material> Default for MaterialPlugin<M> {
     }
 }
 
-impl<M: Material> Plugin for MaterialPlugin<M>
+impl<M: BevyMaterial> Plugin for MaterialPlugin<M>
 where
     M::Data: PartialEq + Eq + Hash + Clone,
 {
@@ -389,7 +389,7 @@ where
     }
 }
 
-fn add_material_bind_group_allocator<M: Material>(
+fn add_material_bind_group_allocator<M: BevyMaterial>(
     render_device: Res<RenderDevice>,
     mut bind_group_allocators: ResMut<MaterialBindGroupAllocators>,
 ) {
@@ -416,7 +416,7 @@ pub(crate) static DUMMY_MESH_MATERIAL: AssetId<StandardMaterial> =
     AssetId::<StandardMaterial>::invalid();
 
 /// A key uniquely identifying a specialized [`MaterialPipeline`].
-pub struct MaterialPipelineKey<M: Material> {
+pub struct MaterialPipelineKey<M: BevyMaterial> {
     pub mesh_key: MeshPipelineKey,
     pub bind_group_data: M::Data,
 }
@@ -661,7 +661,7 @@ fn mark_meshes_as_changed_if_their_materials_changed<M>(
         Or<(Changed<MeshMaterial3d<M>>, AssetChanged<MeshMaterial3d<M>>)>,
     >,
 ) where
-    M: Material,
+    M: BevyMaterial,
 {
     for mut mesh in &mut changed_meshes_query {
         mesh.set_changed();
@@ -670,7 +670,7 @@ fn mark_meshes_as_changed_if_their_materials_changed<M>(
 
 /// Fills the [`RenderMaterialInstances`] resources from the meshes in the
 /// scene.
-fn extract_mesh_materials<M: Material>(
+fn extract_mesh_materials<M: BevyMaterial>(
     mut material_instances: ResMut<RenderMaterialInstances>,
     changed_meshes_query: Extract<
         Query<
@@ -716,7 +716,7 @@ fn early_sweep_material_instances<M>(
     mut material_instances: ResMut<RenderMaterialInstances>,
     mut removed_materials_query: Extract<RemovedComponents<MeshMaterial3d<M>>>,
 ) where
-    M: Material,
+    M: BevyMaterial,
 {
     let last_change_tick = material_instances.current_change_tick;
 
@@ -772,7 +772,7 @@ pub fn extract_entities_needs_specialization<M>(
     views: Query<&ExtractedView>,
     ticks: SystemChangeTick,
 ) where
-    M: Material,
+    M: BevyMaterial,
 {
     // Clean up any despawned entities, we do this first in case the removed material was re-added
     // the same frame, thus will appear both in the removed components list and have been added to
@@ -861,7 +861,7 @@ pub fn check_entities_needing_specialization<M>(
     mut par_local: Local<Parallel<Vec<Entity>>>,
     mut entities_needing_specialization: ResMut<EntitiesNeedingSpecialization<M>>,
 ) where
-    M: Material,
+    M: BevyMaterial,
 {
     entities_needing_specialization.clear();
 
@@ -1375,7 +1375,7 @@ pub struct PreparedMaterial {
 }
 
 // orphan rules T_T
-impl<M: Material> ErasedRenderAsset for MeshMaterial3d<M>
+impl<M: BevyMaterial> ErasedRenderAsset for MeshMaterial3d<M>
 where
     M::Data: Clone,
 {
@@ -1539,7 +1539,7 @@ where
         let bindless = material_uses_bindless_resources::<M>(render_device);
         let bind_group_data = material.bind_group_data();
         let material_key = SmallVec::from(bytemuck::bytes_of(&bind_group_data));
-        fn specialize<M: Material>(
+        fn specialize<M: BevyMaterial>(
             pipeline: &MaterialPipeline,
             descriptor: &mut RenderPipelineDescriptor,
             mesh_layout: &MeshVertexBufferLayoutRef,
@@ -1712,9 +1712,9 @@ pub fn write_material_bind_group_buffers(
 
 /// Marker resource for whether shadows are enabled for this material type
 #[derive(Resource, Debug)]
-pub struct ShadowsEnabled<M: Material>(PhantomData<M>);
+pub struct ShadowsEnabled<M: BevyMaterial>(PhantomData<M>);
 
-impl<M: Material> Default for ShadowsEnabled<M> {
+impl<M: BevyMaterial> Default for ShadowsEnabled<M> {
     fn default() -> Self {
         Self(PhantomData)
     }

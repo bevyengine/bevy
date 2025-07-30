@@ -129,4 +129,4 @@ struct MeshletDebugMaterial {
     _dummy: (),
 }
 
-impl Material for MeshletDebugMaterial {}
+impl BevyMaterial for MeshletDebugMaterial {}

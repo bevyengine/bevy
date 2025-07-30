@@ -73,7 +73,7 @@ struct FallbackTestMaterial {
     image_3d: Option<Handle<Image>>,
 }
 
-impl Material for FallbackTestMaterial {
+impl BevyMaterial for FallbackTestMaterial {
     fn fragment_shader() -> ShaderRef {
         SHADER_ASSET_PATH.into()
     }

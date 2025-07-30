@@ -103,7 +103,7 @@ struct CustomMaterial {
     colors: Handle<ShaderStorageBuffer>,
 }
 
-impl Material for CustomMaterial {
+impl BevyMaterial for CustomMaterial {
     fn vertex_shader() -> ShaderRef {
         SHADER_ASSET_PATH.into()
     }
