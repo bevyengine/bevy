@@ -1,6 +1,6 @@
 use crate::{
-    ExtendedMaterial, BevyMaterial, MaterialExtension, MaterialExtensionKey, MaterialExtensionPipeline,
-    MaterialPlugin, StandardMaterial,
+    BevyMaterial, ExtendedMaterial, MaterialExtension, MaterialExtensionKey,
+    MaterialExtensionPipeline, MaterialPlugin, StandardMaterial,
 };
 use bevy_app::{App, Plugin};
 use bevy_asset::{Asset, Assets, Handle};
