@@ -3,7 +3,7 @@ use core::{
     any::Any,
     future::Future,
     panic::{AssertUnwindSafe, UnwindSafe},
-    pin::Pin,
+    pin::{pin, Pin},
     task::{Context, Poll},
 };
 
@@ -13,11 +13,11 @@ use bevy_platform::exports::wasm_bindgen_futures;
 ///
 /// Tasks are also futures themselves and yield the output of the spawned future.
 #[derive(Debug)]
-pub struct Task<T>(oneshot::Receiver<Result<T, Panic>>);
+pub struct Task<T>(async_channel::Receiver<Result<T, Panic>>);
 
 impl<T: 'static> Task<T> {
     pub(crate) fn wrap_future(future: impl Future<Output = T> + 'static) -> Self {
-        let (sender, receiver) = oneshot::channel();
+        let (sender, receiver) = async_channel::bounded(1);
         wasm_bindgen_futures::spawn_local(async move {
             // Catch any panics that occur when polling the future so they can
             // be propagated back to the task handle.
@@ -33,7 +33,7 @@ impl<T: 'static> Task<T> {
 
     /// Returns `true` if the task is finished.
     pub fn is_finished(&self) -> bool {
-        self.0.has_message()
+        !self.0.is_empty()
     }
 
     /// Requests a task to be cancelled and returns a future that suspends until it completes.
@@ -44,7 +44,7 @@ impl<T: 'static> Task<T> {
     /// When building for Wasm, it is not possible to cancel tasks, which means this is the same
     /// as just awaiting the task. This method is only included for feature parity with other platforms.
     pub async fn cancel(self) -> Option<T> {
-        match self.0.await {
+        match self.0.recv().await {
             Ok(Ok(value)) => Some(value),
             Err(_) => None,
             Ok(Err(panic)) => {
@@ -59,8 +59,9 @@ impl<T: 'static> Task<T> {
 
 impl<T> Future for Task<T> {
     type Output = T;
-    fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-        match Pin::new(&mut self.0).poll(cx) {
+    fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+        let recv = pin!(self.0.recv());
+        match recv.poll(cx) {
             Poll::Ready(Ok(Ok(value))) => Poll::Ready(value),
             // NOTE: Propagating the panic here sorta has parity with the async_executor behavior.
             // For those tasks, polling them after a panic returns a `None` which gets `unwrap`ed, so
@@ -78,6 +79,8 @@ impl<T> Future for Task<T> {
         }
     }
 }
+
+impl<T> Unpin for Task<T> {}
 
 type Panic = Box<dyn Any + Send + 'static>;
 
