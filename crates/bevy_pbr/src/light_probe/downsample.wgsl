@@ -117,10 +117,10 @@ fn spd_downsample_mips_0_1(x: u32, y: u32, workgroup_id: vec2u, local_invocation
     if mips <= 1u { return; }
 
 #ifdef SUBGROUP_SUPPORT
-    v[0] = spd_reduce_quad(v[0], subgroup_invocation_id);
-    v[1] = spd_reduce_quad(v[1], subgroup_invocation_id);
-    v[2] = spd_reduce_quad(v[2], subgroup_invocation_id);
-    v[3] = spd_reduce_quad(v[3], subgroup_invocation_id);
+    v[0] = spd_reduce_quad(v[0]);
+    v[1] = spd_reduce_quad(v[1]);
+    v[2] = spd_reduce_quad(v[2]);
+    v[3] = spd_reduce_quad(v[3]);
 
     if local_invocation_index % 4u == 0u {
         spd_store((workgroup_id * 16u) + vec2(x / 2u, y / 2u), v[0], 1u, slice);
@@ -181,7 +181,7 @@ fn spd_downsample_next_four(x: u32, y: u32, workgroup_id: vec2u, local_invocatio
 fn spd_downsample_mip_2(x: u32, y: u32, workgroup_id: vec2u, local_invocation_index: u32, base_mip: u32, slice: u32, subgroup_invocation_id: u32) {
 #ifdef SUBGROUP_SUPPORT
     var v = spd_load_intermediate(x, y);
-    v = spd_reduce_quad(v, subgroup_invocation_id);
+    v = spd_reduce_quad(v);
     if local_invocation_index % 4u == 0u {
         spd_store((workgroup_id * 8u) + vec2(x / 2u, y / 2u), v, base_mip, slice);
         spd_store_intermediate(x + (y / 2u) % 2u, y, v);
@@ -204,7 +204,7 @@ fn spd_downsample_mip_3(x: u32, y: u32, workgroup_id: vec2u, local_invocation_in
 #ifdef SUBGROUP_SUPPORT
     if local_invocation_index < 64u {
         var v = spd_load_intermediate(x * 2u + y % 2u, y * 2u);
-        v = spd_reduce_quad(v, subgroup_invocation_id);
+        v = spd_reduce_quad(v);
         if local_invocation_index % 4u == 0u {
             spd_store((workgroup_id * 4u) + vec2(x / 2u, y / 2u), v, base_mip, slice);
             spd_store_intermediate(x * 2u + y / 2u, y * 2u, v);
@@ -228,7 +228,7 @@ fn spd_downsample_mip_4(x: u32, y: u32, workgroup_id: vec2u, local_invocation_in
 #ifdef SUBGROUP_SUPPORT
     if local_invocation_index < 16u {
         var v = spd_load_intermediate(x * 4u + y, y * 4u);
-        v = spd_reduce_quad(v, subgroup_invocation_id);
+        v = spd_reduce_quad(v);
         if local_invocation_index % 4u == 0u {
             spd_store((workgroup_id * 2u) + vec2(x / 2u, y / 2u), v, base_mip, slice);
             spd_store_intermediate(x / 2u + y, 0u, v);
@@ -252,7 +252,7 @@ fn spd_downsample_mip_5(x: u32, y: u32, workgroup_id: vec2u, local_invocation_in
 #ifdef SUBGROUP_SUPPORT
     if local_invocation_index < 4u {
         var v = spd_load_intermediate(local_invocation_index, 0u);
-        v = spd_reduce_quad(v, subgroup_invocation_id);
+        v = spd_reduce_quad(v);
         if local_invocation_index % 4u == 0u {
             spd_store(workgroup_id, v, base_mip, slice);
         }
@@ -436,20 +436,12 @@ fn spd_reduce_4(v0: vec4f, v1: vec4f, v2: vec4f, v3: vec4f) -> vec4f {
 }
 
 #ifdef SUBGROUP_SUPPORT
-fn spd_reduce_quad(v: vec4f, subgroup_invocation_id: u32) -> vec4f {
-    let quad = subgroup_invocation_id & (~0x3u);
+fn spd_reduce_quad(v: vec4f) -> vec4f {
     let v0 = v;
-    let v1 = subgroupBroadcast(v, quad | 1u);
-    let v2 = subgroupBroadcast(v, quad | 2u);
-    let v3 = subgroupBroadcast(v, quad | 3u);
+    let v1 = quadSwapX(v);
+    let v2 = quadSwapY(v);
+    let v3 = quadSwapDiagonal(v);
     return spd_reduce_4(v0, v1, v2, v3);
-
-    // TODO: Use subgroup quad operations once wgpu supports them
-    // let v0 = v;
-    // let v1 = quadSwapX(v);
-    // let v2 = quadSwapY(v);
-    // let v3 = quadSwapDiagonal(v);
-    // return spd_reduce_4(v0, v1, v2, v3);
 }
 #endif
 
