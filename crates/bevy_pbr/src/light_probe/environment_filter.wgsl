@@ -1,7 +1,7 @@
 #import bevy_render::maths::PI
 #import bevy_pbr::{
     lighting,
-    utils::{sample_cosine_hemisphere, dir_to_cube_uv, sample_cube_dir, hammersley_2d}
+    utils::{sample_cosine_hemisphere, dir_to_cube_uv, sample_cube_dir, hammersley_2d, rand_vec2f}
 }
 
 struct FilteringConstants {
@@ -24,6 +24,7 @@ fn sample_environment(dir: vec3f, level: f32) -> vec4f {
 }
 
 // Blue noise randomization
+#ifdef HAS_BLUE_NOISE
 fn sample_noise(pixel_coords: vec2u) -> vec4f {
     let noise_size = vec2u(1) << constants.noise_size_bits;
     let noise_size_mask = noise_size - vec2u(1u);
@@ -31,6 +32,14 @@ fn sample_noise(pixel_coords: vec2u) -> vec4f {
     let uv = vec2f(noise_coords) / vec2f(noise_size);
     return textureSampleLevel(blue_noise_texture, input_sampler, uv, 0u, 0.0);
 }
+#else
+// pseudo-random numbers using RNG
+fn sample_noise(pixel_coords: vec2u) -> vec4f {
+    var rng_state: u32 = (pixel_coords.x * 3966231743u) ^ (pixel_coords.y * 3928936651u);
+    let rnd = rand_vec2f(&rng_state);
+    return vec4f(rnd, 0.0, 0.0);
+}
+#endif
 
 // Calculate LOD for environment map lookup using filtered importance sampling
 fn calculate_environment_map_lod(pdf: f32, width: f32, samples: f32) -> f32 {
