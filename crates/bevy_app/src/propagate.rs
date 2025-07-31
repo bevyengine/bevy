@@ -30,6 +30,11 @@ use bevy_reflect::Reflect;
 /// to reach a given target.
 /// Individual entities can be skipped or terminate the propagation with the [`PropagateOver`]
 /// and [`PropagateStop`] components.
+///
+/// Propagation occurs during [`Update`] in the [`PropagateSet<C>`] system set.
+/// You should be sure to schedule your logic relative to this set: making changes
+/// that modify component values before this logic, and reading the propagated
+/// values after it.
 pub struct HierarchyPropagatePlugin<
     C: Component + Clone + PartialEq,
     F: QueryFilter = (),
