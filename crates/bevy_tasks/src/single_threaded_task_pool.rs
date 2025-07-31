@@ -2,7 +2,7 @@ use alloc::{string::String, vec::Vec};
 use bevy_platform::sync::Arc;
 use core::{cell::RefCell, future::Future, marker::PhantomData, mem};
 
-use crate::Task;
+use crate::{block_on, Task};
 
 crate::cfg::std! {
     if {
@@ -161,8 +161,10 @@ impl TaskPool {
 
         f(scope_ref);
 
-        // Loop until all tasks are done
-        while executor.try_tick() {}
+        // Loop until all tasks are complete
+        while !executor.is_empty() {
+            block_on(executor.tick());
+        }
 
         let results = scope.results.borrow();
         results
