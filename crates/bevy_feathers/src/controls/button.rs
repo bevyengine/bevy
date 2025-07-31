@@ -14,6 +14,7 @@ use bevy_ui::{AlignItems, InteractionDisabled, JustifyContent, Node, Pressed, Ui
 
 use crate::{
     constants::{fonts, size},
+    cursor::EntityCursor,
     font_styles::InheritableFont,
     rounded_corners::RoundedCorners,
     theme::{ThemeBackgroundColor, ThemeFontColor},
@@ -69,8 +70,7 @@ pub fn button(props: ButtonProps) -> impl Scene {
         template_value(props.variant)
         template_value(props.corners.to_border_radius(4.0))
         Hovered
-        // TODO: port CursonIcon to GetTemplate
-        // CursorIcon::System(bevy_window::SystemCursorIcon::Pointer)
+        EntityCursor::System(bevy_window::SystemCursorIcon::Pointer)
         TabIndex(0)
         ThemeBackgroundColor(tokens::BUTTON_BG)
         ThemeFontColor(tokens::BUTTON_TEXT)

@@ -1,7 +1,7 @@
 use accesskit::Role;
 use bevy_a11y::AccessibilityNode;
 use bevy_app::{App, Plugin};
-use bevy_ecs::event::{EntityEvent, Event};
+use bevy_ecs::event::EntityEvent;
 use bevy_ecs::query::{Has, Without};
 use bevy_ecs::system::{In, ResMut};
 use bevy_ecs::{
@@ -98,7 +98,7 @@ fn checkbox_on_pointer_click(
 ///     commands.trigger_targets(SetChecked(true), checkbox);
 /// }
 /// ```
-#[derive(Event, EntityEvent)]
+#[derive(EntityEvent)]
 pub struct SetChecked(pub bool);
 
 /// Event which can be triggered on a checkbox to toggle the checked state. This can be used to
@@ -120,7 +120,7 @@ pub struct SetChecked(pub bool);
 ///     commands.trigger_targets(ToggleChecked, checkbox);
 /// }
 /// ```
-#[derive(Event, EntityEvent)]
+#[derive(EntityEvent)]
 pub struct ToggleChecked;
 
 fn checkbox_on_set_checked(

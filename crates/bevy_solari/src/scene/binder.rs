@@ -231,6 +231,10 @@ pub fn prepare_raytracing_scene_bindings(
             .push(current_frame_index);
     }
 
+    if light_sources.get().len() > u16::MAX as usize {
+        panic!("Too many light sources in the scene, maximum is 65536.");
+    }
+
     materials.write_buffer(&render_device, &render_queue);
     transforms.write_buffer(&render_device, &render_queue);
     geometry_ids.write_buffer(&render_device, &render_queue);
@@ -358,6 +362,10 @@ struct GpuLightSource {
 
 impl GpuLightSource {
     fn new_emissive_mesh_light(instance_id: u32, triangle_count: u32) -> GpuLightSource {
+        if triangle_count > u16::MAX as u32 {
+            panic!("Too many triangles ({triangle_count}) in an emissive mesh, maximum is 65535.");
+        }
+
         Self {
             kind: triangle_count << 1,
             id: instance_id,

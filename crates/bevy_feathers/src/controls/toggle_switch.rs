@@ -19,6 +19,7 @@ use bevy_ui::{BorderRadius, Checked, InteractionDisabled, Node, PositionType, Ui
 
 use crate::{
     constants::size,
+    cursor::EntityCursor,
     theme::{ThemeBackgroundColor, ThemeBorderColor},
     tokens,
 };
@@ -58,8 +59,7 @@ pub fn toggle_switch(props: ToggleSwitchProps) -> impl Scene {
         ThemeBorderColor(tokens::SWITCH_BORDER)
         AccessibilityNode(accesskit::Node::new(Role::Switch))
         Hovered
-        // TODO: port CursorIcon to GetTemplate
-        // CursorIcon::System(bevy_window::SystemCursorIcon::Pointer)
+        EntityCursor::System(bevy_window::SystemCursorIcon::Pointer)
         TabIndex(0)
         [(
             Node {

@@ -377,6 +377,15 @@ pub struct Segment3d {
 
 impl Primitive3d for Segment3d {}
 
+impl Default for Segment3d {
+    /// Returns the default [`Segment3d`] with endpoints at `(0.0, 0.0, 0.0)` and `(1.0, 0.0, 0.0)`.
+    fn default() -> Self {
+        Self {
+            vertices: [Vec3::new(0.0, 0.0, 0.0), Vec3::new(1.0, 0.0, 0.0)],
+        }
+    }
+}
+
 impl Segment3d {
     /// Create a new `Segment3d` from its endpoints.
     #[inline(always)]
@@ -547,6 +556,38 @@ impl Segment3d {
     pub fn reversed(mut self) -> Self {
         self.reverse();
         self
+    }
+
+    /// Returns the point on the [`Segment3d`] that is closest to the specified `point`.
+    #[inline(always)]
+    pub fn closest_point(&self, point: Vec3) -> Vec3 {
+        //       `point`
+        //           x
+        //          ^|
+        //         / |
+        //`offset`/  |
+        //       /   |  `segment_vector`
+        //      x----.-------------->x
+        //      0    t               1
+        let segment_vector = self.vertices[1] - self.vertices[0];
+        let offset = point - self.vertices[0];
+        // The signed projection of `offset` onto `segment_vector`, scaled by the length of the segment.
+        let projection_scaled = segment_vector.dot(offset);
+
+        // `point` is too far "left" in the picture
+        if projection_scaled <= 0.0 {
+            return self.vertices[0];
+        }
+
+        let length_squared = segment_vector.length_squared();
+        // `point` is too far "right" in the picture
+        if projection_scaled >= length_squared {
+            return self.vertices[1];
+        }
+
+        // Point lies somewhere in the middle, we compute the closest point by finding the parameter along the line.
+        let t = projection_scaled / length_squared;
+        self.vertices[0] + t * segment_vector
     }
 }
 
@@ -1530,6 +1571,55 @@ mod tests {
             sphere.closest_point(Vec3::new(0.25, 0.1, 0.3)),
             Vec3::new(0.25, 0.1, 0.3)
         );
+    }
+
+    #[test]
+    fn segment_closest_point() {
+        assert_eq!(
+            Segment3d::new(Vec3::new(0.0, 0.0, 0.0), Vec3::new(3.0, 0.0, 0.0))
+                .closest_point(Vec3::new(1.0, 6.0, -2.0)),
+            Vec3::new(1.0, 0.0, 0.0)
+        );
+
+        let segments = [
+            Segment3d::new(Vec3::new(0.0, 0.0, 0.0), Vec3::new(0.0, 0.0, 0.0)),
+            Segment3d::new(Vec3::new(0.0, 0.0, 0.0), Vec3::new(1.0, 0.0, 0.0)),
+            Segment3d::new(Vec3::new(1.0, 0.0, 2.0), Vec3::new(0.0, 1.0, -2.0)),
+            Segment3d::new(
+                Vec3::new(1.0, 0.0, 0.0),
+                Vec3::new(1.0, 5.0 * f32::EPSILON, 0.0),
+            ),
+        ];
+        let points = [
+            Vec3::new(0.0, 0.0, 0.0),
+            Vec3::new(1.0, 0.0, 0.0),
+            Vec3::new(-1.0, 1.0, 2.0),
+            Vec3::new(1.0, 1.0, 1.0),
+            Vec3::new(-1.0, 0.0, 0.0),
+            Vec3::new(5.0, -1.0, 0.5),
+            Vec3::new(1.0, f32::EPSILON, 0.0),
+        ];
+
+        for point in points.iter() {
+            for segment in segments.iter() {
+                let closest = segment.closest_point(*point);
+                assert!(
+                    point.distance_squared(closest) <= point.distance_squared(segment.point1()),
+                    "Closest point must always be at least as close as either vertex."
+                );
+                assert!(
+                    point.distance_squared(closest) <= point.distance_squared(segment.point2()),
+                    "Closest point must always be at least as close as either vertex."
+                );
+                assert!(
+                    point.distance_squared(closest) <= point.distance_squared(segment.center()),
+                    "Closest point must always be at least as close as the center."
+                );
+                let closest_to_closest = segment.closest_point(closest);
+                // Closest point must already be on the segment
+                assert_relative_eq!(closest_to_closest, closest);
+            }
+        }
     }
 
     #[test]

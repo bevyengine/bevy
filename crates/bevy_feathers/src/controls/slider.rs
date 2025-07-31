@@ -22,10 +22,10 @@ use bevy_ui::{
     InteractionDisabled, InterpolationColorSpace, JustifyContent, LinearGradient, Node, UiRect,
     Val,
 };
-use bevy_winit::cursor::CursorIcon;
 
 use crate::{
     constants::{fonts, size},
+    cursor::EntityCursor,
     font_styles::InheritableFont,
     rounded_corners::RoundedCorners,
     theme::{ThemeFontColor, ThemedText, UiTheme},
@@ -83,8 +83,7 @@ pub fn slider(props: SliderProps) -> impl Scene {
         SliderStyle
         SliderValue({props.value})
         SliderRange::new(props.min, props.max)
-        // TODO: port CursorIcon to GetTemplate
-        // CursorIcon::System(bevy_window::SystemCursorIcon::EwResize)
+        EntityCursor::System(bevy_window::SystemCursorIcon::EwResize)
         TabIndex(0)
         template_value(RoundedCorners::All.to_border_radius(6.0))
         // Use a gradient to draw the moving bar
@@ -96,7 +95,7 @@ pub fn slider(props: SliderProps) -> impl Scene {
                 ColorStop::new(Color::NONE, Val::Percent(50.)),
                 ColorStop::new(Color::NONE, Val::Percent(100.)),
             ],
-            color_space: InterpolationColorSpace::Srgb,
+            color_space: InterpolationColorSpace::Srgba,
         })]})
         [(
             // Text container
