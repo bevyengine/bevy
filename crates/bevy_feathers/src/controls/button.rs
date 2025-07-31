@@ -31,7 +31,6 @@ use crate::{
 /// system to identify which entities are buttons.
 #[derive(Component, Default, Clone, Reflect)]
 #[reflect(Component, Clone)]
-
 pub enum ButtonVariant {
     /// The standard button appearance
     #[default]

@@ -42,19 +42,16 @@ pub struct CheckboxProps {
 /// Marker for the checkbox frame (contains both checkbox and label)
 #[derive(Component, Default, Clone, Reflect)]
 #[reflect(Component, Clone)]
-
 struct CheckboxFrame;
 
 /// Marker for the checkbox outline
 #[derive(Component, Default, Clone, Reflect)]
 #[reflect(Component, Clone)]
-
 struct CheckboxOutline;
 
 /// Marker for the checkbox check mark
 #[derive(Component, Default, Clone, Reflect)]
 #[reflect(Component, Clone)]
-
 struct CheckboxMark;
 
 /// Template function to spawn a checkbox.

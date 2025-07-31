@@ -16,7 +16,6 @@ use crate::{
 /// Marker identifying a color swatch.
 #[derive(Component, Default, Clone, Reflect)]
 #[reflect(Component, Clone)]
-
 pub struct ColorSwatch;
 
 /// Marker identifying the color swatch foreground, the piece that actually displays the color
@@ -24,7 +23,6 @@ pub struct ColorSwatch;
 /// dynamically.
 #[derive(Component, Default, Clone, Reflect)]
 #[reflect(Component, Clone)]
-
 pub struct ColorSwatchFg;
 
 /// Template function to spawn a color swatch.

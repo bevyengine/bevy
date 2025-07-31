@@ -38,13 +38,11 @@ pub struct ToggleSwitchProps {
 /// Marker for the toggle switch outline
 #[derive(Component, Default, Clone, Reflect)]
 #[reflect(Component, Clone)]
-
 struct ToggleSwitchOutline;
 
 /// Marker for the toggle switch slide
 #[derive(Component, Default, Clone, Reflect)]
 #[reflect(Component, Clone)]
-
 struct ToggleSwitchSlide;
 
 /// Template function to spawn a toggle switch.

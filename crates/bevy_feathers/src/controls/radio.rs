@@ -34,13 +34,11 @@ use crate::{
 /// Marker for the radio outline
 #[derive(Component, Default, Clone, Reflect)]
 #[reflect(Component, Clone)]
-
 struct RadioOutline;
 
 /// Marker for the radio check mark
 #[derive(Component, Default, Clone, Reflect)]
 #[reflect(Component, Clone)]
-
 struct RadioMark;
 
 /// Template function to spawn a radio.

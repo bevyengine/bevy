@@ -73,14 +73,12 @@ pub struct ThemeBorderColor(pub &'static str);
 #[component(immutable)]
 #[derive(Reflect)]
 #[reflect(Component, Clone)]
-
 pub struct ThemeFontColor(pub &'static str);
 
 /// A marker component that is used to indicate that the text entity wants to opt-in to using
 /// inherited text styles.
 #[derive(Component, Reflect)]
 #[reflect(Component)]
-
 pub struct ThemedText;
 
 pub(crate) fn update_theme(

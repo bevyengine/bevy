@@ -62,7 +62,6 @@ impl Default for SliderProps {
 #[require(CoreSlider)]
 #[derive(Reflect)]
 #[reflect(Component, Clone)]
-
 struct SliderStyle;
 
 /// Marker for the text
