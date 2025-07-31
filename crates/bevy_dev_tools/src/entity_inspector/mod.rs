@@ -13,18 +13,26 @@ mod ui;
 
 pub use plugin::EntityInspectorPlugin;
 
+/// The current state of the Entity Inspector.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, States, Default)]
 pub enum InspectorState {
+    /// The inspector is not currently active/visible.
     #[default]
     Inactive,
+    /// The inspector is currently active/visible.
     Active,
 }
 
+/// Internal resource that tracks the inspector's UI state and selected entity.
 #[derive(Resource, Debug)]
 pub struct InspectorData {
+    /// The currently selected entity for component inspection.
     pub selected_entity: Option<Entity>,
+    /// The inspector window entity (only used in separate window mode).
     pub inspector_window: Option<Entity>,
+    /// The camera entity for the inspector window (only used in separate window mode).
     pub inspector_camera: Option<Entity>,
+    /// The root UI entity for the inspector interface.
     pub ui_root: Option<Entity>,
 }
 
@@ -39,9 +47,14 @@ impl Default for InspectorData {
     }
 }
 
+/// Configuration for the Entity Inspector.
 #[derive(Resource, Debug)]
 pub struct InspectorConfig {
+    /// The key used to toggle the inspector on/off.
     pub toggle_key: KeyCode,
+    /// Whether to use overlay mode (true) or separate window mode (false).
+    /// Overlay mode renders the inspector as an overlay on the main game window.
+    /// Separate window mode opens a dedicated inspector window.
     pub use_overlay_mode: bool,
 }
 

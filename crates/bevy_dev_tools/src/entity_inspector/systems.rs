@@ -12,7 +12,7 @@ use bevy_input::ButtonInput;
 use bevy_ecs::prelude::{AppTypeRegistry, ReflectComponent};
 use bevy_render::camera::RenderTarget;
 use bevy_state::prelude::*;
-use bevy_ui::{BackgroundColor, BorderColor, FlexDirection, Interaction, Node, UiTargetCamera, Val};
+use bevy_ui::{BackgroundColor, BorderColor, FlexDirection, Interaction, Node, PositionType, UiTargetCamera, Val};
 use bevy_text::Justify;
 use bevy_window::{Window, WindowRef};
 
@@ -32,33 +32,38 @@ macro_rules! with_camera_if_needed {
 /// Helper function to format component data for display with proper truncation and formatting.
 fn format_component_data(value_str: &str, max_line_length: usize, max_lines: usize) -> String {
     // Handle very long single-line values (common with Bevy's debug output)
-    if value_str.len() > max_line_length * 2 && !value_str.contains('\n') {
+    if value_str.len() > max_line_length * 3 && !value_str.contains('\n') {
         // For very long single lines, just truncate with context
         return format!("{}...\n(truncated, {} total chars)", 
                       &value_str[..max_line_length.min(value_str.len())], 
                       value_str.len());
     }
     
-    // Try to make the debug output more readable by adding strategic line breaks
-    let mut formatted = value_str.to_string();
+    // Immediately truncate if the total content is too large
+    let mut working_str = if value_str.len() > 1000 {
+        format!("{}...\n(truncated from {} chars)", &value_str[..800], value_str.len())
+    } else {
+        value_str.to_string()
+    };
     
+    // Try to make the debug output more readable by adding strategic line breaks
     // Handle struct-like patterns
-    if formatted.contains(" { ") {
-        formatted = formatted
+    if working_str.contains(" { ") {
+        working_str = working_str
             .replace(" { ", " {\n  ")
             .replace(", ", ",\n  ")
             .replace(" }", "\n}");
     }
     
     // Handle array/vec patterns  
-    if formatted.contains(": [") {
-        formatted = formatted
+    if working_str.contains(": [") {
+        working_str = working_str
             .replace(": [", ": [\n    ")
             .replace(", ", ",\n    ")
             .replace(" ]", "\n  ]");
     }
     
-    let lines: Vec<&str> = formatted.lines().collect();
+    let lines: Vec<&str> = working_str.lines().collect();
     let mut result_lines = Vec::new();
     
     for (i, line) in lines.iter().enumerate() {
@@ -195,6 +200,14 @@ pub struct ComponentValueText {
     pub component_name: String,
 }
 
+/// Component to track collapsible sections
+#[derive(bevy_ecs::component::Component)]
+pub struct CollapsibleSection {
+    pub component_name: String,
+    pub is_expanded: bool,
+    pub content_entity: Option<Entity>,
+}
+
 /// System that populates the entity list in the inspector.
 pub fn populate_entity_list(
     mut commands: Commands,
@@ -310,9 +323,11 @@ pub fn display_entity_components(
     inspector_data: Res<InspectorData>,
     current_state: Res<State<InspectorState>>,
     component_viewer: Query<Entity, With<ComponentViewerContainer>>,
+    component_texts: Query<Entity, With<ComponentValueText>>,
     type_registry: Res<AppTypeRegistry>,
     world: &World,
     mut last_selected_entity: Local<Option<Entity>>,
+    mut last_text_entity: Local<Option<Entity>>,
     mut update_cooldown: Local<f32>,
     time: Res<bevy_time::Time>,
 ) {
@@ -346,166 +361,138 @@ pub fn display_entity_components(
     *last_selected_entity = inspector_data.selected_entity;
 
     bevy_log::info!("Building component viewer structure for entity: {:?}", inspector_data.selected_entity);
+    bevy_log::info!("Component viewer container entity: {:?}", viewer_entity);
     
-    // Clear existing component display
-    if let Ok(mut entity_commands) = commands.get_entity(viewer_entity) {
-        entity_commands.clear_children();
+    // TRACKED CLEANUP: Despawn the previous text entity if it exists
+    if let Some(prev_text_entity) = *last_text_entity {
+        if let Ok(mut entity_commands) = commands.get_entity(prev_text_entity) {
+            entity_commands.despawn();
+            bevy_log::info!("TRACKED: Despawned previous text entity: {:?}", prev_text_entity);
+        }
+        *last_text_entity = None;
     }
 
-    // Display components of selected entity
+    // CORRECTED APPROACH: Create text in component viewer container with proper positioning
     if let Some(selected_entity) = inspector_data.selected_entity {
-        if let Ok(entity_ref) = world.get_entity(selected_entity) {
-            let type_registry = type_registry.read();
-            // Get camera entity, use placeholder for overlay mode (components won't be added anyway)
-            let camera_entity = inspector_data.inspector_camera.unwrap_or(Entity::PLACEHOLDER);
-            let is_overlay_mode = inspector_data.inspector_camera.is_none();
+        bevy_log::info!("CORRECTED: Adding text to component viewer container: {:?} for entity: {:?}", viewer_entity, selected_entity);
+        
+        commands.entity(viewer_entity).with_children(|parent| {
+            bevy_log::info!("COMPONENT VIEWER: Creating component list for entity: {:?}", selected_entity);
             
-            commands.entity(viewer_entity).with_children(|parent| {
-                // Display entity ID header
-                let mut entity_header = parent.spawn((
-                    bevy_ui::widget::Text::new(format!("Entity: {} ({})", selected_entity.index(), selected_entity.generation())),
+            // Create a scrollable container for all components
+            let mut component_container = parent.spawn((
+                Node {
+                    width: Val::Percent(100.0),
+                    height: Val::Percent(100.0),
+                    flex_direction: FlexDirection::Column,
+                    overflow: bevy_ui::Overflow::clip_y(),
+                    ..Default::default()
+                },
+                InspectorEntity,
+            ));
+            
+            let container_id = component_container.id();
+            
+            component_container.with_children(|component_parent| {
+                // Entity header
+                component_parent.spawn((
+                    bevy_ui::widget::Text::new(format!("Entity {} Components:", selected_entity.index())),
                     bevy_text::TextFont {
-                        font_size: 14.0,
+                        font_size: 16.0,
                         ..Default::default()
                     },
-                    bevy_text::TextColor(bevy_color::Color::srgb(0.8, 0.8, 1.0)),
+                    bevy_text::TextColor(bevy_color::Color::srgb(0.9, 0.9, 1.0)),
+                    Node {
+                        margin: bevy_ui::UiRect::bottom(Val::Px(10.0)),
+                        ..Default::default()
+                    },
                     InspectorEntity,
                 ));
-                // Only add UiTargetCamera in separate window mode
-                if !is_overlay_mode {
-                    entity_header.insert(UiTargetCamera(camera_entity));
-                }
 
-                // Get archetype to iterate over components
-                let archetype = entity_ref.archetype();
-                
-                for component_id in archetype.components() {
-                    if let Some(component_info) = world.components().get_info(component_id) {
-                        let component_name = component_info.name();
-                        let component_name_str = format!("{}", component_name);
-                        
-                        // Create a collapsible section for each component
-                        parent
-                            .spawn((
+                // Get archetype to iterate over components  
+                if let Ok(entity_ref) = world.get_entity(selected_entity) {
+                    let type_registry = type_registry.read();
+                    let archetype = entity_ref.archetype();
+                    
+                    for component_id in archetype.components() {
+                        if let Some(component_info) = world.components().get_info(component_id) {
+                            let component_name = component_info.name();
+                            let component_name_str = format!("{}", component_name);
+                            let short_name = component_name_str.split("::").last().unwrap_or("Unknown");
+                            
+                            // Create component section
+                            component_parent.spawn((
                                 Node {
                                     width: Val::Percent(100.0),
                                     margin: bevy_ui::UiRect::bottom(Val::Px(8.0)),
-                                    padding: bevy_ui::UiRect::all(Val::Px(4.0)),
+                                    padding: bevy_ui::UiRect::all(Val::Px(8.0)),
                                     flex_direction: FlexDirection::Column,
                                     ..Default::default()
                                 },
                                 BackgroundColor(bevy_color::Color::srgb(0.15, 0.15, 0.2)),
                                 BorderColor::all(bevy_color::Color::srgb(0.3, 0.3, 0.4)),
-                                
                                 InspectorEntity,
-                            ))
-                            .with_children(|component_parent| {
-                                // Component name header
-                                component_parent.spawn((
-                                    bevy_ui::widget::Text::new(component_name_str.clone()),
+                            )).with_children(|section_parent| {
+                                // Component name
+                                section_parent.spawn((
+                                    bevy_ui::widget::Text::new(short_name.to_string()),
                                     bevy_text::TextFont {
-                                        font_size: 12.0,
+                                        font_size: 14.0,
                                         ..Default::default()
                                     },
                                     bevy_text::TextColor(bevy_color::Color::srgb(0.9, 0.9, 0.6)),
-                                    
                                     InspectorEntity,
                                 ));
-
-                                // Try to get the component data using reflection
+                                
+                                // Try to show component data
                                 if let Some(type_registration) = type_registry.get_with_type_path(&component_name_str) {
                                     if let Some(reflect_component) = type_registration.data::<ReflectComponent>() {
-                                        if let Ok(entity_ref) = world.get_entity(selected_entity) {
-                                            if let Some(reflected) = reflect_component.reflect(entity_ref) {
-                                                // Display the actual component data
-                                                let raw_value_str = format!("{:?}", reflected);
-                                                let formatted_value = format_component_data(&raw_value_str, 80, 20);
-                                                
-                                                component_parent
-                                                    .spawn((
-                                                        Node {
-                                                            width: Val::Percent(100.0),
-                                                            padding: bevy_ui::UiRect::all(Val::Px(4.0)),
-                                                            ..Default::default()
-                                                        },
-                                                        BackgroundColor(bevy_color::Color::srgb(0.1, 0.1, 0.15)),
-                                                        
-                                                        InspectorEntity,
-                                                    ))
-                                                    .with_child((
-                                                        bevy_ui::widget::Text::new(formatted_value),
-                                                        bevy_text::TextFont {
-                                                            font_size: 9.0,
-                                                            ..Default::default()
-                                                        },
-                                                        bevy_text::TextColor(bevy_color::Color::srgb(0.9, 0.9, 0.9)),
-                                                        bevy_text::TextLayout::new_with_justify(Justify::Left),
-                                                        Node {
-                                                            max_width: Val::Percent(100.0),
-                                                            ..Default::default()
-                                                        },
-                                                        ComponentValueText {
-                                                            entity: selected_entity,
-                                                            component_name: component_name_str.clone(),
-                                                        },
-                                                        
-                                                        InspectorEntity,
-                                                    ));
+                                        if let Some(reflected) = reflect_component.reflect(entity_ref) {
+                                            let component_data = format!("{:?}", reflected);
+                                            let formatted_data = if component_data.len() > 100 {
+                                                format!("{}...", &component_data[..100])
                                             } else {
-                                                component_parent.spawn((
-                                                    bevy_ui::widget::Text::new("  <not reflectable>"),
-                                                    bevy_text::TextFont {
-                                                        font_size: 10.0,
-                                                        ..Default::default()
-                                                    },
-                                                    bevy_text::TextColor(bevy_color::Color::srgb(0.6, 0.6, 0.6)),
-                                                    
-                                                    InspectorEntity,
-                                                ));
-                                            }
-                                        } else {
-                                            component_parent.spawn((
-                                                bevy_ui::widget::Text::new("  <entity not found>"),
+                                                component_data
+                                            };
+                                            
+                                            section_parent.spawn((
+                                                bevy_ui::widget::Text::new(formatted_data),
                                                 bevy_text::TextFont {
                                                     font_size: 10.0,
                                                     ..Default::default()
                                                 },
+                                                bevy_text::TextColor(bevy_color::Color::srgb(0.8, 0.8, 0.8)),
+                                                Node {
+                                                    margin: bevy_ui::UiRect::top(Val::Px(4.0)),
+                                                    ..Default::default()
+                                                },
+                                                ComponentValueText {
+                                                    entity: selected_entity,
+                                                    component_name: component_name_str.clone(),
+                                                },
+                                                InspectorEntity,
+                                            ));
+                                        } else {
+                                            section_parent.spawn((
+                                                bevy_ui::widget::Text::new("<not reflectable>"),
+                                                bevy_text::TextFont { font_size: 10.0, ..Default::default() },
                                                 bevy_text::TextColor(bevy_color::Color::srgb(0.6, 0.6, 0.6)),
-                                                
                                                 InspectorEntity,
                                             ));
                                         }
-                                    } else {
-                                        component_parent.spawn((
-                                            bevy_ui::widget::Text::new("  <no reflection data>"),
-                                            bevy_text::TextFont {
-                                                font_size: 10.0,
-                                                ..Default::default()
-                                            },
-                                            bevy_text::TextColor(bevy_color::Color::srgb(0.6, 0.6, 0.6)),
-                                            
-                                            InspectorEntity,
-                                        ));
                                     }
-                                } else {
-                                    component_parent.spawn((
-                                        bevy_ui::widget::Text::new("  <not registered>"),
-                                        bevy_text::TextFont {
-                                            font_size: 10.0,
-                                            ..Default::default()
-                                        },
-                                        bevy_text::TextColor(bevy_color::Color::srgb(0.6, 0.6, 0.6)),
-                                        
-                                        InspectorEntity,
-                                    ));
                                 }
                             });
+                        }
                     }
                 }
             });
-        } else {
-            bevy_log::warn!("Selected entity {:?} no longer exists", selected_entity);
-        }
+            
+            bevy_log::info!("COMPONENT VIEWER: Created component container: {:?}", container_id);
+            
+            // Track the container for cleanup next time
+            *last_text_entity = Some(container_id);
+        });
     } else {
         // No entity selected - show empty state
         commands.entity(viewer_entity).with_children(|parent| {
@@ -516,7 +503,6 @@ pub fn display_entity_components(
                     ..Default::default()
                 },
                 bevy_text::TextColor(bevy_color::Color::srgb(0.6, 0.6, 0.6)),
-                UiTargetCamera(inspector_data.inspector_camera.unwrap_or(Entity::PLACEHOLDER)),
                 InspectorEntity,
             ));
         });
@@ -557,28 +543,21 @@ pub fn update_component_values_live(
             continue;
         }
         
-        // Update specific components we can query directly
+        // DISABLE ALL LIVE UPDATES - only use component name format to isolate text positioning bug
         match component_value_text.component_name.as_str() {
             "bevy_transform::components::transform::Transform" => {
-                if let Ok(transform) = transforms.get(component_value_text.entity) {
-                    let raw_value_str = format!("{:?}", transform);
-                    let formatted_value = format_component_data(&raw_value_str, 80, 20);
-                    text.0 = formatted_value;
-                }
+                text.0 = "[Transform]".to_string();
+                bevy_log::info!("LIVE UPDATE: Set Transform text to '[Transform]'");
             }
             "bevy_ecs::name::Name" => {
-                if let Ok(name) = names.get(component_value_text.entity) {
-                    let raw_value_str = format!("{:?}", name);
-                    let formatted_value = format_component_data(&raw_value_str, 80, 20);
-                    text.0 = formatted_value;
-                }
+                text.0 = "[Name]".to_string();
+                bevy_log::info!("LIVE UPDATE: Set Name text to '[Name]'");
             }
             _ => {
-                // For other components, we can't update them without World access
-                // This is a limitation, but at least Transform (the most important one) will update
-                if text.0 == "Loading..." {
-                    text.0 = "  <live updates limited>".to_string();
-                }
+                // For other components, just use component name
+                let component_short_name = component_value_text.component_name.split("::").last().unwrap_or("Unknown");
+                text.0 = format!("[{}]", component_short_name);
+                bevy_log::info!("LIVE UPDATE: Set {} text to '[{}]'", component_value_text.component_name, component_short_name);
             }
         }
     }

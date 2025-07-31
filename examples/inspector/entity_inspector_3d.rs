@@ -12,11 +12,18 @@
 //! - Press R to reset the cube position
 
 use bevy::prelude::*;
-use bevy::dev_tools::entity_inspector::EntityInspectorPlugin;
+use bevy::dev_tools::entity_inspector::{EntityInspectorPlugin, InspectorConfig};
 
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
+        // Configure the Entity Inspector before adding the plugin
+        .insert_resource(InspectorConfig {
+            toggle_key: KeyCode::F12,        // Default key
+            use_overlay_mode: true,          // Use overlay mode (default)
+            //toggle_key: KeyCode::Tab,      // Alternative: use Tab key
+            //use_overlay_mode: false,       // Alternative: use separate window
+        })
         // Add the Entity Inspector plugin
         .add_plugins(EntityInspectorPlugin)
         // Register custom components for reflection (required for inspector to show component data)
