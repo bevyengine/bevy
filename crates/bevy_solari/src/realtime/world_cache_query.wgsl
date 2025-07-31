@@ -1,5 +1,7 @@
 #define_import_path bevy_solari::world_cache
 
+/// Controls how response the world cache is to changes in lighting
+const WORLD_CACHE_MAX_TEMPORAL_SAMPLES: f32 = 30.0;
 /// Maximum amount of frames a cell can live for without being queried
 const WORLD_CACHE_CELL_LIFETIME: u32 = 30u;
 /// Maximum amount of attempts to find a cache entry after a hash collision

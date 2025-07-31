@@ -2,7 +2,15 @@
 #import bevy_render::view::View
 #import bevy_solari::sampling::sample_random_light
 #import bevy_solari::scene_bindings::{trace_ray, resolve_ray_hit_full, RAY_T_MIN, RAY_T_MAX}
-#import bevy_solari::world_cache::{query_world_cache, world_cache_active_cells_count, world_cache_active_cell_indices, world_cache_geometry_data, world_cache_radiance, world_cache_active_cells_new_radiance}
+#import bevy_solari::world_cache::{
+    WORLD_CACHE_MAX_TEMPORAL_SAMPLES,
+    query_world_cache,
+    world_cache_active_cells_count,
+    world_cache_active_cell_indices,
+    world_cache_geometry_data,
+    world_cache_radiance,
+    world_cache_active_cells_new_radiance,
+}
 
 @group(1) @binding(12) var<uniform> view: View;
 struct PushConstants { frame_index: u32, reset: u32 }
@@ -43,7 +51,7 @@ fn blend_new_samples(@builtin(global_invocation_id) active_cell_id: vec3<u32>) {
 
         let old_radiance = world_cache_radiance[cell_index];
         let new_radiance = world_cache_active_cells_new_radiance[active_cell_id.x];
-        let sample_count = min(old_radiance.a + 1.0, 30.0);
+        let sample_count = min(old_radiance.a + 1.0, WORLD_CACHE_MAX_TEMPORAL_SAMPLES);
 
         let blended_radiance = mix(old_radiance.rgb, new_radiance, 1.0 / sample_count);
 
