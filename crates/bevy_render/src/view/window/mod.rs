@@ -9,7 +9,8 @@ use bevy_ecs::{entity::EntityHashMap, prelude::*};
 use bevy_platform::collections::HashSet;
 use bevy_utils::default;
 use bevy_window::{
-    CompositeAlphaMode, PresentMode, PrimaryWindow, RawHandleWrapper, Window, WindowClosing,
+    CompositeAlphaMode, PresentMode, PrimaryWindow, RawDisplayHandleWrapper,
+    RawWindowHandleWrapper, Window, WindowClosing,
 };
 use core::{
     num::NonZero,
@@ -30,10 +31,14 @@ impl Plugin for WindowRenderPlugin {
     fn build(&self, app: &mut App) {
         app.add_plugins(ScreenshotPlugin);
 
+        let display = app.world().resource::<RawDisplayHandleWrapper>().clone();
+
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
                 .init_resource::<ExtractedWindows>()
                 .init_resource::<WindowSurfaces>()
+                // Forward it to the sub-app?
+                .insert_resource(display)
                 .add_systems(ExtractSchedule, extract_windows)
                 .add_systems(
                     Render,
@@ -49,7 +54,7 @@ impl Plugin for WindowRenderPlugin {
 pub struct ExtractedWindow {
     /// An entity that contains the components in [`Window`].
     pub entity: Entity,
-    pub handle: RawHandleWrapper,
+    pub handle: RawWindowHandleWrapper,
     pub physical_width: u32,
     pub physical_height: u32,
     pub present_mode: PresentMode,
@@ -101,8 +106,15 @@ impl DerefMut for ExtractedWindows {
 fn extract_windows(
     mut extracted_windows: ResMut<ExtractedWindows>,
     mut closing: Extract<EventReader<WindowClosing>>,
-    windows: Extract<Query<(Entity, &Window, &RawHandleWrapper, Option<&PrimaryWindow>)>>,
-    mut removed: Extract<RemovedComponents<RawHandleWrapper>>,
+    windows: Extract<
+        Query<(
+            Entity,
+            &Window,
+            &RawWindowHandleWrapper,
+            Option<&PrimaryWindow>,
+        )>,
+    >,
+    mut removed: Extract<RemovedComponents<RawWindowHandleWrapper>>,
     mut window_surfaces: ResMut<WindowSurfaces>,
 ) {
     for (entity, window, handle, primary) in windows.iter() {
@@ -300,6 +312,7 @@ pub fn create_surfaces(
     // By accessing a NonSend resource, we tell the scheduler to put this system on the main thread,
     // which is necessary for some OS's
     #[cfg(any(target_os = "macos", target_os = "ios"))] _marker: bevy_ecs::system::NonSendMarker,
+    display: Res<RawDisplayHandleWrapper>,
     windows: Res<ExtractedWindows>,
     mut window_surfaces: ResMut<WindowSurfaces>,
     render_instance: Res<RenderInstance>,
@@ -312,7 +325,7 @@ pub fn create_surfaces(
             .entry(window.entity)
             .or_insert_with(|| {
                 let surface_target = SurfaceTargetUnsafe::RawHandle {
-                    raw_display_handle: window.handle.get_display_handle(),
+                    raw_display_handle: display.get_display_handle(),
                     raw_window_handle: window.handle.get_window_handle(),
                 };
                 // SAFETY: The window handles in ExtractedWindows will always be valid objects to create surfaces on
