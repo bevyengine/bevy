@@ -1,28 +1,14 @@
 //! Virtual keyboard example
 
 use bevy::{
-    color::palettes::css::{NAVY, YELLOW},
-    core_widgets::{
-        Activate, Callback, CoreRadio, CoreRadioGroup, CoreWidgetsPlugins, SliderPrecision,
-        SliderStep,
-    },
-    ecs::relationship::{RelatedSpawner, RelatedSpawnerCommands},
+    color::palettes::css::NAVY,
+    core_widgets::{Activate, CoreWidgetsPlugins},
+    ecs::relationship::RelatedSpawnerCommands,
     feathers::{
-        controls::{
-            button, checkbox, color_swatch, radio, slider, toggle_switch, virtual_keyboard,
-            ButtonProps, ButtonVariant, CheckboxProps, SliderProps, ToggleSwitchProps,
-        },
-        dark_theme::create_dark_theme,
-        rounded_corners::RoundedCorners,
-        theme::{ThemeBackgroundColor, ThemedText, UiTheme},
-        tokens, FeathersPlugin,
+        controls::virtual_keyboard, dark_theme::create_dark_theme, theme::UiTheme, FeathersPlugin,
     },
-    input_focus::{
-        tab_navigation::{TabGroup, TabNavigationPlugin},
-        InputDispatchPlugin,
-    },
+    input_focus::{tab_navigation::TabNavigationPlugin, InputDispatchPlugin},
     prelude::*,
-    ui::{Checked, InteractionDisabled},
     winit::WinitSettings,
 };
 
@@ -68,17 +54,14 @@ fn setup(mut commands: Commands) {
         vec!["left", "right", "up", "down", "home", "end"],
     ];
 
-    let keys = layout
-        .into_iter()
-        .map(|row| {
-            row.into_iter()
-                .map(|label| {
-                    let label_string = label.to_string();
-                    (label_string.clone(), VirtualKey(label_string))
-                })
-                .collect()
-        })
-        .collect();
+    let keys_iter = layout.into_iter().map(|row| {
+        row.into_iter()
+            .map(|label| {
+                let label_string = label.to_string();
+                (label_string.clone(), VirtualKey(label_string))
+            })
+            .collect()
+    });
 
     commands
         .spawn(Node {
@@ -106,7 +89,7 @@ fn setup(mut commands: Commands) {
                 ))
                 .with_children(|parent: &mut RelatedSpawnerCommands<ChildOf>| {
                     parent.spawn(Text::new("virtual keyboard"));
-                    parent.spawn(virtual_keyboard(keys, callback));
+                    parent.spawn(virtual_keyboard(keys_iter, callback));
                 });
         });
 }
