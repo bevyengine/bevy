@@ -92,7 +92,9 @@ use bevy_window::{PrimaryWindow, Window};
     Anchor,
     Visibility,
     VisibilityClass,
-    Transform
+    Transform,
+    ComputedTextBlock,
+    TextLayoutInfo
 )]
 #[component(on_add = view::add_visibility_class::<Sprite>)]
 pub struct Text2d(pub String);

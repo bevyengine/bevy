@@ -131,6 +131,7 @@ default = [
   "animation",
   "bevy_asset",
   "bevy_audio",
+  "bevy_clipboard",
   "bevy_color",
   "bevy_core_pipeline",
   "bevy_core_widgets",
@@ -306,6 +307,9 @@ bevy_log = ["bevy_internal/bevy_log"]
 
 # Enable input focus subsystem
 bevy_input_focus = ["bevy_internal/bevy_input_focus"]
+
+# Clipboard access
+bevy_clipboard = ["bevy_internal/bevy_clipboard"]
 
 # Headless widget collection for Bevy UI.
 bevy_core_widgets = ["bevy_internal/bevy_core_widgets"]
@@ -2691,12 +2695,12 @@ category = "Input"
 wasm = false
 
 [[example]]
-name = "text_input"
-path = "examples/input/text_input.rs"
+name = "ime_text_input"
+path = "examples/input/ime_text_input.rs"
 doc-scrape-examples = true
 
-[package.metadata.example.text_input]
-name = "Text Input"
+[package.metadata.example.ime_text_input]
+name = "IME Text Input"
 description = "Simple text input with IME support"
 category = "Input"
 wasm = false
@@ -3361,6 +3365,17 @@ category = "UI (User Interface)"
 wasm = true
 
 [[example]]
+name = "clipboard"
+path = "examples/ui/clipboard.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.clipboard]
+name = "Clipboard"
+description = "Demonstrates accessing the clipboard to retrieve and display text"
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
 name = "display_and_visibility"
 path = "examples/ui/display_and_visibility.rs"
 doc-scrape-examples = true
@@ -3468,6 +3483,50 @@ doc-scrape-examples = true
 [package.metadata.example.text]
 name = "Text"
 description = "Illustrates creating and updating text"
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
+name = "text_box"
+path = "examples/ui/text_box.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.text_box]
+name = "Text Box"
+description = "Example demonstrating a text input box"
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
+name = "text_input"
+path = "examples/ui/text_input.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.text_input]
+name = "Text Input"
+description = "Example demonstrating multiple text inputs"
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
+name = "password_input"
+path = "examples/ui/password_input.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.password_input]
+name = "Password Input"
+description = "Example demonstrating a password input field"
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
+name = "text_field"
+path = "examples/ui/text_field.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.text_field]
+name = "Single Line Text Input"
+description = "Example demonstrating a single line text input"
 category = "UI (User Interface)"
 wasm = true
 

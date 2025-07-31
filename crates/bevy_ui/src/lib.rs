@@ -34,6 +34,7 @@ mod layout;
 mod stack;
 mod ui_node;
 
+use bevy_text::{update_password_masks, TextInputSystems};
 pub use focus::*;
 pub use geometry::*;
 pub use gradients::*;
@@ -196,7 +197,8 @@ impl Plugin for UiPlugin {
 
         let ui_layout_system_config = ui_layout_system
             .in_set(UiSystems::Layout)
-            .before(TransformSystems::Propagate);
+            .before(TransformSystems::Propagate)
+            .before(TextInputSystems);
 
         let ui_layout_system_config = ui_layout_system_config
             // Text and Text2D operate on disjoint sets of entities
@@ -257,6 +259,7 @@ fn build_text_interop(app: &mut App) {
             )
                 .chain()
                 .in_set(UiSystems::Content)
+                .ambiguous_with(update_password_masks)
                 // Text and Text2d are independent.
                 .ambiguous_with(bevy_text::detect_text_needs_rerender::<bevy_text::Text2d>)
                 // Potential conflict: `Assets<Image>`
