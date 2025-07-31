@@ -26,12 +26,12 @@ tracing = { version = "0.1", default-features = false, features = ["std"] }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 # Omit the `glsl` feature in non-WebAssembly by default.
-naga_oil = { git = "https://github.com/bevyengine/bevy", default-features = false, features = [
+naga_oil = { git = "https://github.com/bevyengine/naga_oil", default-features = false, features = [
   "test_shader",
 ] }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
-naga_oil = { git = "https://github.com/bevyengine/bevy" }
+naga_oil = { git = "https://github.com/bevyengine/naga_oil" }
 
 [features]
 shader_format_glsl = ["naga/glsl-in", "naga/wgsl-out", "naga_oil/glsl"]
