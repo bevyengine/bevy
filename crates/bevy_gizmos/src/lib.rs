@@ -67,6 +67,7 @@ pub mod prelude {
     #[cfg(feature = "bevy_render")]
     pub use crate::aabb::{AabbGizmoConfigGroup, ShowAabbGizmo};
 
+    // is a documentation attribute used to prevent an item from appearing in generated documentation by rustdoc
     #[doc(hidden)]
     pub use crate::{
         config::{
@@ -416,15 +417,43 @@ fn init_line_gizmo_uniform_bind_group_layout(
     });
 }
 
+// NOTE : place them at the top of the file later
+use bevy_camera::{Camera, ComputedCameraValues};
+use bevy_ecs::prelude::{Query, With};
+use bevy_math::Vec2;
+use bevy_ui::{Val, ValArithmeticError};
+
+// use bevy_
 #[cfg(feature = "bevy_render")]
 fn extract_gizmo_data(
     mut commands: Commands,
     handles: Extract<Res<GizmoHandles>>,
     config: Extract<Res<GizmoConfigStore>>,
+
+    // NOTE from ayan : this has been added by me to pass in values to the resolve method for the Val enum
+    cameras: Extract<Query<&ComputedCameraValues, With<Camera>>>,
 ) {
     use bevy_utils::once;
     use config::GizmoLineStyle;
     use tracing::warn;
+
+    // get a default scale factor for any available camera
+    // NOTE : need to use find_map since the value is wrapped around Option<>
+    let default_scale_factor = cameras
+        .iter()
+        .find_map(|computed| computed.target_info.as_ref().map(|info| info.scale_factor))
+        .unwrap_or(1.0);
+
+    // get default viewport size (fallback into 1920x1080 reoslution)
+    let default_viewport_size = cameras
+        .iter()
+        .find_map(|computed| {
+            computed
+                .target_info
+                .as_ref()
+                .map(|info| Vec2::new(info.physical_size.x as f32, info.physical_size.y as f32))
+        })
+        .unwrap_or(Vec2::new(1920.0, 1080.0));
 
     for (group_type_id, handle) in &handles.handles {
         let Some((config, _)) = config.get_config_dyn(group_type_id) else {
@@ -438,6 +467,22 @@ fn extract_gizmo_data(
         let Some(handle) = handle else {
             continue;
         };
+
+        // resolve val width to physical pixels here (with error handling using ValArithmeticError)
+        //
+        // to simplify, converts the logical pixel to physical pixel
+        let physical_width = config
+            .line
+            .width
+            .resolve(default_scale_factor, 0.0, default_viewport_size)
+            .unwrap_or_else(|err| match err {
+                ValArithmeticError::NonEvaluable => {
+                    once!(warn!(
+                        "Gizmo line width Val::Auto is not supported, falling back to 2.0 pixels"
+                    ));
+                    2.0
+                }
+            });
 
         let joints_resolution = if let GizmoLineJoint::Round(resolution) = config.line.joints {
             resolution
@@ -464,7 +509,8 @@ fn extract_gizmo_data(
         commands.spawn((
             LineGizmoUniform {
                 world_from_local: Affine3::from(&Affine3A::IDENTITY).to_transpose(),
-                line_width: config.line.width,
+                // line_width: config.line.width,
+                line_width: physical_width,
                 depth_bias: config.depth_bias,
                 joints_resolution,
                 gap_scale,

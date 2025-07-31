@@ -3,9 +3,15 @@
 use core::ops::{Deref, DerefMut};
 
 use bevy_asset::Handle;
-use bevy_ecs::{component::Component, reflect::ReflectComponent};
+#[cfg(feature = "bevy_render")]
+use bevy_camera::{Camera, ComputedCameraValues};
+use bevy_ecs::{component::Component, prelude::With, reflect::ReflectComponent};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_transform::components::Transform;
+
+// IMPORTED NEW
+use bevy_math::Vec2;
+use bevy_ui::{Val, ValArithmeticError};
 
 #[cfg(feature = "bevy_render")]
 use {
@@ -100,6 +106,10 @@ pub(crate) fn extract_linegizmos(
     mut commands: Commands,
     mut previous_len: Local<usize>,
     query: Extract<Query<(Entity, &Gizmo, &GlobalTransform, Option<&RenderLayers>)>>,
+
+    // NOTE from ayan : similar to the extract_gizmo_data function within lib.rs
+    // we need to add the cameras parameter
+    cameras: Extract<Query<&ComputedCameraValues, With<Camera>>>,
 ) {
     use bevy_math::Affine3;
     use bevy_render::sync_world::{MainEntity, TemporaryRenderEntity};
@@ -109,7 +119,40 @@ pub(crate) fn extract_linegizmos(
     use crate::config::GizmoLineStyle;
 
     let mut values = Vec::with_capacity(*previous_len);
+
+    // first parameter for resolve to determine the scale of the vector to render
+    let default_scale_factor = cameras
+        .iter()
+        .find_map(|computed| computed.target_info.as_ref().map(|info| info.scale_factor))
+        .unwrap_or(1.0);
+
+    // 3rd parameter for resolve to determine the viewport size currently being rendered, with the default being 1920x1080
+    let default_viewport_size = cameras
+        .iter()
+        .find_map(|computed| {
+            computed
+                .target_info
+                .as_ref()
+                .map(|info| Vec2::new(info.physical_size.x as f32, info.physical_size.y as f32))
+        })
+        .unwrap_or(Vec2::new(1920.0, 1080.0));
+
+    // for loop to extract all the 4 values that has been added within this particular query trait.
     for (entity, gizmo, transform, render_layers) in &query {
+        // resolve the val width to physical width
+        let physical_width = gizmo
+            .line_config
+            .width
+            .resolve(default_scale_factor, 0.0, default_viewport_size)
+            .unwrap_or_else(|err| match err {
+                ValArithmeticError::NonEvaluable => {
+                    once!(warn!(
+                        "Gizmo line width Val::Auto is not supported, falling back to 2.0 pixels"
+                    ));
+                    2.0
+                }
+            });
+
         let joints_resolution = if let GizmoLineJoint::Round(resolution) = gizmo.line_config.joints
         {
             resolution
@@ -135,7 +178,8 @@ pub(crate) fn extract_linegizmos(
         values.push((
             LineGizmoUniform {
                 world_from_local: Affine3::from(&transform.affine()).to_transpose(),
-                line_width: gizmo.line_config.width,
+                // line_width: gizmo.line_config.width,
+                line_width: physical_width,
                 depth_bias: gizmo.depth_bias,
                 joints_resolution,
                 gap_scale,

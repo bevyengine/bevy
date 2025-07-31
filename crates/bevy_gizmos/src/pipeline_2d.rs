@@ -282,6 +282,8 @@ type DrawLineJointGizmo2d = (
     DrawLineJointGizmo,
 );
 
+// NOTE from Ayan : I believe this has something to do with the Gizmo extraction process.
+// This also has something to do with handling multiple windows with different scale factors --> according to devin docs, the current rendering pipeline already processes views independently.
 fn queue_line_gizmos_2d(
     draw_functions: Res<DrawFunctions<Transparent2d>>,
     pipeline: Res<LineGizmoPipeline>,

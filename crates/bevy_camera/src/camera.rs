@@ -154,6 +154,9 @@ impl Default for SubCameraView {
     }
 }
 
+// NOTE from Ayan : The rendering pipeline needs to access scale factor information. the RenderTargetInfo structure already contains the scale factor camera.rs
+//
+// Cameras provide this through the target_scaling_factor() method
 /// Information about the current [`RenderTarget`].
 #[derive(Default, Debug, Clone)]
 pub struct RenderTargetInfo {
@@ -163,11 +166,14 @@ pub struct RenderTargetInfo {
     ///
     /// When rendering to a window, typically it is a value greater or equal than 1.0,
     /// representing the ratio between the size of the window in physical pixels and the logical size of the window.
-    pub scale_factor: f32,
+    pub scale_factor: f32, // NOTE from AYAN :  bevy_gizmos needs to access this particular value
 }
 
+// NOTE from Ayan : The RenderTargetInfo is being set as the struct type for determine target_info
+// NOTE : turned this into a Component to not run into errors regarding Query
+// NOTE from Ayan : Then ComputerCameraValues is being used within the primary Camera struct itself.
 /// Holds internally computed [`Camera`] values.
-#[derive(Default, Debug, Clone)]
+#[derive(Default, Debug, Clone, Component)]
 pub struct ComputedCameraValues {
     pub clip_from_view: Mat4,
     pub target_info: Option<RenderTargetInfo>,

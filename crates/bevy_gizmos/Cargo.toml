@@ -30,7 +30,9 @@ bevy_core_pipeline = { path = "../bevy_core_pipeline", version = "0.17.0-dev", o
 bevy_transform = { path = "../bevy_transform", version = "0.17.0-dev" }
 bevy_gizmos_macros = { path = "macros", version = "0.17.0-dev" }
 bevy_time = { path = "../bevy_time", version = "0.17.0-dev" }
-
+# NOTE (Ayan) : This is something I added to import the Val enum as replacement
+bevy_ui = { path = "../bevy_ui", version = "0.17.0-dev" }
+bevy_camera = { path = "../bevy_camera", version = "0.17.0-dev" }
 # other
 bytemuck = "1.0"
 tracing = { version = "0.1", default-features = false, features = ["std"] }

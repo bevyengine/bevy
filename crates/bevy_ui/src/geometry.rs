@@ -256,6 +256,7 @@ pub enum ValArithmeticError {
 }
 
 impl Val {
+    // implements the Val::resolve() method which handles converting logical pixels into physical pixels through Val::Px(value)
     /// Resolves this [`Val`] to a value in physical pixels from the given `scale_factor`, `physical_base_value`,
     /// and `physical_target_size` context values.
     ///

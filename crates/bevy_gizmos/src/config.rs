@@ -10,6 +10,7 @@ use {crate::GizmoAsset, bevy_asset::Handle, bevy_ecs::component::Component};
 
 use bevy_ecs::{reflect::ReflectResource, resource::Resource};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect, TypePath};
+use bevy_ui::Val;
 use bevy_utils::TypeIdMap;
 use core::{
     any::TypeId,
@@ -211,6 +212,13 @@ impl Default for GizmoConfig {
     }
 }
 
+// a current issue: (this is related the github issue I am trying to solve at the moment.)
+// This is based on the explanation provided by devin wiki
+//
+// gizmo lines are rendered using physical pixel widths (when for consistency, it is better implemented using logical pixel width)
+// due to the limitations of physical pixel width, they tend to appear inconsistent
+//
+// The line width is passed directly to the shader without any scale factor conversion
 /// A struct that stores configuration for gizmos.
 #[derive(Clone, Reflect, Debug)]
 #[reflect(Clone, Default)]
@@ -220,7 +228,8 @@ pub struct GizmoLineConfig {
     /// If `perspective` is `true` then this is the size in pixels at the camera's near plane.
     ///
     /// Defaults to `2.0`.
-    pub width: f32,
+    // pub width: f32,
+    pub width: Val, // TODO : fix the import path for this.
     /// Apply perspective to gizmo lines.
     ///
     /// This setting only affects 3D, non-orthographic cameras.
@@ -236,7 +245,9 @@ pub struct GizmoLineConfig {
 impl Default for GizmoLineConfig {
     fn default() -> Self {
         Self {
-            width: 2.,
+            // width: 2.,
+            // replace with Val alternative
+            width: Val::Px(2.0),
             perspective: false,
             style: GizmoLineStyle::Solid,
             joints: GizmoLineJoint::None,
