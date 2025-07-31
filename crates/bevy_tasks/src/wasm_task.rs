@@ -7,7 +7,6 @@ use core::{
     task::{Context, Poll},
 };
 
-use futures_channel::oneshot;
 use bevy_platform::exports::wasm_bindgen_futures;
 
 /// Wraps an asynchronous task, a spawned future.
@@ -31,6 +30,11 @@ impl<T: 'static> Task<T> {
     /// When building for Wasm, this method has no effect.
     /// This is only included for feature parity with other platforms.
     pub fn detach(self) {}
+
+    /// Returns `true` if the task is finished.
+    pub fn is_finished(&self) -> bool {
+        self.0.has_message()
+    }
 
     /// Requests a task to be cancelled and returns a future that suspends until it completes.
     /// Returns the output of the future if it has already completed.
