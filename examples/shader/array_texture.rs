@@ -2,6 +2,7 @@
 //! uniform variable.
 
 use bevy::{
+    pbr::Material,
     prelude::*,
     reflect::TypePath,
     render::render_resource::{AsBindGroup, ShaderRef},

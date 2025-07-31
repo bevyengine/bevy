@@ -3,6 +3,7 @@
 
 use bevy::{
     ecs::system::{lifetimeless::SRes, SystemParamItem},
+    pbr::Material,
     prelude::*,
     reflect::TypePath,
     render::{

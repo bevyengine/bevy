@@ -6,6 +6,7 @@
 //! only tests that the images are initialized and bound so that the app does
 //! not panic.
 use bevy::{
+    pbr::Material,
     prelude::*,
     reflect::TypePath,
     render::render_resource::{AsBindGroup, ShaderRef},
