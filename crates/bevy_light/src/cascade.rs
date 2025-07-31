@@ -263,6 +263,8 @@ pub fn build_directional_light_cascades(
 ///
 /// The corner vertices should be specified in the following order:
 /// first the bottom right, top right, top left, bottom left for the near plane, then similar for the far plane.
+///
+/// Reference: https://developer.download.nvidia.com/SDK/10.5/opengl/src/cascaded_shadow_maps/doc/cascaded_shadow_maps.pdf
 fn calculate_cascade(
     frustum_corners: [Vec3A; 8],
     cascade_texture_size: f32,
@@ -284,10 +286,9 @@ fn calculate_cascade(
     //       as even though the lengths using corner_light_view above should be the same, precision can
     //       introduce small but significant differences.
     // NOTE: The size remains the same unless the view frustum or cascade configuration is modified.
-    let cascade_diameter = (frustum_corners[0] - frustum_corners[6])
-        .length()
-        .max((frustum_corners[4] - frustum_corners[6]).length())
-        .ceil();
+    let body_diagonal = (frustum_corners[0] - frustum_corners[6]).length_squared();
+    let far_plane_diagonal = (frustum_corners[4] - frustum_corners[6]).length_squared();
+    let cascade_diameter = body_diagonal.max(far_plane_diagonal).sqrt().ceil();
 
     // NOTE: If we ensure that cascade_texture_size is a power of 2, then as we made cascade_diameter an
     //       integer, cascade_texel_size is then an integer multiple of a power of 2 and can be
