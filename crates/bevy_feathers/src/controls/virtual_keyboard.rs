@@ -16,7 +16,7 @@ use crate::controls::{button, ButtonProps};
 
 /// Function to spawn a virtual keyboard
 pub fn virtual_keyboard<T>(
-    keys: Vec<Vec<(String, T)>>,
+    keys: impl Iterator<Item = Vec<(String, T)>> + Send + Sync + 'static,
     on_key_press: SystemId<In<Activate>>,
 ) -> impl Bundle
 where
@@ -30,7 +30,7 @@ where
         },
         TabGroup::new(0),
         Children::spawn((SpawnWith(move |parent: &mut RelatedSpawner<ChildOf>| {
-            for row in keys.into_iter() {
+            for row in keys {
                 parent.spawn((
                     Node {
                         flex_direction: FlexDirection::Row,

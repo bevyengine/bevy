@@ -6,6 +6,7 @@ use bevy::{
         Activate, Callback, CoreRadio, CoreRadioGroup, CoreWidgetsPlugins, SliderPrecision,
         SliderStep,
     },
+    ecs::relationship::{RelatedSpawner, RelatedSpawnerCommands},
     feathers::{
         controls::{
             button, checkbox, color_swatch, radio, slider, toggle_switch, virtual_keyboard,
@@ -24,7 +25,6 @@ use bevy::{
     ui::{Checked, InteractionDisabled},
     winit::WinitSettings,
 };
-use bevy_ecs::relationship::{RelatedSpawner, RelatedSpawnerCommands};
 
 fn main() {
     App::new()
