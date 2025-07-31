@@ -190,7 +190,12 @@ bevy_ci_testing = ["bevy_dev_tools/bevy_ci_testing", "bevy_render?/ci_limits"]
 animation = ["bevy_animation", "bevy_gltf?/bevy_animation"]
 
 bevy_sprite = ["dep:bevy_sprite", "bevy_gizmos?/bevy_sprite", "bevy_image"]
-bevy_pbr = ["dep:bevy_pbr", "bevy_gizmos?/bevy_pbr", "bevy_image"]
+bevy_pbr = [
+  "dep:bevy_pbr",
+  "bevy_gizmos?/bevy_pbr",
+  "bevy_light",
+  "bevy_render",
+]
 bevy_window = ["dep:bevy_window", "dep:bevy_a11y"]
 bevy_core_pipeline = ["dep:bevy_core_pipeline", "bevy_image"]
 bevy_anti_aliasing = ["dep:bevy_anti_aliasing", "bevy_image"]
@@ -198,6 +203,7 @@ bevy_gizmos = ["dep:bevy_gizmos", "bevy_image"]
 bevy_gltf = ["dep:bevy_gltf", "bevy_image"]
 bevy_ui = ["dep:bevy_ui", "bevy_image"]
 bevy_ui_render = ["dep:bevy_ui_render"]
+bevy_shader = ["dep:bevy_shader"]
 bevy_image = ["dep:bevy_image"]
 
 bevy_mesh = ["dep:bevy_mesh", "bevy_image"]
@@ -221,6 +227,7 @@ bevy_render = [
   "bevy_scene?/bevy_render",
   "bevy_gizmos?/bevy_render",
   "bevy_camera",
+  "bevy_shader",
   "bevy_color/wgpu-types",
   "bevy_color/encase",
 ]
@@ -436,6 +443,7 @@ bevy_gizmos = { path = "../bevy_gizmos", optional = true, version = "0.17.0-dev"
 bevy_gltf = { path = "../bevy_gltf", optional = true, version = "0.17.0-dev" }
 bevy_feathers = { path = "../bevy_feathers", optional = true, version = "0.17.0-dev" }
 bevy_image = { path = "../bevy_image", optional = true, version = "0.17.0-dev" }
+bevy_shader = { path = "../bevy_shader", optional = true, version = "0.17.0-dev" }
 bevy_mesh = { path = "../bevy_mesh", optional = true, version = "0.17.0-dev" }
 bevy_camera = { path = "../bevy_camera", optional = true, version = "0.17.0-dev" }
 bevy_light = { path = "../bevy_light", optional = true, version = "0.17.0-dev" }
