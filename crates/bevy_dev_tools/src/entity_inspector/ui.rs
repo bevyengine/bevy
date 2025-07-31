@@ -124,8 +124,11 @@ pub fn create_inspector_overlay(commands: &mut Commands) -> Entity {
                 top: Val::Px(10.0),
                 right: Val::Px(10.0),
                 width: Val::Px(400.0),
+                max_width: Val::Px(400.0), // Force max width constraint
                 height: Val::Percent(80.0),
+                max_height: Val::Percent(80.0), // Force max height constraint
                 flex_direction: FlexDirection::Row,
+                overflow: bevy_ui::Overflow::clip(), // Prevent any content from escaping
                 ..Default::default()
             },
             BackgroundColor(Color::srgba(0.1, 0.1, 0.1, 0.9)), // Semi-transparent
@@ -175,15 +178,19 @@ pub fn create_inspector_overlay(commands: &mut Commands) -> Entity {
                     ));
                 });
 
-            // Right pane - Component viewer
+            // Right pane - Component viewer - FIXED CONSTRAINTS
             parent
                 .spawn((
                     Node {
                         width: Val::Percent(60.0),
+                        max_width: Val::Percent(60.0), // Force max width constraint
                         height: Val::Percent(100.0),
+                        max_height: Val::Percent(100.0), // Force max height constraint
                         border: UiRect::all(Val::Px(1.0)),
                         padding: UiRect::all(Val::Px(4.0)),
                         flex_direction: FlexDirection::Column,
+                        overflow: bevy_ui::Overflow::clip(), // Prevent content overflow
+                        position_type: PositionType::Relative,
                         ..Default::default()
                     },
                     BackgroundColor(Color::srgba(0.12, 0.12, 0.12, 0.95)),
@@ -202,13 +209,18 @@ pub fn create_inspector_overlay(commands: &mut Commands) -> Entity {
                         InspectorEntity,
                     ));
                     
-                    // Scrollable component viewer container
+                    // Scrollable component viewer container - FIXED POSITIONING
                     parent.spawn((
                         Node {
                             width: Val::Percent(100.0),
+                            max_width: Val::Percent(100.0), // Force max width constraint
                             height: Val::Percent(90.0),
+                            max_height: Val::Percent(90.0), // Force max height constraint
                             flex_direction: FlexDirection::Column,
                             overflow: bevy_ui::Overflow::clip(),
+                            position_type: PositionType::Relative,
+                            left: Val::Px(0.0), // Force positioning within parent
+                            top: Val::Px(0.0),  // Force positioning within parent
                             ..Default::default()
                         },
                         BackgroundColor(Color::srgba(0.08, 0.08, 0.08, 0.9)),
