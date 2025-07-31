@@ -12,7 +12,7 @@ While this pain was most acute when working with [`RenderLayers`], this pattern 
 and has been exposed to end users in the form of the [`HierarchyPropagatePlugin`].
 You might use this for synchronizing color and alpha values for "ghost" versions of previewed buildings,
 ensuring that all of the parts of a model are on the same render layer,
-or ensuring that all members of a village share the same goals in your simulation game.
+or propagating font styles.
 
 This plugin has three generics:
 
