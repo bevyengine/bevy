@@ -237,7 +237,7 @@ fn queue_custom_phase_item(
             // simplicity's sake we simply hard-code the view's characteristics,
             // with the exception of number of MSAA samples.
             let Ok(pipeline_id) = pipeline
-                .specialized_cache
+                .variants
                 .specialize(&pipeline_cache, CustomPhaseKey(*msaa))
             else {
                 continue;
@@ -281,7 +281,7 @@ struct CustomPhaseSpecializer;
 #[derive(Resource)]
 struct CustomPhasePipeline {
     /// the `specialized_cache` holds onto the shader handle through the base descriptor
-    specialized_cache: SpecializedCache<RenderPipeline, CustomPhaseSpecializer>,
+    variants: SpecializedCache<RenderPipeline, CustomPhaseSpecializer>,
 }
 
 impl FromWorld for CustomPhasePipeline {
@@ -336,9 +336,9 @@ impl FromWorld for CustomPhasePipeline {
             ..default()
         };
 
-        let specialized_cache = SpecializedCache::new(CustomPhaseSpecializer, base_descriptor);
+        let variants = SpecializedCache::new(CustomPhaseSpecializer, base_descriptor);
 
-        Self { specialized_cache }
+        Self { variants }
     }
 }
 

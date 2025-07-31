@@ -195,9 +195,7 @@ impl FromWorld for MyPipeline {
             base_descriptor,
         );
         
-        Self {
-            variants
-        }
+        Self { variants }
     }
 }
 
