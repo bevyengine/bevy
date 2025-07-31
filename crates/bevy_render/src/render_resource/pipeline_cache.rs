@@ -1,3 +1,4 @@
+use crate::WgpuWrapper;
 use crate::{
     render_resource::*,
     renderer::{RenderAdapter, RenderDevice},
@@ -10,21 +11,13 @@ use bevy_ecs::{
     resource::Resource,
     system::{Res, ResMut},
 };
-use bevy_platform::collections::{hash_map::EntryRef, HashMap, HashSet};
+use bevy_platform::collections::{HashMap, HashSet};
 use bevy_tasks::Task;
 use bevy_utils::default;
-use bevy_utils::WgpuWrapper;
 use core::{future::Future, hash::Hash, mem};
-use naga::valid::Capabilities;
 use std::sync::{Mutex, PoisonError};
-use thiserror::Error;
-use tracing::{debug, error};
-#[cfg(feature = "shader_format_spirv")]
-use wgpu::util::make_spirv;
-use wgpu::{
-    DownlevelFlags, Features, PipelineCompilationOptions,
-    VertexBufferLayout as RawVertexBufferLayout,
-};
+use tracing::error;
+use wgpu::{PipelineCompilationOptions, VertexBufferLayout as RawVertexBufferLayout};
 
 /// A descriptor for a [`Pipeline`].
 ///
@@ -43,8 +36,6 @@ pub enum Pipeline {
     RenderPipeline(RenderPipeline),
     ComputePipeline(ComputePipeline),
 }
-
-type CachedPipelineId = usize;
 
 /// Index of a cached render pipeline in a [`PipelineCache`].
 #[derive(Copy, Clone, Debug, Hash, Eq, PartialEq, PartialOrd, Ord)]
@@ -124,415 +115,6 @@ impl CachedPipelineState {
     }
 }
 
-#[derive(Default)]
-struct ShaderData {
-    pipelines: HashSet<CachedPipelineId>,
-    processed_shaders: HashMap<Box<[ShaderDefVal]>, Arc<WgpuWrapper<ShaderModule>>>,
-    resolved_imports: HashMap<ShaderImport, AssetId<Shader>>,
-    dependents: HashSet<AssetId<Shader>>,
-}
-
-struct ShaderCache {
-    data: HashMap<AssetId<Shader>, ShaderData>,
-    #[cfg(feature = "shader_format_wesl")]
-    asset_paths: HashMap<wesl::syntax::ModulePath, AssetId<Shader>>,
-    shaders: HashMap<AssetId<Shader>, Shader>,
-    import_path_shaders: HashMap<ShaderImport, AssetId<Shader>>,
-    waiting_on_import: HashMap<ShaderImport, Vec<AssetId<Shader>>>,
-    composer: naga_oil::compose::Composer,
-}
-
-#[derive(serde::Serialize, serde::Deserialize, Clone, PartialEq, Eq, Debug, Hash)]
-pub enum ShaderDefVal {
-    Bool(String, bool),
-    Int(String, i32),
-    UInt(String, u32),
-}
-
-impl From<&str> for ShaderDefVal {
-    fn from(key: &str) -> Self {
-        ShaderDefVal::Bool(key.to_string(), true)
-    }
-}
-
-impl From<String> for ShaderDefVal {
-    fn from(key: String) -> Self {
-        ShaderDefVal::Bool(key, true)
-    }
-}
-
-impl ShaderDefVal {
-    pub fn value_as_string(&self) -> String {
-        match self {
-            ShaderDefVal::Bool(_, def) => def.to_string(),
-            ShaderDefVal::Int(_, def) => def.to_string(),
-            ShaderDefVal::UInt(_, def) => def.to_string(),
-        }
-    }
-}
-
-impl ShaderCache {
-    fn new(render_device: &RenderDevice, render_adapter: &RenderAdapter) -> Self {
-        let capabilities = get_capabilities(
-            render_device.features(),
-            render_adapter.get_downlevel_capabilities().flags,
-        );
-
-        #[cfg(debug_assertions)]
-        let composer = naga_oil::compose::Composer::default();
-        #[cfg(not(debug_assertions))]
-        let composer = naga_oil::compose::Composer::non_validating();
-
-        let composer = composer.with_capabilities(capabilities);
-
-        Self {
-            composer,
-            data: Default::default(),
-            #[cfg(feature = "shader_format_wesl")]
-            asset_paths: Default::default(),
-            shaders: Default::default(),
-            import_path_shaders: Default::default(),
-            waiting_on_import: Default::default(),
-        }
-    }
-
-    #[expect(
-        clippy::result_large_err,
-        reason = "See https://github.com/bevyengine/bevy/issues/19220"
-    )]
-    fn add_import_to_composer(
-        composer: &mut naga_oil::compose::Composer,
-        import_path_shaders: &HashMap<ShaderImport, AssetId<Shader>>,
-        shaders: &HashMap<AssetId<Shader>, Shader>,
-        import: &ShaderImport,
-    ) -> Result<(), PipelineCacheError> {
-        // Early out if we've already imported this module
-        if composer.contains_module(&import.module_name()) {
-            return Ok(());
-        }
-
-        // Check if the import is available (this handles the recursive import case)
-        let shader = import_path_shaders
-            .get(import)
-            .and_then(|handle| shaders.get(handle))
-            .ok_or(PipelineCacheError::ShaderImportNotYetAvailable)?;
-
-        // Recurse down to ensure all import dependencies are met
-        for import in &shader.imports {
-            Self::add_import_to_composer(composer, import_path_shaders, shaders, import)?;
-        }
-
-        composer.add_composable_module(shader.into())?;
-        // if we fail to add a module the composer will tell us what is missing
-
-        Ok(())
-    }
-
-    #[expect(
-        clippy::result_large_err,
-        reason = "See https://github.com/bevyengine/bevy/issues/19220"
-    )]
-    fn get(
-        &mut self,
-        render_device: &RenderDevice,
-        pipeline: CachedPipelineId,
-        id: AssetId<Shader>,
-        shader_defs: &[ShaderDefVal],
-    ) -> Result<Arc<WgpuWrapper<ShaderModule>>, PipelineCacheError> {
-        let shader = self
-            .shaders
-            .get(&id)
-            .ok_or(PipelineCacheError::ShaderNotLoaded(id))?;
-
-        let data = self.data.entry(id).or_default();
-        let n_asset_imports = shader
-            .imports()
-            .filter(|import| matches!(import, ShaderImport::AssetPath(_)))
-            .count();
-        let n_resolved_asset_imports = data
-            .resolved_imports
-            .keys()
-            .filter(|import| matches!(import, ShaderImport::AssetPath(_)))
-            .count();
-        if n_asset_imports != n_resolved_asset_imports {
-            return Err(PipelineCacheError::ShaderImportNotYetAvailable);
-        }
-
-        data.pipelines.insert(pipeline);
-
-        // PERF: this shader_defs clone isn't great. use raw_entry_mut when it stabilizes
-        let module = match data.processed_shaders.entry_ref(shader_defs) {
-            EntryRef::Occupied(entry) => entry.into_mut(),
-            EntryRef::Vacant(entry) => {
-                let mut shader_defs = shader_defs.to_vec();
-                #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
-                {
-                    shader_defs.push("NO_ARRAY_TEXTURES_SUPPORT".into());
-                    shader_defs.push("NO_CUBE_ARRAY_TEXTURES_SUPPORT".into());
-                    shader_defs.push("SIXTEEN_BYTE_ALIGNMENT".into());
-                }
-
-                if cfg!(target_abi = "sim") {
-                    shader_defs.push("NO_CUBE_ARRAY_TEXTURES_SUPPORT".into());
-                }
-
-                shader_defs.push(ShaderDefVal::UInt(
-                    String::from("AVAILABLE_STORAGE_BUFFER_BINDINGS"),
-                    render_device.limits().max_storage_buffers_per_shader_stage,
-                ));
-
-                debug!(
-                    "processing shader {}, with shader defs {:?}",
-                    id, shader_defs
-                );
-                let shader_source = match &shader.source {
-                    #[cfg(feature = "shader_format_spirv")]
-                    Source::SpirV(data) => make_spirv(data),
-                    #[cfg(feature = "shader_format_wesl")]
-                    Source::Wesl(_) => {
-                        if let ShaderImport::AssetPath(path) = shader.import_path() {
-                            let shader_resolver =
-                                ShaderResolver::new(&self.asset_paths, &self.shaders);
-                            let module_path = wesl::syntax::ModulePath::from_path(path);
-                            let mut compiler_options = wesl::CompileOptions {
-                                imports: true,
-                                condcomp: true,
-                                lower: true,
-                                ..default()
-                            };
-
-                            for shader_def in shader_defs {
-                                match shader_def {
-                                    ShaderDefVal::Bool(key, value) => {
-                                        compiler_options.features.insert(key.clone(), value);
-                                    }
-                                    _ => debug!(
-                                        "ShaderDefVal::Int and ShaderDefVal::UInt are not supported in wesl",
-                                    ),
-                                }
-                            }
-
-                            let compiled = wesl::compile(
-                                &module_path,
-                                &shader_resolver,
-                                &wesl::EscapeMangler,
-                                &compiler_options,
-                            )
-                            .unwrap();
-
-                            let naga = naga::front::wgsl::parse_str(&compiled.to_string()).unwrap();
-                            ShaderSource::Naga(Cow::Owned(naga))
-                        } else {
-                            panic!("Wesl shaders must be imported from a file");
-                        }
-                    }
-                    #[cfg(not(feature = "shader_format_spirv"))]
-                    Source::SpirV(_) => {
-                        unimplemented!(
-                            "Enable feature \"shader_format_spirv\" to use SPIR-V shaders"
-                        )
-                    }
-                    _ => {
-                        for import in shader.imports() {
-                            Self::add_import_to_composer(
-                                &mut self.composer,
-                                &self.import_path_shaders,
-                                &self.shaders,
-                                import,
-                            )?;
-                        }
-
-                        let shader_defs = shader_defs
-                            .into_iter()
-                            .chain(shader.shader_defs.iter().cloned())
-                            .map(|def| match def {
-                                ShaderDefVal::Bool(k, v) => {
-                                    (k, naga_oil::compose::ShaderDefValue::Bool(v))
-                                }
-                                ShaderDefVal::Int(k, v) => {
-                                    (k, naga_oil::compose::ShaderDefValue::Int(v))
-                                }
-                                ShaderDefVal::UInt(k, v) => {
-                                    (k, naga_oil::compose::ShaderDefValue::UInt(v))
-                                }
-                            })
-                            .collect::<std::collections::HashMap<_, _>>();
-
-                        let naga = self.composer.make_naga_module(
-                            naga_oil::compose::NagaModuleDescriptor {
-                                shader_defs,
-                                ..shader.into()
-                            },
-                        )?;
-
-                        #[cfg(not(feature = "decoupled_naga"))]
-                        {
-                            ShaderSource::Naga(Cow::Owned(naga))
-                        }
-
-                        #[cfg(feature = "decoupled_naga")]
-                        {
-                            let mut validator = naga::valid::Validator::new(
-                                naga::valid::ValidationFlags::all(),
-                                self.composer.capabilities,
-                            );
-                            let module_info = validator.validate(&naga).unwrap();
-                            let wgsl = Cow::Owned(
-                                naga::back::wgsl::write_string(
-                                    &naga,
-                                    &module_info,
-                                    naga::back::wgsl::WriterFlags::empty(),
-                                )
-                                .unwrap(),
-                            );
-                            ShaderSource::Wgsl(wgsl)
-                        }
-                    }
-                };
-
-                let module_descriptor = ShaderModuleDescriptor {
-                    label: None,
-                    source: shader_source,
-                };
-
-                render_device
-                    .wgpu_device()
-                    .push_error_scope(wgpu::ErrorFilter::Validation);
-
-                let shader_module = match shader.validate_shader {
-                    ValidateShader::Enabled => {
-                        render_device.create_and_validate_shader_module(module_descriptor)
-                    }
-                    // SAFETY: we are interfacing with shader code, which may contain undefined behavior,
-                    // such as indexing out of bounds.
-                    // The checks required are prohibitively expensive and a poor default for game engines.
-                    ValidateShader::Disabled => unsafe {
-                        render_device.create_shader_module(module_descriptor)
-                    },
-                };
-
-                let error = render_device.wgpu_device().pop_error_scope();
-
-                // `now_or_never` will return Some if the future is ready and None otherwise.
-                // On native platforms, wgpu will yield the error immediately while on wasm it may take longer since the browser APIs are asynchronous.
-                // So to keep the complexity of the ShaderCache low, we will only catch this error early on native platforms,
-                // and on wasm the error will be handled by wgpu and crash the application.
-                if let Some(Some(wgpu::Error::Validation { description, .. })) =
-                    bevy_tasks::futures::now_or_never(error)
-                {
-                    return Err(PipelineCacheError::CreateShaderModule(description));
-                }
-
-                entry.insert(Arc::new(WgpuWrapper::new(shader_module)))
-            }
-        };
-
-        Ok(module.clone())
-    }
-
-    fn clear(&mut self, id: AssetId<Shader>) -> Vec<CachedPipelineId> {
-        let mut shaders_to_clear = vec![id];
-        let mut pipelines_to_queue = Vec::new();
-        while let Some(handle) = shaders_to_clear.pop() {
-            if let Some(data) = self.data.get_mut(&handle) {
-                data.processed_shaders.clear();
-                pipelines_to_queue.extend(data.pipelines.iter().copied());
-                shaders_to_clear.extend(data.dependents.iter().copied());
-
-                if let Some(Shader { import_path, .. }) = self.shaders.get(&handle) {
-                    self.composer
-                        .remove_composable_module(&import_path.module_name());
-                }
-            }
-        }
-
-        pipelines_to_queue
-    }
-
-    fn set_shader(&mut self, id: AssetId<Shader>, shader: Shader) -> Vec<CachedPipelineId> {
-        let pipelines_to_queue = self.clear(id);
-        let path = shader.import_path();
-        self.import_path_shaders.insert(path.clone(), id);
-        if let Some(waiting_shaders) = self.waiting_on_import.get_mut(path) {
-            for waiting_shader in waiting_shaders.drain(..) {
-                // resolve waiting shader import
-                let data = self.data.entry(waiting_shader).or_default();
-                data.resolved_imports.insert(path.clone(), id);
-                // add waiting shader as dependent of this shader
-                let data = self.data.entry(id).or_default();
-                data.dependents.insert(waiting_shader);
-            }
-        }
-
-        for import in shader.imports() {
-            if let Some(import_id) = self.import_path_shaders.get(import).copied() {
-                // resolve import because it is currently available
-                let data = self.data.entry(id).or_default();
-                data.resolved_imports.insert(import.clone(), import_id);
-                // add this shader as a dependent of the import
-                let data = self.data.entry(import_id).or_default();
-                data.dependents.insert(id);
-            } else {
-                let waiting = self.waiting_on_import.entry(import.clone()).or_default();
-                waiting.push(id);
-            }
-        }
-
-        #[cfg(feature = "shader_format_wesl")]
-        if let Source::Wesl(_) = shader.source {
-            if let ShaderImport::AssetPath(path) = shader.import_path() {
-                self.asset_paths
-                    .insert(wesl::syntax::ModulePath::from_path(path), id);
-            }
-        }
-        self.shaders.insert(id, shader);
-        pipelines_to_queue
-    }
-
-    fn remove(&mut self, id: AssetId<Shader>) -> Vec<CachedPipelineId> {
-        let pipelines_to_queue = self.clear(id);
-        if let Some(shader) = self.shaders.remove(&id) {
-            self.import_path_shaders.remove(shader.import_path());
-        }
-
-        pipelines_to_queue
-    }
-}
-
-#[cfg(feature = "shader_format_wesl")]
-pub struct ShaderResolver<'a> {
-    asset_paths: &'a HashMap<wesl::syntax::ModulePath, AssetId<Shader>>,
-    shaders: &'a HashMap<AssetId<Shader>, Shader>,
-}
-
-#[cfg(feature = "shader_format_wesl")]
-impl<'a> ShaderResolver<'a> {
-    pub fn new(
-        asset_paths: &'a HashMap<wesl::syntax::ModulePath, AssetId<Shader>>,
-        shaders: &'a HashMap<AssetId<Shader>, Shader>,
-    ) -> Self {
-        Self {
-            asset_paths,
-            shaders,
-        }
-    }
-}
-
-#[cfg(feature = "shader_format_wesl")]
-impl<'a> wesl::Resolver for ShaderResolver<'a> {
-    fn resolve_source(
-        &self,
-        module_path: &wesl::syntax::ModulePath,
-    ) -> Result<Cow<str>, wesl::ResolveError> {
-        let asset_id = self.asset_paths.get(module_path).ok_or_else(|| {
-            wesl::ResolveError::ModuleNotFound(module_path.clone(), "Invalid asset id".to_string())
-        })?;
-
-        let shader = self.shaders.get(asset_id).unwrap();
-        Ok(Cow::Borrowed(shader.source.as_str()))
-    }
-}
-
 type LayoutCacheKey = (Vec<BindGroupLayoutId>, Vec<PushConstantRange>);
 #[derive(Default)]
 struct LayoutCache {
@@ -566,6 +148,62 @@ impl LayoutCache {
     }
 }
 
+#[expect(
+    clippy::result_large_err,
+    reason = "See https://github.com/bevyengine/bevy/issues/19220"
+)]
+fn load_module(
+    render_device: &RenderDevice,
+    shader_source: ShaderCacheSource,
+    validate_shader: &ValidateShader,
+) -> Result<WgpuWrapper<ShaderModule>, PipelineCacheError> {
+    let shader_source = match shader_source {
+        #[cfg(feature = "shader_format_spirv")]
+        ShaderCacheSource::SpirV(data) => wgpu::util::make_spirv(data),
+        #[cfg(not(feature = "shader_format_spirv"))]
+        ShaderCacheSource::SpirV(_) => {
+            unimplemented!("Enable feature \"shader_format_spirv\" to use SPIR-V shaders")
+        }
+        ShaderCacheSource::Wgsl(src) => ShaderSource::Wgsl(Cow::Owned(src)),
+        #[cfg(not(feature = "decoupled_naga"))]
+        ShaderCacheSource::Naga(src) => ShaderSource::Naga(Cow::Owned(src)),
+    };
+    let module_descriptor = ShaderModuleDescriptor {
+        label: None,
+        source: shader_source,
+    };
+
+    render_device
+        .wgpu_device()
+        .push_error_scope(wgpu::ErrorFilter::Validation);
+
+    let shader_module = WgpuWrapper::new(match validate_shader {
+        ValidateShader::Enabled => {
+            render_device.create_and_validate_shader_module(module_descriptor)
+        }
+        // SAFETY: we are interfacing with shader code, which may contain undefined behavior,
+        // such as indexing out of bounds.
+        // The checks required are prohibitively expensive and a poor default for game engines.
+        ValidateShader::Disabled => unsafe {
+            render_device.create_shader_module(module_descriptor)
+        },
+    });
+
+    let error = render_device.wgpu_device().pop_error_scope();
+
+    // `now_or_never` will return Some if the future is ready and None otherwise.
+    // On native platforms, wgpu will yield the error immediately while on wasm it may take longer since the browser APIs are asynchronous.
+    // So to keep the complexity of the ShaderCache low, we will only catch this error early on native platforms,
+    // and on wasm the error will be handled by wgpu and crash the application.
+    if let Some(Some(wgpu::Error::Validation { description, .. })) =
+        bevy_tasks::futures::now_or_never(error)
+    {
+        return Err(PipelineCacheError::CreateShaderModule(description));
+    }
+
+    Ok(shader_module)
+}
+
 /// Cache for render and compute pipelines.
 ///
 /// The cache stores existing render and compute pipelines allocated on the GPU, as well as
@@ -581,11 +219,12 @@ impl LayoutCache {
 #[derive(Resource)]
 pub struct PipelineCache {
     layout_cache: Arc<Mutex<LayoutCache>>,
-    shader_cache: Arc<Mutex<ShaderCache>>,
+    shader_cache: Arc<Mutex<ShaderCache<WgpuWrapper<ShaderModule>, RenderDevice>>>,
     device: RenderDevice,
     pipelines: Vec<CachedPipeline>,
     waiting_pipelines: HashSet<CachedPipelineId>,
     new_pipelines: Mutex<Vec<CachedPipeline>>,
+    global_shader_defs: Vec<ShaderDefVal>,
     /// If `true`, disables asynchronous pipeline compilation.
     /// This has no effect on macOS, wasm, or without the `multi_threaded` feature.
     synchronous_pipeline_compilation: bool,
@@ -608,13 +247,35 @@ impl PipelineCache {
         render_adapter: RenderAdapter,
         synchronous_pipeline_compilation: bool,
     ) -> Self {
+        let mut global_shader_defs = Vec::new();
+        #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
+        {
+            global_shader_defs.push("NO_ARRAY_TEXTURES_SUPPORT".into());
+            global_shader_defs.push("NO_CUBE_ARRAY_TEXTURES_SUPPORT".into());
+            global_shader_defs.push("SIXTEEN_BYTE_ALIGNMENT".into());
+        }
+
+        if cfg!(target_abi = "sim") {
+            global_shader_defs.push("NO_CUBE_ARRAY_TEXTURES_SUPPORT".into());
+        }
+
+        global_shader_defs.push(ShaderDefVal::UInt(
+            String::from("AVAILABLE_STORAGE_BUFFER_BINDINGS"),
+            device.limits().max_storage_buffers_per_shader_stage,
+        ));
+
         Self {
-            shader_cache: Arc::new(Mutex::new(ShaderCache::new(&device, &render_adapter))),
+            shader_cache: Arc::new(Mutex::new(ShaderCache::new(
+                device.features(),
+                render_adapter.get_downlevel_capabilities().flags,
+                load_module,
+            ))),
             device,
             layout_cache: default(),
             waiting_pipelines: default(),
             new_pipelines: default(),
             pipelines: default(),
+            global_shader_defs,
             synchronous_pipeline_compilation,
         }
     }
@@ -785,9 +446,9 @@ impl PipelineCache {
         id
     }
 
-    fn set_shader(&mut self, id: AssetId<Shader>, shader: &Shader) {
+    fn set_shader(&mut self, id: AssetId<Shader>, shader: Shader) {
         let mut shader_cache = self.shader_cache.lock().unwrap();
-        let pipelines_to_queue = shader_cache.set_shader(id, shader.clone());
+        let pipelines_to_queue = shader_cache.set_shader(id, shader);
         for cached_pipeline in pipelines_to_queue {
             self.pipelines[cached_pipeline].state = CachedPipelineState::Queued;
             self.waiting_pipelines.insert(cached_pipeline);
@@ -1069,6 +730,9 @@ impl PipelineCache {
                 // PERF: Instead of blocking waiting for the shader cache lock, try again next frame if the lock is currently held
                 AssetEvent::Added { id } | AssetEvent::Modified { id } => {
                     if let Some(shader) = shaders.get(*id) {
+                        let mut shader = shader.clone();
+                        shader.shader_defs.extend(cache.global_shader_defs.clone());
+
                         cache.set_shader(*id, shader);
                     }
                 }
@@ -1114,139 +778,4 @@ fn create_pipeline_task(
         Ok(pipeline) => CachedPipelineState::Ok(pipeline),
         Err(err) => CachedPipelineState::Err(err),
     }
-}
-
-/// Type of error returned by a [`PipelineCache`] when the creation of a GPU pipeline object failed.
-#[cfg_attr(
-    not(target_arch = "wasm32"),
-    expect(
-        clippy::large_enum_variant,
-        reason = "See https://github.com/bevyengine/bevy/issues/19220"
-    )
-)]
-#[derive(Error, Debug)]
-pub enum PipelineCacheError {
-    #[error(
-        "Pipeline could not be compiled because the following shader could not be loaded: {0:?}"
-    )]
-    ShaderNotLoaded(AssetId<Shader>),
-    #[error(transparent)]
-    ProcessShaderError(#[from] naga_oil::compose::ComposerError),
-    #[error("Shader import not yet available.")]
-    ShaderImportNotYetAvailable,
-    #[error("Could not create shader module: {0}")]
-    CreateShaderModule(String),
-}
-
-// TODO: This needs to be kept up to date with the capabilities in the `create_validator` function in wgpu-core
-// https://github.com/gfx-rs/wgpu/blob/trunk/wgpu-core/src/device/mod.rs#L449
-// We can't use the `wgpu-core` function to detect the device's capabilities because `wgpu-core` isn't included in WebGPU builds.
-/// Get the device's capabilities for use in `naga_oil`.
-fn get_capabilities(features: Features, downlevel: DownlevelFlags) -> Capabilities {
-    let mut capabilities = Capabilities::empty();
-    capabilities.set(
-        Capabilities::PUSH_CONSTANT,
-        features.contains(Features::PUSH_CONSTANTS),
-    );
-    capabilities.set(
-        Capabilities::FLOAT64,
-        features.contains(Features::SHADER_F64),
-    );
-    capabilities.set(
-        Capabilities::PRIMITIVE_INDEX,
-        features.contains(Features::SHADER_PRIMITIVE_INDEX),
-    );
-    capabilities.set(
-        Capabilities::SAMPLED_TEXTURE_AND_STORAGE_BUFFER_ARRAY_NON_UNIFORM_INDEXING,
-        features.contains(Features::SAMPLED_TEXTURE_AND_STORAGE_BUFFER_ARRAY_NON_UNIFORM_INDEXING),
-    );
-    capabilities.set(
-        Capabilities::STORAGE_TEXTURE_ARRAY_NON_UNIFORM_INDEXING,
-        features.contains(Features::STORAGE_TEXTURE_ARRAY_NON_UNIFORM_INDEXING),
-    );
-    capabilities.set(
-        Capabilities::UNIFORM_BUFFER_ARRAY_NON_UNIFORM_INDEXING,
-        features.contains(Features::UNIFORM_BUFFER_BINDING_ARRAYS),
-    );
-    // TODO: This needs a proper wgpu feature
-    capabilities.set(
-        Capabilities::SAMPLER_NON_UNIFORM_INDEXING,
-        features.contains(Features::SAMPLED_TEXTURE_AND_STORAGE_BUFFER_ARRAY_NON_UNIFORM_INDEXING),
-    );
-    capabilities.set(
-        Capabilities::STORAGE_TEXTURE_16BIT_NORM_FORMATS,
-        features.contains(Features::TEXTURE_FORMAT_16BIT_NORM),
-    );
-    capabilities.set(
-        Capabilities::MULTIVIEW,
-        features.contains(Features::MULTIVIEW),
-    );
-    capabilities.set(
-        Capabilities::EARLY_DEPTH_TEST,
-        features.contains(Features::SHADER_EARLY_DEPTH_TEST),
-    );
-    capabilities.set(
-        Capabilities::SHADER_INT64,
-        features.contains(Features::SHADER_INT64),
-    );
-    capabilities.set(
-        Capabilities::SHADER_INT64_ATOMIC_MIN_MAX,
-        features.intersects(
-            Features::SHADER_INT64_ATOMIC_MIN_MAX | Features::SHADER_INT64_ATOMIC_ALL_OPS,
-        ),
-    );
-    capabilities.set(
-        Capabilities::SHADER_INT64_ATOMIC_ALL_OPS,
-        features.contains(Features::SHADER_INT64_ATOMIC_ALL_OPS),
-    );
-    capabilities.set(
-        Capabilities::MULTISAMPLED_SHADING,
-        downlevel.contains(DownlevelFlags::MULTISAMPLED_SHADING),
-    );
-    capabilities.set(
-        Capabilities::RAY_QUERY,
-        features.contains(Features::EXPERIMENTAL_RAY_QUERY),
-    );
-    capabilities.set(
-        Capabilities::DUAL_SOURCE_BLENDING,
-        features.contains(Features::DUAL_SOURCE_BLENDING),
-    );
-    capabilities.set(
-        Capabilities::CUBE_ARRAY_TEXTURES,
-        downlevel.contains(DownlevelFlags::CUBE_ARRAY_TEXTURES),
-    );
-    capabilities.set(
-        Capabilities::SUBGROUP,
-        features.intersects(Features::SUBGROUP | Features::SUBGROUP_VERTEX),
-    );
-    capabilities.set(
-        Capabilities::SUBGROUP_BARRIER,
-        features.intersects(Features::SUBGROUP_BARRIER),
-    );
-    capabilities.set(
-        Capabilities::SUBGROUP_VERTEX_STAGE,
-        features.contains(Features::SUBGROUP_VERTEX),
-    );
-    capabilities.set(
-        Capabilities::SHADER_FLOAT32_ATOMIC,
-        features.contains(Features::SHADER_FLOAT32_ATOMIC),
-    );
-    capabilities.set(
-        Capabilities::TEXTURE_ATOMIC,
-        features.contains(Features::TEXTURE_ATOMIC),
-    );
-    capabilities.set(
-        Capabilities::TEXTURE_INT64_ATOMIC,
-        features.contains(Features::TEXTURE_INT64_ATOMIC),
-    );
-    capabilities.set(
-        Capabilities::SHADER_FLOAT16,
-        features.contains(Features::SHADER_F16),
-    );
-    capabilities.set(
-        Capabilities::RAY_HIT_VERTEX_POSITION,
-        features.intersects(Features::EXPERIMENTAL_RAY_HIT_VERTEX_RETURN),
-    );
-
-    capabilities
 }
