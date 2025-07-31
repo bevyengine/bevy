@@ -96,8 +96,9 @@ pub fn spawn_queued(
                         };
 
                         for entity in entities {
-                            let mut entity_mut = world.get_entity_mut(entity).unwrap();
-                            scene.spawn(&mut entity_mut).unwrap();
+                            if let Ok(mut entity_mut) = world.get_entity_mut(entity) {
+                                scene.spawn(&mut entity_mut).unwrap();
+                            }
                         }
                     }
                 }
