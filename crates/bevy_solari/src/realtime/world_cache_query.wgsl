@@ -3,12 +3,10 @@
 /// Maximum amount of frames a cell can live for without being queried
 const WORLD_CACHE_CELL_LIFETIME: u32 = 30u;
 /// Maximum amount of attempts to find a cache entry after a hash collision
-const WORLD_CACHE_MAX_SEARCH_STEPS: u32 = 10u;
+const WORLD_CACHE_MAX_SEARCH_STEPS: u32 = 3u;
 
 /// Controls the base size of each cache cell
-const WORLD_CACHE_POSITION_DISCRETIZATION_FACTOR: f32 = 2.0;
-/// Controls the normal quantization of each cell
-const WORLD_CACHE_NORMAL_DISCRETIZATION_FACTOR: f32 = 100.0;
+const WORLD_CACHE_POSITION_BASE_CELL_SIZE: f32 = 0.4;
 
 /// Marker value for an empty cell
 const WORLD_CACHE_EMPTY_CELL: u32 = 0u;
@@ -37,9 +35,12 @@ struct WorldCacheGeometryData {
 @group(1) @binding(22) var<storage, read_write> world_cache_active_cells_count: u32;
 
 #ifndef WORLD_CACHE_NON_ATOMIC_LIFE_BUFFER
-fn query_world_cache(world_position: vec3<f32>, world_normal: vec3<f32>) -> vec3<f32> {
-    var key = compute_key(world_position, world_normal);
-    let checksum = compute_checksum(world_position, world_normal);
+fn query_world_cache(world_position: vec3<f32>, world_normal: vec3<f32>, view_position: vec3<f32>) -> vec3<f32> {
+    let world_position_quantized = bitcast<vec3<u32>>(quantize_position(world_position, view_position));
+    let world_normal_quantized = bitcast<vec3<u32>>(quantize_normal(world_normal));
+
+    var key = compute_key(world_position_quantized, world_normal_quantized);
+    let checksum = compute_checksum(world_position_quantized, world_normal_quantized);
 
     for (var i = 0u; i < WORLD_CACHE_MAX_SEARCH_STEPS; i++) {
         let existing_checksum = atomicCompareExchangeWeak(&world_cache_checksums[key], WORLD_CACHE_EMPTY_CELL, checksum).old_value;
@@ -63,36 +64,38 @@ fn query_world_cache(world_position: vec3<f32>, world_normal: vec3<f32>) -> vec3
 }
 #endif
 
-fn compute_key(world_position: vec3<f32>, world_normal: vec3<f32>) -> u32 {
-    let world_position_quantized = bitcast<vec3<u32>>(quantize_position(world_position));
-    let world_normal_quantized = bitcast<vec3<u32>>(quantize_normal(world_normal));
-    var key = pcg_hash(world_position_quantized.x);
-    key = pcg_hash(key + world_position_quantized.y);
-    key = pcg_hash(key + world_position_quantized.z);
-    key = pcg_hash(key + world_normal_quantized.x);
-    key = pcg_hash(key + world_normal_quantized.y);
-    key = pcg_hash(key + world_normal_quantized.z);
-    return wrap_key(key);
-}
+fn quantize_position(world_position: vec3<f32>, view_position: vec3<f32>) -> vec3<f32> {
+    let base_size = WORLD_CACHE_POSITION_BASE_CELL_SIZE;
+    let d = distance(view_position, world_position);
+    let step = max((d * base_size) / 7.0, base_size);
+    let quantization_factor = exp2(floor(log2(step)));
 
-fn compute_checksum(world_position: vec3<f32>, world_normal: vec3<f32>) -> u32 {
-    let world_position_quantized = bitcast<vec3<u32>>(quantize_position(world_position));
-    let world_normal_quantized = bitcast<vec3<u32>>(quantize_normal(world_normal));
-    var key = iqint_hash(world_position_quantized.x);
-    key = iqint_hash(key + world_position_quantized.y);
-    key = iqint_hash(key + world_position_quantized.z);
-    key = iqint_hash(key + world_normal_quantized.x);
-    key = iqint_hash(key + world_normal_quantized.y);
-    key = iqint_hash(key + world_normal_quantized.z);
-    return key;
-}
-
-fn quantize_position(world_position: vec3<f32>) -> vec3<f32> {
-    return floor((world_position + 0.0001) * WORLD_CACHE_POSITION_DISCRETIZATION_FACTOR);
+    return floor(world_position / quantization_factor + 0.0001);
 }
 
 fn quantize_normal(world_normal: vec3<f32>) -> vec3<f32> {
-    return floor(world_normal / WORLD_CACHE_NORMAL_DISCRETIZATION_FACTOR);
+    return floor(world_normal + 0.0001);
+}
+
+// TODO: Clustering
+fn compute_key(world_position: vec3<u32>, world_normal: vec3<u32>) -> u32 {
+    var key = pcg_hash(world_position.x);
+    key = pcg_hash(key + world_position.y);
+    key = pcg_hash(key + world_position.z);
+    key = pcg_hash(key + world_normal.x);
+    key = pcg_hash(key + world_normal.y);
+    key = pcg_hash(key + world_normal.z);
+    return wrap_key(key);
+}
+
+fn compute_checksum(world_position: vec3<u32>, world_normal: vec3<u32>) -> u32 {
+    var key = iqint_hash(world_position.x);
+    key = iqint_hash(key + world_position.y);
+    key = iqint_hash(key + world_position.z);
+    key = iqint_hash(key + world_normal.x);
+    key = iqint_hash(key + world_normal.y);
+    key = iqint_hash(key + world_normal.z);
+    return key;
 }
 
 fn pcg_hash(input: u32) -> u32 {

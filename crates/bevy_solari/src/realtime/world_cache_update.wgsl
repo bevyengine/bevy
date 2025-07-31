@@ -1,8 +1,10 @@
 #import bevy_pbr::utils::sample_cosine_hemisphere
+#import bevy_render::view::View
 #import bevy_solari::sampling::sample_random_light
 #import bevy_solari::scene_bindings::{trace_ray, resolve_ray_hit_full, RAY_T_MIN, RAY_T_MAX}
 #import bevy_solari::world_cache::{query_world_cache, world_cache_active_cells_count, world_cache_active_cell_indices, world_cache_geometry_data, world_cache_radiance, world_cache_active_cells_new_radiance}
 
+@group(1) @binding(12) var<uniform> view: View;
 struct PushConstants { frame_index: u32, reset: u32 }
 var<push_constant> constants: PushConstants;
 
@@ -23,7 +25,7 @@ fn sample_radiance(@builtin(global_invocation_id) active_cell_id: vec3<u32>) {
         let ray_hit = trace_ray(geometry_data.world_position, ray_direction, RAY_T_MIN, RAY_T_MAX, RAY_FLAG_NONE);
         if ray_hit.kind != RAY_QUERY_INTERSECTION_NONE {
             let ray_hit = resolve_ray_hit_full(ray_hit);
-            new_radiance += ray_hit.material.base_color * query_world_cache(ray_hit.world_position, ray_hit.geometric_world_normal);
+            new_radiance += ray_hit.material.base_color * query_world_cache(ray_hit.world_position, ray_hit.geometric_world_normal, view.world_position);
         }
 #endif
 
