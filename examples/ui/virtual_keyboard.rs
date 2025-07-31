@@ -59,7 +59,7 @@ fn setup(mut commands: Commands) {
     commands.spawn(Camera2d);
     let callback = commands.register_system(on_virtual_key_pressed);
 
-    let layout = vec![
+    let layout = [
         vec!["1", "2", "3", "4", "5", "6", "7", "8", "9", "0", ".", ","],
         vec!["Q", "W", "E", "R", "T", "Y", "U", "I", "O", "P"],
         vec!["A", "S", "D", "F", "G", "H", "J", "K", "L", "'"],
