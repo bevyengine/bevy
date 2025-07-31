@@ -92,7 +92,7 @@ fn spatial_and_shade(@builtin(global_invocation_id) global_id: vec3<u32>) {
     textureStore(view_output, global_id.xy, vec4(pixel_color, 1.0));
 }
 
-fn generate_initial_reservoir(world_position: vec3<f32>, world_normal: vec3<f32>, diffuse_brdf: vec3<f32>, workgroup_id: vec2<u32>, rng: ptr<function, u32>) -> Reservoir{
+fn generate_initial_reservoir(world_position: vec3<f32>, world_normal: vec3<f32>, diffuse_brdf: vec3<f32>, workgroup_id: vec2<u32>, rng: ptr<function, u32>) -> Reservoir {
     var workgroup_rng = (workgroup_id.x * 5782582u) + workgroup_id.y;
     let light_tile_start = rand_range_u(128u, &workgroup_rng) * 1024u;
 
@@ -287,7 +287,6 @@ fn merge_reservoirs(
     diffuse_brdf: vec3<f32>,
     rng: ptr<function, u32>,
 ) -> ReservoirMergeResult {
-    // TODO: Balance heuristic MIS weights
     let mis_weight_denominator = 1.0 / (canonical_reservoir.confidence_weight + other_reservoir.confidence_weight);
 
     let canonical_mis_weight = canonical_reservoir.confidence_weight * mis_weight_denominator;

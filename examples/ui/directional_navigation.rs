@@ -361,7 +361,7 @@ fn highlight_focused_element(
         if input_focus.0 == Some(entity) && input_focus_visible.0 {
             // Don't change the border size / radius here,
             // as it would result in wiggling buttons when they are focused
-            *border_color = BorderColor::all(FOCUSED_BORDER.into());
+            *border_color = BorderColor::all(FOCUSED_BORDER);
         } else {
             *border_color = BorderColor::DEFAULT;
         }
