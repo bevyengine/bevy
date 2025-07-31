@@ -70,7 +70,7 @@ pub mod prelude {
     };
 }
 
-use bevy_app::{prelude::*, AnimationSystems};
+use bevy_app::{prelude::*, AnimationSystems, HierarchyPropagatePlugin};
 use bevy_ecs::prelude::*;
 use bevy_input::InputSystems;
 use bevy_render::camera::CameraUpdateSystems;
@@ -182,6 +182,8 @@ impl Plugin for UiPlugin {
                 )
                     .chain(),
             )
+            .add_plugins(HierarchyPropagatePlugin::<ComputedNodeTarget>::default())
+            .add_systems(Update, update_ui_context_system)
             .add_systems(
                 PreUpdate,
                 ui_focus_system.in_set(UiSystems::Focus).after(InputSystems),
@@ -206,7 +208,6 @@ impl Plugin for UiPlugin {
         app.add_systems(
             PostUpdate,
             (
-                update_ui_context_system.in_set(UiSystems::Prepare),
                 ui_layout_system_config,
                 ui_stack_system
                     .in_set(UiSystems::Stack)
