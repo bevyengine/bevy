@@ -20,6 +20,8 @@ fn sample_radiance(@builtin(global_invocation_id) active_cell_id: vec3<u32>) {
         let direct_lighting = sample_random_light(geometry_data.world_position, geometry_data.world_normal, &rng);
         var new_radiance = direct_lighting.radiance * direct_lighting.inverse_pdf;
 
+        // TODO: Initialize newly active cells with data from the previous LOD
+
 #ifndef NO_MULTIBOUNCE
         let ray_direction = sample_cosine_hemisphere(geometry_data.world_normal, &rng);
         let ray_hit = trace_ray(geometry_data.world_position, ray_direction, RAY_T_MIN, RAY_T_MAX, RAY_FLAG_NONE);
