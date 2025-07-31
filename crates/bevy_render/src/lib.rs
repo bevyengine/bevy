@@ -372,6 +372,7 @@ impl Plugin for RenderPlugin {
                                 },
                                 noop: wgpu::NoopBackendOptions { enable: false },
                             },
+                            display: Some(display.display_handle().unwrap().as_raw()),
                         });
 
                         let surface = primary_window.and_then(|wrapper| {

@@ -1,3 +1,8 @@
+[patch.crates-io]
+wgpu = { git = "https://github.com/MarijnS95/wgpu/", rev = "23201c402" }
+wgpu-types = { git = "https://github.com/MarijnS95/wgpu/", rev = "23201c402" }
+naga = { git = "https://github.com/MarijnS95/wgpu/", rev = "23201c402" }
+
 [package]
 name = "bevy"
 version = "0.17.0-dev"
