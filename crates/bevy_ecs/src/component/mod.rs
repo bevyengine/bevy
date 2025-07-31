@@ -18,7 +18,6 @@ use crate::{
     system::{Local, SystemParam},
     world::{FromWorld, World},
 };
-use alloc::vec::Vec;
 pub use bevy_ecs_macros::Component;
 use core::{fmt::Debug, marker::PhantomData, ops::Deref};
 
@@ -523,12 +522,13 @@ pub trait Component: Send + Sync + 'static {
     }
 
     /// Registers required components.
+    ///
+    /// # Safety
+    ///
+    /// - `_required_components` must only contain components valid in `_components`.
     fn register_required_components(
         _component_id: ComponentId,
-        _components: &mut ComponentsRegistrator,
-        _required_components: &mut RequiredComponents,
-        _inheritance_depth: u16,
-        _recursion_check_stack: &mut Vec<ComponentId>,
+        _required_components: &mut RequiredComponentsRegistrator,
     ) {
     }
 
