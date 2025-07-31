@@ -43,14 +43,10 @@ fn blend_new_samples(@builtin(global_invocation_id) active_cell_id: vec3<u32>) {
 
         let old_radiance = world_cache_radiance[cell_index];
         let new_radiance = world_cache_active_cells_new_radiance[active_cell_id.x];
+        let sample_count = min(old_radiance.a + 1.0, 30.0);
 
-        var alpha = 0.1;
-        if old_radiance.a == 0.0 {
-            alpha = 1.0;
-        }
+        let blended_radiance = mix(old_radiance.rgb, new_radiance, 1.0 / sample_count);
 
-        let blended_radiance = mix(old_radiance.rgb, new_radiance, alpha);
-
-        world_cache_radiance[cell_index] = vec4(blended_radiance, 1.0);
+        world_cache_radiance[cell_index] = vec4(blended_radiance, sample_count);
     }
 }
