@@ -939,7 +939,7 @@ pub fn extract_text_sections(
             continue;
         };
 
-        let transform = Affine2::from(*transform) * Affine2::from_translation(-0.5 * uinode.size());
+        let transform = Affine2::from(*transform);
 
         for (
             i,
@@ -1028,9 +1028,7 @@ pub fn extract_text_shadows(
         };
 
         let node_transform = Affine2::from(*transform)
-            * Affine2::from_translation(
-                -0.5 * uinode.size() + shadow.offset / uinode.inverse_scale_factor(),
-            );
+            * Affine2::from_translation(shadow.offset / uinode.inverse_scale_factor());
 
         for (
             i,

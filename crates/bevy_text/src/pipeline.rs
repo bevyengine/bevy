@@ -352,7 +352,7 @@ impl TextPipeline {
                     let y =
                         line_y.round() + physical_glyph.y as f32 - top + glyph_size.y as f32 / 2.0;
 
-                    let position = Vec2::new(x, y);
+                    let position = Vec2::new(x, y) - 0.5 * box_size;
 
                     let pos_glyph = PositionedGlyph {
                         position,
