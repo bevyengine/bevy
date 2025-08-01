@@ -118,6 +118,8 @@ pub mod prelude {
     pub use crate::{assets::Gltf, assets::GltfExtras, label::GltfAssetLabel};
 }
 
+use crate::convert_coordinates::GltfConvertCoordinates;
+
 pub use {assets::*, label::GltfAssetLabel, loader::*};
 
 // Has to store an Arc<Mutex<...>> as there is no other way to mutate fields of asset loaders.
@@ -172,7 +174,7 @@ pub struct GltfPlugin {
     ///   - forward: -Z
     ///   - up: Y
     ///   - right: X
-    pub convert_coordinates: bool,
+    pub convert_coordinates: GltfConvertCoordinates,
 
     /// Registry for custom vertex attributes.
     ///
@@ -185,7 +187,7 @@ impl Default for GltfPlugin {
         GltfPlugin {
             default_sampler: ImageSamplerDescriptor::linear(),
             custom_vertex_attributes: HashMap::default(),
-            convert_coordinates: false,
+            convert_coordinates: GltfConvertCoordinates::default(),
         }
     }
 }

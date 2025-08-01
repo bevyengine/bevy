@@ -84,7 +84,7 @@ use self::{
         texture::{texture_handle, texture_sampler, texture_transform_to_affine2},
     },
 };
-use crate::convert_coordinates::ConvertCoordinates as _;
+use crate::convert_coordinates::{ConvertCoordinates as _, GltfConvertCoordinates};
 
 /// An error that occurs when loading a glTF file.
 #[derive(Error, Debug)]
@@ -164,7 +164,7 @@ pub struct GltfLoader {
     ///   - forward: -Z
     ///   - up: Y
     ///   - right: X
-    pub default_convert_coordinates: bool,
+    pub default_convert_coordinates: GltfConvertCoordinates,
 }
 
 /// Specifies optional settings for processing gltfs at load time. By default, all recognized contents of
@@ -222,7 +222,7 @@ pub struct GltfLoaderSettings {
     ///   - right: X
     ///
     /// If `None`, uses the global default set by [`GltfPlugin::convert_coordinates`](crate::GltfPlugin::convert_coordinates).
-    pub convert_coordinates: Option<bool>,
+    pub convert_coordinates: Option<GltfConvertCoordinates>,
 }
 
 impl Default for GltfLoaderSettings {
@@ -326,7 +326,7 @@ impl GltfLoader {
                                 let translations: Vec<Vec3> = tr
                                     .map(Vec3::from)
                                     .map(|verts| {
-                                        if convert_coordinates {
+                                        if convert_coordinates.nodes {
                                             Vec3::convert_coordinates(verts)
                                         } else {
                                             verts
@@ -392,7 +392,7 @@ impl GltfLoader {
                                     .into_f32()
                                     .map(Quat::from_array)
                                     .map(|quat| {
-                                        if convert_coordinates {
+                                        if convert_coordinates.nodes {
                                             Quat::convert_coordinates(quat)
                                         } else {
                                             quat
@@ -699,7 +699,7 @@ impl GltfLoader {
                         accessor,
                         &buffer_data,
                         &loader.custom_vertex_attributes,
-                        convert_coordinates,
+                        convert_coordinates.meshes,
                     ) {
                         Ok((attribute, values)) => mesh.insert_attribute(attribute, values),
                         Err(err) => warn!("{}", err),
@@ -827,7 +827,7 @@ impl GltfLoader {
                     .map(|mats| {
                         mats.map(|mat| Mat4::from_cols_array_2d(&mat))
                             .map(|mat| {
-                                if convert_coordinates {
+                                if convert_coordinates.meshes {
                                     mat.convert_coordinates()
                                 } else {
                                     mat
@@ -916,7 +916,7 @@ impl GltfLoader {
                 &node,
                 children,
                 mesh,
-                node_transform(&node, convert_coordinates),
+                node_transform(&node, convert_coordinates.nodes),
                 skin,
                 node.extras().as_deref().map(GltfExtras::from),
             );
@@ -1410,10 +1410,10 @@ fn load_node(
     #[cfg(feature = "bevy_animation")] animation_roots: &HashSet<usize>,
     #[cfg(feature = "bevy_animation")] mut animation_context: Option<AnimationContext>,
     document: &Document,
-    convert_coordinates: bool,
+    convert_coordinates: GltfConvertCoordinates,
 ) -> Result<(), GltfError> {
     let mut gltf_error = None;
-    let transform = node_transform(gltf_node, convert_coordinates);
+    let transform = node_transform(gltf_node, convert_coordinates.nodes);
     let world_transform = *parent_transform * transform;
     // according to https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#instantiation,
     // if the determinant of the transform is negative we must invert the winding order of

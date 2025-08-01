@@ -1,4 +1,5 @@
 use core::f32::consts::PI;
+use serde::{Deserialize, Serialize};
 
 use bevy_math::{Mat4, Quat, Vec3};
 use bevy_transform::components::Transform;
@@ -78,4 +79,11 @@ impl ConvertCameraCoordinates for Transform {
         self.rotate_y(PI);
         self
     }
+}
+
+#[derive(Copy, Clone, Default, Debug, Serialize, Deserialize)]
+pub struct GltfConvertCoordinates {
+    pub nodes: bool,
+    pub scene: bool,
+    pub meshes: bool,
 }
