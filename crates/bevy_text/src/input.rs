@@ -79,14 +79,15 @@ fn get_cosmic_text_buffer_contents(buffer: &Buffer) -> String {
 /// The text input buffer.
 /// Primary component that contains the text layout.
 ///
-/// To determine if the `TextLayoutInfo` needs to be updated check the `redraw` method on the `editor` buffer.
-/// Change detection is not reliable as the editor needs to be borrowed mutably during updates.
+/// The `needs_redraw` method can be used to check if the buffer's contents have changed and need redrawing.
+/// Component change detection is not reliable as the editor buffer needs to be borrowed mutably during updates.
 #[derive(Component, Debug)]
 #[require(TextInputAttributes, TextInputTarget, TextEdits, TextLayoutInfo)]
 pub struct TextInputBuffer {
-    /// The cosmic text editor buffer
+    /// The cosmic text editor buffer.
     pub editor: Editor<'static>,
-    /// Space advance width for the current font
+    /// Space advance width for the current font, used to determine the width of the cursor when it is at the end of a line
+    /// or when the buffer is empty.
     pub space_advance: f32,
 }
 
@@ -127,6 +128,11 @@ impl TextInputBuffer {
     /// Get the text contained in the text buffer
     pub fn get_text(&self) -> String {
         self.editor.with_buffer(get_cosmic_text_buffer_contents)
+    }
+
+    /// Returns true if the buffer's contents have changed and need to be redrawn.
+    pub fn needs_redraw(&self) -> bool {
+        self.editor.redraw()
     }
 }
 
