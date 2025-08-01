@@ -133,12 +133,12 @@ impl TextInputBuffer {
 /// Component containing the change history for a text input.
 /// Text input entities without this component will ignore undo and redo actions.
 #[derive(Component, Debug, Default)]
-pub struct TextInputUndoHistory {
+pub struct UndoHistory {
     /// The commands to undo and undo
     pub changes: cosmic_undo_2::Commands<cosmic_text::Change>,
 }
 
-impl TextInputUndoHistory {
+impl UndoHistory {
     /// Clear the history for the text input
     pub fn clear(&mut self) {
         self.changes.clear();
@@ -478,7 +478,7 @@ pub fn apply_text_edits(
         &mut TextEdits,
         &TextInputAttributes,
         Option<&TextInputFilter>,
-        Option<&mut TextInputUndoHistory>,
+        Option<&mut UndoHistory>,
         Option<&mut TextInputValue>,
     )>,
     mut clipboard: ResMut<Clipboard>,
@@ -944,7 +944,7 @@ pub fn update_text_input_layouts(
 /// Apply a text input action to a text input
 fn apply_text_edit(
     mut editor: BorrowedWithFontSystem<'_, Editor<'static>>,
-    mut maybe_history: Option<&mut TextInputUndoHistory>,
+    mut maybe_history: Option<&mut UndoHistory>,
     maybe_filter: Option<&TextInputFilter>,
     max_chars: Option<usize>,
     clipboard_contents: &mut ResMut<Clipboard>,
