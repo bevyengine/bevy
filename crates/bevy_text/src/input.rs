@@ -655,7 +655,7 @@ pub fn update_text_input_buffers(
     }
 }
 
-/// Update password masks to mirror the underlying `TextInputBuffer`.
+/// Update each [`PasswordMask`] to mirror its underlying [`TextInputBuffer`].
 ///
 /// The recommended practice is to use fixed-width fonts for password inputs.
 /// With variable sized fonts the glyph geometry of the password mask editor buffer may not match the
