@@ -202,7 +202,7 @@ fn on_insert_text_input_value(mut world: DeferredWorld, context: HookContext) {
 /// On changes, the text input systems will automatically update the buffer, layout and fonts as required.
 #[derive(Component, Debug, PartialEq)]
 pub struct TextInputAttributes {
-    /// The text input's font, also used for any prompt or password mask.
+    /// The text input's font, also used for any [`Placeholder`] text or password mask.
     /// A text input's glyphs must all be from the same font.
     pub font: Handle<Font>,
     /// The size of the font.
@@ -247,7 +247,7 @@ impl Default for TextInputAttributes {
     }
 }
 
-/// Any actions that modify a text input's text so that it fails
+/// Any actions that modify a [`TextInputBuffer`]'s text so that it fails
 /// to pass the filter are not applied.
 #[derive(Component)]
 pub enum TextInputFilter {
@@ -1145,39 +1145,39 @@ pub enum TextInputEvent {
     },
 }
 
-/// Prompt displayed when the input is empty (including whitespace).
+/// Placeholder text displayed when the input is empty (including whitespace).
 /// Optional component.
 #[derive(Default, Component, Clone, Debug, Reflect, Deref, DerefMut)]
 #[reflect(Component, Default, Debug)]
-#[require(PromptLayout)]
-pub struct Prompt(pub String);
+#[require(PlaceholderLayout)]
+pub struct Placeholder(pub String);
 
-impl Prompt {
-    /// A new prompt.
+impl Placeholder {
+    /// A new [`Placeholder`] text.
     pub fn new(prompt: impl Into<String>) -> Self {
         Self(prompt.into())
     }
 }
 
-/// Layout for the prompt text
+/// Layout for the [`Placeholder`] text
 #[derive(Component)]
-pub struct PromptLayout {
-    /// Prompt's cosmic-text buffer (not an Editor as isn't editable)
+pub struct PlaceholderLayout {
+    /// A [`Placeholder`] text's cosmic-text buffer (not an Editor as isn't editable)
     buffer: Buffer,
-    /// Prompt's text layout, displayed when the text input is empty.
-    /// Doesn't reuse the editor's `TextLayoutInfo` as otherwise the prompt would need a relayout
+    /// A [`Placeholder`] text's glyph layout. Displayed when the text input is empty.
+    /// Doesn't reuse the editor's [`TextLayoutInfo`] as otherwise the placeholder would need a relayout
     /// everytime it was displayed.
     layout: TextLayoutInfo,
 }
 
-impl PromptLayout {
-    /// Get the text layout
+impl PlaceholderLayout {
+    /// Returns the renderable glyph layout for the associated [`Placeholder`] text
     pub fn layout(&self) -> &TextLayoutInfo {
         &self.layout
     }
 }
 
-impl Default for PromptLayout {
+impl Default for PlaceholderLayout {
     fn default() -> Self {
         Self {
             buffer: Buffer::new_empty(Metrics::new(20.0, 20.0)),
@@ -1186,8 +1186,8 @@ impl Default for PromptLayout {
     }
 }
 
-/// Generates a new text prompt layout when a prompt's text or its target's geometry has changed.
-pub fn update_text_input_prompt_layouts(
+/// Generates a new [`PlaceholderLayout`] when a [`Placeholder`]'s text or its target's geometry has changed.
+pub fn update_placeholder_layouts(
     mut textures: ResMut<Assets<Image>>,
     fonts: Res<Assets<Font>>,
     mut font_system: ResMut<CosmicFontSystem>,
@@ -1197,26 +1197,26 @@ pub fn update_text_input_prompt_layouts(
     mut font_atlas_sets: ResMut<FontAtlasSets>,
     mut text_query: Query<
         (
-            &Prompt,
+            &Placeholder,
             &TextInputAttributes,
             &TextInputTarget,
             &TextFont,
-            &mut PromptLayout,
+            &mut PlaceholderLayout,
         ),
         Or<(
-            Changed<Prompt>,
+            Changed<Placeholder>,
             Changed<TextInputAttributes>,
             Changed<TextFont>,
             Changed<TextInputTarget>,
         )>,
     >,
 ) {
-    for (prompt, style, target, text_font, mut prompt_layout) in text_query.iter_mut() {
-        let PromptLayout { buffer, layout } = prompt_layout.as_mut();
+    for (placeholder, style, target, text_font, mut prompt_layout) in text_query.iter_mut() {
+        let PlaceholderLayout { buffer, layout } = prompt_layout.as_mut();
 
         layout.clear();
 
-        if prompt.0.is_empty() || target.is_empty() {
+        if placeholder.0.is_empty() || target.is_empty() {
             continue;
         }
 
@@ -1254,7 +1254,7 @@ pub fn update_text_input_prompt_layouts(
 
         buffer.set_text(
             &mut font_system,
-            &prompt.0,
+            &placeholder.0,
             &attrs,
             cosmic_text::Shaping::Advanced,
         );
