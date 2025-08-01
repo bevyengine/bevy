@@ -83,7 +83,6 @@ impl ConvertCameraCoordinates for Transform {
 
 #[derive(Copy, Clone, Default, Debug, Serialize, Deserialize)]
 pub struct GltfConvertCoordinates {
-    pub nodes: bool,
     pub scene: bool,
     pub meshes: bool,
 }

@@ -323,16 +323,7 @@ impl GltfLoader {
                         match outputs {
                             ReadOutputs::Translations(tr) => {
                                 let translation_property = animated_field!(Transform::translation);
-                                let translations: Vec<Vec3> = tr
-                                    .map(Vec3::from)
-                                    .map(|verts| {
-                                        if convert_coordinates.nodes {
-                                            Vec3::convert_coordinates(verts)
-                                        } else {
-                                            verts
-                                        }
-                                    })
-                                    .collect();
+                                let translations: Vec<Vec3> = tr.map(Vec3::from).collect();
                                 if keyframe_timestamps.len() == 1 {
                                     Some(VariableCurve::new(AnimatableCurve::new(
                                         translation_property,
@@ -388,17 +379,8 @@ impl GltfLoader {
                             }
                             ReadOutputs::Rotations(rots) => {
                                 let rotation_property = animated_field!(Transform::rotation);
-                                let rotations: Vec<Quat> = rots
-                                    .into_f32()
-                                    .map(Quat::from_array)
-                                    .map(|quat| {
-                                        if convert_coordinates.nodes {
-                                            Quat::convert_coordinates(quat)
-                                        } else {
-                                            quat
-                                        }
-                                    })
-                                    .collect();
+                                let rotations: Vec<Quat> =
+                                    rots.into_f32().map(Quat::from_array).collect();
                                 if keyframe_timestamps.len() == 1 {
                                     Some(VariableCurve::new(AnimatableCurve::new(
                                         rotation_property,
@@ -916,7 +898,7 @@ impl GltfLoader {
                 &node,
                 children,
                 mesh,
-                node_transform(&node, convert_coordinates.nodes),
+                node_transform(&node),
                 skin,
                 node.extras().as_deref().map(GltfExtras::from),
             );
@@ -968,7 +950,6 @@ impl GltfLoader {
                             #[cfg(feature = "bevy_animation")]
                             None,
                             &gltf.document,
-                            convert_coordinates,
                         );
                         if result.is_err() {
                             err = Some(result);
@@ -1410,10 +1391,9 @@ fn load_node(
     #[cfg(feature = "bevy_animation")] animation_roots: &HashSet<usize>,
     #[cfg(feature = "bevy_animation")] mut animation_context: Option<AnimationContext>,
     document: &Document,
-    convert_coordinates: GltfConvertCoordinates,
 ) -> Result<(), GltfError> {
     let mut gltf_error = None;
-    let transform = node_transform(gltf_node, convert_coordinates.nodes);
+    let transform = node_transform(gltf_node);
     let world_transform = *parent_transform * transform;
     // according to https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#instantiation,
     // if the determinant of the transform is negative we must invert the winding order of
@@ -1682,7 +1662,6 @@ fn load_node(
                 #[cfg(feature = "bevy_animation")]
                 animation_context.clone(),
                 document,
-                convert_coordinates,
             ) {
                 gltf_error = Some(err);
                 return;
