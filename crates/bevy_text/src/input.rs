@@ -161,8 +161,9 @@ impl TextInputTarget {
     }
 }
 
-/// Contains the current text in the text input buffer
-/// If inserted, replaces the current text in the text buffer
+/// Contains the current text in the text input buffer.
+/// Automatically synchronised with the buffer by [`apply_text_edits`] after any edits are applied.
+/// On insertion, replaces the current text in the text buffer.
 #[derive(Component, PartialEq, Debug, Default, Deref)]
 #[component(
     on_insert = on_insert_text_input_value,
