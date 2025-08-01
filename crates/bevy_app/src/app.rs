@@ -1573,12 +1573,15 @@ mod tests {
     #[derive(ScheduleLabel, Hash, Clone, PartialEq, Eq, Debug)]
     struct EnterMainMenu;
 
+    #[derive(Component)]
+    struct A;
+
     fn bar(mut commands: Commands) {
-        commands.spawn_empty();
+        commands.spawn(A);
     }
 
     fn foo(mut commands: Commands) {
-        commands.spawn_empty();
+        commands.spawn(A);
     }
 
     #[test]
@@ -1587,7 +1590,7 @@ mod tests {
         app.add_systems(EnterMainMenu, (foo, bar));
 
         app.world_mut().run_schedule(EnterMainMenu);
-        assert_eq!(app.world().entity_count(), 2);
+        assert_eq!(app.world_mut().query::<&A>().query(app.world()).count(), 2);
     }
 
     #[test]

@@ -5,11 +5,11 @@
 #import bevy_pbr::pbr_deferred_types::unpack_24bit_normal
 #import bevy_pbr::prepass_bindings::PreviousViewUniforms
 #import bevy_pbr::rgb9e5::rgb9e5_to_vec3_
-#import bevy_pbr::utils::{rand_f, rand_range_u, octahedral_decode}
+#import bevy_pbr::utils::{rand_f, rand_range_u, octahedral_decode, sample_disk}
 #import bevy_render::maths::PI
 #import bevy_render::view::View
 #import bevy_solari::presample_light_tiles::{ResolvedLightSamplePacked, unpack_resolved_light_sample}
-#import bevy_solari::sampling::{LightSample, calculate_resolved_light_contribution, resolve_and_calculate_light_contribution, resolve_light_sample, trace_light_visibility, sample_disk}
+#import bevy_solari::sampling::{LightSample, calculate_resolved_light_contribution, resolve_and_calculate_light_contribution, resolve_light_sample, trace_light_visibility}
 #import bevy_solari::scene_bindings::{light_sources, previous_frame_light_id_translations, LIGHT_NOT_PRESENT_THIS_FRAME}
 
 @group(1) @binding(0) var view_output: texture_storage_2d<rgba16float, read_write>;
@@ -92,7 +92,7 @@ fn spatial_and_shade(@builtin(global_invocation_id) global_id: vec3<u32>) {
     textureStore(view_output, global_id.xy, vec4(pixel_color, 1.0));
 }
 
-fn generate_initial_reservoir(world_position: vec3<f32>, world_normal: vec3<f32>, diffuse_brdf: vec3<f32>, workgroup_id: vec2<u32>, rng: ptr<function, u32>) -> Reservoir{
+fn generate_initial_reservoir(world_position: vec3<f32>, world_normal: vec3<f32>, diffuse_brdf: vec3<f32>, workgroup_id: vec2<u32>, rng: ptr<function, u32>) -> Reservoir {
     var workgroup_rng = (workgroup_id.x * 5782582u) + workgroup_id.y;
     let light_tile_start = rand_range_u(128u, &workgroup_rng) * 1024u;
 
@@ -266,7 +266,6 @@ fn merge_reservoirs(
     diffuse_brdf: vec3<f32>,
     rng: ptr<function, u32>,
 ) -> ReservoirMergeResult {
-    // TODO: Balance heuristic MIS weights
     let mis_weight_denominator = 1.0 / (canonical_reservoir.confidence_weight + other_reservoir.confidence_weight);
 
     let canonical_mis_weight = canonical_reservoir.confidence_weight * mis_weight_denominator;

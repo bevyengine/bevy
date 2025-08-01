@@ -500,9 +500,10 @@ mod tests {
     use bevy_platform::collections::HashMap;
     use bevy_ptr::OwningPtr;
 
-    use crate::component::ComponentId;
     use crate::{
         change_detection::MaybeLocation,
+        component::ComponentId,
+        entity_disabling::Internal,
         observer::{Observer, Replace},
         prelude::*,
         traversal::Traversal,
@@ -716,8 +717,15 @@ mod tests {
 
         world.spawn(A).flush();
         assert_eq!(vec!["add_2", "add_1"], world.resource::<Order>().0);
-        // Our A entity plus our two observers
-        assert_eq!(world.entity_count(), 3);
+        // we have one A entity and two observers
+        assert_eq!(world.query::<&A>().query(&world).count(), 1);
+        assert_eq!(
+            world
+                .query_filtered::<&Observer, Allows<Internal>>()
+                .query(&world)
+                .count(),
+            2
+        );
     }
 
     #[test]
@@ -1372,5 +1380,23 @@ mod tests {
         let counter = world.resource::<Counter>();
         assert_eq!(4, *counter.0.get(&a_id).unwrap());
         assert_eq!(3, *counter.0.get(&b_id).unwrap());
+    }
+
+    #[test]
+    fn observer_watch_entities() {
+        let mut world = World::new();
+        world.init_resource::<Order>();
+        let entities = world
+            .spawn_batch(core::iter::repeat_n((), 4))
+            .collect::<Vec<_>>();
+        let observer = Observer::new(|_: On<EventA>, mut order: ResMut<Order>| {
+            order.observed("a");
+        });
+        world.spawn(observer.with_entities(entities.iter().copied().take(2)));
+
+        world.trigger_targets(EventA, [entities[0], entities[1]]);
+        assert_eq!(vec!["a", "a"], world.resource::<Order>().0);
+        world.trigger_targets(EventA, [entities[2], entities[3]]);
+        assert_eq!(vec!["a", "a"], world.resource::<Order>().0);
     }
 }

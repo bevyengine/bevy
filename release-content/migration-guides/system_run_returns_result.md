@@ -3,7 +3,7 @@ title: "`System::run` returns `Result`"
 pull_requests: [19145]
 ---
 
-In order to support fallible systems and parameter-based system skipping like `Single` and `When<T>` in more places, `System::run` and related methods now return a `Result` instead of a plain value.  
+In order to support fallible systems and parameter-based system skipping like `Single` and `If<T>` in more places, `System::run` and related methods now return a `Result` instead of a plain value.
 
 If you were calling `System::run`, `System::run_unsafe`, `System::run_without_applying_deferred`, or `ReadOnlySystem::run_readonly`, the simplest solution is to `unwrap()` the resulting `Result`.
 The only case where an infallible system will return `Err` is an invalid parameter, such as a missing resource, and those cases used to panic.

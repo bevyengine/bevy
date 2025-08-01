@@ -2172,9 +2172,7 @@ mod tests {
         world.spawn((B(0), C(0)));
         world.spawn(C(0));
 
-        let mut df = DefaultQueryFilters::empty();
-        df.register_disabling_component(world.register_component::<C>());
-        world.insert_resource(df);
+        world.register_disabling_component::<C>();
 
         // Without<C> only matches the first entity
         let mut query = QueryState::<()>::new(&mut world);
@@ -2214,30 +2212,28 @@ mod tests {
         let mut query = QueryState::<()>::new(&mut world);
         // There are no sparse components involved thus the query is dense
         assert!(query.is_dense);
-        assert_eq!(3, query.iter(&world).count());
+        assert_eq!(3, query.query(&world).count());
 
-        let mut df = DefaultQueryFilters::empty();
-        df.register_disabling_component(world.register_component::<Sparse>());
-        world.insert_resource(df);
+        world.register_disabling_component::<Sparse>();
 
         let mut query = QueryState::<()>::new(&mut world);
         // The query doesn't ask for sparse components, but the default filters adds
         // a sparse components thus it is NOT dense
         assert!(!query.is_dense);
-        assert_eq!(1, query.iter(&world).count());
+        assert_eq!(1, query.query(&world).count());
 
-        let mut df = DefaultQueryFilters::empty();
+        let mut df = DefaultQueryFilters::from_world(&mut world);
         df.register_disabling_component(world.register_component::<Table>());
         world.insert_resource(df);
 
         let mut query = QueryState::<()>::new(&mut world);
         // If the filter is instead a table components, the query can still be dense
         assert!(query.is_dense);
-        assert_eq!(1, query.iter(&world).count());
+        assert_eq!(1, query.query(&world).count());
 
         let mut query = QueryState::<&Sparse>::new(&mut world);
         // But only if the original query was dense
         assert!(!query.is_dense);
-        assert_eq!(1, query.iter(&world).count());
+        assert_eq!(1, query.query(&world).count());
     }
 }
