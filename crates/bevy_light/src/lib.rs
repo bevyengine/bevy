@@ -65,6 +65,7 @@ pub mod light_consts {
         pub const LUMENS_PER_LED_WATTS: f32 = 90.0;
         pub const LUMENS_PER_INCANDESCENT_WATTS: f32 = 13.8;
         pub const LUMENS_PER_HALOGEN_WATTS: f32 = 19.8;
+        pub const VERY_LARGE_CINEMA_LIGHT: f32 = 1_000_000.0;
     }
 
     /// Predefined for lux values in several locations.
