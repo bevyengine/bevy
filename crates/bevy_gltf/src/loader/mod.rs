@@ -26,7 +26,7 @@ use bevy_image::{
     CompressedImageFormats, Image, ImageLoaderSettings, ImageSampler, ImageSamplerDescriptor,
     ImageType, TextureError,
 };
-use bevy_math::{Mat4, Vec3};
+use bevy_math::{Mat4, Quat, Vec3};
 use bevy_mesh::{
     morph::{MeshMorphWeights, MorphAttributes, MorphTargetImage, MorphWeights},
     skinning::{SkinnedMesh, SkinnedMeshInverseBindposes},
@@ -931,8 +931,15 @@ impl GltfLoader {
             let mut entity_to_skin_index_map = EntityHashMap::default();
             let mut scene_load_context = load_context.begin_labeled_asset();
 
+            let world_root_rotation = if convert_coordinates.scene {
+                Quat::from_xyzw(0.0, 1.0, 0.0, 0.0)
+            } else {
+                Quat::IDENTITY
+            };
+            let world_root_transform = Transform::from_rotation(world_root_rotation);
+
             let world_root_id = world
-                .spawn((Transform::default(), Visibility::default()))
+                .spawn((world_root_transform, Visibility::default()))
                 .with_children(|parent| {
                     for node in scene.nodes() {
                         let result = load_node(
