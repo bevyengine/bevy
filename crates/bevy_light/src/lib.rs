@@ -65,6 +65,9 @@ pub mod light_consts {
         pub const LUMENS_PER_LED_WATTS: f32 = 90.0;
         pub const LUMENS_PER_INCANDESCENT_WATTS: f32 = 13.8;
         pub const LUMENS_PER_HALOGEN_WATTS: f32 = 19.8;
+        /// 1,000,000 lumens is a very large "cinema light" capable of registering brightly at Bevy's
+        /// default "very overcast day" exposure level. For "indoor lighting" with a lower exposure,
+        /// this would be way too bright.
         pub const VERY_LARGE_CINEMA_LIGHT: f32 = 1_000_000.0;
     }
 

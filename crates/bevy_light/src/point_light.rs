@@ -129,9 +129,6 @@ impl Default for PointLight {
     fn default() -> Self {
         PointLight {
             color: Color::WHITE,
-            // 1,000,000 lumens is a very large "cinema light" capable of registering brightly at Bevy's
-            // default "very overcast day" exposure level. For "indoor lighting" with a lower exposure,
-            // this would be way too bright.
             intensity: light_consts::lumens::VERY_LARGE_CINEMA_LIGHT,
             range: 20.0,
             radius: 0.0,
