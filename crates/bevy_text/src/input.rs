@@ -537,7 +537,7 @@ pub fn apply_text_edits(
                         action,
                     ) {
                         commands.trigger_targets(
-                            TextInputEvent::InvalidInput { text_input: entity },
+                            TextInputEvent::InvalidEdit { text_input: entity },
                             entity,
                         );
                     }
@@ -1119,30 +1119,21 @@ fn apply_text_edit(
     true
 }
 
-/// Event dispatched when a text input receives the [`TextInputAction::Submit`] action.
-/// Contains a copy of the buffer contents at the time when when the action was applied.
+/// Automatically propagated events that can be dispatched by a text input entity.
 #[derive(EntityEvent, Clone, Debug, Component, Reflect)]
 #[entity_event(traversal = &'static ChildOf, auto_propagate)]
 #[reflect(Component, Clone)]
 pub enum TextInputEvent {
-    /// The input received an invalid input that was filtered
-    InvalidInput {
-        /// The source text input entity
-        text_input: Entity,
-    },
+    /// The text input received an invalid `TextEdit` that was filtered
+    InvalidEdit,
     /// Text from the input was submitted
     Submission {
         /// The submitted text
         text: String,
-        /// The source text input entity
-        text_input: Entity,
     },
-    /// The contents of the text input changed due to an edit action.
-    /// Dispatched if a text input entity has a [`TextInputValue`] component.
-    ValueChanged {
-        /// The source text input entity
-        text_input: Entity,
-    },
+    /// The contents of the text input changed due to a [`TextEdit`].
+    /// Only dispatched if a text input entity has a [`TextInputValue`] component.
+    TextChanged,
 }
 
 /// Placeholder text displayed when the input is empty (including whitespace).
