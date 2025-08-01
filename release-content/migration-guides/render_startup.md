@@ -21,7 +21,6 @@ The following are the (public) resources that are now initialized in `RenderStar
 - `AutoExposurePipeline`
 - `MotionBlurPipeline`
 - `SkyboxPrepassPipeline`
-- `BlitPipeline`
 - `DepthOfFieldGlobalBindGroupLayout`
 - `DepthPyramidDummyTexture`
 - `OitBuffers`
