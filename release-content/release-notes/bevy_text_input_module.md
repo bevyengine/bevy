@@ -14,7 +14,8 @@ Features:
 * Input method agnostic, users queue `TextEdit`s to make changes to the text input's buffer.
 * Max character limit
 * Responsive height sizing.
-* Vertical and horizontal scrolling, fixed the cosmic text vertical scrolling clipping bug.
+* Vertical and horizontal scrolling
+* Fixes the line cropping while vertical scrolling bug in cosmic-text.
 * Full undo and redo.
 * Text selection.
 * Cut, copy and paste.
