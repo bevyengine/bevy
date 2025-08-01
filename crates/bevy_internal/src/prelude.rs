@@ -84,5 +84,9 @@ pub use crate::state::prelude::*;
 pub use crate::gltf::prelude::*;
 
 #[doc(hidden)]
+#[cfg(feature = "bevy_fbx")]
+pub use crate::fbx::prelude::*;
+
+#[doc(hidden)]
 #[cfg(feature = "bevy_picking")]
 pub use crate::picking::prelude::*;
