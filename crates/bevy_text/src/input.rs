@@ -473,7 +473,7 @@ fn apply_action<'a>(
     editor.set_redraw(true);
 }
 
-/// Apply each [`TextInputBuffer`]'s queued [`TextEdit`]s.
+/// Applies the [`TextEdit`]s queued for each [`TextInputBuffer`].
 /// After all the edits are applied, if the text input entity has a [`TextInputValue`] component, then
 /// the [`TextInputValue`]'s text is synchronised with the contents of the [`TextInputBuffer`].
 pub fn apply_text_edits(
