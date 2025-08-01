@@ -2,7 +2,7 @@ use alloc::{string::String, vec::Vec};
 use bevy_platform::sync::Arc;
 use core::{cell::RefCell, future::Future, marker::PhantomData, mem};
 
-use crate::Task;
+use crate::{block_on, Task};
 
 #[cfg(feature = "std")]
 use std::thread_local;
@@ -117,7 +117,7 @@ impl TaskPool {
     /// This is similar to `rayon::scope` and `crossbeam::scope`
     pub fn scope<'env, F, T>(&self, f: F) -> Vec<T>
     where
-        F: for<'scope> FnOnce(&'env mut Scope<'scope, 'env, T>),
+        F: for<'scope> FnOnce(&'scope mut Scope<'scope, 'env, T>),
         T: Send + 'static,
     {
         self.scope_with_executor(false, None, f)
@@ -136,7 +136,7 @@ impl TaskPool {
         f: F,
     ) -> Vec<T>
     where
-        F: for<'scope> FnOnce(&'env mut Scope<'scope, 'env, T>),
+        F: for<'scope> FnOnce(&'scope mut Scope<'scope, 'env, T>),
         T: Send + 'static,
     {
         // SAFETY: This safety comment applies to all references transmuted to 'env.
@@ -167,8 +167,10 @@ impl TaskPool {
 
         f(scope_ref);
 
-        // Loop until all tasks are done
-        while executor.try_tick() {}
+        // Loop until all tasks are complete
+        while !executor.is_empty() {
+            block_on(executor.tick());
+        }
 
         let results = scope.results.borrow();
         results
