@@ -9,42 +9,27 @@ license = "MIT OR Apache-2.0"
 keywords = ["bevy"]
 
 [features]
-default = ["std", "async_executor"]
+default = ["async_executor", "futures-lite"]
 
-# Functionality
-
-## Enables multi-threading support.
-## Without this feature, all tasks will be run on a single thread.
+# Enables multi-threading support.
+# Without this feature, all tasks will be run on a single thread.
 multi_threaded = [
-  "std",
+  "bevy_platform/std",
   "dep:async-channel",
   "dep:concurrent-queue",
   "async_executor",
 ]
 
-## Uses `async-executor` as a task execution backend.
-## This backend is incompatible with `no_std` targets.
-async_executor = ["std", "dep:async-executor"]
+# Uses `async-executor` as a task execution backend.
+# This backend is incompatible with `no_std` targets.
+async_executor = ["bevy_platform/std", "dep:async-executor"]
 
-# Platform Compatibility
+# Provide an implementation of `block_on` from  `futures-lite`.
+futures-lite = ["bevy_platform/std", "futures-lite/std"]
 
-## Allows access to the `std` crate. Enabling this feature will prevent compilation
-## on `no_std` targets, but provides access to certain additional features on
-## supported platforms.
-std = ["futures-lite/std", "async-task/std", "bevy_platform/std"]
-
-## `critical-section` provides the building blocks for synchronization primitives
-## on all platforms, including `no_std`.
-critical-section = ["bevy_platform/critical-section"]
-
-## Enables use of browser APIs.
-## Note this is currently only applicable on `wasm32` architectures.
-web = [
-  "bevy_platform/web",
-  "dep:wasm-bindgen-futures",
-  "dep:pin-project",
-  "dep:futures-channel",
-]
+# Use async-io's implementation of block_on instead of futures-lite's implementation.
+# This is preferred if your application uses async-io.
+async-io = ["bevy_platform/std", "dep:async-io"]
 
 [dependencies]
 bevy_platform = { path = "../bevy_platform", version = "0.17.0-dev", default-features = false, features = [
@@ -59,7 +44,6 @@ derive_more = { version = "2", default-features = false, features = [
   "deref",
   "deref_mut",
 ] }
-cfg-if = "1.0.0"
 async-executor = { version = "1.11", optional = true }
 async-channel = { version = "2.3.0", optional = true }
 async-io = { version = "2.0.0", optional = true }
@@ -70,9 +54,8 @@ crossbeam-queue = { version = "0.3", default-features = false, features = [
 ] }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
-wasm-bindgen-futures = { version = "0.4", optional = true }
-pin-project = { version = "1", optional = true }
-futures-channel = { version = "0.3", optional = true }
+pin-project = { version = "1" }
+futures-channel = { version = "0.3", default-features = false }
 
 [target.'cfg(not(all(target_has_atomic = "8", target_has_atomic = "16", target_has_atomic = "32", target_has_atomic = "64", target_has_atomic = "ptr")))'.dependencies]
 async-task = { version = "4.4.0", default-features = false, features = [
@@ -83,6 +66,11 @@ heapless = { version = "0.8", default-features = false, features = [
 ] }
 atomic-waker = { version = "1", default-features = false, features = [
   "portable-atomic",
+] }
+
+[dev-dependencies]
+futures-lite = { version = "2.0.1", default-features = false, features = [
+  "std",
 ] }
 
 [lints]

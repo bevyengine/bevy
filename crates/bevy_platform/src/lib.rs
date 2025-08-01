@@ -51,3 +51,14 @@ pub mod prelude {
     // * println
     // * thread_local
 }
+
+/// Re-exports of crates that are useful across Bevy.
+/// Not intended for external crates to use.
+#[doc(hidden)]
+pub mod exports {
+    crate::cfg::web! {
+        pub use js_sys;
+        pub use wasm_bindgen;
+        pub use wasm_bindgen_futures;
+    }
+}

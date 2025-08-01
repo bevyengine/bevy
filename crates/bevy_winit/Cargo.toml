@@ -68,9 +68,6 @@ crossbeam-channel = "0.5"
 bevy_app = { path = "../bevy_app", version = "0.17.0-dev", default-features = false, features = [
   "web",
 ] }
-bevy_tasks = { path = "../bevy_tasks", version = "0.17.0-dev", default-features = false, features = [
-  "web",
-] }
 bevy_platform = { path = "../bevy_platform", version = "0.17.0-dev", default-features = false, features = [
   "web",
 ] }

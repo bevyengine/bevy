@@ -1,13 +1,14 @@
 use alloc::boxed::Box;
 use core::{
     any::Any,
-    future::{Future, IntoFuture},
+    future::Future,
     panic::{AssertUnwindSafe, UnwindSafe},
     pin::Pin,
     task::{Context, Poll},
 };
 
 use futures_channel::oneshot;
+use bevy_platform::exports::wasm_bindgen_futures;
 
 /// Wraps an asynchronous task, a spawned future.
 ///
@@ -24,7 +25,7 @@ impl<T: 'static> Task<T> {
             let value = CatchUnwind(AssertUnwindSafe(future)).await;
             let _ = sender.send(value);
         });
-        Self(receiver.into_future())
+        Self(receiver)
     }
 
     /// When building for Wasm, this method has no effect.
@@ -60,12 +61,14 @@ impl<T> Future for Task<T> {
             // NOTE: Propagating the panic here sorta has parity with the async_executor behavior.
             // For those tasks, polling them after a panic returns a `None` which gets `unwrap`ed, so
             // using `resume_unwind` here is essentially keeping the same behavior while adding more information.
-            #[cfg(feature = "std")]
-            Poll::Ready(Ok(Err(panic))) => std::panic::resume_unwind(panic),
-            #[cfg(not(feature = "std"))]
-            Poll::Ready(Ok(Err(_panic))) => {
-                unreachable!("catching a panic is only possible with std")
-            }
+            Poll::Ready(Ok(Err(_panic))) => crate::cfg::switch! {{
+                crate::cfg::std => {
+                    std::panic::resume_unwind(_panic)
+                }
+                _ => {
+                    unreachable!("catching a panic is only possible with std")
+                }
+            }},
             Poll::Ready(Err(_)) => panic!("Polled a task after it was cancelled"),
             Poll::Pending => Poll::Pending,
         }
@@ -82,11 +85,14 @@ impl<F: Future + UnwindSafe> Future for CatchUnwind<F> {
     fn poll(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
         let f = AssertUnwindSafe(|| self.project().0.poll(cx));
 
-        #[cfg(feature = "std")]
-        let result = std::panic::catch_unwind(f)?;
-
-        #[cfg(not(feature = "std"))]
-        let result = f();
+        let result = crate::cfg::switch! {{
+            crate::cfg::std => {
+                std::panic::catch_unwind(f)?
+            }
+            _ => {
+                f()
+            }
+        }};
 
         result.map(Ok)
     }
