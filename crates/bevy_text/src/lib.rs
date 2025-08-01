@@ -139,7 +139,7 @@ impl Plugin for TextPlugin {
             PostUpdate,
             (
                 update_text_input_buffers,
-                apply_text_input_actions,
+                apply_text_edits,
                 update_password_masks,
                 update_text_input_layouts,
                 update_text_input_prompt_layouts,

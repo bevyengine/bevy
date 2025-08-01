@@ -82,7 +82,7 @@ fn get_cosmic_text_buffer_contents(buffer: &Buffer) -> String {
 /// To determine if the `TextLayoutInfo` needs to be updated check the `redraw` method on the `editor` buffer.
 /// Change detection is not reliable as the editor needs to be borrowed mutably during updates.
 #[derive(Component, Debug)]
-#[require(TextInputAttributes, TextInputTarget, TextInputActions, TextLayoutInfo)]
+#[require(TextInputAttributes, TextInputTarget, TextEdits, TextLayoutInfo)]
 pub struct TextInputBuffer {
     /// The cosmic text editor buffer
     pub editor: Editor<'static>,
@@ -185,11 +185,8 @@ impl TextInputValue {
 fn on_insert_text_input_value(mut world: DeferredWorld, context: HookContext) {
     if let Some(value) = world.get::<TextInputValue>(context.entity) {
         let value = value.0.clone();
-        if let Some(mut actions) = world
-            .entity_mut(context.entity)
-            .get_mut::<TextInputActions>()
-        {
-            actions.queue(TextInputAction::SetText(value));
+        if let Some(mut actions) = world.entity_mut(context.entity).get_mut::<TextEdits>() {
+            actions.queue(TextEdit::SetText(value));
         }
     }
 }
@@ -329,21 +326,21 @@ impl Default for TextInputPasswordMask {
 
 /// Text input commands queue
 #[derive(Component, Default)]
-pub struct TextInputActions {
+pub struct TextEdits {
     /// Commands to be applied before the text input is updated
-    pub queue: VecDeque<TextInputAction>,
+    pub queue: VecDeque<TextEdit>,
 }
 
-impl TextInputActions {
+impl TextEdits {
     /// queue an action
-    pub fn queue(&mut self, command: TextInputAction) {
+    pub fn queue(&mut self, command: TextEdit) {
         self.queue.push_back(command);
     }
 }
 
 /// Deferred text input edit and navigation actions applied by the `apply_text_input_actions` system.
 #[derive(Debug)]
-pub enum TextInputAction {
+pub enum TextEdit {
     /// Copy the selected text into the clipboard. Does nothing if no text selected.
     Copy,
     /// Copy the selected text into the clipboard, then delete the selected text. Does nothing if no text selected.
@@ -407,7 +404,7 @@ pub enum TextInputAction {
     Submit,
 }
 
-impl TextInputAction {
+impl TextEdit {
     /// An action that moves the cursor.
     /// If `with_select` is true, it selects as it moves
     pub fn motion(motion: Motion, with_select: bool) -> Self {
@@ -467,13 +464,13 @@ fn apply_action<'a>(
 
 /// Apply the queued actions for each text input, with special case for submit actions.
 /// Then update [`TextInputValue`]s
-pub fn apply_text_input_actions(
+pub fn apply_text_edits(
     mut commands: Commands,
     mut font_system: ResMut<CosmicFontSystem>,
     mut text_input_query: Query<(
         Entity,
         &mut TextInputBuffer,
-        &mut TextInputActions,
+        &mut TextEdits,
         &TextInputAttributes,
         Option<&TextInputFilter>,
         Option<&mut TextInputUndoHistory>,
@@ -493,7 +490,7 @@ pub fn apply_text_input_actions(
     {
         for action in text_input_actions.queue.drain(..) {
             match action {
-                TextInputAction::Submit => {
+                TextEdit::Submit => {
                     commands.trigger_targets(
                         TextInputEvent::Submission {
                             text: buffer.get_text(),
@@ -509,7 +506,7 @@ pub fn apply_text_input_actions(
                             maybe_filter,
                             attribs.max_chars,
                             &mut clipboard,
-                            TextInputAction::Clear,
+                            TextEdit::Clear,
                         );
 
                         if let Some(history) = maybe_history.as_mut() {
@@ -944,35 +941,35 @@ fn apply_text_input_action(
     maybe_filter: Option<&TextInputFilter>,
     max_chars: Option<usize>,
     clipboard_contents: &mut ResMut<Clipboard>,
-    action: TextInputAction,
+    action: TextEdit,
 ) -> bool {
     editor.start_change();
 
     match action {
-        TextInputAction::Copy => {
+        TextEdit::Copy => {
             if let Some(text) = editor.copy_selection() {
                 clipboard_contents.0 = text;
             }
         }
-        TextInputAction::Cut => {
+        TextEdit::Cut => {
             if let Some(text) = editor.copy_selection() {
                 clipboard_contents.0 = text;
                 editor.delete_selection();
             }
         }
-        TextInputAction::Paste => {
+        TextEdit::Paste => {
             editor.insert_string(&clipboard_contents.0, None);
         }
-        TextInputAction::Motion {
+        TextEdit::Motion {
             motion,
             with_select,
         } => {
             apply_motion(&mut editor, with_select, motion);
         }
-        TextInputAction::Insert(ch) => {
+        TextEdit::Insert(ch) => {
             editor.action(Action::Insert(ch));
         }
-        TextInputAction::Overwrite(ch) => match editor.selection() {
+        TextEdit::Overwrite(ch) => match editor.selection() {
             Selection::None => {
                 if is_cursor_at_end_of_line(&mut editor) {
                     editor.action(Action::Insert(ch));
@@ -983,96 +980,96 @@ fn apply_text_input_action(
             }
             _ => editor.action(Action::Insert(ch)),
         },
-        TextInputAction::NewLine => {
+        TextEdit::NewLine => {
             editor.action(Action::Enter);
         }
-        TextInputAction::Backspace => {
+        TextEdit::Backspace => {
             if !editor.delete_selection() {
                 editor.action(Action::Backspace);
             }
         }
-        TextInputAction::Delete => {
+        TextEdit::Delete => {
             if !editor.delete_selection() {
                 editor.action(Action::Delete);
             }
         }
-        TextInputAction::Indent => {
+        TextEdit::Indent => {
             editor.action(Action::Indent);
         }
-        TextInputAction::Unindent => {
+        TextEdit::Unindent => {
             editor.action(Action::Unindent);
         }
-        TextInputAction::Click(point) => {
+        TextEdit::Click(point) => {
             editor.action(Action::Click {
                 x: point.x,
                 y: point.y,
             });
         }
-        TextInputAction::DoubleClick(point) => {
+        TextEdit::DoubleClick(point) => {
             editor.action(Action::DoubleClick {
                 x: point.x,
                 y: point.y,
             });
         }
-        TextInputAction::TripleClick(point) => {
+        TextEdit::TripleClick(point) => {
             editor.action(Action::TripleClick {
                 x: point.x,
                 y: point.y,
             });
         }
-        TextInputAction::Drag(point) => {
+        TextEdit::Drag(point) => {
             editor.action(Action::Drag {
                 x: point.x,
                 y: point.y,
             });
         }
-        TextInputAction::Scroll { lines } => {
+        TextEdit::Scroll { lines } => {
             editor.action(Action::Scroll { lines });
         }
-        TextInputAction::Undo => {
+        TextEdit::Undo => {
             if let Some(history) = maybe_history.as_mut() {
                 for action in history.changes.undo() {
                     apply_action(&mut editor, action);
                 }
             }
         }
-        TextInputAction::Redo => {
+        TextEdit::Redo => {
             if let Some(history) = maybe_history.as_mut() {
                 for action in history.changes.redo() {
                     apply_action(&mut editor, action);
                 }
             }
         }
-        TextInputAction::SelectAll => {
+        TextEdit::SelectAll => {
             editor.action(Action::Motion(Motion::BufferStart));
             let cursor = editor.cursor();
             editor.set_selection(Selection::Normal(cursor));
             editor.action(Action::Motion(Motion::BufferEnd));
         }
-        TextInputAction::SelectLine => {
+        TextEdit::SelectLine => {
             editor.action(Action::Motion(Motion::Home));
             let cursor = editor.cursor();
             editor.set_selection(Selection::Normal(cursor));
             editor.action(Action::Motion(Motion::End));
         }
-        TextInputAction::Escape => {
+        TextEdit::Escape => {
             editor.set_selection(Selection::None);
         }
-        TextInputAction::Clear => {
+        TextEdit::Clear => {
             editor.action(Action::Motion(Motion::BufferStart));
             let cursor = editor.cursor();
             editor.set_selection(Selection::Normal(cursor));
             editor.action(Action::Motion(Motion::BufferEnd));
             editor.action(Action::Delete);
         }
-        TextInputAction::SetText(text) => {
+        TextEdit::SetText(text) => {
             editor.action(Action::Motion(Motion::Home));
             let cursor = editor.cursor();
             editor.set_selection(Selection::Normal(cursor));
             editor.action(Action::Motion(Motion::End));
             editor.insert_string(&text, None);
         }
-        TextInputAction::Submit => {}
+        TextEdit::Submit => {}
     }
 
     let Some(mut change) = editor.finish_change() else {
