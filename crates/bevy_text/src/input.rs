@@ -192,8 +192,8 @@ fn on_insert_text_input_value(mut world: DeferredWorld, context: HookContext) {
     }
 }
 
-/// Common text input properties set by the user that
-/// require a layout recomputation or font update on changes.
+/// Common text input properties set by the user.
+/// On changes, the text input systems will automatically update the buffer, layout and fonts as required.
 #[derive(Component, Debug, PartialEq)]
 pub struct TextInputAttributes {
     /// The text input's font, also used for any prompt or password mask.
@@ -215,11 +215,13 @@ pub struct TextInputAttributes {
     /// Any edits that extend the length above `max_chars` are ignored.
     /// If set on a buffer longer than `max_chars` the buffer will be truncated.
     pub max_chars: Option<usize>,
-    /// The number of lines the buffer will display at once.
-    /// Limited by the size of the target.
-    /// If None or equal or less than 0, will fill the target space.
-    pub lines: Option<f32>,
-    /// Clear on submit
+    /// The maximum number of lines the buffer will display without scrolling.
+    /// * Clamped between zero and target height divided by line height.
+    /// * If None or equal or less than 0, will fill the target space.
+    /// * Only restricts the maximum number of visible lines, places no constaint on the text buffer's length.
+    /// * Supports fractional values, `visible_lines: Some(2.5)` will display two and a half lines of text.
+    pub visible_lines: Option<f32>,
+    /// Clear on submit (Triggered when [`apply_text_edits`] recieves a [`TextEdit::Submit`] edit for an entity).
     pub clear_on_submit: bool,
 }
 
@@ -233,7 +235,7 @@ impl Default for TextInputAttributes {
             justify: Default::default(),
             line_break: Default::default(),
             max_chars: None,
-            lines: None,
+            visible_lines: None,
             clear_on_submit: false,
         }
     }
@@ -624,11 +626,12 @@ pub fn update_text_input_buffers(
                     .unwrap_or(0.0)
                     * buffer.metrics().font_size;
 
-                let height = if let Some(lines) = attributes.lines.filter(|lines| 0. < *lines) {
-                    (metrics.line_height * lines).max(target.size.y)
-                } else {
-                    target.size.y
-                };
+                let height =
+                    if let Some(lines) = attributes.visible_lines.filter(|lines| 0. < *lines) {
+                        (metrics.line_height * lines).max(target.size.y)
+                    } else {
+                        target.size.y
+                    };
 
                 buffer.set_size(
                     font_system,
