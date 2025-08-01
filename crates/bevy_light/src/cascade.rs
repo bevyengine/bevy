@@ -264,7 +264,7 @@ pub fn build_directional_light_cascades(
 /// The corner vertices should be specified in the following order:
 /// first the bottom right, top right, top left, bottom left for the near plane, then similar for the far plane.
 ///
-/// Reference: https://developer.download.nvidia.com/SDK/10.5/opengl/src/cascaded_shadow_maps/doc/cascaded_shadow_maps.pdf
+/// (Reference)[https://developer.download.nvidia.com/SDK/10.5/opengl/src/cascaded_shadow_maps/doc/cascaded_shadow_maps.pdf]
 fn calculate_cascade(
     frustum_corners: [Vec3A; 8],
     cascade_texture_size: f32,
