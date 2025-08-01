@@ -353,6 +353,12 @@ impl SubApp {
         self
     }
 
+    /// See [`App::add_plugins_if_new`].
+    pub fn add_plugins_if_new<M>(&mut self, plugins: impl Plugins<M>) -> &mut Self {
+        self.run_as_app(|app| plugins.add_to_app_if_new(app));
+        self
+    }
+
     /// See [`App::is_plugin_added`].
     pub fn is_plugin_added<T>(&self) -> bool
     where

@@ -504,6 +504,11 @@ impl App {
     }
 
     /// Returns `true` if the [`Plugin`] has already been added.
+    ///
+    /// # Note
+    ///
+    /// This method simply checks the plugin by [`core::any::type_name`], so it not always
+    /// returns a correct result.
     pub fn is_plugin_added<T>(&self) -> bool
     where
         T: Plugin,
@@ -554,6 +559,8 @@ impl App {
     /// You can also specify a group of [`Plugin`]s by using a tuple over [`Plugin`]s and
     /// [`PluginGroup`]s. See [`Plugins`] for more details.
     ///
+    /// Also see [`App::add_plugins_if_new`]
+    ///
     /// ## Examples
     /// ```
     /// # use bevy_app::{prelude::*, PluginGroupBuilder, NoopPluginGroup as MinimalPlugins};
@@ -586,6 +593,51 @@ impl App {
             );
         }
         plugins.add_to_app(self);
+        self
+    }
+
+    /// Installs a [`Plugin`] collection and skips the duplicate plugins.
+    ///
+    /// Also see See [`App::add_plugins`]
+    ///
+    /// ## Examples
+    /// ```
+    /// # use bevy_app::prelude::*;
+    /// #
+    /// # pub struct A;
+    /// # impl Plugin for A {
+    /// #     fn build(&self, app: &mut App) {}
+    /// # }
+    /// # pub struct B;
+    /// # impl Plugin for B {
+    /// #     fn build(&self, app: &mut App) {}
+    /// # }
+    /// # pub struct C;
+    /// # impl Plugin for C {
+    /// #     fn build(&self, app: &mut App) {}
+    /// # }
+    /// App::new()
+    ///     .add_plugins_if_new((A, B))
+    ///     // This will panic. Because plugin B has been added before.
+    ///     // .add_plugins((B, C))
+    ///     // This will work and result in plugins A, B, and C being added.
+    ///     .add_plugins_if_new((B, C));
+    /// ```
+    ///
+    /// # Note
+    /// If a plugin overrides [`Plugin::is_unique`] to return false, it can be
+    /// added multiple times even if it was already added. This behavior matches [`App::add_plugins`].
+    #[track_caller]
+    pub fn add_plugins_if_new<M>(&mut self, plugins: impl Plugins<M>) -> &mut Self {
+        if matches!(
+            self.plugins_state(),
+            PluginsState::Cleaned | PluginsState::Finished
+        ) {
+            panic!(
+                "Plugins cannot be added after App::cleanup() or App::finish() has been called."
+            );
+        }
+        plugins.add_to_app_if_new(self);
         self
     }
 
