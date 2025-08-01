@@ -473,8 +473,9 @@ fn apply_action<'a>(
     editor.set_redraw(true);
 }
 
-/// Apply the queued actions for each text input, with special case for submit actions.
-/// Then update [`TextInputValue`]s
+/// Apply each [`TextInputBuffer`]'s queued [`TextEdit`]s.
+/// After all the edits are applied, if the text input entity has a [`TextInputValue`] component, then
+/// the [`TextInputValue`]'s text is synchronised with the contents of the [`TextInputBuffer`].
 pub fn apply_text_edits(
     mut commands: Commands,
     mut font_system: ResMut<CosmicFontSystem>,
