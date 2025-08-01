@@ -359,7 +359,9 @@ pub enum TextEdit {
     /// Set the character at the cursor, overwriting the previous character. Inserts if cursor is at the end of a line.
     /// If there is a selection, replaces the selection with the character instead.
     Overwrite(char),
-    /// Start a new line.
+    /// Insert a string at the cursor. If there is a selection, replaces the selection with the string instead.
+    InsertString(String),
+    /// Start a new line. Ignored for single line text inputs.
     NewLine,
     /// Delete the character behind the cursor.
     /// If there is a selection, deletes the selection instead.
@@ -969,6 +971,9 @@ fn apply_text_input_action(
         }
         TextEdit::Insert(ch) => {
             editor.action(Action::Insert(ch));
+        }
+        TextEdit::InsertString(text) => {
+            editor.insert_string(&text, None);
         }
         TextEdit::Overwrite(ch) => match editor.selection() {
             Selection::None => {
