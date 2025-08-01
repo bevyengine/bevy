@@ -474,8 +474,9 @@ fn apply_action<'a>(
 }
 
 /// Applies the [`TextEdit`]s queued for each [`TextInputBuffer`].
-/// After all the edits are applied, if the text input entity has a [`TextInputValue`] component, then
-/// the [`TextInputValue`]'s text is synchronised with the contents of the [`TextInputBuffer`].
+///
+/// After all edits are applied, if a text input entity has a [TextInputValue] component and its buffer was changed,
+/// then the [TextInputValue]'s text is updated with the new contents of the [TextInputBuffer].
 pub fn apply_text_edits(
     mut commands: Commands,
     mut font_system: ResMut<CosmicFontSystem>,
