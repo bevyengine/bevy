@@ -1,12 +1,37 @@
 use super::ShaderDefVal;
-use crate::define_atomic_id;
 use alloc::borrow::Cow;
 use bevy_asset::{io::Reader, Asset, AssetLoader, AssetPath, Handle, LoadContext};
 use bevy_reflect::TypePath;
-use core::marker::Copy;
+use core::{marker::Copy, num::NonZero};
 use thiserror::Error;
 
-define_atomic_id!(ShaderId);
+#[derive(Copy, Clone, Hash, Eq, PartialEq, PartialOrd, Ord, Debug)]
+pub struct ShaderId(NonZero<u32>);
+
+impl ShaderId {
+    #[expect(
+        clippy::new_without_default,
+        reason = "Implementing the `Default` trait on atomic IDs would imply that two `<AtomicIdType>::default()` equal each other. By only implementing `new()`, we indicate that each atomic ID created will be unique."
+    )]
+    pub fn new() -> Self {
+        use core::sync::atomic::{AtomicU32, Ordering};
+        static COUNTER: AtomicU32 = AtomicU32::new(1);
+        let counter = COUNTER.fetch_add(1, Ordering::Relaxed);
+        Self(NonZero::<u32>::new(counter).unwrap_or_else(|| {
+            panic!("The system ran out of unique `{}`s.", stringify!(ShaderId));
+        }))
+    }
+}
+impl From<ShaderId> for NonZero<u32> {
+    fn from(value: ShaderId) -> Self {
+        value.0
+    }
+}
+impl From<NonZero<u32>> for ShaderId {
+    fn from(value: NonZero<u32>) -> Self {
+        Self(value)
+    }
+}
 
 #[derive(Error, Debug)]
 pub enum ShaderReflectError {
@@ -45,8 +70,7 @@ pub enum ValidateShader {
     Enabled,
 }
 
-/// A shader, as defined by its [`ShaderSource`](wgpu::ShaderSource) and [`ShaderStage`](naga::ShaderStage)
-/// This is an "unprocessed" shader. It can contain preprocessor directives.
+/// An "unprocessed" shader. It can contain preprocessor directives.
 #[derive(Asset, TypePath, Debug, Clone)]
 pub struct Shader {
     pub path: String,
