@@ -305,7 +305,7 @@ impl TextInputFilter {
 /// With variable width fonts mouse picking and horizontal scrolling
 /// may not work correctly.
 #[derive(Component)]
-pub struct TextInputPasswordMask {
+pub struct PasswordMask {
     /// If true the password will not be hidden
     pub show_password: bool,
     /// Char that will replace the masked input characters, by default `*`
@@ -314,7 +314,7 @@ pub struct TextInputPasswordMask {
     editor: Editor<'static>,
 }
 
-impl Default for TextInputPasswordMask {
+impl Default for PasswordMask {
     fn default() -> Self {
         Self {
             show_password: false,
@@ -646,7 +646,7 @@ pub fn update_text_input_buffers(
 /// With variable sized fonts the glyph geometry of the password mask editor buffer may not match the
 /// underlying editor buffer, possibly resulting in incorrect scrolling and mouse interactions.
 pub fn update_password_masks(
-    mut text_input_query: Query<(&mut TextInputBuffer, &mut TextInputPasswordMask)>,
+    mut text_input_query: Query<(&mut TextInputBuffer, &mut PasswordMask)>,
     mut cosmic_font_system: ResMut<CosmicFontSystem>,
 ) {
     let font_system = &mut cosmic_font_system.0;
@@ -763,7 +763,7 @@ pub fn update_text_input_layouts(
         &mut TextLayoutInfo,
         &mut TextInputBuffer,
         &TextInputAttributes,
-        Option<&mut TextInputPasswordMask>,
+        Option<&mut PasswordMask>,
     )>,
     mut font_system: ResMut<CosmicFontSystem>,
     mut swash_cache: ResMut<crate::pipeline::SwashCache>,
