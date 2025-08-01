@@ -67,11 +67,11 @@ use bevy_ecs::{
     prelude::*,
     system::{lifetimeless::SRes, SystemParamItem},
 };
+use bevy_render::renderer::RenderAdapterInfo;
+pub use bevy_render_macros::ShaderLabel;
 use core::{fmt::Debug, hash::Hash, iter, marker::PhantomData, ops::Range, slice::SliceIndex};
 use smallvec::SmallVec;
 use tracing::warn;
-
-pub use bevy_render_macros::ShaderLabel;
 
 define_label!(
     #[diagnostic::on_unimplemented(
@@ -658,9 +658,12 @@ where
         let mut draw_functions = draw_functions.write();
 
         let render_device = world.resource::<RenderDevice>();
+        let render_adapter_info = world.resource::<RenderAdapterInfo>();
         let multi_draw_indirect_count_supported = render_device
             .features()
-            .contains(Features::MULTI_DRAW_INDIRECT_COUNT);
+            .contains(Features::MULTI_DRAW_INDIRECT_COUNT)
+            // TODO: https://github.com/gfx-rs/wgpu/issues/7974
+            && !matches!(render_adapter_info.backend, wgpu::Backend::Dx12);
 
         match self.batch_sets {
             BinnedRenderPhaseBatchSets::DynamicUniforms(ref batch_sets) => {
