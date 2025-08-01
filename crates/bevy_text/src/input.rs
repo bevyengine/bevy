@@ -502,7 +502,7 @@ pub fn apply_text_edits(
                     );
 
                     if attribs.clear_on_submit {
-                        apply_text_input_action(
+                        apply_text_edit(
                             buffer.editor.borrow_with(&mut font_system),
                             maybe_history.as_mut().map(AsMut::as_mut),
                             maybe_filter,
@@ -517,7 +517,7 @@ pub fn apply_text_edits(
                     }
                 }
                 action => {
-                    if !apply_text_input_action(
+                    if !apply_text_edit(
                         buffer.editor.borrow_with(&mut font_system),
                         maybe_history.as_mut().map(AsMut::as_mut),
                         maybe_filter,
@@ -938,7 +938,7 @@ pub fn update_text_input_layouts(
 }
 
 /// Apply a text input action to a text input
-fn apply_text_input_action(
+fn apply_text_edit(
     mut editor: BorrowedWithFontSystem<'_, Editor<'static>>,
     mut maybe_history: Option<&mut TextInputUndoHistory>,
     maybe_filter: Option<&TextInputFilter>,
