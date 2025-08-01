@@ -271,7 +271,7 @@ pub enum TextInputFilter {
 }
 
 impl TextInputFilter {
-    /// Returns true if the text passes the filter
+    /// Returns `true` if the given `text` passes the filter
     pub fn is_match(&self, text: &str) -> bool {
         // Always passes if the input is empty unless using a custom filter
         if text.is_empty() && !matches!(self, Self::Custom(_)) {
