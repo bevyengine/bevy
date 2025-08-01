@@ -168,7 +168,7 @@ impl TextInputTarget {
 }
 
 /// Contains the current text in the text input buffer.
-/// Automatically synchronised with the buffer by [`apply_text_edits`] after any edits are applied.
+/// Automatically synchronized with the buffer by [`apply_text_edits`] after any edits are applied.
 /// On insertion, replaces the current text in the text buffer.
 #[derive(Component, PartialEq, Debug, Default, Deref)]
 #[component(
@@ -224,10 +224,10 @@ pub struct TextInputAttributes {
     /// The maximum number of lines the buffer will display without scrolling.
     /// * Clamped between zero and target height divided by line height.
     /// * If None or equal or less than 0, will fill the target space.
-    /// * Only restricts the maximum number of visible lines, places no constaint on the text buffer's length.
+    /// * Only restricts the maximum number of visible lines, places no constraint on the text buffer's length.
     /// * Supports fractional values, `visible_lines: Some(2.5)` will display two and a half lines of text.
     pub visible_lines: Option<f32>,
-    /// Clear on submit (Triggered when [`apply_text_edits`] recieves a [`TextEdit::Submit`] edit for an entity).
+    /// Clear on submit (Triggered when [`apply_text_edits`] receives a [`TextEdit::Submit`] edit for an entity).
     pub clear_on_submit: bool,
 }
 
