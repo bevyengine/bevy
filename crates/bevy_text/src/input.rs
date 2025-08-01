@@ -301,7 +301,7 @@ impl TextInputFilter {
 /// Add this component to hide the text input buffer contents
 /// by replacing the characters with `mask_char`.
 ///
-/// Should only be used with monospaced fonts.
+/// It is strongly recommended to only use a `PasswordMask` with fixed-widthg fonts.
 /// With variable width fonts mouse picking and horizontal scrolling
 /// may not work correctly.
 #[derive(Component)]
@@ -338,7 +338,7 @@ impl TextEdits {
     }
 }
 
-/// Deferred text input edit and navigation actions applied by the `apply_text_input_actions` system.
+/// Deferred text input edit and navigation actions applied by the `apply_text_edits` system.
 #[derive(Debug)]
 pub enum TextEdit {
     /// Copy the selected text into the clipboard. Does nothing if no text selected.
@@ -543,9 +543,9 @@ pub fn apply_text_edits(
     }
 }
 
-/// update the text input buffer when a non-text edit change happens like
-/// the font or line height changing and the buffer's metrics and attributes need
-/// to be regenerated
+/// Updates the text input buffer in response to changes
+/// that require regeneration of the the buffer's
+/// metrics and attributes.
 pub fn update_text_input_buffers(
     mut text_input_query: Query<(
         &mut TextInputBuffer,
@@ -643,6 +643,7 @@ pub fn update_text_input_buffers(
 
 /// Update password masks to mirror the underlying `TextInputBuffer`.
 ///
+/// The recommended practice is to use fixed-width fonts for password inputs.
 /// With variable sized fonts the glyph geometry of the password mask editor buffer may not match the
 /// underlying editor buffer, possibly resulting in incorrect scrolling and mouse interactions.
 pub fn update_password_masks(
@@ -672,8 +673,8 @@ pub fn update_password_masks(
     }
 }
 
-/// Based on `LayoutRunIter` from cosmic-text but doesn't crop the
-/// bottom line when scrolling up.
+/// Based on `LayoutRunIter` from cosmic-text but fixes a bug where the
+/// bottom line should be visible but gets cropped when scrolling upwards.
 #[derive(Debug)]
 pub struct ScrollingLayoutRunIter<'b> {
     /// Cosmic text buffer
@@ -783,7 +784,7 @@ pub fn update_text_input_layouts(
             .as_mut()
             .filter(|mask| !mask.show_password)
         {
-            // The underlying buffer isn't visible, but set redraw to false as though it has been to avoid unnecessary reupdates.
+            // The underlying buffer is hidden, so set redraw to false to avoid unnecessary reupdates.
             buffer.editor.set_redraw(false);
             &mut password_mask.bypass_change_detection().editor
         } else {
