@@ -142,7 +142,7 @@ impl Plugin for TextPlugin {
                 apply_text_edits,
                 update_password_masks,
                 update_text_input_layouts,
-                update_text_input_prompt_layouts,
+                update_placeholder_layouts,
             )
                 .chain()
                 .in_set(TextInputSystems)
