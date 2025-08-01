@@ -185,7 +185,7 @@ impl Default for GltfPlugin {
         GltfPlugin {
             default_sampler: ImageSamplerDescriptor::linear(),
             custom_vertex_attributes: HashMap::default(),
-            convert_coordinates: cfg!(feature = "gltf_convert_coordinates_default"),
+            convert_coordinates: false,
         }
     }
 }

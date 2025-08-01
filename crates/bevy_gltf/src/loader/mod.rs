@@ -2,7 +2,6 @@ mod extensions;
 mod gltf_ext;
 
 use alloc::sync::Arc;
-use bevy_log::warn_once;
 use std::{
     io::Error,
     path::{Path, PathBuf},
@@ -278,18 +277,7 @@ impl GltfLoader {
 
         let convert_coordinates = match settings.convert_coordinates {
             Some(convert_coordinates) => convert_coordinates,
-            None => {
-                let convert_by_default = loader.default_convert_coordinates;
-                if !convert_by_default && !cfg!(feature = "gltf_convert_coordinates_default") {
-                    warn_once!(
-                    "Starting from Bevy 0.18, by default all imported glTF models will be rotated by 180 degrees around the Y axis to align with Bevy's coordinate system. \
-                    You are currently importing glTF files using the old behavior. Consider opting-in to the new import behavior by enabling the `gltf_convert_coordinates_default` feature. \
-                    If you encounter any issues please file a bug! \
-                    If you want to continue using the old behavior going forward (even when the default changes in 0.18), manually set the corresponding option in the `GltfPlugin` or `GltfLoaderSettings`. See the migration guide for more details."
-                );
-                }
-                convert_by_default
-            }
+            None => loader.default_convert_coordinates,
         };
 
         #[cfg(feature = "bevy_animation")]
