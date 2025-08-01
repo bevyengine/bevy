@@ -507,7 +507,6 @@ pub fn apply_text_edits(
                     commands.trigger_targets(
                         TextInputEvent::Submission {
                             text: buffer.get_text(),
-                            text_input: entity,
                         },
                         entity,
                     );
@@ -536,10 +535,7 @@ pub fn apply_text_edits(
                         &mut clipboard,
                         action,
                     ) {
-                        commands.trigger_targets(
-                            TextInputEvent::InvalidEdit { text_input: entity },
-                            entity,
-                        );
+                        commands.trigger_targets(TextInputEvent::InvalidEdit, entity);
                     }
                 }
             }
@@ -549,8 +545,7 @@ pub fn apply_text_edits(
         if let Some(mut value) = maybe_value {
             if value.0 != contents {
                 value.0 = contents;
-                commands
-                    .trigger_targets(TextInputEvent::ValueChanged { text_input: entity }, entity);
+                commands.trigger_targets(TextInputEvent::TextChanged, entity);
             }
         }
     }
