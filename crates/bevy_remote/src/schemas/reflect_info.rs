@@ -656,10 +656,7 @@ pub enum SchemaNumber {
 impl From<SchemaNumber> for serde_json::Value {
     fn from(val: SchemaNumber) -> Self {
         match val {
-            SchemaNumber::Int(value) => {
-                let int: i64 = value.try_into().ok().unwrap_or_default();
-                serde_json::Value::Number(int.into())
-            }
+            SchemaNumber::Int(value) => serde_json::Value::Number(value.into()),
             SchemaNumber::Float(value) => {
                 serde_json::Value::Number(serde_json::Number::from_f64(value).unwrap())
             }
@@ -720,7 +717,7 @@ impl From<i32> for SchemaNumber {
 }
 impl From<i64> for SchemaNumber {
     fn from(value: i64) -> Self {
-        SchemaNumber::Int(value as i64)
+        SchemaNumber::Int(value)
     }
 }
 impl From<isize> for SchemaNumber {
