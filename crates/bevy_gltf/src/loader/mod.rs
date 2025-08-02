@@ -958,6 +958,7 @@ impl GltfLoader {
                             #[cfg(feature = "bevy_animation")]
                             None,
                             &gltf.document,
+                            &convert_coordinates,
                         );
                         if result.is_err() {
                             err = Some(result);
@@ -1399,6 +1400,7 @@ fn load_node(
     #[cfg(feature = "bevy_animation")] animation_roots: &HashSet<usize>,
     #[cfg(feature = "bevy_animation")] mut animation_context: Option<AnimationContext>,
     document: &Document,
+    convert_coordinates: &GltfConvertCoordinates,
 ) -> Result<(), GltfError> {
     let mut gltf_error = None;
     let transform = node_transform(gltf_node);
@@ -1516,12 +1518,19 @@ fn load_node(
                     };
                     let bounds = primitive.bounding_box();
 
+                    let mesh_entity_transform = if convert_coordinates.meshes {
+                        Transform::from_rotation(Quat::from_xyzw(0.0, 1.0, 0.0, 0.0))
+                    } else {
+                        Transform::IDENTITY
+                    };
+
                     let mut mesh_entity = parent.spawn((
                         // TODO: handle missing label handle errors here?
                         Mesh3d(load_context.get_label_handle(primitive_label.to_string())),
                         MeshMaterial3d::<StandardMaterial>(
                             load_context.get_label_handle(&material_label),
                         ),
+                        mesh_entity_transform,
                     ));
 
                     let target_count = primitive.morph_targets().len();
@@ -1670,6 +1679,7 @@ fn load_node(
                 #[cfg(feature = "bevy_animation")]
                 animation_context.clone(),
                 document,
+                convert_coordinates,
             ) {
                 gltf_error = Some(err);
                 return;
