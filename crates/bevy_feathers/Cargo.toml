@@ -32,10 +32,11 @@ bevy_window = { path = "../bevy_window", version = "0.17.0-dev" }
 bevy_winit = { path = "../bevy_winit", version = "0.17.0-dev" }
 
 # other
-accesskit = "0.19"
+accesskit = "0.21"
 
 [features]
 default = []
+custom_cursor = ["bevy_winit/custom_cursor"]
 
 [lints]
 workspace = true

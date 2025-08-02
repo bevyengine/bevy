@@ -300,7 +300,7 @@ fn setup_node_rects(commands: &mut Commands) {
                     justify_content: JustifyContent::Center,
                     ..default()
                 },
-                BorderColor::all(WHITE.into()),
+                BorderColor::all(WHITE),
                 Outline::new(Val::Px(1.), Val::ZERO, Color::WHITE),
             ));
 
@@ -354,7 +354,7 @@ fn setup_node_lines(commands: &mut Commands) {
                 border: UiRect::bottom(Val::Px(1.0)),
                 ..default()
             },
-            BorderColor::all(WHITE.into()),
+            BorderColor::all(WHITE),
         ));
     }
 
@@ -369,7 +369,7 @@ fn setup_node_lines(commands: &mut Commands) {
                 border: UiRect::left(Val::Px(1.0)),
                 ..default()
             },
-            BorderColor::all(WHITE.into()),
+            BorderColor::all(WHITE),
         ));
     }
 }
