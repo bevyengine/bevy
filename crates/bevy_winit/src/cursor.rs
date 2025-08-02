@@ -43,7 +43,7 @@ pub use bevy_cursor_icon::{CustomCursor, CustomCursorImage};
     target_family = "wasm",
     target_os = "unknown"
 ))]
-pub use crate::custom_cursor::CustomCursorUrl;
+pub use bevy_cursor_icon::CustomCursorUrl;
 
 pub(crate) struct CursorPlugin;
 
