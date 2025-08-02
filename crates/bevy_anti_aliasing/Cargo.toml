@@ -31,7 +31,7 @@ bevy_diagnostic = { path = "../bevy_diagnostic", version = "0.17.0-dev" }
 
 # other
 tracing = { version = "0.1", default-features = false, features = ["std"] }
-dlss_wgpu = { git = "https://github.com/JMS55/bevy_dlss_wgpu", branch = "wgpu-26", optional = true }
+dlss_wgpu = { git = "https://github.com/JMS55/bevy_dlss_wgpu", branch = "dlss-rr", optional = true }
 
 [lints]
 workspace = true

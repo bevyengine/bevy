@@ -451,7 +451,8 @@ impl Plugin for RenderPlugin {
                 adapter_info,
                 render_adapter,
                 instance,
-                dlss_available,
+                dlss_super_resolution_supported,
+                dlss_ray_reconstruction_supported,
             ) = future_render_resources.0.lock().unwrap().take().unwrap();
             #[cfg(not(feature = "dlss"))]
             let RenderResources(device, queue, adapter_info, render_adapter, instance) =
@@ -468,8 +469,12 @@ impl Plugin for RenderPlugin {
                 .insert_resource(compressed_image_format_support);
 
             #[cfg(feature = "dlss")]
-            if let Some(dlss_available) = dlss_available {
-                app.insert_resource(dlss_available);
+            if let Some(dlss_super_resolution_supported) = dlss_super_resolution_supported {
+                app.insert_resource(dlss_super_resolution_supported);
+            }
+            #[cfg(feature = "dlss")]
+            if let Some(dlss_ray_reconstruction_supported) = dlss_ray_reconstruction_supported {
+                app.insert_resource(dlss_ray_reconstruction_supported);
             }
 
             let render_app = app.sub_app_mut(RenderApp);
@@ -636,8 +641,14 @@ pub fn get_mali_driver_version(adapter: &RenderAdapter) -> Option<u32> {
 #[derive(Resource)]
 pub struct DlssProjectId(pub bevy_asset::uuid::Uuid);
 
-/// When DLSS is supported by the current system, this resource will exist in the main world.
+/// When DLSS Super Resolution is supported by the current system, this resource will exist in the main world.
 /// Otherwise this resource will be absent.
 #[cfg(feature = "dlss")]
 #[derive(Resource, Clone, Copy)]
-pub struct DlssSupported;
+pub struct DlssSuperResolutionSupported;
+
+/// When DLSS Ray Reconstruction is supported by the current system, this resource will exist in the main world.
+/// Otherwise this resource will be absent.
+#[cfg(feature = "dlss")]
+#[derive(Resource, Clone, Copy)]
+pub struct DlssRayReconstructionSupported;

@@ -151,7 +151,8 @@ pub struct RenderResources(
     pub(crate) RenderAdapterInfo,
     pub(crate) RenderAdapter,
     pub(crate) RenderInstance,
-    #[cfg(feature = "dlss")] pub(crate) Option<crate::DlssSupported>,
+    #[cfg(feature = "dlss")] pub(crate) Option<crate::DlssSuperResolutionSupported>,
+    #[cfg(feature = "dlss")] pub(crate) Option<crate::DlssRayReconstructionSupported>,
 );
 
 /// An enum describing how the renderer will initialize resources. This is used when creating the [`RenderPlugin`](crate::RenderPlugin).

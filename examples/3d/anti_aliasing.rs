@@ -22,7 +22,9 @@ use bevy::{
 };
 
 #[cfg(feature = "dlss")]
-use bevy::anti_aliasing::dlss::{Dlss, DlssPerfQualityMode, DlssProjectId, DlssSupported};
+use bevy::anti_aliasing::dlss::{
+    Dlss, DlssPerfQualityMode, DlssProjectId, DlssSuperResolutionSupported,
+};
 
 fn main() {
     let mut app = App::new();
@@ -81,7 +83,7 @@ fn modify_aa(
         ),
         With<Camera>,
     >,
-    #[cfg(feature = "dlss")] dlss_supported: Option<Res<DlssSupported>>,
+    #[cfg(feature = "dlss")] dlss_supported: Option<Res<DlssSuperResolutionSupported>>,
     mut commands: Commands,
 ) {
     #[cfg(feature = "dlss")]
@@ -276,7 +278,7 @@ fn update_ui(
         With<Camera>,
     >,
     mut ui: Single<&mut Text>,
-    #[cfg(feature = "dlss")] dlss_supported: Option<Res<DlssSupported>>,
+    #[cfg(feature = "dlss")] dlss_supported: Option<Res<DlssSuperResolutionSupported>>,
 ) {
     #[cfg(feature = "dlss")]
     let (fxaa, smaa, taa, cas, msaa, dlss) = *camera;

@@ -178,7 +178,7 @@ pub async fn initialize_renderer(
     #[cfg(feature = "dlss")] dlss_project_id: bevy_asset::uuid::Uuid,
 ) -> RenderResources {
     #[cfg(feature = "dlss")]
-    let mut dlss_supported = true;
+    let mut dlss_feature_support = dlss_wgpu::FeatureSupport::default();
 
     let instance_descriptor = wgpu::InstanceDescriptor {
         backends,
@@ -200,9 +200,12 @@ pub async fn initialize_renderer(
     let instance = Instance::new(&instance_descriptor);
 
     #[cfg(feature = "dlss")]
-    let instance =
-        dlss_wgpu::create_instance(dlss_project_id, &instance_descriptor, &mut dlss_supported)
-            .unwrap();
+    let instance = dlss_wgpu::create_instance(
+        dlss_project_id,
+        &instance_descriptor,
+        &mut dlss_feature_support,
+    )
+    .unwrap();
 
     let surface = primary_window.and_then(|wrapper| {
         let maybe_handle = wrapper
@@ -445,7 +448,7 @@ pub async fn initialize_renderer(
         dlss_project_id,
         &adapter,
         &device_descriptor,
-        &mut dlss_supported,
+        &mut dlss_feature_support,
     )
     .unwrap();
 
@@ -459,8 +462,14 @@ pub async fn initialize_renderer(
         RenderAdapter(Arc::new(WgpuWrapper::new(adapter))),
         RenderInstance(Arc::new(WgpuWrapper::new(instance))),
         #[cfg(feature = "dlss")]
-        if dlss_supported {
-            Some(crate::DlssSupported)
+        if dlss_feature_support.super_resolution_supported {
+            Some(crate::DlssSuperResolutionSupported)
+        } else {
+            None
+        },
+        #[cfg(feature = "dlss")]
+        if dlss_feature_support.ray_reconstruction_supported {
+            Some(crate::DlssRayReconstructionSupported)
         } else {
             None
         },

@@ -20,7 +20,7 @@ To use DLSS in your app:
 * See https://github.com/bevyengine/dlss_wgpu for licensing requirements and setup instructions
 * Enable Bevy's `dlss` feature
 * Insert the `DlssProjectId` resource before `DefaultPlugins` when setting up your app
-* Check for the presence of `Option<Res<DlssSupported>>` at runtime to see if DLSS is supported on the current machine
+* Check for the presence of `Option<Res<DlssSuperResolutionSupported>>` at runtime to see if DLSS is supported on the current machine
 * Add the `Dlss` component to your camera entity, optionally setting a specific `DlssPerfQualityMode` (defaults to `Auto`)
 * Optionally add sharpening via `ContrastAdaptiveSharpening`
 * Custom rendering code, including third party crates, should account for the optional `MainPassResolutionOverride` to work with DLSS (see the `custom_render_phase` example)

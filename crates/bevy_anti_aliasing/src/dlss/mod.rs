@@ -38,7 +38,9 @@ use bevy_render::{
 use std::sync::{Arc, Mutex};
 use tracing::info;
 
-pub use bevy_render::{DlssProjectId, DlssSupported};
+pub use bevy_render::{
+    DlssProjectId, DlssRayReconstructionSupported, DlssSuperResolutionSupported,
+};
 pub use dlss_wgpu::DlssPerfQualityMode;
 
 pub struct DlssPlugin;
@@ -49,7 +51,11 @@ impl Plugin for DlssPlugin {
     }
 
     fn finish(&self, app: &mut App) {
-        if app.world().get_resource::<DlssSupported>().is_none() {
+        if app
+            .world()
+            .get_resource::<DlssSuperResolutionSupported>()
+            .is_none()
+        {
             info!("DLSS is not supported on this system");
             return;
         }
@@ -62,7 +68,8 @@ impl Plugin for DlssPlugin {
         let dlss_sdk =
             dlss_wgpu::DlssSdk::new(dlss_project_id, render_device.wgpu_device().clone());
         if dlss_sdk.is_err() {
-            app.world_mut().remove_resource::<DlssSupported>();
+            app.world_mut()
+                .remove_resource::<DlssSuperResolutionSupported>();
             info!("DLSS is not supported on this system");
             return;
         }
