@@ -18,6 +18,7 @@ use crate::{
     entity::{ComponentCloneCtx, Entity},
     error::CommandWithEntity,
     lifecycle::HookContext,
+    system::{Commands, EntityCommand},
     world::{DeferredWorld, EntityWorldMut},
 };
 use log::warn;
@@ -73,13 +74,32 @@ use log::warn;
 /// #[relationship_target(relationship = ChildOf, linked_spawn)]
 /// pub struct Children(Vec<Entity>);
 /// ```
+#[expect(
+    clippy::len_without_is_empty,
+    reason = "Relationships should never be empty"
+)]
 pub trait Relationship: Component + Sized {
     /// The [`Component`] added to the "target" entities of this [`Relationship`], which contains the list of all "source"
     /// entities that relate to the "target".
     type RelationshipTarget: RelationshipTarget<Relationship = Self>;
 
-    /// Gets the [`Entity`] ID of the related entity.
-    fn get(&self) -> Entity;
+    /// The collection type that stores the "target" entities for this [`Relationship`] component.
+    type Collection: RelationshipCollection;
+
+    /// Gets the [`Entity`] IDs of the related entities.
+    fn get(&self) -> &Self::Collection;
+
+    /// Gets a mutable reference to the [`Entity`] IDs of the related entities.
+    ///
+    /// # Warning
+    ///
+    /// This should generally not be called by user code, as modifying the related entity could invalidate the
+    /// relationship. If this method is used, then the hooks [`on_replace`](Relationship::on_replace) have to
+    /// run before and [`on_insert`](Relationship::on_insert) after it.
+    /// This happens automatically when this method is called with [`EntityWorldMut::modify_component`].
+    ///
+    /// Prefer to use regular means of insertions when possible.
+    fn get_mut_risky(&mut self) -> &mut Self::Collection;
 
     /// Creates this [`Relationship`] from the given `entity`.
     fn from(entity: Entity) -> Self;
@@ -97,6 +117,18 @@ pub trait Relationship: Component + Sized {
     ///
     /// Prefer to use regular means of insertions when possible.
     fn set_risky(&mut self, entity: Entity);
+
+    /// Iterates the related entities stored in this collection.
+    #[inline]
+    fn iter(&self) -> TargetIter<'_, Self> {
+        self.get().iter()
+    }
+
+    /// Returns the number of related entities in this collection.
+    #[inline]
+    fn len(&self) -> usize {
+        self.get().len()
+    }
 
     /// The `on_insert` component hook that maintains the [`Relationship`] / [`RelationshipTarget`] connection.
     fn on_insert(
@@ -117,52 +149,66 @@ pub trait Relationship: Component + Sized {
                 }
             }
         }
-        let target_entity = world.entity(entity).get::<Self>().unwrap().get();
-        if target_entity == entity {
+        let (entities, mut commands) = world.entities_and_commands();
+        let target_entities = entities.get(entity).unwrap().get::<Self>().unwrap().get();
+
+        // For many-to-many relationships, we don't want to leave empty collections
+        // on the source side.
+        if target_entities.is_empty() {
+            commands.entity(entity).try_remove::<Self>();
+        }
+
+        if target_entities.contains(entity) {
             warn!(
-                "{}The {}({target_entity:?}) relationship on entity {entity:?} points to itself. The invalid {} relationship has been removed.",
+                "{}The {}({target_entities:?}) relationship on entity {entity:?} points to itself. The invalid {} relationship has been removed.",
                 caller.map(|location|format!("{location}: ")).unwrap_or_default(),
                 DebugName::type_name::<Self>(),
                 DebugName::type_name::<Self>()
             );
-            world.commands().entity(entity).remove::<Self>();
+            commands
+                .entity(entity)
+                .queue(remove_target_entity::<Self>(entity));
             return;
         }
+
         // For one-to-one relationships, remove existing relationship before adding new one
-        let current_source_to_remove = world
-            .get_entity(target_entity)
-            .ok()
+        let current_source_to_remove = target_entities
+            .single()
+            .and_then(|target_entity| entities.get(target_entity).ok())
             .and_then(|target_entity_ref| target_entity_ref.get::<Self::RelationshipTarget>())
             .and_then(|relationship_target| {
                 relationship_target
                     .collection()
                     .source_to_remove_before_add()
             });
-
         if let Some(current_source) = current_source_to_remove {
-            world.commands().entity(current_source).try_remove::<Self>();
+            commands.entity(current_source).try_remove::<Self>();
         }
 
-        if let Ok(mut entity_commands) = world.commands().get_entity(target_entity) {
-            // Deferring is necessary for batch mode
-            entity_commands
-                .entry::<Self::RelationshipTarget>()
-                .and_modify(move |mut relationship_target| {
-                    relationship_target.collection_mut_risky().add(entity);
-                })
-                .or_insert_with(move || {
-                    let mut target = Self::RelationshipTarget::with_capacity(1);
-                    target.collection_mut_risky().add(entity);
-                    target
-                });
-        } else {
-            warn!(
-                "{}The {}({target_entity:?}) relationship on entity {entity:?} relates to an entity that does not exist. The invalid {} relationship has been removed.",
-                caller.map(|location|format!("{location}: ")).unwrap_or_default(),
-                DebugName::type_name::<Self>(),
-                DebugName::type_name::<Self>()
-            );
-            world.commands().entity(entity).remove::<Self>();
+        for target_entity in target_entities.iter() {
+            if let Ok(mut entity_commands) = commands.get_entity(target_entity) {
+                // Deferring is necessary for batch mode
+                entity_commands
+                    .entry::<Self::RelationshipTarget>()
+                    .and_modify(move |mut relationship_target| {
+                        relationship_target.collection_mut_risky().add(entity);
+                    })
+                    .or_insert_with(move || {
+                        let mut target = Self::RelationshipTarget::with_capacity(1);
+                        target.collection_mut_risky().add(entity);
+                        target
+                    });
+            } else {
+                warn!(
+                    "{}The {}({target_entity:?}) relationship on entity {entity:?} relates to an entity that does not exist. The invalid {} relationship has been removed.",
+                    caller.map(|location|format!("{location}: ")).unwrap_or_default(),
+                    DebugName::type_name::<Self>(),
+                    DebugName::type_name::<Self>()
+                );
+                commands
+                    .entity(entity)
+                    .queue(remove_target_entity::<Self>(target_entity));
+            }
         }
     }
 
@@ -185,28 +231,56 @@ pub trait Relationship: Component + Sized {
                 }
             }
         }
-        let target_entity = world.entity(entity).get::<Self>().unwrap().get();
-        if let Ok(mut target_entity_mut) = world.get_entity_mut(target_entity) {
-            if let Some(mut relationship_target) =
-                target_entity_mut.get_mut::<Self::RelationshipTarget>()
-            {
-                relationship_target.collection_mut_risky().remove(entity);
-                if relationship_target.len() == 0 {
-                    let command = |mut entity: EntityWorldMut| {
-                        // this "remove" operation must check emptiness because in the event that an identical
-                        // relationship is inserted on top, this despawn would result in the removal of that identical
-                        // relationship ... not what we want!
-                        if entity
-                            .get::<Self::RelationshipTarget>()
-                            .is_some_and(RelationshipTarget::is_empty)
-                        {
-                            entity.remove::<Self::RelationshipTarget>();
-                        }
-                    };
+        // We need to access two entities simultaneously (one now, and another later),
+        // which isn't possible via safe APIs currently.
+        let world_cell = world.as_unsafe_world_cell();
+        // SAFETY: We're only accessing this entity's `Relationship` component currently,
+        // which doesn't violate any safety invariants.
+        let target_entities = unsafe { world_cell.get_entity(entity).unwrap().get::<Self>() }
+            .unwrap()
+            .get();
+        for target_entity in target_entities.iter() {
+            if target_entity == entity {
+                // Self-referential relationships are cleaned up by the `on_insert`
+                // hook, but we may still encounter them when they're being removed.
+                // We skip them here to avoid potentially accessing the same entity
+                // simultaneously, which could violate rust safety invariants if
+                // the `Relationship` and `RelationshipTarget` are the same component
+                // (which is technically possible for many-to-many relationships).
+                continue;
+            }
 
-                    world
-                        .commands()
+            if let Ok(target_entity_cell) = world_cell.get_entity(target_entity) {
+                if let Some(mut relationship_target) =
+                    // SAFETY: We verified that the target entity is not the same as the source entity,
+                    // avoiding violating safety invariants.
+                    unsafe { target_entity_cell.get_mut::<Self::RelationshipTarget>() }
+                {
+                    relationship_target.collection_mut_risky().remove(entity);
+                    if relationship_target.len() == 0 {
+                        let command = |mut entity: EntityWorldMut| {
+                            // this "remove" operation must check emptiness because in the event that an identical
+                            // relationship is inserted on top, this despawn would result in the removal of that identical
+                            // relationship ... not what we want!
+                            if entity
+                                .get::<Self::RelationshipTarget>()
+                                .is_some_and(RelationshipTarget::is_empty)
+                            {
+                                entity.remove::<Self::RelationshipTarget>();
+                            }
+                        };
+
+                        // SAFETY: This is the only time we access the world's command queue
+                        // for the lifetime of the world cell.
+                        unsafe {
+                            Commands::new_raw_from_entities(
+                                world_cell.get_raw_command_queue(),
+                                world_cell.entities(),
+                            )
+                        }
+                        // If the entity was already despawned, we don't care.
                         .queue_silenced(command.with_entity(target_entity));
+                    }
                 }
             }
         }
@@ -214,9 +288,13 @@ pub trait Relationship: Component + Sized {
 }
 
 /// The iterator type for the source entities in a [`RelationshipTarget`] collection,
-/// as defined in the [`RelationshipSourceCollection`] trait.
+/// as defined in the [`RelationshipCollection`] trait.
 pub type SourceIter<'w, R> =
-    <<R as RelationshipTarget>::Collection as RelationshipSourceCollection>::SourceIter<'w>;
+    <<R as RelationshipTarget>::Collection as RelationshipCollection>::Iter<'w>;
+
+/// The iterator type for the target entities in a [`Relationship`] collection,
+/// as defined in the [`RelationshipCollection`] trait.
+pub type TargetIter<'w, R> = <<R as Relationship>::Collection as RelationshipCollection>::Iter<'w>;
 
 /// A [`Component`] containing the collection of entities that relate to this [`Entity`] via the associated `Relationship` type.
 /// See the [`Relationship`] documentation for more information.
@@ -233,11 +311,11 @@ pub trait RelationshipTarget: Component<Mutability = Mutable> + Sized {
     type Relationship: Relationship<RelationshipTarget = Self>;
     /// The collection type that stores the "source" entities for this [`RelationshipTarget`] component.
     ///
-    /// Check the list of types which implement [`RelationshipSourceCollection`] for the data structures that can be used inside of your component.
-    /// If you need a new collection type, you can implement the [`RelationshipSourceCollection`] trait
+    /// Check the list of types which implement [`RelationshipCollection`] for the data structures that can be used inside of your component.
+    /// If you need a new collection type, you can implement the [`RelationshipCollection`] trait
     /// for a type you own which wraps the collection you want to use (to avoid the orphan rule),
     /// or open an issue on the Bevy repository to request first-party support for your collection type.
-    type Collection: RelationshipSourceCollection;
+    type Collection: RelationshipCollection;
 
     /// Returns a reference to the stored [`RelationshipTarget::Collection`].
     fn collection(&self) -> &Self::Collection;
@@ -273,9 +351,9 @@ pub trait RelationshipTarget: Component<Mutability = Mutable> + Sized {
         let (entities, mut commands) = world.entities_and_commands();
         let relationship_target = entities.get(entity).unwrap().get::<Self>().unwrap();
         for source_entity in relationship_target.iter() {
-            commands
-                .entity(source_entity)
-                .try_remove::<Self::Relationship>();
+            commands.queue_silenced(
+                remove_target_entity::<Self::Relationship>(entity).with_entity(source_entity),
+            );
         }
     }
 
@@ -286,14 +364,22 @@ pub trait RelationshipTarget: Component<Mutability = Mutable> + Sized {
         let (entities, mut commands) = world.entities_and_commands();
         let relationship_target = entities.get(entity).unwrap().get::<Self>().unwrap();
         for source_entity in relationship_target.iter() {
-            commands.entity(source_entity).try_despawn();
+            let command = move |source_entity_mut: EntityWorldMut| {
+                if let Some(relationship) = source_entity_mut.get::<Self::Relationship>() {
+                    // Only despawn if this source entity's target collection only contains the entity being despawned
+                    if relationship.len() == 1 && relationship.get().contains(entity) {
+                        source_entity_mut.despawn();
+                    }
+                }
+            };
+            // If the entity was already despawned, we don't care.
+            commands.queue_silenced(command.with_entity(source_entity));
         }
     }
 
     /// Creates this [`RelationshipTarget`] with the given pre-allocated entity capacity.
     fn with_capacity(capacity: usize) -> Self {
-        let collection =
-            <Self::Collection as RelationshipSourceCollection>::with_capacity(capacity);
+        let collection = <Self::Collection as RelationshipCollection>::with_capacity(capacity);
         Self::from_collection_risky(collection)
     }
 
@@ -313,6 +399,21 @@ pub trait RelationshipTarget: Component<Mutability = Mutable> + Sized {
     #[inline]
     fn is_empty(&self) -> bool {
         self.collection().is_empty()
+    }
+}
+
+fn remove_target_entity<R: Relationship>(target: Entity) -> impl EntityCommand {
+    move |mut entity_mut: EntityWorldMut| {
+        let Some(relationship) = entity_mut.get::<R>() else {
+            return;
+        };
+        if relationship.get().contains(target) && relationship.len() == 1 {
+            entity_mut.remove::<R>();
+        } else {
+            entity_mut.modify_component(|relationship: &mut R| {
+                relationship.get_mut_risky().remove(target);
+            });
+        }
     }
 }
 
@@ -480,6 +581,7 @@ impl RelationshipTargetCloneBehaviorHierarchy
 
 #[cfg(test)]
 mod tests {
+    use alloc::vec;
     use core::marker::PhantomData;
 
     use crate::prelude::{ChildOf, Children};
@@ -491,7 +593,7 @@ mod tests {
     fn custom_relationship() {
         #[derive(Component)]
         #[relationship(relationship_target = LikedBy)]
-        struct Likes(pub Entity);
+        struct Likes(pub Vec<Entity>);
 
         #[derive(Component)]
         #[relationship_target(relationship = Likes)]
@@ -499,8 +601,8 @@ mod tests {
 
         let mut world = World::new();
         let a = world.spawn_empty().id();
-        let b = world.spawn(Likes(a)).id();
-        let c = world.spawn(Likes(a)).id();
+        let b = world.spawn(Likes(vec![a])).id();
+        let c = world.spawn(Likes(vec![a, b])).id();
         assert_eq!(world.entity(a).get::<LikedBy>().unwrap().0, &[b, c]);
     }
 
@@ -674,5 +776,145 @@ mod tests {
 
         assert!(world.get::<ChildOf>(child).is_some());
         assert!(world.get::<Children>(parent).is_some());
+    }
+
+    mod many_to_many {
+        use alloc::{vec, vec::Vec};
+
+        use crate::{
+            prelude::{Component, Entity},
+            world::World,
+        };
+
+        #[derive(Component)]
+        #[relationship(relationship_target = LikedBy)]
+        struct Likes(pub Vec<Entity>);
+
+        #[derive(Component)]
+        #[relationship_target(relationship = Likes)]
+        struct LikedBy(Vec<Entity>);
+
+        #[test]
+        fn simple() {
+            let mut world = World::new();
+            let a = world.spawn_empty().id();
+            let b = world.spawn(Likes(vec![a])).id();
+            let c = world.spawn(Likes(vec![a, b])).id();
+            assert_eq!(world.entity(a).get::<LikedBy>().unwrap().0, &[b, c]);
+            assert_eq!(world.entity(b).get::<LikedBy>().unwrap().0, &[c]);
+            assert!(world.entity(c).get::<LikedBy>().is_none());
+        }
+
+        #[test]
+        fn empty_relationship() {
+            let mut world = World::new();
+            let b = world.spawn(Likes(vec![])).id();
+            assert!(world.entity(b).get::<Likes>().is_none());
+        }
+
+        #[test]
+        fn remove_partial() {
+            let mut world = World::new();
+            let a = world.spawn_empty().id();
+            let b = world.spawn(Likes(vec![a])).id();
+            let c = world.spawn(Likes(vec![a, b])).id();
+            assert_eq!(world.entity(a).get::<LikedBy>().unwrap().0, &[b, c]);
+            assert_eq!(world.entity(b).get::<LikedBy>().unwrap().0, &[c]);
+            assert!(world.entity(c).get::<LikedBy>().is_none());
+
+            // Remove b from Likes of c
+            world.entity_mut(c).insert(Likes(vec![a]));
+            assert_eq!(world.entity(a).get::<LikedBy>().unwrap().0, &[b, c]);
+            assert!(world.entity(b).get::<LikedBy>().is_none());
+            assert!(world.entity(c).get::<LikedBy>().is_none());
+        }
+
+        #[test]
+        fn add_partial() {
+            let mut world = World::new();
+            let a = world.spawn_empty().id();
+            let b = world.spawn(Likes(vec![a])).id();
+            let c = world.spawn(Likes(vec![a])).id();
+            assert_eq!(world.entity(a).get::<LikedBy>().unwrap().0, &[b, c]);
+            assert!(world.entity(b).get::<LikedBy>().is_none());
+            assert!(world.entity(c).get::<LikedBy>().is_none());
+
+            // Add b to Likes of c
+            world.entity_mut(c).insert(Likes(vec![a, b]));
+            assert_eq!(world.entity(a).get::<LikedBy>().unwrap().0, &[b, c]);
+            assert_eq!(world.entity(b).get::<LikedBy>().unwrap().0, &[c]);
+        }
+
+        #[test]
+        fn swap_source() {
+            let mut world = World::new();
+            let a = world.spawn_empty().id();
+            let b = world.spawn_empty().id();
+            let c = world.spawn(Likes(vec![a, b])).id();
+            assert_eq!(world.entity(a).get::<LikedBy>().unwrap().0, &[c]);
+            assert_eq!(world.entity(b).get::<LikedBy>().unwrap().0, &[c]);
+            assert!(world.entity(c).get::<LikedBy>().is_none());
+
+            world.entity_mut(c).remove::<Likes>();
+            assert!(world.entity(a).get::<LikedBy>().is_none());
+            assert!(world.entity(b).get::<LikedBy>().is_none());
+            assert!(world.entity(c).get::<LikedBy>().is_none());
+
+            world.entity_mut(b).insert(Likes(vec![a, c]));
+            assert_eq!(world.entity(a).get::<LikedBy>().unwrap().0, &[b]);
+            assert!(world.entity(b).get::<LikedBy>().is_none());
+            assert_eq!(world.entity(c).get::<LikedBy>().unwrap().0, &[b]);
+        }
+
+        #[test]
+        fn swap_targets() {
+            let mut world = World::new();
+            let a = world.spawn_empty().id();
+            let b = world.spawn_empty().id();
+            let c = world.spawn_empty().id();
+            let d = world.spawn_empty().id();
+            let e = world.spawn(Likes(vec![a, b])).id();
+            assert_eq!(world.entity(a).get::<LikedBy>().unwrap().0, &[e]);
+            assert_eq!(world.entity(b).get::<LikedBy>().unwrap().0, &[e]);
+            assert!(world.entity(c).get::<LikedBy>().is_none());
+            assert!(world.entity(d).get::<LikedBy>().is_none());
+
+            world.entity_mut(e).insert(Likes(vec![c, d]));
+            assert!(world.entity(a).get::<LikedBy>().is_none());
+            assert!(world.entity(b).get::<LikedBy>().is_none());
+            assert_eq!(world.entity(c).get::<LikedBy>().unwrap().0, &[e]);
+            assert_eq!(world.entity(d).get::<LikedBy>().unwrap().0, &[e]);
+        }
+
+        #[test]
+        fn remove_self_referential() {
+            let mut world = World::new();
+            let a = world.spawn_empty().id();
+            let b = world.spawn(Likes(vec![a])).id();
+            world.entity_mut(a).insert(Likes(vec![a, b]));
+
+            assert_eq!(world.entity(a).get::<LikedBy>().unwrap().0, &[b]);
+            assert_eq!(world.entity(b).get::<LikedBy>().unwrap().0, &[a]);
+            assert_eq!(world.entity(a).get::<Likes>().unwrap().0, &[b]);
+            assert_eq!(world.entity(b).get::<Likes>().unwrap().0, &[a]);
+        }
+
+        #[test]
+        fn despawn() {
+            let mut world = World::new();
+            let a = world.spawn_empty().id();
+            let b = world.spawn_empty().id();
+            let c = world.spawn(Likes(vec![a, b])).id();
+
+            world.entity_mut(a).despawn();
+            assert!(world.get_entity(a).is_err());
+            assert!(world.entity(c).get::<LikedBy>().is_none());
+            assert_eq!(world.entity(c).get::<Likes>().unwrap().0, &[b]);
+
+            world.entity_mut(b).despawn();
+            assert!(world.get_entity(b).is_err());
+            assert!(world.entity(c).get::<LikedBy>().is_none());
+            assert!(world.entity(c).get::<Likes>().is_none());
+        }
     }
 }
