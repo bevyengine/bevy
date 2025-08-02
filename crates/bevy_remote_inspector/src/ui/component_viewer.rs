@@ -37,7 +37,7 @@ pub fn update_component_viewer(
     viewer_query: Query<Entity, With<ComponentViewerPanel>>,
 ) {
     let Ok(viewer_entity) = viewer_query.single() else {
-        println!("❌ Component viewer entity not found");
+        println!("Component viewer entity not found");
         return;
     };
 
@@ -48,7 +48,7 @@ pub fn update_component_viewer(
 
     // Only debug when something interesting happens
     if entity_changed || should_refresh || ui_needs_rebuild {
-        println!("🔄 Component viewer update: entity_changed={}, ui_needs_rebuild={}, should_refresh={}, current={:?}, selected={:?}", 
+        println!("Component viewer update: entity_changed={}, ui_needs_rebuild={}, should_refresh={}, current={:?}, selected={:?}", 
             entity_changed, ui_needs_rebuild, should_refresh, component_cache.current_entity, selected_entity.entity_id);
     }
 
@@ -56,7 +56,7 @@ pub fn update_component_viewer(
         return;
     }
     
-    println!("🔥 REBUILDING component viewer content");
+    println!("Rebuilding component viewer content");
     // Only update timestamp if we're actually going to rebuild
     component_cache.last_update = time.elapsed_secs_f64();
 
@@ -105,7 +105,7 @@ fn spawn_component_sections(
     entity_id: u32,
     components: &HashMap<String, Value>,
 ) {
-    println!("🏗️ Building component sections for entity {}", entity_id);
+    println!("Building component sections for entity {}", entity_id);
     
     // Use with_children to properly manage the parent-child relationship
     commands.entity(parent).with_children(|parent| {

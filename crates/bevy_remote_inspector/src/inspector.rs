@@ -136,11 +136,11 @@ fn setup_http_client(
         http_client.get_entities(&[]).await
     }) {
         Ok(entities) => {
-            println!("✅ HTTP client connected and loaded {} entities", entities.len());
+            println!("HTTP client connected and loaded {} entities", entities.len());
         }
         Err(e) => {
-            println!("❌ HTTP client connection failed: {}", e);
-            println!("💡 Make sure the target app is running with bevy_remote enabled");
+            println!("HTTP client connection failed: {}", e);
+            println!("Make sure the target app is running with bevy_remote enabled");
         }
     }
     
@@ -200,6 +200,6 @@ fn handle_http_updates(
     // Process any pending updates from HTTP client
     let updates = http_client.check_updates();
     if !updates.is_empty() {
-        println!("📡 Received {} updates from HTTP client", updates.len());
+        println!("Received {} updates from HTTP client", updates.len());
     }
 }

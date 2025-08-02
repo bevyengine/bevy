@@ -39,9 +39,9 @@ pub fn handle_entity_selection(
     all_buttons: Query<Entity, With<EntityListItem>>,
     time: Res<Time>,
 ) {
-    // Only show debug info occasionally (much less frequently)
+    // Only show debug info occasionally
     if (time.elapsed_secs() as i32) % 30 == 0 && time.delta_secs() < 0.1 {
-        println!("📊 Entity selection system: {} buttons available", all_buttons.iter().count());
+        println!("Entity selection system: {} buttons available", all_buttons.iter().count());
     }
     
     // Only process actual clicks, not hover events
@@ -49,7 +49,7 @@ pub fn handle_entity_selection(
         match *interaction {
             Interaction::Pressed => {
                 selected_entity.entity_id = Some(item.entity_id);
-                println!("✅ Selected entity: {}", item.entity_id);
+                println!("Selected entity: {}", item.entity_id);
             }
             // Don't spam logs for None/Hovered states
             _ => {}

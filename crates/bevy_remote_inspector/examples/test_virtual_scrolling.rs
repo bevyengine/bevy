@@ -1,4 +1,4 @@
-//! Test application for the new robust virtual scrolling implementation
+//! Test application for the virtual scrolling implementation
 
 use bevy::prelude::*;
 use bevy_remote_inspector::InspectorPlugin;
@@ -46,5 +46,5 @@ fn setup_test_entities(mut commands: Commands) {
         }
     }
     
-    println!("✅ Created 100 test entities for virtual scrolling test");
+    println!("Created 100 test entities for virtual scrolling test");
 }

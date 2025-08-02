@@ -44,9 +44,9 @@ struct Mover {
 }
 
 fn main() {
-    println!("🎮 Starting target application for remote inspector");
-    println!("📡 bevy_remote will be available at http://localhost:15702");
-    println!("🔍 Start the remote inspector to connect and view entities");
+    println!("Starting target application for remote inspector");
+    println!("bevy_remote will be available at http://localhost:15702");
+    println!("Start the remote inspector to connect and view entities");
     
     App::new()
         .add_plugins(DefaultPlugins)
@@ -81,7 +81,7 @@ fn setup_demo_scene(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
-    println!("🏗️  Setting up demo scene with entities...");
+    println!("Setting up demo scene with entities...");
     
     // Spawn a 3D camera to view the entities
     commands.spawn((
@@ -200,21 +200,21 @@ fn setup_demo_scene(
         ));
     }
     
-    println!("✅ Demo scene setup complete!");
+    println!("Demo scene setup complete!");
     println!("   - 1 Camera");
     println!("   - 1 Player");
     println!("   - 3 Enemies");
     println!("   - 4 Items");
     println!("   - 5 Basic entities");
-    println!("📊 Total: {} entities created", 1 + 1 + 3 + 4 + 5);
+    println!("Total: {} entities created", 1 + 1 + 3 + 4 + 5);
     println!();
-    println!("💡 What you'll see:");
-    println!("   🎮 Visually: Green player cube, red enemy cubes, blue item spheres");
-    println!("   📊 In inspector: Entities moving around (Transform updates)");
-    println!("   💚 In inspector: Player health regenerating and speed changing");
-    println!("   ⬆️  In inspector: Player leveling up every 30 seconds");
-    println!("   ✨ In inspector: New colorful items spawning every 10 seconds");
-    println!("   🔧 In inspector: Different component types: Player, Enemy, Item, Transform, Name");
+    println!("What you'll see:");
+    println!("   Visually: Green player cube, red enemy cubes, blue item spheres");
+    println!("   In inspector: Entities moving around (Transform updates)");
+    println!("   In inspector: Player health regenerating and speed changing");
+    println!("   In inspector: Player leveling up every 30 seconds");
+    println!("   In inspector: New colorful items spawning every 10 seconds");
+    println!("   In inspector: Different component types: Player, Enemy, Item, Transform, Name");
     println!();
 }
 
