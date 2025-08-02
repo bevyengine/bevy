@@ -27,7 +27,7 @@ bevy_color = { path = "../bevy_color", version = "0.17.0-dev", features = [
 
 # other
 tracing = { version = "0.1", default-features = false }
-wgpu-types = { version = "25", default-features = false }
+wgpu-types = { version = "26", default-features = false }
 
 [features]
 default = []
