@@ -20,19 +20,16 @@ use bevy_asset::Assets;
 use bevy_ecs::system::Res;
 use bevy_ecs::{
     change_detection::DetectChanges,
-    component::Component,
     entity::Entity,
     lifecycle::Remove,
     observer::On,
     query::With,
-    reflect::ReflectComponent,
     system::{Commands, Local, Query},
     world::Ref,
 };
 #[cfg(feature = "custom_cursor")]
 use bevy_image::{Image, TextureAtlasLayout};
 use bevy_platform::collections::HashSet;
-use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_window::Window;
 use bevy_window_cursor::{CursorIcon, SystemCursorIcon};
 #[cfg(feature = "custom_cursor")]

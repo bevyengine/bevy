@@ -1,8 +1,7 @@
 use bevy_app::{App, Plugin};
-use bevy_asset::{Assets, Handle};
+use bevy_asset::Assets;
 use bevy_image::{Image, TextureAtlas, TextureAtlasLayout, TextureAtlasPlugin};
 use bevy_math::{ops, Rect, URect, UVec2, Vec2};
-use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use wgpu_types::TextureFormat;
 
 use crate::state::CustomCursorCache;
