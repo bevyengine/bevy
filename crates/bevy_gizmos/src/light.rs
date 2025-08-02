@@ -2,8 +2,6 @@
 
 use core::f32::consts::PI;
 
-use crate::primitives::dim3::GizmoPrimitive3d;
-
 use bevy_app::{Plugin, PostUpdate};
 use bevy_color::{
     palettes::basic::{BLUE, GREEN, RED},
