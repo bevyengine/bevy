@@ -59,7 +59,7 @@ fn spawn_tasks(mut commands: Commands) {
                 // spawn() can be used to poll for the result
                 let entity = commands.spawn_empty().id();
                 let task = thread_pool.spawn(async move {
-                    let duration = Duration::from_secs_f32(rand::thread_rng().gen_range(0.05..5.0));
+                    let duration = Duration::from_secs_f32(rand::rng().random_range(0.05..5.0));
 
                     // Pretend this is a time-intensive function. :)
                     async_std::task::sleep(duration).await;
