@@ -1,4 +1,4 @@
-use super::{prepare::ViewDlssContext, Dlss};
+use super::{prepare::ViewDlssSuperResolution, Dlss};
 use bevy_ecs::{
     query::With,
     system::{Commands, ResMut},
@@ -23,7 +23,7 @@ pub fn extract_dlss(mut commands: Commands, mut main_world: ResMut<MainWorld>) {
             entity_commands.insert(dlss.as_deref().unwrap().clone());
             dlss.as_mut().unwrap().reset = false;
         } else {
-            entity_commands.remove::<(Dlss, ViewDlssContext, MainPassResolutionOverride)>();
+            entity_commands.remove::<(Dlss, ViewDlssSuperResolution, MainPassResolutionOverride)>();
         }
     }
 }

@@ -1,4 +1,4 @@
-use super::{prepare::ViewDlssContext, Dlss};
+use super::{prepare::ViewDlssSuperResolution, Dlss};
 use bevy_core_pipeline::prepass::ViewPrepassTextures;
 use bevy_ecs::{query::QueryItem, world::World};
 use bevy_render::{
@@ -7,7 +7,9 @@ use bevy_render::{
     renderer::{RenderAdapter, RenderContext},
     view::ViewTarget,
 };
-use dlss_wgpu::{DlssExposure, DlssRenderParameters};
+use dlss_wgpu::super_resolution::{
+    DlssSuperResolutionExposure, DlssSuperResolutionRenderParameters,
+};
 
 #[derive(Default)]
 pub struct DlssNode;
@@ -15,7 +17,7 @@ pub struct DlssNode;
 impl ViewNode for DlssNode {
     type ViewQuery = (
         &'static Dlss,
-        &'static ViewDlssContext,
+        &'static ViewDlssSuperResolution,
         &'static MainPassResolutionOverride,
         &'static TemporalJitter,
         &'static ViewTarget,
@@ -46,12 +48,12 @@ impl ViewNode for DlssNode {
         let view_target = view_target.post_process_write();
 
         let render_resolution = resolution_override.0;
-        let render_parameters = DlssRenderParameters {
+        let render_parameters = DlssSuperResolutionRenderParameters {
             color: &view_target.source,
             depth: &prepass_depth_texture.texture.default_view,
             motion_vectors: &prepass_motion_vectors_texture.texture.default_view,
-            exposure: DlssExposure::Automatic, // TODO
-            bias: None,                        // TODO
+            exposure: DlssSuperResolutionExposure::Automatic, // TODO
+            bias: None,                                       // TODO
             dlss_output: &view_target.destination,
             reset: dlss.reset,
             jitter_offset: -temporal_jitter.offset,

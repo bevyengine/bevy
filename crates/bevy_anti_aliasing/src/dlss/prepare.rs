@@ -17,12 +17,12 @@ use bevy_render::{
     renderer::{RenderDevice, RenderQueue},
     view::ExtractedView,
 };
-use dlss_wgpu::{DlssContext, DlssFeatureFlags, DlssPerfQualityMode};
+use dlss_wgpu::{super_resolution::DlssSuperResolution, DlssFeatureFlags, DlssPerfQualityMode};
 use std::sync::{Arc, Mutex};
 
 #[derive(Component)]
-pub struct ViewDlssContext {
-    pub context: Mutex<DlssContext>,
+pub struct ViewDlssSuperResolution {
+    pub context: Mutex<DlssSuperResolution>,
     pub perf_quality_mode: DlssPerfQualityMode,
     pub feature_flags: DlssFeatureFlags,
 }
@@ -37,7 +37,7 @@ pub fn prepare_dlss(
             &mut CameraMainTextureUsages,
             &mut TemporalJitter,
             &mut MipBias,
-            Option<&mut ViewDlssContext>,
+            Option<&mut ViewDlssSuperResolution>,
         ),
         (
             With<Camera3d>,
@@ -88,7 +88,7 @@ pub fn prepare_dlss(
                     dlss_context.suggested_jitter(frame_count.0, dlss_context.render_resolution());
             }
             _ => {
-                let dlss_context = DlssContext::new(
+                let dlss_context = DlssSuperResolution::new(
                     upscaled_resolution,
                     dlss.perf_quality_mode,
                     dlss_feature_flags,
@@ -96,7 +96,7 @@ pub fn prepare_dlss(
                     render_device.wgpu_device(),
                     &render_queue,
                 )
-                .expect("Failed to create DlssContext");
+                .expect("Failed to create DlssSuperResolution");
 
                 let render_resolution = dlss_context.render_resolution();
                 temporal_jitter.offset =
@@ -104,7 +104,7 @@ pub fn prepare_dlss(
                 mip_bias.0 = dlss_context.suggested_mip_bias(render_resolution);
 
                 commands.entity(entity).insert((
-                    ViewDlssContext {
+                    ViewDlssSuperResolution {
                         context: Mutex::new(dlss_context),
                         perf_quality_mode: dlss.perf_quality_mode,
                         feature_flags: dlss_feature_flags,
