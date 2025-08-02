@@ -3,7 +3,7 @@
 //! This module provides a comprehensive entity inspector that allows developers to inspect
 //! the state of their application's World at runtime in a dedicated window.
 
-use bevy_ecs::{entity::Entity, prelude::Resource};
+use bevy_ecs::{entity::Entity, prelude::Resource, schedule::ScheduleLabel};
 use bevy_input::keyboard::KeyCode;
 use bevy_state::prelude::*;
 
@@ -12,6 +12,11 @@ mod systems;
 mod ui;
 
 pub use plugin::EntityInspectorPlugin;
+
+/// Schedule that contains all systems to process Entity Inspector updates.
+/// This runs separately to avoid World borrow conflicts with other systems.
+#[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash, Default)]
+pub struct InspectorLast;
 
 /// The current state of the Entity Inspector.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, States, Default)]
