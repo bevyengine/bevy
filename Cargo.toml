@@ -166,6 +166,7 @@ default = [
   "vorbis",
   "webgl2",
   "x11",
+  "wayland",
   "debug",
   "zstd_rust",
 ]
