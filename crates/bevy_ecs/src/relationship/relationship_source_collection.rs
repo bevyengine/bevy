@@ -284,6 +284,10 @@ impl RelationshipCollection for EntityHashSet {
         self.0.remove(&entity)
     }
 
+    fn contains(&self, entity: Entity) -> bool {
+        self.0.contains(&entity)
+    }
+
     fn iter(&self) -> Self::Iter<'_> {
         self.iter().copied()
     }
@@ -390,6 +394,10 @@ impl RelationshipCollection for Entity {
         }
 
         false
+    }
+
+    fn contains(&self, entity: Entity) -> bool {
+        *self == entity
     }
 
     fn iter(&self) -> Self::Iter<'_> {
@@ -513,6 +521,10 @@ impl<S: BuildHasher + Default> RelationshipCollection for IndexSet<Entity, S> {
         self.shift_remove(&entity)
     }
 
+    fn contains(&self, entity: Entity) -> bool {
+        self.contains(&entity)
+    }
+
     fn iter(&self) -> Self::Iter<'_> {
         self.iter().copied()
     }
@@ -559,6 +571,10 @@ impl RelationshipCollection for EntityIndexSet {
 
     fn remove(&mut self, entity: Entity) -> bool {
         self.deref_mut().shift_remove(&entity)
+    }
+
+    fn contains(&self, entity: Entity) -> bool {
+        self.deref().contains(&entity)
     }
 
     fn iter(&self) -> Self::Iter<'_> {
@@ -608,6 +624,10 @@ impl RelationshipCollection for BTreeSet<Entity> {
 
     fn remove(&mut self, entity: Entity) -> bool {
         self.remove(&entity)
+    }
+
+    fn contains(&self, entity: Entity) -> bool {
+        self.contains(&entity)
     }
 
     fn iter(&self) -> Self::Iter<'_> {
