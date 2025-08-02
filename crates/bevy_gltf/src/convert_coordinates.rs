@@ -17,6 +17,10 @@ pub(crate) trait ConvertCoordinates {
     fn convert_coordinates(self) -> Self;
 }
 
+pub(crate) trait ConvertInverseCoordinates {
+    fn convert_inverse_coordinates(self) -> Self;
+}
+
 impl ConvertCoordinates for Vec3 {
     fn convert_coordinates(self) -> Self {
         Vec3::new(-self.x, self.y, -self.z)
@@ -36,12 +40,9 @@ impl ConvertCoordinates for [f32; 4] {
     }
 }
 
-impl ConvertCoordinates for Mat4 {
-    fn convert_coordinates(self) -> Self {
-        let m: Mat4 = Mat4::from_scale(Vec3::new(-1.0, 1.0, -1.0));
-        // Same as the original matrix
-        let m_inv = m;
-        m_inv * self * m
+impl ConvertInverseCoordinates for Mat4 {
+    fn convert_inverse_coordinates(self) -> Self {
+        self * Mat4::from_scale(Vec3::new(-1.0, 1.0, -1.0))
     }
 }
 

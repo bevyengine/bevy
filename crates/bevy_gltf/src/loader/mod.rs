@@ -65,8 +65,9 @@ use thiserror::Error;
 use tracing::{error, info_span, warn};
 
 use crate::{
-    vertex_attributes::convert_attribute, Gltf, GltfAssetLabel, GltfExtras, GltfMaterialExtras,
-    GltfMaterialName, GltfMeshExtras, GltfMeshName, GltfNode, GltfSceneExtras, GltfSkin,
+    convert_coordinates::ConvertInverseCoordinates as _, vertex_attributes::convert_attribute,
+    Gltf, GltfAssetLabel, GltfExtras, GltfMaterialExtras, GltfMaterialName, GltfMeshExtras,
+    GltfMeshName, GltfNode, GltfSceneExtras, GltfSkin,
 };
 
 #[cfg(feature = "bevy_animation")]
@@ -84,7 +85,7 @@ use self::{
         texture::{texture_handle, texture_sampler, texture_transform_to_affine2},
     },
 };
-use crate::convert_coordinates::{ConvertCoordinates as _, GltfConvertCoordinates};
+use crate::convert_coordinates::GltfConvertCoordinates;
 
 /// An error that occurs when loading a glTF file.
 #[derive(Error, Debug)]
@@ -810,7 +811,7 @@ impl GltfLoader {
                         mats.map(|mat| Mat4::from_cols_array_2d(&mat))
                             .map(|mat| {
                                 if convert_coordinates.meshes {
-                                    mat.convert_coordinates()
+                                    mat.convert_inverse_coordinates()
                                 } else {
                                     mat
                                 }
