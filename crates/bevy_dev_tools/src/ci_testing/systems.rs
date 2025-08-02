@@ -18,7 +18,7 @@ pub(crate) fn send_events(world: &mut World, mut current_frame: Local<u32>) {
         debug!("Handling event: {:?}", event);
         match event {
             CiTestingEvent::AppExit => {
-                world.send_event(AppExit::Success);
+                world.write_event(AppExit::Success);
                 info!("Exiting after {} frames. Test successful!", *current_frame);
             }
             CiTestingEvent::ScreenshotAndExit => {
@@ -53,7 +53,7 @@ pub(crate) fn send_events(world: &mut World, mut current_frame: Local<u32>) {
             }
             // Custom events are forwarded to the world.
             CiTestingEvent::Custom(event_string) => {
-                world.send_event(CiTestingCustomEvent(event_string));
+                world.write_event(CiTestingCustomEvent(event_string));
             }
         }
     }

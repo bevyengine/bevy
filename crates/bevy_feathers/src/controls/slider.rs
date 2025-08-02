@@ -2,7 +2,7 @@ use core::f32::consts::PI;
 
 use bevy_app::{Plugin, PreUpdate};
 use bevy_color::Color;
-use bevy_core_widgets::{Callback, CoreSlider, SliderRange, SliderValue, TrackClick};
+use bevy_core_widgets::{Callback, CoreSlider, SliderRange, SliderValue, TrackClick, ValueChange};
 use bevy_ecs::{
     bundle::Bundle,
     children,
@@ -22,10 +22,10 @@ use bevy_ui::{
     InteractionDisabled, InterpolationColorSpace, JustifyContent, LinearGradient, Node, UiRect,
     Val,
 };
-use bevy_winit::cursor::CursorIcon;
 
 use crate::{
     constants::{fonts, size},
+    cursor::EntityCursor,
     font_styles::InheritableFont,
     handle_or_path::HandleOrPath,
     rounded_corners::RoundedCorners,
@@ -42,7 +42,7 @@ pub struct SliderProps {
     /// Slider maximum value
     pub max: f32,
     /// On-change handler
-    pub on_change: Callback<In<f32>>,
+    pub on_change: Callback<In<ValueChange<f32>>>,
 }
 
 impl Default for SliderProps {
@@ -87,7 +87,7 @@ pub fn slider<B: Bundle>(props: SliderProps, overrides: B) -> impl Bundle {
         SliderStyle,
         SliderValue(props.value),
         SliderRange::new(props.min, props.max),
-        CursorIcon::System(bevy_window::SystemCursorIcon::EwResize),
+        EntityCursor::System(bevy_window::SystemCursorIcon::EwResize),
         TabIndex(0),
         RoundedCorners::All.to_border_radius(6.0),
         // Use a gradient to draw the moving bar
@@ -99,7 +99,7 @@ pub fn slider<B: Bundle>(props: SliderProps, overrides: B) -> impl Bundle {
                 ColorStop::new(Color::NONE, Val::Percent(50.)),
                 ColorStop::new(Color::NONE, Val::Percent(100.)),
             ],
-            color_space: InterpolationColorSpace::Srgb,
+            color_space: InterpolationColorSpace::Srgba,
         })]),
         overrides,
         children![(

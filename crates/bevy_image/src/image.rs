@@ -359,7 +359,13 @@ impl ToExtents for UVec3 {
     }
 }
 
-#[derive(Asset, Debug, Clone)]
+/// An image, optimized for usage in rendering.
+///
+/// ## Remote Inspection
+///
+/// To transmit an [`Image`] between two running Bevy apps, e.g. through BRP, use [`SerializedImage`](crate::SerializedImage).
+/// This type is only meant for short-term transmission between same versions and should not be stored anywhere.
+#[derive(Asset, Debug, Clone, PartialEq)]
 #[cfg_attr(
     feature = "bevy_reflect",
     derive(Reflect),
@@ -377,9 +383,23 @@ pub struct Image {
     /// Use [`TextureDataOrder::default()`] for all other cases.
     pub data_order: TextureDataOrder,
     // TODO: this nesting makes accessing Image metadata verbose. Either flatten out descriptor or add accessors.
+    /// Describes the data layout of the GPU texture.\
+    /// For example, whether a texture contains 1D/2D/3D data, and what the format of the texture data is.
+    ///
+    /// ## Field Usage Notes
+    /// - [`TextureDescriptor::label`] is used for caching purposes when not using `Asset<Image>`.\
+    ///   If you use assets, the label is purely a debugging aid.
+    /// - [`TextureDescriptor::view_formats`] is currently unused by Bevy.
     pub texture_descriptor: TextureDescriptor<Option<&'static str>, &'static [TextureFormat]>,
     /// The [`ImageSampler`] to use during rendering.
     pub sampler: ImageSampler,
+    /// Describes how the GPU texture should be interpreted.\
+    /// For example, 2D image data could be read as plain 2D, an array texture of layers of 2D with the same dimensions (and the number of layers in that case),
+    /// a cube map, an array of cube maps, etc.
+    ///
+    /// ## Field Usage Notes
+    /// - [`TextureViewDescriptor::label`] is used for caching purposes when not using `Asset<Image>`.\
+    ///   If you use assets, the label is purely a debugging aid.
     pub texture_view_descriptor: Option<TextureViewDescriptor<Option<&'static str>>>,
     pub asset_usage: RenderAssetUsages,
     /// Whether this image should be copied on the GPU when resized.
@@ -841,6 +861,58 @@ impl Image {
         );
         let data = pixel.iter().copied().cycle().take(byte_len).collect();
         Image::new(size, dimension, data, format, asset_usage)
+    }
+
+    /// Create a new zero-filled image with a given size, which can be rendered to.
+    /// Useful for mirrors, UI, or exporting images for example.
+    /// This is primarily for use as a render target for a [`Camera`].
+    /// See [`RenderTarget::Image`].
+    ///
+    /// For Standard Dynamic Range (SDR) images you can use [`TextureFormat::Rgba8UnormSrgb`].
+    /// For High Dynamic Range (HDR) images you can use [`TextureFormat::Rgba16Float`].
+    ///
+    /// The default [`TextureUsages`] are
+    /// [`TEXTURE_BINDING`](TextureUsages::TEXTURE_BINDING),
+    /// [`COPY_DST`](TextureUsages::COPY_DST),
+    /// [`RENDER_ATTACHMENT`](TextureUsages::RENDER_ATTACHMENT).
+    ///
+    /// The default [`RenderAssetUsages`] is [`MAIN_WORLD | RENDER_WORLD`](RenderAssetUsages::default)
+    /// so that it is accessible from the CPU and GPU.
+    /// You can customize this by changing the [`asset_usage`](Image::asset_usage) field.
+    ///
+    /// [`Camera`]: https://docs.rs/bevy/latest/bevy/render/camera/struct.Camera.html
+    /// [`RenderTarget::Image`]: https://docs.rs/bevy/latest/bevy/render/camera/enum.RenderTarget.html#variant.Image
+    pub fn new_target_texture(width: u32, height: u32, format: TextureFormat) -> Self {
+        let size = Extent3d {
+            width,
+            height,
+            ..Default::default()
+        };
+        // You need to set these texture usage flags in order to use the image as a render target
+        let usage = TextureUsages::TEXTURE_BINDING
+            | TextureUsages::COPY_DST
+            | TextureUsages::RENDER_ATTACHMENT;
+        // Fill with zeroes
+        let data = vec![0; format.pixel_size() * size.volume()];
+
+        Image {
+            data: Some(data),
+            data_order: TextureDataOrder::default(),
+            texture_descriptor: TextureDescriptor {
+                size,
+                format,
+                dimension: TextureDimension::D2,
+                label: None,
+                mip_level_count: 1,
+                sample_count: 1,
+                usage,
+                view_formats: &[],
+            },
+            sampler: ImageSampler::Default,
+            texture_view_descriptor: None,
+            asset_usage: RenderAssetUsages::default(),
+            copy_on_resize: true,
+        }
     }
 
     /// Returns the width of a 2D image.

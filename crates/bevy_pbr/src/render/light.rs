@@ -1,6 +1,3 @@
-use self::assign::ClusterableObjectType;
-use crate::assign::calculate_cluster_factors;
-use crate::cascade::{Cascade, CascadeShadowConfig, Cascades};
 use crate::*;
 use bevy_asset::UntypedAssetId;
 pub use bevy_camera::primitives::{face_index_to_name, CubeMapFace, CUBE_MAP_FACES};
@@ -13,6 +10,13 @@ use bevy_ecs::{
     entity::{EntityHashMap, EntityHashSet},
     prelude::*,
     system::lifetimeless::Read,
+};
+use bevy_light::cascade::Cascade;
+use bevy_light::cluster::assign::{calculate_cluster_factors, ClusterableObjectType};
+use bevy_light::cluster::GlobalVisibleClusterableObjects;
+use bevy_light::{
+    spot_light_clip_from_view, spot_light_world_from_view, DirectionalLightShadowMap,
+    NotShadowCaster, PointLightShadowMap,
 };
 use bevy_math::{ops, Mat4, UVec4, Vec3, Vec3Swizzles, Vec4, Vec4Swizzles};
 use bevy_platform::collections::{HashMap, HashSet};
@@ -185,39 +189,31 @@ pub struct ShadowSamplers {
     pub directional_light_linear_sampler: Sampler,
 }
 
-// TODO: this pattern for initializing the shaders / pipeline isn't ideal. this should be handled by the asset system
-impl FromWorld for ShadowSamplers {
-    fn from_world(world: &mut World) -> Self {
-        let render_device = world.resource::<RenderDevice>();
+pub fn init_shadow_samplers(mut commands: Commands, render_device: Res<RenderDevice>) {
+    let base_sampler_descriptor = SamplerDescriptor {
+        address_mode_u: AddressMode::ClampToEdge,
+        address_mode_v: AddressMode::ClampToEdge,
+        address_mode_w: AddressMode::ClampToEdge,
+        mag_filter: FilterMode::Linear,
+        min_filter: FilterMode::Linear,
+        mipmap_filter: FilterMode::Nearest,
+        ..default()
+    };
 
-        let base_sampler_descriptor = SamplerDescriptor {
-            address_mode_u: AddressMode::ClampToEdge,
-            address_mode_v: AddressMode::ClampToEdge,
-            address_mode_w: AddressMode::ClampToEdge,
-            mag_filter: FilterMode::Linear,
-            min_filter: FilterMode::Linear,
-            mipmap_filter: FilterMode::Nearest,
-            ..default()
-        };
-
-        ShadowSamplers {
-            point_light_comparison_sampler: render_device.create_sampler(&SamplerDescriptor {
-                compare: Some(CompareFunction::GreaterEqual),
-                ..base_sampler_descriptor
-            }),
-            #[cfg(feature = "experimental_pbr_pcss")]
-            point_light_linear_sampler: render_device.create_sampler(&base_sampler_descriptor),
-            directional_light_comparison_sampler: render_device.create_sampler(
-                &SamplerDescriptor {
-                    compare: Some(CompareFunction::GreaterEqual),
-                    ..base_sampler_descriptor
-                },
-            ),
-            #[cfg(feature = "experimental_pbr_pcss")]
-            directional_light_linear_sampler: render_device
-                .create_sampler(&base_sampler_descriptor),
-        }
-    }
+    commands.insert_resource(ShadowSamplers {
+        point_light_comparison_sampler: render_device.create_sampler(&SamplerDescriptor {
+            compare: Some(CompareFunction::GreaterEqual),
+            ..base_sampler_descriptor
+        }),
+        #[cfg(feature = "experimental_pbr_pcss")]
+        point_light_linear_sampler: render_device.create_sampler(&base_sampler_descriptor),
+        directional_light_comparison_sampler: render_device.create_sampler(&SamplerDescriptor {
+            compare: Some(CompareFunction::GreaterEqual),
+            ..base_sampler_descriptor
+        }),
+        #[cfg(feature = "experimental_pbr_pcss")]
+        directional_light_linear_sampler: render_device.create_sampler(&base_sampler_descriptor),
+    });
 }
 
 pub fn extract_lights(
@@ -798,7 +794,7 @@ pub fn prepare_lights(
     // - then by entity as a stable key to ensure that a consistent set of lights are chosen if the light count limit is exceeded.
     point_lights.sort_by_cached_key(|(entity, _, light, _)| {
         (
-            ClusterableObjectType::from_point_or_spot_light(light).ordering(),
+            point_or_spot_light_to_clusterable(light).ordering(),
             *entity,
         )
     });
@@ -2263,5 +2259,20 @@ impl ShadowPassNode {
         }
 
         Ok(())
+    }
+}
+
+/// Creates the [`ClusterableObjectType`] data for a point or spot light.
+fn point_or_spot_light_to_clusterable(point_light: &ExtractedPointLight) -> ClusterableObjectType {
+    match point_light.spot_light_angles {
+        Some((_, outer_angle)) => ClusterableObjectType::SpotLight {
+            outer_angle,
+            shadows_enabled: point_light.shadows_enabled,
+            volumetric: point_light.volumetric,
+        },
+        None => ClusterableObjectType::PointLight {
+            shadows_enabled: point_light.shadows_enabled,
+            volumetric: point_light.volumetric,
+        },
     }
 }

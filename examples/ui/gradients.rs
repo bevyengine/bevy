@@ -202,7 +202,7 @@ fn setup(mut commands: Commands) {
                         )]
                 )).observe(
                     |_trigger: On<Pointer<Over>>, mut border_query: Query<&mut BorderColor, With<Button>>| {
-                    *border_query.single_mut().unwrap() = BorderColor::all(RED.into());
+                    *border_query.single_mut().unwrap() = BorderColor::all(RED);
 
 
                 })
@@ -232,20 +232,32 @@ fn setup(mut commands: Commands) {
                                         }
                                     };
                                     *space = match *space {
-                                        InterpolationColorSpace::OkLab => {
-                                            InterpolationColorSpace::OkLch
+                                        InterpolationColorSpace::Oklaba => {
+                                            InterpolationColorSpace::Oklcha
                                         }
-                                        InterpolationColorSpace::OkLch => {
-                                            InterpolationColorSpace::OkLchLong
+                                        InterpolationColorSpace::Oklcha => {
+                                            InterpolationColorSpace::OklchaLong
                                         }
-                                        InterpolationColorSpace::OkLchLong => {
-                                            InterpolationColorSpace::Srgb
+                                        InterpolationColorSpace::OklchaLong => {
+                                            InterpolationColorSpace::Srgba
                                         }
-                                        InterpolationColorSpace::Srgb => {
-                                            InterpolationColorSpace::LinearRgb
+                                        InterpolationColorSpace::Srgba => {
+                                            InterpolationColorSpace::LinearRgba
                                         }
-                                        InterpolationColorSpace::LinearRgb => {
-                                            InterpolationColorSpace::OkLab
+                                        InterpolationColorSpace::LinearRgba => {
+                                            InterpolationColorSpace::Hsla
+                                        }
+                                        InterpolationColorSpace::Hsla => {
+                                            InterpolationColorSpace::HslaLong
+                                        }
+                                        InterpolationColorSpace::HslaLong => {
+                                            InterpolationColorSpace::Hsva
+                                        }
+                                        InterpolationColorSpace::Hsva => {
+                                            InterpolationColorSpace::HsvaLong
+                                        }
+                                        InterpolationColorSpace::HsvaLong => {
+                                            InterpolationColorSpace::Oklaba
                                         }
                                     };
                                     current_space = *space;

@@ -89,9 +89,7 @@ fn spawn_tasks(mut commands: Commands) {
                                 Mesh3d(box_mesh_handle),
                                 MeshMaterial3d(box_material_handle),
                                 transform,
-                            ))
-                            // Task is complete, so remove task component from entity
-                            .remove::<ComputeTransform>();
+                            ));
                     });
 
                     command_queue
@@ -108,11 +106,16 @@ fn spawn_tasks(mut commands: Commands) {
 /// tasks to see if they're complete. If the task is complete it takes the result, adds a
 /// new [`Mesh3d`] and [`MeshMaterial3d`] to the entity using the result from the task's work, and
 /// removes the task component from the entity.
-fn handle_tasks(mut commands: Commands, mut transform_tasks: Query<&mut ComputeTransform>) {
-    for mut task in &mut transform_tasks {
+fn handle_tasks(
+    mut commands: Commands,
+    mut transform_tasks: Query<(Entity, &mut ComputeTransform)>,
+) {
+    for (entity, mut task) in &mut transform_tasks {
         if let Some(mut commands_queue) = block_on(future::poll_once(&mut task.0)) {
             // append the returned command queue to have it execute later
             commands.append(&mut commands_queue);
+            // Task is complete, so remove task component from entity
+            commands.entity(entity).remove::<ComputeTransform>();
         }
     }
 }

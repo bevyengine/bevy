@@ -1,7 +1,7 @@
 use accesskit::Role;
 use bevy_a11y::AccessibilityNode;
 use bevy_app::{Plugin, PreUpdate};
-use bevy_core_widgets::{Callback, CoreCheckbox};
+use bevy_core_widgets::{Callback, CoreCheckbox, ValueChange};
 use bevy_ecs::{
     bundle::Bundle,
     children,
@@ -18,10 +18,10 @@ use bevy_ecs::{
 use bevy_input_focus::tab_navigation::TabIndex;
 use bevy_picking::{hover::Hovered, PickingSystems};
 use bevy_ui::{BorderRadius, Checked, InteractionDisabled, Node, PositionType, UiRect, Val};
-use bevy_winit::cursor::CursorIcon;
 
 use crate::{
     constants::size,
+    cursor::EntityCursor,
     theme::{ThemeBackgroundColor, ThemeBorderColor},
     tokens,
 };
@@ -30,7 +30,7 @@ use crate::{
 #[derive(Default)]
 pub struct ToggleSwitchProps {
     /// Change handler
-    pub on_change: Callback<In<bool>>,
+    pub on_change: Callback<In<ValueChange<bool>>>,
 }
 
 /// Marker for the toggle switch outline
@@ -63,7 +63,7 @@ pub fn toggle_switch<B: Bundle>(props: ToggleSwitchProps, overrides: B) -> impl 
         ThemeBorderColor(tokens::SWITCH_BORDER),
         AccessibilityNode(accesskit::Node::new(Role::Switch)),
         Hovered::default(),
-        CursorIcon::System(bevy_window::SystemCursorIcon::Pointer),
+        EntityCursor::System(bevy_window::SystemCursorIcon::Pointer),
         TabIndex(0),
         overrides,
         children![(

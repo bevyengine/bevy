@@ -50,7 +50,7 @@ use crate::{
     },
     entity::{Entities, Entity, EntityDoesNotExistError},
     entity_disabling::DefaultQueryFilters,
-    event::{Event, EventId, Events, SendBatchIds},
+    event::{Event, EventId, Events, WriteBatchIds},
     lifecycle::RemovedComponentEvents,
     observer::Observers,
     query::{DebugCheckedUnwrap, QueryData, QueryFilter, QueryState},
@@ -214,14 +214,6 @@ impl World {
     #[inline]
     pub unsafe fn entities_mut(&mut self) -> &mut Entities {
         &mut self.entities
-    }
-
-    /// Retrieves the number of [`Entities`] in the world.
-    ///
-    /// This is helpful as a diagnostic, but it can also be used effectively in tests.
-    #[inline]
-    pub fn entity_count(&self) -> u32 {
-        self.entities.len()
     }
 
     /// Retrieves this world's [`Archetypes`] collection.
@@ -602,6 +594,7 @@ impl World {
     ///
     /// # See also
     ///
+    /// * [`ComponentIdFor`](crate::component::ComponentIdFor)
     /// * [`Components::component_id()`]
     /// * [`Components::get_id()`]
     #[inline]
@@ -704,7 +697,7 @@ impl World {
     /// }
     /// ```
     ///
-    /// ## [`EntityHashSet`](crate::entity::EntityHashMap)
+    /// ## [`EntityHashSet`](crate::entity::EntityHashSet)
     ///
     /// ```
     /// # use bevy_ecs::{prelude::*, entity::EntityHashSet};
@@ -838,7 +831,7 @@ impl World {
     /// }
     /// ```
     ///
-    /// ## [`EntityHashSet`](crate::entity::EntityHashMap)
+    /// ## [`EntityHashSet`](crate::entity::EntityHashSet)
     ///
     /// ```
     /// # use bevy_ecs::{prelude::*, entity::EntityHashSet};
@@ -976,6 +969,7 @@ impl World {
     /// Returns an [`Entity`] iterator of current entities.
     ///
     /// This is useful in contexts where you only have read-only access to the [`World`].
+    #[deprecated(since = "0.17.0", note = "use world.query::<EntityRef>()` instead")]
     #[inline]
     pub fn iter_entities(&self) -> impl Iterator<Item = EntityRef<'_>> + '_ {
         self.archetypes.iter().flat_map(|archetype| {
@@ -997,6 +991,7 @@ impl World {
     }
 
     /// Returns a mutable iterator over all entities in the `World`.
+    #[deprecated(since = "0.17.0", note = "use world.query::<EntityMut>()` instead")]
     pub fn iter_entities_mut(&mut self) -> impl Iterator<Item = EntityMut<'_>> + '_ {
         let last_change_tick = self.last_change_tick;
         let change_tick = self.change_tick();
@@ -2550,6 +2545,11 @@ impl World {
     /// This enables safe simultaneous mutable access to both a resource and the rest of the [`World`].
     /// For more complex access patterns, consider using [`SystemState`](crate::system::SystemState).
     ///
+    /// # Panics
+    ///
+    /// Panics if the resource does not exist.
+    /// Use [`try_resource_scope`](Self::try_resource_scope) instead if you want to handle this case.
+    ///
     /// # Example
     /// ```
     /// use bevy_ecs::prelude::*;
@@ -2567,8 +2567,6 @@ impl World {
     /// });
     /// assert_eq!(world.get_resource::<A>().unwrap().0, 2);
     /// ```
-    ///
-    /// See also [`try_resource_scope`](Self::try_resource_scope).
     #[track_caller]
     pub fn resource_scope<R: Resource, U>(&mut self, f: impl FnOnce(&mut World, Mut<R>) -> U) -> U {
         self.try_resource_scope(f)
@@ -2626,30 +2624,48 @@ impl World {
         Some(result)
     }
 
-    /// Sends a [`BufferedEvent`].
-    /// This method returns the [ID](`EventId`) of the sent `event`,
-    /// or [`None`] if the `event` could not be sent.
+    /// Writes a [`BufferedEvent`].
+    /// This method returns the [ID](`EventId`) of the written `event`,
+    /// or [`None`] if the `event` could not be written.
     #[inline]
+    pub fn write_event<E: BufferedEvent>(&mut self, event: E) -> Option<EventId<E>> {
+        self.write_event_batch(core::iter::once(event))?.next()
+    }
+
+    /// Writes a [`BufferedEvent`].
+    /// This method returns the [ID](`EventId`) of the written `event`,
+    /// or [`None`] if the `event` could not be written.
+    #[inline]
+    #[deprecated(since = "0.17.0", note = "Use `World::write_event` instead.")]
     pub fn send_event<E: BufferedEvent>(&mut self, event: E) -> Option<EventId<E>> {
-        self.send_event_batch(core::iter::once(event))?.next()
+        self.write_event(event)
     }
 
-    /// Sends the default value of the [`BufferedEvent`] of type `E`.
-    /// This method returns the [ID](`EventId`) of the sent `event`,
-    /// or [`None`] if the `event` could not be sent.
+    /// Writes the default value of the [`BufferedEvent`] of type `E`.
+    /// This method returns the [ID](`EventId`) of the written `event`,
+    /// or [`None`] if the `event` could not be written.
     #[inline]
+    pub fn write_event_default<E: BufferedEvent + Default>(&mut self) -> Option<EventId<E>> {
+        self.write_event(E::default())
+    }
+
+    /// Writes the default value of the [`BufferedEvent`] of type `E`.
+    /// This method returns the [ID](`EventId`) of the written `event`,
+    /// or [`None`] if the `event` could not be written.
+    #[inline]
+    #[deprecated(since = "0.17.0", note = "Use `World::write_event_default` instead.")]
     pub fn send_event_default<E: BufferedEvent + Default>(&mut self) -> Option<EventId<E>> {
-        self.send_event(E::default())
+        self.write_event_default::<E>()
     }
 
-    /// Sends a batch of [`BufferedEvent`]s from an iterator.
-    /// This method returns the [IDs](`EventId`) of the sent `events`,
-    /// or [`None`] if the `event` could not be sent.
+    /// Writes a batch of [`BufferedEvent`]s from an iterator.
+    /// This method returns the [IDs](`EventId`) of the written `events`,
+    /// or [`None`] if the `event` could not be written.
     #[inline]
-    pub fn send_event_batch<E: BufferedEvent>(
+    pub fn write_event_batch<E: BufferedEvent>(
         &mut self,
         events: impl IntoIterator<Item = E>,
-    ) -> Option<SendBatchIds<E>> {
+    ) -> Option<WriteBatchIds<E>> {
         let Some(mut events_resource) = self.get_resource_mut::<Events<E>>() else {
             log::error!(
                 "Unable to send event `{}`\n\tEvent must be added to the app with `add_event()`\n\thttps://docs.rs/bevy/*/bevy/app/struct.App.html#method.add_event ",
@@ -2657,7 +2673,19 @@ impl World {
             );
             return None;
         };
-        Some(events_resource.send_batch(events))
+        Some(events_resource.write_batch(events))
+    }
+
+    /// Writes a batch of [`BufferedEvent`]s from an iterator.
+    /// This method returns the [IDs](`EventId`) of the written `events`,
+    /// or [`None`] if the `event` could not be written.
+    #[inline]
+    #[deprecated(since = "0.17.0", note = "Use `World::write_event_batch` instead.")]
+    pub fn send_event_batch<E: BufferedEvent>(
+        &mut self,
+        events: impl IntoIterator<Item = E>,
+    ) -> Option<WriteBatchIds<E>> {
+        self.write_event_batch(events)
     }
 
     /// Inserts a new resource with the given `value`. Will replace the value if it already existed.
@@ -4073,6 +4101,7 @@ mod tests {
 
         let iterate_and_count_entities = |world: &World, entity_counters: &mut HashMap<_, _>| {
             entity_counters.clear();
+            #[expect(deprecated, reason = "remove this test in in 0.17.0")]
             for entity in world.iter_entities() {
                 let counter = entity_counters.entry(entity.id()).or_insert(0);
                 *counter += 1;
@@ -4150,6 +4179,7 @@ mod tests {
         let b1 = world.spawn(B(1)).id();
         let b2 = world.spawn(B(2)).id();
 
+        #[expect(deprecated, reason = "remove this test in 0.17.0")]
         for mut entity in world.iter_entities_mut() {
             if let Some(mut a) = entity.get_mut::<A>() {
                 a.0 -= 1;
@@ -4160,6 +4190,7 @@ mod tests {
         assert_eq!(world.entity(b1).get(), Some(&B(1)));
         assert_eq!(world.entity(b2).get(), Some(&B(2)));
 
+        #[expect(deprecated, reason = "remove this test in in 0.17.0")]
         for mut entity in world.iter_entities_mut() {
             if let Some(mut b) = entity.get_mut::<B>() {
                 b.0 *= 2;
@@ -4170,6 +4201,7 @@ mod tests {
         assert_eq!(world.entity(b1).get(), Some(&B(2)));
         assert_eq!(world.entity(b2).get(), Some(&B(4)));
 
+        #[expect(deprecated, reason = "remove this test in in 0.17.0")]
         let mut entities = world.iter_entities_mut().collect::<Vec<_>>();
         entities.sort_by_key(|e| e.get::<A>().map(|a| a.0).or(e.get::<B>().map(|b| b.0)));
         let (a, b) = entities.split_at_mut(2);

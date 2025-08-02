@@ -2,13 +2,13 @@ mod prepass_bindings;
 
 use crate::{
     alpha_mode_pipeline_key, binding_arrays_are_usable, buffer_layout,
-    collect_meshes_for_gpu_building, set_mesh_motion_vector_flags, setup_morph_and_skinning_defs,
-    skin, DeferredDrawFunction, DeferredFragmentShader, DeferredVertexShader, DrawMesh,
-    EntitySpecializationTicks, ErasedMaterialPipelineKey, Material, MaterialPipeline,
-    MaterialProperties, MeshLayouts, MeshPipeline, MeshPipelineKey, OpaqueRendererMethod,
-    PreparedMaterial, PrepassDrawFunction, PrepassFragmentShader, PrepassVertexShader,
-    RenderLightmaps, RenderMaterialInstances, RenderMeshInstanceFlags, RenderMeshInstances,
-    RenderPhaseType, SetMaterialBindGroup, SetMeshBindGroup, ShadowView,
+    collect_meshes_for_gpu_building, init_material_pipeline, set_mesh_motion_vector_flags,
+    setup_morph_and_skinning_defs, skin, DeferredDrawFunction, DeferredFragmentShader,
+    DeferredVertexShader, DrawMesh, EntitySpecializationTicks, ErasedMaterialPipelineKey, Material,
+    MaterialPipeline, MaterialProperties, MeshLayouts, MeshPipeline, MeshPipelineKey,
+    OpaqueRendererMethod, PreparedMaterial, PrepassDrawFunction, PrepassFragmentShader,
+    PrepassVertexShader, RenderLightmaps, RenderMaterialInstances, RenderMeshInstanceFlags,
+    RenderMeshInstances, RenderPhaseType, SetMaterialBindGroup, SetMeshBindGroup, ShadowView,
 };
 use bevy_app::{App, Plugin, PreUpdate};
 use bevy_render::{
@@ -21,11 +21,11 @@ use bevy_render::{
     renderer::RenderAdapter,
     sync_world::RenderEntity,
     view::{RenderVisibilityRanges, RetainedViewEntity, VISIBILITY_RANGES_STORAGE_BUFFER_COUNT},
-    ExtractSchedule, Render, RenderApp, RenderDebugFlags, RenderSystems,
+    ExtractSchedule, Render, RenderApp, RenderDebugFlags, RenderStartup, RenderSystems,
 };
 pub use prepass_bindings::*;
 
-use bevy_asset::{embedded_asset, load_embedded_asset, Handle};
+use bevy_asset::{embedded_asset, load_embedded_asset, AssetServer, Handle};
 use bevy_core_pipeline::{
     core_3d::CORE_3D_DEPTH_FORMAT, deferred::*, prelude::Camera3d, prepass::*,
 };
@@ -88,20 +88,18 @@ impl Plugin for PrepassPipelinePlugin {
 
         render_app
             .add_systems(
+                RenderStartup,
+                (
+                    init_prepass_pipeline.after(init_material_pipeline),
+                    init_prepass_view_bind_group,
+                )
+                    .chain(),
+            )
+            .add_systems(
                 Render,
                 prepare_prepass_view_bind_group.in_set(RenderSystems::PrepareBindGroups),
             )
             .init_resource::<SpecializedMeshPipelines<PrepassPipelineSpecializer>>();
-    }
-
-    fn finish(&self, app: &mut App) {
-        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
-            return;
-        };
-
-        render_app
-            .init_resource::<PrepassPipeline>()
-            .init_resource::<PrepassViewBindGroup>();
     }
 }
 
@@ -273,78 +271,79 @@ pub struct PrepassPipeline {
     pub material_pipeline: MaterialPipeline,
 }
 
-impl FromWorld for PrepassPipeline {
-    fn from_world(world: &mut World) -> Self {
-        let render_device = world.resource::<RenderDevice>();
-        let render_adapter = world.resource::<RenderAdapter>();
-        let visibility_ranges_buffer_binding_type = render_device
-            .get_supported_read_only_binding_type(VISIBILITY_RANGES_STORAGE_BUFFER_COUNT);
+pub fn init_prepass_pipeline(
+    mut commands: Commands,
+    render_device: Res<RenderDevice>,
+    render_adapter: Res<RenderAdapter>,
+    mesh_pipeline: Res<MeshPipeline>,
+    material_pipeline: Res<MaterialPipeline>,
+    asset_server: Res<AssetServer>,
+) {
+    let visibility_ranges_buffer_binding_type =
+        render_device.get_supported_read_only_binding_type(VISIBILITY_RANGES_STORAGE_BUFFER_COUNT);
 
-        let view_layout_motion_vectors = render_device.create_bind_group_layout(
-            "prepass_view_layout_motion_vectors",
-            &BindGroupLayoutEntries::with_indices(
-                ShaderStages::VERTEX_FRAGMENT,
+    let view_layout_motion_vectors = render_device.create_bind_group_layout(
+        "prepass_view_layout_motion_vectors",
+        &BindGroupLayoutEntries::with_indices(
+            ShaderStages::VERTEX_FRAGMENT,
+            (
+                // View
+                (0, uniform_buffer::<ViewUniform>(true)),
+                // Globals
+                (1, uniform_buffer::<GlobalsUniform>(false)),
+                // PreviousViewUniforms
+                (2, uniform_buffer::<PreviousViewData>(true)),
+                // VisibilityRanges
                 (
-                    // View
-                    (0, uniform_buffer::<ViewUniform>(true)),
-                    // Globals
-                    (1, uniform_buffer::<GlobalsUniform>(false)),
-                    // PreviousViewUniforms
-                    (2, uniform_buffer::<PreviousViewData>(true)),
-                    // VisibilityRanges
-                    (
-                        14,
-                        buffer_layout(
-                            visibility_ranges_buffer_binding_type,
-                            false,
-                            Some(Vec4::min_size()),
-                        )
-                        .visibility(ShaderStages::VERTEX),
-                    ),
+                    14,
+                    buffer_layout(
+                        visibility_ranges_buffer_binding_type,
+                        false,
+                        Some(Vec4::min_size()),
+                    )
+                    .visibility(ShaderStages::VERTEX),
                 ),
             ),
-        );
+        ),
+    );
 
-        let view_layout_no_motion_vectors = render_device.create_bind_group_layout(
-            "prepass_view_layout_no_motion_vectors",
-            &BindGroupLayoutEntries::with_indices(
-                ShaderStages::VERTEX_FRAGMENT,
+    let view_layout_no_motion_vectors = render_device.create_bind_group_layout(
+        "prepass_view_layout_no_motion_vectors",
+        &BindGroupLayoutEntries::with_indices(
+            ShaderStages::VERTEX_FRAGMENT,
+            (
+                // View
+                (0, uniform_buffer::<ViewUniform>(true)),
+                // Globals
+                (1, uniform_buffer::<GlobalsUniform>(false)),
+                // VisibilityRanges
                 (
-                    // View
-                    (0, uniform_buffer::<ViewUniform>(true)),
-                    // Globals
-                    (1, uniform_buffer::<GlobalsUniform>(false)),
-                    // VisibilityRanges
-                    (
-                        14,
-                        buffer_layout(
-                            visibility_ranges_buffer_binding_type,
-                            false,
-                            Some(Vec4::min_size()),
-                        )
-                        .visibility(ShaderStages::VERTEX),
-                    ),
+                    14,
+                    buffer_layout(
+                        visibility_ranges_buffer_binding_type,
+                        false,
+                        Some(Vec4::min_size()),
+                    )
+                    .visibility(ShaderStages::VERTEX),
                 ),
             ),
-        );
+        ),
+    );
 
-        let mesh_pipeline = world.resource::<MeshPipeline>();
-
-        let depth_clip_control_supported = render_device
-            .features()
-            .contains(WgpuFeatures::DEPTH_CLIP_CONTROL);
-        PrepassPipeline {
-            view_layout_motion_vectors,
-            view_layout_no_motion_vectors,
-            mesh_layouts: mesh_pipeline.mesh_layouts.clone(),
-            default_prepass_shader: load_embedded_asset!(world, "prepass.wgsl"),
-            skins_use_uniform_buffers: skin::skins_use_uniform_buffers(render_device),
-            depth_clip_control_supported,
-            binding_arrays_are_usable: binding_arrays_are_usable(render_device, render_adapter),
-            empty_layout: render_device.create_bind_group_layout("prepass_empty_layout", &[]),
-            material_pipeline: world.resource::<MaterialPipeline>().clone(),
-        }
-    }
+    let depth_clip_control_supported = render_device
+        .features()
+        .contains(WgpuFeatures::DEPTH_CLIP_CONTROL);
+    commands.insert_resource(PrepassPipeline {
+        view_layout_motion_vectors,
+        view_layout_no_motion_vectors,
+        mesh_layouts: mesh_pipeline.mesh_layouts.clone(),
+        default_prepass_shader: load_embedded_asset!(asset_server.as_ref(), "prepass.wgsl"),
+        skins_use_uniform_buffers: skin::skins_use_uniform_buffers(&render_device),
+        depth_clip_control_supported,
+        binding_arrays_are_usable: binding_arrays_are_usable(&render_device, &render_adapter),
+        empty_layout: render_device.create_bind_group_layout("prepass_empty_layout", &[]),
+        material_pipeline: material_pipeline.clone(),
+    });
 }
 
 pub struct PrepassPipelineSpecializer {
@@ -702,22 +701,21 @@ pub struct PrepassViewBindGroup {
     pub empty_bind_group: BindGroup,
 }
 
-impl FromWorld for PrepassViewBindGroup {
-    fn from_world(world: &mut World) -> Self {
-        let pipeline = world.resource::<PrepassPipeline>();
-
-        let render_device = world.resource::<RenderDevice>();
-        let empty_bind_group = render_device.create_bind_group(
-            "prepass_view_empty_bind_group",
-            &pipeline.empty_layout,
-            &[],
-        );
-        PrepassViewBindGroup {
-            motion_vectors: None,
-            no_motion_vectors: None,
-            empty_bind_group,
-        }
-    }
+pub fn init_prepass_view_bind_group(
+    mut commands: Commands,
+    render_device: Res<RenderDevice>,
+    pipeline: Res<PrepassPipeline>,
+) {
+    let empty_bind_group = render_device.create_bind_group(
+        "prepass_view_empty_bind_group",
+        &pipeline.empty_layout,
+        &[],
+    );
+    commands.insert_resource(PrepassViewBindGroup {
+        motion_vectors: None,
+        no_motion_vectors: None,
+        empty_bind_group,
+    });
 }
 
 pub fn prepare_prepass_view_bind_group(

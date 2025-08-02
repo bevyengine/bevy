@@ -20,6 +20,7 @@ fn main() {
         .add_systems(OnEnter(Scene::Overflow), overflow::setup)
         .add_systems(OnEnter(Scene::Slice), slice::setup)
         .add_systems(OnEnter(Scene::LayoutRounding), layout_rounding::setup)
+        .add_systems(OnEnter(Scene::LinearGradient), linear_gradient::setup)
         .add_systems(OnEnter(Scene::RadialGradient), radial_gradient::setup)
         .add_systems(Update, switch_scene);
 
@@ -42,6 +43,7 @@ enum Scene {
     Overflow,
     Slice,
     LayoutRounding,
+    LinearGradient,
     RadialGradient,
 }
 
@@ -56,7 +58,8 @@ impl Next for Scene {
             Scene::TextWrap => Scene::Overflow,
             Scene::Overflow => Scene::Slice,
             Scene::Slice => Scene::LayoutRounding,
-            Scene::LayoutRounding => Scene::RadialGradient,
+            Scene::LayoutRounding => Scene::LinearGradient,
+            Scene::LinearGradient => Scene::RadialGradient,
             Scene::RadialGradient => Scene::Image,
         }
     }
@@ -230,7 +233,7 @@ mod borders {
                             ..default()
                         },
                         BackgroundColor(MAROON.into()),
-                        BorderColor::all(RED.into()),
+                        BorderColor::all(RED),
                         Outline {
                             width: Val::Px(10.),
                             offset: Val::Px(10.),
@@ -322,7 +325,7 @@ mod box_shadow {
                             border: UiRect::all(Val::Px(2.)),
                             ..default()
                         },
-                        BorderColor::all(WHITE.into()),
+                        BorderColor::all(WHITE),
                         border_radius,
                         BackgroundColor(BLUE.into()),
                         BoxShadow::new(
@@ -420,7 +423,7 @@ mod overflow {
                                 overflow,
                                 ..default()
                             },
-                            BorderColor::all(RED.into()),
+                            BorderColor::all(RED),
                             BackgroundColor(Color::WHITE),
                         ))
                         .with_children(|parent| {
@@ -542,10 +545,94 @@ mod layout_rounding {
                                         ..Default::default()
                                     },
                                     BackgroundColor(MAROON.into()),
-                                    BorderColor::all(DARK_BLUE.into()),
+                                    BorderColor::all(DARK_BLUE),
                                 ));
                             }
                         });
+                }
+            });
+    }
+}
+
+mod linear_gradient {
+    use bevy::color::palettes::css::RED;
+    use bevy::color::palettes::css::YELLOW;
+    use bevy::color::Color;
+    use bevy::ecs::prelude::*;
+    use bevy::render::camera::Camera2d;
+    use bevy::state::state_scoped::DespawnOnExitState;
+    use bevy::ui::AlignItems;
+    use bevy::ui::BackgroundGradient;
+    use bevy::ui::ColorStop;
+    use bevy::ui::InterpolationColorSpace;
+    use bevy::ui::JustifyContent;
+    use bevy::ui::LinearGradient;
+    use bevy::ui::Node;
+    use bevy::ui::PositionType;
+    use bevy::ui::Val;
+    use bevy::utils::default;
+
+    pub fn setup(mut commands: Commands) {
+        commands.spawn((Camera2d, DespawnOnExitState(super::Scene::LinearGradient)));
+        commands
+            .spawn((
+                Node {
+                    flex_direction: bevy::ui::FlexDirection::Column,
+                    width: Val::Percent(100.),
+                    height: Val::Percent(100.),
+                    justify_content: JustifyContent::Center,
+                    align_items: AlignItems::Center,
+                    row_gap: Val::Px(5.),
+                    ..default()
+                },
+                DespawnOnExitState(super::Scene::LinearGradient),
+            ))
+            .with_children(|commands| {
+                for stops in [
+                    vec![ColorStop::auto(RED), ColorStop::auto(YELLOW)],
+                    vec![
+                        ColorStop::auto(Color::BLACK),
+                        ColorStop::auto(RED),
+                        ColorStop::auto(Color::WHITE),
+                    ],
+                ] {
+                    for color_space in [
+                        InterpolationColorSpace::LinearRgba,
+                        InterpolationColorSpace::Srgba,
+                        InterpolationColorSpace::Oklaba,
+                        InterpolationColorSpace::Oklcha,
+                        InterpolationColorSpace::OklchaLong,
+                        InterpolationColorSpace::Hsla,
+                        InterpolationColorSpace::HslaLong,
+                        InterpolationColorSpace::Hsva,
+                        InterpolationColorSpace::HsvaLong,
+                    ] {
+                        commands.spawn((
+                            Node {
+                                justify_content: JustifyContent::SpaceEvenly,
+                                ..Default::default()
+                            },
+                            children![(
+                                Node {
+                                    height: Val::Px(30.),
+                                    width: Val::Px(300.),
+                                    ..Default::default()
+                                },
+                                BackgroundGradient::from(LinearGradient {
+                                    color_space,
+                                    angle: LinearGradient::TO_RIGHT,
+                                    stops: stops.clone(),
+                                }),
+                                children![
+                                    Node {
+                                        position_type: PositionType::Absolute,
+                                        ..default()
+                                    },
+                                    bevy::ui::widget::Text(format!("{color_space:?}")),
+                                ]
+                            )],
+                        ));
+                    }
                 }
             });
     }

@@ -68,7 +68,7 @@ impl Plugin for PostProcessPlugin {
 
         // RenderStartup runs once on startup after all plugins are built
         // It is useful to initialize data that will only live in the RenderApp
-        render_app.add_systems(RenderStartup, setup_pipeline);
+        render_app.add_systems(RenderStartup, init_post_process_pipeline);
 
         render_app
             // Bevy's renderer uses a render graph which is a collection of nodes in a directed acyclic graph.
@@ -226,7 +226,7 @@ struct PostProcessPipeline {
     pipeline_id: CachedRenderPipelineId,
 }
 
-fn setup_pipeline(
+fn init_post_process_pipeline(
     mut commands: Commands,
     render_device: Res<RenderDevice>,
     asset_server: Res<AssetServer>,

@@ -55,9 +55,11 @@ use variadics_please::{all_tuples, all_tuples_enumerated};
 ///
 /// ```
 /// # use bevy_ecs::prelude::*;
+/// # #[derive(Component)]
+/// # struct SomeComponent;
 /// # #[derive(Resource)]
 /// # struct SomeResource;
-/// # #[derive(Event, BufferedEvent)]
+/// # #[derive(BufferedEvent)]
 /// # struct SomeEvent;
 /// # #[derive(Resource)]
 /// # struct SomeOtherResource;
@@ -66,6 +68,8 @@ use variadics_please::{all_tuples, all_tuples_enumerated};
 /// # struct ParamsExample<'w, 's> {
 /// #    query:
 /// Query<'w, 's, Entity>,
+/// #    query2:
+/// Query<'w, 's, &'static SomeComponent>,
 /// #    res:
 /// Res<'w, SomeResource>,
 /// #    res_mut:
@@ -601,7 +605,7 @@ unsafe impl<'w, 's, D: ReadOnlyQueryData + 'static, F: QueryFilter + 'static> Re
 /// ```
 /// # use bevy_ecs::prelude::*;
 /// #
-/// # #[derive(Event, BufferedEvent)]
+/// # #[derive(BufferedEvent)]
 /// # struct MyEvent;
 /// # impl MyEvent {
 /// #   pub fn new() -> Self { Self }
@@ -1842,16 +1846,16 @@ unsafe impl<T: ReadOnlySystemParam> ReadOnlySystemParam for Result<T, SystemPara
 /// fn fails_on_missing_resource(res: Res<SomeResource>) {}
 ///
 /// // This system will skip without error if `SomeResource` is not present.
-/// fn skips_on_missing_resource(res: When<Res<SomeResource>>) {
+/// fn skips_on_missing_resource(res: If<Res<SomeResource>>) {
 ///     // The inner parameter is available using `Deref`
 ///     let some_resource: &SomeResource = &res;
 /// }
 /// # bevy_ecs::system::assert_is_system(skips_on_missing_resource);
 /// ```
 #[derive(Debug)]
-pub struct When<T>(pub T);
+pub struct If<T>(pub T);
 
-impl<T> When<T> {
+impl<T> If<T> {
     /// Returns the inner `T`.
     ///
     /// The inner value is `pub`, so you can also obtain it by destructuring the parameter:
@@ -1860,7 +1864,7 @@ impl<T> When<T> {
     /// # use bevy_ecs::prelude::*;
     /// # #[derive(Resource)]
     /// # struct SomeResource;
-    /// fn skips_on_missing_resource(When(res): When<Res<SomeResource>>) {
+    /// fn skips_on_missing_resource(If(res): If<Res<SomeResource>>) {
     ///     let some_resource: Res<SomeResource> = res;
     /// }
     /// # bevy_ecs::system::assert_is_system(skips_on_missing_resource);
@@ -1870,24 +1874,24 @@ impl<T> When<T> {
     }
 }
 
-impl<T> Deref for When<T> {
+impl<T> Deref for If<T> {
     type Target = T;
     fn deref(&self) -> &Self::Target {
         &self.0
     }
 }
 
-impl<T> DerefMut for When<T> {
+impl<T> DerefMut for If<T> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.0
     }
 }
 
 // SAFETY: Delegates to `T`, which ensures the safety requirements are met
-unsafe impl<T: SystemParam> SystemParam for When<T> {
+unsafe impl<T: SystemParam> SystemParam for If<T> {
     type State = T::State;
 
-    type Item<'world, 'state> = When<T::Item<'world, 'state>>;
+    type Item<'world, 'state> = If<T::Item<'world, 'state>>;
 
     fn init_state(world: &mut World) -> Self::State {
         T::init_state(world)
@@ -1921,7 +1925,7 @@ unsafe impl<T: SystemParam> SystemParam for When<T> {
         world: UnsafeWorldCell<'world>,
         change_tick: Tick,
     ) -> Self::Item<'world, 'state> {
-        When(T::get_param(state, system_meta, world, change_tick))
+        If(T::get_param(state, system_meta, world, change_tick))
     }
 
     fn apply(state: &mut Self::State, system_meta: &SystemMeta, world: &mut World) {
@@ -1934,7 +1938,7 @@ unsafe impl<T: SystemParam> SystemParam for When<T> {
 }
 
 // SAFETY: Delegates to `T`, which ensures the safety requirements are met
-unsafe impl<T: ReadOnlySystemParam> ReadOnlySystemParam for When<T> {}
+unsafe impl<T: ReadOnlySystemParam> ReadOnlySystemParam for If<T> {}
 
 // SAFETY: Registers access for each element of `state`.
 // If any one conflicts, it will panic.
@@ -2780,7 +2784,7 @@ pub struct SystemParamValidationError {
     /// failures in validation should be considered a bug in the user's logic that must be immediately addressed (like [`Res`]).
     ///
     /// If `true`, the system should be skipped.
-    /// This is set by wrapping the system param in [`When`],
+    /// This is set by wrapping the system param in [`If`],
     /// and indicates that the system is intended to only operate in certain application states.
     pub skipped: bool,
 
@@ -2844,7 +2848,7 @@ impl Display for SystemParamValidationError {
             self.message
         )?;
         if !self.skipped {
-            write!(fmt, "\nIf this is an expected state, wrap the parameter in `Option<T>` and handle `None` when it happens, or wrap the parameter in `When<T>` to skip the system when it happens.")?;
+            write!(fmt, "\nIf this is an expected state, wrap the parameter in `Option<T>` and handle `None` when it happens, or wrap the parameter in `If<T>` to skip the system when it happens.")?;
         }
         Ok(())
     }
@@ -2853,7 +2857,7 @@ impl Display for SystemParamValidationError {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{event::Event, system::assert_is_system};
+    use crate::system::assert_is_system;
     use core::cell::RefCell;
 
     // Compile test for https://github.com/bevyengine/bevy/pull/2838.
@@ -3103,7 +3107,7 @@ mod tests {
     fn missing_event_error() {
         use crate::prelude::{BufferedEvent, EventReader};
 
-        #[derive(Event, BufferedEvent)]
+        #[derive(BufferedEvent)]
         pub struct MissingEvent;
 
         let mut schedule = crate::schedule::Schedule::default();
