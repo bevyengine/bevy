@@ -34,7 +34,7 @@ pub use bevy_core_pipeline as core_pipeline;
 #[cfg(feature = "bevy_core_widgets")]
 pub use bevy_core_widgets as core_widgets;
 #[cfg(feature = "bevy_cursor_icon")]
-pub use bevy_cursor_icon as cursor;
+pub use bevy_cursor_icon as cursor_icon;
 #[cfg(feature = "bevy_dev_tools")]
 pub use bevy_dev_tools as dev_tools;
 pub use bevy_diagnostic as diagnostic;

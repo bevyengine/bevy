@@ -89,4 +89,4 @@ pub use crate::picking::prelude::*;
 
 #[doc(hidden)]
 #[cfg(feature = "bevy_cursor_icon")]
-pub use crate::cursor::prelude::*;
+pub use crate::cursor_icon::prelude::*;
