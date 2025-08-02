@@ -5,7 +5,7 @@ use std::thread::{self, JoinHandle};
 use crate::async_executor::ThreadSpawner;
 use crate::executor::FallibleTask;
 use bevy_platform::sync::Arc;
-use concurrent_queue::ConcurrentQueue;
+use crossbeam_queue::SegQueue;
 use futures_lite::FutureExt;
 
 use crate::{block_on, Task};
@@ -345,13 +345,12 @@ impl TaskPool {
         let executor: &crate::executor::Executor = &self.executor;
         // SAFETY: As above, all futures must complete in this function so we can change the lifetime
         let executor: &'env crate::executor::Executor = unsafe { mem::transmute(executor) };
-        let spawned: ConcurrentQueue<FallibleTask<Result<T, Box<(dyn core::any::Any + Send)>>>> =
-            ConcurrentQueue::unbounded();
+        let spawned: SegQueue<FallibleTask<Result<T, Box<(dyn core::any::Any + Send)>>>> =
+            SegQueue::new();
         // shadow the variable so that the owned value cannot be used for the rest of the function
         // SAFETY: As above, all futures must complete in this function so we can change the lifetime
-        let spawned: &'env ConcurrentQueue<
-            FallibleTask<Result<T, Box<(dyn core::any::Any + Send)>>>,
-        > = unsafe { mem::transmute(&spawned) };
+        let spawned: &'env SegQueue<FallibleTask<Result<T, Box<(dyn core::any::Any + Send)>>>> =
+            unsafe { mem::transmute(&spawned) };
 
         let scope = Scope {
             executor,
@@ -373,7 +372,7 @@ impl TaskPool {
         } else {
             block_on(self.executor.run(async move {
                 let mut results = Vec::with_capacity(spawned.len());
-                while let Ok(task) = spawned.pop() {
+                while let Some(task) = spawned.pop() {
                     if let Some(res) = task.await {
                         match res {
                             Ok(res) => results.push(res),
@@ -450,7 +449,7 @@ pub struct Scope<'scope, 'env: 'scope, T> {
     executor: &'scope crate::executor::Executor<'scope>,
     external_spawner: ThreadSpawner<'scope>,
     scope_spawner: ThreadSpawner<'scope>,
-    spawned: &'scope ConcurrentQueue<FallibleTask<Result<T, Box<(dyn core::any::Any + Send)>>>>,
+    spawned: &'scope SegQueue<FallibleTask<Result<T, Box<(dyn core::any::Any + Send)>>>>,
     // make `Scope` invariant over 'scope and 'env
     scope: PhantomData<&'scope mut &'scope ()>,
     env: PhantomData<&'env mut &'env ()>,
@@ -470,9 +469,7 @@ impl<'scope, 'env, T: Send + 'scope> Scope<'scope, 'env, T> {
             .executor
             .spawn(AssertUnwindSafe(f).catch_unwind())
             .fallible();
-        // ConcurrentQueue only errors when closed or full, but we never
-        // close and use an unbounded queue, so it is safe to unwrap
-        self.spawned.push(task).unwrap();
+        self.spawned.push(task);
     }
 
     #[expect(
@@ -493,9 +490,7 @@ impl<'scope, 'env, T: Send + 'scope> Scope<'scope, 'env, T> {
                 .spawn_scoped(AssertUnwindSafe(f).catch_unwind())
                 .fallible()
         };
-        // ConcurrentQueue only errors when closed or full, but we never
-        // close and use an unbounded queue, so it is safe to unwrap
-        self.spawned.push(task).unwrap();
+        self.spawned.push(task);
     }
 
     #[expect(
@@ -519,7 +514,7 @@ impl<'scope, 'env, T: Send + 'scope> Scope<'scope, 'env, T> {
         };
         // ConcurrentQueue only errors when closed or full, but we never
         // close and use an unbounded queue, so it is safe to unwrap
-        self.spawned.push(task).unwrap();
+        self.spawned.push(task);
     }
 }
 
@@ -529,7 +524,7 @@ where
 {
     fn drop(&mut self) {
         block_on(async {
-            while let Ok(task) = self.spawned.pop() {
+            while let Some(task) = self.spawned.pop() {
                 task.cancel().await;
             }
         });

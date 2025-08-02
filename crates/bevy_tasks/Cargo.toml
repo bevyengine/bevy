@@ -18,7 +18,6 @@ default = ["std"]
 multi_threaded = [
   "std",
   "dep:async-channel",
-  "dep:concurrent-queue",
   "dep:fastrand",
 ]
 
@@ -34,7 +33,6 @@ std = [
   "fastrand/std",
   "dep:slab",
   "dep:thread_local",
-  "dep:concurrent-queue",
   "dep:pin-project-lite",
 ]
 
@@ -66,7 +64,6 @@ thread_local = { version = "1.1", optional = true }
 fastrand = { version = "2.3", optional = true, default-features = false }
 async-channel = { version = "2.3.0", optional = true }
 async-io = { version = "2.0.0", optional = true }
-concurrent-queue = { version = "2.0.0", optional = true }
 atomic-waker = { version = "1", default-features = false }
 crossbeam-queue = { version = "0.3", default-features = false, features = [
   "alloc",

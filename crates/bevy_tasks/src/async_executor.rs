@@ -19,7 +19,7 @@ use alloc::fmt;
 use async_task::{Builder, Runnable, Task};
 use bevy_platform::prelude::Vec;
 use bevy_platform::sync::{Arc, Mutex, MutexGuard, PoisonError, RwLock, TryLockError};
-use concurrent_queue::ConcurrentQueue;
+use crossbeam_queue::{ArrayQueue, SegQueue};
 use futures_lite::{future, prelude::*};
 use pin_project_lite::pin_project;
 use slab::Slab;
@@ -87,8 +87,8 @@ struct LocalQueue {
 struct ThreadLocalState {
     executor_thread: AtomicBool,
     thread_id: ThreadId,
-    stealable_queue: ConcurrentQueue<Runnable>,
-    thread_locked_queue: ConcurrentQueue<Runnable>,
+    stealable_queue: ArrayQueue<Runnable>,
+    thread_locked_queue: SegQueue<Runnable>,
 }
 
 impl Default for ThreadLocalState {
@@ -96,8 +96,8 @@ impl Default for ThreadLocalState {
         Self {
             executor_thread: AtomicBool::new(false),
             thread_id: std::thread::current().id(),
-            stealable_queue: ConcurrentQueue::bounded(512),
-            thread_locked_queue: ConcurrentQueue::unbounded(),
+            stealable_queue: ArrayQueue::new(512),
+            thread_locked_queue: SegQueue::new(),
         }
     }
 }
@@ -109,7 +109,7 @@ impl Default for ThreadLocalState {
 #[derive(Clone, Debug)]
 pub struct ThreadSpawner<'a> {
     thread_id: ThreadId,
-    target_queue: &'static ConcurrentQueue<Runnable>,
+    target_queue: &'static SegQueue<Runnable>,
     state: Arc<State>,
     _marker: PhantomData<&'a ()>,
 }
@@ -161,7 +161,7 @@ impl<'a> ThreadSpawner<'a> {
         // Instead of directly scheduling this task, it's put into the onto the
         // thread locked queue to be moved to the target thread, where it will
         // either be run immediately or flushed into the thread's local queue.
-        self.target_queue.push(runnable).unwrap();
+        self.target_queue.push(runnable);
         task
     }
 
@@ -324,7 +324,7 @@ impl<'a> Executor<'a> {
                             state.notify_specific_thread(local_state.thread_id, true);
                             return;
                         }
-                        Err(r) => r.into_inner(),
+                        Err(r) => r,
                     }
                 } else {
                     runnable
@@ -333,7 +333,7 @@ impl<'a> Executor<'a> {
                 runnable
             };
             // Otherwise push onto the global queue instead.
-            state.queue.push(runnable).unwrap();
+            state.queue.push(runnable);
             state.notify();
         }
     }
@@ -362,17 +362,17 @@ impl Drop for Executor<'_> {
         }
         drop(active);
 
-        while self.state.queue.pop().is_ok() {}
+        while self.state.queue.pop().is_some() {}
     }
 }
 
 /// The state of a executor.
 struct State {
     /// The global queue.
-    queue: ConcurrentQueue<Runnable>,
+    queue: SegQueue<Runnable>,
 
     /// Local queues created by runners.
-    stealer_queues: RwLock<Vec<&'static ConcurrentQueue<Runnable>>>,
+    stealer_queues: RwLock<Vec<&'static ArrayQueue<Runnable>>>,
 
     /// Set to `true` when a sleeping ticker is notified or no tickers are sleeping.
     notified: AtomicBool,
@@ -388,7 +388,7 @@ impl State {
     /// Creates state for a new executor.
     const fn new() -> State {
         State {
-            queue: ConcurrentQueue::unbounded(),
+            queue: SegQueue::new(),
             stealer_queues: RwLock::new(Vec::new()),
             notified: AtomicBool::new(true),
             sleepers: Mutex::new(Sleepers {
@@ -711,12 +711,12 @@ impl Runner<'_> {
                 }
 
                 // Try the local queue.
-                if let Ok(r) = self.local_state.stealable_queue.pop() {
+                if let Some(r) = self.local_state.stealable_queue.pop() {
                     return Some(r);
                 }
 
                 // Try stealing from the global queue.
-                if let Ok(r) = self.state.queue.pop() {
+                if let Some(r) = self.state.queue.pop() {
                     steal(&self.state.queue, &self.local_state.stealable_queue);
                     return Some(r);
                 }
@@ -739,13 +739,13 @@ impl Runner<'_> {
 
                 // Try stealing from each local queue in the list.
                 for local in iter {
-                    steal(local, &self.local_state.stealable_queue);
-                    if let Ok(r) = self.local_state.stealable_queue.pop() {
+                    steal(*local, &self.local_state.stealable_queue);
+                    if let Some(r) = self.local_state.stealable_queue.pop() {
                         return Some(r);
                     }
                 }
 
-                if let Ok(r) = self.local_state.thread_locked_queue.pop() {
+                if let Some(r) = self.local_state.thread_locked_queue.pop() {
                     // Do not steal from this queue. If other threads steal
                     // from this current thread, the task will be moved.
                     //
@@ -790,29 +790,54 @@ impl Drop for Runner<'_> {
         }
 
         // Re-schedule remaining tasks in the local queue.
-        while let Ok(r) = self.local_state.stealable_queue.pop() {
+        while let Some(r) = self.local_state.stealable_queue.pop() {
             r.schedule();
         }
     }
 }
 
+trait WorkQueue<T> {
+    fn stealable_count(&self) -> usize;
+    fn queue_pop(&self) -> Option<T>;
+}
+
+impl<T> WorkQueue<T> for ArrayQueue<T> {
+    #[inline]
+    fn stealable_count(&self) -> usize {
+        self.len().div_ceil(2)
+    }
+
+    #[inline]
+    fn queue_pop(&self) -> Option<T> {
+        self.pop()
+    }
+}
+
+impl<T> WorkQueue<T> for SegQueue<T> {
+    #[inline]
+    fn stealable_count(&self) -> usize {
+        self.len()
+    }
+
+    #[inline]
+    fn queue_pop(&self) -> Option<T> {
+        self.pop()
+    }
+}
+
 /// Steals some items from one queue into another.
-fn steal<T>(src: &ConcurrentQueue<T>, dest: &ConcurrentQueue<T>) {
+fn steal<T, Q: WorkQueue<T>>(src: &Q, dest: &ArrayQueue<T>) {
     // Half of `src`'s length rounded up.
-    let mut count = src.len().div_ceil(2);
+    let mut count = src.stealable_count();
 
     if count > 0 {
         // Don't steal more than fits into the queue.
-        if let Some(cap) = dest.capacity() {
-            count = count.min(cap - dest.len());
-        }
+        count = count.min(dest.capacity() - dest.len());
 
         // Steal tasks.
         for _ in 0..count {
-            match src.pop() {
-                Ok(t) => assert!(dest.push(t).is_ok()),
-                Err(_) => break,
-            }
+            let Some(val) = src.queue_pop() else { break };
+            assert!(dest.push(val).is_ok());
         }
     }
 }
@@ -821,7 +846,7 @@ fn steal<T>(src: &ConcurrentQueue<T>, dest: &ConcurrentQueue<T>) {
 ///
 /// # Safety
 /// This must not be accessed at the same time as `LOCAL_QUEUE` in any way.
-unsafe fn flush_to_local(src: &ConcurrentQueue<Runnable>) {
+unsafe fn flush_to_local(src: &SegQueue<Runnable>) {
     let count = src.len();
 
     if count > 0 {
@@ -831,10 +856,8 @@ unsafe fn flush_to_local(src: &ConcurrentQueue<Runnable>) {
             with_local_queue(|tls| {
                 // Steal tasks.
                 for _ in 0..count {
-                    match src.pop() {
-                        Ok(t) => tls.local_queue.push_front(t),
-                        Err(_) => break,
-                    }
+                    let Some(val) = src.queue_pop() else { break };
+                    tls.local_queue.push_front(val);
                 }
             });
         }
@@ -862,7 +885,7 @@ fn debug_state(state: &State, name: &str, f: &mut fmt::Formatter<'_>) -> fmt::Re
     }
 
     /// Debug wrapper for the local runners.
-    struct LocalRunners<'a>(&'a RwLock<Vec<&'static ConcurrentQueue<Runnable>>>);
+    struct LocalRunners<'a>(&'a RwLock<Vec<&'static ArrayQueue<Runnable>>>);
 
     impl fmt::Debug for LocalRunners<'_> {
         fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
