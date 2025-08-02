@@ -1,5 +1,5 @@
 use crate::{
-    component::{ComponentId, Tick},
+    component::Tick,
     prelude::World,
     query::FilteredAccessSet,
     system::{ExclusiveSystemParam, ReadOnlySystemParam, SystemMeta, SystemParam},
@@ -54,7 +54,7 @@ unsafe impl SystemParam for SystemName {
     fn init_access(
         _state: &Self::State,
         _system_meta: &mut SystemMeta,
-        _component_access_set: &mut FilteredAccessSet<ComponentId>,
+        _component_access_set: &mut FilteredAccessSet,
         _world: &mut World,
     ) {
     }

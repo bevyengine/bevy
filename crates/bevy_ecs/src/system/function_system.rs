@@ -1,5 +1,5 @@
 use crate::{
-    component::{CheckChangeTicks, ComponentId, Tick},
+    component::{CheckChangeTicks, Tick},
     error::{BevyError, Result},
     never::Never,
     prelude::FromWorld,
@@ -733,7 +733,7 @@ where
     }
 
     #[inline]
-    fn initialize(&mut self, world: &mut World) -> FilteredAccessSet<ComponentId> {
+    fn initialize(&mut self, world: &mut World) -> FilteredAccessSet {
         if let Some(state) = &self.state {
             assert_eq!(
                 state.world_id,
