@@ -26,7 +26,7 @@ use bevy_image::{
     CompressedImageFormats, Image, ImageLoaderSettings, ImageSampler, ImageSamplerDescriptor,
     ImageType, TextureError,
 };
-use bevy_math::{Mat4, Quat, Vec3};
+use bevy_math::{Mat4, Vec3};
 use bevy_mesh::{
     morph::{MeshMorphWeights, MorphAttributes, MorphTargetImage, MorphWeights},
     skinning::{SkinnedMesh, SkinnedMeshInverseBindposes},
@@ -934,13 +934,8 @@ impl GltfLoader {
             let mut entity_to_skin_index_map = EntityHashMap::default();
             let mut scene_load_context = load_context.begin_labeled_asset();
 
-            // XXX TODO: Move to utility function.
-            let world_root_rotation = if convert_coordinates.scene {
-                Quat::from_xyzw(0.0, 1.0, 0.0, 0.0)
-            } else {
-                Quat::IDENTITY
-            };
-            let world_root_transform = Transform::from_rotation(world_root_rotation);
+            // XXX TODO: Document.
+            let world_root_transform = convert_coordinates.scene_conversion_transform();
 
             let world_root_id = world
                 .spawn((world_root_transform, Visibility::default()))
@@ -1521,12 +1516,8 @@ fn load_node(
                     };
                     let bounds = primitive.bounding_box();
 
-                    // XXX TODO: Move to utility function.
-                    let mesh_entity_transform = if convert_coordinates.meshes {
-                        Transform::from_rotation(Quat::from_xyzw(0.0, 1.0, 0.0, 0.0))
-                    } else {
-                        Transform::IDENTITY
-                    };
+                    // XXX TODO: Document.
+                    let mesh_entity_transform = convert_coordinates.mesh_conversion_transform();
 
                     let mut mesh_entity = parent.spawn((
                         // TODO: handle missing label handle errors here?

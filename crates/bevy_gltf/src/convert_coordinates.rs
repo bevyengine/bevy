@@ -1,6 +1,7 @@
 use serde::{Deserialize, Serialize};
 
-use bevy_math::{Mat4, Vec3};
+use bevy_math::{Mat4, Quat, Vec3};
+use bevy_transform::components::Transform;
 
 pub(crate) trait ConvertCoordinates {
     /// Converts the glTF coordinates to Bevy's coordinate system.
@@ -52,4 +53,25 @@ impl ConvertInverseCoordinates for Mat4 {
 pub struct GltfConvertCoordinates {
     pub scene: bool,
     pub meshes: bool,
+}
+
+impl GltfConvertCoordinates {
+    const TRANSFORM_BEVY_FROM_GLTF: Transform =
+        Transform::from_rotation(Quat::from_xyzw(0.0, 1.0, 0.0, 0.0));
+
+    pub(crate) fn scene_conversion_transform(&self) -> Transform {
+        if self.scene {
+            Self::TRANSFORM_BEVY_FROM_GLTF
+        } else {
+            Transform::IDENTITY
+        }
+    }
+
+    pub(crate) fn mesh_conversion_transform(&self) -> Transform {
+        if self.meshes {
+            Self::TRANSFORM_BEVY_FROM_GLTF
+        } else {
+            Transform::IDENTITY
+        }
+    }
 }
