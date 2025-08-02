@@ -1,4 +1,28 @@
 //! A module for the [`GizmoConfig<T>`] [`Resource`].
+//!
+//! This module provides the configuration system for Bevy gizmos, including
+//! line width, style, and rendering settings. The key innovation here is the
+//! use of logical pixels via the `Val` enum, which ensures consistent line
+//! thickness across different display scales and DPI settings.
+//!
+//! ## Architecture Overview
+//!
+//! The gizmo configuration system consists of several key components:
+//!
+//! 1. **GizmoConfig**: Main configuration struct containing line settings
+//! 2. **GizmoLineConfig**: Specific configuration for line rendering
+//! 3. **GizmoConfigGroup**: Trait for grouping related configurations
+//! 4. **GizmoConfigStore**: Resource that manages all configuration instances
+//!
+//! ## Logical Pixel Implementation
+//!
+//! The line width is now specified using `Val` enum values instead of raw f32:
+//! - `Val::Px(f32)`: Logical pixels that scale with DPI
+//! - `Val::Vw(f32)`: Percentage of viewport width
+//! - `Val::Vh(f32)`: Percentage of viewport height
+//!
+//! This ensures that gizmo lines maintain consistent visual thickness
+//! regardless of the display's scale factor or resolution.
 
 pub use bevy_gizmos_macros::GizmoConfigGroup;
 
@@ -20,6 +44,17 @@ use core::{
 };
 
 /// An enum configuring how line joints will be drawn.
+/// 
+/// Line joints determine how two connected line segments are rendered at their
+/// intersection point. This affects the visual appearance of complex line shapes
+/// like polygons or multi-segment paths.
+/// 
+/// # Variants
+/// 
+/// - `None`: No special joint rendering (lines meet at sharp angles)
+/// - `Miter`: Sharp pointed joints (lines extend to meet at a point)
+/// - `Round(u32)`: Rounded corners with specified triangle resolution
+/// - `Bevel`: Straight beveled joints (flat connection between lines)
 #[derive(Debug, Default, Copy, Clone, Reflect, PartialEq, Eq, Hash)]
 #[reflect(Default, PartialEq, Hash, Clone)]
 pub enum GizmoLineJoint {
@@ -37,7 +72,35 @@ pub enum GizmoLineJoint {
     Bevel,
 }
 
-/// An enum used to configure the style of gizmo lines, similar to CSS line-style
+/// An enum used to configure the style of gizmo lines, similar to CSS line-style.
+/// 
+/// This enum controls the visual appearance of gizmo lines, allowing for different
+/// line patterns and styles. The styles are similar to those found in CSS and
+/// other graphics systems.
+/// 
+/// # Variants
+/// 
+/// - `Solid`: Continuous line without breaks or patterns
+/// - `Dotted`: Line made up of evenly spaced dots
+/// - `Dashed`: Line with alternating visible and invisible segments
+/// 
+/// # Examples
+/// 
+/// ```rust
+/// use bevy_gizmos::config::GizmoLineStyle;
+/// 
+/// // Solid line (default)
+/// let solid = GizmoLineStyle::Solid;
+/// 
+/// // Dotted line
+/// let dotted = GizmoLineStyle::Dotted;
+/// 
+/// // Dashed line with custom gap and line lengths
+/// let dashed = GizmoLineStyle::Dashed {
+///     gap_scale: 2.0,    // Gap is 2x the line width
+///     line_scale: 1.5,   // Visible segment is 1.5x the line width
+/// };
+/// ```
 #[derive(Copy, Clone, Debug, Default, PartialEq, Reflect)]
 #[reflect(Default, PartialEq, Hash, Clone)]
 #[non_exhaustive]
@@ -77,11 +140,31 @@ impl Hash for GizmoLineStyle {
     }
 }
 
-/// A trait used to create gizmo configs groups.
+/// A trait used to create gizmo config groups.
 ///
-/// Here you can store additional configuration for you gizmo group not covered by [`GizmoConfig`]
+/// This trait allows you to create custom configuration groups for gizmos that
+/// can store additional settings beyond the standard `GizmoConfig`. This is useful
+/// for creating specialized gizmo systems with their own configuration needs.
 ///
-/// Make sure to derive [`Default`] + [`Reflect`] and register in the app using `app.init_gizmo_group::<T>()`
+/// ## Implementation Requirements
+///
+/// - Must derive `Default` + `Reflect` 
+/// - Must be registered in the app using `app.init_gizmo_group::<T>()`
+///
+/// ## Example
+///
+/// ```rust
+/// use bevy_gizmos::config::GizmoConfigGroup;
+/// use bevy_reflect::{Reflect, TypePath};
+/// 
+/// #[derive(Default, Reflect, TypePath)]
+/// struct MyCustomGizmoConfig {
+///     pub custom_setting: bool,
+///     pub custom_value: f32,
+/// }
+/// 
+/// impl GizmoConfigGroup for MyCustomGizmoConfig {}
+/// ```
 pub trait GizmoConfigGroup: Reflect + TypePath + Default {}
 
 /// The default gizmo config group.
@@ -95,7 +178,31 @@ pub struct DefaultGizmoConfigGroup;
 #[reflect(Default, Clone)]
 pub struct ErasedGizmoConfigGroup;
 
-/// A [`Resource`] storing [`GizmoConfig`] and [`GizmoConfigGroup`] structs
+/// A [`Resource`] storing [`GizmoConfig`] and [`GizmoConfigGroup`] structs.
+///
+/// This resource acts as a central registry for all gizmo configuration groups.
+/// It maintains a type-safe mapping between `TypeId`s and their corresponding
+/// configuration instances, allowing for multiple independent gizmo systems
+/// with different settings.
+///
+/// ## Architecture
+///
+/// The store uses a `TypeIdMap` to maintain the invariant that each `TypeId`
+/// maps to the correct configuration type. This enables type-safe access to
+/// configurations while supporting dynamic configuration groups.
+///
+/// ## Usage
+///
+/// ```rust
+/// use bevy_gizmos::config::{GizmoConfigStore, DefaultGizmoConfigGroup};
+/// 
+/// // Get configuration for the default group
+/// let (config, _) = config_store.config::<DefaultGizmoConfigGroup>();
+/// 
+/// // Modify configuration
+/// let (config, _) = config_store.config_mut::<DefaultGizmoConfigGroup>();
+/// config.line.width = Val::Px(4.0);
+/// ```
 ///
 /// Use `app.init_gizmo_group::<T>()` to register a custom config group.
 #[derive(Reflect, Resource, Default)]
@@ -171,6 +278,30 @@ impl GizmoConfigStore {
 }
 
 /// A struct that stores configuration for gizmos.
+/// 
+/// This is the main configuration struct for gizmo rendering. It contains all
+/// the settings that control how gizmos are drawn, including line properties,
+/// depth behavior, and rendering layers.
+/// 
+/// ## Key Features
+/// 
+/// - **Line Configuration**: Controls line width, style, and joint appearance
+/// - **Depth Bias**: Adjusts rendering order to prevent z-fighting
+/// - **Render Layers**: Controls which cameras can see the gizmos
+/// - **Enable/Disable**: Global toggle for gizmo rendering
+/// 
+/// ## Usage
+/// 
+/// ```rust
+/// use bevy_gizmos::config::GizmoConfig;
+/// 
+/// let config = GizmoConfig {
+///     enabled: true,
+///     line: GizmoLineConfig::default(),
+///     depth_bias: -0.1, // Render slightly in front
+///     ..Default::default()
+/// };
+/// ```
 #[derive(Clone, Reflect, Debug)]
 #[reflect(Clone, Default)]
 pub struct GizmoConfig {
@@ -212,24 +343,52 @@ impl Default for GizmoConfig {
     }
 }
 
-// a current issue: (this is related the github issue I am trying to solve at the moment.)
-// This is based on the explanation provided by devin wiki
-//
-// gizmo lines are rendered using physical pixel widths (when for consistency, it is better implemented using logical pixel width)
-// due to the limitations of physical pixel width, they tend to appear inconsistent
-//
-// The line width is passed directly to the shader without any scale factor conversion
-/// A struct that stores configuration for gizmos.
+/// A struct that stores configuration for gizmo line rendering.
+/// 
+/// This struct contains all the settings that control how individual gizmo lines
+/// are rendered, including width, style, joints, and perspective behavior.
+/// 
+/// ## Logical Pixel Implementation
+/// 
+/// The `width` field now uses `Val` enum instead of raw `f32` values. This enables
+/// logical pixel rendering that automatically scales with the display's DPI factor,
+/// ensuring consistent line thickness across different screens and resolutions.
+/// 
+/// ### Val Types Supported
+/// 
+/// - `Val::Px(f32)`: Logical pixels that scale with DPI
+/// - `Val::Vw(f32)`: Percentage of viewport width
+/// - `Val::Vh(f32)`: Percentage of viewport height
+/// - `Val::Auto`: Automatic sizing (falls back to 2.0 pixels)
+/// 
+/// ## Example
+/// 
+/// ```rust
+/// use bevy_gizmos::config::GizmoLineConfig;
+/// use bevy_ui::Val;
+/// 
+/// let config = GizmoLineConfig {
+///     width: Val::Px(4.0),        // 4 logical pixels
+///     perspective: false,          // No perspective scaling
+///     style: GizmoLineStyle::Solid,
+///     joints: GizmoLineJoint::None,
+/// };
+/// ```
 #[derive(Clone, Reflect, Debug)]
 #[reflect(Clone, Default)]
 pub struct GizmoLineConfig {
-    /// Line width specified in pixels.
+    /// Line width specified using logical pixels via the `Val` enum.
+    ///
+    /// This field supports various units for specifying line width:
+    /// - `Val::Px(f32)`: Logical pixels that scale with DPI
+    /// - `Val::Vw(f32)`: Percentage of viewport width  
+    /// - `Val::Vh(f32)`: Percentage of viewport height
+    /// - `Val::Auto`: Automatic sizing (defaults to 2.0 pixels)
     ///
     /// If `perspective` is `true` then this is the size in pixels at the camera's near plane.
     ///
-    /// Defaults to `2.0`.
-    // pub width: f32,
-    pub width: Val, // TODO : fix the import path for this.
+    /// Defaults to `Val::Px(2.0)`.
+    pub width: Val, 
     /// Apply perspective to gizmo lines.
     ///
     /// This setting only affects 3D, non-orthographic cameras.

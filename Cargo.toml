@@ -3994,6 +3994,19 @@ description = "Test gizmo line width consistency across different scale factors"
 category = "Gizmos"
 wasm = true
 
+
+# NOTE : Ayan, adding the logical_pixel example to perform as a standalone test
+[[example]]
+name = "multi_window_logical_pixel_test"
+path = "examples/gizmos/multi_window_logical_pixel_test.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.multi_window_logical_pixel_test]
+name = "Multi Window Logical Pixel Test"
+description = "Test gizmo line width consistency across different scale factors in multiple windows."
+category = "Gizmos"
+wasm = true
+
 [[example]]
 name = "fps_overlay"
 path = "examples/dev_tools/fps_overlay.rs"

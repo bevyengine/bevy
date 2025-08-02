@@ -134,8 +134,17 @@ impl<'w, 's> UiChildren<'w, 's> {
     }
 }
 
+// UiChildren is a struct that contains references to 'w and 's
+// lifetimes 'w and 's is used to keep track of how long borrowed data within UiChildren should last
 #[cfg(not(feature = "ghost_nodes"))]
 impl<'w, 's> UiChildren<'w, 's> {
+    // &'s self ensures that returned value which depends on self's data doesn't outlive it.
+    // impl Iterator is a form of encapsualtion without needing to expose the specific iterator type that this method is returning
+    // 'w typically stands for world lifetime and 's typically stands for system lifetime (in this case, iter_ui_children would be considered a system lifetime)
+    //
+    // impl Iterator<Item = Entity> : Simply means this function returns some kind of iterator over this method
+    //
+    // + 's : means that iterator that is returned borrows from self and lives at most 's (TLDR : it creates a iterator reference to self with a 's lifetime, so the lifetime of the iterator is the same as the data it is referencing, because if we have an iterator to a data that is no longer available, that means it's a dangling pointer, which in turn can end up leading to compile time error)
     /// Iterates the children of `entity`.
     pub fn iter_ui_children(&'s self, entity: Entity) -> impl Iterator<Item = Entity> + 's {
         self.ui_children_query
