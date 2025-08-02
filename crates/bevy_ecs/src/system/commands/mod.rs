@@ -15,7 +15,7 @@ use core::marker::PhantomData;
 
 use crate::{
     self as bevy_ecs,
-    bundle::{Bundle, InsertMode, NoBundleEffect},
+    bundle::{Bundle, InsertMode, NoBundleEffect, StaticBundle},
     change_detection::{MaybeLocation, Mut},
     component::{Component, ComponentId, Mutable},
     entity::{Entities, Entity, EntityClonerBuilder, EntityDoesNotExistError, OptIn, OptOut},
@@ -533,7 +533,7 @@ impl<'w, 's> Commands<'w, 's> {
     pub fn spawn_batch<I>(&mut self, batch: I)
     where
         I: IntoIterator + Send + Sync + 'static,
-        I::Item: Bundle<Effect: NoBundleEffect>,
+        I::Item: Bundle<Effect: NoBundleEffect> + StaticBundle,
     {
         self.queue(command::spawn_batch(batch));
     }
@@ -686,7 +686,7 @@ impl<'w, 's> Commands<'w, 's> {
     pub fn insert_batch<I, B>(&mut self, batch: I)
     where
         I: IntoIterator<Item = (Entity, B)> + Send + Sync + 'static,
-        B: Bundle<Effect: NoBundleEffect>,
+        B: Bundle<Effect: NoBundleEffect> + StaticBundle,
     {
         self.queue(command::insert_batch(batch, InsertMode::Replace));
     }
@@ -717,7 +717,7 @@ impl<'w, 's> Commands<'w, 's> {
     pub fn insert_batch_if_new<I, B>(&mut self, batch: I)
     where
         I: IntoIterator<Item = (Entity, B)> + Send + Sync + 'static,
-        B: Bundle<Effect: NoBundleEffect>,
+        B: Bundle<Effect: NoBundleEffect> + StaticBundle,
     {
         self.queue(command::insert_batch(batch, InsertMode::Keep));
     }
@@ -747,7 +747,7 @@ impl<'w, 's> Commands<'w, 's> {
     pub fn try_insert_batch<I, B>(&mut self, batch: I)
     where
         I: IntoIterator<Item = (Entity, B)> + Send + Sync + 'static,
-        B: Bundle<Effect: NoBundleEffect>,
+        B: Bundle<Effect: NoBundleEffect> + StaticBundle,
     {
         self.queue(command::insert_batch(batch, InsertMode::Replace).handle_error_with(warn));
     }
@@ -778,7 +778,7 @@ impl<'w, 's> Commands<'w, 's> {
     pub fn try_insert_batch_if_new<I, B>(&mut self, batch: I)
     where
         I: IntoIterator<Item = (Entity, B)> + Send + Sync + 'static,
-        B: Bundle<Effect: NoBundleEffect>,
+        B: Bundle<Effect: NoBundleEffect> + StaticBundle,
     {
         self.queue(command::insert_batch(batch, InsertMode::Keep).handle_error_with(warn));
     }
@@ -1117,7 +1117,7 @@ impl<'w, 's> Commands<'w, 's> {
     /// Panics if the given system is an exclusive system.
     ///
     /// [`On`]: crate::observer::On
-    pub fn add_observer<E: Event, B: Bundle, M>(
+    pub fn add_observer<E: Event, B: StaticBundle, M>(
         &mut self,
         observer: impl IntoObserverSystem<E, B, M>,
     ) -> EntityCommands {
@@ -1642,7 +1642,7 @@ impl<'a> EntityCommands<'a> {
     /// # bevy_ecs::system::assert_is_system(remove_combat_stats_system);
     /// ```
     #[track_caller]
-    pub fn remove<B: Bundle>(&mut self) -> &mut Self {
+    pub fn remove<B: StaticBundle>(&mut self) -> &mut Self {
         self.queue_handled(entity_command::remove::<B>(), warn)
     }
 
@@ -1678,7 +1678,7 @@ impl<'a> EntityCommands<'a> {
     /// # bevy_ecs::system::assert_is_system(remove_combat_stats_system);
     /// ```
     #[track_caller]
-    pub fn remove_if<B: Bundle>(&mut self, condition: impl FnOnce() -> bool) -> &mut Self {
+    pub fn remove_if<B: StaticBundle>(&mut self, condition: impl FnOnce() -> bool) -> &mut Self {
         if condition() {
             self.remove::<B>()
         } else {
@@ -1695,7 +1695,10 @@ impl<'a> EntityCommands<'a> {
     /// If the entity does not exist when this command is executed,
     /// the resulting error will be ignored.
     #[track_caller]
-    pub fn try_remove_if<B: Bundle>(&mut self, condition: impl FnOnce() -> bool) -> &mut Self {
+    pub fn try_remove_if<B: StaticBundle>(
+        &mut self,
+        condition: impl FnOnce() -> bool,
+    ) -> &mut Self {
         if condition() {
             self.try_remove::<B>()
         } else {
@@ -1743,7 +1746,7 @@ impl<'a> EntityCommands<'a> {
     /// }
     /// # bevy_ecs::system::assert_is_system(remove_combat_stats_system);
     /// ```
-    pub fn try_remove<B: Bundle>(&mut self) -> &mut Self {
+    pub fn try_remove<B: StaticBundle>(&mut self) -> &mut Self {
         self.queue_silenced(entity_command::remove::<B>())
     }
 
@@ -1775,7 +1778,7 @@ impl<'a> EntityCommands<'a> {
     /// # bevy_ecs::system::assert_is_system(remove_with_requires_system);
     /// ```
     #[track_caller]
-    pub fn remove_with_requires<B: Bundle>(&mut self) -> &mut Self {
+    pub fn remove_with_requires<B: StaticBundle>(&mut self) -> &mut Self {
         self.queue(entity_command::remove_with_requires::<B>())
     }
 
@@ -1972,7 +1975,7 @@ impl<'a> EntityCommands<'a> {
     /// # bevy_ecs::system::assert_is_system(remove_combat_stats_system);
     /// ```
     #[track_caller]
-    pub fn retain<B: Bundle>(&mut self) -> &mut Self {
+    pub fn retain<B: StaticBundle>(&mut self) -> &mut Self {
         self.queue(entity_command::retain::<B>())
     }
 
@@ -2000,7 +2003,7 @@ impl<'a> EntityCommands<'a> {
     }
 
     /// Creates an [`Observer`] listening for events of type `E` targeting this entity.
-    pub fn observe<E: EntityEvent, B: Bundle, M>(
+    pub fn observe<E: EntityEvent, B: StaticBundle, M>(
         &mut self,
         observer: impl IntoObserverSystem<E, B, M>,
     ) -> &mut Self {
@@ -2230,7 +2233,7 @@ impl<'a> EntityCommands<'a> {
     /// # Panics
     ///
     /// The command will panic when applied if the target entity does not exist.
-    pub fn clone_components<B: Bundle>(&mut self, target: Entity) -> &mut Self {
+    pub fn clone_components<B: StaticBundle>(&mut self, target: Entity) -> &mut Self {
         self.queue(entity_command::clone_components::<B>(target))
     }
 
@@ -2248,7 +2251,7 @@ impl<'a> EntityCommands<'a> {
     ///
     /// [`Ignore`]: crate::component::ComponentCloneBehavior::Ignore
     /// [`Custom`]: crate::component::ComponentCloneBehavior::Custom
-    pub fn move_components<B: Bundle>(&mut self, target: Entity) -> &mut Self {
+    pub fn move_components<B: StaticBundle>(&mut self, target: Entity) -> &mut Self {
         self.queue(entity_command::move_components::<B>(target))
     }
 }
