@@ -16,6 +16,7 @@ use crate::{
 use bevy_app::{App, Last, Plugin};
 #[cfg(feature = "custom_cursor")]
 use bevy_asset::Assets;
+use bevy_cursor_icon::{CursorIcon, SystemCursorIcon};
 #[cfg(feature = "custom_cursor")]
 use bevy_ecs::system::Res;
 use bevy_ecs::{
@@ -31,7 +32,6 @@ use bevy_ecs::{
 use bevy_image::{Image, TextureAtlasLayout};
 use bevy_platform::collections::HashSet;
 use bevy_window::Window;
-use bevy_cursor_icon::{CursorIcon, SystemCursorIcon};
 #[cfg(feature = "custom_cursor")]
 use tracing::warn;
 

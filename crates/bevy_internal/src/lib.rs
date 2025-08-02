@@ -33,6 +33,8 @@ pub use bevy_color as color;
 pub use bevy_core_pipeline as core_pipeline;
 #[cfg(feature = "bevy_core_widgets")]
 pub use bevy_core_widgets as core_widgets;
+#[cfg(feature = "bevy_cursor_icon")]
+pub use bevy_cursor_icon as cursor;
 #[cfg(feature = "bevy_dev_tools")]
 pub use bevy_dev_tools as dev_tools;
 pub use bevy_diagnostic as diagnostic;
@@ -90,7 +92,5 @@ pub use bevy_ui_render as ui_render;
 pub use bevy_utils as utils;
 #[cfg(feature = "bevy_window")]
 pub use bevy_window as window;
-#[cfg(feature = "bevy_cursor_icon")]
-pub use bevy_cursor_icon as cursor;
 #[cfg(feature = "bevy_winit")]
 pub use bevy_winit as winit;
