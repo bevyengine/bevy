@@ -1096,7 +1096,7 @@ fn apply_text_edit(
     if maybe_filter.is_some() || max_chars.is_some() {
         let text = editor.with_buffer(get_cosmic_text_buffer_contents);
         if maybe_filter.is_some_and(|filter| !filter.is_match(&text))
-            || max_chars.is_some_and(|max_chars| max_chars <= text.chars().count())
+            || max_chars.is_some_and(|max_chars| max_chars < text.chars().count())
         {
             change.reverse();
             editor.apply_change(&change);
