@@ -85,7 +85,7 @@ pub mod _macro {
     pub use bevy_asset;
 }
 
-use bevy_ecs::schedule::ScheduleBuildSettings;
+use bevy_ecs::schedule::{ExecutorKind, ScheduleBuildSettings};
 use bevy_image::{CompressedImageFormatSupport, CompressedImageFormats};
 use bevy_utils::prelude::default;
 pub use extract_param::Extract;
@@ -561,6 +561,11 @@ unsafe fn initialize_render_app(app: &mut App) {
     render_app
         .add_schedule(extract_schedule)
         .add_schedule(Render::base_schedule())
+        // TODO: Remove this once we've resolved https://github.com/bevyengine/bevy/issues/20379
+        // properly.
+        .edit_schedule(RenderStartup, |schedule| {
+            schedule.set_executor_kind(ExecutorKind::SingleThreaded);
+        })
         .init_resource::<render_graph::RenderGraph>()
         .insert_resource(app.world().resource::<AssetServer>().clone())
         .add_systems(ExtractSchedule, PipelineCache::extract_shaders)
