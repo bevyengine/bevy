@@ -102,12 +102,23 @@ fn main() {
         .run();
 }
 
-#[derive(Resource, Default)]
+#[derive(Resource)]
 struct State {
     handle: Handle<CustomAsset>,
     other_handle: Handle<CustomAsset>,
     blob: Handle<Blob>,
     printed: bool,
+}
+
+impl Default for State {
+    fn default() -> Self {
+        Self {
+            handle: Handle::default(),
+            other_handle: Handle::default(),
+            blob: Handle::default(),
+            printed: Default::default(),
+        }
+    }
 }
 
 fn setup(mut state: ResMut<State>, asset_server: Res<AssetServer>) {

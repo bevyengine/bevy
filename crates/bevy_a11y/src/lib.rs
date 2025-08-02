@@ -224,7 +224,7 @@ impl ManageAccessibilityUpdates {
 ///
 /// This behavior may or may not be intended, so please utilize
 /// `AccessibilityNode`s with care.
-#[derive(Component, Clone, Deref, DerefMut)]
+#[derive(Component, Clone, Deref, DerefMut, Default)]
 #[cfg_attr(feature = "serialize", derive(Serialize, Deserialize))]
 pub struct AccessibilityNode(
     /// A representation of this component's entity to `AccessKit`.

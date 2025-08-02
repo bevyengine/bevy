@@ -4,7 +4,7 @@ use core::ops::{Deref, DerefMut};
 
 use bevy_asset::Handle;
 use bevy_ecs::{component::Component, reflect::ReflectComponent};
-use bevy_reflect::{std_traits::ReflectDefault, Reflect};
+use bevy_reflect::Reflect;
 use bevy_transform::components::Transform;
 
 #[cfg(feature = "bevy_render")]
@@ -72,8 +72,8 @@ impl DerefMut for GizmoAsset {
 /// ```
 ///
 /// [`Gizmos`]: crate::gizmos::Gizmos
-#[derive(Component, Clone, Debug, Default, Reflect)]
-#[reflect(Component, Clone, Default)]
+#[derive(Component, Clone, Debug, Reflect)]
+#[reflect(Component, Clone)]
 #[require(Transform)]
 pub struct Gizmo {
     /// The handle to the gizmo to draw.
@@ -93,6 +93,16 @@ pub struct Gizmo {
     /// and your wireframe is z-fighting (flickering on/off) with your main model.
     /// You would set this value to a negative number close to 0.
     pub depth_bias: f32,
+}
+
+impl Default for Gizmo {
+    fn default() -> Self {
+        Self {
+            handle: Handle::default(),
+            line_config: Default::default(),
+            depth_bias: Default::default(),
+        }
+    }
 }
 
 #[cfg(feature = "bevy_render")]

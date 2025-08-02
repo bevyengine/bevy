@@ -21,6 +21,12 @@ pub mod size {
     /// Common row size for buttons, sliders, spinners, etc.
     pub const ROW_HEIGHT: Val = Val::Px(24.0);
 
+    /// Height for pane headers
+    pub const HEADER_HEIGHT: Val = Val::Px(30.0);
+
+    /// Common size for toolbar buttons.
+    pub const TOOL_HEIGHT: Val = Val::Px(18.0);
+
     /// Width and height of a checkbox
     pub const CHECKBOX_SIZE: Val = Val::Px(18.0);
 

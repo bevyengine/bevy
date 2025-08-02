@@ -864,6 +864,20 @@ impl AssetServer {
         self.load_asset(LoadedAsset::new_with_dependencies(asset))
     }
 
+    // TODO: this is a hack: this allows the asset to pretend to be from the path, but this will cause issues in practice
+    #[must_use = "not using the returned strong handle may result in the unexpected release of the asset"]
+    pub fn load_with_path<'a, A: Asset>(
+        &self,
+        path: impl Into<AssetPath<'a>>,
+        asset: A,
+    ) -> Handle<A> {
+        let loaded_asset: LoadedAsset<A> = asset.into();
+        let erased_loaded_asset: ErasedLoadedAsset = loaded_asset.into();
+        let path: AssetPath = path.into();
+        self.load_asset_untyped(Some(path.into_owned()), erased_loaded_asset)
+            .typed_debug_checked()
+    }
+
     pub(crate) fn load_asset<A: Asset>(&self, asset: impl Into<LoadedAsset<A>>) -> Handle<A> {
         let loaded_asset: LoadedAsset<A> = asset.into();
         let erased_loaded_asset: ErasedLoadedAsset = loaded_asset.into();
