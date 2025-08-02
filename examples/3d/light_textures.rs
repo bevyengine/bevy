@@ -5,12 +5,11 @@ use std::fmt::{self, Formatter};
 
 use bevy::{
     color::palettes::css::{SILVER, YELLOW},
+    cursor_icon::{CursorIcon, SystemCursorIcon},
     input::mouse::AccumulatedMouseMotion,
     pbr::{decal, DirectionalLightTexture, NotShadowCaster, PointLightTexture, SpotLightTexture},
     prelude::*,
     render::renderer::{RenderAdapter, RenderDevice},
-    window::SystemCursorIcon,
-    winit::cursor::CursorIcon,
 };
 use light_consts::lux::{AMBIENT_DAYLIGHT, CLEAR_SUNRISE};
 use ops::{acos, cos, sin};
