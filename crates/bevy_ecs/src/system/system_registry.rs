@@ -374,26 +374,25 @@ impl World {
             .get_entity_mut(id.entity)
             .map_err(|_| RegisteredSystemError::SystemIdNotRegistered(id))?;
 
-        let Some(system_id_marker) = entity.get::<SystemIdMarker>() else {
-            return Err(RegisteredSystemError::SystemNotCached);
-        };
-
-        if system_id_marker.input_type_id.type_id != TypeId::of::<I>()
-            || system_id_marker.output_type_id.type_id != TypeId::of::<O>()
-        {
-            return Err(RegisteredSystemError::IncorrectType(
-                id,
-                system_id_marker.clone(),
-            ));
-        }
-
         // Take ownership of system trait object
-        let RegisteredSystem {
+        let Some(RegisteredSystem {
             mut initialized,
             mut system,
-        } = entity
-            .take::<RegisteredSystem<I, O>>()
-            .ok_or(RegisteredSystemError::Recursive(id))?;
+        }) = entity.take::<RegisteredSystem<I, O>>()
+        else {
+            let Some(system_id_marker) = entity.get::<SystemIdMarker>() else {
+                return Err(RegisteredSystemError::SystemNotCached);
+            };
+            if system_id_marker.input_type_id.type_id != TypeId::of::<I>()
+                || system_id_marker.output_type_id.type_id != TypeId::of::<O>()
+            {
+                return Err(RegisteredSystemError::IncorrectType(
+                    id,
+                    system_id_marker.clone(),
+                ));
+            }
+            return Err(RegisteredSystemError::Recursive(id));
+        };
 
         // Initialize the system
         if !initialized {
