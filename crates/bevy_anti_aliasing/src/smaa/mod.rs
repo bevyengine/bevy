@@ -896,6 +896,7 @@ fn perform_edge_detection(
         label: Some("SMAA edge detection pass"),
         color_attachments: &[Some(RenderPassColorAttachment {
             view: &smaa_textures.edge_detection_color_texture.default_view,
+            depth_slice: None,
             resolve_target: None,
             ops: default(),
         })],
@@ -951,6 +952,7 @@ fn perform_blending_weight_calculation(
         label: Some("SMAA blending weight calculation pass"),
         color_attachments: &[Some(RenderPassColorAttachment {
             view: &smaa_textures.blend_texture.default_view,
+            depth_slice: None,
             resolve_target: None,
             ops: default(),
         })],
@@ -1007,6 +1009,7 @@ fn perform_neighborhood_blending(
         label: Some("SMAA neighborhood blending pass"),
         color_attachments: &[Some(RenderPassColorAttachment {
             view: destination,
+            depth_slice: None,
             resolve_target: None,
             ops: default(),
         })],
