@@ -310,7 +310,7 @@ impl TextInputFilter {
 /// Add this component to hide the text input buffer contents
 /// by replacing the characters with `mask_char`.
 ///
-/// It is strongly recommended to only use a `PasswordMask` with fixed-widthg fonts.
+/// It is strongly recommended to only use a `PasswordMask` with fixed-width fonts.
 /// With variable width fonts mouse picking and horizontal scrolling
 /// may not work correctly.
 #[derive(Component)]
@@ -1096,7 +1096,7 @@ fn apply_text_edit(
     if maybe_filter.is_some() || max_chars.is_some() {
         let text = editor.with_buffer(get_cosmic_text_buffer_contents);
         if maybe_filter.is_some_and(|filter| !filter.is_match(&text))
-            || max_chars.is_some_and(|max_chars| max_chars <= text.chars().count())
+            || max_chars.is_some_and(|max_chars| max_chars < text.chars().count())
         {
             change.reverse();
             editor.apply_change(&change);
