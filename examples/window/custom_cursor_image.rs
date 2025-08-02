@@ -4,7 +4,7 @@
 use std::time::Duration;
 
 use bevy::{
-    cursor::{CursorIcon, CustomCursor, CustomCursorImage},
+    cursor_icon::{CursorIcon, CustomCursor, CustomCursorImage},
     prelude::*,
 };
 
