@@ -12,7 +12,10 @@ pub use system_cursor::SystemCursorIcon;
 pub use custom_cursor::*;
 
 pub mod prelude {
-    pub use crate::system_cursor::SystemCursorIcon;
+    pub use crate::cursor::*;
+    #[cfg(feature = "custom_cursor")]
+    pub use crate::custom_cursor::*;
+    pub use crate::system_cursor::*;
 }
 
 #[derive(Default)]
