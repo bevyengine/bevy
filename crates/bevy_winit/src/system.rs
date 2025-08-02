@@ -12,7 +12,7 @@ use bevy_ecs::{
 };
 use bevy_input::keyboard::{Key, KeyCode, KeyboardFocusLost, KeyboardInput};
 use bevy_window::{
-    ClosingWindow, CursorOptions, Monitor, PrimaryMonitor, RawHandleWrapper, VideoMode, Window,
+    ClosingWindow, CursorOptions, Monitor, PrimaryMonitor, RawWindowHandleWrapper, VideoMode, Window,
     WindowClosed, WindowClosing, WindowCreated, WindowEvent, WindowFocused, WindowMode,
     WindowResized, WindowWrapper,
 };
@@ -93,7 +93,7 @@ pub fn create_windows<F: QueryFilter + 'static>(
                     WinitWindowPressedKeys::default(),
                 ));
 
-                if let Ok(handle_wrapper) = RawHandleWrapper::new(winit_window) {
+                if let Ok(handle_wrapper) = RawWindowHandleWrapper::new(winit_window) {
                     commands.entity(entity).insert(handle_wrapper.clone());
                     if let Some(handle_holder) = handle_holder {
                         *handle_holder.0.lock().unwrap() = Some(handle_wrapper);

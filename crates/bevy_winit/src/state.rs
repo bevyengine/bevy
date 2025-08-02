@@ -46,7 +46,7 @@ use bevy_window::{
     WindowScaleFactorChanged, WindowThemeChanged,
 };
 #[cfg(target_os = "android")]
-use bevy_window::{CursorOptions, PrimaryWindow, RawHandleWrapper};
+use bevy_window::{CursorOptions, PrimaryWindow, RawWindowHandleWrapper};
 
 use crate::{
     accessibility::ACCESS_KIT_ADAPTERS,
@@ -584,9 +584,10 @@ impl<T: BufferedEvent> WinitAppRunnerState<T> {
             should_update = true;
             self.ran_update_since_last_redraw = false;
 
+            // XXX: Handle generically
             #[cfg(target_os = "android")]
             {
-                // Remove the `RawHandleWrapper` from the primary window.
+                // Remove the `RawWindowHandleWrapper` from the primary window.
                 // This will trigger the surface destruction.
                 let mut query = self
                     .world_mut()
@@ -594,7 +595,7 @@ impl<T: BufferedEvent> WinitAppRunnerState<T> {
                 let entity = query.single(&self.world()).unwrap();
                 self.world_mut()
                     .entity_mut(entity)
-                    .remove::<RawHandleWrapper>();
+                    .remove::<RawWindowHandleWrapper>();
             }
         }
 
@@ -605,13 +606,14 @@ impl<T: BufferedEvent> WinitAppRunnerState<T> {
             // Trigger the next redraw to refresh the screen immediately
             self.redraw_requested = true;
 
+            // XXX: Handle generically
             #[cfg(target_os = "android")]
             {
                 // Get windows that are cached but without raw handles. Those window were already created, but got their
                 // handle wrapper removed when the app was suspended.
 
                 let mut query = self.world_mut()
-                    .query_filtered::<(Entity, &Window, &CursorOptions), (With<CachedWindow>, Without<RawHandleWrapper>)>();
+                    .query_filtered::<(Entity, &Window, &CursorOptions), (With<CachedWindow>, Without<RawWindowHandleWrapper>)>();
                 if let Ok((entity, window, cursor_options)) = query.single(&self.world()) {
                     let window = window.clone();
                     let cursor_options = cursor_options.clone();
@@ -635,7 +637,7 @@ impl<T: BufferedEvent> WinitAppRunnerState<T> {
                                 &monitors,
                             );
 
-                            let wrapper = RawHandleWrapper::new(winit_window).unwrap();
+                            let wrapper = RawWindowHandleWrapper::new(winit_window).unwrap();
 
                             self.world_mut().entity_mut(entity).insert(wrapper);
                         });
