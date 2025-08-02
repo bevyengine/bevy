@@ -7,7 +7,7 @@ use bevy_render::{
     renderer::{RenderAdapter, RenderContext},
     view::ViewTarget,
 };
-use dlss_wgpu::{DlssExposure, DlssRenderParameters, DlssTexture};
+use dlss_wgpu::{DlssExposure, DlssRenderParameters};
 
 #[derive(Default)]
 pub struct DlssNode;
@@ -47,24 +47,12 @@ impl ViewNode for DlssNode {
 
         let render_resolution = resolution_override.0;
         let render_parameters = DlssRenderParameters {
-            color: DlssTexture {
-                texture: &view_target.source_texture,
-                view: &view_target.source,
-            },
-            depth: DlssTexture {
-                texture: &prepass_depth_texture.texture.texture,
-                view: &prepass_depth_texture.texture.default_view,
-            },
-            motion_vectors: DlssTexture {
-                texture: &prepass_motion_vectors_texture.texture.texture,
-                view: &prepass_motion_vectors_texture.texture.default_view,
-            },
+            color: &view_target.source,
+            depth: &prepass_depth_texture.texture.default_view,
+            motion_vectors: &prepass_motion_vectors_texture.texture.default_view,
             exposure: DlssExposure::Automatic, // TODO
             bias: None,                        // TODO
-            dlss_output: DlssTexture {
-                texture: &view_target.destination_texture,
-                view: &view_target.destination,
-            },
+            dlss_output: &view_target.destination,
             reset: dlss.reset,
             jitter_offset: -temporal_jitter.offset,
             partial_texture_size: Some(render_resolution),

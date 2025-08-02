@@ -32,7 +32,7 @@ use bevy_render::{
     camera::{MipBias, TemporalJitter},
     render_graph::{RenderGraphExt, ViewNodeRunner},
     renderer::RenderDevice,
-    view::{prepare_view_targets, prepare_view_uniforms, Hdr},
+    view::{prepare_view_targets, Hdr},
     ExtractSchedule, Render, RenderApp, RenderSystems,
 };
 use std::sync::{Arc, Mutex};
