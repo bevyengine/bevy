@@ -354,6 +354,7 @@ impl Plugin for RenderPlugin {
                         .single(app.world())
                         .ok()
                         .cloned();
+
                     let settings = render_creation.clone();
 
                     #[cfg(feature = "dlss")]
@@ -364,59 +365,10 @@ impl Plugin for RenderPlugin {
                         .0;
 
                     let async_renderer = async move {
-                        let instance = wgpu::Instance::new(&wgpu::InstanceDescriptor {
-                            backends,
-                            flags: settings.instance_flags,
-                            memory_budget_thresholds: settings.instance_memory_budget_thresholds,
-                            backend_options: wgpu::BackendOptions {
-                                gl: wgpu::GlBackendOptions {
-                                    gles_minor_version: settings.gles3_minor_version,
-                                    fence_behavior: wgpu::GlFenceBehavior::Normal,
-                                },
-                                dx12: wgpu::Dx12BackendOptions {
-                                    shader_compiler: settings.dx12_shader_compiler.clone(),
-                                },
-                                noop: wgpu::NoopBackendOptions { enable: false },
-                            },
-                        });
-
-                        let surface = primary_window.and_then(|wrapper| {
-                            let maybe_handle = wrapper.0.lock().expect(
-                                "Couldn't get the window handle in time for renderer initialization",
-                            );
-                            if let Some(wrapper) = maybe_handle.as_ref() {
-                                // SAFETY: Plugins should be set up on the main thread.
-                                let handle = unsafe { wrapper.get_handle() };
-                                Some(
-                                    instance
-                                        .create_surface(handle)
-                                        .expect("Failed to create wgpu surface"),
-                                )
-                            } else {
-                                None
-                            }
-                        });
-
-                        let force_fallback_adapter = std::env::var("WGPU_FORCE_FALLBACK_ADAPTER")
-                            .map_or(settings.force_fallback_adapter, |v| {
-                                !(v.is_empty() || v == "0" || v == "false")
-                            });
-
-                        let desired_adapter_name = std::env::var("WGPU_ADAPTER_NAME")
-                            .as_deref()
-                            .map_or(settings.adapter_name.clone(), |x| Some(x.to_lowercase()));
-
-                        let request_adapter_options = wgpu::RequestAdapterOptions {
-                            power_preference: settings.power_preference,
-                            compatible_surface: surface.as_ref(),
-                            force_fallback_adapter,
-                        };
-
                         let render_resources = renderer::initialize_renderer(
-                            instance,
+                            backends,
+                            primary_window,
                             &settings,
-                            &request_adapter_options,
-                            desired_adapter_name,
                             #[cfg(feature = "dlss")]
                             dlss_project_id,
                         )
@@ -424,6 +376,7 @@ impl Plugin for RenderPlugin {
 
                         *future_render_resources_wrapper.lock().unwrap() = Some(render_resources);
                     };
+
                     // In wasm, spawn a task and detach it for execution
                     #[cfg(target_arch = "wasm32")]
                     bevy_tasks::IoTaskPool::get()

@@ -5,6 +5,7 @@ use crate::WgpuWrapper;
 use bevy_derive::{Deref, DerefMut};
 #[cfg(not(all(target_arch = "wasm32", target_feature = "atomics")))]
 use bevy_tasks::ComputeTaskPool;
+use bevy_window::RawHandleWrapperHolder;
 pub use graph_runner::*;
 pub use render_device::*;
 use tracing::{debug, error, info, info_span, warn};
@@ -22,7 +23,7 @@ use bevy_ecs::{prelude::*, system::SystemState};
 use bevy_platform::time::Instant;
 use bevy_time::TimeSender;
 use wgpu::{
-    Adapter, AdapterInfo, CommandBuffer, CommandEncoder, DeviceType, Instance, Queue,
+    Adapter, AdapterInfo, Backends, CommandBuffer, CommandEncoder, DeviceType, Instance, Queue,
     RequestAdapterOptions, Trace,
 };
 
@@ -171,12 +172,71 @@ fn find_adapter_by_name(
 /// Initializes the renderer by retrieving and preparing the GPU instance, device and queue
 /// for the specified backend.
 pub async fn initialize_renderer(
-    instance: Instance,
+    backends: Backends,
+    primary_window: Option<RawHandleWrapperHolder>,
     options: &WgpuSettings,
-    request_adapter_options: &RequestAdapterOptions<'_, '_>,
-    desired_adapter_name: Option<String>,
     #[cfg(feature = "dlss")] dlss_project_id: bevy_asset::uuid::Uuid,
 ) -> RenderResources {
+    #[cfg(feature = "dlss")]
+    let mut dlss_supported = true;
+
+    let instance_descriptor = wgpu::InstanceDescriptor {
+        backends,
+        flags: options.instance_flags,
+        memory_budget_thresholds: options.instance_memory_budget_thresholds,
+        backend_options: wgpu::BackendOptions {
+            gl: wgpu::GlBackendOptions {
+                gles_minor_version: options.gles3_minor_version,
+                fence_behavior: wgpu::GlFenceBehavior::Normal,
+            },
+            dx12: wgpu::Dx12BackendOptions {
+                shader_compiler: options.dx12_shader_compiler.clone(),
+            },
+            noop: wgpu::NoopBackendOptions { enable: false },
+        },
+    };
+
+    #[cfg(not(feature = "dlss"))]
+    let instance = Instance::new(&instance_descriptor);
+
+    #[cfg(feature = "dlss")]
+    let instance =
+        dlss_wgpu::create_instance(dlss_project_id, &instance_descriptor, &mut dlss_supported)
+            .unwrap();
+
+    let surface = primary_window.and_then(|wrapper| {
+        let maybe_handle = wrapper
+            .0
+            .lock()
+            .expect("Couldn't get the window handle in time for renderer initialization");
+        if let Some(wrapper) = maybe_handle.as_ref() {
+            // SAFETY: Plugins should be set up on the main thread.
+            let handle = unsafe { wrapper.get_handle() };
+            Some(
+                instance
+                    .create_surface(handle)
+                    .expect("Failed to create wgpu surface"),
+            )
+        } else {
+            None
+        }
+    });
+
+    let force_fallback_adapter = std::env::var("WGPU_FORCE_FALLBACK_ADAPTER")
+        .map_or(options.force_fallback_adapter, |v| {
+            !(v.is_empty() || v == "0" || v == "false")
+        });
+
+    let desired_adapter_name = std::env::var("WGPU_ADAPTER_NAME")
+        .as_deref()
+        .map_or(options.adapter_name.clone(), |x| Some(x.to_lowercase()));
+
+    let request_adapter_options = RequestAdapterOptions {
+        power_preference: options.power_preference,
+        compatible_surface: surface.as_ref(),
+        force_fallback_adapter,
+    };
+
     #[cfg(not(target_family = "wasm"))]
     let mut selected_adapter = desired_adapter_name.and_then(|adapter_name| {
         find_adapter_by_name(
@@ -199,7 +259,10 @@ pub async fn initialize_renderer(
             "Searching for adapter with options: {:?}",
             request_adapter_options
         );
-        selected_adapter = instance.request_adapter(request_adapter_options).await.ok();
+        selected_adapter = instance
+            .request_adapter(&request_adapter_options)
+            .await
+            .ok();
     }
 
     let adapter = selected_adapter.expect(GPU_NOT_FOUND_ERROR_MESSAGE);
@@ -377,8 +440,6 @@ pub async fn initialize_renderer(
     #[cfg(not(feature = "dlss"))]
     let (device, queue) = adapter.request_device(&device_descriptor).await.unwrap();
 
-    #[cfg(feature = "dlss")]
-    let mut dlss_supported = true;
     #[cfg(feature = "dlss")]
     let (device, queue) = dlss_wgpu::request_device(
         dlss_project_id,
