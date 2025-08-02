@@ -12,22 +12,11 @@ use bevy_input::ButtonInput;
 use bevy_ecs::prelude::{AppTypeRegistry, ReflectComponent};
 use bevy_render::camera::RenderTarget;
 use bevy_state::prelude::*;
-use bevy_ui::{BackgroundColor, BorderColor, FlexDirection, Interaction, Node, PositionType, UiTargetCamera, Val};
-use bevy_text::Justify;
+use bevy_ui::{BackgroundColor, BorderColor, FlexDirection, Interaction, Node, Val};
 use bevy_window::{Window, WindowRef};
 
 use super::{ui, InspectorConfig, InspectorData, InspectorState};
 
-/// Macro to conditionally include UiTargetCamera component
-macro_rules! with_camera_if_needed {
-    ($components:expr, $is_overlay:expr, $camera:expr) => {
-        if $is_overlay {
-            $components
-        } else {
-            ($components, UiTargetCamera($camera))
-        }
-    };
-}
 
 /// Helper function to format component data for display with proper truncation and formatting.
 fn format_component_data(value_str: &str, max_line_length: usize, max_lines: usize) -> String {
@@ -208,6 +197,14 @@ pub struct CollapsibleSection {
     pub content_entity: Option<Entity>,
 }
 
+/// Resource to track inspector state to prevent infinite loops
+#[derive(bevy_ecs::prelude::Resource)]
+struct InspectorLastState {
+    last_selected_entity: Option<Entity>,
+    last_rebuild_time: f32,
+    last_update_time: f32,
+}
+
 /// System that populates the entity list in the inspector.
 pub fn populate_entity_list(
     mut commands: Commands,
@@ -317,247 +314,376 @@ pub fn handle_entity_selection(
     }
 }
 
-/// System that displays components of the selected entity using reflection.
-pub fn display_entity_components(
-    mut commands: Commands,
-    inspector_data: Res<InspectorData>,
-    current_state: Res<State<InspectorState>>,
-    component_viewer: Query<Entity, With<ComponentViewerContainer>>,
-    component_texts: Query<Entity, With<ComponentValueText>>,
-    type_registry: Res<AppTypeRegistry>,
-    world: &World,
-    mut last_selected_entity: Local<Option<Entity>>,
-    mut last_text_entity: Local<Option<Entity>>,
-    mut update_cooldown: Local<f32>,
-    time: Res<bevy_time::Time>,
-) {
-    // Only run when inspector is active
+/// System that processes all inspector updates with exclusive World access.
+/// This runs in the InspectorLast schedule to avoid World borrow conflicts,
+/// following the same pattern as bevy_remote.
+pub fn process_inspector_updates(world: &mut World) {
+    // Check if inspector is active
+    let current_state = world.resource::<State<InspectorState>>();
     if *current_state.get() != InspectorState::Active {
         return;
     }
-
-    // Only run if we have a component viewer container
-    let Ok(viewer_entity) = component_viewer.single() else {
+    
+    // Get the selected entity from inspector data
+    let inspector_data = world.resource::<InspectorData>();
+    let selected_entity = inspector_data.selected_entity;
+    
+    // Check for component viewer container
+    let mut component_viewer_query = world.query_filtered::<Entity, With<ComponentViewerContainer>>();
+    let Ok(viewer_entity) = component_viewer_query.single(world) else {
+        bevy_log::debug!("No ComponentViewerContainer found");
         return;
     };
+    
+    // Use resource_scope to access local state while avoiding borrow conflicts
+    world.resource_scope::<bevy_time::Time, ()>(|world, time| {
+        process_component_display_with_world_access(world, viewer_entity, selected_entity, time.delta_secs());
+    });
+}
 
-    // Add cooldown to prevent excessive rebuilds
-    *update_cooldown -= time.delta_secs();
-    
-    // Only rebuild if entity changed AND cooldown expired
-    let entity_changed = inspector_data.selected_entity != *last_selected_entity;
-    let cooldown_ready = *update_cooldown <= 0.0;
-    
-    if !entity_changed {
-        return;
+/// Helper function that handles component display with exclusive world access.
+fn process_component_display_with_world_access(
+    world: &mut World, 
+    viewer_entity: Entity, 
+    selected_entity: Option<Entity>,
+    delta_time: f32,
+) {
+    // Create a persistent resource to track the last state
+    if !world.contains_resource::<InspectorLastState>() {
+        world.insert_resource(InspectorLastState {
+            last_selected_entity: None,
+            last_rebuild_time: 0.0,
+            last_update_time: 0.0,
+        });
     }
     
-    if !cooldown_ready {
-        return;
-    }
+    let mut last_state = world.resource_mut::<InspectorLastState>();
     
-    // Reset cooldown (minimum 250ms between rebuilds)
-    *update_cooldown = 0.25;
-    *last_selected_entity = inspector_data.selected_entity;
-
-    bevy_log::info!("Building component viewer structure for entity: {:?}", inspector_data.selected_entity);
-    bevy_log::info!("Component viewer container entity: {:?}", viewer_entity);
+    // Check if entity selection changed
+    let entity_changed = last_state.last_selected_entity != selected_entity;
     
-    // TRACKED CLEANUP: Despawn the previous text entity if it exists
-    if let Some(prev_text_entity) = *last_text_entity {
-        if let Ok(mut entity_commands) = commands.get_entity(prev_text_entity) {
-            entity_commands.despawn();
-            bevy_log::info!("TRACKED: Despawned previous text entity: {:?}", prev_text_entity);
-        }
-        *last_text_entity = None;
-    }
-
-    // CORRECTED APPROACH: Create text in component viewer container with proper positioning
-    if let Some(selected_entity) = inspector_data.selected_entity {
-        bevy_log::info!("CORRECTED: Adding text to component viewer container: {:?} for entity: {:?}", viewer_entity, selected_entity);
+    if entity_changed {
+        // Always rebuild immediately when entity selection changes
+        last_state.last_selected_entity = selected_entity;
+        last_state.last_rebuild_time += delta_time;
+        drop(last_state); // Release the resource before rebuilding
         
-        commands.entity(viewer_entity).with_children(|parent| {
-            bevy_log::info!("COMPONENT VIEWER: Creating component list for entity: {:?}", selected_entity);
-            
-            // Create a scrollable container for all components
-            let mut component_container = parent.spawn((
-                Node {
-                    width: Val::Percent(100.0),
-                    height: Val::Percent(100.0),
-                    flex_direction: FlexDirection::Column,
-                    overflow: bevy_ui::Overflow::clip_y(),
-                    ..Default::default()
-                },
-                InspectorEntity,
-            ));
-            
-            let container_id = component_container.id();
-            
-            component_container.with_children(|component_parent| {
-                // Entity header
-                component_parent.spawn((
-                    bevy_ui::widget::Text::new(format!("Entity {} Components:", selected_entity.index())),
-                    bevy_text::TextFont {
-                        font_size: 16.0,
-                        ..Default::default()
-                    },
-                    bevy_text::TextColor(bevy_color::Color::srgb(0.9, 0.9, 1.0)),
-                    Node {
-                        margin: bevy_ui::UiRect::bottom(Val::Px(10.0)),
-                        ..Default::default()
-                    },
-                    InspectorEntity,
-                ));
-
-                // Get archetype to iterate over components  
-                if let Ok(entity_ref) = world.get_entity(selected_entity) {
-                    let type_registry = type_registry.read();
-                    let archetype = entity_ref.archetype();
-                    
-                    for component_id in archetype.components() {
-                        if let Some(component_info) = world.components().get_info(component_id) {
-                            let component_name = component_info.name();
-                            let component_name_str = format!("{}", component_name);
-                            let short_name = component_name_str.split("::").last().unwrap_or("Unknown");
-                            
-                            // Create component section
-                            component_parent.spawn((
-                                Node {
-                                    width: Val::Percent(100.0),
-                                    margin: bevy_ui::UiRect::bottom(Val::Px(8.0)),
-                                    padding: bevy_ui::UiRect::all(Val::Px(8.0)),
-                                    flex_direction: FlexDirection::Column,
-                                    ..Default::default()
-                                },
-                                BackgroundColor(bevy_color::Color::srgb(0.15, 0.15, 0.2)),
-                                BorderColor::all(bevy_color::Color::srgb(0.3, 0.3, 0.4)),
-                                InspectorEntity,
-                            )).with_children(|section_parent| {
-                                // Component name
-                                section_parent.spawn((
-                                    bevy_ui::widget::Text::new(short_name.to_string()),
-                                    bevy_text::TextFont {
-                                        font_size: 14.0,
-                                        ..Default::default()
-                                    },
-                                    bevy_text::TextColor(bevy_color::Color::srgb(0.9, 0.9, 0.6)),
-                                    InspectorEntity,
-                                ));
-                                
-                                // Try to show component data
-                                if let Some(type_registration) = type_registry.get_with_type_path(&component_name_str) {
-                                    if let Some(reflect_component) = type_registration.data::<ReflectComponent>() {
-                                        if let Some(reflected) = reflect_component.reflect(entity_ref) {
-                                            let component_data = format!("{:?}", reflected);
-                                            let formatted_data = if component_data.len() > 100 {
-                                                format!("{}...", &component_data[..100])
-                                            } else {
-                                                component_data
-                                            };
-                                            
-                                            section_parent.spawn((
-                                                bevy_ui::widget::Text::new(formatted_data),
-                                                bevy_text::TextFont {
-                                                    font_size: 10.0,
-                                                    ..Default::default()
-                                                },
-                                                bevy_text::TextColor(bevy_color::Color::srgb(0.8, 0.8, 0.8)),
-                                                Node {
-                                                    margin: bevy_ui::UiRect::top(Val::Px(4.0)),
-                                                    ..Default::default()
-                                                },
-                                                ComponentValueText {
-                                                    entity: selected_entity,
-                                                    component_name: component_name_str.clone(),
-                                                },
-                                                InspectorEntity,
-                                            ));
-                                        } else {
-                                            section_parent.spawn((
-                                                bevy_ui::widget::Text::new("<not reflectable>"),
-                                                bevy_text::TextFont { font_size: 10.0, ..Default::default() },
-                                                bevy_text::TextColor(bevy_color::Color::srgb(0.6, 0.6, 0.6)),
-                                                InspectorEntity,
-                                            ));
-                                        }
-                                    }
-                                }
-                            });
-                        }
-                    }
-                }
-            });
-            
-            bevy_log::info!("COMPONENT VIEWER: Created component container: {:?}", container_id);
-            
-            // Track the container for cleanup next time
-            *last_text_entity = Some(container_id);
-        });
-    } else {
-        // No entity selected - show empty state
-        commands.entity(viewer_entity).with_children(|parent| {
-            parent.spawn((
-                bevy_ui::widget::Text::new("No entity selected\n\nClick on an entity in the left pane to inspect its components."),
-                bevy_text::TextFont {
-                    font_size: 14.0,
-                    ..Default::default()
-                },
-                bevy_text::TextColor(bevy_color::Color::srgb(0.6, 0.6, 0.6)),
-                InspectorEntity,
-            ));
-        });
+        bevy_log::info!("Entity selection changed to: {:?}, rebuilding immediately", selected_entity);
+        rebuild_component_viewer(world, viewer_entity, selected_entity);
+    } else if selected_entity.is_some() {
+        // For the same entity, rate limit live updates to prevent excessive rebuilds
+        let update_cooldown = 0.2; // 200ms between updates (5 FPS)
+        let current_time = last_state.last_update_time + delta_time;
+        let can_update = current_time - last_state.last_update_time >= update_cooldown;
+        
+        if can_update {
+            last_state.last_update_time = current_time;
+            drop(last_state);
+            update_live_component_values(world, selected_entity);
+        }
     }
 }
 
-/// System that updates component values in real-time for the selected entity.
-pub fn update_component_values_live(
-    mut component_texts: Query<(&mut bevy_ui::widget::Text, &ComponentValueText)>,
-    inspector_data: Res<InspectorData>,
-    current_state: Res<State<InspectorState>>,
-    // Query for common components we want to track
-    transforms: Query<&bevy_transform::components::Transform>,
-    names: Query<&Name>,
-    mut update_timer: Local<f32>,
-    time: Res<bevy_time::Time>,
-) {
-    // Only run when inspector is active
-    if *current_state.get() != InspectorState::Active {
-        return;
-    }
-
-    // Only run if we have a selected entity
-    if inspector_data.selected_entity.is_none() {
-        return;
-    }
-
-    // Update component values every 200ms for smoother updates
-    *update_timer -= time.delta_secs();
-    if *update_timer > 0.0 {
-        return;
-    }
-    *update_timer = 0.2; // 5 FPS update rate for smoother updates
+/// Rebuild the component viewer UI structure.
+fn rebuild_component_viewer(world: &mut World, viewer_entity: Entity, selected_entity: Option<Entity>) {
+    bevy_log::info!("Rebuilding component viewer for entity: {:?}", selected_entity);
     
-    for (mut text, component_value_text) in component_texts.iter_mut() {
-        // Only update components for the currently selected entity
-        if Some(component_value_text.entity) != inspector_data.selected_entity {
+    // Clear existing content
+    let mut entity_commands = world.entity_mut(viewer_entity);
+    entity_commands.clear_children();
+    
+    if let Some(selected_entity) = selected_entity {
+        // Build component list
+        build_component_list_exclusive(world, viewer_entity, selected_entity);
+    } else {
+        // Show empty state
+        build_empty_state(world, viewer_entity);
+    }
+}
+
+/// Build component list with exclusive world access.
+fn build_component_list_exclusive(world: &mut World, viewer_entity: Entity, selected_entity: Entity) {
+    let Ok(entity_ref) = world.get_entity(selected_entity) else {
+        bevy_log::warn!("Selected entity {:?} no longer exists", selected_entity);
+        return;
+    };
+    
+    // Get archetype and component info first, before any mutable borrows
+    let archetype = entity_ref.archetype();
+    let components_info: Vec<_> = archetype.components()
+        .filter_map(|component_id| world.components().get_info(component_id))
+        .map(|info| (info.name().to_string(), info.name().to_string().split("::").last().unwrap_or("Unknown").to_string()))
+        .collect();
+    
+    // Get reflection data while we still have immutable access
+    let app_type_registry = world.resource::<AppTypeRegistry>();
+    let type_registry = app_type_registry.read();
+    let mut component_data: Vec<(String, String, String)> = Vec::new();
+    
+    for (component_name_str, short_name) in &components_info {
+        if let Some(type_registration) = type_registry.get_with_type_path(component_name_str) {
+            if let Some(reflect_component) = type_registration.data::<ReflectComponent>() {
+                if let Some(reflected) = reflect_component.reflect(entity_ref) {
+                    let data = format!("{:#?}", reflected);
+                    component_data.push((component_name_str.clone(), short_name.clone(), data));
+                } else {
+                    component_data.push((component_name_str.clone(), short_name.clone(), "<not reflectable>".to_string()));
+                }
+            } else {
+                component_data.push((component_name_str.clone(), short_name.clone(), "<no reflection data>".to_string()));
+            }
+        } else {
+            component_data.push((component_name_str.clone(), short_name.clone(), "<not registered>".to_string()));
+        }
+    }
+    
+    // Drop the type registry guard before mutable operations
+    drop(type_registry);
+    
+    // Now spawn the component container structure with mutable access
+    let mut entity_commands = world.entity_mut(viewer_entity);
+    entity_commands.with_children(|parent| {
+        // Create a scrollable container for all components
+        let mut component_container = parent.spawn((
+            Node {
+                width: Val::Percent(100.0),
+                height: Val::Percent(100.0),
+                flex_direction: FlexDirection::Column,
+                overflow: bevy_ui::Overflow::clip_y(),
+                ..Default::default()
+            },
+            InspectorEntity,
+        ));
+        
+        component_container.with_children(|component_parent| {
+            // Entity header
+            component_parent.spawn((
+                bevy_ui::widget::Text::new(format!("Entity {} Components:", selected_entity.index())),
+                bevy_text::TextFont {
+                    font_size: 16.0,
+                    ..Default::default()
+                },
+                bevy_text::TextColor(bevy_color::Color::srgb(0.9, 0.9, 1.0)),
+                Node {
+                    margin: bevy_ui::UiRect::bottom(Val::Px(10.0)),
+                    ..Default::default()
+                },
+                InspectorEntity,
+            ));
+
+            // Create component sections from pre-collected data
+            for (component_name_str, short_name, data) in component_data {
+                // Create collapsible component section
+                let mut section = component_parent.spawn((
+                    Node {
+                        width: Val::Percent(100.0),
+                        margin: bevy_ui::UiRect::bottom(Val::Px(4.0)),
+                        flex_direction: FlexDirection::Column,
+                        ..Default::default()
+                    },
+                    BackgroundColor(bevy_color::Color::srgb(0.15, 0.15, 0.2)),
+                    BorderColor::all(bevy_color::Color::srgb(0.3, 0.3, 0.4)),
+                    InspectorEntity,
+                ));
+                
+                section.with_children(|section_parent| {
+                    // Clickable header with expand/collapse button
+                    let mut header_button = section_parent.spawn((
+                        bevy_ui::widget::Button,
+                        Node {
+                            width: Val::Percent(100.0),
+                            height: Val::Px(28.0),
+                            padding: bevy_ui::UiRect::all(Val::Px(8.0)),
+                            justify_content: bevy_ui::JustifyContent::SpaceBetween,
+                            align_items: bevy_ui::AlignItems::Center,
+                            flex_direction: FlexDirection::Row,
+                            ..Default::default()
+                        },
+                        BackgroundColor(bevy_color::Color::srgb(0.2, 0.2, 0.25)),
+                        CollapsibleSection {
+                            component_name: component_name_str.clone(),
+                            is_expanded: true,
+                            content_entity: None,
+                        },
+                        InspectorEntity,
+                    ));
+                    
+                    header_button.with_children(|header_parent| {
+                        // Component name
+                        header_parent.spawn((
+                            bevy_ui::widget::Text::new(format!("▼ {}", short_name)),
+                            bevy_text::TextFont {
+                                font_size: 14.0,
+                                ..Default::default()
+                            },
+                            bevy_text::TextColor(bevy_color::Color::srgb(0.9, 0.9, 0.6)),
+                            InspectorEntity,
+                        ));
+                    });
+                    
+                    // Component content container (initially visible)
+                    let mut content_container = section_parent.spawn((
+                        Node {
+                            width: Val::Percent(100.0),
+                            padding: bevy_ui::UiRect::all(Val::Px(8.0)),
+                            flex_direction: FlexDirection::Column,
+                            ..Default::default()
+                        },
+                        BackgroundColor(bevy_color::Color::srgb(0.1, 0.1, 0.15)),
+                        InspectorEntity,
+                    ));
+                    
+                    // Add component data
+                    content_container.with_children(|content_parent| {
+                        let color = if data.starts_with('<') {
+                            bevy_color::Color::srgb(0.6, 0.6, 0.6)
+                        } else {
+                            bevy_color::Color::srgb(0.8, 0.8, 0.8)
+                        };
+                        
+                        content_parent.spawn((
+                            bevy_ui::widget::Text::new(data),
+                            bevy_text::TextFont {
+                                font_size: 10.0,
+                                ..Default::default()
+                            },
+                            bevy_text::TextColor(color),
+                            Node {
+                                width: Val::Percent(100.0),
+                                ..Default::default()
+                            },
+                            ComponentValueText {
+                                entity: selected_entity,
+                                component_name: component_name_str,
+                            },
+                            InspectorEntity,
+                        ));
+                    });
+                });
+            }
+        });
+    });
+}
+
+/// Build empty state UI.
+fn build_empty_state(world: &mut World, viewer_entity: Entity) {
+    let mut entity_commands = world.entity_mut(viewer_entity);
+    entity_commands.with_children(|parent| {
+        parent.spawn((
+            bevy_ui::widget::Text::new("No entity selected\n\nClick on an entity in the left pane to inspect its components."),
+            bevy_text::TextFont {
+                font_size: 14.0,
+                ..Default::default()
+            },
+            bevy_text::TextColor(bevy_color::Color::srgb(0.6, 0.6, 0.6)),
+            InspectorEntity,
+        ));
+    });
+}
+
+/// Update live component values using reflection.
+fn update_live_component_values(world: &mut World, selected_entity: Option<Entity>) {
+    let Some(selected_entity) = selected_entity else {
+        return;
+    };
+    
+    // First, collect all the component value text entities and their info
+    let mut text_query = world.query::<(Entity, &bevy_ui::widget::Text, &ComponentValueText)>();
+    let mut component_texts: Vec<(Entity, String, String)> = Vec::new();
+    
+    for (entity_id, text, component_value_text) in text_query.iter(world) {
+        // Only collect components for the currently selected entity
+        if component_value_text.entity != selected_entity {
             continue;
         }
         
-        // DISABLE ALL LIVE UPDATES - only use component name format to isolate text positioning bug
-        match component_value_text.component_name.as_str() {
-            "bevy_transform::components::transform::Transform" => {
-                text.0 = "[Transform]".to_string();
-                bevy_log::info!("LIVE UPDATE: Set Transform text to '[Transform]'");
+        component_texts.push((entity_id, text.0.clone(), component_value_text.component_name.clone()));
+    }
+    
+    // Now get fresh reflection data for the selected entity
+    let Ok(entity_ref) = world.get_entity(selected_entity) else {
+        return;
+    };
+    
+    let app_type_registry = world.resource::<AppTypeRegistry>();
+    let type_registry = app_type_registry.read();
+    
+    let mut updates = Vec::new();
+    
+    for (entity_id, current_text, component_name) in component_texts {
+        // Use reflection to get the latest component data
+        if let Some(type_registration) = type_registry.get_with_type_path(&component_name) {
+            if let Some(reflect_component) = type_registration.data::<ReflectComponent>() {
+                if let Some(reflected) = reflect_component.reflect(entity_ref) {
+                    let new_component_data = format!("{:#?}", reflected);
+                    
+                    // Only update if the value has changed
+                    if current_text != new_component_data {
+                        updates.push((entity_id, new_component_data));
+                    }
+                }
             }
-            "bevy_ecs::name::Name" => {
-                text.0 = "[Name]".to_string();
-                bevy_log::info!("LIVE UPDATE: Set Name text to '[Name]'");
-            }
-            _ => {
-                // For other components, just use component name
-                let component_short_name = component_value_text.component_name.split("::").last().unwrap_or("Unknown");
-                text.0 = format!("[{}]", component_short_name);
-                bevy_log::info!("LIVE UPDATE: Set {} text to '[{}]'", component_value_text.component_name, component_short_name);
+        }
+    }
+    
+    // Drop the type registry guard before mutable operations
+    drop(type_registry);
+    
+    // Apply updates
+    for (entity, new_data) in updates {
+        if let Some(mut text) = world.get_mut::<bevy_ui::widget::Text>(entity) {
+            text.0 = new_data;
+        }
+    }
+}
+
+/// Legacy system kept for compatibility - now integrated into process_inspector_updates.
+/// This will be removed in a future update.
+pub fn update_component_values_live() {
+    // This system is now integrated into process_inspector_updates
+    // to avoid World borrow conflicts
+}
+
+/// System that handles clicking on collapsible section headers.
+pub fn handle_collapsible_sections(
+    mut commands: Commands,
+    mut collapsible_query: Query<(&Interaction, &mut CollapsibleSection), bevy_ecs::query::Changed<Interaction>>,
+    _text_query: Query<&mut bevy_ui::widget::Text>,
+    _node_query: Query<&mut Node>,
+) {
+    for (interaction, mut section) in collapsible_query.iter_mut() {
+        if *interaction == Interaction::Pressed {
+            // Toggle the expansion state
+            section.is_expanded = !section.is_expanded;
+            
+            bevy_log::info!("Toggled section '{}' to {}", 
+                section.component_name.split("::").last().unwrap_or("Unknown"),
+                if section.is_expanded { "expanded" } else { "collapsed" }
+            );
+            
+            // Update the arrow symbol in the header text
+            if let Some(content_entity) = section.content_entity {
+                // Find the header text (it's a child of the button that was clicked)
+                // We need to look for text entities that are children of this collapsible section
+                for _entity_with_text in _text_query.iter() {
+                    // This is a simplified approach - in practice you'd track the header text entity
+                    // For now, we'll update visibility of the content instead
+                }
+                
+                // Toggle visibility of the content container
+                if let Ok(mut content_node) = commands.get_entity(content_entity) {
+                    if section.is_expanded {
+                        content_node.insert(Node {
+                            display: bevy_ui::Display::Flex,
+                            ..Default::default()
+                        });
+                    } else {
+                        content_node.insert(Node {
+                            display: bevy_ui::Display::None,
+                            ..Default::default()
+                        });
+                    }
+                }
             }
         }
     }
