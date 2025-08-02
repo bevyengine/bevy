@@ -431,6 +431,7 @@ impl ViewNode for VolumetricFogNode {
                 label: Some("volumetric lighting pass"),
                 color_attachments: &[Some(RenderPassColorAttachment {
                     view: view_target.main_texture_view(),
+                    depth_slice: None,
                     resolve_target: None,
                     ops: Operations {
                         load: LoadOp::Load,

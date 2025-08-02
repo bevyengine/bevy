@@ -64,6 +64,7 @@ impl ViewNode for FxaaNode {
             label: Some("fxaa_pass"),
             color_attachments: &[Some(RenderPassColorAttachment {
                 view: destination,
+                depth_slice: None,
                 resolve_target: None,
                 ops: Operations::default(),
             })],
