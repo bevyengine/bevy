@@ -147,7 +147,7 @@ impl Plugin for LightPlugin {
             .add_systems(
                 PostUpdate,
                 (
-                    validate_shadow_map_size,
+                    validate_shadow_map_size.before(build_directional_light_cascades),
                     add_clusters
                         .in_set(SimulationLightSystems::AddClusters)
                         .after(CameraUpdateSystems),
