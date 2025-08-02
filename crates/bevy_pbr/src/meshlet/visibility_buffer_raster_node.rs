@@ -595,6 +595,7 @@ fn raster_pass(
         }),
         color_attachments: &[Some(RenderPassColorAttachment {
             view: dummy_render_target,
+            depth_slice: None,
             resolve_target: None,
             ops: Operations {
                 load: LoadOp::Clear(LinearRgba::BLACK.into()),

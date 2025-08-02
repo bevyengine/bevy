@@ -71,14 +71,14 @@ pub fn prepare_raytracing_scene_bindings(
     let mut textures = CachedBindingArray::new();
     let mut samplers = Vec::new();
     let mut materials = StorageBufferList::<GpuMaterial>::default();
-    let mut tlas = TlasPackage::new(render_device.wgpu_device().create_tlas(
-        &CreateTlasDescriptor {
+    let mut tlas = render_device
+        .wgpu_device()
+        .create_tlas(&CreateTlasDescriptor {
             label: Some("tlas"),
             flags: AccelerationStructureFlags::PREFER_FAST_TRACE,
             update_mode: AccelerationStructureUpdateMode::Build,
             max_instances: instances_query.iter().len() as u32,
-        },
-    ));
+        });
     let mut transforms = StorageBufferList::<Mat4>::default();
     let mut geometry_ids = StorageBufferList::<GpuInstanceGeometryIds>::default();
     let mut material_ids = StorageBufferList::<u32>::default();
