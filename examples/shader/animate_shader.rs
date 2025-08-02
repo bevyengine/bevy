@@ -2,6 +2,7 @@
 //! The time data is in the globals binding which is part of the `mesh_view_bindings` shader import.
 
 use bevy::{
+    pbr::Material,
     prelude::*,
     reflect::TypePath,
     render::render_resource::{AsBindGroup, ShaderRef},

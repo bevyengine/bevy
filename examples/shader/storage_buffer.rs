@@ -1,5 +1,6 @@
 //! This example demonstrates how to use a storage buffer with `AsBindGroup` in a custom material.
 use bevy::{
+    pbr::Material,
     prelude::*,
     reflect::TypePath,
     render::{
