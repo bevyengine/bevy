@@ -85,12 +85,27 @@ pub mod _macro {
     pub use bevy_asset;
 }
 
+use alloc::sync::Arc;
+use core::ops::{Deref, DerefMut};
+use std::sync::Mutex;
+
+use bevy_app::{App, AppLabel, Plugin, SubApp};
+use bevy_asset::{AssetApp, AssetServer};
 use bevy_ecs::schedule::ScheduleBuildSettings;
+use bevy_ecs::{prelude::*, schedule::ScheduleLabel};
 use bevy_image::{CompressedImageFormatSupport, CompressedImageFormats};
 use bevy_utils::prelude::default;
+use bevy_window::{
+    PrimaryWindow, RawDisplayHandleWrapper, RawWindowHandleWrapperHolder,
+    ThreadLockedRawWindowHandleWrapper,
+};
+use bitflags::bitflags;
+use tracing::debug;
+use wgpu::rwh::{DisplayHandle, HandleError, HasDisplayHandle, HasWindowHandle, WindowHandle};
+use wgpu_wrapper::WgpuWrapper;
+
 pub use extract_param::Extract;
 
-use bevy_window::{PrimaryWindow, RawHandleWrapperHolder};
 use experimental::occlusion_culling::OcclusionCullingPlugin;
 use globals::GlobalsPlugin;
 use render_asset::{
@@ -104,9 +119,9 @@ use sync_world::{
     SyncToRenderWorld, SyncWorldPlugin, TemporaryRenderEntity,
 };
 
-use crate::gpu_readback::GpuReadbackPlugin;
 use crate::{
     camera::CameraPlugin,
+    gpu_readback::GpuReadbackPlugin,
     mesh::{MeshPlugin, MorphPlugin, RenderMesh},
     render_asset::prepare_assets,
     render_resource::{PipelineCache, Shader, ShaderLoader},
@@ -115,15 +130,6 @@ use crate::{
     storage::StoragePlugin,
     view::{ViewPlugin, WindowRenderPlugin},
 };
-use alloc::sync::Arc;
-use bevy_app::{App, AppLabel, Plugin, SubApp};
-use bevy_asset::{AssetApp, AssetServer};
-use bevy_ecs::{prelude::*, schedule::ScheduleLabel};
-use bitflags::bitflags;
-use core::ops::{Deref, DerefMut};
-use std::sync::Mutex;
-use tracing::debug;
-use wgpu_wrapper::WgpuWrapper;
 
 /// Inline shader as an `embedded_asset` and load it permanently.
 ///
@@ -349,9 +355,10 @@ impl Plugin for RenderPlugin {
                         future_render_resources_wrapper.clone(),
                     ));
 
+                    let display = app.world().resource::<RawDisplayHandleWrapper>().clone();
                     let primary_window = app
                         .world_mut()
-                        .query_filtered::<&RawHandleWrapperHolder, With<PrimaryWindow>>()
+                        .query_filtered::<&RawWindowHandleWrapperHolder, With<PrimaryWindow>>()
                         .single(app.world())
                         .ok()
                         .cloned();
@@ -370,18 +377,44 @@ impl Plugin for RenderPlugin {
                                 },
                                 noop: wgpu::NoopBackendOptions { enable: false },
                             },
+                            display: Some(display.display_handle().unwrap().as_raw()),
                         });
 
                         let surface = primary_window.and_then(|wrapper| {
                             let maybe_handle = wrapper.0.lock().expect(
-                                "Couldn't get the window handle in time for renderer initialization",
+                                "too long string breaks rustfmt", // "Couldn't get the window handle in time for renderer initialization",
                             );
                             if let Some(wrapper) = maybe_handle.as_ref() {
                                 // SAFETY: Plugins should be set up on the main thread.
                                 let handle = unsafe { wrapper.get_handle() };
+
+                                struct BadWgpuApiWrapper {
+                                    display: RawDisplayHandleWrapper,
+                                    window: ThreadLockedRawWindowHandleWrapper,
+                                }
+                                impl HasDisplayHandle for BadWgpuApiWrapper {
+                                    fn display_handle(
+                                        &self,
+                                    ) -> Result<DisplayHandle<'_>, HandleError>
+                                    {
+                                        self.display.display_handle()
+                                    }
+                                }
+                                impl HasWindowHandle for BadWgpuApiWrapper {
+                                    fn window_handle(
+                                        &self,
+                                    ) -> Result<WindowHandle<'_>, HandleError>
+                                    {
+                                        self.window.window_handle()
+                                    }
+                                }
+
                                 Some(
                                     instance
-                                        .create_surface(handle)
+                                        .create_surface(BadWgpuApiWrapper {
+                                            display,
+                                            window: handle,
+                                        })
                                         .expect("Failed to create wgpu surface"),
                                 )
                             } else {
