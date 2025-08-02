@@ -1,5 +1,9 @@
-use alloc::collections::{btree_set, BTreeSet};
+use alloc::{
+    collections::{btree_set, BTreeSet},
+    vec,
+};
 use core::{
+    fmt::Debug,
     hash::BuildHasher,
     ops::{Deref, DerefMut},
 };
@@ -11,7 +15,7 @@ use smallvec::SmallVec;
 
 /// The internal [`Entity`] collection used by a [`RelationshipTarget`](crate::relationship::RelationshipTarget) component.
 /// This is not intended to be modified directly by users, as it could invalidate the correctness of relationships.
-pub trait RelationshipSourceCollection {
+pub trait RelationshipCollection: Debug {
     /// The type of iterator returned by the `iter` method.
     ///
     /// This is an associated type (rather than using a method that returns an opaque return-position impl trait)
@@ -19,12 +23,15 @@ pub trait RelationshipSourceCollection {
     /// are available to the user when implemented without unduly restricting the possible collections.
     ///
     /// The [`SourceIter`](super::SourceIter) type alias can be helpful to reduce confusion when working with this associated type.
-    type SourceIter<'a>: Iterator<Item = Entity>
+    type Iter<'a>: Iterator<Item = Entity>
     where
         Self: 'a;
 
     /// Creates a new empty instance.
     fn new() -> Self;
+
+    /// Creates a new instance from the given `entity`.
+    fn from(entity: Entity) -> Self;
 
     /// Returns an instance with the given pre-allocated entity `capacity`.
     ///
@@ -49,8 +56,13 @@ pub trait RelationshipSourceCollection {
     /// the entity.
     fn remove(&mut self, entity: Entity) -> bool;
 
+    /// Returns true if the collection contains the given `entity`.
+    fn contains(&self, entity: Entity) -> bool {
+        self.iter().any(|e| e == entity)
+    }
+
     /// Iterates all entities in the collection.
-    fn iter(&self) -> Self::SourceIter<'_>;
+    fn iter(&self) -> Self::Iter<'_>;
 
     /// Returns the current length of the collection.
     fn len(&self) -> usize;
@@ -79,10 +91,15 @@ pub trait RelationshipSourceCollection {
     ///
     /// May be faster than repeatedly calling [`Self::add`].
     fn extend_from_iter(&mut self, entities: impl IntoIterator<Item = Entity>);
+
+    /// Returns a single entity from the collection, if it exists.
+    fn single(&self) -> Option<Entity> {
+        None
+    }
 }
 
-/// This trait signals that a [`RelationshipSourceCollection`] is ordered.
-pub trait OrderedRelationshipSourceCollection: RelationshipSourceCollection {
+/// This trait signals that a [`RelationshipCollection`] is ordered.
+pub trait OrderedRelationshipCollection: RelationshipCollection {
     /// Inserts the entity at a specific index.
     /// If the index is too large, the entity will be added to the end of the collection.
     fn insert(&mut self, index: usize, entity: Entity);
@@ -133,11 +150,15 @@ pub trait OrderedRelationshipSourceCollection: RelationshipSourceCollection {
     }
 }
 
-impl RelationshipSourceCollection for Vec<Entity> {
-    type SourceIter<'a> = core::iter::Copied<core::slice::Iter<'a, Entity>>;
+impl RelationshipCollection for Vec<Entity> {
+    type Iter<'a> = core::iter::Copied<core::slice::Iter<'a, Entity>>;
 
     fn new() -> Self {
         Vec::new()
+    }
+
+    fn from(entity: Entity) -> Self {
+        vec![entity]
     }
 
     fn reserve(&mut self, additional: usize) {
@@ -163,7 +184,7 @@ impl RelationshipSourceCollection for Vec<Entity> {
         false
     }
 
-    fn iter(&self) -> Self::SourceIter<'_> {
+    fn iter(&self) -> Self::Iter<'_> {
         <[Entity]>::iter(self).copied()
     }
 
@@ -184,7 +205,7 @@ impl RelationshipSourceCollection for Vec<Entity> {
     }
 }
 
-impl OrderedRelationshipSourceCollection for Vec<Entity> {
+impl OrderedRelationshipCollection for Vec<Entity> {
     fn insert(&mut self, index: usize, entity: Entity) {
         self.push(entity);
         let len = self.len();
@@ -234,11 +255,15 @@ impl OrderedRelationshipSourceCollection for Vec<Entity> {
     }
 }
 
-impl RelationshipSourceCollection for EntityHashSet {
-    type SourceIter<'a> = core::iter::Copied<crate::entity::hash_set::Iter<'a>>;
+impl RelationshipCollection for EntityHashSet {
+    type Iter<'a> = core::iter::Copied<crate::entity::hash_set::Iter<'a>>;
 
     fn new() -> Self {
         EntityHashSet::new()
+    }
+
+    fn from(entity: Entity) -> Self {
+        Self::from_iter([entity])
     }
 
     fn reserve(&mut self, additional: usize) {
@@ -259,7 +284,7 @@ impl RelationshipSourceCollection for EntityHashSet {
         self.0.remove(&entity)
     }
 
-    fn iter(&self) -> Self::SourceIter<'_> {
+    fn iter(&self) -> Self::Iter<'_> {
         self.iter().copied()
     }
 
@@ -280,11 +305,15 @@ impl RelationshipSourceCollection for EntityHashSet {
     }
 }
 
-impl<const N: usize> RelationshipSourceCollection for SmallVec<[Entity; N]> {
-    type SourceIter<'a> = core::iter::Copied<core::slice::Iter<'a, Entity>>;
+impl<const N: usize> RelationshipCollection for SmallVec<[Entity; N]> {
+    type Iter<'a> = core::iter::Copied<core::slice::Iter<'a, Entity>>;
 
     fn new() -> Self {
         SmallVec::new()
+    }
+
+    fn from(entity: Entity) -> Self {
+        SmallVec::from_iter([entity])
     }
 
     fn reserve(&mut self, additional: usize) {
@@ -310,7 +339,7 @@ impl<const N: usize> RelationshipSourceCollection for SmallVec<[Entity; N]> {
         false
     }
 
-    fn iter(&self) -> Self::SourceIter<'_> {
+    fn iter(&self) -> Self::Iter<'_> {
         <[Entity]>::iter(self).copied()
     }
 
@@ -331,11 +360,15 @@ impl<const N: usize> RelationshipSourceCollection for SmallVec<[Entity; N]> {
     }
 }
 
-impl RelationshipSourceCollection for Entity {
-    type SourceIter<'a> = core::option::IntoIter<Entity>;
+impl RelationshipCollection for Entity {
+    type Iter<'a> = core::option::IntoIter<Entity>;
 
     fn new() -> Self {
         Entity::PLACEHOLDER
+    }
+
+    fn from(entity: Entity) -> Self {
+        entity
     }
 
     fn reserve(&mut self, _: usize) {}
@@ -359,7 +392,7 @@ impl RelationshipSourceCollection for Entity {
         false
     }
 
-    fn iter(&self) -> Self::SourceIter<'_> {
+    fn iter(&self) -> Self::Iter<'_> {
         if *self == Entity::PLACEHOLDER {
             None.into_iter()
         } else {
@@ -393,9 +426,13 @@ impl RelationshipSourceCollection for Entity {
             None
         }
     }
+
+    fn single(&self) -> Option<Entity> {
+        Some(*self)
+    }
 }
 
-impl<const N: usize> OrderedRelationshipSourceCollection for SmallVec<[Entity; N]> {
+impl<const N: usize> OrderedRelationshipCollection for SmallVec<[Entity; N]> {
     fn insert(&mut self, index: usize, entity: Entity) {
         self.push(entity);
         let len = self.len();
@@ -446,14 +483,18 @@ impl<const N: usize> OrderedRelationshipSourceCollection for SmallVec<[Entity; N
     }
 }
 
-impl<S: BuildHasher + Default> RelationshipSourceCollection for IndexSet<Entity, S> {
-    type SourceIter<'a>
+impl<S: BuildHasher + Default> RelationshipCollection for IndexSet<Entity, S> {
+    type Iter<'a>
         = core::iter::Copied<indexmap::set::Iter<'a, Entity>>
     where
         S: 'a;
 
     fn new() -> Self {
         IndexSet::default()
+    }
+
+    fn from(entity: Entity) -> Self {
+        IndexSet::from_iter([entity])
     }
 
     fn reserve(&mut self, additional: usize) {
@@ -472,7 +513,7 @@ impl<S: BuildHasher + Default> RelationshipSourceCollection for IndexSet<Entity,
         self.shift_remove(&entity)
     }
 
-    fn iter(&self) -> Self::SourceIter<'_> {
+    fn iter(&self) -> Self::Iter<'_> {
         self.iter().copied()
     }
 
@@ -493,11 +534,15 @@ impl<S: BuildHasher + Default> RelationshipSourceCollection for IndexSet<Entity,
     }
 }
 
-impl RelationshipSourceCollection for EntityIndexSet {
-    type SourceIter<'a> = core::iter::Copied<crate::entity::index_set::Iter<'a>>;
+impl RelationshipCollection for EntityIndexSet {
+    type Iter<'a> = core::iter::Copied<crate::entity::index_set::Iter<'a>>;
 
     fn new() -> Self {
         EntityIndexSet::new()
+    }
+
+    fn from(entity: Entity) -> Self {
+        EntityIndexSet::from_iter([entity])
     }
 
     fn reserve(&mut self, additional: usize) {
@@ -516,7 +561,7 @@ impl RelationshipSourceCollection for EntityIndexSet {
         self.deref_mut().shift_remove(&entity)
     }
 
-    fn iter(&self) -> Self::SourceIter<'_> {
+    fn iter(&self) -> Self::Iter<'_> {
         self.iter().copied()
     }
 
@@ -537,11 +582,15 @@ impl RelationshipSourceCollection for EntityIndexSet {
     }
 }
 
-impl RelationshipSourceCollection for BTreeSet<Entity> {
-    type SourceIter<'a> = core::iter::Copied<btree_set::Iter<'a, Entity>>;
+impl RelationshipCollection for BTreeSet<Entity> {
+    type Iter<'a> = core::iter::Copied<btree_set::Iter<'a, Entity>>;
 
     fn new() -> Self {
         BTreeSet::new()
+    }
+
+    fn from(entity: Entity) -> Self {
+        Self::from_iter([entity])
     }
 
     fn with_capacity(_: usize) -> Self {
@@ -561,7 +610,7 @@ impl RelationshipSourceCollection for BTreeSet<Entity> {
         self.remove(&entity)
     }
 
-    fn iter(&self) -> Self::SourceIter<'_> {
+    fn iter(&self) -> Self::Iter<'_> {
         self.iter().copied()
     }
 
