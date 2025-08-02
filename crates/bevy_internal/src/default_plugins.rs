@@ -20,7 +20,7 @@ plugin_group! {
         #[cfg(feature = "bevy_window")]
         bevy_a11y:::AccessibilityPlugin,
         #[cfg(feature = "bevy_cursor_icon")]
-        bevy_cursor_icon:::WindowCursorPlugin,
+        bevy_cursor_icon:::CursorIconPlugin,
         #[cfg(feature = "std")]
         #[custom(cfg(any(all(unix, not(target_os = "horizon")), windows)))]
         bevy_app:::TerminalCtrlCHandlerPlugin,

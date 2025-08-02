@@ -16,9 +16,9 @@ pub mod prelude {
 }
 
 #[derive(Default)]
-pub struct WindowCursorPlugin;
+pub struct CursorIconPlugin;
 
-impl Plugin for WindowCursorPlugin {
+impl Plugin for CursorIconPlugin {
     fn build(&self, app: &mut App) {
         app.register_type::<CursorIcon>();
     }
