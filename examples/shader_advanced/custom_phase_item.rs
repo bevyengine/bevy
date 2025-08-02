@@ -26,9 +26,9 @@ use bevy::{
         render_resource::{
             BufferUsages, Canonical, ColorTargetState, ColorWrites, CompareFunction,
             DepthStencilState, FragmentState, IndexFormat, PipelineCache, RawBufferVec,
-            RenderPipeline, RenderPipelineDescriptor, SpecializedCache, Specializer,
-            SpecializerKey, TextureFormat, VertexAttribute, VertexBufferLayout, VertexFormat,
-            VertexState, VertexStepMode,
+            RenderPipeline, RenderPipelineDescriptor, Specializer, SpecializerKey, TextureFormat,
+            Variants, VertexAttribute, VertexBufferLayout, VertexFormat, VertexState,
+            VertexStepMode,
         },
         renderer::{RenderDevice, RenderQueue},
         view::{self, ExtractedView, RenderVisibleEntities, VisibilityClass},
@@ -280,8 +280,8 @@ struct CustomPhaseSpecializer;
 
 #[derive(Resource)]
 struct CustomPhasePipeline {
-    /// the `specialized_cache` holds onto the shader handle through the base descriptor
-    variants: SpecializedCache<RenderPipeline, CustomPhaseSpecializer>,
+    /// the `variants` collection holds onto the shader handle through the base descriptor
+    variants: Variants<RenderPipeline, CustomPhaseSpecializer>,
 }
 
 impl FromWorld for CustomPhasePipeline {
@@ -336,7 +336,7 @@ impl FromWorld for CustomPhasePipeline {
             ..default()
         };
 
-        let variants = SpecializedCache::new(CustomPhaseSpecializer, base_descriptor);
+        let variants = Variants::new(CustomPhaseSpecializer, base_descriptor);
 
         Self { variants }
     }

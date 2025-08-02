@@ -4,7 +4,7 @@ pull_requests: [17373]
 ---
 
 The existing pipeline specialization APIs (`SpecializedRenderPipeline` etc.) have
-been replaced with a single `Specializer` trait and `SpecializedCache` collection:
+been replaced with a single `Specializer` trait and `Variants` collection:
 
 ```rust
 pub trait Specializer<T: Specializable>: Send + Sync + 'static {
@@ -16,7 +16,7 @@ pub trait Specializer<T: Specializable>: Send + Sync + 'static {
     ) -> Result<Canonical<Self::Key>, BevyError>;
 }
 
-pub struct SpecializedCache<T: Specializable, S: Specializer<T>>{ ... };
+pub struct Variants<T: Specializable, S: Specializer<T>>{ ... };
 ```
 
 For more info on specialization, see the docs for `bevy_render::render_resources::Specializer`
@@ -25,7 +25,7 @@ For more info on specialization, see the docs for `bevy_render::render_resources
 
 The main difference between the old and new trait is that instead of
 *producing* a pipeline descriptor, `Specializer`s *mutate* existing descriptors
-based on a key. As such, `SpecializedCache::new` takes in a "base descriptor"
+based on a key. As such, `Variants::new` takes in a "base descriptor"
 to act as the template from which the specializer creates pipeline variants.
 
 When migrating, the "static" parts of the pipeline (that don't depend
@@ -57,7 +57,7 @@ pub struct MySpecializer {
 
 ## Misc Changes
 
-The analogue of `SpecializedRenderPipelines`, `SpecializedCache`, is no longer a
+The analogue of `SpecializedRenderPipelines`, `Variants`, is no longer a
 Bevy `Resource`. Instead, the cache should be stored in a user-created `Resource`
 (shown below) or even in a `Component` depending on the use case.
 
@@ -150,7 +150,7 @@ pub struct MyPipeline {
     // explicit fields for them here. However, real-world cases
     // may still need to expose them as fields to create bind groups
     // from, for example.
-    variants: SpecializedCache<RenderPipeline, MySpecializer>,
+    variants: Variants<RenderPipeline, MySpecializer>,
 }
 
 pub struct MySpecializer {
@@ -187,7 +187,7 @@ impl FromWorld for MyPipeline {
             ..default()
         },
 
-        let variants = SpecializedCache::new(
+        let variants = Variants::new(
             MySpecializer {
                 layout: layout.clone(),
                 layout_msaa: layout_msaa.clone(),
