@@ -202,11 +202,13 @@ impl ViewNode for TemporalAntiAliasNode {
                 color_attachments: &[
                     Some(RenderPassColorAttachment {
                         view: view_target.destination,
+                        depth_slice: None,
                         resolve_target: None,
                         ops: Operations::default(),
                     }),
                     Some(RenderPassColorAttachment {
                         view: &taa_history_textures.write.default_view,
+                        depth_slice: None,
                         resolve_target: None,
                         ops: Operations::default(),
                     }),
