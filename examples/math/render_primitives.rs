@@ -292,7 +292,7 @@ const CIRCULAR_SEGMENT: CircularSegment = CircularSegment {
     },
 };
 
-fn setup_cameras(mut commands: Commands, mut images: ResMut<Assets<Image>>) {
+fn setup_cameras(mut commands: Commands) {
     let start_in_2d = true;
     let make_camera = |is_active| Camera {
         is_active,
@@ -304,7 +304,7 @@ fn setup_cameras(mut commands: Commands, mut images: ResMut<Assets<Image>>) {
         make_camera(start_in_2d),
         EnvironmentMapLight {
             intensity: 50.0,
-            ..EnvironmentMapLight::solid_color(&mut images, Color::WHITE)
+            ..default()
         },
     ));
 

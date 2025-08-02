@@ -43,7 +43,6 @@ fn setup(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
     mut materials: ResMut<Assets<CustomMaterial>>,
-    mut images: ResMut<Assets<Image>>,
 ) {
     // Add a mesh loaded from a glTF file. This mesh has data for `ATTRIBUTE_BARYCENTRIC`.
     let mesh = asset_server.load(
@@ -63,7 +62,7 @@ fn setup(
         Camera2d,
         EnvironmentMapLight {
             intensity: 1.0 / 5.0,
-            ..EnvironmentMapLight::solid_color(&mut images, Color::WHITE)
+            ..default()
         },
     ));
 }

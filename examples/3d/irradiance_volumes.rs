@@ -213,12 +213,11 @@ fn main() {
 // Spawns all the scene objects.
 fn setup(
     mut commands: Commands,
-    images: ResMut<Assets<Image>>,
     assets: Res<ExampleAssets>,
     app_status: Res<AppStatus>,
 ) {
     spawn_main_scene(&mut commands, &assets);
-    spawn_camera(&mut commands, images, &assets);
+    spawn_camera(&mut commands, &assets);
     spawn_irradiance_volume(&mut commands, &assets);
     spawn_light(&mut commands);
     spawn_sphere(&mut commands, &assets);
@@ -233,7 +232,6 @@ fn spawn_main_scene(commands: &mut Commands, assets: &ExampleAssets) {
 
 fn spawn_camera(
     commands: &mut Commands,
-    mut images: ResMut<Assets<Image>>,
     assets: &ExampleAssets,
 ) {
     commands.spawn((
@@ -246,7 +244,7 @@ fn spawn_camera(
         },
         EnvironmentMapLight {
             intensity: 0.0,
-            ..EnvironmentMapLight::solid_color(&mut images, Color::WHITE)
+            ..default()
         },
     ));
 }

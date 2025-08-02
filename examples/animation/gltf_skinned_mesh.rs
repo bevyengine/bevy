@@ -16,7 +16,6 @@ fn main() {
 fn setup(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
-    mut images: ResMut<Assets<Image>>,
 ) {
     // Create a camera
     commands.spawn((
@@ -24,7 +23,7 @@ fn setup(
         Transform::from_xyz(-2.0, 2.5, 5.0).looking_at(Vec3::new(0.0, 1.0, 0.0), Vec3::Y),
         EnvironmentMapLight {
             intensity: 750.0,
-            ..EnvironmentMapLight::solid_color(&mut images, Color::WHITE)
+            ..default()
         },
     ));
 

@@ -34,7 +34,6 @@ struct Movable;
 fn setup(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
-    mut images: ResMut<Assets<Image>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
     // ground plane
@@ -121,7 +120,7 @@ fn setup(
         Transform::from_xyz(-4.0, 5.0, 10.0).looking_at(Vec3::ZERO, Vec3::Y),
         EnvironmentMapLight {
             intensity: 20.0,
-            ..EnvironmentMapLight::solid_color(&mut images, Color::WHITE)
+            ..default()
         },
     ));
 

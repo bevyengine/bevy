@@ -17,7 +17,7 @@ fn main() {
         .run();
 }
 
-fn setup_camera(mut commands: Commands, mut images: ResMut<Assets<Image>>) {
+fn setup_camera(mut commands: Commands) {
     commands.spawn((
         Camera3d::default(),
         // Add the `MotionBlur` component to a camera to enable motion blur.
@@ -32,7 +32,7 @@ fn setup_camera(mut commands: Commands, mut images: ResMut<Assets<Image>>) {
         Msaa::Off,
         EnvironmentMapLight {
             intensity: 300.0,
-            ..EnvironmentMapLight::solid_color(&mut images, Color::WHITE)
+            ..default()
         },
     ));
 }

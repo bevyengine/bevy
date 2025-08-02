@@ -101,35 +101,9 @@ pub struct EnvironmentMapLight {
 }
 
 impl EnvironmentMapLight {
-    pub(crate) fn solid_color_image(color: Color) -> Image {
-        let color: Srgba = color.into();
-        Image {
-            texture_view_descriptor: Some(TextureViewDescriptor {
-                dimension: Some(TextureViewDimension::Cube),
-                ..Default::default()
-            }),
-            ..Image::new_fill(
-                Extent3d {
-                    width: 1,
-                    height: 1,
-                    depth_or_array_layers: 6,
-                },
-                TextureDimension::D2,
-                &color.to_u8_array(),
-                TextureFormat::Rgba8UnormSrgb,
-                RenderAssetUsages::RENDER_WORLD,
-            )
-        }
-    }
-
     /// An environment map with a uniform color, useful for uniform ambient lighting.
     pub fn solid_color(assets: &mut Assets<Image>, color: Color) -> Self {
-        let handle = assets.add(Self::solid_color_image(color));
-        Self {
-            diffuse_map: handle.clone(),
-            specular_map: handle,
-            ..Default::default()
-        }
+        Self::hemispherical_gradient(assets, color, color, color)
     }
 
     /// An environment map with a hemispherical gradient, fading between the sky and ground colors
@@ -137,12 +111,31 @@ impl EnvironmentMapLight {
     pub fn hemispherical_gradient(
         assets: &mut Assets<Image>,
         top_color: Color,
+        mid_color: Color,
         bottom_color: Color,
     ) -> Self {
+        let handle = assets.add(Self::hemispherical_gradient_cubemap(
+            top_color,
+            mid_color,
+            bottom_color,
+        ));
+
+        Self {
+            diffuse_map: handle.clone(),
+            specular_map: handle,
+            ..Default::default()
+        }
+    }
+
+    pub(crate) fn hemispherical_gradient_cubemap(
+        top_color: Color,
+        mid_color: Color,
+        bottom_color: Color,
+    ) -> Image {
         let top_color: Srgba = top_color.into();
+        let mid_color: Srgba = mid_color.into();
         let bottom_color: Srgba = bottom_color.into();
-        let mid_color = (top_color + bottom_color) / 2.0;
-        let image = Image {
+        Image {
             texture_view_descriptor: Some(TextureViewDescriptor {
                 dimension: Some(TextureViewDimension::Cube),
                 ..Default::default()
@@ -168,13 +161,6 @@ impl EnvironmentMapLight {
                 TextureFormat::Rgba8UnormSrgb,
                 RenderAssetUsages::RENDER_WORLD,
             )
-        };
-        let handle = assets.add(image);
-
-        Self {
-            diffuse_map: handle.clone(),
-            specular_map: handle,
-            ..Default::default()
         }
     }
 }
