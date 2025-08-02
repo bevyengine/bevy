@@ -1,5 +1,8 @@
 //! Provides a way to automatically set the mouse cursor based on hovered entity.
 use bevy_app::{App, Plugin, PreUpdate};
+#[cfg(feature = "custom_cursor")]
+use bevy_cursor_icon::CustomCursor;
+use bevy_cursor_icon::{CursorIcon, SystemCursorIcon};
 use bevy_ecs::{
     component::Component,
     entity::Entity,
@@ -13,9 +16,6 @@ use bevy_ecs::{
 use bevy_picking::{hover::HoverMap, pointer::PointerId, PickingSystems};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_window::Window;
-#[cfg(feature = "custom_cursor")]
-use bevy_window_cursor::CustomCursor;
-use bevy_window_cursor::{CursorIcon, SystemCursorIcon};
 
 /// A resource that specifies the cursor icon to be used when the mouse is not hovering over
 /// any other entity. This is used to set the default cursor icon for the window.

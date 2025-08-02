@@ -40,7 +40,7 @@ The default feature set enables most of the expected features of a game engine, 
 |bevy_ui_picking_backend|Provides an implementation for picking UI|
 |bevy_ui_render|Provides rendering functionality for bevy_ui|
 |bevy_window|Windowing layer|
-|bevy_window_cursor|Provides cursor|
+|bevy_cursor_icon|Provides cursor|
 |bevy_winit|winit window and input backend|
 |custom_cursor|Enable winit custom cursor support|
 |debug|Enable collecting debug information about systems and components to help with diagnostics|

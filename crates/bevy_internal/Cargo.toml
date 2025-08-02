@@ -205,7 +205,7 @@ bevy_ui = ["dep:bevy_ui", "bevy_image"]
 bevy_ui_render = ["dep:bevy_ui_render"]
 bevy_shader = ["dep:bevy_shader"]
 bevy_image = ["dep:bevy_image"]
-bevy_window_cursor = ["dep:bevy_window_cursor"]
+bevy_cursor_icon = ["dep:bevy_cursor_icon"]
 
 bevy_mesh = ["dep:bevy_mesh", "bevy_image"]
 bevy_camera = ["dep:bevy_camera", "bevy_mesh"]
@@ -466,7 +466,7 @@ bevy_window = { path = "../bevy_window", optional = true, version = "0.17.0-dev"
   "bevy_reflect",
 ] }
 bevy_winit = { path = "../bevy_winit", optional = true, version = "0.17.0-dev", default-features = false }
-bevy_window_cursor = { path = "../bevy_window_cursor", optional = true, version = "0.17.0-dev" }
+bevy_cursor_icon = { path = "../bevy_cursor_icon", optional = true, version = "0.17.0-dev" }
 
 [lints]
 workspace = true

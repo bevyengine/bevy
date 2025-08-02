@@ -74,7 +74,7 @@ pub fn checkbox<C: SpawnableList<ChildOf> + Send + Sync + 'static, B: Bundle>(
         },
         CheckboxFrame,
         Hovered::default(),
-        EntityCursor::System(bevy_window_cursor::SystemCursorIcon::Pointer),
+        EntityCursor::System(bevy_cursor_icon::SystemCursorIcon::Pointer),
         TabIndex(0),
         ThemeFontColor(tokens::CHECKBOX_TEXT),
         InheritableFont {

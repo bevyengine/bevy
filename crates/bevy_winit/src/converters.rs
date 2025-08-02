@@ -1,3 +1,4 @@
+use bevy_cursor_icon::SystemCursorIcon;
 use bevy_ecs::entity::Entity;
 use bevy_input::{
     keyboard::{KeyCode, KeyboardInput, NativeKeyCode},
@@ -7,7 +8,6 @@ use bevy_input::{
 };
 use bevy_math::{CompassOctant, Vec2};
 use bevy_window::{EnabledButtons, WindowLevel, WindowTheme};
-use bevy_window_cursor::SystemCursorIcon;
 use winit::keyboard::{Key, NamedKey, NativeKey};
 
 #[cfg(target_os = "ios")]

@@ -87,7 +87,7 @@ pub fn slider<B: Bundle>(props: SliderProps, overrides: B) -> impl Bundle {
         SliderStyle,
         SliderValue(props.value),
         SliderRange::new(props.min, props.max),
-        EntityCursor::System(bevy_window_cursor::SystemCursorIcon::EwResize),
+        EntityCursor::System(bevy_cursor_icon::SystemCursorIcon::EwResize),
         TabIndex(0),
         RoundedCorners::All.to_border_radius(6.0),
         // Use a gradient to draw the moving bar

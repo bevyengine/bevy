@@ -90,7 +90,7 @@ pub use bevy_ui_render as ui_render;
 pub use bevy_utils as utils;
 #[cfg(feature = "bevy_window")]
 pub use bevy_window as window;
-#[cfg(feature = "bevy_window_cursor")]
-pub use bevy_window_cursor as cursor;
+#[cfg(feature = "bevy_cursor_icon")]
+pub use bevy_cursor_icon as cursor;
 #[cfg(feature = "bevy_winit")]
 pub use bevy_winit as winit;

@@ -1,5 +1,5 @@
 [package]
-name = "bevy_window_cursor"
+name = "bevy_cursor_icon"
 version = "0.17.0-dev"
 edition = "2024"
 description = "Provides custom cursor icon support"

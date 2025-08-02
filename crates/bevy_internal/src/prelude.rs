@@ -88,5 +88,5 @@ pub use crate::gltf::prelude::*;
 pub use crate::picking::prelude::*;
 
 #[doc(hidden)]
-#[cfg(feature = "bevy_window_cursor")]
+#[cfg(feature = "bevy_cursor_icon")]
 pub use crate::cursor::prelude::*;

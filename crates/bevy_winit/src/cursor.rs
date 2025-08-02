@@ -31,12 +31,12 @@ use bevy_ecs::{
 use bevy_image::{Image, TextureAtlasLayout};
 use bevy_platform::collections::HashSet;
 use bevy_window::Window;
-use bevy_window_cursor::{CursorIcon, SystemCursorIcon};
+use bevy_cursor_icon::{CursorIcon, SystemCursorIcon};
 #[cfg(feature = "custom_cursor")]
 use tracing::warn;
 
 #[cfg(feature = "custom_cursor")]
-pub use bevy_window_cursor::{CustomCursor, CustomCursorImage};
+pub use bevy_cursor_icon::{CustomCursor, CustomCursorImage};
 
 #[cfg(all(
     feature = "custom_cursor",

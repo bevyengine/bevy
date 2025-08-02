@@ -132,7 +132,7 @@ default = [
   "bevy_asset",
   "bevy_audio",
   "bevy_color",
-  "bevy_window_cursor",
+  "bevy_cursor_icon",
   "bevy_core_pipeline",
   "bevy_core_widgets",
   "bevy_anti_aliasing",
@@ -214,7 +214,7 @@ bevy_audio = ["bevy_internal/bevy_audio"]
 bevy_color = ["bevy_internal/bevy_color"]
 
 # Provides cursor
-bevy_window_cursor = ["bevy_internal/bevy_window_cursor"]
+bevy_cursor_icon = ["bevy_internal/bevy_cursor_icon"]
 
 # Provides cameras and other basic render pipeline features
 bevy_core_pipeline = [
