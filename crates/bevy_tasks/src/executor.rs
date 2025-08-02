@@ -35,7 +35,7 @@ impl Executor<'_> {
     /// Construct a new [`Executor`]
     #[expect(clippy::allow_attributes, reason = "This lint may not always trigger.")]
     #[allow(dead_code, reason = "not all feature flags require this function")]
-    pub fn new() -> Self {
+    pub const fn new() -> Self {
         Self(ExecutorInner::new())
     }
 

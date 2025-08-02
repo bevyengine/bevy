@@ -10,9 +10,8 @@
 use core::marker::PhantomData;
 use core::panic::{RefUnwindSafe, UnwindSafe};
 use core::pin::Pin;
-use core::sync::atomic::{AtomicBool, Ordering};
+use core::sync::atomic::{AtomicBool, AtomicPtr, Ordering};
 use core::task::{Context, Poll, Waker};
-use std::thread::ThreadId;
 
 use alloc::collections::VecDeque;
 use alloc::fmt;
@@ -185,7 +184,7 @@ impl<'a> ThreadSpawner<'a> {
 /// An async executor.
 pub struct Executor<'a> {
     /// The executor state.
-    state: Arc<State>,
+    state: AtomicPtr<State>,
 
     /// Makes the `'a` lifetime invariant.
     _marker: PhantomData<&'a ()>,
@@ -202,21 +201,21 @@ impl fmt::Debug for Executor<'_> {
 
 impl<'a> Executor<'a> {
     /// Creates a new executor.
-    pub fn new() -> Executor<'a> {
+    pub const fn new() -> Executor<'a> {
         Executor {
-            state: Arc::new(State::new()),
+            state: AtomicPtr::new(std::ptr::null_mut()),
             _marker: PhantomData,
         }
     }
 
     /// Spawns a task onto the executor.
     pub fn spawn<T: Send + 'a>(&self, future: impl Future<Output = T> + Send + 'a) -> Task<T> {
-        let mut active = self.state.active();
+        let mut active = self.state().active();
 
         // Remove the task from the set of active tasks when the future finishes.
         let entry = active.vacant_entry();
         let index = entry.key();
-        let state = self.state.clone();
+        let state = self.state_as_arc();
         let future = AsyncCallOnDrop::new(future, move || drop(state.active().try_remove(index)));
 
         // Create the task and register it in the set of active tasks.
@@ -290,7 +289,7 @@ impl<'a> Executor<'a> {
         ThreadSpawner {
             thread_id: std::thread::current().id(),
             target_queue: &THREAD_LOCAL_STATE.get_or_default().thread_locked_queue,
-            state: self.state.clone(),
+            state: self.state_as_arc(),
             _marker: PhantomData,
         }
     }
@@ -307,12 +306,12 @@ impl<'a> Executor<'a> {
 
     /// Runs the executor until the given future completes.
     pub async fn run<T>(&self, future: impl Future<Output = T>) -> T {
-        self.state.run(future).await
+        self.state().run(future).await
     }
 
     /// Returns a function that schedules a runnable task when it gets woken up.
     fn schedule(&self) -> impl Fn(Runnable) + Send + Sync + 'static {
-        let state = self.state.clone();
+        let state = self.state_as_arc();
 
         move |runnable| {
             // Attempt to push onto the local queue first in dedicated executor threads,
@@ -340,7 +339,7 @@ impl<'a> Executor<'a> {
 
     /// Returns a function that schedules a runnable task when it gets woken up.
     fn schedule_local(&self) -> impl Fn(Runnable) + 'static {
-        let state = self.state.clone();
+        let state = self.state_as_arc();
         let local_state: &'static ThreadLocalState = THREAD_LOCAL_STATE.get_or_default();
         move |runnable| {
             // SAFETY: This value is in thread local storage and thus can only be accessed
@@ -352,11 +351,67 @@ impl<'a> Executor<'a> {
             state.notify_specific_thread(local_state.thread_id, false);
         }
     }
+
+    /// Returns a pointer to the inner state.
+    #[inline]
+    fn state_ptr(&self) -> *const State {
+        #[cold]
+        fn alloc_state(atomic_ptr: &AtomicPtr<State>) -> *mut State {
+            let state = Arc::new(State::new());
+            let ptr = Arc::into_raw(state).cast_mut();
+            if let Err(actual) = atomic_ptr.compare_exchange(
+                std::ptr::null_mut(),
+                ptr,
+                Ordering::AcqRel,
+                Ordering::Acquire,
+            ) {
+                // SAFETY: This was just created from Arc::into_raw.
+                drop(unsafe { Arc::from_raw(ptr) });
+                actual
+            } else {
+                ptr
+            }
+        }
+
+        let mut ptr = self.state.load(Ordering::Acquire);
+        if ptr.is_null() {
+            ptr = alloc_state(&self.state);
+        }
+        ptr
+    }
+
+    /// Returns a reference to the inner state.
+    #[inline]
+    fn state(&self) -> &State {
+        // SAFETY: So long as an Executor lives, it's state pointer will always be valid
+        // when accessed through state_ptr.
+        unsafe { &*self.state_ptr() }
+    }
+
+    // Clones the inner state Arc
+    #[inline]
+    fn state_as_arc(&self) -> Arc<State> {
+        // SAFETY: So long as an Executor lives, it's state pointer will always be a valid
+        // Arc when accessed through state_ptr.
+        let arc = unsafe { Arc::from_raw(self.state_ptr()) };
+        let clone = arc.clone();
+        std::mem::forget(arc);
+        clone
+    }
 }
 
 impl Drop for Executor<'_> {
     fn drop(&mut self) {
-        let mut active = self.state.active();
+        let ptr = *self.state.get_mut();
+        if ptr.is_null() {
+            return;
+        }
+
+        // SAFETY: As ptr is not null, it was allocated via Arc::new and converted
+        // via Arc::into_raw in state_ptr.
+        let state = unsafe { Arc::from_raw(ptr) };
+
+        let mut active = state.active();
         for w in active.drain() {
             w.wake();
         }
@@ -866,7 +921,27 @@ unsafe fn flush_to_local(src: &SegQueue<Runnable>) {
 
 /// Debug implementation for `Executor` and `LocalExecutor`.
 fn debug_executor(executor: &Executor<'_>, name: &str, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-    debug_state(&executor.state, name, f)
+    // Get a reference to the state.
+    let ptr = executor.state.load(Ordering::Acquire);
+    if ptr.is_null() {
+        // The executor has not been initialized.
+        struct Uninitialized;
+
+        impl fmt::Debug for Uninitialized {
+            fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+                f.write_str("<uninitialized>")
+            }
+        }
+
+        return f.debug_tuple(name).field(&Uninitialized).finish();
+    }
+
+    // SAFETY: If the state pointer is not null, it must have been
+    // allocated properly by Arc::new and converted via Arc::into_raw
+    // in state_ptr.
+    let state = unsafe { &*ptr };
+
+    debug_state(state, name, f)
 }
 
 /// Debug implementation for `Executor` and `LocalExecutor`.
