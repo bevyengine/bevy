@@ -22,6 +22,7 @@ The default feature set enables most of the expected features of a game engine, 
 |bevy_color|Provides shared color types and operations|
 |bevy_core_pipeline|Provides cameras and other basic render pipeline features|
 |bevy_core_widgets|Headless widget collection for Bevy UI.|
+|bevy_cursor_icon|Provides cursor|
 |bevy_gilrs|Adds gamepad support|
 |bevy_gizmos|Adds support for rendering gizmos|
 |bevy_gltf|[glTF](https://www.khronos.org/gltf/) support|
@@ -40,7 +41,6 @@ The default feature set enables most of the expected features of a game engine, 
 |bevy_ui_picking_backend|Provides an implementation for picking UI|
 |bevy_ui_render|Provides rendering functionality for bevy_ui|
 |bevy_window|Windowing layer|
-|bevy_cursor_icon|Provides cursor|
 |bevy_winit|winit window and input backend|
 |custom_cursor|Enable winit custom cursor support|
 |debug|Enable collecting debug information about systems and components to help with diagnostics|
