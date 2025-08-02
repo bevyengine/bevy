@@ -378,7 +378,7 @@ pub async fn initialize_renderer(
     let (device, queue) = adapter.request_device(&device_descriptor).await.unwrap();
 
     #[cfg(feature = "dlss")]
-    let mut dlss_supported = false;
+    let mut dlss_supported = true;
     #[cfg(feature = "dlss")]
     let (device, queue) = dlss_wgpu::request_device(
         dlss_project_id,
