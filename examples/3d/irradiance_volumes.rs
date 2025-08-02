@@ -211,11 +211,7 @@ fn main() {
 }
 
 // Spawns all the scene objects.
-fn setup(
-    mut commands: Commands,
-    assets: Res<ExampleAssets>,
-    app_status: Res<AppStatus>,
-) {
+fn setup(mut commands: Commands, assets: Res<ExampleAssets>, app_status: Res<AppStatus>) {
     spawn_main_scene(&mut commands, &assets);
     spawn_camera(&mut commands, &assets);
     spawn_irradiance_volume(&mut commands, &assets);
@@ -230,10 +226,7 @@ fn spawn_main_scene(commands: &mut Commands, assets: &ExampleAssets) {
     commands.spawn(SceneRoot(assets.main_scene.clone()));
 }
 
-fn spawn_camera(
-    commands: &mut Commands,
-    assets: &ExampleAssets,
-) {
+fn spawn_camera(commands: &mut Commands, assets: &ExampleAssets) {
     commands.spawn((
         Camera3d::default(),
         Transform::from_xyz(-10.012, 4.8605, 13.281).looking_at(Vec3::ZERO, Vec3::Y),

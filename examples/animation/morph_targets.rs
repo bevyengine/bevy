@@ -30,10 +30,7 @@ struct MorphData {
     mesh: Handle<Mesh>,
 }
 
-fn setup(
-    asset_server: Res<AssetServer>,
-    mut commands: Commands,
-) {
+fn setup(asset_server: Res<AssetServer>, mut commands: Commands) {
     commands.insert_resource(MorphData {
         the_wave: asset_server
             .load(GltfAssetLabel::Animation(2).from_asset("models/animated/MorphStressTest.gltf")),
