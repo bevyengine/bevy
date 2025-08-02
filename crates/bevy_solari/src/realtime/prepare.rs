@@ -12,7 +12,7 @@ use bevy_render::{
     camera::ExtractedCamera,
     render_resource::{
         Buffer, BufferDescriptor, BufferUsages, Texture, TextureDescriptor, TextureDimension,
-        TextureUsages, TextureView, TextureViewDescriptor,
+        TextureFormat, TextureUsages, TextureView, TextureViewDescriptor,
     },
     renderer::RenderDevice,
 };
@@ -22,9 +22,6 @@ const LIGHT_SAMPLE_STRUCT_SIZE: u64 = 8;
 
 /// Size of the `ResolvedLightSamplePacked` shader struct in bytes.
 const RESOLVED_LIGHT_SAMPLE_STRUCT_SIZE: u64 = 24;
-
-/// Size of the DI `Reservoir` shader struct in bytes.
-const DI_RESERVOIR_STRUCT_SIZE: u64 = 16;
 
 /// Size of the GI `Reservoir` shader struct in bytes.
 const GI_RESERVOIR_STRUCT_SIZE: u64 = 48;
@@ -37,8 +34,8 @@ pub const LIGHT_TILE_SAMPLES_PER_BLOCK: u64 = 1024;
 pub struct SolariLightingResources {
     pub light_tile_samples: Buffer,
     pub light_tile_resolved_samples: Buffer,
-    pub di_reservoirs_a: Buffer,
-    pub di_reservoirs_b: Buffer,
+    pub di_reservoirs_a: (Texture, TextureView),
+    pub di_reservoirs_b: (Texture, TextureView),
     pub gi_reservoirs_a: Buffer,
     pub gi_reservoirs_b: Buffer,
     pub previous_gbuffer: (Texture, TextureView),
@@ -79,33 +76,33 @@ pub fn prepare_solari_lighting_resources(
             mapped_at_creation: false,
         });
 
-        let di_reservoirs_a = render_device.create_buffer(&BufferDescriptor {
-            label: Some("solari_lighting_di_reservoirs_a"),
-            size: (view_size.x * view_size.y) as u64 * DI_RESERVOIR_STRUCT_SIZE,
-            usage: BufferUsages::STORAGE,
-            mapped_at_creation: false,
-        });
+        let di_reservoirs = |name| {
+            let tex = render_device.create_texture(&TextureDescriptor {
+                label: Some(name),
+                size: view_size.to_extents(),
+                mip_level_count: 1,
+                sample_count: 1,
+                dimension: TextureDimension::D2,
+                format: TextureFormat::Rgba32Uint,
+                usage: TextureUsages::STORAGE_BINDING,
+                view_formats: &[],
+            });
+            let view = tex.create_view(&TextureViewDescriptor::default());
+            (tex, view)
+        };
+        let di_reservoirs_a = di_reservoirs("solari_lighting_di_reservoirs_a");
+        let di_reservoirs_b = di_reservoirs("solari_lighting_di_reservoirs_b");
 
-        let di_reservoirs_b = render_device.create_buffer(&BufferDescriptor {
-            label: Some("solari_lighting_di_reservoirs_b"),
-            size: (view_size.x * view_size.y) as u64 * DI_RESERVOIR_STRUCT_SIZE,
-            usage: BufferUsages::STORAGE,
-            mapped_at_creation: false,
-        });
-
-        let gi_reservoirs_a = render_device.create_buffer(&BufferDescriptor {
-            label: Some("solari_lighting_gi_reservoirs_a"),
-            size: (view_size.x * view_size.y) as u64 * GI_RESERVOIR_STRUCT_SIZE,
-            usage: BufferUsages::STORAGE,
-            mapped_at_creation: false,
-        });
-
-        let gi_reservoirs_b = render_device.create_buffer(&BufferDescriptor {
-            label: Some("solari_lighting_gi_reservoirs_b"),
-            size: (view_size.x * view_size.y) as u64 * GI_RESERVOIR_STRUCT_SIZE,
-            usage: BufferUsages::STORAGE,
-            mapped_at_creation: false,
-        });
+        let gi_reservoirs = |name| {
+            render_device.create_buffer(&BufferDescriptor {
+                label: Some(name),
+                size: (view_size.x * view_size.y) as u64 * GI_RESERVOIR_STRUCT_SIZE,
+                usage: BufferUsages::STORAGE,
+                mapped_at_creation: false,
+            })
+        };
+        let gi_reservoirs_a = gi_reservoirs("solari_lighting_gi_reservoirs_a");
+        let gi_reservoirs_b = gi_reservoirs("solari_lighting_gi_reservoirs_b");
 
         let previous_gbuffer = render_device.create_texture(&TextureDescriptor {
             label: Some("solari_lighting_previous_gbuffer"),
