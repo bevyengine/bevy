@@ -350,9 +350,9 @@ impl TextEdits {
 /// Deferred text input edit and navigation actions applied by the `apply_text_edits` system.
 #[derive(Debug)]
 pub enum TextEdit {
-    /// Copy the selected text into the clipboard. Does nothing if no text selected.
+    /// Copy the selected text into the clipboard. Does nothing if no text is selected.
     Copy,
-    /// Copy the selected text into the clipboard, then delete the selected text. Does nothing if no text selected.
+    /// Copy the selected text into the clipboard, then delete the selected text. Does nothing if no text is selected.
     Cut,
     /// Insert the contents of the clipboard at the current cursor position. Does nothing if the clipboard is empty.
     Paste,
