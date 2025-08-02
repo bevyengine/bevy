@@ -381,7 +381,7 @@ impl World {
         }) = entity.take::<RegisteredSystem<I, O>>()
         else {
             let Some(system_id_marker) = entity.get::<SystemIdMarker>() else {
-                return Err(RegisteredSystemError::SystemNotCached);
+                return Err(RegisteredSystemError::SystemIdNotRegistered(id));
             };
             if system_id_marker.input_type_id.type_id != TypeId::of::<I>()
                 || system_id_marker.output_type_id.type_id != TypeId::of::<O>()
