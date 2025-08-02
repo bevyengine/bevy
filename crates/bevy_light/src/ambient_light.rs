@@ -1,3 +1,8 @@
+#![deprecated(
+    since = "0.17.0",
+    note = "Use `EnvironmentMapLight::solid_color` instead"
+)]
+
 use bevy_camera::Camera;
 use bevy_color::Color;
 use bevy_ecs::prelude::*;
@@ -48,7 +53,7 @@ impl Default for AmbientLight {
     fn default() -> Self {
         Self {
             color: Color::WHITE,
-            brightness: 80.0,
+            brightness: 50.0,
             affects_lightmapped_meshes: true,
         }
     }

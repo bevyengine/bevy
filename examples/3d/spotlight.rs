@@ -21,10 +21,6 @@ Rotate Camera: Left and Right Arrows";
 
 fn main() {
     App::new()
-        .insert_resource(AmbientLight {
-            brightness: 20.0,
-            ..default()
-        })
         .add_plugins(DefaultPlugins)
         .add_systems(Startup, setup)
         .add_systems(Update, (light_sway, movement, rotation))
@@ -38,6 +34,7 @@ struct Movable;
 fn setup(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
+    mut images: ResMut<Assets<Image>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
     // ground plane
@@ -122,6 +119,10 @@ fn setup(
         Camera3d::default(),
         Hdr,
         Transform::from_xyz(-4.0, 5.0, 10.0).looking_at(Vec3::ZERO, Vec3::Y),
+        EnvironmentMapLight {
+            intensity: 20.0,
+            ..EnvironmentMapLight::solid_color(&mut images, Color::WHITE)
+        },
     ));
 
     commands.spawn((
