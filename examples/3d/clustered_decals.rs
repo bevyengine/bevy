@@ -5,6 +5,7 @@ use std::fmt::{self, Formatter};
 
 use bevy::{
     color::palettes::css::{LIME, ORANGE_RED, SILVER},
+    cursor_icon::{CursorIcon, SystemCursorIcon},
     input::mouse::AccumulatedMouseMotion,
     pbr::{
         decal::{self, clustered::ClusteredDecal},
@@ -15,8 +16,6 @@ use bevy::{
         render_resource::{AsBindGroup, ShaderRef},
         renderer::{RenderAdapter, RenderDevice},
     },
-    window::SystemCursorIcon,
-    winit::cursor::CursorIcon,
 };
 use ops::{acos, cos, sin};
 use widgets::{

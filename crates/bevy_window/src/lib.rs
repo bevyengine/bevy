@@ -25,7 +25,6 @@ mod event;
 mod monitor;
 mod raw_handle;
 mod system;
-mod system_cursor;
 mod window;
 
 pub use crate::raw_handle::*;
@@ -36,7 +35,6 @@ pub use android_activity;
 pub use event::*;
 pub use monitor::*;
 pub use system::*;
-pub use system_cursor::*;
 pub use window::*;
 
 /// The windowing prelude.

@@ -68,11 +68,7 @@
 // --------- END OF W3C SHORT NOTICE
 // --------------------------------------------------------------
 
-#[cfg(feature = "bevy_reflect")]
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
-
-#[cfg(feature = "serialize")]
-use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 
 /// The icon to display for a window.
 ///
@@ -83,17 +79,8 @@ use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 /// See the [`window_settings`] example for usage.
 ///
 /// [`window_settings`]: https://github.com/bevyengine/bevy/blob/latest/examples/window/window_settings.rs
-#[derive(Default, Debug, Hash, PartialEq, Eq, Clone, Copy)]
-#[cfg_attr(
-    feature = "bevy_reflect",
-    derive(Reflect),
-    reflect(Debug, PartialEq, Hash, Default, Clone)
-)]
-#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(
-    all(feature = "serialize", feature = "bevy_reflect"),
-    reflect(Serialize, Deserialize)
-)]
+#[derive(Default, Debug, Hash, PartialEq, Eq, Clone, Copy, Reflect)]
+#[reflect(Debug, PartialEq, Hash, Default, Clone)]
 pub enum SystemCursorIcon {
     /// The platform-dependent default cursor. Often rendered as arrow.
     #[default]

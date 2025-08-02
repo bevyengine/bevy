@@ -1,3 +1,4 @@
+use bevy_cursor_icon::SystemCursorIcon;
 use bevy_ecs::entity::Entity;
 use bevy_input::{
     keyboard::{KeyCode, KeyboardInput, NativeKeyCode},
@@ -6,7 +7,6 @@ use bevy_input::{
     ButtonState,
 };
 use bevy_math::{CompassOctant, Vec2};
-use bevy_window::SystemCursorIcon;
 use bevy_window::{EnabledButtons, WindowLevel, WindowTheme};
 use winit::keyboard::{Key, NamedKey, NativeKey};
 
