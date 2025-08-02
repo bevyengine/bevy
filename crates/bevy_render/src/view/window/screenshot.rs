@@ -13,11 +13,11 @@ use crate::{
     renderer::RenderDevice,
     texture::{GpuImage, ManualTextureViews, OutputColorAttachment},
     view::{prepare_view_attachments, prepare_view_targets, ViewTargetAttachments, WindowSurfaces},
-    ExtractSchedule, MainWorld, Render, RenderApp, RenderSystems,
+    ExtractSchedule, MainWorld, Render, RenderApp, RenderStartup, RenderSystems,
 };
 use alloc::{borrow::Cow, sync::Arc};
 use bevy_app::{First, Plugin, Update};
-use bevy_asset::{embedded_asset, load_embedded_asset, Handle};
+use bevy_asset::{embedded_asset, load_embedded_asset, AssetServer, Handle};
 use bevy_camera::{ManualTextureViewHandle, RenderTarget};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
@@ -40,7 +40,7 @@ use std::{
 use tracing::{error, info, warn};
 use wgpu::{CommandEncoder, Extent3d, TextureFormat};
 
-#[derive(Event, EntityEvent, Deref, DerefMut, Reflect, Debug)]
+#[derive(EntityEvent, Deref, DerefMut, Reflect, Debug)]
 #[reflect(Debug)]
 pub struct ScreenshotCaptured(pub Image);
 
@@ -391,39 +391,38 @@ pub struct ScreenshotPlugin;
 
 impl Plugin for ScreenshotPlugin {
     fn build(&self, app: &mut bevy_app::App) {
-        app.add_systems(
-            First,
-            clear_screenshots
-                .after(event_update_system)
-                .before(ApplyDeferred),
-        )
-        .register_type::<Screenshot>()
-        .register_type::<ScreenshotCaptured>();
-
         embedded_asset!(app, "screenshot.wgsl");
-    }
 
-    fn finish(&self, app: &mut bevy_app::App) {
         let (tx, rx) = std::sync::mpsc::channel();
-        app.add_systems(Update, trigger_screenshots)
-            .insert_resource(CapturedScreenshots(Arc::new(Mutex::new(rx))));
+        app.insert_resource(CapturedScreenshots(Arc::new(Mutex::new(rx))))
+            .add_systems(
+                First,
+                clear_screenshots
+                    .after(event_update_system)
+                    .before(ApplyDeferred),
+            )
+            .add_systems(Update, trigger_screenshots)
+            .register_type::<Screenshot>()
+            .register_type::<ScreenshotCaptured>();
 
-        if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
-            render_app
-                .insert_resource(RenderScreenshotsSender(tx))
-                .init_resource::<RenderScreenshotTargets>()
-                .init_resource::<RenderScreenshotsPrepared>()
-                .init_resource::<SpecializedRenderPipelines<ScreenshotToScreenPipeline>>()
-                .init_resource::<ScreenshotToScreenPipeline>()
-                .add_systems(ExtractSchedule, extract_screenshots.ambiguous_with_all())
-                .add_systems(
-                    Render,
-                    prepare_screenshots
-                        .after(prepare_view_attachments)
-                        .before(prepare_view_targets)
-                        .in_set(RenderSystems::ManageViews),
-                );
-        }
+        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
+            return;
+        };
+
+        render_app
+            .insert_resource(RenderScreenshotsSender(tx))
+            .init_resource::<RenderScreenshotTargets>()
+            .init_resource::<RenderScreenshotsPrepared>()
+            .init_resource::<SpecializedRenderPipelines<ScreenshotToScreenPipeline>>()
+            .add_systems(RenderStartup, init_screenshot_to_screen_pipeline)
+            .add_systems(ExtractSchedule, extract_screenshots.ambiguous_with_all())
+            .add_systems(
+                Render,
+                prepare_screenshots
+                    .after(prepare_view_attachments)
+                    .before(prepare_view_targets)
+                    .in_set(RenderSystems::ManageViews),
+            );
     }
 }
 
@@ -433,25 +432,25 @@ pub struct ScreenshotToScreenPipeline {
     pub shader: Handle<Shader>,
 }
 
-impl FromWorld for ScreenshotToScreenPipeline {
-    fn from_world(render_world: &mut World) -> Self {
-        let device = render_world.resource::<RenderDevice>();
+pub fn init_screenshot_to_screen_pipeline(
+    mut commands: Commands,
+    render_device: Res<RenderDevice>,
+    asset_server: Res<AssetServer>,
+) {
+    let bind_group_layout = render_device.create_bind_group_layout(
+        "screenshot-to-screen-bgl",
+        &BindGroupLayoutEntries::single(
+            wgpu::ShaderStages::FRAGMENT,
+            texture_2d(wgpu::TextureSampleType::Float { filterable: false }),
+        ),
+    );
 
-        let bind_group_layout = device.create_bind_group_layout(
-            "screenshot-to-screen-bgl",
-            &BindGroupLayoutEntries::single(
-                wgpu::ShaderStages::FRAGMENT,
-                texture_2d(wgpu::TextureSampleType::Float { filterable: false }),
-            ),
-        );
+    let shader = load_embedded_asset!(asset_server.as_ref(), "screenshot.wgsl");
 
-        let shader = load_embedded_asset!(render_world, "screenshot.wgsl");
-
-        Self {
-            bind_group_layout,
-            shader,
-        }
-    }
+    commands.insert_resource(ScreenshotToScreenPipeline {
+        bind_group_layout,
+        shader,
+    });
 }
 
 impl SpecializedRenderPipeline for ScreenshotToScreenPipeline {
@@ -596,6 +595,7 @@ fn render_screenshot(
                 label: Some("screenshot_to_screen_pass"),
                 color_attachments: &[Some(wgpu::RenderPassColorAttachment {
                     view: texture_view,
+                    depth_slice: None,
                     resolve_target: None,
                     ops: wgpu::Operations {
                         load: wgpu::LoadOp::Load,

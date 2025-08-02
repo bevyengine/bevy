@@ -177,6 +177,7 @@ fn run_deferred_prepass<'w>(
                                 load: bevy_render::render_resource::LoadOp::Load,
                                 store: StoreOp::Store,
                             },
+                            depth_slice: None,
                         }
                     }
                     #[cfg(any(

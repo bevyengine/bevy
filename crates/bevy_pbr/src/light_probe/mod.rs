@@ -34,11 +34,14 @@ use tracing::error;
 
 use core::{hash::Hash, ops::Deref};
 
-use crate::light_probe::environment_map::EnvironmentMapIds;
+use crate::{
+    generate::EnvironmentMapGenerationPlugin, light_probe::environment_map::EnvironmentMapIds,
+};
 
 use self::irradiance_volume::IrradianceVolume;
 
 pub mod environment_map;
+pub mod generate;
 pub mod irradiance_volume;
 
 /// The maximum number of each type of light probe that each view will consider.
@@ -288,7 +291,10 @@ impl Plugin for LightProbePlugin {
         load_shader_library!(app, "environment_map.wgsl");
         load_shader_library!(app, "irradiance_volume.wgsl");
 
-        app.add_plugins(ExtractInstancesPlugin::<EnvironmentMapIds>::new());
+        app.add_plugins((
+            EnvironmentMapGenerationPlugin,
+            ExtractInstancesPlugin::<EnvironmentMapIds>::new(),
+        ));
 
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
