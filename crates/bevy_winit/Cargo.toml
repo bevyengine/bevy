@@ -23,12 +23,19 @@ serialize = [
 android-native-activity = ["winit/android-native-activity"]
 android-game-activity = ["winit/android-game-activity"]
 
-custom_cursor = ["bevy_image", "bevy_asset", "bytemuck", "wgpu-types"]
+custom_cursor = [
+  "bevy_image",
+  "bevy_asset",
+  "bytemuck",
+  "wgpu-types",
+  "bevy_window_cursor/custom_cursor",
+]
 
 [dependencies]
 # bevy
 bevy_a11y = { path = "../bevy_a11y", version = "0.17.0-dev" }
 bevy_app = { path = "../bevy_app", version = "0.17.0-dev" }
+bevy_window_cursor = { path = "../bevy_window_cursor", version = "0.17.0-dev" }
 bevy_derive = { path = "../bevy_derive", version = "0.17.0-dev" }
 bevy_ecs = { path = "../bevy_ecs", version = "0.17.0-dev" }
 bevy_input = { path = "../bevy_input", version = "0.17.0-dev" }

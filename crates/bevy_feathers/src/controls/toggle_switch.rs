@@ -63,7 +63,7 @@ pub fn toggle_switch<B: Bundle>(props: ToggleSwitchProps, overrides: B) -> impl 
         ThemeBorderColor(tokens::SWITCH_BORDER),
         AccessibilityNode(accesskit::Node::new(Role::Switch)),
         Hovered::default(),
-        EntityCursor::System(bevy_window::SystemCursorIcon::Pointer),
+        EntityCursor::System(bevy_window_cursor::SystemCursorIcon::Pointer),
         TabIndex(0),
         overrides,
         children![(

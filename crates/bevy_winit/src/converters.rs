@@ -6,8 +6,8 @@ use bevy_input::{
     ButtonState,
 };
 use bevy_math::{CompassOctant, Vec2};
-use bevy_window::SystemCursorIcon;
 use bevy_window::{EnabledButtons, WindowLevel, WindowTheme};
+use bevy_window_cursor::SystemCursorIcon;
 use winit::keyboard::{Key, NamedKey, NativeKey};
 
 #[cfg(target_os = "ios")]

@@ -58,7 +58,7 @@ pub fn radio<C: SpawnableList<ChildOf> + Send + Sync + 'static, B: Bundle>(
         },
         CoreRadio,
         Hovered::default(),
-        EntityCursor::System(bevy_window::SystemCursorIcon::Pointer),
+        EntityCursor::System(bevy_window_cursor::SystemCursorIcon::Pointer),
         TabIndex(0),
         ThemeFontColor(tokens::RADIO_TEXT),
         InheritableFont {

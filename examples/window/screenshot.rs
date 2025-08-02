@@ -1,10 +1,9 @@
 //! An example showing how to save screenshots to disk
 
 use bevy::{
+    cursor::CursorIcon,
     prelude::*,
     render::view::screenshot::{save_to_disk, Capturing, Screenshot},
-    window::SystemCursorIcon,
-    winit::cursor::CursorIcon,
 };
 
 fn main() {

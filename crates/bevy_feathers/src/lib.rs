@@ -69,7 +69,7 @@ impl Plugin for FeathersPlugin {
         ));
 
         app.insert_resource(DefaultCursor(EntityCursor::System(
-            bevy_window::SystemCursorIcon::Default,
+            bevy_window_cursor::SystemCursorIcon::Default,
         )));
 
         app.add_systems(PostUpdate, theme::update_theme)

@@ -1,15 +1,14 @@
 //! Illustrates how to change window settings and shows how to affect
 //! the mouse pointer in various ways.
 
+use bevy::cursor::SystemCursorIcon;
 #[cfg(feature = "custom_cursor")]
 use bevy::winit::cursor::{CustomCursor, CustomCursorImage};
 use bevy::{
+    cursor::CursorIcon,
     diagnostic::{FrameCount, FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
     prelude::*,
-    window::{
-        CursorGrabMode, CursorOptions, PresentMode, SystemCursorIcon, WindowLevel, WindowTheme,
-    },
-    winit::cursor::CursorIcon,
+    window::{CursorGrabMode, CursorOptions, PresentMode, WindowLevel, WindowTheme},
 };
 
 fn main() {

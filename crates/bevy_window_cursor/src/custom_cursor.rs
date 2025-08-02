@@ -1,10 +1,26 @@
-use bevy_app::{App, Plugin};
-use bevy_asset::{Assets, Handle};
-use bevy_ecs::component::Component;
-use bevy_ecs::prelude::ReflectComponent;
-use bevy_image::{Image, TextureAtlas, TextureAtlasLayout, TextureAtlasPlugin};
-use bevy_math::{ops, Rect, URect, UVec2, Vec2};
+use bevy_asset::Handle;
+use bevy_image::{Image, TextureAtlas};
+use bevy_math::URect;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
+
+use crate::CursorIcon;
+
+/// Custom cursor image data.
+#[derive(Debug, Clone, Reflect, PartialEq, Eq, Hash)]
+#[reflect(Clone, PartialEq, Hash)]
+pub enum CustomCursor {
+    /// Use an image as the cursor.
+    Image(CustomCursorImage),
+    #[cfg(all(target_family = "wasm", target_os = "unknown"))]
+    /// Use a URL to an image as the cursor.
+    Url(CustomCursorUrl),
+}
+
+impl From<CustomCursor> for CursorIcon {
+    fn from(cursor: CustomCursor) -> Self {
+        CursorIcon::Custom(cursor)
+    }
+}
 
 /// A custom cursor created from an image.
 #[derive(Debug, Clone, Default, Reflect, PartialEq, Eq, Hash)]

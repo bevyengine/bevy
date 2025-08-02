@@ -1,0 +1,30 @@
+[package]
+name = "bevy_window_cursor"
+version = "0.17.0-dev"
+edition = "2024"
+description = "Window cursor support"
+homepage = "https://bevy.org"
+repository = "https://github.com/bevyengine/bevy"
+license = "MIT OR Apache-2.0"
+keywords = ["bevy", "color"]
+rust-version = "1.85.0"
+
+[features]
+default = []
+
+# Functionality
+
+## Custom cursor image
+custom_cursor = ["bevy_image", "bevy_asset"]
+
+# Platform Compatibility
+
+[dependencies]
+bevy_app = { path = "../bevy_app", version = "0.17.0-dev" }
+bevy_ecs = { path = "../bevy_ecs", version = "0.17.0-dev" }
+bevy_math = { path = "../bevy_math", version = "0.17.0-dev" }
+bevy_reflect = { path = "../bevy_reflect", version = "0.17.0-dev" }
+
+# bevy optional
+bevy_asset = { path = "../bevy_asset", version = "0.17.0-dev", optional = true }
+bevy_image = { path = "../bevy_image", version = "0.17.0-dev", optional = true }

@@ -4,8 +4,8 @@
 use std::time::Duration;
 
 use bevy::{
+    cursor::{CursorIcon, CustomCursor, CustomCursorImage},
     prelude::*,
-    winit::cursor::{CursorIcon, CustomCursor, CustomCursorImage},
 };
 
 fn main() {

@@ -3,6 +3,7 @@ use bevy_app::{plugin_group, Plugin};
 plugin_group! {
     /// This plugin group will add all the default plugins for a *Bevy* application:
     pub struct DefaultPlugins {
+
         bevy_app:::PanicHandlerPlugin,
         #[cfg(feature = "bevy_log")]
         bevy_log:::LogPlugin,
@@ -18,6 +19,8 @@ plugin_group! {
         bevy_window:::WindowPlugin,
         #[cfg(feature = "bevy_window")]
         bevy_a11y:::AccessibilityPlugin,
+        #[cfg(feature = "bevy_window_cursor")]
+        bevy_window_cursor:::WindowCursorPlugin,
         #[cfg(feature = "std")]
         #[custom(cfg(any(all(unix, not(target_os = "horizon")), windows)))]
         bevy_app:::TerminalCtrlCHandlerPlugin,

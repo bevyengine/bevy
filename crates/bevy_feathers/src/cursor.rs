@@ -12,10 +12,8 @@ use bevy_ecs::{
 };
 use bevy_picking::{hover::HoverMap, pointer::PointerId, PickingSystems};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
-use bevy_window::{SystemCursorIcon, Window};
-use bevy_winit::cursor::CursorIcon;
-#[cfg(feature = "custom_cursor")]
-use bevy_winit::cursor::CustomCursor;
+use bevy_window::Window;
+use bevy_window_cursor::{CursorIcon, SystemCursorIcon};
 
 /// A resource that specifies the cursor icon to be used when the mouse is not hovering over
 /// any other entity. This is used to set the default cursor icon for the window.

@@ -33,12 +33,13 @@ use bevy_ecs::{
 use bevy_image::{Image, TextureAtlasLayout};
 use bevy_platform::collections::HashSet;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
-use bevy_window::{SystemCursorIcon, Window};
+use bevy_window::Window;
+use bevy_window_cursor::{CursorIcon, SystemCursorIcon};
 #[cfg(feature = "custom_cursor")]
 use tracing::warn;
 
 #[cfg(feature = "custom_cursor")]
-pub use crate::custom_cursor::{CustomCursor, CustomCursorImage};
+pub use bevy_window_cursor::{CustomCursor, CustomCursorImage};
 
 #[cfg(all(
     feature = "custom_cursor",
@@ -54,33 +55,9 @@ impl Plugin for CursorPlugin {
         #[cfg(feature = "custom_cursor")]
         app.add_plugins(CustomCursorPlugin);
 
-        app.register_type::<CursorIcon>()
-            .add_systems(Last, update_cursors);
+        app.add_systems(Last, update_cursors);
 
         app.add_observer(on_remove_cursor_icon);
-    }
-}
-
-/// Insert into a window entity to set the cursor for that window.
-#[derive(Component, Debug, Clone, Reflect, PartialEq, Eq)]
-#[reflect(Component, Debug, Default, PartialEq, Clone)]
-pub enum CursorIcon {
-    #[cfg(feature = "custom_cursor")]
-    /// Custom cursor image.
-    Custom(CustomCursor),
-    /// System provided cursor icon.
-    System(SystemCursorIcon),
-}
-
-impl Default for CursorIcon {
-    fn default() -> Self {
-        CursorIcon::System(Default::default())
-    }
-}
-
-impl From<SystemCursorIcon> for CursorIcon {
-    fn from(icon: SystemCursorIcon) -> Self {
-        CursorIcon::System(icon)
     }
 }
 

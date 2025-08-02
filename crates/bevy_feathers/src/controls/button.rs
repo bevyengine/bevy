@@ -73,7 +73,7 @@ pub fn button<C: SpawnableList<ChildOf> + Send + Sync + 'static, B: Bundle>(
         },
         props.variant,
         Hovered::default(),
-        EntityCursor::System(bevy_window::SystemCursorIcon::Pointer),
+        EntityCursor::System(bevy_window_cursor::SystemCursorIcon::Pointer),
         TabIndex(0),
         props.corners.to_border_radius(4.0),
         ThemeBackgroundColor(tokens::BUTTON_BG),
