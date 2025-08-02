@@ -116,9 +116,18 @@ pub fn insert_resource<R: Resource>(resource: R) -> impl Command {
 }
 
 /// A [`Command`] that removes a [`Resource`] from the world.
-pub fn remove_resource<R: Resource>() -> impl Command {
-    move |world: &mut World| {
-        world.remove_resource::<R>();
+///
+/// Returns an error if the resource does not exist.
+pub fn remove_resource<R: Resource>() -> impl Command<Result> {
+    move |world: &mut World| -> Result {
+        let component_id = world
+            .components
+            .get_valid_resource_id(core::any::TypeId::of::<R>())
+            .ok_or(crate::world::error::ResourceFetchError::NotRegistered)?;
+        world.remove_resource::<R>().ok_or(
+            crate::world::error::ResourceFetchError::DoesNotExist(component_id),
+        )?;
+        Ok(())
     }
 }
 
@@ -230,18 +239,92 @@ pub fn trigger_targets(
 }
 
 /// A [`Command`] that writes an arbitrary [`BufferedEvent`].
+///
+/// Returns an error if the [`Events<E>`] resource does not exist.
 #[track_caller]
-pub fn write_event<E: BufferedEvent>(event: E) -> impl Command {
+pub fn write_event<E: BufferedEvent>(event: E) -> impl Command<Result> {
     let caller = MaybeLocation::caller();
-    move |world: &mut World| {
-        let mut events = world.resource_mut::<Events<E>>();
-        events.write_with_caller(event, caller);
+    move |world: &mut World| -> Result {
+        match world.get_resource_mut::<Events<E>>() {
+            Some(mut events) => {
+                events.write_with_caller(event, caller);
+                Ok(())
+            }
+            None => {
+                let component_id = world
+                    .components
+                    .get_valid_resource_id(core::any::TypeId::of::<Events<E>>())
+                    .ok_or(crate::world::error::ResourceFetchError::NotRegistered)?;
+                Err(crate::world::error::ResourceFetchError::DoesNotExist(component_id).into())
+            }
+        }
     }
 }
 
 /// A [`Command`] that writes an arbitrary [`BufferedEvent`].
 #[track_caller]
 #[deprecated(since = "0.17.0", note = "Use `write_event` instead.")]
-pub fn send_event<E: BufferedEvent>(event: E) -> impl Command {
+pub fn send_event<E: BufferedEvent>(event: E) -> impl Command<Result> {
     write_event(event)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{resource::Resource, world::World};
+
+    #[derive(Resource, Default)]
+    struct TestResource;
+
+    #[test]
+    fn test_remove_resource_success() {
+        let mut world = World::new();
+        world.insert_resource(TestResource);
+
+        let command = remove_resource::<TestResource>();
+        let result = command.apply(&mut world);
+
+        assert!(result.is_ok());
+        assert!(!world.contains_resource::<TestResource>());
+    }
+
+    #[test]
+    fn test_remove_resource_not_registered() {
+        let mut world = World::new();
+
+        let command = remove_resource::<TestResource>();
+        let result = command.apply(&mut world);
+
+        assert!(result.is_err());
+        let error = result.unwrap_err();
+        let error_ref = error.downcast_ref::<crate::world::error::ResourceFetchError>();
+        assert!(error_ref.is_some());
+        assert!(matches!(
+            error_ref.unwrap(),
+            crate::world::error::ResourceFetchError::NotRegistered
+        ));
+    }
+
+    #[test]
+    fn test_remove_resource_not_present() {
+        let mut world = World::new();
+        // Register the resource type but don't insert it
+        world.init_resource::<TestResource>();
+        world.remove_resource::<TestResource>(); // Remove it
+
+        let command = remove_resource::<TestResource>();
+        let result = command.apply(&mut world);
+
+        assert!(result.is_err());
+        let error = result.unwrap_err();
+        assert!(error
+            .downcast_ref::<crate::world::error::ResourceFetchError>()
+            .is_some());
+        assert!(matches!(
+            error
+                .downcast_ref::<crate::world::error::ResourceFetchError>()
+                .unwrap(),
+            crate::world::error::ResourceFetchError::DoesNotExist(_)
+        ));
+    }
 }

@@ -1,4 +1,4 @@
-use bevy_ecs::{system::Commands, world::World};
+use bevy_ecs::{error::Result, system::Commands, world::World};
 use log::debug;
 
 use crate::state::{FreelyMutableState, NextState};
@@ -6,6 +6,8 @@ use crate::state::{FreelyMutableState, NextState};
 /// Extension trait for [`Commands`] adding `bevy_state` helpers.
 pub trait CommandsStatesExt {
     /// Sets the next state the app should move to.
+    ///
+    /// Returns an error if the [`NextState<S>`](crate::prelude::NextState) resource does not exist.
     ///
     /// Internally this schedules a command that updates the [`NextState<S>`](crate::prelude::NextState)
     /// resource with `state`.
@@ -17,14 +19,28 @@ pub trait CommandsStatesExt {
 
 impl CommandsStatesExt for Commands<'_, '_> {
     fn set_state<S: FreelyMutableState>(&mut self, state: S) {
-        self.queue(move |w: &mut World| {
-            let mut next = w.resource_mut::<NextState<S>>();
-            if let NextState::Pending(prev) = &*next {
-                if *prev != state {
-                    debug!("overwriting next state {prev:?} with {state:?}");
+        self.queue(move |w: &mut World| -> Result {
+            match w.get_resource_mut::<NextState<S>>() {
+                Some(mut next) => {
+                    if let NextState::Pending(prev) = &*next {
+                        if *prev != state {
+                            debug!("overwriting next state {prev:?} with {state:?}");
+                        }
+                    }
+                    next.set(state);
+                    Ok(())
+                }
+                None => {
+                    let component_id = w
+                        .components()
+                        .get_valid_resource_id(core::any::TypeId::of::<NextState<S>>())
+                        .ok_or(bevy_ecs::world::error::ResourceFetchError::NotRegistered)?;
+                    Err(
+                        bevy_ecs::world::error::ResourceFetchError::DoesNotExist(component_id)
+                            .into(),
+                    )
                 }
             }
-            next.set(state);
         });
     }
 }
