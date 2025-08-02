@@ -375,7 +375,7 @@ pub enum TextEdit {
     /// Delete the character behind the cursor.
     /// If there is a selection, deletes the selection instead.
     Backspace,
-    /// Delete the character a the cursor.
+    /// Delete the character at the cursor.
     /// If there is a selection, deletes the selection instead.
     Delete,
     /// Indent at the cursor.
