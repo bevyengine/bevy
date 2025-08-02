@@ -171,8 +171,8 @@ pub const DEFAULT_ENVIRONMENT_MAP_TEXTURE_HANDLE: Handle<Image> =
 impl Default for EnvironmentMapLight {
     fn default() -> Self {
         EnvironmentMapLight {
-            diffuse_map: Handle::default(),
-            specular_map: Handle::default(),
+            diffuse_map: DEFAULT_ENVIRONMENT_MAP_TEXTURE_HANDLE,
+            specular_map: DEFAULT_ENVIRONMENT_MAP_TEXTURE_HANDLE,
             intensity: 0.0,
             rotation: Quat::IDENTITY,
             affects_lightmapped_mesh_diffuse: true,
