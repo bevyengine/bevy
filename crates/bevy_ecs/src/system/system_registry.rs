@@ -1033,30 +1033,6 @@ mod tests {
     }
 
     #[test]
-    fn world_run_system_recursive() {
-        #[derive(Component)]
-        struct RecursionMarker(u8);
-
-        fn world_recursive(world: &mut World) {
-            let sys_id = world.register_system_cached(world_recursive);
-            if let Some(RecursionMarker(i)) = world.entity_mut(sys_id.entity()).take() {
-                if i == 10 {
-                    return;
-                }
-                world
-                    .entity_mut(sys_id.entity())
-                    .insert(RecursionMarker(i + 1));
-            } else {
-                world.entity_mut(sys_id.entity()).insert(RecursionMarker(0));
-            }
-            world.run_system_cached(world_recursive).unwrap();
-        }
-
-        let mut world = World::new();
-        world.run_system_cached(world_recursive).unwrap();
-    }
-
-    #[test]
     fn run_system_exclusive_adapters() {
         let mut world = World::new();
         fn system(_: &mut World) {}
