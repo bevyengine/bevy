@@ -33,7 +33,6 @@ struct MorphData {
 fn setup(
     asset_server: Res<AssetServer>,
     mut commands: Commands,
-    mut images: ResMut<Assets<Image>>,
 ) {
     commands.insert_resource(MorphData {
         the_wave: asset_server
@@ -58,7 +57,7 @@ fn setup(
         Transform::from_xyz(3.0, 2.1, 10.2).looking_at(Vec3::ZERO, Vec3::Y),
         EnvironmentMapLight {
             intensity: 150.0,
-            ..EnvironmentMapLight::solid_color(&mut images, Color::WHITE)
+            ..default()
         },
     ));
 }

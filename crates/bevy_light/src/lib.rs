@@ -227,7 +227,11 @@ impl Plugin for LightPlugin {
 
         app.world_mut().resource_mut::<Assets<Image>>().insert(
             &DEFAULT_ENVIRONMENT_MAP_TEXTURE_HANDLE,
-            EnvironmentMapLight::solid_color_image(Color::WHITE),
+            EnvironmentMapLight::hemispherical_gradient_cubemap(
+                Color::WHITE,
+                Color::WHITE,
+                Color::WHITE,
+            ),
         );
     }
 }
