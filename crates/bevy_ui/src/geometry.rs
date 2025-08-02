@@ -56,6 +56,7 @@ pub enum Val {
     VMax(f32),
 }
 
+// defines the different types of error that we may encounter when including the FromStr trait.
 #[derive(Debug, Error, PartialEq, Eq)]
 pub enum ValParseError {
     UnitMissing,
@@ -64,6 +65,8 @@ pub enum ValParseError {
     InvalidUnit,
 }
 
+// adds the Display trait to ValParseError enum
+// match self determines types of errors we may occur if we attempt to display the value in the event the parsing logic fails.
 impl core::fmt::Display for ValParseError {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
@@ -75,16 +78,24 @@ impl core::fmt::Display for ValParseError {
     }
 }
 
+// adds the FromStr trait to Val enum
+// which is generally used to determine some kind of integer/floating point value
+// within a string
+// This is unique to the values passed into Val as it is unique to the values being passed into Val step by step
 impl core::str::FromStr for Val {
-    type Err = ValParseError;
+    type Err = ValParseError; // set type alias for ValParseError that will serve as the fallback return type in case invalid unit is encountered.
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let s = s.trim();
+        let s = s.trim(); // removes whitespaces
 
+        // ignores upper and lower case differentiation after removing whitespaces
+        // this is the first validation check being performed
         if s.eq_ignore_ascii_case("auto") {
             return Ok(Val::Auto);
         }
 
+        // this serves as the second validation check
+        // this validation checks for potential unit values being present
         let Some(end_of_number) = s
             .bytes()
             .position(|c| !(c.is_ascii_digit() || c == b'.' || c == b'-' || c == b'+'))
@@ -92,16 +103,27 @@ impl core::str::FromStr for Val {
             return Err(ValParseError::UnitMissing);
         };
 
+        // if end_of_number == 0, that means no actual value to parse exists
+        // meaning there is no integer to return
         if end_of_number == 0 {
             return Err(ValParseError::ValueMissing);
         }
 
+        // otherwise, we want to split the values at the end of the number, creating a tuple
+        // the tuple stores the value --> the actual numerical value we are trying to determine
+        // and the unit --> the unit corresponding to the numerical unit
         let (value, unit) = s.split_at(end_of_number);
 
+        // then we use the internal parse() method to check if we can retrieve a valid value
+        // values with lifetimes such as &i32 and &u32 wouldn't work
         let value: f32 = value.parse().map_err(|_| ValParseError::InvalidValue)?;
 
+        // similarly, we drop any unneccessary and trailing whitespaces from the unit
+        // which should be a string such as px, %, vh etc.
         let unit = unit.trim();
 
+        // each of these performs checks and returns based on the specific unit that is allowed
+        // unit.eq_ignore_ascii_case means that the values within the method's parameter is considered valid
         if unit.eq_ignore_ascii_case("px") {
             Ok(Val::Px(value))
         } else if unit.eq_ignore_ascii_case("%") {
@@ -115,11 +137,12 @@ impl core::str::FromStr for Val {
         } else if unit.eq_ignore_ascii_case("vmax") {
             Ok(Val::VMax(value))
         } else {
-            Err(ValParseError::InvalidUnit)
+            Err(ValParseError::InvalidUnit) // if none of the unit matches and different unit has been provided, then the unit is not considered valid and therefore return an error, satisfying the return type of the function
         }
     }
 }
 
+// defines the partialEq, the general implementation is usually added using #[derive(PartialEq)]
 impl PartialEq for Val {
     fn eq(&self, other: &Self) -> bool {
         let same_unit = matches!(
@@ -163,16 +186,24 @@ impl PartialEq for Val {
 }
 
 impl Val {
-    pub const DEFAULT: Self = Self::Auto;
-    pub const ZERO: Self = Self::Px(0.0);
+    pub const DEFAULT: Self = Self::Auto; // by default, the Val value's default variant will be set to Val::Auto
+    pub const ZERO: Self = Self::Px(0.0); // Px variant will be set to Px(0.0) which accepts floating point as param
 }
 
+// workaround logic for constructor
 impl Default for Val {
     fn default() -> Self {
         Self::DEFAULT
     }
 }
 
+// example use case would be the following:
+// let val_enum_instance = Val::default();
+// val_enum_instance.mul(1.0);      // can be any floating point value
+// will simply return Val::Auto in this instance since Val::default() creates an Auto instance
+// otherwise, the inner value gets multiplied by the provided value in the parameter
+//
+// This method seems to make modifications and also return value afterwards
 impl Mul<f32> for Val {
     type Output = Val;
 
@@ -189,6 +220,9 @@ impl Mul<f32> for Val {
     }
 }
 
+// multiplies and assigns in a compounded manner
+// This method only seems to make modifications without returning any kind of value
+// TODO : ask the discord server on why this was done, why the need to dereference and compound multiply
 impl MulAssign<f32> for Val {
     fn mul_assign(&mut self, rhs: f32) {
         match self {

@@ -101,14 +101,15 @@ use crate::config::GizmoMeshConfig;
 
 use crate::{config::ErasedGizmoConfigGroup, gizmos::GizmoBuffer};
 
+// NOTE : I don't really need to know the implementation step for this, just need to know what is being implemented here
 #[cfg(feature = "bevy_render")]
 use {
     crate::retained::extract_linegizmos,
     bevy_asset::AssetId,
     bevy_ecs::{
-        component::Component,
-        entity::Entity,
-        query::ROQueryItem,
+        component::Component, // basic component within the world
+        entity::Entity,       // basic entity within an world
+        query::ROQueryItem,   // can be read as "Read Query Query Item"
         system::{
             lifetimeless::{Read, SRes},
             Commands, SystemParamItem,
@@ -421,6 +422,8 @@ fn init_line_gizmo_uniform_bind_group_layout(
 use bevy_camera::{Camera, ComputedCameraValues};
 use bevy_ecs::prelude::{Query, With};
 use bevy_math::Vec2;
+
+// TODO : find out why Val isn't being used
 use bevy_ui::{Val, ValArithmeticError};
 
 // use bevy_

@@ -22,8 +22,10 @@
 //!   the top left and `(1., 1., 0.)` in the bottom right. Coordinates are relative to the entire
 //!   node, not just the visible region. This backend does not provide a `normal`.
 
+// This attribute means the compiler will treat missing documentation as hard error for this particular section.
 #![deny(missing_docs)]
 
+// in programming, variadic refer to an macro or function that accepts a variable number of argumnets.
 use crate::{clip_check_recursive, prelude::*, ui_transform::UiGlobalTransform, UiStack};
 use bevy_app::prelude::*;
 use bevy_ecs::{prelude::*, query::QueryData};
@@ -71,6 +73,7 @@ impl Default for UiPickingSettings {
     }
 }
 
+// I assume
 /// A plugin that adds picking support for UI nodes.
 ///
 /// This is included by default in [`UiPlugin`](crate::UiPlugin).
@@ -101,6 +104,8 @@ pub struct NodeQuery {
 /// Bevy's [`UiStack`] orders all nodes in the order they will be rendered, which is the same order
 /// we need for determining picking.
 pub fn ui_picking(
+    // benefit of using query is that it allows for access to the component data for the systems
+    // without having to access the world itself
     pointers: Query<(&PointerId, &PointerLocation)>,
     camera_query: Query<(Entity, &Camera, Has<UiPickingCamera>)>,
     primary_window: Query<Entity, With<PrimaryWindow>>,
