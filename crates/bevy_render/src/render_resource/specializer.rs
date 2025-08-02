@@ -201,7 +201,7 @@ pub trait Specializer<T: Specializable>: Send + Sync + 'static {
 /// To address this, during specialization keys are processed into a [canonical]
 /// (or "standard") form that represents the actual descriptor that was produced.
 /// In the previous example, that would be the final `VertexBufferLayout` contained
-/// by the pipeline descriptor. This new key is used by [`SpecializedCache`] to
+/// by the pipeline descriptor. This new key is used by [`Variants`] to
 /// perform additional checks for duplicates, but only if required. If a key is
 /// canonical from the start, then there's no need.
 ///
@@ -256,18 +256,17 @@ macro_rules! impl_specialization_key_tuple {
 // TODO: How to we fake_variadics this?
 all_tuples!(impl_specialization_key_tuple, 0, 12, T);
 
-/// A cache for specializable resources. For a given key type the resulting
-/// resource will only be created if it is missing, retrieving it from the
-/// cache otherwise.
-pub struct SpecializedCache<T: Specializable, S: Specializer<T>> {
+/// A cache for variants of a resource type created by a specializer.
+/// At most one resource will be created for each key.
+pub struct Variants<T: Specializable, S: Specializer<T>> {
     specializer: S,
     base_descriptor: T::Descriptor,
     primary_cache: HashMap<S::Key, T::CachedId>,
     secondary_cache: HashMap<Canonical<S::Key>, T::CachedId>,
 }
 
-impl<T: Specializable, S: Specializer<T>> SpecializedCache<T, S> {
-    /// Creates a new [`SpecializedCache`] from a [`Specializer`] and a base descriptor.
+impl<T: Specializable, S: Specializer<T>> Variants<T, S> {
+    /// Creates a new [`Variants`] from a [`Specializer`] and a base descriptor.
     #[inline]
     pub fn new(specializer: S, base_descriptor: T::Descriptor) -> Self {
         Self {
