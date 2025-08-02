@@ -152,6 +152,8 @@ pub struct GltfLoader {
     pub custom_vertex_attributes: HashMap<Box<str>, MeshVertexAttribute>,
     /// Arc to default [`ImageSamplerDescriptor`].
     pub default_sampler: Arc<Mutex<ImageSamplerDescriptor>>,
+    /// XXX TODO: Update documentation.
+    ///
     /// Whether to convert glTF coordinates to Bevy's coordinate system by default.
     /// If set to `true`, the loader will convert the coordinate system of loaded glTF assets to Bevy's coordinate system
     /// such that objects looking forward in glTF will also look forward in Bevy.
@@ -932,6 +934,7 @@ impl GltfLoader {
             let mut entity_to_skin_index_map = EntityHashMap::default();
             let mut scene_load_context = load_context.begin_labeled_asset();
 
+            // XXX TODO: Move to utility function.
             let world_root_rotation = if convert_coordinates.scene {
                 Quat::from_xyzw(0.0, 1.0, 0.0, 0.0)
             } else {
@@ -1518,6 +1521,7 @@ fn load_node(
                     };
                     let bounds = primitive.bounding_box();
 
+                    // XXX TODO: Move to utility function.
                     let mesh_entity_transform = if convert_coordinates.meshes {
                         Transform::from_rotation(Quat::from_xyzw(0.0, 1.0, 0.0, 0.0))
                     } else {

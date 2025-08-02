@@ -161,6 +161,8 @@ pub struct GltfPlugin {
     /// Can be modified with the [`DefaultGltfImageSampler`] resource.
     pub default_sampler: ImageSamplerDescriptor,
 
+    /// XXX TODO: Update documentation.
+    ///
     /// Whether to convert glTF coordinates to Bevy's coordinate system by default.
     /// If set to `true`, the loader will convert the coordinate system of loaded glTF assets to Bevy's coordinate system
     /// such that objects looking forward in glTF will also look forward in Bevy.

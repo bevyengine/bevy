@@ -40,12 +40,14 @@ impl ConvertCoordinates for [f32; 4] {
     }
 }
 
+// XXX TODO: Documentation.
 impl ConvertInverseCoordinates for Mat4 {
     fn convert_inverse_coordinates(self) -> Self {
         self * Mat4::from_scale(Vec3::new(-1.0, 1.0, -1.0))
     }
 }
 
+// XXX TODO: Documentation.
 #[derive(Copy, Clone, Default, Debug, Serialize, Deserialize)]
 pub struct GltfConvertCoordinates {
     pub scene: bool,
