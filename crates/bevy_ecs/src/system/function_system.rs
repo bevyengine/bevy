@@ -608,7 +608,7 @@ impl<T> IntoResult<T> for Result<T, RunSystemError> {
 
 impl<T> IntoResult<T> for Result<T, BevyError> {
     fn into_result(self) -> Result<T, RunSystemError> {
-        Ok(self?)
+        self.map_err(RunSystemError::from)
     }
 }
 
