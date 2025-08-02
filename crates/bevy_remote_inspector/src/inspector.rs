@@ -3,6 +3,7 @@
 use bevy::prelude::*;
 use crate::http_client::*;
 use crate::ui::*;
+use crate::ui::virtual_scrolling::{handle_infinite_scroll_input, update_infinite_scrolling_display, update_scroll_momentum};
 
 /// Main plugin for the remote inspector
 pub struct InspectorPlugin;
@@ -15,6 +16,8 @@ impl Plugin for InspectorPlugin {
             .init_resource::<SelectedEntity>()
             .init_resource::<EntityCache>()
             .init_resource::<ComponentCache>()
+            .init_resource::<crate::ui::virtual_scrolling::VirtualScrollState>()
+            .init_resource::<crate::ui::virtual_scrolling::CustomScrollPosition>()
             
             // Startup systems
             .add_systems(Startup, (
@@ -33,9 +36,10 @@ impl Plugin for InspectorPlugin {
                 update_entity_list_from_http,
                 handle_http_updates,
                 
-                // Scrolling systems
-                handle_mouse_wheel_scrolling,
-                update_entity_list_display,
+                // Infinite scrolling systems
+                handle_infinite_scroll_input,
+                update_infinite_scrolling_display,
+                update_scroll_momentum,
                 
                 // UI interaction systems
                 handle_entity_selection,

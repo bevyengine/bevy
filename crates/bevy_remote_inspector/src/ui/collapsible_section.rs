@@ -47,7 +47,7 @@ impl Default for CollapsibleSectionBundle {
                 ..default()
             },
             background_color: BackgroundColor(Color::srgb(0.15, 0.15, 0.2)),
-            border_color: BorderColor(Color::srgb(0.3, 0.3, 0.4)),
+            border_color: BorderColor::all(Color::srgb(0.3, 0.3, 0.4)),
         }
     }
 }
