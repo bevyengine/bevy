@@ -1,9 +1,10 @@
+use crate::CursorIcon;
+#[cfg(all(target_family = "wasm", target_os = "unknown"))]
+use crate::CustomCursorUrl;
 use bevy_asset::Handle;
 use bevy_image::{Image, TextureAtlas};
 use bevy_math::URect;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
-
-use crate::CursorIcon;
 
 /// Custom cursor image data.
 #[derive(Debug, Clone, Reflect, PartialEq, Eq, Hash)]
