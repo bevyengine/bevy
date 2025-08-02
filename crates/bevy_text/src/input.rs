@@ -310,7 +310,7 @@ impl TextInputFilter {
 /// Add this component to hide the text input buffer contents
 /// by replacing the characters with `mask_char`.
 ///
-/// It is strongly recommended to only use a `PasswordMask` with fixed-widthg fonts.
+/// It is strongly recommended to only use a `PasswordMask` with fixed-width fonts.
 /// With variable width fonts mouse picking and horizontal scrolling
 /// may not work correctly.
 #[derive(Component)]
