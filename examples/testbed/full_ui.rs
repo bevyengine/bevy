@@ -221,7 +221,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                 justify_content: JustifyContent::Center,
                                 ..default()
                             },
-                            BorderColor::all(LIME.into()),
+                            BorderColor::all(LIME),
                             BackgroundColor(Color::srgb(0.8, 0.8, 1.)),
                         ))
                         .with_children(|parent| {
