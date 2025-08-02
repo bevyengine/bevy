@@ -1148,7 +1148,7 @@ impl Placeholder {
 /// Layout for the [`Placeholder`] text
 #[derive(Component)]
 pub struct PlaceholderLayout {
-    /// A [`Placeholder`] text's cosmic-text buffer (not an Editor as isn't editable)
+    /// A [`Placeholder`] text's cosmic-text buffer (not an Editor as it isn't editable).
     buffer: Buffer,
     /// A [`Placeholder`] text's glyph layout. Displayed when the text input is empty.
     /// Doesn't reuse the editor's [`TextLayoutInfo`] as otherwise the placeholder would need a relayout
