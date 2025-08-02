@@ -350,9 +350,9 @@ impl TextEdits {
 /// Deferred text input edit and navigation actions applied by the `apply_text_edits` system.
 #[derive(Debug)]
 pub enum TextEdit {
-    /// Copy the selected text into the clipboard. Does nothing if no text selected.
+    /// Copy the selected text into the clipboard. Does nothing if no text is selected.
     Copy,
-    /// Copy the selected text into the clipboard, then delete the selected text. Does nothing if no text selected.
+    /// Copy the selected text into the clipboard, then delete the selected text. Does nothing if no text is selected.
     Cut,
     /// Insert the contents of the clipboard at the current cursor position. Does nothing if the clipboard is empty.
     Paste,
@@ -375,7 +375,7 @@ pub enum TextEdit {
     /// Delete the character behind the cursor.
     /// If there is a selection, deletes the selection instead.
     Backspace,
-    /// Delete the character a the cursor.
+    /// Delete the character at the cursor.
     /// If there is a selection, deletes the selection instead.
     Delete,
     /// Indent at the cursor.
@@ -409,7 +409,7 @@ pub enum TextEdit {
     Escape,
     /// Clear the text input buffer.
     Clear,
-    /// Set the contents of the text input buffer. The existing contents is discarded.
+    /// Set the contents of the text input buffer. The existing contents are discarded.
     SetText(String),
     /// Submit the contents of the text input buffer
     Submit,
