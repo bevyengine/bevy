@@ -381,14 +381,13 @@ pub async fn initialize_renderer(
     let mut dlss_supported = false;
     #[cfg(feature = "dlss")]
     let (device, queue) = {
-        match dlss_wgpu::request_device(dlss_project_id, &adapter, &device_descriptor) {
-            Ok(x) => {
-                dlss_supported = true;
-                x
-            }
-            // Fallback to standard device request
-            Err(_) => adapter.request_device(&device_descriptor).await.unwrap(),
-        }
+        dlss_wgpu::request_device(
+            dlss_project_id,
+            &adapter,
+            &device_descriptor,
+            &mut dlss_supported,
+        )
+        .unwrap();
     };
 
     debug!("Configured wgpu adapter Limits: {:#?}", device.limits());
