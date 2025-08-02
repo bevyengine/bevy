@@ -8,12 +8,14 @@ use bevy_ecs::{
     component::Component,
     observer::On,
     query::With,
+    reflect::ReflectComponent,
     system::{Commands, Query},
 };
 use bevy_input::keyboard::{KeyCode, KeyboardInput};
 use bevy_input::ButtonState;
 use bevy_input_focus::FocusedInput;
 use bevy_picking::events::{Click, Pointer};
+use bevy_reflect::Reflect;
 use bevy_ui::{Checkable, Checked, InteractionDisabled};
 
 use crate::{Activate, Callback, Notify};
@@ -48,6 +50,8 @@ pub struct CoreRadioGroup {
 /// See <https://www.w3.org/WAI/ARIA/apg/patterns/radio>/
 #[derive(Component, Debug)]
 #[require(AccessibilityNode(accesskit::Node::new(Role::RadioButton)), Checkable)]
+#[derive(Reflect)]
+#[reflect(Component)]
 pub struct CoreRadio;
 
 fn radio_group_on_key_input(

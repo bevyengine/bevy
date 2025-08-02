@@ -18,6 +18,7 @@ bevy_input_focus = { path = "../bevy_input_focus", version = "0.17.0-dev" }
 bevy_log = { path = "../bevy_log", version = "0.17.0-dev" }
 bevy_math = { path = "../bevy_math", version = "0.17.0-dev" }
 bevy_picking = { path = "../bevy_picking", version = "0.17.0-dev" }
+bevy_reflect = { path = "../bevy_reflect", version = "0.17.0-dev" }
 bevy_ui = { path = "../bevy_ui", version = "0.17.0-dev" }
 
 # other

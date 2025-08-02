@@ -1,11 +1,12 @@
 //! Provides a way to specify assets either by handle or by path.
 use bevy_asset::{Asset, Handle};
+use bevy_reflect::Reflect;
 
 /// Enum that represents a reference to an asset as either a [`Handle`] or a [`String`] path.
 ///
 /// This is useful for when you want to specify an asset, but don't always have convenient
 /// access to an asset server reference.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Reflect)]
 pub enum HandleOrPath<T: Asset> {
     /// Specify the asset reference as a handle.
     Handle(Handle<T>),
