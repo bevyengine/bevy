@@ -2,17 +2,19 @@ use alloc::vec::Vec;
 use core::marker::PhantomData;
 
 use crate::{App, Plugin, Update};
+#[cfg(feature = "bevy_reflect")]
+use bevy_ecs::reflect::ReflectComponent;
 use bevy_ecs::{
     component::Component,
     entity::Entity,
     hierarchy::ChildOf,
     lifecycle::RemovedComponents,
     query::{Changed, Or, QueryFilter, With, Without},
-    reflect::ReflectComponent,
     relationship::{Relationship, RelationshipTarget},
     schedule::{IntoScheduleConfigs, SystemSet},
     system::{Commands, Local, Query},
 };
+#[cfg(feature = "bevy_reflect")]
 use bevy_reflect::Reflect;
 
 /// Plugin to automatically propagate a component value to all direct and transient relationship
