@@ -8,4 +8,4 @@ In past releases the `CursorIcon` API was located in the `bevy_winit` crate. Thi
 
 In order that cursor icon customization is independent of any particular windowing system a new crate has been added, `bevy_window_cursor`. 
 
-The `CursorIcon`, `SystemCursorIcon`, `CustomCursor`, and `CustomCursorImage` types have all moved into the `bevy_window_cursor` crate. The `CusorIcon` API is otherwise changed.
+The `CursorIcon`, `SystemCursorIcon`, `CustomCursor`, and `CustomCursorImage` types have all moved into the `bevy_window_cursor` crate. The `CursorIcon` API is otherwise changed.
