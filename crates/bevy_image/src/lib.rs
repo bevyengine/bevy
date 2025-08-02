@@ -25,8 +25,6 @@ pub use self::serialized_image::*;
 mod basis;
 #[cfg(feature = "compressed_image_saver")]
 mod compressed_image_saver;
-#[cfg(feature = "custom_cursor")]
-mod custom_cursor;
 #[cfg(feature = "dds")]
 mod dds;
 mod dynamic_texture_atlas_builder;
@@ -42,8 +40,6 @@ mod texture_atlas_builder;
 
 #[cfg(feature = "compressed_image_saver")]
 pub use compressed_image_saver::*;
-#[cfg(feature = "custom_cursor")]
-pub use custom_cursor_image::*;
 #[cfg(feature = "dds")]
 pub use dds::*;
 pub use dynamic_texture_atlas_builder::*;
