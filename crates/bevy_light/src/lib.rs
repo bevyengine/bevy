@@ -48,6 +48,8 @@ pub use directional_light::{
     DirectionalLightTexture,
 };
 
+use crate::directional_light::validate_shadow_map_size;
+
 /// Constants for operating with the light units: lumens, and lux.
 pub mod light_consts {
     /// Approximations for converting the wattage of lamps to lumens.
@@ -145,6 +147,7 @@ impl Plugin for LightPlugin {
             .add_systems(
                 PostUpdate,
                 (
+                    validate_shadow_map_size,
                     add_clusters
                         .in_set(SimulationLightSystems::AddClusters)
                         .after(CameraUpdateSystems),
