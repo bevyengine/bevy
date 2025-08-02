@@ -1,4 +1,4 @@
-//! Robust virtual scrolling with infinite loading and smooth rendering
+//! Virtual scrolling with infinite loading
 
 use bevy::prelude::*;
 use bevy::input::mouse::MouseWheel;
@@ -122,9 +122,9 @@ pub fn update_infinite_scrolling_display(
         // Calculate total content height for infinite scrolling
         virtual_scroll_state.total_content_height = virtual_scroll_state.total_entity_count as f32 * virtual_scroll_state.item_height;
         
-        println!("🚀 Infinite scroll: loaded {} entities, item_height: {:.1}px, total height: {:.1}px", 
+        println!("Loaded {} entities, item_height: {:.1}px, total height: {:.1}px", 
             virtual_scroll_state.total_entity_count, virtual_scroll_state.item_height, virtual_scroll_state.total_content_height);
-        println!("📏 Expected max scroll: {:.1}px for container height: {:.1}px", 
+        println!("Expected max scroll: {:.1}px for container height: {:.1}px", 
             virtual_scroll_state.total_content_height - virtual_scroll_state.container_height, virtual_scroll_state.container_height);
         
         entities_changed = true;
@@ -162,7 +162,7 @@ pub fn update_infinite_scrolling_display(
         // Fallback: show the last screen of items
         let fallback_start = virtual_scroll_state.total_entity_count.saturating_sub(items_per_screen);
         virtual_scroll_state.visible_range = (fallback_start, virtual_scroll_state.total_entity_count);
-        println!("🔧 Using fallback range: {}-{}", fallback_start, virtual_scroll_state.total_entity_count);
+        println!("Using fallback range: {}-{}", fallback_start, virtual_scroll_state.total_entity_count);
     } else {
         virtual_scroll_state.visible_range = (start_index, end_index);
     }
@@ -267,25 +267,25 @@ pub fn update_infinite_scrolling_display(
     // Enhanced debug output when things change
     if entities_changed || scroll_changed || (time.elapsed_secs() as i32) % 2 == 0 && time.delta_secs() < 0.1 {
         let (final_start, final_end) = virtual_scroll_state.visible_range;
-        println!("🎯 Infinite scroll: showing items {}-{} of {} total (scroll: {:.1}px, viewport: {:.1}px)", 
+        println!("Showing items {}-{} of {} total (scroll: {:.1}px, viewport: {:.1}px)", 
             final_start, final_end, virtual_scroll_state.total_entity_count,
             virtual_scroll_state.current_scroll, virtual_scroll_state.container_height);
         
         // Extra debug for boundary conditions and range changes
         if virtual_scroll_state.current_scroll > virtual_scroll_state.total_content_height - 1000.0 {
-            println!("🚨 Near bottom: scroll_offset={}, items_per_screen={}, total_entities={}", 
+            println!("Near bottom: scroll_offset={}, items_per_screen={}, total_entities={}", 
                 scroll_offset, items_per_screen, virtual_scroll_state.total_entity_count);
         }
         
         // Debug when there's a significant change in visible range
         if final_start != start_index || final_end != end_index {
-            println!("🔄 Range adjusted: {}-{} -> {}-{} (scroll: {:.1})", 
+            println!("Range adjusted: {}-{} -> {}-{} (scroll: {:.1})", 
                 start_index, end_index, final_start, final_end, virtual_scroll_state.current_scroll);
         }
         
         // Debug scroll changes
         if scroll_changed {
-            println!("📍 Scroll changed significantly, updating display");
+            println!("Scroll changed significantly, updating display");
         }
     }
 }
@@ -322,7 +322,7 @@ pub fn handle_infinite_scroll_input(
                     
                     // Debug scroll
                     if custom_scroll.y % 100.0 < 30.0 || custom_scroll.y > custom_scroll.max_y - 100.0 {
-                        println!("📜 Custom scroll: pos={:.1}, max={:.1}, total_height={:.1}", 
+                        println!("Custom scroll: pos={:.1}, max={:.1}, total_height={:.1}", 
                             custom_scroll.y, custom_scroll.max_y, virtual_scroll_state.total_content_height);
                     }
                     
@@ -362,14 +362,14 @@ fn trigger_load_more_entities(
     
     // The actual loading would happen in the HTTP client update system
     // This just marks that we want more data
-    println!("📡 Requesting page {} ({} entities per page)", 
+    println!("Requesting page {} ({} entities per page)", 
         virtual_scroll_state.current_page, virtual_scroll_state.page_size);
     
     // Reset loading flag after a short delay (simulated async operation)
     // In real implementation, this would be set to false when new data arrives
 }
 
-/// Initialize robust virtual scrolling with infinite loading capabilities
+/// Initialize virtual scrolling with infinite loading
 pub fn setup_virtual_scrolling(
     mut commands: Commands,
     mut scroll_query: Query<&mut ScrollPosition, With<EntityListContainer>>,
@@ -382,13 +382,13 @@ pub fn setup_virtual_scrolling(
     // Reset scroll position to 0 on startup
     if let Ok(mut scroll_position) = scroll_query.single_mut() {
         scroll_position.y = 0.0;
-        println!("🔄 Reset scroll position to 0");
+        println!("Reset scroll position to 0");
     }
     
     // Create initial spacers
     if let Ok(virtual_content) = virtual_content_query.single() {
         commands.entity(virtual_content).with_children(|parent| {
-            // Top spacer
+            // Top spacer - invisible placeholder
             parent.spawn((
                 VirtualScrollSpacer { spacer_type: SpacerType::Top },
                 Node {
@@ -396,9 +396,10 @@ pub fn setup_virtual_scrolling(
                     height: Val::Px(0.0),
                     ..default()
                 },
+                BackgroundColor(Color::NONE), // Make it invisible
             ));
             
-            // Bottom spacer
+            // Bottom spacer - invisible placeholder  
             parent.spawn((
                 VirtualScrollSpacer { spacer_type: SpacerType::Bottom },
                 Node {
@@ -406,11 +407,12 @@ pub fn setup_virtual_scrolling(
                     height: Val::Px(0.0),
                     ..default()
                 },
+                BackgroundColor(Color::NONE), // Make it invisible
             ));
         });
     }
     
-    println!("🚀 Initialized robust virtual scrolling with infinite loading");
+    println!("Initialized virtual scrolling");
 }
 
 /// System to handle momentum scrolling and infinite loading state management

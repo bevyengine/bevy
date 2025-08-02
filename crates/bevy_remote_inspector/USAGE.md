@@ -19,17 +19,17 @@ This will:
 
 Expected output:
 ```
-🎮 Starting target application for remote inspector
-📡 bevy_remote will be available at http://localhost:15702
-🔍 Start the remote inspector to connect and view entities
-🏗️  Setting up demo scene with entities...
-✅ Demo scene setup complete!
+Starting target application for remote inspector
+bevy_remote will be available at http://localhost:15702
+Start the remote inspector to connect and view entities
+Setting up demo scene with entities...
+Demo scene setup complete!
    - 1 Camera
    - 1 Player
    - 3 Enemies
    - 4 Items
    - 5 Basic entities
-📊 Total: 14 entities created
+Total: 14 entities created
 ```
 
 ### 2. Run the Remote Inspector

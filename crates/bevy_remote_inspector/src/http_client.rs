@@ -101,20 +101,20 @@ impl HttpRemoteClient {
 
     /// Test connection to bevy_remote server
     pub async fn connect(&mut self) -> Result<()> {
-        println!("🔌 Attempting to connect to {}", self.base_url);
+        println!("Attempting to connect to {}", self.base_url);
         
         // Try a simple list request to test connectivity
         match self.list_entities().await {
             Ok(_) => {
                 self.is_connected = true;
                 self.last_error = None;
-                println!("✅ Connected to bevy_remote at {}", self.base_url);
+                println!("Connected to bevy_remote at {}", self.base_url);
                 Ok(())
             }
             Err(e) => {
                 self.is_connected = false;
                 self.last_error = Some(e.to_string());
-                println!("❌ Failed to connect: {}", e);
+                println!("Failed to connect: {}", e);
                 Err(e)
             }
         }
@@ -154,7 +154,7 @@ impl HttpRemoteClient {
                 }
             }
             
-            println!("📋 Listed {} entities via query", entity_ids.len());
+            println!("Listed {} entities via query", entity_ids.len());
             Ok(entity_ids)
         } else if let Some(error) = response.error {
             Err(anyhow!("bevy/query error: {}", error.message))
@@ -236,7 +236,7 @@ impl HttpRemoteClient {
                 self.entities.insert(entity.id, entity.clone());
             }
             
-            println!("📦 Retrieved {} entities with component data", entities.len());
+            println!("Retrieved {} entities with component data", entities.len());
             Ok(entities)
         } else if let Some(error) = response.error {
             Err(anyhow!("bevy/query error: {}", error.message))
@@ -247,7 +247,7 @@ impl HttpRemoteClient {
 
     /// Start streaming updates for entities via bevy/get+watch
     pub async fn start_watching(&mut self, entity_ids: &[u32]) -> Result<()> {
-        println!("👀 Starting watch stream for {} entities", entity_ids.len());
+        println!("Starting watch stream for {} entities", entity_ids.len());
         
         let _request = JsonRpcRequest {
             jsonrpc: "2.0".to_string(),
