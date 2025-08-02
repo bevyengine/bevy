@@ -166,21 +166,25 @@ const CAMERA_POSITIONS: &[Transform] = &[
         translation: Vec3::new(1.5, 1.5, 1.5),
         rotation: Quat::from_xyzw(-0.279, 0.364, 0.115, 0.880),
         scale: Vec3::ONE,
+        flip_model_forward: false,
     },
     Transform {
         translation: Vec3::new(2.4, 0.0, 0.2),
         rotation: Quat::from_xyzw(0.094, 0.676, 0.116, 0.721),
         scale: Vec3::ONE,
+        flip_model_forward: false,
     },
     Transform {
         translation: Vec3::new(2.4, 2.6, -4.3),
         rotation: Quat::from_xyzw(0.170, 0.908, 0.308, 0.225),
         scale: Vec3::ONE,
+        flip_model_forward: false,
     },
     Transform {
         translation: Vec3::new(-1.0, 0.8, -1.2),
         rotation: Quat::from_xyzw(-0.004, 0.909, 0.247, -0.335),
         scale: Vec3::ONE,
+        flip_model_forward: false,
     },
 ];
 
