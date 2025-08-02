@@ -14,7 +14,7 @@ use bevy_ecs::{
     event::{event_update_system, EventCursor},
     intern::Interned,
     prelude::*,
-    schedule::{InternedSystemSet, ScheduleBuildSettings, ScheduleLabel},
+    schedule::{InternedSystemSet, ScheduleBuildSettings, ScheduleError, ScheduleLabel},
     system::{IntoObserverSystem, ScheduleSystem, SystemId, SystemInput},
 };
 use bevy_platform::collections::HashMap;
@@ -311,6 +311,36 @@ impl App {
     ) -> &mut Self {
         self.main_mut().add_systems(schedule, systems);
         self
+    }
+
+    /// Removes all systems in a [`SystemSet`]. This will cause the schedule to be rebuilt when
+    /// the schedule is run again and can be slow. A [`ScheduleError`] is returned if the schedule needs to be
+    /// [`Schedule::initialize`]'d or the `set` is not found.
+    ///
+    /// Note that this can remove all systems of a type if you pass
+    /// the system to this function as systems implicitly create a set based
+    /// on the system type.
+    ///
+    /// ## Example
+    /// ```
+    /// # use bevy_app::prelude::*;
+    /// #
+    /// # let mut app = App::new();
+    /// # fn system_a() {}
+    /// # fn system_b() {}
+    ///
+    /// // add the system
+    /// app.add_systems(Update, system_a);
+    ///
+    /// // remove the system
+    /// app.remove_systems_in_set(Update, system_a);
+    /// ```
+    pub fn remove_systems_in_set<M>(
+        &mut self,
+        schedule: impl ScheduleLabel,
+        set: impl IntoSystemSet<M>,
+    ) -> Result<usize, ScheduleError> {
+        self.main_mut().remove_systems_in_set(schedule, set)
     }
 
     /// Registers a system and returns a [`SystemId`] so it can later be called by [`World::run_system`].
