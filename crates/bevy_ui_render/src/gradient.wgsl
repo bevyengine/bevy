@@ -388,7 +388,6 @@ fn mix_colors(
     // Just lerp in linear RGBA, OkLab and SRGBA spaces
     return mix(start_color, end_color, t);
 #endif
-    return vec4(rgb, mix(start_color.a, end_color.a, t));
 }
 
 // Convert a color from the interpolation color space to linear rgba
