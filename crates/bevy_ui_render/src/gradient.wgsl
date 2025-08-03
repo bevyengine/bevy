@@ -264,40 +264,57 @@ fn conic_distance(
 }
 
 fn mix_oklch(a: vec3<f32>, b: vec3<f32>, t: f32) -> vec3<f32> {
-    let hue_diff = b.z - a.z;
-    var adjusted_hue = a.z;
+    // If the chroma is close to zero for one of the endpoints, don't interpolate 
+    // the hue and instead use the hue of the other endpoint. This allows gradients that smoothly 
+    // transition from black or white to a target color without passing through unrelated hues.
+    var h = a.z;
+    var g = b.z;
+    if a.y < HUE_GUARD {
+        h = g;
+    } else if b.y < HUE_GUARD {
+        g = h;
+    }
+
+    let hue_diff = g - h;
     if abs(hue_diff) > 0.5 {
         if hue_diff > 0.0 {
-            adjusted_hue = a.z + (hue_diff - 1.) * t;
+            h += (hue_diff - 1.) * t;
         } else {
-            adjusted_hue = a.z + (hue_diff + 1.) * t;
+            h += (hue_diff + 1.) * t;
         }
     } else {
-        adjusted_hue = a.z + hue_diff * t;
+        h += hue_diff * t;
     }
     return vec3(
         mix(a.x, b.x, t),
         mix(a.y, b.y, t),
-        fract(adjusted_hue),
+        fract(h),
     );
 }
 
 fn mix_oklch_long(a: vec3<f32>, b: vec3<f32>, t: f32) -> vec3<f32> {
-    let hue_diff = b.z - a.z;
-    var adjusted_hue = a.z;
+    var h = a.z;
+    var g = b.z;
+    if a.y < HUE_GUARD {
+        h = g;
+    } else if b.y < HUE_GUARD {
+        g = h;
+    }
+
+    let hue_diff = g - h;
     if abs(hue_diff) < 0.5 {
         if hue_diff >= 0.0 {
-            adjusted_hue = a.z + (hue_diff - 1.) * t;
+            h += (hue_diff - 1.) * t;
         } else {
-            adjusted_hue = a.z + (hue_diff + 1.) * t;
+            h += (hue_diff + 1.) * t;
         }
     } else {
-        adjusted_hue = a.z + hue_diff * t;
+        h += hue_diff * t;
     }
     return vec3(
         mix(a.x, b.x, t),
         mix(a.y, b.y, t),
-        fract(adjusted_hue),
+        fract(h),
     );
 }
 
@@ -319,38 +336,55 @@ fn mix_hsl_long(a: vec3<f32>, b: vec3<f32>, t: f32) -> vec3<f32> {
 }
 
 fn mix_hsv(a: vec3<f32>, b: vec3<f32>, t: f32) -> vec3<f32> {
-    let hue_diff = b.x - a.x;
-    var adjusted_hue = a.x;
+    // If the saturation is close to zero for one of the endpoints, don't interpolate 
+    // the hue and instead use the hue of the other endpoint. This allows gradients that smoothly 
+    // transition from black or white to a target color without passing through unrelated hues.
+    var h = a.x;
+    var g = b.x;
+    if a.y < HUE_GUARD {
+        h = g;
+    } else if b.y < HUE_GUARD {
+        g = h;
+    }
+
+    let hue_diff = g - h;
     if abs(hue_diff) > 0.5 {
         if hue_diff > 0.0 {
-            adjusted_hue = a.x + (hue_diff - 1.0) * t;
+            h += (hue_diff - 1.0) * t;
         } else {
-            adjusted_hue = a.x + (hue_diff + 1.0) * t;
+            h += (hue_diff + 1.0) * t;
         }
     } else {
-        adjusted_hue = a.x + hue_diff * t;
+        h += hue_diff * t;
     }
     return vec3(
-        fract(adjusted_hue),
+        fract(h),
         mix(a.y, b.y, t),
         mix(a.z, b.z, t),
     );
 }
 
 fn mix_hsv_long(a: vec3<f32>, b: vec3<f32>, t: f32) -> vec3<f32> {
-    let hue_diff = b.x - a.x;
-    var adjusted_hue = a.x;
+    var h = a.x;
+    var g = b.x;
+    if a.y < HUE_GUARD {
+        h = g;
+    } else if b.y < HUE_GUARD {
+        g = h;
+    }
+
+    let hue_diff = g - h;
     if abs(hue_diff) < 0.5 {
         if hue_diff >= 0.0 {
-            adjusted_hue = a.x + (hue_diff - 1.0) * t;
+            h += (hue_diff - 1.0) * t;
         } else {
-            adjusted_hue = a.x + (hue_diff + 1.0) * t;
+            h += (hue_diff + 1.0) * t;
         }
     } else {
-        adjusted_hue = a.x + hue_diff * t;
+        h += hue_diff * t;
     }
     return vec3(
-        fract(adjusted_hue),
+        fract(h),
         mix(a.y, b.y, t),
         mix(a.z, b.z, t),
     );
