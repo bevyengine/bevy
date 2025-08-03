@@ -38,7 +38,12 @@ critical-section = ["bevy_platform/critical-section"]
 
 ## Enables use of browser APIs.
 ## Note this is currently only applicable on `wasm32` architectures.
-web = ["bevy_platform/web", "dep:wasm-bindgen-futures", "dep:futures-channel", "dep:pin-project-lite"]
+web = [
+  "bevy_platform/web",
+  "dep:wasm-bindgen-futures",
+  "dep:futures-channel",
+  "dep:pin-project-lite",
+]
 
 [dependencies]
 bevy_platform = { path = "../bevy_platform", version = "0.17.0-dev", default-features = false, features = [
