@@ -208,7 +208,7 @@ impl<'a> Executor<'a> {
     /// Creates a new executor.
     pub const fn new() -> Executor<'a> {
         Executor {
-            state: AtomicPtr::new(std::ptr::null_mut()),
+            state: AtomicPtr::new(core::ptr::null_mut()),
             _marker: PhantomData,
         }
     }
@@ -379,7 +379,7 @@ impl<'a> Executor<'a> {
             let state = Arc::new(State::new());
             let ptr = Arc::into_raw(state).cast_mut();
             if let Err(actual) = atomic_ptr.compare_exchange(
-                std::ptr::null_mut(),
+                core::ptr::null_mut(),
                 ptr,
                 Ordering::AcqRel,
                 Ordering::Acquire,
@@ -414,7 +414,7 @@ impl<'a> Executor<'a> {
         // Arc when accessed through state_ptr.
         let arc = unsafe { Arc::from_raw(self.state_ptr()) };
         let clone = arc.clone();
-        std::mem::forget(arc);
+        core::mem::forget(arc);
         clone
     }
 }
