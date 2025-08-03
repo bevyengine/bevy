@@ -224,9 +224,8 @@ fn hsv_to_linear_rgb(hsva: vec3<f32>) -> vec3<f32> {
 }
 
 fn oklch_to_linear_rgb(c: vec3<f32>) -> vec3<f32> {
-    let a = c.y * cos(c.z);
-    let b = c.y * sin(c.z);
-    return oklab_to_linear_rgb(vec3(c.x, a, b));
+    let hue = c.z * TAU;
+    return oklab_to_linear_rgb(vec3(c.x, c.y * cos(hue), c.y * sin(hue)));
 }
 
 fn rem_euclid(a: f32, b: f32) -> f32 {
@@ -267,11 +266,11 @@ fn conic_distance(
 fn mix_oklch(a: vec3<f32>, b: vec3<f32>, t: f32) -> vec3<f32> {
     let hue_diff = b.z - a.z;
     var adjusted_hue = a.z;
-    if abs(hue_diff) > PI {
+    if abs(hue_diff) > 0.5 {
         if hue_diff > 0.0 {
-            adjusted_hue = a.z + (hue_diff - TAU) * t;
+            adjusted_hue = a.z + (hue_diff - 1.) * t;
         } else {
-            adjusted_hue = a.z + (hue_diff + TAU) * t;
+            adjusted_hue = a.z + (hue_diff + 1.) * t;
         }
     } else {
         adjusted_hue = a.z + hue_diff * t;
@@ -279,18 +278,18 @@ fn mix_oklch(a: vec3<f32>, b: vec3<f32>, t: f32) -> vec3<f32> {
     return vec3(
         mix(a.x, b.x, t),
         mix(a.y, b.y, t),
-        rem_euclid(adjusted_hue, TAU),
+        fract(adjusted_hue),
     );
 }
 
 fn mix_oklch_long(a: vec3<f32>, b: vec3<f32>, t: f32) -> vec3<f32> {
     let hue_diff = b.z - a.z;
     var adjusted_hue = a.z;
-    if abs(hue_diff) < PI {
+    if abs(hue_diff) < 0.5 {
         if hue_diff >= 0.0 {
-            adjusted_hue = a.z + (hue_diff - TAU) * t;
+            adjusted_hue = a.z + (hue_diff - 1.) * t;
         } else {
-            adjusted_hue = a.z + (hue_diff + TAU) * t;
+            adjusted_hue = a.z + (hue_diff + 1.) * t;
         }
     } else {
         adjusted_hue = a.z + hue_diff * t;
@@ -298,7 +297,7 @@ fn mix_oklch_long(a: vec3<f32>, b: vec3<f32>, t: f32) -> vec3<f32> {
     return vec3(
         mix(a.x, b.x, t),
         mix(a.y, b.y, t),
-        rem_euclid(adjusted_hue, TAU),
+        fract(adjusted_hue),
     );
 }
 
