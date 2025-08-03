@@ -18,6 +18,7 @@ pub(crate) trait ConvertCoordinates {
     fn convert_coordinates(self) -> Self;
 }
 
+// XXX TODO: Documentation.
 pub(crate) trait ConvertInverseCoordinates {
     fn convert_inverse_coordinates(self) -> Self;
 }
