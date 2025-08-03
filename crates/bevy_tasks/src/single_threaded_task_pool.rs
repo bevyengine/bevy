@@ -108,7 +108,7 @@ impl TaskPool {
         F: for<'scope> FnOnce(&'env mut Scope<'scope, 'env, T>),
         T: Send + 'static,
     {
-        self.scope_with_executor(false, None, f)
+        self.scope_with_executor(None, f)
     }
 
     /// Allows spawning non-`'static` futures on the thread pool. The function takes a callback,
@@ -119,7 +119,6 @@ impl TaskPool {
     #[expect(unsafe_code, reason = "Required to transmute lifetimes.")]
     pub fn scope_with_executor<'env, F, T>(
         &self,
-        _tick_task_pool_executor: bool,
         _thread_executor: Option<&ThreadSpawner>,
         f: F,
     ) -> Vec<T>
