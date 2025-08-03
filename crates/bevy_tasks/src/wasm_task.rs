@@ -21,7 +21,10 @@ impl<T: 'static> Task<T> {
         wasm_bindgen_futures::spawn_local(async move {
             // Catch any panics that occur when polling the future so they can
             // be propagated back to the task handle.
-            let value = CatchUnwind { inner: future }.await;
+            let value = CatchUnwind {
+                inner: AssertUnwindSafe(future),
+            }
+            .await;
             let _ = sender.send(value);
         });
         Self(receiver.into_future())
