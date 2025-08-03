@@ -54,7 +54,7 @@ impl Default for CollapsibleSectionBundle {
 
 /// System to handle collapsible section interactions
 pub fn handle_collapsible_interactions(
-    mut commands: Commands,
+    _commands: Commands,
     mut section_query: Query<&mut CollapsibleSection>,
     header_query: Query<(&Interaction, &CollapsibleHeader), Changed<Interaction>>,
     mut content_query: Query<&mut Node, With<CollapsibleContent>>,

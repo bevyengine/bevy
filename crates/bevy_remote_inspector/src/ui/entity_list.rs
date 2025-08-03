@@ -66,7 +66,7 @@ pub struct EntityListVirtualState {
 impl EntityListVirtualState {
     pub fn new() -> Self {
         Self {
-            item_height: 34.0, // 32px height + 2px margin
+            item_height: 34.0, // 34px height with no margin
         }
     }
 }
@@ -253,8 +253,8 @@ pub fn spawn_entity_list_item(
         Button,
         Node {
             width: Val::Percent(100.0),
-            height: Val::Px(32.0), // Slightly taller for better click target
-            margin: UiRect::bottom(Val::Px(2.0)),
+            height: Val::Px(34.0), // Match virtual scrolling item_height exactly
+            margin: UiRect::ZERO, // Remove margin to eliminate gaps
             padding: UiRect::all(Val::Px(8.0)),
             align_items: AlignItems::Center,
             justify_content: JustifyContent::FlexStart,

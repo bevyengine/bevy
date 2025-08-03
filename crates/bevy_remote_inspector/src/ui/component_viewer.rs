@@ -359,7 +359,7 @@ pub fn spawn_component_viewer(commands: &mut Commands, parent: Entity) -> Entity
     let viewer = commands.spawn((
         ComponentViewerPanel,
         Node {
-            width: Val::Px(800.0), // Fixed width  
+            flex_grow: 1.0, // Fill remaining space
             height: Val::Vh(100.0),
             padding: UiRect::all(Val::Px(16.0)),
             flex_direction: FlexDirection::Column,
