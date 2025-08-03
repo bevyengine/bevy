@@ -12,6 +12,7 @@ fn my_runner(mut app: App) -> AppExit {
     // This is normally completed by the default runner.
     app.finish();
     app.cleanup();
+    app.startup();
 
     println!("Type stuff into the console");
     for line in io::stdin().lines() {

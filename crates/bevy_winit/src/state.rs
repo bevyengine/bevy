@@ -945,6 +945,7 @@ pub fn winit_runner<T: BufferedEvent>(mut app: App, event_loop: EventLoop<T>) ->
     if app.plugins_state() == PluginsState::Ready {
         app.finish();
         app.cleanup();
+        app.startup();
     }
 
     app.world_mut()

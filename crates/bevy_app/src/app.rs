@@ -153,6 +153,15 @@ impl App {
     }
 
     /// Runs the default schedules of all sub-apps (starting with the "main" app) once.
+    pub fn startup(&mut self) {
+        if self.is_building_plugins() {
+            panic!("App::startup() was called while a plugin was building.");
+        }
+
+        self.sub_apps.startup();
+    }
+
+    /// Runs the default schedules of all sub-apps (starting with the "main" app) once.
     pub fn update(&mut self) {
         if self.is_building_plugins() {
             panic!("App::update() was called while a plugin was building.");
@@ -1402,6 +1411,7 @@ fn run_once(mut app: App) -> AppExit {
     app.finish();
     app.cleanup();
 
+    app.startup();
     app.update();
 
     app.should_exit().unwrap_or(AppExit::Success)
