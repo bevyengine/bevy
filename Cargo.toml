@@ -2781,6 +2781,17 @@ description = "Demonstrates how to create and use type data"
 category = "Reflection"
 wasm = false
 
+[[example]]
+name = "insert_reflect"
+path = "examples/reflection/insert_reflect.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.insert_reflect]
+name = "Insert Reflect Component"
+description = "Demonstrates how to insert a Component from a deserialized Reflect object"
+category = "Reflection"
+wasm = false
+
 # Scene
 [[example]]
 name = "scene"
