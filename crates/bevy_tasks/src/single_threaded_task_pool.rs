@@ -4,18 +4,19 @@ use core::{cell::RefCell, future::Future, marker::PhantomData, mem};
 
 use crate::Task;
 
-#[cfg(not(feature = "std"))]
-use bevy_platform::sync::{Mutex, PoisonError};
-
 use crate::executor::Executor;
 
 static EXECUTOR: Executor = Executor::new();
 
-#[cfg(feature = "std")]
-type ScopeResult<T> = alloc::rc::Rc<RefCell<Option<T>>>;
+cfg_if::cfg_if! {
+    if #[cfg(feature = "std")] {
+        type ScopeResult<T> = alloc::rc::Rc<RefCell<Option<T>>>;
+    } else {
+        use bevy_platform::sync::{Mutex, PoisonError};
 
-#[cfg(not(feature = "std"))]
-type ScopeResult<T> = Arc<Mutex<Option<T>>>;
+        type ScopeResult<T> = Arc<Mutex<Option<T>>>;
+    }
+}
 
 /// Used to create a [`TaskPool`].
 #[derive(Debug, Default, Clone)]
@@ -27,8 +28,8 @@ pub struct TaskPoolBuilder {}
 /// `wasm_bindgen_futures::spawn_local` for spawning which just runs tasks on the main thread
 /// and so the [`ThreadExecutor`] does nothing.
 #[derive(Default)]
-pub struct ThreadExecutor<'a>(PhantomData<&'a ()>);
-impl<'a> ThreadExecutor<'a> {
+pub struct ThreadSpawner<'a>(PhantomData<&'a ()>);
+impl<'a> ThreadSpawner<'a> {
     /// Creates a new `ThreadExecutor`
     pub fn new() -> Self {
         Self::default()
@@ -79,8 +80,8 @@ pub struct TaskPool {}
 
 impl TaskPool {
     /// Just create a new `ThreadExecutor` for wasm
-    pub fn get_thread_executor() -> Arc<ThreadExecutor<'static>> {
-        Arc::new(ThreadExecutor::new())
+    pub fn get_thread_executor() -> Arc<ThreadSpawner<'static>> {
+        Arc::new(ThreadSpawner::new())
     }
 
     /// Create a `TaskPool` with the default configuration.
@@ -119,7 +120,7 @@ impl TaskPool {
     pub fn scope_with_executor<'env, F, T>(
         &self,
         _tick_task_pool_executor: bool,
-        _thread_executor: Option<&ThreadExecutor>,
+        _thread_executor: Option<&ThreadSpawner>,
         f: F,
     ) -> Vec<T>
     where
@@ -155,7 +156,7 @@ impl TaskPool {
         f(scope_ref);
 
         // Loop until all tasks are done
-        while executor.try_tick() {}
+        while Self::try_tick_local() {}
 
         let results = scope.results.borrow();
         results
@@ -189,16 +190,10 @@ impl TaskPool {
         cfg_if::cfg_if! {
             if #[cfg(all(target_arch = "wasm32", feature = "web"))] {
                 Task::wrap_future(future)
-            } else if #[cfg(feature = "std")] {
+            } else {
                 let task = EXECUTOR.spawn_local(future);
                 // Loop until all tasks are done
-                while EXECUTOR.try_tick() {}
-
-                Task::new(task)
-            } else {
-                EXECUTOR.spawn_local(future);
-                // Loop until all tasks are done
-                while EXECUTOR.try_tick() {}
+                while Self::try_tick_local() {}
 
                 Task::new(task)
             }
@@ -214,6 +209,16 @@ impl TaskPool {
         T: 'static + MaybeSend + MaybeSync,
     {
         self.spawn(future)
+    }
+
+    pub(crate) fn try_tick_local() -> bool {
+        cfg_if::cfg_if! {
+            if #[cfg(feature = "std")] {
+                crate::async_executor::Executor::try_tick_local()
+            } else {
+                EXECUTOR.try_tick()
+            }
+        }
     }
 }
 
@@ -254,7 +259,7 @@ impl<'scope, 'env, T: Send + 'env> Scope<'scope, 'env, T> {
         self.spawn_on_scope(f);
     }
 
-    #[expect(unsafe_code, reason = "Executor::spawn_local_scoped is unsafe")]
+    #[allow(unsafe_code, reason = "Executor::spawn_local_scoped is unsafe")]
     /// Spawns a scoped future that runs on the thread the scope called from. The
     /// scope *must* outlive the provided future. The results of the future will be
     /// returned as a part of [`TaskPool::scope`]'s return value.
@@ -275,9 +280,16 @@ impl<'scope, 'env, T: Send + 'env> Scope<'scope, 'env, T> {
                 *lock = Some(temp_result);
             }
         };
+
+        #[cfg(feature = "std")]
         // SAFETY: The surrounding scope will not terminate until all local tasks are done
-        // ensuring that the borrowed variables do not outlive the detatched task.
-        unsafe { self.executor.spawn_local_scoped(f).detach() };
+        // ensuring that the borrowed variables do not outlive the detached task.
+        unsafe {
+            self.executor.spawn_local_scoped(f).detach()
+        };
+
+        #[cfg(not(feature = "std"))]
+        self.executor.spawn(f).detach();
     }
 }
 

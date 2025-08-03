@@ -2,13 +2,14 @@ use alloc::{boxed::Box, format, string::String, vec::Vec};
 use core::{future::Future, marker::PhantomData, mem, panic::AssertUnwindSafe};
 use std::thread::{self, JoinHandle};
 
-use crate::async_executor::ThreadSpawner;
-use crate::executor::FallibleTask;
+use crate::{async_executor::Executor, executor::FallibleTask};
 use bevy_platform::sync::Arc;
 use crossbeam_queue::SegQueue;
 use futures_lite::FutureExt;
 
 use crate::{block_on, Task};
+
+pub use crate::async_executor::ThreadSpawner;
 
 struct CallOnDrop(Option<Arc<dyn Fn() + Send + Sync + 'static>>);
 
@@ -418,6 +419,10 @@ impl TaskPool {
         T: 'static,
     {
         Task::new(self.executor.spawn_local(future))
+    }
+
+    pub(crate) fn try_tick_local() -> bool {
+        Executor::try_tick_local()
     }
 }
 

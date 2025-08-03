@@ -61,12 +61,11 @@ cfg_if::cfg_if! {
     if #[cfg(all(not(target_arch = "wasm32"), feature = "multi_threaded"))] {
         mod task_pool;
 
-        pub use task_pool::{Scope, TaskPool, TaskPoolBuilder};
-        pub use async_executor::ThreadSpawner;
+        pub use task_pool::{Scope, TaskPool, TaskPoolBuilder, ThreadSpawner};
     } else if #[cfg(any(target_arch = "wasm32", not(feature = "multi_threaded")))] {
         mod single_threaded_task_pool;
 
-        pub use single_threaded_task_pool::{Scope, TaskPool, TaskPoolBuilder};
+        pub use single_threaded_task_pool::{Scope, TaskPool, TaskPoolBuilder, ThreadSpawner};
     }
 }
 

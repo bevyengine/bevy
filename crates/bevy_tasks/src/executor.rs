@@ -38,11 +38,6 @@ impl Executor<'_> {
     pub const fn new() -> Self {
         Self(ExecutorInner::new())
     }
-
-    #[inline]
-    pub fn try_tick_local() -> bool {
-        ExecutorInner::try_tick_local()
-    }
 }
 
 impl UnwindSafe for Executor<'_> {}

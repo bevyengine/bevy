@@ -6,9 +6,9 @@
     clippy::unused_unit,
     reason = "False positive detection on {Async}CallOnDrop"
 )]
-#![expect(
+#![allow(
     dead_code,
-    reason = "Not every function is used in all feature combinations."
+    reason = "Not all functions are used with every feature combination"
 )]
 
 use core::marker::PhantomData;
@@ -311,27 +311,6 @@ impl<'a> Executor<'a> {
             state: self.state_as_arc(),
             _marker: PhantomData,
         }
-    }
-
-    /// Attempts to run a task if at least one is scheduled.
-    /// 
-    /// Running a scheduled task means simply polling its future once.
-    pub fn try_tick(&self) -> bool {
-        let state = self.state();
-        // SAFETY: There are no instances where the value is accessed mutably
-        // from multiple locations simultaneously. As the Runnable is run after
-        // this scope closes, the AsyncCallOnDrop around the future will be invoked
-        // without overlapping mutable accssses.
-        unsafe { with_local_queue(|tls| tls.local_queue.pop_front()) }
-            .or_else(|| state.queue.pop())
-            .or_else(|| {
-                THREAD_LOCAL_STATE
-                    .get_or_default()
-                    .thread_locked_queue
-                    .pop()
-            })
-            .map(Runnable::run)
-            .is_some()
     }
 
     pub fn try_tick_local() -> bool {

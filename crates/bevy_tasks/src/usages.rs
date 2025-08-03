@@ -1,5 +1,4 @@
 use super::TaskPool;
-use crate::executor::Executor;
 use bevy_platform::sync::OnceLock;
 use core::ops::Deref;
 
@@ -85,7 +84,7 @@ taskpool! {
 #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
 pub fn tick_global_task_pools_on_main_thread() {
     for _ in 0..100 {
-        if !Executor::try_tick_local() {
+        if !TaskPool::try_tick_local() {
             break;
         }
     }

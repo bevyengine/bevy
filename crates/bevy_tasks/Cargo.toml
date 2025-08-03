@@ -15,11 +15,7 @@ default = ["std"]
 
 ## Enables multi-threading support.
 ## Without this feature, all tasks will be run on a single thread.
-multi_threaded = [
-  "std",
-  "dep:async-channel",
-  "dep:fastrand",
-]
+multi_threaded = ["std", "dep:async-channel", "dep:fastrand"]
 
 # Platform Compatibility
 
