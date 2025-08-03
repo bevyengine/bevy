@@ -254,6 +254,7 @@ impl<'scope, 'env, T: Send + 'env> Scope<'scope, 'env, T> {
         self.spawn_on_scope(f);
     }
 
+    #[expect(unsafe_code, reason = "Executor::spawn_local_scoped is unsafe")]
     /// Spawns a scoped future that runs on the thread the scope called from. The
     /// scope *must* outlive the provided future. The results of the future will be
     /// returned as a part of [`TaskPool::scope`]'s return value.
@@ -274,7 +275,9 @@ impl<'scope, 'env, T: Send + 'env> Scope<'scope, 'env, T> {
                 *lock = Some(temp_result);
             }
         };
-        self.executor.spawn_local(f).detach();
+        // SAFETY: The surrounding scope will not terminate until all local tasks are done
+        // ensuring that the borrowed variables do not outlive the detatched task.
+        unsafe { self.executor.spawn_local_scoped(f).detach() };
     }
 }
 

@@ -6,12 +6,17 @@
     clippy::unused_unit,
     reason = "False positive detection on {Async}CallOnDrop"
 )]
+#![expect(
+    dead_code,
+    reason = "Not every function is used in all feature combinations."
+)]
 
 use core::marker::PhantomData;
 use core::panic::{RefUnwindSafe, UnwindSafe};
 use core::pin::Pin;
 use core::sync::atomic::{AtomicBool, AtomicPtr, Ordering};
 use core::task::{Context, Poll, Waker};
+use std::thread::ThreadId;
 
 use alloc::collections::VecDeque;
 use alloc::fmt;
@@ -245,6 +250,18 @@ impl<'a> Executor<'a> {
 
     /// Spawns a non-Send task onto the executor.
     pub fn spawn_local<T: 'static>(&self, future: impl Future<Output = T> + 'static) -> Task<T> {
+        // SAFETY: future is 'static
+        unsafe { self.spawn_local_scoped(future) }
+    }
+
+    /// Spawns a non-'static and non-Send task onto the executor.
+    ///
+    /// # Safety
+    /// The caller must ensure that the returned Task does not outlive 'a.
+    pub unsafe fn spawn_local_scoped<T: 'a>(
+        &self,
+        future: impl Future<Output = T> + 'a,
+    ) -> Task<T> {
         // Remove the task from the set of active tasks when the future finishes.
         //
         // SAFETY: There are no instances where the value is accessed mutably
@@ -267,7 +284,9 @@ impl<'a> Executor<'a> {
                 //
                 // - `future` is not `Send`, but the produced `Runnable` does is bound
                 //   to thread-local storage and thus cannot leave this thread of execution.
-                // - `future` is `'static`.
+                // - `future` may not be `'static`, but the caller is required to ensure that
+                //   the future does not outlive the borrowed non-metadata variables of the
+                //   task.
                 // - `self.schedule_local()` is not `Send` or `Sync` so all instances
                 //   must not leave the current thread of execution, and it does not
                 //   all of them are bound vy use of thread-local storage.
@@ -292,6 +311,27 @@ impl<'a> Executor<'a> {
             state: self.state_as_arc(),
             _marker: PhantomData,
         }
+    }
+
+    /// Attempts to run a task if at least one is scheduled.
+    /// 
+    /// Running a scheduled task means simply polling its future once.
+    pub fn try_tick(&self) -> bool {
+        let state = self.state();
+        // SAFETY: There are no instances where the value is accessed mutably
+        // from multiple locations simultaneously. As the Runnable is run after
+        // this scope closes, the AsyncCallOnDrop around the future will be invoked
+        // without overlapping mutable accssses.
+        unsafe { with_local_queue(|tls| tls.local_queue.pop_front()) }
+            .or_else(|| state.queue.pop())
+            .or_else(|| {
+                THREAD_LOCAL_STATE
+                    .get_or_default()
+                    .thread_locked_queue
+                    .pop()
+            })
+            .map(Runnable::run)
+            .is_some()
     }
 
     pub fn try_tick_local() -> bool {
@@ -417,7 +457,7 @@ impl Drop for Executor<'_> {
         }
         drop(active);
 
-        while self.state.queue.pop().is_some() {}
+        while state.queue.pop().is_some() {}
     }
 }
 
