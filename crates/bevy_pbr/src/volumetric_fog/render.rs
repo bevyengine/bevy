@@ -2,7 +2,7 @@
 
 use core::array;
 
-use bevy_asset::{load_embedded_asset, AssetId, Handle};
+use bevy_asset::{load_embedded_asset, AssetId, AssetServer, Handle};
 use bevy_color::ColorToComponents as _;
 use bevy_core_pipeline::{
     core_3d::Camera3d,
@@ -15,7 +15,7 @@ use bevy_ecs::{
     query::{Has, QueryItem, With},
     resource::Resource,
     system::{lifetimeless::Read, Commands, Local, Query, Res, ResMut},
-    world::{FromWorld, World},
+    world::World,
 };
 use bevy_image::{BevyDefault, Image};
 use bevy_math::{vec4, Mat3A, Mat4, Vec3, Vec3A, Vec4, Vec4Swizzles as _};
@@ -201,61 +201,61 @@ pub struct ViewFogVolume {
 #[derive(Resource, Default, Deref, DerefMut)]
 pub struct VolumetricFogUniformBuffer(pub DynamicUniformBuffer<VolumetricFogUniform>);
 
-impl FromWorld for VolumetricFogPipeline {
-    fn from_world(world: &mut World) -> Self {
-        let render_device = world.resource::<RenderDevice>();
-        let mesh_view_layouts = world.resource::<MeshPipelineViewLayouts>();
+pub fn init_volumetric_fog_pipeline(
+    mut commands: Commands,
+    render_device: Res<RenderDevice>,
+    mesh_view_layouts: Res<MeshPipelineViewLayouts>,
+    asset_server: Res<AssetServer>,
+) {
+    // Create the bind group layout entries common to all bind group
+    // layouts.
+    let base_bind_group_layout_entries = &BindGroupLayoutEntries::single(
+        ShaderStages::VERTEX_FRAGMENT,
+        // `volumetric_fog`
+        uniform_buffer::<VolumetricFogUniform>(true),
+    );
 
-        // Create the bind group layout entries common to all bind group
-        // layouts.
-        let base_bind_group_layout_entries = &BindGroupLayoutEntries::single(
-            ShaderStages::VERTEX_FRAGMENT,
-            // `volumetric_fog`
-            uniform_buffer::<VolumetricFogUniform>(true),
-        );
+    // For every combination of `VolumetricFogBindGroupLayoutKey` bits,
+    // create a bind group layout.
+    let bind_group_layouts = array::from_fn(|bits| {
+        let flags = VolumetricFogBindGroupLayoutKey::from_bits_retain(bits as u8);
 
-        // For every combination of `VolumetricFogBindGroupLayoutKey` bits,
-        // create a bind group layout.
-        let bind_group_layouts = array::from_fn(|bits| {
-            let flags = VolumetricFogBindGroupLayoutKey::from_bits_retain(bits as u8);
+        let mut bind_group_layout_entries = base_bind_group_layout_entries.to_vec();
 
-            let mut bind_group_layout_entries = base_bind_group_layout_entries.to_vec();
+        // `depth_texture`
+        bind_group_layout_entries.extend_from_slice(&BindGroupLayoutEntries::with_indices(
+            ShaderStages::FRAGMENT,
+            ((
+                1,
+                if flags.contains(VolumetricFogBindGroupLayoutKey::MULTISAMPLED) {
+                    texture_depth_2d_multisampled()
+                } else {
+                    texture_depth_2d()
+                },
+            ),),
+        ));
 
-            // `depth_texture`
+        // `density_texture` and `density_sampler`
+        if flags.contains(VolumetricFogBindGroupLayoutKey::DENSITY_TEXTURE) {
             bind_group_layout_entries.extend_from_slice(&BindGroupLayoutEntries::with_indices(
                 ShaderStages::FRAGMENT,
-                ((
-                    1,
-                    if flags.contains(VolumetricFogBindGroupLayoutKey::MULTISAMPLED) {
-                        texture_depth_2d_multisampled()
-                    } else {
-                        texture_depth_2d()
-                    },
-                ),),
+                (
+                    (2, texture_3d(TextureSampleType::Float { filterable: true })),
+                    (3, sampler(SamplerBindingType::Filtering)),
+                ),
             ));
-
-            // `density_texture` and `density_sampler`
-            if flags.contains(VolumetricFogBindGroupLayoutKey::DENSITY_TEXTURE) {
-                bind_group_layout_entries.extend_from_slice(&BindGroupLayoutEntries::with_indices(
-                    ShaderStages::FRAGMENT,
-                    (
-                        (2, texture_3d(TextureSampleType::Float { filterable: true })),
-                        (3, sampler(SamplerBindingType::Filtering)),
-                    ),
-                ));
-            }
-
-            // Create the bind group layout.
-            let description = flags.bind_group_layout_description();
-            render_device.create_bind_group_layout(&*description, &bind_group_layout_entries)
-        });
-
-        VolumetricFogPipeline {
-            mesh_view_layouts: mesh_view_layouts.clone(),
-            volumetric_view_bind_group_layouts: bind_group_layouts,
-            shader: load_embedded_asset!(world, "volumetric_fog.wgsl"),
         }
-    }
+
+        // Create the bind group layout.
+        let description = flags.bind_group_layout_description();
+        render_device.create_bind_group_layout(&*description, &bind_group_layout_entries)
+    });
+
+    commands.insert_resource(VolumetricFogPipeline {
+        mesh_view_layouts: mesh_view_layouts.clone(),
+        volumetric_view_bind_group_layouts: bind_group_layouts,
+        shader: load_embedded_asset!(asset_server.as_ref(), "volumetric_fog.wgsl"),
+    });
 }
 
 /// Extracts [`VolumetricFog`], [`FogVolume`], and [`VolumetricLight`]s
@@ -431,6 +431,7 @@ impl ViewNode for VolumetricFogNode {
                 label: Some("volumetric lighting pass"),
                 color_attachments: &[Some(RenderPassColorAttachment {
                     view: view_target.main_texture_view(),
+                    depth_slice: None,
                     resolve_target: None,
                     ops: Operations {
                         load: LoadOp::Load,

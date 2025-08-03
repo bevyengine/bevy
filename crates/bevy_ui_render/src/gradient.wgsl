@@ -115,66 +115,7 @@ fn fragment(in: GradientVertexOutput) -> @location(0) vec4<f32> {
     }
 }
 
-// https://en.wikipedia.org/wiki/SRGB
-fn gamma(value: f32) -> f32 {
-    if value <= 0.0 {
-        return value;
-    }
-    if value <= 0.04045 {
-        return value / 12.92; // linear falloff in dark values
-    } else {
-        return pow((value + 0.055) / 1.055, 2.4); // gamma curve in other area
-    }
-}
-
-// https://en.wikipedia.org/wiki/SRGB
-fn inverse_gamma(value: f32) -> f32 {
-    if value <= 0.0 {
-        return value;
-    }
-
-    if value <= 0.0031308 {
-        return value * 12.92; // linear falloff in dark values
-    } else {
-        return 1.055 * pow(value, 1.0 / 2.4) - 0.055; // gamma curve in other area
-    }
-}
-
-fn srgb_to_linear_rgb(color: vec3<f32>) -> vec3<f32> {
-    return vec3(
-        gamma(color.x),
-        gamma(color.y),
-        gamma(color.z)
-    );
-}
-fn linear_rgb_to_srgb(color: vec3<f32>) -> vec3<f32> {
-    return vec3(
-        inverse_gamma(color.x),
-        inverse_gamma(color.y),
-        inverse_gamma(color.z)
-    );
-}
-
-// This function converts two linear rgb colors to srgb space, mixes them, and then converts the result back to linear rgb space.
-fn mix_linear_rgb_in_srgb_space(a: vec3<f32>, b: vec3<f32>, t: f32) -> vec3<f32> {
-    let a_srgb = linear_rgb_to_srgb(a);
-    let b_srgb = linear_rgb_to_srgb(b);
-    let mixed_srgb = mix(a_srgb, b_srgb, t);
-    return srgb_to_linear_rgb(mixed_srgb);
-}
-
-fn linear_rgb_to_oklab(c: vec3<f32>) -> vec3<f32> {
-    let l = pow(0.41222146 * c.x + 0.53633255 * c.y + 0.051445995 * c.z, 1. / 3.);
-    let m = pow(0.2119035 * c.x + 0.6806995 * c.y + 0.10739696 * c.z, 1. / 3.);
-    let s = pow(0.08830246 * c.x + 0.28171885 * c.y + 0.6299787 * c.z, 1. / 3.);
-    return vec3(
-        0.21045426 * l + 0.7936178 * m - 0.004072047 * s,
-        1.9779985 * l - 2.4285922 * m + 0.4505937 * s,
-        0.025904037 * l + 0.78277177 * m - 0.80867577 * s,
-    );
-}
-
-fn oklab_to_linear_rgb(c: vec3<f32>) -> vec3<f32> {
+fn oklaba_to_linear_rgba(c: vec4<f32>) -> vec4<f32> {
     let l_ = c.x + 0.39633778 * c.y + 0.21580376 * c.z;
     let m_ = c.x - 0.105561346 * c.y - 0.06385417 * c.z;
     let s_ = c.x - 0.08948418 * c.y - 1.2914855 * c.z;
@@ -188,34 +129,7 @@ fn oklab_to_linear_rgb(c: vec3<f32>) -> vec3<f32> {
     );
 }
 
-fn mix_linear_rgb_in_oklab_space(a: vec3<f32>, b: vec3<f32>, t: f32) -> vec3<f32> {
-    return oklab_to_linear_rgb(mix(linear_rgb_to_oklab(a), linear_rgb_to_oklab(b), t));
-}
-
-fn linear_rgb_to_hsl(lrgb: vec3<f32>) -> vec3<f32> {
-    let c = linear_rgb_to_srgb(lrgb);
-    let max = max(max(c.r, c.g), c.b);
-    let min = min(min(c.r, c.g), c.b);
-    let l = (max + min) * 0.5;
-    if max == min {
-        return vec3(0., 0., l);
-    } else {
-        let delta = max - min;
-        let s = delta / (1. - abs(2. * l - 1.));
-        var h = 0.;
-        if max == c.r {
-            h = ((c.g - c.b) / delta) % 6.;
-        } else if max == c.g {
-            h = ((c.b - c.r) / delta) + 2.;
-        } else {
-            h = ((c.r - c.g) / delta) + 4.;
-        }
-        h = h / 6.;
-        return vec3<f32>(h, s, l);
-    }
-}
-
-fn hsl_to_linear_rgb(hsl: vec3<f32>) -> vec3<f32> {
+fn hsla_to_linear_rgba(hsl: vec4<f32>) -> vec4<f32> {
     let h = hsl.x;
     let s = hsl.y;
     let l = hsl.z;
@@ -242,35 +156,10 @@ fn hsl_to_linear_rgb(hsl: vec3<f32>) -> vec3<f32> {
     return srgb_to_linear_rgb(vec3(r + m, g + m, b + m));
 }
 
-fn linear_rgb_to_hsv(lrgb: vec3<f32>) -> vec3<f32> {
-    let c = linear_rgb_to_srgb(lrgb);
-    let maxc = max(max(c.r, c.g), c.b);
-    let minc = min(min(c.r, c.g), c.b);
-    let delta = maxc - minc;
-    var h: f32 = 0.0;
-    var s: f32 = 0.0;
-    let v: f32 = maxc;
-    if delta != 0.0 {
-        s = delta / maxc;
-        if maxc == c.r {
-            h = ((c.g - c.b) / delta) % 6.0;
-        } else if maxc == c.g {
-            h = ((c.b - c.r) / delta) + 2.0;
-        } else {
-            h = ((c.r - c.g) / delta) + 4.0;
-        }
-        h = h / 6.0;
-        if h < 0.0 {
-            h = h + 1.0;
-        }
-    }
-    return vec3<f32>(h, s, v);
-}
-
-fn hsv_to_linear_rgb(hsv: vec3<f32>) -> vec3<f32> {
-    let h = hsv.x * 6.0;
-    let s = hsv.y;
-    let v = hsv.z;
+fn hsva_to_linear_rgba(hsva: vec4<f32>) -> vec4<f32> {
+    let h = hsva.x * 6.0;
+    let s = hsva.y;
+    let v = hsva.z;
     let c = v * s;
     let x = c * (1.0 - abs(h % 2.0 - 1.0));
     let m = v - c;
@@ -293,15 +182,7 @@ fn hsv_to_linear_rgb(hsv: vec3<f32>) -> vec3<f32> {
     return srgb_to_linear_rgb(vec3(r + m, g + m, b + m));
 }
 
-/// hue is left in radians and not converted to degrees
-fn linear_rgb_to_oklch(c: vec3<f32>) -> vec3<f32> {
-    let o = linear_rgb_to_oklab(c);
-    let chroma = sqrt(o.y * o.y + o.z * o.z);
-    let hue = atan2(o.z, o.y);
-    return vec3(o.x, chroma, rem_euclid(hue, TAU));
-}
-
-fn oklch_to_linear_rgb(c: vec3<f32>) -> vec3<f32> {
+fn oklcha_to_linear_rgba(c: vec4<f32>) -> vec4<f32> {
     let a = c.y * cos(c.z);
     let b = c.y * sin(c.z);
     return oklab_to_linear_rgb(vec3(c.x, a, b));
@@ -311,127 +192,6 @@ fn rem_euclid(a: f32, b: f32) -> f32 {
     return ((a % b) + b) % b;
 }
 
-fn lerp_hue(a: f32, b: f32, t: f32) -> f32 {
-    let diff = rem_euclid(b - a + PI, TAU) - PI;
-    return rem_euclid(a + diff * t, TAU);
-}
-
-fn lerp_hue_long(a: f32, b: f32, t: f32) -> f32 {
-    let diff = rem_euclid(b - a + PI, TAU) - PI;
-    return rem_euclid(a + (diff + select(TAU, -TAU, 0. < diff)) * t, TAU);
-}
-
-fn mix_oklch(a: vec3<f32>, b: vec3<f32>, t: f32) -> vec3<f32> {
-    var h: f32;
-
-    // If the chroma is close to zero for one of the endpoints, don't interpolate 
-    // the hue and instead use the hue of the other endpoint. This allows gradients that smoothly 
-    // transition from black or white to a target color without passing through unrelated hues.
-    if a.y < HUE_GUARD {
-        h = b.z;
-    } else if b.y < HUE_GUARD {
-        h = a.z;
-    } else {
-        h = lerp_hue(a.z, b.z, t);
-    }
-    return vec3(
-        mix(a.xy, b.xy, t),
-        h,
-    );
-}
-
-fn mix_oklch_long(a: vec3<f32>, b: vec3<f32>, t: f32) -> vec3<f32> {
-    var h: f32;
-    if a.y < HUE_GUARD {
-        h = b.z;
-    } else if b.y < HUE_GUARD {
-        h = a.z;
-    } else {
-        h = lerp_hue_long(a.z, b.z, t);
-    }
-    return vec3(
-        mix(a.xy, b.xy, t),
-        h
-    );
-}
-
-fn mix_linear_rgb_in_oklch_space(a: vec3<f32>, b: vec3<f32>, t: f32) -> vec3<f32> {
-    return oklch_to_linear_rgb(mix_oklch(linear_rgb_to_oklch(a), linear_rgb_to_oklch(b), t));
-}
-
-fn mix_linear_rgb_in_oklch_space_long(a: vec3<f32>, b: vec3<f32>, t: f32) -> vec3<f32> {
-    return oklch_to_linear_rgb(mix_oklch_long(linear_rgb_to_oklch(a), linear_rgb_to_oklch(b), t));
-}
-
-fn mix_linear_rgb_in_hsv_space(la: vec3<f32>, lb: vec3<f32>, t: f32) -> vec3<f32> {
-    let a = linear_rgb_to_hsv(la);
-    let b = linear_rgb_to_hsv(lb);
-    var h: f32;
-
-    // If the saturation is close to zero for one of the endpoints, don't interpolate 
-    // the hue and instead use the hue of the other endpoint. This allows gradients that smoothly 
-    // transition from black or white to a target color without passing through unrelated hues.
-    if a.y < HUE_GUARD {
-        h = b.x;
-    } else if b.y < HUE_GUARD {
-        h = a.x;
-    } else {
-        h = lerp_hue(a.x * TAU, b.x * TAU, t) / TAU;
-    }
-    let s = mix(a.y, b.y, t);
-    let v = mix(a.z, b.z, t);
-    return hsv_to_linear_rgb(vec3<f32>(h, s, v));
-}
-
-fn mix_linear_rgb_in_hsv_space_long(la: vec3<f32>, lb: vec3<f32>, t: f32) -> vec3<f32> {
-    let a = linear_rgb_to_hsv(la);
-    let b = linear_rgb_to_hsv(lb);
-    var h: f32;
-    if a.y < HUE_GUARD {
-        h = b.z;
-    } else if b.y < HUE_GUARD {
-        h = a.z;
-    } else {
-        h = lerp_hue_long(a.x * TAU, b.x * TAU, t) / TAU;
-    }
-    let s = mix(a.y, b.y, t);
-    let v = mix(a.z, b.z, t);
-    return hsv_to_linear_rgb(vec3<f32>(h, s, v));
-}
-
-fn mix_linear_rgb_in_hsl_space(la: vec3<f32>, lb: vec3<f32>, t: f32) -> vec3<f32> {
-    let a = linear_rgb_to_hsl(la);
-    let b = linear_rgb_to_hsl(lb);
-    var h: f32;
-
-    if a.y < HUE_GUARD {
-        h = b.x;
-    } else if b.y < HUE_GUARD {
-        h = a.x;
-    } else {
-        h = lerp_hue(a.x * TAU, b.x * TAU, t) / TAU;
-    }
-    let s = mix(a.y, b.y, t);
-    let l = mix(a.z, b.z, t);
-    return hsl_to_linear_rgb(vec3<f32>(h, s, l));
-}
-
-fn mix_linear_rgb_in_hsl_space_long(la: vec3<f32>, lb: vec3<f32>, t: f32) -> vec3<f32> {
-    let a = linear_rgb_to_hsl(la);
-    let b = linear_rgb_to_hsl(lb);
-    var h: f32;
-
-    if a.y < HUE_GUARD {
-        h = b.x;
-    } else if b.y < HUE_GUARD {
-        h = a.x;
-    } else {
-        h = lerp_hue_long(a.x * TAU, b.x * TAU, t) / TAU;
-    }
-    let s = mix(a.y, b.y, t);
-    let l = mix(a.z, b.z, t);
-    return hsl_to_linear_rgb(vec3<f32>(h, s, l));
-}
 
 // These functions are used to calculate the distance in gradient space from the start of the gradient to the point.
 // The distance in gradient space is then used to interpolate between the start and end colors.
@@ -463,6 +223,105 @@ fn conic_distance(
     return (((angle - start) % TAU) + TAU) % TAU;
 }
 
+fn mix_oklcha(a: vec4<f32>, b: vec4<f32>, t: f32) -> vec4<f32> {
+    let hue_diff = b.z - a.z;
+    var adjusted_hue = a.z;
+    if abs(hue_diff) > PI {
+        if hue_diff > 0.0 {
+            adjusted_hue = a.z + (hue_diff - TAU) * t;
+        } else {
+            adjusted_hue = a.z + (hue_diff + TAU) * t;
+        }
+    } else {
+        adjusted_hue = a.z + hue_diff * t;
+    }
+    return vec4(
+        mix(a.x, b.x, t),
+        mix(a.y, b.y, t),
+        rem_euclid(adjusted_hue, TAU),
+        mix(a.w, b.w, t)
+    );
+}
+
+fn mix_oklcha_long(a: vec4<f32>, b: vec4<f32>, t: f32) -> vec4<f32> {
+    let hue_diff = b.z - a.z;
+    var adjusted_hue = a.z;
+    if abs(hue_diff) < PI {
+        if hue_diff >= 0.0 {
+            adjusted_hue = a.z + (hue_diff - TAU) * t;
+        } else {
+            adjusted_hue = a.z + (hue_diff + TAU) * t;
+        }
+    } else {
+        adjusted_hue = a.z + hue_diff * t;
+    }
+    return vec4(
+        mix(a.x, b.x, t),
+        mix(a.y, b.y, t),
+        rem_euclid(adjusted_hue, TAU),
+        mix(a.w, b.w, t)
+    );
+}
+
+fn mix_hsla(a: vec4<f32>, b: vec4<f32>, t: f32) -> vec4<f32> {
+    return vec4(
+        fract(a.x + (fract(b.x - a.x + 0.5) - 0.5) * t),
+        mix(a.y, b.y, t),
+        mix(a.z, b.z, t),
+        mix(a.w, b.w, t)
+    );
+}
+
+fn mix_hsla_long(a: vec4<f32>, b: vec4<f32>, t: f32) -> vec4<f32> {
+    let d = fract(b.x - a.x + 0.5) - 0.5;
+    return vec4(
+        fract(a.x + (d + select(1., -1., 0. < d)) * t),
+        mix(a.y, b.y, t),
+        mix(a.z, b.z, t),
+        mix(a.w, b.w, t)
+    );
+}
+
+fn mix_hsva(a: vec4<f32>, b: vec4<f32>, t: f32) -> vec4<f32> {
+    let hue_diff = b.x - a.x;
+    var adjusted_hue = a.x;
+    if abs(hue_diff) > 0.5 {
+        if hue_diff > 0.0 {
+            adjusted_hue = a.x + (hue_diff - 1.0) * t;
+        } else {
+            adjusted_hue = a.x + (hue_diff + 1.0) * t;
+        }
+    } else {
+        adjusted_hue = a.x + hue_diff * t;
+    }
+    return vec4(
+        fract(adjusted_hue),
+        mix(a.y, b.y, t),
+        mix(a.z, b.z, t),
+        mix(a.w, b.w, t)
+    );
+}
+
+fn mix_hsva_long(a: vec4<f32>, b: vec4<f32>, t: f32) -> vec4<f32> {
+    let hue_diff = b.x - a.x;
+    var adjusted_hue = a.x;
+    if abs(hue_diff) < 0.5 {
+        if hue_diff >= 0.0 {
+            adjusted_hue = a.x + (hue_diff - 1.0) * t;
+        } else {
+            adjusted_hue = a.x + (hue_diff + 1.0) * t;
+        }
+    } else {
+        adjusted_hue = a.x + hue_diff * t;
+    }
+    return vec4(
+        fract(adjusted_hue),
+        mix(a.y, b.y, t),
+        mix(a.z, b.z, t),
+        mix(a.w, b.w, t)
+    );
+}
+
 fn interpolate_gradient(
     distance: f32,
     start_color: vec4<f32>,
@@ -474,10 +333,10 @@ fn interpolate_gradient(
 ) -> vec4<f32> {
     if start_distance == end_distance {
         if distance <= start_distance && enabled(flags, FILL_START) {
-            return start_color;
+            return convert_to_linear_rgba(start_color);
         }
         if start_distance <= distance && enabled(flags, FILL_END) {
-            return end_color;
+            return convert_to_linear_rgba(end_color);
         }
         return vec4(0.);
     }
@@ -486,14 +345,14 @@ fn interpolate_gradient(
 
     if t < 0.0 {
         if enabled(flags, FILL_START) {
-            return start_color;
+            return convert_to_linear_rgba(start_color);
         }
         return vec4(0.0);
     }
 
     if 1. < t {
         if enabled(flags, FILL_END) {
-            return end_color;
+            return convert_to_linear_rgba(end_color);
         }
         return vec4(0.0);
     }
@@ -503,25 +362,57 @@ fn interpolate_gradient(
     } else {
         t = 0.5 * (1 + (t - hint) / (1.0 - hint));
     }
-    
-#ifdef IN_SRGB
-    let rgb = mix_linear_rgb_in_srgb_space(start_color.rgb, end_color.rgb, t);
-#else ifdef IN_OKLAB
-    let rgb = mix_linear_rgb_in_oklab_space(start_color.rgb, end_color.rgb, t);
-#else ifdef IN_OKLCH
-    let rgb = mix_linear_rgb_in_oklch_space(start_color.rgb, end_color.rgb, t);
+
+    return convert_to_linear_rgba(mix_colors(start_color, end_color, t));
+}
+
+// Mix the colors, choosing the appropriate interpolation method for the given color space
+fn mix_colors(
+    start_color: vec4<f32>,
+    end_color: vec4<f32>,
+    t: f32,
+) -> vec4<f32> {
+#ifdef IN_OKLCH
+    return mix_oklcha(start_color, end_color, t);
 #else ifdef IN_OKLCH_LONG
-    let rgb = mix_linear_rgb_in_oklch_space_long(start_color.rgb, end_color.rgb, t);
+    return mix_oklcha_long(start_color, end_color, t);
 #else ifdef IN_HSV
-    let rgb = mix_linear_rgb_in_hsv_space(start_color.rgb, end_color.rgb, t);
+    return mix_hsva(start_color, end_color, t);
 #else ifdef IN_HSV_LONG
-    let rgb = mix_linear_rgb_in_hsv_space_long(start_color.rgb, end_color.rgb, t);
+    return mix_hsva_long(start_color, end_color, t);
 #else ifdef IN_HSL
-    let rgb = mix_linear_rgb_in_hsl_space(start_color.rgb, end_color.rgb, t);
+    return mix_hsla(start_color, end_color, t);
 #else ifdef IN_HSL_LONG
-    let rgb = mix_linear_rgb_in_hsl_space_long(start_color.rgb, end_color.rgb, t);
+    return mix_hsla_long(start_color, end_color, t);
 #else
-    let rgb = mix(start_color.rgb, end_color.rgb, t);
+    // Just lerp in linear RGBA, OkLab and SRGBA spaces
+    return mix(start_color, end_color, t);
 #endif
     return vec4(rgb, mix(start_color.a, end_color.a, t));
+}
+
+// Convert a color from the interpolation color space to linear rgba
+fn convert_to_linear_rgba(
+    color: vec4<f32>,
+) -> vec4<f32> {
+#ifdef IN_OKLCH
+    return oklcha_to_linear_rgba(color);
+#else ifdef IN_OKLCH_LONG
+    return oklcha_to_linear_rgba(color);
+#else ifdef IN_HSV
+    return hsva_to_linear_rgba(color);
+#else ifdef IN_HSV_LONG
+    return hsva_to_linear_rgba(color);
+#else ifdef IN_HSL
+    return hsla_to_linear_rgba(color);
+#else ifdef IN_HSL_LONG
+    return hsla_to_linear_rgba(color);
+#else ifdef IN_OKLAB
+    return oklaba_to_linear_rgba(color);
+#else ifdef IN_SRGB
+    return vec4(pow(color.rgb, vec3(2.2)), color.a);
+#else
+    // Color is already in linear rgba space
+    return color;
+#endif
 }

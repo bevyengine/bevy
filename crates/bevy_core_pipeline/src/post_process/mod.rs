@@ -3,7 +3,7 @@
 //! Currently, this consists only of chromatic aberration.
 
 use bevy_app::{App, Plugin};
-use bevy_asset::{embedded_asset, load_embedded_asset, Assets, Handle};
+use bevy_asset::{embedded_asset, load_embedded_asset, AssetServer, Assets, Handle};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     component::Component,
@@ -13,7 +13,7 @@ use bevy_ecs::{
     resource::Resource,
     schedule::IntoScheduleConfigs as _,
     system::{lifetimeless::Read, Commands, Query, Res, ResMut},
-    world::{FromWorld, World},
+    world::World,
 };
 use bevy_image::{BevyDefault, Image};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
@@ -37,7 +37,7 @@ use bevy_render::{
     renderer::{RenderContext, RenderDevice, RenderQueue},
     texture::GpuImage,
     view::{ExtractedView, ViewTarget},
-    Render, RenderApp, RenderSystems,
+    Render, RenderApp, RenderStartup, RenderSystems,
 };
 use bevy_utils::prelude::default;
 
@@ -211,6 +211,7 @@ impl Plugin for PostProcessingPlugin {
             .insert_resource(DefaultChromaticAberrationLut(default_lut))
             .init_resource::<SpecializedRenderPipelines<PostProcessingPipeline>>()
             .init_resource::<PostProcessingUniformBuffers>()
+            .add_systems(RenderStartup, init_post_processing_pipeline)
             .add_systems(
                 Render,
                 (
@@ -240,13 +241,6 @@ impl Plugin for PostProcessingPlugin {
                 (Node2d::Bloom, Node2d::PostProcessing, Node2d::Tonemapping),
             );
     }
-
-    fn finish(&self, app: &mut App) {
-        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
-            return;
-        };
-        render_app.init_resource::<PostProcessingPipeline>();
-    }
 }
 
 impl Default for ChromaticAberration {
@@ -259,55 +253,56 @@ impl Default for ChromaticAberration {
     }
 }
 
-impl FromWorld for PostProcessingPipeline {
-    fn from_world(world: &mut World) -> Self {
-        let render_device = world.resource::<RenderDevice>();
-
-        // Create our single bind group layout.
-        let bind_group_layout = render_device.create_bind_group_layout(
-            Some("postprocessing bind group layout"),
-            &BindGroupLayoutEntries::sequential(
-                ShaderStages::FRAGMENT,
-                (
-                    // Chromatic aberration source:
-                    texture_2d(TextureSampleType::Float { filterable: true }),
-                    // Chromatic aberration source sampler:
-                    sampler(SamplerBindingType::Filtering),
-                    // Chromatic aberration LUT:
-                    texture_2d(TextureSampleType::Float { filterable: true }),
-                    // Chromatic aberration LUT sampler:
-                    sampler(SamplerBindingType::Filtering),
-                    // Chromatic aberration settings:
-                    uniform_buffer::<ChromaticAberrationUniform>(true),
-                ),
+pub fn init_post_processing_pipeline(
+    mut commands: Commands,
+    render_device: Res<RenderDevice>,
+    fullscreen_shader: Res<FullscreenShader>,
+    asset_server: Res<AssetServer>,
+) {
+    // Create our single bind group layout.
+    let bind_group_layout = render_device.create_bind_group_layout(
+        Some("postprocessing bind group layout"),
+        &BindGroupLayoutEntries::sequential(
+            ShaderStages::FRAGMENT,
+            (
+                // Chromatic aberration source:
+                texture_2d(TextureSampleType::Float { filterable: true }),
+                // Chromatic aberration source sampler:
+                sampler(SamplerBindingType::Filtering),
+                // Chromatic aberration LUT:
+                texture_2d(TextureSampleType::Float { filterable: true }),
+                // Chromatic aberration LUT sampler:
+                sampler(SamplerBindingType::Filtering),
+                // Chromatic aberration settings:
+                uniform_buffer::<ChromaticAberrationUniform>(true),
             ),
-        );
+        ),
+    );
 
-        // Both source and chromatic aberration LUTs should be sampled
-        // bilinearly.
+    // Both source and chromatic aberration LUTs should be sampled
+    // bilinearly.
 
-        let source_sampler = render_device.create_sampler(&SamplerDescriptor {
-            mipmap_filter: FilterMode::Linear,
-            min_filter: FilterMode::Linear,
-            mag_filter: FilterMode::Linear,
-            ..default()
-        });
+    let source_sampler = render_device.create_sampler(&SamplerDescriptor {
+        mipmap_filter: FilterMode::Linear,
+        min_filter: FilterMode::Linear,
+        mag_filter: FilterMode::Linear,
+        ..default()
+    });
 
-        let chromatic_aberration_lut_sampler = render_device.create_sampler(&SamplerDescriptor {
-            mipmap_filter: FilterMode::Linear,
-            min_filter: FilterMode::Linear,
-            mag_filter: FilterMode::Linear,
-            ..default()
-        });
+    let chromatic_aberration_lut_sampler = render_device.create_sampler(&SamplerDescriptor {
+        mipmap_filter: FilterMode::Linear,
+        min_filter: FilterMode::Linear,
+        mag_filter: FilterMode::Linear,
+        ..default()
+    });
 
-        PostProcessingPipeline {
-            bind_group_layout,
-            source_sampler,
-            chromatic_aberration_lut_sampler,
-            fullscreen_shader: world.resource::<FullscreenShader>().clone(),
-            fragment_shader: load_embedded_asset!(world, "post_process.wgsl"),
-        }
-    }
+    commands.insert_resource(PostProcessingPipeline {
+        bind_group_layout,
+        source_sampler,
+        chromatic_aberration_lut_sampler,
+        fullscreen_shader: fullscreen_shader.clone(),
+        fragment_shader: load_embedded_asset!(asset_server.as_ref(), "post_process.wgsl"),
+    });
 }
 
 impl SpecializedRenderPipeline for PostProcessingPipeline {
@@ -384,6 +379,7 @@ impl ViewNode for PostProcessingNode {
             label: Some("postprocessing pass"),
             color_attachments: &[Some(RenderPassColorAttachment {
                 view: post_process.destination,
+                depth_slice: None,
                 resolve_target: None,
                 ops: Operations::default(),
             })],

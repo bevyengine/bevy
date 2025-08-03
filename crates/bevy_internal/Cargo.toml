@@ -69,6 +69,8 @@ statically-linked-dxc = ["bevy_render/statically-linked-dxc"]
 
 # Include tonemapping LUT KTX2 files.
 tonemapping_luts = ["bevy_core_pipeline/tonemapping_luts"]
+# Include Bluenoise texture for environment map generation.
+bluenoise_texture = ["bevy_pbr?/bluenoise_texture"]
 
 # Include SMAA LUT KTX2 Files
 smaa_luts = ["bevy_anti_aliasing/smaa_luts"]
@@ -78,7 +80,6 @@ flac = ["bevy_audio/flac"]
 mp3 = ["bevy_audio/mp3"]
 vorbis = ["bevy_audio/vorbis"]
 wav = ["bevy_audio/wav"]
-minimp3 = ["bevy_audio/minimp3"]
 symphonia-aac = ["bevy_audio/symphonia-aac"]
 symphonia-all = ["bevy_audio/symphonia-all"]
 symphonia-flac = ["bevy_audio/symphonia-flac"]
@@ -189,7 +190,12 @@ bevy_ci_testing = ["bevy_dev_tools/bevy_ci_testing", "bevy_render?/ci_limits"]
 animation = ["bevy_animation", "bevy_gltf?/bevy_animation"]
 
 bevy_sprite = ["dep:bevy_sprite", "bevy_gizmos?/bevy_sprite", "bevy_image"]
-bevy_pbr = ["dep:bevy_pbr", "bevy_gizmos?/bevy_pbr", "bevy_image"]
+bevy_pbr = [
+  "dep:bevy_pbr",
+  "bevy_gizmos?/bevy_pbr",
+  "bevy_light",
+  "bevy_render",
+]
 bevy_window = ["dep:bevy_window", "dep:bevy_a11y"]
 bevy_core_pipeline = ["dep:bevy_core_pipeline", "bevy_image"]
 bevy_anti_aliasing = ["dep:bevy_anti_aliasing", "bevy_image"]
@@ -197,6 +203,7 @@ bevy_gizmos = ["dep:bevy_gizmos", "bevy_image"]
 bevy_gltf = ["dep:bevy_gltf", "bevy_image"]
 bevy_ui = ["dep:bevy_ui", "bevy_image"]
 bevy_ui_render = ["dep:bevy_ui_render"]
+bevy_shader = ["dep:bevy_shader"]
 bevy_image = ["dep:bevy_image"]
 
 bevy_mesh = ["dep:bevy_mesh", "bevy_image"]
@@ -217,9 +224,9 @@ bevy_text = ["dep:bevy_text", "bevy_image"]
 
 bevy_render = [
   "dep:bevy_render",
-  "bevy_scene?/bevy_render",
   "bevy_gizmos?/bevy_render",
   "bevy_camera",
+  "bevy_shader",
   "bevy_color/wgpu-types",
   "bevy_color/encase",
 ]
@@ -432,6 +439,7 @@ bevy_gizmos = { path = "../bevy_gizmos", optional = true, version = "0.17.0-dev"
 bevy_gltf = { path = "../bevy_gltf", optional = true, version = "0.17.0-dev" }
 bevy_feathers = { path = "../bevy_feathers", optional = true, version = "0.17.0-dev" }
 bevy_image = { path = "../bevy_image", optional = true, version = "0.17.0-dev" }
+bevy_shader = { path = "../bevy_shader", optional = true, version = "0.17.0-dev" }
 bevy_mesh = { path = "../bevy_mesh", optional = true, version = "0.17.0-dev" }
 bevy_camera = { path = "../bevy_camera", optional = true, version = "0.17.0-dev" }
 bevy_light = { path = "../bevy_light", optional = true, version = "0.17.0-dev" }

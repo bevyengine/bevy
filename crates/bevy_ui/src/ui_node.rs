@@ -42,6 +42,14 @@ pub struct ComputedNode {
     ///
     /// Automatically calculated by [`super::layout::ui_layout_system`].
     pub content_size: Vec2,
+    /// Space allocated for scrollbars.
+    ///
+    /// Automatically calculated by [`super::layout::ui_layout_system`].
+    pub scrollbar_size: Vec2,
+    /// Resolved offset of scrolled content
+    ///
+    /// Automatically calculated by [`super::layout::ui_layout_system`].
+    pub scroll_position: Vec2,
     /// The width of this node's outline.
     /// If this value is `Auto`, negative or `0.` then no outline will be rendered.
     /// Outline updates bypass change detection.
@@ -305,6 +313,8 @@ impl ComputedNode {
         stack_index: 0,
         size: Vec2::ZERO,
         content_size: Vec2::ZERO,
+        scrollbar_size: Vec2::ZERO,
+        scroll_position: Vec2::ZERO,
         outline_width: 0.,
         outline_offset: 0.,
         unrounded_size: Vec2::ZERO,
@@ -418,6 +428,9 @@ pub struct Node {
     ///
     /// <https://developer.mozilla.org/en-US/docs/Web/CSS/overflow>
     pub overflow: Overflow,
+
+    /// How much space in logical pixels should be reserved for scrollbars when overflow is set to scroll or auto on an axis.
+    pub scrollbar_width: f32,
 
     /// How the bounds of clipped content should be determined
     ///
@@ -703,6 +716,7 @@ impl Node {
         aspect_ratio: None,
         overflow: Overflow::DEFAULT,
         overflow_clip_margin: OverflowClipMargin::DEFAULT,
+        scrollbar_width: 0.,
         row_gap: Val::ZERO,
         column_gap: Val::ZERO,
         grid_auto_flow: GridAutoFlow::DEFAULT,
@@ -2102,10 +2116,17 @@ impl<T: Into<Color>> From<T> for BorderColor {
 
 impl BorderColor {
     /// Border color is transparent by default.
-    pub const DEFAULT: Self = BorderColor::all(Color::NONE);
+    pub const DEFAULT: Self = BorderColor {
+        top: Color::NONE,
+        right: Color::NONE,
+        bottom: Color::NONE,
+        left: Color::NONE,
+    };
 
     /// Helper to create a `BorderColor` struct with all borders set to the given color
-    pub const fn all(color: Color) -> Self {
+    #[inline]
+    pub fn all(color: impl Into<Color>) -> Self {
+        let color = color.into();
         Self {
             top: color,
             bottom: color,

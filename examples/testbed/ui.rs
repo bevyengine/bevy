@@ -233,7 +233,7 @@ mod borders {
                             ..default()
                         },
                         BackgroundColor(MAROON.into()),
-                        BorderColor::all(RED.into()),
+                        BorderColor::all(RED),
                         Outline {
                             width: Val::Px(10.),
                             offset: Val::Px(10.),
@@ -325,7 +325,7 @@ mod box_shadow {
                             border: UiRect::all(Val::Px(2.)),
                             ..default()
                         },
-                        BorderColor::all(WHITE.into()),
+                        BorderColor::all(WHITE),
                         border_radius,
                         BackgroundColor(BLUE.into()),
                         BoxShadow::new(
@@ -423,7 +423,7 @@ mod overflow {
                                 overflow,
                                 ..default()
                             },
-                            BorderColor::all(RED.into()),
+                            BorderColor::all(RED),
                             BackgroundColor(Color::WHITE),
                         ))
                         .with_children(|parent| {
@@ -545,7 +545,7 @@ mod layout_rounding {
                                         ..Default::default()
                                     },
                                     BackgroundColor(MAROON.into()),
-                                    BorderColor::all(DARK_BLUE.into()),
+                                    BorderColor::all(DARK_BLUE),
                                 ));
                             }
                         });
@@ -555,8 +555,6 @@ mod layout_rounding {
 }
 
 mod linear_gradient {
-    use bevy::color::palettes::css::BLUE;
-    use bevy::color::palettes::css::LIME;
     use bevy::color::palettes::css::RED;
     use bevy::color::palettes::css::YELLOW;
     use bevy::color::Color;
@@ -584,119 +582,58 @@ mod linear_gradient {
                     height: Val::Percent(100.),
                     justify_content: JustifyContent::Center,
                     align_items: AlignItems::Center,
-
+                    row_gap: Val::Px(5.),
                     ..default()
                 },
                 DespawnOnExitState(super::Scene::LinearGradient),
             ))
             .with_children(|commands| {
-                commands
-                    .spawn(Node {
-                        flex_wrap: bevy::ui::FlexWrap::Wrap,
-                        row_gap: Val::Px(5.),
-                        column_gap: Val::Px(5.),
-                        ..Default::default()
-                    })
-                    .with_children(|commands| {
-                        for stops in [
-                            vec![ColorStop::auto(BLUE), ColorStop::auto(Color::WHITE)],
-                            vec![ColorStop::auto(RED), ColorStop::auto(YELLOW)],
-                            vec![
-                                ColorStop::auto(Color::BLACK),
-                                ColorStop::auto(RED),
-                                ColorStop::auto(Color::WHITE),
-                            ],
-                            vec![
-                                ColorStop::auto(Color::BLACK),
-                                ColorStop::auto(LIME),
-                                ColorStop::auto(Color::WHITE),
-                            ],
-                            vec![
-                                ColorStop::auto(Color::BLACK),
-                                ColorStop::auto(BLUE),
-                                ColorStop::auto(Color::WHITE),
-                            ],
-                            vec![
-                                ColorStop::auto(RED),
-                                ColorStop::new(RED, Val::Percent(33.)),
-                                ColorStop::new(LIME, Val::Percent(33.)),
-                                ColorStop::new(LIME, Val::Percent(66.)),
-                                ColorStop::new(BLUE, Val::Percent(66.)),
-                            ],
-                            vec![
-                                ColorStop::auto(RED),
-                                ColorStop::auto(LIME),
-                                ColorStop::auto(BLUE),
-                            ],
-                            vec![ColorStop::auto(LIME), ColorStop::auto(BLUE)],
-                            vec![
-                                ColorStop::auto(Color::WHITE),
-                                ColorStop::auto(BLUE),
-                                ColorStop::auto(Color::WHITE),
-                                ColorStop::auto(LIME),
-                                ColorStop::auto(Color::WHITE),
-                                ColorStop::auto(RED),
-                                ColorStop::auto(Color::WHITE),
-                            ],
-                            vec![
-                                ColorStop::auto(Color::BLACK),
-                                ColorStop::auto(BLUE),
-                                ColorStop::auto(Color::BLACK),
-                                ColorStop::auto(LIME),
-                                ColorStop::auto(Color::BLACK),
-                                ColorStop::auto(RED),
-                                ColorStop::auto(Color::BLACK),
-                            ],
-                        ] {
-                            commands
-                                .spawn(Node {
-                                    flex_direction: bevy::ui::FlexDirection::Column,
-                                    row_gap: Val::Px(5.),
+                for stops in [
+                    vec![ColorStop::auto(RED), ColorStop::auto(YELLOW)],
+                    vec![
+                        ColorStop::auto(Color::BLACK),
+                        ColorStop::auto(RED),
+                        ColorStop::auto(Color::WHITE),
+                    ],
+                ] {
+                    for color_space in [
+                        InterpolationColorSpace::LinearRgba,
+                        InterpolationColorSpace::Srgba,
+                        InterpolationColorSpace::Oklaba,
+                        InterpolationColorSpace::Oklcha,
+                        InterpolationColorSpace::OklchaLong,
+                        InterpolationColorSpace::Hsla,
+                        InterpolationColorSpace::HslaLong,
+                        InterpolationColorSpace::Hsva,
+                        InterpolationColorSpace::HsvaLong,
+                    ] {
+                        commands.spawn((
+                            Node {
+                                justify_content: JustifyContent::SpaceEvenly,
+                                ..Default::default()
+                            },
+                            children![(
+                                Node {
+                                    height: Val::Px(30.),
+                                    width: Val::Px(300.),
                                     ..Default::default()
-                                })
-                                .with_children(|commands| {
-                                    for color_space in [
-                                        InterpolationColorSpace::LinearRgb,
-                                        InterpolationColorSpace::Srgb,
-                                        InterpolationColorSpace::OkLab,
-                                        InterpolationColorSpace::OkLch,
-                                        InterpolationColorSpace::OkLchLong,
-                                        InterpolationColorSpace::Hsl,
-                                        InterpolationColorSpace::HslLong,
-                                        InterpolationColorSpace::Hsv,
-                                        InterpolationColorSpace::HsvLong,
-                                    ] {
-                                        commands.spawn((
-                                            Node {
-                                                justify_content: JustifyContent::SpaceEvenly,
-                                                ..Default::default()
-                                            },
-                                            children![(
-                                                Node {
-                                                    height: Val::Px(30.),
-                                                    width: Val::Px(250.),
-                                                    ..Default::default()
-                                                },
-                                                BackgroundGradient::from(LinearGradient {
-                                                    color_space,
-                                                    angle: LinearGradient::TO_RIGHT,
-                                                    stops: stops.clone(),
-                                                }),
-                                                children![
-                                                    Node {
-                                                        position_type: PositionType::Absolute,
-                                                        ..default()
-                                                    },
-                                                    bevy::ui::widget::Text(format!(
-                                                        "{color_space:?}"
-                                                    )),
-                                                ]
-                                            )],
-                                        ));
-                                    }
-                                });
-                        }
-                    });
+                                },
+                                BackgroundGradient::from(LinearGradient {
+                                    color_space,
+                                    angle: LinearGradient::TO_RIGHT,
+                                    stops: stops.clone(),
+                                }),
+                                children![
+                                    Node {
+                                        position_type: PositionType::Absolute,
+                                        ..default()
+                                    },
+                                    bevy::ui::widget::Text(format!("{color_space:?}")),
+                                ]
+                            )],
+                        ));
+                    }
+                }
             });
     }
 }

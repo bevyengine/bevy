@@ -3,17 +3,18 @@
 mod auto_insert_apply_deferred;
 mod condition;
 mod config;
+mod error;
 mod executor;
+mod node;
 mod pass;
 mod schedule;
 mod set;
 mod stepping;
 
+pub use self::graph::GraphInfo;
 use self::graph::*;
-pub use self::{condition::*, config::*, executor::*, schedule::*, set::*};
+pub use self::{condition::*, config::*, error::*, executor::*, node::*, schedule::*, set::*};
 pub use pass::ScheduleBuildPass;
-
-pub use self::graph::NodeId;
 
 /// An implementation of a graph data structure.
 pub mod graph;
@@ -563,10 +564,21 @@ mod tests {
         use super::*;
 
         #[test]
-        #[should_panic]
         fn dependency_loop() {
             let mut schedule = Schedule::default();
             schedule.configure_sets(TestSystems::X.after(TestSystems::X));
+            let mut world = World::new();
+            let result = schedule.initialize(&mut world);
+            assert!(matches!(result, Err(ScheduleBuildError::DependencyLoop(_))));
+        }
+
+        #[test]
+        fn dependency_loop_from_chain() {
+            let mut schedule = Schedule::default();
+            schedule.configure_sets((TestSystems::X, TestSystems::X).chain());
+            let mut world = World::new();
+            let result = schedule.initialize(&mut world);
+            assert!(matches!(result, Err(ScheduleBuildError::DependencyLoop(_))));
         }
 
         #[test]
@@ -598,10 +610,12 @@ mod tests {
         }
 
         #[test]
-        #[should_panic]
         fn hierarchy_loop() {
             let mut schedule = Schedule::default();
             schedule.configure_sets(TestSystems::X.in_set(TestSystems::X));
+            let mut world = World::new();
+            let result = schedule.initialize(&mut world);
+            assert!(matches!(result, Err(ScheduleBuildError::HierarchyLoop(_))));
         }
 
         #[test]
@@ -688,7 +702,9 @@ mod tests {
             let result = schedule.initialize(&mut world);
             assert!(matches!(
                 result,
-                Err(ScheduleBuildError::HierarchyRedundancy(_))
+                Err(ScheduleBuildError::Elevated(
+                    ScheduleBuildWarning::HierarchyRedundancy(_)
+                ))
             ));
         }
 
@@ -750,7 +766,12 @@ mod tests {
 
             schedule.add_systems((res_ref, res_mut));
             let result = schedule.initialize(&mut world);
-            assert!(matches!(result, Err(ScheduleBuildError::Ambiguity(_))));
+            assert!(matches!(
+                result,
+                Err(ScheduleBuildError::Elevated(
+                    ScheduleBuildWarning::Ambiguity(_)
+                ))
+            ));
         }
     }
 
@@ -770,7 +791,7 @@ mod tests {
         #[derive(Component)]
         struct B;
 
-        #[derive(Event, BufferedEvent)]
+        #[derive(BufferedEvent)]
         struct E;
 
         #[derive(Resource, Component)]
@@ -1117,11 +1138,9 @@ mod tests {
             ));
 
             schedule.graph_mut().initialize(&mut world);
-            let _ = schedule.graph_mut().build_schedule(
-                &mut world,
-                TestSchedule.intern(),
-                &BTreeSet::new(),
-            );
+            let _ = schedule
+                .graph_mut()
+                .build_schedule(&mut world, &BTreeSet::new());
 
             let ambiguities: Vec<_> = schedule
                 .graph()
@@ -1177,11 +1196,9 @@ mod tests {
 
             let mut world = World::new();
             schedule.graph_mut().initialize(&mut world);
-            let _ = schedule.graph_mut().build_schedule(
-                &mut world,
-                TestSchedule.intern(),
-                &BTreeSet::new(),
-            );
+            let _ = schedule
+                .graph_mut()
+                .build_schedule(&mut world, &BTreeSet::new());
 
             let ambiguities: Vec<_> = schedule
                 .graph()

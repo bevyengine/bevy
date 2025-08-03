@@ -3,9 +3,9 @@
 use bevy::{
     color::palettes::basic::*,
     core_widgets::{
-        Callback, CoreButton, CoreCheckbox, CoreRadio, CoreRadioGroup, CoreSlider,
-        CoreSliderDragState, CoreSliderThumb, CoreWidgetsPlugin, SliderRange, SliderValue,
-        TrackClick,
+        Activate, Callback, CoreButton, CoreCheckbox, CoreRadio, CoreRadioGroup, CoreSlider,
+        CoreSliderDragState, CoreSliderThumb, CoreWidgetsPlugins, SliderRange, SliderValue,
+        TrackClick, ValueChange,
     },
     input_focus::{
         tab_navigation::{TabGroup, TabIndex, TabNavigationPlugin},
@@ -21,7 +21,7 @@ fn main() {
     App::new()
         .add_plugins((
             DefaultPlugins,
-            CoreWidgetsPlugin,
+            CoreWidgetsPlugins,
             InputDispatchPlugin,
             TabNavigationPlugin,
         ))
@@ -120,24 +120,24 @@ fn update_widget_values(
 
 fn setup(mut commands: Commands, assets: Res<AssetServer>) {
     // System to print a value when the button is clicked.
-    let on_click = commands.register_system(|| {
+    let on_click = commands.register_system(|_: In<Activate>| {
         info!("Button clicked!");
     });
 
     // System to update a resource when the slider value changes. Note that we could have
     // updated the slider value directly, but we want to demonstrate externalizing the state.
     let on_change_value = commands.register_system(
-        |value: In<f32>, mut widget_states: ResMut<DemoWidgetStates>| {
-            widget_states.slider_value = *value;
+        |value: In<ValueChange<f32>>, mut widget_states: ResMut<DemoWidgetStates>| {
+            widget_states.slider_value = value.0.value;
         },
     );
 
     // System to update a resource when the radio group changes.
     let on_change_radio = commands.register_system(
-        |value: In<Entity>,
+        |value: In<Activate>,
          mut widget_states: ResMut<DemoWidgetStates>,
          q_radios: Query<&DemoRadio>| {
-            if let Ok(radio) = q_radios.get(*value) {
+            if let Ok(radio) = q_radios.get(value.0 .0) {
                 widget_states.slider_click = radio.0;
             }
         },
@@ -155,9 +155,9 @@ fn setup(mut commands: Commands, assets: Res<AssetServer>) {
 
 fn demo_root(
     asset_server: &AssetServer,
-    on_click: Callback,
-    on_change_value: Callback<In<f32>>,
-    on_change_radio: Callback<In<Entity>>,
+    on_click: Callback<In<Activate>>,
+    on_change_value: Callback<In<ValueChange<f32>>>,
+    on_change_radio: Callback<In<Activate>>,
 ) -> impl Bundle {
     (
         Node {
@@ -181,7 +181,7 @@ fn demo_root(
     )
 }
 
-fn button(asset_server: &AssetServer, on_click: Callback) -> impl Bundle {
+fn button(asset_server: &AssetServer, on_click: Callback<In<Activate>>) -> impl Bundle {
     (
         Node {
             width: Val::Px(150.0),
@@ -324,7 +324,12 @@ fn set_button_style(
 }
 
 /// Create a demo slider
-fn slider(min: f32, max: f32, value: f32, on_change: Callback<In<f32>>) -> impl Bundle {
+fn slider(
+    min: f32,
+    max: f32,
+    value: f32,
+    on_change: Callback<In<ValueChange<f32>>>,
+) -> impl Bundle {
     (
         Node {
             display: Display::Flex,
@@ -469,7 +474,7 @@ fn thumb_color(disabled: bool, hovered: bool) -> Color {
 fn checkbox(
     asset_server: &AssetServer,
     caption: &str,
-    on_change: Callback<In<bool>>,
+    on_change: Callback<In<ValueChange<bool>>>,
 ) -> impl Bundle {
     (
         Node {
@@ -662,7 +667,7 @@ fn set_checkbox_or_radio_style(
 }
 
 /// Create a demo radio group
-fn radio_group(asset_server: &AssetServer, on_change: Callback<In<Entity>>) -> impl Bundle {
+fn radio_group(asset_server: &AssetServer, on_change: Callback<In<Activate>>) -> impl Bundle {
     (
         Node {
             display: Display::Flex,

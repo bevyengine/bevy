@@ -25,7 +25,7 @@ use bevy_ecs::{
     resource::Resource,
     schedule::IntoScheduleConfigs as _,
     system::{lifetimeless::Read, Commands, Query, Res, ResMut},
-    world::{FromWorld, World},
+    world::World,
 };
 use bevy_image::BevyDefault as _;
 use bevy_math::ops;
@@ -55,7 +55,7 @@ use bevy_render::{
         prepare_view_targets, ExtractedView, Msaa, ViewDepthTexture, ViewTarget, ViewUniform,
         ViewUniformOffset, ViewUniforms,
     },
-    Extract, ExtractSchedule, Render, RenderApp, RenderSystems,
+    Extract, ExtractSchedule, Render, RenderApp, RenderStartup, RenderSystems,
 };
 use bevy_utils::{default, once};
 use smallvec::SmallVec;
@@ -219,6 +219,7 @@ impl Plugin for DepthOfFieldPlugin {
         render_app
             .init_resource::<SpecializedRenderPipelines<DepthOfFieldPipeline>>()
             .init_resource::<DepthOfFieldGlobalBindGroup>()
+            .add_systems(RenderStartup, init_dof_global_bind_group_layout)
             .add_systems(ExtractSchedule, extract_depth_of_field_settings)
             .add_systems(
                 Render,
@@ -247,14 +248,6 @@ impl Plugin for DepthOfFieldPlugin {
                 Core3d,
                 (Node3d::Bloom, Node3d::DepthOfField, Node3d::Tonemapping),
             );
-    }
-
-    fn finish(&self, app: &mut App) {
-        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
-            return;
-        };
-
-        render_app.init_resource::<DepthOfFieldGlobalBindGroupLayout>();
     }
 }
 
@@ -416,6 +409,7 @@ impl ViewNode for DepthOfFieldNode {
             let mut color_attachments: SmallVec<[_; 2]> = SmallVec::new();
             color_attachments.push(Some(RenderPassColorAttachment {
                 view: postprocess.destination,
+                depth_slice: None,
                 resolve_target: None,
                 ops: Operations {
                     load: LoadOp::Clear(default()),
@@ -436,6 +430,7 @@ impl ViewNode for DepthOfFieldNode {
                 };
                 color_attachments.push(Some(RenderPassColorAttachment {
                     view: &auxiliary_dof_texture.default_view,
+                    depth_slice: None,
                     resolve_target: None,
                     ops: Operations {
                         load: LoadOp::Clear(default()),
@@ -504,38 +499,34 @@ impl DepthOfField {
     }
 }
 
-impl FromWorld for DepthOfFieldGlobalBindGroupLayout {
-    fn from_world(world: &mut World) -> Self {
-        let render_device = world.resource::<RenderDevice>();
-
-        // Create the bind group layout that will be shared among all instances
-        // of the depth of field shader.
-        let layout = render_device.create_bind_group_layout(
-            Some("depth of field global bind group layout"),
-            &BindGroupLayoutEntries::sequential(
-                ShaderStages::FRAGMENT,
-                (
-                    // `dof_params`
-                    uniform_buffer::<DepthOfFieldUniform>(true),
-                    // `color_texture_sampler`
-                    sampler(SamplerBindingType::Filtering),
-                ),
+pub fn init_dof_global_bind_group_layout(mut commands: Commands, render_device: Res<RenderDevice>) {
+    // Create the bind group layout that will be shared among all instances
+    // of the depth of field shader.
+    let layout = render_device.create_bind_group_layout(
+        Some("depth of field global bind group layout"),
+        &BindGroupLayoutEntries::sequential(
+            ShaderStages::FRAGMENT,
+            (
+                // `dof_params`
+                uniform_buffer::<DepthOfFieldUniform>(true),
+                // `color_texture_sampler`
+                sampler(SamplerBindingType::Filtering),
             ),
-        );
+        ),
+    );
 
-        // Create the color texture sampler.
-        let sampler = render_device.create_sampler(&SamplerDescriptor {
-            label: Some("depth of field sampler"),
-            mag_filter: FilterMode::Linear,
-            min_filter: FilterMode::Linear,
-            ..default()
-        });
+    // Create the color texture sampler.
+    let sampler = render_device.create_sampler(&SamplerDescriptor {
+        label: Some("depth of field sampler"),
+        mag_filter: FilterMode::Linear,
+        min_filter: FilterMode::Linear,
+        ..default()
+    });
 
-        DepthOfFieldGlobalBindGroupLayout {
-            color_texture_sampler: sampler,
-            layout,
-        }
-    }
+    commands.insert_resource(DepthOfFieldGlobalBindGroupLayout {
+        color_texture_sampler: sampler,
+        layout,
+    });
 }
 
 /// Creates the bind group layouts for the depth of field effect that are

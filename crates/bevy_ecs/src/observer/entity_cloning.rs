@@ -43,7 +43,7 @@ fn component_clone_observed_by(_source: &SourceComponent, ctx: &mut ComponentClo
                 .get_mut::<Observer>(observer_entity)
                 .expect("Source observer entity must have Observer");
             observer_state.descriptor.entities.push(target);
-            let event_keys = observer_state.descriptor.events.clone();
+            let event_keys = observer_state.descriptor.event_keys.clone();
             let components = observer_state.descriptor.components.clone();
             for event_key in event_keys {
                 let observers = world.observers.get_observers_mut(event_key);
@@ -72,18 +72,14 @@ fn component_clone_observed_by(_source: &SourceComponent, ctx: &mut ComponentClo
 #[cfg(test)]
 mod tests {
     use crate::{
-        entity::EntityCloner,
-        event::{EntityEvent, Event},
-        observer::On,
-        resource::Resource,
-        system::ResMut,
+        entity::EntityCloner, event::EntityEvent, observer::On, resource::Resource, system::ResMut,
         world::World,
     };
 
     #[derive(Resource, Default)]
     struct Num(usize);
 
-    #[derive(Event, EntityEvent)]
+    #[derive(EntityEvent)]
     struct E;
 
     #[test]

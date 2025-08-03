@@ -1,5 +1,5 @@
 use bevy_app::{Plugin, PreUpdate};
-use bevy_core_widgets::{Callback, CoreCheckbox};
+use bevy_core_widgets::{Callback, CoreCheckbox, ValueChange};
 use bevy_ecs::{
     bundle::Bundle,
     children,
@@ -20,10 +20,10 @@ use bevy_ui::{
     AlignItems, BorderRadius, Checked, Display, FlexDirection, InteractionDisabled, JustifyContent,
     Node, PositionType, UiRect, UiTransform, Val,
 };
-use bevy_winit::cursor::CursorIcon;
 
 use crate::{
     constants::{fonts, size},
+    cursor::EntityCursor,
     font_styles::InheritableFont,
     handle_or_path::HandleOrPath,
     theme::{ThemeBackgroundColor, ThemeBorderColor, ThemeFontColor},
@@ -34,7 +34,7 @@ use crate::{
 #[derive(Default)]
 pub struct CheckboxProps {
     /// Change handler
-    pub on_change: Callback<In<bool>>,
+    pub on_change: Callback<In<ValueChange<bool>>>,
 }
 
 /// Marker for the checkbox frame (contains both checkbox and label)
@@ -74,7 +74,7 @@ pub fn checkbox<C: SpawnableList<ChildOf> + Send + Sync + 'static, B: Bundle>(
         },
         CheckboxFrame,
         Hovered::default(),
-        CursorIcon::System(bevy_window::SystemCursorIcon::Pointer),
+        EntityCursor::System(bevy_window::SystemCursorIcon::Pointer),
         TabIndex(0),
         ThemeFontColor(tokens::CHECKBOX_TEXT),
         InheritableFont {

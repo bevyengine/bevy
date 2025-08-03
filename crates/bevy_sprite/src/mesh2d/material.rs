@@ -1,6 +1,7 @@
 use crate::{
-    DrawMesh2d, Mesh2d, Mesh2dPipeline, Mesh2dPipelineKey, RenderMesh2dInstances,
-    SetMesh2dBindGroup, SetMesh2dViewBindGroup, ViewKeyCache, ViewSpecializationTicks,
+    init_mesh_2d_pipeline, DrawMesh2d, Mesh2d, Mesh2dPipeline, Mesh2dPipelineKey,
+    RenderMesh2dInstances, SetMesh2dBindGroup, SetMesh2dViewBindGroup, ViewKeyCache,
+    ViewSpecializationTicks,
 };
 use bevy_app::{App, Plugin, PostUpdate};
 use bevy_asset::prelude::AssetChanged;
@@ -25,6 +26,7 @@ use bevy_render::camera::extract_cameras;
 use bevy_render::render_phase::{DrawFunctionId, InputUniformIndex};
 use bevy_render::render_resource::CachedRenderPipelineId;
 use bevy_render::view::RenderVisibleEntities;
+use bevy_render::RenderStartup;
 use bevy_render::{
     mesh::{MeshVertexBufferLayoutRef, RenderMesh},
     render_asset::{
@@ -286,6 +288,10 @@ where
                 .init_resource::<RenderMaterial2dInstances<M>>()
                 .init_resource::<SpecializedMeshPipelines<Material2dPipeline<M>>>()
                 .add_systems(
+                    RenderStartup,
+                    init_material_2d_pipeline::<M>.after(init_mesh_2d_pipeline),
+                )
+                .add_systems(
                     ExtractSchedule,
                     (
                         extract_entities_needs_specialization::<M>.after(extract_cameras),
@@ -304,12 +310,6 @@ where
                             .after(prepare_assets::<PreparedMaterial2d<M>>),
                     ),
                 );
-        }
-    }
-
-    fn finish(&self, app: &mut App) {
-        if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
-            render_app.init_resource::<Material2dPipeline<M>>();
         }
     }
 }
@@ -331,7 +331,6 @@ pub fn extract_mesh_materials_2d<M: Material2d>(
             Or<(Changed<ViewVisibility>, Changed<MeshMaterial2d<M>>)>,
         >,
     >,
-    mut removed_visibilities_query: Extract<RemovedComponents<ViewVisibility>>,
     mut removed_materials_query: Extract<RemovedComponents<MeshMaterial2d<M>>>,
 ) {
     for (entity, view_visibility, material) in &changed_meshes_query {
@@ -342,10 +341,7 @@ pub fn extract_mesh_materials_2d<M: Material2d>(
         }
     }
 
-    for entity in removed_visibilities_query
-        .read()
-        .chain(removed_materials_query.read())
-    {
+    for entity in removed_materials_query.read() {
         // Only queue a mesh for removal if we didn't pick it up above.
         // It's possible that a necessary component was removed and re-added in
         // the same frame.
@@ -467,28 +463,29 @@ where
     }
 }
 
-impl<M: Material2d> FromWorld for Material2dPipeline<M> {
-    fn from_world(world: &mut World) -> Self {
-        let asset_server = world.resource::<AssetServer>();
-        let render_device = world.resource::<RenderDevice>();
-        let material2d_layout = M::bind_group_layout(render_device);
+pub fn init_material_2d_pipeline<M: Material2d>(
+    mut commands: Commands,
+    render_device: Res<RenderDevice>,
+    asset_server: Res<AssetServer>,
+    mesh_2d_pipeline: Res<Mesh2dPipeline>,
+) {
+    let material2d_layout = M::bind_group_layout(&render_device);
 
-        Material2dPipeline {
-            mesh2d_pipeline: world.resource::<Mesh2dPipeline>().clone(),
-            material2d_layout,
-            vertex_shader: match M::vertex_shader() {
-                ShaderRef::Default => None,
-                ShaderRef::Handle(handle) => Some(handle),
-                ShaderRef::Path(path) => Some(asset_server.load(path)),
-            },
-            fragment_shader: match M::fragment_shader() {
-                ShaderRef::Default => None,
-                ShaderRef::Handle(handle) => Some(handle),
-                ShaderRef::Path(path) => Some(asset_server.load(path)),
-            },
-            marker: PhantomData,
-        }
-    }
+    commands.insert_resource(Material2dPipeline::<M> {
+        mesh2d_pipeline: mesh_2d_pipeline.clone(),
+        material2d_layout,
+        vertex_shader: match M::vertex_shader() {
+            ShaderRef::Default => None,
+            ShaderRef::Handle(handle) => Some(handle),
+            ShaderRef::Path(path) => Some(asset_server.load(path)),
+        },
+        fragment_shader: match M::fragment_shader() {
+            ShaderRef::Default => None,
+            ShaderRef::Handle(handle) => Some(handle),
+            ShaderRef::Path(path) => Some(asset_server.load(path)),
+        },
+        marker: PhantomData,
+    });
 }
 
 pub(super) type DrawMaterial2d<M> = (

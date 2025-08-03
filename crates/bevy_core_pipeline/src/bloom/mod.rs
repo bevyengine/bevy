@@ -6,6 +6,10 @@ use bevy_image::ToExtents;
 pub use settings::{Bloom, BloomCompositeMode, BloomPrefilter};
 
 use crate::{
+    bloom::{
+        downsampling_pipeline::init_bloom_downsampling_pipeline,
+        upsampling_pipeline::init_bloom_upscaling_pipeline,
+    },
     core_2d::graph::{Core2d, Node2d},
     core_3d::graph::{Core3d, Node3d},
 };
@@ -25,7 +29,7 @@ use bevy_render::{
     renderer::{RenderContext, RenderDevice},
     texture::{CachedTexture, TextureCache},
     view::ViewTarget,
-    Render, RenderApp, RenderSystems,
+    Render, RenderApp, RenderStartup, RenderSystems,
 };
 use downsampling_pipeline::{
     prepare_downsampling_pipeline, BloomDownsamplingPipeline, BloomDownsamplingPipelineIds,
@@ -60,6 +64,13 @@ impl Plugin for BloomPlugin {
             .init_resource::<SpecializedRenderPipelines<BloomDownsamplingPipeline>>()
             .init_resource::<SpecializedRenderPipelines<BloomUpsamplingPipeline>>()
             .add_systems(
+                RenderStartup,
+                (
+                    init_bloom_downsampling_pipeline,
+                    init_bloom_upscaling_pipeline,
+                ),
+            )
+            .add_systems(
                 Render,
                 (
                     prepare_downsampling_pipeline.in_set(RenderSystems::Prepare),
@@ -80,15 +91,6 @@ impl Plugin for BloomPlugin {
                 Core2d,
                 (Node2d::EndMainPass, Node2d::Bloom, Node2d::Tonemapping),
             );
-    }
-
-    fn finish(&self, app: &mut App) {
-        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
-            return;
-        };
-        render_app
-            .init_resource::<BloomDownsamplingPipeline>()
-            .init_resource::<BloomUpsamplingPipeline>();
     }
 }
 
@@ -184,6 +186,7 @@ impl ViewNode for BloomNode {
                         label: Some("bloom_downsampling_first_pass"),
                         color_attachments: &[Some(RenderPassColorAttachment {
                             view,
+                            depth_slice: None,
                             resolve_target: None,
                             ops: Operations::default(),
                         })],
@@ -208,6 +211,7 @@ impl ViewNode for BloomNode {
                         label: Some("bloom_downsampling_pass"),
                         color_attachments: &[Some(RenderPassColorAttachment {
                             view,
+                            depth_slice: None,
                             resolve_target: None,
                             ops: Operations::default(),
                         })],
@@ -232,6 +236,7 @@ impl ViewNode for BloomNode {
                         label: Some("bloom_upsampling_pass"),
                         color_attachments: &[Some(RenderPassColorAttachment {
                             view,
+                            depth_slice: None,
                             resolve_target: None,
                             ops: Operations {
                                 load: LoadOp::Load,

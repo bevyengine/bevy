@@ -87,6 +87,7 @@ impl ViewNode for MsaaWritebackNode {
             color_attachments: &[Some(RenderPassColorAttachment {
                 // If MSAA is enabled, then the sampled texture will always exist
                 view: target.sampled_main_texture_view().unwrap(),
+                depth_slice: None,
                 resolve_target: Some(post_process.destination),
                 ops: Operations {
                     load: LoadOp::Clear(LinearRgba::BLACK.into()),
@@ -98,11 +99,8 @@ impl ViewNode for MsaaWritebackNode {
             occlusion_query_set: None,
         };
 
-        let bind_group = render_context.render_device().create_bind_group(
-            None,
-            &blit_pipeline.texture_bind_group,
-            &BindGroupEntries::sequential((post_process.source, &blit_pipeline.sampler)),
-        );
+        let bind_group =
+            blit_pipeline.create_bind_group(render_context.render_device(), post_process.source);
 
         let mut render_pass = render_context
             .command_encoder()
