@@ -1,7 +1,7 @@
 use super::{prepare::DlssRenderContext, Dlss, DlssFeature};
 use bevy_ecs::{
-    query::With,
-    system::{Commands, ResMut},
+    query::{Has, With},
+    system::{Commands, Query, ResMut},
 };
 use bevy_render::{
     camera::{Camera, MainPassResolutionOverride, Projection},
@@ -10,7 +10,11 @@ use bevy_render::{
     MainWorld,
 };
 
-pub fn extract_dlss<F: DlssFeature>(mut commands: Commands, mut main_world: ResMut<MainWorld>) {
+pub fn extract_dlss<F: DlssFeature>(
+    mut commands: Commands,
+    mut main_world: ResMut<MainWorld>,
+    cleanup_query: Query<Has<Dlss<F>>>,
+) {
     let mut cameras_3d = main_world
         .query_filtered::<(RenderEntity, &Camera, &Projection, Option<&mut Dlss<F>>), With<Hdr>>();
 
@@ -22,7 +26,7 @@ pub fn extract_dlss<F: DlssFeature>(mut commands: Commands, mut main_world: ResM
         if dlss.is_some() && camera.is_active && has_perspective_projection {
             entity_commands.insert(dlss.as_deref().unwrap().clone());
             dlss.as_mut().unwrap().reset = false;
-        } else {
+        } else if cleanup_query.get(entity) == Ok(true) {
             entity_commands.remove::<(Dlss<F>, DlssRenderContext<F>, MainPassResolutionOverride)>();
         }
     }
