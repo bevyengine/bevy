@@ -2087,4 +2087,82 @@ mod tests {
             Some(())
         });
     }
+
+    #[test]
+    fn loading_subassets_in_parallel_results_in_one_task() {
+        struct TestAssetLoader;
+
+        impl AssetLoader for TestAssetLoader {
+            type Asset = TestAsset;
+            type Error = std::io::Error;
+            type Settings = ();
+
+            async fn load(
+                &self,
+                _reader: &mut dyn Reader,
+                _settings: &Self::Settings,
+                load_context: &mut LoadContext<'_>,
+            ) -> core::result::Result<Self::Asset, Self::Error> {
+                load_context.add_labeled_asset("A".into(), SubText { text: "A".into() });
+                load_context.add_labeled_asset("B".into(), SubText { text: "B".into() });
+
+                Ok(TestAsset)
+            }
+
+            fn extensions(&self) -> &[&str] {
+                &["ron"]
+            }
+        }
+
+        let dir = Dir::default();
+        dir.insert_asset(Path::new("test.ron"), &[]);
+
+        let asset_source = AssetSource::build()
+            .with_reader(move || Box::new(MemoryAssetReader { root: dir.clone() }));
+
+        // Set up the app.
+
+        let mut app = App::new();
+
+        app.register_asset_source(AssetSourceId::Default, asset_source)
+            .add_plugins((TaskPoolPlugin::default(), AssetPlugin::default()))
+            .init_asset::<TestAsset>()
+            .init_asset::<SubText>()
+            .register_asset_loader(TestAssetLoader);
+
+        let asset_server = app.world().resource::<AssetServer>();
+        let _handle_a: Handle<SubText> = asset_server.load("test.ron#A");
+        let _handle_b: Handle<SubText> = asset_server.load("test.ron#B");
+
+        /// A function to take the asset events out of the world so they aren't deleted.
+        fn take_events(app: &mut App, events: &mut Vec<AssetEvent<SubText>>) {
+            events.extend(
+                app.world_mut()
+                    .resource_mut::<Events<AssetEvent<SubText>>>()
+                    .drain(),
+            );
+        }
+
+        // We have no API for determining whether two tasks were spawned (that's not exposed by the
+        // asset server or even the TaskPool API). So the best we can do is just stall for a bit to
+        // give both (hypothetical) tasks time to finish. If we were to break this feature, this
+        // test would become flaky.
+        let mut events = vec![];
+        for _ in 0..5 {
+            app.update();
+            take_events(&mut app, &mut events);
+        }
+
+        let mut received_adds = 0;
+        for event in events {
+            match event {
+                AssetEvent::Added { .. } => { received_adds += 1; }
+                AssetEvent::LoadedWithDependencies { .. } => {}
+                AssetEvent::Modified { .. } => panic!("None of the assets should have been modified, since there should only be one load going on"),
+                _ => {}
+            }
+        }
+
+        assert_eq!(received_adds, 2);
+    }
 }
