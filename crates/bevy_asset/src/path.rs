@@ -223,6 +223,16 @@ impl<'a> AssetPath<'a> {
         Ok((source, path, label))
     }
 
+    /// Creates a new [`AssetPath`] from a [`PathBuf`].
+    #[inline]
+    pub fn from_path_buf(path_buf: PathBuf) -> AssetPath<'a> {
+        AssetPath {
+            path: CowArc::Owned(path_buf.into()),
+            source: AssetSourceId::Default,
+            label: None,
+        }
+    }
+
     /// Creates a new [`AssetPath`] from a [`Path`].
     #[inline]
     pub fn from_path(path: &'a Path) -> AssetPath<'a> {
@@ -470,7 +480,7 @@ impl<'a> AssetPath<'a> {
     }
 
     pub(crate) fn iter_secondary_extensions(full_extension: &str) -> impl Iterator<Item = &str> {
-        full_extension.chars().enumerate().filter_map(|(i, c)| {
+        full_extension.char_indices().filter_map(|(i, c)| {
             if c == '.' {
                 Some(&full_extension[i + 1..])
             } else {
@@ -480,7 +490,7 @@ impl<'a> AssetPath<'a> {
     }
 
     /// Returns `true` if this [`AssetPath`] points to a file that is
-    /// outside of it's [`AssetSource`](crate::io::AssetSource) folder.
+    /// outside of its [`AssetSource`](crate::io::AssetSource) folder.
     ///
     /// ## Example
     /// ```

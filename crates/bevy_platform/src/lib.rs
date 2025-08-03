@@ -1,13 +1,13 @@
 #![cfg_attr(docsrs, feature(doc_auto_cfg))]
 #![doc(
-    html_logo_url = "https://bevyengine.org/assets/icon.png",
-    html_favicon_url = "https://bevyengine.org/assets/icon.png"
+    html_logo_url = "https://bevy.org/assets/icon.png",
+    html_favicon_url = "https://bevy.org/assets/icon.png"
 )]
 #![no_std]
 
 //! Platform compatibility support for first-party [Bevy] engine crates.
 //!
-//! [Bevy]: https://bevyengine.org/
+//! [Bevy]: https://bevy.org/
 
 cfg::std! {
     extern crate std;
@@ -19,6 +19,7 @@ cfg::alloc! {
     pub mod collections;
 }
 
+pub mod cell;
 pub mod cfg;
 pub mod hash;
 pub mod sync;

@@ -1,9 +1,9 @@
 [package]
 name = "bevy_tasks"
-version = "0.16.0-dev"
+version = "0.17.0-dev"
 edition = "2024"
 description = "A task executor for Bevy Engine"
-homepage = "https://bevyengine.org"
+homepage = "https://bevy.org"
 repository = "https://github.com/bevyengine/bevy"
 license = "MIT OR Apache-2.0"
 keywords = ["bevy"]
@@ -32,7 +32,7 @@ futures-lite = ["bevy_platform/std", "futures-lite/std"]
 async-io = ["bevy_platform/std", "dep:async-io"]
 
 [dependencies]
-bevy_platform = { path = "../bevy_platform", version = "0.16.0-dev", default-features = false, features = [
+bevy_platform = { path = "../bevy_platform", version = "0.17.0-dev", default-features = false, features = [
   "alloc",
 ] }
 
@@ -40,7 +40,7 @@ futures-lite = { version = "2.0.1", default-features = false, features = [
   "alloc",
 ] }
 async-task = { version = "4.4.0", default-features = false }
-derive_more = { version = "1", default-features = false, features = [
+derive_more = { version = "2", default-features = false, features = [
   "deref",
   "deref_mut",
 ] }

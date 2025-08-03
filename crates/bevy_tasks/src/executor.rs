@@ -66,9 +66,11 @@ impl LocalExecutor<'_> {
 }
 
 impl UnwindSafe for Executor<'_> {}
+
 impl RefUnwindSafe for Executor<'_> {}
 
 impl UnwindSafe for LocalExecutor<'_> {}
+
 impl RefUnwindSafe for LocalExecutor<'_> {}
 
 impl fmt::Debug for Executor<'_> {

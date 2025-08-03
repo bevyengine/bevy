@@ -1,22 +1,22 @@
 use crate::{
     experimental::{UiChildren, UiRootNodes},
+    ui_transform::{UiGlobalTransform, UiTransform},
     BorderRadius, ComputedNode, ComputedNodeTarget, ContentSize, Display, LayoutConfig, Node,
-    Outline, OverflowAxis, ScrollPosition, Val,
+    Outline, OverflowAxis, ScrollPosition,
 };
 use bevy_ecs::{
     change_detection::{DetectChanges, DetectChangesMut},
     entity::Entity,
-    hierarchy::{ChildOf, Children},
-    query::With,
-    removal_detection::RemovedComponents,
-    system::{Commands, Query, ResMut},
+    hierarchy::Children,
+    lifecycle::RemovedComponents,
+    query::Added,
+    system::{Query, ResMut},
     world::Ref,
 };
-use bevy_math::Vec2;
+
+use bevy_math::{Affine2, Vec2};
 use bevy_sprite::BorderRect;
-use bevy_transform::components::Transform;
 use thiserror::Error;
-use tracing::warn;
 use ui_surface::UiSurface;
 
 use bevy_text::ComputedTextBlock;
@@ -70,20 +70,20 @@ pub enum LayoutError {
 
 /// Updates the UI's layout tree, computes the new layout geometry and then updates the sizes and transforms of all the UI nodes.
 pub fn ui_layout_system(
-    mut commands: Commands,
     mut ui_surface: ResMut<UiSurface>,
     ui_root_node_query: UiRootNodes,
+    ui_children: UiChildren,
     mut node_query: Query<(
         Entity,
         Ref<Node>,
         Option<&mut ContentSize>,
         Ref<ComputedNodeTarget>,
     )>,
-    computed_node_query: Query<(Entity, Option<Ref<ChildOf>>), With<ComputedNode>>,
-    ui_children: UiChildren,
-    mut node_transform_query: Query<(
+    added_node_query: Query<(), Added<Node>>,
+    mut node_update_query: Query<(
         &mut ComputedNode,
-        &mut Transform,
+        &UiTransform,
+        &mut UiGlobalTransform,
         &Node,
         Option<&LayoutConfig>,
         Option<&BorderRadius>,
@@ -125,26 +125,6 @@ pub fn ui_layout_system(
         ui_surface.try_remove_children(entity);
     }
 
-    computed_node_query
-        .iter()
-        .for_each(|(entity, maybe_child_of)| {
-            if let Some(child_of) = maybe_child_of {
-                // Note: This does not cover the case where a parent's Node component was removed.
-                // Users are responsible for fixing hierarchies if they do that (it is not recommended).
-                // Detecting it here would be a permanent perf burden on the hot path.
-                if child_of.is_changed() && !ui_children.is_ui_node(child_of.parent()) {
-                    warn!(
-                        "Node ({entity}) is in a non-UI entity hierarchy. You are using an entity \
-with UI components as a child of an entity without UI components, your UI layout may be broken."
-                    );
-                }
-            }
-
-            if ui_children.is_changed(entity) {
-                ui_surface.update_children(entity, ui_children.iter_ui_children(entity));
-            }
-        });
-
     // clean up removed nodes after syncing children to avoid potential panic (invalid SlotMap key used)
     ui_surface.remove_entities(
         removed_nodes
@@ -152,14 +132,35 @@ with UI components as a child of an entity without UI components, your UI layout
             .filter(|entity| !node_query.contains(*entity)),
     );
 
-    // Re-sync changed children: avoid layout glitches caused by removed nodes that are still set as a child of another node
-    computed_node_query.iter().for_each(|(entity, _)| {
-        if ui_children.is_changed(entity) {
-            ui_surface.update_children(entity, ui_children.iter_ui_children(entity));
-        }
-    });
-
     for ui_root_entity in ui_root_node_query.iter() {
+        fn update_children_recursively(
+            ui_surface: &mut UiSurface,
+            ui_children: &UiChildren,
+            added_node_query: &Query<(), Added<Node>>,
+            entity: Entity,
+        ) {
+            if ui_surface.entity_to_taffy.contains_key(&entity)
+                && (added_node_query.contains(entity)
+                    || ui_children.is_changed(entity)
+                    || ui_children
+                        .iter_ui_children(entity)
+                        .any(|child| added_node_query.contains(child)))
+            {
+                ui_surface.update_children(entity, ui_children.iter_ui_children(entity));
+            }
+
+            for child in ui_children.iter_ui_children(entity) {
+                update_children_recursively(ui_surface, ui_children, added_node_query, child);
+            }
+        }
+
+        update_children_recursively(
+            &mut ui_surface,
+            &ui_children,
+            &added_node_query,
+            ui_root_entity,
+        );
+
         let (_, _, _, computed_target) = node_query.get(ui_root_entity).unwrap();
 
         ui_surface.compute_layout(
@@ -170,12 +171,12 @@ with UI components as a child of an entity without UI components, your UI layout
         );
 
         update_uinode_geometry_recursive(
-            &mut commands,
             ui_root_entity,
             &mut ui_surface,
             true,
-            None,
-            &mut node_transform_query,
+            computed_target.physical_size().as_vec2(),
+            Affine2::IDENTITY,
+            &mut node_update_query,
             &ui_children,
             computed_target.scale_factor.recip(),
             Vec2::ZERO,
@@ -185,14 +186,15 @@ with UI components as a child of an entity without UI components, your UI layout
 
     // Returns the combined bounding box of the node and any of its overflowing children.
     fn update_uinode_geometry_recursive(
-        commands: &mut Commands,
         entity: Entity,
         ui_surface: &mut UiSurface,
         inherited_use_rounding: bool,
-        root_size: Option<Vec2>,
-        node_transform_query: &mut Query<(
+        target_size: Vec2,
+        mut inherited_transform: Affine2,
+        node_update_query: &mut Query<(
             &mut ComputedNode,
-            &mut Transform,
+            &UiTransform,
+            &mut UiGlobalTransform,
             &Node,
             Option<&LayoutConfig>,
             Option<&BorderRadius>,
@@ -206,13 +208,14 @@ with UI components as a child of an entity without UI components, your UI layout
     ) {
         if let Ok((
             mut node,
-            mut transform,
+            transform,
+            mut global_transform,
             style,
             maybe_layout_config,
             maybe_border_radius,
             maybe_outline,
             maybe_scroll_position,
-        )) = node_transform_query.get_mut(entity)
+        )) = node_update_query.get_mut(entity)
         {
             let use_rounding = maybe_layout_config
                 .map(|layout_config| layout_config.use_rounding)
@@ -224,10 +227,11 @@ with UI components as a child of an entity without UI components, your UI layout
 
             let layout_size = Vec2::new(layout.size.width, layout.size.height);
 
+            // Taffy layout position of the top-left corner of the node, relative to its parent.
             let layout_location = Vec2::new(layout.location.x, layout.location.y);
 
-            // The position of the center of the node, stored in the node's transform
-            let node_center =
+            // The position of the center of the node relative to its top-left corner.
+            let local_center =
                 layout_location - parent_scroll_position + 0.5 * (layout_size - parent_size);
 
             // only trigger change detection when the new values are different
@@ -253,14 +257,22 @@ with UI components as a child of an entity without UI components, your UI layout
             node.bypass_change_detection().border = taffy_rect_to_border_rect(layout.border);
             node.bypass_change_detection().padding = taffy_rect_to_border_rect(layout.padding);
 
-            let viewport_size = root_size.unwrap_or(node.size);
+            // Computer the node's new global transform
+            let mut local_transform =
+                transform.compute_affine(inverse_target_scale_factor, layout_size, target_size);
+            local_transform.translation += local_center;
+            inherited_transform *= local_transform;
+
+            if inherited_transform != **global_transform {
+                *global_transform = inherited_transform.into();
+            }
 
             if let Some(border_radius) = maybe_border_radius {
                 // We don't trigger change detection for changes to border radius
                 node.bypass_change_detection().border_radius = border_radius.resolve(
-                    node.size,
-                    viewport_size,
                     inverse_target_scale_factor.recip(),
+                    node.size,
+                    target_size,
                 );
             }
 
@@ -268,40 +280,43 @@ with UI components as a child of an entity without UI components, your UI layout
                 // don't trigger change detection when only outlines are changed
                 let node = node.bypass_change_detection();
                 node.outline_width = if style.display != Display::None {
-                    match outline.width {
-                        Val::Px(w) => Val::Px(w / inverse_target_scale_factor),
-                        width => width,
-                    }
-                    .resolve(node.size().x, viewport_size)
-                    .unwrap_or(0.)
-                    .max(0.)
+                    outline
+                        .width
+                        .resolve(
+                            inverse_target_scale_factor.recip(),
+                            node.size().x,
+                            target_size,
+                        )
+                        .unwrap_or(0.)
+                        .max(0.)
                 } else {
                     0.
                 };
 
-                node.outline_offset = match outline.offset {
-                    Val::Px(offset) => Val::Px(offset / inverse_target_scale_factor),
-                    offset => offset,
-                }
-                .resolve(node.size().x, viewport_size)
-                .unwrap_or(0.)
-                .max(0.);
+                node.outline_offset = outline
+                    .offset
+                    .resolve(
+                        inverse_target_scale_factor.recip(),
+                        node.size().x,
+                        target_size,
+                    )
+                    .unwrap_or(0.)
+                    .max(0.);
             }
 
-            if transform.translation.truncate() != node_center {
-                transform.translation = node_center.extend(0.);
-            }
+            node.bypass_change_detection().scrollbar_size =
+                Vec2::new(layout.scrollbar_size.width, layout.scrollbar_size.height);
 
             let scroll_position: Vec2 = maybe_scroll_position
                 .map(|scroll_pos| {
                     Vec2::new(
                         if style.overflow.x == OverflowAxis::Scroll {
-                            scroll_pos.offset_x
+                            scroll_pos.x * inverse_target_scale_factor.recip()
                         } else {
                             0.0
                         },
                         if style.overflow.y == OverflowAxis::Scroll {
-                            scroll_pos.offset_y
+                            scroll_pos.y * inverse_target_scale_factor.recip()
                         } else {
                             0.0
                         },
@@ -309,29 +324,22 @@ with UI components as a child of an entity without UI components, your UI layout
                 })
                 .unwrap_or_default();
 
-            let max_possible_offset = (content_size - layout_size).max(Vec2::ZERO);
-            let clamped_scroll_position = scroll_position.clamp(
-                Vec2::ZERO,
-                max_possible_offset * inverse_target_scale_factor,
-            );
+            let max_possible_offset =
+                (content_size - layout_size + node.scrollbar_size).max(Vec2::ZERO);
+            let clamped_scroll_position = scroll_position.clamp(Vec2::ZERO, max_possible_offset);
 
-            if clamped_scroll_position != scroll_position {
-                commands
-                    .entity(entity)
-                    .insert(ScrollPosition::from(clamped_scroll_position));
-            }
+            let physical_scroll_position = clamped_scroll_position.floor();
 
-            let physical_scroll_position =
-                (clamped_scroll_position / inverse_target_scale_factor).round();
+            node.bypass_change_detection().scroll_position = physical_scroll_position;
 
             for child_uinode in ui_children.iter_ui_children(entity) {
                 update_uinode_geometry_recursive(
-                    commands,
                     child_uinode,
                     ui_surface,
                     use_rounding,
-                    Some(viewport_size),
-                    node_transform_query,
+                    target_size,
+                    inherited_transform,
+                    node_update_query,
                     ui_children,
                     inverse_target_scale_factor,
                     layout_size,
@@ -352,12 +360,9 @@ mod tests {
     use bevy_image::Image;
     use bevy_math::{Rect, UVec2, Vec2};
     use bevy_platform::collections::HashMap;
-    use bevy_render::{camera::ManualTextureViews, prelude::Camera};
+    use bevy_render::{prelude::Camera, texture::ManualTextureViews};
     use bevy_transform::systems::mark_dirty_trees;
-    use bevy_transform::{
-        prelude::GlobalTransform,
-        systems::{propagate_parent_transforms, sync_simple_transforms},
-    };
+    use bevy_transform::systems::{propagate_parent_transforms, sync_simple_transforms};
     use bevy_utils::prelude::default;
     use bevy_window::{
         PrimaryWindow, Window, WindowCreated, WindowResized, WindowResolution,
@@ -644,6 +649,50 @@ mod tests {
         assert_eq!(ui_surface.entity_to_taffy.len(), 1);
     }
 
+    #[test]
+    fn node_addition_should_sync_children() {
+        let (mut world, mut ui_schedule) = setup_ui_test_world();
+
+        // spawn an invalid UI root node
+        let root_node = world.spawn(()).with_child(Node::default()).id();
+
+        ui_schedule.run(&mut world);
+
+        // fix the invalid root node by inserting a Node
+        world.entity_mut(root_node).insert(Node::default());
+
+        ui_schedule.run(&mut world);
+
+        let ui_surface = world.resource_mut::<UiSurface>();
+        let taffy_root = ui_surface.entity_to_taffy[&root_node];
+
+        // There should be one child of the root node after fixing it
+        assert_eq!(ui_surface.taffy.child_count(taffy_root.id), 1);
+    }
+
+    #[test]
+    fn node_addition_should_sync_parent_and_children() {
+        let (mut world, mut ui_schedule) = setup_ui_test_world();
+
+        let d = world.spawn(Node::default()).id();
+        let c = world.spawn(()).add_child(d).id();
+        let b = world.spawn(Node::default()).id();
+        let a = world.spawn(Node::default()).add_children(&[b, c]).id();
+
+        ui_schedule.run(&mut world);
+
+        // fix the invalid middle node by inserting a Node
+        world.entity_mut(c).insert(Node::default());
+
+        ui_schedule.run(&mut world);
+
+        let ui_surface = world.resource::<UiSurface>();
+        for (entity, n) in [(a, 2), (b, 0), (c, 1), (d, 0)] {
+            let taffy_id = ui_surface.entity_to_taffy[&entity].id;
+            assert_eq!(ui_surface.taffy.child_count(taffy_id), n);
+        }
+    }
+
     /// regression test for >=0.13.1 root node layouts
     /// ensure root nodes act like they are absolutely positioned
     /// without explicitly declaring it.
@@ -682,23 +731,20 @@ mod tests {
         ui_schedule.run(&mut world);
 
         let overlap_check = world
-            .query_filtered::<(Entity, &ComputedNode, &GlobalTransform), Without<ChildOf>>()
+            .query_filtered::<(Entity, &ComputedNode, &UiGlobalTransform), Without<ChildOf>>()
             .iter(&world)
             .fold(
                 Option::<(Rect, bool)>::None,
-                |option_rect, (entity, node, global_transform)| {
-                    let current_rect = Rect::from_center_size(
-                        global_transform.translation().truncate(),
-                        node.size(),
-                    );
+                |option_rect, (entity, node, transform)| {
+                    let current_rect = Rect::from_center_size(transform.translation, node.size());
                     assert!(
                         current_rect.height().abs() + current_rect.width().abs() > 0.,
                         "root ui node {entity} doesn't have a logical size"
                     );
                     assert_ne!(
-                        global_transform.affine(),
-                        GlobalTransform::default().affine(),
-                        "root ui node {entity} global transform is not populated"
+                        *transform,
+                        UiGlobalTransform::default(),
+                        "root ui node {entity} transform is not populated"
                     );
                     let Some((rect, is_overlapping)) = option_rect else {
                         return Some((current_rect, false));
@@ -1039,7 +1085,7 @@ mod tests {
 
         let (mut world, ..) = setup_ui_test_world();
 
-        let root_node_entity = Entity::from_raw(1);
+        let root_node_entity = Entity::from_raw_u32(1).unwrap();
 
         struct TestSystemParam {
             root_node_entity: Entity,

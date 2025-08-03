@@ -67,11 +67,10 @@ pub trait Set: PartialReflect {
     /// After calling this function, `self` will be empty.
     fn drain(&mut self) -> Vec<Box<dyn PartialReflect>>;
 
-    /// Clones the set, producing a [`DynamicSet`].
-    #[deprecated(since = "0.16.0", note = "use `to_dynamic_set` instead")]
-    fn clone_dynamic(&self) -> DynamicSet {
-        self.to_dynamic_set()
-    }
+    /// Retain only the elements specified by the predicate.
+    ///
+    /// In other words, remove all elements `e` for which `f(&e)` returns `false`.
+    fn retain(&mut self, f: &mut dyn FnMut(&dyn PartialReflect) -> bool);
 
     /// Creates a new [`DynamicSet`] from this set.
     fn to_dynamic_set(&self) -> DynamicSet {
@@ -145,7 +144,7 @@ impl SetInfo {
     impl_generic_info_methods!(generics);
 }
 
-/// An ordered set of reflected values.
+/// An unordered set of reflected values.
 #[derive(Default)]
 pub struct DynamicSet {
     represented_type: Option<&'static TypeInfo>,
@@ -164,8 +163,7 @@ impl DynamicSet {
         if let Some(represented_type) = represented_type {
             assert!(
                 matches!(represented_type, TypeInfo::Set(_)),
-                "expected TypeInfo::Set but received: {:?}",
-                represented_type
+                "expected TypeInfo::Set but received: {represented_type:?}"
             );
         }
 
@@ -210,6 +208,10 @@ impl Set for DynamicSet {
 
     fn drain(&mut self) -> Vec<Box<dyn PartialReflect>> {
         self.hash_table.drain().collect::<Vec<_>>()
+    }
+
+    fn retain(&mut self, f: &mut dyn FnMut(&dyn PartialReflect) -> bool) {
+        self.hash_table.retain(move |value| f(&**value));
     }
 
     fn insert_boxed(&mut self, value: Box<dyn PartialReflect>) -> bool {
@@ -448,27 +450,23 @@ pub fn set_debug(dyn_set: &dyn Set, f: &mut Formatter<'_>) -> core::fmt::Result 
 /// Applies the elements of reflected set `b` to the corresponding elements of set `a`.
 ///
 /// If a value from `b` does not exist in `a`, the value is cloned and inserted.
+/// If a value from `a` does not exist in `b`, the value is removed.
 ///
 /// # Panics
 ///
 /// This function panics if `b` is not a reflected set.
 #[inline]
 pub fn set_apply<M: Set>(a: &mut M, b: &dyn PartialReflect) {
-    if let ReflectRef::Set(set_value) = b.reflect_ref() {
-        for b_value in set_value.iter() {
-            if a.get(b_value).is_none() {
-                a.insert_boxed(b_value.to_dynamic());
-            }
-        }
-    } else {
-        panic!("Attempted to apply a non-set type to a set type.");
+    if let Err(err) = set_try_apply(a, b) {
+        panic!("{err}");
     }
 }
 
 /// Tries to apply the elements of reflected set `b` to the corresponding elements of set `a`
 /// and returns a Result.
 ///
-/// If a key from `b` does not exist in `a`, the value is cloned and inserted.
+/// If a value from `b` does not exist in `a`, the value is cloned and inserted.
+/// If a value from `a` does not exist in `b`, the value is removed.
 ///
 /// # Errors
 ///
@@ -483,12 +481,15 @@ pub fn set_try_apply<S: Set>(a: &mut S, b: &dyn PartialReflect) -> Result<(), Ap
             a.insert_boxed(b_value.to_dynamic());
         }
     }
+    a.retain(&mut |value| set_value.get(value).is_some());
 
     Ok(())
 }
 
 #[cfg(test)]
 mod tests {
+    use crate::{PartialReflect, Set};
+
     use super::DynamicSet;
     use alloc::string::{String, ToString};
 
@@ -511,5 +512,22 @@ mod tests {
                 .expect("Element found in expected array");
             assert_eq!(expected[index], value);
         }
+    }
+
+    #[test]
+    fn apply() {
+        let mut map_a = DynamicSet::default();
+        map_a.insert(0);
+        map_a.insert(1);
+
+        let mut map_b = DynamicSet::default();
+        map_b.insert(1);
+        map_b.insert(2);
+
+        map_a.apply(&map_b);
+
+        assert!(map_a.get(&0).is_none());
+        assert_eq!(map_a.get(&1).unwrap().try_downcast_ref(), Some(&1));
+        assert_eq!(map_a.get(&2).unwrap().try_downcast_ref(), Some(&2));
     }
 }
