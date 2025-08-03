@@ -80,8 +80,8 @@ pub struct TaskPool {}
 
 impl TaskPool {
     /// Just create a new `ThreadExecutor` for wasm
-    pub fn get_thread_executor() -> Arc<ThreadSpawner<'static>> {
-        Arc::new(ThreadSpawner::new())
+    pub fn current_thread_spawner(&self) -> ThreadSpawner<'static> {
+        ThreadSpawner::new()
     }
 
     /// Create a `TaskPool` with the default configuration.
@@ -119,7 +119,7 @@ impl TaskPool {
     #[expect(unsafe_code, reason = "Required to transmute lifetimes.")]
     pub fn scope_with_executor<'env, F, T>(
         &self,
-        _thread_executor: Option<&ThreadSpawner>,
+        _thread_executor: Option<ThreadSpawner>,
         f: F,
     ) -> Vec<T>
     where
