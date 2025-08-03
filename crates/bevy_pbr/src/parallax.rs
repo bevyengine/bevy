@@ -13,6 +13,7 @@ use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 /// [parallax mapping]: https://en.wikipedia.org/wiki/Parallax_mapping
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Default, Reflect)]
 #[reflect(Default, Clone, PartialEq)]
+#[cfg_attr(feature = "serialize", derive(::serde::Serialize, ::serde::Deserialize))]
 pub enum ParallaxMappingMethod {
     /// A simple linear interpolation, using a single texture sample.
     ///

@@ -85,6 +85,7 @@ pub type ForwardDecalMaterial<B: Material> = ExtendedMaterial<B, ForwardDecalMat
 /// the forward decal code behind an ifdef.
 #[derive(Asset, AsBindGroup, TypePath, Clone, Debug)]
 #[uniform(200, ForwardDecalMaterialExtUniform)]
+#[cfg_attr(feature = "serialize", derive(::serde::Serialize, ::serde::Deserialize))]
 pub struct ForwardDecalMaterialExt {
     /// Controls the distance threshold for decal blending with surfaces.
     ///

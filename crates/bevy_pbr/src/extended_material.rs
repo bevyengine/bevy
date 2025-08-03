@@ -128,6 +128,7 @@ pub trait MaterialExtension: Asset + AsBindGroup + Clone + Sized {
 #[derive(Asset, Clone, Debug, Reflect)]
 #[reflect(type_path = false)]
 #[reflect(Clone)]
+#[cfg_attr(feature = "serialize", derive(::serde::Serialize, ::serde::Deserialize))]
 pub struct ExtendedMaterial<B: Material, E: MaterialExtension> {
     pub base: B,
     pub extension: E,
