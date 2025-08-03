@@ -49,15 +49,15 @@ bevy_image = { path = "../bevy_image", version = "0.17.0-dev", optional = true }
 # other
 # feature rwh_06 refers to window_raw_handle@v0.6
 winit = { version = "0.30", default-features = false, features = ["rwh_06"] }
-accesskit_winit = { version = "0.27", default-features = false, features = [
+accesskit_winit = { version = "0.29", default-features = false, features = [
   "rwh_06",
 ] }
 approx = { version = "0.5", default-features = false }
 cfg-if = "1.0"
 raw-window-handle = "0.6"
 bytemuck = { version = "1.5", optional = true }
-wgpu-types = { version = "25", optional = true }
-accesskit = "0.19"
+wgpu-types = { version = "26", optional = true }
+accesskit = "0.21"
 tracing = { version = "0.1", default-features = false, features = ["std"] }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]

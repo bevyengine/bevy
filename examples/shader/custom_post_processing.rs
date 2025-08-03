@@ -197,6 +197,7 @@ impl ViewNode for PostProcessNode {
                 // We need to specify the post process destination view here
                 // to make sure we write to the appropriate texture.
                 view: post_process.destination,
+                depth_slice: None,
                 resolve_target: None,
                 ops: Operations::default(),
             })],
