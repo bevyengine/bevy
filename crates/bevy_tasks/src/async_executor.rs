@@ -82,7 +82,6 @@ unsafe fn with_local_queue<T>(f: impl FnOnce(&mut LocalQueue) -> T) -> T {
         }
     })
 }
-
 struct LocalQueue {
     local_queue: VecDeque<Runnable>,
     local_active: Slab<Waker>,
@@ -938,7 +937,7 @@ unsafe fn flush_to_local(src: &SegQueue<Runnable>) {
     }
 }
 
-/// Debug implementation for `Executor` and `LocalExecutor`.
+/// Debug implementation for `Executor`.
 fn debug_executor(executor: &Executor<'_>, name: &str, f: &mut fmt::Formatter<'_>) -> fmt::Result {
     // Get a reference to the state.
     let ptr = executor.state.load(Ordering::Acquire);
@@ -963,7 +962,7 @@ fn debug_executor(executor: &Executor<'_>, name: &str, f: &mut fmt::Formatter<'_
     debug_state(state, name, f)
 }
 
-/// Debug implementation for `Executor` and `LocalExecutor`.
+/// Debug implementation for `Executor`.
 fn debug_state(state: &State, name: &str, f: &mut fmt::Formatter<'_>) -> fmt::Result {
     /// Debug wrapper for the number of active tasks.
     struct ActiveTasks<'a>(&'a Mutex<Slab<Waker>>);
@@ -1071,23 +1070,5 @@ mod test {
         is_sync(ex.current_thread_spawner());
         is_send(THREAD_LOCAL_STATE.get_or_default());
         is_sync(THREAD_LOCAL_STATE.get_or_default());
-
-        /// ```compile_fail
-        /// use crate::async_executor::LocalExecutor;
-        /// use futures_lite::future::pending;
-        ///
-        /// fn is_send<T: Send>(_: T) {}
-        /// fn is_sync<T: Sync>(_: T) {}
-        ///
-        /// is_send::<LocalExecutor<'_>>(LocalExecutor::new());
-        /// is_sync::<LocalExecutor<'_>>(LocalExecutor::new());
-        ///
-        /// let ex = LocalExecutor::new();
-        /// is_send(ex.run(pending::<()>()));
-        /// is_sync(ex.run(pending::<()>()));
-        /// is_send(ex.tick());
-        /// is_sync(ex.tick());
-        /// ```
-        fn _negative_test() {}
     }
 }
