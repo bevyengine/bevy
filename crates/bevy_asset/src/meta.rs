@@ -1,3 +1,5 @@
+//! TODO
+
 use alloc::{
     boxed::Box,
     string::{String, ToString},
@@ -13,7 +15,10 @@ use ron::ser::PrettyConfig;
 use serde::{Deserialize, Serialize};
 use tracing::error;
 
+/// TODO
 pub const META_FORMAT_VERSION: &str = "1.0";
+
+/// TODO
 pub type MetaTransform = Box<dyn Fn(&mut dyn AssetMetaDyn) + Send + Sync>;
 
 /// Asset metadata that informs how an [`Asset`] should be handled by the asset system.
@@ -36,6 +41,7 @@ pub struct AssetMeta<L: AssetLoader, P: Process> {
 }
 
 impl<L: AssetLoader, P: Process> AssetMeta<L, P> {
+    /// TODO
     pub fn new(asset: AssetAction<L::Settings, P::Settings>) -> Self {
         Self {
             meta_format_version: META_FORMAT_VERSION.to_string(),
@@ -56,7 +62,9 @@ pub enum AssetAction<LoaderSettings, ProcessSettings> {
     /// Load the asset with the given loader and settings
     /// See [`AssetLoader`].
     Load {
+        /// TODO
         loader: String,
+        /// TODO
         settings: LoaderSettings,
     },
     /// Process the asset with the given processor and settings.
@@ -64,7 +72,9 @@ pub enum AssetAction<LoaderSettings, ProcessSettings> {
     ///
     /// [`AssetProcessor`]: crate::processor::AssetProcessor
     Process {
+        /// TODO
         processor: String,
+        /// TODO
         settings: ProcessSettings,
     },
     /// Do nothing with the asset
@@ -89,7 +99,9 @@ pub struct ProcessedInfo {
 /// has changed.
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ProcessDependencyInfo {
+    /// TODO
     pub full_hash: AssetHash,
+    /// TODO
     pub path: AssetPath<'static>,
 }
 
@@ -101,6 +113,7 @@ pub struct ProcessDependencyInfo {
 // using a type registry.
 #[derive(Serialize, Deserialize)]
 pub struct AssetMetaMinimal {
+    /// TODO
     pub asset: AssetActionMinimal,
 }
 
@@ -108,8 +121,17 @@ pub struct AssetMetaMinimal {
 /// isn't necessary.
 #[derive(Serialize, Deserialize)]
 pub enum AssetActionMinimal {
-    Load { loader: String },
-    Process { processor: String },
+    /// TODO
+    Load {
+        /// TODO
+        loader: String
+    },
+    /// TODO
+    Process {
+        /// TODO
+        processor: String
+    },
+    /// TODO
     Ignore,
 }
 
@@ -117,6 +139,7 @@ pub enum AssetActionMinimal {
 /// necessary.
 #[derive(Serialize, Deserialize)]
 pub struct ProcessedInfoMinimal {
+    /// TODO
     pub processed_info: Option<ProcessedInfo>,
 }
 
@@ -238,6 +261,7 @@ pub(crate) fn loader_settings_meta_transform<S: Settings>(
     Box::new(move |meta| meta_transform_settings(meta, &settings))
 }
 
+/// TODO
 pub type AssetHash = [u8; 32];
 
 /// NOTE: changing the hashing logic here is a _breaking change_ that requires a [`META_FORMAT_VERSION`] bump.

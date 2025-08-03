@@ -1,3 +1,5 @@
+//! TODO
+
 #[cfg(all(feature = "file_watcher", target_arch = "wasm32"))]
 compile_error!(
     "The \"file_watcher\" feature for hot reloading does not work \
@@ -135,6 +137,7 @@ pub trait AsyncSeekForwardExt: AsyncSeekForward {
 
 impl<R: AsyncSeekForward + ?Sized> AsyncSeekForwardExt for R {}
 
+/// TODO
 #[derive(Debug)]
 #[must_use = "futures do nothing unless you `.await` or poll them"]
 pub struct SeekForwardFuture<'a, S: Unpin + ?Sized> {
@@ -188,6 +191,7 @@ impl Reader for Box<dyn Reader + '_> {
 pub trait AssetReaderFuture:
     ConditionalSendFuture<Output = Result<Self::Value, AssetReaderError>>
 {
+    /// TODO
     type Value;
 }
 
@@ -326,8 +330,10 @@ impl<T: AssetReader> ErasedAssetReader for T {
     }
 }
 
+/// TODO
 pub type Writer = dyn AsyncWrite + Unpin + Send + Sync;
 
+/// TODO
 pub type PathStream = dyn Stream<Item = PathBuf> + Unpin + Send;
 
 /// Errors that occur while loading assets.
@@ -583,7 +589,12 @@ pub enum AssetSourceEvent {
     /// An asset at this path was removed.
     RemovedAsset(PathBuf),
     /// An asset at this path was renamed.
-    RenamedAsset { old: PathBuf, new: PathBuf },
+    RenamedAsset {
+        /// TODO
+        old: PathBuf,
+        /// TODO
+        new: PathBuf
+    },
     /// Asset metadata at this path was added.
     AddedMeta(PathBuf),
     /// Asset metadata at this path was modified.
@@ -591,13 +602,23 @@ pub enum AssetSourceEvent {
     /// Asset metadata at this path was removed.
     RemovedMeta(PathBuf),
     /// Asset metadata at this path was renamed.
-    RenamedMeta { old: PathBuf, new: PathBuf },
+    RenamedMeta {
+        /// TODO
+        old: PathBuf,
+        /// TODO
+        new: PathBuf
+    },
     /// A folder at the given path was added.
     AddedFolder(PathBuf),
     /// A folder at the given path was removed.
     RemovedFolder(PathBuf),
     /// A folder at the given path was renamed.
-    RenamedFolder { old: PathBuf, new: PathBuf },
+    RenamedFolder {
+        /// TODO
+        old: PathBuf,
+        /// TODO
+        new: PathBuf
+    },
     /// Something of unknown type was removed. It is the job of the event handler to determine the type.
     /// This exists because notify-rs produces "untyped" rename events without destination paths for unwatched folders, so we can't determine the type of
     /// the rename.
