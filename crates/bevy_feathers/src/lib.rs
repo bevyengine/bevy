@@ -33,6 +33,7 @@ use crate::{
 
 mod alpha_pattern;
 pub mod constants;
+pub mod containers;
 pub mod controls;
 pub mod cursor;
 pub mod dark_theme;

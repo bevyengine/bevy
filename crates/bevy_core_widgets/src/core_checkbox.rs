@@ -16,6 +16,7 @@ use bevy_picking::events::{Click, Pointer};
 use bevy_ui::{Checkable, Checked, InteractionDisabled};
 
 use crate::{Callback, Notify as _, ValueChange};
+use bevy_ecs::template::GetTemplate;
 
 /// Headless widget implementation for checkboxes. The [`Checked`] component represents the current
 /// state of the checkbox. The `on_change` field is an optional system id that will be run when the
@@ -28,7 +29,7 @@ use crate::{Callback, Notify as _, ValueChange};
 /// The [`CoreCheckbox`] component can be used to implement other kinds of toggle widgets. If you
 /// are going to do a toggle switch, you should override the [`AccessibilityNode`] component with
 /// the `Switch` role instead of the `Checkbox` role.
-#[derive(Component, Debug, Default)]
+#[derive(Component, Debug, Clone, GetTemplate)]
 #[require(AccessibilityNode(accesskit::Node::new(Role::CheckBox)), Checkable)]
 pub struct CoreCheckbox {
     /// One-shot system that is run when the checkbox state needs to be changed. If this value is

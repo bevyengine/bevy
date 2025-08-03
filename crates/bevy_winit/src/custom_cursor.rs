@@ -8,7 +8,7 @@ use wgpu_types::TextureFormat;
 use crate::{cursor::CursorIcon, state::CustomCursorCache};
 
 /// A custom cursor created from an image.
-#[derive(Debug, Clone, Default, Reflect, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Reflect, PartialEq, Eq, Hash)]
 #[reflect(Debug, Default, Hash, PartialEq, Clone)]
 pub struct CustomCursorImage {
     /// Handle to the image to use as the cursor. The image must be in 8 bit int
@@ -40,6 +40,19 @@ pub struct CustomCursorImage {
     /// to adjust this field to account for the flip because it is adjusted
     /// automatically.
     pub hotspot: (u16, u16),
+}
+
+impl Default for CustomCursorImage {
+    fn default() -> Self {
+        Self {
+            handle: Handle::default(),
+            texture_atlas: Default::default(),
+            flip_x: Default::default(),
+            flip_y: Default::default(),
+            rect: Default::default(),
+            hotspot: Default::default(),
+        }
+    }
 }
 
 #[cfg(all(target_family = "wasm", target_os = "unknown"))]

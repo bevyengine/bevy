@@ -363,7 +363,7 @@ impl From<LineHeight> for TextFont {
 impl Default for TextFont {
     fn default() -> Self {
         Self {
-            font: Default::default(),
+            font: Handle::default(),
             font_size: 20.0,
             line_height: LineHeight::default(),
             font_smoothing: Default::default(),
