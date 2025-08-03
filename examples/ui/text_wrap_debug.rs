@@ -1,7 +1,12 @@
 //! This example demonstrates text wrapping and use of the `LineBreakOn` property.
 
 use argh::FromArgs;
-use bevy::{prelude::*, text::LineBreak, window::WindowResolution, winit::WinitSettings};
+use bevy::{
+    prelude::*,
+    text::LineBreak,
+    window::{PrimaryWindow, WindowResolution},
+    winit::WinitSettings,
+};
 
 #[derive(FromArgs, Resource)]
 /// `text_wrap_debug` demonstrates text wrapping and use of the `LineBreakOn` property
@@ -16,30 +21,30 @@ struct Args {
 }
 
 fn main() {
+    App::new()
+        .add_plugins(DefaultPlugins)
+        .insert_resource(WinitSettings::desktop_app())
+        .add_observer(configure_window)
+        .add_systems(Startup, spawn)
+        .run();
+}
+
+fn configure_window(
+    trigger: On<Add, PrimaryWindow>,
+    mut window: Query<&mut Window>,
+    mut commands: Commands,
+) {
+    let mut window = window.get_mut(trigger.target()).unwrap();
     // `from_env` panics on the web
     #[cfg(not(target_arch = "wasm32"))]
     let args: Args = argh::from_env();
     #[cfg(target_arch = "wasm32")]
     let args = Args::from_args(&[], &[]).unwrap();
 
-    let window = if let Some(scale_factor) = args.scale_factor {
-        Window {
-            resolution: WindowResolution::default().with_scale_factor_override(scale_factor),
-            ..Default::default()
-        }
-    } else {
-        Window::default()
-    };
-
-    App::new()
-        .add_plugins(DefaultPlugins.set(WindowPlugin {
-            primary_window: Some(window),
-            ..Default::default()
-        }))
-        .insert_resource(WinitSettings::desktop_app())
-        .insert_resource(UiScale(args.ui_scale))
-        .add_systems(Startup, spawn)
-        .run();
+    if let Some(scale_factor) = args.scale_factor {
+        window.resolution = WindowResolution::default().with_scale_factor_override(scale_factor);
+    }
+    commands.insert_resource(UiScale(args.ui_scale));
 }
 
 fn spawn(mut commands: Commands, asset_server: Res<AssetServer>) {

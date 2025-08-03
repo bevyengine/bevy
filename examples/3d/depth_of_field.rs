@@ -52,13 +52,7 @@ struct AppSettings {
 fn main() {
     App::new()
         .init_resource::<AppSettings>()
-        .add_plugins(DefaultPlugins.set(WindowPlugin {
-            primary_window: Some(Window {
-                title: "Bevy Depth of Field Example".to_string(),
-                ..default()
-            }),
-            ..default()
-        }))
+        .add_plugins(DefaultPlugins)
         .add_systems(Startup, setup)
         .add_systems(Update, tweak_scene)
         .add_systems(
