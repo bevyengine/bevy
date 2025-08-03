@@ -71,7 +71,7 @@ impl EntityListVirtualState {
     }
 }
 
-/// Spawn the entity list UI with virtual scrolling
+/// Spawn the entity list UI with virtual scrolling and scrollbar
 pub fn spawn_entity_list(commands: &mut Commands, parent: Entity) -> Entity {
     let panel = commands.spawn((
         EntityListPanel,
@@ -124,6 +124,34 @@ pub fn spawn_entity_list(commands: &mut Commands, parent: Entity) -> Entity {
                 },
             ));
         });
+        
+        // Add a visual scrollbar indicator positioned absolutely (doesn't affect layout)
+        parent.spawn((
+            ScrollbarIndicator,
+            Node {
+                width: Val::Px(8.0),
+                height: Val::Percent(95.0), // Slightly shorter than container
+                position_type: PositionType::Absolute,
+                right: Val::Px(4.0),
+                top: Val::Percent(2.5), // Center vertically
+                flex_direction: FlexDirection::Column,
+                ..default()
+            },
+            BackgroundColor(Color::srgb(0.1, 0.1, 0.15)), // Track color
+        )).with_children(|parent| {
+            // Scrollbar thumb
+            parent.spawn((
+                ScrollbarThumb,
+                Node {
+                    width: Val::Percent(100.0),
+                    height: Val::Px(50.0), // Will be updated dynamically
+                    position_type: PositionType::Absolute,
+                    top: Val::Px(0.0), // Will be updated dynamically
+                    ..default()
+                },
+                BackgroundColor(Color::srgb(0.4, 0.4, 0.5)), // Thumb color
+            ));
+        });
     }).id();
     
     commands.entity(parent).add_child(panel);
@@ -133,6 +161,14 @@ pub fn spawn_entity_list(commands: &mut Commands, parent: Entity) -> Entity {
 /// Marker for the virtual scrolling content area
 #[derive(Component)]
 pub struct EntityListVirtualContent;
+
+/// Component for the scrollbar indicator
+#[derive(Component)]
+pub struct ScrollbarIndicator;
+
+/// Component for the scrollbar thumb
+#[derive(Component)]
+pub struct ScrollbarThumb;
 
 /// Determine the best display name for an entity based on its components
 fn get_entity_display_info(entity: &RemoteEntity) -> (String, String) {

@@ -2,7 +2,7 @@
 
 use bevy::prelude::*;
 use bevy::input::mouse::MouseWheel;
-use crate::ui::entity_list::{EntityListContainer, EntityListVirtualContent, EntityListVirtualState, EntityCache};
+use crate::ui::entity_list::{EntityListContainer, EntityListVirtualContent, EntityListVirtualState, EntityCache, ScrollbarThumb, ScrollbarIndicator};
 use crate::ui::component_viewer::ComponentViewerPanel;
 use crate::http_client::{RemoteEntity, HttpRemoteClient};
 use std::collections::HashMap;
@@ -38,6 +38,12 @@ pub struct VirtualScrollState {
     pub page_size: usize,
     pub current_page: usize,
     pub buffer_size: usize,
+    pub last_update_time: f64,
+    pub min_update_interval: f64,
+    pub max_scroll_velocity: f32,
+    pub pending_scroll_position: Option<f32>,
+    pub last_cleanup_time: f64,
+    pub cleanup_interval: f64,
 }
 
 impl Default for VirtualScrollState {
@@ -57,7 +63,13 @@ impl Default for VirtualScrollState {
             is_loading_more: false,
             page_size: 50,
             current_page: 0,
-            buffer_size: 10, // Extra items above/below viewport
+            buffer_size: 20, // Increased buffer for smoother scrolling
+            last_update_time: 0.0,
+            min_update_interval: 0.020, // Slower updates to prevent black screens
+            max_scroll_velocity: 1500.0, // Reduced max velocity
+            pending_scroll_position: None,
+            last_cleanup_time: 0.0,
+            cleanup_interval: 0.1, // Only cleanup every 100ms during fast scrolling
         }
     }
 }
@@ -95,12 +107,38 @@ pub fn update_infinite_scrolling_display(
         };
     }
     
+    // Check if enough time has passed since last update to prevent overwhelming UI
+    let current_time = time.elapsed_secs_f64();
+    let time_since_last_update = current_time - virtual_scroll_state.last_update_time;
+    let can_update_by_time = time_since_last_update >= virtual_scroll_state.min_update_interval;
+    
     // Check if scroll position changed significantly (more than half an item height)  
     let scroll_changed = (virtual_scroll_state.current_scroll - current_scroll_y).abs() > virtual_scroll_state.item_height * 0.5;
     
-    // Use custom scroll position directly (no interpolation needed since we control it)
-    virtual_scroll_state.current_scroll = current_scroll_y;
-    virtual_scroll_state.target_scroll = current_scroll_y;
+    // Store pending scroll position if we can't update yet
+    if scroll_changed && !can_update_by_time {
+        virtual_scroll_state.pending_scroll_position = Some(current_scroll_y);
+        return;
+    }
+    
+    // Use pending scroll position if available and enough time has passed
+    let target_scroll_y = if let Some(pending_pos) = virtual_scroll_state.pending_scroll_position.take() {
+        pending_pos
+    } else {
+        current_scroll_y
+    };
+    
+    // Recalculate scroll_changed with target position
+    let scroll_changed = (virtual_scroll_state.current_scroll - target_scroll_y).abs() > virtual_scroll_state.item_height * 0.5;
+    
+    // Use target scroll position (may be different from current if we had pending updates)
+    virtual_scroll_state.current_scroll = target_scroll_y;
+    virtual_scroll_state.target_scroll = target_scroll_y;
+    virtual_scroll_state.last_update_time = current_time;
+    
+    // Calculate scroll velocity for cleanup timing
+    let scroll_delta = (target_scroll_y - virtual_scroll_state.current_scroll).abs();
+    virtual_scroll_state.scroll_velocity = scroll_delta;
     
     // Update entity data when cache changes
     let mut entities_changed = false;
@@ -133,8 +171,13 @@ pub fn update_infinite_scrolling_display(
         return;
     }
     
-    // Only update display if something meaningful changed
+    // Only update display if something meaningful changed and we're allowed to update
     if !entities_changed && !scroll_changed {
+        return;
+    }
+    
+    // Additional check: if we're updating too frequently, skip this frame
+    if !entities_changed && !can_update_by_time {
         return;
     }
     
@@ -142,9 +185,17 @@ pub fn update_infinite_scrolling_display(
     let items_per_screen = (virtual_scroll_state.container_height / virtual_scroll_state.item_height).ceil() as usize;
     let scroll_offset = (virtual_scroll_state.current_scroll / virtual_scroll_state.item_height) as usize;
     
-    // Use buffer to ensure smooth scrolling, but handle boundaries better
-    let start_index = scroll_offset.saturating_sub(virtual_scroll_state.buffer_size);
-    let mut end_index = (scroll_offset + items_per_screen + virtual_scroll_state.buffer_size)
+    // Use adaptive buffer based on scroll velocity - larger buffer for fast scrolling
+    let adaptive_buffer = if virtual_scroll_state.scroll_velocity > 1000.0 {
+        virtual_scroll_state.buffer_size * 3 // Much larger buffer during fast scrolling
+    } else if virtual_scroll_state.scroll_velocity > 500.0 {
+        virtual_scroll_state.buffer_size * 2 // Larger buffer during medium scrolling
+    } else {
+        virtual_scroll_state.buffer_size // Normal buffer for slow scrolling
+    };
+    
+    let start_index = scroll_offset.saturating_sub(adaptive_buffer);
+    let mut end_index = (scroll_offset + items_per_screen + adaptive_buffer)
         .min(virtual_scroll_state.total_entity_count);
     
     // Ensure we always show at least some items when at the bottom
@@ -252,27 +303,35 @@ pub fn update_infinite_scrolling_display(
     }
     
     // Cleanup: despawn items that are far outside the visible range to prevent accumulation
-    let cleanup_buffer = virtual_scroll_state.buffer_size * 3; // Keep items slightly outside buffer
+    // Use larger cleanup buffer to prevent frequent despawning during fast scrolling
+    let cleanup_buffer = virtual_scroll_state.buffer_size * 6; // Much larger buffer for stability
     let cleanup_start = final_start_index.saturating_sub(cleanup_buffer);
     let cleanup_end = (final_end_index + cleanup_buffer).min(virtual_scroll_state.total_entity_count);
     
-    // Collect entities to despawn - use iter_many to get entities
-    let mut entities_to_despawn = Vec::new();
+    // Only perform cleanup if enough time has passed to avoid constant despawning during fast scrolling
+    let should_cleanup = current_time - virtual_scroll_state.last_cleanup_time >= virtual_scroll_state.cleanup_interval;
     let mut despawn_count = 0;
     
-    for (entity, _node, cached_item, _visibility) in cached_items.iter() {
-        let entity_index = virtual_scroll_state.sorted_entity_ids.iter().position(|&id| id == cached_item.entity_id);
-        if let Some(index) = entity_index {
-            if index < cleanup_start || index >= cleanup_end {
-                entities_to_despawn.push(entity);
-                despawn_count += 1;
+    if should_cleanup {
+        // Collect entities to despawn - use iter_many to get entities
+        let mut entities_to_despawn = Vec::new();
+        
+        for (entity, _node, cached_item, _visibility) in cached_items.iter() {
+            let entity_index = virtual_scroll_state.sorted_entity_ids.iter().position(|&id| id == cached_item.entity_id);
+            if let Some(index) = entity_index {
+                if index < cleanup_start || index >= cleanup_end {
+                    entities_to_despawn.push(entity);
+                    despawn_count += 1;
+                }
             }
         }
-    }
-    
-    // Actually despawn the UI entities that are too far away
-    for entity in entities_to_despawn {
-        commands.entity(entity).despawn();
+        
+        // Actually despawn the UI entities that are too far away
+        for entity in entities_to_despawn {
+            commands.entity(entity).despawn();
+        }
+        
+        virtual_scroll_state.last_cleanup_time = current_time;
     }
     
     // Debug output when things change
@@ -293,6 +352,8 @@ pub fn update_infinite_scrolling_display(
 pub struct CustomScrollPosition {
     pub y: f32,
     pub max_y: f32,
+    pub last_scroll_time: f64,
+    pub scroll_debounce_interval: f64,
 }
 
 /// Enhanced mouse wheel scrolling that bypasses Bevy's scroll system limitations
@@ -302,19 +363,41 @@ pub fn handle_infinite_scroll_input(
     mut entity_scroll_query: Query<&mut ScrollPosition, (With<EntityListContainer>, Without<ComponentViewerPanel>)>,
     mut component_scroll_query: Query<&mut ScrollPosition, (With<ComponentViewerPanel>, Without<EntityListContainer>)>,
     windows: Query<&Window>,
-    virtual_scroll_state: Res<VirtualScrollState>,
+    mut virtual_scroll_state: ResMut<VirtualScrollState>,
+    time: Res<Time>,
 ) {
     // Update max scroll based on current content
     custom_scroll.max_y = (virtual_scroll_state.total_content_height - virtual_scroll_state.container_height).max(0.0);
     
+    let current_time = time.elapsed_secs_f64();
+    let mut scroll_events_processed = 0;
+    
     for event in mouse_wheel_events.read() {
+        // Debounce rapid scroll events to prevent UI overwhelm
+        if current_time - custom_scroll.last_scroll_time < custom_scroll.scroll_debounce_interval {
+            scroll_events_processed += 1;
+            if scroll_events_processed > 1 {
+                // Skip processing if too many events in rapid succession
+                continue;
+            }
+        }
+        
+        custom_scroll.last_scroll_time = current_time;
+        
         if let Ok(window) = windows.single() {
             if let Some(cursor_pos) = window.cursor_position() {
                 let window_width = window.width();
                 
                 if cursor_pos.x < window_width * 0.3 {
-                    // Use our custom scroll system for infinite scrolling
-                    let scroll_delta = event.y * 30.0;
+                    // Use our custom scroll system for infinite scrolling with velocity limiting
+                    let mut scroll_delta = event.y * 15.0; // Reduced from 30.0 for more precise control
+                    
+                    // Apply velocity limiting to prevent overwhelming the UI system
+                    let abs_delta = scroll_delta.abs();
+                    if abs_delta > virtual_scroll_state.max_scroll_velocity {
+                        scroll_delta = scroll_delta.signum() * virtual_scroll_state.max_scroll_velocity;
+                    }
+                    
                     custom_scroll.y -= scroll_delta;
                     custom_scroll.y = custom_scroll.y.clamp(0.0, custom_scroll.max_y);
                     
@@ -336,8 +419,15 @@ pub fn handle_infinite_scroll_input(
                     }
                 }
             } else {
-                // Fallback: use custom scroll system
-                let scroll_delta = event.y * 30.0;
+                // Fallback: use custom scroll system with velocity limiting
+                let mut scroll_delta = event.y * 15.0; // Reduced from 30.0 for more precise control
+                
+                // Apply velocity limiting to prevent overwhelming the UI system
+                let abs_delta = scroll_delta.abs();
+                if abs_delta > virtual_scroll_state.max_scroll_velocity {
+                    scroll_delta = scroll_delta.signum() * virtual_scroll_state.max_scroll_velocity;
+                }
+                
                 custom_scroll.y -= scroll_delta;
                 custom_scroll.y = custom_scroll.y.clamp(0.0, custom_scroll.max_y);
                 
@@ -376,6 +466,12 @@ pub fn setup_virtual_scrolling(
     // Initialize new virtual scroll state
     commands.insert_resource(VirtualScrollState::default());
     commands.insert_resource(EntityListVirtualState::new());
+    commands.insert_resource(CustomScrollPosition {
+        y: 0.0,
+        max_y: 0.0,
+        last_scroll_time: 0.0,
+        scroll_debounce_interval: 0.016, // ~60fps limit for scroll events
+    });
     
     // Reset scroll position to 0 on startup
     if let Ok(mut scroll_position) = scroll_query.single_mut() {
@@ -411,6 +507,61 @@ pub fn setup_virtual_scrolling(
     }
     
     println!("Initialized virtual scrolling");
+}
+
+/// Update the visual scrollbar to reflect current scroll position
+pub fn update_scrollbar_indicator(
+    virtual_scroll_state: Res<VirtualScrollState>,
+    custom_scroll: Res<CustomScrollPosition>,
+    container_query: Query<&Node, (With<EntityListContainer>, Without<ScrollbarThumb>, Without<ScrollbarIndicator>)>,
+    indicator_query: Query<&Node, (With<ScrollbarIndicator>, Without<EntityListContainer>, Without<ScrollbarThumb>)>,
+    mut thumb_query: Query<&mut Node, (With<ScrollbarThumb>, Without<EntityListContainer>, Without<ScrollbarIndicator>)>,
+) {
+    // Only update if we have content that needs scrolling
+    if virtual_scroll_state.total_content_height <= virtual_scroll_state.container_height {
+        // Hide scrollbar when no scrolling is needed
+        if let Ok(mut thumb_node) = thumb_query.single_mut() {
+            thumb_node.display = Display::None;
+        }
+        return;
+    }
+    
+    let Ok(container_node) = container_query.single() else { return; };
+    let Ok(indicator_node) = indicator_query.single() else { return; };
+    let Ok(mut thumb_node) = thumb_query.single_mut() else { return; };
+    
+    // Show scrollbar
+    thumb_node.display = Display::Flex;
+    
+    // Calculate dimensions
+    let container_height = match container_node.height {
+        Val::Px(h) => h,
+        Val::Percent(p) => virtual_scroll_state.container_height * p / 100.0,
+        _ => virtual_scroll_state.container_height,
+    };
+    
+    let indicator_height = match indicator_node.height {
+        Val::Px(h) => h,
+        Val::Percent(p) => container_height * p / 100.0,
+        _ => container_height,
+    };
+    
+    // Calculate thumb size (proportional to visible content ratio)
+    let content_ratio = container_height / virtual_scroll_state.total_content_height;
+    let thumb_height = (indicator_height * content_ratio).max(20.0).min(indicator_height);
+    
+    // Calculate thumb position
+    let scroll_ratio = if custom_scroll.max_y > 0.0 {
+        custom_scroll.y / custom_scroll.max_y
+    } else {
+        0.0
+    };
+    let max_thumb_travel = indicator_height - thumb_height;
+    let thumb_top = scroll_ratio * max_thumb_travel;
+    
+    // Update thumb node
+    thumb_node.height = Val::Px(thumb_height);
+    thumb_node.top = Val::Px(thumb_top);
 }
 
 /// System to handle momentum scrolling and infinite loading state management

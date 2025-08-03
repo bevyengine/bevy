@@ -3,7 +3,7 @@
 use bevy::prelude::*;
 use crate::http_client::*;
 use crate::ui::*;
-use crate::ui::virtual_scrolling::{handle_infinite_scroll_input, update_infinite_scrolling_display, update_scroll_momentum};
+use crate::ui::virtual_scrolling::{handle_infinite_scroll_input, update_infinite_scrolling_display, update_scroll_momentum, update_scrollbar_indicator};
 
 /// Main plugin for the remote inspector
 pub struct InspectorPlugin;
@@ -40,6 +40,7 @@ impl Plugin for InspectorPlugin {
                 handle_infinite_scroll_input,
                 update_infinite_scrolling_display,
                 update_scroll_momentum,
+                update_scrollbar_indicator,
                 
                 // UI interaction systems
                 handle_entity_selection,
