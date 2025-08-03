@@ -22,7 +22,7 @@ extern crate core;
 // Required to make proc macros work in bevy itself.
 extern crate self as bevy_render;
 
-pub mod alpha;
+pub use bevy_image::alpha;
 pub mod batching;
 pub mod camera;
 pub mod diagnostic;
@@ -60,7 +60,6 @@ mod extract_impls;
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
-        alpha::AlphaMode,
         camera::ToNormalizedRenderTarget as _,
         mesh::{
             morph::MorphWeights, primitives::MeshBuilder, primitives::Meshable, Mesh, Mesh2d,
@@ -77,6 +76,9 @@ pub mod prelude {
         Camera, ClearColor, ClearColorConfig, OrthographicProjection, PerspectiveProjection,
         Projection,
     };
+    // TODO: Remove this in a follow-up
+    #[doc(hidden)]
+    pub use bevy_image::alpha::AlphaMode;
 }
 use batching::gpu_preprocessing::BatchingPlugin;
 

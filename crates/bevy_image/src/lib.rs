@@ -15,6 +15,7 @@ compile_error!(
     "Choosing a zstd backend is required for zstd support. Please enable either the \"zstd_rust\" or the \"zstd_c\" feature."
 );
 
+pub mod alpha;
 mod image;
 pub use self::image::*;
 #[cfg(feature = "serialize")]
