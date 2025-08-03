@@ -14,7 +14,6 @@ use bevy_ecs::{
 };
 use bevy_image::ToExtents;
 use bevy_render::{
-    camera::ExtractedCamera,
     diagnostic::RecordDiagnostics,
     render_graph::{NodeRunError, RenderGraphContext, ViewNode},
     render_resource::{
@@ -50,7 +49,6 @@ impl ViewNode for SolariLightingNode {
     type ViewQuery = (
         &'static SolariLighting,
         &'static SolariLightingResources,
-        &'static ExtractedCamera,
         &'static ViewTarget,
         &'static ViewPrepassTextures,
         &'static ViewUniformOffset,
@@ -64,7 +62,6 @@ impl ViewNode for SolariLightingNode {
         (
             solari_lighting,
             solari_lighting_resources,
-            camera,
             view_target,
             view_prepass_textures,
             view_uniform_offset,
@@ -84,7 +81,6 @@ impl ViewNode for SolariLightingNode {
             Some(gi_initial_and_temporal_pipeline),
             Some(gi_spatial_and_shade_pipeline),
             Some(scene_bindings),
-            Some(viewport),
             Some(gbuffer),
             Some(depth_buffer),
             Some(motion_vectors),
@@ -97,7 +93,6 @@ impl ViewNode for SolariLightingNode {
             pipeline_cache.get_compute_pipeline(self.gi_initial_and_temporal_pipeline),
             pipeline_cache.get_compute_pipeline(self.gi_spatial_and_shade_pipeline),
             &scene_bindings.bind_group,
-            camera.physical_viewport_size,
             view_prepass_textures.deferred_view(),
             view_prepass_textures.depth_view(),
             view_prepass_textures.motion_vectors_view(),
@@ -198,7 +193,7 @@ impl ViewNode for SolariLightingNode {
                 .texture
                 .as_image_copy(),
             solari_lighting_resources.previous_gbuffer.0.as_image_copy(),
-            viewport.to_extents(),
+            solari_lighting_resources.view_size.to_extents(),
         );
         command_encoder.copy_texture_to_texture(
             view_prepass_textures
@@ -209,7 +204,7 @@ impl ViewNode for SolariLightingNode {
                 .texture
                 .as_image_copy(),
             solari_lighting_resources.previous_depth.0.as_image_copy(),
-            viewport.to_extents(),
+            solari_lighting_resources.view_size.to_extents(),
         );
 
         Ok(())
