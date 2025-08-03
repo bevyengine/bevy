@@ -25,7 +25,6 @@ use bevy_platform::prelude::Vec;
 use bevy_platform::sync::{Arc, Mutex, MutexGuard, PoisonError, RwLock, TryLockError};
 use crossbeam_queue::{ArrayQueue, SegQueue};
 use futures_lite::{future, prelude::*};
-use pin_project_lite::pin_project;
 use slab::Slab;
 use thread_local::ThreadLocal;
 
@@ -1023,7 +1022,7 @@ impl<F: FnMut()> Drop for CallOnDrop<F> {
     }
 }
 
-pin_project! {
+pin_project_lite::pin_project! {
     /// A wrapper around a future, running a closure when dropped.
     struct AsyncCallOnDrop<Fut, Cleanup: FnMut()> {
         #[pin]

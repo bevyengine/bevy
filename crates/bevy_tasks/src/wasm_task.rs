@@ -74,8 +74,9 @@ impl<T> Future for Task<T> {
 
 type Panic = Box<dyn Any + Send + 'static>;
 
-#[pin_project::pin_project]
-struct CatchUnwind<F: UnwindSafe>(#[pin] F);
+pin_project_lite::pin_project! {
+    struct CatchUnwind<F: UnwindSafe>(#[pin] F);
+}
 
 impl<F: Future + UnwindSafe> Future for CatchUnwind<F> {
     type Output = Result<F::Output, Panic>;
