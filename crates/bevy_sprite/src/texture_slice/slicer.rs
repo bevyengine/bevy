@@ -12,6 +12,10 @@ use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 /// See [9-sliced](https://en.wikipedia.org/wiki/9-slice_scaling) textures.
 #[derive(Debug, Clone, Reflect, PartialEq)]
 #[reflect(Clone, PartialEq)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(::serde::Serialize, ::serde::Deserialize)
+)]
 pub struct TextureSlicer {
     /// Inset values in pixels that define the four slicing lines dividing the texture into nine sections.
     pub border: BorderRect,
@@ -26,6 +30,10 @@ pub struct TextureSlicer {
 /// Defines how a texture slice scales when resized
 #[derive(Debug, Copy, Clone, Default, Reflect, PartialEq)]
 #[reflect(Clone, PartialEq, Default)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(::serde::Serialize, ::serde::Deserialize)
+)]
 pub enum SliceScaleMode {
     /// The slice will be stretched to fit the area
     #[default]

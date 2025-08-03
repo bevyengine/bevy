@@ -18,7 +18,10 @@ use crate::{deferred::DEFAULT_PBR_DEFERRED_LIGHTING_PASS_ID, *};
 /// The default is [`UvChannel::Uv0`].
 #[derive(Reflect, Default, Debug, Clone, PartialEq, Eq)]
 #[reflect(Default, Debug, Clone, PartialEq)]
-#[cfg_attr(feature = "serialize", derive(::serde::Serialize, ::serde::Deserialize))]
+#[cfg_attr(
+    feature = "serialize",
+    derive(::serde::Serialize, ::serde::Deserialize)
+)]
 pub enum UvChannel {
     #[default]
     Uv0,

@@ -235,7 +235,10 @@ impl<M: Material2d> AsAssetId for MeshMaterial2d<M> {
 /// We use a separate type because 2d doesn't support all the transparency modes that 3d does.
 #[derive(Debug, Default, Reflect, Copy, Clone, PartialEq)]
 #[reflect(Default, Debug, Clone)]
-#[cfg_attr(feature = "serialize", derive(::serde::Serialize, ::serde::Deserialize))]
+#[cfg_attr(
+    feature = "serialize",
+    derive(::serde::Serialize, ::serde::Deserialize)
+)]
 pub enum AlphaMode2d {
     /// Base color alpha values are overridden to be fully opaque (1.0).
     #[default]

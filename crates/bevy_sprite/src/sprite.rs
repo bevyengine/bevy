@@ -158,6 +158,10 @@ impl From<Handle<Image>> for Sprite {
 /// Controls how the image is altered when scaled.
 #[derive(Default, Debug, Clone, Reflect, PartialEq)]
 #[reflect(Debug, Default, Clone)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(::serde::Serialize, ::serde::Deserialize)
+)]
 pub enum SpriteImageMode {
     /// The sprite will take on the size of the image by default, and will be stretched or shrunk if [`Sprite::custom_size`] is set.
     #[default]
@@ -206,6 +210,10 @@ impl SpriteImageMode {
 /// Can be used in [`SpriteImageMode::Scale`].
 #[derive(Debug, Clone, Copy, PartialEq, Default, Reflect)]
 #[reflect(Debug, Default, Clone)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(::serde::Serialize, ::serde::Deserialize)
+)]
 pub enum ScalingMode {
     /// Scale the texture uniformly (maintain the texture's aspect ratio)
     /// so that both dimensions (width and height) of the texture will be equal

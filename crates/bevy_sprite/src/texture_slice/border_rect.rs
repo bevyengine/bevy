@@ -6,6 +6,10 @@ use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 /// of a rectangle (left, right, top, and bottom), with values increasing inwards.
 #[derive(Default, Copy, Clone, PartialEq, Debug, Reflect)]
 #[reflect(Clone, PartialEq, Default)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(::serde::Serialize, ::serde::Deserialize)
+)]
 pub struct BorderRect {
     /// Extent of the border along the left edge
     pub left: f32,
