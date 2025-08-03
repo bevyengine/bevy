@@ -1,4 +1,6 @@
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
+#[cfg(feature = "serialize")]
+use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 
 /// Defines the extents of the border of a rectangle.
 ///
@@ -10,6 +12,7 @@ use bevy_reflect::{std_traits::ReflectDefault, Reflect};
     feature = "serialize",
     derive(::serde::Serialize, ::serde::Deserialize)
 )]
+#[cfg_attr(feature = "serialize", reflect(Serialize, Deserialize))]
 pub struct BorderRect {
     /// Extent of the border along the left edge
     pub left: f32,

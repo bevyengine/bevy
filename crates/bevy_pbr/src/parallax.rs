@@ -1,5 +1,7 @@
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 
+#[cfg(feature = "serialize")]
+use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 /// The [parallax mapping] method to use to compute depth based on the
 /// material's [`depth_map`].
 ///
@@ -17,6 +19,7 @@ use bevy_reflect::{std_traits::ReflectDefault, Reflect};
     feature = "serialize",
     derive(::serde::Serialize, ::serde::Deserialize)
 )]
+#[cfg_attr(feature = "serialize", reflect(Serialize, Deserialize))]
 pub enum ParallaxMappingMethod {
     /// A simple linear interpolation, using a single texture sample.
     ///

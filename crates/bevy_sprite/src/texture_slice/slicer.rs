@@ -1,7 +1,8 @@
 use super::{BorderRect, TextureSlice};
 use bevy_math::{vec2, Rect, Vec2};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
-
+#[cfg(feature = "serialize")]
+use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 /// Slices a texture using the **9-slicing** technique. This allows to reuse an image at various sizes
 /// without needing to prepare multiple assets. The associated texture will be split into nine portions,
 /// so that on resize the different portions scale or tile in different ways to keep the texture in proportion.
@@ -16,6 +17,7 @@ use bevy_reflect::{std_traits::ReflectDefault, Reflect};
     feature = "serialize",
     derive(::serde::Serialize, ::serde::Deserialize)
 )]
+#[cfg_attr(feature = "serialize", reflect(Serialize, Deserialize))]
 pub struct TextureSlicer {
     /// Inset values in pixels that define the four slicing lines dividing the texture into nine sections.
     pub border: BorderRect,
@@ -34,6 +36,7 @@ pub struct TextureSlicer {
     feature = "serialize",
     derive(::serde::Serialize, ::serde::Deserialize)
 )]
+#[cfg_attr(feature = "serialize", reflect(Serialize, Deserialize))]
 pub enum SliceScaleMode {
     /// The slice will be stretched to fit the area
     #[default]
