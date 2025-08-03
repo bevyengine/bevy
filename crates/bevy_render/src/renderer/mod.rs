@@ -462,17 +462,13 @@ pub async fn initialize_renderer(
         RenderAdapter(Arc::new(WgpuWrapper::new(adapter))),
         RenderInstance(Arc::new(WgpuWrapper::new(instance))),
         #[cfg(feature = "dlss")]
-        if dlss_feature_support.super_resolution_supported {
-            Some(crate::DlssSuperResolutionSupported)
-        } else {
-            None
-        },
+        dlss_feature_support
+            .super_resolution_supported
+            .then(|| crate::DlssSuperResolutionSupported),
         #[cfg(feature = "dlss")]
-        if dlss_feature_support.ray_reconstruction_supported {
-            Some(crate::DlssRayReconstructionSupported)
-        } else {
-            None
-        },
+        dlss_feature_support
+            .ray_reconstruction_supported
+            .then(|| crate::DlssRayReconstructionSupported),
     )
 }
 

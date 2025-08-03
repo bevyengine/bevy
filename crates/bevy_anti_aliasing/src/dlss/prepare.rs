@@ -1,4 +1,4 @@
-use super::{Dlss, DlssSdk};
+use super::{Dlss, DlssFeature, DlssSdk};
 use bevy_core_pipeline::{
     core_3d::Camera3d,
     prepass::{DepthPrepass, MotionVectorPrepass},
@@ -17,27 +17,27 @@ use bevy_render::{
     renderer::{RenderDevice, RenderQueue},
     view::ExtractedView,
 };
-use dlss_wgpu::{super_resolution::DlssSuperResolution, DlssFeatureFlags, DlssPerfQualityMode};
+use dlss_wgpu::{DlssFeatureFlags, DlssPerfQualityMode};
 use std::sync::{Arc, Mutex};
 
 #[derive(Component)]
-pub struct ViewDlssSuperResolution {
-    pub context: Mutex<DlssSuperResolution>,
+pub struct DlssRenderContext<F: DlssFeature> {
+    pub context: Mutex<F::Context>,
     pub perf_quality_mode: DlssPerfQualityMode,
     pub feature_flags: DlssFeatureFlags,
 }
 
-pub fn prepare_dlss(
+pub fn prepare_dlss<F: DlssFeature>(
     mut query: Query<
         (
             Entity,
             &ExtractedView,
-            &Dlss,
+            &Dlss<F>,
             &mut Camera3d,
             &mut CameraMainTextureUsages,
             &mut TemporalJitter,
             &mut MipBias,
-            Option<&mut ViewDlssSuperResolution>,
+            Option<&mut DlssRenderContext<F>>,
         ),
         (
             With<Camera3d>,
@@ -79,32 +79,33 @@ pub fn prepare_dlss(
         match dlss_context.as_deref_mut() {
             Some(dlss_context)
                 if upscaled_resolution
-                    == dlss_context.context.lock().unwrap().upscaled_resolution()
+                    == F::upscaled_resolution(&dlss_context.context.lock().unwrap())
                     && dlss.perf_quality_mode == dlss_context.perf_quality_mode
                     && dlss_feature_flags == dlss_context.feature_flags =>
             {
                 let dlss_context = dlss_context.context.lock().unwrap();
+                let render_resolution = F::render_resolution(&dlss_context);
                 temporal_jitter.offset =
-                    dlss_context.suggested_jitter(frame_count.0, dlss_context.render_resolution());
+                    F::suggested_jitter(&dlss_context, frame_count.0, render_resolution);
             }
             _ => {
-                let dlss_context = DlssSuperResolution::new(
+                let dlss_context = F::new_context(
                     upscaled_resolution,
                     dlss.perf_quality_mode,
                     dlss_feature_flags,
                     Arc::clone(&dlss_sdk.0),
-                    render_device.wgpu_device(),
+                    &render_device,
                     &render_queue,
                 )
-                .expect("Failed to create DlssSuperResolution");
+                .expect("Failed to create DlssRenderContext");
 
-                let render_resolution = dlss_context.render_resolution();
+                let render_resolution = F::render_resolution(&dlss_context);
                 temporal_jitter.offset =
-                    dlss_context.suggested_jitter(frame_count.0, render_resolution);
-                mip_bias.0 = dlss_context.suggested_mip_bias(render_resolution);
+                    F::suggested_jitter(&dlss_context, frame_count.0, render_resolution);
+                mip_bias.0 = F::suggested_mip_bias(&dlss_context, render_resolution);
 
                 commands.entity(entity).insert((
-                    ViewDlssSuperResolution {
+                    DlssRenderContext::<F> {
                         context: Mutex::new(dlss_context),
                         perf_quality_mode: dlss.perf_quality_mode,
                         feature_flags: dlss_feature_flags,

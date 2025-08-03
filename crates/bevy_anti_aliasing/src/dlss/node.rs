@@ -1,4 +1,7 @@
-use super::{prepare::ViewDlssSuperResolution, Dlss};
+use super::{
+    prepare::DlssRenderContext, Dlss, DlssFeature, DlssRayReconstructionFeature,
+    DlssSuperResolutionFeature,
+};
 use bevy_core_pipeline::prepass::ViewPrepassTextures;
 use bevy_ecs::{query::QueryItem, world::World};
 use bevy_render::{
@@ -10,14 +13,15 @@ use bevy_render::{
 use dlss_wgpu::super_resolution::{
     DlssSuperResolutionExposure, DlssSuperResolutionRenderParameters,
 };
+use std::marker::PhantomData;
 
 #[derive(Default)]
-pub struct DlssNode;
+pub struct DlssNode<F: DlssFeature>(PhantomData<F>);
 
-impl ViewNode for DlssNode {
+impl ViewNode for DlssNode<DlssSuperResolutionFeature> {
     type ViewQuery = (
-        &'static Dlss,
-        &'static ViewDlssSuperResolution,
+        &'static Dlss<DlssSuperResolutionFeature>,
+        &'static DlssRenderContext<DlssSuperResolutionFeature>,
         &'static MainPassResolutionOverride,
         &'static TemporalJitter,
         &'static ViewTarget,
@@ -64,12 +68,40 @@ impl ViewNode for DlssNode {
         let command_encoder = render_context.command_encoder();
         let mut dlss_context = dlss_context.context.lock().unwrap();
 
-        command_encoder.push_debug_group("dlss");
+        command_encoder.push_debug_group("dlss_super_resolution");
         dlss_context
             .render(render_parameters, command_encoder, &adapter)
-            .expect("Failed to render DLSS");
+            .expect("Failed to render DLSS Super Resolution");
         command_encoder.pop_debug_group();
 
         Ok(())
+    }
+}
+
+impl ViewNode for DlssNode<DlssRayReconstructionFeature> {
+    type ViewQuery = (
+        &'static Dlss<DlssRayReconstructionFeature>,
+        &'static DlssRenderContext<DlssRayReconstructionFeature>,
+        &'static MainPassResolutionOverride,
+        &'static TemporalJitter,
+        &'static ViewTarget,
+        &'static ViewPrepassTextures,
+    );
+
+    fn run(
+        &self,
+        _graph: &mut RenderGraphContext,
+        _render_context: &mut RenderContext,
+        (
+            _dlss,
+            _dlss_context,
+            _resolution_override,
+            _temporal_jitter,
+            _view_target,
+            _prepass_textures,
+        ): QueryItem<Self::ViewQuery>,
+        _world: &World,
+    ) -> Result<(), NodeRunError> {
+        todo!("DLSS Ray Reconstruction not yet implemented")
     }
 }
