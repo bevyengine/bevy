@@ -13,6 +13,7 @@ use bevy_ecs::{
     component::Component,
     observer::On,
     query::With,
+    reflect::ReflectComponent,
     system::{Commands, Query},
 };
 use bevy_input::keyboard::{KeyCode, KeyboardInput};
@@ -21,12 +22,14 @@ use bevy_input_focus::FocusedInput;
 use bevy_log::warn_once;
 use bevy_math::ops;
 use bevy_picking::events::{Drag, DragEnd, DragStart, Pointer, Press};
+use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_ui::{ComputedNode, ComputedNodeTarget, InteractionDisabled, UiGlobalTransform, UiScale};
 
 use crate::{Callback, Notify, ValueChange};
 
 /// Defines how the slider should behave when you click on the track (not the thumb).
-#[derive(Debug, Default, PartialEq, Clone, Copy)]
+#[derive(Debug, Default, PartialEq, Clone, Copy, Reflect)]
+#[reflect(Clone, PartialEq, Default)]
 pub enum TrackClick {
     /// Clicking on the track lets you drag to edit the value, just like clicking on the thumb.
     #[default]
@@ -181,6 +184,8 @@ impl Default for SliderRange {
 /// shortcuts. Defaults to 1.0.
 #[derive(Component, Debug, PartialEq, Clone)]
 #[component(immutable)]
+#[derive(Reflect)]
+#[reflect(Component)]
 pub struct SliderStep(pub f32);
 
 impl Default for SliderStep {
@@ -198,7 +203,8 @@ impl Default for SliderStep {
 /// The value in this component represents the number of decimal places of desired precision, so a
 /// value of 2 would round to the nearest 1/100th. A value of -3 would round to the nearest
 /// thousand.
-#[derive(Component, Debug, Default, Clone, Copy)]
+#[derive(Component, Debug, Default, Clone, Copy, Reflect)]
+#[reflect(Component, Default)]
 pub struct SliderPrecision(pub i32);
 
 impl SliderPrecision {
@@ -209,7 +215,8 @@ impl SliderPrecision {
 }
 
 /// Component used to manage the state of a slider during dragging.
-#[derive(Component, Default)]
+#[derive(Component, Default, Reflect)]
+#[reflect(Component)]
 pub struct CoreSliderDragState {
     /// Whether the slider is currently being dragged.
     pub dragging: bool,
