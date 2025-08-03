@@ -1,6 +1,6 @@
 use crate::{
-    First, Main, MainSchedulePlugin, PlaceholderPlugin, Plugin, Plugins, PluginsState, SubApp,
-    SubApps,
+    First, Main, MainSchedulePlugin, PlaceholderPlugin, Plugin, Plugins, PluginsState, StartupMain,
+    SubApp, SubApps,
 };
 use alloc::{
     boxed::Box,
@@ -102,6 +102,7 @@ impl Debug for App {
 impl Default for App {
     fn default() -> Self {
         let mut app = App::empty();
+        app.sub_apps.main.startup_schedule = Some(StartupMain.intern());
         app.sub_apps.main.update_schedule = Some(Main.intern());
 
         #[cfg(feature = "bevy_reflect")]
