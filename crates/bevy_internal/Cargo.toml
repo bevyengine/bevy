@@ -76,7 +76,7 @@ bluenoise_texture = ["bevy_pbr?/bluenoise_texture"]
 smaa_luts = ["bevy_anti_aliasing/smaa_luts"]
 
 # NVIDIA Deep Learning Super Sampling
-dlss = ["bevy_anti_aliasing/dlss", "bevy_render/dlss"]
+dlss = ["bevy_anti_aliasing/dlss"]
 
 # Audio format support (vorbis is enabled by default)
 flac = ["bevy_audio/flac"]

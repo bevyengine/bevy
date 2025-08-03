@@ -13,7 +13,7 @@ trace = []
 webgl = []
 webgpu = []
 smaa_luts = ["bevy_render/ktx2", "bevy_image/ktx2", "bevy_image/zstd"]
-dlss = ["dep:dlss_wgpu"]
+dlss = ["dep:dlss_wgpu", "bevy_render/dlss"]
 
 [dependencies]
 # bevy
