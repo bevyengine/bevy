@@ -12,7 +12,7 @@ use bevy::{
             subpane_header,
         },
         controls::{
-            button, checkbox, color_swatch, radio, slider, toggle_switch, ButtonProps,
+            button, checkbox, color_swatch, radio, slider, toggle_switch, tool_button, ButtonProps,
             ButtonVariant, CheckboxProps, SliderProps, ToggleSwitchProps,
         },
         dark_theme::create_dark_theme,
@@ -222,6 +222,82 @@ fn demo_root() -> impl Scene {
                     SliderPrecision(2)
                 ),
                 color_swatch(),
+            ],
+            Node {
+                display: Display::Flex,
+                flex_direction: FlexDirection::Column,
+                align_items: AlignItems::Stretch,
+                justify_content: JustifyContent::Start,
+                padding: UiRect::all(Val::Px(8.0)),
+                row_gap: Val::Px(8.0),
+                width: Val::Percent(30.),
+                min_width: Val::Px(200.),
+            } [
+                (
+                    :subpane [
+                        :subpane_header [
+                            (Text("Left") ThemedText),
+                            (Text("Center") ThemedText),
+                            (Text("Right") ThemedText)
+                        ],
+                        :subpane_body [
+                            (Text("Body") ThemedText),
+                        ],
+                    ]
+                ),
+                (
+                    :pane [
+                        :pane_header [
+                            :tool_button(ButtonProps {
+                                variant: ButtonVariant::Selected,
+                                ..default()
+                            }) [
+                                (Text("\u{0398}") ThemedText)
+                            ],
+                            :pane_header_divider,
+                            :tool_button(ButtonProps{
+                                variant: ButtonVariant::Plain,
+                                ..default()
+                            }) [
+                                (Text("\u{00BC}") ThemedText)
+                            ],
+                            :tool_button(ButtonProps{
+                                variant: ButtonVariant::Plain,
+                                ..default()
+                            }) [
+                                (Text("\u{00BD}") ThemedText)
+                            ],
+                            :tool_button(ButtonProps{
+                                variant: ButtonVariant::Plain,
+                                ..default()
+                            }) [
+                                (Text("\u{00BE}") ThemedText)
+                            ],
+                            :pane_header_divider,
+                            :tool_button(ButtonProps{
+                                variant: ButtonVariant::Plain,
+                                ..default()
+                            }) [
+                                (Text("\u{20AC}") ThemedText)
+                            ],
+                            :flex_spacer,
+                            :tool_button(ButtonProps{
+                                variant: ButtonVariant::Plain,
+                                ..default()
+                            }) [
+                                (Text("\u{00D7}") ThemedText)
+                            ],
+                        ],
+                        (
+                            :pane_body [
+                                (Text("Some") ThemedText),
+                                (Text("Content") ThemedText),
+                                (Text("Here") ThemedText),
+                            ]
+                            BackgroundColor(palettes::tailwind::EMERALD_800)
+                        ),
+                    ]
+                )
             ]
         ]
     }

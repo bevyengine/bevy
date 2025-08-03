@@ -1,13 +1,5 @@
-use bevy_app::Plugin;
-use bevy_asset::{Asset, Assets, Handle};
-use bevy_ecs::{
-    component::Component,
-    lifecycle::Add,
-    observer::On,
-    resource::Resource,
-    system::{Query, Res},
-    world::FromWorld,
-};
+use bevy_asset::{Asset, Assets};
+use bevy_ecs::{component::Component, lifecycle::HookContext, world::DeferredWorld};
 use bevy_reflect::TypePath;
 use bevy_render::render_resource::{AsBindGroup, ShaderRef};
 use bevy_ui_render::ui_material::{MaterialNode, UiMaterial};
@@ -21,39 +13,28 @@ impl UiMaterial for AlphaPatternMaterial {
     }
 }
 
-#[derive(Resource)]
-pub(crate) struct AlphaPatternResource(pub(crate) Handle<AlphaPatternMaterial>);
-
-impl FromWorld for AlphaPatternResource {
-    fn from_world(world: &mut bevy_ecs::world::World) -> Self {
-        let mut ui_materials = world
-            .get_resource_mut::<Assets<AlphaPatternMaterial>>()
-            .unwrap();
-        Self(ui_materials.add(AlphaPatternMaterial::default()))
-    }
-}
-
 /// Marker that tells us we want to fill in the [`MaterialNode`] with the alpha material.
 #[derive(Component, Default, Clone)]
+#[require(MaterialNode<AlphaPatternMaterial>)]
+#[component(on_add = on_add_alpha_pattern)]
 pub(crate) struct AlphaPattern;
 
 /// Observer to fill in the material handle (since we don't have access to the materials asset
 /// in the template)
-fn on_add_alpha_pattern(
-    ev: On<Add, AlphaPattern>,
-    mut q_material_node: Query<&mut MaterialNode<AlphaPatternMaterial>>,
-    r_material: Res<AlphaPatternResource>,
-) {
-    if let Ok(mut material) = q_material_node.get_mut(ev.target()) {
-        material.0 = r_material.0.clone();
-    }
-}
+fn on_add_alpha_pattern(mut world: DeferredWorld, context: HookContext) {
+    let mut materials = world.resource_mut::<Assets<AlphaPatternMaterial>>();
 
-/// Plugin which registers the systems for updating the button styles.
-pub struct AlphaPatternPlugin;
+    let handle = if materials.is_empty() {
+        materials.add(AlphaPatternMaterial::default())
+    } else {
+        let id = materials.iter().next().unwrap().0;
+        materials.get_strong_handle(id).unwrap()
+    };
 
-impl Plugin for AlphaPatternPlugin {
-    fn build(&self, app: &mut bevy_app::App) {
-        app.add_observer(on_add_alpha_pattern);
+    if let Some(mut material) = world
+        .entity_mut(context.entity)
+        .get_mut::<MaterialNode<AlphaPatternMaterial>>()
+    {
+        material.0 = handle;
     }
 }

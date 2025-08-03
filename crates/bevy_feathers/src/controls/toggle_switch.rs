@@ -1,7 +1,7 @@
 use accesskit::Role;
 use bevy_a11y::AccessibilityNode;
 use bevy_app::{Plugin, PreUpdate};
-use bevy_core_widgets::{Callback, CallbackTemplate, CoreCheckbox, ValueChange};
+use bevy_core_widgets::{CallbackTemplate, CoreCheckbox, ValueChange};
 use bevy_ecs::{
     component::Component,
     entity::Entity,

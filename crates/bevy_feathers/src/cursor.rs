@@ -9,7 +9,6 @@ use bevy_ecs::{
     resource::Resource,
     schedule::IntoScheduleConfigs,
     system::{Commands, Query, Res},
-    template::GetTemplate,
     VariantDefaults,
 };
 use bevy_picking::{hover::HoverMap, pointer::PointerId, PickingSystems};

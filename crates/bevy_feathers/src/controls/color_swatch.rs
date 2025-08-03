@@ -1,15 +1,9 @@
-use bevy_asset::Handle;
 use bevy_color::Alpha;
 use bevy_ecs::component::Component;
-use bevy_ui::{BackgroundColor, BorderRadius, Node, PositionType, Val};
-use bevy_ui_render::ui_material::MaterialNode;
-
-use crate::{
-    alpha_pattern::{AlphaPattern, AlphaPatternMaterial},
-    constants::size,
-    palette,
-};
 use bevy_scene2::{bsn, Scene};
+use bevy_ui::{BackgroundColor, BorderRadius, Node, PositionType, Val};
+
+use crate::{alpha_pattern::AlphaPattern, constants::size, palette};
 
 /// Marker identifying a color swatch.
 #[derive(Component, Default, Clone)]
@@ -33,7 +27,6 @@ pub fn color_swatch() -> impl Scene {
         }
         ColorSwatch
         AlphaPattern
-        MaterialNode::<AlphaPatternMaterial>(Handle::default())
         BorderRadius::all(Val::Px(5.0))
         [
             Node {

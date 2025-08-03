@@ -25,7 +25,7 @@ use bevy_text::{TextColor, TextFont};
 use bevy_ui_render::UiMaterialPlugin;
 
 use crate::{
-    alpha_pattern::{AlphaPatternMaterial, AlphaPatternResource},
+    alpha_pattern::AlphaPatternMaterial,
     controls::ControlsPlugin,
     cursor::{CursorIconPlugin, DefaultCursor, EntityCursor},
     theme::{ThemedText, UiTheme},
@@ -78,7 +78,5 @@ impl Plugin for FeathersPlugin {
             .add_observer(theme::on_changed_border)
             .add_observer(theme::on_changed_font_color)
             .add_observer(font_styles::on_changed_font);
-
-        app.init_resource::<AlphaPatternResource>();
     }
 }
