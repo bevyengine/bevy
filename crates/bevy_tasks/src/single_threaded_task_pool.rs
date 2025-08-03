@@ -1,5 +1,4 @@
 use alloc::{string::String, vec::Vec};
-use bevy_platform::sync::Arc;
 use core::{cell::RefCell, future::Future, marker::PhantomData, mem};
 
 use crate::Task;
@@ -13,6 +12,7 @@ cfg_if::cfg_if! {
         type ScopeResult<T> = alloc::rc::Rc<RefCell<Option<T>>>;
     } else {
         use bevy_platform::sync::{Mutex, PoisonError};
+        use bevy_platform::sync::Arc;
 
         type ScopeResult<T> = Arc<Mutex<Option<T>>>;
     }
