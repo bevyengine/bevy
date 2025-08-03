@@ -16,7 +16,7 @@ bevy_math = { path = "../bevy_math", version = "0.17.0-dev" }
 bevy_reflect = { path = "../bevy_reflect", version = "0.17.0-dev" }
 bevy_ecs = { path = "../bevy_ecs", version = "0.17.0-dev" }
 bevy_transform = { path = "../bevy_transform", version = "0.17.0-dev" }
-bevy_mikktspace = { git = "https://github.com/bevyengine/bevy_mikktspace.git", rev = "a2a8a3e1c771741b58cc1a391d7d7443fa4529c9", version = "0.17.0-dev" }
+bevy_mikktspace = { version = "0.17.0-dev" }
 bevy_derive = { path = "../bevy_derive", version = "0.17.0-dev" }
 bevy_platform = { path = "../bevy_platform", version = "0.17.0-dev", default-features = false, features = [
   "std",
