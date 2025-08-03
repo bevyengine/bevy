@@ -1,3 +1,8 @@
+---
+title: `Material` trait removed from prelude
+pull_requests: [20347]
+---
+
 Code that previously relied on `Material` from `prelude` will need to add:
 
 ```rust
