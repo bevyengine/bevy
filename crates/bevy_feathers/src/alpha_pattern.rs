@@ -9,7 +9,7 @@ use bevy_ecs::{
     system::{Query, Res},
     world::FromWorld,
 };
-use bevy_reflect::{Reflect, TypePath};
+use bevy_reflect::{prelude::ReflectDefault, Reflect, TypePath};
 use bevy_render::render_resource::{AsBindGroup, ShaderRef};
 use bevy_ui_render::ui_material::{MaterialNode, UiMaterial};
 
@@ -36,7 +36,7 @@ impl FromWorld for AlphaPatternResource {
 
 /// Marker that tells us we want to fill in the [`MaterialNode`] with the alpha material.
 #[derive(Component, Default, Clone, Reflect)]
-#[reflect(Component)]
+#[reflect(Component, Default)]
 pub(crate) struct AlphaPattern;
 
 /// Observer to fill in the material handle (since we don't have access to the materials asset

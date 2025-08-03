@@ -10,7 +10,7 @@ use bevy_ecs::{
 };
 use bevy_math::Vec2;
 use bevy_picking::events::{Cancel, Drag, DragEnd, DragStart, Pointer, Press};
-use bevy_reflect::Reflect;
+use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_ui::{
     ComputedNode, ComputedNodeTarget, Node, ScrollPosition, UiGlobalTransform, UiScale, Val,
 };
@@ -18,7 +18,7 @@ use bevy_ui::{
 /// Used to select the orientation of a scrollbar, slider, or other oriented control.
 // TODO: Move this to a more central place.
 #[derive(Debug, Default, Clone, Copy, PartialEq, Reflect)]
-#[reflect(PartialEq, Clone)]
+#[reflect(PartialEq, Clone, Default)]
 pub enum ControlOrientation {
     /// Horizontal orientation (stretching from left to right)
     Horizontal,
@@ -90,7 +90,7 @@ impl CoreScrollbar {
 /// Component used to manage the state of a scrollbar during dragging. This component is
 /// inserted on the thumb entity.
 #[derive(Component, Default, Reflect)]
-#[reflect(Component)]
+#[reflect(Component, Default)]
 pub struct CoreScrollbarDragState {
     /// Whether the scrollbar is currently being dragged.
     pub dragging: bool,

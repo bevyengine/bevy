@@ -18,7 +18,7 @@ use bevy_ecs::{
 };
 use bevy_input_focus::tab_navigation::TabIndex;
 use bevy_picking::{hover::Hovered, PickingSystems};
-use bevy_reflect::Reflect;
+use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_ui::{BorderRadius, Checked, InteractionDisabled, Node, PositionType, UiRect, Val};
 
 use crate::{
@@ -37,12 +37,12 @@ pub struct ToggleSwitchProps {
 
 /// Marker for the toggle switch outline
 #[derive(Component, Default, Clone, Reflect)]
-#[reflect(Component, Clone)]
+#[reflect(Component, Clone, Default)]
 struct ToggleSwitchOutline;
 
 /// Marker for the toggle switch slide
 #[derive(Component, Default, Clone, Reflect)]
-#[reflect(Component, Clone)]
+#[reflect(Component, Clone, Default)]
 struct ToggleSwitchSlide;
 
 /// Template function to spawn a toggle switch.

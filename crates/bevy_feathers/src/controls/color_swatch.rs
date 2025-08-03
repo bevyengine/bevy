@@ -3,7 +3,7 @@ use bevy_color::Alpha;
 use bevy_ecs::{
     bundle::Bundle, children, component::Component, reflect::ReflectComponent, spawn::SpawnRelated,
 };
-use bevy_reflect::Reflect;
+use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_ui::{BackgroundColor, BorderRadius, Node, PositionType, Val};
 use bevy_ui_render::ui_material::MaterialNode;
 
@@ -15,14 +15,14 @@ use crate::{
 
 /// Marker identifying a color swatch.
 #[derive(Component, Default, Clone, Reflect)]
-#[reflect(Component, Clone)]
+#[reflect(Component, Clone, Default)]
 pub struct ColorSwatch;
 
 /// Marker identifying the color swatch foreground, the piece that actually displays the color
 /// in front of the alpha pattern. This exists so that users can reach in and change the color
 /// dynamically.
 #[derive(Component, Default, Clone, Reflect)]
-#[reflect(Component, Clone)]
+#[reflect(Component, Clone, Default)]
 pub struct ColorSwatchFg;
 
 /// Template function to spawn a color swatch.

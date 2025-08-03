@@ -13,12 +13,13 @@ use bevy_ecs::{
 };
 use bevy_log::warn_once;
 use bevy_platform::collections::HashMap;
-use bevy_reflect::Reflect;
+use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_text::TextColor;
 use bevy_ui::{BackgroundColor, BorderColor};
 
 /// A collection of properties that make up a theme.
 #[derive(Default, Clone, Reflect, Debug)]
+#[reflect(Default, Debug)]
 pub struct ThemeProps {
     /// Map of design tokens to colors.
     pub color: HashMap<String, Color>,
@@ -27,7 +28,7 @@ pub struct ThemeProps {
 
 /// The currently selected user interface theme. Overwriting this resource changes the theme.
 #[derive(Resource, Default, Reflect, Debug)]
-#[reflect(Resource)]
+#[reflect(Resource, Default, Debug)]
 pub struct UiTheme(pub ThemeProps);
 
 impl UiTheme {

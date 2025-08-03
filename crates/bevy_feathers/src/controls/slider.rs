@@ -18,7 +18,7 @@ use bevy_ecs::{
 };
 use bevy_input_focus::tab_navigation::TabIndex;
 use bevy_picking::PickingSystems;
-use bevy_reflect::Reflect;
+use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_ui::{
     widget::Text, AlignItems, BackgroundGradient, ColorStop, Display, FlexDirection, Gradient,
     InteractionDisabled, InterpolationColorSpace, JustifyContent, LinearGradient, Node, UiRect,
@@ -61,12 +61,12 @@ impl Default for SliderProps {
 #[derive(Component, Default, Clone)]
 #[require(CoreSlider)]
 #[derive(Reflect)]
-#[reflect(Component, Clone)]
+#[reflect(Component, Clone, Default)]
 struct SliderStyle;
 
 /// Marker for the text
 #[derive(Component, Default, Clone, Reflect)]
-#[reflect(Component, Clone)]
+#[reflect(Component, Clone, Default)]
 struct SliderValueText;
 
 /// Spawn a new slider widget.

@@ -16,7 +16,7 @@ use bevy_ecs::{
 use bevy_input_focus::tab_navigation::TabIndex;
 use bevy_math::Rot2;
 use bevy_picking::{hover::Hovered, PickingSystems};
-use bevy_reflect::Reflect;
+use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_render::view::Visibility;
 use bevy_ui::{
     AlignItems, BorderRadius, Checked, Display, FlexDirection, InteractionDisabled, JustifyContent,
@@ -41,17 +41,17 @@ pub struct CheckboxProps {
 
 /// Marker for the checkbox frame (contains both checkbox and label)
 #[derive(Component, Default, Clone, Reflect)]
-#[reflect(Component, Clone)]
+#[reflect(Component, Clone, Default)]
 struct CheckboxFrame;
 
 /// Marker for the checkbox outline
 #[derive(Component, Default, Clone, Reflect)]
-#[reflect(Component, Clone)]
+#[reflect(Component, Clone, Default)]
 struct CheckboxOutline;
 
 /// Marker for the checkbox check mark
 #[derive(Component, Default, Clone, Reflect)]
-#[reflect(Component, Clone)]
+#[reflect(Component, Clone, Default)]
 struct CheckboxMark;
 
 /// Template function to spawn a checkbox.

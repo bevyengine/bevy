@@ -22,14 +22,14 @@ use bevy_input_focus::FocusedInput;
 use bevy_log::warn_once;
 use bevy_math::ops;
 use bevy_picking::events::{Drag, DragEnd, DragStart, Pointer, Press};
-use bevy_reflect::Reflect;
+use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_ui::{ComputedNode, ComputedNodeTarget, InteractionDisabled, UiGlobalTransform, UiScale};
 
 use crate::{Callback, Notify, ValueChange};
 
 /// Defines how the slider should behave when you click on the track (not the thumb).
 #[derive(Debug, Default, PartialEq, Clone, Copy, Reflect)]
-#[reflect(Clone, PartialEq)]
+#[reflect(Clone, PartialEq, Default)]
 pub enum TrackClick {
     /// Clicking on the track lets you drag to edit the value, just like clicking on the thumb.
     #[default]
@@ -204,7 +204,7 @@ impl Default for SliderStep {
 /// value of 2 would round to the nearest 1/100th. A value of -3 would round to the nearest
 /// thousand.
 #[derive(Component, Debug, Default, Clone, Copy, Reflect)]
-#[reflect(Component)]
+#[reflect(Component, Default)]
 pub struct SliderPrecision(pub i32);
 
 impl SliderPrecision {

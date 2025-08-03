@@ -14,7 +14,7 @@ use bevy_ecs::{
 };
 use bevy_input_focus::tab_navigation::TabIndex;
 use bevy_picking::{hover::Hovered, PickingSystems};
-use bevy_reflect::Reflect;
+use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_ui::{AlignItems, InteractionDisabled, JustifyContent, Node, Pressed, UiRect, Val};
 
 use crate::{
@@ -30,7 +30,7 @@ use crate::{
 /// Color variants for buttons. This also functions as a component used by the dynamic styling
 /// system to identify which entities are buttons.
 #[derive(Component, Default, Clone, Reflect)]
-#[reflect(Component, Clone)]
+#[reflect(Component, Clone, Default)]
 pub enum ButtonVariant {
     /// The standard button appearance
     #[default]
