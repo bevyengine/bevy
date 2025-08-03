@@ -18,7 +18,8 @@ struct MotionBlur {
     samples: u32,
 #ifdef SIXTEEN_BYTE_ALIGNMENT
     // WebGL2 structs must be 16 byte aligned.
-    _webgl2_padding: vec2<f32>
+    _webgl2_padding_12b: u32,
+    _webgl2_padding_16b: u32,
 #endif
 }
 @group(0) @binding(4) var<uniform> settings: MotionBlur;

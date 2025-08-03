@@ -2,15 +2,18 @@
 
 @group(0) @binding(0) var<uniform> view: View;
 
-
 struct LineGizmoUniform {
     world_from_local: mat3x4<f32>,
     line_width: f32,
     depth_bias: f32,
-    resolution: u32,
+    joints_resolution: u32,
+    gap_scale: f32,
+    line_scale: f32,
 #ifdef SIXTEEN_BYTE_ALIGNMENT
     // WebGL2 structs must be 16 byte aligned.
-    _padding: f32,
+    _webgl2_padding_8b: u32,
+    _webgl2_padding_12b: u32,
+    _webgl2_padding_16b: u32,
 #endif
 }
 
@@ -188,7 +191,7 @@ fn vertex_round(vertex: VertexInput) -> VertexOutput {
     let ab_norm = vec2(-ab.y, ab.x);
     let cb_norm = vec2(cb.y, -cb.x);
 
-    // We render `joints_gizmo.resolution`triangles. The vertices in each triangle are ordered as follows:
+    // We render `joints_gizmo.joints_resolution` triangles. The vertices in each triangle are ordered as follows:
     // - 0: The 'center' vertex at `screen_b`.
     // - 1: The vertex closer to the ab line.
     // - 2: The vertex closer to the cb line. 
@@ -197,7 +200,7 @@ fn vertex_round(vertex: VertexInput) -> VertexOutput {
     var radius = sign(in_triangle_index) * 0.5 * line_width;
     var theta = acos(dot(ab_norm, cb_norm));
     let sigma = sign(dot(ab_norm, cb));
-    var angle = theta * (tri_index + in_triangle_index - 1) / f32(joints_gizmo.resolution);
+    var angle = theta * (tri_index + in_triangle_index - 1) / f32(joints_gizmo.joints_resolution);
     var position_x = sigma * radius * cos(angle);
     var position_y = radius * sin(angle);
 
