@@ -318,7 +318,7 @@ fn keyboard_animation_control(
 
         if keyboard_input.just_pressed(KeyCode::Enter) {
             transitions
-                .play(
+                .transition(
                     &mut player,
                     animations.node_indices[*current_animation],
                     Duration::from_millis(250),
