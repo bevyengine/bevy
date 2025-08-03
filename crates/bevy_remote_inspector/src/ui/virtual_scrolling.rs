@@ -1,24 +1,31 @@
-//! Virtual scrolling with infinite loading
+//! High-performance virtual scrolling system for large entity lists.
+//!
+//! This module provides efficient virtual scrolling that can handle thousands of entities
+//! by only rendering the visible items plus a buffer. Key features:
+//!
+//! - **Performance**: Maintains ~50-100 UI items regardless of total entity count
+//! - **Smooth Scrolling**: Frame-rate limiting and velocity throttling prevent black screens
+//! - **Adaptive Buffering**: Buffer size increases during fast scrolling for smoother experience
+//! - **Custom Scroll Position**: Bypasses Bevy's built-in scroll limitations
+//! - **Visual Feedback**: Integrated scrollbar shows position within large lists
+//!
+//! ## Usage
+//!
+//! The virtual scrolling is automatically set up when the inspector initializes. The main
+//! systems handle:
+//!
+//! - `update_infinite_scrolling_display`: Updates which entities are visible
+//! - `handle_infinite_scroll_input`: Processes mouse wheel input with performance limits
+//! - `update_scrollbar_indicator`: Updates the visual scrollbar position
 
 use bevy::prelude::*;
 use bevy::input::mouse::MouseWheel;
 use crate::ui::entity_list::{EntityListContainer, EntityListVirtualContent, EntityListVirtualState, EntityCache, ScrollbarThumb, ScrollbarIndicator};
 use crate::ui::component_viewer::ComponentViewerPanel;
-use crate::http_client::{RemoteEntity, HttpRemoteClient};
+use crate::http_client::RemoteEntity;
 use std::collections::HashMap;
 
 
-/// Marker for virtual scrolling spacers to avoid despawning them
-#[derive(Component)]
-pub struct VirtualScrollSpacer {
-    pub spacer_type: SpacerType,
-}
-
-#[derive(Debug, PartialEq)]
-pub enum SpacerType {
-    Top,
-    Bottom,
-}
 
 /// Resource to manage infinite scrolling with virtual windowing
 #[derive(Resource)]
@@ -88,8 +95,8 @@ pub fn update_infinite_scrolling_display(
     entity_cache: Res<EntityCache>,
     mut virtual_scroll_state: ResMut<VirtualScrollState>,
     custom_scroll: Res<CustomScrollPosition>,
-    mut virtual_content_query: Query<(Entity, &mut Node), (With<EntityListVirtualContent>, Without<EntityListContainer>, Without<CachedEntityItem>, Without<VirtualScrollSpacer>)>,
-    container_query: Query<&Node, (With<EntityListContainer>, Without<CachedEntityItem>, Without<VirtualScrollSpacer>, Without<EntityListVirtualContent>)>,
+    mut virtual_content_query: Query<(Entity, &mut Node), (With<EntityListVirtualContent>, Without<EntityListContainer>, Without<CachedEntityItem>)>,
+    container_query: Query<&Node, (With<EntityListContainer>, Without<CachedEntityItem>, Without<EntityListVirtualContent>)>,
     mut cached_items: Query<(Entity, &mut Node, &mut CachedEntityItem, &mut Visibility), (With<CachedEntityItem>, Without<EntityListContainer>, Without<EntityListVirtualContent>)>,
     time: Res<Time>,
 ) {
@@ -439,29 +446,12 @@ pub fn handle_infinite_scroll_input(
     }
 }
 
-/// Trigger loading more entities for infinite scrolling
-fn trigger_load_more_entities(
-    _http_client: &mut HttpRemoteClient,
-    virtual_scroll_state: &mut VirtualScrollState,
-) {
-    // In a real implementation, this would request more entities from the server
-    // For now, we'll simulate it by marking as loading and letting the HTTP system handle it
-    virtual_scroll_state.current_page += 1;
-    
-    // The actual loading would happen in the HTTP client update system
-    // This just marks that we want more data
-    println!("Requesting page {} ({} entities per page)", 
-        virtual_scroll_state.current_page, virtual_scroll_state.page_size);
-    
-    // Reset loading flag after a short delay (simulated async operation)
-    // In real implementation, this would be set to false when new data arrives
-}
 
 /// Initialize virtual scrolling with infinite loading
 pub fn setup_virtual_scrolling(
     mut commands: Commands,
     mut scroll_query: Query<&mut ScrollPosition, With<EntityListContainer>>,
-    virtual_content_query: Query<Entity, With<EntityListVirtualContent>>,
+    _virtual_content_query: Query<Entity, With<EntityListVirtualContent>>,
 ) {
     // Initialize new virtual scroll state
     commands.insert_resource(VirtualScrollState::default());
@@ -479,32 +469,7 @@ pub fn setup_virtual_scrolling(
         println!("Reset scroll position to 0");
     }
     
-    // Create initial spacers
-    if let Ok(virtual_content) = virtual_content_query.single() {
-        commands.entity(virtual_content).with_children(|parent| {
-            // Top spacer - truly invisible spacer using zero width
-            parent.spawn((
-                VirtualScrollSpacer { spacer_type: SpacerType::Top },
-                Node {
-                    width: Val::Px(0.0), // Zero width makes it invisible
-                    height: Val::Px(0.0),
-                    display: Display::Block,
-                    ..default()
-                },
-            ));
-            
-            // Bottom spacer - truly invisible spacer using zero width
-            parent.spawn((
-                VirtualScrollSpacer { spacer_type: SpacerType::Bottom },
-                Node {
-                    width: Val::Px(0.0), // Zero width makes it invisible
-                    height: Val::Px(0.0),
-                    display: Display::Block,
-                    ..default()
-                },
-            ));
-        });
-    }
+    // No spacers needed with absolute positioning approach
     
     println!("Initialized virtual scrolling");
 }
