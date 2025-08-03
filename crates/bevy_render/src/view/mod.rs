@@ -569,6 +569,7 @@ pub struct ViewUniform {
     pub exposure: f32,
     // viewport(x_origin, y_origin, width, height)
     pub viewport: Vec4,
+    pub main_pass_viewport: Vec4,
     /// 6 world-space half spaces (normal: vec3, distance: f32) ordered left, right, top, bottom, near, far.
     /// The normal vectors point towards the interior of the frustum.
     /// A half space contains `p` if `normal.dot(p) + distance > 0.`
@@ -926,12 +927,17 @@ pub fn prepare_view_uniforms(
     ) in &views
     {
         let viewport = extracted_view.viewport.as_vec4();
+        let mut main_pass_viewport = viewport;
+        if let Some(resolution_override) = resolution_override {
+            main_pass_viewport.z = resolution_override.0.x as f32;
+            main_pass_viewport.w = resolution_override.0.y as f32;
+        }
+
         let unjittered_projection = extracted_view.clip_from_view;
         let mut clip_from_view = unjittered_projection;
 
         if let Some(temporal_jitter) = temporal_jitter {
-            let jitter_view_size = resolution_override.map_or(viewport.zw(), |v| v.0.as_vec2());
-            temporal_jitter.jitter_projection(&mut clip_from_view, jitter_view_size);
+            temporal_jitter.jitter_projection(&mut clip_from_view, main_pass_viewport.zw());
         }
 
         let view_from_clip = clip_from_view.inverse();
@@ -965,6 +971,7 @@ pub fn prepare_view_uniforms(
                     .map(|c| c.exposure)
                     .unwrap_or_else(|| Exposure::default().exposure()),
                 viewport,
+                main_pass_viewport,
                 frustum,
                 color_grading: extracted_view.color_grading.clone().into(),
                 mip_bias: mip_bias.unwrap_or(&MipBias(0.0)).0,
