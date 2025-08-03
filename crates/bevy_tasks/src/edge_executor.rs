@@ -13,7 +13,6 @@
 
 // TODO: Create a more tailored replacement, possibly integrating [Fotre](https://github.com/NthTensor/Forte)
 
-use alloc::rc::Rc;
 use core::{
     future::{poll_fn, Future},
     marker::PhantomData,
