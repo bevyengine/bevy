@@ -21,7 +21,7 @@ impl<T: 'static> Task<T> {
         wasm_bindgen_futures::spawn_local(async move {
             // Catch any panics that occur when polling the future so they can
             // be propagated back to the task handle.
-            let value = CatchUnwind(AssertUnwindSafe(future)).await;
+            let value = CatchUnwind { inner: future }.await;
             let _ = sender.send(value);
         });
         Self(receiver.into_future())
@@ -75,13 +75,16 @@ impl<T> Future for Task<T> {
 type Panic = Box<dyn Any + Send + 'static>;
 
 pin_project_lite::pin_project! {
-    struct CatchUnwind<F: UnwindSafe>(#[pin] F);
+    struct CatchUnwind<F: UnwindSafe> {
+        #[pin]
+        inner: F
+    }
 }
 
 impl<F: Future + UnwindSafe> Future for CatchUnwind<F> {
     type Output = Result<F::Output, Panic>;
     fn poll(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
-        let f = AssertUnwindSafe(|| self.project().0.poll(cx));
+        let f = AssertUnwindSafe(|| self.project().inner.poll(cx));
 
         #[cfg(feature = "std")]
         let result = std::panic::catch_unwind(f)?;
