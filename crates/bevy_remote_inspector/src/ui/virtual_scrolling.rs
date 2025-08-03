@@ -257,6 +257,11 @@ pub fn update_infinite_scrolling_display(
                 node.top = Val::Px(absolute_y_pos);
                 node.left = Val::Px(0.0);
                 node.width = Val::Percent(100.0);
+                node.height = Val::Px(virtual_scroll_state.item_height); // Ensure height matches
+                node.margin = UiRect::ZERO; // Ensure no margins
+                node.padding = UiRect::all(Val::Px(8.0)); // Maintain padding
+                node.align_items = AlignItems::Center;
+                node.justify_content = JustifyContent::FlexStart;
                 cached_item.cached_position = absolute_y_pos;
                 
                 visible_entity_ids.insert(cached_item.entity_id);
@@ -301,6 +306,11 @@ pub fn update_infinite_scrolling_display(
                             top: Val::Px(absolute_y_pos),
                             left: Val::Px(0.0),
                             width: Val::Percent(100.0),
+                            height: Val::Px(virtual_scroll_state.item_height), // Ensure height matches item_height
+                            margin: UiRect::ZERO, // Ensure no margins
+                            padding: UiRect::all(Val::Px(8.0)), // Maintain padding
+                            align_items: AlignItems::Center,
+                            justify_content: JustifyContent::FlexStart,
                             ..default()
                         },
                     ));
