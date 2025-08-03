@@ -152,8 +152,7 @@ fn resolve_ray_hit_full(ray_hit: RayIntersection) -> ResolvedRayHitFull {
     return resolve_triangle_data_full(ray_hit.instance_index, ray_hit.primitive_index, barycentrics);
 }
 
-fn load_vertices(instance_id: u32, triangle_id: u32) -> array<Vertex, 3> {
-    let instance_geometry_ids = geometry_ids[instance_id];
+fn load_vertices(instance_geometry_ids: InstanceGeometryIds, triangle_id: u32) -> array<Vertex, 3> {
     let index_buffer = &index_buffers[instance_geometry_ids.index_buffer_id].indices;
     let vertex_buffer = &vertex_buffers[instance_geometry_ids.vertex_buffer_id].vertices;
 
@@ -179,7 +178,8 @@ fn resolve_triangle_data_full(instance_id: u32, triangle_id: u32, barycentrics: 
     let material_id = material_ids[instance_id];
     let material = materials[material_id];
 
-    let vertices = load_vertices(instance_id, triangle_id);
+    let instance_geometry_ids = geometry_ids[instance_id];
+    let vertices = load_vertices(instance_geometry_ids, triangle_id);
     let transform = transforms[instance_id];
     let world_vertices = transform_positions(transform, vertices);
 

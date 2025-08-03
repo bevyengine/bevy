@@ -127,6 +127,7 @@ fn generate_initial_reservoir(world_position: vec3<f32>, world_normal: vec3<f32>
     if reservoir_valid(reservoir) {
         let inverse_target_function = select(0.0, 1.0 / reservoir_target_function, reservoir_target_function > 0.0);
         reservoir.unbiased_contribution_weight = weight_sum * inverse_target_function;
+
         reservoir.unbiased_contribution_weight *= trace_light_visibility(world_position, light_sample_world_position);
     }
 
@@ -164,6 +165,7 @@ fn load_temporal_reservoir(pixel_id: vec2<u32>, depth: f32, world_position: vec3
         return empty_reservoir();
     }
     temporal_reservoir.sample.light_id = (light_id << 16u) | triangle_id;
+
     temporal_reservoir.confidence_weight = min(temporal_reservoir.confidence_weight, CONFIDENCE_WEIGHT_CAP);
 
     return temporal_reservoir;
