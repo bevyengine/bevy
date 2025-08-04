@@ -29,9 +29,9 @@ const CONFIDENCE_WEIGHT_CAP = 30.0;
 
 @compute @workgroup_size(8, 8, 1)
 fn initial_and_temporal(@builtin(global_invocation_id) global_id: vec3<u32>) {
-    if any(global_id.xy >= vec2u(view.viewport.zw)) { return; }
+    if any(global_id.xy >= vec2u(view.main_pass_viewport.zw)) { return; }
 
-    let pixel_index = global_id.x + global_id.y * u32(view.viewport.z);
+    let pixel_index = global_id.x + global_id.y * u32(view.main_pass_viewport.z);
     var rng = pixel_index + constants.frame_index;
 
     let depth = textureLoad(depth_buffer, global_id.xy, 0);
@@ -52,9 +52,9 @@ fn initial_and_temporal(@builtin(global_invocation_id) global_id: vec3<u32>) {
 
 @compute @workgroup_size(8, 8, 1)
 fn spatial_and_shade(@builtin(global_invocation_id) global_id: vec3<u32>) {
-    if any(global_id.xy >= vec2u(view.viewport.zw)) { return; }
+    if any(global_id.xy >= vec2u(view.main_pass_viewport.zw)) { return; }
 
-    let pixel_index = global_id.x + global_id.y * u32(view.viewport.z);
+    let pixel_index = global_id.x + global_id.y * u32(view.main_pass_viewport.z);
     var rng = pixel_index + constants.frame_index;
 
     let depth = textureLoad(depth_buffer, global_id.xy, 0);
@@ -118,12 +118,12 @@ fn generate_initial_reservoir(world_position: vec3<f32>, world_normal: vec3<f32>
 
 fn load_temporal_reservoir(pixel_id: vec2<u32>, depth: f32, world_position: vec3<f32>, world_normal: vec3<f32>) -> Reservoir {
     let motion_vector = textureLoad(motion_vectors, pixel_id, 0).xy;
-    let temporal_pixel_id_float = round(vec2<f32>(pixel_id) - (motion_vector * view.viewport.zw));
+    let temporal_pixel_id_float = round(vec2<f32>(pixel_id) - (motion_vector * view.main_pass_viewport.zw));
     let temporal_pixel_id = vec2<u32>(temporal_pixel_id_float);
 
     // Check if the current pixel was off screen during the previous frame (current pixel is newly visible),
     // or if all temporal history should assumed to be invalid
-    if any(temporal_pixel_id_float < vec2(0.0)) || any(temporal_pixel_id_float >= view.viewport.zw) || bool(constants.reset) {
+    if any(temporal_pixel_id_float < vec2(0.0)) || any(temporal_pixel_id_float >= view.main_pass_viewport.zw) || bool(constants.reset) {
         return empty_reservoir();
     }
 
@@ -136,7 +136,7 @@ fn load_temporal_reservoir(pixel_id: vec2<u32>, depth: f32, world_position: vec3
         return empty_reservoir();
     }
 
-    let temporal_pixel_index = temporal_pixel_id.x + temporal_pixel_id.y * u32(view.viewport.z);
+    let temporal_pixel_index = temporal_pixel_id.x + temporal_pixel_id.y * u32(view.main_pass_viewport.z);
     var temporal_reservoir = gi_reservoirs_a[temporal_pixel_index];
 
     temporal_reservoir.confidence_weight = min(temporal_reservoir.confidence_weight, CONFIDENCE_WEIGHT_CAP);
@@ -164,7 +164,7 @@ fn load_spatial_reservoir(pixel_id: vec2<u32>, depth: f32, world_position: vec3<
         return SpatialInfo(empty_reservoir(), spatial_world_position, spatial_world_normal, spatial_diffuse_brdf);
     }
 
-    let spatial_pixel_index = spatial_pixel_id.x + spatial_pixel_id.y * u32(view.viewport.z);
+    let spatial_pixel_index = spatial_pixel_id.x + spatial_pixel_id.y * u32(view.main_pass_viewport.z);
     let spatial_reservoir = gi_reservoirs_b[spatial_pixel_index];
 
     return SpatialInfo(spatial_reservoir, spatial_world_position, spatial_world_normal, spatial_diffuse_brdf);
@@ -172,7 +172,7 @@ fn load_spatial_reservoir(pixel_id: vec2<u32>, depth: f32, world_position: vec3<
 
 fn get_neighbor_pixel_id(center_pixel_id: vec2<u32>, rng: ptr<function, u32>) -> vec2<u32> {
     var spatial_id = vec2<f32>(center_pixel_id) + sample_disk(SPATIAL_REUSE_RADIUS_PIXELS, rng);
-    spatial_id = clamp(spatial_id, vec2(0.0), view.viewport.zw - 1.0);
+    spatial_id = clamp(spatial_id, vec2(0.0), view.main_pass_viewport.zw - 1.0);
     return vec2<u32>(spatial_id);
 }
 
@@ -201,14 +201,14 @@ fn isnan(x: f32) -> bool {
 }
 
 fn reconstruct_world_position(pixel_id: vec2<u32>, depth: f32) -> vec3<f32> {
-    let uv = (vec2<f32>(pixel_id) + 0.5) / view.viewport.zw;
+    let uv = (vec2<f32>(pixel_id) + 0.5) / view.main_pass_viewport.zw;
     let xy_ndc = (uv - vec2(0.5)) * vec2(2.0, -2.0);
     let world_pos = view.world_from_clip * vec4(xy_ndc, depth, 1.0);
     return world_pos.xyz / world_pos.w;
 }
 
 fn reconstruct_previous_world_position(pixel_id: vec2<u32>, depth: f32) -> vec3<f32> {
-    let uv = (vec2<f32>(pixel_id) + 0.5) / view.viewport.zw;
+    let uv = (vec2<f32>(pixel_id) + 0.5) / view.main_pass_viewport.zw;
     let xy_ndc = (uv - vec2(0.5)) * vec2(2.0, -2.0);
     let world_pos = previous_view.world_from_clip * vec4(xy_ndc, depth, 1.0);
     return world_pos.xyz / world_pos.w;

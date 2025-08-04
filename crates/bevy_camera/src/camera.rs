@@ -80,14 +80,20 @@ impl Viewport {
         }
     }
 
-    pub fn with_override(
-        &self,
+    pub fn from_viewport_and_override(
+        viewport: Option<&Self>,
         main_pass_resolution_override: Option<&MainPassResolutionOverride>,
-    ) -> Self {
-        let mut viewport = self.clone();
+    ) -> Option<Self> {
+        let mut viewport = viewport.cloned();
+
         if let Some(override_size) = main_pass_resolution_override {
-            viewport.physical_size = **override_size;
+            if viewport.is_none() {
+                viewport = Some(Viewport::default());
+            }
+
+            viewport.as_mut().unwrap().physical_size = **override_size;
         }
+
         viewport
     }
 }
@@ -101,7 +107,8 @@ impl Viewport {
 /// * Insert this component on a 3d camera entity in the render world.
 /// * The resolution override must be smaller than the camera's viewport size.
 /// * The resolution override is specified in physical pixels.
-#[derive(Component, Reflect, Deref)]
+/// * In shaders, use `View::main_pass_viewport` instead of `View::viewport`.
+#[derive(Component, Reflect, Deref, Debug)]
 #[reflect(Component)]
 pub struct MainPassResolutionOverride(pub UVec2);
 
