@@ -116,6 +116,7 @@ impl<T> Task<T> {
     }
 }
 
+// Tasks are futures that can be polled
 impl<T> Future for Task<T> {
     type Output = T;
 
@@ -149,6 +150,9 @@ impl<T> Future for Task<T> {
         }
     }
 }
+
+// All variants of Task<T> are expected to implement Unpin
+impl<T> Unpin for Task<T> {}
 
 // Derive dosn't work for macro types, so we have to implement this manually.
 impl<T> fmt::Debug for Task<T> {
