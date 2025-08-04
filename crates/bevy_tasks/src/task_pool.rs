@@ -2,14 +2,14 @@ use alloc::{boxed::Box, format, string::String, vec::Vec};
 use core::{future::Future, marker::PhantomData, mem, panic::AssertUnwindSafe};
 use std::thread::{self, JoinHandle};
 
-use crate::{async_executor::Executor, executor::FallibleTask};
+use crate::{bevy_executor::Executor, executor::FallibleTask};
 use bevy_platform::sync::Arc;
 use crossbeam_queue::SegQueue;
 use futures_lite::FutureExt;
 
 use crate::{block_on, Task};
 
-pub use crate::async_executor::ThreadSpawner;
+pub use crate::bevy_executor::ThreadSpawner;
 
 struct CallOnDrop(Option<Arc<dyn Fn() + Send + Sync + 'static>>);
 
@@ -178,7 +178,7 @@ impl TaskPool {
 
                 thread_builder
                     .spawn(move || {
-                        crate::async_executor::install_runtime_into_current_thread();
+                        crate::bevy_executor::install_runtime_into_current_thread();
 
                         if let Some(on_thread_spawn) = on_thread_spawn {
                             on_thread_spawn();

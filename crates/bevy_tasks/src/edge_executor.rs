@@ -98,8 +98,8 @@ impl<'a, const C: usize> Executor<'a, C> {
 
     pub fn spawn_local<F>(&self, fut: F) -> Task<F::Output>
     where
-        F: Future + Send + 'a,
-        F::Output: Send + 'a,
+        F: Future + 'a,
+        F::Output: 'a,
     {
         // SAFETY: Original implementation missing safety documentation
         unsafe { self.spawn_unchecked(fut) }

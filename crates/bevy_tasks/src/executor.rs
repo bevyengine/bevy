@@ -14,16 +14,17 @@ use core::{
 };
 use derive_more::{Deref, DerefMut};
 
-cfg_if::cfg_if! {
-    if #[cfg(feature = "std")] {
-        type ExecutorInner<'a> = crate::async_executor::Executor<'a>;
+crate::cfg::bevy_executor! {
+    if {
+        type ExecutorInner<'a> = crate::bevy_executor::Executor<'a>;
     } else {
         type ExecutorInner<'a> = crate::edge_executor::Executor<'a, 64>;
     }
 }
 
-#[cfg(all(feature = "multi_threaded", not(target_arch = "wasm32")))]
-pub use async_task::FallibleTask;
+crate::cfg::multi_threaded! {
+    pub use async_task::FallibleTask;
+}
 
 /// Wrapper around a multi-threading-aware async executor.
 /// spawning will generally require tasks to be `send` and `sync` to allow multiple

@@ -7,8 +7,8 @@ use crate::executor::Executor;
 
 static EXECUTOR: Executor = Executor::new();
 
-cfg_if::cfg_if! {
-    if #[cfg(feature = "std")] {
+crate::cfg::std! {
+    if {
         type ScopeResult<T> = alloc::rc::Rc<RefCell<Option<T>>>;
     } else {
         use bevy_platform::sync::{Mutex, PoisonError};
@@ -160,16 +160,15 @@ impl TaskPool {
         let results = scope.results.borrow();
         results
             .iter()
-            .map(|result| {
-                #[cfg(feature = "std")]
-                return result.borrow_mut().take().unwrap();
-
-                #[cfg(not(feature = "std"))]
-                {
+            .map(|result| crate::cfg::switch! {{
+                crate::cfg::std => {
+                    result.borrow_mut().take().unwrap()
+                }
+                _ => {
                     let mut lock = result.lock().unwrap_or_else(PoisonError::into_inner);
                     lock.take().unwrap()
                 }
-            })
+            }})
             .collect()
     }
 
@@ -186,17 +185,18 @@ impl TaskPool {
     where
         T: 'static + MaybeSend + MaybeSync,
     {
-        cfg_if::cfg_if! {
-            if #[cfg(all(target_arch = "wasm32", feature = "web"))] {
+        crate::cfg::switch! {{
+            crate::cfg::web => {
                 Task::wrap_future(future)
-            } else {
+            } 
+            _ => {
                 let task = EXECUTOR.spawn_local(future);
                 // Loop until all tasks are done
                 while Self::try_tick_local() {}
 
                 Task::new(task)
             }
-        }
+        }}
     }
 
     /// Spawns a static future on the JS event loop. This is exactly the same as [`TaskPool::spawn`].
@@ -211,9 +211,9 @@ impl TaskPool {
     }
 
     pub(crate) fn try_tick_local() -> bool {
-        cfg_if::cfg_if! {
-            if #[cfg(feature = "std")] {
-                crate::async_executor::Executor::try_tick_local()
+        crate::cfg::bevy_executor! {
+            if {
+                crate::bevy_executor::Executor::try_tick_local()
             } else {
                 EXECUTOR.try_tick()
             }
@@ -270,44 +270,42 @@ impl<'scope, 'env, T: Send + 'env> Scope<'scope, 'env, T> {
         let f = async move {
             let temp_result = f.await;
 
-            #[cfg(feature = "std")]
-            result.borrow_mut().replace(temp_result);
-
-            #[cfg(not(feature = "std"))]
-            {
-                let mut lock = result.lock().unwrap_or_else(PoisonError::into_inner);
-                *lock = Some(temp_result);
+            crate::cfg::std! {
+                if {
+                    result.borrow_mut().replace(temp_result);
+                } else {
+                    let mut lock = result.lock().unwrap_or_else(PoisonError::into_inner);
+                    *lock = Some(temp_result);
+                }
             }
         };
 
-        #[cfg(feature = "std")]
-        // SAFETY: The surrounding scope will not terminate until all local tasks are done
-        // ensuring that the borrowed variables do not outlive the detached task.
-        unsafe {
-            self.executor.spawn_local_scoped(f).detach()
-        };
-
-        #[cfg(not(feature = "std"))]
-        self.executor.spawn(f).detach();
+        crate::cfg::bevy_executor! {
+            if {
+                // SAFETY: The surrounding scope will not terminate until all local tasks are done
+                // ensuring that the borrowed variables do not outlive the detached task.
+                unsafe {
+                    self.executor.spawn_local_scoped(f).detach()
+                };
+            } else {
+                self.executor.spawn_local(f).detach();
+            }
+        }
     }
 }
 
-#[cfg(feature = "std")]
-mod send_sync_bounds {
-    pub trait MaybeSend {}
-    impl<T> MaybeSend for T {}
-
-    pub trait MaybeSync {}
-    impl<T> MaybeSync for T {}
+crate::cfg::std! {
+    if {
+        pub trait MaybeSend {}
+        impl<T> MaybeSend for T {}
+    
+        pub trait MaybeSync {}
+        impl<T> MaybeSync for T {}
+    } else {
+        pub trait MaybeSend: Send {}
+        impl<T: Send> MaybeSend for T {}
+    
+        pub trait MaybeSync: Sync {}
+        impl<T: Sync> MaybeSync for T {}
+    }
 }
-
-#[cfg(not(feature = "std"))]
-mod send_sync_bounds {
-    pub trait MaybeSend: Send {}
-    impl<T: Send> MaybeSend for T {}
-
-    pub trait MaybeSync: Sync {}
-    impl<T: Sync> MaybeSync for T {}
-}
-
-use send_sync_bounds::{MaybeSend, MaybeSync};

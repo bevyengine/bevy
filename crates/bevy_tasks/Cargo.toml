@@ -9,41 +9,32 @@ license = "MIT OR Apache-2.0"
 keywords = ["bevy"]
 
 [features]
-default = ["std"]
+default = ["futures-lite"]
 
-# Functionality
-
-## Enables multi-threading support.
-## Without this feature, all tasks will be run on a single thread.
-multi_threaded = ["std", "dep:async-channel", "dep:fastrand"]
-
-# Platform Compatibility
-
-## Allows access to the `std` crate. Enabling this feature will prevent compilation
-## on `no_std` targets, but provides access to certain additional features on
-## supported platforms.
-std = [
-  "futures-lite/std",
-  "async-task/std",
+# Enables multi-threading support.
+# Without this feature, all tasks will be run on a single thread.
+multi_threaded = [
   "bevy_platform/std",
-  "fastrand/std",
+  "dep:async-channel",
+  "bevy_executor",
+]
+
+# Uses a Bevy-specific fork of `async-executor` as a task execution backend.
+# This backend is incompatible with `no_std` targets.
+bevy_executor = [
+  "dep:fastrand",
   "dep:slab",
   "dep:thread_local",
   "dep:pin-project-lite",
+  "async-task/std",
 ]
 
-## `critical-section` provides the building blocks for synchronization primitives
-## on all platforms, including `no_std`.
-critical-section = ["bevy_platform/critical-section"]
+# Provide an implementation of `block_on` from  `futures-lite`.
+futures-lite = ["bevy_platform/std", "futures-lite/std"]
 
-## Enables use of browser APIs.
-## Note this is currently only applicable on `wasm32` architectures.
-web = [
-  "bevy_platform/web",
-  "dep:wasm-bindgen-futures",
-  "dep:futures-channel",
-  "dep:pin-project-lite",
-]
+# Use async-io's implementation of block_on instead of futures-lite's implementation.
+# This is preferred if your application uses async-io.
+async-io = ["bevy_platform/std", "dep:async-io"]
 
 [dependencies]
 bevy_platform = { path = "../bevy_platform", version = "0.17.0-dev", default-features = false, features = [
@@ -72,7 +63,7 @@ crossbeam-queue = { version = "0.3", default-features = false, features = [
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 wasm-bindgen-futures = { version = "0.4", optional = true }
-futures-channel = { version = "0.3", optional = true }
+futures-channel = { version = "0.3", default-features = false }
 
 [target.'cfg(not(all(target_has_atomic = "8", target_has_atomic = "16", target_has_atomic = "32", target_has_atomic = "64", target_has_atomic = "ptr")))'.dependencies]
 async-task = { version = "4.4.0", default-features = false, features = [
@@ -83,6 +74,11 @@ heapless = { version = "0.8", default-features = false, features = [
 ] }
 atomic-waker = { version = "1", default-features = false, features = [
   "portable-atomic",
+] }
+
+[dev-dependencies]
+futures-lite = { version = "2.0.1", default-features = false, features = [
+  "std",
 ] }
 
 [lints]
