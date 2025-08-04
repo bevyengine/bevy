@@ -25,6 +25,7 @@ fn sample_radiance(@builtin(global_invocation_id) active_cell_id: vec3<u32>) {
 
         var rng = cell_index + constants.frame_index;
 
+        // TODO: RIS/ReSTIR for direct lighting
         let direct_lighting = sample_random_light(geometry_data.world_position, geometry_data.world_normal, &rng);
         var new_radiance = direct_lighting.radiance * direct_lighting.inverse_pdf;
 
