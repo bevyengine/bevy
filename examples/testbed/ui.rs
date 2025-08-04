@@ -590,15 +590,16 @@ mod linear_gradient {
                 DespawnOnExitState(super::Scene::LinearGradient),
             ))
             .with_children(|commands| {
+                let mut i = 0;
                 commands
                     .spawn(Node {
                         display: bevy::ui::Display::Grid,
-                        row_gap: Val::Px(2.),
-                        column_gap: Val::Px(2.),
+                        row_gap: Val::Px(4.),
+                        column_gap: Val::Px(4.),
                         ..Default::default()
                     })
                     .with_children(|commands| {
-                        for (column, stops) in [
+                        for stops in [
                             vec![ColorStop::auto(RED), ColorStop::auto(YELLOW)],
                             vec![
                                 ColorStop::auto(Color::BLACK),
@@ -620,11 +621,8 @@ mod linear_gradient {
                                 Color::hsl(180.0, 1.0, 0.5).into(),
                                 Color::hsl(360.0 - 0.0001, 1.0, 0.5).into(),
                             ],
-                        ]
-                        .into_iter()
-                        .enumerate()
-                        {
-                            for (row, color_space) in [
+                        ] {
+                            for color_space in [
                                 InterpolationColorSpace::LinearRgba,
                                 InterpolationColorSpace::Srgba,
                                 InterpolationColorSpace::Oklaba,
@@ -634,10 +632,11 @@ mod linear_gradient {
                                 InterpolationColorSpace::HslaLong,
                                 InterpolationColorSpace::Hsva,
                                 InterpolationColorSpace::HsvaLong,
-                            ]
-                            .into_iter()
-                            .enumerate()
-                            {
+                            ] {
+                                let row = i % 18 + 1;
+                                let column = i / 18 + 1;
+                                i += 1;
+
                                 commands.spawn((
                                     Node {
                                         grid_row: GridPlacement::start(row as i16 + 1),
