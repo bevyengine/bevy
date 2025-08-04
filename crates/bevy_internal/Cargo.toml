@@ -326,7 +326,6 @@ std = [
   "bevy_state?/std",
   "bevy_time/std",
   "bevy_transform/std",
-  "bevy_tasks/std",
   "bevy_window?/std",
 ]
 
@@ -343,7 +342,6 @@ critical-section = [
   "bevy_reflect/critical-section",
   "bevy_state?/critical-section",
   "bevy_time/critical-section",
-  "bevy_tasks/critical-section",
 ]
 
 # Uses the `libm` maths library instead of the one provided in `std` and `core`.
@@ -367,12 +365,7 @@ async_executor = [
 
 # Enables use of browser APIs.
 # Note this is currently only applicable on `wasm32` architectures.
-web = [
-  "bevy_app/web",
-  "bevy_platform/web",
-  "bevy_reflect/web",
-  "bevy_tasks/web",
-]
+web = ["bevy_app/web", "bevy_platform/web", "bevy_reflect/web"]
 
 hotpatching = ["bevy_app/hotpatching", "bevy_ecs/hotpatching"]
 
