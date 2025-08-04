@@ -459,8 +459,9 @@ pub fn update_scroll_position(
                 {
                     let visible_size = scroll_content.size();
                     let content_size = scroll_content.content_size();
-                    
-                    let range = (content_size.y - visible_size.y).max(0.)  * scroll_content.inverse_scale_factor;
+
+                    let range = (content_size.y - visible_size.y).max(0.)
+                        * scroll_content.inverse_scale_factor;
 
                     scroll_position.x -= dx;
                     scroll_position.y = (scroll_position.y - dy).clamp(0., range);
