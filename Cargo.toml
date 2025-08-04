@@ -2871,6 +2871,17 @@ category = "Shaders"
 wasm = true
 
 [[example]]
+name = "stochastic_sampling"
+path = "examples/shader/stochastic_sampling.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.stochastic_sampling]
+name = "Stochastic Sampling"
+description = "A custom shader that avoids repetition artifacts when tiling a texture"
+category = "Shaders"
+wasm = true
+
+[[example]]
 name = "shader_prepass"
 path = "examples/shader/shader_prepass.rs"
 doc-scrape-examples = true
