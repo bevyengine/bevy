@@ -157,7 +157,7 @@ impl TaskPool {
             // SAFETY: As above, all futures must complete in this function so we can change the lifetime
             let results_ref: &'env RefCell<Vec<Option<T>>> = unsafe { mem::transmute(&results) };
 
-            let pending_tasks = RefCell::new(0);
+            let pending_tasks: RefCell<usize> = RefCell::new(0);
             // SAFETY: As above, all futures must complete in this function so we can change the lifetime
             let pending_tasks: &'env RefCell<usize> = unsafe { mem::transmute(&pending_tasks) };
 
