@@ -1,5 +1,8 @@
 name: Send Screenshots to Pixel Eagle
 
+permissions:
+  contents: read
+
 on:
   workflow_call:
     inputs:

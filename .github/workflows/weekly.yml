@@ -1,5 +1,8 @@
 name: Weekly beta compile test
 
+permissions:
+  contents: read
+
 on:
   schedule:
     # New versions of rust release on Thursdays. We test on Mondays to get at least 3 days of warning before all our CI breaks again.
