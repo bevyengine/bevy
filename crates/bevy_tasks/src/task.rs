@@ -119,10 +119,9 @@ impl<T> Task<T> {
 impl<T> Future for Task<T> {
     type Output = T;
 
-    #[allow(unused_mut)]
-    fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-        cfg::web! {
-            if {
+    cfg::web! {
+        if {
+            fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
                 // `recv()` returns a future, so we just poll that and hand the result.
                 let recv = core::pin::pin!(self.0.recv());
                 match recv.poll(cx) {
@@ -141,7 +140,9 @@ impl<T> Future for Task<T> {
                     Poll::Ready(Err(_)) => panic!("Polled a task after it was cancelled"),
                     Poll::Pending => Poll::Pending,
                 }
-            } else {
+            }
+        } else {
+            fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
                 // `async_task` has `Task` implement `Future`, so we just poll it.
                 Pin::new(&mut self.0).poll(cx)
             }
