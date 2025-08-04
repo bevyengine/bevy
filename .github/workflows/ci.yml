@@ -313,7 +313,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       # Update in sync with BINSTALL_VERSION
-      - uses: cargo-bins/cargo-binstall@v1.14.1
+      - uses: cargo-bins/cargo-binstall@v1.14.3
       - name: Install taplo
         run: cargo binstall taplo-cli@0.9.3 --locked
       - name: Run Taplo
