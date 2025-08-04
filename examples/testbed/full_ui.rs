@@ -457,11 +457,10 @@ pub fn update_scroll_position(
                 if let Ok((mut scroll_position, scroll_content)) =
                     scrolled_node_query.get_mut(*entity)
                 {
-                    let visible_size = scroll_content.size() * scroll_content.inverse_scale_factor;
-                    let content_size =
-                        scroll_content.content_size() * scroll_content.inverse_scale_factor;
-
-                    let range = (content_size.y - visible_size.y).max(0.);
+                    let visible_size = scroll_content.size();
+                    let content_size = scroll_content.content_size();
+                    
+                    let range = (content_size.y - visible_size.y).max(0.)  * scroll_content.inverse_scale_factor;
 
                     scroll_position.x -= dx;
                     scroll_position.y = (scroll_position.y - dy).clamp(0., range);
