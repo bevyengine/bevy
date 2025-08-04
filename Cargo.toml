@@ -865,6 +865,17 @@ category = "2D Rendering"
 wasm = true
 
 [[example]]
+name = "text_input_2d"
+path = "examples/2d/text_input_2d.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.text_input_2d]
+name = "Text Input 2D"
+description = "Text input in 2D"
+category = "2D Rendering"
+wasm = true
+
+[[example]]
 name = "texture_atlas"
 path = "examples/2d/texture_atlas.rs"
 doc-scrape-examples = true
