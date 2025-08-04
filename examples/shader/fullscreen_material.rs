@@ -1,11 +1,18 @@
 //! Demonstrates how to write a custom fullscreen shader
+//!
+//! This is currently limited to 3d only but work is in progress to make it work in 2d
 
 use bevy::{
+    core_pipeline::core_3d::graph::Node3d,
     pbr::fullscreen_material::{FullscreenMaterial, FullscreenMaterialPlugin},
     prelude::*,
     shader::ShaderRef,
 };
-use bevy_render::{extract_component::ExtractComponent, render_resource::ShaderType};
+use bevy_render::{
+    extract_component::ExtractComponent,
+    render_graph::{InternedRenderLabel, RenderLabel},
+    render_resource::ShaderType,
+};
 
 fn main() {
     App::new()
@@ -42,6 +49,9 @@ fn setup(
     });
 }
 
+#[derive(Debug, Hash, PartialEq, Eq, Clone, RenderLabel)]
+struct MyLabel;
+
 #[derive(Component, ExtractComponent, Clone, Copy, ShaderType, Default)]
 struct MyPostProcessing {
     data: f32,
@@ -50,5 +60,17 @@ struct MyPostProcessing {
 impl FullscreenMaterial for MyPostProcessing {
     fn fragment_shader() -> ShaderRef {
         "shaders/my_post_processing.wgsl".into()
+    }
+
+    fn node_label() -> InternedRenderLabel {
+        MyLabel.intern()
+    }
+
+    fn node_edges() -> Vec<InternedRenderLabel> {
+        vec![
+            Node3d::Tonemapping.intern(),
+            MyLabel.intern(),
+            Node3d::EndMainPassPostProcessing.intern(),
+        ]
     }
 }
