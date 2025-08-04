@@ -5,7 +5,11 @@ use crate::Task;
 
 use crate::executor::Executor;
 
-static EXECUTOR: Executor = Executor::new();
+crate::cfg::web! {
+    if {} else {
+        static EXECUTOR: Executor = Executor::new();
+    }
+}
 
 crate::cfg::std! {
     if {

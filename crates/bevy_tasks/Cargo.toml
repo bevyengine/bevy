@@ -13,11 +13,7 @@ default = ["futures-lite"]
 
 # Enables multi-threading support.
 # Without this feature, all tasks will be run on a single thread.
-multi_threaded = [
-  "bevy_platform/std",
-  "dep:async-channel",
-  "bevy_executor",
-]
+multi_threaded = ["bevy_platform/std", "dep:async-channel", "bevy_executor"]
 
 # Uses a Bevy-specific fork of `async-executor` as a task execution backend.
 # This backend is incompatible with `no_std` targets.
