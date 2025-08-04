@@ -1,3 +1,5 @@
+//! This is mostly a pluginify version of the custom_post_processing example
+
 use std::marker::PhantomData;
 
 use bevy_app::{App, Plugin};
@@ -93,11 +95,9 @@ fn init_pipeline<T: FullscreenMaterial>(
     fullscreen_shader: Res<FullscreenShader>,
     pipeline_cache: Res<PipelineCache>,
 ) {
-    // We need to define the bind group layout used for our pipeline
     let layout = render_device.create_bind_group_layout(
         "post_process_bind_group_layout",
         &BindGroupLayoutEntries::sequential(
-            // The layout entries will only be visible in the fragment stage
             ShaderStages::FRAGMENT,
             (
                 // The screen texture
@@ -109,16 +109,17 @@ fn init_pipeline<T: FullscreenMaterial>(
             ),
         ),
     );
-    // We can create the sampler here since it won't change at runtime and doesn't depend on the view
     let sampler = render_device.create_sampler(&SamplerDescriptor::default());
     let shader = match T::fragment_shader() {
         ShaderRef::Default => {
+            // TODO not sure what an actual fallback should be. An empty shader or output a solid
+            // color to indicate a missing shader?
             unimplemented!("No default fallback for FullscreenMaterial shader")
         }
         ShaderRef::Handle(handle) => handle,
         ShaderRef::Path(path) => asset_server.load(path),
     };
-    // This will setup a fullscreen triangle for the vertex state.
+    // Setup a fullscreen triangle for the vertex state.
     let vertex_state = fullscreen_shader.to_vertex_state();
     let pipeline_id = pipeline_cache.queue_render_pipeline(RenderPipelineDescriptor {
         label: Some("post_process_pipeline".into()),
@@ -149,16 +150,9 @@ struct FullscreenMaterialNode<T: FullscreenMaterial> {
 }
 
 impl<T: FullscreenMaterial> ViewNode for FullscreenMaterialNode<T> {
-    // The node needs a query to gather data from the ECS in order to do its rendering,
-    // but it's not a normal system so we need to define it manually.
-    //
-    // This query will only run on the view entity
     type ViewQuery = (
         &'static ViewTarget,
-        // This makes sure the node only runs on cameras with the PostProcessSettings component
         &'static T,
-        // As there could be multiple post processing components sent to the GPU (one per camera),
-        // we need to get the index of the one that is associated with the current view.
         &'static DynamicUniformIndex<T>,
     );
 
@@ -188,7 +182,6 @@ impl<T: FullscreenMaterial> ViewNode for FullscreenMaterialNode<T> {
         let bind_group = render_context.render_device().create_bind_group(
             "post_process_bind_group",
             &post_process_pipeline.layout,
-            // It's important for this to match the BindGroupLayout defined in the PostProcessPipeline
             &BindGroupEntries::sequential((
                 // Make sure to use the source view
                 post_process.source,
@@ -199,12 +192,9 @@ impl<T: FullscreenMaterial> ViewNode for FullscreenMaterialNode<T> {
             )),
         );
 
-        // Begin the render pass
         let mut render_pass = render_context.begin_tracked_render_pass(RenderPassDescriptor {
             label: Some("post_process_pass"),
             color_attachments: &[Some(RenderPassColorAttachment {
-                // We need to specify the post process destination view here
-                // to make sure we write to the appropriate texture.
                 view: post_process.destination,
                 depth_slice: None,
                 resolve_target: None,
@@ -215,12 +205,7 @@ impl<T: FullscreenMaterial> ViewNode for FullscreenMaterialNode<T> {
             occlusion_query_set: None,
         });
 
-        // This is mostly just wgpu boilerplate for drawing a fullscreen triangle,
-        // using the pipeline/bind_group created above
         render_pass.set_render_pipeline(pipeline);
-        // By passing in the index of the post process settings on this view, we ensure
-        // that in the event that multiple settings were sent to the GPU (as would be the
-        // case with multiple cameras), we use the correct one.
         render_pass.set_bind_group(0, &bind_group, &[settings_index.index()]);
         render_pass.draw(0..3, 0..1);
 
