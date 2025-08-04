@@ -665,7 +665,8 @@ fn convert_color_to_space(color: LinearRgba, space: InterpolationColorSpace) -> 
             [
                 oklcha.lightness,
                 oklcha.chroma,
-                oklcha.hue.to_radians(),
+                // The shader expects normalized hues
+                oklcha.hue / 360.,
                 oklcha.alpha,
             ]
         }
@@ -676,18 +677,13 @@ fn convert_color_to_space(color: LinearRgba, space: InterpolationColorSpace) -> 
         InterpolationColorSpace::LinearRgba => color.to_f32_array(),
         InterpolationColorSpace::Hsla | InterpolationColorSpace::HslaLong => {
             let hsla: Hsla = color.into();
-            // Normalize hue to 0..1 range for shader
-            [
-                hsla.hue / 360.0,
-                hsla.saturation,
-                hsla.lightness,
-                hsla.alpha,
-            ]
+            // The shader expects normalized hues
+            [hsla.hue / 360., hsla.saturation, hsla.lightness, hsla.alpha]
         }
         InterpolationColorSpace::Hsva | InterpolationColorSpace::HsvaLong => {
             let hsva: Hsva = color.into();
-            // Normalize hue to 0..1 range for shader
-            [hsva.hue / 360.0, hsva.saturation, hsva.value, hsva.alpha]
+            // The shader expects normalized hues
+            [hsva.hue / 360., hsva.saturation, hsva.value, hsva.alpha]
         }
     }
 }

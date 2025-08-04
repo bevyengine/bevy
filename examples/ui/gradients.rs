@@ -202,7 +202,7 @@ fn setup(mut commands: Commands) {
                         )]
                 )).observe(
                     |_trigger: On<Pointer<Over>>, mut border_query: Query<&mut BorderColor, With<Button>>| {
-                    *border_query.single_mut().unwrap() = BorderColor::all(RED.into());
+                    *border_query.single_mut().unwrap() = BorderColor::all(RED);
 
 
                 })

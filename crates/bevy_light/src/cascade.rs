@@ -225,8 +225,8 @@ pub fn build_directional_light_cascades(
         // users to not change any other aspects of the transform - there's no guarantee
         // `transform.to_matrix()` will give us a matrix with our desired properties.
         // Instead, we directly create a good matrix from just the rotation.
-        let world_from_light = Mat4::from_quat(transform.compute_transform().rotation);
-        let light_to_world_inverse = world_from_light.inverse();
+        let world_from_light = Mat4::from_quat(transform.rotation());
+        let light_to_world_inverse = world_from_light.transpose();
 
         for (view_entity, projection, view_to_world) in views.iter().copied() {
             let camera_to_light_view = light_to_world_inverse * view_to_world;

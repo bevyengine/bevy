@@ -507,6 +507,10 @@ fn get_capabilities(features: Features, downlevel: DownlevelFlags) -> Capabiliti
         features.contains(Features::DUAL_SOURCE_BLENDING),
     );
     capabilities.set(
+        Capabilities::CLIP_DISTANCE,
+        features.contains(Features::CLIP_DISTANCES),
+    );
+    capabilities.set(
         Capabilities::CUBE_ARRAY_TEXTURES,
         downlevel.contains(DownlevelFlags::CUBE_ARRAY_TEXTURES),
     );
