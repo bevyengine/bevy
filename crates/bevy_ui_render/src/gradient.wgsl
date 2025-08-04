@@ -319,17 +319,36 @@ fn mix_oklch_long(a: vec3<f32>, b: vec3<f32>, t: f32) -> vec3<f32> {
 }
 
 fn mix_hsl(a: vec3<f32>, b: vec3<f32>, t: f32) -> vec3<f32> {
+    // If the saturation is close to zero for one of the endpoints, don't interpolate 
+    // the hue and instead use the hue of the other endpoint. This allows gradients that smoothly 
+    // transition from black or white to a target color without passing through unrelated hues.
+    var h = a.x;
+    var g = b.x;
+    if a.y < HUE_GUARD {
+        h = g;
+    } else if b.y < HUE_GUARD {
+        g = h;
+    }
+
     return vec3(
-        fract(a.x + (fract(b.x - a.x + 0.5) - 0.5) * t),
+        fract(h + (fract(h - g + 0.5) - 0.5) * t),
         mix(a.y, b.y, t),
         mix(a.z, b.z, t),
     );
 }
 
 fn mix_hsl_long(a: vec3<f32>, b: vec3<f32>, t: f32) -> vec3<f32> {
-    let d = fract(b.x - a.x + 0.5) - 0.5;
+    var h = a.x;
+    var g = b.x;
+    if a.y < HUE_GUARD {
+        h = g;
+    } else if b.y < HUE_GUARD {
+        g = h;
+    }
+
+    let d = fract(g - h + 0.5) - 0.5;
     return vec3(
-        fract(a.x + (d + select(1., -1., 0. < d)) * t),
+        fract(h + (d + select(1., -1., 0. < d)) * t),
         mix(a.y, b.y, t),
         mix(a.z, b.z, t),
     );
