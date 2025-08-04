@@ -54,7 +54,6 @@ cfg::web! {
     }
 }
 
-// Main API
 impl<T> Task<T> {
     /// Detaches the task to let it keep running in the background.
     ///
@@ -77,6 +76,7 @@ impl<T> Task<T> {
     /// While it's possible to simply drop the [`Task`] to cancel it, this is a cleaner way of
     /// canceling because it also waits for the task to stop running.
     ///
+    /// # Platform-Specific Behavior
     /// Canceling tasks is unsupported on the web, and this is the same as awaiting the task.
     pub async fn cancel(self) -> Option<T> {
         cfg::web! {
@@ -116,7 +116,6 @@ impl<T> Task<T> {
     }
 }
 
-// Tasks are futures that can be polled
 impl<T> Future for Task<T> {
     type Output = T;
 
