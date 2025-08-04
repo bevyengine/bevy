@@ -3,12 +3,13 @@ use async_channel::{Receiver, Sender};
 use bevy_app::{App, AppExit, AppLabel, Plugin, SubApp};
 use bevy_ecs::{
     resource::Resource,
-    schedule::MainThreadExecutor,
+    schedule::{MainThreadExecutor, ScheduleLabel},
     world::{Mut, World},
 };
+use bevy_platform::cell::SyncCell;
 use bevy_tasks::ComputeTaskPool;
 
-use crate::RenderApp;
+use crate::{RenderApp, RenderStartup};
 
 /// A Label for the sub app that runs the parts of pipelined rendering that need to run on the main thread.
 ///
@@ -117,6 +118,7 @@ impl Plugin for PipelinedRenderingPlugin {
         app.insert_resource(MainThreadExecutor::new());
 
         let mut sub_app = SubApp::new();
+        sub_app.startup_schedule = Some(RenderStartup.intern());
         sub_app.set_extract(renderer_extract);
         app.insert_sub_app(RenderExtractApp, sub_app);
     }
@@ -126,7 +128,7 @@ impl Plugin for PipelinedRenderingPlugin {
         // skip setting up when headless
         if app.get_sub_app(RenderExtractApp).is_none() {
             return;
-        }
+        };
 
         let (app_to_render_sender, app_to_render_receiver) = async_channel::bounded::<SubApp>(1);
         let (render_to_app_sender, render_to_app_receiver) = async_channel::bounded::<SubApp>(1);
@@ -139,7 +141,20 @@ impl Plugin for PipelinedRenderingPlugin {
         let executor = app.world().get_resource::<MainThreadExecutor>().unwrap();
         render_app.world_mut().insert_resource(executor.clone());
 
-        render_to_app_sender.send_blocking(render_app).unwrap();
+        let render_extract_app = app.get_sub_app_mut(RenderExtractApp).unwrap();
+
+        // We need to run `RenderStartup` in the `RenderApp` during the startup phase. So in the
+        // `RenderExtractApp`, add a system to its `RenderStartup` schedule to run `RenderStartup`
+        // in the `RenderApp` then send it to the thread we spawn below.
+        let render_to_app_sender_clone = render_to_app_sender.clone();
+        let mut render_app = SyncCell::new(Some(render_app));
+        render_extract_app.add_systems(RenderStartup, move || {
+            let mut render_app = render_app.get().take().unwrap();
+            render_app.run_default_startup_schedule();
+            render_to_app_sender_clone
+                .send_blocking(render_app)
+                .unwrap();
+        });
 
         app.insert_resource(RenderAppChannels::new(
             app_to_render_sender,
