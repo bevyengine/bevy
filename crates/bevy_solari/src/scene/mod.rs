@@ -6,9 +6,11 @@ mod types;
 pub use binder::RaytracingSceneBindings;
 pub use types::RaytracingMesh3d;
 
-use crate::SolariPlugins;
+pub(crate) use binder::init_raytracing_scene_bindings;
+
+use crate::SolariSystems;
 use bevy_app::{App, Plugin};
-use bevy_ecs::schedule::IntoScheduleConfigs;
+use bevy_ecs::{schedule::IntoScheduleConfigs, system::ResMut};
 use bevy_render::{
     extract_resource::ExtractResourcePlugin,
     load_shader_library,
@@ -18,13 +20,11 @@ use bevy_render::{
     },
     render_asset::prepare_assets,
     render_resource::BufferUsages,
-    renderer::RenderDevice,
-    ExtractSchedule, Render, RenderApp, RenderSystems,
+    ExtractSchedule, Render, RenderApp, RenderStartup, RenderSystems,
 };
 use binder::prepare_raytracing_scene_bindings;
 use blas::{prepare_raytracing_blas, BlasManager};
 use extract::{extract_raytracing_scene, StandardMaterialAssets};
-use tracing::warn;
 
 /// Creates acceleration structures and binding arrays of resources for raytracing.
 pub struct RaytracingScenePlugin;
@@ -35,35 +35,28 @@ impl Plugin for RaytracingScenePlugin {
         load_shader_library!(app, "raytracing_scene_bindings.wgsl");
         load_shader_library!(app, "sampling.wgsl");
 
-        app.register_type::<RaytracingMesh3d>();
-    }
+        app.register_type::<RaytracingMesh3d>()
+            .add_plugins(ExtractResourcePlugin::<StandardMaterialAssets>::default());
 
-    fn finish(&self, app: &mut App) {
-        let render_app = app.sub_app_mut(RenderApp);
-        let render_device = render_app.world().resource::<RenderDevice>();
-        let features = render_device.features();
-        if !features.contains(SolariPlugins::required_wgpu_features()) {
-            warn!(
-                "RaytracingScenePlugin not loaded. GPU lacks support for required features: {:?}.",
-                SolariPlugins::required_wgpu_features().difference(features)
-            );
+        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
-        }
-
-        app.add_plugins(ExtractResourcePlugin::<StandardMaterialAssets>::default());
-
-        let render_app = app.sub_app_mut(RenderApp);
-
-        render_app
-            .world_mut()
-            .resource_mut::<MeshAllocator>()
-            .extra_buffer_usages |= BufferUsages::BLAS_INPUT | BufferUsages::STORAGE;
+        };
 
         render_app
             .init_resource::<BlasManager>()
             .init_resource::<StandardMaterialAssets>()
-            .init_resource::<RaytracingSceneBindings>()
-            .add_systems(ExtractSchedule, extract_raytracing_scene)
+            .add_systems(
+                RenderStartup,
+                (
+                    add_raytracing_extra_mesh_buffer_usages,
+                    init_raytracing_scene_bindings,
+                )
+                    .in_set(SolariSystems),
+            )
+            .add_systems(
+                ExtractSchedule,
+                extract_raytracing_scene.in_set(SolariSystems),
+            )
             .add_systems(
                 Render,
                 (
@@ -72,7 +65,12 @@ impl Plugin for RaytracingScenePlugin {
                         .before(prepare_assets::<RenderMesh>)
                         .after(allocate_and_free_meshes),
                     prepare_raytracing_scene_bindings.in_set(RenderSystems::PrepareBindGroups),
-                ),
+                )
+                    .in_set(SolariSystems),
             );
     }
+}
+
+fn add_raytracing_extra_mesh_buffer_usages(mut mesh_allocator: ResMut<MeshAllocator>) {
+    mesh_allocator.extra_buffer_usages |= BufferUsages::BLAS_INPUT | BufferUsages::STORAGE;
 }

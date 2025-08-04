@@ -4,8 +4,7 @@ use bevy_color::{ColorToComponents, LinearRgba};
 use bevy_ecs::{
     entity::{Entity, EntityHashMap},
     resource::Resource,
-    system::{Query, Res, ResMut},
-    world::{FromWorld, World},
+    system::{Commands, Query, Res, ResMut},
 };
 use bevy_math::{ops::cos, Mat4, Vec3};
 use bevy_pbr::{ExtractedDirectionalLight, MeshMaterial3d, StandardMaterial};
@@ -280,36 +279,35 @@ pub fn prepare_raytracing_scene_bindings(
     ));
 }
 
-impl FromWorld for RaytracingSceneBindings {
-    fn from_world(world: &mut World) -> Self {
-        let render_device = world.resource::<RenderDevice>();
-
-        Self {
-            bind_group: None,
-            bind_group_layout: render_device.create_bind_group_layout(
-                "raytracing_scene_bind_group_layout",
-                &BindGroupLayoutEntries::sequential(
-                    ShaderStages::COMPUTE,
-                    (
-                        storage_buffer_read_only_sized(false, None).count(MAX_MESH_SLAB_COUNT),
-                        storage_buffer_read_only_sized(false, None).count(MAX_MESH_SLAB_COUNT),
-                        texture_2d(TextureSampleType::Float { filterable: true })
-                            .count(MAX_TEXTURE_COUNT),
-                        sampler(SamplerBindingType::Filtering).count(MAX_TEXTURE_COUNT),
-                        storage_buffer_read_only_sized(false, None),
-                        acceleration_structure(),
-                        storage_buffer_read_only_sized(false, None),
-                        storage_buffer_read_only_sized(false, None),
-                        storage_buffer_read_only_sized(false, None),
-                        storage_buffer_read_only_sized(false, None),
-                        storage_buffer_read_only_sized(false, None),
-                        storage_buffer_read_only_sized(false, None),
-                    ),
+pub(crate) fn init_raytracing_scene_bindings(
+    mut commands: Commands,
+    render_device: Res<RenderDevice>,
+) {
+    commands.insert_resource(RaytracingSceneBindings {
+        bind_group: None,
+        bind_group_layout: render_device.create_bind_group_layout(
+            "raytracing_scene_bind_group_layout",
+            &BindGroupLayoutEntries::sequential(
+                ShaderStages::COMPUTE,
+                (
+                    storage_buffer_read_only_sized(false, None).count(MAX_MESH_SLAB_COUNT),
+                    storage_buffer_read_only_sized(false, None).count(MAX_MESH_SLAB_COUNT),
+                    texture_2d(TextureSampleType::Float { filterable: true })
+                        .count(MAX_TEXTURE_COUNT),
+                    sampler(SamplerBindingType::Filtering).count(MAX_TEXTURE_COUNT),
+                    storage_buffer_read_only_sized(false, None),
+                    acceleration_structure(),
+                    storage_buffer_read_only_sized(false, None),
+                    storage_buffer_read_only_sized(false, None),
+                    storage_buffer_read_only_sized(false, None),
+                    storage_buffer_read_only_sized(false, None),
+                    storage_buffer_read_only_sized(false, None),
+                    storage_buffer_read_only_sized(false, None),
                 ),
             ),
-            previous_frame_light_entities: Vec::new(),
-        }
-    }
+        ),
+        previous_frame_light_entities: Vec::new(),
+    });
 }
 
 struct CachedBindingArray<T, I: Eq + Hash> {
