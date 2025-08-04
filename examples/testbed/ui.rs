@@ -555,6 +555,8 @@ mod layout_rounding {
 }
 
 mod linear_gradient {
+    use bevy::color::palettes::css::BLUE;
+    use bevy::color::palettes::css::LIME;
     use bevy::color::palettes::css::RED;
     use bevy::color::palettes::css::YELLOW;
     use bevy::color::Color;
@@ -620,6 +622,13 @@ mod linear_gradient {
                                 Color::hsl(0.0 + 0.0001, 1.0, 0.5).into(),
                                 Color::hsl(180.0, 1.0, 0.5).into(),
                                 Color::hsl(360.0 - 0.0001, 1.0, 0.5).into(),
+                            ],
+                            vec![
+                                Color::WHITE.into(),
+                                RED.into(),
+                                LIME.into(),
+                                BLUE.into(),
+                                Color::BLACK.into(),
                             ],
                         ] {
                             for color_space in [
