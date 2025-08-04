@@ -60,6 +60,9 @@ wgpu-types = { version = "26", optional = true }
 accesskit = "0.21"
 tracing = { version = "0.1", default-features = false, features = ["std"] }
 
+[target.'cfg(target_os = "android")'.dependencies]
+bevy_android = { path = "../bevy_android", version = "0.17.0-dev", default-features = false }
+
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 wasm-bindgen = { version = "0.2" }
 web-sys = "0.3"

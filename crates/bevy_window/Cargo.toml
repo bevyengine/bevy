@@ -64,9 +64,6 @@ raw-window-handle = { version = "0.6", features = [
 ], default-features = false }
 log = { version = "0.4", default-features = false }
 
-[target.'cfg(target_os = "android")'.dependencies]
-android-activity = "0.6"
-
 [lints]
 workspace = true
 

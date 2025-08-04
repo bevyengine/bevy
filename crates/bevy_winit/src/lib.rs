@@ -124,7 +124,8 @@ impl<T: BufferedEvent> Plugin for WinitPlugin<T> {
         {
             use winit::platform::android::EventLoopBuilderExtAndroid;
             let msg = "Bevy must be setup with the #[bevy_main] macro on Android";
-            event_loop_builder.with_android_app(bevy_window::ANDROID_APP.get().expect(msg).clone());
+            event_loop_builder
+                .with_android_app(bevy_android::ANDROID_APP.get().expect(msg).clone());
         }
 
         let event_loop = event_loop_builder

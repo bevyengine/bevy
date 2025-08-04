@@ -458,6 +458,9 @@ bevy_window = { path = "../bevy_window", optional = true, version = "0.17.0-dev"
 ] }
 bevy_winit = { path = "../bevy_winit", optional = true, version = "0.17.0-dev", default-features = false }
 
+[target.'cfg(target_os = "android")'.dependencies]
+bevy_android = { path = "../bevy_android", version = "0.17.0-dev", default-features = false }
+
 [lints]
 workspace = true
 

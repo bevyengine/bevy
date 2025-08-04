@@ -30,9 +30,6 @@ mod window;
 
 pub use crate::raw_handle::*;
 
-#[cfg(target_os = "android")]
-pub use android_activity;
-
 pub use event::*;
 pub use monitor::*;
 pub use system::*;
@@ -204,9 +201,3 @@ pub enum ExitCondition {
     /// surprise your users.
     DontExit,
 }
-
-/// [`AndroidApp`] provides an interface to query the application state as well as monitor events
-/// (for example lifecycle and input events).
-#[cfg(target_os = "android")]
-pub static ANDROID_APP: std::sync::OnceLock<android_activity::AndroidApp> =
-    std::sync::OnceLock::new();
