@@ -40,6 +40,7 @@ fn main() {
 
     app.finish();
     app.cleanup();
+    app.startup();
     app.update();
 
     let main_app_ambiguities = count_ambiguities(app.main());

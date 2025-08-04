@@ -214,6 +214,7 @@ impl<T: BufferedEvent> ApplicationHandler<T> for WinitAppRunnerState<T> {
             } else {
                 self.app.finish();
                 self.app.cleanup();
+                self.app.startup();
             }
             self.redraw_requested = true;
         }
