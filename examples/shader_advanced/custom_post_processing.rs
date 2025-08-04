@@ -30,6 +30,7 @@ use bevy::{
         RenderApp, RenderStartup,
     },
 };
+use plugin::{FullscreenMaterial, FullscreenMaterialPlugin};
 
 /// This example uses a shader source file from the assets subdirectory
 const SHADER_ASSET_PATH: &str = "shaders/post_processing.wgsl";
@@ -312,6 +313,7 @@ fn setup(
             intensity: 0.02,
             ..default()
         },
+        MyPostProcessing { data: 1.0 },
     ));
 
     // cube
@@ -353,5 +355,148 @@ fn update_settings(mut settings: Query<&mut PostProcessSettings>, time: Res<Time
         // Set the intensity.
         // This will then be extracted to the render world and uploaded to the GPU automatically by the [`UniformComponentPlugin`]
         setting.intensity = intensity;
+    }
+}
+
+mod plugin {
+    use std::marker::PhantomData;
+
+    use bevy::{core_pipeline::FullscreenShader, prelude::*, shader::ShaderRef};
+    use bevy_render::{
+        extract_component::{
+            DynamicUniformIndex, ExtractComponent, ExtractComponentPlugin, UniformComponentPlugin,
+        },
+        render_graph::ViewNode,
+        render_resource::{
+            binding_types::{sampler, texture_2d, uniform_buffer},
+            encase::internal::WriteInto,
+            AsBindGroup, BindGroupLayout, BindGroupLayoutEntries, CachedRenderPipelineId,
+            ColorTargetState, ColorWrites, FragmentState, PipelineCache, RenderPipelineDescriptor,
+            Sampler, SamplerBindingType, SamplerDescriptor, ShaderStages, ShaderType,
+            TextureFormat, TextureSampleType,
+        },
+        renderer::RenderDevice,
+        view::ViewTarget,
+        RenderApp, RenderStartup,
+    };
+
+    use crate::PostProcessSettings;
+
+    #[derive(Default)]
+    pub struct FullscreenMaterialPlugin<T: FullscreenMaterial> {
+        _marker: PhantomData<T>,
+    }
+    impl<T: FullscreenMaterial> Plugin for FullscreenMaterialPlugin<T> {
+        fn build(&self, app: &mut App) {
+            app.add_plugins((
+                ExtractComponentPlugin::<T>::default(),
+                UniformComponentPlugin::<T>::default(),
+            ));
+
+            // We need to get the render app from the main app
+            let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
+                return;
+            };
+            render_app.add_systems(RenderStartup, init_pipeline::<T>);
+        }
+    }
+
+    pub trait FullscreenMaterial:
+        Component + ExtractComponent + AsBindGroup + Clone + Copy + ShaderType + WriteInto
+    {
+        fn fragment_shader() -> ShaderRef;
+    }
+    #[derive(Resource)]
+    struct FullscreenMaterialPipeline {
+        layout: BindGroupLayout,
+        sampler: Sampler,
+        pipeline_id: CachedRenderPipelineId,
+    }
+    fn init_pipeline<T: FullscreenMaterial>(
+        mut commands: Commands,
+        render_device: Res<RenderDevice>,
+        asset_server: Res<AssetServer>,
+        fullscreen_shader: Res<FullscreenShader>,
+        pipeline_cache: Res<PipelineCache>,
+    ) {
+        // We need to define the bind group layout used for our pipeline
+        let layout = render_device.create_bind_group_layout(
+            "post_process_bind_group_layout",
+            &BindGroupLayoutEntries::sequential(
+                // The layout entries will only be visible in the fragment stage
+                ShaderStages::FRAGMENT,
+                (
+                    // The screen texture
+                    texture_2d(TextureSampleType::Float { filterable: true }),
+                    // The sampler that will be used to sample the screen texture
+                    sampler(SamplerBindingType::Filtering),
+                    // The settings uniform that will control the effect
+                    uniform_buffer::<T>(true),
+                ),
+            ),
+        );
+        // We can create the sampler here since it won't change at runtime and doesn't depend on the view
+        let sampler = render_device.create_sampler(&SamplerDescriptor::default());
+        let mayber_shader = match T::fragment_shader() {
+            ShaderRef::Default => {
+                unimplemented!("No default fallback for FullscreenMaterial shader")
+            }
+            ShaderRef::Handle(handle) => handle,
+            ShaderRef::Path(path) => asset_server.load(path),
+        };
+        // This will setup a fullscreen triangle for the vertex state.
+        let vertex_state = fullscreen_shader.to_vertex_state();
+        let pipeline_id = pipeline_cache
+            // This will add the pipeline to the cache and queue its creation
+            .queue_render_pipeline(RenderPipelineDescriptor {
+                label: Some("post_process_pipeline".into()),
+                layout: vec![layout.clone()],
+                vertex: vertex_state,
+                fragment: Some(FragmentState {
+                    shader,
+                    // Make sure this matches the entry point of your shader.
+                    // It can be anything as long as it matches here and in the shader.
+                    targets: vec![Some(ColorTargetState {
+                        format: TextureFormat::bevy_default(),
+                        blend: None,
+                        write_mask: ColorWrites::ALL,
+                    })],
+                    ..default()
+                }),
+                ..default()
+            });
+        commands.insert_resource(FullscreenMaterialPipeline {
+            layout,
+            sampler,
+            pipeline_id,
+        });
+    }
+    struct FullscreenMaterialNode<T: FullscreenMaterial> {
+        _marker: PhantomData<T>,
+    }
+
+    impl<T: FullscreenMaterial> ViewNode for FullscreenMaterialNode<T> {
+        // The node needs a query to gather data from the ECS in order to do its rendering,
+        // but it's not a normal system so we need to define it manually.
+        //
+        // This query will only run on the view entity
+        type ViewQuery = (
+            &'static ViewTarget,
+            // This makes sure the node only runs on cameras with the PostProcessSettings component
+            &'static T,
+            // As there could be multiple post processing components sent to the GPU (one per camera),
+            // we need to get the index of the one that is associated with the current view.
+            &'static DynamicUniformIndex<T>,
+        );
+
+        fn run<'w>(
+            &self,
+            graph: &mut bevy_render::render_graph::RenderGraphContext,
+            render_context: &mut bevy_render::renderer::RenderContext<'w>,
+            view_query: bevy_ecs::query::QueryItem<'w, '_, Self::ViewQuery>,
+            world: &'w World,
+        ) -> std::result::Result<(), bevy_render::render_graph::NodeRunError> {
+            todo!()
+        }
     }
 }
