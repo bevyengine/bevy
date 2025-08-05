@@ -87,7 +87,7 @@ pub struct SceneSpawner {
     // When loading several subassets of a scene as is common with gltf, they each trigger a complete asset load,
     // and each will trigger either a created or modified event for the parent asset. This cause the scene to be
     // unloaded, losing its initial setup, and reloaded without it.
-    // Debouncing scene asset events let us ignore events that happens SCENE_ASSET_AGE_THRESHOLD frames appart and
+    // Debouncing scene asset events let us ignore events that happens SCENE_ASSET_AGE_THRESHOLD frames apart and
     // and not reload the scene in those cases as it's unlikely to be an actual asset change.
     debounced_scene_asset_events: HashMap<AssetId<Scene>, u32>,
     dynamic_scene_asset_event_reader: EventCursor<AssetEvent<DynamicScene>>,
