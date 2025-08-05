@@ -22,8 +22,9 @@ use bevy::{
 
 fn main() {
     App::new()
-        .add_plugins(DefaultPlugins.set(bevy::light::LightPlugin {
+        .add_plugins(DefaultPlugins.set(bevy::pbr::PbrPlugin {
             default_environment_map_light: false,
+            ..default()
         }))
         .add_plugins(AutoExposurePlugin)
         .add_systems(Startup, setup)
