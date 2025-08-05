@@ -52,9 +52,8 @@ use bevy_render::{
         ExtractedView, NoIndirectDrawing, RenderVisibilityRanges, RenderVisibleEntities,
         RetainedViewEntity, ViewDepthTexture, ViewTarget,
     },
-    Extract, Render, RenderApp, RenderDebugFlags, RenderSystems,
+    Extract, Render, RenderApp, RenderDebugFlags, RenderStartup, RenderSystems,
 };
-use bevy_render::{camera::extract_cameras, RenderStartup};
 use core::{hash::Hash, ops::Range};
 use tracing::error;
 
