@@ -160,7 +160,7 @@ mod tests {
     use crate::{
         bundle::Bundle,
         change_detection::Ref,
-        component::{Component, ComponentId},
+        component::Component,
         entity::{Entity, EntityMapper},
         entity_disabling::DefaultQueryFilters,
         prelude::Or,
