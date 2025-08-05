@@ -222,7 +222,12 @@ impl Plugin for LightPlugin {
 
         if self.default_environment_map_light {
             app.world_mut()
-                .register_required_components::<Camera3d, EnvironmentMapLight>();
+                .register_required_components_with::<Camera3d, EnvironmentMapLight>(|| {
+                    EnvironmentMapLight {
+                        intensity: 50.0,
+                        ..Default::default()
+                    }
+                });
         }
 
         app.world_mut().resource_mut::<Assets<Image>>().insert(
