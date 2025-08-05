@@ -59,37 +59,37 @@ git checkout v0.4.0
     - [Optimizing](#optimizing)
     - [Loading Assets](#loading-assets)
 
-# The Bare Minimum
+## The Bare Minimum
 
 <!-- MD026 - Hello, World! looks better with the ! -->
 <!-- markdownlint-disable-next-line MD026 -->
-## Hello, World!
+### Hello, World!
 
 Example | Description
 --- | ---
 [`hello_world.rs`](./hello_world.rs) | Runs a minimal example that outputs "hello world"
 
-# Cross-Platform Examples
+## Cross-Platform Examples
 {% for category, details in all_examples %}
-## {{ category }}
+### {{ category }}
 
 {% if details.description is string %}{{ details.description }}
 {% endif %}Example | Description
 --- | ---
 {% for example in details.examples %}[{{ example.name }}](../{{ example.path }}) | {{ example.description }}
 {% endfor %}{% endfor %}
-# Tests
+## Tests
 
 Example | Description
 --- | ---
 [How to Test Apps](../tests/how_to_test_apps.rs) | How to test apps (simple integration testing)
 [How to Test Systems](../tests/how_to_test_systems.rs) | How to test systems with commands, queries or resources
 
-# Platform-Specific Examples
+## Platform-Specific Examples
 
-## Android
+### Android
 
-### Setup
+#### Setup
 
 ```sh
 rustup target add aarch64-linux-android
@@ -102,7 +102,7 @@ When using `NDK (Side by side)`, the environment variable `ANDROID_NDK_ROOT` mus
 
 Alternatively, you can install Android Studio.
 
-### Build & Run
+#### Build & Run
 
 To build an Android app, you first need to build shared object files for the target architecture with `cargo-ndk`:
 
@@ -130,7 +130,7 @@ Or build it with Android Studio.
 
 Then you can test it in your Android project.
 
-#### About `libc++_shared.so`
+##### About `libc++_shared.so`
 
 Bevy may require `libc++_shared.so` to run on Android, as it is needed by the `oboe` crate, but typically `cargo-ndk` does not copy this file automatically.
 
@@ -138,7 +138,7 @@ To include it, you can manually obtain it from NDK source or use a `build.rs` sc
 
 Alternatively, you can modify project files to include it when building an APK. To understand the specific steps taken in this project, please refer to the comments within the project files for detailed instructions(`app/CMakeList.txt`, `app/build.gradle`, `app/src/main/cpp/dummy.cpp`).
 
-### Debugging
+#### Debugging
 
 You can view the logs with the following command:
 
@@ -154,7 +154,7 @@ Sometimes, running the app complains about an unknown activity. This may be fixe
 adb uninstall org.bevyengine.example
 ```
 
-### Old phones
+#### Old phones
 
 In its examples, Bevy targets the minimum Android API that Play Store  <!-- markdown-link-check-disable -->
 [requires](https://developer.android.com/distribute/best-practices/develop/target-sdk) to upload and update apps. <!-- markdown-link-check-enable -->
@@ -168,7 +168,7 @@ bevy = { version = "0.14", default-features = false, features = ["android-native
 
 Then build it as the [Build & Run](#build--run) section stated above.
 
-#### About `cargo-apk`
+##### About `cargo-apk`
 
 You can also build an APK with `cargo-apk`, a simpler and deprecated tool which doesn't support `GameActivity`. If you want to use this, there is a [folder](./mobile/android_basic) inside the mobile example with instructions.
 
@@ -176,9 +176,9 @@ Example | File | Description
 --- | --- | ---
 `android` | [`mobile/src/lib.rs`](./mobile/src/lib.rs) | A 3d Scene with a button and playing sound
 
-## iOS
+### iOS
 
-### Setup
+#### Setup
 
 You need to install the correct rust targets:
 
@@ -190,7 +190,7 @@ You need to install the correct rust targets:
 rustup target add aarch64-apple-ios x86_64-apple-ios aarch64-apple-ios-sim
 ```
 
-### Build & Run
+#### Build & Run
 
 Using bash:
 
@@ -220,16 +220,16 @@ Example | File | Description
 --- | --- | ---
 `ios` | [`mobile/src/lib.rs`](./mobile/src/lib.rs) | A 3d Scene with a button and playing sound
 
-## Wasm
+### Wasm
 
-### Setup
+#### Setup
 
 ```sh
 rustup target add wasm32-unknown-unknown
 cargo install wasm-bindgen-cli
 ```
 
-### Build & Run
+#### Build & Run
 
 Following is an example for `lighting`. For other examples, change the `lighting` in the
 following commands.
@@ -249,17 +249,17 @@ javascript bindings to this wasm file in the output file `examples/wasm/target/w
 Then serve `examples/wasm` directory to browser. i.e.
 
 ```sh
-# cargo install basic-http-server
+## cargo install basic-http-server
 basic-http-server examples/wasm
 
-# with python
+## with python
 python3 -m http.server --directory examples/wasm
 
-# with ruby
+## with ruby
 ruby -run -ehttpd examples/wasm
 ```
 
-#### WebGL2 and WebGPU
+##### WebGL2 and WebGPU
 
 Bevy support for WebGPU is being worked on, but is currently experimental.
 
@@ -273,13 +273,13 @@ Bevy has a helper to build its examples:
 
 This helper will log the command used to build the examples.
 
-### Audio in the browsers
+#### Audio in the browsers
 
 For the moment, everything is single threaded, this can lead to stuttering when playing audio in browsers. Not all browsers react the same way for all games, you will have to experiment for your game.
 
 In browsers, audio is not authorized to start without being triggered by an user interaction. This is to avoid multiple tabs all starting to auto play some sounds. You can find more context and explanation for this on [Google Chrome blog](https://developer.chrome.com/blog/web-audio-autoplay/). This page also describes a JS workaround to resume audio as soon as the user interact with your game.
 
-### Optimizing
+#### Optimizing
 
 On the web, it's useful to reduce the size of the files that are distributed.
 With rust, there are many ways to improve your executable sizes, starting with
@@ -314,7 +314,7 @@ opt-level = "z"                   | 6.1M     | 12.7M
 "z" + "thin" + codegen-units = 1  | 5.3M     | 11M
 "z" + "fat"  + codegen-units = 1  | 4.8M     | 8.5M
 
-### Loading Assets
+#### Loading Assets
 
 To load assets, they need to be available in the folder examples/wasm/assets. Cloning this
 repository will set it up as a symlink on Linux and macOS, but you will need to manually move
