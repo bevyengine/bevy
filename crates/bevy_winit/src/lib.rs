@@ -45,9 +45,7 @@ use crate::{
 
 pub mod accessibility;
 mod converters;
-pub mod cursor;
-#[cfg(feature = "custom_cursor")]
-mod custom_cursor;
+mod cursor;
 mod state;
 mod system;
 mod winit_config;
@@ -151,7 +149,7 @@ impl<T: BufferedEvent> Plugin for WinitPlugin<T> {
             );
 
         app.add_plugins(AccessKitPlugin);
-        app.add_plugins(cursor::CursorPlugin);
+        app.add_plugins(cursor::WinitCursorPlugin);
     }
 }
 

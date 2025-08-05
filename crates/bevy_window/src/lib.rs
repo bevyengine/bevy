@@ -17,23 +17,19 @@ extern crate std;
 
 extern crate alloc;
 
-use alloc::sync::Arc;
-
-use bevy_platform::sync::Mutex;
-
+mod cursor;
 mod event;
 mod monitor;
 mod raw_handle;
 mod system;
-mod system_cursor;
 mod window;
 
 pub use crate::raw_handle::*;
 
+pub use cursor::*;
 pub use event::*;
 pub use monitor::*;
 pub use system::*;
-pub use system_cursor::*;
 pub use window::*;
 
 /// The windowing prelude.
@@ -48,7 +44,9 @@ pub mod prelude {
     };
 }
 
+use alloc::sync::Arc;
 use bevy_app::prelude::*;
+use bevy_platform::sync::Mutex;
 
 impl Default for WindowPlugin {
     fn default() -> Self {

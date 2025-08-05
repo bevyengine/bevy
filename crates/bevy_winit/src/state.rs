@@ -1,7 +1,5 @@
 use approx::relative_eq;
 use bevy_app::{App, AppExit, PluginsState};
-#[cfg(feature = "custom_cursor")]
-use bevy_asset::AssetId;
 use bevy_ecs::{
     change_detection::{DetectChanges, Res},
     entity::Entity,
@@ -10,8 +8,6 @@ use bevy_ecs::{
     system::SystemState,
     world::FromWorld,
 };
-#[cfg(feature = "custom_cursor")]
-use bevy_image::{Image, TextureAtlasLayout};
 use bevy_input::{
     gestures::*,
     mouse::{MouseButtonInput, MouseMotion, MouseScrollUnit, MouseWheel},
@@ -19,11 +15,7 @@ use bevy_input::{
 #[cfg(any(not(target_arch = "wasm32"), feature = "custom_cursor"))]
 use bevy_log::error;
 use bevy_log::{trace, warn};
-#[cfg(feature = "custom_cursor")]
-use bevy_math::URect;
 use bevy_math::{ivec2, DVec2, Vec2};
-#[cfg(feature = "custom_cursor")]
-use bevy_platform::collections::HashMap;
 use bevy_platform::time::Instant;
 #[cfg(not(target_arch = "wasm32"))]
 use bevy_tasks::tick_global_task_pools_on_main_thread;
@@ -58,7 +50,7 @@ use crate::{
 
 /// Persistent state that is used to run the [`App`] according to the current
 /// [`UpdateMode`].
-struct WinitAppRunnerState<T: BufferedEvent> {
+pub(crate) struct WinitAppRunnerState<T: BufferedEvent> {
     /// The running app.
     app: App,
     /// Exit value once the loop is finished.
@@ -109,8 +101,6 @@ struct WinitAppRunnerState<T: BufferedEvent> {
 impl<T: BufferedEvent> WinitAppRunnerState<T> {
     fn new(mut app: App) -> Self {
         app.add_event::<T>();
-        #[cfg(feature = "custom_cursor")]
-        app.init_resource::<CustomCursorCache>();
 
         let event_writer_system_state: SystemState<(
             EventWriter<WindowResized>,
@@ -150,53 +140,10 @@ impl<T: BufferedEvent> WinitAppRunnerState<T> {
         self.app.world()
     }
 
-    fn world_mut(&mut self) -> &mut World {
+    pub(crate) fn world_mut(&mut self) -> &mut World {
         self.app.world_mut()
     }
 }
-
-#[cfg(feature = "custom_cursor")]
-/// Identifiers for custom cursors used in caching.
-#[derive(Debug, Clone, Hash, PartialEq, Eq)]
-pub enum CustomCursorCacheKey {
-    /// A custom cursor with an image.
-    Image {
-        id: AssetId<Image>,
-        texture_atlas_layout_id: Option<AssetId<TextureAtlasLayout>>,
-        texture_atlas_index: Option<usize>,
-        flip_x: bool,
-        flip_y: bool,
-        rect: Option<URect>,
-    },
-    #[cfg(all(target_family = "wasm", target_os = "unknown"))]
-    /// A custom cursor with a URL.
-    Url(String),
-}
-
-#[cfg(feature = "custom_cursor")]
-/// Caches custom cursors. On many platforms, creating custom cursors is expensive, especially on
-/// the web.
-#[derive(Debug, Clone, Default, Resource)]
-pub struct CustomCursorCache(pub HashMap<CustomCursorCacheKey, winit::window::CustomCursor>);
-
-/// A source for a cursor. Consumed by the winit event loop.
-#[derive(Debug)]
-pub enum CursorSource {
-    #[cfg(feature = "custom_cursor")]
-    /// A custom cursor was identified to be cached, no reason to recreate it.
-    CustomCached(CustomCursorCacheKey),
-    #[cfg(feature = "custom_cursor")]
-    /// A custom cursor was not cached, so it needs to be created by the winit event loop.
-    Custom((CustomCursorCacheKey, winit::window::CustomCursorSource)),
-    /// A system cursor was requested.
-    System(winit::window::CursorIcon),
-}
-
-/// Component that indicates what cursor should be used for a window. Inserted
-/// automatically after changing `CursorIcon` and consumed by the winit event
-/// loop.
-#[derive(Component, Debug)]
-pub struct PendingCursor(pub Option<CursorSource>);
 
 impl<T: BufferedEvent> ApplicationHandler<T> for WinitAppRunnerState<T> {
     fn new_events(&mut self, event_loop: &ActiveEventLoop, cause: StartCause) {
@@ -888,52 +835,6 @@ impl<T: BufferedEvent> WinitAppRunnerState<T> {
                 .resource_mut::<Events<BevyWindowEvent>>()
                 .write_batch(buffered_events);
         }
-    }
-
-    fn update_cursors(&mut self, #[cfg(feature = "custom_cursor")] event_loop: &ActiveEventLoop) {
-        #[cfg(feature = "custom_cursor")]
-        let mut windows_state: SystemState<(
-            ResMut<CustomCursorCache>,
-            Query<(Entity, &mut PendingCursor), Changed<PendingCursor>>,
-        )> = SystemState::new(self.world_mut());
-        #[cfg(feature = "custom_cursor")]
-        let (mut cursor_cache, mut windows) = windows_state.get_mut(self.world_mut());
-        #[cfg(not(feature = "custom_cursor"))]
-        let mut windows_state: SystemState<(
-            Query<(Entity, &mut PendingCursor), Changed<PendingCursor>>,
-        )> = SystemState::new(self.world_mut());
-        #[cfg(not(feature = "custom_cursor"))]
-        let (mut windows,) = windows_state.get_mut(self.world_mut());
-
-        WINIT_WINDOWS.with_borrow(|winit_windows| {
-            for (entity, mut pending_cursor) in windows.iter_mut() {
-                let Some(winit_window) = winit_windows.get_window(entity) else {
-                    continue;
-                };
-                let Some(pending_cursor) = pending_cursor.0.take() else {
-                    continue;
-                };
-
-                let final_cursor: winit::window::Cursor = match pending_cursor {
-                    #[cfg(feature = "custom_cursor")]
-                    CursorSource::CustomCached(cache_key) => {
-                        let Some(cached_cursor) = cursor_cache.0.get(&cache_key) else {
-                            error!("Cursor should have been cached, but was not found");
-                            continue;
-                        };
-                        cached_cursor.clone().into()
-                    }
-                    #[cfg(feature = "custom_cursor")]
-                    CursorSource::Custom((cache_key, cursor)) => {
-                        let custom_cursor = event_loop.create_custom_cursor(cursor);
-                        cursor_cache.0.insert(cache_key, custom_cursor.clone());
-                        custom_cursor.into()
-                    }
-                    CursorSource::System(system_cursor) => system_cursor.into(),
-                };
-                winit_window.set_cursor(final_cursor);
-            }
-        });
     }
 }
 

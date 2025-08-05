@@ -303,8 +303,8 @@ reflect_functions = [
 # Enable documentation reflection
 reflect_documentation = ["bevy_reflect/documentation"]
 
-# Enable winit custom cursor support
-custom_cursor = ["bevy_winit/custom_cursor"]
+# Enable custom cursor support
+custom_cursor = ["bevy_window/custom_cursor", "bevy_winit/custom_cursor"]
 
 # Experimental support for nodes that are ignored for UI layouting
 ghost_nodes = ["bevy_ui/ghost_nodes"]
