@@ -175,7 +175,7 @@ impl Default for EnvironmentMapLight {
             specular_map: DEFAULT_ENVIRONMENT_MAP_TEXTURE_HANDLE,
             intensity: 0.0,
             rotation: Quat::IDENTITY,
-            affects_lightmapped_mesh_diffuse: true,
+            affects_lightmapped_mesh_diffuse: false,
         }
     }
 }

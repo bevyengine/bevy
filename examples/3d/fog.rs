@@ -28,13 +28,10 @@ use bevy::{
 };
 
 fn main() {
-    #[expect(
-        deprecated,
-        reason = "Once AmbientLight is removed, the resource can be removed"
-    )]
     App::new()
-        .insert_resource(AmbientLight::NONE)
-        .add_plugins(DefaultPlugins)
+        .add_plugins(DefaultPlugins.set(bevy::light::LightPlugin {
+            default_environment_map_light: false,
+        }))
         .add_systems(
             Startup,
             (setup_camera_fog, setup_pyramid_scene, setup_instructions),

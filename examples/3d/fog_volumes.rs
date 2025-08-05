@@ -14,19 +14,20 @@ use bevy::{
 
 /// Entry point.
 fn main() {
-    #[expect(
-        deprecated,
-        reason = "Once AmbientLight is removed, the resource can be removed"
-    )]
     App::new()
-        .add_plugins(DefaultPlugins.set(WindowPlugin {
-            primary_window: Some(Window {
-                title: "Bevy Fog Volumes Example".into(),
-                ..default()
-            }),
-            ..default()
-        }))
-        .insert_resource(AmbientLight::NONE)
+        .add_plugins(
+            DefaultPlugins
+                .set(WindowPlugin {
+                    primary_window: Some(Window {
+                        title: "Bevy Fog Volumes Example".into(),
+                        ..default()
+                    }),
+                    ..default()
+                })
+                .set(bevy::light::LightPlugin {
+                    default_environment_map_light: false,
+                }),
+        )
         .add_systems(Startup, setup)
         .add_systems(Update, rotate_camera)
         .run();
