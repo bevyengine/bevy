@@ -5,21 +5,21 @@ use bevy_ecs::{
     entity::Entity,
     hierarchy::ChildOf,
     query::{With, Without},
-    reflect::ReflectComponent,
+    reflect::{ReflectComponent, ReflectResource},
     resource::Resource,
     schedule::IntoScheduleConfigs,
     system::{Commands, Query, Res},
 };
 use bevy_picking::{hover::HoverMap, pointer::PointerId, PickingSystems};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
-use bevy_window::{SystemCursorIcon, Window};
-use bevy_winit::cursor::CursorIcon;
 #[cfg(feature = "custom_cursor")]
-use bevy_winit::cursor::CustomCursor;
+use bevy_window::CustomCursor;
+use bevy_window::{CursorIcon, SystemCursorIcon, Window};
 
 /// A resource that specifies the cursor icon to be used when the mouse is not hovering over
 /// any other entity. This is used to set the default cursor icon for the window.
-#[derive(Resource, Debug, Clone, Default)]
+#[derive(Resource, Debug, Clone, Default, Reflect)]
+#[reflect(Resource, Debug, Default)]
 pub struct DefaultCursor(pub EntityCursor);
 
 /// A component that specifies the cursor shape to be used when the pointer hovers over an entity.

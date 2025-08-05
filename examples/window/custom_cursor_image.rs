@@ -5,7 +5,7 @@ use std::time::Duration;
 
 use bevy::{
     prelude::*,
-    winit::cursor::{CursorIcon, CustomCursor, CustomCursorImage},
+    window::{CursorIcon, CustomCursor, CustomCursorImage},
 };
 
 fn main() {

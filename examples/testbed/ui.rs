@@ -555,15 +555,19 @@ mod layout_rounding {
 }
 
 mod linear_gradient {
+    use bevy::color::palettes::css::BLUE;
+    use bevy::color::palettes::css::LIME;
     use bevy::color::palettes::css::RED;
     use bevy::color::palettes::css::YELLOW;
     use bevy::color::Color;
     use bevy::ecs::prelude::*;
     use bevy::render::camera::Camera2d;
     use bevy::state::state_scoped::DespawnOnExitState;
+    use bevy::text::TextFont;
     use bevy::ui::AlignItems;
     use bevy::ui::BackgroundGradient;
     use bevy::ui::ColorStop;
+    use bevy::ui::GridPlacement;
     use bevy::ui::InterpolationColorSpace;
     use bevy::ui::JustifyContent;
     use bevy::ui::LinearGradient;
@@ -588,52 +592,92 @@ mod linear_gradient {
                 DespawnOnExitState(super::Scene::LinearGradient),
             ))
             .with_children(|commands| {
-                for stops in [
-                    vec![ColorStop::auto(RED), ColorStop::auto(YELLOW)],
-                    vec![
-                        ColorStop::auto(Color::BLACK),
-                        ColorStop::auto(RED),
-                        ColorStop::auto(Color::WHITE),
-                    ],
-                ] {
-                    for color_space in [
-                        InterpolationColorSpace::LinearRgba,
-                        InterpolationColorSpace::Srgba,
-                        InterpolationColorSpace::Oklaba,
-                        InterpolationColorSpace::Oklcha,
-                        InterpolationColorSpace::OklchaLong,
-                        InterpolationColorSpace::Hsla,
-                        InterpolationColorSpace::HslaLong,
-                        InterpolationColorSpace::Hsva,
-                        InterpolationColorSpace::HsvaLong,
-                    ] {
-                        commands.spawn((
-                            Node {
-                                justify_content: JustifyContent::SpaceEvenly,
-                                ..Default::default()
-                            },
-                            children![(
-                                Node {
-                                    height: Val::Px(30.),
-                                    width: Val::Px(300.),
-                                    ..Default::default()
-                                },
-                                BackgroundGradient::from(LinearGradient {
-                                    color_space,
-                                    angle: LinearGradient::TO_RIGHT,
-                                    stops: stops.clone(),
-                                }),
-                                children![
+                let mut i = 0;
+                commands
+                    .spawn(Node {
+                        display: bevy::ui::Display::Grid,
+                        row_gap: Val::Px(4.),
+                        column_gap: Val::Px(4.),
+                        ..Default::default()
+                    })
+                    .with_children(|commands| {
+                        for stops in [
+                            vec![ColorStop::auto(RED), ColorStop::auto(YELLOW)],
+                            vec![
+                                ColorStop::auto(Color::BLACK),
+                                ColorStop::auto(RED),
+                                ColorStop::auto(Color::WHITE),
+                            ],
+                            vec![
+                                Color::hsl(180.71191, 0.0, 0.3137255).into(),
+                                Color::hsl(180.71191, 0.5, 0.3137255).into(),
+                                Color::hsl(180.71191, 1.0, 0.3137255).into(),
+                            ],
+                            vec![
+                                Color::hsl(180.71191, 0.825, 0.0).into(),
+                                Color::hsl(180.71191, 0.825, 0.5).into(),
+                                Color::hsl(180.71191, 0.825, 1.0).into(),
+                            ],
+                            vec![
+                                Color::hsl(0.0 + 0.0001, 1.0, 0.5).into(),
+                                Color::hsl(180.0, 1.0, 0.5).into(),
+                                Color::hsl(360.0 - 0.0001, 1.0, 0.5).into(),
+                            ],
+                            vec![
+                                Color::WHITE.into(),
+                                RED.into(),
+                                LIME.into(),
+                                BLUE.into(),
+                                Color::BLACK.into(),
+                            ],
+                        ] {
+                            for color_space in [
+                                InterpolationColorSpace::LinearRgba,
+                                InterpolationColorSpace::Srgba,
+                                InterpolationColorSpace::Oklaba,
+                                InterpolationColorSpace::Oklcha,
+                                InterpolationColorSpace::OklchaLong,
+                                InterpolationColorSpace::Hsla,
+                                InterpolationColorSpace::HslaLong,
+                                InterpolationColorSpace::Hsva,
+                                InterpolationColorSpace::HsvaLong,
+                            ] {
+                                let row = i % 18 + 1;
+                                let column = i / 18 + 1;
+                                i += 1;
+
+                                commands.spawn((
                                     Node {
-                                        position_type: PositionType::Absolute,
-                                        ..default()
+                                        grid_row: GridPlacement::start(row as i16 + 1),
+                                        grid_column: GridPlacement::start(column as i16 + 1),
+                                        justify_content: JustifyContent::SpaceEvenly,
+                                        ..Default::default()
                                     },
-                                    bevy::ui::widget::Text(format!("{color_space:?}")),
-                                ]
-                            )],
-                        ));
-                    }
-                }
+                                    children![(
+                                        Node {
+                                            height: Val::Px(30.),
+                                            width: Val::Px(300.),
+                                            justify_content: JustifyContent::Center,
+                                            ..Default::default()
+                                        },
+                                        BackgroundGradient::from(LinearGradient {
+                                            color_space,
+                                            angle: LinearGradient::TO_RIGHT,
+                                            stops: stops.clone(),
+                                        }),
+                                        children![
+                                            Node {
+                                                position_type: PositionType::Absolute,
+                                                ..default()
+                                            },
+                                            TextFont::from_font_size(10.),
+                                            bevy::ui::widget::Text(format!("{color_space:?}")),
+                                        ]
+                                    )],
+                                ));
+                            }
+                        }
+                    });
             });
     }
 }
