@@ -25,7 +25,7 @@ struct DrawState {
     pipeline: Option<RenderPipelineId>,
     bind_groups: Vec<(Option<BindGroupId>, Vec<u32>)>,
     /// List of vertex buffers by [`BufferId`], offset, and size. See [`DrawState::buffer_slice_key`]
-    vertex_buffers: Vec<Option<(BufferId, u64, u64)>>,
+    vertex_buffers: Vec<Option<(BufferId, wgpu::BufferAddress, wgpu::BufferSize)>>,
     index_buffer: Option<(BufferId, u64, IndexFormat)>,
 
     /// Stores whether this state is populated or empty for quick state invalidation
@@ -87,7 +87,10 @@ impl DrawState {
     }
 
     /// Returns the value used for checking whether `BufferSlice`s are equivalent.
-    fn buffer_slice_key(&self, buffer_slice: &BufferSlice) -> (BufferId, u64, u64) {
+    fn buffer_slice_key(
+        &self,
+        buffer_slice: &BufferSlice,
+    ) -> (BufferId, wgpu::BufferAddress, wgpu::BufferSize) {
         (
             buffer_slice.id(),
             buffer_slice.offset(),
