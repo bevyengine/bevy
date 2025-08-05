@@ -8,6 +8,7 @@ mod color_swatch;
 mod radio;
 mod slider;
 mod toggle_switch;
+mod virtual_keyboard;
 
 pub use button::{button, ButtonPlugin, ButtonProps, ButtonVariant};
 pub use checkbox::{checkbox, CheckboxPlugin, CheckboxProps};
@@ -18,6 +19,7 @@ pub use color_swatch::{color_swatch, ColorSwatch, ColorSwatchFg};
 pub use radio::{radio, RadioPlugin};
 pub use slider::{slider, SliderPlugin, SliderProps};
 pub use toggle_switch::{toggle_switch, ToggleSwitchPlugin, ToggleSwitchProps};
+pub use virtual_keyboard::virtual_keyboard;
 
 use crate::alpha_pattern::AlphaPatternPlugin;
 

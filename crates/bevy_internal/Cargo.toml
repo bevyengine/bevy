@@ -303,8 +303,8 @@ reflect_functions = [
 # Enable documentation reflection
 reflect_documentation = ["bevy_reflect/documentation"]
 
-# Enable winit custom cursor support
-custom_cursor = ["bevy_winit/custom_cursor"]
+# Enable custom cursor support
+custom_cursor = ["bevy_window/custom_cursor", "bevy_winit/custom_cursor"]
 
 # Experimental support for nodes that are ignored for UI layouting
 ghost_nodes = ["bevy_ui/ghost_nodes"]
@@ -457,6 +457,9 @@ bevy_window = { path = "../bevy_window", optional = true, version = "0.17.0-dev"
   "bevy_reflect",
 ] }
 bevy_winit = { path = "../bevy_winit", optional = true, version = "0.17.0-dev", default-features = false }
+
+[target.'cfg(target_os = "android")'.dependencies]
+bevy_android = { path = "../bevy_android", version = "0.17.0-dev", default-features = false }
 
 [lints]
 workspace = true

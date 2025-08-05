@@ -2,14 +2,14 @@
 //! the mouse pointer in various ways.
 
 #[cfg(feature = "custom_cursor")]
-use bevy::winit::cursor::{CustomCursor, CustomCursorImage};
+use bevy::window::{CustomCursor, CustomCursorImage};
 use bevy::{
     diagnostic::{FrameCount, FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
     prelude::*,
     window::{
-        CursorGrabMode, CursorOptions, PresentMode, SystemCursorIcon, WindowLevel, WindowTheme,
+        CursorGrabMode, CursorIcon, CursorOptions, PresentMode, SystemCursorIcon, WindowLevel,
+        WindowTheme,
     },
-    winit::cursor::CursorIcon,
 };
 
 fn main() {
