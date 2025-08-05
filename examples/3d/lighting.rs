@@ -242,7 +242,7 @@ fn setup(
         Exposure::from_physical_camera(**parameters),
         // environment lights' brightnesses are measured in candela per meter square, calculable as (color * intensity)
         EnvironmentMapLight {
-            intensity: 0.02,
+            intensity: 80.0,
             ..EnvironmentMapLight::solid_color(&mut images, ORANGE_RED.into())
         },
     ));
@@ -299,7 +299,7 @@ fn toggle_ambient_light(
         if light.intensity > 1. {
             light.intensity = 0.;
         } else {
-            light.intensity = 200.;
+            light.intensity = 80.;
         }
 
         let entity = *text;
