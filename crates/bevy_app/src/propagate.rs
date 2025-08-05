@@ -8,10 +8,11 @@ use bevy_ecs::{
     component::Component,
     entity::Entity,
     hierarchy::ChildOf,
+    intern::Interned,
     lifecycle::RemovedComponents,
     query::{Changed, Or, QueryFilter, With, Without},
     relationship::{Relationship, RelationshipTarget},
-    schedule::{IntoScheduleConfigs, SystemSet},
+    schedule::{IntoScheduleConfigs, ScheduleLabel, SystemSet},
     system::{Commands, Local, Query},
 };
 #[cfg(feature = "bevy_reflect")]
@@ -33,7 +34,8 @@ use bevy_reflect::Reflect;
 /// Individual entities can be skipped or terminate the propagation with the [`PropagateOver`]
 /// and [`PropagateStop`] components.
 ///
-/// Propagation occurs during [`Update`] in the [`PropagateSet<C>`] system set.
+/// By default the propagation occurs during [`Update`] schedule in the [`PropagateSet<C>`] system set.
+/// The schedule can be configured via [`HierarchyPropagatePlugin::new`].
 /// You should be sure to schedule your logic relative to this set: making changes
 /// that modify component values before this logic, and reading the propagated
 /// values after it.
@@ -41,7 +43,22 @@ pub struct HierarchyPropagatePlugin<
     C: Component + Clone + PartialEq,
     F: QueryFilter = (),
     R: Relationship = ChildOf,
->(PhantomData<fn() -> (C, F, R)>);
+> {
+    schedule: Interned<dyn ScheduleLabel>,
+    _marker: PhantomData<fn() -> (C, F, R)>,
+}
+
+impl<C: Component + Clone + PartialEq, F: QueryFilter, R: Relationship>
+    HierarchyPropagatePlugin<C, F, R>
+{
+    /// Construct the plugin. The propagation systems will be placed in the specified schedule.
+    pub fn new(schedule: impl ScheduleLabel) -> Self {
+        Self {
+            schedule: schedule.intern(),
+            _marker: PhantomData,
+        }
+    }
+}
 
 /// Causes the inner component to be added to this entity and all direct and transient relationship
 /// targets. A target with a [`Propagate<C>`] component of its own will override propagation from
@@ -84,7 +101,10 @@ impl<C: Component + Clone + PartialEq, F: QueryFilter, R: Relationship> Default
     for HierarchyPropagatePlugin<C, F, R>
 {
     fn default() -> Self {
-        Self(Default::default())
+        Self {
+            schedule: Update.intern(),
+            _marker: PhantomData,
+        }
     }
 }
 
@@ -129,7 +149,7 @@ impl<C: Component + Clone + PartialEq, F: QueryFilter + 'static, R: Relationship
 {
     fn build(&self, app: &mut App) {
         app.add_systems(
-            Update,
+            self.schedule,
             (
                 update_source::<C, F>,
                 update_stopped::<C, F>,
