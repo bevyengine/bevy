@@ -74,7 +74,7 @@ impl Default for VirtualScrollState {
             is_loading_more: false,
             page_size: 50,
             current_page: 0,
-            buffer_size: 20, // Increased buffer for smoother scrolling
+            buffer_size: 5, // Keep buffer small for proper virtualization
             last_update_time: 0.0,
             min_update_interval: 0.020, // Slower updates to prevent black screens
             max_scroll_velocity: 1500.0, // Reduced max velocity
@@ -110,13 +110,24 @@ pub fn update_infinite_scrolling_display(
     // Use our custom scroll position instead of Bevy's limited scroll
     let current_scroll_y = custom_scroll.y;
     
-    // Update container height from actual UI
+    // Update container height from actual UI - simplified approach like bevy_remote_inspector
     if let Ok(container_node) = container_query.single() {
-        virtual_scroll_state.container_height = match container_node.height {
+        let new_container_height = match container_node.height {
             Val::Px(h) => h,
             Val::Vh(vh) => 600.0 * vh / 100.0,
-            _ => 600.0,
+            Val::Percent(p) => virtual_scroll_state.container_height * p / 100.0,
+            _ => virtual_scroll_state.container_height,
         };
+        
+        // Only update if we get a reasonable value and it changed significantly
+        if new_container_height > 100.0 && new_container_height < 4000.0 {
+            let height_changed = (virtual_scroll_state.container_height - new_container_height).abs() > 10.0;
+            if height_changed {
+                println!("Container height changed from {:.1}px to {:.1}px", 
+                    virtual_scroll_state.container_height, new_container_height);
+            }
+            virtual_scroll_state.container_height = new_container_height;
+        }
     }
     
     // Check if enough time has passed since last update to prevent overwhelming UI
@@ -197,88 +208,93 @@ pub fn update_infinite_scrolling_display(
     let items_per_screen = (virtual_scroll_state.container_height / virtual_scroll_state.item_height).ceil() as usize;
     let scroll_offset = (virtual_scroll_state.current_scroll / virtual_scroll_state.item_height) as usize;
     
-    // Use adaptive buffer based on scroll velocity - larger buffer for fast scrolling
-    let adaptive_buffer = if virtual_scroll_state.scroll_velocity > 1000.0 {
-        virtual_scroll_state.buffer_size * 3 // Much larger buffer during fast scrolling
+    // Use adaptive buffer that ensures we don't show everything for small lists
+    let base_buffer = virtual_scroll_state.buffer_size;
+    let adaptive_buffer = if virtual_scroll_state.total_entity_count <= items_per_screen + base_buffer * 2 {
+        // For small lists, use minimal buffer to ensure virtual scrolling works
+        2.min(virtual_scroll_state.total_entity_count / 4)
+    } else if virtual_scroll_state.scroll_velocity > 1000.0 {
+        base_buffer * 2 // Larger buffer during fast scrolling
     } else if virtual_scroll_state.scroll_velocity > 500.0 {
-        virtual_scroll_state.buffer_size * 2 // Larger buffer during medium scrolling
+        (base_buffer * 3) / 2 // 1.5x buffer during medium scrolling
     } else {
-        virtual_scroll_state.buffer_size // Normal buffer for slow scrolling
+        base_buffer // Normal buffer for slow scrolling
     };
     
     let start_index = scroll_offset.saturating_sub(adaptive_buffer);
     let mut end_index = (scroll_offset + items_per_screen + adaptive_buffer)
         .min(virtual_scroll_state.total_entity_count);
     
-    // Ensure we always show at least some items when at the bottom
-    if end_index == virtual_scroll_state.total_entity_count && start_index >= end_index.saturating_sub(items_per_screen) {
-        // We're at the bottom, make sure we show the last screen worth of items
-        let adjusted_start = virtual_scroll_state.total_entity_count.saturating_sub(items_per_screen + virtual_scroll_state.buffer_size);
-        if adjusted_start < start_index {
-            end_index = virtual_scroll_state.total_entity_count;
-        }
-    }
+    // Use the calculated range directly for now - let's not overcomplicate virtual scrolling
+    // The issue might be with the windowing logic, so let's use simpler approach
+    virtual_scroll_state.visible_range = (start_index, end_index);
     
-    // Ensure we have a valid range
-    if start_index >= end_index && virtual_scroll_state.total_entity_count > 0 {
-        // Fallback: show the last screen of items
-        let fallback_start = virtual_scroll_state.total_entity_count.saturating_sub(items_per_screen);
-        virtual_scroll_state.visible_range = (fallback_start, virtual_scroll_state.total_entity_count);
-        println!("Using fallback range: {}-{}", fallback_start, virtual_scroll_state.total_entity_count);
-    } else {
-        virtual_scroll_state.visible_range = (start_index, end_index);
-    }
+    println!("Virtual scrolling: showing {}-{} of {} total (scroll_offset: {}, items_per_screen: {})", 
+        start_index, end_index, virtual_scroll_state.total_entity_count, scroll_offset, items_per_screen);
     
     // Use the finalized visible range for all calculations
     let (final_start_index, final_end_index) = virtual_scroll_state.visible_range;
     
     
-    // Set virtual content container to total height for proper scrolling
+    // Set virtual content container (React Virtualized approach)
+    // Inner container: Full content height for proper scrollbar behavior
+    virtual_content_node.width = Val::Percent(100.0);
     virtual_content_node.height = Val::Px(virtual_scroll_state.total_content_height);
+    virtual_content_node.position_type = PositionType::Relative; // Inner: relative positioning
+    virtual_content_node.overflow = Overflow::hidden(); // Inner: hidden overflow (React Virtualized style)
+    virtual_content_node.display = Display::Block; // Block display for absolute children
+    virtual_content_node.padding = UiRect::ZERO;
     
     // Track which entities are currently visible
     let mut visible_entity_ids = std::collections::HashSet::new();
     
-    // First pass: hide all items, then selectively show the ones in range
-    for (_entity, mut _node, mut cached_item, mut visibility) in cached_items.iter_mut() {
-        cached_item.is_visible = false;
-        *visibility = Visibility::Hidden;
-    }
-    
-    // Second pass: show and position items in the visible range
-    for (_entity, mut node, mut cached_item, mut visibility) in cached_items.iter_mut() {
-        // Find this entity's index in the sorted list
+    // First pass: despawn items that are outside the visible range immediately
+    let mut entities_to_despawn_immediately = Vec::new();
+    for (entity, _node, mut cached_item, mut visibility) in cached_items.iter_mut() {
         let entity_index = virtual_scroll_state.sorted_entity_ids.iter().position(|&id| id == cached_item.entity_id);
         
         if let Some(index) = entity_index {
-            if index >= final_start_index && index < final_end_index {
-                // Entity should be visible
+            if index < final_start_index || index >= final_end_index {
+                // Entity is outside visible range, mark for immediate cleanup
+                entities_to_despawn_immediately.push(entity);
+            } else {
+                // Entity is in range, ensure it's visible
                 cached_item.is_visible = true;
                 *visibility = Visibility::Inherited;
-                
-                // Position items absolutely within the full-height container
-                let absolute_y_pos = index as f32 * virtual_scroll_state.item_height;
-                node.position_type = PositionType::Absolute;
-                node.top = Val::Px(absolute_y_pos);
-                node.left = Val::Px(0.0);
-                node.width = Val::Percent(100.0);
-                node.height = Val::Px(virtual_scroll_state.item_height); // Ensure height matches
-                node.margin = UiRect::ZERO; // Ensure no margins
-                node.padding = UiRect::all(Val::Px(8.0)); // Maintain padding
-                node.align_items = AlignItems::Center;
-                node.justify_content = JustifyContent::FlexStart;
-                cached_item.cached_position = absolute_y_pos;
-                
-                visible_entity_ids.insert(cached_item.entity_id);
-            } else {
-                // Entity outside visible range
-                cached_item.is_visible = false;
-                *visibility = Visibility::Hidden;
             }
         } else {
             // Entity no longer exists
-            cached_item.is_visible = false;
-            *visibility = Visibility::Hidden;
+            entities_to_despawn_immediately.push(entity);
+        }
+    }
+    
+    // Immediately despawn items outside visible range
+    for entity in entities_to_despawn_immediately {
+        commands.entity(entity).despawn();
+    }
+    
+    // Update positioning for remaining visible items (TRANSFORM APPROACH)
+    for (_entity, mut node, mut cached_item, _visibility) in cached_items.iter_mut() {
+        if cached_item.is_visible {
+            let entity_index = virtual_scroll_state.sorted_entity_ids.iter().position(|&id| id == cached_item.entity_id);
+            if let Some(index) = entity_index {
+                // React Virtualized approach: Absolute positioning within relative container
+                let absolute_y_pos = index as f32 * virtual_scroll_state.item_height;
+                node.position_type = PositionType::Absolute; // Absolute positioning within relative parent
+                node.top = Val::Px(absolute_y_pos); // Exact Y position
+                node.left = Val::Px(0.0); // Left edge
+                node.right = Val::Px(0.0); // Right edge (full width)
+                node.height = Val::Px(virtual_scroll_state.item_height); // Fixed height
+                node.margin = UiRect::ZERO;
+                node.padding = UiRect::all(Val::Px(8.0));
+                node.align_items = AlignItems::Center;
+                node.justify_content = JustifyContent::FlexStart;
+                node.display = Display::Flex;
+                node.overflow = Overflow::visible();
+                cached_item.cached_position = absolute_y_pos;
+                
+                visible_entity_ids.insert(cached_item.entity_id);
+            }
         }
     }
     
@@ -296,7 +312,6 @@ pub fn update_infinite_scrolling_display(
             for entity_id in entities_needing_items {
                 if let Some(entity) = virtual_scroll_state.loaded_entities.get(&entity_id) {
                     let index = virtual_scroll_state.sorted_entity_ids.iter().position(|&id| id == entity_id).unwrap();
-                    let absolute_y_pos = index as f32 * virtual_scroll_state.item_height;
                     
                     let item_entity = super::entity_list::spawn_entity_list_item(&mut parent.commands(), virtual_content, entity);
                     
@@ -304,18 +319,20 @@ pub fn update_infinite_scrolling_display(
                         CachedEntityItem {
                             entity_id,
                             is_visible: true,
-                            cached_position: absolute_y_pos,
+                            cached_position: index as f32 * virtual_scroll_state.item_height,
                         },
                         Node {
-                            position_type: PositionType::Absolute,
-                            top: Val::Px(absolute_y_pos),
-                            left: Val::Px(0.0),
-                            width: Val::Percent(100.0),
-                            height: Val::Px(virtual_scroll_state.item_height), // Ensure height matches item_height
-                            margin: UiRect::ZERO, // Ensure no margins
-                            padding: UiRect::all(Val::Px(8.0)), // Maintain padding
+                            position_type: PositionType::Absolute, // React Virtualized: Absolute positioning
+                            top: Val::Px(index as f32 * virtual_scroll_state.item_height), // Exact Y position
+                            left: Val::Px(0.0), // Left edge
+                            right: Val::Px(0.0), // Right edge (full width)
+                            height: Val::Px(virtual_scroll_state.item_height), // Fixed height
+                            margin: UiRect::ZERO,
+                            padding: UiRect::all(Val::Px(8.0)),
                             align_items: AlignItems::Center,
                             justify_content: JustifyContent::FlexStart,
+                            display: Display::Flex,
+                            overflow: Overflow::visible(),
                             ..Default::default()
                         },
                     ));
@@ -324,48 +341,21 @@ pub fn update_infinite_scrolling_display(
         });
     }
     
-    // Cleanup: despawn items that are far outside the visible range to prevent accumulation
-    // Use larger cleanup buffer to prevent frequent despawning during fast scrolling
-    let cleanup_buffer = virtual_scroll_state.buffer_size * 6; // Much larger buffer for stability
-    let cleanup_start = final_start_index.saturating_sub(cleanup_buffer);
-    let cleanup_end = (final_end_index + cleanup_buffer).min(virtual_scroll_state.total_entity_count);
-    
-    // Only perform cleanup if enough time has passed to avoid constant despawning during fast scrolling
-    let should_cleanup = current_time - virtual_scroll_state.last_cleanup_time >= virtual_scroll_state.cleanup_interval;
-    let mut despawn_count = 0;
-    
-    if should_cleanup {
-        // Collect entities to despawn - use iter_many to get entities
-        let mut entities_to_despawn = Vec::new();
-        
-        for (entity, _node, cached_item, _visibility) in cached_items.iter() {
-            let entity_index = virtual_scroll_state.sorted_entity_ids.iter().position(|&id| id == cached_item.entity_id);
-            if let Some(index) = entity_index {
-                if index < cleanup_start || index >= cleanup_end {
-                    entities_to_despawn.push(entity);
-                    despawn_count += 1;
-                }
-            }
-        }
-        
-        // Actually despawn the UI entities that are too far away
-        for entity in entities_to_despawn {
-            commands.entity(entity).despawn();
-        }
-        
-        virtual_scroll_state.last_cleanup_time = current_time;
-    }
+    // Note: Cleanup is now handled in the first pass above - we despawn items outside visible range immediately
     
     // Debug output when things change
     if entities_changed || scroll_changed {
         let (final_start, final_end) = virtual_scroll_state.visible_range;
         let total_items = cached_items.iter().count();
-        println!("Showing items {}-{} of {} total (scroll: {:.1}px) [Total UI items: {}]", 
-            final_start, final_end, virtual_scroll_state.total_entity_count, virtual_scroll_state.current_scroll, total_items);
+        let visible_items = cached_items.iter().filter(|(_, _, cached_item, _)| cached_item.is_visible).count();
+        println!("Virtual scroll (React Virtualized approach): showing {}-{} of {} total (scroll: {:.1}px) [UI items: {}, Visible: {}]", 
+            final_start, final_end, virtual_scroll_state.total_entity_count, virtual_scroll_state.current_scroll, total_items, visible_items);
         
-        if despawn_count > 0 {
-            println!("Cleaned up {} items outside range {}-{}", despawn_count, cleanup_start, cleanup_end);
-        }
+        // Show React Virtualized positioning for debugging
+        let first_item_y = final_start_index as f32 * virtual_scroll_state.item_height;
+        let last_item_y = (final_end_index - 1) as f32 * virtual_scroll_state.item_height;
+        println!("React Virtualized: first_item_y={:.1}px, last_item_y={:.1}px, inner_height={:.1}px", 
+            first_item_y, last_item_y, virtual_scroll_state.total_content_height);
     }
 }
 
@@ -381,13 +371,24 @@ pub struct CustomScrollPosition {
 /// Enhanced mouse wheel scrolling that bypasses Bevy's scroll system limitations
 pub fn handle_infinite_scroll_input(
     time: Res<Time>,
-    virtual_scroll_state: ResMut<VirtualScrollState>,
+    virtual_scroll_state: Res<VirtualScrollState>,
     windows: Query<&Window>,
     mut custom_scroll: ResMut<CustomScrollPosition>,
     mut mouse_wheel_events: EventReader<MouseWheel>,
 ) {
-    // Update max scroll based on current content
-    custom_scroll.max_y = (virtual_scroll_state.total_content_height - virtual_scroll_state.container_height).max(0.0);
+    // Update max scroll based on current content AND current container height
+    let new_max_y = (virtual_scroll_state.total_content_height - virtual_scroll_state.container_height).max(0.0);
+    
+    // If max_y changed significantly, update it and clamp current position
+    if (custom_scroll.max_y - new_max_y).abs() > 10.0 {
+        println!("Max scroll updated from {:.1}px to {:.1}px (container: {:.1}px, content: {:.1}px)", 
+            custom_scroll.max_y, new_max_y, virtual_scroll_state.container_height, virtual_scroll_state.total_content_height);
+        custom_scroll.max_y = new_max_y;
+        // Clamp current scroll position to new bounds
+        custom_scroll.y = custom_scroll.y.clamp(0.0, custom_scroll.max_y);
+    } else {
+        custom_scroll.max_y = new_max_y;
+    }
     
     let current_time = time.elapsed_secs_f64();
     let mut scroll_events_processed = 0;
@@ -514,11 +515,11 @@ pub fn update_scrollbar_indicator(
     // Show scrollbar
     thumb_node.display = Display::Flex;
     
-    // Calculate dimensions
+    // Calculate dimensions - use virtual scroll state container height as primary source
     let container_height = match container_node.height {
         Val::Px(h) => h,
         Val::Percent(p) => virtual_scroll_state.container_height * p / 100.0,
-        _ => virtual_scroll_state.container_height,
+        _ => virtual_scroll_state.container_height, // Use the tracked container height
     };
     
     let indicator_height = match indicator_node.height {
@@ -568,8 +569,6 @@ pub fn update_scroll_momentum(
     
     // Reset loading flag after some time if no new data arrived
     if virtual_scroll_state.is_loading_more {
-        // In a real implementation, you'd check if new data has arrived
-        // Use a timer in the resource instead of static mut
         virtual_scroll_state.loading_timer += time.delta_secs();
         if virtual_scroll_state.loading_timer > 2.0 {
             virtual_scroll_state.is_loading_more = false;
