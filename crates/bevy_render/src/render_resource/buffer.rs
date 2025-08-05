@@ -58,16 +58,6 @@ impl<'a> BufferSlice<'a> {
     pub fn id(&self) -> BufferId {
         self.id
     }
-
-    #[inline]
-    pub fn offset(&self) -> wgpu::BufferAddress {
-        self.value.offset()
-    }
-
-    #[inline]
-    pub fn size(&self) -> wgpu::BufferSize {
-        self.value.size()
-    }
 }
 
 impl<'a> Deref for BufferSlice<'a> {
