@@ -17,7 +17,7 @@ pub mod fps_overlay;
 pub mod frame_time_graph;
 
 
-pub mod entity_inspector;
+pub mod inspector;
 
 pub mod picking_debug;
 
