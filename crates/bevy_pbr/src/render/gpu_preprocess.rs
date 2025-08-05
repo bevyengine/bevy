@@ -976,7 +976,7 @@ impl Node for EarlyPrepassBuildIndirectParametersNode {
             render_context,
             world,
             &preprocess_pipelines.early_phase,
-            "early prepass indirect parameters building",
+            "early_prepass_indirect_parameters_building",
         )
     }
 }
@@ -1004,7 +1004,7 @@ impl Node for LatePrepassBuildIndirectParametersNode {
             render_context,
             world,
             &preprocess_pipelines.late_phase,
-            "late prepass indirect parameters building",
+            "late_prepass_indirect_parameters_building",
         )
     }
 }
@@ -1026,7 +1026,7 @@ impl Node for MainBuildIndirectParametersNode {
             render_context,
             world,
             &preprocess_pipelines.main_phase,
-            "main indirect parameters building",
+            "main_indirect_parameters_building",
         )
     }
 }
