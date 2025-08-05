@@ -216,10 +216,10 @@ impl Enum for DynamicEnum {
     }
 
     fn field_at(&self, index: usize) -> Option<&dyn PartialReflect> {
-        if let DynamicVariant::Tuple(data) = &self.variant {
-            data.field(index)
-        } else {
-            None
+        match &self.variant {
+            DynamicVariant::Tuple(data) => data.field(index),
+            DynamicVariant::Struct(data) => data.field_at(index),
+            DynamicVariant::Unit => None,
         }
     }
 
@@ -232,10 +232,10 @@ impl Enum for DynamicEnum {
     }
 
     fn field_at_mut(&mut self, index: usize) -> Option<&mut dyn PartialReflect> {
-        if let DynamicVariant::Tuple(data) = &mut self.variant {
-            data.field_mut(index)
-        } else {
-            None
+        match &mut self.variant {
+            DynamicVariant::Tuple(data) => data.field_mut(index),
+            DynamicVariant::Struct(data) => data.field_at_mut(index),
+            DynamicVariant::Unit => None,
         }
     }
 

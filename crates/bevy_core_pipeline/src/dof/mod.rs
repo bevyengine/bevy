@@ -409,6 +409,7 @@ impl ViewNode for DepthOfFieldNode {
             let mut color_attachments: SmallVec<[_; 2]> = SmallVec::new();
             color_attachments.push(Some(RenderPassColorAttachment {
                 view: postprocess.destination,
+                depth_slice: None,
                 resolve_target: None,
                 ops: Operations {
                     load: LoadOp::Clear(default()),
@@ -429,6 +430,7 @@ impl ViewNode for DepthOfFieldNode {
                 };
                 color_attachments.push(Some(RenderPassColorAttachment {
                     view: &auxiliary_dof_texture.default_view,
+                    depth_slice: None,
                     resolve_target: None,
                     ops: Operations {
                         load: LoadOp::Clear(default()),

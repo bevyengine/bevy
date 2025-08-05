@@ -117,6 +117,7 @@ impl ViewNode for TonemappingNode {
             label: Some("tonemapping_pass"),
             color_attachments: &[Some(RenderPassColorAttachment {
                 view: destination,
+                depth_slice: None,
                 resolve_target: None,
                 ops: Operations {
                     load: LoadOp::Clear(Default::default()), // TODO shouldn't need to be cleared

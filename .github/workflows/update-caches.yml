@@ -1,5 +1,8 @@
 name: Update Actions Caches
 
+permissions:
+  contents: read
+
 on:
   # Manually
   workflow_dispatch:
