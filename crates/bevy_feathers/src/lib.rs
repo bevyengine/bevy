@@ -63,8 +63,8 @@ impl Plugin for FeathersPlugin {
         app.add_plugins((
             ControlsPlugin,
             CursorIconPlugin,
-            HierarchyPropagatePlugin::<TextColor, With<ThemedText>>::default(),
-            HierarchyPropagatePlugin::<TextFont, With<ThemedText>>::default(),
+            HierarchyPropagatePlugin::<TextColor, With<ThemedText>>::new(Update),
+            HierarchyPropagatePlugin::<TextFont, With<ThemedText>>::new(Update),
             UiMaterialPlugin::<AlphaPatternMaterial>::default(),
         ));
 
