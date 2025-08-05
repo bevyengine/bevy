@@ -123,7 +123,7 @@ use bitflags::bitflags;
 use core::ops::{Deref, DerefMut};
 use std::sync::Mutex;
 use tracing::debug;
-use wgpu_wrapper::WgpuWrapper;
+pub use wgpu_wrapper::WgpuWrapper;
 
 /// Inline shader as an `embedded_asset` and load it permanently.
 ///
