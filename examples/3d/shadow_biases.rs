@@ -160,7 +160,7 @@ fn toggle_light(
         for mut light in &mut directional_lights {
             light.illuminance = if light.illuminance == 0.0 {
                 *writer.text(*example_text, 4) = "DirectionalLight".to_string();
-                100000.0
+                light_consts::lux::AMBIENT_DAYLIGHT
             } else {
                 0.0
             };
