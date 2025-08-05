@@ -670,19 +670,6 @@ name = "bloom_2d"
 path = "examples/2d/bloom_2d.rs"
 doc-scrape-examples = true
 
-# Inspector
-[[example]]
-name = "inspector_3d"
-path = "examples/inspector/entity_inspector_3d.rs"
-doc-scrape-examples = true
-required-features = ["bevy_dev_tools"]
-
-[[example]]
-name = "inspector_minimal"
-path = "examples/inspector/entity_inspector_minimal.rs"
-doc-scrape-examples = true
-required-features = ["bevy_dev_tools"]
-
 [package.metadata.example.bloom_2d]
 name = "2D Bloom"
 description = "Illustrates bloom post-processing in 2d"
@@ -4207,6 +4194,12 @@ wasm = true
 [[example]]
 name = "client"
 path = "examples/remote/client.rs"
+doc-scrape-examples = true
+required-features = ["bevy_remote"]
+
+[[example]]
+name = "remote_inspector_target"
+path = "examples/remote/remote_inspector_target.rs"
 doc-scrape-examples = true
 required-features = ["bevy_remote"]
 
