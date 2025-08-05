@@ -2962,7 +2962,7 @@ wasm = true
 
 # Shaders advanced
 [[package.metadata.example_category]]
-name = "Shaders"
+name = "Shaders - advanced"
 description = """
 These examples demonstrate how to use the lower level rendering apis exposed from bevy.
 

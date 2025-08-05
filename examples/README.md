@@ -447,9 +447,11 @@ Example | Description
 
 ### Shaders
 
-These examples demonstrate how to use the lower level rendering apis exposed from bevy.
+These examples demonstrate how to implement different shaders in user code.
 
-These are generally simplified examples of bevy's own rendering infrastructure.
+A shader in its most common usage is a small program that is run by the GPU per-vertex in a mesh (a vertex shader) or per-affected-screen-fragment (a fragment shader.) The GPU executes these programs in a highly parallel way.
+
+There are also compute shaders which are used for more general processing leveraging the GPU's parallelism.
 
 Example | Description
 --- | ---
