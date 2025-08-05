@@ -60,13 +60,13 @@ impl ViewNode for OitResolveNode {
             );
 
             let mut render_pass = render_context.begin_tracked_render_pass(RenderPassDescriptor {
-                label: Some("oit_resolve_pass"),
+                label: Some("oit_resolve"),
                 color_attachments: &[Some(view_target.get_color_attachment())],
                 depth_stencil_attachment: None,
                 timestamp_writes: None,
                 occlusion_query_set: None,
             });
-            let pass_span = diagnostics.pass_span(&mut render_pass, "oit_resolve_pass");
+            let pass_span = diagnostics.pass_span(&mut render_pass, "oit_resolve");
 
             if let Some(viewport) =
                 Viewport::from_viewport_and_override(camera.viewport.as_ref(), resolution_override)

@@ -379,7 +379,7 @@ impl ViewNode for PostProcessingNode {
         let post_process = view_target.post_process_write();
 
         let pass_descriptor = RenderPassDescriptor {
-            label: Some("postprocessing pass"),
+            label: Some("postprocessing"),
             color_attachments: &[Some(RenderPassColorAttachment {
                 view: post_process.destination,
                 depth_slice: None,
@@ -406,7 +406,7 @@ impl ViewNode for PostProcessingNode {
         let mut render_pass = render_context
             .command_encoder()
             .begin_render_pass(&pass_descriptor);
-        let pass_span = diagnostics.pass_span(&mut render_pass, "postprocessing pass");
+        let pass_span = diagnostics.pass_span(&mut render_pass, "postprocessing");
 
         render_pass.set_pipeline(pipeline);
         render_pass.set_bind_group(0, &bind_group, &[**post_processing_uniform_buffer_offsets]);

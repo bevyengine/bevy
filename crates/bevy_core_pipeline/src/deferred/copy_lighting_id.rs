@@ -87,7 +87,7 @@ impl ViewNode for CopyDeferredLightingIdNode {
         );
 
         let mut render_pass = render_context.begin_tracked_render_pass(RenderPassDescriptor {
-            label: Some("copy_deferred_lighting_id_pass"),
+            label: Some("copy_deferred_lighting_id"),
             color_attachments: &[],
             depth_stencil_attachment: Some(RenderPassDepthStencilAttachment {
                 view: &deferred_lighting_id_depth_texture.texture.default_view,
@@ -101,7 +101,7 @@ impl ViewNode for CopyDeferredLightingIdNode {
             occlusion_query_set: None,
         });
 
-        let pass_span = diagnostics.pass_span(&mut render_pass, "copy_deferred_lighting_id_pass");
+        let pass_span = diagnostics.pass_span(&mut render_pass, "copy_deferred_lighting_id");
 
         render_pass.set_render_pipeline(pipeline);
         render_pass.set_bind_group(0, &bind_group, &[]);

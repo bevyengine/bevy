@@ -64,7 +64,7 @@ impl ViewNode for FxaaNode {
         };
 
         let pass_descriptor = RenderPassDescriptor {
-            label: Some("fxaa_pass"),
+            label: Some("fxaa"),
             color_attachments: &[Some(RenderPassColorAttachment {
                 view: destination,
                 depth_slice: None,
@@ -79,7 +79,7 @@ impl ViewNode for FxaaNode {
         let mut render_pass = render_context
             .command_encoder()
             .begin_render_pass(&pass_descriptor);
-        let pass_span = diagnostics.pass_span(&mut render_pass, "fxaa_pass");
+        let pass_span = diagnostics.pass_span(&mut render_pass, "fxaa");
 
         render_pass.set_pipeline(pipeline);
         render_pass.set_bind_group(0, bind_group, &[]);

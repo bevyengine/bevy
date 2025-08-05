@@ -304,7 +304,7 @@ impl ViewNode for ScreenSpaceReflectionsNode {
 
         // Build the SSR render pass.
         let mut render_pass = render_context.begin_tracked_render_pass(RenderPassDescriptor {
-            label: Some("SSR pass"),
+            label: Some("ssr"),
             color_attachments: &[Some(RenderPassColorAttachment {
                 view: postprocess.destination,
                 depth_slice: None,
@@ -315,7 +315,7 @@ impl ViewNode for ScreenSpaceReflectionsNode {
             timestamp_writes: None,
             occlusion_query_set: None,
         });
-        let pass_span = diagnostics.pass_span(&mut render_pass, "SSR pass");
+        let pass_span = diagnostics.pass_span(&mut render_pass, "ssr");
 
         // Set bind groups.
         render_pass.set_render_pipeline(render_pipeline);

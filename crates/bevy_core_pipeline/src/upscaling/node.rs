@@ -70,7 +70,7 @@ impl ViewNode for UpscalingNode {
         };
 
         let pass_descriptor = RenderPassDescriptor {
-            label: Some("upscaling_pass"),
+            label: Some("upscaling"),
             color_attachments: &[Some(
                 target.out_texture_color_attachment(converted_clear_color),
             )],
@@ -82,7 +82,7 @@ impl ViewNode for UpscalingNode {
         let mut render_pass = render_context
             .command_encoder()
             .begin_render_pass(&pass_descriptor);
-        let pass_span = diagnostics.pass_span(&mut render_pass, "upscaling_pass");
+        let pass_span = diagnostics.pass_span(&mut render_pass, "upscaling");
 
         if let Some(camera) = camera {
             if let Some(viewport) = &camera.viewport {

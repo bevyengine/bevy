@@ -388,13 +388,13 @@ impl ViewNode for Wireframe3dNode {
         let diagnostics = render_context.diagnostic_recorder();
 
         let mut render_pass = render_context.begin_tracked_render_pass(RenderPassDescriptor {
-            label: Some("wireframe_3d_pass"),
+            label: Some("wireframe_3d"),
             color_attachments: &[Some(target.get_color_attachment())],
             depth_stencil_attachment: Some(depth.get_attachment(StoreOp::Store)),
             timestamp_writes: None,
             occlusion_query_set: None,
         });
-        let pass_span = diagnostics.pass_span(&mut render_pass, "wireframe_3d_pass");
+        let pass_span = diagnostics.pass_span(&mut render_pass, "wireframe_3d");
 
         if let Some(viewport) = camera.viewport.as_ref() {
             render_pass.set_camera_viewport(viewport);

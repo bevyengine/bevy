@@ -65,14 +65,14 @@ impl ViewNode for MainOpaquePass2dNode {
 
             // Render pass setup
             let render_pass = command_encoder.begin_render_pass(&RenderPassDescriptor {
-                label: Some("main_opaque_pass_2d"),
+                label: Some("main_opaque_2d_pass"),
                 color_attachments: &color_attachments,
                 depth_stencil_attachment,
                 timestamp_writes: None,
                 occlusion_query_set: None,
             });
             let mut render_pass = TrackedRenderPass::new(&render_device, render_pass);
-            let pass_span = diagnostics.pass_span(&mut render_pass, "main_opaque_pass_2d");
+            let pass_span = diagnostics.pass_span(&mut render_pass, "main_opaque_2d_pass");
 
             if let Some(viewport) = camera.viewport.as_ref() {
                 render_pass.set_camera_viewport(viewport);

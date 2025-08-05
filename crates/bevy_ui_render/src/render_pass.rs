@@ -92,13 +92,13 @@ impl Node for UiPassNode {
             input_view_entity
         };
         let mut render_pass = render_context.begin_tracked_render_pass(RenderPassDescriptor {
-            label: Some("ui_pass"),
+            label: Some("ui"),
             color_attachments: &[Some(target.get_unsampled_color_attachment())],
             depth_stencil_attachment: None,
             timestamp_writes: None,
             occlusion_query_set: None,
         });
-        let pass_span = diagnostics.pass_span(&mut render_pass, "ui_pass");
+        let pass_span = diagnostics.pass_span(&mut render_pass, "ui");
 
         if let Some(viewport) = camera.viewport.as_ref() {
             render_pass.set_camera_viewport(viewport);

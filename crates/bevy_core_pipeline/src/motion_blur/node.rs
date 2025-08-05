@@ -84,7 +84,7 @@ impl ViewNode for MotionBlurNode {
         );
 
         let mut render_pass = render_context.begin_tracked_render_pass(RenderPassDescriptor {
-            label: Some("motion_blur_pass"),
+            label: Some("motion_blur"),
             color_attachments: &[Some(RenderPassColorAttachment {
                 view: post_process.destination,
                 depth_slice: None,
@@ -95,7 +95,7 @@ impl ViewNode for MotionBlurNode {
             timestamp_writes: None,
             occlusion_query_set: None,
         });
-        let pass_span = diagnostics.pass_span(&mut render_pass, "motion_blur_pass");
+        let pass_span = diagnostics.pass_span(&mut render_pass, "motion_blur");
 
         render_pass.set_render_pipeline(pipeline);
         render_pass.set_bind_group(0, &bind_group, &[]);

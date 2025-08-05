@@ -362,9 +362,9 @@ impl ViewNode for VolumetricFogNode {
         let diagnostics = render_context.diagnostic_recorder();
         render_context
             .command_encoder()
-            .push_debug_group("volumetric lighting pass");
+            .push_debug_group("volumetric_lighting");
         let time_span =
-            diagnostics.time_span(render_context.command_encoder(), "volumetric lighting pass");
+            diagnostics.time_span(render_context.command_encoder(), "volumetric_lighting");
 
         let fog_assets = world.resource::<FogAssets>();
         let render_meshes = world.resource::<RenderAssets<RenderMesh>>();

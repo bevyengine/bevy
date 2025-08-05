@@ -125,10 +125,10 @@ impl Node for AutoExposureNode {
             render_context
                 .command_encoder()
                 .begin_compute_pass(&ComputePassDescriptor {
-                    label: Some("auto_exposure_pass"),
+                    label: Some("auto_exposure"),
                     timestamp_writes: None,
                 });
-        let pass_span = diagnostics.time_span(&mut compute_pass, "auto_exposure_pass");
+        let pass_span = diagnostics.time_span(&mut compute_pass, "auto_exposure");
 
         compute_pass.set_bind_group(0, &compute_bind_group, &[view_uniform_offset.offset]);
         compute_pass.set_pipeline(histogram_pipeline);

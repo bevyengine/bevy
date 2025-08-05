@@ -66,7 +66,7 @@ impl ViewNode for MainTransparentPass2dNode {
                 let _main_pass_2d = info_span!("main_transparent_pass_2d").entered();
 
                 let render_pass = command_encoder.begin_render_pass(&RenderPassDescriptor {
-                    label: Some("main_transparent_pass_2d"),
+                    label: Some("main_transparent_2d_pass"),
                     color_attachments: &color_attachments,
                     depth_stencil_attachment,
                     timestamp_writes: None,
@@ -74,7 +74,7 @@ impl ViewNode for MainTransparentPass2dNode {
                 });
                 let mut render_pass = TrackedRenderPass::new(&render_device, render_pass);
 
-                let pass_span = diagnostics.pass_span(&mut render_pass, "main_transparent_pass_2d");
+                let pass_span = diagnostics.pass_span(&mut render_pass, "main_transparent_2d_pass");
 
                 if let Some(viewport) = camera.viewport.as_ref() {
                     render_pass.set_camera_viewport(viewport);

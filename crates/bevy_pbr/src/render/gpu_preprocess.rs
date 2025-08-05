@@ -594,10 +594,10 @@ impl Node for EarlyGpuPreprocessNode {
             render_context
                 .command_encoder()
                 .begin_compute_pass(&ComputePassDescriptor {
-                    label: Some("early mesh preprocessing"),
+                    label: Some("early_mesh_preprocessing"),
                     timestamp_writes: None,
                 });
-        let pass_span = diagnostics.time_span(&mut compute_pass, "early mesh preprocessing");
+        let pass_span = diagnostics.time_span(&mut compute_pass, "early_mesh_preprocessing");
 
         let mut all_views: SmallVec<[_; 8]> = SmallVec::new();
         all_views.push(graph.view_entity());
@@ -835,10 +835,10 @@ impl Node for LateGpuPreprocessNode {
             render_context
                 .command_encoder()
                 .begin_compute_pass(&ComputePassDescriptor {
-                    label: Some("late mesh preprocessing"),
+                    label: Some("late_mesh_preprocessing"),
                     timestamp_writes: None,
                 });
-        let pass_span = diagnostics.time_span(&mut compute_pass, "late mesh preprocessing");
+        let pass_span = diagnostics.time_span(&mut compute_pass, "late_mesh_preprocessing");
 
         // Run the compute passes.
         for (view, bind_groups, view_uniform_offset) in self.view_query.iter_manual(world) {
