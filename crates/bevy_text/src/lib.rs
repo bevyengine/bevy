@@ -67,8 +67,6 @@ pub mod prelude {
 }
 
 use bevy_app::{prelude::*, AnimationSystems};
-#[cfg(feature = "default_font")]
-use bevy_asset::{load_internal_binary_asset, Handle};
 use bevy_asset::{AssetApp, AssetEventSystems};
 use bevy_ecs::prelude::*;
 use bevy_render::{
@@ -141,11 +139,11 @@ impl Plugin for TextPlugin {
         }
 
         #[cfg(feature = "default_font")]
-        load_internal_binary_asset!(
-            app,
-            Handle::default(),
-            "FiraMono-subset.ttf",
-            |bytes: &[u8], _path: String| { Font::try_from_bytes(bytes.to_vec()).unwrap() }
-        );
+        {
+            use bevy_asset::{AssetId, Assets};
+            let mut assets = app.world_mut().resource_mut::<Assets<_>>();
+            let asset = Font::try_from_bytes(DEFAULT_FONT_DATA.to_vec()).unwrap();
+            assets.insert(AssetId::default(), asset);
+        };
     }
 }
