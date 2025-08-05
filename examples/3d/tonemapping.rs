@@ -3,7 +3,7 @@
 use bevy::{
     asset::UnapprovedPathMode,
     core_pipeline::tonemapping::Tonemapping,
-    pbr::CascadeShadowConfigBuilder,
+    pbr::{CascadeShadowConfigBuilder, Material},
     platform::collections::HashMap,
     prelude::*,
     reflect::TypePath,

@@ -1,6 +1,7 @@
 //! A shader and a material that uses it.
 
 use bevy::{
+    pbr::Material,
     prelude::*,
     reflect::TypePath,
     render::render_resource::{AsBindGroup, ShaderRef},

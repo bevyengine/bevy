@@ -1,6 +1,7 @@
 //! A shader that samples a texture with view-independent UV coordinates.
 
 use bevy::{
+    pbr::Material,
     prelude::*,
     reflect::TypePath,
     render::render_resource::{AsBindGroup, ShaderRef},

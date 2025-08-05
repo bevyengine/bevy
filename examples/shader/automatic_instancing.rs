@@ -3,6 +3,7 @@
 //! Also demonstrates how to use `MeshTag` to use external data in a custom material.
 
 use bevy::{
+    pbr::Material,
     prelude::*,
     reflect::TypePath,
     render::{
