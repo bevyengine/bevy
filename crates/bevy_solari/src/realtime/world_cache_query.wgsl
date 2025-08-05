@@ -13,12 +13,6 @@ const WORLD_CACHE_POSITION_BASE_CELL_SIZE: f32 = 0.4;
 /// Marker value for an empty cell
 const WORLD_CACHE_EMPTY_CELL: u32 = 0u;
 
-#ifdef WORLD_CACHE_NON_ATOMIC_LIFE_BUFFER
-alias world_cache_life_type = u32;
-#else
-alias world_cache_life_type = atomic<u32>;
-#endif
-
 struct WorldCacheGeometryData {
     world_position: vec3<f32>,
     padding_a: u32,
@@ -27,7 +21,11 @@ struct WorldCacheGeometryData {
 }
 
 @group(1) @binding(14) var<storage, read_write> world_cache_checksums: array<atomic<u32>, #{WORLD_CACHE_SIZE}>;
-@group(1) @binding(15) var<storage, read_write> world_cache_life: array<world_cache_life_type, #{WORLD_CACHE_SIZE}>;
+#ifdef WORLD_CACHE_NON_ATOMIC_LIFE_BUFFER
+@group(1) @binding(15) var<storage, read_write> world_cache_life: array<u32, #{WORLD_CACHE_SIZE}>;
+#else
+@group(1) @binding(15) var<storage, read_write> world_cache_life: array<atomic<u32>, #{WORLD_CACHE_SIZE}>;
+#endif
 @group(1) @binding(16) var<storage, read_write> world_cache_radiance: array<vec4<f32>, #{WORLD_CACHE_SIZE}>;
 @group(1) @binding(17) var<storage, read_write> world_cache_geometry_data: array<WorldCacheGeometryData, #{WORLD_CACHE_SIZE}>;
 @group(1) @binding(18) var<storage, read_write> world_cache_active_cells_new_radiance: array<vec3<f32>, #{WORLD_CACHE_SIZE}>;
