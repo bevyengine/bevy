@@ -10,10 +10,8 @@ use crate::{
 use super::ComputedNode;
 use bevy_app::Propagate;
 use bevy_ecs::{
-    change_detection::DetectChangesMut,
     entity::Entity,
-    hierarchy::ChildOf,
-    query::{Changed, Has, With},
+    query::Has,
     system::{Commands, Query, Res},
 };
 use bevy_math::{Rect, UVec2};
