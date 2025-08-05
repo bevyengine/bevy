@@ -11,21 +11,23 @@ use bevy_ecs::{
     hierarchy::Children,
     lifecycle::RemovedComponents,
     query::{Added, Changed, Has, Or, Spawned, With},
+    reflect::ReflectComponent,
     schedule::IntoScheduleConfigs,
     spawn::SpawnRelated,
     system::{In, Query, Res},
 };
 use bevy_input_focus::tab_navigation::TabIndex;
 use bevy_picking::PickingSystems;
+use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_ui::{
     widget::Text, AlignItems, BackgroundGradient, ColorStop, Display, FlexDirection, Gradient,
     InteractionDisabled, InterpolationColorSpace, JustifyContent, LinearGradient, Node, UiRect,
     Val,
 };
-use bevy_winit::cursor::CursorIcon;
 
 use crate::{
     constants::{fonts, size},
+    cursor::EntityCursor,
     font_styles::InheritableFont,
     handle_or_path::HandleOrPath,
     rounded_corners::RoundedCorners,
@@ -58,10 +60,13 @@ impl Default for SliderProps {
 
 #[derive(Component, Default, Clone)]
 #[require(CoreSlider)]
+#[derive(Reflect)]
+#[reflect(Component, Clone, Default)]
 struct SliderStyle;
 
 /// Marker for the text
-#[derive(Component, Default, Clone)]
+#[derive(Component, Default, Clone, Reflect)]
+#[reflect(Component, Clone, Default)]
 struct SliderValueText;
 
 /// Spawn a new slider widget.
@@ -87,7 +92,7 @@ pub fn slider<B: Bundle>(props: SliderProps, overrides: B) -> impl Bundle {
         SliderStyle,
         SliderValue(props.value),
         SliderRange::new(props.min, props.max),
-        CursorIcon::System(bevy_window::SystemCursorIcon::EwResize),
+        EntityCursor::System(bevy_window::SystemCursorIcon::EwResize),
         TabIndex(0),
         RoundedCorners::All.to_border_radius(6.0),
         // Use a gradient to draw the moving bar

@@ -1,3 +1,4 @@
+use crate::WgpuWrapper;
 use crate::{
     define_atomic_id,
     render_asset::RenderAssets,
@@ -8,7 +9,6 @@ use crate::{
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::system::{SystemParam, SystemParamItem};
 pub use bevy_render_macros::AsBindGroup;
-use bevy_utils::WgpuWrapper;
 use core::ops::Deref;
 use encase::ShaderType;
 use thiserror::Error;

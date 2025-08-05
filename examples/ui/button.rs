@@ -44,7 +44,7 @@ fn button_system(
                 input_focus.set(entity);
                 **text = "Press".to_string();
                 *color = PRESSED_BUTTON.into();
-                *border_color = BorderColor::all(RED.into());
+                *border_color = BorderColor::all(RED);
 
                 // The accessibility system's only update the button's state when the `Button` component is marked as changed.
                 button.set_changed();
@@ -72,7 +72,7 @@ fn setup(mut commands: Commands, assets: Res<AssetServer>) {
     commands.spawn(button(&assets));
 }
 
-fn button(asset_server: &AssetServer) -> impl Bundle + use<> {
+fn button(asset_server: &AssetServer) -> impl Bundle {
     (
         Node {
             width: Val::Percent(100.0),

@@ -165,6 +165,7 @@ default = [
   "vorbis",
   "webgl2",
   "x11",
+  "wayland",
   "debug",
   "zstd_rust",
 ]
@@ -407,9 +408,6 @@ vorbis = ["bevy_internal/vorbis"]
 # WAV audio format support
 wav = ["bevy_internal/wav"]
 
-# MP3 audio format support (through minimp3)
-minimp3 = ["bevy_internal/minimp3"]
-
 # AAC audio format support (through symphonia)
 symphonia-aac = ["bevy_internal/symphonia-aac"]
 
@@ -582,6 +580,13 @@ gltf_convert_coordinates_default = [
 # Enable collecting debug information about systems and components to help with diagnostics
 debug = ["bevy_internal/debug"]
 
+# Include spatio-temporal blue noise KTX2 file used by generated environment maps, Solari and atmosphere
+bluenoise_texture = [
+  "bevy_internal/bluenoise_texture",
+  "ktx2",
+  "bevy_image/zstd",
+]
+
 [dependencies]
 bevy_internal = { path = "crates/bevy_internal", version = "0.17.0-dev", default-features = false }
 tracing = { version = "0.1", default-features = false, optional = true }
@@ -617,7 +622,7 @@ hyper = { version = "1", features = ["server", "http1"] }
 http-body-util = "0.1"
 anyhow = "1"
 macro_rules_attribute = "0.2"
-accesskit = "0.19"
+accesskit = "0.21"
 nonmax = "0.5"
 
 [target.'cfg(not(target_family = "wasm"))'.dev-dependencies]
@@ -3069,6 +3074,17 @@ category = "Stress Tests"
 wasm = true
 
 [[example]]
+name = "many_gradients"
+path = "examples/stress_tests/many_gradients.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.many_gradients]
+name = "Many Gradients"
+description = "Stress test for gradient rendering performance"
+category = "Stress Tests"
+wasm = true
+
+[[example]]
 name = "many_cameras_lights"
 path = "examples/stress_tests/many_cameras_lights.rs"
 doc-scrape-examples = true
@@ -3830,6 +3846,17 @@ hidden = true
 name = "Window Resizing"
 description = "Demonstrates resizing and responding to resizing a window"
 category = "Window"
+wasm = true
+
+[[example]]
+name = "drag_to_scroll"
+path = "examples/ui/drag_to_scroll.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.drag_to_scroll]
+name = "Drag to Scroll"
+description = "This example tests scale factor, dragging and scrolling"
+category = "UI (User Interface)"
 wasm = true
 
 [[example]]
