@@ -142,9 +142,6 @@ pub fn update_ui_context_system(
     camera_query: Query<&Camera>,
     target_camera_query: Query<&UiTargetCamera>,
     ui_root_nodes: UiRootNodes,
-    // mut computed_target_query: Query<&mut ComputedNodeTarget>,
-    // ui_children: UiChildren,
-    // reparented_nodes: Query<(Entity, &ChildOf), (Changed<ChildOf>, With<ComputedNodeTarget>)>,
 ) {
     let default_camera_entity = default_ui_camera.get();
 
@@ -167,16 +164,6 @@ pub fn update_ui_context_system(
             })
             .unwrap_or((1., UVec2::ZERO));
 
-        // update_contexts_recursively(
-        //     root_entity,
-        //     ComputedNodeTarget {
-        //         camera,
-        //         scale_factor,
-        //         physical_size,
-        //     },
-        //     &ui_children,
-        //     &mut computed_target_query,
-        // );
         commands
             .entity(root_entity)
             .insert(Propagate(ComputedNodeTarget {
@@ -185,37 +172,7 @@ pub fn update_ui_context_system(
                 physical_size,
             }));
     }
-
-    // for (entity, child_of) in reparented_nodes.iter() {
-    //     let Ok(computed_target) = computed_target_query.get(child_of.parent()) else {
-    //         continue;
-    //     };
-
-    //     update_contexts_recursively(
-    //         entity,
-    //         *computed_target,
-    //         &ui_children,
-    //         &mut computed_target_query,
-    //     );
-    // }
 }
-
-// fn update_contexts_recursively(
-//     entity: Entity,
-//     inherited_computed_target: ComputedNodeTarget,
-//     ui_children: &UiChildren,
-//     query: &mut Query<&mut ComputedNodeTarget>,
-// ) {
-//     if query
-//         .get_mut(entity)
-//         .map(|mut computed_target| computed_target.set_if_neq(inherited_computed_target))
-//         .unwrap_or(false)
-//     {
-//         for child in ui_children.iter_ui_children(entity) {
-//             update_contexts_recursively(child, inherited_computed_target, ui_children, query);
-//         }
-//     }
-// }
 
 #[cfg(test)]
 mod tests {
