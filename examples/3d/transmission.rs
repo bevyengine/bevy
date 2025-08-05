@@ -44,15 +44,12 @@ use bevy::anti_aliasing::taa::TemporalAntiAliasing;
 use rand::random;
 
 fn main() {
-    #[expect(
-        deprecated,
-        reason = "Once AmbientLight is removed, the resource can be removed"
-    )]
     App::new()
-        .add_plugins(DefaultPlugins)
+        .add_plugins(DefaultPlugins.set(bevy::light::LightPlugin {
+            default_environment_map_light: false,
+        }))
         .insert_resource(ClearColor(Color::BLACK))
         .insert_resource(PointLightShadowMap { size: 2048 })
-        .insert_resource(AmbientLight::NONE)
         .add_systems(Startup, setup)
         .add_systems(Update, (example_control_system, flicker_system))
         .run();

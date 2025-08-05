@@ -37,19 +37,16 @@ struct MoveBackAndForthHorizontally {
 }
 
 fn main() {
-    #[expect(
-        deprecated,
-        reason = "Once AmbientLight is removed, the resource can be removed"
-    )]
     App::new()
-        .add_plugins(DefaultPlugins)
+        .add_plugins(DefaultPlugins.set(bevy::light::LightPlugin {
+            default_environment_map_light: false,
+        }))
         .insert_resource(ClearColor(Color::Srgba(Srgba {
             red: 0.02,
             green: 0.02,
             blue: 0.02,
             alpha: 1.0,
         })))
-        .insert_resource(AmbientLight::NONE)
         .init_resource::<AppSettings>()
         .add_systems(Startup, setup)
         .add_systems(Update, tweak_scene)

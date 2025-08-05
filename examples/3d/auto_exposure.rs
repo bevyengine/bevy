@@ -22,7 +22,9 @@ use bevy::{
 
 fn main() {
     App::new()
-        .add_plugins(DefaultPlugins)
+        .add_plugins(DefaultPlugins.set(bevy::light::LightPlugin {
+            default_environment_map_light: false,
+        }))
         .add_plugins(AutoExposurePlugin)
         .add_systems(Startup, setup)
         .add_systems(Update, example_control_system)
@@ -96,12 +98,6 @@ fn setup(
             ));
         }
     }
-
-    #[expect(
-        deprecated,
-        reason = "Once AmbientLight is removed, the resource can be removed"
-    )]
-    commands.insert_resource(AmbientLight::NONE);
 
     commands.spawn((
         PointLight {
