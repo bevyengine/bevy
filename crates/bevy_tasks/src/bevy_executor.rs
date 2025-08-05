@@ -16,7 +16,7 @@ use core::panic::{RefUnwindSafe, UnwindSafe};
 use core::pin::Pin;
 use core::sync::atomic::{AtomicBool, AtomicPtr, Ordering};
 use core::task::{Context, Poll, Waker};
-use std::thread::ThreadId;
+use std::thread::{AccessError, ThreadId};
 
 use alloc::collections::VecDeque;
 use alloc::fmt;
@@ -24,7 +24,7 @@ use async_task::{Builder, Runnable, Task};
 use bevy_platform::prelude::Vec;
 use bevy_platform::sync::{Arc, Mutex, MutexGuard, PoisonError, RwLock, TryLockError};
 use crossbeam_queue::{ArrayQueue, SegQueue};
-use futures_lite::{future, prelude::*};
+use futures_lite::{future,FutureExt};
 use slab::Slab;
 use thread_local::ThreadLocal;
 
@@ -33,8 +33,11 @@ use thread_local::ThreadLocal;
 static THREAD_LOCAL_STATE: ThreadLocal<ThreadLocalState> = ThreadLocal::new();
 
 pub(crate) fn install_runtime_into_current_thread() {
-    let tls = THREAD_LOCAL_STATE.get_or_default();
-    tls.executor_thread.store(true, Ordering::Relaxed);
+    // Use LOCAL_QUEUE here to set the thread destructor
+    LOCAL_QUEUE.with(|_| {
+        let tls = THREAD_LOCAL_STATE.get_or_default();
+        tls.executor_thread.store(true, Ordering::Relaxed);
+    })
 }
 
 // Do not access this directly, use `with_local_queue` instead.
@@ -67,8 +70,8 @@ cfg_if::cfg_if! {
 /// # Safety
 /// This must not be accessed at the same time as `LOCAL_QUEUE` in any way.
 #[inline(always)]
-unsafe fn with_local_queue<T>(f: impl FnOnce(&mut LocalQueue) -> T) -> T {
-    LOCAL_QUEUE.with(|tls| {
+unsafe fn try_with_local_queue<T>(f: impl FnOnce(&mut LocalQueue) -> T) -> Result<T, AccessError> {
+    LOCAL_QUEUE.try_with(|tls| {
         cfg_if::cfg_if! {
             if #[cfg(all(debug_assertions, not(miri)))] {
                 f(&mut tls.borrow_mut())
@@ -81,14 +84,29 @@ unsafe fn with_local_queue<T>(f: impl FnOnce(&mut LocalQueue) -> T) -> T {
         }
     })
 }
+
 struct LocalQueue {
     local_queue: VecDeque<Runnable>,
     local_active: Slab<Waker>,
 }
 
+impl Drop for LocalQueue {
+    fn drop(&mut self) {
+        // Unset the executor thread flag if it's been set.
+        if let Some(tls) = THREAD_LOCAL_STATE.get() {
+            tls.executor_thread.store(false, Ordering::Relaxed);
+        }
+
+        for waker in self.local_active.drain() {
+            waker.wake();
+        }
+
+        while self.local_queue.pop_front().is_some() {}
+    }
+}
+
 struct ThreadLocalState {
     executor_thread: AtomicBool,
-    thread_id: ThreadId,
     stealable_queue: ArrayQueue<Runnable>,
     thread_locked_queue: SegQueue<Runnable>,
 }
@@ -97,7 +115,6 @@ impl Default for ThreadLocalState {
     fn default() -> Self {
         Self {
             executor_thread: AtomicBool::new(false),
-            thread_id: std::thread::current().id(),
             stealable_queue: ArrayQueue::new(512),
             thread_locked_queue: SegQueue::new(),
         }
@@ -176,10 +193,9 @@ impl<'a> ThreadSpawner<'a> {
             // SAFETY: This value is in thread local storage and thus can only be accessed
             // from one thread. There are no instances where the value is accessed mutably
             // from multiple locations simultaneously.
-            unsafe {
-                with_local_queue(|tls| tls.local_queue.push_back(runnable));
+            if unsafe { try_with_local_queue(|tls| tls.local_queue.push_back(runnable)) }.is_ok() {
+                state.notify_specific_thread(thread_id, false);
             }
-            state.notify_specific_thread(thread_id, false);
         }
     }
 }
@@ -265,7 +281,7 @@ impl<'a> Executor<'a> {
         // SAFETY: There are no instances where the value is accessed mutably
         // from multiple locations simultaneously.
         let (runnable, task) = unsafe {
-            with_local_queue(|tls| {
+            try_with_local_queue(|tls| {
                 let entry = tls.local_active.vacant_entry();
                 let index = entry.key();
                 // SAFETY: There are no instances where the value is accessed mutably
@@ -273,7 +289,7 @@ impl<'a> Executor<'a> {
                 // invoked after the surrounding scope has exited in either a
                 // `try_tick_local` or `run` call.
                 let future = AsyncCallOnDrop::new(future, move || {
-                    with_local_queue(|tls| drop(tls.local_active.try_remove(index)));
+                    try_with_local_queue(|tls| drop(tls.local_active.try_remove(index))).ok();
                 });
 
                 // Create the task and register it in the set of active tasks.
@@ -295,7 +311,7 @@ impl<'a> Executor<'a> {
                 entry.insert(runnable.waker());
 
                 (runnable, task)
-            })
+            }).unwrap()
         };
 
         runnable.schedule();
@@ -316,7 +332,9 @@ impl<'a> Executor<'a> {
         // from multiple locations simultaneously. As the Runnable is run after
         // this scope closes, the AsyncCallOnDrop around the future will be invoked
         // without overlapping mutable accssses.
-        unsafe { with_local_queue(|tls| tls.local_queue.pop_front()) }
+        unsafe { try_with_local_queue(|tls| tls.local_queue.pop_front()) }
+            .ok()
+            .flatten()
             .map(Runnable::run)
             .is_some()
     }
@@ -337,7 +355,7 @@ impl<'a> Executor<'a> {
                 if local_state.executor_thread.load(Ordering::Relaxed) {
                     match local_state.stealable_queue.push(runnable) {
                         Ok(()) => {
-                            state.notify_specific_thread(local_state.thread_id, true);
+                            state.notify_specific_thread(std::thread::current().id(), true);
                             return;
                         }
                         Err(r) => r,
@@ -357,15 +375,13 @@ impl<'a> Executor<'a> {
     /// Returns a function that schedules a runnable task when it gets woken up.
     fn schedule_local(&self) -> impl Fn(Runnable) + 'static {
         let state = self.state_as_arc();
-        let local_state: &'static ThreadLocalState = THREAD_LOCAL_STATE.get_or_default();
         move |runnable| {
             // SAFETY: This value is in thread local storage and thus can only be accessed
             // from one thread. There are no instances where the value is accessed mutably
             // from multiple locations simultaneously.
-            unsafe {
-                with_local_queue(|tls| tls.local_queue.push_back(runnable));
+            if unsafe { try_with_local_queue(|tls| tls.local_queue.push_back(runnable)) }.is_ok() {
+                state.notify_specific_thread(std::thread::current().id(), false);
             }
-            state.notify_specific_thread(local_state.thread_id, false);
         }
     }
 
@@ -777,8 +793,8 @@ impl Runner<'_> {
             .runnable_with(|| {
                 // SAFETY: There are no instances where the value is accessed mutably
                 // from multiple locations simultaneously.
-                let local_pop = unsafe { with_local_queue(|tls| tls.local_queue.pop_front()) };
-                if let Some(r) = local_pop {
+                let local_pop = unsafe { try_with_local_queue(|tls| tls.local_queue.pop_front()) };
+                if let Ok(Some(r)) = local_pop {
                     return Some(r);
                 }
 
@@ -925,7 +941,9 @@ unsafe fn flush_to_local(src: &SegQueue<Runnable>) {
         // SAFETY: Caller assures that `LOCAL_QUEUE` does not have any
         // overlapping accesses.
         unsafe {
-            with_local_queue(|tls| {
+            // It's OK  to ignore this error, no point in pushing to a
+            // queue for a thread that is already terminating.
+            let _ = try_with_local_queue(|tls| {
                 // Steal tasks.
                 for _ in 0..count {
                     let Some(val) = src.queue_pop() else { break };
