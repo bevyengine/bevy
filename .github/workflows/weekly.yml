@@ -1,10 +1,13 @@
 name: Weekly beta compile test
 
+permissions:
+  contents: read
+
 on:
   schedule:
     # New versions of rust release on Thursdays. We test on Mondays to get at least 3 days of warning before all our CI breaks again.
     # https://forge.rust-lang.org/release/process.html#release-day-thursday
-    - cron:  '0 12 * * 1'
+    - cron: "0 12 * * 1"
   workflow_dispatch:
 
 env:
@@ -85,7 +88,7 @@ jobs:
 
   close-any-open-issues:
     runs-on: ubuntu-latest
-    needs: ['test', 'lint', 'check-compiles']
+    needs: ["test", "lint", "check-compiles"]
     permissions:
       issues: write
     steps:
@@ -106,14 +109,13 @@ jobs:
           COMMENT: |
             [Last pipeline run](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}) successfully completed. Closing issue.
 
-
   open-issue:
     name: Warn that weekly CI fails
     runs-on: ubuntu-latest
     needs: [test, lint, check-compiles]
     permissions:
       issues: write
-    # We disable this job on forks, because 
+    # We disable this job on forks, because
     # Use always() so the job doesn't get canceled if any other jobs fail
     if: ${{ github.repository == 'bevyengine/bevy' && always() && contains(needs.*.result, 'failure') }}
     steps:

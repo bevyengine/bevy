@@ -15,8 +15,7 @@ use bevy::{
         render_resource::{AsBindGroup, ShaderRef},
         renderer::{RenderAdapter, RenderDevice},
     },
-    window::SystemCursorIcon,
-    winit::cursor::CursorIcon,
+    window::{CursorIcon, SystemCursorIcon},
 };
 use ops::{acos, cos, sin};
 use widgets::{
