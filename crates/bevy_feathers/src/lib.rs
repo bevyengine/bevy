@@ -18,7 +18,7 @@
 //! Please report issues, submit fixes and propose changes.
 //! Thanks for stress-testing; let's build something better together.
 
-use bevy_app::{HierarchyPropagatePlugin, Plugin, PostUpdate};
+use bevy_app::{HierarchyPropagatePlugin, Plugin, PostUpdate, Update};
 use bevy_asset::embedded_asset;
 use bevy_ecs::query::With;
 use bevy_text::{TextColor, TextFont};
