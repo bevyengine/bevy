@@ -80,14 +80,20 @@ impl Viewport {
         }
     }
 
-    pub fn with_override(
-        &self,
+    pub fn from_viewport_and_override(
+        viewport: Option<&Self>,
         main_pass_resolution_override: Option<&MainPassResolutionOverride>,
-    ) -> Self {
-        let mut viewport = self.clone();
+    ) -> Option<Self> {
+        let mut viewport = viewport.cloned();
+
         if let Some(override_size) = main_pass_resolution_override {
-            viewport.physical_size = **override_size;
+            if viewport.is_none() {
+                viewport = Some(Viewport::default());
+            }
+
+            viewport.as_mut().unwrap().physical_size = **override_size;
         }
+
         viewport
     }
 }
@@ -101,7 +107,8 @@ impl Viewport {
 /// * Insert this component on a 3d camera entity in the render world.
 /// * The resolution override must be smaller than the camera's viewport size.
 /// * The resolution override is specified in physical pixels.
-#[derive(Component, Reflect, Deref)]
+/// * In shaders, use `View::main_pass_viewport` instead of `View::viewport`.
+#[derive(Component, Reflect, Deref, Debug)]
 #[reflect(Component)]
 pub struct MainPassResolutionOverride(pub UVec2);
 
@@ -176,7 +183,7 @@ pub struct ComputedCameraValues {
     pub old_sub_camera_view: Option<SubCameraView>,
 }
 
-/// How much energy a `Camera3d` absorbs from incoming light.
+/// How much energy a [`Camera3d`](crate::Camera3d) absorbs from incoming light.
 ///
 /// <https://en.wikipedia.org/wiki/Exposure_(photography)>
 #[derive(Component, Clone, Copy, Reflect)]
@@ -322,8 +329,8 @@ pub enum ViewportConversionError {
 /// but custom render graphs can also be defined. Inserting a [`Camera`] with no render
 /// graph will emit an error at runtime.
 ///
-/// [`Camera2d`]: https://docs.rs/bevy/latest/bevy/core_pipeline/core_2d/struct.Camera2d.html
-/// [`Camera3d`]: https://docs.rs/bevy/latest/bevy/core_pipeline/core_3d/struct.Camera3d.html
+/// [`Camera2d`]: crate::Camera2d
+/// [`Camera3d`]: crate::Camera3d
 #[derive(Component, Debug, Reflect, Clone)]
 #[reflect(Component, Default, Debug, Clone)]
 #[require(

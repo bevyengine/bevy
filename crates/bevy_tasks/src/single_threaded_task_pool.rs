@@ -4,31 +4,25 @@ use core::{cell::RefCell, future::Future, marker::PhantomData, mem};
 
 use crate::Task;
 
-#[cfg(feature = "std")]
-use std::thread_local;
+crate::cfg::std! {
+    if {
+        use std::thread_local;
+        use crate::executor::LocalExecutor;
 
-#[cfg(not(feature = "std"))]
-use bevy_platform::sync::{Mutex, PoisonError};
+        thread_local! {
+            static LOCAL_EXECUTOR: LocalExecutor<'static> = const { LocalExecutor::new() };
+        }
 
-#[cfg(feature = "std")]
-use crate::executor::LocalExecutor;
+        type ScopeResult<T> = alloc::rc::Rc<RefCell<Option<T>>>;
+    } else {
+        use bevy_platform::sync::{Mutex, PoisonError};
+        use crate::executor::Executor as LocalExecutor;
 
-#[cfg(not(feature = "std"))]
-use crate::executor::Executor as LocalExecutor;
+        static LOCAL_EXECUTOR: LocalExecutor<'static> = const { LocalExecutor::new() };
 
-#[cfg(feature = "std")]
-thread_local! {
-    static LOCAL_EXECUTOR: LocalExecutor<'static> = const { LocalExecutor::new() };
+        type ScopeResult<T> = Arc<Mutex<Option<T>>>;
+    }
 }
-
-#[cfg(not(feature = "std"))]
-static LOCAL_EXECUTOR: LocalExecutor<'static> = const { LocalExecutor::new() };
-
-#[cfg(feature = "std")]
-type ScopeResult<T> = alloc::rc::Rc<RefCell<Option<T>>>;
-
-#[cfg(not(feature = "std"))]
-type ScopeResult<T> = Arc<Mutex<Option<T>>>;
 
 /// Used to create a [`TaskPool`].
 #[derive(Debug, Default, Clone)]
@@ -173,16 +167,15 @@ impl TaskPool {
         let results = scope.results.borrow();
         results
             .iter()
-            .map(|result| {
-                #[cfg(feature = "std")]
-                return result.borrow_mut().take().unwrap();
-
-                #[cfg(not(feature = "std"))]
-                {
+            .map(|result| crate::cfg::switch! {{
+                crate::cfg::std => {
+                    result.borrow_mut().take().unwrap()
+                }
+                _ => {
                     let mut lock = result.lock().unwrap_or_else(PoisonError::into_inner);
                     lock.take().unwrap()
                 }
-            })
+            }})
             .collect()
     }
 
@@ -199,10 +192,11 @@ impl TaskPool {
     where
         T: 'static + MaybeSend + MaybeSync,
     {
-        cfg_if::cfg_if! {
-            if #[cfg(all(target_arch = "wasm32", feature = "web"))] {
+        crate::cfg::switch! {{
+            crate::cfg::web => {
                 Task::wrap_future(future)
-            } else if #[cfg(feature = "std")] {
+            }
+            crate::cfg::std => {
                 LOCAL_EXECUTOR.with(|executor| {
                     let task = executor.spawn(future);
                     // Loop until all tasks are done
@@ -210,16 +204,15 @@ impl TaskPool {
 
                     Task::new(task)
                 })
-            } else {
-                {
-                    let task = LOCAL_EXECUTOR.spawn(future);
-                    // Loop until all tasks are done
-                    while LOCAL_EXECUTOR.try_tick() {}
-
-                    Task::new(task)
-                }
             }
-        }
+            _ => {
+                let task = LOCAL_EXECUTOR.spawn(future);
+                // Loop until all tasks are done
+                while LOCAL_EXECUTOR.try_tick() {}
+
+                Task::new(task)
+            }
+        }}
     }
 
     /// Spawns a static future on the JS event loop. This is exactly the same as [`TaskPool::spawn`].
@@ -248,11 +241,14 @@ impl TaskPool {
     where
         F: FnOnce(&LocalExecutor) -> R,
     {
-        #[cfg(feature = "std")]
-        return LOCAL_EXECUTOR.with(f);
-
-        #[cfg(not(feature = "std"))]
-        return f(&LOCAL_EXECUTOR);
+        crate::cfg::switch! {{
+            crate::cfg::std => {
+                LOCAL_EXECUTOR.with(f)
+            }
+            _ => {
+                f(&LOCAL_EXECUTOR)
+            }
+        }}
     }
 }
 
@@ -304,35 +300,31 @@ impl<'scope, 'env, T: Send + 'env> Scope<'scope, 'env, T> {
         let f = async move {
             let temp_result = f.await;
 
-            #[cfg(feature = "std")]
-            result.borrow_mut().replace(temp_result);
-
-            #[cfg(not(feature = "std"))]
-            {
-                let mut lock = result.lock().unwrap_or_else(PoisonError::into_inner);
-                *lock = Some(temp_result);
+            crate::cfg::std! {
+                if {
+                    result.borrow_mut().replace(temp_result);
+                } else {
+                    let mut lock = result.lock().unwrap_or_else(PoisonError::into_inner);
+                    *lock = Some(temp_result);
+                }
             }
         };
         self.executor.spawn(f).detach();
     }
 }
 
-#[cfg(feature = "std")]
-mod send_sync_bounds {
-    pub trait MaybeSend {}
-    impl<T> MaybeSend for T {}
-
-    pub trait MaybeSync {}
-    impl<T> MaybeSync for T {}
+crate::cfg::std! {
+    if {
+        pub trait MaybeSend {}
+        impl<T> MaybeSend for T {}
+    
+        pub trait MaybeSync {}
+        impl<T> MaybeSync for T {}
+    } else {
+        pub trait MaybeSend: Send {}
+        impl<T: Send> MaybeSend for T {}
+    
+        pub trait MaybeSync: Sync {}
+        impl<T: Sync> MaybeSync for T {}
+    }
 }
-
-#[cfg(not(feature = "std"))]
-mod send_sync_bounds {
-    pub trait MaybeSend: Send {}
-    impl<T: Send> MaybeSend for T {}
-
-    pub trait MaybeSync: Sync {}
-    impl<T: Sync> MaybeSync for T {}
-}
-
-use send_sync_bounds::{MaybeSend, MaybeSync};
