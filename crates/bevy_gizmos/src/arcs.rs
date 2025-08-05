@@ -47,28 +47,48 @@ where
     #[inline]
     pub fn arc_2d(
         &mut self,
+
+        // General format for the type would be Impl<T>
+        // This means that this parameter can be any type that can be converted into type T
+        // In this scenario, it will be converted into Isometry2d
+        //
+        // This isn't neccessarily encapsulation, but rather provides means of generic type conversion
+        // Encapsulation is intended to hide data and restrict access to core internal data (think of it as similar to using sudo vs not being allowed to use sudo)
         isometry: impl Into<Isometry2d>,
         arc_angle: f32,
         radius: f32,
+
+        // allows for using .into() to convert the provided type into a color
         color: impl Into<Color>,
     ) -> Arc2dBuilder<'_, Config, Clear> {
         Arc2dBuilder {
             gizmos: self,
-            isometry: isometry.into(),
+            isometry: isometry.into(), // example of utilizing the primitive trait Into<T>
             arc_angle,
             radius,
-            color: color.into(),
+            color: color.into(), // example of utilizing the primitive trait Into<T>
             resolution: None,
         }
     }
 }
 
+// assume GizmoBuffer has the default trait implemented with some default values for sake of example
+// this initializes the Arc2dBuilder, which is the return type of let gizmo_buffer : GizmoBuffer = GizmoBuffer { ..default() }
+//
+// Then, we can call on the method above in the following manner
+// gizmo_buffer.arc_2d(some_isometry_struct, 20.0, 5.0, Color::srgb(1.0,0.6,0.0));
 /// A builder returned by [`GizmoBuffer::arc_2d`].
 pub struct Arc2dBuilder<'a, Config, Clear>
 where
+    // These serve as generic type parameters with Trait bounds (Note, they are specific to traits only, so cannot add structs --> treat this as a form of inheritance)
+    // They are intended to allow for flexibillity and abstraction (encapsulation is the means to achieve abstraction)
+    // So in a sense, if abstraction is the destination, encapsulation is the process, since the intention is to simplify and remove the need for understanding underlying complexity.
     Config: GizmoConfigGroup,
     Clear: 'static + Send + Sync,
 {
+    // the 'a lifetime is tied to the mutable reference to GizmoBuffer
+    // This means that as long as Arc2dBuilder exists, it holds exclusive mutable access to GizmoBuffer
+    // once Arc2dBuilder goes out of scope, the mutable borrow ends and the buffer can be reused.
     gizmos: &'a mut GizmoBuffer<Config, Clear>,
     isometry: Isometry2d,
     arc_angle: f32,

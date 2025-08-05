@@ -1,5 +1,4 @@
 use taffy::style_helpers;
-
 use crate::{
     AlignContent, AlignItems, AlignSelf, BoxSizing, Display, FlexDirection, FlexWrap, GridAutoFlow,
     GridPlacement, GridTrack, GridTrackRepetition, JustifyContent, JustifyItems, JustifySelf,
@@ -8,7 +7,6 @@ use crate::{
 };
 
 use super::LayoutContext;
-
 impl Val {
     fn into_length_percentage_auto(
         self,
@@ -149,6 +147,7 @@ pub fn from_node(node: &Node, context: &LayoutContext, ignore_border: bool) -> t
     }
 }
 
+// Basic trait implementation to allow for more methods access for following set of code below
 impl From<AlignItems> for Option<taffy::style::AlignItems> {
     fn from(value: AlignItems) -> Self {
         match value {

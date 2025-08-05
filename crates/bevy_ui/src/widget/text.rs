@@ -106,22 +106,26 @@ impl Text {
 }
 
 impl TextRoot for Text {}
-
 impl TextSpanAccess for Text {
+    // converts it into immutable referenceto string
     fn read_span(&self) -> &str {
         self.as_str()
     }
+
+    // takes ownership of the String for modification
     fn write_span(&mut self) -> &mut String {
         &mut *self
     }
 }
 
+// defining different types of parameters that from might expect, one converts the reference string to value
 impl From<&str> for Text {
     fn from(value: &str) -> Self {
         Self(String::from(value))
     }
 }
 
+// The other accepts a String, and returns it encased wtihin the struct, which can then be accessed as Text.0
 impl From<String> for Text {
     fn from(value: String) -> Self {
         Self(value)

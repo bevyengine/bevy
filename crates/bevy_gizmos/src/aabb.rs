@@ -26,8 +26,7 @@ use crate::{
 /// A [`Plugin`] that provides visualization of [`Aabb`]s for debugging.
 pub struct AabbGizmoPlugin;
 
-// adding this trait means using the .add_plugin() method within app can be used
-// similar to app.add_plugin(AabbGizmoPlugin)
+
 impl Plugin for AabbGizmoPlugin {
     fn build(&self, app: &mut bevy_app::App) {
         app.register_type::<AabbGizmoConfigGroup>()

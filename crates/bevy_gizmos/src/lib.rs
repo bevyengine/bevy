@@ -74,7 +74,7 @@ pub mod prelude {
             DefaultGizmoConfigGroup, GizmoConfig, GizmoConfigGroup, GizmoConfigStore,
             GizmoLineConfig, GizmoLineJoint, GizmoLineStyle,
         },
-        gizmos::Gizmos,
+        gizmos::{GizmoBuffer, Gizmos},
         primitives::{dim2::GizmoPrimitive2d, dim3::GizmoPrimitive3d},
         retained::Gizmo,
         AppGizmoBuilder, GizmoAsset,
@@ -426,7 +426,6 @@ use bevy_math::Vec2;
 // TODO : find out why Val isn't being used
 use bevy_ui::{Val, ValArithmeticError};
 
-// use bevy_
 #[cfg(feature = "bevy_render")]
 fn extract_gizmo_data(
     mut commands: Commands,

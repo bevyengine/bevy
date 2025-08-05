@@ -590,6 +590,8 @@ bluenoise_texture = [
 bevy_internal = { path = "crates/bevy_internal", version = "0.17.0-dev", default-features = false }
 tracing = { version = "0.1", default-features = false, optional = true }
 
+
+
 # Wasm does not support dynamic linking.
 [target.'cfg(not(target_family = "wasm"))'.dependencies]
 bevy_dylib = { path = "crates/bevy_dylib", version = "0.17.0-dev", default-features = false, optional = true }
@@ -4004,6 +4006,17 @@ doc-scrape-examples = true
 [package.metadata.example.multi_window_logical_pixel_test]
 name = "Multi Window Logical Pixel Test"
 description = "Test gizmo line width consistency across different scale factors in multiple windows."
+category = "Gizmos"
+wasm = true
+
+[[example]]
+name = "playground"
+path = "examples/gizmos/playground.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.playground]
+name = "Gizmo Playground"
+description = "Demonstrates various gizmo types and their usage in a 3D scene"
 category = "Gizmos"
 wasm = true
 

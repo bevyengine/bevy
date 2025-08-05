@@ -330,6 +330,8 @@ where
     resolution: u32,
 }
 
+
+
 impl<Config, Clear> SphereBuilder<'_, Config, Clear>
 where
     Config: GizmoConfigGroup,
