@@ -230,22 +230,16 @@ pub fn build_directional_light_cascades(
 
         for (view_entity, projection, view_to_world) in views.iter().copied() {
             let camera_to_light_view = light_to_world_inverse * view_to_world;
-            let view_cascades = cascades_config
-                .bounds
-                .iter()
-                .enumerate()
-                .map(|(idx, far_bound)| {
+            let overlap_factor = 1.0 - cascades_config.overlap_proportion;
+            let far_bounds = cascades_config.bounds.iter();
+            let near_bounds = [cascades_config.minimum_distance]
+                .into_iter()
+                .chain(far_bounds.clone().map(|bound| overlap_factor * bound));
+            let view_cascades = near_bounds
+                .zip(far_bounds)
+                .map(|(near_bound, far_bound)| {
                     // Negate bounds as -z is camera forward direction.
-                    let z_near = if idx > 0 {
-                        (1.0 - cascades_config.overlap_proportion)
-                            * -cascades_config.bounds[idx - 1]
-                    } else {
-                        -cascades_config.minimum_distance
-                    };
-                    let z_far = -far_bound;
-
-                    let corners = projection.get_frustum_corners(z_near, z_far);
-
+                    let corners = projection.get_frustum_corners(-near_bound, -far_bound);
                     calculate_cascade(
                         corners,
                         directional_light_shadow_map.size as f32,
