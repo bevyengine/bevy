@@ -21,8 +21,7 @@ var<push_constant> constants: PushConstants;
 
 const DIRECT_LIGHT_SAMPLE_COUNT: u32 = 32u;
 
-@compute
-@workgroup_size(1024, 1, 1)
+@compute @workgroup_size(1024, 1, 1)
 fn sample_radiance(@builtin(workgroup_id) workgroup_id: vec3<u32>, @builtin(global_invocation_id) active_cell_id: vec3<u32>) {
     if active_cell_id.x < world_cache_active_cells_count {
         let cell_index = world_cache_active_cell_indices[active_cell_id.x];
@@ -46,8 +45,7 @@ fn sample_radiance(@builtin(workgroup_id) workgroup_id: vec3<u32>, @builtin(glob
     }
 }
 
-@compute
-@workgroup_size(1024, 1, 1)
+@compute @workgroup_size(1024, 1, 1)
 fn blend_new_samples(@builtin(global_invocation_id) active_cell_id: vec3<u32>) {
     if active_cell_id.x < world_cache_active_cells_count {
         let cell_index = world_cache_active_cell_indices[active_cell_id.x];

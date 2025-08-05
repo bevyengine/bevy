@@ -5,8 +5,7 @@
 var<workgroup> w1: array<u32, 1024u>;
 var<workgroup> w2: array<u32, 1024u>;
 
-@compute
-@workgroup_size(1024, 1, 1)
+@compute @workgroup_size(1024, 1, 1)
 fn decay_world_cache(@builtin(global_invocation_id) global_id: vec3<u32>) {
     var life = world_cache_life[global_id.x];
     if life > 0u {
@@ -20,8 +19,7 @@ fn decay_world_cache(@builtin(global_invocation_id) global_id: vec3<u32>) {
     }
 }
 
-@compute
-@workgroup_size(1024, 1, 1)
+@compute @workgroup_size(1024, 1, 1)
 fn compact_world_cache_single_block(
     @builtin(global_invocation_id) cell_id: vec3<u32>,
     @builtin(local_invocation_index) t: u32,
@@ -39,8 +37,7 @@ fn compact_world_cache_single_block(
     if t < 512u { world_cache_a[cell_id.x] = w2[t]; } else { world_cache_a[cell_id.x] = w2[t] + w2[t - 512u]; }
 }
 
-@compute
-@workgroup_size(1024, 1, 1)
+@compute @workgroup_size(1024, 1, 1)
 fn compact_world_cache_blocks(@builtin(local_invocation_index) t: u32) {
     if t == 0u { w1[0u] = 0u; } else { w1[t] = world_cache_a[t * 1024u - 1u]; }; workgroupBarrier();
     if t < 1u { w2[t] = w1[t]; } else { w2[t] = w1[t] + w1[t - 1u]; } workgroupBarrier();
@@ -55,8 +52,7 @@ fn compact_world_cache_blocks(@builtin(local_invocation_index) t: u32) {
     if t < 512u { world_cache_b[t] = w2[t]; } else { world_cache_b[t] = w2[t] + w2[t - 512u]; }
 }
 
-@compute
-@workgroup_size(1024, 1, 1)
+@compute @workgroup_size(1024, 1, 1)
 fn compact_world_cache_write_active_cells(
     @builtin(global_invocation_id) cell_id: vec3<u32>,
     @builtin(workgroup_id) workgroup_id: vec3<u32>,
