@@ -196,8 +196,11 @@ fn update_cursors(
                         CursorSource::CustomCached(cache_key)
                     } else {
                         use crate::CustomCursorExtWebSys;
-                        let source =
-                            WinitCustomCursor::from_url(_c.url.clone(), _c.hotspot.0, _c.hotspot.1);
+                        let source = winit::window::CustomCursor::from_url(
+                            _c.url.clone(),
+                            _c.hotspot.0,
+                            _c.hotspot.1,
+                        );
                         CursorSource::Custom((cache_key, source))
                     }
                 }

@@ -12,8 +12,6 @@ use bevy_input::{
     gestures::*,
     mouse::{MouseButtonInput, MouseMotion, MouseScrollUnit, MouseWheel},
 };
-#[cfg(any(not(target_arch = "wasm32"), feature = "custom_cursor"))]
-use bevy_log::error;
 use bevy_log::{trace, warn};
 use bevy_math::{ivec2, DVec2, Vec2};
 use bevy_platform::time::Instant;
@@ -863,11 +861,11 @@ pub fn winit_runner<T: BufferedEvent>(mut app: App, event_loop: EventLoop<T>) ->
         } else {
             let mut runner_state = runner_state;
             if let Err(err) = event_loop.run_app(&mut runner_state) {
-                error!("winit event loop returned an error: {err}");
+                bevy_log::error!("winit event loop returned an error: {err}");
             }
             // If everything is working correctly then the event loop only exits after it's sent an exit code.
             runner_state.app_exit.unwrap_or_else(|| {
-                error!("Failed to receive an app exit code! This is a bug");
+                bevy_log::error!("Failed to receive an app exit code! This is a bug");
                 AppExit::error()
             })
         }
