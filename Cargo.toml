@@ -2806,7 +2806,7 @@ There are also compute shaders which are used for more general processing levera
 
 [[example]]
 name = "custom_vertex_attribute"
-path = "examples/shader/custom_vertex_attribute.rs"
+path = "examples/shader_advanced/custom_vertex_attribute.rs"
 doc-scrape-examples = true
 
 [package.metadata.example.custom_vertex_attribute]
