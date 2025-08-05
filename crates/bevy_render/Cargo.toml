@@ -91,7 +91,7 @@ codespan-reporting = "0.12.0"
 # It is enabled for now to avoid having to do a significant overhaul of the renderer just for wasm.
 # When the 'atomics' feature is enabled `fragile-send-sync-non-atomic` does nothing
 # and Bevy instead wraps `wgpu` types to verify they are not used off their origin thread.
-wgpu = { version = "25", default-features = false, features = [
+wgpu = { version = "26", default-features = false, features = [
   "wgsl",
   "dx12",
   "metal",
@@ -100,7 +100,7 @@ wgpu = { version = "25", default-features = false, features = [
   "naga-ir",
   "fragile-send-sync-non-atomic-wasm",
 ] }
-naga = { version = "25", features = ["wgsl-in"] }
+naga = { version = "26", features = ["wgsl-in"] }
 bytemuck = { version = "1.5", features = ["derive", "must_cast"] }
 downcast-rs = { version = "2", default-features = false, features = ["std"] }
 thiserror = { version = "2", default-features = false }
@@ -142,9 +142,6 @@ web-sys = { version = "0.3.67", features = [
 wasm-bindgen = "0.2"
 # TODO: Assuming all wasm builds are for the browser. Require `no_std` support to break assumption.
 bevy_app = { path = "../bevy_app", version = "0.17.0-dev", default-features = false, features = [
-  "web",
-] }
-bevy_tasks = { path = "../bevy_tasks", version = "0.17.0-dev", default-features = false, features = [
   "web",
 ] }
 bevy_platform = { path = "../bevy_platform", version = "0.17.0-dev", default-features = false, features = [

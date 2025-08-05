@@ -34,7 +34,7 @@ fn button_system(
         match *interaction {
             Interaction::Pressed => {
                 *color = PRESSED_BUTTON.into();
-                *border_color = BorderColor::all(RED.into());
+                *border_color = BorderColor::all(RED);
             }
             Interaction::Hovered => {
                 *color = HOVERED_BUTTON.into();

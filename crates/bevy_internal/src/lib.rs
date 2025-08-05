@@ -16,6 +16,8 @@ pub use default_plugins::*;
 
 #[cfg(feature = "bevy_window")]
 pub use bevy_a11y as a11y;
+#[cfg(target_os = "android")]
+pub use bevy_android as android;
 #[cfg(feature = "bevy_animation")]
 pub use bevy_animation as animation;
 #[cfg(feature = "bevy_anti_aliasing")]

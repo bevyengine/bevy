@@ -2116,10 +2116,17 @@ impl<T: Into<Color>> From<T> for BorderColor {
 
 impl BorderColor {
     /// Border color is transparent by default.
-    pub const DEFAULT: Self = BorderColor::all(Color::NONE);
+    pub const DEFAULT: Self = BorderColor {
+        top: Color::NONE,
+        right: Color::NONE,
+        bottom: Color::NONE,
+        left: Color::NONE,
+    };
 
     /// Helper to create a `BorderColor` struct with all borders set to the given color
-    pub const fn all(color: Color) -> Self {
+    #[inline]
+    pub fn all(color: impl Into<Color>) -> Self {
+        let color = color.into();
         Self {
             top: color,
             bottom: color,
