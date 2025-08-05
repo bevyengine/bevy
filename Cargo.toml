@@ -3604,6 +3604,18 @@ category = "UI (User Interface)"
 wasm = true
 
 [[example]]
+name = "virtual_keyboard"
+path = "examples/ui/virtual_keyboard.rs"
+doc-scrape-examples = true
+required-features = ["experimental_bevy_feathers"]
+
+[package.metadata.example.virtual_keyboard]
+name = "Virtual Keyboard"
+description = "Example demonstrating a virtual keyboard widget"
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
 name = "ui_scaling"
 path = "examples/ui/ui_scaling.rs"
 doc-scrape-examples = true
