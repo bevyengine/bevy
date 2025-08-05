@@ -1,16 +1,20 @@
 use alloc::{boxed::Box, vec, vec::Vec};
-use bevy_platform::collections::{HashMap, HashSet};
+use bevy_platform::{
+    collections::{HashMap, HashSet},
+    hash::FixedHasher,
+};
 use bevy_ptr::OwningPtr;
 use bevy_utils::TypeIdMap;
 use core::{any::TypeId, ptr::NonNull};
+use indexmap::{IndexMap, IndexSet};
 
 use crate::{
     archetype::{Archetype, BundleComponentStatus, ComponentStatus},
     bundle::{Bundle, DynamicBundle},
     change_detection::MaybeLocation,
     component::{
-        ComponentId, Components, ComponentsRegistrator, RequiredComponentConstructor,
-        RequiredComponents, StorageType, Tick,
+        ComponentId, Components, ComponentsRegistrator, RequiredComponentConstructor, StorageType,
+        Tick,
     },
     entity::Entity,
     query::DebugCheckedUnwrap as _,
@@ -59,6 +63,7 @@ pub enum InsertMode {
 /// [`World`]: crate::world::World
 pub struct BundleInfo {
     pub(super) id: BundleId,
+
     /// The list of all components contributed by the bundle (including Required Components). This is in
     /// the order `[EXPLICIT_COMPONENTS][REQUIRED_COMPONENTS]`
     ///
@@ -67,9 +72,10 @@ pub struct BundleInfo {
     /// must have its storage initialized (i.e. columns created in tables, sparse set created),
     /// and the range (0..`explicit_components_len`) must be in the same order as the source bundle
     /// type writes its components in.
-    pub(super) component_ids: Vec<ComponentId>,
-    pub(super) required_components: Vec<RequiredComponentConstructor>,
-    pub(super) explicit_components_len: usize,
+    pub(super) contributed_component_ids: Vec<ComponentId>,
+
+    /// The list of constructors for all required components indirectly contributed by this bundle.
+    pub(super) required_component_constructors: Vec<RequiredComponentConstructor>,
 }
 
 impl BundleInfo {
@@ -86,11 +92,13 @@ impl BundleInfo {
         mut component_ids: Vec<ComponentId>,
         id: BundleId,
     ) -> BundleInfo {
+        let explicit_component_ids = component_ids
+            .iter()
+            .copied()
+            .collect::<IndexSet<_, FixedHasher>>();
+
         // check for duplicates
-        let mut deduped = component_ids.clone();
-        deduped.sort_unstable();
-        deduped.dedup();
-        if deduped.len() != component_ids.len() {
+        if explicit_component_ids.len() != component_ids.len() {
             // TODO: Replace with `Vec::partition_dedup` once https://github.com/rust-lang/rust/issues/54279 is stabilized
             let mut seen = <HashSet<_>>::default();
             let mut dups = Vec::new();
@@ -111,31 +119,30 @@ impl BundleInfo {
             panic!("Bundle {bundle_type_name} has duplicate components: {names:?}");
         }
 
-        // handle explicit components
-        let explicit_components_len = component_ids.len();
-        let mut required_components = RequiredComponents::default();
-        for component_id in component_ids.iter().copied() {
+        let mut depth_first_components = IndexMap::<_, _, FixedHasher>::default();
+        for &component_id in &component_ids {
             // SAFETY: caller has verified that all ids are valid
             let info = unsafe { components.get_info_unchecked(component_id) };
-            required_components.merge(info.required_components());
+
+            for (&required_id, required_component) in &info.required_components().all {
+                depth_first_components
+                    .entry(required_id)
+                    .or_insert_with(|| required_component.clone());
+            }
+
             storages.prepare_component(info);
         }
-        required_components.remove_explicit_components(&component_ids);
 
-        // handle required components
-        let required_components = required_components
-            .0
+        let required_components = depth_first_components
             .into_iter()
-            .map(|(component_id, v)| {
-                // Safety: These ids came out of the passed `components`, so they must be valid.
-                let info = unsafe { components.get_info_unchecked(component_id) };
-                storages.prepare_component(info);
-                // This adds required components to the component_ids list _after_ using that list to remove explicitly provided
-                // components. This ordering is important!
-                component_ids.push(component_id);
-                v.constructor
+            .filter(|&(required_id, _)| !explicit_component_ids.contains(&required_id))
+            .inspect(|&(required_id, _)| {
+                // SAFETY: These ids came out of the passed `components`, so they must be valid.
+                storages.prepare_component(unsafe { components.get_info_unchecked(required_id) });
+                component_ids.push(required_id);
             })
-            .collect();
+            .map(|(_, required_component)| required_component.constructor)
+            .collect::<Vec<_>>();
 
         // SAFETY: The caller ensures that component_ids:
         // - is valid for the associated world
@@ -143,9 +150,8 @@ impl BundleInfo {
         // - is in the same order as the source bundle type
         BundleInfo {
             id,
-            component_ids,
-            required_components,
-            explicit_components_len,
+            contributed_component_ids: component_ids,
+            required_component_constructors: required_components,
         }
     }
 
@@ -155,19 +161,25 @@ impl BundleInfo {
         self.id
     }
 
+    /// Returns the length of the explicit components part of the [`contributed_components`](Self::contributed_components) list.
+    #[inline]
+    pub(super) fn explicit_components_len(&self) -> usize {
+        self.contributed_component_ids.len() - self.required_component_constructors.len()
+    }
+
     /// Returns the [ID](ComponentId) of each component explicitly defined in this bundle (ex: Required Components are excluded).
     ///
     /// For all components contributed by this bundle (including Required Components), see [`BundleInfo::contributed_components`]
     #[inline]
     pub fn explicit_components(&self) -> &[ComponentId] {
-        &self.component_ids[0..self.explicit_components_len]
+        &self.contributed_component_ids[0..self.explicit_components_len()]
     }
 
     /// Returns the [ID](ComponentId) of each Required Component needed by this bundle. This _does not include_ Required Components that are
     /// explicitly provided by the bundle.
     #[inline]
     pub fn required_components(&self) -> &[ComponentId] {
-        &self.component_ids[self.explicit_components_len..]
+        &self.contributed_component_ids[self.explicit_components_len()..]
     }
 
     /// Returns the [ID](ComponentId) of each component contributed by this bundle. This includes Required Components.
@@ -175,7 +187,7 @@ impl BundleInfo {
     /// For only components explicitly defined in this bundle, see [`BundleInfo::explicit_components`]
     #[inline]
     pub fn contributed_components(&self) -> &[ComponentId] {
-        &self.component_ids
+        &self.contributed_component_ids
     }
 
     /// Returns an iterator over the [ID](ComponentId) of each component explicitly defined in this bundle (ex: this excludes Required Components).
@@ -190,7 +202,7 @@ impl BundleInfo {
     /// To iterate only components explicitly defined in this bundle, see [`BundleInfo::iter_explicit_components`]
     #[inline]
     pub fn iter_contributed_components(&self) -> impl Iterator<Item = ComponentId> + Clone + '_ {
-        self.component_ids.iter().copied()
+        self.contributed_components().iter().copied()
     }
 
     /// Returns an iterator over the [ID](ComponentId) of each Required Component needed by this bundle. This _does not include_ Required Components that are
@@ -236,7 +248,9 @@ impl BundleInfo {
         // bundle_info.component_ids are also in "bundle order"
         let mut bundle_component = 0;
         let after_effect = bundle.get_components(&mut |storage_type, component_ptr| {
-            let component_id = *self.component_ids.get_unchecked(bundle_component);
+            let component_id = *self
+                .contributed_component_ids
+                .get_unchecked(bundle_component);
             // SAFETY: bundle_component is a valid index for this bundle
             let status = unsafe { bundle_component_status.get_status(bundle_component) };
             match storage_type {

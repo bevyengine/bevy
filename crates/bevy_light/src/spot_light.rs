@@ -17,6 +17,8 @@ use crate::cluster::{ClusterVisibilityClass, GlobalVisibleClusterableObjects};
 /// Behaves like a point light in a perfectly absorbent housing that
 /// shines light only in a given direction. The direction is taken from
 /// the transform, and can be specified with [`Transform::looking_at`](Transform::looking_at).
+///
+/// To control the resolution of the shadow maps, use the [`crate::DirectionalLightShadowMap`] resource.
 #[derive(Component, Debug, Clone, Copy, Reflect)]
 #[reflect(Component, Default, Debug, Clone)]
 #[require(Frustum, VisibleMeshEntities, Transform, Visibility, VisibilityClass)]
@@ -171,19 +173,15 @@ pub fn orthonormalize(z_basis: Dir3) -> Mat3 {
     let y_basis = Vec3::new(b, sign + z_basis.y * z_basis.y * a, -z_basis.y);
     Mat3::from_cols(x_basis, y_basis, z_basis.into())
 }
-/// Constructs a left-handed orthonormal basis with translation, using only the forward direction and translation of a given [`GlobalTransform`].
+/// Constructs a right-handed orthonormal basis with translation, using only the forward direction and translation of a given [`GlobalTransform`].
 ///
-/// This is a handedness-inverted version of [`orthonormalize`] which also includes translation.
-/// we mirror this construction in the fragment shader and need our implementations to match exactly.
-// See bevy_pbr/shadows.wgsl:spot_light_world_from_view
+/// This is a version of [`orthonormalize`] which also includes translation.
 pub fn spot_light_world_from_view(transform: &GlobalTransform) -> Mat4 {
     // the matrix z_local (opposite of transform.forward())
     let fwd_dir = transform.back();
 
     let basis = orthonormalize(fwd_dir);
     let mut mat = Mat4::from_mat3(basis);
-    // handedness flip
-    mat.x_axis = -mat.x_axis;
     mat.w_axis = transform.translation().extend(1.0);
     mat
 }

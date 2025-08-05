@@ -88,8 +88,8 @@ pub mod prelude {
     };
     #[doc(hidden)]
     pub use bevy_light::{
-        light_consts, AmbientLight, DirectionalLight, EnvironmentMapLight, LightProbe, PointLight,
-        SpotLight,
+        light_consts, AmbientLight, DirectionalLight, EnvironmentMapLight,
+        GeneratedEnvironmentMapLight, LightProbe, PointLight, SpotLight,
     };
 }
 
@@ -133,10 +133,12 @@ pub mod graph {
 
 use crate::{deferred::DeferredPbrLightingPlugin, graph::NodePbr};
 use bevy_app::prelude::*;
-use bevy_asset::{AssetApp, AssetPath, Assets, Handle};
+use bevy_asset::{AssetApp, AssetPath, Assets, Handle, RenderAssetUsages};
 use bevy_core_pipeline::core_3d::graph::{Core3d, Node3d};
 use bevy_ecs::prelude::*;
-use bevy_image::Image;
+#[cfg(feature = "bluenoise_texture")]
+use bevy_image::{CompressedImageFormats, ImageType};
+use bevy_image::{Image, ImageSampler};
 use bevy_render::{
     alpha::AlphaMode,
     camera::{sort_cameras, Projection},
@@ -144,7 +146,10 @@ use bevy_render::{
     extract_resource::ExtractResourcePlugin,
     load_shader_library,
     render_graph::RenderGraph,
-    render_resource::ShaderRef,
+    render_resource::{
+        Extent3d, ShaderRef, TextureDataOrder, TextureDescriptor, TextureDimension, TextureFormat,
+        TextureUsages,
+    },
     sync_component::SyncComponentPlugin,
     ExtractSchedule, Render, RenderApp, RenderDebugFlags, RenderStartup, RenderSystems,
 };
@@ -183,6 +188,13 @@ impl Default for PbrPlugin {
             debug_flags: RenderDebugFlags::default(),
         }
     }
+}
+
+/// A resource that stores the spatio-temporal blue noise texture.
+#[derive(Resource)]
+pub struct Bluenoise {
+    /// Texture handle for spatio-temporal blue noise
+    pub texture: Handle<Image>,
 }
 
 impl Plugin for PbrPlugin {
@@ -273,6 +285,36 @@ impl Plugin for PbrPlugin {
                 },
             );
 
+        let has_bluenoise = app
+            .get_sub_app(RenderApp)
+            .is_some_and(|render_app| render_app.world().is_resource_added::<Bluenoise>());
+
+        if !has_bluenoise {
+            let mut images = app.world_mut().resource_mut::<Assets<Image>>();
+            #[cfg(feature = "bluenoise_texture")]
+            let handle = {
+                let image = Image::from_buffer(
+                    include_bytes!("bluenoise/stbn.ktx2"),
+                    ImageType::Extension("ktx2"),
+                    CompressedImageFormats::NONE,
+                    false,
+                    ImageSampler::Default,
+                    RenderAssetUsages::RENDER_WORLD,
+                )
+                .expect("Failed to decode embedded blue-noise texture");
+                images.add(image)
+            };
+
+            #[cfg(not(feature = "bluenoise_texture"))]
+            let handle = { images.add(stbn_placeholder()) };
+
+            if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
+                render_app
+                    .world_mut()
+                    .insert_resource(Bluenoise { texture: handle });
+            }
+        }
+
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
         };
@@ -333,5 +375,28 @@ impl Plugin for PbrPlugin {
 
         let global_cluster_settings = make_global_cluster_settings(render_app.world());
         app.insert_resource(global_cluster_settings);
+    }
+}
+
+pub fn stbn_placeholder() -> Image {
+    let format = TextureFormat::Rgba8Unorm;
+    let data = vec![255, 0, 255, 255];
+    Image {
+        data: Some(data),
+        data_order: TextureDataOrder::default(),
+        texture_descriptor: TextureDescriptor {
+            size: Extent3d::default(),
+            format,
+            dimension: TextureDimension::D2,
+            label: None,
+            mip_level_count: 1,
+            sample_count: 1,
+            usage: TextureUsages::TEXTURE_BINDING,
+            view_formats: &[],
+        },
+        sampler: ImageSampler::Default,
+        texture_view_descriptor: None,
+        asset_usage: RenderAssetUsages::RENDER_WORLD,
+        copy_on_resize: false,
     }
 }

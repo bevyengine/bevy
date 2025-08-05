@@ -123,7 +123,7 @@ use bitflags::bitflags;
 use core::ops::{Deref, DerefMut};
 use std::sync::Mutex;
 use tracing::debug;
-use wgpu_wrapper::WgpuWrapper;
+pub use wgpu_wrapper::WgpuWrapper;
 
 /// Inline shader as an `embedded_asset` and load it permanently.
 ///
@@ -360,6 +360,7 @@ impl Plugin for RenderPlugin {
                         let instance = wgpu::Instance::new(&wgpu::InstanceDescriptor {
                             backends,
                             flags: settings.instance_flags,
+                            memory_budget_thresholds: settings.instance_memory_budget_thresholds,
                             backend_options: wgpu::BackendOptions {
                                 gl: wgpu::GlBackendOptions {
                                     gles_minor_version: settings.gles3_minor_version,
