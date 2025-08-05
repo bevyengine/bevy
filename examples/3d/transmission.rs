@@ -45,8 +45,9 @@ use rand::random;
 
 fn main() {
     App::new()
-        .add_plugins(DefaultPlugins.set(bevy::light::LightPlugin {
+        .add_plugins(DefaultPlugins.set(bevy::pbr::PbrPlugin {
             default_environment_map_light: false,
+            ..default()
         }))
         .insert_resource(ClearColor(Color::BLACK))
         .insert_resource(PointLightShadowMap { size: 2048 })

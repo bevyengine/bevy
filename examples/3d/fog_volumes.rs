@@ -24,8 +24,9 @@ fn main() {
                     }),
                     ..default()
                 })
-                .set(bevy::light::LightPlugin {
+                .set(bevy::pbr::PbrPlugin {
                     default_environment_map_light: false,
+                    ..default()
                 }),
         )
         .add_systems(Startup, setup)
