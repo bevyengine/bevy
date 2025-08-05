@@ -197,6 +197,9 @@ mod tests {
             .insert(&scene_handle, scene_1);
 
         app.update();
+        app.update();
+        app.update();
+        app.update();
 
         let child_root = app
             .world()
@@ -334,6 +337,9 @@ mod tests {
             .resource_mut::<Assets<DynamicScene>>()
             .insert(&scene_handle, scene_1);
 
+        app.update();
+        app.update();
+        app.update();
         app.update();
 
         let child_root = app
