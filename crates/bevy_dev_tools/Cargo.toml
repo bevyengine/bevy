@@ -40,6 +40,7 @@ bevy_window = { path = "../bevy_window", version = "0.17.0-dev" }
 bevy_scene = { version = "0.17.0-dev", path = "../bevy_scene" }
 bevy_state = { path = "../bevy_state", version = "0.17.0-dev" }
 bevy_remote = { path = "../bevy_remote", version = "0.17.0-dev" }
+bevy_winit = { path = "../bevy_winit", version = "0.17.0-dev" }
 
 # other
 serde = { version = "1.0", features = ["derive"] }
@@ -56,6 +57,16 @@ anyhow = "1.0"
 futures = "0.3"
 
 
+
+[[example]]
+name = "basic_example"
+path = "examples/inspector/basic_example.rs"
+required-features = []
+
+[[example]]
+name = "target_app"
+path = "examples/inspector/target_app.rs"
+required-features = []
 
 [lints]
 workspace = true

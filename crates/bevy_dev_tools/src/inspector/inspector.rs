@@ -8,7 +8,8 @@ use bevy_camera::Camera2d;
 use bevy_text::{TextFont, TextColor};
 use super::http_client::*;
 use super::ui::*;
-use super::ui::virtual_scrolling::{handle_infinite_scroll_input, update_infinite_scrolling_display, update_scroll_momentum, update_scrollbar_indicator, VirtualScrollState, CustomScrollPosition};
+use super::ui::virtual_scrolling::{handle_infinite_scroll_input, update_infinite_scrolling_display, update_scroll_momentum, update_scrollbar_indicator, setup_virtual_scrolling, VirtualScrollState, CustomScrollPosition};
+use super::ui::entity_list::EntityListVirtualState;
 
 /// Main plugin for the remote inspector
 pub struct InspectorPlugin;
@@ -23,6 +24,7 @@ impl Plugin for InspectorPlugin {
             .init_resource::<ComponentCache>()
             .init_resource::<VirtualScrollState>()
             .init_resource::<CustomScrollPosition>()
+            .init_resource::<EntityListVirtualState>()
             
             // Startup systems
             .add_systems(Startup, (

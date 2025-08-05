@@ -48,12 +48,15 @@ pub fn handle_entity_selection(
         println!("Entity selection system: {} buttons available", all_buttons.iter().count());
     }
     
-    // Only process actual clicks, not hover events
+    // Only process actual clicks, not hover events, and prevent duplicate selections
     for (interaction, item) in interaction_query.iter() {
         match *interaction {
             Interaction::Pressed => {
-                selected_entity.entity_id = Some(item.entity_id);
-                println!("Selected entity: {}", item.entity_id);
+                // Only update if it's actually a different entity
+                if selected_entity.entity_id != Some(item.entity_id) {
+                    selected_entity.entity_id = Some(item.entity_id);
+                    println!("Selected entity: {}", item.entity_id);
+                }
             }
             // Don't spam logs for None/Hovered states
             _ => {}
@@ -104,26 +107,27 @@ pub fn spawn_entity_list(commands: &mut Commands, parent: Entity) -> Entity {
             },
         ));
         
-        // Scrollable container with mouse wheel support
+        // Outer scrollable container (React Virtualized style) - VIEWPORT with fixed height
         parent.spawn((
             EntityListContainer,
             Node {
                 width: Val::Percent(100.0),
                 flex_grow: 1.0,
-                flex_direction: FlexDirection::Column,
-                overflow: Overflow::scroll_y(),
+                position_type: PositionType::Relative, // Outer container: relative positioning
+                overflow: Overflow::scroll_y(), // Scrollbars on outer container
                 ..Default::default()
             },
             ScrollPosition::default(),
             BackgroundColor(Color::srgb(0.05, 0.05, 0.05)),
         )).with_children(|parent| {
-            // Virtual scrolling content - this will be dynamically populated
+            // Inner content container (React Virtualized style) - FULL CONTENT HEIGHT
             parent.spawn((
                 EntityListVirtualContent,
                 Node {
                     width: Val::Percent(100.0),
-                    flex_direction: FlexDirection::Column,
-                    // Remove min_height - let virtual scrolling control the size
+                    height: Val::Px(0.0), // Will be set dynamically to full content height
+                    position_type: PositionType::Relative, // Inner container: relative positioning
+                    overflow: Overflow::hidden(), // Hidden overflow on inner container
                     ..Default::default()
                 },
             ));
