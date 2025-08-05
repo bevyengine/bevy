@@ -9,7 +9,7 @@ use bevy_ecs::{
 use bevy_image::ToExtents;
 use bevy_math::UVec2;
 use bevy_render::{
-    camera::ExtractedCamera,
+    camera::{ExtractedCamera, MainPassResolutionOverride},
     render_resource::{
         Buffer, BufferDescriptor, BufferUsages, Texture, TextureDescriptor, TextureDimension,
         TextureUsages, TextureView, TextureViewDescriptor,
@@ -48,16 +48,24 @@ pub struct SolariLightingResources {
 
 pub fn prepare_solari_lighting_resources(
     query: Query<
-        (Entity, &ExtractedCamera, Option<&SolariLightingResources>),
+        (
+            Entity,
+            &ExtractedCamera,
+            Option<&SolariLightingResources>,
+            Option<&MainPassResolutionOverride>,
+        ),
         With<SolariLighting>,
     >,
     render_device: Res<RenderDevice>,
     mut commands: Commands,
 ) {
-    for (entity, camera, solari_lighting_resources) in &query {
-        let Some(view_size) = camera.physical_viewport_size else {
+    for (entity, camera, solari_lighting_resources, resolution_override) in &query {
+        let Some(mut view_size) = camera.physical_viewport_size else {
             continue;
         };
+        if let Some(MainPassResolutionOverride(resolution_override)) = resolution_override {
+            view_size = *resolution_override;
+        }
 
         if solari_lighting_resources.map(|r| r.view_size) == Some(view_size) {
             continue;

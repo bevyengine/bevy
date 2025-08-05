@@ -61,7 +61,6 @@ async_executor = ["std", "bevy_tasks/async_executor"]
 ## supported platforms.
 std = [
   "bevy_reflect?/std",
-  "bevy_tasks/std",
   "bevy_utils/parallel",
   "bevy_utils/std",
   "bitflags/std",
@@ -78,7 +77,6 @@ std = [
 ## `critical-section` provides the building blocks for synchronization primitives
 ## on all platforms, including `no_std`.
 critical-section = [
-  "bevy_tasks/critical-section",
   "bevy_platform/critical-section",
   "bevy_reflect?/critical-section",
 ]

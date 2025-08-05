@@ -47,14 +47,12 @@ std = [
   "bevy_ecs/std",
   "dep:ctrlc",
   "downcast-rs/std",
-  "bevy_tasks/std",
   "bevy_platform/std",
 ]
 
 ## `critical-section` provides the building blocks for synchronization primitives
 ## on all platforms, including `no_std`.
 critical-section = [
-  "bevy_tasks/critical-section",
   "bevy_ecs/critical-section",
   "bevy_platform/critical-section",
   "bevy_reflect?/critical-section",
@@ -64,7 +62,6 @@ critical-section = [
 ## Note this is currently only applicable on `wasm32` architectures.
 web = [
   "bevy_platform/web",
-  "bevy_tasks/web",
   "bevy_reflect?/web",
   "dep:wasm-bindgen",
   "dep:web-sys",
