@@ -2805,28 +2805,6 @@ There are also compute shaders which are used for more general processing levera
 """
 
 [[example]]
-name = "custom_vertex_attribute"
-path = "examples/shader_advanced/custom_vertex_attribute.rs"
-doc-scrape-examples = true
-
-[package.metadata.example.custom_vertex_attribute]
-name = "Custom Vertex Attribute"
-description = "A shader that reads a mesh's custom vertex attribute"
-category = "Shaders"
-wasm = true
-
-[[example]]
-name = "custom_post_processing"
-path = "examples/shader_advanced/custom_post_processing.rs"
-doc-scrape-examples = true
-
-[package.metadata.example.custom_post_processing]
-name = "Post Processing - Custom Render Pass"
-description = "A custom post processing effect, using a custom render pass that runs after the main pass"
-category = "Shaders"
-wasm = true
-
-[[example]]
 name = "shader_defs"
 path = "examples/shader/shader_defs.rs"
 doc-scrape-examples = true
@@ -2917,29 +2895,6 @@ category = "Shaders"
 wasm = true
 
 [[example]]
-name = "custom_shader_instancing"
-path = "examples/shader_advanced/custom_shader_instancing.rs"
-doc-scrape-examples = true
-
-[package.metadata.example.custom_shader_instancing]
-name = "Instancing"
-description = "A shader that renders a mesh multiple times in one draw call using low level rendering api"
-category = "Shaders"
-wasm = true
-
-[[example]]
-name = "custom_render_phase"
-path = "examples/shader_advanced/custom_render_phase.rs"
-doc-scrape-examples = true
-
-[package.metadata.example.custom_render_phase]
-name = "Custom Render Phase"
-description = "Shows how to make a complete render phase"
-category = "Shaders"
-wasm = true
-
-
-[[example]]
 name = "automatic_instancing"
 path = "examples/shader/automatic_instancing.rs"
 doc-scrape-examples = true
@@ -2995,6 +2950,70 @@ category = "Shaders"
 wasm = true
 
 [[example]]
+name = "storage_buffer"
+path = "examples/shader/storage_buffer.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.storage_buffer]
+name = "Storage Buffer"
+description = "A shader that shows how to bind a storage buffer using a custom material."
+category = "Shaders"
+wasm = true
+
+# Shaders advanced
+[[package.metadata.example_category]]
+name = "Shaders"
+description = """
+These examples demonstrate how to use the lower level rendering apis exposed from bevy.
+
+These are generally simplified examples of bevy's own rendering infrastructure.
+"""
+
+[[example]]
+name = "custom_vertex_attribute"
+path = "examples/shader_advanced/custom_vertex_attribute.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.custom_vertex_attribute]
+name = "Custom Vertex Attribute"
+description = "A shader that reads a mesh's custom vertex attribute"
+category = "Shaders"
+wasm = true
+
+[[example]]
+name = "custom_post_processing"
+path = "examples/shader_advanced/custom_post_processing.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.custom_post_processing]
+name = "Post Processing - Custom Render Pass"
+description = "A custom post processing effect, using a custom render pass that runs after the main pass"
+category = "Shaders"
+wasm = true
+
+[[example]]
+name = "custom_shader_instancing"
+path = "examples/shader_advanced/custom_shader_instancing.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.custom_shader_instancing]
+name = "Instancing"
+description = "A shader that renders a mesh multiple times in one draw call using low level rendering api"
+category = "Shaders"
+wasm = true
+
+[[example]]
+name = "custom_render_phase"
+path = "examples/shader_advanced/custom_render_phase.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.custom_render_phase]
+name = "Custom Render Phase"
+description = "Shows how to make a complete render phase"
+category = "Shaders"
+wasm = true
+
+[[example]]
 name = "texture_binding_array"
 path = "examples/shader_advanced/texture_binding_array.rs"
 doc-scrape-examples = true
@@ -3005,16 +3024,6 @@ description = "A shader that shows how to bind and sample multiple textures as a
 category = "Shaders"
 wasm = false
 
-[[example]]
-name = "storage_buffer"
-path = "examples/shader/storage_buffer.rs"
-doc-scrape-examples = true
-
-[package.metadata.example.storage_buffer]
-name = "Storage Buffer"
-description = "A shader that shows how to bind a storage buffer using a custom material."
-category = "Shaders"
-wasm = true
 
 [[example]]
 name = "specialized_mesh_pipeline"
