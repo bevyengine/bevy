@@ -20,7 +20,7 @@ use bevy_render::{
     extract_component::{ExtractComponent, ExtractComponentPlugin, UniformComponentPlugin},
     render_graph::{RenderGraphExt, ViewNodeRunner},
     render_resource::{ShaderType, SpecializedRenderPipelines},
-    Render, RenderApp, RenderSystems,
+    Render, RenderApp, RenderStartup, RenderSystems,
 };
 
 pub mod node;
@@ -143,6 +143,7 @@ impl Plugin for MotionBlurPlugin {
 
         render_app
             .init_resource::<SpecializedRenderPipelines<pipeline::MotionBlurPipeline>>()
+            .add_systems(RenderStartup, pipeline::init_motion_blur_pipeline)
             .add_systems(
                 Render,
                 pipeline::prepare_motion_blur_pipelines.in_set(RenderSystems::Prepare),
@@ -161,13 +162,5 @@ impl Plugin for MotionBlurPlugin {
                     Node3d::Bloom, // we want blurred areas to bloom and tonemap properly.
                 ),
             );
-    }
-
-    fn finish(&self, app: &mut App) {
-        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
-            return;
-        };
-
-        render_app.init_resource::<pipeline::MotionBlurPipeline>();
     }
 }

@@ -63,16 +63,26 @@ fn mat4x4_to_mat3x3(m: mat4x4<f32>) -> mat3x3<f32> {
     return mat3x3<f32>(m[0].xyz, m[1].xyz, m[2].xyz);
 }
 
-// Creates an orthonormal basis given a Z vector and an up vector (which becomes
-// Y after orthonormalization).
+// Copy the sign bit from B onto A.
+// copysign allows proper handling of negative zero to match the rust implementation of orthonormalize
+fn copysign(a: f32, b: f32) -> f32 {
+    return bitcast<f32>((bitcast<u32>(a) & 0x7FFFFFFF) | (bitcast<u32>(b) & 0x80000000));
+}
+
+// Constructs a right-handed orthonormal basis from a given unit Z vector.
 //
-// The results are equivalent to the Gram-Schmidt process [1].
+// NOTE: requires unit-length (normalized) input to function properly.
 //
-// [1]: https://math.stackexchange.com/a/1849294
-fn orthonormalize(z_unnormalized: vec3<f32>, up: vec3<f32>) -> mat3x3<f32> {
-    let z_basis = normalize(z_unnormalized);
-    let x_basis = normalize(cross(z_basis, up));
-    let y_basis = cross(z_basis, x_basis);
+// https://jcgt.org/published/0006/01/01/paper.pdf
+// this method of constructing a basis from a vec3 is also used by `glam::Vec3::any_orthonormal_pair`
+// the construction of the orthonormal basis up and right vectors here needs to precisely match the rust
+// implementation in bevy_light/spot_light.rs:spot_light_world_from_view
+fn orthonormalize(z_basis: vec3<f32>) -> mat3x3<f32> {
+    let sign = copysign(1.0, z_basis.z);
+    let a = -1.0 / (sign + z_basis.z);
+    let b = z_basis.x * z_basis.y * a;
+    let x_basis = vec3(1.0 + sign * z_basis.x * z_basis.x * a, sign * b, -sign * z_basis.x);
+    let y_basis = vec3(b, sign + z_basis.y * z_basis.y * a, -z_basis.y);
     return mat3x3(x_basis, y_basis, z_basis);
 }
 

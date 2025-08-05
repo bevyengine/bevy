@@ -9,8 +9,7 @@ use bevy::{
     pbr::{decal, DirectionalLightTexture, NotShadowCaster, PointLightTexture, SpotLightTexture},
     prelude::*,
     render::renderer::{RenderAdapter, RenderDevice},
-    window::SystemCursorIcon,
-    winit::cursor::CursorIcon,
+    window::{CursorIcon, SystemCursorIcon},
 };
 use light_consts::lux::{AMBIENT_DAYLIGHT, CLEAR_SUNRISE};
 use ops::{acos, cos, sin};
@@ -540,14 +539,16 @@ fn process_scale_input(
 
     for (mut transform, selection) in &mut scale_selections {
         if app_status.selection == *selection {
-            transform.scale *= 1.0 + mouse_motion.delta.x * SCALE_SPEED;
+            transform.scale = (transform.scale * (1.0 + mouse_motion.delta.x * SCALE_SPEED))
+                .clamp(Vec3::splat(0.01), Vec3::splat(5.0));
         }
     }
 
     for (mut spotlight, selection) in &mut spotlight_selections {
         if app_status.selection == *selection {
-            spotlight.outer_angle =
-                (spotlight.outer_angle * (1.0 + mouse_motion.delta.x * SCALE_SPEED)).min(FRAC_PI_4);
+            spotlight.outer_angle = (spotlight.outer_angle
+                * (1.0 + mouse_motion.delta.x * SCALE_SPEED))
+                .clamp(0.01, FRAC_PI_4);
             spotlight.inner_angle = spotlight.outer_angle;
         }
     }

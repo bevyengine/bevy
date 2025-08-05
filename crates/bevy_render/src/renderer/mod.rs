@@ -1,13 +1,13 @@
 mod graph_runner;
 mod render_device;
 
+use crate::WgpuWrapper;
 use bevy_derive::{Deref, DerefMut};
 #[cfg(not(all(target_arch = "wasm32", target_feature = "atomics")))]
 use bevy_tasks::ComputeTaskPool;
-use bevy_utils::WgpuWrapper;
 pub use graph_runner::*;
 pub use render_device::*;
-use tracing::{debug, error, info, info_span, trace, warn};
+use tracing::{debug, error, info, info_span, warn};
 
 use crate::{
     diagnostic::{internal::DiagnosticsRecorder, RecordDiagnostics},
@@ -37,16 +37,12 @@ pub fn render_system(world: &mut World, state: &mut SystemState<Query<Entity, Wi
     let graph = world.resource::<RenderGraph>();
     let render_device = world.resource::<RenderDevice>();
     let render_queue = world.resource::<RenderQueue>();
-    #[cfg(not(all(target_arch = "wasm32", target_feature = "atomics")))]
-    let render_adapter = world.resource::<RenderAdapter>();
 
     let res = RenderGraphRunner::run(
         graph,
         render_device.clone(), // TODO: is this clone really necessary?
         diagnostics_recorder,
         &render_queue.0,
-        #[cfg(not(all(target_arch = "wasm32", target_feature = "atomics")))]
-        &render_adapter.0,
         world,
         |encoder| {
             crate::view::screenshot::submit_screenshot_commands(world, encoder);
@@ -145,6 +141,33 @@ const GPU_NOT_FOUND_ERROR_MESSAGE: &str = if cfg!(target_os = "linux") {
     "Unable to find a GPU! Make sure you have installed required drivers!"
 };
 
+#[cfg(not(target_family = "wasm"))]
+fn find_adapter_by_name(
+    instance: &Instance,
+    options: &WgpuSettings,
+    compatible_surface: Option<&wgpu::Surface<'_>>,
+    adapter_name: &str,
+) -> Option<Adapter> {
+    for adapter in
+        instance.enumerate_adapters(options.backends.expect(
+            "The `backends` field of `WgpuSettings` must be set to use a specific adapter.",
+        ))
+    {
+        tracing::trace!("Checking adapter: {:?}", adapter.get_info());
+        let info = adapter.get_info();
+        if let Some(surface) = compatible_surface {
+            if !adapter.is_surface_supported(surface) {
+                continue;
+            }
+        }
+
+        if info.name.eq_ignore_ascii_case(adapter_name) {
+            return Some(adapter);
+        }
+    }
+    None
+}
+
 /// Initializes the renderer by retrieving and preparing the GPU instance, device and queue
 /// for the specified backend.
 pub async fn initialize_renderer(
@@ -153,36 +176,30 @@ pub async fn initialize_renderer(
     request_adapter_options: &RequestAdapterOptions<'_, '_>,
     desired_adapter_name: Option<String>,
 ) -> (RenderDevice, RenderQueue, RenderAdapterInfo, RenderAdapter) {
+    #[cfg(not(target_family = "wasm"))]
+    let mut selected_adapter = desired_adapter_name.and_then(|adapter_name| {
+        find_adapter_by_name(
+            instance,
+            options,
+            request_adapter_options.compatible_surface,
+            &adapter_name,
+        )
+    });
+    #[cfg(target_family = "wasm")]
     let mut selected_adapter = None;
-    if let Some(adapter_name) = &desired_adapter_name {
-        debug!("Searching for adapter with name: {}", adapter_name);
-        for adapter in instance.enumerate_adapters(options.backends.expect(
-            "The `backends` field of `WgpuSettings` must be set to use a specific adapter.",
-        )) {
-            trace!("Checking adapter: {:?}", adapter.get_info());
-            let info = adapter.get_info();
-            if let Some(surface) = request_adapter_options.compatible_surface {
-                if !adapter.is_surface_supported(surface) {
-                    continue;
-                }
-            }
 
-            if info
-                .name
-                .to_lowercase()
-                .contains(&adapter_name.to_lowercase())
-            {
-                selected_adapter = Some(adapter);
-                break;
-            }
-        }
-    } else {
+    #[cfg(target_family = "wasm")]
+    if desired_adapter_name.is_some() {
+        warn!("Choosing an adapter is not supported on wasm.");
+    }
+
+    if selected_adapter.is_none() {
         debug!(
             "Searching for adapter with options: {:?}",
             request_adapter_options
         );
         selected_adapter = instance.request_adapter(request_adapter_options).await.ok();
-    };
+    }
 
     let adapter = selected_adapter.expect(GPU_NOT_FOUND_ERROR_MESSAGE);
     let adapter_info = adapter.get_info();
@@ -322,6 +339,15 @@ pub async fn initialize_renderer(
             max_non_sampler_bindings: limits
                 .max_non_sampler_bindings
                 .min(constrained_limits.max_non_sampler_bindings),
+            max_blas_primitive_count: limits
+                .max_blas_primitive_count
+                .min(constrained_limits.max_blas_primitive_count),
+            max_blas_geometry_count: limits
+                .max_blas_geometry_count
+                .min(constrained_limits.max_blas_geometry_count),
+            max_tlas_instance_count: limits
+                .max_tlas_instance_count
+                .min(constrained_limits.max_tlas_instance_count),
             max_color_attachments: limits
                 .max_color_attachments
                 .min(constrained_limits.max_color_attachments),
@@ -334,6 +360,7 @@ pub async fn initialize_renderer(
             max_subgroup_size: limits
                 .max_subgroup_size
                 .min(constrained_limits.max_subgroup_size),
+            max_acceleration_structures_per_shader_stage: 0,
         };
     }
 
@@ -366,8 +393,6 @@ pub struct RenderContext<'w> {
     render_device: RenderDevice,
     command_encoder: Option<CommandEncoder>,
     command_buffer_queue: Vec<QueuedCommandBuffer<'w>>,
-    #[cfg(not(all(target_arch = "wasm32", target_feature = "atomics")))]
-    force_serial: bool,
     diagnostics_recorder: Option<Arc<DiagnosticsRecorder>>,
 }
 
@@ -375,30 +400,12 @@ impl<'w> RenderContext<'w> {
     /// Creates a new [`RenderContext`] from a [`RenderDevice`].
     pub fn new(
         render_device: RenderDevice,
-        #[cfg(not(all(target_arch = "wasm32", target_feature = "atomics")))]
-        adapter_info: AdapterInfo,
         diagnostics_recorder: Option<DiagnosticsRecorder>,
     ) -> Self {
-        // HACK: Parallel command encoding is currently bugged on AMD + Windows/Linux + Vulkan
-        #[cfg(any(target_os = "windows", target_os = "linux"))]
-        let force_serial =
-            adapter_info.driver.contains("AMD") && adapter_info.backend == wgpu::Backend::Vulkan;
-        #[cfg(not(any(
-            target_os = "windows",
-            target_os = "linux",
-            all(target_arch = "wasm32", target_feature = "atomics")
-        )))]
-        let force_serial = {
-            drop(adapter_info);
-            false
-        };
-
         Self {
             render_device,
             command_encoder: None,
             command_buffer_queue: Vec::new(),
-            #[cfg(not(all(target_arch = "wasm32", target_feature = "atomics")))]
-            force_serial,
             diagnostics_recorder: diagnostics_recorder.map(Arc::new),
         }
     }
@@ -501,14 +508,9 @@ impl<'w> RenderContext<'w> {
                         }
                         QueuedCommandBuffer::Task(command_buffer_generation_task) => {
                             let render_device = self.render_device.clone();
-                            if self.force_serial {
-                                command_buffers
-                                    .push((i, command_buffer_generation_task(render_device)));
-                            } else {
-                                task_pool.spawn(async move {
-                                    (i, command_buffer_generation_task(render_device))
-                                });
-                            }
+                            task_pool.spawn(async move {
+                                (i, command_buffer_generation_task(render_device))
+                            });
                         }
                     }
                 }

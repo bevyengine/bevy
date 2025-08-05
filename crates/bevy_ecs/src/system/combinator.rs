@@ -3,7 +3,7 @@ use bevy_utils::prelude::DebugName;
 use core::marker::PhantomData;
 
 use crate::{
-    component::{CheckChangeTicks, ComponentId, Tick},
+    component::{CheckChangeTicks, Tick},
     prelude::World,
     query::FilteredAccessSet,
     schedule::InternedSystemSet,
@@ -203,7 +203,7 @@ where
         unsafe { self.a.validate_param_unsafe(world) }
     }
 
-    fn initialize(&mut self, world: &mut World) -> FilteredAccessSet<ComponentId> {
+    fn initialize(&mut self, world: &mut World) -> FilteredAccessSet {
         let mut a_access = self.a.initialize(world);
         let b_access = self.b.initialize(world);
         a_access.extend(b_access);
@@ -252,6 +252,7 @@ where
 }
 
 /// An [`IntoSystem`] creating an instance of [`PipeSystem`].
+#[derive(Clone)]
 pub struct IntoPipeSystem<A, B> {
     a: A,
     b: B,
@@ -401,7 +402,7 @@ where
         unsafe { self.a.validate_param_unsafe(world) }
     }
 
-    fn initialize(&mut self, world: &mut World) -> FilteredAccessSet<ComponentId> {
+    fn initialize(&mut self, world: &mut World) -> FilteredAccessSet {
         let mut a_access = self.a.initialize(world);
         let b_access = self.b.initialize(world);
         a_access.extend(b_access);

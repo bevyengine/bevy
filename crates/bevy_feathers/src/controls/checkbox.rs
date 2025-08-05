@@ -1,5 +1,5 @@
 use bevy_app::{Plugin, PreUpdate};
-use bevy_core_widgets::{Callback, CoreCheckbox};
+use bevy_core_widgets::{Callback, CoreCheckbox, ValueChange};
 use bevy_ecs::{
     bundle::Bundle,
     children,
@@ -8,6 +8,7 @@ use bevy_ecs::{
     hierarchy::{ChildOf, Children},
     lifecycle::RemovedComponents,
     query::{Added, Changed, Has, Or, With},
+    reflect::ReflectComponent,
     schedule::IntoScheduleConfigs,
     spawn::{Spawn, SpawnRelated, SpawnableList},
     system::{Commands, In, Query},
@@ -15,15 +16,16 @@ use bevy_ecs::{
 use bevy_input_focus::tab_navigation::TabIndex;
 use bevy_math::Rot2;
 use bevy_picking::{hover::Hovered, PickingSystems};
+use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_render::view::Visibility;
 use bevy_ui::{
     AlignItems, BorderRadius, Checked, Display, FlexDirection, InteractionDisabled, JustifyContent,
     Node, PositionType, UiRect, UiTransform, Val,
 };
-use bevy_winit::cursor::CursorIcon;
 
 use crate::{
     constants::{fonts, size},
+    cursor::EntityCursor,
     font_styles::InheritableFont,
     handle_or_path::HandleOrPath,
     theme::{ThemeBackgroundColor, ThemeBorderColor, ThemeFontColor},
@@ -34,19 +36,22 @@ use crate::{
 #[derive(Default)]
 pub struct CheckboxProps {
     /// Change handler
-    pub on_change: Callback<In<bool>>,
+    pub on_change: Callback<In<ValueChange<bool>>>,
 }
 
 /// Marker for the checkbox frame (contains both checkbox and label)
-#[derive(Component, Default, Clone)]
+#[derive(Component, Default, Clone, Reflect)]
+#[reflect(Component, Clone, Default)]
 struct CheckboxFrame;
 
 /// Marker for the checkbox outline
-#[derive(Component, Default, Clone)]
+#[derive(Component, Default, Clone, Reflect)]
+#[reflect(Component, Clone, Default)]
 struct CheckboxOutline;
 
 /// Marker for the checkbox check mark
-#[derive(Component, Default, Clone)]
+#[derive(Component, Default, Clone, Reflect)]
+#[reflect(Component, Clone, Default)]
 struct CheckboxMark;
 
 /// Template function to spawn a checkbox.
@@ -74,7 +79,7 @@ pub fn checkbox<C: SpawnableList<ChildOf> + Send + Sync + 'static, B: Bundle>(
         },
         CheckboxFrame,
         Hovered::default(),
-        CursorIcon::System(bevy_window::SystemCursorIcon::Pointer),
+        EntityCursor::System(bevy_window::SystemCursorIcon::Pointer),
         TabIndex(0),
         ThemeFontColor(tokens::CHECKBOX_TEXT),
         InheritableFont {

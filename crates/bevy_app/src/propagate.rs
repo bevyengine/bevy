@@ -2,6 +2,8 @@ use alloc::vec::Vec;
 use core::marker::PhantomData;
 
 use crate::{App, Plugin, Update};
+#[cfg(feature = "bevy_reflect")]
+use bevy_ecs::reflect::ReflectComponent;
 use bevy_ecs::{
     component::Component,
     entity::Entity,
@@ -12,6 +14,8 @@ use bevy_ecs::{
     schedule::{IntoScheduleConfigs, SystemSet},
     system::{Commands, Local, Query},
 };
+#[cfg(feature = "bevy_reflect")]
+use bevy_reflect::Reflect;
 
 /// Plugin to automatically propagate a component value to all direct and transient relationship
 /// targets (e.g. [`bevy_ecs::hierarchy::Children`]) of entities with a [`Propagate`] component.
@@ -28,6 +32,11 @@ use bevy_ecs::{
 /// to reach a given target.
 /// Individual entities can be skipped or terminate the propagation with the [`PropagateOver`]
 /// and [`PropagateStop`] components.
+///
+/// Propagation occurs during [`Update`] in the [`PropagateSet<C>`] system set.
+/// You should be sure to schedule your logic relative to this set: making changes
+/// that modify component values before this logic, and reading the propagated
+/// values after it.
 pub struct HierarchyPropagatePlugin<
     C: Component + Clone + PartialEq,
     F: QueryFilter = (),
@@ -38,15 +47,22 @@ pub struct HierarchyPropagatePlugin<
 /// targets. A target with a [`Propagate<C>`] component of its own will override propagation from
 /// that point in the tree.
 #[derive(Component, Clone, PartialEq)]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Component, Clone, PartialEq)
+)]
 pub struct Propagate<C: Component + Clone + PartialEq>(pub C);
 
 /// Stops the output component being added to this entity.
 /// Relationship targets will still inherit the component from this entity or its parents.
 #[derive(Component)]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Component))]
 pub struct PropagateOver<C>(PhantomData<fn() -> C>);
 
 /// Stops the propagation at this entity. Children will not inherit the component.
 #[derive(Component)]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Component))]
 pub struct PropagateStop<C>(PhantomData<fn() -> C>);
 
 /// The set in which propagation systems are added. You can schedule your logic relative to this set.
@@ -57,6 +73,11 @@ pub struct PropagateSet<C: Component + Clone + PartialEq> {
 
 /// Internal struct for managing propagation
 #[derive(Component, Clone, PartialEq)]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Component, Clone, PartialEq)
+)]
 pub struct Inherited<C: Component + Clone + PartialEq>(pub C);
 
 impl<C: Component + Clone + PartialEq, F: QueryFilter, R: Relationship> Default

@@ -1,5 +1,5 @@
 use crate::{
-    component::{CheckChangeTicks, ComponentId, Tick},
+    component::{CheckChangeTicks, Tick},
     error::{BevyError, Result},
     never::Never,
     prelude::FromWorld,
@@ -135,7 +135,7 @@ impl SystemMeta {
 /// # use bevy_ecs::system::SystemState;
 /// # use bevy_ecs::event::Events;
 /// #
-/// # #[derive(Event, BufferedEvent)]
+/// # #[derive(BufferedEvent)]
 /// # struct MyEvent;
 /// # #[derive(Resource)]
 /// # struct MyResource(u32);
@@ -168,7 +168,7 @@ impl SystemMeta {
 /// # use bevy_ecs::system::SystemState;
 /// # use bevy_ecs::event::Events;
 /// #
-/// # #[derive(Event, BufferedEvent)]
+/// # #[derive(BufferedEvent)]
 /// # struct MyEvent;
 /// #[derive(Resource)]
 /// struct CachedSystemState {
@@ -733,7 +733,7 @@ where
     }
 
     #[inline]
-    fn initialize(&mut self, world: &mut World) -> FilteredAccessSet<ComponentId> {
+    fn initialize(&mut self, world: &mut World) -> FilteredAccessSet {
         if let Some(state) = &self.state {
             assert_eq!(
                 state.world_id,

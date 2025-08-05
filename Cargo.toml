@@ -165,6 +165,7 @@ default = [
   "vorbis",
   "webgl2",
   "x11",
+  "wayland",
   "debug",
   "zstd_rust",
 ]
@@ -407,9 +408,6 @@ vorbis = ["bevy_internal/vorbis"]
 # WAV audio format support
 wav = ["bevy_internal/wav"]
 
-# MP3 audio format support (through minimp3)
-minimp3 = ["bevy_internal/minimp3"]
-
 # AAC audio format support (through symphonia)
 symphonia-aac = ["bevy_internal/symphonia-aac"]
 
@@ -582,6 +580,13 @@ gltf_convert_coordinates_default = [
 # Enable collecting debug information about systems and components to help with diagnostics
 debug = ["bevy_internal/debug"]
 
+# Include spatio-temporal blue noise KTX2 file used by generated environment maps, Solari and atmosphere
+bluenoise_texture = [
+  "bevy_internal/bluenoise_texture",
+  "ktx2",
+  "bevy_image/zstd",
+]
+
 [dependencies]
 bevy_internal = { path = "crates/bevy_internal", version = "0.17.0-dev", default-features = false }
 tracing = { version = "0.1", default-features = false, optional = true }
@@ -617,7 +622,7 @@ hyper = { version = "1", features = ["server", "http1"] }
 http-body-util = "0.1"
 anyhow = "1"
 macro_rules_attribute = "0.2"
-accesskit = "0.19"
+accesskit = "0.21"
 nonmax = "0.5"
 
 [target.'cfg(not(target_family = "wasm"))'.dev-dependencies]
@@ -2800,28 +2805,6 @@ There are also compute shaders which are used for more general processing levera
 """
 
 [[example]]
-name = "custom_vertex_attribute"
-path = "examples/shader/custom_vertex_attribute.rs"
-doc-scrape-examples = true
-
-[package.metadata.example.custom_vertex_attribute]
-name = "Custom Vertex Attribute"
-description = "A shader that reads a mesh's custom vertex attribute"
-category = "Shaders"
-wasm = true
-
-[[example]]
-name = "custom_post_processing"
-path = "examples/shader/custom_post_processing.rs"
-doc-scrape-examples = true
-
-[package.metadata.example.custom_post_processing]
-name = "Post Processing - Custom Render Pass"
-description = "A custom post processing effect, using a custom render pass that runs after the main pass"
-category = "Shaders"
-wasm = true
-
-[[example]]
 name = "shader_defs"
 path = "examples/shader/shader_defs.rs"
 doc-scrape-examples = true
@@ -2912,29 +2895,6 @@ category = "Shaders"
 wasm = true
 
 [[example]]
-name = "custom_shader_instancing"
-path = "examples/shader/custom_shader_instancing.rs"
-doc-scrape-examples = true
-
-[package.metadata.example.custom_shader_instancing]
-name = "Instancing"
-description = "A shader that renders a mesh multiple times in one draw call using low level rendering api"
-category = "Shaders"
-wasm = true
-
-[[example]]
-name = "custom_render_phase"
-path = "examples/shader/custom_render_phase.rs"
-doc-scrape-examples = true
-
-[package.metadata.example.custom_render_phase]
-name = "Custom Render Phase"
-description = "Shows how to make a complete render phase"
-category = "Shaders"
-wasm = true
-
-
-[[example]]
 name = "automatic_instancing"
 path = "examples/shader/automatic_instancing.rs"
 doc-scrape-examples = true
@@ -2990,17 +2950,6 @@ category = "Shaders"
 wasm = true
 
 [[example]]
-name = "texture_binding_array"
-path = "examples/shader/texture_binding_array.rs"
-doc-scrape-examples = true
-
-[package.metadata.example.texture_binding_array]
-name = "Texture Binding Array (Bindless Textures)"
-description = "A shader that shows how to bind and sample multiple textures as a binding array (a.k.a. bindless textures)."
-category = "Shaders"
-wasm = false
-
-[[example]]
 name = "storage_buffer"
 path = "examples/shader/storage_buffer.rs"
 doc-scrape-examples = true
@@ -3011,9 +2960,74 @@ description = "A shader that shows how to bind a storage buffer using a custom m
 category = "Shaders"
 wasm = true
 
+# Shaders advanced
+[[package.metadata.example_category]]
+name = "Shaders - advanced"
+description = """
+These examples demonstrate how to use the lower level rendering apis exposed from bevy.
+
+These are generally simplified examples of bevy's own rendering infrastructure.
+"""
+
+[[example]]
+name = "custom_vertex_attribute"
+path = "examples/shader_advanced/custom_vertex_attribute.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.custom_vertex_attribute]
+name = "Custom Vertex Attribute"
+description = "A shader that reads a mesh's custom vertex attribute"
+category = "Shaders"
+wasm = true
+
+[[example]]
+name = "custom_post_processing"
+path = "examples/shader_advanced/custom_post_processing.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.custom_post_processing]
+name = "Post Processing - Custom Render Pass"
+description = "A custom post processing effect, using a custom render pass that runs after the main pass"
+category = "Shaders"
+wasm = true
+
+[[example]]
+name = "custom_shader_instancing"
+path = "examples/shader_advanced/custom_shader_instancing.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.custom_shader_instancing]
+name = "Instancing"
+description = "A shader that renders a mesh multiple times in one draw call using low level rendering api"
+category = "Shaders"
+wasm = true
+
+[[example]]
+name = "custom_render_phase"
+path = "examples/shader_advanced/custom_render_phase.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.custom_render_phase]
+name = "Custom Render Phase"
+description = "Shows how to make a complete render phase"
+category = "Shaders"
+wasm = true
+
+[[example]]
+name = "texture_binding_array"
+path = "examples/shader_advanced/texture_binding_array.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.texture_binding_array]
+name = "Texture Binding Array (Bindless Textures)"
+description = "A shader that shows how to bind and sample multiple textures as a binding array (a.k.a. bindless textures)."
+category = "Shaders"
+wasm = false
+
+
 [[example]]
 name = "specialized_mesh_pipeline"
-path = "examples/shader/specialized_mesh_pipeline.rs"
+path = "examples/shader_advanced/specialized_mesh_pipeline.rs"
 doc-scrape-examples = true
 
 [package.metadata.example.specialized_mesh_pipeline]
@@ -3065,6 +3079,17 @@ doc-scrape-examples = true
 [package.metadata.example.many_buttons]
 name = "Many Buttons"
 description = "Test rendering of many UI elements"
+category = "Stress Tests"
+wasm = true
+
+[[example]]
+name = "many_gradients"
+path = "examples/stress_tests/many_gradients.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.many_gradients]
+name = "Many Gradients"
+description = "Stress test for gradient rendering performance"
 category = "Stress Tests"
 wasm = true
 
@@ -3579,6 +3604,18 @@ category = "UI (User Interface)"
 wasm = true
 
 [[example]]
+name = "virtual_keyboard"
+path = "examples/ui/virtual_keyboard.rs"
+doc-scrape-examples = true
+required-features = ["experimental_bevy_feathers"]
+
+[package.metadata.example.virtual_keyboard]
+name = "Virtual Keyboard"
+description = "Example demonstrating a virtual keyboard widget"
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
 name = "ui_scaling"
 path = "examples/ui/ui_scaling.rs"
 doc-scrape-examples = true
@@ -3830,6 +3867,17 @@ hidden = true
 name = "Window Resizing"
 description = "Demonstrates resizing and responding to resizing a window"
 category = "Window"
+wasm = true
+
+[[example]]
+name = "drag_to_scroll"
+path = "examples/ui/drag_to_scroll.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.drag_to_scroll]
+name = "Drag to Scroll"
+description = "This example tests scale factor, dragging and scrolling"
+category = "UI (User Interface)"
 wasm = true
 
 [[example]]
@@ -4160,7 +4208,7 @@ wasm = false
 
 [[example]]
 name = "custom_phase_item"
-path = "examples/shader/custom_phase_item.rs"
+path = "examples/shader_advanced/custom_phase_item.rs"
 doc-scrape-examples = true
 
 [package.metadata.example.custom_phase_item]

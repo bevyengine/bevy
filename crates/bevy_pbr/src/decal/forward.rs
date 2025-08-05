@@ -3,25 +3,25 @@ use crate::{
     MaterialPlugin, StandardMaterial,
 };
 use bevy_app::{App, Plugin};
-use bevy_asset::{uuid_handle, Asset, Assets, Handle};
-use bevy_ecs::component::Component;
+use bevy_asset::{Asset, Assets, Handle};
+use bevy_ecs::{
+    component::Component, lifecycle::HookContext, resource::Resource, world::DeferredWorld,
+};
 use bevy_math::{prelude::Rectangle, Quat, Vec2, Vec3};
 use bevy_reflect::{Reflect, TypePath};
 use bevy_render::load_shader_library;
+use bevy_render::mesh::Mesh3d;
 use bevy_render::render_asset::RenderAssets;
 use bevy_render::render_resource::{AsBindGroupShaderType, ShaderType};
 use bevy_render::texture::GpuImage;
 use bevy_render::{
     alpha::AlphaMode,
-    mesh::{Mesh, Mesh3d, MeshBuilder, MeshVertexBufferLayoutRef, Meshable},
+    mesh::{Mesh, MeshBuilder, MeshVertexBufferLayoutRef, Meshable},
     render_resource::{
         AsBindGroup, CompareFunction, RenderPipelineDescriptor, SpecializedMeshPipelineError,
     },
     RenderDebugFlags,
 };
-
-const FORWARD_DECAL_MESH_HANDLE: Handle<Mesh> =
-    uuid_handle!("afa817f9-1869-4e0c-ac0d-d8cd1552d38a");
 
 /// Plugin to render [`ForwardDecal`]s.
 pub struct ForwardDecalPlugin;
@@ -32,8 +32,7 @@ impl Plugin for ForwardDecalPlugin {
 
         app.register_type::<ForwardDecal>();
 
-        app.world_mut().resource_mut::<Assets<Mesh>>().insert(
-            FORWARD_DECAL_MESH_HANDLE.id(),
+        let mesh = app.world_mut().resource_mut::<Assets<Mesh>>().add(
             Rectangle::from_size(Vec2::ONE)
                 .mesh()
                 .build()
@@ -41,6 +40,8 @@ impl Plugin for ForwardDecalPlugin {
                 .with_generated_tangents()
                 .unwrap(),
         );
+
+        app.insert_resource(ForwardDecalMesh(mesh));
 
         app.add_plugins(MaterialPlugin::<ForwardDecalMaterial<StandardMaterial>> {
             prepass_enabled: false,
@@ -63,7 +64,8 @@ impl Plugin for ForwardDecalPlugin {
 /// * Looking at forward decals at a steep angle can cause distortion. This can be mitigated by padding your decal's
 ///   texture with extra transparent pixels on the edges.
 #[derive(Component, Reflect)]
-#[require(Mesh3d(FORWARD_DECAL_MESH_HANDLE))]
+#[require(Mesh3d)]
+#[component(on_add=forward_decal_set_mesh)]
 pub struct ForwardDecal;
 
 /// Type alias for an extended material with a [`ForwardDecalMaterialExt`] extension.
@@ -144,5 +146,22 @@ impl Default for ForwardDecalMaterialExt {
         Self {
             depth_fade_factor: 8.0,
         }
+    }
+}
+
+#[derive(Resource)]
+struct ForwardDecalMesh(Handle<Mesh>);
+
+// Note: We need to use a hook here instead of required components since we cannot access resources
+// with required components, and we can't otherwise get a handle to the asset from a required
+// component constructor, since the constructor must be a function pointer, and we intentionally do
+// not want to use `uuid_handle!`.
+fn forward_decal_set_mesh(mut world: DeferredWorld, HookContext { entity, .. }: HookContext) {
+    let decal_mesh = world.resource::<ForwardDecalMesh>().0.clone();
+    let mut entity = world.entity_mut(entity);
+    let mut entity_mesh = entity.get_mut::<Mesh3d>().unwrap();
+    // Only replace the mesh handle if the mesh handle is defaulted.
+    if **entity_mesh == Handle::default() {
+        entity_mesh.0 = decal_mesh;
     }
 }

@@ -4,7 +4,7 @@ use crate::{ButtonInput, ButtonState};
 use bevy_ecs::{
     change_detection::DetectChangesMut,
     entity::Entity,
-    event::{BufferedEvent, Event, EventReader},
+    event::{BufferedEvent, EventReader},
     resource::Resource,
     system::ResMut,
 };
@@ -26,7 +26,7 @@ use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 ///
 /// The event is read inside of the [`mouse_button_input_system`]
 /// to update the [`ButtonInput<MouseButton>`] resource.
-#[derive(Event, BufferedEvent, Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(BufferedEvent, Debug, Clone, Copy, PartialEq, Eq)]
 #[cfg_attr(
     feature = "bevy_reflect",
     derive(Reflect),
@@ -91,7 +91,7 @@ pub enum MouseButton {
 /// However, the event data does not make it possible to distinguish which device it is referring to.
 ///
 /// [`DeviceEvent::MouseMotion`]: https://docs.rs/winit/latest/winit/event/enum.DeviceEvent.html#variant.MouseMotion
-#[derive(Event, BufferedEvent, Debug, Clone, Copy, PartialEq)]
+#[derive(BufferedEvent, Debug, Clone, Copy, PartialEq)]
 #[cfg_attr(
     feature = "bevy_reflect",
     derive(Reflect),
@@ -140,7 +140,7 @@ pub enum MouseScrollUnit {
 /// A mouse wheel event.
 ///
 /// This event is the translated version of the `WindowEvent::MouseWheel` from the `winit` crate.
-#[derive(Event, BufferedEvent, Debug, Clone, Copy, PartialEq)]
+#[derive(BufferedEvent, Debug, Clone, Copy, PartialEq)]
 #[cfg_attr(
     feature = "bevy_reflect",
     derive(Reflect),
