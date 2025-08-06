@@ -96,6 +96,9 @@ The default feature set enables most of the expected features of a game engine, 
 |glam_assert|Enable assertions to check the validity of parameters passed to glam|
 |gltf_convert_coordinates_default|Enable converting glTF coordinates to Bevy's coordinate system by default. This will be Bevy's default behavior starting in 0.18.|
 |hotpatching|Enable hotpatching of Bevy systems|
+|http|Enables downloading assets from HTTP sources|
+|http_source_cache|Enable caching downloaded assets on the filesystem. NOTE: this cache currently never invalidates entries!|
+|https|Enables downloading assets from HTTPS sources|
 |ico|ICO image format support|
 |jpeg|JPEG image format support|
 |libm|Uses the `libm` maths library instead of the one provided in `std` and `core`.|
