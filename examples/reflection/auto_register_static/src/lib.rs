@@ -2,7 +2,7 @@
 use bevy::prelude::*;
 
 // The type that should be automatically registered.
-// All types subject to automatic registration must be defined not be define in the same crate as `load_type_registrations!``.
+// All types subject to automatic registration must not be defined in the same crate as `load_type_registrations!``.
 // Any `#[derive(Reflect)]` types within the `bin` crate are not guaranteed to be registered automatically.
 #[derive(Reflect)]
 struct Struct {
