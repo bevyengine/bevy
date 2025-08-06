@@ -353,6 +353,7 @@ pub fn ui_layout_system(
 #[cfg(test)]
 mod tests {
     use bevy_app::{App, HierarchyPropagatePlugin, PostUpdate, PropagateSet};
+    use bevy_ecs::world;
     use taffy::TraversePartialTree;
 
     use bevy_asset::{AssetEvent, Assets};
@@ -433,52 +434,6 @@ mod tests {
         world.spawn(Camera2d);
 
         app
-    }
-
-    fn setup_ui_test_world() -> (World, Schedule) {
-        let mut world = World::new();
-        world.init_resource::<UiScale>();
-        world.init_resource::<UiSurface>();
-        world.init_resource::<Events<WindowScaleFactorChanged>>();
-        world.init_resource::<Events<WindowResized>>();
-        // Required for the camera system
-        world.init_resource::<Events<WindowCreated>>();
-        world.init_resource::<Events<AssetEvent<Image>>>();
-        world.init_resource::<Assets<Image>>();
-        world.init_resource::<ManualTextureViews>();
-
-        world.init_resource::<bevy_text::TextPipeline>();
-
-        world.init_resource::<bevy_text::CosmicFontSystem>();
-
-        world.init_resource::<bevy_text::SwashCache>();
-
-        // spawn a dummy primary window and camera
-        world.spawn((
-            Window {
-                resolution: WindowResolution::new(WINDOW_WIDTH, WINDOW_HEIGHT),
-                ..default()
-            },
-            PrimaryWindow,
-        ));
-        world.spawn(Camera2d);
-
-        let mut ui_schedule = Schedule::default();
-        ui_schedule.add_systems(
-            (
-                // UI is driven by calculated camera target info, so we need to run the camera system first
-                bevy_render::camera::camera_system,
-                update_ui_context_system,
-                ApplyDeferred,
-                ui_layout_system,
-                mark_dirty_trees,
-                sync_simple_transforms,
-                propagate_parent_transforms,
-            )
-                .chain(),
-        );
-
-        (world, ui_schedule)
     }
 
     #[test]
@@ -1182,7 +1137,8 @@ mod tests {
     fn test_ui_surface_compute_camera_layout() {
         use bevy_ecs::prelude::ResMut;
 
-        let (mut world, ..) = setup_ui_test_world();
+        let mut app = setup_ui_test_app();
+        let world = app.world_mut();
 
         let root_node_entity = Entity::from_raw_u32(1).unwrap();
 
