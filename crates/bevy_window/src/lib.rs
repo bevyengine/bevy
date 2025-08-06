@@ -17,26 +17,19 @@ extern crate std;
 
 extern crate alloc;
 
-use alloc::sync::Arc;
-
-use bevy_platform::sync::Mutex;
-
+mod cursor;
 mod event;
 mod monitor;
 mod raw_handle;
 mod system;
-mod system_cursor;
 mod window;
 
 pub use crate::raw_handle::*;
 
-#[cfg(target_os = "android")]
-pub use android_activity;
-
+pub use cursor::*;
 pub use event::*;
 pub use monitor::*;
 pub use system::*;
-pub use system_cursor::*;
 pub use window::*;
 
 /// The windowing prelude.
@@ -51,7 +44,9 @@ pub mod prelude {
     };
 }
 
+use alloc::sync::Arc;
 use bevy_app::prelude::*;
+use bevy_platform::sync::Mutex;
 
 impl Default for WindowPlugin {
     fn default() -> Self {
@@ -204,9 +199,3 @@ pub enum ExitCondition {
     /// surprise your users.
     DontExit,
 }
-
-/// [`AndroidApp`] provides an interface to query the application state as well as monitor events
-/// (for example lifecycle and input events).
-#[cfg(target_os = "android")]
-pub static ANDROID_APP: std::sync::OnceLock<android_activity::AndroidApp> =
-    std::sync::OnceLock::new();

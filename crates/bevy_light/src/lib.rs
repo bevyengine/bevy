@@ -55,7 +55,8 @@ pub use directional_light::{
     DirectionalLightTexture,
 };
 
-use crate::probe::DEFAULT_ENVIRONMENT_MAP_TEXTURE_HANDLE;
+use directional_light::validate_shadow_map_size;
+use probe::DEFAULT_ENVIRONMENT_MAP_TEXTURE_HANDLE;
 
 /// Constants for operating with the light units: lumens, and lux.
 pub mod light_consts {
@@ -74,6 +75,10 @@ pub mod light_consts {
         pub const LUMENS_PER_LED_WATTS: f32 = 90.0;
         pub const LUMENS_PER_INCANDESCENT_WATTS: f32 = 13.8;
         pub const LUMENS_PER_HALOGEN_WATTS: f32 = 19.8;
+        /// 1,000,000 lumens is a very large "cinema light" capable of registering brightly at Bevy's
+        /// default "very overcast day" exposure level. For "indoor lighting" with a lower exposure,
+        /// this would be way too bright.
+        pub const VERY_LARGE_CINEMA_LIGHT: f32 = 1_000_000.0;
     }
 
     /// Predefined for lux values in several locations.
@@ -171,6 +176,7 @@ impl Plugin for LightPlugin {
                     map_ambient_lights
                         .in_set(SimulationLightSystems::MapAmbientLights)
                         .after(CameraUpdateSystems),
+                    validate_shadow_map_size.before(build_directional_light_cascades),
                     add_clusters
                         .in_set(SimulationLightSystems::AddClusters)
                         .after(CameraUpdateSystems),
