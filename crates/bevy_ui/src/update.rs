@@ -141,18 +141,15 @@ pub fn update_ui_context_system(
     target_camera_query: Query<&UiTargetCamera>,
     ui_root_nodes: UiRootNodes,
 ) {
-    println!("update_ui_context_system!");
     let default_camera_entity = default_ui_camera.get();
 
     for root_entity in ui_root_nodes.iter() {
-        println!("root entity: {root_entity}");
         let camera = target_camera_query
             .get(root_entity)
             .ok()
             .map(UiTargetCamera::entity)
             .or(default_camera_entity)
             .unwrap_or(Entity::PLACEHOLDER);
-        println!("\tcamera: {camera}");
 
         let (scale_factor, physical_size) = camera_query
             .get(camera)
@@ -164,7 +161,6 @@ pub fn update_ui_context_system(
                 )
             })
             .unwrap_or((1., UVec2::ZERO));
-        println!("\tphysical_size: {physical_size}");
 
         commands
             .entity(root_entity)
