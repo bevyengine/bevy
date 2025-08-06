@@ -93,6 +93,8 @@ pub enum UiSystems {
     Focus,
     /// All UI systems in [`PostUpdate`] will run in or after this label.
     Prepare,
+    /// Propagate UI component values needed by layout.
+    Propagate,
     /// Update content requirements before layout.
     Content,
     /// After this label, the ui layout state has been updated.
@@ -176,6 +178,7 @@ impl Plugin for UiPlugin {
                 (
                     CameraUpdateSystems,
                     UiSystems::Prepare.after(AnimationSystems),
+                    UiSystems::Propagate,
                     UiSystems::Content,
                     UiSystems::Layout,
                     UiSystems::PostLayout,
@@ -184,15 +187,11 @@ impl Plugin for UiPlugin {
             )
             .configure_sets(
                 PostUpdate,
-                PropagateSet::<ComputedNodeTarget>::default().before(UiSystems::Content),
+                PropagateSet::<ComputedNodeTarget>::default().in_set(UiSystems::Propagate),
             )
             .add_plugins(HierarchyPropagatePlugin::<ComputedNodeTarget>::new(
                 PostUpdate,
             ))
-            .add_systems(
-                PostUpdate,
-                update_ui_context_system.before(PropagateSet::<ComputedNodeTarget>::default()),
-            )
             .add_systems(
                 PreUpdate,
                 ui_focus_system.in_set(UiSystems::Focus).after(InputSystems),
