@@ -212,6 +212,8 @@ mod tests {
     fn setup_test_app() -> App {
         let mut app = App::new();
 
+        app.init_resource::<UiScale>();
+
         // init resources required by `camera_system`
         app.init_resource::<Events<WindowScaleFactorChanged>>();
         app.init_resource::<Events<WindowResized>>();
