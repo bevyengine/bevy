@@ -190,7 +190,7 @@ impl Plugin for UiPlugin {
                 PostUpdate,
             ))
             .add_systems(
-                Update,
+                PostUpdate,
                 update_ui_context_system.before(PropagateSet::<ComputedNodeTarget>::default()),
             )
             .add_systems(
