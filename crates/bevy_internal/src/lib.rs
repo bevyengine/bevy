@@ -39,6 +39,8 @@ pub use bevy_core_widgets as core_widgets;
 pub use bevy_dev_tools as dev_tools;
 pub use bevy_diagnostic as diagnostic;
 pub use bevy_ecs as ecs;
+#[cfg(feature = "bevy_fbx")]
+pub use bevy_fbx as fbx;
 #[cfg(feature = "bevy_feathers")]
 pub use bevy_feathers as feathers;
 #[cfg(feature = "bevy_gilrs")]
