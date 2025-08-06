@@ -519,18 +519,17 @@ mod tests {
 
     #[test]
     fn ui_surface_tracks_ui_entities() {
-        let (mut world, mut ui_schedule) = setup_ui_test_world();
+        let mut app = setup_ui_test_app();
 
-        ui_schedule.run(&mut world);
-
+        let world = app.world_mut();
         // no UI entities in world, none in UiSurface
         let ui_surface = world.resource::<UiSurface>();
         assert!(ui_surface.entity_to_taffy.is_empty());
 
         let ui_entity = world.spawn(Node::default()).id();
 
-        // `ui_layout_system` should map `ui_entity` to a ui node in `UiSurface::entity_to_taffy`
-        ui_schedule.run(&mut world);
+        app.update();
+        let world = app.world_mut();
 
         let ui_surface = world.resource::<UiSurface>();
         assert!(ui_surface.entity_to_taffy.contains_key(&ui_entity));
@@ -538,8 +537,8 @@ mod tests {
 
         world.despawn(ui_entity);
 
-        // `ui_layout_system` should remove `ui_entity` from `UiSurface::entity_to_taffy`
-        ui_schedule.run(&mut world);
+        app.update();
+        let world = app.world_mut();
 
         let ui_surface = world.resource::<UiSurface>();
         assert!(!ui_surface.entity_to_taffy.contains_key(&ui_entity));
