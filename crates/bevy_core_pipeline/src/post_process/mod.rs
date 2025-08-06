@@ -19,6 +19,7 @@ use bevy_image::{BevyDefault, Image};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
     camera::Camera,
+    diagnostic::RecordDiagnostics,
     extract_component::{ExtractComponent, ExtractComponentPlugin},
     load_shader_library,
     render_asset::{RenderAssetUsages, RenderAssets},
@@ -371,12 +372,14 @@ impl ViewNode for PostProcessingNode {
             return Ok(());
         };
 
+        let diagnostics = render_context.diagnostic_recorder();
+
         // Use the [`PostProcessWrite`] infrastructure, since this is a
         // full-screen pass.
         let post_process = view_target.post_process_write();
 
         let pass_descriptor = RenderPassDescriptor {
-            label: Some("postprocessing pass"),
+            label: Some("postprocessing"),
             color_attachments: &[Some(RenderPassColorAttachment {
                 view: post_process.destination,
                 depth_slice: None,
@@ -403,10 +406,13 @@ impl ViewNode for PostProcessingNode {
         let mut render_pass = render_context
             .command_encoder()
             .begin_render_pass(&pass_descriptor);
+        let pass_span = diagnostics.pass_span(&mut render_pass, "postprocessing");
 
         render_pass.set_pipeline(pipeline);
         render_pass.set_bind_group(0, &bind_group, &[**post_processing_uniform_buffer_offsets]);
         render_pass.draw(0..3, 0..1);
+
+        pass_span.end(&mut render_pass);
 
         Ok(())
     }

@@ -921,11 +921,11 @@ impl Node for DownsamplingNode {
                     render_context
                         .command_encoder()
                         .begin_compute_pass(&ComputePassDescriptor {
-                            label: Some("lightprobe_copy_pass"),
+                            label: Some("lightprobe_copy"),
                             timestamp_writes: None,
                         });
 
-                let pass_span = diagnostics.pass_span(&mut compute_pass, "lightprobe_copy_pass");
+                let pass_span = diagnostics.pass_span(&mut compute_pass, "lightprobe_copy");
 
                 compute_pass.set_pipeline(copy_pipeline);
                 compute_pass.set_bind_group(0, &bind_groups.copy, &[]);
@@ -1038,12 +1038,11 @@ impl Node for FilteringNode {
                 render_context
                     .command_encoder()
                     .begin_compute_pass(&ComputePassDescriptor {
-                        label: Some("lightprobe_radiance_map_pass"),
+                        label: Some("lightprobe_radiance_map"),
                         timestamp_writes: None,
                     });
 
-            let pass_span =
-                diagnostics.pass_span(&mut compute_pass, "lightprobe_radiance_map_pass");
+            let pass_span = diagnostics.pass_span(&mut compute_pass, "lightprobe_radiance_map");
 
             compute_pass.set_pipeline(radiance_pipeline);
 
@@ -1072,12 +1071,12 @@ impl Node for FilteringNode {
                     render_context
                         .command_encoder()
                         .begin_compute_pass(&ComputePassDescriptor {
-                            label: Some("lightprobe_irradiance_map_pass"),
+                            label: Some("lightprobe_irradiance_map"),
                             timestamp_writes: None,
                         });
 
                 let irr_span =
-                    diagnostics.pass_span(&mut compute_pass, "lightprobe_irradiance_map_pass");
+                    diagnostics.pass_span(&mut compute_pass, "lightprobe_irradiance_map");
 
                 compute_pass.set_pipeline(irradiance_pipeline);
                 compute_pass.set_bind_group(0, &bind_groups.irradiance, &[]);
