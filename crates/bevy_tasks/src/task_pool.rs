@@ -178,7 +178,7 @@ impl TaskPool {
 
                 thread_builder
                     .spawn(move || {
-                        crate::bevy_executor::install_runtime_into_current_thread();
+                        crate::bevy_executor::install_runtime_into_current_thread(&ex);
 
                         if let Some(on_thread_spawn) = on_thread_spawn {
                             on_thread_spawn();

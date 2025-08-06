@@ -30,15 +30,9 @@ pub struct TaskPoolBuilder {}
 /// task pool. In the case of the multithreaded task pool this struct is used to spawn
 /// tasks on a specific thread. But the wasm task pool just calls
 /// `wasm_bindgen_futures::spawn_local` for spawning which just runs tasks on the main thread
-/// and so the [`ThreadExecutor`] does nothing.
-#[derive(Default, Clone)]
+/// and so the [`ThreadSpawner`] does nothing.
+#[derive(Clone)]
 pub struct ThreadSpawner<'a>(PhantomData<&'a ()>);
-impl<'a> ThreadSpawner<'a> {
-    /// Creates a new `ThreadExecutor`
-    pub fn new() -> Self {
-        Self::default()
-    }
-}
 
 impl TaskPoolBuilder {
     /// Creates a new `TaskPoolBuilder` instance
@@ -85,7 +79,7 @@ pub struct TaskPool {}
 impl TaskPool {
     /// Just create a new `ThreadExecutor` for wasm
     pub fn current_thread_spawner(&self) -> ThreadSpawner<'static> {
-        ThreadSpawner::new()
+        ThreadSpawner(PhantomData)
     }
 
     /// Create a `TaskPool` with the default configuration.
