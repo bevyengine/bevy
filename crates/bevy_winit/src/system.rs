@@ -239,7 +239,7 @@ pub fn create_monitors(
     });
 }
 
-// Observer: handles ['AppExit'] events.
+/// Observer that handles [`AppExit`] events.
 pub(crate) fn despawn_windows(
     _exit_event: On<AppExit>,
     closing: Query<Entity, With<ClosingWindow>>,
