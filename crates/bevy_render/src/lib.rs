@@ -120,7 +120,10 @@ use bevy_app::{App, AppLabel, Plugin, SubApp};
 use bevy_asset::{AssetApp, AssetServer};
 use bevy_ecs::{prelude::*, schedule::ScheduleLabel};
 use bitflags::bitflags;
-use core::ops::{Deref, DerefMut};
+use core::{
+    marker::PhantomData,
+    ops::{Deref, DerefMut},
+};
 use std::sync::Mutex;
 use tracing::debug;
 pub use wgpu_wrapper::WgpuWrapper;
@@ -660,4 +663,122 @@ pub fn get_mali_driver_version(adapter: &RenderAdapter) -> Option<u32> {
     }
 
     None
+}
+
+/// A utility function for conditionally running `system_set` based on `condition`.
+///
+/// All systems in the `render_app` that are in `system_set` will only run if `condition` returns
+/// true. The condition is only checked once at `RenderStartup`, where the `resource` is inserted
+/// depending on whether the condition is true. This function is focused on having the lowest
+/// overhead while executing.
+///
+/// Note: only systems in `RenderStartup`, `ExtractSchedule`, and `Render` will be disabled by the
+/// condition.
+///
+/// Consider making specific system sets / resources for use with this function. For example:
+///
+/// ```
+/// # use bevy_app::App;
+/// # use bevy_ecs::{
+/// #     system::Res,
+/// #     schedule::{IntoScheduleConfigs, SystemSet},
+/// # };
+/// # use bevy_render::{
+/// #     RenderApp, RenderStartup,
+/// #     conditional_render_set,
+/// #     renderer::RenderDevice,
+/// # };
+/// fn my_plugin(app: &mut App) {
+///     let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
+///         return;
+///     };
+///
+///     conditional_render_set(
+///         render_app,
+///         MySystemSet,
+///         my_system_set_condition);
+///
+///     render_app.add_systems(RenderStartup, init_my_pipeline.in_set(MySystemSet));
+/// }
+///
+/// #[derive(SystemSet, PartialEq, Eq, Hash, Debug, Clone)]
+/// struct MySystemSet;
+///
+/// fn my_system_set_condition(render_device: Res<RenderDevice>) -> bool {
+///     todo!()
+/// }
+/// # fn init_my_pipeline() {}
+/// ```
+pub fn conditional_render_set<S: SystemSet + Clone, M>(
+    render_app: &mut SubApp,
+    system_set: S,
+    condition: impl SystemCondition<M>,
+) {
+    struct EnabledRenderSet<T>(PhantomData<fn() -> T>);
+    impl<T: 'static> Resource for EnabledRenderSet<T> {}
+
+    let condition = condition.pipe(move |In(condition): In<bool>, mut commands: Commands| {
+        if condition {
+            commands.insert_resource(EnabledRenderSet::<S>(PhantomData));
+        }
+    });
+    render_app
+        .add_systems(
+            RenderStartup,
+            condition
+                .in_set(ConditionalRenderSetCondition::<S>(PhantomData))
+                .before(system_set.clone()),
+        )
+        .configure_sets(
+            RenderStartup,
+            system_set
+                .clone()
+                .run_if(resource_exists::<EnabledRenderSet<S>>),
+        )
+        .configure_sets(
+            ExtractSchedule,
+            system_set
+                .clone()
+                .run_if(resource_exists::<EnabledRenderSet<S>>),
+        )
+        .configure_sets(
+            Render,
+            system_set.run_if(resource_exists::<EnabledRenderSet<S>>),
+        );
+}
+
+/// A system set for the condition used in `conditional_render_set`.
+///
+/// This allows the condition to be ordered after its dependencies for example.
+#[derive(SystemSet)]
+pub struct ConditionalRenderSetCondition<S: SystemSet>(pub PhantomData<fn() -> S>);
+
+// Manual impls of SystemSet required traits to prevent needing `S` to implement those traits.
+
+impl<S: SystemSet> Clone for ConditionalRenderSetCondition<S> {
+    fn clone(&self) -> Self {
+        Self(PhantomData)
+    }
+}
+
+impl<S: SystemSet> core::fmt::Debug for ConditionalRenderSetCondition<S> {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        f.debug_tuple("ConditionalRenderSetCondition")
+            .field(&self.0)
+            .finish()
+    }
+}
+
+impl<S: SystemSet> core::hash::Hash for ConditionalRenderSetCondition<S> {
+    fn hash<H: core::hash::Hasher>(&self, state: &mut H) {
+        self.0.hash(state);
+    }
+}
+
+impl<S: SystemSet> Eq for ConditionalRenderSetCondition<S> {}
+
+impl<S: SystemSet> PartialEq for ConditionalRenderSetCondition<S> {
+    fn eq(&self, other: &Self) -> bool {
+        self.0 == other.0
+    }
 }
