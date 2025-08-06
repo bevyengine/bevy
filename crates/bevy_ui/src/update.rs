@@ -180,8 +180,6 @@ mod tests {
     use bevy_ecs::event::Events;
     use bevy_ecs::hierarchy::ChildOf;
     use bevy_ecs::schedule::IntoScheduleConfigs;
-    use bevy_ecs::schedule::Schedule;
-    use bevy_ecs::world::World;
     use bevy_image::Image;
     use bevy_math::UVec2;
     use bevy_render::camera::Camera;
@@ -202,22 +200,19 @@ mod tests {
     use crate::UiScale;
     use crate::UiTargetCamera;
 
-    fn setup_test_world_and_schedule() -> (World, Schedule) {
-        let mut world = World::new();
-
-        world.init_resource::<UiScale>();
+    fn setup_test_app() -> App {
+        let mut app = App::new();
 
         // init resources required by `camera_system`
-        world.init_resource::<Events<WindowScaleFactorChanged>>();
-        world.init_resource::<Events<WindowResized>>();
-        world.init_resource::<Events<WindowCreated>>();
-        world.init_resource::<Events<AssetEvent<Image>>>();
-        world.init_resource::<Assets<Image>>();
-        world.init_resource::<ManualTextureViews>();
+        app.init_resource::<Events<WindowScaleFactorChanged>>();
+        app.init_resource::<Events<WindowResized>>();
+        app.init_resource::<Events<WindowCreated>>();
+        app.init_resource::<Events<AssetEvent<Image>>>();
+        app.init_resource::<Assets<Image>>();
+        app.init_resource::<ManualTextureViews>();
 
-        let mut schedule = Schedule::default();
-
-        schedule.add_systems(
+        app.add_systems(
+            bevy_app::Update,
             (
                 bevy_render::camera::camera_system,
                 super::update_ui_context_system,
@@ -225,12 +220,13 @@ mod tests {
                 .chain(),
         );
 
-        (world, schedule)
+        app
     }
 
     #[test]
     fn update_context_for_single_ui_root() {
-        let (mut world, mut schedule) = setup_test_world_and_schedule();
+        let app = setup_test_app();
+        let world = app.world_mut();
 
         let scale_factor = 10.;
         let physical_size = UVec2::new(1000, 500);
@@ -248,7 +244,8 @@ mod tests {
 
         let uinode = world.spawn(Node::default()).id();
 
-        schedule.run(&mut world);
+        app.update();
+        let world = app.world_mut();
 
         assert_eq!(
             *world.get::<ComputedNodeTarget>(uinode).unwrap(),
@@ -262,7 +259,8 @@ mod tests {
 
     #[test]
     fn update_multiple_context_for_multiple_ui_roots() {
-        let (mut world, mut schedule) = setup_test_world_and_schedule();
+        let app = setup_test_app();
+        let world = app.world_mut();
 
         let scale1 = 1.;
         let size1 = UVec2::new(100, 100);
@@ -303,7 +301,8 @@ mod tests {
         let uinode2c = world.spawn((Node::default(), UiTargetCamera(camera2))).id();
         let uinode1b = world.spawn(Node::default()).id();
 
-        schedule.run(&mut world);
+        app.update();
+        let world = app.world_mut();
 
         for (uinode, camera, scale_factor, physical_size) in [
             (uinode1a, camera1, scale1, size1),
@@ -325,7 +324,8 @@ mod tests {
 
     #[test]
     fn update_context_on_changed_camera() {
-        let (mut world, mut schedule) = setup_test_world_and_schedule();
+        let app = setup_test_app();
+        let world = app.world_mut();
 
         let scale1 = 1.;
         let size1 = UVec2::new(100, 100);
@@ -362,7 +362,8 @@ mod tests {
 
         let uinode = world.spawn(Node::default()).id();
 
-        schedule.run(&mut world);
+        app.update();
+        let world = app.world_mut();
 
         assert_eq!(
             world
@@ -391,7 +392,8 @@ mod tests {
 
         world.entity_mut(uinode).insert(UiTargetCamera(camera2));
 
-        schedule.run(&mut world);
+        app.update();
+        let world = app.world_mut();
 
         assert_eq!(
             world
@@ -421,7 +423,8 @@ mod tests {
 
     #[test]
     fn update_context_after_parent_removed() {
-        let (mut world, mut schedule) = setup_test_world_and_schedule();
+        let app = setup_test_app();
+        let world = app.world_mut();
 
         let scale1 = 1.;
         let size1 = UVec2::new(100, 100);
@@ -460,7 +463,8 @@ mod tests {
         let uinode1 = world.spawn((Node::default(), UiTargetCamera(camera2))).id();
         let uinode2 = world.spawn(Node::default()).add_child(uinode1).id();
 
-        schedule.run(&mut world);
+        app.update();
+        let world = app.world_mut();
 
         assert_eq!(
             world
@@ -499,7 +503,8 @@ mod tests {
         // Now `uinode1` is a root UI node its `UiTargetCamera` component will be used and its camera target set to `camera2`.
         world.entity_mut(uinode1).remove::<ChildOf>();
 
-        schedule.run(&mut world);
+        app.update();
+        let world = app.world_mut();
 
         assert_eq!(
             world
@@ -538,7 +543,8 @@ mod tests {
 
     #[test]
     fn update_great_grandchild() {
-        let (mut world, mut schedule) = setup_test_world_and_schedule();
+        let app = setup_test_app();
+        let world = app.world_mut();
 
         let scale = 1.;
         let size = UVec2::new(100, 100);
@@ -561,7 +567,8 @@ mod tests {
             });
         });
 
-        schedule.run(&mut world);
+        app.update();
+        let world = app.world_mut();
 
         assert_eq!(
             world
@@ -590,7 +597,8 @@ mod tests {
 
         world.resource_mut::<UiScale>().0 = 2.;
 
-        schedule.run(&mut world);
+        app.update();
+        let world = app.world_mut();
 
         assert_eq!(
             world
