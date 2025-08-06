@@ -157,11 +157,6 @@ fn main() {
         .add_plugins(MaterialPlugin::<VoxelVisualizationMaterial>::default())
         .init_resource::<AppStatus>()
         .init_resource::<ExampleAssets>()
-        .insert_resource(AmbientLight {
-            color: Color::WHITE,
-            brightness: 0.0,
-            ..default()
-        })
         .add_systems(Startup, setup)
         .add_systems(PreUpdate, create_cubes)
         .add_systems(Update, rotate_camera)
@@ -238,6 +233,10 @@ fn spawn_camera(commands: &mut Commands, assets: &ExampleAssets) {
         Skybox {
             image: assets.skybox.clone(),
             brightness: 150.0,
+            ..default()
+        },
+        EnvironmentMapLight {
+            intensity: 0.0,
             ..default()
         },
     ));
@@ -414,7 +413,7 @@ fn toggle_irradiance_volumes(
     light_probe_query: Query<Entity, With<LightProbe>>,
     mut app_status: ResMut<AppStatus>,
     assets: Res<ExampleAssets>,
-    mut ambient_light: ResMut<AmbientLight>,
+    mut ambient_light: Query<&mut EnvironmentMapLight>,
 ) {
     if !keyboard.just_pressed(KeyCode::Space) {
         return;
@@ -426,7 +425,9 @@ fn toggle_irradiance_volumes(
 
     if app_status.irradiance_volume_present {
         commands.entity(light_probe).remove::<IrradianceVolume>();
-        ambient_light.brightness = AMBIENT_LIGHT_BRIGHTNESS * IRRADIANCE_VOLUME_INTENSITY;
+        for mut light in ambient_light.iter_mut() {
+            light.intensity = AMBIENT_LIGHT_BRIGHTNESS * IRRADIANCE_VOLUME_INTENSITY;
+        }
         app_status.irradiance_volume_present = false;
     } else {
         commands.entity(light_probe).insert(IrradianceVolume {
@@ -434,7 +435,9 @@ fn toggle_irradiance_volumes(
             intensity: IRRADIANCE_VOLUME_INTENSITY,
             ..default()
         });
-        ambient_light.brightness = 0.0;
+        for mut light in ambient_light.iter_mut() {
+            light.intensity = 0.0;
+        }
         app_status.irradiance_volume_present = true;
     }
 }

@@ -1,6 +1,7 @@
 #![expect(missing_docs, reason = "Not all docs are written yet, see #3492.")]
 
 use bevy_app::{App, Plugin, PostUpdate};
+use bevy_asset::Assets;
 use bevy_camera::{
     primitives::{Aabb, CascadesFrusta, CubemapFrusta, Frustum, Sphere},
     visibility::{
@@ -8,9 +9,11 @@ use bevy_camera::{
         PreviousVisibleEntities, RenderLayers, ViewVisibility, VisibilityRange, VisibilitySystems,
         VisibleEntityRanges, VisibleMeshEntities,
     },
-    CameraUpdateSystems,
+    Camera3d, CameraUpdateSystems,
 };
+use bevy_color::Color;
 use bevy_ecs::{entity::EntityHashSet, prelude::*};
+use bevy_image::Image;
 use bevy_math::Vec3A;
 use bevy_mesh::Mesh3d;
 use bevy_reflect::prelude::*;
@@ -25,6 +28,10 @@ use cluster::{
     GlobalVisibleClusterableObjects, VisibleClusterableObjects,
 };
 mod ambient_light;
+#[expect(
+    deprecated,
+    reason = "AmbientLight has been replaced by EnvironmentMapLight"
+)]
 pub use ambient_light::AmbientLight;
 mod probe;
 pub use probe::{EnvironmentMapLight, GeneratedEnvironmentMapLight, IrradianceVolume, LightProbe};
@@ -48,7 +55,8 @@ pub use directional_light::{
     DirectionalLightTexture,
 };
 
-use crate::directional_light::validate_shadow_map_size;
+use directional_light::validate_shadow_map_size;
+use probe::DEFAULT_ENVIRONMENT_MAP_TEXTURE_HANDLE;
 
 /// Constants for operating with the light units: lumens, and lux.
 pub mod light_consts {
@@ -113,10 +121,25 @@ pub mod light_consts {
     }
 }
 
-pub struct LightPlugin;
+pub struct LightPlugin {
+    /// Controls if the default environment map light is added to every [`Camera3d`].
+    pub default_environment_map_light: bool,
+}
+
+impl Default for LightPlugin {
+    fn default() -> Self {
+        Self {
+            default_environment_map_light: true,
+        }
+    }
+}
 
 impl Plugin for LightPlugin {
     fn build(&self, app: &mut App) {
+        #[expect(
+            deprecated,
+            reason = "AmbientLight has been replaced by EnvironmentMapLight"
+        )]
         app.register_type::<AmbientLight>()
             .register_type::<CascadeShadowConfig>()
             .register_type::<Cascades>()
@@ -135,7 +158,6 @@ impl Plugin for LightPlugin {
             .register_type::<ShadowFilteringMethod>()
             .register_type::<ClusterConfig>()
             .init_resource::<GlobalVisibleClusterableObjects>()
-            .init_resource::<AmbientLight>()
             .init_resource::<DirectionalLightShadowMap>()
             .init_resource::<PointLightShadowMap>()
             .configure_sets(
@@ -151,6 +173,9 @@ impl Plugin for LightPlugin {
             .add_systems(
                 PostUpdate,
                 (
+                    map_ambient_lights
+                        .in_set(SimulationLightSystems::MapAmbientLights)
+                        .after(CameraUpdateSystems),
                     validate_shadow_map_size.before(build_directional_light_cascades),
                     add_clusters
                         .in_set(SimulationLightSystems::AddClusters)
@@ -200,6 +225,25 @@ impl Plugin for LightPlugin {
                         .after(clear_directional_light_cascades),
                 ),
             );
+
+        if self.default_environment_map_light {
+            app.world_mut()
+                .register_required_components_with::<Camera3d, EnvironmentMapLight>(|| {
+                    EnvironmentMapLight {
+                        intensity: 50.0,
+                        ..Default::default()
+                    }
+                });
+        }
+
+        app.world_mut().resource_mut::<Assets<Image>>().insert(
+            &DEFAULT_ENVIRONMENT_MAP_TEXTURE_HANDLE,
+            EnvironmentMapLight::hemispherical_gradient_cubemap(
+                Color::WHITE,
+                Color::WHITE,
+                Color::WHITE,
+            ),
+        );
     }
 }
 
@@ -230,7 +274,7 @@ pub struct NotShadowReceiver;
 #[reflect(Component, Default, Debug)]
 pub struct TransmittedShadowReceiver;
 
-/// Add this component to a [`Camera3d`](bevy_camera::Camera3d)
+/// Add this component to a [`Camera3d`]
 /// to control how to anti-alias shadow edges.
 ///
 /// The different modes use different approaches to
@@ -269,6 +313,7 @@ pub enum ShadowFilteringMethod {
 /// System sets used to run light-related systems.
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
 pub enum SimulationLightSystems {
+    MapAmbientLights,
     AddClusters,
     AssignLightsToClusters,
     /// System order ambiguities between systems in this set are ignored:
@@ -280,6 +325,63 @@ pub enum SimulationLightSystems {
     /// the order of systems within this set is irrelevant, as the various visibility-checking systems
     /// assumes that their operations are irreversible during the frame.
     CheckLightVisibility,
+}
+
+#[derive(Component)]
+pub struct EnvironmentMapLightFromAmbientLight;
+
+#[expect(
+    deprecated,
+    reason = "AmbientLight has been replaced by EnvironmentMapLight"
+)]
+pub fn map_ambient_lights(
+    mut commands: Commands,
+    mut image_assets: ResMut<Assets<Image>>,
+    ambient_light: Option<Res<AmbientLight>>,
+    new_views: Query<
+        (Entity, Option<Ref<AmbientLight>>),
+        (
+            With<Camera3d>,
+            Without<EnvironmentMapLight>,
+            Without<EnvironmentMapLightFromAmbientLight>,
+        ),
+    >,
+    mut managed_views: Query<
+        (&mut EnvironmentMapLight, Option<Ref<AmbientLight>>),
+        With<EnvironmentMapLightFromAmbientLight>,
+    >,
+) {
+    let ambient_light = ambient_light.map(Into::into);
+    let ref_ambient_light = ambient_light.as_ref();
+    for (entity, ambient_override) in new_views.iter() {
+        let Some(ambient) = ambient_override.as_ref().or(ref_ambient_light) else {
+            continue;
+        };
+        let ambient_required = ambient.brightness > 0.0 && ambient.color != Color::BLACK;
+        if ambient_required && ambient.is_changed() {
+            commands
+                .entity(entity)
+                .insert(EnvironmentMapLight {
+                    intensity: ambient.brightness,
+                    affects_lightmapped_mesh_diffuse: ambient.affects_lightmapped_meshes,
+                    ..EnvironmentMapLight::solid_color(image_assets.as_mut(), ambient.color)
+                })
+                .insert(EnvironmentMapLightFromAmbientLight);
+        }
+    }
+    for (mut env_map, ambient_override) in managed_views.iter_mut() {
+        let Some(ambient) = ambient_override.as_ref().or(ref_ambient_light) else {
+            continue;
+        };
+        let ambient_required = ambient.brightness > 0.0 && ambient.color != Color::BLACK;
+        if ambient_required && ambient.is_changed() {
+            *env_map = EnvironmentMapLight {
+                intensity: ambient.brightness,
+                affects_lightmapped_mesh_diffuse: ambient.affects_lightmapped_meshes,
+                ..EnvironmentMapLight::solid_color(image_assets.as_mut(), ambient.color)
+            };
+        }
+    }
 }
 
 fn shrink_entities(visible_entities: &mut Vec<Entity>) {

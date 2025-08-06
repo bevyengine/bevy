@@ -15,14 +15,20 @@ use bevy::{
 /// Entry point.
 fn main() {
     App::new()
-        .add_plugins(DefaultPlugins.set(WindowPlugin {
-            primary_window: Some(Window {
-                title: "Bevy Fog Volumes Example".into(),
-                ..default()
-            }),
-            ..default()
-        }))
-        .insert_resource(AmbientLight::NONE)
+        .add_plugins(
+            DefaultPlugins
+                .set(WindowPlugin {
+                    primary_window: Some(Window {
+                        title: "Bevy Fog Volumes Example".into(),
+                        ..default()
+                    }),
+                    ..default()
+                })
+                .set(bevy::pbr::PbrPlugin {
+                    default_environment_map_light: false,
+                    ..default()
+                }),
+        )
         .add_systems(Startup, setup)
         .add_systems(Update, rotate_camera)
         .run();

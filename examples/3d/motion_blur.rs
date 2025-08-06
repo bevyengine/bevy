@@ -30,6 +30,10 @@ fn setup_camera(mut commands: Commands) {
         // MSAA and Motion Blur together are not compatible on WebGL
         #[cfg(all(feature = "webgl2", target_arch = "wasm32", not(feature = "webgpu")))]
         Msaa::Off,
+        EnvironmentMapLight {
+            intensity: 300.0,
+            ..default()
+        },
     ));
 }
 
@@ -57,11 +61,6 @@ fn setup_scene(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
-    commands.insert_resource(AmbientLight {
-        color: Color::WHITE,
-        brightness: 300.0,
-        ..default()
-    });
     commands.insert_resource(CameraMode::Chase);
     commands.spawn((
         DirectionalLight {

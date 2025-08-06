@@ -1,10 +1,14 @@
-use bevy_asset::Handle;
+use bevy_asset::{uuid_handle, Assets, Handle, RenderAssetUsages};
 use bevy_camera::visibility::Visibility;
+use bevy_color::{Color, ColorToPacked, Srgba};
 use bevy_ecs::prelude::*;
 use bevy_image::Image;
 use bevy_math::Quat;
 use bevy_reflect::prelude::*;
 use bevy_transform::components::Transform;
+use wgpu_types::{
+    Extent3d, TextureDimension, TextureFormat, TextureViewDescriptor, TextureViewDimension,
+};
 
 /// A marker component for a light probe, which is a cuboid region that provides
 /// global illumination to all fragments inside it.
@@ -96,14 +100,82 @@ pub struct EnvironmentMapLight {
     pub affects_lightmapped_mesh_diffuse: bool,
 }
 
+impl EnvironmentMapLight {
+    /// An environment map with a uniform color, useful for uniform ambient lighting.
+    pub fn solid_color(assets: &mut Assets<Image>, color: Color) -> Self {
+        Self::hemispherical_gradient(assets, color, color, color)
+    }
+
+    /// An environment map with a hemispherical gradient, fading between the sky and ground colors
+    /// at the horizon. Useful as a very simple 'sky'.
+    pub fn hemispherical_gradient(
+        assets: &mut Assets<Image>,
+        top_color: Color,
+        mid_color: Color,
+        bottom_color: Color,
+    ) -> Self {
+        let handle = assets.add(Self::hemispherical_gradient_cubemap(
+            top_color,
+            mid_color,
+            bottom_color,
+        ));
+
+        Self {
+            diffuse_map: handle.clone(),
+            specular_map: handle,
+            ..Default::default()
+        }
+    }
+
+    pub(crate) fn hemispherical_gradient_cubemap(
+        top_color: Color,
+        mid_color: Color,
+        bottom_color: Color,
+    ) -> Image {
+        let top_color: Srgba = top_color.into();
+        let mid_color: Srgba = mid_color.into();
+        let bottom_color: Srgba = bottom_color.into();
+        Image {
+            texture_view_descriptor: Some(TextureViewDescriptor {
+                dimension: Some(TextureViewDimension::Cube),
+                ..Default::default()
+            }),
+            ..Image::new(
+                Extent3d {
+                    width: 1,
+                    height: 1,
+                    depth_or_array_layers: 6,
+                },
+                TextureDimension::D2,
+                [
+                    mid_color,
+                    mid_color,
+                    top_color,
+                    bottom_color,
+                    mid_color,
+                    mid_color,
+                ]
+                .into_iter()
+                .flat_map(Srgba::to_u8_array)
+                .collect(),
+                TextureFormat::Rgba8UnormSrgb,
+                RenderAssetUsages::RENDER_WORLD,
+            )
+        }
+    }
+}
+
+pub const DEFAULT_ENVIRONMENT_MAP_TEXTURE_HANDLE: Handle<Image> =
+    uuid_handle!("99e3f21e-9c08-4924-9895-fa8599416316");
+
 impl Default for EnvironmentMapLight {
     fn default() -> Self {
         EnvironmentMapLight {
-            diffuse_map: Handle::default(),
-            specular_map: Handle::default(),
+            diffuse_map: DEFAULT_ENVIRONMENT_MAP_TEXTURE_HANDLE,
+            specular_map: DEFAULT_ENVIRONMENT_MAP_TEXTURE_HANDLE,
             intensity: 0.0,
             rotation: Quat::IDENTITY,
-            affects_lightmapped_mesh_diffuse: true,
+            affects_lightmapped_mesh_diffuse: false,
         }
     }
 }

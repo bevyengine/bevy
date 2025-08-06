@@ -9,11 +9,6 @@ const GLTF_PATH: &str = "models/animated/Fox.glb";
 
 fn main() {
     App::new()
-        .insert_resource(AmbientLight {
-            color: Color::WHITE,
-            brightness: 2000.,
-            ..default()
-        })
         .add_plugins(DefaultPlugins)
         .add_systems(Startup, setup_mesh_and_animation)
         .add_systems(Startup, setup_camera_and_environment)
@@ -104,6 +99,10 @@ fn setup_camera_and_environment(
     commands.spawn((
         Camera3d::default(),
         Transform::from_xyz(100.0, 100.0, 150.0).looking_at(Vec3::new(0.0, 20.0, 0.0), Vec3::Y),
+        EnvironmentMapLight {
+            intensity: 2000.0,
+            ..default()
+        },
     ));
 
     // Plane

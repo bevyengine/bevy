@@ -45,13 +45,12 @@ use rand::random;
 
 fn main() {
     App::new()
-        .add_plugins(DefaultPlugins)
+        .add_plugins(DefaultPlugins.set(bevy::pbr::PbrPlugin {
+            default_environment_map_light: false,
+            ..default()
+        }))
         .insert_resource(ClearColor(Color::BLACK))
         .insert_resource(PointLightShadowMap { size: 2048 })
-        .insert_resource(AmbientLight {
-            brightness: 0.0,
-            ..default()
-        })
         .add_systems(Startup, setup)
         .add_systems(Update, (example_control_system, flicker_system))
         .run();

@@ -8,11 +8,6 @@ const FOX_PATH: &str = "models/animated/Fox.glb";
 
 fn main() {
     App::new()
-        .insert_resource(AmbientLight {
-            color: Color::WHITE,
-            brightness: 2000.,
-            ..default()
-        })
         .add_plugins(DefaultPlugins)
         .add_systems(Startup, setup)
         .add_systems(Update, setup_scene_once_loaded)
@@ -52,6 +47,10 @@ fn setup(
     commands.spawn((
         Camera3d::default(),
         Transform::from_xyz(100.0, 100.0, 150.0).looking_at(Vec3::new(0.0, 20.0, 0.0), Vec3::Y),
+        EnvironmentMapLight {
+            intensity: 2000.0,
+            ..default()
+        },
     ));
 
     // Plane

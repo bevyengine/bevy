@@ -11,10 +11,6 @@ use std::f32::consts::PI;
 
 fn main() {
     App::new()
-        .insert_resource(AmbientLight {
-            brightness: 1000.,
-            ..default()
-        })
         .add_plugins(DefaultPlugins)
         .add_systems(Startup, setup)
         .add_systems(Update, update)
@@ -33,6 +29,10 @@ fn setup(
         Msaa::Off,
         ScreenSpaceAmbientOcclusion::default(),
         TemporalAntiAliasing::default(),
+        EnvironmentMapLight {
+            intensity: 1000.0,
+            ..default()
+        },
     ));
 
     let material = materials.add(StandardMaterial {

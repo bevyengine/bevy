@@ -49,11 +49,11 @@ use bevy_color::{Color, LinearRgba};
 pub use atmosphere::*;
 use bevy_light::SimulationLightSystems;
 pub use bevy_light::{
-    light_consts, AmbientLight, CascadeShadowConfig, CascadeShadowConfigBuilder, Cascades,
-    ClusteredDecal, DirectionalLight, DirectionalLightShadowMap, DirectionalLightTexture,
-    FogVolume, IrradianceVolume, LightPlugin, LightProbe, NotShadowCaster, NotShadowReceiver,
-    PointLight, PointLightShadowMap, PointLightTexture, ShadowFilteringMethod, SpotLight,
-    SpotLightTexture, TransmittedShadowReceiver, VolumetricFog, VolumetricLight,
+    light_consts, CascadeShadowConfig, CascadeShadowConfigBuilder, Cascades, ClusteredDecal,
+    DirectionalLight, DirectionalLightShadowMap, DirectionalLightTexture, FogVolume,
+    IrradianceVolume, LightPlugin, LightProbe, NotShadowCaster, NotShadowReceiver, PointLight,
+    PointLightShadowMap, PointLightTexture, ShadowFilteringMethod, SpotLight, SpotLightTexture,
+    TransmittedShadowReceiver, VolumetricFog, VolumetricLight,
 };
 pub use cluster::*;
 pub use components::*;
@@ -86,10 +86,16 @@ pub mod prelude {
         pbr_material::StandardMaterial,
         ssao::ScreenSpaceAmbientOcclusionPlugin,
     };
+    #[expect(
+        deprecated,
+        reason = "AmbientLight has been replaced by EnvironmentMapLight"
+    )]
+    #[doc(hidden)]
+    pub use bevy_light::AmbientLight;
     #[doc(hidden)]
     pub use bevy_light::{
-        light_consts, AmbientLight, DirectionalLight, EnvironmentMapLight,
-        GeneratedEnvironmentMapLight, LightProbe, PointLight, SpotLight,
+        light_consts, DirectionalLight, EnvironmentMapLight, GeneratedEnvironmentMapLight,
+        LightProbe, PointLight, SpotLight,
     };
 }
 
@@ -175,6 +181,9 @@ pub struct PbrPlugin {
     /// This requires compute shader support and so will be forcibly disabled if
     /// the platform doesn't support those.
     pub use_gpu_instance_buffer_builder: bool,
+    /// Controls if the default environment map light is added to every
+    /// [`Camera3d`](bevy_core_pipeline::prelude::Camera3d).
+    pub default_environment_map_light: bool,
     /// Debugging flags that can optionally be set when constructing the renderer.
     pub debug_flags: RenderDebugFlags,
 }
@@ -185,6 +194,7 @@ impl Default for PbrPlugin {
             prepass_enabled: true,
             add_default_deferred_lighting_plugin: true,
             use_gpu_instance_buffer_builder: true,
+            default_environment_map_light: true,
             debug_flags: RenderDebugFlags::default(),
         }
     }
@@ -211,7 +221,6 @@ impl Plugin for PbrPlugin {
         load_shader_library!(app, "render/shadow_sampling.wgsl");
         load_shader_library!(app, "render/pbr_functions.wgsl");
         load_shader_library!(app, "render/rgb9e5.wgsl");
-        load_shader_library!(app, "render/pbr_ambient.wgsl");
         load_shader_library!(app, "render/pbr_fragment.wgsl");
         load_shader_library!(app, "render/pbr.wgsl");
         load_shader_library!(app, "render/pbr_prepass_functions.wgsl");
@@ -239,13 +248,14 @@ impl Plugin for PbrPlugin {
                     ..Default::default()
                 },
                 ScreenSpaceAmbientOcclusionPlugin,
-                ExtractResourcePlugin::<AmbientLight>::default(),
                 FogPlugin,
                 ExtractResourcePlugin::<DefaultOpaqueRendererMethod>::default(),
                 ExtractComponentPlugin::<ShadowFilteringMethod>::default(),
                 LightmapPlugin,
                 LightProbePlugin,
-                LightPlugin,
+                LightPlugin {
+                    default_environment_map_light: self.default_environment_map_light,
+                },
                 GpuMeshPreprocessPlugin {
                     use_gpu_instance_buffer_builder: self.use_gpu_instance_buffer_builder,
                 },
@@ -258,7 +268,6 @@ impl Plugin for PbrPlugin {
                 SyncComponentPlugin::<DirectionalLight>::default(),
                 SyncComponentPlugin::<PointLight>::default(),
                 SyncComponentPlugin::<SpotLight>::default(),
-                ExtractComponentPlugin::<AmbientLight>::default(),
             ))
             .add_plugins(AtmospherePlugin)
             .configure_sets(

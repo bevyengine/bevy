@@ -43,6 +43,7 @@ fn setup(
     parameters: Res<Parameters>,
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
+    mut images: ResMut<Assets<Image>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     asset_server: Res<AssetServer>,
 ) {
@@ -117,14 +118,6 @@ fn setup(
         Transform::from_xyz(1.5, 1.0, 1.5),
         Movable,
     ));
-
-    // ambient light
-    // ambient lights' brightnesses are measured in candela per meter square, calculable as (color * brightness)
-    commands.insert_resource(AmbientLight {
-        color: ORANGE_RED.into(),
-        brightness: 200.0,
-        ..default()
-    });
 
     // red point light
     commands.spawn((
@@ -247,6 +240,11 @@ fn setup(
         Camera3d::default(),
         Transform::from_xyz(-2.0, 2.5, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
         Exposure::from_physical_camera(**parameters),
+        // environment lights' brightnesses are measured in candela per meter square, calculable as (color * intensity)
+        EnvironmentMapLight {
+            intensity: 80.0,
+            ..EnvironmentMapLight::solid_color(&mut images, ORANGE_RED.into())
+        },
     ));
 }
 
@@ -290,19 +288,22 @@ fn update_exposure(
 
 fn toggle_ambient_light(
     key_input: Res<ButtonInput<KeyCode>>,
-    mut ambient_light: ResMut<AmbientLight>,
+    environment_map_lights: Query<&mut EnvironmentMapLight>,
     text: Single<Entity, With<Text>>,
     mut writer: TextUiWriter,
 ) {
     if key_input.just_pressed(KeyCode::Space) {
-        if ambient_light.brightness > 1. {
-            ambient_light.brightness = 0.;
+        let Some(mut light) = environment_map_lights.into_iter().next() else {
+            return;
+        };
+        if light.intensity > 1. {
+            light.intensity = 0.;
         } else {
-            ambient_light.brightness = 200.;
+            light.intensity = 80.;
         }
 
         let entity = *text;
-        let ambient_light_state_text: &str = match ambient_light.brightness {
+        let ambient_light_state_text: &str = match light.intensity {
             0. => "off",
             _ => "on",
         };

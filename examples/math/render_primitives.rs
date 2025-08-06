@@ -14,7 +14,7 @@ fn main() {
         .init_state::<CameraActive>();
 
     // cameras
-    app.add_systems(Startup, (setup_cameras, setup_lights, setup_ambient_light))
+    app.add_systems(Startup, (setup_cameras, setup_lights))
         .add_systems(
             Update,
             (
@@ -299,17 +299,20 @@ fn setup_cameras(mut commands: Commands) {
         ..Default::default()
     };
 
-    commands.spawn((Camera2d, make_camera(start_in_2d)));
+    commands.spawn((
+        Camera2d,
+        make_camera(start_in_2d),
+        EnvironmentMapLight {
+            intensity: 50.0,
+            ..default()
+        },
+    ));
 
     commands.spawn((
         Camera3d::default(),
         make_camera(!start_in_2d),
         Transform::from_xyz(0.0, 10.0, 0.0).looking_at(Vec3::ZERO, Vec3::Z),
     ));
-}
-
-fn setup_ambient_light(mut ambient_light: ResMut<AmbientLight>) {
-    ambient_light.brightness = 50.0;
 }
 
 fn setup_lights(mut commands: Commands) {

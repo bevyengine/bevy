@@ -18,10 +18,6 @@ use core::f32::consts::TAU;
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .insert_resource(AmbientLight {
-            brightness: 20_000.0,
-            ..default()
-        })
         .add_systems(Startup, (setup_environment, setup_meshes))
         .add_systems(Update, update_animated_joints)
         .run();
@@ -30,6 +26,7 @@ fn main() {
 fn setup_environment(
     mut commands: Commands,
     mut mesh_assets: ResMut<Assets<Mesh>>,
+    mut image_assets: ResMut<Assets<Image>>,
     mut material_assets: ResMut<Assets<StandardMaterial>>,
 ) {
     let description = "(left to right)\n\
@@ -58,6 +55,10 @@ fn setup_environment(
             },
             ..OrthographicProjection::default_3d()
         }),
+        EnvironmentMapLight {
+            intensity: 20_000.0,
+            ..EnvironmentMapLight::solid_color(&mut image_assets, Color::WHITE)
+        },
         // Add motion blur so we can check if it's working for skinned meshes.
         // This also exercises the renderer's prepass path.
         MotionBlur {

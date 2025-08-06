@@ -29,8 +29,10 @@ use bevy::{
 
 fn main() {
     App::new()
-        .insert_resource(AmbientLight::NONE)
-        .add_plugins(DefaultPlugins)
+        .add_plugins(DefaultPlugins.set(bevy::pbr::PbrPlugin {
+            default_environment_map_light: false,
+            ..default()
+        }))
         .add_systems(
             Startup,
             (setup_camera_fog, setup_pyramid_scene, setup_instructions),

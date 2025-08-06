@@ -4,10 +4,6 @@ use bevy::prelude::*;
 
 fn main() {
     App::new()
-        .insert_resource(AmbientLight {
-            brightness: 60.0,
-            ..default()
-        })
         .add_plugins(DefaultPlugins)
         .add_systems(Startup, setup)
         .run();
@@ -22,6 +18,10 @@ fn setup(
     commands.spawn((
         Camera3d::default(),
         Transform::from_xyz(0.2, 1.5, 2.5).looking_at(Vec3::ZERO, Vec3::Y),
+        EnvironmentMapLight {
+            intensity: 60.0,
+            ..default()
+        },
     ));
 
     // plane
