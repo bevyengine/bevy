@@ -143,7 +143,7 @@ impl Plugin for TextPlugin {
             use bevy_asset::{AssetId, Assets};
             let mut assets = app.world_mut().resource_mut::<Assets<_>>();
             let asset = Font::try_from_bytes(DEFAULT_FONT_DATA.to_vec()).unwrap();
-            assets.insert(AssetId::default(), asset);
+            assets.insert(AssetId::default(), asset).unwrap();
         };
     }
 }
