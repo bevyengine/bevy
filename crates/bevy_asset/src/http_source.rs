@@ -1,9 +1,10 @@
 use crate::io::{AssetReader, AssetReaderError, Reader};
 use crate::io::{AssetSource, PathStream};
 use crate::AssetApp;
-use alloc::boxed::Box;
+use alloc::{borrow::ToOwned, boxed::Box};
 use bevy_app::{App, Plugin};
 use bevy_tasks::ConditionalSendFuture;
+use blocking::unblock;
 use std::path::{Path, PathBuf};
 
 /// Adds the `http` and `https` asset sources to the app.
@@ -104,7 +105,12 @@ async fn get(path: PathBuf) -> Result<Box<dyn Reader>, AssetReaderError> {
 
     static AGENT: LazyLock<Agent> = LazyLock::new(|| Agent::config_builder().build().new_agent());
 
-    match AGENT.get(str_path).call() {
+    let uri = str_path.to_owned();
+    // Use [`unblock`] to run the http request on a separately spawned thread as to not block bevy's
+    // async executor.
+    let response = unblock(|| AGENT.get(uri).call()).await;
+
+    match response {
         Ok(mut response) => {
             let mut reader = BufReader::new(response.body_mut().with_config().reader());
 
