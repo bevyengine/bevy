@@ -504,10 +504,6 @@ impl TypeRegistry {
             type_data.map(|data| (item, data))
         })
     }
-
-    pub fn len(&self) -> usize {
-        self.registrations.len()
-    }
 }
 
 impl TypeRegistryArc {
