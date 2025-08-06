@@ -118,6 +118,8 @@ pub mod prelude {
     pub use crate::{assets::Gltf, assets::GltfExtras, label::GltfAssetLabel};
 }
 
+use crate::convert_coordinates::GltfConvertCoordinates;
+
 pub use {assets::*, label::GltfAssetLabel, loader::*};
 
 // Has to store an Arc<Mutex<...>> as there is no other way to mutate fields of asset loaders.
@@ -159,6 +161,8 @@ pub struct GltfPlugin {
     /// Can be modified with the [`DefaultGltfImageSampler`] resource.
     pub default_sampler: ImageSamplerDescriptor,
 
+    /// XXX TODO: Update documentation.
+    ///
     /// Whether to convert glTF coordinates to Bevy's coordinate system by default.
     /// If set to `true`, the loader will convert the coordinate system of loaded glTF assets to Bevy's coordinate system
     /// such that objects looking forward in glTF will also look forward in Bevy.
@@ -172,7 +176,7 @@ pub struct GltfPlugin {
     ///   - forward: -Z
     ///   - up: Y
     ///   - right: X
-    pub convert_coordinates: bool,
+    pub convert_coordinates: GltfConvertCoordinates,
 
     /// Registry for custom vertex attributes.
     ///
@@ -185,7 +189,7 @@ impl Default for GltfPlugin {
         GltfPlugin {
             default_sampler: ImageSamplerDescriptor::linear(),
             custom_vertex_attributes: HashMap::default(),
-            convert_coordinates: cfg!(feature = "gltf_convert_coordinates_default"),
+            convert_coordinates: GltfConvertCoordinates::default(),
         }
     }
 }

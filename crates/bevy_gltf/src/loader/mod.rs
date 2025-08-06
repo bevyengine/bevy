@@ -2,7 +2,6 @@ mod extensions;
 mod gltf_ext;
 
 use alloc::sync::Arc;
-use bevy_log::warn_once;
 use std::{
     io::Error,
     path::{Path, PathBuf},
@@ -63,8 +62,9 @@ use thiserror::Error;
 use tracing::{error, info_span, warn};
 
 use crate::{
-    vertex_attributes::convert_attribute, Gltf, GltfAssetLabel, GltfExtras, GltfMaterialExtras,
-    GltfMaterialName, GltfMeshExtras, GltfMeshName, GltfNode, GltfSceneExtras, GltfSkin,
+    convert_coordinates::ConvertInverseCoordinates as _, vertex_attributes::convert_attribute,
+    Gltf, GltfAssetLabel, GltfExtras, GltfMaterialExtras, GltfMaterialName, GltfMeshExtras,
+    GltfMeshName, GltfNode, GltfSceneExtras, GltfSkin,
 };
 
 #[cfg(feature = "bevy_animation")]
@@ -82,7 +82,7 @@ use self::{
         texture::{texture_handle, texture_sampler, texture_transform_to_affine2},
     },
 };
-use crate::convert_coordinates::ConvertCoordinates as _;
+use crate::convert_coordinates::GltfConvertCoordinates;
 
 /// An error that occurs when loading a glTF file.
 #[derive(Error, Debug)]
@@ -149,6 +149,8 @@ pub struct GltfLoader {
     pub custom_vertex_attributes: HashMap<Box<str>, MeshVertexAttribute>,
     /// Arc to default [`ImageSamplerDescriptor`].
     pub default_sampler: Arc<Mutex<ImageSamplerDescriptor>>,
+    /// XXX TODO: Update documentation.
+    ///
     /// Whether to convert glTF coordinates to Bevy's coordinate system by default.
     /// If set to `true`, the loader will convert the coordinate system of loaded glTF assets to Bevy's coordinate system
     /// such that objects looking forward in glTF will also look forward in Bevy.
@@ -162,7 +164,7 @@ pub struct GltfLoader {
     ///   - forward: -Z
     ///   - up: Y
     ///   - right: X
-    pub default_convert_coordinates: bool,
+    pub default_convert_coordinates: GltfConvertCoordinates,
 }
 
 /// Specifies optional settings for processing gltfs at load time. By default, all recognized contents of
@@ -204,6 +206,8 @@ pub struct GltfLoaderSettings {
     pub default_sampler: Option<ImageSamplerDescriptor>,
     /// If true, the loader will ignore sampler data from gltf and use the default sampler.
     pub override_sampler: bool,
+    /// XXX TODO: Update documentation.
+    ///
     /// Overrides the default glTF coordinate conversion setting.
     ///
     /// If set to `Some(true)`, the loader will convert the coordinate system of loaded glTF assets to Bevy's coordinate system
@@ -220,7 +224,7 @@ pub struct GltfLoaderSettings {
     ///   - right: X
     ///
     /// If `None`, uses the global default set by [`GltfPlugin::convert_coordinates`](crate::GltfPlugin::convert_coordinates).
-    pub convert_coordinates: Option<bool>,
+    pub convert_coordinates: Option<GltfConvertCoordinates>,
 }
 
 impl Default for GltfLoaderSettings {
@@ -275,18 +279,7 @@ impl GltfLoader {
 
         let convert_coordinates = match settings.convert_coordinates {
             Some(convert_coordinates) => convert_coordinates,
-            None => {
-                let convert_by_default = loader.default_convert_coordinates;
-                if !convert_by_default && !cfg!(feature = "gltf_convert_coordinates_default") {
-                    warn_once!(
-                    "Starting from Bevy 0.18, by default all imported glTF models will be rotated by 180 degrees around the Y axis to align with Bevy's coordinate system. \
-                    You are currently importing glTF files using the old behavior. Consider opting-in to the new import behavior by enabling the `gltf_convert_coordinates_default` feature. \
-                    If you encounter any issues please file a bug! \
-                    If you want to continue using the old behavior going forward (even when the default changes in 0.18), manually set the corresponding option in the `GltfPlugin` or `GltfLoaderSettings`. See the migration guide for more details."
-                );
-                }
-                convert_by_default
-            }
+            None => loader.default_convert_coordinates,
         };
 
         #[cfg(feature = "bevy_animation")]
@@ -332,16 +325,7 @@ impl GltfLoader {
                         match outputs {
                             ReadOutputs::Translations(tr) => {
                                 let translation_property = animated_field!(Transform::translation);
-                                let translations: Vec<Vec3> = tr
-                                    .map(Vec3::from)
-                                    .map(|verts| {
-                                        if convert_coordinates {
-                                            Vec3::convert_coordinates(verts)
-                                        } else {
-                                            verts
-                                        }
-                                    })
-                                    .collect();
+                                let translations: Vec<Vec3> = tr.map(Vec3::from).collect();
                                 if keyframe_timestamps.len() == 1 {
                                     Some(VariableCurve::new(AnimatableCurve::new(
                                         translation_property,
@@ -397,17 +381,8 @@ impl GltfLoader {
                             }
                             ReadOutputs::Rotations(rots) => {
                                 let rotation_property = animated_field!(Transform::rotation);
-                                let rotations: Vec<Quat> = rots
-                                    .into_f32()
-                                    .map(Quat::from_array)
-                                    .map(|quat| {
-                                        if convert_coordinates {
-                                            Quat::convert_coordinates(quat)
-                                        } else {
-                                            quat
-                                        }
-                                    })
-                                    .collect();
+                                let rotations: Vec<Quat> =
+                                    rots.into_f32().map(Quat::from_array).collect();
                                 if keyframe_timestamps.len() == 1 {
                                     Some(VariableCurve::new(AnimatableCurve::new(
                                         rotation_property,
@@ -708,7 +683,7 @@ impl GltfLoader {
                         accessor,
                         &buffer_data,
                         &loader.custom_vertex_attributes,
-                        convert_coordinates,
+                        convert_coordinates.meshes,
                     ) {
                         Ok((attribute, values)) => mesh.insert_attribute(attribute, values),
                         Err(err) => warn!("{}", err),
@@ -836,8 +811,8 @@ impl GltfLoader {
                     .map(|mats| {
                         mats.map(|mat| Mat4::from_cols_array_2d(&mat))
                             .map(|mat| {
-                                if convert_coordinates {
-                                    mat.convert_coordinates()
+                                if convert_coordinates.meshes {
+                                    mat.convert_inverse_coordinates()
                                 } else {
                                     mat
                                 }
@@ -925,7 +900,7 @@ impl GltfLoader {
                 &node,
                 children,
                 mesh,
-                node_transform(&node, convert_coordinates),
+                node_transform(&node),
                 skin,
                 node.extras().as_deref().map(GltfExtras::from),
             );
@@ -958,8 +933,11 @@ impl GltfLoader {
             let mut entity_to_skin_index_map = EntityHashMap::default();
             let mut scene_load_context = load_context.begin_labeled_asset();
 
+            // XXX TODO: Document.
+            let world_root_transform = convert_coordinates.scene_conversion_transform();
+
             let world_root_id = world
-                .spawn((Transform::default(), Visibility::default()))
+                .spawn((world_root_transform, Visibility::default()))
                 .with_children(|parent| {
                     for node in scene.nodes() {
                         let result = load_node(
@@ -977,7 +955,7 @@ impl GltfLoader {
                             #[cfg(feature = "bevy_animation")]
                             None,
                             &gltf.document,
-                            convert_coordinates,
+                            &convert_coordinates,
                         );
                         if result.is_err() {
                             err = Some(result);
@@ -1419,10 +1397,10 @@ fn load_node(
     #[cfg(feature = "bevy_animation")] animation_roots: &HashSet<usize>,
     #[cfg(feature = "bevy_animation")] mut animation_context: Option<AnimationContext>,
     document: &Document,
-    convert_coordinates: bool,
+    convert_coordinates: &GltfConvertCoordinates,
 ) -> Result<(), GltfError> {
     let mut gltf_error = None;
-    let transform = node_transform(gltf_node, convert_coordinates);
+    let transform = node_transform(gltf_node);
     let world_transform = *parent_transform * transform;
     // according to https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#instantiation,
     // if the determinant of the transform is negative we must invert the winding order of
@@ -1537,12 +1515,16 @@ fn load_node(
                     };
                     let bounds = primitive.bounding_box();
 
+                    // XXX TODO: Document.
+                    let mesh_entity_transform = convert_coordinates.mesh_conversion_transform();
+
                     let mut mesh_entity = parent.spawn((
                         // TODO: handle missing label handle errors here?
                         Mesh3d(load_context.get_label_handle(primitive_label.to_string())),
                         MeshMaterial3d::<StandardMaterial>(
                             load_context.get_label_handle(&material_label),
                         ),
+                        mesh_entity_transform,
                     ));
 
                     let target_count = primitive.morph_targets().len();

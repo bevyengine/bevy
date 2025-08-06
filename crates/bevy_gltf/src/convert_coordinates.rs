@@ -1,4 +1,4 @@
-use core::f32::consts::PI;
+use serde::{Deserialize, Serialize};
 
 use bevy_math::{Mat4, Quat, Vec3};
 use bevy_transform::components::Transform;
@@ -18,15 +18,9 @@ pub(crate) trait ConvertCoordinates {
     fn convert_coordinates(self) -> Self;
 }
 
-pub(crate) trait ConvertCameraCoordinates {
-    /// Like `convert_coordinates`, but uses the following for the lens rotation:
-    /// - forward: -Z
-    /// - up: Y
-    /// - right: X
-    ///
-    /// The same convention is used for lights.
-    /// See <https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#view-matrix>
-    fn convert_camera_coordinates(self) -> Self;
+// XXX TODO: Documentation.
+pub(crate) trait ConvertInverseCoordinates {
+    fn convert_inverse_coordinates(self) -> Self;
 }
 
 impl ConvertCoordinates for Vec3 {
@@ -48,34 +42,37 @@ impl ConvertCoordinates for [f32; 4] {
     }
 }
 
-impl ConvertCoordinates for Quat {
-    fn convert_coordinates(self) -> Self {
-        // Solution of q' = r q r*
-        Quat::from_array([-self.x, self.y, -self.z, self.w])
+// XXX TODO: Documentation.
+impl ConvertInverseCoordinates for Mat4 {
+    fn convert_inverse_coordinates(self) -> Self {
+        self * Mat4::from_scale(Vec3::new(-1.0, 1.0, -1.0))
     }
 }
 
-impl ConvertCoordinates for Mat4 {
-    fn convert_coordinates(self) -> Self {
-        let m: Mat4 = Mat4::from_scale(Vec3::new(-1.0, 1.0, -1.0));
-        // Same as the original matrix
-        let m_inv = m;
-        m_inv * self * m
-    }
+// XXX TODO: Documentation.
+#[derive(Copy, Clone, Default, Debug, Serialize, Deserialize)]
+pub struct GltfConvertCoordinates {
+    pub scene: bool,
+    pub meshes: bool,
 }
 
-impl ConvertCoordinates for Transform {
-    fn convert_coordinates(mut self) -> Self {
-        self.translation = self.translation.convert_coordinates();
-        self.rotation = self.rotation.convert_coordinates();
-        self
-    }
-}
+impl GltfConvertCoordinates {
+    const TRANSFORM_BEVY_FROM_GLTF: Transform =
+        Transform::from_rotation(Quat::from_xyzw(0.0, 1.0, 0.0, 0.0));
 
-impl ConvertCameraCoordinates for Transform {
-    fn convert_camera_coordinates(mut self) -> Self {
-        self.translation = self.translation.convert_coordinates();
-        self.rotate_y(PI);
-        self
+    pub(crate) fn scene_conversion_transform(&self) -> Transform {
+        if self.scene {
+            Self::TRANSFORM_BEVY_FROM_GLTF
+        } else {
+            Transform::IDENTITY
+        }
+    }
+
+    pub(crate) fn mesh_conversion_transform(&self) -> Transform {
+        if self.meshes {
+            Self::TRANSFORM_BEVY_FROM_GLTF
+        } else {
+            Transform::IDENTITY
+        }
     }
 }
