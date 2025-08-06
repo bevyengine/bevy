@@ -5,7 +5,9 @@ use bevy_ui::prelude::*;
 use bevy_color::Color;
 use bevy_time::Time;
 use bevy_text::{TextFont, TextColor};
-use crate::inspector::http_client::HttpRemoteClient;
+use bevy_input::prelude::*;
+use bevy_window::PrimaryWindow;
+use crate::inspector::http_client::{HttpRemoteClient, ComponentUpdate};
 use super::entity_list::{SelectedEntity, EntityCache};
 use super::collapsible_section::{CollapsibleSection, CollapsibleHeader, CollapsibleContent};
 use serde_json::Value;
@@ -29,6 +31,58 @@ pub struct ComponentCache {
     pub components: HashMap<String, Value>,
     pub last_update: f64,
     pub ui_built_for_entity: Option<u32>, // Track which entity we've built UI for
+}
+
+/// Enhanced resource for live component caching with change tracking
+#[derive(Resource)]
+pub struct LiveComponentCache {
+    pub entity_components: HashMap<u32, HashMap<String, ComponentState>>,
+    pub last_update_time: f64,
+    pub update_frequency: f64, // Target update rate (e.g., 30 FPS)
+}
+
+impl Default for LiveComponentCache {
+    fn default() -> Self {
+        Self {
+            entity_components: HashMap::new(),
+            last_update_time: 0.0,
+            update_frequency: 30.0, // 30 FPS by default
+        }
+    }
+}
+
+/// State tracking for individual components with change indicators
+#[derive(Debug, Clone)]
+pub struct ComponentState {
+    pub current_value: Value,
+    pub last_changed_time: f64,
+    pub change_indicator: ChangeIndicator,
+    pub previous_value: Option<Value>, // For showing diffs
+}
+
+/// Visual change indicators for components
+#[derive(Debug, Clone, PartialEq)]
+pub enum ChangeIndicator {
+    Unchanged,
+    Changed { duration: f64 }, // How long to show changed indicator
+    Removed,
+    Added,
+}
+
+/// Component to make text selectable and copyable
+#[derive(Component)]
+pub struct SelectableText {
+    pub text_content: String,
+    pub is_selected: bool,
+    pub selection_start: usize,
+    pub selection_end: usize,
+}
+
+/// Resource to track global text selection state
+#[derive(Resource, Default)]
+pub struct TextSelectionState {
+    pub selected_entity: Option<Entity>,
+    pub clipboard_support: bool,
 }
 
 /// System to update component viewer when entity selection changes
@@ -186,29 +240,16 @@ pub fn cleanup_old_component_content(
 fn get_component_display_info(component_name: &str) -> (String, String, String) {
     let short_name = component_name.split("::").last().unwrap_or(component_name);
     
-    // Categorize component types for better organization
+    // Categorize component types - show actual crate names instead of generic names
     let (category, display_name) = if component_name.starts_with("bevy_") {
-        // Built-in Bevy components - extract module for category
+        // Built-in Bevy components - show actual crate name
         let parts: Vec<&str> = component_name.split("::").collect();
-        let category = if parts.len() >= 2 {
-            match parts[0] {
-                "bevy_transform" => "Transform",
-                "bevy_render" => "Rendering", 
-                "bevy_sprite" => "2D Graphics",
-                "bevy_pbr" => "3D Graphics",
-                "bevy_ui" => "UI",
-                "bevy_text" => "Text",
-                "bevy_audio" => "Audio",
-                "bevy_input" => "Input",
-                "bevy_window" => "Window",
-                "bevy_core" => "Core",
-                "bevy_hierarchy" => "Hierarchy",
-                _ => "Bevy"
-            }
+        let crate_name = if parts.len() >= 1 {
+            parts[0] // Use the actual crate name like "bevy_transform", "bevy_render"
         } else {
-            "Bevy"
+            "bevy"
         };
-        (category, short_name.to_string())
+        (crate_name, short_name.to_string())
     } else {
         // Custom components - show as custom
         ("Custom", short_name.to_string())
@@ -300,7 +341,8 @@ fn create_component_section(
         CollapsibleContent { section_entity },
     )).with_children(|parent| {
         parent.spawn((
-            Text::new(component_data),
+            Button, // Make it clickable for selection
+            Text::new(component_data.clone()),
             TextFont {
                 font_size: 11.0,
                 ..Default::default()
@@ -308,11 +350,19 @@ fn create_component_section(
             TextColor(Color::srgb(0.8, 0.8, 0.8)),
             Node {
                 width: Val::Percent(100.0),
+                padding: UiRect::all(Val::Px(4.0)),
                 ..Default::default()
             },
+            BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.0)),
             ComponentData {
                 entity_id,
                 component_name: component_name.to_string(),
+            },
+            SelectableText {
+                text_content: component_data.to_string(),
+                is_selected: false,
+                selection_start: 0,
+                selection_end: 0,
             },
         ));
     }).id();
@@ -377,4 +427,297 @@ pub fn spawn_component_viewer(commands: &mut Commands, parent: Entity) -> Entity
     
     commands.entity(parent).add_child(viewer);
     viewer
+}
+
+/// System to process live component updates from HTTP client
+pub fn process_live_component_updates(
+    mut live_cache: ResMut<LiveComponentCache>,
+    mut http_client: ResMut<HttpRemoteClient>,
+    time: Res<Time>,
+    selected_entity: Res<SelectedEntity>,
+) {
+    let current_time = time.elapsed_secs_f64();
+    
+    // Rate limiting - only process updates at target frequency
+    if current_time - live_cache.last_update_time < 1.0 / live_cache.update_frequency {
+        return;
+    }
+    
+    // Process all pending updates from the new component update system
+    let updates = http_client.check_component_updates();
+    
+    if !updates.is_empty() {
+        println!("Processing {} component updates", updates.len());
+    }
+    
+    for update in updates {
+        println!("Component update for entity {}: {} changed, {} removed", 
+            update.entity_id, 
+            update.changed_components.len(), 
+            update.removed_components.len()
+        );
+        process_component_update(&mut live_cache, update, current_time);
+    }
+    
+    live_cache.last_update_time = current_time;
+}
+
+/// Process a single component update and update the live cache
+fn process_component_update(
+    cache: &mut LiveComponentCache, 
+    update: ComponentUpdate, 
+    current_time: f64
+) {
+    let entity_components = cache.entity_components
+        .entry(update.entity_id)
+        .or_default();
+    
+    // Process changed components
+    for (component_name, new_value) in update.changed_components {
+        let component_state = entity_components
+            .entry(component_name.clone())
+            .or_insert_with(|| ComponentState {
+                current_value: Value::Null,
+                last_changed_time: current_time,
+                change_indicator: ChangeIndicator::Added,
+                previous_value: None,
+            });
+        
+        // Check if value actually changed
+        if component_state.current_value != new_value {
+            component_state.previous_value = Some(component_state.current_value.clone());
+            component_state.current_value = new_value;
+            component_state.last_changed_time = current_time;
+            component_state.change_indicator = ChangeIndicator::Changed { duration: 2.0 };
+            
+            println!("Component '{}' changed for entity {}", component_name, update.entity_id);
+        }
+    }
+    
+    // Process removed components
+    for component_name in update.removed_components {
+        if let Some(component_state) = entity_components.get_mut(&component_name) {
+            component_state.change_indicator = ChangeIndicator::Removed;
+            component_state.last_changed_time = current_time;
+            println!("Component '{}' removed from entity {}", component_name, update.entity_id);
+        }
+    }
+}
+
+/// System to cleanup expired change indicators
+pub fn cleanup_expired_change_indicators(
+    mut live_cache: ResMut<LiveComponentCache>,
+    time: Res<Time>,
+) {
+    let current_time = time.elapsed_secs_f64();
+    
+    for (_, entity_components) in live_cache.entity_components.iter_mut() {
+        for (_, component_state) in entity_components.iter_mut() {
+            if let ChangeIndicator::Changed { duration } = &component_state.change_indicator {
+                let age = current_time - component_state.last_changed_time;
+                if age > *duration {
+                    component_state.change_indicator = ChangeIndicator::Unchanged;
+                }
+            }
+        }
+    }
+}
+
+/// System to automatically start watching components when entity is selected
+pub fn auto_start_component_watching(
+    mut http_client: ResMut<HttpRemoteClient>,
+    selected_entity: Res<SelectedEntity>,
+    entity_cache: Res<EntityCache>,
+) {
+    if !selected_entity.is_changed() {
+        return;
+    }
+    
+    if let Some(entity_id) = selected_entity.entity_id {
+        if let Some(entity) = entity_cache.entities.get(&entity_id) {
+            // Start watching all components of the selected entity
+            let components: Vec<String> = entity.components.keys().cloned().collect();
+            if !components.is_empty() {
+                match http_client.start_component_watching(entity_id, components.clone()) {
+                    Ok(()) => {
+                        println!("Started watching {} components for entity {}", components.len(), entity_id);
+                    }
+                    Err(e) => {
+                        println!("Failed to start component watching for entity {}: {}", entity_id, e);
+                    }
+                }
+            } else {
+                println!("No components to watch for entity {}", entity_id);
+            }
+        } else {
+            println!("Selected entity {} not found in cache", entity_id);
+        }
+    } else {
+        println!("No entity selected");
+    }
+}
+
+/// System to update component display with live data
+pub fn update_live_component_display(
+    live_cache: Res<LiveComponentCache>,
+    mut component_data_query: Query<(&ComponentData, &mut Text, &mut SelectableText)>,
+    time: Res<Time>,
+) {
+    if live_cache.entity_components.is_empty() {
+        return; // No live data to display
+    }
+    
+    let current_time = time.elapsed_secs_f64();
+    
+    for (component_data, mut text, mut selectable_text) in component_data_query.iter_mut() {
+        if let Some(entity_components) = live_cache.entity_components.get(&component_data.entity_id) {
+            if let Some(component_state) = entity_components.get(&component_data.component_name) {
+                // Update the text with the live component value
+                let formatted_value = format_component_value(&component_state.current_value);
+                
+                // Use clean formatted value without text indicators
+                let display_text = formatted_value.clone();
+                
+                // Only update if the text actually changed to avoid unnecessary updates
+                if text.0 != display_text {
+                    text.0 = display_text;
+                    selectable_text.text_content = formatted_value;
+                    println!("Updated live display for {}.{}", component_data.entity_id, component_data.component_name);
+                }
+            }
+        }
+    }
+}
+
+/// System to handle text selection and copying
+pub fn handle_text_selection(
+    mut interaction_query: Query<
+        (Entity, &Interaction, &mut BackgroundColor, &mut SelectableText, &ComponentData),
+        (Changed<Interaction>, With<Button>)
+    >,
+    mut selection_state: ResMut<TextSelectionState>,
+    keyboard_input: Res<ButtonInput<KeyCode>>,
+    mut window_query: Query<&mut bevy_window::Window, With<PrimaryWindow>>,
+) {
+    // Handle text selection on click
+    for (entity, interaction, mut bg_color, mut selectable_text, _component_data) in interaction_query.iter_mut() {
+        match *interaction {
+            Interaction::Pressed => {
+                // Select all text when clicked
+                selectable_text.is_selected = true;
+                selectable_text.selection_start = 0;
+                selectable_text.selection_end = selectable_text.text_content.len();
+                
+                // Update selection state
+                selection_state.selected_entity = Some(entity);
+                
+                // Visual feedback
+                *bg_color = BackgroundColor(Color::srgba(0.2, 0.4, 0.8, 0.3));
+                
+                println!("Selected text: {}", selectable_text.text_content);
+            }
+            Interaction::Hovered => {
+                if !selectable_text.is_selected {
+                    *bg_color = BackgroundColor(Color::srgba(0.3, 0.3, 0.3, 0.2));
+                }
+            }
+            Interaction::None => {
+                if !selectable_text.is_selected {
+                    *bg_color = BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.0));
+                }
+            }
+        }
+    }
+    
+    // Handle copy to clipboard with Ctrl+C
+    if keyboard_input.pressed(KeyCode::ControlLeft) || keyboard_input.pressed(KeyCode::ControlRight) {
+        if keyboard_input.just_pressed(KeyCode::KeyC) {
+            if let Some(selected_entity) = selection_state.selected_entity {
+                // Find the selected text
+                if let Ok((_entity, _interaction, _bg_color, selectable_text, _component_data)) = 
+                    interaction_query.get(selected_entity) {
+                    
+                    // Copy to clipboard
+                    copy_to_clipboard(&selectable_text.text_content);
+                    println!("📋 Copied to clipboard: {}", selectable_text.text_content);
+                }
+            }
+        }
+    }
+    
+    // Deselect when pressing Escape
+    if keyboard_input.just_pressed(KeyCode::Escape) {
+        selection_state.selected_entity = None;
+        // Note: full deselection of visual state will be handled by the interaction system
+    }
+}
+
+/// System to deselect text when clicking outside
+pub fn handle_text_deselection(
+    mut interaction_query: Query<
+        (Entity, &mut BackgroundColor, &mut SelectableText),
+        With<Button>
+    >,
+    mut selection_state: ResMut<TextSelectionState>,
+    mouse_input: Res<ButtonInput<MouseButton>>,
+) {
+    if mouse_input.just_pressed(MouseButton::Left) {
+        // Check if we clicked on a selectable text element
+        let clicked_on_text = interaction_query
+            .iter()
+            .any(|(_, _, _)| true); // This is a simplified check
+        
+        if !clicked_on_text {
+            selection_state.selected_entity = None;
+            // Note: full deselection of visual state will be handled by the interaction system
+        }
+    }
+}
+
+
+/// Cross-platform clipboard copy function
+fn copy_to_clipboard(text: &str) {
+    #[cfg(not(target_arch = "wasm32"))]
+    {
+        use std::process::Command;
+        
+        #[cfg(target_os = "windows")]
+        {
+            let mut cmd = Command::new("cmd");
+            cmd.args(&["/C", "echo", text, "|", "clip"]);
+            let _ = cmd.output();
+        }
+        
+        #[cfg(target_os = "macos")]
+        {
+            let mut cmd = Command::new("pbcopy");
+            use std::io::Write;
+            if let Ok(mut child) = cmd.stdin(std::process::Stdio::piped()).spawn() {
+                if let Some(stdin) = child.stdin.as_mut() {
+                    let _ = stdin.write_all(text.as_bytes());
+                }
+                let _ = child.wait();
+            }
+        }
+        
+        #[cfg(target_os = "linux")]
+        {
+            // Try xclip first, then xsel
+            let mut cmd = Command::new("xclip");
+            cmd.args(&["-selection", "clipboard"]);
+            use std::io::Write;
+            if let Ok(mut child) = cmd.stdin(std::process::Stdio::piped()).spawn() {
+                if let Some(stdin) = child.stdin.as_mut() {
+                    let _ = stdin.write_all(text.as_bytes());
+                }
+                let _ = child.wait();
+            }
+        }
+    }
+    
+    #[cfg(target_arch = "wasm32")]
+    {
+        // Web clipboard API would go here
+        println!("Clipboard copy not implemented for WASM target");
+    }
 }

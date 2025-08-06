@@ -36,9 +36,30 @@ pub struct EntityCache {
 pub struct EntityListContainer;
 
 
+/// Resource to track last selection time to prevent flashing
+#[derive(Resource, Default)]
+pub struct SelectionDebounce {
+    pub last_selection_time: f64,
+    pub debounce_interval: f64,
+    pub last_virtual_scroll_time: f64,
+    pub scroll_interaction_lockout: f64,
+}
+
+impl SelectionDebounce {
+    pub fn new() -> Self {
+        Self {
+            last_selection_time: 0.0,
+            debounce_interval: 0.05, // 50ms debounce to prevent rapid flashing
+            last_virtual_scroll_time: 0.0,
+            scroll_interaction_lockout: 0.1, // 100ms lockout after virtual scrolling (reduced)
+        }
+    }
+}
+
 /// System to handle entity selection
 pub fn handle_entity_selection(
     mut selected_entity: ResMut<SelectedEntity>,
+    mut selection_debounce: ResMut<SelectionDebounce>,
     interaction_query: Query<(&Interaction, &EntityListItem), Changed<Interaction>>,
     all_buttons: Query<Entity, With<EntityListItem>>,
     time: Res<Time>,
@@ -48,14 +69,31 @@ pub fn handle_entity_selection(
         println!("Entity selection system: {} buttons available", all_buttons.iter().count());
     }
     
+    let current_time = time.elapsed_secs_f64();
+    
     // Only process actual clicks, not hover events, and prevent duplicate selections
     for (interaction, item) in interaction_query.iter() {
         match *interaction {
             Interaction::Pressed => {
+                // Debounce rapid selections to prevent flashing during virtual scrolling
+                if current_time - selection_debounce.last_selection_time < selection_debounce.debounce_interval {
+                    println!("Debouncing selection - too recent: {:.3}s ago", current_time - selection_debounce.last_selection_time);
+                    continue;
+                }
+                
+                // Block interactions shortly after virtual scrolling updates
+                if current_time - selection_debounce.last_virtual_scroll_time < selection_debounce.scroll_interaction_lockout {
+                    println!("Blocking selection - virtual scroll too recent: {:.3}s ago", current_time - selection_debounce.last_virtual_scroll_time);
+                    continue;
+                }
+                
                 // Only update if it's actually a different entity
                 if selected_entity.entity_id != Some(item.entity_id) {
                     selected_entity.entity_id = Some(item.entity_id);
+                    selection_debounce.last_selection_time = current_time;
                     println!("Selected entity: {}", item.entity_id);
+                } else {
+                    println!("Ignoring duplicate selection of entity: {}", item.entity_id);
                 }
             }
             // Don't spam logs for None/Hovered states
@@ -107,27 +145,27 @@ pub fn spawn_entity_list(commands: &mut Commands, parent: Entity) -> Entity {
             },
         ));
         
-        // Outer scrollable container (React Virtualized style) - VIEWPORT with fixed height
+        // Outer viewport container - no scrollbars since we use custom scroll
         parent.spawn((
             EntityListContainer,
             Node {
                 width: Val::Percent(100.0),
                 flex_grow: 1.0,
-                position_type: PositionType::Relative, // Outer container: relative positioning
-                overflow: Overflow::scroll_y(), // Scrollbars on outer container
+                position_type: PositionType::Relative,
+                overflow: Overflow::hidden(), // Hidden - we handle scroll ourselves
                 ..Default::default()
             },
             ScrollPosition::default(),
             BackgroundColor(Color::srgb(0.05, 0.05, 0.05)),
         )).with_children(|parent| {
-            // Inner content container (React Virtualized style) - FULL CONTENT HEIGHT
+            // Inner content container - viewport height, items positioned relative to scroll
             parent.spawn((
                 EntityListVirtualContent,
                 Node {
                     width: Val::Percent(100.0),
-                    height: Val::Px(0.0), // Will be set dynamically to full content height
-                    position_type: PositionType::Relative, // Inner container: relative positioning
-                    overflow: Overflow::hidden(), // Hidden overflow on inner container
+                    height: Val::Percent(100.0), // Fill viewport
+                    position_type: PositionType::Relative,
+                    overflow: Overflow::hidden(),
                     ..Default::default()
                 },
             ));
@@ -218,32 +256,78 @@ fn get_entity_display_info(entity: &RemoteEntity) -> (String, String) {
         return (entity_id, display_name);
     }
     
-    // Priority 3: Look for common recognizable bevy components
-    let common_components = [
+    // Priority 3: Look for high-priority recognizable bevy components
+    let high_priority_components = [
         ("bevy_render::camera::camera::Camera", "Camera"),
         ("bevy_sprite::sprite::Sprite", "Sprite"),
         ("bevy_text::text::Text", "Text"),
         ("bevy_ui::node::Node", "UI Node"),
-        ("bevy_pbr::pbr_material::StandardMaterial", "Material"),
-        ("bevy_render::mesh::mesh::Mesh3d", "Mesh"),
-        ("bevy_light::directional_light::DirectionalLight", "Light"),
-        ("bevy_light::point_light::PointLight", "Point Light"),
         ("bevy_window::window::Window", "Window"),
+        ("bevy_pbr::pbr_material::StandardMaterial", "Material"),
+        ("bevy_render::mesh::mesh::Mesh3d", "Mesh3D"),
+        ("bevy_render::mesh::mesh::Mesh2d", "Mesh2D"),
+        ("bevy_light::directional_light::DirectionalLight", "Dir Light"),
+        ("bevy_light::point_light::PointLight", "Point Light"),
+        ("bevy_light::spot_light::SpotLight", "Spot Light"),
+        ("bevy_audio::audio_source::AudioSource", "Audio"),
     ];
     
-    for (full_name, display_name) in &common_components {
+    for (full_name, display_name) in &high_priority_components {
         if entity.components.contains_key(*full_name) {
             return (entity_id, display_name.to_string());
         }
     }
     
-    // Priority 4: Use Transform if present (very common)
-    if entity.components.contains_key("bevy_transform::components::transform::Transform") {
-        return (entity_id, "Transform".to_string());
+    // Priority 4: Look for other meaningful bevy components
+    let secondary_components = [
+        ("bevy_transform::components::global_transform::GlobalTransform", "GlobalTransform"),
+        ("bevy_transform::components::transform::Transform", "Transform"),
+        ("bevy_render::view::visibility::Visibility", "Visible"),
+        ("bevy_render::view::visibility::InheritedVisibility", "Inherited"),
+        ("bevy_render::view::visibility::ViewVisibility", "ViewVisible"),
+        ("bevy_hierarchy::components::parent::Parent", "Child"),
+        ("bevy_hierarchy::components::children::Children", "Parent"),
+        ("bevy_asset::handle::Handle", "Asset"),
+    ];
+    
+    for (full_name, display_name) in &secondary_components {
+        if entity.components.contains_key(*full_name) {
+            return (entity_id, display_name.to_string());
+        }
     }
     
-    // Fallback: Just show Entity
-    (entity_id, "Entity".to_string())
+    // Priority 5: Show multiple component types if available
+    let mut component_types = Vec::new();
+    
+    // Count different types of components
+    let has_transform = entity.components.keys().any(|k| k.contains("Transform"));
+    let has_render = entity.components.keys().any(|k| k.contains("render") || k.contains("Mesh") || k.contains("Material"));
+    let has_ui = entity.components.keys().any(|k| k.contains("ui") || k.contains("Node"));
+    let has_audio = entity.components.keys().any(|k| k.contains("audio") || k.contains("Audio"));
+    let has_hierarchy = entity.components.keys().any(|k| k.contains("Parent") || k.contains("Children"));
+    
+    if has_render { component_types.push("Render"); }
+    if has_ui { component_types.push("UI"); }
+    if has_audio { component_types.push("Audio"); }
+    if has_hierarchy { component_types.push("Parent/Child"); }
+    if has_transform { component_types.push("Transform"); }
+    
+    if !component_types.is_empty() {
+        let display_name = if component_types.len() == 1 {
+            component_types[0].to_string()
+        } else {
+            format!("{} (+{})", component_types[0], component_types.len() - 1)
+        };
+        return (entity_id, display_name);
+    }
+    
+    // Fallback: Show component count
+    let component_count = entity.components.len();
+    if component_count > 0 {
+        (entity_id, format!("Entity ({}c)", component_count))
+    } else {
+        (entity_id, "Empty Entity".to_string())
+    }
 }
 
 /// Spawn an entity list item
