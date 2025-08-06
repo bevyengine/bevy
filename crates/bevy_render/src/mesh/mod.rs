@@ -29,7 +29,6 @@ impl Plugin for MeshPlugin {
         app.init_asset::<Mesh>()
             .init_asset::<skinning::SkinnedMeshInverseBindposes>()
             .register_asset_reflect::<Mesh>()
-            .register_type::<Vec<Entity>>()
             // 'Mesh' must be prepared after 'Image' as meshes rely on the morph target image being ready
             .add_plugins(RenderAssetPlugin::<RenderMesh, GpuImage>::default())
             .add_plugins(MeshAllocatorPlugin)
