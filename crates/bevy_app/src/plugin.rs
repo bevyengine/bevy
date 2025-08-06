@@ -135,6 +135,8 @@ mod sealed {
 
     pub trait Plugins<Marker> {
         fn add_to_app(self, app: &mut App);
+
+        fn add_to_app_if_new(self, app: &mut App);
     }
 
     pub struct PluginMarker;
@@ -144,12 +146,25 @@ mod sealed {
     impl<P: Plugin> Plugins<PluginMarker> for P {
         #[track_caller]
         fn add_to_app(self, app: &mut App) {
-            if let Err(AppError::DuplicatePlugin { plugin_name }) =
-                app.add_boxed_plugin(Box::new(self))
-            {
-                panic!(
-                    "Error adding plugin {plugin_name}: : plugin was already added in application"
-                )
+            if let Err(e) = app.add_boxed_plugin(Box::new(self)) {
+                match e {
+                    AppError::DuplicatePlugin { plugin_name } => {
+                        panic!(
+                            "Error adding plugin {plugin_name}: : plugin was already added in application"
+                        )
+                    }
+                }
+            }
+        }
+
+        #[track_caller]
+        fn add_to_app_if_new(self, app: &mut App) {
+            if let Err(e) = app.add_boxed_plugin(Box::new(self)) {
+                match e {
+                    AppError::DuplicatePlugin { plugin_name } => {
+                        log::info!("Skip duplicate plugin {plugin_name}");
+                    }
+                }
             }
         }
     }
@@ -157,7 +172,12 @@ mod sealed {
     impl<P: PluginGroup> Plugins<PluginGroupMarker> for P {
         #[track_caller]
         fn add_to_app(self, app: &mut App) {
-            self.build().finish(app);
+            self.build().finish(app, false);
+        }
+
+        #[track_caller]
+        fn add_to_app_if_new(self, app: &mut App) {
+            self.build().finish(app, true);
         }
     }
 
@@ -178,6 +198,18 @@ mod sealed {
                 fn add_to_app(self, app: &mut App) {
                     let ($($plugins,)*) = self;
                     $($plugins.add_to_app(app);)*
+                }
+
+                #[expect(
+                    clippy::allow_attributes,
+                    reason = "This is inside a macro, and as such, may not trigger in all cases."
+                )]
+                #[allow(non_snake_case, reason = "`all_tuples!()` generates non-snake-case variable names.")]
+                #[allow(unused_variables, reason = "`app` is unused when implemented for the unit type `()`.")]
+                #[track_caller]
+                fn add_to_app_if_new(self, app: &mut App) {
+                    let ($($plugins,)*) = self;
+                    $($plugins.add_to_app_if_new(app);)*
                 }
             }
         }

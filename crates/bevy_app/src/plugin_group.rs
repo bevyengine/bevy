@@ -513,21 +513,32 @@ impl PluginGroupBuilder {
     ///
     /// # Panics
     ///
-    /// Panics if one of the plugin in the group was already added to the application.
+    /// Panics if one of the plugin in the group was already added to the application while
+    /// `do_skip_duplicate` set to `false`.
     #[track_caller]
-    pub fn finish(mut self, app: &mut App) {
+    pub fn finish(mut self, app: &mut App, do_skip_duplicate: bool) {
         for ty in &self.order {
             if let Some(entry) = self.plugins.remove(ty) {
                 if entry.enabled {
                     debug!("added plugin: {}", entry.plugin.name());
-                    if let Err(AppError::DuplicatePlugin { plugin_name }) =
-                        app.add_boxed_plugin(entry.plugin)
-                    {
-                        panic!(
-                            "Error adding plugin {} in group {}: plugin was already added in application",
-                            plugin_name,
-                            self.group_name
-                        );
+                    if let Err(e) = app.add_boxed_plugin(entry.plugin) {
+                        match e {
+                            AppError::DuplicatePlugin { plugin_name } => {
+                                if !do_skip_duplicate {
+                                    panic!(
+                                        "Error adding plugin {} in group {}: plugin was already added in application",
+                                        plugin_name,
+                                        self.group_name
+                                    );
+                                } else {
+                                    log::info!(
+                                        "Skip duplicate plugin {} in group {}",
+                                        plugin_name,
+                                        self.group_name
+                                    );
+                                }
+                            }
+                        }
                     }
                 }
             }
