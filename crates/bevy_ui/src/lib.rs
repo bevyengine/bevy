@@ -70,7 +70,7 @@ pub mod prelude {
     };
 }
 
-use bevy_app::{prelude::*, AnimationSystems};
+use bevy_app::{prelude::*, AnimationSystems, HierarchyPropagatePlugin, PropagateSet};
 use bevy_ecs::prelude::*;
 use bevy_input::InputSystems;
 use bevy_render::camera::CameraUpdateSystems;
@@ -93,6 +93,8 @@ pub enum UiSystems {
     Focus,
     /// All UI systems in [`PostUpdate`] will run in or after this label.
     Prepare,
+    /// Propagate UI component values needed by layout.
+    Propagate,
     /// Update content requirements before layout.
     Content,
     /// After this label, the ui layout state has been updated.
@@ -176,12 +178,20 @@ impl Plugin for UiPlugin {
                 (
                     CameraUpdateSystems,
                     UiSystems::Prepare.after(AnimationSystems),
+                    UiSystems::Propagate,
                     UiSystems::Content,
                     UiSystems::Layout,
                     UiSystems::PostLayout,
                 )
                     .chain(),
             )
+            .configure_sets(
+                PostUpdate,
+                PropagateSet::<ComputedNodeTarget>::default().in_set(UiSystems::Propagate),
+            )
+            .add_plugins(HierarchyPropagatePlugin::<ComputedNodeTarget>::new(
+                PostUpdate,
+            ))
             .add_systems(
                 PreUpdate,
                 ui_focus_system.in_set(UiSystems::Focus).after(InputSystems),
