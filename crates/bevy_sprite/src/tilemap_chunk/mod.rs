@@ -31,10 +31,7 @@ pub struct TilemapChunkPlugin;
 
 impl Plugin for TilemapChunkPlugin {
     fn build(&self, app: &mut App) {
-        app.register_type::<TilemapChunkMeshCache>()
-            .register_type::<TilemapChunk>()
-            .register_type::<TilemapChunkTileData>()
-            .init_resource::<TilemapChunkMeshCache>()
+        app.init_resource::<TilemapChunkMeshCache>()
             .add_systems(Update, update_tilemap_chunk_indices);
     }
 }

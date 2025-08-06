@@ -139,9 +139,7 @@ pub struct Core3dPlugin;
 
 impl Plugin for Core3dPlugin {
     fn build(&self, app: &mut App) {
-        app.register_type::<Camera3d>()
-            .register_type::<ScreenSpaceTransmissionQuality>()
-            .register_required_components_with::<Camera3d, DebandDither>(|| DebandDither::Enabled)
+        app.register_required_components_with::<Camera3d, DebandDither>(|| DebandDither::Enabled)
             .register_required_components_with::<Camera3d, CameraRenderGraph>(|| {
                 CameraRenderGraph::new(Core3d)
             })
