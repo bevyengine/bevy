@@ -20,4 +20,4 @@ to ensure backwards compatibility in the event the bind group numbering changes 
 Exported float constants from shaders without an explicit type declaration like `const FOO = 1.0;` are no
 longer supported and must be explicitly typed like `const FOO: f32 = 1.0;`.
 
-See the full changelog [here](https://github.com/gfx-rs/wgpu/blob/trunk/CHANGELOG.md#v2500-2025-04-10).
+See the [full changelog here](https://github.com/gfx-rs/wgpu/blob/trunk/CHANGELOG.md#v2500-2025-04-10).
