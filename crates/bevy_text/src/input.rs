@@ -267,7 +267,7 @@ impl Default for TextInputAttributes {
 }
 
 /// If a text input entity has a `TextInputFilter` component, after each [TextEdit] is applied, the [TextInputBuffer]’s text is checked
-/// against the filter, and if it fails, the `TextEdit is rolled back.
+/// against the filter, and if it fails, the `TextEdit` is rolled back.
 #[derive(Component)]
 pub enum TextInputFilter {
     /// Positive integer input
@@ -494,8 +494,8 @@ fn apply_action<'a>(
 
 /// Applies the [`TextEdit`]s queued for each [`TextInputBuffer`].
 ///
-/// After all edits are applied, if a text input entity has a [TextInputValue] component and its buffer was changed,
-/// then the [TextInputValue]'s text is updated with the new contents of the [TextInputBuffer].
+/// After all edits are applied, if a text input entity has a [`TextInputValue`] component and its buffer was changed,
+/// then the [`TextInputValue`]'s text is updated with the new contents of the [`TextInputBuffer`].
 pub fn apply_text_edits(
     mut commands: Commands,
     mut font_system: ResMut<CosmicFontSystem>,
