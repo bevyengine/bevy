@@ -353,7 +353,6 @@ pub fn ui_layout_system(
 #[cfg(test)]
 mod tests {
     use bevy_app::{App, HierarchyPropagatePlugin, PostUpdate, PropagateSet};
-    use bevy_ecs::world;
     use taffy::TraversePartialTree;
 
     use bevy_asset::{AssetEvent, Assets};
