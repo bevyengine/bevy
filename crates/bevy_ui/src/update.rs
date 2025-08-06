@@ -174,6 +174,7 @@ pub fn update_ui_context_system(
 
 #[cfg(test)]
 mod tests {
+    use bevy_app::App;
     use bevy_asset::AssetEvent;
     use bevy_asset::Assets;
     use bevy_core_pipeline::core_2d::Camera2d;
@@ -225,7 +226,7 @@ mod tests {
 
     #[test]
     fn update_context_for_single_ui_root() {
-        let app = setup_test_app();
+        let mut app = setup_test_app();
         let world = app.world_mut();
 
         let scale_factor = 10.;
@@ -259,7 +260,7 @@ mod tests {
 
     #[test]
     fn update_multiple_context_for_multiple_ui_roots() {
-        let app = setup_test_app();
+        let mut app = setup_test_app();
         let world = app.world_mut();
 
         let scale1 = 1.;
@@ -324,7 +325,7 @@ mod tests {
 
     #[test]
     fn update_context_on_changed_camera() {
-        let app = setup_test_app();
+        let mut app = setup_test_app();
         let world = app.world_mut();
 
         let scale1 = 1.;
@@ -423,7 +424,7 @@ mod tests {
 
     #[test]
     fn update_context_after_parent_removed() {
-        let app = setup_test_app();
+        let mut app = setup_test_app();
         let world = app.world_mut();
 
         let scale1 = 1.;
@@ -543,7 +544,7 @@ mod tests {
 
     #[test]
     fn update_great_grandchild() {
-        let app = setup_test_app();
+        let mut app = setup_test_app();
         let world = app.world_mut();
 
         let scale = 1.;
