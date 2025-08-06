@@ -91,19 +91,19 @@ pub fn extract_debug_overlay(
             render_entity: commands.spawn(TemporaryRenderEntity).id(),
             // Add a large number to the UI node's stack index so that the overlay is always drawn on top
             z_order: (ui_stack.uinodes.len() as u32 + uinode.stack_index()) as f32,
-            color: Hsla::sequential_dispersed(entity.index()).into(),
-            rect: Rect {
-                min: Vec2::ZERO,
-                max: uinode.size,
-            },
             clip: maybe_clip
                 .filter(|_| !debug_options.show_clipped)
                 .map(|clip| clip.clip),
             image: AssetId::default(),
             extracted_camera_entity,
+            transform: transform.into(),
             item: ExtractedUiItem::Node {
+                color: Hsla::sequential_dispersed(entity.index()).into(),
+                rect: Rect {
+                    min: Vec2::ZERO,
+                    max: uinode.size,
+                },
                 atlas_scaling: None,
-                transform: transform.into(),
                 flip_x: false,
                 flip_y: false,
                 border: BorderRect::all(debug_options.line_width / uinode.inverse_scale_factor()),
