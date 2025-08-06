@@ -198,11 +198,22 @@ pub fn remove_with_requires<T: Bundle>() -> impl EntityCommand {
 }
 
 /// An [`EntityCommand`] that removes a dynamic component from an entity.
+///
+/// Returns an error if the component does not exist on the entity.
 #[track_caller]
-pub fn remove_by_id(component_id: ComponentId) -> impl EntityCommand {
+pub fn remove_by_id(
+    component_id: ComponentId,
+) -> impl EntityCommand<Result<(), crate::world::error::EntityComponentError>> {
     let caller = MaybeLocation::caller();
-    move |mut entity: EntityWorldMut| {
-        entity.remove_by_id_with_caller(component_id, caller);
+    move |mut entity: EntityWorldMut| -> Result<(), crate::world::error::EntityComponentError> {
+        if entity.contains_id(component_id) {
+            entity.remove_by_id_with_caller(component_id, caller);
+            Ok(())
+        } else {
+            Err(crate::world::error::EntityComponentError::MissingComponent(
+                component_id,
+            ))
+        }
     }
 }
 
@@ -276,12 +287,21 @@ pub fn trigger(event: impl EntityEvent) -> impl EntityCommand {
 ///
 /// Required components are not considered by denied components and must be
 /// explicitly denied as well if desired.
+///
+/// Returns an error if the target entity does not exist.
 pub fn clone_with_opt_out(
     target: Entity,
     config: impl FnOnce(&mut EntityClonerBuilder<OptOut>) + Send + Sync + 'static,
-) -> impl EntityCommand {
-    move |mut entity: EntityWorldMut| {
+) -> impl EntityCommand<Result<(), crate::entity::EntityDoesNotExistError>> {
+    move |mut entity: EntityWorldMut| -> Result<(), crate::entity::EntityDoesNotExistError> {
+        if !entity.world().entities().contains(target) {
+            return Err(crate::entity::EntityDoesNotExistError::new(
+                target,
+                entity.world().entities(),
+            ));
+        }
         entity.clone_with_opt_out(target, config);
+        Ok(())
     }
 }
 
@@ -293,20 +313,40 @@ pub fn clone_with_opt_out(
 /// [`allow`](EntityClonerBuilder<OptIn>::allow) method.
 ///
 /// Required components are also cloned when the target entity does not contain them.
+///
+/// Returns an error if the target entity does not exist.
 pub fn clone_with_opt_in(
     target: Entity,
     config: impl FnOnce(&mut EntityClonerBuilder<OptIn>) + Send + Sync + 'static,
-) -> impl EntityCommand {
-    move |mut entity: EntityWorldMut| {
+) -> impl EntityCommand<Result<(), crate::entity::EntityDoesNotExistError>> {
+    move |mut entity: EntityWorldMut| -> Result<(), crate::entity::EntityDoesNotExistError> {
+        if !entity.world().entities().contains(target) {
+            return Err(crate::entity::EntityDoesNotExistError::new(
+                target,
+                entity.world().entities(),
+            ));
+        }
         entity.clone_with_opt_in(target, config);
+        Ok(())
     }
 }
 
 /// An [`EntityCommand`] that clones the specified components of an entity
 /// and inserts them into another entity.
-pub fn clone_components<B: Bundle>(target: Entity) -> impl EntityCommand {
-    move |mut entity: EntityWorldMut| {
+///
+/// Returns an error if the target entity does not exist.
+pub fn clone_components<B: Bundle>(
+    target: Entity,
+) -> impl EntityCommand<Result<(), crate::entity::EntityDoesNotExistError>> {
+    move |mut entity: EntityWorldMut| -> Result<(), crate::entity::EntityDoesNotExistError> {
+        if !entity.world().entities().contains(target) {
+            return Err(crate::entity::EntityDoesNotExistError::new(
+                target,
+                entity.world().entities(),
+            ));
+        }
         entity.clone_components::<B>(target);
+        Ok(())
     }
 }
 
@@ -318,15 +358,22 @@ pub fn clone_components<B: Bundle>(target: Entity) -> impl EntityCommand {
 ///
 /// Note that this will trigger `on_remove` hooks/observers on this entity and `on_insert`/`on_add` hooks/observers on the target entity.
 ///
-/// # Panics
-///
-/// The command will panic when applied if the target entity does not exist.
+/// Returns an error if the target entity does not exist.
 ///
 /// [`Ignore`]: crate::component::ComponentCloneBehavior::Ignore
 /// [`Custom`]: crate::component::ComponentCloneBehavior::Custom
-pub fn move_components<B: Bundle>(target: Entity) -> impl EntityCommand {
-    move |mut entity: EntityWorldMut| {
+pub fn move_components<B: Bundle>(
+    target: Entity,
+) -> impl EntityCommand<Result<(), crate::entity::EntityDoesNotExistError>> {
+    move |mut entity: EntityWorldMut| -> Result<(), crate::entity::EntityDoesNotExistError> {
+        if !entity.world().entities().contains(target) {
+            return Err(crate::entity::EntityDoesNotExistError::new(
+                target,
+                entity.world().entities(),
+            ));
+        }
         entity.move_components::<B>(target);
+        Ok(())
     }
 }
 
