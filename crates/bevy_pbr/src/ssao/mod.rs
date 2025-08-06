@@ -229,7 +229,7 @@ impl ViewNode for SsaoNode {
         {
             let mut preprocess_depth_pass =
                 command_encoder.begin_compute_pass(&ComputePassDescriptor {
-                    label: Some("ssao_preprocess_depth_pass"),
+                    label: Some("ssao_preprocess_depth"),
                     timestamp_writes: None,
                 });
             preprocess_depth_pass.set_pipeline(preprocess_depth_pipeline);
@@ -248,7 +248,7 @@ impl ViewNode for SsaoNode {
 
         {
             let mut ssao_pass = command_encoder.begin_compute_pass(&ComputePassDescriptor {
-                label: Some("ssao_ssao_pass"),
+                label: Some("ssao"),
                 timestamp_writes: None,
             });
             ssao_pass.set_pipeline(ssao_pipeline);
@@ -264,7 +264,7 @@ impl ViewNode for SsaoNode {
         {
             let mut spatial_denoise_pass =
                 command_encoder.begin_compute_pass(&ComputePassDescriptor {
-                    label: Some("ssao_spatial_denoise_pass"),
+                    label: Some("ssao_spatial_denoise"),
                     timestamp_writes: None,
                 });
             spatial_denoise_pass.set_pipeline(spatial_denoise_pipeline);
