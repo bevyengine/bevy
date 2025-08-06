@@ -153,7 +153,7 @@ impl TaskPool {
         f(scope_ref);
 
         // Loop until all tasks are done
-        while Self::try_tick_local() {}
+        Self::flush_local();
 
         let results = scope.results.borrow();
         results
@@ -214,6 +214,16 @@ impl TaskPool {
                 crate::bevy_executor::Executor::try_tick_local()
             } else {
                 EXECUTOR.try_tick()
+            }
+        }
+    }
+
+    fn flush_local() {
+        crate::cfg::bevy_executor! {
+            if {
+                crate::bevy_executor::Executor::flush_local();
+            } else {
+                while EXECUTOR.try_tick() {}
             }
         }
     }

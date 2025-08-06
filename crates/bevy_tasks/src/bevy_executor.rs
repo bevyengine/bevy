@@ -16,6 +16,7 @@ use core::panic::{RefUnwindSafe, UnwindSafe};
 use core::pin::Pin;
 use core::sync::atomic::{AtomicBool, AtomicPtr, Ordering};
 use core::task::{Context, Poll, Waker};
+use core::cell::UnsafeCell;
 use std::thread::{AccessError, ThreadId};
 
 use alloc::collections::VecDeque;
@@ -24,6 +25,7 @@ use async_task::{Builder, Runnable, Task};
 use bevy_platform::prelude::Vec;
 use bevy_platform::sync::{Arc, Mutex, MutexGuard, PoisonError, RwLock, TryLockError};
 use crossbeam_queue::{ArrayQueue, SegQueue};
+use futures_lite::future::block_on;
 use futures_lite::{future,FutureExt};
 use slab::Slab;
 use thread_local::ThreadLocal;
@@ -41,25 +43,14 @@ pub(crate) fn install_runtime_into_current_thread(executor: &Executor) {
         let old_ptr = tls.executor.swap(state_ptr, Ordering::Relaxed);
         if !old_ptr.is_null() {
             // SAFETY: If this pointer was not null, it was initialized from Arc::into_raw.
-            drop(unsafe { Arc::from_raw(old_ptr) })
+            drop(unsafe { Arc::from_raw(old_ptr) });
         }
     });
 }
 
-// Do not access this directly, use `with_local_queue` instead.
-cfg_if::cfg_if! {
-    if #[cfg(all(debug_assertions, not(miri)))] {
-        use core::cell::RefCell;
-        type LocalCell<T> = RefCell<T>;
-    } else {
-        use core::cell::UnsafeCell;
-        type LocalCell<T> = UnsafeCell<T>;
-    }
-}
-
 std::thread_local! {
-    static LOCAL_QUEUE: LocalCell<LocalQueue> = const {
-        LocalCell::new(LocalQueue {
+    static LOCAL_QUEUE: UnsafeCell<LocalQueue> = const {
+        UnsafeCell::new(LocalQueue {
             local_queue: VecDeque::new(),
             local_active:Slab::new(),
         })
@@ -71,16 +62,10 @@ std::thread_local! {
 #[inline(always)]
 unsafe fn try_with_local_queue<T>(f: impl FnOnce(&mut LocalQueue) -> T) -> Result<T, AccessError> {
     LOCAL_QUEUE.try_with(|tls| {
-        cfg_if::cfg_if! {
-            if #[cfg(all(debug_assertions, not(miri)))] {
-                f(&mut tls.borrow_mut())
-            } else {
-                // SAFETY: This value is in thread local storage and thus can only be accessed
-                // from one thread. The caller guarantees that this function is not used with
-                // LOCAL_QUEUE in any way.
-                f(unsafe { &mut *tls.get() })
-            }
-        }
+        // SAFETY: This value is in thread local storage and thus can only be accessed
+        // from one thread. The caller guarantees that this function is not used with
+        // LOCAL_QUEUE in any way.
+        f(unsafe { &mut *tls.get() })
     })
 }
 
@@ -331,6 +316,28 @@ impl<'a> Executor<'a> {
             .flatten()
             .map(Runnable::run)
             .is_some()
+    }
+
+    pub fn flush_local() {
+        // If this is called during the thread destructor, there's nothing to run anyway.
+        // All of the tasks will be dropped soon.
+        //
+        // SAFETY: There are no instances where the value is accessed mutably
+        // from multiple locations simultaneously. As the Runnable is run after
+        // this scope closes, the AsyncCallOnDrop around the future will be invoked
+        // without overlapping mutable accssses.
+        let _ = LOCAL_QUEUE.try_with(|local| unsafe {
+            block_on(async {
+                while !(&*local.get()).local_active.is_empty() {
+                    match (&mut *local.get()).local_queue.pop_front() {
+                        Some(runnable) => {
+                            runnable.run();
+                        },
+                        None => future::yield_now().await,
+                    }
+                }
+            })
+        });
     }
 
     /// Runs the executor until the given future completes.
