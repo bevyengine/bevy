@@ -125,8 +125,8 @@ impl TypeRegistry {
     /// Calling this method is equivalent to calling [`register`](Self::register) on all types without generic parameters
     /// that derived [`Reflect`] trait.
     ///
-    /// This method is supported on Linux, macOS, iOS, Android and Windows via the `inventory` crate,
-    /// and on wasm via the `wasm-init` crate. It does nothing on platforms not supported by either of those crates.
+    /// This method is supported on Linux, macOS, Windows, iOS, Android, and Web via the `inventory` crate.
+    /// It does nothing on platforms not supported by either of those crates.
     ///
     /// # Example
     ///
@@ -503,6 +503,10 @@ impl TypeRegistry {
             let type_data = item.data::<T>();
             type_data.map(|data| (item, data))
         })
+    }
+
+    pub fn len(&self) -> usize {
+        self.registrations.len()
     }
 }
 

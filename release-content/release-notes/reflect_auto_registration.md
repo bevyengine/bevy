@@ -42,10 +42,10 @@ pub struct Foo {
 
 ## Unsupported platforms
 
-This feature relies on the [`inventory`] crate to collect all type registrations at compile-time. However, not all platforms are supported by [`inventory`], and while it would be best for
+This feature relies on the [`inventory`] crate to collect all type registrations at compile-time. However, some niche platforms are not supported by [`inventory`], and while it would be best for
 any unsupported platforms to be supported upstream, sometimes it might not be possible. For this reason, there is a different implementation of this feature that works on all platforms.
 It comes with some caveats with regards to project structure and might increase compile time, so it is better used as a backup solution. The detailed instructions on how to use this feature
-can be found in this [`example`].
+can be found in this [`example`]. Types can also still be manually registered using `app.register_type::<T>()`.
 
 [`Reflect`]: https://docs.rs/bevy/0.17.0/bevy/prelude/trait.Reflect.html
 [`inventory`]: https://github.com/dtolnay/inventory
