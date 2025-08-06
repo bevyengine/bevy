@@ -9,7 +9,7 @@
 //! driven by lower-level input devices and consumed by higher-level interaction systems.
 
 use bevy_ecs::prelude::*;
-use bevy_input::mouse::MouseScrollUnit;
+use bevy_input::{mouse::MouseScrollUnit, touch::TouchPhase};
 use bevy_math::Vec2;
 use bevy_platform::collections::HashMap;
 use bevy_reflect::prelude::*;
@@ -263,6 +263,8 @@ pub enum PointerAction {
         x: f32,
         /// The vertical scroll value.
         y: f32,
+        /// The phase of the scroll.
+        phase: TouchPhase,
     },
     /// Cancel the pointer. Often used for touch events.
     Cancel,

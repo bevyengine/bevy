@@ -174,7 +174,13 @@ pub fn mouse_pick_events(
                 pointer_events.write(PointerInput::new(PointerId::Mouse, location, action));
             }
             WindowEvent::MouseWheel(event) => {
-                let MouseWheel { unit, x, y, window } = *event;
+                let MouseWheel {
+                    unit,
+                    x,
+                    y,
+                    window,
+                    phase,
+                } = *event;
 
                 let location = Location {
                     target: match RenderTarget::Window(WindowRef::Entity(window))
@@ -186,7 +192,7 @@ pub fn mouse_pick_events(
                     position: *cursor_last,
                 };
 
-                let action = PointerAction::Scroll { x, y, unit };
+                let action = PointerAction::Scroll { x, y, unit, phase };
 
                 pointer_events.write(PointerInput::new(PointerId::Mouse, location, action));
             }
