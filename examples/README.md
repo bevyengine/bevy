@@ -551,6 +551,7 @@ Example | Description
 [Box Shadow](../examples/ui/box_shadow.rs) | Demonstrates how to create a node with a shadow
 [Button](../examples/ui/button.rs) | Illustrates creating and updating a button
 [CSS Grid](../examples/ui/grid.rs) | An example for CSS Grid layout
+[Clipboard](../examples/ui/clipboard.rs) | Demonstrates accessing the clipboard to retrieve and display text
 [Core Widgets](../examples/ui/core_widgets.rs) | Demonstrates use of core (headless) widgets in Bevy UI
 [Core Widgets (w/Observers)](../examples/ui/core_widgets_observers.rs) | Demonstrates use of core (headless) widgets in Bevy UI, with Observers
 [Directional Navigation](../examples/ui/directional_navigation.rs) | Demonstration of Directional Navigation between UI elements
