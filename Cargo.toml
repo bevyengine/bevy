@@ -627,17 +627,11 @@ crossbeam-channel = "0.5.0"
 argh = "0.1.12"
 thiserror = "2.0"
 event-listener = "5.3.0"
-hyper = { version = "1", features = ["server", "http1"] }
-http-body-util = "0.1"
 anyhow = "1"
-macro_rules_attribute = "0.2"
 accesskit = "0.21"
 nonmax = "0.5"
 
 [target.'cfg(not(target_family = "wasm"))'.dev-dependencies]
-smol = "2"
-smol-macros = "0.1"
-smol-hyper = "0.1"
 ureq = { version = "3.0.8", features = ["json"] }
 
 [target.'cfg(target_arch = "wasm32")'.dev-dependencies]
