@@ -3,6 +3,8 @@ extern crate alloc;
 
 use alloc::sync::Arc;
 
+#[cfg(feature = "reflect_auto_register")]
+use bevy_ecs::schedule::IntoScheduleConfigs;
 use bevy_ecs::{
     change_detection::DetectChangesMut, event::EventWriter, system::ResMut, HotPatchChanges,
     HotPatched,
@@ -44,5 +46,14 @@ impl Plugin for HotPatchPlugin {
                     }
                 },
             );
+
+        #[cfg(feature = "reflect_auto_register")]
+        app.add_systems(
+            crate::First,
+            (move |registry: bevy_ecs::system::Res<bevy_ecs::reflect::AppTypeRegistry>| {
+                registry.write().register_derived_types();
+            })
+            .run_if(bevy_ecs::schedule::common_conditions::on_event::<HotPatched>),
+        );
     }
 }
