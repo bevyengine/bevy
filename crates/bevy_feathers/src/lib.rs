@@ -18,7 +18,7 @@
 //! Please report issues, submit fixes and propose changes.
 //! Thanks for stress-testing; let's build something better together.
 
-use bevy_app::{HierarchyPropagatePlugin, Plugin, PostUpdate, Update};
+use bevy_app::{HierarchyPropagatePlugin, Plugin, PostUpdate};
 use bevy_asset::embedded_asset;
 use bevy_ecs::query::With;
 use bevy_text::{TextColor, TextFont};
@@ -63,8 +63,8 @@ impl Plugin for FeathersPlugin {
         app.add_plugins((
             ControlsPlugin,
             CursorIconPlugin,
-            HierarchyPropagatePlugin::<TextColor, With<ThemedText>>::new(Update),
-            HierarchyPropagatePlugin::<TextFont, With<ThemedText>>::new(Update),
+            HierarchyPropagatePlugin::<TextColor, With<ThemedText>>::new(PostUpdate),
+            HierarchyPropagatePlugin::<TextFont, With<ThemedText>>::new(PostUpdate),
             UiMaterialPlugin::<AlphaPatternMaterial>::default(),
         ));
 
