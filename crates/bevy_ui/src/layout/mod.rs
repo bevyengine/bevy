@@ -764,7 +764,7 @@ mod tests {
 
         let overlap_check = world
             .query_filtered::<(Entity, &ComputedNode, &UiGlobalTransform), Without<ChildOf>>()
-            .iter(&world)
+            .iter(world)
             .fold(
                 Option::<(Rect, bool)>::None,
                 |option_rect, (entity, node, transform)| {
@@ -902,9 +902,9 @@ mod tests {
         let world = app.world_mut();
 
         let pos_inc = Vec2::splat(1.);
-        let total_cameras = world.query::<&Camera>().iter(&world).len();
+        let total_cameras = world.query::<&Camera>().iter(world).len();
         // add total cameras - 1 (the assumed default) to get an idea for how many nodes we should expect
-        let expected_max_taffy_node_count = get_taffy_node_count(&world) + total_cameras - 1;
+        let expected_max_taffy_node_count = get_taffy_node_count(world) + total_cameras - 1;
 
         world.run_system_once(update_camera_viewports).unwrap();
 
@@ -913,7 +913,7 @@ mod tests {
 
         let viewport_rects = world
             .query::<(Entity, &Camera)>()
-            .iter(&world)
+            .iter(world)
             .map(|(e, c)| (e, c.logical_viewport_rect().expect("missing viewport")))
             .collect::<Vec<_>>();
 
@@ -931,7 +931,7 @@ mod tests {
         }
 
         let world = app.world();
-        let current_taffy_node_count = get_taffy_node_count(&world);
+        let current_taffy_node_count = get_taffy_node_count(world);
         if current_taffy_node_count > expected_max_taffy_node_count {
             panic!("extra taffy nodes detected: current: {current_taffy_node_count} max expected: {expected_max_taffy_node_count}");
         }
