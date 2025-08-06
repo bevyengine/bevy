@@ -300,6 +300,20 @@ reflect_functions = [
   "bevy_ecs/reflect_functions",
 ]
 
+# Enable automatic reflect registration using inventory.
+reflect_auto_register = [
+  "bevy_reflect/auto_register_inventory",
+  "bevy_app/reflect_auto_register",
+  "bevy_ecs/reflect_auto_register",
+]
+
+# Enable automatic reflect registration without inventory. See `reflect::load_type_registrations` for more info.
+reflect_auto_register_static = [
+  "bevy_reflect/auto_register_static",
+  "bevy_app/reflect_auto_register",
+  "bevy_ecs/reflect_auto_register",
+]
+
 # Enable documentation reflection
 reflect_documentation = ["bevy_reflect/documentation"]
 

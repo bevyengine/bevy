@@ -75,7 +75,6 @@ bevy_android = { path = "../bevy_android", version = "0.17.0-dev", default-featu
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 wasm-bindgen = { version = "0.2" }
 web-sys = "0.3"
-crossbeam-channel = "0.5"
 # TODO: Assuming all wasm builds are for the browser. Require `no_std` support to break assumption.
 bevy_app = { path = "../bevy_app", version = "0.17.0-dev", default-features = false, features = [
   "web",

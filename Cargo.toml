@@ -28,6 +28,8 @@ members = [
   "examples/mobile",
   # Examples of using Bevy on no_std platforms.
   "examples/no_std/*",
+  # Examples of compiling Bevy with automatic reflect type registration for platforms without `inventory` support.
+  "examples/reflection/auto_register_static",
   # Benchmarks
   "benches",
   # Internal tools that are not published.
@@ -159,6 +161,7 @@ default = [
   "hdr",
   "multi_threaded",
   "png",
+  "reflect_auto_register",
   "smaa_luts",
   "sysinfo_plugin",
   "tonemapping_luts",
@@ -548,6 +551,12 @@ reflect_functions = ["bevy_internal/reflect_functions"]
 # Enable documentation reflection
 reflect_documentation = ["bevy_internal/reflect_documentation"]
 
+# Enable automatic reflect registration
+reflect_auto_register = ["bevy_internal/reflect_auto_register"]
+
+# Enable automatic reflect registration without inventory. See `reflect::load_type_registrations` for more info.
+reflect_auto_register_static = ["bevy_internal/reflect_auto_register_static"]
+
 # Enable winit custom cursor support
 custom_cursor = ["bevy_internal/custom_cursor"]
 
@@ -618,17 +627,11 @@ crossbeam-channel = "0.5.0"
 argh = "0.1.12"
 thiserror = "2.0"
 event-listener = "5.3.0"
-hyper = { version = "1", features = ["server", "http1"] }
-http-body-util = "0.1"
 anyhow = "1"
-macro_rules_attribute = "0.2"
 accesskit = "0.21"
 nonmax = "0.5"
 
 [target.'cfg(not(target_family = "wasm"))'.dev-dependencies]
-smol = "2"
-smol-macros = "0.1"
-smol-hyper = "0.1"
 ureq = { version = "3.0.8", features = ["json"] }
 
 [target.'cfg(target_arch = "wasm32")'.dev-dependencies]
@@ -2778,6 +2781,17 @@ doc-scrape-examples = true
 [package.metadata.example.type_data]
 name = "Type Data"
 description = "Demonstrates how to create and use type data"
+category = "Reflection"
+wasm = false
+
+[[example]]
+name = "auto_register_static"
+path = "examples/reflection/auto_register_static/src/lib.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.auto_register_static]
+name = "Automatic types registration"
+description = "Demonstrates how to set up automatic reflect types registration for platforms without `inventory` support"
 category = "Reflection"
 wasm = false
 
