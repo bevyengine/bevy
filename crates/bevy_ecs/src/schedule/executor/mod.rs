@@ -16,7 +16,7 @@ pub use self::multi_threaded::{MainThreadSpawner, MultiThreadedExecutor};
 use fixedbitset::FixedBitSet;
 
 use crate::{
-    component::{CheckChangeTicks, ComponentId, Tick},
+    component::{CheckChangeTicks, Tick},
     error::{BevyError, ErrorContext, Result},
     prelude::{IntoSystemSet, SystemSet},
     query::FilteredAccessSet,
@@ -208,7 +208,7 @@ impl System for ApplyDeferred {
         Ok(())
     }
 
-    fn initialize(&mut self, _world: &mut World) -> FilteredAccessSet<ComponentId> {
+    fn initialize(&mut self, _world: &mut World) -> FilteredAccessSet {
         FilteredAccessSet::new()
     }
 

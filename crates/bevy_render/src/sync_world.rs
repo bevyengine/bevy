@@ -336,10 +336,7 @@ mod render_entities_world_query_impls {
             unsafe { <&RenderEntity as WorldQuery>::set_table(fetch, &component_id, table) }
         }
 
-        fn update_component_access(
-            &component_id: &ComponentId,
-            access: &mut FilteredAccess<ComponentId>,
-        ) {
+        fn update_component_access(&component_id: &ComponentId, access: &mut FilteredAccess) {
             <&RenderEntity as WorldQuery>::update_component_access(&component_id, access);
         }
 
@@ -445,10 +442,7 @@ mod render_entities_world_query_impls {
             unsafe { <&MainEntity as WorldQuery>::set_table(fetch, &component_id, table) }
         }
 
-        fn update_component_access(
-            &component_id: &ComponentId,
-            access: &mut FilteredAccess<ComponentId>,
-        ) {
+        fn update_component_access(&component_id: &ComponentId, access: &mut FilteredAccess) {
             <&MainEntity as WorldQuery>::update_component_access(&component_id, access);
         }
 

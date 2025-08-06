@@ -297,15 +297,21 @@ fn calculate_cascade(
         max.z,
     );
 
-    // It is critical for `world_to_cascade` to be stable. So rather than forming `cascade_to_world`
+    // It is critical for `cascade_from_world` to be stable. So rather than forming `world_from_cascade`
     // and inverting it, which risks instability due to numerical precision, we directly form
-    // `world_to_cascade` as the reference material suggests.
-    let light_to_world_transpose = world_from_light.transpose();
+    // `cascade_from_world` as the reference material suggests.
+    let world_from_light_transpose = world_from_light.transpose();
     let cascade_from_world = Mat4::from_cols(
-        light_to_world_transpose.x_axis,
-        light_to_world_transpose.y_axis,
-        light_to_world_transpose.z_axis,
+        world_from_light_transpose.x_axis,
+        world_from_light_transpose.y_axis,
+        world_from_light_transpose.z_axis,
         (-near_plane_center).extend(1.0),
+    );
+    let world_from_cascade = Mat4::from_cols(
+        world_from_light.x_axis,
+        world_from_light.y_axis,
+        world_from_light.z_axis,
+        world_from_light * near_plane_center.extend(1.0),
     );
 
     // Right-handed orthographic projection, centered at `near_plane_center`.
@@ -320,7 +326,7 @@ fn calculate_cascade(
 
     let clip_from_world = clip_from_cascade * cascade_from_world;
     Cascade {
-        world_from_cascade: cascade_from_world.inverse(),
+        world_from_cascade,
         clip_from_cascade,
         clip_from_world,
         texel_size: cascade_texel_size,

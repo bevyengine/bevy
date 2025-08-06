@@ -241,7 +241,7 @@ impl DefaultQueryFilters {
     }
 
     /// Modifies the provided [`FilteredAccess`] to include the filters from this [`DefaultQueryFilters`].
-    pub(super) fn modify_access(&self, component_access: &mut FilteredAccess<ComponentId>) {
+    pub(super) fn modify_access(&self, component_access: &mut FilteredAccess) {
         for component_id in self.disabling_ids() {
             if !component_access.contains(component_id) {
                 component_access.and_without(component_id);
@@ -276,7 +276,7 @@ mod tests {
         filters.register_disabling_component(ComponentId::new(1));
 
         // A component access with an unrelated component
-        let mut component_access = FilteredAccess::<ComponentId>::default();
+        let mut component_access = FilteredAccess::default();
         component_access
             .access_mut()
             .add_component_read(ComponentId::new(2));
