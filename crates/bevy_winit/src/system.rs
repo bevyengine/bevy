@@ -240,7 +240,7 @@ pub fn create_monitors(
 }
 
 /// Observer that handles [`AppExit`] events.
-pub(crate) fn despawn_windows(
+pub(crate) fn on_app_exit(
     _exit_event: On<AppExit>,
     closing: Query<Entity, With<ClosingWindow>>,
     mut closed: RemovedComponents<Window>,
