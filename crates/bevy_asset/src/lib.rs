@@ -677,7 +677,7 @@ mod tests {
         },
         loader::{AssetLoader, LoadContext},
         Asset, AssetApp, AssetEvent, AssetId, AssetLoadError, AssetLoadFailedEvent, AssetPath,
-        AssetPlugin, AssetServer, Assets, LoadState, UnapprovedPathMode,
+        AssetPlugin, AssetServer, Assets, InvalidGenerationError, LoadState, UnapprovedPathMode,
     };
     use alloc::{
         boxed::Box,
@@ -2106,9 +2106,16 @@ mod tests {
             .run_system_cached(Assets::<TestAsset>::track_assets)
             .unwrap();
 
+        let AssetId::Index { index, .. } = asset_id else {
+            unreachable!("Reserving a handle always produces an index");
+        };
+
         // Try to insert an asset into the dropped handle's spot. This should not panic.
-        app.world_mut()
-            .resource_mut::<Assets<TestAsset>>()
-            .insert(asset_id, TestAsset);
+        assert_eq!(
+            app.world_mut()
+                .resource_mut::<Assets<TestAsset>>()
+                .insert(asset_id, TestAsset),
+            Err(InvalidGenerationError::Removed { index })
+        );
     }
 }
