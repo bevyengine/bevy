@@ -173,6 +173,9 @@ impl Plugin for UiPlugin {
 
         let ui_layout_system_config = ui_layout_system
             .in_set(UiSystems::Layout)
+            .ambiguous_with(bevy_text::update_password_masks)
+            .ambiguous_with(bevy_text::update_placeholder_layouts)
+            .ambiguous_with(bevy_text::update_text_input_layouts)
             .before(TransformSystems::Propagate);
 
         let ui_layout_system_config = ui_layout_system_config
@@ -227,6 +230,9 @@ fn build_text_interop(app: &mut App) {
             )
                 .chain()
                 .in_set(UiSystems::Content)
+                .ambiguous_with(bevy_text::update_password_masks)
+                .ambiguous_with(bevy_text::update_placeholder_layouts)
+                .ambiguous_with(bevy_text::update_text_input_layouts)
                 // Text and Text2d are independent.
                 .ambiguous_with(bevy_text::detect_text_needs_rerender::<bevy_text::Text2d>)
                 // Potential conflict: `Assets<Image>`
@@ -241,6 +247,9 @@ fn build_text_interop(app: &mut App) {
                 .after(bevy_text::remove_dropped_font_atlas_sets)
                 .before(bevy_asset::AssetEventSystems)
                 // Text2d and bevy_ui text are entirely on separate entities
+                .ambiguous_with(bevy_text::update_password_masks)
+                .ambiguous_with(bevy_text::update_placeholder_layouts)
+                .ambiguous_with(bevy_text::update_text_input_layouts)
                 .ambiguous_with(bevy_text::detect_text_needs_rerender::<bevy_text::Text2d>)
                 .ambiguous_with(bevy_text::update_text2d_layout)
                 .ambiguous_with(bevy_text::calculate_bounds_text2d),
