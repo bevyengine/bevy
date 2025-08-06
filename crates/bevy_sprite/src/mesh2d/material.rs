@@ -504,7 +504,7 @@ pub(super) type DrawMaterial2d<M> = (
     SetItemPipeline,
     SetMesh2dViewBindGroup<0>,
     SetMesh2dBindGroup<1>,
-    SetMaterial2dBindGroup<M, 2>,
+    SetMaterial2dBindGroup<M, MATERIAL_2D_BIND_GROUP_INDEX>,
     DrawMesh2d,
 );
 
