@@ -59,7 +59,7 @@ impl ViewNode for MainTransmissivePass3dNode {
         let physical_target_size = camera.physical_target_size.unwrap();
 
         let render_pass_descriptor = RenderPassDescriptor {
-            label: Some("main_transmissive_3d_pass"),
+            label: Some("main_transmissive_pass_3d"),
             color_attachments: &[Some(target.get_color_attachment())],
             depth_stencil_attachment: Some(depth.get_attachment(StoreOp::Store)),
             timestamp_writes: None,
@@ -99,7 +99,7 @@ impl ViewNode for MainTransmissivePass3dNode {
                     let mut render_pass =
                         render_context.begin_tracked_render_pass(render_pass_descriptor.clone());
                     let pass_span =
-                        diagnostics.pass_span(&mut render_pass, "main_transmissive_3d_pass");
+                        diagnostics.pass_span(&mut render_pass, "main_transmissive_pass_3d");
 
                     if let Some(viewport) = camera.viewport.as_ref() {
                         render_pass.set_camera_viewport(viewport);
@@ -118,7 +118,7 @@ impl ViewNode for MainTransmissivePass3dNode {
                 let mut render_pass =
                     render_context.begin_tracked_render_pass(render_pass_descriptor);
                 let pass_span =
-                    diagnostics.pass_span(&mut render_pass, "main_transmissive_3d_pass");
+                    diagnostics.pass_span(&mut render_pass, "main_transmissive_pass_3d");
 
                 if let Some(viewport) = Viewport::from_viewport_and_override(
                     camera.viewport.as_ref(),

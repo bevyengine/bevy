@@ -83,14 +83,14 @@ impl ViewNode for MainOpaquePass3dNode {
 
             // Render pass setup
             let render_pass = command_encoder.begin_render_pass(&RenderPassDescriptor {
-                label: Some("main_opaque_3d_pass"),
+                label: Some("main_opaque_pass_3d"),
                 color_attachments: &color_attachments,
                 depth_stencil_attachment,
                 timestamp_writes: None,
                 occlusion_query_set: None,
             });
             let mut render_pass = TrackedRenderPass::new(&render_device, render_pass);
-            let pass_span = diagnostics.pass_span(&mut render_pass, "main_opaque_3d_pass");
+            let pass_span = diagnostics.pass_span(&mut render_pass, "main_opaque_pass_3d");
 
             if let Some(viewport) =
                 Viewport::from_viewport_and_override(camera.viewport.as_ref(), resolution_override)

@@ -55,7 +55,7 @@ impl ViewNode for MainTransparentPass3dNode {
             let diagnostics = render_context.diagnostic_recorder();
 
             let mut render_pass = render_context.begin_tracked_render_pass(RenderPassDescriptor {
-                label: Some("main_transparent_3d_pass"),
+                label: Some("main_transparent_pass_3d"),
                 color_attachments: &[Some(target.get_color_attachment())],
                 // NOTE: For the transparent pass we load the depth buffer. There should be no
                 // need to write to it, but store is set to `true` as a workaround for issue #3776,
@@ -68,7 +68,7 @@ impl ViewNode for MainTransparentPass3dNode {
                 occlusion_query_set: None,
             });
 
-            let pass_span = diagnostics.pass_span(&mut render_pass, "main_transparent_3d_pass");
+            let pass_span = diagnostics.pass_span(&mut render_pass, "main_transparent_pass_3d");
 
             if let Some(viewport) =
                 Viewport::from_viewport_and_override(camera.viewport.as_ref(), resolution_override)
