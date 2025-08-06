@@ -42,6 +42,7 @@ pub(crate) fn node_transform(node: &Node, convert_coordinates: bool) -> Transfor
             translation: Vec3::from(translation),
             rotation: bevy_math::Quat::from_array(rotation),
             scale: Vec3::from(scale),
+            flip_model_forward: true,
         },
     };
     if convert_coordinates {

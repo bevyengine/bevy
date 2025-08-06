@@ -137,5 +137,5 @@ fn orbit(
     // Adjust the translation to maintain the correct orientation toward the orbit target.
     // In our example it's a static target, but this could easily be customized.
     let target = Vec3::ZERO;
-    camera.translation = target - camera.forward() * camera_settings.orbit_distance;
+    camera.translation = target - camera.camera_forward() * camera_settings.orbit_distance;
 }

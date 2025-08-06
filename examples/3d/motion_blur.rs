@@ -343,8 +343,8 @@ fn move_camera(
         }
         CameraMode::Chase => {
             transform.translation =
-                tracked.translation + Vec3::new(0.0, 0.15, 0.0) + tracked.back() * 0.6;
-            transform.look_to(tracked.forward(), Vec3::Y);
+                tracked.translation + Vec3::new(0.0, 0.15, 0.0) + tracked.camera_back() * 0.6;
+            transform.look_to(tracked.camera_forward(), Vec3::Y);
             if let Projection::Perspective(perspective) = &mut *projection {
                 perspective.fov = 1.0;
             }
