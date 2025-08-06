@@ -383,7 +383,7 @@ pub struct AtmosphereSettings {
     ///
     /// `0.0` disables the sun disk entirely while still
     /// allowing the sun's radiance to scatter into the atmosphere,
-    /// and `1.0` renders sun disc at its normal intensity.
+    /// and `1.0` renders the sun disk at its normal intensity.
     pub sun_disc_intensity: f32,
 }
 
