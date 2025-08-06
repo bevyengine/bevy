@@ -11,7 +11,7 @@ pub use bevy_derive::AppLabel;
 use bevy_ecs::{
     component::RequiredComponentsError,
     error::{DefaultErrorHandler, ErrorHandler},
-    event::{event_update_system, EventCursor},
+    event::event_update_system,
     intern::Interned,
     prelude::*,
     schedule::{InternedSystemSet, ScheduleBuildSettings, ScheduleLabel},
@@ -130,7 +130,6 @@ impl Default for App {
                 .in_set(bevy_ecs::event::EventUpdateSystems)
                 .run_if(bevy_ecs::event::event_update_condition),
         );
-        app.add_event::<AppExit>();
 
         app
     }
@@ -1289,27 +1288,32 @@ impl App {
         self
     }
 
-    /// Attempts to determine if an [`AppExit`] was raised since the last update.
-    ///
-    /// Will attempt to return the first [`Error`](AppExit::Error) it encounters.
-    /// This should be called after every [`update()`](App::update) otherwise you risk
-    /// dropping possible [`AppExit`] events.
-    pub fn should_exit(&self) -> Option<AppExit> {
-        let mut reader = EventCursor::default();
-
-        let events = self.world().get_resource::<Events<AppExit>>()?;
-        let mut events = reader.read(events);
-
-        if events.len() != 0 {
-            return Some(
-                events
-                    .find(|exit| exit.is_error())
-                    .cloned()
-                    .unwrap_or(AppExit::Success),
-            );
+    /// Register the first [`Error`](AppExit::Error) seen.
+    pub fn register_app_exit_error(
+        on_app_exit: On<AppExit>,
+        mut app_event_res: ResMut<AppExitRes>,
+    ) {
+        if !app_event_res.state.is_error() {
+            let event_in = on_app_exit.event();
+            if event_in.is_error() {
+                app_event_res.state = event_in.clone();
+            }
         }
+    }
 
-        None
+    /// Attempts to determine if an [`AppExit`] was raised since the last update.
+    pub fn should_exit(&self) -> Option<AppExit> {
+        match self.world().get_resource::<AppExitRes>() {
+            Some(app_event_res) => {
+                let stored_event: AppExit = app_event_res.state.clone();
+                if stored_event.is_error() {
+                    Some(stored_event)
+                } else {
+                    None
+                }
+            }
+            None => None,
+        }
     }
 
     /// Spawns an [`Observer`] entity, which will watch for and respond to the given event.
@@ -1412,7 +1416,7 @@ fn run_once(mut app: App) -> AppExit {
     app.should_exit().unwrap_or(AppExit::Success)
 }
 
-/// A [`BufferedEvent`] that indicates the [`App`] should exit. If one or more of these are present at the end of an update,
+/// A [`Event`] that indicates the [`App`] should exit.
 /// the [runner](App::set_runner) will end and ([maybe](App::run)) return control to the caller.
 ///
 /// This event can be used to detect when an exit is requested. Make sure that systems listening
@@ -1422,7 +1426,7 @@ fn run_once(mut app: App) -> AppExit {
 /// This type is roughly meant to map to a standard definition of a process exit code (0 means success, not 0 means error). Due to portability concerns
 /// (see [`ExitCode`](https://doc.rust-lang.org/std/process/struct.ExitCode.html) and [`process::exit`](https://doc.rust-lang.org/std/process/fn.exit.html#))
 /// we only allow error codes between 1 and [255](u8::MAX).
-#[derive(BufferedEvent, Debug, Clone, Default, PartialEq, Eq)]
+#[derive(Event, Debug, Clone, Default, PartialEq, Eq)]
 pub enum AppExit {
     /// [`App`] exited without any problems.
     #[default]
@@ -1481,6 +1485,12 @@ impl Termination for AppExit {
     }
 }
 
+/// Resource that latches the first [`AppExit::Error`] seen.
+#[derive(Resource)]
+pub struct AppExitRes {
+    state: AppExit,
+}
+
 #[cfg(test)]
 mod tests {
     use core::marker::PhantomData;
@@ -1490,7 +1500,7 @@ mod tests {
         change_detection::{DetectChanges, ResMut},
         component::Component,
         entity::Entity,
-        event::{BufferedEvent, EventWriter, Events},
+        event::{BufferedEvent, Events},
         lifecycle::RemovedComponents,
         query::With,
         resource::Resource,
@@ -1761,12 +1771,12 @@ mod tests {
 
     #[test]
     fn runner_returns_correct_exit_code() {
-        fn raise_exits(mut exits: EventWriter<AppExit>) {
+        fn raise_exits(mut commands: Commands) {
             // Exit codes chosen by a fair dice roll.
             // Unlikely to overlap with default values.
-            exits.write(AppExit::Success);
-            exits.write(AppExit::from_code(4));
-            exits.write(AppExit::from_code(73));
+            commands.trigger(AppExit::Success);
+            commands.trigger(AppExit::from_code(4));
+            commands.trigger(AppExit::from_code(73));
         }
 
         let exit = App::new().add_systems(Update, raise_exits).run();

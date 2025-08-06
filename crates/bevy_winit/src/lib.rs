@@ -132,7 +132,9 @@ impl<T: BufferedEvent> Plugin for WinitPlugin<T> {
 
         app.init_resource::<WinitMonitors>()
             .init_resource::<WinitSettings>()
-            .insert_resource(DisplayHandleWrapper(event_loop.owned_display_handle()))
+            .insert_resource(DisplayHandleWrapper(event_loop.owned_display_handle()));
+
+        app.add_observer(despawn_windows)
             .add_event::<RawWinitWindowEvent>()
             .set_runner(|app| winit_runner(app, event_loop))
             .add_systems(
@@ -142,7 +144,6 @@ impl<T: BufferedEvent> Plugin for WinitPlugin<T> {
                     // so we don't need to care about its ordering relative to `changed_windows`
                     changed_windows.ambiguous_with(exit_on_all_closed),
                     changed_cursor_options,
-                    despawn_windows,
                     check_keyboard_focus_lost,
                 )
                     .chain(),

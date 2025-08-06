@@ -6,6 +6,7 @@ use bevy_ecs::{
     entity::Entity,
     event::EventWriter,
     lifecycle::RemovedComponents,
+    observer::On,
     prelude::{Changed, Component},
     query::QueryFilter,
     system::{Local, NonSendMarker, Query, SystemParamItem},
@@ -238,14 +239,15 @@ pub fn create_monitors(
     });
 }
 
+// Observer: handles ['AppExit'] events.
 pub(crate) fn despawn_windows(
+    _exit_event: On<AppExit>,
     closing: Query<Entity, With<ClosingWindow>>,
     mut closed: RemovedComponents<Window>,
     window_entities: Query<Entity, With<Window>>,
     mut closing_events: EventWriter<WindowClosing>,
     mut closed_events: EventWriter<WindowClosed>,
     mut windows_to_drop: Local<Vec<WindowWrapper<winit::window::Window>>>,
-    mut exit_events: EventReader<AppExit>,
     _non_send_marker: NonSendMarker,
 ) {
     // Drop all the windows that are waiting to be closed
@@ -274,11 +276,9 @@ pub(crate) fn despawn_windows(
 
     // On macOS, when exiting, we need to tell the rendering thread the windows are about to
     // close to ensure that they are dropped on the main thread. Otherwise, the app will hang.
-    if !exit_events.is_empty() {
-        exit_events.clear();
-        for window in window_entities.iter() {
-            closing_events.write(WindowClosing { window });
-        }
+
+    for window in window_entities.iter() {
+        closing_events.write(WindowClosing { window });
     }
 }
 

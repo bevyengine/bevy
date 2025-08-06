@@ -150,7 +150,7 @@ fn setup(
     // Error out if clustered decals (and so light textures) aren't supported on the current platform.
     if !decal::clustered::clustered_decals_are_usable(&render_device, &render_adapter) {
         error!("Light textures aren't usable on this platform.");
-        commands.write_event(AppExit::error());
+        commands.trigger(AppExit::error());
     }
 
     spawn_cubes(&mut commands, &mut meshes, &mut materials);
