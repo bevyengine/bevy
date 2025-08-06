@@ -45,7 +45,7 @@ impl Plugin for SkyboxPlugin {
         embedded_asset!(app, "skybox.wgsl");
         embedded_asset!(app, "skybox_prepass.wgsl");
 
-        app.register_type::<Skybox>().add_plugins((
+        app.add_plugins((
             ExtractComponentPlugin::<Skybox>::default(),
             UniformComponentPlugin::<SkyboxUniforms>::default(),
         ));

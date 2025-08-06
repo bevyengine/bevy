@@ -18,16 +18,12 @@ pub struct CameraProjectionPlugin;
 
 impl Plugin for CameraProjectionPlugin {
     fn build(&self, app: &mut App) {
-        app.register_type::<Projection>()
-            .register_type::<PerspectiveProjection>()
-            .register_type::<OrthographicProjection>()
-            .register_type::<CustomProjection>()
-            .add_systems(
-                PostUpdate,
-                crate::visibility::update_frusta
-                    .in_set(VisibilitySystems::UpdateFrusta)
-                    .after(TransformSystems::Propagate),
-            );
+        app.add_systems(
+            PostUpdate,
+            crate::visibility::update_frusta
+                .in_set(VisibilitySystems::UpdateFrusta)
+                .after(TransformSystems::Propagate),
+        );
     }
 }
 

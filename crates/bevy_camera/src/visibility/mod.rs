@@ -340,17 +340,7 @@ impl Plugin for VisibilityPlugin {
     fn build(&self, app: &mut bevy_app::App) {
         use VisibilitySystems::*;
 
-        app.register_type::<VisibilityClass>()
-            .register_type::<InheritedVisibility>()
-            .register_type::<ViewVisibility>()
-            .register_type::<NoFrustumCulling>()
-            .register_type::<RenderLayers>()
-            .register_type::<Visibility>()
-            .register_type::<VisibleEntities>()
-            .register_type::<CascadesVisibleEntities>()
-            .register_type::<VisibleMeshEntities>()
-            .register_type::<CubemapVisibleEntities>()
-            .register_required_components::<Mesh3d, Visibility>()
+        app.register_required_components::<Mesh3d, Visibility>()
             .register_required_components::<Mesh3d, VisibilityClass>()
             .register_required_components::<Mesh2d, Visibility>()
             .register_required_components::<Mesh2d, VisibilityClass>()

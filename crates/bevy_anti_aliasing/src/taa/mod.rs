@@ -51,8 +51,6 @@ impl Plugin for TemporalAntiAliasPlugin {
     fn build(&self, app: &mut App) {
         embedded_asset!(app, "taa.wgsl");
 
-        app.register_type::<TemporalAntiAliasing>();
-
         app.add_plugins(SyncComponentPlugin::<TemporalAntiAliasing>::default());
 
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {

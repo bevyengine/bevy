@@ -207,8 +207,6 @@ impl Plugin for DepthOfFieldPlugin {
     fn build(&self, app: &mut App) {
         embedded_asset!(app, "dof.wgsl");
 
-        app.register_type::<DepthOfField>();
-        app.register_type::<DepthOfFieldMode>();
         app.add_plugins(UniformComponentPlugin::<DepthOfFieldUniform>::default());
 
         app.add_plugins(SyncComponentPlugin::<DepthOfField>::default());

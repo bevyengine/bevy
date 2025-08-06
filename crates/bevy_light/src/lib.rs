@@ -21,8 +21,8 @@ use core::ops::DerefMut;
 pub mod cluster;
 pub use cluster::ClusteredDecal;
 use cluster::{
-    add_clusters, assign::assign_objects_to_clusters, ClusterConfig,
-    GlobalVisibleClusterableObjects, VisibleClusterableObjects,
+    add_clusters, assign::assign_objects_to_clusters, GlobalVisibleClusterableObjects,
+    VisibleClusterableObjects,
 };
 mod ambient_light;
 pub use ambient_light::AmbientLight;
@@ -117,24 +117,7 @@ pub struct LightPlugin;
 
 impl Plugin for LightPlugin {
     fn build(&self, app: &mut App) {
-        app.register_type::<AmbientLight>()
-            .register_type::<CascadeShadowConfig>()
-            .register_type::<Cascades>()
-            .register_type::<DirectionalLight>()
-            .register_type::<DirectionalLightShadowMap>()
-            .register_type::<NotShadowCaster>()
-            .register_type::<NotShadowReceiver>()
-            .register_type::<PointLight>()
-            .register_type::<LightProbe>()
-            .register_type::<EnvironmentMapLight>()
-            .register_type::<IrradianceVolume>()
-            .register_type::<VolumetricFog>()
-            .register_type::<VolumetricLight>()
-            .register_type::<PointLightShadowMap>()
-            .register_type::<SpotLight>()
-            .register_type::<ShadowFilteringMethod>()
-            .register_type::<ClusterConfig>()
-            .init_resource::<GlobalVisibleClusterableObjects>()
+        app.init_resource::<GlobalVisibleClusterableObjects>()
             .init_resource::<AmbientLight>()
             .init_resource::<DirectionalLightShadowMap>()
             .init_resource::<PointLightShadowMap>()
