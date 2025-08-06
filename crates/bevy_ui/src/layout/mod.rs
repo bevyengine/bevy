@@ -352,6 +352,7 @@ pub fn ui_layout_system(
 
 #[cfg(test)]
 mod tests {
+    use bevy_app::{App, HierarchyPropagatePlugin, PostUpdate, PropagateSet};
     use taffy::TraversePartialTree;
 
     use bevy_asset::{AssetEvent, Assets};
@@ -368,6 +369,7 @@ mod tests {
         PrimaryWindow, Window, WindowCreated, WindowResized, WindowResolution,
         WindowScaleFactorChanged,
     };
+    //use uuid::timestamp::UUID_TICKS_BETWEEN_EPOCHS;
 
     use crate::{
         layout::ui_surface::UiSurface, prelude::*, ui_layout_system,
@@ -377,6 +379,61 @@ mod tests {
     // these window dimensions are easy to convert to and from percentage values
     const WINDOW_WIDTH: f32 = 1000.;
     const WINDOW_HEIGHT: f32 = 100.;
+
+    fn setup_ui_test_app() -> App {
+        let mut app = App::new();
+
+        app.add_plugins(HierarchyPropagatePlugin::<ComputedNodeTarget>::new(
+            PostUpdate,
+        ));
+        app.init_resource::<UiScale>();
+        app.init_resource::<UiSurface>();
+        app.init_resource::<Events<WindowScaleFactorChanged>>();
+        app.init_resource::<Events<WindowResized>>();
+        // Required for the camera system
+        app.init_resource::<Events<WindowCreated>>();
+        app.init_resource::<Events<AssetEvent<Image>>>();
+        app.init_resource::<Assets<Image>>();
+        app.init_resource::<ManualTextureViews>();
+        app.init_resource::<bevy_text::TextPipeline>();
+        app.init_resource::<bevy_text::CosmicFontSystem>();
+        app.init_resource::<bevy_text::SwashCache>();
+
+        app.add_systems(
+            PostUpdate,
+            (
+                // UI is driven by calculated camera target info, so we need to run the camera system first
+                bevy_render::camera::camera_system,
+                update_ui_context_system,
+                ApplyDeferred,
+                ui_layout_system,
+                mark_dirty_trees,
+                sync_simple_transforms,
+                propagate_parent_transforms,
+            )
+                .chain(),
+        );
+
+        app.configure_sets(
+            PostUpdate,
+            PropagateSet::<ComputedNodeTarget>::default()
+                .after(update_ui_context_system)
+                .before(ui_layout_system),
+        );
+
+        let world = app.world_mut();
+        // spawn a dummy primary window and camera
+        world.spawn((
+            Window {
+                resolution: WindowResolution::new(WINDOW_WIDTH, WINDOW_HEIGHT),
+                ..default()
+            },
+            PrimaryWindow,
+        ));
+        world.spawn(Camera2d);
+
+        app
+    }
 
     fn setup_ui_test_world() -> (World, Schedule) {
         let mut world = World::new();
@@ -426,7 +483,9 @@ mod tests {
 
     #[test]
     fn ui_nodes_with_percent_100_dimensions_should_fill_their_parent() {
-        let (mut world, mut ui_schedule) = setup_ui_test_world();
+        let mut app = setup_ui_test_app();
+
+        let world = app.world_mut();
 
         // spawn a root entity with width and height set to fill 100% of its parent
         let ui_root = world
@@ -447,8 +506,9 @@ mod tests {
 
         world.entity_mut(ui_root).add_child(ui_child);
 
-        ui_schedule.run(&mut world);
-        let mut ui_surface = world.resource_mut::<UiSurface>();
+        app.update();
+
+        let mut ui_surface = app.world_mut().resource_mut::<UiSurface>();
 
         for ui_entity in [ui_root, ui_child] {
             let layout = ui_surface.get_layout(ui_entity, true).unwrap().0;
