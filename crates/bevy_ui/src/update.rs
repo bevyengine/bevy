@@ -141,15 +141,18 @@ pub fn update_ui_context_system(
     target_camera_query: Query<&UiTargetCamera>,
     ui_root_nodes: UiRootNodes,
 ) {
+    println!("update_ui_context_system!");
     let default_camera_entity = default_ui_camera.get();
 
     for root_entity in ui_root_nodes.iter() {
+        println!("root entity: {root_entity}");
         let camera = target_camera_query
             .get(root_entity)
             .ok()
             .map(UiTargetCamera::entity)
             .or(default_camera_entity)
             .unwrap_or(Entity::PLACEHOLDER);
+        println!("\tcamera: {camera}");
 
         let (scale_factor, physical_size) = camera_query
             .get(camera)
@@ -161,6 +164,7 @@ pub fn update_ui_context_system(
                 )
             })
             .unwrap_or((1., UVec2::ZERO));
+        println!("\tphysical_size: {physical_size}");
 
         commands
             .entity(root_entity)
@@ -175,6 +179,9 @@ pub fn update_ui_context_system(
 #[cfg(test)]
 mod tests {
     use bevy_app::App;
+    use bevy_app::HierarchyPropagatePlugin;
+    use bevy_app::PostUpdate;
+    use bevy_app::PropagateSet;
     use bevy_asset::AssetEvent;
     use bevy_asset::Assets;
     use bevy_core_pipeline::core_2d::Camera2d;
@@ -195,6 +202,7 @@ mod tests {
     use bevy_window::WindowResolution;
     use bevy_window::WindowScaleFactorChanged;
 
+    use crate::update::update_ui_context_system;
     use crate::ComputedNodeTarget;
     use crate::IsDefaultUiCamera;
     use crate::Node;
@@ -211,14 +219,15 @@ mod tests {
         app.init_resource::<Events<AssetEvent<Image>>>();
         app.init_resource::<Assets<Image>>();
         app.init_resource::<ManualTextureViews>();
+        app.add_plugins(HierarchyPropagatePlugin::<ComputedNodeTarget>::new(
+            PostUpdate,
+        ));
+
+        app.configure_sets(PostUpdate, PropagateSet::<ComputedNodeTarget>::default());
 
         app.add_systems(
             bevy_app::Update,
-            (
-                bevy_render::camera::camera_system,
-                super::update_ui_context_system,
-            )
-                .chain(),
+            (bevy_render::camera::camera_system, update_ui_context_system).chain(),
         );
 
         app
