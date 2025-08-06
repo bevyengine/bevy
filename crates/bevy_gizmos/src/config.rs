@@ -36,12 +36,161 @@ use bevy_ecs::{reflect::ReflectResource, resource::Resource};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect, TypePath};
 use bevy_ui::Val;
 use bevy_utils::TypeIdMap;
+use bevy_math::Vec2;
 use core::{
     any::TypeId,
     hash::Hash,
     ops::{Deref, DerefMut},
     panic,
 };
+
+/// Trait for converting values to `Val` for backwards compatibility.
+/// 
+/// This trait allows existing code that uses `f32` values for line width
+/// to continue working without requiring refactoring.
+pub trait IntoVal {
+    fn into_val(self) -> Val;
+}
+
+impl IntoVal for f32 {
+    fn into_val(self) -> Val {
+        Val::Px(self)
+    }
+}
+
+impl IntoVal for Val {
+    fn into_val(self) -> Val {
+        self
+    }
+}
+
+// We can't implement From<f32> for Val since it's in another crate
+// Instead, we'll provide constructor methods that accept f32
+
+/// A wrapper around `Val` that provides arithmetic operations for backwards compatibility.
+/// 
+/// This allows existing code that uses arithmetic operations on line width
+/// to continue working without requiring refactoring.
+#[derive(Debug, Clone, Copy, Reflect, PartialEq)]
+#[reflect(PartialEq)]
+pub struct GizmoLineWidth(pub Val);
+
+impl From<f32> for GizmoLineWidth {
+    fn from(value: f32) -> Self {
+        Self(Val::Px(value))
+    }
+}
+
+impl From<Val> for GizmoLineWidth {
+    fn from(value: Val) -> Self {
+        Self(value)
+    }
+}
+
+impl std::ops::AddAssign<f32> for GizmoLineWidth {
+    fn add_assign(&mut self, rhs: f32) {
+        if let Val::Px(width) = self.0 {
+            self.0 = Val::Px(width + rhs);
+        }
+    }
+}
+
+impl std::ops::SubAssign<f32> for GizmoLineWidth {
+    fn sub_assign(&mut self, rhs: f32) {
+        if let Val::Px(width) = self.0 {
+            self.0 = Val::Px(width - rhs);
+        }
+    }
+}
+
+impl std::ops::MulAssign<f32> for GizmoLineWidth {
+    fn mul_assign(&mut self, rhs: f32) {
+        if let Val::Px(width) = self.0 {
+            self.0 = Val::Px(width * rhs);
+        }
+    }
+}
+
+impl std::ops::DivAssign<f32> for GizmoLineWidth {
+    fn div_assign(&mut self, rhs: f32) {
+        if let Val::Px(width) = self.0 {
+            self.0 = Val::Px(width / rhs);
+        }
+    }
+}
+
+impl PartialOrd for GizmoLineWidth {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        match (self.0, other.0) {
+            (Val::Px(a), Val::Px(b)) => a.partial_cmp(&b),
+            _ => None,
+        }
+    }
+}
+
+impl GizmoLineWidth {
+    /// Clamp the value if it's a pixel value.
+    pub fn clamp(self, min: f32, max: f32) -> Self {
+        if let Val::Px(width) = self.0 {
+            Self(Val::Px(width.clamp(min, max)))
+        } else {
+            self
+        }
+    }
+    
+    /// Resolve the value to a physical pixel width.
+    pub fn resolve(self, scale_factor: f32, _min_size: f32, viewport_size: Vec2) -> Result<f32, bevy_ui::ValArithmeticError> {
+        self.0.resolve(scale_factor, 0.0, viewport_size)
+    }
+}
+
+// Extension trait for Val to provide arithmetic operations for backwards compatibility
+pub trait ValExt {
+    /// Add a value to this Val if it's a pixel value.
+    fn add_assign(&mut self, rhs: f32);
+    /// Subtract a value from this Val if it's a pixel value.
+    fn sub_assign(&mut self, rhs: f32);
+    /// Multiply this Val by a value if it's a pixel value.
+    fn mul_assign(&mut self, rhs: f32);
+    /// Divide this Val by a value if it's a pixel value.
+    fn div_assign(&mut self, rhs: f32);
+    /// Clamp the value if it's a pixel value.
+    fn clamp(self, min: f32, max: f32) -> Self;
+}
+
+impl ValExt for Val {
+    fn add_assign(&mut self, rhs: f32) {
+        if let Val::Px(width) = *self {
+            *self = Val::Px(width + rhs);
+        }
+    }
+
+    fn sub_assign(&mut self, rhs: f32) {
+        if let Val::Px(width) = *self {
+            *self = Val::Px(width - rhs);
+        }
+    }
+
+    fn mul_assign(&mut self, rhs: f32) {
+        if let Val::Px(width) = *self {
+            *self = Val::Px(width * rhs);
+        }
+    }
+
+    fn div_assign(&mut self, rhs: f32) {
+        if let Val::Px(width) = *self {
+            *self = Val::Px(width / rhs);
+        }
+    }
+
+    fn clamp(self, min: f32, max: f32) -> Self {
+        if let Val::Px(width) = self {
+            Val::Px(width.clamp(min, max))
+        } else {
+            self
+        }
+    }
+}
 
 /// An enum configuring how line joints will be drawn.
 /// 
@@ -103,7 +252,10 @@ pub enum GizmoLineJoint {
 /// ```
 #[derive(Copy, Clone, Debug, Default, PartialEq, Reflect)]
 #[reflect(Default, PartialEq, Hash, Clone)]
-#[non_exhaustive]
+// The #[non_exhaustive] attribute on the GizmoLineStyle enum means that more variants may be added in the future.
+// This prevents external code from exhaustively matching on all current variants, requiring a wildcard arm (_).
+// In the context of this file and plugin, it allows the bevy_gizmos developers to extend the line style options
+// (such as adding new line patterns or effects) without breaking downstream code that matches on GizmoLineStyle.
 pub enum GizmoLineStyle {
     /// A solid line without any decorators
     #[default]
@@ -361,15 +513,29 @@ impl Default for GizmoConfig {
 /// - `Val::Vh(f32)`: Percentage of viewport height
 /// - `Val::Auto`: Automatic sizing (falls back to 2.0 pixels)
 /// 
+/// ## Backwards Compatibility
+/// 
+/// For backwards compatibility, this field can accept `f32` values which will be
+/// automatically converted to `Val::Px(f32)` via the `IntoVal` trait.
+/// 
 /// ## Example
 /// 
 /// ```rust
 /// use bevy_gizmos::config::GizmoLineConfig;
 /// use bevy_ui::Val;
 /// 
+/// // Using f32 (backwards compatible)
+/// let config = GizmoLineConfig {
+///     width: 4.0,                 // Automatically converted to Val::Px(4.0)
+///     perspective: false,
+///     style: GizmoLineStyle::Solid,
+///     joints: GizmoLineJoint::None,
+/// };
+/// 
+/// // Using Val directly
 /// let config = GizmoLineConfig {
 ///     width: Val::Px(4.0),        // 4 logical pixels
-///     perspective: false,          // No perspective scaling
+///     perspective: false,
 ///     style: GizmoLineStyle::Solid,
 ///     joints: GizmoLineJoint::None,
 /// };
@@ -388,6 +554,11 @@ pub struct GizmoLineConfig {
     /// If `perspective` is `true` then this is the size in pixels at the camera's near plane.
     ///
     /// Defaults to `Val::Px(2.0)`.
+    /// 
+    /// ## Backwards Compatibility
+    /// 
+    /// For backwards compatibility, this field can accept `f32` values which will be
+    /// automatically converted to `Val::Px(f32)` via the `IntoVal` trait.
     pub width: Val, 
     /// Apply perspective to gizmo lines.
     ///
@@ -411,6 +582,43 @@ impl Default for GizmoLineConfig {
             style: GizmoLineStyle::Solid,
             joints: GizmoLineJoint::None,
         }
+    }
+}
+
+impl GizmoLineConfig {
+    /// Create a new `GizmoLineConfig` with the specified width.
+    /// 
+    /// This method provides backwards compatibility by accepting any type
+    /// that can be converted to `Val` (including `f32`).
+    /// 
+    /// # Examples
+    /// 
+    /// ```rust
+    /// use bevy_gizmos::config::GizmoLineConfig;
+    /// use bevy_ui::Val;
+    /// 
+    /// // Using f32 (backwards compatible)
+    /// let config = GizmoLineConfig::new(4.0);
+    /// 
+    /// // Using Val directly
+    /// let config = GizmoLineConfig::new(Val::Px(4.0));
+    /// ```
+    pub fn new<T: IntoVal>(width: T) -> Self {
+        Self {
+            width: width.into_val(),
+            perspective: false,
+            style: GizmoLineStyle::Solid,
+            joints: GizmoLineJoint::None,
+        }
+    }
+    
+    /// Set the line width.
+    /// 
+    /// This method provides backwards compatibility by accepting any type
+    /// that can be converted to `Val` (including `f32`).
+    pub fn with_width<T: IntoVal>(mut self, width: T) -> Self {
+        self.width = width.into_val();
+        self
     }
 }
 

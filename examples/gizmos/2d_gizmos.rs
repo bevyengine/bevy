@@ -129,11 +129,11 @@ fn update_config(
 ) {
     let (config, _) = config_store.config_mut::<DefaultGizmoConfigGroup>();
     if keyboard.pressed(KeyCode::ArrowRight) {
-        config.line.width += 5. * time.delta_secs();
+        config.line.width.add_assign(5. * time.delta_secs());
         config.line.width = config.line.width.clamp(0., 50.);
     }
     if keyboard.pressed(KeyCode::ArrowLeft) {
-        config.line.width -= 5. * time.delta_secs();
+        config.line.width.sub_assign(5. * time.delta_secs());
         config.line.width = config.line.width.clamp(0., 50.);
     }
     if keyboard.just_pressed(KeyCode::Digit1) {
@@ -160,11 +160,11 @@ fn update_config(
 
     let (my_config, _) = config_store.config_mut::<MyRoundGizmos>();
     if keyboard.pressed(KeyCode::ArrowUp) {
-        my_config.line.width += 5. * time.delta_secs();
+        my_config.line.width.add_assign(5. * time.delta_secs());
         my_config.line.width = my_config.line.width.clamp(0., 50.);
     }
     if keyboard.pressed(KeyCode::ArrowDown) {
-        my_config.line.width -= 5. * time.delta_secs();
+        my_config.line.width.sub_assign(5. * time.delta_secs());
         my_config.line.width = my_config.line.width.clamp(0., 50.);
     }
     if keyboard.just_pressed(KeyCode::Digit2) {

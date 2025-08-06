@@ -72,7 +72,7 @@ pub mod prelude {
     pub use crate::{
         config::{
             DefaultGizmoConfigGroup, GizmoConfig, GizmoConfigGroup, GizmoConfigStore,
-            GizmoLineConfig, GizmoLineJoint, GizmoLineStyle,
+            GizmoLineConfig, GizmoLineJoint, GizmoLineStyle, IntoVal, ValExt,
         },
         gizmos::{GizmoBuffer, Gizmos},
         primitives::{dim2::GizmoPrimitive2d, dim3::GizmoPrimitive3d},

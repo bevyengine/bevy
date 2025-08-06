@@ -40,10 +40,7 @@ fn setup(
     commands.spawn((
         Gizmo {
             handle: gizmo_assets.add(gizmo),
-            line_config: GizmoLineConfig {
-                width: 5.,
-                ..default()
-            },
+            line_config: GizmoLineConfig::new(5.),
             ..default()
         },
         Transform::from_xyz(4., 1., 0.),
@@ -218,17 +215,17 @@ fn update_config(
             // Toggle line perspective
             config.line.perspective ^= true;
             // Increase the line width when line perspective is on
-            config.line.width *= if config.line.perspective { 5. } else { 1. / 5. };
+            config.line.width.mul_assign(if config.line.perspective { 5. } else { 1. / 5. });
         }
     }
 
     let (config, _) = config_store.config_mut::<DefaultGizmoConfigGroup>();
     if keyboard.pressed(KeyCode::ArrowRight) {
-        config.line.width += 5. * time.delta_secs();
+        config.line.width.add_assign(5. * time.delta_secs());
         config.line.width = config.line.width.clamp(0., 50.);
     }
     if keyboard.pressed(KeyCode::ArrowLeft) {
-        config.line.width -= 5. * time.delta_secs();
+        config.line.width.sub_assign(5. * time.delta_secs());
         config.line.width = config.line.width.clamp(0., 50.);
     }
     if keyboard.just_pressed(KeyCode::Digit1) {
@@ -255,11 +252,11 @@ fn update_config(
 
     let (my_config, _) = config_store.config_mut::<MyRoundGizmos>();
     if keyboard.pressed(KeyCode::ArrowUp) {
-        my_config.line.width += 5. * time.delta_secs();
+        my_config.line.width.add_assign(5. * time.delta_secs());
         my_config.line.width = my_config.line.width.clamp(0., 50.);
     }
     if keyboard.pressed(KeyCode::ArrowDown) {
-        my_config.line.width -= 5. * time.delta_secs();
+        my_config.line.width.sub_assign(5. * time.delta_secs());
         my_config.line.width = my_config.line.width.clamp(0., 50.);
     }
     if keyboard.just_pressed(KeyCode::Digit2) {
