@@ -1303,16 +1303,11 @@ impl App {
 
     /// Attempts to determine if an [`AppExit`] was raised since the last update.
     pub fn should_exit(&self) -> Option<AppExit> {
-        match self.world().get_resource::<AppExitRes>() {
-            Some(app_event_res) => {
-                let stored_event: AppExit = app_event_res.state.clone();
-                if stored_event.is_error() {
-                    Some(stored_event)
-                } else {
-                    None
-                }
-            }
-            None => None,
+        let stored_event = &self.world().get_resource::<AppExitRes>()?.state;
+        if stored_event.is_error() {
+            Some(stored_event.clone())
+        } else {
+            None
         }
     }
 
