@@ -24,7 +24,8 @@ use bevy_time::Time;
 use bevy_window::Window;
 use bevy_render::view::Visibility;
 use bevy_input::mouse::MouseWheel;
-use super::entity_list::{EntityListContainer, EntityListVirtualContent, EntityListVirtualState, EntityCache, ScrollbarThumb, ScrollbarIndicator};
+use super::entity_list::{EntityListContainer, EntityListVirtualContent, EntityListVirtualState, EntityCache, ScrollbarThumb, ScrollbarIndicator, SelectionDebounce};
+use super::component_viewer;
 use crate::inspector::http_client::RemoteEntity;
 use std::collections::HashMap;
 
@@ -99,6 +100,7 @@ pub fn update_infinite_scrolling_display(
     mut commands: Commands,
     entity_cache: Res<EntityCache>,
     mut virtual_scroll_state: ResMut<VirtualScrollState>,
+    mut selection_debounce: ResMut<SelectionDebounce>,
     custom_scroll: Res<CustomScrollPosition>,
     mut virtual_content_query: Query<(Entity, &mut Node), (With<EntityListVirtualContent>, Without<EntityListContainer>, Without<CachedEntityItem>)>,
     container_query: Query<&Node, (With<EntityListContainer>, Without<CachedEntityItem>, Without<EntityListVirtualContent>)>,
@@ -204,6 +206,12 @@ pub fn update_infinite_scrolling_display(
         return;
     }
     
+    // Update selection debounce only when we're doing virtual scrolling updates that affect entity positions
+    if scroll_changed {
+        selection_debounce.last_virtual_scroll_time = current_time;
+        println!("Virtual scroll position change - blocking interactions for {:.1}ms", selection_debounce.scroll_interaction_lockout * 1000.0);
+    }
+    
     // Calculate which items should be visible in the current viewport
     let items_per_screen = (virtual_scroll_state.container_height / virtual_scroll_state.item_height).ceil() as usize;
     let scroll_offset = (virtual_scroll_state.current_scroll / virtual_scroll_state.item_height) as usize;
@@ -264,12 +272,14 @@ pub fn update_infinite_scrolling_display(
     let (final_start_index, final_end_index) = virtual_scroll_state.visible_range;
     
     
-    // Set virtual content container to total height for proper scrolling
-    virtual_content_node.height = Val::Px(virtual_scroll_state.total_content_height);
-    virtual_content_node.position_type = PositionType::Relative; // Ensure proper positioning context
-    virtual_content_node.overflow = Overflow::clip(); // Ensure content doesn't leak outside container
-    virtual_content_node.display = Display::Flex;
-    virtual_content_node.flex_direction = FlexDirection::Column;
+    // Set virtual content container (viewport-relative approach)
+    // Inner container: Fill parent height completely
+    virtual_content_node.width = Val::Percent(100.0);
+    virtual_content_node.height = Val::Percent(100.0); // Fill parent container
+    virtual_content_node.position_type = PositionType::Relative;
+    virtual_content_node.overflow = Overflow::hidden();
+    virtual_content_node.display = Display::Block;
+    virtual_content_node.padding = UiRect::ZERO;
     
     // Track which entities are currently visible
     let mut visible_entity_ids = std::collections::HashSet::new();
@@ -299,42 +309,32 @@ pub fn update_infinite_scrolling_display(
         commands.entity(entity).despawn();
     }
     
-    // Second pass: show and position items in the visible range
-    for (_entity, mut node, mut cached_item, mut visibility) in cached_items.iter_mut() {
-        // Find this entity's index in the sorted list
-        let entity_index = virtual_scroll_state.sorted_entity_ids.iter().position(|&id| id == cached_item.entity_id);
-        
-        if let Some(index) = entity_index {
-            if index >= final_start_index && index < final_end_index {
-                // Entity should be visible
-                cached_item.is_visible = true;
-                *visibility = Visibility::Inherited;
-                
-                // Position items absolutely within the full-height container
+    // Update positioning for remaining visible items (SCROLL-RELATIVE POSITIONING)
+    for (_entity, mut node, mut cached_item, _visibility) in cached_items.iter_mut() {
+        if cached_item.is_visible {
+            let entity_index = virtual_scroll_state.sorted_entity_ids.iter().position(|&id| id == cached_item.entity_id);
+            if let Some(index) = entity_index {
+                // Calculate absolute position in full content
                 let absolute_y_pos = index as f32 * virtual_scroll_state.item_height;
-                node.position_type = PositionType::Absolute;
-                node.top = Val::Px(absolute_y_pos);
-                node.left = Val::Px(0.0);
-                node.width = Val::Percent(100.0);
-                node.height = Val::Px(virtual_scroll_state.item_height); // Ensure height matches
-                node.margin = UiRect::ZERO; // Ensure no margins
-                node.padding = UiRect::all(Val::Px(8.0)); // Maintain padding
+                
+                // Adjust position relative to scroll position for viewport positioning
+                let viewport_relative_y = absolute_y_pos - virtual_scroll_state.current_scroll;
+                
+                node.position_type = PositionType::Absolute; // Absolute positioning within relative parent
+                node.top = Val::Px(viewport_relative_y); // Position relative to viewport
+                node.left = Val::Px(0.0); // Left edge
+                node.right = Val::Px(0.0); // Right edge (full width)
+                node.height = Val::Px(virtual_scroll_state.item_height); // Fixed height
+                node.margin = UiRect::ZERO;
+                node.padding = UiRect::all(Val::Px(8.0));
                 node.align_items = AlignItems::Center;
                 node.justify_content = JustifyContent::FlexStart;
-                node.display = Display::Flex; // Ensure item is displayed
-                node.overflow = Overflow::visible(); // Ensure content is clickable
-                cached_item.cached_position = absolute_y_pos;
+                node.display = Display::Flex;
+                node.overflow = Overflow::visible();
+                cached_item.cached_position = viewport_relative_y;
                 
                 visible_entity_ids.insert(cached_item.entity_id);
-            } else {
-                // Entity outside visible range
-                cached_item.is_visible = false;
-                *visibility = Visibility::Hidden;
             }
-        } else {
-            // Entity no longer exists
-            cached_item.is_visible = false;
-            *visibility = Visibility::Hidden;
         }
     }
     
@@ -353,26 +353,30 @@ pub fn update_infinite_scrolling_display(
                 if let Some(entity) = virtual_scroll_state.loaded_entities.get(&entity_id) {
                     let index = virtual_scroll_state.sorted_entity_ids.iter().position(|&id| id == entity_id).unwrap();
                     
+                    // Calculate scroll-relative position for new items too
+                    let absolute_y_pos = index as f32 * virtual_scroll_state.item_height;
+                    let viewport_relative_y = absolute_y_pos - virtual_scroll_state.current_scroll;
+                    
                     let item_entity = super::entity_list::spawn_entity_list_item(&mut parent.commands(), virtual_content, entity);
                     
                     parent.commands().entity(item_entity).insert((
                         CachedEntityItem {
                             entity_id,
                             is_visible: true,
-                            cached_position: absolute_y_pos,
+                            cached_position: viewport_relative_y,
                         },
                         Node {
-                            position_type: PositionType::Absolute,
-                            top: Val::Px(absolute_y_pos),
-                            left: Val::Px(0.0),
-                            width: Val::Percent(100.0),
-                            height: Val::Px(virtual_scroll_state.item_height), // Ensure height matches item_height
-                            margin: UiRect::ZERO, // Ensure no margins
-                            padding: UiRect::all(Val::Px(8.0)), // Maintain padding
+                            position_type: PositionType::Absolute, // Absolute positioning within relative parent
+                            top: Val::Px(viewport_relative_y), // Position relative to viewport
+                            left: Val::Px(0.0), // Left edge
+                            right: Val::Px(0.0), // Right edge (full width)
+                            height: Val::Px(virtual_scroll_state.item_height), // Fixed height
+                            margin: UiRect::ZERO,
+                            padding: UiRect::all(Val::Px(8.0)),
                             align_items: AlignItems::Center,
                             justify_content: JustifyContent::FlexStart,
-                            display: Display::Flex, // Ensure item is displayed
-                            overflow: Overflow::visible(), // Ensure content is clickable
+                            display: Display::Flex,
+                            overflow: Overflow::visible(),
                             ..Default::default()
                         },
                     ));
@@ -381,80 +385,21 @@ pub fn update_infinite_scrolling_display(
         });
     }
     
-    // Cleanup: despawn items that are far outside the visible range to prevent accumulation
-    // Use proportional cleanup buffer that scales with total entity count
-    let cleanup_buffer = if virtual_scroll_state.total_entity_count <= 50 {
-        // For small lists, use very conservative cleanup buffer
-        virtual_scroll_state.buffer_size * 3
-    } else {
-        // For larger lists, use bigger cleanup buffer for stability
-        virtual_scroll_state.buffer_size * 6  // More conservative cleanup
-    };
-    let cleanup_start = final_start_index.saturating_sub(cleanup_buffer);
-    let cleanup_end = (final_end_index + cleanup_buffer).min(virtual_scroll_state.total_entity_count);
-    
-    // Only perform cleanup if enough time has passed and we have many items
-    let total_cached_items = cached_items.iter().count();
-    let should_cleanup = current_time - virtual_scroll_state.last_cleanup_time >= virtual_scroll_state.cleanup_interval 
-        && total_cached_items > 100; // Only cleanup if we have many cached items
-    let mut despawn_count = 0;
-    
-    if should_cleanup {
-        // Collect entities to despawn - use iter_many to get entities
-        let mut entities_to_despawn = Vec::new();
-        
-        for (entity, _node, cached_item, _visibility) in cached_items.iter() {
-            let entity_index = virtual_scroll_state.sorted_entity_ids.iter().position(|&id| id == cached_item.entity_id);
-            if let Some(index) = entity_index {
-                if index < cleanup_start || index >= cleanup_end {
-                    entities_to_despawn.push(entity);
-                    despawn_count += 1;
-                }
-            }
-        }
-        
-        // Actually despawn the UI entities that are too far away
-        for entity in entities_to_despawn {
-            commands.entity(entity).despawn();
-        }
-        
-        virtual_scroll_state.last_cleanup_time = current_time;
-    }
-    
-    // Force cleanup of invisible items every frame for true virtual scrolling
-    let mut force_cleanup_count = 0;
-    let mut entities_to_force_cleanup = Vec::new();
-    
-    for (entity, _node, cached_item, visibility) in cached_items.iter() {
-        // If item is hidden but still exists, mark for cleanup
-        if *visibility == Visibility::Hidden {
-            entities_to_force_cleanup.push(entity);
-            force_cleanup_count += 1;
-        }
-    }
-    
-    // Clean up hidden items immediately
-    for entity in entities_to_force_cleanup {
-        commands.entity(entity).despawn_recursive();
-    }
-    
-    if force_cleanup_count > 0 {
-        println!("Force cleaned up {} hidden items", force_cleanup_count);
-    }
+    // Note: Cleanup is now handled in the first pass above - we despawn items outside visible range immediately
     
     // Debug output when things change
     if entities_changed || scroll_changed {
         let (final_start, final_end) = virtual_scroll_state.visible_range;
         let total_items = cached_items.iter().count();
         let visible_items = cached_items.iter().filter(|(_, _, cached_item, _)| cached_item.is_visible).count();
-        println!("Virtual scroll (React Virtualized approach): showing {}-{} of {} total (scroll: {:.1}px) [UI items: {}, Visible: {}]", 
+        println!("Virtual scroll (scroll-relative positioning): showing {}-{} of {} total (scroll: {:.1}px) [UI items: {}, Visible: {}]", 
             final_start, final_end, virtual_scroll_state.total_entity_count, virtual_scroll_state.current_scroll, total_items, visible_items);
         
-        // Show padding calculations for debugging
-        let top_padding = final_start_index as f32 * virtual_scroll_state.item_height;
-        let bottom_padding = (virtual_scroll_state.total_entity_count - final_end_index) as f32 * virtual_scroll_state.item_height;
-        println!("Padding: top={:.1}px, bottom={:.1}px, container={:.1}px", 
-            top_padding, bottom_padding, virtual_scroll_state.container_height);
+        // Show viewport positioning for debugging
+        let first_item_absolute_y = final_start_index as f32 * virtual_scroll_state.item_height;
+        let first_item_viewport_y = first_item_absolute_y - virtual_scroll_state.current_scroll;
+        println!("Scroll-relative: first_item_absolute_y={:.1}px, viewport_relative_y={:.1}px, scroll={:.1}px", 
+            first_item_absolute_y, first_item_viewport_y, virtual_scroll_state.current_scroll);
     }
 }
 
@@ -474,6 +419,7 @@ pub fn handle_infinite_scroll_input(
     windows: Query<&Window>,
     mut custom_scroll: ResMut<CustomScrollPosition>,
     mut mouse_wheel_events: EventReader<MouseWheel>,
+    mut component_scroll_query: Query<&mut ScrollPosition, With<super::component_viewer::ComponentViewerPanel>>,
 ) {
     // Update max scroll based on current content AND current container height
     let new_max_y = (virtual_scroll_state.total_content_height - virtual_scroll_state.container_height).max(0.0);
@@ -533,12 +479,12 @@ pub fn handle_infinite_scroll_input(
                     //     scroll_position.y = custom_scroll.y;
                     // }
                 } else {
-                    // Scroll component viewer with standard system
-                    // Note: component_scroll_query removed to avoid additional dependencies  
-                    // if let Ok(mut scroll_position) = component_scroll_query.single_mut() {
-                    //     scroll_position.y -= event.y * 30.0;
-                    //     scroll_position.y = scroll_position.y.max(0.0);
-                    // }
+                    // Scroll component viewer with standard system (cursor on right side)
+                    if let Ok(mut scroll_position) = component_scroll_query.single_mut() {
+                        scroll_position.y -= event.y * 30.0;
+                        scroll_position.y = scroll_position.y.max(0.0);
+                        println!("Component viewer scroll: {:.1}px", scroll_position.y);
+                    }
                 }
             } else {
                 // Fallback: use custom scroll system with velocity limiting
