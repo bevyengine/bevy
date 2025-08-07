@@ -1,6 +1,6 @@
 ---
 title: `TextFont` constructor methods replaced with `From` impls
-pull_requests: [20335]
+pull_requests: [20335, 20450]
 ---
 
 The `TextFont::from_font` and `TextFont::from_line_height` constructor methods have been removed in favor of `From` trait implementations.
