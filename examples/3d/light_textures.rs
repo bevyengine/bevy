@@ -9,8 +9,7 @@ use bevy::{
     pbr::{decal, DirectionalLightTexture, NotShadowCaster, PointLightTexture, SpotLightTexture},
     prelude::*,
     render::renderer::{RenderAdapter, RenderDevice},
-    window::SystemCursorIcon,
-    winit::cursor::CursorIcon,
+    window::{CursorIcon, SystemCursorIcon},
 };
 use light_consts::lux::{AMBIENT_DAYLIGHT, CLEAR_SUNRISE};
 use ops::{acos, cos, sin};

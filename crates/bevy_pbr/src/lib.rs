@@ -223,7 +223,6 @@ impl Plugin for PbrPlugin {
         load_shader_library!(app, "meshlet/dummy_visibility_buffer_resolve.wgsl");
 
         app.register_asset_reflect::<StandardMaterial>()
-            .register_type::<DefaultOpaqueRendererMethod>()
             .init_resource::<DefaultOpaqueRendererMethod>()
             .add_plugins((
                 MeshRenderPlugin {

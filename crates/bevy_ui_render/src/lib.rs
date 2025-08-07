@@ -208,8 +208,6 @@ pub struct UiRenderPlugin;
 impl Plugin for UiRenderPlugin {
     fn build(&self, app: &mut App) {
         load_shader_library!(app, "ui.wgsl");
-        app.register_type::<BoxShadowSamples>()
-            .register_type::<UiAntiAlias>();
 
         #[cfg(feature = "bevy_ui_debug")]
         app.init_resource::<UiDebugOptions>();

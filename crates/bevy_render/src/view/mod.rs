@@ -100,9 +100,7 @@ impl Plugin for ViewPlugin {
     fn build(&self, app: &mut App) {
         load_shader_library!(app, "view.wgsl");
 
-        app.register_type::<Msaa>()
-            .register_type::<ColorGrading>()
-            .register_type::<OcclusionCulling>()
+        app
             // NOTE: windows.is_changed() handles cases where a window was resized
             .add_plugins((
                 ExtractComponentPlugin::<Hdr>::default(),

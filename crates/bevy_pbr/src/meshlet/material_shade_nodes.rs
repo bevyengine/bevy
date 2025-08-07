@@ -20,6 +20,7 @@ use bevy_ecs::{
 };
 use bevy_render::{
     camera::{ExtractedCamera, MainPassResolutionOverride},
+    diagnostic::RecordDiagnostics,
     render_graph::{NodeRunError, RenderGraphContext, ViewNode},
     render_resource::{
         LoadOp, Operations, PipelineCache, RenderPassDepthStencilAttachment, RenderPassDescriptor,
@@ -89,8 +90,10 @@ impl ViewNode for MeshletMainOpaquePass3dNode {
             return Ok(());
         };
 
+        let diagnostics = render_context.diagnostic_recorder();
+
         let mut render_pass = render_context.begin_tracked_render_pass(RenderPassDescriptor {
-            label: Some("meshlet_main_opaque_pass_3d"),
+            label: Some("meshlet_material_opaque_3d_pass"),
             color_attachments: &[Some(target.get_color_attachment())],
             depth_stencil_attachment: Some(RenderPassDepthStencilAttachment {
                 view: &meshlet_material_depth.default_view,
@@ -103,6 +106,7 @@ impl ViewNode for MeshletMainOpaquePass3dNode {
             timestamp_writes: None,
             occlusion_query_set: None,
         });
+        let pass_span = diagnostics.pass_span(&mut render_pass, "meshlet_material_opaque_3d_pass");
         if let Some(viewport) =
             Viewport::from_viewport_and_override(camera.viewport.as_ref(), resolution_override)
         {
@@ -139,6 +143,8 @@ impl ViewNode for MeshletMainOpaquePass3dNode {
                 }
             }
         }
+
+        pass_span.end(&mut render_pass);
 
         Ok(())
     }
@@ -198,6 +204,8 @@ impl ViewNode for MeshletPrepassNode {
             return Ok(());
         };
 
+        let diagnostics = render_context.diagnostic_recorder();
+
         let color_attachments = vec![
             view_prepass_textures
                 .normal
@@ -213,7 +221,7 @@ impl ViewNode for MeshletPrepassNode {
         ];
 
         let mut render_pass = render_context.begin_tracked_render_pass(RenderPassDescriptor {
-            label: Some("meshlet_prepass"),
+            label: Some("meshlet_material_prepass"),
             color_attachments: &color_attachments,
             depth_stencil_attachment: Some(RenderPassDepthStencilAttachment {
                 view: &meshlet_material_depth.default_view,
@@ -226,6 +234,7 @@ impl ViewNode for MeshletPrepassNode {
             timestamp_writes: None,
             occlusion_query_set: None,
         });
+        let pass_span = diagnostics.pass_span(&mut render_pass, "meshlet_material_prepass");
         if let Some(viewport) =
             Viewport::from_viewport_and_override(camera.viewport.as_ref(), resolution_override)
         {
@@ -267,6 +276,8 @@ impl ViewNode for MeshletPrepassNode {
                 }
             }
         }
+
+        pass_span.end(&mut render_pass);
 
         Ok(())
     }
@@ -345,8 +356,10 @@ impl ViewNode for MeshletDeferredGBufferPrepassNode {
                 .map(|deferred_lighting_pass_id| deferred_lighting_pass_id.get_attachment()),
         ];
 
+        let diagnostics = render_context.diagnostic_recorder();
+
         let mut render_pass = render_context.begin_tracked_render_pass(RenderPassDescriptor {
-            label: Some("meshlet_deferred_prepass"),
+            label: Some("meshlet_material_deferred_prepass"),
             color_attachments: &color_attachments,
             depth_stencil_attachment: Some(RenderPassDepthStencilAttachment {
                 view: &meshlet_material_depth.default_view,
@@ -359,6 +372,8 @@ impl ViewNode for MeshletDeferredGBufferPrepassNode {
             timestamp_writes: None,
             occlusion_query_set: None,
         });
+        let pass_span =
+            diagnostics.pass_span(&mut render_pass, "meshlet_material_deferred_prepass");
         if let Some(viewport) =
             Viewport::from_viewport_and_override(camera.viewport.as_ref(), resolution_override)
         {
@@ -400,6 +415,8 @@ impl ViewNode for MeshletDeferredGBufferPrepassNode {
                 }
             }
         }
+
+        pass_span.end(&mut render_pass);
 
         Ok(())
     }
