@@ -501,15 +501,10 @@ impl<T: BufferedEvent> ApplicationHandler<T> for WinitAppRunnerState<T> {
 impl<T: BufferedEvent> WinitAppRunnerState<T> {
     fn redraw_requested(&mut self, event_loop: &ActiveEventLoop) {
         let mut redraw_event_reader = EventCursor::<RequestRedraw>::default();
+        let mut close_event_reader = EventCursor::<WindowCloseRequested>::default();
 
         let mut focused_windows_state: SystemState<(Res<WinitSettings>, Query<(Entity, &Window)>)> =
             SystemState::new(self.world_mut());
-
-        if let Some(app_redraw_events) = self.world().get_resource::<Events<RequestRedraw>>() {
-            if redraw_event_reader.read(app_redraw_events).last().is_some() {
-                self.redraw_requested = true;
-            }
-        }
 
         let (config, windows) = focused_windows_state.get(self.world());
         let focused = windows.iter().any(|(_, window)| window.focused);
@@ -618,6 +613,26 @@ impl<T: BufferedEvent> WinitAppRunnerState<T> {
                 self.ran_update_since_last_redraw = true;
             } else {
                 self.redraw_requested = true;
+            }
+
+            // Read RequestRedraw events that may have been sent during the update
+            if let Some(app_redraw_events) = self.world().get_resource::<Events<RequestRedraw>>() {
+                if redraw_event_reader.read(app_redraw_events).last().is_some() {
+                    self.redraw_requested = true;
+                }
+            }
+
+            // Running the app may have produced WindowCloseRequested events that should be processed
+            if let Some(close_request_events) =
+                self.world().get_resource::<Events<WindowCloseRequested>>()
+            {
+                if close_event_reader
+                    .read(close_request_events)
+                    .last()
+                    .is_some()
+                {
+                    self.redraw_requested = true;
+                }
             }
 
             // Running the app may have changed the WinitSettings resource, so we have to re-extract it.
