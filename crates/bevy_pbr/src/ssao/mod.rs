@@ -53,8 +53,6 @@ impl Plugin for ScreenSpaceAmbientOcclusionPlugin {
         embedded_asset!(app, "ssao.wgsl");
         embedded_asset!(app, "spatial_denoise.wgsl");
 
-        app.register_type::<ScreenSpaceAmbientOcclusion>();
-
         app.add_plugins(SyncComponentPlugin::<ScreenSpaceAmbientOcclusion>::default());
     }
 

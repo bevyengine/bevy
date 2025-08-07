@@ -67,8 +67,7 @@ pub struct DelayedComponentPlugin;
 
 impl Plugin for DelayedComponentPlugin {
     fn build(&self, app: &mut App) {
-        app.register_type::<DelayedComponentTimer>()
-            .add_systems(Update, tick_timers);
+        app.add_systems(Update, tick_timers);
     }
 }
 

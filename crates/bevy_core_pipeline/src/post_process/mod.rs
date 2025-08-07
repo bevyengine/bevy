@@ -201,7 +201,6 @@ impl Plugin for PostProcessingPlugin {
             RenderAssetUsages::RENDER_WORLD,
         ));
 
-        app.register_type::<ChromaticAberration>();
         app.add_plugins(ExtractComponentPlugin::<ChromaticAberration>::default());
 
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {

@@ -184,8 +184,7 @@ impl Plugin for ScreenSpaceReflectionsPlugin {
         load_shader_library!(app, "ssr.wgsl");
         load_shader_library!(app, "raymarch.wgsl");
 
-        app.register_type::<ScreenSpaceReflections>()
-            .add_plugins(ExtractComponentPlugin::<ScreenSpaceReflections>::default());
+        app.add_plugins(ExtractComponentPlugin::<ScreenSpaceReflections>::default());
 
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;

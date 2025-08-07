@@ -401,9 +401,7 @@ impl Plugin for ScreenshotPlugin {
                     .after(event_update_system)
                     .before(ApplyDeferred),
             )
-            .add_systems(Update, trigger_screenshots)
-            .register_type::<Screenshot>()
-            .register_type::<ScreenshotCaptured>();
+            .add_systems(Update, trigger_screenshots);
 
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;

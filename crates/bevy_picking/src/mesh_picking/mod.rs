@@ -25,7 +25,7 @@ use bevy_app::prelude::*;
 use bevy_ecs::prelude::*;
 use bevy_reflect::prelude::*;
 use bevy_render::{prelude::*, view::RenderLayers};
-use ray_cast::{MeshRayCast, MeshRayCastSettings, RayCastVisibility, SimplifiedMesh};
+use ray_cast::{MeshRayCast, MeshRayCastSettings, RayCastVisibility};
 
 /// An optional component that marks cameras that should be used in the [`MeshPickingPlugin`].
 ///
@@ -69,8 +69,6 @@ pub struct MeshPickingPlugin;
 impl Plugin for MeshPickingPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<MeshPickingSettings>()
-            .register_type::<MeshPickingSettings>()
-            .register_type::<SimplifiedMesh>()
             .add_systems(PreUpdate, update_hits.in_set(PickingSystems::Backend));
     }
 }
