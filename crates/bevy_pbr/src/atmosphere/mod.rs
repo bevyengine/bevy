@@ -266,7 +266,14 @@ pub struct Atmosphere {
     /// light it absorbs per meter.
     ///
     /// units: m^-1
-    pub ozone_absorption: Vec3,
+ pub ozone_absorption: Vec3,
+  
+        /// Multiplier to control the visibility of the sun disc.
+   /// Set to 1.0 to show the sun disc (default) or 0.0 to hide it.
+        pub sun_disc_mult: f32,
+     
+   
+    
 }
 
 impl Atmosphere {
@@ -280,7 +287,8 @@ impl Atmosphere {
         mie_scattering: 3.996e-6,
         mie_absorption: 0.444e-6,
         mie_asymmetry: 0.8,
-        ozone_layer_altitude: 25_000.0,
+        ozone_layer_altitude: 25_00
+                sun_disc_mult: 1.0,0.0,
         ozone_layer_width: 30_000.0,
         ozone_absorption: Vec3::new(0.650e-6, 1.881e-6, 0.085e-6),
     };
@@ -376,9 +384,7 @@ pub struct AtmosphereSettings {
     /// A conversion factor between scene units and meters, used to
     /// ensure correctness at different length scales.
     pub scene_units_to_m: f32,
-        /// Multiplier to control the visibility of the sun disc.
-    /// Set to 1.0 to show the sun disc (default) or 0.0 to hide it.
-    pub sun_disc_mult: f32,
+       
 
 }
 
