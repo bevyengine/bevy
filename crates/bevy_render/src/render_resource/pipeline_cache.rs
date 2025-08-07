@@ -697,7 +697,7 @@ impl PipelineCache {
                     let error_detail =
                         err.emit_to_string(&self.shader_cache.lock().unwrap().composer);
                     if std::env::var("VERBOSE_SHADER_ERROR")
-                        .map_or(false, |v| !(v.is_empty() || v == "0" || v == "false"))
+                        .is_ok_and(|v| !(v.is_empty() || v == "0" || v == "false"))
                     {
                         error!("{}", pipeline_error_context(cached_pipeline));
                     }
@@ -755,7 +755,7 @@ fn pipeline_error_context(cached_pipeline: &CachedPipeline) -> String {
     fn format(
         shader: &Handle<Shader>,
         entry: &Option<Cow<'static, str>>,
-        shader_defs: &Vec<ShaderDefVal>,
+        shader_defs: &[ShaderDefVal],
     ) -> String {
         let source = match shader.path() {
             Some(path) => path.path().to_string_lossy().to_string(),
@@ -768,7 +768,7 @@ fn pipeline_error_context(cached_pipeline: &CachedPipeline) -> String {
         let shader_defs = shader_defs
             .iter()
             .flat_map(|def| match def {
-                ShaderDefVal::Bool(k, v) if *v => Some(format!("{k}")),
+                ShaderDefVal::Bool(k, v) if *v => Some(k.to_string()),
                 ShaderDefVal::Int(k, v) => Some(format!("{k} = {v}")),
                 ShaderDefVal::UInt(k, v) => Some(format!("{k} = {v}")),
                 _ => None,
