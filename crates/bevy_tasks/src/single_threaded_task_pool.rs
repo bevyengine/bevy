@@ -2,33 +2,24 @@ use alloc::{string::String, vec::Vec};
 use bevy_platform::sync::Arc;
 use core::{cell::RefCell, future::Future, marker::PhantomData, mem};
 
-use crate::{block_on, Task, executor::LocalExecutor};
+use crate::executor::LocalExecutor;
+use crate::{block_on, Task};
 
 crate::cfg::std! {
     if {
         use std::thread_local;
 
+        use crate::executor::LocalExecutor as Executor;
+
         thread_local! {
-            static LOCAL_EXECUTOR: LocalExecutor<'static> = const { LocalExecutor::new() };
+            static LOCAL_EXECUTOR: Executor<'static> = const { Executor::new() };
         }
     } else {
-        use core::ops::Deref;
-        
-        struct Wrapper<T>(T);
 
-        #[expect(unsafe_code, reason = "hacking around nonsend bounds")]
-        unsafe impl<T> Send for Wrapper<T> {}
-        #[expect(unsafe_code, reason = "hacking around nonsend bounds")]
-        unsafe impl<T> Sync for Wrapper<T> {}
+        // Because we do not have thread-locals without std, we cannot use LocalExecutor here.
+        use crate::executor::Executor;
 
-        impl<T> Deref for Wrapper<T> {
-            type Target = T;
-            fn deref(&self) -> &T {
-                &self.0
-            }
-        }
-
-        static LOCAL_EXECUTOR: Wrapper<LocalExecutor<'static>> = const { Wrapper(LocalExecutor::new()) };
+        static LOCAL_EXECUTOR: Executor<'static> = const { Executor::new() };
     }
 }
 
@@ -149,42 +140,41 @@ impl TaskPool {
         // Any usages of the references passed into `Scope` must be accessed through
         // the transmuted reference for the rest of this function.
 
-        self.with_local_executor(|executor| {
-            // SAFETY: As above, all futures must complete in this function so we can change the lifetime
-            let executor_ref: &'env LocalExecutor<'env> = unsafe { mem::transmute(executor) };
+        let executor = LocalExecutor::new();
+        // SAFETY: As above, all futures must complete in this function so we can change the lifetime
+        let executor_ref: &'env LocalExecutor<'env> = unsafe { mem::transmute(&executor) };
 
-            let results: RefCell<Vec<Option<T>>> = RefCell::new(Vec::new());
-            // SAFETY: As above, all futures must complete in this function so we can change the lifetime
-            let results_ref: &'env RefCell<Vec<Option<T>>> = unsafe { mem::transmute(&results) };
+        let results: RefCell<Vec<Option<T>>> = RefCell::new(Vec::new());
+        // SAFETY: As above, all futures must complete in this function so we can change the lifetime
+        let results_ref: &'env RefCell<Vec<Option<T>>> = unsafe { mem::transmute(&results) };
 
-            let pending_tasks: RefCell<usize> = RefCell::new(0);
-            // SAFETY: As above, all futures must complete in this function so we can change the lifetime
-            let pending_tasks: &'env RefCell<usize> = unsafe { mem::transmute(&pending_tasks) };
+        let pending_tasks: RefCell<usize> = RefCell::new(0);
+        // SAFETY: As above, all futures must complete in this function so we can change the lifetime
+        let pending_tasks: &'env RefCell<usize> = unsafe { mem::transmute(&pending_tasks) };
 
-            let mut scope = Scope {
-                executor_ref,
-                pending_tasks,
-                results_ref,
-                scope: PhantomData,
-                env: PhantomData,
-            };
+        let mut scope = Scope {
+            executor_ref,
+            pending_tasks,
+            results_ref,
+            scope: PhantomData,
+            env: PhantomData,
+        };
 
-            // SAFETY: As above, all futures must complete in this function so we can change the lifetime
-            let scope_ref: &'env mut Scope<'_, 'env, T> = unsafe { mem::transmute(&mut scope) };
+        // SAFETY: As above, all futures must complete in this function so we can change the lifetime
+        let scope_ref: &'env mut Scope<'_, 'env, T> = unsafe { mem::transmute(&mut scope) };
 
-            f(scope_ref);
+        f(scope_ref);
 
-            // Wait until the socpe is complete
-            while *pending_tasks.borrow() != 0 {
-                block_on(executor.tick());
-            }
+        // Wait until the socpe is complete
+        while *pending_tasks.borrow() != 0 {
+            block_on(executor.tick());
+        }
 
-            results
-                .take()
-                .into_iter()
-                .map(|result| result.unwrap())
-                .collect()
-        })
+        results
+            .take()
+            .into_iter()
+            .map(|result| result.unwrap())
+            .collect()
     }
 
     /// Spawns a static future onto the thread pool. The returned Task is a future, which can be polled
@@ -247,7 +237,7 @@ impl TaskPool {
     /// ```
     pub fn with_local_executor<F, R>(&self, f: F) -> R
     where
-        F: FnOnce(&LocalExecutor) -> R,
+        F: FnOnce(&Executor) -> R,
     {
         crate::cfg::switch! {{
             crate::cfg::std => {
@@ -347,5 +337,34 @@ crate::cfg::std! {
     
         pub trait MaybeSync: Sync {}
         impl<T: Sync> MaybeSync for T {}
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use std::{time, thread};
+
+    use super::*;
+
+    /// This test creates a scope with a single task that goes to sleep for a
+    /// nontrivial amount of time. At one point, the scope would (incorrectly)
+    /// return early under these conditions, causing a crash.
+    ///
+    /// The correct behavior is for the scope to block until the receiver is
+    /// woken by the external thread.
+    #[test]
+    fn scoped_spawn() {
+        let (sender, recever) = async_channel::unbounded();
+        let task_pool = TaskPool {};
+        let thread = thread::spawn(move || {
+            let duration = time::Duration::from_millis(50);
+            thread::sleep(duration);
+            let _ = sender.send(0);
+        });
+        task_pool.scope(|scope| {
+            scope.spawn(async {
+                recever.recv().await
+            });
+        });
     }
 }

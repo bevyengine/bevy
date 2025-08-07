@@ -57,6 +57,8 @@ cfg::web! {
 impl<T> Task<T> {
     /// Detaches the task to let it keep running in the background.
     ///
+    /// # Platform-Specific Behavior
+    ///
     /// When building for the web, this method has no effect.
     pub fn detach(self) {
         cfg::web! {
@@ -77,6 +79,7 @@ impl<T> Task<T> {
     /// canceling because it also waits for the task to stop running.
     ///
     /// # Platform-Specific Behavior
+    ///
     /// Canceling tasks is unsupported on the web, and this is the same as awaiting the task.
     pub async fn cancel(self) -> Option<T> {
         cfg::web! {
@@ -137,7 +140,7 @@ impl<T> Future for Task<T> {
                             unreachable!("catching a panic is only possible with std")
                         }
                     }},
-                    Poll::Ready(Err(_)) => panic!("Polled a task after it was cancelled"),
+                    Poll::Ready(Err(_)) => panic!("Polled a task after it finished running"),
                     Poll::Pending => Poll::Pending,
                 }
             }
@@ -153,7 +156,7 @@ impl<T> Future for Task<T> {
 // All variants of Task<T> are expected to implement Unpin
 impl<T> Unpin for Task<T> {}
 
-// Derive dosn't work for macro types, so we have to implement this manually.
+// Derive doesn't work for macro types, so we have to implement this manually.
 impl<T> fmt::Debug for Task<T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         self.0.fmt(f)
