@@ -10,6 +10,7 @@ use bevy_input::prelude::*;
 use crate::inspector::http_client::{HttpRemoteClient, ComponentUpdate};
 use super::entity_list::{SelectedEntity, EntityCache};
 use super::collapsible_section::{CollapsibleSection, CollapsibleHeader, CollapsibleContent};
+use crate::widgets::selectable_text::{SelectableText, TextSelectionState};
 use serde_json::Value;
 use std::collections::{HashMap, HashSet};
 
@@ -69,23 +70,7 @@ pub enum ChangeIndicator {
     Added,
 }
 
-/// Component to make text selectable and copyable
-#[derive(Component)]
-pub struct SelectableText {
-    pub text_content: String,
-    pub is_selected: bool,
-    pub selection_start: usize,
-    pub selection_end: usize,
-    pub cursor_position: usize,
-    pub is_dragging: bool,
-}
-
-/// Resource to track global text selection state
-#[derive(Resource, Default)]
-pub struct TextSelectionState {
-    pub selected_entity: Option<Entity>,
-    pub clipboard_support: bool,
-}
+// SelectableText and TextSelectionState are now imported from widgets::selectable_text
 
 /// System to update component viewer when entity selection changes
 pub fn update_component_viewer(

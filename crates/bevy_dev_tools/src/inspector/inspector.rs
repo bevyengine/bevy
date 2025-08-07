@@ -8,7 +8,8 @@ use bevy_camera::Camera2d;
 use bevy_text::{TextFont, TextColor};
 use super::http_client::*;
 use super::ui::*;
-use super::ui::component_viewer::{LiveComponentCache, process_live_component_updates, cleanup_expired_change_indicators, auto_start_component_watching, update_live_component_display, handle_text_selection, TextSelectionState};
+use super::ui::component_viewer::{LiveComponentCache, process_live_component_updates, cleanup_expired_change_indicators, auto_start_component_watching, update_live_component_display, handle_text_selection};
+use crate::widgets::selectable_text::TextSelectionState;
 use super::ui::virtual_scrolling::{handle_infinite_scroll_input, update_infinite_scrolling_display, update_scroll_momentum, update_scrollbar_indicator, setup_virtual_scrolling, VirtualScrollState, CustomScrollPosition};
 use super::ui::entity_list::{EntityListVirtualState, SelectionDebounce};
 
