@@ -20,6 +20,9 @@ struct Atmosphere {
     ozone_layer_altitude: f32, // units: m
     ozone_layer_width: f32, // units: m
     ozone_absorption: vec3<f32>, // ozone absorption. units: m^-1
+    // Multiplier to control the visibility of the sun disc.
+    // Set to 1.0 to show the sun disc (default) or 0.0 to hide it.
+    sun_disc_mult: f32,
 }
 
 struct AtmosphereSettings {
