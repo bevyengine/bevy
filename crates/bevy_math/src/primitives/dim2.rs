@@ -1589,13 +1589,9 @@ impl Polyline2d {
         let total_vertices = subdivisions + 2;
         let mut vertices = Vec::with_capacity(total_vertices);
 
-        if subdivisions == 0 {
-            vertices.extend([start, end]);
-        } else {
-            let step = (end - start) / (subdivisions + 1) as f32;
-            for i in 0..total_vertices {
-                vertices.push(start + step * i as f32);
-            }
+        let step = (end - start) / (subdivisions + 1) as f32;
+        for i in 0..total_vertices {
+            vertices.push(start + step * i as f32);
         }
 
         Self { vertices }
