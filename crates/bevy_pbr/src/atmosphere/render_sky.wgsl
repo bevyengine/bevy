@@ -41,7 +41,7 @@ fn main(in: FullscreenVertexOutput) -> RenderSkyOutput {
     var inscattering: vec3<f32>;
     var sun_radiance = vec3(0.0);
 
-    if settings.sun_disk_multiplier != 0.0 {
+    if settings.sun_disc_intensity != 0.0 {
         sun_radiance = settings.sun_disk_multiplier * sample_sun_radiance(ray_dir_ws.xyz);
     }
 
