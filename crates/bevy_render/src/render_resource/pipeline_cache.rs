@@ -5,7 +5,7 @@ use crate::{
     Extract,
 };
 use alloc::{borrow::Cow, sync::Arc};
-use bevy_asset::{AssetEvent, AssetId, Assets};
+use bevy_asset::{AssetEvent, AssetId, Assets, Handle};
 use bevy_ecs::{
     event::EventReader,
     resource::Resource,
@@ -696,7 +696,12 @@ impl PipelineCache {
                 PipelineCacheError::ProcessShaderError(err) => {
                     let error_detail =
                         err.emit_to_string(&self.shader_cache.lock().unwrap().composer);
-                    error!("failed to process shader:\n{}", error_detail);
+                    if std::env::var("VERBOSE_SHADER_ERROR")
+                        .map_or(false, |v| !(v.is_empty() || v == "0" || v == "false"))
+                    {
+                        error!("{}", pipeline_error_context(cached_pipeline));
+                    }
+                    error!("failed to process shader error:\n{}", error_detail);
                     return;
                 }
                 PipelineCacheError::CreateShaderModule(description) => {
@@ -742,6 +747,48 @@ impl PipelineCache {
                     // TODO: handle this
                 }
             }
+        }
+    }
+}
+
+fn pipeline_error_context(cached_pipeline: &CachedPipeline) -> String {
+    fn format(
+        shader: &Handle<Shader>,
+        entry: &Option<Cow<'static, str>>,
+        shader_defs: &Vec<ShaderDefVal>,
+    ) -> String {
+        let source = match shader.path() {
+            Some(path) => path.path().to_string_lossy().to_string(),
+            None => String::new(),
+        };
+        let entry = match entry {
+            Some(entry) => entry.to_string(),
+            None => String::new(),
+        };
+        let shader_defs = shader_defs
+            .iter()
+            .flat_map(|def| match def {
+                ShaderDefVal::Bool(k, v) if *v => Some(format!("{k}")),
+                ShaderDefVal::Int(k, v) => Some(format!("{k} = {v}")),
+                ShaderDefVal::UInt(k, v) => Some(format!("{k} = {v}")),
+                _ => None,
+            })
+            .collect::<Vec<_>>()
+            .join(", ");
+        format!("{source}:{entry}\nshader defs: {shader_defs}")
+    }
+    match &cached_pipeline.descriptor {
+        PipelineDescriptor::RenderPipelineDescriptor(desc) => {
+            let vert = &desc.vertex;
+            let vert_str = format(&vert.shader, &vert.entry_point, &vert.shader_defs);
+            let Some(frag) = desc.fragment.as_ref() else {
+                return vert_str;
+            };
+            let frag_str = format(&frag.shader, &frag.entry_point, &frag.shader_defs);
+            format!("vertex {vert_str}\nfragment {frag_str}")
+        }
+        PipelineDescriptor::ComputePipelineDescriptor(desc) => {
+            format(&desc.shader, &desc.entry_point, &desc.shader_defs)
         }
     }
 }
