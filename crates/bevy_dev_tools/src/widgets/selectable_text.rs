@@ -246,7 +246,7 @@ pub fn copy_to_clipboard(text: &str) {
                     if let Some(stdin) = child.stdin.as_mut() {
                         match stdin.write_all(text.as_bytes()) {
                             Ok(_) => {
-                                drop(stdin);
+                                let _ = stdin;
                                 match child.wait() {
                                     Ok(_) => println!("✅ Text copied to clipboard (macOS)"),
                                     Err(e) => println!("❌ Failed to wait for pbcopy: {}", e),
@@ -270,7 +270,7 @@ pub fn copy_to_clipboard(text: &str) {
                     if let Some(stdin) = child.stdin.as_mut() {
                         match stdin.write_all(text.as_bytes()) {
                             Ok(_) => {
-                                drop(stdin);
+                                let _ = stdin;
                                 match child.wait() {
                                     Ok(_) => println!("✅ Text copied to clipboard (Linux - xclip)"),
                                     Err(e) => println!("❌ xclip wait failed: {}", e),

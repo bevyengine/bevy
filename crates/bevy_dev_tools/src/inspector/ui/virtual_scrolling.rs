@@ -232,7 +232,7 @@ pub fn update_infinite_scrolling_display(
     };
     
     let start_index = scroll_offset.saturating_sub(adaptive_buffer);
-    let mut end_index = (scroll_offset + items_per_screen + adaptive_buffer)
+    let end_index = (scroll_offset + items_per_screen + adaptive_buffer)
         .min(virtual_scroll_state.total_entity_count);
     
     // IMPORTANT: Always enforce proper virtual scrolling - never show more than necessary
