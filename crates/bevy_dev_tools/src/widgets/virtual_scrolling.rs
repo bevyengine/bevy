@@ -188,7 +188,7 @@ pub fn update_virtual_scroll_display<T: Component + Clone + VirtualScrollable>(
     mut commands: Commands,
     mut scroll_state: ResMut<VirtualScrollState<T>>,
     time: Res<Time>,
-    container_query: Query<Entity, With<VirtualScrollContainer<T>>>,
+    _container_query: Query<Entity, With<VirtualScrollContainer<T>>>,
     content_query: Query<Entity, With<VirtualScrollContent<T>>>,
     mut item_query: Query<(Entity, &mut VirtualScrollItem<T>)>,
 ) {

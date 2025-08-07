@@ -76,7 +76,7 @@ impl Plugin for SelectableTextPlugin {
 pub struct VirtualScrollPlugin;
 
 impl Plugin for VirtualScrollPlugin {
-    fn build(&self, app: &mut App) {
+    fn build(&self, _app: &mut App) {
         // Note: This is a generic plugin. Specific types need to be registered
         // when using virtual scrolling with concrete types.
         // Systems are added when specific virtual scroll instances are created.

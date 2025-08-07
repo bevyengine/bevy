@@ -7,7 +7,6 @@
 
 use anyhow::{anyhow, Result};
 use bevy_ecs::prelude::*;
-use bevy_tasks::Task;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -17,15 +16,16 @@ use futures::TryStreamExt;
 
 /// JSON-RPC request structure
 #[derive(Serialize, Debug)]
-struct JsonRpcRequest {
-    jsonrpc: String,
-    id: u32,
-    method: String,
-    params: Option<Value>,
+pub struct JsonRpcRequest {
+    pub jsonrpc: String,
+    pub id: u32,
+    pub method: String,
+    pub params: Option<Value>,
 }
 
 /// JSON-RPC response structure  
 #[derive(Deserialize, Debug)]
+#[allow(dead_code)]
 struct JsonRpcResponse {
     jsonrpc: String,
     id: u32,
@@ -35,6 +35,7 @@ struct JsonRpcResponse {
 
 /// JSON-RPC error structure
 #[derive(Deserialize, Debug)]
+#[allow(dead_code)]
 struct JsonRpcError {
     code: i32,
     message: String,
@@ -74,9 +75,11 @@ pub struct HttpRemoteClient {
     // Legacy channel for receiving live updates (for backward compatibility)
     pub update_receiver: Option<Receiver<RemoteUpdate>>,
     // New streaming fields for bevy/get+watch
-    pub watching_tasks: HashMap<u32, Task<()>>,
     pub component_update_sender: Option<Sender<ComponentUpdate>>,
     pub component_update_receiver: Option<Receiver<ComponentUpdate>>,
+    // Connection status communication
+    pub connection_status_sender: Option<Sender<ConnectionStatusUpdate>>,
+    pub connection_status_receiver: Option<Receiver<ConnectionStatusUpdate>>,
     pub watched_entities: HashMap<u32, Vec<String>>, // entity -> components being watched
     // Current cached data
     pub entities: HashMap<u32, RemoteEntity>,
@@ -115,6 +118,14 @@ pub struct BrpGetWatchingResponse {
     pub errors: Option<HashMap<String, Value>>,
 }
 
+/// Connection status update from async tasks to Bevy systems
+#[derive(Debug, Clone)]
+pub struct ConnectionStatusUpdate {
+    pub is_connected: bool,
+    pub error_message: Option<String>,
+    pub entities: HashMap<u32, RemoteEntity>,
+}
+
 impl HttpRemoteClient {
     pub fn new(config: &HttpRemoteConfig) -> Self {
         let base_url = format!("http://{}:{}", config.host, config.port);
@@ -125,9 +136,11 @@ impl HttpRemoteClient {
             request_id: 1,
             update_receiver: None,
             // Initialize new streaming fields
-            watching_tasks: HashMap::new(),
             component_update_sender: None,
             component_update_receiver: None,
+            // Initialize connection status communication
+            connection_status_sender: None,
+            connection_status_receiver: None,
             watched_entities: HashMap::new(),
             entities: HashMap::new(),
             is_connected: false,
@@ -311,7 +324,7 @@ impl HttpRemoteClient {
     }
 
     /// Start watching components for an entity using bevy/get+watch with bevy_tasks
-    pub fn start_component_watching(&mut self, entity_id: u32, components: Vec<String>) -> Result<()> {
+    pub fn start_component_watching(&mut self, entity_id: u32, components: Vec<String>, tokio_handle: &tokio::runtime::Handle) -> Result<()> {
         // Create channel for component updates
         let (tx, rx) = async_channel::unbounded();
         self.component_update_sender = Some(tx.clone());
@@ -321,8 +334,8 @@ impl HttpRemoteClient {
         let client = self.client.clone();
         let components_clone = components.clone();
         
-        // Spawn task using bevy_tasks - reqwest should work with any async runtime
-        let task = bevy_tasks::AsyncComputeTaskPool::get().spawn(async move {
+        // Use tokio runtime handle for reqwest compatibility
+        tokio_handle.spawn(async move {
                 // Use bevy/get+watch with continuous polling
                 let request = JsonRpcRequest {
                     jsonrpc: "2.0".to_string(),
@@ -432,7 +445,6 @@ impl HttpRemoteClient {
                 }
         });
         
-        self.watching_tasks.insert(entity_id, task);
         self.watched_entities.insert(entity_id, components);
         println!("Started component watching task for entity {}", entity_id);
         Ok(())
@@ -440,8 +452,7 @@ impl HttpRemoteClient {
 
     /// Stop watching components for an entity
     pub fn stop_component_watching(&mut self, entity_id: u32) {
-        if self.watching_tasks.remove(&entity_id).is_some() {
-            self.watched_entities.remove(&entity_id);
+        if self.watched_entities.remove(&entity_id).is_some() {
             println!("Stopped component watching for entity {}", entity_id);
         }
     }

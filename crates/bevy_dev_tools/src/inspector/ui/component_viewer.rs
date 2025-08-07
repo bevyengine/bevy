@@ -184,20 +184,21 @@ fn spawn_component_sections(
 
         // Create collapsible sections for each component
         if components.is_empty() {
-            // Placeholder components for testing
-            let placeholder_components = vec![
-                ("Transform", r#"Transform {
-    translation: Vec3 { x: 0.0, y: 0.0, z: 0.0 },
-    rotation: Quat { x: 0.0, y: 0.0, z: 0.0, w: 1.0 },
-    scale: Vec3 { x: 1.0, y: 1.0, z: 1.0 }
-}"#),
-                ("Name", r#"Name("Entity Name")"#),
-                ("Visibility", r#"Visibility::Inherited"#),
-            ];
-
-            for (component_name, component_data) in placeholder_components {
-                create_component_section(&mut parent.commands(), scroll_container, entity_id, component_name, component_data);
-            }
+            // Show empty state when no components are available
+            parent.spawn((
+                ComponentViewerContent { entity_id },
+                Text::new("No components found for this entity."),
+                TextFont {
+                    font_size: 14.0,
+                    ..Default::default()
+                },
+                TextColor(Color::srgb(0.6, 0.6, 0.6)),
+                Node {
+                    margin: UiRect::all(Val::Px(16.0)),
+                    align_self: AlignSelf::Center,
+                    ..Default::default()
+                },
+            ));
         } else {
             for (component_name, component_value) in components {
                 let formatted_data = format_component_value(component_value);
@@ -329,7 +330,7 @@ fn create_component_section(
     )).with_children(|parent| {
         parent.spawn((
             Button, // Make it clickable for selection
-            Text::new(component_data.clone()),
+            Text::new(component_data),
             TextFont {
                 font_size: 11.0,
                 ..Default::default()
@@ -423,7 +424,7 @@ pub fn process_live_component_updates(
     mut live_cache: ResMut<LiveComponentCache>,
     mut http_client: ResMut<HttpRemoteClient>,
     time: Res<Time>,
-    selected_entity: Res<SelectedEntity>,
+    _selected_entity: Res<SelectedEntity>,
 ) {
     let current_time = time.elapsed_secs_f64();
     
@@ -517,6 +518,7 @@ pub fn auto_start_component_watching(
     mut http_client: ResMut<HttpRemoteClient>,
     selected_entity: Res<SelectedEntity>,
     entity_cache: Res<EntityCache>,
+    tokio_handle: Res<crate::inspector::inspector::TokioRuntimeHandle>,
 ) {
     if !selected_entity.is_changed() {
         return;
@@ -527,7 +529,7 @@ pub fn auto_start_component_watching(
             // Start watching all components of the selected entity
             let components: Vec<String> = entity.components.keys().cloned().collect();
             if !components.is_empty() {
-                match http_client.start_component_watching(entity_id, components.clone()) {
+                match http_client.start_component_watching(entity_id, components.clone(), &tokio_handle.0) {
                     Ok(()) => {
                         println!("Started watching {} components for entity {}", components.len(), entity_id);
                     }
@@ -556,7 +558,7 @@ pub fn update_live_component_display(
         return; // No live data to display
     }
     
-    let current_time = time.elapsed_secs_f64();
+    let _current_time = time.elapsed_secs_f64();
     
     for (component_data, mut text, mut selectable_text) in component_data_query.iter_mut() {
         if let Some(entity_components) = live_cache.entity_components.get(&component_data.entity_id) {

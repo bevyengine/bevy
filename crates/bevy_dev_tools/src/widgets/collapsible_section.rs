@@ -176,7 +176,7 @@ pub fn handle_collapsible_interactions(
                     }
                     
                     // Update arrow in header - find matching arrows by querying all arrows
-                    for (entity, arrow, mut text) in arrow_query.iter_mut() {
+                    for (_entity, arrow, mut text) in arrow_query.iter_mut() {
                         if arrow.section_entity == header.section_entity {
                             let arrow_char = if section.is_expanded {
                                 &section.style.expanded_arrow
@@ -312,7 +312,7 @@ pub fn add_collapsible_content(
     content_spawner: impl FnOnce(&mut Commands, Entity),
 ) -> Result<(), &'static str> {
     // Find the content entity for this section
-    if let Ok(section) = commands.get_entity(section_entity) {
+    if let Ok(_section) = commands.get_entity(section_entity) {
         // This is a simplified approach - in a real implementation, we'd need to
         // query for the CollapsibleSection component to get the content_entity
         // For now, we'll assume the content entity is the second child
