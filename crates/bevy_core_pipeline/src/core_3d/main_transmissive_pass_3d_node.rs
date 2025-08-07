@@ -1,9 +1,11 @@
 use super::{Camera3d, ViewTransmissionTexture};
 use crate::core_3d::Transmissive3d;
+use bevy_camera::Viewport;
 use bevy_ecs::{prelude::*, query::QueryItem};
 use bevy_image::ToExtents;
 use bevy_render::{
     camera::{ExtractedCamera, MainPassResolutionOverride},
+    diagnostic::RecordDiagnostics,
     render_graph::{NodeRunError, RenderGraphContext, ViewNode},
     render_phase::ViewSortedRenderPhases,
     render_resource::{RenderPassDescriptor, StoreOp},
@@ -52,6 +54,8 @@ impl ViewNode for MainTransmissivePass3dNode {
             return Ok(());
         };
 
+        let diagnostics = render_context.diagnostic_recorder();
+
         let physical_target_size = camera.physical_target_size.unwrap();
 
         let render_pass_descriptor = RenderPassDescriptor {
@@ -94,6 +98,8 @@ impl ViewNode for MainTransmissivePass3dNode {
 
                     let mut render_pass =
                         render_context.begin_tracked_render_pass(render_pass_descriptor.clone());
+                    let pass_span =
+                        diagnostics.pass_span(&mut render_pass, "main_transmissive_pass_3d");
 
                     if let Some(viewport) = camera.viewport.as_ref() {
                         render_pass.set_camera_viewport(viewport);
@@ -105,18 +111,27 @@ impl ViewNode for MainTransmissivePass3dNode {
                     {
                         error!("Error encountered while rendering the transmissive phase {err:?}");
                     }
+
+                    pass_span.end(&mut render_pass);
                 }
             } else {
                 let mut render_pass =
                     render_context.begin_tracked_render_pass(render_pass_descriptor);
+                let pass_span =
+                    diagnostics.pass_span(&mut render_pass, "main_transmissive_pass_3d");
 
-                if let Some(viewport) = camera.viewport.as_ref() {
-                    render_pass.set_camera_viewport(&viewport.with_override(resolution_override));
+                if let Some(viewport) = Viewport::from_viewport_and_override(
+                    camera.viewport.as_ref(),
+                    resolution_override,
+                ) {
+                    render_pass.set_camera_viewport(&viewport);
                 }
 
                 if let Err(err) = transmissive_phase.render(&mut render_pass, world, view_entity) {
                     error!("Error encountered while rendering the transmissive phase {err:?}");
                 }
+
+                pass_span.end(&mut render_pass);
             }
         }
 

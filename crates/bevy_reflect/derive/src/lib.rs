@@ -40,6 +40,8 @@ mod trait_reflection;
 mod type_path;
 mod where_clause_options;
 
+use std::{fs, io::Read, path::PathBuf};
+
 use crate::derive_data::{ReflectDerive, ReflectMeta, ReflectStruct};
 use container_attributes::ContainerAttributes;
 use derive_data::{ReflectImplSource, ReflectProvenance, ReflectTraitToImpl, ReflectTypePath};
@@ -320,6 +322,12 @@ fn match_reflect_impls(ast: DeriveInput, source: ReflectImplSource) -> TokenStre
 /// #[reflect(@Required, @EditorTooltip::new("An ID is required!"))]
 /// struct Id(u8);
 /// ```
+/// ## `#[reflect(no_auto_register)]`
+///
+/// This attribute will opt-out of the automatic reflect type registration.
+///
+/// All non-generic types annotated with `#[derive(Reflect)]` are usually automatically registered on app startup.
+/// If this behavior is not desired, this attribute may be used to disable it for the annotated type.
 ///
 /// # Field Attributes
 ///
@@ -841,5 +849,55 @@ pub fn impl_type_path(input: TokenStream) -> TokenStream {
         const _: () = {
             #type_path_impl
         };
+    })
+}
+
+/// Collects and loads type registrations when using `auto_register_static` feature.
+///
+/// Correctly using this macro requires following:
+/// 1. This macro must be called **last** during compilation. This can be achieved by putting your main function
+///    in a separate crate or restructuring your project to be separated into `bin` and `lib`, and putting this macro in `bin`.
+///    Any automatic type registrations using `#[derive(Reflect)]` within the same crate as this macro are not guaranteed to run.
+/// 2. Your project must be compiled with `auto_register_static` feature **and** `BEVY_REFLECT_AUTO_REGISTER_STATIC=1` env variable.
+///    Enabling the feature generates registration functions while setting the variable enables export and
+///    caching of registration function names.
+/// 3. Must be called before creating `App` or using `TypeRegistry::register_derived_types`.
+///
+/// If you're experiencing linking issues try running `cargo clean` before rebuilding.
+#[proc_macro]
+pub fn load_type_registrations(_input: TokenStream) -> TokenStream {
+    if !cfg!(feature = "auto_register_static") {
+        return TokenStream::new();
+    }
+
+    let Ok(dir) = fs::read_dir(PathBuf::from("target").join("bevy_reflect_type_registrations"))
+    else {
+        return TokenStream::new();
+    };
+    let mut str_buf = String::new();
+    let mut registration_fns = Vec::new();
+    for file_path in dir {
+        let mut file = fs::OpenOptions::new()
+            .read(true)
+            .open(file_path.unwrap().path())
+            .unwrap();
+        file.read_to_string(&mut str_buf).unwrap();
+        registration_fns.extend(str_buf.lines().filter(|s| !s.is_empty()).map(|s| {
+            s.parse::<proc_macro2::TokenStream>()
+                .expect("Unexpected function name")
+        }));
+        str_buf.clear();
+    }
+    let bevy_reflect_path = meta::get_bevy_reflect_path();
+    TokenStream::from(quote! {
+        {
+            fn _register_types(){
+                unsafe extern "Rust" {
+                    #( safe fn #registration_fns(registry_ptr: &mut #bevy_reflect_path::TypeRegistry); )*
+                };
+                #( #bevy_reflect_path::__macro_exports::auto_register::push_registration_fn(#registration_fns); )*
+            }
+            _register_types();
+        }
     })
 }

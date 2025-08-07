@@ -62,8 +62,6 @@ impl Plugin for ScenePlugin {
             .init_asset::<Scene>()
             .init_asset_loader::<SceneLoader>()
             .init_resource::<SceneSpawner>()
-            .register_type::<SceneRoot>()
-            .register_type::<DynamicSceneRoot>()
             .add_systems(SpawnScene, (scene_spawner, scene_spawner_system).chain());
 
         // Register component hooks for DynamicSceneRoot

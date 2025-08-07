@@ -120,6 +120,44 @@ impl TypeRegistry {
         registry
     }
 
+    /// Register all non-generic types annotated with `#[derive(Reflect)]`.
+    ///
+    /// Calling this method is equivalent to calling [`register`](Self::register) on all types without generic parameters
+    /// that derived [`Reflect`] trait.
+    ///
+    /// This method is supported on Linux, macOS, Windows, iOS, Android, and Web via the `inventory` crate.
+    /// It does nothing on platforms not supported by either of those crates.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use std::any::TypeId;
+    /// # use bevy_reflect::{Reflect, TypeRegistry, std_traits::ReflectDefault};
+    /// #[derive(Reflect, Default)]
+    /// #[reflect(Default)]
+    /// struct Foo {
+    ///   name: Option<String>,
+    ///   value: i32
+    /// }
+    ///
+    /// let mut type_registry = TypeRegistry::empty();
+    /// type_registry.register_derived_types();
+    ///
+    /// // The main type
+    /// assert!(type_registry.contains(TypeId::of::<Foo>()));
+    ///
+    /// // Its type dependencies
+    /// assert!(type_registry.contains(TypeId::of::<Option<String>>()));
+    /// assert!(type_registry.contains(TypeId::of::<i32>()));
+    ///
+    /// // Its type data
+    /// assert!(type_registry.get_type_data::<ReflectDefault>(TypeId::of::<Foo>()).is_some());
+    /// ```
+    #[cfg(feature = "auto_register")]
+    pub fn register_derived_types(&mut self) {
+        crate::__macro_exports::auto_register::register_types(self);
+    }
+
     /// Attempts to register the type `T` if it has not yet been registered already.
     ///
     /// This will also recursively register any type dependencies as specified by [`GetTypeRegistration::register_type_dependencies`].

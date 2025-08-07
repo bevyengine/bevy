@@ -95,7 +95,6 @@ pub struct PointerInputPlugin;
 impl Plugin for PointerInputPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<PointerInputSettings>()
-            .register_type::<PointerInputSettings>()
             .add_systems(Startup, spawn_mouse_pointer)
             .add_systems(
                 First,

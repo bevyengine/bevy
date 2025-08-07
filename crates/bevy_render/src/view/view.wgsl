@@ -48,7 +48,7 @@ struct View {
     // `clip_from_view[3][3] == 1.0` is the standard way to check if a projection is orthographic
     //
     // Wgsl matrices are column major, so for example getting the near plane of a perspective projection is `clip_from_view[3][2]`
-    // 
+    //
     // Custom projections are also possible however.
     clip_from_view: mat4x4<f32>,
     view_from_clip: mat4x4<f32>,
@@ -56,6 +56,7 @@ struct View {
     exposure: f32,
     // viewport(x_origin, y_origin, width, height)
     viewport: vec4<f32>,
+    main_pass_viewport: vec4<f32>,
     // 6 world-space half spaces (normal: vec3, distance: f32) ordered left, right, top, bottom, near, far.
     // The normal vectors point towards the interior of the frustum.
     // A half space contains `p` if `normal.dot(p) + distance > 0.`
@@ -78,7 +79,7 @@ struct View {
 /// https://www.w3.org/TR/webgpu/#coordinate-systems
 /// (-1.0, -1.0) in NDC is located at the bottom-left corner of NDC
 /// (1.0, 1.0) in NDC is located at the top-right corner of NDC
-/// Z is depth where: 
+/// Z is depth where:
 ///    1.0 is near clipping plane
 ///    Perspective projection: 0.0 is inf far away
 ///    Orthographic projection: 0.0 is far clipping plane
@@ -209,7 +210,7 @@ fn perspective_camera_near(clip_from_view: mat4x4<f32>) -> f32 {
     return clip_from_view[3][2];
 }
 
-/// Convert ndc depth to linear view z. 
+/// Convert ndc depth to linear view z.
 /// Note: Depth values in front of the camera will be negative as -z is forward
 fn depth_ndc_to_view_z(ndc_depth: f32, clip_from_view: mat4x4<f32>, view_from_clip: mat4x4<f32>) -> f32 {
 #ifdef VIEW_PROJECTION_PERSPECTIVE
@@ -222,7 +223,7 @@ fn depth_ndc_to_view_z(ndc_depth: f32, clip_from_view: mat4x4<f32>, view_from_cl
 #endif
 }
 
-/// Convert linear view z to ndc depth. 
+/// Convert linear view z to ndc depth.
 /// Note: View z input should be negative for values in front of the camera as -z is forward
 fn view_z_to_depth_ndc(view_z: f32, clip_from_view: mat4x4<f32>) -> f32 {
 #ifdef VIEW_PROJECTION_PERSPECTIVE

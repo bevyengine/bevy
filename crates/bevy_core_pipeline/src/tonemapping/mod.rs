@@ -82,9 +82,6 @@ impl Plugin for TonemappingPlugin {
 
         app.add_plugins(ExtractResourcePlugin::<TonemappingLuts>::default());
 
-        app.register_type::<Tonemapping>();
-        app.register_type::<DebandDither>();
-
         app.add_plugins((
             ExtractComponentPlugin::<Tonemapping>::default(),
             ExtractComponentPlugin::<DebandDither>::default(),
