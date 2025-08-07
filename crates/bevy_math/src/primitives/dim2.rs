@@ -1582,17 +1582,22 @@ impl Polyline2d {
         Self::from_iter(vertices)
     }
 
-    /// Create a new `Polyline2d` from two endpoints and a number of segments.
-    pub fn with_segment_count(start: Vec2, end: Vec2, segments: usize) -> Self {
-        if segments == 0 {
-            return Self::new(Vec::from([start, end]));
+    /// Create a new `Polyline2d` from two endpoints with subdivision points.
+    /// `subdivisions = 0` creates a simple line with just start and end points.
+    /// `subdivisions = 1` adds one point in the middle, creating 2 segments, etc.
+    pub fn with_subdivisions(start: Vec2, end: Vec2, subdivisions: usize) -> Self {
+        let total_vertices = subdivisions + 2;
+        let mut vertices = Vec::with_capacity(total_vertices);
+
+        if subdivisions == 0 {
+            vertices.extend([start, end]);
+        } else {
+            let step = (end - start) / (subdivisions + 1) as f32;
+            for i in 0..total_vertices {
+                vertices.push(start + step * i as f32);
+            }
         }
 
-        let step = (end - start) / segments as f32;
-        let mut vertices = Vec::with_capacity(segments + 1);
-        for i in 0..=segments {
-            vertices.push(start + step * i as f32);
-        }
         Self { vertices }
     }
 }
