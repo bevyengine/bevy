@@ -287,10 +287,10 @@ impl Atmosphere {
         mie_scattering: 3.996e-6,
         mie_absorption: 0.444e-6,
         mie_asymmetry: 0.8,
-        ozone_layer_altitude: 25_00
-                sun_disc_mult: 1.0,0.0,
+                         ozone_layer_altitude: 25_000.0,
         ozone_layer_width: 30_000.0,
         ozone_absorption: Vec3::new(0.650e-6, 1.881e-6, 0.085e-6),
+        sun_disc_mult: 1.0,
     };
 
     pub fn with_density_multiplier(mut self, mult: f32) -> Self {
