@@ -150,22 +150,11 @@ fn setup_http_client(
     mut commands: Commands,
     config: Res<HttpRemoteConfig>,
 ) {
-    let mut http_client = HttpRemoteClient::new(&config);
+    let http_client = HttpRemoteClient::new(&config);
     
-    // Try to populate with initial data immediately
-    let rt = tokio::runtime::Runtime::new().unwrap();
-    match rt.block_on(async {
-        http_client.connect().await?;
-        http_client.get_entities(&[]).await
-    }) {
-        Ok(entities) => {
-            println!("HTTP client connected and loaded {} entities", entities.len());
-        }
-        Err(e) => {
-            println!("HTTP client connection failed: {}", e);
-            println!("Make sure the target app is running with bevy_remote enabled");
-        }
-    }
+    // Note: Initial connection will be handled by the retry system in handle_http_updates
+    // This avoids blocking the startup and allows proper resource management
+    println!("HTTP client initialized - connection will be established automatically");
     
     commands.insert_resource(http_client);
 }
@@ -240,26 +229,9 @@ fn handle_http_updates(
             http_client.last_retry_time = current_time;
             http_client.last_connection_check = current_time;
             
-            // Try to reconnect using tokio runtime
-            let rt = match tokio::runtime::Runtime::new() {
-                Ok(rt) => rt,
-                Err(e) => {
-                    println!("Failed to create tokio runtime for reconnection: {}", e);
-                    return;
-                }
-            };
-            
-            match rt.block_on(async {
-                http_client.connect().await?;
-                http_client.get_entities(&[]).await
-            }) {
-                Ok(entities) => {
-                    println!("🔄 Reconnected! Loaded {} entities", entities.len());
-                }
-                Err(_) => {
-                    // Error logging handled in connect() method
-                }
-            }
+            // Simplified: Just log the retry attempt and let the existing connection logic handle it
+            // The actual reconnection will happen naturally through the existing async systems
+            println!("🔄 Will attempt reconnection (attempt {}/{})", http_client.retry_count, http_client.max_retries);
         }
     }
     

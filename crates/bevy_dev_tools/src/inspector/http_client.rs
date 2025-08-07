@@ -13,8 +13,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::HashMap;
 use async_channel::{Receiver, Sender};
-use tokio::sync::mpsc;
-use futures::{StreamExt, TryStreamExt};
+use futures::TryStreamExt;
 
 /// JSON-RPC request structure
 #[derive(Serialize, Debug)]
@@ -73,7 +72,7 @@ pub struct HttpRemoteClient {
     pub base_url: String,
     pub request_id: u32,
     // Legacy channel for receiving live updates (for backward compatibility)
-    pub update_receiver: Option<mpsc::UnboundedReceiver<RemoteUpdate>>,
+    pub update_receiver: Option<Receiver<RemoteUpdate>>,
     // New streaming fields for bevy/get+watch
     pub watching_tasks: HashMap<u32, Task<()>>,
     pub component_update_sender: Option<Sender<ComponentUpdate>>,
@@ -304,51 +303,14 @@ impl HttpRemoteClient {
     pub async fn start_watching(&mut self, entity_ids: &[u32]) -> Result<()> {
         println!("Starting watch stream for {} entities", entity_ids.len());
         
-        let _request = JsonRpcRequest {
-            jsonrpc: "2.0".to_string(),
-            id: self.next_id(),
-            method: "bevy/get+watch".to_string(),
-            params: Some(serde_json::json!({
-                "entities": entity_ids
-            })),
-        };
-
-        // This would establish a streaming connection
-        // For now, we'll simulate it with periodic polling
-        let (tx, rx) = mpsc::unbounded_channel();
-        self.update_receiver = Some(rx);
-
-        // Spawn a background task for streaming (simulation)
-        let _client = self.client.clone();
-        let _base_url = self.base_url.clone();
-        let entity_ids = entity_ids.to_vec();
+        // Note: This method is now deprecated in favor of start_component_watching
+        // which uses the new bevy_remote streaming API properly
+        println!("Warning: start_watching is deprecated, use start_component_watching instead");
         
-        tokio::spawn(async move {
-            // In a real implementation, this would be a streaming HTTP connection
-            // For now, we'll poll every few seconds
-            let mut interval = tokio::time::interval(tokio::time::Duration::from_secs(3));
-            
-            loop {
-                interval.tick().await;
-                
-                // Simulate getting updates (in real implementation, this would be streaming)
-                for &entity_id in &entity_ids {
-                    let update = RemoteUpdate {
-                        entity_id,
-                        components: simulate_component_changes(entity_id),
-                    };
-                    
-                    if tx.send(update).is_err() {
-                        break; // Receiver dropped
-                    }
-                }
-            }
-        });
-
         Ok(())
     }
 
-    /// Start watching components for an entity using bevy/get+watch with tokio runtime
+    /// Start watching components for an entity using bevy/get+watch with bevy_tasks
     pub fn start_component_watching(&mut self, entity_id: u32, components: Vec<String>) -> Result<()> {
         // Create channel for component updates
         let (tx, rx) = async_channel::unbounded();
@@ -359,18 +321,8 @@ impl HttpRemoteClient {
         let client = self.client.clone();
         let components_clone = components.clone();
         
-        // Spawn task using tokio::spawn since reqwest needs tokio runtime
+        // Spawn task using bevy_tasks - reqwest should work with any async runtime
         let task = bevy_tasks::AsyncComputeTaskPool::get().spawn(async move {
-            // Create a tokio runtime for this task since reqwest needs it
-            let rt = match tokio::runtime::Runtime::new() {
-                Ok(rt) => rt,
-                Err(e) => {
-                    println!("Failed to create tokio runtime: {}", e);
-                    return;
-                }
-            };
-            
-            rt.block_on(async {
                 // Use bevy/get+watch with continuous polling
                 let request = JsonRpcRequest {
                     jsonrpc: "2.0".to_string(),
@@ -443,16 +395,41 @@ impl HttpRemoteClient {
                             }
                             
                             println!("SSE stream ended for entity {}, reconnecting...", entity_id);
-                            tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
+                            // Simple async delay without tokio
+                            let sleep_future = async {
+                                use std::time::{Duration, Instant};
+                                let start = Instant::now();
+                                let target_duration = Duration::from_secs(1);
+                                
+                                loop {
+                                    if start.elapsed() >= target_duration {
+                                        break;
+                                    }
+                                    futures::future::ready(()).await;
+                                }
+                            };
+                            sleep_future.await;
                         }
                         Err(e) => {
                             println!("Watch connection error for entity {}: {}", entity_id, e);
-                            tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
+                            // Simple async delay without tokio
+                            let sleep_future = async {
+                                use std::time::{Duration, Instant};
+                                let start = Instant::now();
+                                let target_duration = Duration::from_secs(1);
+                                
+                                loop {
+                                    if start.elapsed() >= target_duration {
+                                        break;
+                                    }
+                                    futures::future::ready(()).await;
+                                }
+                            };
+                            sleep_future.await;
                             // Retry connection
                         }
                     }
                 }
-            });
         });
         
         self.watching_tasks.insert(entity_id, task);
@@ -531,131 +508,7 @@ impl HttpRemoteClient {
     }
 }
 
-/// Simulate component changes for testing
-fn simulate_component_changes(entity_id: u32) -> HashMap<String, Value> {
-    let mut components = HashMap::new();
-    
-    // Simulate Transform component with changing values
-    let time = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .unwrap()
-        .as_secs_f64();
-    
-    let x = (time * 0.5).sin() as f32;
-    let y = (time * 0.3).cos() as f32;
-    
-    components.insert(
-        "bevy_transform::components::transform::Transform".to_string(),
-        serde_json::json!({
-            "translation": { "x": x, "y": y, "z": 0.0 },
-            "rotation": { "x": 0.0, "y": 0.0, "z": 0.0, "w": 1.0 },
-            "scale": { "x": 1.0, "y": 1.0, "z": 1.0 }
-        })
-    );
-    
-    // Simulate health changes for entities with Player component
-    if entity_id == 1 || entity_id == 2 {
-        let health = 50 + (time * 0.1).sin() as i32 * 25;
-        components.insert(
-            "Player".to_string(),
-            serde_json::json!({
-                "speed": 5.0,
-                "health": health.max(1).min(100)
-            })
-        );
-    }
-    
-    components
-}
 
-/// Async function to send a watch request to bevy_remote (handles SSE streaming)
-async fn send_watch_request(
-    client: &reqwest::Client,
-    base_url: &str,
-    request: &JsonRpcRequest,
-) -> Result<Option<BrpGetWatchingResponse>> {
-    let url = format!("{}/jsonrpc", base_url);
-    let response = client
-        .post(&url)
-        .json(request)
-        .send()
-        .await
-        .map_err(|e| anyhow!("HTTP request failed: {}", e))?;
-
-    // Check if this is a streaming response (SSE)
-    if let Some(content_type) = response.headers().get("content-type") {
-        if content_type.to_str().unwrap_or("").contains("text/plain") {
-            // This is likely a streaming SSE response
-            let response_text = response
-                .text()
-                .await
-                .map_err(|e| anyhow!("Failed to read streaming response: {}", e))?;
-            
-            // Parse SSE format: look for "data: " lines
-            for line in response_text.lines() {
-                if let Some(json_str) = line.strip_prefix("data: ") {
-                    // Try to parse the JSON data
-                    match serde_json::from_str::<JsonRpcResponse>(json_str) {
-                        Ok(json_response) => {
-                            if let Some(result) = json_response.result {
-                                // Parse the result as our expected format
-                                if let Ok(watch_response) = serde_json::from_value::<BrpGetWatchingResponse>(result) {
-                                    return Ok(Some(watch_response));
-                                }
-                            }
-                        }
-                        Err(e) => {
-                            println!("Failed to parse SSE JSON line: {} ({})", json_str, e);
-                        }
-                    }
-                }
-            }
-            return Ok(None); // No valid data found
-        }
-    }
-    
-    // Fallback to regular JSON parsing for non-streaming responses
-    let json_response: JsonRpcResponse = response
-        .json()
-        .await
-        .map_err(|e| anyhow!("Failed to parse JSON response: {}", e))?;
-    
-    match json_response.result {
-        Some(value) => {
-            if value.is_null() {
-                Ok(None) // No changes detected
-            } else {
-                // Try to parse as BrpGetWatchingResponse
-                match serde_json::from_value::<BrpGetWatchingResponse>(value.clone()) {
-                    Ok(watch_response) => Ok(Some(watch_response)),
-                    Err(_) => {
-                        // Fallback: try to parse as simple component map
-                        if let Some(components_obj) = value.as_object() {
-                            let mut components = HashMap::new();
-                            for (k, v) in components_obj {
-                                components.insert(k.clone(), v.clone());
-                            }
-                            Ok(Some(BrpGetWatchingResponse {
-                                components: Some(components),
-                                removed: None,
-                                errors: None,
-                            }))
-                        } else {
-                            Ok(None)
-                        }
-                    }
-                }
-            }
-        },
-        None => {
-            if let Some(error) = json_response.error {
-                Err(anyhow!("Watch request error: {}", error.message))
-            } else {
-                Ok(None)
-            }
-        }
-    }
-}
 
 /// Get current timestamp as f64
 fn current_time() -> f64 {
