@@ -16,10 +16,12 @@ pub mod ci_testing;
 pub mod fps_overlay;
 pub mod frame_time_graph;
 
-
 pub mod inspector;
 
 pub mod picking_debug;
+
+/// Reusable UI widgets suitable for upstreaming to bevy_ui
+pub mod widgets;
 
 pub mod states;
 

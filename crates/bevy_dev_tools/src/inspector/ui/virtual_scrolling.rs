@@ -25,7 +25,6 @@ use bevy_window::Window;
 use bevy_render::view::Visibility;
 use bevy_input::mouse::MouseWheel;
 use super::entity_list::{EntityListContainer, EntityListVirtualContent, EntityListVirtualState, EntityCache, ScrollbarThumb, ScrollbarIndicator, SelectionDebounce};
-use super::component_viewer;
 use crate::inspector::http_client::RemoteEntity;
 use std::collections::HashMap;
 

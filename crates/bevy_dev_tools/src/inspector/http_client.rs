@@ -198,7 +198,7 @@ impl HttpRemoteClient {
         
         if let Some(result) = response.result {
             // Parse the query response which is an array of entity objects
-            let entities: Vec<serde_json::Value> = serde_json::from_value(result)
+            let entities: Vec<Value> = serde_json::from_value(result)
                 .map_err(|e| anyhow!("Failed to parse entity query: {}", e))?;
             
             let mut entity_ids = Vec::new();
@@ -241,7 +241,7 @@ impl HttpRemoteClient {
         
         if let Some(result) = response.result {
             // Parse the query response
-            let query_results: Vec<serde_json::Value> = serde_json::from_value(result)
+            let query_results: Vec<Value> = serde_json::from_value(result)
                 .map_err(|e| anyhow!("Failed to parse query results: {}", e))?;
             
             let mut entities = Vec::new();
@@ -251,7 +251,7 @@ impl HttpRemoteClient {
                     query_result.get("entity").and_then(|v| v.as_u64()),
                     query_result.get("components").and_then(|v| v.as_object())
                 ) {
-                    let mut components = std::collections::HashMap::new();
+                    let mut components = HashMap::new();
                     
                     // Convert components object to HashMap
                     for (component_name, component_data) in components_obj {
