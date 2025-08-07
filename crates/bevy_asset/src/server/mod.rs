@@ -2,10 +2,9 @@ mod info;
 mod loaders;
 
 use crate::{
-    folder::LoadedFolder,
     io::{
         AssetReaderError, AssetSource, AssetSourceEvent, AssetSourceId, AssetSources,
-        AssetWriterError, ErasedAssetReader, MissingAssetSourceError, MissingAssetWriterError,
+        AssetWriterError, MissingAssetSourceError, MissingAssetWriterError,
         MissingProcessedAssetReaderError, Reader,
     },
     loader::{AssetLoader, ErasedAssetLoader, LoadContext, LoadedAsset},
@@ -15,8 +14,9 @@ use crate::{
     },
     path::AssetPath,
     Asset, AssetEvent, AssetHandleProvider, AssetId, AssetLoadFailedEvent, AssetMetaCheck, Assets,
-    DeserializeMetaError, ErasedLoadedAsset, Handle, LoadedUntypedAsset, UnapprovedPathMode,
-    UntypedAssetId, UntypedAssetLoadFailedEvent, UntypedHandle,
+    DeserializeMetaError, ErasedLoadedAsset, Handle, LoadBatchRequest, LoadedBatch,
+    LoadedUntypedAsset, UnapprovedPathMode, UntypedAssetId, UntypedAssetLoadFailedEvent,
+    UntypedHandle,
 };
 use alloc::{borrow::ToOwned, boxed::Box, vec, vec::Vec};
 use alloc::{
@@ -31,7 +31,7 @@ use bevy_tasks::IoTaskPool;
 use core::{any::TypeId, future::Future, panic::AssertUnwindSafe, task::Poll};
 use crossbeam_channel::{Receiver, Sender};
 use either::Either;
-use futures_lite::{FutureExt, StreamExt};
+use futures_lite::FutureExt;
 use info::*;
 use loaders::*;
 use parking_lot::{RwLock, RwLockWriteGuard};
@@ -954,114 +954,109 @@ impl AssetServer {
         handle.typed_debug_checked()
     }
 
-    /// Loads all assets from the specified folder recursively. The [`LoadedFolder`] asset (when it loads) will
-    /// contain handles to all assets in the folder. You can wait for all assets to load by checking the [`LoadedFolder`]'s
+    /// Loads all assets from the specified folder recursively with batch. The [`LoadedBatch`] asset (when it loads) will
+    /// contain handles to all assets in the folder. You can wait for all assets to load by checking the [`LoadedBatch`]'s
     /// [`RecursiveDependencyLoadState`].
     ///
     /// Loading the same folder multiple times will return the same handle. If the `file_watcher`
-    /// feature is enabled, [`LoadedFolder`] handles will reload when a file in the folder is
+    /// feature is enabled, [`LoadedBatch`] handles will reload when a file in the folder is
     /// removed, added or moved. This includes files in subdirectories and moving, adding,
     /// or removing complete subdirectories.
     #[must_use = "not using the returned strong handle may result in the unexpected release of the assets"]
-    pub fn load_folder<'a>(&self, path: impl Into<AssetPath<'a>>) -> Handle<LoadedFolder> {
-        let path = path.into().into_owned();
-        let (handle, should_load) = self
-            .data
-            .infos
-            .write()
-            .get_or_create_path_handle::<LoadedFolder>(
-                path.clone(),
-                HandleLoadingMode::Request,
-                None,
-            );
-        if !should_load {
-            return handle;
-        }
-        let id = handle.id().untyped();
-        self.load_folder_internal(id, path);
+    pub fn load_batch(&self, load_batch_request: LoadBatchRequest) -> Handle<LoadedBatch> {
+        let handle = self.data.infos.write().create_loading_handle_untyped(
+            TypeId::of::<LoadedBatch>(),
+            core::any::type_name::<LoadedBatch>(),
+        );
 
-        handle
+        self.load_batch_internal(handle.id(), load_batch_request);
+        handle.typed_debug_checked()
     }
-
-    pub(crate) fn load_folder_internal(&self, id: UntypedAssetId, path: AssetPath) {
-        async fn load_folder<'a>(
+    pub(crate) fn load_batch_internal(
+        &self,
+        id: UntypedAssetId,
+        load_batch_request: LoadBatchRequest,
+    ) {
+        async fn load_file<'a>(
             source: AssetSourceId<'static>,
             path: &'a Path,
-            reader: &'a dyn ErasedAssetReader,
             server: &'a AssetServer,
             handles: &'a mut Vec<UntypedHandle>,
         ) -> Result<(), AssetLoadError> {
-            let is_dir = reader.is_directory(path).await?;
-            if is_dir {
-                let mut path_stream = reader.read_directory(path.as_ref()).await?;
-                while let Some(child_path) = path_stream.next().await {
-                    if reader.is_directory(&child_path).await? {
-                        Box::pin(load_folder(
-                            source.clone(),
-                            &child_path,
-                            reader,
-                            server,
-                            handles,
-                        ))
-                        .await?;
-                    } else {
-                        let path = child_path.to_str().expect("Path should be a valid string.");
-                        let asset_path = AssetPath::parse(path).with_source(source.clone());
-                        match server.load_untyped_async(asset_path).await {
-                            Ok(handle) => handles.push(handle),
-                            // skip assets that cannot be loaded
-                            Err(
-                                AssetLoadError::MissingAssetLoaderForTypeName(_)
-                                | AssetLoadError::MissingAssetLoaderForExtension(_),
-                            ) => {}
-                            Err(err) => return Err(err),
-                        }
-                    }
-                }
+            let path = path
+                .strip_prefix("assets\\")
+                .unwrap()
+                .to_str()
+                .expect("Path should be a valid string.");
+            let asset_path = AssetPath::parse(path).with_source(source.clone());
+
+            match server.load_untyped_async(asset_path).await {
+                Ok(handle) => handles.push(handle),
+                // skip assets that cannot be loaded
+                Err(
+                    AssetLoadError::MissingAssetLoaderForTypeName(_)
+                    | AssetLoadError::MissingAssetLoaderForExtension(_),
+                ) => {}
+                Err(err) => return Err(err),
             }
             Ok(())
         }
 
-        let path = path.into_owned();
         let server = self.clone();
         IoTaskPool::get()
             .spawn(async move {
-                let Ok(source) = server.get_source(path.source()) else {
-                    error!(
-                        "Failed to load {path}. AssetSource {} does not exist",
-                        path.source()
-                    );
-                    return;
-                };
+                let mut handles = Vec::new();
+                for request_path in load_batch_request.requests.iter() {
+                    let glob_pattern = format!("assets/{}", request_path);
+                    let glob_result = match glob::glob(&glob_pattern) {
+                        Ok(g) => g,
+                        Err(e) => {
+                            error!("Invalid glob pattern {}: {}", request_path, e);
+                            return;
+                        }
+                    };
 
-                let asset_reader = match server.data.mode {
-                    AssetServerMode::Unprocessed => source.reader(),
-                    AssetServerMode::Processed => match source.processed_reader() {
-                        Ok(reader) => reader,
-                        Err(_) => {
+                    for entry in glob_result {
+                        let path = match entry {
+                            Ok(path) => path,
+                            Err(e) => {
+                                error!("Failed to read path matching {}: {}", request_path, e);
+                                return;
+                            }
+                        };
+
+                        if path.is_dir() {
+                            continue;
+                        }
+
+                        let path = AssetPath::from_path_buf(path);
+
+                        let Ok(source) = server.get_source(path.source()) else {
                             error!(
-                                "Failed to load {path}. AssetSource {} does not have a processed AssetReader",
+                                "Failed to load {}. AssetSource {} does not exist",
+                                path,
                                 path.source()
                             );
                             return;
-                        }
-                    },
-                };
+                        };
 
-                let mut handles = Vec::new();
-                match load_folder(source.id(), path.path(), asset_reader, &server, &mut handles).await {
-                    Ok(_) => server.send_asset_event(InternalAssetEvent::Loaded {
-                        id,
-                        loaded_asset: LoadedAsset::new_with_dependencies(
-                            LoadedFolder { handles },
-                        )
-                        .into(),
-                    }),
-                    Err(err) => {
-                        error!("Failed to load folder. {err}");
-                        server.send_asset_event(InternalAssetEvent::Failed { id, error: err, path });
-                    },
+                        if let Err(err) =
+                            load_file(source.id(), path.path(), &server, &mut handles).await
+                        {
+                            error!("Failed to load {}: {}", path, err);
+                            server.send_asset_event(InternalAssetEvent::Failed {
+                                id,
+                                error: err,
+                                path: path.clone(),
+                            });
+                        }
+                    }
                 }
+                server.send_asset_event(InternalAssetEvent::Loaded {
+                    id,
+                    loaded_asset: LoadedAsset::new_with_dependencies(LoadedBatch { handles })
+                        .into(),
+                });
             })
             .detach();
     }
@@ -1701,17 +1696,8 @@ pub fn handle_internal_asset_events(world: &mut World) {
             }
         }
 
-        let reload_parent_folders = |path: PathBuf, source: &AssetSourceId<'static>| {
-            let mut current_folder = path;
-            while let Some(parent) = current_folder.parent() {
-                current_folder = parent.to_path_buf();
-                let parent_asset_path =
-                    AssetPath::from(current_folder.clone()).with_source(source.clone());
-                for folder_handle in infos.get_path_handles(&parent_asset_path) {
-                    info!("Reloading folder {parent_asset_path} because the content has changed");
-                    server.load_folder_internal(folder_handle.id(), parent_asset_path.clone());
-                }
-            }
+        let reload_parent_folders = |_path: PathBuf, _source: &AssetSourceId<'static>| {
+            info!("reload_parent_folders");
         };
 
         let mut paths_to_reload = <HashSet<_>>::default();
