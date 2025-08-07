@@ -13,7 +13,7 @@ use rand::{Rng, SeedableRng};
 use rand_chacha::ChaCha8Rng;
 
 fn main() {
-    App::new()
+    App::default()
         .add_plugins((DefaultPlugins, CameraControllerPlugin))
         .add_systems(Startup, setup)
         .run();

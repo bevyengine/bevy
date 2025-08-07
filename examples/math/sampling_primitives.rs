@@ -12,7 +12,7 @@ use rand::{seq::SliceRandom, Rng, SeedableRng};
 use rand_chacha::ChaCha8Rng;
 
 fn main() {
-    App::new()
+    App::default()
         .add_plugins(DefaultPlugins)
         .insert_resource(SampledShapes::new())
         .add_systems(Startup, setup)

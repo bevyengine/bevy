@@ -4,7 +4,7 @@ use bevy::prelude::*;
 use bevy::render::camera::CameraProjection;
 
 fn main() {
-    App::new()
+    App::default()
         .add_plugins(DefaultPlugins)
         .add_systems(Startup, setup)
         .run();

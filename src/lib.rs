@@ -16,7 +16,7 @@
 //! use bevy::prelude::*;
 //!
 //! fn main() {
-//!    App::new()
+//!    App::default()
 //!        .add_systems(Update, hello_world_system)
 //!        .run();
 //! }

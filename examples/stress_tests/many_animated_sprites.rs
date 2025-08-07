@@ -17,7 +17,7 @@ use rand::Rng;
 const CAMERA_SPEED: f32 = 1000.0;
 
 fn main() {
-    App::new()
+    App::default()
         // Since this is also used as a benchmark, we want it to display performance data.
         .add_plugins((
             LogDiagnosticsPlugin::default(),

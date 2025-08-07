@@ -3,7 +3,7 @@
 use bevy::{pbr::PbrPlugin, prelude::*};
 
 fn main() {
-    App::new()
+    App::default()
         .add_plugins(DefaultPlugins.set(PbrPlugin {
             prepass_enabled: false,
             ..default()

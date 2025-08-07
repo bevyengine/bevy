@@ -94,7 +94,7 @@ struct Shape2d;
 struct Shape3d;
 
 fn main() {
-    App::new()
+    App::default()
         .add_plugins(DefaultPlugins)
         .init_state::<BoundingShape>()
         .init_state::<CameraActive>()

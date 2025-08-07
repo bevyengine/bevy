@@ -13,7 +13,7 @@ use bevy::{
 use serde::{Deserialize, Serialize};
 
 fn main() {
-    App::new()
+    App::default()
         .add_plugins(DefaultPlugins)
         .add_plugins(RemotePlugin::default())
         .add_plugins(RemoteHttpPlugin::default())

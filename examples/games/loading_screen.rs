@@ -15,7 +15,7 @@ use pipelines_ready::*;
 // will transition to the scene we just loaded.
 
 fn main() {
-    App::new()
+    App::default()
         .add_plugins(DefaultPlugins)
         // `PipelinesReadyPlugin` is declared in the `pipelines_ready` module below.
         .add_plugins(PipelinesReadyPlugin)

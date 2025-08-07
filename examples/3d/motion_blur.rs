@@ -9,7 +9,7 @@ use bevy::{
 };
 
 fn main() {
-    let mut app = App::new();
+    let mut app = App::default();
 
     app.add_plugins(DefaultPlugins)
         .add_systems(Startup, (setup_camera, setup_scene, setup_ui))

@@ -15,7 +15,7 @@ use bevy::{
 };
 
 fn main() {
-    App::new()
+    App::default()
         .insert_resource(DefaultOpaqueRendererMethod::deferred())
         .insert_resource(DirectionalLightShadowMap { size: 4096 })
         .add_plugins(DefaultPlugins)

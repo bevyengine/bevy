@@ -35,7 +35,7 @@ const CUBEMAPS: &[(&str, CompressedImageFormats)] = &[
 ];
 
 fn main() {
-    App::new()
+    App::default()
         .add_plugins(DefaultPlugins)
         .add_plugins(CameraControllerPlugin)
         .add_systems(Startup, setup)

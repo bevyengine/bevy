@@ -15,7 +15,7 @@ const PREPASS_SHADER_ASSET_PATH: &str = "shaders/show_prepass.wgsl";
 const MATERIAL_SHADER_ASSET_PATH: &str = "shaders/custom_material.wgsl";
 
 fn main() {
-    App::new()
+    App::default()
         .add_plugins((
             DefaultPlugins.set(PbrPlugin {
                 // The prepass is enabled by default on the StandardMaterial,

@@ -5,7 +5,7 @@
 use bevy::{ecs::schedule::Stepping, log::LogPlugin, prelude::*};
 
 fn main() {
-    let mut app = App::new();
+    let mut app = App::default();
 
     app
         // to display log messages from Stepping resource
@@ -64,7 +64,7 @@ fn main() {
         r#"
     Actions: call Stepping.step_frame(); call app.update()
      Result: The PreUpdate systems run, and one Update system will run.  In
-             Stepping, step means run the next system across all the schedules 
+             Stepping, step means run the next system across all the schedules
              that have been added to the Stepping resource."#
     );
     let mut stepping = app.world_mut().resource_mut::<Stepping>();
@@ -100,7 +100,7 @@ fn main() {
     Actions: call Stepping::step_frame() & app.update() four times in a row
      Result: PreUpdate system runs every time we call app.update(), along with
              one system from the Update schedule each time.  This shows what
-             execution would look like to step through an entire frame of 
+             execution would look like to step through an entire frame of
              systems."#
     );
     for _ in 0..4 {

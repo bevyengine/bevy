@@ -46,7 +46,7 @@ pub use bevy_state_macros::SubStates;
 /// # struct AppState;
 /// # struct GamePhase;
 ///
-///     App::new()
+///     App::default()
 ///         .init_state::<AppState>()
 ///         .add_sub_state::<GamePhase>();
 /// ```

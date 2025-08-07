@@ -11,7 +11,7 @@ use core::time::Duration;
 /// # use core::time::Duration;
 /// # use bevy_time::common_conditions::on_timer;
 /// fn main() {
-///     App::new()
+///     App::default()
 ///         .add_plugins(DefaultPlugins)
 ///         .add_systems(
 ///             Update,
@@ -51,7 +51,7 @@ pub fn on_timer(duration: Duration) -> impl FnMut(Res<Time>) -> bool + Clone {
 /// # use core::time::Duration;
 /// # use bevy_time::common_conditions::on_real_timer;
 /// fn main() {
-///     App::new()
+///     App::default()
 ///         .add_plugins(DefaultPlugins)
 ///         .add_systems(
 ///             Update,
@@ -91,7 +91,7 @@ pub fn on_real_timer(duration: Duration) -> impl FnMut(Res<Time<Real>>) -> bool 
 /// # use core::time::Duration;
 /// # use bevy_time::common_conditions::once_after_delay;
 /// fn main() {
-///     App::new()
+///     App::default()
 ///         .add_plugins(DefaultPlugins)
 ///         .add_systems(
 ///             Update,
@@ -121,7 +121,7 @@ pub fn once_after_delay(duration: Duration) -> impl FnMut(Res<Time>) -> bool + C
 /// # use core::time::Duration;
 /// # use bevy_time::common_conditions::once_after_delay;
 /// fn main() {
-///     App::new()
+///     App::default()
 ///         .add_plugins(DefaultPlugins)
 ///         .add_systems(
 ///             Update,
@@ -151,7 +151,7 @@ pub fn once_after_real_delay(duration: Duration) -> impl FnMut(Res<Time<Real>>) 
 /// # use core::time::Duration;
 /// # use bevy_time::common_conditions::repeating_after_delay;
 /// fn main() {
-///     App::new()
+///     App::default()
 ///         .add_plugins(DefaultPlugins)
 ///         .add_systems(
 ///             Update,
@@ -181,7 +181,7 @@ pub fn repeating_after_delay(duration: Duration) -> impl FnMut(Res<Time>) -> boo
 /// # use core::time::Duration;
 /// # use bevy_time::common_conditions::repeating_after_real_delay;
 /// fn main() {
-///     App::new()
+///     App::default()
 ///         .add_plugins(DefaultPlugins)
 ///         .add_systems(
 ///             Update,
@@ -212,7 +212,7 @@ pub fn repeating_after_real_delay(
 /// # use bevy_ecs::schedule::{common_conditions::not, IntoScheduleConfigs};
 /// # use bevy_time::common_conditions::paused;
 /// fn main() {
-///     App::new()
+///     App::default()
 ///         .add_plugins(DefaultPlugins)
 ///         .add_systems(
 ///             Update,

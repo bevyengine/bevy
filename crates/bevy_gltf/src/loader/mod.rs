@@ -1905,7 +1905,7 @@ mod test {
     use bevy_scene::ScenePlugin;
 
     fn test_app(dir: Dir) -> App {
-        let mut app = App::new();
+        let mut app = App::default();
         let reader = MemoryAssetReader { root: dir };
         app.register_asset_source(
             AssetSourceId::Default,

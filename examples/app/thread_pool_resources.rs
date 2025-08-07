@@ -4,7 +4,7 @@
 use bevy::prelude::*;
 
 fn main() {
-    App::new()
+    App::default()
         .add_plugins(DefaultPlugins.set(TaskPoolPlugin {
             task_pool_options: TaskPoolOptions::with_num_threads(4),
         }))

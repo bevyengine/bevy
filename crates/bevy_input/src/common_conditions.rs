@@ -10,7 +10,7 @@ use core::hash::Hash;
 /// # use bevy_input::{common_conditions::input_toggle_active, prelude::KeyCode};
 ///
 /// fn main() {
-///     App::new()
+///     App::default()
 ///         .add_plugins(DefaultPlugins)
 ///         .add_systems(Update, pause_menu.run_if(input_toggle_active(false, KeyCode::Escape)))
 ///         .run();
@@ -32,7 +32,7 @@ use core::hash::Hash;
 /// struct Paused(bool);
 ///
 /// fn main() {
-///     App::new()
+///     App::default()
 ///         .add_plugins(DefaultPlugins)
 ///         .init_resource::<Paused>()
 ///         .add_systems(Update, toggle_pause_state.run_if(input_just_pressed(KeyCode::Escape)))
@@ -77,7 +77,7 @@ where
 /// # use bevy_ecs::prelude::IntoScheduleConfigs;
 /// # use bevy_input::{common_conditions::input_just_pressed, prelude::KeyCode};
 /// fn main() {
-///     App::new()
+///     App::default()
 ///         .add_plugins(DefaultPlugins)
 ///         .add_systems(Update, jump.run_if(input_just_pressed(KeyCode::Space)))
 ///         .run();

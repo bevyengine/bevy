@@ -3,7 +3,7 @@
 use bevy::prelude::*;
 
 fn main() {
-    App::new()
+    App::default()
         .add_systems(Startup, startup_system)
         .add_systems(Update, normal_system)
         .run();

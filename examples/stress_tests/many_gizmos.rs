@@ -12,7 +12,7 @@ use bevy::{
 const SYSTEM_COUNT: u32 = 10;
 
 fn main() {
-    let mut app = App::new();
+    let mut app = App::default();
     app.add_plugins((
         DefaultPlugins.set(WindowPlugin {
             primary_window: Some(Window {

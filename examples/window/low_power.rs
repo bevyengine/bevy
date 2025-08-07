@@ -11,7 +11,7 @@ use bevy::{
 use core::time::Duration;
 
 fn main() {
-    App::new()
+    App::default()
         // Continuous rendering for games - bevy's default.
         .insert_resource(WinitSettings::game())
         // Power-saving reactive rendering for applications.

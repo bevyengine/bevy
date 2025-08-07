@@ -442,7 +442,7 @@ mod tests {
 
     #[test]
     fn test_no_panics_if_resource_missing() {
-        let mut app = App::new();
+        let mut app = App::default();
         // Note that we do not insert InputFocus here!
 
         let entity = app.world_mut().spawn_empty().id();
@@ -470,7 +470,7 @@ mod tests {
 
     #[test]
     fn initial_focus_unset_if_no_primary_window() {
-        let mut app = App::new();
+        let mut app = App::default();
         app.add_plugins((InputPlugin, InputDispatchPlugin));
 
         app.update();
@@ -480,7 +480,7 @@ mod tests {
 
     #[test]
     fn initial_focus_set_to_primary_window() {
-        let mut app = App::new();
+        let mut app = App::default();
         app.add_plugins((InputPlugin, InputDispatchPlugin));
 
         let entity_window = app
@@ -494,7 +494,7 @@ mod tests {
 
     #[test]
     fn initial_focus_not_overridden() {
-        let mut app = App::new();
+        let mut app = App::default();
         app.add_plugins((InputPlugin, InputDispatchPlugin));
 
         app.world_mut().spawn((Window::default(), PrimaryWindow));
@@ -528,7 +528,7 @@ mod tests {
                 .as_str()
         }
 
-        let mut app = App::new();
+        let mut app = App::default();
 
         app.add_plugins((InputPlugin, InputDispatchPlugin))
             .add_observer(gather_keyboard_events);
@@ -646,7 +646,7 @@ mod tests {
 
     #[test]
     fn dispatch_clears_focus_when_focused_entity_despawned() {
-        let mut app = App::new();
+        let mut app = App::default();
         app.add_plugins((InputPlugin, InputDispatchPlugin));
 
         app.world_mut().spawn((Window::default(), PrimaryWindow));

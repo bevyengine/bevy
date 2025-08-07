@@ -158,7 +158,7 @@ mod tests {
 
     #[test]
     fn scene_spawns_and_respawns_after_change() {
-        let mut app = App::new();
+        let mut app = App::default();
 
         app.add_plugins((AssetPlugin::default(), ScenePlugin))
             .register_type::<Circle>()
@@ -278,7 +278,7 @@ mod tests {
 
     #[test]
     fn dynamic_scene_spawns_and_respawns_after_change() {
-        let mut app = App::new();
+        let mut app = App::default();
 
         app.add_plugins((AssetPlugin::default(), ScenePlugin))
             .register_type::<Circle>()

@@ -347,7 +347,7 @@ mod tests {
 
     #[test]
     fn insert_state_can_overwrite_init_state() {
-        let mut app = App::new();
+        let mut app = App::default();
         app.add_plugins(StatesPlugin);
 
         app.init_state::<TestState>();
@@ -367,7 +367,7 @@ mod tests {
 
     #[test]
     fn insert_state_can_overwrite_insert_state() {
-        let mut app = App::new();
+        let mut app = App::default();
         app.add_plugins(StatesPlugin);
 
         app.insert_state(TestState::B);

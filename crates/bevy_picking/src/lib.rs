@@ -307,7 +307,7 @@ impl PluginGroup for DefaultPickingPlugins {
 /// ```
 /// # use bevy_app::App;
 /// # use bevy_picking::{PickingSettings, PickingPlugin};
-/// App::new()
+/// App::default()
 ///     .insert_resource(PickingSettings {
 ///         is_enabled: true,
 ///         is_input_enabled: false,

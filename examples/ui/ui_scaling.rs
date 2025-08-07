@@ -6,7 +6,7 @@ use core::time::Duration;
 const SCALE_TIME: u64 = 400;
 
 fn main() {
-    App::new()
+    App::default()
         .add_plugins(DefaultPlugins)
         .insert_resource(TargetScale {
             start_scale: 1.0,

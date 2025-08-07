@@ -27,7 +27,7 @@ const PIXEL_PERFECT_LAYERS: RenderLayers = RenderLayers::layer(0);
 const HIGH_RES_LAYERS: RenderLayers = RenderLayers::layer(1);
 
 fn main() {
-    App::new()
+    App::default()
         .add_plugins(DefaultPlugins.set(ImagePlugin::default_nearest()))
         .add_systems(Startup, (setup_camera, setup_sprite, setup_mesh))
         .add_systems(Update, (rotate, fit_canvas))

@@ -6,7 +6,7 @@ use std::f32::consts::PI;
 use bevy::{gltf::GltfMaterialName, prelude::*, render::mesh::VertexAttributeValues};
 
 fn main() {
-    App::new()
+    App::default()
         .add_plugins(DefaultPlugins)
         .add_systems(Startup, setup)
         .add_systems(Update, find_top_material_and_mesh)

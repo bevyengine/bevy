@@ -31,7 +31,7 @@ fn main() {
         Window::default()
     };
 
-    App::new()
+    App::default()
         .add_plugins(DefaultPlugins.set(WindowPlugin {
             primary_window: Some(window),
             ..Default::default()

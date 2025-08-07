@@ -5,7 +5,7 @@ use std::f32::consts::{FRAC_PI_2, PI, TAU};
 use bevy::{color::palettes::css::*, math::Isometry2d, prelude::*};
 
 fn main() {
-    App::new()
+    App::default()
         .add_plugins(DefaultPlugins)
         .init_gizmo_group::<MyRoundGizmos>()
         .add_systems(Startup, setup)

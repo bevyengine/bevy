@@ -31,7 +31,7 @@ fn main() {
     println!("but will stop tracking if there are more than one.");
     println!();
 
-    App::new()
+    App::default()
         // By default, if a parameter fail to be fetched,
         // `World::get_default_error_handler` will be used to handle the error,
         // which by default is set to panic.

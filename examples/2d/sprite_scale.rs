@@ -3,7 +3,7 @@
 use bevy::prelude::*;
 
 fn main() {
-    App::new()
+    App::default()
         .add_plugins(DefaultPlugins)
         .add_systems(Startup, (setup_sprites, setup_texture_atlas, setup_camera))
         .add_systems(Update, animate_sprite)

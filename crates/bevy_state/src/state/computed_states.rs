@@ -62,7 +62,7 @@ use super::{state_set::StateSet, states::States};
 /// # struct AppState;
 /// # struct InGame;
 ///
-///     App::new()
+///     App::default()
 ///         .init_state::<AppState>()
 ///         .add_computed_state::<InGame>();
 /// ```
@@ -126,7 +126,7 @@ mod tests {
 
     #[test]
     fn computed_states_are_state_scoped_by_default() {
-        let mut app = App::new();
+        let mut app = App::default();
         app.add_plugins(StatesPlugin);
         app.insert_state(TestState);
         app.add_computed_state::<TestComputedState>();

@@ -3,7 +3,7 @@
 use bevy::{color::palettes::css::*, prelude::*, winit::WinitSettings};
 
 fn main() {
-    App::new()
+    App::default()
         .add_plugins(DefaultPlugins)
         // Only run the app when there is user input. This will significantly reduce CPU/GPU use.
         .insert_resource(WinitSettings::desktop_app())

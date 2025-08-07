@@ -14,7 +14,7 @@ struct SingleThreadedUpdate;
 struct CustomStartup;
 
 fn main() {
-    let mut app = App::new();
+    let mut app = App::default();
 
     // Create a new [`Schedule`]. For demonstration purposes, we configure it to use a single threaded executor so that
     // systems in this schedule are never run in parallel. However, this is not a requirement for custom schedules in

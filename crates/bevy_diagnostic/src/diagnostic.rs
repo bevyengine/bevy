@@ -407,7 +407,7 @@ pub trait RegisterDiagnostic {
     ///
     /// const UNIQUE_DIAG_PATH: DiagnosticPath = DiagnosticPath::const_new("foo/bar");
     ///
-    /// App::new()
+    /// App::default()
     ///     .register_diagnostic(Diagnostic::new(UNIQUE_DIAG_PATH))
     ///     .add_plugins(DiagnosticsPlugin)
     ///     .run();

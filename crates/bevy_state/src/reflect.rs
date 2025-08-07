@@ -117,7 +117,7 @@ mod tests {
 
     #[test]
     fn test_reflect_state_operations() {
-        let mut app = App::new();
+        let mut app = App::default();
         app.add_plugins(StatesPlugin)
             .insert_state(StateTest::A)
             .register_type_mutable_state::<StateTest>();

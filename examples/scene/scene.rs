@@ -33,7 +33,7 @@ use std::{fs::File, io::Write};
 /// Sets up default plugins, registers all necessary component/resource types
 /// for serialization/reflection, and runs the various systems in the correct schedule.
 fn main() {
-    App::new()
+    App::default()
         .add_plugins(DefaultPlugins)
         .add_systems(
             Startup,

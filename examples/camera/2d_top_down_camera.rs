@@ -21,7 +21,7 @@ const CAMERA_DECAY_RATE: f32 = 2.;
 struct Player;
 
 fn main() {
-    App::new()
+    App::default()
         .add_plugins(DefaultPlugins)
         .add_systems(Startup, (setup_scene, setup_instructions, setup_camera))
         .add_systems(Update, (move_player, update_camera).chain())

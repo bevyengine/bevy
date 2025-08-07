@@ -25,7 +25,7 @@ fn main() {
     // It uses a thread for simplicity but could be an async task, an asset loader, ...
     start_thread(receiver);
 
-    App::new()
+    App::default()
         .add_plugins(DefaultPlugins)
         .insert_resource(TaskSender(sender))
         .add_systems(Startup, setup)

@@ -3,7 +3,7 @@
 use bevy::prelude::*;
 
 fn main() {
-    App::new()
+    App::default()
         .add_plugins((DefaultPlugins, MeshPickingPlugin))
         .add_systems(Startup, setup_scene)
         .run();

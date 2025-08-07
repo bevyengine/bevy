@@ -24,7 +24,7 @@ use std::f32::consts::PI;
 use bevy::{color::palettes::tailwind::*, picking::pointer::PointerInteraction, prelude::*};
 
 fn main() {
-    App::new()
+    App::default()
         // MeshPickingPlugin is not a default plugin
         .add_plugins((DefaultPlugins, MeshPickingPlugin))
         .add_systems(Startup, setup_scene)

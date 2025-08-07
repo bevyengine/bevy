@@ -7,7 +7,7 @@ use bevy::{animation::RepeatAnimation, pbr::CascadeShadowConfigBuilder, prelude:
 const FOX_PATH: &str = "models/animated/Fox.glb";
 
 fn main() {
-    App::new()
+    App::default()
         .insert_resource(AmbientLight {
             color: Color::WHITE,
             brightness: 2000.,

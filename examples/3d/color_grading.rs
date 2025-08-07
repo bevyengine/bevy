@@ -98,7 +98,7 @@ struct ColorGradingOptionWidget {
 struct HelpText;
 
 fn main() {
-    App::new()
+    App::default()
         .add_plugins(DefaultPlugins)
         .init_resource::<SelectedColorGradingOption>()
         .add_systems(Startup, setup)

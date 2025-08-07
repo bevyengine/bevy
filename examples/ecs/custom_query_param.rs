@@ -19,7 +19,7 @@ use bevy::{
 use std::fmt::Debug;
 
 fn main() {
-    App::new()
+    App::default()
         .add_systems(Startup, spawn)
         .add_systems(
             Update,

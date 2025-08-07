@@ -263,7 +263,7 @@ mod tests {
 
     #[test]
     fn runs_spawn_local_tasks() {
-        let mut app = App::new();
+        let mut app = App::default();
         app.add_plugins(TaskPoolPlugin::default());
 
         let (async_tx, async_rx) = crossbeam_channel::unbounded();

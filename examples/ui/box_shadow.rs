@@ -117,7 +117,7 @@ struct HeldButton {
 }
 
 fn main() {
-    App::new()
+    App::default()
         .add_plugins(DefaultPlugins)
         .insert_resource(WinitSettings::desktop_app())
         .insert_resource(SHADOW_DEFAULT_SETTINGS)

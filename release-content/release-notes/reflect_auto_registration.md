@@ -13,7 +13,7 @@ all types that [`#[derive(Reflect)]`] are now automatically registered! This wor
 ```rs
 fn main() {
   // No need to manually call .register_type::<Foo>()
-  App::new()
+  App::default()
     .add_plugins(DefaultPlugins)
     .add_systems(Startup, setup)
     .run();

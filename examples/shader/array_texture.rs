@@ -11,7 +11,7 @@ use bevy::{
 const SHADER_ASSET_PATH: &str = "shaders/array_texture.wgsl";
 
 fn main() {
-    App::new()
+    App::default()
         .add_plugins((
             DefaultPlugins,
             MaterialPlugin::<ArrayTextureMaterial>::default(),
