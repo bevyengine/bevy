@@ -376,7 +376,12 @@ pub struct AtmosphereSettings {
     /// A conversion factor between scene units and meters, used to
     /// ensure correctness at different length scales.
     pub scene_units_to_m: f32,
+        /// Multiplier to control the visibility of the sun disc.
+    /// Set to 1.0 to show the sun disc (default) or 0.0 to hide it.
+    pub sun_disc_mult: f32,
+
 }
+
 
 impl Default for AtmosphereSettings {
     fn default() -> Self {
