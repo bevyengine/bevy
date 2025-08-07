@@ -1,17 +1,17 @@
 //! Component viewer UI with live data updates
 
 use bevy_ecs::prelude::*;
+use bevy_ecs::system::ParamSet;
 use bevy_ui::prelude::*;
 use bevy_color::Color;
 use bevy_time::Time;
 use bevy_text::{TextFont, TextColor};
 use bevy_input::prelude::*;
-use bevy_window::PrimaryWindow;
 use crate::inspector::http_client::{HttpRemoteClient, ComponentUpdate};
 use super::entity_list::{SelectedEntity, EntityCache};
 use super::collapsible_section::{CollapsibleSection, CollapsibleHeader, CollapsibleContent};
 use serde_json::Value;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 /// Component for the component viewer panel
 #[derive(Component)]
@@ -76,6 +76,8 @@ pub struct SelectableText {
     pub is_selected: bool,
     pub selection_start: usize,
     pub selection_end: usize,
+    pub cursor_position: usize,
+    pub is_dragging: bool,
 }
 
 /// Resource to track global text selection state
@@ -363,6 +365,8 @@ fn create_component_section(
                 is_selected: false,
                 selection_start: 0,
                 selection_end: 0,
+                cursor_position: 0,
+                is_dragging: false,
             },
         ));
     }).id();
@@ -591,88 +595,152 @@ pub fn update_live_component_display(
 
 /// System to handle text selection and copying
 pub fn handle_text_selection(
-    mut interaction_query: Query<
-        (Entity, &Interaction, &mut BackgroundColor, &mut SelectableText, &ComponentData),
-        (Changed<Interaction>, With<Button>)
-    >,
+    mut queries: ParamSet<(
+        Query<
+            (Entity, &Interaction, &mut BackgroundColor, &mut SelectableText, &ComponentData),
+            (Changed<Interaction>, With<Button>)
+        >,
+        Query<(Entity, &mut BackgroundColor, &mut SelectableText), With<Button>>,
+        Query<(Entity, &Interaction, &ComponentData), (With<Button>, With<SelectableText>)>,
+    )>,
     mut selection_state: ResMut<TextSelectionState>,
     keyboard_input: Res<ButtonInput<KeyCode>>,
-    mut window_query: Query<&mut bevy_window::Window, With<PrimaryWindow>>,
+    mouse_input: Res<ButtonInput<MouseButton>>,
 ) {
-    // Handle text selection on click
-    for (entity, interaction, mut bg_color, mut selectable_text, _component_data) in interaction_query.iter_mut() {
-        match *interaction {
-            Interaction::Pressed => {
-                // Select all text when clicked
-                selectable_text.is_selected = true;
-                selectable_text.selection_start = 0;
-                selectable_text.selection_end = selectable_text.text_content.len();
-                
-                // Update selection state
-                selection_state.selected_entity = Some(entity);
-                
-                // Visual feedback
+    // Handle text selection on interaction changes - first pass
+    let mut clicked_entity: Option<Entity> = None;
+    {
+        let mut interaction_query = queries.p0();
+        for (entity, interaction, _bg_color, mut selectable_text, _component_data) in interaction_query.iter_mut() {
+            match *interaction {
+                Interaction::Pressed => {
+                    clicked_entity = Some(entity);
+                    
+                    // Select all text in clicked element
+                    selectable_text.is_selected = true;
+                    selectable_text.selection_start = 0;
+                    selectable_text.selection_end = selectable_text.text_content.len();
+                    selectable_text.cursor_position = selectable_text.text_content.len();
+                    selectable_text.is_dragging = false;
+                    
+                    // Update global selection state
+                    selection_state.selected_entity = Some(entity);
+                    
+                    println!("Selected text: {}", selectable_text.text_content);
+                }
+                _ => {}
+            }
+        }
+    }
+    
+    // Clear other selections if we clicked something - second pass
+    if let Some(clicked_entity) = clicked_entity {
+        let mut all_selectable_query = queries.p1();
+        for (other_entity, mut other_bg_color, mut other_selectable_text) in all_selectable_query.iter_mut() {
+            if other_entity != clicked_entity {
+                other_selectable_text.is_selected = false;
+                other_selectable_text.selection_start = 0;
+                other_selectable_text.selection_end = 0;
+                other_selectable_text.is_dragging = false;
+                *other_bg_color = BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.0));
+            }
+        }
+    }
+    
+    // Update visual feedback for all selectable text elements - third pass
+    // Pre-gather interaction info to avoid conflicting borrows
+    let mut hover_entities = HashSet::new();
+    {
+        let interaction_query = queries.p2();
+        for (entity, interaction, _) in interaction_query.iter() {
+            if matches!(*interaction, Interaction::Hovered) {
+                hover_entities.insert(entity);
+            }
+        }
+    }
+    
+    {
+        let mut all_selectable_query = queries.p1();
+        for (entity, mut bg_color, selectable_text) in all_selectable_query.iter_mut() {
+            if selectable_text.is_selected {
                 *bg_color = BackgroundColor(Color::srgba(0.2, 0.4, 0.8, 0.3));
-                
-                println!("Selected text: {}", selectable_text.text_content);
-            }
-            Interaction::Hovered => {
-                if !selectable_text.is_selected {
-                    *bg_color = BackgroundColor(Color::srgba(0.3, 0.3, 0.3, 0.2));
-                }
-            }
-            Interaction::None => {
-                if !selectable_text.is_selected {
-                    *bg_color = BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.0));
-                }
+            } else if hover_entities.contains(&entity) {
+                *bg_color = BackgroundColor(Color::srgba(0.3, 0.3, 0.3, 0.2));
+            } else {
+                *bg_color = BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.0));
             }
         }
     }
     
     // Handle copy to clipboard with Ctrl+C
-    if keyboard_input.pressed(KeyCode::ControlLeft) || keyboard_input.pressed(KeyCode::ControlRight) {
-        if keyboard_input.just_pressed(KeyCode::KeyC) {
-            if let Some(selected_entity) = selection_state.selected_entity {
-                // Find the selected text
-                if let Ok((_entity, _interaction, _bg_color, selectable_text, _component_data)) = 
-                    interaction_query.get(selected_entity) {
+    if (keyboard_input.pressed(KeyCode::ControlLeft) || keyboard_input.pressed(KeyCode::ControlRight)) 
+        && keyboard_input.just_pressed(KeyCode::KeyC) {
+        if let Some(selected_entity) = selection_state.selected_entity {
+            // Find the selected text using the all_selectable_query
+            let all_selectable_query = queries.p1();
+            if let Ok((_, _, selectable_text)) = all_selectable_query.get(selected_entity) {
+                if selectable_text.is_selected {
+                    let selected_text = if selectable_text.selection_start != selectable_text.selection_end {
+                        // Copy only the selected portion
+                        let start = selectable_text.selection_start.min(selectable_text.selection_end);
+                        let end = selectable_text.selection_start.max(selectable_text.selection_end);
+                        selectable_text.text_content.chars()
+                            .skip(start)
+                            .take(end - start)
+                            .collect::<String>()
+                    } else {
+                        // Copy all text if no selection range
+                        selectable_text.text_content.clone()
+                    };
                     
-                    // Copy to clipboard
-                    copy_to_clipboard(&selectable_text.text_content);
-                    println!("📋 Copied to clipboard: {}", selectable_text.text_content);
+                    copy_to_clipboard(&selected_text);
+                    println!("📋 Copied to clipboard: {}", selected_text);
                 }
             }
         }
     }
     
-    // Deselect when pressing Escape
+    // Handle Escape key to deselect all
     if keyboard_input.just_pressed(KeyCode::Escape) {
         selection_state.selected_entity = None;
-        // Note: full deselection of visual state will be handled by the interaction system
-    }
-}
-
-/// System to deselect text when clicking outside
-pub fn handle_text_deselection(
-    mut interaction_query: Query<
-        (Entity, &mut BackgroundColor, &mut SelectableText),
-        With<Button>
-    >,
-    mut selection_state: ResMut<TextSelectionState>,
-    mouse_input: Res<ButtonInput<MouseButton>>,
-) {
-    if mouse_input.just_pressed(MouseButton::Left) {
-        // Check if we clicked on a selectable text element
-        let clicked_on_text = interaction_query
-            .iter()
-            .any(|(_, _, _)| true); // This is a simplified check
         
-        if !clicked_on_text {
+        // Clear all selections
+        let mut all_selectable_query = queries.p1();
+        for (_, mut bg_color, mut selectable_text) in all_selectable_query.iter_mut() {
+            selectable_text.is_selected = false;
+            selectable_text.selection_start = 0;
+            selectable_text.selection_end = 0;
+            selectable_text.is_dragging = false;
+            *bg_color = BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.0));
+        }
+        
+        println!("🚫 Cleared all text selections");
+    }
+    
+    // Handle clicking outside to deselect
+    if mouse_input.just_pressed(MouseButton::Left) {
+        // If no text element is currently being interacted with, deselect all
+        let interaction_query = queries.p0();
+        let any_interaction = interaction_query.iter().any(|(_, interaction, _, _, _)| {
+            matches!(*interaction, Interaction::Pressed | Interaction::Hovered)
+        });
+        
+        if !any_interaction {
             selection_state.selected_entity = None;
-            // Note: full deselection of visual state will be handled by the interaction system
+            
+            // Clear all selections
+            let mut all_selectable_query = queries.p1();
+            for (_, mut bg_color, mut selectable_text) in all_selectable_query.iter_mut() {
+                selectable_text.is_selected = false;
+                selectable_text.selection_start = 0;
+                selectable_text.selection_end = 0;
+                selectable_text.is_dragging = false;
+                *bg_color = BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.0));
+            }
         }
     }
 }
+
 
 
 /// Cross-platform clipboard copy function
@@ -680,44 +748,89 @@ fn copy_to_clipboard(text: &str) {
     #[cfg(not(target_arch = "wasm32"))]
     {
         use std::process::Command;
+        use std::io::Write;
         
         #[cfg(target_os = "windows")]
         {
             let mut cmd = Command::new("cmd");
-            cmd.args(&["/C", "echo", text, "|", "clip"]);
-            let _ = cmd.output();
+            cmd.args(&["/C", &format!("echo {} | clip", text.replace('\n', "^\n"))]);
+            match cmd.output() {
+                Ok(_) => println!("✅ Text copied to clipboard (Windows)"),
+                Err(e) => println!("❌ Failed to copy text to clipboard (Windows): {}", e),
+            }
         }
         
         #[cfg(target_os = "macos")]
         {
             let mut cmd = Command::new("pbcopy");
-            use std::io::Write;
-            if let Ok(mut child) = cmd.stdin(std::process::Stdio::piped()).spawn() {
-                if let Some(stdin) = child.stdin.as_mut() {
-                    let _ = stdin.write_all(text.as_bytes());
+            match cmd.stdin(std::process::Stdio::piped()).spawn() {
+                Ok(mut child) => {
+                    if let Some(stdin) = child.stdin.as_mut() {
+                        match stdin.write_all(text.as_bytes()) {
+                            Ok(_) => {
+                                let _ = stdin; // Close stdin before waiting
+                                match child.wait() {
+                                    Ok(_) => println!("✅ Text copied to clipboard (macOS)"),
+                                    Err(e) => println!("❌ Failed to wait for pbcopy: {}", e),
+                                }
+                            }
+                            Err(e) => println!("❌ Failed to write to pbcopy: {}", e),
+                        }
+                    }
                 }
-                let _ = child.wait();
+                Err(e) => println!("❌ Failed to spawn pbcopy: {}", e),
             }
         }
         
         #[cfg(target_os = "linux")]
         {
-            // Try xclip first, then xsel
+            // Try xclip first, then xsel as fallback
             let mut cmd = Command::new("xclip");
             cmd.args(&["-selection", "clipboard"]);
-            use std::io::Write;
-            if let Ok(mut child) = cmd.stdin(std::process::Stdio::piped()).spawn() {
-                if let Some(stdin) = child.stdin.as_mut() {
-                    let _ = stdin.write_all(text.as_bytes());
+            
+            match cmd.stdin(std::process::Stdio::piped()).spawn() {
+                Ok(mut child) => {
+                    if let Some(stdin) = child.stdin.as_mut() {
+                        match stdin.write_all(text.as_bytes()) {
+                            Ok(_) => {
+                                let _ = stdin; // Close stdin before waiting
+                                match child.wait() {
+                                    Ok(_) => println!("✅ Text copied to clipboard (Linux - xclip)"),
+                                    Err(e) => println!("❌ xclip wait failed: {}", e),
+                                }
+                            }
+                            Err(e) => println!("❌ Failed to write to xclip: {}", e),
+                        }
+                    }
                 }
-                let _ = child.wait();
+                Err(_) => {
+                    // Fallback to xsel
+                    let mut cmd = Command::new("xsel");
+                    cmd.args(&["--clipboard", "--input"]);
+                    match cmd.stdin(std::process::Stdio::piped()).spawn() {
+                        Ok(mut child) => {
+                            if let Some(stdin) = child.stdin.as_mut() {
+                                match stdin.write_all(text.as_bytes()) {
+                                    Ok(_) => {
+                                        drop(stdin);
+                                        match child.wait() {
+                                            Ok(_) => println!("✅ Text copied to clipboard (Linux - xsel)"),
+                                            Err(e) => println!("❌ xsel wait failed: {}", e),
+                                        }
+                                    }
+                                    Err(e) => println!("❌ Failed to write to xsel: {}", e),
+                                }
+                            }
+                        }
+                        Err(e) => println!("❌ No clipboard utility available (xclip/xsel): {}", e),
+                    }
+                }
             }
         }
     }
     
     #[cfg(target_arch = "wasm32")]
     {
-        // Web clipboard API would go here
-        println!("Clipboard copy not implemented for WASM target");
+        println!("📋 Clipboard copy not implemented for WASM target: {}", text);
     }
 }
