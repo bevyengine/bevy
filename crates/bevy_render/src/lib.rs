@@ -97,6 +97,7 @@ use render_asset::{
     extract_render_asset_bytes_per_frame, reset_render_asset_bytes_per_frame,
     RenderAssetBytesPerFrame, RenderAssetBytesPerFrameLimiter,
 };
+use render_resource::init_empty_bind_group_layout;
 use renderer::{RenderAdapter, RenderDevice, RenderQueue};
 use settings::RenderResources;
 use sync_world::{
@@ -123,7 +124,7 @@ use bitflags::bitflags;
 use core::ops::{Deref, DerefMut};
 use std::sync::Mutex;
 use tracing::debug;
-use wgpu_wrapper::WgpuWrapper;
+pub use wgpu_wrapper::WgpuWrapper;
 
 /// Inline shader as an `embedded_asset` and load it permanently.
 ///
@@ -360,6 +361,7 @@ impl Plugin for RenderPlugin {
                         let instance = wgpu::Instance::new(&wgpu::InstanceDescriptor {
                             backends,
                             flags: settings.instance_flags,
+                            memory_budget_thresholds: settings.instance_memory_budget_thresholds,
                             backend_options: wgpu::BackendOptions {
                                 gl: wgpu::GlBackendOptions {
                                     gles_minor_version: settings.gles3_minor_version,
@@ -466,6 +468,8 @@ impl Plugin for RenderPlugin {
                     Render,
                     reset_render_asset_bytes_per_frame.in_set(RenderSystems::Cleanup),
                 );
+
+            render_app.add_systems(RenderStartup, init_empty_bind_group_layout);
         }
 
         app.register_type::<alpha::AlphaMode>()

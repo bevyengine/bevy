@@ -1,5 +1,8 @@
 name: Send Screenshots to Pixel Eagle
 
+permissions:
+  contents: read
+
 on:
   workflow_call:
     inputs:
@@ -45,9 +48,10 @@ jobs:
         if: ${{ fromJSON(env.PIXELEAGLE_TOKEN_EXISTS) }}
         env:
           project: B04F67C0-C054-4A6F-92EC-F599FEC2FD1D
+          branch: ${{ inputs.branch }}
         run: |
           # Create a new run with its associated metadata
-          metadata='{"os":"${{ inputs.os }}", "commit": "${{ inputs.commit }}", "branch": "${{ inputs.branch }}"}'
+          metadata='{"os":"${{ inputs.os }}", "commit": "${{ inputs.commit }}", "branch": "$branch"}'
           run=`curl https://pixel-eagle.com/$project/runs --json "$metadata" --oauth2-bearer ${{ secrets.PIXELEAGLE_TOKEN }} | jq '.id'`
 
           SAVEIFS=$IFS

@@ -80,14 +80,15 @@ fn main() {
 
         let profile = if cli.debug {
             "debug"
+        } else if cli.optimize_size {
+            "wasm-release"
         } else {
-            parameters.push("--release");
             "release"
         };
 
         let cmd = cmd!(
             sh,
-            "cargo build {parameters...} --target wasm32-unknown-unknown --example {example}"
+            "cargo build {parameters...} --profile {profile} --target wasm32-unknown-unknown --example {example}"
         );
         cmd.run().expect("Error building example");
 
