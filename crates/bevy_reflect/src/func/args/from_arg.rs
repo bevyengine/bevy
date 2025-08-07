@@ -1,3 +1,7 @@
+#![expect(
+    mismatched_lifetime_syntaxes,
+    reason = "I can't figure out how to fix this."
+)]
 use crate::func::args::{Arg, ArgError};
 use crate::{Reflect, TypePath};
 
@@ -77,6 +81,10 @@ macro_rules! impl_from_arg {
         )?
         {
             type This<'from_arg> = $ty;
+            #[expect(
+                mismatched_lifetime_syntaxes,
+                reason = "I can't figure out how to fix this."
+            )]
             fn from_arg(arg: $crate::func::args::Arg) ->
                 Result<Self::This<'_>, $crate::func::args::ArgError>
             {

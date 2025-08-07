@@ -903,7 +903,7 @@ impl RenderMeshInstances {
 
     /// Constructs [`RenderMeshQueueData`] for the given entity, if it has a
     /// mesh attached.
-    pub fn render_mesh_queue_data(&self, entity: MainEntity) -> Option<RenderMeshQueueData> {
+    pub fn render_mesh_queue_data(&self, entity: MainEntity) -> Option<RenderMeshQueueData<'_>> {
         match *self {
             RenderMeshInstances::CpuBuilding(ref instances) => {
                 instances.render_mesh_queue_data(entity)
@@ -934,7 +934,7 @@ impl RenderMeshInstancesCpu {
             .map(|render_mesh_instance| render_mesh_instance.mesh_asset_id)
     }
 
-    fn render_mesh_queue_data(&self, entity: MainEntity) -> Option<RenderMeshQueueData> {
+    fn render_mesh_queue_data(&self, entity: MainEntity) -> Option<RenderMeshQueueData<'_>> {
         self.get(&entity)
             .map(|render_mesh_instance| RenderMeshQueueData {
                 shared: &render_mesh_instance.shared,
@@ -958,7 +958,7 @@ impl RenderMeshInstancesGpu {
             .map(|render_mesh_instance| render_mesh_instance.mesh_asset_id)
     }
 
-    fn render_mesh_queue_data(&self, entity: MainEntity) -> Option<RenderMeshQueueData> {
+    fn render_mesh_queue_data(&self, entity: MainEntity) -> Option<RenderMeshQueueData<'_>> {
         self.get(&entity)
             .map(|render_mesh_instance| RenderMeshQueueData {
                 shared: &render_mesh_instance.shared,

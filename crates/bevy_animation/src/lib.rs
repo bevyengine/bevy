@@ -772,7 +772,7 @@ struct CurrentEvaluators {
 }
 
 impl CurrentEvaluators {
-    pub(crate) fn keys(&self) -> impl Iterator<Item = EvaluatorId> {
+    pub(crate) fn keys(&self) -> impl Iterator<Item = EvaluatorId<'_>> {
         self.component_properties
             .keys()
             .map(EvaluatorId::ComponentField)
@@ -1462,7 +1462,7 @@ impl<'a> TriggeredEvents<'a> {
         self.lower.is_empty() && self.upper.is_empty()
     }
 
-    fn iter(&self) -> TriggeredEventsIter {
+    fn iter(&self) -> TriggeredEventsIter<'_> {
         match self.direction {
             TriggeredEventsDir::Forward => TriggeredEventsIter::Forward(self.lower.iter()),
             TriggeredEventsDir::Reverse => TriggeredEventsIter::Reverse(self.lower.iter().rev()),

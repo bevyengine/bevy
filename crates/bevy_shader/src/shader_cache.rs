@@ -401,7 +401,7 @@ impl<'a> wesl::Resolver for ShaderResolver<'a> {
     fn resolve_source(
         &self,
         module_path: &wesl::syntax::ModulePath,
-    ) -> Result<alloc::borrow::Cow<str>, wesl::ResolveError> {
+    ) -> Result<alloc::borrow::Cow<'_, str>, wesl::ResolveError> {
         let asset_id = self.asset_paths.get(module_path).ok_or_else(|| {
             wesl::ResolveError::ModuleNotFound(module_path.clone(), "Invalid asset id".to_string())
         })?;

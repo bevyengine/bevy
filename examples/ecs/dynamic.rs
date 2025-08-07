@@ -197,7 +197,7 @@ fn main() {
 
 // Constructs `OwningPtr` for each item in `components`
 // By sharing the lifetime of `components` with the resulting ptrs we ensure we don't drop the data before use
-fn to_owning_ptrs(components: &mut [Vec<u64>]) -> Vec<OwningPtr<Aligned>> {
+fn to_owning_ptrs(components: &mut [Vec<u64>]) -> Vec<OwningPtr<'_, Aligned>> {
     components
         .iter_mut()
         .map(|data| {
