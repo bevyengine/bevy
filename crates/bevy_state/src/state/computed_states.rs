@@ -62,7 +62,7 @@ use super::{state_set::StateSet, states::States};
 /// # struct AppState;
 /// # struct InGame;
 ///
-///     App::default()
+///     App::new()
 ///         .init_state::<AppState>()
 ///         .add_computed_state::<InGame>();
 /// ```
