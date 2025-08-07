@@ -119,6 +119,7 @@ use render_asset::{
 use renderer::{RenderAdapter, RenderDevice, RenderQueue};
 use settings::RenderResources;
 use std::sync::Mutex;
+use sync_world::{despawn_temporary_render_entities, entity_sync_system, SyncWorldPlugin};
 pub use wgpu_wrapper::WgpuWrapper;
 
 /// Inline shader as an `embedded_asset` and load it permanently.
