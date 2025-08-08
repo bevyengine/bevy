@@ -124,7 +124,7 @@ impl Plugin for TextPlugin {
             .add_systems(Last, trim_cosmic_cache);
 
         app.init_resource::<Clipboard>()
-            .init_resource::<CursorBlinkInterval>()
+            .init_resource::<TextCursorBlinkInterval>()
             .add_systems(
                 PostUpdate,
                 (

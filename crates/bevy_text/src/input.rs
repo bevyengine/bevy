@@ -214,9 +214,9 @@ fn on_insert_text_input_value(mut world: DeferredWorld, context: HookContext) {
 }
 
 #[derive(Resource)]
-pub struct CursorBlinkInterval(pub Duration);
+pub struct TextCursorBlinkInterval(pub Duration);
 
-impl Default for CursorBlinkInterval {
+impl Default for TextCursorBlinkInterval {
     fn default() -> Self {
         Self(Duration::from_secs_f32(0.5))
     }
@@ -617,7 +617,7 @@ pub fn update_text_input_buffers(
         Ref<TextInputAttributes>,
     )>,
     time: Res<Time>,
-    cursor_blink_interval: Res<CursorBlinkInterval>,
+    cursor_blink_interval: Res<TextCursorBlinkInterval>,
     mut font_system: ResMut<CosmicFontSystem>,
     mut text_pipeline: ResMut<TextPipeline>,
     fonts: Res<Assets<Font>>,

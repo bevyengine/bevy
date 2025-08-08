@@ -10,9 +10,9 @@ use bevy::{
         ExtractedSprites,
     },
     text::{
-        CursorBlinkInterval, LineBreak, Motion, Placeholder, PlaceholderLayout, PositionedGlyph,
-        TextEdit, TextEdits, TextInputAttributes, TextInputBuffer, TextInputStyle,
-        TextInputSystems, TextInputTarget, TextLayoutInfo, UndoHistory,
+        LineBreak, Motion, Placeholder, PlaceholderLayout, PositionedGlyph,
+        TextCursorBlinkInterval, TextEdit, TextEdits, TextInputAttributes, TextInputBuffer,
+        TextInputStyle, TextInputSystems, TextInputTarget, TextLayoutInfo, UndoHistory,
     },
     window::PrimaryWindow,
 };
@@ -289,7 +289,7 @@ fn extract_text_input(
     mut extracted_sprites: ResMut<ExtractedSprites>,
     mut extracted_slices: ResMut<ExtractedSlices>,
     texture_atlases: Extract<Res<Assets<TextureAtlasLayout>>>,
-    cursor_blink_interval: Extract<Res<CursorBlinkInterval>>,
+    cursor_blink_interval: Extract<Res<TextCursorBlinkInterval>>,
     text_input_query: Extract<
         Query<(
             Entity,
