@@ -141,10 +141,10 @@ fn log_system(
             component_a.x, component_a.y
         );
     }
-    if let Some(res) = res {
-        if res.is_added() {
-            info!("  New ResourceA: {{ score: {} }}\n", res.score);
-        }
+    if let Some(res) = res
+        && res.is_added()
+    {
+        info!("  New ResourceA: {{ score: {} }}\n", res.score);
     }
 }
 

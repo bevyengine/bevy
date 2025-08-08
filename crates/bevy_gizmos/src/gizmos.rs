@@ -355,7 +355,7 @@ where
     }
 
     /// Read-only view into the buffers data.
-    pub fn buffer(&self) -> GizmoBufferView {
+    pub fn buffer(&self) -> GizmoBufferView<'_> {
         let GizmoBuffer {
             list_positions,
             list_colors,

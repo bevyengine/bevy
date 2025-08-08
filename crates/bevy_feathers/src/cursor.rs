@@ -93,10 +93,10 @@ pub(crate) fn update_cursor(
         .unwrap_or(&r_default_cursor.0);
 
     for (entity, prev_cursor) in q_windows.iter() {
-        if let Some(prev_cursor) = prev_cursor {
-            if cursor.eq_cursor_icon(prev_cursor) {
-                continue;
-            }
+        if let Some(prev_cursor) = prev_cursor
+            && cursor.eq_cursor_icon(prev_cursor)
+        {
+            continue;
         }
         commands.entity(entity).insert(cursor.to_cursor_icon());
     }

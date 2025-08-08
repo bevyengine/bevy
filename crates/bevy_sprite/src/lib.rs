@@ -160,10 +160,10 @@ pub fn calculate_bounds_2d(
     >,
 ) {
     for (entity, mesh_handle) in &meshes_without_aabb {
-        if let Some(mesh) = meshes.get(&mesh_handle.0) {
-            if let Some(aabb) = mesh.compute_aabb() {
-                commands.entity(entity).try_insert(aabb);
-            }
+        if let Some(mesh) = meshes.get(&mesh_handle.0)
+            && let Some(aabb) = mesh.compute_aabb()
+        {
+            commands.entity(entity).try_insert(aabb);
         }
     }
     for (entity, sprite, anchor) in &sprites_to_recalculate_aabb {

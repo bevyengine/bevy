@@ -110,10 +110,10 @@ fn user_input(
         ));
     }
 
-    if keyboard_input.just_pressed(KeyCode::KeyR) {
-        if let Some(entity) = enemies.iter().next() {
-            commands.entity(entity).despawn();
-        }
+    if keyboard_input.just_pressed(KeyCode::KeyR)
+        && let Some(entity) = enemies.iter().next()
+    {
+        commands.entity(entity).despawn();
     }
 }
 

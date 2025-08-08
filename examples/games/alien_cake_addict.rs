@@ -252,13 +252,14 @@ fn move_player(
     }
 
     // eat the cake!
-    if let Some(entity) = game.bonus.entity {
-        if game.player.i == game.bonus.i && game.player.j == game.bonus.j {
-            game.score += 2;
-            game.cake_eaten += 1;
-            commands.entity(entity).despawn();
-            game.bonus.entity = None;
-        }
+    if let Some(entity) = game.bonus.entity
+        && game.player.i == game.bonus.i
+        && game.player.j == game.bonus.j
+    {
+        game.score += 2;
+        game.cake_eaten += 1;
+        commands.entity(entity).despawn();
+        game.bonus.entity = None;
     }
 }
 
@@ -362,12 +363,12 @@ fn spawn_bonus(
 
 // let the cake turn on itself
 fn rotate_bonus(game: Res<Game>, time: Res<Time>, mut transforms: Query<&mut Transform>) {
-    if let Some(entity) = game.bonus.entity {
-        if let Ok(mut cake_transform) = transforms.get_mut(entity) {
-            cake_transform.rotate_y(time.delta_secs());
-            cake_transform.scale =
-                Vec3::splat(1.0 + (game.score as f32 / 10.0 * ops::sin(time.elapsed_secs())).abs());
-        }
+    if let Some(entity) = game.bonus.entity
+        && let Ok(mut cake_transform) = transforms.get_mut(entity)
+    {
+        cake_transform.rotate_y(time.delta_secs());
+        cake_transform.scale =
+            Vec3::splat(1.0 + (game.score as f32 / 10.0 * ops::sin(time.elapsed_secs())).abs());
     }
 }
 

@@ -73,6 +73,8 @@ allow_attributes = "warn"
 allow_attributes_without_reason = "warn"
 
 [workspace.lints.rust]
+# Strictly temporary until encase fixes dead code generation from ShaderType macros
+dead_code = "allow"
 missing_docs = "warn"
 unexpected_cfgs = { level = "warn", check-cfg = ['cfg(docsrs_dep)'] }
 unsafe_code = "deny"
@@ -118,6 +120,8 @@ allow_attributes = "warn"
 allow_attributes_without_reason = "warn"
 
 [lints.rust]
+# Strictly temporary until encase fixes dead code generation from ShaderType macros
+dead_code = "allow"
 missing_docs = "warn"
 unexpected_cfgs = { level = "warn", check-cfg = ['cfg(docsrs_dep)'] }
 unsafe_code = "deny"
