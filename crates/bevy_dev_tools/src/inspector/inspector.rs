@@ -1,4 +1,13 @@
-//! Main inspector plugin that coordinates all functionality
+//! Remote Inspector Plugin for Bevy Dev Tools
+//!
+//! This module provides a real-time entity and component inspector that connects to 
+//! remote Bevy applications via the bevy_remote protocol. It features:
+//!
+//! - **Live Entity Inspection**: Real-time viewing of entities and their components
+//! - **Component Value Updates**: Live streaming of changing component values
+//! - **Interactive UI**: Text selection, copy/paste, and virtual scrolling
+//! - **Connection Resilience**: Auto-retry logic with exponential backoff
+//! - **Performance Optimized**: Efficient virtual scrolling for large entity lists
 
 use bevy_app::prelude::*;
 use bevy_ecs::prelude::*;
@@ -6,6 +15,7 @@ use bevy_ui::prelude::*;
 use bevy_color::Color;
 use bevy_camera::Camera2d;
 use bevy_text::{TextFont, TextColor};
+use bevy_log::prelude::*;
 use tokio::runtime::Handle;
 use std::collections::HashMap;
 use async_channel;
@@ -17,11 +27,38 @@ use crate::widgets::selectable_text::TextSelectionState;
 use super::ui::virtual_scrolling::{handle_infinite_scroll_input, update_infinite_scrolling_display, update_scroll_momentum, update_scrollbar_indicator, setup_virtual_scrolling, VirtualScrollState, CustomScrollPosition};
 use super::ui::entity_list::{EntityListVirtualState, SelectionDebounce};
 
-/// Tokio runtime handle resource for async operations
+/// Tokio runtime handle for async HTTP operations
+/// 
+/// This resource provides access to the Tokio runtime for performing
+/// async HTTP requests to the remote Bevy application via bevy_remote protocol.
 #[derive(Resource)]
 pub struct TokioRuntimeHandle(pub Handle);
 
-/// Main plugin for the remote inspector
+/// Remote Inspector Plugin
+/// 
+/// Enables real-time inspection of entities and components in remote Bevy applications.
+/// Automatically connects to bevy_remote servers and provides an interactive UI for
+/// browsing entity data with live updates.
+/// 
+/// # Usage
+/// 
+/// Add this plugin to your inspector application (not the target application):
+/// 
+/// ```rust
+/// App::new()
+///     .add_plugins(DefaultPlugins)
+///     .add_plugins(InspectorPlugin)
+///     .run();
+/// ```
+/// 
+/// The target application should enable bevy_remote:
+/// 
+/// ```rust
+/// App::new()
+///     .add_plugins(DefaultPlugins)
+///     .add_plugins(bevy::remote::RemotePlugin::default())
+///     .run();
+/// ```
 pub struct InspectorPlugin;
 
 impl Plugin for InspectorPlugin {
@@ -142,9 +179,9 @@ fn setup_ui(mut commands: Commands) {
     // Connection status indicator
     spawn_connection_status(&mut commands, root);
     
-    println!("Inspector UI initialized");
-    println!("Entity list: {:?}", entity_list);
-    println!("Component viewer: {:?}", component_viewer);
+    info!("Remote inspector UI initialized successfully");
+    debug!("Entity list widget: {:?}", entity_list);
+    debug!("Component viewer widget: {:?}", component_viewer);
 }
 
 /// Force initial population attempts HTTP connection
@@ -155,16 +192,16 @@ fn initial_ui_population(
     _selected_entity: ResMut<SelectedEntity>,
     container_query: Query<Entity, With<EntityListContainer>>,
 ) {
-    println!("Starting initial UI population - attempting HTTP connection");
+    info!("Initializing inspector UI - attempting remote connection");
     
     let Ok(_container_entity) = container_query.single() else {
-        println!("Could not find entity list container");
+        warn!("Entity list container not found - UI initialization incomplete");
         return;
     };
     
     // Show connection status - entities will be populated when connection succeeds
     if !http_client.is_connected {
-        println!("Waiting for HTTP connection to populate entities...");
+        info!("Awaiting connection to remote Bevy application...");
         // Entity list will be populated by update_entity_list_from_http once connected
     }
 }
@@ -183,7 +220,7 @@ fn setup_http_client(
     
     // Note: Initial connection will be handled by the retry system in handle_http_updates
     // This avoids blocking the startup and allows proper resource management
-    println!("HTTP client initialized - connection will be established automatically");
+    info!("Remote client initialized - auto-connection enabled");
     
     commands.insert_resource(http_client);
 }
@@ -226,11 +263,11 @@ fn update_entity_list_from_http(
         if selected_entity.entity_id.is_none() {
             if let Some(first_entity) = entity_cache.entities.values().next() {
                 selected_entity.entity_id = Some(first_entity.id);
-                println!("Auto-selected first entity: {}", first_entity.id);
+                debug!("Auto-selected first entity: {}", first_entity.id);
             }
         }
         
-        println!("Updated entity cache with {} entities from HTTP", entity_cache.entities.len());
+        debug!("Updated entity cache with {} entities from remote", entity_cache.entities.len());
     }
 }
 
@@ -258,9 +295,9 @@ fn handle_http_updates(
         if status_update.is_connected {
             // Update entity cache with fetched entities
             http_client.entities = status_update.entities;
-            println!("✅ Connection established and {} entities loaded", http_client.entities.len());
+            info!("Remote connection established - loaded {} entities", http_client.entities.len());
         } else {
-            println!("❌ Connection failed: {}", 
+            warn!("Remote connection failed: {}", 
                 http_client.last_error.as_deref().unwrap_or("Unknown error"));
         }
     }
@@ -284,7 +321,7 @@ fn handle_http_updates(
             http_client.last_retry_time = current_time;
             http_client.last_connection_check = current_time;
             
-            println!("🔄 Attempting reconnection (attempt {}/{})", 
+            info!("Attempting reconnection (attempt {}/{})", 
                 http_client.retry_count, http_client.max_retries);
             
             // Create a connection test
@@ -302,13 +339,13 @@ fn handle_http_updates(
                 
                 match health_result {
                     Ok(response) if response.status().is_success() => {
-                        println!("✅ Health check successful to {} (status: {})", base_url, response.status());
+                        // Health check successful - continue with JSON-RPC test
                     }
                     Ok(response) => {
-                        println!("⚠️  Server responding but health check returned: {}", response.status());
+                        eprintln!("Remote server health check returned status: {}", response.status());
                     }
                     Err(e) => {
-                        println!("❌ Health check failed (attempt {}/{}): {}", retry_count, max_retries, e);
+                        eprintln!("Remote health check failed (attempt {}/{}): {}", retry_count, max_retries, e);
                     }
                 }
                 
@@ -320,13 +357,10 @@ fn handle_http_updates(
                     "method": "bevy/query",
                     "params": {
                         "data": {
-                            "components": [],
-                            "option": [
-                                "bevy_transform::components::transform::Transform",
-                                "server::Cube",
-                                "bevy_core_pipeline::core_3d::camera_3d::Camera3d",
-                                "bevy_render::light::point_light::PointLight"
+                            "components": [
+                                "bevy_transform::components::transform::Transform"
                             ],
+                            "option": "all",
                             "has": []
                         },
                         "filter": {
@@ -344,16 +378,12 @@ fn handle_http_updates(
                 
                 match jsonrpc_result {
                     Ok(response) if response.status().is_success() => {
-                        println!("✅ JSON-RPC connection successful to {} (attempt {}/{})", 
-                            base_url, retry_count, max_retries);
+                        // JSON-RPC connection successful - parse entity data
                         
                         // Fetch entities on successful connection
                         let entities_result = response.json::<Value>().await;
                         match entities_result {
                             Ok(json_response) => {
-                                // Debug: Print the actual JSON response structure
-                                println!("📋 JSON-RPC Response: {}", serde_json::to_string_pretty(&json_response).unwrap_or_else(|_| "Failed to serialize".to_string()));
-                                
                                 // Parse the entities from the response
                                 let mut entities = HashMap::new();
                                 if let Some(result) = json_response.get("result") {
@@ -398,7 +428,7 @@ fn handle_http_updates(
                                 }
                             }
                             Err(e) => {
-                                println!("❌ Failed to parse entities response: {}", e);
+                                eprintln!("Failed to parse entities response: {}", e);
                                 // Send failed connection status
                                 if let Some(sender) = &status_sender {
                                     let status_update = ConnectionStatusUpdate {
@@ -412,7 +442,7 @@ fn handle_http_updates(
                         }
                     }
                     Ok(response) => {
-                        println!("❌ JSON-RPC endpoint returned error {} (attempt {}/{})", 
+                        eprintln!("JSON-RPC endpoint returned error {} (attempt {}/{})", 
                             response.status(), retry_count, max_retries);
                         // Send failed connection status
                         if let Some(sender) = &status_sender {
@@ -425,7 +455,7 @@ fn handle_http_updates(
                         }
                     }
                     Err(e) => {
-                        println!("❌ JSON-RPC connection failed (attempt {}/{}): {}", 
+                        eprintln!("JSON-RPC connection failed (attempt {}/{}): {}", 
                             retry_count, max_retries, e);
                         // Send failed connection status
                         if let Some(sender) = &status_sender {
@@ -437,8 +467,8 @@ fn handle_http_updates(
                             let _ = sender.send(status_update).await;
                         }
                         if retry_count >= max_retries {
-                            println!("   Max retries reached. Make sure the target app is running with bevy_remote enabled.");
-                            println!("   Expected endpoints: {}/health and {}/jsonrpc", base_url, base_url);
+                            eprintln!("Max connection retries reached. Ensure target app is running with bevy_remote enabled.");
+                            eprintln!("Expected endpoints: {}/health and {}/jsonrpc", base_url, base_url);
                         }
                     }
                 }
@@ -449,6 +479,6 @@ fn handle_http_updates(
     // Process any pending updates from HTTP client
     let updates = http_client.check_updates();
     if !updates.is_empty() {
-        println!("Received {} updates from HTTP client", updates.len());
+        debug!("Received {} live updates from remote client", updates.len());
     }
 }

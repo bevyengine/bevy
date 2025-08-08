@@ -1,7 +1,22 @@
 //! Example target application for the remote inspector
 //!
-//! This application runs bevy_remote and can be inspected by the remote inspector.
-//! Run this first, then run the remote inspector to connect to it.
+//! This application demonstrates a remote-inspectable Bevy app with bevy_remote enabled.
+//! The inspector can connect to this app and view entities/components in real-time.
+//!
+//! ## Usage
+//!
+//! 1. Run this target application first:
+//!    ```
+//!    cargo run --example remote_inspector_target
+//!    ```
+//!
+//! 2. In another terminal, run the inspector:
+//!    ```  
+//!    cargo run --example inspector_minimal
+//!    ```
+//!
+//! The inspector will automatically connect to http://localhost:15702 and display
+//! all entities and their components with live updates as values change.
 
 use bevy::prelude::*;
 
