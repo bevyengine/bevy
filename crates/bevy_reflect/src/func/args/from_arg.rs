@@ -1,7 +1,3 @@
-#![expect(
-    mismatched_lifetime_syntaxes,
-    reason = "I can't figure out how to fix this."
-)]
 use crate::func::args::{Arg, ArgError};
 use crate::{Reflect, TypePath};
 
@@ -33,13 +29,13 @@ pub trait FromArg {
     /// Creates an item from an argument.
     ///
     /// The argument must be of the expected type and ownership.
-    fn from_arg(arg: Arg) -> Result<Self::This<'_>, ArgError>;
+    fn from_arg(arg: Arg<'_>) -> Result<Self::This<'_>, ArgError>;
 }
 
 // Blanket impl.
 impl<T: Reflect + TypePath> FromArg for &'static T {
     type This<'a> = &'a T;
-    fn from_arg(arg: Arg) -> Result<Self::This<'_>, ArgError> {
+    fn from_arg(arg: Arg<'_>) -> Result<Self::This<'_>, ArgError> {
         arg.take_ref()
     }
 }
@@ -47,7 +43,7 @@ impl<T: Reflect + TypePath> FromArg for &'static T {
 // Blanket impl.
 impl<T: Reflect + TypePath> FromArg for &'static mut T {
     type This<'a> = &'a mut T;
-    fn from_arg(arg: Arg) -> Result<Self::This<'_>, ArgError> {
+    fn from_arg(arg: Arg<'_>) -> Result<Self::This<'_>, ArgError> {
         arg.take_mut()
     }
 }
@@ -81,11 +77,7 @@ macro_rules! impl_from_arg {
         )?
         {
             type This<'from_arg> = $ty;
-            #[expect(
-                mismatched_lifetime_syntaxes,
-                reason = "I can't figure out how to fix this."
-            )]
-            fn from_arg(arg: $crate::func::args::Arg) ->
+            fn from_arg(arg: $crate::func::args::Arg<'_>) ->
                 Result<Self::This<'_>, $crate::func::args::ArgError>
             {
                 arg.take_owned()
