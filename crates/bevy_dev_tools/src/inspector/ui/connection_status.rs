@@ -11,6 +11,7 @@ use bevy_ui::prelude::*;
 pub struct ConnectionStatus {
     /// Whether the remote connection is currently active
     pub is_connected: bool,
+
     /// Last error message if connection failed
     pub last_error: Option<String>,
 }
