@@ -1,12 +1,17 @@
-//! HTTP client for bevy_remote protocol with streaming support
+//! HTTP client for bevy_remote protocol with connection resilience
 //!
-//! This client implements the bevy_remote JSON-RPC protocol with support for:
-//! - bevy/list: List all entities  
-//! - bevy/get: Get component data for entities
-//! - bevy/get+watch: Stream live component updates
+//! This client implements the bevy_remote JSON-RPC protocol with comprehensive support for:
+//! - **bevy/query**: Query entities and components with flexible filtering
+//! - **bevy/get+watch**: Stream live component updates via Server-Sent Events (SSE)  
+//! - **Connection Management**: Auto-retry logic with exponential backoff
+//! - **Error Recovery**: Robust error handling and reconnection strategies
+//!
+//! The client automatically handles connection failures and provides real-time updates
+//! for component values in remote Bevy applications.
 
 use anyhow::{anyhow, Result};
 use bevy_ecs::prelude::*;
+use bevy_log::prelude::*;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -66,7 +71,18 @@ impl Default for HttpRemoteConfig {
     }
 }
 
-/// HTTP client for bevy_remote communication
+/// HTTP client for bevy_remote communication with connection resilience
+/// 
+/// This client manages communication with remote Bevy applications via the bevy_remote
+/// JSON-RPC protocol. It provides automatic connection retry logic, live component
+/// streaming, and robust error handling.
+/// 
+/// # Features
+/// - Auto-retry connection logic with exponential backoff
+/// - Live component value streaming via bevy/get+watch 
+/// - Comprehensive entity and component querying
+/// - Connection status monitoring and recovery
+/// - Async channel-based communication for non-blocking updates
 #[derive(Resource)]
 pub struct HttpRemoteClient {
     pub client: Client,
@@ -157,7 +173,7 @@ impl HttpRemoteClient {
 
     /// Test connection to bevy_remote server
     pub async fn connect(&mut self) -> Result<()> {
-        println!("Attempting to connect to {} (attempt {}/{})", 
+        debug!("Attempting connection to {} (attempt {}/{})", 
             self.base_url, self.retry_count + 1, self.max_retries);
         
         // Try a simple list request to test connectivity
@@ -166,7 +182,7 @@ impl HttpRemoteClient {
                 self.is_connected = true;
                 self.last_error = None;
                 self.retry_count = 0; // Reset retry counter on successful connection
-                println!("✅ Connected to bevy_remote at {}", self.base_url);
+                info!("Connected to bevy_remote at {}", self.base_url);
                 Ok(())
             }
             Err(e) => {
@@ -175,12 +191,12 @@ impl HttpRemoteClient {
                 self.retry_count += 1;
                 
                 if self.retry_count <= self.max_retries {
-                    println!("⚠️  Connection failed (attempt {}/{}): {}", 
+                    warn!("Connection failed (attempt {}/{}): {}", 
                         self.retry_count, self.max_retries, e);
-                    println!("   Will retry in {} seconds...", self.retry_delay);
+                    debug!("Will retry in {} seconds", self.retry_delay);
                 } else {
-                    println!("❌ Failed to connect after {} attempts: {}", self.max_retries, e);
-                    println!("   Make sure the target app is running with bevy_remote enabled");
+                    error!("Failed to connect after {} attempts: {}", self.max_retries, e);
+                    error!("Ensure target app is running with bevy_remote enabled");
                 }
                 Err(e)
             }
@@ -221,7 +237,7 @@ impl HttpRemoteClient {
                 }
             }
             
-            println!("Listed {} entities via query", entity_ids.len());
+            debug!("Listed {} entities via query", entity_ids.len());
             Ok(entity_ids)
         } else if let Some(error) = response.error {
             Err(anyhow!("bevy/query error: {}", error.message))
@@ -238,7 +254,7 @@ impl HttpRemoteClient {
             method: "bevy/query".to_string(),
             params: Some(serde_json::json!({
                 "data": {
-                    "components": [],
+                    "components": "all",
                     "option": "all",
                     "has": []
                 },
@@ -303,7 +319,7 @@ impl HttpRemoteClient {
                 self.entities.insert(entity.id, entity.clone());
             }
             
-            println!("Retrieved {} entities with component data", entities.len());
+            debug!("Retrieved {} entities with component data", entities.len());
             Ok(entities)
         } else if let Some(error) = response.error {
             Err(anyhow!("bevy/query error: {}", error.message))
@@ -314,11 +330,11 @@ impl HttpRemoteClient {
 
     /// Start streaming updates for entities via bevy/get+watch
     pub async fn start_watching(&mut self, entity_ids: &[u32]) -> Result<()> {
-        println!("Starting watch stream for {} entities", entity_ids.len());
+        debug!("Starting watch stream for {} entities", entity_ids.len());
         
         // Note: This method is now deprecated in favor of start_component_watching
         // which uses the new bevy_remote streaming API properly
-        println!("Warning: start_watching is deprecated, use start_component_watching instead");
+        warn!("start_watching is deprecated, use start_component_watching instead");
         
         Ok(())
     }
