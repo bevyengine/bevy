@@ -17,7 +17,7 @@ extern crate alloc;
 use bevy_derive::Deref;
 use bevy_reflect::prelude::ReflectDefault;
 use bevy_reflect::Reflect;
-use bevy_window::{RawHandleWrapperHolder, WindowEvent};
+use bevy_window::{RawDisplayHandleWrapper, RawWindowHandleWrapperHolder, WindowEvent};
 use core::cell::RefCell;
 use core::marker::PhantomData;
 use winit::{event_loop::EventLoop, window::WindowId};
@@ -130,9 +130,11 @@ impl<T: BufferedEvent> Plugin for WinitPlugin<T> {
             .build()
             .expect("Failed to build event loop");
 
+        tracing::info!("Init app");
+
         app.init_resource::<WinitMonitors>()
             .init_resource::<WinitSettings>()
-            .insert_resource(DisplayHandleWrapper(event_loop.owned_display_handle()))
+            .insert_resource(RawDisplayHandleWrapper::new(&event_loop).unwrap())
             .add_event::<RawWinitWindowEvent>()
             .set_runner(|app| winit_runner(app, event_loop))
             .add_systems(
@@ -183,15 +185,6 @@ pub struct RawWinitWindowEvent {
 #[derive(Resource, Deref)]
 pub struct EventLoopProxyWrapper<T: 'static>(EventLoopProxy<T>);
 
-/// A wrapper around [`winit::event_loop::OwnedDisplayHandle`]
-///
-/// The `DisplayHandleWrapper` can be used to build integrations that rely on direct
-/// access to the display handle
-///
-/// Use `Res<DisplayHandleWrapper>` to receive this resource.
-#[derive(Resource, Deref)]
-pub struct DisplayHandleWrapper(pub winit::event_loop::OwnedDisplayHandle);
-
 trait AppSendEvent {
     fn send(&mut self, event: impl Into<WindowEvent>);
 }
@@ -212,7 +205,7 @@ pub type CreateWindowParams<'w, 's, F = ()> = (
             Entity,
             &'static mut Window,
             &'static CursorOptions,
-            Option<&'static RawHandleWrapperHolder>,
+            Option<&'static RawWindowHandleWrapperHolder>,
         ),
         F,
     >,
