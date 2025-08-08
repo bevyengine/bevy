@@ -163,9 +163,9 @@ impl UndoHistory {
 /// Details of the target the text input will be rendered to
 #[derive(Component, PartialEq, Debug, Default)]
 pub struct TextInputTarget {
-    /// size of the target
+    /// Size of the target in physical pixels
     pub size: Vec2,
-    /// scale factor of the target
+    /// Scale factor of the target
     pub scale_factor: f32,
 }
 
