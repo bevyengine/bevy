@@ -2,7 +2,10 @@
 use std::any::TypeId;
 
 use bevy::{
-    color::palettes::css::NAVY,
+    color::palettes::{
+        css::NAVY,
+        tailwind::{BLUE_900, GRAY_300, GRAY_400, SKY_300},
+    },
     input::keyboard::{Key, KeyboardInput},
     prelude::*,
     sprite::{
@@ -10,9 +13,9 @@ use bevy::{
         ExtractedSprites,
     },
     text::{
-        LineBreak, Motion, Placeholder, PlaceholderLayout, PositionedGlyph,
+        LineBreak, Motion, Placeholder, PlaceholderLayout, PositionedGlyph, TextBounds,
         TextCursorBlinkInterval, TextEdit, TextEdits, TextInputAttributes, TextInputBuffer,
-        TextInputStyle, TextInputSystems, TextInputTarget, TextLayoutInfo, UndoHistory,
+        TextInputEvent, TextInputSystems, TextInputTarget, TextLayoutInfo, UndoHistory,
     },
     window::PrimaryWindow,
 };
@@ -23,7 +26,7 @@ use bevy_render::{
 #[derive(Component)]
 struct TextInputSize(Vec2);
 
-#[derive(Component)]
+#[derive(Component, Default)]
 struct Overwrite(bool);
 
 fn main() {
@@ -44,29 +47,55 @@ fn main() {
 fn setup(mut commands: Commands) {
     commands.spawn(Camera2d);
 
-    commands.spawn((
-        TextInputBuffer {
-            cursor_blink_timer: Some(0.),
-            ..Default::default()
-        },
-        TextLayoutInfo::default(),
-        TextEdits::default(),
-        TextInputAttributes::default(),
-        TextInputTarget::default(),
-        Overwrite(false),
-        TextFont::default(),
-        TextInputStyle::default(),
-        TextInputSize(Vec2::new(500., 250.)),
-        Transform::default(),
-        GlobalTransform::default(),
-        UndoHistory::default(),
-        Placeholder::new("type here.."),
-        (
-            Visibility::default(),
-            VisibilityClass([TypeId::of::<Sprite>()].into()),
-            Anchor::CENTER,
-        ),
-    ));
+    let submit_target = commands
+        .spawn((
+            Text2d::new("submit with SHIFT + ENTER"),
+            TextBounds {
+                width: Some(500.),
+                height: None,
+            },
+            TextLayout {
+                linebreak: LineBreak::AnyCharacter,
+                justify: Justify::Left,
+            },
+            Transform::from_translation(Vec3::new(0., -150., 0.)),
+        ))
+        .id();
+
+    commands
+        .spawn((
+            TextInputBuffer {
+                cursor_blink_timer: Some(0.),
+                ..Default::default()
+            },
+            TextLayoutInfo::default(),
+            TextEdits::default(),
+            TextInputAttributes::default(),
+            TextInputTarget::default(),
+            Overwrite::default(),
+            TextFont::default(),
+            TextInputSize(Vec2::new(500., 250.)),
+            Transform::from_translation(Vec3::new(0., 150., 0.)),
+            UndoHistory::default(),
+            Placeholder::new("type here.."),
+            (
+                Visibility::default(),
+                VisibilityClass([TypeId::of::<Sprite>()].into()),
+                Anchor::CENTER,
+            ),
+        ))
+        .observe(
+            move |event: On<TextInputEvent>, mut query: Query<&mut Text2d>| {
+                match event.event() {
+                    TextInputEvent::Submission { text } => {
+                        if let Ok(mut target) = query.get_mut(submit_target) {
+                            target.0 = text.clone();
+                        }
+                    }
+                    _ => {}
+                };
+            },
+        );
 }
 
 fn update_targets(
@@ -86,7 +115,7 @@ fn update_targets(
         .unwrap_or(1.0);
     for (entity, size, mut target, anchor, aabb) in query.iter_mut() {
         if target.set_if_neq(TextInputTarget {
-            size: size.0,
+            size: size.0 * scale_factor,
             scale_factor,
         }) {
             let x1 = (Anchor::TOP_LEFT.0.x - anchor.as_vec().x) * size.0.x;
@@ -297,7 +326,6 @@ fn extract_text_input(
             &TextLayoutInfo,
             Option<&PlaceholderLayout>,
             &TextInputTarget,
-            &TextInputStyle,
             &Overwrite,
             &ViewVisibility,
             &Anchor,
@@ -314,7 +342,6 @@ fn extract_text_input(
         text_layout,
         maybe_placeholder_layout,
         target,
-        input_style,
         overwrite,
         view_visibility,
         anchor,
@@ -327,17 +354,17 @@ fn extract_text_input(
 
         let top_left = (Anchor::TOP_LEFT.as_vec() - anchor.as_vec()) * target.size;
 
-        let (layout, color) = if let Some(placeholder_layout) =
+        let (layout, color): (_, Color) = if let Some(placeholder_layout) =
             maybe_placeholder_layout.filter(|_| buffer.is_empty())
         {
-            (placeholder_layout.layout(), input_style.prompt_color)
+            (placeholder_layout.layout(), SKY_300.into())
         } else {
-            (text_layout, input_style.text_color)
+            (text_layout, GRAY_300.into())
         };
 
         let transform = *global_transform
-            * GlobalTransform::from_translation(top_left.extend(0.))
-            * GlobalTransform::from_scale(Vec2::splat(target.scale_factor.recip()).extend(1.));
+            * GlobalTransform::from_scale(Vec2::splat(target.scale_factor.recip()).extend(1.))
+            * GlobalTransform::from_translation(top_left.extend(0.));
 
         extracted_sprites.sprites.push(ExtractedSprite {
             main_entity,
@@ -376,7 +403,7 @@ fn extract_text_input(
                 render_entity: commands.spawn(TemporaryRenderEntity).id(),
                 transform: transform
                     * GlobalTransform::from_translation(Vec3::new(rect.min.x, -rect.min.y, 0.)),
-                color: input_style.selection_color.into(),
+                color: BLUE_900.into(),
                 image_handle_id: AssetId::default(),
                 flip_x: false,
                 flip_y: false,
@@ -441,10 +468,10 @@ fn extract_text_input(
         let (w, _cursor_z_offset) = if overwrite.0 {
             (layout_cursor_size.x, -0.001)
         } else {
-            (input_style.cursor_size.x * buffer.space_advance, 0.)
+            (0.2 * buffer.space_advance, 0.)
         };
 
-        let cursor_size = Vec2::new(w, input_style.cursor_size.y * layout_cursor_size.y).ceil();
+        let cursor_size = Vec2::new(w, layout_cursor_size.y).ceil();
         let cursor_x = position.x - 0.5 * (layout_cursor_size.x - cursor_size.x);
         let cursor_y = -position.y;
 
@@ -453,7 +480,7 @@ fn extract_text_input(
             render_entity: commands.spawn(TemporaryRenderEntity).id(),
             transform: transform
                 * GlobalTransform::from_translation(Vec3::new(cursor_x, cursor_y, 0.)),
-            color: input_style.cursor_color.into(),
+            color: GRAY_400.into(),
             image_handle_id: AssetId::default(),
             flip_x: false,
             flip_y: false,
