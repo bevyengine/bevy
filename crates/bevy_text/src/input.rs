@@ -213,6 +213,7 @@ fn on_insert_text_input_value(mut world: DeferredWorld, context: HookContext) {
     }
 }
 
+/// The time taken for the cursor to blink
 #[derive(Resource)]
 pub struct TextCursorBlinkInterval(pub Duration);
 
@@ -613,7 +614,6 @@ pub fn update_text_input_buffers(
         &mut TextInputBuffer,
         Ref<TextInputTarget>,
         &TextEdits,
-        &TextInputStyle,
         Ref<TextInputAttributes>,
     )>,
     time: Res<Time>,
@@ -624,7 +624,7 @@ pub fn update_text_input_buffers(
 ) {
     let font_system = &mut font_system.0;
     let font_id_map = &mut text_pipeline.map_handle_to_font_id;
-    for (mut input_buffer, target, edits, style, attributes) in text_input_query.iter_mut() {
+    for (mut input_buffer, target, edits, attributes) in text_input_query.iter_mut() {
         let TextInputBuffer {
             editor,
             space_advance,
