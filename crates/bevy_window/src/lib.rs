@@ -128,7 +128,7 @@ impl Plugin for WindowPlugin {
             let mut entity_commands = app.world_mut().spawn(primary_window.clone());
             entity_commands.insert((
                 PrimaryWindow,
-                RawHandleWrapperHolder(Arc::new(Mutex::new(None))),
+                RawWindowHandleWrapperHolder(Arc::new(Mutex::new(None))),
             ));
             if let Some(primary_cursor_options) = &self.primary_cursor_options {
                 entity_commands.insert(primary_cursor_options.clone());
