@@ -187,7 +187,7 @@ mod render_asset;
 mod server;
 
 #[cfg(any(feature = "http", feature = "https"))]
-pub mod http_source;
+pub mod web;
 
 pub use assets::*;
 pub use bevy_asset_macros::Asset;

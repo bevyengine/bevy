@@ -1,6 +1,6 @@
 //! Example usage of the `https` asset source to load assets from the web.
 //!
-//! Run with the feature `https`, and optionally `http_source_cache`
+//! Run with the feature `https`, and optionally `web_asset_cache`
 //! for a simple caching mechanism that never invalidates.
 //!
 use bevy::prelude::*;

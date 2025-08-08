@@ -523,7 +523,7 @@ http = ["bevy_internal/http"]
 https = ["bevy_internal/https"]
 
 # Enable caching downloaded assets on the filesystem. NOTE: this cache currently never invalidates entries!
-http_source_cache = ["bevy_internal/http_source_cache"]
+web_asset_cache = ["bevy_internal/web_asset_cache"]
 
 # Enable stepping-based debugging of Bevy systems
 bevy_debug_stepping = [
@@ -1902,14 +1902,14 @@ category = "Assets"
 wasm = false
 
 [[example]]
-name = "http_source"
-path = "examples/asset/http_source.rs"
+name = "web_asset"
+path = "examples/asset/web_asset.rs"
 doc-scrape-examples = true
 required-features = ["https"]
 
-[package.metadata.example.http_source]
-name = "HTTP Asset Source"
-description = "Load an asset from a http source"
+[package.metadata.example.web_asset]
+name = "Web Asset"
+description = "Load an asset from the web"
 category = "Assets"
 wasm = true
 

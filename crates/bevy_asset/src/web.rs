@@ -22,43 +22,43 @@ use std::path::{Path, PathBuf};
 /// [target.'cfg(not(target_family = "wasm"))'.dev-dependencies]
 /// ureq = { version = "3", default-features = false, features = ["gzip", "brotli"] }
 /// ```
-pub struct HttpSourcePlugin;
+pub struct WebAssetPlugin;
 
-impl Plugin for HttpSourcePlugin {
+impl Plugin for WebAssetPlugin {
     fn build(&self, app: &mut App) {
         #[cfg(feature = "http")]
         app.register_asset_source(
             "http",
             AssetSource::build()
-                .with_reader(|| Box::new(HttpSourceAssetReader::Http))
-                .with_processed_reader(|| Box::new(HttpSourceAssetReader::Http)),
+                .with_reader(|| Box::new(WebAssetReader::Http))
+                .with_processed_reader(|| Box::new(WebAssetReader::Http)),
         );
 
         #[cfg(feature = "https")]
         app.register_asset_source(
             "https",
             AssetSource::build()
-                .with_reader(|| Box::new(HttpSourceAssetReader::Https))
-                .with_processed_reader(|| Box::new(HttpSourceAssetReader::Https)),
+                .with_reader(|| Box::new(WebAssetReader::Https))
+                .with_processed_reader(|| Box::new(WebAssetReader::Https)),
         );
     }
 }
 
-impl Default for HttpSourcePlugin {
+impl Default for WebAssetPlugin {
     fn default() -> Self {
         Self
     }
 }
 
 /// Asset reader that treats paths as urls to load assets from.
-pub enum HttpSourceAssetReader {
+pub enum WebAssetReader {
     /// Unencrypted connections.
     Http,
     /// Use TLS for setting up connections.
     Https,
 }
 
-impl HttpSourceAssetReader {
+impl WebAssetReader {
     fn make_uri(&self, path: &Path) -> PathBuf {
         PathBuf::from(match self {
             Self::Http => "http://",
@@ -97,8 +97,8 @@ async fn get(path: PathBuf) -> Result<Box<dyn Reader>, AssetReaderError> {
         )
     })?;
 
-    #[cfg(all(not(target_arch = "wasm32"), feature = "http_source_cache"))]
-    if let Some(data) = http_asset_cache::try_load_from_cache(str_path).await? {
+    #[cfg(all(not(target_arch = "wasm32"), feature = "web_asset_cache"))]
+    if let Some(data) = web_asset_cache::try_load_from_cache(str_path).await? {
         return Ok(Box::new(VecReader::new(data)));
     }
     use ureq::Agent;
@@ -117,8 +117,8 @@ async fn get(path: PathBuf) -> Result<Box<dyn Reader>, AssetReaderError> {
             let mut buffer = Vec::new();
             reader.read_to_end(&mut buffer)?;
 
-            #[cfg(all(not(target_arch = "wasm32"), feature = "http_source_cache"))]
-            http_asset_cache::save_to_cache(str_path, &buffer).await?;
+            #[cfg(all(not(target_arch = "wasm32"), feature = "web_asset_cache"))]
+            web_asset_cache::save_to_cache(str_path, &buffer).await?;
 
             Ok(Box::new(VecReader::new(buffer)))
         }
@@ -141,7 +141,7 @@ async fn get(path: PathBuf) -> Result<Box<dyn Reader>, AssetReaderError> {
     }
 }
 
-impl AssetReader for HttpSourceAssetReader {
+impl AssetReader for WebAssetReader {
     fn read<'a>(
         &'a self,
         path: &'a Path,
@@ -166,11 +166,11 @@ impl AssetReader for HttpSourceAssetReader {
     }
 }
 
-/// A naive implementation of an HTTP asset cache that never invalidates.
+/// A naive implementation of a cache for assets downloaded from the web that never invalidates.
 /// `ureq` currently does not support caching, so this is a simple workaround.
 /// It should eventually be replaced by `http-cache` or similar, see [tracking issue](https://github.com/06chaynes/http-cache/issues/91)
-#[cfg(all(not(target_arch = "wasm32"), feature = "http_source_cache"))]
-mod http_asset_cache {
+#[cfg(all(not(target_arch = "wasm32"), feature = "web_asset_cache"))]
+mod web_asset_cache {
     use alloc::string::String;
     use alloc::vec::Vec;
     use core::hash::{Hash, Hasher};
@@ -181,7 +181,7 @@ mod http_asset_cache {
 
     use crate::io::Reader;
 
-    const CACHE_DIR: &str = ".http-asset-cache";
+    const CACHE_DIR: &str = ".web-asset-cache";
 
     fn url_to_hash(url: &str) -> String {
         let mut hasher = DefaultHasher::new();
@@ -223,7 +223,7 @@ mod tests {
     #[test]
     fn make_http_uri() {
         assert_eq!(
-            HttpSourceAssetReader::Http
+            WebAssetReader::Http
                 .make_uri(Path::new("example.com/favicon.png"))
                 .to_str()
                 .unwrap(),
@@ -234,7 +234,7 @@ mod tests {
     #[test]
     fn make_https_uri() {
         assert_eq!(
-            HttpSourceAssetReader::Https
+            WebAssetReader::Https
                 .make_uri(Path::new("example.com/favicon.png"))
                 .to_str()
                 .unwrap(),
@@ -245,7 +245,7 @@ mod tests {
     #[test]
     fn make_http_meta_uri() {
         assert_eq!(
-            HttpSourceAssetReader::Http
+            WebAssetReader::Http
                 .make_meta_uri(Path::new("example.com/favicon.png"))
                 .to_str()
                 .unwrap(),
@@ -256,7 +256,7 @@ mod tests {
     #[test]
     fn make_https_meta_uri() {
         assert_eq!(
-            HttpSourceAssetReader::Https
+            WebAssetReader::Https
                 .make_meta_uri(Path::new("example.com/favicon.png"))
                 .to_str()
                 .unwrap(),
@@ -267,7 +267,7 @@ mod tests {
     #[test]
     fn make_https_without_extension_meta_uri() {
         assert_eq!(
-            HttpSourceAssetReader::Https
+            WebAssetReader::Https
                 .make_meta_uri(Path::new("example.com/favicon"))
                 .to_str()
                 .unwrap(),

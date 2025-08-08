@@ -256,10 +256,10 @@ Example | Description
 [Custom Asset IO](../examples/asset/custom_asset_reader.rs) | Implements a custom AssetReader
 [Embedded Asset](../examples/asset/embedded_asset.rs) | Embed an asset in the application binary and load it
 [Extra Asset Source](../examples/asset/extra_source.rs) | Load an asset from a non-standard asset source
-[HTTP Asset Source](../examples/asset/http_source.rs) | Load an asset from a http source
 [Hot Reloading of Assets](../examples/asset/hot_asset_reloading.rs) | Demonstrates automatic reloading of assets when modified on disk
 [Multi-asset synchronization](../examples/asset/multi_asset_sync.rs) | Demonstrates how to wait for multiple assets to be loaded.
 [Repeated texture configuration](../examples/asset/repeated_texture.rs) | How to configure the texture to repeat instead of the default clamp to edges
+[Web Asset](../examples/asset/web_asset.rs) | Load an asset from the web
 
 ## Async Tasks
 

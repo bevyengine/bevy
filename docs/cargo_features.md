@@ -93,7 +93,6 @@ The default feature set enables most of the expected features of a game engine, 
 |gltf_convert_coordinates_default|Enable converting glTF coordinates to Bevy's coordinate system by default. This will be Bevy's default behavior starting in 0.18.|
 |hotpatching|Enable hotpatching of Bevy systems|
 |http|Enables downloading assets from HTTP sources|
-|http_source_cache|Enable caching downloaded assets on the filesystem. NOTE: this cache currently never invalidates entries!|
 |https|Enables downloading assets from HTTPS sources|
 |ico|ICO image format support|
 |jpeg|JPEG image format support|
@@ -132,6 +131,7 @@ The default feature set enables most of the expected features of a game engine, 
 |wav|WAV audio format support|
 |wayland|Wayland display server support|
 |web|Enables use of browser APIs. Note this is currently only applicable on `wasm32` architectures.|
+|web_asset_cache|Enable caching downloaded assets on the filesystem. NOTE: this cache currently never invalidates entries!|
 |webgpu|Enable support for WebGPU in Wasm. When enabled, this feature will override the `webgl2` feature and you won't be able to run Wasm builds with WebGL2, only with WebGPU.|
 |webp|WebP image format support|
 |zlib|For KTX2 supercompression|
