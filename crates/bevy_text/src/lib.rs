@@ -123,19 +123,21 @@ impl Plugin for TextPlugin {
             )
             .add_systems(Last, trim_cosmic_cache);
 
-        app.init_resource::<Clipboard>().add_systems(
-            PostUpdate,
-            (
-                update_text_input_buffers,
-                apply_text_edits,
-                update_password_masks,
-                update_text_input_layouts,
-                update_placeholder_layouts,
-            )
-                .chain()
-                .in_set(TextInputSystems)
-                .ambiguous_with(Text2dUpdateSystems),
-        );
+        app.init_resource::<Clipboard>()
+            .init_resource::<CursorBlinkInterval>()
+            .add_systems(
+                PostUpdate,
+                (
+                    update_text_input_buffers,
+                    apply_text_edits,
+                    update_password_masks,
+                    update_text_input_layouts,
+                    update_placeholder_layouts,
+                )
+                    .chain()
+                    .in_set(TextInputSystems)
+                    .ambiguous_with(Text2dUpdateSystems),
+            );
 
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app.add_systems(

@@ -10,9 +10,9 @@ use bevy::{
         ExtractedSprites,
     },
     text::{
-        LineBreak, Motion, Placeholder, PlaceholderLayout, PositionedGlyph, TextEdit, TextEdits,
-        TextInputAttributes, TextInputBuffer, TextInputStyle, TextInputSystems, TextInputTarget,
-        TextLayoutInfo, UndoHistory,
+        CursorBlinkInterval, LineBreak, Motion, Placeholder, PlaceholderLayout, PositionedGlyph,
+        TextEdit, TextEdits, TextInputAttributes, TextInputBuffer, TextInputStyle,
+        TextInputSystems, TextInputTarget, TextLayoutInfo, UndoHistory,
     },
     window::PrimaryWindow,
 };
@@ -289,6 +289,7 @@ fn extract_text_input(
     mut extracted_sprites: ResMut<ExtractedSprites>,
     mut extracted_slices: ResMut<ExtractedSlices>,
     texture_atlases: Extract<Res<Assets<TextureAtlasLayout>>>,
+    cursor_blink_interval: Extract<Res<CursorBlinkInterval>>,
     text_input_query: Extract<
         Query<(
             Entity,
@@ -356,7 +357,7 @@ fn extract_text_input(
 
         let blink = buffer
             .cursor_blink_timer
-            .is_none_or(|t| input_style.cursor_blink_interval.as_secs_f32() < t);
+            .is_none_or(|t| cursor_blink_interval.0.as_secs_f32() < t);
 
         let transform = transform
             * GlobalTransform::from_translation(

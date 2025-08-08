@@ -213,6 +213,15 @@ fn on_insert_text_input_value(mut world: DeferredWorld, context: HookContext) {
     }
 }
 
+#[derive(Resource)]
+pub struct CursorBlinkInterval(pub Duration);
+
+impl Default for CursorBlinkInterval {
+    fn default() -> Self {
+        Self(Duration::from_secs_f32(0.5))
+    }
+}
+
 /// Visual styling for a text input widget.
 #[derive(Component, Clone)]
 pub struct TextInputStyle {
@@ -226,8 +235,6 @@ pub struct TextInputStyle {
     pub cursor_color: Color,
     /// Size of the insert cursor relative to the space advance width and line height.
     pub cursor_size: Vec2,
-    /// How long the cursor blinks for.
-    pub cursor_blink_interval: Duration,
     /// Color of selection blocks
     pub selection_color: Color,
 }
@@ -240,7 +247,6 @@ impl Default for TextInputStyle {
             prompt_color: SKY_300.into(),
             cursor_color: GRAY_400.into(),
             cursor_size: Vec2::new(0.2, 1.),
-            cursor_blink_interval: Duration::from_secs_f32(0.5),
             selection_color: BLUE_900.into(),
         }
     }
@@ -611,6 +617,7 @@ pub fn update_text_input_buffers(
         Ref<TextInputAttributes>,
     )>,
     time: Res<Time>,
+    cursor_blink_interval: Res<CursorBlinkInterval>,
     mut font_system: ResMut<CosmicFontSystem>,
     mut text_pipeline: ResMut<TextPipeline>,
     fonts: Res<Assets<Font>>,
@@ -626,8 +633,7 @@ pub fn update_text_input_buffers(
 
         if let Some(timer) = cursor_blink_timer {
             *timer = if edits.queue.is_empty() {
-                (*timer + time.delta_secs())
-                    .rem_euclid(style.cursor_blink_interval.as_secs_f32() * 2.)
+                (*timer + time.delta_secs()).rem_euclid(cursor_blink_interval.0.as_secs_f32() * 2.)
             } else {
                 0.
             };
