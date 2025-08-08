@@ -112,6 +112,7 @@ pub fn compact_raytracing_blas(
         && let Some((mesh, vertex_count, compaction_started)) =
             blas_manager.compaction_queue.pop_front()
     {
+        // Stop iterating once we loop back around to the start of the list
         if Some(mesh) == first_mesh_processed {
             break;
         }
@@ -135,6 +136,7 @@ pub fn compact_raytracing_blas(
             continue;
         }
 
+        // BLAS not ready for compaction, put back in queue
         blas_manager
             .compaction_queue
             .push_back((mesh, vertex_count, true));
