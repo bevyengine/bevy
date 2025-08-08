@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 use crate::buffer_dimensions;
 use crate::load_font_to_fontdb;
 use crate::CosmicFontSystem;
@@ -16,6 +18,12 @@ use crate::TextPipeline;
 use alloc::collections::VecDeque;
 use bevy_asset::Assets;
 use bevy_asset::Handle;
+use bevy_color::palettes::tailwind::BLUE_900;
+use bevy_color::palettes::tailwind::GRAY_300;
+use bevy_color::palettes::tailwind::GRAY_400;
+use bevy_color::palettes::tailwind::GRAY_950;
+use bevy_color::palettes::tailwind::SKY_300;
+use bevy_color::Color;
 use bevy_derive::Deref;
 use bevy_derive::DerefMut;
 use bevy_ecs::change_detection::DetectChanges;
@@ -44,6 +52,7 @@ use bevy_math::UVec2;
 use bevy_math::Vec2;
 use bevy_reflect::prelude::ReflectDefault;
 use bevy_reflect::Reflect;
+use bevy_time::Time;
 use cosmic_text::Action;
 use cosmic_text::BorrowedWithFontSystem;
 use cosmic_text::Buffer;
@@ -89,6 +98,11 @@ pub struct TextInputBuffer {
     /// Space advance width for the current font, used to determine the width of the cursor when it is at the end of a line
     /// or when the buffer is empty.
     pub space_advance: f32,
+    /// Controls cursor blinking.
+    /// If the value is none or greater than the `blink_interval` in `TextCursorStyle` then the cursor
+    /// is not displayed.
+    /// The timer is reset when a `TextEdit` is applied.
+    pub cursor_blink_timer: Option<f32>,
 }
 
 impl Default for TextInputBuffer {
@@ -96,6 +110,7 @@ impl Default for TextInputBuffer {
         Self {
             editor: Editor::new(Buffer::new_empty(Metrics::new(20.0, 20.0))),
             space_advance: 20.,
+            cursor_blink_timer: None,
         }
     }
 }
@@ -194,6 +209,39 @@ fn on_insert_text_input_value(mut world: DeferredWorld, context: HookContext) {
         let value = value.0.clone();
         if let Some(mut actions) = world.entity_mut(context.entity).get_mut::<TextEdits>() {
             actions.queue(TextEdit::SetText(value));
+        }
+    }
+}
+
+/// Visual styling for a text input widget.
+#[derive(Component, Clone)]
+pub struct TextInputStyle {
+    /// Text color
+    pub text_color: Color,
+    /// Color of text under an overwrite cursor
+    pub overwrite_text_color: Color,
+    /// Color of input prompt (if set)
+    pub prompt_color: Color,
+    /// Color of the cursor.
+    pub cursor_color: Color,
+    /// Size of the insert cursor relative to the space advance width and line height.
+    pub cursor_size: Vec2,
+    /// How long the cursor blinks for.
+    pub cursor_blink_interval: Duration,
+    /// Color of selection blocks
+    pub selection_color: Color,
+}
+
+impl Default for TextInputStyle {
+    fn default() -> Self {
+        Self {
+            text_color: Color::from(GRAY_300),
+            overwrite_text_color: GRAY_950.into(),
+            prompt_color: SKY_300.into(),
+            cursor_color: GRAY_400.into(),
+            cursor_size: Vec2::new(0.2, 1.),
+            cursor_blink_interval: Duration::from_secs_f32(0.5),
+            selection_color: BLUE_900.into(),
         }
     }
 }
@@ -558,20 +606,32 @@ pub fn update_text_input_buffers(
     mut text_input_query: Query<(
         &mut TextInputBuffer,
         Ref<TextInputTarget>,
+        &TextEdits,
+        &TextInputStyle,
         Ref<TextInputAttributes>,
     )>,
+    time: Res<Time>,
     mut font_system: ResMut<CosmicFontSystem>,
     mut text_pipeline: ResMut<TextPipeline>,
     fonts: Res<Assets<Font>>,
 ) {
     let font_system = &mut font_system.0;
     let font_id_map = &mut text_pipeline.map_handle_to_font_id;
-    for (mut input_buffer, target, attributes) in text_input_query.iter_mut() {
+    for (mut input_buffer, target, edits, style, attributes) in text_input_query.iter_mut() {
         let TextInputBuffer {
             editor,
             space_advance,
-            ..
+            cursor_blink_timer,
         } = input_buffer.as_mut();
+
+        if let Some(timer) = cursor_blink_timer {
+            *timer = if edits.queue.is_empty() {
+                (*timer + time.delta_secs())
+                    .rem_euclid(style.cursor_blink_interval.as_secs_f32() * 2.)
+            } else {
+                0.
+            };
+        }
 
         let _ = editor.with_buffer_mut(|buffer| {
             if target.is_changed() || attributes.is_changed() {
