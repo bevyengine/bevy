@@ -1,16 +1,16 @@
 //! Component viewer UI with live data updates
 
+use super::collapsible_section::{CollapsibleContent, CollapsibleHeader, CollapsibleSection};
+use super::entity_list::{EntityCache, SelectedEntity};
+use crate::inspector::http_client::{ComponentUpdate, HttpRemoteClient};
+use crate::widgets::selectable_text::{SelectableText, TextSelectionState};
+use bevy_color::Color;
 use bevy_ecs::prelude::*;
 use bevy_ecs::system::ParamSet;
-use bevy_ui::prelude::*;
-use bevy_color::Color;
-use bevy_time::Time;
-use bevy_text::{TextFont, TextColor};
 use bevy_input::prelude::*;
-use crate::inspector::http_client::{HttpRemoteClient, ComponentUpdate};
-use super::entity_list::{SelectedEntity, EntityCache};
-use super::collapsible_section::{CollapsibleSection, CollapsibleHeader, CollapsibleContent};
-use crate::widgets::selectable_text::{SelectableText, TextSelectionState};
+use bevy_text::{TextColor, TextFont};
+use bevy_time::Time;
+use bevy_ui::prelude::*;
 use serde_json::Value;
 use std::collections::{HashMap, HashSet};
 
@@ -21,25 +21,34 @@ pub struct ComponentViewerPanel;
 /// Component to track component data that needs live updates
 #[derive(Component)]
 pub struct ComponentData {
+    /// The entity this component data belongs to
     pub entity_id: u32,
+    /// The name/type of the component being tracked
     pub component_name: String,
 }
 
 /// Resource to cache component data for live updates
 #[derive(Resource, Default)]
 pub struct ComponentCache {
+    /// Currently selected entity ID
     pub current_entity: Option<u32>,
+    /// Map of component names to their serialized values
     pub components: HashMap<String, Value>,
+    /// Timestamp of the last cache update
     pub last_update: f64,
-    pub ui_built_for_entity: Option<u32>, // Track which entity we've built UI for
+    /// Track which entity we've built UI for
+    pub ui_built_for_entity: Option<u32>,
 }
 
 /// Enhanced resource for live component caching with change tracking
 #[derive(Resource)]
 pub struct LiveComponentCache {
+    /// Map of entity IDs to their component states
     pub entity_components: HashMap<u32, HashMap<String, ComponentState>>,
+    /// Timestamp of the last update cycle
     pub last_update_time: f64,
-    pub update_frequency: f64, // Target update rate (e.g., 30 FPS)
+    /// Target update rate in seconds (e.g., 30 FPS = 1/30)
+    pub update_frequency: f64,
 }
 
 impl Default for LiveComponentCache {
@@ -55,18 +64,29 @@ impl Default for LiveComponentCache {
 /// State tracking for individual components with change indicators
 #[derive(Debug, Clone)]
 pub struct ComponentState {
+    /// The current serialized value of the component
     pub current_value: Value,
+    /// Timestamp when this component was last changed
     pub last_changed_time: f64,
+    /// Visual indicator for the change state
     pub change_indicator: ChangeIndicator,
-    pub previous_value: Option<Value>, // For showing diffs
+    /// Previous value for showing diffs
+    pub previous_value: Option<Value>,
 }
 
 /// Visual change indicators for components
 #[derive(Debug, Clone, PartialEq)]
 pub enum ChangeIndicator {
+    /// Component has not changed
     Unchanged,
-    Changed { duration: f64 }, // How long to show changed indicator
+    /// Component was recently changed, with duration in seconds to show indicator
+    Changed {
+        /// How long to show the changed indicator in seconds
+        duration: f64,
+    },
+    /// Component was removed from the entity
     Removed,
+    /// Component was newly added to the entity
     Added,
 }
 
@@ -101,7 +121,7 @@ pub fn update_component_viewer(
     if !entity_changed && !should_refresh && !ui_needs_rebuild {
         return;
     }
-    
+
     println!("Rebuilding component viewer content");
     // Only update timestamp if we're actually going to rebuild
     component_cache.last_update = time.elapsed_secs_f64();
@@ -110,7 +130,7 @@ pub fn update_component_viewer(
         component_cache.current_entity = selected_entity.entity_id;
         component_cache.components.clear();
     }
-    
+
     // Mark that we're about to build UI for this entity
     if let Some(entity_id) = selected_entity.entity_id {
         component_cache.ui_built_for_entity = Some(entity_id);
@@ -120,16 +140,20 @@ pub fn update_component_viewer(
 
     if let Some(entity_id) = selected_entity.entity_id {
         println!("Updating component viewer for entity: {}", entity_id);
-        
+
         // Get component data from entity cache
         let components = if let Some(entity) = entity_cache.entities.get(&entity_id) {
-            println!("Found entity {} with {} components", entity_id, entity.components.len());
+            println!(
+                "Found entity {} with {} components",
+                entity_id,
+                entity.components.len()
+            );
             &entity.components
         } else {
             println!("Entity {} not found in entity cache", entity_id);
             &HashMap::new()
         };
-        
+
         spawn_component_sections(&mut commands, viewer_entity, entity_id, components);
     } else {
         println!("No entity selected, showing empty state");
@@ -141,6 +165,7 @@ pub fn update_component_viewer(
 /// Component marker for clearing content
 #[derive(Component)]
 pub struct ComponentViewerContent {
+    /// Entity ID this content is associated with
     pub entity_id: u32,
 }
 
@@ -152,7 +177,7 @@ fn spawn_component_sections(
     components: &HashMap<String, Value>,
 ) {
     println!("Building component sections for entity {}", entity_id);
-    
+
     // Use with_children to properly manage the parent-child relationship
     commands.entity(parent).with_children(|parent| {
         // Header
@@ -171,16 +196,18 @@ fn spawn_component_sections(
         ));
 
         // Scrollable content area
-        let scroll_container = parent.spawn((
-            ComponentViewerContent { entity_id },
-            Node {
-                width: Val::Percent(100.0),
-                flex_grow: 1.0,
-                flex_direction: FlexDirection::Column,
-                overflow: Overflow::clip_y(),
-                ..Default::default()
-            },
-        )).id();
+        let scroll_container = parent
+            .spawn((
+                ComponentViewerContent { entity_id },
+                Node {
+                    width: Val::Percent(100.0),
+                    flex_grow: 1.0,
+                    flex_direction: FlexDirection::Column,
+                    overflow: Overflow::clip_y(),
+                    ..Default::default()
+                },
+            ))
+            .id();
 
         // Create collapsible sections for each component
         if components.is_empty() {
@@ -202,7 +229,13 @@ fn spawn_component_sections(
         } else {
             for (component_name, component_value) in components {
                 let formatted_data = format_component_value(component_value);
-                create_component_section(&mut parent.commands(), scroll_container, entity_id, component_name, &formatted_data);
+                create_component_section(
+                    &mut parent.commands(),
+                    scroll_container,
+                    entity_id,
+                    component_name,
+                    &formatted_data,
+                );
             }
         }
     });
@@ -227,7 +260,7 @@ pub fn cleanup_old_component_content(
 /// Get enhanced display info for a component
 fn get_component_display_info(component_name: &str) -> (String, String, String) {
     let short_name = component_name.split("::").last().unwrap_or(component_name);
-    
+
     // Categorize component types - show actual crate names instead of generic names
     let (category, display_name) = if component_name.starts_with("bevy_") {
         // Built-in Bevy components - show actual crate name
@@ -242,8 +275,12 @@ fn get_component_display_info(component_name: &str) -> (String, String, String) 
         // Custom components - show as custom
         ("Custom", short_name.to_string())
     };
-    
-    (category.to_string(), display_name, component_name.to_string())
+
+    (
+        category.to_string(),
+        display_name,
+        component_name.to_string(),
+    )
 }
 
 fn create_component_section(
@@ -254,113 +291,125 @@ fn create_component_section(
     component_data: &str,
 ) {
     let (category, display_name, full_path) = get_component_display_info(component_name);
-    
+
     // Create the section manually to have more control
-    let section_entity = commands.spawn((
-        CollapsibleSection {
-            title: display_name.clone(),
-            is_expanded: true,
-            header_entity: None,
-            content_entity: None,
-        },
-        Node {
-            width: Val::Percent(100.0),
-            margin: UiRect::bottom(Val::Px(4.0)),
-            flex_direction: FlexDirection::Column,
-            ..Default::default()
-        },
-        BackgroundColor(Color::srgb(0.15, 0.15, 0.2)),
-        BorderColor::all(Color::srgb(0.3, 0.3, 0.4)),
-    )).id();
-    
-    commands.entity(parent).add_child(section_entity);
-    
-    // Create header
-    let header_entity = commands.spawn((
-        Button,
-        Node {
-            width: Val::Percent(100.0),
-            height: if full_path != display_name { Val::Px(48.0) } else { Val::Px(32.0) },
-            padding: UiRect::all(Val::Px(8.0)),
-            flex_direction: FlexDirection::Column,
-            align_items: AlignItems::FlexStart,
-            justify_content: JustifyContent::Center,
-            ..Default::default()
-        },
-        BackgroundColor(Color::srgb(0.2, 0.2, 0.25)),
-        CollapsibleHeader { section_entity },
-    )).with_children(|parent| {
-        // Component name and category
-        parent.spawn((
-            Text::new(format!("▼ {} [{}]", display_name, category)),
-            TextFont {
-                font_size: 14.0,
-                ..Default::default()
+    let section_entity = commands
+        .spawn((
+            CollapsibleSection {
+                title: display_name.clone(),
+                is_expanded: true,
+                header_entity: None,
+                content_entity: None,
             },
-            TextColor(Color::srgb(0.9, 0.9, 0.6)),
-        ));
-        
-        // Full path in smaller text
-        if full_path != display_name {
-            parent.spawn((
-                Text::new(full_path.clone()),
-                TextFont {
-                    font_size: 9.0,
-                    ..Default::default()
-                },
-                TextColor(Color::srgb(0.6, 0.6, 0.6)),
-                Node {
-                    margin: UiRect::top(Val::Px(1.0)),
-                    ..Default::default()
-                },
-            ));
-        }
-    }).id();
-    
-    // Create content
-    let content_entity = commands.spawn((
-        Node {
-            width: Val::Percent(100.0),
-            padding: UiRect::all(Val::Px(8.0)),
-            flex_direction: FlexDirection::Column,
-            ..Default::default()
-        },
-        BackgroundColor(Color::srgb(0.1, 0.1, 0.15)),
-        CollapsibleContent { section_entity },
-    )).with_children(|parent| {
-        parent.spawn((
-            Button, // Make it clickable for selection
-            Text::new(component_data),
-            TextFont {
-                font_size: 11.0,
-                ..Default::default()
-            },
-            TextColor(Color::srgb(0.8, 0.8, 0.8)),
             Node {
                 width: Val::Percent(100.0),
-                padding: UiRect::all(Val::Px(4.0)),
+                margin: UiRect::bottom(Val::Px(4.0)),
+                flex_direction: FlexDirection::Column,
                 ..Default::default()
             },
-            BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.0)),
-            ComponentData {
-                entity_id,
-                component_name: component_name.to_string(),
+            BackgroundColor(Color::srgb(0.15, 0.15, 0.2)),
+            BorderColor::all(Color::srgb(0.3, 0.3, 0.4)),
+        ))
+        .id();
+
+    commands.entity(parent).add_child(section_entity);
+
+    // Create header
+    let header_entity = commands
+        .spawn((
+            Button,
+            Node {
+                width: Val::Percent(100.0),
+                height: if full_path != display_name {
+                    Val::Px(48.0)
+                } else {
+                    Val::Px(32.0)
+                },
+                padding: UiRect::all(Val::Px(8.0)),
+                flex_direction: FlexDirection::Column,
+                align_items: AlignItems::FlexStart,
+                justify_content: JustifyContent::Center,
+                ..Default::default()
             },
-            SelectableText {
-                text_content: component_data.to_string(),
-                is_selected: false,
-                selection_start: 0,
-                selection_end: 0,
-                cursor_position: 0,
-                is_dragging: false,
+            BackgroundColor(Color::srgb(0.2, 0.2, 0.25)),
+            CollapsibleHeader { section_entity },
+        ))
+        .with_children(|parent| {
+            // Component name and category
+            parent.spawn((
+                Text::new(format!("▼ {} [{}]", display_name, category)),
+                TextFont {
+                    font_size: 14.0,
+                    ..Default::default()
+                },
+                TextColor(Color::srgb(0.9, 0.9, 0.6)),
+            ));
+
+            // Full path in smaller text
+            if full_path != display_name {
+                parent.spawn((
+                    Text::new(full_path.clone()),
+                    TextFont {
+                        font_size: 9.0,
+                        ..Default::default()
+                    },
+                    TextColor(Color::srgb(0.6, 0.6, 0.6)),
+                    Node {
+                        margin: UiRect::top(Val::Px(1.0)),
+                        ..Default::default()
+                    },
+                ));
+            }
+        })
+        .id();
+
+    // Create content
+    let content_entity = commands
+        .spawn((
+            Node {
+                width: Val::Percent(100.0),
+                padding: UiRect::all(Val::Px(8.0)),
+                flex_direction: FlexDirection::Column,
+                ..Default::default()
             },
-        ));
-    }).id();
-    
+            BackgroundColor(Color::srgb(0.1, 0.1, 0.15)),
+            CollapsibleContent { section_entity },
+        ))
+        .with_children(|parent| {
+            parent.spawn((
+                Button, // Make it clickable for selection
+                Text::new(component_data),
+                TextFont {
+                    font_size: 11.0,
+                    ..Default::default()
+                },
+                TextColor(Color::srgb(0.8, 0.8, 0.8)),
+                Node {
+                    width: Val::Percent(100.0),
+                    padding: UiRect::all(Val::Px(4.0)),
+                    ..Default::default()
+                },
+                BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.0)),
+                ComponentData {
+                    entity_id,
+                    component_name: component_name.to_string(),
+                },
+                SelectableText {
+                    text_content: component_data.to_string(),
+                    is_selected: false,
+                    selection_start: 0,
+                    selection_end: 0,
+                    cursor_position: 0,
+                    is_dragging: false,
+                },
+            ));
+        })
+        .id();
+
     // Link everything together
     commands.entity(section_entity).add_child(header_entity);
     commands.entity(section_entity).add_child(content_entity);
-    
+
     // Update the section with entity references
     commands.entity(section_entity).insert(CollapsibleSection {
         title: display_name.to_string(),
@@ -373,10 +422,12 @@ fn create_component_section(
 /// Show empty state when no entity is selected
 fn spawn_empty_state(commands: &mut Commands, parent: Entity) {
     // For now, don't clear
-    
+
     commands.entity(parent).with_children(|parent| {
         parent.spawn((
-            Text::new("No entity selected\n\nSelect an entity from the list to view its components."),
+            Text::new(
+                "No entity selected\n\nSelect an entity from the list to view its components.",
+            ),
             TextFont {
                 font_size: 14.0,
                 ..Default::default()
@@ -401,20 +452,22 @@ fn format_component_value(value: &Value) -> String {
 
 /// Spawn the component viewer UI
 pub fn spawn_component_viewer(commands: &mut Commands, parent: Entity) -> Entity {
-    let viewer = commands.spawn((
-        ComponentViewerPanel,
-        Node {
-            flex_grow: 1.0, // Fill remaining space
-            height: Val::Vh(100.0),
-            padding: UiRect::all(Val::Px(16.0)),
-            flex_direction: FlexDirection::Column,
-            overflow: Overflow::scroll_y(),
-            ..Default::default()
-        },
-        ScrollPosition::default(),
-        BackgroundColor(Color::srgb(0.3, 0.2, 0.2)), // More visible color
-    )).id();
-    
+    let viewer = commands
+        .spawn((
+            ComponentViewerPanel,
+            Node {
+                flex_grow: 1.0, // Fill remaining space
+                height: Val::Vh(100.0),
+                padding: UiRect::all(Val::Px(16.0)),
+                flex_direction: FlexDirection::Column,
+                overflow: Overflow::scroll_y(),
+                ..Default::default()
+            },
+            ScrollPosition::default(),
+            BackgroundColor(Color::srgb(0.3, 0.2, 0.2)), // More visible color
+        ))
+        .id();
+
     commands.entity(parent).add_child(viewer);
     viewer
 }
@@ -427,41 +480,40 @@ pub fn process_live_component_updates(
     _selected_entity: Res<SelectedEntity>,
 ) {
     let current_time = time.elapsed_secs_f64();
-    
+
     // Rate limiting - only process updates at target frequency
     if current_time - live_cache.last_update_time < 1.0 / live_cache.update_frequency {
         return;
     }
-    
+
     // Process all pending updates from the new component update system
     let updates = http_client.check_component_updates();
-    
+
     if !updates.is_empty() {
         println!("Processing {} component updates", updates.len());
     }
-    
+
     for update in updates {
-        println!("Component update for entity {}: {} changed, {} removed", 
-            update.entity_id, 
-            update.changed_components.len(), 
+        println!(
+            "Component update for entity {}: {} changed, {} removed",
+            update.entity_id,
+            update.changed_components.len(),
             update.removed_components.len()
         );
         process_component_update(&mut live_cache, update, current_time);
     }
-    
+
     live_cache.last_update_time = current_time;
 }
 
 /// Process a single component update and update the live cache
 fn process_component_update(
-    cache: &mut LiveComponentCache, 
-    update: ComponentUpdate, 
-    current_time: f64
+    cache: &mut LiveComponentCache,
+    update: ComponentUpdate,
+    current_time: f64,
 ) {
-    let entity_components = cache.entity_components
-        .entry(update.entity_id)
-        .or_default();
-    
+    let entity_components = cache.entity_components.entry(update.entity_id).or_default();
+
     // Process changed components
     for (component_name, new_value) in update.changed_components {
         let component_state = entity_components
@@ -472,24 +524,30 @@ fn process_component_update(
                 change_indicator: ChangeIndicator::Added,
                 previous_value: None,
             });
-        
+
         // Check if value actually changed
         if component_state.current_value != new_value {
             component_state.previous_value = Some(component_state.current_value.clone());
             component_state.current_value = new_value;
             component_state.last_changed_time = current_time;
             component_state.change_indicator = ChangeIndicator::Changed { duration: 2.0 };
-            
-            println!("Component '{}' changed for entity {}", component_name, update.entity_id);
+
+            println!(
+                "Component '{}' changed for entity {}",
+                component_name, update.entity_id
+            );
         }
     }
-    
+
     // Process removed components
     for component_name in update.removed_components {
         if let Some(component_state) = entity_components.get_mut(&component_name) {
             component_state.change_indicator = ChangeIndicator::Removed;
             component_state.last_changed_time = current_time;
-            println!("Component '{}' removed from entity {}", component_name, update.entity_id);
+            println!(
+                "Component '{}' removed from entity {}",
+                component_name, update.entity_id
+            );
         }
     }
 }
@@ -500,7 +558,7 @@ pub fn cleanup_expired_change_indicators(
     time: Res<Time>,
 ) {
     let current_time = time.elapsed_secs_f64();
-    
+
     for (_, entity_components) in live_cache.entity_components.iter_mut() {
         for (_, component_state) in entity_components.iter_mut() {
             if let ChangeIndicator::Changed { duration } = &component_state.change_indicator {
@@ -523,18 +581,29 @@ pub fn auto_start_component_watching(
     if !selected_entity.is_changed() {
         return;
     }
-    
+
     if let Some(entity_id) = selected_entity.entity_id {
         if let Some(entity) = entity_cache.entities.get(&entity_id) {
             // Start watching all components of the selected entity
             let components: Vec<String> = entity.components.keys().cloned().collect();
             if !components.is_empty() {
-                match http_client.start_component_watching(entity_id, components.clone(), &tokio_handle.0) {
+                match http_client.start_component_watching(
+                    entity_id,
+                    components.clone(),
+                    &tokio_handle.0,
+                ) {
                     Ok(()) => {
-                        println!("Started watching {} components for entity {}", components.len(), entity_id);
+                        println!(
+                            "Started watching {} components for entity {}",
+                            components.len(),
+                            entity_id
+                        );
                     }
                     Err(e) => {
-                        println!("Failed to start component watching for entity {}: {}", entity_id, e);
+                        println!(
+                            "Failed to start component watching for entity {}: {}",
+                            entity_id, e
+                        );
                     }
                 }
             } else {
@@ -557,23 +626,27 @@ pub fn update_live_component_display(
     if live_cache.entity_components.is_empty() {
         return; // No live data to display
     }
-    
+
     let _current_time = time.elapsed_secs_f64();
-    
+
     for (component_data, mut text, mut selectable_text) in component_data_query.iter_mut() {
-        if let Some(entity_components) = live_cache.entity_components.get(&component_data.entity_id) {
+        if let Some(entity_components) = live_cache.entity_components.get(&component_data.entity_id)
+        {
             if let Some(component_state) = entity_components.get(&component_data.component_name) {
                 // Update the text with the live component value
                 let formatted_value = format_component_value(&component_state.current_value);
-                
+
                 // Use clean formatted value without text indicators
                 let display_text = formatted_value.clone();
-                
+
                 // Only update if the text actually changed to avoid unnecessary updates
                 if text.0 != display_text {
                     text.0 = display_text;
                     selectable_text.text_content = formatted_value;
-                    println!("Updated live display for {}.{}", component_data.entity_id, component_data.component_name);
+                    println!(
+                        "Updated live display for {}.{}",
+                        component_data.entity_id, component_data.component_name
+                    );
                 }
             }
         }
@@ -584,8 +657,14 @@ pub fn update_live_component_display(
 pub fn handle_text_selection(
     mut queries: ParamSet<(
         Query<
-            (Entity, &Interaction, &mut BackgroundColor, &mut SelectableText, &ComponentData),
-            (Changed<Interaction>, With<Button>)
+            (
+                Entity,
+                &Interaction,
+                &mut BackgroundColor,
+                &mut SelectableText,
+                &ComponentData,
+            ),
+            (Changed<Interaction>, With<Button>),
         >,
         Query<(Entity, &mut BackgroundColor, &mut SelectableText), With<Button>>,
         Query<(Entity, &Interaction, &ComponentData), (With<Button>, With<SelectableText>)>,
@@ -598,32 +677,36 @@ pub fn handle_text_selection(
     let mut clicked_entity: Option<Entity> = None;
     {
         let mut interaction_query = queries.p0();
-        for (entity, interaction, _bg_color, mut selectable_text, _component_data) in interaction_query.iter_mut() {
+        for (entity, interaction, _bg_color, mut selectable_text, _component_data) in
+            interaction_query.iter_mut()
+        {
             match *interaction {
                 Interaction::Pressed => {
                     clicked_entity = Some(entity);
-                    
+
                     // Select all text in clicked element
                     selectable_text.is_selected = true;
                     selectable_text.selection_start = 0;
                     selectable_text.selection_end = selectable_text.text_content.len();
                     selectable_text.cursor_position = selectable_text.text_content.len();
                     selectable_text.is_dragging = false;
-                    
+
                     // Update global selection state
                     selection_state.selected_entity = Some(entity);
-                    
+
                     println!("Selected text: {}", selectable_text.text_content);
                 }
                 _ => {}
             }
         }
     }
-    
+
     // Clear other selections if we clicked something - second pass
     if let Some(clicked_entity) = clicked_entity {
         let mut all_selectable_query = queries.p1();
-        for (other_entity, mut other_bg_color, mut other_selectable_text) in all_selectable_query.iter_mut() {
+        for (other_entity, mut other_bg_color, mut other_selectable_text) in
+            all_selectable_query.iter_mut()
+        {
             if other_entity != clicked_entity {
                 other_selectable_text.is_selected = false;
                 other_selectable_text.selection_start = 0;
@@ -633,7 +716,7 @@ pub fn handle_text_selection(
             }
         }
     }
-    
+
     // Update visual feedback for all selectable text elements - third pass
     // Pre-gather interaction info to avoid conflicting borrows
     let mut hover_entities = HashSet::new();
@@ -645,7 +728,7 @@ pub fn handle_text_selection(
             }
         }
     }
-    
+
     {
         let mut all_selectable_query = queries.p1();
         for (entity, mut bg_color, selectable_text) in all_selectable_query.iter_mut() {
@@ -658,39 +741,48 @@ pub fn handle_text_selection(
             }
         }
     }
-    
+
     // Handle copy to clipboard with Ctrl+C
-    if (keyboard_input.pressed(KeyCode::ControlLeft) || keyboard_input.pressed(KeyCode::ControlRight)) 
-        && keyboard_input.just_pressed(KeyCode::KeyC) {
+    if (keyboard_input.pressed(KeyCode::ControlLeft)
+        || keyboard_input.pressed(KeyCode::ControlRight))
+        && keyboard_input.just_pressed(KeyCode::KeyC)
+    {
         if let Some(selected_entity) = selection_state.selected_entity {
             // Find the selected text using the all_selectable_query
             let all_selectable_query = queries.p1();
             if let Ok((_, _, selectable_text)) = all_selectable_query.get(selected_entity) {
                 if selectable_text.is_selected {
-                    let selected_text = if selectable_text.selection_start != selectable_text.selection_end {
-                        // Copy only the selected portion
-                        let start = selectable_text.selection_start.min(selectable_text.selection_end);
-                        let end = selectable_text.selection_start.max(selectable_text.selection_end);
-                        selectable_text.text_content.chars()
-                            .skip(start)
-                            .take(end - start)
-                            .collect::<String>()
-                    } else {
-                        // Copy all text if no selection range
-                        selectable_text.text_content.clone()
-                    };
-                    
+                    let selected_text =
+                        if selectable_text.selection_start != selectable_text.selection_end {
+                            // Copy only the selected portion
+                            let start = selectable_text
+                                .selection_start
+                                .min(selectable_text.selection_end);
+                            let end = selectable_text
+                                .selection_start
+                                .max(selectable_text.selection_end);
+                            selectable_text
+                                .text_content
+                                .chars()
+                                .skip(start)
+                                .take(end - start)
+                                .collect::<String>()
+                        } else {
+                            // Copy all text if no selection range
+                            selectable_text.text_content.clone()
+                        };
+
                     copy_to_clipboard(&selected_text);
                     println!("📋 Copied to clipboard: {}", selected_text);
                 }
             }
         }
     }
-    
+
     // Handle Escape key to deselect all
     if keyboard_input.just_pressed(KeyCode::Escape) {
         selection_state.selected_entity = None;
-        
+
         // Clear all selections
         let mut all_selectable_query = queries.p1();
         for (_, mut bg_color, mut selectable_text) in all_selectable_query.iter_mut() {
@@ -700,10 +792,10 @@ pub fn handle_text_selection(
             selectable_text.is_dragging = false;
             *bg_color = BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.0));
         }
-        
+
         println!("🚫 Cleared all text selections");
     }
-    
+
     // Handle clicking outside to deselect
     if mouse_input.just_pressed(MouseButton::Left) {
         // If no text element is currently being interacted with, deselect all
@@ -711,10 +803,10 @@ pub fn handle_text_selection(
         let any_interaction = interaction_query.iter().any(|(_, interaction, _, _, _)| {
             matches!(*interaction, Interaction::Pressed | Interaction::Hovered)
         });
-        
+
         if !any_interaction {
             selection_state.selected_entity = None;
-            
+
             // Clear all selections
             let mut all_selectable_query = queries.p1();
             for (_, mut bg_color, mut selectable_text) in all_selectable_query.iter_mut() {
@@ -728,15 +820,13 @@ pub fn handle_text_selection(
     }
 }
 
-
-
 /// Cross-platform clipboard copy function
 fn copy_to_clipboard(text: &str) {
     #[cfg(not(target_arch = "wasm32"))]
     {
-        use std::process::Command;
         use std::io::Write;
-        
+        use std::process::Command;
+
         #[cfg(target_os = "windows")]
         {
             let mut cmd = Command::new("cmd");
@@ -746,7 +836,7 @@ fn copy_to_clipboard(text: &str) {
                 Err(e) => println!("❌ Failed to copy text to clipboard (Windows): {}", e),
             }
         }
-        
+
         #[cfg(target_os = "macos")]
         {
             let mut cmd = Command::new("pbcopy");
@@ -768,13 +858,13 @@ fn copy_to_clipboard(text: &str) {
                 Err(e) => println!("❌ Failed to spawn pbcopy: {}", e),
             }
         }
-        
+
         #[cfg(target_os = "linux")]
         {
             // Try xclip first, then xsel as fallback
             let mut cmd = Command::new("xclip");
             cmd.args(&["-selection", "clipboard"]);
-            
+
             match cmd.stdin(std::process::Stdio::piped()).spawn() {
                 Ok(mut child) => {
                     if let Some(stdin) = child.stdin.as_mut() {
@@ -782,7 +872,9 @@ fn copy_to_clipboard(text: &str) {
                             Ok(_) => {
                                 let _ = stdin; // Close stdin before waiting
                                 match child.wait() {
-                                    Ok(_) => println!("✅ Text copied to clipboard (Linux - xclip)"),
+                                    Ok(_) => {
+                                        println!("✅ Text copied to clipboard (Linux - xclip)")
+                                    }
                                     Err(e) => println!("❌ xclip wait failed: {}", e),
                                 }
                             }
@@ -801,7 +893,9 @@ fn copy_to_clipboard(text: &str) {
                                     Ok(_) => {
                                         drop(stdin);
                                         match child.wait() {
-                                            Ok(_) => println!("✅ Text copied to clipboard (Linux - xsel)"),
+                                            Ok(_) => println!(
+                                                "✅ Text copied to clipboard (Linux - xsel)"
+                                            ),
                                             Err(e) => println!("❌ xsel wait failed: {}", e),
                                         }
                                     }
@@ -815,9 +909,12 @@ fn copy_to_clipboard(text: &str) {
             }
         }
     }
-    
+
     #[cfg(target_arch = "wasm32")]
     {
-        println!("📋 Clipboard copy not implemented for WASM target: {}", text);
+        println!(
+            "📋 Clipboard copy not implemented for WASM target: {}",
+            text
+        );
     }
 }

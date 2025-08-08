@@ -3,11 +3,11 @@
 //! This widget provides collapsible sections with clickable headers and show/hide content.
 //! It's designed to be reusable and suitable for upstreaming to bevy_ui.
 
-use bevy_ecs::prelude::*;
-use bevy_ui::prelude::*;
 use bevy_color::Color;
+use bevy_ecs::prelude::*;
+use bevy_text::{TextColor, TextFont};
+use bevy_ui::prelude::*;
 use bevy_ui::widget::Text;
-use bevy_text::{TextFont, TextColor};
 
 /// A collapsible section widget that can expand/collapse content
 #[derive(Component, Clone)]
@@ -88,6 +88,7 @@ pub struct CollapsibleStyle {
     pub content_padding: UiRect,
     /// Arrow characters for expanded/collapsed states
     pub expanded_arrow: String,
+    /// Arrow character for collapsed state
     pub collapsed_arrow: String,
 }
 
@@ -111,27 +112,34 @@ impl Default for CollapsibleStyle {
 /// Marker component for collapsible section headers (clickable)
 #[derive(Component)]
 pub struct CollapsibleHeader {
+    /// Reference to the parent collapsible section entity
     pub section_entity: Entity,
 }
 
 /// Marker component for collapsible section content (shows/hides)
 #[derive(Component)]
 pub struct CollapsibleContent {
+    /// Reference to the parent collapsible section entity
     pub section_entity: Entity,
 }
 
 /// Marker component for the arrow text in headers
 #[derive(Component)]
 pub struct CollapsibleArrow {
+    /// Reference to the parent collapsible section entity
     pub section_entity: Entity,
 }
 
 /// Bundle for creating a collapsible section
 #[derive(Bundle)]
 pub struct CollapsibleSectionBundle {
+    /// The collapsible section component with state and references
     pub collapsible: CollapsibleSection,
+    /// UI node layout properties for the section
     pub node: Node,
+    /// Background color styling for the section
     pub background_color: BackgroundColor,
+    /// Border color styling for the section
     pub border_color: BorderColor,
 }
 
@@ -163,7 +171,7 @@ pub fn handle_collapsible_interactions(
                 if section.clickable {
                     // Toggle expansion state
                     section.is_expanded = !section.is_expanded;
-                    
+
                     // Update content visibility
                     if let Some(content_entity) = section.content_entity {
                         if let Ok(mut content_node) = content_query.get_mut(content_entity) {
@@ -174,7 +182,7 @@ pub fn handle_collapsible_interactions(
                             };
                         }
                     }
-                    
+
                     // Update arrow in header - find matching arrows by querying all arrows
                     for (_entity, arrow, mut text) in arrow_query.iter_mut() {
                         if arrow.section_entity == header.section_entity {
@@ -183,17 +191,23 @@ pub fn handle_collapsible_interactions(
                             } else {
                                 &section.style.collapsed_arrow
                             };
-                            
+
                             // Update the arrow part of the text
-                            let title_part = text.0.split_once(' ').map(|(_, t)| t).unwrap_or(&text.0);
+                            let title_part =
+                                text.0.split_once(' ').map(|(_, t)| t).unwrap_or(&text.0);
                             text.0 = format!("{} {}", arrow_char, title_part);
                             break;
                         }
                     }
-                    
-                    println!("Toggled section '{}' to {}", 
-                        section.title, 
-                        if section.is_expanded { "expanded" } else { "collapsed" }
+
+                    println!(
+                        "Toggled section '{}' to {}",
+                        section.title,
+                        if section.is_expanded {
+                            "expanded"
+                        } else {
+                            "collapsed"
+                        }
                     );
                 }
             }
@@ -203,7 +217,10 @@ pub fn handle_collapsible_interactions(
 
 /// System to update collapsible section visual state
 pub fn update_collapsible_sections(
-    mut section_query: Query<(&CollapsibleSection, &mut BackgroundColor), Changed<CollapsibleSection>>,
+    mut section_query: Query<
+        (&CollapsibleSection, &mut BackgroundColor),
+        Changed<CollapsibleSection>,
+    >,
 ) {
     for (section, mut background) in section_query.iter_mut() {
         *background = BackgroundColor(section.style.section_background);
@@ -230,68 +247,79 @@ pub fn spawn_collapsible_section_with_config(
     let style = section_config.style.clone();
     let is_expanded = section_config.is_expanded;
     let clickable = section_config.clickable;
-    
-    let section_entity = commands.spawn(CollapsibleSectionBundle {
-        collapsible: section_config,
-        node: Node {
-            width: Val::Percent(100.0),
-            flex_direction: FlexDirection::Column,
-            margin: UiRect::bottom(Val::Px(4.0)),
-            ..Default::default()
-        },
-        background_color: BackgroundColor(style.section_background),
-        border_color: BorderColor::all(style.border_color),
-    }).id();
-    
-    commands.entity(parent).add_child(section_entity);
-    
-    // Spawn header
-    let header_entity = commands.spawn((
-        Button,
-        Node {
-            width: Val::Percent(100.0),
-            height: Val::Px(style.header_height),
-            padding: UiRect::all(Val::Px(8.0)),
-            align_items: AlignItems::Center,
-            ..Default::default()
-        },
-        BackgroundColor(style.header_background),
-        CollapsibleHeader { section_entity },
-    )).with_children(|parent| {
-        let arrow_char = if is_expanded {
-            &style.expanded_arrow
-        } else {
-            &style.collapsed_arrow
-        };
-        
-        parent.spawn((
-            Text::new(format!("{} {}", arrow_char, title)),
-            TextFont {
-                font_size: style.title_font_size,
+
+    let section_entity = commands
+        .spawn(CollapsibleSectionBundle {
+            collapsible: section_config,
+            node: Node {
+                width: Val::Percent(100.0),
+                flex_direction: FlexDirection::Column,
+                margin: UiRect::bottom(Val::Px(4.0)),
                 ..Default::default()
             },
-            TextColor(style.title_color),
-            CollapsibleArrow { section_entity },
-        ));
-    }).id();
-    
+            background_color: BackgroundColor(style.section_background),
+            border_color: BorderColor::all(style.border_color),
+        })
+        .id();
+
+    commands.entity(parent).add_child(section_entity);
+
+    // Spawn header
+    let header_entity = commands
+        .spawn((
+            Button,
+            Node {
+                width: Val::Percent(100.0),
+                height: Val::Px(style.header_height),
+                padding: UiRect::all(Val::Px(8.0)),
+                align_items: AlignItems::Center,
+                ..Default::default()
+            },
+            BackgroundColor(style.header_background),
+            CollapsibleHeader { section_entity },
+        ))
+        .with_children(|parent| {
+            let arrow_char = if is_expanded {
+                &style.expanded_arrow
+            } else {
+                &style.collapsed_arrow
+            };
+
+            parent.spawn((
+                Text::new(format!("{} {}", arrow_char, title)),
+                TextFont {
+                    font_size: style.title_font_size,
+                    ..Default::default()
+                },
+                TextColor(style.title_color),
+                CollapsibleArrow { section_entity },
+            ));
+        })
+        .id();
+
     // Spawn content container
-    let content_entity = commands.spawn((
-        Node {
-            width: Val::Percent(100.0),
-            padding: style.content_padding,
-            flex_direction: FlexDirection::Column,
-            display: if is_expanded { Display::Flex } else { Display::None },
-            ..Default::default()
-        },
-        BackgroundColor(style.content_background),
-        CollapsibleContent { section_entity },
-    )).id();
-    
+    let content_entity = commands
+        .spawn((
+            Node {
+                width: Val::Percent(100.0),
+                padding: style.content_padding,
+                flex_direction: FlexDirection::Column,
+                display: if is_expanded {
+                    Display::Flex
+                } else {
+                    Display::None
+                },
+                ..Default::default()
+            },
+            BackgroundColor(style.content_background),
+            CollapsibleContent { section_entity },
+        ))
+        .id();
+
     // Set up parent-child relationships
     commands.entity(section_entity).add_child(header_entity);
     commands.entity(section_entity).add_child(content_entity);
-    
+
     // Update section with entity references
     commands.entity(section_entity).insert(CollapsibleSection {
         title,
@@ -301,7 +329,7 @@ pub fn spawn_collapsible_section_with_config(
         clickable,
         style,
     });
-    
+
     section_entity
 }
 
@@ -325,6 +353,7 @@ pub fn add_collapsible_content(
 
 /// Trait for objects that can provide content to collapsible sections
 pub trait CollapsibleContentProvider {
+    /// Spawn content entities as children of the given parent entity
     fn spawn_content(&self, commands: &mut Commands, parent: Entity);
 }
 
@@ -333,9 +362,9 @@ pub struct CollapsibleSectionPlugin;
 
 impl bevy_app::Plugin for CollapsibleSectionPlugin {
     fn build(&self, app: &mut bevy_app::App) {
-        app.add_systems(bevy_app::Update, (
-            handle_collapsible_interactions,
-            update_collapsible_sections,
-        ));
+        app.add_systems(
+            bevy_app::Update,
+            (handle_collapsible_interactions, update_collapsible_sections),
+        );
     }
 }

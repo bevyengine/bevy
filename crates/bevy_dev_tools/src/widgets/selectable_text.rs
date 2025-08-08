@@ -3,10 +3,10 @@
 //! This widget provides text selection and clipboard copy functionality for Bevy UI.
 //! It's designed to be reusable and suitable for upstreaming to bevy_ui.
 
-use bevy_ecs::prelude::*;
-use bevy_ui::prelude::*;
 use bevy_color::Color;
+use bevy_ecs::prelude::*;
 use bevy_input::prelude::*;
+use bevy_ui::prelude::*;
 use bevy_ui::widget::Text;
 use std::collections::HashSet;
 
@@ -19,7 +19,7 @@ pub struct SelectableText {
     pub is_selected: bool,
     /// Start position of text selection (in characters)
     pub selection_start: usize,
-    /// End position of text selection (in characters) 
+    /// End position of text selection (in characters)
     pub selection_end: usize,
     /// Current cursor position
     pub cursor_position: usize,
@@ -59,7 +59,8 @@ impl SelectableText {
             // Return selected portion
             let start = self.selection_start.min(self.selection_end);
             let end = self.selection_start.max(self.selection_end);
-            self.text_content.chars()
+            self.text_content
+                .chars()
                 .skip(start)
                 .take(end - start)
                 .collect()
@@ -97,8 +98,13 @@ pub struct TextSelectionState {
 pub fn handle_text_selection(
     mut queries: ParamSet<(
         Query<
-            (Entity, &Interaction, &mut BackgroundColor, &mut SelectableText),
-            (Changed<Interaction>, With<Button>)
+            (
+                Entity,
+                &Interaction,
+                &mut BackgroundColor,
+                &mut SelectableText,
+            ),
+            (Changed<Interaction>, With<Button>),
         >,
         Query<(Entity, &mut BackgroundColor, &mut SelectableText), With<Button>>,
         Query<(Entity, &Interaction), (With<Button>, With<SelectableText>)>,
@@ -127,7 +133,9 @@ pub fn handle_text_selection(
     // Clear other selections if we clicked something
     if let Some(clicked_entity) = clicked_entity {
         let mut all_selectable_query = queries.p1();
-        for (other_entity, mut other_bg_color, mut other_selectable_text) in all_selectable_query.iter_mut() {
+        for (other_entity, mut other_bg_color, mut other_selectable_text) in
+            all_selectable_query.iter_mut()
+        {
             if other_entity != clicked_entity {
                 other_selectable_text.clear_selection();
                 *other_bg_color = BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.0));
@@ -160,8 +168,10 @@ pub fn handle_text_selection(
     }
 
     // Handle copy to clipboard with Ctrl+C
-    if (keyboard_input.pressed(KeyCode::ControlLeft) || keyboard_input.pressed(KeyCode::ControlRight)) 
-        && keyboard_input.just_pressed(KeyCode::KeyC) {
+    if (keyboard_input.pressed(KeyCode::ControlLeft)
+        || keyboard_input.pressed(KeyCode::ControlRight))
+        && keyboard_input.just_pressed(KeyCode::KeyC)
+    {
         if let Some(selected_entity) = selection_state.selected_entity {
             let all_selectable_query = queries.p1();
             if let Ok((_, _, selectable_text)) = all_selectable_query.get(selected_entity) {
@@ -177,13 +187,13 @@ pub fn handle_text_selection(
     // Handle Escape key to deselect all
     if keyboard_input.just_pressed(KeyCode::Escape) {
         selection_state.selected_entity = None;
-        
+
         let mut all_selectable_query = queries.p1();
         for (_, mut bg_color, mut selectable_text) in all_selectable_query.iter_mut() {
             selectable_text.clear_selection();
             *bg_color = BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.0));
         }
-        
+
         println!("🚫 Cleared all text selections");
     }
 
@@ -193,10 +203,10 @@ pub fn handle_text_selection(
         let any_interaction = interaction_query.iter().any(|(_, interaction, _, _)| {
             matches!(*interaction, Interaction::Pressed | Interaction::Hovered)
         });
-        
+
         if !any_interaction {
             selection_state.selected_entity = None;
-            
+
             let mut all_selectable_query = queries.p1();
             for (_, mut bg_color, mut selectable_text) in all_selectable_query.iter_mut() {
                 selectable_text.clear_selection();
@@ -225,9 +235,9 @@ pub fn sync_selectable_text_with_text(
 pub fn copy_to_clipboard(text: &str) {
     #[cfg(not(target_arch = "wasm32"))]
     {
-        use std::process::Command;
         use std::io::Write;
-        
+        use std::process::Command;
+
         #[cfg(target_os = "windows")]
         {
             let mut cmd = Command::new("cmd");
@@ -237,7 +247,7 @@ pub fn copy_to_clipboard(text: &str) {
                 Err(e) => println!("❌ Failed to copy text to clipboard (Windows): {}", e),
             }
         }
-        
+
         #[cfg(target_os = "macos")]
         {
             let mut cmd = Command::new("pbcopy");
@@ -259,12 +269,12 @@ pub fn copy_to_clipboard(text: &str) {
                 Err(e) => println!("❌ Failed to spawn pbcopy: {}", e),
             }
         }
-        
+
         #[cfg(target_os = "linux")]
         {
             let mut cmd = Command::new("xclip");
             cmd.args(&["-selection", "clipboard"]);
-            
+
             match cmd.stdin(std::process::Stdio::piped()).spawn() {
                 Ok(mut child) => {
                     if let Some(stdin) = child.stdin.as_mut() {
@@ -272,7 +282,9 @@ pub fn copy_to_clipboard(text: &str) {
                             Ok(_) => {
                                 let _ = stdin;
                                 match child.wait() {
-                                    Ok(_) => println!("✅ Text copied to clipboard (Linux - xclip)"),
+                                    Ok(_) => {
+                                        println!("✅ Text copied to clipboard (Linux - xclip)")
+                                    }
                                     Err(e) => println!("❌ xclip wait failed: {}", e),
                                 }
                             }
@@ -291,7 +303,9 @@ pub fn copy_to_clipboard(text: &str) {
                                     Ok(_) => {
                                         drop(stdin);
                                         match child.wait() {
-                                            Ok(_) => println!("✅ Text copied to clipboard (Linux - xsel)"),
+                                            Ok(_) => println!(
+                                                "✅ Text copied to clipboard (Linux - xsel)"
+                                            ),
                                             Err(e) => println!("❌ xsel wait failed: {}", e),
                                         }
                                     }
@@ -305,9 +319,12 @@ pub fn copy_to_clipboard(text: &str) {
             }
         }
     }
-    
+
     #[cfg(target_arch = "wasm32")]
     {
-        println!("📋 Clipboard copy not implemented for WASM target: {}", text);
+        println!(
+            "📋 Clipboard copy not implemented for WASM target: {}",
+            text
+        );
     }
 }
