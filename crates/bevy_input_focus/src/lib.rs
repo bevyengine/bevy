@@ -221,11 +221,6 @@ impl Plugin for InputDispatchPlugin {
                 )
                     .in_set(InputFocusSystems::Dispatch),
             );
-
-        #[cfg(feature = "bevy_reflect")]
-        app.register_type::<AutoFocus>()
-            .register_type::<InputFocus>()
-            .register_type::<InputFocusVisible>();
     }
 }
 

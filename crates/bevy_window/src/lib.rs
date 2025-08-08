@@ -149,34 +149,6 @@ impl Plugin for WindowPlugin {
             // Need to run before `exit_on_*` systems
             app.add_systems(Update, close_when_requested);
         }
-
-        // Register event types
-        #[cfg(feature = "bevy_reflect")]
-        app.register_type::<WindowEvent>()
-            .register_type::<WindowResized>()
-            .register_type::<RequestRedraw>()
-            .register_type::<WindowCreated>()
-            .register_type::<WindowCloseRequested>()
-            .register_type::<WindowClosing>()
-            .register_type::<WindowClosed>()
-            .register_type::<CursorMoved>()
-            .register_type::<CursorEntered>()
-            .register_type::<CursorLeft>()
-            .register_type::<WindowFocused>()
-            .register_type::<WindowOccluded>()
-            .register_type::<WindowScaleFactorChanged>()
-            .register_type::<WindowBackendScaleFactorChanged>()
-            .register_type::<FileDragAndDrop>()
-            .register_type::<WindowMoved>()
-            .register_type::<WindowThemeChanged>()
-            .register_type::<AppLifecycle>()
-            .register_type::<Monitor>();
-
-        // Register window descriptor and related types
-        #[cfg(feature = "bevy_reflect")]
-        app.register_type::<Window>()
-            .register_type::<PrimaryWindow>()
-            .register_type::<CursorOptions>();
     }
 }
 

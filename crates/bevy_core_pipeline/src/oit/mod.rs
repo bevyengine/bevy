@@ -106,8 +106,7 @@ impl Plugin for OrderIndependentTransparencyPlugin {
             OitResolvePlugin,
         ))
         .add_systems(Update, check_msaa)
-        .add_systems(Last, configure_depth_texture_usages)
-        .register_type::<OrderIndependentTransparencySettings>();
+        .add_systems(Last, configure_depth_texture_usages);
 
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;

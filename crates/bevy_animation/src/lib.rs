@@ -40,7 +40,6 @@ use bevy_reflect::{prelude::ReflectDefault, Reflect, TypePath};
 use bevy_time::Time;
 use bevy_transform::TransformSystems;
 use bevy_utils::{PreHashMap, PreHashMapExt, TypeIdMap};
-use petgraph::graph::NodeIndex;
 use serde::{Deserialize, Serialize};
 use thread_local::ThreadLocal;
 use tracing::{trace, warn};
@@ -60,7 +59,7 @@ pub mod prelude {
 use crate::{
     animation_curves::AnimationCurve,
     graph::{AnimationGraph, AnimationGraphAssetLoader, AnimationNodeIndex},
-    transition::{advance_transitions, expire_completed_transitions, AnimationTransitions},
+    transition::{advance_transitions, expire_completed_transitions},
 };
 use alloc::sync::Arc;
 
@@ -1234,12 +1233,6 @@ impl Plugin for AnimationPlugin {
             .init_asset_loader::<AnimationGraphAssetLoader>()
             .register_asset_reflect::<AnimationClip>()
             .register_asset_reflect::<AnimationGraph>()
-            .register_type::<AnimationPlayer>()
-            .register_type::<AnimationTarget>()
-            .register_type::<AnimationTransitions>()
-            .register_type::<AnimationGraphHandle>()
-            .register_type::<NodeIndex>()
-            .register_type::<ThreadedAnimationGraphs>()
             .init_resource::<ThreadedAnimationGraphs>()
             .add_systems(
                 PostUpdate,

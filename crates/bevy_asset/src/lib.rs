@@ -422,8 +422,7 @@ impl Plugin for AssetPlugin {
             // and as a result has ambiguous system ordering with all other systems in `PreUpdate`.
             // This is virtually never a real problem: asset loading is async and so anything that interacts directly with it
             // needs to be robust to stochastic delays anyways.
-            .add_systems(PreUpdate, handle_internal_asset_events.ambiguous_with_all())
-            .register_type::<AssetPath>();
+            .add_systems(PreUpdate, handle_internal_asset_events.ambiguous_with_all());
     }
 }
 

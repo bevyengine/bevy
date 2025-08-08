@@ -208,13 +208,7 @@ impl GltfPlugin {
 
 impl Plugin for GltfPlugin {
     fn build(&self, app: &mut App) {
-        app.register_type::<GltfExtras>()
-            .register_type::<GltfSceneExtras>()
-            .register_type::<GltfMeshExtras>()
-            .register_type::<GltfMeshName>()
-            .register_type::<GltfMaterialExtras>()
-            .register_type::<GltfMaterialName>()
-            .init_asset::<Gltf>()
+        app.init_asset::<Gltf>()
             .init_asset::<GltfNode>()
             .init_asset::<GltfPrimitive>()
             .init_asset::<GltfMesh>()

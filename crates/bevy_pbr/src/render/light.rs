@@ -1254,7 +1254,7 @@ pub fn prepare_lights(
                     ShadowView {
                         depth_attachment,
                         pass_name: format!(
-                            "shadow pass point light {} {}",
+                            "shadow_point_light_{}_{}",
                             light_index,
                             face_index_to_name(face_index)
                         ),
@@ -1359,7 +1359,7 @@ pub fn prepare_lights(
             commands.entity(view_light_entity).insert((
                 ShadowView {
                     depth_attachment,
-                    pass_name: format!("shadow pass spot light {light_index}"),
+                    pass_name: format!("shadow_spot_light_{light_index}"),
                 },
                 ExtractedView {
                     retained_view_entity,
@@ -1503,7 +1503,7 @@ pub fn prepare_lights(
                     ShadowView {
                         depth_attachment,
                         pass_name: format!(
-                            "shadow pass directional light {light_index} cascade {cascade_index}"
+                            "shadow_directional_light_{light_index}_cascade_{cascade_index}"
                         ),
                     },
                     ExtractedView {

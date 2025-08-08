@@ -76,9 +76,6 @@ pub struct SpritePickingPlugin;
 impl Plugin for SpritePickingPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<SpritePickingSettings>()
-            .register_type::<SpritePickingCamera>()
-            .register_type::<SpritePickingMode>()
-            .register_type::<SpritePickingSettings>()
             .add_systems(PreUpdate, sprite_picking.in_set(PickingSystems::Backend));
     }
 }
