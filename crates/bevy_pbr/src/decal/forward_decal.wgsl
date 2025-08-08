@@ -10,7 +10,7 @@
 }
 #import bevy_render::maths::project_onto
 
-@group(3) @binding(200)
+@group(#{MATERIAL_BIND_GROUP}) @binding(200)
 var<uniform> inv_depth_fade_factor: f32;
 
 struct ForwardDecalInformation {

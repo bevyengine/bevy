@@ -54,10 +54,7 @@ pub struct CameraPlugin;
 
 impl Plugin for CameraPlugin {
     fn build(&self, app: &mut App) {
-        app.register_type::<CameraRenderGraph>()
-            .register_type::<TemporalJitter>()
-            .register_type::<MipBias>()
-            .register_required_components::<Camera, Msaa>()
+        app.register_required_components::<Camera, Msaa>()
             .register_required_components::<Camera, SyncToRenderWorld>()
             .register_required_components::<Camera3d, ColorGrading>()
             .register_required_components::<Camera3d, Exposure>()

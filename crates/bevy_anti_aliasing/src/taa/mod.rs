@@ -20,6 +20,7 @@ use bevy_math::vec2;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
     camera::{ExtractedCamera, MipBias, TemporalJitter},
+    diagnostic::RecordDiagnostics,
     prelude::{Camera, Projection},
     render_graph::{NodeRunError, RenderGraphContext, RenderGraphExt, ViewNode, ViewNodeRunner},
     render_resource::{
@@ -49,8 +50,6 @@ pub struct TemporalAntiAliasPlugin;
 impl Plugin for TemporalAntiAliasPlugin {
     fn build(&self, app: &mut App) {
         embedded_asset!(app, "taa.wgsl");
-
-        app.register_type::<TemporalAntiAliasing>();
 
         app.add_plugins(SyncComponentPlugin::<TemporalAntiAliasing>::default());
 
@@ -181,6 +180,9 @@ impl ViewNode for TemporalAntiAliasNode {
         ) else {
             return Ok(());
         };
+
+        let diagnostics = render_context.diagnostic_recorder();
+
         let view_target = view_target.post_process_write();
 
         let taa_bind_group = render_context.render_device().create_bind_group(
@@ -198,7 +200,7 @@ impl ViewNode for TemporalAntiAliasNode {
 
         {
             let mut taa_pass = render_context.begin_tracked_render_pass(RenderPassDescriptor {
-                label: Some("taa_pass"),
+                label: Some("taa"),
                 color_attachments: &[
                     Some(RenderPassColorAttachment {
                         view: view_target.destination,
@@ -217,12 +219,16 @@ impl ViewNode for TemporalAntiAliasNode {
                 timestamp_writes: None,
                 occlusion_query_set: None,
             });
+            let pass_span = diagnostics.pass_span(&mut taa_pass, "taa");
+
             taa_pass.set_render_pipeline(taa_pipeline);
             taa_pass.set_bind_group(0, &taa_bind_group, &[]);
             if let Some(viewport) = camera.viewport.as_ref() {
                 taa_pass.set_camera_viewport(viewport);
             }
             taa_pass.draw(0..3, 0..1);
+
+            pass_span.end(&mut taa_pass);
         }
 
         Ok(())
