@@ -10,7 +10,7 @@ use bevy::{
     math::ops,
     prelude::*,
     sprite::Anchor,
-    text::{FontSmoothing, LineBreak, TextBounds},
+    text::{FontSmoothing, LineBreak, Text2dShadow, TextBounds},
 };
 
 fn main() {
@@ -83,6 +83,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             TextBounds::from(box_size),
             // Ensure the text is drawn on top of the box
             Transform::from_translation(Vec3::Z),
+            Text2dShadow::default()
         )],
     ));
 
@@ -99,6 +100,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             TextBounds::from(other_box_size),
             // Ensure the text is drawn on top of the box
             Transform::from_translation(Vec3::Z),
+            // Add a black shadow to the text
+            Text2dShadow::default()
         )],
     ));
 
@@ -110,6 +113,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             .with_font_smoothing(FontSmoothing::None),
         TextLayout::new_with_justify(Justify::Center),
         Transform::from_translation(Vec3::new(-400.0, -250.0, 0.0)),
+        // Add a black shadow to the text
+        Text2dShadow::default(),
     ));
 
     commands

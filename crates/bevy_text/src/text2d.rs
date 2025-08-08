@@ -5,7 +5,7 @@ use crate::{
     TextSpanAccess, TextWriter,
 };
 use bevy_asset::Assets;
-use bevy_color::LinearRgba;
+use bevy_color::{Color, LinearRgba};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::entity::EntityHashSet;
 use bevy_ecs::{
@@ -133,6 +133,28 @@ pub type Text2dReader<'w, 's> = TextReader<'w, 's, Text2d>;
 /// 2d alias for [`TextWriter`].
 pub type Text2dWriter<'w, 's> = TextWriter<'w, 's, Text2d>;
 
+/// Adds a shadow behind `Text2d` text
+///
+/// Use `TextShadow` for text drawn with `bevy_ui`
+#[derive(Component, Copy, Clone, Debug, PartialEq, Reflect)]
+#[reflect(Component, Default, Debug, Clone, PartialEq)]
+pub struct Text2dShadow {
+    /// Shadow displacement
+    /// With a value of zero the shadow will be hidden directly behind the text
+    pub offset: Vec2,
+    /// Color of the shadow
+    pub color: Color,
+}
+
+impl Default for Text2dShadow {
+    fn default() -> Self {
+        Self {
+            offset: Vec2::new(4., -4.),
+            color: Color::BLACK,
+        }
+    }
+}
+
 /// This system extracts the sprites from the 2D text components and adds them to the
 /// "render world".
 pub fn extract_text2d_sprite(
@@ -149,6 +171,7 @@ pub fn extract_text2d_sprite(
             &TextLayoutInfo,
             &TextBounds,
             &Anchor,
+            Option<&Text2dShadow>,
             &GlobalTransform,
         )>,
     >,
@@ -171,6 +194,7 @@ pub fn extract_text2d_sprite(
         text_layout_info,
         text_bounds,
         anchor,
+        maybe_shadow,
         global_transform,
     ) in text2d_query.iter()
     {
@@ -184,9 +208,60 @@ pub fn extract_text2d_sprite(
         );
 
         let top_left = (Anchor::TOP_LEFT.0 - anchor.as_vec()) * size;
+
+        if let Some(shadow) = maybe_shadow {
+            let shadow_transform = *global_transform
+                * GlobalTransform::from_translation((top_left + shadow.offset).extend(0.))
+                * scaling;
+            let color = shadow.color.into();
+
+            for (
+                i,
+                PositionedGlyph {
+                    position,
+                    atlas_info,
+                    ..
+                },
+            ) in text_layout_info.glyphs.iter().enumerate()
+            {
+                let rect = texture_atlases
+                    .get(atlas_info.texture_atlas)
+                    .unwrap()
+                    .textures[atlas_info.location.glyph_index]
+                    .as_rect();
+                extracted_slices.slices.push(ExtractedSlice {
+                    offset: Vec2::new(position.x, -position.y),
+                    rect,
+                    size: rect.size(),
+                });
+
+                if text_layout_info
+                    .glyphs
+                    .get(i + 1)
+                    .is_none_or(|info| info.atlas_info.texture != atlas_info.texture)
+                {
+                    let render_entity = commands.spawn(TemporaryRenderEntity).id();
+                    extracted_sprites.sprites.push(ExtractedSprite {
+                        main_entity,
+                        render_entity,
+                        transform: shadow_transform,
+                        color,
+                        image_handle_id: atlas_info.texture,
+                        flip_x: false,
+                        flip_y: false,
+                        kind: bevy_sprite::ExtractedSpriteKind::Slices {
+                            indices: start..end,
+                        },
+                    });
+                    start = end;
+                }
+
+                end += 1;
+            }
+        }
+
         let transform =
             *global_transform * GlobalTransform::from_translation(top_left.extend(0.)) * scaling;
-
         let mut color = LinearRgba::WHITE;
         let mut current_span = usize::MAX;
 
