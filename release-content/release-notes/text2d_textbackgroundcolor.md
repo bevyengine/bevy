@@ -1,7 +1,7 @@
 ---
 title: `TextBackgroundColor` support for `Text2d`
 authors: ["@ickshonpe"]
-pull_requests: []
+pull_requests: [20464]
 ---
 
 `Text2d` now supports the `TextBackgroundColor` component.
