@@ -1929,17 +1929,9 @@ mod tests {
         assert_eq!(&mapper.0, &[e1, e2, e3]);
     }
 
-    #[expect(
-        dead_code,
-        reason = "This struct is used as a compilation test to test the derive macros, and as such is intentionally never constructed."
-    )]
     #[derive(Component)]
     struct ComponentA(u32);
 
-    #[expect(
-        dead_code,
-        reason = "This struct is used as a compilation test to test the derive macros, and as such is intentionally never constructed."
-    )]
     #[derive(Component)]
     struct ComponentB(u32);
 
@@ -1963,17 +1955,9 @@ mod tests {
         another_one: Entity,
         #[entities]
         maybe_entity: Option<Entity>,
-        #[expect(
-            dead_code,
-            reason = "This struct is used as a compilation test to test the derive macros, and as such this field is intentionally never used."
-        )]
         something_else: String,
     }
 
-    #[expect(
-        dead_code,
-        reason = "This struct is used as a compilation test to test the derive macros, and as such is intentionally never constructed."
-    )]
     #[derive(Component)]
     struct MyEntitiesTuple(#[entities] Vec<Entity>, #[entities] Entity, usize);
 

@@ -357,11 +357,11 @@ impl<ShaderModule, RenderDevice> ShaderCache<ShaderModule, RenderDevice> {
         }
 
         #[cfg(feature = "shader_format_wesl")]
-        if let Source::Wesl(_) = shader.source {
-            if let ShaderImport::AssetPath(path) = shader.import_path() {
-                self.asset_paths
-                    .insert(wesl::syntax::ModulePath::from_path(path), id);
-            }
+        if let Source::Wesl(_) = shader.source
+            && let ShaderImport::AssetPath(path) = shader.import_path()
+        {
+            self.asset_paths
+                .insert(wesl::syntax::ModulePath::from_path(path), id);
         }
         self.shaders.insert(id, shader);
         pipelines_to_queue

@@ -846,10 +846,11 @@ impl AssetServer {
                     }
                 }
 
-                if !reloaded && server.data.infos.read().should_reload(&path) {
-                    if let Err(err) = server.load_internal(None, path, true, None).await {
-                        error!("{}", err);
-                    }
+                if !reloaded
+                    && server.data.infos.read().should_reload(&path)
+                    && let Err(err) = server.load_internal(None, path, true, None).await
+                {
+                    error!("{}", err);
                 }
             })
             .detach();

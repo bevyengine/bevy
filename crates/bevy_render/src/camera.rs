@@ -316,64 +316,57 @@ pub fn camera_system(
             .as_ref()
             .map(|viewport| viewport.physical_size);
 
-        if let Some(normalized_target) = &camera.target.normalize(primary_window) {
-            if normalized_target.is_changed(&changed_window_ids, &changed_image_handles)
+        if let Some(normalized_target) = &camera.target.normalize(primary_window)
+            && (normalized_target.is_changed(&changed_window_ids, &changed_image_handles)
                 || camera.is_added()
                 || camera_projection.is_changed()
                 || camera.computed.old_viewport_size != viewport_size
-                || camera.computed.old_sub_camera_view != camera.sub_camera_view
+                || camera.computed.old_sub_camera_view != camera.sub_camera_view)
+        {
+            let new_computed_target_info =
+                normalized_target.get_render_target_info(windows, &images, &manual_texture_views);
+            // Check for the scale factor changing, and resize the viewport if needed.
+            // This can happen when the window is moved between monitors with different DPIs.
+            // Without this, the viewport will take a smaller portion of the window moved to
+            // a higher DPI monitor.
+            if normalized_target.is_changed(&scale_factor_changed_window_ids, &HashSet::default())
+                && let (Some(new_scale_factor), Some(old_scale_factor)) = (
+                    new_computed_target_info
+                        .as_ref()
+                        .map(|info| info.scale_factor),
+                    camera
+                        .computed
+                        .target_info
+                        .as_ref()
+                        .map(|info| info.scale_factor),
+                )
             {
-                let new_computed_target_info = normalized_target.get_render_target_info(
-                    windows,
-                    &images,
-                    &manual_texture_views,
-                );
-                // Check for the scale factor changing, and resize the viewport if needed.
-                // This can happen when the window is moved between monitors with different DPIs.
-                // Without this, the viewport will take a smaller portion of the window moved to
-                // a higher DPI monitor.
-                if normalized_target
-                    .is_changed(&scale_factor_changed_window_ids, &HashSet::default())
-                {
-                    if let (Some(new_scale_factor), Some(old_scale_factor)) = (
-                        new_computed_target_info
-                            .as_ref()
-                            .map(|info| info.scale_factor),
-                        camera
-                            .computed
-                            .target_info
-                            .as_ref()
-                            .map(|info| info.scale_factor),
-                    ) {
-                        let resize_factor = new_scale_factor / old_scale_factor;
-                        if let Some(ref mut viewport) = camera.viewport {
-                            let resize = |vec: UVec2| (vec.as_vec2() * resize_factor).as_uvec2();
-                            viewport.physical_position = resize(viewport.physical_position);
-                            viewport.physical_size = resize(viewport.physical_size);
-                            viewport_size = Some(viewport.physical_size);
-                        }
-                    }
+                let resize_factor = new_scale_factor / old_scale_factor;
+                if let Some(ref mut viewport) = camera.viewport {
+                    let resize = |vec: UVec2| (vec.as_vec2() * resize_factor).as_uvec2();
+                    viewport.physical_position = resize(viewport.physical_position);
+                    viewport.physical_size = resize(viewport.physical_size);
+                    viewport_size = Some(viewport.physical_size);
                 }
-                // This check is needed because when changing WindowMode to Fullscreen, the viewport may have invalid
-                // arguments due to a sudden change on the window size to a lower value.
-                // If the size of the window is lower, the viewport will match that lower value.
-                if let Some(viewport) = &mut camera.viewport {
-                    let target_info = &new_computed_target_info;
-                    if let Some(target) = target_info {
-                        viewport.clamp_to_size(target.physical_size);
-                    }
+            }
+            // This check is needed because when changing WindowMode to Fullscreen, the viewport may have invalid
+            // arguments due to a sudden change on the window size to a lower value.
+            // If the size of the window is lower, the viewport will match that lower value.
+            if let Some(viewport) = &mut camera.viewport {
+                let target_info = &new_computed_target_info;
+                if let Some(target) = target_info {
+                    viewport.clamp_to_size(target.physical_size);
                 }
-                camera.computed.target_info = new_computed_target_info;
-                if let Some(size) = camera.logical_viewport_size() {
-                    if size.x != 0.0 && size.y != 0.0 {
-                        camera_projection.update(size.x, size.y);
-                        camera.computed.clip_from_view = match &camera.sub_camera_view {
-                            Some(sub_view) => {
-                                camera_projection.get_clip_from_view_for_sub(sub_view)
-                            }
-                            None => camera_projection.get_clip_from_view(),
-                        }
-                    }
+            }
+            camera.computed.target_info = new_computed_target_info;
+            if let Some(size) = camera.logical_viewport_size()
+                && size.x != 0.0
+                && size.y != 0.0
+            {
+                camera_projection.update(size.x, size.y);
+                camera.computed.clip_from_view = match &camera.sub_camera_view {
+                    Some(sub_view) => camera_projection.get_clip_from_view_for_sub(sub_view),
+                    None => camera_projection.get_clip_from_view(),
                 }
             }
         }
@@ -616,10 +609,10 @@ pub fn sort_cameras(
     let mut target_counts = <HashMap<_, _>>::default();
     for sorted_camera in &mut sorted_cameras.0 {
         let new_order_target = (sorted_camera.order, sorted_camera.target.clone());
-        if let Some(previous_order_target) = previous_order_target {
-            if previous_order_target == new_order_target {
-                ambiguities.insert(new_order_target.clone());
-            }
+        if let Some(previous_order_target) = previous_order_target
+            && previous_order_target == new_order_target
+        {
+            ambiguities.insert(new_order_target.clone());
         }
         if let Some(target) = &sorted_camera.target {
             let count = target_counts

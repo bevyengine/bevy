@@ -373,9 +373,11 @@ mod tests {
             b: u32,
         }
 
+        #[expect(dead_code, reason = "this is never constructed")]
         #[derive(ScheduleLabel, Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
         struct EmptyTupleLabel();
 
+        #[expect(dead_code, reason = "this is never constructed")]
         #[derive(ScheduleLabel, Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
         struct EmptyStructLabel {}
 

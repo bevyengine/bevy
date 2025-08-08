@@ -231,11 +231,11 @@ fn parse_term<Q: QueryData>(
             let mut parts = str.split_whitespace();
             let first = parts.next().unwrap();
             if first == "&mut" {
-                if let Some(str) = parts.next() {
-                    if let Some(&id) = components.get(str) {
-                        builder.mut_id(id);
-                        matched = true;
-                    }
+                if let Some(str) = parts.next()
+                    && let Some(&id) = components.get(str)
+                {
+                    builder.mut_id(id);
+                    matched = true;
                 };
             } else if let Some(&id) = components.get(&first[1..]) {
                 builder.ref_id(id);

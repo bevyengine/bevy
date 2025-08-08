@@ -516,9 +516,6 @@ mod tests {
     struct B;
 
     #[derive(Component)]
-    struct C;
-
-    #[derive(Component)]
     #[component(storage = "SparseSet")]
     struct S;
 

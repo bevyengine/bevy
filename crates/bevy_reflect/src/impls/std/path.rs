@@ -63,11 +63,11 @@ impl PartialReflect for &'static Path {
         ReflectKind::Opaque
     }
 
-    fn reflect_ref(&self) -> ReflectRef <'_> {
+    fn reflect_ref(&self) -> ReflectRef<'_> {
         ReflectRef::Opaque(self)
     }
 
-    fn reflect_mut(&mut self) -> ReflectMut <'_> {
+    fn reflect_mut(&mut self) -> ReflectMut<'_> {
         ReflectMut::Opaque(self)
     }
 
@@ -194,11 +194,11 @@ impl PartialReflect for Cow<'static, Path> {
         ReflectKind::Opaque
     }
 
-    fn reflect_ref(&self) -> ReflectRef <'_> {
+    fn reflect_ref(&self) -> ReflectRef<'_> {
         ReflectRef::Opaque(self)
     }
 
-    fn reflect_mut(&mut self) -> ReflectMut <'_> {
+    fn reflect_mut(&mut self) -> ReflectMut<'_> {
         ReflectMut::Opaque(self)
     }
 
