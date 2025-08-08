@@ -1365,9 +1365,11 @@ pub fn prepare_uinodes(
                     } else if batch_image_handle == AssetId::default()
                         && extracted_uinode.image != AssetId::default()
                     {
-                        if let Some(gpu_image) = gpu_images.get(extracted_uinode.image) {
+                        if let Some(ref mut existing_batch) = existing_batch
+                            && let Some(gpu_image) = gpu_images.get(extracted_uinode.image)
+                        {
                             batch_image_handle = extracted_uinode.image;
-                            existing_batch.as_mut().unwrap().1.image = extracted_uinode.image;
+                            existing_batch.1.image = extracted_uinode.image;
 
                             image_bind_groups
                                 .values

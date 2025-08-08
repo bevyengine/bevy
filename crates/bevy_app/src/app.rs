@@ -1611,11 +1611,9 @@ mod tests {
             b: u32,
         }
 
-        #[expect(dead_code, reason = "type is never constructed")]
         #[derive(AppLabel, Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
         struct EmptyTupleLabel();
 
-        #[expect(dead_code, reason = "type is never constructed")]
         #[derive(AppLabel, Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
         struct EmptyStructLabel {}
 
