@@ -336,7 +336,7 @@ impl<'a> Executor<'a> {
                         None => future::yield_now().await,
                     }
                 }
-            })
+            });
         });
     }
 
@@ -915,7 +915,7 @@ impl<T> WorkQueue<T> for SegQueue<T> {
 }
 
 /// Steals some items from one queue into another.
-fn steal<T, Q: WorkQueue<T>>(src: &Q, dest: &ArrayQueue<T>) {
+fn steal_and_pop<T, Q: WorkQueue<T>>(src: &Q, dest: &ArrayQueue<T>) {
     // Half of `src`'s length rounded up.
     let mut count = src.stealable_count();
 

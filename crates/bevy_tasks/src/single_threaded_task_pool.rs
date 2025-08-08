@@ -208,12 +208,16 @@ impl TaskPool {
         self.spawn(future)
     }
 
-    pub(crate) fn try_tick_local() -> bool {
-        crate::cfg::bevy_executor! {
-            if {
-                crate::bevy_executor::Executor::try_tick_local()
-            } else {
-                EXECUTOR.try_tick()
+    crate::cfg::web! {
+        if {} else {
+            pub(crate) fn try_tick_local() -> bool {
+                crate::cfg::bevy_executor! {
+                    if {
+                        crate::bevy_executor::Executor::try_tick_local()
+                    } else {
+                        EXECUTOR.try_tick()
+                    }
+                }
             }
         }
     }
