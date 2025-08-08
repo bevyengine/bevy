@@ -1,10 +1,10 @@
 use crate::pipeline::CosmicFontSystem;
 use crate::{
-    ComputedTextBlock, Font, FontAtlasSets, LineBreak, PositionedGlyph, SwashCache, TextBounds,
-    TextColor, TextError, TextFont, TextLayout, TextLayoutInfo, TextPipeline, TextReader, TextRoot,
-    TextSpanAccess, TextWriter,
+    ComputedTextBlock, Font, FontAtlasSets, LineBreak, PositionedGlyph, SwashCache,
+    TextBackgroundColor, TextBounds, TextColor, TextError, TextFont, TextLayout, TextLayoutInfo,
+    TextPipeline, TextReader, TextRoot, TextSpanAccess, TextWriter,
 };
-use bevy_asset::Assets;
+use bevy_asset::{AssetId, Assets};
 use bevy_color::LinearRgba;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::entity::EntityHashSet;
@@ -153,6 +153,7 @@ pub fn extract_text2d_sprite(
         )>,
     >,
     text_colors: Extract<Query<&TextColor>>,
+    text_background_colors_query: Extract<Query<&TextBackgroundColor>>,
 ) {
     let mut start = extracted_slices.slices.len();
     let mut end = start + 1;
@@ -184,6 +185,34 @@ pub fn extract_text2d_sprite(
         );
 
         let top_left = (Anchor::TOP_LEFT.0 - anchor.as_vec()) * size;
+
+        for &(section_entity, rect) in text_layout_info.section_rects.iter() {
+            let Ok(text_background_color) = text_background_colors_query.get(section_entity) else {
+                continue;
+            };
+            let render_entity = commands.spawn(TemporaryRenderEntity).id();
+            let offset = Vec2::new(rect.center().x, -rect.center().y);
+            let transform = *global_transform
+                * GlobalTransform::from_translation(top_left.extend(0.))
+                * scaling
+                * GlobalTransform::from_translation(offset.extend(0.));
+            extracted_sprites.sprites.push(ExtractedSprite {
+                main_entity,
+                render_entity,
+                transform,
+                color: text_background_color.0.into(),
+                image_handle_id: AssetId::default(),
+                flip_x: false,
+                flip_y: false,
+                kind: bevy_sprite::ExtractedSpriteKind::Single {
+                    anchor: Vec2::ZERO,
+                    rect: None,
+                    scaling_mode: None,
+                    custom_size: Some(rect.size()),
+                },
+            });
+        }
+
         let transform =
             *global_transform * GlobalTransform::from_translation(top_left.extend(0.)) * scaling;
 
