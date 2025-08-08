@@ -18,12 +18,6 @@ use crate::TextPipeline;
 use alloc::collections::VecDeque;
 use bevy_asset::Assets;
 use bevy_asset::Handle;
-use bevy_color::palettes::tailwind::BLUE_900;
-use bevy_color::palettes::tailwind::GRAY_300;
-use bevy_color::palettes::tailwind::GRAY_400;
-use bevy_color::palettes::tailwind::GRAY_950;
-use bevy_color::palettes::tailwind::SKY_300;
-use bevy_color::Color;
 use bevy_derive::Deref;
 use bevy_derive::DerefMut;
 use bevy_ecs::change_detection::DetectChanges;
@@ -220,36 +214,6 @@ pub struct TextCursorBlinkInterval(pub Duration);
 impl Default for TextCursorBlinkInterval {
     fn default() -> Self {
         Self(Duration::from_secs_f32(0.5))
-    }
-}
-
-/// Visual styling for a text input widget.
-#[derive(Component, Clone)]
-pub struct TextInputStyle {
-    /// Text color
-    pub text_color: Color,
-    /// Color of text under an overwrite cursor
-    pub overwrite_text_color: Color,
-    /// Color of input prompt (if set)
-    pub prompt_color: Color,
-    /// Color of the cursor.
-    pub cursor_color: Color,
-    /// Size of the insert cursor relative to the space advance width and line height.
-    pub cursor_size: Vec2,
-    /// Color of selection blocks
-    pub selection_color: Color,
-}
-
-impl Default for TextInputStyle {
-    fn default() -> Self {
-        Self {
-            text_color: Color::from(GRAY_300),
-            overwrite_text_color: GRAY_950.into(),
-            prompt_color: SKY_300.into(),
-            cursor_color: GRAY_400.into(),
-            cursor_size: Vec2::new(0.2, 1.),
-            selection_color: BLUE_900.into(),
-        }
     }
 }
 
