@@ -2,7 +2,6 @@
 
 use std::f32::consts::{FRAC_PI_3, PI};
 use std::fmt::{self, Formatter};
-use std::process;
 
 use bevy::{
     color::palettes::css::{LIME, ORANGE_RED, SILVER},
@@ -16,8 +15,7 @@ use bevy::{
         render_resource::{AsBindGroup, ShaderRef},
         renderer::{RenderAdapter, RenderDevice},
     },
-    window::SystemCursorIcon,
-    winit::cursor::CursorIcon,
+    window::{CursorIcon, SystemCursorIcon},
 };
 use ops::{acos, cos, sin};
 use widgets::{
@@ -165,8 +163,8 @@ fn setup(
 ) {
     // Error out if clustered decals aren't supported on the current platform.
     if !decal::clustered::clustered_decals_are_usable(&render_device, &render_adapter) {
-        eprintln!("Clustered decals aren't usable on this platform.");
-        process::exit(1);
+        error!("Clustered decals aren't usable on this platform.");
+        commands.write_event(AppExit::error());
     }
 
     spawn_cube(&mut commands, &mut meshes, &mut materials);

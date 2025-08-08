@@ -1,11 +1,12 @@
 use crate::{
     DrawMesh, MeshPipeline, MeshPipelineKey, RenderMeshInstanceFlags, RenderMeshInstances,
-    SetMeshBindGroup, SetMeshViewBindGroup, ViewKeyCache, ViewSpecializationTicks,
+    SetMeshBindGroup, SetMeshViewBindGroup, SetMeshViewBindingArrayBindGroup, ViewKeyCache,
+    ViewSpecializationTicks,
 };
 use bevy_app::{App, Plugin, PostUpdate, Startup, Update};
 use bevy_asset::{
-    load_internal_asset, prelude::AssetChanged, weak_handle, AsAssetId, Asset, AssetApp,
-    AssetEvents, AssetId, Assets, Handle, UntypedAssetId,
+    embedded_asset, load_embedded_asset, prelude::AssetChanged, AsAssetId, Asset, AssetApp,
+    AssetEventSystems, AssetId, AssetServer, Assets, Handle, UntypedAssetId,
 };
 use bevy_color::{Color, ColorToComponents};
 use bevy_core_pipeline::core_3d::{
@@ -19,15 +20,15 @@ use bevy_ecs::{
     query::QueryItem,
     system::{lifetimeless::SRes, SystemChangeTick, SystemParamItem},
 };
-use bevy_platform_support::{
+use bevy_platform::{
     collections::{HashMap, HashSet},
     hash::FixedHasher,
 };
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
-use bevy_render::camera::extract_cameras;
 use bevy_render::{
     batching::gpu_preprocessing::{GpuPreprocessingMode, GpuPreprocessingSupport},
-    camera::ExtractedCamera,
+    camera::{extract_cameras, ExtractedCamera},
+    diagnostic::RecordDiagnostics,
     extract_resource::ExtractResource,
     mesh::{
         allocator::{MeshAllocator, SlabId},
@@ -37,7 +38,7 @@ use bevy_render::{
     render_asset::{
         prepare_assets, PrepareAssetError, RenderAsset, RenderAssetPlugin, RenderAssets,
     },
-    render_graph::{NodeRunError, RenderGraphApp, RenderGraphContext, ViewNode, ViewNodeRunner},
+    render_graph::{NodeRunError, RenderGraphContext, RenderGraphExt, ViewNode, ViewNodeRunner},
     render_phase::{
         AddRenderCommand, BinnedPhaseItem, BinnedRenderPhasePlugin, BinnedRenderPhaseType,
         CachedRenderPipelinePhaseItem, DrawFunctionId, DrawFunctions, PhaseItem,
@@ -51,13 +52,10 @@ use bevy_render::{
         ExtractedView, NoIndirectDrawing, RenderVisibilityRanges, RenderVisibleEntities,
         RetainedViewEntity, ViewDepthTexture, ViewTarget,
     },
-    Extract, Render, RenderApp, RenderDebugFlags, RenderSet,
+    Extract, Render, RenderApp, RenderDebugFlags, RenderStartup, RenderSystems,
 };
 use core::{hash::Hash, ops::Range};
 use tracing::error;
-
-pub const WIREFRAME_SHADER_HANDLE: Handle<Shader> =
-    weak_handle!("2646a633-f8e3-4380-87ae-b44d881abbce");
 
 /// A [`Plugin`] that draws wireframes.
 ///
@@ -83,12 +81,7 @@ impl WireframePlugin {
 
 impl Plugin for WireframePlugin {
     fn build(&self, app: &mut App) {
-        load_internal_asset!(
-            app,
-            WIREFRAME_SHADER_HANDLE,
-            "render/wireframe.wgsl",
-            Shader::from_wgsl
-        );
+        embedded_asset!(app, "render/wireframe.wgsl");
 
         app.add_plugins((
             BinnedRenderPhasePlugin::<Wireframe3d, MeshPipeline>::new(self.debug_flags),
@@ -96,9 +89,6 @@ impl Plugin for WireframePlugin {
         ))
         .init_asset::<WireframeMaterial>()
         .init_resource::<SpecializedMeshPipelines<Wireframe3dPipeline>>()
-        .register_type::<NoWireframe>()
-        .register_type::<WireframeConfig>()
-        .register_type::<WireframeColor>()
         .init_resource::<WireframeConfig>()
         .init_resource::<WireframeEntitiesNeedingSpecialization>()
         .add_systems(Startup, setup_global_wireframe_material)
@@ -115,7 +105,7 @@ impl Plugin for WireframePlugin {
         .add_systems(
             PostUpdate,
             check_wireframe_entities_needing_specialization
-                .after(AssetEvents)
+                .after(AssetEventSystems)
                 .run_if(resource_exists::<WireframeConfig>),
         );
 
@@ -139,6 +129,7 @@ impl Plugin for WireframePlugin {
                     Node3d::PostProcessing,
                 ),
             )
+            .add_systems(RenderStartup, init_wireframe_3d_pipeline)
             .add_systems(
                 ExtractSchedule,
                 (
@@ -151,21 +142,14 @@ impl Plugin for WireframePlugin {
                 Render,
                 (
                     specialize_wireframes
-                        .in_set(RenderSet::PrepareMeshes)
+                        .in_set(RenderSystems::PrepareMeshes)
                         .after(prepare_assets::<RenderWireframeMaterial>)
                         .after(prepare_assets::<RenderMesh>),
                     queue_wireframes
-                        .in_set(RenderSet::QueueMeshes)
+                        .in_set(RenderSystems::QueueMeshes)
                         .after(prepare_assets::<RenderWireframeMaterial>),
                 ),
             );
-    }
-
-    fn finish(&self, app: &mut App) {
-        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
-            return;
-        };
-        render_app.init_resource::<Wireframe3dPipeline>();
     }
 }
 
@@ -326,7 +310,8 @@ impl<P: PhaseItem> RenderCommand<P> for SetWireframe3dPushConstants {
 pub type DrawWireframe3d = (
     SetItemPipeline,
     SetMeshViewBindGroup<0>,
-    SetMeshBindGroup<1>,
+    SetMeshViewBindingArrayBindGroup<1>,
+    SetMeshBindGroup<2>,
     SetWireframe3dPushConstants,
     DrawMesh,
 );
@@ -337,13 +322,15 @@ pub struct Wireframe3dPipeline {
     shader: Handle<Shader>,
 }
 
-impl FromWorld for Wireframe3dPipeline {
-    fn from_world(render_world: &mut World) -> Self {
-        Wireframe3dPipeline {
-            mesh_pipeline: render_world.resource::<MeshPipeline>().clone(),
-            shader: WIREFRAME_SHADER_HANDLE,
-        }
-    }
+pub fn init_wireframe_3d_pipeline(
+    mut commands: Commands,
+    mesh_pipeline: Res<MeshPipeline>,
+    asset_server: Res<AssetServer>,
+) {
+    commands.insert_resource(Wireframe3dPipeline {
+        mesh_pipeline: mesh_pipeline.clone(),
+        shader: load_embedded_asset!(asset_server.as_ref(), "render/wireframe.wgsl"),
+    });
 }
 
 impl SpecializedMeshPipeline for Wireframe3dPipeline {
@@ -382,7 +369,7 @@ impl ViewNode for Wireframe3dNode {
         &self,
         graph: &mut RenderGraphContext,
         render_context: &mut RenderContext<'w>,
-        (camera, view, target, depth): QueryItem<'w, Self::ViewQuery>,
+        (camera, view, target, depth): QueryItem<'w, '_, Self::ViewQuery>,
         world: &'w World,
     ) -> Result<(), NodeRunError> {
         let Some(wireframe_phase) = world.get_resource::<ViewBinnedRenderPhases<Wireframe3d>>()
@@ -394,13 +381,16 @@ impl ViewNode for Wireframe3dNode {
             return Ok(());
         };
 
+        let diagnostics = render_context.diagnostic_recorder();
+
         let mut render_pass = render_context.begin_tracked_render_pass(RenderPassDescriptor {
-            label: Some("wireframe_3d_pass"),
+            label: Some("wireframe_3d"),
             color_attachments: &[Some(target.get_color_attachment())],
             depth_stencil_attachment: Some(depth.get_attachment(StoreOp::Store)),
             timestamp_writes: None,
             occlusion_query_set: None,
         });
+        let pass_span = diagnostics.pass_span(&mut render_pass, "wireframe_3d");
 
         if let Some(viewport) = camera.viewport.as_ref() {
             render_pass.set_camera_viewport(viewport);
@@ -410,6 +400,8 @@ impl ViewNode for Wireframe3dNode {
             error!("Error encountered while rendering the stencil phase {err:?}");
             return Err(NodeRunError::DrawError(err));
         }
+
+        pass_span.end(&mut render_pass);
 
         Ok(())
     }
@@ -482,6 +474,7 @@ impl RenderAsset for RenderWireframeMaterial {
         source_asset: Self::SourceAsset,
         _asset_id: AssetId<Self::SourceAsset>,
         _param: &mut SystemParamItem<Self::Param>,
+        _previous_asset: Option<&Self>,
     ) -> Result<Self, PrepareAssetError<Self::SourceAsset>> {
         Ok(RenderWireframeMaterial {
             color: source_asset.color.to_linear().to_f32_array(),
@@ -780,6 +773,10 @@ pub fn specialize_wireframes(
             if !render_wireframe_instances.contains_key(visible_entity) {
                 continue;
             };
+            let Some(mesh_instance) = render_mesh_instances.render_mesh_queue_data(*visible_entity)
+            else {
+                continue;
+            };
             let entity_tick = entity_specialization_ticks.get(visible_entity).unwrap();
             let last_specialized_tick = view_specialized_material_pipeline_cache
                 .get(visible_entity)
@@ -791,10 +788,6 @@ pub fn specialize_wireframes(
             if !needs_specialization {
                 continue;
             }
-            let Some(mesh_instance) = render_mesh_instances.render_mesh_queue_data(*visible_entity)
-            else {
-                continue;
-            };
             let Some(mesh) = render_meshes.get(mesh_instance.mesh_asset_id) else {
                 continue;
             };

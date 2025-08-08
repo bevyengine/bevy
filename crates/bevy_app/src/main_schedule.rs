@@ -92,8 +92,8 @@ pub struct PreUpdate;
 
 /// Runs the [`FixedMain`] schedule in a loop according until all relevant elapsed time has been "consumed".
 ///
-/// If you need to order your variable timestep systems
-/// before or after the fixed update logic, use the [`RunFixedMainLoopSystem`] system set.
+/// If you need to order your variable timestep systems before or after
+/// the fixed update logic, use the [`RunFixedMainLoopSystems`] system set.
 ///
 /// Note that in contrast to most other Bevy schedules, systems added directly to
 /// [`RunFixedMainLoop`] will *not* be parallelized between each other.
@@ -149,7 +149,7 @@ pub struct FixedLast;
 /// The schedule that contains systems which only run after a fixed period of time has elapsed.
 ///
 /// This is run by the [`RunFixedMainLoop`] schedule. If you need to order your variable timestep systems
-/// before or after the fixed update logic, use the [`RunFixedMainLoopSystem`] system set.
+/// before or after the fixed update logic, use the [`RunFixedMainLoopSystems`] system set.
 ///
 /// Frequency of execution is configured by inserting `Time<Fixed>` resource, 64 Hz by default.
 /// See [this example](https://github.com/bevyengine/bevy/blob/latest/examples/time/time.rs).
@@ -196,7 +196,11 @@ pub struct Last;
 
 /// Animation system set. This exists in [`PostUpdate`].
 #[derive(SystemSet, Debug, Hash, PartialEq, Eq, Clone)]
-pub struct Animation;
+pub struct AnimationSystems;
+
+/// Deprecated alias for [`AnimationSystems`].
+#[deprecated(since = "0.17.0", note = "Renamed to `AnimationSystems`.")]
+pub type Animation = AnimationSystems;
 
 /// Defines the schedules to be run for the [`Main`] schedule, including
 /// their order.
@@ -318,9 +322,9 @@ impl Plugin for MainSchedulePlugin {
             .configure_sets(
                 RunFixedMainLoop,
                 (
-                    RunFixedMainLoopSystem::BeforeFixedMainLoop,
-                    RunFixedMainLoopSystem::FixedMainLoop,
-                    RunFixedMainLoopSystem::AfterFixedMainLoop,
+                    RunFixedMainLoopSystems::BeforeFixedMainLoop,
+                    RunFixedMainLoopSystems::FixedMainLoop,
+                    RunFixedMainLoopSystems::AfterFixedMainLoop,
                 )
                     .chain(),
             );
@@ -400,7 +404,7 @@ impl FixedMain {
 /// Note that in contrast to most other Bevy schedules, systems added directly to
 /// [`RunFixedMainLoop`] will *not* be parallelized between each other.
 #[derive(Debug, Hash, PartialEq, Eq, Copy, Clone, SystemSet)]
-pub enum RunFixedMainLoopSystem {
+pub enum RunFixedMainLoopSystems {
     /// Runs before the fixed update logic.
     ///
     /// A good example of a system that fits here
@@ -419,7 +423,7 @@ pub enum RunFixedMainLoopSystem {
     /// App::new()
     ///   .add_systems(
     ///     RunFixedMainLoop,
-    ///     update_camera_rotation.in_set(RunFixedMainLoopSystem::BeforeFixedMainLoop))
+    ///     update_camera_rotation.in_set(RunFixedMainLoopSystems::BeforeFixedMainLoop))
     ///   .add_systems(FixedUpdate, update_physics);
     ///
     /// # fn update_camera_rotation() {}
@@ -432,7 +436,7 @@ pub enum RunFixedMainLoopSystem {
     ///
     /// Don't place systems here, use [`FixedUpdate`] and friends instead.
     /// Use this system instead to order your systems to run specifically inbetween the fixed update logic and all
-    /// other systems that run in [`RunFixedMainLoopSystem::BeforeFixedMainLoop`] or [`RunFixedMainLoopSystem::AfterFixedMainLoop`].
+    /// other systems that run in [`RunFixedMainLoopSystems::BeforeFixedMainLoop`] or [`RunFixedMainLoopSystems::AfterFixedMainLoop`].
     ///
     /// [`Time<Virtual>`]: https://docs.rs/bevy/latest/bevy/prelude/struct.Virtual.html
     /// [`Time::overstep`]: https://docs.rs/bevy/latest/bevy/time/struct.Time.html#method.overstep
@@ -448,8 +452,8 @@ pub enum RunFixedMainLoopSystem {
     ///       // This system will be called before all interpolation systems
     ///       // that third-party plugins might add.
     ///       prepare_for_interpolation
-    ///         .after(RunFixedMainLoopSystem::FixedMainLoop)
-    ///         .before(RunFixedMainLoopSystem::AfterFixedMainLoop),
+    ///         .after(RunFixedMainLoopSystems::FixedMainLoop)
+    ///         .before(RunFixedMainLoopSystems::AfterFixedMainLoop),
     ///     )
     ///   );
     ///
@@ -473,10 +477,14 @@ pub enum RunFixedMainLoopSystem {
     ///   .add_systems(FixedUpdate, update_physics)
     ///   .add_systems(
     ///     RunFixedMainLoop,
-    ///     interpolate_transforms.in_set(RunFixedMainLoopSystem::AfterFixedMainLoop));
+    ///     interpolate_transforms.in_set(RunFixedMainLoopSystems::AfterFixedMainLoop));
     ///
     /// # fn interpolate_transforms() {}
     /// # fn update_physics() {}
     /// ```
     AfterFixedMainLoop,
 }
+
+/// Deprecated alias for [`RunFixedMainLoopSystems`].
+#[deprecated(since = "0.17.0", note = "Renamed to `RunFixedMainLoopSystems`.")]
+pub type RunFixedMainLoopSystem = RunFixedMainLoopSystems;

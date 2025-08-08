@@ -3,7 +3,7 @@ use alloc::{
     collections::{btree_map, btree_set},
     rc::Rc,
 };
-use bevy_platform_support::collections::HashSet;
+use bevy_platform::collections::HashSet;
 
 use core::{
     array,
@@ -15,7 +15,7 @@ use core::{
 
 use super::{Entity, UniqueEntityEquivalentSlice};
 
-use bevy_platform_support::sync::Arc;
+use bevy_platform::sync::Arc;
 
 /// A trait for types that contain an [`Entity`].
 ///

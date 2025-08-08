@@ -1,27 +1,27 @@
-use core::{any::type_name, fmt};
+use core::fmt;
+
+use bevy_utils::prelude::DebugName;
 
 use crate::{
     entity::Entity,
+    never::Never,
     system::{entity_command::EntityCommandError, Command, EntityCommand},
     world::{error::EntityMutableFetchError, World},
 };
 
-use super::{default_error_handler, BevyError, ErrorContext};
+use super::{BevyError, ErrorContext, ErrorHandler};
 
-/// Takes a [`Command`] that returns a Result and uses a given error handler function to convert it into
+/// Takes a [`Command`] that potentially returns a Result and uses a given error handler function to convert it into
 /// a [`Command`] that internally handles an error if it occurs and returns `()`.
-pub trait HandleError<Out = ()> {
+pub trait HandleError<Out = ()>: Send + 'static {
     /// Takes a [`Command`] that returns a Result and uses a given error handler function to convert it into
     /// a [`Command`] that internally handles an error if it occurs and returns `()`.
-    fn handle_error_with(self, error_handler: fn(BevyError, ErrorContext)) -> impl Command;
+    fn handle_error_with(self, error_handler: ErrorHandler) -> impl Command;
     /// Takes a [`Command`] that returns a Result and uses the default error handler function to convert it into
     /// a [`Command`] that internally handles an error if it occurs and returns `()`.
-    fn handle_error(self) -> impl Command
-    where
-        Self: Sized,
-    {
-        self.handle_error_with(default_error_handler())
-    }
+    fn handle_error(self) -> impl Command;
+    /// Takes a [`Command`] that returns a Result and ignores any error that occurs.
+    fn ignore_error(self) -> impl Command;
 }
 
 impl<C, T, E> HandleError<Result<T, E>> for C
@@ -29,15 +29,58 @@ where
     C: Command<Result<T, E>>,
     E: Into<BevyError>,
 {
-    fn handle_error_with(self, error_handler: fn(BevyError, ErrorContext)) -> impl Command {
+    fn handle_error_with(self, error_handler: ErrorHandler) -> impl Command {
         move |world: &mut World| match self.apply(world) {
             Ok(_) => {}
             Err(err) => (error_handler)(
                 err.into(),
                 ErrorContext::Command {
-                    name: type_name::<C>().into(),
+                    name: DebugName::type_name::<C>(),
                 },
             ),
+        }
+    }
+
+    fn handle_error(self) -> impl Command {
+        move |world: &mut World| match self.apply(world) {
+            Ok(_) => {}
+            Err(err) => world.default_error_handler()(
+                err.into(),
+                ErrorContext::Command {
+                    name: DebugName::type_name::<C>(),
+                },
+            ),
+        }
+    }
+
+    fn ignore_error(self) -> impl Command {
+        move |world: &mut World| {
+            let _ = self.apply(world);
+        }
+    }
+}
+
+impl<C> HandleError<Never> for C
+where
+    C: Command<Never>,
+{
+    fn handle_error_with(self, _error_handler: fn(BevyError, ErrorContext)) -> impl Command {
+        move |world: &mut World| {
+            self.apply(world);
+        }
+    }
+
+    #[inline]
+    fn handle_error(self) -> impl Command {
+        move |world: &mut World| {
+            self.apply(world);
+        }
+    }
+
+    #[inline]
+    fn ignore_error(self) -> impl Command {
+        move |world: &mut World| {
+            self.apply(world);
         }
     }
 }
@@ -51,10 +94,11 @@ where
         self
     }
     #[inline]
-    fn handle_error(self) -> impl Command
-    where
-        Self: Sized,
-    {
+    fn handle_error(self) -> impl Command {
+        self
+    }
+    #[inline]
+    fn ignore_error(self) -> impl Command {
         self
     }
 }

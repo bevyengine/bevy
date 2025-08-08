@@ -8,7 +8,7 @@ use bevy_math::{
     ops,
     primitives::{
         Annulus, Capsule2d, Circle, CircularSector, CircularSegment, ConvexPolygon, Ellipse,
-        Rectangle, RegularPolygon, Rhombus, Triangle2d, Triangle3d, WindingOrder,
+        Rectangle, RegularPolygon, Rhombus, Segment2d, Triangle2d, Triangle3d, WindingOrder,
     },
     FloatExt, Vec2,
 };
@@ -636,6 +636,46 @@ impl From<Ellipse> for Mesh {
     }
 }
 
+/// A builder used for creating a [`Mesh`] with a [`Segment2d`].
+pub struct Segment2dMeshBuilder {
+    /// The [`Segment2d`] shape.
+    pub segment: Segment2d,
+}
+
+impl Segment2dMeshBuilder {
+    /// Creates a new [`Segment2dMeshBuilder`] from a given segment.
+    #[inline]
+    pub const fn new(line: Segment2d) -> Self {
+        Self { segment: line }
+    }
+}
+
+impl MeshBuilder for Segment2dMeshBuilder {
+    fn build(&self) -> Mesh {
+        let positions = self.segment.vertices.map(|v| v.extend(0.0)).to_vec();
+        let indices = Indices::U32(vec![0, 1]);
+
+        Mesh::new(PrimitiveTopology::LineList, RenderAssetUsages::default())
+            .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, positions)
+            .with_inserted_indices(indices)
+    }
+}
+
+impl Meshable for Segment2d {
+    type Output = Segment2dMeshBuilder;
+
+    fn mesh(&self) -> Self::Output {
+        Segment2dMeshBuilder::new(*self)
+    }
+}
+
+impl From<Segment2d> for Mesh {
+    /// Converts this segment into a [`Mesh`] using a default [`Segment2dMeshBuilder`].
+    fn from(segment: Segment2d) -> Self {
+        segment.mesh().build()
+    }
+}
+
 /// A builder for creating a [`Mesh`] with an [`Annulus`] shape.
 #[derive(Clone, Copy, Debug, Reflect)]
 #[reflect(Default, Debug, Clone)]
@@ -1176,7 +1216,7 @@ impl From<Capsule2d> for Mesh {
 #[cfg(test)]
 mod tests {
     use bevy_math::{prelude::Annulus, primitives::RegularPolygon, FloatOrd};
-    use bevy_platform_support::collections::HashSet;
+    use bevy_platform::collections::HashSet;
 
     use crate::{Mesh, MeshBuilder, Meshable, VertexAttributeValues};
 

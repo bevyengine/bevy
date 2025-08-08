@@ -10,10 +10,10 @@
 //!
 //! To draw an entity, a corresponding [`PhaseItem`] has to be added to one or multiple of these
 //! render phases for each view that it is visible in.
-//! This must be done in the [`RenderSet::Queue`].
-//! After that the render phase sorts them in the [`RenderSet::PhaseSort`].
+//! This must be done in the [`RenderSystems::Queue`].
+//! After that the render phase sorts them in the [`RenderSystems::PhaseSort`].
 //! Finally the items are rendered using a single [`TrackedRenderPass`], during
-//! the [`RenderSet::Render`].
+//! the [`RenderSystems::Render`].
 //!
 //! Therefore each phase item is assigned a [`Draw`] function.
 //! These set up the state of the [`TrackedRenderPass`] (i.e. select the
@@ -32,7 +32,7 @@ use bevy_app::{App, Plugin};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::component::Tick;
 use bevy_ecs::entity::EntityHash;
-use bevy_platform_support::collections::{hash_map::Entry, HashMap};
+use bevy_platform::collections::{hash_map::Entry, HashMap};
 use bevy_utils::default;
 pub use draw::*;
 pub use draw_state::*;
@@ -59,15 +59,44 @@ use crate::{
         GetFullBatchData,
     },
     render_resource::{CachedRenderPipelineId, GpuArrayBufferIndex, PipelineCache},
-    Render, RenderApp, RenderSet,
+    Render, RenderApp, RenderSystems,
 };
+use bevy_ecs::intern::Interned;
 use bevy_ecs::{
+    define_label,
     prelude::*,
     system::{lifetimeless::SRes, SystemParamItem},
 };
+use bevy_render::renderer::RenderAdapterInfo;
+pub use bevy_render_macros::ShaderLabel;
 use core::{fmt::Debug, hash::Hash, iter, marker::PhantomData, ops::Range, slice::SliceIndex};
 use smallvec::SmallVec;
 use tracing::warn;
+
+define_label!(
+    #[diagnostic::on_unimplemented(
+        note = "consider annotating `{Self}` with `#[derive(ShaderLabel)]`"
+    )]
+    /// Labels used to uniquely identify types of material shaders
+    ShaderLabel,
+    SHADER_LABEL_INTERNER
+);
+
+/// A shorthand for `Interned<dyn RenderSubGraph>`.
+pub type InternedShaderLabel = Interned<dyn ShaderLabel>;
+
+pub use bevy_render_macros::DrawFunctionLabel;
+
+define_label!(
+    #[diagnostic::on_unimplemented(
+        note = "consider annotating `{Self}` with `#[derive(DrawFunctionLabel)]`"
+    )]
+    /// Labels used to uniquely identify types of material shaders
+    DrawFunctionLabel,
+    DRAW_FUNCTION_LABEL_INTERNER
+);
+
+pub type InternedDrawFunctionLabel = Interned<dyn DrawFunctionLabel>;
 
 /// Stores the rendering instructions for a single phase that uses bins in all
 /// views.
@@ -583,13 +612,13 @@ where
 
         // If the entity changed bins, record its old bin so that we can remove
         // the entity from it.
-        if let Some(old_cached_binned_entity) = old_cached_binned_entity {
-            if old_cached_binned_entity.cached_bin_key != new_cached_binned_entity.cached_bin_key {
-                self.entities_that_changed_bins.push(EntityThatChangedBins {
-                    main_entity,
-                    old_cached_binned_entity,
-                });
-            }
+        if let Some(old_cached_binned_entity) = old_cached_binned_entity
+            && old_cached_binned_entity.cached_bin_key != new_cached_binned_entity.cached_bin_key
+        {
+            self.entities_that_changed_bins.push(EntityThatChangedBins {
+                main_entity,
+                old_cached_binned_entity,
+            });
         }
 
         // Mark the entity as valid.
@@ -629,9 +658,12 @@ where
         let mut draw_functions = draw_functions.write();
 
         let render_device = world.resource::<RenderDevice>();
+        let render_adapter_info = world.resource::<RenderAdapterInfo>();
         let multi_draw_indirect_count_supported = render_device
             .features()
-            .contains(Features::MULTI_DRAW_INDIRECT_COUNT);
+            .contains(Features::MULTI_DRAW_INDIRECT_COUNT)
+            // TODO: https://github.com/gfx-rs/wgpu/issues/7974
+            && !matches!(render_adapter_info.backend, wgpu::Backend::Dx12);
 
         match self.batch_sets {
             BinnedRenderPhaseBatchSets::DynamicUniforms(ref batch_sets) => {
@@ -872,11 +904,10 @@ where
     ) -> bool {
         if let indexmap::map::Entry::Occupied(entry) =
             self.cached_entity_bin_keys.entry(visible_entity)
+            && entry.get().change_tick == current_change_tick
         {
-            if entry.get().change_tick == current_change_tick {
-                self.valid_cached_entity_bin_keys.insert(entry.index());
-                return true;
-            }
+            self.valid_cached_entity_bin_keys.insert(entry.index());
+            return true;
         }
 
         false
@@ -1134,7 +1165,7 @@ where
             .add_systems(
                 Render,
                 (
-                    batching::sort_binned_render_phase::<BPI>.in_set(RenderSet::PhaseSort),
+                    batching::sort_binned_render_phase::<BPI>.in_set(RenderSystems::PhaseSort),
                     (
                         no_gpu_preprocessing::batch_and_prepare_binned_render_phase::<BPI, GFBD>
                             .run_if(resource_exists::<BatchedInstanceBuffer<GFBD::BufferData>>),
@@ -1145,15 +1176,15 @@ where
                                 >,
                             ),
                     )
-                        .in_set(RenderSet::PrepareResources),
-                    sweep_old_entities::<BPI>.in_set(RenderSet::QueueSweep),
+                        .in_set(RenderSystems::PrepareResources),
+                    sweep_old_entities::<BPI>.in_set(RenderSystems::QueueSweep),
                     gpu_preprocessing::collect_buffers_for_phase::<BPI, GFBD>
                         .run_if(
                             resource_exists::<
                                 BatchedInstanceBuffers<GFBD::BufferData, GFBD::BufferInputData>,
                             >,
                         )
-                        .in_set(RenderSet::PrepareResourcesCollectPhaseBuffers),
+                        .in_set(RenderSystems::PrepareResourcesCollectPhaseBuffers),
                 ),
             );
     }
@@ -1250,14 +1281,14 @@ where
                                 >,
                             ),
                     )
-                        .in_set(RenderSet::PrepareResources),
+                        .in_set(RenderSystems::PrepareResources),
                     gpu_preprocessing::collect_buffers_for_phase::<SPI, GFBD>
                         .run_if(
                             resource_exists::<
                                 BatchedInstanceBuffers<GFBD::BufferData, GFBD::BufferInputData>,
                             >,
                         )
-                        .in_set(RenderSet::PrepareResourcesCollectPhaseBuffers),
+                        .in_set(RenderSystems::PrepareResourcesCollectPhaseBuffers),
                 ),
             );
     }
@@ -1465,10 +1496,10 @@ where
 ///
 /// The data required for rendering an entity is extracted from the main world in the
 /// [`ExtractSchedule`](crate::ExtractSchedule).
-/// Then it has to be queued up for rendering during the [`RenderSet::Queue`],
+/// Then it has to be queued up for rendering during the [`RenderSystems::Queue`],
 /// by adding a corresponding phase item to a render phase.
 /// Afterwards it will be possibly sorted and rendered automatically in the
-/// [`RenderSet::PhaseSort`] and [`RenderSet::Render`], respectively.
+/// [`RenderSystems::PhaseSort`] and [`RenderSystems::Render`], respectively.
 ///
 /// `PhaseItem`s come in two flavors: [`BinnedPhaseItem`]s and
 /// [`SortedPhaseItem`]s.

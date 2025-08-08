@@ -11,7 +11,7 @@ use alloc::{
     vec::Vec,
 };
 use bevy_ecs::world::World;
-use bevy_platform_support::collections::{hash_map::Entry, HashMap, HashSet};
+use bevy_platform::collections::{hash_map::Entry, HashMap, HashSet};
 use bevy_tasks::Task;
 use bevy_utils::TypeIdMap;
 use core::{any::TypeId, task::Waker};
@@ -133,13 +133,11 @@ impl AssetInfos {
             .get(&type_id)
             .ok_or(MissingHandleProviderError(type_id))?;
 
-        if watching_for_changes {
-            if let Some(path) = &path {
-                let mut without_label = path.to_owned();
-                if let Some(label) = without_label.take_label() {
-                    let labels = living_labeled_assets.entry(without_label).or_default();
-                    labels.insert(label.as_ref().into());
-                }
+        if watching_for_changes && let Some(path) = &path {
+            let mut without_label = path.to_owned();
+            if let Some(label) = without_label.take_label() {
+                let labels = living_labeled_assets.entry(without_label).or_default();
+                labels.insert(label.as_ref().into());
             }
         }
 

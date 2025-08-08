@@ -8,14 +8,15 @@ use std::thread::{self, ThreadId};
 use bevy_diagnostic::{Diagnostic, DiagnosticMeasurement, DiagnosticPath, DiagnosticsStore};
 use bevy_ecs::resource::Resource;
 use bevy_ecs::system::{Res, ResMut};
-use bevy_platform_support::time::Instant;
+use bevy_platform::time::Instant;
 use std::sync::Mutex;
 use wgpu::{
     Buffer, BufferDescriptor, BufferUsages, CommandEncoder, ComputePass, Features, MapMode,
     PipelineStatisticsTypes, QuerySet, QuerySetDescriptor, QueryType, RenderPass,
 };
 
-use crate::renderer::{RenderAdapterInfo, RenderDevice, RenderQueue, WgpuWrapper};
+use crate::renderer::{RenderAdapterInfo, RenderDevice, RenderQueue};
+use crate::WgpuWrapper;
 
 use super::RecordDiagnostics;
 

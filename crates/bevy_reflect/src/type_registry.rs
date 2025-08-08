@@ -1,6 +1,6 @@
 use crate::{serde::Serializable, FromReflect, Reflect, TypeInfo, TypePath, Typed};
 use alloc::{boxed::Box, string::String};
-use bevy_platform_support::{
+use bevy_platform::{
     collections::{HashMap, HashSet},
     sync::{Arc, PoisonError, RwLock, RwLockReadGuard, RwLockWriteGuard},
 };
@@ -38,6 +38,7 @@ pub struct TypeRegistry {
 /// A synchronized wrapper around a [`TypeRegistry`].
 #[derive(Clone, Default)]
 pub struct TypeRegistryArc {
+    /// The wrapped [`TypeRegistry`].
     pub internal: Arc<RwLock<TypeRegistry>>,
 }
 
@@ -117,6 +118,44 @@ impl TypeRegistry {
         registry.register::<f64>();
         registry.register::<String>();
         registry
+    }
+
+    /// Register all non-generic types annotated with `#[derive(Reflect)]`.
+    ///
+    /// Calling this method is equivalent to calling [`register`](Self::register) on all types without generic parameters
+    /// that derived [`Reflect`] trait.
+    ///
+    /// This method is supported on Linux, macOS, Windows, iOS, Android, and Web via the `inventory` crate.
+    /// It does nothing on platforms not supported by either of those crates.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use std::any::TypeId;
+    /// # use bevy_reflect::{Reflect, TypeRegistry, std_traits::ReflectDefault};
+    /// #[derive(Reflect, Default)]
+    /// #[reflect(Default)]
+    /// struct Foo {
+    ///   name: Option<String>,
+    ///   value: i32
+    /// }
+    ///
+    /// let mut type_registry = TypeRegistry::empty();
+    /// type_registry.register_derived_types();
+    ///
+    /// // The main type
+    /// assert!(type_registry.contains(TypeId::of::<Foo>()));
+    ///
+    /// // Its type dependencies
+    /// assert!(type_registry.contains(TypeId::of::<Option<String>>()));
+    /// assert!(type_registry.contains(TypeId::of::<i32>()));
+    ///
+    /// // Its type data
+    /// assert!(type_registry.get_type_data::<ReflectDefault>(TypeId::of::<Foo>()).is_some());
+    /// ```
+    #[cfg(feature = "auto_register")]
+    pub fn register_derived_types(&mut self) {
+        crate::__macro_exports::auto_register::register_types(self);
     }
 
     /// Attempts to register the type `T` if it has not yet been registered already.
@@ -250,7 +289,7 @@ impl TypeRegistry {
         type_id: TypeId,
         get_registration: impl FnOnce() -> TypeRegistration,
     ) -> bool {
-        use bevy_platform_support::collections::hash_map::Entry;
+        use bevy_platform::collections::hash_map::Entry;
 
         match self.registrations.entry(type_id) {
             Entry::Occupied(_) => false,
@@ -313,6 +352,7 @@ impl TypeRegistry {
         data.insert(D::from_type());
     }
 
+    /// Whether the type with given [`TypeId`] has been registered in this registry.
     pub fn contains(&self, type_id: TypeId) -> bool {
         self.registrations.contains_key(&type_id)
     }
@@ -684,8 +724,10 @@ impl Clone for TypeRegistration {
 ///
 /// [crate-level documentation]: crate
 pub trait TypeData: Downcast + Send + Sync {
+    /// Creates a type-erased clone of this value.
     fn clone_type_data(&self) -> Box<dyn TypeData>;
 }
+
 impl_downcast!(TypeData);
 
 impl<T: 'static + Send + Sync> TypeData for T
@@ -702,6 +744,7 @@ where
 /// This is used by the `#[derive(Reflect)]` macro to generate an implementation
 /// of [`TypeData`] to pass to [`TypeRegistration::insert`].
 pub trait FromType<T> {
+    /// Creates an instance of `Self` for type `T`.
     fn from_type() -> Self;
 }
 
@@ -746,6 +789,8 @@ impl ReflectSerialize {
 /// [`FromType::from_type`].
 #[derive(Clone)]
 pub struct ReflectDeserialize {
+    /// Function used by [`ReflectDeserialize::deserialize`] to
+    /// perform deserialization.
     pub func: fn(
         deserializer: &mut dyn erased_serde::Deserializer,
     ) -> Result<Box<dyn Reflect>, erased_serde::Error>,

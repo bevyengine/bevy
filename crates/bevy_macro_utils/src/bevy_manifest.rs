@@ -29,10 +29,9 @@ impl BevyManifest {
 
         if let Ok(manifest) =
             RwLockReadGuard::try_map(MANIFESTS.read(), |manifests| manifests.get(&manifest_path))
+            && manifest.modified_time == modified_time
         {
-            if manifest.modified_time == modified_time {
-                return manifest;
-            }
+            return manifest;
         }
 
         let manifest = BevyManifest {
@@ -95,7 +94,7 @@ impl BevyManifest {
                 return None;
             };
 
-            let mut path = Self::parse_str::<syn::Path>(package);
+            let mut path = Self::parse_str::<syn::Path>(&format!("::{package}"));
             if let Some(module) = name.strip_prefix("bevy_") {
                 path.segments.push(Self::parse_str(module));
             }

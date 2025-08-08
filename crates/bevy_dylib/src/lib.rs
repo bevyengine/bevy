@@ -1,7 +1,7 @@
 #![cfg_attr(docsrs, feature(doc_auto_cfg))]
 #![doc(
-    html_logo_url = "https://bevyengine.org/assets/icon.png",
-    html_favicon_url = "https://bevyengine.org/assets/icon.png"
+    html_logo_url = "https://bevy.org/assets/icon.png",
+    html_favicon_url = "https://bevy.org/assets/icon.png"
 )]
 
 //! Forces dynamic linking of Bevy.
@@ -52,8 +52,6 @@
 //! #[cfg(debug_assertions)] // new
 //! use bevy_dylib;
 //! ```
-
-#![no_std]
 
 // Force linking of the main bevy crate
 #[expect(

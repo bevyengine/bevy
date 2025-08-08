@@ -229,14 +229,14 @@ impl<'w, 's> MeshRayCast<'w, 's> {
                     RayCastVisibility::Visible => inherited_visibility.get(),
                     RayCastVisibility::VisibleInView => view_visibility.get(),
                 };
-                if should_ray_cast {
-                    if let Some(distance) = ray_aabb_intersection_3d(
+                if should_ray_cast
+                    && let Some(distance) = ray_aabb_intersection_3d(
                         ray,
                         &Aabb3d::new(aabb.center, aabb.half_extents),
-                        &transform.compute_matrix(),
-                    ) {
-                        aabb_hits_tx.send((FloatOrd(distance), entity)).ok();
-                    }
+                        &transform.to_matrix(),
+                    )
+                {
+                    aabb_hits_tx.send((FloatOrd(distance), entity)).ok();
                 }
             },
         );
@@ -287,7 +287,7 @@ impl<'w, 's> MeshRayCast<'w, 's> {
 
                 // Perform the actual ray cast.
                 let _ray_cast_guard = ray_cast_guard.enter();
-                let transform = transform.compute_matrix();
+                let transform = transform.to_matrix();
                 let intersection = ray_intersection_over_mesh(mesh, &transform, ray, backfaces);
 
                 if let Some(intersection) = intersection {

@@ -68,7 +68,7 @@ impl<T: NoUninit> RawBufferVec<T> {
 
     /// Returns the binding for the buffer if the data has been uploaded.
     #[inline]
-    pub fn binding(&self) -> Option<BindingResource> {
+    pub fn binding(&self) -> Option<BindingResource<'_>> {
         Some(BindingResource::Buffer(
             self.buffer()?.as_entire_buffer_binding(),
         ))
@@ -183,6 +183,31 @@ impl<T: NoUninit> RawBufferVec<T> {
         }
     }
 
+    /// Queues writing of data from system RAM to VRAM using the [`RenderDevice`]
+    /// and the provided [`RenderQueue`].
+    ///
+    /// Before queuing the write, a [`reserve`](RawBufferVec::reserve) operation
+    /// is executed.
+    ///
+    /// This will only write the data contained in the given range. It is useful if you only want
+    /// to update a part of the buffer.
+    pub fn write_buffer_range(
+        &mut self,
+        device: &RenderDevice,
+        render_queue: &RenderQueue,
+        range: core::ops::Range<usize>,
+    ) {
+        if self.values.is_empty() {
+            return;
+        }
+        self.reserve(self.values.len(), device);
+        if let Some(buffer) = &self.buffer {
+            // Cast only the bytes we need to write
+            let bytes: &[u8] = must_cast_slice(&self.values[range.start..range.end]);
+            render_queue.write_buffer(buffer, (range.start * self.item_size) as u64, bytes);
+        }
+    }
+
     /// Reduces the length of the buffer.
     pub fn truncate(&mut self, len: usize) {
         self.values.truncate(len);
@@ -285,7 +310,7 @@ where
 
     /// Returns the binding for the buffer if the data has been uploaded.
     #[inline]
-    pub fn binding(&self) -> Option<BindingResource> {
+    pub fn binding(&self) -> Option<BindingResource<'_>> {
         Some(BindingResource::Buffer(
             self.buffer()?.as_entire_buffer_binding(),
         ))
@@ -389,6 +414,31 @@ where
         queue.write_buffer(buffer, 0, &self.data);
     }
 
+    /// Queues writing of data from system RAM to VRAM using the [`RenderDevice`]
+    /// and the provided [`RenderQueue`].
+    ///
+    /// Before queuing the write, a [`reserve`](BufferVec::reserve) operation
+    /// is executed.
+    ///
+    /// This will only write the data contained in the given range. It is useful if you only want
+    /// to update a part of the buffer.
+    pub fn write_buffer_range(
+        &mut self,
+        device: &RenderDevice,
+        render_queue: &RenderQueue,
+        range: core::ops::Range<usize>,
+    ) {
+        if self.data.is_empty() {
+            return;
+        }
+        let item_size = u64::from(T::min_size()) as usize;
+        self.reserve(self.data.len() / item_size, device);
+        if let Some(buffer) = &self.buffer {
+            let bytes = &self.data[range.start..range.end];
+            render_queue.write_buffer(buffer, (range.start * item_size) as u64, bytes);
+        }
+    }
+
     /// Reduces the length of the buffer.
     pub fn truncate(&mut self, len: usize) {
         self.data.truncate(u64::from(T::min_size()) as usize * len);
@@ -448,7 +498,7 @@ where
 
     /// Returns the binding for the buffer if the data has been uploaded.
     #[inline]
-    pub fn binding(&self) -> Option<BindingResource> {
+    pub fn binding(&self) -> Option<BindingResource<'_>> {
         Some(BindingResource::Buffer(
             self.buffer()?.as_entire_buffer_binding(),
         ))

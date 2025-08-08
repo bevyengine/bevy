@@ -14,7 +14,7 @@ use bevy_ecs::{
 };
 use bevy_encase_derive::ShaderType;
 use bevy_math::UVec4;
-use bevy_platform_support::collections::{hash_map::Entry, HashMap, HashSet};
+use bevy_platform::collections::{hash_map::Entry, HashMap, HashSet};
 use bevy_utils::{default, TypeIdMap};
 use bytemuck::{Pod, Zeroable};
 use encase::{internal::WriteInto, ShaderSize};
@@ -36,7 +36,7 @@ use crate::{
     renderer::{RenderAdapter, RenderDevice, RenderQueue},
     sync_world::MainEntity,
     view::{ExtractedView, NoIndirectDrawing, RetainedViewEntity},
-    Render, RenderApp, RenderDebugFlags, RenderSet,
+    Render, RenderApp, RenderDebugFlags, RenderSystems,
 };
 
 use super::{BatchMeta, GetBatchData, GetFullBatchData};
@@ -60,11 +60,11 @@ impl Plugin for BatchingPlugin {
             ))
             .add_systems(
                 Render,
-                write_indirect_parameters_buffers.in_set(RenderSet::PrepareResourcesFlush),
+                write_indirect_parameters_buffers.in_set(RenderSystems::PrepareResourcesFlush),
             )
             .add_systems(
                 Render,
-                clear_indirect_parameters_buffers.in_set(RenderSet::ManageViews),
+                clear_indirect_parameters_buffers.in_set(RenderSystems::ManageViews),
             );
     }
 
@@ -392,6 +392,13 @@ where
 }
 
 /// The buffer of GPU preprocessing work items for a single view.
+#[cfg_attr(
+    not(target_arch = "wasm32"),
+    expect(
+        clippy::large_enum_variant,
+        reason = "See https://github.com/bevyengine/bevy/issues/19220"
+    )
+)]
 pub enum PreprocessWorkItemBuffers {
     /// The work items we use if we aren't using indirect drawing.
     ///
@@ -1115,10 +1122,10 @@ impl FromWorld for GpuPreprocessingSupport {
             // `max_compute_*` limits to zero, so we arbitrarily pick one as a canary.
             device.limits().max_compute_workgroup_storage_size != 0;
 
-        let downlevel_support = adapter.get_downlevel_capabilities().flags.contains(
-            DownlevelFlags::COMPUTE_SHADERS |
-            DownlevelFlags::VERTEX_AND_INSTANCE_INDEX_RESPECTS_RESPECTIVE_FIRST_VALUE_IN_INDIRECT_DRAW
-        );
+        let downlevel_support = adapter
+            .get_downlevel_capabilities()
+            .flags
+            .contains(DownlevelFlags::COMPUTE_SHADERS);
 
         let max_supported_mode = if device.limits().max_compute_workgroup_size_x == 0
             || is_non_supported_android_device(adapter)
@@ -1178,7 +1185,7 @@ where
     /// Returns the binding of the buffer that contains the per-instance data.
     ///
     /// This buffer needs to be filled in via a compute shader.
-    pub fn instance_data_binding(&self) -> Option<BindingResource> {
+    pub fn instance_data_binding(&self) -> Option<BindingResource<'_>> {
         self.data_buffer
             .buffer()
             .map(|buffer| buffer.as_entire_binding())
