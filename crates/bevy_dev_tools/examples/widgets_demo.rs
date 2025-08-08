@@ -19,19 +19,21 @@ fn main() {
 fn setup(mut commands: Commands) {
     // Spawn camera
     commands.spawn(Camera2d);
-    
+
     // Root container
-    let root = commands.spawn((
-        Node {
-            width: Val::Vw(100.0),
-            height: Val::Vh(100.0),
-            padding: UiRect::all(Val::Px(20.0)),
-            flex_direction: FlexDirection::Column,
-            row_gap: Val::Px(16.0),
-            ..Default::default()
-        },
-        BackgroundColor(Color::srgb(0.1, 0.1, 0.1)),
-    )).id();
+    let root = commands
+        .spawn((
+            Node {
+                width: Val::Vw(100.0),
+                height: Val::Vh(100.0),
+                padding: UiRect::all(Val::Px(20.0)),
+                flex_direction: FlexDirection::Column,
+                row_gap: Val::Px(16.0),
+                ..Default::default()
+            },
+            BackgroundColor(Color::srgb(0.1, 0.1, 0.1)),
+        ))
+        .id();
 
     // Demo title
     commands.entity(root).with_children(|parent| {
@@ -46,12 +48,8 @@ fn setup(mut commands: Commands) {
     });
 
     // Selectable text demo
-    let selectable_section = spawn_collapsible_section(
-        &mut commands,
-        root,
-        "SelectableText Demo"
-    );
-    
+    let selectable_section = spawn_collapsible_section(&mut commands, root, "SelectableText Demo");
+
     commands.entity(selectable_section).with_children(|section| {
         if let Some(content_entity) = get_content_entity(&mut commands, selectable_section) {
             commands.entity(content_entity).with_children(|content| {
@@ -95,12 +93,9 @@ fn setup(mut commands: Commands) {
     });
 
     // Collapsible sections demo
-    let collapsible_section = spawn_collapsible_section(
-        &mut commands,
-        root,
-        "CollapsibleSection Demo"
-    );
-    
+    let collapsible_section =
+        spawn_collapsible_section(&mut commands, root, "CollapsibleSection Demo");
+
     commands.entity(collapsible_section).with_children(|section| {
         if let Some(content_entity) = get_content_entity(&mut commands, collapsible_section) {
             commands.entity(content_entity).with_children(|content| {
@@ -116,7 +111,7 @@ fn setup(mut commands: Commands) {
                             ..Default::default()
                         }),
                 );
-                
+
                 // Add content to nested section 1
                 if let Some(nested_content) = get_content_entity(&mut commands, nested1) {
                     commands.entity(nested_content).with_children(|nested| {

@@ -1,6 +1,6 @@
 //! Reusable UI widgets for Bevy
 //!
-//! This module contains high-quality, reusable UI widgets that are suitable for 
+//! This module contains high-quality, reusable UI widgets that are suitable for
 //! upstreaming into bevy_ui. Each widget is designed to be:
 //!
 //! - **Modular**: Self-contained with minimal dependencies
@@ -35,13 +35,13 @@
 //! }
 //! ```
 
+pub mod collapsible_section;
 pub mod selectable_text;
 pub mod virtual_scrolling;
-pub mod collapsible_section;
 
+pub use collapsible_section::*;
 pub use selectable_text::*;
 pub use virtual_scrolling::*;
-pub use collapsible_section::*;
 
 use bevy_app::{App, Plugin, Update};
 
@@ -63,12 +63,10 @@ pub struct SelectableTextPlugin;
 
 impl Plugin for SelectableTextPlugin {
     fn build(&self, app: &mut App) {
-        app
-            .init_resource::<TextSelectionState>()
-            .add_systems(Update, (
-                handle_text_selection,
-                sync_selectable_text_with_text,
-            ));
+        app.init_resource::<TextSelectionState>().add_systems(
+            Update,
+            (handle_text_selection, sync_selectable_text_with_text),
+        );
     }
 }
 

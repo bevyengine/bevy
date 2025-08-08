@@ -47,72 +47,83 @@ fn main() {
 fn setup(mut commands: Commands) {
     info!("Setting up target application with bevy_remote enabled");
     info!("Remote inspector can connect to http://localhost:15702");
-    
+
     // Spawn a camera
     commands.spawn((
         Camera3d::default(),
         Transform::from_xyz(0.0, 0.0, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
         Name::new("Main Camera"),
     ));
-    
+
     // Spawn some test entities with various components
     commands.spawn((
         Transform::from_xyz(0.0, 0.0, 0.0),
         Visibility::Inherited,
-        Player { speed: 5.0, health: 100 },
+        Player {
+            speed: 5.0,
+            health: 100,
+        },
         Velocity { x: 1.0, y: 0.5 },
         Name::new("Player"),
     ));
-    
+
     commands.spawn((
         Transform::from_xyz(2.0, 1.0, 0.0),
         Visibility::Inherited,
-        Player { speed: 3.0, health: 75 },
+        Player {
+            speed: 3.0,
+            health: 75,
+        },
         Name::new("Enemy 1"),
     ));
-    
+
     commands.spawn((
         Transform::from_xyz(-2.0, -1.0, 0.0),
         Visibility::Hidden,
-        Player { speed: 7.0, health: 50 },
+        Player {
+            speed: 7.0,
+            health: 50,
+        },
         Velocity { x: -0.5, y: 1.0 },
         Name::new("Enemy 2"),
     ));
-    
+
     // Spawn some unnamed entities
-    commands.spawn((
-        Transform::from_xyz(1.0, 2.0, 1.0),
-        Visibility::Inherited,
-    ));
-    
+    commands.spawn((Transform::from_xyz(1.0, 2.0, 1.0), Visibility::Inherited));
+
     commands.spawn((
         Transform::from_xyz(-1.0, -2.0, -1.0),
-        Player { speed: 2.0, health: 25 },
+        Player {
+            speed: 2.0,
+            health: 25,
+        },
     ));
-    
+
     info!("Spawned {} entities for inspection", 6);
 }
 
-fn move_entities(
-    mut query: Query<(&mut Transform, &Velocity)>,
-    time: Res<Time>,
-) {
+fn move_entities(mut query: Query<(&mut Transform, &Velocity)>, time: Res<Time>) {
     for (mut transform, velocity) in query.iter_mut() {
         transform.translation.x += velocity.x * time.delta_secs();
         transform.translation.y += velocity.y * time.delta_secs();
-        
+
         // Wrap around
-        if transform.translation.x > 5.0 { transform.translation.x = -5.0; }
-        if transform.translation.x < -5.0 { transform.translation.x = 5.0; }
-        if transform.translation.y > 3.0 { transform.translation.y = -3.0; }
-        if transform.translation.y < -3.0 { transform.translation.y = 3.0; }
+        if transform.translation.x > 5.0 {
+            transform.translation.x = -5.0;
+        }
+        if transform.translation.x < -5.0 {
+            transform.translation.x = 5.0;
+        }
+        if transform.translation.y > 3.0 {
+            transform.translation.y = -3.0;
+        }
+        if transform.translation.y < -3.0 {
+            transform.translation.y = 3.0;
+        }
     }
 }
 
-fn rotate_entities(
-    mut query: Query<&mut Transform, With<Player>>,
-    time: Res<Time>,
-) {
+fn rotate_entities(mut query: Query<&mut Transform, With<Player>>, time: Res<Time>) {
     for mut transform in query.iter_mut() {
         transform.rotate_y(time.delta_secs() * 0.5);
     }

@@ -2,7 +2,7 @@
 //!
 //! This client implements the bevy_remote JSON-RPC protocol with comprehensive support for:
 //! - **bevy/query**: Query entities and components with flexible filtering
-//! - **bevy/get+watch**: Stream live component updates via Server-Sent Events (SSE)  
+//! - **bevy/get+watch**: Stream live component updates via Server-Sent Events (SSE)
 //! - **Connection Management**: Auto-retry logic with exponential backoff
 //! - **Error Recovery**: Robust error handling and reconnection strategies
 //!
@@ -10,25 +10,29 @@
 //! for component values in remote Bevy applications.
 
 use anyhow::{anyhow, Result};
+use async_channel::{Receiver, Sender};
 use bevy_ecs::prelude::*;
 use bevy_log::prelude::*;
+use futures::TryStreamExt;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::HashMap;
-use async_channel::{Receiver, Sender};
-use futures::TryStreamExt;
 
-/// JSON-RPC request structure
+/// JSON-RPC request structure for bevy_remote protocol
 #[derive(Serialize, Debug)]
 pub struct JsonRpcRequest {
+    /// JSON-RPC protocol version (always "2.0")
     pub jsonrpc: String,
+    /// Unique request identifier
     pub id: u32,
+    /// Method name (e.g., "bevy/query", "bevy/get+watch")
     pub method: String,
+    /// Optional method parameters
     pub params: Option<Value>,
 }
 
-/// JSON-RPC response structure  
+/// JSON-RPC response structure
 #[derive(Deserialize, Debug)]
 #[allow(dead_code)]
 struct JsonRpcResponse {
@@ -50,15 +54,20 @@ struct JsonRpcError {
 /// Remote entity representation from bevy_remote
 #[derive(Debug, Clone, Deserialize)]
 pub struct RemoteEntity {
+    /// Entity ID from the remote Bevy application
     pub id: u32,
+    /// Optional entity name (from bevy_core::Name component)
     pub name: Option<String>,
+    /// Map of component type names to their serialized values
     pub components: HashMap<String, Value>,
 }
 
 /// Configuration for HTTP remote client
 #[derive(Resource, Debug)]
 pub struct HttpRemoteConfig {
+    /// Remote server hostname (default: "localhost")
     pub host: String,
+    /// Remote server port (default: 15702)
     pub port: u16,
 }
 
@@ -72,80 +81,106 @@ impl Default for HttpRemoteConfig {
 }
 
 /// HTTP client for bevy_remote communication with connection resilience
-/// 
+///
 /// This client manages communication with remote Bevy applications via the bevy_remote
 /// JSON-RPC protocol. It provides automatic connection retry logic, live component
 /// streaming, and robust error handling.
-/// 
+///
 /// # Features
 /// - Auto-retry connection logic with exponential backoff
-/// - Live component value streaming via bevy/get+watch 
+/// - Live component value streaming via bevy/get+watch
 /// - Comprehensive entity and component querying
 /// - Connection status monitoring and recovery
 /// - Async channel-based communication for non-blocking updates
 #[derive(Resource)]
 pub struct HttpRemoteClient {
+    /// HTTP client for making requests
     pub client: Client,
+    /// Base URL for the remote server (e.g., "http://localhost:15702")
     pub base_url: String,
+    /// Counter for generating unique request IDs
     pub request_id: u32,
-    // Legacy channel for receiving live updates (for backward compatibility)
+    /// Legacy channel for receiving live updates (for backward compatibility)
     pub update_receiver: Option<Receiver<RemoteUpdate>>,
-    // New streaming fields for bevy/get+watch
+    /// Sender for streaming component updates via bevy/get+watch
     pub component_update_sender: Option<Sender<ComponentUpdate>>,
+    /// Receiver for streaming component updates via bevy/get+watch
     pub component_update_receiver: Option<Receiver<ComponentUpdate>>,
-    // Connection status communication
+    /// Sender for connection status updates from async tasks
     pub connection_status_sender: Option<Sender<ConnectionStatusUpdate>>,
+    /// Receiver for connection status updates from async tasks
     pub connection_status_receiver: Option<Receiver<ConnectionStatusUpdate>>,
-    pub watched_entities: HashMap<u32, Vec<String>>, // entity -> components being watched
-    // Current cached data
+    /// Map of entity IDs to their watched component lists
+    pub watched_entities: HashMap<u32, Vec<String>>,
+    /// Cached entities retrieved from the remote server
     pub entities: HashMap<u32, RemoteEntity>,
+    /// Current connection status
     pub is_connected: bool,
+    /// Last connection error message
     pub last_error: Option<String>,
-    // Connection retry logic
+    /// Current retry attempt count
     pub retry_count: u32,
+    /// Maximum number of retry attempts before giving up
     pub max_retries: u32,
-    pub retry_delay: f32, // seconds
+    /// Delay between retry attempts in seconds
+    pub retry_delay: f32,
+    /// Timestamp of the last retry attempt
     pub last_retry_time: f64,
-    pub connection_check_interval: f64, // seconds
+    /// Interval for periodic connection checks in seconds
+    pub connection_check_interval: f64,
+    /// Timestamp of the last connection check
     pub last_connection_check: f64,
 }
 
 /// Live update from streaming endpoint
 #[derive(Debug, Clone)]
 pub struct RemoteUpdate {
+    /// Entity ID that was updated
     pub entity_id: u32,
+    /// Updated component data
     pub components: HashMap<String, Value>,
 }
 
 /// Enhanced component update structure for live streaming
 #[derive(Debug, Clone)]
 pub struct ComponentUpdate {
+    /// Entity ID that was updated
     pub entity_id: u32,
+    /// Components that were added or changed
     pub changed_components: HashMap<String, Value>,
+    /// Components that were removed
     pub removed_components: Vec<String>,
+    /// Timestamp when the update occurred
     pub timestamp: f64,
 }
 
 /// Response from bevy/get+watch endpoint
 #[derive(Debug, Deserialize)]
 pub struct BrpGetWatchingResponse {
+    /// Updated component data
     pub components: Option<HashMap<String, Value>>,
+    /// List of removed component type names
     pub removed: Option<Vec<String>>,
+    /// Error information for failed components
     pub errors: Option<HashMap<String, Value>>,
 }
 
 /// Connection status update from async tasks to Bevy systems
 #[derive(Debug, Clone)]
 pub struct ConnectionStatusUpdate {
+    /// Whether the connection is currently active
     pub is_connected: bool,
+    /// Error message if connection failed
     pub error_message: Option<String>,
+    /// Entities fetched during successful connection
     pub entities: HashMap<u32, RemoteEntity>,
 }
 
 impl HttpRemoteClient {
+    /// Create a new HTTP remote client with the given configuration
     pub fn new(config: &HttpRemoteConfig) -> Self {
         let base_url = format!("http://{}:{}", config.host, config.port);
-        
+
         Self {
             client: Client::new(),
             base_url,
@@ -163,7 +198,7 @@ impl HttpRemoteClient {
             last_error: None,
             // Initialize retry logic
             retry_count: 0,
-            max_retries: 10, // Try 10 times before giving up
+            max_retries: 10,  // Try 10 times before giving up
             retry_delay: 2.0, // Wait 2 seconds between retries
             last_retry_time: 0.0,
             connection_check_interval: 5.0, // Check every 5 seconds if disconnected
@@ -173,9 +208,13 @@ impl HttpRemoteClient {
 
     /// Test connection to bevy_remote server
     pub async fn connect(&mut self) -> Result<()> {
-        debug!("Attempting connection to {} (attempt {}/{})", 
-            self.base_url, self.retry_count + 1, self.max_retries);
-        
+        debug!(
+            "Attempting connection to {} (attempt {}/{})",
+            self.base_url,
+            self.retry_count + 1,
+            self.max_retries
+        );
+
         // Try a simple list request to test connectivity
         match self.list_entities().await {
             Ok(_) => {
@@ -189,13 +228,18 @@ impl HttpRemoteClient {
                 self.is_connected = false;
                 self.last_error = Some(e.to_string());
                 self.retry_count += 1;
-                
+
                 if self.retry_count <= self.max_retries {
-                    warn!("Connection failed (attempt {}/{}): {}", 
-                        self.retry_count, self.max_retries, e);
+                    warn!(
+                        "Connection failed (attempt {}/{}): {}",
+                        self.retry_count, self.max_retries, e
+                    );
                     debug!("Will retry in {} seconds", self.retry_delay);
                 } else {
-                    error!("Failed to connect after {} attempts: {}", self.max_retries, e);
+                    error!(
+                        "Failed to connect after {} attempts: {}",
+                        self.max_retries, e
+                    );
                     error!("Ensure target app is running with bevy_remote enabled");
                 }
                 Err(e)
@@ -224,19 +268,19 @@ impl HttpRemoteClient {
         };
 
         let response = self.send_request(request).await?;
-        
+
         if let Some(result) = response.result {
             // Parse the query response which is an array of entity objects
             let entities: Vec<Value> = serde_json::from_value(result)
                 .map_err(|e| anyhow!("Failed to parse entity query: {}", e))?;
-            
+
             let mut entity_ids = Vec::new();
             for entity_obj in entities {
                 if let Some(entity_id) = entity_obj.get("entity").and_then(|v| v.as_u64()) {
                     entity_ids.push(entity_id as u32);
                 }
             }
-            
+
             debug!("Listed {} entities via query", entity_ids.len());
             Ok(entity_ids)
         } else if let Some(error) = response.error {
@@ -267,58 +311,57 @@ impl HttpRemoteClient {
         };
 
         let response = self.send_request(request).await?;
-        
+
         if let Some(result) = response.result {
             // Parse the query response
             let query_results: Vec<Value> = serde_json::from_value(result)
                 .map_err(|e| anyhow!("Failed to parse query results: {}", e))?;
-            
+
             let mut entities = Vec::new();
-            
+
             for query_result in query_results.iter() {
                 if let (Some(entity_id), Some(components_obj)) = (
                     query_result.get("entity").and_then(|v| v.as_u64()),
-                    query_result.get("components").and_then(|v| v.as_object())
+                    query_result.get("components").and_then(|v| v.as_object()),
                 ) {
                     let mut components = HashMap::new();
-                    
+
                     // Convert components object to HashMap
                     for (component_name, component_data) in components_obj {
                         components.insert(component_name.clone(), component_data.clone());
                     }
-                    
+
                     // Try to extract name from Name component if it exists
                     // Name is a tuple struct, so it should be in "0" field or direct string
-                    let name = components.get("bevy_core::name::Name")
-                        .and_then(|v| {
-                            // Try as direct string first
-                            if let Some(s) = v.as_str() {
-                                Some(s.to_string())
-                            } else {
-                                // Try as tuple struct with "0" field
-                                v.as_object()
-                                    .and_then(|obj| obj.get("0"))
-                                    .and_then(|v| v.as_str())
-                                    .map(|s| s.to_string())
-                            }
-                        });
-                    
+                    let name = components.get("bevy_core::name::Name").and_then(|v| {
+                        // Try as direct string first
+                        if let Some(s) = v.as_str() {
+                            Some(s.to_string())
+                        } else {
+                            // Try as tuple struct with "0" field
+                            v.as_object()
+                                .and_then(|obj| obj.get("0"))
+                                .and_then(|v| v.as_str())
+                                .map(|s| s.to_string())
+                        }
+                    });
+
                     let entity = RemoteEntity {
                         id: entity_id as u32,
                         name,
                         components,
                     };
-                    
+
                     entities.push(entity);
                 }
             }
-            
+
             // Update local cache
             self.entities.clear();
             for entity in &entities {
                 self.entities.insert(entity.id, entity.clone());
             }
-            
+
             debug!("Retrieved {} entities with component data", entities.len());
             Ok(entities)
         } else if let Some(error) = response.error {
@@ -331,25 +374,30 @@ impl HttpRemoteClient {
     /// Start streaming updates for entities via bevy/get+watch
     pub async fn start_watching(&mut self, entity_ids: &[u32]) -> Result<()> {
         debug!("Starting watch stream for {} entities", entity_ids.len());
-        
+
         // Note: This method is now deprecated in favor of start_component_watching
         // which uses the new bevy_remote streaming API properly
         warn!("start_watching is deprecated, use start_component_watching instead");
-        
+
         Ok(())
     }
 
     /// Start watching components for an entity using bevy/get+watch with bevy_tasks
-    pub fn start_component_watching(&mut self, entity_id: u32, components: Vec<String>, tokio_handle: &tokio::runtime::Handle) -> Result<()> {
+    pub fn start_component_watching(
+        &mut self,
+        entity_id: u32,
+        components: Vec<String>,
+        tokio_handle: &tokio::runtime::Handle,
+    ) -> Result<()> {
         // Create channel for component updates
         let (tx, rx) = async_channel::unbounded();
         self.component_update_sender = Some(tx.clone());
         self.component_update_receiver = Some(rx);
-        
+
         let base_url = self.base_url.clone();
         let client = self.client.clone();
         let components_clone = components.clone();
-        
+
         // Use tokio runtime handle for reqwest compatibility
         tokio_handle.spawn(async move {
                 // Use bevy/get+watch with continuous polling
@@ -363,29 +411,29 @@ impl HttpRemoteClient {
                         "strict": false
                     })),
                 };
-                
-                println!("Starting component watching for entity {} with {} components", 
+
+                println!("Starting component watching for entity {} with {} components",
                     entity_id, components_clone.len());
-                
+
                 // Use streaming SSE connection for real-time updates
                 let url = format!("{}/jsonrpc", base_url);
-                
+
                 loop {
                     match client.post(&url).json(&request).send().await {
                         Ok(response) => {
                             // Process the streaming response
                             let mut stream = response.bytes_stream();
                             let mut buffer = String::new();
-                            
+
                             while let Ok(Some(chunk)) = stream.try_next().await {
                                 if let Ok(text) = std::str::from_utf8(&chunk) {
                                     buffer.push_str(text);
-                                    
+
                                     // Process complete lines
                                     while let Some(newline_pos) = buffer.find('\n') {
                                         let line = buffer[..newline_pos].trim().to_string();
                                         buffer.drain(..newline_pos + 1);
-                                        
+
                                         // Process SSE data lines
                                         if let Some(json_str) = line.strip_prefix("data: ") {
                                             match serde_json::from_str::<JsonRpcResponse>(json_str) {
@@ -398,14 +446,14 @@ impl HttpRemoteClient {
                                                                 removed_components: watch_response.removed.unwrap_or_default(),
                                                                 timestamp: current_time(),
                                                             };
-                                                            
+
                                                             if !update.changed_components.is_empty() || !update.removed_components.is_empty() {
-                                                                println!("Live update for entity {}: {} changed, {} removed", 
-                                                                    entity_id, 
+                                                                println!("Live update for entity {}: {} changed, {} removed",
+                                                                    entity_id,
                                                                     update.changed_components.len(),
                                                                     update.removed_components.len()
                                                                 );
-                                                                
+
                                                                 if tx.send(update).await.is_err() {
                                                                     println!("Component update receiver dropped for entity {}", entity_id);
                                                                     return; // Exit the task
@@ -422,14 +470,14 @@ impl HttpRemoteClient {
                                     }
                                 }
                             }
-                            
+
                             println!("SSE stream ended for entity {}, reconnecting...", entity_id);
                             // Simple async delay without tokio
                             let sleep_future = async {
                                 use std::time::{Duration, Instant};
                                 let start = Instant::now();
                                 let target_duration = Duration::from_secs(1);
-                                
+
                                 loop {
                                     if start.elapsed() >= target_duration {
                                         break;
@@ -446,7 +494,7 @@ impl HttpRemoteClient {
                                 use std::time::{Duration, Instant};
                                 let start = Instant::now();
                                 let target_duration = Duration::from_secs(1);
-                                
+
                                 loop {
                                     if start.elapsed() >= target_duration {
                                         break;
@@ -460,7 +508,7 @@ impl HttpRemoteClient {
                     }
                 }
         });
-        
+
         self.watched_entities.insert(entity_id, components);
         println!("Started component watching task for entity {}", entity_id);
         Ok(())
@@ -476,26 +524,26 @@ impl HttpRemoteClient {
     /// Check for live component updates from streaming endpoint
     pub fn check_component_updates(&mut self) -> Vec<ComponentUpdate> {
         let mut updates = Vec::new();
-        
+
         if let Some(ref receiver) = self.component_update_receiver {
             while let Ok(update) = receiver.try_recv() {
                 updates.push(update);
             }
         }
-        
+
         updates
     }
 
     /// Check for live updates from streaming endpoint
     pub fn check_updates(&mut self) -> Vec<RemoteUpdate> {
         let mut updates = Vec::new();
-        
+
         if let Some(ref mut receiver) = self.update_receiver {
             while let Ok(update) = receiver.try_recv() {
                 updates.push(update);
             }
         }
-        
+
         updates
     }
 
@@ -512,8 +560,9 @@ impl HttpRemoteClient {
     /// Send JSON-RPC request
     async fn send_request(&mut self, request: JsonRpcRequest) -> Result<JsonRpcResponse> {
         let url = format!("{}/jsonrpc", self.base_url);
-        
-        let response = self.client
+
+        let response = self
+            .client
             .post(&url)
             .json(&request)
             .send()
@@ -534,8 +583,6 @@ impl HttpRemoteClient {
         id
     }
 }
-
-
 
 /// Get current timestamp as f64
 fn current_time() -> f64 {
