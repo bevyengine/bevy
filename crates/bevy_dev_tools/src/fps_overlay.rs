@@ -188,7 +188,10 @@ fn setup(
                     ..Default::default()
                 },
                 MaterialNode::from(frame_time_graph_materials.add(FrametimeGraphMaterial {
-                    values: buffers.add(ShaderStorageBuffer::default()),
+                    values: buffers.add(ShaderStorageBuffer {
+                        data: Some(vec![0, 0, 0, 0]),
+                        ..Default::default()
+                    }),
                     config: FrameTimeGraphConfigUniform::new(
                         overlay_config.frame_time_graph_config.target_fps,
                         overlay_config.frame_time_graph_config.min_fps,
