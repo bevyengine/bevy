@@ -78,11 +78,9 @@ fn setup(mut commands: Commands) {
             Transform::from_translation(Vec3::new(0., 150., 0.)),
             UndoHistory::default(),
             Placeholder::new("type here.."),
-            (
-                Visibility::default(),
-                VisibilityClass([TypeId::of::<Sprite>()].into()),
-                Anchor::CENTER,
-            ),
+            Visibility::default(),
+            VisibilityClass([TypeId::of::<Sprite>()].into()),
+            Anchor::CENTER,
         ))
         .observe(
             move |event: On<TextInputEvent>, mut query: Query<&mut Text2d>| {
