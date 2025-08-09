@@ -42,6 +42,8 @@ pub mod diagnostic;
 pub mod erased_render_asset;
 pub mod experimental;
 pub mod extract_component;
+#[cfg(feature = "bevy_light")]
+mod extract_impls;
 pub mod extract_instances;
 mod extract_param;
 pub mod extract_resource;
@@ -63,9 +65,6 @@ pub mod sync_world;
 pub mod texture;
 pub mod view;
 mod wgpu_wrapper;
-pub use bevy_camera::primitives;
-#[cfg(feature = "bevy_light")]
-mod extract_impls;
 
 /// The render prelude.
 ///
@@ -81,14 +80,8 @@ pub mod prelude {
         },
         render_resource::Shader,
         texture::{ImagePlugin, ManualTextureViews},
-        view::{InheritedVisibility, Msaa, ViewVisibility, Visibility},
+        view::Msaa,
         ExtractSchedule,
-    };
-    // TODO: Remove this in a follow-up
-    #[doc(hidden)]
-    pub use bevy_camera::{
-        Camera, ClearColor, ClearColorConfig, OrthographicProjection, PerspectiveProjection,
-        Projection,
     };
 }
 

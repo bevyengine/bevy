@@ -1,7 +1,9 @@
 use crate::*;
 use bevy_asset::UntypedAssetId;
-pub use bevy_camera::primitives::{face_index_to_name, CubeMapFace, CUBE_MAP_FACES};
-use bevy_camera::primitives::{CascadesFrusta, CubemapFrusta, Frustum, HalfSpace};
+use bevy_camera::primitives::{
+    face_index_to_name, CascadesFrusta, CubeMapFace, CubemapFrusta, Frustum, HalfSpace,
+    CUBE_MAP_FACES,
+};
 use bevy_camera::visibility::{
     CascadesVisibleEntities, CubemapVisibleEntities, RenderLayers, ViewVisibility,
     VisibleMeshEntities,
