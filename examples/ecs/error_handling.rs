@@ -5,7 +5,7 @@ use bevy::ecs::{error::warn, world::DeferredWorld};
 use bevy::math::sampling::UniformMeshSampler;
 use bevy::prelude::*;
 
-use rand::distributions::Distribution;
+use rand::distr::Distribution;
 use rand::SeedableRng;
 use rand_chacha::ChaCha8Rng;
 

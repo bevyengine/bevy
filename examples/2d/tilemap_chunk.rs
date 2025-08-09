@@ -29,7 +29,7 @@ fn setup(mut commands: Commands, assets: Res<AssetServer>) {
     let chunk_size = UVec2::splat(64);
     let tile_display_size = UVec2::splat(8);
     let tile_data: Vec<Option<TileData>> = (0..chunk_size.element_product())
-        .map(|_| rng.gen_range(0..5))
+        .map(|_| rng.random_range(0..5))
         .map(|i| {
             if i == 0 {
                 None
@@ -79,8 +79,8 @@ fn update_tilemap(
 
         if timer.just_finished() {
             for _ in 0..50 {
-                let index = rng.gen_range(0..tile_data.len());
-                tile_data[index] = Some(TileData::from_tileset_index(rng.gen_range(0..5)));
+                let index = rng.random_range(0..tile_data.len());
+                tile_data[index] = Some(TileData::from_tileset_index(rng.random_range(0..5)));
             }
         }
     }

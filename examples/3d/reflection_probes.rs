@@ -367,14 +367,13 @@ impl FromWorld for Cubemaps {
 }
 
 fn setup_environment_map_usage(cubemaps: Res<Cubemaps>, mut images: ResMut<Assets<Image>>) {
-    if let Some(image) = images.get_mut(&cubemaps.specular_environment_map) {
-        if !image
+    if let Some(image) = images.get_mut(&cubemaps.specular_environment_map)
+        && !image
             .texture_descriptor
             .usage
             .contains(TextureUsages::COPY_SRC)
-        {
-            image.texture_descriptor.usage |= TextureUsages::COPY_SRC;
-        }
+    {
+        image.texture_descriptor.usage |= TextureUsages::COPY_SRC;
     }
 }
 

@@ -122,7 +122,10 @@ impl DynamicScene {
                     #[expect(unsafe_code, reason = "this is faster")]
                     let component_info =
                         unsafe { world.components().get_info_unchecked(component_id) };
-                    if *component_info.clone_behavior() == ComponentCloneBehavior::Ignore {
+                    if matches!(
+                        *component_info.clone_behavior(),
+                        ComponentCloneBehavior::Ignore
+                    ) {
                         continue;
                     }
                 }

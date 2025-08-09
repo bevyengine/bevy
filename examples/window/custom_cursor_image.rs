@@ -117,16 +117,16 @@ fn execute_animation(time: Res<Time>, mut query: Query<(&mut AnimationConfig, &m
         if let CursorIcon::Custom(CustomCursor::Image(ref mut image)) = *cursor_icon {
             config.frame_timer.tick(time.delta());
 
-            if config.frame_timer.is_finished() {
-                if let Some(atlas) = image.texture_atlas.as_mut() {
-                    atlas.index += config.increment;
+            if config.frame_timer.is_finished()
+                && let Some(atlas) = image.texture_atlas.as_mut()
+            {
+                atlas.index += config.increment;
 
-                    if atlas.index > config.last_sprite_index {
-                        atlas.index = config.first_sprite_index;
-                    }
-
-                    config.frame_timer = AnimationConfig::timer_from_fps(config.fps);
+                if atlas.index > config.last_sprite_index {
+                    atlas.index = config.first_sprite_index;
                 }
+
+                config.frame_timer = AnimationConfig::timer_from_fps(config.fps);
             }
         }
     }

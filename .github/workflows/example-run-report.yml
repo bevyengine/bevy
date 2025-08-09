@@ -6,6 +6,7 @@ name: Example Run - PR Comments
 # Also requesting write permissions on PR to be able to comment
 permissions:
   pull-requests: "write"
+  contents: "read"
 
 on:
   workflow_run:

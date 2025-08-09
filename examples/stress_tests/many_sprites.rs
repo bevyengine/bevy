@@ -58,7 +58,7 @@ fn main() {
 fn setup(mut commands: Commands, assets: Res<AssetServer>, color_tint: Res<ColorTint>) {
     warn!(include_str!("warning_string.txt"));
 
-    let mut rng = rand::thread_rng();
+    let mut rng = rand::rng();
 
     let tile_size = Vec2::splat(64.0);
     let map_size = Vec2::splat(320.0);
@@ -77,16 +77,16 @@ fn setup(mut commands: Commands, assets: Res<AssetServer>, color_tint: Res<Color
     for y in -half_y..half_y {
         for x in -half_x..half_x {
             let position = Vec2::new(x as f32, y as f32);
-            let translation = (position * tile_size).extend(rng.r#gen::<f32>());
-            let rotation = Quat::from_rotation_z(rng.r#gen::<f32>());
-            let scale = Vec3::splat(rng.r#gen::<f32>() * 2.0);
+            let translation = (position * tile_size).extend(rng.random::<f32>());
+            let rotation = Quat::from_rotation_z(rng.random::<f32>());
+            let scale = Vec3::splat(rng.random::<f32>() * 2.0);
 
             sprites.push((
                 Sprite {
                     image: sprite_handle.clone(),
                     custom_size: Some(tile_size),
                     color: if color_tint.0 {
-                        COLORS[rng.gen_range(0..3)]
+                        COLORS[rng.random_range(0..3)]
                     } else {
                         Color::WHITE
                     },

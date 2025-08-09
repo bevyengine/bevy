@@ -552,10 +552,10 @@ pub fn scene_spawner_system(world: &mut World) {
             .scene_asset_event_reader
             .read(scene_asset_events)
         {
-            if let AssetEvent::Modified { id } = event {
-                if scene_spawner.spawned_scenes.contains_key(id) {
-                    updated_spawned_scenes.push(*id);
-                }
+            if let AssetEvent::Modified { id } = event
+                && scene_spawner.spawned_scenes.contains_key(id)
+            {
+                updated_spawned_scenes.push(*id);
             }
         }
         let mut updated_spawned_dynamic_scenes = Vec::new();
@@ -563,10 +563,10 @@ pub fn scene_spawner_system(world: &mut World) {
             .dynamic_scene_asset_event_reader
             .read(dynamic_scene_asset_events)
         {
-            if let AssetEvent::Modified { id } = event {
-                if scene_spawner.spawned_dynamic_scenes.contains_key(id) {
-                    updated_spawned_dynamic_scenes.push(*id);
-                }
+            if let AssetEvent::Modified { id } = event
+                && scene_spawner.spawned_dynamic_scenes.contains_key(id)
+            {
+                updated_spawned_dynamic_scenes.push(*id);
             }
         }
 

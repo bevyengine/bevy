@@ -87,8 +87,7 @@ fn update(
                     1.0,
                 ]
             })
-            .collect::<Vec<[f32; 4]>>()
-            .as_slice(),
+            .collect::<Vec<[f32; 4]>>(),
     );
 }
 

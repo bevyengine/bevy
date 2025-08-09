@@ -189,10 +189,10 @@ fn get_specialize_targets(
     derive_name: &str,
 ) -> syn::Result<SpecializeImplTargets> {
     let specialize_attr = ast.attrs.iter().find_map(|attr| {
-        if attr.path().is_ident(SPECIALIZE_ATTR_IDENT) {
-            if let Meta::List(meta_list) = &attr.meta {
-                return Some(meta_list);
-            }
+        if attr.path().is_ident(SPECIALIZE_ATTR_IDENT)
+            && let Meta::List(meta_list) = &attr.meta
+        {
+            return Some(meta_list);
         }
         None
     });

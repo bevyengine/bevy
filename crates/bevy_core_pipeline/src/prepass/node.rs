@@ -238,14 +238,14 @@ fn run_prepass<'w>(
         drop(render_pass);
 
         // After rendering to the view depth texture, copy it to the prepass depth texture if deferred isn't going to
-        if deferred_prepass.is_none() {
-            if let Some(prepass_depth_texture) = &view_prepass_textures.depth {
-                command_encoder.copy_texture_to_texture(
-                    view_depth_texture.texture.as_image_copy(),
-                    prepass_depth_texture.texture.texture.as_image_copy(),
-                    view_prepass_textures.size,
-                );
-            }
+        if deferred_prepass.is_none()
+            && let Some(prepass_depth_texture) = &view_prepass_textures.depth
+        {
+            command_encoder.copy_texture_to_texture(
+                view_depth_texture.texture.as_image_copy(),
+                prepass_depth_texture.texture.texture.as_image_copy(),
+                view_prepass_textures.size,
+            );
         }
 
         command_encoder.finish()
