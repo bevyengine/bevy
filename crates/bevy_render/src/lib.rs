@@ -1,3 +1,13 @@
+//! # Useful Environment Variables
+//!
+//! `WGPU_DEBUG=1` enables debug labels in release builds\
+//! `WGPU_VALIDATION=0` disables validation layers\
+//! `WGPU_FORCE_FALLBACK_ADAPTER=1` attempts to force softare rendering\
+//! `WGPU_ADAPTER_NAME`: select a specific adapter by name\
+//! `WGPU_SETTINGS_PRIO=webgl2` uses webgl2 limits\
+//! `WGPU_SETTINGS_PRIO=compatibility` uses webgpu limits\
+//! `VERBOSE_SHADER_ERROR=1` prints shader defs and entrypoint shaders on wgsl compilation error
+
 #![expect(missing_docs, reason = "Not all docs are written yet, see #3492.")]
 #![expect(unsafe_code, reason = "Unsafe code is used to improve performance.")]
 #![cfg_attr(
