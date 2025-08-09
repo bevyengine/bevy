@@ -35,6 +35,10 @@ pub mod prelude {
     };
 }
 
+use bevy_camera::{
+    primitives::{Aabb, MeshAabb as _},
+    visibility::{NoFrustumCulling, VisibilitySystems},
+};
 pub use mesh2d::*;
 #[cfg(feature = "bevy_sprite_picking_backend")]
 pub use picking_backend::*;
@@ -50,13 +54,9 @@ use bevy_ecs::prelude::*;
 use bevy_image::{prelude::*, TextureAtlasPlugin};
 use bevy_mesh::{Mesh, Mesh2d};
 use bevy_render::{
-    batching::sort_binned_render_phase,
-    load_shader_library,
-    primitives::{Aabb, MeshAabb},
-    render_phase::AddRenderCommand,
-    render_resource::SpecializedRenderPipelines,
-    view::{NoFrustumCulling, VisibilitySystems},
-    ExtractSchedule, Render, RenderApp, RenderStartup, RenderSystems,
+    batching::sort_binned_render_phase, load_shader_library, render_phase::AddRenderCommand,
+    render_resource::SpecializedRenderPipelines, ExtractSchedule, Render, RenderApp, RenderStartup,
+    RenderSystems,
 };
 
 /// Adds support for 2D sprite rendering.

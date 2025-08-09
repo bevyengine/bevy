@@ -4,6 +4,7 @@ use core::{hash::Hash, ops::Range};
 
 use bevy_app::prelude::*;
 use bevy_asset::*;
+use bevy_camera::visibility::InheritedVisibility;
 use bevy_color::{Alpha, ColorToComponents, LinearRgba};
 use bevy_ecs::prelude::*;
 use bevy_ecs::{

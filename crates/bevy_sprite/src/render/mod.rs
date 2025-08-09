@@ -2,6 +2,7 @@ use core::ops::Range;
 
 use crate::{Anchor, ComputedTextureSlices, ScalingMode, Sprite};
 use bevy_asset::{load_embedded_asset, AssetEvent, AssetId, AssetServer, Assets, Handle};
+use bevy_camera::visibility::ViewVisibility;
 use bevy_color::{ColorToComponents, LinearRgba};
 use bevy_core_pipeline::{
     core_2d::{Transparent2d, CORE_2D_DEPTH_FORMAT},
@@ -34,10 +35,7 @@ use bevy_render::{
     renderer::{RenderDevice, RenderQueue},
     sync_world::RenderEntity,
     texture::{DefaultImageSampler, FallbackImage, GpuImage},
-    view::{
-        ExtractedView, Msaa, ViewTarget, ViewUniform, ViewUniformOffset, ViewUniforms,
-        ViewVisibility,
-    },
+    view::{ExtractedView, Msaa, ViewTarget, ViewUniform, ViewUniformOffset, ViewUniforms},
     Extract,
 };
 use bevy_transform::components::GlobalTransform;

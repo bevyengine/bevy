@@ -3,11 +3,11 @@
 #[cfg(feature = "ghost_nodes")]
 use crate::ui_node::ComputedNodeTarget;
 use crate::Node;
+#[cfg(feature = "ghost_nodes")]
+use bevy_camera::visibility::Visibility;
 use bevy_ecs::{prelude::*, system::SystemParam};
 #[cfg(feature = "ghost_nodes")]
 use bevy_reflect::prelude::*;
-#[cfg(feature = "ghost_nodes")]
-use bevy_render::view::Visibility;
 #[cfg(feature = "ghost_nodes")]
 use bevy_transform::prelude::Transform;
 #[cfg(feature = "ghost_nodes")]

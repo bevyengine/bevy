@@ -5,6 +5,10 @@ use crate::{
     TextSpanAccess, TextWriter,
 };
 use bevy_asset::Assets;
+use bevy_camera::primitives::Aabb;
+use bevy_camera::visibility::{
+    self, NoFrustumCulling, ViewVisibility, Visibility, VisibilityClass,
+};
 use bevy_color::LinearRgba;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::entity::EntityHashSet;
@@ -20,12 +24,7 @@ use bevy_image::prelude::*;
 use bevy_math::{Vec2, Vec3};
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_render::sync_world::TemporaryRenderEntity;
-use bevy_render::view::{self, Visibility, VisibilityClass};
-use bevy_render::{
-    primitives::Aabb,
-    view::{NoFrustumCulling, ViewVisibility},
-    Extract,
-};
+use bevy_render::Extract;
 use bevy_sprite::{
     Anchor, ExtractedSlice, ExtractedSlices, ExtractedSprite, ExtractedSprites, Sprite,
 };
@@ -94,7 +93,7 @@ use bevy_window::{PrimaryWindow, Window};
     VisibilityClass,
     Transform
 )]
-#[component(on_add = view::add_visibility_class::<Sprite>)]
+#[component(on_add = visibility::add_visibility_class::<Sprite>)]
 pub struct Text2d(pub String);
 
 impl Text2d {
