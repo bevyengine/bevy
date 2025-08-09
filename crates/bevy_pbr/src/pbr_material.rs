@@ -9,6 +9,8 @@ use bevy_render::{
 use bitflags::bitflags;
 
 use crate::{deferred::DEFAULT_PBR_DEFERRED_LIGHTING_PASS_ID, *};
+#[cfg(feature = "serialize")]
+use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 
 /// An enum to define which UV attribute to use for a texture.
 ///
@@ -18,6 +20,11 @@ use crate::{deferred::DEFAULT_PBR_DEFERRED_LIGHTING_PASS_ID, *};
 /// The default is [`UvChannel::Uv0`].
 #[derive(Reflect, Default, Debug, Clone, PartialEq, Eq)]
 #[reflect(Default, Debug, Clone, PartialEq)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(::serde::Serialize, ::serde::Deserialize)
+)]
+#[cfg_attr(feature = "serialize", reflect(Serialize, Deserialize))]
 pub enum UvChannel {
     #[default]
     Uv0,
