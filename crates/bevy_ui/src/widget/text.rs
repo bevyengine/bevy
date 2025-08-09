@@ -130,7 +130,7 @@ impl From<String> for Text {
 
 /// Adds a shadow behind text
 ///
-/// Not supported by `Text2d`
+/// Use the `Text2dShadow` component for `Text2d` shadows
 #[derive(Component, Copy, Clone, Debug, PartialEq, Reflect)]
 #[reflect(Component, Default, Debug, Clone, PartialEq)]
 pub struct TextShadow {
