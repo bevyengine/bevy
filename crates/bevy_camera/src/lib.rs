@@ -26,7 +26,7 @@ impl Plugin for CameraPlugin {
     }
 }
 
-/// The mesh prelude.
+/// The camera prelude.
 ///
 /// This includes the most common types in this crate, re-exported for your convenience.
 pub mod prelude {
