@@ -59,10 +59,10 @@ impl TypeRegistrySchemaReader for TypeRegistry {
         let value_object = serde_json::to_value(serializer)
             .ok()
             .and_then(|v| v.as_object().cloned())?;
-        if value_object.len() == 1 {
-            if let Some((_, value)) = value_object.into_iter().next() {
-                return Some(value);
-            }
+        if value_object.len() == 1
+            && let Some((_, value)) = value_object.into_iter().next()
+        {
+            return Some(value);
         }
 
         None

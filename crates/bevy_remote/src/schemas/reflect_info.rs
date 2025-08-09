@@ -827,10 +827,10 @@ impl MinMaxValues {
                 if value < min_value {
                     return false;
                 }
-            } else if let Some(min_value) = min.get_exclusive() {
-                if value <= min_value {
-                    return false;
-                }
+            } else if let Some(min_value) = min.get_exclusive()
+                && value <= min_value
+            {
+                return false;
             }
         }
         if let Some(max) = self.max {
@@ -838,10 +838,10 @@ impl MinMaxValues {
                 if value > max_value {
                     return false;
                 }
-            } else if let Some(max_value) = max.get_exclusive() {
-                if value >= max_value {
-                    return false;
-                }
+            } else if let Some(max_value) = max.get_exclusive()
+                && value >= max_value
+            {
+                return false;
             }
         }
         true
@@ -1097,34 +1097,34 @@ impl InternalSchemaType {
                 }
             }
             InternalSchemaType::Optional { generic } => {
-                if let Some(reg) = registry.get(*generic) {
-                    if SchemaType::try_get_primitive_type_from_type_id(reg.type_id()).is_none() {
-                        let subschema = InternalSchemaType::from_type_registration(reg, registry);
-                        if !subschema.is_optional() {
-                            dependencies.insert(reg.type_id());
-                        }
-                        dependencies.extend(subschema.get_dependencies(registry));
+                if let Some(reg) = registry.get(*generic)
+                    && SchemaType::try_get_primitive_type_from_type_id(reg.type_id()).is_none()
+                {
+                    let subschema = InternalSchemaType::from_type_registration(reg, registry);
+                    if !subschema.is_optional() {
+                        dependencies.insert(reg.type_id());
                     }
+                    dependencies.extend(subschema.get_dependencies(registry));
                 }
             }
             InternalSchemaType::Map { key, value } => {
-                if let Some(reg) = registry.get(key.type_id()) {
-                    if SchemaType::try_get_primitive_type_from_type_id(reg.type_id()).is_none() {
-                        let subschema = InternalSchemaType::from_type_registration(reg, registry);
-                        if !subschema.is_optional() {
-                            dependencies.insert(reg.type_id());
-                        }
-                        dependencies.extend(subschema.get_dependencies(registry));
+                if let Some(reg) = registry.get(key.type_id())
+                    && SchemaType::try_get_primitive_type_from_type_id(reg.type_id()).is_none()
+                {
+                    let subschema = InternalSchemaType::from_type_registration(reg, registry);
+                    if !subschema.is_optional() {
+                        dependencies.insert(reg.type_id());
                     }
+                    dependencies.extend(subschema.get_dependencies(registry));
                 }
-                if let Some(reg) = registry.get(value.type_id()) {
-                    if SchemaType::try_get_primitive_type_from_type_id(reg.type_id()).is_none() {
-                        let subschema = InternalSchemaType::from_type_registration(reg, registry);
-                        if !subschema.is_optional() {
-                            dependencies.insert(reg.type_id());
-                        }
-                        dependencies.extend(subschema.get_dependencies(registry));
+                if let Some(reg) = registry.get(value.type_id())
+                    && SchemaType::try_get_primitive_type_from_type_id(reg.type_id()).is_none()
+                {
+                    let subschema = InternalSchemaType::from_type_registration(reg, registry);
+                    if !subschema.is_optional() {
+                        dependencies.insert(reg.type_id());
                     }
+                    dependencies.extend(subschema.get_dependencies(registry));
                 }
             }
             InternalSchemaType::Regular(t) => {
