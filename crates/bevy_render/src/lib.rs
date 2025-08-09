@@ -92,7 +92,7 @@ use crate::{
     mesh::{MeshPlugin, MorphPlugin, RenderMesh},
     render_asset::prepare_assets,
     render_resource::{init_empty_bind_group_layout, PipelineCache, Shader, ShaderLoader},
-    renderer::{render_system, RenderInstance},
+    renderer::render_system,
     settings::RenderCreation,
     storage::StoragePlugin,
     view::{ViewPlugin, WindowRenderPlugin},
@@ -120,7 +120,6 @@ use renderer::{RenderAdapter, RenderDevice, RenderQueue};
 use settings::RenderResources;
 use std::sync::Mutex;
 use sync_world::{despawn_temporary_render_entities, entity_sync_system, SyncWorldPlugin};
-use tracing::debug;
 pub use wgpu_wrapper::WgpuWrapper;
 
 /// Inline shader as an `embedded_asset` and load it permanently.
@@ -353,76 +352,29 @@ impl Plugin for RenderPlugin {
                         .single(app.world())
                         .ok()
                         .cloned();
+
                     let settings = render_creation.clone();
+
+                    #[cfg(all(feature = "dlss", not(feature = "bevy_ci_testing")))]
+                    let dlss_project_id = app
+                        .world()
+                        .get_resource::<DlssProjectId>()
+                        .expect("The `dlss` feature is enabled, but DlssProjectId was not added to the App before DefaultPlugins.")
+                        .0;
+
                     let async_renderer = async move {
-                        let instance = wgpu::Instance::new(&wgpu::InstanceDescriptor {
+                        let render_resources = renderer::initialize_renderer(
                             backends,
-                            flags: settings.instance_flags,
-                            memory_budget_thresholds: settings.instance_memory_budget_thresholds,
-                            backend_options: wgpu::BackendOptions {
-                                gl: wgpu::GlBackendOptions {
-                                    gles_minor_version: settings.gles3_minor_version,
-                                    fence_behavior: wgpu::GlFenceBehavior::Normal,
-                                },
-                                dx12: wgpu::Dx12BackendOptions {
-                                    shader_compiler: settings.dx12_shader_compiler.clone(),
-                                },
-                                noop: wgpu::NoopBackendOptions { enable: false },
-                            },
-                        });
+                            primary_window,
+                            &settings,
+                            #[cfg(all(feature = "dlss", not(feature = "bevy_ci_testing")))]
+                            dlss_project_id,
+                        )
+                        .await;
 
-                        let surface = primary_window.and_then(|wrapper| {
-                            let maybe_handle = wrapper.0.lock().expect(
-                                "Couldn't get the window handle in time for renderer initialization",
-                            );
-                            if let Some(wrapper) = maybe_handle.as_ref() {
-                                // SAFETY: Plugins should be set up on the main thread.
-                                let handle = unsafe { wrapper.get_handle() };
-                                Some(
-                                    instance
-                                        .create_surface(handle)
-                                        .expect("Failed to create wgpu surface"),
-                                )
-                            } else {
-                                None
-                            }
-                        });
-
-                        let force_fallback_adapter = std::env::var("WGPU_FORCE_FALLBACK_ADAPTER")
-                            .map_or(settings.force_fallback_adapter, |v| {
-                                !(v.is_empty() || v == "0" || v == "false")
-                            });
-
-                        let desired_adapter_name = std::env::var("WGPU_ADAPTER_NAME")
-                            .as_deref()
-                            .map_or(settings.adapter_name.clone(), |x| Some(x.to_lowercase()));
-
-                        let request_adapter_options = wgpu::RequestAdapterOptions {
-                            power_preference: settings.power_preference,
-                            compatible_surface: surface.as_ref(),
-                            force_fallback_adapter,
-                        };
-
-                        let (device, queue, adapter_info, render_adapter) =
-                            renderer::initialize_renderer(
-                                &instance,
-                                &settings,
-                                &request_adapter_options,
-                                desired_adapter_name,
-                            )
-                            .await;
-                        debug!("Configured wgpu adapter Limits: {:#?}", device.limits());
-                        debug!("Configured wgpu adapter Features: {:#?}", device.features());
-                        let mut future_render_resources_inner =
-                            future_render_resources_wrapper.lock().unwrap();
-                        *future_render_resources_inner = Some(RenderResources(
-                            device,
-                            queue,
-                            adapter_info,
-                            render_adapter,
-                            RenderInstance(Arc::new(WgpuWrapper::new(instance))),
-                        ));
+                        *future_render_resources_wrapper.lock().unwrap() = Some(render_resources);
                     };
+
                     // In wasm, spawn a task and detach it for execution
                     #[cfg(target_arch = "wasm32")]
                     bevy_tasks::IoTaskPool::get()
@@ -484,6 +436,17 @@ impl Plugin for RenderPlugin {
         if let Some(future_render_resources) =
             app.world_mut().remove_resource::<FutureRenderResources>()
         {
+            #[cfg(all(feature = "dlss", not(feature = "bevy_ci_testing")))]
+            let RenderResources(
+                device,
+                queue,
+                adapter_info,
+                render_adapter,
+                instance,
+                dlss_super_resolution_supported,
+                dlss_ray_reconstruction_supported,
+            ) = future_render_resources.0.lock().unwrap().take().unwrap();
+            #[cfg(any(not(feature = "dlss"), feature = "bevy_ci_testing"))]
             let RenderResources(device, queue, adapter_info, render_adapter, instance) =
                 future_render_resources.0.lock().unwrap().take().unwrap();
 
@@ -496,6 +459,15 @@ impl Plugin for RenderPlugin {
                 .insert_resource(adapter_info.clone())
                 .insert_resource(render_adapter.clone())
                 .insert_resource(compressed_image_format_support);
+
+            #[cfg(all(feature = "dlss", not(feature = "bevy_ci_testing")))]
+            if let Some(dlss_super_resolution_supported) = dlss_super_resolution_supported {
+                app.insert_resource(dlss_super_resolution_supported);
+            }
+            #[cfg(all(feature = "dlss", not(feature = "bevy_ci_testing")))]
+            if let Some(dlss_ray_reconstruction_supported) = dlss_ray_reconstruction_supported {
+                app.insert_resource(dlss_ray_reconstruction_supported);
+            }
 
             let render_app = app.sub_app_mut(RenderApp);
 
@@ -653,3 +625,22 @@ pub fn get_mali_driver_version(adapter: &RenderAdapter) -> Option<u32> {
 
     None
 }
+
+/// Application-specific ID for DLSS.
+///
+/// See the DLSS programming guide for more info.
+#[cfg(all(feature = "dlss", not(feature = "bevy_ci_testing")))]
+#[derive(Resource)]
+pub struct DlssProjectId(pub bevy_asset::uuid::Uuid);
+
+/// When DLSS Super Resolution is supported by the current system, this resource will exist in the main world.
+/// Otherwise this resource will be absent.
+#[cfg(all(feature = "dlss", not(feature = "bevy_ci_testing")))]
+#[derive(Resource, Clone, Copy)]
+pub struct DlssSuperResolutionSupported;
+
+/// When DLSS Ray Reconstruction is supported by the current system, this resource will exist in the main world.
+/// Otherwise this resource will be absent.
+#[cfg(all(feature = "dlss", not(feature = "bevy_ci_testing")))]
+#[derive(Resource, Clone, Copy)]
+pub struct DlssRayReconstructionSupported;
