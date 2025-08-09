@@ -1,8 +1,12 @@
-//! This is mostly a pluginify version of the custom_post_processing example
+//! This is mostly a pluginified version of the custom_post_processing example
+//!
+//! The plugin will create a new node that runs a fullscreen triangle.
+//!
+//! Users need to use the [`FullscreenMaterial`] trait to define the parameters like the graph label or the graph ordering.
 
 use std::marker::PhantomData;
 
-use crate::{core_3d::graph::Core3d, FullscreenShader};
+use crate::FullscreenShader;
 use bevy_app::{App, Plugin};
 use bevy_asset::AssetServer;
 use bevy_ecs::{
@@ -20,7 +24,7 @@ use bevy_render::{
     },
     render_graph::{
         InternedRenderLabel, NodeRunError, RenderGraph, RenderGraphContext, RenderGraphError,
-        RenderGraphExt, ViewNode, ViewNodeRunner,
+        RenderGraphExt, RenderLabel, RenderSubGraph, ViewNode, ViewNodeRunner,
     },
     render_resource::{
         binding_types::{sampler, texture_2d, uniform_buffer},
@@ -54,14 +58,13 @@ impl<T: FullscreenMaterial> Plugin for FullscreenMaterialPlugin<T> {
         };
         render_app.add_systems(RenderStartup, init_pipeline::<T>);
 
-        // TODO make this more configurable so it's not hardcoded to 3d
         render_app.add_render_graph_node::<ViewNodeRunner<FullscreenMaterialNode<T>>>(
-            Core3d,
+            T::sub_graph(),
             T::node_label(),
         );
         // We can't use add_render_graph_edges because it doesn't accept a Vec<RenderLabel>
         if let Some(mut render_graph) = render_app.world_mut().get_resource_mut::<RenderGraph>()
-            && let Some(graph) = render_graph.get_sub_graph_mut(Core3d)
+            && let Some(graph) = render_graph.get_sub_graph_mut(T::sub_graph())
         {
             for window in T::node_edges().windows(2) {
                 let [a, b] = window else {
@@ -83,11 +86,30 @@ impl<T: FullscreenMaterial> Plugin for FullscreenMaterialPlugin<T> {
     }
 }
 
+/// A trait to define a material that will render to the entire screen using a fullscrene triangle
 pub trait FullscreenMaterial:
     Component + ExtractComponent + Clone + Copy + ShaderType + WriteInto + Default
 {
+    /// The shader that will run on the entire screen using a fullscreen triangle
     fn fragment_shader() -> ShaderRef;
-    fn node_label() -> InternedRenderLabel;
+    /// The sub_graph the effect will run in
+    /// For 2d this is generally [`Core2d`] and for 3d it's [`Core3d`]
+    fn sub_graph() -> impl RenderSubGraph;
+    /// The label used to represent the render node that will run the pass
+    fn node_label() -> impl RenderLabel;
+    /// The list of node_edges. In 3d, for a post processing effect, it would look like this:
+    ///
+    /// ```rust
+    /// vec![
+    ///     Node3d::Tonemapping.intern(),
+    ///     Self::sub_graph().intern(), // <--- your own label here
+    ///     Node3d::EndMainPassPostProcessing.intern(),
+    /// ]
+    /// ```
+    ///
+    /// This tell the render graph to run your fullscreen effect after the tonemapping pass but
+    /// before the end of post processing. For 2d, it would be the same but using Node2d. You can
+    /// specify any edges you want but make sure to include your own label.
     fn node_edges() -> Vec<InternedRenderLabel>;
 }
 
@@ -115,6 +137,8 @@ fn init_pipeline<T: FullscreenMaterial>(
                 texture_2d(TextureSampleType::Float { filterable: true }),
                 // The sampler that will be used to sample the screen texture
                 sampler(SamplerBindingType::Filtering),
+                // We use a uniform buffer so users can pass some data to the effect
+                // Eventually we should just use a separate bind group for user data
                 uniform_buffer::<T>(true),
             ),
         ),
@@ -166,17 +190,14 @@ struct FullscreenMaterialNode<T: FullscreenMaterial> {
 }
 
 impl<T: FullscreenMaterial> ViewNode for FullscreenMaterialNode<T> {
-    type ViewQuery = (
-        &'static ViewTarget,
-        &'static T,
-        &'static DynamicUniformIndex<T>,
-    );
+    // TODO we should expose the depth buffer and the gbuffer if using deferred
+    type ViewQuery = (&'static ViewTarget, &'static DynamicUniformIndex<T>);
 
     fn run<'w>(
         &self,
         _graph: &mut RenderGraphContext,
         render_context: &mut RenderContext,
-        (view_target, _post_process_settings, settings_index): QueryItem<Self::ViewQuery>,
+        (view_target, settings_index): QueryItem<Self::ViewQuery>,
         world: &World,
     ) -> Result<(), NodeRunError> {
         let fullscreen_pipeline = world.resource::<FullscreenMaterialPipeline>();
@@ -192,8 +213,8 @@ impl<T: FullscreenMaterial> ViewNode for FullscreenMaterialNode<T> {
             return Ok(());
         };
 
-        let settings_uniforms = world.resource::<ComponentUniforms<T>>();
-        let Some(settings_binding) = settings_uniforms.uniforms().binding() else {
+        let data_uniforms = world.resource::<ComponentUniforms<T>>();
+        let Some(settings_binding) = data_uniforms.uniforms().binding() else {
             return Ok(());
         };
 

@@ -4,7 +4,7 @@
 
 use bevy::{
     core_pipeline::{
-        core_3d::graph::Node3d,
+        core_3d::graph::{Core3d, Node3d},
         fullscreen_material::{FullscreenMaterial, FullscreenMaterialPlugin},
     },
     prelude::*,
@@ -12,7 +12,7 @@ use bevy::{
 };
 use bevy_render::{
     extract_component::ExtractComponent,
-    render_graph::{InternedRenderLabel, RenderLabel},
+    render_graph::{InternedRenderLabel, RenderLabel, RenderSubGraph},
     render_resource::ShaderType,
 };
 
@@ -20,7 +20,7 @@ fn main() {
     App::new()
         .add_plugins((
             DefaultPlugins,
-            FullscreenMaterialPlugin::<MyPostProcessing>::default(),
+            FullscreenMaterialPlugin::<FullscreenEffect>::default(),
         ))
         .add_systems(Startup, setup)
         .run();
@@ -35,7 +35,7 @@ fn setup(
     commands.spawn((
         Camera3d::default(),
         Transform::from_translation(Vec3::new(0.0, 0.0, 5.0)).looking_at(Vec3::default(), Vec3::Y),
-        MyPostProcessing { data: 0.005 },
+        FullscreenEffect { intensity: 0.005 },
     ));
 
     // cube
@@ -52,26 +52,44 @@ fn setup(
 }
 
 #[derive(Debug, Hash, PartialEq, Eq, Clone, RenderLabel)]
-struct MyLabel;
+struct FullscreenEffectLabel;
 
 #[derive(Component, ExtractComponent, Clone, Copy, ShaderType, Default)]
-struct MyPostProcessing {
-    data: f32,
+struct FullscreenEffect {
+    // For this example, this is used as the intensity of the effect, but you can pass in any valid
+    // ShaderType
+    //
+    // In the future, you will be able to use a full bind group
+    intensity: f32,
 }
 
-impl FullscreenMaterial for MyPostProcessing {
+impl FullscreenMaterial for FullscreenEffect {
+    // The shader that will be used
     fn fragment_shader() -> ShaderRef {
-        "shaders/my_post_processing.wgsl".into()
+        "shaders/fullscreen_effect.wgsl".into()
     }
 
-    fn node_label() -> InternedRenderLabel {
-        MyLabel.intern()
+    // The material needs to know the label that will be used for the render graph
+    fn node_label() -> impl RenderLabel {
+        FullscreenEffectLabel
     }
 
+    // The sub graph the effect will run in. In 2d, this will generally be [`Core2d`] and in 3d it will
+    // be [`Core3d`]
+    fn sub_graph() -> impl RenderSubGraph {
+        Core3d
+    }
+
+    // This let's you specify a list of edges used to order when your effect pass will run
+    //
+    // This example is a post processing effect so it will run after tonemapping but before the end
+    // post processing pass.
+    //
+    // In 2d you would need to use [`Node2d`] instead of [`Node3d`]
     fn node_edges() -> Vec<InternedRenderLabel> {
         vec![
             Node3d::Tonemapping.intern(),
-            MyLabel.intern(),
+            Self::node_label().intern(),
             Node3d::EndMainPassPostProcessing.intern(),
         ]
     }
