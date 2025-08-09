@@ -189,6 +189,9 @@ fn setup(
                 },
                 MaterialNode::from(frame_time_graph_materials.add(FrametimeGraphMaterial {
                     values: buffers.add(ShaderStorageBuffer {
+                        // Initialize with dummy data because the default (`data: None`) will
+                        // cause a panic in the shader if the frame time graph is constructed
+                        // with `enabled: false`.
                         data: Some(vec![0, 0, 0, 0]),
                         ..Default::default()
                     }),
