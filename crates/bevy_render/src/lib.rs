@@ -1,12 +1,14 @@
 //! # Useful Environment Variables
+//! Both `bevy_render` and `wgpu` have a number of environment variable options for changing the runtime behavior
+//! of both crates. Many of these may be useful in development or release environments. 
 //!
-//! `WGPU_DEBUG=1` enables debug labels in release builds\
-//! `WGPU_VALIDATION=0` disables validation layers\
-//! `WGPU_FORCE_FALLBACK_ADAPTER=1` attempts to force software rendering\
-//! `WGPU_ADAPTER_NAME`: select a specific adapter by name\
-//! `WGPU_SETTINGS_PRIO=webgl2` uses webgl2 limits\
-//! `WGPU_SETTINGS_PRIO=compatibility` uses webgpu limits\
-//! `VERBOSE_SHADER_ERROR=1` prints shader defs and entrypoint shaders on wgsl compilation error
+//! -  `WGPU_DEBUG=1` enables debug labels in release builds
+//! - `WGPU_VALIDATION=0` disables validation layers
+//! - `WGPU_FORCE_FALLBACK_ADAPTER=1` attempts to force software rendering
+//! - `WGPU_ADAPTER_NAME`: select a specific adapter by name
+//! - `WGPU_SETTINGS_PRIO=webgl2` uses webgl2 limits
+//! - `WGPU_SETTINGS_PRIO=compatibility` uses webgpu limits
+//! - `VERBOSE_SHADER_ERROR=1` prints more detailed information about WGSL compilation errors
 
 #![expect(missing_docs, reason = "Not all docs are written yet, see #3492.")]
 #![expect(unsafe_code, reason = "Unsafe code is used to improve performance.")]
