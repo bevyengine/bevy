@@ -2,7 +2,7 @@
 //! Both `bevy_render` and `wgpu` have a number of environment variable options for changing the runtime behavior
 //! of both crates. Many of these may be useful in development or release environments. 
 //!
-//! -  `WGPU_DEBUG=1` enables debug labels in release builds
+//! - `WGPU_DEBUG=1` enables debug labels in release builds
 //! - `WGPU_VALIDATION=0` disables validation layers
 //! - `WGPU_FORCE_FALLBACK_ADAPTER=1` attempts to force software rendering
 //! - `WGPU_ADAPTER_NAME`: select a specific adapter by name
