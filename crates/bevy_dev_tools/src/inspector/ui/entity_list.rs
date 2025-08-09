@@ -72,7 +72,6 @@ pub fn handle_entity_selection(
     _all_buttons: Query<Entity, With<EntityListItem>>,
     time: Res<Time>,
 ) {
-
     let current_time = time.elapsed_secs_f64();
 
     // Only process actual clicks, not hover events, and prevent duplicate selections

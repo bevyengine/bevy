@@ -241,7 +241,6 @@ pub fn update_infinite_scrolling_display(
         virtual_scroll_state.total_content_height =
             virtual_scroll_state.total_entity_count as f32 * virtual_scroll_state.item_height;
 
-
         entities_changed = true;
     }
 
@@ -466,7 +465,6 @@ pub fn update_infinite_scrolling_display(
     }
 
     // Note: Cleanup is now handled in the first pass above - we despawn items outside visible range immediately
-
 }
 
 /// Custom scroll position resource that bypasses Bevy's built-in scroll limitations
@@ -570,7 +568,6 @@ pub fn handle_infinite_scroll_input(
                     if let Ok(mut scroll_position) = component_scroll_query.single_mut() {
                         scroll_position.y -= event.y * 30.0;
                         scroll_position.y = scroll_position.y.max(0.0);
-                        println!("Component viewer scroll: {:.1}px", scroll_position.y);
                     }
                 }
             } else {
@@ -614,11 +611,9 @@ pub fn setup_virtual_scrolling(
     // Reset scroll position to 0 on startup
     if let Ok(mut scroll_position) = scroll_query.single_mut() {
         scroll_position.y = 0.0;
-        println!("Reset scroll position to 0");
     }
 
     // No spacers needed with absolute positioning approach
-
 }
 
 /// Update the visual scrollbar to reflect current scroll position

@@ -448,11 +448,6 @@ impl HttpRemoteClient {
                                                             };
 
                                                             if !update.changed_components.is_empty() || !update.removed_components.is_empty() {
-                                                                println!("Live update for entity {}: {} changed, {} removed",
-                                                                    entity_id,
-                                                                    update.changed_components.len(),
-                                                                    update.removed_components.len()
-                                                                );
 
                                                                 if tx.send(update).await.is_err() {
                                                                     println!("Component update receiver dropped for entity {}", entity_id);
