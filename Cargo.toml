@@ -4031,6 +4031,12 @@ doc-scrape-examples = true
 required-features = ["bevy_dev_tools"]
 
 [[example]]
+name = "entity_inspector_minimal"
+path = "examples/inspector/entity_inspector_minimal.rs"
+doc-scrape-examples = true
+required-features = ["bevy_dev_tools"]
+
+[[example]]
 name = "2d_top_down_camera"
 path = "examples/camera/2d_top_down_camera.rs"
 doc-scrape-examples = true
@@ -4112,6 +4118,12 @@ name = "FPS overlay"
 description = "Demonstrates FPS overlay"
 category = "Dev tools"
 wasm = true
+
+[package.metadata.example.entity_inspector_minimal]
+name = "Entity Inspector"
+description = "Remote entity inspector that connects to a running Bevy app"
+category = "Dev tools"
+wasm = false
 
 [[example]]
 name = "visibility_range"
