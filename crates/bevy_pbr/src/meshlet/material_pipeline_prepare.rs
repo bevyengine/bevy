@@ -3,6 +3,7 @@ use super::{
     resource_manager::ResourceManager,
 };
 use crate::{irradiance_volume::IrradianceVolume, *};
+use bevy_camera::Projection;
 use bevy_core_pipeline::{
     core_3d::Camera3d,
     prepass::{DeferredPrepass, DepthPrepass, MotionVectorPrepass, NormalPrepass},

@@ -12,10 +12,8 @@ use crate::{
 };
 use bevy_app::{App, Plugin, PreUpdate};
 use bevy_asset::{embedded_asset, load_embedded_asset, AssetServer, Handle};
-use bevy_camera::Camera;
-use bevy_core_pipeline::{
-    core_3d::CORE_3D_DEPTH_FORMAT, deferred::*, prelude::Camera3d, prepass::*,
-};
+use bevy_camera::{Camera, Camera3d};
+use bevy_core_pipeline::{core_3d::CORE_3D_DEPTH_FORMAT, deferred::*, prepass::*};
 use bevy_ecs::{
     prelude::*,
     system::{

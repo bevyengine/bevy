@@ -3,10 +3,10 @@
 use core::array;
 
 use bevy_asset::{load_embedded_asset, AssetId, AssetServer, Handle};
+use bevy_camera::Camera3d;
 use bevy_color::ColorToComponents as _;
-use bevy_core_pipeline::{
-    core_3d::Camera3d,
-    prepass::{DeferredPrepass, DepthPrepass, MotionVectorPrepass, NormalPrepass},
+use bevy_core_pipeline::prepass::{
+    DeferredPrepass, DepthPrepass, MotionVectorPrepass, NormalPrepass,
 };
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{

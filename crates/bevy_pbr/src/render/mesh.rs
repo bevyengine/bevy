@@ -2,8 +2,8 @@ use crate::material_bind_groups::{MaterialBindGroupIndex, MaterialBindGroupSlot}
 use bevy_asset::{embedded_asset, load_embedded_asset, AssetId};
 use bevy_camera::{
     primitives::Aabb,
-    visibility::{NoFrustumCulling, ViewVisibility, VisibilityRange},
-    Camera,
+    visibility::{NoFrustumCulling, RenderLayers, ViewVisibility, VisibilityRange},
+    Camera, Camera3d, Projection,
 };
 use bevy_core_pipeline::{
     core_3d::{AlphaMask3d, Opaque3d, Transmissive3d, Transparent3d, CORE_3D_DEPTH_FORMAT},
@@ -72,7 +72,6 @@ use crate::{
     },
     *,
 };
-use bevy_core_pipeline::core_3d::Camera3d;
 use bevy_core_pipeline::oit::OrderIndependentTransparencySettings;
 use bevy_core_pipeline::prepass::{DeferredPrepass, DepthPrepass, NormalPrepass};
 use bevy_core_pipeline::tonemapping::{DebandDither, Tonemapping};
@@ -82,7 +81,6 @@ use bevy_render::camera::TemporalJitter;
 use bevy_render::prelude::Msaa;
 use bevy_render::sync_world::{MainEntity, MainEntityHashMap};
 use bevy_render::view::ExtractedView;
-use bevy_render::view::RenderLayers;
 use bevy_render::RenderSystems::PrepareAssets;
 
 use bytemuck::{Pod, Zeroable};

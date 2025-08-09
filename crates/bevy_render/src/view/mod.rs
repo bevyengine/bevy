@@ -3,17 +3,14 @@ pub mod window;
 
 use bevy_camera::{
     primitives::Frustum, CameraMainTextureUsages, ClearColor, ClearColorConfig, Exposure,
-    MainPassResolutionOverride,
+    MainPassResolutionOverride, NormalizedRenderTarget,
 };
 use bevy_diagnostic::FrameCount;
 pub use visibility::*;
 pub use window::*;
 
 use crate::{
-    camera::{
-        ExtractedCamera, MipBias, NormalizedRenderTarget, NormalizedRenderTargetExt as _,
-        TemporalJitter,
-    },
+    camera::{ExtractedCamera, MipBias, NormalizedRenderTargetExt as _, TemporalJitter},
     experimental::occlusion_culling::OcclusionCulling,
     extract_component::ExtractComponentPlugin,
     load_shader_library,
