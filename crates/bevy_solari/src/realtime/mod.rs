@@ -50,6 +50,7 @@ impl Plugin for SolariLightingPlugin {
             );
             return;
         }
+
         render_app
             .add_systems(ExtractSchedule, extract_solari_lighting)
             .add_systems(
