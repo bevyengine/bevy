@@ -1,6 +1,6 @@
 use super::{
     prepare::DlssRenderContext, Dlss, DlssFeature, DlssRayReconstructionFeature,
-    DlssSuperResolutionFeature,
+    DlssSuperResolutionFeature, ViewDlssRayReconstructionTextures,
 };
 use bevy_core_pipeline::prepass::ViewPrepassTextures;
 use bevy_ecs::{query::QueryItem, world::World};
@@ -9,10 +9,13 @@ use bevy_render::{
     diagnostic::RecordDiagnostics,
     render_graph::{NodeRunError, RenderGraphContext, ViewNode},
     renderer::{RenderAdapter, RenderContext},
-    view::ViewTarget,
+    view::{ExtractedView, ViewTarget},
 };
-use dlss_wgpu::super_resolution::{
-    DlssSuperResolutionExposure, DlssSuperResolutionRenderParameters,
+use dlss_wgpu::{
+    ray_reconstruction::{
+        DlssRayReconstructionRenderParameters, DlssRayReconstructionSpecularGuide,
+    },
+    super_resolution::{DlssSuperResolutionExposure, DlssSuperResolutionRenderParameters},
 };
 use std::marker::PhantomData;
 
@@ -44,8 +47,8 @@ impl ViewNode for DlssNode<DlssSuperResolutionFeature> {
         world: &World,
     ) -> Result<(), NodeRunError> {
         let adapter = world.resource::<RenderAdapter>();
-        let (Some(prepass_motion_vectors_texture), Some(prepass_depth_texture)) =
-            (&prepass_textures.motion_vectors, &prepass_textures.depth)
+        let (Some(prepass_depth_texture), Some(prepass_motion_vectors_texture)) =
+            (&prepass_textures.depth, &prepass_textures.motion_vectors)
         else {
             return Ok(());
         };
@@ -92,22 +95,74 @@ impl ViewNode for DlssNode<DlssRayReconstructionFeature> {
         &'static TemporalJitter,
         &'static ViewTarget,
         &'static ViewPrepassTextures,
+        &'static ViewDlssRayReconstructionTextures,
+        &'static ExtractedView,
     );
 
     fn run(
         &self,
         _graph: &mut RenderGraphContext,
-        _render_context: &mut RenderContext,
+        render_context: &mut RenderContext,
         (
-            _dlss,
-            _dlss_context,
-            _resolution_override,
-            _temporal_jitter,
-            _view_target,
-            _prepass_textures,
+            dlss,
+            dlss_context,
+            resolution_override,
+            temporal_jitter,
+            view_target,
+            prepass_textures,
+            ray_reconstruction_textures,
+            extracted_view,
         ): QueryItem<Self::ViewQuery>,
-        _world: &World,
+        world: &World,
     ) -> Result<(), NodeRunError> {
-        todo!("DLSS Ray Reconstruction not yet implemented")
+        let adapter = world.resource::<RenderAdapter>();
+        let (Some(prepass_depth_texture), Some(prepass_motion_vectors_texture)) =
+            (&prepass_textures.depth, &prepass_textures.motion_vectors)
+        else {
+            return Ok(());
+        };
+
+        let view_target = view_target.post_process_write();
+
+        let render_resolution = resolution_override.0;
+        let render_parameters = DlssRayReconstructionRenderParameters {
+            diffuse_albedo: &ray_reconstruction_textures.diffuse_albedo.default_view,
+            specular_albedo: &ray_reconstruction_textures.specular_albedo.default_view,
+            normals: &ray_reconstruction_textures.normal_roughness.default_view,
+            roughness: None,
+            color: &view_target.source,
+            depth: &prepass_depth_texture.texture.default_view,
+            motion_vectors: &prepass_motion_vectors_texture.texture.default_view,
+            specular_guide: DlssRayReconstructionSpecularGuide::SpecularHitDistance {
+                texture_view: &ray_reconstruction_textures
+                    .specular_hit_distance
+                    .default_view,
+                world_to_view_matrix: extracted_view.world_from_view.to_matrix().inverse(),
+                view_to_clip_matrix: extracted_view.clip_from_view,
+            },
+            screen_space_subsurface_scattering_guide: None, // TODO
+            bias: None,                                     // TODO
+            dlss_output: &view_target.destination,
+            reset: dlss.reset,
+            jitter_offset: -temporal_jitter.offset,
+            partial_texture_size: Some(render_resolution),
+            motion_vector_scale: Some(-render_resolution.as_vec2()),
+        };
+
+        let diagnostics = render_context.diagnostic_recorder();
+        let command_encoder = render_context.command_encoder();
+        let mut dlss_context = dlss_context.context.lock().unwrap();
+
+        command_encoder.push_debug_group("dlss_ray_reconstruction");
+        let time_span = diagnostics.time_span(command_encoder, "dlss_ray_reconstruction");
+
+        dlss_context
+            .render(render_parameters, command_encoder, &adapter)
+            .expect("Failed to render DLSS Ray Reconstruction");
+
+        time_span.end(command_encoder);
+        command_encoder.pop_debug_group();
+
+        Ok(())
     }
 }

@@ -33,10 +33,16 @@ use bevy_render::{
     camera::{MipBias, TemporalJitter},
     render_graph::{RenderGraphExt, ViewNodeRunner},
     renderer::{RenderDevice, RenderQueue},
+    texture::CachedTexture,
     view::{prepare_view_targets, Hdr},
     ExtractSchedule, Render, RenderApp, RenderSystems,
 };
-use dlss_wgpu::{ray_reconstruction::DlssRayReconstruction, super_resolution::DlssSuperResolution};
+use dlss_wgpu::{
+    ray_reconstruction::{
+        DlssRayReconstruction, DlssRayReconstructionDepthMode, DlssRayReconstructionRoughnessMode,
+    },
+    super_resolution::DlssSuperResolution,
+};
 use std::{
     marker::PhantomData,
     ops::Deref,
@@ -224,8 +230,6 @@ impl DlssFeature for DlssSuperResolutionFeature {
     }
 }
 
-/// Do not use. Not yet implemented.
-///
 /// DLSS Ray Reconstruction.
 ///
 /// Only available when the [`DlssRayReconstructionSupported`] resource exists.
@@ -267,13 +271,22 @@ impl DlssFeature for DlssRayReconstructionFeature {
             upscaled_resolution,
             perf_quality_mode,
             feature_flags,
-            dlss_wgpu::ray_reconstruction::DlssRayReconstructionRoughnessMode::Unpacked,
-            dlss_wgpu::ray_reconstruction::DlssRayReconstructionDepthMode::Hardware,
+            DlssRayReconstructionRoughnessMode::Packed,
+            DlssRayReconstructionDepthMode::Hardware,
             sdk,
             device.wgpu_device(),
             queue.deref(),
         )
     }
+}
+
+/// Additional textures needed as inputs for [`DlssRayReconstructionFeature`].
+#[derive(Component)]
+pub struct ViewDlssRayReconstructionTextures {
+    pub diffuse_albedo: CachedTexture,
+    pub specular_albedo: CachedTexture,
+    pub normal_roughness: CachedTexture,
+    pub specular_hit_distance: CachedTexture,
 }
 
 #[reflect_remote(DlssPerfQualityMode)]
