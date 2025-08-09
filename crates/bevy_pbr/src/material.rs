@@ -35,7 +35,7 @@ use bevy_render::erased_render_asset::{
     ErasedRenderAsset, ErasedRenderAssetPlugin, ErasedRenderAssets, PrepareAssetError,
 };
 use bevy_render::mesh::mark_3d_meshes_as_changed_if_their_assets_changed;
-use bevy_render::render_asset::{prepare_assets, RenderAssets};
+use bevy_render::render_asset::prepare_assets;
 use bevy_render::renderer::RenderQueue;
 use bevy_render::RenderStartup;
 use bevy_render::{
@@ -885,9 +885,8 @@ pub fn check_entities_needing_specialization<M>(
 }
 
 pub fn specialize_material_meshes(
-    render_meshes: Res<RenderAssets<RenderMesh>>,
+    params: SpecializeMeshParams<EntitySpecializationTicks, RenderMeshInstances>,
     render_materials: Res<ErasedRenderAssets<PreparedMaterial>>,
-    render_mesh_instances: Res<RenderMeshInstances>,
     render_material_instances: Res<RenderMaterialInstances>,
     render_lightmaps: Res<RenderLightmaps>,
     render_visibility_ranges: Res<RenderVisibilityRanges>,
@@ -904,13 +903,10 @@ pub fn specialize_material_meshes(
     ),
     views: Query<(&ExtractedView, &RenderVisibleEntities)>,
     view_key_cache: Res<ViewKeyCache>,
-    entity_specialization_ticks: Res<EntitySpecializationTicks>,
     view_specialization_ticks: Res<ViewSpecializationTicks>,
     mut specialized_material_pipeline_cache: ResMut<SpecializedMaterialPipelineCache>,
     mut pipelines: ResMut<SpecializedMeshPipelines<MaterialPipelineSpecializer>>,
     pipeline: Res<MaterialPipeline>,
-    pipeline_cache: Res<PipelineCache>,
-    ticks: SystemChangeTick,
 ) {
     // Record the retained IDs of all shadow views so that we can expire old
     // pipeline IDs.
@@ -943,22 +939,27 @@ pub fn specialize_material_meshes(
             else {
                 continue;
             };
-            let Some(mesh_instance) = render_mesh_instances.render_mesh_queue_data(*visible_entity)
+            let Some(mesh_instance) = params
+                .render_mesh_instances
+                .render_mesh_queue_data(*visible_entity)
             else {
                 continue;
             };
-            let entity_tick = entity_specialization_ticks.get(visible_entity).unwrap();
+            let entity_tick = params
+                .entity_specialization_ticks
+                .get(visible_entity)
+                .unwrap();
             let last_specialized_tick = view_specialized_material_pipeline_cache
                 .get(visible_entity)
                 .map(|(tick, _)| *tick);
             let needs_specialization = last_specialized_tick.is_none_or(|tick| {
-                view_tick.is_newer_than(tick, ticks.this_run())
-                    || entity_tick.is_newer_than(tick, ticks.this_run())
+                view_tick.is_newer_than(tick, params.ticks.this_run())
+                    || entity_tick.is_newer_than(tick, params.ticks.this_run())
             });
             if !needs_specialization {
                 continue;
             }
-            let Some(mesh) = render_meshes.get(mesh_instance.mesh_asset_id) else {
+            let Some(mesh) = params.render_meshes.get(mesh_instance.mesh_asset_id) else {
                 continue;
             };
             let Some(material) = render_materials.get(material_instance.asset_id) else {
@@ -1012,7 +1013,7 @@ pub fn specialize_material_meshes(
                 properties: material.properties.clone(),
             };
             let pipeline_id = pipelines.specialize(
-                &pipeline_cache,
+                &params.pipeline_cache,
                 &material_pipeline_specializer,
                 erased_key,
                 &mesh.layout,
@@ -1026,7 +1027,7 @@ pub fn specialize_material_meshes(
             };
 
             view_specialized_material_pipeline_cache
-                .insert(*visible_entity, (ticks.this_run(), pipeline_id));
+                .insert(*visible_entity, (params.ticks.this_run(), pipeline_id));
         }
     }
 

@@ -24,7 +24,7 @@ use bevy_platform::collections::HashMap;
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_render::camera::extract_cameras;
 use bevy_render::render_phase::{DrawFunctionId, InputUniformIndex};
-use bevy_render::render_resource::{CachedRenderPipelineId, ShaderDefVal};
+use bevy_render::render_resource::{CachedRenderPipelineId, ShaderDefVal, SpecializeMeshParams};
 use bevy_render::view::RenderVisibleEntities;
 use bevy_render::RenderStartup;
 use bevy_render::{
@@ -39,7 +39,7 @@ use bevy_render::{
     },
     render_resource::{
         AsBindGroup, AsBindGroupError, BindGroup, BindGroupId, BindGroupLayout, BindingResources,
-        PipelineCache, RenderPipelineDescriptor, Shader, ShaderRef, SpecializedMeshPipeline,
+        RenderPipelineDescriptor, Shader, ShaderRef, SpecializedMeshPipeline,
         SpecializedMeshPipelineError, SpecializedMeshPipelines,
     },
     renderer::RenderDevice,
@@ -687,23 +687,17 @@ pub fn check_entities_needing_specialization<M>(
 }
 
 pub fn specialize_material2d_meshes<M: Material2d>(
+    params: SpecializeMeshParams<EntitySpecializationTicks<M>, RenderMesh2dInstances>,
     material2d_pipeline: Res<Material2dPipeline<M>>,
     mut pipelines: ResMut<SpecializedMeshPipelines<Material2dPipeline<M>>>,
-    pipeline_cache: Res<PipelineCache>,
-    (render_meshes, render_materials): (
-        Res<RenderAssets<RenderMesh>>,
-        Res<RenderAssets<PreparedMaterial2d<M>>>,
-    ),
-    mut render_mesh_instances: ResMut<RenderMesh2dInstances>,
+    render_materials: Res<RenderAssets<PreparedMaterial2d<M>>>,
     render_material_instances: Res<RenderMaterial2dInstances<M>>,
     transparent_render_phases: Res<ViewSortedRenderPhases<Transparent2d>>,
     opaque_render_phases: Res<ViewBinnedRenderPhases<Opaque2d>>,
     alpha_mask_render_phases: Res<ViewBinnedRenderPhases<AlphaMask2d>>,
     views: Query<(&MainEntity, &ExtractedView, &RenderVisibleEntities)>,
     view_key_cache: Res<ViewKeyCache>,
-    entity_specialization_ticks: Res<EntitySpecializationTicks<M>>,
     view_specialization_ticks: Res<ViewSpecializationTicks>,
-    ticks: SystemChangeTick,
     mut specialized_material_pipeline_cache: ResMut<SpecializedMaterial2dPipelineCache<M>>,
 ) where
     M::Data: PartialEq + Eq + Hash + Clone,
@@ -733,16 +727,19 @@ pub fn specialize_material2d_meshes<M: Material2d>(
             let Some(material_asset_id) = render_material_instances.get(visible_entity) else {
                 continue;
             };
-            let Some(mesh_instance) = render_mesh_instances.get_mut(visible_entity) else {
+            let Some(mesh_instance) = params.render_mesh_instances.get(visible_entity) else {
                 continue;
             };
-            let entity_tick = entity_specialization_ticks.get(visible_entity).unwrap();
+            let entity_tick = params
+                .entity_specialization_ticks
+                .get(visible_entity)
+                .unwrap();
             let last_specialized_tick = view_specialized_material_pipeline_cache
                 .get(visible_entity)
                 .map(|(tick, _)| *tick);
             let needs_specialization = last_specialized_tick.is_none_or(|tick| {
-                view_tick.is_newer_than(tick, ticks.this_run())
-                    || entity_tick.is_newer_than(tick, ticks.this_run())
+                view_tick.is_newer_than(tick, params.ticks.this_run())
+                    || entity_tick.is_newer_than(tick, params.ticks.this_run())
             });
             if !needs_specialization {
                 continue;
@@ -750,7 +747,7 @@ pub fn specialize_material2d_meshes<M: Material2d>(
             let Some(material_2d) = render_materials.get(*material_asset_id) else {
                 continue;
             };
-            let Some(mesh) = render_meshes.get(mesh_instance.mesh_asset_id) else {
+            let Some(mesh) = params.render_meshes.get(mesh_instance.mesh_asset_id) else {
                 continue;
             };
             let mesh_key = *view_key
@@ -758,7 +755,7 @@ pub fn specialize_material2d_meshes<M: Material2d>(
                 | material_2d.properties.mesh_pipeline_key_bits;
 
             let pipeline_id = pipelines.specialize(
-                &pipeline_cache,
+                &params.pipeline_cache,
                 &material2d_pipeline,
                 Material2dKey {
                     mesh_key,
@@ -776,7 +773,7 @@ pub fn specialize_material2d_meshes<M: Material2d>(
             };
 
             view_specialized_material_pipeline_cache
-                .insert(*visible_entity, (ticks.this_run(), pipeline_id));
+                .insert(*visible_entity, (params.ticks.this_run(), pipeline_id));
         }
     }
 }

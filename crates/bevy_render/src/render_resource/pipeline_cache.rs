@@ -1,5 +1,7 @@
 use crate::WgpuWrapper;
 use crate::{
+    mesh::RenderMesh,
+    render_asset::RenderAssets,
     render_resource::*,
     renderer::{RenderAdapter, RenderDevice},
     Extract,
@@ -9,7 +11,7 @@ use bevy_asset::{AssetEvent, AssetId, Assets, Handle};
 use bevy_ecs::{
     event::EventReader,
     resource::Resource,
-    system::{Res, ResMut},
+    system::{Res, ResMut, SystemChangeTick, SystemParam},
 };
 use bevy_platform::collections::{HashMap, HashSet};
 use bevy_tasks::Task;
@@ -749,6 +751,20 @@ impl PipelineCache {
             }
         }
     }
+}
+
+/// Parameters shared between mesh specialization systems.
+#[derive(SystemParam)]
+pub struct SpecializeMeshParams<
+    'w,
+    EntitySpecializationTicks: Resource,
+    RenderMeshInstances: Resource,
+> {
+    pub pipeline_cache: Res<'w, PipelineCache>,
+    pub entity_specialization_ticks: Res<'w, EntitySpecializationTicks>,
+    pub render_mesh_instances: Res<'w, RenderMeshInstances>,
+    pub render_meshes: Res<'w, RenderAssets<RenderMesh>>,
+    pub ticks: SystemChangeTick,
 }
 
 fn pipeline_error_context(cached_pipeline: &CachedPipeline) -> String {

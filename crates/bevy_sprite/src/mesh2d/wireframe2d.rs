@@ -726,19 +726,15 @@ pub fn check_wireframe_entities_needing_specialization(
 }
 
 pub fn specialize_wireframes(
-    render_meshes: Res<RenderAssets<RenderMesh>>,
-    render_mesh_instances: Res<RenderMesh2dInstances>,
+    params: SpecializeMeshParams<WireframeEntitySpecializationTicks, RenderMesh2dInstances>,
     render_wireframe_instances: Res<RenderWireframeInstances>,
     wireframe_phases: Res<ViewBinnedRenderPhases<Wireframe2dPhaseItem>>,
     views: Query<(&ExtractedView, &RenderVisibleEntities)>,
     view_key_cache: Res<ViewKeyCache>,
-    entity_specialization_ticks: Res<WireframeEntitySpecializationTicks>,
     view_specialization_ticks: Res<ViewSpecializationTicks>,
     mut specialized_material_pipeline_cache: ResMut<SpecializedWireframePipelineCache>,
     mut pipelines: ResMut<SpecializedMeshPipelines<Wireframe2dPipeline>>,
     pipeline: Res<Wireframe2dPipeline>,
-    pipeline_cache: Res<PipelineCache>,
-    ticks: SystemChangeTick,
 ) {
     // Record the retained IDs of all views so that we can expire old
     // pipeline IDs.
@@ -766,21 +762,24 @@ pub fn specialize_wireframes(
             if !render_wireframe_instances.contains_key(visible_entity) {
                 continue;
             };
-            let Some(mesh_instance) = render_mesh_instances.get(visible_entity) else {
+            let Some(mesh_instance) = params.render_mesh_instances.get(visible_entity) else {
                 continue;
             };
-            let entity_tick = entity_specialization_ticks.get(visible_entity).unwrap();
+            let entity_tick = params
+                .entity_specialization_ticks
+                .get(visible_entity)
+                .unwrap();
             let last_specialized_tick = view_specialized_material_pipeline_cache
                 .get(visible_entity)
                 .map(|(tick, _)| *tick);
             let needs_specialization = last_specialized_tick.is_none_or(|tick| {
-                view_tick.is_newer_than(tick, ticks.this_run())
-                    || entity_tick.is_newer_than(tick, ticks.this_run())
+                view_tick.is_newer_than(tick, params.ticks.this_run())
+                    || entity_tick.is_newer_than(tick, params.ticks.this_run())
             });
             if !needs_specialization {
                 continue;
             }
-            let Some(mesh) = render_meshes.get(mesh_instance.mesh_asset_id) else {
+            let Some(mesh) = params.render_meshes.get(mesh_instance.mesh_asset_id) else {
                 continue;
             };
 
@@ -788,7 +787,7 @@ pub fn specialize_wireframes(
             mesh_key |= Mesh2dPipelineKey::from_primitive_topology(mesh.primitive_topology());
 
             let pipeline_id =
-                pipelines.specialize(&pipeline_cache, &pipeline, mesh_key, &mesh.layout);
+                pipelines.specialize(&params.pipeline_cache, &pipeline, mesh_key, &mesh.layout);
             let pipeline_id = match pipeline_id {
                 Ok(id) => id,
                 Err(err) => {
@@ -798,7 +797,7 @@ pub fn specialize_wireframes(
             };
 
             view_specialized_material_pipeline_cache
-                .insert(*visible_entity, (ticks.this_run(), pipeline_id));
+                .insert(*visible_entity, (params.ticks.this_run(), pipeline_id));
         }
     }
 
