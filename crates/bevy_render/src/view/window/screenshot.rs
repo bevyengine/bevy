@@ -1,6 +1,6 @@
 use super::ExtractedWindows;
 use crate::{
-    camera::{NormalizedRenderTarget, ToNormalizedRenderTarget as _},
+    camera::NormalizedRenderTarget,
     gpu_readback,
     prelude::Shader,
     render_asset::{RenderAssetUsages, RenderAssets},

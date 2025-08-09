@@ -6,8 +6,12 @@ mod intersections;
 
 use bevy_derive::{Deref, DerefMut};
 
+use bevy_camera::{
+    primitives::Aabb,
+    visibility::{InheritedVisibility, ViewVisibility},
+};
 use bevy_math::{bounding::Aabb3d, Ray3d};
-use bevy_mesh::Mesh;
+use bevy_mesh::{Mesh, Mesh2d, Mesh3d};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 
 use intersections::*;
@@ -16,7 +20,6 @@ pub use intersections::{ray_aabb_intersection_3d, ray_mesh_intersection, RayMesh
 use bevy_asset::{Assets, Handle};
 use bevy_ecs::{prelude::*, system::lifetimeless::Read, system::SystemParam};
 use bevy_math::FloatOrd;
-use bevy_render::{prelude::*, primitives::Aabb};
 use bevy_transform::components::GlobalTransform;
 use tracing::*;
 

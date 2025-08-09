@@ -129,11 +129,11 @@ pub mod ray {
     //! Types and systems for constructing rays from cameras and pointers.
 
     use crate::backend::prelude::{PointerId, PointerLocation};
+    use bevy_camera::Camera;
     use bevy_ecs::prelude::*;
     use bevy_math::Ray3d;
     use bevy_platform::collections::{hash_map::Iter, HashMap};
     use bevy_reflect::Reflect;
-    use bevy_render::camera::Camera;
     use bevy_transform::prelude::GlobalTransform;
     use bevy_window::PrimaryWindow;
 

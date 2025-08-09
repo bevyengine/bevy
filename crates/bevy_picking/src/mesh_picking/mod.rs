@@ -22,9 +22,9 @@ use crate::{
     PickingSystems,
 };
 use bevy_app::prelude::*;
+use bevy_camera::{visibility::RenderLayers, Camera};
 use bevy_ecs::prelude::*;
 use bevy_reflect::prelude::*;
-use bevy_render::{prelude::*, view::RenderLayers};
 use ray_cast::{MeshRayCast, MeshRayCastSettings, RayCastVisibility};
 
 /// An optional component that marks cameras that should be used in the [`MeshPickingPlugin`].

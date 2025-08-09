@@ -39,13 +39,13 @@
 
 use core::{fmt::Debug, time::Duration};
 
+use bevy_camera::NormalizedRenderTarget;
 use bevy_ecs::{prelude::*, query::QueryData, system::SystemParam, traversal::Traversal};
 use bevy_input::mouse::MouseScrollUnit;
 use bevy_math::Vec2;
 use bevy_platform::collections::HashMap;
 use bevy_platform::time::Instant;
 use bevy_reflect::prelude::*;
-use bevy_render::camera::NormalizedRenderTarget;
 use bevy_window::Window;
 use tracing::debug;
 
