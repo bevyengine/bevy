@@ -175,9 +175,10 @@ pub async fn initialize_renderer(
     backends: Backends,
     primary_window: Option<RawHandleWrapperHolder>,
     options: &WgpuSettings,
-    #[cfg(feature = "dlss")] dlss_project_id: bevy_asset::uuid::Uuid,
+    #[cfg(all(feature = "dlss", not(feature = "bevy_ci_testing")))]
+    dlss_project_id: bevy_asset::uuid::Uuid,
 ) -> RenderResources {
-    #[cfg(feature = "dlss")]
+    #[cfg(all(feature = "dlss", not(feature = "bevy_ci_testing")))]
     let mut dlss_feature_support = dlss_wgpu::FeatureSupport::default();
 
     let instance_descriptor = wgpu::InstanceDescriptor {
@@ -196,10 +197,10 @@ pub async fn initialize_renderer(
         },
     };
 
-    #[cfg(not(feature = "dlss"))]
+    #[cfg(any(not(feature = "dlss"), feature = "bevy_ci_testing"))]
     let instance = Instance::new(&instance_descriptor);
 
-    #[cfg(feature = "dlss")]
+    #[cfg(all(feature = "dlss", not(feature = "bevy_ci_testing")))]
     let instance = dlss_wgpu::create_instance(
         dlss_project_id,
         &instance_descriptor,
@@ -440,10 +441,10 @@ pub async fn initialize_renderer(
         trace: Trace::Off,
     };
 
-    #[cfg(not(feature = "dlss"))]
+    #[cfg(any(not(feature = "dlss"), feature = "bevy_ci_testing"))]
     let (device, queue) = adapter.request_device(&device_descriptor).await.unwrap();
 
-    #[cfg(feature = "dlss")]
+    #[cfg(all(feature = "dlss", not(feature = "bevy_ci_testing")))]
     let (device, queue) = dlss_wgpu::request_device(
         dlss_project_id,
         &adapter,
@@ -461,11 +462,11 @@ pub async fn initialize_renderer(
         RenderAdapterInfo(WgpuWrapper::new(adapter_info)),
         RenderAdapter(Arc::new(WgpuWrapper::new(adapter))),
         RenderInstance(Arc::new(WgpuWrapper::new(instance))),
-        #[cfg(feature = "dlss")]
+        #[cfg(all(feature = "dlss", not(feature = "bevy_ci_testing")))]
         dlss_feature_support
             .super_resolution_supported
             .then(|| crate::DlssSuperResolutionSupported),
-        #[cfg(feature = "dlss")]
+        #[cfg(all(feature = "dlss", not(feature = "bevy_ci_testing")))]
         dlss_feature_support
             .ray_reconstruction_supported
             .then(|| crate::DlssRayReconstructionSupported),

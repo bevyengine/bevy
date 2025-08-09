@@ -14,6 +14,7 @@ webgl = []
 webgpu = []
 smaa_luts = ["bevy_render/ktx2", "bevy_image/ktx2", "bevy_image/zstd"]
 dlss = ["dep:dlss_wgpu", "bevy_render/dlss"]
+bevy_ci_testing = ["dlss_wgpu?/mock"]
 
 [dependencies]
 # bevy
@@ -31,7 +32,7 @@ bevy_diagnostic = { path = "../bevy_diagnostic", version = "0.17.0-dev" }
 
 # other
 tracing = { version = "0.1", default-features = false, features = ["std"] }
-dlss_wgpu = { git = "https://github.com/bevyengine/dlss_wgpu", optional = true }
+dlss_wgpu = { git = "https://github.com/jms55/bevy_dlss_wgpu", branch = "mock", optional = true }
 
 [lints]
 workspace = true

@@ -93,10 +93,10 @@ impl Default for WgpuSettings {
             #[expect(clippy::allow_attributes, reason = "`unused_mut` is not always linted")]
             #[allow(
                 unused_mut,
-                reason = "This variable needs to be mutable if the `ci_limits` feature is enabled"
+                reason = "This variable needs to be mutable if the `bevy_ci_testing` feature is enabled"
             )]
             let mut limits = wgpu::Limits::default();
-            #[cfg(feature = "ci_limits")]
+            #[cfg(feature = "bevy_ci_testing")]
             {
                 limits.max_storage_textures_per_shader_stage = 4;
                 limits.max_texture_dimension_3d = 1024;
@@ -151,8 +151,10 @@ pub struct RenderResources(
     pub(crate) RenderAdapterInfo,
     pub(crate) RenderAdapter,
     pub(crate) RenderInstance,
-    #[cfg(feature = "dlss")] pub(crate) Option<crate::DlssSuperResolutionSupported>,
-    #[cfg(feature = "dlss")] pub(crate) Option<crate::DlssRayReconstructionSupported>,
+    #[cfg(all(feature = "dlss", not(feature = "bevy_ci_testing")))]
+    pub(crate)  Option<crate::DlssSuperResolutionSupported>,
+    #[cfg(all(feature = "dlss", not(feature = "bevy_ci_testing")))]
+    pub(crate)  Option<crate::DlssRayReconstructionSupported>,
 );
 
 /// An enum describing how the renderer will initialize resources. This is used when creating the [`RenderPlugin`](crate::RenderPlugin).
@@ -182,9 +184,9 @@ impl RenderCreation {
             adapter_info,
             adapter,
             instance,
-            #[cfg(feature = "dlss")]
+            #[cfg(all(feature = "dlss", not(feature = "bevy_ci_testing")))]
             None,
-            #[cfg(feature = "dlss")]
+            #[cfg(all(feature = "dlss", not(feature = "bevy_ci_testing")))]
             None,
         )
         .into()
