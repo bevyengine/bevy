@@ -30,6 +30,7 @@ use crate::{
     cursor::EntityCursor,
     palette,
     rounded_corners::RoundedCorners,
+    VisibleFocusAnchor,
 };
 
 const SLIDER_HEIGHT: f32 = 16.0;
@@ -196,9 +197,11 @@ pub fn color_slider<B: Bundle>(props: ColorSliderProps, overrides: B) -> impl Bu
             channel: props.channel.clone(),
         },
         SliderValue(props.value),
+        SliderStep(0.01),
         props.channel.range(),
         EntityCursor::System(bevy_window::SystemCursorIcon::Pointer),
         TabIndex(0),
+        VisibleFocusAnchor,
         overrides,
         children![
             // track

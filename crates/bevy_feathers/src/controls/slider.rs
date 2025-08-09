@@ -32,7 +32,7 @@ use crate::{
     handle_or_path::HandleOrPath,
     rounded_corners::RoundedCorners,
     theme::{ThemeFontColor, ThemedText, UiTheme},
-    tokens,
+    tokens, VisibleFocusAnchor,
 };
 
 /// Slider template properties, passed to [`slider`] function.
@@ -90,6 +90,7 @@ pub fn slider<B: Bundle>(props: SliderProps, overrides: B) -> impl Bundle {
         SliderRange::new(props.min, props.max),
         EntityCursor::System(bevy_window::SystemCursorIcon::EwResize),
         TabIndex(0),
+        VisibleFocusAnchor,
         RoundedCorners::All.to_border_radius(6.0),
         // Use a gradient to draw the moving bar
         BackgroundGradient(vec![Gradient::Linear(LinearGradient {

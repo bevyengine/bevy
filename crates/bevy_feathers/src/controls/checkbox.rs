@@ -29,7 +29,7 @@ use crate::{
     font_styles::InheritableFont,
     handle_or_path::HandleOrPath,
     theme::{ThemeBackgroundColor, ThemeBorderColor, ThemeFontColor},
-    tokens,
+    tokens, VisibleFocusAnchor,
 };
 
 /// Marker for the checkbox frame (contains both checkbox and label)
@@ -86,6 +86,7 @@ pub fn checkbox<C: SpawnableList<ChildOf> + Send + Sync + 'static, B: Bundle>(
                     ..Default::default()
                 },
                 CheckboxOutline,
+                VisibleFocusAnchor,
                 BorderRadius::all(Val::Px(4.0)),
                 ThemeBackgroundColor(tokens::CHECKBOX_BG),
                 ThemeBorderColor(tokens::CHECKBOX_BORDER),

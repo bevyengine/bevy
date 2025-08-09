@@ -238,6 +238,8 @@ fn demo_root() -> impl Bundle {
                         ..default()
                     },
                     RadioGroup,
+                    TabIndex(0),
+                    VisibleFocusAnchor,
                     observe(
                         |value_change: On<ValueChange<Entity>>,
                          q_radio: Query<Entity, With<RadioButton>>,
