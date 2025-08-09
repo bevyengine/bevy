@@ -7,11 +7,9 @@ use bevy_asset::{
     embedded_asset, load_embedded_asset, prelude::AssetChanged, AsAssetId, Asset, AssetApp,
     AssetEventSystems, AssetId, AssetServer, Assets, Handle, UntypedAssetId,
 };
+use bevy_camera::{visibility::ViewVisibility, Camera, Camera2d};
 use bevy_color::{Color, ColorToComponents};
-use bevy_core_pipeline::core_2d::{
-    graph::{Core2d, Node2d},
-    Camera2d,
-};
+use bevy_core_pipeline::core_2d::graph::{Core2d, Node2d};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     component::Tick,
@@ -19,6 +17,7 @@ use bevy_ecs::{
     query::QueryItem,
     system::{lifetimeless::SRes, SystemChangeTick, SystemParamItem},
 };
+use bevy_mesh::{Mesh2d, MeshVertexBufferLayoutRef};
 use bevy_platform::{
     collections::{HashMap, HashSet},
     hash::FixedHasher,
@@ -31,7 +30,7 @@ use bevy_render::{
     extract_resource::ExtractResource,
     mesh::{
         allocator::{MeshAllocator, SlabId},
-        Mesh2d, MeshVertexBufferLayoutRef, RenderMesh,
+        RenderMesh,
     },
     prelude::*,
     render_asset::{

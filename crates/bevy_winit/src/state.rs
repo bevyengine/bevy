@@ -232,10 +232,10 @@ impl<T: BufferedEvent> ApplicationHandler<T> for WinitAppRunnerState<T> {
 
                 // Allow AccessKit to respond to `WindowEvent`s before they reach
                 // the engine.
-                if let Some(adapter) = access_kit_adapters.get_mut(&window) {
-                    if let Some(winit_window) = winit_windows.get_window(window) {
-                        adapter.process_event(winit_window, &event);
-                    }
+                if let Some(adapter) = access_kit_adapters.get_mut(&window)
+                    && let Some(winit_window) = winit_windows.get_window(window)
+                {
+                    adapter.process_event(winit_window, &event);
                 }
 
                 match event {
@@ -417,10 +417,9 @@ impl<T: BufferedEvent> ApplicationHandler<T> for WinitAppRunnerState<T> {
 
                 let mut windows = self.world_mut().query::<(&mut Window, &mut CachedWindow)>();
                 if let Ok((window_component, mut cache)) = windows.get_mut(self.world_mut(), window)
+                    && window_component.is_changed()
                 {
-                    if window_component.is_changed() {
-                        **cache = window_component.clone();
-                    }
+                    **cache = window_component.clone();
                 }
             });
         });
@@ -505,10 +504,10 @@ impl<T: BufferedEvent> WinitAppRunnerState<T> {
         let mut focused_windows_state: SystemState<(Res<WinitSettings>, Query<(Entity, &Window)>)> =
             SystemState::new(self.world_mut());
 
-        if let Some(app_redraw_events) = self.world().get_resource::<Events<RequestRedraw>>() {
-            if redraw_event_reader.read(app_redraw_events).last().is_some() {
-                self.redraw_requested = true;
-            }
+        if let Some(app_redraw_events) = self.world().get_resource::<Events<RequestRedraw>>()
+            && redraw_event_reader.read(app_redraw_events).last().is_some()
+        {
+            self.redraw_requested = true;
         }
 
         let (config, windows) = focused_windows_state.get(self.world());
@@ -673,10 +672,10 @@ impl<T: BufferedEvent> WinitAppRunnerState<T> {
             }
             UpdateMode::Reactive { wait, .. } => {
                 // Set the next timeout, starting from the instant before running app.update() to avoid frame delays
-                if let Some(next) = begin_frame_time.checked_add(wait) {
-                    if self.wait_elapsed {
-                        event_loop.set_control_flow(ControlFlow::WaitUntil(next));
-                    }
+                if let Some(next) = begin_frame_time.checked_add(wait)
+                    && self.wait_elapsed
+                {
+                    event_loop.set_control_flow(ControlFlow::WaitUntil(next));
                 }
             }
         }

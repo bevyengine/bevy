@@ -66,8 +66,6 @@ pub use wgpu::{
     VertexStepMode, COPY_BUFFER_ALIGNMENT,
 };
 
-pub use crate::mesh::VertexBufferLayout;
-
 pub mod encase {
     pub use bevy_encase_derive::ShaderType;
     pub use encase::*;

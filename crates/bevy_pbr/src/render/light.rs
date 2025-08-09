@@ -1,8 +1,14 @@
 use crate::*;
 use bevy_asset::UntypedAssetId;
 pub use bevy_camera::primitives::{face_index_to_name, CubeMapFace, CUBE_MAP_FACES};
+use bevy_camera::primitives::{CascadesFrusta, CubemapFrusta, Frustum, HalfSpace};
+use bevy_camera::visibility::{
+    CascadesVisibleEntities, CubemapVisibleEntities, RenderLayers, ViewVisibility,
+    VisibleMeshEntities,
+};
+use bevy_camera::Camera3d;
 use bevy_color::ColorToComponents;
-use bevy_core_pipeline::core_3d::{Camera3d, CORE_3D_DEPTH_FORMAT};
+use bevy_core_pipeline::core_3d::CORE_3D_DEPTH_FORMAT;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::component::Tick;
 use bevy_ecs::system::SystemChangeTick;
@@ -35,14 +41,13 @@ use bevy_render::{
 use bevy_render::{
     diagnostic::RecordDiagnostics,
     mesh::RenderMesh,
-    primitives::{CascadesFrusta, CubemapFrusta, Frustum, HalfSpace},
     render_asset::RenderAssets,
     render_graph::{Node, NodeRunError, RenderGraphContext},
     render_phase::*,
     render_resource::*,
     renderer::{RenderContext, RenderDevice, RenderQueue},
     texture::*,
-    view::{ExtractedView, RenderLayers, ViewVisibility},
+    view::ExtractedView,
     Extract,
 };
 use bevy_render::{
@@ -1865,7 +1870,7 @@ pub fn queue_shadows(
     mut shadow_render_phases: ResMut<ViewBinnedRenderPhases<Shadow>>,
     gpu_preprocessing_support: Res<GpuPreprocessingSupport>,
     mesh_allocator: Res<MeshAllocator>,
-    view_lights: Query<(Entity, &ViewLightEntities), With<ExtractedView>>,
+    view_lights: Query<(Entity, &ViewLightEntities, Option<&RenderLayers>), With<ExtractedView>>,
     view_light_entities: Query<(&LightEntity, &ExtractedView)>,
     point_light_entities: Query<&RenderCubemapVisibleEntities, With<ExtractedPointLight>>,
     directional_light_entities: Query<
@@ -1875,7 +1880,7 @@ pub fn queue_shadows(
     spot_light_entities: Query<&RenderVisibleMeshEntities, With<ExtractedPointLight>>,
     specialized_material_pipeline_cache: Res<SpecializedShadowMaterialPipelineCache>,
 ) {
-    for (entity, view_lights) in &view_lights {
+    for (entity, view_lights, camera_layers) in &view_lights {
         for view_light_entity in view_lights.lights.iter().copied() {
             let Ok((light_entity, extracted_view_light)) =
                 view_light_entities.get(view_light_entity)
@@ -1925,11 +1930,6 @@ pub fn queue_shadows(
                     continue;
                 };
 
-                // Skip the entity if it's cached in a bin and up to date.
-                if shadow_phase.validate_cached_entity(main_entity, *current_change_tick) {
-                    continue;
-                }
-
                 let Some(mesh_instance) = render_mesh_instances.render_mesh_queue_data(main_entity)
                 else {
                     continue;
@@ -1938,6 +1938,23 @@ pub fn queue_shadows(
                     .flags
                     .contains(RenderMeshInstanceFlags::SHADOW_CASTER)
                 {
+                    continue;
+                }
+
+                let mesh_layers = mesh_instance
+                    .shared
+                    .render_layers
+                    .as_ref()
+                    .unwrap_or_default();
+
+                let camera_layers = camera_layers.unwrap_or_default();
+
+                if !camera_layers.intersects(mesh_layers) {
+                    continue;
+                }
+
+                // Skip the entity if it's cached in a bin and up to date.
+                if shadow_phase.validate_cached_entity(main_entity, *current_change_tick) {
                     continue;
                 }
 

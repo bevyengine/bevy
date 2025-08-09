@@ -199,7 +199,7 @@ pub trait AnimatableProperty: Send + Sync + 'static {
 
     /// The [`EvaluatorId`] used to look up the [`AnimationCurveEvaluator`] for this [`AnimatableProperty`].
     /// For a given animated property, this ID should always be the same to allow things like animation blending to occur.
-    fn evaluator_id(&self) -> EvaluatorId;
+    fn evaluator_id(&self) -> EvaluatorId<'_>;
 }
 
 /// A [`Component`] field that can be animated, defined by a function that reads the component and returns
@@ -236,7 +236,7 @@ where
         Ok((self.func)(c.into_inner()))
     }
 
-    fn evaluator_id(&self) -> EvaluatorId {
+    fn evaluator_id(&self) -> EvaluatorId<'_> {
         EvaluatorId::ComponentField(&self.evaluator_id)
     }
 }
@@ -357,7 +357,7 @@ where
         self.curve.domain()
     }
 
-    fn evaluator_id(&self) -> EvaluatorId {
+    fn evaluator_id(&self) -> EvaluatorId<'_> {
         self.property.evaluator_id()
     }
 
@@ -476,7 +476,7 @@ where
         self.0.domain()
     }
 
-    fn evaluator_id(&self) -> EvaluatorId {
+    fn evaluator_id(&self) -> EvaluatorId<'_> {
         EvaluatorId::Type(TypeId::of::<WeightsCurveEvaluator>())
     }
 
@@ -768,7 +768,7 @@ pub trait AnimationCurve: Debug + Send + Sync + 'static {
     ///
     /// This must match the type returned by [`Self::create_evaluator`]. It must
     /// be a single type that doesn't depend on the type of the curve.
-    fn evaluator_id(&self) -> EvaluatorId;
+    fn evaluator_id(&self) -> EvaluatorId<'_>;
 
     /// Returns a newly-instantiated [`AnimationCurveEvaluator`] for use with
     /// this curve.
