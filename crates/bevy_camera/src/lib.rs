@@ -25,3 +25,15 @@ impl Plugin for CameraPlugin {
         ));
     }
 }
+
+/// The mesh prelude.
+///
+/// This includes the most common types in this crate, re-exported for your convenience.
+pub mod prelude {
+    #[doc(hidden)]
+    pub use crate::{
+        visibility::{InheritedVisibility, ViewVisibility, Visibility},
+        Camera, Camera2d, Camera3d, ClearColor, ClearColorConfig, OrthographicProjection,
+        PerspectiveProjection, Projection,
+    };
+}
