@@ -39,8 +39,7 @@ impl Plugin for SolariLightingPlugin {
         embedded_asset!(app, "world_cache_compact.wgsl");
         embedded_asset!(app, "world_cache_update.wgsl");
 
-        app.register_type::<SolariLighting>()
-            .insert_resource(DefaultOpaqueRendererMethod::deferred());
+        app.insert_resource(DefaultOpaqueRendererMethod::deferred());
     }
 
     fn finish(&self, app: &mut App) {

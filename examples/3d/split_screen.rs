@@ -2,9 +2,7 @@
 
 use std::f32::consts::PI;
 
-use bevy::{
-    pbr::CascadeShadowConfigBuilder, prelude::*, render::camera::Viewport, window::WindowResized,
-};
+use bevy::{camera::Viewport, pbr::CascadeShadowConfigBuilder, prelude::*, window::WindowResized};
 
 fn main() {
     App::new()

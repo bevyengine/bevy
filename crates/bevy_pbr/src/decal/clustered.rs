@@ -18,6 +18,7 @@ use core::{num::NonZero, ops::Deref};
 
 use bevy_app::{App, Plugin};
 use bevy_asset::AssetId;
+use bevy_camera::visibility::ViewVisibility;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     entity::{Entity, EntityHashMap},
@@ -43,7 +44,6 @@ use bevy_render::{
     renderer::{RenderAdapter, RenderDevice, RenderQueue},
     sync_world::RenderEntity,
     texture::{FallbackImage, GpuImage},
-    view::ViewVisibility,
     Extract, ExtractSchedule, Render, RenderApp, RenderSystems,
 };
 use bevy_transform::components::GlobalTransform;
@@ -144,8 +144,7 @@ impl Plugin for ClusteredDecalPlugin {
     fn build(&self, app: &mut App) {
         load_shader_library!(app, "clustered.wgsl");
 
-        app.add_plugins(ExtractComponentPlugin::<ClusteredDecal>::default())
-            .register_type::<ClusteredDecal>();
+        app.add_plugins(ExtractComponentPlugin::<ClusteredDecal>::default());
 
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;

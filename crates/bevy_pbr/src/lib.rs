@@ -141,7 +141,7 @@ use bevy_image::{CompressedImageFormats, ImageType};
 use bevy_image::{Image, ImageSampler};
 use bevy_render::{
     alpha::AlphaMode,
-    camera::{sort_cameras, Projection},
+    camera::sort_cameras,
     extract_component::ExtractComponentPlugin,
     extract_resource::ExtractResourcePlugin,
     load_shader_library,
@@ -223,7 +223,6 @@ impl Plugin for PbrPlugin {
         load_shader_library!(app, "meshlet/dummy_visibility_buffer_resolve.wgsl");
 
         app.register_asset_reflect::<StandardMaterial>()
-            .register_type::<DefaultOpaqueRendererMethod>()
             .init_resource::<DefaultOpaqueRendererMethod>()
             .add_plugins((
                 MeshRenderPlugin {

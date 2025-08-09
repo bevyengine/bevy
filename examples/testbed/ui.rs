@@ -555,13 +555,13 @@ mod layout_rounding {
 }
 
 mod linear_gradient {
+    use bevy::camera::Camera2d;
     use bevy::color::palettes::css::BLUE;
     use bevy::color::palettes::css::LIME;
     use bevy::color::palettes::css::RED;
     use bevy::color::palettes::css::YELLOW;
     use bevy::color::Color;
     use bevy::ecs::prelude::*;
-    use bevy::render::camera::Camera2d;
     use bevy::state::state_scoped::DespawnOnExitState;
     use bevy::text::TextFont;
     use bevy::ui::AlignItems;

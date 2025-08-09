@@ -26,11 +26,11 @@
 
 use crate::{clip_check_recursive, prelude::*, ui_transform::UiGlobalTransform, UiStack};
 use bevy_app::prelude::*;
+use bevy_camera::{visibility::InheritedVisibility, Camera};
 use bevy_ecs::{prelude::*, query::QueryData};
 use bevy_math::Vec2;
 use bevy_platform::collections::HashMap;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
-use bevy_render::prelude::*;
 use bevy_window::PrimaryWindow;
 
 use bevy_picking::backend::prelude::*;
@@ -79,7 +79,6 @@ pub struct UiPickingPlugin;
 impl Plugin for UiPickingPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<UiPickingSettings>()
-            .register_type::<(UiPickingCamera, UiPickingSettings)>()
             .add_systems(PreUpdate, ui_picking.in_set(PickingSystems::Backend));
     }
 }

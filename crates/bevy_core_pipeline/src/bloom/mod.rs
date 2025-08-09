@@ -49,9 +49,6 @@ impl Plugin for BloomPlugin {
     fn build(&self, app: &mut App) {
         embedded_asset!(app, "bloom.wgsl");
 
-        app.register_type::<Bloom>();
-        app.register_type::<BloomPrefilter>();
-        app.register_type::<BloomCompositeMode>();
         app.add_plugins((
             ExtractComponentPlugin::<Bloom>::default(),
             UniformComponentPlugin::<BloomUniforms>::default(),

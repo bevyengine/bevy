@@ -1,8 +1,8 @@
 use crate::core_3d::Transparent3d;
-use bevy_camera::Viewport;
+use bevy_camera::{MainPassResolutionOverride, Viewport};
 use bevy_ecs::{prelude::*, query::QueryItem};
 use bevy_render::{
-    camera::{ExtractedCamera, MainPassResolutionOverride},
+    camera::ExtractedCamera,
     diagnostic::RecordDiagnostics,
     render_graph::{NodeRunError, RenderGraphContext, ViewNode},
     render_phase::ViewSortedRenderPhases,

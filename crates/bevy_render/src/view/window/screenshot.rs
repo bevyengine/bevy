@@ -1,6 +1,5 @@
 use super::ExtractedWindows;
 use crate::{
-    camera::{NormalizedRenderTarget, ToNormalizedRenderTarget as _},
     gpu_readback,
     prelude::Shader,
     render_asset::{RenderAssetUsages, RenderAssets},
@@ -18,7 +17,7 @@ use crate::{
 use alloc::{borrow::Cow, sync::Arc};
 use bevy_app::{First, Plugin, Update};
 use bevy_asset::{embedded_asset, load_embedded_asset, AssetServer, Handle};
-use bevy_camera::{ManualTextureViewHandle, RenderTarget};
+use bevy_camera::{ManualTextureViewHandle, NormalizedRenderTarget, RenderTarget};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     entity::EntityHashMap, event::event_update_system, prelude::*, system::SystemState,
@@ -401,9 +400,7 @@ impl Plugin for ScreenshotPlugin {
                     .after(event_update_system)
                     .before(ApplyDeferred),
             )
-            .add_systems(Update, trigger_screenshots)
-            .register_type::<Screenshot>()
-            .register_type::<ScreenshotCaptured>();
+            .add_systems(Update, trigger_screenshots);
 
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;

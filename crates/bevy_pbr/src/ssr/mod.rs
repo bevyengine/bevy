@@ -22,10 +22,15 @@ use bevy_ecs::{
     world::World,
 };
 use bevy_image::BevyDefault as _;
+use bevy_light::EnvironmentMapLight;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
+    diagnostic::RecordDiagnostics,
     extract_component::{ExtractComponent, ExtractComponentPlugin},
-    render_graph::{NodeRunError, RenderGraphContext, RenderGraphExt, ViewNode, ViewNodeRunner},
+    load_shader_library,
+    render_graph::{
+        NodeRunError, RenderGraph, RenderGraphContext, RenderGraphExt, ViewNode, ViewNodeRunner,
+    },
     render_resource::{
         binding_types, AddressMode, BindGroupEntries, BindGroupLayout, BindGroupLayoutEntries,
         CachedRenderPipelineId, ColorTargetState, ColorWrites, DynamicUniformBuffer, FilterMode,
@@ -38,15 +43,13 @@ use bevy_render::{
     view::{ExtractedView, Msaa, ViewTarget, ViewUniformOffset},
     Render, RenderApp, RenderStartup, RenderSystems,
 };
-use bevy_render::{load_shader_library, render_graph::RenderGraph};
 use bevy_utils::{once, prelude::default};
 use tracing::info;
 
 use crate::{
-    binding_arrays_are_usable, graph::NodePbr, prelude::EnvironmentMapLight,
-    MeshPipelineViewLayoutKey, MeshPipelineViewLayouts, MeshViewBindGroup, RenderViewLightProbes,
-    ViewEnvironmentMapUniformOffset, ViewFogUniformOffset, ViewLightProbesUniformOffset,
-    ViewLightsUniformOffset,
+    binding_arrays_are_usable, graph::NodePbr, MeshPipelineViewLayoutKey, MeshPipelineViewLayouts,
+    MeshViewBindGroup, RenderViewLightProbes, ViewEnvironmentMapUniformOffset,
+    ViewFogUniformOffset, ViewLightProbesUniformOffset, ViewLightsUniformOffset,
 };
 
 /// Enables screen-space reflections for a camera.
@@ -181,8 +184,7 @@ impl Plugin for ScreenSpaceReflectionsPlugin {
         load_shader_library!(app, "ssr.wgsl");
         load_shader_library!(app, "raymarch.wgsl");
 
-        app.register_type::<ScreenSpaceReflections>()
-            .add_plugins(ExtractComponentPlugin::<ScreenSpaceReflections>::default());
+        app.add_plugins(ExtractComponentPlugin::<ScreenSpaceReflections>::default());
 
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
@@ -281,6 +283,8 @@ impl ViewNode for ScreenSpaceReflectionsNode {
             return Ok(());
         };
 
+        let diagnostics = render_context.diagnostic_recorder();
+
         // Set up a standard pair of postprocessing textures.
         let postprocess = view_target.post_process_write();
 
@@ -299,7 +303,7 @@ impl ViewNode for ScreenSpaceReflectionsNode {
 
         // Build the SSR render pass.
         let mut render_pass = render_context.begin_tracked_render_pass(RenderPassDescriptor {
-            label: Some("SSR pass"),
+            label: Some("ssr"),
             color_attachments: &[Some(RenderPassColorAttachment {
                 view: postprocess.destination,
                 depth_slice: None,
@@ -310,6 +314,7 @@ impl ViewNode for ScreenSpaceReflectionsNode {
             timestamp_writes: None,
             occlusion_query_set: None,
         });
+        let pass_span = diagnostics.pass_span(&mut render_pass, "ssr");
 
         // Set bind groups.
         render_pass.set_render_pipeline(render_pipeline);
@@ -330,6 +335,8 @@ impl ViewNode for ScreenSpaceReflectionsNode {
         // Perform the SSR render pass.
         render_pass.set_bind_group(2, &ssr_bind_group, &[]);
         render_pass.draw(0..3, 0..1);
+
+        pass_span.end(&mut render_pass);
 
         Ok(())
     }

@@ -6,6 +6,7 @@ use crate::{
 };
 use bevy_app::{App, Plugin};
 use bevy_asset::{load_embedded_asset, AssetServer, Handle};
+use bevy_camera::visibility::RenderLayers;
 use bevy_core_pipeline::{
     core_3d::{Transparent3d, CORE_3D_DEPTH_FORMAT},
     oit::OrderIndependentTransparencySettings,
@@ -28,7 +29,7 @@ use bevy_render::{
         ViewSortedRenderPhases,
     },
     render_resource::*,
-    view::{ExtractedView, Msaa, RenderLayers, ViewTarget},
+    view::{ExtractedView, Msaa, ViewTarget},
     Render, RenderApp, RenderSystems,
 };
 use bevy_render::{sync_world::MainEntity, RenderStartup};

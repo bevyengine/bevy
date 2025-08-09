@@ -9,8 +9,7 @@ use bevy::{
     pbr::{decal, DirectionalLightTexture, NotShadowCaster, PointLightTexture, SpotLightTexture},
     prelude::*,
     render::renderer::{RenderAdapter, RenderDevice},
-    window::SystemCursorIcon,
-    winit::cursor::CursorIcon,
+    window::{CursorIcon, SystemCursorIcon},
 };
 use light_consts::lux::{AMBIENT_DAYLIGHT, CLEAR_SUNRISE};
 use ops::{acos, cos, sin};
@@ -366,17 +365,17 @@ fn spawn_help_text(commands: &mut Commands, app_status: &AppStatus) {
 
 /// Draws the outlines that show the bounds of the spotlight.
 fn draw_gizmos(mut gizmos: Gizmos, spotlight: Query<(&GlobalTransform, &SpotLight, &Visibility)>) {
-    if let Ok((global_transform, spotlight, visibility)) = spotlight.single() {
-        if visibility != Visibility::Hidden {
-            gizmos.primitive_3d(
-                &Cone::new(7.0 * spotlight.outer_angle, 7.0),
-                Isometry3d {
-                    rotation: global_transform.rotation() * Quat::from_rotation_x(FRAC_PI_2),
-                    translation: global_transform.translation_vec3a() * 0.5,
-                },
-                YELLOW,
-            );
-        }
+    if let Ok((global_transform, spotlight, visibility)) = spotlight.single()
+        && visibility != Visibility::Hidden
+    {
+        gizmos.primitive_3d(
+            &Cone::new(7.0 * spotlight.outer_angle, 7.0),
+            Isometry3d {
+                rotation: global_transform.rotation() * Quat::from_rotation_x(FRAC_PI_2),
+                translation: global_transform.translation_vec3a() * 0.5,
+            },
+            YELLOW,
+        );
     }
 }
 

@@ -3,12 +3,10 @@
 
 use bevy::{
     asset::RenderAssetUsages,
+    camera::RenderTarget,
     picking::pointer::PointerInteraction,
     prelude::*,
-    render::{
-        camera::RenderTarget,
-        render_resource::{TextureDimension, TextureFormat, TextureUsages},
-    },
+    render::render_resource::{TextureDimension, TextureFormat, TextureUsages},
     ui::widget::ViewportNode,
 };
 
