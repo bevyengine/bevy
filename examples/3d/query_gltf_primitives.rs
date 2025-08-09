@@ -3,7 +3,7 @@
 
 use std::f32::consts::PI;
 
-use bevy::{gltf::GltfMaterialName, prelude::*, render::mesh::VertexAttributeValues};
+use bevy::{gltf::GltfMaterialName, mesh::VertexAttributeValues, prelude::*};
 
 fn main() {
     App::new()

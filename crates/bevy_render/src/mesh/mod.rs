@@ -1,6 +1,3 @@
-use bevy_camera::visibility::VisibilitySystems;
-pub use bevy_mesh::*;
-use morph::{MeshMorphWeights, MorphWeights};
 pub mod allocator;
 use crate::{
     render_asset::{PrepareAssetError, RenderAsset, RenderAssetPlugin, RenderAssets},
@@ -11,6 +8,7 @@ use crate::{
 use allocator::MeshAllocatorPlugin;
 use bevy_app::{App, Plugin, PostUpdate};
 use bevy_asset::{AssetApp, AssetEventSystems, AssetId, RenderAssetUsages};
+use bevy_camera::visibility::VisibilitySystems;
 use bevy_ecs::{
     prelude::*,
     system::{
@@ -18,7 +16,8 @@ use bevy_ecs::{
         SystemParamItem,
     },
 };
-pub use bevy_mesh::{mark_3d_meshes_as_changed_if_their_assets_changed, Mesh2d, Mesh3d, MeshTag};
+use bevy_mesh::morph::{MeshMorphWeights, MorphWeights};
+pub use bevy_mesh::*;
 use wgpu::IndexFormat;
 
 /// Adds the [`Mesh`] as an asset and makes sure that they are extracted and prepared for the GPU.
