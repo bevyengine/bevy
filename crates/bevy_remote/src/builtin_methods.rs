@@ -590,11 +590,11 @@ pub fn process_remote_get_components_watching_request(
             continue;
         };
 
-        if let Some(ticks) = entity_ref.get_change_ticks_by_id(component_id) {
-            if ticks.is_changed(world.last_change_tick(), world.read_change_tick()) {
-                changed.push(component_path);
-                continue;
-            }
+        if let Some(ticks) = entity_ref.get_change_ticks_by_id(component_id)
+            && ticks.is_changed(world.last_change_tick(), world.read_change_tick())
+        {
+            changed.push(component_path);
+            continue;
         };
 
         let Some(events) = world.removed_components().get(component_id) else {
@@ -914,10 +914,10 @@ fn serialize_components(
         };
         if let Some(reflect_component) = type_registration.data::<ReflectComponent>() {
             // If a component_id is provided, check if the entity has it
-            if let Some(component_id) = component_id_opt {
-                if !entity_ref.contains_id(component_id) {
-                    continue;
-                }
+            if let Some(component_id) = component_id_opt
+                && !entity_ref.contains_id(component_id)
+            {
+                continue;
             }
             if let Some(reflected) = reflect_component.reflect(entity_ref) {
                 let reflect_serializer =

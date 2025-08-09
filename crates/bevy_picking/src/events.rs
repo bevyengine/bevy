@@ -95,10 +95,10 @@ where
         };
 
         // Otherwise, send it to the window entity (unless this is a window entity).
-        if window.is_none() {
-            if let NormalizedRenderTarget::Window(window_ref) = pointer.pointer_location.target {
-                return Some(window_ref.entity());
-            }
+        if window.is_none()
+            && let NormalizedRenderTarget::Window(window_ref) = pointer.pointer_location.target
+        {
+            return Some(window_ref.entity());
         }
 
         None

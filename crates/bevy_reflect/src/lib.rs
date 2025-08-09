@@ -2711,11 +2711,9 @@ bevy_reflect::tests::Test {
         #[reflect(where T: Default)]
         struct Foo<T>(String, #[reflect(ignore)] PhantomData<T>);
 
-        #[expect(dead_code, reason = "Bar is never constructed")]
         #[derive(Default, TypePath)]
         struct Bar;
 
-        #[expect(dead_code, reason = "Baz is never constructed")]
         #[derive(TypePath)]
         struct Baz;
 
@@ -2729,7 +2727,6 @@ bevy_reflect::tests::Test {
         #[reflect(where)]
         struct Foo<T>(String, #[reflect(ignore)] PhantomData<T>);
 
-        #[expect(dead_code, reason = "Bar is never constructed")]
         #[derive(TypePath)]
         struct Bar;
 
@@ -2764,7 +2761,6 @@ bevy_reflect::tests::Test {
         #[reflect(where T::Assoc: core::fmt::Display)]
         struct Foo<T: Trait>(T::Assoc);
 
-        #[expect(dead_code, reason = "Bar is never constructed")]
         #[derive(TypePath)]
         struct Bar;
 
@@ -2772,7 +2768,6 @@ bevy_reflect::tests::Test {
             type Assoc = usize;
         }
 
-        #[expect(dead_code, reason = "Baz is never constructed")]
         #[derive(TypePath)]
         struct Baz;
 

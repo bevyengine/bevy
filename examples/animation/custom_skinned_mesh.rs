@@ -169,9 +169,9 @@ fn setup(
             Mesh3d(mesh.clone()),
             MeshMaterial3d(materials.add(StandardMaterial {
                 base_color: Color::srgb(
-                    rng.gen_range(0.0..1.0),
-                    rng.gen_range(0.0..1.0),
-                    rng.gen_range(0.0..1.0),
+                    rng.random_range(0.0..1.0),
+                    rng.random_range(0.0..1.0),
+                    rng.random_range(0.0..1.0),
                 ),
                 base_color_texture: Some(asset_server.load("textures/uv_checker_bw.png")),
                 ..default()

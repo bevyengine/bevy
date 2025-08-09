@@ -132,15 +132,14 @@ impl ViewNode for MeshletMainOpaquePass3dNode {
         for (material_id, material_pipeline_id, material_bind_group) in
             meshlet_view_materials.iter()
         {
-            if instance_manager.material_present_in_scene(material_id) {
-                if let Some(material_pipeline) =
+            if instance_manager.material_present_in_scene(material_id)
+                && let Some(material_pipeline) =
                     pipeline_cache.get_render_pipeline(*material_pipeline_id)
-                {
-                    let x = *material_id * 3;
-                    render_pass.set_render_pipeline(material_pipeline);
-                    render_pass.set_bind_group(3, material_bind_group, &[]);
-                    render_pass.draw(x..(x + 3), 0..1);
-                }
+            {
+                let x = *material_id * 3;
+                render_pass.set_render_pipeline(material_pipeline);
+                render_pass.set_bind_group(3, material_bind_group, &[]);
+                render_pass.draw(x..(x + 3), 0..1);
             }
         }
 
@@ -265,15 +264,14 @@ impl ViewNode for MeshletPrepassNode {
         for (material_id, material_pipeline_id, material_bind_group) in
             meshlet_view_materials.iter()
         {
-            if instance_manager.material_present_in_scene(material_id) {
-                if let Some(material_pipeline) =
+            if instance_manager.material_present_in_scene(material_id)
+                && let Some(material_pipeline) =
                     pipeline_cache.get_render_pipeline(*material_pipeline_id)
-                {
-                    let x = *material_id * 3;
-                    render_pass.set_render_pipeline(material_pipeline);
-                    render_pass.set_bind_group(2, material_bind_group, &[]);
-                    render_pass.draw(x..(x + 3), 0..1);
-                }
+            {
+                let x = *material_id * 3;
+                render_pass.set_render_pipeline(material_pipeline);
+                render_pass.set_bind_group(2, material_bind_group, &[]);
+                render_pass.draw(x..(x + 3), 0..1);
             }
         }
 
@@ -404,15 +402,14 @@ impl ViewNode for MeshletDeferredGBufferPrepassNode {
         for (material_id, material_pipeline_id, material_bind_group) in
             meshlet_view_materials.iter()
         {
-            if instance_manager.material_present_in_scene(material_id) {
-                if let Some(material_pipeline) =
+            if instance_manager.material_present_in_scene(material_id)
+                && let Some(material_pipeline) =
                     pipeline_cache.get_render_pipeline(*material_pipeline_id)
-                {
-                    let x = *material_id * 3;
-                    render_pass.set_render_pipeline(material_pipeline);
-                    render_pass.set_bind_group(2, material_bind_group, &[]);
-                    render_pass.draw(x..(x + 3), 0..1);
-                }
+            {
+                let x = *material_id * 3;
+                render_pass.set_render_pipeline(material_pipeline);
+                render_pass.set_bind_group(2, material_bind_group, &[]);
+                render_pass.draw(x..(x + 3), 0..1);
             }
         }
 

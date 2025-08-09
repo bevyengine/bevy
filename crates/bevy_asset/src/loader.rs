@@ -371,7 +371,7 @@ impl<'a> LoadContext<'a> {
     ///     load_context.add_loaded_labeled_asset(label, loaded_asset);
     /// }
     /// ```
-    pub fn begin_labeled_asset(&self) -> LoadContext {
+    pub fn begin_labeled_asset(&self) -> LoadContext<'_> {
         LoadContext::new(
             self.asset_server,
             self.asset_path.clone(),

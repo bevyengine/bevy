@@ -614,13 +614,13 @@ pub fn get_mali_driver_version(adapter: &RenderAdapter) -> Option<u32> {
         return None;
     }
     let driver_info = adapter.get_info().driver_info;
-    if let Some(start_pos) = driver_info.find("v1.r") {
-        if let Some(end_pos) = driver_info[start_pos..].find('p') {
-            let start_idx = start_pos + 4; // Skip "v1.r"
-            let end_idx = start_pos + end_pos;
+    if let Some(start_pos) = driver_info.find("v1.r")
+        && let Some(end_pos) = driver_info[start_pos..].find('p')
+    {
+        let start_idx = start_pos + 4; // Skip "v1.r"
+        let end_idx = start_pos + end_pos;
 
-            return driver_info[start_idx..end_idx].parse::<u32>().ok();
-        }
+        return driver_info[start_idx..end_idx].parse::<u32>().ok();
     }
 
     None
