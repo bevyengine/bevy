@@ -4,6 +4,7 @@
 use std::f32::consts::{PI, SQRT_2};
 
 use bevy::{
+    camera::ScalingMode,
     color::palettes::css::{RED, WHITE},
     input::common_conditions::input_just_pressed,
     math::{
@@ -14,7 +15,7 @@ use bevy::{
     },
     mesh::{Extrudable, ExtrusionBuilder, PerimeterSegment},
     prelude::*,
-    render::{camera::ScalingMode, render_asset::RenderAssetUsages},
+    render::render_asset::RenderAssetUsages,
 };
 
 const HEART: Heart = Heart::new(0.5);

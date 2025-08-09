@@ -7,6 +7,7 @@
 //! [`SpecializedMeshPipeline`] let's you customize the entire pipeline used when rendering a mesh.
 
 use bevy::{
+    camera::visibility::{self, VisibilityClass},
     core_pipeline::core_3d::{Opaque3d, Opaque3dBatchSetKey, Opaque3dBinKey, CORE_3D_DEPTH_FORMAT},
     ecs::component::Tick,
     math::{vec3, vec4},
@@ -31,7 +32,7 @@ use bevy::{
             RenderPipelineDescriptor, SpecializedMeshPipeline, SpecializedMeshPipelineError,
             SpecializedMeshPipelines, TextureFormat, VertexState,
         },
-        view::{self, ExtractedView, RenderVisibleEntities, ViewTarget, VisibilityClass},
+        view::{ExtractedView, RenderVisibleEntities, ViewTarget},
         Render, RenderApp, RenderStartup, RenderSystems,
     },
 };
@@ -128,7 +129,7 @@ impl Plugin for CustomRenderedMeshPipelinePlugin {
 /// that entities with this component need to be examined for visibility.
 #[derive(Clone, Component, ExtractComponent)]
 #[require(VisibilityClass)]
-#[component(on_add = view::add_visibility_class::<CustomRenderedEntity>)]
+#[component(on_add = visibility::add_visibility_class::<CustomRenderedEntity>)]
 struct CustomRenderedEntity;
 
 /// The custom draw commands that Bevy executes for each entity we enqueue into
