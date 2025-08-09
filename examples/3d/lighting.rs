@@ -4,10 +4,10 @@
 use std::f32::consts::PI;
 
 use bevy::{
+    camera::{Exposure, PhysicalCameraParameters},
     color::palettes::css::*,
     pbr::CascadeShadowConfigBuilder,
     prelude::*,
-    render::camera::{Exposure, PhysicalCameraParameters},
 };
 
 fn main() {

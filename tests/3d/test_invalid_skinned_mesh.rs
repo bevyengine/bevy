@@ -1,17 +1,15 @@
 //! Test that the renderer can handle various invalid skinned meshes
 
 use bevy::{
+    camera::ScalingMode,
     core_pipeline::motion_blur::MotionBlur,
     math::ops,
-    prelude::*,
-    render::{
-        camera::ScalingMode,
-        mesh::{
-            skinning::{SkinnedMesh, SkinnedMeshInverseBindposes},
-            Indices, PrimitiveTopology, VertexAttributeValues,
-        },
-        render_asset::RenderAssetUsages,
+    mesh::{
+        skinning::{SkinnedMesh, SkinnedMeshInverseBindposes},
+        Indices, PrimitiveTopology, VertexAttributeValues,
     },
+    prelude::*,
+    render::render_asset::RenderAssetUsages,
 };
 use core::f32::consts::TAU;
 

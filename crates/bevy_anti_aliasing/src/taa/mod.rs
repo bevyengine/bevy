@@ -1,8 +1,8 @@
 use bevy_app::{App, Plugin};
 use bevy_asset::{embedded_asset, load_embedded_asset, AssetServer, Handle};
+use bevy_camera::{Camera, Camera3d, Projection};
 use bevy_core_pipeline::{
     core_3d::graph::{Core3d, Node3d},
-    prelude::Camera3d,
     prepass::{DepthPrepass, MotionVectorPrepass, ViewPrepassTextures},
     FullscreenShader,
 };
@@ -21,7 +21,6 @@ use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
     camera::{ExtractedCamera, MipBias, TemporalJitter},
     diagnostic::RecordDiagnostics,
-    prelude::{Camera, Projection},
     render_graph::{NodeRunError, RenderGraphContext, RenderGraphExt, ViewNode, ViewNodeRunner},
     render_resource::{
         binding_types::{sampler, texture_2d, texture_depth_2d},
@@ -350,16 +349,17 @@ fn extract_taa_settings(mut commands: Commands, mut main_world: ResMut<MainWorld
         Option<&mut TemporalAntiAliasing>,
     )>();
 
-    for (entity, camera, camera_projection, mut taa_settings) in
-        cameras_3d.iter_mut(&mut main_world)
-    {
+    for (entity, camera, camera_projection, taa_settings) in cameras_3d.iter_mut(&mut main_world) {
         let has_perspective_projection = matches!(camera_projection, Projection::Perspective(_));
         let mut entity_commands = commands
             .get_entity(entity)
             .expect("Camera entity wasn't synced.");
-        if taa_settings.is_some() && camera.is_active && has_perspective_projection {
-            entity_commands.insert(taa_settings.as_deref().unwrap().clone());
-            taa_settings.as_mut().unwrap().reset = false;
+        if let Some(mut taa_settings) = taa_settings
+            && camera.is_active
+            && has_perspective_projection
+        {
+            entity_commands.insert(taa_settings.clone());
+            taa_settings.reset = false;
         } else {
             entity_commands.remove::<(
                 TemporalAntiAliasing,

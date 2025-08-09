@@ -141,7 +141,7 @@ use bevy_image::{CompressedImageFormats, ImageType};
 use bevy_image::{Image, ImageSampler};
 use bevy_render::{
     alpha::AlphaMode,
-    camera::{sort_cameras, Projection},
+    camera::sort_cameras,
     extract_component::ExtractComponentPlugin,
     extract_resource::ExtractResourcePlugin,
     load_shader_library,

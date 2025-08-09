@@ -1,13 +1,14 @@
 use bevy_app::Plugin;
 use bevy_asset::{embedded_asset, load_embedded_asset, AssetId, AssetServer, Handle};
+use bevy_camera::{visibility::ViewVisibility, Camera2d};
 use bevy_render::{load_shader_library, RenderStartup};
 
 use crate::{tonemapping_pipeline_key, Material2dBindGroupId};
-use bevy_core_pipeline::tonemapping::DebandDither;
 use bevy_core_pipeline::{
-    core_2d::{AlphaMask2d, Camera2d, Opaque2d, Transparent2d, CORE_2D_DEPTH_FORMAT},
+    core_2d::{AlphaMask2d, Opaque2d, Transparent2d, CORE_2D_DEPTH_FORMAT},
     tonemapping::{
-        get_lut_bind_group_layout_entries, get_lut_bindings, Tonemapping, TonemappingLuts,
+        get_lut_bind_group_layout_entries, get_lut_bindings, DebandDither, Tonemapping,
+        TonemappingLuts,
     },
 };
 use bevy_derive::{Deref, DerefMut};
@@ -20,7 +21,7 @@ use bevy_ecs::{
 };
 use bevy_image::{BevyDefault, Image, ImageSampler, TextureFormatPixelInfo};
 use bevy_math::{Affine3, Vec4};
-use bevy_render::mesh::MeshTag;
+use bevy_mesh::{Mesh, Mesh2d, MeshTag, MeshVertexBufferLayoutRef};
 use bevy_render::prelude::Msaa;
 use bevy_render::RenderSystems::PrepareAssets;
 use bevy_render::{
@@ -33,10 +34,7 @@ use bevy_render::{
         GetBatchData, GetFullBatchData, NoAutomaticBatching,
     },
     globals::{GlobalsBuffer, GlobalsUniform},
-    mesh::{
-        allocator::MeshAllocator, Mesh, Mesh2d, MeshVertexBufferLayoutRef, RenderMesh,
-        RenderMeshBufferInfo,
-    },
+    mesh::{allocator::MeshAllocator, RenderMesh, RenderMeshBufferInfo},
     render_asset::RenderAssets,
     render_phase::{
         sweep_old_entities, PhaseItem, PhaseItemExtraIndex, RenderCommand, RenderCommandResult,
@@ -46,9 +44,7 @@ use bevy_render::{
     renderer::{RenderDevice, RenderQueue},
     sync_world::{MainEntity, MainEntityHashMap},
     texture::{DefaultImageSampler, FallbackImage, GpuImage},
-    view::{
-        ExtractedView, ViewTarget, ViewUniform, ViewUniformOffset, ViewUniforms, ViewVisibility,
-    },
+    view::{ExtractedView, ViewTarget, ViewUniform, ViewUniformOffset, ViewUniforms},
     Extract, ExtractSchedule, Render, RenderApp, RenderSystems,
 };
 use bevy_transform::components::GlobalTransform;

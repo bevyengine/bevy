@@ -17,6 +17,10 @@ pub use crate::window::prelude::*;
 #[cfg(feature = "bevy_image")]
 pub use crate::image::prelude::*;
 
+#[doc(hidden)]
+#[cfg(feature = "bevy_image")]
+pub use crate::mesh::prelude::*;
+
 pub use bevy_derive::{bevy_main, Deref, DerefMut};
 
 #[doc(hidden)]
