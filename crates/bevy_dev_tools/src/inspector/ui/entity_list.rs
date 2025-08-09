@@ -82,10 +82,6 @@ pub fn handle_entity_selection(
                 if current_time - selection_debounce.last_selection_time
                     < selection_debounce.debounce_interval
                 {
-                    println!(
-                        "Debouncing selection - too recent: {:.3}s ago",
-                        current_time - selection_debounce.last_selection_time
-                    );
                     continue;
                 }
 

@@ -4209,12 +4209,6 @@ path = "examples/remote/client.rs"
 doc-scrape-examples = true
 required-features = ["bevy_remote"]
 
-[[example]]
-name = "remote_inspector_target"
-path = "examples/remote/remote_inspector_target.rs"
-doc-scrape-examples = true
-required-features = ["bevy_remote"]
-
 [package.metadata.example.client]
 name = "client"
 description = "A simple command line client that can control Bevy apps via the BRP"

@@ -350,10 +350,10 @@ fn handle_http_updates(
                         // Health check successful - continue with JSON-RPC test
                     }
                     Ok(response) => {
-                        eprintln!("Remote server health check returned status: {}", response.status());
+                        warn!("Remote server health check returned status: {}", response.status());
                     }
                     Err(e) => {
-                        eprintln!("Remote health check failed (attempt {}/{}): {}", retry_count, max_retries, e);
+                        warn!("Remote health check failed (attempt {}/{}): {}", retry_count, max_retries, e);
                     }
                 }
 
@@ -450,7 +450,7 @@ fn handle_http_updates(
                                 }
                             }
                             Err(e) => {
-                                eprintln!("Failed to parse entities response: {}", e);
+                                error!("Failed to parse entities response: {}", e);
                                 // Send failed connection status
                                 if let Some(sender) = &status_sender {
                                     let status_update = ConnectionStatusUpdate {
@@ -464,7 +464,7 @@ fn handle_http_updates(
                         }
                     }
                     Ok(response) => {
-                        eprintln!("JSON-RPC endpoint returned error {} (attempt {}/{})",
+                        warn!("JSON-RPC endpoint returned error {} (attempt {}/{})",
                             response.status(), retry_count, max_retries);
                         // Send failed connection status
                         if let Some(sender) = &status_sender {
@@ -477,7 +477,7 @@ fn handle_http_updates(
                         }
                     }
                     Err(e) => {
-                        eprintln!("JSON-RPC connection failed (attempt {}/{}): {}",
+                        warn!("JSON-RPC connection failed (attempt {}/{}): {}",
                             retry_count, max_retries, e);
                         // Send failed connection status
                         if let Some(sender) = &status_sender {
@@ -489,8 +489,8 @@ fn handle_http_updates(
                             let _ = sender.send(status_update).await;
                         }
                         if retry_count >= max_retries {
-                            eprintln!("Max connection retries reached. Ensure target app is running with bevy_remote enabled.");
-                            eprintln!("Expected endpoints: {}/health and {}/jsonrpc", base_url, base_url);
+                            error!("Max connection retries reached. Ensure target app is running with bevy_remote enabled.");
+                            error!("Expected endpoints: {}/health and {}/jsonrpc", base_url, base_url);
                         }
                     }
                 }

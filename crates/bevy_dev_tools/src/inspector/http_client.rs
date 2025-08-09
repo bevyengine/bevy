@@ -400,120 +400,120 @@ impl HttpRemoteClient {
 
         // Use tokio runtime handle for reqwest compatibility
         tokio_handle.spawn(async move {
-                // Use bevy/get+watch with continuous polling
-                let request = JsonRpcRequest {
-                    jsonrpc: "2.0".to_string(),
-                    id: 1, // We'll use a fixed ID for watching requests
-                    method: "bevy/get+watch".to_string(),
-                    params: Some(serde_json::json!({
-                        "entity": entity_id,
-                        "components": components_clone,
-                        "strict": false
-                    })),
-                };
+            // Use bevy/get+watch with continuous polling
+            let request = JsonRpcRequest {
+                jsonrpc: "2.0".to_string(),
+                id: 1, // We'll use a fixed ID for watching requests
+                method: "bevy/get+watch".to_string(),
+                params: Some(serde_json::json!({
+                    "entity": entity_id,
+                    "components": components_clone,
+                    "strict": false
+                })),
+            };
 
-                println!("Starting component watching for entity {} with {} components",
-                    entity_id, components_clone.len());
+            // Use streaming SSE connection for real-time updates
+            let url = format!("{}/jsonrpc", base_url);
 
-                // Use streaming SSE connection for real-time updates
-                let url = format!("{}/jsonrpc", base_url);
+            loop {
+                match client.post(&url).json(&request).send().await {
+                    Ok(response) => {
+                        // Process the streaming response
+                        let mut stream = response.bytes_stream();
+                        let mut buffer = String::new();
 
-                loop {
-                    match client.post(&url).json(&request).send().await {
-                        Ok(response) => {
-                            // Process the streaming response
-                            let mut stream = response.bytes_stream();
-                            let mut buffer = String::new();
+                        while let Ok(Some(chunk)) = stream.try_next().await {
+                            if let Ok(text) = std::str::from_utf8(&chunk) {
+                                buffer.push_str(text);
 
-                            while let Ok(Some(chunk)) = stream.try_next().await {
-                                if let Ok(text) = std::str::from_utf8(&chunk) {
-                                    buffer.push_str(text);
+                                // Process complete lines
+                                while let Some(newline_pos) = buffer.find('\n') {
+                                    let line = buffer[..newline_pos].trim().to_string();
+                                    buffer.drain(..newline_pos + 1);
 
-                                    // Process complete lines
-                                    while let Some(newline_pos) = buffer.find('\n') {
-                                        let line = buffer[..newline_pos].trim().to_string();
-                                        buffer.drain(..newline_pos + 1);
+                                    // Process SSE data lines
+                                    if let Some(json_str) = line.strip_prefix("data: ") {
+                                        match serde_json::from_str::<JsonRpcResponse>(json_str) {
+                                            Ok(json_response) => {
+                                                if let Some(result) = json_response.result {
+                                                    if let Ok(watch_response) =
+                                                        serde_json::from_value::<
+                                                            BrpGetWatchingResponse,
+                                                        >(
+                                                            result
+                                                        )
+                                                    {
+                                                        let update = ComponentUpdate {
+                                                            entity_id,
+                                                            changed_components: watch_response
+                                                                .components
+                                                                .unwrap_or_default(),
+                                                            removed_components: watch_response
+                                                                .removed
+                                                                .unwrap_or_default(),
+                                                            timestamp: current_time(),
+                                                        };
 
-                                        // Process SSE data lines
-                                        if let Some(json_str) = line.strip_prefix("data: ") {
-                                            match serde_json::from_str::<JsonRpcResponse>(json_str) {
-                                                Ok(json_response) => {
-                                                    if let Some(result) = json_response.result {
-                                                        if let Ok(watch_response) = serde_json::from_value::<BrpGetWatchingResponse>(result) {
-                                                            let update = ComponentUpdate {
-                                                                entity_id,
-                                                                changed_components: watch_response.components.unwrap_or_default(),
-                                                                removed_components: watch_response.removed.unwrap_or_default(),
-                                                                timestamp: current_time(),
-                                                            };
-
-                                                            if !update.changed_components.is_empty() || !update.removed_components.is_empty() {
-
-                                                                if tx.send(update).await.is_err() {
-                                                                    println!("Component update receiver dropped for entity {}", entity_id);
-                                                                    return; // Exit the task
-                                                                }
+                                                        if !update.changed_components.is_empty()
+                                                            || !update.removed_components.is_empty()
+                                                        {
+                                                            if tx.send(update).await.is_err() {
+                                                                return; // Exit the task
                                                             }
                                                         }
                                                     }
                                                 }
-                                                Err(e) => {
-                                                    println!("Failed to parse SSE JSON for entity {}: {} ({})", entity_id, json_str, e);
-                                                }
                                             }
+                                            Err(_e) => {}
                                         }
                                     }
                                 }
                             }
-
-                            println!("SSE stream ended for entity {}, reconnecting...", entity_id);
-                            // Simple async delay without tokio
-                            let sleep_future = async {
-                                use std::time::{Duration, Instant};
-                                let start = Instant::now();
-                                let target_duration = Duration::from_secs(1);
-
-                                loop {
-                                    if start.elapsed() >= target_duration {
-                                        break;
-                                    }
-                                    futures::future::ready(()).await;
-                                }
-                            };
-                            sleep_future.await;
                         }
-                        Err(e) => {
-                            println!("Watch connection error for entity {}: {}", entity_id, e);
-                            // Simple async delay without tokio
-                            let sleep_future = async {
-                                use std::time::{Duration, Instant};
-                                let start = Instant::now();
-                                let target_duration = Duration::from_secs(1);
 
-                                loop {
-                                    if start.elapsed() >= target_duration {
-                                        break;
-                                    }
-                                    futures::future::ready(()).await;
+                        // Simple async delay without tokio
+                        let sleep_future = async {
+                            use std::time::{Duration, Instant};
+                            let start = Instant::now();
+                            let target_duration = Duration::from_secs(1);
+
+                            loop {
+                                if start.elapsed() >= target_duration {
+                                    break;
                                 }
-                            };
-                            sleep_future.await;
-                            // Retry connection
-                        }
+                                futures::future::ready(()).await;
+                            }
+                        };
+                        sleep_future.await;
+                    }
+                    Err(_e) => {
+                        // Simple async delay without tokio
+                        let sleep_future = async {
+                            use std::time::{Duration, Instant};
+                            let start = Instant::now();
+                            let target_duration = Duration::from_secs(1);
+
+                            loop {
+                                if start.elapsed() >= target_duration {
+                                    break;
+                                }
+                                futures::future::ready(()).await;
+                            }
+                        };
+                        sleep_future.await;
+                        // Retry connection
                     }
                 }
+            }
         });
 
         self.watched_entities.insert(entity_id, components);
-        println!("Started component watching task for entity {}", entity_id);
         Ok(())
     }
 
     /// Stop watching components for an entity
     pub fn stop_component_watching(&mut self, entity_id: u32) {
-        if self.watched_entities.remove(&entity_id).is_some() {
-            println!("Stopped component watching for entity {}", entity_id);
-        }
+        if self.watched_entities.remove(&entity_id).is_some() {}
     }
 
     /// Check for live component updates from streaming endpoint
