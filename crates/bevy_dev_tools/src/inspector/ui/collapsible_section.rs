@@ -37,6 +37,8 @@ pub struct CollapsibleContent {
 pub struct CollapsibleArrowText {
     /// Reference to the parent collapsible section entity
     pub section_entity: Entity,
+    /// The text format template (without arrow) for updating
+    pub text_template: String,
 }
 
 /// Bundle for creating a collapsible section
@@ -101,7 +103,7 @@ pub fn handle_collapsible_interactions(
                 for (mut arrow_text, arrow_marker) in arrow_text_query.iter_mut() {
                     if arrow_marker.section_entity == header.section_entity {
                         let arrow = if section.is_expanded { "-" } else { "+" };
-                        arrow_text.0 = format!("{} {}", arrow, section.title);
+                        arrow_text.0 = format!("{} {}", arrow, arrow_marker.text_template);
                     }
                 }
             }
@@ -147,7 +149,10 @@ pub fn spawn_collapsible_section(commands: &mut Commands, parent: Entity, title:
                     ..Default::default()
                 },
                 TextColor(Color::srgb(0.9, 0.9, 0.6)),
-                CollapsibleArrowText { section_entity },
+                CollapsibleArrowText { 
+                    section_entity,
+                    text_template: title.clone(),
+                },
             ));
         })
         .id();
