@@ -3881,7 +3881,8 @@ doc-scrape-examples = true
 [package.metadata.example.fullscreen_material]
 name = "Fullscreen Material"
 description = "Demonstrates how to write a fullscreen material"
-category = "3D Rendering"
+category = "Shader"
+wasm = true
 
 [[example]]
 name = "reflection_probes"
