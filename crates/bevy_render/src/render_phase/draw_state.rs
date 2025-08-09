@@ -254,17 +254,18 @@ impl<'a> TrackedRenderPass<'a> {
     /// Subsequent calls to [`TrackedRenderPass::draw_indexed`] will use the buffer referenced by
     /// `buffer_slice` as the source index buffer.
     pub fn set_index_buffer(&mut self, buffer_slice: BufferSlice<'a>, index_format: IndexFormat) {
-        if self.state.is_index_buffer_set(&buffer_slice, index_format) {
-            #[cfg(feature = "detailed_trace")]
-            trace!(
-                "set index buffer (already set): {:?} ({})",
-                buffer_slice.id(),
-                offset
-            );
+        let already_set = self.state.is_index_buffer_set(&buffer_slice, index_format);
+        #[cfg(feature = "detailed_trace")]
+        trace!(
+            "set index buffer{}: {:?} (offset = {}, size = {})",
+            if already_set { " (already set)" } else { "" },
+            buffer_slice.id(),
+            buffer_slice.offset(),
+            buffer_slice.size(),
+        );
+        if already_set {
             return;
         }
-        #[cfg(feature = "detailed_trace")]
-        trace!("set index buffer: {:?} ({})", buffer_slice.id(), offset);
         self.pass.set_index_buffer(*buffer_slice, index_format);
         self.state.set_index_buffer(&buffer_slice, index_format);
     }
