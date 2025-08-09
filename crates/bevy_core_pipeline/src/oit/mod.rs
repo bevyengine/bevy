@@ -67,13 +67,13 @@ impl Component for OrderIndependentTransparencySettings {
 
     fn on_add() -> Option<ComponentHook> {
         Some(|world, context| {
-            if let Some(value) = world.get::<OrderIndependentTransparencySettings>(context.entity) {
-                if value.layer_count > 32 {
-                    warn!("{}OrderIndependentTransparencySettings layer_count set to {} might be too high.",
+            if let Some(value) = world.get::<OrderIndependentTransparencySettings>(context.entity)
+                && value.layer_count > 32
+            {
+                warn!("{}OrderIndependentTransparencySettings layer_count set to {} might be too high.",
                         context.caller.map(|location|format!("{location}: ")).unwrap_or_default(),
                         value.layer_count
                     );
-                }
             }
         })
     }

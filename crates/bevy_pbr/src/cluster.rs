@@ -216,7 +216,7 @@ impl GpuClusterableObjects {
         }
     }
 
-    pub fn binding(&self) -> Option<BindingResource> {
+    pub fn binding(&self) -> Option<BindingResource<'_>> {
         match self {
             GpuClusterableObjects::Uniform(buffer) => buffer.binding(),
             GpuClusterableObjects::Storage(buffer) => buffer.binding(),
@@ -456,7 +456,7 @@ impl ViewClusterBindings {
         }
     }
 
-    pub fn clusterable_object_index_lists_binding(&self) -> Option<BindingResource> {
+    pub fn clusterable_object_index_lists_binding(&self) -> Option<BindingResource<'_>> {
         match &self.buffers {
             ViewClusterBuffers::Uniform {
                 clusterable_object_index_lists,
@@ -469,7 +469,7 @@ impl ViewClusterBindings {
         }
     }
 
-    pub fn offsets_and_counts_binding(&self) -> Option<BindingResource> {
+    pub fn offsets_and_counts_binding(&self) -> Option<BindingResource<'_>> {
         match &self.buffers {
             ViewClusterBuffers::Uniform {
                 cluster_offsets_and_counts,
