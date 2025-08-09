@@ -29,23 +29,14 @@ fn randomFloat(value: u32) -> f32 {
     return f32(hash(value)) / 4294967295.0;
 }
 
-fn get_color(alive: bool) -> vec4<f32> {
-    var color = config.alive_color;
-    if (!alive) {
-        // Use alpha channel to keep track of cell's state
-        color.a = 0.;
-    }
-
-    return color;
-}
-
 @compute @workgroup_size(8, 8, 1)
 fn init(@builtin(global_invocation_id) invocation_id: vec3<u32>, @builtin(num_workgroups) num_workgroups: vec3<u32>) {
     let location = vec2<i32>(i32(invocation_id.x), i32(invocation_id.y));
 
     let randomNumber = randomFloat((invocation_id.y << 16u) | invocation_id.x);
     let alive = randomNumber > 0.9;
-    let color = get_color(alive);
+    // Use alpha channel to keep track of cell's state
+    let color = vec4(config.alive_color.rgb, f32(alive));
 
     textureStore(output, location, color);
 }
@@ -72,13 +63,16 @@ fn update(@builtin(global_invocation_id) invocation_id: vec3<u32>) {
 
     let n_alive = count_alive(location);
 
-    var color = config.alive_color;
-    if (n_alive == 2) {
+    var alive: bool;
+    if (n_alive == 3) {
+        alive = true;
+    } else if (n_alive == 2) {
         let currently_alive = is_alive(location, 0, 0);
-        color.a = f32(currently_alive);
-    } else if (n_alive != 3) {
-        color.a = 0.;
+        alive = bool(currently_alive);
+    } else {
+        alive = false;
     }
+    let color = vec4(config.alive_color.rgb, f32(alive));
 
     textureStore(output, location, color);
 }
