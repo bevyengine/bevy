@@ -3,8 +3,10 @@
 //! This is currently limited to 3d only but work is in progress to make it work in 2d
 
 use bevy::{
-    core_pipeline::core_3d::graph::Node3d,
-    pbr::fullscreen_material::{FullscreenMaterial, FullscreenMaterialPlugin},
+    core_pipeline::{
+        core_3d::graph::Node3d,
+        fullscreen_material::{FullscreenMaterial, FullscreenMaterialPlugin},
+    },
     prelude::*,
     shader::ShaderRef,
 };
@@ -40,7 +42,7 @@ fn setup(
     commands.spawn((
         Mesh3d(meshes.add(Cuboid::default())),
         MeshMaterial3d(materials.add(Color::srgb(0.8, 0.7, 0.6))),
-        Transform::from_xyz(0.0, 0.5, 0.0),
+        Transform::default(),
     ));
     // light
     commands.spawn(DirectionalLight {

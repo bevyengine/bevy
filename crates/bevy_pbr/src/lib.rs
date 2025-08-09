@@ -31,7 +31,6 @@ pub mod decal;
 pub mod deferred;
 mod extended_material;
 mod fog;
-pub mod fullscreen_material;
 mod light_probe;
 mod lightmap;
 mod material;

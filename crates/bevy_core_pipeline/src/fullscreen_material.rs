@@ -2,9 +2,9 @@
 
 use std::marker::PhantomData;
 
+use crate::{core_3d::graph::Core3d, FullscreenShader};
 use bevy_app::{App, Plugin};
 use bevy_asset::AssetServer;
-use bevy_core_pipeline::{core_3d::graph::Core3d, FullscreenShader};
 use bevy_ecs::{
     component::Component,
     query::QueryItem,
