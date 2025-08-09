@@ -2,6 +2,7 @@ use core::mem::{self, size_of};
 use std::sync::OnceLock;
 
 use bevy_asset::{prelude::AssetChanged, Assets};
+use bevy_camera::visibility::ViewVisibility;
 use bevy_ecs::prelude::*;
 use bevy_math::Mat4;
 use bevy_mesh::skinning::{SkinnedMesh, SkinnedMeshInverseBindposes};
@@ -12,7 +13,6 @@ use bevy_render::{
     batching::NoAutomaticBatching,
     render_resource::BufferUsages,
     renderer::{RenderDevice, RenderQueue},
-    view::ViewVisibility,
     Extract,
 };
 use bevy_transform::prelude::GlobalTransform;

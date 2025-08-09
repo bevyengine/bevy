@@ -8,11 +8,9 @@ use bevy_asset::{
     embedded_asset, load_embedded_asset, prelude::AssetChanged, AsAssetId, Asset, AssetApp,
     AssetEventSystems, AssetId, AssetServer, Assets, Handle, UntypedAssetId,
 };
+use bevy_camera::{visibility::ViewVisibility, Camera, Camera3d};
 use bevy_color::{Color, ColorToComponents};
-use bevy_core_pipeline::core_3d::{
-    graph::{Core3d, Node3d},
-    Camera3d,
-};
+use bevy_core_pipeline::core_3d::graph::{Core3d, Node3d};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     component::Tick,
