@@ -2,7 +2,7 @@
 //!
 //! `WGPU_DEBUG=1` enables debug labels in release builds\
 //! `WGPU_VALIDATION=0` disables validation layers\
-//! `WGPU_FORCE_FALLBACK_ADAPTER=1` attempts to force softare rendering\
+//! `WGPU_FORCE_FALLBACK_ADAPTER=1` attempts to force software rendering\
 //! `WGPU_ADAPTER_NAME`: select a specific adapter by name\
 //! `WGPU_SETTINGS_PRIO=webgl2` uses webgl2 limits\
 //! `WGPU_SETTINGS_PRIO=compatibility` uses webgpu limits\
