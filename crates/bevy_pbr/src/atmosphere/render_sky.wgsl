@@ -2,7 +2,7 @@ enable dual_source_blending;
 
 #import bevy_pbr::atmosphere::{
     types::{Atmosphere, AtmosphereSettings},
-    bindings::{atmosphere, view, atmosphere_transforms},
+    bindings::{atmosphere, settings, view, atmosphere_transforms},
     functions::{
         sample_transmittance_lut, sample_transmittance_lut_segment,
         sample_sky_view_lut, direction_world_to_atmosphere,
@@ -39,8 +39,11 @@ fn main(in: FullscreenVertexOutput) -> RenderSkyOutput {
 
     var transmittance: vec3<f32>;
     var inscattering: vec3<f32>;
+    var sun_radiance = vec3(0.0);
 
-    let sun_radiance = sample_sun_radiance(ray_dir_ws.xyz);
+    if settings.sun_disk_multiplier != 0.0 {
+        sun_radiance = settings.sun_disk_multiplier * sample_sun_radiance(ray_dir_ws.xyz);
+    }
 
     if depth == 0.0 {
         let ray_dir_as = direction_world_to_atmosphere(ray_dir_ws.xyz);
