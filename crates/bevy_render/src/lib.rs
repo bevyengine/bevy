@@ -1,7 +1,7 @@
 //! # Useful Environment Variables
 //!
 //! Both `bevy_render` and `wgpu` have a number of environment variable options for changing the runtime behavior
-//! of both crates. Many of these may be useful in development or release environments. 
+//! of both crates. Many of these may be useful in development or release environments.
 //!
 //! - `WGPU_DEBUG=1` enables debug labels, which can be useful in release builds.
 //! - `WGPU_VALIDATION=0` disables validation layers. This can help with particularly spammy errors.
