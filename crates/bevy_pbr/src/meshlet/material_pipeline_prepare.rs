@@ -10,6 +10,7 @@ use bevy_core_pipeline::{
 };
 use bevy_derive::{Deref, DerefMut};
 use bevy_light::EnvironmentMapLight;
+use bevy_mesh::VertexBufferLayout;
 use bevy_platform::collections::{HashMap, HashSet};
 use bevy_render::erased_render_asset::ErasedRenderAssets;
 use bevy_render::{
