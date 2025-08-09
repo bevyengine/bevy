@@ -32,7 +32,7 @@ bevy_diagnostic = { path = "../bevy_diagnostic", version = "0.17.0-dev" }
 
 # other
 tracing = { version = "0.1", default-features = false, features = ["std"] }
-dlss_wgpu = { git = "https://github.com/jms55/bevy_dlss_wgpu", branch = "mock", optional = true }
+dlss_wgpu = { git = "https://github.com/bevyengine/dlss_wgpu", optional = true }
 
 [lints]
 workspace = true

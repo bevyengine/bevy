@@ -101,7 +101,7 @@ wgpu = { version = "26", default-features = false, features = [
   "fragile-send-sync-non-atomic-wasm",
 ] }
 naga = { version = "26", features = ["wgsl-in"] }
-dlss_wgpu = { git = "https://github.com/jms55/bevy_dlss_wgpu", branch = "mock", optional = true }
+dlss_wgpu = { git = "https://github.com/bevyengine/dlss_wgpu", optional = true }
 bytemuck = { version = "1.5", features = ["derive", "must_cast"] }
 downcast-rs = { version = "2", default-features = false, features = ["std"] }
 thiserror = { version = "2", default-features = false }
