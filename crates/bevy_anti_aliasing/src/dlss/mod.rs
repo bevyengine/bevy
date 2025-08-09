@@ -286,7 +286,7 @@ pub struct ViewDlssRayReconstructionTextures {
     pub diffuse_albedo: CachedTexture,
     pub specular_albedo: CachedTexture,
     pub normal_roughness: CachedTexture,
-    pub specular_hit_distance: CachedTexture,
+    pub specular_motion_vectors: CachedTexture,
 }
 
 #[reflect_remote(DlssPerfQualityMode)]

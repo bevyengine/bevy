@@ -9,7 +9,7 @@ use bevy_render::{
     diagnostic::RecordDiagnostics,
     render_graph::{NodeRunError, RenderGraphContext, ViewNode},
     renderer::{RenderAdapter, RenderContext},
-    view::{ExtractedView, ViewTarget},
+    view::ViewTarget,
 };
 use dlss_wgpu::{
     ray_reconstruction::{
@@ -96,7 +96,6 @@ impl ViewNode for DlssNode<DlssRayReconstructionFeature> {
         &'static ViewTarget,
         &'static ViewPrepassTextures,
         &'static ViewDlssRayReconstructionTextures,
-        &'static ExtractedView,
     );
 
     fn run(
@@ -111,7 +110,6 @@ impl ViewNode for DlssNode<DlssRayReconstructionFeature> {
             view_target,
             prepass_textures,
             ray_reconstruction_textures,
-            extracted_view,
         ): QueryItem<Self::ViewQuery>,
         world: &World,
     ) -> Result<(), NodeRunError> {
@@ -133,13 +131,11 @@ impl ViewNode for DlssNode<DlssRayReconstructionFeature> {
             color: &view_target.source,
             depth: &prepass_depth_texture.texture.default_view,
             motion_vectors: &prepass_motion_vectors_texture.texture.default_view,
-            specular_guide: DlssRayReconstructionSpecularGuide::SpecularHitDistance {
-                texture_view: &ray_reconstruction_textures
-                    .specular_hit_distance
+            specular_guide: DlssRayReconstructionSpecularGuide::SpecularMotionVectors(
+                &ray_reconstruction_textures
+                    .specular_motion_vectors
                     .default_view,
-                world_to_view_matrix: extracted_view.world_from_view.to_matrix().inverse(),
-                view_to_clip_matrix: extracted_view.clip_from_view,
-            },
+            ),
             screen_space_subsurface_scattering_guide: None, // TODO
             bias: None,                                     // TODO
             dlss_output: &view_target.destination,
