@@ -47,6 +47,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         Text2d::new("translation"),
         text_font.clone(),
         TextLayout::new_with_justify(text_justification),
+        TextBackgroundColor(Color::BLACK.with_alpha(0.5)),
         AnimateTranslation,
     ));
     // Demonstrate changing rotation
@@ -54,6 +55,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         Text2d::new("rotation"),
         text_font.clone(),
         TextLayout::new_with_justify(text_justification),
+        TextBackgroundColor(Color::BLACK.with_alpha(0.5)),
         AnimateRotation,
     ));
     // Demonstrate changing scale
@@ -62,6 +64,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         text_font,
         TextLayout::new_with_justify(text_justification),
         Transform::from_translation(Vec3::new(400.0, 0.0, 0.0)),
+        TextBackgroundColor(Color::BLACK.with_alpha(0.5)),
         AnimateScale,
     ));
     // Demonstrate text wrapping
@@ -133,16 +136,20 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         Text2d::new(" Anchor".to_string()),
                         slightly_smaller_text_font.clone(),
                         text_anchor,
+                        TextBackgroundColor(Color::WHITE.darker(0.8)),
+                        Transform::from_translation(-1. * Vec3::Z),
                     ))
                     .with_child((
                         TextSpan("::".to_string()),
                         slightly_smaller_text_font.clone(),
                         TextColor(LIGHT_GREY.into()),
+                        TextBackgroundColor(DARK_BLUE.into()),
                     ))
                     .with_child((
                         TextSpan(format!("{text_anchor:?} ")),
                         slightly_smaller_text_font.clone(),
                         TextColor(color),
+                        TextBackgroundColor(color.darker(0.3)),
                     ));
             }
         });
