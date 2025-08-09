@@ -71,7 +71,13 @@ use alloc::boxed::Box;
 /// An owned and dynamically typed Future used when you can't statically type your result or need to add some indirection.
 pub type BoxedFuture<'a, T> = core::pin::Pin<Box<dyn ConditionalSendFuture<Output = T> + 'a>>;
 
+// Modules
+mod executor;
 pub mod futures;
+mod iter;
+mod slice;
+mod task;
+mod usages;
 
 cfg::async_executor! {
     if {} else {
@@ -79,23 +85,20 @@ cfg::async_executor! {
     }
 }
 
-mod executor;
-
-mod slice;
+// Exports
+pub use iter::ParallelIterator;
 pub use slice::{ParallelSlice, ParallelSliceMut};
+pub use task::Task;
+pub use usages::{AsyncComputeTaskPool, ComputeTaskPool, IoTaskPool};
+
+pub use futures_lite;
+pub use futures_lite::future::poll_once;
 
 cfg::web! {
-    if {
-        #[path = "wasm_task.rs"]
-        mod task;
-    } else {
-        mod task;
-
+    if {} else {
         pub use usages::tick_global_task_pools_on_main_thread;
     }
 }
-
-pub use task::Task;
 
 cfg::multi_threaded! {
     if {
@@ -110,10 +113,6 @@ cfg::multi_threaded! {
         pub use single_threaded_task_pool::{Scope, TaskPool, TaskPoolBuilder, ThreadExecutor};
     }
 }
-
-mod usages;
-pub use futures_lite::future::poll_once;
-pub use usages::{AsyncComputeTaskPool, ComputeTaskPool, IoTaskPool};
 
 cfg::switch! {
     cfg::async_io => {
@@ -146,11 +145,6 @@ cfg::switch! {
         }
     }
 }
-
-mod iter;
-pub use iter::ParallelIterator;
-
-pub use futures_lite;
 
 /// The tasks prelude.
 ///
