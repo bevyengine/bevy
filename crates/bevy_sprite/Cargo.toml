@@ -12,6 +12,7 @@ keywords = ["bevy"]
 bevy_sprite_picking_backend = ["bevy_picking", "bevy_window"]
 webgl = []
 webgpu = []
+serialize = ["dep:serde"]
 
 [dependencies]
 # bevy
@@ -42,6 +43,10 @@ bitflags = "2.3"
 radsort = "0.1"
 nonmax = "0.5"
 tracing = { version = "0.1", default-features = false, features = ["std"] }
+serde = { version = "1", default-features = false, features = [
+  "alloc",
+  "serde_derive",
+], optional = true }
 
 [lints]
 workspace = true

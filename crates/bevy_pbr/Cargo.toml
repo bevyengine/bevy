@@ -31,6 +31,7 @@ meshlet_processor = [
   "dep:itertools",
   "dep:bitvec",
 ]
+serialize = ["dep:serde"]
 
 [dependencies]
 # bevy
@@ -78,6 +79,11 @@ nonmax = "0.5"
 static_assertions = "1"
 tracing = { version = "0.1", default-features = false, features = ["std"] }
 offset-allocator = "0.2"
+
+serde = { version = "1", default-features = false, features = [
+  "alloc",
+  "serde_derive",
+], optional = true }
 
 [lints]
 workspace = true

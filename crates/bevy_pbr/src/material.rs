@@ -1240,6 +1240,10 @@ impl DefaultOpaqueRendererMethod {
 /// If a material indicates `OpaqueRendererMethod::Auto`, `DefaultOpaqueRendererMethod` will be used.
 #[derive(Default, Clone, Copy, Debug, PartialEq, Reflect)]
 #[reflect(Default, Clone, PartialEq)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(::serde::Serialize, ::serde::Deserialize)
+)]
 pub enum OpaqueRendererMethod {
     #[default]
     Forward,
