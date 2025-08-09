@@ -282,16 +282,15 @@ pub fn queue_material_meshlet_meshes(
     let instance_manager = instance_manager.deref_mut();
 
     for (i, (instance, _, _)) in instance_manager.instances.iter().enumerate() {
-        if let Some(material_instance) = render_material_instances.instances.get(instance) {
-            if let Some(material_id) = instance_manager
+        if let Some(material_instance) = render_material_instances.instances.get(instance)
+            && let Some(material_id) = instance_manager
                 .material_id_lookup
                 .get(&material_instance.asset_id)
-            {
-                instance_manager
-                    .material_ids_present_in_scene
-                    .insert(*material_id);
-                instance_manager.instance_material_ids.get_mut()[i] = *material_id;
-            }
+        {
+            instance_manager
+                .material_ids_present_in_scene
+                .insert(*material_id);
+            instance_manager.instance_material_ids.get_mut()[i] = *material_id;
         }
     }
 }
