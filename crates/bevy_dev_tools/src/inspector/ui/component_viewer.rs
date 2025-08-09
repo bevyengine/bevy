@@ -1,6 +1,6 @@
 //! Component viewer UI with live data updates
 
-use super::collapsible_section::{CollapsibleContent, CollapsibleHeader, CollapsibleSection};
+use super::collapsible_section::{CollapsibleArrowText, CollapsibleContent, CollapsibleHeader, CollapsibleSection};
 use super::entity_list::{EntityCache, SelectedEntity};
 use crate::inspector::http_client::{ComponentUpdate, HttpRemoteClient};
 use crate::widgets::selectable_text::{SelectableText, TextSelectionState};
@@ -340,6 +340,10 @@ fn create_component_section(
                     ..Default::default()
                 },
                 TextColor(Color::srgb(0.9, 0.9, 0.6)),
+                CollapsibleArrowText { 
+                    section_entity,
+                    text_template: format!("{} [{}]", display_name, category),
+                },
             ));
 
             // Full path in smaller text
