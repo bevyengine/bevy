@@ -753,6 +753,20 @@ impl PipelineCache {
     }
 }
 
+/// Parameters shared between mesh specialization systems.
+#[derive(SystemParam)]
+pub struct SpecializeMeshParams<
+    'w,
+    EntitySpecializationTicks: Resource,
+    RenderMeshInstances: Resource,
+> {
+    pub pipeline_cache: Res<'w, PipelineCache>,
+    pub entity_specialization_ticks: Res<'w, EntitySpecializationTicks>,
+    pub render_mesh_instances: Res<'w, RenderMeshInstances>,
+    pub render_meshes: Res<'w, RenderAssets<RenderMesh>>,
+    pub ticks: SystemChangeTick,
+}
+
 fn pipeline_error_context(cached_pipeline: &CachedPipeline) -> String {
     fn format(
         shader: &Handle<Shader>,
@@ -793,20 +807,6 @@ fn pipeline_error_context(cached_pipeline: &CachedPipeline) -> String {
             format(&desc.shader, &desc.entry_point, &desc.shader_defs)
         }
     }
-}
-
-/// Parameters shared between mesh specialization systems.
-#[derive(SystemParam)]
-pub struct SpecializeMeshParams<
-    'w,
-    EntitySpecializationTicks: Resource,
-    RenderMeshInstances: Resource,
-> {
-    pub pipeline_cache: Res<'w, PipelineCache>,
-    pub entity_specialization_ticks: Res<'w, EntitySpecializationTicks>,
-    pub render_mesh_instances: Res<'w, RenderMeshInstances>,
-    pub render_meshes: Res<'w, RenderAssets<RenderMesh>>,
-    pub ticks: SystemChangeTick,
 }
 
 #[cfg(all(
