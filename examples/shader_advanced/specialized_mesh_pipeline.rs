@@ -10,6 +10,7 @@ use bevy::{
     core_pipeline::core_3d::{Opaque3d, Opaque3dBatchSetKey, Opaque3dBinKey, CORE_3D_DEPTH_FORMAT},
     ecs::component::Tick,
     math::{vec3, vec4},
+    mesh::{Indices, MeshVertexBufferLayoutRef, PrimitiveTopology},
     pbr::{
         DrawMesh, MeshPipeline, MeshPipelineKey, MeshPipelineViewLayoutKey, RenderMeshInstances,
         SetMeshBindGroup, SetMeshViewBindGroup, SetMeshViewEmptyBindGroup,
@@ -18,10 +19,7 @@ use bevy::{
     render::{
         batching::gpu_preprocessing::GpuPreprocessingSupport,
         extract_component::{ExtractComponent, ExtractComponentPlugin},
-        mesh::{
-            allocator::MeshAllocator, Indices, MeshVertexBufferLayoutRef, PrimitiveTopology,
-            RenderMesh,
-        },
+        mesh::{allocator::MeshAllocator, RenderMesh},
         render_asset::{RenderAssetUsages, RenderAssets},
         render_phase::{
             AddRenderCommand, BinnedRenderPhaseType, DrawFunctions, SetItemPipeline,

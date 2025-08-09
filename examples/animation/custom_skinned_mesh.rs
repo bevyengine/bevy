@@ -5,14 +5,12 @@ use std::f32::consts::*;
 
 use bevy::{
     math::ops,
-    prelude::*,
-    render::{
-        mesh::{
-            skinning::{SkinnedMesh, SkinnedMeshInverseBindposes},
-            Indices, PrimitiveTopology, VertexAttributeValues,
-        },
-        render_asset::RenderAssetUsages,
+    mesh::{
+        skinning::{SkinnedMesh, SkinnedMeshInverseBindposes},
+        Indices, PrimitiveTopology, VertexAttributeValues,
     },
+    prelude::*,
+    render::render_asset::RenderAssetUsages,
 };
 use rand::{Rng, SeedableRng};
 use rand_chacha::ChaCha8Rng;

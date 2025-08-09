@@ -1,6 +1,10 @@
 use crate::material_bind_groups::{MaterialBindGroupIndex, MaterialBindGroupSlot};
-use allocator::MeshAllocator;
 use bevy_asset::{embedded_asset, load_embedded_asset, AssetId};
+use bevy_camera::{
+    primitives::Aabb,
+    visibility::{NoFrustumCulling, ViewVisibility, VisibilityRange},
+    Camera,
+};
 use bevy_core_pipeline::{
     core_3d::{AlphaMask3d, Opaque3d, Transmissive3d, Transparent3d, CORE_3D_DEPTH_FORMAT},
     deferred::{AlphaMask3dDeferred, Opaque3dDeferred},
@@ -19,6 +23,10 @@ use bevy_light::{
     EnvironmentMapLight, NotShadowCaster, NotShadowReceiver, TransmittedShadowReceiver,
 };
 use bevy_math::{Affine3, Rect, UVec2, Vec3, Vec4};
+use bevy_mesh::{
+    skinning::SkinnedMesh, BaseMeshPipelineKey, Mesh, Mesh3d, MeshTag, MeshVertexBufferLayoutRef,
+    VertexAttributeDescriptor,
+};
 use bevy_platform::collections::{hash_map::Entry, HashMap};
 use bevy_render::{
     batching::{
@@ -29,9 +37,7 @@ use bevy_render::{
         },
         no_gpu_preprocessing, GetBatchData, GetFullBatchData, NoAutomaticBatching,
     },
-    camera::Camera,
-    mesh::{skinning::SkinnedMesh, *},
-    primitives::Aabb,
+    mesh::{allocator::MeshAllocator, RenderMesh, RenderMeshBufferInfo},
     render_asset::RenderAssets,
     render_phase::{
         BinnedRenderPhasePlugin, InputUniformIndex, PhaseItem, PhaseItemExtraIndex, RenderCommand,
@@ -42,8 +48,8 @@ use bevy_render::{
     sync_world::MainEntityHashSet,
     texture::{DefaultImageSampler, GpuImage},
     view::{
-        self, NoFrustumCulling, NoIndirectDrawing, RenderVisibilityRanges, RetainedViewEntity,
-        ViewTarget, ViewUniformOffset, ViewVisibility, VisibilityRange,
+        self, NoIndirectDrawing, RenderVisibilityRanges, RetainedViewEntity, ViewTarget,
+        ViewUniformOffset,
     },
     Extract,
 };

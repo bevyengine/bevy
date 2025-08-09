@@ -1,6 +1,7 @@
 use bevy_asset::{load_embedded_asset, AssetServer, Handle};
 use bevy_ecs::prelude::*;
 use bevy_image::BevyDefault as _;
+use bevy_mesh::VertexBufferLayout;
 use bevy_render::{
     render_resource::{
         binding_types::{sampler, texture_2d, uniform_buffer},

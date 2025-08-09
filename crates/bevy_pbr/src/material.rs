@@ -25,6 +25,9 @@ use bevy_ecs::{
         SystemParamItem,
     },
 };
+use bevy_mesh::{
+    mark_3d_meshes_as_changed_if_their_assets_changed, Mesh3d, MeshVertexBufferLayoutRef,
+};
 use bevy_platform::collections::hash_map::Entry;
 use bevy_platform::collections::{HashMap, HashSet};
 use bevy_platform::hash::FixedHasher;
@@ -34,14 +37,13 @@ use bevy_render::camera::extract_cameras;
 use bevy_render::erased_render_asset::{
     ErasedRenderAsset, ErasedRenderAssetPlugin, ErasedRenderAssets, PrepareAssetError,
 };
-use bevy_render::mesh::mark_3d_meshes_as_changed_if_their_assets_changed;
 use bevy_render::render_asset::{prepare_assets, RenderAssets};
 use bevy_render::renderer::RenderQueue;
 use bevy_render::RenderStartup;
 use bevy_render::{
     batching::gpu_preprocessing::GpuPreprocessingSupport,
     extract_resource::ExtractResource,
-    mesh::{Mesh3d, MeshVertexBufferLayoutRef, RenderMesh},
+    mesh::RenderMesh,
     prelude::*,
     render_phase::*,
     render_resource::*,

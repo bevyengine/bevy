@@ -20,6 +20,7 @@ use bevy_ecs::{
     query::QueryItem,
     system::{lifetimeless::SRes, SystemChangeTick, SystemParamItem},
 };
+use bevy_mesh::{Mesh3d, MeshVertexBufferLayoutRef};
 use bevy_platform::{
     collections::{HashMap, HashSet},
     hash::FixedHasher,
@@ -32,7 +33,7 @@ use bevy_render::{
     extract_resource::ExtractResource,
     mesh::{
         allocator::{MeshAllocator, SlabId},
-        Mesh3d, MeshVertexBufferLayoutRef, RenderMesh,
+        RenderMesh,
     },
     prelude::*,
     render_asset::{
