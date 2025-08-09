@@ -15,6 +15,8 @@ use wgpu::{IndexFormat, QuerySet, RenderPass};
 #[cfg(feature = "detailed_trace")]
 use tracing::trace;
 
+type BufferSliceKey = (BufferId, wgpu::BufferAddress, wgpu::BufferSize);
+
 /// Tracks the state of a [`TrackedRenderPass`].
 ///
 /// This is used to skip redundant operations on the [`TrackedRenderPass`] (e.g. setting an already
@@ -25,8 +27,8 @@ struct DrawState {
     pipeline: Option<RenderPipelineId>,
     bind_groups: Vec<(Option<BindGroupId>, Vec<u32>)>,
     /// List of vertex buffers by [`BufferId`], offset, and size. See [`DrawState::buffer_slice_key`]
-    vertex_buffers: Vec<Option<(BufferId, wgpu::BufferAddress, wgpu::BufferSize)>>,
-    index_buffer: Option<(BufferId, u64, IndexFormat)>,
+    vertex_buffers: Vec<Option<BufferSliceKey>>,
+    index_buffer: Option<(BufferSliceKey, IndexFormat)>,
 
     /// Stores whether this state is populated or empty for quick state invalidation
     stores_state: bool,
@@ -87,10 +89,7 @@ impl DrawState {
     }
 
     /// Returns the value used for checking whether `BufferSlice`s are equivalent.
-    fn buffer_slice_key(
-        &self,
-        buffer_slice: &BufferSlice,
-    ) -> (BufferId, wgpu::BufferAddress, wgpu::BufferSize) {
+    fn buffer_slice_key(&self, buffer_slice: &BufferSlice) -> BufferSliceKey {
         (
             buffer_slice.id(),
             buffer_slice.offset(),
@@ -99,19 +98,14 @@ impl DrawState {
     }
 
     /// Marks the index `buffer` as bound.
-    fn set_index_buffer(&mut self, buffer: BufferId, offset: u64, index_format: IndexFormat) {
-        self.index_buffer = Some((buffer, offset, index_format));
+    fn set_index_buffer(&mut self, buffer_slice: &BufferSlice, index_format: IndexFormat) {
+        self.index_buffer = Some((self.buffer_slice_key(buffer_slice), index_format));
         self.stores_state = true;
     }
 
     /// Checks, whether the index `buffer` is already bound.
-    fn is_index_buffer_set(
-        &self,
-        buffer: BufferId,
-        offset: u64,
-        index_format: IndexFormat,
-    ) -> bool {
-        self.index_buffer == Some((buffer, offset, index_format))
+    fn is_index_buffer_set(&self, buffer: &BufferSlice, index_format: IndexFormat) -> bool {
+        self.index_buffer == Some((self.buffer_slice_key(buffer), index_format))
     }
 
     /// Resets tracking state
@@ -259,16 +253,8 @@ impl<'a> TrackedRenderPass<'a> {
     ///
     /// Subsequent calls to [`TrackedRenderPass::draw_indexed`] will use the buffer referenced by
     /// `buffer_slice` as the source index buffer.
-    pub fn set_index_buffer(
-        &mut self,
-        buffer_slice: BufferSlice<'a>,
-        offset: u64,
-        index_format: IndexFormat,
-    ) {
-        if self
-            .state
-            .is_index_buffer_set(buffer_slice.id(), offset, index_format)
-        {
+    pub fn set_index_buffer(&mut self, buffer_slice: BufferSlice<'a>, index_format: IndexFormat) {
+        if self.state.is_index_buffer_set(&buffer_slice, index_format) {
             #[cfg(feature = "detailed_trace")]
             trace!(
                 "set index buffer (already set): {:?} ({})",
@@ -280,8 +266,7 @@ impl<'a> TrackedRenderPass<'a> {
         #[cfg(feature = "detailed_trace")]
         trace!("set index buffer: {:?} ({})", buffer_slice.id(), offset);
         self.pass.set_index_buffer(*buffer_slice, index_format);
-        self.state
-            .set_index_buffer(buffer_slice.id(), offset, index_format);
+        self.state.set_index_buffer(&buffer_slice, index_format);
     }
 
     /// Draws primitives from the active vertex buffer(s).
