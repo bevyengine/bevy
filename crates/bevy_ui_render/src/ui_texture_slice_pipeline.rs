@@ -12,6 +12,7 @@ use bevy_ecs::{
 };
 use bevy_image::prelude::*;
 use bevy_math::{Affine2, FloatOrd, Rect, Vec2};
+use bevy_mesh::VertexBufferLayout;
 use bevy_platform::collections::HashMap;
 use bevy_render::{
     render_asset::RenderAssets,

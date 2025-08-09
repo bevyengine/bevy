@@ -1,8 +1,14 @@
 use crate::*;
 use bevy_asset::UntypedAssetId;
 pub use bevy_camera::primitives::{face_index_to_name, CubeMapFace, CUBE_MAP_FACES};
+use bevy_camera::primitives::{CascadesFrusta, CubemapFrusta, Frustum, HalfSpace};
+use bevy_camera::visibility::{
+    CascadesVisibleEntities, CubemapVisibleEntities, RenderLayers, ViewVisibility,
+    VisibleMeshEntities,
+};
+use bevy_camera::Camera3d;
 use bevy_color::ColorToComponents;
-use bevy_core_pipeline::core_3d::{Camera3d, CORE_3D_DEPTH_FORMAT};
+use bevy_core_pipeline::core_3d::CORE_3D_DEPTH_FORMAT;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::component::Tick;
 use bevy_ecs::system::SystemChangeTick;
@@ -35,14 +41,13 @@ use bevy_render::{
 use bevy_render::{
     diagnostic::RecordDiagnostics,
     mesh::RenderMesh,
-    primitives::{CascadesFrusta, CubemapFrusta, Frustum, HalfSpace},
     render_asset::RenderAssets,
     render_graph::{Node, NodeRunError, RenderGraphContext},
     render_phase::*,
     render_resource::*,
     renderer::{RenderContext, RenderDevice, RenderQueue},
     texture::*,
-    view::{ExtractedView, RenderLayers, ViewVisibility},
+    view::ExtractedView,
     Extract,
 };
 use bevy_render::{

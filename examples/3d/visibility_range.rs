@@ -3,12 +3,12 @@
 use std::f32::consts::PI;
 
 use bevy::{
+    camera::visibility::VisibilityRange,
     core_pipeline::prepass::{DepthPrepass, NormalPrepass},
     input::mouse::MouseWheel,
     math::vec3,
     pbr::{light_consts::lux::FULL_DAYLIGHT, CascadeShadowConfigBuilder},
     prelude::*,
-    render::view::VisibilityRange,
 };
 
 // Where the camera is focused.

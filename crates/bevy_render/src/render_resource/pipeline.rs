@@ -1,5 +1,4 @@
 use super::{empty_bind_group_layout, ShaderDefVal};
-use crate::mesh::VertexBufferLayout;
 use crate::WgpuWrapper;
 use crate::{
     define_atomic_id,
@@ -7,6 +6,7 @@ use crate::{
 };
 use alloc::borrow::Cow;
 use bevy_asset::Handle;
+use bevy_mesh::VertexBufferLayout;
 use core::iter;
 use core::ops::Deref;
 use thiserror::Error;

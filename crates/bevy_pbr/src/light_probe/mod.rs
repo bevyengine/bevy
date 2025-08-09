@@ -2,7 +2,10 @@
 
 use bevy_app::{App, Plugin};
 use bevy_asset::AssetId;
-use bevy_core_pipeline::core_3d::Camera3d;
+use bevy_camera::{
+    primitives::{Aabb, Frustum},
+    Camera3d,
+};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     component::Component,
@@ -19,7 +22,6 @@ use bevy_platform::collections::HashMap;
 use bevy_render::{
     extract_instances::ExtractInstancesPlugin,
     load_shader_library,
-    primitives::{Aabb, Frustum},
     render_asset::RenderAssets,
     render_resource::{DynamicUniformBuffer, Sampler, ShaderType, TextureView},
     renderer::{RenderAdapter, RenderDevice, RenderQueue},

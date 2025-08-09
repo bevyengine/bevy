@@ -8,6 +8,7 @@ use crate::{
 };
 use bevy_app::{App, Plugin};
 use bevy_asset::embedded_asset;
+use bevy_camera::Camera;
 use bevy_ecs::{
     component::Component,
     query::{QueryItem, With},
@@ -16,7 +17,6 @@ use bevy_ecs::{
 };
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
-    camera::Camera,
     extract_component::{ExtractComponent, ExtractComponentPlugin, UniformComponentPlugin},
     render_graph::{RenderGraphExt, ViewNodeRunner},
     render_resource::{ShaderType, SpecializedRenderPipelines},

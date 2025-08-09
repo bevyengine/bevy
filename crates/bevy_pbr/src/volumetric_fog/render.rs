@@ -3,10 +3,10 @@
 use core::array;
 
 use bevy_asset::{load_embedded_asset, AssetId, AssetServer, Handle};
+use bevy_camera::Camera3d;
 use bevy_color::ColorToComponents as _;
-use bevy_core_pipeline::{
-    core_3d::Camera3d,
-    prepass::{DeferredPrepass, DepthPrepass, MotionVectorPrepass, NormalPrepass},
+use bevy_core_pipeline::prepass::{
+    DeferredPrepass, DepthPrepass, MotionVectorPrepass, NormalPrepass,
 };
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
@@ -19,11 +19,10 @@ use bevy_ecs::{
 };
 use bevy_image::{BevyDefault, Image};
 use bevy_math::{vec4, Mat3A, Mat4, Vec3, Vec3A, Vec4, Vec4Swizzles as _};
+use bevy_mesh::{Mesh, MeshVertexBufferLayoutRef};
 use bevy_render::{
     diagnostic::RecordDiagnostics,
-    mesh::{
-        allocator::MeshAllocator, Mesh, MeshVertexBufferLayoutRef, RenderMesh, RenderMeshBufferInfo,
-    },
+    mesh::{allocator::MeshAllocator, RenderMesh, RenderMeshBufferInfo},
     render_asset::RenderAssets,
     render_graph::{NodeRunError, RenderGraphContext, ViewNode},
     render_resource::{

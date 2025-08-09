@@ -3,9 +3,9 @@
 use std::f32::consts::PI;
 
 use bevy::{
+    camera::Viewport,
     math::ops::{cos, sin},
     prelude::*,
-    render::camera::Viewport,
     window::{PresentMode, WindowResolution},
 };
 

@@ -1,6 +1,7 @@
 use crate::{GpuLights, LightMeta};
 use bevy_asset::{load_embedded_asset, Handle};
-use bevy_core_pipeline::{core_3d::Camera3d, FullscreenShader};
+use bevy_camera::{Camera, Camera3d};
+use bevy_core_pipeline::FullscreenShader;
 use bevy_ecs::{
     component::Component,
     entity::Entity,
@@ -12,7 +13,6 @@ use bevy_ecs::{
 use bevy_image::ToExtents;
 use bevy_math::{Mat4, Vec3};
 use bevy_render::{
-    camera::Camera,
     extract_component::ComponentUniforms,
     render_resource::{binding_types::*, *},
     renderer::{RenderDevice, RenderQueue},
