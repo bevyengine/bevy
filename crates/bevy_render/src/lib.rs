@@ -78,19 +78,38 @@ pub mod prelude {
         Projection,
     };
 }
-use batching::gpu_preprocessing::BatchingPlugin;
 
 #[doc(hidden)]
 pub mod _macro {
     pub use bevy_asset;
 }
 
-use bevy_ecs::schedule::ScheduleBuildSettings;
-use bevy_image::{CompressedImageFormatSupport, CompressedImageFormats};
-use bevy_utils::prelude::default;
 pub use extract_param::Extract;
 
+use crate::{
+    camera::CameraPlugin,
+    gpu_readback::GpuReadbackPlugin,
+    mesh::{MeshPlugin, MorphPlugin, RenderMesh},
+    render_asset::prepare_assets,
+    render_resource::{init_empty_bind_group_layout, PipelineCache, Shader, ShaderLoader},
+    renderer::{render_system, RenderInstance},
+    settings::RenderCreation,
+    storage::StoragePlugin,
+    view::{ViewPlugin, WindowRenderPlugin},
+};
+use alloc::sync::Arc;
+use batching::gpu_preprocessing::BatchingPlugin;
+use bevy_app::{App, AppLabel, Plugin, SubApp};
+use bevy_asset::{AssetApp, AssetServer};
+use bevy_ecs::{
+    prelude::*,
+    schedule::{ScheduleBuildSettings, ScheduleLabel},
+};
+use bevy_image::{CompressedImageFormatSupport, CompressedImageFormats};
+use bevy_utils::prelude::default;
 use bevy_window::{PrimaryWindow, RawHandleWrapperHolder};
+use bitflags::bitflags;
+use core::ops::{Deref, DerefMut};
 use experimental::occlusion_culling::OcclusionCullingPlugin;
 use globals::GlobalsPlugin;
 use render_asset::{
@@ -99,31 +118,10 @@ use render_asset::{
 };
 use renderer::{RenderAdapter, RenderDevice, RenderQueue};
 use settings::RenderResources;
-use sync_world::{
-    despawn_temporary_render_entities, entity_sync_system, MainEntity, RenderEntity,
-    SyncToRenderWorld, SyncWorldPlugin, TemporaryRenderEntity,
-};
-
-use crate::gpu_readback::GpuReadbackPlugin;
-use crate::{
-    camera::CameraPlugin,
-    mesh::{MeshPlugin, MorphPlugin, RenderMesh},
-    render_asset::prepare_assets,
-    render_resource::{PipelineCache, Shader, ShaderLoader},
-    renderer::{render_system, RenderInstance},
-    settings::RenderCreation,
-    storage::StoragePlugin,
-    view::{ViewPlugin, WindowRenderPlugin},
-};
-use alloc::sync::Arc;
-use bevy_app::{App, AppLabel, Plugin, SubApp};
-use bevy_asset::{AssetApp, AssetServer};
-use bevy_ecs::{prelude::*, schedule::ScheduleLabel};
-use bitflags::bitflags;
-use core::ops::{Deref, DerefMut};
 use std::sync::Mutex;
+use sync_world::{despawn_temporary_render_entities, entity_sync_system, SyncWorldPlugin};
 use tracing::debug;
-use wgpu_wrapper::WgpuWrapper;
+pub use wgpu_wrapper::WgpuWrapper;
 
 /// Inline shader as an `embedded_asset` and load it permanently.
 ///
@@ -467,15 +465,9 @@ impl Plugin for RenderPlugin {
                     Render,
                     reset_render_asset_bytes_per_frame.in_set(RenderSystems::Cleanup),
                 );
-        }
 
-        app.register_type::<alpha::AlphaMode>()
-            // These types cannot be registered in bevy_color, as it does not depend on the rest of Bevy
-            .register_type::<bevy_color::Color>()
-            .register_type::<RenderEntity>()
-            .register_type::<TemporaryRenderEntity>()
-            .register_type::<MainEntity>()
-            .register_type::<SyncToRenderWorld>();
+            render_app.add_systems(RenderStartup, init_empty_bind_group_layout);
+        }
     }
 
     fn ready(&self, app: &App) -> bool {
@@ -650,13 +642,13 @@ pub fn get_mali_driver_version(adapter: &RenderAdapter) -> Option<u32> {
         return None;
     }
     let driver_info = adapter.get_info().driver_info;
-    if let Some(start_pos) = driver_info.find("v1.r") {
-        if let Some(end_pos) = driver_info[start_pos..].find('p') {
-            let start_idx = start_pos + 4; // Skip "v1.r"
-            let end_idx = start_pos + end_pos;
+    if let Some(start_pos) = driver_info.find("v1.r")
+        && let Some(end_pos) = driver_info[start_pos..].find('p')
+    {
+        let start_idx = start_pos + 4; // Skip "v1.r"
+        let end_idx = start_pos + end_pos;
 
-            return driver_info[start_idx..end_idx].parse::<u32>().ok();
-        }
+        return driver_info[start_idx..end_idx].parse::<u32>().ok();
     }
 
     None

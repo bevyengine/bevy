@@ -139,7 +139,7 @@ impl RenderDevice {
     pub fn create_render_bundle_encoder(
         &self,
         desc: &wgpu::RenderBundleEncoderDescriptor,
-    ) -> wgpu::RenderBundleEncoder {
+    ) -> wgpu::RenderBundleEncoder<'_> {
         self.device.create_render_bundle_encoder(desc)
     }
 

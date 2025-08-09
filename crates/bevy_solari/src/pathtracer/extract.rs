@@ -22,8 +22,10 @@ pub fn extract_pathtracer(
         let mut entity_commands = commands
             .get_entity(entity)
             .expect("Camera entity wasn't synced.");
-        if pathtracer.is_some() && camera.is_active {
-            let mut pathtracer = pathtracer.unwrap().clone();
+        if let Some(pathtracer) = pathtracer
+            && camera.is_active
+        {
+            let mut pathtracer = pathtracer.clone();
             pathtracer.reset |= global_transform.is_changed();
             entity_commands.insert(pathtracer);
         } else {

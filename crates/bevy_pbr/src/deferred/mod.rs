@@ -21,6 +21,7 @@ use bevy_image::BevyDefault as _;
 use bevy_light::{EnvironmentMapLight, ShadowFilteringMethod};
 use bevy_render::RenderStartup;
 use bevy_render::{
+    diagnostic::RecordDiagnostics,
     extract_component::{
         ComponentUniforms, ExtractComponent, ExtractComponentPlugin, UniformComponentPlugin,
     },
@@ -177,6 +178,8 @@ impl ViewNode for DeferredOpaquePass3dPbrLightingNode {
             return Ok(());
         };
 
+        let diagnostics = render_context.diagnostic_recorder();
+
         let bind_group_2 = render_context.render_device().create_bind_group(
             "deferred_lighting_layout_group_2",
             &deferred_lighting_layout.bind_group_layout_2,
@@ -184,7 +187,7 @@ impl ViewNode for DeferredOpaquePass3dPbrLightingNode {
         );
 
         let mut render_pass = render_context.begin_tracked_render_pass(RenderPassDescriptor {
-            label: Some("deferred_lighting_pass"),
+            label: Some("deferred_lighting"),
             color_attachments: &[Some(target.get_color_attachment())],
             depth_stencil_attachment: Some(RenderPassDepthStencilAttachment {
                 view: &deferred_lighting_id_depth_texture.texture.default_view,
@@ -197,6 +200,7 @@ impl ViewNode for DeferredOpaquePass3dPbrLightingNode {
             timestamp_writes: None,
             occlusion_query_set: None,
         });
+        let pass_span = diagnostics.pass_span(&mut render_pass, "deferred_lighting");
 
         render_pass.set_render_pipeline(pipeline);
         render_pass.set_bind_group(
@@ -214,6 +218,8 @@ impl ViewNode for DeferredOpaquePass3dPbrLightingNode {
         render_pass.set_bind_group(1, &mesh_view_bind_group.binding_array, &[]);
         render_pass.set_bind_group(2, &bind_group_2, &[]);
         render_pass.draw(0..3, 0..1);
+
+        pass_span.end(&mut render_pass);
 
         Ok(())
     }

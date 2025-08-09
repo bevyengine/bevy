@@ -300,11 +300,25 @@ reflect_functions = [
   "bevy_ecs/reflect_functions",
 ]
 
+# Enable automatic reflect registration using inventory.
+reflect_auto_register = [
+  "bevy_reflect/auto_register_inventory",
+  "bevy_app/reflect_auto_register",
+  "bevy_ecs/reflect_auto_register",
+]
+
+# Enable automatic reflect registration without inventory. See `reflect::load_type_registrations` for more info.
+reflect_auto_register_static = [
+  "bevy_reflect/auto_register_static",
+  "bevy_app/reflect_auto_register",
+  "bevy_ecs/reflect_auto_register",
+]
+
 # Enable documentation reflection
 reflect_documentation = ["bevy_reflect/documentation"]
 
-# Enable winit custom cursor support
-custom_cursor = ["bevy_winit/custom_cursor"]
+# Enable custom cursor support
+custom_cursor = ["bevy_window/custom_cursor", "bevy_winit/custom_cursor"]
 
 # Experimental support for nodes that are ignored for UI layouting
 ghost_nodes = ["bevy_ui/ghost_nodes"]
@@ -457,6 +471,9 @@ bevy_window = { path = "../bevy_window", optional = true, version = "0.17.0-dev"
   "bevy_reflect",
 ] }
 bevy_winit = { path = "../bevy_winit", optional = true, version = "0.17.0-dev", default-features = false }
+
+[target.'cfg(target_os = "android")'.dependencies]
+bevy_android = { path = "../bevy_android", version = "0.17.0-dev", default-features = false }
 
 [lints]
 workspace = true

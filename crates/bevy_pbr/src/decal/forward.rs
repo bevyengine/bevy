@@ -30,8 +30,6 @@ impl Plugin for ForwardDecalPlugin {
     fn build(&self, app: &mut App) {
         load_shader_library!(app, "forward_decal.wgsl");
 
-        app.register_type::<ForwardDecal>();
-
         let mesh = app.world_mut().resource_mut::<Assets<Mesh>>().add(
             Rectangle::from_size(Vec2::ONE)
                 .mesh()

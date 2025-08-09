@@ -84,28 +84,23 @@ impl Plugin for SpritePlugin {
             app.add_plugins(TextureAtlasPlugin);
         }
 
-        app.register_type::<Sprite>()
-            .register_type::<SpriteImageMode>()
-            .register_type::<TextureSlicer>()
-            .register_type::<Anchor>()
-            .register_type::<Mesh2d>()
-            .add_plugins((
-                Mesh2dRenderPlugin,
-                ColorMaterialPlugin,
-                TilemapChunkPlugin,
-                TilemapChunkMaterialPlugin,
-            ))
-            .add_systems(
-                PostUpdate,
+        app.add_plugins((
+            Mesh2dRenderPlugin,
+            ColorMaterialPlugin,
+            TilemapChunkPlugin,
+            TilemapChunkMaterialPlugin,
+        ))
+        .add_systems(
+            PostUpdate,
+            (
+                calculate_bounds_2d.in_set(VisibilitySystems::CalculateBounds),
                 (
-                    calculate_bounds_2d.in_set(VisibilitySystems::CalculateBounds),
-                    (
-                        compute_slices_on_asset_event.before(AssetEventSystems),
-                        compute_slices_on_sprite_change,
-                    )
-                        .in_set(SpriteSystems::ComputeSlices),
-                ),
-            );
+                    compute_slices_on_asset_event.before(AssetEventSystems),
+                    compute_slices_on_sprite_change,
+                )
+                    .in_set(SpriteSystems::ComputeSlices),
+            ),
+        );
 
         #[cfg(feature = "bevy_sprite_picking_backend")]
         app.add_plugins(SpritePickingPlugin);
@@ -165,10 +160,10 @@ pub fn calculate_bounds_2d(
     >,
 ) {
     for (entity, mesh_handle) in &meshes_without_aabb {
-        if let Some(mesh) = meshes.get(&mesh_handle.0) {
-            if let Some(aabb) = mesh.compute_aabb() {
-                commands.entity(entity).try_insert(aabb);
-            }
+        if let Some(mesh) = meshes.get(&mesh_handle.0)
+            && let Some(aabb) = mesh.compute_aabb()
+        {
+            commands.entity(entity).try_insert(aabb);
         }
     }
     for (entity, sprite, anchor) in &sprites_to_recalculate_aabb {
