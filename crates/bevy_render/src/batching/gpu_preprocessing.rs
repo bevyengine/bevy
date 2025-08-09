@@ -1185,7 +1185,7 @@ where
     /// Returns the binding of the buffer that contains the per-instance data.
     ///
     /// This buffer needs to be filled in via a compute shader.
-    pub fn instance_data_binding(&self) -> Option<BindingResource> {
+    pub fn instance_data_binding(&self) -> Option<BindingResource<'_>> {
         self.data_buffer
             .buffer()
             .map(|buffer| buffer.as_entire_binding())

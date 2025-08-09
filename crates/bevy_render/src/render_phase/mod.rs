@@ -612,13 +612,13 @@ where
 
         // If the entity changed bins, record its old bin so that we can remove
         // the entity from it.
-        if let Some(old_cached_binned_entity) = old_cached_binned_entity {
-            if old_cached_binned_entity.cached_bin_key != new_cached_binned_entity.cached_bin_key {
-                self.entities_that_changed_bins.push(EntityThatChangedBins {
-                    main_entity,
-                    old_cached_binned_entity,
-                });
-            }
+        if let Some(old_cached_binned_entity) = old_cached_binned_entity
+            && old_cached_binned_entity.cached_bin_key != new_cached_binned_entity.cached_bin_key
+        {
+            self.entities_that_changed_bins.push(EntityThatChangedBins {
+                main_entity,
+                old_cached_binned_entity,
+            });
         }
 
         // Mark the entity as valid.
@@ -904,11 +904,10 @@ where
     ) -> bool {
         if let indexmap::map::Entry::Occupied(entry) =
             self.cached_entity_bin_keys.entry(visible_entity)
+            && entry.get().change_tick == current_change_tick
         {
-            if entry.get().change_tick == current_change_tick {
-                self.valid_cached_entity_bin_keys.insert(entry.index());
-                return true;
-            }
+            self.valid_cached_entity_bin_keys.insert(entry.index());
+            return true;
         }
 
         false

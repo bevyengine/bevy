@@ -350,16 +350,17 @@ fn extract_taa_settings(mut commands: Commands, mut main_world: ResMut<MainWorld
         Option<&mut TemporalAntiAliasing>,
     )>();
 
-    for (entity, camera, camera_projection, mut taa_settings) in
-        cameras_3d.iter_mut(&mut main_world)
-    {
+    for (entity, camera, camera_projection, taa_settings) in cameras_3d.iter_mut(&mut main_world) {
         let has_perspective_projection = matches!(camera_projection, Projection::Perspective(_));
         let mut entity_commands = commands
             .get_entity(entity)
             .expect("Camera entity wasn't synced.");
-        if taa_settings.is_some() && camera.is_active && has_perspective_projection {
-            entity_commands.insert(taa_settings.as_deref().unwrap().clone());
-            taa_settings.as_mut().unwrap().reset = false;
+        if let Some(mut taa_settings) = taa_settings
+            && camera.is_active
+            && has_perspective_projection
+        {
+            entity_commands.insert(taa_settings.clone());
+            taa_settings.reset = false;
         } else {
             entity_commands.remove::<(
                 TemporalAntiAliasing,

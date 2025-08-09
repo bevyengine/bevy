@@ -332,7 +332,7 @@ impl<'a> ReflectDerive<'a> {
     }
 
     /// Get the remote type path, if any.
-    pub fn remote_ty(&self) -> Option<RemoteType> {
+    pub fn remote_ty(&self) -> Option<RemoteType<'_>> {
         match self {
             Self::Struct(data) | Self::TupleStruct(data) | Self::UnitStruct(data) => {
                 data.meta.remote_ty()
@@ -343,7 +343,7 @@ impl<'a> ReflectDerive<'a> {
     }
 
     /// Get the [`ReflectMeta`] for this derived type.
-    pub fn meta(&self) -> &ReflectMeta {
+    pub fn meta(&self) -> &ReflectMeta<'_> {
         match self {
             Self::Struct(data) | Self::TupleStruct(data) | Self::UnitStruct(data) => data.meta(),
             Self::Enum(data) => data.meta(),
@@ -351,7 +351,7 @@ impl<'a> ReflectDerive<'a> {
         }
     }
 
-    pub fn where_clause_options(&self) -> WhereClauseOptions {
+    pub fn where_clause_options(&self) -> WhereClauseOptions<'_, '_> {
         match self {
             Self::Struct(data) | Self::TupleStruct(data) | Self::UnitStruct(data) => {
                 data.where_clause_options()
@@ -462,7 +462,7 @@ impl<'a> ReflectMeta<'a> {
     }
 
     /// Get the remote type path, if any.
-    pub fn remote_ty(&self) -> Option<RemoteType> {
+    pub fn remote_ty(&self) -> Option<RemoteType<'_>> {
         self.remote_ty
     }
 
@@ -631,7 +631,7 @@ impl<'a> ReflectStruct<'a> {
         &self.fields
     }
 
-    pub fn where_clause_options(&self) -> WhereClauseOptions {
+    pub fn where_clause_options(&self) -> WhereClauseOptions<'_, '_> {
         WhereClauseOptions::new_with_types(self.meta(), self.active_types())
     }
 
@@ -851,7 +851,7 @@ impl<'a> ReflectEnum<'a> {
         self.variants.iter().flat_map(EnumVariant::active_fields)
     }
 
-    pub fn where_clause_options(&self) -> WhereClauseOptions {
+    pub fn where_clause_options(&self) -> WhereClauseOptions<'_, '_> {
         WhereClauseOptions::new_with_types(self.meta(), self.active_types())
     }
 
