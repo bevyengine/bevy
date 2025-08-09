@@ -945,7 +945,6 @@ impl<P: PhaseItem> RenderCommand<P> for DrawSpriteBatch {
 
         pass.set_index_buffer(
             sprite_meta.sprite_index_buffer.buffer().unwrap().slice(..),
-            0,
             IndexFormat::Uint32,
         );
         pass.set_vertex_buffer(

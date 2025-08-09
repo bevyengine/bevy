@@ -90,7 +90,6 @@ where
                 .buffer()
                 .unwrap()
                 .slice(..),
-            0,
             IndexFormat::Uint32,
         );
 
