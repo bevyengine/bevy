@@ -18,6 +18,7 @@ Each widget is designed to be:
 Text with selection and clipboard copy functionality.
 
 **Features:**
+
 - Click to select text
 - Ctrl+C to copy to clipboard
 - Escape to clear selection
@@ -25,6 +26,7 @@ Text with selection and clipboard copy functionality.
 - Cross-platform clipboard support
 
 **Usage:**
+
 ```rust
 use bevy::prelude::*;
 use bevy_dev_tools::widgets::{SelectableText, SelectableTextPlugin};
@@ -50,6 +52,7 @@ fn setup(mut commands: Commands) {
 ```
 
 **API:**
+
 - `SelectableText::new(content)`: Create selectable text component
 - `select_all()`: Select all text programmatically
 - `clear_selection()`: Clear current selection
@@ -60,6 +63,7 @@ fn setup(mut commands: Commands) {
 Expandable/collapsible content sections.
 
 **Features:**
+
 - Clickable headers to expand/collapse
 - Customizable styling
 - Nested sections support
@@ -67,6 +71,7 @@ Expandable/collapsible content sections.
 - Custom arrow indicators
 
 **Usage:**
+
 ```rust
 use bevy::prelude::*;
 use bevy_dev_tools::widgets::{CollapsibleSectionPlugin, spawn_collapsible_section};
@@ -110,6 +115,7 @@ fn setup(mut commands: Commands) {
 ```
 
 **API:**
+
 - `spawn_collapsible_section(commands, parent, title)`: Create basic section
 - `spawn_collapsible_section_with_config(commands, parent, config)`: Create with custom config
 - `CollapsibleSection::new(title)`: Builder pattern configuration
@@ -120,6 +126,7 @@ fn setup(mut commands: Commands) {
 High-performance scrolling for large lists.
 
 **Features:**
+
 - Virtual rendering (only visible items + buffer)
 - Smooth momentum scrolling
 - Adaptive buffering during fast scrolling
@@ -128,6 +135,7 @@ High-performance scrolling for large lists.
 - Frame-rate limiting for performance
 
 **Usage:**
+
 ```rust
 use bevy::prelude::*;
 use bevy_dev_tools::widgets::{
@@ -193,6 +201,7 @@ fn setup(mut commands: Commands) {
 ```
 
 **API:**
+
 - `VirtualScrollable` trait: Implement for your item type
 - `spawn_virtual_scroll_container()`: Create scrollable container
 - `VirtualScrollState<T>`: Resource managing scroll state
