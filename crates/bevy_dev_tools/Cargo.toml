@@ -59,17 +59,6 @@ futures = "0.3"
 tokio = { version = "1.0", features = ["rt", "rt-multi-thread", "macros"] }
 
 
-
-[[example]]
-name = "basic_example"
-path = "examples/inspector/basic_example.rs"
-required-features = []
-
-[[example]]
-name = "target_app"
-path = "examples/inspector/target_app.rs"
-required-features = []
-
 [lints]
 workspace = true
 

@@ -390,7 +390,6 @@ fn handle_http_updates(
                         let entities_result = response.json::<Value>().await;
                         match entities_result {
                             Ok(json_response) => {
-                                
                                 // Parse the entities from the response
                                 let mut entities = HashMap::new();
                                 if let Some(result) = json_response.get("result") {

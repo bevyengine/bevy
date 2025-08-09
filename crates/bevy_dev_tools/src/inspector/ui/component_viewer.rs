@@ -175,7 +175,6 @@ fn spawn_component_sections(
     entity_id: u32,
     components: &HashMap<String, Value>,
 ) {
-
     // Use with_children to properly manage the parent-child relationship
     commands.entity(parent).with_children(|parent| {
         // Header
@@ -335,7 +334,7 @@ fn create_component_section(
         .with_children(|parent| {
             // Component name and category
             parent.spawn((
-                Text::new(format!("▼ {} [{}]", display_name, category)),
+                Text::new(format!("- {} [{}]", display_name, category)),
                 TextFont {
                     font_size: 14.0,
                     ..Default::default()
@@ -487,17 +486,9 @@ pub fn process_live_component_updates(
     // Process all pending updates from the new component update system
     let updates = http_client.check_component_updates();
 
-    if !updates.is_empty() {
-        println!("Processing {} component updates", updates.len());
-    }
+    if !updates.is_empty() {}
 
     for update in updates {
-        println!(
-            "Component update for entity {}: {} changed, {} removed",
-            update.entity_id,
-            update.changed_components.len(),
-            update.removed_components.len()
-        );
         process_component_update(&mut live_cache, update, current_time);
     }
 
@@ -529,11 +520,6 @@ fn process_component_update(
             component_state.current_value = new_value;
             component_state.last_changed_time = current_time;
             component_state.change_indicator = ChangeIndicator::Changed { duration: 2.0 };
-
-            println!(
-                "Component '{}' changed for entity {}",
-                component_name, update.entity_id
-            );
         }
     }
 
@@ -542,10 +528,6 @@ fn process_component_update(
         if let Some(component_state) = entity_components.get_mut(&component_name) {
             component_state.change_indicator = ChangeIndicator::Removed;
             component_state.last_changed_time = current_time;
-            println!(
-                "Component '{}' removed from entity {}",
-                component_name, update.entity_id
-            );
         }
     }
 }
@@ -641,10 +623,6 @@ pub fn update_live_component_display(
                 if text.0 != display_text {
                     text.0 = display_text;
                     selectable_text.text_content = formatted_value;
-                    println!(
-                        "Updated live display for {}.{}",
-                        component_data.entity_id, component_data.component_name
-                    );
                 }
             }
         }

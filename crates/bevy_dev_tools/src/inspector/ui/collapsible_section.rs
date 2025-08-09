@@ -2,7 +2,6 @@
 
 use bevy_color::Color;
 use bevy_ecs::prelude::*;
-use bevy_log::info;
 use bevy_text::{TextColor, TextFont};
 use bevy_ui::prelude::*;
 
@@ -29,6 +28,13 @@ pub struct CollapsibleHeader {
 /// Marker component for collapsible section content (shows/hides)
 #[derive(Component)]
 pub struct CollapsibleContent {
+    /// Reference to the parent collapsible section entity
+    pub section_entity: Entity,
+}
+
+/// Marker component for the text that shows the collapse/expand arrow
+#[derive(Component)]
+pub struct CollapsibleArrowText {
     /// Reference to the parent collapsible section entity
     pub section_entity: Entity,
 }
@@ -72,6 +78,7 @@ pub fn handle_collapsible_interactions(
     mut section_query: Query<&mut CollapsibleSection>,
     header_query: Query<(&Interaction, &CollapsibleHeader), Changed<Interaction>>,
     mut content_query: Query<&mut Node, With<CollapsibleContent>>,
+    mut arrow_text_query: Query<(&mut Text, &CollapsibleArrowText)>,
 ) {
     for (interaction, header) in header_query.iter() {
         if *interaction == Interaction::Pressed {
@@ -90,16 +97,13 @@ pub fn handle_collapsible_interactions(
                     }
                 }
 
-                // Update header arrow (would need access to text component)
-                info!(
-                    "Toggled section '{}' to {}",
-                    section.title,
-                    if section.is_expanded {
-                        "expanded"
-                    } else {
-                        "collapsed"
+                // Update header arrow text
+                for (mut arrow_text, arrow_marker) in arrow_text_query.iter_mut() {
+                    if arrow_marker.section_entity == header.section_entity {
+                        let arrow = if section.is_expanded { "-" } else { "+" };
+                        arrow_text.0 = format!("{} {}", arrow, section.title);
                     }
-                );
+                }
             }
         }
     }
@@ -143,6 +147,7 @@ pub fn spawn_collapsible_section(commands: &mut Commands, parent: Entity, title:
                     ..Default::default()
                 },
                 TextColor(Color::srgb(0.9, 0.9, 0.6)),
+                CollapsibleArrowText { section_entity },
             ));
         })
         .id();
