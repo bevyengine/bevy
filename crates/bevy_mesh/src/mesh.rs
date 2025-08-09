@@ -1472,17 +1472,25 @@ pub struct MeshDeserializer {
 #[cfg(feature = "serialize")]
 impl Default for MeshDeserializer {
     fn default() -> Self {
+        const NUMBER_OF_FOOTGUN_ATTRIBUTES: usize = 2;
         // Written like this so that the compiler can validate that we use all the built-in attributes.
         // If you just added a new attribute and got a compile error, please add it to this list :)
-        const BUILTINS: [MeshVertexAttribute; Mesh::FIRST_AVAILABLE_CUSTOM_ATTRIBUTE as usize] = [
+        const BUILTINS: [MeshVertexAttribute;
+            Mesh::FIRST_AVAILABLE_CUSTOM_ATTRIBUTE as usize - NUMBER_OF_FOOTGUN_ATTRIBUTES] = [
             Mesh::ATTRIBUTE_POSITION,
             Mesh::ATTRIBUTE_NORMAL,
             Mesh::ATTRIBUTE_UV_0,
             Mesh::ATTRIBUTE_UV_1,
             Mesh::ATTRIBUTE_TANGENT,
             Mesh::ATTRIBUTE_COLOR,
-            Mesh::ATTRIBUTE_JOINT_WEIGHT,
-            Mesh::ATTRIBUTE_JOINT_INDEX,
+            // These two are a footgun right now because they will crash any editor that loads them without also
+            // replicating the `SkinnedMesh` component. Since the `SerializedMesh` is primarily intended for static geometry,
+            // the user has to explicitly opt into using these.
+            // See https://github.com/bevyengine/bevy/issues/16929. Once that issue is resolved, uncomment these lines and
+            // update the docs of MeshDeserializer::new().
+            //
+            // Mesh::ATTRIBUTE_JOINT_WEIGHT,
+            // Mesh::ATTRIBUTE_JOINT_INDEX,
         ];
         Self {
             custom_vertex_attributes: BUILTINS
@@ -1495,7 +1503,9 @@ impl Default for MeshDeserializer {
 
 #[cfg(feature = "serialize")]
 impl MeshDeserializer {
-    /// Create a new [`MeshDeserializer`].
+    /// Create a new [`MeshDeserializer`]. Will deserialize all builtin attributes supported by Bevy except for
+    /// [`Mesh::ATTRIBUTE_JOINT_WEIGHT`] and [`Mesh::ATTRIBUTE_JOINT_INDEX`], which require an opt-in as they
+    /// need to be transmitted [along with a `SkinnedMesh`](https://github.com/bevyengine/bevy/issues/16929).
     pub fn new() -> Self {
         Self::default()
     }
