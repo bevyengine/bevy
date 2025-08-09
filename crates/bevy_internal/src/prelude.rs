@@ -44,10 +44,6 @@ pub use crate::animation::prelude::*;
 pub use crate::color::prelude::*;
 
 #[doc(hidden)]
-#[cfg(feature = "bevy_core_pipeline")]
-pub use crate::core_pipeline::prelude::*;
-
-#[doc(hidden)]
 #[cfg(feature = "bevy_pbr")]
 pub use crate::pbr::prelude::*;
 
