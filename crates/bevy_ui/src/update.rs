@@ -9,13 +9,13 @@ use crate::{
 
 use super::ComputedNode;
 use bevy_app::Propagate;
+use bevy_camera::Camera;
 use bevy_ecs::{
     entity::Entity,
     query::Has,
     system::{Commands, Query, Res},
 };
 use bevy_math::{Rect, UVec2};
-use bevy_render::camera::Camera;
 use bevy_sprite::BorderRect;
 
 /// Updates clipping for all nodes
@@ -180,14 +180,14 @@ mod tests {
     use bevy_app::PropagateSet;
     use bevy_asset::AssetEvent;
     use bevy_asset::Assets;
-    use bevy_core_pipeline::core_2d::Camera2d;
+    use bevy_camera::Camera;
+    use bevy_camera::Camera2d;
+    use bevy_camera::RenderTarget;
     use bevy_ecs::event::Events;
     use bevy_ecs::hierarchy::ChildOf;
     use bevy_ecs::schedule::IntoScheduleConfigs;
     use bevy_image::Image;
     use bevy_math::UVec2;
-    use bevy_render::camera::Camera;
-    use bevy_render::camera::RenderTarget;
     use bevy_render::texture::ManualTextureViews;
     use bevy_utils::default;
     use bevy_window::PrimaryWindow;

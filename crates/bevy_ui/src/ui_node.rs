@@ -2,15 +2,12 @@ use crate::{
     ui_transform::{UiGlobalTransform, UiTransform},
     FocusPolicy, UiRect, Val,
 };
+use bevy_camera::{visibility::Visibility, Camera, RenderTarget};
 use bevy_color::{Alpha, Color};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{prelude::*, system::SystemParam};
 use bevy_math::{vec4, Rect, UVec2, Vec2, Vec4Swizzles};
 use bevy_reflect::prelude::*;
-use bevy_render::{
-    camera::{Camera, RenderTarget},
-    view::Visibility,
-};
 use bevy_sprite::BorderRect;
 use bevy_utils::once;
 use bevy_window::{PrimaryWindow, WindowRef};
@@ -2720,7 +2717,7 @@ impl Default for LayoutConfig {
 /// Indicates that this root [`Node`] entity should be rendered to a specific camera.
 ///
 /// UI then will be laid out respecting the camera's viewport and scale factor, and
-/// rendered to this camera's [`bevy_render::camera::RenderTarget`].
+/// rendered to this camera's [`bevy_camera::RenderTarget`].
 ///
 /// Setting this component on a non-root node will have no effect. It will be overridden
 /// by the root node's component.
@@ -2750,7 +2747,7 @@ impl UiTargetCamera {
 /// ```
 /// # use bevy_ui::prelude::*;
 /// # use bevy_ecs::prelude::Commands;
-/// # use bevy_render::camera::{Camera, RenderTarget};
+/// # use bevy_camera::{Camera, RenderTarget};
 /// # use bevy_core_pipeline::prelude::Camera2d;
 /// # use bevy_window::{Window, WindowRef};
 ///
