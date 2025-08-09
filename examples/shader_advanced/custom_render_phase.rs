@@ -15,6 +15,7 @@ use std::ops::Range;
 use bevy::camera::Viewport;
 use bevy::pbr::SetMeshViewEmptyBindGroup;
 use bevy::{
+    camera::MainPassResolutionOverride,
     core_pipeline::core_3d::graph::{Core3d, Node3d},
     ecs::{
         query::QueryItem,
@@ -36,7 +37,7 @@ use bevy::{
             },
             GetBatchData, GetFullBatchData,
         },
-        camera::{ExtractedCamera, MainPassResolutionOverride},
+        camera::ExtractedCamera,
         extract_component::{ExtractComponent, ExtractComponentPlugin},
         mesh::{allocator::MeshAllocator, RenderMesh},
         render_asset::RenderAssets,
