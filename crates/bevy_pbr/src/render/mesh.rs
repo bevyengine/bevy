@@ -903,7 +903,7 @@ impl RenderMeshInstances {
 
     /// Constructs [`RenderMeshQueueData`] for the given entity, if it has a
     /// mesh attached.
-    pub fn render_mesh_queue_data(&self, entity: MainEntity) -> Option<RenderMeshQueueData> {
+    pub fn render_mesh_queue_data(&self, entity: MainEntity) -> Option<RenderMeshQueueData<'_>> {
         match *self {
             RenderMeshInstances::CpuBuilding(ref instances) => {
                 instances.render_mesh_queue_data(entity)
@@ -934,7 +934,7 @@ impl RenderMeshInstancesCpu {
             .map(|render_mesh_instance| render_mesh_instance.mesh_asset_id)
     }
 
-    fn render_mesh_queue_data(&self, entity: MainEntity) -> Option<RenderMeshQueueData> {
+    fn render_mesh_queue_data(&self, entity: MainEntity) -> Option<RenderMeshQueueData<'_>> {
         self.get(&entity)
             .map(|render_mesh_instance| RenderMeshQueueData {
                 shared: &render_mesh_instance.shared,
@@ -958,7 +958,7 @@ impl RenderMeshInstancesGpu {
             .map(|render_mesh_instance| render_mesh_instance.mesh_asset_id)
     }
 
-    fn render_mesh_queue_data(&self, entity: MainEntity) -> Option<RenderMeshQueueData> {
+    fn render_mesh_queue_data(&self, entity: MainEntity) -> Option<RenderMeshQueueData<'_>> {
         self.get(&entity)
             .map(|render_mesh_instance| RenderMeshQueueData {
                 shared: &render_mesh_instance.shared,
@@ -2712,27 +2712,26 @@ pub fn prepare_mesh_bind_groups(
     mut render_lightmaps: ResMut<RenderLightmaps>,
 ) {
     // CPU mesh preprocessing path.
-    if let Some(cpu_batched_instance_buffer) = cpu_batched_instance_buffer {
-        if let Some(instance_data_binding) = cpu_batched_instance_buffer
+    if let Some(cpu_batched_instance_buffer) = cpu_batched_instance_buffer
+        && let Some(instance_data_binding) = cpu_batched_instance_buffer
             .into_inner()
             .instance_data_binding()
-        {
-            // In this path, we only have a single set of bind groups for all phases.
-            let cpu_preprocessing_mesh_bind_groups = prepare_mesh_bind_groups_for_phase(
-                instance_data_binding,
-                &meshes,
-                &mesh_pipeline,
-                &render_device,
-                &skins_uniform,
-                &weights_uniform,
-                &mut render_lightmaps,
-            );
+    {
+        // In this path, we only have a single set of bind groups for all phases.
+        let cpu_preprocessing_mesh_bind_groups = prepare_mesh_bind_groups_for_phase(
+            instance_data_binding,
+            &meshes,
+            &mesh_pipeline,
+            &render_device,
+            &skins_uniform,
+            &weights_uniform,
+            &mut render_lightmaps,
+        );
 
-            commands.insert_resource(MeshBindGroups::CpuPreprocessing(
-                cpu_preprocessing_mesh_bind_groups,
-            ));
-            return;
-        }
+        commands.insert_resource(MeshBindGroups::CpuPreprocessing(
+            cpu_preprocessing_mesh_bind_groups,
+        ));
+        return;
     }
 
     // GPU mesh preprocessing path.
@@ -3022,11 +3021,11 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMeshBindGroup<I> {
             dynamic_offsets[offset_count] = dynamic_offset;
             offset_count += 1;
         }
-        if let Some(current_skin_index) = current_skin_byte_offset {
-            if skins_use_uniform_buffers(&render_device) {
-                dynamic_offsets[offset_count] = current_skin_index.byte_offset;
-                offset_count += 1;
-            }
+        if let Some(current_skin_index) = current_skin_byte_offset
+            && skins_use_uniform_buffers(&render_device)
+        {
+            dynamic_offsets[offset_count] = current_skin_index.byte_offset;
+            offset_count += 1;
         }
         if let Some(current_morph_index) = current_morph_index {
             dynamic_offsets[offset_count] = current_morph_index.index;
@@ -3036,11 +3035,11 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMeshBindGroup<I> {
         // Attach motion vectors if needed.
         if has_motion_vector_prepass {
             // Attach the previous skin index for motion vector computation.
-            if skins_use_uniform_buffers(&render_device) {
-                if let Some(current_skin_byte_offset) = current_skin_byte_offset {
-                    dynamic_offsets[offset_count] = current_skin_byte_offset.byte_offset;
-                    offset_count += 1;
-                }
+            if skins_use_uniform_buffers(&render_device)
+                && let Some(current_skin_byte_offset) = current_skin_byte_offset
+            {
+                dynamic_offsets[offset_count] = current_skin_byte_offset.byte_offset;
+                offset_count += 1;
             }
 
             // Attach the previous morph index for motion vector computation. If
@@ -3094,13 +3093,12 @@ impl<P: PhaseItem> RenderCommand<P> for DrawMesh {
         // If we're using GPU preprocessing, then we're dependent on that
         // compute shader having been run, which of course can only happen if
         // it's compiled. Otherwise, our mesh instance data won't be present.
-        if let Some(preprocess_pipelines) = preprocess_pipelines {
-            if !has_preprocess_bind_group
+        if let Some(preprocess_pipelines) = preprocess_pipelines
+            && (!has_preprocess_bind_group
                 || !preprocess_pipelines
-                    .pipelines_are_loaded(&pipeline_cache, &preprocessing_support)
-            {
-                return RenderCommandResult::Skip;
-            }
+                    .pipelines_are_loaded(&pipeline_cache, &preprocessing_support))
+        {
+            return RenderCommandResult::Skip;
         }
 
         let meshes = meshes.into_inner();

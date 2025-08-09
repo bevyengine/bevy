@@ -155,10 +155,10 @@ fn find_adapter_by_name(
     {
         tracing::trace!("Checking adapter: {:?}", adapter.get_info());
         let info = adapter.get_info();
-        if let Some(surface) = compatible_surface {
-            if !adapter.is_surface_supported(surface) {
-                continue;
-            }
+        if let Some(surface) = compatible_surface
+            && !adapter.is_surface_supported(surface)
+        {
+            continue;
         }
 
         if info.name.eq_ignore_ascii_case(adapter_name) {

@@ -659,7 +659,7 @@ impl OwnedBindingResource {
     /// [`OwnedBindingResource::Data`], because [`OwnedData`] doesn't itself
     /// correspond to any binding and instead requires the
     /// `MaterialBindGroupAllocator` to pack it into a buffer.
-    pub fn get_binding(&self) -> BindingResource {
+    pub fn get_binding(&self) -> BindingResource<'_> {
         match self {
             OwnedBindingResource::Buffer(buffer) => buffer.as_entire_binding(),
             OwnedBindingResource::TextureView(_, view) => BindingResource::TextureView(view),

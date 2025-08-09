@@ -642,7 +642,7 @@ impl<'w, R: Relationship> RelatedSpawnerCommands<'w, R> {
     }
 
     /// Returns the underlying [`Commands`].
-    pub fn commands(&mut self) -> Commands {
+    pub fn commands(&mut self) -> Commands<'_, '_> {
         self.commands.reborrow()
     }
 
