@@ -27,7 +27,9 @@ use bevy_render::{
     Render, RenderApp, RenderSystems,
 };
 use bevy_render::{sync_world::MainEntity, RenderStartup};
-use bevy_sprite::{Mesh2dPipeline, Mesh2dPipelineKey, SetMesh2dViewBindGroup};
+use bevy_sprite::{
+    init_mesh_2d_pipeline, Mesh2dPipeline, Mesh2dPipelineKey, SetMesh2dViewBindGroup,
+};
 use bevy_utils::default;
 use tracing::error;
 
@@ -56,7 +58,9 @@ impl Plugin for LineGizmo2dPlugin {
             )
             .add_systems(
                 RenderStartup,
-                init_line_gizmo_pipelines.after(init_line_gizmo_uniform_bind_group_layout),
+                init_line_gizmo_pipelines
+                    .after(init_line_gizmo_uniform_bind_group_layout)
+                    .after(init_mesh_2d_pipeline),
             )
             .add_systems(
                 Render,

@@ -423,11 +423,11 @@ fn update_slider_style(
 ) {
     for (slider_ent, value, range, hovered, drag_state, disabled) in sliders.iter() {
         for child in children.iter_descendants(slider_ent) {
-            if let Ok((mut thumb_node, mut thumb_bg, is_thumb)) = thumbs.get_mut(child) {
-                if is_thumb {
-                    thumb_node.left = Val::Percent(range.thumb_position(value.0) * 100.0);
-                    thumb_bg.0 = thumb_color(disabled, hovered.0 | drag_state.dragging);
-                }
+            if let Ok((mut thumb_node, mut thumb_bg, is_thumb)) = thumbs.get_mut(child)
+                && is_thumb
+            {
+                thumb_node.left = Val::Percent(range.thumb_position(value.0) * 100.0);
+                thumb_bg.0 = thumb_color(disabled, hovered.0 | drag_state.dragging);
             }
         }
     }
@@ -450,10 +450,10 @@ fn update_slider_style2(
     removed_disabled.read().for_each(|entity| {
         if let Ok((slider_ent, hovered, drag_state, disabled)) = sliders.get(entity) {
             for child in children.iter_descendants(slider_ent) {
-                if let Ok((mut thumb_bg, is_thumb)) = thumbs.get_mut(child) {
-                    if is_thumb {
-                        thumb_bg.0 = thumb_color(disabled, hovered.0 | drag_state.dragging);
-                    }
+                if let Ok((mut thumb_bg, is_thumb)) = thumbs.get_mut(child)
+                    && is_thumb
+                {
+                    thumb_bg.0 = thumb_color(disabled, hovered.0 | drag_state.dragging);
                 }
             }
         }

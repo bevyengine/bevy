@@ -6,7 +6,7 @@ use bevy::{ecs::system::EntityCommands, prelude::*};
 
 /// An event that's sent whenever the user changes one of the settings by
 /// clicking a radio button.
-#[derive(Clone, Event, BufferedEvent, Deref, DerefMut)]
+#[derive(Clone, BufferedEvent, Deref, DerefMut)]
 pub struct WidgetClickEvent<T>(T);
 
 /// A marker component that we place on all widgets that send
@@ -28,7 +28,12 @@ pub struct RadioButtonText;
 pub const BUTTON_BORDER: UiRect = UiRect::all(Val::Px(1.0));
 
 /// The color of the border that surrounds buttons.
-pub const BUTTON_BORDER_COLOR: BorderColor = BorderColor::all(Color::WHITE);
+pub const BUTTON_BORDER_COLOR: BorderColor = BorderColor {
+    left: Color::WHITE,
+    right: Color::WHITE,
+    top: Color::WHITE,
+    bottom: Color::WHITE,
+};
 
 /// The amount of rounding to apply to button corners.
 pub const BUTTON_BORDER_RADIUS_SIZE: Val = Val::Px(6.0);

@@ -91,7 +91,7 @@ mod entry {
         renderer::RenderDevice,
     };
 
-    fn entry(binding: u32, size: Option<u64>, buffer: &Buffer) -> BindGroupEntry {
+    fn entry(binding: u32, size: Option<u64>, buffer: &Buffer) -> BindGroupEntry<'_> {
         BindGroupEntry {
             binding,
             resource: BindingResource::Buffer(BufferBinding {
@@ -116,22 +116,25 @@ mod entry {
         };
         entry(binding, size, buffer)
     }
-    pub(super) fn weights(binding: u32, buffer: &Buffer) -> BindGroupEntry {
+    pub(super) fn weights(binding: u32, buffer: &Buffer) -> BindGroupEntry<'_> {
         entry(binding, Some(MORPH_BUFFER_SIZE as u64), buffer)
     }
-    pub(super) fn targets(binding: u32, texture: &TextureView) -> BindGroupEntry {
+    pub(super) fn targets(binding: u32, texture: &TextureView) -> BindGroupEntry<'_> {
         BindGroupEntry {
             binding,
             resource: BindingResource::TextureView(texture),
         }
     }
-    pub(super) fn lightmaps_texture_view(binding: u32, texture: &TextureView) -> BindGroupEntry {
+    pub(super) fn lightmaps_texture_view(
+        binding: u32,
+        texture: &TextureView,
+    ) -> BindGroupEntry<'_> {
         BindGroupEntry {
             binding,
             resource: BindingResource::TextureView(texture),
         }
     }
-    pub(super) fn lightmaps_sampler(binding: u32, sampler: &Sampler) -> BindGroupEntry {
+    pub(super) fn lightmaps_sampler(binding: u32, sampler: &Sampler) -> BindGroupEntry<'_> {
         BindGroupEntry {
             binding,
             resource: BindingResource::Sampler(sampler),

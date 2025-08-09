@@ -37,7 +37,7 @@ struct Animations {
     graph_handle: Handle<AnimationGraph>,
 }
 
-#[derive(Event, EntityEvent, Reflect, Clone)]
+#[derive(EntityEvent, Reflect, Clone)]
 struct OnStep;
 
 fn observe_on_step(
@@ -50,14 +50,14 @@ fn observe_on_step(
     let translation = transforms.get(trigger.target()).unwrap().translation();
     // Spawn a bunch of particles.
     for _ in 0..14 {
-        let horizontal = seeded_rng.0.r#gen::<Dir2>() * seeded_rng.0.gen_range(8.0..12.0);
-        let vertical = seeded_rng.0.gen_range(0.0..4.0);
-        let size = seeded_rng.0.gen_range(0.2..1.0);
+        let horizontal = seeded_rng.0.random::<Dir2>() * seeded_rng.0.random_range(8.0..12.0);
+        let vertical = seeded_rng.0.random_range(0.0..4.0);
+        let size = seeded_rng.0.random_range(0.2..1.0);
 
         commands.spawn((
             Particle {
                 lifetime_timer: Timer::from_seconds(
-                    seeded_rng.0.gen_range(0.2..0.6),
+                    seeded_rng.0.random_range(0.2..0.6),
                     TimerMode::Once,
                 ),
                 size,

@@ -106,13 +106,11 @@ impl Default for App {
 
         #[cfg(feature = "bevy_reflect")]
         {
-            use bevy_ecs::observer::ObservedBy;
-
+            #[cfg(not(feature = "reflect_auto_register"))]
             app.init_resource::<AppTypeRegistry>();
-            app.register_type::<Name>();
-            app.register_type::<ChildOf>();
-            app.register_type::<Children>();
-            app.register_type::<ObservedBy>();
+
+            #[cfg(feature = "reflect_auto_register")]
+            app.insert_resource(AppTypeRegistry::new_with_derived_types());
         }
 
         #[cfg(feature = "reflect_functions")]
@@ -355,7 +353,7 @@ impl App {
     /// # use bevy_app::prelude::*;
     /// # use bevy_ecs::prelude::*;
     /// #
-    /// # #[derive(Event, BufferedEvent)]
+    /// # #[derive(BufferedEvent)]
     /// # struct MyEvent;
     /// # let mut app = App::new();
     /// #
@@ -1325,7 +1323,7 @@ impl App {
     /// #   friends_allowed: bool,
     /// # };
     /// #
-    /// # #[derive(Event, EntityEvent)]
+    /// # #[derive(EntityEvent)]
     /// # struct Invite;
     /// #
     /// # #[derive(Component)]
@@ -1417,7 +1415,7 @@ fn run_once(mut app: App) -> AppExit {
 /// This type is roughly meant to map to a standard definition of a process exit code (0 means success, not 0 means error). Due to portability concerns
 /// (see [`ExitCode`](https://doc.rust-lang.org/std/process/struct.ExitCode.html) and [`process::exit`](https://doc.rust-lang.org/std/process/fn.exit.html#))
 /// we only allow error codes between 1 and [255](u8::MAX).
-#[derive(Event, BufferedEvent, Debug, Clone, Default, PartialEq, Eq)]
+#[derive(BufferedEvent, Debug, Clone, Default, PartialEq, Eq)]
 pub enum AppExit {
     /// [`App`] exited without any problems.
     #[default]
@@ -1485,7 +1483,7 @@ mod tests {
         change_detection::{DetectChanges, ResMut},
         component::Component,
         entity::Entity,
-        event::{BufferedEvent, Event, EventWriter, Events},
+        event::{BufferedEvent, EventWriter, Events},
         lifecycle::RemovedComponents,
         query::With,
         resource::Resource,
@@ -1568,12 +1566,15 @@ mod tests {
     #[derive(ScheduleLabel, Hash, Clone, PartialEq, Eq, Debug)]
     struct EnterMainMenu;
 
+    #[derive(Component)]
+    struct A;
+
     fn bar(mut commands: Commands) {
-        commands.spawn_empty();
+        commands.spawn(A);
     }
 
     fn foo(mut commands: Commands) {
-        commands.spawn_empty();
+        commands.spawn(A);
     }
 
     #[test]
@@ -1582,7 +1583,7 @@ mod tests {
         app.add_systems(EnterMainMenu, (foo, bar));
 
         app.world_mut().run_schedule(EnterMainMenu);
-        assert_eq!(app.world().entity_count(), 2);
+        assert_eq!(app.world_mut().query::<&A>().query(app.world()).count(), 2);
     }
 
     #[test]
@@ -1851,7 +1852,7 @@ mod tests {
     }
     #[test]
     fn events_should_be_updated_once_per_update() {
-        #[derive(Event, BufferedEvent, Clone)]
+        #[derive(BufferedEvent, Clone)]
         struct TestEvent;
 
         let mut app = App::new();

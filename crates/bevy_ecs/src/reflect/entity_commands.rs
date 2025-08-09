@@ -1,10 +1,9 @@
 use crate::{
-    entity::Entity,
     prelude::Mut,
     reflect::{AppTypeRegistry, ReflectBundle, ReflectComponent},
     resource::Resource,
     system::EntityCommands,
-    world::{EntityWorldMut, World},
+    world::EntityWorldMut,
 };
 use alloc::{borrow::Cow, boxed::Box};
 use bevy_reflect::{PartialReflect, TypeRegistry};
@@ -22,7 +21,7 @@ pub trait ReflectCommandExt {
     /// - If [`AppTypeRegistry`] does not have the reflection data for the given
     ///   [`Component`](crate::component::Component) or [`Bundle`](crate::bundle::Bundle).
     /// - If the component or bundle data is invalid. See [`PartialReflect::apply`] for further details.
-    /// - If [`AppTypeRegistry`] is not present in the [`World`].
+    /// - If [`AppTypeRegistry`] is not present in the [`World`](crate::world::World).
     ///
     /// # Note
     ///
@@ -92,11 +91,11 @@ pub trait ReflectCommandExt {
     ///
     /// # Panics
     ///
-    /// - If the given [`Resource`] is not present in the [`World`].
+    /// - If the given [`Resource`] is not present in the [`World`](crate::world::World).
     ///
     /// # Note
     ///
-    /// - The given [`Resource`] is removed from the [`World`] before the command is applied.
+    /// - The given [`Resource`] is removed from the [`World`](crate::world::World) before the command is applied.
     fn insert_reflect_with_registry<T: Resource + AsRef<TypeRegistry>>(
         &mut self,
         component: Box<dyn PartialReflect>,
@@ -214,7 +213,7 @@ impl<'w> EntityWorldMut<'w> {
     /// - If [`AppTypeRegistry`] does not have the reflection data for the given
     ///   [`Component`](crate::component::Component) or [`Bundle`](crate::bundle::Bundle).
     /// - If the component or bundle data is invalid. See [`PartialReflect::apply`] for further details.
-    /// - If [`AppTypeRegistry`] is not present in the [`World`].
+    /// - If [`AppTypeRegistry`] is not present in the [`World`](crate::world::World).
     ///
     /// # Note
     ///
@@ -222,15 +221,10 @@ impl<'w> EntityWorldMut<'w> {
     /// is much slower.
     pub fn insert_reflect(&mut self, component: Box<dyn PartialReflect>) -> &mut Self {
         self.assert_not_despawned();
-        let entity_id = self.id();
-        self.world_scope(|world| {
-            world.resource_scope(|world, registry: Mut<AppTypeRegistry>| {
-                let type_registry = &registry.as_ref().read();
-                insert_reflect_with_registry_ref(world, entity_id, type_registry, component);
-            });
-            world.flush();
+        self.resource_scope(|entity, registry: Mut<AppTypeRegistry>| {
+            let type_registry = &registry.as_ref().read();
+            insert_reflect_with_registry_ref(entity, type_registry, component);
         });
-        self.update_location();
         self
     }
 
@@ -245,21 +239,16 @@ impl<'w> EntityWorldMut<'w> {
     /// - If the given [`Resource`] does not have the reflection data for the given
     ///   [`Component`](crate::component::Component) or [`Bundle`](crate::bundle::Bundle).
     /// - If the component or bundle data is invalid. See [`PartialReflect::apply`] for further details.
-    /// - If the given [`Resource`] is not present in the [`World`].
+    /// - If the given [`Resource`] is not present in the [`World`](crate::world::World).
     pub fn insert_reflect_with_registry<T: Resource + AsRef<TypeRegistry>>(
         &mut self,
         component: Box<dyn PartialReflect>,
     ) -> &mut Self {
         self.assert_not_despawned();
-        let entity_id = self.id();
-        self.world_scope(|world| {
-            world.resource_scope(|world, registry: Mut<T>| {
-                let type_registry = registry.as_ref().as_ref();
-                insert_reflect_with_registry_ref(world, entity_id, type_registry, component);
-            });
-            world.flush();
+        self.resource_scope(|entity, registry: Mut<T>| {
+            let type_registry = registry.as_ref().as_ref();
+            insert_reflect_with_registry_ref(entity, type_registry, component);
         });
-        self.update_location();
         self
     }
 
@@ -275,7 +264,7 @@ impl<'w> EntityWorldMut<'w> {
     /// # Panics
     ///
     /// - If the entity has been despawned while this `EntityWorldMut` is still alive.
-    /// - If [`AppTypeRegistry`] is not present in the [`World`].
+    /// - If [`AppTypeRegistry`] is not present in the [`World`](crate::world::World).
     ///
     /// # Note
     ///
@@ -283,20 +272,10 @@ impl<'w> EntityWorldMut<'w> {
     /// is much slower.
     pub fn remove_reflect(&mut self, component_type_path: Cow<'static, str>) -> &mut Self {
         self.assert_not_despawned();
-        let entity_id = self.id();
-        self.world_scope(|world| {
-            world.resource_scope(|world, registry: Mut<AppTypeRegistry>| {
-                let type_registry = &registry.as_ref().read();
-                remove_reflect_with_registry_ref(
-                    world,
-                    entity_id,
-                    type_registry,
-                    component_type_path,
-                );
-            });
-            world.flush();
+        self.resource_scope(|entity, registry: Mut<AppTypeRegistry>| {
+            let type_registry = &registry.as_ref().read();
+            remove_reflect_with_registry_ref(entity, type_registry, component_type_path);
         });
-        self.update_location();
         self
     }
 
@@ -313,34 +292,23 @@ impl<'w> EntityWorldMut<'w> {
     /// # Panics
     ///
     /// - If the entity has been despawned while this `EntityWorldMut` is still alive.
-    /// - If [`AppTypeRegistry`] is not present in the [`World`].
+    /// - If [`AppTypeRegistry`] is not present in the [`World`](crate::world::World).
     pub fn remove_reflect_with_registry<T: Resource + AsRef<TypeRegistry>>(
         &mut self,
         component_type_path: Cow<'static, str>,
     ) -> &mut Self {
         self.assert_not_despawned();
-        let entity_id = self.id();
-        self.world_scope(|world| {
-            world.resource_scope(|world, registry: Mut<T>| {
-                let type_registry = registry.as_ref().as_ref();
-                remove_reflect_with_registry_ref(
-                    world,
-                    entity_id,
-                    type_registry,
-                    component_type_path,
-                );
-            });
-            world.flush();
+        self.resource_scope(|entity, registry: Mut<T>| {
+            let type_registry = registry.as_ref().as_ref();
+            remove_reflect_with_registry_ref(entity, type_registry, component_type_path);
         });
-        self.update_location();
         self
     }
 }
 
 /// Helper function to add a reflect component or bundle to a given entity
 fn insert_reflect_with_registry_ref(
-    world: &mut World,
-    entity: Entity,
+    entity: &mut EntityWorldMut,
     type_registry: &TypeRegistry,
     component: Box<dyn PartialReflect>,
 ) {
@@ -348,18 +316,14 @@ fn insert_reflect_with_registry_ref(
         .get_represented_type_info()
         .expect("component should represent a type.");
     let type_path = type_info.type_path();
-    let Ok(mut entity) = world.get_entity_mut(entity) else {
-        panic!("error[B0003]: Could not insert a reflected component (of type {type_path}) for entity {entity}, which {}. See: https://bevy.org/learn/errors/b0003",
-        world.entities().entity_does_not_exist_error_details(entity));
-    };
     let Some(type_registration) = type_registry.get(type_info.type_id()) else {
         panic!("`{type_path}` should be registered in type registry via `App::register_type<{type_path}>`");
     };
 
     if let Some(reflect_component) = type_registration.data::<ReflectComponent>() {
-        reflect_component.insert(&mut entity, component.as_partial_reflect(), type_registry);
+        reflect_component.insert(entity, component.as_partial_reflect(), type_registry);
     } else if let Some(reflect_bundle) = type_registration.data::<ReflectBundle>() {
-        reflect_bundle.insert(&mut entity, component.as_partial_reflect(), type_registry);
+        reflect_bundle.insert(entity, component.as_partial_reflect(), type_registry);
     } else {
         panic!("`{type_path}` should have #[reflect(Component)] or #[reflect(Bundle)]");
     }
@@ -367,21 +331,17 @@ fn insert_reflect_with_registry_ref(
 
 /// Helper function to remove a reflect component or bundle from a given entity
 fn remove_reflect_with_registry_ref(
-    world: &mut World,
-    entity: Entity,
+    entity: &mut EntityWorldMut,
     type_registry: &TypeRegistry,
     component_type_path: Cow<'static, str>,
 ) {
-    let Ok(mut entity) = world.get_entity_mut(entity) else {
-        return;
-    };
     let Some(type_registration) = type_registry.get_with_type_path(&component_type_path) else {
         return;
     };
     if let Some(reflect_component) = type_registration.data::<ReflectComponent>() {
-        reflect_component.remove(&mut entity);
+        reflect_component.remove(entity);
     } else if let Some(reflect_bundle) = type_registration.data::<ReflectBundle>() {
-        reflect_bundle.remove(&mut entity);
+        reflect_bundle.remove(entity);
     }
 }
 

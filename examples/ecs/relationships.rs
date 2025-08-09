@@ -53,12 +53,12 @@ fn main() {
         // Relations are just components, so we can add them into the bundle that we're spawning.
         let bob = commands.spawn((Name::new("Bob"), Targeting(alice))).id();
 
-        // The `with_related` and `with_relationships` helper methods on `EntityCommands` can be used to add relations in a more ergonomic way.
+        // The `with_related` and `with_related_entities` helper methods on `EntityCommands` can be used to add relations in a more ergonomic way.
         let charlie = commands
             .spawn((Name::new("Charlie"), Targeting(bob)))
             // The `with_related` method will spawn a bundle with `Targeting` relationship
             .with_related::<Targeting>(Name::new("James"))
-            // The `with_relationships` method will automatically add the `Targeting` component to any entities spawned within the closure,
+            // The `with_related_entities` method will automatically add the `Targeting` component to any entities spawned within the closure,
             // targeting the entity that we're calling `with_related` on.
             .with_related_entities::<Targeting>(|related_spawner_commands| {
                 // We could spawn multiple entities here, and they would all target `charlie`.
@@ -87,8 +87,8 @@ fn main() {
             let targeted_by_string = if let Some(targeted_by) = maybe_targeted_by {
                 let mut vec_of_names = Vec::<&Name>::new();
 
-                for entity in &targeted_by.0 {
-                    let name = name_query.get(*entity).unwrap();
+                for entity in targeted_by.iter() {
+                    let name = name_query.get(entity).unwrap();
                     vec_of_names.push(name);
                 }
 

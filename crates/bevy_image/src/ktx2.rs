@@ -58,7 +58,7 @@ pub fn ktx2_buffer_to_image(
                     })?;
                     levels.push(decompressed);
                 }
-                #[cfg(feature = "zstd_rust")]
+                #[cfg(all(feature = "zstd_rust", not(feature = "zstd_c")))]
                 SupercompressionScheme::Zstandard => {
                     let mut cursor = std::io::Cursor::new(level.data);
                     let mut decoder = ruzstd::decoding::StreamingDecoder::new(&mut cursor)
@@ -71,7 +71,7 @@ pub fn ktx2_buffer_to_image(
                     })?;
                     levels.push(decompressed);
                 }
-                #[cfg(all(feature = "zstd_c", not(feature = "zstd_rust")))]
+                #[cfg(feature = "zstd_c")]
                 SupercompressionScheme::Zstandard => {
                     levels.push(zstd::decode_all(level.data).map_err(|err| {
                         TextureError::SuperDecompressionError(format!(

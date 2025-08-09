@@ -361,7 +361,7 @@ fn highlight_focused_element(
         if input_focus.0 == Some(entity) && input_focus_visible.0 {
             // Don't change the border size / radius here,
             // as it would result in wiggling buttons when they are focused
-            *border_color = BorderColor::all(FOCUSED_BORDER.into());
+            *border_color = BorderColor::all(FOCUSED_BORDER);
         } else {
             *border_color = BorderColor::DEFAULT;
         }
@@ -378,36 +378,35 @@ fn interact_with_focused_button(
     if action_state
         .pressed_actions
         .contains(&DirectionalNavigationAction::Select)
+        && let Some(focused_entity) = input_focus.0
     {
-        if let Some(focused_entity) = input_focus.0 {
-            commands.trigger_targets(
-                Pointer::<Click> {
-                    // We're pretending that we're a mouse
-                    pointer_id: PointerId::Mouse,
-                    // This field isn't used, so we're just setting it to a placeholder value
-                    pointer_location: Location {
-                        target: NormalizedRenderTarget::Image(
-                            bevy::render::camera::ImageRenderTarget {
-                                handle: Handle::default(),
-                                scale_factor: FloatOrd(1.0),
-                            },
-                        ),
-                        position: Vec2::ZERO,
-                    },
-                    event: Click {
-                        button: PointerButton::Primary,
-                        // This field isn't used, so we're just setting it to a placeholder value
-                        hit: HitData {
-                            camera: Entity::PLACEHOLDER,
-                            depth: 0.0,
-                            position: None,
-                            normal: None,
+        commands.trigger_targets(
+            Pointer::<Click> {
+                // We're pretending that we're a mouse
+                pointer_id: PointerId::Mouse,
+                // This field isn't used, so we're just setting it to a placeholder value
+                pointer_location: Location {
+                    target: NormalizedRenderTarget::Image(
+                        bevy::render::camera::ImageRenderTarget {
+                            handle: Handle::default(),
+                            scale_factor: FloatOrd(1.0),
                         },
-                        duration: Duration::from_secs_f32(0.1),
-                    },
+                    ),
+                    position: Vec2::ZERO,
                 },
-                focused_entity,
-            );
-        }
+                event: Click {
+                    button: PointerButton::Primary,
+                    // This field isn't used, so we're just setting it to a placeholder value
+                    hit: HitData {
+                        camera: Entity::PLACEHOLDER,
+                        depth: 0.0,
+                        position: None,
+                        normal: None,
+                    },
+                    duration: Duration::from_secs_f32(0.1),
+                },
+            },
+            focused_entity,
+        );
     }
 }

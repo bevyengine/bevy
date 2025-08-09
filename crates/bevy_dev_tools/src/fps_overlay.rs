@@ -212,10 +212,10 @@ fn update_text(
     if *time_since_rerender >= config.refresh_interval {
         *time_since_rerender = Duration::ZERO;
         for entity in &query {
-            if let Some(fps) = diagnostic.get(&FrameTimeDiagnosticsPlugin::FPS) {
-                if let Some(value) = fps.smoothed() {
-                    *writer.text(entity, 1) = format!("{value:.2}");
-                }
+            if let Some(fps) = diagnostic.get(&FrameTimeDiagnosticsPlugin::FPS)
+                && let Some(value) = fps.smoothed()
+            {
+                *writer.text(entity, 1) = format!("{value:.2}");
             }
         }
     }

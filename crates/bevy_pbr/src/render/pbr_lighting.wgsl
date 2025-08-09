@@ -137,7 +137,7 @@ fn getDistanceAttenuation(distanceSquare: f32, inverseRangeSquared: f32) -> f32 
 
 // Simple implementation, has precision problems when using fp16 instead of fp32
 // see https://google.github.io/filament/Filament.html#listing_speculardfp16
-fn D_GGX(roughness: f32, NdotH: f32, h: vec3<f32>) -> f32 {
+fn D_GGX(roughness: f32, NdotH: f32) -> f32 {
     let oneMinusNdotHSquared = 1.0 - NdotH * NdotH;
     let a = NdotH * roughness;
     let k = roughness / (oneMinusNdotHSquared + a * a);
@@ -199,6 +199,91 @@ fn V_GGX_anisotropic(
     let GGX_L = NdotV * length(vec3(at * TdotL, ab * BdotL, NdotL));
     let v = 0.5 / (GGX_V + GGX_L);
     return saturate(v);
+}
+
+// Probability-density function that matches the bounded VNDF sampler
+// https://gpuopen.com/download/Bounded_VNDF_Sampling_for_Smith-GGX_Reflections.pdf (Listing 2)
+fn ggx_vndf_pdf(i: vec3<f32>, NdotH: f32, roughness: f32) -> f32 {
+    let ndf = D_GGX(roughness, NdotH);
+
+    // Common terms
+    let ai = roughness * i.xy;
+    let len2 = dot(ai, ai);
+    let t = sqrt(len2 + i.z * i.z);
+    if i.z >= 0.0 {
+        let a = roughness;
+        let s = 1.0 + length(i.xy);
+        let a2 = a * a;
+        let s2 = s * s;
+        let k = (1.0 - a2) * s2 / (s2 + a2 * i.z * i.z);
+        return ndf / (2.0 * (k * i.z + t));
+    }
+
+    // Backfacing case
+    return ndf * (t - i.z) / (2.0 * len2);
+}
+
+// https://gpuopen.com/download/Bounded_VNDF_Sampling_for_Smith-GGX_Reflections.pdf (Listing 1)
+fn sample_visible_ggx(
+    xi: vec2<f32>,
+    roughness: f32,
+    normal: vec3<f32>,
+    view: vec3<f32>,
+) -> vec3<f32> {
+    let n = normal;
+    let alpha = roughness;
+
+    // Decompose view into components parallel/perpendicular to the normal
+    let wi_n = dot(view, n);
+    let wi_z = -n * wi_n;
+    let wi_xy = view + wi_z;
+
+    // Warp view vector to the unit-roughness configuration
+    let wi_std = -normalize(alpha * wi_xy + wi_z);
+
+    // Compute wi_std.z once for reuse
+    let wi_std_z = dot(wi_std, n);
+
+    // Bounded VNDF sampling
+    // Compute the bound parameter k (Eq. 5) and the scaled z–limit b (Eq. 6)
+    let s = 1.0 + length(wi_xy);
+    let a = clamp(alpha, 0.0, 1.0);
+    let a2 = a * a;
+    let s2 = s * s;
+    let k = (1.0 - a2) * s2 / (s2 + a2 * wi_n * wi_n);
+    let b = select(wi_std_z, k * wi_std_z, wi_n > 0.0);
+
+    // Sample a spherical cap in (-b, 1]
+    let z = 1.0 - xi.y * (1.0 + b);
+    let sin_theta = sqrt(max(0.0, 1.0 - z * z));
+    let phi = 2.0 * PI * xi.x - PI;
+    let x = sin_theta * cos(phi);
+    let y = sin_theta * sin(phi);
+    let c_std = vec3f(x, y, z);
+
+    // Reflect the sample so that the normal aligns with +Z
+    let up = vec3f(0.0, 0.0, 1.0);
+    let wr = n + up;
+    let c = dot(wr, c_std) * wr / wr.z - c_std;
+
+    // Half-vector in the standard frame
+    let wm_std = c + wi_std;
+    let wm_std_z = n * dot(n, wm_std);
+    let wm_std_xy = wm_std_z - wm_std;
+
+    // Unwarp back to original roughness and compute microfacet normal
+    let H = normalize(alpha * wm_std_xy + wm_std_z);
+
+    // Reflect view to obtain the outgoing (light) direction
+    return reflect(-view, H);
+}
+
+// Smith geometric shadowing function
+fn G_Smith(NdotV: f32, NdotL: f32, roughness: f32) -> f32 {
+    let k = roughness / 2.0;
+    let GGXL = NdotL / (NdotL * (1.0 - k) + k);
+    let GGXV = NdotV / (NdotV * (1.0 - k) + k);
+    return GGXL * GGXV;
 }
 
 // A simpler, but nonphysical, alternative to Smith-GGX. We use this for
@@ -313,13 +398,12 @@ fn specular(
     let roughness = (*input).layers[LAYER_BASE].roughness;
     let NdotV = (*input).layers[LAYER_BASE].NdotV;
     let F0 = (*input).F0_;
-    let H = (*derived_input).H;
     let NdotL = (*derived_input).NdotL;
     let NdotH = (*derived_input).NdotH;
     let LdotH = (*derived_input).LdotH;
 
     // Calculate distribution.
-    let D = D_GGX(roughness, NdotH, H);
+    let D = D_GGX(roughness, NdotH);
     // Calculate visibility.
     let V = V_SmithGGXCorrelated(roughness, NdotV, NdotL);
     // Calculate the Fresnel term.
@@ -343,12 +427,11 @@ fn specular_clearcoat(
 ) -> vec2<f32> {
     // Unpack.
     let roughness = (*input).layers[LAYER_CLEARCOAT].roughness;
-    let H = (*derived_input).H;
     let NdotH = (*derived_input).NdotH;
     let LdotH = (*derived_input).LdotH;
 
     // Calculate distribution.
-    let Dc = D_GGX(roughness, NdotH, H);
+    let Dc = D_GGX(roughness, NdotH);
     // Calculate visibility.
     let Vc = V_Kelemen(LdotH);
     // Calculate the Fresnel term.

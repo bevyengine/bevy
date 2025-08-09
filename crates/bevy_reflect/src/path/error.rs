@@ -64,7 +64,7 @@ impl<'a> AccessError<'a> {
     }
 
     /// The returns the [`Access`] that this [`AccessError`] occurred in.
-    pub const fn access(&self) -> &Access {
+    pub const fn access(&self) -> &Access<'_> {
         &self.access
     }
 

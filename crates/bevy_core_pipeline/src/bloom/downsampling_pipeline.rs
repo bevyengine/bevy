@@ -1,12 +1,11 @@
 use crate::FullscreenShader;
 
 use super::{Bloom, BLOOM_TEXTURE_FORMAT};
-use bevy_asset::{load_embedded_asset, Handle};
+use bevy_asset::{load_embedded_asset, AssetServer, Handle};
 use bevy_ecs::{
     prelude::{Component, Entity},
     resource::Resource,
     system::{Commands, Query, Res, ResMut},
-    world::{FromWorld, World},
 };
 use bevy_math::{Vec2, Vec4};
 use bevy_render::{
@@ -53,42 +52,43 @@ pub struct BloomUniforms {
     pub aspect: f32,
 }
 
-impl FromWorld for BloomDownsamplingPipeline {
-    fn from_world(world: &mut World) -> Self {
-        let render_device = world.resource::<RenderDevice>();
-
-        // Bind group layout
-        let bind_group_layout = render_device.create_bind_group_layout(
-            "bloom_downsampling_bind_group_layout_with_settings",
-            &BindGroupLayoutEntries::sequential(
-                ShaderStages::FRAGMENT,
-                (
-                    // Input texture binding
-                    texture_2d(TextureSampleType::Float { filterable: true }),
-                    // Sampler binding
-                    sampler(SamplerBindingType::Filtering),
-                    // Downsampling settings binding
-                    uniform_buffer::<BloomUniforms>(true),
-                ),
+pub fn init_bloom_downsampling_pipeline(
+    mut commands: Commands,
+    render_device: Res<RenderDevice>,
+    fullscreen_shader: Res<FullscreenShader>,
+    asset_server: Res<AssetServer>,
+) {
+    // Bind group layout
+    let bind_group_layout = render_device.create_bind_group_layout(
+        "bloom_downsampling_bind_group_layout_with_settings",
+        &BindGroupLayoutEntries::sequential(
+            ShaderStages::FRAGMENT,
+            (
+                // Input texture binding
+                texture_2d(TextureSampleType::Float { filterable: true }),
+                // Sampler binding
+                sampler(SamplerBindingType::Filtering),
+                // Downsampling settings binding
+                uniform_buffer::<BloomUniforms>(true),
             ),
-        );
+        ),
+    );
 
-        // Sampler
-        let sampler = render_device.create_sampler(&SamplerDescriptor {
-            min_filter: FilterMode::Linear,
-            mag_filter: FilterMode::Linear,
-            address_mode_u: AddressMode::ClampToEdge,
-            address_mode_v: AddressMode::ClampToEdge,
-            ..Default::default()
-        });
+    // Sampler
+    let sampler = render_device.create_sampler(&SamplerDescriptor {
+        min_filter: FilterMode::Linear,
+        mag_filter: FilterMode::Linear,
+        address_mode_u: AddressMode::ClampToEdge,
+        address_mode_v: AddressMode::ClampToEdge,
+        ..Default::default()
+    });
 
-        BloomDownsamplingPipeline {
-            bind_group_layout,
-            sampler,
-            fullscreen_shader: world.resource::<FullscreenShader>().clone(),
-            fragment_shader: load_embedded_asset!(world, "bloom.wgsl"),
-        }
-    }
+    commands.insert_resource(BloomDownsamplingPipeline {
+        bind_group_layout,
+        sampler,
+        fullscreen_shader: fullscreen_shader.clone(),
+        fragment_shader: load_embedded_asset!(asset_server.as_ref(), "bloom.wgsl"),
+    });
 }
 
 impl SpecializedRenderPipeline for BloomDownsamplingPipeline {

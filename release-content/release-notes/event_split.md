@@ -1,7 +1,7 @@
 ---
 title: Event Split
 authors: ["@Jondolf"]
-pull_requests: [19647]
+pull_requests: [19647, 20101]
 ---
 
 In past releases, all event types were defined by simply deriving the `Event` trait:
@@ -28,9 +28,9 @@ or an observer event with `EventReader`, leaving the user wondering why the even
 
 **Bevy 0.17** aims to solve this ambiguity by splitting the event traits into `Event`, `EntityEvent`, and `BufferedEvent`.
 
-- `Event`: A shared trait for all events.
+- `Event`: A shared trait for observer events.
 - `EntityEvent`: An `Event` that additionally supports targeting specific entities and propagating the event from one entity to another.
-- `BufferedEvent`: An `Event` that additionally supports usage with `EventReader` and `EventWriter` for pull-based event handling.
+- `BufferedEvent`: An event that supports usage with `EventReader` and `EventWriter` for pull-based event handling.
 
 ## Using Events
 
@@ -57,12 +57,12 @@ commands.trigger(Speak {
 });
 ```
 
-To allow an event to be targeted at entities and even propagated further, you can also derive `EntityEvent`.
+To allow an event to be targeted at entities and even propagated further, you can instead derive `EntityEvent`.
 It supports optionally specifying some options for propagation using the `event` attribute:
 
 ```rust
 // When the `Damage` event is triggered on an entity, bubble the event up to ancestors.
-#[derive(Event, EntityEvent)]
+#[derive(EntityEvent)]
 #[entity_event(traversal = &'static ChildOf, auto_propagate)]
 struct Damage {
     amount: f32,
@@ -92,10 +92,10 @@ let armor_piece = commands
 commands.trigger_targets(Damage { amount: 10.0 }, armor_piece);
 ```
 
-To allow an event to be used with the buffered API, you can also derive `BufferedEvent`:
+To allow an event to be used with the buffered API, you can instead derive `BufferedEvent`:
 
 ```rust
-#[derive(Event, BufferedEvent)]
+#[derive(BufferedEvent)]
 struct Message(String);
 ```
 
@@ -117,5 +117,5 @@ fn read_messages(mut reader: EventReader<Message>) {
 In summary:
 
 - Need a basic event you can trigger and observe? Derive `Event`!
-- Need the event to be targeted at an entity? Derive `EntityEvent`!
+- Need the observer event to be targeted at an entity? Derive `EntityEvent`!
 - Need the event to be buffered and support the `EventReader`/`EventWriter` API? Derive `BufferedEvent`!

@@ -75,7 +75,7 @@ fn spawn_with_viewport_coords(commands: &mut Commands) {
                 flex_wrap: FlexWrap::Wrap,
                 ..default()
             },
-            BorderColor::all(PALETTE[0].into()),
+            BorderColor::all(PALETTE[0]),
             Coords::Viewport,
         ))
         .with_children(|builder| {
@@ -87,7 +87,7 @@ fn spawn_with_viewport_coords(commands: &mut Commands) {
                     ..default()
                 },
                 BackgroundColor(PALETTE[2].into()),
-                BorderColor::all(PALETTE[9].into()),
+                BorderColor::all(PALETTE[9]),
             ));
 
             builder.spawn((
@@ -107,7 +107,7 @@ fn spawn_with_viewport_coords(commands: &mut Commands) {
                     ..default()
                 },
                 BackgroundColor(PALETTE[4].into()),
-                BorderColor::all(PALETTE[8].into()),
+                BorderColor::all(PALETTE[8]),
             ));
 
             builder.spawn((
@@ -118,7 +118,7 @@ fn spawn_with_viewport_coords(commands: &mut Commands) {
                     ..default()
                 },
                 BackgroundColor(PALETTE[5].into()),
-                BorderColor::all(PALETTE[8].into()),
+                BorderColor::all(PALETTE[8]),
             ));
 
             builder.spawn((
@@ -138,7 +138,7 @@ fn spawn_with_viewport_coords(commands: &mut Commands) {
                     ..default()
                 },
                 BackgroundColor(PALETTE[7].into()),
-                BorderColor::all(PALETTE[9].into()),
+                BorderColor::all(PALETTE[9]),
             ));
         });
 }
@@ -153,7 +153,7 @@ fn spawn_with_pixel_coords(commands: &mut Commands) {
                 flex_wrap: FlexWrap::Wrap,
                 ..default()
             },
-            BorderColor::all(PALETTE[1].into()),
+            BorderColor::all(PALETTE[1]),
             Coords::Pixel,
         ))
         .with_children(|builder| {
@@ -165,7 +165,7 @@ fn spawn_with_pixel_coords(commands: &mut Commands) {
                     ..default()
                 },
                 BackgroundColor(PALETTE[2].into()),
-                BorderColor::all(PALETTE[9].into()),
+                BorderColor::all(PALETTE[9]),
             ));
 
             builder.spawn((
@@ -185,7 +185,7 @@ fn spawn_with_pixel_coords(commands: &mut Commands) {
                     ..default()
                 },
                 BackgroundColor(PALETTE[4].into()),
-                BorderColor::all(PALETTE[8].into()),
+                BorderColor::all(PALETTE[8]),
             ));
 
             builder.spawn((
@@ -196,7 +196,7 @@ fn spawn_with_pixel_coords(commands: &mut Commands) {
                     ..default()
                 },
                 BackgroundColor(PALETTE[5].into()),
-                BorderColor::all(PALETTE[8].into()),
+                BorderColor::all(PALETTE[8]),
             ));
 
             builder.spawn((
@@ -216,7 +216,7 @@ fn spawn_with_pixel_coords(commands: &mut Commands) {
                     ..default()
                 },
                 BackgroundColor(PALETTE[7].into()),
-                BorderColor::all(PALETTE[9].into()),
+                BorderColor::all(PALETTE[9]),
             ));
         });
 }

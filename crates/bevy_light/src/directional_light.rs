@@ -9,6 +9,7 @@ use bevy_ecs::prelude::*;
 use bevy_image::Image;
 use bevy_reflect::prelude::*;
 use bevy_transform::components::Transform;
+use tracing::warn;
 
 use super::{
     cascade::CascadeShadowConfig, cluster::ClusterVisibilityClass, light_consts, Cascades,
@@ -169,7 +170,7 @@ pub struct DirectionalLightTexture {
     pub tiled: bool,
 }
 
-/// Controls the resolution of [`DirectionalLight`] shadow maps.
+/// Controls the resolution of [`DirectionalLight`] and [`SpotLight`](crate::SpotLight) shadow maps.
 ///
 /// ```
 /// # use bevy_app::prelude::*;
@@ -182,6 +183,8 @@ pub struct DirectionalLightTexture {
 pub struct DirectionalLightShadowMap {
     // The width and height of each cascade.
     ///
+    /// Must be a power of two to avoid unstable cascade positioning.
+    ///
     /// Defaults to `2048`.
     pub size: usize,
 }
@@ -189,6 +192,14 @@ pub struct DirectionalLightShadowMap {
 impl Default for DirectionalLightShadowMap {
     fn default() -> Self {
         Self { size: 2048 }
+    }
+}
+
+pub fn validate_shadow_map_size(mut shadow_map: ResMut<DirectionalLightShadowMap>) {
+    if shadow_map.is_changed() && !shadow_map.size.is_power_of_two() {
+        let new_size = shadow_map.size.next_power_of_two();
+        warn!("Non-power-of-two DirectionalLightShadowMap sizes are not supported, correcting {} to {new_size}", shadow_map.size);
+        shadow_map.size = new_size;
     }
 }
 

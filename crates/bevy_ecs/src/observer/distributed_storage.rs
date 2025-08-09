@@ -12,8 +12,11 @@
 use core::any::Any;
 
 use crate::{
-    component::{ComponentCloneBehavior, ComponentId, Mutable, StorageType},
+    component::{
+        ComponentCloneBehavior, ComponentId, Mutable, RequiredComponentsRegistrator, StorageType,
+    },
     entity::Entity,
+    entity_disabling::Internal,
     error::{ErrorContext, ErrorHandler},
     lifecycle::{ComponentHook, HookContext},
     observer::{observer_system_runner, ObserverRunner},
@@ -131,7 +134,7 @@ use crate::prelude::ReflectComponent;
 /// # use bevy_ecs::prelude::*;
 /// # let mut world = World::default();
 /// # let entity = world.spawn_empty().id();
-/// #[derive(Event, EntityEvent)]
+/// #[derive(EntityEvent)]
 /// struct Explode;
 ///
 /// world.add_observer(|trigger: On<Explode>, mut commands: Commands| {
@@ -151,7 +154,7 @@ use crate::prelude::ReflectComponent;
 /// # let mut world = World::default();
 /// # let e1 = world.spawn_empty().id();
 /// # let e2 = world.spawn_empty().id();
-/// # #[derive(Event, EntityEvent)]
+/// # #[derive(EntityEvent)]
 /// # struct Explode;
 /// world.trigger_targets(Explode, [e1, e2]);
 /// ```
@@ -165,7 +168,7 @@ use crate::prelude::ReflectComponent;
 /// # let mut world = World::default();
 /// # let e1 = world.spawn_empty().id();
 /// # let e2 = world.spawn_empty().id();
-/// # #[derive(Event, EntityEvent)]
+/// # #[derive(EntityEvent)]
 /// # struct Explode;
 /// world.entity_mut(e1).observe(|trigger: On<Explode>, mut commands: Commands| {
 ///     println!("Boom!");
@@ -187,7 +190,7 @@ use crate::prelude::ReflectComponent;
 /// # use bevy_ecs::prelude::*;
 /// # let mut world = World::default();
 /// # let entity = world.spawn_empty().id();
-/// # #[derive(Event, EntityEvent)]
+/// # #[derive(EntityEvent)]
 /// # struct Explode;
 /// let mut observer = Observer::new(|trigger: On<Explode>| {});
 /// observer.watch_entity(entity);
@@ -196,8 +199,7 @@ use crate::prelude::ReflectComponent;
 ///
 /// Note that the [`Observer`] component is not added to the entity it is observing. Observers should always be their own entities!
 ///
-/// You can call [`Observer::watch_entity`] more than once, which allows you to watch multiple entities with the same [`Observer`].
-/// serves as the "source of truth" of the observer.
+/// You can call [`Observer::watch_entity`] more than once or [`Observer::watch_entities`] to watch multiple entities with the same [`Observer`].
 ///
 /// [`SystemParam`]: crate::system::SystemParam
 pub struct Observer {
@@ -248,7 +250,7 @@ impl Observer {
                 world.commands().queue(move |world: &mut World| {
                     let entity = hook_context.entity;
                     if let Some(mut observe) = world.get_mut::<Observer>(entity) {
-                        if observe.descriptor.events.is_empty() {
+                        if observe.descriptor.event_keys.is_empty() {
                             return;
                         }
                         if observe.error_handler.is_none() {
@@ -265,38 +267,54 @@ impl Observer {
         }
     }
 
-    /// Observe the given `entity`. This will cause the [`Observer`] to run whenever the [`Event`] is triggered
-    /// for the `entity`.
+    /// Observes the given `entity` (in addition to any entity already being observed).
+    /// This will cause the [`Observer`] to run whenever the [`Event`] is triggered for the `entity`.
+    /// Note that if this is called _after_ an [`Observer`] is spawned, it will produce no effects.
     pub fn with_entity(mut self, entity: Entity) -> Self {
-        self.descriptor.entities.push(entity);
+        self.watch_entity(entity);
         self
     }
 
-    /// Observe the given `entity`. This will cause the [`Observer`] to run whenever the [`Event`] is triggered
-    /// for the `entity`.
+    /// Observes the given `entities` (in addition to any entity already being observed).
+    /// This will cause the [`Observer`] to run whenever the [`Event`] is triggered for any of these `entities`.
+    /// Note that if this is called _after_ an [`Observer`] is spawned, it will produce no effects.
+    pub fn with_entities<I: IntoIterator<Item = Entity>>(mut self, entities: I) -> Self {
+        self.watch_entities(entities);
+        self
+    }
+
+    /// Observes the given `entity` (in addition to any entity already being observed).
+    /// This will cause the [`Observer`] to run whenever the [`Event`] is triggered for the `entity`.
     /// Note that if this is called _after_ an [`Observer`] is spawned, it will produce no effects.
     pub fn watch_entity(&mut self, entity: Entity) {
         self.descriptor.entities.push(entity);
     }
 
-    /// Observe the given `component`. This will cause the [`Observer`] to run whenever the [`Event`] is triggered
+    /// Observes the given `entity` (in addition to any entity already being observed).
+    /// This will cause the [`Observer`] to run whenever the [`Event`] is triggered for any of these `entities`.
+    /// Note that if this is called _after_ an [`Observer`] is spawned, it will produce no effects.
+    pub fn watch_entities<I: IntoIterator<Item = Entity>>(&mut self, entities: I) {
+        self.descriptor.entities.extend(entities);
+    }
+
+    /// Observes the given `component`. This will cause the [`Observer`] to run whenever the [`Event`] is triggered
     /// with the given component target.
     pub fn with_component(mut self, component: ComponentId) -> Self {
         self.descriptor.components.push(component);
         self
     }
 
-    /// Observe the given `event`. This will cause the [`Observer`] to run whenever an event with the given [`ComponentId`]
+    /// Observes the given `event_key`. This will cause the [`Observer`] to run whenever an event with the given [`EventKey`]
     /// is triggered.
     /// # Safety
-    /// The type of the `event` [`EventKey`] _must_ match the actual value
+    /// The type of the `event_key` [`EventKey`] _must_ match the actual value
     /// of the event passed into the observer system.
-    pub unsafe fn with_event(mut self, event: EventKey) -> Self {
-        self.descriptor.events.push(event);
+    pub unsafe fn with_event_key(mut self, event_key: EventKey) -> Self {
+        self.descriptor.event_keys.push(event_key);
         self
     }
 
-    /// Set the error handler to use for this observer.
+    /// Sets the error handler to use for this observer.
     ///
     /// See the [`error` module-level documentation](crate::error) for more information.
     pub fn with_error_handler(mut self, error_handler: fn(BevyError, ErrorContext)) -> Self {
@@ -342,6 +360,13 @@ impl Component for Observer {
             });
         })
     }
+
+    fn register_required_components(
+        _component_id: ComponentId,
+        required_components: &mut RequiredComponentsRegistrator,
+    ) {
+        required_components.register_required(Internal::default);
+    }
 }
 
 /// Store information about what an [`Observer`] observes.
@@ -349,8 +374,8 @@ impl Component for Observer {
 /// This information is stored inside of the [`Observer`] component,
 #[derive(Default, Clone)]
 pub struct ObserverDescriptor {
-    /// The events the observer is watching.
-    pub(super) events: Vec<EventKey>,
+    /// The event keys the observer is watching.
+    pub(super) event_keys: Vec<EventKey>,
 
     /// The components the observer is watching.
     pub(super) components: Vec<ComponentId>,
@@ -360,12 +385,12 @@ pub struct ObserverDescriptor {
 }
 
 impl ObserverDescriptor {
-    /// Add the given `events` to the descriptor.
+    /// Add the given `event_keys` to the descriptor.
     /// # Safety
-    /// The type of each [`EventKey`] in `events` _must_ match the actual value
+    /// The type of each [`EventKey`] in `event_keys` _must_ match the actual value
     /// of the event passed into the observer.
-    pub unsafe fn with_events(mut self, events: Vec<EventKey>) -> Self {
-        self.events = events;
+    pub unsafe fn with_event_keys(mut self, event_keys: Vec<EventKey>) -> Self {
+        self.event_keys = event_keys;
         self
     }
 
@@ -381,9 +406,9 @@ impl ObserverDescriptor {
         self
     }
 
-    /// Returns the `events` that the observer is watching.
-    pub fn events(&self) -> &[EventKey] {
-        &self.events
+    /// Returns the `event_keys` that the observer is watching.
+    pub fn event_keys(&self) -> &[EventKey] {
+        &self.event_keys
     }
 
     /// Returns the `components` that the observer is watching.
@@ -416,7 +441,7 @@ fn hook_on_add<E: Event, B: Bundle, S: ObserverSystem<E, B>>(
             components.push(id);
         });
         if let Some(mut observer) = world.get_mut::<Observer>(entity) {
-            observer.descriptor.events.push(event_key);
+            observer.descriptor.event_keys.push(event_key);
             observer.descriptor.components.extend(components);
 
             let system: &mut dyn Any = observer.system.as_mut();

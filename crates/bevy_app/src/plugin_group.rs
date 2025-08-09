@@ -517,18 +517,18 @@ impl PluginGroupBuilder {
     #[track_caller]
     pub fn finish(mut self, app: &mut App) {
         for ty in &self.order {
-            if let Some(entry) = self.plugins.remove(ty) {
-                if entry.enabled {
-                    debug!("added plugin: {}", entry.plugin.name());
-                    if let Err(AppError::DuplicatePlugin { plugin_name }) =
-                        app.add_boxed_plugin(entry.plugin)
-                    {
-                        panic!(
-                            "Error adding plugin {} in group {}: plugin was already added in application",
-                            plugin_name,
-                            self.group_name
-                        );
-                    }
+            if let Some(entry) = self.plugins.remove(ty)
+                && entry.enabled
+            {
+                debug!("added plugin: {}", entry.plugin.name());
+                if let Err(AppError::DuplicatePlugin { plugin_name }) =
+                    app.add_boxed_plugin(entry.plugin)
+                {
+                    panic!(
+                        "Error adding plugin {} in group {}: plugin was already added in application",
+                        plugin_name,
+                        self.group_name
+                    );
                 }
             }
         }

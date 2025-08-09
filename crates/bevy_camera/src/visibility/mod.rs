@@ -340,17 +340,7 @@ impl Plugin for VisibilityPlugin {
     fn build(&self, app: &mut bevy_app::App) {
         use VisibilitySystems::*;
 
-        app.register_type::<VisibilityClass>()
-            .register_type::<InheritedVisibility>()
-            .register_type::<ViewVisibility>()
-            .register_type::<NoFrustumCulling>()
-            .register_type::<RenderLayers>()
-            .register_type::<Visibility>()
-            .register_type::<VisibleEntities>()
-            .register_type::<CascadesVisibleEntities>()
-            .register_type::<VisibleMeshEntities>()
-            .register_type::<CubemapVisibleEntities>()
-            .register_required_components::<Mesh3d, Visibility>()
+        app.register_required_components::<Mesh3d, Visibility>()
             .register_required_components::<Mesh3d, VisibilityClass>()
             .register_required_components::<Mesh2d, Visibility>()
             .register_required_components::<Mesh2d, VisibilityClass>()
@@ -394,10 +384,10 @@ pub fn calculate_bounds(
     without_aabb: Query<(Entity, &Mesh3d), (Without<Aabb>, Without<NoFrustumCulling>)>,
 ) {
     for (entity, mesh_handle) in &without_aabb {
-        if let Some(mesh) = meshes.get(mesh_handle) {
-            if let Some(aabb) = mesh.compute_aabb() {
-                commands.entity(entity).try_insert(aabb);
-            }
+        if let Some(mesh) = meshes.get(mesh_handle)
+            && let Some(aabb) = mesh.compute_aabb()
+        {
+            commands.entity(entity).try_insert(aabb);
         }
     }
 }
@@ -590,21 +580,22 @@ pub fn check_visibility(
                 }
 
                 // If we have an aabb, do frustum culling
-                if !no_frustum_culling && !no_cpu_culling {
-                    if let Some(model_aabb) = maybe_model_aabb {
-                        let world_from_local = transform.affine();
-                        let model_sphere = Sphere {
-                            center: world_from_local.transform_point3a(model_aabb.center),
-                            radius: transform.radius_vec3a(model_aabb.half_extents),
-                        };
-                        // Do quick sphere-based frustum culling
-                        if !frustum.intersects_sphere(&model_sphere, false) {
-                            return;
-                        }
-                        // Do aabb-based frustum culling
-                        if !frustum.intersects_obb(model_aabb, &world_from_local, true, false) {
-                            return;
-                        }
+                if !no_frustum_culling
+                    && !no_cpu_culling
+                    && let Some(model_aabb) = maybe_model_aabb
+                {
+                    let world_from_local = transform.affine();
+                    let model_sphere = Sphere {
+                        center: world_from_local.transform_point3a(model_aabb.center),
+                        radius: transform.radius_vec3a(model_aabb.half_extents),
+                    };
+                    // Do quick sphere-based frustum culling
+                    if !frustum.intersects_sphere(&model_sphere, false) {
+                        return;
+                    }
+                    // Do aabb-based frustum culling
+                    if !frustum.intersects_obb(model_aabb, &world_from_local, true, false) {
+                        return;
                     }
                 }
 

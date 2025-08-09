@@ -230,7 +230,7 @@ pub trait DetectChangesMut: DetectChanges {
     /// #[derive(Resource, PartialEq, Eq)]
     /// pub struct Score(u32);
     ///
-    /// #[derive(Event, BufferedEvent, PartialEq, Eq)]
+    /// #[derive(BufferedEvent, PartialEq, Eq)]
     /// pub struct ScoreChanged {
     ///     current: u32,
     ///     previous: u32,
@@ -1051,7 +1051,7 @@ impl<'w> MutUntyped<'w> {
     /// Returns a [`MutUntyped`] with a smaller lifetime.
     /// This is useful if you have `&mut MutUntyped`, but you need a `MutUntyped`.
     #[inline]
-    pub fn reborrow(&mut self) -> MutUntyped {
+    pub fn reborrow(&mut self) -> MutUntyped<'_> {
         MutUntyped {
             value: self.value.reborrow(),
             ticks: TicksMut {

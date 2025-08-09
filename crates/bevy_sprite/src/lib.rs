@@ -56,7 +56,7 @@ use bevy_render::{
     render_phase::AddRenderCommand,
     render_resource::SpecializedRenderPipelines,
     view::{NoFrustumCulling, VisibilitySystems},
-    ExtractSchedule, Render, RenderApp, RenderSystems,
+    ExtractSchedule, Render, RenderApp, RenderStartup, RenderSystems,
 };
 
 /// Adds support for 2D sprite rendering.
@@ -84,28 +84,23 @@ impl Plugin for SpritePlugin {
             app.add_plugins(TextureAtlasPlugin);
         }
 
-        app.register_type::<Sprite>()
-            .register_type::<SpriteImageMode>()
-            .register_type::<TextureSlicer>()
-            .register_type::<Anchor>()
-            .register_type::<Mesh2d>()
-            .add_plugins((
-                Mesh2dRenderPlugin,
-                ColorMaterialPlugin,
-                TilemapChunkPlugin,
-                TilemapChunkMaterialPlugin,
-            ))
-            .add_systems(
-                PostUpdate,
+        app.add_plugins((
+            Mesh2dRenderPlugin,
+            ColorMaterialPlugin,
+            TilemapChunkPlugin,
+            TilemapChunkMaterialPlugin,
+        ))
+        .add_systems(
+            PostUpdate,
+            (
+                calculate_bounds_2d.in_set(VisibilitySystems::CalculateBounds),
                 (
-                    calculate_bounds_2d.in_set(VisibilitySystems::CalculateBounds),
-                    (
-                        compute_slices_on_asset_event.before(AssetEventSystems),
-                        compute_slices_on_sprite_change,
-                    )
-                        .in_set(SpriteSystems::ComputeSlices),
-                ),
-            );
+                    compute_slices_on_asset_event.before(AssetEventSystems),
+                    compute_slices_on_sprite_change,
+                )
+                    .in_set(SpriteSystems::ComputeSlices),
+            ),
+        );
 
         #[cfg(feature = "bevy_sprite_picking_backend")]
         app.add_plugins(SpritePickingPlugin);
@@ -118,7 +113,9 @@ impl Plugin for SpritePlugin {
                 .init_resource::<ExtractedSprites>()
                 .init_resource::<ExtractedSlices>()
                 .init_resource::<SpriteAssetEvents>()
+                .init_resource::<SpriteBatches>()
                 .add_render_command::<Transparent2d, DrawSprite>()
+                .add_systems(RenderStartup, init_sprite_pipeline)
                 .add_systems(
                     ExtractSchedule,
                     (
@@ -139,14 +136,6 @@ impl Plugin for SpritePlugin {
                     ),
                 );
         };
-    }
-
-    fn finish(&self, app: &mut App) {
-        if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
-            render_app
-                .init_resource::<SpriteBatches>()
-                .init_resource::<SpritePipeline>();
-        }
     }
 }
 
@@ -171,10 +160,10 @@ pub fn calculate_bounds_2d(
     >,
 ) {
     for (entity, mesh_handle) in &meshes_without_aabb {
-        if let Some(mesh) = meshes.get(&mesh_handle.0) {
-            if let Some(aabb) = mesh.compute_aabb() {
-                commands.entity(entity).try_insert(aabb);
-            }
+        if let Some(mesh) = meshes.get(&mesh_handle.0)
+            && let Some(aabb) = mesh.compute_aabb()
+        {
+            commands.entity(entity).try_insert(aabb);
         }
     }
     for (entity, sprite, anchor) in &sprites_to_recalculate_aabb {

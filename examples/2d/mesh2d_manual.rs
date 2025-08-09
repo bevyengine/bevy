@@ -27,11 +27,11 @@ use bevy::{
         sync_component::SyncComponentPlugin,
         sync_world::{MainEntityHashMap, RenderEntity},
         view::{ExtractedView, RenderVisibleEntities, ViewTarget},
-        Extract, Render, RenderApp, RenderSystems,
+        Extract, Render, RenderApp, RenderStartup, RenderSystems,
     },
     sprite::{
-        extract_mesh2d, DrawMesh2d, Material2dBindGroupId, Mesh2dPipeline, Mesh2dPipelineKey,
-        Mesh2dTransforms, MeshFlags, RenderMesh2dInstance, SetMesh2dBindGroup,
+        extract_mesh2d, init_mesh_2d_pipeline, DrawMesh2d, Material2dBindGroupId, Mesh2dPipeline,
+        Mesh2dPipelineKey, Mesh2dTransforms, MeshFlags, RenderMesh2dInstance, SetMesh2dBindGroup,
         SetMesh2dViewBindGroup,
     },
 };
@@ -132,14 +132,16 @@ pub struct ColoredMesh2dPipeline {
     shader: Handle<Shader>,
 }
 
-impl FromWorld for ColoredMesh2dPipeline {
-    fn from_world(world: &mut World) -> Self {
-        Self {
-            mesh2d_pipeline: Mesh2dPipeline::from_world(world),
-            // Get the shader from the shader resource we inserted in the plugin.
-            shader: world.resource::<ColoredMesh2dShader>().0.clone(),
-        }
-    }
+fn init_colored_mesh_2d_pipeline(
+    mut commands: Commands,
+    mesh2d_pipeline: Res<Mesh2dPipeline>,
+    colored_mesh2d_shader: Res<ColoredMesh2dShader>,
+) {
+    commands.insert_resource(ColoredMesh2dPipeline {
+        mesh2d_pipeline: mesh2d_pipeline.clone(),
+        // Clone the shader from the shader resource we inserted in the plugin.
+        shader: colored_mesh2d_shader.0.clone(),
+    });
 }
 
 // We implement `SpecializedPipeline` to customize the default rendering from `Mesh2dPipeline`
@@ -308,6 +310,10 @@ impl Plugin for ColoredMesh2dPlugin {
             .init_resource::<SpecializedRenderPipelines<ColoredMesh2dPipeline>>()
             .init_resource::<RenderColoredMesh2dInstances>()
             .add_systems(
+                RenderStartup,
+                init_colored_mesh_2d_pipeline.after(init_mesh_2d_pipeline),
+            )
+            .add_systems(
                 ExtractSchedule,
                 extract_colored_mesh2d.after(extract_mesh2d),
             )
@@ -315,13 +321,6 @@ impl Plugin for ColoredMesh2dPlugin {
                 Render,
                 queue_colored_mesh2d.in_set(RenderSystems::QueueMeshes),
             );
-    }
-
-    fn finish(&self, app: &mut App) {
-        // Register our custom pipeline
-        app.get_sub_app_mut(RenderApp)
-            .unwrap()
-            .init_resource::<ColoredMesh2dPipeline>();
     }
 }
 

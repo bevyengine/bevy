@@ -53,6 +53,7 @@ use bevy_math::{vec4, Vec4};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
     camera::ExtractedCamera,
+    diagnostic::RecordDiagnostics,
     extract_component::{ExtractComponent, ExtractComponentPlugin},
     render_asset::RenderAssets,
     render_graph::{
@@ -312,8 +313,7 @@ impl Plugin for SmaaPlugin {
             }
         };
 
-        app.add_plugins(ExtractComponentPlugin::<Smaa>::default())
-            .register_type::<Smaa>();
+        app.add_plugins(ExtractComponentPlugin::<Smaa>::default());
 
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
@@ -824,6 +824,10 @@ impl ViewNode for SmaaNode {
             return Ok(());
         };
 
+        let diagnostics = render_context.diagnostic_recorder();
+        render_context.command_encoder().push_debug_group("smaa");
+        let time_span = diagnostics.time_span(render_context.command_encoder(), "smaa");
+
         // Fetch the framebuffer textures.
         let postprocess = view_target.post_process_write();
         let (source, destination) = (postprocess.source, postprocess.destination);
@@ -864,6 +868,9 @@ impl ViewNode for SmaaNode {
             destination,
         );
 
+        time_span.end(render_context.command_encoder());
+        render_context.command_encoder().pop_debug_group();
+
         Ok(())
     }
 }
@@ -896,6 +903,7 @@ fn perform_edge_detection(
         label: Some("SMAA edge detection pass"),
         color_attachments: &[Some(RenderPassColorAttachment {
             view: &smaa_textures.edge_detection_color_texture.default_view,
+            depth_slice: None,
             resolve_target: None,
             ops: default(),
         })],
@@ -951,6 +959,7 @@ fn perform_blending_weight_calculation(
         label: Some("SMAA blending weight calculation pass"),
         color_attachments: &[Some(RenderPassColorAttachment {
             view: &smaa_textures.blend_texture.default_view,
+            depth_slice: None,
             resolve_target: None,
             ops: default(),
         })],
@@ -1007,6 +1016,7 @@ fn perform_neighborhood_blending(
         label: Some("SMAA neighborhood blending pass"),
         color_attachments: &[Some(RenderPassColorAttachment {
             view: destination,
+            depth_slice: None,
             resolve_target: None,
             ops: default(),
         })],

@@ -116,18 +116,16 @@ pub struct LightGizmoPlugin;
 
 impl Plugin for LightGizmoPlugin {
     fn build(&self, app: &mut bevy_app::App) {
-        app.register_type::<LightGizmoConfigGroup>()
-            .init_gizmo_group::<LightGizmoConfigGroup>()
-            .add_systems(
-                PostUpdate,
-                (
-                    draw_lights,
-                    draw_all_lights.run_if(|config: Res<GizmoConfigStore>| {
-                        config.config::<LightGizmoConfigGroup>().1.draw_all
-                    }),
-                )
-                    .after(TransformSystems::Propagate),
-            );
+        app.init_gizmo_group::<LightGizmoConfigGroup>().add_systems(
+            PostUpdate,
+            (
+                draw_lights,
+                draw_all_lights.run_if(|config: Res<GizmoConfigStore>| {
+                    config.config::<LightGizmoConfigGroup>().1.draw_all
+                }),
+            )
+                .after(TransformSystems::Propagate),
+        );
     }
 }
 

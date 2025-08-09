@@ -22,8 +22,13 @@ serialize = [
 ]
 android-native-activity = ["winit/android-native-activity"]
 android-game-activity = ["winit/android-game-activity"]
-
-custom_cursor = ["bevy_image", "bevy_asset", "bytemuck", "wgpu-types"]
+custom_cursor = [
+  "bevy_window/custom_cursor",
+  "bevy_image",
+  "bevy_asset",
+  "wgpu-types",
+  "bytemuck",
+]
 
 [dependencies]
 # bevy
@@ -43,32 +48,35 @@ bevy_platform = { path = "../bevy_platform", version = "0.17.0-dev", default-fea
 ] }
 
 # bevy optional
+## used by custom_cursor
 bevy_asset = { path = "../bevy_asset", version = "0.17.0-dev", optional = true }
+## used by custom_cursor
 bevy_image = { path = "../bevy_image", version = "0.17.0-dev", optional = true }
+## used by custom_cursor
+wgpu-types = { version = "26", optional = true }
+## used by custom_cursor
+bytemuck = { version = "1.5", optional = true }
 
 # other
 # feature rwh_06 refers to window_raw_handle@v0.6
 winit = { version = "0.30", default-features = false, features = ["rwh_06"] }
-accesskit_winit = { version = "0.27", default-features = false, features = [
+accesskit_winit = { version = "0.29", default-features = false, features = [
   "rwh_06",
 ] }
 approx = { version = "0.5", default-features = false }
 cfg-if = "1.0"
 raw-window-handle = "0.6"
-bytemuck = { version = "1.5", optional = true }
-wgpu-types = { version = "25", optional = true }
-accesskit = "0.19"
+accesskit = "0.21"
 tracing = { version = "0.1", default-features = false, features = ["std"] }
+
+[target.'cfg(target_os = "android")'.dependencies]
+bevy_android = { path = "../bevy_android", version = "0.17.0-dev", default-features = false }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 wasm-bindgen = { version = "0.2" }
 web-sys = "0.3"
-crossbeam-channel = "0.5"
 # TODO: Assuming all wasm builds are for the browser. Require `no_std` support to break assumption.
 bevy_app = { path = "../bevy_app", version = "0.17.0-dev", default-features = false, features = [
-  "web",
-] }
-bevy_tasks = { path = "../bevy_tasks", version = "0.17.0-dev", default-features = false, features = [
   "web",
 ] }
 bevy_platform = { path = "../bevy_platform", version = "0.17.0-dev", default-features = false, features = [

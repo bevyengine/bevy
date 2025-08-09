@@ -266,19 +266,18 @@ fn change_text_system(
 
     for entity in &query {
         let mut fps = 0.0;
-        if let Some(fps_diagnostic) = diagnostics.get(&FrameTimeDiagnosticsPlugin::FPS) {
-            if let Some(fps_smoothed) = fps_diagnostic.smoothed() {
-                fps = fps_smoothed;
-            }
+        if let Some(fps_diagnostic) = diagnostics.get(&FrameTimeDiagnosticsPlugin::FPS)
+            && let Some(fps_smoothed) = fps_diagnostic.smoothed()
+        {
+            fps = fps_smoothed;
         }
 
         let mut frame_time = time.delta_secs_f64();
         if let Some(frame_time_diagnostic) =
             diagnostics.get(&FrameTimeDiagnosticsPlugin::FRAME_TIME)
+            && let Some(frame_time_smoothed) = frame_time_diagnostic.smoothed()
         {
-            if let Some(frame_time_smoothed) = frame_time_diagnostic.smoothed() {
-                frame_time = frame_time_smoothed;
-            }
+            frame_time = frame_time_smoothed;
         }
 
         *writer.text(entity, 0) =

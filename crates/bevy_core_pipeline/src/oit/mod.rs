@@ -14,7 +14,7 @@ use bevy_render::{
     render_resource::{BufferUsages, BufferVec, DynamicUniformBuffer, ShaderType, TextureUsages},
     renderer::{RenderDevice, RenderQueue},
     view::Msaa,
-    Render, RenderApp, RenderSystems,
+    Render, RenderApp, RenderStartup, RenderSystems,
 };
 use bevy_window::PrimaryWindow;
 use resolve::{
@@ -67,13 +67,13 @@ impl Component for OrderIndependentTransparencySettings {
 
     fn on_add() -> Option<ComponentHook> {
         Some(|world, context| {
-            if let Some(value) = world.get::<OrderIndependentTransparencySettings>(context.entity) {
-                if value.layer_count > 32 {
-                    warn!("{}OrderIndependentTransparencySettings layer_count set to {} might be too high.",
+            if let Some(value) = world.get::<OrderIndependentTransparencySettings>(context.entity)
+                && value.layer_count > 32
+            {
+                warn!("{}OrderIndependentTransparencySettings layer_count set to {} might be too high.",
                         context.caller.map(|location|format!("{location}: ")).unwrap_or_default(),
                         value.layer_count
                     );
-                }
             }
         })
     }
@@ -106,17 +106,18 @@ impl Plugin for OrderIndependentTransparencyPlugin {
             OitResolvePlugin,
         ))
         .add_systems(Update, check_msaa)
-        .add_systems(Last, configure_depth_texture_usages)
-        .register_type::<OrderIndependentTransparencySettings>();
+        .add_systems(Last, configure_depth_texture_usages);
 
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
         };
 
-        render_app.add_systems(
-            Render,
-            prepare_oit_buffers.in_set(RenderSystems::PrepareResources),
-        );
+        render_app
+            .add_systems(RenderStartup, init_oit_buffers)
+            .add_systems(
+                Render,
+                prepare_oit_buffers.in_set(RenderSystems::PrepareResources),
+            );
 
         render_app
             .add_render_graph_node::<ViewNodeRunner<OitResolveNode>>(Core3d, OitResolvePass)
@@ -128,14 +129,6 @@ impl Plugin for OrderIndependentTransparencyPlugin {
                     Node3d::EndMainPass,
                 ),
             );
-    }
-
-    fn finish(&self, app: &mut App) {
-        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
-            return;
-        };
-
-        render_app.init_resource::<OitBuffers>();
     }
 }
 
@@ -192,32 +185,31 @@ pub struct OitBuffers {
     pub settings: DynamicUniformBuffer<OrderIndependentTransparencySettings>,
 }
 
-impl FromWorld for OitBuffers {
-    fn from_world(world: &mut World) -> Self {
-        let render_device = world.resource::<RenderDevice>();
-        let render_queue = world.resource::<RenderQueue>();
+pub fn init_oit_buffers(
+    mut commands: Commands,
+    render_device: Res<RenderDevice>,
+    render_queue: Res<RenderQueue>,
+) {
+    // initialize buffers with something so there's a valid binding
 
-        // initialize buffers with something so there's a valid binding
+    let mut layers = BufferVec::new(BufferUsages::COPY_DST | BufferUsages::STORAGE);
+    layers.set_label(Some("oit_layers"));
+    layers.reserve(1, &render_device);
+    layers.write_buffer(&render_device, &render_queue);
 
-        let mut layers = BufferVec::new(BufferUsages::COPY_DST | BufferUsages::STORAGE);
-        layers.set_label(Some("oit_layers"));
-        layers.reserve(1, render_device);
-        layers.write_buffer(render_device, render_queue);
+    let mut layer_ids = BufferVec::new(BufferUsages::COPY_DST | BufferUsages::STORAGE);
+    layer_ids.set_label(Some("oit_layer_ids"));
+    layer_ids.reserve(1, &render_device);
+    layer_ids.write_buffer(&render_device, &render_queue);
 
-        let mut layer_ids = BufferVec::new(BufferUsages::COPY_DST | BufferUsages::STORAGE);
-        layer_ids.set_label(Some("oit_layer_ids"));
-        layer_ids.reserve(1, render_device);
-        layer_ids.write_buffer(render_device, render_queue);
+    let mut settings = DynamicUniformBuffer::default();
+    settings.set_label(Some("oit_settings"));
 
-        let mut settings = DynamicUniformBuffer::default();
-        settings.set_label(Some("oit_settings"));
-
-        Self {
-            layers,
-            layer_ids,
-            settings,
-        }
-    }
+    commands.insert_resource(OitBuffers {
+        layers,
+        layer_ids,
+        settings,
+    });
 }
 
 #[derive(Component)]

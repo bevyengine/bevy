@@ -82,7 +82,6 @@ impl Plugin for ImagePlugin {
             ExtractResourcePlugin::<ManualTextureViews>::default(),
         ))
         .init_resource::<ManualTextureViews>()
-        .register_type::<Image>()
         .init_asset::<Image>()
         .register_asset_reflect::<Image>();
 

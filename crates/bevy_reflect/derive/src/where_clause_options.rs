@@ -1,5 +1,6 @@
 use crate::derive_data::ReflectMeta;
 use bevy_macro_utils::fq_std::{FQAny, FQSend, FQSync};
+use indexmap::IndexSet;
 use proc_macro2::{TokenStream, TokenTree};
 use quote::{quote, ToTokens};
 use syn::{punctuated::Punctuated, Ident, Token, Type, WhereClause};
@@ -7,22 +8,19 @@ use syn::{punctuated::Punctuated, Ident, Token, Type, WhereClause};
 /// Options defining how to extend the `where` clause for reflection.
 pub(crate) struct WhereClauseOptions<'a, 'b> {
     meta: &'a ReflectMeta<'b>,
-    active_fields: Box<[Type]>,
+    active_types: IndexSet<Type>,
 }
 
 impl<'a, 'b> WhereClauseOptions<'a, 'b> {
     pub fn new(meta: &'a ReflectMeta<'b>) -> Self {
         Self {
             meta,
-            active_fields: Box::new([]),
+            active_types: IndexSet::new(),
         }
     }
 
-    pub fn new_with_fields(meta: &'a ReflectMeta<'b>, active_fields: Box<[Type]>) -> Self {
-        Self {
-            meta,
-            active_fields,
-        }
+    pub fn new_with_types(meta: &'a ReflectMeta<'b>, active_types: IndexSet<Type>) -> Self {
+        Self { meta, active_types }
     }
 
     pub fn meta(&self) -> &'a ReflectMeta<'b> {
@@ -207,7 +205,7 @@ impl<'a, 'b> WhereClauseOptions<'a, 'b> {
                 false
             }
 
-            Some(self.active_fields.iter().filter_map(move |ty| {
+            Some(self.active_types.iter().filter_map(move |ty| {
                 // Field type bounds are only required if `ty` is generic. How to determine that?
                 // Search `ty`s token stream for identifiers that match the identifiers from the
                 // function's type params. E.g. if `T` and `U` are the type param identifiers and

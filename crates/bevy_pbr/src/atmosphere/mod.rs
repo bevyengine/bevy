@@ -92,14 +92,12 @@ impl Plugin for AtmospherePlugin {
         embedded_asset!(app, "aerial_view_lut.wgsl");
         embedded_asset!(app, "render_sky.wgsl");
 
-        app.register_type::<Atmosphere>()
-            .register_type::<AtmosphereSettings>()
-            .add_plugins((
-                ExtractComponentPlugin::<Atmosphere>::default(),
-                ExtractComponentPlugin::<AtmosphereSettings>::default(),
-                UniformComponentPlugin::<Atmosphere>::default(),
-                UniformComponentPlugin::<AtmosphereSettings>::default(),
-            ));
+        app.add_plugins((
+            ExtractComponentPlugin::<Atmosphere>::default(),
+            ExtractComponentPlugin::<AtmosphereSettings>::default(),
+            UniformComponentPlugin::<Atmosphere>::default(),
+            UniformComponentPlugin::<AtmosphereSettings>::default(),
+        ));
     }
 
     fn finish(&self, app: &mut App) {

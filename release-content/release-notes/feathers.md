@@ -1,7 +1,7 @@
 ---
 title: Bevy Feathers
-authors: ["@viridia", "@Atlas16A"]
-pull_requests: [19730, 19900, 19928]
+authors: ["@viridia", "@Atlas16A", "@ickshonpe"]
+pull_requests: [19730, 19900, 19928, 20237, 20169, 20422, 20350]
 ---
 
 To make it easier for Bevy engine developers and third-party tool creators to make comfortable, visually cohesive tooling,
@@ -15,6 +15,7 @@ we're pleased to introduce "Feathers" - a comprehensive widget set that offers:
 - Robust theming support ensuring consistent visual styling across applications
 - Accessibility features with built-in screen reader and assistive technology support
 - Interactive cursor behavior that changes appropriately when hovering over widgets
+- A virtual keyboard suitable for touchscreen text input
 
 Feathers isn't meant as a toolkit for building exciting and cool game UIs: it has a somewhat plain
 and utilitarian look and feel suitable for editors and graphical utilities. That being said, using

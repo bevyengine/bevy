@@ -144,8 +144,7 @@ impl Plugin for ClusteredDecalPlugin {
     fn build(&self, app: &mut App) {
         load_shader_library!(app, "clustered.wgsl");
 
-        app.add_plugins(ExtractComponentPlugin::<ClusteredDecal>::default())
-            .register_type::<ClusteredDecal>();
+        app.add_plugins(ExtractComponentPlugin::<ClusteredDecal>::default());
 
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;

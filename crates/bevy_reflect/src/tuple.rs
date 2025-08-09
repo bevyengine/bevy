@@ -50,7 +50,7 @@ pub trait Tuple: PartialReflect {
     fn field_len(&self) -> usize;
 
     /// Returns an iterator over the values of the tuple's fields.
-    fn iter_fields(&self) -> TupleFieldIter;
+    fn iter_fields(&self) -> TupleFieldIter<'_>;
 
     /// Drain the fields of this tuple to get a vector of owned values.
     fn drain(self: Box<Self>) -> Vec<Box<dyn PartialReflect>>;
@@ -264,7 +264,7 @@ impl Tuple for DynamicTuple {
     }
 
     #[inline]
-    fn iter_fields(&self) -> TupleFieldIter {
+    fn iter_fields(&self) -> TupleFieldIter<'_> {
         TupleFieldIter {
             tuple: self,
             index: 0,
@@ -318,12 +318,12 @@ impl PartialReflect for DynamicTuple {
     }
 
     #[inline]
-    fn reflect_ref(&self) -> ReflectRef {
+    fn reflect_ref(&self) -> ReflectRef<'_> {
         ReflectRef::Tuple(self)
     }
 
     #[inline]
-    fn reflect_mut(&mut self) -> ReflectMut {
+    fn reflect_mut(&mut self) -> ReflectMut<'_> {
         ReflectMut::Tuple(self)
     }
 
@@ -493,7 +493,7 @@ macro_rules! impl_reflect_tuple {
             }
 
             #[inline]
-            fn iter_fields(&self) -> TupleFieldIter {
+            fn iter_fields(&self) -> TupleFieldIter<'_> {
                 TupleFieldIter {
                     tuple: self,
                     index: 0,
@@ -542,11 +542,11 @@ macro_rules! impl_reflect_tuple {
                 ReflectKind::Tuple
             }
 
-            fn reflect_ref(&self) -> ReflectRef {
+            fn reflect_ref(&self) -> ReflectRef <'_> {
                 ReflectRef::Tuple(self)
             }
 
-            fn reflect_mut(&mut self) -> ReflectMut {
+            fn reflect_mut(&mut self) -> ReflectMut <'_> {
                 ReflectMut::Tuple(self)
             }
 

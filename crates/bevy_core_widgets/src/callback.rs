@@ -1,5 +1,6 @@
 use bevy_ecs::system::{Commands, SystemId, SystemInput};
 use bevy_ecs::world::{DeferredWorld, World};
+use bevy_reflect::{prelude::ReflectDefault, Reflect};
 
 /// A callback defines how we want to be notified when a widget changes state. Unlike an event
 /// or observer, callbacks are intended for "point-to-point" communication that cuts across the
@@ -27,7 +28,8 @@ use bevy_ecs::world::{DeferredWorld, World};
 /// // Later, when we want to execute the callback:
 /// app.world_mut().commands().notify(&callback);
 /// ```
-#[derive(Default, Debug)]
+#[derive(Default, Debug, Reflect)]
+#[reflect(Default)]
 pub enum Callback<I: SystemInput = ()> {
     /// Invoke a one-shot system
     System(SystemId<I>),

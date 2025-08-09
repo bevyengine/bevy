@@ -7,7 +7,7 @@
 
 //! This crate contains Bevy's UI system, which can be used to create UI for both 2D and 3D games
 //! # Basic usage
-//! Spawn UI elements with [`widget::Button`], [`ImageNode`], [`Text`](prelude::Text) and [`Node`]
+//! Spawn UI elements with [`widget::Button`], [`ImageNode`](widget::ImageNode), [`Text`](prelude::Text) and [`Node`]
 //! This UI is laid out with the Flexbox and CSS Grid layout models (see <https://cssreference.io/flexbox/>)
 
 pub mod interaction_states;
@@ -43,8 +43,6 @@ pub use measurement::*;
 pub use ui_node::*;
 pub use ui_transform::*;
 
-use widget::{ImageNode, ImageNodeSize, ViewportNode};
-
 /// The UI prelude.
 ///
 /// This includes the most common types in this crate, re-exported for your convenience.
@@ -70,7 +68,7 @@ pub mod prelude {
     };
 }
 
-use bevy_app::{prelude::*, AnimationSystems};
+use bevy_app::{prelude::*, AnimationSystems, HierarchyPropagatePlugin, PropagateSet};
 use bevy_ecs::prelude::*;
 use bevy_input::InputSystems;
 use bevy_render::camera::CameraUpdateSystems;
@@ -93,6 +91,8 @@ pub enum UiSystems {
     Focus,
     /// All UI systems in [`PostUpdate`] will run in or after this label.
     Prepare,
+    /// Propagate UI component values needed by layout.
+    Propagate,
     /// Update content requirements before layout.
     Content,
     /// After this label, the ui layout state has been updated.
@@ -140,48 +140,25 @@ impl Plugin for UiPlugin {
         app.init_resource::<UiSurface>()
             .init_resource::<UiScale>()
             .init_resource::<UiStack>()
-            .register_type::<BackgroundColor>()
-            .register_type::<CalculatedClip>()
-            .register_type::<ComputedNode>()
-            .register_type::<ContentSize>()
-            .register_type::<FocusPolicy>()
-            .register_type::<Interaction>()
-            .register_type::<Node>()
-            .register_type::<RelativeCursorPosition>()
-            .register_type::<ScrollPosition>()
-            .register_type::<UiTargetCamera>()
-            .register_type::<ImageNode>()
-            .register_type::<ImageNodeSize>()
-            .register_type::<ViewportNode>()
-            .register_type::<UiRect>()
-            .register_type::<UiScale>()
-            .register_type::<BorderColor>()
-            .register_type::<BorderRadius>()
-            .register_type::<BoxShadow>()
-            .register_type::<widget::Button>()
-            .register_type::<widget::Label>()
-            .register_type::<ZIndex>()
-            .register_type::<GlobalZIndex>()
-            .register_type::<Outline>()
-            .register_type::<ColorStop>()
-            .register_type::<AngularColorStop>()
-            .register_type::<UiPosition>()
-            .register_type::<RadialGradientShape>()
-            .register_type::<Gradient>()
-            .register_type::<BackgroundGradient>()
-            .register_type::<BorderGradient>()
-            .register_type::<ComputedNodeTarget>()
             .configure_sets(
                 PostUpdate,
                 (
                     CameraUpdateSystems,
                     UiSystems::Prepare.after(AnimationSystems),
+                    UiSystems::Propagate,
                     UiSystems::Content,
                     UiSystems::Layout,
                     UiSystems::PostLayout,
                 )
                     .chain(),
             )
+            .configure_sets(
+                PostUpdate,
+                PropagateSet::<ComputedNodeTarget>::default().in_set(UiSystems::Propagate),
+            )
+            .add_plugins(HierarchyPropagatePlugin::<ComputedNodeTarget>::new(
+                PostUpdate,
+            ))
             .add_systems(
                 PreUpdate,
                 ui_focus_system.in_set(UiSystems::Focus).after(InputSystems),
@@ -239,14 +216,7 @@ impl Plugin for UiPlugin {
 }
 
 fn build_text_interop(app: &mut App) {
-    use crate::widget::TextNodeFlags;
-    use bevy_text::TextLayoutInfo;
-    use widget::{Text, TextShadow};
-
-    app.register_type::<TextLayoutInfo>()
-        .register_type::<TextNodeFlags>()
-        .register_type::<Text>()
-        .register_type::<TextShadow>();
+    use widget::Text;
 
     app.add_systems(
         PostUpdate,

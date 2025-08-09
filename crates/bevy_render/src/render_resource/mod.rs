@@ -11,12 +11,12 @@ mod pipeline;
 mod pipeline_cache;
 mod pipeline_specializer;
 pub mod resource_macros;
-mod shader;
 mod specializer;
 mod storage_buffer;
 mod texture;
 mod uniform_buffer;
 
+pub use bevy_shader::*;
 pub use bind_group::*;
 pub use bind_group_entries::*;
 pub use bind_group_layout::*;
@@ -28,7 +28,6 @@ pub use gpu_array_buffer::*;
 pub use pipeline::*;
 pub use pipeline_cache::*;
 pub use pipeline_specializer::*;
-pub use shader::*;
 pub use specializer::*;
 pub use storage_buffer::*;
 pub use texture::*;
@@ -62,7 +61,7 @@ pub use wgpu::{
     TexelCopyBufferInfo, TexelCopyBufferLayout, TexelCopyTextureInfo, TextureAspect,
     TextureDescriptor, TextureDimension, TextureFormat, TextureFormatFeatureFlags,
     TextureFormatFeatures, TextureSampleType, TextureUsages, TextureView as WgpuTextureView,
-    TextureViewDescriptor, TextureViewDimension, Tlas, TlasInstance, TlasPackage, VertexAttribute,
+    TextureViewDescriptor, TextureViewDimension, Tlas, TlasInstance, VertexAttribute,
     VertexBufferLayout as RawVertexBufferLayout, VertexFormat, VertexState as RawVertexState,
     VertexStepMode, COPY_BUFFER_ALIGNMENT,
 };

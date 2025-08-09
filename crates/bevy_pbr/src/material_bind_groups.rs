@@ -8,7 +8,7 @@ use crate::Material;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     resource::Resource,
-    world::{FromWorld, World},
+    system::{Commands, Res},
 };
 use bevy_platform::collections::{HashMap, HashSet};
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
@@ -478,7 +478,7 @@ impl MaterialBindGroupAllocator {
     }
 
     /// Returns the slab with the given index, if one exists.
-    pub fn get(&self, group: MaterialBindGroupIndex) -> Option<MaterialSlab> {
+    pub fn get(&self, group: MaterialBindGroupIndex) -> Option<MaterialSlab<'_>> {
         match *self {
             MaterialBindGroupAllocator::Bindless(ref bindless_allocator) => bindless_allocator
                 .get(group)
@@ -673,7 +673,7 @@ impl MaterialBindlessIndexTable {
     }
 
     /// Returns the [`BindGroupEntry`] for the index table itself.
-    fn bind_group_entry(&self) -> BindGroupEntry {
+    fn bind_group_entry(&self) -> BindGroupEntry<'_> {
         BindGroupEntry {
             binding: *self.binding_number,
             resource: self
@@ -1742,28 +1742,25 @@ impl MaterialBindlessSlab {
     }
 }
 
-impl FromWorld for FallbackBindlessResources {
-    fn from_world(world: &mut World) -> Self {
-        let render_device = world.resource::<RenderDevice>();
-        FallbackBindlessResources {
-            filtering_sampler: render_device.create_sampler(&SamplerDescriptor {
-                label: Some("fallback filtering sampler"),
-                ..default()
-            }),
-            non_filtering_sampler: render_device.create_sampler(&SamplerDescriptor {
-                label: Some("fallback non-filtering sampler"),
-                mag_filter: FilterMode::Nearest,
-                min_filter: FilterMode::Nearest,
-                mipmap_filter: FilterMode::Nearest,
-                ..default()
-            }),
-            comparison_sampler: render_device.create_sampler(&SamplerDescriptor {
-                label: Some("fallback comparison sampler"),
-                compare: Some(CompareFunction::Always),
-                ..default()
-            }),
-        }
-    }
+pub fn init_fallback_bindless_resources(mut commands: Commands, render_device: Res<RenderDevice>) {
+    commands.insert_resource(FallbackBindlessResources {
+        filtering_sampler: render_device.create_sampler(&SamplerDescriptor {
+            label: Some("fallback filtering sampler"),
+            ..default()
+        }),
+        non_filtering_sampler: render_device.create_sampler(&SamplerDescriptor {
+            label: Some("fallback non-filtering sampler"),
+            mag_filter: FilterMode::Nearest,
+            min_filter: FilterMode::Nearest,
+            mipmap_filter: FilterMode::Nearest,
+            ..default()
+        }),
+        comparison_sampler: render_device.create_sampler(&SamplerDescriptor {
+            label: Some("fallback comparison sampler"),
+            compare: Some(CompareFunction::Always),
+            ..default()
+        }),
+    });
 }
 
 impl MaterialBindGroupNonBindlessAllocator {
@@ -1840,7 +1837,7 @@ impl MaterialBindGroupNonBindlessAllocator {
     }
 
     /// Returns a wrapper around the bind group with the given index.
-    fn get(&self, group: MaterialBindGroupIndex) -> Option<MaterialNonBindlessSlab> {
+    fn get(&self, group: MaterialBindGroupIndex) -> Option<MaterialNonBindlessSlab<'_>> {
         self.bind_groups[group.0 as usize]
             .as_ref()
             .map(|bind_group| match bind_group {

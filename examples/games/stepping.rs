@@ -260,10 +260,9 @@ fn update_ui(
         return;
     }
 
-    let (cursor_schedule, cursor_system) = match stepping.cursor() {
-        // no cursor means stepping isn't enabled, so we're done here
-        None => return,
-        Some(c) => c,
+    // no cursor means stepping isn't enabled, so we're done here
+    let Some((cursor_schedule, cursor_system)) = stepping.cursor() else {
+        return;
     };
 
     for (schedule, system, text_index) in &state.systems {

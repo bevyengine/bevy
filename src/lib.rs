@@ -1,5 +1,8 @@
 #![cfg_attr(docsrs, feature(doc_auto_cfg))]
-
+#![expect(
+    clippy::doc_markdown,
+    reason = "Android GameActivity does not need to be code-formatted."
+)]
 //! [![Bevy Logo](https://bevy.org/assets/bevy_logo_docs.svg)](https://bevy.org)
 //!
 //! Bevy is an open-source modular game engine built in Rust, with a focus on developer productivity

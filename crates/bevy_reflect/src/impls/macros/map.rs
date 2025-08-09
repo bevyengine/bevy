@@ -131,11 +131,11 @@ macro_rules! impl_reflect_for_hashmap {
                     $crate::kind::ReflectKind::Map
                 }
 
-                fn reflect_ref(&self) -> $crate::kind::ReflectRef {
+                fn reflect_ref(&self) -> $crate::kind::ReflectRef<'_> {
                     $crate::kind::ReflectRef::Map(self)
                 }
 
-                fn reflect_mut(&mut self) -> $crate::kind::ReflectMut {
+                fn reflect_mut(&mut self) -> $crate::kind::ReflectMut<'_> {
                     $crate::kind::ReflectMut::Map(self)
                 }
 

@@ -86,7 +86,6 @@ impl Plugin for FxaaPlugin {
     fn build(&self, app: &mut App) {
         embedded_asset!(app, "fxaa.wgsl");
 
-        app.register_type::<Fxaa>();
         app.add_plugins(ExtractComponentPlugin::<Fxaa>::default());
 
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {

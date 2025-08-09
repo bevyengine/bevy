@@ -62,13 +62,13 @@ impl<'w> From<&'w mut World> for DeferredWorld<'w> {
 impl<'w> DeferredWorld<'w> {
     /// Reborrow self as a new instance of [`DeferredWorld`]
     #[inline]
-    pub fn reborrow(&mut self) -> DeferredWorld {
+    pub fn reborrow(&mut self) -> DeferredWorld<'_> {
         DeferredWorld { world: self.world }
     }
 
     /// Creates a [`Commands`] instance that pushes to the world's command queue
     #[inline]
-    pub fn commands(&mut self) -> Commands {
+    pub fn commands(&mut self) -> Commands<'_, '_> {
         // SAFETY: &mut self ensure that there are no outstanding accesses to the queue
         let command_queue = unsafe { self.world.get_raw_command_queue() };
         // SAFETY: command_queue is stored on world and always valid while the world exists
@@ -81,7 +81,7 @@ impl<'w> DeferredWorld<'w> {
     pub fn get_mut<T: Component<Mutability = Mutable>>(
         &mut self,
         entity: Entity,
-    ) -> Option<Mut<T>> {
+    ) -> Option<Mut<'_, T>> {
         self.get_entity_mut(entity).ok()?.into_mut()
     }
 
@@ -418,7 +418,7 @@ impl<'w> DeferredWorld<'w> {
     /// # assert_eq!(_world.get::<TargetedBy>(e1).unwrap().0, eid);
     /// # assert_eq!(_world.get::<TargetedBy>(e2).unwrap().0, eid);
     /// ```
-    pub fn entities_and_commands(&mut self) -> (EntityFetcher, Commands) {
+    pub fn entities_and_commands(&mut self) -> (EntityFetcher<'_>, Commands<'_, '_>) {
         let cell = self.as_unsafe_world_cell();
         // SAFETY: `&mut self` gives mutable access to the entire world, and prevents simultaneous access.
         let fetcher = unsafe { EntityFetcher::new(cell) };
@@ -781,18 +781,18 @@ impl<'w> DeferredWorld<'w> {
     /// Triggers all event observers for [`ComponentId`] in target.
     ///
     /// # Safety
-    /// Caller must ensure observers listening for `event` can accept ZST pointers
+    /// Caller must ensure observers listening for `event_key` can accept ZST pointers
     #[inline]
     pub(crate) unsafe fn trigger_observers(
         &mut self,
-        event: EventKey,
+        event_key: EventKey,
         target: Option<Entity>,
         components: impl Iterator<Item = ComponentId> + Clone,
         caller: MaybeLocation,
     ) {
         Observers::invoke::<_>(
             self.reborrow(),
-            event,
+            event_key,
             target,
             target,
             components,
@@ -805,11 +805,11 @@ impl<'w> DeferredWorld<'w> {
     /// Triggers all event observers for [`ComponentId`] in target.
     ///
     /// # Safety
-    /// Caller must ensure `E` is accessible as the type represented by `event`
+    /// Caller must ensure `E` is accessible as the type represented by `event_key`
     #[inline]
     pub(crate) unsafe fn trigger_observers_with_data<E, T>(
         &mut self,
-        event: EventKey,
+        event_key: EventKey,
         current_target: Option<Entity>,
         original_target: Option<Entity>,
         components: impl Iterator<Item = ComponentId> + Clone,
@@ -821,7 +821,7 @@ impl<'w> DeferredWorld<'w> {
     {
         Observers::invoke::<_>(
             self.reborrow(),
-            event,
+            event_key,
             current_target,
             original_target,
             components.clone(),
@@ -849,7 +849,7 @@ impl<'w> DeferredWorld<'w> {
             }
             Observers::invoke::<_>(
                 self.reborrow(),
-                event,
+                event_key,
                 Some(current_target),
                 original_target,
                 components.clone(),
@@ -887,7 +887,7 @@ impl<'w> DeferredWorld<'w> {
     /// # Safety
     /// - must only be used to make non-structural ECS changes
     #[inline]
-    pub(crate) fn as_unsafe_world_cell(&mut self) -> UnsafeWorldCell {
+    pub(crate) fn as_unsafe_world_cell(&mut self) -> UnsafeWorldCell<'_> {
         self.world
     }
 }

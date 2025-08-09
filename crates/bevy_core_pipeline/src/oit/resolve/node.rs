@@ -1,6 +1,8 @@
+use bevy_camera::Viewport;
 use bevy_ecs::{prelude::*, query::QueryItem};
 use bevy_render::{
     camera::{ExtractedCamera, MainPassResolutionOverride},
+    diagnostic::RecordDiagnostics,
     render_graph::{NodeRunError, RenderGraphContext, RenderLabel, ViewNode},
     render_resource::{BindGroupEntries, PipelineCache, RenderPassDescriptor},
     renderer::RenderContext,
@@ -49,6 +51,8 @@ impl ViewNode for OitResolveNode {
                 return Ok(());
             };
 
+            let diagnostics = render_context.diagnostic_recorder();
+
             let depth_bind_group = render_context.render_device().create_bind_group(
                 "oit_resolve_depth_bind_group",
                 &resolve_pipeline.oit_depth_bind_group_layout,
@@ -56,15 +60,18 @@ impl ViewNode for OitResolveNode {
             );
 
             let mut render_pass = render_context.begin_tracked_render_pass(RenderPassDescriptor {
-                label: Some("oit_resolve_pass"),
+                label: Some("oit_resolve"),
                 color_attachments: &[Some(view_target.get_color_attachment())],
                 depth_stencil_attachment: None,
                 timestamp_writes: None,
                 occlusion_query_set: None,
             });
+            let pass_span = diagnostics.pass_span(&mut render_pass, "oit_resolve");
 
-            if let Some(viewport) = camera.viewport.as_ref() {
-                render_pass.set_camera_viewport(&viewport.with_override(resolution_override));
+            if let Some(viewport) =
+                Viewport::from_viewport_and_override(camera.viewport.as_ref(), resolution_override)
+            {
+                render_pass.set_camera_viewport(&viewport);
             }
 
             render_pass.set_render_pipeline(pipeline);
@@ -72,6 +79,8 @@ impl ViewNode for OitResolveNode {
             render_pass.set_bind_group(1, &depth_bind_group, &[]);
 
             render_pass.draw(0..3, 0..1);
+
+            pass_span.end(&mut render_pass);
         }
 
         Ok(())

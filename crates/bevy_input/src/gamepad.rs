@@ -10,7 +10,7 @@ use bevy_ecs::{
     change_detection::DetectChangesMut,
     component::Component,
     entity::Entity,
-    event::{BufferedEvent, Event, EventReader, EventWriter},
+    event::{BufferedEvent, EventReader, EventWriter},
     name::Name,
     system::{Commands, Query},
 };
@@ -32,7 +32,7 @@ use thiserror::Error;
 /// the in-frame relative ordering of events is important.
 ///
 /// This event is produced by `bevy_input`.
-#[derive(Event, BufferedEvent, Debug, Clone, PartialEq, From)]
+#[derive(BufferedEvent, Debug, Clone, PartialEq, From)]
 #[cfg_attr(
     feature = "bevy_reflect",
     derive(Reflect),
@@ -59,7 +59,7 @@ pub enum GamepadEvent {
 /// the in-frame relative ordering of events is important.
 ///
 /// This event type is used by `bevy_input` to feed its components.
-#[derive(Event, BufferedEvent, Debug, Clone, PartialEq, From)]
+#[derive(BufferedEvent, Debug, Clone, PartialEq, From)]
 #[cfg_attr(
     feature = "bevy_reflect",
     derive(Reflect),
@@ -80,7 +80,7 @@ pub enum RawGamepadEvent {
 }
 
 /// [`GamepadButton`] changed event unfiltered by [`GamepadSettings`].
-#[derive(Event, BufferedEvent, Debug, Copy, Clone, PartialEq)]
+#[derive(BufferedEvent, Debug, Copy, Clone, PartialEq)]
 #[cfg_attr(
     feature = "bevy_reflect",
     derive(Reflect),
@@ -112,7 +112,7 @@ impl RawGamepadButtonChangedEvent {
 }
 
 /// [`GamepadAxis`] changed event unfiltered by [`GamepadSettings`].
-#[derive(Event, BufferedEvent, Debug, Copy, Clone, PartialEq)]
+#[derive(BufferedEvent, Debug, Copy, Clone, PartialEq)]
 #[cfg_attr(
     feature = "bevy_reflect",
     derive(Reflect),
@@ -145,7 +145,7 @@ impl RawGamepadAxisChangedEvent {
 
 /// A [`Gamepad`] connection event. Created when a connection to a gamepad
 /// is established and when a gamepad is disconnected.
-#[derive(Event, BufferedEvent, Debug, Clone, PartialEq)]
+#[derive(BufferedEvent, Debug, Clone, PartialEq)]
 #[cfg_attr(
     feature = "bevy_reflect",
     derive(Reflect),
@@ -184,7 +184,7 @@ impl GamepadConnectionEvent {
 }
 
 /// [`GamepadButton`] event triggered by a digital state change.
-#[derive(Event, BufferedEvent, Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(BufferedEvent, Debug, Clone, Copy, PartialEq, Eq)]
 #[cfg_attr(
     feature = "bevy_reflect",
     derive(Reflect),
@@ -216,7 +216,7 @@ impl GamepadButtonStateChangedEvent {
 }
 
 /// [`GamepadButton`] event triggered by an analog state change.
-#[derive(Event, BufferedEvent, Debug, Clone, Copy, PartialEq)]
+#[derive(BufferedEvent, Debug, Clone, Copy, PartialEq)]
 #[cfg_attr(
     feature = "bevy_reflect",
     derive(Reflect),
@@ -251,7 +251,7 @@ impl GamepadButtonChangedEvent {
 }
 
 /// [`GamepadAxis`] event triggered by an analog state change.
-#[derive(Event, BufferedEvent, Debug, Clone, Copy, PartialEq)]
+#[derive(BufferedEvent, Debug, Clone, Copy, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
     feature = "bevy_reflect",
@@ -1774,7 +1774,7 @@ impl GamepadRumbleIntensity {
 #[doc(alias = "force feedback")]
 #[doc(alias = "vibration")]
 #[doc(alias = "vibrate")]
-#[derive(Event, BufferedEvent, Clone)]
+#[derive(BufferedEvent, Clone)]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Clone))]
 pub enum GamepadRumbleRequest {
     /// Add a rumble to the given gamepad.

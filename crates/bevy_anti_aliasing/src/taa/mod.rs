@@ -20,6 +20,7 @@ use bevy_math::vec2;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
     camera::{ExtractedCamera, MipBias, TemporalJitter},
+    diagnostic::RecordDiagnostics,
     prelude::{Camera, Projection},
     render_graph::{NodeRunError, RenderGraphContext, RenderGraphExt, ViewNode, ViewNodeRunner},
     render_resource::{
@@ -49,8 +50,6 @@ pub struct TemporalAntiAliasPlugin;
 impl Plugin for TemporalAntiAliasPlugin {
     fn build(&self, app: &mut App) {
         embedded_asset!(app, "taa.wgsl");
-
-        app.register_type::<TemporalAntiAliasing>();
 
         app.add_plugins(SyncComponentPlugin::<TemporalAntiAliasing>::default());
 
@@ -181,6 +180,9 @@ impl ViewNode for TemporalAntiAliasNode {
         ) else {
             return Ok(());
         };
+
+        let diagnostics = render_context.diagnostic_recorder();
+
         let view_target = view_target.post_process_write();
 
         let taa_bind_group = render_context.render_device().create_bind_group(
@@ -198,15 +200,17 @@ impl ViewNode for TemporalAntiAliasNode {
 
         {
             let mut taa_pass = render_context.begin_tracked_render_pass(RenderPassDescriptor {
-                label: Some("taa_pass"),
+                label: Some("taa"),
                 color_attachments: &[
                     Some(RenderPassColorAttachment {
                         view: view_target.destination,
+                        depth_slice: None,
                         resolve_target: None,
                         ops: Operations::default(),
                     }),
                     Some(RenderPassColorAttachment {
                         view: &taa_history_textures.write.default_view,
+                        depth_slice: None,
                         resolve_target: None,
                         ops: Operations::default(),
                     }),
@@ -215,12 +219,16 @@ impl ViewNode for TemporalAntiAliasNode {
                 timestamp_writes: None,
                 occlusion_query_set: None,
             });
+            let pass_span = diagnostics.pass_span(&mut taa_pass, "taa");
+
             taa_pass.set_render_pipeline(taa_pipeline);
             taa_pass.set_bind_group(0, &taa_bind_group, &[]);
             if let Some(viewport) = camera.viewport.as_ref() {
                 taa_pass.set_camera_viewport(viewport);
             }
             taa_pass.draw(0..3, 0..1);
+
+            pass_span.end(&mut taa_pass);
         }
 
         Ok(())
@@ -342,16 +350,17 @@ fn extract_taa_settings(mut commands: Commands, mut main_world: ResMut<MainWorld
         Option<&mut TemporalAntiAliasing>,
     )>();
 
-    for (entity, camera, camera_projection, mut taa_settings) in
-        cameras_3d.iter_mut(&mut main_world)
-    {
+    for (entity, camera, camera_projection, taa_settings) in cameras_3d.iter_mut(&mut main_world) {
         let has_perspective_projection = matches!(camera_projection, Projection::Perspective(_));
         let mut entity_commands = commands
             .get_entity(entity)
             .expect("Camera entity wasn't synced.");
-        if taa_settings.is_some() && camera.is_active && has_perspective_projection {
-            entity_commands.insert(taa_settings.as_deref().unwrap().clone());
-            taa_settings.as_mut().unwrap().reset = false;
+        if let Some(mut taa_settings) = taa_settings
+            && camera.is_active
+            && has_perspective_projection
+        {
+            entity_commands.insert(taa_settings.clone());
+            taa_settings.reset = false;
         } else {
             entity_commands.remove::<(
                 TemporalAntiAliasing,

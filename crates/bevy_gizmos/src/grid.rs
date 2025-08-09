@@ -5,7 +5,7 @@
 
 use crate::{gizmos::GizmoBuffer, prelude::GizmoConfigGroup};
 use bevy_color::Color;
-use bevy_math::{ops, Isometry2d, Isometry3d, Quat, UVec2, UVec3, Vec2, Vec3, Vec3Swizzles};
+use bevy_math::{ops, Isometry2d, Isometry3d, Quat, UVec2, UVec3, Vec2, Vec3};
 
 /// A builder returned by [`GizmoBuffer::grid_3d`]
 pub struct GridBuilder3d<'a, Config, Clear>
@@ -66,19 +66,19 @@ where
         self
     }
 
-    /// Declare that the outer edges of the grid along the x axis should be drawn.
+    /// Declare that the outer edges of the grid parallel to the x axis should be drawn.
     /// By default, the outer edges will not be drawn.
     pub fn outer_edges_x(mut self) -> Self {
         self.outer_edges[0] = true;
         self
     }
-    /// Declare that the outer edges of the grid along the y axis should be drawn.
+    /// Declare that the outer edges of the grid parallel to the y axis should be drawn.
     /// By default, the outer edges will not be drawn.
     pub fn outer_edges_y(mut self) -> Self {
         self.outer_edges[1] = true;
         self
     }
-    /// Declare that the outer edges of the grid along the z axis should be drawn.
+    /// Declare that the outer edges of the grid parallel to the z axis should be drawn.
     /// By default, the outer edges will not be drawn.
     pub fn outer_edges_z(mut self) -> Self {
         self.outer_edges[2] = true;
@@ -116,13 +116,13 @@ where
         self
     }
 
-    /// Declare that the outer edges of the grid along the x axis should be drawn.
+    /// Declare that the outer edges of the grid parallel to the x axis should be drawn.
     /// By default, the outer edges will not be drawn.
     pub fn outer_edges_x(mut self) -> Self {
         self.outer_edges[0] = true;
         self
     }
-    /// Declare that the outer edges of the grid along the y axis should be drawn.
+    /// Declare that the outer edges of the grid parallel to the y axis should be drawn.
     /// By default, the outer edges will not be drawn.
     pub fn outer_edges_y(mut self) -> Self {
         self.outer_edges[1] = true;
@@ -389,9 +389,27 @@ fn draw_grid<Config, Clear>(
     let cell_count_half = cell_count.as_vec3() * 0.5;
     let grid_start = -cell_count_half.x * dx - cell_count_half.y * dy - cell_count_half.z * dz;
 
-    let outer_edges_u32 = UVec3::from(outer_edges.map(|v| v as u32));
-    let line_count = outer_edges_u32 * cell_count.saturating_add(UVec3::ONE)
-        + (UVec3::ONE - outer_edges_u32) * cell_count.saturating_sub(UVec3::ONE);
+    #[inline]
+    fn cell_count_to_line_count(include_outer: bool, cell_count: u32) -> u32 {
+        if include_outer {
+            cell_count.saturating_add(1)
+        } else {
+            cell_count.saturating_sub(1).max(1)
+        }
+    }
+
+    let x_line_count = UVec2::new(
+        cell_count_to_line_count(outer_edges[0], cell_count.y),
+        cell_count_to_line_count(outer_edges[0], cell_count.z),
+    );
+    let y_line_count = UVec2::new(
+        cell_count_to_line_count(outer_edges[1], cell_count.z),
+        cell_count_to_line_count(outer_edges[1], cell_count.x),
+    );
+    let z_line_count = UVec2::new(
+        cell_count_to_line_count(outer_edges[2], cell_count.x),
+        cell_count_to_line_count(outer_edges[2], cell_count.y),
+    );
 
     let x_start = grid_start + or_zero(!outer_edges[0], dy + dz);
     let y_start = grid_start + or_zero(!outer_edges[1], dx + dz);
@@ -416,11 +434,12 @@ fn draw_grid<Config, Clear>(
     }
 
     // Lines along the x direction
-    let x_lines = iter_lines(dx, dy, dz, line_count.yz(), cell_count.x, x_start);
+    let x_lines = iter_lines(dx, dy, dz, x_line_count, cell_count.x, x_start);
     // Lines along the y direction
-    let y_lines = iter_lines(dy, dz, dx, line_count.zx(), cell_count.y, y_start);
+    let y_lines = iter_lines(dy, dz, dx, y_line_count, cell_count.y, y_start);
     // Lines along the z direction
-    let z_lines = iter_lines(dz, dx, dy, line_count.xy(), cell_count.z, z_start);
+    let z_lines = iter_lines(dz, dx, dy, z_line_count, cell_count.z, z_start);
+
     x_lines
         .chain(y_lines)
         .chain(z_lines)

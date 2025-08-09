@@ -3,7 +3,7 @@ index df0aab42d..6e28a6e9c 100644
 --- a/crates/bevy_winit/src/state.rs
 +++ b/crates/bevy_winit/src/state.rs
 @@ -208,6 +208,12 @@ impl<T: Event> ApplicationHandler<T> for WinitAppRunnerState<T> {
-             }
+             adapter.process_event(winit_window, &event);
          }
  
 +        window_resized.write(WindowResized {

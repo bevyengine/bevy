@@ -684,8 +684,8 @@ pub fn prepare_mesh_view_bind_groups(
             entries =
                 entries.extend_with_indices(((24, transmission_view), (25, transmission_sampler)));
 
-            if has_oit {
-                if let (
+            if has_oit
+                && let (
                     Some(oit_layers_binding),
                     Some(oit_layer_ids_binding),
                     Some(oit_settings_binding),
@@ -693,13 +693,13 @@ pub fn prepare_mesh_view_bind_groups(
                     oit_buffers.layers.binding(),
                     oit_buffers.layer_ids.binding(),
                     oit_buffers.settings.binding(),
-                ) {
-                    entries = entries.extend_with_indices((
-                        (26, oit_layers_binding.clone()),
-                        (27, oit_layer_ids_binding.clone()),
-                        (28, oit_settings_binding.clone()),
-                    ));
-                }
+                )
+            {
+                entries = entries.extend_with_indices((
+                    (26, oit_layers_binding.clone()),
+                    (27, oit_layer_ids_binding.clone()),
+                    (28, oit_settings_binding.clone()),
+                ));
             }
 
             let mut entries_binding_array = DynamicBindGroupEntries::new();

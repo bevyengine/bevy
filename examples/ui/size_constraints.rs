@@ -35,7 +35,7 @@ enum Constraint {
 #[derive(Copy, Clone, Component)]
 struct ButtonValue(Val);
 
-#[derive(Event, BufferedEvent)]
+#[derive(BufferedEvent)]
 struct ButtonActivatedEvent(Entity);
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
@@ -290,10 +290,10 @@ fn update_buttons(
                     for &child in children {
                         if let Ok(grand_children) = children_query.get(child) {
                             for &grandchild in grand_children {
-                                if let Ok(mut text_color) = text_query.get_mut(grandchild) {
-                                    if text_color.0 != ACTIVE_TEXT_COLOR {
-                                        text_color.0 = HOVERED_TEXT_COLOR;
-                                    }
+                                if let Ok(mut text_color) = text_query.get_mut(grandchild)
+                                    && text_color.0 != ACTIVE_TEXT_COLOR
+                                {
+                                    text_color.0 = HOVERED_TEXT_COLOR;
                                 }
                             }
                         }
@@ -305,10 +305,10 @@ fn update_buttons(
                     for &child in children {
                         if let Ok(grand_children) = children_query.get(child) {
                             for &grandchild in grand_children {
-                                if let Ok(mut text_color) = text_query.get_mut(grandchild) {
-                                    if text_color.0 != ACTIVE_TEXT_COLOR {
-                                        text_color.0 = UNHOVERED_TEXT_COLOR;
-                                    }
+                                if let Ok(mut text_color) = text_query.get_mut(grandchild)
+                                    && text_color.0 != ACTIVE_TEXT_COLOR
+                                {
+                                    text_color.0 = UNHOVERED_TEXT_COLOR;
                                 }
                             }
                         }

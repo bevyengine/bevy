@@ -26,15 +26,14 @@ use bevy::{
     prelude::*,
     render::{
         batching::gpu_preprocessing::{
-            GpuPreprocessingMode, GpuPreprocessingSupport, IndirectParametersBuffers,
-            IndirectParametersIndexed,
+            GpuPreprocessingSupport, IndirectParametersBuffers, IndirectParametersIndexed,
         },
         experimental::occlusion_culling::OcclusionCulling,
         render_graph::{self, NodeRunError, RenderGraphContext, RenderGraphExt, RenderLabel},
         render_resource::{Buffer, BufferDescriptor, BufferUsages, MapMode},
         renderer::{RenderContext, RenderDevice},
         settings::WgpuFeatures,
-        Render, RenderApp, RenderDebugFlags, RenderPlugin, RenderSystems,
+        Render, RenderApp, RenderDebugFlags, RenderPlugin, RenderStartup, RenderSystems,
     },
 };
 use bytemuck::Pod;
@@ -111,7 +110,7 @@ struct IndirectParametersStagingBuffers {
 /// really care how up-to-date the counter of culled meshes is. If it's off by a
 /// few frames, that's no big deal.
 #[derive(Clone, Resource, Deref, DerefMut)]
-struct SavedIndirectParameters(Arc<Mutex<SavedIndirectParametersData>>);
+struct SavedIndirectParameters(Arc<Mutex<Option<SavedIndirectParametersData>>>);
 
 /// A CPU-side copy of the GPU buffer that stores the indirect draw parameters.
 ///
@@ -138,25 +137,29 @@ struct SavedIndirectParametersData {
     occlusion_culling_introspection_supported: bool,
 }
 
-impl FromWorld for SavedIndirectParameters {
-    fn from_world(world: &mut World) -> SavedIndirectParameters {
-        let render_device = world.resource::<RenderDevice>();
-        SavedIndirectParameters(Arc::new(Mutex::new(SavedIndirectParametersData {
-            data: vec![],
-            count: 0,
-            // This gets set to false in `readback_indirect_buffers` if we don't
-            // support GPU preprocessing.
-            occlusion_culling_supported: true,
-            // In order to determine how many meshes were culled, we look at the
-            // indirect count buffer that Bevy only populates if the platform
-            // supports `multi_draw_indirect_count`. So, if we don't have that
-            // feature, then we don't bother to display how many meshes were
-            // culled.
-            occlusion_culling_introspection_supported: render_device
-                .features()
-                .contains(WgpuFeatures::MULTI_DRAW_INDIRECT_COUNT),
-        })))
+impl SavedIndirectParameters {
+    fn new() -> Self {
+        Self(Arc::new(Mutex::new(None)))
     }
+}
+
+fn init_saved_indirect_parameters(
+    render_device: Res<RenderDevice>,
+    gpu_preprocessing_support: Res<GpuPreprocessingSupport>,
+    saved_indirect_parameters: Res<SavedIndirectParameters>,
+) {
+    let mut saved_indirect_parameters = saved_indirect_parameters.0.lock().unwrap();
+    *saved_indirect_parameters = Some(SavedIndirectParametersData {
+        data: vec![],
+        count: 0,
+        occlusion_culling_supported: gpu_preprocessing_support.is_culling_supported(),
+        // In order to determine how many meshes were culled, we look at the indirect count buffer
+        // that Bevy only populates if the platform supports `multi_draw_indirect_count`. So, if we
+        // don't have that feature, then we don't bother to display how many meshes were culled.
+        occlusion_culling_introspection_supported: render_device
+            .features()
+            .contains(WgpuFeatures::MULTI_DRAW_INDIRECT_COUNT),
+    });
 }
 
 /// The demo's current settings.
@@ -210,12 +213,25 @@ fn main() {
 
 impl Plugin for ReadbackIndirectParametersPlugin {
     fn build(&self, app: &mut App) {
+        // Create the `SavedIndirectParameters` resource that we're going to use
+        // to communicate between the thread that the GPU-to-CPU readback
+        // callback runs on and the main application threads. This resource is
+        // atomically reference counted. We store one reference to the
+        // `SavedIndirectParameters` in the main app and another reference in
+        // the render app.
+        let saved_indirect_parameters = SavedIndirectParameters::new();
+        app.insert_resource(saved_indirect_parameters.clone());
+
         // Fetch the render app.
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
         };
 
         render_app
+            // Insert another reference to the `SavedIndirectParameters`.
+            .insert_resource(saved_indirect_parameters)
+            // Setup the parameters in RenderStartup.
+            .add_systems(RenderStartup, init_saved_indirect_parameters)
             .init_resource::<IndirectParametersStagingBuffers>()
             .add_systems(ExtractSchedule, readback_indirect_parameters)
             .add_systems(
@@ -244,26 +260,6 @@ impl Plugin for ReadbackIndirectParametersPlugin {
                     Node3d::EndMainPassPostProcessing,
                 ),
             );
-    }
-
-    fn finish(&self, app: &mut App) {
-        // Create the `SavedIndirectParameters` resource that we're going to use
-        // to communicate between the thread that the GPU-to-CPU readback
-        // callback runs on and the main application threads. This resource is
-        // atomically reference counted. We store one reference to the
-        // `SavedIndirectParameters` in the main app and another reference in
-        // the render app.
-        let saved_indirect_parameters = SavedIndirectParameters::from_world(app.world_mut());
-        app.insert_resource(saved_indirect_parameters.clone());
-
-        // Fetch the render app.
-        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
-            return;
-        };
-
-        render_app
-            // Insert another reference to the `SavedIndirectParameters`.
-            .insert_resource(saved_indirect_parameters);
     }
 }
 
@@ -550,6 +546,10 @@ fn update_status_text(
         occlusion_culling_introspection_supported,
     ): (u32, bool, bool) = {
         let saved_indirect_parameters = saved_indirect_parameters.lock().unwrap();
+        let Some(saved_indirect_parameters) = saved_indirect_parameters.as_ref() else {
+            // Bail out early if the resource isn't initialized yet.
+            return;
+        };
         (
             saved_indirect_parameters
                 .data
@@ -597,14 +597,15 @@ fn update_status_text(
 fn readback_indirect_parameters(
     mut indirect_parameters_staging_buffers: ResMut<IndirectParametersStagingBuffers>,
     saved_indirect_parameters: Res<SavedIndirectParameters>,
-    gpu_preprocessing_support: Res<GpuPreprocessingSupport>,
 ) {
-    // If culling isn't supported on this platform, note that, and bail.
-    if gpu_preprocessing_support.max_supported_mode != GpuPreprocessingMode::Culling {
-        saved_indirect_parameters
-            .lock()
-            .unwrap()
-            .occlusion_culling_supported = false;
+    // If culling isn't supported on this platform, bail.
+    if !saved_indirect_parameters
+        .lock()
+        .unwrap()
+        .as_ref()
+        .unwrap()
+        .occlusion_culling_supported
+    {
         return;
     }
 
@@ -620,10 +621,20 @@ fn readback_indirect_parameters(
     let saved_indirect_parameters_0 = (**saved_indirect_parameters).clone();
     let saved_indirect_parameters_1 = (**saved_indirect_parameters).clone();
     readback_buffer::<IndirectParametersIndexed>(data_buffer, move |indirect_parameters| {
-        saved_indirect_parameters_0.lock().unwrap().data = indirect_parameters.to_vec();
+        saved_indirect_parameters_0
+            .lock()
+            .unwrap()
+            .as_mut()
+            .unwrap()
+            .data = indirect_parameters.to_vec();
     });
     readback_buffer::<u32>(batch_sets_buffer, move |indirect_parameters_count| {
-        saved_indirect_parameters_1.lock().unwrap().count = indirect_parameters_count[0];
+        saved_indirect_parameters_1
+            .lock()
+            .unwrap()
+            .as_mut()
+            .unwrap()
+            .count = indirect_parameters_count[0];
     });
 }
 

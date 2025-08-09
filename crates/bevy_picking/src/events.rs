@@ -59,7 +59,7 @@ use crate::{
 ///
 /// The documentation for the [`pointer_events`] explains the events this module exposes and
 /// the order in which they fire.
-#[derive(Event, BufferedEvent, EntityEvent, Clone, PartialEq, Debug, Reflect, Component)]
+#[derive(BufferedEvent, EntityEvent, Clone, PartialEq, Debug, Reflect, Component)]
 #[entity_event(traversal = PointerTraversal, auto_propagate)]
 #[reflect(Component, Debug, Clone)]
 pub struct Pointer<E: Debug + Clone + Reflect> {
@@ -95,10 +95,10 @@ where
         };
 
         // Otherwise, send it to the window entity (unless this is a window entity).
-        if window.is_none() {
-            if let NormalizedRenderTarget::Window(window_ref) = pointer.pointer_location.target {
-                return Some(window_ref.entity());
-            }
+        if window.is_none()
+            && let NormalizedRenderTarget::Window(window_ref) = pointer.pointer_location.target
+        {
+            return Some(window_ref.entity());
         }
 
         None

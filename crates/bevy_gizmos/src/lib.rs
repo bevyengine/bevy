@@ -159,9 +159,7 @@ impl Plugin for GizmoPlugin {
             embedded_asset!(app, "line_joints.wgsl");
         }
 
-        app.register_type::<GizmoConfig>()
-            .register_type::<GizmoConfigStore>()
-            .init_asset::<GizmoAsset>()
+        app.init_asset::<GizmoAsset>()
             .init_resource::<GizmoHandles>()
             // We insert the Resource GizmoConfigStore into the world implicitly here if it does not exist.
             .init_gizmo_group::<DefaultGizmoConfigGroup>();

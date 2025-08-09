@@ -687,6 +687,12 @@ impl Default for UiRect {
     }
 }
 
+impl From<Val> for UiRect {
+    fn from(value: Val) -> Self {
+        UiRect::all(value)
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Reflect)]
 #[reflect(Default, Debug, PartialEq)]
 #[cfg_attr(

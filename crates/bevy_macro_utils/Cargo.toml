@@ -12,7 +12,7 @@ keywords = ["bevy"]
 syn = "2.0"
 quote = "1.0"
 proc-macro2 = "1.0"
-toml_edit = { version = "0.22.7", default-features = false, features = [
+toml_edit = { version = "0.23.2", default-features = false, features = [
   "parse",
 ] }
 parking_lot = { version = "0.12" }

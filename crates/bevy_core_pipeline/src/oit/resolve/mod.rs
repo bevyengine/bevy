@@ -167,11 +167,11 @@ pub fn queue_oit_resolve_pipeline(
             layer_count: oit_settings.layer_count,
         };
 
-        if let Some((cached_key, id)) = cached_pipeline_id.get(&e) {
-            if *cached_key == key {
-                commands.entity(e).insert(OitResolvePipelineId(*id));
-                continue;
-            }
+        if let Some((cached_key, id)) = cached_pipeline_id.get(&e)
+            && *cached_key == key
+        {
+            commands.entity(e).insert(OitResolvePipelineId(*id));
+            continue;
         }
 
         let desc = specialize_oit_resolve_pipeline(

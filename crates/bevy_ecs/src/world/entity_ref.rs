@@ -19,6 +19,7 @@ use crate::{
     query::{Access, DebugCheckedUnwrap, ReadOnlyQueryData, ReleaseStateQueryData},
     relationship::RelationshipHookMode,
     resource::Resource,
+    storage::{SparseSets, Table},
     system::IntoObserverSystem,
     world::{error::EntityComponentError, unsafe_world_cell::UnsafeEntityCell, Mut, Ref, World},
 };
@@ -289,7 +290,9 @@ impl<'w> EntityRef<'w> {
     pub fn get_components<Q: ReadOnlyQueryData + ReleaseStateQueryData>(
         &self,
     ) -> Option<Q::Item<'w, 'static>> {
-        // SAFETY: We have read-only access to all components of this entity.
+        // SAFETY:
+        // - We have read-only access to all components of this entity.
+        // - The query is read-only, and read-only references cannot have conflicts.
         unsafe { self.cell.get_components::<Q>() }
     }
 
@@ -338,10 +341,10 @@ impl<'a> From<&'a EntityMut<'_>> for EntityRef<'a> {
     }
 }
 
-impl<'a> TryFrom<FilteredEntityRef<'a>> for EntityRef<'a> {
+impl<'a> TryFrom<FilteredEntityRef<'a, '_>> for EntityRef<'a> {
     type Error = TryFromFilteredError;
 
-    fn try_from(entity: FilteredEntityRef<'a>) -> Result<Self, Self::Error> {
+    fn try_from(entity: FilteredEntityRef<'a, '_>) -> Result<Self, Self::Error> {
         if !entity.access.has_read_all() {
             Err(TryFromFilteredError::MissingReadAllAccess)
         } else {
@@ -351,10 +354,10 @@ impl<'a> TryFrom<FilteredEntityRef<'a>> for EntityRef<'a> {
     }
 }
 
-impl<'a> TryFrom<&'a FilteredEntityRef<'_>> for EntityRef<'a> {
+impl<'a> TryFrom<&'a FilteredEntityRef<'_, '_>> for EntityRef<'a> {
     type Error = TryFromFilteredError;
 
-    fn try_from(entity: &'a FilteredEntityRef<'_>) -> Result<Self, Self::Error> {
+    fn try_from(entity: &'a FilteredEntityRef<'_, '_>) -> Result<Self, Self::Error> {
         if !entity.access.has_read_all() {
             Err(TryFromFilteredError::MissingReadAllAccess)
         } else {
@@ -364,10 +367,10 @@ impl<'a> TryFrom<&'a FilteredEntityRef<'_>> for EntityRef<'a> {
     }
 }
 
-impl<'a> TryFrom<FilteredEntityMut<'a>> for EntityRef<'a> {
+impl<'a> TryFrom<FilteredEntityMut<'a, '_>> for EntityRef<'a> {
     type Error = TryFromFilteredError;
 
-    fn try_from(entity: FilteredEntityMut<'a>) -> Result<Self, Self::Error> {
+    fn try_from(entity: FilteredEntityMut<'a, '_>) -> Result<Self, Self::Error> {
         if !entity.access.has_read_all() {
             Err(TryFromFilteredError::MissingReadAllAccess)
         } else {
@@ -377,10 +380,10 @@ impl<'a> TryFrom<FilteredEntityMut<'a>> for EntityRef<'a> {
     }
 }
 
-impl<'a> TryFrom<&'a FilteredEntityMut<'_>> for EntityRef<'a> {
+impl<'a> TryFrom<&'a FilteredEntityMut<'_, '_>> for EntityRef<'a> {
     type Error = TryFromFilteredError;
 
-    fn try_from(entity: &'a FilteredEntityMut<'_>) -> Result<Self, Self::Error> {
+    fn try_from(entity: &'a FilteredEntityMut<'_, '_>) -> Result<Self, Self::Error> {
         if !entity.access.has_read_all() {
             Err(TryFromFilteredError::MissingReadAllAccess)
         } else {
@@ -558,6 +561,78 @@ impl<'w> EntityMut<'w> {
         &self,
     ) -> Option<Q::Item<'_, 'static>> {
         self.as_readonly().get_components::<Q>()
+    }
+
+    /// Returns components for the current entity that match the query `Q`,
+    /// or `None` if the entity does not have the components required by the query `Q`.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// #
+    /// #[derive(Component)]
+    /// struct X(usize);
+    /// #[derive(Component)]
+    /// struct Y(usize);
+    ///
+    /// # let mut world = World::default();
+    /// let mut entity = world.spawn((X(0), Y(0))).into_mutable();
+    /// // Get mutable access to two components at once
+    /// // SAFETY: X and Y are different components
+    /// let (mut x, mut y) =
+    ///     unsafe { entity.get_components_mut_unchecked::<(&mut X, &mut Y)>() }.unwrap();
+    /// *x = X(1);
+    /// *y = Y(1);
+    /// // This would trigger undefined behavior, as the `&mut X`s would alias:
+    /// // entity.get_components_mut_unchecked::<(&mut X, &mut X)>();
+    /// ```
+    ///
+    /// # Safety
+    /// It is the caller's responsibility to ensure that
+    /// the `QueryData` does not provide aliasing mutable references to the same component.
+    pub unsafe fn get_components_mut_unchecked<Q: ReleaseStateQueryData>(
+        &mut self,
+    ) -> Option<Q::Item<'_, 'static>> {
+        // SAFETY: Caller the `QueryData` does not provide aliasing mutable references to the same component
+        unsafe { self.reborrow().into_components_mut_unchecked::<Q>() }
+    }
+
+    /// Consumes self and returns components for the current entity that match the query `Q` for the world lifetime `'w`,
+    /// or `None` if the entity does not have the components required by the query `Q`.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// #
+    /// #[derive(Component)]
+    /// struct X(usize);
+    /// #[derive(Component)]
+    /// struct Y(usize);
+    ///
+    /// # let mut world = World::default();
+    /// let mut entity = world.spawn((X(0), Y(0))).into_mutable();
+    /// // Get mutable access to two components at once
+    /// // SAFETY: X and Y are different components
+    /// let (mut x, mut y) =
+    ///     unsafe { entity.into_components_mut_unchecked::<(&mut X, &mut Y)>() }.unwrap();
+    /// *x = X(1);
+    /// *y = Y(1);
+    /// // This would trigger undefined behavior, as the `&mut X`s would alias:
+    /// // entity.into_components_mut_unchecked::<(&mut X, &mut X)>();
+    /// ```
+    ///
+    /// # Safety
+    /// It is the caller's responsibility to ensure that
+    /// the `QueryData` does not provide aliasing mutable references to the same component.
+    pub unsafe fn into_components_mut_unchecked<Q: ReleaseStateQueryData>(
+        self,
+    ) -> Option<Q::Item<'w, 'static>> {
+        // SAFETY:
+        // - We have mutable access to all components of this entity.
+        // - Caller asserts the `QueryData` does not provide aliasing mutable references to the same component
+        unsafe { self.cell.get_components::<Q>() }
     }
 
     /// Consumes `self` and gets access to the component of type `T` with the
@@ -1020,10 +1095,10 @@ impl<'a> From<&'a mut EntityWorldMut<'_>> for EntityMut<'a> {
     }
 }
 
-impl<'a> TryFrom<FilteredEntityMut<'a>> for EntityMut<'a> {
+impl<'a> TryFrom<FilteredEntityMut<'a, '_>> for EntityMut<'a> {
     type Error = TryFromFilteredError;
 
-    fn try_from(entity: FilteredEntityMut<'a>) -> Result<Self, Self::Error> {
+    fn try_from(entity: FilteredEntityMut<'a, '_>) -> Result<Self, Self::Error> {
         if !entity.access.has_read_all() {
             Err(TryFromFilteredError::MissingReadAllAccess)
         } else if !entity.access.has_write_all() {
@@ -1035,10 +1110,10 @@ impl<'a> TryFrom<FilteredEntityMut<'a>> for EntityMut<'a> {
     }
 }
 
-impl<'a> TryFrom<&'a mut FilteredEntityMut<'_>> for EntityMut<'a> {
+impl<'a> TryFrom<&'a mut FilteredEntityMut<'_, '_>> for EntityMut<'a> {
     type Error = TryFromFilteredError;
 
-    fn try_from(entity: &'a mut FilteredEntityMut<'_>) -> Result<Self, Self::Error> {
+    fn try_from(entity: &'a mut FilteredEntityMut<'_, '_>) -> Result<Self, Self::Error> {
         if !entity.access.has_read_all() {
             Err(TryFromFilteredError::MissingReadAllAccess)
         } else if !entity.access.has_write_all() {
@@ -1331,6 +1406,76 @@ impl<'w> EntityWorldMut<'w> {
         self.as_readonly().get_components::<Q>()
     }
 
+    /// Returns components for the current entity that match the query `Q`,
+    /// or `None` if the entity does not have the components required by the query `Q`.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// #
+    /// #[derive(Component)]
+    /// struct X(usize);
+    /// #[derive(Component)]
+    /// struct Y(usize);
+    ///
+    /// # let mut world = World::default();
+    /// let mut entity = world.spawn((X(0), Y(0)));
+    /// // Get mutable access to two components at once
+    /// // SAFETY: X and Y are different components
+    /// let (mut x, mut y) =
+    ///     unsafe { entity.get_components_mut_unchecked::<(&mut X, &mut Y)>() }.unwrap();
+    /// *x = X(1);
+    /// *y = Y(1);
+    /// // This would trigger undefined behavior, as the `&mut X`s would alias:
+    /// // entity.get_components_mut_unchecked::<(&mut X, &mut X)>();
+    /// ```
+    ///
+    /// # Safety
+    /// It is the caller's responsibility to ensure that
+    /// the `QueryData` does not provide aliasing mutable references to the same component.
+    pub unsafe fn get_components_mut_unchecked<Q: ReleaseStateQueryData>(
+        &mut self,
+    ) -> Option<Q::Item<'_, 'static>> {
+        // SAFETY: Caller the `QueryData` does not provide aliasing mutable references to the same component
+        unsafe { self.as_mutable().into_components_mut_unchecked::<Q>() }
+    }
+
+    /// Consumes self and returns components for the current entity that match the query `Q` for the world lifetime `'w`,
+    /// or `None` if the entity does not have the components required by the query `Q`.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// #
+    /// #[derive(Component)]
+    /// struct X(usize);
+    /// #[derive(Component)]
+    /// struct Y(usize);
+    ///
+    /// # let mut world = World::default();
+    /// let mut entity = world.spawn((X(0), Y(0)));
+    /// // Get mutable access to two components at once
+    /// // SAFETY: X and Y are different components
+    /// let (mut x, mut y) =
+    ///     unsafe { entity.into_components_mut_unchecked::<(&mut X, &mut Y)>() }.unwrap();
+    /// *x = X(1);
+    /// *y = Y(1);
+    /// // This would trigger undefined behavior, as the `&mut X`s would alias:
+    /// // entity.into_components_mut_unchecked::<(&mut X, &mut X)>();
+    /// ```
+    ///
+    /// # Safety
+    /// It is the caller's responsibility to ensure that
+    /// the `QueryData` does not provide aliasing mutable references to the same component.
+    pub unsafe fn into_components_mut_unchecked<Q: ReleaseStateQueryData>(
+        self,
+    ) -> Option<Q::Item<'w, 'static>> {
+        // SAFETY: Caller the `QueryData` does not provide aliasing mutable references to the same component
+        unsafe { self.into_mutable().into_components_mut_unchecked::<Q>() }
+    }
+
     /// Consumes `self` and gets access to the component of type `T` with
     /// the world `'w` lifetime for the current entity.
     /// Returns `None` if the entity does not have a component of type `T`.
@@ -1544,6 +1689,50 @@ impl<'w> EntityWorldMut<'w> {
     #[inline]
     pub fn get_resource_mut<R: Resource>(&mut self) -> Option<Mut<'_, R>> {
         self.world.get_resource_mut()
+    }
+
+    /// Temporarily removes the requested resource from the [`World`], runs custom user code,
+    /// then re-adds the resource before returning.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the resource does not exist.
+    /// Use [`try_resource_scope`](Self::try_resource_scope) instead if you want to handle this case.
+    ///
+    /// See [`World::resource_scope`] for further details.
+    #[track_caller]
+    pub fn resource_scope<R: Resource, U>(
+        &mut self,
+        f: impl FnOnce(&mut EntityWorldMut, Mut<R>) -> U,
+    ) -> U {
+        let id = self.id();
+        self.world_scope(|world| {
+            world.resource_scope(|world, res| {
+                // Acquiring a new EntityWorldMut here and using that instead of `self` is fine because
+                // the outer `world_scope` will handle updating our location if it gets changed by the user code
+                let mut this = world.entity_mut(id);
+                f(&mut this, res)
+            })
+        })
+    }
+
+    /// Temporarily removes the requested resource from the [`World`] if it exists, runs custom user code,
+    /// then re-adds the resource before returning. Returns `None` if the resource does not exist in the [`World`].
+    ///
+    /// See [`World::try_resource_scope`] for further details.
+    pub fn try_resource_scope<R: Resource, U>(
+        &mut self,
+        f: impl FnOnce(&mut EntityWorldMut, Mut<R>) -> U,
+    ) -> Option<U> {
+        let id = self.id();
+        self.world_scope(|world| {
+            world.try_resource_scope(|world, res| {
+                // Acquiring a new EntityWorldMut here and using that instead of `self` is fine because
+                // the outer `world_scope` will handle updating our location if it gets changed by the user code
+                let mut this = world.entity_mut(id);
+                f(&mut this, res)
+            })
+        })
     }
 
     /// Retrieves the change ticks for the given component. This can be useful for implementing change
@@ -2264,6 +2453,27 @@ impl<'w> EntityWorldMut<'w> {
     /// entity has been despawned while this `EntityWorldMut` is still alive.
     #[track_caller]
     pub fn remove_by_ids(&mut self, component_ids: &[ComponentId]) -> &mut Self {
+        self.remove_by_ids_with_caller(
+            component_ids,
+            MaybeLocation::caller(),
+            RelationshipHookMode::Run,
+            BundleRemover::empty_pre_remove,
+        )
+    }
+
+    #[inline]
+    pub(crate) fn remove_by_ids_with_caller<T: 'static>(
+        &mut self,
+        component_ids: &[ComponentId],
+        caller: MaybeLocation,
+        relationship_hook_mode: RelationshipHookMode,
+        pre_remove: impl FnOnce(
+            &mut SparseSets,
+            Option<&mut Table>,
+            &Components,
+            &[ComponentId],
+        ) -> (bool, T),
+    ) -> &mut Self {
         let location = self.location();
         let components = &mut self.world.components;
 
@@ -2279,16 +2489,9 @@ impl<'w> EntityWorldMut<'w> {
         }) else {
             return self;
         };
+        remover.relationship_hook_mode = relationship_hook_mode;
         // SAFETY: The remover archetype came from the passed location and the removal can not fail.
-        let new_location = unsafe {
-            remover.remove(
-                self.entity,
-                location,
-                MaybeLocation::caller(),
-                BundleRemover::empty_pre_remove,
-            )
-        }
-        .0;
+        let new_location = unsafe { remover.remove(self.entity, location, caller, pre_remove) }.0;
 
         self.location = Some(new_location);
         self.world.flush();
@@ -3310,20 +3513,20 @@ impl<'w, 'a, T: Component> VacantComponentEntry<'w, 'a, T> {
 /// let filtered_entity: FilteredEntityRef = query.single(&mut world).unwrap();
 /// let component: &A = filtered_entity.get().unwrap();
 /// ```
-#[derive(Clone)]
-pub struct FilteredEntityRef<'w> {
+#[derive(Clone, Copy)]
+pub struct FilteredEntityRef<'w, 's> {
     entity: UnsafeEntityCell<'w>,
-    access: Access<ComponentId>,
+    access: &'s Access,
 }
 
-impl<'w> FilteredEntityRef<'w> {
+impl<'w, 's> FilteredEntityRef<'w, 's> {
     /// # Safety
     /// - No `&mut World` can exist from the underlying `UnsafeWorldCell`
     /// - If `access` takes read access to a component no mutable reference to that
     ///   component can exist at the same time as the returned [`FilteredEntityMut`]
     /// - If `access` takes any access for a component `entity` must have that component.
     #[inline]
-    pub(crate) unsafe fn new(entity: UnsafeEntityCell<'w>, access: Access<ComponentId>) -> Self {
+    pub(crate) unsafe fn new(entity: UnsafeEntityCell<'w>, access: &'s Access) -> Self {
         Self { entity, access }
     }
 
@@ -3348,8 +3551,8 @@ impl<'w> FilteredEntityRef<'w> {
 
     /// Returns a reference to the underlying [`Access`].
     #[inline]
-    pub fn access(&self) -> &Access<ComponentId> {
-        &self.access
+    pub fn access(&self) -> &Access {
+        self.access
     }
 
     /// Returns `true` if the current entity has a component of type `T`.
@@ -3482,123 +3685,99 @@ impl<'w> FilteredEntityRef<'w> {
     }
 }
 
-impl<'w> From<FilteredEntityMut<'w>> for FilteredEntityRef<'w> {
+impl<'w, 's> From<FilteredEntityMut<'w, 's>> for FilteredEntityRef<'w, 's> {
     #[inline]
-    fn from(entity: FilteredEntityMut<'w>) -> Self {
+    fn from(entity: FilteredEntityMut<'w, 's>) -> Self {
         // SAFETY:
         // - `FilteredEntityMut` guarantees exclusive access to all components in the new `FilteredEntityRef`.
         unsafe { FilteredEntityRef::new(entity.entity, entity.access) }
     }
 }
 
-impl<'a> From<&'a FilteredEntityMut<'_>> for FilteredEntityRef<'a> {
+impl<'w, 's> From<&'w FilteredEntityMut<'_, 's>> for FilteredEntityRef<'w, 's> {
     #[inline]
-    fn from(entity: &'a FilteredEntityMut<'_>) -> Self {
+    fn from(entity: &'w FilteredEntityMut<'_, 's>) -> Self {
         // SAFETY:
         // - `FilteredEntityMut` guarantees exclusive access to all components in the new `FilteredEntityRef`.
-        unsafe { FilteredEntityRef::new(entity.entity, entity.access.clone()) }
+        unsafe { FilteredEntityRef::new(entity.entity, entity.access) }
     }
 }
 
-impl<'a> From<EntityRef<'a>> for FilteredEntityRef<'a> {
+impl<'a> From<EntityRef<'a>> for FilteredEntityRef<'a, 'static> {
     fn from(entity: EntityRef<'a>) -> Self {
         // SAFETY:
         // - `EntityRef` guarantees exclusive access to all components in the new `FilteredEntityRef`.
-        unsafe {
-            let mut access = Access::default();
-            access.read_all();
-            FilteredEntityRef::new(entity.cell, access)
-        }
+        unsafe { FilteredEntityRef::new(entity.cell, const { &Access::new_read_all() }) }
     }
 }
 
-impl<'a> From<&'a EntityRef<'_>> for FilteredEntityRef<'a> {
+impl<'a> From<&'a EntityRef<'_>> for FilteredEntityRef<'a, 'static> {
     fn from(entity: &'a EntityRef<'_>) -> Self {
         // SAFETY:
         // - `EntityRef` guarantees exclusive access to all components in the new `FilteredEntityRef`.
-        unsafe {
-            let mut access = Access::default();
-            access.read_all();
-            FilteredEntityRef::new(entity.cell, access)
-        }
+        unsafe { FilteredEntityRef::new(entity.cell, const { &Access::new_read_all() }) }
     }
 }
 
-impl<'a> From<EntityMut<'a>> for FilteredEntityRef<'a> {
+impl<'a> From<EntityMut<'a>> for FilteredEntityRef<'a, 'static> {
     fn from(entity: EntityMut<'a>) -> Self {
         // SAFETY:
         // - `EntityMut` guarantees exclusive access to all components in the new `FilteredEntityRef`.
-        unsafe {
-            let mut access = Access::default();
-            access.read_all();
-            FilteredEntityRef::new(entity.cell, access)
-        }
+        unsafe { FilteredEntityRef::new(entity.cell, const { &Access::new_read_all() }) }
     }
 }
 
-impl<'a> From<&'a EntityMut<'_>> for FilteredEntityRef<'a> {
+impl<'a> From<&'a EntityMut<'_>> for FilteredEntityRef<'a, 'static> {
     fn from(entity: &'a EntityMut<'_>) -> Self {
         // SAFETY:
         // - `EntityMut` guarantees exclusive access to all components in the new `FilteredEntityRef`.
-        unsafe {
-            let mut access = Access::default();
-            access.read_all();
-            FilteredEntityRef::new(entity.cell, access)
-        }
+        unsafe { FilteredEntityRef::new(entity.cell, const { &Access::new_read_all() }) }
     }
 }
 
-impl<'a> From<EntityWorldMut<'a>> for FilteredEntityRef<'a> {
+impl<'a> From<EntityWorldMut<'a>> for FilteredEntityRef<'a, 'static> {
     fn from(entity: EntityWorldMut<'a>) -> Self {
         // SAFETY:
         // - `EntityWorldMut` guarantees exclusive access to the entire world.
         unsafe {
-            let mut access = Access::default();
-            access.read_all();
-            FilteredEntityRef::new(entity.into_unsafe_entity_cell(), access)
+            FilteredEntityRef::new(
+                entity.into_unsafe_entity_cell(),
+                const { &Access::new_read_all() },
+            )
         }
     }
 }
 
-impl<'a> From<&'a EntityWorldMut<'_>> for FilteredEntityRef<'a> {
+impl<'a> From<&'a EntityWorldMut<'_>> for FilteredEntityRef<'a, 'static> {
     fn from(entity: &'a EntityWorldMut<'_>) -> Self {
         // SAFETY:
         // - `EntityWorldMut` guarantees exclusive access to the entire world.
         unsafe {
-            let mut access = Access::default();
-            access.read_all();
-            FilteredEntityRef::new(entity.as_unsafe_entity_cell_readonly(), access)
+            FilteredEntityRef::new(
+                entity.as_unsafe_entity_cell_readonly(),
+                const { &Access::new_read_all() },
+            )
         }
     }
 }
 
-impl<'a, B: Bundle> From<&'a EntityRefExcept<'_, B>> for FilteredEntityRef<'a> {
-    fn from(value: &'a EntityRefExcept<'_, B>) -> Self {
+impl<'w, 's, B: Bundle> From<&'w EntityRefExcept<'_, 's, B>> for FilteredEntityRef<'w, 's> {
+    fn from(value: &'w EntityRefExcept<'_, 's, B>) -> Self {
         // SAFETY:
         // - The FilteredEntityRef has the same component access as the given EntityRefExcept.
-        unsafe {
-            let mut access = Access::default();
-            access.read_all();
-            let components = value.entity.world().components();
-            B::get_component_ids(components, &mut |maybe_id| {
-                if let Some(id) = maybe_id {
-                    access.remove_component_read(id);
-                }
-            });
-            FilteredEntityRef::new(value.entity, access)
-        }
+        unsafe { FilteredEntityRef::new(value.entity, value.access) }
     }
 }
 
-impl PartialEq for FilteredEntityRef<'_> {
+impl PartialEq for FilteredEntityRef<'_, '_> {
     fn eq(&self, other: &Self) -> bool {
         self.entity() == other.entity()
     }
 }
 
-impl Eq for FilteredEntityRef<'_> {}
+impl Eq for FilteredEntityRef<'_, '_> {}
 
-impl PartialOrd for FilteredEntityRef<'_> {
+impl PartialOrd for FilteredEntityRef<'_, '_> {
     /// [`FilteredEntityRef`]'s comparison trait implementations match the underlying [`Entity`],
     /// and cannot discern between different worlds.
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
@@ -3606,26 +3785,26 @@ impl PartialOrd for FilteredEntityRef<'_> {
     }
 }
 
-impl Ord for FilteredEntityRef<'_> {
+impl Ord for FilteredEntityRef<'_, '_> {
     fn cmp(&self, other: &Self) -> Ordering {
         self.entity().cmp(&other.entity())
     }
 }
 
-impl Hash for FilteredEntityRef<'_> {
+impl Hash for FilteredEntityRef<'_, '_> {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.entity().hash(state);
     }
 }
 
-impl ContainsEntity for FilteredEntityRef<'_> {
+impl ContainsEntity for FilteredEntityRef<'_, '_> {
     fn entity(&self) -> Entity {
         self.id()
     }
 }
 
 // SAFETY: This type represents one Entity. We implement the comparison traits based on that Entity.
-unsafe impl EntityEquivalent for FilteredEntityRef<'_> {}
+unsafe impl EntityEquivalent for FilteredEntityRef<'_, '_> {}
 
 /// Provides mutable access to a single entity and some of its components defined by the contained [`Access`].
 ///
@@ -3650,12 +3829,12 @@ unsafe impl EntityEquivalent for FilteredEntityRef<'_> {}
 /// let mut filtered_entity: FilteredEntityMut = query.single_mut(&mut world).unwrap();
 /// let component: Mut<A> = filtered_entity.get_mut().unwrap();
 /// ```
-pub struct FilteredEntityMut<'w> {
+pub struct FilteredEntityMut<'w, 's> {
     entity: UnsafeEntityCell<'w>,
-    access: Access<ComponentId>,
+    access: &'s Access,
 }
 
-impl<'w> FilteredEntityMut<'w> {
+impl<'w, 's> FilteredEntityMut<'w, 's> {
     /// # Safety
     /// - No `&mut World` can exist from the underlying `UnsafeWorldCell`
     /// - If `access` takes read access to a component no mutable reference to that
@@ -3664,20 +3843,20 @@ impl<'w> FilteredEntityMut<'w> {
     ///   may exist at the same time as the returned [`FilteredEntityMut`]
     /// - If `access` takes any access for a component `entity` must have that component.
     #[inline]
-    pub(crate) unsafe fn new(entity: UnsafeEntityCell<'w>, access: Access<ComponentId>) -> Self {
+    pub(crate) unsafe fn new(entity: UnsafeEntityCell<'w>, access: &'s Access) -> Self {
         Self { entity, access }
     }
 
     /// Returns a new instance with a shorter lifetime.
     /// This is useful if you have `&mut FilteredEntityMut`, but you need `FilteredEntityMut`.
-    pub fn reborrow(&mut self) -> FilteredEntityMut<'_> {
+    pub fn reborrow(&mut self) -> FilteredEntityMut<'_, 's> {
         // SAFETY: We have exclusive access to the entire entity and its components.
-        unsafe { Self::new(self.entity, self.access.clone()) }
+        unsafe { Self::new(self.entity, self.access) }
     }
 
     /// Gets read-only access to all of the entity's components.
     #[inline]
-    pub fn as_readonly(&self) -> FilteredEntityRef<'_> {
+    pub fn as_readonly(&self) -> FilteredEntityRef<'_, 's> {
         FilteredEntityRef::from(self)
     }
 
@@ -3702,8 +3881,8 @@ impl<'w> FilteredEntityMut<'w> {
 
     /// Returns a reference to the underlying [`Access`].
     #[inline]
-    pub fn access(&self) -> &Access<ComponentId> {
-        &self.access
+    pub fn access(&self) -> &Access {
+        self.access
     }
 
     /// Returns `true` if the current entity has a component of type `T`.
@@ -3868,85 +4047,65 @@ impl<'w> FilteredEntityMut<'w> {
     }
 }
 
-impl<'a> From<EntityMut<'a>> for FilteredEntityMut<'a> {
+impl<'a> From<EntityMut<'a>> for FilteredEntityMut<'a, 'static> {
     fn from(entity: EntityMut<'a>) -> Self {
         // SAFETY:
         // - `EntityMut` guarantees exclusive access to all components in the new `FilteredEntityMut`.
-        unsafe {
-            let mut access = Access::default();
-            access.read_all();
-            access.write_all();
-            FilteredEntityMut::new(entity.cell, access)
-        }
+        unsafe { FilteredEntityMut::new(entity.cell, const { &Access::new_write_all() }) }
     }
 }
 
-impl<'a> From<&'a mut EntityMut<'_>> for FilteredEntityMut<'a> {
+impl<'a> From<&'a mut EntityMut<'_>> for FilteredEntityMut<'a, 'static> {
     fn from(entity: &'a mut EntityMut<'_>) -> Self {
         // SAFETY:
         // - `EntityMut` guarantees exclusive access to all components in the new `FilteredEntityMut`.
-        unsafe {
-            let mut access = Access::default();
-            access.read_all();
-            access.write_all();
-            FilteredEntityMut::new(entity.cell, access)
-        }
+        unsafe { FilteredEntityMut::new(entity.cell, const { &Access::new_write_all() }) }
     }
 }
 
-impl<'a> From<EntityWorldMut<'a>> for FilteredEntityMut<'a> {
+impl<'a> From<EntityWorldMut<'a>> for FilteredEntityMut<'a, 'static> {
     fn from(entity: EntityWorldMut<'a>) -> Self {
         // SAFETY:
         // - `EntityWorldMut` guarantees exclusive access to the entire world.
         unsafe {
-            let mut access = Access::default();
-            access.read_all();
-            access.write_all();
-            FilteredEntityMut::new(entity.into_unsafe_entity_cell(), access)
+            FilteredEntityMut::new(
+                entity.into_unsafe_entity_cell(),
+                const { &Access::new_write_all() },
+            )
         }
     }
 }
 
-impl<'a> From<&'a mut EntityWorldMut<'_>> for FilteredEntityMut<'a> {
+impl<'a> From<&'a mut EntityWorldMut<'_>> for FilteredEntityMut<'a, 'static> {
     fn from(entity: &'a mut EntityWorldMut<'_>) -> Self {
         // SAFETY:
         // - `EntityWorldMut` guarantees exclusive access to the entire world.
         unsafe {
-            let mut access = Access::default();
-            access.read_all();
-            access.write_all();
-            FilteredEntityMut::new(entity.as_unsafe_entity_cell(), access)
+            FilteredEntityMut::new(
+                entity.as_unsafe_entity_cell(),
+                const { &Access::new_write_all() },
+            )
         }
     }
 }
 
-impl<'a, B: Bundle> From<&'a EntityMutExcept<'_, B>> for FilteredEntityMut<'a> {
-    fn from(value: &'a EntityMutExcept<'_, B>) -> Self {
+impl<'w, 's, B: Bundle> From<&'w EntityMutExcept<'_, 's, B>> for FilteredEntityMut<'w, 's> {
+    fn from(value: &'w EntityMutExcept<'_, 's, B>) -> Self {
         // SAFETY:
         // - The FilteredEntityMut has the same component access as the given EntityMutExcept.
-        unsafe {
-            let mut access = Access::default();
-            access.write_all();
-            let components = value.entity.world().components();
-            B::get_component_ids(components, &mut |maybe_id| {
-                if let Some(id) = maybe_id {
-                    access.remove_component_read(id);
-                }
-            });
-            FilteredEntityMut::new(value.entity, access)
-        }
+        unsafe { FilteredEntityMut::new(value.entity, value.access) }
     }
 }
 
-impl PartialEq for FilteredEntityMut<'_> {
+impl PartialEq for FilteredEntityMut<'_, '_> {
     fn eq(&self, other: &Self) -> bool {
         self.entity() == other.entity()
     }
 }
 
-impl Eq for FilteredEntityMut<'_> {}
+impl Eq for FilteredEntityMut<'_, '_> {}
 
-impl PartialOrd for FilteredEntityMut<'_> {
+impl PartialOrd for FilteredEntityMut<'_, '_> {
     /// [`FilteredEntityMut`]'s comparison trait implementations match the underlying [`Entity`],
     /// and cannot discern between different worlds.
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
@@ -3954,26 +4113,26 @@ impl PartialOrd for FilteredEntityMut<'_> {
     }
 }
 
-impl Ord for FilteredEntityMut<'_> {
+impl Ord for FilteredEntityMut<'_, '_> {
     fn cmp(&self, other: &Self) -> Ordering {
         self.entity().cmp(&other.entity())
     }
 }
 
-impl Hash for FilteredEntityMut<'_> {
+impl Hash for FilteredEntityMut<'_, '_> {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.entity().hash(state);
     }
 }
 
-impl ContainsEntity for FilteredEntityMut<'_> {
+impl ContainsEntity for FilteredEntityMut<'_, '_> {
     fn entity(&self) -> Entity {
         self.id()
     }
 }
 
 // SAFETY: This type represents one Entity. We implement the comparison traits based on that Entity.
-unsafe impl EntityEquivalent for FilteredEntityMut<'_> {}
+unsafe impl EntityEquivalent for FilteredEntityMut<'_, '_> {}
 
 /// Error type returned by [`TryFrom`] conversions from filtered entity types
 /// ([`FilteredEntityRef`]/[`FilteredEntityMut`]) to full-access entity types
@@ -3992,23 +4151,25 @@ pub enum TryFromFilteredError {
 
 /// Provides read-only access to a single entity and all its components, save
 /// for an explicitly-enumerated set.
-pub struct EntityRefExcept<'w, B>
+pub struct EntityRefExcept<'w, 's, B>
 where
     B: Bundle,
 {
     entity: UnsafeEntityCell<'w>,
+    access: &'s Access,
     phantom: PhantomData<B>,
 }
 
-impl<'w, B> EntityRefExcept<'w, B>
+impl<'w, 's, B> EntityRefExcept<'w, 's, B>
 where
     B: Bundle,
 {
     /// # Safety
     /// Other users of `UnsafeEntityCell` must only have mutable access to the components in `B`.
-    pub(crate) unsafe fn new(entity: UnsafeEntityCell<'w>) -> Self {
+    pub(crate) unsafe fn new(entity: UnsafeEntityCell<'w>, access: &'s Access) -> Self {
         Self {
             entity,
+            access,
             phantom: PhantomData,
         }
     }
@@ -4161,34 +4322,34 @@ where
     }
 }
 
-impl<'a, B> From<&'a EntityMutExcept<'_, B>> for EntityRefExcept<'a, B>
+impl<'w, 's, B> From<&'w EntityMutExcept<'_, 's, B>> for EntityRefExcept<'w, 's, B>
 where
     B: Bundle,
 {
-    fn from(entity: &'a EntityMutExcept<'_, B>) -> Self {
+    fn from(entity: &'w EntityMutExcept<'_, 's, B>) -> Self {
         // SAFETY: All accesses that `EntityRefExcept` provides are also
         // accesses that `EntityMutExcept` provides.
-        unsafe { EntityRefExcept::new(entity.entity) }
+        unsafe { EntityRefExcept::new(entity.entity, entity.access) }
     }
 }
 
-impl<B: Bundle> Clone for EntityRefExcept<'_, B> {
+impl<B: Bundle> Clone for EntityRefExcept<'_, '_, B> {
     fn clone(&self) -> Self {
         *self
     }
 }
 
-impl<B: Bundle> Copy for EntityRefExcept<'_, B> {}
+impl<B: Bundle> Copy for EntityRefExcept<'_, '_, B> {}
 
-impl<B: Bundle> PartialEq for EntityRefExcept<'_, B> {
+impl<B: Bundle> PartialEq for EntityRefExcept<'_, '_, B> {
     fn eq(&self, other: &Self) -> bool {
         self.entity() == other.entity()
     }
 }
 
-impl<B: Bundle> Eq for EntityRefExcept<'_, B> {}
+impl<B: Bundle> Eq for EntityRefExcept<'_, '_, B> {}
 
-impl<B: Bundle> PartialOrd for EntityRefExcept<'_, B> {
+impl<B: Bundle> PartialOrd for EntityRefExcept<'_, '_, B> {
     /// [`EntityRefExcept`]'s comparison trait implementations match the underlying [`Entity`],
     /// and cannot discern between different worlds.
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
@@ -4196,26 +4357,26 @@ impl<B: Bundle> PartialOrd for EntityRefExcept<'_, B> {
     }
 }
 
-impl<B: Bundle> Ord for EntityRefExcept<'_, B> {
+impl<B: Bundle> Ord for EntityRefExcept<'_, '_, B> {
     fn cmp(&self, other: &Self) -> Ordering {
         self.entity().cmp(&other.entity())
     }
 }
 
-impl<B: Bundle> Hash for EntityRefExcept<'_, B> {
+impl<B: Bundle> Hash for EntityRefExcept<'_, '_, B> {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.entity().hash(state);
     }
 }
 
-impl<B: Bundle> ContainsEntity for EntityRefExcept<'_, B> {
+impl<B: Bundle> ContainsEntity for EntityRefExcept<'_, '_, B> {
     fn entity(&self) -> Entity {
         self.id()
     }
 }
 
 // SAFETY: This type represents one Entity. We implement the comparison traits based on that Entity.
-unsafe impl<B: Bundle> EntityEquivalent for EntityRefExcept<'_, B> {}
+unsafe impl<B: Bundle> EntityEquivalent for EntityRefExcept<'_, '_, B> {}
 
 /// Provides mutable access to all components of an entity, with the exception
 /// of an explicit set.
@@ -4225,23 +4386,25 @@ unsafe impl<B: Bundle> EntityEquivalent for EntityRefExcept<'_, B> {}
 /// queries that might match entities that this query also matches. If you don't
 /// need access to all components, prefer a standard query with a
 /// [`crate::query::Without`] filter.
-pub struct EntityMutExcept<'w, B>
+pub struct EntityMutExcept<'w, 's, B>
 where
     B: Bundle,
 {
     entity: UnsafeEntityCell<'w>,
+    access: &'s Access,
     phantom: PhantomData<B>,
 }
 
-impl<'w, B> EntityMutExcept<'w, B>
+impl<'w, 's, B> EntityMutExcept<'w, 's, B>
 where
     B: Bundle,
 {
     /// # Safety
     /// Other users of `UnsafeEntityCell` must not have access to any components not in `B`.
-    pub(crate) unsafe fn new(entity: UnsafeEntityCell<'w>) -> Self {
+    pub(crate) unsafe fn new(entity: UnsafeEntityCell<'w>, access: &'s Access) -> Self {
         Self {
             entity,
+            access,
             phantom: PhantomData,
         }
     }
@@ -4257,16 +4420,16 @@ where
     ///
     /// This is useful if you have `&mut EntityMutExcept`, but you need
     /// `EntityMutExcept`.
-    pub fn reborrow(&mut self) -> EntityMutExcept<'_, B> {
+    pub fn reborrow(&mut self) -> EntityMutExcept<'_, 's, B> {
         // SAFETY: We have exclusive access to the entire entity and the
         // applicable components.
-        unsafe { Self::new(self.entity) }
+        unsafe { Self::new(self.entity, self.access) }
     }
 
     /// Gets read-only access to all of the entity's components, except for the
     /// ones in `CL`.
     #[inline]
-    pub fn as_readonly(&self) -> EntityRefExcept<'_, B> {
+    pub fn as_readonly(&self) -> EntityRefExcept<'_, 's, B> {
         EntityRefExcept::from(self)
     }
 
@@ -4395,15 +4558,15 @@ where
     }
 }
 
-impl<B: Bundle> PartialEq for EntityMutExcept<'_, B> {
+impl<B: Bundle> PartialEq for EntityMutExcept<'_, '_, B> {
     fn eq(&self, other: &Self) -> bool {
         self.entity() == other.entity()
     }
 }
 
-impl<B: Bundle> Eq for EntityMutExcept<'_, B> {}
+impl<B: Bundle> Eq for EntityMutExcept<'_, '_, B> {}
 
-impl<B: Bundle> PartialOrd for EntityMutExcept<'_, B> {
+impl<B: Bundle> PartialOrd for EntityMutExcept<'_, '_, B> {
     /// [`EntityMutExcept`]'s comparison trait implementations match the underlying [`Entity`],
     /// and cannot discern between different worlds.
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
@@ -4411,26 +4574,26 @@ impl<B: Bundle> PartialOrd for EntityMutExcept<'_, B> {
     }
 }
 
-impl<B: Bundle> Ord for EntityMutExcept<'_, B> {
+impl<B: Bundle> Ord for EntityMutExcept<'_, '_, B> {
     fn cmp(&self, other: &Self) -> Ordering {
         self.entity().cmp(&other.entity())
     }
 }
 
-impl<B: Bundle> Hash for EntityMutExcept<'_, B> {
+impl<B: Bundle> Hash for EntityMutExcept<'_, '_, B> {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.entity().hash(state);
     }
 }
 
-impl<B: Bundle> ContainsEntity for EntityMutExcept<'_, B> {
+impl<B: Bundle> ContainsEntity for EntityMutExcept<'_, '_, B> {
     fn entity(&self) -> Entity {
         self.id()
     }
 }
 
 // SAFETY: This type represents one Entity. We implement the comparison traits based on that Entity.
-unsafe impl<B: Bundle> EntityEquivalent for EntityMutExcept<'_, B> {}
+unsafe impl<B: Bundle> EntityEquivalent for EntityMutExcept<'_, '_, B> {}
 
 fn bundle_contains_component<B>(components: &Components, query_id: ComponentId) -> bool
 where
@@ -4944,6 +5107,46 @@ mod tests {
         assert!(entity.get_mut_by_id(invalid_component_id).is_err());
     }
 
+    #[derive(Resource)]
+    struct R(usize);
+
+    #[test]
+    fn entity_mut_resource_scope() {
+        // Keep in sync with the `resource_scope` test in lib.rs
+        let mut world = World::new();
+        let mut entity = world.spawn_empty();
+
+        assert!(entity.try_resource_scope::<R, _>(|_, _| {}).is_none());
+        entity.world_scope(|world| world.insert_resource(R(0)));
+        entity.resource_scope(|entity: &mut EntityWorldMut, mut value: Mut<R>| {
+            value.0 += 1;
+            assert!(!entity.world().contains_resource::<R>());
+        });
+        assert_eq!(entity.resource::<R>().0, 1);
+    }
+
+    #[test]
+    fn entity_mut_resource_scope_panic() {
+        let mut world = World::new();
+        world.insert_resource(R(0));
+
+        let mut entity = world.spawn_empty();
+        let old_location = entity.location();
+        let result = std::panic::catch_unwind(AssertUnwindSafe(|| {
+            entity.resource_scope(|entity: &mut EntityWorldMut, _: Mut<R>| {
+                // Change the entity's `EntityLocation`.
+                entity.insert(TestComponent(0));
+
+                // Ensure that the entity location still gets updated even in case of a panic.
+                panic!("this should get caught by the outer scope")
+            });
+        }));
+        assert!(result.is_err());
+
+        // Ensure that the location has been properly updated.
+        assert_ne!(entity.location(), old_location);
+    }
+
     // regression test for https://github.com/bevyengine/bevy/pull/7387
     #[test]
     fn entity_mut_world_scope_panic() {
@@ -4957,6 +5160,28 @@ mod tests {
                 // Change the entity's `EntityLocation`, which invalidates the original `EntityWorldMut`.
                 // This will get updated at the end of the scope.
                 w.entity_mut(id).insert(TestComponent(0));
+
+                // Ensure that the entity location still gets updated even in case of a panic.
+                panic!("this should get caught by the outer scope")
+            });
+        }));
+        assert!(res.is_err());
+
+        // Ensure that the location has been properly updated.
+        assert_ne!(entity.location(), old_location);
+    }
+
+    #[test]
+    fn entity_mut_reborrow_scope_panic() {
+        let mut world = World::new();
+
+        let mut entity = world.spawn_empty();
+        let old_location = entity.location();
+        let res = std::panic::catch_unwind(AssertUnwindSafe(|| {
+            entity.reborrow_scope(|mut entity| {
+                // Change the entity's `EntityLocation`, which invalidates the original `EntityWorldMut`.
+                // This will get updated at the end of the scope.
+                entity.insert(TestComponent(0));
 
                 // Ensure that the entity location still gets updated even in case of a panic.
                 panic!("this should get caught by the outer scope")
@@ -5402,11 +5627,21 @@ mod tests {
         }
     }
 
+    #[test]
+    fn entity_mut_except_registers_components() {
+        // Checks for a bug where `EntityMutExcept` would not register the component and
+        // would therefore not include an exception, causing it to conflict with the later query.
+        fn system1(_query: Query<EntityMutExcept<TestComponent>>, _: Query<&mut TestComponent>) {}
+        let mut world = World::new();
+        world.run_system_once(system1).unwrap();
+
+        fn system2(_: Query<&mut TestComponent>, _query: Query<EntityMutExcept<TestComponent>>) {}
+        let mut world = World::new();
+        world.run_system_once(system2).unwrap();
+    }
+
     #[derive(Component)]
     struct A;
-
-    #[derive(Resource)]
-    struct R;
 
     #[test]
     fn disjoint_access() {
@@ -5846,7 +6081,7 @@ mod tests {
         assert_eq!((&mut X(8), &mut Y(9)), (x_component, y_component));
     }
 
-    #[derive(Event, EntityEvent)]
+    #[derive(EntityEvent)]
     struct TestEvent;
 
     #[test]

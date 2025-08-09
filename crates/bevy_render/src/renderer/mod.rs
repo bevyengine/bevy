@@ -1,10 +1,10 @@
 mod graph_runner;
 mod render_device;
 
+use crate::WgpuWrapper;
 use bevy_derive::{Deref, DerefMut};
 #[cfg(not(all(target_arch = "wasm32", target_feature = "atomics")))]
 use bevy_tasks::ComputeTaskPool;
-use bevy_utils::WgpuWrapper;
 pub use graph_runner::*;
 pub use render_device::*;
 use tracing::{debug, error, info, info_span, warn};
@@ -37,16 +37,12 @@ pub fn render_system(world: &mut World, state: &mut SystemState<Query<Entity, Wi
     let graph = world.resource::<RenderGraph>();
     let render_device = world.resource::<RenderDevice>();
     let render_queue = world.resource::<RenderQueue>();
-    #[cfg(not(all(target_arch = "wasm32", target_feature = "atomics")))]
-    let render_adapter = world.resource::<RenderAdapter>();
 
     let res = RenderGraphRunner::run(
         graph,
         render_device.clone(), // TODO: is this clone really necessary?
         diagnostics_recorder,
         &render_queue.0,
-        #[cfg(not(all(target_arch = "wasm32", target_feature = "atomics")))]
-        &render_adapter.0,
         world,
         |encoder| {
             crate::view::screenshot::submit_screenshot_commands(world, encoder);
@@ -159,10 +155,10 @@ fn find_adapter_by_name(
     {
         tracing::trace!("Checking adapter: {:?}", adapter.get_info());
         let info = adapter.get_info();
-        if let Some(surface) = compatible_surface {
-            if !adapter.is_surface_supported(surface) {
-                continue;
-            }
+        if let Some(surface) = compatible_surface
+            && !adapter.is_surface_supported(surface)
+        {
+            continue;
         }
 
         if info.name.eq_ignore_ascii_case(adapter_name) {
@@ -343,6 +339,15 @@ pub async fn initialize_renderer(
             max_non_sampler_bindings: limits
                 .max_non_sampler_bindings
                 .min(constrained_limits.max_non_sampler_bindings),
+            max_blas_primitive_count: limits
+                .max_blas_primitive_count
+                .min(constrained_limits.max_blas_primitive_count),
+            max_blas_geometry_count: limits
+                .max_blas_geometry_count
+                .min(constrained_limits.max_blas_geometry_count),
+            max_tlas_instance_count: limits
+                .max_tlas_instance_count
+                .min(constrained_limits.max_tlas_instance_count),
             max_color_attachments: limits
                 .max_color_attachments
                 .min(constrained_limits.max_color_attachments),
@@ -355,6 +360,7 @@ pub async fn initialize_renderer(
             max_subgroup_size: limits
                 .max_subgroup_size
                 .min(constrained_limits.max_subgroup_size),
+            max_acceleration_structures_per_shader_stage: 0,
         };
     }
 
@@ -387,8 +393,6 @@ pub struct RenderContext<'w> {
     render_device: RenderDevice,
     command_encoder: Option<CommandEncoder>,
     command_buffer_queue: Vec<QueuedCommandBuffer<'w>>,
-    #[cfg(not(all(target_arch = "wasm32", target_feature = "atomics")))]
-    force_serial: bool,
     diagnostics_recorder: Option<Arc<DiagnosticsRecorder>>,
 }
 
@@ -396,30 +400,12 @@ impl<'w> RenderContext<'w> {
     /// Creates a new [`RenderContext`] from a [`RenderDevice`].
     pub fn new(
         render_device: RenderDevice,
-        #[cfg(not(all(target_arch = "wasm32", target_feature = "atomics")))]
-        adapter_info: AdapterInfo,
         diagnostics_recorder: Option<DiagnosticsRecorder>,
     ) -> Self {
-        // HACK: Parallel command encoding is currently bugged on AMD + Windows/Linux + Vulkan
-        #[cfg(any(target_os = "windows", target_os = "linux"))]
-        let force_serial =
-            adapter_info.driver.contains("AMD") && adapter_info.backend == wgpu::Backend::Vulkan;
-        #[cfg(not(any(
-            target_os = "windows",
-            target_os = "linux",
-            all(target_arch = "wasm32", target_feature = "atomics")
-        )))]
-        let force_serial = {
-            drop(adapter_info);
-            false
-        };
-
         Self {
             render_device,
             command_encoder: None,
             command_buffer_queue: Vec::new(),
-            #[cfg(not(all(target_arch = "wasm32", target_feature = "atomics")))]
-            force_serial,
             diagnostics_recorder: diagnostics_recorder.map(Arc::new),
         }
     }
@@ -522,14 +508,9 @@ impl<'w> RenderContext<'w> {
                         }
                         QueuedCommandBuffer::Task(command_buffer_generation_task) => {
                             let render_device = self.render_device.clone();
-                            if self.force_serial {
-                                command_buffers
-                                    .push((i, command_buffer_generation_task(render_device)));
-                            } else {
-                                task_pool.spawn(async move {
-                                    (i, command_buffer_generation_task(render_device))
-                                });
-                            }
+                            task_pool.spawn(async move {
+                                (i, command_buffer_generation_task(render_device))
+                            });
                         }
                     }
                 }

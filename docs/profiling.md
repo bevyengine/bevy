@@ -67,9 +67,14 @@ The [Tracy profiling tool](https://github.com/wolfpld/tracy) is:
 
 There are binaries available for Windows, and installation / build instructions for other operating systems can be found in the [Tracy documentation PDF](https://github.com/wolfpld/tracy/releases/latest/download/tracy.pdf).
 
+To determine which Tracy version to install
+
+1. Run `cargo tree --features bevy/trace_tracy | grep tracy` in your Bevy workspace root to see which tracy dep versions are used
+2. Cross reference the tracy dep versions with the [Version Support Table](https://github.com/nagisa/rust_tracy_client?tab=readme-ov-file#version-support-table)
+
 It has a command line capture tool that can record the execution of graphical applications, saving it as a profile file. Tracy has a GUI to inspect these profile files. The GUI app also supports live capture, showing you in real time the trace of your app. The version of tracy must be matched to the version of tracing-tracy used in bevy. A compatibility table can be found on [crates.io](https://crates.io/crates/tracing-tracy) and the version used can be found [here](https://github.com/bevyengine/bevy/blob/latest/crates/bevy_log/Cargo.toml).
 
-On macOS, Tracy can be installed through Homebrew by running `brew install tracy`, and the GUI client can be launched by running `tracy`.
+On macOS, Tracy can be installed through Homebrew by running `brew install tracy`, and the GUI client can be launched by running `tracy`. Note that `brew` does not always have the latest version of Tracy available, in which cases you may be required to build from source.
 
 In one terminal, run:
 `./capture-release -o my_capture.tracy`
@@ -154,20 +159,20 @@ Follow the steps below to start GPU debugging on macOS. There is no need to crea
 
 1. In the menu bar click on Debug > Debug Executable…
 
-    ![Xcode's menu bar open to Debug > Debug Executable...](https://github.com/user-attachments/assets/efdc5037-0957-4227-b29d-9a789ba17a0a)
+   ![Xcode's menu bar open to Debug > Debug Executable...](https://github.com/user-attachments/assets/efdc5037-0957-4227-b29d-9a789ba17a0a)
 
 2. Select your executable from your project’s target folder.
 3. The Scheme Editor will open. If your assets are not located next to your executable, you can go to the Arguments tab and set `BEVY_ASSET_ROOT` to the absolute path for your project (the parent of your assets folder). The rest of the defaults should be fine.
 
-    ![Xcode's Schema Editor opened to an environment variable configuration](https://github.com/user-attachments/assets/29cafb05-0c49-4777-8d41-8643812e8f6a)
+   ![Xcode's Schema Editor opened to an environment variable configuration](https://github.com/user-attachments/assets/29cafb05-0c49-4777-8d41-8643812e8f6a)
 
 4. Click the play button in the top left and this should start your bevy app.
 
-    ![A cursor hovering over the play button in XCode](https://github.com/user-attachments/assets/859580e2-779b-4db8-8ea6-73cf4ef696c9)
+   ![A cursor hovering over the play button in XCode](https://github.com/user-attachments/assets/859580e2-779b-4db8-8ea6-73cf4ef696c9)
 
 5. Go back to Xcode and click on the Metal icon in the bottom drawer and then Capture in the following the popup menu.
 
-    ![A cursor hovering over the Capture button in the Metal debugging popup menu](https://github.com/user-attachments/assets/c0ce1591-0a53-499b-bd1b-4d89538ea248)
+   ![A cursor hovering over the Capture button in the Metal debugging popup menu](https://github.com/user-attachments/assets/c0ce1591-0a53-499b-bd1b-4d89538ea248)
 
 6. Start debugging and profiling!
 
@@ -183,6 +188,7 @@ When you compile with Bevy's `trace_tracy` feature, GPU spans will show up in a 
 
 > [!NOTE]
 > Due to dynamic clock speeds, GPU timings will have large frame-to-frame variance, unless you use an external tool to lock your GPU clocks to base speeds. When measuring GPU performance via Tracy, only look at the MTPC column of Tracy's statistics panel, or the span distribution/median, and not at any individual frame data.
+
 <!-- markdownlint-disable MD028 -->
 
 > [!NOTE]

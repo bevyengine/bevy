@@ -82,7 +82,7 @@ impl DebugName {
     /// Get the [`ShortName`] corresponding to this debug name
     ///
     /// The value will be a static string if the `debug` feature is not enabled
-    pub fn shortname(&self) -> ShortName {
+    pub fn shortname(&self) -> ShortName<'_> {
         #[cfg(feature = "debug")]
         return ShortName(self.name.as_ref());
         #[cfg(not(feature = "debug"))]

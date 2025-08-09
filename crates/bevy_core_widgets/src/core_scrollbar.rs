@@ -5,17 +5,20 @@ use bevy_ecs::{
     hierarchy::{ChildOf, Children},
     observer::On,
     query::{With, Without},
+    reflect::ReflectComponent,
     system::{Query, Res},
 };
 use bevy_math::Vec2;
 use bevy_picking::events::{Cancel, Drag, DragEnd, DragStart, Pointer, Press};
+use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_ui::{
     ComputedNode, ComputedNodeTarget, Node, ScrollPosition, UiGlobalTransform, UiScale, Val,
 };
 
 /// Used to select the orientation of a scrollbar, slider, or other oriented control.
 // TODO: Move this to a more central place.
-#[derive(Debug, Default, Clone, Copy, PartialEq)]
+#[derive(Debug, Default, Clone, Copy, PartialEq, Reflect)]
+#[reflect(PartialEq, Clone, Default)]
 pub enum ControlOrientation {
     /// Horizontal orientation (stretching from left to right)
     Horizontal,
@@ -45,7 +48,8 @@ pub enum ControlOrientation {
 /// The application is free to position the scrollbars relative to the scrolling container however
 /// it wants: it can overlay them on top of the scrolling content, or use a grid layout to displace
 /// the content to make room for the scrollbars.
-#[derive(Component, Debug)]
+#[derive(Component, Debug, Reflect)]
+#[reflect(Component)]
 pub struct CoreScrollbar {
     /// Entity being scrolled.
     pub target: Entity,
@@ -62,6 +66,8 @@ pub struct CoreScrollbar {
 /// the scrollbar). This should be a child of the scrollbar entity.
 #[derive(Component, Debug)]
 #[require(CoreScrollbarDragState)]
+#[derive(Reflect)]
+#[reflect(Component)]
 pub struct CoreScrollbarThumb;
 
 impl CoreScrollbar {
@@ -83,7 +89,8 @@ impl CoreScrollbar {
 
 /// Component used to manage the state of a scrollbar during dragging. This component is
 /// inserted on the thumb entity.
-#[derive(Component, Default)]
+#[derive(Component, Default, Reflect)]
+#[reflect(Component, Default)]
 pub struct CoreScrollbarDragState {
     /// Whether the scrollbar is currently being dragged.
     pub dragging: bool,
@@ -157,14 +164,14 @@ fn scrollbar_on_drag_start(
 ) {
     if let Ok((ChildOf(thumb_parent), mut drag)) = q_thumb.get_mut(ev.target()) {
         ev.propagate(false);
-        if let Ok(scrollbar) = q_scrollbar.get(*thumb_parent) {
-            if let Ok(scroll_area) = q_scroll_area.get(scrollbar.target) {
-                drag.dragging = true;
-                drag.drag_origin = match scrollbar.orientation {
-                    ControlOrientation::Horizontal => scroll_area.x,
-                    ControlOrientation::Vertical => scroll_area.y,
-                };
-            }
+        if let Ok(scrollbar) = q_scrollbar.get(*thumb_parent)
+            && let Ok(scroll_area) = q_scroll_area.get(scrollbar.target)
+        {
+            drag.dragging = true;
+            drag.drag_origin = match scrollbar.orientation {
+                ControlOrientation::Horizontal => scroll_area.x,
+                ControlOrientation::Vertical => scroll_area.y,
+            };
         }
     }
 }
@@ -176,36 +183,34 @@ fn scrollbar_on_drag(
     mut q_scroll_pos: Query<(&mut ScrollPosition, &ComputedNode), Without<CoreScrollbar>>,
     ui_scale: Res<UiScale>,
 ) {
-    if let Ok((ChildOf(thumb_parent), drag)) = q_thumb.get_mut(ev.target()) {
-        if let Ok((node, scrollbar)) = q_scrollbar.get_mut(*thumb_parent) {
-            ev.propagate(false);
-            let Ok((mut scroll_pos, scroll_content)) = q_scroll_pos.get_mut(scrollbar.target)
-            else {
-                return;
+    if let Ok((ChildOf(thumb_parent), drag)) = q_thumb.get_mut(ev.target())
+        && let Ok((node, scrollbar)) = q_scrollbar.get_mut(*thumb_parent)
+    {
+        ev.propagate(false);
+        let Ok((mut scroll_pos, scroll_content)) = q_scroll_pos.get_mut(scrollbar.target) else {
+            return;
+        };
+
+        if drag.dragging {
+            let distance = ev.event().distance / ui_scale.0;
+            let visible_size = scroll_content.size() * scroll_content.inverse_scale_factor;
+            let content_size = scroll_content.content_size() * scroll_content.inverse_scale_factor;
+            let scrollbar_size = (node.size() * node.inverse_scale_factor).max(Vec2::ONE);
+
+            match scrollbar.orientation {
+                ControlOrientation::Horizontal => {
+                    let range = (content_size.x - visible_size.x).max(0.);
+                    scroll_pos.x = (drag.drag_origin
+                        + (distance.x * content_size.x) / scrollbar_size.x)
+                        .clamp(0., range);
+                }
+                ControlOrientation::Vertical => {
+                    let range = (content_size.y - visible_size.y).max(0.);
+                    scroll_pos.y = (drag.drag_origin
+                        + (distance.y * content_size.y) / scrollbar_size.y)
+                        .clamp(0., range);
+                }
             };
-
-            if drag.dragging {
-                let distance = ev.event().distance / ui_scale.0;
-                let visible_size = scroll_content.size() * scroll_content.inverse_scale_factor;
-                let content_size =
-                    scroll_content.content_size() * scroll_content.inverse_scale_factor;
-                let scrollbar_size = (node.size() * node.inverse_scale_factor).max(Vec2::ONE);
-
-                match scrollbar.orientation {
-                    ControlOrientation::Horizontal => {
-                        let range = (content_size.x - visible_size.x).max(0.);
-                        scroll_pos.x = (drag.drag_origin
-                            + (distance.x * content_size.x) / scrollbar_size.x)
-                            .clamp(0., range);
-                    }
-                    ControlOrientation::Vertical => {
-                        let range = (content_size.y - visible_size.y).max(0.);
-                        scroll_pos.y = (drag.drag_origin
-                            + (distance.y * content_size.y) / scrollbar_size.y)
-                            .clamp(0., range);
-                    }
-                };
-            }
         }
     }
 }

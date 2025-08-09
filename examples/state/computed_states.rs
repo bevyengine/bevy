@@ -271,13 +271,13 @@ fn toggle_pause(
     current_state: Res<State<AppState>>,
     mut next_state: ResMut<NextState<AppState>>,
 ) {
-    if input.just_pressed(KeyCode::Space) {
-        if let AppState::InGame { paused, turbo } = current_state.get() {
-            next_state.set(AppState::InGame {
-                paused: !*paused,
-                turbo: *turbo,
-            });
-        }
+    if input.just_pressed(KeyCode::Space)
+        && let AppState::InGame { paused, turbo } = current_state.get()
+    {
+        next_state.set(AppState::InGame {
+            paused: !*paused,
+            turbo: *turbo,
+        });
     }
 }
 
@@ -286,13 +286,13 @@ fn toggle_turbo(
     current_state: Res<State<AppState>>,
     mut next_state: ResMut<NextState<AppState>>,
 ) {
-    if input.just_pressed(KeyCode::KeyT) {
-        if let AppState::InGame { paused, turbo } = current_state.get() {
-            next_state.set(AppState::InGame {
-                paused: *paused,
-                turbo: !*turbo,
-            });
-        }
+    if input.just_pressed(KeyCode::KeyT)
+        && let AppState::InGame { paused, turbo } = current_state.get()
+    {
+        next_state.set(AppState::InGame {
+            paused: *paused,
+            turbo: !*turbo,
+        });
     }
 }
 

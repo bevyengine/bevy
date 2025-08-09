@@ -103,7 +103,6 @@ impl Plugin for CasPlugin {
     fn build(&self, app: &mut App) {
         embedded_asset!(app, "robust_contrast_adaptive_sharpening.wgsl");
 
-        app.register_type::<ContrastAdaptiveSharpening>();
         app.add_plugins((
             ExtractComponentPlugin::<ContrastAdaptiveSharpening>::default(),
             UniformComponentPlugin::<CasUniform>::default(),

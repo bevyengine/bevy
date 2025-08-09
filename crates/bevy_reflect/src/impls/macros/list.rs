@@ -48,7 +48,7 @@ macro_rules! impl_reflect_for_veclike {
                 }
 
                 #[inline]
-                fn iter(&self) -> $crate::list::ListIter {
+                fn iter(&self) -> $crate::list::ListIter<'_>  {
                     $crate::list::ListIter::new(self)
                 }
 
@@ -98,11 +98,11 @@ macro_rules! impl_reflect_for_veclike {
                     $crate::kind::ReflectKind::List
                 }
 
-                fn reflect_ref(&self) -> $crate::kind::ReflectRef {
+                fn reflect_ref(&self) -> $crate::kind::ReflectRef<'_> {
                     $crate::kind::ReflectRef::List(self)
                 }
 
-                fn reflect_mut(&mut self) -> $crate::kind::ReflectMut {
+                fn reflect_mut(&mut self) -> $crate::kind::ReflectMut<'_> {
                     $crate::kind::ReflectMut::List(self)
                 }
 

@@ -215,18 +215,16 @@ impl<'a> RenderViewEnvironmentMapBindGroupEntries<'a> {
             };
         }
 
-        if let Some(environment_maps) = render_view_environment_maps {
-            if let Some(cubemap) = environment_maps.binding_index_to_textures.first() {
-                if let (Some(diffuse_image), Some(specular_image)) =
-                    (images.get(cubemap.diffuse), images.get(cubemap.specular))
-                {
-                    return RenderViewEnvironmentMapBindGroupEntries::Single {
-                        diffuse_texture_view: &diffuse_image.texture_view,
-                        specular_texture_view: &specular_image.texture_view,
-                        sampler: &diffuse_image.sampler,
-                    };
-                }
-            }
+        if let Some(environment_maps) = render_view_environment_maps
+            && let Some(cubemap) = environment_maps.binding_index_to_textures.first()
+            && let (Some(diffuse_image), Some(specular_image)) =
+                (images.get(cubemap.diffuse), images.get(cubemap.specular))
+        {
+            return RenderViewEnvironmentMapBindGroupEntries::Single {
+                diffuse_texture_view: &diffuse_image.texture_view,
+                specular_texture_view: &specular_image.texture_view,
+                sampler: &diffuse_image.sampler,
+            };
         }
 
         RenderViewEnvironmentMapBindGroupEntries::Single {
@@ -280,23 +278,20 @@ impl LightProbeComponent for EnvironmentMapLight {
             affects_lightmapped_mesh_diffuse,
             ..
         }) = view_component
-        {
-            if let (Some(_), Some(specular_map)) = (
+            && let (Some(_), Some(specular_map)) = (
                 image_assets.get(diffuse_map_handle),
                 image_assets.get(specular_map_handle),
-            ) {
-                render_view_light_probes.view_light_probe_info = EnvironmentMapViewLightProbeInfo {
-                    cubemap_index: render_view_light_probes.get_or_insert_cubemap(
-                        &EnvironmentMapIds {
-                            diffuse: diffuse_map_handle.id(),
-                            specular: specular_map_handle.id(),
-                        },
-                    ) as i32,
-                    smallest_specular_mip_level: specular_map.mip_level_count - 1,
-                    intensity: *intensity,
-                    affects_lightmapped_mesh_diffuse: *affects_lightmapped_mesh_diffuse,
-                };
-            }
+            )
+        {
+            render_view_light_probes.view_light_probe_info = EnvironmentMapViewLightProbeInfo {
+                cubemap_index: render_view_light_probes.get_or_insert_cubemap(&EnvironmentMapIds {
+                    diffuse: diffuse_map_handle.id(),
+                    specular: specular_map_handle.id(),
+                }) as i32,
+                smallest_specular_mip_level: specular_map.mip_level_count - 1,
+                intensity: *intensity,
+                affects_lightmapped_mesh_diffuse: *affects_lightmapped_mesh_diffuse,
+            };
         };
 
         render_view_light_probes

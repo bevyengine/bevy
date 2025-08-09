@@ -26,17 +26,16 @@ use bevy_ecs::{
     system::{lifetimeless::Read, Commands, Query, Res, ResMut},
     world::{FromWorld, World},
 };
-use bevy_render::batching::gpu_preprocessing::{
-    GpuPreprocessingMode, IndirectParametersGpuMetadata, UntypedPhaseIndirectParametersBuffers,
-};
 use bevy_render::{
     batching::gpu_preprocessing::{
-        BatchedInstanceBuffers, GpuOcclusionCullingWorkItemBuffers, GpuPreprocessingSupport,
-        IndirectBatchSet, IndirectParametersBuffers, IndirectParametersCpuMetadata,
-        IndirectParametersIndexed, IndirectParametersNonIndexed,
-        LatePreprocessWorkItemIndirectParameters, PreprocessWorkItem, PreprocessWorkItemBuffers,
-        UntypedPhaseBatchedInstanceBuffers,
+        BatchedInstanceBuffers, GpuOcclusionCullingWorkItemBuffers, GpuPreprocessingMode,
+        GpuPreprocessingSupport, IndirectBatchSet, IndirectParametersBuffers,
+        IndirectParametersCpuMetadata, IndirectParametersGpuMetadata, IndirectParametersIndexed,
+        IndirectParametersNonIndexed, LatePreprocessWorkItemIndirectParameters, PreprocessWorkItem,
+        PreprocessWorkItemBuffers, UntypedPhaseBatchedInstanceBuffers,
+        UntypedPhaseIndirectParametersBuffers,
     },
+    diagnostic::RecordDiagnostics,
     experimental::occlusion_culling::OcclusionCulling,
     render_graph::{Node, NodeRunError, RenderGraphContext, RenderGraphExt},
     render_resource::{
@@ -582,6 +581,8 @@ impl Node for EarlyGpuPreprocessNode {
         render_context: &mut RenderContext<'w>,
         world: &'w World,
     ) -> Result<(), NodeRunError> {
+        let diagnostics = render_context.diagnostic_recorder();
+
         // Grab the [`BatchedInstanceBuffers`].
         let batched_instance_buffers =
             world.resource::<BatchedInstanceBuffers<MeshUniform, MeshInputUniform>>();
@@ -593,9 +594,10 @@ impl Node for EarlyGpuPreprocessNode {
             render_context
                 .command_encoder()
                 .begin_compute_pass(&ComputePassDescriptor {
-                    label: Some("early mesh preprocessing"),
+                    label: Some("early_mesh_preprocessing"),
                     timestamp_writes: None,
                 });
+        let pass_span = diagnostics.time_span(&mut compute_pass, "early_mesh_preprocessing");
 
         let mut all_views: SmallVec<[_; 8]> = SmallVec::new();
         all_views.push(graph.view_entity());
@@ -771,6 +773,8 @@ impl Node for EarlyGpuPreprocessNode {
             }
         }
 
+        pass_span.end(&mut compute_pass);
+
         Ok(())
     }
 }
@@ -818,6 +822,8 @@ impl Node for LateGpuPreprocessNode {
         render_context: &mut RenderContext<'w>,
         world: &'w World,
     ) -> Result<(), NodeRunError> {
+        let diagnostics = render_context.diagnostic_recorder();
+
         // Grab the [`BatchedInstanceBuffers`].
         let batched_instance_buffers =
             world.resource::<BatchedInstanceBuffers<MeshUniform, MeshInputUniform>>();
@@ -829,9 +835,10 @@ impl Node for LateGpuPreprocessNode {
             render_context
                 .command_encoder()
                 .begin_compute_pass(&ComputePassDescriptor {
-                    label: Some("late mesh preprocessing"),
+                    label: Some("late_mesh_preprocessing"),
                     timestamp_writes: None,
                 });
+        let pass_span = diagnostics.time_span(&mut compute_pass, "late_mesh_preprocessing");
 
         // Run the compute passes.
         for (view, bind_groups, view_uniform_offset) in self.view_query.iter_manual(world) {
@@ -940,6 +947,8 @@ impl Node for LateGpuPreprocessNode {
             }
         }
 
+        pass_span.end(&mut compute_pass);
+
         Ok(())
     }
 }
@@ -967,7 +976,7 @@ impl Node for EarlyPrepassBuildIndirectParametersNode {
             render_context,
             world,
             &preprocess_pipelines.early_phase,
-            "early prepass indirect parameters building",
+            "early_prepass_indirect_parameters_building",
         )
     }
 }
@@ -995,7 +1004,7 @@ impl Node for LatePrepassBuildIndirectParametersNode {
             render_context,
             world,
             &preprocess_pipelines.late_phase,
-            "late prepass indirect parameters building",
+            "late_prepass_indirect_parameters_building",
         )
     }
 }
@@ -1017,7 +1026,7 @@ impl Node for MainBuildIndirectParametersNode {
             render_context,
             world,
             &preprocess_pipelines.main_phase,
-            "main indirect parameters building",
+            "main_indirect_parameters_building",
         )
     }
 }
@@ -1034,6 +1043,8 @@ fn run_build_indirect_parameters_node(
         return Ok(());
     };
 
+    let diagnostics = render_context.diagnostic_recorder();
+
     let pipeline_cache = world.resource::<PipelineCache>();
     let indirect_parameters_buffers = world.resource::<IndirectParametersBuffers>();
 
@@ -1044,6 +1055,7 @@ fn run_build_indirect_parameters_node(
                 label: Some(label),
                 timestamp_writes: None,
             });
+    let pass_span = diagnostics.time_span(&mut compute_pass, label);
 
     // Fetch the pipeline.
     let (
@@ -1063,6 +1075,7 @@ fn run_build_indirect_parameters_node(
     )
     else {
         warn!("The build indirect parameters pipelines weren't ready");
+        pass_span.end(&mut compute_pass);
         return Ok(());
     };
 
@@ -1077,6 +1090,7 @@ fn run_build_indirect_parameters_node(
     )
     else {
         // This will happen while the pipeline is being compiled and is fine.
+        pass_span.end(&mut compute_pass);
         return Ok(());
     };
 
@@ -1147,6 +1161,8 @@ fn run_build_indirect_parameters_node(
             }
         }
     }
+
+    pass_span.end(&mut compute_pass);
 
     Ok(())
 }

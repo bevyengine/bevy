@@ -150,7 +150,7 @@ pub trait Event: Send + Sync + 'static {
 /// # use bevy_ecs::prelude::*;
 /// #
 /// // When the `Damage` event is triggered on an entity, bubble the event up to ancestors.
-/// #[derive(Event, EntityEvent)]
+/// #[derive(EntityEvent)]
 /// #[entity_event(traversal = &'static ChildOf, auto_propagate)]
 /// struct Damage {
 ///     amount: f32,
@@ -162,7 +162,7 @@ pub trait Event: Send + Sync + 'static {
 /// ```
 /// # use bevy_ecs::prelude::*;
 /// #
-/// # #[derive(Event, EntityEvent)]
+/// # #[derive(EntityEvent)]
 /// # #[entity_event(traversal = &'static ChildOf, auto_propagate)]
 /// # struct Damage {
 /// #     amount: f32,
@@ -201,7 +201,7 @@ pub trait Event: Send + Sync + 'static {
 /// ```
 /// # use bevy_ecs::prelude::*;
 /// #
-/// # #[derive(Event, EntityEvent)]
+/// # #[derive(EntityEvent)]
 /// # #[entity_event(traversal = &'static ChildOf, auto_propagate)]
 /// # struct Damage {
 /// #     amount: f32,
@@ -242,7 +242,7 @@ pub trait Event: Send + Sync + 'static {
 #[diagnostic::on_unimplemented(
     message = "`{Self}` is not an `EntityEvent`",
     label = "invalid `EntityEvent`",
-    note = "consider annotating `{Self}` with `#[derive(Event, EntityEvent)]`"
+    note = "consider annotating `{Self}` with `#[derive(EntityEvent)]`"
 )]
 pub trait EntityEvent: Event {
     /// The component that describes which [`Entity`] to propagate this event to next, when [propagation] is enabled.
@@ -259,7 +259,7 @@ pub trait EntityEvent: Event {
     const AUTO_PROPAGATE: bool = false;
 }
 
-/// A buffered [`Event`] for pull-based event handling.
+/// A buffered event for pull-based event handling.
 ///
 /// Buffered events can be written with [`EventWriter`] and read using the [`EventReader`] system parameter.
 /// These events are stored in the [`Events<E>`] resource, and require periodically polling the world for new events,
@@ -286,7 +286,7 @@ pub trait EntityEvent: Event {
 /// ```
 /// # use bevy_ecs::prelude::*;
 /// #
-/// #[derive(Event, BufferedEvent)]
+/// #[derive(BufferedEvent)]
 /// struct Message(String);
 /// ```
 ///
@@ -295,7 +295,7 @@ pub trait EntityEvent: Event {
 /// ```
 /// # use bevy_ecs::prelude::*;
 /// #
-/// # #[derive(Event, BufferedEvent)]
+/// # #[derive(BufferedEvent)]
 /// # struct Message(String);
 /// #
 /// fn write_hello(mut writer: EventWriter<Message>) {
@@ -308,7 +308,7 @@ pub trait EntityEvent: Event {
 /// ```
 /// # use bevy_ecs::prelude::*;
 /// #
-/// # #[derive(Event, BufferedEvent)]
+/// # #[derive(BufferedEvent)]
 /// # struct Message(String);
 /// #
 /// fn read_messages(mut reader: EventReader<Message>) {
@@ -327,9 +327,9 @@ pub trait EntityEvent: Event {
 #[diagnostic::on_unimplemented(
     message = "`{Self}` is not an `BufferedEvent`",
     label = "invalid `BufferedEvent`",
-    note = "consider annotating `{Self}` with `#[derive(Event, BufferedEvent)]`"
+    note = "consider annotating `{Self}` with `#[derive(BufferedEvent)]`"
 )]
-pub trait BufferedEvent: Event {}
+pub trait BufferedEvent: Send + Sync + 'static {}
 
 /// An internal type that implements [`Component`] for a given [`Event`] type.
 ///

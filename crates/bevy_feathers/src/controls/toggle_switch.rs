@@ -10,6 +10,7 @@ use bevy_ecs::{
     hierarchy::Children,
     lifecycle::RemovedComponents,
     query::{Added, Changed, Has, Or, With},
+    reflect::ReflectComponent,
     schedule::IntoScheduleConfigs,
     spawn::SpawnRelated,
     system::{Commands, In, Query},
@@ -17,11 +18,12 @@ use bevy_ecs::{
 };
 use bevy_input_focus::tab_navigation::TabIndex;
 use bevy_picking::{hover::Hovered, PickingSystems};
+use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_ui::{BorderRadius, Checked, InteractionDisabled, Node, PositionType, UiRect, Val};
-use bevy_winit::cursor::CursorIcon;
 
 use crate::{
     constants::size,
+    cursor::EntityCursor,
     theme::{ThemeBackgroundColor, ThemeBorderColor},
     tokens,
 };
@@ -34,11 +36,13 @@ pub struct ToggleSwitchProps {
 }
 
 /// Marker for the toggle switch outline
-#[derive(Component, Default, Clone)]
+#[derive(Component, Default, Clone, Reflect)]
+#[reflect(Component, Clone, Default)]
 struct ToggleSwitchOutline;
 
 /// Marker for the toggle switch slide
-#[derive(Component, Default, Clone)]
+#[derive(Component, Default, Clone, Reflect)]
+#[reflect(Component, Clone, Default)]
 struct ToggleSwitchSlide;
 
 /// Template function to spawn a toggle switch.
@@ -63,7 +67,7 @@ pub fn toggle_switch<B: Bundle>(props: ToggleSwitchProps, overrides: B) -> impl 
         ThemeBorderColor(tokens::SWITCH_BORDER),
         AccessibilityNode(accesskit::Node::new(Role::Switch)),
         Hovered::default(),
-        CursorIcon::System(bevy_window::SystemCursorIcon::Pointer),
+        EntityCursor::System(bevy_window::SystemCursorIcon::Pointer),
         TabIndex(0),
         overrides,
         children![(

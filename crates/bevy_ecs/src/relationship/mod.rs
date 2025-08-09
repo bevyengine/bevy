@@ -4,6 +4,8 @@ mod related_methods;
 mod relationship_query;
 mod relationship_source_collection;
 
+use core::marker::PhantomData;
+
 use alloc::format;
 
 use bevy_utils::prelude::DebugName;
@@ -12,8 +14,8 @@ pub use relationship_query::*;
 pub use relationship_source_collection::*;
 
 use crate::{
-    component::{Component, Mutable},
-    entity::{ComponentCloneCtx, Entity, SourceComponent},
+    component::{Component, ComponentCloneBehavior, Mutable},
+    entity::{ComponentCloneCtx, Entity},
     error::CommandWithEntity,
     lifecycle::HookContext,
     world::{DeferredWorld, EntityWorldMut},
@@ -126,6 +128,21 @@ pub trait Relationship: Component + Sized {
             world.commands().entity(entity).remove::<Self>();
             return;
         }
+        // For one-to-one relationships, remove existing relationship before adding new one
+        let current_source_to_remove = world
+            .get_entity(target_entity)
+            .ok()
+            .and_then(|target_entity_ref| target_entity_ref.get::<Self::RelationshipTarget>())
+            .and_then(|relationship_target| {
+                relationship_target
+                    .collection()
+                    .source_to_remove_before_add()
+            });
+
+        if let Some(current_source) = current_source_to_remove {
+            world.commands().entity(current_source).try_remove::<Self>();
+        }
+
         if let Ok(mut entity_commands) = world.commands().get_entity(target_entity) {
             // Deferring is necessary for batch mode
             entity_commands
@@ -240,7 +257,19 @@ pub trait RelationshipTarget: Component<Mutability = Mutable> + Sized {
 
     /// The `on_replace` component hook that maintains the [`Relationship`] / [`RelationshipTarget`] connection.
     // note: think of this as "on_drop"
-    fn on_replace(mut world: DeferredWorld, HookContext { entity, .. }: HookContext) {
+    fn on_replace(
+        mut world: DeferredWorld,
+        HookContext {
+            entity,
+            relationship_hook_mode,
+            ..
+        }: HookContext,
+    ) {
+        match relationship_hook_mode {
+            RelationshipHookMode::Run => {}
+            // For RelationshipTarget we don't want to run this hook even if it isn't linked, but for Relationship we do.
+            RelationshipHookMode::Skip | RelationshipHookMode::RunIfNotLinked => return,
+        }
         let (entities, mut commands) = world.entities_and_commands();
         let relationship_target = entities.get(entity).unwrap().get::<Self>().unwrap();
         for source_entity in relationship_target.iter() {
@@ -287,28 +316,38 @@ pub trait RelationshipTarget: Component<Mutability = Mutable> + Sized {
     }
 }
 
-/// The "clone behavior" for [`RelationshipTarget`]. This actually creates an empty
-/// [`RelationshipTarget`] instance with space reserved for the number of targets in the
-/// original instance. The [`RelationshipTarget`] will then be populated with the proper components
+/// The "clone behavior" for [`RelationshipTarget`]. The [`RelationshipTarget`] will be populated with the proper components
 /// when the corresponding [`Relationship`] sources of truth are inserted. Cloning the actual entities
 /// in the original [`RelationshipTarget`] would result in duplicates, so we don't do that!
 ///
 /// This will also queue up clones of the relationship sources if the [`EntityCloner`](crate::entity::EntityCloner) is configured
 /// to spawn recursively.
 pub fn clone_relationship_target<T: RelationshipTarget>(
-    source: &SourceComponent,
+    component: &T,
+    cloned: &mut T,
     context: &mut ComponentCloneCtx,
 ) {
-    if let Some(component) = source.read::<T>() {
-        let mut cloned = T::with_capacity(component.len());
-        if context.linked_cloning() && T::LINKED_SPAWN {
-            let collection = cloned.collection_mut_risky();
-            for entity in component.iter() {
-                collection.add(entity);
-                context.queue_entity_clone(entity);
-            }
+    if context.linked_cloning() && T::LINKED_SPAWN {
+        let collection = cloned.collection_mut_risky();
+        for entity in component.iter() {
+            collection.add(entity);
+            context.queue_entity_clone(entity);
         }
-        context.write_target_component(cloned);
+    } else if context.moving() {
+        let target = context.target();
+        let collection = cloned.collection_mut_risky();
+        for entity in component.iter() {
+            collection.add(entity);
+            context.queue_deferred(move |world, _mapper| {
+                // We don't want relationships hooks to run because we are manually constructing the collection here
+                _ = DeferredWorld::from(world)
+                    .modify_component_with_relationship_hook_mode::<T::Relationship, ()>(
+                        entity,
+                        RelationshipHookMode::Skip,
+                        |r| r.set_risky(target),
+                    );
+            });
+        }
     }
 }
 
@@ -323,8 +362,126 @@ pub enum RelationshipHookMode {
     Skip,
 }
 
+/// Wrapper for components clone specialization using autoderef.
+#[doc(hidden)]
+pub struct RelationshipCloneBehaviorSpecialization<T>(PhantomData<T>);
+
+impl<T> Default for RelationshipCloneBehaviorSpecialization<T> {
+    fn default() -> Self {
+        Self(PhantomData)
+    }
+}
+
+/// Base trait for relationship clone specialization using autoderef.
+#[doc(hidden)]
+pub trait RelationshipCloneBehaviorBase {
+    fn default_clone_behavior(&self) -> ComponentCloneBehavior;
+}
+
+impl<C> RelationshipCloneBehaviorBase for RelationshipCloneBehaviorSpecialization<C> {
+    fn default_clone_behavior(&self) -> ComponentCloneBehavior {
+        // Relationships currently must have `Clone`/`Reflect`-based handler for cloning/moving logic to properly work.
+        ComponentCloneBehavior::Ignore
+    }
+}
+
+/// Specialized trait for relationship clone specialization using autoderef.
+#[doc(hidden)]
+pub trait RelationshipCloneBehaviorViaReflect {
+    fn default_clone_behavior(&self) -> ComponentCloneBehavior;
+}
+
+#[cfg(feature = "bevy_reflect")]
+impl<C: Relationship + bevy_reflect::Reflect> RelationshipCloneBehaviorViaReflect
+    for &RelationshipCloneBehaviorSpecialization<C>
+{
+    fn default_clone_behavior(&self) -> ComponentCloneBehavior {
+        ComponentCloneBehavior::reflect()
+    }
+}
+
+/// Specialized trait for relationship clone specialization using autoderef.
+#[doc(hidden)]
+pub trait RelationshipCloneBehaviorViaClone {
+    fn default_clone_behavior(&self) -> ComponentCloneBehavior;
+}
+
+impl<C: Relationship + Clone> RelationshipCloneBehaviorViaClone
+    for &&RelationshipCloneBehaviorSpecialization<C>
+{
+    fn default_clone_behavior(&self) -> ComponentCloneBehavior {
+        ComponentCloneBehavior::clone::<C>()
+    }
+}
+
+/// Specialized trait for relationship target clone specialization using autoderef.
+#[doc(hidden)]
+pub trait RelationshipTargetCloneBehaviorViaReflect {
+    fn default_clone_behavior(&self) -> ComponentCloneBehavior;
+}
+
+#[cfg(feature = "bevy_reflect")]
+impl<C: RelationshipTarget + bevy_reflect::Reflect + bevy_reflect::TypePath>
+    RelationshipTargetCloneBehaviorViaReflect for &&&RelationshipCloneBehaviorSpecialization<C>
+{
+    fn default_clone_behavior(&self) -> ComponentCloneBehavior {
+        ComponentCloneBehavior::Custom(|source, context| {
+            if let Some(component) = source.read::<C>()
+                && let Ok(mut cloned) = component.reflect_clone_and_take::<C>()
+            {
+                cloned.collection_mut_risky().clear();
+                clone_relationship_target(component, &mut cloned, context);
+                context.write_target_component(cloned);
+            }
+        })
+    }
+}
+
+/// Specialized trait for relationship target clone specialization using autoderef.
+#[doc(hidden)]
+pub trait RelationshipTargetCloneBehaviorViaClone {
+    fn default_clone_behavior(&self) -> ComponentCloneBehavior;
+}
+
+impl<C: RelationshipTarget + Clone> RelationshipTargetCloneBehaviorViaClone
+    for &&&&RelationshipCloneBehaviorSpecialization<C>
+{
+    fn default_clone_behavior(&self) -> ComponentCloneBehavior {
+        ComponentCloneBehavior::Custom(|source, context| {
+            if let Some(component) = source.read::<C>() {
+                let mut cloned = component.clone();
+                cloned.collection_mut_risky().clear();
+                clone_relationship_target(component, &mut cloned, context);
+                context.write_target_component(cloned);
+            }
+        })
+    }
+}
+
+/// We know there's no additional data on Children, so this handler is an optimization to avoid cloning the entire Collection.
+#[doc(hidden)]
+pub trait RelationshipTargetCloneBehaviorHierarchy {
+    fn default_clone_behavior(&self) -> ComponentCloneBehavior;
+}
+
+impl RelationshipTargetCloneBehaviorHierarchy
+    for &&&&&RelationshipCloneBehaviorSpecialization<crate::hierarchy::Children>
+{
+    fn default_clone_behavior(&self) -> ComponentCloneBehavior {
+        ComponentCloneBehavior::Custom(|source, context| {
+            if let Some(component) = source.read::<crate::hierarchy::Children>() {
+                let mut cloned = crate::hierarchy::Children::with_capacity(component.len());
+                clone_relationship_target(component, &mut cloned, context);
+                context.write_target_component(cloned);
+            }
+        })
+    }
+}
+
 #[cfg(test)]
 mod tests {
+    use core::marker::PhantomData;
+
     use crate::prelude::{ChildOf, Children};
     use crate::world::World;
     use crate::{component::Component, entity::Entity};
@@ -415,6 +572,19 @@ mod tests {
             foo: u8,
             bar: u8,
         }
+
+        // No assert necessary, looking to make sure compilation works with the macros
+    }
+
+    #[test]
+    fn relationship_with_multiple_unnamed_non_target_fields_compiles() {
+        #[derive(Component)]
+        #[relationship(relationship_target=Target<T>)]
+        struct Source<T: Send + Sync + 'static>(#[relationship] Entity, PhantomData<T>);
+
+        #[derive(Component)]
+        #[relationship_target(relationship=Source<T>)]
+        struct Target<T: Send + Sync + 'static>(#[relationship] Vec<Entity>, PhantomData<T>);
 
         // No assert necessary, looking to make sure compilation works with the macros
     }

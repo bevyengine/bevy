@@ -28,19 +28,17 @@ pub struct AabbGizmoPlugin;
 
 impl Plugin for AabbGizmoPlugin {
     fn build(&self, app: &mut bevy_app::App) {
-        app.register_type::<AabbGizmoConfigGroup>()
-            .init_gizmo_group::<AabbGizmoConfigGroup>()
-            .add_systems(
-                PostUpdate,
-                (
-                    draw_aabbs,
-                    draw_all_aabbs.run_if(|config: Res<GizmoConfigStore>| {
-                        config.config::<AabbGizmoConfigGroup>().1.draw_all
-                    }),
-                )
-                    .after(bevy_render::view::VisibilitySystems::CalculateBounds)
-                    .after(TransformSystems::Propagate),
-            );
+        app.init_gizmo_group::<AabbGizmoConfigGroup>().add_systems(
+            PostUpdate,
+            (
+                draw_aabbs,
+                draw_all_aabbs.run_if(|config: Res<GizmoConfigStore>| {
+                    config.config::<AabbGizmoConfigGroup>().1.draw_all
+                }),
+            )
+                .after(bevy_render::view::VisibilitySystems::CalculateBounds)
+                .after(TransformSystems::Propagate),
+        );
     }
 }
 /// The [`GizmoConfigGroup`] used for debug visualizations of [`Aabb`] components on entities

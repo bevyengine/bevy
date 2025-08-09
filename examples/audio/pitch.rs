@@ -12,7 +12,7 @@ fn main() {
         .run();
 }
 
-#[derive(Event, BufferedEvent, Default)]
+#[derive(BufferedEvent, Default)]
 struct PlayPitch;
 
 #[derive(Resource)]

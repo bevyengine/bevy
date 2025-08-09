@@ -1,58 +1,55 @@
 #import bevy_sprite::{
     mesh2d_functions as mesh_functions,
     mesh2d_view_bindings::view,
+    mesh2d_vertex_output::VertexOutput,
 }
 
-struct Vertex {
-    @builtin(instance_index) instance_index: u32,
-    @builtin(vertex_index) vertex_index: u32,
-    @location(0) position: vec3<f32>,
-    @location(1) uv: vec2<f32>,
-};
+@group(#{MATERIAL_BIND_GROUP}) @binding(0) var tileset: texture_2d_array<f32>;
+@group(#{MATERIAL_BIND_GROUP}) @binding(1) var tileset_sampler: sampler;
+@group(#{MATERIAL_BIND_GROUP}) @binding(2) var tile_data: texture_2d<u32>;
 
-struct VertexOutput {
-    @builtin(position) position: vec4<f32>,
-    @location(0) uv: vec2<f32>,
-    @location(1) tile_index: u32,
+struct TileData {
+    tileset_index: u32,
+    color: vec4<f32>,
+    visible: bool,
 }
 
-@group(2) @binding(0) var tileset: texture_2d_array<f32>;
-@group(2) @binding(1) var tileset_sampler: sampler;
-@group(2) @binding(2) var tile_indices: texture_2d<u32>;
+fn get_tile_data(coord: vec2<u32>) -> TileData {
+    let data = textureLoad(tile_data, coord, 0);
 
-@vertex
-fn vertex(vertex: Vertex) -> VertexOutput {
-    var out: VertexOutput;
-    
-    let world_from_local = mesh_functions::get_world_from_local(vertex.instance_index);
-    let world_position = mesh_functions::mesh2d_position_local_to_world(
-        world_from_local,
-        vec4<f32>(vertex.position, 1.0)
-    );
+    let tileset_index = data.r;
 
-    out.position = mesh_functions::mesh2d_position_world_to_clip(world_position);
-    out.uv = vertex.uv;
-    out.tile_index = vertex.vertex_index / 4u;
+    let color_r = f32(data.g & 0xFFu) / 255.0;
+    let color_g = f32((data.g >> 8u) & 0xFFu) / 255.0;
+    let color_b = f32(data.b & 0xFFu) / 255.0;
+    let color_a = f32((data.b >> 8u) & 0xFFu) / 255.0;
 
-    return out;
+    let color = vec4<f32>(color_r, color_g, color_b, color_a);
+
+    let visible = data.a != 0u;
+
+    return TileData(tileset_index, color, visible);
 }
 
 @fragment
 fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
-    let chunk_size = textureDimensions(tile_indices, 0);
-    let tile_xy = vec2<u32>(
-        in.tile_index % chunk_size.x,
-        in.tile_index / chunk_size.x
-    );
-    let tile_id = textureLoad(tile_indices, tile_xy, 0).r;
+    let chunk_size = textureDimensions(tile_data, 0);
+    let tile_uv = in.uv * vec2<f32>(chunk_size);
+    let tile_coord = clamp(vec2<u32>(floor(tile_uv)), vec2<u32>(0), chunk_size - 1);
 
-    if tile_id == 0xffffu {
+    let tile = get_tile_data(tile_coord);
+
+    if (tile.tileset_index == 0xffffu || !tile.visible) {
         discard;
     }
 
-    let color = textureSample(tileset, tileset_sampler, in.uv, tile_id);
-    if color.a < 0.001 {
+    let local_uv = fract(tile_uv);
+    let tex_color = textureSample(tileset, tileset_sampler, local_uv, tile.tileset_index);
+    let final_color = tex_color * tile.color;
+
+    if (final_color.a < 0.001) {
         discard;
     }
-    return color;
+
+    return final_color;
 }

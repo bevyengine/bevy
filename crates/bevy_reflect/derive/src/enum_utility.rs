@@ -37,7 +37,7 @@ pub(crate) struct VariantField<'a, 'b> {
 /// Trait used to control how enum variants are built.
 pub(crate) trait VariantBuilder: Sized {
     /// Returns the enum data.
-    fn reflect_enum(&self) -> &ReflectEnum;
+    fn reflect_enum(&self) -> &ReflectEnum<'_>;
 
     /// Returns a token stream that accesses a field of a variant as an `Option<dyn Reflect>`.
     ///
@@ -212,7 +212,7 @@ impl<'a> FromReflectVariantBuilder<'a> {
 }
 
 impl<'a> VariantBuilder for FromReflectVariantBuilder<'a> {
-    fn reflect_enum(&self) -> &ReflectEnum {
+    fn reflect_enum(&self) -> &ReflectEnum<'_> {
         self.reflect_enum
     }
 
@@ -244,7 +244,7 @@ impl<'a> TryApplyVariantBuilder<'a> {
 }
 
 impl<'a> VariantBuilder for TryApplyVariantBuilder<'a> {
-    fn reflect_enum(&self) -> &ReflectEnum {
+    fn reflect_enum(&self) -> &ReflectEnum<'_> {
         self.reflect_enum
     }
 
@@ -300,7 +300,7 @@ impl<'a> ReflectCloneVariantBuilder<'a> {
 }
 
 impl<'a> VariantBuilder for ReflectCloneVariantBuilder<'a> {
-    fn reflect_enum(&self) -> &ReflectEnum {
+    fn reflect_enum(&self) -> &ReflectEnum<'_> {
         self.reflect_enum
     }
 

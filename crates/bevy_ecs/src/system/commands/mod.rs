@@ -131,7 +131,7 @@ const _: () = {
         fn init_access(
             state: &Self::State,
             system_meta: &mut bevy_ecs::system::SystemMeta,
-            component_access_set: &mut bevy_ecs::query::FilteredAccessSet<ComponentId>,
+            component_access_set: &mut bevy_ecs::query::FilteredAccessSet,
             world: &mut World,
         ) {
             <__StructFieldsAlias<'_, '_> as bevy_ecs::system::SystemParam>::init_access(
@@ -313,7 +313,7 @@ impl<'w, 's> Commands<'w, 's> {
     /// - [`spawn_batch`](Self::spawn_batch) to spawn many entities
     ///   with the same combination of components.
     #[track_caller]
-    pub fn spawn_empty(&mut self) -> EntityCommands {
+    pub fn spawn_empty(&mut self) -> EntityCommands<'_> {
         let entity = self.entities.reserve_entity();
         let mut entity_commands = EntityCommands {
             entity,
@@ -375,7 +375,7 @@ impl<'w, 's> Commands<'w, 's> {
     /// - [`spawn_batch`](Self::spawn_batch) to spawn many entities
     ///   with the same combination of components.
     #[track_caller]
-    pub fn spawn<T: Bundle>(&mut self, bundle: T) -> EntityCommands {
+    pub fn spawn<T: Bundle>(&mut self, bundle: T) -> EntityCommands<'_> {
         let entity = self.entities.reserve_entity();
         let mut entity_commands = EntityCommands {
             entity,
@@ -436,7 +436,7 @@ impl<'w, 's> Commands<'w, 's> {
     /// - [`get_entity`](Self::get_entity) for the fallible version.
     #[inline]
     #[track_caller]
-    pub fn entity(&mut self, entity: Entity) -> EntityCommands {
+    pub fn entity(&mut self, entity: Entity) -> EntityCommands<'_> {
         EntityCommands {
             entity,
             commands: self.reborrow(),
@@ -487,7 +487,7 @@ impl<'w, 's> Commands<'w, 's> {
     pub fn get_entity(
         &mut self,
         entity: Entity,
-    ) -> Result<EntityCommands, EntityDoesNotExistError> {
+    ) -> Result<EntityCommands<'_>, EntityDoesNotExistError> {
         if self.entities.contains(entity) {
             Ok(EntityCommands {
                 entity,
@@ -1120,7 +1120,7 @@ impl<'w, 's> Commands<'w, 's> {
     pub fn add_observer<E: Event, B: Bundle, M>(
         &mut self,
         observer: impl IntoObserverSystem<E, B, M>,
-    ) -> EntityCommands {
+    ) -> EntityCommands<'_> {
         self.spawn(Observer::new(observer))
     }
 
@@ -1269,7 +1269,7 @@ impl<'a> EntityCommands<'a> {
     /// Returns an [`EntityCommands`] with a smaller lifetime.
     ///
     /// This is useful if you have `&mut EntityCommands` but you need `EntityCommands`.
-    pub fn reborrow(&mut self) -> EntityCommands {
+    pub fn reborrow(&mut self) -> EntityCommands<'_> {
         EntityCommands {
             entity: self.entity,
             commands: self.commands.reborrow(),
@@ -1319,7 +1319,7 @@ impl<'a> EntityCommands<'a> {
     ///
     /// # bevy_ecs::system::assert_is_system(level_up_system);
     /// ```
-    pub fn entry<T: Component>(&mut self) -> EntityEntryCommands<T> {
+    pub fn entry<T: Component>(&mut self) -> EntityEntryCommands<'_, T> {
         EntityEntryCommands {
             entity_commands: self.reborrow(),
             marker: PhantomData,
@@ -1982,7 +1982,7 @@ impl<'a> EntityCommands<'a> {
     }
 
     /// Returns the underlying [`Commands`].
-    pub fn commands(&mut self) -> Commands {
+    pub fn commands(&mut self) -> Commands<'_, '_> {
         self.commands.reborrow()
     }
 
@@ -2234,15 +2234,20 @@ impl<'a> EntityCommands<'a> {
         self.queue(entity_command::clone_components::<B>(target))
     }
 
-    /// Clones the specified components of this entity and inserts them into another entity,
-    /// then removes the components from this entity.
+    /// Moves the specified components of this entity into another entity.
     ///
-    /// Components can only be cloned if they implement
-    /// [`Clone`] or [`Reflect`](bevy_reflect::Reflect).
+    /// Components with [`Ignore`] clone behavior will not be moved, while components that
+    /// have a [`Custom`] clone behavior will be cloned using it and then removed from the source entity.
+    /// All other components will be moved without any other special handling.
+    ///
+    /// Note that this will trigger `on_remove` hooks/observers on this entity and `on_insert`/`on_add` hooks/observers on the target entity.
     ///
     /// # Panics
     ///
     /// The command will panic when applied if the target entity does not exist.
+    ///
+    /// [`Ignore`]: crate::component::ComponentCloneBehavior::Ignore
+    /// [`Custom`]: crate::component::ComponentCloneBehavior::Custom
     pub fn move_components<B: Bundle>(&mut self, target: Entity) -> &mut Self {
         self.queue(entity_command::move_components::<B>(target))
     }
@@ -2376,7 +2381,7 @@ impl<'a, T: Component> EntityEntryCommands<'a, T> {
     /// }
     /// # bevy_ecs::system::assert_is_system(level_up_system);
     /// ```
-    pub fn entity(&mut self) -> EntityCommands {
+    pub fn entity(&mut self) -> EntityCommands<'_> {
         self.entity_commands.reborrow()
     }
 }
@@ -2498,7 +2503,7 @@ mod tests {
             .spawn((W(1u32), W(2u64)))
             .id();
         command_queue.apply(&mut world);
-        assert_eq!(world.entity_count(), 1);
+        assert_eq!(world.query::<&W<u32>>().query(&world).count(), 1);
         let results = world
             .query::<(&W<u32>, &W<u64>)>()
             .iter(&world)

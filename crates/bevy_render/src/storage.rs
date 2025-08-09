@@ -18,7 +18,6 @@ pub struct StoragePlugin;
 impl Plugin for StoragePlugin {
     fn build(&self, app: &mut App) {
         app.add_plugins(RenderAssetPlugin::<GpuShaderStorageBuffer>::default())
-            .register_type::<ShaderStorageBuffer>()
             .init_asset::<ShaderStorageBuffer>()
             .register_asset_reflect::<ShaderStorageBuffer>();
     }

@@ -1,17 +1,22 @@
 use alloc::vec::Vec;
 use core::marker::PhantomData;
 
-use crate::{App, Plugin, Update};
+use crate::{App, Plugin};
+#[cfg(feature = "bevy_reflect")]
+use bevy_ecs::reflect::ReflectComponent;
 use bevy_ecs::{
     component::Component,
     entity::Entity,
     hierarchy::ChildOf,
+    intern::Interned,
     lifecycle::RemovedComponents,
     query::{Changed, Or, QueryFilter, With, Without},
     relationship::{Relationship, RelationshipTarget},
-    schedule::{IntoScheduleConfigs, SystemSet},
+    schedule::{IntoScheduleConfigs, ScheduleLabel, SystemSet},
     system::{Commands, Local, Query},
 };
+#[cfg(feature = "bevy_reflect")]
+use bevy_reflect::Reflect;
 
 /// Plugin to automatically propagate a component value to all direct and transient relationship
 /// targets (e.g. [`bevy_ecs::hierarchy::Children`]) of entities with a [`Propagate`] component.
@@ -28,25 +33,52 @@ use bevy_ecs::{
 /// to reach a given target.
 /// Individual entities can be skipped or terminate the propagation with the [`PropagateOver`]
 /// and [`PropagateStop`] components.
+///
+/// The schedule can be configured via [`HierarchyPropagatePlugin::new`].
+/// You should be sure to schedule your logic relative to this set: making changes
+/// that modify component values before this logic, and reading the propagated
+/// values after it.
 pub struct HierarchyPropagatePlugin<
     C: Component + Clone + PartialEq,
     F: QueryFilter = (),
     R: Relationship = ChildOf,
->(PhantomData<fn() -> (C, F, R)>);
+> {
+    schedule: Interned<dyn ScheduleLabel>,
+    _marker: PhantomData<fn() -> (C, F, R)>,
+}
+
+impl<C: Component + Clone + PartialEq, F: QueryFilter, R: Relationship>
+    HierarchyPropagatePlugin<C, F, R>
+{
+    /// Construct the plugin. The propagation systems will be placed in the specified schedule.
+    pub fn new(schedule: impl ScheduleLabel) -> Self {
+        Self {
+            schedule: schedule.intern(),
+            _marker: PhantomData,
+        }
+    }
+}
 
 /// Causes the inner component to be added to this entity and all direct and transient relationship
 /// targets. A target with a [`Propagate<C>`] component of its own will override propagation from
 /// that point in the tree.
 #[derive(Component, Clone, PartialEq)]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Component, Clone, PartialEq)
+)]
 pub struct Propagate<C: Component + Clone + PartialEq>(pub C);
 
 /// Stops the output component being added to this entity.
 /// Relationship targets will still inherit the component from this entity or its parents.
 #[derive(Component)]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Component))]
 pub struct PropagateOver<C>(PhantomData<fn() -> C>);
 
 /// Stops the propagation at this entity. Children will not inherit the component.
 #[derive(Component)]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Component))]
 pub struct PropagateStop<C>(PhantomData<fn() -> C>);
 
 /// The set in which propagation systems are added. You can schedule your logic relative to this set.
@@ -57,15 +89,12 @@ pub struct PropagateSet<C: Component + Clone + PartialEq> {
 
 /// Internal struct for managing propagation
 #[derive(Component, Clone, PartialEq)]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Component, Clone, PartialEq)
+)]
 pub struct Inherited<C: Component + Clone + PartialEq>(pub C);
-
-impl<C: Component + Clone + PartialEq, F: QueryFilter, R: Relationship> Default
-    for HierarchyPropagatePlugin<C, F, R>
-{
-    fn default() -> Self {
-        Self(Default::default())
-    }
-}
 
 impl<C> Default for PropagateOver<C> {
     fn default() -> Self {
@@ -108,7 +137,7 @@ impl<C: Component + Clone + PartialEq, F: QueryFilter + 'static, R: Relationship
 {
     fn build(&self, app: &mut App) {
         app.add_systems(
-            Update,
+            self.schedule,
             (
                 update_source::<C, F>,
                 update_stopped::<C, F>,
@@ -274,7 +303,7 @@ mod tests {
     fn test_simple_propagate() {
         let mut app = App::new();
         app.add_schedule(Schedule::new(Update));
-        app.add_plugins(HierarchyPropagatePlugin::<TestValue>::default());
+        app.add_plugins(HierarchyPropagatePlugin::<TestValue>::new(Update));
 
         let propagator = app.world_mut().spawn(Propagate(TestValue(1))).id();
         let intermediate = app
@@ -301,7 +330,7 @@ mod tests {
     fn test_reparented() {
         let mut app = App::new();
         app.add_schedule(Schedule::new(Update));
-        app.add_plugins(HierarchyPropagatePlugin::<TestValue>::default());
+        app.add_plugins(HierarchyPropagatePlugin::<TestValue>::new(Update));
 
         let propagator = app.world_mut().spawn(Propagate(TestValue(1))).id();
         let propagatee = app
@@ -323,7 +352,7 @@ mod tests {
     fn test_reparented_with_prior() {
         let mut app = App::new();
         app.add_schedule(Schedule::new(Update));
-        app.add_plugins(HierarchyPropagatePlugin::<TestValue>::default());
+        app.add_plugins(HierarchyPropagatePlugin::<TestValue>::new(Update));
 
         let propagator_a = app.world_mut().spawn(Propagate(TestValue(1))).id();
         let propagator_b = app.world_mut().spawn(Propagate(TestValue(2))).id();
@@ -357,7 +386,7 @@ mod tests {
     fn test_remove_orphan() {
         let mut app = App::new();
         app.add_schedule(Schedule::new(Update));
-        app.add_plugins(HierarchyPropagatePlugin::<TestValue>::default());
+        app.add_plugins(HierarchyPropagatePlugin::<TestValue>::new(Update));
 
         let propagator = app.world_mut().spawn(Propagate(TestValue(1))).id();
         let propagatee = app
@@ -388,7 +417,7 @@ mod tests {
     fn test_remove_propagated() {
         let mut app = App::new();
         app.add_schedule(Schedule::new(Update));
-        app.add_plugins(HierarchyPropagatePlugin::<TestValue>::default());
+        app.add_plugins(HierarchyPropagatePlugin::<TestValue>::new(Update));
 
         let propagator = app.world_mut().spawn(Propagate(TestValue(1))).id();
         let propagatee = app
@@ -419,7 +448,7 @@ mod tests {
     fn test_propagate_over() {
         let mut app = App::new();
         app.add_schedule(Schedule::new(Update));
-        app.add_plugins(HierarchyPropagatePlugin::<TestValue>::default());
+        app.add_plugins(HierarchyPropagatePlugin::<TestValue>::new(Update));
 
         let propagator = app.world_mut().spawn(Propagate(TestValue(1))).id();
         let propagate_over = app
@@ -446,7 +475,7 @@ mod tests {
     fn test_propagate_stop() {
         let mut app = App::new();
         app.add_schedule(Schedule::new(Update));
-        app.add_plugins(HierarchyPropagatePlugin::<TestValue>::default());
+        app.add_plugins(HierarchyPropagatePlugin::<TestValue>::new(Update));
 
         let propagator = app.world_mut().spawn(Propagate(TestValue(1))).id();
         let propagate_stop = app
@@ -472,7 +501,7 @@ mod tests {
     fn test_intermediate_override() {
         let mut app = App::new();
         app.add_schedule(Schedule::new(Update));
-        app.add_plugins(HierarchyPropagatePlugin::<TestValue>::default());
+        app.add_plugins(HierarchyPropagatePlugin::<TestValue>::new(Update));
 
         let propagator = app.world_mut().spawn(Propagate(TestValue(1))).id();
         let intermediate = app
@@ -513,7 +542,9 @@ mod tests {
 
         let mut app = App::new();
         app.add_schedule(Schedule::new(Update));
-        app.add_plugins(HierarchyPropagatePlugin::<TestValue, With<Marker>>::default());
+        app.add_plugins(HierarchyPropagatePlugin::<TestValue, With<Marker>>::new(
+            Update,
+        ));
 
         let propagator = app.world_mut().spawn(Propagate(TestValue(1))).id();
         let propagatee = app

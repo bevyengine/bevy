@@ -119,7 +119,7 @@ use {
 /// # use bevy_ecs::prelude::*;
 /// # use bevy_time::prelude::*;
 /// #
-/// #[derive(Event, BufferedEvent)]
+/// #[derive(BufferedEvent)]
 /// struct PauseEvent(bool);
 ///
 /// fn pause_system(mut time: ResMut<Time<Virtual>>, mut events: EventReader<PauseEvent>) {

@@ -37,7 +37,6 @@ cosmic-text = { version = "0.14", features = ["shape-run-cache"] }
 thiserror = { version = "2", default-features = false }
 serde = { version = "1", features = ["derive"] }
 smallvec = { version = "1", default-features = false }
-unicode-bidi = "0.3.13"
 sys-locale = "0.3.0"
 tracing = { version = "0.1", default-features = false, features = ["std"] }
 

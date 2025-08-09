@@ -77,6 +77,11 @@ pub(crate) fn impl_enum(reflect_enum: &ReflectEnum) -> proc_macro2::TokenStream 
     let (impl_generics, ty_generics, where_clause) =
         reflect_enum.meta().type_path().generics().split_for_impl();
 
+    #[cfg(not(feature = "auto_register"))]
+    let auto_register = None::<proc_macro2::TokenStream>;
+    #[cfg(feature = "auto_register")]
+    let auto_register = crate::impls::reflect_auto_registration(reflect_enum.meta());
+
     let where_reflect_clause = where_clause_options.extend_where_clause(where_clause);
 
     quote! {
@@ -89,6 +94,8 @@ pub(crate) fn impl_enum(reflect_enum: &ReflectEnum) -> proc_macro2::TokenStream 
         #full_reflect_impl
 
         #function_impls
+
+        #auto_register
 
         impl #impl_generics #bevy_reflect_path::Enum for #enum_path #ty_generics #where_reflect_clause {
             fn field(&self, #ref_name: &str) -> #FQOption<&dyn #bevy_reflect_path::PartialReflect> {

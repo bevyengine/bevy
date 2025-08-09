@@ -46,10 +46,10 @@ fn main() {
     app.update();
 }
 
-#[derive(Event, BufferedEvent)]
+#[derive(BufferedEvent)]
 struct A;
 
-#[derive(Event, BufferedEvent)]
+#[derive(BufferedEvent)]
 struct B;
 
 // This works fine, because the types are different,
@@ -62,7 +62,7 @@ fn read_and_write_different_event_types(mut a: EventWriter<A>, mut b: EventReade
 }
 
 /// A dummy event type.
-#[derive(Debug, Clone, Event, BufferedEvent)]
+#[derive(Debug, Clone, BufferedEvent)]
 struct DebugEvent {
     resend_from_param_set: bool,
     resend_from_local_event_reader: bool,
