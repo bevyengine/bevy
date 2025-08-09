@@ -2,6 +2,7 @@
 
 use std::f32::consts::PI;
 
+use bevy::picking::PickingSystems;
 use bevy::{
     asset::uuid::Uuid,
     color::palettes::css::{BLUE, GRAY, RED},
@@ -9,11 +10,10 @@ use bevy::{
     picking::{
         backend::ray::RayMap,
         pointer::{Location, PointerAction, PointerId, PointerInput},
-        PickSet,
     },
     prelude::*,
     render::{
-        camera::{ManualTextureViews, RenderTarget},
+        camera::RenderTarget,
         render_asset::RenderAssetUsages,
         render_resource::{Extent3d, TextureDimension, TextureFormat, TextureUsages},
     },
@@ -103,8 +103,7 @@ fn setup(
                     BackgroundColor(BLUE.into()),
                 ))
                 .observe(
-                    |pointer: On<Pointer<Drag>>,
-                     mut nodes: Query<(&mut Node, &ComputedNode)>| {
+                    |pointer: On<Pointer<Drag>>, mut nodes: Query<(&mut Node, &ComputedNode)>| {
                         let (mut node, computed) = nodes.get_mut(pointer.target()).unwrap();
                         node.left =
                             Val::Px(pointer.pointer_location.position.x - computed.size.x / 2.0);
@@ -133,7 +132,7 @@ fn setup(
                 });
         });
 
-    let mesh_handle = meshes.add(Cylinder::new(3.0, 6.0));
+    let mesh_handle = meshes.add(Cuboid::default());
 
     // This material has the texture that has been rendered.
     let material_handle = materials.add(StandardMaterial {
@@ -154,10 +153,10 @@ fn setup(
     // The main pass camera.
     commands.spawn((
         Camera3d::default(),
-        Transform::from_xyz(0.0, 0.0, 15.0).looking_at(Vec3::ZERO, Vec3::Y),
+        Transform::from_xyz(0.0, 0.0, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
     ));
 
-    commands.spawn((CUBE_POINTER_ID, CubePointer));
+    commands.spawn(CUBE_POINTER_ID);
 }
 
 const ROTATION_SPEED: f32 = 0.1;
@@ -169,9 +168,10 @@ fn rotator_system(time: Res<Time>, mut query: Query<&mut Transform, With<Cube>>)
     }
 }
 
-#[derive(Component)]
-struct CubePointer;
-
+/// Because bevy has no way to know how to map a mouse input to the UI texture, we need to write a
+/// system that tells it there is a pointer on the UI texture. We cast a ray into the scene and find
+/// the UV (2D texture) coordinates of the raycast hit. This UV coordinate is effectively the same
+/// as a pointer coordinate on a 2D UI rect.
 fn drive_diegetic_pointer(
     mut cursor_last: Local<Vec2>,
     mut raycast: MeshRayCast,
@@ -185,6 +185,8 @@ fn drive_diegetic_pointer(
     mut window_events: EventReader<WindowEvent>,
     mut pointer_input: EventWriter<PointerInput>,
 ) -> Result {
+    // Get the size of the texture, so we can convert from dimensionless UV coordinates that span
+    // from 0 to 1, to pixel coordinates.
     let target = ui_camera
         .single()?
         .target
@@ -195,14 +197,14 @@ fn drive_diegetic_pointer(
         .unwrap();
     let size = target_info.physical_size.as_vec2();
 
-    let settings = MeshRayCastSettings {
+    // Find raycast hits and update the virtual pointer.
+    let raycast_settings = MeshRayCastSettings {
         visibility: RayCastVisibility::VisibleInView,
         filter: &|entity| cubes.contains(entity),
         early_exit_test: &|_| false,
     };
-
     for (_id, ray) in rays.iter() {
-        for (_cube, hit) in raycast.cast_ray(*ray, &settings) {
+        for (_cube, hit) in raycast.cast_ray(*ray, &raycast_settings) {
             let position = size * hit.uv.unwrap();
             if position != *cursor_last {
                 pointer_input.write(PointerInput::new(
@@ -220,6 +222,7 @@ fn drive_diegetic_pointer(
         }
     }
 
+    // Pipe pointer button presses to the virtual pointer on the UI texture.
     for window_event in window_events.read() {
         if let WindowEvent::MouseButtonInput(input) = window_event {
             let button = match input.button {
@@ -243,5 +246,5 @@ fn drive_diegetic_pointer(
         }
     }
 
-    Result::Ok(())
+    Ok(())
 }
