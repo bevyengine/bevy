@@ -356,12 +356,12 @@ mod tests {
     use taffy::TraversePartialTree;
 
     use bevy_asset::{AssetEvent, Assets};
-    use bevy_core_pipeline::core_2d::Camera2d;
+    use bevy_camera::{Camera, Camera2d};
     use bevy_ecs::{prelude::*, system::RunSystemOnce};
     use bevy_image::Image;
     use bevy_math::{Rect, UVec2, Vec2};
     use bevy_platform::collections::HashMap;
-    use bevy_render::{prelude::Camera, texture::ManualTextureViews};
+    use bevy_render::texture::ManualTextureViews;
     use bevy_transform::systems::mark_dirty_trees;
     use bevy_transform::systems::{propagate_parent_transforms, sync_simple_transforms};
     use bevy_utils::prelude::default;
@@ -814,7 +814,7 @@ mod tests {
                 let viewport_height = primary_window.resolution.physical_height();
                 let physical_position = UVec2::new(viewport_width * camera_index as u32, 0);
                 let physical_size = UVec2::new(viewport_width, viewport_height);
-                camera.viewport = Some(bevy_render::camera::Viewport {
+                camera.viewport = Some(bevy_camera::Viewport {
                     physical_position,
                     physical_size,
                     ..default()

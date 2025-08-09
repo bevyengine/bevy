@@ -33,6 +33,7 @@
 
 use bevy_app::{App, Plugin};
 use bevy_asset::{AssetId, Handle};
+use bevy_camera::visibility::ViewVisibility;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     component::Component,
@@ -55,7 +56,6 @@ use bevy_render::{
     renderer::RenderAdapter,
     sync_world::MainEntity,
     texture::{FallbackImage, GpuImage},
-    view::ViewVisibility,
     Extract, ExtractSchedule, RenderApp, RenderStartup,
 };
 use bevy_render::{renderer::RenderDevice, sync_world::MainEntityHashMap};

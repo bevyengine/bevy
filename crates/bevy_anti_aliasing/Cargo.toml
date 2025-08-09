@@ -21,6 +21,7 @@ bevy_ci_testing = ["dlss_wgpu?/mock"]
 bevy_asset = { path = "../bevy_asset", version = "0.17.0-dev" }
 bevy_reflect = { path = "../bevy_reflect", version = "0.17.0-dev" }
 bevy_render = { path = "../bevy_render", version = "0.17.0-dev" }
+bevy_camera = { path = "../bevy_camera", version = "0.17.0-dev" }
 bevy_math = { path = "../bevy_math", version = "0.17.0-dev" }
 bevy_utils = { path = "../bevy_utils", version = "0.17.0-dev" }
 bevy_app = { path = "../bevy_app", version = "0.17.0-dev" }

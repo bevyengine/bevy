@@ -13,13 +13,13 @@
 use crate::{Anchor, Sprite};
 use bevy_app::prelude::*;
 use bevy_asset::prelude::*;
+use bevy_camera::{visibility::ViewVisibility, Camera, Projection};
 use bevy_color::Alpha;
 use bevy_ecs::prelude::*;
 use bevy_image::prelude::*;
 use bevy_math::{prelude::*, FloatExt};
 use bevy_picking::backend::prelude::*;
 use bevy_reflect::prelude::*;
-use bevy_render::prelude::*;
 use bevy_transform::prelude::*;
 use bevy_window::PrimaryWindow;
 

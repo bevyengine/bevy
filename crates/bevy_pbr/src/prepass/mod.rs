@@ -11,24 +11,9 @@ use crate::{
     RenderMeshInstances, RenderPhaseType, SetMaterialBindGroup, SetMeshBindGroup, ShadowView,
 };
 use bevy_app::{App, Plugin, PreUpdate};
-use bevy_render::{
-    alpha::AlphaMode,
-    batching::gpu_preprocessing::GpuPreprocessingSupport,
-    load_shader_library,
-    mesh::{allocator::MeshAllocator, Mesh3d, MeshVertexBufferLayoutRef, RenderMesh},
-    render_asset::prepare_assets,
-    render_resource::binding_types::uniform_buffer,
-    renderer::RenderAdapter,
-    sync_world::RenderEntity,
-    view::{RenderVisibilityRanges, RetainedViewEntity, VISIBILITY_RANGES_STORAGE_BUFFER_COUNT},
-    ExtractSchedule, Render, RenderApp, RenderDebugFlags, RenderStartup, RenderSystems,
-};
-pub use prepass_bindings::*;
-
 use bevy_asset::{embedded_asset, load_embedded_asset, AssetServer, Handle};
-use bevy_core_pipeline::{
-    core_3d::CORE_3D_DEPTH_FORMAT, deferred::*, prelude::Camera3d, prepass::*,
-};
+use bevy_camera::{Camera, Camera3d};
+use bevy_core_pipeline::{core_3d::CORE_3D_DEPTH_FORMAT, deferred::*, prepass::*};
 use bevy_ecs::{
     prelude::*,
     system::{
@@ -37,17 +22,26 @@ use bevy_ecs::{
     },
 };
 use bevy_math::{Affine3A, Vec4};
+use bevy_mesh::{Mesh, Mesh3d, MeshVertexBufferLayoutRef};
 use bevy_render::{
+    alpha::AlphaMode,
+    batching::gpu_preprocessing::GpuPreprocessingSupport,
     globals::{GlobalsBuffer, GlobalsUniform},
-    prelude::{Camera, Mesh},
-    render_asset::RenderAssets,
+    load_shader_library,
+    mesh::{allocator::MeshAllocator, RenderMesh},
+    render_asset::{prepare_assets, RenderAssets},
     render_phase::*,
-    render_resource::*,
-    renderer::{RenderDevice, RenderQueue},
-    view::{ExtractedView, Msaa, ViewUniform, ViewUniformOffset, ViewUniforms},
-    Extract,
+    render_resource::{binding_types::uniform_buffer, *},
+    renderer::{RenderAdapter, RenderDevice, RenderQueue},
+    sync_world::RenderEntity,
+    view::{
+        ExtractedView, Msaa, RenderVisibilityRanges, RetainedViewEntity, ViewUniform,
+        ViewUniformOffset, ViewUniforms, VISIBILITY_RANGES_STORAGE_BUFFER_COUNT,
+    },
+    Extract, ExtractSchedule, Render, RenderApp, RenderDebugFlags, RenderStartup, RenderSystems,
 };
 use bevy_transform::prelude::GlobalTransform;
+pub use prepass_bindings::*;
 use tracing::{error, warn};
 
 #[cfg(feature = "meshlet")]
