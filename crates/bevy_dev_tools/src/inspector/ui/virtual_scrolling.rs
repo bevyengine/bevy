@@ -241,17 +241,6 @@ pub fn update_infinite_scrolling_display(
         virtual_scroll_state.total_content_height =
             virtual_scroll_state.total_entity_count as f32 * virtual_scroll_state.item_height;
 
-        println!(
-            "Loaded {} entities, item_height: {:.1}px, total height: {:.1}px",
-            virtual_scroll_state.total_entity_count,
-            virtual_scroll_state.item_height,
-            virtual_scroll_state.total_content_height
-        );
-        println!(
-            "Expected max scroll: {:.1}px for container height: {:.1}px",
-            virtual_scroll_state.total_content_height - virtual_scroll_state.container_height,
-            virtual_scroll_state.container_height
-        );
 
         entities_changed = true;
     }
@@ -478,23 +467,6 @@ pub fn update_infinite_scrolling_display(
 
     // Note: Cleanup is now handled in the first pass above - we despawn items outside visible range immediately
 
-    // Debug output when things change
-    if entities_changed || scroll_changed {
-        let (final_start, final_end) = virtual_scroll_state.visible_range;
-        let total_items = cached_items.iter().count();
-        let visible_items = cached_items
-            .iter()
-            .filter(|(_, _, cached_item, _)| cached_item.is_visible)
-            .count();
-        println!("Virtual scroll (scroll-relative positioning): showing {}-{} of {} total (scroll: {:.1}px) [UI items: {}, Visible: {}]", 
-            final_start, final_end, virtual_scroll_state.total_entity_count, virtual_scroll_state.current_scroll, total_items, visible_items);
-
-        // Show viewport positioning for debugging
-        let first_item_absolute_y = final_start_index as f32 * virtual_scroll_state.item_height;
-        let first_item_viewport_y = first_item_absolute_y - virtual_scroll_state.current_scroll;
-        println!("Scroll-relative: first_item_absolute_y={:.1}px, viewport_relative_y={:.1}px, scroll={:.1}px", 
-            first_item_absolute_y, first_item_viewport_y, virtual_scroll_state.current_scroll);
-    }
 }
 
 /// Custom scroll position resource that bypasses Bevy's built-in scroll limitations
@@ -647,7 +619,6 @@ pub fn setup_virtual_scrolling(
 
     // No spacers needed with absolute positioning approach
 
-    println!("Initialized virtual scrolling");
 }
 
 /// Update the visual scrollbar to reflect current scroll position

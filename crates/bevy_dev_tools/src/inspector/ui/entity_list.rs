@@ -69,16 +69,9 @@ pub fn handle_entity_selection(
     mut selected_entity: ResMut<SelectedEntity>,
     mut selection_debounce: ResMut<SelectionDebounce>,
     interaction_query: Query<(&Interaction, &EntityListItem), Changed<Interaction>>,
-    all_buttons: Query<Entity, With<EntityListItem>>,
+    _all_buttons: Query<Entity, With<EntityListItem>>,
     time: Res<Time>,
 ) {
-    // Only show debug info occasionally
-    if (time.elapsed_secs() as i32) % 30 == 0 && time.delta_secs() < 0.1 {
-        println!(
-            "Entity selection system: {} buttons available",
-            all_buttons.iter().count()
-        );
-    }
 
     let current_time = time.elapsed_secs_f64();
 
@@ -101,10 +94,6 @@ pub fn handle_entity_selection(
                 if current_time - selection_debounce.last_virtual_scroll_time
                     < selection_debounce.scroll_interaction_lockout
                 {
-                    println!(
-                        "Blocking selection - virtual scroll too recent: {:.3}s ago",
-                        current_time - selection_debounce.last_virtual_scroll_time
-                    );
                     continue;
                 }
 
@@ -112,9 +101,6 @@ pub fn handle_entity_selection(
                 if selected_entity.entity_id != Some(item.entity_id) {
                     selected_entity.entity_id = Some(item.entity_id);
                     selection_debounce.last_selection_time = current_time;
-                    println!("Selected entity: {}", item.entity_id);
-                } else {
-                    println!("Ignoring duplicate selection of entity: {}", item.entity_id);
                 }
             }
             // Don't spam logs for None/Hovered states

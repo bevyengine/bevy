@@ -103,8 +103,8 @@ impl Default for CollapsibleStyle {
             title_font_size: 14.0,
             header_height: 32.0,
             content_padding: UiRect::all(Val::Px(8.0)),
-            expanded_arrow: "▼".to_string(),
-            collapsed_arrow: "▶".to_string(),
+            expanded_arrow: "-".to_string(),
+            collapsed_arrow: "+".to_string(),
         }
     }
 }
