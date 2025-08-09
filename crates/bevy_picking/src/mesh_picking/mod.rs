@@ -45,8 +45,8 @@ pub struct MeshPickingSettings {
     /// should be used by the mesh picking backend at runtime.
     pub require_markers: bool,
 
-    /// Determines how mesh picking should consider [`Visibility`]. When set to [`RayCastVisibility::Any`],
-    /// ray casts can be performed against both visible and hidden entities.
+    /// Determines how mesh picking should consider [`Visibility`](bevy_camera::visibility::Visibility).
+    /// When set to [`RayCastVisibility::Any`], ray casts can be performed against both visible and hidden entities.
     ///
     /// Defaults to [`RayCastVisibility::VisibleInView`], only performing picking against visible entities
     /// that are in the view of a camera.

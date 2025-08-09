@@ -23,23 +23,23 @@ use bevy_math::FloatOrd;
 use bevy_transform::components::GlobalTransform;
 use tracing::*;
 
-/// How a ray cast should handle [`Visibility`].
+/// How a ray cast should handle [`Visibility`](bevy_camera::visibility::Visibility).
 #[derive(Clone, Copy, Reflect)]
 #[reflect(Clone)]
 pub enum RayCastVisibility {
     /// Completely ignore visibility checks. Hidden items can still be ray casted against.
     Any,
-    /// Only cast rays against entities that are visible in the hierarchy. See [`Visibility`].
+    /// Only cast rays against entities that are visible in the hierarchy. See [`Visibility`](bevy_camera::visibility::Visibility).
     Visible,
     /// Only cast rays against entities that are visible in the hierarchy and visible to a camera or
-    /// light. See [`Visibility`].
+    /// light. See [`Visibility`](bevy_camera::visibility::Visibility).
     VisibleInView,
 }
 
 /// Settings for a ray cast.
 #[derive(Clone)]
 pub struct MeshRayCastSettings<'a> {
-    /// Determines how ray casting should consider [`Visibility`].
+    /// Determines how ray casting should consider [`Visibility`](bevy_camera::visibility::Visibility).
     pub visibility: RayCastVisibility,
     /// A predicate that is applied for every entity that ray casts are performed against.
     /// Only entities that return `true` will be considered.
@@ -139,8 +139,8 @@ type MeshFilter = Or<(With<Mesh3d>, With<Mesh2d>, With<SimplifiedMesh>)>;
 /// ## Configuration
 ///
 /// You can specify the behavior of the ray cast using [`MeshRayCastSettings`]. This allows you to filter out
-/// entities, configure early-out behavior, and set whether the [`Visibility`] of an entity should be
-/// considered.
+/// entities, configure early-out behavior, and set whether the [`Visibility`](bevy_camera::visibility::Visibility)
+/// of an entity should be considered.
 ///
 /// ```
 /// # use bevy_ecs::prelude::*;
