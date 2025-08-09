@@ -173,12 +173,7 @@ pub fn update_infinite_scrolling_display(
         if new_container_height > 100.0 && new_container_height < 4000.0 {
             let height_changed =
                 (virtual_scroll_state.container_height - new_container_height).abs() > 10.0;
-            if height_changed {
-                println!(
-                    "Container height changed from {:.1}px to {:.1}px",
-                    virtual_scroll_state.container_height, new_container_height
-                );
-            }
+            if height_changed {}
             virtual_scroll_state.container_height = new_container_height;
         }
     }
@@ -261,10 +256,6 @@ pub fn update_infinite_scrolling_display(
     // Update selection debounce only when we're doing virtual scrolling updates that affect entity positions
     if scroll_changed {
         selection_debounce.last_virtual_scroll_time = current_time;
-        println!(
-            "Virtual scroll position change - blocking interactions for {:.1}ms",
-            selection_debounce.scroll_interaction_lockout * 1000.0
-        );
     }
 
     // Calculate which items should be visible in the current viewport
@@ -321,10 +312,6 @@ pub fn update_infinite_scrolling_display(
             };
 
         virtual_scroll_state.visible_range = (final_start, window_end);
-        println!(
-            "Virtual scrolling: showing {}-{} (window size: {}) at scroll_offset: {}",
-            final_start, window_end, window_size, scroll_offset
-        );
     } else {
         // Small list - can show all but still use proper positioning
         virtual_scroll_state.visible_range = (start_index, end_index);
@@ -499,13 +486,6 @@ pub fn handle_infinite_scroll_input(
 
     // If max_y changed significantly, update it and clamp current position
     if (custom_scroll.max_y - new_max_y).abs() > 10.0 {
-        println!(
-            "Max scroll updated from {:.1}px to {:.1}px (container: {:.1}px, content: {:.1}px)",
-            custom_scroll.max_y,
-            new_max_y,
-            virtual_scroll_state.container_height,
-            virtual_scroll_state.total_content_height
-        );
         custom_scroll.max_y = new_max_y;
         // Clamp current scroll position to new bounds
         custom_scroll.y = custom_scroll.y.clamp(0.0, custom_scroll.max_y);
@@ -547,16 +527,6 @@ pub fn handle_infinite_scroll_input(
                     custom_scroll.y = custom_scroll.y.clamp(0.0, custom_scroll.max_y);
 
                     // Debug scroll
-                    if custom_scroll.y % 100.0 < 30.0
-                        || custom_scroll.y > custom_scroll.max_y - 100.0
-                    {
-                        println!(
-                            "Custom scroll: pos={:.1}, max={:.1}, total_height={:.1}",
-                            custom_scroll.y,
-                            custom_scroll.max_y,
-                            virtual_scroll_state.total_content_height
-                        );
-                    }
 
                     // Sync with Bevy's scroll position for UI consistency (but don't let it limit us)
                     // Note: entity_scroll_query removed to avoid additional dependencies

@@ -149,7 +149,7 @@ pub fn spawn_collapsible_section(commands: &mut Commands, parent: Entity, title:
                     ..Default::default()
                 },
                 TextColor(Color::srgb(0.9, 0.9, 0.6)),
-                CollapsibleArrowText { 
+                CollapsibleArrowText {
                     section_entity,
                     text_template: title.clone(),
                 },

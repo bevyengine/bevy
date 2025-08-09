@@ -1,6 +1,8 @@
 //! Component viewer UI with live data updates
 
-use super::collapsible_section::{CollapsibleArrowText, CollapsibleContent, CollapsibleHeader, CollapsibleSection};
+use super::collapsible_section::{
+    CollapsibleArrowText, CollapsibleContent, CollapsibleHeader, CollapsibleSection,
+};
 use super::entity_list::{EntityCache, SelectedEntity};
 use crate::inspector::http_client::{ComponentUpdate, HttpRemoteClient};
 use crate::widgets::selectable_text::{SelectableText, TextSelectionState};
@@ -103,7 +105,6 @@ pub fn update_component_viewer(
     viewer_query: Query<Entity, With<ComponentViewerPanel>>,
 ) {
     let Ok(viewer_entity) = viewer_query.single() else {
-        println!("Component viewer entity not found");
         return;
     };
 
@@ -113,10 +114,7 @@ pub fn update_component_viewer(
     let should_refresh = false; // Disable automatic refresh for now - only update when entity changes
 
     // Only debug when something interesting happens
-    if entity_changed || should_refresh || ui_needs_rebuild {
-        println!("Component viewer update: entity_changed={}, ui_needs_rebuild={}, should_refresh={}, current={:?}, selected={:?}", 
-            entity_changed, ui_needs_rebuild, should_refresh, component_cache.current_entity, selected_entity.entity_id);
-    }
+    if entity_changed || should_refresh || ui_needs_rebuild {}
 
     if !entity_changed && !should_refresh && !ui_needs_rebuild {
         return;
@@ -138,24 +136,15 @@ pub fn update_component_viewer(
     }
 
     if let Some(entity_id) = selected_entity.entity_id {
-        println!("Updating component viewer for entity: {}", entity_id);
-
         // Get component data from entity cache
         let components = if let Some(entity) = entity_cache.entities.get(&entity_id) {
-            println!(
-                "Found entity {} with {} components",
-                entity_id,
-                entity.components.len()
-            );
             &entity.components
         } else {
-            println!("Entity {} not found in entity cache", entity_id);
             &HashMap::new()
         };
 
         spawn_component_sections(&mut commands, viewer_entity, entity_id, components);
     } else {
-        println!("No entity selected, showing empty state");
         // Show empty state
         spawn_empty_state(&mut commands, viewer_entity);
     }
@@ -340,7 +329,7 @@ fn create_component_section(
                     ..Default::default()
                 },
                 TextColor(Color::srgb(0.9, 0.9, 0.6)),
-                CollapsibleArrowText { 
+                CollapsibleArrowText {
                     section_entity,
                     text_template: format!("{} [{}]", display_name, category),
                 },
@@ -576,28 +565,14 @@ pub fn auto_start_component_watching(
                     components.clone(),
                     &tokio_handle.0,
                 ) {
-                    Ok(()) => {
-                        println!(
-                            "Started watching {} components for entity {}",
-                            components.len(),
-                            entity_id
-                        );
-                    }
-                    Err(e) => {
-                        println!(
-                            "Failed to start component watching for entity {}: {}",
-                            entity_id, e
-                        );
-                    }
+                    Ok(()) => {}
+                    Err(_e) => {}
                 }
             } else {
-                println!("No components to watch for entity {}", entity_id);
             }
         } else {
-            println!("Selected entity {} not found in cache", entity_id);
         }
     } else {
-        println!("No entity selected");
     }
 }
 
@@ -673,8 +648,6 @@ pub fn handle_text_selection(
 
                     // Update global selection state
                     selection_state.selected_entity = Some(entity);
-
-                    println!("Selected text: {}", selectable_text.text_content);
                 }
                 _ => {}
             }
@@ -772,8 +745,6 @@ pub fn handle_text_selection(
             selectable_text.is_dragging = false;
             *bg_color = BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.0));
         }
-
-        println!("🚫 Cleared all text selections");
     }
 
     // Handle clicking outside to deselect
@@ -812,8 +783,8 @@ fn copy_to_clipboard(text: &str) {
             let mut cmd = Command::new("cmd");
             cmd.args(&["/C", &format!("echo {} | clip", text.replace('\n', "^\n"))]);
             match cmd.output() {
-                Ok(_) => println!("✅ Text copied to clipboard (Windows)"),
-                Err(e) => println!("❌ Failed to copy text to clipboard (Windows): {}", e),
+                Ok(_) => println!("✅ Text copied to clipboard"),
+                Err(_) => println!("❌ Failed to copy text to clipboard"),
             }
         }
 
@@ -827,15 +798,15 @@ fn copy_to_clipboard(text: &str) {
                             Ok(_) => {
                                 let _ = stdin; // Close stdin before waiting
                                 match child.wait() {
-                                    Ok(_) => println!("✅ Text copied to clipboard (macOS)"),
-                                    Err(e) => println!("❌ Failed to wait for pbcopy: {}", e),
+                                    Ok(_) => println!("✅ Text copied to clipboard"),
+                                    Err(_) => println!("❌ Failed to copy text to clipboard"),
                                 }
                             }
-                            Err(e) => println!("❌ Failed to write to pbcopy: {}", e),
+                            Err(_) => println!("❌ Failed to copy text to clipboard"),
                         }
                     }
                 }
-                Err(e) => println!("❌ Failed to spawn pbcopy: {}", e),
+                Err(_) => println!("❌ Failed to copy text to clipboard"),
             }
         }
 
@@ -853,12 +824,12 @@ fn copy_to_clipboard(text: &str) {
                                 let _ = stdin; // Close stdin before waiting
                                 match child.wait() {
                                     Ok(_) => {
-                                        println!("✅ Text copied to clipboard (Linux - xclip)")
+                                        println!("✅ Text copied to clipboard")
                                     }
-                                    Err(e) => println!("❌ xclip wait failed: {}", e),
+                                    Err(_) => println!("❌ Failed to copy text to clipboard"),
                                 }
                             }
-                            Err(e) => println!("❌ Failed to write to xclip: {}", e),
+                            Err(_) => println!("❌ Failed to copy text to clipboard"),
                         }
                     }
                 }
@@ -873,17 +844,17 @@ fn copy_to_clipboard(text: &str) {
                                     Ok(_) => {
                                         drop(stdin);
                                         match child.wait() {
-                                            Ok(_) => println!(
-                                                "✅ Text copied to clipboard (Linux - xsel)"
-                                            ),
-                                            Err(e) => println!("❌ xsel wait failed: {}", e),
+                                            Ok(_) => println!("✅ Text copied to clipboard"),
+                                            Err(_) => {
+                                                println!("❌ Failed to copy text to clipboard")
+                                            }
                                         }
                                     }
-                                    Err(e) => println!("❌ Failed to write to xsel: {}", e),
+                                    Err(_) => println!("❌ Failed to copy text to clipboard"),
                                 }
                             }
                         }
-                        Err(e) => println!("❌ No clipboard utility available (xclip/xsel): {}", e),
+                        Err(_) => println!("❌ No clipboard utility available"),
                     }
                 }
             }
