@@ -12,6 +12,7 @@ pub mod morph;
 pub mod primitives;
 pub mod skinning;
 mod vertex;
+use bevy_ecs::schedule::SystemSet;
 use bitflags::bitflags;
 pub use components::*;
 pub use index::*;
@@ -57,3 +58,7 @@ impl BaseMeshPipelineKey {
         }
     }
 }
+
+/// `bevy_render::mesh::inherit_weights` runs in this `SystemSet`
+#[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
+pub struct InheritWeights;
