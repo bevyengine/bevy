@@ -8,12 +8,12 @@ use bevy::{
         fullscreen_material::{FullscreenMaterial, FullscreenMaterialPlugin},
     },
     prelude::*,
+    render::{
+        extract_component::ExtractComponent,
+        render_graph::{InternedRenderLabel, RenderLabel, RenderSubGraph},
+        render_resource::ShaderType,
+    },
     shader::ShaderRef,
-};
-use bevy_render::{
-    extract_component::ExtractComponent,
-    render_graph::{InternedRenderLabel, RenderLabel, RenderSubGraph},
-    render_resource::ShaderType,
 };
 
 fn main() {
