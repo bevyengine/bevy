@@ -1,10 +1,10 @@
-//! This is mostly a pluginified version of the custom_post_processing example
+//! This is mostly a pluginified version of the `custom_post_processing` example
 //!
 //! The plugin will create a new node that runs a fullscreen triangle.
 //!
 //! Users need to use the [`FullscreenMaterial`] trait to define the parameters like the graph label or the graph ordering.
 
-use std::marker::PhantomData;
+use core::marker::PhantomData;
 
 use crate::FullscreenShader;
 use bevy_app::{App, Plugin};
@@ -92,12 +92,13 @@ pub trait FullscreenMaterial:
 {
     /// The shader that will run on the entire screen using a fullscreen triangle
     fn fragment_shader() -> ShaderRef;
-    /// The sub_graph the effect will run in
+    /// The [`RenderSubGraph`] the effect will run in
+    ///
     /// For 2d this is generally [`Core2d`] and for 3d it's [`Core3d`]
     fn sub_graph() -> impl RenderSubGraph;
     /// The label used to represent the render node that will run the pass
     fn node_label() -> impl RenderLabel;
-    /// The list of node_edges. In 3d, for a post processing effect, it would look like this:
+    /// The list of `node_edges`. In 3d, for a post processing effect, it would look like this:
     ///
     /// ```rust
     /// vec![
