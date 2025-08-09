@@ -27,7 +27,7 @@ fn main() {
         .add_plugins(DefaultPlugins)
         .add_systems(Startup, setup)
         .add_systems(Update, rotator_system)
-        .add_systems(First, drive_diegetic_pointer.in_set(PickSet::Input))
+        .add_systems(First, drive_diegetic_pointer.in_set(PickingSystems::Input))
         .run();
 }
 
@@ -103,7 +103,7 @@ fn setup(
                     BackgroundColor(BLUE.into()),
                 ))
                 .observe(
-                    |pointer: Trigger<Pointer<Drag>>,
+                    |pointer: On<Pointer<Drag>>,
                      mut nodes: Query<(&mut Node, &ComputedNode)>| {
                         let (mut node, computed) = nodes.get_mut(pointer.target()).unwrap();
                         node.left =
@@ -112,12 +112,12 @@ fn setup(
                     },
                 )
                 .observe(
-                    |pointer: Trigger<Pointer<Over>>, mut colors: Query<&mut BackgroundColor>| {
+                    |pointer: On<Pointer<Over>>, mut colors: Query<&mut BackgroundColor>| {
                         colors.get_mut(pointer.target()).unwrap().0 = RED.into();
                     },
                 )
                 .observe(
-                    |pointer: Trigger<Pointer<Out>>, mut colors: Query<&mut BackgroundColor>| {
+                    |pointer: On<Pointer<Out>>, mut colors: Query<&mut BackgroundColor>| {
                         colors.get_mut(pointer.target()).unwrap().0 = BLUE.into();
                     },
                 )
