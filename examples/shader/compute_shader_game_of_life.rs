@@ -9,7 +9,10 @@ use bevy::{
         extract_resource::{ExtractResource, ExtractResourcePlugin},
         render_asset::{RenderAssetUsages, RenderAssets},
         render_graph::{self, RenderGraph, RenderLabel},
-        render_resource::{binding_types::{texture_storage_2d, uniform_buffer}, *},
+        render_resource::{
+            binding_types::{texture_storage_2d, uniform_buffer},
+            *,
+        },
         renderer::{RenderContext, RenderDevice, RenderQueue},
         texture::GpuImage,
         Render, RenderApp, RenderStartup, RenderSystems,
@@ -140,18 +143,28 @@ fn prepare_bind_group(
     let view_a = gpu_images.get(&game_of_life_images.texture_a).unwrap();
     let view_b = gpu_images.get(&game_of_life_images.texture_b).unwrap();
 
+    // Uniform buffer is used here to demonstrate how to set up a uniform in a compute shader
+    // Alternatives such as storage buffers or push constants may be more suitable for your use case
     let mut uniform_buffer = UniformBuffer::from(game_of_life_uniforms.into_inner());
     uniform_buffer.write_buffer(&render_device, &queue);
 
     let bind_group_0 = render_device.create_bind_group(
         None,
         &pipeline.texture_bind_group_layout,
-        &BindGroupEntries::sequential((&view_a.texture_view, &view_b.texture_view, &uniform_buffer)),
+        &BindGroupEntries::sequential((
+            &view_a.texture_view,
+            &view_b.texture_view,
+            &uniform_buffer,
+        )),
     );
     let bind_group_1 = render_device.create_bind_group(
         None,
         &pipeline.texture_bind_group_layout,
-        &BindGroupEntries::sequential((&view_b.texture_view, &view_a.texture_view, &uniform_buffer)),
+        &BindGroupEntries::sequential((
+            &view_b.texture_view,
+            &view_a.texture_view,
+            &uniform_buffer,
+        )),
     );
     commands.insert_resource(GameOfLifeImageBindGroups([bind_group_0, bind_group_1]));
 }
