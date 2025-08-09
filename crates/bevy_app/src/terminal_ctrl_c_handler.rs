@@ -1,6 +1,6 @@
 use core::sync::atomic::{AtomicBool, Ordering};
 
-use bevy_ecs::event::EventWriter;
+use bevy_ecs::system::Commands;
 
 use crate::{App, AppExit, Plugin, Update};
 
@@ -48,9 +48,9 @@ impl TerminalCtrlCHandlerPlugin {
     }
 
     /// Sends a [`AppExit`] event when the user presses `Ctrl+C` on the terminal.
-    pub fn exit_on_flag(mut events: EventWriter<AppExit>) {
+    pub fn exit_on_flag(mut commands: Commands) {
         if SHOULD_EXIT.load(Ordering::Relaxed) {
-            events.write(AppExit::from_code(130));
+            commands.trigger(AppExit::from_code(130));
         }
     }
 }

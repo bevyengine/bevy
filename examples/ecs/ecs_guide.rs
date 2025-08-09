@@ -164,14 +164,14 @@ fn score_check_system(
 fn game_over_system(
     game_rules: Res<GameRules>,
     game_state: Res<GameState>,
-    mut app_exit_events: EventWriter<AppExit>,
+    mut commands: Commands,
 ) {
     if let Some(ref player) = game_state.winning_player {
         println!("{player} won the game!");
-        app_exit_events.write(AppExit::Success);
+        commands.trigger(AppExit::Success);
     } else if game_state.current_round == game_rules.max_rounds {
         println!("Ran out of rounds. Nobody wins!");
-        app_exit_events.write(AppExit::Success);
+        commands.trigger(AppExit::Success);
     }
 }
 

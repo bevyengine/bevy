@@ -475,7 +475,7 @@ fn update(
     receiver: Res<MainWorldReceiver>,
     mut images: ResMut<Assets<Image>>,
     mut scene_controller: ResMut<SceneController>,
-    mut app_exit_writer: EventWriter<AppExit>,
+    mut commands: Commands,
     mut file_number: Local<u32>,
 ) {
     if let SceneState::Render(n) = scene_controller.state {
@@ -536,7 +536,7 @@ fn update(
                     };
                 }
                 if scene_controller.single_image {
-                    app_exit_writer.write(AppExit::Success);
+                    commands.trigger(AppExit::Success);
                 }
             }
         } else {

@@ -107,7 +107,6 @@ fn take_damage(
     trigger: On<Attack>,
     mut hp: Query<(&mut HitPoints, &Name)>,
     mut commands: Commands,
-    mut app_exit: EventWriter<AppExit>,
 ) {
     let attack = trigger.event();
     let (mut hp, name) = hp.get_mut(trigger.target()).unwrap();
@@ -118,7 +117,7 @@ fn take_damage(
     } else {
         warn!("💀 {} has died a gruesome death", name);
         commands.entity(trigger.target()).despawn();
-        app_exit.write(AppExit::Success);
+        commands.trigger(AppExit::Success);
     }
 
     info!("(propagation reached root)\n");
