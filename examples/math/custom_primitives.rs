@@ -12,12 +12,9 @@ use bevy::{
         },
         Isometry2d,
     },
+    mesh::{Extrudable, ExtrusionBuilder, PerimeterSegment},
     prelude::*,
-    render::{
-        camera::ScalingMode,
-        mesh::{Extrudable, ExtrusionBuilder, PerimeterSegment},
-        render_asset::RenderAssetUsages,
-    },
+    render::{camera::ScalingMode, render_asset::RenderAssetUsages},
 };
 
 const HEART: Heart = Heart::new(0.5);
@@ -443,10 +440,10 @@ impl MeshBuilder for HeartMeshBuilder {
 
         // Here, the actual `Mesh` is created. We set the indices, vertices, normals and UVs created above and specify the topology of the mesh.
         Mesh::new(
-            bevy::render::mesh::PrimitiveTopology::TriangleList,
+            bevy::mesh::PrimitiveTopology::TriangleList,
             RenderAssetUsages::default(),
         )
-        .with_inserted_indices(bevy::render::mesh::Indices::U32(indices))
+        .with_inserted_indices(bevy::mesh::Indices::U32(indices))
         .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, vertices)
         .with_inserted_attribute(Mesh::ATTRIBUTE_NORMAL, normals)
         .with_inserted_attribute(Mesh::ATTRIBUTE_UV_0, uvs)

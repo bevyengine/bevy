@@ -21,6 +21,7 @@ use bevy::{
         system::{lifetimeless::SRes, SystemParamItem},
     },
     math::FloatOrd,
+    mesh::MeshVertexBufferLayoutRef,
     pbr::{
         DrawMesh, MeshInputUniform, MeshPipeline, MeshPipelineKey, MeshPipelineViewLayoutKey,
         MeshUniform, RenderMeshInstances, SetMeshBindGroup, SetMeshViewBindGroup,
@@ -37,7 +38,7 @@ use bevy::{
         },
         camera::{ExtractedCamera, MainPassResolutionOverride},
         extract_component::{ExtractComponent, ExtractComponentPlugin},
-        mesh::{allocator::MeshAllocator, MeshVertexBufferLayoutRef, RenderMesh},
+        mesh::{allocator::MeshAllocator, RenderMesh},
         render_asset::RenderAssets,
         render_graph::{
             NodeRunError, RenderGraphContext, RenderGraphExt, RenderLabel, ViewNode, ViewNodeRunner,

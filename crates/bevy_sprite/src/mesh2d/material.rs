@@ -20,6 +20,7 @@ use bevy_ecs::{
     system::{lifetimeless::SRes, SystemParamItem},
 };
 use bevy_math::FloatOrd;
+use bevy_mesh::MeshVertexBufferLayoutRef;
 use bevy_platform::collections::HashMap;
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_render::camera::extract_cameras;
@@ -28,7 +29,7 @@ use bevy_render::render_resource::{CachedRenderPipelineId, ShaderDefVal};
 use bevy_render::view::RenderVisibleEntities;
 use bevy_render::RenderStartup;
 use bevy_render::{
-    mesh::{MeshVertexBufferLayoutRef, RenderMesh},
+    mesh::RenderMesh,
     render_asset::{
         prepare_assets, PrepareAssetError, RenderAsset, RenderAssetPlugin, RenderAssets,
     },

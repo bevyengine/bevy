@@ -14,6 +14,7 @@ use bevy::{
         query::ROQueryItem,
         system::{lifetimeless::SRes, SystemParamItem},
     },
+    mesh::VertexBufferLayout,
     prelude::*,
     render::{
         extract_component::{ExtractComponent, ExtractComponentPlugin},
@@ -27,8 +28,7 @@ use bevy::{
             BufferUsages, Canonical, ColorTargetState, ColorWrites, CompareFunction,
             DepthStencilState, FragmentState, IndexFormat, PipelineCache, RawBufferVec,
             RenderPipeline, RenderPipelineDescriptor, Specializer, SpecializerKey, TextureFormat,
-            Variants, VertexAttribute, VertexBufferLayout, VertexFormat, VertexState,
-            VertexStepMode,
+            Variants, VertexAttribute, VertexFormat, VertexState, VertexStepMode,
         },
         renderer::{RenderDevice, RenderQueue},
         view::{self, ExtractedView, RenderVisibleEntities, VisibilityClass},

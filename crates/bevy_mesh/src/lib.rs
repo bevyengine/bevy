@@ -22,6 +22,16 @@ pub use primitives::*;
 pub use vertex::*;
 pub use wgpu_types::VertexFormat;
 
+/// The mesh prelude.
+///
+/// This includes the most common types in this crate, re-exported for your convenience.
+pub mod prelude {
+    #[doc(hidden)]
+    pub use crate::{
+        morph::MorphWeights, primitives::MeshBuilder, primitives::Meshable, Mesh, Mesh2d, Mesh3d,
+    };
+}
+
 bitflags! {
     /// Our base mesh pipeline key bits start from the highest bit and go
     /// downward. The PBR mesh pipeline key bits start from the lowest bit and
