@@ -143,11 +143,11 @@ fn sprite_picking(
         };
 
         let viewport_pos = location.position;
-        if let Some(viewport) = camera.logical_viewport_rect() {
-            if !viewport.contains(viewport_pos) {
-                // The pointer is outside the viewport, skip it
-                continue;
-            }
+        if let Some(viewport) = camera.logical_viewport_rect()
+            && !viewport.contains(viewport_pos)
+        {
+            // The pointer is outside the viewport, skip it
+            continue;
         }
 
         let Ok(cursor_ray_world) = camera.viewport_to_world(cam_transform, viewport_pos) else {
