@@ -126,7 +126,10 @@ impl Scene {
                         .get_info(component_id)
                         .expect("component_ids in archetypes should have ComponentInfo");
 
-                    if *component_info.clone_behavior() == ComponentCloneBehavior::Ignore {
+                    if matches!(
+                        *component_info.clone_behavior(),
+                        ComponentCloneBehavior::Ignore
+                    ) {
                         continue;
                     }
 

@@ -109,6 +109,6 @@ fn update_frame_time_values(
     for (_, material) in frame_time_graph_materials.iter_mut() {
         let buffer = buffers.get_mut(&material.values).unwrap();
 
-        buffer.set_data(frame_times.clone().as_slice());
+        buffer.set_data(frame_times.clone());
     }
 }

@@ -1,5 +1,6 @@
-use crate::define_atomic_id;
-use bevy_utils::WgpuWrapper;
+use crate::{define_atomic_id, renderer::RenderDevice, WgpuWrapper};
+use bevy_ecs::system::Res;
+use bevy_platform::sync::OnceLock;
 use core::ops::Deref;
 
 define_atomic_id!(BindGroupLayoutId);
@@ -61,4 +62,20 @@ impl Deref for BindGroupLayout {
     fn deref(&self) -> &Self::Target {
         &self.value
     }
+}
+
+static EMPTY_BIND_GROUP_LAYOUT: OnceLock<BindGroupLayout> = OnceLock::new();
+
+pub(crate) fn init_empty_bind_group_layout(render_device: Res<RenderDevice>) {
+    let layout = render_device.create_bind_group_layout(Some("empty_bind_group_layout"), &[]);
+    EMPTY_BIND_GROUP_LAYOUT
+        .set(layout)
+        .expect("init_empty_bind_group_layout was called more than once");
+}
+
+pub fn empty_bind_group_layout() -> BindGroupLayout {
+    EMPTY_BIND_GROUP_LAYOUT
+        .get()
+        .expect("init_empty_bind_group_layout was not called")
+        .clone()
 }

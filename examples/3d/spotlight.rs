@@ -57,9 +57,9 @@ fn setup(
 
     commands.spawn_batch(
         std::iter::repeat_with(move || {
-            let x = rng.gen_range(-5.0..5.0);
-            let y = rng.gen_range(0.0..3.0);
-            let z = rng.gen_range(-5.0..5.0);
+            let x = rng.random_range(-5.0..5.0);
+            let y = rng.random_range(0.0..3.0);
+            let z = rng.random_range(-5.0..5.0);
 
             (
                 Mesh3d(cube_mesh.clone()),

@@ -127,7 +127,7 @@
 //!
 //! [Blender]: http://blender.org/
 //!
-//! [baking tool]: https://docs.blender.org/manual/en/latest/render/eevee/render_settings/indirect_lighting.html
+//! [baking tool]: https://docs.blender.org/manual/en/latest/render/eevee/light_probes/volume.html
 //!
 //! [`bevy-baked-gi`]: https://github.com/pcwalton/bevy-baked-gi
 //!
@@ -253,22 +253,18 @@ impl<'a> RenderViewIrradianceVolumeBindGroupEntries<'a> {
         images: &'a RenderAssets<GpuImage>,
         fallback_image: &'a FallbackImage,
     ) -> RenderViewIrradianceVolumeBindGroupEntries<'a> {
-        if let Some(irradiance_volumes) = render_view_irradiance_volumes {
-            if let Some(irradiance_volume) = irradiance_volumes.render_light_probes.first() {
-                if irradiance_volume.texture_index >= 0 {
-                    if let Some(image_id) = irradiance_volumes
-                        .binding_index_to_textures
-                        .get(irradiance_volume.texture_index as usize)
-                    {
-                        if let Some(image) = images.get(*image_id) {
-                            return RenderViewIrradianceVolumeBindGroupEntries::Single {
-                                texture_view: &image.texture_view,
-                                sampler: &image.sampler,
-                            };
-                        }
-                    }
-                }
-            }
+        if let Some(irradiance_volumes) = render_view_irradiance_volumes
+            && let Some(irradiance_volume) = irradiance_volumes.render_light_probes.first()
+            && irradiance_volume.texture_index >= 0
+            && let Some(image_id) = irradiance_volumes
+                .binding_index_to_textures
+                .get(irradiance_volume.texture_index as usize)
+            && let Some(image) = images.get(*image_id)
+        {
+            return RenderViewIrradianceVolumeBindGroupEntries::Single {
+                texture_view: &image.texture_view,
+                sampler: &image.sampler,
+            };
         }
 
         RenderViewIrradianceVolumeBindGroupEntries::Single {

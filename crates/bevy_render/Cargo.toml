@@ -19,7 +19,7 @@ keywords = ["bevy"]
 # wgpu-core = { git = "https://github.com/gfx-rs/wgpu", rev = "..." }
 # wgpu-hal = { git = "https://github.com/gfx-rs/wgpu", rev = "..." }
 # wgpu-types = { git = "https://github.com/gfx-rs/wgpu", rev = "..." }
-decoupled_naga = []
+decoupled_naga = ["bevy_shader/decoupled_naga"]
 
 # Enables compressed KTX2 UASTC texture output on the asset processor
 compressed_image_saver = ["bevy_image/compressed_image_saver"]
@@ -32,9 +32,9 @@ ktx2 = ["bevy_image/ktx2"]
 
 multi_threaded = ["bevy_tasks/multi_threaded"]
 
-shader_format_glsl = ["naga/glsl-in", "naga/wgsl-out", "naga_oil/glsl"]
-shader_format_spirv = ["wgpu/spirv", "naga/spv-in", "naga/spv-out"]
-shader_format_wesl = ["wesl"]
+shader_format_glsl = ["bevy_shader/shader_format_glsl"]
+shader_format_spirv = ["bevy_shader/shader_format_spirv", "wgpu/spirv"]
+shader_format_wesl = ["bevy_shader/shader_format_wesl"]
 
 # Enable SPIR-V shader passthrough
 spirv_shader_passthrough = ["wgpu/spirv"]
@@ -70,13 +70,12 @@ bevy_render_macros = { path = "macros", version = "0.17.0-dev" }
 bevy_time = { path = "../bevy_time", version = "0.17.0-dev" }
 bevy_transform = { path = "../bevy_transform", version = "0.17.0-dev" }
 bevy_window = { path = "../bevy_window", version = "0.17.0-dev" }
-bevy_utils = { path = "../bevy_utils", version = "0.17.0-dev", features = [
-  "wgpu_wrapper",
-] }
+bevy_utils = { path = "../bevy_utils", version = "0.17.0-dev" }
 bevy_tasks = { path = "../bevy_tasks", version = "0.17.0-dev" }
 bevy_image = { path = "../bevy_image", version = "0.17.0-dev" }
 bevy_mesh = { path = "../bevy_mesh", version = "0.17.0-dev" }
 bevy_camera = { path = "../bevy_camera", version = "0.17.0-dev" }
+bevy_shader = { path = "../bevy_shader", version = "0.17.0-dev" }
 bevy_light = { path = "../bevy_light", optional = true, version = "0.17.0-dev" }
 bevy_platform = { path = "../bevy_platform", version = "0.17.0-dev", default-features = false, features = [
   "std",
@@ -87,12 +86,11 @@ bevy_platform = { path = "../bevy_platform", version = "0.17.0-dev", default-fea
 image = { version = "0.25.2", default-features = false }
 
 # misc
-codespan-reporting = "0.12.0"
 # `fragile-send-sync-non-atomic-wasm` feature means we can't use Wasm threads for rendering
 # It is enabled for now to avoid having to do a significant overhaul of the renderer just for wasm.
 # When the 'atomics' feature is enabled `fragile-send-sync-non-atomic` does nothing
 # and Bevy instead wraps `wgpu` types to verify they are not used off their origin thread.
-wgpu = { version = "25", default-features = false, features = [
+wgpu = { version = "26", default-features = false, features = [
   "wgsl",
   "dx12",
   "metal",
@@ -101,14 +99,13 @@ wgpu = { version = "25", default-features = false, features = [
   "naga-ir",
   "fragile-send-sync-non-atomic-wasm",
 ] }
-naga = { version = "25", features = ["wgsl-in"] }
-serde = { version = "1", features = ["derive"] }
+naga = { version = "26", features = ["wgsl-in"] }
 bytemuck = { version = "1.5", features = ["derive", "must_cast"] }
 downcast-rs = { version = "2", default-features = false, features = ["std"] }
 thiserror = { version = "2", default-features = false }
 derive_more = { version = "2", default-features = false, features = ["from"] }
 futures-lite = "2.0.1"
-encase = { version = "0.10", features = ["glam"] }
+encase = { version = "0.11", features = ["glam"] }
 # For wgpu profiling using tracing. Use `RUST_LOG=info` to also capture the wgpu spans.
 profiling = { version = "1", features = [
   "profile-with-tracing",
@@ -123,19 +120,14 @@ tracy-client = { version = "0.18.0", optional = true }
 indexmap = { version = "2" }
 fixedbitset = { version = "0.5" }
 bitflags = "2"
-wesl = { version = "0.1.2", optional = true }
 
-[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-# Omit the `glsl` feature in non-WebAssembly by default.
-naga_oil = { version = "0.18", default-features = false, features = [
-  "test_shader",
-] }
+[target.'cfg(all(target_arch = "wasm32", target_feature = "atomics"))'.dependencies]
+send_wrapper = { version = "0.6.0" }
 
 [dev-dependencies]
 proptest = "1"
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
-naga_oil = { version = "0.18" }
 js-sys = "0.3"
 web-sys = { version = "0.3.67", features = [
   'Blob',
@@ -149,9 +141,6 @@ web-sys = { version = "0.3.67", features = [
 wasm-bindgen = "0.2"
 # TODO: Assuming all wasm builds are for the browser. Require `no_std` support to break assumption.
 bevy_app = { path = "../bevy_app", version = "0.17.0-dev", default-features = false, features = [
-  "web",
-] }
-bevy_tasks = { path = "../bevy_tasks", version = "0.17.0-dev", default-features = false, features = [
   "web",
 ] }
 bevy_platform = { path = "../bevy_platform", version = "0.17.0-dev", default-features = false, features = [

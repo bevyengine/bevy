@@ -406,6 +406,10 @@ impl PrepassPipeline {
         // since that's the only time it gets called from a prepass pipeline.)
         shader_defs.push("PREPASS_PIPELINE".into());
 
+        shader_defs.push(ShaderDefVal::UInt(
+            "MATERIAL_BIND_GROUP".into(),
+            crate::MATERIAL_BIND_GROUP_INDEX as u32,
+        ));
         // NOTE: Eventually, it would be nice to only add this when the shaders are overloaded by the Material.
         // The main limitation right now is that bind group order is hardcoded in shaders.
         bind_group_layouts.push(

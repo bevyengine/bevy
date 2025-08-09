@@ -384,7 +384,7 @@ impl MeshAllocator {
     /// the mesh with the given ID.
     ///
     /// If the mesh wasn't allocated, returns None.
-    pub fn mesh_vertex_slice(&self, mesh_id: &AssetId<Mesh>) -> Option<MeshBufferSlice> {
+    pub fn mesh_vertex_slice(&self, mesh_id: &AssetId<Mesh>) -> Option<MeshBufferSlice<'_>> {
         self.mesh_slice_in_slab(mesh_id, *self.mesh_id_to_vertex_slab.get(mesh_id)?)
     }
 
@@ -392,7 +392,7 @@ impl MeshAllocator {
     /// the mesh with the given ID.
     ///
     /// If the mesh has no index data or wasn't allocated, returns None.
-    pub fn mesh_index_slice(&self, mesh_id: &AssetId<Mesh>) -> Option<MeshBufferSlice> {
+    pub fn mesh_index_slice(&self, mesh_id: &AssetId<Mesh>) -> Option<MeshBufferSlice<'_>> {
         self.mesh_slice_in_slab(mesh_id, *self.mesh_id_to_index_slab.get(mesh_id)?)
     }
 
@@ -415,7 +415,7 @@ impl MeshAllocator {
         &self,
         mesh_id: &AssetId<Mesh>,
         slab_id: SlabId,
-    ) -> Option<MeshBufferSlice> {
+    ) -> Option<MeshBufferSlice<'_>> {
         match self.slabs.get(&slab_id)? {
             Slab::General(general_slab) => {
                 let slab_allocation = general_slab.resident_allocations.get(mesh_id)?;

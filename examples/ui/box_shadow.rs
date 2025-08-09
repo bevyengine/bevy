@@ -172,7 +172,7 @@ fn setup(
 
             (
                 node,
-                BorderColor::all(WHITE.into()),
+                BorderColor::all(WHITE),
                 radius,
                 BackgroundColor(Color::srgb(0.21, 0.21, 0.21)),
                 BoxShadow(vec![ShadowStyle {

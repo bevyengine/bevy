@@ -3,8 +3,8 @@ use crate::render_resource::{
     BindGroup, BindGroupLayout, Buffer, ComputePipeline, RawRenderPipelineDescriptor,
     RenderPipeline, Sampler, Texture,
 };
+use crate::WgpuWrapper;
 use bevy_ecs::resource::Resource;
-use bevy_utils::WgpuWrapper;
 use wgpu::{
     util::DeviceExt, BindGroupDescriptor, BindGroupEntry, BindGroupLayoutDescriptor,
     BindGroupLayoutEntry, BufferAsyncError, BufferBindingType, PollError, PollStatus,
@@ -139,7 +139,7 @@ impl RenderDevice {
     pub fn create_render_bundle_encoder(
         &self,
         desc: &wgpu::RenderBundleEncoderDescriptor,
-    ) -> wgpu::RenderBundleEncoder {
+    ) -> wgpu::RenderBundleEncoder<'_> {
         self.device.create_render_bundle_encoder(desc)
     }
 

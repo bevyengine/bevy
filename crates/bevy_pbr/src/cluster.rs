@@ -150,14 +150,13 @@ pub struct ViewClusterBindings {
     buffers: ViewClusterBuffers,
 }
 
-impl FromWorld for GlobalClusterableObjectMeta {
-    fn from_world(world: &mut World) -> Self {
-        Self::new(
-            world
-                .resource::<RenderDevice>()
-                .get_supported_read_only_binding_type(CLUSTERED_FORWARD_STORAGE_BUFFER_COUNT),
-        )
-    }
+pub fn init_global_clusterable_object_meta(
+    mut commands: Commands,
+    render_device: Res<RenderDevice>,
+) {
+    commands.insert_resource(GlobalClusterableObjectMeta::new(
+        render_device.get_supported_read_only_binding_type(CLUSTERED_FORWARD_STORAGE_BUFFER_COUNT),
+    ));
 }
 
 impl GlobalClusterableObjectMeta {
@@ -217,7 +216,7 @@ impl GpuClusterableObjects {
         }
     }
 
-    pub fn binding(&self) -> Option<BindingResource> {
+    pub fn binding(&self) -> Option<BindingResource<'_>> {
         match self {
             GpuClusterableObjects::Uniform(buffer) => buffer.binding(),
             GpuClusterableObjects::Storage(buffer) => buffer.binding(),
@@ -457,7 +456,7 @@ impl ViewClusterBindings {
         }
     }
 
-    pub fn clusterable_object_index_lists_binding(&self) -> Option<BindingResource> {
+    pub fn clusterable_object_index_lists_binding(&self) -> Option<BindingResource<'_>> {
         match &self.buffers {
             ViewClusterBuffers::Uniform {
                 clusterable_object_index_lists,
@@ -470,7 +469,7 @@ impl ViewClusterBindings {
         }
     }
 
-    pub fn offsets_and_counts_binding(&self) -> Option<BindingResource> {
+    pub fn offsets_and_counts_binding(&self) -> Option<BindingResource<'_>> {
         match &self.buffers {
             ViewClusterBuffers::Uniform {
                 cluster_offsets_and_counts,

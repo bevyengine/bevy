@@ -23,21 +23,15 @@ bevy_picking = { path = "../crates/bevy_picking", features = [
 bevy_reflect = { path = "../crates/bevy_reflect", features = ["functions"] }
 bevy_render = { path = "../crates/bevy_render" }
 bevy_tasks = { path = "../crates/bevy_tasks" }
-bevy_utils = { path = "../crates/bevy_utils" }
 bevy_platform = { path = "../crates/bevy_platform", default-features = false, features = [
   "std",
 ] }
 
 # Other crates
-glam = "0.29"
-rand = "0.8"
-rand_chacha = "0.3"
+glam = "0.30.1"
+rand = "0.9"
+rand_chacha = "0.9"
 nonmax = { version = "0.5", default-features = false }
-
-# Make `bevy_render` compile on Linux with x11 windowing. x11 vs. Wayland does not matter here
-# because the benches do not actually open any windows.
-[target.'cfg(target_os = "linux")'.dev-dependencies]
-bevy_winit = { path = "../crates/bevy_winit", features = ["x11"] }
 
 [lints.clippy]
 doc_markdown = "warn"

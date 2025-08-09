@@ -150,7 +150,7 @@ pub trait Event: Send + Sync + 'static {
 /// # use bevy_ecs::prelude::*;
 /// #
 /// // When the `Damage` event is triggered on an entity, bubble the event up to ancestors.
-/// #[derive(Event, EntityEvent)]
+/// #[derive(EntityEvent)]
 /// #[entity_event(traversal = &'static ChildOf, auto_propagate)]
 /// struct Damage {
 ///     amount: f32,
@@ -162,7 +162,7 @@ pub trait Event: Send + Sync + 'static {
 /// ```
 /// # use bevy_ecs::prelude::*;
 /// #
-/// # #[derive(Event, EntityEvent)]
+/// # #[derive(EntityEvent)]
 /// # #[entity_event(traversal = &'static ChildOf, auto_propagate)]
 /// # struct Damage {
 /// #     amount: f32,
@@ -201,7 +201,7 @@ pub trait Event: Send + Sync + 'static {
 /// ```
 /// # use bevy_ecs::prelude::*;
 /// #
-/// # #[derive(Event, EntityEvent)]
+/// # #[derive(EntityEvent)]
 /// # #[entity_event(traversal = &'static ChildOf, auto_propagate)]
 /// # struct Damage {
 /// #     amount: f32,
@@ -242,7 +242,7 @@ pub trait Event: Send + Sync + 'static {
 #[diagnostic::on_unimplemented(
     message = "`{Self}` is not an `EntityEvent`",
     label = "invalid `EntityEvent`",
-    note = "consider annotating `{Self}` with `#[derive(Event, EntityEvent)]`"
+    note = "consider annotating `{Self}` with `#[derive(EntityEvent)]`"
 )]
 pub trait EntityEvent: Event {
     /// The component that describes which [`Entity`] to propagate this event to next, when [propagation] is enabled.
