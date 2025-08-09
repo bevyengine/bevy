@@ -200,7 +200,7 @@ pub struct Move {
     ///
     /// This is stored in screen pixels, not world coordinates. Screen pixels go from top-left to
     /// bottom-right, whereas (in 2D) world coordinates go from bottom-left to top-right. Consider
-    /// using methods on [`Camera`](bevy_render::camera::Camera) to convert from screen-space to
+    /// using methods on [`Camera`](bevy_camera::Camera) to convert from screen-space to
     /// world-space.
     pub delta: Vec2,
 }
@@ -225,14 +225,14 @@ pub struct Drag {
     ///
     /// This is stored in screen pixels, not world coordinates. Screen pixels go from top-left to
     /// bottom-right, whereas (in 2D) world coordinates go from bottom-left to top-right. Consider
-    /// using methods on [`Camera`](bevy_render::camera::Camera) to convert from screen-space to
+    /// using methods on [`Camera`](bevy_camera::Camera) to convert from screen-space to
     /// world-space.
     pub distance: Vec2,
     /// The change in position since the last drag event.
     ///
     /// This is stored in screen pixels, not world coordinates. Screen pixels go from top-left to
     /// bottom-right, whereas (in 2D) world coordinates go from bottom-left to top-right. Consider
-    /// using methods on [`Camera`](bevy_render::camera::Camera) to convert from screen-space to
+    /// using methods on [`Camera`](bevy_camera::Camera) to convert from screen-space to
     /// world-space.
     pub delta: Vec2,
 }
@@ -247,7 +247,7 @@ pub struct DragEnd {
     ///
     /// This is stored in screen pixels, not world coordinates. Screen pixels go from top-left to
     /// bottom-right, whereas (in 2D) world coordinates go from bottom-left to top-right. Consider
-    /// using methods on [`Camera`](bevy_render::camera::Camera) to convert from screen-space to
+    /// using methods on [`Camera`](bevy_camera::Camera) to convert from screen-space to
     /// world-space.
     pub distance: Vec2,
 }
@@ -308,16 +308,16 @@ pub struct DragEntry {
     ///
     /// This is stored in screen pixels, not world coordinates. Screen pixels go from top-left to
     /// bottom-right, whereas (in 2D) world coordinates go from bottom-left to top-right. Consider
-    /// using [`Camera::viewport_to_world`](bevy_render::camera::Camera::viewport_to_world) or
-    /// [`Camera::viewport_to_world_2d`](bevy_render::camera::Camera::viewport_to_world_2d) to
+    /// using [`Camera::viewport_to_world`](bevy_camera::Camera::viewport_to_world) or
+    /// [`Camera::viewport_to_world_2d`](bevy_camera::Camera::viewport_to_world_2d) to
     /// convert from screen-space to world-space.
     pub start_pos: Vec2,
     /// The latest position of the pointer during this drag, used to compute deltas.
     ///
     /// This is stored in screen pixels, not world coordinates. Screen pixels go from top-left to
     /// bottom-right, whereas (in 2D) world coordinates go from bottom-left to top-right. Consider
-    /// using [`Camera::viewport_to_world`](bevy_render::camera::Camera::viewport_to_world) or
-    /// [`Camera::viewport_to_world_2d`](bevy_render::camera::Camera::viewport_to_world_2d) to
+    /// using [`Camera::viewport_to_world`](bevy_camera::Camera::viewport_to_world) or
+    /// [`Camera::viewport_to_world_2d`](bevy_camera::Camera::viewport_to_world_2d) to
     /// convert from screen-space to world-space.
     pub latest_pos: Vec2,
 }

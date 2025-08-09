@@ -63,7 +63,7 @@ pub struct PointerHits {
     /// An unordered collection of entities and their distance (depth) from the cursor.
     pub picks: Vec<(Entity, HitData)>,
     /// Set the order of this group of picks. Normally, this is the
-    /// [`bevy_render::camera::Camera::order`].
+    /// [`bevy_camera::Camera::order`].
     ///
     /// Used to allow multiple `PointerHits` submitted for the same pointer to be ordered.
     /// `PointerHits` with a higher `order` will be checked before those with a lower `order`,
@@ -102,7 +102,7 @@ pub struct HitData {
     /// casted for this hit when using a raycasting backend.
     pub camera: Entity,
     /// `depth` only needs to be self-consistent with other [`PointerHits`]s using the same
-    /// [`RenderTarget`](bevy_render::camera::RenderTarget). However, it is recommended to use the
+    /// [`RenderTarget`](bevy_camera::RenderTarget). However, it is recommended to use the
     /// distance from the pointer to the hit, measured from the near plane of the camera, to the
     /// point, in world space.
     pub depth: f32,
