@@ -3,7 +3,7 @@ title: `bevy_render` reorganization
 pull_requests: [19997, 19991, 20000, 19949, 19943, 19953]
 ---
 
-You must now import `ToNormalizedRenderTarget` to use `RenderTarget::normalize`
+You must now import `bevy_render::NormalizedRenderTargetExt` to use methods on NormalizedRenderTarget
 `ManualTextureViews` is now in `bevy_render::texture`
 
 Camera and visibility types have been moved to a new crate, `bevy_camera`, but continue to be re-exported by `bevy_render` for now.

@@ -74,7 +74,7 @@ pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
         alpha::AlphaMode,
-        camera::ToNormalizedRenderTarget as _,
+        camera::NormalizedRenderTargetExt as _,
         mesh::{
             morph::MorphWeights, primitives::MeshBuilder, primitives::Meshable, Mesh, Mesh2d,
             Mesh3d,

@@ -10,7 +10,10 @@ pub use visibility::*;
 pub use window::*;
 
 use crate::{
-    camera::{ExtractedCamera, MipBias, NormalizedRenderTarget, TemporalJitter},
+    camera::{
+        ExtractedCamera, MipBias, NormalizedRenderTarget, NormalizedRenderTargetExt as _,
+        TemporalJitter,
+    },
     experimental::occlusion_culling::OcclusionCulling,
     extract_component::ExtractComponentPlugin,
     load_shader_library,
