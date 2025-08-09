@@ -365,9 +365,7 @@ fn handle_http_updates(
                     "method": "bevy/query",
                     "params": {
                         "data": {
-                            "components": [
-                                "bevy_transform::components::transform::Transform"
-                            ],
+                            "components": [],
                             "option": "all",
                             "has": []
                         },
@@ -392,11 +390,12 @@ fn handle_http_updates(
                         let entities_result = response.json::<Value>().await;
                         match entities_result {
                             Ok(json_response) => {
+                                
                                 // Parse the entities from the response
                                 let mut entities = HashMap::new();
                                 if let Some(result) = json_response.get("result") {
                                     if let Some(entities_array) = result.as_array() {
-                                        for entity_data in entities_array {
+                                        for entity_data in entities_array.iter() {
                                             if let Some(entity_obj) = entity_data.as_object() {
                                                 // Parse Bevy entity ID (numeric format)
                                                 if let Some(entity_id_num) = entity_obj.get("entity").and_then(|id| id.as_u64()) {
@@ -411,11 +410,24 @@ fn handle_http_updates(
                                                             .collect())
                                                         .unwrap_or_default();
 
+                                                    // Try to extract name from Name component if it exists
+                                                    // Name is a tuple struct, so it should be in "0" field or direct string
+                                                    let name = components.get("bevy_core::name::Name").and_then(|v| {
+                                                        // Try as direct string first
+                                                        if let Some(s) = v.as_str() {
+                                                            Some(s.to_string())
+                                                        } else {
+                                                            // Try as tuple struct with "0" field
+                                                            v.as_object()
+                                                                .and_then(|obj| obj.get("0"))
+                                                                .and_then(|v| v.as_str())
+                                                                .map(|s| s.to_string())
+                                                        }
+                                                    });
+
                                                     let entity = RemoteEntity {
                                                         id: entity_id,
-                                                        name: components.get("Name")
-                                                            .and_then(|v| v.as_str())
-                                                            .map(|s| s.to_string()),
+                                                        name,
                                                         components,
                                                     };
                                                     entities.insert(entity_id, entity);
@@ -424,6 +436,9 @@ fn handle_http_updates(
                                         }
                                     }
                                 }
+
+                                // Log summary of discovered entities
+                                info!("Successfully connected - found {} entities", entities.len());
 
                                 // Send successful connection status with entities
                                 if let Some(sender) = &status_sender {

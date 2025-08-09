@@ -137,7 +137,7 @@ pub fn spawn_collapsible_section(commands: &mut Commands, parent: Entity, title:
         ))
         .with_children(|parent| {
             parent.spawn((
-                Text::new(format!("▼ {}", title)),
+                Text::new(format!("- {}", title)),
                 TextFont {
                     font_size: 14.0,
                     ..Default::default()

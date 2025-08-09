@@ -298,7 +298,7 @@ impl HttpRemoteClient {
             method: "bevy/query".to_string(),
             params: Some(serde_json::json!({
                 "data": {
-                    "components": "all",
+                    "components": [],
                     "option": "all",
                     "has": []
                 },
