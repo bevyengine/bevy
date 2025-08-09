@@ -276,7 +276,11 @@ impl_downcast!(AssetContainer);
 
 impl<A: Asset> AssetContainer for A {
     fn insert(self: Box<Self>, id: UntypedAssetId, world: &mut World) {
-        world.resource_mut::<Assets<A>>().insert(id.typed(), *self);
+        // We only ever call this if we know the asset is still alive, so it is fine to unwrap here.
+        world
+            .resource_mut::<Assets<A>>()
+            .insert(id.typed(), *self)
+            .expect("the AssetId is still valid");
     }
 
     fn asset_type_name(&self) -> &'static str {
