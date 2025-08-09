@@ -68,7 +68,7 @@ struct Cubemaps {
 
 fn main() {
     // Create the app.
-    App::new()
+    App::default()
         .add_plugins(DefaultPlugins)
         .init_resource::<AppStatus>()
         .init_resource::<Cubemaps>()

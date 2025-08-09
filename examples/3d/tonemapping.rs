@@ -18,7 +18,7 @@ use std::f32::consts::PI;
 const SHADER_ASSET_PATH: &str = "shaders/tonemapping_test_patterns.wgsl";
 
 fn main() {
-    App::new()
+    App::default()
         .add_plugins((
             DefaultPlugins.set(AssetPlugin {
                 // We enable loading assets from arbitrary filesystem paths as this example allows

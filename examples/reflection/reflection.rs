@@ -14,7 +14,7 @@ use bevy::{
 use serde::de::DeserializeSeed;
 
 fn main() {
-    App::new()
+    App::default()
         .add_plugins(DefaultPlugins)
         .add_systems(Startup, setup)
         .run();

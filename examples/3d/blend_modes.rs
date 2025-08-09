@@ -14,7 +14,7 @@ use bevy::{color::palettes::css::ORANGE, prelude::*, render::view::Hdr};
 use rand::random;
 
 fn main() {
-    let mut app = App::new();
+    let mut app = App::default();
 
     app.add_plugins(DefaultPlugins)
         .add_systems(Startup, setup)

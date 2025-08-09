@@ -111,7 +111,7 @@ enum AppSetting {
 
 /// The example application entry point.
 fn main() {
-    App::new()
+    App::default()
         .init_resource::<AppStatus>()
         .add_plugins(DefaultPlugins.set(WindowPlugin {
             primary_window: Some(Window {

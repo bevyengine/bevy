@@ -27,7 +27,7 @@ use downcast_rs::{impl_downcast, Downcast};
 ///
 /// ```
 /// # use bevy_app::{App, Update};
-/// App::new().add_plugins(my_plugin).run();
+/// App::default().add_plugins(my_plugin).run();
 ///
 /// // This function implements `Plugin`, along with every other `fn(&mut App)`.
 /// pub fn my_plugin(app: &mut App) {

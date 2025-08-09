@@ -50,7 +50,7 @@ fn spell_casting(mut player: Query<&mut Player>, keyboard_input: Res<ButtonInput
 }
 
 fn create_test_app() -> App {
-    let mut app = App::new();
+    let mut app = App::default();
 
     // Note the use of `MinimalPlugins` instead of `DefaultPlugins`, as described above.
     app.add_plugins(MinimalPlugins);

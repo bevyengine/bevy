@@ -35,7 +35,7 @@ use bevy::{
 const SHADER_ASSET_PATH: &str = "shaders/post_processing.wgsl";
 
 fn main() {
-    App::new()
+    App::default()
         .add_plugins((DefaultPlugins, PostProcessPlugin))
         .add_systems(Startup, setup)
         .add_systems(Update, (rotate, update_settings))

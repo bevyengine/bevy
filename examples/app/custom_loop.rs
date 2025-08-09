@@ -41,7 +41,7 @@ fn exit_system(input: Res<Input>, mut exit_event: EventWriter<AppExit>) {
 
 // AppExit implements `Termination` so we can return it from main.
 fn main() -> AppExit {
-    App::new()
+    App::default()
         .insert_resource(Input(String::new()))
         .set_runner(my_runner)
         .add_systems(Update, (print_system, exit_system))

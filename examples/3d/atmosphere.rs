@@ -10,7 +10,7 @@ use bevy::{
 };
 
 fn main() {
-    App::new()
+    App::default()
         .add_plugins(DefaultPlugins)
         .add_systems(Startup, (setup_camera_fog, setup_terrain_scene))
         .add_systems(Update, dynamic_scene)

@@ -320,7 +320,7 @@ mod tests {
     }
 
     fn run_app<Marker>(system: impl IntoSystem<(), (), Marker>) {
-        let mut app = App::new();
+        let mut app = App::default();
         app.add_plugins((TaskPoolPlugin::default(), AssetPlugin::default()))
             .init_asset::<MyAsset>()
             .add_systems(Update, system);
@@ -404,7 +404,7 @@ mod tests {
 
     #[test]
     fn added() {
-        let mut app = App::new();
+        let mut app = App::default();
 
         app.add_plugins((TaskPoolPlugin::default(), AssetPlugin::default()))
             .init_asset::<MyAsset>()
@@ -427,7 +427,7 @@ mod tests {
 
     #[test]
     fn changed() {
-        let mut app = App::new();
+        let mut app = App::default();
 
         app.add_plugins((TaskPoolPlugin::default(), AssetPlugin::default()))
             .init_asset::<MyAsset>()

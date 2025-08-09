@@ -13,7 +13,7 @@ use bevy_reflect::{prelude::ReflectDefault, Reflect};
 /// use bevy_core_widgets::{Callback, Notify};
 /// use bevy_ecs::system::{Commands, IntoSystem};
 ///
-/// let mut app = App::new();
+/// let mut app = App::default();
 ///
 /// // Register a one-shot system
 /// fn my_callback_system() {

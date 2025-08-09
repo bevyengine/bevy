@@ -47,7 +47,7 @@ pub mod prelude {
 /// ```
 /// # use bevy_app::App;
 /// # use bevy_picking::input::{PointerInputSettings,PointerInputPlugin};
-/// App::new()
+/// App::default()
 ///     .insert_resource(PointerInputSettings {
 ///         is_touch_enabled: false,
 ///         is_mouse_enabled: true,

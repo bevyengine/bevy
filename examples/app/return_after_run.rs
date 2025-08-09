@@ -9,7 +9,7 @@ use bevy::prelude::*;
 
 fn main() {
     println!("Running Bevy App");
-    App::new()
+    App::default()
         .add_plugins(DefaultPlugins.set(WindowPlugin {
             primary_window: Some(Window {
                 title: "Close the window to return to the main function".into(),

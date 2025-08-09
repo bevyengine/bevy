@@ -3,7 +3,7 @@
 use bevy::{log::once, prelude::*};
 
 fn main() {
-    App::new()
+    App::default()
         .add_plugins(DefaultPlugins.set(bevy::log::LogPlugin {
             // Uncomment this to override the default log settings:
             // level: bevy::log::Level::TRACE,

@@ -11,7 +11,7 @@ use bevy::{
 const SHADER_ASSET_PATH: &str = "shaders/extended_material.wgsl";
 
 fn main() {
-    App::new()
+    App::default()
         .add_plugins(DefaultPlugins)
         .add_plugins(MaterialPlugin::<
             ExtendedMaterial<StandardMaterial, MyExtension>,

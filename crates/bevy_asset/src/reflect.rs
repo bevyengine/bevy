@@ -273,7 +273,7 @@ mod tests {
 
     #[test]
     fn test_reflect_asset_operations() {
-        let mut app = App::new();
+        let mut app = App::default();
         app.add_plugins(AssetPlugin::default())
             .init_asset::<AssetType>()
             .register_asset_reflect::<AssetType>();

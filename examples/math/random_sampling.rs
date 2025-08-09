@@ -10,7 +10,7 @@ use rand::{distr::Distribution, SeedableRng};
 use rand_chacha::ChaCha8Rng;
 
 fn main() {
-    App::new()
+    App::default()
         .add_plugins(DefaultPlugins)
         .add_systems(Startup, setup)
         .add_systems(Update, (handle_mouse, handle_keypress))

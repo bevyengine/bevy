@@ -17,7 +17,7 @@ use crate::{App, Plugin};
 /// ```no_run
 /// # use bevy_app::{App, NoopPluginGroup as MinimalPlugins, PluginGroup, PanicHandlerPlugin};
 /// fn main() {
-///     App::new()
+///     App::default()
 ///         .add_plugins(MinimalPlugins)
 ///         .add_plugins(PanicHandlerPlugin)
 ///         .run();
@@ -29,7 +29,7 @@ use crate::{App, Plugin};
 /// ```no_run
 /// # use bevy_app::{App, NoopPluginGroup as DefaultPlugins, PluginGroup, PanicHandlerPlugin};
 /// fn main() {
-///     App::new()
+///     App::default()
 ///         .add_plugins(DefaultPlugins.build().disable::<PanicHandlerPlugin>())
 ///         .run();
 /// }

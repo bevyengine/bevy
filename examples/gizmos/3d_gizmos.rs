@@ -8,7 +8,7 @@ use camera_controller::{CameraController, CameraControllerPlugin};
 use std::f32::consts::PI;
 
 fn main() {
-    App::new()
+    App::default()
         .add_plugins((DefaultPlugins, CameraControllerPlugin))
         .init_gizmo_group::<MyRoundGizmos>()
         .add_systems(Startup, setup)

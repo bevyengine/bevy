@@ -25,7 +25,7 @@ use bevy::{
 };
 
 fn main() {
-    App::new()
+    App::default()
         // Input focus is not enabled by default, so we need to add the corresponding plugins
         .add_plugins((
             DefaultPlugins,

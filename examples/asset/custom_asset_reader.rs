@@ -53,7 +53,7 @@ impl Plugin for CustomAssetReaderPlugin {
 }
 
 fn main() {
-    App::new()
+    App::default()
         .add_plugins((CustomAssetReaderPlugin, DefaultPlugins))
         .add_systems(Startup, setup)
         .run();

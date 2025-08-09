@@ -23,7 +23,7 @@ use bevy::{
 };
 
 fn main() {
-    App::new()
+    App::default()
         .add_plugins(DefaultPlugins.set(bevy::log::LogPlugin {
             // Show logs all the way up to the trace level, but only for logs
             // produced by this example.

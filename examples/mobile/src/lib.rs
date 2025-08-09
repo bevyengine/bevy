@@ -14,7 +14,7 @@ use bevy::{
 /// The entry point for the application. Is `pub` so that it can be used from
 /// `main.rs`.
 pub fn main() {
-    let mut app = App::new();
+    let mut app = App::default();
     app.add_plugins(
         DefaultPlugins
             .set(LogPlugin {

@@ -14,7 +14,7 @@ use bevy::{
 };
 
 fn main() {
-    App::new()
+    App::default()
         .add_plugins(DefaultPlugins.build().disable::<AudioPlugin>())
         .add_systems(Startup, setup_scene)
         .add_observer(change_material)

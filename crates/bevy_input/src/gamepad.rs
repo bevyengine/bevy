@@ -2195,7 +2195,7 @@ mod tests {
 
     impl TestContext {
         pub fn new() -> Self {
-            let mut app = App::new();
+            let mut app = App::default();
             app.add_systems(
                 PreUpdate,
                 (

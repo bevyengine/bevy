@@ -5,7 +5,7 @@ use bevy::dev_tools::picking_debug::{DebugPickingMode, DebugPickingPlugin};
 use bevy::prelude::*;
 
 fn main() {
-    App::new()
+    App::default()
         .add_plugins(DefaultPlugins.set(bevy::log::LogPlugin {
             filter: "bevy_dev_tools=trace".into(), // Show picking logs trace level and up
             ..default()

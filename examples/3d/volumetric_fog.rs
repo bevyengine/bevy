@@ -37,7 +37,7 @@ struct MoveBackAndForthHorizontally {
 }
 
 fn main() {
-    App::new()
+    App::default()
         .add_plugins(DefaultPlugins)
         .insert_resource(ClearColor(Color::Srgba(Srgba {
             red: 0.02,

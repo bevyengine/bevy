@@ -435,7 +435,7 @@ mod tests {
 
     #[test]
     fn test_tab_navigation() {
-        let mut app = App::new();
+        let mut app = App::default();
         let world = app.world_mut();
 
         let tab_group_entity = world.spawn(TabGroup::new(0)).id();
@@ -464,7 +464,7 @@ mod tests {
 
     #[test]
     fn test_tab_navigation_between_groups_is_sorted_by_group() {
-        let mut app = App::new();
+        let mut app = App::default();
         let world = app.world_mut();
 
         let tab_group_1 = world.spawn(TabGroup::new(0)).id();

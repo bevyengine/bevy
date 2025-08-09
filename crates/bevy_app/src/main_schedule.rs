@@ -420,7 +420,7 @@ pub enum RunFixedMainLoopSystems {
     /// ```
     /// # use bevy_app::prelude::*;
     /// # use bevy_ecs::prelude::*;
-    /// App::new()
+    /// App::default()
     ///   .add_systems(
     ///     RunFixedMainLoop,
     ///     update_camera_rotation.in_set(RunFixedMainLoopSystems::BeforeFixedMainLoop))
@@ -444,7 +444,7 @@ pub enum RunFixedMainLoopSystems {
     /// ```
     /// # use bevy_app::prelude::*;
     /// # use bevy_ecs::prelude::*;
-    /// App::new()
+    /// App::default()
     ///   .add_systems(FixedUpdate, update_physics)
     ///   .add_systems(
     ///     RunFixedMainLoop,
@@ -473,7 +473,7 @@ pub enum RunFixedMainLoopSystems {
     /// ```
     /// # use bevy_app::prelude::*;
     /// # use bevy_ecs::prelude::*;
-    /// App::new()
+    /// App::default()
     ///   .add_systems(FixedUpdate, update_physics)
     ///   .add_systems(
     ///     RunFixedMainLoop,

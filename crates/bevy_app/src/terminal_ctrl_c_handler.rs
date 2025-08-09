@@ -14,7 +14,7 @@ static SHOULD_EXIT: AtomicBool = AtomicBool::new(false);
 /// ```no_run
 /// # use bevy_app::{App, NoopPluginGroup as MinimalPlugins, PluginGroup, TerminalCtrlCHandlerPlugin};
 /// fn main() {
-///     App::new()
+///     App::default()
 ///         .add_plugins(MinimalPlugins)
 ///         .add_plugins(TerminalCtrlCHandlerPlugin)
 ///         .run();
@@ -33,7 +33,7 @@ static SHOULD_EXIT: AtomicBool = AtomicBool::new(false);
 ///         TerminalCtrlCHandlerPlugin::gracefully_exit();
 ///     });
 ///
-///     App::new()
+///     App::default()
 ///         .add_plugins(DefaultPlugins)
 ///         .run();
 /// }

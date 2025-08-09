@@ -464,7 +464,7 @@
 //! ### Example
 //! ```ignore
 //! fn main() {
-//!     App::new()
+//!     App::default()
 //!         .add_plugins(DefaultPlugins)
 //!         .add_plugins(
 //!             // `default` adds all of the built-in methods, while `with_method` extends them

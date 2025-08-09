@@ -7,7 +7,7 @@ const LEFT_RIGHT_OFFSET_2D: f32 = 200.0;
 const LEFT_RIGHT_OFFSET_3D: f32 = 2.0;
 
 fn main() {
-    let mut app = App::new();
+    let mut app = App::default();
 
     app.add_plugins(DefaultPlugins)
         .init_state::<PrimitiveSelected>()

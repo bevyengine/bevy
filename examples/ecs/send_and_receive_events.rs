@@ -22,7 +22,7 @@
 use bevy::{diagnostic::FrameCount, ecs::event::EventCursor, prelude::*};
 
 fn main() {
-    let mut app = App::new();
+    let mut app = App::default();
     app.add_plugins(MinimalPlugins)
         .add_event::<DebugEvent>()
         .add_event::<A>()

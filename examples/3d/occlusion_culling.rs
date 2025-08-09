@@ -182,7 +182,7 @@ impl Default for AppStatus {
 fn main() {
     let render_debug_flags = RenderDebugFlags::ALLOW_COPIES_FROM_INDIRECT_PARAMETERS;
 
-    App::new()
+    App::default()
         .add_plugins(
             DefaultPlugins
                 .set(WindowPlugin {

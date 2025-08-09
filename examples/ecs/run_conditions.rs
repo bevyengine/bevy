@@ -8,7 +8,7 @@ fn main() {
     println!("Once that time has passed you can press space, enter, left mouse, right mouse or touch the screen to increment the counter");
     println!();
 
-    App::new()
+    App::default()
         .add_plugins(DefaultPlugins)
         .init_resource::<InputCounter>()
         .add_systems(

@@ -146,7 +146,7 @@ struct VoxelVisualizationIrradianceVolumeInfo {
 
 fn main() {
     // Create the example app.
-    App::new()
+    App::default()
         .add_plugins(DefaultPlugins.set(WindowPlugin {
             primary_window: Some(Window {
                 title: "Bevy Irradiance Volumes Example".into(),

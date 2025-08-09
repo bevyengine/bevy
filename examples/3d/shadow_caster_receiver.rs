@@ -15,7 +15,7 @@ fn main() {
     R      - toggle shadow receivers (i.e. receivers become not, and not receivers become receivers)
     L      - switch between directional and point lights"
     );
-    App::new()
+    App::default()
         .add_plugins(DefaultPlugins)
         .add_systems(Startup, setup)
         .add_systems(Update, (toggle_light, toggle_shadows))

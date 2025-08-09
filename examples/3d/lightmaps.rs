@@ -25,7 +25,7 @@ fn main() {
     #[cfg(target_arch = "wasm32")]
     let args: Args = Args::from_args(&[], &[]).unwrap();
 
-    let mut app = App::new();
+    let mut app = App::default();
     app.add_plugins(DefaultPlugins)
         .insert_resource(AmbientLight::NONE);
 

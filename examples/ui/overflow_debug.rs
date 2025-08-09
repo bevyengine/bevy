@@ -7,7 +7,7 @@ const CONTAINER_SIZE: f32 = 150.0;
 const LOOP_LENGTH: f32 = 4.0;
 
 fn main() {
-    App::new()
+    App::default()
         .add_plugins(DefaultPlugins)
         .init_resource::<AnimationState>()
         .add_systems(Startup, setup)

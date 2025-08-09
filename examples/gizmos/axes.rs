@@ -8,7 +8,7 @@ use std::f32::consts::PI;
 const TRANSITION_DURATION: f32 = 2.0;
 
 fn main() {
-    App::new()
+    App::default()
         .add_plugins(DefaultPlugins)
         .add_systems(Startup, setup)
         .add_systems(Update, (move_cubes, draw_axes).chain())

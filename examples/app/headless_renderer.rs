@@ -76,7 +76,7 @@ fn main() {
     };
 
     // setup frame capture
-    App::new()
+    App::default()
         .insert_resource(SceneController::new(
             config.width,
             config.height,

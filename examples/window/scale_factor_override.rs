@@ -7,7 +7,7 @@ use bevy::{prelude::*, window::WindowResolution};
 struct CustomText;
 
 fn main() {
-    App::new()
+    App::default()
         .add_plugins(DefaultPlugins.set(WindowPlugin {
             primary_window: Some(Window {
                 resolution: WindowResolution::new(500., 300.).with_scale_factor_override(1.0),

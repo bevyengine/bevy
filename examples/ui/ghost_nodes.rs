@@ -12,7 +12,7 @@
 use bevy::{prelude::*, ui::experimental::GhostNode, winit::WinitSettings};
 
 fn main() {
-    App::new()
+    App::default()
         .add_plugins(DefaultPlugins)
         .insert_resource(WinitSettings::desktop_app())
         .add_systems(Startup, setup)

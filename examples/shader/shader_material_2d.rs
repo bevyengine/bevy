@@ -11,7 +11,7 @@ use bevy::{
 const SHADER_ASSET_PATH: &str = "shaders/custom_material_2d.wgsl";
 
 fn main() {
-    App::new()
+    App::default()
         .add_plugins((
             DefaultPlugins,
             Material2dPlugin::<CustomMaterial>::default(),

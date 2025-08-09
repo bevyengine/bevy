@@ -16,7 +16,7 @@ const RECTANGLE_SIDE: f32 = 200.;
 const LABEL_OFFSET: f32 = (RECTANGLE_SIDE / 2.) + 25.;
 
 fn main() {
-    App::new()
+    App::default()
         .add_plugins(DefaultPlugins.build().disable::<AudioPlugin>())
         .add_systems(Startup, setup)
         .run();

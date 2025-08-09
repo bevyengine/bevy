@@ -50,7 +50,7 @@ fn fmt_layer(_app: &mut App) -> Option<BoxedFmtLayer> {
 }
 
 fn main() {
-    App::new()
+    App::default()
         .add_plugins(DefaultPlugins.set(bevy::log::LogPlugin {
             custom_layer,
             fmt_layer,

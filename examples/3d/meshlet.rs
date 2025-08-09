@@ -25,7 +25,7 @@ fn main() -> ExitCode {
         return ExitCode::FAILURE;
     }
 
-    App::new()
+    App::default()
         .insert_resource(DirectionalLightShadowMap { size: 4096 })
         .add_plugins((
             DefaultPlugins,

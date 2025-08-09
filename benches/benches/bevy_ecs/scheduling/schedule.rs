@@ -81,7 +81,7 @@ pub fn build_schedule(criterion: &mut Criterion) {
         // Basic benchmark without constraints.
         group.bench_function(format!("{graph_size}_schedule_no_constraints"), |bencher| {
             bencher.iter(|| {
-                let mut app = App::new();
+                let mut app = App::default();
                 for _ in 0..graph_size {
                     app.add_systems(Update, empty_system);
                 }
@@ -92,7 +92,7 @@ pub fn build_schedule(criterion: &mut Criterion) {
         // Benchmark with constraints.
         group.bench_function(format!("{graph_size}_schedule"), |bencher| {
             bencher.iter(|| {
-                let mut app = App::new();
+                let mut app = App::default();
                 app.add_systems(Update, empty_system.in_set(DummySet));
 
                 // Build a fully-connected dependency graph describing the One True Ordering.

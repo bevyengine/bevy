@@ -26,7 +26,7 @@ struct ContextMenu;
 struct ContextMenuItem(Srgba);
 
 fn main() {
-    App::new()
+    App::default()
         .add_plugins(DefaultPlugins)
         .add_systems(Startup, setup)
         .add_observer(on_trigger_menu)

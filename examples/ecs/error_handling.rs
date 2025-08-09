@@ -10,7 +10,7 @@ use rand::SeedableRng;
 use rand_chacha::ChaCha8Rng;
 
 fn main() {
-    let mut app = App::new();
+    let mut app = App::default();
     // By default, fallible systems that return an error will panic.
     //
     // We can change this by setting a custom error handler, which applies to the entire app

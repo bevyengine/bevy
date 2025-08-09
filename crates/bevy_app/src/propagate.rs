@@ -301,7 +301,7 @@ mod tests {
 
     #[test]
     fn test_simple_propagate() {
-        let mut app = App::new();
+        let mut app = App::default();
         app.add_schedule(Schedule::new(Update));
         app.add_plugins(HierarchyPropagatePlugin::<TestValue>::new(Update));
 
@@ -328,7 +328,7 @@ mod tests {
 
     #[test]
     fn test_reparented() {
-        let mut app = App::new();
+        let mut app = App::default();
         app.add_schedule(Schedule::new(Update));
         app.add_plugins(HierarchyPropagatePlugin::<TestValue>::new(Update));
 
@@ -350,7 +350,7 @@ mod tests {
 
     #[test]
     fn test_reparented_with_prior() {
-        let mut app = App::new();
+        let mut app = App::default();
         app.add_schedule(Schedule::new(Update));
         app.add_plugins(HierarchyPropagatePlugin::<TestValue>::new(Update));
 
@@ -384,7 +384,7 @@ mod tests {
 
     #[test]
     fn test_remove_orphan() {
-        let mut app = App::new();
+        let mut app = App::default();
         app.add_schedule(Schedule::new(Update));
         app.add_plugins(HierarchyPropagatePlugin::<TestValue>::new(Update));
 
@@ -415,7 +415,7 @@ mod tests {
 
     #[test]
     fn test_remove_propagated() {
-        let mut app = App::new();
+        let mut app = App::default();
         app.add_schedule(Schedule::new(Update));
         app.add_plugins(HierarchyPropagatePlugin::<TestValue>::new(Update));
 
@@ -446,7 +446,7 @@ mod tests {
 
     #[test]
     fn test_propagate_over() {
-        let mut app = App::new();
+        let mut app = App::default();
         app.add_schedule(Schedule::new(Update));
         app.add_plugins(HierarchyPropagatePlugin::<TestValue>::new(Update));
 
@@ -473,7 +473,7 @@ mod tests {
 
     #[test]
     fn test_propagate_stop() {
-        let mut app = App::new();
+        let mut app = App::default();
         app.add_schedule(Schedule::new(Update));
         app.add_plugins(HierarchyPropagatePlugin::<TestValue>::new(Update));
 
@@ -499,7 +499,7 @@ mod tests {
 
     #[test]
     fn test_intermediate_override() {
-        let mut app = App::new();
+        let mut app = App::default();
         app.add_schedule(Schedule::new(Update));
         app.add_plugins(HierarchyPropagatePlugin::<TestValue>::new(Update));
 
@@ -540,7 +540,7 @@ mod tests {
         #[derive(Component)]
         struct Marker;
 
-        let mut app = App::new();
+        let mut app = App::default();
         app.add_schedule(Schedule::new(Update));
         app.add_plugins(HierarchyPropagatePlugin::<TestValue, With<Marker>>::new(
             Update,

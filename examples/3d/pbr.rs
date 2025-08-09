@@ -4,7 +4,7 @@ use bevy::prelude::*;
 use bevy::render::camera::ScalingMode;
 
 fn main() {
-    App::new()
+    App::default()
         .add_plugins(DefaultPlugins)
         .add_systems(Startup, setup)
         .add_systems(Update, environment_map_load_finish)

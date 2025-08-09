@@ -244,7 +244,7 @@ mod tests {
         let fixed_update_timestep = Time::<Fixed>::default().timestep();
         let time_step = fixed_update_timestep / 2 + Duration::from_millis(1);
 
-        let mut app = App::new();
+        let mut app = App::default();
         app.add_plugins(TimePlugin)
             .add_systems(FixedUpdate, count_fixed_updates)
             .add_systems(Update, report_time)
@@ -296,7 +296,7 @@ mod tests {
     fn events_get_dropped_regression_test_11528() -> Result<(), impl Error> {
         let (tx1, rx1) = std::sync::mpsc::channel();
         let (tx2, rx2) = std::sync::mpsc::channel();
-        let mut app = App::new();
+        let mut app = App::default();
         app.add_plugins(TimePlugin)
             .add_event::<TestEvent<i32>>()
             .add_event::<TestEvent<()>>()
@@ -345,7 +345,7 @@ mod tests {
             events.write(DummyEvent);
         }
 
-        let mut app = App::new();
+        let mut app = App::default();
         app.add_plugins(TimePlugin)
             .add_event::<DummyEvent>()
             .init_resource::<FixedUpdateCounter>()

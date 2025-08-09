@@ -21,7 +21,7 @@ use bevy::ecs::entity_disabling::Disabled;
 use bevy::prelude::*;
 
 fn main() {
-    App::new()
+    App::default()
         .add_plugins((DefaultPlugins, MeshPickingPlugin))
         .add_observer(disable_entities_on_click)
         .add_systems(

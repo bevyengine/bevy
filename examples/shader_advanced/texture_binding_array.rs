@@ -22,7 +22,7 @@ use std::{num::NonZero, process::exit};
 const SHADER_ASSET_PATH: &str = "shaders/texture_binding_array.wgsl";
 
 fn main() {
-    let mut app = App::new();
+    let mut app = App::default();
     app.add_plugins((
         DefaultPlugins.set(ImagePlugin::default_nearest()),
         GpuFeatureSupportChecker,

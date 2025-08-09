@@ -8,7 +8,7 @@ use bevy::prelude::*;
 use core::time::Duration;
 
 fn main() {
-    App::new()
+    App::default()
         // plugins are registered as part of the "app building" process
         .add_plugins((
             DefaultPlugins,

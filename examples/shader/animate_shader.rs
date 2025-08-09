@@ -11,7 +11,7 @@ use bevy::{
 const SHADER_ASSET_PATH: &str = "shaders/animate_shader.wgsl";
 
 fn main() {
-    App::new()
+    App::default()
         .add_plugins((DefaultPlugins, MaterialPlugin::<CustomMaterial>::default()))
         .add_systems(Startup, setup)
         .run();

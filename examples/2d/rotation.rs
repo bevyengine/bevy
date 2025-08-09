@@ -5,7 +5,7 @@ use bevy::{math::ops, prelude::*};
 const BOUNDS: Vec2 = Vec2::new(1200.0, 640.0);
 
 fn main() {
-    App::new()
+    App::default()
         .add_plugins(DefaultPlugins)
         .insert_resource(Time::<Fixed>::from_hz(60.0))
         .add_systems(Startup, setup)

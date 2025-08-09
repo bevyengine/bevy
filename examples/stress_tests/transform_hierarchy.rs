@@ -185,7 +185,7 @@ fn main() {
 
     println!("\n{cfg:#?}");
 
-    App::new()
+    App::default()
         .insert_resource(cfg)
         .add_plugins((
             DefaultPlugins.set(WindowPlugin {

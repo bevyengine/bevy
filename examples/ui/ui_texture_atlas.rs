@@ -3,7 +3,7 @@
 use bevy::{color::palettes::css::*, prelude::*, winit::WinitSettings};
 
 fn main() {
-    App::new()
+    App::default()
         .add_plugins(DefaultPlugins.set(
             // This sets image filtering to nearest
             // This is done to prevent textures with low resolution (e.g. pixel art) from being blurred

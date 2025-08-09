@@ -41,7 +41,7 @@ use bevy::{
 const SHADER_ASSET_PATH: &str = "shaders/specialized_mesh_pipeline.wgsl";
 
 fn main() {
-    App::new()
+    App::default()
         .add_plugins(DefaultPlugins)
         .add_plugins(CustomRenderedMeshPipelinePlugin)
         .add_systems(Startup, setup)

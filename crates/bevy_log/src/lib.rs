@@ -93,7 +93,7 @@ pub(crate) struct FlushGuard(SyncCell<tracing_chrome::FlushGuard>);
 /// # use bevy_log::LogPlugin;
 /// # use tracing::Level;
 /// fn main() {
-///     App::new()
+///     App::default()
 ///         .add_plugins(DefaultPlugins.set(LogPlugin {
 ///             level: Level::DEBUG,
 ///             filter: "wgpu=error,bevy_render=info,bevy_ecs=trace".to_string(),
@@ -123,7 +123,7 @@ pub(crate) struct FlushGuard(SyncCell<tracing_chrome::FlushGuard>);
 /// #   unsafe {
 ///     std::env::set_var("NO_COLOR", "1");
 /// #   }
-///     App::new()
+///     App::default()
 ///        .add_plugins(DefaultPlugins)
 ///        .run();
 /// }
@@ -135,7 +135,7 @@ pub(crate) struct FlushGuard(SyncCell<tracing_chrome::FlushGuard>);
 /// # use bevy_app::{App, NoopPluginGroup as DefaultPlugins, PluginGroup};
 /// # use bevy_log::LogPlugin;
 /// fn main() {
-///     App::new()
+///     App::default()
 ///         .add_plugins(DefaultPlugins.build().disable::<LogPlugin>())
 ///         .run();
 /// }
@@ -148,7 +148,7 @@ pub(crate) struct FlushGuard(SyncCell<tracing_chrome::FlushGuard>);
 /// ```no_run
 /// # use bevy_app::{App, NoopPluginGroup as DefaultPlugins, PluginGroup};
 /// # use bevy_log::*;
-/// App::new()
+/// App::default()
 ///     .add_plugins(DefaultPlugins.set(LogPlugin {
 ///         filter: "warn,my_crate=trace".to_string(), //specific filters
 ///         level: Level::TRACE,//Change this to be globally change levels
@@ -185,7 +185,7 @@ pub(crate) struct FlushGuard(SyncCell<tracing_chrome::FlushGuard>);
 /// ```no_run
 /// # use bevy_app::{App, NoopPluginGroup as DefaultPlugins, PluginGroup};
 /// # use bevy_log::*;
-/// App::new()
+/// App::default()
 ///     .add_plugins(DefaultPlugins.set(LogPlugin {
 ///         filter: "warn,my_crate=trace,my_crate::my_module=debug".to_string(), // Specific filters
 ///         level: Level::TRACE, // Change this to be globally change levels

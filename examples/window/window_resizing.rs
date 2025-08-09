@@ -2,7 +2,7 @@
 use bevy::{prelude::*, window::WindowResized};
 
 fn main() {
-    App::new()
+    App::default()
         .insert_resource(ResolutionSettings {
             large: Vec2::new(1920.0, 1080.0),
             medium: Vec2::new(800.0, 600.0),

@@ -5,7 +5,7 @@ use bevy::{prelude::*, sprite::Anchor};
 use std::fmt::Debug;
 
 fn main() {
-    App::new()
+    App::default()
         .add_plugins(DefaultPlugins.set(ImagePlugin::default_nearest()))
         .add_systems(Startup, (setup, setup_atlas))
         .add_systems(Update, (move_sprite, animate_sprite))

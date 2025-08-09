@@ -593,7 +593,7 @@ impl Camera {
     ///     }
     /// }
     ///
-    /// # let mut app = App::new();
+    /// # let mut app = App::default();
     /// // Run the system after transform propagation so the camera's global transform is up-to-date.
     /// app.add_systems(PostUpdate, system.after(TransformSystems::Propagate));
     /// ```
@@ -655,7 +655,7 @@ impl Camera {
     ///     }
     /// }
     ///
-    /// # let mut app = App::new();
+    /// # let mut app = App::default();
     /// // Run the system after transform propagation so the camera's global transform is up-to-date.
     /// app.add_systems(PostUpdate, system.after(TransformSystems::Propagate));
     /// ```

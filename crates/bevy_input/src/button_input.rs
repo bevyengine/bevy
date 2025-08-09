@@ -75,7 +75,7 @@ use {
 /// # use bevy_input::{ButtonInput, prelude::{KeyCode, MouseButton}};
 ///
 /// fn main() {
-///     App::new()
+///     App::default()
 ///         .add_plugins(DefaultPlugins)
 ///         .add_systems(
 ///             Update,

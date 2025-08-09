@@ -98,7 +98,7 @@ fn main() {
     // Enable deferred rendering, which is necessary for screen-space
     // reflections at this time. Disable multisampled antialiasing, as deferred
     // rendering doesn't support that.
-    App::new()
+    App::default()
         .insert_resource(DefaultOpaqueRendererMethod::deferred())
         .init_resource::<AppSettings>()
         .add_plugins(DefaultPlugins.set(WindowPlugin {

@@ -6,7 +6,7 @@ use bevy::{log::LogPlugin, prelude::*, time::common_conditions::on_timer};
 use rand::{rng, seq::IteratorRandom, Rng};
 
 fn main() {
-    App::new()
+    App::default()
         .add_plugins((MinimalPlugins, LogPlugin::default()))
         .add_systems(Startup, setup)
         .add_systems(

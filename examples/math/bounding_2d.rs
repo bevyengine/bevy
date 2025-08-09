@@ -7,7 +7,7 @@ use bevy::{
 };
 
 fn main() {
-    App::new()
+    App::default()
         .add_plugins(DefaultPlugins)
         .init_state::<Test>()
         .add_systems(Startup, setup)

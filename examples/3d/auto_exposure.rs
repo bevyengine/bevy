@@ -21,7 +21,7 @@ use bevy::{
 };
 
 fn main() {
-    App::new()
+    App::default()
         .add_plugins(DefaultPlugins)
         .add_plugins(AutoExposurePlugin)
         .add_systems(Startup, setup)

@@ -130,7 +130,7 @@ fn clear_events_on_state_transition<E: BufferedEvent, S: States>(
 pub trait StateScopedEventsAppExt {
     /// Clears an [`BufferedEvent`] when exiting the specified `state`.
     ///
-    /// Note that event cleanup is ambiguously ordered relative to  
+    /// Note that event cleanup is ambiguously ordered relative to
     /// [`DespawnOnExitState`](crate::prelude::DespawnOnExitState) entity cleanup,
     /// and the [`OnExit`] schedule for the target state.
     /// All of these (state scoped entities and events cleanup, and `OnExit`)
@@ -205,7 +205,7 @@ mod tests {
 
     #[test]
     fn clear_event_on_exit_state() {
-        let mut app = App::new();
+        let mut app = App::default();
         app.add_plugins(StatesPlugin);
         app.init_state::<TestState>();
 
@@ -235,7 +235,7 @@ mod tests {
 
     #[test]
     fn clear_event_on_enter_state() {
-        let mut app = App::new();
+        let mut app = App::default();
         app.add_plugins(StatesPlugin);
         app.init_state::<TestState>();
 

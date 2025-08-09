@@ -16,7 +16,7 @@ use bevy::{
 use rand::{rng, Rng};
 
 fn main() {
-    App::new()
+    App::default()
         .add_plugins((
             DefaultPlugins.set(WindowPlugin {
                 primary_window: Some(Window {

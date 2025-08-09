@@ -397,7 +397,7 @@ mod tests {
     const SECOND_TEXT: &str = "Another, longer sample text.";
 
     fn setup() -> (App, Entity) {
-        let mut app = App::new();
+        let mut app = App::default();
         app.init_resource::<Assets<Font>>()
             .init_resource::<Assets<Image>>()
             .init_resource::<Assets<TextureAtlasLayout>>()

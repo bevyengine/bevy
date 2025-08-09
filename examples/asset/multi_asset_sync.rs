@@ -14,7 +14,7 @@ use event_listener::Event;
 use futures_lite::Future;
 
 fn main() {
-    App::new()
+    App::default()
         .add_plugins(DefaultPlugins)
         .init_state::<LoadingState>()
         .insert_resource(AmbientLight {

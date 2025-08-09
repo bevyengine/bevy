@@ -381,7 +381,7 @@ mod tests {
     const WINDOW_HEIGHT: f32 = 100.;
 
     fn setup_ui_test_app() -> App {
-        let mut app = App::new();
+        let mut app = App::default();
 
         app.add_plugins(HierarchyPropagatePlugin::<ComputedNodeTarget>::new(
             PostUpdate,
@@ -1060,7 +1060,7 @@ mod tests {
 
     #[test]
     fn no_camera_ui() {
-        let mut app = App::new();
+        let mut app = App::default();
 
         app.add_systems(
             PostUpdate,

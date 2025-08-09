@@ -854,7 +854,7 @@ mod tests {
     }
 
     fn test_app(dir: Dir) -> (App, GateOpener) {
-        let mut app = App::new();
+        let mut app = App::default();
         let (gated_memory_reader, gate_opener) = GatedReader::new(MemoryAssetReader { root: dir });
         app.register_asset_source(
             AssetSourceId::Default,
@@ -1753,7 +1753,7 @@ mod tests {
         dir.insert_asset_text(Path::new(a_path), a_ron);
         let unstable_reader = UnstableMemoryAssetReader::new(dir, 2);
 
-        let mut app = App::new();
+        let mut app = App::default();
         app.register_asset_source(
             "unstable",
             AssetSource::build().with_reader(move || Box::new(unstable_reader.clone())),
@@ -1789,7 +1789,7 @@ mod tests {
 
     #[test]
     fn ignore_system_ambiguities_on_assets() {
-        let mut app = App::new();
+        let mut app = App::default();
         app.add_plugins(AssetPlugin::default())
             .init_asset::<CoolText>();
 
@@ -1810,7 +1810,7 @@ mod tests {
     // not capable of loading subassets when doing nested immediate loads.
     #[test]
     fn error_on_nested_immediate_load_of_subasset() {
-        let mut app = App::new();
+        let mut app = App::default();
 
         let dir = Dir::default();
         dir.insert_asset_text(
@@ -1926,7 +1926,7 @@ mod tests {
 
         dir.insert_asset_text(Path::new(a_path), a_ron);
 
-        let mut app = App::new();
+        let mut app = App::default();
         let memory_reader = MemoryAssetReader { root: dir };
         app.register_asset_source(
             AssetSourceId::Default,
@@ -2046,7 +2046,7 @@ mod tests {
 
         // Set up the app.
 
-        let mut app = App::new();
+        let mut app = App::default();
 
         app.register_asset_source(AssetSourceId::Default, asset_source)
             .add_plugins((TaskPoolPlugin::default(), AssetPlugin::default()))

@@ -8,7 +8,7 @@ use bevy::prelude::*;
 use helpers::Next;
 
 fn main() {
-    let mut app = App::new();
+    let mut app = App::default();
     app.add_plugins((DefaultPlugins,))
         .init_state::<Scene>()
         .add_systems(OnEnter(Scene::Image), image::setup)

@@ -14,7 +14,7 @@ fn main() {
     };
     let primary_window = Some(window);
 
-    App::new()
+    App::default()
         .add_plugins(DefaultPlugins.set(WindowPlugin {
             primary_window,
             ..default()

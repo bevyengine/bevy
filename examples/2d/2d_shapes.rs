@@ -18,7 +18,7 @@ use bevy::prelude::*;
 use bevy::sprite::{Wireframe2dConfig, Wireframe2dPlugin};
 
 fn main() {
-    let mut app = App::new();
+    let mut app = App::default();
     app.add_plugins((
         DefaultPlugins,
         #[cfg(not(target_arch = "wasm32"))]

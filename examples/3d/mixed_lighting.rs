@@ -115,7 +115,7 @@ static SPHERE_UV_RECT: Rect = uv_rect_opengl(vec2(0.788, 0.484), Vec2::splat(0.0
 const INITIAL_SPHERE_POSITION: Vec3 = vec3(0.0, 0.5233223, 0.0);
 
 fn main() {
-    App::new()
+    App::default()
         .add_plugins(DefaultPlugins.set(WindowPlugin {
             primary_window: Some(Window {
                 title: "Bevy Mixed Lighting Example".into(),

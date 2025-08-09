@@ -33,11 +33,11 @@ type ExtractFn = Box<dyn FnMut(&mut World, &mut World) + Send>;
 /// struct ExampleApp;
 ///
 /// // Create an app with a certain resource.
-/// let mut app = App::new();
+/// let mut app = App::default();
 /// app.insert_resource(Val(10));
 ///
 /// // Create a sub-app with the same resource and a single schedule.
-/// let mut sub_app = SubApp::new();
+/// let mut sub_app = SubApp::default();
 /// sub_app.update_schedule = Some(Main.intern());
 /// sub_app.insert_resource(Val(100));
 ///
@@ -176,7 +176,7 @@ impl SubApp {
     ///
     /// ```
     /// # use bevy_app::SubApp;
-    /// # let mut app = SubApp::new();
+    /// # let mut app = SubApp::default();
     /// let mut default_fn = app.take_extract();
     /// app.set_extract(move |main, render| {
     ///     // Do pre-extract custom logic

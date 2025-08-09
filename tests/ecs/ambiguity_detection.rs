@@ -12,7 +12,7 @@ use bevy::{
 };
 
 fn main() {
-    let mut app = App::new();
+    let mut app = App::default();
     app.add_plugins(
         DefaultPlugins
             .build()

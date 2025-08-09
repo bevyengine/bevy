@@ -51,7 +51,7 @@ const NOISE_SPEED: f32 = 20.0;
 const TRAUMA_PER_PRESS: f32 = 0.4;
 
 fn main() {
-    App::new()
+    App::default()
         .add_plugins(DefaultPlugins)
         .add_systems(Startup, (setup_scene, setup_instructions, setup_camera))
         // At the start of the frame, restore the camera's transform to its unshaken state.

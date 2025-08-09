@@ -166,7 +166,7 @@ impl ComputedStates for Tutorial {
 
 fn main() {
     // We start the setup like we did in the states example.
-    App::new()
+    App::default()
         .add_plugins(DefaultPlugins)
         .init_state::<AppState>()
         .init_state::<TutorialState>()

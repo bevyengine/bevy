@@ -19,7 +19,7 @@ struct CameraSettings {
 }
 
 fn main() {
-    App::new()
+    App::default()
         .add_plugins(DefaultPlugins)
         .insert_resource(CameraSettings {
             orthographic_viewport_height: 5.,

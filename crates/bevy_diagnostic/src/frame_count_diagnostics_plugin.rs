@@ -78,7 +78,7 @@ mod tests {
 
     #[test]
     fn frame_counter_update() {
-        let mut app = App::new();
+        let mut app = App::default();
         app.add_plugins(FrameCountPlugin);
         app.update();
 

@@ -6,7 +6,7 @@ const JUSTIFY_CONTENT_COLOR: Color = Color::srgb(0.102, 0.522, 1.);
 const MARGIN: Val = Val::Px(12.);
 
 fn main() {
-    App::new()
+    App::default()
         .add_plugins(DefaultPlugins.set(WindowPlugin {
             primary_window: Some(Window {
                 title: "Bevy Flex Layout Example".to_string(),

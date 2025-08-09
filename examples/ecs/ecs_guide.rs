@@ -293,7 +293,7 @@ enum MySystems {
 fn main() {
     // Bevy apps are created using the builder pattern. We use the builder to add systems,
     // resources, and plugins to our app
-    App::new()
+    App::default()
         // Resources that implement the Default or FromWorld trait can be added like this:
         .init_resource::<GameState>()
         // Plugins are just a grouped set of app builder calls (just like we're doing here).

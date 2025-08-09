@@ -25,7 +25,7 @@ enum AppState {
 }
 
 fn main() {
-    App::new()
+    App::default()
         // We insert the custom transitions plugin for `AppState`.
         .add_plugins((
             DefaultPlugins,

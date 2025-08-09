@@ -24,7 +24,7 @@ fn main() {
 
     let outside_variable = "bar".to_string();
 
-    App::new()
+    App::default()
         .add_plugins(LogPlugin::default())
         // we can use a closure as a system
         .add_systems(Update, simple_closure)

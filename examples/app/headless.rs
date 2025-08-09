@@ -24,13 +24,13 @@ fn main() {
     }
 
     // This app runs once
-    App::new()
+    App::default()
         .add_plugins(DefaultPlugins.set(ScheduleRunnerPlugin::run_once()))
         .add_systems(Update, hello_world_system)
         .run();
 
     // This app loops forever at 60 fps
-    App::new()
+    App::default()
         .add_plugins(
             DefaultPlugins
                 .set(ScheduleRunnerPlugin::run_loop(Duration::from_secs_f64(

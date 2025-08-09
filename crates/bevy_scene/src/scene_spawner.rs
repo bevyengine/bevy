@@ -657,7 +657,7 @@ mod tests {
 
     #[test]
     fn spawn_and_delete() {
-        let mut app = App::new();
+        let mut app = App::default();
 
         app.add_plugins(ScheduleRunnerPlugin::default())
             .add_plugins(AssetPlugin::default())
@@ -774,7 +774,7 @@ mod tests {
     struct TriggerCount(u32);
 
     fn setup() -> App {
-        let mut app = App::new();
+        let mut app = App::default();
         app.add_plugins((AssetPlugin::default(), ScenePlugin));
         app.init_resource::<TriggerCount>();
 
@@ -932,7 +932,7 @@ mod tests {
 
     #[test]
     fn despawn_scene() {
-        let mut app = App::new();
+        let mut app = App::default();
         app.add_plugins((AssetPlugin::default(), ScenePlugin));
         app.register_type::<ComponentF>();
 
@@ -978,7 +978,7 @@ mod tests {
 
     #[test]
     fn scene_child_order_preserved_when_archetype_order_mismatched() {
-        let mut app = App::new();
+        let mut app = App::default();
 
         app.add_plugins(ScheduleRunnerPlugin::default())
             .add_plugins(AssetPlugin::default())

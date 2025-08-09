@@ -44,7 +44,7 @@ use bevy::anti_aliasing::taa::TemporalAntiAliasing;
 use rand::random;
 
 fn main() {
-    App::new()
+    App::default()
         .add_plugins(DefaultPlugins)
         .insert_resource(ClearColor(Color::BLACK))
         .insert_resource(PointLightShadowMap { size: 2048 })

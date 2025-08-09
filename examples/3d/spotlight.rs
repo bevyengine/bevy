@@ -20,7 +20,7 @@ Vertical Movement: Space and Shift
 Rotate Camera: Left and Right Arrows";
 
 fn main() {
-    App::new()
+    App::default()
         .insert_resource(AmbientLight {
             brightness: 20.0,
             ..default()

@@ -6,7 +6,7 @@ use std::fmt;
 use bevy::{image::ImageLoaderSettings, math::ops, prelude::*};
 
 fn main() {
-    App::new()
+    App::default()
         .add_plugins(DefaultPlugins)
         .add_systems(Startup, setup)
         .add_systems(

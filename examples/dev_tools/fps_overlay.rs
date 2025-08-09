@@ -14,7 +14,7 @@ impl OverlayColor {
 }
 
 fn main() {
-    App::new()
+    App::default()
         .add_plugins((
             DefaultPlugins,
             FpsOverlayPlugin {

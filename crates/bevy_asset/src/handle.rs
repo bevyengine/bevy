@@ -642,7 +642,7 @@ mod tests {
             fn visit_dependencies(&self, _visit: &mut impl FnMut(UntypedAssetId)) {}
         }
 
-        let mut app = App::new();
+        let mut app = App::default();
         app.add_plugins(AssetPlugin::default())
             .init_asset::<MyAsset>();
         let mut assets = app.world_mut().resource_mut::<Assets<MyAsset>>();
