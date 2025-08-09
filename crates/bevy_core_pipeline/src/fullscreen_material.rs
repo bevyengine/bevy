@@ -100,8 +100,7 @@ pub trait FullscreenMaterial:
     fn node_label() -> impl RenderLabel;
     /// The list of `node_edges`. In 3d, for a post processing effect, it would look like this:
     ///
-    /// ```rust
-    /// # use bevy_core_pipeline::core_3d::graph::Node3d;
+    /// ```
     /// vec![
     ///     Node3d::Tonemapping.intern(),
     ///     // Self::sub_graph().intern(), // <--- your own label here
