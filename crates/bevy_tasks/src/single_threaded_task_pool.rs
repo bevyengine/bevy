@@ -1,24 +1,22 @@
 use alloc::{string::String, vec::Vec};
-use bevy_platform::sync::Arc;
 use core::{cell::RefCell, future::Future, marker::PhantomData, mem};
 
 use crate::Task;
 
+use crate::executor::Executor;
+
+crate::cfg::web! {
+    if {} else {
+        static EXECUTOR: Executor = Executor::new();
+    }
+}
+
 crate::cfg::std! {
     if {
-        use std::thread_local;
-        use crate::executor::LocalExecutor;
-
-        thread_local! {
-            static LOCAL_EXECUTOR: LocalExecutor<'static> = const { LocalExecutor::new() };
-        }
-
         type ScopeResult<T> = alloc::rc::Rc<RefCell<Option<T>>>;
     } else {
         use bevy_platform::sync::{Mutex, PoisonError};
-        use crate::executor::Executor as LocalExecutor;
-
-        static LOCAL_EXECUTOR: LocalExecutor<'static> = const { LocalExecutor::new() };
+        use bevy_platform::sync::Arc;
 
         type ScopeResult<T> = Arc<Mutex<Option<T>>>;
     }
@@ -32,15 +30,9 @@ pub struct TaskPoolBuilder {}
 /// task pool. In the case of the multithreaded task pool this struct is used to spawn
 /// tasks on a specific thread. But the wasm task pool just calls
 /// `wasm_bindgen_futures::spawn_local` for spawning which just runs tasks on the main thread
-/// and so the [`ThreadExecutor`] does nothing.
-#[derive(Default)]
-pub struct ThreadExecutor<'a>(PhantomData<&'a ()>);
-impl<'a> ThreadExecutor<'a> {
-    /// Creates a new `ThreadExecutor`
-    pub fn new() -> Self {
-        Self::default()
-    }
-}
+/// and so the [`ThreadSpawner`] does nothing.
+#[derive(Clone)]
+pub struct ThreadSpawner<'a>(PhantomData<&'a ()>);
 
 impl TaskPoolBuilder {
     /// Creates a new `TaskPoolBuilder` instance
@@ -86,8 +78,8 @@ pub struct TaskPool {}
 
 impl TaskPool {
     /// Just create a new `ThreadExecutor` for wasm
-    pub fn get_thread_executor() -> Arc<ThreadExecutor<'static>> {
-        Arc::new(ThreadExecutor::new())
+    pub fn current_thread_spawner(&self) -> ThreadSpawner<'static> {
+        ThreadSpawner(PhantomData)
     }
 
     /// Create a `TaskPool` with the default configuration.
@@ -114,7 +106,7 @@ impl TaskPool {
         F: for<'scope> FnOnce(&'env mut Scope<'scope, 'env, T>),
         T: Send + 'static,
     {
-        self.scope_with_executor(false, None, f)
+        self.scope_with_executor(None, f)
     }
 
     /// Allows spawning non-`'static` futures on the thread pool. The function takes a callback,
@@ -125,8 +117,7 @@ impl TaskPool {
     #[expect(unsafe_code, reason = "Required to transmute lifetimes.")]
     pub fn scope_with_executor<'env, F, T>(
         &self,
-        _tick_task_pool_executor: bool,
-        _thread_executor: Option<&ThreadExecutor>,
+        _thread_executor: Option<ThreadSpawner>,
         f: F,
     ) -> Vec<T>
     where
@@ -141,9 +132,9 @@ impl TaskPool {
         // Any usages of the references passed into `Scope` must be accessed through
         // the transmuted reference for the rest of this function.
 
-        let executor = &LocalExecutor::new();
+        let executor = &Executor::new();
         // SAFETY: As above, all futures must complete in this function so we can change the lifetime
-        let executor: &'env LocalExecutor<'env> = unsafe { mem::transmute(executor) };
+        let executor: &'env Executor<'env> = unsafe { mem::transmute(executor) };
 
         let results: RefCell<Vec<ScopeResult<T>>> = RefCell::new(Vec::new());
         // SAFETY: As above, all futures must complete in this function so we can change the lifetime
@@ -162,7 +153,7 @@ impl TaskPool {
         f(scope_ref);
 
         // Loop until all tasks are done
-        while executor.try_tick() {}
+        Self::flush_local();
 
         let results = scope.results.borrow();
         results
@@ -195,20 +186,11 @@ impl TaskPool {
         crate::cfg::switch! {{
             crate::cfg::web => {
                 Task::wrap_future(future)
-            }
-            crate::cfg::std => {
-                LOCAL_EXECUTOR.with(|executor| {
-                    let task = executor.spawn(future);
-                    // Loop until all tasks are done
-                    while executor.try_tick() {}
-
-                    Task::new(task)
-                })
-            }
+            } 
             _ => {
-                let task = LOCAL_EXECUTOR.spawn(future);
+                let task = EXECUTOR.spawn_local(future);
                 // Loop until all tasks are done
-                while LOCAL_EXECUTOR.try_tick() {}
+                while Self::try_tick_local() {}
 
                 Task::new(task)
             }
@@ -226,29 +208,24 @@ impl TaskPool {
         self.spawn(future)
     }
 
-    /// Runs a function with the local executor. Typically used to tick
-    /// the local executor on the main thread as it needs to share time with
-    /// other things.
-    ///
-    /// ```
-    /// use bevy_tasks::TaskPool;
-    ///
-    /// TaskPool::new().with_local_executor(|local_executor| {
-    ///     local_executor.try_tick();
-    /// });
-    /// ```
-    pub fn with_local_executor<F, R>(&self, f: F) -> R
-    where
-        F: FnOnce(&LocalExecutor) -> R,
-    {
-        crate::cfg::switch! {{
-            crate::cfg::std => {
-                LOCAL_EXECUTOR.with(f)
+    pub(crate) fn try_tick_local() -> bool {
+        crate::cfg::bevy_executor! {
+            if {
+                crate::bevy_executor::Executor::try_tick_local()
+            } else {
+                EXECUTOR.try_tick()
             }
-            _ => {
-                f(&LOCAL_EXECUTOR)
+        }
+    }
+
+    fn flush_local() {
+        crate::cfg::bevy_executor! {
+            if {
+                crate::bevy_executor::Executor::flush_local();
+            } else {
+                while EXECUTOR.try_tick() {}
             }
-        }}
+        }
     }
 }
 
@@ -257,7 +234,7 @@ impl TaskPool {
 /// For more information, see [`TaskPool::scope`].
 #[derive(Debug)]
 pub struct Scope<'scope, 'env: 'scope, T> {
-    executor: &'scope LocalExecutor<'scope>,
+    executor: &'scope Executor<'scope>,
     // Vector to gather results of all futures spawned during scope run
     results: &'env RefCell<Vec<ScopeResult<T>>>,
 
@@ -289,6 +266,7 @@ impl<'scope, 'env, T: Send + 'env> Scope<'scope, 'env, T> {
         self.spawn_on_scope(f);
     }
 
+    #[allow(unsafe_code, reason = "Executor::spawn_local_scoped is unsafe")]
     /// Spawns a scoped future that runs on the thread the scope called from. The
     /// scope *must* outlive the provided future. The results of the future will be
     /// returned as a part of [`TaskPool::scope`]'s return value.
@@ -309,7 +287,18 @@ impl<'scope, 'env, T: Send + 'env> Scope<'scope, 'env, T> {
                 }
             }
         };
-        self.executor.spawn(f).detach();
+
+        crate::cfg::bevy_executor! {
+            if {
+                // SAFETY: The surrounding scope will not terminate until all local tasks are done
+                // ensuring that the borrowed variables do not outlive the detached task.
+                unsafe {
+                    self.executor.spawn_local_scoped(f).detach()
+                };
+            } else {
+                self.executor.spawn_local(f).detach();
+            }
+        }
     }
 }
 

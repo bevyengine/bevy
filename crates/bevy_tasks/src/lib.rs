@@ -13,9 +13,9 @@ pub mod cfg {
     pub use bevy_platform::cfg::{alloc, std, web};
 
     define_alias! {
-        #[cfg(feature = "async_executor")] => {
-            /// Indicates `async_executor` is used as the future execution backend.
-            async_executor
+        #[cfg(feature = "bevy_executor")] => {
+            /// Indicates `bevy_executor` is used as the future execution backend.
+            bevy_executor
         }
 
         #[cfg(all(not(target_arch = "wasm32"), feature = "multi_threaded"))] => {
@@ -73,8 +73,10 @@ pub type BoxedFuture<'a, T> = core::pin::Pin<Box<dyn ConditionalSendFuture<Outpu
 
 pub mod futures;
 
-cfg::async_executor! {
-    if {} else {
+cfg::bevy_executor! {
+    if {
+        mod bevy_executor;
+    } else {
         mod edge_executor;
     }
 }
@@ -100,14 +102,12 @@ pub use task::Task;
 cfg::multi_threaded! {
     if {
         mod task_pool;
-        mod thread_executor;
 
-        pub use task_pool::{Scope, TaskPool, TaskPoolBuilder};
-        pub use thread_executor::{ThreadExecutor, ThreadExecutorTicker};
+        pub use task_pool::{Scope, TaskPool, TaskPoolBuilder, ThreadSpawner};
     } else {
         mod single_threaded_task_pool;
 
-        pub use single_threaded_task_pool::{Scope, TaskPool, TaskPoolBuilder, ThreadExecutor};
+        pub use single_threaded_task_pool::{Scope, TaskPool, TaskPoolBuilder, ThreadSpawner};
     }
 }
 
