@@ -1,9 +1,8 @@
 use crate::{
-    graph::NodePbr, irradiance_volume::IrradianceVolume, MeshPipeline, MeshViewBindGroup,
-    RenderViewLightProbes, ScreenSpaceAmbientOcclusion, ScreenSpaceReflectionsUniform,
-    ViewEnvironmentMapUniformOffset, ViewLightProbesUniformOffset,
-    ViewScreenSpaceReflectionsUniformOffset, TONEMAPPING_LUT_SAMPLER_BINDING_INDEX,
-    TONEMAPPING_LUT_TEXTURE_BINDING_INDEX,
+    graph::NodePbr, MeshPipeline, MeshViewBindGroup, RenderViewLightProbes,
+    ScreenSpaceAmbientOcclusion, ScreenSpaceReflectionsUniform, ViewEnvironmentMapUniformOffset,
+    ViewLightProbesUniformOffset, ViewScreenSpaceReflectionsUniformOffset,
+    TONEMAPPING_LUT_SAMPLER_BINDING_INDEX, TONEMAPPING_LUT_TEXTURE_BINDING_INDEX,
 };
 use crate::{DistanceFog, MeshPipelineKey, ViewFogUniformOffset, ViewLightsUniformOffset};
 use bevy_app::prelude::*;
@@ -18,7 +17,7 @@ use bevy_core_pipeline::{
 };
 use bevy_ecs::{prelude::*, query::QueryItem};
 use bevy_image::BevyDefault as _;
-use bevy_light::{EnvironmentMapLight, ShadowFilteringMethod};
+use bevy_light::{EnvironmentMapLight, IrradianceVolume, ShadowFilteringMethod};
 use bevy_render::RenderStartup;
 use bevy_render::{
     diagnostic::RecordDiagnostics,
