@@ -1,25 +1,26 @@
 use bevy_app::prelude::*;
-use bevy_asset::{load_internal_asset, weak_handle, Handle};
+use bevy_asset::{embedded_asset, load_embedded_asset, AssetServer, Handle};
+use bevy_camera::Camera;
 use bevy_core_pipeline::{
     core_2d::graph::{Core2d, Node2d},
     core_3d::graph::{Core3d, Node3d},
-    fullscreen_vertex_shader::fullscreen_shader_vertex_state,
+    FullscreenShader,
 };
 use bevy_ecs::{prelude::*, query::QueryItem};
 use bevy_image::BevyDefault as _;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
     extract_component::{ExtractComponent, ExtractComponentPlugin, UniformComponentPlugin},
-    prelude::Camera,
-    render_graph::RenderGraphApp,
+    render_graph::RenderGraphExt,
     render_resource::{
         binding_types::{sampler, texture_2d, uniform_buffer},
         *,
     },
     renderer::RenderDevice,
     view::{ExtractedView, ViewTarget},
-    Render, RenderApp, RenderSet,
+    Render, RenderApp, RenderStartup, RenderSystems,
 };
+use bevy_utils::default;
 
 mod node;
 
@@ -95,22 +96,13 @@ impl ExtractComponent for ContrastAdaptiveSharpening {
     }
 }
 
-const CONTRAST_ADAPTIVE_SHARPENING_SHADER_HANDLE: Handle<Shader> =
-    weak_handle!("ef83f0a5-51df-4b51-9ab7-b5fd1ae5a397");
-
 /// Adds Support for Contrast Adaptive Sharpening (CAS).
 pub struct CasPlugin;
 
 impl Plugin for CasPlugin {
     fn build(&self, app: &mut App) {
-        load_internal_asset!(
-            app,
-            CONTRAST_ADAPTIVE_SHARPENING_SHADER_HANDLE,
-            "robust_contrast_adaptive_sharpening.wgsl",
-            Shader::from_wgsl
-        );
+        embedded_asset!(app, "robust_contrast_adaptive_sharpening.wgsl");
 
-        app.register_type::<ContrastAdaptiveSharpening>();
         app.add_plugins((
             ExtractComponentPlugin::<ContrastAdaptiveSharpening>::default(),
             UniformComponentPlugin::<CasUniform>::default(),
@@ -121,7 +113,8 @@ impl Plugin for CasPlugin {
         };
         render_app
             .init_resource::<SpecializedRenderPipelines<CasPipeline>>()
-            .add_systems(Render, prepare_cas_pipelines.in_set(RenderSet::Prepare));
+            .add_systems(RenderStartup, init_cas_pipeline)
+            .add_systems(Render, prepare_cas_pipelines.in_set(RenderSystems::Prepare));
 
         {
             render_app
@@ -158,44 +151,46 @@ impl Plugin for CasPlugin {
                 );
         }
     }
-
-    fn finish(&self, app: &mut App) {
-        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
-            return;
-        };
-        render_app.init_resource::<CasPipeline>();
-    }
 }
 
 #[derive(Resource)]
 pub struct CasPipeline {
     texture_bind_group: BindGroupLayout,
     sampler: Sampler,
+    fullscreen_shader: FullscreenShader,
+    fragment_shader: Handle<Shader>,
 }
 
-impl FromWorld for CasPipeline {
-    fn from_world(render_world: &mut World) -> Self {
-        let render_device = render_world.resource::<RenderDevice>();
-        let texture_bind_group = render_device.create_bind_group_layout(
-            "sharpening_texture_bind_group_layout",
-            &BindGroupLayoutEntries::sequential(
-                ShaderStages::FRAGMENT,
-                (
-                    texture_2d(TextureSampleType::Float { filterable: true }),
-                    sampler(SamplerBindingType::Filtering),
-                    // CAS Settings
-                    uniform_buffer::<CasUniform>(true),
-                ),
+pub fn init_cas_pipeline(
+    mut commands: Commands,
+    render_device: Res<RenderDevice>,
+    fullscreen_shader: Res<FullscreenShader>,
+    asset_server: Res<AssetServer>,
+) {
+    let texture_bind_group = render_device.create_bind_group_layout(
+        "sharpening_texture_bind_group_layout",
+        &BindGroupLayoutEntries::sequential(
+            ShaderStages::FRAGMENT,
+            (
+                texture_2d(TextureSampleType::Float { filterable: true }),
+                sampler(SamplerBindingType::Filtering),
+                // CAS Settings
+                uniform_buffer::<CasUniform>(true),
             ),
-        );
+        ),
+    );
 
-        let sampler = render_device.create_sampler(&SamplerDescriptor::default());
+    let sampler = render_device.create_sampler(&SamplerDescriptor::default());
 
-        CasPipeline {
-            texture_bind_group,
-            sampler,
-        }
-    }
+    commands.insert_resource(CasPipeline {
+        texture_bind_group,
+        sampler,
+        fullscreen_shader: fullscreen_shader.clone(),
+        fragment_shader: load_embedded_asset!(
+            asset_server.as_ref(),
+            "robust_contrast_adaptive_sharpening.wgsl"
+        ),
+    });
 }
 
 #[derive(PartialEq, Eq, Hash, Clone, Copy)]
@@ -215,22 +210,18 @@ impl SpecializedRenderPipeline for CasPipeline {
         RenderPipelineDescriptor {
             label: Some("contrast_adaptive_sharpening".into()),
             layout: vec![self.texture_bind_group.clone()],
-            vertex: fullscreen_shader_vertex_state(),
+            vertex: self.fullscreen_shader.to_vertex_state(),
             fragment: Some(FragmentState {
-                shader: CONTRAST_ADAPTIVE_SHARPENING_SHADER_HANDLE,
+                shader: self.fragment_shader.clone(),
                 shader_defs,
-                entry_point: "fragment".into(),
                 targets: vec![Some(ColorTargetState {
                     format: key.texture_format,
                     blend: None,
                     write_mask: ColorWrites::ALL,
                 })],
+                ..default()
             }),
-            primitive: PrimitiveState::default(),
-            depth_stencil: None,
-            multisample: MultisampleState::default(),
-            push_constant_ranges: Vec::new(),
-            zero_initialize_workgroup_memory: false,
+            ..default()
         }
     }
 }

@@ -177,7 +177,7 @@ impl FunctionInfo {
     /// let pretty = info.pretty_printer();
     /// assert_eq!(format!("{:?}", pretty), "(_: i32, _: i32) -> i32");
     /// ```
-    pub fn pretty_printer(&self) -> PrettyPrintFunctionInfo {
+    pub fn pretty_printer(&self) -> PrettyPrintFunctionInfo<'_> {
         PrettyPrintFunctionInfo::new(self)
     }
 
@@ -235,6 +235,12 @@ impl<const N: usize> TryFrom<[SignatureInfo; N]> for FunctionInfo {
     }
 }
 
+/// Type information for the signature of a [`DynamicFunction`] or [`DynamicFunctionMut`].
+///
+/// Every [`FunctionInfo`] contains one or more [`SignatureInfo`]s.
+///
+/// [`DynamicFunction`]: crate::func::DynamicFunction
+/// [`DynamicFunctionMut`]: crate::func::DynamicFunctionMut
 #[derive(Debug, Clone)]
 pub struct SignatureInfo {
     name: Option<Cow<'static, str>>,
@@ -434,7 +440,7 @@ impl<'a> Debug for PrettyPrintFunctionInfo<'a> {
         }
 
         match (self.include_name, self.info.name()) {
-            (true, Some(name)) => write!(f, "{}", name)?,
+            (true, Some(name)) => write!(f, "{name}")?,
             (true, None) => write!(f, "_")?,
             _ => {}
         }
@@ -509,7 +515,7 @@ impl<'a> Debug for PrettyPrintSignatureInfo<'a> {
         }
 
         match (self.include_name, self.info.name()) {
-            (true, Some(name)) => write!(f, "{}", name)?,
+            (true, Some(name)) => write!(f, "{name}")?,
             (true, None) => write!(f, "_")?,
             _ => {}
         }

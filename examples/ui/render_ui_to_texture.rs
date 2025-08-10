@@ -3,10 +3,10 @@
 use std::f32::consts::PI;
 
 use bevy::{
+    camera::RenderTarget,
     color::palettes::css::GOLD,
     prelude::*,
     render::{
-        camera::RenderTarget,
         render_asset::RenderAssetUsages,
         render_resource::{Extent3d, TextureDimension, TextureFormat, TextureUsages},
     },

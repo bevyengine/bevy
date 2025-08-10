@@ -1,14 +1,14 @@
 //! Screen space reflections implemented via raymarching.
 
 use bevy_app::{App, Plugin};
-use bevy_asset::{load_internal_asset, weak_handle, Handle};
+use bevy_asset::{load_embedded_asset, AssetServer, Handle};
 use bevy_core_pipeline::{
     core_3d::{
         graph::{Core3d, Node3d},
         DEPTH_TEXTURE_SAMPLING_SUPPORTED,
     },
-    fullscreen_vertex_shader,
     prepass::{DeferredPrepass, DepthPrepass, MotionVectorPrepass, NormalPrepass},
+    FullscreenShader,
 };
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
@@ -19,14 +19,18 @@ use bevy_ecs::{
     resource::Resource,
     schedule::IntoScheduleConfigs as _,
     system::{lifetimeless::Read, Commands, Query, Res, ResMut},
-    world::{FromWorld, World},
+    world::World,
 };
 use bevy_image::BevyDefault as _;
+use bevy_light::EnvironmentMapLight;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
-use bevy_render::render_graph::RenderGraph;
 use bevy_render::{
+    diagnostic::RecordDiagnostics,
     extract_component::{ExtractComponent, ExtractComponentPlugin},
-    render_graph::{NodeRunError, RenderGraphApp, RenderGraphContext, ViewNode, ViewNodeRunner},
+    load_shader_library,
+    render_graph::{
+        NodeRunError, RenderGraph, RenderGraphContext, RenderGraphExt, ViewNode, ViewNodeRunner,
+    },
     render_resource::{
         binding_types, AddressMode, BindGroupEntries, BindGroupLayout, BindGroupLayoutEntries,
         CachedRenderPipelineId, ColorTargetState, ColorWrites, DynamicUniformBuffer, FilterMode,
@@ -37,20 +41,16 @@ use bevy_render::{
     },
     renderer::{RenderAdapter, RenderContext, RenderDevice, RenderQueue},
     view::{ExtractedView, Msaa, ViewTarget, ViewUniformOffset},
-    Render, RenderApp, RenderSet,
+    Render, RenderApp, RenderStartup, RenderSystems,
 };
 use bevy_utils::{once, prelude::default};
 use tracing::info;
 
 use crate::{
-    binding_arrays_are_usable, graph::NodePbr, prelude::EnvironmentMapLight,
-    MeshPipelineViewLayoutKey, MeshPipelineViewLayouts, MeshViewBindGroup, RenderViewLightProbes,
-    ViewEnvironmentMapUniformOffset, ViewFogUniformOffset, ViewLightProbesUniformOffset,
-    ViewLightsUniformOffset,
+    binding_arrays_are_usable, graph::NodePbr, MeshPipelineViewLayoutKey, MeshPipelineViewLayouts,
+    MeshViewBindGroup, RenderViewLightProbes, ViewEnvironmentMapUniformOffset,
+    ViewFogUniformOffset, ViewLightProbesUniformOffset, ViewLightsUniformOffset,
 };
-
-const SSR_SHADER_HANDLE: Handle<Shader> = weak_handle!("0b559df2-0d61-4f53-bf62-aea16cf32787");
-const RAYMARCH_SHADER_HANDLE: Handle<Shader> = weak_handle!("798cc6fc-6072-4b6c-ab4f-83905fa4a19e");
 
 /// Enables screen-space reflections for a camera.
 ///
@@ -158,6 +158,8 @@ pub struct ScreenSpaceReflectionsPipeline {
     depth_nearest_sampler: Sampler,
     bind_group_layout: BindGroupLayout,
     binding_arrays_are_usable: bool,
+    fullscreen_shader: FullscreenShader,
+    fragment_shader: Handle<Shader>,
 }
 
 /// A GPU buffer that stores the screen space reflection settings for each view.
@@ -179,16 +181,10 @@ pub struct ScreenSpaceReflectionsPipelineKey {
 
 impl Plugin for ScreenSpaceReflectionsPlugin {
     fn build(&self, app: &mut App) {
-        load_internal_asset!(app, SSR_SHADER_HANDLE, "ssr.wgsl", Shader::from_wgsl);
-        load_internal_asset!(
-            app,
-            RAYMARCH_SHADER_HANDLE,
-            "raymarch.wgsl",
-            Shader::from_wgsl
-        );
+        load_shader_library!(app, "ssr.wgsl");
+        load_shader_library!(app, "raymarch.wgsl");
 
-        app.register_type::<ScreenSpaceReflections>()
-            .add_plugins(ExtractComponentPlugin::<ScreenSpaceReflections>::default());
+        app.add_plugins(ExtractComponentPlugin::<ScreenSpaceReflections>::default());
 
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
@@ -196,50 +192,41 @@ impl Plugin for ScreenSpaceReflectionsPlugin {
 
         render_app
             .init_resource::<ScreenSpaceReflectionsBuffer>()
-            .add_systems(Render, prepare_ssr_pipelines.in_set(RenderSet::Prepare))
+            .init_resource::<SpecializedRenderPipelines<ScreenSpaceReflectionsPipeline>>()
+            .add_systems(
+                RenderStartup,
+                (
+                    init_screen_space_reflections_pipeline,
+                    add_screen_space_reflections_render_graph_edges,
+                ),
+            )
+            .add_systems(Render, prepare_ssr_pipelines.in_set(RenderSystems::Prepare))
             .add_systems(
                 Render,
-                prepare_ssr_settings.in_set(RenderSet::PrepareResources),
+                prepare_ssr_settings.in_set(RenderSystems::PrepareResources),
             )
+            // Note: we add this node here but then we add edges in
+            // `add_screen_space_reflections_render_graph_edges`.
             .add_render_graph_node::<ViewNodeRunner<ScreenSpaceReflectionsNode>>(
                 Core3d,
                 NodePbr::ScreenSpaceReflections,
             );
     }
+}
 
-    fn finish(&self, app: &mut App) {
-        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
-            return;
-        };
+fn add_screen_space_reflections_render_graph_edges(mut render_graph: ResMut<RenderGraph>) {
+    let subgraph = render_graph.sub_graph_mut(Core3d);
 
-        render_app
-            .init_resource::<ScreenSpaceReflectionsPipeline>()
-            .init_resource::<SpecializedRenderPipelines<ScreenSpaceReflectionsPipeline>>();
+    subgraph.add_node_edge(NodePbr::ScreenSpaceReflections, Node3d::MainOpaquePass);
 
-        // only reference the default deferred lighting pass
-        // if it has been added
-        let has_default_deferred_lighting_pass = render_app
-            .world_mut()
-            .resource_mut::<RenderGraph>()
-            .sub_graph(Core3d)
-            .get_node_state(NodePbr::DeferredLightingPass)
-            .is_ok();
-
-        if has_default_deferred_lighting_pass {
-            render_app.add_render_graph_edges(
-                Core3d,
-                (
-                    NodePbr::DeferredLightingPass,
-                    NodePbr::ScreenSpaceReflections,
-                    Node3d::MainOpaquePass,
-                ),
-            );
-        } else {
-            render_app.add_render_graph_edges(
-                Core3d,
-                (NodePbr::ScreenSpaceReflections, Node3d::MainOpaquePass),
-            );
-        }
+    if subgraph
+        .get_node_state(NodePbr::DeferredLightingPass)
+        .is_ok()
+    {
+        subgraph.add_node_edge(
+            NodePbr::DeferredLightingPass,
+            NodePbr::ScreenSpaceReflections,
+        );
     }
 }
 
@@ -287,7 +274,7 @@ impl ViewNode for ScreenSpaceReflectionsNode {
             view_environment_map_offset,
             view_bind_group,
             ssr_pipeline_id,
-        ): QueryItem<'w, Self::ViewQuery>,
+        ): QueryItem<'w, '_, Self::ViewQuery>,
         world: &'w World,
     ) -> Result<(), NodeRunError> {
         // Grab the render pipeline.
@@ -295,6 +282,8 @@ impl ViewNode for ScreenSpaceReflectionsNode {
         let Some(render_pipeline) = pipeline_cache.get_render_pipeline(**ssr_pipeline_id) else {
             return Ok(());
         };
+
+        let diagnostics = render_context.diagnostic_recorder();
 
         // Set up a standard pair of postprocessing textures.
         let postprocess = view_target.post_process_write();
@@ -314,9 +303,10 @@ impl ViewNode for ScreenSpaceReflectionsNode {
 
         // Build the SSR render pass.
         let mut render_pass = render_context.begin_tracked_render_pass(RenderPassDescriptor {
-            label: Some("SSR pass"),
+            label: Some("ssr"),
             color_attachments: &[Some(RenderPassColorAttachment {
                 view: postprocess.destination,
+                depth_slice: None,
                 resolve_target: None,
                 ops: Operations::default(),
             })],
@@ -324,12 +314,13 @@ impl ViewNode for ScreenSpaceReflectionsNode {
             timestamp_writes: None,
             occlusion_query_set: None,
         });
+        let pass_span = diagnostics.pass_span(&mut render_pass, "ssr");
 
         // Set bind groups.
         render_pass.set_render_pipeline(render_pipeline);
         render_pass.set_bind_group(
             0,
-            &view_bind_group.value,
+            &view_bind_group.main,
             &[
                 view_uniform_offset.offset,
                 view_lights_offset.offset,
@@ -339,73 +330,81 @@ impl ViewNode for ScreenSpaceReflectionsNode {
                 **view_environment_map_offset,
             ],
         );
+        render_pass.set_bind_group(1, &view_bind_group.binding_array, &[]);
 
         // Perform the SSR render pass.
-        render_pass.set_bind_group(1, &ssr_bind_group, &[]);
+        render_pass.set_bind_group(2, &ssr_bind_group, &[]);
         render_pass.draw(0..3, 0..1);
+
+        pass_span.end(&mut render_pass);
 
         Ok(())
     }
 }
 
-impl FromWorld for ScreenSpaceReflectionsPipeline {
-    fn from_world(world: &mut World) -> Self {
-        let mesh_view_layouts = world.resource::<MeshPipelineViewLayouts>().clone();
-        let render_device = world.resource::<RenderDevice>();
-        let render_adapter = world.resource::<RenderAdapter>();
-
-        // Create the bind group layout.
-        let bind_group_layout = render_device.create_bind_group_layout(
-            "SSR bind group layout",
-            &BindGroupLayoutEntries::sequential(
-                ShaderStages::FRAGMENT,
-                (
-                    binding_types::texture_2d(TextureSampleType::Float { filterable: true }),
-                    binding_types::sampler(SamplerBindingType::Filtering),
-                    binding_types::sampler(SamplerBindingType::Filtering),
-                    binding_types::sampler(SamplerBindingType::NonFiltering),
-                ),
+pub fn init_screen_space_reflections_pipeline(
+    mut commands: Commands,
+    render_device: Res<RenderDevice>,
+    render_adapter: Res<RenderAdapter>,
+    mesh_view_layouts: Res<MeshPipelineViewLayouts>,
+    fullscreen_shader: Res<FullscreenShader>,
+    asset_server: Res<AssetServer>,
+) {
+    // Create the bind group layout.
+    let bind_group_layout = render_device.create_bind_group_layout(
+        "SSR bind group layout",
+        &BindGroupLayoutEntries::sequential(
+            ShaderStages::FRAGMENT,
+            (
+                binding_types::texture_2d(TextureSampleType::Float { filterable: true }),
+                binding_types::sampler(SamplerBindingType::Filtering),
+                binding_types::sampler(SamplerBindingType::Filtering),
+                binding_types::sampler(SamplerBindingType::NonFiltering),
             ),
-        );
+        ),
+    );
 
-        // Create the samplers we need.
+    // Create the samplers we need.
 
-        let color_sampler = render_device.create_sampler(&SamplerDescriptor {
-            label: "SSR color sampler".into(),
-            address_mode_u: AddressMode::ClampToEdge,
-            address_mode_v: AddressMode::ClampToEdge,
-            mag_filter: FilterMode::Linear,
-            min_filter: FilterMode::Linear,
-            ..default()
-        });
+    let color_sampler = render_device.create_sampler(&SamplerDescriptor {
+        label: "SSR color sampler".into(),
+        address_mode_u: AddressMode::ClampToEdge,
+        address_mode_v: AddressMode::ClampToEdge,
+        mag_filter: FilterMode::Linear,
+        min_filter: FilterMode::Linear,
+        ..default()
+    });
 
-        let depth_linear_sampler = render_device.create_sampler(&SamplerDescriptor {
-            label: "SSR depth linear sampler".into(),
-            address_mode_u: AddressMode::ClampToEdge,
-            address_mode_v: AddressMode::ClampToEdge,
-            mag_filter: FilterMode::Linear,
-            min_filter: FilterMode::Linear,
-            ..default()
-        });
+    let depth_linear_sampler = render_device.create_sampler(&SamplerDescriptor {
+        label: "SSR depth linear sampler".into(),
+        address_mode_u: AddressMode::ClampToEdge,
+        address_mode_v: AddressMode::ClampToEdge,
+        mag_filter: FilterMode::Linear,
+        min_filter: FilterMode::Linear,
+        ..default()
+    });
 
-        let depth_nearest_sampler = render_device.create_sampler(&SamplerDescriptor {
-            label: "SSR depth nearest sampler".into(),
-            address_mode_u: AddressMode::ClampToEdge,
-            address_mode_v: AddressMode::ClampToEdge,
-            mag_filter: FilterMode::Nearest,
-            min_filter: FilterMode::Nearest,
-            ..default()
-        });
+    let depth_nearest_sampler = render_device.create_sampler(&SamplerDescriptor {
+        label: "SSR depth nearest sampler".into(),
+        address_mode_u: AddressMode::ClampToEdge,
+        address_mode_v: AddressMode::ClampToEdge,
+        mag_filter: FilterMode::Nearest,
+        min_filter: FilterMode::Nearest,
+        ..default()
+    });
 
-        Self {
-            mesh_view_layouts,
-            color_sampler,
-            depth_linear_sampler,
-            depth_nearest_sampler,
-            bind_group_layout,
-            binding_arrays_are_usable: binding_arrays_are_usable(render_device, render_adapter),
-        }
-    }
+    commands.insert_resource(ScreenSpaceReflectionsPipeline {
+        mesh_view_layouts: mesh_view_layouts.clone(),
+        color_sampler,
+        depth_linear_sampler,
+        depth_nearest_sampler,
+        bind_group_layout,
+        binding_arrays_are_usable: binding_arrays_are_usable(&render_device, &render_adapter),
+        fullscreen_shader: fullscreen_shader.clone(),
+        // Even though ssr was loaded using load_shader_library, we can still access it like a
+        // normal embedded asset (so we can use it as both a library or a kernel).
+        fragment_shader: load_embedded_asset!(asset_server.as_ref(), "ssr.wgsl"),
+    });
 }
 
 /// Sets up screen space reflection pipelines for each applicable view.
@@ -502,7 +501,7 @@ impl ExtractComponent for ScreenSpaceReflections {
 
     type Out = ScreenSpaceReflectionsUniform;
 
-    fn extract_component(settings: QueryItem<'_, Self::QueryData>) -> Option<Self::Out> {
+    fn extract_component(settings: QueryItem<'_, '_, Self::QueryData>) -> Option<Self::Out> {
         if !DEPTH_TEXTURE_SAMPLING_SUPPORTED {
             once!(info!(
                 "Disabling screen-space reflections on this platform because depth textures \
@@ -519,9 +518,14 @@ impl SpecializedRenderPipeline for ScreenSpaceReflectionsPipeline {
     type Key = ScreenSpaceReflectionsPipelineKey;
 
     fn specialize(&self, key: Self::Key) -> RenderPipelineDescriptor {
-        let mesh_view_layout = self
+        let layout = self
             .mesh_view_layouts
             .get_view_layout(key.mesh_pipeline_view_key);
+        let layout = vec![
+            layout.main_layout.clone(),
+            layout.binding_array_layout.clone(),
+            self.bind_group_layout.clone(),
+        ];
 
         let mut shader_defs = vec![
             "DEPTH_PREPASS".into(),
@@ -539,12 +543,11 @@ impl SpecializedRenderPipeline for ScreenSpaceReflectionsPipeline {
 
         RenderPipelineDescriptor {
             label: Some("SSR pipeline".into()),
-            layout: vec![mesh_view_layout.clone(), self.bind_group_layout.clone()],
-            vertex: fullscreen_vertex_shader::fullscreen_shader_vertex_state(),
+            layout,
+            vertex: self.fullscreen_shader.to_vertex_state(),
             fragment: Some(FragmentState {
-                shader: SSR_SHADER_HANDLE,
+                shader: self.fragment_shader.clone(),
                 shader_defs,
-                entry_point: "fragment".into(),
                 targets: vec![Some(ColorTargetState {
                     format: if key.is_hdr {
                         ViewTarget::TEXTURE_FORMAT_HDR
@@ -554,12 +557,9 @@ impl SpecializedRenderPipeline for ScreenSpaceReflectionsPipeline {
                     blend: None,
                     write_mask: ColorWrites::ALL,
                 })],
+                ..default()
             }),
-            push_constant_ranges: vec![],
-            primitive: default(),
-            depth_stencil: None,
-            multisample: default(),
-            zero_initialize_workgroup_memory: false,
+            ..default()
         }
     }
 }

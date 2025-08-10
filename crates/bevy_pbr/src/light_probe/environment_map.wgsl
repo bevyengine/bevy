@@ -32,7 +32,6 @@ fn compute_radiances(
     // Unpack.
     let N = input.N;
     let R = input.R;
-    let NdotV = input.NdotV;
     let perceptual_roughness = input.perceptual_roughness;
     let roughness = input.roughness;
 
@@ -111,7 +110,6 @@ fn compute_radiances(
     // Unpack.
     let N = input.N;
     let R = input.R;
-    let NdotV = input.NdotV;
     let perceptual_roughness = input.perceptual_roughness;
     let roughness = input.roughness;
 

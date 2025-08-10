@@ -1,29 +1,34 @@
-//! This example illustrates how to make headless renderer
-//! derived from: <https://sotrh.github.io/learn-wgpu/showcase/windowless/#a-triangle-without-a-window>
-//! It follows this steps:
+//! This example illustrates how to make a headless renderer.
+//! Derived from: <https://sotrh.github.io/learn-wgpu/showcase/windowless/#a-triangle-without-a-window>
+//! It follows these steps:
+//!
 //! 1. Render from camera to gpu-image render target
 //! 2. Copy from gpu image to buffer using `ImageCopyDriver` node in `RenderGraph`
-//! 3. Copy from buffer to channel using `receive_image_from_buffer` after `RenderSet::Render`
+//! 3. Copy from buffer to channel using `receive_image_from_buffer` after `RenderSystems::Render`
 //! 4. Save from channel to random named file using `scene::update` at `PostUpdate` in `MainWorld`
 //! 5. Exit if `single_image` setting is set
+//!
+//! If your goal is to capture a single “screenshot” as opposed to every single rendered frame
+//! without gaps, it is simpler to use [`bevy::render::view::window::screenshot::Screenshot`]
+//! than this approach.
 
 use bevy::{
     app::{AppExit, ScheduleRunnerPlugin},
+    camera::RenderTarget,
     core_pipeline::tonemapping::Tonemapping,
     image::TextureFormatPixelInfo,
     prelude::*,
     render::{
-        camera::RenderTarget,
-        render_asset::{RenderAssetUsages, RenderAssets},
+        render_asset::RenderAssets,
         render_graph::{self, NodeRunError, RenderGraph, RenderGraphContext, RenderLabel},
         render_resource::{
-            Buffer, BufferDescriptor, BufferUsages, CommandEncoderDescriptor, Extent3d, Maintain,
-            MapMode, TexelCopyBufferInfo, TexelCopyBufferLayout, TextureDimension, TextureFormat,
-            TextureUsages,
+            Buffer, BufferDescriptor, BufferUsages, CommandEncoderDescriptor, Extent3d, MapMode,
+            PollType, TexelCopyBufferInfo, TexelCopyBufferLayout, TextureFormat, TextureUsages,
         },
         renderer::{RenderContext, RenderDevice, RenderQueue},
-        Extract, Render, RenderApp, RenderSet,
+        Extract, Render, RenderApp, RenderSystems,
     },
+    window::ExitCondition,
     winit::WinitPlugin,
 };
 use crossbeam_channel::{Receiver, Sender};
@@ -36,7 +41,6 @@ use std::{
     },
     time::Duration,
 };
-
 // To communicate between the main world and the render world we need a channel.
 // Since the main world and render world run in parallel, there will always be a frame of latency
 // between the data sent from the render world and the data received in the main world
@@ -86,6 +90,9 @@ fn main() {
                 // replaces the bevy_winit app runner and so a window is never created.
                 .set(WindowPlugin {
                     primary_window: None,
+                    // Don’t automatically exit due to having no windows.
+                    // Instead, the code in `update()` will explicitly produce an `AppExit` event.
+                    exit_condition: ExitCondition::DontExit,
                     ..default()
                 })
                 // WinitPlugin will panic in environments without a display server.
@@ -217,7 +224,10 @@ impl Plugin for ImageCopyPlugin {
             .add_systems(ExtractSchedule, image_copy_extract)
             // Receives image data from buffer to channel
             // so we need to run it after the render graph is done
-            .add_systems(Render, receive_image_from_buffer.after(RenderSet::Render));
+            .add_systems(
+                Render,
+                receive_image_from_buffer.after(RenderSystems::Render),
+            );
     }
 }
 
@@ -237,25 +247,14 @@ fn setup_render_target(
     };
 
     // This is the texture that will be rendered to.
-    let mut render_target_image = Image::new_fill(
-        size,
-        TextureDimension::D2,
-        &[0; 4],
-        TextureFormat::bevy_default(),
-        RenderAssetUsages::default(),
-    );
-    render_target_image.texture_descriptor.usage |=
-        TextureUsages::COPY_SRC | TextureUsages::RENDER_ATTACHMENT | TextureUsages::TEXTURE_BINDING;
+    let mut render_target_image =
+        Image::new_target_texture(size.width, size.height, TextureFormat::bevy_default());
+    render_target_image.texture_descriptor.usage |= TextureUsages::COPY_SRC;
     let render_target_image_handle = images.add(render_target_image);
 
     // This is the texture that will be copied to.
-    let cpu_image = Image::new_fill(
-        size,
-        TextureDimension::D2,
-        &[0; 4],
-        TextureFormat::bevy_default(),
-        RenderAssetUsages::default(),
-    );
+    let cpu_image =
+        Image::new_target_texture(size.width, size.height, TextureFormat::bevy_default());
     let cpu_image_handle = images.add(cpu_image);
 
     commands.spawn(ImageCopier::new(
@@ -449,7 +448,9 @@ fn receive_image_from_buffer(
         // `Maintain::Wait` will cause the thread to wait on native but not on WebGpu.
 
         // This blocks until the gpu is done executing everything
-        render_device.poll(Maintain::wait()).panic_on_timeout();
+        render_device
+            .poll(PollType::Wait)
+            .expect("Failed to poll device for map async");
 
         // This blocks until the buffer is mapped
         r.recv().expect("Failed to receive the map_async message");

@@ -1,7 +1,7 @@
 use crate::{
     render_resource::{GpuArrayBuffer, GpuArrayBufferable},
     renderer::{RenderDevice, RenderQueue},
-    Render, RenderApp, RenderSet,
+    Render, RenderApp, RenderSystems,
 };
 use bevy_app::{App, Plugin};
 use bevy_ecs::{
@@ -20,7 +20,7 @@ impl<C: Component + GpuArrayBufferable> Plugin for GpuComponentArrayBufferPlugin
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app.add_systems(
                 Render,
-                prepare_gpu_component_array_buffers::<C>.in_set(RenderSet::PrepareResources),
+                prepare_gpu_component_array_buffers::<C>.in_set(RenderSystems::PrepareResources),
             );
         }
     }

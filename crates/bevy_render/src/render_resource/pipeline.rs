@@ -1,13 +1,15 @@
-use super::ShaderDefVal;
-use crate::mesh::VertexBufferLayout;
-use crate::renderer::WgpuWrapper;
+use super::{empty_bind_group_layout, ShaderDefVal};
+use crate::WgpuWrapper;
 use crate::{
     define_atomic_id,
     render_resource::{BindGroupLayout, Shader},
 };
 use alloc::borrow::Cow;
 use bevy_asset::Handle;
+use bevy_mesh::VertexBufferLayout;
+use core::iter;
 use core::ops::Deref;
+use thiserror::Error;
 use wgpu::{
     ColorTargetState, DepthStencilState, MultisampleState, PrimitiveState, PushConstantRange,
 };
@@ -88,7 +90,7 @@ impl Deref for ComputePipeline {
 }
 
 /// Describes a render (graphics) pipeline.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Default)]
 pub struct RenderPipelineDescriptor {
     /// Debug label of the pipeline. This will show up in graphics debuggers for easy identification.
     pub label: Option<Cow<'static, str>>,
@@ -112,33 +114,53 @@ pub struct RenderPipelineDescriptor {
     pub zero_initialize_workgroup_memory: bool,
 }
 
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Copy, Clone, Debug, Error)]
+#[error("RenderPipelineDescriptor has no FragmentState configured")]
+pub struct NoFragmentStateError;
+
+impl RenderPipelineDescriptor {
+    pub fn fragment_mut(&mut self) -> Result<&mut FragmentState, NoFragmentStateError> {
+        self.fragment.as_mut().ok_or(NoFragmentStateError)
+    }
+
+    pub fn set_layout(&mut self, index: usize, layout: BindGroupLayout) {
+        filling_set_at(&mut self.layout, index, empty_bind_group_layout(), layout);
+    }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Default)]
 pub struct VertexState {
     /// The compiled shader module for this stage.
     pub shader: Handle<Shader>,
     pub shader_defs: Vec<ShaderDefVal>,
-    /// The name of the entry point in the compiled shader. There must be a
-    /// function with this name in the shader.
-    pub entry_point: Cow<'static, str>,
+    /// The name of the entry point in the compiled shader, or `None` if the default entry point
+    /// is used.
+    pub entry_point: Option<Cow<'static, str>>,
     /// The format of any vertex buffers used with this pipeline.
     pub buffers: Vec<VertexBufferLayout>,
 }
 
 /// Describes the fragment process in a render pipeline.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Default)]
 pub struct FragmentState {
     /// The compiled shader module for this stage.
     pub shader: Handle<Shader>,
     pub shader_defs: Vec<ShaderDefVal>,
-    /// The name of the entry point in the compiled shader. There must be a
-    /// function with this name in the shader.
-    pub entry_point: Cow<'static, str>,
+    /// The name of the entry point in the compiled shader, or `None` if the default entry point
+    /// is used.
+    pub entry_point: Option<Cow<'static, str>>,
     /// The color state of the render targets.
     pub targets: Vec<Option<ColorTargetState>>,
 }
 
+impl FragmentState {
+    pub fn set_target(&mut self, index: usize, target: ColorTargetState) {
+        filling_set_at(&mut self.targets, index, None, Some(target));
+    }
+}
+
 /// Describes a compute pipeline.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq, Default)]
 pub struct ComputePipelineDescriptor {
     pub label: Option<Cow<'static, str>>,
     pub layout: Vec<BindGroupLayout>,
@@ -146,10 +168,18 @@ pub struct ComputePipelineDescriptor {
     /// The compiled shader module for this stage.
     pub shader: Handle<Shader>,
     pub shader_defs: Vec<ShaderDefVal>,
-    /// The name of the entry point in the compiled shader. There must be a
-    /// function with this name in the shader.
-    pub entry_point: Cow<'static, str>,
+    /// The name of the entry point in the compiled shader, or `None` if the default entry point
+    /// is used.
+    pub entry_point: Option<Cow<'static, str>>,
     /// Whether to zero-initialize workgroup memory by default. If you're not sure, set this to true.
     /// If this is false, reading from workgroup variables before writing to them will result in garbage values.
     pub zero_initialize_workgroup_memory: bool,
+}
+
+// utility function to set a value at the specified index, extending with
+// a filler value if the index is out of bounds.
+fn filling_set_at<T: Clone>(vec: &mut Vec<T>, index: usize, filler: T, value: T) {
+    let num_to_fill = (index + 1).saturating_sub(vec.len());
+    vec.extend(iter::repeat_n(filler, num_to_fill));
+    vec[index] = value;
 }

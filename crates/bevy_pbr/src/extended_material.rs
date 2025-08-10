@@ -1,16 +1,16 @@
 use alloc::borrow::Cow;
 
-use bevy_asset::{Asset, Handle};
+use bevy_asset::Asset;
 use bevy_ecs::system::SystemParamItem;
+use bevy_mesh::MeshVertexBufferLayoutRef;
 use bevy_platform::{collections::HashSet, hash::FixedHasher};
 use bevy_reflect::{impl_type_path, Reflect};
 use bevy_render::{
     alpha::AlphaMode,
-    mesh::MeshVertexBufferLayoutRef,
     render_resource::{
         AsBindGroup, AsBindGroupError, BindGroupLayout, BindGroupLayoutEntry, BindlessDescriptor,
-        BindlessResourceType, BindlessSlabResourceLimit, RenderPipelineDescriptor, Shader,
-        ShaderRef, SpecializedMeshPipelineError, UnpreparedBindGroup,
+        BindlessResourceType, BindlessSlabResourceLimit, RenderPipelineDescriptor, ShaderRef,
+        SpecializedMeshPipelineError, UnpreparedBindGroup,
     },
     renderer::RenderDevice,
 };
@@ -19,10 +19,6 @@ use crate::{Material, MaterialPipeline, MaterialPipelineKey, MeshPipeline, MeshP
 
 pub struct MaterialExtensionPipeline {
     pub mesh_pipeline: MeshPipeline,
-    pub material_layout: BindGroupLayout,
-    pub vertex_shader: Option<Handle<Shader>>,
-    pub fragment_shader: Option<Handle<Shader>>,
-    pub bindless: bool,
 }
 
 pub struct MaterialExtensionKey<E: MaterialExtension> {
@@ -150,12 +146,19 @@ where
     }
 }
 
+#[derive(bytemuck::Pod, bytemuck::Zeroable, Copy, Clone, PartialEq, Eq, Hash)]
+#[repr(C, packed)]
+pub struct MaterialExtensionBindGroupData<B, E> {
+    pub base: B,
+    pub extension: E,
+}
+
 // We don't use the `TypePath` derive here due to a bug where `#[reflect(type_path = false)]`
 // causes the `TypePath` derive to not generate an implementation.
 impl_type_path!((in bevy_pbr::extended_material) ExtendedMaterial<B: Material, E: MaterialExtension>);
 
 impl<B: Material, E: MaterialExtension> AsBindGroup for ExtendedMaterial<B, E> {
-    type Data = (<B as AsBindGroup>::Data, <E as AsBindGroup>::Data);
+    type Data = MaterialExtensionBindGroupData<B::Data, E::Data>;
     type Param = (<B as AsBindGroup>::Param, <E as AsBindGroup>::Param);
 
     fn bindless_slot_count() -> Option<BindlessSlabResourceLimit> {
@@ -179,20 +182,24 @@ impl<B: Material, E: MaterialExtension> AsBindGroup for ExtendedMaterial<B, E> {
         }
     }
 
+    fn bind_group_data(&self) -> Self::Data {
+        MaterialExtensionBindGroupData {
+            base: self.base.bind_group_data(),
+            extension: self.extension.bind_group_data(),
+        }
+    }
+
     fn unprepared_bind_group(
         &self,
         layout: &BindGroupLayout,
         render_device: &RenderDevice,
         (base_param, extended_param): &mut SystemParamItem<'_, '_, Self::Param>,
         mut force_non_bindless: bool,
-    ) -> Result<UnpreparedBindGroup<Self::Data>, AsBindGroupError> {
+    ) -> Result<UnpreparedBindGroup, AsBindGroupError> {
         force_non_bindless = force_non_bindless || Self::bindless_slot_count().is_none();
 
         // add together the bindings of the base material and the user material
-        let UnpreparedBindGroup {
-            mut bindings,
-            data: base_data,
-        } = B::unprepared_bind_group(
+        let UnpreparedBindGroup { mut bindings } = B::unprepared_bind_group(
             &self.base,
             layout,
             render_device,
@@ -209,10 +216,7 @@ impl<B: Material, E: MaterialExtension> AsBindGroup for ExtendedMaterial<B, E> {
 
         bindings.extend(extended_bindgroup.bindings.0);
 
-        Ok(UnpreparedBindGroup {
-            bindings,
-            data: (base_data, extended_bindgroup.data),
-        })
+        Ok(UnpreparedBindGroup { bindings })
     }
 
     fn bind_group_layout_entries(
@@ -373,57 +377,28 @@ impl<B: Material, E: MaterialExtension> Material for ExtendedMaterial<B, E> {
     }
 
     fn specialize(
-        pipeline: &MaterialPipeline<Self>,
+        pipeline: &MaterialPipeline,
         descriptor: &mut RenderPipelineDescriptor,
         layout: &MeshVertexBufferLayoutRef,
         key: MaterialPipelineKey<Self>,
     ) -> Result<(), SpecializedMeshPipelineError> {
         // Call the base material's specialize function
-        let MaterialPipeline::<Self> {
-            mesh_pipeline,
-            material_layout,
-            vertex_shader,
-            fragment_shader,
-            bindless,
-            ..
-        } = pipeline.clone();
-        let base_pipeline = MaterialPipeline::<B> {
-            mesh_pipeline,
-            material_layout,
-            vertex_shader,
-            fragment_shader,
-            bindless,
-            marker: Default::default(),
-        };
         let base_key = MaterialPipelineKey::<B> {
             mesh_key: key.mesh_key,
-            bind_group_data: key.bind_group_data.0,
+            bind_group_data: key.bind_group_data.base,
         };
-        B::specialize(&base_pipeline, descriptor, layout, base_key)?;
+        B::specialize(pipeline, descriptor, layout, base_key)?;
 
         // Call the extended material's specialize function afterwards
-        let MaterialPipeline::<Self> {
-            mesh_pipeline,
-            material_layout,
-            vertex_shader,
-            fragment_shader,
-            bindless,
-            ..
-        } = pipeline.clone();
-
         E::specialize(
             &MaterialExtensionPipeline {
-                mesh_pipeline,
-                material_layout,
-                vertex_shader,
-                fragment_shader,
-                bindless,
+                mesh_pipeline: pipeline.mesh_pipeline.clone(),
             },
             descriptor,
             layout,
             MaterialExtensionKey {
                 mesh_key: key.mesh_key,
-                bind_group_data: key.bind_group_data.1,
+                bind_group_data: key.bind_group_data.extension,
             },
         )
     }

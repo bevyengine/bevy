@@ -133,6 +133,87 @@ impl<R: Relationship, F: FnOnce(&mut RelatedSpawner<R>) + Send + Sync + 'static>
     }
 }
 
+/// A [`SpawnableList`] that links already spawned entities to the root entity via relations of type `I`.
+///
+/// This is useful if the entity has already been spawned earlier or if you spawn multiple relationships link to the same entity at the same time.
+/// If you only need to do this for a single entity, consider using [`WithOneRelated`].
+///
+/// ```
+/// # use bevy_ecs::hierarchy::Children;
+/// # use bevy_ecs::spawn::{Spawn, WithRelated, SpawnRelated};
+/// # use bevy_ecs::name::Name;
+/// # use bevy_ecs::world::World;
+/// let mut world = World::new();
+///
+/// let child2 = world.spawn(Name::new("Child2")).id();
+/// let child3 = world.spawn(Name::new("Child3")).id();
+///
+/// world.spawn((
+///     Name::new("Root"),
+///     Children::spawn((
+///         Spawn(Name::new("Child1")),
+///         // This adds the already existing entities as children of Root.
+///         WithRelated::new([child2, child3]),
+///     )),
+/// ));
+/// ```
+pub struct WithRelated<I>(pub I);
+
+impl<I> WithRelated<I> {
+    /// Creates a new [`WithRelated`] from a collection of entities.
+    pub fn new(iter: impl IntoIterator<IntoIter = I>) -> Self {
+        Self(iter.into_iter())
+    }
+}
+
+impl<R: Relationship, I: Iterator<Item = Entity>> SpawnableList<R> for WithRelated<I> {
+    fn spawn(self, world: &mut World, entity: Entity) {
+        world
+            .entity_mut(entity)
+            .add_related::<R>(&self.0.collect::<Vec<_>>());
+    }
+
+    fn size_hint(&self) -> usize {
+        self.0.size_hint().0
+    }
+}
+
+/// A wrapper over an [`Entity`] indicating that an entity should be added.
+/// This is intended to be used for hierarchical spawning via traits like [`SpawnableList`] and [`SpawnRelated`].
+///
+/// Unlike [`WithRelated`] this only adds one entity.
+///
+/// Also see the [`children`](crate::children) and [`related`](crate::related) macros that abstract over the [`Spawn`] API.
+///
+/// ```
+/// # use bevy_ecs::hierarchy::Children;
+/// # use bevy_ecs::spawn::{Spawn, WithOneRelated, SpawnRelated};
+/// # use bevy_ecs::name::Name;
+/// # use bevy_ecs::world::World;
+/// let mut world = World::new();
+///
+/// let child1 = world.spawn(Name::new("Child1")).id();
+///
+/// world.spawn((
+///     Name::new("Root"),
+///     Children::spawn((
+///         // This adds the already existing entity as a child of Root.
+///         WithOneRelated(child1),
+///     )),
+/// ));
+/// ```
+pub struct WithOneRelated(pub Entity);
+
+impl<R: Relationship> SpawnableList<R> for WithOneRelated {
+    fn spawn(self, world: &mut World, entity: Entity) {
+        world.entity_mut(entity).add_one_related::<R>(self.0);
+    }
+
+    fn size_hint(&self) -> usize {
+        1
+    }
+}
+
 macro_rules! spawnable_list_impl {
     ($($list: ident),*) => {
         #[expect(
@@ -199,17 +280,8 @@ unsafe impl<R: Relationship, L: SpawnableList<R> + Send + Sync + 'static> Bundle
     ) {
         <R::RelationshipTarget as Bundle>::get_component_ids(components, ids);
     }
-
-    fn register_required_components(
-        components: &mut crate::component::ComponentsRegistrator,
-        required_components: &mut crate::component::RequiredComponents,
-    ) {
-        <R::RelationshipTarget as Bundle>::register_required_components(
-            components,
-            required_components,
-        );
-    }
 }
+
 impl<R: Relationship, L: SpawnableList<R>> DynamicBundle for SpawnRelatedBundle<R, L> {
     type Effect = Self;
 
@@ -266,16 +338,6 @@ unsafe impl<R: Relationship, B: Bundle> Bundle for SpawnOneRelated<R, B> {
     ) {
         <R::RelationshipTarget as Bundle>::get_component_ids(components, ids);
     }
-
-    fn register_required_components(
-        components: &mut crate::component::ComponentsRegistrator,
-        required_components: &mut crate::component::RequiredComponents,
-    ) {
-        <R::RelationshipTarget as Bundle>::register_required_components(
-            components,
-            required_components,
-        );
-    }
 }
 
 /// [`RelationshipTarget`] methods that create a [`Bundle`] with a [`DynamicBundle::Effect`] that:
@@ -286,7 +348,7 @@ pub trait SpawnRelated: RelationshipTarget {
     /// Returns a [`Bundle`] containing this [`RelationshipTarget`] component. It also spawns a [`SpawnableList`] of entities, each related to the bundle's entity
     /// via [`RelationshipTarget::Relationship`]. The [`RelationshipTarget`] (when possible) will pre-allocate space for the related entities.
     ///
-    /// See [`Spawn`], [`SpawnIter`], and [`SpawnWith`] for usage examples.
+    /// See [`Spawn`], [`SpawnIter`], [`SpawnWith`], [`WithRelated`] and [`WithOneRelated`] for usage examples.
     fn spawn<L: SpawnableList<Self::Relationship>>(
         list: L,
     ) -> SpawnRelatedBundle<Self::Relationship, L>;
@@ -356,6 +418,289 @@ impl<T: RelationshipTarget> SpawnRelated for T {
 #[macro_export]
 macro_rules! related {
     ($relationship_target:ty [$($child:expr),*$(,)?]) => {
-       <$relationship_target>::spawn(($($crate::spawn::Spawn($child)),*))
+       <$relationship_target>::spawn($crate::recursive_spawn!($($child),*))
     };
+}
+
+// A tail-recursive spawn utility.
+//
+// Since `SpawnableList` is only implemented for tuples
+// up to twelve elements long, this macro will nest
+// longer sequences recursively. By default, this recursion
+// will top out at around 1400 elements, but it would be
+// ill-advised to spawn that many entities with this method.
+//
+// For spawning large batches of entities at a time,
+// consider `SpawnIter` or eagerly spawning with `Commands`.
+#[macro_export]
+#[doc(hidden)]
+macro_rules! recursive_spawn {
+    // direct expansion
+    ($a:expr) => {
+        $crate::spawn::Spawn($a)
+    };
+    ($a:expr, $b:expr) => {
+        (
+            $crate::spawn::Spawn($a),
+            $crate::spawn::Spawn($b),
+        )
+    };
+    ($a:expr, $b:expr, $c:expr) => {
+        (
+            $crate::spawn::Spawn($a),
+            $crate::spawn::Spawn($b),
+            $crate::spawn::Spawn($c),
+        )
+    };
+    ($a:expr, $b:expr, $c:expr, $d:expr) => {
+        (
+            $crate::spawn::Spawn($a),
+            $crate::spawn::Spawn($b),
+            $crate::spawn::Spawn($c),
+            $crate::spawn::Spawn($d),
+        )
+    };
+    ($a:expr, $b:expr, $c:expr, $d:expr, $e:expr) => {
+        (
+            $crate::spawn::Spawn($a),
+            $crate::spawn::Spawn($b),
+            $crate::spawn::Spawn($c),
+            $crate::spawn::Spawn($d),
+            $crate::spawn::Spawn($e),
+        )
+    };
+    ($a:expr, $b:expr, $c:expr, $d:expr, $e:expr, $f:expr) => {
+        (
+            $crate::spawn::Spawn($a),
+            $crate::spawn::Spawn($b),
+            $crate::spawn::Spawn($c),
+            $crate::spawn::Spawn($d),
+            $crate::spawn::Spawn($e),
+            $crate::spawn::Spawn($f),
+        )
+    };
+    ($a:expr, $b:expr, $c:expr, $d:expr, $e:expr, $f:expr, $g:expr) => {
+        (
+            $crate::spawn::Spawn($a),
+            $crate::spawn::Spawn($b),
+            $crate::spawn::Spawn($c),
+            $crate::spawn::Spawn($d),
+            $crate::spawn::Spawn($e),
+            $crate::spawn::Spawn($f),
+            $crate::spawn::Spawn($g),
+        )
+    };
+    ($a:expr, $b:expr, $c:expr, $d:expr, $e:expr, $f:expr, $g:expr, $h:expr) => {
+        (
+            $crate::spawn::Spawn($a),
+            $crate::spawn::Spawn($b),
+            $crate::spawn::Spawn($c),
+            $crate::spawn::Spawn($d),
+            $crate::spawn::Spawn($e),
+            $crate::spawn::Spawn($f),
+            $crate::spawn::Spawn($g),
+            $crate::spawn::Spawn($h),
+        )
+    };
+    ($a:expr, $b:expr, $c:expr, $d:expr, $e:expr, $f:expr, $g:expr, $h:expr, $i:expr) => {
+        (
+            $crate::spawn::Spawn($a),
+            $crate::spawn::Spawn($b),
+            $crate::spawn::Spawn($c),
+            $crate::spawn::Spawn($d),
+            $crate::spawn::Spawn($e),
+            $crate::spawn::Spawn($f),
+            $crate::spawn::Spawn($g),
+            $crate::spawn::Spawn($h),
+            $crate::spawn::Spawn($i),
+        )
+    };
+    ($a:expr, $b:expr, $c:expr, $d:expr, $e:expr, $f:expr, $g:expr, $h:expr, $i:expr, $j:expr) => {
+        (
+            $crate::spawn::Spawn($a),
+            $crate::spawn::Spawn($b),
+            $crate::spawn::Spawn($c),
+            $crate::spawn::Spawn($d),
+            $crate::spawn::Spawn($e),
+            $crate::spawn::Spawn($f),
+            $crate::spawn::Spawn($g),
+            $crate::spawn::Spawn($h),
+            $crate::spawn::Spawn($i),
+            $crate::spawn::Spawn($j),
+        )
+    };
+    ($a:expr, $b:expr, $c:expr, $d:expr, $e:expr, $f:expr, $g:expr, $h:expr, $i:expr, $j:expr, $k:expr) => {
+        (
+            $crate::spawn::Spawn($a),
+            $crate::spawn::Spawn($b),
+            $crate::spawn::Spawn($c),
+            $crate::spawn::Spawn($d),
+            $crate::spawn::Spawn($e),
+            $crate::spawn::Spawn($f),
+            $crate::spawn::Spawn($g),
+            $crate::spawn::Spawn($h),
+            $crate::spawn::Spawn($i),
+            $crate::spawn::Spawn($j),
+            $crate::spawn::Spawn($k),
+        )
+    };
+
+    // recursive expansion
+    (
+        $a:expr, $b:expr, $c:expr, $d:expr, $e:expr, $f:expr,
+        $g:expr, $h:expr, $i:expr, $j:expr, $k:expr, $($rest:expr),*
+    ) => {
+        (
+            $crate::spawn::Spawn($a),
+            $crate::spawn::Spawn($b),
+            $crate::spawn::Spawn($c),
+            $crate::spawn::Spawn($d),
+            $crate::spawn::Spawn($e),
+            $crate::spawn::Spawn($f),
+            $crate::spawn::Spawn($g),
+            $crate::spawn::Spawn($h),
+            $crate::spawn::Spawn($i),
+            $crate::spawn::Spawn($j),
+            $crate::spawn::Spawn($k),
+            $crate::recursive_spawn!($($rest),*)
+        )
+    };
+}
+
+#[cfg(test)]
+mod tests {
+
+    use crate::{
+        name::Name,
+        prelude::{ChildOf, Children, RelationshipTarget},
+        relationship::RelatedSpawner,
+        world::World,
+    };
+
+    use super::{Spawn, SpawnIter, SpawnRelated, SpawnWith, WithOneRelated, WithRelated};
+
+    #[test]
+    fn spawn() {
+        let mut world = World::new();
+
+        let parent = world
+            .spawn((
+                Name::new("Parent"),
+                Children::spawn(Spawn(Name::new("Child1"))),
+            ))
+            .id();
+
+        let children = world
+            .query::<&Children>()
+            .get(&world, parent)
+            .expect("An entity with Children should exist");
+
+        assert_eq!(children.iter().count(), 1);
+
+        for ChildOf(child) in world.query::<&ChildOf>().iter(&world) {
+            assert_eq!(child, &parent);
+        }
+    }
+
+    #[test]
+    fn spawn_iter() {
+        let mut world = World::new();
+
+        let parent = world
+            .spawn((
+                Name::new("Parent"),
+                Children::spawn(SpawnIter(["Child1", "Child2"].into_iter().map(Name::new))),
+            ))
+            .id();
+
+        let children = world
+            .query::<&Children>()
+            .get(&world, parent)
+            .expect("An entity with Children should exist");
+
+        assert_eq!(children.iter().count(), 2);
+
+        for ChildOf(child) in world.query::<&ChildOf>().iter(&world) {
+            assert_eq!(child, &parent);
+        }
+    }
+
+    #[test]
+    fn spawn_with() {
+        let mut world = World::new();
+
+        let parent = world
+            .spawn((
+                Name::new("Parent"),
+                Children::spawn(SpawnWith(|parent: &mut RelatedSpawner<ChildOf>| {
+                    parent.spawn(Name::new("Child1"));
+                })),
+            ))
+            .id();
+
+        let children = world
+            .query::<&Children>()
+            .get(&world, parent)
+            .expect("An entity with Children should exist");
+
+        assert_eq!(children.iter().count(), 1);
+
+        for ChildOf(child) in world.query::<&ChildOf>().iter(&world) {
+            assert_eq!(child, &parent);
+        }
+    }
+
+    #[test]
+    fn with_related() {
+        let mut world = World::new();
+
+        let child1 = world.spawn(Name::new("Child1")).id();
+        let child2 = world.spawn(Name::new("Child2")).id();
+
+        let parent = world
+            .spawn((
+                Name::new("Parent"),
+                Children::spawn(WithRelated::new([child1, child2])),
+            ))
+            .id();
+
+        let children = world
+            .query::<&Children>()
+            .get(&world, parent)
+            .expect("An entity with Children should exist");
+
+        assert_eq!(children.iter().count(), 2);
+
+        assert_eq!(
+            world.entity(child1).get::<ChildOf>(),
+            Some(&ChildOf(parent))
+        );
+        assert_eq!(
+            world.entity(child2).get::<ChildOf>(),
+            Some(&ChildOf(parent))
+        );
+    }
+
+    #[test]
+    fn with_one_related() {
+        let mut world = World::new();
+
+        let child1 = world.spawn(Name::new("Child1")).id();
+
+        let parent = world
+            .spawn((Name::new("Parent"), Children::spawn(WithOneRelated(child1))))
+            .id();
+
+        let children = world
+            .query::<&Children>()
+            .get(&world, parent)
+            .expect("An entity with Children should exist");
+
+        assert_eq!(children.iter().count(), 1);
+
+        assert_eq!(
+            world.entity(child1).get::<ChildOf>(),
+            Some(&ChildOf(parent))
+        );
+    }
 }

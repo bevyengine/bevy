@@ -17,6 +17,14 @@ pub use crate::window::prelude::*;
 #[cfg(feature = "bevy_image")]
 pub use crate::image::prelude::*;
 
+#[doc(hidden)]
+#[cfg(feature = "bevy_mesh")]
+pub use crate::mesh::prelude::*;
+
+#[doc(hidden)]
+#[cfg(feature = "bevy_camera")]
+pub use crate::camera::prelude::*;
+
 pub use bevy_derive::{bevy_main, Deref, DerefMut};
 
 #[doc(hidden)]
@@ -34,10 +42,6 @@ pub use crate::animation::prelude::*;
 #[doc(hidden)]
 #[cfg(feature = "bevy_color")]
 pub use crate::color::prelude::*;
-
-#[doc(hidden)]
-#[cfg(feature = "bevy_core_pipeline")]
-pub use crate::core_pipeline::prelude::*;
 
 #[doc(hidden)]
 #[cfg(feature = "bevy_pbr")]
@@ -62,6 +66,10 @@ pub use crate::text::prelude::*;
 #[doc(hidden)]
 #[cfg(feature = "bevy_ui")]
 pub use crate::ui::prelude::*;
+
+#[doc(hidden)]
+#[cfg(feature = "bevy_ui_render")]
+pub use crate::ui_render::prelude::*;
 
 #[doc(hidden)]
 #[cfg(feature = "bevy_gizmos")]

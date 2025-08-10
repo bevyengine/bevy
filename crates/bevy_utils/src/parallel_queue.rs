@@ -5,12 +5,10 @@ use thread_local::ThreadLocal;
 /// A cohesive set of thread-local values of a given type.
 ///
 /// Mutable references can be fetched if `T: Default` via [`Parallel::scope`].
-#[derive(Default)]
 pub struct Parallel<T: Send> {
     locals: ThreadLocal<RefCell<T>>,
 }
 
-/// A scope guard of a `Parallel`, when this struct is dropped ,the value will writeback to its `Parallel`
 impl<T: Send> Parallel<T> {
     /// Gets a mutable iterator over all of the per-thread queues.
     pub fn iter_mut(&mut self) -> impl Iterator<Item = &'_ mut T> {
@@ -21,6 +19,25 @@ impl<T: Send> Parallel<T> {
     pub fn clear(&mut self) {
         self.locals.clear();
     }
+
+    /// Retrieves the thread-local value for the current thread and runs `f` on it.
+    ///
+    /// If there is no thread-local value, it will be initialized to the result
+    /// of `create`.
+    pub fn scope_or<R>(&self, create: impl FnOnce() -> T, f: impl FnOnce(&mut T) -> R) -> R {
+        f(&mut self.borrow_local_mut_or(create))
+    }
+
+    /// Mutably borrows the thread-local value.
+    ///
+    /// If there is no thread-local value, it will be initialized to the result
+    /// of `create`.
+    pub fn borrow_local_mut_or(
+        &self,
+        create: impl FnOnce() -> T,
+    ) -> impl DerefMut<Target = T> + '_ {
+        self.locals.get_or(|| RefCell::new(create())).borrow_mut()
+    }
 }
 
 impl<T: Default + Send> Parallel<T> {
@@ -28,15 +45,14 @@ impl<T: Default + Send> Parallel<T> {
     ///
     /// If there is no thread-local value, it will be initialized to its default.
     pub fn scope<R>(&self, f: impl FnOnce(&mut T) -> R) -> R {
-        let mut cell = self.locals.get_or_default().borrow_mut();
-        f(cell.deref_mut())
+        self.scope_or(Default::default, f)
     }
 
     /// Mutably borrows the thread-local value.
     ///
-    /// If there is no thread-local value, it will be initialized to it's default.
+    /// If there is no thread-local value, it will be initialized to its default.
     pub fn borrow_local_mut(&self) -> impl DerefMut<Target = T> + '_ {
-        self.locals.get_or_default().borrow_mut()
+        self.borrow_local_mut_or(Default::default)
     }
 }
 
@@ -56,7 +72,6 @@ where
     }
 }
 
-#[cfg(feature = "alloc")]
 impl<T: Send> Parallel<Vec<T>> {
     /// Collect all enqueued items from all threads and appends them to the end of a
     /// single Vec.
@@ -71,6 +86,15 @@ impl<T: Send> Parallel<Vec<T>> {
         out.reserve(size);
         for queue in self.locals.iter_mut() {
             out.append(queue.get_mut());
+        }
+    }
+}
+
+// `Default` is manually implemented to avoid the `T: Default` bound.
+impl<T: Send> Default for Parallel<T> {
+    fn default() -> Self {
+        Self {
+            locals: ThreadLocal::default(),
         }
     }
 }
