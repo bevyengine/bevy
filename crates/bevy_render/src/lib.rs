@@ -42,6 +42,8 @@ pub mod diagnostic;
 pub mod erased_render_asset;
 pub mod experimental;
 pub mod extract_component;
+#[cfg(feature = "bevy_light")]
+mod extract_impls;
 pub mod extract_instances;
 mod extract_param;
 pub mod extract_resource;
@@ -63,9 +65,6 @@ pub mod sync_world;
 pub mod texture;
 pub mod view;
 mod wgpu_wrapper;
-pub use bevy_camera::primitives;
-#[cfg(feature = "bevy_light")]
-mod extract_impls;
 
 /// The render prelude.
 ///
@@ -75,24 +74,12 @@ pub mod prelude {
     pub use crate::{
         alpha::AlphaMode,
         camera::NormalizedRenderTargetExt as _,
-        mesh::{
-            morph::MorphWeights, primitives::MeshBuilder, primitives::Meshable, Mesh, Mesh2d,
-            Mesh3d,
-        },
-        render_resource::Shader,
         texture::{ImagePlugin, ManualTextureViews},
-        view::{InheritedVisibility, Msaa, ViewVisibility, Visibility},
+        view::Msaa,
         ExtractSchedule,
-    };
-    // TODO: Remove this in a follow-up
-    #[doc(hidden)]
-    pub use bevy_camera::{
-        Camera, ClearColor, ClearColorConfig, OrthographicProjection, PerspectiveProjection,
-        Projection,
     };
 }
 
-pub use bevy_shader::load_shader_library;
 pub use extract_param::Extract;
 
 use crate::{
@@ -115,7 +102,7 @@ use bevy_ecs::{
     schedule::{ScheduleBuildSettings, ScheduleLabel},
 };
 use bevy_image::{CompressedImageFormatSupport, CompressedImageFormats};
-use bevy_shader::{Shader, ShaderLoader};
+use bevy_shader::{load_shader_library, Shader, ShaderLoader};
 use bevy_utils::prelude::default;
 use bevy_window::{PrimaryWindow, RawHandleWrapperHolder};
 use bitflags::bitflags;

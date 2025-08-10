@@ -16,10 +16,12 @@ use crate::{
 
 use bevy_app::{App, Plugin, PostStartup, PostUpdate};
 use bevy_asset::{AssetEvent, AssetEventSystems, AssetId, Assets};
-pub use bevy_camera::*;
 use bevy_camera::{
     primitives::Frustum,
-    visibility::{RenderLayers, VisibleEntities},
+    visibility::{self, RenderLayers, VisibleEntities},
+    Camera, Camera2d, Camera3d, CameraMainTextureUsages, CameraOutputMode, CameraUpdateSystems,
+    ClearColor, ClearColorConfig, Exposure, NormalizedRenderTarget, Projection, RenderTargetInfo,
+    Viewport,
 };
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
