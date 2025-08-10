@@ -3,7 +3,7 @@
 use bevy::{
     asset::UnapprovedPathMode,
     core_pipeline::tonemapping::Tonemapping,
-    pbr::CascadeShadowConfigBuilder,
+    light::CascadeShadowConfigBuilder,
     platform::collections::HashMap,
     prelude::*,
     reflect::TypePath,
@@ -254,7 +254,7 @@ fn resize_image(
             let size = image_changed.size_f32().normalize_or_zero() * 1.4;
             // Resize Mesh
             let quad = Mesh::from(Rectangle::from_size(size));
-            meshes.insert(mesh_h, quad);
+            meshes.insert(mesh_h, quad).unwrap();
         }
     }
 }

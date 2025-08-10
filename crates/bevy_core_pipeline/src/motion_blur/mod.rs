@@ -47,7 +47,8 @@ pub mod pipeline;
 /// camera.
 ///
 /// ```
-/// # use bevy_core_pipeline::{core_3d::Camera3d, motion_blur::MotionBlur};
+/// # use bevy_core_pipeline::motion_blur::MotionBlur;
+/// # use bevy_camera::Camera3d;
 /// # use bevy_ecs::prelude::*;
 /// # fn test(mut commands: Commands) {
 /// commands.spawn((

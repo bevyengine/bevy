@@ -27,6 +27,7 @@ use bevy_render::{
     view::{ExtractedView, Msaa, ViewTarget, ViewUniform, ViewUniforms},
     Render, RenderApp, RenderStartup, RenderSystems,
 };
+use bevy_shader::Shader;
 use bevy_transform::components::Transform;
 use bevy_utils::default;
 use prepass::SkyboxPrepassPipeline;

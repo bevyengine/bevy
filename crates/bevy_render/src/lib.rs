@@ -92,11 +92,7 @@ pub mod prelude {
     };
 }
 
-#[doc(hidden)]
-pub mod _macro {
-    pub use bevy_asset;
-}
-
+pub use bevy_shader::load_shader_library;
 pub use extract_param::Extract;
 
 use crate::{
@@ -104,7 +100,7 @@ use crate::{
     gpu_readback::GpuReadbackPlugin,
     mesh::{MeshPlugin, MorphPlugin, RenderMesh},
     render_asset::prepare_assets,
-    render_resource::{init_empty_bind_group_layout, PipelineCache, Shader, ShaderLoader},
+    render_resource::{init_empty_bind_group_layout, PipelineCache},
     renderer::{render_system, RenderInstance},
     settings::RenderCreation,
     storage::StoragePlugin,
@@ -119,6 +115,7 @@ use bevy_ecs::{
     schedule::{ScheduleBuildSettings, ScheduleLabel},
 };
 use bevy_image::{CompressedImageFormatSupport, CompressedImageFormats};
+use bevy_shader::{Shader, ShaderLoader};
 use bevy_utils::prelude::default;
 use bevy_window::{PrimaryWindow, RawHandleWrapperHolder};
 use bitflags::bitflags;
@@ -135,24 +132,6 @@ use std::sync::Mutex;
 use sync_world::{despawn_temporary_render_entities, entity_sync_system, SyncWorldPlugin};
 use tracing::debug;
 pub use wgpu_wrapper::WgpuWrapper;
-
-/// Inline shader as an `embedded_asset` and load it permanently.
-///
-/// This works around a limitation of the shader loader not properly loading
-/// dependencies of shaders.
-#[macro_export]
-macro_rules! load_shader_library {
-    ($asset_server_provider: expr, $path: literal $(, $settings: expr)?) => {
-        $crate::_macro::bevy_asset::embedded_asset!($asset_server_provider, $path);
-        let handle: $crate::_macro::bevy_asset::prelude::Handle<$crate::prelude::Shader> =
-            $crate::_macro::bevy_asset::load_embedded_asset!(
-                $asset_server_provider,
-                $path
-                $(,$settings)?
-            );
-        core::mem::forget(handle);
-    }
-}
 
 /// Contains the default Bevy rendering backend based on wgpu.
 ///

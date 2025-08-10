@@ -55,6 +55,7 @@ pub use bevy_light::{
     PointLight, PointLightShadowMap, PointLightTexture, ShadowFilteringMethod, SpotLight,
     SpotLightTexture, TransmittedShadowReceiver, VolumetricFog, VolumetricLight,
 };
+use bevy_shader::{load_shader_library, ShaderRef};
 pub use cluster::*;
 pub use components::*;
 pub use decal::clustered::ClusteredDecalPlugin;
@@ -144,10 +145,9 @@ use bevy_render::{
     camera::sort_cameras,
     extract_component::ExtractComponentPlugin,
     extract_resource::ExtractResourcePlugin,
-    load_shader_library,
     render_graph::RenderGraph,
     render_resource::{
-        Extent3d, ShaderRef, TextureDataOrder, TextureDescriptor, TextureDimension, TextureFormat,
+        Extent3d, TextureDataOrder, TextureDescriptor, TextureDimension, TextureFormat,
         TextureUsages,
     },
     sync_component::SyncComponentPlugin,
@@ -282,7 +282,8 @@ impl Plugin for PbrPlugin {
                     base_color: Color::srgb(1.0, 0.0, 0.5),
                     ..Default::default()
                 },
-            );
+            )
+            .unwrap();
 
         let has_bluenoise = app
             .get_sub_app(RenderApp)

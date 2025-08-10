@@ -50,7 +50,6 @@ use bevy_math::{UVec2, UVec3, Vec3};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
     extract_component::UniformComponentPlugin,
-    load_shader_library,
     render_resource::{DownlevelFlags, ShaderType, SpecializedRenderPipelines},
     view::Hdr,
 };
@@ -63,6 +62,7 @@ use bevy_render::{
 };
 
 use bevy_core_pipeline::core_3d::graph::Core3d;
+use bevy_shader::load_shader_library;
 use resources::{
     prepare_atmosphere_transforms, queue_render_sky_pipelines, AtmosphereTransforms,
     RenderSkyBindGroupLayouts,

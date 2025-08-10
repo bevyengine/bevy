@@ -10,6 +10,7 @@ use bevy_ecs::{
     world::World,
 };
 use bevy_render::render_resource::*;
+use bevy_shader::Shader;
 use bevy_utils::default;
 
 #[derive(Resource)]

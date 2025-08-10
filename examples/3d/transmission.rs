@@ -24,8 +24,8 @@ use bevy::{
     camera::{Exposure, ScreenSpaceTransmissionQuality},
     color::palettes::css::*,
     core_pipeline::{bloom::Bloom, prepass::DepthPrepass, tonemapping::Tonemapping},
+    light::{NotShadowCaster, PointLightShadowMap, TransmittedShadowReceiver},
     math::ops,
-    pbr::{NotShadowCaster, PointLightShadowMap, TransmittedShadowReceiver},
     prelude::*,
     render::{
         camera::TemporalJitter,

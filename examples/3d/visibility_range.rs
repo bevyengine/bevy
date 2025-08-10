@@ -6,8 +6,8 @@ use bevy::{
     camera::visibility::VisibilityRange,
     core_pipeline::prepass::{DepthPrepass, NormalPrepass},
     input::mouse::MouseWheel,
+    light::{light_consts::lux::FULL_DAYLIGHT, CascadeShadowConfigBuilder},
     math::vec3,
-    pbr::{light_consts::lux::FULL_DAYLIGHT, CascadeShadowConfigBuilder},
     prelude::*,
 };
 

@@ -1,7 +1,6 @@
 use super::ExtractedWindows;
 use crate::{
     gpu_readback,
-    prelude::Shader,
     render_asset::{RenderAssetUsages, RenderAssets},
     render_resource::{
         binding_types::texture_2d, BindGroup, BindGroupEntries, BindGroupLayout,
@@ -25,6 +24,7 @@ use bevy_ecs::{
 use bevy_image::{Image, TextureFormatPixelInfo, ToExtents};
 use bevy_platform::collections::HashSet;
 use bevy_reflect::Reflect;
+use bevy_shader::Shader;
 use bevy_tasks::AsyncComputeTaskPool;
 use bevy_utils::default;
 use bevy_window::{PrimaryWindow, WindowRef};

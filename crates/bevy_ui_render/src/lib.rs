@@ -22,6 +22,7 @@ use bevy_camera::visibility::InheritedVisibility;
 use bevy_camera::{Camera, Camera2d, Camera3d};
 use bevy_reflect::prelude::ReflectDefault;
 use bevy_reflect::Reflect;
+use bevy_shader::load_shader_library;
 use bevy_ui::widget::{ImageNode, TextShadow, ViewportNode};
 use bevy_ui::{
     BackgroundColor, BorderColor, CalculatedClip, ComputedNode, ComputedNodeTarget, Display, Node,
@@ -43,7 +44,7 @@ use bevy_render::renderer::RenderContext;
 use bevy_render::sync_world::MainEntity;
 use bevy_render::texture::TRANSPARENT_IMAGE_HANDLE;
 use bevy_render::view::{Hdr, RetainedViewEntity};
-use bevy_render::{load_shader_library, RenderStartup};
+use bevy_render::RenderStartup;
 use bevy_render::{
     render_asset::RenderAssets,
     render_graph::{Node as RenderGraphNode, RenderGraph},
@@ -147,7 +148,7 @@ pub enum RenderUiSystems {
 /// **Note:** This does not affect text anti-aliasing. For that, use the `font_smoothing` property of the [`TextFont`](bevy_text::TextFont) component.
 ///
 /// ```
-/// use bevy_core_pipeline::prelude::*;
+/// use bevy_camera::prelude::*;
 /// use bevy_ecs::prelude::*;
 /// use bevy_ui::prelude::*;
 /// use bevy_ui_render::prelude::*;
@@ -176,7 +177,7 @@ pub enum UiAntiAlias {
 /// Default is 4, values higher than ~10 offer diminishing returns.
 ///
 /// ```
-/// use bevy_core_pipeline::prelude::*;
+/// use bevy_camera::prelude::*;
 /// use bevy_ecs::prelude::*;
 /// use bevy_ui::prelude::*;
 /// use bevy_ui_render::prelude::*;
