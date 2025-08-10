@@ -32,8 +32,10 @@ pub struct ScenePlugin;
 impl Plugin for ScenePlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<QueuedScenes>()
+            .init_resource::<NewScenes>()
             .init_asset::<ScenePatch>()
-            .add_systems(Update, (resolve_scene_patches, spawn_queued).chain());
+            .add_systems(Update, (resolve_scene_patches, spawn_queued).chain())
+            .add_observer(on_add_scene_patch_instance);
     }
 }
 
