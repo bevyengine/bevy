@@ -1,6 +1,10 @@
 # Undo done the right way
 
-Via [original](https://gitlab.com/okannen/undo_2/-/tree/b32c34edb2c15c266b946f0d82188624f3aa3fdc)
+This code is from the library `undo_2` , which has a version `0.3.0` that is not released to `crates.io`.
+
+[Original source](https://gitlab.com/okannen/undo_2/-/tree/b32c34edb2c15c266b946f0d82188624f3aa3fdc)
+
+It is temporarily upstreamed to this repo, with the intention to use the original source in the future.
 
 ## Introduction
 
