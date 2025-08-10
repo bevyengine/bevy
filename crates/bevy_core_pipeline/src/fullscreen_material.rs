@@ -94,7 +94,7 @@ pub trait FullscreenMaterial:
     fn fragment_shader() -> ShaderRef;
     /// The [`RenderSubGraph`] the effect will run in
     ///
-    /// For 2d this is generally [`Core2d`] and for 3d it's [`Core3d`]
+    /// For 2d this is generally [`crate::core_2d::graph::Core2d`] and for 3d it's [`crate::core_3d::graph::Core3d`]
     fn sub_graph() -> impl RenderSubGraph;
     /// The label used to represent the render node that will run the pass
     fn node_label() -> impl RenderLabel;
