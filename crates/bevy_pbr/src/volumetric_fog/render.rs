@@ -18,6 +18,7 @@ use bevy_ecs::{
     world::World,
 };
 use bevy_image::{BevyDefault, Image};
+use bevy_light::{FogVolume, VolumetricFog, VolumetricLight};
 use bevy_math::{vec4, Mat3A, Mat4, Vec3, Vec3A, Vec4, Vec4Swizzles as _};
 use bevy_mesh::{Mesh, MeshVertexBufferLayoutRef};
 use bevy_render::{
@@ -48,10 +49,9 @@ use bevy_utils::prelude::default;
 use bitflags::bitflags;
 
 use crate::{
-    FogVolume, MeshPipelineViewLayoutKey, MeshPipelineViewLayouts, MeshViewBindGroup,
+    MeshPipelineViewLayoutKey, MeshPipelineViewLayouts, MeshViewBindGroup,
     ViewEnvironmentMapUniformOffset, ViewFogUniformOffset, ViewLightProbesUniformOffset,
-    ViewLightsUniformOffset, ViewScreenSpaceReflectionsUniformOffset, VolumetricFog,
-    VolumetricLight,
+    ViewLightsUniformOffset, ViewScreenSpaceReflectionsUniformOffset,
 };
 
 use super::FogAssets;

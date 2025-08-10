@@ -3,7 +3,7 @@
 use std::{f32::consts::PI, time::Duration};
 
 use bevy::{
-    animation::AnimationTargetId, color::palettes::css::WHITE, pbr::CascadeShadowConfigBuilder,
+    animation::AnimationTargetId, color::palettes::css::WHITE, light::CascadeShadowConfigBuilder,
     prelude::*,
 };
 use rand::{Rng, SeedableRng};

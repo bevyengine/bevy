@@ -21,8 +21,9 @@ use bevy_light::cascade::Cascade;
 use bevy_light::cluster::assign::{calculate_cluster_factors, ClusterableObjectType};
 use bevy_light::cluster::GlobalVisibleClusterableObjects;
 use bevy_light::{
-    spot_light_clip_from_view, spot_light_world_from_view, DirectionalLightShadowMap,
-    NotShadowCaster, PointLightShadowMap,
+    spot_light_clip_from_view, spot_light_world_from_view, AmbientLight, CascadeShadowConfig,
+    Cascades, DirectionalLight, DirectionalLightShadowMap, NotShadowCaster, PointLight,
+    PointLightShadowMap, SpotLight, VolumetricLight,
 };
 use bevy_math::{ops, Mat4, UVec4, Vec3, Vec3Swizzles, Vec4, Vec4Swizzles};
 use bevy_platform::collections::{HashMap, HashSet};
