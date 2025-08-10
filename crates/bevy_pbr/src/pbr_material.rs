@@ -78,12 +78,19 @@ pub struct StandardMaterial {
     ///
     /// The default emissive color is [`LinearRgba::BLACK`], which doesn't add anything to the material color.
     ///
-    /// To increase emissive strength, channel values for `emissive`
+    /// Emissive strength is controlled by the value of the color channels,
+    /// while the hue is controlled by their relative values.
+    ///
+    /// As a result, channel values for `emissive`
     /// colors can exceed `1.0`. For instance, a `base_color` of
     /// `LinearRgba::rgb(1.0, 0.0, 0.0)` represents the brightest
     /// red for objects that reflect light, but an emissive color
     /// like `LinearRgba::rgb(1000.0, 0.0, 0.0)` can be used to create
     /// intensely bright red emissive effects.
+    ///
+    /// From a physical perspective, the units of the emissive color
+    /// are given in luminance (cd/m², aka nits), which is a measure of
+    /// the amount of light emitted per unit area.
     ///
     /// Increasing the emissive strength of the color will impact visual effects
     /// like bloom, but it's important to note that **an emissive material won't
