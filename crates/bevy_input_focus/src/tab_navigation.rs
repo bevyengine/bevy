@@ -345,9 +345,6 @@ pub struct TabNavigationPlugin;
 impl Plugin for TabNavigationPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(Startup, setup_tab_navigation);
-
-        #[cfg(feature = "bevy_reflect")]
-        app.register_type::<TabIndex>().register_type::<TabGroup>();
         app.add_observer(acquire_focus);
         app.add_observer(click_to_focus);
     }

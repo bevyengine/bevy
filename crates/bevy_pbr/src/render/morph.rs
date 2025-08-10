@@ -1,13 +1,13 @@
 use core::{iter, mem};
 
+use bevy_camera::visibility::ViewVisibility;
 use bevy_ecs::prelude::*;
+use bevy_mesh::morph::{MeshMorphWeights, MAX_MORPH_WEIGHTS};
 use bevy_render::sync_world::MainEntityHashMap;
 use bevy_render::{
     batching::NoAutomaticBatching,
-    mesh::morph::{MeshMorphWeights, MAX_MORPH_WEIGHTS},
     render_resource::{BufferUsages, RawBufferVec},
     renderer::{RenderDevice, RenderQueue},
-    view::ViewVisibility,
     Extract,
 };
 use bytemuck::NoUninit;

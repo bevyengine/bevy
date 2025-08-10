@@ -5,8 +5,9 @@ mod camera_controller;
 
 use argh::FromArgs;
 use bevy::{
+    camera::CameraMainTextureUsages,
     prelude::*,
-    render::{camera::CameraMainTextureUsages, mesh::Indices, render_resource::TextureUsages},
+    render::{mesh::Indices, render_resource::TextureUsages},
     scene::SceneInstanceReady,
     solari::{
         pathtracer::{Pathtracer, PathtracingPlugin},
@@ -93,10 +94,10 @@ fn add_raytracing_meshes_on_scene_load(
         mesh.remove_attribute(Mesh::ATTRIBUTE_COLOR.id);
         mesh.generate_tangents().unwrap();
 
-        if let Some(indices) = mesh.indices_mut() {
-            if let Indices::U16(u16_indices) = indices {
-                *indices = Indices::U32(u16_indices.iter().map(|i| *i as u32).collect());
-            }
+        if let Some(indices) = mesh.indices_mut()
+            && let Indices::U16(u16_indices) = indices
+        {
+            *indices = Indices::U32(u16_indices.iter().map(|i| *i as u32).collect());
         }
     }
 

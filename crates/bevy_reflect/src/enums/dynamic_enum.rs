@@ -255,7 +255,7 @@ impl Enum for DynamicEnum {
         }
     }
 
-    fn iter_fields(&self) -> VariantFieldIter {
+    fn iter_fields(&self) -> VariantFieldIter<'_> {
         VariantFieldIter::new(self)
     }
 
@@ -372,12 +372,12 @@ impl PartialReflect for DynamicEnum {
     }
 
     #[inline]
-    fn reflect_ref(&self) -> ReflectRef {
+    fn reflect_ref(&self) -> ReflectRef<'_> {
         ReflectRef::Enum(self)
     }
 
     #[inline]
-    fn reflect_mut(&mut self) -> ReflectMut {
+    fn reflect_mut(&mut self) -> ReflectMut<'_> {
         ReflectMut::Enum(self)
     }
 

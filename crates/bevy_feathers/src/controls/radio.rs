@@ -1,4 +1,5 @@
 use bevy_app::{Plugin, PreUpdate};
+use bevy_camera::visibility::Visibility;
 use bevy_core_widgets::CoreRadio;
 use bevy_ecs::{
     bundle::Bundle,
@@ -16,7 +17,6 @@ use bevy_ecs::{
 use bevy_input_focus::tab_navigation::TabIndex;
 use bevy_picking::{hover::Hovered, PickingSystems};
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
-use bevy_render::view::Visibility;
 use bevy_ui::{
     AlignItems, BorderRadius, Checked, Display, FlexDirection, InteractionDisabled, JustifyContent,
     Node, UiRect, Val,

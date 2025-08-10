@@ -1,6 +1,3 @@
-use bevy_camera::visibility::VisibilitySystems;
-pub use bevy_mesh::*;
-use morph::{MeshMorphWeights, MorphWeights};
 pub mod allocator;
 use crate::{
     render_asset::{PrepareAssetError, RenderAsset, RenderAssetPlugin, RenderAssets},
@@ -11,6 +8,7 @@ use crate::{
 use allocator::MeshAllocatorPlugin;
 use bevy_app::{App, Plugin, PostUpdate};
 use bevy_asset::{AssetApp, AssetEventSystems, AssetId, RenderAssetUsages};
+use bevy_camera::visibility::VisibilitySystems;
 use bevy_ecs::{
     prelude::*,
     system::{
@@ -18,38 +16,9 @@ use bevy_ecs::{
         SystemParamItem,
     },
 };
-pub use bevy_mesh::{mark_3d_meshes_as_changed_if_their_assets_changed, Mesh2d, Mesh3d, MeshTag};
+use bevy_mesh::morph::{MeshMorphWeights, MorphWeights};
+pub use bevy_mesh::*;
 use wgpu::IndexFormat;
-
-/// Registers all [`MeshBuilder`] types.
-pub struct MeshBuildersPlugin;
-
-impl Plugin for MeshBuildersPlugin {
-    fn build(&self, app: &mut App) {
-        // 2D Mesh builders
-        app.register_type::<CircleMeshBuilder>()
-            .register_type::<CircularSectorMeshBuilder>()
-            .register_type::<CircularSegmentMeshBuilder>()
-            .register_type::<RegularPolygonMeshBuilder>()
-            .register_type::<EllipseMeshBuilder>()
-            .register_type::<AnnulusMeshBuilder>()
-            .register_type::<RhombusMeshBuilder>()
-            .register_type::<Triangle2dMeshBuilder>()
-            .register_type::<RectangleMeshBuilder>()
-            .register_type::<Capsule2dMeshBuilder>()
-            // 3D Mesh builders
-            .register_type::<Capsule3dMeshBuilder>()
-            .register_type::<ConeMeshBuilder>()
-            .register_type::<ConicalFrustumMeshBuilder>()
-            .register_type::<CuboidMeshBuilder>()
-            .register_type::<CylinderMeshBuilder>()
-            .register_type::<PlaneMeshBuilder>()
-            .register_type::<SphereMeshBuilder>()
-            .register_type::<TetrahedronMeshBuilder>()
-            .register_type::<TorusMeshBuilder>()
-            .register_type::<Triangle3dMeshBuilder>();
-    }
-}
 
 /// Adds the [`Mesh`] as an asset and makes sure that they are extracted and prepared for the GPU.
 pub struct MeshPlugin;
@@ -59,10 +28,6 @@ impl Plugin for MeshPlugin {
         app.init_asset::<Mesh>()
             .init_asset::<skinning::SkinnedMeshInverseBindposes>()
             .register_asset_reflect::<Mesh>()
-            .register_type::<Mesh3d>()
-            .register_type::<skinning::SkinnedMesh>()
-            .register_type::<Vec<Entity>>()
-            .add_plugins(MeshBuildersPlugin)
             // 'Mesh' must be prepared after 'Image' as meshes rely on the morph target image being ready
             .add_plugins(RenderAssetPlugin::<RenderMesh, GpuImage>::default())
             .add_plugins(MeshAllocatorPlugin)
@@ -86,9 +51,7 @@ impl Plugin for MeshPlugin {
 pub struct MorphPlugin;
 impl Plugin for MorphPlugin {
     fn build(&self, app: &mut App) {
-        app.register_type::<MorphWeights>()
-            .register_type::<MeshMorphWeights>()
-            .add_systems(PostUpdate, inherit_weights);
+        app.add_systems(PostUpdate, inherit_weights.in_set(InheritWeights));
     }
 }
 
