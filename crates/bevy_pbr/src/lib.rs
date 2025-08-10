@@ -282,7 +282,8 @@ impl Plugin for PbrPlugin {
                     base_color: Color::srgb(1.0, 0.0, 0.5),
                     ..Default::default()
                 },
-            );
+            )
+            .unwrap();
 
         let has_bluenoise = app
             .get_sub_app(RenderApp)

@@ -27,7 +27,8 @@ impl Plugin for ColorMaterialPlugin {
                     color: Color::srgb(1.0, 0.0, 1.0),
                     ..Default::default()
                 },
-            );
+            )
+            .unwrap();
     }
 }
 
