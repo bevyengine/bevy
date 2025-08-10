@@ -3,10 +3,8 @@ use bevy::{
     mesh::MeshTag,
     prelude::*,
     reflect::TypePath,
-    render::{
-        render_resource::{AsBindGroup, ShaderRef},
-        storage::ShaderStorageBuffer,
-    },
+    render::{render_resource::AsBindGroup, storage::ShaderStorageBuffer},
+    shader::ShaderRef,
 };
 
 const SHADER_ASSET_PATH: &str = "shaders/storage_buffer.wgsl";
