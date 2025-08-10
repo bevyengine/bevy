@@ -31,7 +31,7 @@ fn main() {
 
     #[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))]
     app.insert_resource(DlssProjectId(bevy_asset::uuid::uuid!(
-        "5417916c-0291-4e3f-8f65-326c1858ab96"
+        "5417916c-0291-4e3f-8f65-326c1858ab96" // Don't copy paste this - generate your own UUID!
     )));
 
     app.add_plugins(DefaultPlugins)
