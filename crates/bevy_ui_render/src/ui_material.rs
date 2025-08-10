@@ -5,8 +5,9 @@ use bevy_ecs::{component::Component, reflect::ReflectComponent};
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_render::{
     extract_component::ExtractComponent,
-    render_resource::{AsBindGroup, RenderPipelineDescriptor, ShaderRef},
+    render_resource::{AsBindGroup, RenderPipelineDescriptor},
 };
+use bevy_shader::ShaderRef;
 use derive_more::derive::From;
 
 /// Materials are used alongside [`UiMaterialPlugin`](crate::UiMaterialPlugin) and [`MaterialNode`]
@@ -31,8 +32,9 @@ use derive_more::derive::From;
 /// # use bevy_ecs::prelude::*;
 /// # use bevy_image::Image;
 /// # use bevy_reflect::TypePath;
-/// # use bevy_render::render_resource::{AsBindGroup, ShaderRef};
+/// # use bevy_render::render_resource::AsBindGroup;
 /// # use bevy_color::LinearRgba;
+/// # use bevy_shader::ShaderRef;
 /// # use bevy_asset::{Handle, AssetServer, Assets, Asset};
 /// # use bevy_ui_render::prelude::*;
 ///

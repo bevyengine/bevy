@@ -1,21 +1,22 @@
 //! Order Independent Transparency (OIT) for 3d rendering. See [`OrderIndependentTransparencyPlugin`] for more details.
 
 use bevy_app::prelude::*;
+use bevy_camera::{Camera, Camera3d};
 use bevy_ecs::{component::*, lifecycle::ComponentHook, prelude::*};
 use bevy_math::UVec2;
 use bevy_platform::collections::HashSet;
 use bevy_platform::time::Instant;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
-    camera::{Camera, ExtractedCamera, ToNormalizedRenderTarget as _},
+    camera::ExtractedCamera,
     extract_component::{ExtractComponent, ExtractComponentPlugin},
-    load_shader_library,
     render_graph::{RenderGraphExt, ViewNodeRunner},
     render_resource::{BufferUsages, BufferVec, DynamicUniformBuffer, ShaderType, TextureUsages},
     renderer::{RenderDevice, RenderQueue},
     view::Msaa,
     Render, RenderApp, RenderStartup, RenderSystems,
 };
+use bevy_shader::load_shader_library;
 use bevy_window::PrimaryWindow;
 use resolve::{
     node::{OitResolveNode, OitResolvePass},
@@ -23,10 +24,7 @@ use resolve::{
 };
 use tracing::{trace, warn};
 
-use crate::core_3d::{
-    graph::{Core3d, Node3d},
-    Camera3d,
-};
+use crate::core_3d::graph::{Core3d, Node3d};
 
 /// Module that defines the necessary systems to resolve the OIT buffer and render it to the screen.
 pub mod resolve;

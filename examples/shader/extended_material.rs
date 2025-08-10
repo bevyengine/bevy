@@ -5,6 +5,7 @@ use bevy::{
     pbr::{ExtendedMaterial, MaterialExtension, OpaqueRendererMethod},
     prelude::*,
     render::render_resource::*,
+    shader::ShaderRef,
 };
 
 /// This example uses a shader source file from the assets subdirectory

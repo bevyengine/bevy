@@ -18,6 +18,7 @@ use core::{num::NonZero, ops::Deref};
 
 use bevy_app::{App, Plugin};
 use bevy_asset::AssetId;
+use bevy_camera::visibility::ViewVisibility;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     entity::{Entity, EntityHashMap},
@@ -34,7 +35,6 @@ use bevy_platform::collections::HashMap;
 pub use bevy_render::primitives::CubemapLayout;
 use bevy_render::{
     extract_component::ExtractComponentPlugin,
-    load_shader_library,
     render_asset::RenderAssets,
     render_resource::{
         binding_types, BindGroupLayoutEntryBuilder, Buffer, BufferUsages, RawBufferVec, Sampler,
@@ -43,9 +43,9 @@ use bevy_render::{
     renderer::{RenderAdapter, RenderDevice, RenderQueue},
     sync_world::RenderEntity,
     texture::{FallbackImage, GpuImage},
-    view::ViewVisibility,
     Extract, ExtractSchedule, Render, RenderApp, RenderSystems,
 };
+use bevy_shader::load_shader_library;
 use bevy_transform::components::GlobalTransform;
 use bytemuck::{Pod, Zeroable};
 

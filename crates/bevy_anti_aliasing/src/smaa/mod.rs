@@ -65,17 +65,18 @@ use bevy_render::{
         CachedRenderPipelineId, ColorTargetState, ColorWrites, CompareFunction, DepthStencilState,
         DynamicUniformBuffer, FilterMode, FragmentState, LoadOp, Operations, PipelineCache,
         RenderPassColorAttachment, RenderPassDepthStencilAttachment, RenderPassDescriptor,
-        RenderPipeline, RenderPipelineDescriptor, SamplerBindingType, SamplerDescriptor, Shader,
-        ShaderDefVal, ShaderStages, ShaderType, SpecializedRenderPipeline,
-        SpecializedRenderPipelines, StencilFaceState, StencilOperation, StencilState, StoreOp,
-        TextureDescriptor, TextureDimension, TextureFormat, TextureSampleType, TextureUsages,
-        TextureView, VertexState,
+        RenderPipeline, RenderPipelineDescriptor, SamplerBindingType, SamplerDescriptor,
+        ShaderStages, ShaderType, SpecializedRenderPipeline, SpecializedRenderPipelines,
+        StencilFaceState, StencilOperation, StencilState, StoreOp, TextureDescriptor,
+        TextureDimension, TextureFormat, TextureSampleType, TextureUsages, TextureView,
+        VertexState,
     },
     renderer::{RenderContext, RenderDevice, RenderQueue},
     texture::{CachedTexture, GpuImage, TextureCache},
     view::{ExtractedView, ViewTarget},
     Render, RenderApp, RenderStartup, RenderSystems,
 };
+use bevy_shader::{Shader, ShaderDefVal};
 use bevy_utils::prelude::default;
 
 /// Adds support for subpixel morphological antialiasing, or SMAA.
