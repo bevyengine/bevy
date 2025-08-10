@@ -74,18 +74,12 @@ pub mod prelude {
     pub use crate::{
         alpha::AlphaMode,
         camera::NormalizedRenderTargetExt as _,
-        mesh::{
-            morph::MorphWeights, primitives::MeshBuilder, primitives::Meshable, Mesh, Mesh2d,
-            Mesh3d,
-        },
-        render_resource::Shader,
         texture::{ImagePlugin, ManualTextureViews},
         view::Msaa,
         ExtractSchedule,
     };
 }
 
-pub use bevy_shader::load_shader_library;
 pub use extract_param::Extract;
 
 use crate::{
@@ -108,7 +102,7 @@ use bevy_ecs::{
     schedule::{ScheduleBuildSettings, ScheduleLabel},
 };
 use bevy_image::{CompressedImageFormatSupport, CompressedImageFormats};
-use bevy_shader::{Shader, ShaderLoader};
+use bevy_shader::{load_shader_library, Shader, ShaderLoader};
 use bevy_utils::prelude::default;
 use bevy_window::{PrimaryWindow, RawHandleWrapperHolder};
 use bitflags::bitflags;
