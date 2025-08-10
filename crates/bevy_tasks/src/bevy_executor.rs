@@ -2,10 +2,6 @@
     unsafe_code,
     reason = "Executor code requires unsafe code for dealing with non-'static lifetimes"
 )]
-#![expect(
-    clippy::unused_unit,
-    reason = "False positive detection on {Async}CallOnDrop"
-)]
 #![allow(
     dead_code,
     reason = "Not all functions are used with every feature combination"
@@ -25,7 +21,6 @@ use async_task::{Builder, Runnable, Task};
 use bevy_platform::prelude::Vec;
 use bevy_platform::sync::{Arc, Mutex, MutexGuard, PoisonError, RwLock, TryLockError};
 use crossbeam_queue::{ArrayQueue, SegQueue};
-use futures_lite::future::block_on;
 use futures_lite::{future,FutureExt};
 use slab::Slab;
 use thread_local::ThreadLocal;
