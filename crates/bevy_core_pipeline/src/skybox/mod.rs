@@ -1,5 +1,6 @@
 use bevy_app::{App, Plugin};
 use bevy_asset::{embedded_asset, load_embedded_asset, AssetServer, Handle};
+use bevy_camera::Exposure;
 use bevy_ecs::{
     prelude::{Component, Entity},
     query::{QueryItem, With},
@@ -12,7 +13,6 @@ use bevy_image::{BevyDefault, Image};
 use bevy_math::{Mat4, Quat};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
-    camera::Exposure,
     extract_component::{
         ComponentUniforms, DynamicUniformIndex, ExtractComponent, ExtractComponentPlugin,
         UniformComponentPlugin,

@@ -1,8 +1,8 @@
 //! Bind group layout related definitions for the mesh pipeline.
 
 use bevy_math::Mat4;
+use bevy_mesh::morph::MAX_MORPH_WEIGHTS;
 use bevy_render::{
-    mesh::morph::MAX_MORPH_WEIGHTS,
     render_resource::*,
     renderer::{RenderAdapter, RenderDevice},
 };

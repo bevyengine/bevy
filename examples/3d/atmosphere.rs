@@ -3,10 +3,10 @@
 use std::f32::consts::PI;
 
 use bevy::{
+    camera::Exposure,
     core_pipeline::{bloom::Bloom, tonemapping::Tonemapping},
     pbr::{light_consts::lux, Atmosphere, AtmosphereSettings, CascadeShadowConfigBuilder},
     prelude::*,
-    render::camera::Exposure,
 };
 
 fn main() {

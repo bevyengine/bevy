@@ -4,12 +4,13 @@
 use std::f64::consts::PI;
 
 use bevy::{
+    camera::ScalingMode,
     color::palettes::css::DEEP_PINK,
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
     math::{DVec2, DVec3},
     pbr::{ExtractedPointLight, GlobalClusterableObjectMeta},
     prelude::*,
-    render::{camera::ScalingMode, Render, RenderApp, RenderSystems},
+    render::{Render, RenderApp, RenderSystems},
     window::{PresentMode, WindowResolution},
     winit::{UpdateMode, WinitSettings},
 };

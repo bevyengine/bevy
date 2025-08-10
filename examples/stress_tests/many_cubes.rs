@@ -12,6 +12,7 @@ use std::{f64::consts::PI, str::FromStr};
 
 use argh::FromArgs;
 use bevy::{
+    camera::visibility::{NoCpuCulling, NoFrustumCulling},
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
     math::{DVec2, DVec3},
     pbr::NotShadowCaster,
@@ -20,7 +21,7 @@ use bevy::{
         batching::NoAutomaticBatching,
         render_asset::RenderAssetUsages,
         render_resource::{Extent3d, TextureDimension, TextureFormat},
-        view::{NoCpuCulling, NoFrustumCulling, NoIndirectDrawing},
+        view::NoIndirectDrawing,
     },
     window::{PresentMode, WindowResolution},
     winit::{UpdateMode, WinitSettings},

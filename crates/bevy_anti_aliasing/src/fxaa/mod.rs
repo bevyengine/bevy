@@ -1,5 +1,6 @@
 use bevy_app::prelude::*;
 use bevy_asset::{embedded_asset, load_embedded_asset, AssetServer, Handle};
+use bevy_camera::Camera;
 use bevy_core_pipeline::{
     core_2d::graph::{Core2d, Node2d},
     core_3d::graph::{Core3d, Node3d},
@@ -10,7 +11,6 @@ use bevy_image::BevyDefault as _;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
     extract_component::{ExtractComponent, ExtractComponentPlugin},
-    prelude::Camera,
     render_graph::{RenderGraphExt, ViewNodeRunner},
     render_resource::{
         binding_types::{sampler, texture_2d},
