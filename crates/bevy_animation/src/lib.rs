@@ -1244,9 +1244,7 @@ impl Plugin for AnimationPlugin {
                     // it to its own system set after `Update` but before
                     // `PostUpdate`. For now, we just disable ambiguity testing
                     // for this system.
-                    animate_targets
-                        .before(bevy_mesh::InheritWeights)
-                        .ambiguous_with_all(),
+                    animate_targets.ambiguous_with_all(),
                     trigger_untargeted_animation_events,
                     expire_completed_transitions,
                 )

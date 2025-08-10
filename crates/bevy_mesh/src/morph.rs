@@ -97,17 +97,64 @@ impl MorphTargetImage {
     }
 }
 
-/// Controls the [morph targets] for all child `Mesh3d` entities. In most cases, [`MorphWeights`] should be considered
-/// the "source of truth" when writing morph targets for meshes. However you can choose to write child [`MeshMorphWeights`]
-/// if your situation requires more granularity. Just note that if you set [`MorphWeights`], it will overwrite child
-/// [`MeshMorphWeights`] values.
+/// A component that controls the [morph targets] of one or more `Mesh3d`
+/// components.
 ///
-/// This exists because Bevy's [`Mesh`] corresponds to a _single_ surface / material, whereas morph targets
-/// as defined in the GLTF spec exist on "multi-primitive meshes" (where each primitive is its own surface with its own material).
-/// Therefore in Bevy [`MorphWeights`] an a parent entity are the "canonical weights" from a GLTF perspective, which then
-/// synchronized to child `Mesh3d` / [`MeshMorphWeights`] (which correspond to "primitives" / "surfaces" from a GLTF perspective).
+/// To find the weights of its morph targets, a `Mesh3d` component looks for a
+/// [`MeshMorphWeights`] component in the same entity. This points to another
+/// entity, which is expected to contain a `MorphWeights` component.
 ///
-/// Add this to the parent of one or more [`Entities`](`Entity`) with a `Mesh3d` with a [`MeshMorphWeights`].
+/// The intermediate `MeshMorphWeights` component allows multiple `Mesh3d`
+/// components to share one `MorphWeights` component.
+///
+/// The example shows a single mesh entity with a separate weights entity:
+///
+/// ```
+/// # use bevy_asset::prelude::*;
+/// # use bevy_ecs::prelude::*;
+/// # use bevy_mesh::Mesh;
+/// # use bevy_mesh::morph::*;
+/// # #[derive(Component)]
+/// # struct Mesh3d(Handle<Mesh>);
+/// fn setup(mut commands: Commands, mesh_handle: Handle<Mesh>) {
+///     // Create the `MorphWeights` component.
+///     let weights_component = MorphWeights::new(
+///         vec![0.0, 0.5, 1.0],
+///         None,
+///     ).unwrap();
+///
+///     // Spawn an entity to contain the weights.
+///     let weights_entity = commands.spawn(weights_component).id();
+///
+///     // Spawn an entity with a mesh and a `MeshMorphWeights` component that
+///     // points to `weights_entity`.
+///     let mesh_entity = commands.spawn((
+///         Mesh3d(mesh_handle.clone()),
+///         MeshMorphWeights(weights_entity),
+///     ));
+/// }
+/// ```
+///
+/// In the simplest case, all the components can be in one entity:
+///
+/// ```
+/// # use bevy_asset::prelude::*;
+/// # use bevy_ecs::prelude::*;
+/// # use bevy_mesh::Mesh;
+/// # use bevy_mesh::morph::*;
+/// # #[derive(Component)]
+/// # struct Mesh3d(Handle<Mesh>);
+/// # fn setup(mut commands: Commands, mesh_entity: Entity) {
+/// # let weights_component = MorphWeights::new(vec![0.0, 0.5, 1.0], None).unwrap();
+/// # let mesh_handle = Handle::<Mesh>::default();
+/// let weights_entity = commands.spawn(weights_component).id();
+///
+/// commands.entity(weights_entity).insert((
+///     Mesh3d(mesh_handle.clone()),
+///     MeshMorphWeights(weights_entity),
+/// ));
+/// # }
+/// ```
 ///
 /// [morph targets]: https://en.wikipedia.org/wiki/Morph_target_animation
 #[derive(Reflect, Default, Debug, Clone, Component)]
@@ -143,39 +190,6 @@ impl MorphWeights {
     pub fn weights_mut(&mut self) -> &mut [f32] {
         &mut self.weights
     }
-}
-
-/// Control a specific [`Mesh`] instance's [morph targets]. These control the weights of
-/// specific "mesh primitives" in scene formats like GLTF. They can be set manually, but
-/// in most cases they should "automatically" synced by setting the [`MorphWeights`] component
-/// on a parent entity.
-///
-/// See [`MorphWeights`] for more details on Bevy's morph target implementation.
-///
-/// Add this to an [`Entity`] with a `Mesh3d` with a [`MorphAttributes`] set
-/// to control individual weights of each morph target.
-///
-/// [morph targets]: https://en.wikipedia.org/wiki/Morph_target_animation
-#[derive(Reflect, Default, Debug, Clone, Component)]
-#[reflect(Debug, Component, Default, Clone)]
-pub struct MeshMorphWeights {
-    weights: Vec<f32>,
-}
-
-impl MeshMorphWeights {
-    pub fn new(weights: Vec<f32>) -> Result<Self, MorphBuildError> {
-        if weights.len() > MAX_MORPH_WEIGHTS {
-            let target_count = weights.len();
-            return Err(MorphBuildError::TooManyTargets { target_count });
-        }
-        Ok(MeshMorphWeights { weights })
-    }
-    pub fn weights(&self) -> &[f32] {
-        &self.weights
-    }
-    pub fn weights_mut(&mut self) -> &mut [f32] {
-        &mut self.weights
-    }
     pub fn clear_weights(&mut self) {
         self.weights.clear();
     }
@@ -183,6 +197,16 @@ impl MeshMorphWeights {
         self.weights.extend(weights);
     }
 }
+
+/// Controls the [morph targets] of a `Mesh3d` component by referencing an
+/// entity with a `MorphWeights` component.
+///
+/// See [`MorphWeights`] for examples.
+///
+/// [morph targets]: https://en.wikipedia.org/wiki/Morph_target_animation
+#[derive(Reflect, Debug, Clone, Component)]
+#[reflect(Debug, Component, Clone)]
+pub struct MeshMorphWeights(#[entities] pub Entity);
 
 /// Attributes **differences** used for morph targets.
 ///

@@ -1509,7 +1509,7 @@ fn load_node(
     // Map node index to entity
     node_index_to_entity_map.insert(gltf_node.index(), node.id());
 
-    let mut morph_weights = None;
+    let mut max_morph_target_count = 0;
 
     node.with_children(|parent| {
         // Only include meshes in the output if they're set to be retained in the MAIN_WORLD and/or RENDER_WORLD by the load_meshes flag
@@ -1536,6 +1536,7 @@ fn load_node(
                     primitive: primitive.index(),
                 };
                 let bounds = primitive.bounding_box();
+                let parent_entity = parent.target_entity();
 
                 let mut mesh_entity = parent.spawn((
                     // TODO: handle missing label handle errors here?
@@ -1547,22 +1548,8 @@ fn load_node(
 
                 let target_count = primitive.morph_targets().len();
                 if target_count != 0 {
-                    let weights = match mesh.weights() {
-                        Some(weights) => weights.to_vec(),
-                        None => vec![0.0; target_count],
-                    };
-
-                    if morph_weights.is_none() {
-                        morph_weights = Some(weights.clone());
-                    }
-
-                    // unwrap: the parent's call to `MeshMorphWeights::new`
-                    // means this code doesn't run if it returns an `Err`.
-                    // According to https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#morph-targets
-                    // they should all have the same length.
-                    // > All morph target accessors MUST have the same count as
-                    // > the accessors of the original primitive.
-                    mesh_entity.insert(MeshMorphWeights::new(weights).unwrap());
+                    max_morph_target_count = max_morph_target_count.max(target_count);
+                    mesh_entity.insert(MeshMorphWeights(parent_entity));
                 }
                 mesh_entity.insert(Aabb::from_min_max(
                     Vec3::from_slice(&bounds.min),
@@ -1700,15 +1687,31 @@ fn load_node(
 
     // Only include meshes in the output if they're set to be retained in the MAIN_WORLD and/or RENDER_WORLD by the load_meshes flag
     if !settings.load_meshes.is_empty()
-        && let (Some(mesh), Some(weights)) = (gltf_node.mesh(), morph_weights)
+        && let Some(mesh) = gltf_node.mesh()
     {
-        let primitive_label = mesh.primitives().next().map(|p| GltfAssetLabel::Primitive {
-            mesh: mesh.index(),
-            primitive: p.index(),
-        });
-        let first_mesh =
-            primitive_label.map(|label| load_context.get_label_handle(label.to_string()));
-        node.insert(MorphWeights::new(weights, first_mesh)?);
+        // Create the `MorphWeights` component. The weights will be copied
+        // from `mesh.weights()` if present. If not then the weights are
+        // zero.
+        //
+        // The glTF spec says that all primitives within a mesh must have
+        // the same number of morph targets, and `mesh.weights()` should be
+        // equal to that number if present. We're more forgiving and take
+        // whichever is largest, leaving any unspecified weights at zero.
+        if (max_morph_target_count > 0) || mesh.weights().is_some() {
+            let mut weights = Vec::from(mesh.weights().unwrap_or(&[]));
+
+            if max_morph_target_count > weights.len() {
+                weights.resize(max_morph_target_count, 0.0);
+            }
+
+            let primitive_label = mesh.primitives().next().map(|p| GltfAssetLabel::Primitive {
+                mesh: mesh.index(),
+                primitive: p.index(),
+            });
+            let first_mesh =
+                primitive_label.map(|label| load_context.get_label_handle(label.to_string()));
+            node.insert(MorphWeights::new(weights, first_mesh)?);
+        }
     }
 
     if let Some(err) = gltf_error {
