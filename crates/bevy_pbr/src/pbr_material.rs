@@ -88,9 +88,11 @@ pub struct StandardMaterial {
     /// like `LinearRgba::rgb(1000.0, 0.0, 0.0)` can be used to create
     /// intensely bright red emissive effects.
     ///
-    /// From a physical perspective, the units of the emissive color
-    /// are given in luminance (cd/m², aka nits), which is a measure of
-    /// the amount of light emitted per unit area.
+    /// This results in a final luminance value when multiplied
+    /// by the value of the greyscale emissive texture (which ranges from 0 for black to 1 for white).
+    /// Luminance is a measure of the amount of light emitted per unit area,
+    /// and can be thought of as the "brightness" of the effect.
+    /// In Bevy, these luminance values correspond to physical units of cd/m², aka nits.
     ///
     /// Increasing the emissive strength of the color will impact visual effects
     /// like bloom, but it's important to note that **an emissive material won't
