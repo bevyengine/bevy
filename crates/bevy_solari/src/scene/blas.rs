@@ -1,3 +1,4 @@
+use alloc::collections::VecDeque;
 use bevy_asset::AssetId;
 use bevy_ecs::{
     resource::Resource,
@@ -14,7 +15,6 @@ use bevy_render::{
     render_resource::*,
     renderer::{RenderDevice, RenderQueue},
 };
-use std::collections::VecDeque;
 
 /// After compacting this many vertices worth of meshes per frame, no further BLAS will be compacted.
 /// Lower this number to distribute the work across more frames.
@@ -116,7 +116,7 @@ pub fn compact_raytracing_blas(
         if Some(mesh) == first_mesh_processed {
             break;
         }
-        if first_mesh_processed == None {
+        if first_mesh_processed.is_none() {
             first_mesh_processed = Some(mesh);
         }
 
