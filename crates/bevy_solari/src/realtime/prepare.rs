@@ -1,4 +1,5 @@
 use super::SolariLighting;
+use bevy_camera::MainPassResolutionOverride;
 use bevy_core_pipeline::{core_3d::CORE_3D_DEPTH_FORMAT, deferred::DEFERRED_PREPASS_FORMAT};
 use bevy_ecs::{
     component::Component,
@@ -9,7 +10,7 @@ use bevy_ecs::{
 use bevy_image::ToExtents;
 use bevy_math::UVec2;
 use bevy_render::{
-    camera::{ExtractedCamera, MainPassResolutionOverride},
+    camera::ExtractedCamera,
     render_resource::{
         Buffer, BufferDescriptor, BufferUsages, Texture, TextureDescriptor, TextureDimension,
         TextureUsages, TextureView, TextureViewDescriptor,

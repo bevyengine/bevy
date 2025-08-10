@@ -6,10 +6,8 @@ use std::fmt::{self, Formatter};
 use bevy::{
     color::palettes::css::{LIME, ORANGE_RED, SILVER},
     input::mouse::AccumulatedMouseMotion,
-    pbr::{
-        decal::{self, clustered::ClusteredDecal},
-        ExtendedMaterial, MaterialExtension,
-    },
+    light::ClusteredDecal,
+    pbr::{decal, ExtendedMaterial, MaterialExtension},
     prelude::*,
     render::{
         render_resource::{AsBindGroup, ShaderRef},

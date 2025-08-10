@@ -6,6 +6,7 @@ use crate::{
     RenderMaterialInstances,
 };
 use bevy_asset::{AssetEvent, AssetServer, Assets, UntypedAssetId};
+use bevy_camera::visibility::RenderLayers;
 use bevy_ecs::{
     entity::{Entities, Entity, EntityHashMap},
     event::EventReader,
@@ -14,9 +15,7 @@ use bevy_ecs::{
     system::{Local, Query, Res, ResMut, SystemState},
 };
 use bevy_platform::collections::{HashMap, HashSet};
-use bevy_render::{
-    render_resource::StorageBuffer, sync_world::MainEntity, view::RenderLayers, MainWorld,
-};
+use bevy_render::{render_resource::StorageBuffer, sync_world::MainEntity, MainWorld};
 use bevy_transform::components::GlobalTransform;
 use core::ops::DerefMut;
 

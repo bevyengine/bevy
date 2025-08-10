@@ -4,6 +4,7 @@ use std::f32::consts::{FRAC_PI_2, FRAC_PI_3, FRAC_PI_4, PI};
 use std::fmt::{self, Formatter};
 
 use bevy::{
+    camera::primitives::CubemapLayout,
     color::palettes::css::{SILVER, YELLOW},
     input::mouse::AccumulatedMouseMotion,
     pbr::{decal, DirectionalLightTexture, NotShadowCaster, PointLightTexture, SpotLightTexture},
@@ -275,7 +276,7 @@ fn spawn_light_textures(
                 },
                 PointLightTexture {
                     image: asset_server.load("lightmaps/faces_pointlight_texture_blurred.png"),
-                    cubemap_layout: decal::clustered::CubemapLayout::CrossVertical,
+                    cubemap_layout: CubemapLayout::CrossVertical,
                 },
             ));
         });
