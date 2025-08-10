@@ -165,10 +165,11 @@ impl TextLayout {
 
 /// A span of text in a tree of spans.
 ///
-/// `TextSpan` is only valid as a child of an entity with `Text` or `Text2d` which is the first span.
-/// Spans are collected in hierarchy traversal order into a [`ComputedTextBlock`] for layout.
-/// [`TextLayout`] of the first span determines the layout of the entire block. Each node has its own
-/// [`TextFont`] and [`TextColor`].
+/// A `TextSpan` is only valid when it exists as a child of a parent that has either `Text` or
+/// `Text2d`. The parent's `Text` / `Text2d` component contains the base text content. Any children
+/// with `TextSpan` extend this text by appending their content to the parent's text in sequence to
+/// form a [`ComputedTextBlock`]. The parent's [`TextLayout`] determines the layout of the block
+/// but each node has its own [`TextFont`] and [`TextColor`].
 ///
 /// ```
 /// # use bevy_asset::Handle;
@@ -189,22 +190,22 @@ impl TextLayout {
 ///     TextFont::from_font_size(50.0),
 ///     // TextColor of this node. Won't apply to children.
 ///     TextColor(BLUE.into()),
+///     // Children must be `TextSpan`, not `Text` or `Text2d`.
 ///     children![
-///         // Children must be `TextSpan`, not `Text` or `Text2d`.
 ///         (
 ///             TextSpan::new("Bevy\n"),
 ///             TextFont::from_font_size(40.0),
 ///             TextColor(RED.into()),
 ///         ),
 ///         (
-///             // Default TextColor will be inserted because TextSpan requires it.
 ///             TextSpan::new("Bevy\n"),
 ///             TextFont::from_font_size(30.0),
+///             // Default TextColor will be inserted because TextSpan requires it.
 ///         ),
 ///         (
-///             // Default TextFont will be inserted because TextSpan requires it.
 ///             TextSpan::new("Bevy"),
 ///             TextColor(GREEN.into()),
+///             // Default TextFont will be inserted because TextSpan requires it.
 ///         )
 ///     ],
 /// ));
