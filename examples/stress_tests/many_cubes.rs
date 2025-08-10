@@ -14,8 +14,8 @@ use argh::FromArgs;
 use bevy::{
     camera::visibility::{NoCpuCulling, NoFrustumCulling},
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
+    light::NotShadowCaster,
     math::{DVec2, DVec3},
-    pbr::NotShadowCaster,
     prelude::*,
     render::{
         batching::NoAutomaticBatching,
