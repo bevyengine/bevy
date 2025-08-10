@@ -46,7 +46,7 @@ use std::f32::consts::FRAC_PI_2;
 
 use bevy::{
     camera::visibility::RenderLayers, color::palettes::tailwind,
-    input::mouse::AccumulatedMouseMotion, pbr::NotShadowCaster, prelude::*,
+    input::mouse::AccumulatedMouseMotion, light::NotShadowCaster, prelude::*,
 };
 
 fn main() {

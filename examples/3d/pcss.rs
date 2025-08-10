@@ -12,8 +12,8 @@ use bevy::{
         prepass::{DepthPrepass, MotionVectorPrepass},
         Skybox,
     },
+    light::ShadowFilteringMethod,
     math::vec3,
-    pbr::ShadowFilteringMethod,
     prelude::*,
     render::camera::TemporalJitter,
 };
