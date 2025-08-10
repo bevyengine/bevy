@@ -1,8 +1,8 @@
-use undo_2::Action;
-use undo_2::Action::*;
-use undo_2::Commands;
+#![allow(unused, reason = "tests")]
+use crate::undo_2::Action;
+use crate::undo_2::Action::*;
+use crate::undo_2::Commands;
 #[test]
-#[allow(unused)]
 fn application() {
     enum Command {
         Add(char),
@@ -30,12 +30,12 @@ fn application() {
         }
         pub fn undo(&mut self) {
             for action in self.command.undo() {
-                interpret_action(&mut self.text, action)
+                interpret_action(&mut self.text, action);
             }
         }
         pub fn redo(&mut self) {
             for action in self.command.redo() {
-                interpret_action(&mut self.text, action)
+                interpret_action(&mut self.text, action);
             }
         }
     }

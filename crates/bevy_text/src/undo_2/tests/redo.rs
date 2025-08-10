@@ -1,5 +1,5 @@
-#![allow(unused)]
-use undo_2::{Action, Commands};
+#![allow(unused, reason = "tests")]
+use crate::undo_2::{Action, Commands};
 
 #[derive(Debug, Eq, PartialEq)]
 enum Command {
@@ -79,5 +79,5 @@ fn redo_all() {
     commands.undo();
 
     let v: Vec<_> = commands.redo_all().collect();
-    assert_eq!(v, [Do(&A), Do(&Command::B)]);
+    assert_eq!(v, [Do(&A), Do(&B)]);
 }

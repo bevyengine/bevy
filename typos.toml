@@ -1,9 +1,10 @@
 [files]
 extend-exclude = [
-  "*.pbxproj", # metadata file
-  "*.patch",   # Automatically generated files that should not be manually modified.
-  "*.bin",     # Binary files
-  ".git/",     # Version control files
+  "*.pbxproj",                    # metadata file
+  "*.patch",                      # Automatically generated files that should not be manually modified.
+  "*.bin",                        # Binary files
+  ".git/",                        # Version control files
+  "crates/bevy_text/src/undo_2/", # undo_2
 ]
 ignore-hidden = false
 

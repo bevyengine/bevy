@@ -1,6 +1,6 @@
-use std::mem::{discriminant, Discriminant};
+use core::mem::{discriminant, Discriminant};
 
-use undo_2::{Commands, IndepStateKey, SetOrTransition, SetTransAction};
+use crate::undo_2::{IndepStateKey, SetTransAction};
 
 #[derive(Copy, Clone, Debug)]
 struct State {
@@ -19,8 +19,7 @@ impl State {
     }
     fn execute_action(&mut self, c: SetTransAction<SetCommands, TransitionCommand>) {
         match c {
-            SetTransAction::Do(_) => {}
-            SetTransAction::Undo(_) => {}
+            SetTransAction::Do(_) | SetTransAction::Undo(_) => {}
             SetTransAction::Set(c) => self.apply_set(c),
             SetTransAction::SetToInitial(d) => self.apply_set(SetCommands::new_initial(d)),
         }
@@ -67,7 +66,7 @@ enum TransitionCommand {
 
 #[test]
 fn set_and_transition() {
-    use SetOrTransition::*;
+    use crate::undo_2::{Commands, SetOrTransition::*};
     let mut commands = Commands::new();
     let mut state = State::new();
 

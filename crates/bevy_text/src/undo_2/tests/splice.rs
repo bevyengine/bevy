@@ -1,7 +1,7 @@
-#![allow(unused)]
+#![allow(unused, reason = "tests")]
 
-use std::ops::ControlFlow;
-use undo_2::*;
+use crate::undo_2::*;
+use core::ops::ControlFlow;
 
 #[derive(PartialEq, Debug)]
 enum Command {
@@ -29,7 +29,7 @@ fn do_splice(c: &mut Commands<Command>) {
         } else {
             ControlFlow::Continue(None)
         }
-    })
+    });
 }
 
 #[test]
@@ -159,7 +159,7 @@ fn splice_with_undos() {
         do_splice(&mut c);
         let v: Vec<_> = c.iter_realized().collect();
         assert_eq!(*v, [&E, &D]);
-        assert_eq!(*c, [D.into(), E.into()])
+        assert_eq!(*c, [D.into(), E.into()]);
     }
     {
         let mut c = Commands::default();
@@ -179,7 +179,7 @@ fn splice_with_undos() {
         do_splice(&mut c);
         let v: Vec<_> = c.iter_realized().collect();
         assert_eq!(*v, [&E, &E, &D]);
-        assert_eq!(*c, [D.into(), E.into(), E.into()])
+        assert_eq!(*c, [D.into(), E.into(), E.into()]);
     }
     {
         let mut c = Commands::default();
@@ -193,6 +193,6 @@ fn splice_with_undos() {
         do_splice(&mut c);
         let v: Vec<_> = c.iter_realized().collect();
         assert_eq!(*v, [&E, &D]);
-        assert_eq!(*c, [D.into(), E.into()])
+        assert_eq!(*c, [D.into(), E.into()]);
     }
 }

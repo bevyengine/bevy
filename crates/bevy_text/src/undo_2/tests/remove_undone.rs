@@ -1,5 +1,5 @@
-#![allow(unused)]
-use undo_2::*;
+#![allow(unused, reason = "tests")]
+use crate::undo_2::*;
 
 #[test]
 fn remove_undone() {

@@ -1,22 +1,25 @@
-#![doc = include_str!("../../README-undo.md")]
-#![doc = document_features::document_features!()]
+//! AA
+#![doc = include_str!("./README.md")]
+//! BB
+// #![doc = document_features::document_features!()]
+//! CC
+use alloc::{slice, vec};
 use core::borrow::Borrow;
 use core::cmp::min;
+use core::fmt::Debug;
 use core::iter::FusedIterator;
 use core::ops::ControlFlow;
 use core::ops::{Deref, Index};
 use core::option;
-use std::fmt::Debug;
+use core::slice::SliceIndex;
 use std::hash::{DefaultHasher, Hash, Hasher as _};
-use std::slice::SliceIndex;
-use std::{slice, vec};
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
 /// Action that should be taken on the paired command
 ///
-/// [ActionIter] item type is a pair `(Action, C)` where
+/// [`ActionIter`] item type is a pair `(Action, C)` where
 /// C is the client defined command type. `(Action::Do, t)`
 /// signifies that the command `t` shall be executed. `(Action::Undo,t)`
 /// means it shall be undone.
@@ -50,16 +53,16 @@ pub enum Action<T> {
 /// transition are interlieved with other transitions.
 ///
 /// So the set of all commands can be partitionned in two: the set of transitions affecting
-/// indepent state, and the other transitions. [SetOrTransition] provides such a partition.
+/// indepent state, and the other transitions. [`SetOrTransition`] provides such a partition.
 /// It is supposed to be used as the element of the [Commands]:
 /// `Commands<SetOrTransition::<MyStateCommands,MyTransitions>`.
 ///
-/// [Commands] provides dedicateds methods (see [apply_actions][Commands::apply_actions]) to simplify the use of
+/// [Commands] provides dedicateds methods (see [`apply_actions`][Commands::apply_actions]) to simplify the use of
 /// commands partitionned in independent state and transitions.
 ///
 /// State commands are supposed to represent the setting of an indepent state such as "set the view
 /// port to `x`, `y`, `lx`, `ly`". When a independent state command is undone within the `apply_actions`, the
-/// algorithm will look for the previous application of a command the same key [IndepStateKey::key] and will
+/// algorithm will look for the previous application of a command the same key [`IndepStateKey::key`] and will
 /// command the application of it.
 ///
 /// # Example
@@ -67,11 +70,11 @@ pub enum Action<T> {
 /// In this example we use commands that set the state `color` and `length`.
 ///
 /// In the commands registered the previous states of `color` and `length` are not stored
-/// but [Commands::apply_actions] will retrieve automatically the value to set for this states.
+/// but [`Commands::apply_actions`] will retrieve automatically the value to set for this states.
 /// ```
 /// use std::mem::{discriminant, Discriminant};
 ///
-/// use undo_2::{Commands, IndepStateKey, SetOrTransition, SetTransAction};
+/// use bevy_text::undo_2::{Commands, IndepStateKey, SetOrTransition, SetTransAction};
 ///
 /// #[derive(Copy, Clone, Debug)]
 /// struct State {
@@ -136,24 +139,23 @@ pub enum Action<T> {
 ///     B,
 /// }
 ///
-/// use SetOrTransition::*;
 /// let mut commands = Commands::new();
 /// let mut state = State::new();
 ///
 /// let c = SetCommands::Color(1.);
 /// state.apply_set(&c);
-/// commands.push(Set(c));
+/// commands.push(SetOrTransition::Set(c));
 ///
-/// commands.push(Transition(TransitionCommand::A));
-/// commands.push(Transition(TransitionCommand::B));
+/// commands.push(SetOrTransition::Transition(TransitionCommand::A));
+/// commands.push(SetOrTransition::Transition(TransitionCommand::B));
 ///
 /// let c = SetCommands::Length(10.);
 /// state.apply_set(&c);
-/// commands.push(Set(c));
+/// commands.push(SetOrTransition::Set(c));
 ///
 /// let c = SetCommands::Color(2.);
 /// state.apply_set(&c);
-/// commands.push(Set(c));
+/// commands.push(SetOrTransition::Set(c));
 ///
 /// commands.apply_undo(|c| {
 ///     assert_eq!(c, SetTransAction::Set(&SetCommands::Color(1.)));
@@ -195,12 +197,14 @@ pub enum SetOrTransition<S, T> {
 /// }
 /// ```
 pub trait IndepStateKey {
+    /// stub `KeyType`
     type KeyType: PartialEq + Hash;
+    /// stub key
     fn key(&self) -> Self::KeyType;
 }
 
 /// The actions asked to be performed by the user
-/// when calling [Commands::apply_actions]
+/// when calling [`Commands::apply_actions`]
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub enum SetTransAction<'a, S: IndepStateKey, T> {
     /// Ask the execution of the transition .0
@@ -216,22 +220,22 @@ pub enum SetTransAction<'a, S: IndepStateKey, T> {
 }
 
 impl<T> Action<T> {
+    /// stub `as_inner`
     pub fn as_inner(&self) -> &T {
         match self {
-            Action::Do(a) => a,
-            Action::Undo(a) => a,
+            Action::Do(a) | Action::Undo(a) => a,
         }
     }
+    /// stub `as_inner_mut`
     pub fn as_inner_mut(&mut self) -> &mut T {
         match self {
-            Action::Do(a) => a,
-            Action::Undo(a) => a,
+            Action::Do(a) | Action::Undo(a) => a,
         }
     }
+    /// stub `into_inner`
     pub fn into_inner(self) -> T {
         match self {
-            Action::Do(a) => a,
-            Action::Undo(a) => a,
+            Action::Do(a) | Action::Undo(a) => a,
         }
     }
 }
@@ -247,7 +251,7 @@ impl<T> Action<T> {
 /// # Example
 ///
 /// ```
-/// use undo_2::{Commands,CommandItem};
+/// use bevy_text::undo_2::{Commands,CommandItem};
 ///
 /// let mut commands = Commands::new();
 ///
@@ -270,11 +274,11 @@ impl<T> Action<T> {
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub enum CommandItem<T> {
-    // A command typically created by [Commands::push](Commands#method.push)
+    /// A command typically created by [`Commands::push`](Commands#method.push)
     Command(T),
-    // Signify that `count` CommandItem previous to this item are undone.
-    //
-    // Where `count` refers to this variant field.
+    /// Signify that `count` `CommandItem` previous to this item are undone.
+    ///
+    /// Where `count` refers to this variant field.
     Undo(usize),
 }
 
@@ -287,7 +291,7 @@ pub enum CommandItem<T> {
 ///
 /// # Example
 /// ```
-/// use undo_2::{Action, Commands};
+/// use bevy_text::undo_2::{Action, Commands};
 ///
 /// #[derive(Debug, Eq, PartialEq)]
 /// enum Command {
@@ -320,7 +324,7 @@ pub enum CommandItem<T> {
 ///
 /// # Representation
 ///
-/// `Commands` owns a slice of [CommandItem] that is accesible
+/// `Commands` owns a slice of [`CommandItem`] that is accesible
 /// by dereferencing the command.
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[derive(Eq)]
@@ -330,7 +334,7 @@ pub struct Commands<T> {
     undo_cache: Vec<IndexedAction>,
 }
 impl<T: Debug> Debug for Commands<T> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         f.debug_struct("Commands")
             .field("commands", &self.commands)
             .finish()
@@ -342,7 +346,7 @@ impl<T: PartialEq> PartialEq for Commands<T> {
     }
 }
 impl<T: Hash> Hash for Commands<T> {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+    fn hash<H: core::hash::Hasher>(&self, state: &mut H) {
         self.commands.hash(state);
     }
 }
@@ -368,42 +372,48 @@ struct IndexedAction {
     index: usize,
 }
 
-/// Specify a merge when calling [Commands::merge](Commands#method.merge)
+/// Specify a merge when calling [`Commands::merge`](Commands#method.merge)
 ///
 /// The [`end`, `start`) bounds the slice of command that will
 /// be removed during the merge. `end` and `start` are in reverse order
-/// because [IterRealized] goes backward.
+/// because [`IterRealized`] goes backward.
 ///
 /// If `command` is `None` then the slice will be removed, otherwise if
 /// the `command` is `Some(c)` the slice will be replace by `c`.
 #[derive(Debug)]
 pub struct Merge<'a, T> {
+    /// start
     pub start: IterRealized<'a, T>,
+    /// end
     pub end: IterRealized<'a, T>,
+    /// command
     pub command: Option<T>,
 }
 
-/// Specify a splice when calling [Commands::splice](Commands#method.splice)
+/// Specify a splice when calling [`Commands::splice`](Commands#method.splice)
 ///
 /// The [`end`, `start`) bounds the slice of command that will
 /// be removed during the merge. `end` and `start` are in reverse order
-/// because [IterRealized] goes backward.
+/// because [`IterRealized`] goes backward.
 ///
 /// The removed slice is then replaced by the sequence (not reversed) of
 /// commands denoted by `commands`.
 #[derive(Debug)]
 pub struct Splice<'a, T, I: IntoIterator<Item = T>> {
+    /// start
     pub start: IterRealized<'a, T>,
+    /// end
     pub end: IterRealized<'a, T>,
+    /// commands
     pub commands: I,
 }
 
 #[derive(Debug)]
-/// Iterator of actions returned by [Commands::undo](Commands#method.undo) and
-/// [Commands::redo](Commands#method.redo)
+/// Iterator of actions returned by [`Commands::undo`](Commands#method.undo) and
+/// [`Commands::redo`](Commands#method.redo)
 pub struct ActionIter<'a, T> {
     commands: &'a [CommandItem<T>],
-    to_do: std::slice::Iter<'a, IndexedAction>,
+    to_do: slice::Iter<'a, IndexedAction>,
 }
 impl<T> Clone for ActionIter<'_, T> {
     fn clone(&self) -> Self {
@@ -415,7 +425,7 @@ impl<T> Clone for ActionIter<'_, T> {
 }
 
 #[derive(Debug)]
-/// The type of the iterator returned by [Commands::iter_realized](Commands#method.iter_realized).
+/// The type of the iterator returned by [`Commands::iter_realized`](Commands#method.iter_realized).
 pub struct IterRealized<'a, T> {
     commands: &'a [CommandItem<T>],
     current: usize,
@@ -427,17 +437,17 @@ impl<T> Clone for IterRealized<'_, T> {
 }
 
 impl<S: IndepStateKey, T> Commands<SetOrTransition<S, T>> {
-    /// Apply a series of actions represented by the type [SetTransAction] executed
+    /// Apply a series of actions represented by the type [`SetTransAction`] executed
     /// by argument `f`.
     ///
     /// The list of action to be applied are provided by the call of `act` on
     /// this [Commands]. This may be defined, for exemple as, `|c| c.redo()`
     ///
-    /// This command only exist when the commands have the type [SetOrTransition].
+    /// This command only exist when the commands have the type [`SetOrTransition`].
     /// See the documentation of this type for an explanation.
     ///
     /// The function `f` will be called with [Do][SetTransAction::Do] and [Undo][SetTransAction::Undo] of commands that are
-    /// represented as [transitions][SetOrTransition::Transition], and [Set][SetTransAction::Set] or [SetToInitial][SetTransAction::SetToInitial]
+    /// represented as [transitions][SetOrTransition::Transition], and [Set][SetTransAction::Set] or [`SetToInitial`][SetTransAction::SetToInitial]
     /// (most probably only once) per [key][IndepStateKey::key] for commands that represent independent state setting.
     pub fn apply_actions(
         &mut self,
@@ -446,17 +456,17 @@ impl<S: IndepStateKey, T> Commands<SetOrTransition<S, T>> {
     ) {
         let mut state_commands = Vec::new();
         for command in act(self) {
-            Self::apply_action(command, &mut state_commands, &mut f)
+            Self::apply_action(command, &mut state_commands, &mut f);
         }
         self.restore_state(state_commands, f);
     }
     /// Equivalent to `apply_actions(|c| c.undo(),f)`.
     pub fn apply_undo(&mut self, f: impl FnMut(SetTransAction<S, T>)) {
-        self.apply_actions(|s| s.undo(), f)
+        self.apply_actions(Commands::undo, f);
     }
     /// Equivalent to `apply_actions(|c| c.redo(),f)`.
     pub fn apply_redo(&mut self, f: impl FnMut(SetTransAction<S, T>)) {
-        self.apply_actions(|s| s.redo(), f)
+        self.apply_actions(Commands::redo, f);
     }
     fn apply_action(
         action: Action<&SetOrTransition<S, T>>,
@@ -467,7 +477,7 @@ impl<S: IndepStateKey, T> Commands<SetOrTransition<S, T>> {
             Action::Do(SetOrTransition::Transition(tr)) => f(SetTransAction::Do(tr)),
             Action::Undo(SetOrTransition::Transition(tr)) => f(SetTransAction::Undo(tr)),
             Action::Do(SetOrTransition::Set(s)) | Action::Undo(SetOrTransition::Set(s)) => {
-                state_keys.push(Some(s.key()))
+                state_keys.push(Some(s.key()));
             }
         }
     }
@@ -511,7 +521,7 @@ impl<S: IndepStateKey, T> Commands<SetOrTransition<S, T>> {
         }
         if l > 0 {
             for disc in state_keys.into_iter().flatten() {
-                f(SetTransAction::SetToInitial(disc))
+                f(SetTransAction::SetToInitial(disc));
             }
         }
     }
@@ -531,14 +541,14 @@ impl<T> Commands<T> {
     }
     /// Reserve space for new commands
     pub fn reserve(&mut self, additional: usize) {
-        self.commands.reserve(additional)
+        self.commands.reserve(additional);
     }
 
     /// Return a reference to the last command
     /// if it is not an Undo.
     /// # Example
     /// ```
-    /// use undo_2::{Commands, CommandItem};
+    /// use bevy_text::undo_2::{Commands, CommandItem};
     ///
     /// #[derive(Debug, Eq, PartialEq)]
     /// enum Command {
@@ -568,7 +578,7 @@ impl<T> Commands<T> {
     /// if it is not an Undo.
     /// # Example
     /// ```
-    /// use undo_2::{Commands, CommandItem};
+    /// use bevy_text::undo_2::{Commands, CommandItem};
     ///
     /// #[derive(Debug, Eq, PartialEq)]
     /// enum Command {
@@ -606,7 +616,7 @@ impl<T> Commands<T> {
     ///
     /// # Example
     /// ```
-    /// use undo_2::{Commands, CommandItem};
+    /// use bevy_text::undo_2::{Commands, CommandItem};
     ///
     /// #[derive(Debug, Eq, PartialEq)]
     /// enum Command {
@@ -653,7 +663,7 @@ impl<T> Commands<T> {
     ///
     /// # Example
     /// ```
-    /// use undo_2::{Commands, CommandItem};
+    /// use bevy_text::undo_2::{Commands, CommandItem};
     ///
     /// #[derive(Debug, Eq, PartialEq)]
     /// enum Command {
@@ -691,7 +701,7 @@ impl<T> Commands<T> {
         producer: impl FnOnce() -> T,
     ) {
         if !self.update_last(updater) {
-            self.push(producer())
+            self.push(producer());
         }
     }
 
@@ -699,7 +709,7 @@ impl<T> Commands<T> {
     ///
     /// # Example
     /// ```
-    /// use undo_2::Commands;
+    /// use bevy_text::undo_2::Commands;
     ///
     /// #[derive(Debug, Eq, PartialEq)]
     /// enum Command {
@@ -724,7 +734,7 @@ impl<T> Commands<T> {
     ///
     /// # Example
     /// ```
-    /// use undo_2::{Action,Commands};
+    /// use bevy_text::undo_2::{Action,Commands};
     ///
     /// #[derive(Debug, Eq, PartialEq)]
     /// enum Command {
@@ -771,7 +781,7 @@ impl<T> Commands<T> {
     ///
     /// # Example
     /// ```
-    /// use undo_2::{Action,Commands};
+    /// use bevy_text::undo_2::{Action,Commands};
     ///
     /// #[derive(Debug, Eq, PartialEq)]
     /// enum Command {
@@ -797,9 +807,7 @@ impl<T> Commands<T> {
     /// ```
     #[must_use = "the returned actions should be realized"]
     pub fn undo_repeat(&mut self, repeat: usize) -> ActionIter<'_, T> {
-        let repeat = if let Some(v) = repeat.checked_sub(1) {
-            v
-        } else {
+        let Some(repeat) = repeat.checked_sub(1) else {
             return ActionIter::new();
         };
         let l = self.len();
@@ -836,7 +844,7 @@ impl<T> Commands<T> {
     ///
     /// # Example
     /// ```
-    /// use undo_2::{Commands,Action};
+    /// use bevy_text::undo_2::{Commands,Action};
     ///
     /// #[derive(Debug, Eq, PartialEq)]
     /// enum Command {
@@ -877,6 +885,7 @@ impl<T> Commands<T> {
         };
         self.undo_repeat(to_undo)
     }
+    /// rebuild
     #[must_use = "the returned command should be undone"]
     pub fn rebuild(&mut self) -> ActionIter<'_, T> {
         if !self.is_undoing() {
@@ -912,7 +921,7 @@ impl<T> Commands<T> {
     ///
     /// # Example
     /// ```
-    /// use undo_2::{Action,Commands};
+    /// use bevy_text::undo_2::{Action,Commands};
     ///
     /// #[derive(Debug, Eq, PartialEq)]
     /// enum Command {
@@ -940,7 +949,7 @@ impl<T> Commands<T> {
     ///
     /// # Example
     /// ```
-    /// use undo_2::{Action,Commands};
+    /// use bevy_text::undo_2::{Action,Commands};
     ///
     /// #[derive(Debug, Eq, PartialEq)]
     /// enum Command {
@@ -962,9 +971,7 @@ impl<T> Commands<T> {
     /// ```
     #[must_use = "the returned actions should be realized"]
     pub fn redo_repeat(&mut self, repeat: usize) -> ActionIter<'_, T> {
-        let repeat = if let Some(v) = repeat.checked_sub(1) {
-            v
-        } else {
+        let Some(repeat) = repeat.checked_sub(1) else {
             return ActionIter::new();
         };
         let l = self.len();
@@ -988,7 +995,7 @@ impl<T> Commands<T> {
     ///
     /// # Example
     /// ```
-    /// use undo_2::{Action,Commands};
+    /// use bevy_text::undo_2::{Action,Commands};
     ///
     /// #[derive(Debug, Eq, PartialEq)]
     /// enum Command {
@@ -1021,7 +1028,7 @@ impl<T> Commands<T> {
     ///
     /// # Example
     /// ```
-    /// use undo_2::{Action,Commands};
+    /// use bevy_text::undo_2::{Action,Commands};
     ///
     /// #[derive(Debug, Eq, PartialEq)]
     /// enum Command {
@@ -1058,7 +1065,7 @@ impl<T> Commands<T> {
     ///
     /// # Example
     /// ```
-    /// use undo_2::Commands;
+    /// use bevy_text::undo_2::Commands;
     ///
     /// #[derive(Debug, Eq, PartialEq)]
     /// enum Command {
@@ -1094,7 +1101,7 @@ impl<T> Commands<T> {
     ///
     /// # Example
     /// ```
-    /// use undo_2::Commands;
+    /// use bevy_text::undo_2::Commands;
     ///
     /// #[derive(Debug, Eq, PartialEq)]
     /// enum Command {
@@ -1123,7 +1130,7 @@ impl<T> Commands<T> {
     ///
     /// # Example
     /// ```
-    /// use undo_2::Commands;
+    /// use bevy_text::undo_2::Commands;
     ///
     /// #[derive(Debug, Eq, PartialEq)]
     /// enum Command {
@@ -1149,7 +1156,7 @@ impl<T> Commands<T> {
     ///
     /// # Example
     /// ```
-    /// use undo_2::*;
+    /// use bevy_text::undo_2::*;
     /// #[derive(Debug, Eq, PartialEq)]
     /// enum Command {
     ///     A,
@@ -1181,10 +1188,10 @@ impl<T> Commands<T> {
     }
 
     /// Repeat undo or redo so that the last realiazed command correspond to
-    /// the [CommandItem] index passed `index`.
+    /// the [`CommandItem`] index passed `index`.
     ///
     /// ```
-    /// use undo_2::{Action,Commands, CommandItem};
+    /// use bevy_text::undo_2::{Action,Commands, CommandItem};
     /// use std::time::{Instant, Duration};
     ///
     /// #[derive(Debug, Eq, PartialEq)]
@@ -1248,7 +1255,7 @@ impl<T> Commands<T> {
     /// # Example
     ///
     /// ```
-    /// use undo_2::Commands;
+    /// use bevy_text::undo_2::Commands;
     ///
     /// #[derive(Debug, Eq, PartialEq)]
     /// enum Command {
@@ -1279,7 +1286,7 @@ impl<T> Commands<T> {
     /// Complexity: O(n)
     ///
     /// ```
-    /// use undo_2::Commands;
+    /// use bevy_text::undo_2::Commands;
     /// use std::time::{Instant, Duration};
     ///
     /// #[derive(Debug, Eq, PartialEq)]
@@ -1337,7 +1344,7 @@ impl<T> Commands<T> {
             CommandItem::Undo(_) => false,
             CommandItem::Command(c) => stop_pred(c),
         }) {
-            self.remove_first(i)
+            self.remove_first(i);
         }
     }
     /// Try to keep `count` most recent commands by dropping removable commands.
@@ -1348,7 +1355,7 @@ impl<T> Commands<T> {
     /// Complexity: O(n)
     ///
     /// ```
-    /// use undo_2::Commands;
+    /// use bevy_text::undo_2::Commands;
     /// use std::time::{Instant, Duration};
     ///
     /// #[derive(Debug, Eq, PartialEq)]
@@ -1404,7 +1411,7 @@ impl<T> Commands<T> {
     /// ```
     pub fn keep_last(&mut self, count: usize) {
         let i = self.len().saturating_sub(count);
-        self.remove_first(i)
+        self.remove_first(i);
     }
     /// Remove `count` or less of the oldest command.
     ///
@@ -1414,7 +1421,7 @@ impl<T> Commands<T> {
     /// Complexity: O(n)
     ///
     /// ```
-    /// use undo_2::Commands;
+    /// use bevy_text::undo_2::Commands;
     /// use std::time::{Instant, Duration};
     ///
     /// #[derive(Debug, Eq, PartialEq)]
@@ -1479,10 +1486,10 @@ impl<T> Commands<T> {
     fn remove_i(&self, mut i: usize, end: usize) -> usize {
         let i0 = i;
         for j in i0..end {
-            if let CommandItem::Undo(count) = self.commands[j] {
-                if j - count - 1 < i {
-                    i = self.remove_i(j - count - 1, i)
-                }
+            if let CommandItem::Undo(count) = self.commands[j]
+                && j - count - 1 < i
+            {
+                i = self.remove_i(j - count - 1, i);
             }
         }
         i
@@ -1504,7 +1511,7 @@ impl<T> Commands<T> {
     ///  The iterator would iterator over the sequence [C, A].
     ///
     /// ```
-    /// use undo_2::Commands;
+    /// use bevy_text::undo_2::Commands;
     ///
     /// #[derive(Debug, Eq, PartialEq)]
     /// enum Command {
@@ -1538,7 +1545,7 @@ impl<T> Commands<T> {
     /// Merge a sequence of [*realized commands*](Commands#method.iter_realized) into a single new
     /// command or remove the sequence.
     ///
-    /// The parameter `f` takes as an input a [IterRealized], and returns a
+    /// The parameter `f` takes as an input a [`IterRealized`], and returns a
     /// [`std::ops::ControlFlow<Option<Merge>, Option<Merge>>`](std::ops::ControlFlow). If the
     /// returned value contain a `Some(merge)`[Merge], the action specified by `merge` is then
     /// inserted in place.
@@ -1555,7 +1562,7 @@ impl<T> Commands<T> {
     /// # Example
     ///
     /// ```
-    /// use undo_2::{Commands, CommandItem, Merge, IterRealized};
+    /// use bevy_text::undo_2::{Commands, CommandItem, Merge, IterRealized};
     /// use std::ops::ControlFlow;
     ///
     /// #[derive(Eq, PartialEq, Debug)]
@@ -1598,15 +1605,15 @@ impl<T> Commands<T> {
     {
         use ControlFlow::*;
         self.splice(|it| match f(it) {
-            Continue(c) => Continue(c.map(|m| m.into())),
-            Break(c) => Break(c.map(|m| m.into())),
-        })
+            Continue(c) => Continue(c.map(Into::into)),
+            Break(c) => Break(c.map(Into::into)),
+        });
     }
 
     /// Replace a sequence of command by an other. This is a generalization of
-    /// [Commands::merge](Commands#method.merge)
+    /// [`Commands::merge`](Commands#method.merge)
     ///
-    /// The parameter `f` takes as an input a [IterRealized], and returns a
+    /// The parameter `f` takes as an input a [`IterRealized`], and returns a
     /// [`std::ops::ControlFlow<Option<Splice>, Option<Splice>>`](std::ops::ControlFlow). If the returned value
     /// contain a `Some(splice)`[Splice], the actions specified by `splice` are then inserted in
     /// place.
@@ -1623,7 +1630,7 @@ impl<T> Commands<T> {
     /// # Example
     ///
     /// ```
-    /// use undo_2::{Commands, CommandItem, Splice, IterRealized};
+    /// use bevy_text::undo_2::{Commands, CommandItem, Splice, IterRealized};
     /// use std::ops::ControlFlow;
     ///
     /// // we suppose that A, B, C is equivalent to D,E
@@ -1705,7 +1712,7 @@ impl<T> Commands<T> {
         let end_i = rev_start;
         let start_i = rev_end;
         self.commands
-            .splice(start_i..end_i, commands.into_iter().map(|c| c.into()));
+            .splice(start_i..end_i, commands.into_iter().map(Into::into));
     }
 
     /// Clean up the history of all the undone commands.
@@ -1715,7 +1722,7 @@ impl<T> Commands<T> {
     ///
     /// # Example
     /// ```
-    /// use undo_2::{CommandItem, Commands};
+    /// use bevy_text::undo_2::{CommandItem, Commands};
     ///
     /// #[derive(Debug, PartialEq)]
     /// enum Command {
@@ -1736,14 +1743,14 @@ impl<T> Commands<T> {
     /// assert_eq!(*c, [A.into(), C.into()]);
     /// ```
     pub fn remove_all_undone(&mut self) {
-        self.remove_undone(|i| i)
+        self.remove_undone(|i| i);
     }
     /// Clean up the history of all undone commands before a given
     /// [realized iterator](Commands#method.iter_realized).
     ///
     /// # Example
     /// ```
-    /// use undo_2::{Commands,CommandItem};
+    /// use bevy_text::undo_2::{Commands,CommandItem};
     ///
     /// #[derive(Debug, PartialEq)]
     /// enum Command {
@@ -1833,7 +1840,7 @@ impl<T: Clone> Clone for Commands<T> {
         }
     }
     fn clone_from(&mut self, source: &Self) {
-        self.commands.clone_from(&source.commands)
+        self.commands.clone_from(&source.commands);
     }
 }
 
@@ -1855,13 +1862,13 @@ impl<T> Borrow<[CommandItem<T>]> for Commands<T> {
 }
 impl<T> Extend<T> for Commands<T> {
     fn extend<I: IntoIterator<Item = T>>(&mut self, iter: I) {
-        self.commands.extend(iter.into_iter().map(|c| c.into()))
+        self.commands.extend(iter.into_iter().map(Into::into));
     }
 }
 impl<T> FromIterator<T> for Commands<T> {
     fn from_iter<I: IntoIterator<Item = T>>(iter: I) -> Self {
         Self {
-            commands: iter.into_iter().map(|c| c.into()).collect(),
+            commands: iter.into_iter().map(Into::into).collect(),
             undo_cache: vec![],
         }
     }
@@ -1875,7 +1882,7 @@ impl<'a, T> IntoIterator for &'a Commands<T> {
 }
 impl<T> IntoIterator for Commands<T> {
     type Item = CommandItem<T>;
-    type IntoIter = std::vec::IntoIter<CommandItem<T>>;
+    type IntoIter = vec::IntoIter<CommandItem<T>>;
     fn into_iter(self) -> Self::IntoIter {
         self.commands.into_iter()
     }
@@ -1907,13 +1914,13 @@ impl<'a, T> From<Merge<'a, T>> for Splice<'a, T, option::IntoIter<T>> {
 }
 
 impl<T> IterRealized<'_, T> {
-    // Returned the index of the command refered by the previous non `None` result of call to
-    // `next`.
-    //
-    // This same command is accessible by indexing [Commands] at this returned index.
-    //
-    // This index can be used to set the first realized command with
-    // [Commands::undo_or_redo_to_index](Commands#method.undo_or_redo_to_index).
+    /// Returned the index of the command refered by the previous non `None` result of call to
+    /// `next`.
+    ///
+    /// This same command is accessible by indexing [Commands] at this returned index.
+    ///
+    /// This index can be used to set the first realized command with
+    /// [`Commands::undo_or_redo_to_index`](Commands#method.undo_or_redo_to_index).
     pub fn index(&self) -> usize {
         self.current
     }
@@ -2066,14 +2073,14 @@ fn do_simplify(to_do: &mut [IndexedAction]) {
             if to_do[cursor].is_reverse_of(action) {
                 cursor += 1;
                 while cursor < l && to_do[cursor].action == Skip {
-                    cursor += 1
+                    cursor += 1;
                 }
             } else {
                 to_do[analyzed + 1..cursor]
                     .iter_mut()
                     .for_each(|a| a.action = Skip);
                 if cursor == analyzed + 1 {
-                    cursor = analyzed
+                    cursor = analyzed;
                 } else {
                     cursor = analyzed + 1;
                     analyzed += 1;

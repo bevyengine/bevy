@@ -1,11 +1,10 @@
-use undo_2::*;
-
 #[test]
 fn merge() {
-    use std::ops::ControlFlow;
-    use undo_2::CommandItem;
-    use undo_2::IterRealized;
-    use undo_2::Merge;
+    use crate::undo_2::CommandItem;
+    use crate::undo_2::Commands;
+    use crate::undo_2::IterRealized;
+    use crate::undo_2::Merge;
+    use core::ops::ControlFlow;
     #[derive(Eq, PartialEq, Debug)]
     enum Command {
         A,
@@ -15,7 +14,7 @@ fn merge() {
     }
     use Command::*;
     fn is_ab(mut it: IterRealized<'_, Command>) -> (bool, IterRealized<'_, Command>) {
-        let cond = it.next() == Some(&Command::B) && it.next() == Some(&Command::A);
+        let cond = it.next() == Some(&B) && it.next() == Some(&A);
         (cond, it)
     }
     fn parse(
@@ -25,7 +24,7 @@ fn merge() {
             ControlFlow::Continue(Some(Merge {
                 start,
                 end,
-                command: Some(Command::AB),
+                command: Some(AB),
             }))
         } else {
             ControlFlow::Continue(None)
@@ -33,19 +32,19 @@ fn merge() {
     }
     {
         let mut commands = Commands::new();
-        commands.push(Command::A);
-        commands.push(Command::B);
+        commands.push(A);
+        commands.push(B);
 
         commands.merge(parse);
-        assert_eq!(*commands, [CommandItem::Command(Command::AB)]);
+        assert_eq!(*commands, [CommandItem::Command(AB)]);
     }
     {
         let mut commands = Commands::new();
-        commands.push(Command::A);
-        commands.push(Command::C);
-        commands.push(Command::B);
-        commands.push(Command::A);
-        commands.push(Command::B);
+        commands.push(A);
+        commands.push(C);
+        commands.push(B);
+        commands.push(A);
+        commands.push(B);
 
         commands.merge(parse);
         assert_eq!(
@@ -60,13 +59,13 @@ fn merge() {
     }
     {
         let mut commands = Commands::new();
-        commands.push(Command::A);
-        commands.push(Command::C);
-        commands.push(Command::A);
-        commands.push(Command::B);
-        commands.push(Command::B);
-        commands.push(Command::A);
-        commands.push(Command::B);
+        commands.push(A);
+        commands.push(C);
+        commands.push(A);
+        commands.push(B);
+        commands.push(B);
+        commands.push(A);
+        commands.push(B);
 
         commands.merge(parse);
         assert_eq!(
@@ -82,10 +81,10 @@ fn merge() {
     }
     {
         let mut commands = Commands::new();
-        commands.push(Command::A);
-        commands.push(Command::B);
-        commands.push(Command::A);
-        commands.push(Command::B);
+        commands.push(A);
+        commands.push(B);
+        commands.push(A);
+        commands.push(B);
 
         commands.merge(parse);
         assert_eq!(

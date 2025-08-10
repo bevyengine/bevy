@@ -1,6 +1,6 @@
-#![allow(unused)]
+#![allow(unused, reason = "tests")]
 
-use undo_2::*;
+use crate::undo_2::*;
 
 #[derive(PartialEq, Debug)]
 enum Command {
