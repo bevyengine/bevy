@@ -16,7 +16,6 @@ use bevy_ecs::{
         SystemParamItem,
     },
 };
-use bevy_mesh::morph::{MeshMorphWeights, MorphWeights};
 pub use bevy_mesh::*;
 use wgpu::IndexFormat;
 
@@ -43,15 +42,6 @@ impl Plugin for MeshPlugin {
         };
 
         render_app.init_resource::<MeshVertexBufferLayouts>();
-    }
-}
-
-/// Adds morph target types.
-pub struct MorphPlugin;
-impl Plugin for MorphPlugin {
-    fn build(&self, app: &mut App) {
-        app.register_type::<MorphWeights>()
-            .register_type::<MeshMorphWeights>();
     }
 }
 
