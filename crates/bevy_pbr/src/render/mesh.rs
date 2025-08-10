@@ -20,7 +20,8 @@ use bevy_ecs::{
 };
 use bevy_image::{BevyDefault, ImageSampler, TextureFormatPixelInfo};
 use bevy_light::{
-    EnvironmentMapLight, NotShadowCaster, NotShadowReceiver, TransmittedShadowReceiver,
+    EnvironmentMapLight, IrradianceVolume, NotShadowCaster, NotShadowReceiver,
+    ShadowFilteringMethod, TransmittedShadowReceiver,
 };
 use bevy_math::{Affine3, Rect, UVec2, Vec3, Vec4};
 use bevy_mesh::{
@@ -61,7 +62,6 @@ use material_bind_groups::MaterialBindingId;
 use tracing::{error, warn};
 
 use self::irradiance_volume::IRRADIANCE_VOLUMES_ARE_USABLE;
-use crate::irradiance_volume::IrradianceVolume;
 use crate::{
     render::{
         morph::{

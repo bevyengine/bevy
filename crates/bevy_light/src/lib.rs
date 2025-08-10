@@ -48,6 +48,17 @@ pub use directional_light::{
     DirectionalLightTexture,
 };
 
+/// The light prelude.
+///
+/// This includes the most common types in this crate, re-exported for your convenience.
+pub mod prelude {
+    #[doc(hidden)]
+    pub use crate::{
+        light_consts, AmbientLight, DirectionalLight, EnvironmentMapLight,
+        GeneratedEnvironmentMapLight, LightProbe, PointLight, SpotLight,
+    };
+}
+
 use crate::directional_light::validate_shadow_map_size;
 
 /// Constants for operating with the light units: lumens, and lux.

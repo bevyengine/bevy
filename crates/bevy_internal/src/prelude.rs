@@ -22,6 +22,10 @@ pub use crate::image::prelude::*;
 pub use crate::mesh::prelude::*;
 
 #[doc(hidden)]
+#[cfg(feature = "bevy_light")]
+pub use crate::light::prelude::*;
+
+#[doc(hidden)]
 #[cfg(feature = "bevy_camera")]
 pub use crate::camera::prelude::*;
 

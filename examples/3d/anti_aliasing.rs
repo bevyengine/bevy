@@ -11,7 +11,7 @@ use bevy::{
     },
     core_pipeline::prepass::{DepthPrepass, MotionVectorPrepass},
     image::{ImageSampler, ImageSamplerDescriptor},
-    pbr::CascadeShadowConfigBuilder,
+    light::CascadeShadowConfigBuilder,
     prelude::*,
     render::{
         camera::{MipBias, TemporalJitter},
