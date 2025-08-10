@@ -11,7 +11,7 @@ use bevy_ecs::{
     schedule::IntoScheduleConfigs,
     system::{Commands, Query, Res},
 };
-use bevy_input_focus::InputFocus;
+use bevy_input_focus::{InputFocus, InputFocusVisible};
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_ui::{BorderRadius, GlobalZIndex, Node, Outline, PositionType, UiSystems, Val};
 
@@ -32,6 +32,7 @@ struct FocusOutline;
 fn focus_system(
     mut commands: Commands,
     focus: Res<InputFocus>,
+    focus_visible: Res<InputFocusVisible>,
     theme: Res<UiTheme>,
     q_focus_outlines: Query<Entity, With<FocusOutline>>,
     q_focus_anchors: Query<&BorderRadius, With<VisibleFocusAnchor>>,
@@ -44,7 +45,9 @@ fn focus_system(
         }
 
         // Walk the descendants of the current focus element.
-        if let Some(focused) = focus.0 {
+        if focus_visible.0
+            && let Some(focused) = focus.0
+        {
             spawn_focus_rings(
                 &mut commands,
                 focused,
