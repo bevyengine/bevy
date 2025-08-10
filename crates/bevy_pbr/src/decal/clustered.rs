@@ -28,8 +28,7 @@ use bevy_ecs::{
     system::{Query, Res, ResMut},
 };
 use bevy_image::Image;
-use bevy_light::cluster::ClusteredDecal;
-use bevy_light::{DirectionalLightTexture, PointLightTexture, SpotLightTexture};
+use bevy_light::{ClusteredDecal, DirectionalLightTexture, PointLightTexture, SpotLightTexture};
 use bevy_math::Mat4;
 use bevy_platform::collections::HashMap;
 use bevy_render::{

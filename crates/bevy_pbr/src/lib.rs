@@ -47,13 +47,9 @@ mod volumetric_fog;
 use bevy_color::{Color, LinearRgba};
 
 pub use atmosphere::*;
-use bevy_light::SimulationLightSystems;
-pub use bevy_light::{
-    light_consts, AmbientLight, CascadeShadowConfig, CascadeShadowConfigBuilder, Cascades,
-    ClusteredDecal, DirectionalLight, DirectionalLightShadowMap, DirectionalLightTexture,
-    FogVolume, IrradianceVolume, LightPlugin, LightProbe, NotShadowCaster, NotShadowReceiver,
-    PointLight, PointLightShadowMap, PointLightTexture, ShadowFilteringMethod, SpotLight,
-    SpotLightTexture, TransmittedShadowReceiver, VolumetricFog, VolumetricLight,
+use bevy_light::{
+    AmbientLight, DirectionalLight, LightPlugin, PointLight, ShadowFilteringMethod,
+    SimulationLightSystems, SpotLight,
 };
 use bevy_shader::{load_shader_library, ShaderRef};
 pub use cluster::*;
@@ -86,11 +82,6 @@ pub mod prelude {
         parallax::ParallaxMappingMethod,
         pbr_material::StandardMaterial,
         ssao::ScreenSpaceAmbientOcclusionPlugin,
-    };
-    #[doc(hidden)]
-    pub use bevy_light::{
-        light_consts, AmbientLight, DirectionalLight, EnvironmentMapLight,
-        GeneratedEnvironmentMapLight, LightProbe, PointLight, SpotLight,
     };
 }
 
