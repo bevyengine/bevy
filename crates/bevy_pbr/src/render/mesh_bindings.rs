@@ -178,7 +178,7 @@ pub struct MeshLayouts {
 
     /// Also includes the uniform and [`MorphAttributes`] for morph targets.
     ///
-    /// [`MorphAttributes`]: bevy_render::mesh::morph::MorphAttributes
+    /// [`MorphAttributes`]: bevy_mesh::morph::MorphAttributes
     pub morphed: BindGroupLayout,
 
     /// Like [`MeshLayouts::morphed`], but includes a slot for the previous
@@ -188,7 +188,7 @@ pub struct MeshLayouts {
     /// Also includes both uniforms for skinning and morph targets, also the
     /// morph target [`MorphAttributes`] binding.
     ///
-    /// [`MorphAttributes`]: bevy_render::mesh::morph::MorphAttributes
+    /// [`MorphAttributes`]: bevy_mesh::morph::MorphAttributes
     pub morphed_skinned: BindGroupLayout,
 
     /// Like [`MeshLayouts::morphed_skinned`], but includes slots for the
@@ -200,7 +200,7 @@ pub struct MeshLayouts {
 impl MeshLayouts {
     /// Prepare the layouts used by the default bevy [`Mesh`].
     ///
-    /// [`Mesh`]: bevy_render::prelude::Mesh
+    /// [`Mesh`]: bevy_mesh::Mesh
     pub fn new(render_device: &RenderDevice, render_adapter: &RenderAdapter) -> Self {
         MeshLayouts {
             model_only: Self::model_only_layout(render_device),

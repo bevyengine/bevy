@@ -491,7 +491,7 @@ impl DepthOfField {
     /// [`PhysicalCameraParameters`].
     ///
     /// By passing the same [`PhysicalCameraParameters`] object to this function
-    /// and to [`bevy_render::camera::Exposure::from_physical_camera`], matching
+    /// and to [`bevy_camera::Exposure::from_physical_camera`], matching
     /// results for both the exposure and depth of field effects can be
     /// obtained.
     ///
