@@ -14,7 +14,7 @@ webgl = []
 webgpu = []
 smaa_luts = ["bevy_render/ktx2", "bevy_image/ktx2", "bevy_image/zstd"]
 dlss = ["dep:dlss_wgpu", "bevy_render/dlss"]
-bevy_ci_testing = ["dlss_wgpu?/mock"]
+force_disable_dlss = ["dlss_wgpu?/mock"]
 
 [dependencies]
 # bevy

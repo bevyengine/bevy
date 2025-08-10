@@ -13,7 +13,7 @@ use smaa::SmaaPlugin;
 use taa::TemporalAntiAliasPlugin;
 
 pub mod contrast_adaptive_sharpening;
-#[cfg(all(feature = "dlss", not(feature = "bevy_ci_testing")))]
+#[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))]
 pub mod dlss;
 pub mod fxaa;
 pub mod smaa;
@@ -28,7 +28,7 @@ impl Plugin for AntiAliasingPlugin {
             SmaaPlugin,
             TemporalAntiAliasPlugin,
             CasPlugin,
-            #[cfg(all(feature = "dlss", not(feature = "bevy_ci_testing")))]
+            #[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))]
             dlss::DlssPlugin,
         ));
     }

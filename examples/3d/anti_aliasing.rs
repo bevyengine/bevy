@@ -21,7 +21,7 @@ use bevy::{
     },
 };
 
-#[cfg(all(feature = "dlss", not(feature = "bevy_ci_testing")))]
+#[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))]
 use bevy::anti_aliasing::dlss::{
     Dlss, DlssPerfQualityMode, DlssProjectId, DlssSuperResolutionSupported,
 };
@@ -29,7 +29,7 @@ use bevy::anti_aliasing::dlss::{
 fn main() {
     let mut app = App::new();
 
-    #[cfg(all(feature = "dlss", not(feature = "bevy_ci_testing")))]
+    #[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))]
     app.insert_resource(DlssProjectId(bevy_asset::uuid::uuid!(
         "5417916c-0291-4e3f-8f65-326c1858ab96"
     )));
@@ -49,7 +49,7 @@ type TaaComponents = (
     MotionVectorPrepass,
 );
 
-#[cfg(all(feature = "dlss", not(feature = "bevy_ci_testing")))]
+#[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))]
 type DlssComponents = (
     Dlss,
     TemporalJitter,
@@ -57,12 +57,12 @@ type DlssComponents = (
     DepthPrepass,
     MotionVectorPrepass,
 );
-#[cfg(any(not(feature = "dlss"), feature = "bevy_ci_testing"))]
+#[cfg(any(not(feature = "dlss"), feature = "force_disable_dlss"))]
 type DlssComponents = ();
 
 fn modify_aa(
     keys: Res<ButtonInput<KeyCode>>,
-    #[cfg(all(feature = "dlss", not(feature = "bevy_ci_testing")))] camera: Single<
+    #[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))] camera: Single<
         (
             Entity,
             Option<&mut Fxaa>,
@@ -73,7 +73,7 @@ fn modify_aa(
         ),
         With<Camera>,
     >,
-    #[cfg(any(not(feature = "dlss"), feature = "bevy_ci_testing"))] camera: Single<
+    #[cfg(any(not(feature = "dlss"), feature = "force_disable_dlss"))] camera: Single<
         (
             Entity,
             Option<&mut Fxaa>,
@@ -83,14 +83,14 @@ fn modify_aa(
         ),
         With<Camera>,
     >,
-    #[cfg(all(feature = "dlss", not(feature = "bevy_ci_testing")))] dlss_supported: Option<
+    #[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))] dlss_supported: Option<
         Res<DlssSuperResolutionSupported>,
     >,
     mut commands: Commands,
 ) {
-    #[cfg(all(feature = "dlss", not(feature = "bevy_ci_testing")))]
+    #[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))]
     let (camera_entity, fxaa, smaa, taa, mut msaa, dlss) = camera.into_inner();
-    #[cfg(any(not(feature = "dlss"), feature = "bevy_ci_testing"))]
+    #[cfg(any(not(feature = "dlss"), feature = "force_disable_dlss"))]
     let (camera_entity, fxaa, smaa, taa, mut msaa) = camera.into_inner();
     let mut camera = commands.entity(camera_entity);
 
@@ -199,7 +199,7 @@ fn modify_aa(
     }
 
     // DLSS
-    #[cfg(all(feature = "dlss", not(feature = "bevy_ci_testing")))]
+    #[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))]
     if keys.just_pressed(KeyCode::Digit6) && dlss.is_none() && dlss_supported.is_some() {
         *msaa = Msaa::Off;
         camera
@@ -210,7 +210,7 @@ fn modify_aa(
     }
 
     // DLSS Settings
-    #[cfg(all(feature = "dlss", not(feature = "bevy_ci_testing")))]
+    #[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))]
     if let Some(mut dlss) = dlss {
         if keys.just_pressed(KeyCode::KeyZ) {
             dlss.perf_quality_mode = DlssPerfQualityMode::Auto;
@@ -258,7 +258,7 @@ fn modify_sharpening(
 }
 
 fn update_ui(
-    #[cfg(all(feature = "dlss", not(feature = "bevy_ci_testing")))] camera: Single<
+    #[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))] camera: Single<
         (
             Option<&Fxaa>,
             Option<&Smaa>,
@@ -269,7 +269,7 @@ fn update_ui(
         ),
         With<Camera>,
     >,
-    #[cfg(any(not(feature = "dlss"), feature = "bevy_ci_testing"))] camera: Single<
+    #[cfg(any(not(feature = "dlss"), feature = "force_disable_dlss"))] camera: Single<
         (
             Option<&Fxaa>,
             Option<&Smaa>,
@@ -280,21 +280,21 @@ fn update_ui(
         With<Camera>,
     >,
     mut ui: Single<&mut Text>,
-    #[cfg(all(feature = "dlss", not(feature = "bevy_ci_testing")))] dlss_supported: Option<
+    #[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))] dlss_supported: Option<
         Res<DlssSuperResolutionSupported>,
     >,
 ) {
-    #[cfg(all(feature = "dlss", not(feature = "bevy_ci_testing")))]
+    #[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))]
     let (fxaa, smaa, taa, cas, msaa, dlss) = *camera;
-    #[cfg(any(not(feature = "dlss"), feature = "bevy_ci_testing"))]
+    #[cfg(any(not(feature = "dlss"), feature = "force_disable_dlss"))]
     let (fxaa, smaa, taa, cas, msaa) = *camera;
 
     let ui = &mut ui.0;
     *ui = "Antialias Method\n".to_string();
 
-    #[cfg(all(feature = "dlss", not(feature = "bevy_ci_testing")))]
+    #[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))]
     let dlss_none = dlss.is_none();
-    #[cfg(any(not(feature = "dlss"), feature = "bevy_ci_testing"))]
+    #[cfg(any(not(feature = "dlss"), feature = "force_disable_dlss"))]
     let dlss_none = true;
 
     draw_selectable_menu_item(
@@ -307,7 +307,7 @@ fn update_ui(
     draw_selectable_menu_item(ui, "FXAA", '3', fxaa.is_some());
     draw_selectable_menu_item(ui, "SMAA", '4', smaa.is_some());
     draw_selectable_menu_item(ui, "TAA", '5', taa.is_some());
-    #[cfg(all(feature = "dlss", not(feature = "bevy_ci_testing")))]
+    #[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))]
     if dlss_supported.is_some() {
         draw_selectable_menu_item(ui, "DLSS", '6', dlss.is_some());
     }
@@ -346,7 +346,7 @@ fn update_ui(
         draw_selectable_menu_item(ui, "Ultra", 'R', smaa.preset == SmaaPreset::Ultra);
     }
 
-    #[cfg(all(feature = "dlss", not(feature = "bevy_ci_testing")))]
+    #[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))]
     if let Some(dlss) = dlss {
         let pqm = dlss.perf_quality_mode;
         ui.push_str("\n----------\n\nQuality\n");

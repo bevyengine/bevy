@@ -368,7 +368,7 @@ impl Plugin for RenderPlugin {
 
                     let settings = render_creation.clone();
 
-                    #[cfg(all(feature = "dlss", not(feature = "bevy_ci_testing")))]
+                    #[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))]
                     let dlss_project_id = app
                         .world()
                         .get_resource::<DlssProjectId>()
@@ -380,7 +380,7 @@ impl Plugin for RenderPlugin {
                             backends,
                             primary_window,
                             &settings,
-                            #[cfg(all(feature = "dlss", not(feature = "bevy_ci_testing")))]
+                            #[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))]
                             dlss_project_id,
                         )
                         .await;
@@ -449,7 +449,7 @@ impl Plugin for RenderPlugin {
         if let Some(future_render_resources) =
             app.world_mut().remove_resource::<FutureRenderResources>()
         {
-            #[cfg(all(feature = "dlss", not(feature = "bevy_ci_testing")))]
+            #[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))]
             let RenderResources(
                 device,
                 queue,
@@ -459,7 +459,7 @@ impl Plugin for RenderPlugin {
                 dlss_super_resolution_supported,
                 dlss_ray_reconstruction_supported,
             ) = future_render_resources.0.lock().unwrap().take().unwrap();
-            #[cfg(any(not(feature = "dlss"), feature = "bevy_ci_testing"))]
+            #[cfg(any(not(feature = "dlss"), feature = "force_disable_dlss"))]
             let RenderResources(device, queue, adapter_info, render_adapter, instance) =
                 future_render_resources.0.lock().unwrap().take().unwrap();
 
@@ -473,11 +473,11 @@ impl Plugin for RenderPlugin {
                 .insert_resource(render_adapter.clone())
                 .insert_resource(compressed_image_format_support);
 
-            #[cfg(all(feature = "dlss", not(feature = "bevy_ci_testing")))]
+            #[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))]
             if let Some(dlss_super_resolution_supported) = dlss_super_resolution_supported {
                 app.insert_resource(dlss_super_resolution_supported);
             }
-            #[cfg(all(feature = "dlss", not(feature = "bevy_ci_testing")))]
+            #[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))]
             if let Some(dlss_ray_reconstruction_supported) = dlss_ray_reconstruction_supported {
                 app.insert_resource(dlss_ray_reconstruction_supported);
             }
@@ -642,18 +642,18 @@ pub fn get_mali_driver_version(adapter: &RenderAdapter) -> Option<u32> {
 /// Application-specific ID for DLSS.
 ///
 /// See the DLSS programming guide for more info.
-#[cfg(all(feature = "dlss", not(feature = "bevy_ci_testing")))]
+#[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))]
 #[derive(Resource)]
 pub struct DlssProjectId(pub bevy_asset::uuid::Uuid);
 
 /// When DLSS Super Resolution is supported by the current system, this resource will exist in the main world.
 /// Otherwise this resource will be absent.
-#[cfg(all(feature = "dlss", not(feature = "bevy_ci_testing")))]
+#[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))]
 #[derive(Resource, Clone, Copy)]
 pub struct DlssSuperResolutionSupported;
 
 /// When DLSS Ray Reconstruction is supported by the current system, this resource will exist in the main world.
 /// Otherwise this resource will be absent.
-#[cfg(all(feature = "dlss", not(feature = "bevy_ci_testing")))]
+#[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))]
 #[derive(Resource, Clone, Copy)]
 pub struct DlssRayReconstructionSupported;

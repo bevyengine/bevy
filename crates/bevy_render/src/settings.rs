@@ -93,10 +93,10 @@ impl Default for WgpuSettings {
             #[expect(clippy::allow_attributes, reason = "`unused_mut` is not always linted")]
             #[allow(
                 unused_mut,
-                reason = "This variable needs to be mutable if the `bevy_ci_testing` feature is enabled"
+                reason = "This variable needs to be mutable if the `ci_limits` feature is enabled"
             )]
             let mut limits = wgpu::Limits::default();
-            #[cfg(feature = "bevy_ci_testing")]
+            #[cfg(feature = "ci_limits")]
             {
                 limits.max_storage_textures_per_shader_stage = 4;
                 limits.max_texture_dimension_3d = 1024;
@@ -151,9 +151,9 @@ pub struct RenderResources(
     pub(crate) RenderAdapterInfo,
     pub(crate) RenderAdapter,
     pub(crate) RenderInstance,
-    #[cfg(all(feature = "dlss", not(feature = "bevy_ci_testing")))]
+    #[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))]
     pub(crate)  Option<crate::DlssSuperResolutionSupported>,
-    #[cfg(all(feature = "dlss", not(feature = "bevy_ci_testing")))]
+    #[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))]
     pub(crate)  Option<crate::DlssRayReconstructionSupported>,
 );
 
@@ -184,9 +184,9 @@ impl RenderCreation {
             adapter_info,
             adapter,
             instance,
-            #[cfg(all(feature = "dlss", not(feature = "bevy_ci_testing")))]
+            #[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))]
             None,
-            #[cfg(all(feature = "dlss", not(feature = "bevy_ci_testing")))]
+            #[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))]
             None,
         )
         .into()
