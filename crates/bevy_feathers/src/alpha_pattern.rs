@@ -10,7 +10,8 @@ use bevy_ecs::{
     world::FromWorld,
 };
 use bevy_reflect::{prelude::ReflectDefault, Reflect, TypePath};
-use bevy_render::render_resource::{AsBindGroup, ShaderRef};
+use bevy_render::render_resource::AsBindGroup;
+use bevy_shader::ShaderRef;
 use bevy_ui_render::ui_material::{MaterialNode, UiMaterial};
 
 #[derive(AsBindGroup, Asset, TypePath, Default, Debug, Clone)]

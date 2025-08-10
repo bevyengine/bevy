@@ -6,6 +6,7 @@ use bevy_image::{Image, ImageSampler, ToExtents};
 use bevy_math::UVec2;
 use bevy_reflect::prelude::*;
 use bevy_render::render_resource::*;
+use bevy_shader::ShaderRef;
 use bytemuck::{Pod, Zeroable};
 
 /// Plugin that adds support for tilemap chunk materials.

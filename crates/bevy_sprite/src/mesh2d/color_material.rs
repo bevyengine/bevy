@@ -6,6 +6,7 @@ use bevy_image::Image;
 use bevy_math::{Affine2, Mat3, Vec4};
 use bevy_reflect::prelude::*;
 use bevy_render::{render_asset::RenderAssets, render_resource::*, texture::GpuImage};
+use bevy_shader::ShaderRef;
 
 #[derive(Default)]
 pub struct ColorMaterialPlugin;
