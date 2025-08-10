@@ -5,6 +5,12 @@
 //! See [`SolariPlugins`] for more info.
 //!
 //! ![`bevy_solari` logo](https://raw.githubusercontent.com/bevyengine/bevy/refs/heads/main/assets/branding/bevy_solari.svg)
+
+#[cfg(feature = "std")]
+extern crate std;
+
+extern crate alloc;
+
 pub mod pathtracer;
 pub mod realtime;
 pub mod scene;
