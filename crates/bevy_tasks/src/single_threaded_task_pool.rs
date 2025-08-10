@@ -212,16 +212,6 @@ impl TaskPool {
             }
         }
     }
-
-    fn flush_local() {
-        crate::cfg::bevy_executor! {
-            if {
-                Executor::flush_local();
-            } else {
-                while EXECUTOR.try_tick() {}
-            }
-        }
-    }
 }
 
 /// A `TaskPool` scope for running one or more non-`'static` futures.

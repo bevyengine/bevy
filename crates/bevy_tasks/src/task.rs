@@ -38,7 +38,9 @@ cfg::web! {
                 spawn_local(async move {
                     // Catch any panics that occur when polling the future so they can
                     // be propagated back to the task handle.
-                    let value = CatchUnwind(AssertUnwindSafe(future)).await;
+                    let value = CatchUnwind {
+                        inner: AssertUnwindSafe(future)
+                    }.await;
                     let _ = sender.send(value);
                 });
                 Self(receiver)
@@ -173,13 +175,17 @@ cfg::web! {
 
     type Panic = Box<dyn Any + Send + 'static>;
 
-    #[pin_project::pin_project]
-    struct CatchUnwind<F: UnwindSafe>(#[pin] F);
+    pin_project_lite::pin_project! {
+        struct CatchUnwind<F: UnwindSafe> {
+            #[pin]
+            inner: F
+        }
+    }
 
     impl<F: Future + UnwindSafe> Future for CatchUnwind<F> {
         type Output = Result<F::Output, Panic>;
         fn poll(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
-            let f = AssertUnwindSafe(|| self.project().0.poll(cx));
+            let f = AssertUnwindSafe(|| self.project().inner.poll(cx));
 
             let result = cfg::std! {
                 if {
