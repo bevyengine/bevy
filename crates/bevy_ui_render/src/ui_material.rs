@@ -34,7 +34,7 @@ use derive_more::derive::From;
 /// # use bevy_reflect::TypePath;
 /// # use bevy_render::render_resource::AsBindGroup;
 /// # use bevy_color::LinearRgba;
-/// # use bevy_shader::ShaderDef;
+/// # use bevy_shader::ShaderRef;
 /// # use bevy_asset::{Handle, AssetServer, Assets, Asset};
 /// # use bevy_ui_render::prelude::*;
 ///
