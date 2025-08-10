@@ -8,9 +8,10 @@ use bevy::{
     prelude::*,
     reflect::TypePath,
     render::{
-        render_resource::{AsBindGroup, ShaderRef},
+        render_resource::AsBindGroup,
         view::{ColorGrading, ColorGradingGlobal, ColorGradingSection, Hdr},
     },
+    shader::ShaderRef,
 };
 use std::f32::consts::PI;
 

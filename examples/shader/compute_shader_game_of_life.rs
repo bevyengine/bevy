@@ -14,6 +14,7 @@ use bevy::{
         texture::GpuImage,
         Render, RenderApp, RenderStartup, RenderSystems,
     },
+    shader::PipelineCacheError,
 };
 use std::borrow::Cow;
 

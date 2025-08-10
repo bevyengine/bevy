@@ -6,8 +6,9 @@ use bevy::{
     prelude::*,
     reflect::TypePath,
     render::render_resource::{
-        AsBindGroup, RenderPipelineDescriptor, ShaderRef, SpecializedMeshPipelineError,
+        AsBindGroup, RenderPipelineDescriptor, SpecializedMeshPipelineError,
     },
+    shader::ShaderRef,
 };
 
 /// This example uses a shader source file from the assets subdirectory
