@@ -150,7 +150,7 @@ impl TextInputBuffer {
 #[derive(Component, Debug, Default)]
 pub struct UndoHistory {
     /// The commands to undo and undo
-    pub changes: cosmic_undo_2::Commands<cosmic_text::Change>,
+    pub changes: crate::undo_2::Commands<cosmic_text::Change>,
 }
 
 impl UndoHistory {
@@ -477,13 +477,13 @@ pub fn is_cursor_at_end_of_line(editor: &mut BorrowedWithFontSystem<Editor<'_>>)
 /// apply an action from the undo history to the  text input buffer
 fn apply_action<'a>(
     editor: &mut BorrowedWithFontSystem<Editor<'a>>,
-    action: cosmic_undo_2::Action<&cosmic_text::Change>,
+    action: crate::undo_2::Action<&cosmic_text::Change>,
 ) {
     match action {
-        cosmic_undo_2::Action::Do(change) => {
+        crate::undo_2::Action::Do(change) => {
             editor.apply_change(change);
         }
-        cosmic_undo_2::Action::Undo(change) => {
+        crate::undo_2::Action::Undo(change) => {
             let mut reversed = change.clone();
             reversed.reverse();
             editor.apply_change(&reversed);
