@@ -846,10 +846,11 @@ impl AssetServer {
                     }
                 }
 
-                if !reloaded && server.data.infos.read().should_reload(&path) {
-                    if let Err(err) = server.load_internal(None, path, true, None).await {
-                        error!("{}", err);
-                    }
+                if !reloaded
+                    && server.data.infos.read().should_reload(&path)
+                    && let Err(err) = server.load_internal(None, path, true, None).await
+                {
+                    error!("{}", err);
                 }
             })
             .detach();
@@ -1286,7 +1287,7 @@ impl AssetServer {
     }
 
     /// Returns the path for the given `id`, if it has one.
-    pub fn get_path(&self, id: impl Into<UntypedAssetId>) -> Option<AssetPath> {
+    pub fn get_path(&self, id: impl Into<UntypedAssetId>) -> Option<AssetPath<'_>> {
         let infos = self.data.infos.read();
         let info = infos.get(id.into())?;
         Some(info.path.as_ref()?.clone())

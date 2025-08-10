@@ -35,16 +35,16 @@ fn button_on_key_event(
     q_state: Query<(&CoreButton, Has<InteractionDisabled>)>,
     mut commands: Commands,
 ) {
-    if let Ok((bstate, disabled)) = q_state.get(trigger.target()) {
-        if !disabled {
-            let event = &trigger.event().input;
-            if !event.repeat
-                && event.state == ButtonState::Pressed
-                && (event.key_code == KeyCode::Enter || event.key_code == KeyCode::Space)
-            {
-                trigger.propagate(false);
-                commands.notify_with(&bstate.on_activate, Activate(trigger.target()));
-            }
+    if let Ok((bstate, disabled)) = q_state.get(trigger.target())
+        && !disabled
+    {
+        let event = &trigger.event().input;
+        if !event.repeat
+            && event.state == ButtonState::Pressed
+            && (event.key_code == KeyCode::Enter || event.key_code == KeyCode::Space)
+        {
+            trigger.propagate(false);
+            commands.notify_with(&bstate.on_activate, Activate(trigger.target()));
         }
     }
 }

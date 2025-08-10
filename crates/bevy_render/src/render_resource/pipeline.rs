@@ -1,5 +1,4 @@
-use super::ShaderDefVal;
-use crate::mesh::VertexBufferLayout;
+use super::{empty_bind_group_layout, ShaderDefVal};
 use crate::WgpuWrapper;
 use crate::{
     define_atomic_id,
@@ -7,7 +6,10 @@ use crate::{
 };
 use alloc::borrow::Cow;
 use bevy_asset::Handle;
+use bevy_mesh::VertexBufferLayout;
+use core::iter;
 use core::ops::Deref;
+use thiserror::Error;
 use wgpu::{
     ColorTargetState, DepthStencilState, MultisampleState, PrimitiveState, PushConstantRange,
 };
@@ -112,6 +114,20 @@ pub struct RenderPipelineDescriptor {
     pub zero_initialize_workgroup_memory: bool,
 }
 
+#[derive(Copy, Clone, Debug, Error, Eq, PartialEq)]
+#[error("RenderPipelineDescriptor has no FragmentState configured")]
+pub struct NoFragmentStateError;
+
+impl RenderPipelineDescriptor {
+    pub fn fragment_mut(&mut self) -> Result<&mut FragmentState, NoFragmentStateError> {
+        self.fragment.as_mut().ok_or(NoFragmentStateError)
+    }
+
+    pub fn set_layout(&mut self, index: usize, layout: BindGroupLayout) {
+        filling_set_at(&mut self.layout, index, empty_bind_group_layout(), layout);
+    }
+}
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct VertexState {
     /// The compiled shader module for this stage.
@@ -159,6 +175,12 @@ impl Default for FragmentState {
     }
 }
 
+impl FragmentState {
+    pub fn set_target(&mut self, index: usize, target: ColorTargetState) {
+        filling_set_at(&mut self.targets, index, None, Some(target));
+    }
+}
+
 /// Describes a compute pipeline.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ComputePipelineDescriptor {
@@ -188,4 +210,12 @@ impl Default for ComputePipelineDescriptor {
             zero_initialize_workgroup_memory: Default::default(),
         }
     }
+}
+
+// utility function to set a value at the specified index, extending with
+// a filler value if the index is out of bounds.
+fn filling_set_at<T: Clone>(vec: &mut Vec<T>, index: usize, filler: T, value: T) {
+    let num_to_fill = (index + 1).saturating_sub(vec.len());
+    vec.extend(iter::repeat_n(filler, num_to_fill));
+    vec[index] = value;
 }

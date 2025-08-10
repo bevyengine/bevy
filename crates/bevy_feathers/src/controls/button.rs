@@ -5,10 +5,12 @@ use bevy_ecs::{
     entity::Entity,
     lifecycle::RemovedComponents,
     query::{Added, Changed, Has, Or},
+    reflect::ReflectComponent,
     schedule::IntoScheduleConfigs,
     system::{Commands, In, Query},
 };
 use bevy_picking::{hover::Hovered, PickingSystems};
+use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_scene2::{prelude::*, template_value};
 use bevy_ui::{AlignItems, InteractionDisabled, JustifyContent, Node, Pressed, UiRect, Val};
 
@@ -24,7 +26,8 @@ use bevy_input_focus::tab_navigation::TabIndex;
 
 /// Color variants for buttons. This also functions as a component used by the dynamic styling
 /// system to identify which entities are buttons.
-#[derive(Component, Default, Clone)]
+#[derive(Component, Default, Clone, Reflect)]
+#[reflect(Component, Clone, Default)]
 pub enum ButtonVariant {
     /// The standard button appearance
     #[default]

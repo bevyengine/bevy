@@ -224,7 +224,6 @@ bevy_text = ["dep:bevy_text", "bevy_image"]
 
 bevy_render = [
   "dep:bevy_render",
-  "bevy_scene?/bevy_render",
   "bevy_gizmos?/bevy_render",
   "bevy_camera",
   "bevy_shader",
@@ -301,11 +300,25 @@ reflect_functions = [
   "bevy_ecs/reflect_functions",
 ]
 
+# Enable automatic reflect registration using inventory.
+reflect_auto_register = [
+  "bevy_reflect/auto_register_inventory",
+  "bevy_app/reflect_auto_register",
+  "bevy_ecs/reflect_auto_register",
+]
+
+# Enable automatic reflect registration without inventory. See `reflect::load_type_registrations` for more info.
+reflect_auto_register_static = [
+  "bevy_reflect/auto_register_static",
+  "bevy_app/reflect_auto_register",
+  "bevy_ecs/reflect_auto_register",
+]
+
 # Enable documentation reflection
 reflect_documentation = ["bevy_reflect/documentation"]
 
-# Enable winit custom cursor support
-custom_cursor = ["bevy_winit/custom_cursor"]
+# Enable custom cursor support
+custom_cursor = ["bevy_window/custom_cursor", "bevy_winit/custom_cursor"]
 
 # Experimental support for nodes that are ignored for UI layouting
 ghost_nodes = ["bevy_ui/ghost_nodes"]
@@ -327,7 +340,6 @@ std = [
   "bevy_state?/std",
   "bevy_time/std",
   "bevy_transform/std",
-  "bevy_tasks/std",
   "bevy_window?/std",
 ]
 
@@ -344,7 +356,6 @@ critical-section = [
   "bevy_reflect/critical-section",
   "bevy_state?/critical-section",
   "bevy_time/critical-section",
-  "bevy_tasks/critical-section",
 ]
 
 # Uses the `libm` maths library instead of the one provided in `std` and `core`.
@@ -368,12 +379,7 @@ async_executor = [
 
 # Enables use of browser APIs.
 # Note this is currently only applicable on `wasm32` architectures.
-web = [
-  "bevy_app/web",
-  "bevy_platform/web",
-  "bevy_reflect/web",
-  "bevy_tasks/web",
-]
+web = ["bevy_app/web", "bevy_platform/web", "bevy_reflect/web"]
 
 hotpatching = ["bevy_app/hotpatching", "bevy_ecs/hotpatching"]
 
@@ -466,6 +472,9 @@ bevy_window = { path = "../bevy_window", optional = true, version = "0.17.0-dev"
   "bevy_reflect",
 ] }
 bevy_winit = { path = "../bevy_winit", optional = true, version = "0.17.0-dev", default-features = false }
+
+[target.'cfg(target_os = "android")'.dependencies]
+bevy_android = { path = "../bevy_android", version = "0.17.0-dev", default-features = false }
 
 [lints]
 workspace = true

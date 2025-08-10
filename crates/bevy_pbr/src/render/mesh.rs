@@ -1,6 +1,10 @@
 use crate::material_bind_groups::{MaterialBindGroupIndex, MaterialBindGroupSlot};
-use allocator::MeshAllocator;
 use bevy_asset::{embedded_asset, load_embedded_asset, AssetId};
+use bevy_camera::{
+    primitives::Aabb,
+    visibility::{NoFrustumCulling, ViewVisibility, VisibilityRange},
+    Camera,
+};
 use bevy_core_pipeline::{
     core_3d::{AlphaMask3d, Opaque3d, Transmissive3d, Transparent3d, CORE_3D_DEPTH_FORMAT},
     deferred::{AlphaMask3dDeferred, Opaque3dDeferred},
@@ -19,6 +23,10 @@ use bevy_light::{
     EnvironmentMapLight, NotShadowCaster, NotShadowReceiver, TransmittedShadowReceiver,
 };
 use bevy_math::{Affine3, Rect, UVec2, Vec3, Vec4};
+use bevy_mesh::{
+    skinning::SkinnedMesh, BaseMeshPipelineKey, Mesh, Mesh3d, MeshTag, MeshVertexBufferLayoutRef,
+    VertexAttributeDescriptor,
+};
 use bevy_platform::collections::{hash_map::Entry, HashMap};
 use bevy_render::{
     batching::{
@@ -29,9 +37,7 @@ use bevy_render::{
         },
         no_gpu_preprocessing, GetBatchData, GetFullBatchData, NoAutomaticBatching,
     },
-    camera::Camera,
-    mesh::{skinning::SkinnedMesh, *},
-    primitives::Aabb,
+    mesh::{allocator::MeshAllocator, RenderMesh, RenderMeshBufferInfo},
     render_asset::RenderAssets,
     render_phase::{
         BinnedRenderPhasePlugin, InputUniformIndex, PhaseItem, PhaseItemExtraIndex, RenderCommand,
@@ -42,8 +48,8 @@ use bevy_render::{
     sync_world::MainEntityHashSet,
     texture::{DefaultImageSampler, GpuImage},
     view::{
-        self, NoFrustumCulling, NoIndirectDrawing, RenderVisibilityRanges, RetainedViewEntity,
-        ViewTarget, ViewUniformOffset, ViewVisibility, VisibilityRange,
+        self, NoIndirectDrawing, RenderVisibilityRanges, RetainedViewEntity, ViewTarget,
+        ViewUniformOffset,
     },
     Extract,
 };
@@ -76,7 +82,9 @@ use bevy_render::camera::TemporalJitter;
 use bevy_render::prelude::Msaa;
 use bevy_render::sync_world::{MainEntity, MainEntityHashMap};
 use bevy_render::view::ExtractedView;
+use bevy_render::view::RenderLayers;
 use bevy_render::RenderSystems::PrepareAssets;
+
 use bytemuck::{Pod, Zeroable};
 use nonmax::{NonMaxU16, NonMaxU32};
 use smallvec::{smallvec, SmallVec};
@@ -720,6 +728,8 @@ pub struct RenderMeshInstanceShared {
     pub lightmap_slab_index: Option<LightmapSlabIndex>,
     /// User supplied tag to identify this mesh instance.
     pub tag: u32,
+    /// Render layers that this mesh instance belongs to.
+    pub render_layers: Option<RenderLayers>,
 }
 
 /// Information that is gathered during the parallel portion of mesh extraction
@@ -811,6 +821,7 @@ impl RenderMeshInstanceShared {
         tag: Option<&MeshTag>,
         not_shadow_caster: bool,
         no_automatic_batching: bool,
+        render_layers: Option<&RenderLayers>,
     ) -> Self {
         Self::for_cpu_building(
             previous_transform,
@@ -819,6 +830,7 @@ impl RenderMeshInstanceShared {
             default(),
             not_shadow_caster,
             no_automatic_batching,
+            render_layers,
         )
     }
 
@@ -830,6 +842,7 @@ impl RenderMeshInstanceShared {
         material_bindings_index: MaterialBindingId,
         not_shadow_caster: bool,
         no_automatic_batching: bool,
+        render_layers: Option<&RenderLayers>,
     ) -> Self {
         let mut mesh_instance_flags = RenderMeshInstanceFlags::empty();
         mesh_instance_flags.set(RenderMeshInstanceFlags::SHADOW_CASTER, !not_shadow_caster);
@@ -848,6 +861,7 @@ impl RenderMeshInstanceShared {
             material_bindings_index,
             lightmap_slab_index: None,
             tag: tag.map_or(0, |i| **i),
+            render_layers: render_layers.cloned(),
         }
     }
 
@@ -903,7 +917,7 @@ impl RenderMeshInstances {
 
     /// Constructs [`RenderMeshQueueData`] for the given entity, if it has a
     /// mesh attached.
-    pub fn render_mesh_queue_data(&self, entity: MainEntity) -> Option<RenderMeshQueueData> {
+    pub fn render_mesh_queue_data(&self, entity: MainEntity) -> Option<RenderMeshQueueData<'_>> {
         match *self {
             RenderMeshInstances::CpuBuilding(ref instances) => {
                 instances.render_mesh_queue_data(entity)
@@ -934,7 +948,7 @@ impl RenderMeshInstancesCpu {
             .map(|render_mesh_instance| render_mesh_instance.mesh_asset_id)
     }
 
-    fn render_mesh_queue_data(&self, entity: MainEntity) -> Option<RenderMeshQueueData> {
+    fn render_mesh_queue_data(&self, entity: MainEntity) -> Option<RenderMeshQueueData<'_>> {
         self.get(&entity)
             .map(|render_mesh_instance| RenderMeshQueueData {
                 shared: &render_mesh_instance.shared,
@@ -958,7 +972,7 @@ impl RenderMeshInstancesGpu {
             .map(|render_mesh_instance| render_mesh_instance.mesh_asset_id)
     }
 
-    fn render_mesh_queue_data(&self, entity: MainEntity) -> Option<RenderMeshQueueData> {
+    fn render_mesh_queue_data(&self, entity: MainEntity) -> Option<RenderMeshQueueData<'_>> {
         self.get(&entity)
             .map(|render_mesh_instance| RenderMeshQueueData {
                 shared: &render_mesh_instance.shared,
@@ -1313,6 +1327,7 @@ pub fn extract_meshes_for_cpu_building(
             Has<NotShadowCaster>,
             Has<NoAutomaticBatching>,
             Has<VisibilityRange>,
+            Option<&RenderLayers>,
         )>,
     >,
 ) {
@@ -1332,6 +1347,7 @@ pub fn extract_meshes_for_cpu_building(
             not_shadow_caster,
             no_automatic_batching,
             visibility_range,
+            render_layers,
         )| {
             if !view_visibility.get() {
                 return;
@@ -1364,6 +1380,7 @@ pub fn extract_meshes_for_cpu_building(
                 material_bindings_index,
                 not_shadow_caster,
                 no_automatic_batching,
+                render_layers,
             );
 
             let world_from_local = transform.affine();
@@ -1417,6 +1434,7 @@ type GpuMeshExtractionQuery = (
     Has<NotShadowCaster>,
     Has<NoAutomaticBatching>,
     Has<VisibilityRange>,
+    Option<Read<RenderLayers>>,
 );
 
 /// Extracts meshes from the main world into the render world and queues
@@ -1536,6 +1554,7 @@ fn extract_mesh_for_gpu_building(
         not_shadow_caster,
         no_automatic_batching,
         visibility_range,
+        render_layers,
     ): <GpuMeshExtractionQuery as QueryData>::Item<'_, '_>,
     render_visibility_ranges: &RenderVisibilityRanges,
     render_mesh_instances: &RenderMeshInstancesGpu,
@@ -1566,6 +1585,7 @@ fn extract_mesh_for_gpu_building(
         tag,
         not_shadow_caster,
         no_automatic_batching,
+        render_layers,
     );
 
     let lightmap_uv_rect = pack_lightmap_uv_rect(lightmap.map(|lightmap| lightmap.uv_rect));
@@ -2712,27 +2732,26 @@ pub fn prepare_mesh_bind_groups(
     mut render_lightmaps: ResMut<RenderLightmaps>,
 ) {
     // CPU mesh preprocessing path.
-    if let Some(cpu_batched_instance_buffer) = cpu_batched_instance_buffer {
-        if let Some(instance_data_binding) = cpu_batched_instance_buffer
+    if let Some(cpu_batched_instance_buffer) = cpu_batched_instance_buffer
+        && let Some(instance_data_binding) = cpu_batched_instance_buffer
             .into_inner()
             .instance_data_binding()
-        {
-            // In this path, we only have a single set of bind groups for all phases.
-            let cpu_preprocessing_mesh_bind_groups = prepare_mesh_bind_groups_for_phase(
-                instance_data_binding,
-                &meshes,
-                &mesh_pipeline,
-                &render_device,
-                &skins_uniform,
-                &weights_uniform,
-                &mut render_lightmaps,
-            );
+    {
+        // In this path, we only have a single set of bind groups for all phases.
+        let cpu_preprocessing_mesh_bind_groups = prepare_mesh_bind_groups_for_phase(
+            instance_data_binding,
+            &meshes,
+            &mesh_pipeline,
+            &render_device,
+            &skins_uniform,
+            &weights_uniform,
+            &mut render_lightmaps,
+        );
 
-            commands.insert_resource(MeshBindGroups::CpuPreprocessing(
-                cpu_preprocessing_mesh_bind_groups,
-            ));
-            return;
-        }
+        commands.insert_resource(MeshBindGroups::CpuPreprocessing(
+            cpu_preprocessing_mesh_bind_groups,
+        ));
+        return;
     }
 
     // GPU mesh preprocessing path.
@@ -3022,11 +3041,11 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMeshBindGroup<I> {
             dynamic_offsets[offset_count] = dynamic_offset;
             offset_count += 1;
         }
-        if let Some(current_skin_index) = current_skin_byte_offset {
-            if skins_use_uniform_buffers(&render_device) {
-                dynamic_offsets[offset_count] = current_skin_index.byte_offset;
-                offset_count += 1;
-            }
+        if let Some(current_skin_index) = current_skin_byte_offset
+            && skins_use_uniform_buffers(&render_device)
+        {
+            dynamic_offsets[offset_count] = current_skin_index.byte_offset;
+            offset_count += 1;
         }
         if let Some(current_morph_index) = current_morph_index {
             dynamic_offsets[offset_count] = current_morph_index.index;
@@ -3036,11 +3055,11 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMeshBindGroup<I> {
         // Attach motion vectors if needed.
         if has_motion_vector_prepass {
             // Attach the previous skin index for motion vector computation.
-            if skins_use_uniform_buffers(&render_device) {
-                if let Some(current_skin_byte_offset) = current_skin_byte_offset {
-                    dynamic_offsets[offset_count] = current_skin_byte_offset.byte_offset;
-                    offset_count += 1;
-                }
+            if skins_use_uniform_buffers(&render_device)
+                && let Some(current_skin_byte_offset) = current_skin_byte_offset
+            {
+                dynamic_offsets[offset_count] = current_skin_byte_offset.byte_offset;
+                offset_count += 1;
             }
 
             // Attach the previous morph index for motion vector computation. If
@@ -3094,13 +3113,12 @@ impl<P: PhaseItem> RenderCommand<P> for DrawMesh {
         // If we're using GPU preprocessing, then we're dependent on that
         // compute shader having been run, which of course can only happen if
         // it's compiled. Otherwise, our mesh instance data won't be present.
-        if let Some(preprocess_pipelines) = preprocess_pipelines {
-            if !has_preprocess_bind_group
+        if let Some(preprocess_pipelines) = preprocess_pipelines
+            && (!has_preprocess_bind_group
                 || !preprocess_pipelines
-                    .pipelines_are_loaded(&pipeline_cache, &preprocessing_support)
-            {
-                return RenderCommandResult::Skip;
-            }
+                    .pipelines_are_loaded(&pipeline_cache, &preprocessing_support))
+        {
+            return RenderCommandResult::Skip;
         }
 
         let meshes = meshes.into_inner();

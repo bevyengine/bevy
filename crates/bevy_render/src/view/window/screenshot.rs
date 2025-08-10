@@ -1,6 +1,6 @@
 use super::ExtractedWindows;
 use crate::{
-    camera::{NormalizedRenderTarget, ToNormalizedRenderTarget as _},
+    camera::NormalizedRenderTarget,
     gpu_readback,
     prelude::Shader,
     render_asset::{RenderAssetUsages, RenderAssets},
@@ -401,9 +401,7 @@ impl Plugin for ScreenshotPlugin {
                     .after(event_update_system)
                     .before(ApplyDeferred),
             )
-            .add_systems(Update, trigger_screenshots)
-            .register_type::<Screenshot>()
-            .register_type::<ScreenshotCaptured>();
+            .add_systems(Update, trigger_screenshots);
 
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
@@ -595,6 +593,7 @@ fn render_screenshot(
                 label: Some("screenshot_to_screen_pass"),
                 color_attachments: &[Some(wgpu::RenderPassColorAttachment {
                     view: texture_view,
+                    depth_slice: None,
                     resolve_target: None,
                     ops: wgpu::Operations {
                         load: wgpu::LoadOp::Load,

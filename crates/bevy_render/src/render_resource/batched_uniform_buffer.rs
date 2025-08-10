@@ -109,7 +109,7 @@ impl<T: GpuArrayBufferable> BatchedUniformBuffer<T> {
     }
 
     #[inline]
-    pub fn binding(&self) -> Option<BindingResource> {
+    pub fn binding(&self) -> Option<BindingResource<'_>> {
         let mut binding = self.uniforms.binding();
         if let Some(BindingResource::Buffer(binding)) = &mut binding {
             // MaxCapacityArray is runtime-sized so can't use T::min_size()

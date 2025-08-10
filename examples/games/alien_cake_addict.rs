@@ -119,7 +119,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut game: ResMu
         // This isn't strictly required in practical use unless you need your app to be deterministic.
         ChaCha8Rng::seed_from_u64(19878367467713)
     } else {
-        ChaCha8Rng::from_entropy()
+        ChaCha8Rng::from_os_rng()
     };
 
     // reset the game state
@@ -147,7 +147,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut game: ResMu
         .map(|j| {
             (0..BOARD_SIZE_I)
                 .map(|i| {
-                    let height = rng.gen_range(-0.1..0.1);
+                    let height = rng.random_range(-0.1..0.1);
                     commands.spawn((
                         DespawnOnExitState(GameState::Playing),
                         Transform::from_xyz(i as f32, height - 0.2, j as f32),
@@ -262,13 +262,14 @@ fn move_player(
     }
 
     // eat the cake!
-    if let Some(entity) = game.bonus.entity {
-        if game.player.i == game.bonus.i && game.player.j == game.bonus.j {
-            game.score += 2;
-            game.cake_eaten += 1;
-            commands.entity(entity).despawn();
-            game.bonus.entity = None;
-        }
+    if let Some(entity) = game.bonus.entity
+        && game.player.i == game.bonus.i
+        && game.player.j == game.bonus.j
+    {
+        game.score += 2;
+        game.cake_eaten += 1;
+        commands.entity(entity).despawn();
+        game.bonus.entity = None;
     }
 }
 
@@ -340,8 +341,8 @@ fn spawn_bonus(
 
     // ensure bonus doesn't spawn on the player
     loop {
-        game.bonus.i = rng.gen_range(0..BOARD_SIZE_I);
-        game.bonus.j = rng.gen_range(0..BOARD_SIZE_J);
+        game.bonus.i = rng.random_range(0..BOARD_SIZE_I);
+        game.bonus.j = rng.random_range(0..BOARD_SIZE_J);
         if game.bonus.i != game.player.i || game.bonus.j != game.player.j {
             break;
         }
@@ -372,12 +373,12 @@ fn spawn_bonus(
 
 // let the cake turn on itself
 fn rotate_bonus(game: Res<Game>, time: Res<Time>, mut transforms: Query<&mut Transform>) {
-    if let Some(entity) = game.bonus.entity {
-        if let Ok(mut cake_transform) = transforms.get_mut(entity) {
-            cake_transform.rotate_y(time.delta_secs());
-            cake_transform.scale =
-                Vec3::splat(1.0 + (game.score as f32 / 10.0 * ops::sin(time.elapsed_secs())).abs());
-        }
+    if let Some(entity) = game.bonus.entity
+        && let Ok(mut cake_transform) = transforms.get_mut(entity)
+    {
+        cake_transform.rotate_y(time.delta_secs());
+        cake_transform.scale =
+            Vec3::splat(1.0 + (game.score as f32 / 10.0 * ops::sin(time.elapsed_secs())).abs());
     }
 }
 

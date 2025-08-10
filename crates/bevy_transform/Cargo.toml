@@ -73,7 +73,6 @@ std = [
   "bevy_ecs?/std",
   "bevy_math/std",
   "bevy_reflect?/std",
-  "bevy_tasks/std",
   "bevy_utils/parallel",
   "serde?/std",
 ]
@@ -83,7 +82,6 @@ std = [
 critical-section = [
   "bevy_app?/critical-section",
   "bevy_ecs?/critical-section",
-  "bevy_tasks/critical-section",
   "bevy_reflect?/critical-section",
 ]
 

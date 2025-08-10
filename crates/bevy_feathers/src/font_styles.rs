@@ -5,14 +5,17 @@ use bevy_ecs::{
     component::Component,
     lifecycle::Insert,
     observer::On,
+    reflect::ReflectComponent,
     system::{Commands, Query},
     template::GetTemplate,
 };
+use bevy_reflect::Reflect;
 use bevy_text::{Font, TextFont};
 
 /// A component which, when inserted on an entity, will load the given font and propagate it
 /// downward to any child text entity that has the [`ThemedText`](crate::theme::ThemedText) marker.
-#[derive(Component, Clone, Debug, GetTemplate)]
+#[derive(Component, Clone, Debug, Reflect, GetTemplate)]
+#[reflect(Component)]
 pub struct InheritableFont {
     /// The font handle or path.
     pub font: Handle<Font>,

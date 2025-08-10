@@ -208,8 +208,6 @@ pub struct UiRenderPlugin;
 impl Plugin for UiRenderPlugin {
     fn build(&self, app: &mut App) {
         load_shader_library!(app, "ui.wgsl");
-        app.register_type::<BoxShadowSamples>()
-            .register_type::<UiAntiAlias>();
 
         #[cfg(feature = "bevy_ui_debug")]
         app.init_resource::<UiDebugOptions>();
@@ -612,64 +610,64 @@ pub fn extract_uinode_borders(
         };
 
         // Don't extract borders with zero width along all edges
-        if computed_node.border() != BorderRect::ZERO {
-            if let Some(border_color) = maybe_border_color {
-                let border_colors = [
-                    border_color.left.to_linear(),
-                    border_color.top.to_linear(),
-                    border_color.right.to_linear(),
-                    border_color.bottom.to_linear(),
-                ];
+        if computed_node.border() != BorderRect::ZERO
+            && let Some(border_color) = maybe_border_color
+        {
+            let border_colors = [
+                border_color.left.to_linear(),
+                border_color.top.to_linear(),
+                border_color.right.to_linear(),
+                border_color.bottom.to_linear(),
+            ];
 
-                const BORDER_FLAGS: [u32; 4] = [
-                    shader_flags::BORDER_LEFT,
-                    shader_flags::BORDER_TOP,
-                    shader_flags::BORDER_RIGHT,
-                    shader_flags::BORDER_BOTTOM,
-                ];
-                let mut completed_flags = 0;
+            const BORDER_FLAGS: [u32; 4] = [
+                shader_flags::BORDER_LEFT,
+                shader_flags::BORDER_TOP,
+                shader_flags::BORDER_RIGHT,
+                shader_flags::BORDER_BOTTOM,
+            ];
+            let mut completed_flags = 0;
 
-                for (i, &color) in border_colors.iter().enumerate() {
-                    if color.is_fully_transparent() {
-                        continue;
-                    }
-
-                    let mut border_flags = BORDER_FLAGS[i];
-
-                    if completed_flags & border_flags != 0 {
-                        continue;
-                    }
-
-                    for j in i + 1..4 {
-                        if color == border_colors[j] {
-                            border_flags |= BORDER_FLAGS[j];
-                        }
-                    }
-                    completed_flags |= border_flags;
-
-                    extracted_uinodes.uinodes.push(ExtractedUiNode {
-                        z_order: computed_node.stack_index as f32 + stack_z_offsets::BORDER,
-                        color,
-                        rect: Rect {
-                            max: computed_node.size(),
-                            ..Default::default()
-                        },
-                        image,
-                        clip: maybe_clip.map(|clip| clip.clip),
-                        extracted_camera_entity,
-                        item: ExtractedUiItem::Node {
-                            atlas_scaling: None,
-                            transform: transform.into(),
-                            flip_x: false,
-                            flip_y: false,
-                            border: computed_node.border(),
-                            border_radius: computed_node.border_radius(),
-                            node_type: NodeType::Border(border_flags),
-                        },
-                        main_entity: entity.into(),
-                        render_entity: commands.spawn(TemporaryRenderEntity).id(),
-                    });
+            for (i, &color) in border_colors.iter().enumerate() {
+                if color.is_fully_transparent() {
+                    continue;
                 }
+
+                let mut border_flags = BORDER_FLAGS[i];
+
+                if completed_flags & border_flags != 0 {
+                    continue;
+                }
+
+                for j in i + 1..4 {
+                    if color == border_colors[j] {
+                        border_flags |= BORDER_FLAGS[j];
+                    }
+                }
+                completed_flags |= border_flags;
+
+                extracted_uinodes.uinodes.push(ExtractedUiNode {
+                    z_order: computed_node.stack_index as f32 + stack_z_offsets::BORDER,
+                    color,
+                    rect: Rect {
+                        max: computed_node.size(),
+                        ..Default::default()
+                    },
+                    image,
+                    clip: maybe_clip.map(|clip| clip.clip),
+                    extracted_camera_entity,
+                    item: ExtractedUiItem::Node {
+                        atlas_scaling: None,
+                        transform: transform.into(),
+                        flip_x: false,
+                        flip_y: false,
+                        border: computed_node.border(),
+                        border_radius: computed_node.border_radius(),
+                        node_type: NodeType::Border(border_flags),
+                    },
+                    main_entity: entity.into(),
+                    render_entity: commands.spawn(TemporaryRenderEntity).id(),
+                });
             }
         }
 
@@ -1367,9 +1365,11 @@ pub fn prepare_uinodes(
                     } else if batch_image_handle == AssetId::default()
                         && extracted_uinode.image != AssetId::default()
                     {
-                        if let Some(gpu_image) = gpu_images.get(extracted_uinode.image) {
+                        if let Some(ref mut existing_batch) = existing_batch
+                            && let Some(gpu_image) = gpu_images.get(extracted_uinode.image)
+                        {
                             batch_image_handle = extracted_uinode.image;
-                            existing_batch.as_mut().unwrap().1.image = extracted_uinode.image;
+                            existing_batch.1.image = extracted_uinode.image;
 
                             image_bind_groups
                                 .values

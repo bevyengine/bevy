@@ -1,6 +1,7 @@
 use bevy_ecs::system::{Commands, IntoSystem, SystemId, SystemInput};
 use bevy_ecs::template::{GetTemplate, Template};
 use bevy_ecs::world::{DeferredWorld, World};
+use bevy_reflect::Reflect;
 use std::marker::PhantomData;
 
 /// A callback defines how we want to be notified when a widget changes state. Unlike an event
@@ -29,7 +30,7 @@ use std::marker::PhantomData;
 /// // Later, when we want to execute the callback:
 /// app.world_mut().commands().notify(&callback);
 /// ```
-#[derive(Debug)]
+#[derive(Debug, Reflect)]
 pub enum Callback<I: SystemInput = ()> {
     /// Invoke a one-shot system
     System(SystemId<I>),

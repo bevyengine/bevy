@@ -12,6 +12,7 @@
 
 use std::ops::Range;
 
+use bevy::camera::Viewport;
 use bevy::pbr::SetMeshViewEmptyBindGroup;
 use bevy::{
     core_pipeline::core_3d::graph::{Core3d, Node3d},
@@ -20,6 +21,7 @@ use bevy::{
         system::{lifetimeless::SRes, SystemParamItem},
     },
     math::FloatOrd,
+    mesh::MeshVertexBufferLayoutRef,
     pbr::{
         DrawMesh, MeshInputUniform, MeshPipeline, MeshPipelineKey, MeshPipelineViewLayoutKey,
         MeshUniform, RenderMeshInstances, SetMeshBindGroup, SetMeshViewBindGroup,
@@ -36,7 +38,7 @@ use bevy::{
         },
         camera::{ExtractedCamera, MainPassResolutionOverride},
         extract_component::{ExtractComponent, ExtractComponentPlugin},
-        mesh::{allocator::MeshAllocator, MeshVertexBufferLayoutRef, RenderMesh},
+        mesh::{allocator::MeshAllocator, RenderMesh},
         render_asset::RenderAssets,
         render_graph::{
             NodeRunError, RenderGraphContext, RenderGraphExt, RenderLabel, ViewNode, ViewNodeRunner,
@@ -611,8 +613,10 @@ impl ViewNode for CustomDrawNode {
             occlusion_query_set: None,
         });
 
-        if let Some(viewport) = camera.viewport.as_ref() {
-            render_pass.set_camera_viewport(&viewport.with_override(resolution_override));
+        if let Some(viewport) =
+            Viewport::from_viewport_and_override(camera.viewport.as_ref(), resolution_override)
+        {
+            render_pass.set_camera_viewport(&viewport);
         }
 
         // Render the phase

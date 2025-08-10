@@ -4,7 +4,7 @@ use bevy::{
     color::palettes,
     core_widgets::{
         callback, Activate, CoreRadio, CoreRadioGroup, CoreWidgetsPlugins, SliderPrecision,
-        SliderStep,
+        SliderStep, SliderValue, ValueChange,
     },
     feathers::{
         containers::{
@@ -12,8 +12,9 @@ use bevy::{
             subpane_header,
         },
         controls::{
-            button, checkbox, color_swatch, radio, slider, toggle_switch, tool_button, ButtonProps,
-            ButtonVariant, CheckboxProps, SliderProps, ToggleSwitchProps,
+            button, checkbox, color_slider, color_swatch, radio, slider, toggle_switch,
+            tool_button, ButtonProps, ButtonVariant, CheckboxProps, ColorChannel, ColorSlider,
+            ColorSliderProps, ColorSwatch, SliderBaseColor, SliderProps, ToggleSwitchProps,
         },
         dark_theme::create_dark_theme,
         rounded_corners::RoundedCorners,
@@ -29,6 +30,21 @@ use bevy::{
     ui::{Checked, InteractionDisabled},
     winit::WinitSettings,
 };
+use bevy_ecs::VariantDefaults;
+
+/// A struct to hold the state of various widgets shown in the demo.
+#[derive(Resource)]
+struct DemoWidgetStates {
+    rgb_color: Srgba,
+    hsl_color: Hsla,
+}
+
+#[derive(Component, Clone, Copy, PartialEq, Default, VariantDefaults)]
+enum SwatchType {
+    #[default]
+    Rgb,
+    Hsl,
+}
 
 fn main() {
     App::new()
@@ -40,9 +56,14 @@ fn main() {
             FeathersPlugin,
         ))
         .insert_resource(UiTheme(create_dark_theme()))
+        .insert_resource(DemoWidgetStates {
+            rgb_color: palettes::tailwind::EMERALD_800.with_alpha(0.7),
+            hsl_color: palettes::tailwind::AMBER_800.into(),
+        })
         // Only run the app when there is user input. This will significantly reduce CPU/GPU use.
         .insert_resource(WinitSettings::desktop_app())
         .add_systems(Startup, setup)
+        .add_systems(Update, update_colors)
         .run();
 }
 
@@ -212,16 +233,109 @@ fn demo_root() -> impl Scene {
                     :toggle_switch(ToggleSwitchProps::default()) InteractionDisabled,
                     :toggle_switch(ToggleSwitchProps::default()) InteractionDisabled Checked,
                 ],
-                (
-                    :slider(SliderProps {
-                        max: 100.0,
-                        value: 20.0,
-                        ..default()
-                    })
-                    SliderStep(10.)
-                    SliderPrecision(2)
-                ),
-                color_swatch(),
+                Node {
+                    flex_direction: FlexDirection::Column,
+                } [
+                    (
+                        :slider(SliderProps {
+                            max: 100.0,
+                            value: 20.0,
+                            ..default()
+                        })
+                        SliderStep(10.)
+                        SliderPrecision(2)
+                    ),
+                    (
+                        Node {
+                            justify_content: JustifyContent::SpaceBetween,
+                        }
+                        [Text("Srgba"), (color_swatch() SwatchType::Rgb)]
+                    ),
+                    :color_slider(
+                        ColorSliderProps {
+                            value: 0.5,
+                            on_change: callback(
+                                |change: In<ValueChange<f32>>, mut color: ResMut<DemoWidgetStates>| {
+                                    color.rgb_color.red = change.value;
+                                },
+                            ),
+                            channel: ColorChannel::Red
+                        },
+                    ),
+                    :color_slider(
+                        ColorSliderProps {
+                            value: 0.5,
+                            on_change: callback(
+                                |change: In<ValueChange<f32>>, mut color: ResMut<DemoWidgetStates>| {
+                                    color.rgb_color.green = change.value;
+                                },
+                            ),
+                            channel: ColorChannel::Green
+                        },
+                    ),
+                    :color_slider(
+                        ColorSliderProps {
+                            value: 0.5,
+                            on_change: callback(
+                                |change: In<ValueChange<f32>>, mut color: ResMut<DemoWidgetStates>| {
+                                    color.rgb_color.blue = change.value;
+                                },
+                            ),
+                            channel: ColorChannel::Blue
+                        },
+                    ),
+                    :color_slider(
+                        ColorSliderProps {
+                            value: 0.5,
+                            on_change: callback(
+                                |change: In<ValueChange<f32>>, mut color: ResMut<DemoWidgetStates>| {
+                                    color.rgb_color.alpha = change.value;
+                                },
+                            ),
+                            channel: ColorChannel::Alpha
+                        },
+                    ),
+                    (
+                        Node {
+                            justify_content: JustifyContent::SpaceBetween,
+                        }
+                        [Text("Hsl"), (color_swatch() SwatchType::Hsl)]
+                    ),
+                    :color_slider(
+                        ColorSliderProps {
+                            value: 0.5,
+                            on_change: callback(
+                                |change: In<ValueChange<f32>>, mut color: ResMut<DemoWidgetStates>| {
+                                    color.hsl_color.hue = change.value;
+                                },
+                            ),
+                            channel: ColorChannel::HslHue
+                        },
+                    ),
+                    :color_slider(
+                        ColorSliderProps {
+                            value: 0.5,
+                            on_change: callback(
+                                |change: In<ValueChange<f32>>, mut color: ResMut<DemoWidgetStates>| {
+                                    color.hsl_color.saturation = change.value;
+                                },
+                            ),
+                            channel: ColorChannel::HslSaturation
+                        },
+                    ),
+                    :color_slider(
+                        ColorSliderProps {
+                            value: 0.5,
+                            on_change: callback(
+                                |change: In<ValueChange<f32>>, mut color: ResMut<DemoWidgetStates>| {
+                                    color.hsl_color.lightness = change.value;
+                                },
+                            ),
+                            channel: ColorChannel::HslLightness
+                        },
+                    ),
+                    color_swatch(),
+                ]
             ],
             Node {
                 display: Display::Flex,
@@ -300,5 +414,71 @@ fn demo_root() -> impl Scene {
                 )
             ]
         ]
+    }
+}
+
+fn update_colors(
+    colors: Res<DemoWidgetStates>,
+    mut sliders: Query<(Entity, &ColorSlider, &mut SliderBaseColor)>,
+    new_sliders: Query<(), Added<ColorSlider>>,
+    swatches: Query<(&SwatchType, &Children), With<ColorSwatch>>,
+    mut commands: Commands,
+) {
+    if colors.is_changed() || !new_sliders.is_empty() {
+        for (slider_ent, slider, mut base) in sliders.iter_mut() {
+            match slider.channel {
+                ColorChannel::Red => {
+                    base.0 = colors.rgb_color.into();
+                    commands
+                        .entity(slider_ent)
+                        .insert(SliderValue(colors.rgb_color.red));
+                }
+                ColorChannel::Green => {
+                    base.0 = colors.rgb_color.into();
+                    commands
+                        .entity(slider_ent)
+                        .insert(SliderValue(colors.rgb_color.green));
+                }
+                ColorChannel::Blue => {
+                    base.0 = colors.rgb_color.into();
+                    commands
+                        .entity(slider_ent)
+                        .insert(SliderValue(colors.rgb_color.blue));
+                }
+                ColorChannel::HslHue => {
+                    base.0 = colors.hsl_color.into();
+                    commands
+                        .entity(slider_ent)
+                        .insert(SliderValue(colors.hsl_color.hue));
+                }
+                ColorChannel::HslSaturation => {
+                    base.0 = colors.hsl_color.into();
+                    commands
+                        .entity(slider_ent)
+                        .insert(SliderValue(colors.hsl_color.saturation));
+                }
+                ColorChannel::HslLightness => {
+                    base.0 = colors.hsl_color.into();
+                    commands
+                        .entity(slider_ent)
+                        .insert(SliderValue(colors.hsl_color.lightness));
+                }
+                ColorChannel::Alpha => {
+                    base.0 = colors.rgb_color.into();
+                    commands
+                        .entity(slider_ent)
+                        .insert(SliderValue(colors.rgb_color.alpha));
+                }
+            }
+        }
+
+        for (swatch_type, children) in swatches.iter() {
+            commands
+                .entity(children[0])
+                .insert(BackgroundColor(match swatch_type {
+                    SwatchType::Rgb => colors.rgb_color.into(),
+                    SwatchType::Hsl => colors.hsl_color.into(),
+                }));
+        }
     }
 }

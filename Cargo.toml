@@ -28,6 +28,8 @@ members = [
   "examples/mobile",
   # Examples of using Bevy on no_std platforms.
   "examples/no_std/*",
+  # Examples of compiling Bevy with automatic reflect type registration for platforms without `inventory` support.
+  "examples/reflection/auto_register_static",
   # Benchmarks
   "benches",
   # Internal tools that are not published.
@@ -71,6 +73,8 @@ allow_attributes = "warn"
 allow_attributes_without_reason = "warn"
 
 [workspace.lints.rust]
+# Strictly temporary until encase fixes dead code generation from ShaderType macros
+dead_code = "allow"
 missing_docs = "warn"
 unexpected_cfgs = { level = "warn", check-cfg = ['cfg(docsrs_dep)'] }
 unsafe_code = "deny"
@@ -116,6 +120,8 @@ allow_attributes = "warn"
 allow_attributes_without_reason = "warn"
 
 [lints.rust]
+# Strictly temporary until encase fixes dead code generation from ShaderType macros
+dead_code = "allow"
 missing_docs = "warn"
 unexpected_cfgs = { level = "warn", check-cfg = ['cfg(docsrs_dep)'] }
 unsafe_code = "deny"
@@ -160,12 +166,14 @@ default = [
   "hdr",
   "multi_threaded",
   "png",
+  "reflect_auto_register",
   "smaa_luts",
   "sysinfo_plugin",
   "tonemapping_luts",
   "vorbis",
   "webgl2",
   "x11",
+  "wayland",
   "debug",
   "zstd_rust",
   "experimental_bevy_feathers",
@@ -552,6 +560,12 @@ reflect_functions = ["bevy_internal/reflect_functions"]
 # Enable documentation reflection
 reflect_documentation = ["bevy_internal/reflect_documentation"]
 
+# Enable automatic reflect registration
+reflect_auto_register = ["bevy_internal/reflect_auto_register"]
+
+# Enable automatic reflect registration without inventory. See `reflect::load_type_registrations` for more info.
+reflect_auto_register_static = ["bevy_internal/reflect_auto_register_static"]
+
 # Enable winit custom cursor support
 custom_cursor = ["bevy_internal/custom_cursor"]
 
@@ -600,8 +614,8 @@ tracing = { version = "0.1", default-features = false, optional = true }
 bevy_dylib = { path = "crates/bevy_dylib", version = "0.17.0-dev", default-features = false, optional = true }
 
 [dev-dependencies]
-rand = "0.8.0"
-rand_chacha = "0.3.1"
+rand = "0.9.0"
+rand_chacha = "0.9.0"
 ron = "0.10"
 flate2 = "1.0"
 serde = { version = "1", features = ["derive"] }
@@ -623,21 +637,18 @@ crossbeam-channel = "0.5.0"
 argh = "0.1.12"
 thiserror = "2.0"
 event-listener = "5.3.0"
-hyper = { version = "1", features = ["server", "http1"] }
-http-body-util = "0.1"
 anyhow = "1"
-macro_rules_attribute = "0.2"
 accesskit = "0.21"
 nonmax = "0.5"
 variadics_please = "1"
 
 [target.'cfg(not(target_family = "wasm"))'.dev-dependencies]
-smol = "2"
-smol-macros = "0.1"
-smol-hyper = "0.1"
 ureq = { version = "3.0.8", features = ["json"] }
 
 [target.'cfg(target_arch = "wasm32")'.dev-dependencies]
+getrandom = { version = "0.3", default-features = false, features = [
+  "wasm_js",
+] }
 wasm-bindgen = { version = "0.2" }
 web-sys = { version = "0.3", features = ["Window"] }
 
@@ -2787,6 +2798,17 @@ description = "Demonstrates how to create and use type data"
 category = "Reflection"
 wasm = false
 
+[[example]]
+name = "auto_register_static"
+path = "examples/reflection/auto_register_static/src/lib.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.auto_register_static]
+name = "Automatic types registration"
+description = "Demonstrates how to set up automatic reflect types registration for platforms without `inventory` support"
+category = "Reflection"
+wasm = false
+
 # Scene
 [[example]]
 name = "scene"
@@ -2817,28 +2839,6 @@ A shader in its most common usage is a small program that is run by the GPU per-
 
 There are also compute shaders which are used for more general processing leveraging the GPU's parallelism.
 """
-
-[[example]]
-name = "custom_vertex_attribute"
-path = "examples/shader/custom_vertex_attribute.rs"
-doc-scrape-examples = true
-
-[package.metadata.example.custom_vertex_attribute]
-name = "Custom Vertex Attribute"
-description = "A shader that reads a mesh's custom vertex attribute"
-category = "Shaders"
-wasm = true
-
-[[example]]
-name = "custom_post_processing"
-path = "examples/shader/custom_post_processing.rs"
-doc-scrape-examples = true
-
-[package.metadata.example.custom_post_processing]
-name = "Post Processing - Custom Render Pass"
-description = "A custom post processing effect, using a custom render pass that runs after the main pass"
-category = "Shaders"
-wasm = true
 
 [[example]]
 name = "shader_defs"
@@ -2931,29 +2931,6 @@ category = "Shaders"
 wasm = true
 
 [[example]]
-name = "custom_shader_instancing"
-path = "examples/shader/custom_shader_instancing.rs"
-doc-scrape-examples = true
-
-[package.metadata.example.custom_shader_instancing]
-name = "Instancing"
-description = "A shader that renders a mesh multiple times in one draw call using low level rendering api"
-category = "Shaders"
-wasm = true
-
-[[example]]
-name = "custom_render_phase"
-path = "examples/shader/custom_render_phase.rs"
-doc-scrape-examples = true
-
-[package.metadata.example.custom_render_phase]
-name = "Custom Render Phase"
-description = "Shows how to make a complete render phase"
-category = "Shaders"
-wasm = true
-
-
-[[example]]
 name = "automatic_instancing"
 path = "examples/shader/automatic_instancing.rs"
 doc-scrape-examples = true
@@ -3009,17 +2986,6 @@ category = "Shaders"
 wasm = true
 
 [[example]]
-name = "texture_binding_array"
-path = "examples/shader/texture_binding_array.rs"
-doc-scrape-examples = true
-
-[package.metadata.example.texture_binding_array]
-name = "Texture Binding Array (Bindless Textures)"
-description = "A shader that shows how to bind and sample multiple textures as a binding array (a.k.a. bindless textures)."
-category = "Shaders"
-wasm = false
-
-[[example]]
 name = "storage_buffer"
 path = "examples/shader/storage_buffer.rs"
 doc-scrape-examples = true
@@ -3030,9 +2996,74 @@ description = "A shader that shows how to bind a storage buffer using a custom m
 category = "Shaders"
 wasm = true
 
+# Shaders advanced
+[[package.metadata.example_category]]
+name = "Shaders - advanced"
+description = """
+These examples demonstrate how to use the lower level rendering apis exposed from bevy.
+
+These are generally simplified examples of bevy's own rendering infrastructure.
+"""
+
+[[example]]
+name = "custom_vertex_attribute"
+path = "examples/shader_advanced/custom_vertex_attribute.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.custom_vertex_attribute]
+name = "Custom Vertex Attribute"
+description = "A shader that reads a mesh's custom vertex attribute"
+category = "Shaders"
+wasm = true
+
+[[example]]
+name = "custom_post_processing"
+path = "examples/shader_advanced/custom_post_processing.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.custom_post_processing]
+name = "Post Processing - Custom Render Pass"
+description = "A custom post processing effect, using a custom render pass that runs after the main pass"
+category = "Shaders"
+wasm = true
+
+[[example]]
+name = "custom_shader_instancing"
+path = "examples/shader_advanced/custom_shader_instancing.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.custom_shader_instancing]
+name = "Instancing"
+description = "A shader that renders a mesh multiple times in one draw call using low level rendering api"
+category = "Shaders"
+wasm = true
+
+[[example]]
+name = "custom_render_phase"
+path = "examples/shader_advanced/custom_render_phase.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.custom_render_phase]
+name = "Custom Render Phase"
+description = "Shows how to make a complete render phase"
+category = "Shaders"
+wasm = true
+
+[[example]]
+name = "texture_binding_array"
+path = "examples/shader_advanced/texture_binding_array.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.texture_binding_array]
+name = "Texture Binding Array (Bindless Textures)"
+description = "A shader that shows how to bind and sample multiple textures as a binding array (a.k.a. bindless textures)."
+category = "Shaders"
+wasm = false
+
+
 [[example]]
 name = "specialized_mesh_pipeline"
-path = "examples/shader/specialized_mesh_pipeline.rs"
+path = "examples/shader_advanced/specialized_mesh_pipeline.rs"
 doc-scrape-examples = true
 
 [package.metadata.example.specialized_mesh_pipeline]
@@ -3605,6 +3636,18 @@ doc-scrape-examples = true
 [package.metadata.example.z_index]
 name = "UI Z-Index"
 description = "Demonstrates how to control the relative depth (z-position) of UI elements"
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
+name = "virtual_keyboard"
+path = "examples/ui/virtual_keyboard.rs"
+doc-scrape-examples = true
+required-features = ["experimental_bevy_feathers"]
+
+[package.metadata.example.virtual_keyboard]
+name = "Virtual Keyboard"
+description = "Example demonstrating a virtual keyboard widget"
 category = "UI (User Interface)"
 wasm = true
 
@@ -4201,7 +4244,7 @@ wasm = false
 
 [[example]]
 name = "custom_phase_item"
-path = "examples/shader/custom_phase_item.rs"
+path = "examples/shader_advanced/custom_phase_item.rs"
 doc-scrape-examples = true
 
 [package.metadata.example.custom_phase_item]

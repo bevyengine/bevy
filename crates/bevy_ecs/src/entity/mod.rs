@@ -776,7 +776,7 @@ impl Entities {
         clippy::unnecessary_fallible_conversions,
         reason = "`IdCursor::try_from` may fail on 32-bit platforms."
     )]
-    pub fn reserve_entities(&self, count: u32) -> ReserveEntitiesIterator {
+    pub fn reserve_entities(&self, count: u32) -> ReserveEntitiesIterator<'_> {
         // Use one atomic subtract to grab a range of new IDs. The range might be
         // entirely nonnegative, meaning all IDs come from the freelist, or entirely
         // negative, meaning they are all new IDs to allocate, or a mix of both.

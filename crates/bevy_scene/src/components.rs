@@ -5,8 +5,7 @@ use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_transform::components::Transform;
 use derive_more::derive::From;
 
-#[cfg(feature = "bevy_render")]
-use bevy_render::view::visibility::Visibility;
+use bevy_camera::visibility::Visibility;
 
 use crate::{DynamicScene, Scene};
 
@@ -15,7 +14,7 @@ use crate::{DynamicScene, Scene};
 #[derive(Component, Clone, Debug, Deref, DerefMut, Reflect, PartialEq, Eq, From)]
 #[reflect(Component, Default, Debug, PartialEq, Clone)]
 #[require(Transform)]
-#[cfg_attr(feature = "bevy_render", require(Visibility))]
+#[require(Visibility)]
 pub struct SceneRoot(pub Handle<Scene>);
 
 impl Default for SceneRoot {
@@ -29,7 +28,7 @@ impl Default for SceneRoot {
 #[derive(Component, Clone, Debug, Deref, DerefMut, Reflect, PartialEq, Eq, From)]
 #[reflect(Component, Default, Debug, PartialEq, Clone)]
 #[require(Transform)]
-#[cfg_attr(feature = "bevy_render", require(Visibility))]
+#[require(Visibility)]
 pub struct DynamicSceneRoot(pub Handle<DynamicScene>);
 
 impl Default for DynamicSceneRoot {

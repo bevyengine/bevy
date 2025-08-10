@@ -1122,10 +1122,10 @@ impl FromWorld for GpuPreprocessingSupport {
             // `max_compute_*` limits to zero, so we arbitrarily pick one as a canary.
             device.limits().max_compute_workgroup_storage_size != 0;
 
-        let downlevel_support = adapter.get_downlevel_capabilities().flags.contains(
-            DownlevelFlags::COMPUTE_SHADERS |
-            DownlevelFlags::VERTEX_AND_INSTANCE_INDEX_RESPECTS_RESPECTIVE_FIRST_VALUE_IN_INDIRECT_DRAW
-        );
+        let downlevel_support = adapter
+            .get_downlevel_capabilities()
+            .flags
+            .contains(DownlevelFlags::COMPUTE_SHADERS);
 
         let max_supported_mode = if device.limits().max_compute_workgroup_size_x == 0
             || is_non_supported_android_device(adapter)
@@ -1185,7 +1185,7 @@ where
     /// Returns the binding of the buffer that contains the per-instance data.
     ///
     /// This buffer needs to be filled in via a compute shader.
-    pub fn instance_data_binding(&self) -> Option<BindingResource> {
+    pub fn instance_data_binding(&self) -> Option<BindingResource<'_>> {
         self.data_buffer
             .buffer()
             .map(|buffer| buffer.as_entire_binding())

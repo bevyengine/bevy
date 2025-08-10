@@ -61,12 +61,10 @@ pub use wgpu::{
     TexelCopyBufferInfo, TexelCopyBufferLayout, TexelCopyTextureInfo, TextureAspect,
     TextureDescriptor, TextureDimension, TextureFormat, TextureFormatFeatureFlags,
     TextureFormatFeatures, TextureSampleType, TextureUsages, TextureView as WgpuTextureView,
-    TextureViewDescriptor, TextureViewDimension, Tlas, TlasInstance, TlasPackage, VertexAttribute,
+    TextureViewDescriptor, TextureViewDimension, Tlas, TlasInstance, VertexAttribute,
     VertexBufferLayout as RawVertexBufferLayout, VertexFormat, VertexState as RawVertexState,
     VertexStepMode, COPY_BUFFER_ALIGNMENT,
 };
-
-pub use crate::mesh::VertexBufferLayout;
 
 pub mod encase {
     pub use bevy_encase_derive::ShaderType;

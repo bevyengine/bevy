@@ -357,11 +357,11 @@ impl<ShaderModule, RenderDevice> ShaderCache<ShaderModule, RenderDevice> {
         }
 
         #[cfg(feature = "shader_format_wesl")]
-        if let Source::Wesl(_) = shader.source {
-            if let ShaderImport::AssetPath(path) = shader.import_path() {
-                self.asset_paths
-                    .insert(wesl::syntax::ModulePath::from_path(path), id);
-            }
+        if let Source::Wesl(_) = shader.source
+            && let ShaderImport::AssetPath(path) = shader.import_path()
+        {
+            self.asset_paths
+                .insert(wesl::syntax::ModulePath::from_path(path), id);
         }
         self.shaders.insert(id, shader);
         pipelines_to_queue
@@ -401,7 +401,7 @@ impl<'a> wesl::Resolver for ShaderResolver<'a> {
     fn resolve_source(
         &self,
         module_path: &wesl::syntax::ModulePath,
-    ) -> Result<alloc::borrow::Cow<str>, wesl::ResolveError> {
+    ) -> Result<alloc::borrow::Cow<'_, str>, wesl::ResolveError> {
         let asset_id = self.asset_paths.get(module_path).ok_or_else(|| {
             wesl::ResolveError::ModuleNotFound(module_path.clone(), "Invalid asset id".to_string())
         })?;
@@ -505,6 +505,10 @@ fn get_capabilities(features: Features, downlevel: DownlevelFlags) -> Capabiliti
     capabilities.set(
         Capabilities::DUAL_SOURCE_BLENDING,
         features.contains(Features::DUAL_SOURCE_BLENDING),
+    );
+    capabilities.set(
+        Capabilities::CLIP_DISTANCE,
+        features.contains(Features::CLIP_DISTANCES),
     );
     capabilities.set(
         Capabilities::CUBE_ARRAY_TEXTURES,
