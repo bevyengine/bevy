@@ -2747,8 +2747,7 @@ impl UiTargetCamera {
 /// ```
 /// # use bevy_ui::prelude::*;
 /// # use bevy_ecs::prelude::Commands;
-/// # use bevy_camera::{Camera, RenderTarget};
-/// # use bevy_core_pipeline::prelude::Camera2d;
+/// # use bevy_camera::{Camera, Camera2d, RenderTarget};
 /// # use bevy_window::{Window, WindowRef};
 ///
 /// fn spawn_camera(mut commands: Commands) {

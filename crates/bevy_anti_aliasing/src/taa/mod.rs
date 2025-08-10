@@ -108,7 +108,7 @@ impl Plugin for TemporalAntiAliasPlugin {
 ///
 /// Any camera with this component must also disable [`Msaa`] by setting it to [`Msaa::Off`].
 ///
-/// [Currently](https://github.com/bevyengine/bevy/issues/8423), TAA cannot be used with [`bevy_render::camera::OrthographicProjection`].
+/// [Currently](https://github.com/bevyengine/bevy/issues/8423), TAA cannot be used with [`bevy_camera::OrthographicProjection`].
 ///
 /// TAA also does not work well with alpha-blended meshes, as it requires depth writing to determine motion.
 ///
