@@ -38,7 +38,7 @@ pub mod prelude {
 
 use bevy_app::{prelude::*, RunFixedMainLoop};
 use bevy_ecs::{
-    event::{event_update_system, signal_event_update_system, EventRegistry, ShouldUpdateEvents},
+    event::{event_update_system, signal_event_update_system},
     prelude::*,
 };
 use bevy_platform::time::Instant;
@@ -92,9 +92,9 @@ impl Plugin for TimePlugin {
 
         // Ensure the events are not dropped until `FixedMain` systems can observe them
         app.add_systems(FixedPostUpdate, signal_event_update_system);
-        let mut event_registry = app.world_mut().resource_mut::<EventRegistry>();
-        // We need to start in a waiting state so that the events are not updated until the first fixed update
-        event_registry.should_update = ShouldUpdateEvents::Waiting;
+        // let mut event_registry = app.world_mut().resource_mut::<EventRegistry>();
+        // // We need to start in a waiting state so that the events are not updated until the first fixed update
+        // event_registry.should_update = ShouldUpdateEvents::Waiting;
     }
 }
 
