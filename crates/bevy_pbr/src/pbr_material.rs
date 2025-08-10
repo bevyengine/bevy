@@ -96,7 +96,7 @@ pub struct StandardMaterial {
     ///
     /// Increasing the emissive strength of the color will impact visual effects
     /// like bloom, but it's important to note that **an emissive material won't
-    /// light up surrounding areas like a light source**,
+    /// typically light up surrounding areas like a light source**,
     /// it just adds a value to the color seen on screen.
     pub emissive: LinearRgba,
 
