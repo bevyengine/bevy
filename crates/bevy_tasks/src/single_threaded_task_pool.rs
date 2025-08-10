@@ -1,4 +1,4 @@
-use alloc::{string::String, vec::Vec};
+use alloc::{string::String, vec::Vec, fmt};
 use core::{cell::{RefCell, Cell}, future::Future, marker::PhantomData, mem};
 
 use crate::{block_on, Task};
@@ -227,7 +227,6 @@ impl TaskPool {
 /// A `TaskPool` scope for running one or more non-`'static` futures.
 ///
 /// For more information, see [`TaskPool::scope`].
-#[derive(Debug)]
 pub struct Scope<'scope, 'env: 'scope, T> {
     executor_ref: &'scope Executor<'scope>,
     // The number of pending tasks spawned on the scope
@@ -305,6 +304,17 @@ impl<'scope, 'env, T: Send + 'env> Scope<'scope, 'env, T> {
                 self.executor_ref.spawn_local(f).detach();
             }
         }
+    }
+}
+
+impl <'scope, 'env: 'scope, T> fmt::Debug for Scope<'scope, 'env, T> 
+where T: fmt::Debug
+{
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("Scope")
+            .field("pending_tasks", &self.pending_tasks)
+            .field("results_ref", &self.results_ref)
+            .finish()
     }
 }
 
