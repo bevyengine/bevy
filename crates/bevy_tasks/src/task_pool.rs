@@ -2,7 +2,8 @@ use alloc::{boxed::Box, format, string::String, vec::Vec};
 use core::{future::Future, marker::PhantomData, mem, panic::AssertUnwindSafe};
 use std::thread::{self, JoinHandle};
 
-use crate::{bevy_executor::Executor, executor::FallibleTask};
+use crate::bevy_executor::Executor;
+use async_task::FallibleTask;
 use bevy_platform::sync::Arc;
 use crossbeam_queue::SegQueue;
 use futures_lite::FutureExt;
@@ -129,7 +130,7 @@ impl TaskPoolBuilder {
 #[derive(Debug)]
 pub struct TaskPool {
     /// The executor for the pool.
-    executor: Arc<crate::executor::Executor<'static>>,
+    executor: Arc<Executor<'static>>,
 
     // The inner state of the pool.
     threads: Vec<JoinHandle<()>>,
@@ -151,7 +152,7 @@ impl TaskPool {
     fn new_internal(builder: TaskPoolBuilder) -> Self {
         let (shutdown_tx, shutdown_rx) = async_channel::unbounded::<()>();
 
-        let executor = Arc::new(crate::executor::Executor::new());
+        let executor = Arc::new(Executor::new());
 
         let num_threads = builder
             .num_threads
@@ -343,14 +344,14 @@ impl TaskPool {
         // transmute the lifetimes to 'env here to appease the compiler as it is unable to validate safety.
         // Any usages of the references passed into `Scope` must be accessed through
         // the transmuted reference for the rest of this function.
-        let executor: &crate::executor::Executor = &self.executor;
+        let executor: &Executor = &self.executor;
         // SAFETY: As above, all futures must complete in this function so we can change the lifetime
-        let executor: &'env crate::executor::Executor = unsafe { mem::transmute(executor) };
-        let spawned: SegQueue<FallibleTask<Result<T, Box<(dyn core::any::Any + Send)>>>> =
+        let executor: &'env Executor = unsafe { mem::transmute(executor) };
+        let spawned: SegQueue<FallibleTask<Result<T, Box<dyn core::any::Any + Send>>>> =
             SegQueue::new();
         // shadow the variable so that the owned value cannot be used for the rest of the function
         // SAFETY: As above, all futures must complete in this function so we can change the lifetime
-        let spawned: &'env SegQueue<FallibleTask<Result<T, Box<(dyn core::any::Any + Send)>>>> =
+        let spawned: &'env SegQueue<FallibleTask<Result<T, Box<dyn core::any::Any + Send>>>> =
             unsafe { mem::transmute(&spawned) };
 
         let scope = Scope {
@@ -451,10 +452,10 @@ impl Drop for TaskPool {
 /// For more information, see [`TaskPool::scope`].
 #[derive(Debug)]
 pub struct Scope<'scope, 'env: 'scope, T> {
-    executor: &'scope crate::executor::Executor<'scope>,
+    executor: &'scope Executor<'scope>,
     external_spawner: ThreadSpawner<'scope>,
     scope_spawner: ThreadSpawner<'scope>,
-    spawned: &'scope SegQueue<FallibleTask<Result<T, Box<(dyn core::any::Any + Send)>>>>,
+    spawned: &'scope SegQueue<FallibleTask<Result<T, Box<dyn core::any::Any + Send>>>>,
     // make `Scope` invariant over 'scope and 'env
     scope: PhantomData<&'scope mut &'scope ()>,
     env: PhantomData<&'env mut &'env ()>,

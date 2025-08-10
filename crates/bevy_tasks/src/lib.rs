@@ -72,7 +72,6 @@ use alloc::boxed::Box;
 pub type BoxedFuture<'a, T> = core::pin::Pin<Box<dyn ConditionalSendFuture<Output = T> + 'a>>;
 
 // Modules
-mod executor;
 pub mod futures;
 mod iter;
 mod slice;

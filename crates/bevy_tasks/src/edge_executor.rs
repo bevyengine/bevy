@@ -48,6 +48,7 @@ use futures_lite::FutureExt;
 ///         drop(signal);
 ///     }));
 /// ```
+#[derive(Debug)]
 pub struct Executor<'a, const C: usize = 64> {
     state: LazyLock<Arc<State<C>>>,
     _invariant: PhantomData<core::cell::UnsafeCell<&'a ()>>,
@@ -170,7 +171,7 @@ impl<'a, const C: usize> Executor<'a, C> {
     /// ```
     pub async fn run<F>(&self, fut: F) -> F::Output
     where
-        F: Future + Send + 'a,
+        F: Future + 'a,
     {
         // SAFETY: Original implementation missing safety documentation
         unsafe { self.run_unchecked(fut).await }
@@ -306,6 +307,7 @@ unsafe impl<'a, const C: usize> Send for Executor<'a, C> {}
 // SAFETY: Original implementation missing safety documentation
 unsafe impl<'a, const C: usize> Sync for Executor<'a, C> {}
 
+#[derive(Debug)]
 struct State<const C: usize> {
     #[cfg(all(
         target_has_atomic = "8",

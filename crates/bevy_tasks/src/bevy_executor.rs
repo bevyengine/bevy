@@ -318,28 +318,6 @@ impl<'a> Executor<'a> {
             .is_some()
     }
 
-    pub fn flush_local() {
-        // If this is called during the thread destructor, there's nothing to run anyway.
-        // All of the tasks will be dropped soon.
-        //
-        // SAFETY: There are no instances where the value is accessed mutably
-        // from multiple locations simultaneously. As the Runnable is run after
-        // this scope closes, the AsyncCallOnDrop around the future will be invoked
-        // without overlapping mutable accssses.
-        let _ = LOCAL_QUEUE.try_with(|local| unsafe {
-            block_on(async {
-                while !(&*local.get()).local_active.is_empty() {
-                    match (&mut *local.get()).local_queue.pop_front() {
-                        Some(runnable) => {
-                            runnable.run();
-                        },
-                        None => future::yield_now().await,
-                    }
-                }
-            });
-        });
-    }
-
     /// Runs the executor until the given future completes.
     pub async fn run<T>(&self, future: impl Future<Output = T>) -> T {
         self.state().run(future).await
@@ -915,7 +893,7 @@ impl<T> WorkQueue<T> for SegQueue<T> {
 }
 
 /// Steals some items from one queue into another.
-fn steal_and_pop<T, Q: WorkQueue<T>>(src: &Q, dest: &ArrayQueue<T>) {
+fn steal<T, Q: WorkQueue<T>>(src: &Q, dest: &ArrayQueue<T>) {
     // Half of `src`'s length rounded up.
     let mut count = src.stealable_count();
 
