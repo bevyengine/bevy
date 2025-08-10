@@ -1,6 +1,6 @@
 use alloc::{string::String, vec::Vec};
 use bevy_platform::sync::Arc;
-use core::{cell::RefCell, future::Future, marker::PhantomData, mem};
+use core::{cell::{RefCell, Cell}, future::Future, marker::PhantomData, mem};
 
 use crate::executor::LocalExecutor;
 use crate::{block_on, Task};
@@ -148,9 +148,9 @@ impl TaskPool {
         // SAFETY: As above, all futures must complete in this function so we can change the lifetime
         let results_ref: &'env RefCell<Vec<Option<T>>> = unsafe { mem::transmute(&results) };
 
-        let pending_tasks: RefCell<usize> = RefCell::new(0);
+        let pending_tasks: Cell<usize> = Cell::new(0);
         // SAFETY: As above, all futures must complete in this function so we can change the lifetime
-        let pending_tasks: &'env RefCell<usize> = unsafe { mem::transmute(&pending_tasks) };
+        let pending_tasks: &'env Cell<usize> = unsafe { mem::transmute(&pending_tasks) };
 
         let mut scope = Scope {
             executor_ref,
@@ -165,10 +165,12 @@ impl TaskPool {
 
         f(scope_ref);
 
-        // Wait until the socpe is complete
-        while *pending_tasks.borrow() != 0 {
-            block_on(executor.tick());
-        }
+        // Wait until the scope is complete
+        block_on(executor.run(async {
+            while pending_tasks.get() != 0 {
+                futures_lite::future::yield_now().await;
+            }
+        }));
 
         results
             .take()
@@ -257,7 +259,7 @@ impl TaskPool {
 pub struct Scope<'scope, 'env: 'scope, T> {
     executor_ref: &'scope LocalExecutor<'scope>,
     // The number of pending tasks spawned on the scope
-    pending_tasks: &'scope RefCell<usize>,
+    pending_tasks: &'scope Cell<usize>,
     // Vector to gather results of all futures spawned during scope run
     results_ref: &'env RefCell<Vec<Option<T>>>,
 
@@ -297,7 +299,7 @@ impl<'scope, 'env, T: Send + 'env> Scope<'scope, 'env, T> {
     pub fn spawn_on_scope<Fut: Future<Output = T> + 'scope + MaybeSend>(&self, f: Fut) {
         // increment the number of pending tasks
         let pending_tasks = self.pending_tasks;
-        pending_tasks.replace_with(|i| *i + 1);
+        pending_tasks.update(|i| i + 1);
 
         // add a spot to keep the result, and record the index
         let results_ref = self.results_ref;
@@ -316,7 +318,7 @@ impl<'scope, 'env, T: Send + 'env> Scope<'scope, 'env, T> {
             drop(results);
 
             // decrement the pending tasks count
-            pending_tasks.replace_with(|i| *i - 1);
+            pending_tasks.update(|i| i - 1);
         };
 
         // spawn the job itself
