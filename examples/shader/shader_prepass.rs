@@ -4,7 +4,8 @@
 
 use bevy::{
     core_pipeline::prepass::{DepthPrepass, MotionVectorPrepass, NormalPrepass},
-    pbr::{NotShadowCaster, PbrPlugin},
+    light::NotShadowCaster,
+    pbr::PbrPlugin,
     prelude::*,
     reflect::TypePath,
     render::render_resource::{AsBindGroup, ShaderRef, ShaderType},

@@ -2,6 +2,7 @@
 
 use bevy_app::{Plugin, Startup, Update};
 use bevy_asset::{Assets, Handle};
+use bevy_camera::visibility::Visibility;
 use bevy_color::Color;
 use bevy_diagnostic::{DiagnosticsStore, FrameTimeDiagnosticsPlugin};
 use bevy_ecs::{
@@ -14,7 +15,7 @@ use bevy_ecs::{
     schedule::{common_conditions::resource_changed, IntoScheduleConfigs},
     system::{Commands, Query, Res, ResMut},
 };
-use bevy_render::{storage::ShaderStorageBuffer, view::Visibility};
+use bevy_render::storage::ShaderStorageBuffer;
 use bevy_text::{Font, TextColor, TextFont, TextSpan};
 use bevy_time::Time;
 use bevy_ui::{
@@ -212,10 +213,10 @@ fn update_text(
     if *time_since_rerender >= config.refresh_interval {
         *time_since_rerender = Duration::ZERO;
         for entity in &query {
-            if let Some(fps) = diagnostic.get(&FrameTimeDiagnosticsPlugin::FPS) {
-                if let Some(value) = fps.smoothed() {
-                    *writer.text(entity, 1) = format!("{value:.2}");
-                }
+            if let Some(fps) = diagnostic.get(&FrameTimeDiagnosticsPlugin::FPS)
+                && let Some(value) = fps.smoothed()
+            {
+                *writer.text(entity, 1) = format!("{value:.2}");
             }
         }
     }

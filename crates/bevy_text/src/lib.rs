@@ -43,7 +43,9 @@ mod pipeline;
 mod text;
 mod text2d;
 mod text_access;
+pub mod undo_2;
 
+use bevy_camera::{visibility::VisibilitySystems, CameraUpdateSystems};
 pub use bounds::*;
 pub use error::*;
 pub use font::*;
@@ -71,9 +73,7 @@ pub mod prelude {
 use bevy_app::{prelude::*, AnimationSystems};
 use bevy_asset::{AssetApp, AssetEventSystems};
 use bevy_ecs::prelude::*;
-use bevy_render::{
-    camera::CameraUpdateSystems, view::VisibilitySystems, ExtractSchedule, RenderApp,
-};
+use bevy_render::{ExtractSchedule, RenderApp};
 use bevy_sprite::SpriteSystems;
 
 /// The raw data for the default font used by `bevy_text`

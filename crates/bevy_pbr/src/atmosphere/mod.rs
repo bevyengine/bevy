@@ -38,6 +38,7 @@ pub mod resources;
 
 use bevy_app::{App, Plugin};
 use bevy_asset::embedded_asset;
+use bevy_camera::Camera3d;
 use bevy_core_pipeline::core_3d::graph::Node3d;
 use bevy_ecs::{
     component::Component,
@@ -61,7 +62,7 @@ use bevy_render::{
     Render, RenderApp, RenderSystems,
 };
 
-use bevy_core_pipeline::core_3d::{graph::Core3d, Camera3d};
+use bevy_core_pipeline::core_3d::graph::Core3d;
 use resources::{
     prepare_atmosphere_transforms, queue_render_sky_pipelines, AtmosphereTransforms,
     RenderSkyBindGroupLayouts,

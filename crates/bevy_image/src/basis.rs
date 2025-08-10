@@ -53,12 +53,12 @@ pub fn basis_buffer_to_image(
 
     let image0_mip_level_count = transcoder.image_level_count(buffer, 0);
     for image_index in 0..image_count {
-        if let Some(image_info) = transcoder.image_info(buffer, image_index) {
-            if texture_type == BasisTextureType::TextureType2D
-                && (image_info.m_orig_width != image0_info.m_orig_width
-                    || image_info.m_orig_height != image0_info.m_orig_height)
-            {
-                return Err(TextureError::UnsupportedTextureFormat(format!(
+        if let Some(image_info) = transcoder.image_info(buffer, image_index)
+            && texture_type == BasisTextureType::TextureType2D
+            && (image_info.m_orig_width != image0_info.m_orig_width
+                || image_info.m_orig_height != image0_info.m_orig_height)
+        {
+            return Err(TextureError::UnsupportedTextureFormat(format!(
                     "Basis file with multiple 2D textures with different sizes not supported. Image {} {}x{}, image 0 {}x{}",
                     image_index,
                     image_info.m_orig_width,
@@ -66,7 +66,6 @@ pub fn basis_buffer_to_image(
                     image0_info.m_orig_width,
                     image0_info.m_orig_height,
                 )));
-            }
         }
         let mip_level_count = transcoder.image_level_count(buffer, image_index);
         if mip_level_count != image0_mip_level_count {

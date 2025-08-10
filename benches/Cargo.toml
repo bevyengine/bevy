@@ -21,6 +21,7 @@ bevy_picking = { path = "../crates/bevy_picking", features = [
   "bevy_mesh_picking_backend",
 ] }
 bevy_reflect = { path = "../crates/bevy_reflect", features = ["functions"] }
+bevy_camera = { path = "../crates/bevy_camera" }
 bevy_render = { path = "../crates/bevy_render" }
 bevy_tasks = { path = "../crates/bevy_tasks" }
 bevy_platform = { path = "../crates/bevy_platform", default-features = false, features = [
@@ -28,9 +29,9 @@ bevy_platform = { path = "../crates/bevy_platform", default-features = false, fe
 ] }
 
 # Other crates
-glam = "0.29"
-rand = "0.8"
-rand_chacha = "0.3"
+glam = "0.30.1"
+rand = "0.9"
+rand_chacha = "0.9"
 nonmax = { version = "0.5", default-features = false }
 
 [lints.clippy]
