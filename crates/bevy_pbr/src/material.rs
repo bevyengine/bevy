@@ -55,6 +55,7 @@ use bevy_render::{
 };
 use bevy_render::{mesh::allocator::MeshAllocator, sync_world::MainEntityHashMap};
 use bevy_render::{texture::FallbackImage, view::RenderVisibleEntities};
+use bevy_shader::{Shader, ShaderDefVal};
 use bevy_utils::Parallel;
 use core::any::TypeId;
 use core::{hash::Hash, marker::PhantomData};

@@ -35,7 +35,6 @@ use bevy_platform::collections::HashMap;
 pub use bevy_render::primitives::CubemapLayout;
 use bevy_render::{
     extract_component::ExtractComponentPlugin,
-    load_shader_library,
     render_asset::RenderAssets,
     render_resource::{
         binding_types, BindGroupLayoutEntryBuilder, Buffer, BufferUsages, RawBufferVec, Sampler,
@@ -46,6 +45,7 @@ use bevy_render::{
     texture::{FallbackImage, GpuImage},
     Extract, ExtractSchedule, Render, RenderApp, RenderSystems,
 };
+use bevy_shader::load_shader_library;
 use bevy_transform::components::GlobalTransform;
 use bytemuck::{Pod, Zeroable};
 

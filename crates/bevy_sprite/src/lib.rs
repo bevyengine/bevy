@@ -39,6 +39,7 @@ use bevy_camera::{
     primitives::{Aabb, MeshAabb as _},
     visibility::{NoFrustumCulling, VisibilitySystems},
 };
+use bevy_shader::load_shader_library;
 pub use mesh2d::*;
 #[cfg(feature = "bevy_sprite_picking_backend")]
 pub use picking_backend::*;
@@ -54,7 +55,7 @@ use bevy_ecs::prelude::*;
 use bevy_image::{prelude::*, TextureAtlasPlugin};
 use bevy_mesh::{Mesh, Mesh2d};
 use bevy_render::{
-    batching::sort_binned_render_phase, load_shader_library, render_phase::AddRenderCommand,
+    batching::sort_binned_render_phase, render_phase::AddRenderCommand,
     render_resource::SpecializedRenderPipelines, ExtractSchedule, Render, RenderApp, RenderStartup,
     RenderSystems,
 };

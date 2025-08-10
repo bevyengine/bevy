@@ -78,13 +78,13 @@ use bevy_ecs::{
 };
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
-    load_shader_library,
     render_graph::{RenderGraphExt, ViewNodeRunner},
     renderer::RenderDevice,
     settings::WgpuFeatures,
     view::{prepare_view_targets, Msaa},
     ExtractSchedule, Render, RenderApp, RenderStartup, RenderSystems,
 };
+use bevy_shader::load_shader_library;
 use bevy_transform::components::Transform;
 use derive_more::From;
 use tracing::error;

@@ -37,14 +37,15 @@ use bevy_render::{
     },
     render_resource::{
         AsBindGroup, AsBindGroupError, BindGroup, BindGroupId, BindGroupLayout, BindingResources,
-        CachedRenderPipelineId, PipelineCache, RenderPipelineDescriptor, Shader, ShaderDefVal,
-        ShaderRef, SpecializedMeshPipeline, SpecializedMeshPipelineError, SpecializedMeshPipelines,
+        CachedRenderPipelineId, PipelineCache, RenderPipelineDescriptor, SpecializedMeshPipeline,
+        SpecializedMeshPipelineError, SpecializedMeshPipelines,
     },
     renderer::RenderDevice,
     sync_world::{MainEntity, MainEntityHashMap},
     view::{ExtractedView, RenderVisibleEntities},
     Extract, ExtractSchedule, Render, RenderApp, RenderStartup, RenderSystems,
 };
+use bevy_shader::{Shader, ShaderDefVal, ShaderRef};
 use bevy_utils::Parallel;
 use core::{hash::Hash, marker::PhantomData};
 use derive_more::derive::From;

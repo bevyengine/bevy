@@ -12,6 +12,10 @@ use bevy_ecs::{
     system::{Res, ResMut},
 };
 use bevy_platform::collections::{HashMap, HashSet};
+use bevy_shader::{
+    CachedPipelineId, PipelineCacheError, Shader, ShaderCache, ShaderCacheSource, ShaderDefVal,
+    ValidateShader,
+};
 use bevy_tasks::Task;
 use bevy_utils::default;
 use core::{future::Future, hash::Hash, mem};

@@ -21,12 +21,13 @@ use bevy_render::{
             storage_buffer_sized, texture_2d, texture_depth_2d, texture_storage_2d, uniform_buffer,
         },
         BindGroupEntries, BindGroupLayout, BindGroupLayoutEntries, CachedComputePipelineId,
-        ComputePassDescriptor, ComputePipelineDescriptor, PipelineCache, PushConstantRange, Shader,
-        ShaderDefVal, ShaderStages, StorageTextureAccess, TextureSampleType,
+        ComputePassDescriptor, ComputePipelineDescriptor, PipelineCache, PushConstantRange,
+        ShaderStages, StorageTextureAccess, TextureSampleType,
     },
     renderer::{RenderContext, RenderDevice},
     view::{ViewTarget, ViewUniform, ViewUniformOffset, ViewUniforms},
 };
+use bevy_shader::{Shader, ShaderDefVal};
 use bevy_utils::default;
 
 pub mod graph {
