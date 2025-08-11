@@ -12,7 +12,7 @@
 //! - **All Components**: Automatically discovers and displays all component types
 //!
 //! ## Usage
-//! 1. Start a target app with bevy_remote:
+//! 1. Start a target app with `bevy_remote`:
 //!    ```
 //!    cargo run --example remote_inspector_target
 //!    ```

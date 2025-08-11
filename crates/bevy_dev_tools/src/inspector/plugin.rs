@@ -1,7 +1,7 @@
 //! Remote Inspector Plugin for Bevy Dev Tools
 //!
 //! This module provides a real-time entity and component inspector that connects to
-//! remote Bevy applications via the bevy_remote protocol. It features:
+//! remote Bevy applications via the `bevy_remote` protocol. It features:
 //!
 //! - **Live Entity Inspection**: Real-time viewing of entities and their components
 //! - **Component Value Updates**: Live streaming of changing component values
@@ -36,14 +36,14 @@ use tokio::runtime::Handle;
 /// Tokio runtime handle for async HTTP operations
 ///
 /// This resource provides access to the Tokio runtime for performing
-/// async HTTP requests to the remote Bevy application via bevy_remote protocol.
+/// async HTTP requests to the remote Bevy application via `bevy_remote` protocol.
 #[derive(Resource)]
 pub struct TokioRuntimeHandle(pub Handle);
 
 /// Remote Inspector Plugin
 ///
 /// Enables real-time inspection of entities and components in remote Bevy applications.
-/// Automatically connects to bevy_remote servers and provides an interactive UI for
+/// Automatically connects to `bevy_remote` servers and provides an interactive UI for
 /// browsing entity data with live updates.
 ///
 /// # Usage
@@ -57,7 +57,7 @@ pub struct TokioRuntimeHandle(pub Handle);
 ///     .run();
 /// ```
 ///
-/// The target application should enable bevy_remote:
+/// The target application should enable `bevy_remote`:
 ///
 /// ```rust
 /// App::new()
@@ -342,7 +342,7 @@ fn handle_http_updates(
             // Spawn async connection attempt using tokio runtime handle
             tokio_handle.0.spawn(async move {
                 // Test basic connectivity first
-                let health_url = format!("{}/health", base_url);
+                let health_url = format!("{base_url}/health");
                 let health_result = client.get(&health_url).send().await;
 
                 match health_result {
@@ -358,7 +358,7 @@ fn handle_http_updates(
                 }
 
                 // Now test the actual JSON-RPC endpoint
-                let jsonrpc_url = format!("{}/jsonrpc", base_url);
+                let jsonrpc_url = format!("{base_url}/jsonrpc");
                 let test_request = serde_json::json!({
                     "jsonrpc": "2.0",
                     "id": 1,
@@ -379,7 +379,7 @@ fn handle_http_updates(
 
                 let jsonrpc_result = client.post(&jsonrpc_url)
                     .json(&test_request)
-                    .timeout(std::time::Duration::from_secs(10))
+                    .timeout(core::time::Duration::from_secs(10))
                     .send().await;
 
                 match jsonrpc_result {
@@ -397,7 +397,7 @@ fn handle_http_updates(
                                         for entity_data in entities_array.iter() {
                                             if let Some(entity_obj) = entity_data.as_object() {
                                                 // Parse Bevy entity ID (numeric format)
-                                                if let Some(entity_id_num) = entity_obj.get("entity").and_then(|id| id.as_u64()) {
+                                                if let Some(entity_id_num) = entity_obj.get("entity").and_then(Value::as_u64) {
                                                     let entity_id = entity_id_num as u32;
 
                                                     // Extract components from the "components" object
@@ -420,7 +420,7 @@ fn handle_http_updates(
                                                             v.as_object()
                                                                 .and_then(|obj| obj.get("0"))
                                                                 .and_then(|v| v.as_str())
-                                                                .map(|s| s.to_string())
+                                                                .map(ToString::to_string)
                                                         }
                                                     });
 
@@ -455,7 +455,7 @@ fn handle_http_updates(
                                 if let Some(sender) = &status_sender {
                                     let status_update = ConnectionStatusUpdate {
                                         is_connected: false,
-                                        error_message: Some(format!("Failed to parse entities: {}", e)),
+                                        error_message: Some(format!("Failed to parse entities: {e}")),
                                         entities: HashMap::new(),
                                     };
                                     let _ = sender.send(status_update).await;
@@ -483,7 +483,7 @@ fn handle_http_updates(
                         if let Some(sender) = &status_sender {
                             let status_update = ConnectionStatusUpdate {
                                 is_connected: false,
-                                error_message: Some(format!("Connection failed: {}", e)),
+                                error_message: Some(format!("Connection failed: {e}")),
                                 entities: HashMap::new(),
                             };
                             let _ = sender.send(status_update).await;

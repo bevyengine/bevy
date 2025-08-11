@@ -1,6 +1,6 @@
-//! HTTP client for bevy_remote protocol with connection resilience
+//! HTTP client for `bevy_remote` protocol with connection resilience
 //!
-//! This client implements the bevy_remote JSON-RPC protocol with comprehensive support for:
+//! This client implements the `bevy_remote` JSON-RPC protocol with comprehensive support for:
 //! - **bevy/query**: Query entities and components with flexible filtering
 //! - **bevy/get+watch**: Stream live component updates via Server-Sent Events (SSE)
 //! - **Connection Management**: Auto-retry logic with exponential backoff
@@ -19,7 +19,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::HashMap;
 
-/// JSON-RPC request structure for bevy_remote protocol
+/// JSON-RPC request structure for `bevy_remote` protocol
 #[derive(Serialize, Debug)]
 pub struct JsonRpcRequest {
     /// JSON-RPC protocol version (always "2.0")
@@ -34,7 +34,7 @@ pub struct JsonRpcRequest {
 
 /// JSON-RPC response structure
 #[derive(Deserialize, Debug)]
-#[allow(dead_code)]
+#[expect(dead_code, reason = "All fields are used in deserialization")]
 struct JsonRpcResponse {
     jsonrpc: String,
     id: u32,
@@ -44,19 +44,19 @@ struct JsonRpcResponse {
 
 /// JSON-RPC error structure
 #[derive(Deserialize, Debug)]
-#[allow(dead_code)]
+#[expect(dead_code, reason = "All fields are used in deserialization")]
 struct JsonRpcError {
     code: i32,
     message: String,
     data: Option<Value>,
 }
 
-/// Remote entity representation from bevy_remote
+/// Remote entity representation from `bevy_remote`
 #[derive(Debug, Clone, Deserialize)]
 pub struct RemoteEntity {
     /// Entity ID from the remote Bevy application
     pub id: u32,
-    /// Optional entity name (from bevy_core::Name component)
+    /// Optional entity name (from `bevy_core::Name` component)
     pub name: Option<String>,
     /// Map of component type names to their serialized values
     pub components: HashMap<String, Value>,
@@ -80,9 +80,9 @@ impl Default for HttpRemoteConfig {
     }
 }
 
-/// HTTP client for bevy_remote communication with connection resilience
+/// HTTP client for `bevy_remote` communication with connection resilience
 ///
-/// This client manages communication with remote Bevy applications via the bevy_remote
+/// This client manages communication with remote Bevy applications via the `bevy_remote`
 /// JSON-RPC protocol. It provides automatic connection retry logic, live component
 /// streaming, and robust error handling.
 ///
@@ -96,7 +96,7 @@ impl Default for HttpRemoteConfig {
 pub struct HttpRemoteClient {
     /// HTTP client for making requests
     pub client: Client,
-    /// Base URL for the remote server (e.g., "http://localhost:15702")
+    /// Base URL for the remote server (e.g., <http://localhost:15702>)
     pub base_url: String,
     /// Counter for generating unique request IDs
     pub request_id: u32,
@@ -206,7 +206,7 @@ impl HttpRemoteClient {
         }
     }
 
-    /// Test connection to bevy_remote server
+    /// Test connection to `bevy_remote` server
     pub async fn connect(&mut self) -> Result<()> {
         debug!(
             "Attempting connection to {} (attempt {}/{})",
@@ -276,7 +276,7 @@ impl HttpRemoteClient {
 
             let mut entity_ids = Vec::new();
             for entity_obj in entities {
-                if let Some(entity_id) = entity_obj.get("entity").and_then(|v| v.as_u64()) {
+                if let Some(entity_id) = entity_obj.get("entity").and_then(Value::as_u64) {
                     entity_ids.push(entity_id as u32);
                 }
             }
@@ -321,7 +321,7 @@ impl HttpRemoteClient {
 
             for query_result in query_results.iter() {
                 if let (Some(entity_id), Some(components_obj)) = (
-                    query_result.get("entity").and_then(|v| v.as_u64()),
+                    query_result.get("entity").and_then(Value::as_u64),
                     query_result.get("components").and_then(|v| v.as_object()),
                 ) {
                     let mut components = HashMap::new();
@@ -341,8 +341,8 @@ impl HttpRemoteClient {
                             // Try as tuple struct with "0" field
                             v.as_object()
                                 .and_then(|obj| obj.get("0"))
-                                .and_then(|v| v.as_str())
-                                .map(|s| s.to_string())
+                                .and_then(Value::as_str)
+                                .map(ToString::to_string)
                         }
                     });
 
@@ -382,7 +382,7 @@ impl HttpRemoteClient {
         Ok(())
     }
 
-    /// Start watching components for an entity using bevy/get+watch with bevy_tasks
+    /// Start watching components for an entity using bevy/get+watch with `bevy_tasks`
     pub fn start_component_watching(
         &mut self,
         entity_id: u32,
@@ -413,7 +413,7 @@ impl HttpRemoteClient {
             };
 
             // Use streaming SSE connection for real-time updates
-            let url = format!("{}/jsonrpc", base_url);
+            let url = format!("{base_url}/jsonrpc");
 
             loop {
                 match client.post(&url).json(&request).send().await {
@@ -423,7 +423,7 @@ impl HttpRemoteClient {
                         let mut buffer = String::new();
 
                         while let Ok(Some(chunk)) = stream.try_next().await {
-                            if let Ok(text) = std::str::from_utf8(&chunk) {
+                            if let Ok(text) = core::str::from_utf8(&chunk) {
                                 buffer.push_str(text);
 
                                 // Process complete lines
@@ -435,32 +435,30 @@ impl HttpRemoteClient {
                                     if let Some(json_str) = line.strip_prefix("data: ") {
                                         match serde_json::from_str::<JsonRpcResponse>(json_str) {
                                             Ok(json_response) => {
-                                                if let Some(result) = json_response.result {
-                                                    if let Ok(watch_response) =
+                                                if let Some(result) = json_response.result
+                                                    && let Ok(watch_response) =
                                                         serde_json::from_value::<
                                                             BrpGetWatchingResponse,
                                                         >(
                                                             result
                                                         )
-                                                    {
-                                                        let update = ComponentUpdate {
-                                                            entity_id,
-                                                            changed_components: watch_response
-                                                                .components
-                                                                .unwrap_or_default(),
-                                                            removed_components: watch_response
-                                                                .removed
-                                                                .unwrap_or_default(),
-                                                            timestamp: current_time(),
-                                                        };
+                                                {
+                                                    let update = ComponentUpdate {
+                                                        entity_id,
+                                                        changed_components: watch_response
+                                                            .components
+                                                            .unwrap_or_default(),
+                                                        removed_components: watch_response
+                                                            .removed
+                                                            .unwrap_or_default(),
+                                                        timestamp: current_time(),
+                                                    };
 
-                                                        if !update.changed_components.is_empty()
-                                                            || !update.removed_components.is_empty()
-                                                        {
-                                                            if tx.send(update).await.is_err() {
-                                                                return; // Exit the task
-                                                            }
-                                                        }
+                                                    if (!update.changed_components.is_empty()
+                                                        || !update.removed_components.is_empty())
+                                                        && tx.send(update).await.is_err()
+                                                    {
+                                                        return; // Exit the task
                                                     }
                                                 }
                                             }
@@ -473,7 +471,8 @@ impl HttpRemoteClient {
 
                         // Simple async delay without tokio
                         let sleep_future = async {
-                            use std::time::{Duration, Instant};
+                            use core::time::Duration;
+                            use std::time::Instant;
                             let start = Instant::now();
                             let target_duration = Duration::from_secs(1);
 
@@ -489,7 +488,8 @@ impl HttpRemoteClient {
                     Err(_e) => {
                         // Simple async delay without tokio
                         let sleep_future = async {
-                            use std::time::{Duration, Instant};
+                            use core::time::Duration;
+                            use std::time::Instant;
                             let start = Instant::now();
                             let target_duration = Duration::from_secs(1);
 

@@ -1,9 +1,9 @@
 //! Bevy Remote Inspector
 //!
-//! Out-of-process entity inspector for Bevy applications using bevy_remote.
+//! Out-of-process entity inspector for Bevy applications using `bevy_remote`.
 
 pub mod http_client;
-pub mod inspector;
+mod plugin;
 pub mod ui;
 
-pub use inspector::InspectorPlugin;
+pub use plugin::InspectorPlugin;

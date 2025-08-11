@@ -1,3 +1,6 @@
+#![expect(clippy::print_stdout, reason = "Debug output for development")]
+#![expect(clippy::doc_markdown, reason = "Technical terms used as identifiers")]
+
 //! High-performance virtual scrolling widget for Bevy UI
 //!
 //! This widget provides efficient virtual scrolling that can handle thousands of items
@@ -16,7 +19,7 @@ use bevy_ecs::prelude::*;
 use bevy_input::mouse::MouseWheel;
 use bevy_time::Time;
 use bevy_ui::prelude::*;
-use std::marker::PhantomData;
+use core::marker::PhantomData;
 
 /// Resource to manage virtual scrolling state
 #[derive(Resource)]

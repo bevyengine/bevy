@@ -1,128 +1,185 @@
-# Remote Inspector Integration Status
+# Bevy Entity Inspector
 
-## Current Status: Work in Progress
+The Bevy Entity Inspector is a powerful debugging tool that allows you to inspect and monitor entities and components in real-time, both locally and remotely. It provides two distinct modes of operation:
 
-The remote inspector has been copied from `bevy_remote_inspector` into `bevy_dev_tools` but requires additional work to complete the integration.
+1. **Local Inspector** - An embedded, in-game inspector overlay
+2. **Remote Inspector** - An external application that connects to your game via `bevy_remote`
 
-## What Works
+## Local Inspector (In-Game Overlay)
 
-✅ **Original standalone inspector**: The original `bevy_remote_inspector` crate works perfectly:
+The local inspector provides an in-game overlay that can be toggled on/off during development.
 
-- High-performance virtual scrolling for thousands of entities
-- Real-time entity selection and component viewing  
-- Static component data display
-- Connection status indicator
-- Comprehensive UI with scrollbars and responsive layout
+### Setup
 
-✅ **Target applications**: Demo applications work with `bevy_remote`
+Add the `InspectorPlugin` to your application:
 
-- Moving entities with changing component values
-- Auto-spawning entities for stress testing
-- Full bevy_remote integration
+```rust
+use bevy::dev_tools::inspector::InspectorPlugin;
+use bevy::prelude::*;
 
-## What Needs Work
+fn main() {
+    App::new()
+        .add_plugins(DefaultPlugins)
+        .add_plugins(InspectorPlugin::debug()) // Use debug preset with F11 toggle
+        .run();
+}
+```
 
-❌ **bevy_dev_tools integration**: The inspector code needs adaptation for bevy_dev_tools:
+### Usage
 
-- Import issues due to individual bevy crate dependencies vs full `bevy` crate
-- Missing `#[derive(Resource)]` and `#[derive(Component)]` annotations
-- System parameter type mismatches
+- Press **F11** to toggle the inspector overlay
+- Browse entities in the left panel
+- Click on entities to view their components in the right panel
+- Component values update in real-time
 
-❌ **Live streaming updates**: Currently only shows static snapshots
+### Example
 
-- Need to implement real SSE client for `bevy/get+watch` endpoint
-- Replace current polling simulation with true streaming
-- Add visual change indicators in UI
-
-## Quick Start (Current Working Setup)
-
-### 1. Run Target Application
+Run the local inspector example:
 
 ```bash
-# From bevy_remote_inspector directory (original working version)
-cargo run --example moving_target_app
+cargo run --example inspector --features="bevy_dev_tools"
 ```
 
-### 2. Run Inspector
+## Remote Inspector (External Application)
 
-```bash
-# From bevy_remote_inspector directory (original working version)
-cargo run --bin bevy_remote_inspector
+The remote inspector runs as a separate application that connects to your game over HTTP using the `bevy_remote` protocol. This is particularly useful for:
+
+- Inspecting headless applications
+- Debugging without UI overlay interference  
+- External tooling and automation
+- Multi-monitor setups
+
+### Setup
+
+#### Target Application (Your Game)
+
+Add `bevy_remote` plugins to enable external connections:
+
+```rust
+use bevy::prelude::*;
+use bevy::remote::{RemotePlugin, http::RemoteHttpPlugin};
+
+fn main() {
+    App::new()
+        .add_plugins(DefaultPlugins)
+        .add_plugins(RemotePlugin::default())        // Enable JSON-RPC
+        .add_plugins(RemoteHttpPlugin::default())    // Enable HTTP transport
+        // Your game systems here...
+        .run();
+}
 ```
 
-## Migration Plan
+#### Inspector Application
 
-### Phase 1: Fix Compilation ✋ **Current Phase**
+Create a separate inspector app:
 
-- [ ] Fix bevy crate imports for bevy_dev_tools context
-- [ ] Add missing derive macros (`Resource`, `Component`)
-- [ ] Resolve system parameter type issues
-- [ ] Create working plugin example
+```rust
+use bevy::prelude::*;
+use bevy::dev_tools::inspector::InspectorPlugin;
 
-### Phase 2: Live Updates Implementation
-
-- [ ] Replace HTTP client simulation with real SSE streaming
-- [ ] Implement `bevy/get+watch` endpoint client
-- [ ] Add visual change indicators to component viewer
-- [ ] Add connection management (start/stop per entity)
-
-### Phase 3: Integration & Testing
-
-- [ ] Create plugin API for easy integration
-- [ ] Add comprehensive examples
-- [ ] Performance testing with large entity counts
-- [ ] Documentation and API polish
-
-## Technical Architecture
-
-### High-Level Design
-
-```text
-Target App (bevy_remote) <--SSE--> Inspector Plugin <--> Bevy UI
-    │                              │                      │
-    ├─ Component changes           ├─ HTTP Client          ├─ Entity List (Virtual Scrolling)
-    ├─ Entity spawning/despawning  ├─ SSE Streaming        ├─ Component Viewer (Live Updates)
-    └─ bevy/get+watch endpoint     └─ Update Queue         └─ Connection Status
+fn main() {
+    App::new()
+        .add_plugins(DefaultPlugins)
+        .add_plugins(InspectorPlugin) // Remote inspector (no debug preset)
+        .run();
+}
 ```
 
-### Files Structure
+### Usage
 
-```text
-src/inspector/
-├── mod.rs              # Plugin exports
-├── inspector.rs        # Main plugin implementation  
-├── http_client.rs      # HTTP/SSE client for bevy_remote
-└── ui/
-    ├── mod.rs          # UI module exports
-    ├── entity_list.rs  # Virtual scrolling entity list
-    ├── component_viewer.rs   # Live component display
-    ├── virtual_scrolling.rs  # High-performance scrolling
-    ├── connection_status.rs  # Connection indicator
-    └── collapsible_section.rs # Reusable UI widget
+1. **Start your target application** with `bevy_remote` enabled:
+   ```bash
+   cargo run --example server --features="bevy_remote"
+   ```
+
+2. **Start the inspector** in a separate terminal/window:
+   ```bash
+   cargo run --example entity_inspector_minimal --features="bevy_dev_tools"
+   ```
+
+The inspector will automatically connect to `localhost:15702` and display your entities.
+
+### Features
+
+- **Real-time Updates**: Component values update live as they change
+- **Interactive UI**: Click to select entities, text selection with copy/paste
+- **Connection Resilience**: Auto-retry logic handles connection failures gracefully  
+- **Performance**: Virtual scrolling efficiently handles large numbers of entities
+- **All Components**: Automatically discovers and displays all component types
+
+### Connection Details
+
+- **Default Address**: `localhost:15702`
+- **Protocol**: HTTP with JSON-RPC 2.0
+- **Endpoints**: 
+  - `/health` - Connection health check
+  - `/jsonrpc` - Main JSON-RPC interface
+
+## Component Registration
+
+For components to be visible in the inspector, they must implement `Reflect`:
+
+```rust
+use bevy::prelude::*;
+use serde::{Deserialize, Serialize};
+
+#[derive(Component, Reflect, Serialize, Deserialize)]
+#[reflect(Component, Serialize, Deserialize)]
+struct Player {
+    health: i32,
+    speed: f32,
+}
+
+fn main() {
+    App::new()
+        .add_plugins(DefaultPlugins)
+        .register_type::<Player>() // Required for reflection
+        .run();
+}
 ```
 
-## Implementation Details Available
+## Troubleshooting
 
-📋 **Complete implementation plan**: See `LIVE_UPDATES_IMPLEMENTATION_PLAN.md` for detailed SSE streaming implementation with code examples.
+### Remote Inspector Issues
 
-🎯 **Virtual scrolling**: Already implemented and working - handles 10,000+ entities efficiently.
+**Inspector shows "Awaiting connection":**
+- Ensure target app is running with `bevy_remote` plugins enabled
+- Verify target app is listening on port 15702
+- Check firewall/network connectivity
 
-🔧 **UI Components**: All UI components designed for upstream contribution to bevy_ui.
+**Components not visible:**
+- Ensure components implement `Reflect` 
+- Register component types with `.register_type::<YourComponent>()`
+- Verify components implement `Serialize`/`Deserialize` for remote inspection
 
-## For Contributors
+**Connection drops frequently:**
+- Check target application stability
+- Monitor network connectivity
+- The inspector will automatically retry connections
 
-### To work on compilation fixes
+### Local Inspector Issues
 
-1. Focus on `src/inspector/inspector.rs` first - main plugin file
-2. Update imports to use individual bevy crates available in bevy_dev_tools
-3. Add missing derive macros where compilation errors indicate
+**F11 doesn't toggle inspector:**
+- Ensure you're using `InspectorPlugin::debug()` not `InspectorPlugin`
+- Check if another system is handling F11 key input
 
-### To work on live updates
+**UI elements not visible:**
+- Verify UI camera is present in your scene
+- Check for UI layer conflicts
 
-1. See `LIVE_UPDATES_IMPLEMENTATION_PLAN.md` for complete technical specification
-2. Start with `src/inspector/http_client.rs` - replace simulation with real SSE
-3. Test with `examples/moving_target_app.rs` for obvious component changes
+## Architecture
 
-## Current Workaround
+The inspector uses several key components:
 
-For immediate use of the remote inspector, use the original `bevy_remote_inspector` crate which is fully functional. The bevy_dev_tools integration can be completed over time while the working version remains available.
+- **HTTP Client** (`crates/bevy_dev_tools/src/inspector/http_client.rs`): Manages remote connections and JSON-RPC communication
+- **UI Components** (`crates/bevy_dev_tools/src/inspector/ui/`): Entity list, component viewer, connection status
+- **Virtual Scrolling**: Efficient rendering for large entity lists
+- **Live Updates**: Real-time component value streaming
+
+## Examples
+
+| Example | Purpose | Command |
+|---------|---------|---------|
+| `inspector` | Local in-game overlay | `cargo run --example inspector --features="bevy_dev_tools"` |
+| `server` | Target app for remote inspection | `cargo run --example server --features="bevy_remote"` |
+| `entity_inspector_minimal` | Remote inspector client | `cargo run --example entity_inspector_minimal --features="bevy_dev_tools"` |

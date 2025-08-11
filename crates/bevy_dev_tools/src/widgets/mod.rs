@@ -1,3 +1,5 @@
+#![expect(clippy::print_stdout, reason = "Debug output for development")]
+
 //! Reusable UI widgets for Bevy
 //!
 //! This module contains high-quality, reusable UI widgets that are suitable for

@@ -1,4 +1,9 @@
-//! Collapsible section widget - suitable for upstreaming to bevy_ui
+#![expect(
+    clippy::uninlined_format_args,
+    reason = "More readable in debug context"
+)]
+
+//! Collapsible section widget - suitable for upstreaming to `bevy_ui`
 
 use bevy_color::Color;
 use bevy_ecs::prelude::*;

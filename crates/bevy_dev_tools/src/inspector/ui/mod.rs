@@ -2,7 +2,7 @@
 //!
 //! This module provides a comprehensive set of UI components for building interactive
 //! entity and component inspectors. The components are designed with reusability in mind
-//! and could potentially be upstreamed to bevy_ui in the future.
+//! and could potentially be upstreamed to `bevy_ui` in the future.
 //!
 //! ## Components
 //!

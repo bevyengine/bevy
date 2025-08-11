@@ -1,3 +1,8 @@
+#![expect(
+    clippy::uninlined_format_args,
+    reason = "More readable in debug context"
+)]
+
 //! Connection status indicator UI
 
 use crate::inspector::http_client::HttpRemoteConfig;

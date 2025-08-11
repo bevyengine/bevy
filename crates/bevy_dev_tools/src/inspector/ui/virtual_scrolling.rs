@@ -1,3 +1,7 @@
+#![expect(clippy::needless_if, reason = "Placeholder for future functionality")]
+#![expect(clippy::implicit_saturating_sub, reason = "Manual check for clarity")]
+#![expect(clippy::doc_markdown, reason = "Technical terms used as identifiers")]
+
 //! High-performance virtual scrolling system for large entity lists.
 //!
 //! This module provides efficient virtual scrolling that can handle thousands of entities

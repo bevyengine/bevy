@@ -1,3 +1,9 @@
+#![expect(
+    clippy::uninlined_format_args,
+    reason = "More readable in debug context"
+)]
+#![expect(clippy::single_match, reason = "Future match arms planned")]
+
 //! Entity list UI component with remote data binding
 
 use crate::inspector::http_client::RemoteEntity;

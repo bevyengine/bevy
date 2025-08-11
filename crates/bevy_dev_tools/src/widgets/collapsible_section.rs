@@ -1,7 +1,12 @@
+#![expect(
+    clippy::uninlined_format_args,
+    reason = "More readable in debug context"
+)]
+
 //! Collapsible/expandable section widget for Bevy UI
 //!
 //! This widget provides collapsible sections with clickable headers and show/hide content.
-//! It's designed to be reusable and suitable for upstreaming to bevy_ui.
+//! It's designed to be reusable and suitable for upstreaming to `bevy_ui`.
 
 use bevy_color::Color;
 use bevy_ecs::prelude::*;

@@ -1,3 +1,12 @@
+#![expect(clippy::print_stdout, reason = "Debug output for development")]
+#![expect(
+    clippy::uninlined_format_args,
+    reason = "More readable in debug context"
+)]
+#![expect(clippy::needless_if, reason = "Placeholder for future functionality")]
+#![expect(clippy::single_match, reason = "Future match arms planned")]
+#![expect(clippy::len_zero, reason = "Explicit length check for clarity")]
+
 //! Component viewer UI with live data updates
 
 use super::collapsible_section::{
@@ -549,7 +558,7 @@ pub fn auto_start_component_watching(
     mut http_client: ResMut<HttpRemoteClient>,
     selected_entity: Res<SelectedEntity>,
     entity_cache: Res<EntityCache>,
-    tokio_handle: Res<crate::inspector::inspector::TokioRuntimeHandle>,
+    tokio_handle: Res<crate::inspector::plugin::TokioRuntimeHandle>,
 ) {
     if !selected_entity.is_changed() {
         return;
@@ -560,19 +569,13 @@ pub fn auto_start_component_watching(
             // Start watching all components of the selected entity
             let components: Vec<String> = entity.components.keys().cloned().collect();
             if !components.is_empty() {
-                match http_client.start_component_watching(
+                let _ = http_client.start_component_watching(
                     entity_id,
                     components.clone(),
                     &tokio_handle.0,
-                ) {
-                    Ok(()) => {}
-                    Err(_e) => {}
-                }
-            } else {
+                );
             }
-        } else {
         }
-    } else {
     }
 }
 

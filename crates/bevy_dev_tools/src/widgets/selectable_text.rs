@@ -1,7 +1,16 @@
+#![expect(clippy::print_stdout, reason = "Debug output for development")]
+#![expect(
+    clippy::uninlined_format_args,
+    reason = "More readable in debug context"
+)]
+#![expect(clippy::single_match, reason = "Future match arms planned")]
+#![expect(clippy::derivable_impls, reason = "More explicit initialization")]
+#![expect(clippy::doc_markdown, reason = "Technical terms used as identifiers")]
+
 //! Selectable text widget with copy/paste support
 //!
 //! This widget provides text selection and clipboard copy functionality for Bevy UI.
-//! It's designed to be reusable and suitable for upstreaming to bevy_ui.
+//! It's designed to be reusable and suitable for upstreaming to `bevy_ui`.
 
 use bevy_color::Color;
 use bevy_ecs::prelude::*;
