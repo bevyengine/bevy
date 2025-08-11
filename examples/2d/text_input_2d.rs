@@ -8,6 +8,10 @@ use bevy::{
     },
     input::keyboard::{Key, KeyboardInput},
     prelude::*,
+    render::{
+        primitives::Aabb, sync_world::TemporaryRenderEntity, view::VisibilityClass, Extract,
+        RenderApp,
+    },
     sprite::{
         Anchor, ExtractedSlice, ExtractedSlices, ExtractedSprite, ExtractedSpriteKind,
         ExtractedSprites,
@@ -18,9 +22,6 @@ use bevy::{
         TextInputEvent, TextInputSystems, TextInputTarget, TextLayoutInfo, UndoHistory,
     },
     window::PrimaryWindow,
-};
-use bevy_render::{
-    primitives::Aabb, sync_world::TemporaryRenderEntity, view::VisibilityClass, Extract, RenderApp,
 };
 
 #[derive(Component)]
