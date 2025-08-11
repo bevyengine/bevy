@@ -1,5 +1,5 @@
 use alloc::{string::String, vec::Vec, fmt};
-use core::{cell::{RefCell, Cell}, future::Future, marker::PhantomData, mem};
+use core::{cell::{RefCell, Cell}, future::Future, marker::PhantomData, mem, task::{Poll, Context, Waker}, pin::Pin};
 
 use crate::{block_on, Task};
 
@@ -126,9 +126,10 @@ impl TaskPool {
         // SAFETY: As above, all futures must complete in this function so we can change the lifetime
         let executor_ref: &'env Executor<'env> = unsafe { mem::transmute(&EXECUTOR) };
 
-        let results: RefCell<Vec<Option<T>>> = RefCell::new(Vec::new());
+        // Kept around to ensure that, in the case of an unwinding panic, all scheduled Tasks.
+        let tasks: RefCell<Vec<async_task::Task<T>>> = RefCell::new(Vec::new());
         // SAFETY: As above, all futures must complete in this function so we can change the lifetime
-        let results_ref: &'env RefCell<Vec<Option<T>>> = unsafe { mem::transmute(&results) };
+        let tasks_ref: &'env RefCell<Vec<async_task::Task<T>>> = unsafe { mem::transmute(&tasks) };
 
         let pending_tasks: Cell<usize> = Cell::new(0);
         // SAFETY: As above, all futures must complete in this function so we can change the lifetime
@@ -136,8 +137,8 @@ impl TaskPool {
 
         let mut scope = Scope {
             executor_ref,
+            tasks_ref,
             pending_tasks,
-            results_ref,
             scope: PhantomData,
             env: PhantomData,
         };
@@ -154,10 +155,14 @@ impl TaskPool {
             }
         }));
 
-        results
+        let mut context = Context::from_waker(Waker::noop());
+        tasks
             .take()
             .into_iter()
-            .map(|result| result.unwrap())
+            .map(|mut task| match Pin::new(&mut task).poll(&mut context) {
+                Poll::Ready(result) => result,
+                Poll::Pending => unreachable!(),
+            })
             .collect()
     }
 
@@ -222,7 +227,7 @@ pub struct Scope<'scope, 'env: 'scope, T> {
     // The number of pending tasks spawned on the scope
     pending_tasks: &'scope Cell<usize>,
     // Vector to gather results of all futures spawned during scope run
-    results_ref: &'env RefCell<Vec<Option<T>>>,
+    tasks_ref: &'env RefCell<Vec<async_task::Task<T>>>,
 
     // make `Scope` invariant over 'scope and 'env
     scope: PhantomData<&'scope mut &'scope ()>,
@@ -263,35 +268,24 @@ impl<'scope, 'env, T: Send + 'env> Scope<'scope, 'env, T> {
         let pending_tasks = self.pending_tasks;
         pending_tasks.update(|i| i + 1);
 
-        // add a spot to keep the result, and record the index
-        let results_ref = self.results_ref;
-        let mut results = results_ref.borrow_mut();
-        let task_number = results.len();
-        results.push(None);
-        drop(results);
-
         // create the job closure
         let f = async move {
             let result = f.await;
 
-            // store the result in the allocated slot
-            let mut results = results_ref.borrow_mut();
-            results[task_number] = Some(result);
-            drop(results);
-
             // decrement the pending tasks count
             pending_tasks.update(|i| i - 1);
+
+            result
         };
 
+        let mut tasks = self.tasks_ref.borrow_mut();
         crate::cfg::bevy_executor! {
             if {
                 // SAFETY: The surrounding scope will not terminate until all local tasks are done
                 // ensuring that the borrowed variables do not outlive the detached task.
-                unsafe {
-                    self.executor_ref.spawn_local_scoped(f).detach()
-                };
+                tasks.push(unsafe { self.executor_ref.spawn_local_scoped(f) });
             } else {
-                self.executor_ref.spawn_local(f).detach();
+                tasks.push(self.executor_ref.spawn_local(f));
             }
         }
     }
@@ -303,7 +297,7 @@ where T: fmt::Debug
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("Scope")
             .field("pending_tasks", &self.pending_tasks)
-            .field("results_ref", &self.results_ref)
+            .field("tasks_ref", &self.tasks_ref)
             .finish()
     }
 }

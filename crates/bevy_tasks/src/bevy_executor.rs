@@ -314,8 +314,23 @@ impl<'a> Executor<'a> {
     }
 
     /// Runs the executor until the given future completes.
-    pub async fn run<T>(&self, future: impl Future<Output = T>) -> T {
-        self.state().run(future).await
+    pub fn run<'b, T>(&'b self, future: impl Future<Output = T> + 'b) -> impl Future<Output = T> + 'b {
+        let mut runner = Runner::new(self.state());
+
+        // A future that runs tasks forever.
+        let run_forever = async move {
+            let mut rng = fastrand::Rng::new();
+            loop {
+                for _ in 0..200 {
+                    let runnable = runner.runnable(&mut rng).await;
+                    runnable.run();
+                }
+                future::yield_now().await;
+            }
+        };
+
+        // Run `future` and `run_forever` concurrently until `future` completes.
+        future.or(run_forever)
     }
 
     /// Returns a function that schedules a runnable task when it gets woken up.
@@ -500,25 +515,6 @@ impl State {
             w.wake();
         }
     }
-
-    pub async fn run<T>(&self, future: impl Future<Output = T>) -> T {
-        let mut runner = Runner::new(self);
-        let mut rng = fastrand::Rng::new();
-
-        // A future that runs tasks forever.
-        let run_forever = async {
-            loop {
-                for _ in 0..200 {
-                    let runnable = runner.runnable(&mut rng).await;
-                    runnable.run();
-                }
-                future::yield_now().await;
-            }
-        };
-
-        // Run `future` and `run_forever` concurrently until `future` completes.
-        future.or(run_forever).await
-    }
 }
 
 impl fmt::Debug for State {
@@ -677,31 +673,39 @@ impl Ticker<'_> {
     }
 
     /// Waits for the next runnable task to run, given a function that searches for a task.
-    async fn runnable_with(&mut self, mut search: impl FnMut() -> Option<Runnable>) -> Runnable {
-        future::poll_fn(|cx| {
-            loop {
-                match search() {
-                    None => {
-                        // Move to sleeping and unnotified state.
-                        if !self.sleep(cx.waker()) {
-                            // If already sleeping and unnotified, return.
-                            return Poll::Pending;
+    /// 
+    /// # Safety
+    /// Caller must not access LOCAL_QUEUE either directly or with try_with_local_queue` in any way inside `search`.
+    unsafe fn runnable_with(&mut self, mut search: impl FnMut(&mut LocalQueue) -> Option<Runnable>) -> impl Future<Output = Runnable> {
+        future::poll_fn(move |cx| {
+            // SAFETY: Caller must ensure that there's no instances where LOCAL_QUEUE is accessed mutably
+            // from multiple locations simultaneously.
+            unsafe {
+                try_with_local_queue(|tls| {
+                    loop {
+                        match search(tls) {
+                            None => {
+                                // Move to sleeping and unnotified state.
+                                if !self.sleep(cx.waker()) {
+                                    // If already sleeping and unnotified, return.
+                                    return Poll::Pending;
+                                }
+                            }
+                            Some(r) => {
+                                // Wake up.
+                                self.wake();
+
+                                // Notify another ticker now to pick up where this ticker left off, just in
+                                // case running the task takes a long time.
+                                self.state.notify();
+
+                                return Poll::Ready(r);
+                            }
                         }
                     }
-                    Some(r) => {
-                        // Wake up.
-                        self.wake();
-
-                        // Notify another ticker now to pick up where this ticker left off, just in
-                        // case running the task takes a long time.
-                        self.state.notify();
-
-                        return Poll::Ready(r);
-                    }
-                }
+                }).unwrap()
             }
         })
-        .await
     }
 }
 
@@ -739,7 +743,7 @@ struct Runner<'a> {
     ticks: usize,
 
     // The thread local state of the executor for the current thread.
-    local_state: &'static ThreadLocalState,
+    local_state: &'a ThreadLocalState,
 }
 
 impl Runner<'_> {
@@ -761,14 +765,14 @@ impl Runner<'_> {
     }
 
     /// Waits for the next runnable task to run.
-    async fn runnable(&mut self, rng: &mut fastrand::Rng) -> Runnable {
-        let runnable = self
+    fn runnable(&mut self, rng: &mut fastrand::Rng) -> impl Future<Output = Runnable> {
+        // SAFETY: The provided search function does not access LOCAL_QUEUE in any way, and thus cannot 
+        // alias.
+        let runnable = unsafe {
+            self
             .ticker
-            .runnable_with(|| {
-                // SAFETY: There are no instances where the value is accessed mutably
-                // from multiple locations simultaneously.
-                let local_pop = unsafe { try_with_local_queue(|tls| tls.local_queue.pop_front()) };
-                if let Ok(Some(r)) = local_pop {
+            .runnable_with(|tls| {
+                if let Some(r) = tls.local_queue.pop_back() {
                     return Some(r);
                 }
 
@@ -813,16 +817,13 @@ impl Runner<'_> {
                     //
                     // Instead, flush all queued tasks into the local queue to
                     // minimize the effort required to scan for these tasks.
-                    //
-                    // SAFETY: This is not being used at the same time as any
-                    // access to LOCAL_QUEUE.
-                    unsafe { flush_to_local(&self.local_state.thread_locked_queue) };
+                    flush_to_local(&self.local_state.thread_locked_queue, tls);
                     return Some(r);
                 }
 
                 None
             })
-            .await;
+        };
 
         // Bump the tick counter.
         self.ticks = self.ticks.wrapping_add(1);
@@ -904,26 +905,14 @@ fn steal<T, Q: WorkQueue<T>>(src: &Q, dest: &ArrayQueue<T>) {
     }
 }
 
-/// Flushes all of the items from a queue into the thread local queue.
-///
-/// # Safety
-/// This must not be accessed at the same time as `LOCAL_QUEUE` in any way.
-unsafe fn flush_to_local(src: &SegQueue<Runnable>) {
+fn flush_to_local(src: &SegQueue<Runnable>, dst: &mut LocalQueue) {
     let count = src.len();
 
     if count > 0 {
-        // SAFETY: Caller assures that `LOCAL_QUEUE` does not have any
-        // overlapping accesses.
-        unsafe {
-            // It's OK  to ignore this error, no point in pushing to a
-            // queue for a thread that is already terminating.
-            let _ = try_with_local_queue(|tls| {
-                // Steal tasks.
-                for _ in 0..count {
-                    let Some(val) = src.queue_pop() else { break };
-                    tls.local_queue.push_front(val);
-                }
-            });
+        // Steal tasks.
+        for _ in 0..count {
+            let Some(val) = src.queue_pop() else { break };
+            dst.local_queue.push_front(val);
         }
     }
 }
