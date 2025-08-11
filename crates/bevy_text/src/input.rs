@@ -463,7 +463,7 @@ pub fn apply_motion<'a>(
 }
 
 /// Returns true if the cursor is at the end of a line
-pub fn is_cursor_at_end_of_line(editor: &mut BorrowedWithFontSystem<Editor<'_>>) -> bool {
+pub fn is_cursor_at_end_of_line(editor: &mut Editor<'_>) -> bool {
     let cursor = editor.cursor();
     editor.with_buffer(|buffer| {
         buffer
