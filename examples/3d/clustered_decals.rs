@@ -10,9 +10,10 @@ use bevy::{
     pbr::{decal, ExtendedMaterial, MaterialExtension},
     prelude::*,
     render::{
-        render_resource::{AsBindGroup, ShaderRef},
+        render_resource::AsBindGroup,
         renderer::{RenderAdapter, RenderDevice},
     },
+    shader::ShaderRef,
     window::{CursorIcon, SystemCursorIcon},
 };
 use ops::{acos, cos, sin};

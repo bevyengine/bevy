@@ -34,7 +34,7 @@ use bevy_render::{
         BlendOperation, BlendState, CachedRenderPipelineId, ColorTargetState, ColorWrites,
         DynamicBindGroupEntries, DynamicUniformBuffer, Face, FragmentState, LoadOp, Operations,
         PipelineCache, PrimitiveState, RenderPassColorAttachment, RenderPassDescriptor,
-        RenderPipelineDescriptor, SamplerBindingType, Shader, ShaderStages, ShaderType,
+        RenderPipelineDescriptor, SamplerBindingType, ShaderStages, ShaderType,
         SpecializedRenderPipeline, SpecializedRenderPipelines, StoreOp, TextureFormat,
         TextureSampleType, TextureUsages, VertexState,
     },
@@ -44,6 +44,7 @@ use bevy_render::{
     view::{ExtractedView, Msaa, ViewDepthTexture, ViewTarget, ViewUniformOffset},
     Extract,
 };
+use bevy_shader::Shader;
 use bevy_transform::components::GlobalTransform;
 use bevy_utils::prelude::default;
 use bitflags::bitflags;

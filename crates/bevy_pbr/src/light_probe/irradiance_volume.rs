@@ -134,7 +134,7 @@
 //! [Why ambient cubes?]: #why-ambient-cubes
 
 use bevy_image::Image;
-pub use bevy_light::IrradianceVolume;
+use bevy_light::IrradianceVolume;
 use bevy_render::{
     render_asset::RenderAssets,
     render_resource::{

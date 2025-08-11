@@ -33,6 +33,7 @@ use bevy_render::{
     Render, RenderApp, RenderSystems,
 };
 use bevy_render::{sync_world::MainEntity, RenderStartup};
+use bevy_shader::Shader;
 use bevy_utils::default;
 use tracing::error;
 

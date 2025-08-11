@@ -24,7 +24,7 @@ use bevy_render::extract_component::ExtractComponent;
 /// ```
 /// # use bevy_ecs::prelude::*;
 /// # use bevy_render::prelude::*;
-/// # use bevy_core_pipeline::prelude::*;
+/// # use bevy_camera::prelude::*;
 /// # use bevy_pbr::prelude::*;
 /// # use bevy_color::Color;
 /// # fn system(mut commands: Commands) {

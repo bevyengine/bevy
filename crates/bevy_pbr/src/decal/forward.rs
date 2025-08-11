@@ -12,7 +12,6 @@ use bevy_mesh::{Mesh, Mesh3d, MeshBuilder, MeshVertexBufferLayoutRef, Meshable};
 use bevy_reflect::{Reflect, TypePath};
 use bevy_render::{
     alpha::AlphaMode,
-    load_shader_library,
     render_asset::RenderAssets,
     render_resource::{
         AsBindGroup, AsBindGroupShaderType, CompareFunction, RenderPipelineDescriptor, ShaderType,
@@ -21,6 +20,7 @@ use bevy_render::{
     texture::GpuImage,
     RenderDebugFlags,
 };
+use bevy_shader::load_shader_library;
 
 /// Plugin to render [`ForwardDecal`]s.
 pub struct ForwardDecalPlugin;

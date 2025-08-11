@@ -13,12 +13,12 @@ use bevy_ecs::{component::Component, reflect::ReflectComponent, schedule::IntoSc
 use bevy_pbr::DefaultOpaqueRendererMethod;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
-    load_shader_library,
     render_graph::{RenderGraphExt, ViewNodeRunner},
     renderer::RenderDevice,
     view::Hdr,
     ExtractSchedule, Render, RenderApp, RenderSystems,
 };
+use bevy_shader::load_shader_library;
 use extract::extract_solari_lighting;
 use node::SolariLightingNode;
 use prepare::prepare_solari_lighting_resources;

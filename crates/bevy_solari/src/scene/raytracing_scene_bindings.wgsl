@@ -152,21 +152,38 @@ fn resolve_ray_hit_full(ray_hit: RayIntersection) -> ResolvedRayHitFull {
     return resolve_triangle_data_full(ray_hit.instance_index, ray_hit.primitive_index, barycentrics);
 }
 
-fn resolve_triangle_data_full(instance_id: u32, triangle_id: u32, barycentrics: vec3<f32>) -> ResolvedRayHitFull {
-    let instance_geometry_ids = geometry_ids[instance_id];
-    let material_id = material_ids[instance_id];
-
+fn load_vertices(instance_geometry_ids: InstanceGeometryIds, triangle_id: u32) -> array<Vertex, 3> {
     let index_buffer = &index_buffers[instance_geometry_ids.index_buffer_id].indices;
     let vertex_buffer = &vertex_buffers[instance_geometry_ids.vertex_buffer_id].vertices;
-    let material = materials[material_id];
 
     let indices_i = (triangle_id * 3u) + vec3(0u, 1u, 2u) + instance_geometry_ids.index_buffer_offset;
     let indices = vec3((*index_buffer)[indices_i.x], (*index_buffer)[indices_i.y], (*index_buffer)[indices_i.z]) + instance_geometry_ids.vertex_buffer_offset;
-    let vertices = array<Vertex, 3>(unpack_vertex((*vertex_buffer)[indices.x]), unpack_vertex((*vertex_buffer)[indices.y]), unpack_vertex((*vertex_buffer)[indices.z]));
 
+    return array<Vertex, 3>(
+        unpack_vertex((*vertex_buffer)[indices.x]),
+        unpack_vertex((*vertex_buffer)[indices.y]),
+        unpack_vertex((*vertex_buffer)[indices.z])
+    );
+}
+
+fn transform_positions(transform: mat4x4<f32>, vertices: array<Vertex, 3>) -> array<vec3<f32>, 3> {
+    return array<vec3<f32>, 3>(
+        (transform * vec4(vertices[0].position, 1.0)).xyz,
+        (transform * vec4(vertices[1].position, 1.0)).xyz,
+        (transform * vec4(vertices[2].position, 1.0)).xyz
+    );
+}
+
+fn resolve_triangle_data_full(instance_id: u32, triangle_id: u32, barycentrics: vec3<f32>) -> ResolvedRayHitFull {
+    let material_id = material_ids[instance_id];
+    let material = materials[material_id];
+
+    let instance_geometry_ids = geometry_ids[instance_id];
+    let vertices = load_vertices(instance_geometry_ids, triangle_id);
     let transform = transforms[instance_id];
-    let local_position = mat3x3(vertices[0].position, vertices[1].position, vertices[2].position) * barycentrics;
-    let world_position = (transform * vec4(local_position, 1.0)).xyz;
+    let world_vertices = transform_positions(transform, vertices);
+
+    let world_position = mat3x3(world_vertices[0], world_vertices[1], world_vertices[2]) * barycentrics;
 
     let uv = mat3x2(vertices[0].uv, vertices[1].uv, vertices[2].uv) * barycentrics;
 
@@ -188,8 +205,8 @@ fn resolve_triangle_data_full(instance_id: u32, triangle_id: u32, barycentrics: 
         world_normal = normalize(Nt.x * T + Nt.y * B + Nt.z * N);
     }
 
-    let triangle_edge0 = vertices[0].position - vertices[1].position;
-    let triangle_edge1 = vertices[0].position - vertices[2].position;
+    let triangle_edge0 = world_vertices[0] - world_vertices[1];
+    let triangle_edge1 = world_vertices[0] - world_vertices[2];
     let triangle_area = length(cross(triangle_edge0, triangle_edge1)) / 2.0;
 
     let resolved_material = resolve_material(material, uv);

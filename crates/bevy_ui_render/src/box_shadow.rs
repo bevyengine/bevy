@@ -26,6 +26,7 @@ use bevy_render::{
     Extract, ExtractSchedule, Render, RenderSystems,
 };
 use bevy_render::{RenderApp, RenderStartup};
+use bevy_shader::{Shader, ShaderDefVal};
 use bevy_ui::{
     BoxShadow, CalculatedClip, ComputedNode, ComputedNodeTarget, ResolvedBorderRadius,
     UiGlobalTransform, Val,

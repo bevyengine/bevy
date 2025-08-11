@@ -78,13 +78,13 @@ use bevy_ecs::{
 };
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
-    load_shader_library,
     render_graph::{RenderGraphExt, ViewNodeRunner},
     renderer::RenderDevice,
     settings::WgpuFeatures,
     view::{prepare_view_targets, Msaa},
     ExtractSchedule, Render, RenderApp, RenderStartup, RenderSystems,
 };
+use bevy_shader::load_shader_library;
 use bevy_transform::components::Transform;
 use derive_more::From;
 use tracing::error;
@@ -256,7 +256,7 @@ fn check_meshlet_features(render_device: Res<RenderDevice>) {
     }
 }
 
-/// The meshlet mesh equivalent of [`bevy_render::mesh::Mesh3d`].
+/// The meshlet mesh equivalent of [`bevy_mesh::Mesh3d`].
 #[derive(Component, Clone, Debug, Default, Deref, DerefMut, Reflect, PartialEq, Eq, From)]
 #[reflect(Component, Default, Clone, PartialEq)]
 #[require(Transform, PreviousGlobalTransform, Visibility, VisibilityClass)]

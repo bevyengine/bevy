@@ -8,9 +8,10 @@ use bevy::{
     prelude::*,
     reflect::TypePath,
     render::{
-        render_resource::{AsBindGroup, ShaderRef},
+        render_resource::AsBindGroup,
         view::{ColorGrading, ColorGradingGlobal, ColorGradingSection, Hdr},
     },
+    shader::ShaderRef,
 };
 use std::f32::consts::PI;
 
@@ -254,7 +255,7 @@ fn resize_image(
             let size = image_changed.size_f32().normalize_or_zero() * 1.4;
             // Resize Mesh
             let quad = Mesh::from(Rectangle::from_size(size));
-            meshes.insert(mesh_h, quad);
+            meshes.insert(mesh_h, quad).unwrap();
         }
     }
 }
