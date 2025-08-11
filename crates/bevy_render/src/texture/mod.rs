@@ -82,14 +82,17 @@ impl Plugin for ImagePlugin {
             ExtractResourcePlugin::<ManualTextureViews>::default(),
         ))
         .init_resource::<ManualTextureViews>()
-        .register_type::<Image>()
         .init_asset::<Image>()
         .register_asset_reflect::<Image>();
 
         let mut image_assets = app.world_mut().resource_mut::<Assets<Image>>();
 
-        image_assets.insert(&Handle::default(), Image::default());
-        image_assets.insert(&TRANSPARENT_IMAGE_HANDLE, Image::transparent());
+        image_assets
+            .insert(&Handle::default(), Image::default())
+            .unwrap();
+        image_assets
+            .insert(&TRANSPARENT_IMAGE_HANDLE, Image::transparent())
+            .unwrap();
 
         #[cfg(feature = "compressed_image_saver")]
         if let Some(processor) = app

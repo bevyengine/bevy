@@ -102,11 +102,11 @@ macro_rules! impl_reflect_for_atomic {
                     ReflectKind::Opaque
                 }
                 #[inline]
-                fn reflect_ref(&self) -> ReflectRef {
+                fn reflect_ref(&self) -> ReflectRef<'_> {
                     ReflectRef::Opaque(self)
                 }
                 #[inline]
-                fn reflect_mut(&mut self) -> ReflectMut {
+                fn reflect_mut(&mut self) -> ReflectMut<'_> {
                     ReflectMut::Opaque(self)
                 }
                 #[inline]

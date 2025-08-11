@@ -1,14 +1,17 @@
 name: Dependencies
 
+permissions:
+  contents: read
+
 on:
   pull_request:
     paths:
-      - '**/Cargo.toml'
-      - 'deny.toml'
+      - "**/Cargo.toml"
+      - "deny.toml"
   push:
     paths:
-      - '**/Cargo.toml'
-      - 'deny.toml'
+      - "**/Cargo.toml"
+      - "deny.toml"
     branches:
       - main
 

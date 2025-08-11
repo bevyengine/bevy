@@ -11,7 +11,7 @@ use bevy_transform::components::Transform;
 ///
 /// Note that a light probe will have no effect unless the entity contains some
 /// kind of illumination, which can either be an [`EnvironmentMapLight`] or an
-/// `IrradianceVolume`.
+/// [`IrradianceVolume`].
 ///
 /// The light probe range is conceptually a unit cube (1×1×1) centered on the
 /// origin. The [`Transform`] applied to this entity can scale, rotate, or translate

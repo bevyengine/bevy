@@ -171,10 +171,7 @@ where
         unsafe { self.system.validate_param_unsafe(world) }
     }
 
-    fn initialize(
-        &mut self,
-        world: &mut crate::prelude::World,
-    ) -> crate::query::FilteredAccessSet<crate::component::ComponentId> {
+    fn initialize(&mut self, world: &mut crate::prelude::World) -> crate::query::FilteredAccessSet {
         self.system.initialize(world)
     }
 

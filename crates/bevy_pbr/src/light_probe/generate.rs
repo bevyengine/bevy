@@ -12,7 +12,7 @@
 //! For prefiltered environment maps, see [`bevy_light::EnvironmentMapLight`].
 //! These components are intended to be added to a camera.
 use bevy_app::{App, Plugin, Update};
-use bevy_asset::{embedded_asset, load_embedded_asset, AssetServer, Assets};
+use bevy_asset::{embedded_asset, load_embedded_asset, AssetServer, Assets, RenderAssetUsages};
 use bevy_core_pipeline::core_3d::graph::{Core3d, Node3d};
 use bevy_ecs::{
     component::Component,
@@ -27,15 +27,15 @@ use bevy_image::Image;
 use bevy_math::{Quat, UVec2, Vec2};
 use bevy_render::{
     diagnostic::RecordDiagnostics,
-    render_asset::{RenderAssetUsages, RenderAssets},
+    render_asset::RenderAssets,
     render_graph::{Node, NodeRunError, RenderGraphContext, RenderGraphExt, RenderLabel},
     render_resource::{
         binding_types::*, AddressMode, BindGroup, BindGroupEntries, BindGroupLayout,
         BindGroupLayoutEntries, CachedComputePipelineId, ComputePassDescriptor,
         ComputePipelineDescriptor, DownlevelFlags, Extent3d, FilterMode, PipelineCache, Sampler,
-        SamplerBindingType, SamplerDescriptor, ShaderDefVal, ShaderStages, ShaderType,
-        StorageTextureAccess, Texture, TextureAspect, TextureDescriptor, TextureDimension,
-        TextureFormat, TextureFormatFeatureFlags, TextureSampleType, TextureUsages, TextureView,
+        SamplerBindingType, SamplerDescriptor, ShaderStages, ShaderType, StorageTextureAccess,
+        Texture, TextureAspect, TextureDescriptor, TextureDimension, TextureFormat,
+        TextureFormatFeatureFlags, TextureSampleType, TextureUsages, TextureView,
         TextureViewDescriptor, TextureViewDimension, UniformBuffer,
     },
     renderer::{RenderAdapter, RenderContext, RenderDevice, RenderQueue},
@@ -61,6 +61,7 @@ use bevy_render::{
 // [GGX convolution]: https://gpuopen.com/download/Bounded_VNDF_Sampling_for_Smith-GGX_Reflections.pdf
 
 use bevy_light::{EnvironmentMapLight, GeneratedEnvironmentMapLight};
+use bevy_shader::ShaderDefVal;
 use core::cmp::min;
 use tracing::info;
 
@@ -921,11 +922,11 @@ impl Node for DownsamplingNode {
                     render_context
                         .command_encoder()
                         .begin_compute_pass(&ComputePassDescriptor {
-                            label: Some("lightprobe_copy_pass"),
+                            label: Some("lightprobe_copy"),
                             timestamp_writes: None,
                         });
 
-                let pass_span = diagnostics.pass_span(&mut compute_pass, "lightprobe_copy_pass");
+                let pass_span = diagnostics.pass_span(&mut compute_pass, "lightprobe_copy");
 
                 compute_pass.set_pipeline(copy_pipeline);
                 compute_pass.set_bind_group(0, &bind_groups.copy, &[]);
@@ -1038,12 +1039,11 @@ impl Node for FilteringNode {
                 render_context
                     .command_encoder()
                     .begin_compute_pass(&ComputePassDescriptor {
-                        label: Some("lightprobe_radiance_map_pass"),
+                        label: Some("lightprobe_radiance_map"),
                         timestamp_writes: None,
                     });
 
-            let pass_span =
-                diagnostics.pass_span(&mut compute_pass, "lightprobe_radiance_map_pass");
+            let pass_span = diagnostics.pass_span(&mut compute_pass, "lightprobe_radiance_map");
 
             compute_pass.set_pipeline(radiance_pipeline);
 
@@ -1072,12 +1072,12 @@ impl Node for FilteringNode {
                     render_context
                         .command_encoder()
                         .begin_compute_pass(&ComputePassDescriptor {
-                            label: Some("lightprobe_irradiance_map_pass"),
+                            label: Some("lightprobe_irradiance_map"),
                             timestamp_writes: None,
                         });
 
                 let irr_span =
-                    diagnostics.pass_span(&mut compute_pass, "lightprobe_irradiance_map_pass");
+                    diagnostics.pass_span(&mut compute_pass, "lightprobe_irradiance_map");
 
                 compute_pass.set_pipeline(irradiance_pipeline);
                 compute_pass.set_bind_group(0, &bind_groups.irradiance, &[]);

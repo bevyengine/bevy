@@ -226,12 +226,12 @@ where
     /// Returns an immutable enumeration of "kinds" of type.
     ///
     /// See [`ReflectRef`].
-    fn reflect_ref(&self) -> ReflectRef;
+    fn reflect_ref(&self) -> ReflectRef<'_>;
 
     /// Returns a mutable enumeration of "kinds" of type.
     ///
     /// See [`ReflectMut`].
-    fn reflect_mut(&mut self) -> ReflectMut;
+    fn reflect_mut(&mut self) -> ReflectMut<'_>;
 
     /// Returns an owned enumeration of "kinds" of type.
     ///
