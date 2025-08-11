@@ -1,3 +1,16 @@
+//! # Useful Environment Variables
+//!
+//! Both `bevy_render` and `wgpu` have a number of environment variable options for changing the runtime behavior
+//! of both crates. Many of these may be useful in development or release environments.
+//!
+//! - `WGPU_DEBUG=1` enables debug labels, which can be useful in release builds.
+//! - `WGPU_VALIDATION=0` disables validation layers. This can help with particularly spammy errors.
+//! - `WGPU_FORCE_FALLBACK_ADAPTER=1` attempts to force software rendering. This typically matches what is used in CI.
+//! - `WGPU_ADAPTER_NAME` allows selecting a specific adapter by name.
+//! - `WGPU_SETTINGS_PRIO=webgl2` uses webgl2 limits.
+//! - `WGPU_SETTINGS_PRIO=compatibility` uses webgpu limits.
+//! - `VERBOSE_SHADER_ERROR=1` prints more detailed information about WGSL compilation errors, such as shader defs and shader entrypoint.
+
 #![expect(missing_docs, reason = "Not all docs are written yet, see #3492.")]
 #![expect(unsafe_code, reason = "Unsafe code is used to improve performance.")]
 #![cfg_attr(
@@ -29,6 +42,8 @@ pub mod diagnostic;
 pub mod erased_render_asset;
 pub mod experimental;
 pub mod extract_component;
+#[cfg(feature = "bevy_light")]
+mod extract_impls;
 pub mod extract_instances;
 mod extract_param;
 pub mod extract_resource;
@@ -50,9 +65,6 @@ pub mod sync_world;
 pub mod texture;
 pub mod view;
 mod wgpu_wrapper;
-pub use bevy_camera::primitives;
-#[cfg(feature = "bevy_light")]
-mod extract_impls;
 
 /// The render prelude.
 ///
@@ -61,27 +73,11 @@ pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
         alpha::AlphaMode,
-        camera::ToNormalizedRenderTarget as _,
-        mesh::{
-            morph::MorphWeights, primitives::MeshBuilder, primitives::Meshable, Mesh, Mesh2d,
-            Mesh3d,
-        },
-        render_resource::Shader,
+        camera::NormalizedRenderTargetExt as _,
         texture::{ImagePlugin, ManualTextureViews},
-        view::{InheritedVisibility, Msaa, ViewVisibility, Visibility},
+        view::Msaa,
         ExtractSchedule,
     };
-    // TODO: Remove this in a follow-up
-    #[doc(hidden)]
-    pub use bevy_camera::{
-        Camera, ClearColor, ClearColorConfig, OrthographicProjection, PerspectiveProjection,
-        Projection,
-    };
-}
-
-#[doc(hidden)]
-pub mod _macro {
-    pub use bevy_asset;
 }
 
 pub use extract_param::Extract;
@@ -91,7 +87,7 @@ use crate::{
     gpu_readback::GpuReadbackPlugin,
     mesh::{MeshPlugin, MorphPlugin, RenderMesh},
     render_asset::prepare_assets,
-    render_resource::{init_empty_bind_group_layout, PipelineCache, Shader, ShaderLoader},
+    render_resource::{init_empty_bind_group_layout, PipelineCache},
     renderer::{render_system, RenderInstance},
     settings::RenderCreation,
     storage::StoragePlugin,
@@ -106,6 +102,7 @@ use bevy_ecs::{
     schedule::{ScheduleBuildSettings, ScheduleLabel},
 };
 use bevy_image::{CompressedImageFormatSupport, CompressedImageFormats};
+use bevy_shader::{load_shader_library, Shader, ShaderLoader};
 use bevy_utils::prelude::default;
 use bevy_window::{PrimaryWindow, RawHandleWrapperHolder};
 use bitflags::bitflags;
@@ -122,24 +119,6 @@ use std::sync::Mutex;
 use sync_world::{despawn_temporary_render_entities, entity_sync_system, SyncWorldPlugin};
 use tracing::debug;
 pub use wgpu_wrapper::WgpuWrapper;
-
-/// Inline shader as an `embedded_asset` and load it permanently.
-///
-/// This works around a limitation of the shader loader not properly loading
-/// dependencies of shaders.
-#[macro_export]
-macro_rules! load_shader_library {
-    ($asset_server_provider: expr, $path: literal $(, $settings: expr)?) => {
-        $crate::_macro::bevy_asset::embedded_asset!($asset_server_provider, $path);
-        let handle: $crate::_macro::bevy_asset::prelude::Handle<$crate::prelude::Shader> =
-            $crate::_macro::bevy_asset::load_embedded_asset!(
-                $asset_server_provider,
-                $path
-                $(,$settings)?
-            );
-        core::mem::forget(handle);
-    }
-}
 
 /// Contains the default Bevy rendering backend based on wgpu.
 ///
@@ -642,13 +621,13 @@ pub fn get_mali_driver_version(adapter: &RenderAdapter) -> Option<u32> {
         return None;
     }
     let driver_info = adapter.get_info().driver_info;
-    if let Some(start_pos) = driver_info.find("v1.r") {
-        if let Some(end_pos) = driver_info[start_pos..].find('p') {
-            let start_idx = start_pos + 4; // Skip "v1.r"
-            let end_idx = start_pos + end_pos;
+    if let Some(start_pos) = driver_info.find("v1.r")
+        && let Some(end_pos) = driver_info[start_pos..].find('p')
+    {
+        let start_idx = start_pos + 4; // Skip "v1.r"
+        let end_idx = start_pos + end_pos;
 
-            return driver_info[start_idx..end_idx].parse::<u32>().ok();
-        }
+        return driver_info[start_idx..end_idx].parse::<u32>().ok();
     }
 
     None

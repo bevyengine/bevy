@@ -1,8 +1,6 @@
 use super::ExtractedWindows;
 use crate::{
-    camera::{NormalizedRenderTarget, ToNormalizedRenderTarget as _},
     gpu_readback,
-    prelude::Shader,
     render_asset::{RenderAssetUsages, RenderAssets},
     render_resource::{
         binding_types::texture_2d, BindGroup, BindGroupEntries, BindGroupLayout,
@@ -18,7 +16,7 @@ use crate::{
 use alloc::{borrow::Cow, sync::Arc};
 use bevy_app::{First, Plugin, Update};
 use bevy_asset::{embedded_asset, load_embedded_asset, AssetServer, Handle};
-use bevy_camera::{ManualTextureViewHandle, RenderTarget};
+use bevy_camera::{ManualTextureViewHandle, NormalizedRenderTarget, RenderTarget};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     entity::EntityHashMap, event::event_update_system, prelude::*, system::SystemState,
@@ -26,6 +24,7 @@ use bevy_ecs::{
 use bevy_image::{Image, TextureFormatPixelInfo, ToExtents};
 use bevy_platform::collections::HashSet;
 use bevy_reflect::Reflect;
+use bevy_shader::Shader;
 use bevy_tasks::AsyncComputeTaskPool;
 use bevy_utils::default;
 use bevy_window::{PrimaryWindow, WindowRef};

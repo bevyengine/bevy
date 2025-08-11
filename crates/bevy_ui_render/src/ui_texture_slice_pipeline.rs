@@ -12,6 +12,7 @@ use bevy_ecs::{
 };
 use bevy_image::prelude::*;
 use bevy_math::{Affine2, FloatOrd, Rect, Vec2};
+use bevy_mesh::VertexBufferLayout;
 use bevy_platform::collections::HashMap;
 use bevy_render::{
     render_asset::RenderAssets,
@@ -23,6 +24,7 @@ use bevy_render::{
     Extract, ExtractSchedule, Render, RenderSystems,
 };
 use bevy_render::{sync_world::MainEntity, RenderStartup};
+use bevy_shader::Shader;
 use bevy_sprite::{SliceScaleMode, SpriteAssetEvents, SpriteImageMode, TextureSlicer};
 use bevy_ui::widget;
 use bevy_utils::default;
@@ -445,13 +447,14 @@ pub fn prepare_ui_slices(
                         } else {
                             continue;
                         }
-                    } else if batch_image_handle == AssetId::default()
+                    } else if let Some(ref mut existing_batch) = existing_batch
+                        && batch_image_handle == AssetId::default()
                         && texture_slices.image != AssetId::default()
                     {
                         if let Some(gpu_image) = gpu_images.get(texture_slices.image) {
                             batch_image_handle = texture_slices.image;
                             batch_image_size = gpu_image.size_2d().as_vec2();
-                            existing_batch.as_mut().unwrap().1.image = texture_slices.image;
+                            existing_batch.1.image = texture_slices.image;
 
                             image_bind_groups
                                 .values

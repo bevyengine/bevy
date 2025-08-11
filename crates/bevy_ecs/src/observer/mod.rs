@@ -182,7 +182,7 @@ impl World {
     pub fn add_observer<E: Event, B: Bundle, M>(
         &mut self,
         system: impl IntoObserverSystem<E, B, M>,
-    ) -> EntityWorldMut {
+    ) -> EntityWorldMut<'_> {
         self.spawn(Observer::new(system))
     }
 
@@ -514,9 +514,6 @@ mod tests {
 
     #[derive(Component)]
     struct B;
-
-    #[derive(Component)]
-    struct C;
 
     #[derive(Component)]
     #[component(storage = "SparseSet")]

@@ -1,4 +1,3 @@
-pub use bevy_camera::primitives::{face_index_to_name, CubeMapFace, CUBE_MAP_FACES};
 use bevy_camera::{Camera, Projection};
 use bevy_ecs::{entity::EntityHashMap, prelude::*};
 use bevy_math::{ops, Mat4, Vec3A, Vec4};
