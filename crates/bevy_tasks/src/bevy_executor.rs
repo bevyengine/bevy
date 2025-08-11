@@ -1031,8 +1031,16 @@ impl<Fut: Future, Cleanup: FnMut()> Future for AsyncCallOnDrop<Fut, Cleanup> {
 
 #[cfg(test)]
 mod test {
-    use super::Executor;
+    use super::*;
     use super::THREAD_LOCAL_STATE;
+    use alloc::{string::String, boxed::Box};
+    use futures_lite::{future, pin};
+    use std::panic::catch_unwind;
+    use core::sync::atomic::{AtomicUsize, Ordering};
+    use bevy_platform::sync::Mutex;
+    use core::task::{Poll, Waker};
+    use async_task::Task;
+    use std::time::Duration;
 
     fn _ensure_send_and_sync() {
         fn is_send<T: Send>(_: T) {}
@@ -1050,5 +1058,198 @@ mod test {
         is_sync(ex.current_thread_spawner());
         is_send(THREAD_LOCAL_STATE.get_or_default());
         is_sync(THREAD_LOCAL_STATE.get_or_default());
+    }
+
+    #[test]
+    fn executor_cancels_everything() {
+        static DROP: AtomicUsize = AtomicUsize::new(0);
+        static WAKER: Mutex<Option<Waker>> = Mutex::new(None);
+
+        let ex = Executor::new();
+
+        let task = ex.spawn(async {
+            let _guard = CallOnDrop(|| {
+                DROP.fetch_add(1, Ordering::SeqCst);
+            });
+
+            future::poll_fn(|cx| {
+                *WAKER.lock().unwrap() = Some(cx.waker().clone());
+                Poll::Pending::<()>
+            })
+            .await;
+        });
+
+        future::block_on(ex.run(async {
+            for _ in 0..10 {
+                future::yield_now().await
+            }
+        }));
+
+        assert!(WAKER.lock().unwrap().is_some());
+        assert_eq!(DROP.load(Ordering::SeqCst), 0);
+
+        drop(ex);
+        assert_eq!(DROP.load(Ordering::SeqCst), 1);
+
+        assert!(catch_unwind(|| future::block_on(task)).is_err());
+        assert_eq!(DROP.load(Ordering::SeqCst), 1);
+    }
+
+    #[test]
+    fn await_task_after_dropping_executor() {
+        let s: String = "hello".into();
+
+        let ex = Executor::new();
+        let task: Task<&str> = ex.spawn(async { &*s });
+        future::block_on(ex.run(async {
+            for _ in 0..10 {
+                future::yield_now().await
+            }
+        }));
+
+
+        drop(ex);
+        assert_eq!(future::block_on(task), "hello");
+        drop(s);
+    }
+
+    #[test]
+    fn drop_executor_and_then_drop_finished_task() {
+        static DROP: AtomicUsize = AtomicUsize::new(0);
+
+        let ex = Executor::new();
+        let task = ex.spawn(async {
+            CallOnDrop(|| {
+                DROP.fetch_add(1, Ordering::SeqCst);
+            })
+        });
+        future::block_on(ex.run(async {
+            for _ in 0..10 {
+                future::yield_now().await
+            }
+        }));
+
+        assert_eq!(DROP.load(Ordering::SeqCst), 0);
+        drop(ex);
+        assert_eq!(DROP.load(Ordering::SeqCst), 0);
+        drop(task);
+        assert_eq!(DROP.load(Ordering::SeqCst), 1);
+    }
+
+    #[test]
+    fn drop_finished_task_and_then_drop_executor() {
+        static DROP: AtomicUsize = AtomicUsize::new(0);
+
+        let ex = Executor::new();
+        let task = ex.spawn(async {
+            CallOnDrop(|| {
+                DROP.fetch_add(1, Ordering::SeqCst);
+            })
+        });
+        future::block_on(ex.run(async {
+            for _ in 0..10 {
+                future::yield_now().await
+            }
+        }));
+
+        assert_eq!(DROP.load(Ordering::SeqCst), 0);
+        drop(task);
+        assert_eq!(DROP.load(Ordering::SeqCst), 1);
+        drop(ex);
+        assert_eq!(DROP.load(Ordering::SeqCst), 1);
+    }
+
+    fn do_run<Fut: Future<Output = ()>>(mut f: impl FnMut(Arc<Executor<'static>>) -> Fut) {
+        // This should not run for longer than two minutes.
+        #[cfg(not(miri))]
+        let _stop_timeout = {
+            let (stop_timeout, stopper) = async_channel::bounded::<()>(1);
+            std::thread::spawn(move || {
+                future::block_on(async move {
+                    let timeout = async {
+                        async_io::Timer::after(Duration::from_secs(2 * 60)).await;
+                        std::eprintln!("test timed out after 2m");
+                        std::process::exit(1)
+                    };
+
+                    let _ = stopper.recv().or(timeout).await;
+                })
+            });
+            stop_timeout
+        };
+
+        let ex = Arc::new(Executor::new());
+
+        // Test 1: Use the `run` command.
+        future::block_on(ex.run(f(ex.clone())));
+
+        // Test 2: Run on many threads.
+        std::thread::scope(|scope| {
+            let (_signal, shutdown) = async_channel::bounded::<()>(1);
+
+            for _ in 0..16 {
+                let shutdown = shutdown.clone();
+                let ex = &ex;
+                scope.spawn(move || future::block_on(ex.run(shutdown.recv())));
+            }
+
+            future::block_on(f(ex.clone()));
+        });
+    }
+
+    #[test]
+    fn smoke() {
+        do_run(|ex| async move { ex.spawn(async {}).await });
+    }
+
+    #[test]
+    fn yield_now() {
+        do_run(|ex| async move { ex.spawn(future::yield_now()).await })
+    }
+
+    #[test]
+    fn timer() {
+        do_run(|ex| async move {
+            ex.spawn(async_io::Timer::after(Duration::from_millis(5)))
+                .await;
+        })
+    }
+
+    #[test]
+    fn test_panic_propagation() {
+        let ex = Executor::new();
+        let task = ex.spawn(async { panic!("should be caught by the task") });
+
+        // Running the executor should not panic.
+        future::block_on(ex.run(async {
+            for _ in 0..10 {
+                future::yield_now().await
+            }
+        }));
+
+        // Polling the task should.
+        assert!(future::block_on(task.catch_unwind()).is_err());
+    }
+
+    #[test]
+    fn two_queues() {
+        future::block_on(async {
+            // Create an executor with two runners.
+            let ex = Executor::new();
+            let (run1, run2) = (
+                ex.run(future::pending::<()>()),
+                ex.run(future::pending::<()>()),
+            );
+            let mut run1 = Box::pin(run1);
+            pin!(run2);
+
+            // Poll them both.
+            assert!(future::poll_once(run1.as_mut()).await.is_none());
+            assert!(future::poll_once(run2.as_mut()).await.is_none());
+
+            // Drop the first one, which should leave the local queue in the `None` state.
+            drop(run1);
+            assert!(future::poll_once(run2.as_mut()).await.is_none());
+        });
     }
 }

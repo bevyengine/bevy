@@ -76,6 +76,7 @@ futures-lite = { version = "2.0.1", default-features = false, features = [
   "std",
 ] }
 async-channel = "2.3.0"
+async-io = "2.0.0"
 
 [lints]
 workspace = true
