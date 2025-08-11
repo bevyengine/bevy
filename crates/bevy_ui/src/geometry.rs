@@ -249,6 +249,18 @@ impl Neg for Val {
     }
 }
 
+impl From<f32> for Val {
+    fn from(value: f32) -> Self {
+        Val::Px(value)
+    }
+}
+
+impl From<i32> for Val {
+    fn from(value: i32) -> Self {
+        Val::Px(value as f32)
+    }
+}
+
 #[derive(Debug, Eq, PartialEq, Clone, Copy, Error)]
 pub enum ValArithmeticError {
     #[error("the given variant of Val is not evaluable (non-numeric)")]
