@@ -126,7 +126,7 @@ impl TaskPool {
         // SAFETY: As above, all futures must complete in this function so we can change the lifetime
         let executor_ref: &'env Executor<'env> = unsafe { mem::transmute(&EXECUTOR) };
 
-        // Kept around to ensure that, in the case of an unwinding panic, all scheduled Tasks.
+        // Kept around to ensure that, in the case of an unwinding panic, all scheduled Tasks are cancelled.
         let tasks: RefCell<Vec<async_task::Task<T>>> = RefCell::new(Vec::new());
         // SAFETY: As above, all futures must complete in this function so we can change the lifetime
         let tasks_ref: &'env RefCell<Vec<async_task::Task<T>>> = unsafe { mem::transmute(&tasks) };
