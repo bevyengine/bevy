@@ -1,6 +1,6 @@
 ---
 title: Non-generic `Access`
-pull_requests: [TODO]
+pull_requests: [20288]
 ---
 
 Now that `archetype_component_id` has been removed,
