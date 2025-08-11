@@ -77,14 +77,10 @@ impl ImagePlugin {
 impl Plugin for ImagePlugin {
     fn build(&self, app: &mut App) {
         #[cfg(feature = "exr")]
-        {
-            app.init_asset_loader::<crate::ExrTextureLoader>();
-        }
+        app.init_asset_loader::<crate::ExrTextureLoader>();
 
         #[cfg(feature = "hdr")]
-        {
-            app.init_asset_loader::<crate::HdrTextureLoader>();
-        }
+        app.init_asset_loader::<crate::HdrTextureLoader>();
 
         app.init_asset::<Image>();
         #[cfg(feature = "bevy_reflect")]

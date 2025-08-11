@@ -402,6 +402,8 @@ mod tests {
         app.add_systems(
             PostUpdate,
             (
+                // UI is driven by calculated camera target info, so we need to run the camera system first
+                bevy_render::camera::camera_system,
                 update_ui_context_system,
                 ApplyDeferred,
                 ui_layout_system,
@@ -409,9 +411,7 @@ mod tests {
                 sync_simple_transforms,
                 propagate_parent_transforms,
             )
-                .chain()
-                // UI is driven by calculated camera target info, so we need to run the camera system first
-                .after(bevy_camera::CameraUpdateSystems),
+                .chain(),
         );
 
         app.configure_sets(
@@ -1064,10 +1064,14 @@ mod tests {
 
         app.add_systems(
             PostUpdate,
-            (update_ui_context_system, ApplyDeferred, ui_layout_system)
-                .chain()
+            (
                 // UI is driven by calculated camera target info, so we need to run the camera system first
-                .after(bevy_camera::CameraUpdateSystems),
+                bevy_render::camera::camera_system,
+                update_ui_context_system,
+                ApplyDeferred,
+                ui_layout_system,
+            )
+                .chain(),
         );
 
         app.add_plugins(HierarchyPropagatePlugin::<ComputedNodeTarget>::new(

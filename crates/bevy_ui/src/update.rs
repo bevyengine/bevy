@@ -225,7 +225,7 @@ mod tests {
 
         app.add_systems(
             bevy_app::Update,
-            update_ui_context_system.after(bevy_camera::CameraUpdateSystems),
+            (bevy_render::camera::camera_system, update_ui_context_system).chain(),
         );
 
         app
