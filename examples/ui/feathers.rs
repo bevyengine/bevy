@@ -11,7 +11,7 @@ use bevy::{
         dark_theme::create_dark_theme,
         rounded_corners::RoundedCorners,
         theme::{ThemeBackgroundColor, ThemedText, UiTheme},
-        tokens, FeathersPlugins,
+        tokens, FeathersPlugins, FocusIndicator,
     },
     input_focus::tab_navigation::TabGroup,
     prelude::*,
@@ -239,7 +239,7 @@ fn demo_root() -> impl Bundle {
                     },
                     RadioGroup,
                     TabIndex(0),
-                    VisibleFocusAnchor,
+                    FocusIndicator,
                     observe(
                         |value_change: On<ValueChange<Entity>>,
                          q_radio: Query<Entity, With<RadioButton>>,

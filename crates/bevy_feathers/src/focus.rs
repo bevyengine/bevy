@@ -22,7 +22,7 @@ use crate::{theme::UiTheme, tokens};
 /// you wisth to display a focus outline.
 #[derive(Component, Default, Clone, Reflect)]
 #[reflect(Component, Clone, Default)]
-pub struct VisibleFocusAnchor;
+pub struct FocusIndicator;
 
 /// A marker used to identify a visible focus outline.
 #[derive(Component, Default, Clone, Reflect)]
@@ -35,7 +35,7 @@ fn focus_system(
     focus_visible: Res<InputFocusVisible>,
     theme: Res<UiTheme>,
     q_focus_outlines: Query<Entity, With<FocusOutline>>,
-    q_focus_anchors: Query<&BorderRadius, With<VisibleFocusAnchor>>,
+    q_focus_anchors: Query<&BorderRadius, With<FocusIndicator>>,
     q_children: Query<&Children>,
 ) {
     if focus.is_changed() {
@@ -63,7 +63,7 @@ fn spawn_focus_rings(
     commands: &mut Commands,
     parent: Entity,
     q_children: &Query<&Children>,
-    q_anchors: &Query<&BorderRadius, With<VisibleFocusAnchor>>,
+    q_anchors: &Query<&BorderRadius, With<FocusIndicator>>,
     theme: &UiTheme,
 ) {
     if let Ok(radii) = q_anchors.get(parent) {

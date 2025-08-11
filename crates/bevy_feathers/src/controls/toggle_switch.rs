@@ -25,7 +25,7 @@ use crate::{
     constants::size,
     cursor::EntityCursor,
     theme::{ThemeBackgroundColor, ThemeBorderColor},
-    tokens, VisibleFocusAnchor,
+    tokens, FocusIndicator,
 };
 
 /// Marker for the toggle switch outline
@@ -60,7 +60,7 @@ pub fn toggle_switch<B: Bundle>(overrides: B) -> impl Bundle {
         Hovered::default(),
         EntityCursor::System(bevy_window::SystemCursorIcon::Pointer),
         TabIndex(0),
-        VisibleFocusAnchor,
+        FocusIndicator,
         overrides,
         children![(
             Node {
