@@ -367,7 +367,7 @@ impl TextEdits {
 }
 
 /// Deferred text input edit and navigation actions applied by the `apply_text_edits` system.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum TextEdit {
     /// Copy the selected text into the clipboard. Does nothing if no text is selected.
     Copy,
@@ -492,7 +492,7 @@ fn apply_action<'a>(
     editor.set_redraw(true);
 }
 
-/// Applies the [`TextEdit`]s queued for each [`TextInputBuffer`].
+/// Applies the [`TextEdit`]s queued for each [`TextInputBuffer`] and emits [`TextInputEvent`]s in response.
 ///
 /// After all edits are applied, if a text input entity has a [TextInputValue] component and its buffer was changed,
 /// then the [TextInputValue]'s text is updated with the new contents of the [TextInputBuffer].
@@ -520,8 +520,8 @@ pub fn apply_text_edits(
         maybe_value,
     ) in text_input_query.iter_mut()
     {
-        for action in text_input_actions.queue.drain(..) {
-            match action {
+        for edit in text_input_actions.queue.drain(..) {
+            match edit {
                 TextEdit::Submit => {
                     commands.trigger_targets(
                         TextInputEvent::Submission {
@@ -531,13 +531,13 @@ pub fn apply_text_edits(
                     );
 
                     if attribs.clear_on_submit {
-                        apply_text_edit(
+                        let _ = apply_text_edit(
                             buffer.editor.borrow_with(&mut font_system),
                             maybe_history.as_mut().map(AsMut::as_mut),
                             maybe_filter,
                             attribs.max_chars,
                             &mut clipboard,
-                            TextEdit::Clear,
+                            &TextEdit::Clear,
                         );
 
                         if let Some(history) = maybe_history.as_mut() {
@@ -545,16 +545,16 @@ pub fn apply_text_edits(
                         }
                     }
                 }
-                action => {
-                    if !apply_text_edit(
+                edit => {
+                    if let Err(error) = apply_text_edit(
                         buffer.editor.borrow_with(&mut font_system),
                         maybe_history.as_mut().map(AsMut::as_mut),
                         maybe_filter,
                         attribs.max_chars,
                         &mut clipboard,
-                        action,
+                        &edit,
                     ) {
-                        commands.trigger_targets(TextInputEvent::InvalidEdit, entity);
+                        commands.trigger_targets(TextInputEvent::InvalidEdit(error, edit), entity);
                     }
                 }
             }
@@ -974,6 +974,15 @@ pub fn update_text_input_layouts(
     }
 }
 
+/// Error emitted by [`apply_text_edit`] when it fails to apply a [`TextEdit`].
+#[derive(Debug, Clone)]
+pub enum InvalidTextEditError {
+    /// Applying the edit would cause the text to fail its [`TextInputFilter`].
+    Filtered,
+    /// Applying the edit would cause the text to be longer than its maximum character limit.
+    Overflowed,
+}
+
 /// Apply a text input action to a text input
 fn apply_text_edit(
     mut editor: BorrowedWithFontSystem<'_, Editor<'static>>,
@@ -981,11 +990,11 @@ fn apply_text_edit(
     maybe_filter: Option<&TextInputFilter>,
     max_chars: Option<usize>,
     clipboard_contents: &mut ResMut<Clipboard>,
-    action: TextEdit,
-) -> bool {
+    edit: &TextEdit,
+) -> Result<(), InvalidTextEditError> {
     editor.start_change();
 
-    match action {
+    match edit {
         TextEdit::Copy => {
             if let Some(text) = editor.copy_selection() {
                 clipboard_contents.0 = text;
@@ -1000,19 +1009,19 @@ fn apply_text_edit(
         TextEdit::Paste => {
             editor.insert_string(&clipboard_contents.0, None);
         }
-        TextEdit::Motion {
+        &TextEdit::Motion {
             motion,
             with_select,
         } => {
             apply_motion(&mut editor, with_select, motion);
         }
         TextEdit::Insert(ch) => {
-            editor.action(Action::Insert(ch));
+            editor.action(Action::Insert(*ch));
         }
         TextEdit::InsertString(text) => {
-            editor.insert_string(&text, None);
+            editor.insert_string(text, None);
         }
-        TextEdit::Overwrite(ch) => match editor.selection() {
+        &TextEdit::Overwrite(ch) => match editor.selection() {
             Selection::None => {
                 if is_cursor_at_end_of_line(&mut editor) {
                     editor.action(Action::Insert(ch));
@@ -1066,7 +1075,7 @@ fn apply_text_edit(
                 y: point.y,
             });
         }
-        TextEdit::Scroll { lines } => {
+        &TextEdit::Scroll { lines } => {
             editor.action(Action::Scroll { lines });
         }
         TextEdit::Undo => {
@@ -1116,21 +1125,24 @@ fn apply_text_edit(
     }
 
     let Some(mut change) = editor.finish_change() else {
-        return true;
+        return Ok(());
     };
 
     if change.items.is_empty() {
-        return true;
+        return Ok(());
     }
 
     if maybe_filter.is_some() || max_chars.is_some() {
         let text = editor.with_buffer(get_cosmic_text_buffer_contents);
-        if maybe_filter.is_some_and(|filter| !filter.is_match(&text))
-            || max_chars.is_some_and(|max_chars| max_chars < text.chars().count())
-        {
+        if maybe_filter.is_some_and(|filter| !filter.is_match(&text)) {
             change.reverse();
             editor.apply_change(&change);
-            return false;
+            return Err(InvalidTextEditError::Filtered);
+        }
+        if max_chars.is_some_and(|max_chars| max_chars < text.chars().count()) {
+            change.reverse();
+            editor.apply_change(&change);
+            return Err(InvalidTextEditError::Overflowed);
         }
     }
 
@@ -1141,16 +1153,15 @@ fn apply_text_edit(
     // Set redraw manually, sometimes the editor doesn't set it automatically.
     editor.set_redraw(true);
 
-    true
+    Ok(())
 }
 
 /// Automatically propagated events that can be dispatched by a text input entity.
-#[derive(EntityEvent, Clone, Debug, Component, Reflect)]
+#[derive(EntityEvent, Clone, Debug, Component)]
 #[entity_event(traversal = &'static ChildOf, auto_propagate)]
-#[reflect(Component, Clone)]
 pub enum TextInputEvent {
-    /// The text input received an invalid `TextEdit` that was filtered
-    InvalidEdit,
+    /// The text input received an invalid `TextEdit` that failed to be applied
+    InvalidEdit(InvalidTextEditError, TextEdit),
     /// Text from the input was submitted
     Submission {
         /// The submitted text
