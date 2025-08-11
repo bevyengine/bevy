@@ -25,8 +25,8 @@ use bevy_reflect::Reflect;
 use bevy_shader::load_shader_library;
 use bevy_ui::widget::{ImageNode, TextShadow, ViewportNode};
 use bevy_ui::{
-    BackgroundColor, BorderColor, CalculatedClip, ComputedNode, ComputedNodeTarget, Display, Node,
-    Outline, ResolvedBorderRadius, UiGlobalTransform,
+    BackgroundColor, BorderColor, CalculatedClip, ComputedNode, ComputedUiTargetCamera, Display,
+    Node, Outline, ResolvedBorderRadius, UiGlobalTransform,
 };
 
 use bevy_app::prelude::*;
@@ -327,7 +327,7 @@ pub struct UiCameraMapper<'w, 's> {
 
 impl<'w, 's> UiCameraMapper<'w, 's> {
     /// Returns the render entity corresponding to the given `UiTargetCamera` or the default camera if `None`.
-    pub fn map(&mut self, computed_target: &ComputedNodeTarget) -> Option<Entity> {
+    pub fn map(&mut self, computed_target: &ComputedUiTargetCamera) -> Option<Entity> {
         let camera_entity = computed_target.camera()?;
         if self.camera_entity != camera_entity {
             let new_render_camera_entity = self.mapping.get(camera_entity).ok()?;
@@ -438,7 +438,7 @@ pub fn extract_uinode_background_colors(
             &UiGlobalTransform,
             &InheritedVisibility,
             Option<&CalculatedClip>,
-            &ComputedNodeTarget,
+            &ComputedUiTargetCamera,
             &BackgroundColor,
         )>,
     >,
@@ -497,7 +497,7 @@ pub fn extract_uinode_images(
             &UiGlobalTransform,
             &InheritedVisibility,
             Option<&CalculatedClip>,
-            &ComputedNodeTarget,
+            &ComputedUiTargetCamera,
             &ImageNode,
         )>,
     >,
@@ -581,7 +581,7 @@ pub fn extract_uinode_borders(
             &UiGlobalTransform,
             &InheritedVisibility,
             Option<&CalculatedClip>,
-            &ComputedNodeTarget,
+            &ComputedUiTargetCamera,
             AnyOf<(&BorderColor, &Outline)>,
         )>,
     >,
@@ -843,7 +843,7 @@ pub fn extract_viewport_nodes(
             &UiGlobalTransform,
             &InheritedVisibility,
             Option<&CalculatedClip>,
-            &ComputedNodeTarget,
+            &ComputedUiTargetCamera,
             &ViewportNode,
         )>,
     >,
@@ -906,7 +906,7 @@ pub fn extract_text_sections(
             &UiGlobalTransform,
             &InheritedVisibility,
             Option<&CalculatedClip>,
-            &ComputedNodeTarget,
+            &ComputedUiTargetCamera,
             &ComputedTextBlock,
             &TextLayoutInfo,
         )>,
@@ -1001,7 +1001,7 @@ pub fn extract_text_shadows(
             Entity,
             &ComputedNode,
             &UiGlobalTransform,
-            &ComputedNodeTarget,
+            &ComputedUiTargetCamera,
             &InheritedVisibility,
             Option<&CalculatedClip>,
             &TextLayoutInfo,
@@ -1083,7 +1083,7 @@ pub fn extract_text_background_colors(
             &UiGlobalTransform,
             &InheritedVisibility,
             Option<&CalculatedClip>,
-            &ComputedNodeTarget,
+            &ComputedUiTargetCamera,
             &TextLayoutInfo,
         )>,
     >,
