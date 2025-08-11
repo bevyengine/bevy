@@ -17,12 +17,13 @@ use bevy_render::{
         },
         BindGroupLayout, BindGroupLayoutEntries, CachedRenderPipelineId, ColorTargetState,
         ColorWrites, FragmentState, PipelineCache, RenderPipelineDescriptor, Sampler,
-        SamplerBindingType, SamplerDescriptor, Shader, ShaderDefVal, ShaderStages, ShaderType,
-        SpecializedRenderPipeline, SpecializedRenderPipelines, TextureFormat, TextureSampleType,
+        SamplerBindingType, SamplerDescriptor, ShaderStages, ShaderType, SpecializedRenderPipeline,
+        SpecializedRenderPipelines, TextureFormat, TextureSampleType,
     },
     renderer::RenderDevice,
     view::{ExtractedView, Msaa, ViewTarget},
 };
+use bevy_shader::{Shader, ShaderDefVal};
 use bevy_utils::default;
 
 use super::MotionBlurUniform;

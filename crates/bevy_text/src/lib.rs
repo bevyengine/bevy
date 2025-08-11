@@ -44,6 +44,7 @@ mod text;
 mod text2d;
 mod text_access;
 
+use bevy_camera::{visibility::VisibilitySystems, CameraUpdateSystems};
 pub use bounds::*;
 pub use error::*;
 pub use font::*;
@@ -71,9 +72,7 @@ pub mod prelude {
 use bevy_app::{prelude::*, AnimationSystems};
 use bevy_asset::{AssetApp, AssetEventSystems};
 use bevy_ecs::prelude::*;
-use bevy_render::{
-    camera::CameraUpdateSystems, view::VisibilitySystems, ExtractSchedule, RenderApp,
-};
+use bevy_render::{ExtractSchedule, RenderApp};
 use bevy_sprite::SpriteSystems;
 
 /// The raw data for the default font used by `bevy_text`
@@ -151,7 +150,7 @@ impl Plugin for TextPlugin {
             use bevy_asset::{AssetId, Assets};
             let mut assets = app.world_mut().resource_mut::<Assets<_>>();
             let asset = Font::try_from_bytes(DEFAULT_FONT_DATA.to_vec()).unwrap();
-            assets.insert(AssetId::default(), asset);
+            assets.insert(AssetId::default(), asset).unwrap();
         };
     }
 }

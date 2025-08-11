@@ -1,8 +1,8 @@
 use bevy_app::{App, Plugin};
 use bevy_asset::{embedded_asset, load_embedded_asset, AssetServer, Handle};
+use bevy_camera::{Camera, Camera3d, Projection};
 use bevy_core_pipeline::{
     core_3d::graph::{Core3d, Node3d},
-    prelude::Camera3d,
     prepass::{DepthPrepass, MotionVectorPrepass, ViewPrepassTextures},
     FullscreenShader,
 };
@@ -21,14 +21,13 @@ use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
     camera::{ExtractedCamera, MipBias, TemporalJitter},
     diagnostic::RecordDiagnostics,
-    prelude::{Camera, Projection},
     render_graph::{NodeRunError, RenderGraphContext, RenderGraphExt, ViewNode, ViewNodeRunner},
     render_resource::{
         binding_types::{sampler, texture_2d, texture_depth_2d},
         BindGroupEntries, BindGroupLayout, BindGroupLayoutEntries, CachedRenderPipelineId,
         ColorTargetState, ColorWrites, FilterMode, FragmentState, Operations, PipelineCache,
         RenderPassColorAttachment, RenderPassDescriptor, RenderPipelineDescriptor, Sampler,
-        SamplerBindingType, SamplerDescriptor, Shader, ShaderStages, SpecializedRenderPipeline,
+        SamplerBindingType, SamplerDescriptor, ShaderStages, SpecializedRenderPipeline,
         SpecializedRenderPipelines, TextureDescriptor, TextureDimension, TextureFormat,
         TextureSampleType, TextureUsages,
     },
@@ -39,6 +38,7 @@ use bevy_render::{
     view::{ExtractedView, Msaa, ViewTarget},
     ExtractSchedule, MainWorld, Render, RenderApp, RenderStartup, RenderSystems,
 };
+use bevy_shader::Shader;
 use bevy_utils::default;
 use tracing::warn;
 
@@ -108,7 +108,7 @@ impl Plugin for TemporalAntiAliasPlugin {
 ///
 /// Any camera with this component must also disable [`Msaa`] by setting it to [`Msaa::Off`].
 ///
-/// [Currently](https://github.com/bevyengine/bevy/issues/8423), TAA cannot be used with [`bevy_render::camera::OrthographicProjection`].
+/// [Currently](https://github.com/bevyengine/bevy/issues/8423), TAA cannot be used with [`bevy_camera::OrthographicProjection`].
 ///
 /// TAA also does not work well with alpha-blended meshes, as it requires depth writing to determine motion.
 ///
@@ -350,16 +350,17 @@ fn extract_taa_settings(mut commands: Commands, mut main_world: ResMut<MainWorld
         Option<&mut TemporalAntiAliasing>,
     )>();
 
-    for (entity, camera, camera_projection, mut taa_settings) in
-        cameras_3d.iter_mut(&mut main_world)
-    {
+    for (entity, camera, camera_projection, taa_settings) in cameras_3d.iter_mut(&mut main_world) {
         let has_perspective_projection = matches!(camera_projection, Projection::Perspective(_));
         let mut entity_commands = commands
             .get_entity(entity)
             .expect("Camera entity wasn't synced.");
-        if taa_settings.is_some() && camera.is_active && has_perspective_projection {
-            entity_commands.insert(taa_settings.as_deref().unwrap().clone());
-            taa_settings.as_mut().unwrap().reset = false;
+        if let Some(mut taa_settings) = taa_settings
+            && camera.is_active
+            && has_perspective_projection
+        {
+            entity_commands.insert(taa_settings.clone());
+            taa_settings.reset = false;
         } else {
             entity_commands.remove::<(
                 TemporalAntiAliasing,

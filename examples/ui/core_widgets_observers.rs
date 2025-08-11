@@ -431,10 +431,10 @@ fn slider_on_add_disabled(
 ) {
     if let Ok((slider_ent, hovered)) = sliders.get(trigger.target()) {
         for child in children.iter_descendants(slider_ent) {
-            if let Ok((mut thumb_bg, is_thumb)) = thumbs.get_mut(child) {
-                if is_thumb {
-                    thumb_bg.0 = thumb_color(true, hovered.0);
-                }
+            if let Ok((mut thumb_bg, is_thumb)) = thumbs.get_mut(child)
+                && is_thumb
+            {
+                thumb_bg.0 = thumb_color(true, hovered.0);
             }
         }
     }
@@ -448,10 +448,10 @@ fn slider_on_remove_disabled(
 ) {
     if let Ok((slider_ent, hovered)) = sliders.get(trigger.target()) {
         for child in children.iter_descendants(slider_ent) {
-            if let Ok((mut thumb_bg, is_thumb)) = thumbs.get_mut(child) {
-                if is_thumb {
-                    thumb_bg.0 = thumb_color(false, hovered.0);
-                }
+            if let Ok((mut thumb_bg, is_thumb)) = thumbs.get_mut(child)
+                && is_thumb
+            {
+                thumb_bg.0 = thumb_color(false, hovered.0);
             }
         }
     }
@@ -465,10 +465,10 @@ fn slider_on_change_hover(
 ) {
     if let Ok((slider_ent, hovered, disabled)) = sliders.get(trigger.target()) {
         for child in children.iter_descendants(slider_ent) {
-            if let Ok((mut thumb_bg, is_thumb)) = thumbs.get_mut(child) {
-                if is_thumb {
-                    thumb_bg.0 = thumb_color(disabled, hovered.0);
-                }
+            if let Ok((mut thumb_bg, is_thumb)) = thumbs.get_mut(child)
+                && is_thumb
+            {
+                thumb_bg.0 = thumb_color(disabled, hovered.0);
             }
         }
     }
@@ -482,10 +482,10 @@ fn slider_on_change_value(
 ) {
     if let Ok((slider_ent, value, range)) = sliders.get(trigger.target()) {
         for child in children.iter_descendants(slider_ent) {
-            if let Ok((mut thumb_node, is_thumb)) = thumbs.get_mut(child) {
-                if is_thumb {
-                    thumb_node.left = Val::Percent(range.thumb_position(value.0) * 100.0);
-                }
+            if let Ok((mut thumb_node, is_thumb)) = thumbs.get_mut(child)
+                && is_thumb
+            {
+                thumb_node.left = Val::Percent(range.thumb_position(value.0) * 100.0);
             }
         }
     }
@@ -499,10 +499,10 @@ fn slider_on_change_range(
 ) {
     if let Ok((slider_ent, value, range)) = sliders.get(trigger.target()) {
         for child in children.iter_descendants(slider_ent) {
-            if let Ok((mut thumb_node, is_thumb)) = thumbs.get_mut(child) {
-                if is_thumb {
-                    thumb_node.left = Val::Percent(range.thumb_position(value.0) * 100.0);
-                }
+            if let Ok((mut thumb_node, is_thumb)) = thumbs.get_mut(child)
+                && is_thumb
+            {
+                thumb_node.left = Val::Percent(range.thumb_position(value.0) * 100.0);
             }
         }
     }

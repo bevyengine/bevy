@@ -30,7 +30,7 @@ wgpu-types = { version = "26", default-features = false }
 serde = { version = "1", default-features = false, features = [
   "derive",
 ], optional = true }
-hexasphere = "15.0"
+hexasphere = "16.0"
 thiserror = { version = "2", default-features = false }
 tracing = { version = "0.1", default-features = false, features = ["std"] }
 derive_more = { version = "2", default-features = false, features = ["from"] }

@@ -328,34 +328,31 @@ fn update_track_color(
                 cap_bg.0 = start;
             }
 
-            if let Ok(mut gradient) = q_gradient.get_mut(track_children[1]) {
-                if let [Gradient::Linear(linear_gradient)] = &mut gradient.0[..] {
-                    linear_gradient.stops[0].color = start;
-                    linear_gradient.stops[1].color = middle;
-                    linear_gradient.stops[2].color = end;
-                    linear_gradient.color_space = match slider.channel {
-                        ColorChannel::Red | ColorChannel::Green | ColorChannel::Blue => {
+            if let Ok(mut gradient) = q_gradient.get_mut(track_children[1])
+                && let [Gradient::Linear(linear_gradient)] = &mut gradient.0[..]
+            {
+                linear_gradient.stops[0].color = start;
+                linear_gradient.stops[1].color = middle;
+                linear_gradient.stops[2].color = end;
+                linear_gradient.color_space = match slider.channel {
+                    ColorChannel::Red | ColorChannel::Green | ColorChannel::Blue => {
+                        InterpolationColorSpace::Srgba
+                    }
+                    ColorChannel::HslHue
+                    | ColorChannel::HslLightness
+                    | ColorChannel::HslSaturation => InterpolationColorSpace::Hsla,
+                    ColorChannel::Alpha => match base_color {
+                        Color::Srgba(_) => InterpolationColorSpace::Srgba,
+                        Color::LinearRgba(_) => InterpolationColorSpace::LinearRgba,
+                        Color::Oklaba(_) => InterpolationColorSpace::Oklaba,
+                        Color::Oklcha(_) => InterpolationColorSpace::OklchaLong,
+                        Color::Hsla(_) | Color::Hsva(_) => InterpolationColorSpace::Hsla,
+                        _ => {
+                            warn_once!("Unsupported color space for ColorSlider: {:?}", base_color);
                             InterpolationColorSpace::Srgba
                         }
-                        ColorChannel::HslHue
-                        | ColorChannel::HslLightness
-                        | ColorChannel::HslSaturation => InterpolationColorSpace::Hsla,
-                        ColorChannel::Alpha => match base_color {
-                            Color::Srgba(_) => InterpolationColorSpace::Srgba,
-                            Color::LinearRgba(_) => InterpolationColorSpace::LinearRgba,
-                            Color::Oklaba(_) => InterpolationColorSpace::Oklaba,
-                            Color::Oklcha(_) => InterpolationColorSpace::OklchaLong,
-                            Color::Hsla(_) | Color::Hsva(_) => InterpolationColorSpace::Hsla,
-                            _ => {
-                                warn_once!(
-                                    "Unsupported color space for ColorSlider: {:?}",
-                                    base_color
-                                );
-                                InterpolationColorSpace::Srgba
-                            }
-                        },
-                    };
-                }
+                    },
+                };
             }
 
             if let Ok(mut cap_bg) = q_background.get_mut(track_children[2]) {
