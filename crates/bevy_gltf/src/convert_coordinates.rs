@@ -58,7 +58,7 @@ impl ConvertInverseCoordinates for Mat4 {
 /// Note that some glTF files may not follow the glTF standard.
 #[derive(Copy, Clone, Default, Debug, Serialize, Deserialize)]
 pub struct GltfConvertCoordinates {
-    /// If true, convert the transform of the scene entity.
+    /// If true, convert scenes via the transform of the root entity.
     ///
     /// The glTF loader works by creating an entity for each glTF scene, and an
     /// entity for each glTF node within the scene. If a node doesn't have a
@@ -67,7 +67,7 @@ pub struct GltfConvertCoordinates {
     /// This option only changes the transform of the scene entity. It does not
     /// directly change the transforms of node entities - it only changes them
     /// indirectly through transform inheritance.
-    pub scene: bool,
+    pub scenes: bool,
 
     /// If true, convert mesh assets. This includes skinned mesh bind poses.
     ///
@@ -82,7 +82,7 @@ impl GltfConvertCoordinates {
         Transform::from_rotation(Quat::from_xyzw(0.0, 1.0, 0.0, 0.0));
 
     pub(crate) fn scene_conversion_transform(&self) -> Transform {
-        if self.scene {
+        if self.scenes {
             Self::TRANSFORM_BEVY_FROM_GLTF
         } else {
             Transform::IDENTITY
