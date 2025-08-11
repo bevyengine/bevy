@@ -409,7 +409,7 @@ impl Plugin for RenderPlugin {
                         .detach();
                     // Otherwise, just block for it to complete
                     #[cfg(not(target_arch = "wasm32"))]
-                    futures_lite::future::block_on(async_renderer);
+                    bevy_tasks::block_on(async_renderer);
 
                     // SAFETY: Plugins should be set up on the main thread.
                     unsafe { initialize_render_app(app) };
