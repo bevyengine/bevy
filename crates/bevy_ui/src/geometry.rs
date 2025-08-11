@@ -282,7 +282,7 @@ impl Val {
     }
 }
 
-/// Returns a [`Val::Auto`] that lets the system determine the value
+/// Returns a [`Val::Auto`] where the value is automatically determined
 /// based on the context and other [`Node`](crate::Node) properties.
 pub const fn auto() -> Val {
     Val::Auto
