@@ -8,8 +8,8 @@ use bevy_color::Color;
 use bevy_math::{
     primitives::{
         Annulus, Arc2d, BoxedPolygon, BoxedPolyline2d, Capsule2d, Circle, CircularSector,
-        CircularSegment, Ellipse, Line2d, Plane2d, Polygon, Polyline2d, Primitive2d, Rectangle,
-        RegularPolygon, Rhombus, Segment2d, Triangle2d,
+        CircularSegment, ConvexPolygon, Ellipse, Line2d, Plane2d, Polygon, Polyline2d, Primitive2d,
+        Rectangle, RegularPolygon, Rhombus, Segment2d, Triangle2d,
     },
     Dir2, Isometry2d, Rot2, Vec2,
 };
@@ -818,6 +818,52 @@ where
         self.linestrip_2d(
             primitive
                 .vertices
+                .iter()
+                .copied()
+                .chain(closing_point)
+                .map(|vec2| isometry * vec2),
+            color,
+        );
+    }
+}
+
+// convex polygon 2d
+
+impl<const N: usize, Config, Clear> GizmoPrimitive2d<ConvexPolygon<N>>
+    for GizmoBuffer<Config, Clear>
+where
+    Config: GizmoConfigGroup,
+    Clear: 'static + Send + Sync,
+{
+    type Output<'a>
+        = ()
+    where
+        Self: 'a;
+
+    fn primitive_2d(
+        &mut self,
+        primitive: &ConvexPolygon<N>,
+        isometry: impl Into<Isometry2d>,
+        color: impl Into<Color>,
+    ) -> Self::Output<'_> {
+        if !self.enabled {
+            return;
+        }
+
+        let isometry = isometry.into();
+
+        // Check if the polygon needs a closing point
+        let closing_point = {
+            let first = primitive.vertices().first();
+            (primitive.vertices().last() != first)
+                .then_some(first)
+                .flatten()
+                .cloned()
+        };
+
+        self.linestrip_2d(
+            primitive
+                .vertices()
                 .iter()
                 .copied()
                 .chain(closing_point)
