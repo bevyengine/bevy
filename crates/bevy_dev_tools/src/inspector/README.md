@@ -9,7 +9,7 @@ The Bevy Entity Inspector is a powerful debugging tool that allows you to inspec
 
 The local inspector provides an in-game overlay that can be toggled on/off during development.
 
-### Setup
+### Local Setup - TO BE COMPLETED
 
 Add the `InspectorPlugin` to your application:
 
@@ -25,7 +25,7 @@ fn main() {
 }
 ```
 
-### Usage
+### Local Usage - TO BE COMPLETED
 
 - Press **F11** to toggle the inspector overlay
 - Browse entities in the left panel
@@ -45,11 +45,11 @@ cargo run --example inspector --features="bevy_dev_tools"
 The remote inspector runs as a separate application that connects to your game over HTTP using the `bevy_remote` protocol. This is particularly useful for:
 
 - Inspecting headless applications
-- Debugging without UI overlay interference  
+- Debugging without UI overlay interference
 - External tooling and automation
 - Multi-monitor setups
 
-### Setup
+### Remote Setup
 
 #### Target Application (Your Game)
 
@@ -85,14 +85,16 @@ fn main() {
 }
 ```
 
-### Usage
+### Remote Usage
 
 1. **Start your target application** with `bevy_remote` enabled:
+
    ```bash
    cargo run --example server --features="bevy_remote"
    ```
 
 2. **Start the inspector** in a separate terminal/window:
+
    ```bash
    cargo run --example entity_inspector_minimal --features="bevy_dev_tools"
    ```
@@ -103,7 +105,7 @@ The inspector will automatically connect to `localhost:15702` and display your e
 
 - **Real-time Updates**: Component values update live as they change
 - **Interactive UI**: Click to select entities, text selection with copy/paste
-- **Connection Resilience**: Auto-retry logic handles connection failures gracefully  
+- **Connection Resilience**: Auto-retry logic handles connection failures gracefully
 - **Performance**: Virtual scrolling efficiently handles large numbers of entities
 - **All Components**: Automatically discovers and displays all component types
 
@@ -111,7 +113,7 @@ The inspector will automatically connect to `localhost:15702` and display your e
 
 - **Default Address**: `localhost:15702`
 - **Protocol**: HTTP with JSON-RPC 2.0
-- **Endpoints**: 
+- **Endpoints**:
   - `/health` - Connection health check
   - `/jsonrpc` - Main JSON-RPC interface
 
@@ -143,16 +145,19 @@ fn main() {
 ### Remote Inspector Issues
 
 **Inspector shows "Awaiting connection":**
+
 - Ensure target app is running with `bevy_remote` plugins enabled
 - Verify target app is listening on port 15702
 - Check firewall/network connectivity
 
 **Components not visible:**
-- Ensure components implement `Reflect` 
+
+- Ensure components implement `Reflect`
 - Register component types with `.register_type::<YourComponent>()`
 - Verify components implement `Serialize`/`Deserialize` for remote inspection
 
 **Connection drops frequently:**
+
 - Check target application stability
 - Monitor network connectivity
 - The inspector will automatically retry connections
@@ -160,10 +165,12 @@ fn main() {
 ### Local Inspector Issues
 
 **F11 doesn't toggle inspector:**
+
 - Ensure you're using `InspectorPlugin::debug()` not `InspectorPlugin`
 - Check if another system is handling F11 key input
 
 **UI elements not visible:**
+
 - Verify UI camera is present in your scene
 - Check for UI layer conflicts
 
