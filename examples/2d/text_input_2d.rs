@@ -49,6 +49,7 @@ fn setup(mut commands: Commands) {
     let submit_target = commands
         .spawn((
             Text2d::new("submit with SHIFT + ENTER"),
+            Anchor::TOP_CENTER,
             TextBounds {
                 width: Some(500.),
                 height: None,
@@ -57,7 +58,7 @@ fn setup(mut commands: Commands) {
                 linebreak: LineBreak::AnyCharacter,
                 justify: Justify::Left,
             },
-            Transform::from_translation(Vec3::new(0., -150., 0.)),
+            Transform::from_translation(Vec3::new(0., -25., 0.)),
         ))
         .id();
 
