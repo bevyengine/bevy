@@ -27,7 +27,7 @@ fn main() -> Result<()> {
 }
 
 fn run_app<B: Backend>(terminal: &mut Terminal<B>) -> Result<()> {
-    let mut app = App::new()?;
+    let app = App::new()?;
     app.run(terminal)
 }
 

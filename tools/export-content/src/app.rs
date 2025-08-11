@@ -271,7 +271,7 @@ struct Metadata {
 }
 
 #[derive(Debug)]
-pub enum Entry {
+enum Entry {
     Section { title: String },
     File { metadata: Metadata, content: String },
 }
@@ -286,7 +286,7 @@ impl Entry {
 }
 
 /// Loads release content from files in the specified directory
-pub fn load_content(dir: path::PathBuf, kind: &'static str) -> Result<Vec<Entry>> {
+fn load_content(dir: path::PathBuf, kind: &'static str) -> Result<Vec<Entry>> {
     let re = Regex::new(r"(?s)^---\s*\n(.*?)\n---\n(.*)").unwrap();
 
     let mut entries = vec![];
