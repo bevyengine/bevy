@@ -347,7 +347,7 @@ pub fn scale_value(value: f32, factor: f32) -> f32 {
 /// System calculating and inserting an [`Aabb`] component to entities with some
 /// [`TextLayoutInfo`] and [`Anchor`] components, and without a [`NoFrustumCulling`] component.
 ///
-/// Used in system set [`VisibilitySystems::CalculateBounds`](bevy_render::view::VisibilitySystems::CalculateBounds).
+/// Used in system set [`VisibilitySystems::CalculateBounds`](bevy_camera::visibility::VisibilitySystems::CalculateBounds).
 pub fn calculate_bounds_text2d(
     mut commands: Commands,
     mut text_to_update_aabb: Query<

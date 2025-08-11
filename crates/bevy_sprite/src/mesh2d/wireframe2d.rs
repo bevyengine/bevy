@@ -51,6 +51,7 @@ use bevy_render::{
     },
     Extract, Render, RenderApp, RenderDebugFlags, RenderStartup, RenderSystems,
 };
+use bevy_shader::Shader;
 use core::{hash::Hash, ops::Range};
 use tracing::error;
 

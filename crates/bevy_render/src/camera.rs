@@ -16,10 +16,12 @@ use crate::{
 
 use bevy_app::{App, Plugin, PostStartup, PostUpdate};
 use bevy_asset::{AssetEvent, AssetEventSystems, AssetId, Assets};
-pub use bevy_camera::*;
 use bevy_camera::{
     primitives::Frustum,
-    visibility::{RenderLayers, VisibleEntities},
+    visibility::{self, RenderLayers, VisibleEntities},
+    Camera, Camera2d, Camera3d, CameraMainTextureUsages, CameraOutputMode, CameraUpdateSystems,
+    ClearColor, ClearColorConfig, Exposure, NormalizedRenderTarget, Projection, RenderTargetInfo,
+    Viewport,
 };
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
@@ -273,8 +275,8 @@ impl NormalizedRenderTargetExt for NormalizedRenderTarget {
 /// [`Res<Assets<Image>>`](Assets<Image>) -- For cameras that render to an image, this resource is used to
 /// inspect information about the render target. This system will not access any other image assets.
 ///
-/// [`OrthographicProjection`]: crate::camera::OrthographicProjection
-/// [`PerspectiveProjection`]: crate::camera::PerspectiveProjection
+/// [`OrthographicProjection`]: bevy_camera::OrthographicProjection
+/// [`PerspectiveProjection`]: bevy_camera::PerspectiveProjection
 pub fn camera_system(
     mut window_resized_events: EventReader<WindowResized>,
     mut window_created_events: EventReader<WindowCreated>,
@@ -638,7 +640,7 @@ pub fn sort_cameras(
 ///
 /// Do not use with [`OrthographicProjection`].
 ///
-/// [`OrthographicProjection`]: crate::camera::OrthographicProjection
+/// [`OrthographicProjection`]: bevy_camera::OrthographicProjection
 #[derive(Component, Clone, Default, Reflect)]
 #[reflect(Default, Component, Clone)]
 pub struct TemporalJitter {
