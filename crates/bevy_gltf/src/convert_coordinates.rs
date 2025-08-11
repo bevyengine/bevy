@@ -1,20 +1,13 @@
+//! Utilities for converting from glTF's [standard coordinate system](https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#coordinate-system-and-units)
+//! to Bevy's.
 use serde::{Deserialize, Serialize};
 
 use bevy_math::{Mat4, Quat, Vec3};
 use bevy_transform::components::Transform;
 
 pub(crate) trait ConvertCoordinates {
-    /// Converts the glTF coordinates to Bevy's coordinate system.
-    /// - glTF:
-    ///   - forward: Z
-    ///   - up: Y
-    ///   - right: -X
-    /// - Bevy:
-    ///   - forward: -Z
-    ///   - up: Y
-    ///   - right: X
-    ///
-    /// See <https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#coordinate-system-and-units>
+    /// Converts from glTF coordinates to Bevy's coordinate system. See
+    /// [`GltfConvertCoordinates`] for an explanation of the conversion.
     fn convert_coordinates(self) -> Self;
 }
 
@@ -49,10 +42,38 @@ impl ConvertInverseCoordinates for Mat4 {
     }
 }
 
-// XXX TODO: Documentation.
+/// Options for converting scenes and assets from glTF's [standard coordinate system](https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#coordinate-system-and-units)
+/// to Bevy's.
+///
+/// The exact coordinate system conversion is as follows:
+/// - glTF:
+///   - forward: Z
+///   - up: Y
+///   - right: -X
+/// - Bevy:
+///   - forward: -Z
+///   - up: Y
+///   - right: X
+///
+/// Note that some glTF files may not follow the glTF standard.
 #[derive(Copy, Clone, Default, Debug, Serialize, Deserialize)]
 pub struct GltfConvertCoordinates {
+    /// If true, convert the transform of the scene entity.
+    ///
+    /// The glTF loader works by creating an entity for each glTF scene, and an
+    /// entity for each glTF node within the scene. If a node doesn't have a
+    /// parent then its entity is parented to the scene entity.
+    ///
+    /// This option only changes the transform of the scene entity. It does not
+    /// directly change the transforms of node entities - it only changes them
+    /// indirectly through transform inheritance.
     pub scene: bool,
+
+    /// If true, convert mesh assets. This includes skinned mesh bind poses.
+    ///
+    /// This option only changes mesh assets and the transforms of entities that
+    /// instance meshes. It does not change the transforms of entities that
+    /// correspond to glTF nodes.
     pub meshes: bool,
 }
 

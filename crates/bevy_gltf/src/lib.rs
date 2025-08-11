@@ -91,7 +91,7 @@
 //! You can use [`GltfAssetLabel`] to ensure you are using the correct label.
 
 mod assets;
-mod convert_coordinates;
+pub mod convert_coordinates;
 mod label;
 mod loader;
 mod vertex_attributes;
@@ -161,21 +161,8 @@ pub struct GltfPlugin {
     /// Can be modified with the [`DefaultGltfImageSampler`] resource.
     pub default_sampler: ImageSamplerDescriptor,
 
-    /// XXX TODO: Update documentation.
-    ///
-    /// Whether to convert glTF coordinates to Bevy's coordinate system by default.
-    /// If set to `true`, the loader will convert the coordinate system of loaded glTF assets to Bevy's coordinate system
-    /// such that objects looking forward in glTF will also look forward in Bevy.
-    ///
-    /// The exact coordinate system conversion is as follows:
-    /// - glTF:
-    ///   - forward: Z
-    ///   - up: Y
-    ///   - right: -X
-    /// - Bevy:
-    ///   - forward: -Z
-    ///   - up: Y
-    ///   - right: X
+    /// The default glTF coordinate conversion setting. This can be overridden
+    /// per-load by [`GltfLoaderSettings::convert_coordinates`].
     pub convert_coordinates: GltfConvertCoordinates,
 
     /// Registry for custom vertex attributes.

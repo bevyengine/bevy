@@ -148,21 +148,8 @@ pub struct GltfLoader {
     pub custom_vertex_attributes: HashMap<Box<str>, MeshVertexAttribute>,
     /// Arc to default [`ImageSamplerDescriptor`].
     pub default_sampler: Arc<Mutex<ImageSamplerDescriptor>>,
-    /// XXX TODO: Update documentation.
-    ///
-    /// Whether to convert glTF coordinates to Bevy's coordinate system by default.
-    /// If set to `true`, the loader will convert the coordinate system of loaded glTF assets to Bevy's coordinate system
-    /// such that objects looking forward in glTF will also look forward in Bevy.
-    ///
-    /// The exact coordinate system conversion is as follows:
-    /// - glTF:
-    ///   - forward: Z
-    ///   - up: Y
-    ///   - right: -X
-    /// - Bevy:
-    ///   - forward: -Z
-    ///   - up: Y
-    ///   - right: X
+    /// The default glTF coordinate conversion setting. This can be overridden
+    /// per-load by [`GltfLoaderSettings::convert_coordinates`].
     pub default_convert_coordinates: GltfConvertCoordinates,
 }
 
@@ -205,22 +192,7 @@ pub struct GltfLoaderSettings {
     pub default_sampler: Option<ImageSamplerDescriptor>,
     /// If true, the loader will ignore sampler data from gltf and use the default sampler.
     pub override_sampler: bool,
-    /// XXX TODO: Update documentation.
-    ///
     /// Overrides the default glTF coordinate conversion setting.
-    ///
-    /// If set to `Some(true)`, the loader will convert the coordinate system of loaded glTF assets to Bevy's coordinate system
-    /// such that objects looking forward in glTF will also look forward in Bevy.
-    ///
-    /// The exact coordinate system conversion is as follows:
-    /// - glTF:
-    ///   - forward: Z
-    ///   - up: Y
-    ///   - right: -X
-    /// - Bevy:
-    ///   - forward: -Z
-    ///   - up: Y
-    ///   - right: X
     ///
     /// If `None`, uses the global default set by [`GltfPlugin::convert_coordinates`](crate::GltfPlugin::convert_coordinates).
     pub convert_coordinates: Option<GltfConvertCoordinates>,
