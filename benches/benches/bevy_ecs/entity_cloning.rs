@@ -1,7 +1,7 @@
 use core::hint::black_box;
 
 use benches::bench;
-use bevy_ecs::bundle::{Bundle, InsertMode};
+use bevy_ecs::bundle::{Bundle, InsertMode, StaticBundle};
 use bevy_ecs::component::ComponentCloneBehavior;
 use bevy_ecs::entity::EntityCloner;
 use bevy_ecs::hierarchy::ChildOf;
@@ -27,7 +27,7 @@ type ComplexBundle = (C<1>, C<2>, C<3>, C<4>, C<5>, C<6>, C<7>, C<8>, C<9>, C<10
 
 /// Sets the [`ComponentCloneBehavior`] for all explicit and required components in a bundle `B` to
 /// use the [`Reflect`] trait instead of [`Clone`].
-fn reflection_cloner<B: Bundle + GetTypeRegistration>(
+fn reflection_cloner<B: StaticBundle + GetTypeRegistration>(
     world: &mut World,
     linked_cloning: bool,
 ) -> EntityCloner {
@@ -65,7 +65,7 @@ fn reflection_cloner<B: Bundle + GetTypeRegistration>(
 /// components (which is usually [`ComponentCloneBehavior::clone()`]). If `clone_via_reflect`
 /// is true, it will overwrite the handler for all components in the bundle to be
 /// [`ComponentCloneBehavior::reflect()`].
-fn bench_clone<B: Bundle + Default + GetTypeRegistration>(
+fn bench_clone<B: Bundle + StaticBundle + Default + GetTypeRegistration>(
     b: &mut Bencher,
     clone_via_reflect: bool,
 ) {
@@ -96,7 +96,7 @@ fn bench_clone<B: Bundle + Default + GetTypeRegistration>(
 /// For example, setting `height` to 5 and `children` to 1 creates a single chain of entities with
 /// no siblings. Alternatively, setting `height` to 1 and `children` to 5 will spawn 5 direct
 /// children of the root entity.
-fn bench_clone_hierarchy<B: Bundle + Default + GetTypeRegistration>(
+fn bench_clone_hierarchy<B: Bundle + StaticBundle + Default + GetTypeRegistration>(
     b: &mut Bencher,
     height: usize,
     children: usize,
@@ -268,7 +268,7 @@ const FILTER_SCENARIOS: [FilterScenario; 11] = [
 ///
 /// The bundle must implement [`Default`], which is used to create the first entity that gets its components cloned
 /// in the benchmark. It may also be used to populate the target entity depending on the scenario.
-fn bench_filter<B: Bundle + Default>(b: &mut Bencher, scenario: FilterScenario) {
+fn bench_filter<B: Bundle + StaticBundle + Default>(b: &mut Bencher, scenario: FilterScenario) {
     let mut world = World::default();
     let mut spawn = |empty| match empty {
         false => world.spawn(B::default()).id(),

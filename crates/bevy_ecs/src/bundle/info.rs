@@ -10,7 +10,7 @@ use indexmap::{IndexMap, IndexSet};
 
 use crate::{
     archetype::{Archetype, BundleComponentStatus, ComponentStatus},
-    bundle::{Bundle, DynamicBundle},
+    bundle::{Bundle, DynamicBundle, StaticBundle},
     change_detection::MaybeLocation,
     component::{
         ComponentId, Components, ComponentsRegistrator, RequiredComponentConstructor, StorageType,
@@ -415,10 +415,7 @@ impl Bundles {
         self.bundle_ids.get(&type_id).cloned()
     }
 
-    /// Registers a new [`BundleInfo`] for a statically known type.
-    ///
-    /// Also registers all the components in the bundle.
-    pub(crate) fn register_info<T: Bundle>(
+    pub(crate) fn register_static_info<T: StaticBundle>(
         &mut self,
         components: &mut ComponentsRegistrator,
         storages: &mut Storages,
@@ -439,10 +436,35 @@ impl Bundles {
         })
     }
 
+    /// Registers a new [`BundleInfo`] for a statically known type.
+    ///
+    /// Also registers all the components in the bundle.
+    pub(crate) fn register_info<T: Bundle>(
+        &mut self,
+        bundle: &T,
+        components: &mut ComponentsRegistrator,
+        storages: &mut Storages,
+    ) -> BundleId {
+        let bundle_infos = &mut self.bundle_infos;
+        *self.bundle_ids.entry(TypeId::of::<T>()).or_insert_with(|| {
+            let mut component_ids= Vec::new();
+            bundle.component_ids(components, &mut |id| component_ids.push(id));
+            let id = BundleId(bundle_infos.len());
+            let bundle_info =
+                // SAFETY: T::component_id ensures:
+                // - its info was created
+                // - appropriate storage for it has been initialized.
+                // - it was created in the same order as the components in T
+                unsafe { BundleInfo::new(core::any::type_name::<T>(), storages, components, component_ids, id) };
+            bundle_infos.push(bundle_info);
+            id
+        })
+    }
+
     /// Registers a new [`BundleInfo`], which contains both explicit and required components for a statically known type.
     ///
     /// Also registers all the components in the bundle.
-    pub(crate) fn register_contributed_bundle_info<T: Bundle>(
+    pub(crate) fn register_contributed_bundle_info<T: StaticBundle>(
         &mut self,
         components: &mut ComponentsRegistrator,
         storages: &mut Storages,
@@ -450,7 +472,7 @@ impl Bundles {
         if let Some(id) = self.contributed_bundle_ids.get(&TypeId::of::<T>()).cloned() {
             id
         } else {
-            let explicit_bundle_id = self.register_info::<T>(components, storages);
+            let explicit_bundle_id = self.register_static_info::<T>(components, storages);
             // SAFETY: reading from `explicit_bundle_id` and creating new bundle in same time. Its valid because bundle hashmap allow this
             let id = unsafe {
                 let (ptr, len) = {
