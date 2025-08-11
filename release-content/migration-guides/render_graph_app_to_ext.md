@@ -1,5 +1,5 @@
 ---
-title: `RenderGraphApp` renamed to `RenderGraphExt`.
+title: "`RenderGraphApp` renamed to `RenderGraphExt`"
 pull_requests: [19912]
 ---
 
