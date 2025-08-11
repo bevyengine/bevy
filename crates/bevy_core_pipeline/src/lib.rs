@@ -28,14 +28,6 @@ pub use skybox::Skybox;
 mod fullscreen_vertex_shader;
 mod skybox;
 
-/// The core pipeline prelude.
-///
-/// This includes the most common types in this crate, re-exported for your convenience.
-pub mod prelude {
-    #[doc(hidden)]
-    pub use crate::{core_2d::Camera2d, core_3d::Camera3d};
-}
-
 use crate::{
     blit::BlitPlugin, bloom::BloomPlugin, core_2d::Core2dPlugin, core_3d::Core3dPlugin,
     deferred::copy_lighting_id::CopyDeferredLightingIdPlugin, dof::DepthOfFieldPlugin,

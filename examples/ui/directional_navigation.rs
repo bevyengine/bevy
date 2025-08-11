@@ -8,6 +8,7 @@
 use std::time::Duration;
 
 use bevy::{
+    camera::NormalizedRenderTarget,
     input_focus::{
         directional_navigation::{
             DirectionalNavigation, DirectionalNavigationMap, DirectionalNavigationPlugin,
@@ -21,7 +22,6 @@ use bevy::{
     },
     platform::collections::{HashMap, HashSet},
     prelude::*,
-    render::camera::NormalizedRenderTarget,
 };
 
 fn main() {
@@ -386,12 +386,10 @@ fn interact_with_focused_button(
                 pointer_id: PointerId::Mouse,
                 // This field isn't used, so we're just setting it to a placeholder value
                 pointer_location: Location {
-                    target: NormalizedRenderTarget::Image(
-                        bevy::render::camera::ImageRenderTarget {
-                            handle: Handle::default(),
-                            scale_factor: FloatOrd(1.0),
-                        },
-                    ),
+                    target: NormalizedRenderTarget::Image(bevy::camera::ImageRenderTarget {
+                        handle: Handle::default(),
+                        scale_factor: FloatOrd(1.0),
+                    }),
                     position: Vec2::ZERO,
                 },
                 event: Click {

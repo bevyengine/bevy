@@ -15,6 +15,7 @@ use bevy_render::{
     },
     renderer::RenderDevice,
 };
+use bevy_shader::Shader;
 use bevy_utils::default;
 
 #[derive(Component)]

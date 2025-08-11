@@ -2,6 +2,7 @@
 
 use bevy_app::{Plugin, Startup, Update};
 use bevy_asset::{Assets, Handle};
+use bevy_camera::visibility::Visibility;
 use bevy_color::Color;
 use bevy_diagnostic::{DiagnosticsStore, FrameTimeDiagnosticsPlugin};
 use bevy_ecs::{
@@ -14,7 +15,7 @@ use bevy_ecs::{
     schedule::{common_conditions::resource_changed, IntoScheduleConfigs},
     system::{Commands, Query, Res, ResMut},
 };
-use bevy_render::{storage::ShaderStorageBuffer, view::Visibility};
+use bevy_render::storage::ShaderStorageBuffer;
 use bevy_text::{Font, TextColor, TextFont, TextSpan};
 use bevy_time::Time;
 use bevy_ui::{
@@ -188,7 +189,13 @@ fn setup(
                     ..Default::default()
                 },
                 MaterialNode::from(frame_time_graph_materials.add(FrametimeGraphMaterial {
-                    values: buffers.add(ShaderStorageBuffer::default()),
+                    values: buffers.add(ShaderStorageBuffer {
+                        // Initialize with dummy data because the default (`data: None`) will
+                        // cause a panic in the shader if the frame time graph is constructed
+                        // with `enabled: false`.
+                        data: Some(vec![0, 0, 0, 0]),
+                        ..Default::default()
+                    }),
                     config: FrameTimeGraphConfigUniform::new(
                         overlay_config.frame_time_graph_config.target_fps,
                         overlay_config.frame_time_graph_config.min_fps,

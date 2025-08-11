@@ -1,7 +1,7 @@
 use crate::{
     experimental::{UiChildren, UiRootNodes},
     ui_transform::{UiGlobalTransform, UiTransform},
-    BorderRadius, ComputedNode, ComputedNodeTarget, ContentSize, Display, LayoutConfig, Node,
+    BorderRadius, ComputedNode, ComputedUiTargetCamera, ContentSize, Display, LayoutConfig, Node,
     Outline, OverflowAxis, ScrollPosition,
 };
 use bevy_ecs::{
@@ -77,7 +77,7 @@ pub fn ui_layout_system(
         Entity,
         Ref<Node>,
         Option<&mut ContentSize>,
-        Ref<ComputedNodeTarget>,
+        Ref<ComputedUiTargetCamera>,
     )>,
     added_node_query: Query<(), Added<Node>>,
     mut node_update_query: Query<(
@@ -356,12 +356,12 @@ mod tests {
     use taffy::TraversePartialTree;
 
     use bevy_asset::{AssetEvent, Assets};
-    use bevy_core_pipeline::core_2d::Camera2d;
+    use bevy_camera::{Camera, Camera2d};
     use bevy_ecs::{prelude::*, system::RunSystemOnce};
     use bevy_image::Image;
     use bevy_math::{Rect, UVec2, Vec2};
     use bevy_platform::collections::HashMap;
-    use bevy_render::{prelude::Camera, texture::ManualTextureViews};
+    use bevy_render::texture::ManualTextureViews;
     use bevy_transform::systems::mark_dirty_trees;
     use bevy_transform::systems::{propagate_parent_transforms, sync_simple_transforms};
     use bevy_utils::prelude::default;
@@ -383,7 +383,7 @@ mod tests {
     fn setup_ui_test_app() -> App {
         let mut app = App::new();
 
-        app.add_plugins(HierarchyPropagatePlugin::<ComputedNodeTarget>::new(
+        app.add_plugins(HierarchyPropagatePlugin::<ComputedUiTargetCamera>::new(
             PostUpdate,
         ));
         app.init_resource::<UiScale>();
@@ -416,7 +416,7 @@ mod tests {
 
         app.configure_sets(
             PostUpdate,
-            PropagateSet::<ComputedNodeTarget>::default()
+            PropagateSet::<ComputedUiTargetCamera>::default()
                 .after(update_ui_context_system)
                 .before(ui_layout_system),
         );
@@ -814,7 +814,7 @@ mod tests {
                 let viewport_height = primary_window.resolution.physical_height();
                 let physical_position = UVec2::new(viewport_width * camera_index as u32, 0);
                 let physical_size = UVec2::new(viewport_width, viewport_height);
-                camera.viewport = Some(bevy_render::camera::Viewport {
+                camera.viewport = Some(bevy_camera::Viewport {
                     physical_position,
                     physical_size,
                     ..default()
@@ -1074,13 +1074,13 @@ mod tests {
                 .chain(),
         );
 
-        app.add_plugins(HierarchyPropagatePlugin::<ComputedNodeTarget>::new(
+        app.add_plugins(HierarchyPropagatePlugin::<ComputedUiTargetCamera>::new(
             PostUpdate,
         ));
 
         app.configure_sets(
             PostUpdate,
-            PropagateSet::<ComputedNodeTarget>::default()
+            PropagateSet::<ComputedUiTargetCamera>::default()
                 .after(update_ui_context_system)
                 .before(ui_layout_system),
         );

@@ -1,5 +1,5 @@
 ---
-title: `AnimationGraph` no longer supports raw AssetIds.
+title: "`AnimationGraph` no longer supports raw AssetIds"
 pull_requests: []
 ---
 
