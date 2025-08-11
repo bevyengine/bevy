@@ -309,7 +309,9 @@ pub struct UiCameraMap<'w, 's> {
 }
 
 impl<'w, 's> UiCameraMap<'w, 's> {
-    /// Get the default camera and create the mapper
+    /// Creates a [`UiCameraMapper`] for performing repeated camera-to-render-entity lookups.
+    ///
+    /// The last successful mapping is cached to avoid redundant queries.
     pub fn get_mapper(&'w self) -> UiCameraMapper<'w, 's> {
         UiCameraMapper {
             mapping: &self.mapping,
@@ -319,14 +321,18 @@ impl<'w, 's> UiCameraMap<'w, 's> {
     }
 }
 
+/// Helper for mapping UI target camera entities to their corresponding render entities,
+/// with caching to avoid repeated lookups for the same camera.
 pub struct UiCameraMapper<'w, 's> {
     mapping: &'w Query<'w, 's, RenderEntity>,
+    /// Cached camera entity from the last successful `map` call.
     camera_entity: Entity,
+    /// Cached camera entity from the last successful `map` call.
     render_entity: Entity,
 }
 
 impl<'w, 's> UiCameraMapper<'w, 's> {
-    /// Returns the render entity corresponding to the given `UiTargetCamera` or the default camera if `None`.
+    /// Returns the render entity corresponding to the given [`ComputedNodeTarget`]'s camera, or none if no corresponding entity was found.
     pub fn map(&mut self, computed_target: &ComputedNodeTarget) -> Option<Entity> {
         let camera_entity = computed_target.camera()?;
         if self.camera_entity != camera_entity {
@@ -338,6 +344,7 @@ impl<'w, 's> UiCameraMapper<'w, 's> {
         Some(self.render_entity)
     }
 
+    /// Returns the cached camera entity from the last successful `map` call.
     pub fn current_camera(&self) -> Entity {
         self.camera_entity
     }
