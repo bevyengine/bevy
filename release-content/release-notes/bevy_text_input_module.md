@@ -30,5 +30,6 @@ Features:
 * Triple click to set select a line.
 * Indent and unident.
 * A `TextInputValue` component that contains a copy of the buffer's text and is automatically synchronized on edits. On insertion the `TextInputValue`s contents replace the current text in the `TextInputBuffer`.
+* Support for bidirectional text, including RTL scripts such as Arabic and Hebrew.
 
 What we are releasing in this milestone is only the lowest-level, foundational elements of text editing. These are not complete, self-contained widgets, which will come in the next milestone, but more like a toolkit with "some assembly required". For now, you can write your own text input widgets, following the provided examples as a guide.
