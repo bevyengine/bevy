@@ -19,6 +19,7 @@ use bevy_render::{
     texture::{CachedTexture, TextureCache},
     view::{ExtractedView, Msaa, ViewDepthTexture, ViewUniform, ViewUniforms},
 };
+use bevy_shader::Shader;
 use bevy_utils::default;
 
 use super::{Atmosphere, AtmosphereSettings};

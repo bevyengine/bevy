@@ -7,11 +7,9 @@ use bevy_math::{
     ops::log2,
     IVec3, Isometry3d, Vec2, Vec3, Vec3A, Vec3Swizzles,
 };
+use bevy_mesh::{Indices, Mesh};
 use bevy_platform::collections::HashMap;
-use bevy_render::{
-    mesh::{Indices, Mesh},
-    render_resource::PrimitiveTopology,
-};
+use bevy_render::render_resource::PrimitiveTopology;
 use bevy_tasks::{AsyncComputeTaskPool, ParallelSlice};
 use bitvec::{order::Lsb0, vec::BitVec, view::BitView};
 use core::{f32, ops::Range};

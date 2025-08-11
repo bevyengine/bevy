@@ -6,7 +6,7 @@ use std::f32::consts::PI;
 use bevy::{
     camera::{Exposure, PhysicalCameraParameters},
     color::palettes::css::*,
-    pbr::CascadeShadowConfigBuilder,
+    light::CascadeShadowConfigBuilder,
     prelude::*,
 };
 

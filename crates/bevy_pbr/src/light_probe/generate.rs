@@ -33,9 +33,9 @@ use bevy_render::{
         binding_types::*, AddressMode, BindGroup, BindGroupEntries, BindGroupLayout,
         BindGroupLayoutEntries, CachedComputePipelineId, ComputePassDescriptor,
         ComputePipelineDescriptor, DownlevelFlags, Extent3d, FilterMode, PipelineCache, Sampler,
-        SamplerBindingType, SamplerDescriptor, ShaderDefVal, ShaderStages, ShaderType,
-        StorageTextureAccess, Texture, TextureAspect, TextureDescriptor, TextureDimension,
-        TextureFormat, TextureFormatFeatureFlags, TextureSampleType, TextureUsages, TextureView,
+        SamplerBindingType, SamplerDescriptor, ShaderStages, ShaderType, StorageTextureAccess,
+        Texture, TextureAspect, TextureDescriptor, TextureDimension, TextureFormat,
+        TextureFormatFeatureFlags, TextureSampleType, TextureUsages, TextureView,
         TextureViewDescriptor, TextureViewDimension, UniformBuffer,
     },
     renderer::{RenderAdapter, RenderContext, RenderDevice, RenderQueue},
@@ -61,6 +61,7 @@ use bevy_render::{
 // [GGX convolution]: https://gpuopen.com/download/Bounded_VNDF_Sampling_for_Smith-GGX_Reflections.pdf
 
 use bevy_light::{EnvironmentMapLight, GeneratedEnvironmentMapLight};
+use bevy_shader::ShaderDefVal;
 use core::cmp::min;
 use tracing::info;
 

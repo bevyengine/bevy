@@ -3,6 +3,7 @@ mod blas;
 mod extract;
 mod types;
 
+use bevy_shader::load_shader_library;
 pub use binder::RaytracingSceneBindings;
 pub use types::RaytracingMesh3d;
 
@@ -11,7 +12,6 @@ use bevy_app::{App, Plugin};
 use bevy_ecs::schedule::IntoScheduleConfigs;
 use bevy_render::{
     extract_resource::ExtractResourcePlugin,
-    load_shader_library,
     mesh::{
         allocator::{allocate_and_free_meshes, MeshAllocator},
         RenderMesh,

@@ -22,8 +22,8 @@
 //! | `.` / `?`          | Adjust Fog Alpha Channel            |
 
 use bevy::{
+    light::{NotShadowCaster, NotShadowReceiver},
     math::ops,
-    pbr::{NotShadowCaster, NotShadowReceiver},
     prelude::*,
 };
 

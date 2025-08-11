@@ -8,10 +8,10 @@ use bevy::{
     render::{
         render_asset::RenderAssetUsages,
         render_resource::{
-            AsBindGroup, PolygonMode, RenderPipelineDescriptor, ShaderRef,
-            SpecializedMeshPipelineError,
+            AsBindGroup, PolygonMode, RenderPipelineDescriptor, SpecializedMeshPipelineError,
         },
     },
+    shader::ShaderRef,
 };
 
 /// This example uses a shader source file from the assets subdirectory

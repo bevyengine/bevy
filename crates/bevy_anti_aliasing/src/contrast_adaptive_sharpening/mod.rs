@@ -20,6 +20,7 @@ use bevy_render::{
     view::{ExtractedView, ViewTarget},
     Render, RenderApp, RenderStartup, RenderSystems,
 };
+use bevy_shader::Shader;
 use bevy_utils::default;
 
 mod node;

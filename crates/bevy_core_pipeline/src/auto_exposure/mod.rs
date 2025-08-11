@@ -50,7 +50,8 @@ impl Plugin for AutoExposurePlugin {
             .register_asset_reflect::<AutoExposureCompensationCurve>();
         app.world_mut()
             .resource_mut::<Assets<AutoExposureCompensationCurve>>()
-            .insert(&Handle::default(), AutoExposureCompensationCurve::default());
+            .insert(&Handle::default(), AutoExposureCompensationCurve::default())
+            .unwrap();
 
         app.add_plugins(ExtractComponentPlugin::<AutoExposure>::default());
 

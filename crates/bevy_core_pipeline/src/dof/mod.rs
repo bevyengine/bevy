@@ -44,8 +44,8 @@ use bevy_render::{
         BindGroup, BindGroupEntries, BindGroupLayout, BindGroupLayoutEntries,
         CachedRenderPipelineId, ColorTargetState, ColorWrites, FilterMode, FragmentState, LoadOp,
         Operations, PipelineCache, RenderPassColorAttachment, RenderPassDescriptor,
-        RenderPipelineDescriptor, Sampler, SamplerBindingType, SamplerDescriptor, Shader,
-        ShaderStages, ShaderType, SpecializedRenderPipeline, SpecializedRenderPipelines, StoreOp,
+        RenderPipelineDescriptor, Sampler, SamplerBindingType, SamplerDescriptor, ShaderStages,
+        ShaderType, SpecializedRenderPipeline, SpecializedRenderPipelines, StoreOp,
         TextureDescriptor, TextureDimension, TextureFormat, TextureSampleType, TextureUsages,
     },
     renderer::{RenderContext, RenderDevice},
@@ -58,6 +58,7 @@ use bevy_render::{
     },
     Extract, ExtractSchedule, Render, RenderApp, RenderStartup, RenderSystems,
 };
+use bevy_shader::Shader;
 use bevy_utils::{default, once};
 use smallvec::SmallVec;
 use tracing::{info, warn};
@@ -490,7 +491,7 @@ impl DepthOfField {
     /// [`PhysicalCameraParameters`].
     ///
     /// By passing the same [`PhysicalCameraParameters`] object to this function
-    /// and to [`bevy_render::camera::Exposure::from_physical_camera`], matching
+    /// and to [`bevy_camera::Exposure::from_physical_camera`], matching
     /// results for both the exposure and depth of field effects can be
     /// obtained.
     ///

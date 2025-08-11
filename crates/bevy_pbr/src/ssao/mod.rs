@@ -22,7 +22,6 @@ use bevy_render::{
     diagnostic::RecordDiagnostics,
     extract_component::ExtractComponent,
     globals::{GlobalsBuffer, GlobalsUniform},
-    load_shader_library,
     render_graph::{NodeRunError, RenderGraphContext, RenderGraphExt, ViewNode, ViewNodeRunner},
     render_resource::{
         binding_types::{
@@ -37,6 +36,7 @@ use bevy_render::{
     view::{Msaa, ViewUniform, ViewUniformOffset, ViewUniforms},
     Extract, ExtractSchedule, Render, RenderApp, RenderSystems,
 };
+use bevy_shader::{load_shader_library, Shader, ShaderDefVal};
 use bevy_utils::prelude::default;
 use core::mem;
 use tracing::{error, warn};

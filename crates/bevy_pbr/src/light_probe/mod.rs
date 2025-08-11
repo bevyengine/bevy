@@ -16,12 +16,11 @@ use bevy_ecs::{
     system::{Commands, Local, Query, Res, ResMut},
 };
 use bevy_image::Image;
-use bevy_light::{EnvironmentMapLight, LightProbe};
+use bevy_light::{EnvironmentMapLight, IrradianceVolume, LightProbe};
 use bevy_math::{Affine3A, FloatOrd, Mat4, Vec3A, Vec4};
 use bevy_platform::collections::HashMap;
 use bevy_render::{
     extract_instances::ExtractInstancesPlugin,
-    load_shader_library,
     render_asset::RenderAssets,
     render_resource::{DynamicUniformBuffer, Sampler, ShaderType, TextureView},
     renderer::{RenderAdapter, RenderDevice, RenderQueue},
@@ -31,6 +30,7 @@ use bevy_render::{
     view::ExtractedView,
     Extract, ExtractSchedule, Render, RenderApp, RenderSystems,
 };
+use bevy_shader::load_shader_library;
 use bevy_transform::{components::Transform, prelude::GlobalTransform};
 use tracing::error;
 
@@ -39,8 +39,6 @@ use core::{hash::Hash, ops::Deref};
 use crate::{
     generate::EnvironmentMapGenerationPlugin, light_probe::environment_map::EnvironmentMapIds,
 };
-
-use self::irradiance_volume::IrradianceVolume;
 
 pub mod environment_map;
 pub mod generate;

@@ -21,12 +21,13 @@ use bevy_render::{
             storage_buffer_sized, texture_2d, texture_depth_2d, texture_storage_2d, uniform_buffer,
         },
         BindGroupEntries, BindGroupLayout, BindGroupLayoutEntries, CachedComputePipelineId,
-        ComputePassDescriptor, ComputePipelineDescriptor, PipelineCache, PushConstantRange, Shader,
-        ShaderDefVal, ShaderStages, StorageTextureAccess, TextureSampleType,
+        ComputePassDescriptor, ComputePipelineDescriptor, PipelineCache, PushConstantRange,
+        ShaderStages, StorageTextureAccess, TextureFormat, TextureSampleType,
     },
     renderer::{RenderContext, RenderDevice},
     view::{ViewTarget, ViewUniform, ViewUniformOffset, ViewUniforms},
 };
+use bevy_shader::{Shader, ShaderDefVal};
 use bevy_utils::default;
 
 pub mod graph {
@@ -131,8 +132,8 @@ impl ViewNode for SolariLightingNode {
                 view_target.get_unsampled_color_attachment().view,
                 s.light_tile_samples.as_entire_binding(),
                 s.light_tile_resolved_samples.as_entire_binding(),
-                s.di_reservoirs_a.as_entire_binding(),
-                s.di_reservoirs_b.as_entire_binding(),
+                &s.di_reservoirs_a.1,
+                &s.di_reservoirs_b.1,
                 s.gi_reservoirs_a.as_entire_binding(),
                 s.gi_reservoirs_b.as_entire_binding(),
                 gbuffer,
@@ -299,8 +300,8 @@ impl FromWorld for SolariLightingNode {
                     ),
                     storage_buffer_sized(false, None),
                     storage_buffer_sized(false, None),
-                    storage_buffer_sized(false, None),
-                    storage_buffer_sized(false, None),
+                    texture_storage_2d(TextureFormat::Rgba32Uint, StorageTextureAccess::ReadWrite),
+                    texture_storage_2d(TextureFormat::Rgba32Uint, StorageTextureAccess::ReadWrite),
                     storage_buffer_sized(false, None),
                     storage_buffer_sized(false, None),
                     texture_2d(TextureSampleType::Uint),

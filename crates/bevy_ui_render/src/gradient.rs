@@ -31,6 +31,7 @@ use bevy_render::{
     Extract, ExtractSchedule, Render, RenderSystems,
 };
 use bevy_render::{sync_world::MainEntity, RenderStartup};
+use bevy_shader::Shader;
 use bevy_sprite::BorderRect;
 use bevy_ui::{
     BackgroundGradient, BorderGradient, ColorStop, ConicGradient, Gradient,

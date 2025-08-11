@@ -5,8 +5,10 @@ mod camera_controller;
 
 use argh::FromArgs;
 use bevy::{
+    camera::CameraMainTextureUsages,
+    mesh::Indices,
     prelude::*,
-    render::{camera::CameraMainTextureUsages, mesh::Indices, render_resource::TextureUsages},
+    render::render_resource::TextureUsages,
     scene::SceneInstanceReady,
     solari::{
         pathtracer::{Pathtracer, PathtracingPlugin},
