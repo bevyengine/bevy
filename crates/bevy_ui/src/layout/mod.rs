@@ -352,38 +352,49 @@ pub fn ui_layout_system(
 
 #[cfg(test)]
 mod tests {
-    use bevy_app::{App, HierarchyPropagatePlugin, PostUpdate, Propagate, PropagateSet};
-    use taffy::TraversePartialTree;
-
-    use crate::experimental::UiRootNodes;
     use crate::{
         layout::ui_surface::UiSurface, prelude::*, ui_layout_system,
         update::update_ui_context_system, ContentSize, LayoutContext,
     };
-    use bevy_camera::{Camera, Camera2d};
+    use bevy_app::{App, HierarchyPropagatePlugin, PostUpdate, PropagateSet};
+    use bevy_camera::{Camera, Camera2d, RenderTargetInfo};
     use bevy_ecs::{prelude::*, system::RunSystemOnce};
     use bevy_math::{Rect, UVec2, Vec2};
     use bevy_platform::collections::HashMap;
     use bevy_transform::systems::mark_dirty_trees;
     use bevy_transform::systems::{propagate_parent_transforms, sync_simple_transforms};
     use bevy_utils::prelude::default;
-    use bevy_window::{PrimaryWindow, Window};
+    use bevy_window::{PrimaryWindow, Window, WindowResolution};
+    use taffy::TraversePartialTree;
 
     // these window dimensions are easy to convert to and from percentage values
-    const WINDOW_WIDTH: u32 = 1000;
-    const WINDOW_HEIGHT: u32 = 100;
+    fn update_cameras_test_system(
+        primary_window: Query<Entity, With<PrimaryWindow>>,
+        window_query: Query<&Window>,
+        mut camera_query: Query<&mut Camera>,
+    ) {
+        let primary_window = primary_window.single().ok();
+        for mut camera in camera_query.iter_mut() {
+            let Some(camera_target) = camera.target.normalize(primary_window) else {
+                continue;
+            };
+            let bevy_camera::NormalizedRenderTarget::Window(window_ref) = camera_target else {
+                continue;
+            };
+            let Ok(window) = window_query.get(window_ref.entity()) else {
+                continue;
+            };
 
-    fn update_ui_context_test_system(mut commands: Commands, ui_root_nodes: UiRootNodes) {
-        for root_entity in ui_root_nodes.iter() {
-            commands
-                .entity(root_entity)
-                .insert(Propagate(ComputedNodeTarget {
-                    camera: Entity::PLACEHOLDER,
-                    scale_factor: 1.,
-                    physical_size: UVec2::new(WINDOW_WIDTH, WINDOW_HEIGHT),
-                }));
+            let render_target_info = RenderTargetInfo {
+                physical_size: window.physical_size(),
+                scale_factor: window.scale_factor(),
+            };
+            camera.computed.target_info = Some(render_target_info);
         }
     }
+
+    const WINDOW_WIDTH: f32 = 1000.;
+    const WINDOW_HEIGHT: f32 = 100.;
 
     fn setup_ui_test_app() -> App {
         let mut app = App::new();
@@ -400,7 +411,8 @@ mod tests {
         app.add_systems(
             PostUpdate,
             (
-                update_ui_context_test_system,
+                update_cameras_test_system,
+                update_ui_context_system,
                 ApplyDeferred,
                 ui_layout_system,
                 mark_dirty_trees,
@@ -413,9 +425,20 @@ mod tests {
         app.configure_sets(
             PostUpdate,
             PropagateSet::<ComputedNodeTarget>::default()
-                .after(update_ui_context_test_system)
+                .after(update_ui_context_system)
                 .before(ui_layout_system),
         );
+
+        let world = app.world_mut();
+        // spawn a dummy primary window and camera
+        world.spawn((
+            Window {
+                resolution: WindowResolution::new(WINDOW_WIDTH, WINDOW_HEIGHT),
+                ..default()
+            },
+            PrimaryWindow,
+        ));
+        world.spawn(Camera2d);
 
         app
     }
@@ -1049,12 +1072,7 @@ mod tests {
 
         app.add_systems(
             PostUpdate,
-            (
-                update_ui_context_test_system,
-                ApplyDeferred,
-                ui_layout_system,
-            )
-                .chain(),
+            (update_ui_context_system, ApplyDeferred, ui_layout_system).chain(),
         );
 
         app.add_plugins(HierarchyPropagatePlugin::<ComputedNodeTarget>::new(
