@@ -241,7 +241,7 @@ mod tests {
 
         world.spawn((
             Window {
-                resolution: WindowResolution::new(physical_size.x as f32, physical_size.y as f32)
+                resolution: WindowResolution::new(physical_size.x, physical_size.y)
                     .with_scale_factor_override(10.),
                 ..Default::default()
             },
