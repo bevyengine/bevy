@@ -2801,7 +2801,7 @@ impl<'w, 's> DefaultUiCamera<'w, 's> {
 
 /// Derived information about the camera target for this UI node.
 ///
-/// Updated in [`UiSystems::Prepare`] by `update_ui_context_system`.
+/// Updated in [`UiSystems::Prepare`](crate::UiSystems::Prepare) by [`update_ui_context_system`](crate::update::update_ui_context_system)
 #[derive(Component, Clone, Copy, Debug, Reflect, PartialEq)]
 #[reflect(Component, Default, PartialEq, Clone)]
 pub struct ComputedNodeTarget {
