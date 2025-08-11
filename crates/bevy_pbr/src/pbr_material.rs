@@ -92,7 +92,7 @@ pub struct StandardMaterial {
     /// by the value of the greyscale emissive texture (which ranges from 0 for black to 1 for white).
     /// Luminance is a measure of the amount of light emitted per unit area,
     /// and can be thought of as the "brightness" of the effect.
-    /// In Bevy, these luminance values correspond to physical units of cd/m², aka nits.
+    /// In Bevy, we treat these luminance values as the physical units of cd/m², aka nits.
     ///
     /// Increasing the emissive strength of the color will impact visual effects
     /// like bloom, but it's important to note that **an emissive material won't
