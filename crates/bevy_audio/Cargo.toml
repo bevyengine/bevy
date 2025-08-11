@@ -19,7 +19,7 @@ bevy_transform = { path = "../bevy_transform", version = "0.17.0-dev" }
 
 # other
 # TODO: Remove `coreaudio-sys` dep below when updating `cpal`.
-rodio = { version = "0.20", default-features = false }
+rodio = { version = "0.21", default-features = false }
 tracing = { version = "0.1", default-features = false, features = ["std"] }
 
 [target.'cfg(target_os = "android")'.dependencies]
