@@ -4,16 +4,17 @@
 use std::f64::consts::PI;
 
 use bevy::{
+    camera::ScalingMode,
     color::palettes::css::DEEP_PINK,
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
     math::{DVec2, DVec3},
     pbr::{ExtractedPointLight, GlobalClusterableObjectMeta},
     prelude::*,
-    render::{camera::ScalingMode, Render, RenderApp, RenderSystems},
+    render::{Render, RenderApp, RenderSystems},
     window::{PresentMode, WindowResolution},
     winit::{UpdateMode, WinitSettings},
 };
-use rand::{thread_rng, Rng};
+use rand::{rng, Rng};
 
 fn main() {
     App::new()
@@ -72,7 +73,7 @@ fn setup(
 
     // Spawn N_LIGHTS many lights
     commands.spawn_batch((0..N_LIGHTS).map(move |i| {
-        let mut rng = thread_rng();
+        let mut rng = rng();
 
         let spherical_polar_theta_phi = fibonacci_spiral_on_sphere(golden_ratio, i, N_LIGHTS);
         let unit_sphere_p = spherical_polar_to_cartesian(spherical_polar_theta_phi);
@@ -81,7 +82,7 @@ fn setup(
             PointLight {
                 range: LIGHT_RADIUS,
                 intensity: LIGHT_INTENSITY,
-                color: Color::hsl(rng.gen_range(0.0..360.0), 1.0, 0.5),
+                color: Color::hsl(rng.random_range(0.0..360.0), 1.0, 0.5),
                 ..default()
             },
             Transform::from_translation((RADIUS as f64 * unit_sphere_p).as_vec3()),

@@ -15,9 +15,9 @@ use bevy_ecs::{
 };
 use bevy_image::Image;
 use bevy_math::{primitives::Rectangle, UVec2};
+use bevy_mesh::{Mesh, Mesh2d};
 use bevy_platform::collections::HashMap;
 use bevy_reflect::{prelude::*, Reflect};
-use bevy_render::mesh::{Mesh, Mesh2d};
 use bevy_utils::default;
 use tracing::warn;
 
@@ -31,10 +31,7 @@ pub struct TilemapChunkPlugin;
 
 impl Plugin for TilemapChunkPlugin {
     fn build(&self, app: &mut App) {
-        app.register_type::<TilemapChunkMeshCache>()
-            .register_type::<TilemapChunk>()
-            .register_type::<TilemapChunkTileData>()
-            .init_resource::<TilemapChunkMeshCache>()
+        app.init_resource::<TilemapChunkMeshCache>()
             .add_systems(Update, update_tilemap_chunk_indices);
     }
 }

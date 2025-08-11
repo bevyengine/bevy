@@ -12,6 +12,7 @@ pub mod morph;
 pub mod primitives;
 pub mod skinning;
 mod vertex;
+use bevy_ecs::schedule::SystemSet;
 use bitflags::bitflags;
 pub use components::*;
 pub use index::*;
@@ -20,6 +21,16 @@ pub use mikktspace::*;
 pub use primitives::*;
 pub use vertex::*;
 pub use wgpu_types::VertexFormat;
+
+/// The mesh prelude.
+///
+/// This includes the most common types in this crate, re-exported for your convenience.
+pub mod prelude {
+    #[doc(hidden)]
+    pub use crate::{
+        morph::MorphWeights, primitives::MeshBuilder, primitives::Meshable, Mesh, Mesh2d, Mesh3d,
+    };
+}
 
 bitflags! {
     /// Our base mesh pipeline key bits start from the highest bit and go
@@ -57,3 +68,7 @@ impl BaseMeshPipelineKey {
         }
     }
 }
+
+/// `bevy_render::mesh::inherit_weights` runs in this `SystemSet`
+#[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
+pub struct InheritWeights;

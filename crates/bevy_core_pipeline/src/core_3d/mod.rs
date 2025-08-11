@@ -69,9 +69,7 @@ pub const DEPTH_TEXTURE_SAMPLING_SUPPORTED: bool = true;
 
 use core::ops::Range;
 
-pub use bevy_camera::{
-    Camera3d, Camera3dDepthLoadOp, Camera3dDepthTextureUsage, ScreenSpaceTransmissionQuality,
-};
+use bevy_camera::{Camera, Camera3d, Camera3dDepthLoadOp};
 use bevy_render::{
     batching::gpu_preprocessing::{GpuPreprocessingMode, GpuPreprocessingSupport},
     camera::CameraRenderGraph,
@@ -91,7 +89,7 @@ use bevy_image::{BevyDefault, ToExtents};
 use bevy_math::FloatOrd;
 use bevy_platform::collections::{HashMap, HashSet};
 use bevy_render::{
-    camera::{Camera, ExtractedCamera},
+    camera::ExtractedCamera,
     extract_component::ExtractComponentPlugin,
     prelude::Msaa,
     render_graph::{EmptyNode, RenderGraphExt, ViewNodeRunner},
@@ -139,9 +137,7 @@ pub struct Core3dPlugin;
 
 impl Plugin for Core3dPlugin {
     fn build(&self, app: &mut App) {
-        app.register_type::<Camera3d>()
-            .register_type::<ScreenSpaceTransmissionQuality>()
-            .register_required_components_with::<Camera3d, DebandDither>(|| DebandDither::Enabled)
+        app.register_required_components_with::<Camera3d, DebandDither>(|| DebandDither::Enabled)
             .register_required_components_with::<Camera3d, CameraRenderGraph>(|| {
                 CameraRenderGraph::new(Core3d)
             })

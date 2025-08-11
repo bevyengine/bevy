@@ -445,7 +445,7 @@ impl EntityCloner {
     /// explicitly denied, for example by using the [`deny`](EntityClonerBuilder<OptOut>::deny) method.
     ///
     /// Required components are not considered by denied components and must be explicitly denied as well if desired.
-    pub fn build_opt_out(world: &mut World) -> EntityClonerBuilder<OptOut> {
+    pub fn build_opt_out(world: &mut World) -> EntityClonerBuilder<'_, OptOut> {
         EntityClonerBuilder {
             world,
             filter: Default::default(),
@@ -461,7 +461,7 @@ impl EntityCloner {
     /// Components allowed to be cloned through this builder would also allow their required components,
     /// which will be cloned from the source entity only if the target entity does not contain them already.
     /// To skip adding required components see [`without_required_components`](EntityClonerBuilder<OptIn>::without_required_components).
-    pub fn build_opt_in(world: &mut World) -> EntityClonerBuilder<OptIn> {
+    pub fn build_opt_in(world: &mut World) -> EntityClonerBuilder<'_, OptIn> {
         EntityClonerBuilder {
             world,
             filter: Default::default(),

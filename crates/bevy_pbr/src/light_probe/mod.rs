@@ -2,7 +2,10 @@
 
 use bevy_app::{App, Plugin};
 use bevy_asset::AssetId;
-use bevy_core_pipeline::core_3d::Camera3d;
+use bevy_camera::{
+    primitives::{Aabb, Frustum},
+    Camera3d,
+};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     component::Component,
@@ -13,13 +16,11 @@ use bevy_ecs::{
     system::{Commands, Local, Query, Res, ResMut},
 };
 use bevy_image::Image;
-use bevy_light::{EnvironmentMapLight, LightProbe};
+use bevy_light::{EnvironmentMapLight, IrradianceVolume, LightProbe};
 use bevy_math::{Affine3A, FloatOrd, Mat4, Vec3A, Vec4};
 use bevy_platform::collections::HashMap;
 use bevy_render::{
     extract_instances::ExtractInstancesPlugin,
-    load_shader_library,
-    primitives::{Aabb, Frustum},
     render_asset::RenderAssets,
     render_resource::{DynamicUniformBuffer, Sampler, ShaderType, TextureView},
     renderer::{RenderAdapter, RenderDevice, RenderQueue},
@@ -29,6 +30,7 @@ use bevy_render::{
     view::ExtractedView,
     Extract, ExtractSchedule, Render, RenderApp, RenderSystems,
 };
+use bevy_shader::load_shader_library;
 use bevy_transform::{components::Transform, prelude::GlobalTransform};
 use tracing::error;
 
@@ -37,8 +39,6 @@ use core::{hash::Hash, ops::Deref};
 use crate::{
     generate::EnvironmentMapGenerationPlugin, light_probe::environment_map::EnvironmentMapIds,
 };
-
-use self::irradiance_volume::IrradianceVolume;
 
 pub mod environment_map;
 pub mod generate;

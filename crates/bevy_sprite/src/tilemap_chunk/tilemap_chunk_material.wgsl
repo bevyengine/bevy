@@ -4,9 +4,9 @@
     mesh2d_vertex_output::VertexOutput,
 }
 
-@group(2) @binding(0) var tileset: texture_2d_array<f32>;
-@group(2) @binding(1) var tileset_sampler: sampler;
-@group(2) @binding(2) var tile_data: texture_2d<u32>;
+@group(#{MATERIAL_BIND_GROUP}) @binding(0) var tileset: texture_2d_array<f32>;
+@group(#{MATERIAL_BIND_GROUP}) @binding(1) var tileset_sampler: sampler;
+@group(#{MATERIAL_BIND_GROUP}) @binding(2) var tile_data: texture_2d<u32>;
 
 struct TileData {
     tileset_index: u32,

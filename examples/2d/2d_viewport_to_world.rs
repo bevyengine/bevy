@@ -1,13 +1,13 @@
 //! This example demonstrates how to use the `Camera::viewport_to_world_2d` method with a dynamic viewport and camera.
 
 use bevy::{
+    camera::Viewport,
     color::palettes::{
         basic::WHITE,
         css::{GREEN, RED},
     },
     math::ops::powf,
     prelude::*,
-    render::camera::Viewport,
 };
 
 fn main() {

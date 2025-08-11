@@ -409,16 +409,7 @@ impl Plugin for PickingPlugin {
                     PickingSystems::Last,
                 )
                     .chain(),
-            )
-            .register_type::<PickingSettings>()
-            .register_type::<Pickable>()
-            .register_type::<hover::PickingInteraction>()
-            .register_type::<hover::Hovered>()
-            .register_type::<pointer::PointerId>()
-            .register_type::<pointer::PointerLocation>()
-            .register_type::<pointer::PointerPress>()
-            .register_type::<pointer::PointerInteraction>()
-            .register_type::<backend::ray::RayId>();
+            );
     }
 }
 

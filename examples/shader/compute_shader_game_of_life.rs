@@ -4,16 +4,18 @@
 //! is rendered to the screen.
 
 use bevy::{
+    asset::RenderAssetUsages,
     prelude::*,
     render::{
         extract_resource::{ExtractResource, ExtractResourcePlugin},
-        render_asset::{RenderAssetUsages, RenderAssets},
+        render_asset::RenderAssets,
         render_graph::{self, RenderGraph, RenderLabel},
         render_resource::{binding_types::texture_storage_2d, *},
         renderer::{RenderContext, RenderDevice},
         texture::GpuImage,
         Render, RenderApp, RenderStartup, RenderSystems,
     },
+    shader::PipelineCacheError,
 };
 use std::borrow::Cow;
 

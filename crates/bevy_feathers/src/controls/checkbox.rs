@@ -1,4 +1,5 @@
 use bevy_app::{Plugin, PreUpdate};
+use bevy_camera::visibility::Visibility;
 use bevy_core_widgets::{Callback, CoreCheckbox, ValueChange};
 use bevy_ecs::{
     bundle::Bundle,
@@ -8,6 +9,7 @@ use bevy_ecs::{
     hierarchy::{ChildOf, Children},
     lifecycle::RemovedComponents,
     query::{Added, Changed, Has, Or, With},
+    reflect::ReflectComponent,
     schedule::IntoScheduleConfigs,
     spawn::{Spawn, SpawnRelated, SpawnableList},
     system::{Commands, In, Query},
@@ -15,7 +17,7 @@ use bevy_ecs::{
 use bevy_input_focus::tab_navigation::TabIndex;
 use bevy_math::Rot2;
 use bevy_picking::{hover::Hovered, PickingSystems};
-use bevy_render::view::Visibility;
+use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_ui::{
     AlignItems, BorderRadius, Checked, Display, FlexDirection, InteractionDisabled, JustifyContent,
     Node, PositionType, UiRect, UiTransform, Val,
@@ -38,15 +40,18 @@ pub struct CheckboxProps {
 }
 
 /// Marker for the checkbox frame (contains both checkbox and label)
-#[derive(Component, Default, Clone)]
+#[derive(Component, Default, Clone, Reflect)]
+#[reflect(Component, Clone, Default)]
 struct CheckboxFrame;
 
 /// Marker for the checkbox outline
-#[derive(Component, Default, Clone)]
+#[derive(Component, Default, Clone, Reflect)]
+#[reflect(Component, Clone, Default)]
 struct CheckboxOutline;
 
 /// Marker for the checkbox check mark
-#[derive(Component, Default, Clone)]
+#[derive(Component, Default, Clone, Reflect)]
+#[reflect(Component, Clone, Default)]
 struct CheckboxMark;
 
 /// Template function to spawn a checkbox.

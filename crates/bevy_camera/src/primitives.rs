@@ -235,7 +235,7 @@ impl HalfSpace {
 /// This process is called frustum culling, and entities can opt out of it using
 /// the [`NoFrustumCulling`] component.
 ///
-/// The frustum component is typically added automatically for cameras, either `Camera2d` or `Camera3d`.
+/// The frustum component is typically added automatically for cameras, either [`Camera2d`] or [`Camera3d`].
 /// It is usually updated automatically by [`update_frusta`] from the
 /// [`CameraProjection`] component and [`GlobalTransform`] of the camera entity.
 ///
@@ -244,6 +244,8 @@ impl HalfSpace {
 /// [`update_frusta`]: crate::visibility::update_frusta
 /// [`CameraProjection`]: crate::CameraProjection
 /// [`GlobalTransform`]: bevy_transform::components::GlobalTransform
+/// [`Camera2d`]: crate::Camera2d
+/// [`Camera3d`]: crate::Camera3d
 #[derive(Component, Clone, Copy, Debug, Default, Reflect)]
 #[reflect(Component, Default, Debug, Clone)]
 pub struct Frustum {

@@ -11,7 +11,7 @@
 //! which have made SMAA less popular when advanced photorealistic rendering
 //! features are used in recent years.
 //!
-//! To use SMAA, add [`Smaa`] to a [`bevy_render::camera::Camera`]. In a
+//! To use SMAA, add [`Smaa`] to a [`bevy_camera::Camera`]. In a
 //! pinch, you can simply use the default settings (via the [`Default`] trait)
 //! for a high-quality, high-performance appearance. When using SMAA, you will
 //! likely want set [`bevy_render::view::Msaa`] to [`bevy_render::view::Msaa::Off`]
@@ -53,6 +53,7 @@ use bevy_math::{vec4, Vec4};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
     camera::ExtractedCamera,
+    diagnostic::RecordDiagnostics,
     extract_component::{ExtractComponent, ExtractComponentPlugin},
     render_asset::RenderAssets,
     render_graph::{
@@ -64,24 +65,25 @@ use bevy_render::{
         CachedRenderPipelineId, ColorTargetState, ColorWrites, CompareFunction, DepthStencilState,
         DynamicUniformBuffer, FilterMode, FragmentState, LoadOp, Operations, PipelineCache,
         RenderPassColorAttachment, RenderPassDepthStencilAttachment, RenderPassDescriptor,
-        RenderPipeline, RenderPipelineDescriptor, SamplerBindingType, SamplerDescriptor, Shader,
-        ShaderDefVal, ShaderStages, ShaderType, SpecializedRenderPipeline,
-        SpecializedRenderPipelines, StencilFaceState, StencilOperation, StencilState, StoreOp,
-        TextureDescriptor, TextureDimension, TextureFormat, TextureSampleType, TextureUsages,
-        TextureView, VertexState,
+        RenderPipeline, RenderPipelineDescriptor, SamplerBindingType, SamplerDescriptor,
+        ShaderStages, ShaderType, SpecializedRenderPipeline, SpecializedRenderPipelines,
+        StencilFaceState, StencilOperation, StencilState, StoreOp, TextureDescriptor,
+        TextureDimension, TextureFormat, TextureSampleType, TextureUsages, TextureView,
+        VertexState,
     },
     renderer::{RenderContext, RenderDevice, RenderQueue},
     texture::{CachedTexture, GpuImage, TextureCache},
     view::{ExtractedView, ViewTarget},
     Render, RenderApp, RenderStartup, RenderSystems,
 };
+use bevy_shader::{Shader, ShaderDefVal};
 use bevy_utils::prelude::default;
 
 /// Adds support for subpixel morphological antialiasing, or SMAA.
 pub struct SmaaPlugin;
 
 /// A component for enabling Subpixel Morphological Anti-Aliasing (SMAA)
-/// for a [`bevy_render::camera::Camera`].
+/// for a [`bevy_camera::Camera`].
 #[derive(Clone, Copy, Default, Component, Reflect, ExtractComponent)]
 #[reflect(Component, Default, Clone)]
 #[doc(alias = "SubpixelMorphologicalAntiAliasing")]
@@ -312,8 +314,7 @@ impl Plugin for SmaaPlugin {
             }
         };
 
-        app.add_plugins(ExtractComponentPlugin::<Smaa>::default())
-            .register_type::<Smaa>();
+        app.add_plugins(ExtractComponentPlugin::<Smaa>::default());
 
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
@@ -824,6 +825,10 @@ impl ViewNode for SmaaNode {
             return Ok(());
         };
 
+        let diagnostics = render_context.diagnostic_recorder();
+        render_context.command_encoder().push_debug_group("smaa");
+        let time_span = diagnostics.time_span(render_context.command_encoder(), "smaa");
+
         // Fetch the framebuffer textures.
         let postprocess = view_target.post_process_write();
         let (source, destination) = (postprocess.source, postprocess.destination);
@@ -863,6 +868,9 @@ impl ViewNode for SmaaNode {
             source,
             destination,
         );
+
+        time_span.end(render_context.command_encoder());
+        render_context.command_encoder().pop_debug_group();
 
         Ok(())
     }

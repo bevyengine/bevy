@@ -1,6 +1,7 @@
 use bevy_ecs::{query::QueryItem, system::lifetimeless::Read, world::World};
 use bevy_math::{UVec2, Vec3Swizzles};
 use bevy_render::{
+    diagnostic::RecordDiagnostics,
     extract_component::DynamicUniformIndex,
     render_graph::{NodeRunError, RenderGraphContext, RenderLabel, ViewNode},
     render_resource::{ComputePass, ComputePassDescriptor, PipelineCache, RenderPassDescriptor},
@@ -70,12 +71,15 @@ impl ViewNode for AtmosphereLutsNode {
             return Ok(());
         };
 
+        let diagnostics = render_context.diagnostic_recorder();
+
         let command_encoder = render_context.command_encoder();
 
         let mut luts_pass = command_encoder.begin_compute_pass(&ComputePassDescriptor {
-            label: Some("atmosphere_luts_pass"),
+            label: Some("atmosphere_luts"),
             timestamp_writes: None,
         });
+        let pass_span = diagnostics.time_span(&mut luts_pass, "atmosphere_luts");
 
         fn dispatch_2d(compute_pass: &mut ComputePass, size: UVec2) {
             const WORKGROUP_SIZE: u32 = 16;
@@ -149,6 +153,8 @@ impl ViewNode for AtmosphereLutsNode {
 
         dispatch_2d(&mut luts_pass, settings.aerial_view_lut_size.xy());
 
+        pass_span.end(&mut luts_pass);
+
         Ok(())
     }
 }
@@ -191,16 +197,19 @@ impl ViewNode for RenderSkyNode {
             return Ok(());
         }; //TODO: warning
 
+        let diagnostics = render_context.diagnostic_recorder();
+
         let mut render_sky_pass =
             render_context
                 .command_encoder()
                 .begin_render_pass(&RenderPassDescriptor {
-                    label: Some("render_sky_pass"),
+                    label: Some("render_sky"),
                     color_attachments: &[Some(view_target.get_color_attachment())],
                     depth_stencil_attachment: None,
                     timestamp_writes: None,
                     occlusion_query_set: None,
                 });
+        let pass_span = diagnostics.pass_span(&mut render_sky_pass, "render_sky");
 
         render_sky_pass.set_pipeline(render_sky_pipeline);
         render_sky_pass.set_bind_group(
@@ -215,6 +224,8 @@ impl ViewNode for RenderSkyNode {
             ],
         );
         render_sky_pass.draw(0..3, 0..1);
+
+        pass_span.end(&mut render_sky_pass);
 
         Ok(())
     }

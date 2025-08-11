@@ -62,8 +62,6 @@ impl Plugin for ScenePlugin {
             .init_asset::<Scene>()
             .init_asset_loader::<SceneLoader>()
             .init_resource::<SceneSpawner>()
-            .register_type::<SceneRoot>()
-            .register_type::<DynamicSceneRoot>()
             .add_systems(SpawnScene, (scene_spawner, scene_spawner_system).chain());
 
         // Register component hooks for DynamicSceneRoot
@@ -194,7 +192,8 @@ mod tests {
 
         app.world_mut()
             .resource_mut::<Assets<Scene>>()
-            .insert(&scene_handle, scene_1);
+            .insert(&scene_handle, scene_1)
+            .unwrap();
 
         app.update();
 
@@ -247,7 +246,8 @@ mod tests {
 
         app.world_mut()
             .resource_mut::<Assets<Scene>>()
-            .insert(&scene_handle, scene_2);
+            .insert(&scene_handle, scene_2)
+            .unwrap();
 
         app.update();
         app.update();
@@ -332,7 +332,8 @@ mod tests {
         let scene_1 = create_dynamic_scene(scene_1, app.world());
         app.world_mut()
             .resource_mut::<Assets<DynamicScene>>()
-            .insert(&scene_handle, scene_1);
+            .insert(&scene_handle, scene_1)
+            .unwrap();
 
         app.update();
 
@@ -387,7 +388,8 @@ mod tests {
 
         app.world_mut()
             .resource_mut::<Assets<DynamicScene>>()
-            .insert(&scene_handle, scene_2);
+            .insert(&scene_handle, scene_2)
+            .unwrap();
 
         app.update();
         app.update();

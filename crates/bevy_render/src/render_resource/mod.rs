@@ -16,7 +16,6 @@ mod storage_buffer;
 mod texture;
 mod uniform_buffer;
 
-pub use bevy_shader::*;
 pub use bind_group::*;
 pub use bind_group_entries::*;
 pub use bind_group_layout::*;
@@ -65,8 +64,6 @@ pub use wgpu::{
     VertexBufferLayout as RawVertexBufferLayout, VertexFormat, VertexState as RawVertexState,
     VertexStepMode, COPY_BUFFER_ALIGNMENT,
 };
-
-pub use crate::mesh::VertexBufferLayout;
 
 pub mod encase {
     pub use bevy_encase_derive::ShaderType;

@@ -1,5 +1,5 @@
 use crate::{
-    component::{CheckChangeTicks, ComponentId, Tick},
+    component::{CheckChangeTicks, Tick},
     error::Result,
     query::FilteredAccessSet,
     schedule::{InternedSystemSet, SystemSet},
@@ -176,7 +176,7 @@ where
     }
 
     #[inline]
-    fn initialize(&mut self, world: &mut World) -> FilteredAccessSet<ComponentId> {
+    fn initialize(&mut self, world: &mut World) -> FilteredAccessSet {
         self.system_meta.last_run = world.change_tick().relative_to(Tick::MAX);
         self.param_state = Some(F::Param::init(world, &mut self.system_meta));
         FilteredAccessSet::new()
