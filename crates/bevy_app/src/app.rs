@@ -256,12 +256,14 @@ impl App {
     /// plugins are ready, but can be useful for situations where you want to use [`App::update`].
     pub fn finish(&mut self) {
         // plugins installed to main should see all sub-apps
-        let plugins = core::mem::take(&mut self.main_mut().plugin_registry);
-        for plugin in &plugins {
+        let len = self.main().plugin_registry.len();
+        for i in 0..len {
+            let plugin = self.main_mut().plugin_registry.swap_remove(i);
             plugin.finish(self);
+            self.main_mut().plugin_registry.push(plugin);
+            self.main_mut().plugin_registry.swap(i, len - 1);
         }
         let main = self.main_mut();
-        main.plugin_registry = plugins;
         main.plugins_state = PluginsState::Finished;
         self.sub_apps.iter_mut().skip(1).for_each(SubApp::finish);
     }
@@ -270,12 +272,14 @@ impl App {
     /// [`App::finish`], but can be useful for situations where you want to use [`App::update`].
     pub fn cleanup(&mut self) {
         // plugins installed to main should see all sub-apps
-        let plugins = core::mem::take(&mut self.main_mut().plugin_registry);
-        for plugin in &plugins {
+        let len = self.main().plugin_registry.len();
+        for i in 0..len {
+            let plugin = self.main_mut().plugin_registry.swap_remove(i);
             plugin.cleanup(self);
+            self.main_mut().plugin_registry.push(plugin);
+            self.main_mut().plugin_registry.swap(i, len - 1);
         }
         let main = self.main_mut();
-        main.plugin_registry = plugins;
         main.plugins_state = PluginsState::Cleaned;
         self.sub_apps.iter_mut().skip(1).for_each(SubApp::cleanup);
     }

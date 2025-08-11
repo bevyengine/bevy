@@ -401,25 +401,29 @@ impl SubApp {
 
     /// Runs [`Plugin::finish`] for each plugin.
     pub fn finish(&mut self) {
-        let plugins = core::mem::take(&mut self.plugin_registry);
-        self.run_as_app(|app| {
-            for plugin in &plugins {
+        let len = self.plugin_registry.len();
+        for i in 0..len {
+            let plugin = self.plugin_registry.swap_remove(i);
+            self.run_as_app(|app| {
                 plugin.finish(app);
-            }
-        });
-        self.plugin_registry = plugins;
+            });
+            self.plugin_registry.push(plugin);
+            self.plugin_registry.swap(i, len - 1);
+        }
         self.plugins_state = PluginsState::Finished;
     }
 
     /// Runs [`Plugin::cleanup`] for each plugin.
     pub fn cleanup(&mut self) {
-        let plugins = core::mem::take(&mut self.plugin_registry);
-        self.run_as_app(|app| {
-            for plugin in &plugins {
+        let len = self.plugin_registry.len();
+        for i in 0..len {
+            let plugin = self.plugin_registry.swap_remove(i);
+            self.run_as_app(|app| {
                 plugin.cleanup(app);
-            }
-        });
-        self.plugin_registry = plugins;
+            });
+            self.plugin_registry.push(plugin);
+            self.plugin_registry.swap(i, len - 1);
+        }
         self.plugins_state = PluginsState::Cleaned;
     }
 
