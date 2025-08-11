@@ -401,28 +401,28 @@ impl SubApp {
 
     /// Runs [`Plugin::finish`] for each plugin.
     pub fn finish(&mut self) {
-        let len = self.plugin_registry.len();
-        for i in 0..len {
-            let plugin = self.plugin_registry.swap_remove(i);
+        // do hokey pokey with a boxed zst plugin (doesn't allocate)
+        let mut hokeypokey: Box<dyn Plugin> = Box::new(crate::HokeyPokey);
+        for i in 0..self.plugin_registry.len() {
+            core::mem::swap(&mut self.plugin_registry[i], &mut hokeypokey);
             self.run_as_app(|app| {
-                plugin.finish(app);
+                hokeypokey.finish(app);
             });
-            self.plugin_registry.push(plugin);
-            self.plugin_registry.swap(i, len - 1);
+            core::mem::swap(&mut self.plugin_registry[i], &mut hokeypokey);
         }
         self.plugins_state = PluginsState::Finished;
     }
 
     /// Runs [`Plugin::cleanup`] for each plugin.
     pub fn cleanup(&mut self) {
-        let len = self.plugin_registry.len();
-        for i in 0..len {
-            let plugin = self.plugin_registry.swap_remove(i);
+        // do hokey pokey with a boxed zst plugin (doesn't allocate)
+        let mut hokeypokey: Box<dyn Plugin> = Box::new(crate::HokeyPokey);
+        for i in 0..self.plugin_registry.len() {
+            core::mem::swap(&mut self.plugin_registry[i], &mut hokeypokey);
             self.run_as_app(|app| {
-                plugin.cleanup(app);
+                hokeypokey.cleanup(app);
             });
-            self.plugin_registry.push(plugin);
-            self.plugin_registry.swap(i, len - 1);
+            core::mem::swap(&mut self.plugin_registry[i], &mut hokeypokey);
         }
         self.plugins_state = PluginsState::Cleaned;
     }
