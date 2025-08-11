@@ -11,11 +11,6 @@ pub(crate) trait ConvertCoordinates {
     fn convert_coordinates(self) -> Self;
 }
 
-// XXX TODO: Documentation.
-pub(crate) trait ConvertInverseCoordinates {
-    fn convert_inverse_coordinates(self) -> Self;
-}
-
 impl ConvertCoordinates for Vec3 {
     fn convert_coordinates(self) -> Self {
         Vec3::new(-self.x, self.y, -self.z)
@@ -32,13 +27,6 @@ impl ConvertCoordinates for [f32; 4] {
     fn convert_coordinates(self) -> Self {
         // Solution of q' = r q r*
         [-self[0], self[1], -self[2], self[3]]
-    }
-}
-
-// XXX TODO: Documentation.
-impl ConvertInverseCoordinates for Mat4 {
-    fn convert_inverse_coordinates(self) -> Self {
-        self * Mat4::from_scale(Vec3::new(-1.0, 1.0, -1.0))
     }
 }
 
@@ -78,12 +66,16 @@ pub struct GltfConvertCoordinates {
 }
 
 impl GltfConvertCoordinates {
-    const TRANSFORM_BEVY_FROM_GLTF: Transform =
+    const CONVERSION_TRANSFORM: Transform =
         Transform::from_rotation(Quat::from_xyzw(0.0, 1.0, 0.0, 0.0));
+
+    fn conversion_mat4() -> Mat4 {
+        Mat4::from_scale(Vec3::new(-1.0, 1.0, -1.0))
+    }
 
     pub(crate) fn scene_conversion_transform(&self) -> Transform {
         if self.scenes {
-            Self::TRANSFORM_BEVY_FROM_GLTF
+            Self::CONVERSION_TRANSFORM
         } else {
             Transform::IDENTITY
         }
@@ -91,9 +83,17 @@ impl GltfConvertCoordinates {
 
     pub(crate) fn mesh_conversion_transform(&self) -> Transform {
         if self.meshes {
-            Self::TRANSFORM_BEVY_FROM_GLTF
+            Self::CONVERSION_TRANSFORM
         } else {
             Transform::IDENTITY
+        }
+    }
+
+    pub(crate) fn mesh_conversion_mat4(&self) -> Mat4 {
+        if self.meshes {
+            Self::conversion_mat4()
+        } else {
+            Mat4::IDENTITY
         }
     }
 }

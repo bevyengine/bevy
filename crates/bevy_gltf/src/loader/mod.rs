@@ -61,9 +61,8 @@ use thiserror::Error;
 use tracing::{error, info_span, warn};
 
 use crate::{
-    convert_coordinates::ConvertInverseCoordinates as _, vertex_attributes::convert_attribute,
-    Gltf, GltfAssetLabel, GltfExtras, GltfMaterialExtras, GltfMaterialName, GltfMeshExtras,
-    GltfMeshName, GltfNode, GltfSceneExtras, GltfSkin,
+    vertex_attributes::convert_attribute, Gltf, GltfAssetLabel, GltfExtras, GltfMaterialExtras,
+    GltfMaterialName, GltfMeshExtras, GltfMeshName, GltfNode, GltfSceneExtras, GltfSkin,
 };
 
 #[cfg(feature = "bevy_animation")]
@@ -780,15 +779,11 @@ impl GltfLoader {
                 let local_to_bone_bind_matrices: Vec<Mat4> = reader
                     .read_inverse_bind_matrices()
                     .map(|mats| {
-                        mats.map(|mat| Mat4::from_cols_array_2d(&mat))
-                            .map(|mat| {
-                                if convert_coordinates.meshes {
-                                    mat.convert_inverse_coordinates()
-                                } else {
-                                    mat
-                                }
-                            })
-                            .collect()
+                        mats.map(|mat| {
+                            Mat4::from_cols_array_2d(&mat)
+                                * convert_coordinates.mesh_conversion_mat4()
+                        })
+                        .collect()
                     })
                     .unwrap_or_else(|| {
                         core::iter::repeat_n(Mat4::IDENTITY, gltf_skin.joints().len()).collect()
