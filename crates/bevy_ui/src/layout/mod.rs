@@ -474,8 +474,8 @@ mod tests {
 
         for ui_entity in [ui_root, ui_child] {
             let layout = ui_surface.get_layout(ui_entity, true).unwrap().0;
-            assert_eq!(layout.size.width, WINDOW_WIDTH as f32);
-            assert_eq!(layout.size.height, WINDOW_HEIGHT as f32);
+            assert_eq!(layout.size.width, WINDOW_WIDTH);
+            assert_eq!(layout.size.height, WINDOW_HEIGHT);
         }
     }
 
