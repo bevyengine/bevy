@@ -47,7 +47,7 @@ std::thread_local! {
     static LOCAL_QUEUE: UnsafeCell<LocalQueue> = const {
         UnsafeCell::new(LocalQueue {
             local_queue: VecDeque::new(),
-            local_active:Slab::new(),
+            local_active: Slab::new(),
         })
     };
 }
@@ -788,26 +788,26 @@ impl Runner<'_> {
                 }
 
                 // Try stealing from other runners.
-                let stealer_queues = self.state.stealer_queues.read().unwrap();
+                if let Ok(stealer_queues) = self.state.stealer_queues.try_read() {
+                    // Pick a random starting point in the iterator list and rotate the list.
+                    let n = stealer_queues.len();
+                    let start = rng.usize(..n);
+                    let iter = stealer_queues
+                        .iter()
+                        .chain(stealer_queues.iter())
+                        .skip(start)
+                        .take(n);
 
-                // Pick a random starting point in the iterator list and rotate the list.
-                let n = stealer_queues.len();
-                let start = rng.usize(..n);
-                let iter = stealer_queues
-                    .iter()
-                    .chain(stealer_queues.iter())
-                    .skip(start)
-                    .take(n);
+                    // Remove this runner's local queue.
+                    let iter =
+                        iter.filter(|local| !core::ptr::eq(**local, &self.local_state.stealable_queue));
 
-                // Remove this runner's local queue.
-                let iter =
-                    iter.filter(|local| !core::ptr::eq(**local, &self.local_state.stealable_queue));
-
-                // Try stealing from each local queue in the list.
-                for local in iter {
-                    steal(*local, &self.local_state.stealable_queue);
-                    if let Some(r) = self.local_state.stealable_queue.pop() {
-                        return Some(r);
+                    // Try stealing from each local queue in the list.
+                    for local in iter {
+                        steal(*local, &self.local_state.stealable_queue);
+                        if let Some(r) = self.local_state.stealable_queue.pop() {
+                            return Some(r);
+                        }
                     }
                 }
 
