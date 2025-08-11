@@ -352,33 +352,38 @@ pub fn ui_layout_system(
 
 #[cfg(test)]
 mod tests {
-    use bevy_app::{App, HierarchyPropagatePlugin, PostUpdate, PropagateSet};
+    use bevy_app::{App, HierarchyPropagatePlugin, PostUpdate, Propagate, PropagateSet};
     use taffy::TraversePartialTree;
 
-    use bevy_asset::{AssetEvent, Assets};
-    use bevy_camera::{Camera, Camera2d};
-    use bevy_ecs::{prelude::*, system::RunSystemOnce};
-    use bevy_image::Image;
-    use bevy_math::{Rect, UVec2, Vec2};
-    use bevy_platform::collections::HashMap;
-    use bevy_render::texture::ManualTextureViews;
-    use bevy_transform::systems::mark_dirty_trees;
-    use bevy_transform::systems::{propagate_parent_transforms, sync_simple_transforms};
-    use bevy_utils::prelude::default;
-    use bevy_window::{
-        PrimaryWindow, Window, WindowCreated, WindowResized, WindowResolution,
-        WindowScaleFactorChanged,
-    };
-    //use uuid::timestamp::UUID_TICKS_BETWEEN_EPOCHS;
-
+    use crate::experimental::UiRootNodes;
     use crate::{
         layout::ui_surface::UiSurface, prelude::*, ui_layout_system,
         update::update_ui_context_system, ContentSize, LayoutContext,
     };
+    use bevy_camera::{Camera, Camera2d};
+    use bevy_ecs::{prelude::*, system::RunSystemOnce};
+    use bevy_math::{Rect, UVec2, Vec2};
+    use bevy_platform::collections::HashMap;
+    use bevy_transform::systems::mark_dirty_trees;
+    use bevy_transform::systems::{propagate_parent_transforms, sync_simple_transforms};
+    use bevy_utils::prelude::default;
+    use bevy_window::{PrimaryWindow, Window};
 
     // these window dimensions are easy to convert to and from percentage values
-    const WINDOW_WIDTH: f32 = 1000.;
-    const WINDOW_HEIGHT: f32 = 100.;
+    const WINDOW_WIDTH: u32 = 1000;
+    const WINDOW_HEIGHT: u32 = 100;
+
+    fn update_ui_context_test_system(mut commands: Commands, ui_root_nodes: UiRootNodes) {
+        for root_entity in ui_root_nodes.iter() {
+            commands
+                .entity(root_entity)
+                .insert(Propagate(ComputedNodeTarget {
+                    camera: Entity::PLACEHOLDER,
+                    scale_factor: 1.,
+                    physical_size: UVec2::new(WINDOW_WIDTH, WINDOW_HEIGHT),
+                }));
+        }
+    }
 
     fn setup_ui_test_app() -> App {
         let mut app = App::new();
@@ -388,13 +393,6 @@ mod tests {
         ));
         app.init_resource::<UiScale>();
         app.init_resource::<UiSurface>();
-        app.init_resource::<Events<WindowScaleFactorChanged>>();
-        app.init_resource::<Events<WindowResized>>();
-        // Required for the camera system
-        app.init_resource::<Events<WindowCreated>>();
-        app.init_resource::<Events<AssetEvent<Image>>>();
-        app.init_resource::<Assets<Image>>();
-        app.init_resource::<ManualTextureViews>();
         app.init_resource::<bevy_text::TextPipeline>();
         app.init_resource::<bevy_text::CosmicFontSystem>();
         app.init_resource::<bevy_text::SwashCache>();
@@ -402,9 +400,7 @@ mod tests {
         app.add_systems(
             PostUpdate,
             (
-                // UI is driven by calculated camera target info, so we need to run the camera system first
-                bevy_render::camera::camera_system,
-                update_ui_context_system,
+                update_ui_context_test_system,
                 ApplyDeferred,
                 ui_layout_system,
                 mark_dirty_trees,
@@ -417,20 +413,9 @@ mod tests {
         app.configure_sets(
             PostUpdate,
             PropagateSet::<ComputedNodeTarget>::default()
-                .after(update_ui_context_system)
+                .after(update_ui_context_test_system)
                 .before(ui_layout_system),
         );
-
-        let world = app.world_mut();
-        // spawn a dummy primary window and camera
-        world.spawn((
-            Window {
-                resolution: WindowResolution::new(WINDOW_WIDTH, WINDOW_HEIGHT),
-                ..default()
-            },
-            PrimaryWindow,
-        ));
-        world.spawn(Camera2d);
 
         app
     }
@@ -466,8 +451,8 @@ mod tests {
 
         for ui_entity in [ui_root, ui_child] {
             let layout = ui_surface.get_layout(ui_entity, true).unwrap().0;
-            assert_eq!(layout.size.width, WINDOW_WIDTH);
-            assert_eq!(layout.size.height, WINDOW_HEIGHT);
+            assert_eq!(layout.size.width, WINDOW_WIDTH as f32);
+            assert_eq!(layout.size.height, WINDOW_HEIGHT as f32);
         }
     }
 
@@ -1065,9 +1050,7 @@ mod tests {
         app.add_systems(
             PostUpdate,
             (
-                // UI is driven by calculated camera target info, so we need to run the camera system first
-                bevy_render::camera::camera_system,
-                update_ui_context_system,
+                update_ui_context_test_system,
                 ApplyDeferred,
                 ui_layout_system,
             )
@@ -1088,28 +1071,12 @@ mod tests {
         let world = app.world_mut();
         world.init_resource::<UiScale>();
         world.init_resource::<UiSurface>();
-        world.init_resource::<Events<WindowScaleFactorChanged>>();
-        world.init_resource::<Events<WindowResized>>();
-        // Required for the camera system
-        world.init_resource::<Events<WindowCreated>>();
-        world.init_resource::<Events<AssetEvent<Image>>>();
-        world.init_resource::<Assets<Image>>();
-        world.init_resource::<ManualTextureViews>();
 
         world.init_resource::<bevy_text::TextPipeline>();
 
         world.init_resource::<bevy_text::CosmicFontSystem>();
 
         world.init_resource::<bevy_text::SwashCache>();
-
-        // spawn a dummy primary window and camera
-        world.spawn((
-            Window {
-                resolution: WindowResolution::new(WINDOW_WIDTH, WINDOW_HEIGHT),
-                ..default()
-            },
-            PrimaryWindow,
-        ));
 
         let ui_root = world
             .spawn(Node {
