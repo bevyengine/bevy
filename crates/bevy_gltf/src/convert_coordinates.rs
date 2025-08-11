@@ -89,6 +89,12 @@ impl GltfConvertCoordinates {
         }
     }
 
+    pub(crate) fn mesh_conversion_transform_inverse(&self) -> Transform {
+        // We magically know that the transform is its own inverse. We still
+        // make a distinction at the interface level in case that changes.
+        self.mesh_conversion_transform()
+    }
+
     pub(crate) fn mesh_conversion_mat4(&self) -> Mat4 {
         if self.meshes {
             Self::conversion_mat4()

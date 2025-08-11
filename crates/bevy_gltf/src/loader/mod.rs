@@ -899,7 +899,6 @@ impl GltfLoader {
             let mut entity_to_skin_index_map = EntityHashMap::default();
             let mut scene_load_context = load_context.begin_labeled_asset();
 
-            // XXX TODO: Document.
             let world_root_transform = convert_coordinates.scene_conversion_transform();
 
             let world_root_id = world
@@ -1482,8 +1481,10 @@ fn load_node(
                 };
                 let bounds = primitive.bounding_box();
 
-                // XXX TODO: Document.
-                let mesh_entity_transform = convert_coordinates.mesh_conversion_transform();
+                // Apply the inverse of the conversion transform that's been
+                // applied to the mesh asset. This preserves the mesh's relation
+                // to the node transform.
+                let mesh_entity_transform = convert_coordinates.mesh_conversion_transform_inverse();
 
                 let mut mesh_entity = parent.spawn((
                     // TODO: handle missing label handle errors here?
