@@ -197,6 +197,7 @@ mod tests {
             .insert(&scene_handle, scene_1);
 
         app.update();
+        // TODO: multiple updates to avoid debounced asset events. See comment on SceneSpawner::debounced_scene_asset_events
         app.update();
         app.update();
         app.update();
@@ -338,6 +339,7 @@ mod tests {
             .insert(&scene_handle, scene_1);
 
         app.update();
+        // TODO: multiple updates to avoid debounced asset events. See comment on SceneSpawner::debounced_scene_asset_events
         app.update();
         app.update();
         app.update();
