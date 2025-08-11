@@ -439,7 +439,7 @@ fn prepare_taa_history_textures(
             texture_descriptor.label = Some("taa_history_2_texture");
             let history_2_texture = texture_cache.get(&render_device, texture_descriptor);
 
-            let textures = if frame_count.0 % 2 == 0 {
+            let textures = if frame_count.0.is_multiple_of(2) {
                 TemporalAntiAliasHistoryTextures {
                     write: history_1_texture,
                     read: history_2_texture,
