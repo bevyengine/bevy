@@ -675,7 +675,7 @@ impl Ticker<'_> {
     /// Waits for the next runnable task to run, given a function that searches for a task.
     /// 
     /// # Safety
-    /// Caller must not access LOCAL_QUEUE either directly or with try_with_local_queue` in any way inside `search`.
+    /// Caller must not access `LOCAL_QUEUE` either directly or with `try_with_local_queue` in any way inside `search`.
     unsafe fn runnable_with(&mut self, mut search: impl FnMut(&mut LocalQueue) -> Option<Runnable>) -> impl Future<Output = Runnable> {
         future::poll_fn(move |cx| {
             // SAFETY: Caller must ensure that there's no instances where LOCAL_QUEUE is accessed mutably
