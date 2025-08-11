@@ -106,7 +106,7 @@ use super::{Res, ResMut, SystemState};
 ///
 /// The implementor must ensure that the state returned
 /// from [`SystemParamBuilder::build`] is valid for `P`.
-/// Note that the exact safety requiremensts depend on the implementation of [`SystemParam`],
+/// Note that the exact safety requirements depend on the implementation of [`SystemParam`],
 /// so if `Self` is not a local type then you must call [`SystemParam::init_state`]
 /// or another [`SystemParamBuilder::build`].
 pub unsafe trait SystemParamBuilder<P: SystemParam>: Sized {
