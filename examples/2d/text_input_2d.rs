@@ -1,17 +1,15 @@
-//! basic bevy_2d text input
+//! basic `bevy_2d` text input
 use std::any::TypeId;
 
 use bevy::{
+    camera::{primitives::Aabb, visibility::VisibilityClass},
     color::palettes::{
         css::NAVY,
         tailwind::{BLUE_900, GRAY_300, GRAY_400, SKY_300},
     },
     input::keyboard::{Key, KeyboardInput},
     prelude::*,
-    render::{
-        primitives::Aabb, sync_world::TemporaryRenderEntity, view::VisibilityClass, Extract,
-        RenderApp,
-    },
+    render::{sync_world::TemporaryRenderEntity, Extract, RenderApp},
     sprite::{
         Anchor, ExtractedSlice, ExtractedSlices, ExtractedSprite, ExtractedSpriteKind,
         ExtractedSprites,
@@ -85,14 +83,11 @@ fn setup(mut commands: Commands) {
         ))
         .observe(
             move |event: On<TextInputEvent>, mut query: Query<&mut Text2d>| {
-                match event.event() {
-                    TextInputEvent::Submission { text } => {
-                        if let Ok(mut target) = query.get_mut(submit_target) {
-                            target.0 = text.clone();
-                        }
-                    }
-                    _ => {}
-                };
+                if let TextInputEvent::Submission { text } = event.event()
+                    && let Ok(mut target) = query.get_mut(submit_target)
+                {
+                    target.0 = text.clone();
+                }
             },
         );
 }
