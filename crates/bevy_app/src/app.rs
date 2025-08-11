@@ -1530,6 +1530,28 @@ mod tests {
         }
     }
 
+    struct PluginF;
+
+    impl Plugin for PluginF {
+        fn build(&self, _app: &mut App) {}
+
+        fn finish(&self, app: &mut App) {
+            // Ensure other plugins are available during finish
+            assert_eq!(
+                app.is_plugin_added::<PluginA>(),
+                !app.get_added_plugins::<PluginA>().is_empty(),
+            );
+        }
+
+        fn cleanup(&self, app: &mut App) {
+            // Ensure other plugins are available during finish
+            assert_eq!(
+                app.is_plugin_added::<PluginA>(),
+                !app.get_added_plugins::<PluginA>().is_empty(),
+            );
+        }
+    }
+
     #[test]
     fn can_add_two_plugins() {
         App::new().add_plugins((PluginA, PluginB));
@@ -1596,6 +1618,14 @@ mod tests {
         let mut app = App::new();
         app.add_plugins(PluginA);
         app.add_plugins(PluginE);
+        app.finish();
+    }
+
+    #[test]
+    fn test_get_added_plugins_works_during_finish_and_cleanup() {
+        let mut app = App::new();
+        app.add_plugins(PluginA);
+        app.add_plugins(PluginF);
         app.finish();
     }
 
