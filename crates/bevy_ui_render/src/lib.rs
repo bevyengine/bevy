@@ -36,29 +36,21 @@ use bevy_core_pipeline::core_2d::graph::{Core2d, Node2d};
 use bevy_core_pipeline::core_3d::graph::{Core3d, Node3d};
 use bevy_ecs::prelude::*;
 use bevy_ecs::system::SystemParam;
-use bevy_image::prelude::*;
+use bevy_image::{prelude::*, TRANSPARENT_IMAGE_HANDLE};
 use bevy_math::{Affine2, FloatOrd, Mat4, Rect, UVec4, Vec2};
-use bevy_render::render_graph::{NodeRunError, RenderGraphContext};
-use bevy_render::render_phase::ViewSortedRenderPhases;
-use bevy_render::renderer::RenderContext;
-use bevy_render::sync_world::MainEntity;
-use bevy_render::texture::TRANSPARENT_IMAGE_HANDLE;
-use bevy_render::view::{Hdr, RetainedViewEntity};
-use bevy_render::RenderStartup;
 use bevy_render::{
     render_asset::RenderAssets,
-    render_graph::{Node as RenderGraphNode, RenderGraph},
-    render_phase::{sort_phase_system, AddRenderCommand, DrawFunctions},
+    render_graph::{Node as RenderGraphNode, NodeRunError, RenderGraph, RenderGraphContext},
+    render_phase::{
+        sort_phase_system, AddRenderCommand, DrawFunctions, PhaseItem, PhaseItemExtraIndex,
+        ViewSortedRenderPhases,
+    },
     render_resource::*,
-    renderer::{RenderDevice, RenderQueue},
-    view::{ExtractedView, ViewUniforms},
-    Extract, RenderApp, RenderSystems,
-};
-use bevy_render::{
-    render_phase::{PhaseItem, PhaseItemExtraIndex},
-    sync_world::{RenderEntity, TemporaryRenderEntity},
+    renderer::{RenderContext, RenderDevice, RenderQueue},
+    sync_world::{MainEntity, RenderEntity, TemporaryRenderEntity},
     texture::GpuImage,
-    ExtractSchedule, Render,
+    view::{ExtractedView, Hdr, RetainedViewEntity, ViewUniforms},
+    Extract, ExtractSchedule, Render, RenderApp, RenderStartup, RenderSystems,
 };
 use bevy_sprite::{BorderRect, SpriteAssetEvents};
 #[cfg(feature = "bevy_ui_debug")]
