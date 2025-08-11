@@ -47,14 +47,11 @@ mod volumetric_fog;
 use bevy_color::{Color, LinearRgba};
 
 pub use atmosphere::*;
-use bevy_light::SimulationLightSystems;
-pub use bevy_light::{
-    light_consts, AmbientLight, CascadeShadowConfig, CascadeShadowConfigBuilder, Cascades,
-    ClusteredDecal, DirectionalLight, DirectionalLightShadowMap, DirectionalLightTexture,
-    FogVolume, IrradianceVolume, LightPlugin, LightProbe, NotShadowCaster, NotShadowReceiver,
-    PointLight, PointLightShadowMap, PointLightTexture, ShadowFilteringMethod, SpotLight,
-    SpotLightTexture, TransmittedShadowReceiver, VolumetricFog, VolumetricLight,
+use bevy_light::{
+    AmbientLight, DirectionalLight, LightPlugin, PointLight, ShadowFilteringMethod,
+    SimulationLightSystems, SpotLight,
 };
+use bevy_shader::{load_shader_library, ShaderRef};
 pub use cluster::*;
 pub use components::*;
 pub use decal::clustered::ClusteredDecalPlugin;
@@ -85,11 +82,6 @@ pub mod prelude {
         parallax::ParallaxMappingMethod,
         pbr_material::StandardMaterial,
         ssao::ScreenSpaceAmbientOcclusionPlugin,
-    };
-    #[doc(hidden)]
-    pub use bevy_light::{
-        light_consts, AmbientLight, DirectionalLight, EnvironmentMapLight,
-        GeneratedEnvironmentMapLight, LightProbe, PointLight, SpotLight,
     };
 }
 
@@ -141,13 +133,12 @@ use bevy_image::{CompressedImageFormats, ImageType};
 use bevy_image::{Image, ImageSampler};
 use bevy_render::{
     alpha::AlphaMode,
-    camera::{sort_cameras, Projection},
+    camera::sort_cameras,
     extract_component::ExtractComponentPlugin,
     extract_resource::ExtractResourcePlugin,
-    load_shader_library,
     render_graph::RenderGraph,
     render_resource::{
-        Extent3d, ShaderRef, TextureDataOrder, TextureDescriptor, TextureDimension, TextureFormat,
+        Extent3d, TextureDataOrder, TextureDescriptor, TextureDimension, TextureFormat,
         TextureUsages,
     },
     sync_component::SyncComponentPlugin,
@@ -223,7 +214,6 @@ impl Plugin for PbrPlugin {
         load_shader_library!(app, "meshlet/dummy_visibility_buffer_resolve.wgsl");
 
         app.register_asset_reflect::<StandardMaterial>()
-            .register_type::<DefaultOpaqueRendererMethod>()
             .init_resource::<DefaultOpaqueRendererMethod>()
             .add_plugins((
                 MeshRenderPlugin {
@@ -283,7 +273,8 @@ impl Plugin for PbrPlugin {
                     base_color: Color::srgb(1.0, 0.0, 0.5),
                     ..Default::default()
                 },
-            );
+            )
+            .unwrap();
 
         let has_bluenoise = app
             .get_sub_app(RenderApp)

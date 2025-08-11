@@ -12,10 +12,9 @@ use bevy_ecs::{
 };
 use bevy_picking::{hover::HoverMap, pointer::PointerId, PickingSystems};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
-use bevy_window::{SystemCursorIcon, Window};
-use bevy_winit::cursor::CursorIcon;
 #[cfg(feature = "custom_cursor")]
-use bevy_winit::cursor::CustomCursor;
+use bevy_window::CustomCursor;
+use bevy_window::{CursorIcon, SystemCursorIcon, Window};
 
 /// A resource that specifies the cursor icon to be used when the mouse is not hovering over
 /// any other entity. This is used to set the default cursor icon for the window.
@@ -94,10 +93,10 @@ pub(crate) fn update_cursor(
         .unwrap_or(&r_default_cursor.0);
 
     for (entity, prev_cursor) in q_windows.iter() {
-        if let Some(prev_cursor) = prev_cursor {
-            if cursor.eq_cursor_icon(prev_cursor) {
-                continue;
-            }
+        if let Some(prev_cursor) = prev_cursor
+            && cursor.eq_cursor_icon(prev_cursor)
+        {
+            continue;
         }
         commands.entity(entity).insert(cursor.to_cursor_icon());
     }

@@ -478,7 +478,7 @@ impl MaterialBindGroupAllocator {
     }
 
     /// Returns the slab with the given index, if one exists.
-    pub fn get(&self, group: MaterialBindGroupIndex) -> Option<MaterialSlab> {
+    pub fn get(&self, group: MaterialBindGroupIndex) -> Option<MaterialSlab<'_>> {
         match *self {
             MaterialBindGroupAllocator::Bindless(ref bindless_allocator) => bindless_allocator
                 .get(group)
@@ -673,7 +673,7 @@ impl MaterialBindlessIndexTable {
     }
 
     /// Returns the [`BindGroupEntry`] for the index table itself.
-    fn bind_group_entry(&self) -> BindGroupEntry {
+    fn bind_group_entry(&self) -> BindGroupEntry<'_> {
         BindGroupEntry {
             binding: *self.binding_number,
             resource: self
@@ -1837,7 +1837,7 @@ impl MaterialBindGroupNonBindlessAllocator {
     }
 
     /// Returns a wrapper around the bind group with the given index.
-    fn get(&self, group: MaterialBindGroupIndex) -> Option<MaterialNonBindlessSlab> {
+    fn get(&self, group: MaterialBindGroupIndex) -> Option<MaterialNonBindlessSlab<'_>> {
         self.bind_groups[group.0 as usize]
             .as_ref()
             .map(|bind_group| match bind_group {

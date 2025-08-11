@@ -5,13 +5,17 @@ use crate::{
     Extract,
 };
 use alloc::{borrow::Cow, sync::Arc};
-use bevy_asset::{AssetEvent, AssetId, Assets};
+use bevy_asset::{AssetEvent, AssetId, Assets, Handle};
 use bevy_ecs::{
     event::EventReader,
     resource::Resource,
     system::{Res, ResMut},
 };
 use bevy_platform::collections::{HashMap, HashSet};
+use bevy_shader::{
+    CachedPipelineId, PipelineCacheError, Shader, ShaderCache, ShaderCacheSource, ShaderDefVal,
+    ValidateShader,
+};
 use bevy_tasks::Task;
 use bevy_utils::default;
 use core::{future::Future, hash::Hash, mem};
@@ -696,7 +700,12 @@ impl PipelineCache {
                 PipelineCacheError::ProcessShaderError(err) => {
                     let error_detail =
                         err.emit_to_string(&self.shader_cache.lock().unwrap().composer);
-                    error!("failed to process shader:\n{}", error_detail);
+                    if std::env::var("VERBOSE_SHADER_ERROR")
+                        .is_ok_and(|v| !(v.is_empty() || v == "0" || v == "false"))
+                    {
+                        error!("{}", pipeline_error_context(cached_pipeline));
+                    }
+                    error!("failed to process shader error:\n{}", error_detail);
                     return;
                 }
                 PipelineCacheError::CreateShaderModule(description) => {
@@ -746,6 +755,48 @@ impl PipelineCache {
     }
 }
 
+fn pipeline_error_context(cached_pipeline: &CachedPipeline) -> String {
+    fn format(
+        shader: &Handle<Shader>,
+        entry: &Option<Cow<'static, str>>,
+        shader_defs: &[ShaderDefVal],
+    ) -> String {
+        let source = match shader.path() {
+            Some(path) => path.path().to_string_lossy().to_string(),
+            None => String::new(),
+        };
+        let entry = match entry {
+            Some(entry) => entry.to_string(),
+            None => String::new(),
+        };
+        let shader_defs = shader_defs
+            .iter()
+            .flat_map(|def| match def {
+                ShaderDefVal::Bool(k, v) if *v => Some(k.to_string()),
+                ShaderDefVal::Int(k, v) => Some(format!("{k} = {v}")),
+                ShaderDefVal::UInt(k, v) => Some(format!("{k} = {v}")),
+                _ => None,
+            })
+            .collect::<Vec<_>>()
+            .join(", ");
+        format!("{source}:{entry}\nshader defs: {shader_defs}")
+    }
+    match &cached_pipeline.descriptor {
+        PipelineDescriptor::RenderPipelineDescriptor(desc) => {
+            let vert = &desc.vertex;
+            let vert_str = format(&vert.shader, &vert.entry_point, &vert.shader_defs);
+            let Some(frag) = desc.fragment.as_ref() else {
+                return vert_str;
+            };
+            let frag_str = format(&frag.shader, &frag.entry_point, &frag.shader_defs);
+            format!("vertex {vert_str}\nfragment {frag_str}")
+        }
+        PipelineDescriptor::ComputePipelineDescriptor(desc) => {
+            format(&desc.shader, &desc.entry_point, &desc.shader_defs)
+        }
+    }
+}
+
 #[cfg(all(
     not(target_arch = "wasm32"),
     not(target_os = "macos"),
@@ -759,7 +810,7 @@ fn create_pipeline_task(
         return CachedPipelineState::Creating(bevy_tasks::AsyncComputeTaskPool::get().spawn(task));
     }
 
-    match futures_lite::future::block_on(task) {
+    match bevy_tasks::block_on(task) {
         Ok(pipeline) => CachedPipelineState::Ok(pipeline),
         Err(err) => CachedPipelineState::Err(err),
     }
@@ -774,7 +825,7 @@ fn create_pipeline_task(
     task: impl Future<Output = Result<Pipeline, PipelineCacheError>> + Send + 'static,
     _sync: bool,
 ) -> CachedPipelineState {
-    match futures_lite::future::block_on(task) {
+    match bevy_tasks::block_on(task) {
         Ok(pipeline) => CachedPipelineState::Ok(pipeline),
         Err(err) => CachedPipelineState::Err(err),
     }

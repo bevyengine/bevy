@@ -1,5 +1,6 @@
 use bevy_app::prelude::*;
 use bevy_asset::{embedded_asset, load_embedded_asset, AssetServer, Handle};
+use bevy_camera::Camera;
 use bevy_core_pipeline::{
     core_2d::graph::{Core2d, Node2d},
     core_3d::graph::{Core3d, Node3d},
@@ -10,7 +11,6 @@ use bevy_image::BevyDefault as _;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
     extract_component::{ExtractComponent, ExtractComponentPlugin, UniformComponentPlugin},
-    prelude::Camera,
     render_graph::RenderGraphExt,
     render_resource::{
         binding_types::{sampler, texture_2d, uniform_buffer},
@@ -20,6 +20,7 @@ use bevy_render::{
     view::{ExtractedView, ViewTarget},
     Render, RenderApp, RenderStartup, RenderSystems,
 };
+use bevy_shader::Shader;
 use bevy_utils::default;
 
 mod node;
@@ -103,7 +104,6 @@ impl Plugin for CasPlugin {
     fn build(&self, app: &mut App) {
         embedded_asset!(app, "robust_contrast_adaptive_sharpening.wgsl");
 
-        app.register_type::<ContrastAdaptiveSharpening>();
         app.add_plugins((
             ExtractComponentPlugin::<ContrastAdaptiveSharpening>::default(),
             UniformComponentPlugin::<CasUniform>::default(),

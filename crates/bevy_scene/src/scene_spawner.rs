@@ -730,8 +730,7 @@ mod tests {
 
         app.add_plugins(ScheduleRunnerPlugin::default())
             .add_plugins(AssetPlugin::default())
-            .add_plugins(ScenePlugin)
-            .register_type::<ComponentA>();
+            .add_plugins(ScenePlugin);
         app.update();
 
         let mut scene_world = World::new();

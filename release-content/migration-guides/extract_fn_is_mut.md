@@ -1,5 +1,5 @@
 ---
-title: `take_extract` now returns `dyn FnMut` instead of `dyn Fn`.
+title: "`take_extract` now returns `dyn FnMut` instead of `dyn Fn`"
 pull_requests: [19926]
 ---
 

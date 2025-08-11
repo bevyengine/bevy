@@ -18,20 +18,22 @@ pub struct CameraPlugin;
 
 impl Plugin for CameraPlugin {
     fn build(&self, app: &mut App) {
-        app.register_type::<Camera>()
-            .register_type::<ClearColor>()
-            .register_type::<CameraMainTextureUsages>()
-            .register_type::<Exposure>()
-            .register_type::<MainPassResolutionOverride>()
-            .register_type::<primitives::Aabb>()
-            .register_type::<primitives::CascadesFrusta>()
-            .register_type::<primitives::CubemapFrusta>()
-            .register_type::<primitives::Frustum>()
-            .init_resource::<ClearColor>()
-            .add_plugins((
-                CameraProjectionPlugin,
-                visibility::VisibilityPlugin,
-                visibility::VisibilityRangePlugin,
-            ));
+        app.init_resource::<ClearColor>().add_plugins((
+            CameraProjectionPlugin,
+            visibility::VisibilityPlugin,
+            visibility::VisibilityRangePlugin,
+        ));
     }
+}
+
+/// The camera prelude.
+///
+/// This includes the most common types in this crate, re-exported for your convenience.
+pub mod prelude {
+    #[doc(hidden)]
+    pub use crate::{
+        visibility::{InheritedVisibility, ViewVisibility, Visibility},
+        Camera, Camera2d, Camera3d, ClearColor, ClearColorConfig, OrthographicProjection,
+        PerspectiveProjection, Projection,
+    };
 }

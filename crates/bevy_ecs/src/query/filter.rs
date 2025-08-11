@@ -180,7 +180,7 @@ unsafe impl<T: Component> WorldQuery for With<T> {
     unsafe fn set_table(_fetch: &mut (), _state: &ComponentId, _table: &Table) {}
 
     #[inline]
-    fn update_component_access(&id: &ComponentId, access: &mut FilteredAccess<ComponentId>) {
+    fn update_component_access(&id: &ComponentId, access: &mut FilteredAccess) {
         access.and_with(id);
     }
 
@@ -281,7 +281,7 @@ unsafe impl<T: Component> WorldQuery for Without<T> {
     unsafe fn set_table(_fetch: &mut (), _state: &Self::State, _table: &Table) {}
 
     #[inline]
-    fn update_component_access(&id: &ComponentId, access: &mut FilteredAccess<ComponentId>) {
+    fn update_component_access(&id: &ComponentId, access: &mut FilteredAccess) {
         access.and_without(id);
     }
 
@@ -444,7 +444,7 @@ macro_rules! impl_or_query_filter {
                 )*
             }
 
-            fn update_component_access(state: &Self::State, access: &mut FilteredAccess<ComponentId>) {
+            fn update_component_access(state: &Self::State, access: &mut FilteredAccess) {
                 let ($($filter,)*) = state;
 
                 let mut new_access = FilteredAccess::matches_nothing();
@@ -595,7 +595,7 @@ unsafe impl<T: Component> WorldQuery for Allows<T> {
     unsafe fn set_table(_: &mut (), _: &ComponentId, _: &Table) {}
 
     #[inline]
-    fn update_component_access(&id: &ComponentId, access: &mut FilteredAccess<ComponentId>) {
+    fn update_component_access(&id: &ComponentId, access: &mut FilteredAccess) {
         access.access_mut().add_archetypal(id);
     }
 
@@ -793,7 +793,7 @@ unsafe impl<T: Component> WorldQuery for Added<T> {
     }
 
     #[inline]
-    fn update_component_access(&id: &ComponentId, access: &mut FilteredAccess<ComponentId>) {
+    fn update_component_access(&id: &ComponentId, access: &mut FilteredAccess) {
         if access.access().has_component_write(id) {
             panic!("$state_name<{}> conflicts with a previous access in this query. Shared access cannot coincide with exclusive access.", DebugName::type_name::<T>());
         }
@@ -1020,7 +1020,7 @@ unsafe impl<T: Component> WorldQuery for Changed<T> {
     }
 
     #[inline]
-    fn update_component_access(&id: &ComponentId, access: &mut FilteredAccess<ComponentId>) {
+    fn update_component_access(&id: &ComponentId, access: &mut FilteredAccess) {
         if access.access().has_component_write(id) {
             panic!("$state_name<{}> conflicts with a previous access in this query. Shared access cannot coincide with exclusive access.", DebugName::type_name::<T>());
         }
@@ -1185,7 +1185,7 @@ unsafe impl WorldQuery for Spawned {
     unsafe fn set_table<'w, 's>(_fetch: &mut Self::Fetch<'w>, _state: &'s (), _table: &'w Table) {}
 
     #[inline]
-    fn update_component_access(_state: &(), _access: &mut FilteredAccess<ComponentId>) {}
+    fn update_component_access(_state: &(), _access: &mut FilteredAccess) {}
 
     fn init_state(_world: &mut World) {}
 

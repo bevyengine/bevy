@@ -14,11 +14,11 @@
 
 use bevy::{
     app::{AppExit, ScheduleRunnerPlugin},
+    camera::RenderTarget,
     core_pipeline::tonemapping::Tonemapping,
     image::TextureFormatPixelInfo,
     prelude::*,
     render::{
-        camera::RenderTarget,
         render_asset::RenderAssets,
         render_graph::{self, NodeRunError, RenderGraph, RenderGraphContext, RenderLabel},
         render_resource::{

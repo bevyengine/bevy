@@ -15,6 +15,7 @@ use bevy::{
         texture::{FallbackImage, GpuImage},
         RenderApp, RenderStartup,
     },
+    shader::ShaderRef,
 };
 use std::{num::NonZero, process::exit};
 
@@ -164,7 +165,7 @@ impl AsBindGroup for BindlessMaterial {
             (
                 // Screen texture
                 //
-                // @group(3) @binding(0) var textures: binding_array<texture_2d<f32>>;
+                // @group(#{MATERIAL_BIND_GROUP}) @binding(0) var textures: binding_array<texture_2d<f32>>;
                 (
                     0,
                     texture_2d(TextureSampleType::Float { filterable: true })
@@ -172,7 +173,7 @@ impl AsBindGroup for BindlessMaterial {
                 ),
                 // Sampler
                 //
-                // @group(3) @binding(1) var nearest_sampler: sampler;
+                // @group(#{MATERIAL_BIND_GROUP}) @binding(1) var nearest_sampler: sampler;
                 //
                 // Note: as with textures, multiple samplers can also be bound
                 // onto one binding slot:

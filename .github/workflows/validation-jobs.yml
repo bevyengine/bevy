@@ -1,5 +1,8 @@
 name: validation jobs
 
+permissions:
+  contents: read
+
 on:
   merge_group:
   pull_request:
@@ -130,6 +133,8 @@ jobs:
           cd ../..
 
       - name: First Wasm build
+        env:
+          RUSTFLAGS: --cfg getrandom_backend="wasm_js"
         run: |
           cargo build --release --example testbed_ui --target wasm32-unknown-unknown
 

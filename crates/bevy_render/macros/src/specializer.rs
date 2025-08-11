@@ -20,8 +20,6 @@ const SPECIALIZE_ALL_IDENT: &str = "all";
 const KEY_ATTR_IDENT: &str = "key";
 const KEY_DEFAULT_IDENT: &str = "default";
 
-const BASE_DESCRIPTOR_ATTR_IDENT: &str = "base_descriptor";
-
 enum SpecializeImplTargets {
     All,
     Specific(Vec<Path>),
@@ -87,7 +85,6 @@ struct FieldInfo {
     ty: Type,
     member: Member,
     key: Key,
-    use_base_descriptor: bool,
 }
 
 impl FieldInfo {
@@ -117,15 +114,6 @@ impl FieldInfo {
             parse_quote!(#ty: #specialize_path::Specializer<#target_path>)
         }
     }
-
-    fn get_base_descriptor_predicate(
-        &self,
-        specialize_path: &Path,
-        target_path: &Path,
-    ) -> WherePredicate {
-        let ty = &self.ty;
-        parse_quote!(#ty: #specialize_path::GetBaseDescriptor<#target_path>)
-    }
 }
 
 fn get_field_info(
@@ -151,12 +139,8 @@ fn get_field_info(
 
         let mut use_key_field = true;
         let mut key = Key::Index(key_index);
-        let mut use_base_descriptor = false;
         for attr in &field.attrs {
             match &attr.meta {
-                Meta::Path(path) if path.is_ident(&BASE_DESCRIPTOR_ATTR_IDENT) => {
-                    use_base_descriptor = true;
-                }
                 Meta::List(MetaList { path, tokens, .. }) if path.is_ident(&KEY_ATTR_IDENT) => {
                     let owned_tokens = tokens.clone().into();
                     let Ok(parsed_key) = syn::parse::<Key>(owned_tokens) else {
@@ -190,7 +174,6 @@ fn get_field_info(
             ty: field_ty,
             member: field_member,
             key,
-            use_base_descriptor,
         });
     }
 
@@ -206,10 +189,10 @@ fn get_specialize_targets(
     derive_name: &str,
 ) -> syn::Result<SpecializeImplTargets> {
     let specialize_attr = ast.attrs.iter().find_map(|attr| {
-        if attr.path().is_ident(SPECIALIZE_ATTR_IDENT) {
-            if let Meta::List(meta_list) = &attr.meta {
-                return Some(meta_list);
-            }
+        if attr.path().is_ident(SPECIALIZE_ATTR_IDENT)
+            && let Meta::List(meta_list) = &attr.meta
+        {
+            return Some(meta_list);
         }
         None
     });
@@ -261,41 +244,18 @@ pub fn impl_specializer(input: TokenStream) -> TokenStream {
         })
         .collect();
 
-    let base_descriptor_fields = field_info
-        .iter()
-        .filter(|field| field.use_base_descriptor)
-        .collect::<Vec<_>>();
-
-    if base_descriptor_fields.len() > 1 {
-        return syn::Error::new(
-            Span::call_site(),
-            "Too many #[base_descriptor] attributes found. It must be present on exactly one field",
-        )
-        .into_compile_error()
-        .into();
-    }
-
-    let base_descriptor_field = base_descriptor_fields.first().copied();
-
     match targets {
-        SpecializeImplTargets::All => {
-            let specialize_impl = impl_specialize_all(
-                &specialize_path,
-                &ecs_path,
-                &ast,
-                &field_info,
-                &key_patterns,
-                &key_tuple_idents,
-            );
-            let get_base_descriptor_impl = base_descriptor_field
-                .map(|field_info| impl_get_base_descriptor_all(&specialize_path, &ast, field_info))
-                .unwrap_or_default();
-            [specialize_impl, get_base_descriptor_impl]
-                .into_iter()
-                .collect()
-        }
-        SpecializeImplTargets::Specific(targets) => {
-            let specialize_impls = targets.iter().map(|target| {
+        SpecializeImplTargets::All => impl_specialize_all(
+            &specialize_path,
+            &ecs_path,
+            &ast,
+            &field_info,
+            &key_patterns,
+            &key_tuple_idents,
+        ),
+        SpecializeImplTargets::Specific(targets) => targets
+            .iter()
+            .map(|target| {
                 impl_specialize_specific(
                     &specialize_path,
                     &ecs_path,
@@ -305,14 +265,8 @@ pub fn impl_specializer(input: TokenStream) -> TokenStream {
                     &key_patterns,
                     &key_tuple_idents,
                 )
-            });
-            let get_base_descriptor_impls = targets.iter().filter_map(|target| {
-                base_descriptor_field.map(|field_info| {
-                    impl_get_base_descriptor_specific(&specialize_path, &ast, field_info, target)
-                })
-            });
-            specialize_impls.chain(get_base_descriptor_impls).collect()
-        }
+            })
+            .collect(),
     }
 }
 
@@ -401,56 +355,6 @@ fn impl_specialize_specific(
             ) -> #FQResult<#specialize_path::Canonical<Self::Key>, #ecs_path::error::BevyError> {
                 #(let #key_patterns = #specialize_exprs?;)*
                 #FQResult::Ok((#(#key_tuple_idents),*))
-            }
-        }
-    })
-}
-
-fn impl_get_base_descriptor_specific(
-    specialize_path: &Path,
-    ast: &DeriveInput,
-    base_descriptor_field_info: &FieldInfo,
-    target_path: &Path,
-) -> TokenStream {
-    let struct_name = &ast.ident;
-    let (impl_generics, type_generics, where_clause) = &ast.generics.split_for_impl();
-    let field_ty = &base_descriptor_field_info.ty;
-    let field_member = &base_descriptor_field_info.member;
-    TokenStream::from(quote!(
-        impl #impl_generics #specialize_path::GetBaseDescriptor<#target_path> for #struct_name #type_generics #where_clause {
-            fn get_base_descriptor(&self) -> <#target_path as #specialize_path::Specializable>::Descriptor {
-                <#field_ty as #specialize_path::GetBaseDescriptor<#target_path>>::get_base_descriptor(&self.#field_member)
-            }
-        }
-    ))
-}
-
-fn impl_get_base_descriptor_all(
-    specialize_path: &Path,
-    ast: &DeriveInput,
-    base_descriptor_field_info: &FieldInfo,
-) -> TokenStream {
-    let target_path = Path::from(format_ident!("T"));
-    let struct_name = &ast.ident;
-    let mut generics = ast.generics.clone();
-    generics.params.insert(
-        0,
-        parse_quote!(#target_path: #specialize_path::Specializable),
-    );
-
-    let where_clause = generics.make_where_clause();
-    where_clause.predicates.push(
-        base_descriptor_field_info.get_base_descriptor_predicate(specialize_path, &target_path),
-    );
-
-    let (_, type_generics, _) = ast.generics.split_for_impl();
-    let (impl_generics, _, where_clause) = &generics.split_for_impl();
-    let field_ty = &base_descriptor_field_info.ty;
-    let field_member = &base_descriptor_field_info.member;
-    TokenStream::from(quote! {
-        impl #impl_generics #specialize_path::GetBaseDescriptor<#target_path> for #struct_name #type_generics #where_clause {
-            fn get_base_descriptor(&self) -> <#target_path as #specialize_path::Specializable>::Descriptor {
-                <#field_ty as #specialize_path::GetBaseDescriptor<#target_path>>::get_base_descriptor(&self.#field_member)
             }
         }
     })
