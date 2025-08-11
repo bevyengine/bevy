@@ -123,7 +123,7 @@ fn handle_tasks(
 /// This system is only used to setup light and camera for the environment
 fn setup_env(mut commands: Commands) {
     // Used to center camera on spawned cubes
-    let offset = if NUM_CUBES % 2 == 0 {
+    let offset = if NUM_CUBES.is_multiple_of(2) {
         (NUM_CUBES / 2) as f32 - 0.5
     } else {
         (NUM_CUBES / 2) as f32
