@@ -48,7 +48,7 @@ pub const TRANSPARENT_IMAGE_HANDLE: Handle<Image> =
 
 /// Adds the [`Image`] as an asset and makes sure that they are extracted and prepared for the GPU.
 pub struct ImagePlugin {
-    /// The default image sampler to use when [`bevy_image::ImageSampler`] is set to `Default`.
+    /// The default image sampler to use when [`ImageSampler`] is set to `Default`.
     pub default_sampler: ImageSamplerDescriptor,
 }
 
@@ -112,9 +112,7 @@ impl Plugin for ImagePlugin {
             >>("png");
         }
 
-        if !ImageLoader::SUPPORTED_FILE_EXTENSIONS.is_empty() {
-            app.preregister_asset_loader::<ImageLoader>(ImageLoader::SUPPORTED_FILE_EXTENSIONS);
-        }
+        app.preregister_asset_loader::<ImageLoader>(ImageLoader::SUPPORTED_FILE_EXTENSIONS);
     }
 }
 
