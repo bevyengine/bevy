@@ -560,8 +560,8 @@ pub fn apply_text_edits(
             }
         }
 
-        let contents = buffer.get_text();
         if let Some(mut value) = maybe_value {
+            let contents = buffer.get_text();
             if value.0 != contents {
                 value.0 = contents;
                 commands.trigger_targets(TextInputEvent::TextChanged, entity);
