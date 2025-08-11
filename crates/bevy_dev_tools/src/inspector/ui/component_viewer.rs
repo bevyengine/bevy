@@ -1,5 +1,3 @@
-
-
 //! Component viewer UI with live data updates
 
 use super::collapsible_section::{

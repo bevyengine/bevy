@@ -23,9 +23,9 @@ use super::entity_list::{
     ScrollbarIndicator, ScrollbarThumb, SelectionDebounce,
 };
 use crate::inspector::http_client::RemoteEntity;
+use bevy_camera::prelude::Visibility;
 use bevy_ecs::prelude::*;
 use bevy_input::mouse::MouseWheel;
-use bevy_camera::prelude::Visibility;
 use bevy_time::Time;
 use bevy_ui::prelude::*;
 use bevy_window::Window;
