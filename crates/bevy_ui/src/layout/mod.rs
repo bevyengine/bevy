@@ -352,12 +352,13 @@ pub fn ui_layout_system(
 
 #[cfg(test)]
 mod tests {
+    use crate::update::update_cameras_test_system;
     use crate::{
         layout::ui_surface::UiSurface, prelude::*, ui_layout_system,
         update::update_ui_context_system, ContentSize, LayoutContext,
     };
     use bevy_app::{App, HierarchyPropagatePlugin, PostUpdate, PropagateSet};
-    use bevy_camera::{Camera, Camera2d, RenderTargetInfo};
+    use bevy_camera::{Camera, Camera2d};
     use bevy_ecs::{prelude::*, system::RunSystemOnce};
     use bevy_math::{Rect, UVec2, Vec2};
     use bevy_platform::collections::HashMap;
@@ -368,31 +369,6 @@ mod tests {
     use taffy::TraversePartialTree;
 
     // these window dimensions are easy to convert to and from percentage values
-    fn update_cameras_test_system(
-        primary_window: Query<Entity, With<PrimaryWindow>>,
-        window_query: Query<&Window>,
-        mut camera_query: Query<&mut Camera>,
-    ) {
-        let primary_window = primary_window.single().ok();
-        for mut camera in camera_query.iter_mut() {
-            let Some(camera_target) = camera.target.normalize(primary_window) else {
-                continue;
-            };
-            let bevy_camera::NormalizedRenderTarget::Window(window_ref) = camera_target else {
-                continue;
-            };
-            let Ok(window) = window_query.get(window_ref.entity()) else {
-                continue;
-            };
-
-            let render_target_info = RenderTargetInfo {
-                physical_size: window.physical_size(),
-                scale_factor: window.scale_factor(),
-            };
-            camera.computed.target_info = Some(render_target_info);
-        }
-    }
-
     const WINDOW_WIDTH: f32 = 1000.;
     const WINDOW_HEIGHT: f32 = 100.;
 

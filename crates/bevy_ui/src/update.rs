@@ -173,6 +173,33 @@ pub fn update_ui_context_system(
 }
 
 #[cfg(test)]
+pub(crate) fn update_cameras_test_system(
+    primary_window: Query<Entity, bevy_ecs::query::With<bevy_window::PrimaryWindow>>,
+    window_query: Query<&bevy_window::Window>,
+    mut camera_query: Query<&mut Camera>,
+) {
+    let primary_window = primary_window.single().ok();
+    for mut camera in camera_query.iter_mut() {
+        let Some(camera_target) = camera.target.normalize(primary_window) else {
+            continue;
+        };
+        let bevy_camera::NormalizedRenderTarget::Window(window_ref) = camera_target else {
+            continue;
+        };
+        let Ok(window) = window_query.get(bevy_ecs::entity::ContainsEntity::entity(&window_ref))
+        else {
+            continue;
+        };
+
+        let render_target_info = bevy_camera::RenderTargetInfo {
+            physical_size: window.physical_size(),
+            scale_factor: window.scale_factor(),
+        };
+        camera.computed.target_info = Some(render_target_info);
+    }
+}
+
+#[cfg(test)]
 mod tests {
     use crate::update::update_ui_context_system;
     use crate::ComputedNodeTarget;
@@ -187,44 +214,14 @@ mod tests {
     use bevy_camera::Camera;
     use bevy_camera::Camera2d;
     use bevy_camera::RenderTarget;
-    use bevy_camera::RenderTargetInfo;
-    use bevy_ecs::entity::ContainsEntity;
-    use bevy_ecs::entity::Entity;
     use bevy_ecs::hierarchy::ChildOf;
-    use bevy_ecs::query::With;
     use bevy_ecs::schedule::IntoScheduleConfigs;
-    use bevy_ecs::system::Query;
     use bevy_math::UVec2;
     use bevy_utils::default;
     use bevy_window::PrimaryWindow;
     use bevy_window::Window;
     use bevy_window::WindowRef;
     use bevy_window::WindowResolution;
-
-    fn update_cameras_test_system(
-        primary_window: Query<Entity, With<PrimaryWindow>>,
-        window_query: Query<&Window>,
-        mut camera_query: Query<&mut Camera>,
-    ) {
-        let primary_window = primary_window.single().ok();
-        for mut camera in camera_query.iter_mut() {
-            let Some(camera_target) = camera.target.normalize(primary_window) else {
-                continue;
-            };
-            let bevy_camera::NormalizedRenderTarget::Window(window_ref) = camera_target else {
-                continue;
-            };
-            let Ok(window) = window_query.get(window_ref.entity()) else {
-                continue;
-            };
-
-            let render_target_info = RenderTargetInfo {
-                physical_size: window.physical_size(),
-                scale_factor: window.scale_factor(),
-            };
-            camera.computed.target_info = Some(render_target_info);
-        }
-    }
 
     fn setup_test_app() -> App {
         let mut app = App::new();
@@ -239,7 +236,7 @@ mod tests {
 
         app.add_systems(
             bevy_app::Update,
-            (update_cameras_test_system, update_ui_context_system).chain(),
+            (super::update_cameras_test_system, update_ui_context_system).chain(),
         );
 
         app
