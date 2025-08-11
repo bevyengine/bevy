@@ -2,6 +2,7 @@
 use std::any::TypeId;
 
 use bevy::{
+    camera::{primitives::Aabb, visibility::VisibilityClass},
     color::palettes::{
         css::NAVY,
         tailwind::{BLUE_900, GRAY_300, GRAY_400, SKY_300},
@@ -19,9 +20,7 @@ use bevy::{
     },
     window::PrimaryWindow,
 };
-use bevy_render::{
-    primitives::Aabb, sync_world::TemporaryRenderEntity, view::VisibilityClass, Extract, RenderApp,
-};
+use bevy_render::{sync_world::TemporaryRenderEntity, Extract, RenderApp};
 
 #[derive(Component)]
 struct TextInputSize(Vec2);
