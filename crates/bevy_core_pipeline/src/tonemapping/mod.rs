@@ -1,5 +1,7 @@
 use bevy_app::prelude::*;
-use bevy_asset::{embedded_asset, load_embedded_asset, AssetServer, Assets, Handle};
+use bevy_asset::{
+    embedded_asset, load_embedded_asset, AssetServer, Assets, Handle, RenderAssetUsages,
+};
 use bevy_camera::Camera;
 use bevy_ecs::prelude::*;
 use bevy_image::{CompressedImageFormats, Image, ImageSampler, ImageType};
@@ -7,7 +9,7 @@ use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
     extract_component::{ExtractComponent, ExtractComponentPlugin},
     extract_resource::{ExtractResource, ExtractResourcePlugin},
-    render_asset::{RenderAssetUsages, RenderAssets},
+    render_asset::RenderAssets,
     render_resource::{
         binding_types::{sampler, texture_2d, texture_3d, uniform_buffer},
         *,

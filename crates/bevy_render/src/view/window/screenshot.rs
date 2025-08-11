@@ -1,7 +1,7 @@
 use super::ExtractedWindows;
 use crate::{
     gpu_readback,
-    render_asset::{RenderAssetUsages, RenderAssets},
+    render_asset::RenderAssets,
     render_resource::{
         binding_types::texture_2d, BindGroup, BindGroupEntries, BindGroupLayout,
         BindGroupLayoutEntries, Buffer, BufferUsages, CachedRenderPipelineId, FragmentState,
@@ -15,7 +15,7 @@ use crate::{
 };
 use alloc::{borrow::Cow, sync::Arc};
 use bevy_app::{First, Plugin, Update};
-use bevy_asset::{embedded_asset, load_embedded_asset, AssetServer, Handle};
+use bevy_asset::{embedded_asset, load_embedded_asset, AssetServer, Handle, RenderAssetUsages};
 use bevy_camera::{ManualTextureViewHandle, NormalizedRenderTarget, RenderTarget};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
