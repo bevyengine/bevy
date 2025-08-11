@@ -172,6 +172,8 @@ pub fn update_ui_context_system(
     }
 }
 
+/// Update each `Camera`'s `RenderTargetInfo` from its associated `Window` render target.
+/// Cameras with non-window render targets are ignored.
 #[cfg(test)]
 pub(crate) fn update_cameras_test_system(
     primary_window: Query<Entity, bevy_ecs::query::With<bevy_window::PrimaryWindow>>,
