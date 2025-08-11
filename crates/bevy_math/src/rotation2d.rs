@@ -729,7 +729,7 @@ mod tests {
 
         // Check that the matrix is correct.
         assert_relative_eq!(matrix.x_axis, Vec2::Y);
-        assert_relative_eq!(matrix.y_axis, -Vec2::X);
+        assert_relative_eq!(matrix.y_axis, Vec2::NEG_X);
 
         // Check that the matrix rotates vectors correctly.
         assert_relative_eq!(matrix * Vec2::X, Vec2::Y);
