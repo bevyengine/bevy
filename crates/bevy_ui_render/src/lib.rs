@@ -25,8 +25,8 @@ use bevy_reflect::Reflect;
 use bevy_shader::load_shader_library;
 use bevy_ui::widget::{ImageNode, TextShadow, ViewportNode};
 use bevy_ui::{
-    BackgroundColor, BorderColor, CalculatedClip, ComputedNode, ComputedUiTargetCamera, Display, Node,
-    Outline, ResolvedBorderRadius, UiGlobalTransform,
+    BackgroundColor, BorderColor, CalculatedClip, ComputedNode, ComputedUiTargetCamera, Display,
+    Node, Outline, ResolvedBorderRadius, UiGlobalTransform,
 };
 
 use bevy_app::prelude::*;
