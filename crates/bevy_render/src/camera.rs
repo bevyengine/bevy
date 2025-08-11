@@ -44,7 +44,7 @@ use bevy_platform::collections::{HashMap, HashSet};
 use bevy_reflect::prelude::*;
 use bevy_transform::components::GlobalTransform;
 use bevy_window::{PrimaryWindow, Window, WindowCreated, WindowResized, WindowScaleFactorChanged};
-use tracing::warn;
+use tracing::{error, warn};
 use wgpu::TextureFormat;
 
 #[derive(Default)]
@@ -232,11 +232,15 @@ impl NormalizedRenderTargetExt for NormalizedRenderTarget {
                     scale_factor: window.resolution.scale_factor(),
                 }),
             NormalizedRenderTarget::Image(image_target) => {
-                let image = images.get(&image_target.handle)?;
-                Some(RenderTargetInfo {
-                    physical_size: image.size(),
-                    scale_factor: image_target.scale_factor.0,
-                })
+                if let Some(image) = images.get(&image_target.handle) {
+                    Some(RenderTargetInfo {
+                        physical_size: image.size(),
+                        scale_factor: image_target.scale_factor.0,
+                    })
+                } else {
+                    error!("ImageRenderTarget handle unloaded. Make sure the Image's usages include RenderAssetUsages::MAIN_WORLD");
+                    None
+                }
             }
             NormalizedRenderTarget::TextureView(id) => {
                 manual_texture_views.get(id).map(|tex| RenderTargetInfo {
