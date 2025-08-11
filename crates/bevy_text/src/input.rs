@@ -474,7 +474,7 @@ pub fn is_cursor_at_end_of_line(editor: &mut Editor<'_>) -> bool {
     })
 }
 
-/// apply an action from the undo history to the  text input buffer
+/// Apply an action from the undo history to the text input buffer.
 fn apply_action<'a>(
     editor: &mut BorrowedWithFontSystem<Editor<'a>>,
     action: cosmic_undo_2::Action<&cosmic_text::Change>,
