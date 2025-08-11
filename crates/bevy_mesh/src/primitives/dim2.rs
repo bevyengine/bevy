@@ -1111,7 +1111,7 @@ impl MeshBuilder for Capsule2dMeshBuilder {
 
         // If the vertex count is even, offset starting angle of top semicircle by half a step
         // to position the vertices evenly.
-        let start_angle = if vertex_count % 2 == 0 {
+        let start_angle = if vertex_count.is_multiple_of(2) {
             step / 2.0
         } else {
             0.0
