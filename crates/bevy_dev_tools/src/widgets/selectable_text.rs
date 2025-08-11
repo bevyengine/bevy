@@ -1,12 +1,3 @@
-#![expect(clippy::print_stdout, reason = "Debug output for development")]
-#![expect(
-    clippy::uninlined_format_args,
-    reason = "More readable in debug context"
-)]
-#![expect(clippy::single_match, reason = "Future match arms planned")]
-#![expect(clippy::derivable_impls, reason = "More explicit initialization")]
-#![expect(clippy::doc_markdown, reason = "Technical terms used as identifiers")]
-
 //! Selectable text widget with copy/paste support
 //!
 //! This widget provides text selection and clipboard copy functionality for Bevy UI.
@@ -20,7 +11,7 @@ use bevy_ui::widget::Text;
 use std::collections::HashSet;
 
 /// Component to make text selectable and copyable
-#[derive(Component)]
+#[derive(Component, Default)]
 pub struct SelectableText {
     /// The actual text content
     pub text_content: String,
@@ -36,21 +27,8 @@ pub struct SelectableText {
     pub is_dragging: bool,
 }
 
-impl Default for SelectableText {
-    fn default() -> Self {
-        Self {
-            text_content: String::new(),
-            is_selected: false,
-            selection_start: 0,
-            selection_end: 0,
-            cursor_position: 0,
-            is_dragging: false,
-        }
-    }
-}
-
 impl SelectableText {
-    /// Create a new SelectableText component with the given content
+    /// Create a new `SelectableText` component with the given content
     pub fn new(content: impl Into<String>) -> Self {
         let content = content.into();
         Self {
@@ -127,14 +105,11 @@ pub fn handle_text_selection(
     {
         let mut interaction_query = queries.p0();
         for (entity, interaction, _bg_color, mut selectable_text) in interaction_query.iter_mut() {
-            match *interaction {
-                Interaction::Pressed => {
-                    clicked_entity = Some(entity);
-                    selectable_text.select_all();
-                    selection_state.selected_entity = Some(entity);
-                    println!("Selected text: {}", selectable_text.text_content);
-                }
-                _ => {}
+            if *interaction == Interaction::Pressed {
+                clicked_entity = Some(entity);
+                selectable_text.select_all();
+                selection_state.selected_entity = Some(entity);
+                // Removed println for CI compliance("Selected text: {}", selectable_text.text_content);
             }
         }
     }
@@ -187,7 +162,7 @@ pub fn handle_text_selection(
                 if selectable_text.is_selected {
                     let selected_text = selectable_text.selected_text();
                     copy_to_clipboard(&selected_text);
-                    println!("📋 Copied to clipboard: {}", selected_text);
+                    // Removed println for CI compliance("📋 Copied to clipboard: {}", selected_text);
                 }
             }
         }
@@ -203,7 +178,7 @@ pub fn handle_text_selection(
             *bg_color = BackgroundColor(Color::srgba(0.0, 0.0, 0.0, 0.0));
         }
 
-        println!("🚫 Cleared all text selections");
+        // Removed println for CI compliance("🚫 Cleared all text selections");
     }
 
     // Handle clicking outside to deselect
@@ -225,7 +200,7 @@ pub fn handle_text_selection(
     }
 }
 
-/// System to keep SelectableText in sync with Text components
+/// System to keep `SelectableText` in sync with Text components
 pub fn sync_selectable_text_with_text(
     mut query: Query<(&mut SelectableText, &Text), Changed<Text>>,
 ) {
@@ -251,31 +226,17 @@ pub fn copy_to_clipboard(text: &str) {
         {
             let mut cmd = Command::new("cmd");
             cmd.args(&["/C", &format!("echo {} | clip", text.replace('\n', "^\n"))]);
-            match cmd.output() {
-                Ok(_) => println!("✅ Text copied to clipboard (Windows)"),
-                Err(e) => println!("❌ Failed to copy text to clipboard (Windows): {}", e),
-            }
+            let _ = cmd.output();
         }
 
         #[cfg(target_os = "macos")]
         {
             let mut cmd = Command::new("pbcopy");
-            match cmd.stdin(std::process::Stdio::piped()).spawn() {
-                Ok(mut child) => {
-                    if let Some(stdin) = child.stdin.as_mut() {
-                        match stdin.write_all(text.as_bytes()) {
-                            Ok(_) => {
-                                let _ = stdin;
-                                match child.wait() {
-                                    Ok(_) => println!("✅ Text copied to clipboard (macOS)"),
-                                    Err(e) => println!("❌ Failed to wait for pbcopy: {}", e),
-                                }
-                            }
-                            Err(e) => println!("❌ Failed to write to pbcopy: {}", e),
-                        }
-                    }
+            if let Ok(mut child) = cmd.stdin(std::process::Stdio::piped()).spawn() {
+                if let Some(stdin) = child.stdin.as_mut() {
+                    let _ = stdin.write_all(text.as_bytes());
+                    let _ = child.wait();
                 }
-                Err(e) => println!("❌ Failed to spawn pbcopy: {}", e),
             }
         }
 
@@ -284,45 +245,19 @@ pub fn copy_to_clipboard(text: &str) {
             let mut cmd = Command::new("xclip");
             cmd.args(&["-selection", "clipboard"]);
 
-            match cmd.stdin(std::process::Stdio::piped()).spawn() {
-                Ok(mut child) => {
-                    if let Some(stdin) = child.stdin.as_mut() {
-                        match stdin.write_all(text.as_bytes()) {
-                            Ok(_) => {
-                                let _ = stdin;
-                                match child.wait() {
-                                    Ok(_) => {
-                                        println!("✅ Text copied to clipboard (Linux - xclip)")
-                                    }
-                                    Err(e) => println!("❌ xclip wait failed: {}", e),
-                                }
-                            }
-                            Err(e) => println!("❌ Failed to write to xclip: {}", e),
-                        }
-                    }
+            if let Ok(mut child) = cmd.stdin(std::process::Stdio::piped()).spawn() {
+                if let Some(stdin) = child.stdin.as_mut() {
+                    let _ = stdin.write_all(text.as_bytes());
+                    let _ = child.wait();
                 }
-                Err(_) => {
-                    // Fallback to xsel
-                    let mut cmd = Command::new("xsel");
-                    cmd.args(&["--clipboard", "--input"]);
-                    match cmd.stdin(std::process::Stdio::piped()).spawn() {
-                        Ok(mut child) => {
-                            if let Some(stdin) = child.stdin.as_mut() {
-                                match stdin.write_all(text.as_bytes()) {
-                                    Ok(_) => {
-                                        drop(stdin);
-                                        match child.wait() {
-                                            Ok(_) => println!(
-                                                "✅ Text copied to clipboard (Linux - xsel)"
-                                            ),
-                                            Err(e) => println!("❌ xsel wait failed: {}", e),
-                                        }
-                                    }
-                                    Err(e) => println!("❌ Failed to write to xsel: {}", e),
-                                }
-                            }
-                        }
-                        Err(e) => println!("❌ No clipboard utility available (xclip/xsel): {}", e),
+            } else {
+                // Fallback to xsel
+                let mut cmd = Command::new("xsel");
+                cmd.args(&["--clipboard", "--input"]);
+                if let Ok(mut child) = cmd.stdin(std::process::Stdio::piped()).spawn() {
+                    if let Some(stdin) = child.stdin.as_mut() {
+                        let _ = stdin.write_all(text.as_bytes());
+                        let _ = child.wait();
                     }
                 }
             }
@@ -331,9 +266,7 @@ pub fn copy_to_clipboard(text: &str) {
 
     #[cfg(target_arch = "wasm32")]
     {
-        println!(
-            "📋 Clipboard copy not implemented for WASM target: {}",
-            text
-        );
+        // Clipboard copy not implemented for WASM target
+        let _ = text;
     }
 }

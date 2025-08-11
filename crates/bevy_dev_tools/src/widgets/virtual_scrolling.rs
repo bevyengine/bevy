@@ -1,6 +1,3 @@
-#![expect(clippy::print_stdout, reason = "Debug output for development")]
-#![expect(clippy::doc_markdown, reason = "Technical terms used as identifiers")]
-
 //! High-performance virtual scrolling widget for Bevy UI
 //!
 //! This widget provides efficient virtual scrolling that can handle thousands of items
@@ -34,13 +31,13 @@ pub struct VirtualScrollState<T: Component + Clone> {
     pub container_height: f32,
     /// Height of each item
     pub item_height: f32,
-    /// Currently visible range (start_index, end_index)
+    /// Currently visible range (`start_index`, `end_index`)
     pub visible_range: (usize, usize),
     /// All available items
     pub items: Vec<T>,
     /// Total number of items
     pub total_item_count: usize,
-    /// Total content height (item_height * item_count)
+    /// Total content height (`item_height` * `item_count`)
     pub total_content_height: f32,
     /// Buffer size for rendering extra items
     pub buffer_size: usize,
@@ -122,7 +119,7 @@ pub struct VirtualScrollItem<T: Component + Clone> {
     pub cached_position: f32,
 }
 
-/// Resource for custom scroll position (bypasses Bevy's ScrollPosition limitations)
+/// Resource for custom scroll position (bypasses Bevy's `ScrollPosition` limitations)
 #[derive(Resource, Default)]
 pub struct CustomScrollPosition {
     /// Y position
@@ -185,10 +182,7 @@ pub fn handle_virtual_scroll_input<T: Component + Clone + VirtualScrollable>(
             scroll_state.max_scroll_velocity,
         );
 
-        println!(
-            "Scroll input: delta={}, target={}, velocity={}",
-            scroll_delta, scroll_state.target_scroll, scroll_state.scroll_velocity
-        );
+        // Removed debug print for CI compliance
     }
 }
 
@@ -236,10 +230,7 @@ pub fn update_virtual_scroll_display<T: Component + Clone + VirtualScrollable>(
     if new_range != scroll_state.visible_range {
         scroll_state.visible_range = new_range;
 
-        println!(
-            "Virtual scroll update: range=({}, {}), scroll={:.1}, items={}",
-            start_index, end_index, scroll_state.current_scroll, scroll_state.total_item_count
-        );
+        // Removed debug print for CI compliance
 
         if let Ok(content_entity) = content_query.single() {
             update_visible_items(

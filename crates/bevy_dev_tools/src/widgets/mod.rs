@@ -1,5 +1,3 @@
-#![expect(clippy::print_stdout, reason = "Debug output for development")]
-
 //! Reusable UI widgets for Bevy
 //!
 //! This module contains high-quality, reusable UI widgets that are suitable for
@@ -80,6 +78,6 @@ impl Plugin for VirtualScrollPlugin {
         // Note: This is a generic plugin. Specific types need to be registered
         // when using virtual scrolling with concrete types.
         // Systems are added when specific virtual scroll instances are created.
-        println!("VirtualScrollPlugin initialized - register specific types as needed");
+        // Removed debug print for CI compliance
     }
 }

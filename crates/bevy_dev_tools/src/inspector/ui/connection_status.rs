@@ -1,8 +1,3 @@
-#![expect(
-    clippy::uninlined_format_args,
-    reason = "More readable in debug context"
-)]
-
 //! Connection status indicator UI
 
 use crate::inspector::http_client::HttpRemoteConfig;
@@ -37,7 +32,7 @@ pub fn update_connection_status(
             color.0 = Color::srgb(0.2, 0.8, 0.2); // Green
         } else {
             let error_msg = status.last_error.as_deref().unwrap_or("Disconnected");
-            text.0 = format!("Disconnected: {}", error_msg);
+            text.0 = format!("Disconnected: {error_msg}");
             color.0 = Color::srgb(0.8, 0.2, 0.2); // Red
         }
     }

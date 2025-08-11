@@ -1,8 +1,3 @@
-#![expect(
-    clippy::uninlined_format_args,
-    reason = "More readable in debug context"
-)]
-
 //! Collapsible section widget - suitable for upstreaming to `bevy_ui`
 
 use bevy_color::Color;
@@ -148,7 +143,7 @@ pub fn spawn_collapsible_section(commands: &mut Commands, parent: Entity, title:
         ))
         .with_children(|parent| {
             parent.spawn((
-                Text::new(format!("- {}", title)),
+                Text::new(format!("- {title}")),
                 TextFont {
                     font_size: 14.0,
                     ..Default::default()

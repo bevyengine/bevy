@@ -1,8 +1,3 @@
-#![expect(
-    clippy::uninlined_format_args,
-    reason = "More readable in debug context"
-)]
-
 //! Collapsible/expandable section widget for Bevy UI
 //!
 //! This widget provides collapsible sections with clickable headers and show/hide content.
@@ -200,20 +195,12 @@ pub fn handle_collapsible_interactions(
                             // Update the arrow part of the text
                             let title_part =
                                 text.0.split_once(' ').map(|(_, t)| t).unwrap_or(&text.0);
-                            text.0 = format!("{} {}", arrow_char, title_part);
+                            text.0 = format!("{arrow_char} {title_part}");
                             break;
                         }
                     }
 
-                    println!(
-                        "Toggled section '{}' to {}",
-                        section.title,
-                        if section.is_expanded {
-                            "expanded"
-                        } else {
-                            "collapsed"
-                        }
-                    );
+                    // Removed debug print for CI compliance
                 }
             }
         }
@@ -291,7 +278,7 @@ pub fn spawn_collapsible_section_with_config(
             };
 
             parent.spawn((
-                Text::new(format!("{} {}", arrow_char, title)),
+                Text::new(format!("{arrow_char} {title}")),
                 TextFont {
                     font_size: style.title_font_size,
                     ..Default::default()

@@ -1,11 +1,4 @@
-#![expect(clippy::print_stdout, reason = "Debug output for development")]
-#![expect(
-    clippy::uninlined_format_args,
-    reason = "More readable in debug context"
-)]
-#![expect(clippy::needless_if, reason = "Placeholder for future functionality")]
-#![expect(clippy::single_match, reason = "Future match arms planned")]
-#![expect(clippy::len_zero, reason = "Explicit length check for clarity")]
+
 
 //! Component viewer UI with live data updates
 
@@ -123,7 +116,7 @@ pub fn update_component_viewer(
     let should_refresh = false; // Disable automatic refresh for now - only update when entity changes
 
     // Only debug when something interesting happens
-    if entity_changed || should_refresh || ui_needs_rebuild {}
+    let _ = entity_changed || should_refresh || ui_needs_rebuild;
 
     if !entity_changed && !should_refresh && !ui_needs_rebuild {
         return;
@@ -178,7 +171,7 @@ fn spawn_component_sections(
         // Header
         parent.spawn((
             ComponentViewerContent { entity_id },
-            Text::new(format!("Entity {} Components", entity_id)),
+            Text::new(format!("Entity {entity_id} Components")),
             TextFont {
                 font_size: 18.0,
                 ..Default::default()
@@ -260,7 +253,7 @@ fn get_component_display_info(component_name: &str) -> (String, String, String) 
     let (category, display_name) = if component_name.starts_with("bevy_") {
         // Built-in Bevy components - show actual crate name
         let parts: Vec<&str> = component_name.split("::").collect();
-        let crate_name = if parts.len() >= 1 {
+        let crate_name = if !parts.is_empty() {
             parts[0] // Use the actual crate name like "bevy_transform", "bevy_render"
         } else {
             "bevy"
@@ -332,7 +325,7 @@ fn create_component_section(
         .with_children(|parent| {
             // Component name and category
             parent.spawn((
-                Text::new(format!("- {} [{}]", display_name, category)),
+                Text::new(format!("- {display_name} [{category}]")),
                 TextFont {
                     font_size: 14.0,
                     ..Default::default()
@@ -340,7 +333,7 @@ fn create_component_section(
                 TextColor(Color::srgb(0.9, 0.9, 0.6)),
                 CollapsibleArrowText {
                     section_entity,
-                    text_template: format!("{} [{}]", display_name, category),
+                    text_template: format!("{display_name} [{category}]"),
                 },
             ));
 
@@ -488,7 +481,7 @@ pub fn process_live_component_updates(
     // Process all pending updates from the new component update system
     let updates = http_client.check_component_updates();
 
-    if !updates.is_empty() {}
+    let _ = !updates.is_empty();
 
     for update in updates {
         process_component_update(&mut live_cache, update, current_time);
@@ -638,21 +631,18 @@ pub fn handle_text_selection(
         for (entity, interaction, _bg_color, mut selectable_text, _component_data) in
             interaction_query.iter_mut()
         {
-            match *interaction {
-                Interaction::Pressed => {
-                    clicked_entity = Some(entity);
+            if *interaction == Interaction::Pressed {
+                clicked_entity = Some(entity);
 
-                    // Select all text in clicked element
-                    selectable_text.is_selected = true;
-                    selectable_text.selection_start = 0;
-                    selectable_text.selection_end = selectable_text.text_content.len();
-                    selectable_text.cursor_position = selectable_text.text_content.len();
-                    selectable_text.is_dragging = false;
+                // Select all text in clicked element
+                selectable_text.is_selected = true;
+                selectable_text.selection_start = 0;
+                selectable_text.selection_end = selectable_text.text_content.len();
+                selectable_text.cursor_position = selectable_text.text_content.len();
+                selectable_text.is_dragging = false;
 
-                    // Update global selection state
-                    selection_state.selected_entity = Some(entity);
-                }
-                _ => {}
+                // Update global selection state
+                selection_state.selected_entity = Some(entity);
             }
         }
     }
@@ -729,7 +719,6 @@ pub fn handle_text_selection(
                         };
 
                     copy_to_clipboard(&selected_text);
-                    println!("📋 Copied to clipboard: {}", selected_text);
                 }
             }
         }
@@ -785,31 +774,17 @@ fn copy_to_clipboard(text: &str) {
         {
             let mut cmd = Command::new("cmd");
             cmd.args(&["/C", &format!("echo {} | clip", text.replace('\n', "^\n"))]);
-            match cmd.output() {
-                Ok(_) => println!("✅ Text copied to clipboard"),
-                Err(_) => println!("❌ Failed to copy text to clipboard"),
-            }
+            let _ = cmd.output();
         }
 
         #[cfg(target_os = "macos")]
         {
             let mut cmd = Command::new("pbcopy");
-            match cmd.stdin(std::process::Stdio::piped()).spawn() {
-                Ok(mut child) => {
-                    if let Some(stdin) = child.stdin.as_mut() {
-                        match stdin.write_all(text.as_bytes()) {
-                            Ok(_) => {
-                                let _ = stdin; // Close stdin before waiting
-                                match child.wait() {
-                                    Ok(_) => println!("✅ Text copied to clipboard"),
-                                    Err(_) => println!("❌ Failed to copy text to clipboard"),
-                                }
-                            }
-                            Err(_) => println!("❌ Failed to copy text to clipboard"),
-                        }
-                    }
+            if let Ok(mut child) = cmd.stdin(std::process::Stdio::piped()).spawn() {
+                if let Some(stdin) = child.stdin.as_mut() {
+                    let _ = stdin.write_all(text.as_bytes());
+                    let _ = child.wait();
                 }
-                Err(_) => println!("❌ Failed to copy text to clipboard"),
             }
         }
 
@@ -819,45 +794,19 @@ fn copy_to_clipboard(text: &str) {
             let mut cmd = Command::new("xclip");
             cmd.args(&["-selection", "clipboard"]);
 
-            match cmd.stdin(std::process::Stdio::piped()).spawn() {
-                Ok(mut child) => {
-                    if let Some(stdin) = child.stdin.as_mut() {
-                        match stdin.write_all(text.as_bytes()) {
-                            Ok(_) => {
-                                let _ = stdin; // Close stdin before waiting
-                                match child.wait() {
-                                    Ok(_) => {
-                                        println!("✅ Text copied to clipboard")
-                                    }
-                                    Err(_) => println!("❌ Failed to copy text to clipboard"),
-                                }
-                            }
-                            Err(_) => println!("❌ Failed to copy text to clipboard"),
-                        }
-                    }
+            if let Ok(mut child) = cmd.stdin(std::process::Stdio::piped()).spawn() {
+                if let Some(stdin) = child.stdin.as_mut() {
+                    let _ = stdin.write_all(text.as_bytes());
+                    let _ = child.wait();
                 }
-                Err(_) => {
-                    // Fallback to xsel
-                    let mut cmd = Command::new("xsel");
-                    cmd.args(&["--clipboard", "--input"]);
-                    match cmd.stdin(std::process::Stdio::piped()).spawn() {
-                        Ok(mut child) => {
-                            if let Some(stdin) = child.stdin.as_mut() {
-                                match stdin.write_all(text.as_bytes()) {
-                                    Ok(_) => {
-                                        drop(stdin);
-                                        match child.wait() {
-                                            Ok(_) => println!("✅ Text copied to clipboard"),
-                                            Err(_) => {
-                                                println!("❌ Failed to copy text to clipboard")
-                                            }
-                                        }
-                                    }
-                                    Err(_) => println!("❌ Failed to copy text to clipboard"),
-                                }
-                            }
-                        }
-                        Err(_) => println!("❌ No clipboard utility available"),
+            } else {
+                // Fallback to xsel
+                let mut cmd = Command::new("xsel");
+                cmd.args(&["--clipboard", "--input"]);
+                if let Ok(mut child) = cmd.stdin(std::process::Stdio::piped()).spawn() {
+                    if let Some(stdin) = child.stdin.as_mut() {
+                        let _ = stdin.write_all(text.as_bytes());
+                        let _ = child.wait();
                     }
                 }
             }
@@ -866,9 +815,7 @@ fn copy_to_clipboard(text: &str) {
 
     #[cfg(target_arch = "wasm32")]
     {
-        println!(
-            "📋 Clipboard copy not implemented for WASM target: {}",
-            text
-        );
+        // Clipboard copy not implemented for WASM target
+        let _ = text;
     }
 }

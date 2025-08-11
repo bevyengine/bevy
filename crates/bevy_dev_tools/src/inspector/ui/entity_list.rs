@@ -1,9 +1,3 @@
-#![expect(
-    clippy::uninlined_format_args,
-    reason = "More readable in debug context"
-)]
-#![expect(clippy::single_match, reason = "Future match arms planned")]
-
 //! Entity list UI component with remote data binding
 
 use crate::inspector::http_client::RemoteEntity;
@@ -82,30 +76,26 @@ pub fn handle_entity_selection(
 
     // Only process actual clicks, not hover events, and prevent duplicate selections
     for (interaction, item) in interaction_query.iter() {
-        match *interaction {
-            Interaction::Pressed => {
-                // Debounce rapid selections to prevent flashing during virtual scrolling
-                if current_time - selection_debounce.last_selection_time
-                    < selection_debounce.debounce_interval
-                {
-                    continue;
-                }
-
-                // Block interactions shortly after virtual scrolling updates
-                if current_time - selection_debounce.last_virtual_scroll_time
-                    < selection_debounce.scroll_interaction_lockout
-                {
-                    continue;
-                }
-
-                // Only update if it's actually a different entity
-                if selected_entity.entity_id != Some(item.entity_id) {
-                    selected_entity.entity_id = Some(item.entity_id);
-                    selection_debounce.last_selection_time = current_time;
-                }
+        if *interaction == Interaction::Pressed {
+            // Debounce rapid selections to prevent flashing during virtual scrolling
+            if current_time - selection_debounce.last_selection_time
+                < selection_debounce.debounce_interval
+            {
+                continue;
             }
-            // Don't spam logs for None/Hovered states
-            _ => {}
+
+            // Block interactions shortly after virtual scrolling updates
+            if current_time - selection_debounce.last_virtual_scroll_time
+                < selection_debounce.scroll_interaction_lockout
+            {
+                continue;
+            }
+
+            // Only update if it's actually a different entity
+            if selected_entity.entity_id != Some(item.entity_id) {
+                selected_entity.entity_id = Some(item.entity_id);
+                selection_debounce.last_selection_time = current_time;
+            }
         }
     }
 }
@@ -382,7 +372,7 @@ fn get_entity_display_info(entity: &RemoteEntity) -> (String, String) {
     // Fallback: Show component count
     let component_count = entity.components.len();
     if component_count > 0 {
-        (entity_id, format!("Entity ({}c)", component_count))
+        (entity_id, format!("Entity ({component_count}c)"))
     } else {
         (entity_id, "Empty Entity".to_string())
     }
@@ -395,7 +385,7 @@ pub fn spawn_entity_list_item(
     entity: &RemoteEntity,
 ) -> Entity {
     let (entity_id, description) = get_entity_display_info(entity);
-    let display_text = format!("{} ({})", entity_id, description);
+    let display_text = format!("{entity_id} ({description})");
 
     // Create button with explicit interaction setup
     let item = commands

@@ -1,7 +1,3 @@
-#![expect(clippy::needless_if, reason = "Placeholder for future functionality")]
-#![expect(clippy::implicit_saturating_sub, reason = "Manual check for clarity")]
-#![expect(clippy::doc_markdown, reason = "Technical terms used as identifiers")]
-
 //! High-performance virtual scrolling system for large entity lists.
 //!
 //! This module provides efficient virtual scrolling that can handle thousands of entities
@@ -29,7 +25,7 @@ use super::entity_list::{
 use crate::inspector::http_client::RemoteEntity;
 use bevy_ecs::prelude::*;
 use bevy_input::mouse::MouseWheel;
-use bevy_render::view::Visibility;
+use bevy_camera::prelude::Visibility;
 use bevy_time::Time;
 use bevy_ui::prelude::*;
 use bevy_window::Window;
@@ -48,7 +44,7 @@ pub struct VirtualScrollState {
     pub container_height: f32,
     /// Height of each individual item in the list
     pub item_height: f32,
-    /// Range of currently visible items (start_index, end_index)
+    /// Range of currently visible items (`start_index`, `end_index`)
     pub visible_range: (usize, usize),
     /// Cached entity data for efficient rendering
     pub loaded_entities: HashMap<u32, RemoteEntity>,
@@ -177,7 +173,7 @@ pub fn update_infinite_scrolling_display(
         if new_container_height > 100.0 && new_container_height < 4000.0 {
             let height_changed =
                 (virtual_scroll_state.container_height - new_container_height).abs() > 10.0;
-            if height_changed {}
+            let _ = height_changed;
             virtual_scroll_state.container_height = new_container_height;
         }
     }
@@ -302,11 +298,7 @@ pub fn update_infinite_scrolling_display(
         let half_window = window_size / 2;
 
         // Center the window around scroll position
-        let window_start = if scroll_offset >= half_window {
-            scroll_offset - half_window
-        } else {
-            0
-        };
+        let window_start = scroll_offset.saturating_sub(half_window);
         let window_end = (window_start + window_size).min(virtual_scroll_state.total_entity_count);
         let final_start =
             if window_end == virtual_scroll_state.total_entity_count && window_end >= window_size {
