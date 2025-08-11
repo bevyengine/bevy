@@ -8,7 +8,8 @@ use bevy::{
     pbr::PbrPlugin,
     prelude::*,
     reflect::TypePath,
-    render::render_resource::{AsBindGroup, ShaderRef, ShaderType},
+    render::render_resource::{AsBindGroup, ShaderType},
+    shader::ShaderRef,
 };
 
 /// This example uses a shader source file from the assets subdirectory

@@ -1,6 +1,7 @@
 //! Test that the renderer can handle various invalid skinned meshes
 
 use bevy::{
+    asset::RenderAssetUsages,
     camera::ScalingMode,
     core_pipeline::motion_blur::MotionBlur,
     math::ops,
@@ -9,7 +10,6 @@ use bevy::{
         Indices, PrimitiveTopology, VertexAttributeValues,
     },
     prelude::*,
-    render::render_asset::RenderAssetUsages,
 };
 use core::f32::consts::TAU;
 

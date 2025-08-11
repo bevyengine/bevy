@@ -20,7 +20,8 @@ use bevy::{
     math::{uvec3, vec3},
     pbr::{ExtendedMaterial, MaterialExtension},
     prelude::*,
-    render::render_resource::{AsBindGroup, ShaderRef, ShaderType},
+    render::render_resource::{AsBindGroup, ShaderType},
+    shader::ShaderRef,
     window::PrimaryWindow,
 };
 

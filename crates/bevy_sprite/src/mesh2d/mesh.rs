@@ -1,7 +1,8 @@
 use bevy_app::Plugin;
 use bevy_asset::{embedded_asset, load_embedded_asset, AssetId, AssetServer, Handle};
 use bevy_camera::{visibility::ViewVisibility, Camera2d};
-use bevy_render::{load_shader_library, RenderStartup};
+use bevy_render::RenderStartup;
+use bevy_shader::{load_shader_library, Shader, ShaderDefVal, ShaderSettings};
 
 use crate::{tonemapping_pipeline_key, Material2dBindGroupId};
 use bevy_core_pipeline::{

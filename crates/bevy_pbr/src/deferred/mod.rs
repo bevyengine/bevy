@@ -30,6 +30,7 @@ use bevy_render::{
     view::{ExtractedView, ViewTarget, ViewUniformOffset},
     Render, RenderApp, RenderSystems,
 };
+use bevy_shader::{Shader, ShaderDefVal};
 use bevy_utils::default;
 
 pub struct DeferredPbrLightingPlugin;

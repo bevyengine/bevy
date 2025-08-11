@@ -15,6 +15,7 @@ use bevy::{
         texture::{FallbackImage, GpuImage},
         RenderApp, RenderStartup,
     },
+    shader::ShaderRef,
 };
 use std::{num::NonZero, process::exit};
 

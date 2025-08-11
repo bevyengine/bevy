@@ -3,9 +3,10 @@
 //! and how to change the UV mapping at run-time.
 
 use bevy::{
+    asset::RenderAssetUsages,
     mesh::{Indices, VertexAttributeValues},
     prelude::*,
-    render::{render_asset::RenderAssetUsages, render_resource::PrimitiveTopology},
+    render::render_resource::PrimitiveTopology,
 };
 
 // Define a "marker" component to mark the custom mesh. Marker components are often used in Bevy for

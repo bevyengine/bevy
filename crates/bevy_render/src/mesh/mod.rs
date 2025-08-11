@@ -17,7 +17,7 @@ use bevy_ecs::{
     },
 };
 use bevy_mesh::morph::{MeshMorphWeights, MorphWeights};
-pub use bevy_mesh::*;
+use bevy_mesh::*;
 use wgpu::IndexFormat;
 
 /// Adds the [`Mesh`] as an asset and makes sure that they are extracted and prepared for the GPU.

@@ -6,6 +6,7 @@
 //! [`Material2d`]: bevy::sprite::Material2d
 
 use bevy::{
+    asset::RenderAssetUsages,
     color::palettes::basic::YELLOW,
     core_pipeline::core_2d::{Transparent2d, CORE_2D_DEPTH_FORMAT},
     math::{ops, FloatOrd},
@@ -13,7 +14,7 @@ use bevy::{
     prelude::*,
     render::{
         mesh::RenderMesh,
-        render_asset::{RenderAssetUsages, RenderAssets},
+        render_asset::RenderAssets,
         render_phase::{
             AddRenderCommand, DrawFunctions, PhaseItemExtraIndex, SetItemPipeline,
             ViewSortedRenderPhases,

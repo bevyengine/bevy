@@ -96,7 +96,7 @@ impl RenderDevice {
 
     /// Creates and validates a [`ShaderModule`](wgpu::ShaderModule) from either SPIR-V or WGSL source code.
     ///
-    /// See [`ValidateShader`](bevy_render::render_resource::ValidateShader) for more information on the tradeoffs involved with shader validation.
+    /// See [`ValidateShader`](bevy_shader::ValidateShader) for more information on the tradeoffs involved with shader validation.
     #[inline]
     pub fn create_and_validate_shader_module(
         &self,

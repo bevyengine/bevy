@@ -351,6 +351,46 @@ impl<const C: usize> State<C> {
 }
 
 #[cfg(test)]
+mod different_executor_tests {
+    use core::cell::Cell;
+
+    use bevy_tasks::{block_on, futures_lite::{pending, poll_once}};
+    use futures_lite::pin;
+
+    use super::LocalExecutor;
+
+    #[test]
+    fn shared_queue_slot() {
+        block_on(async {
+            let was_polled = Cell::new(false);
+            let future = async {
+                was_polled.set(true);
+                pending::<()>().await;
+            };
+
+            let ex1: LocalExecutor = Default::default();
+            let ex2: LocalExecutor = Default::default();
+
+            // Start the futures for running forever.
+            let (run1, run2) = (ex1.run(pending::<()>()), ex2.run(pending::<()>()));
+            pin!(run1);
+            pin!(run2);
+            assert!(poll_once(run1.as_mut()).await.is_none());
+            assert!(poll_once(run2.as_mut()).await.is_none());
+
+            // Spawn the future on executor one and then poll executor two.
+            ex1.spawn(future).detach();
+            assert!(poll_once(run2).await.is_none());
+            assert!(!was_polled.get());
+
+            // Poll the first one.
+            assert!(poll_once(run1).await.is_none());
+            assert!(was_polled.get());
+        });
+    }
+}
+
+#[cfg(test)]
 mod drop_tests {
     use alloc::string::String;
     use core::mem;

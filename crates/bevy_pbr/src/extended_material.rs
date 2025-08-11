@@ -9,11 +9,12 @@ use bevy_render::{
     alpha::AlphaMode,
     render_resource::{
         AsBindGroup, AsBindGroupError, BindGroupLayout, BindGroupLayoutEntry, BindlessDescriptor,
-        BindlessResourceType, BindlessSlabResourceLimit, RenderPipelineDescriptor, ShaderRef,
+        BindlessResourceType, BindlessSlabResourceLimit, RenderPipelineDescriptor,
         SpecializedMeshPipelineError, UnpreparedBindGroup,
     },
     renderer::RenderDevice,
 };
+use bevy_shader::ShaderRef;
 
 use crate::{Material, MaterialPipeline, MaterialPipelineKey, MeshPipeline, MeshPipelineKey};
 
