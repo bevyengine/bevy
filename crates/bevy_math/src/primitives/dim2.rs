@@ -1546,29 +1546,29 @@ impl Segment2d {
             (t_in_range && u_in_range).then_some(p + r * t)
         } else if pq_cross_r.abs() < f32::EPSILON || pq_cross_s.abs() < f32::EPSILON {
             // collinear
-            let r_dot_r = r.dot(r);
-            let s_dot_s = s.dot(s);
-            match (r_dot_r.abs() < f32::EPSILON, s_dot_s.abs() < f32::EPSILON) {
+            let r_len2 = r.length_squared();
+            let s_len2 = s.length_squared();
+            match (r_len2.abs() < f32::EPSILON, s_len2.abs() < f32::EPSILON) {
                 // point point
                 (true, true) => (pq.length_squared() < f32::EPSILON).then_some(p),
                 // segment point
                 (false, true) if pq_cross_r.abs() < f32::EPSILON => {
-                    let t = pq.dot(r) / r_dot_r;
+                    let t = pq.dot(r) / r_len2;
                     (-f32::EPSILON..=1.0 + f32::EPSILON)
                         .contains(&t)
                         .then_some(q)
                 }
                 // point segment
                 (true, false) if pq_cross_s.abs() < f32::EPSILON => {
-                    let t = -pq.dot(s) / s_dot_s;
+                    let t = -pq.dot(s) / s_len2;
                     (-f32::EPSILON..=1.0 + f32::EPSILON)
                         .contains(&t)
                         .then_some(p)
                 }
                 // segment segment
                 (false, false) => {
-                    let t0 = pq.dot(r) / r_dot_r;
-                    let t1 = t0 + s.dot(r) / r_dot_r;
+                    let t0 = pq.dot(r) / r_len2;
+                    let t1 = t0 + s.dot(r) / r_len2;
                     let (t_min, t_max) = if t0 < t1 { (t0, t1) } else { (t1, t0) };
                     (t_max >= -f32::EPSILON && t_min <= 1.0 + f32::EPSILON)
                         .then_some(p + r * t_min.clamp(0.0, 1.0))
