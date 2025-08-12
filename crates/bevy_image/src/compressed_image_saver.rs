@@ -1,6 +1,7 @@
 use crate::{Image, ImageFormat, ImageFormatSetting, ImageLoader, ImageLoaderSettings};
 
 use bevy_asset::saver::{AssetSaver, SavedAsset};
+use core::num::NonZero;
 use futures_lite::AsyncWriteExt;
 use thiserror::Error;
 
@@ -64,11 +65,14 @@ impl AssetSaver for CompressedImageSaver {
         };
 
         writer.write_all(&compressed_basis_data).await?;
+
+        let layers = NonZero::new(image.texture_descriptor.size.depth_or_array_layers);
         Ok(ImageLoaderSettings {
             format: ImageFormatSetting::Format(ImageFormat::Basis),
             is_srgb,
             sampler: image.sampler.clone(),
             asset_usage: image.asset_usage,
+            layers,
         })
     }
 }
