@@ -1,5 +1,5 @@
 ---
-title: Meshlet BVH culling
+title: Virtual Geometry BVH culling
 authors: ["@SparkyPotato", "@atlv24"]
 pull_requests: [19318]
 ---
