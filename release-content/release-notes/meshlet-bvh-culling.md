@@ -4,10 +4,12 @@ authors: ["@SparkyPotato", "@atlv24"]
 pull_requests: [19318]
 ---
 
+(TODO: Embed example screenshot here)
+
 Bevy's virtual geometry has been greatly optimized with BVH-based culling, leading to almost true scene-complexity invariance on the GPU.
 
-This gets rid of the previous cluster limit that limited the world to 2^24 clusters (about 4 billion triangles). 
-There are now *no* hardcoded limits to scene size, only unique instance limits due to VRAM usage (since streaming is not yet implemented), 
+This gets rid of the previous cluster limit that limited the world to 2^24 clusters (about 4 billion triangles).
+There are now *no* hardcoded limits to scene size, only unique instance limits due to VRAM usage (since streaming is not yet implemented),
 and total instance limits due the current architecture requiring all instances to be uploaded to the GPU every frame.
 
 The screenshot above has 130,000 dragons in the scene, each with about 870,000 triangles, leading to over *115 billion* total triangles in the scene.
