@@ -1173,7 +1173,7 @@ mod test {
                 future::block_on(async move {
                     let timeout = async {
                         async_io::Timer::after(Duration::from_secs(2 * 60)).await;
-                        #[expect(print_stderr, reason = "Explicitly used to warn about timed out tests")]
+                        #[expect(clippy::print_stderr, reason = "Explicitly used to warn about timed out tests")]
                         std::eprintln!("test timed out after 2m");
                         std::process::exit(1)
                     };
