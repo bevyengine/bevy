@@ -92,7 +92,7 @@ pub struct NodeQuery {
     transform: &'static UiGlobalTransform,
     pickable: Option<&'static Pickable>,
     inherited_visibility: Option<&'static InheritedVisibility>,
-    target_camera: &'static ComputedNodeTarget,
+    target_camera: &'static ComputedUiTargetCamera,
 }
 
 /// Computes the UI node entities under each pointer.

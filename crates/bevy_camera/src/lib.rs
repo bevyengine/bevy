@@ -6,6 +6,7 @@ pub mod primitives;
 mod projection;
 pub mod visibility;
 
+use bevy_ecs::schedule::SystemSet;
 pub use camera::*;
 pub use clear_color::*;
 pub use components::*;
@@ -37,3 +38,11 @@ pub mod prelude {
         PerspectiveProjection, Projection,
     };
 }
+
+/// Label for `camera_system<T>`, shared across all `T`.
+#[derive(SystemSet, Clone, Eq, PartialEq, Hash, Debug)]
+pub struct CameraUpdateSystems;
+
+/// Deprecated alias for [`CameraUpdateSystems`].
+#[deprecated(since = "0.17.0", note = "Renamed to `CameraUpdateSystems`.")]
+pub type CameraUpdateSystem = CameraUpdateSystems;

@@ -29,16 +29,7 @@ detailed_trace = ["bevy_ecs/detailed_trace", "bevy_render?/detailed_trace"]
 sysinfo_plugin = ["bevy_diagnostic/sysinfo_plugin"]
 
 # Enables compressed KTX2 UASTC texture output on the asset processor
-compressed_image_saver = [
-  "bevy_image/compressed_image_saver",
-  "bevy_render/compressed_image_saver",
-]
-
-# Texture formats that have specific rendering support (HDR enabled by default)
-basis-universal = ["bevy_image/basis-universal", "bevy_render/basis-universal"]
-exr = ["bevy_image/exr", "bevy_render/exr"]
-hdr = ["bevy_image/hdr", "bevy_render/hdr"]
-ktx2 = ["bevy_image/ktx2", "bevy_render/ktx2"]
+compressed_image_saver = ["bevy_image/compressed_image_saver"]
 
 # For ktx2 supercompression
 zlib = ["bevy_image/zlib"]
@@ -46,7 +37,8 @@ zstd = ["bevy_image/zstd"]
 zstd_rust = ["bevy_image/zstd_rust"]
 zstd_c = ["bevy_image/zstd_c"]
 
-# Image format support (PNG enabled by default)
+# Image format support (HDR and PNG enabled by default)
+basis-universal = ["bevy_image/basis-universal"]
 bmp = ["bevy_image/bmp"]
 ff = ["bevy_image/ff"]
 gif = ["bevy_image/gif"]
@@ -59,6 +51,9 @@ tga = ["bevy_image/tga"]
 tiff = ["bevy_image/tiff"]
 webp = ["bevy_image/webp"]
 dds = ["bevy_image/dds"]
+exr = ["bevy_image/exr"]
+hdr = ["bevy_image/hdr"]
+ktx2 = ["bevy_image/ktx2"]
 
 # Enable SPIR-V passthrough
 spirv_shader_passthrough = ["bevy_render/spirv_shader_passthrough"]
@@ -89,11 +84,14 @@ symphonia-wav = ["bevy_audio/symphonia-wav"]
 
 # Shader formats
 shader_format_glsl = [
-  "bevy_render/shader_format_glsl",
+  "bevy_shader/shader_format_glsl",
   "bevy_pbr?/shader_format_glsl",
 ]
-shader_format_spirv = ["bevy_render/shader_format_spirv"]
-shader_format_wesl = ["bevy_render/shader_format_wesl"]
+shader_format_spirv = [
+  "bevy_shader/shader_format_spirv",
+  "bevy_render?/shader_format_spirv",
+]
+shader_format_wesl = ["bevy_shader/shader_format_wesl"]
 
 serialize = [
   "bevy_a11y?/serialize",

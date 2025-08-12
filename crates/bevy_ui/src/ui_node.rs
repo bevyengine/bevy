@@ -380,7 +380,7 @@ impl From<Vec2> for ScrollPosition {
 #[derive(Component, Clone, PartialEq, Debug, Reflect)]
 #[require(
     ComputedNode,
-    ComputedNodeTarget,
+    ComputedUiTargetCamera,
     UiTransform,
     BackgroundColor,
     BorderColor,
@@ -2804,8 +2804,7 @@ impl<'w, 's> DefaultUiCamera<'w, 's> {
 /// Updated in [`UiSystems::Prepare`](crate::UiSystems::Prepare) by [`update_ui_context_system`](crate::update::update_ui_context_system)
 #[derive(Component, Clone, Copy, Debug, Reflect, PartialEq)]
 #[reflect(Component, Default, PartialEq, Clone)]
-pub struct ComputedNodeTarget {
-    /// The id of the target camera for this UI node.
+pub struct ComputedUiTargetCamera {
     pub(crate) camera: Entity,
     /// The scale factor of the target camera's render target.
     pub(crate) scale_factor: f32,
@@ -2813,7 +2812,7 @@ pub struct ComputedNodeTarget {
     pub(crate) physical_size: UVec2,
 }
 
-impl Default for ComputedNodeTarget {
+impl Default for ComputedUiTargetCamera {
     fn default() -> Self {
         Self {
             camera: Entity::PLACEHOLDER,
@@ -2823,7 +2822,7 @@ impl Default for ComputedNodeTarget {
     }
 }
 
-impl ComputedNodeTarget {
+impl ComputedUiTargetCamera {
     /// Returns the id of the target camera for this UI node.
     pub fn camera(&self) -> Option<Entity> {
         Some(self.camera).filter(|&entity| entity != Entity::PLACEHOLDER)
