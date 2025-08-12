@@ -21,20 +21,9 @@ keywords = ["bevy"]
 # wgpu-types = { git = "https://github.com/gfx-rs/wgpu", rev = "..." }
 decoupled_naga = ["bevy_shader/decoupled_naga"]
 
-# Enables compressed KTX2 UASTC texture output on the asset processor
-compressed_image_saver = ["bevy_image/compressed_image_saver"]
-
-# Texture formats (require more than just image support)
-basis-universal = ["bevy_image/basis-universal"]
-exr = ["bevy_image/exr"]
-hdr = ["bevy_image/hdr"]
-ktx2 = ["bevy_image/ktx2"]
-
 multi_threaded = ["bevy_tasks/multi_threaded"]
 
-shader_format_glsl = ["bevy_shader/shader_format_glsl"]
 shader_format_spirv = ["bevy_shader/shader_format_spirv", "wgpu/spirv"]
-shader_format_wesl = ["bevy_shader/shader_format_wesl"]
 
 # Enable SPIR-V shader passthrough
 spirv_shader_passthrough = ["wgpu/spirv"]

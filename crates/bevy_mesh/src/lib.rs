@@ -71,4 +71,4 @@ impl BaseMeshPipelineKey {
 
 /// `bevy_render::mesh::inherit_weights` runs in this `SystemSet`
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
-pub struct InheritWeights;
+pub struct InheritWeightSystems;
