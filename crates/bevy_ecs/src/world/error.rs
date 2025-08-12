@@ -50,7 +50,8 @@ pub enum EntityComponentError {
 #[derive(thiserror::Error, Debug, Clone, Copy, PartialEq, Eq)]
 pub enum EntityMutableFetchError {
     /// The entity with the given ID does not exist.
-    #[error(transparent)]
+    #[error("The entity with ID {0} does not exist.\n
+    If you were attempting to apply a command to this entity, and want to handle this error gracefully, consider TODO.")]
     EntityDoesNotExist(#[from] EntityDoesNotExistError),
     /// The entity with the given ID was requested mutably more than once.
     #[error("The entity with ID {0} was requested mutably more than once")]
