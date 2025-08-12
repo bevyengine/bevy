@@ -1,3 +1,4 @@
+use alloc::collections::VecDeque;
 use bevy_asset::AssetId;
 use bevy_ecs::{
     resource::Resource,
@@ -15,12 +16,19 @@ use bevy_render::{
     renderer::{RenderDevice, RenderQueue},
 };
 
+/// After compacting this many vertices worth of meshes per frame, no further BLAS will be compacted.
+/// Lower this number to distribute the work across more frames.
+const MAX_COMPACTION_VERTICES_PER_FRAME: u32 = 400_000;
+
 #[derive(Resource, Default)]
-pub struct BlasManager(HashMap<AssetId<Mesh>, Blas>);
+pub struct BlasManager {
+    blas: HashMap<AssetId<Mesh>, Blas>,
+    compaction_queue: VecDeque<(AssetId<Mesh>, u32, bool)>,
+}
 
 impl BlasManager {
     pub fn get(&self, mesh: &AssetId<Mesh>) -> Option<&Blas> {
-        self.0.get(mesh)
+        self.blas.get(mesh)
     }
 }
 
@@ -31,15 +39,13 @@ pub fn prepare_raytracing_blas(
     render_device: Res<RenderDevice>,
     render_queue: Res<RenderQueue>,
 ) {
-    let blas_manager = &mut blas_manager.0;
-
     // Delete BLAS for deleted or modified meshes
     for asset_id in extracted_meshes
         .removed
         .iter()
         .chain(extracted_meshes.modified.iter())
     {
-        blas_manager.remove(asset_id);
+        blas_manager.blas.remove(asset_id);
     }
 
     if extracted_meshes.extracted.is_empty() {
@@ -58,7 +64,10 @@ pub fn prepare_raytracing_blas(
             let (blas, blas_size) =
                 allocate_blas(&vertex_slice, &index_slice, asset_id, &render_device);
 
-            blas_manager.insert(*asset_id, blas);
+            blas_manager.blas.insert(*asset_id, blas);
+            blas_manager
+                .compaction_queue
+                .push_back((*asset_id, blas_size.vertex_count, false));
 
             (*asset_id, vertex_slice, index_slice, blas_size)
         })
@@ -79,7 +88,7 @@ pub fn prepare_raytracing_blas(
                 transform_buffer_offset: None,
             };
             BlasBuildEntry {
-                blas: &blas_manager[asset_id],
+                blas: &blas_manager.blas[asset_id],
                 geometry: BlasGeometries::TriangleGeometries(vec![geometry]),
             }
         })
@@ -90,6 +99,48 @@ pub fn prepare_raytracing_blas(
     });
     command_encoder.build_acceleration_structures(&build_entries, &[]);
     render_queue.submit([command_encoder.finish()]);
+}
+
+pub fn compact_raytracing_blas(
+    mut blas_manager: ResMut<BlasManager>,
+    render_queue: Res<RenderQueue>,
+) {
+    let mut first_mesh_processed = None;
+
+    let mut vertices_compacted = 0;
+    while vertices_compacted < MAX_COMPACTION_VERTICES_PER_FRAME
+        && let Some((mesh, vertex_count, compaction_started)) =
+            blas_manager.compaction_queue.pop_front()
+    {
+        // Stop iterating once we loop back around to the start of the list
+        if Some(mesh) == first_mesh_processed {
+            break;
+        }
+        if first_mesh_processed.is_none() {
+            first_mesh_processed = Some(mesh);
+        }
+
+        let Some(blas) = blas_manager.get(&mesh) else {
+            continue;
+        };
+
+        if !compaction_started {
+            blas.prepare_compaction_async(|_| {});
+        }
+
+        if blas.ready_for_compaction() {
+            let compacted_blas = render_queue.compact_blas(blas);
+            blas_manager.blas.insert(mesh, compacted_blas);
+
+            vertices_compacted += vertex_count;
+            continue;
+        }
+
+        // BLAS not ready for compaction, put back in queue
+        blas_manager
+            .compaction_queue
+            .push_back((mesh, vertex_count, true));
+    }
 }
 
 fn allocate_blas(
@@ -109,7 +160,8 @@ fn allocate_blas(
     let blas = render_device.wgpu_device().create_blas(
         &CreateBlasDescriptor {
             label: Some(&asset_id.to_string()),
-            flags: AccelerationStructureFlags::PREFER_FAST_TRACE,
+            flags: AccelerationStructureFlags::PREFER_FAST_TRACE
+                | AccelerationStructureFlags::ALLOW_COMPACTION,
             update_mode: AccelerationStructureUpdateMode::Build,
         },
         BlasGeometrySizeDescriptors::Triangles {
