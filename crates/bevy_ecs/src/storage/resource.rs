@@ -1,7 +1,7 @@
 use crate::{
     change_detection::{MaybeLocation, MutUntyped, TicksMut},
     component::{CheckChangeTicks, ComponentId, ComponentTicks, Components, Tick, TickCells},
-    storage::{blob_vec::BlobVec, SparseSet},
+    storage::{blob_array::BlobArray, SparseSet},
 };
 use bevy_ptr::{OwningPtr, Ptr, UnsafeCellDeref};
 use bevy_utils::prelude::DebugName;
@@ -16,7 +16,8 @@ use std::thread::ThreadId;
 ///
 /// [`World`]: crate::world::World
 pub struct ResourceData<const SEND: bool> {
-    data: ManuallyDrop<BlobVec>,
+    data: ManuallyDrop<BlobArray>,
+    is_present: bool,
     added_ticks: UnsafeCell<Tick>,
     changed_ticks: UnsafeCell<Tick>,
     #[cfg_attr(
@@ -86,7 +87,7 @@ impl<const SEND: bool> ResourceData<SEND> {
     /// Returns true if the resource is populated.
     #[inline]
     pub fn is_present(&self) -> bool {
-        !self.data.is_empty()
+        self.is_present
     }
 
     /// Returns a reference to the resource, if it exists.
@@ -189,8 +190,9 @@ impl<const SEND: bool> ResourceData<SEND> {
             if !SEND {
                 self.origin_thread_id = Some(std::thread::current().id());
             }
-            self.data.push(value);
+            unsafe { self.data.initialize_unchecked(Self::ROW, value) };
             *self.added_ticks.deref_mut() = change_tick;
+            self.is_present = true;
         }
         *self.changed_ticks.deref_mut() = change_tick;
 
@@ -229,7 +231,8 @@ impl<const SEND: bool> ResourceData<SEND> {
             if !SEND {
                 self.origin_thread_id = Some(std::thread::current().id());
             }
-            self.data.push(value);
+            unsafe { self.data.initialize_unchecked(Self::ROW, value) };
+            self.is_present = true;
         }
         *self.added_ticks.deref_mut() = change_ticks.added;
         *self.changed_ticks.deref_mut() = change_ticks.changed;
@@ -254,13 +257,15 @@ impl<const SEND: bool> ResourceData<SEND> {
             self.validate_access();
         }
         // SAFETY: We've already validated that the row is present.
-        let res = unsafe { self.data.swap_remove_and_forget_unchecked(Self::ROW) };
+        let res = unsafe { self.data.get_unchecked_mut(Self::ROW).promote() };
 
         let caller = self
             .changed_by
             .as_ref()
             // SAFETY: This function is being called through an exclusive mutable reference to Self
             .map(|changed_by| unsafe { *changed_by.deref_mut() });
+
+        self.is_present = false;
 
         // SAFETY: This function is being called through an exclusive mutable reference to Self, which
         // makes it sound to read these ticks.
@@ -285,7 +290,8 @@ impl<const SEND: bool> ResourceData<SEND> {
     pub(crate) fn remove_and_drop(&mut self) {
         if self.is_present() {
             self.validate_access();
-            self.data.clear();
+            unsafe { self.data.drop_last_element(Self::ROW) };
+            self.is_present = false;
         }
     }
 
@@ -366,7 +372,7 @@ impl<const SEND: bool> Resources<SEND> {
             }
             // SAFETY: component_info.drop() is valid for the types that will be inserted.
             let data = unsafe {
-                BlobVec::new(
+                BlobArray::with_capacity(
                     component_info.layout(),
                     component_info.drop(),
                     1
@@ -374,6 +380,7 @@ impl<const SEND: bool> Resources<SEND> {
             };
             ResourceData {
                 data: ManuallyDrop::new(data),
+                is_present: false,
                 added_ticks: UnsafeCell::new(Tick::new(0)),
                 changed_ticks: UnsafeCell::new(Tick::new(0)),
                 type_name: component_info.name(),

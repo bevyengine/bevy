@@ -1,12 +1,10 @@
 use crate::{
-    change_detection::MaybeLocation,
-    component::{CheckChangeTicks, ComponentId, ComponentInfo, ComponentTicks, Tick, TickCells},
-    entity::{Entity, EntityRow},
-    storage::{Column, TableRow},
+    change_detection::MaybeLocation, component::{CheckChangeTicks, ComponentId, ComponentInfo, ComponentTicks, Tick, TickCells}, entity::{Entity, EntityRow}, query::DebugCheckedUnwrap, storage::{AbortOnPanic, TableRow, ThinColumn},
+    storage::VecExtensions,
 };
 use alloc::{boxed::Box, vec::Vec};
 use bevy_ptr::{OwningPtr, Ptr};
-use core::{cell::UnsafeCell, hash::Hash, marker::PhantomData, panic::Location};
+use core::{cell::UnsafeCell, hash::Hash, marker::PhantomData, num::NonZero, panic::Location};
 use nonmax::{NonMaxU32, NonMaxUsize};
 
 #[derive(Debug)]
@@ -114,7 +112,7 @@ impl<I: SparseSetIndex, V> SparseArray<I, V> {
 /// Designed for relatively fast insertions and deletions.
 #[derive(Debug)]
 pub struct ComponentSparseSet {
-    dense: Column,
+    dense: ThinColumn,
     // Internally this only relies on the Entity index to keep track of where the component data is
     // stored for entities that are alive. The generation is not required, but is stored
     // in debug builds to validate that access is correct.
@@ -129,16 +127,17 @@ impl ComponentSparseSet {
     /// Creates a new [`ComponentSparseSet`] with a given component type layout and
     /// initial `capacity`.
     pub(crate) fn new(component_info: &ComponentInfo, capacity: usize) -> Self {
+        let entities = Vec::with_capacity(capacity);
         Self {
-            dense: Column::with_capacity(component_info, capacity),
-            entities: Vec::with_capacity(capacity),
+            dense: ThinColumn::with_capacity(component_info, entities.capacity()),
+            entities,
             sparse: Default::default(),
         }
     }
 
     /// Removes all of the values stored within.
     pub(crate) fn clear(&mut self) {
-        self.dense.clear();
+        unsafe { self.dense.clear(self.entities.len()) };
         self.entities.clear();
         self.sparse.clear();
     }
@@ -146,13 +145,13 @@ impl ComponentSparseSet {
     /// Returns the number of component values in the sparse set.
     #[inline]
     pub fn len(&self) -> usize {
-        self.dense.len()
+        self.entities.len()
     }
 
     /// Returns `true` if the sparse set contains no component values.
     #[inline]
     pub fn is_empty(&self) -> bool {
-        self.dense.len() == 0
+        self.entities.len() == 0
     }
 
     /// Inserts the `entity` key and component `value` pair into this sparse
@@ -173,22 +172,32 @@ impl ComponentSparseSet {
             assert_eq!(entity, self.entities[dense_index.index()]);
             self.dense.replace(dense_index, value, change_tick, caller);
         } else {
-            let dense_index = self.dense.len();
-            self.dense
-                .push(value, ComponentTicks::new(change_tick), caller);
+            let dense_index = self.entities.len();
+            let capacity = self.entities.capacity();
+
+            #[cfg(not(debug_assertions))]
+            self.entities.push(entity.row());
+            #[cfg(debug_assertions)]
+            self.entities.push(entity);
+
+            let _guard = AbortOnPanic;
+            if capacity != self.entities.capacity() {
+                let new_capacity = unsafe { NonZero::new_unchecked(self.entities.capacity()) };
+                if let Some(capacity) = NonZero::new(capacity) {
+                    unsafe { self.dense.realloc(capacity, new_capacity) };
+                } else {
+                    self.dense.alloc(new_capacity);
+                }
+            }
 
             // SAFETY: This entity row does not exist here yet, so there are no duplicates,
             // and the entity index can not be the max, so the length must not be max either.
             // To do so would have caused a panic in the entity alloxator.
             let table_row = unsafe { TableRow::new(NonMaxU32::new_unchecked(dense_index as u32)) };
-
+            self.dense.initialize(table_row, value, change_tick, caller);
             self.sparse.insert(entity.row(), table_row);
-            #[cfg(debug_assertions)]
-            assert_eq!(self.entities.len(), dense_index);
-            #[cfg(not(debug_assertions))]
-            self.entities.push(entity.row());
-            #[cfg(debug_assertions)]
-            self.entities.push(entity);
+
+            core::mem::forget(_guard);
         }
     }
 
@@ -317,19 +326,27 @@ impl ComponentSparseSet {
         self.sparse.remove(entity.row()).map(|dense_index| {
             #[cfg(debug_assertions)]
             assert_eq!(entity, self.entities[dense_index.index()]);
-            self.entities.swap_remove(dense_index.index());
-            let is_last = dense_index.index() == self.dense.len() - 1;
-            // SAFETY: dense_index was just removed from `sparse`, which ensures that it is valid
-            let (value, _, _) = unsafe { self.dense.swap_remove_and_forget_unchecked(dense_index) };
-            if !is_last {
-                let swapped_entity = self.entities[dense_index.index()];
+            let len = self.entities.len();
+            if dense_index.index() >= len - 1 {
+                #[cfg(debug_assertions)]
+                assert_eq!(dense_index.index(), len - 1);
+                // SAFETY: TODO
+                unsafe { self.entities.set_len(dense_index.index()) };
+                // SAFETY: TODO
+                unsafe { self.dense.get_data_unchecked(dense_index).assert_unique().promote() }
+            } else {
+                // SAFETY: TODO
+                unsafe { self.entities.swap_remove_nonoverlapping_unchecked(dense_index.index()) };
+                // SAFETY: TODO
+                let swapped_entity = unsafe { self.entities.get_unchecked(dense_index.index()) };
                 #[cfg(not(debug_assertions))]
                 let index = swapped_entity;
                 #[cfg(debug_assertions)]
                 let index = swapped_entity.row();
-                *self.sparse.get_mut(index).unwrap() = dense_index;
+                unsafe { *self.sparse.get_mut(index).debug_checked_unwrap() = dense_index; }
+                // SAFETY: dense_index was just removed from `sparse`, which ensures that it is valid
+                unsafe { self.dense.swap_remove_and_forget_unchecked(len, dense_index) }
             }
-            value
         })
     }
 
@@ -337,31 +354,35 @@ impl ComponentSparseSet {
     ///
     /// Returns `true` if `entity` had a component value in the sparse set.
     pub(crate) fn remove(&mut self, entity: Entity) -> bool {
-        if let Some(dense_index) = self.sparse.remove(entity.row()) {
+        self.sparse.remove(entity.row()).map(|dense_index| {
             #[cfg(debug_assertions)]
             assert_eq!(entity, self.entities[dense_index.index()]);
-            self.entities.swap_remove(dense_index.index());
-            let is_last = dense_index.index() == self.dense.len() - 1;
-            // SAFETY: if the sparse index points to something in the dense vec, it exists
-            unsafe {
-                self.dense.swap_remove_unchecked(dense_index);
-            }
-            if !is_last {
-                let swapped_entity = self.entities[dense_index.index()];
+            let len = self.entities.len();
+            if dense_index.index() >= len - 1 {
+                #[cfg(debug_assertions)]
+                assert_eq!(dense_index.index(), len - 1);
+                // SAFETY: TODO
+                unsafe { self.entities.set_len(dense_index.index()) };
+                // SAFETY: TODO
+                unsafe { self.dense.drop_last_component(dense_index.index()) };
+            } else {
+                // SAFETY: TODO
+                unsafe { self.entities.swap_remove_nonoverlapping_unchecked(dense_index.index()) };
+                // SAFETY: TODO
+                let swapped_entity = unsafe { self.entities.get_unchecked(dense_index.index()) };
                 #[cfg(not(debug_assertions))]
                 let index = swapped_entity;
                 #[cfg(debug_assertions)]
                 let index = swapped_entity.row();
-                *self.sparse.get_mut(index).unwrap() = dense_index;
+                unsafe { *self.sparse.get_mut(index).debug_checked_unwrap() = dense_index; }
+                // SAFETY: TODO
+                unsafe { self.dense.swap_remove_and_drop_unchecked_nonoverlapping(len, dense_index) };
             }
-            true
-        } else {
-            false
-        }
+        }).is_some()
     }
 
     pub(crate) fn check_change_ticks(&mut self, check: CheckChangeTicks) {
-        self.dense.check_change_ticks(check);
+        unsafe { self.dense.check_change_ticks(self.len(), check) };
     }
 }
 

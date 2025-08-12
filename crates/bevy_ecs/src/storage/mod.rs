@@ -21,7 +21,6 @@
 //! [`World::storages`]: crate::world::World::storages
 
 mod blob_array;
-mod blob_vec;
 mod resource;
 mod sparse_set;
 mod table;
@@ -31,6 +30,7 @@ pub use resource::*;
 pub use sparse_set::*;
 pub use table::*;
 
+use alloc::vec::Vec;
 use crate::component::{ComponentInfo, StorageType};
 
 /// The raw data stores of a [`World`](crate::world::World)
@@ -58,5 +58,30 @@ impl Storages {
                 self.sparse_sets.get_or_insert(component);
             }
         }
+    }
+}
+
+struct AbortOnPanic;
+
+impl Drop for AbortOnPanic {
+    fn drop(&mut self) {
+        // Panicking while unwinding will force an abort.
+        panic!("Aborting due to allocator error");
+    }
+}
+
+trait VecExtensions<T> {
+    unsafe fn swap_remove_nonoverlapping_unchecked(&mut self, index: usize);
+}
+
+impl<T> VecExtensions<T> for Vec<T> {
+    unsafe fn swap_remove_nonoverlapping_unchecked(&mut self, index: usize) {
+        let len = self.len();
+        // We replace self[index] with the last element. Note that if the
+        // bounds check above succeeds there must be a last element (which
+        // can be self[index] itself).
+        let base_ptr = self.as_mut_ptr();
+        core::ptr::copy_nonoverlapping(base_ptr.add(len - 1), base_ptr.add(index), 1);
+        self.set_len(len - 1);
     }
 }
