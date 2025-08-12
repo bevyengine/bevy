@@ -1,7 +1,7 @@
 use crate::{
     experimental::{UiChildren, UiRootNodes},
     ui_transform::{UiGlobalTransform, UiTransform},
-    BorderRadius, ComputedNode, ComputedNodeTarget, ContentSize, Display, LayoutConfig, Node,
+    BorderRadius, ComputedNode, ComputedUiTargetCamera, ContentSize, Display, LayoutConfig, Node,
     Outline, OverflowAxis, ScrollPosition,
 };
 use bevy_ecs::{
@@ -77,7 +77,7 @@ pub fn ui_layout_system(
         Entity,
         Ref<Node>,
         Option<&mut ContentSize>,
-        Ref<ComputedNodeTarget>,
+        Ref<ComputedUiTargetCamera>,
     )>,
     added_node_query: Query<(), Added<Node>>,
     mut node_update_query: Query<(
@@ -375,7 +375,7 @@ mod tests {
     fn setup_ui_test_app() -> App {
         let mut app = App::new();
 
-        app.add_plugins(HierarchyPropagatePlugin::<ComputedNodeTarget>::new(
+        app.add_plugins(HierarchyPropagatePlugin::<ComputedUiTargetCamera>::new(
             PostUpdate,
         ));
         app.init_resource::<UiScale>();
@@ -400,7 +400,7 @@ mod tests {
 
         app.configure_sets(
             PostUpdate,
-            PropagateSet::<ComputedNodeTarget>::default()
+            PropagateSet::<ComputedUiTargetCamera>::default()
                 .after(update_ui_context_system)
                 .before(ui_layout_system),
         );
@@ -1051,13 +1051,13 @@ mod tests {
             (update_ui_context_system, ApplyDeferred, ui_layout_system).chain(),
         );
 
-        app.add_plugins(HierarchyPropagatePlugin::<ComputedNodeTarget>::new(
+        app.add_plugins(HierarchyPropagatePlugin::<ComputedUiTargetCamera>::new(
             PostUpdate,
         ));
 
         app.configure_sets(
             PostUpdate,
-            PropagateSet::<ComputedNodeTarget>::default()
+            PropagateSet::<ComputedUiTargetCamera>::default()
                 .after(update_ui_context_system)
                 .before(ui_layout_system),
         );

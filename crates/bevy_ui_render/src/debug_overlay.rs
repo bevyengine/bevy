@@ -21,7 +21,7 @@ use bevy_sprite::BorderRect;
 use bevy_ui::ui_transform::UiGlobalTransform;
 use bevy_ui::CalculatedClip;
 use bevy_ui::ComputedNode;
-use bevy_ui::ComputedNodeTarget;
+use bevy_ui::ComputedUiTargetCamera;
 use bevy_ui::UiStack;
 
 /// Configuration for the UI debug overlay
@@ -65,7 +65,7 @@ pub fn extract_debug_overlay(
             &UiGlobalTransform,
             &InheritedVisibility,
             Option<&CalculatedClip>,
-            &ComputedNodeTarget,
+            &ComputedUiTargetCamera,
         )>,
     >,
     ui_stack: Extract<Res<UiStack>>,
