@@ -1994,6 +1994,9 @@ impl<'a> EntityCommands<'a> {
     /// Sends an [`EntityEvent`] targeting the entity.
     ///
     /// This will run any [`Observer`] of the given [`EntityEvent`] watching this entity.
+    ///
+    /// To queue this command with a handler, use [`EntityCommands::queue_handled`]
+    /// with [`entity_command::trigger(event)`](entity_command::trigger).
     #[track_caller]
     pub fn trigger(&mut self, event: impl EntityEvent) -> &mut Self {
         self.queue(entity_command::trigger(event))

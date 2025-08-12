@@ -50,8 +50,11 @@ pub enum EntityComponentError {
 #[derive(thiserror::Error, Debug, Clone, Copy, PartialEq, Eq)]
 pub enum EntityMutableFetchError {
     /// The entity with the given ID does not exist.
-    #[error("The entity with ID {0} does not exist.\n
-    If you were attempting to apply a command to this entity, and want to handle this error gracefully, consider TODO.")]
+    #[error(
+        "{0} does not exist.\n
+    If you were attempting to apply a command to this entity,
+    and want to handle this error gracefully, consider using `EntityCommands::queue_handled` or `queue_silenced`."
+    )]
     EntityDoesNotExist(#[from] EntityDoesNotExistError),
     /// The entity with the given ID was requested mutably more than once.
     #[error("The entity with ID {0} was requested mutably more than once")]
@@ -74,7 +77,10 @@ pub enum ResourceFetchError {
 
 #[cfg(test)]
 mod tests {
-    use crate::{prelude::*, system::RunSystemOnce};
+    use crate::{
+        prelude::*,
+        system::{entity_command::trigger, RunSystemOnce},
+    };
 
     // Inspired by https://github.com/bevyengine/bevy/issues/19623
     #[test]
@@ -89,8 +95,12 @@ mod tests {
             commands.entity(trigger.target()).despawn();
         }
 
-        fn followup(trigger: On<Kill>, mut commands: Commands) {
-            commands.entity(trigger.target()).trigger(FollowupEvent);
+        fn followup(on: On<Kill>, mut commands: Commands) {
+            // When using a simple .trigger() here, this panics because the entity has already been despawned.
+            // Instead, we need to use `.queue_handled` or `.queue_silenced` to avoid the panic.
+            commands
+                .entity(on.target())
+                .queue_silenced(trigger(FollowupEvent));
         }
 
         let mut world = World::new();
