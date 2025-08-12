@@ -133,7 +133,7 @@ fn update_clipping(
     }
 }
 
-pub fn propagate_ui_target_camera_system(
+pub fn propagate_ui_target_cameras(
     mut commands: Commands,
     default_ui_camera: DefaultUiCamera,
     ui_scale: Res<UiScale>,
@@ -198,7 +198,7 @@ mod tests {
     use bevy_window::WindowResolution;
     use bevy_window::WindowScaleFactorChanged;
 
-    use crate::update::propagate_ui_target_camera_system;
+    use crate::update::propagate_ui_target_cameras;
     use crate::ComputedUiTargetCamera;
     use crate::IsDefaultUiCamera;
     use crate::Node;
@@ -230,7 +230,7 @@ mod tests {
             bevy_app::Update,
             (
                 bevy_render::camera::camera_system,
-                propagate_ui_target_camera_system,
+                propagate_ui_target_cameras,
             )
                 .chain(),
         );
