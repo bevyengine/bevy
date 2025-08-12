@@ -54,7 +54,7 @@ use bevy_ecs::{
 #[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash, Default)]
 pub struct Main;
 
-/// The schedule that runs all startup schedules (e.g., [`Startup`]).
+/// The schedule that runs all startup schedules (e.g., [`Startup`], [`PostStartup`]).
 #[derive(ScheduleLabel, Clone, Debug, PartialEq, Eq, Hash, Default)]
 pub struct StartupMain;
 
