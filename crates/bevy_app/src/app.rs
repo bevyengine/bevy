@@ -256,13 +256,14 @@ impl App {
     /// plugins are ready, but can be useful for situations where you want to use [`App::update`].
     pub fn finish(&mut self) {
         // plugins installed to main should see all sub-apps
-        let plugins = core::mem::take(&mut self.main_mut().plugin_registry);
-        for plugin in &plugins {
-            plugin.finish(self);
+        // do hokey pokey with a boxed zst plugin (doesn't allocate)
+        let mut hokeypokey: Box<dyn Plugin> = Box::new(HokeyPokey);
+        for i in 0..self.main().plugin_registry.len() {
+            core::mem::swap(&mut self.main_mut().plugin_registry[i], &mut hokeypokey);
+            hokeypokey.finish(self);
+            core::mem::swap(&mut self.main_mut().plugin_registry[i], &mut hokeypokey);
         }
-        let main = self.main_mut();
-        main.plugin_registry = plugins;
-        main.plugins_state = PluginsState::Finished;
+        self.main_mut().plugins_state = PluginsState::Finished;
         self.sub_apps.iter_mut().skip(1).for_each(SubApp::finish);
     }
 
@@ -270,13 +271,14 @@ impl App {
     /// [`App::finish`], but can be useful for situations where you want to use [`App::update`].
     pub fn cleanup(&mut self) {
         // plugins installed to main should see all sub-apps
-        let plugins = core::mem::take(&mut self.main_mut().plugin_registry);
-        for plugin in &plugins {
-            plugin.cleanup(self);
+        // do hokey pokey with a boxed zst plugin (doesn't allocate)
+        let mut hokeypokey: Box<dyn Plugin> = Box::new(HokeyPokey);
+        for i in 0..self.main().plugin_registry.len() {
+            core::mem::swap(&mut self.main_mut().plugin_registry[i], &mut hokeypokey);
+            hokeypokey.cleanup(self);
+            core::mem::swap(&mut self.main_mut().plugin_registry[i], &mut hokeypokey);
         }
-        let main = self.main_mut();
-        main.plugin_registry = plugins;
-        main.plugins_state = PluginsState::Cleaned;
+        self.main_mut().plugins_state = PluginsState::Cleaned;
         self.sub_apps.iter_mut().skip(1).for_each(SubApp::cleanup);
     }
 
@@ -1390,6 +1392,12 @@ impl App {
     }
 }
 
+// Used for doing hokey pokey in finish and cleanup
+pub(crate) struct HokeyPokey;
+impl Plugin for HokeyPokey {
+    fn build(&self, _: &mut App) {}
+}
+
 type RunnerFn = Box<dyn FnOnce(App) -> AppExit>;
 
 fn run_once(mut app: App) -> AppExit {
@@ -1526,6 +1534,38 @@ mod tests {
         }
     }
 
+    struct PluginF;
+
+    impl Plugin for PluginF {
+        fn build(&self, _app: &mut App) {}
+
+        fn finish(&self, app: &mut App) {
+            // Ensure other plugins are available during finish
+            assert_eq!(
+                app.is_plugin_added::<PluginA>(),
+                !app.get_added_plugins::<PluginA>().is_empty(),
+            );
+        }
+
+        fn cleanup(&self, app: &mut App) {
+            // Ensure other plugins are available during finish
+            assert_eq!(
+                app.is_plugin_added::<PluginA>(),
+                !app.get_added_plugins::<PluginA>().is_empty(),
+            );
+        }
+    }
+
+    struct PluginG;
+
+    impl Plugin for PluginG {
+        fn build(&self, _app: &mut App) {}
+
+        fn finish(&self, app: &mut App) {
+            app.add_plugins(PluginB);
+        }
+    }
+
     #[test]
     fn can_add_two_plugins() {
         App::new().add_plugins((PluginA, PluginB));
@@ -1593,6 +1633,39 @@ mod tests {
         app.add_plugins(PluginA);
         app.add_plugins(PluginE);
         app.finish();
+    }
+
+    #[test]
+    fn test_get_added_plugins_works_during_finish_and_cleanup() {
+        let mut app = App::new();
+        app.add_plugins(PluginA);
+        app.add_plugins(PluginF);
+        app.finish();
+    }
+
+    #[test]
+    fn test_adding_plugin_works_during_finish() {
+        let mut app = App::new();
+        app.add_plugins(PluginA);
+        app.add_plugins(PluginG);
+        app.finish();
+        assert_eq!(
+            app.main().plugin_registry[0].name(),
+            "bevy_app::main_schedule::MainSchedulePlugin"
+        );
+        assert_eq!(
+            app.main().plugin_registry[1].name(),
+            "bevy_app::app::tests::PluginA"
+        );
+        assert_eq!(
+            app.main().plugin_registry[2].name(),
+            "bevy_app::app::tests::PluginG"
+        );
+        // PluginG adds PluginB during finish
+        assert_eq!(
+            app.main().plugin_registry[3].name(),
+            "bevy_app::app::tests::PluginB"
+        );
     }
 
     #[test]
