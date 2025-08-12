@@ -2800,11 +2800,15 @@ impl<'w, 's> DefaultUiCamera<'w, 's> {
 }
 
 /// Derived information about the camera target for this UI node.
+///
+/// Updated in [`UiSystems::Prepare`](crate::UiSystems::Prepare) by [`propagate_ui_target_cameras`](crate::update::propagate_ui_target_cameras)
 #[derive(Component, Clone, Copy, Debug, Reflect, PartialEq)]
 #[reflect(Component, Default, PartialEq, Clone)]
 pub struct ComputedUiTargetCamera {
     pub(crate) camera: Entity,
+    /// The scale factor of the target camera's render target.
     pub(crate) scale_factor: f32,
+    /// The size of the target camera's viewport in physical pixels.
     pub(crate) physical_size: UVec2,
 }
 
@@ -2819,18 +2823,22 @@ impl Default for ComputedUiTargetCamera {
 }
 
 impl ComputedUiTargetCamera {
+    /// Returns the id of the target camera for this UI node.
     pub fn camera(&self) -> Option<Entity> {
         Some(self.camera).filter(|&entity| entity != Entity::PLACEHOLDER)
     }
 
+    /// Returns the scale factor of the target camera's render target.
     pub const fn scale_factor(&self) -> f32 {
         self.scale_factor
     }
 
+    /// Returns the size of the target camera's viewport in physical pixels.
     pub const fn physical_size(&self) -> UVec2 {
         self.physical_size
     }
 
+    /// Returns the size of the target camera's viewport in logical pixels.
     pub fn logical_size(&self) -> Vec2 {
         self.physical_size.as_vec2() / self.scale_factor
     }
