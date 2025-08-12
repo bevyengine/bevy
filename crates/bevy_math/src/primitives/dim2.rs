@@ -1537,29 +1537,32 @@ impl Segment2d {
         let pq_cross_s = pq.perp_dot(s);
         let r_cross_s = r.perp_dot(s);
 
-        if r_cross_s.abs() > f32::EPSILON {
+        if ops::abs(r_cross_s) > f32::EPSILON {
             // non parallel
             let t = pq_cross_s / r_cross_s;
             let u = pq_cross_r / r_cross_s;
             let t_in_range = (-f32::EPSILON..=1.0 + f32::EPSILON).contains(&t);
             let u_in_range = (-f32::EPSILON..=1.0 + f32::EPSILON).contains(&u);
             (t_in_range && u_in_range).then_some(p + r * t)
-        } else if pq_cross_r.abs() < f32::EPSILON || pq_cross_s.abs() < f32::EPSILON {
+        } else if ops::abs(pq_cross_r) < f32::EPSILON || ops::abs(pq_cross_s) < f32::EPSILON {
             // collinear
             let r_len2 = r.length_squared();
             let s_len2 = s.length_squared();
-            match (r_len2.abs() < f32::EPSILON, s_len2.abs() < f32::EPSILON) {
+            match (
+                ops::abs(r_len2) < f32::EPSILON,
+                ops::abs(s_len2) < f32::EPSILON,
+            ) {
                 // point point
                 (true, true) => (pq.length_squared() < f32::EPSILON).then_some(p),
                 // segment point
-                (false, true) if pq_cross_r.abs() < f32::EPSILON => {
+                (false, true) if ops::abs(pq_cross_r) < f32::EPSILON => {
                     let t = pq.dot(r) / r_len2;
                     (-f32::EPSILON..=1.0 + f32::EPSILON)
                         .contains(&t)
                         .then_some(q)
                 }
                 // point segment
-                (true, false) if pq_cross_s.abs() < f32::EPSILON => {
+                (true, false) if ops::abs(pq_cross_s) < f32::EPSILON => {
                     let t = -pq.dot(s) / s_len2;
                     (-f32::EPSILON..=1.0 + f32::EPSILON)
                         .contains(&t)
