@@ -4,9 +4,9 @@
 use core::num::NonZero;
 
 use bevy::{
-    prelude::*, reflect::TypePath, render::render_resource::AsBindGroup, shader::ShaderRef,
+    image::ImageLoaderSettings, prelude::*, reflect::TypePath,
+    render::render_resource::AsBindGroup, shader::ShaderRef,
 };
-use bevy_image::ImageLoaderSettings;
 
 /// This example uses a shader source file from the assets subdirectory
 const SHADER_ASSET_PATH: &str = "shaders/array_texture.wgsl";
