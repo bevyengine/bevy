@@ -34,8 +34,8 @@ use bevy_render::{sync_world::MainEntity, RenderStartup};
 use bevy_shader::Shader;
 use bevy_sprite::BorderRect;
 use bevy_ui::{
-    BackgroundGradient, BorderGradient, ColorStop, ConicGradient, Gradient,
-    InterpolationColorSpace, LinearGradient, RadialGradient, ResolvedBorderRadius, Val,
+    BackgroundGradient, BorderGradient, ColorStop, ComputedUiRenderTargetInfo, ConicGradient,
+    Gradient, InterpolationColorSpace, LinearGradient, RadialGradient, ResolvedBorderRadius, Val,
 };
 use bevy_utils::default;
 use bytemuck::{Pod, Zeroable};
@@ -353,6 +353,7 @@ pub fn extract_gradients(
             Entity,
             &ComputedNode,
             &ComputedUiTargetCamera,
+            &ComputedUiRenderTargetInfo,
             &UiGlobalTransform,
             &InheritedVisibility,
             Option<&CalculatedClip>,
@@ -367,6 +368,7 @@ pub fn extract_gradients(
     for (
         entity,
         uinode,
+        camera,
         target,
         transform,
         inherited_visibility,
@@ -379,7 +381,7 @@ pub fn extract_gradients(
             continue;
         }
 
-        let Some(extracted_camera_entity) = camera_mapper.map(target) else {
+        let Some(extracted_camera_entity) = camera_mapper.map(camera) else {
             continue;
         };
 
