@@ -1548,10 +1548,7 @@ impl Segment2d {
             // collinear
             let r_len2 = r.length_squared();
             let s_len2 = s.length_squared();
-            match (
-                ops::abs(r_len2) < f32::EPSILON,
-                ops::abs(s_len2) < f32::EPSILON,
-            ) {
+            match (r_len2 < f32::EPSILON, s_len2 < f32::EPSILON) {
                 // point point
                 (true, true) => (pq.length_squared() < f32::EPSILON).then_some(p),
                 // segment point
