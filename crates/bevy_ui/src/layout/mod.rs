@@ -386,6 +386,9 @@ mod tests {
         app.add_plugins(HierarchyPropagatePlugin::<ComputedUiTargetCamera>::new(
             PostUpdate,
         ));
+        app.add_plugins(HierarchyPropagatePlugin::<ComputedUiRenderTargetInfo>::new(
+            PostUpdate,
+        ));
         app.init_resource::<UiScale>();
         app.init_resource::<UiSurface>();
         app.init_resource::<Events<WindowScaleFactorChanged>>();
@@ -417,6 +420,13 @@ mod tests {
         app.configure_sets(
             PostUpdate,
             PropagateSet::<ComputedUiTargetCamera>::default()
+                .after(update_ui_context_system)
+                .before(ui_layout_system),
+        );
+
+        app.configure_sets(
+            PostUpdate,
+            PropagateSet::<ComputedUiRenderTargetInfo>::default()
                 .after(update_ui_context_system)
                 .before(ui_layout_system),
         );
