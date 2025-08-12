@@ -230,7 +230,7 @@ mod tests {
 
         app.init_resource::<UiScale>();
 
-        app.add_plugins(HierarchyPropagatePlugin::<ComputedNodeTarget>::new(
+        app.add_plugins(HierarchyPropagatePlugin::<ComputedUiTargetCamera>::new(
             PostUpdate,
         ));
 
