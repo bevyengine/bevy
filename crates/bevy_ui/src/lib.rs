@@ -76,7 +76,7 @@ use bevy_transform::TransformSystems;
 use layout::ui_surface::UiSurface;
 use stack::ui_stack_system;
 pub use stack::UiStack;
-use update::{propagate_ui_target_camera_system, update_clipping_system};
+use update::{update_clipping_system, update_ui_context_system};
 
 /// The basic plugin for Bevy UI
 #[derive(Default)]
@@ -183,7 +183,7 @@ impl Plugin for UiPlugin {
         app.add_systems(
             PostUpdate,
             (
-                propagate_ui_target_camera_system.in_set(UiSystems::Prepare),
+                update_ui_context_system.in_set(UiSystems::Prepare),
                 ui_layout_system_config,
                 ui_stack_system
                     .in_set(UiSystems::Stack)

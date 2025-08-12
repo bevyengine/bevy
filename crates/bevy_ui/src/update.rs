@@ -201,7 +201,7 @@ mod tests {
     use bevy_window::WindowResolution;
     use bevy_window::WindowScaleFactorChanged;
 
-    use crate::update::propagate_ui_target_camera_system;
+    use crate::update::update_ui_context_system;
     use crate::ComputedUiTargetCamera;
     use crate::IsDefaultUiCamera;
     use crate::Node;
@@ -231,11 +231,7 @@ mod tests {
 
         app.add_systems(
             bevy_app::Update,
-            (
-                bevy_render::camera::camera_system,
-                propagate_ui_target_camera_system,
-            )
-                .chain(),
+            (bevy_render::camera::camera_system, update_ui_context_system).chain(),
         );
 
         app

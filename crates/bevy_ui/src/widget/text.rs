@@ -1,6 +1,6 @@
 use crate::{
-    ComputedNode, ComputedUiTargetCamera, ContentSize, FixedMeasure, Measure, MeasureArgs, Node,
-    NodeMeasure,
+    ComputedNode, ComputedUiRenderTargetInfo, ContentSize, FixedMeasure, Measure, MeasureArgs,
+    Node, NodeMeasure,
 };
 use bevy_asset::Assets;
 use bevy_color::Color;
@@ -276,7 +276,7 @@ pub fn measure_text_system(
             &mut ContentSize,
             &mut TextNodeFlags,
             &mut ComputedTextBlock,
-            Ref<ComputedUiTargetCamera>,
+            Ref<ComputedUiRenderTargetInfo>,
         ),
         With<Node>,
     >,
