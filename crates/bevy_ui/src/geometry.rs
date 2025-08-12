@@ -282,6 +282,54 @@ impl Val {
     }
 }
 
+/// Returns a [`Val::Auto`] where the value is automatically determined
+/// based on the context and other [`Node`](crate::Node) properties.
+pub const fn auto() -> Val {
+    Val::Auto
+}
+
+/// Returns a [`Val::Px`] representing a value in logical pixels.
+pub const fn px(value: f32) -> Val {
+    Val::Px(value)
+}
+
+/// Returns a [`Val::Percent`] representing a percentage of the parent node's length
+/// along a specific axis.
+///
+/// If the UI node has no parent, the percentage is based on the window's length
+/// along that axis.
+///
+/// Axis rules:
+/// * For `flex_basis`, the percentage is relative to the main-axis length determined by the `flex_direction`.
+/// * For `gap`, `min_size`, `size`, and `max_size`:
+///   - `width` is relative to the parent's width.
+///   - `height` is relative to the parent's height.
+/// * For `margin`, `padding`, and `border` values: the percentage is relative to the parent's width.
+/// * For positions, `left` and `right` are relative to the parent's width, while `bottom` and `top` are relative to the parent's height.
+pub const fn percent(value: f32) -> Val {
+    Val::Percent(value)
+}
+
+/// Returns a [`Val::Vw`] representing a percentage of the viewport width.
+pub const fn vw(value: f32) -> Val {
+    Val::Vw(value)
+}
+
+/// Returns a [`Val::Vh`] representing a percentage of the viewport height.
+pub const fn vh(value: f32) -> Val {
+    Val::Vh(value)
+}
+
+/// Returns a [`Val::VMin`] representing a percentage of the viewport's smaller dimension.
+pub const fn vmin(value: f32) -> Val {
+    Val::VMin(value)
+}
+
+/// Returns a [`Val::VMax`] representing a percentage of the viewport's larger dimension.
+pub const fn vmax(value: f32) -> Val {
+    Val::VMax(value)
+}
+
 /// A type which is commonly used to define margins, paddings and borders.
 ///
 /// # Examples

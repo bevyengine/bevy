@@ -133,7 +133,7 @@ fn update_clipping(
     }
 }
 
-pub fn update_ui_context_system(
+pub fn propagate_ui_target_cameras(
     mut commands: Commands,
     default_ui_camera: DefaultUiCamera,
     ui_scale: Res<UiScale>,
@@ -203,7 +203,7 @@ pub(crate) fn update_cameras_test_system(
 
 #[cfg(test)]
 mod tests {
-    use crate::update::update_ui_context_system;
+    use crate::update::propagate_ui_target_cameras;
     use crate::ComputedUiTargetCamera;
     use crate::IsDefaultUiCamera;
     use crate::Node;
@@ -241,7 +241,11 @@ mod tests {
 
         app.add_systems(
             bevy_app::Update,
-            (super::update_cameras_test_system, update_ui_context_system).chain(),
+            (
+                super::update_cameras_test_system,
+                propagate_ui_target_cameras,
+            )
+                .chain(),
         );
 
         app

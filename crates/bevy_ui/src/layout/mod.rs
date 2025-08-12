@@ -355,7 +355,7 @@ mod tests {
     use crate::update::update_cameras_test_system;
     use crate::{
         layout::ui_surface::UiSurface, prelude::*, ui_layout_system,
-        update::update_ui_context_system, ContentSize, LayoutContext,
+        update::propagate_ui_target_cameras, ContentSize, LayoutContext,
     };
     use bevy_app::{App, HierarchyPropagatePlugin, PostUpdate, PropagateSet};
     use bevy_camera::{Camera, Camera2d};
@@ -388,7 +388,7 @@ mod tests {
             PostUpdate,
             (
                 update_cameras_test_system,
-                update_ui_context_system,
+                propagate_ui_target_cameras,
                 ApplyDeferred,
                 ui_layout_system,
                 mark_dirty_trees,
@@ -401,7 +401,7 @@ mod tests {
         app.configure_sets(
             PostUpdate,
             PropagateSet::<ComputedUiTargetCamera>::default()
-                .after(update_ui_context_system)
+                .after(propagate_ui_target_cameras)
                 .before(ui_layout_system),
         );
 
@@ -1048,7 +1048,7 @@ mod tests {
 
         app.add_systems(
             PostUpdate,
-            (update_ui_context_system, ApplyDeferred, ui_layout_system).chain(),
+            (propagate_ui_target_cameras, ApplyDeferred, ui_layout_system).chain(),
         );
 
         app.add_plugins(HierarchyPropagatePlugin::<ComputedUiTargetCamera>::new(
@@ -1058,7 +1058,7 @@ mod tests {
         app.configure_sets(
             PostUpdate,
             PropagateSet::<ComputedUiTargetCamera>::default()
-                .after(update_ui_context_system)
+                .after(propagate_ui_target_cameras)
                 .before(ui_layout_system),
         );
 

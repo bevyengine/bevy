@@ -23,12 +23,12 @@ use bevy_render::{
     extract_instances::ExtractInstancesPlugin,
     render_asset::RenderAssets,
     render_resource::{DynamicUniformBuffer, Sampler, ShaderType, TextureView},
-    renderer::{RenderAdapter, RenderDevice, RenderQueue},
+    renderer::{RenderAdapter, RenderAdapterInfo, RenderDevice, RenderQueue},
     settings::WgpuFeatures,
     sync_world::RenderEntity,
     texture::{FallbackImage, GpuImage},
     view::ExtractedView,
-    Extract, ExtractSchedule, Render, RenderApp, RenderSystems,
+    Extract, ExtractSchedule, Render, RenderApp, RenderSystems, WgpuWrapper,
 };
 use bevy_shader::load_shader_library;
 use bevy_transform::{components::Transform, prelude::GlobalTransform};
@@ -718,8 +718,10 @@ pub(crate) fn binding_arrays_are_usable(
     render_device: &RenderDevice,
     render_adapter: &RenderAdapter,
 ) -> bool {
+    let adapter_info = RenderAdapterInfo(WgpuWrapper::new(render_adapter.get_info()));
+
     !cfg!(feature = "shader_format_glsl")
-        && bevy_render::get_adreno_model(render_adapter).is_none_or(|model| model > 610)
+        && bevy_render::get_adreno_model(&adapter_info).is_none_or(|model| model > 610)
         && render_device.limits().max_storage_textures_per_shader_stage
             >= (STANDARD_MATERIAL_FRAGMENT_SHADER_MIN_TEXTURE_BINDINGS + MAX_VIEW_LIGHT_PROBES)
                 as u32
