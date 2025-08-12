@@ -2,7 +2,7 @@ use bevy_asset::Handle;
 use bevy_camera::visibility::Visibility;
 use bevy_ecs::prelude::*;
 use bevy_image::Image;
-use bevy_math::Quat;
+use bevy_math::{Quat, UVec2};
 use bevy_reflect::prelude::*;
 use bevy_transform::components::Transform;
 
@@ -136,6 +136,29 @@ impl Default for GeneratedEnvironmentMapLight {
             intensity: 0.0,
             rotation: Quat::IDENTITY,
             affects_lightmapped_mesh_diffuse: true,
+        }
+    }
+}
+
+/// Generates a cubemap of the sky produced by the atmosphere shader.
+///
+/// Attach to a `LightProbe` to capture reflections inside its volume.
+#[derive(Component, Clone)]
+pub struct AtmosphereEnvironmentMapLight {
+    /// Luminance multiplier in cd/m².
+    pub intensity: f32,
+    /// Whether the diffuse contribution should affect meshes that already have lightmaps.
+    pub affects_lightmapped_mesh_diffuse: bool,
+    /// Cubemap resolution in pixels (must be a power-of-two).
+    pub size: UVec2,
+}
+
+impl Default for AtmosphereEnvironmentMapLight {
+    fn default() -> Self {
+        Self {
+            intensity: 1.0,
+            affects_lightmapped_mesh_diffuse: true,
+            size: UVec2::new(512, 512),
         }
     }
 }

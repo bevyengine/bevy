@@ -33,10 +33,11 @@
 //!
 //! [Unreal Engine Implementation]: https://github.com/sebh/UnrealEngineSkyAtmosphere
 
+mod environment;
 mod node;
 pub mod resources;
 
-use bevy_app::{App, Plugin};
+use bevy_app::{App, Plugin, Update};
 use bevy_asset::embedded_asset;
 use bevy_camera::Camera3d;
 use bevy_core_pipeline::core_3d::graph::Node3d;
@@ -63,6 +64,11 @@ use bevy_render::{
 
 use bevy_core_pipeline::core_3d::graph::Core3d;
 use bevy_shader::load_shader_library;
+use environment::{
+    prepare_atmosphere_probe_bind_groups, prepare_atmosphere_probe_components,
+    prepare_atmosphere_probe_layout, prepare_atmosphere_probe_pipeline, prepare_probe_textures,
+    AtmosphereEnvironmentMap, EnvironmentNode,
+};
 use resources::{
     prepare_atmosphere_transforms, queue_render_sky_pipelines, AtmosphereTransforms,
     RenderSkyBindGroupLayouts,
@@ -92,13 +98,16 @@ impl Plugin for AtmospherePlugin {
         embedded_asset!(app, "sky_view_lut.wgsl");
         embedded_asset!(app, "aerial_view_lut.wgsl");
         embedded_asset!(app, "render_sky.wgsl");
+        embedded_asset!(app, "environment.wgsl");
 
         app.add_plugins((
             ExtractComponentPlugin::<Atmosphere>::default(),
             ExtractComponentPlugin::<AtmosphereSettings>::default(),
+            ExtractComponentPlugin::<AtmosphereEnvironmentMap>::default(),
             UniformComponentPlugin::<Atmosphere>::default(),
             UniformComponentPlugin::<AtmosphereSettings>::default(),
-        ));
+        ))
+        .add_systems(Update, prepare_atmosphere_probe_components);
     }
 
     fn finish(&self, app: &mut App) {
@@ -139,6 +148,14 @@ impl Plugin for AtmospherePlugin {
                     configure_camera_depth_usages.in_set(RenderSystems::ManageViews),
                     queue_render_sky_pipelines.in_set(RenderSystems::Queue),
                     prepare_atmosphere_textures.in_set(RenderSystems::PrepareResources),
+                    prepare_atmosphere_probe_layout.in_set(RenderSystems::PrepareResources),
+                    prepare_probe_textures
+                        .in_set(RenderSystems::PrepareResources)
+                        .after(prepare_atmosphere_textures),
+                    prepare_atmosphere_probe_bind_groups.in_set(RenderSystems::PrepareBindGroups),
+                    prepare_atmosphere_probe_pipeline
+                        .in_set(RenderSystems::PrepareResources)
+                        .after(prepare_atmosphere_probe_layout),
                     prepare_atmosphere_transforms.in_set(RenderSystems::PrepareResources),
                     prepare_atmosphere_bind_groups.in_set(RenderSystems::PrepareBindGroups),
                 ),
@@ -160,6 +177,7 @@ impl Plugin for AtmospherePlugin {
                 Core3d,
                 AtmosphereNode::RenderSky,
             )
+            .add_render_graph_node::<EnvironmentNode>(Core3d, AtmosphereNode::Environment)
             .add_render_graph_edges(
                 Core3d,
                 (

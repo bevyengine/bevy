@@ -272,7 +272,7 @@ fn sample_local_inscattering(local_atmosphere: AtmosphereSample, ray_dir: vec3<f
 
         inscattering += (*light).color.rgb * (scattering_factor + multiscattering_factor);
     }
-    return inscattering * view.exposure;
+    return inscattering;
 }
 
 const SUN_ANGULAR_SIZE: f32 = 0.0174533; // angular diameter of sun in radians
