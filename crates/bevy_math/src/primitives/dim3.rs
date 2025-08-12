@@ -637,7 +637,7 @@ impl FromIterator<Vec3> for Polyline3d {
 #[cfg(feature = "alloc")]
 impl Default for Polyline3d {
     fn default() -> Self {
-        Self::new([Vec3::new(0.0, 0.0, 0.0), Vec3::new(1.0, 0.0, 0.0)])
+        Self::new([Vec3::new(-0.5, 0.0, 0.0), Vec3::new(0.5, 0.0, 0.0)])
     }
 }
 

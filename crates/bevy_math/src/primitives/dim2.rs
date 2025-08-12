@@ -1570,7 +1570,7 @@ impl FromIterator<Vec2> for Polyline2d {
 impl Default for Polyline2d {
     fn default() -> Self {
         Self {
-            vertices: Vec::from([Vec2::new(0.0, 0.0), Vec2::new(1.0, 0.0)]),
+            vertices: Vec::from([Vec2::new(-0.5, 0.0), Vec2::new(0.5, 0.0)]),
         }
     }
 }
