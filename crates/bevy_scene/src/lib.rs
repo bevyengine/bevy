@@ -122,7 +122,7 @@ mod tests {
         entity::Entity,
         entity_disabling::Internal,
         hierarchy::{ChildOf, Children},
-        query::Allows,
+        query::Allow,
         reflect::{AppTypeRegistry, ReflectComponent},
         world::World,
     };
@@ -307,7 +307,7 @@ mod tests {
                 .insert_resource(world.resource::<AppTypeRegistry>().clone());
             let entities: Vec<Entity> = scene
                 .world
-                .query_filtered::<Entity, Allows<Internal>>()
+                .query_filtered::<Entity, Allow<Internal>>()
                 .iter(&scene.world)
                 .collect();
             DynamicSceneBuilder::from_world(&scene.world)
