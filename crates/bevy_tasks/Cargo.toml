@@ -21,6 +21,7 @@ bevy_executor = [
   "dep:fastrand",
   "dep:slab",
   "dep:thread_local",
+  "dep:crossbeam-utils",
   "dep:pin-project-lite",
   "async-task/std",
 ]
@@ -55,6 +56,7 @@ atomic-waker = { version = "1", default-features = false }
 crossbeam-queue = { version = "0.3", default-features = false, features = [
   "alloc",
 ] }
+crossbeam-utils = { version = "0.8", default-features = false, optional = true }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 async-channel = "2.3.0"

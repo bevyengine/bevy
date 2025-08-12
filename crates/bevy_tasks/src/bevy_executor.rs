@@ -24,6 +24,7 @@ use crossbeam_queue::{ArrayQueue, SegQueue};
 use futures_lite::{future,FutureExt};
 use slab::Slab;
 use thread_local::ThreadLocal;
+use crossbeam_utils::CachePadded;
 
 // ThreadLocalState *must* stay `Sync` due to a currently existing soundness hole.
 // See: https://github.com/Amanieu/thread_local-rs/issues/75
@@ -44,11 +45,11 @@ pub(crate) fn install_runtime_into_current_thread(executor: &Executor) {
 }
 
 std::thread_local! {
-    static LOCAL_QUEUE: UnsafeCell<LocalQueue> = const {
-        UnsafeCell::new(LocalQueue {
+    static LOCAL_QUEUE: CachePadded<UnsafeCell<LocalQueue>> = const {
+        CachePadded::new(UnsafeCell::new(LocalQueue {
             local_queue: VecDeque::new(),
             local_active: Slab::new(),
-        })
+        }))
     };
 }
 
@@ -765,7 +766,7 @@ impl Runner<'_> {
     }
 
     /// Waits for the next runnable task to run.
-    fn runnable(&mut self, rng: &mut fastrand::Rng) -> impl Future<Output = Runnable> {
+    fn runnable(&mut self, _rng: &mut fastrand::Rng) -> impl Future<Output = Runnable> {
         // SAFETY: The provided search function does not access LOCAL_QUEUE in any way, and thus cannot 
         // alias.
         let runnable = unsafe {
@@ -776,49 +777,53 @@ impl Runner<'_> {
                     return Some(r);
                 }
 
-                // Try the local queue.
-                if let Some(r) = self.local_state.stealable_queue.pop() {
-                    return Some(r);
-                }
-
-                // Try stealing from the global queue.
-                if let Some(r) = self.state.queue.pop() {
-                    steal(&self.state.queue, &self.local_state.stealable_queue);
-                    return Some(r);
-                }
-
-                // Try stealing from other runners.
-                if let Ok(stealer_queues) = self.state.stealer_queues.try_read() {
-                    // Pick a random starting point in the iterator list and rotate the list.
-                    let n = stealer_queues.len();
-                    let start = rng.usize(..n);
-                    let iter = stealer_queues
-                        .iter()
-                        .chain(stealer_queues.iter())
-                        .skip(start)
-                        .take(n);
-
-                    // Remove this runner's local queue.
-                    let iter =
-                        iter.filter(|local| !core::ptr::eq(**local, &self.local_state.stealable_queue));
-
-                    // Try stealing from each local queue in the list.
-                    for local in iter {
-                        steal(*local, &self.local_state.stealable_queue);
+                crate::cfg::multi_threaded! {
+                    if{
+                        // Try the local queue.
                         if let Some(r) = self.local_state.stealable_queue.pop() {
                             return Some(r);
                         }
-                    }
-                }
 
-                if let Some(r) = self.local_state.thread_locked_queue.pop() {
-                    // Do not steal from this queue. If other threads steal
-                    // from this current thread, the task will be moved.
-                    //
-                    // Instead, flush all queued tasks into the local queue to
-                    // minimize the effort required to scan for these tasks.
-                    flush_to_local(&self.local_state.thread_locked_queue, tls);
-                    return Some(r);
+                        // Try stealing from the global queue.
+                        if let Some(r) = self.state.queue.pop() {
+                            steal(&self.state.queue, &self.local_state.stealable_queue);
+                            return Some(r);
+                        }
+
+                        // Try stealing from other runners.
+                        if let Ok(stealer_queues) = self.state.stealer_queues.try_read() {
+                            // Pick a random starting point in the iterator list and rotate the list.
+                            let n = stealer_queues.len();
+                            let start = _rng.usize(..n);
+                            let iter = stealer_queues
+                                .iter()
+                                .chain(stealer_queues.iter())
+                                .skip(start)
+                                .take(n);
+
+                            // Remove this runner's local queue.
+                            let iter =
+                                iter.filter(|local| !core::ptr::eq(**local, &self.local_state.stealable_queue));
+
+                            // Try stealing from each local queue in the list.
+                            for local in iter {
+                                steal(*local, &self.local_state.stealable_queue);
+                                if let Some(r) = self.local_state.stealable_queue.pop() {
+                                    return Some(r);
+                                }
+                            }
+                        }
+
+                        if let Some(r) = self.local_state.thread_locked_queue.pop() {
+                            // Do not steal from this queue. If other threads steal
+                            // from this current thread, the task will be moved.
+                            //
+                            // Instead, flush all queued tasks into the local queue to
+                            // minimize the effort required to scan for these tasks.
+                            flush_to_local(&self.local_state.thread_locked_queue, tls);
+                            return Some(r);
+                        }
+                    } else {}
                 }
 
                 None
