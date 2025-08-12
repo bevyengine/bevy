@@ -30,8 +30,8 @@ pub use resource::*;
 pub use sparse_set::*;
 pub use table::*;
 
-use alloc::vec::Vec;
 use crate::component::{ComponentInfo, StorageType};
+use alloc::vec::Vec;
 
 /// The raw data stores of a [`World`](crate::world::World)
 #[derive(Default)]

@@ -91,7 +91,8 @@ impl ThinColumn {
         last_element_index: usize,
         row: TableRow,
     ) -> OwningPtr<'_> {
-        let data = self.data
+        let data = self
+            .data
             .swap_remove_unchecked_nonoverlapping(row.index(), last_element_index);
         self.added_ticks
             .swap_remove_unchecked_nonoverlapping(row.index(), last_element_index);
@@ -372,9 +373,9 @@ impl ThinColumn {
         &self,
         row: TableRow,
     ) -> MaybeLocation<&UnsafeCell<&'static Location<'static>>> {
-        self.changed_by.as_ref().map(|changed_by| {
-            changed_by.get_unchecked(row.index())
-        })
+        self.changed_by
+            .as_ref()
+            .map(|changed_by| changed_by.get_unchecked(row.index()))
     }
 
     /// Fetches the "added" change detection tick for the value at `row`. Unlike [`Column::get_added_tick`]
