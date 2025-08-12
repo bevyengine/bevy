@@ -290,8 +290,8 @@ pub fn measure_text_system(
     {
         // Note: the ComputedTextBlock::needs_rerender bool is cleared in create_text_measure().
         // 1e-5 epsilon to ignore tiny scale factor float errors
-        if (computed_target.scale_factor() - computed_node.inverse_scale_factor.recip()).abs()
-            < 1e-5
+        if 1e-5
+            < (computed_target.scale_factor() - computed_node.inverse_scale_factor.recip()).abs()
             || computed.needs_rerender()
             || text_flags.needs_measure_fn
             || content_size.is_added()
