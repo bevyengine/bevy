@@ -16,7 +16,7 @@ keywords = ["bevy"]
 trace = []
 webgl = []
 webgpu = []
-tonemapping_luts = ["bevy_render/ktx2", "bevy_image/ktx2", "bevy_image/zstd"]
+tonemapping_luts = ["bevy_image/ktx2", "bevy_image/zstd"]
 
 [dependencies]
 # bevy

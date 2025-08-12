@@ -1,7 +1,7 @@
 use crate::{
     experimental::{UiChildren, UiRootNodes},
     ui_transform::{UiGlobalTransform, UiTransform},
-    BorderRadius, ComputedNode, ComputedNodeTarget, ContentSize, Display, LayoutConfig, Node,
+    BorderRadius, ComputedNode, ComputedUiTargetCamera, ContentSize, Display, LayoutConfig, Node,
     Outline, OverflowAxis, ScrollPosition,
 };
 use bevy_ecs::{
@@ -77,7 +77,7 @@ pub fn ui_layout_system(
         Entity,
         Ref<Node>,
         Option<&mut ContentSize>,
-        Ref<ComputedNodeTarget>,
+        Ref<ComputedUiTargetCamera>,
     )>,
     added_node_query: Query<(), Added<Node>>,
     mut node_update_query: Query<(
@@ -373,7 +373,7 @@ mod tests {
 
     use crate::{
         layout::ui_surface::UiSurface, prelude::*, ui_layout_system,
-        update::update_ui_context_system, ContentSize, LayoutContext,
+        update::propagate_ui_target_cameras, ContentSize, LayoutContext,
     };
 
     // these window dimensions are easy to convert to and from percentage values
@@ -383,7 +383,7 @@ mod tests {
     fn setup_ui_test_app() -> App {
         let mut app = App::new();
 
-        app.add_plugins(HierarchyPropagatePlugin::<ComputedNodeTarget>::new(
+        app.add_plugins(HierarchyPropagatePlugin::<ComputedUiTargetCamera>::new(
             PostUpdate,
         ));
         app.init_resource::<UiScale>();
@@ -404,7 +404,7 @@ mod tests {
             (
                 // UI is driven by calculated camera target info, so we need to run the camera system first
                 bevy_render::camera::camera_system,
-                update_ui_context_system,
+                propagate_ui_target_cameras,
                 ApplyDeferred,
                 ui_layout_system,
                 mark_dirty_trees,
@@ -416,8 +416,8 @@ mod tests {
 
         app.configure_sets(
             PostUpdate,
-            PropagateSet::<ComputedNodeTarget>::default()
-                .after(update_ui_context_system)
+            PropagateSet::<ComputedUiTargetCamera>::default()
+                .after(propagate_ui_target_cameras)
                 .before(ui_layout_system),
         );
 
@@ -1067,21 +1067,21 @@ mod tests {
             (
                 // UI is driven by calculated camera target info, so we need to run the camera system first
                 bevy_render::camera::camera_system,
-                update_ui_context_system,
+                propagate_ui_target_cameras,
                 ApplyDeferred,
                 ui_layout_system,
             )
                 .chain(),
         );
 
-        app.add_plugins(HierarchyPropagatePlugin::<ComputedNodeTarget>::new(
+        app.add_plugins(HierarchyPropagatePlugin::<ComputedUiTargetCamera>::new(
             PostUpdate,
         ));
 
         app.configure_sets(
             PostUpdate,
-            PropagateSet::<ComputedNodeTarget>::default()
-                .after(update_ui_context_system)
+            PropagateSet::<ComputedUiTargetCamera>::default()
+                .after(propagate_ui_target_cameras)
                 .before(ui_layout_system),
         );
 
