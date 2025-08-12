@@ -1537,36 +1537,41 @@ impl Segment2d {
         let pq_cross_s = pq.perp_dot(s);
         let r_cross_s = r.perp_dot(s);
 
-        if r_cross_s != 0.0 {
+        if r_cross_s.abs() > f32::EPSILON {
             // non parallel
             let t = pq_cross_s / r_cross_s;
             let u = pq_cross_r / r_cross_s;
-            let t_in_range = (0.0..=1.0).contains(&t);
-            let u_in_range = (0.0..=1.0).contains(&u);
+            let t_in_range = (-f32::EPSILON..=1.0 + f32::EPSILON).contains(&t);
+            let u_in_range = (-f32::EPSILON..=1.0 + f32::EPSILON).contains(&u);
             (t_in_range && u_in_range).then_some(p + r * t)
-        } else if pq_cross_r == 0.0 || pq_cross_s == 0.0 {
+        } else if pq_cross_r.abs() < f32::EPSILON || pq_cross_s.abs() < f32::EPSILON {
             // collinear
             let r_dot_r = r.dot(r);
             let s_dot_s = s.dot(s);
-            match (r_dot_r == 0.0, s_dot_s == 0.0) {
+            match (r_dot_r.abs() < f32::EPSILON, s_dot_s.abs() < f32::EPSILON) {
                 // point point
-                (true, true) => (p == q).then_some(p),
+                (true, true) => (pq.length_squared() < f32::EPSILON).then_some(p),
                 // segment point
-                (false, true) if pq_cross_r == 0.0 => {
+                (false, true) if pq_cross_r.abs() < f32::EPSILON => {
                     let t = pq.dot(r) / r_dot_r;
-                    (0.0..=1.0).contains(&t).then_some(q)
+                    (-f32::EPSILON..=1.0 + f32::EPSILON)
+                        .contains(&t)
+                        .then_some(q)
                 }
                 // point segment
-                (true, false) if pq_cross_s == 0.0 => {
+                (true, false) if pq_cross_s.abs() < f32::EPSILON => {
                     let t = -pq.dot(s) / s_dot_s;
-                    (0.0..=1.0).contains(&t).then_some(p)
+                    (-f32::EPSILON..=1.0 + f32::EPSILON)
+                        .contains(&t)
+                        .then_some(p)
                 }
                 // segment segment
                 (false, false) => {
                     let t0 = pq.dot(r) / r_dot_r;
                     let t1 = t0 + s.dot(r) / r_dot_r;
                     let (t_min, t_max) = if t0 < t1 { (t0, t1) } else { (t1, t0) };
-                    (t_max >= 0.0 && t_min <= 1.0).then_some(p + r * t_min.clamp(0.0, 1.0))
+                    (t_max >= -f32::EPSILON && t_min <= 1.0 + f32::EPSILON)
+                        .then_some(p + r * t_min.clamp(0.0, 1.0))
                 }
                 _ => None,
             }
