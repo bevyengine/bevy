@@ -9,13 +9,7 @@ const GLTF_PATH: &str = "models/animated/MorphStressTest.gltf";
 
 fn main() {
     App::new()
-        .add_plugins(DefaultPlugins.set(WindowPlugin {
-            primary_window: Some(Window {
-                title: "morph targets".to_string(),
-                ..default()
-            }),
-            ..default()
-        }))
+        .add_plugins(DefaultPlugins)
         .insert_resource(AmbientLight {
             brightness: 150.0,
             ..default()
