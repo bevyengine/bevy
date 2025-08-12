@@ -14,7 +14,6 @@ There are now *no* hardcoded limits to scene size. In practice you will only be 
 and total instance count due the current code requiring all instances to be re-uploaded to the GPU every frame.
 
 The screenshot above has 130,000 dragons in the scene, each with about 870,000 triangles, leading to over *115 billion* total triangles in the scene.
-However, this still runs at 60 fps on an RTX 4070 at 1440p, but only due to the instance re-upload mentioned above.
 
 Speaking of concrete GPU cost, the scene above renders in about 3.5 ms on the 4070, with \~3.1 ms being spent on the geometry render and \~0.4 ms on the material evaluation.
 After increasing the instance count to over 1 million (almost *900 billion triangles*!), the total increase to about 4.5 ms, with \~4.1 ms on geometry render and material evaluation remaining constant at ~0.4 ms.
