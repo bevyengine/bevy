@@ -267,8 +267,12 @@ mod tests {
 
         assert_eq!(
             *world.get::<ComputedUiTargetCamera>(uinode).unwrap(),
-            ComputedUiTargetCamera {
-                camera,
+            ComputedUiTargetCamera { camera }
+        );
+
+        assert_eq!(
+            *world.get::<ComputedUiRenderTargetInfo>(uinode).unwrap(),
+            ComputedUiRenderTargetInfo {
                 physical_size,
                 scale_factor,
             }
@@ -331,10 +335,14 @@ mod tests {
         ] {
             assert_eq!(
                 *world.get::<ComputedUiTargetCamera>(uinode).unwrap(),
-                ComputedUiTargetCamera {
-                    camera,
-                    scale_factor,
+                ComputedUiTargetCamera { camera }
+            );
+
+            assert_eq!(
+                *world.get::<ComputedUiRenderTargetInfo>(uinode).unwrap(),
+                ComputedUiRenderTargetInfo {
                     physical_size,
+                    scale_factor,
                 }
             );
         }
