@@ -2,10 +2,11 @@ use super::{
     prepare::DlssRenderContext, Dlss, DlssFeature, DlssRayReconstructionFeature,
     DlssSuperResolutionFeature, ViewDlssRayReconstructionTextures,
 };
+use bevy_camera::MainPassResolutionOverride;
 use bevy_core_pipeline::prepass::ViewPrepassTextures;
 use bevy_ecs::{query::QueryItem, world::World};
 use bevy_render::{
-    camera::{MainPassResolutionOverride, TemporalJitter},
+    camera::TemporalJitter,
     diagnostic::RecordDiagnostics,
     render_graph::{NodeRunError, RenderGraphContext, ViewNode},
     renderer::{RenderAdapter, RenderContext},

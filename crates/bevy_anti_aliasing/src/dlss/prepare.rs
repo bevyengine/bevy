@@ -1,8 +1,6 @@
 use super::{Dlss, DlssFeature, DlssSdk};
-use bevy_core_pipeline::{
-    core_3d::Camera3d,
-    prepass::{DepthPrepass, MotionVectorPrepass},
-};
+use bevy_camera::{Camera3d, CameraMainTextureUsages, MainPassResolutionOverride};
+use bevy_core_pipeline::prepass::{DepthPrepass, MotionVectorPrepass};
 use bevy_diagnostic::FrameCount;
 use bevy_ecs::{
     component::Component,
@@ -12,7 +10,7 @@ use bevy_ecs::{
 };
 use bevy_math::Vec4Swizzles;
 use bevy_render::{
-    camera::{CameraMainTextureUsages, MainPassResolutionOverride, MipBias, TemporalJitter},
+    camera::{MipBias, TemporalJitter},
     render_resource::TextureUsages,
     renderer::{RenderDevice, RenderQueue},
     view::ExtractedView,
