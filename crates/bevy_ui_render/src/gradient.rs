@@ -352,7 +352,7 @@ pub fn extract_gradients(
         Query<(
             Entity,
             &ComputedNode,
-            &ComputedNodeTarget,
+            &ComputedUiTargetCamera,
             &UiGlobalTransform,
             &InheritedVisibility,
             Option<&CalculatedClip>,
