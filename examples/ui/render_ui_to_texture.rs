@@ -4,7 +4,7 @@ use std::f32::consts::PI;
 
 use bevy::picking::PickingSystems;
 use bevy::{
-    asset::uuid::Uuid,
+    asset::{RenderAssetUsages, uuid::Uuid},
     camera::RenderTarget,
     color::palettes::css::{BLUE, GRAY, RED},
     input::ButtonState,
@@ -14,7 +14,6 @@ use bevy::{
     },
     prelude::*,
     render::{
-        render_asset::RenderAssetUsages,
         render_resource::{Extent3d, TextureDimension, TextureFormat, TextureUsages},
     },
     window::{PrimaryWindow, WindowEvent},
