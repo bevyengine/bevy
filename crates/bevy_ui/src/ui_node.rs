@@ -381,6 +381,7 @@ impl From<Vec2> for ScrollPosition {
 #[require(
     ComputedNode,
     ComputedUiTargetCamera,
+    ComputedUiRenderTargetInfo,
     UiTransform,
     BackgroundColor,
     BorderColor,

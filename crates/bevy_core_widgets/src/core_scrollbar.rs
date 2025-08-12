@@ -12,7 +12,7 @@ use bevy_math::Vec2;
 use bevy_picking::events::{Cancel, Drag, DragEnd, DragStart, Pointer, Press};
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_ui::{
-    ComputedNode, ComputedUiTargetCamera, Node, ScrollPosition, UiGlobalTransform, UiScale, Val,
+    ComputedNode, ComputedUiRenderTargetInfo, Node, ScrollPosition, UiGlobalTransform, UiScale, Val,
 };
 
 /// Used to select the orientation of a scrollbar, slider, or other oriented control.
@@ -104,7 +104,7 @@ fn scrollbar_on_pointer_down(
     mut q_scrollbar: Query<(
         &CoreScrollbar,
         &ComputedNode,
-        &ComputedUiTargetCamera,
+        &ComputedUiRenderTargetInfo,
         &UiGlobalTransform,
     )>,
     mut q_scroll_pos: Query<(&mut ScrollPosition, &ComputedNode), Without<CoreScrollbar>>,
