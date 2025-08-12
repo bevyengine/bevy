@@ -17,6 +17,8 @@ fn main() {
         .add_plugins(DefaultPlugins)
         .add_plugins(RemotePlugin::default())
         .add_plugins(RemoteHttpPlugin::default())
+        .register_type::<TestResource>()
+        .register_type::<Cube>()
         .add_systems(Startup, setup)
         .add_systems(Update, remove.run_if(input_just_pressed(KeyCode::Space)))
         .add_systems(Update, move_cube)

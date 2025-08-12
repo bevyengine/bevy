@@ -1,8 +1,8 @@
 //! HTTP client for `bevy_remote` protocol with connection resilience
 //!
 //! This client implements the `bevy_remote` JSON-RPC protocol with comprehensive support for:
-//! - **bevy/query**: Query entities and components with flexible filtering
-//! - **bevy/get+watch**: Stream live component updates via Server-Sent Events (SSE)
+//! - **world.query**: Query entities and components with flexible filtering
+//! - **world.get_components+watch**: Stream live component updates via Server-Sent Events (SSE)
 //! - **Connection Management**: Auto-retry logic with exponential backoff
 //! - **Error Recovery**: Robust error handling and reconnection strategies
 //!
@@ -252,7 +252,7 @@ impl HttpRemoteClient {
         let request = JsonRpcRequest {
             jsonrpc: "2.0".to_string(),
             id: self.next_id(),
-            method: "bevy/query".to_string(),
+            method: "world.query".to_string(),
             params: Some(serde_json::json!({
                 "data": {
                     "components": [],
@@ -295,7 +295,7 @@ impl HttpRemoteClient {
         let request = JsonRpcRequest {
             jsonrpc: "2.0".to_string(),
             id: self.next_id(),
-            method: "bevy/query".to_string(),
+            method: "world.query".to_string(),
             params: Some(serde_json::json!({
                 "data": {
                     "components": [],
@@ -382,7 +382,7 @@ impl HttpRemoteClient {
         Ok(())
     }
 
-    /// Start watching components for an entity using bevy/get+watch with `bevy_tasks`
+    /// Start watching components for an entity using world.get_components+watch
     pub fn start_component_watching(
         &mut self,
         entity_id: u32,
@@ -400,11 +400,11 @@ impl HttpRemoteClient {
 
         // Use tokio runtime handle for reqwest compatibility
         tokio_handle.spawn(async move {
-            // Use bevy/get+watch with continuous polling
+            // Use world.get_components+watch with continuous polling
             let request = JsonRpcRequest {
                 jsonrpc: "2.0".to_string(),
                 id: 1, // We'll use a fixed ID for watching requests
-                method: "bevy/get+watch".to_string(),
+                method: "world.get_components+watch".to_string(),
                 params: Some(serde_json::json!({
                     "entity": entity_id,
                     "components": components_clone,

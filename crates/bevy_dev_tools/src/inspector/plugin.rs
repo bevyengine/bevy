@@ -27,7 +27,6 @@ use bevy_camera::Camera2d;
 use bevy_color::Color;
 use bevy_ecs::prelude::*;
 use bevy_log::prelude::*;
-use bevy_text::{TextColor, TextFont};
 use bevy_ui::prelude::*;
 use serde_json::Value;
 use std::collections::HashMap;
@@ -139,21 +138,6 @@ fn setup_ui(mut commands: Commands) {
     // Spawn UI camera first
     commands.spawn(Camera2d);
 
-    // Add a test element to see if UI is working at all
-    commands.spawn((
-        Text::new("Inspector Loading..."),
-        TextFont {
-            font_size: 20.0,
-            ..Default::default()
-        },
-        TextColor(Color::WHITE),
-        Node {
-            position_type: PositionType::Absolute,
-            left: Val::Px(20.0),
-            top: Val::Px(20.0),
-            ..Default::default()
-        },
-    ));
 
     // Root UI container with absolute positioning
     let root = commands
@@ -362,7 +346,7 @@ fn handle_http_updates(
                 let test_request = serde_json::json!({
                     "jsonrpc": "2.0",
                     "id": 1,
-                    "method": "bevy/query",
+                    "method": "world.query",
                     "params": {
                         "data": {
                             "components": [],

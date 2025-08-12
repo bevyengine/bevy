@@ -10,6 +10,7 @@ use bevy_color::Color;
 use bevy_ecs::prelude::*;
 use bevy_ecs::system::ParamSet;
 use bevy_input::prelude::*;
+use bevy_log::debug;
 use bevy_text::{TextColor, TextFont};
 use bevy_time::Time;
 use bevy_ui::prelude::*;
@@ -111,10 +112,12 @@ pub fn update_component_viewer(
     // Check if we need to update (entity changed or periodic refresh)
     let entity_changed = component_cache.current_entity != selected_entity.entity_id;
     let ui_needs_rebuild = component_cache.ui_built_for_entity != selected_entity.entity_id;
-    let should_refresh = false; // Disable automatic refresh for now - only update when entity changes
+    let should_refresh = time.elapsed_secs_f64() - component_cache.last_update > 1.0; // Refresh every second for real-time updates
 
-    // Only debug when something interesting happens
-    let _ = entity_changed || should_refresh || ui_needs_rebuild;
+    // Debug when meaningful updates happen
+    if entity_changed || should_refresh || ui_needs_rebuild {
+        debug!("Component viewer update: entity_changed={}, should_refresh={}, ui_needs_rebuild={}", entity_changed, should_refresh, ui_needs_rebuild);
+    }
 
     if !entity_changed && !should_refresh && !ui_needs_rebuild {
         return;
@@ -479,7 +482,9 @@ pub fn process_live_component_updates(
     // Process all pending updates from the new component update system
     let updates = http_client.check_component_updates();
 
-    let _ = !updates.is_empty();
+    if !updates.is_empty() {
+        debug!("Processing {} component updates", updates.len());
+    }
 
     for update in updates {
         process_component_update(&mut live_cache, update, current_time);

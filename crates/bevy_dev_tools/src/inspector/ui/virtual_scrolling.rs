@@ -24,8 +24,10 @@ use super::entity_list::{
 };
 use crate::inspector::http_client::RemoteEntity;
 use bevy_camera::prelude::Visibility;
+use bevy_color::Color;
 use bevy_ecs::prelude::*;
 use bevy_input::mouse::MouseWheel;
+use bevy_text::{TextColor, TextFont};
 use bevy_time::Time;
 use bevy_ui::prelude::*;
 use bevy_window::Window;
@@ -239,7 +241,44 @@ pub fn update_infinite_scrolling_display(
         entities_changed = true;
     }
 
+    // Handle empty entity list by showing appropriate message
     if virtual_scroll_state.total_entity_count == 0 {
+        // Clear existing cached items
+        for (_, _, _, mut visibility) in cached_items.iter_mut() {
+            *visibility = Visibility::Hidden;
+        }
+        
+        // Show appropriate empty state message on the virtual content
+        let message = if entity_cache.entities.is_empty() {
+            "Connecting to remote Bevy application..."
+        } else {
+            "No entities found"
+        };
+        
+        // Update virtual content to show empty state
+        virtual_content_node.display = Display::Flex;
+        virtual_content_node.flex_direction = FlexDirection::Column;
+        virtual_content_node.align_items = AlignItems::Center;
+        virtual_content_node.justify_content = JustifyContent::Center;
+        
+        // Add empty state text as child of virtual content
+        let empty_state_text = commands
+            .spawn((
+                Text::new(message),
+                TextFont {
+                    font_size: 14.0,
+                    ..Default::default()
+                },
+                TextColor(Color::srgb(0.6, 0.6, 0.6)),
+                Node {
+                    margin: UiRect::all(Val::Px(16.0)),
+                    align_self: AlignSelf::Center,
+                    ..Default::default()
+                },
+            ))
+            .id();
+        
+        commands.entity(virtual_content).add_child(empty_state_text);
         return;
     }
 
