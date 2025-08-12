@@ -51,7 +51,7 @@ impl Plugin for MeshPlugin {
 pub struct MorphPlugin;
 impl Plugin for MorphPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(PostUpdate, inherit_weights.in_set(InheritWeights));
+        app.add_systems(PostUpdate, inherit_weights.in_set(InheritWeightSystems));
     }
 }
 
