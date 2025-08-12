@@ -2804,16 +2804,12 @@ impl<'w, 's> DefaultUiCamera<'w, 's> {
 #[reflect(Component, Default, PartialEq, Clone)]
 pub struct ComputedUiTargetCamera {
     pub(crate) camera: Entity,
-    pub(crate) scale_factor: f32,
-    pub(crate) physical_size: UVec2,
 }
 
 impl Default for ComputedUiTargetCamera {
     fn default() -> Self {
         Self {
             camera: Entity::PLACEHOLDER,
-            scale_factor: 1.,
-            physical_size: UVec2::ZERO,
         }
     }
 }
@@ -2822,7 +2818,26 @@ impl ComputedUiTargetCamera {
     pub fn camera(&self) -> Option<Entity> {
         Some(self.camera).filter(|&entity| entity != Entity::PLACEHOLDER)
     }
+}
 
+/// Derived information about the render target for this UI node.
+#[derive(Component, Clone, Copy, Debug, Reflect, PartialEq)]
+#[reflect(Component, Default, PartialEq, Clone)]
+pub struct ComputedUiRenderTargetInfo {
+    pub(crate) scale_factor: f32,
+    pub(crate) physical_size: UVec2,
+}
+
+impl Default for ComputedUiRenderTargetInfo {
+    fn default() -> Self {
+        Self {
+            scale_factor: 1.,
+            physical_size: UVec2::ZERO,
+        }
+    }
+}
+
+impl ComputedUiRenderTargetInfo {
     pub const fn scale_factor(&self) -> f32 {
         self.scale_factor
     }

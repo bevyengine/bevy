@@ -3,8 +3,8 @@
 use crate::{
     experimental::{UiChildren, UiRootNodes},
     ui_transform::UiGlobalTransform,
-    CalculatedClip, ComputedUiTargetCamera, DefaultUiCamera, Display, Node, OverflowAxis,
-    OverrideClip, UiScale, UiTargetCamera,
+    CalculatedClip, ComputedUiRenderTargetInfo, ComputedUiTargetCamera, DefaultUiCamera, Display,
+    Node, OverflowAxis, OverrideClip, UiScale, UiTargetCamera,
 };
 
 use super::ComputedNode;
@@ -133,7 +133,7 @@ fn update_clipping(
     }
 }
 
-pub fn propagate_ui_target_camera_system(
+pub fn update_ui_context_system(
     mut commands: Commands,
     default_ui_camera: DefaultUiCamera,
     ui_scale: Res<UiScale>,
@@ -151,6 +151,10 @@ pub fn propagate_ui_target_camera_system(
             .or(default_camera_entity)
             .unwrap_or(Entity::PLACEHOLDER);
 
+        commands
+            .entity(root_entity)
+            .insert(Propagate(ComputedUiTargetCamera { camera }));
+
         let (scale_factor, physical_size) = camera_query
             .get(camera)
             .ok()
@@ -164,8 +168,7 @@ pub fn propagate_ui_target_camera_system(
 
         commands
             .entity(root_entity)
-            .insert(Propagate(ComputedUiTargetCamera {
-                camera,
+            .insert(Propagate(ComputedUiRenderTargetInfo {
                 scale_factor,
                 physical_size,
             }));
