@@ -266,6 +266,11 @@ fn set_checkbox_colors(
         false => tokens::CHECKBOX_TEXT,
     };
 
+    let cursor_shape = match disabled {
+        true => bevy_window::SystemCursorIcon::NotAllowed,
+        false => bevy_window::SystemCursorIcon::Pointer,
+    };
+
     // Change outline background
     if outline_bg.0 != outline_bg_token {
         commands
@@ -299,6 +304,11 @@ fn set_checkbox_colors(
             .entity(checkbox_ent)
             .insert(ThemeFontColor(font_color_token));
     }
+
+    // Change cursor shape
+    commands
+        .entity(checkbox_ent)
+        .insert(EntityCursor::System(cursor_shape));
 }
 
 /// Plugin which registers the systems for updating the checkbox styles.

@@ -183,6 +183,11 @@ fn set_button_colors(
         (ButtonVariant::Primary, false) => tokens::BUTTON_PRIMARY_TEXT,
     };
 
+    let cursor_shape = match disabled {
+        true => bevy_window::SystemCursorIcon::NotAllowed,
+        false => bevy_window::SystemCursorIcon::Pointer,
+    };
+
     // Change background color
     if bg_color.0 != bg_token {
         commands
@@ -196,6 +201,11 @@ fn set_button_colors(
             .entity(button_ent)
             .insert(ThemeFontColor(font_color_token));
     }
+
+    // Change cursor shape
+    commands
+        .entity(button_ent)
+        .insert(EntityCursor::System(cursor_shape));
 }
 
 /// Plugin which registers the systems for updating the button styles.

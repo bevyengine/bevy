@@ -231,6 +231,11 @@ fn set_radio_colors(
         false => tokens::RADIO_TEXT,
     };
 
+    let cursor_shape = match disabled {
+        true => bevy_window::SystemCursorIcon::NotAllowed,
+        false => bevy_window::SystemCursorIcon::Pointer,
+    };
+
     // Change outline border
     if outline_border.0 != outline_border_token {
         commands
@@ -257,6 +262,11 @@ fn set_radio_colors(
             .entity(radio_ent)
             .insert(ThemeFontColor(font_color_token));
     }
+
+    // Change cursor shape
+    commands
+        .entity(radio_ent)
+        .insert(EntityCursor::System(cursor_shape));
 }
 
 /// Plugin which registers the systems for updating the radio styles.

@@ -213,6 +213,11 @@ fn set_switch_colors(
         false => Val::Percent(0.),
     };
 
+    let cursor_shape = match disabled {
+        true => bevy_window::SystemCursorIcon::NotAllowed,
+        false => bevy_window::SystemCursorIcon::Pointer,
+    };
+
     // Change outline background
     if outline_bg.0 != outline_bg_token {
         commands
@@ -238,6 +243,11 @@ fn set_switch_colors(
     if slide_pos != slide_style.left {
         slide_style.left = slide_pos;
     }
+
+    // Change cursor shape
+    commands
+        .entity(switch_ent)
+        .insert(EntityCursor::System(cursor_shape));
 }
 
 /// Plugin which registers the systems for updating the toggle switch styles.
