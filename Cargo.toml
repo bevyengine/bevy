@@ -145,7 +145,6 @@ default = [
   "bevy_gizmos",
   "bevy_gltf",
   "bevy_input_focus",
-  "bevy_log",
   "bevy_mesh_picking_backend",
   "bevy_pbr",
   "bevy_picking",
@@ -308,9 +307,6 @@ bevy_dev_tools = ["bevy_internal/bevy_dev_tools"]
 
 # Enable the Bevy Remote Protocol
 bevy_remote = ["bevy_internal/bevy_remote"]
-
-# Enable integration with `tracing` and `log`
-bevy_log = ["bevy_internal/bevy_log"]
 
 # Enable input focus subsystem
 bevy_input_focus = ["bevy_internal/bevy_input_focus"]
@@ -1710,7 +1706,6 @@ wasm = true
 name = "headless"
 path = "examples/app/headless.rs"
 doc-scrape-examples = true
-required-features = ["bevy_log"]
 
 [package.metadata.example.headless]
 name = "Headless"
