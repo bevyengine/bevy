@@ -230,17 +230,25 @@ fn spawn_component_sections(
     });
 }
 
-/// System to clean up old component viewer content
+/// System to clean up old component viewer content  
 pub fn cleanup_old_component_content(
     mut commands: Commands,
     content_query: Query<(Entity, &ComponentViewerContent)>,
+    component_cache: Res<ComponentCache>,
     selected_entity: Res<SelectedEntity>,
+    time: Res<Time>,
 ) {
-    if let Some(current_entity_id) = selected_entity.entity_id {
-        for (entity, content) in content_query.iter() {
-            if content.entity_id != current_entity_id {
-                commands.entity(entity).despawn();
-            }
+    // Only clean up if we're going to rebuild the component viewer
+    // Use the same logic as update_component_viewer to determine if rebuild is needed
+    let entity_changed = component_cache.current_entity != selected_entity.entity_id;
+    let ui_needs_rebuild = component_cache.ui_built_for_entity != selected_entity.entity_id;
+    let should_refresh = time.elapsed_secs_f64() - component_cache.last_update > 1.0;
+
+    if entity_changed || should_refresh || ui_needs_rebuild {
+        // Clean up all existing component viewer content before rebuilding
+        // This prevents duplicates when refreshing the same entity
+        for (entity, _content) in content_query.iter() {
+            commands.entity(entity).despawn();
         }
     }
 }
