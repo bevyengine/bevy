@@ -4,7 +4,8 @@ use bevy_app::{Plugin, PreUpdate};
 use bevy_asset::Handle;
 use bevy_color::{Alpha, Color, Hsla};
 use bevy_core_widgets::{
-    Callback, CoreSlider, CoreSliderThumb, SliderRange, SliderValue, TrackClick, ValueChange,
+    Callback, CoreSlider, CoreSliderThumb, SliderRange, SliderStep, SliderValue, TrackClick,
+    ValueChange,
 };
 use bevy_ecs::{
     bundle::Bundle,
@@ -32,6 +33,7 @@ use crate::{
     cursor::EntityCursor,
     palette,
     rounded_corners::RoundedCorners,
+    FocusIndicator,
 };
 
 const SLIDER_HEIGHT: f32 = 16.0;
@@ -202,9 +204,11 @@ pub fn color_slider<B: Bundle>(props: ColorSliderProps, overrides: B) -> impl Bu
             channel: props.channel.clone(),
         },
         SliderValue(props.value),
+        SliderStep(0.01),
         props.channel.range(),
         EntityCursor::System(bevy_window::SystemCursorIcon::Pointer),
         TabIndex(0),
+        FocusIndicator,
         overrides,
         children![
             // track

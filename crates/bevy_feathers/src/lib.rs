@@ -30,12 +30,14 @@ use crate::{
     cursor::{CursorIconPlugin, DefaultCursor, EntityCursor},
     theme::{ThemedText, UiTheme},
 };
+pub use focus::{FocusIndicator, FocusOutlinesPlugin};
 
 mod alpha_pattern;
 pub mod constants;
 pub mod controls;
 pub mod cursor;
 pub mod dark_theme;
+mod focus;
 pub mod font_styles;
 pub mod handle_or_path;
 pub mod palette;
@@ -63,6 +65,7 @@ impl Plugin for FeathersPlugin {
         app.add_plugins((
             ControlsPlugin,
             CursorIconPlugin,
+            FocusOutlinesPlugin,
             HierarchyPropagatePlugin::<TextColor, With<ThemedText>>::new(Update),
             HierarchyPropagatePlugin::<TextFont, With<ThemedText>>::new(Update),
             UiMaterialPlugin::<AlphaPatternMaterial>::default(),

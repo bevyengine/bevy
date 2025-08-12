@@ -15,10 +15,10 @@ use bevy::{
         dark_theme::create_dark_theme,
         rounded_corners::RoundedCorners,
         theme::{ThemeBackgroundColor, ThemedText, UiTheme},
-        tokens, FeathersPlugin,
+        tokens, FeathersPlugin, FocusIndicator,
     },
     input_focus::{
-        tab_navigation::{TabGroup, TabNavigationPlugin},
+        tab_navigation::{TabGroup, TabIndex, TabNavigationPlugin},
         InputDispatchPlugin,
     },
     prelude::*,
@@ -290,6 +290,8 @@ fn demo_root(commands: &mut Commands) -> impl Bundle {
                     CoreRadioGroup {
                         on_change: Callback::System(radio_exclusion),
                     },
+                    TabIndex(0),
+                    FocusIndicator,
                     children![
                         radio(Checked, Spawn((Text::new("One"), ThemedText))),
                         radio((), Spawn((Text::new("Two"), ThemedText))),

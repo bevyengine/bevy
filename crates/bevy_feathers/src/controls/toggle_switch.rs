@@ -25,7 +25,7 @@ use crate::{
     constants::size,
     cursor::EntityCursor,
     theme::{ThemeBackgroundColor, ThemeBorderColor},
-    tokens,
+    tokens, FocusIndicator,
 };
 
 /// Parameters for the toggle switch template, passed to [`toggle_switch`] function.
@@ -69,6 +69,7 @@ pub fn toggle_switch<B: Bundle>(props: ToggleSwitchProps, overrides: B) -> impl 
         Hovered::default(),
         EntityCursor::System(bevy_window::SystemCursorIcon::Pointer),
         TabIndex(0),
+        FocusIndicator,
         overrides,
         children![(
             Node {

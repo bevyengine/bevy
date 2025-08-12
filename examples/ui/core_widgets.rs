@@ -1,7 +1,7 @@
 //! This example illustrates how to create widgets using the `bevy_core_widgets` widget set.
 
 use bevy::{
-    color::palettes::basic::*,
+    color::palettes::{self, basic::*},
     core_widgets::{
         Activate, Callback, CoreButton, CoreCheckbox, CoreRadio, CoreRadioGroup, CoreSlider,
         CoreSliderDragState, CoreSliderThumb, CoreWidgetsPlugins, SliderRange, SliderValue,
@@ -9,7 +9,7 @@ use bevy::{
     },
     input_focus::{
         tab_navigation::{TabGroup, TabIndex, TabNavigationPlugin},
-        InputDispatchPlugin,
+        InputDispatchPlugin, InputFocus,
     },
     picking::hover::Hovered,
     prelude::*,
@@ -43,6 +43,7 @@ fn main() {
                 update_checkbox_or_radio_style.after(update_widget_values),
                 update_checkbox_or_radio_style2.after(update_widget_values),
                 toggle_disabled,
+                focus_system,
             ),
         )
         .run();
@@ -765,6 +766,26 @@ fn toggle_disabled(
             } else {
                 info!("Widget disabled");
                 commands.entity(entity).insert(InteractionDisabled);
+            }
+        }
+    }
+}
+
+fn focus_system(
+    mut commands: Commands,
+    focus: Res<InputFocus>,
+    mut query: Query<Entity, With<TabIndex>>,
+) {
+    if focus.is_changed() {
+        for button in query.iter_mut() {
+            if focus.0 == Some(button) {
+                commands.entity(button).insert(Outline {
+                    color: palettes::tailwind::BLUE_700.into(),
+                    width: Val::Px(2.0),
+                    offset: Val::Px(2.0),
+                });
+            } else {
+                commands.entity(button).remove::<Outline>();
             }
         }
     }

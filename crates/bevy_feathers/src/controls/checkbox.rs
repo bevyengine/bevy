@@ -29,7 +29,7 @@ use crate::{
     font_styles::InheritableFont,
     handle_or_path::HandleOrPath,
     theme::{ThemeBackgroundColor, ThemeBorderColor, ThemeFontColor},
-    tokens,
+    tokens, FocusIndicator,
 };
 
 /// Parameters for the checkbox template, passed to [`checkbox`] function.
@@ -96,6 +96,7 @@ pub fn checkbox<C: SpawnableList<ChildOf> + Send + Sync + 'static, B: Bundle>(
                     ..Default::default()
                 },
                 CheckboxOutline,
+                FocusIndicator,
                 BorderRadius::all(Val::Px(4.0)),
                 ThemeBackgroundColor(tokens::CHECKBOX_BG),
                 ThemeBorderColor(tokens::CHECKBOX_BORDER),
