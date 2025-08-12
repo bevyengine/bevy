@@ -894,7 +894,7 @@ fn area(dist: vec2<f32>, e1: f32, e2: f32, offset: f32) -> vec2<f32> {
     tex_coord.y += SMAA_AREATEX_SUBTEX_SIZE * offset;
 
     // Do it!
-    return textureSample(area_texture, edges_sampler, tex_coord).rg;
+    return textureSampleLevel(area_texture, edges_sampler, tex_coord, 0.0).rg;
 }
 
 //-----------------------------------------------------------------------------
