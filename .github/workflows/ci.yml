@@ -118,11 +118,13 @@ jobs:
         with:
           toolchain: ${{ env.NIGHTLY_TOOLCHAIN }}
           components: miri
-      - name: CI job
+      - name: CI job (Tasks)
         # To run the tests one item at a time for troubleshooting, use
         # cargo --quiet test --lib -- --list | sed 's/: test$//' | MIRIFLAGS="-Zmiri-disable-isolation -Zmiri-disable-weak-memory-emulation" xargs -n1 cargo miri test -p bevy_tasks --lib -- --exact
-        # cargo --quiet test --lib -- --list | sed 's/: test$//' | MIRIFLAGS="-Zmiri-disable-isolation -Zmiri-disable-weak-memory-emulation" xargs -n1 cargo miri test -p bevy_ecs --lib -- --exact
         run: cargo miri test -p bevy_tasks --features bevy_executor --features multi_threaded
+      - name: CI job (ECS)
+        # To run the tests one item at a time for troubleshooting, use
+        # cargo --quiet test --lib -- --list | sed 's/: test$//' | MIRIFLAGS="-Zmiri-disable-isolation -Zmiri-disable-weak-memory-emulation" xargs -n1 cargo miri test -p bevy_ecs --lib -- --exact
         run: cargo miri test -p bevy_ecs --features bevy_utils/debug
 
   check-compiles:
