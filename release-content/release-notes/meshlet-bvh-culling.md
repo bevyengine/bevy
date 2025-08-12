@@ -6,7 +6,7 @@ pull_requests: [19318]
 
 (TODO: Embed example screenshot here)
 
-Bevy's virtual geometry has been greatly optimized with BVH-based culling, making the cost of rendering nearly independent of scene geometry. 
+Bevy's virtual geometry has been greatly optimized with BVH-based culling, making the cost of rendering nearly independent of scene geometry.
 Comparing the sample scene show above with 130k dragon instances to one with over 1 million instances, total GPU rendering time only increases by 30%.
 
 This also gets rid of the previous cluster limit that limited the world to 2^24 clusters (about 4 billion triangles).
