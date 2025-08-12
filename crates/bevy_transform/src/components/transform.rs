@@ -299,7 +299,7 @@ impl Transform {
     /// [`Transform`]'s local coordinate system, meaning the movement occurs along its local
     /// axes (`x`, `y`, and `z`), regardless of the [`Transform`]'s orientation.
     #[inline]
-    pub fn translate(&mut self, translation: Vec3) {
+    pub const fn translate(&mut self, translation: Vec3) {
         self.translation += translation;
     }
 
@@ -311,7 +311,7 @@ impl Transform {
     /// For instance, moving "forward" means moving along the [`Transform`]'s forward direction
     /// based on its current orientation, rather than just along the local z-axis.
     #[inline]
-    pub fn translate_with_local_rotation(&mut self, translation: Vec3) {
+    pub const fn translate_with_local_rotation(&mut self, translation: Vec3) {
         self.translation += self.rotation * translation;
     }
 
