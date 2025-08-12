@@ -1045,7 +1045,7 @@ mod test {
     use bevy_platform::sync::Mutex;
     use core::task::{Poll, Waker};
     use async_task::Task;
-    use std::time::Duration;
+    use core::time::Duration;
 
     fn _ensure_send_and_sync() {
         fn is_send<T: Send>(_: T) {}
@@ -1086,7 +1086,7 @@ mod test {
 
         future::block_on(ex.run(async {
             for _ in 0..10 {
-                future::yield_now().await
+                future::yield_now().await;
             }
         }));
 
@@ -1108,7 +1108,7 @@ mod test {
         let task: Task<&str> = ex.spawn(async { &*s });
         future::block_on(ex.run(async {
             for _ in 0..10 {
-                future::yield_now().await
+                future::yield_now().await;
             }
         }));
 
@@ -1130,7 +1130,7 @@ mod test {
         });
         future::block_on(ex.run(async {
             for _ in 0..10 {
-                future::yield_now().await
+                future::yield_now().await;
             }
         }));
 
@@ -1153,7 +1153,7 @@ mod test {
         });
         future::block_on(ex.run(async {
             for _ in 0..10 {
-                future::yield_now().await
+                future::yield_now().await;
             }
         }));
 
@@ -1173,12 +1173,13 @@ mod test {
                 future::block_on(async move {
                     let timeout = async {
                         async_io::Timer::after(Duration::from_secs(2 * 60)).await;
+                        #[expect(print_stderr, reason = "Explicitly used to warn about timed out tests")]
                         std::eprintln!("test timed out after 2m");
                         std::process::exit(1)
                     };
 
                     let _ = stopper.recv().or(timeout).await;
-                })
+                });
             });
             stop_timeout
         };
@@ -1209,7 +1210,7 @@ mod test {
 
     #[test]
     fn yield_now() {
-        do_run(|ex| async move { ex.spawn(future::yield_now()).await })
+        do_run(|ex| async move { ex.spawn(future::yield_now()).await });
     }
 
     #[test]
@@ -1217,7 +1218,7 @@ mod test {
         do_run(|ex| async move {
             ex.spawn(async_io::Timer::after(Duration::from_millis(5)))
                 .await;
-        })
+        });
     }
 
     #[test]
@@ -1228,7 +1229,7 @@ mod test {
         // Running the executor should not panic.
         future::block_on(ex.run(async {
             for _ in 0..10 {
-                future::yield_now().await
+                future::yield_now().await;
             }
         }));
 
