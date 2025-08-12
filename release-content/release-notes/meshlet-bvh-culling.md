@@ -1,5 +1,5 @@
 ---
-title: Meshlet BVH culling
+title: Virtual Geometry BVH culling
 authors: ["@SparkyPotato", "@atlv24"]
 pull_requests: [19318]
 ---
@@ -17,7 +17,7 @@ The screenshot above has 130,000 dragons in the scene, each with about 870,000 t
 However, this still runs at 60 fps on an RTX 4070 at 1440p, but only due to the instance re-upload mentioned above.
 
 Speaking of concrete GPU cost, the scene above renders in about 3.5 ms on the 4070, with \~3.1 ms being spent on the geometry render and \~0.4 ms on the material evaluation.
-Increasing the instance count to over 1 million (almost *900 billion triangles*!), the total increase to about 4.5 ms, with \~4.1 ms on geometry render and material evaluation remaining constant at ~0.4 ms.
+After increasing the instance count to over 1 million (almost *900 billion triangles*!), the total increase to about 4.5 ms, with \~4.1 ms on geometry render and material evaluation remaining constant at ~0.4 ms.
 This is a 30% increase in GPU time for an almost 8x increase in scene complexity.
 
 Comparing GPU times to 0.16 on a much smaller scene with 1,300 instances, previously the full render took 2.2 ms, whereas now it is 1.3 ms.
