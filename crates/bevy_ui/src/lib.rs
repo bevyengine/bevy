@@ -78,8 +78,6 @@ use stack::ui_stack_system;
 pub use stack::UiStack;
 use update::{update_clipping_system, update_ui_context_system};
 
-use crate::widget::measure_text_system;
-
 /// The basic plugin for Bevy UI
 #[derive(Default)]
 pub struct UiPlugin;
@@ -190,7 +188,7 @@ impl Plugin for UiPlugin {
                 ui_stack_system
                     .in_set(UiSystems::Stack)
                     // These systems don't care about stack index
-                    .ambiguous_with(measure_text_system)
+                    .ambiguous_with(widget::measure_text_system)
                     .ambiguous_with(update_clipping_system)
                     .ambiguous_with(ui_layout_system)
                     .ambiguous_with(widget::update_viewport_render_target_size)
