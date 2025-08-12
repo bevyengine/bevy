@@ -128,14 +128,16 @@ impl DepthAttachment {
 pub struct OutputColorAttachment {
     pub view: TextureView,
     pub format: TextureFormat,
+    pub premultiply_alpha: bool,
     is_first_call: Arc<AtomicBool>,
 }
 
 impl OutputColorAttachment {
-    pub fn new(view: TextureView, format: TextureFormat) -> Self {
+    pub fn new(view: TextureView, format: TextureFormat, premultiply_alpha: bool) -> Self {
         Self {
             view,
             format,
+            premultiply_alpha,
             is_first_call: Arc::new(AtomicBool::new(true)),
         }
     }

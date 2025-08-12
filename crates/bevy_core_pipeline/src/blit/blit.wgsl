@@ -5,5 +5,9 @@
 
 @fragment
 fn fs_main(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
-    return textureSample(in_texture, in_sampler, in.uv);
+    var color = textureSample(in_texture, in_sampler, in.uv);
+#ifdef PREMULTIPLY_ALPHA
+    color = vec4<f32>(color.rgb * color.a, color.a);
+#endif // PREMULTIPLY_ALPHA
+    return color;
 }

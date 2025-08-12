@@ -139,6 +139,7 @@ fn prepare_msaa_writeback_pipelines(
                 texture_format: view_target.main_texture_format(),
                 samples: msaa.samples(),
                 blend_state: None,
+                premultiplied_alpha: false,
             };
 
             let pipeline = pipelines.specialize(&pipeline_cache, &blit_pipeline, key);

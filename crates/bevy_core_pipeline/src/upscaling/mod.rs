@@ -46,6 +46,7 @@ fn prepare_view_upscaling_pipelines(
     let mut output_textures = <HashSet<_>>::default();
     for (entity, view_target, camera) in view_targets.iter() {
         let out_texture_id = view_target.out_texture().id();
+        let premultiplied_alpha = view_target.out_texture_is_premultiplied();
         let blend_state = if let Some(extracted_camera) = camera {
             match extracted_camera.output_mode {
                 CameraOutputMode::Skip => None,
@@ -59,7 +60,11 @@ fn prepare_view_upscaling_pipelines(
                             // mode configured, default to alpha blend so that we don't accidentally overwrite
                             // the output texture
                             if already_seen {
-                                Some(BlendState::ALPHA_BLENDING)
+                                if premultiplied_alpha {
+                                    Some(BlendState::PREMULTIPLIED_ALPHA_BLENDING)
+                                } else {
+                                    Some(BlendState::ALPHA_BLENDING)
+                                }
                             } else {
                                 None
                             }
@@ -77,6 +82,7 @@ fn prepare_view_upscaling_pipelines(
             texture_format: view_target.out_texture_format(),
             blend_state,
             samples: 1,
+            premultiplied_alpha,
         };
         let pipeline = pipelines.specialize(&pipeline_cache, &blit_pipeline, key);
 

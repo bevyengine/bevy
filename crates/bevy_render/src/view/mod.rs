@@ -838,6 +838,11 @@ impl ViewTarget {
         self.out_texture.format
     }
 
+    /// Returns `true` if the output texture is using premultiplied alpha.
+    pub fn out_texture_is_premultiplied(&self) -> bool {
+        self.out_texture.premultiply_alpha
+    }
+
     /// This will start a new "post process write", which assumes that the caller
     /// will write the [`PostProcessWrite`]'s `source` to the `destination`.
     ///
@@ -1013,7 +1018,11 @@ pub fn prepare_view_attachments(
                     .cloned()
                     .zip(target.get_texture_format(&windows, &images, &manual_texture_views))
                     .map(|(view, format)| {
-                        OutputColorAttachment::new(view.clone(), format.add_srgb_suffix())
+                        OutputColorAttachment::new(
+                            view.clone(),
+                            format.add_srgb_suffix(),
+                            camera.premultiply_alpha,
+                        )
                     })
                 else {
                     continue;

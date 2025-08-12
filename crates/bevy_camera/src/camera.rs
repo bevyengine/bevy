@@ -809,6 +809,14 @@ impl RenderTarget {
     }
 }
 
+/// Marker component indicating that the render target should be treated as using premultiplied alpha,
+/// which affects how the output is blended when rendering to a target that already has content.
+///
+/// Note, using this in combination with materials using [`AlphaMode::Premultiplied`](crate::render_phase::AlphaMode::Premultiplied)
+/// may lead to unexpected results, as both the material and the render target will apply premultiplied alpha blending.
+#[derive(Debug, Clone, Component, Reflect)]
+pub struct RenderTargetPremultipliedAlpha;
+
 /// A unique id that corresponds to a specific `ManualTextureView` in the `ManualTextureViews` collection.
 #[derive(Default, Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Component, Reflect)]
 #[reflect(Component, Default, Debug, PartialEq, Hash, Clone)]

@@ -84,12 +84,19 @@ pub struct BlitPipelineKey {
     pub texture_format: TextureFormat,
     pub blend_state: Option<BlendState>,
     pub samples: u32,
+    pub premultiplied_alpha: bool,
 }
 
 impl SpecializedRenderPipeline for BlitPipeline {
     type Key = BlitPipelineKey;
 
     fn specialize(&self, key: Self::Key) -> RenderPipelineDescriptor {
+        let shader_defs = if key.premultiplied_alpha {
+            vec!["PREMULTIPLY_ALPHA".into()]
+        } else {
+            vec![]
+        };
+
         RenderPipelineDescriptor {
             label: Some("blit pipeline".into()),
             layout: vec![self.layout.clone()],
@@ -101,6 +108,7 @@ impl SpecializedRenderPipeline for BlitPipeline {
                     blend: key.blend_state,
                     write_mask: ColorWrites::ALL,
                 })],
+                shader_defs,
                 ..default()
             }),
             multisample: MultisampleState {

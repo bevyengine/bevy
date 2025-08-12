@@ -405,6 +405,7 @@ pub struct ExtractedCamera {
     pub sorted_camera_index_for_target: usize,
     pub exposure: f32,
     pub hdr: bool,
+    pub premultiply_alpha: bool,
 }
 
 pub fn extract_cameras(
@@ -425,7 +426,7 @@ pub fn extract_cameras(
             Option<&MipBias>,
             Option<&RenderLayers>,
             Option<&Projection>,
-            Has<NoIndirectDrawing>,
+            (Has<NoIndirectDrawing>, Has<RenderTargetPremultipliedAlpha>),
         )>,
     >,
     primary_window: Extract<Query<Entity, With<PrimaryWindow>>>,
@@ -459,7 +460,7 @@ pub fn extract_cameras(
         mip_bias,
         render_layers,
         projection,
-        no_indirect_drawing,
+        (no_indirect_drawing, premultiply_alpha),
     ) in query.iter()
     {
         if !camera.is_active {
@@ -529,6 +530,7 @@ pub fn extract_cameras(
                         .map(Exposure::exposure)
                         .unwrap_or_else(|| Exposure::default().exposure()),
                     hdr,
+                    premultiply_alpha,
                 },
                 ExtractedView {
                     retained_view_entity: RetainedViewEntity::new(main_entity.into(), None, 0),
