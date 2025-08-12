@@ -88,6 +88,7 @@ use crate::{
     renderer::{render_system, RenderInstance},
     settings::RenderCreation,
     storage::StoragePlugin,
+    texture::TexturePlugin,
     view::{ViewPlugin, WindowRenderPlugin},
 };
 use alloc::sync::Arc;
@@ -421,6 +422,7 @@ impl Plugin for RenderPlugin {
             MeshPlugin,
             GlobalsPlugin,
             MorphPlugin,
+            TexturePlugin,
             BatchingPlugin {
                 debug_flags: self.debug_flags,
             },
