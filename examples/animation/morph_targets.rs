@@ -1,11 +1,6 @@
-//! Controls morph targets in a loaded scene.
+//! Play an animation with morph targets.
 //!
-//! Illustrates:
-//!
-//! - How to access and modify individual morph target weights.
-//!   See the `update_weights` system for details.
-//! - How to read morph target names in `name_morphs`.
-//! - How to play morph target animations in `setup_animations`.
+//! Also illustrates how to read morph target names in `name_morphs`.
 
 use bevy::{prelude::*, scene::SceneInstanceReady};
 use std::f32::consts::PI;
