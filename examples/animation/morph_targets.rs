@@ -75,13 +75,20 @@ fn play_animation_when_ready(
     }
 }
 
-fn name_morphs(mut events: EventReader<AssetEvent<Mesh>>, meshes: Res<Assets<Mesh>>) {
+/// Whenever a mesh asset is loaded, print the name of the asset and the names
+/// of its morph targets.
+fn name_morphs(
+    asset_server: Res<AssetServer>,
+    mut events: EventReader<AssetEvent<Mesh>>,
+    meshes: Res<Assets<Mesh>>,
+) {
     for event in events.read() {
-        if let AssetEvent::<Mesh>::Added { id: added } = event
-            && let Some(mesh) = meshes.get(*added)
+        if let AssetEvent::<Mesh>::Added { id } = event
+            && let Some(path) = asset_server.get_path(*id)
+            && let Some(mesh) = meshes.get(*id)
             && let Some(names) = mesh.morph_target_names()
         {
-            info!("Target names:");
+            info!("Morph target names for {path:?}:");
 
             for name in names {
                 info!("  {name}");
