@@ -1523,29 +1523,57 @@ impl Segment2d {
     }
 
     /// Returns the point of intersection between this [`Segment2d`] and another, if it exists.
+    ///
+    /// If two segments are collinear and intersecting, returns the intersection point closest to the start of `self`.
     #[inline(always)]
-    pub fn intersect(&self, other: Self) -> Option<Vec2> {
+    pub fn intersect(&self, other: &Self) -> Option<Vec2> {
         let p = self.point1();
         let q = other.point1();
         let r = self.scaled_direction();
         let s = other.scaled_direction();
 
+        let pq = q - p;
+        let pq_cross_r = pq.perp_dot(r);
+        let pq_cross_s = pq.perp_dot(s);
         let r_cross_s = r.perp_dot(s);
-        let q_minus_p = q - p;
 
         if r_cross_s != 0.0 {
-            let t = q_minus_p.perp_dot(s) / r_cross_s;
-            let u = q_minus_p.perp_dot(r) / r_cross_s;
-
+            // non parallel
+            let t = pq_cross_s / r_cross_s;
+            let u = pq_cross_r / r_cross_s;
             let t_in_range = (0.0..=1.0).contains(&t);
             let u_in_range = (0.0..=1.0).contains(&u);
-
-            if t_in_range && u_in_range {
-                return Some(p + t * r);
+            (t_in_range && u_in_range).then_some(p + r * t)
+        } else if pq_cross_r == 0.0 || pq_cross_s == 0.0 {
+            // collinear
+            let r_dot_r = r.dot(r);
+            let s_dot_s = s.dot(s);
+            match (r_dot_r == 0.0, s_dot_s == 0.0) {
+                // point point
+                (true, true) => (p == q).then_some(p),
+                // segment point
+                (false, true) if pq_cross_r == 0.0 => {
+                    let t = pq.dot(r) / r_dot_r;
+                    (0.0..=1.0).contains(&t).then_some(q)
+                }
+                // point segment
+                (true, false) if pq_cross_s == 0.0 => {
+                    let t = -pq.dot(s) / s_dot_s;
+                    (0.0..=1.0).contains(&t).then_some(p)
+                }
+                // segment segment
+                (false, false) => {
+                    let t0 = pq.dot(r) / r_dot_r;
+                    let t1 = t0 + s.dot(r) / r_dot_r;
+                    let (t_min, t_max) = if t0 < t1 { (t0, t1) } else { (t1, t0) };
+                    (t_max >= 0.0 && t_min <= 1.0).then_some(p + r * t_min.clamp(0.0, 1.0))
+                }
+                _ => None,
             }
+        } else {
+            // parallel
+            None
         }
-
-        None
     }
 }
 
@@ -2403,25 +2431,89 @@ mod tests {
 
     #[test]
     fn segment_intersect() {
-        let isec = Segment2d::new(Vec2::new(0.0, 0.0), Vec2::new(2.0, 2.0))
-            .intersect(Segment2d::new(Vec2::new(0.0, 2.0), Vec2::new(2.0, 0.0)));
-        assert_eq!(isec, Some(Vec2::new(1.0, 1.0)));
+        // non parallel with intersection
+        let segment1 = Segment2d::new(Vec2::new(0.0, 0.0), Vec2::new(2.0, 2.0));
+        let segment2 = Segment2d::new(Vec2::new(0.0, 2.0), Vec2::new(2.0, 0.0));
+        assert_eq!(segment1.intersect(&segment2), Some(Vec2::new(1.0, 1.0)));
+        assert_eq!(segment2.intersect(&segment1), Some(Vec2::new(1.0, 1.0)));
 
-        let isec = Segment2d::new(Vec2::new(0.0, 0.0), Vec2::new(2.0, 0.0))
-            .intersect(Segment2d::new(Vec2::new(0.0, 1.0), Vec2::new(2.0, 1.0)));
-        assert_eq!(isec, None);
+        // non parallel touching
+        let segment1 = Segment2d::new(Vec2::new(0.0, 0.0), Vec2::new(1.0, 1.0));
+        let segment2 = Segment2d::new(Vec2::new(1.0, 1.0), Vec2::new(2.0, 0.0));
+        assert_eq!(segment1.intersect(&segment2), Some(Vec2::new(1.0, 1.0)));
+        assert_eq!(segment2.intersect(&segment1), Some(Vec2::new(1.0, 1.0)));
 
-        let isec = Segment2d::new(Vec2::new(0.0, 0.0), Vec2::new(1.0, 1.0))
-            .intersect(Segment2d::new(Vec2::new(2.0, 2.0), Vec2::new(3.0, 3.0)));
-        assert_eq!(isec, None);
+        // non parallel without intersection
+        let segment1 = Segment2d::new(Vec2::new(0.0, 0.0), Vec2::new(2.0, 2.0));
+        let segment2 = Segment2d::new(Vec2::new(0.0, 6.0), Vec2::new(6.0, 0.0));
+        assert_eq!(segment1.intersect(&segment2), None);
+        assert_eq!(segment2.intersect(&segment1), None);
 
-        let isec = Segment2d::new(Vec2::new(0.0, 0.0), Vec2::new(1.0, 1.0))
-            .intersect(Segment2d::new(Vec2::new(1.0, 1.0), Vec2::new(2.0, 0.0)));
-        assert_eq!(isec, Some(Vec2::new(1.0, 1.0)));
+        // parallel non collinear
+        let segment1 = Segment2d::new(Vec2::new(0.0, 0.0), Vec2::new(2.0, 2.0));
+        let segment2 = Segment2d::new(Vec2::new(0.0, 1.0), Vec2::new(2.0, 3.0));
+        assert_eq!(segment1.intersect(&segment2), None);
+        assert_eq!(segment2.intersect(&segment1), None);
 
-        let isec = Segment2d::new(Vec2::new(0.0, 0.0), Vec2::new(1.0, 0.0))
-            .intersect(Segment2d::new(Vec2::new(2.0, 0.0), Vec2::new(3.0, 0.0)));
-        assert_eq!(isec, None);
+        // collinear without intersection
+        let segment1 = Segment2d::new(Vec2::new(0.0, 0.0), Vec2::new(2.0, 2.0));
+        let segment2 = Segment2d::new(Vec2::new(3.0, 3.0), Vec2::new(4.0, 4.0));
+        assert_eq!(segment1.intersect(&segment2), None);
+        assert_eq!(segment2.intersect(&segment1), None);
+
+        // collinear overlapping
+        let segment1 = Segment2d::new(Vec2::new(0.0, 0.0), Vec2::new(2.0, 2.0));
+        let segment2 = Segment2d::new(Vec2::new(1.0, 1.0), Vec2::new(3.0, 3.0));
+        assert_eq!(segment1.intersect(&segment2), Some(Vec2::new(1.0, 1.0)));
+        assert_eq!(segment2.intersect(&segment1), Some(Vec2::new(1.0, 1.0)));
+
+        // collinear touching
+        let segment1 = Segment2d::new(Vec2::new(0.0, 0.0), Vec2::new(1.0, 1.0));
+        let segment2 = Segment2d::new(Vec2::new(1.0, 1.0), Vec2::new(2.0, 2.0));
+        assert_eq!(segment1.intersect(&segment2), Some(Vec2::new(1.0, 1.0)));
+        assert_eq!(segment2.intersect(&segment1), Some(Vec2::new(1.0, 1.0)));
+
+        // collinear with full overlap
+        let segment1 = Segment2d::new(Vec2::new(0.0, 0.0), Vec2::new(1.0, 1.0));
+        let segment2 = Segment2d::new(Vec2::new(0.0, 0.0), Vec2::new(1.0, 1.0));
+        assert_eq!(segment1.intersect(&segment2), Some(Vec2::new(0.0, 0.0)));
+        assert_eq!(segment2.intersect(&segment1), Some(Vec2::new(0.0, 0.0)));
+
+        // collinear opposite directions
+        let segment1 = Segment2d::new(Vec2::new(0.0, 0.0), Vec2::new(2.0, 2.0));
+        let segment2 = Segment2d::new(Vec2::new(3.0, 3.0), Vec2::new(1.0, 1.0));
+        assert_eq!(segment1.intersect(&segment2), Some(Vec2::new(1.0, 1.0)));
+        assert_eq!(segment2.intersect(&segment1), Some(Vec2::new(2.0, 2.0)));
+
+        // segment and dot with intersection
+        let segment1 = Segment2d::new(Vec2::new(0.0, 0.0), Vec2::new(2.0, 2.0));
+        let segment2 = Segment2d::new(Vec2::new(1.0, 1.0), Vec2::new(1.0, 1.0));
+        assert_eq!(segment1.intersect(&segment2), Some(Vec2::new(1.0, 1.0)));
+        assert_eq!(segment2.intersect(&segment1), Some(Vec2::new(1.0, 1.0)));
+
+        // segment and dot touching
+        let segment1 = Segment2d::new(Vec2::new(0.0, 0.0), Vec2::new(2.0, 2.0));
+        let segment2 = Segment2d::new(Vec2::new(2.0, 2.0), Vec2::new(2.0, 2.0));
+        assert_eq!(segment1.intersect(&segment2), Some(Vec2::new(2.0, 2.0)));
+        assert_eq!(segment2.intersect(&segment1), Some(Vec2::new(2.0, 2.0)));
+
+        // segment and dot without intersection
+        let segment1 = Segment2d::new(Vec2::new(0.0, 0.0), Vec2::new(2.0, 2.0));
+        let segment2 = Segment2d::new(Vec2::new(1.0, 2.0), Vec2::new(1.0, 2.0));
+        assert_eq!(segment1.intersect(&segment2), None);
+        assert_eq!(segment2.intersect(&segment1), None);
+
+        // dot and dot with intersection
+        let segment1 = Segment2d::new(Vec2::new(1.0, 1.0), Vec2::new(1.0, 1.0));
+        let segment2 = Segment2d::new(Vec2::new(1.0, 1.0), Vec2::new(1.0, 1.0));
+        assert_eq!(segment1.intersect(&segment2), Some(Vec2::new(1.0, 1.0)));
+        assert_eq!(segment2.intersect(&segment1), Some(Vec2::new(1.0, 1.0)));
+
+        // dot and dot without intersection
+        let segment1 = Segment2d::new(Vec2::new(1.0, 1.0), Vec2::new(1.0, 1.0));
+        let segment2 = Segment2d::new(Vec2::new(2.0, 2.0), Vec2::new(2.0, 2.0));
+        assert_eq!(segment1.intersect(&segment2), None);
+        assert_eq!(segment2.intersect(&segment1), None);
     }
 
     #[test]
