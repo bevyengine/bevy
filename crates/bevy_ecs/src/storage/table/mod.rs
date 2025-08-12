@@ -134,7 +134,7 @@ impl TableRow {
 /// [`build`]: Self::build
 pub(crate) struct TableBuilder {
     columns: SparseSet<ComponentId, ThinColumn>,
-    capacity: usize,
+    entities: Vec<Entity>,
 }
 
 impl TableBuilder {
@@ -142,7 +142,7 @@ impl TableBuilder {
     pub fn with_capacity(capacity: usize, column_capacity: usize) -> Self {
         Self {
             columns: SparseSet::with_capacity(column_capacity),
-            capacity,
+            entities: Vec::with_capacity(capacity),
         }
     }
 
@@ -151,7 +151,7 @@ impl TableBuilder {
     pub fn add_column(mut self, component_info: &ComponentInfo) -> Self {
         self.columns.insert(
             component_info.id(),
-            ThinColumn::with_capacity(component_info, self.capacity),
+            ThinColumn::with_capacity(component_info, self.entities.capacity()),
         );
         self
     }
@@ -161,7 +161,7 @@ impl TableBuilder {
     pub fn build(self) -> Table {
         Table {
             columns: self.columns.into_immutable(),
-            entities: Vec::with_capacity(self.capacity),
+            entities: self.entities,
         }
     }
 }
