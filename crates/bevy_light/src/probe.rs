@@ -143,7 +143,7 @@ impl Default for GeneratedEnvironmentMapLight {
 /// Lets the atmosphere contribute environment lighting (reflections and ambient diffuse) to your scene.
 ///
 /// Attach this to a [`Camera3d`](bevy_camera::Camera3d) to light the entire view, or to a
-/// [`LightProbe`](crate::LightProbe) to light only a specific region.
+/// [`LightProbe`] to light only a specific region.
 /// Behind the scenes, this generates an environment map from the atmosphere for image-based lighting
 /// and inserts a corresponding [`GeneratedEnvironmentMapLight`].
 ///
