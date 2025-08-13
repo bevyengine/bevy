@@ -104,8 +104,8 @@ mod tests {
         }
 
         let mut world = World::new();
-        // At the time of creation,
-        // this test would pass if the order of these statements is swapped
+        // This test would pass if the order of these statements were swapped,
+        // even with panicking entity commands
         world.add_observer(followup);
         world.add_observer(despawn);
 
