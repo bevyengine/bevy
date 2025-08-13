@@ -1096,7 +1096,7 @@ impl<'w, 's> Commands<'w, 's> {
     /// This will run any [`Observer`] of the given [`EntityEvent`] watching those targets.
     ///
     /// If the entity that this command targets does not exist when the command is applied,
-    /// the command will fail, possibly causing it to panic based on the default error handler set.
+    /// the command will fail, possibly causing it to panic based on the default [error handler](crate::error) set.
     /// To queue this command with a handler, use [`EntityCommands::queue_handled`]
     /// with [`entity_command::trigger(event)`](entity_command::trigger).
     /// [`EntityCommands::queue_silenced`] may also be used to ignore the error completely.
