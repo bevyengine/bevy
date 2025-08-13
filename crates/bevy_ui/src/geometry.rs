@@ -288,6 +288,11 @@ pub const fn auto() -> Val {
     Val::Auto
 }
 
+/// Returns [`Val::ZERO`] representing a zero value.
+pub const fn zero() -> Val {
+    Val::ZERO
+}
+
 /// Returns a [`Val::Px`] representing a value in logical pixels.
 pub const fn px(value: f32) -> Val {
     Val::Px(value)
