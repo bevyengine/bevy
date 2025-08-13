@@ -535,43 +535,14 @@ impl<'a> AssetPath<'a> {
     }
 }
 
-impl AssetPath<'static> {
-    /// Indicates this [`AssetPath`] should have a static lifetime.
+impl From<&'static str> for AssetPath<'static> {
     #[inline]
-    pub fn as_static(self) -> Self {
-        let Self {
-            source,
-            path,
-            label,
-        } = self;
-
-        let source = source.as_static();
-        let path = path.as_static();
-        let label = label.map(CowArc::as_static);
-
-        Self {
-            source,
-            path,
-            label,
-        }
-    }
-
-    /// Constructs an [`AssetPath`] with a static lifetime.
-    #[inline]
-    pub fn from_static(value: impl Into<Self>) -> Self {
-        value.into().as_static()
-    }
-}
-
-impl<'a> From<&'a str> for AssetPath<'a> {
-    #[inline]
-    fn from(asset_path: &'a str) -> Self {
+    fn from(asset_path: &'static str) -> Self {
         let (source, path, label) = Self::parse_internal(asset_path).unwrap();
-
         AssetPath {
             source: source.into(),
-            path: CowArc::Borrowed(path),
-            label: label.map(CowArc::Borrowed),
+            path: CowArc::Static(path),
+            label: label.map(CowArc::Static),
         }
     }
 }
@@ -590,12 +561,12 @@ impl From<String> for AssetPath<'static> {
     }
 }
 
-impl<'a> From<&'a Path> for AssetPath<'a> {
+impl From<&'static Path> for AssetPath<'static> {
     #[inline]
-    fn from(path: &'a Path) -> Self {
+    fn from(path: &'static Path) -> Self {
         Self {
             source: AssetSourceId::Default,
-            path: CowArc::Borrowed(path),
+            path: CowArc::Static(path),
             label: None,
         }
     }
