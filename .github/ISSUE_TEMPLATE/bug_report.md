@@ -9,7 +9,7 @@ assignees: ''
 ## Bevy version and features
 
 - The release number or commit hash of the version you're using.
-- If you're not using default features, the combination of bevy features you are using.
+- If you're not using default features, the combination of bevy's cargo features you are using.
 
 ## \[Optional\] Relevant system information
 
