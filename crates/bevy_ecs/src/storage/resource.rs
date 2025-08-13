@@ -5,7 +5,7 @@ use crate::{
 };
 use bevy_ptr::{OwningPtr, Ptr, UnsafeCellDeref};
 use bevy_utils::prelude::DebugName;
-use core::{cell::UnsafeCell, mem::ManuallyDrop, panic::Location};
+use core::{cell::UnsafeCell, panic::Location};
 
 #[cfg(feature = "std")]
 use std::thread::ThreadId;
@@ -16,7 +16,7 @@ use std::thread::ThreadId;
 ///
 /// [`World`]: crate::world::World
 pub struct ResourceData<const SEND: bool> {
-    data: ManuallyDrop<BlobArray>,
+    data: BlobArray,
     is_present: bool,
     added_ticks: UnsafeCell<Tick>,
     changed_ticks: UnsafeCell<Tick>,
@@ -50,7 +50,7 @@ impl<const SEND: bool> Drop for ResourceData<SEND> {
         // been dropped. The validate_access call above will check that the
         // data is dropped on the thread it was inserted from.
         unsafe {
-            ManuallyDrop::drop(&mut self.data);
+            self.data.drop(1, self.is_present().into());
         }
     }
 }
@@ -379,7 +379,7 @@ impl<const SEND: bool> Resources<SEND> {
                 )
             };
             ResourceData {
-                data: ManuallyDrop::new(data),
+                data,
                 is_present: false,
                 added_ticks: UnsafeCell::new(Tick::new(0)),
                 changed_ticks: UnsafeCell::new(Tick::new(0)),
