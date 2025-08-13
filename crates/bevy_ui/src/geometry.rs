@@ -283,7 +283,6 @@ impl Val {
 }
 
 /// All the types that should be able to be used in the [`Val`] enum should implement this trait.
-/// It's implemented for all numebr types by default.
 ///
 /// Instead of just implementing `Into<Val>` a custom trait is added.
 /// This is done in order to prevent having to define a default unit, which could lead to confusion especially for newcomers.
