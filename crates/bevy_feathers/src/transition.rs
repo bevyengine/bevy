@@ -2,20 +2,19 @@ use core::marker::PhantomData;
 
 use bevy_app::{Plugin, PostUpdate};
 use bevy_color::Srgba;
-use bevy_ecs::component::ComponentId;
-use bevy_ecs::entity::Entity;
+use bevy_ecs::component::{ComponentId, StorageType};
 use bevy_ecs::lifecycle::HookContext;
 use bevy_ecs::query::QueryState;
 use bevy_ecs::schedule::IntoScheduleConfigs as _;
-use bevy_ecs::world::{DeferredWorld, EntityMut, World};
+use bevy_ecs::world::{DeferredWorld, EntityMutExcept, World};
 use bevy_ecs::{
     component::{Component, Mutable},
     world::Mut,
 };
 use bevy_math::{curve::EaseFunction, Curve, StableInterpolate};
+use bevy_platform::collections::HashMap;
 use bevy_time::Time;
-use bevy_ui::{BackgroundColor, Node, UiSystems, Val};
-use std::collections::HashSet;
+use bevy_ui::{BackgroundColor, BorderColor, Node, UiSystems, Val};
 
 /// Represents an animatable property such as `BackgroundColor` or `Width`.
 pub trait TransitionProperty {
@@ -42,15 +41,22 @@ pub enum PlaybackDirection {
     Reverse,
 }
 
-/// Trait that allows type-erased access to the animated transition component.
-pub trait AnyAnimatedTransition {
-    /// Animate the property controlled by this transition.
-    fn animate(&mut self, entity: &mut EntityMut, time: &Time);
-}
+/// A type alias for [`EntityMutExcept`] as used in animation.
+pub type TransitionEntityMut<'w, 's> = EntityMutExcept<'w, 's, AnimatedTransitionSet>;
 
 /// A collection of component IDs for tracking transitions
-#[derive(Component, Default, Clone, Debug)]
-pub struct AnimatedTransitionSet(pub HashSet<ComponentId>);
+#[derive(Component, Default)]
+pub struct AnimatedTransitionSet(
+    pub HashMap<ComponentId, Box<dyn Fn(&mut TransitionEntityMut, &Time) + Send + Sync + 'static>>,
+);
+
+impl AnimatedTransitionSet {
+    pub fn animate(&self, entity: &mut TransitionEntityMut, time: &Time) {
+        for (_, transition) in self.0.iter() {
+            (transition)(entity, time);
+        }
+    }
+}
 
 /// A component that describes an animated transition. This includes the clock, easing function,
 /// and adapter for updating the component containing the property to be animated.
@@ -61,9 +67,9 @@ pub struct AnimatedTransitionSet(pub HashSet<ComponentId>);
 /// It is also possible to modify the animation target value in mid-animation, but care must
 /// be taken to avoid jumps. The recommended approach is to reset the animation's clock to zero,
 /// and change the start value to the current value of the animated property.
-#[derive(Component, Clone, Debug)]
-#[require(AnimatedTransitionSet)]
-#[component(on_insert = on_add_animation, on_remove = on_remove_animation)]
+#[derive(Clone, Debug)]
+// #[require(AnimatedTransitionSet)]
+// #[component(on_insert = on_add_animation, on_remove = on_remove_animation)]
 pub struct AnimatedTransition<P: TransitionProperty> {
     /// The property we are targeting.
     prop: PhantomData<P>,
@@ -87,24 +93,43 @@ pub struct AnimatedTransition<P: TransitionProperty> {
     ease: EaseFunction,
 }
 
-impl<P: TransitionProperty> AnyAnimatedTransition for AnimatedTransition<P> {
-    fn animate(&mut self, entity: &mut EntityMut, time: &Time) {
-        if let Some(mut component) = entity.get_mut::<P::ComponentType>() {
-            self.update(&mut component, *time);
-        }
-    }
-}
+impl<P: TransitionProperty + Sync + Send + 'static> Component for AnimatedTransition<P> {
+    const STORAGE_TYPE: StorageType = StorageType::Table;
 
-/// Hook function to update the set of component ids.
-fn on_add_animation(mut world: DeferredWorld, context: HookContext) {
-    if let Some(mut transitions) = world.get_mut::<AnimatedTransitionSet>(context.entity) {
-        transitions.0.insert(context.component_id);
-    }
-}
+    type Mutability = Mutable;
 
-fn on_remove_animation(mut world: DeferredWorld, context: HookContext) {
-    if let Some(mut transitions) = world.get_mut::<AnimatedTransitionSet>(context.entity) {
-        transitions.0.remove(&context.component_id);
+    fn on_insert() -> Option<bevy_ecs::lifecycle::ComponentHook> {
+        Some(|mut world: DeferredWorld, context: HookContext| {
+            if let Some(mut transitions) = world.get_mut::<AnimatedTransitionSet>(context.entity) {
+                transitions.0.insert(
+                    context.component_id,
+                    Box::new(|entity, time| {
+                        let Some(mut transition) = entity.get_mut::<AnimatedTransition<P>>() else {
+                            return;
+                        };
+                        let value = transition.advance(time);
+                        if let Some(mut target) = entity.get_mut::<P::ComponentType>() {
+                            P::update(&mut target, value);
+                        }
+                    }),
+                );
+            }
+        })
+    }
+
+    fn on_remove() -> Option<bevy_ecs::lifecycle::ComponentHook> {
+        Some(|mut world: DeferredWorld, context: HookContext| {
+            if let Some(mut transitions) = world.get_mut::<AnimatedTransitionSet>(context.entity) {
+                transitions.0.remove(&context.component_id);
+            }
+        })
+    }
+
+    fn register_required_components(
+        _component_id: ComponentId,
+        required_components: &mut bevy_ecs::component::RequiredComponentsRegistrator,
+    ) {
+        required_components.register_required(AnimatedTransitionSet::default);
     }
 }
 
@@ -181,7 +206,9 @@ impl<P: TransitionProperty> AnimatedTransition<P> {
 }
 
 impl<P: TransitionProperty> AnimatedTransition<P> {
-    fn update(&mut self, component: &mut Mut<P::ComponentType>, time: Time) {
+    /// Increment the clock based on the current playback state. Returns the current animatee
+    /// value.
+    fn advance(&mut self, time: &Time) -> P::ValueType {
         let speed = match self.direction {
             PlaybackDirection::Paused => 0.,
             PlaybackDirection::Forward => self.speed,
@@ -194,33 +221,23 @@ impl<P: TransitionProperty> AnimatedTransition<P> {
             self.direction = PlaybackDirection::Paused;
         }
         let t = self.ease.sample_clamped(self.clock);
-        P::update(component, self.start.interpolate_stable(&self.end, t));
+        self.start.interpolate_stable(&self.end, t)
     }
 }
 
 /// ECS system which drives all animated transitions.
 pub(crate) fn animate_transitions(
     world: &mut World,
-    q_transitions: &mut QueryState<(Entity, &AnimatedTransitionSet)>,
+    q_transitions: &mut QueryState<(TransitionEntityMut, &AnimatedTransitionSet)>,
 ) {
     let Some(time) = world.get_resource::<Time>() else {
         return;
     };
+    let time = *time;
 
-    for (entity_id, transition_set) in q_transitions.iter(world) {
-        for component_id in transition_set.0.iter() {
-            let mut entity = world.entity_mut(entity_id);
-            if let Ok(target_component) = entity.get_mut_by_id(*component_id) {
-                // Yes, I know there's no such nethod.
-                let Some(mut any_transition) =
-                    target_component.downcast_unsafe_mut::<dyn AnyAnimatedTransition>()
-                else {
-                    continue;
-                };
-
-                any_transition.animate(&mut entity, &time);
-            }
-        }
+    // For all entities which have an `AnimatedTransitionSet`
+    for (mut entity, transition_set) in q_transitions.iter_mut(world) {
+        transition_set.animate(&mut entity, &time);
     }
 }
 
@@ -233,6 +250,18 @@ impl TransitionProperty for BackgroundColorTransition {
 
     fn update(component: &mut Mut<Self::ComponentType>, value: Self::ValueType) {
         component.0 = value.into();
+    }
+}
+
+/// Animated transition for border color. This sets all border sides to the same color.
+pub struct BorderColorTransition;
+
+impl TransitionProperty for BorderColorTransition {
+    type ValueType = Srgba;
+    type ComponentType = BorderColor;
+
+    fn update(component: &mut Mut<Self::ComponentType>, value: Self::ValueType) {
+        component.set_all(value);
     }
 }
 
