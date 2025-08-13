@@ -5,15 +5,18 @@ use bevy_ecs::{
     component::Component,
     lifecycle::Insert,
     observer::On,
+    reflect::ReflectComponent,
     system::{Commands, Query, Res},
 };
+use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_text::{Font, TextFont};
 
 use crate::handle_or_path::HandleOrPath;
 
 /// A component which, when inserted on an entity, will load the given font and propagate it
 /// downward to any child text entity that has the [`ThemedText`](crate::theme::ThemedText) marker.
-#[derive(Component, Default, Clone, Debug)]
+#[derive(Component, Default, Clone, Debug, Reflect)]
+#[reflect(Component, Default)]
 pub struct InheritableFont {
     /// The font handle or path.
     pub font: HandleOrPath<Font>,
@@ -47,16 +50,16 @@ pub(crate) fn on_changed_font(
     assets: Res<AssetServer>,
     mut commands: Commands,
 ) {
-    if let Ok(style) = font_style.get(ev.target()) {
-        if let Some(font) = match style.font {
+    if let Ok(style) = font_style.get(ev.target())
+        && let Some(font) = match style.font {
             HandleOrPath::Handle(ref h) => Some(h.clone()),
             HandleOrPath::Path(ref p) => Some(assets.load::<Font>(p)),
-        } {
-            commands.entity(ev.target()).insert(Propagate(TextFont {
-                font,
-                font_size: style.font_size,
-                ..Default::default()
-            }));
         }
+    {
+        commands.entity(ev.target()).insert(Propagate(TextFont {
+            font,
+            font_size: style.font_size,
+            ..Default::default()
+        }));
     }
 }

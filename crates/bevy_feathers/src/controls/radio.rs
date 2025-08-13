@@ -1,4 +1,5 @@
 use bevy_app::{Plugin, PreUpdate};
+use bevy_camera::visibility::Visibility;
 use bevy_core_widgets::CoreRadio;
 use bevy_ecs::{
     bundle::Bundle,
@@ -8,13 +9,14 @@ use bevy_ecs::{
     hierarchy::{ChildOf, Children},
     lifecycle::RemovedComponents,
     query::{Added, Changed, Has, Or, With},
+    reflect::ReflectComponent,
     schedule::IntoScheduleConfigs,
     spawn::{Spawn, SpawnRelated, SpawnableList},
     system::{Commands, Query},
 };
 use bevy_input_focus::tab_navigation::TabIndex;
 use bevy_picking::{hover::Hovered, PickingSystems};
-use bevy_render::view::Visibility;
+use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_ui::{
     AlignItems, BorderRadius, Checked, Display, FlexDirection, InteractionDisabled, JustifyContent,
     Node, UiRect, Val,
@@ -30,11 +32,13 @@ use crate::{
 };
 
 /// Marker for the radio outline
-#[derive(Component, Default, Clone)]
+#[derive(Component, Default, Clone, Reflect)]
+#[reflect(Component, Clone, Default)]
 struct RadioOutline;
 
 /// Marker for the radio check mark
-#[derive(Component, Default, Clone)]
+#[derive(Component, Default, Clone, Reflect)]
+#[reflect(Component, Clone, Default)]
 struct RadioMark;
 
 /// Template function to spawn a radio.

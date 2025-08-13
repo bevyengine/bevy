@@ -3,7 +3,7 @@
     view_transformations::position_world_to_clip
 }
 
-@group(3) @binding(0) var<storage, read> colors: array<vec4<f32>, 5>;
+@group(#{MATERIAL_BIND_GROUP}) @binding(0) var<storage, read> colors: array<vec4<f32>, 5>;
 
 struct Vertex {
     @builtin(instance_index) instance_index: u32,

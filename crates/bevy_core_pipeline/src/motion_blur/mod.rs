@@ -8,6 +8,7 @@ use crate::{
 };
 use bevy_app::{App, Plugin};
 use bevy_asset::embedded_asset;
+use bevy_camera::Camera;
 use bevy_ecs::{
     component::Component,
     query::{QueryItem, With},
@@ -16,7 +17,6 @@ use bevy_ecs::{
 };
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
-    camera::Camera,
     extract_component::{ExtractComponent, ExtractComponentPlugin, UniformComponentPlugin},
     render_graph::{RenderGraphExt, ViewNodeRunner},
     render_resource::{ShaderType, SpecializedRenderPipelines},
@@ -47,7 +47,8 @@ pub mod pipeline;
 /// camera.
 ///
 /// ```
-/// # use bevy_core_pipeline::{core_3d::Camera3d, motion_blur::MotionBlur};
+/// # use bevy_core_pipeline::motion_blur::MotionBlur;
+/// # use bevy_camera::Camera3d;
 /// # use bevy_ecs::prelude::*;
 /// # fn test(mut commands: Commands) {
 /// commands.spawn((

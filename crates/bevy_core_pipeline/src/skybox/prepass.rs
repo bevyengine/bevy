@@ -12,12 +12,13 @@ use bevy_render::{
     render_resource::{
         binding_types::uniform_buffer, BindGroup, BindGroupEntries, BindGroupLayout,
         BindGroupLayoutEntries, CachedRenderPipelineId, CompareFunction, DepthStencilState,
-        FragmentState, MultisampleState, PipelineCache, RenderPipelineDescriptor, Shader,
-        ShaderStages, SpecializedRenderPipeline, SpecializedRenderPipelines,
+        FragmentState, MultisampleState, PipelineCache, RenderPipelineDescriptor, ShaderStages,
+        SpecializedRenderPipeline, SpecializedRenderPipelines,
     },
     renderer::RenderDevice,
     view::{Msaa, ViewUniform, ViewUniforms},
 };
+use bevy_shader::Shader;
 use bevy_utils::prelude::default;
 
 use crate::{

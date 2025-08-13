@@ -128,10 +128,10 @@ fn extract_visible<EI>(
 {
     extracted_instances.clear();
     for (entity, view_visibility, other) in &query {
-        if view_visibility.get() {
-            if let Some(extract_instance) = EI::extract(other) {
-                extracted_instances.insert(entity.into(), extract_instance);
-            }
+        if view_visibility.get()
+            && let Some(extract_instance) = EI::extract(other)
+        {
+            extracted_instances.insert(entity.into(), extract_instance);
         }
     }
 }

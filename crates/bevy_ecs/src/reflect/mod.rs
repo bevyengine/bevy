@@ -47,6 +47,18 @@ impl DerefMut for AppTypeRegistry {
     }
 }
 
+impl AppTypeRegistry {
+    /// Creates [`AppTypeRegistry`] and automatically registers all types deriving [`Reflect`].
+    ///
+    /// See [`TypeRegistry::register_derived_types`] for more details.
+    #[cfg(feature = "reflect_auto_register")]
+    pub fn new_with_derived_types() -> Self {
+        let app_registry = AppTypeRegistry::default();
+        app_registry.write().register_derived_types();
+        app_registry
+    }
+}
+
 /// A [`Resource`] storing [`FunctionRegistry`] for
 /// function registrations relevant to a whole app.
 ///

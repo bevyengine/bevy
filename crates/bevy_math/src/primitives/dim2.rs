@@ -17,7 +17,7 @@ use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 
 #[cfg(feature = "alloc")]
-use alloc::{boxed::Box, vec::Vec};
+use alloc::vec::Vec;
 
 /// A circle primitive, representing the set of points some distance from the origin
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -1246,10 +1246,9 @@ pub struct Segment2d {
 impl Primitive2d for Segment2d {}
 
 impl Default for Segment2d {
-    /// Returns the default [`Segment2d`] with endpoints at `(0.0, 0.0)` and `(1.0, 0.0)`.
     fn default() -> Self {
         Self {
-            vertices: [Vec2::new(0.0, 0.0), Vec2::new(1.0, 0.0)],
+            vertices: [Vec2::new(-0.5, 0.0), Vec2::new(0.5, 0.0)],
         }
     }
 }
@@ -1538,8 +1537,7 @@ impl From<(Vec2, Vec2)> for Segment2d {
 }
 
 /// A series of connected line segments in 2D space.
-///
-/// For a version without generics: [`BoxedPolyline2d`]
+#[cfg(feature = "alloc")]
 #[derive(Clone, Debug, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
@@ -1551,62 +1549,52 @@ impl From<(Vec2, Vec2)> for Segment2d {
     all(feature = "serialize", feature = "bevy_reflect"),
     reflect(Serialize, Deserialize)
 )]
-pub struct Polyline2d<const N: usize> {
+pub struct Polyline2d {
     /// The vertices of the polyline
-    #[cfg_attr(feature = "serialize", serde(with = "super::serde::array"))]
-    pub vertices: [Vec2; N],
+    pub vertices: Vec<Vec2>,
 }
 
-impl<const N: usize> Primitive2d for Polyline2d<N> {}
+#[cfg(feature = "alloc")]
+impl Primitive2d for Polyline2d {}
 
-impl<const N: usize> FromIterator<Vec2> for Polyline2d<N> {
+#[cfg(feature = "alloc")]
+impl FromIterator<Vec2> for Polyline2d {
     fn from_iter<I: IntoIterator<Item = Vec2>>(iter: I) -> Self {
-        let mut vertices: [Vec2; N] = [Vec2::ZERO; N];
-
-        for (index, i) in iter.into_iter().take(N).enumerate() {
-            vertices[index] = i;
+        Self {
+            vertices: iter.into_iter().collect(),
         }
-        Self { vertices }
     }
 }
 
-impl<const N: usize> Polyline2d<N> {
+#[cfg(feature = "alloc")]
+impl Default for Polyline2d {
+    fn default() -> Self {
+        Self {
+            vertices: Vec::from([Vec2::new(-0.5, 0.0), Vec2::new(0.5, 0.0)]),
+        }
+    }
+}
+
+#[cfg(feature = "alloc")]
+impl Polyline2d {
     /// Create a new `Polyline2d` from its vertices
     pub fn new(vertices: impl IntoIterator<Item = Vec2>) -> Self {
         Self::from_iter(vertices)
     }
-}
 
-/// A series of connected line segments in 2D space, allocated on the heap
-/// in a `Box<[Vec2]>`.
-///
-/// For a version without alloc: [`Polyline2d`]
-#[cfg(feature = "alloc")]
-#[derive(Clone, Debug, PartialEq)]
-#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
-pub struct BoxedPolyline2d {
-    /// The vertices of the polyline
-    pub vertices: Box<[Vec2]>,
-}
+    /// Create a new `Polyline2d` from two endpoints with subdivision points.
+    /// `subdivisions = 0` creates a simple line with just start and end points.
+    /// `subdivisions = 1` adds one point in the middle, creating 2 segments, etc.
+    pub fn with_subdivisions(start: Vec2, end: Vec2, subdivisions: usize) -> Self {
+        let total_vertices = subdivisions + 2;
+        let mut vertices = Vec::with_capacity(total_vertices);
 
-#[cfg(feature = "alloc")]
-impl Primitive2d for BoxedPolyline2d {}
-
-#[cfg(feature = "alloc")]
-impl FromIterator<Vec2> for BoxedPolyline2d {
-    fn from_iter<I: IntoIterator<Item = Vec2>>(iter: I) -> Self {
-        let vertices: Vec<Vec2> = iter.into_iter().collect();
-        Self {
-            vertices: vertices.into_boxed_slice(),
+        let step = (end - start) / (subdivisions + 1) as f32;
+        for i in 0..total_vertices {
+            vertices.push(start + step * i as f32);
         }
-    }
-}
 
-#[cfg(feature = "alloc")]
-impl BoxedPolyline2d {
-    /// Create a new `BoxedPolyline2d` from its vertices
-    pub fn new(vertices: impl IntoIterator<Item = Vec2>) -> Self {
-        Self::from_iter(vertices)
+        Self { vertices }
     }
 }
 
@@ -1875,8 +1863,7 @@ impl Measured2d for Rectangle {
 }
 
 /// A polygon with N vertices.
-///
-/// For a version without generics: [`BoxedPolygon`]
+#[cfg(feature = "alloc")]
 #[derive(Clone, Debug, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
@@ -1888,26 +1875,25 @@ impl Measured2d for Rectangle {
     all(feature = "serialize", feature = "bevy_reflect"),
     reflect(Serialize, Deserialize)
 )]
-pub struct Polygon<const N: usize> {
+pub struct Polygon {
     /// The vertices of the `Polygon`
-    #[cfg_attr(feature = "serialize", serde(with = "super::serde::array"))]
-    pub vertices: [Vec2; N],
+    pub vertices: Vec<Vec2>,
 }
 
-impl<const N: usize> Primitive2d for Polygon<N> {}
+#[cfg(feature = "alloc")]
+impl Primitive2d for Polygon {}
 
-impl<const N: usize> FromIterator<Vec2> for Polygon<N> {
+#[cfg(feature = "alloc")]
+impl FromIterator<Vec2> for Polygon {
     fn from_iter<I: IntoIterator<Item = Vec2>>(iter: I) -> Self {
-        let mut vertices: [Vec2; N] = [Vec2::ZERO; N];
-
-        for (index, i) in iter.into_iter().take(N).enumerate() {
-            vertices[index] = i;
+        Self {
+            vertices: iter.into_iter().collect(),
         }
-        Self { vertices }
     }
 }
 
-impl<const N: usize> Polygon<N> {
+#[cfg(feature = "alloc")]
+impl Polygon {
     /// Create a new `Polygon` from its vertices
     pub fn new(vertices: impl IntoIterator<Item = Vec2>) -> Self {
         Self::from_iter(vertices)
@@ -1923,8 +1909,9 @@ impl<const N: usize> Polygon<N> {
     }
 }
 
-impl<const N: usize> From<ConvexPolygon<N>> for Polygon<N> {
-    fn from(val: ConvexPolygon<N>) -> Self {
+#[cfg(feature = "alloc")]
+impl From<ConvexPolygon> for Polygon {
+    fn from(val: ConvexPolygon) -> Self {
         Polygon {
             vertices: val.vertices,
         }
@@ -1932,6 +1919,7 @@ impl<const N: usize> From<ConvexPolygon<N>> for Polygon<N> {
 }
 
 /// A convex polygon with `N` vertices.
+#[cfg(feature = "alloc")]
 #[derive(Clone, Debug, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
@@ -1943,15 +1931,16 @@ impl<const N: usize> From<ConvexPolygon<N>> for Polygon<N> {
     all(feature = "serialize", feature = "bevy_reflect"),
     reflect(Serialize, Deserialize)
 )]
-pub struct ConvexPolygon<const N: usize> {
+pub struct ConvexPolygon {
     /// The vertices of the [`ConvexPolygon`].
-    #[cfg_attr(feature = "serialize", serde(with = "super::serde::array"))]
-    vertices: [Vec2; N],
+    vertices: Vec<Vec2>,
 }
 
-impl<const N: usize> Primitive2d for ConvexPolygon<N> {}
+#[cfg(feature = "alloc")]
+impl Primitive2d for ConvexPolygon {}
 
 /// An error that happens when creating a [`ConvexPolygon`].
+#[cfg(feature = "alloc")]
 #[derive(Error, Debug, Clone)]
 pub enum ConvexPolygonError {
     /// The created polygon is not convex.
@@ -1959,7 +1948,8 @@ pub enum ConvexPolygonError {
     Concave,
 }
 
-impl<const N: usize> ConvexPolygon<N> {
+#[cfg(feature = "alloc")]
+impl ConvexPolygon {
     fn triangle_winding_order(
         &self,
         a_index: usize,
@@ -1977,11 +1967,12 @@ impl<const N: usize> ConvexPolygon<N> {
     /// # Errors
     ///
     /// Returns [`ConvexPolygonError::Concave`] if the `vertices` do not form a convex polygon.
-    pub fn new(vertices: [Vec2; N]) -> Result<Self, ConvexPolygonError> {
+    pub fn new(vertices: impl IntoIterator<Item = Vec2>) -> Result<Self, ConvexPolygonError> {
         let polygon = Self::new_unchecked(vertices);
-        let ref_winding_order = polygon.triangle_winding_order(N - 1, 0, 1);
-        for i in 1..N {
-            let winding_order = polygon.triangle_winding_order(i - 1, i, (i + 1) % N);
+        let len = polygon.vertices.len();
+        let ref_winding_order = polygon.triangle_winding_order(len - 1, 0, 1);
+        for i in 1..len {
+            let winding_order = polygon.triangle_winding_order(i - 1, i, (i + 1) % len);
             if winding_order != ref_winding_order {
                 return Err(ConvexPolygonError::Concave);
             }
@@ -1992,63 +1983,24 @@ impl<const N: usize> ConvexPolygon<N> {
     /// Create a [`ConvexPolygon`] from its `vertices`, without checks.
     /// Use this version only if you know that the `vertices` make up a convex polygon.
     #[inline(always)]
-    pub fn new_unchecked(vertices: [Vec2; N]) -> Self {
-        Self { vertices }
+    pub fn new_unchecked(vertices: impl IntoIterator<Item = Vec2>) -> Self {
+        Self {
+            vertices: vertices.into_iter().collect(),
+        }
     }
 
     /// Get the vertices of this polygon
     #[inline(always)]
-    pub fn vertices(&self) -> &[Vec2; N] {
+    pub fn vertices(&self) -> &[Vec2] {
         &self.vertices
     }
 }
 
-impl<const N: usize> TryFrom<Polygon<N>> for ConvexPolygon<N> {
+impl TryFrom<Polygon> for ConvexPolygon {
     type Error = ConvexPolygonError;
 
-    fn try_from(val: Polygon<N>) -> Result<Self, Self::Error> {
+    fn try_from(val: Polygon) -> Result<Self, Self::Error> {
         ConvexPolygon::new(val.vertices)
-    }
-}
-
-/// A polygon with a variable number of vertices, allocated on the heap
-/// in a `Box<[Vec2]>`.
-///
-/// For a version without alloc: [`Polygon`]
-#[cfg(feature = "alloc")]
-#[derive(Clone, Debug, PartialEq)]
-#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
-pub struct BoxedPolygon {
-    /// The vertices of the `BoxedPolygon`
-    pub vertices: Box<[Vec2]>,
-}
-
-#[cfg(feature = "alloc")]
-impl Primitive2d for BoxedPolygon {}
-
-#[cfg(feature = "alloc")]
-impl FromIterator<Vec2> for BoxedPolygon {
-    fn from_iter<I: IntoIterator<Item = Vec2>>(iter: I) -> Self {
-        let vertices: Vec<Vec2> = iter.into_iter().collect();
-        Self {
-            vertices: vertices.into_boxed_slice(),
-        }
-    }
-}
-
-#[cfg(feature = "alloc")]
-impl BoxedPolygon {
-    /// Create a new `BoxedPolygon` from its vertices
-    pub fn new(vertices: impl IntoIterator<Item = Vec2>) -> Self {
-        Self::from_iter(vertices)
-    }
-
-    /// Tests if the polygon is simple.
-    ///
-    /// A polygon is simple if it is not self intersecting and not self tangent.
-    /// As such, no two edges of the polygon may cross each other and each vertex must not lie on another edge.
-    pub fn is_simple(&self) -> bool {
-        is_polygon_simple(&self.vertices)
     }
 }
 

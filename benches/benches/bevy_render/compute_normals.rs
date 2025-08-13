@@ -4,10 +4,8 @@ use criterion::{criterion_group, Criterion};
 use rand::random;
 use std::time::{Duration, Instant};
 
-use bevy_render::{
-    mesh::{Indices, Mesh, PrimitiveTopology},
-    render_asset::RenderAssetUsages,
-};
+use bevy_asset::RenderAssetUsages;
+use bevy_mesh::{Indices, Mesh, PrimitiveTopology};
 
 const GRID_SIZE: usize = 256;
 
