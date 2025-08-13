@@ -190,6 +190,11 @@ impl<const SEND: bool> ResourceData<SEND> {
             if !SEND {
                 self.origin_thread_id = Some(std::thread::current().id());
             }
+            // SAFETY:
+            // - There is only one element, and it's always allocated.
+            // - The caller guarantees must be valid for the underlying type and thus its
+            //   layout must be identical.
+            // - The value was previously not present and thus must not have been initialized.
             unsafe { self.data.initialize_unchecked(Self::ROW, value) };
             *self.added_ticks.deref_mut() = change_tick;
             self.is_present = true;
@@ -223,14 +228,17 @@ impl<const SEND: bool> ResourceData<SEND> {
             // SAFETY: The caller ensures that the provided value is valid for the underlying type and
             // is properly initialized. We've ensured that a value is already present and previously
             // initialized.
-            unsafe {
-                self.data.replace_unchecked(Self::ROW, value);
-            }
+            unsafe { self.data.replace_unchecked(Self::ROW, value) };
         } else {
             #[cfg(feature = "std")]
             if !SEND {
                 self.origin_thread_id = Some(std::thread::current().id());
             }
+            // SAFETY:
+            // - There is only one element, and it's always allocated.
+            // - The caller guarantees must be valid for the underlying type and thus its
+            //   layout must be identical.
+            // - The value was previously not present and thus must not have been initialized.
             unsafe { self.data.initialize_unchecked(Self::ROW, value) };
             self.is_present = true;
         }
@@ -290,6 +298,7 @@ impl<const SEND: bool> ResourceData<SEND> {
     pub(crate) fn remove_and_drop(&mut self) {
         if self.is_present() {
             self.validate_access();
+            // SAFETY: There is only one element, and it's always allocated.
             unsafe { self.data.drop_last_element(Self::ROW) };
             self.is_present = false;
         }

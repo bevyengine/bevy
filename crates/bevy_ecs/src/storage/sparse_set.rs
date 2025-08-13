@@ -140,7 +140,8 @@ impl ComponentSparseSet {
 
     /// Removes all of the values stored within.
     pub(crate) fn clear(&mut self) {
-        unsafe { self.dense.clear(self.entities.len()) };
+        // SAFETY: This is using the size of the ComponentSparseSet.
+        unsafe { self.dense.clear(self.len()) };
         self.entities.clear();
         self.sparse.clear();
     }
@@ -185,8 +186,10 @@ impl ComponentSparseSet {
 
             let _guard = AbortOnPanic;
             if capacity != self.entities.capacity() {
+                // SAFETY: An entity was just pushed onto `entities`, its capacity cannot be zero.
                 let new_capacity = unsafe { NonZero::new_unchecked(self.entities.capacity()) };
                 if let Some(capacity) = NonZero::new(capacity) {
+                    // SAFETY: This is using the layout of the previous allocation.
                     unsafe { self.dense.realloc(capacity, new_capacity) };
                 } else {
                     self.dense.alloc(new_capacity);
@@ -333,9 +336,11 @@ impl ComponentSparseSet {
             if dense_index.index() >= last {
                 #[cfg(debug_assertions)]
                 assert_eq!(dense_index.index(), last);
-                // SAFETY: TODO
+                // SAFETY: This is strictly decreasing the length, so it cannot outgrow
+                // it also cannot underflow as an item was just removed from the sparse array.
                 unsafe { self.entities.set_len(last) };
-                // SAFETY: TODO
+                // SAFETY: `last` is guaranteed to be the last element in `dense` as the length is synced with
+                // the `entities` store.
                 unsafe {
                     self.dense
                         .get_data_unchecked(dense_index)
@@ -343,21 +348,25 @@ impl ComponentSparseSet {
                         .promote()
                 }
             } else {
-                // SAFETY: TODO
+                // SAFETY: The above check ensures that `dense_index` and the last element are not
+                // overlapping, and thus also within bounds.
                 unsafe {
                     self.entities
                         .swap_remove_nonoverlapping_unchecked(dense_index.index());
                 };
-                // SAFETY: TODO
+                // SAFETY: The above check ensures that `dense_index` is in bounds.
                 let swapped_entity = unsafe { self.entities.get_unchecked(dense_index.index()) };
                 #[cfg(not(debug_assertions))]
                 let index = swapped_entity;
                 #[cfg(debug_assertions)]
                 let index = swapped_entity.row();
+                // SAFETY: The swapped entity was just fetched from the entity Vec, it must have already
+                // been inserted and in bounds.
                 unsafe {
                     *self.sparse.get_mut(index).debug_checked_unwrap() = dense_index;
                 }
-                // SAFETY: dense_index was just removed from `sparse`, which ensures that it is valid
+                // SAFETY: The above check ensures that `dense_index` and the last element are not
+                // overlapping, and thus also within bounds.
                 unsafe {
                     self.dense
                         .swap_remove_and_forget_unchecked_nonoverlapping(last, dense_index)
@@ -379,27 +388,33 @@ impl ComponentSparseSet {
                 if dense_index.index() >= last {
                     #[cfg(debug_assertions)]
                     assert_eq!(dense_index.index(), last);
-                    // SAFETY: TODO
+                    // SAFETY: This is strictly decreasing the length, so it cannot outgrow
+                    // it also cannot underflow as an item was just removed from the sparse array.
                     unsafe { self.entities.set_len(last) };
-                    // SAFETY: TODO
+                    // SAFETY: `last` is guaranteed to be the last element in `dense` as the length is synced with
+                    // the `entities` store.
                     unsafe { self.dense.drop_last_component(last) };
                 } else {
-                    // SAFETY: TODO
+                    // SAFETY: The above check ensures that `dense_index` and the last element are not
+                    // overlapping, and thus also within bounds.
                     unsafe {
                         self.entities
                             .swap_remove_nonoverlapping_unchecked(dense_index.index());
                     };
-                    // SAFETY: TODO
                     let swapped_entity =
+                        // SAFETY: The above check ensures that `dense_index` is in bounds.
                         unsafe { self.entities.get_unchecked(dense_index.index()) };
                     #[cfg(not(debug_assertions))]
                     let index = swapped_entity;
                     #[cfg(debug_assertions)]
                     let index = swapped_entity.row();
+                    // SAFETY: The swapped entity was just fetched from the entity Vec, it must have already
+                    // been inserted and in bounds.
                     unsafe {
                         *self.sparse.get_mut(index).debug_checked_unwrap() = dense_index;
                     }
-                    // SAFETY: TODO
+                    // SAFETY: The above check ensures that `dense_index` and the last element are not
+                    // overlapping, and thus also within bounds.
                     unsafe {
                         self.dense
                             .swap_remove_and_drop_unchecked_nonoverlapping(last, dense_index);
@@ -410,6 +425,7 @@ impl ComponentSparseSet {
     }
 
     pub(crate) fn check_change_ticks(&mut self, check: CheckChangeTicks) {
+        // SAFETY: This is using the valid size of the column.
         unsafe { self.dense.check_change_ticks(self.len(), check) };
     }
 }
