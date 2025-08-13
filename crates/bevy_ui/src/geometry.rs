@@ -282,6 +282,24 @@ impl Val {
     }
 }
 
+pub trait ToValNum {
+    fn to_val_num(self) -> f32;
+}
+
+macro_rules! impl_to_val_num {
+    ($($impl_type:ty),*$(,)?) => {
+        $(
+            impl ToValNum for $impl_type {
+                fn to_val_num(self) -> f32 {
+                    self as f32
+                }
+            }
+        )*
+    };
+}
+
+impl_to_val_num!(f32, f64, i8, i16, i32, i64, i128, u8, u16, u32, u64, u128);
+
 /// Returns a [`Val::Auto`] where the value is automatically determined
 /// based on the context and other [`Node`](crate::Node) properties.
 pub const fn auto() -> Val {
@@ -289,8 +307,8 @@ pub const fn auto() -> Val {
 }
 
 /// Returns a [`Val::Px`] representing a value in logical pixels.
-pub const fn px(value: f32) -> Val {
-    Val::Px(value)
+pub fn px<T: ToValNum>(value: T) -> Val {
+    Val::Px(value.to_val_num())
 }
 
 /// Returns a [`Val::Percent`] representing a percentage of the parent node's length
@@ -306,28 +324,28 @@ pub const fn px(value: f32) -> Val {
 ///   - `height` is relative to the parent's height.
 /// * For `margin`, `padding`, and `border` values: the percentage is relative to the parent's width.
 /// * For positions, `left` and `right` are relative to the parent's width, while `bottom` and `top` are relative to the parent's height.
-pub const fn percent(value: f32) -> Val {
-    Val::Percent(value)
+pub fn percent<T: ToValNum>(value: T) -> Val {
+    Val::Percent(value.to_val_num())
 }
 
 /// Returns a [`Val::Vw`] representing a percentage of the viewport width.
-pub const fn vw(value: f32) -> Val {
-    Val::Vw(value)
+pub fn vw<T: ToValNum>(value: T) -> Val {
+    Val::Vw(value.to_val_num())
 }
 
 /// Returns a [`Val::Vh`] representing a percentage of the viewport height.
-pub const fn vh(value: f32) -> Val {
-    Val::Vh(value)
+pub fn vh<T: ToValNum>(value: T) -> Val {
+    Val::Vh(value.to_val_num())
 }
 
 /// Returns a [`Val::VMin`] representing a percentage of the viewport's smaller dimension.
-pub const fn vmin(value: f32) -> Val {
-    Val::VMin(value)
+pub fn vmin<T: ToValNum>(value: T) -> Val {
+    Val::VMin(value.to_val_num())
 }
 
 /// Returns a [`Val::VMax`] representing a percentage of the viewport's larger dimension.
-pub const fn vmax(value: f32) -> Val {
-    Val::VMax(value)
+pub fn vmax<T: ToValNum>(value: T) -> Val {
+    Val::VMax(value.to_val_num())
 }
 
 /// A type which is commonly used to define margins, paddings and borders.
