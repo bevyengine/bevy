@@ -44,7 +44,7 @@ pub mod palette;
 pub mod rounded_corners;
 pub mod theme;
 pub mod tokens;
-mod transition;
+pub mod transition;
 
 /// Plugin which installs observers and systems for feathers themes, cursors, and all controls.
 pub struct FeathersPlugin;

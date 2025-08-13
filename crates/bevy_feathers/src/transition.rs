@@ -12,15 +12,17 @@ use bevy_ecs::{
     world::Mut,
 };
 use bevy_math::{curve::EaseFunction, Curve, StableInterpolate};
+use bevy_math::{Rot2, Vec2};
 use bevy_platform::collections::HashMap;
 use bevy_time::Time;
-use bevy_ui::{BackgroundColor, BorderColor, Node, UiSystems, Val};
+use bevy_ui::{BackgroundColor, BorderColor, Node, UiSystems, UiTransform, Val};
 
 /// Represents an animatable property such as `BackgroundColor` or `Width`.
 pub trait TransitionProperty {
     /// The data type of the animated property.
     type ValueType: Copy + Send + Sync + PartialEq + 'static + StableInterpolate;
 
+    /// The type of component that contains the animated property.
     type ComponentType: Component<Mutability = Mutable>;
 
     /// Update the value of the animatable property.
@@ -51,6 +53,7 @@ pub struct AnimatedTransitionSet(
 );
 
 impl AnimatedTransitionSet {
+    /// Animate all registered transitions.
     pub fn animate(&self, entity: &mut TransitionEntityMut, time: &Time) {
         for (_, transition) in self.0.iter() {
             (transition)(entity, time);
@@ -277,6 +280,31 @@ impl TransitionProperty for LeftPercentTransition {
     }
 }
 
+/// Animated transition for [`UiTransform::rotation`]
+pub struct UiRotateTransition;
+
+impl TransitionProperty for UiRotateTransition {
+    type ValueType = Rot2;
+    type ComponentType = UiTransform;
+
+    fn update(component: &mut Mut<Self::ComponentType>, value: Self::ValueType) {
+        component.rotation = value;
+    }
+}
+
+/// Animated transition for [`UiTransform::scale`]
+pub struct UiScaleTransition;
+
+impl TransitionProperty for UiScaleTransition {
+    type ValueType = Vec2;
+    type ComponentType = UiTransform;
+
+    fn update(component: &mut Mut<Self::ComponentType>, value: Self::ValueType) {
+        component.scale = value;
+    }
+}
+
+/// Plugin which registers the animation driver system.
 pub struct AnimatedTransitionPlugin;
 
 impl Plugin for AnimatedTransitionPlugin {
