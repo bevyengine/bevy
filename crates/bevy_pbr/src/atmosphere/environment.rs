@@ -27,6 +27,7 @@ use bevy_render::{
     view::{ViewUniform, ViewUniformOffset, ViewUniforms},
 };
 use bevy_utils::default;
+use tracing::warn;
 
 use super::Atmosphere;
 
@@ -179,6 +180,21 @@ pub fn prepare_atmosphere_probe_pipeline(
     commands.insert_resource(AtmosphereProbePipelines { environment });
 }
 
+// Ensure power-of-two dimensions to avoid edge update issues on cubemap faces
+pub fn validate_environment_map_size(size: UVec2) -> UVec2 {
+    let new_size = UVec2::new(
+        size.x.max(1).next_power_of_two(),
+        size.y.max(1).next_power_of_two(),
+    );
+    if new_size != size {
+        warn!(
+            "Non-power-of-two AtmosphereEnvironmentMapLight size {}, correcting to {new_size}",
+            size
+        );
+    }
+    new_size
+}
+
 pub fn prepare_atmosphere_probe_components(
     probes: Query<(Entity, &AtmosphereEnvironmentMapLight), (Without<AtmosphereEnvironmentMap>,)>,
     mut commands: Commands,
@@ -186,10 +202,11 @@ pub fn prepare_atmosphere_probe_components(
 ) {
     for (entity, env_map_light) in &probes {
         // Create a cubemap image in the main world that we can reference
+        let new_size = validate_environment_map_size(env_map_light.size);
         let mut environment_image = Image::new_fill(
             Extent3d {
-                width: env_map_light.size.x,
-                height: env_map_light.size.y,
+                width: new_size.x,
+                height: new_size.y,
                 depth_or_array_layers: 6,
             },
             TextureDimension::D2,
@@ -212,7 +229,7 @@ pub fn prepare_atmosphere_probe_components(
 
         commands.entity(entity).insert(AtmosphereEnvironmentMap {
             environment_map: environment_handle.clone(),
-            size: env_map_light.size,
+            size: new_size,
         });
 
         commands
