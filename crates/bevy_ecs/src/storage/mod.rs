@@ -70,12 +70,27 @@ impl Drop for AbortOnPanic {
     }
 }
 
+/// Unsafe extension functions for `Vec<T>`
 trait VecExtensions<T> {
-    unsafe fn swap_remove_nonoverlapping_unchecked(&mut self, index: usize);
+    /// Removes an element from the vector and returns it.
+    ///
+    /// The removed element is replaced by the last element of the vector.
+    ///
+    /// This does not preserve ordering of the remaining elements, but is O(1). If you need to preserve the element order, use [`remove`] instead.
+    ///
+    /// Unlike [`swap_remove`], this does not panic if `index` is out of bounds.
+    ///
+    /// # Safety
+    /// `index < self.len() - 1` must be true.
+    ///
+    /// [`remove`]: alloc::vec::Vec::remove
+    /// [`swap_remove`]: alloc::vec::Vec::swap_remove
+    unsafe fn swap_remove_nonoverlapping_unchecked(&mut self, index: usize) -> T;
 }
 
 impl<T> VecExtensions<T> for Vec<T> {
-    unsafe fn swap_remove_nonoverlapping_unchecked(&mut self, index: usize) {
+    unsafe fn swap_remove_nonoverlapping_unchecked(&mut self, index: usize) -> T {
+        let value = core::ptr::read(self.as_mut_ptr().add(index));
         let len = self.len();
         // We replace self[index] with the last element. Note that if the
         // bounds check above succeeds there must be a last element (which
@@ -83,5 +98,6 @@ impl<T> VecExtensions<T> for Vec<T> {
         let base_ptr = self.as_mut_ptr();
         core::ptr::copy_nonoverlapping(base_ptr.add(len - 1), base_ptr.add(index), 1);
         self.set_len(len - 1);
+        value
     }
 }
