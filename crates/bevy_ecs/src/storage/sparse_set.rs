@@ -357,7 +357,7 @@ impl ComponentSparseSet {
                 // SAFETY: The above check ensures that `dense_index` is in bounds.
                 let swapped_entity = unsafe { self.entities.get_unchecked(dense_index.index()) };
                 #[cfg(not(debug_assertions))]
-                let index = swapped_entity;
+                let index = *swapped_entity;
                 #[cfg(debug_assertions)]
                 let index = swapped_entity.row();
                 // SAFETY: The swapped entity was just fetched from the entity Vec, it must have already
@@ -405,7 +405,7 @@ impl ComponentSparseSet {
                         // SAFETY: The above check ensures that `dense_index` is in bounds.
                         unsafe { self.entities.get_unchecked(dense_index.index()) };
                     #[cfg(not(debug_assertions))]
-                    let index = swapped_entity;
+                    let index = *swapped_entity;
                     #[cfg(debug_assertions)]
                     let index = swapped_entity.row();
                     // SAFETY: The swapped entity was just fetched from the entity Vec, it must have already
