@@ -414,6 +414,7 @@ impl Plugin for AssetPlugin {
             .init_asset::<LoadedUntypedAsset>()
             .init_asset::<()>()
             .add_event::<UntypedAssetLoadFailedEvent>()
+            .add_event::<UntypedAssetModifiedEvent>()
             .configure_sets(
                 PreUpdate,
                 AssetTrackingSystems.after(handle_internal_asset_events),
@@ -638,9 +639,18 @@ impl AssetApp for App {
             .register_type::<Handle<A>>()
             .add_systems(
                 PostUpdate,
-                Assets::<A>::asset_events
-                    .run_if(Assets::<A>::asset_events_condition)
-                    .in_set(AssetEventSystems),
+                (
+                    // Queue all modified events across all Assets<A> before handling them in AssetEventSystems
+                    Assets::<A>::queue_untyped_asset_modified_events
+                        .run_if(Assets::<A>::asset_events_condition)
+                        .before(AssetEventSystems),
+                    (
+                        Assets::<A>::handle_asset_dependency_modified_events,
+                        Assets::<A>::asset_events.run_if(Assets::<A>::asset_events_condition),
+                    )
+                        .in_set(AssetEventSystems)
+                        .chain(),
+                ),
             )
             .add_systems(
                 PreUpdate,

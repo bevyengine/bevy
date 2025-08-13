@@ -127,3 +127,8 @@ impl<A: Asset> PartialEq for AssetEvent<A> {
 }
 
 impl<A: Asset> Eq for AssetEvent<A> {}
+
+#[derive(BufferedEvent)]
+pub struct UntypedAssetModifiedEvent {
+    pub id: UntypedAssetId,
+}
