@@ -42,7 +42,7 @@ fn setup_camera_fog(mut commands: Commands) {
         Tonemapping::AcesFitted,
         // Bloom gives the sun a much more natural look.
         Bloom::NATURAL,
-        // Renders the atmosphere to the environment map from the perspective of the camera
+        // Enables the atmosphere to drive reflections and ambient lighting (IBL) for this view
         AtmosphereEnvironmentMapLight::default(),
     ));
 }

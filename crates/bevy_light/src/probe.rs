@@ -140,12 +140,22 @@ impl Default for GeneratedEnvironmentMapLight {
     }
 }
 
-/// Generates a cubemap of the sky produced by the atmosphere shader.
+/// Lets the atmosphere contribute environment lighting (reflections and ambient diffuse) to your scene.
 ///
-/// Attach to a `LightProbe` to capture reflections inside its volume.
+/// Attach this to a [`Camera3d`](bevy_camera::Camera3d) to light the entire view, or to a
+/// [`LightProbe`](crate::LightProbe) to light only a specific region.
+/// Behind the scenes, this generates an environment map from the atmosphere for image-based lighting
+/// and inserts a corresponding [`GeneratedEnvironmentMapLight`].
+///
+/// For HDRI-based lighting, use a preauthored [`EnvironmentMapLight`] or filter one at runtime with
+/// [`GeneratedEnvironmentMapLight`].
 #[derive(Component, Clone)]
 pub struct AtmosphereEnvironmentMapLight {
-    /// Luminance multiplier in cd/m².
+    /// Controls how bright the atmosphere's environment lighting is.
+    /// Increase this value to brighten reflections and ambient diffuse lighting.
+    ///
+    /// The default is `1.0` so that the generated environment lighting matches
+    /// the light intensity of the atmosphere in the scene.
     pub intensity: f32,
     /// Whether the diffuse contribution should affect meshes that already have lightmaps.
     pub affects_lightmapped_mesh_diffuse: bool,
