@@ -180,7 +180,7 @@ fn set_slider_colors(
 
     let cursor_shape = match disabled {
         true => bevy_window::SystemCursorIcon::NotAllowed,
-        false => bevy_window::SystemCursorIcon::Pointer,
+        false => bevy_window::SystemCursorIcon::EwResize,
     };
 
     if let [Gradient::Linear(linear_gradient)] = &mut gradient.0[..] {
