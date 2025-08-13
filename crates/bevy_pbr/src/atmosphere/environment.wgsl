@@ -26,8 +26,8 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
 
     var ray_dir_ws = sample_cube_dir(uv, slice_index);
     
-    // invert the z direction to match
-    ray_dir_ws = vec3(ray_dir_ws.x, ray_dir_ws.y, ray_dir_ws.z * -1.0);
+    // invert the z direction to account for cubemaps being lefthanded
+    ray_dir_ws.z = -ray_dir_ws.z;
 
     let ray_dir_as = direction_world_to_atmosphere(ray_dir_ws.xyz);
     let inscattering = sample_sky_view_lut(r, ray_dir_as);
