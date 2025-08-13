@@ -51,7 +51,7 @@ pub enum EntityComponentError {
 pub enum EntityMutableFetchError {
     /// The entity with the given ID does not exist.
     #[error(
-        "{0} does not exist.\n
+        "{0}\n
     If you were attempting to apply a command to this entity,
     and want to handle this error gracefully, consider using `EntityCommands::queue_handled` or `queue_silenced`."
     )]
