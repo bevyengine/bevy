@@ -53,6 +53,7 @@ use bevy_render::{
     extract_component::UniformComponentPlugin,
     render_resource::{DownlevelFlags, ShaderType, SpecializedRenderPipelines},
     view::Hdr,
+    RenderStartup,
 };
 use bevy_render::{
     extract_component::{ExtractComponent, ExtractComponentPlugin},
@@ -65,8 +66,8 @@ use bevy_render::{
 use bevy_core_pipeline::core_3d::graph::Core3d;
 use bevy_shader::load_shader_library;
 use environment::{
-    prepare_atmosphere_probe_bind_groups, prepare_atmosphere_probe_components,
-    prepare_atmosphere_probe_layout, prepare_atmosphere_probe_pipeline, prepare_probe_textures,
+    init_atmosphere_probe_layout, prepare_atmosphere_probe_bind_groups,
+    prepare_atmosphere_probe_components, prepare_probe_textures, queue_atmosphere_probe_pipelines,
     AtmosphereEnvironmentMap, EnvironmentNode,
 };
 use resources::{
@@ -142,20 +143,20 @@ impl Plugin for AtmospherePlugin {
             .init_resource::<AtmosphereLutPipelines>()
             .init_resource::<AtmosphereTransforms>()
             .init_resource::<SpecializedRenderPipelines<RenderSkyBindGroupLayouts>>()
+            .add_systems(RenderStartup, init_atmosphere_probe_layout)
             .add_systems(
                 Render,
                 (
                     configure_camera_depth_usages.in_set(RenderSystems::ManageViews),
                     queue_render_sky_pipelines.in_set(RenderSystems::Queue),
                     prepare_atmosphere_textures.in_set(RenderSystems::PrepareResources),
-                    prepare_atmosphere_probe_layout.in_set(RenderSystems::PrepareResources),
                     prepare_probe_textures
                         .in_set(RenderSystems::PrepareResources)
                         .after(prepare_atmosphere_textures),
                     prepare_atmosphere_probe_bind_groups.in_set(RenderSystems::PrepareBindGroups),
-                    prepare_atmosphere_probe_pipeline
-                        .in_set(RenderSystems::PrepareResources)
-                        .after(prepare_atmosphere_probe_layout),
+                    queue_atmosphere_probe_pipelines
+                        .in_set(RenderSystems::Queue)
+                        .after(init_atmosphere_probe_layout),
                     prepare_atmosphere_transforms.in_set(RenderSystems::PrepareResources),
                     prepare_atmosphere_bind_groups.in_set(RenderSystems::PrepareBindGroups),
                 ),

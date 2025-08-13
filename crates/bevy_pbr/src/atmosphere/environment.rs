@@ -62,7 +62,7 @@ pub struct AtmosphereProbePipelines {
     pub environment: CachedComputePipelineId,
 }
 
-pub fn prepare_atmosphere_probe_layout(mut commands: Commands, render_device: Res<RenderDevice>) {
+pub fn init_atmosphere_probe_layout(mut commands: Commands, render_device: Res<RenderDevice>) {
     let environment = render_device.create_bind_group_layout(
         "environment_bind_group_layout",
         &BindGroupLayoutEntries::sequential(
@@ -165,7 +165,7 @@ pub(super) fn prepare_probe_textures(
     }
 }
 
-pub fn prepare_atmosphere_probe_pipeline(
+pub fn queue_atmosphere_probe_pipelines(
     pipeline_cache: Res<PipelineCache>,
     layouts: Res<AtmosphereProbeLayouts>,
     asset_server: Res<AssetServer>,
