@@ -165,41 +165,49 @@ impl TextLayout {
 
 /// A span of text in a tree of spans.
 ///
-/// `TextSpan` is only valid as a child of an entity with [`TextLayout`], which is provided by `Text`
-/// for text in `bevy_ui` or `Text2d` for text in 2d world-space.
-///
-/// Spans are collected in hierarchy traversal order into a [`ComputedTextBlock`] for layout.
+/// A `TextSpan` is only valid when it exists as a child of a parent that has either `Text` or
+/// `Text2d`. The parent's `Text` / `Text2d` component contains the base text content. Any children
+/// with `TextSpan` extend this text by appending their content to the parent's text in sequence to
+/// form a [`ComputedTextBlock`]. The parent's [`TextLayout`] determines the layout of the block
+/// but each node has its own [`TextFont`] and [`TextColor`].
 ///
 /// ```
 /// # use bevy_asset::Handle;
 /// # use bevy_color::Color;
-/// # use bevy_color::palettes::basic::{RED, BLUE};
-/// # use bevy_ecs::world::World;
-/// # use bevy_text::{Font, TextLayout, TextFont, TextSpan, TextColor};
+/// # use bevy_color::palettes::basic::{BLUE, GREEN, RED};
+/// # use bevy_ecs::{children, spawn::SpawnRelated, world::World};
+/// # use bevy_text::{Font, Justify, Text2d, TextColor, TextLayout, TextFont, TextSpan};
 ///
 /// # let font_handle: Handle<Font> = Default::default();
 /// # let mut world = World::default();
 /// #
 /// world.spawn((
-///     // `Text` or `Text2d` are needed, and will provide default instances
-///     // of the following components.
-///     TextLayout::default(),
-///     TextFont {
-///         font: font_handle.clone().into(),
-///         font_size: 60.0,
-///         ..Default::default()
-///     },
+///     // `Text` or `Text2d` is needed.
+///     Text2d::new("Bevy\n"),
+///     // Layout of the entire block of text.
+///     TextLayout::new_with_justify(Justify::Center),
+///     // TextFont of this node. Won't apply to children.
+///     TextFont::from_font_size(50.0),
+///     // TextColor of this node. Won't apply to children.
 ///     TextColor(BLUE.into()),
-/// ))
-/// .with_child((
 ///     // Children must be `TextSpan`, not `Text` or `Text2d`.
-///     TextSpan::new("Hello!"),
-///     TextFont {
-///         font: font_handle.into(),
-///         font_size: 60.0,
-///         ..Default::default()
-///     },
-///     TextColor(RED.into()),
+///     children![
+///         (
+///             TextSpan::new("Bevy\n"),
+///             TextFont::from_font_size(40.0),
+///             TextColor(RED.into()),
+///         ),
+///         (
+///             TextSpan::new("Bevy\n"),
+///             TextFont::from_font_size(30.0),
+///             // Default TextColor will be inserted because TextSpan requires it.
+///         ),
+///         (
+///             TextSpan::new("Bevy"),
+///             TextColor(GREEN.into()),
+///             // Default TextFont will be inserted because TextSpan requires it.
+///         )
+///     ],
 /// ));
 /// ```
 #[derive(Component, Debug, Default, Clone, Deref, DerefMut, Reflect)]
