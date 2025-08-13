@@ -1,5 +1,5 @@
 ---
-title: `RenderStartup` and making the renderer my ECS-y
+title: "`RenderStartup` and making the renderer my ECS-y"
 authors: ["@IceSentry", "@andriyDev"]
 pull_requests: [19841, 19926, 19885, 19886, 19897, 19898, 19901]
 ---

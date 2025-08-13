@@ -7,11 +7,9 @@ use bevy_asset::{
     embedded_asset, load_embedded_asset, prelude::AssetChanged, AsAssetId, Asset, AssetApp,
     AssetEventSystems, AssetId, AssetServer, Assets, Handle, UntypedAssetId,
 };
+use bevy_camera::{visibility::ViewVisibility, Camera, Camera2d};
 use bevy_color::{Color, ColorToComponents};
-use bevy_core_pipeline::core_2d::{
-    graph::{Core2d, Node2d},
-    Camera2d,
-};
+use bevy_core_pipeline::core_2d::graph::{Core2d, Node2d};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     component::Tick,
@@ -19,6 +17,7 @@ use bevy_ecs::{
     query::QueryItem,
     system::{lifetimeless::SRes, SystemChangeTick, SystemParamItem},
 };
+use bevy_mesh::{Mesh2d, MeshVertexBufferLayoutRef};
 use bevy_platform::{
     collections::{HashMap, HashSet},
     hash::FixedHasher,
@@ -31,7 +30,7 @@ use bevy_render::{
     extract_resource::ExtractResource,
     mesh::{
         allocator::{MeshAllocator, SlabId},
-        Mesh2d, MeshVertexBufferLayoutRef, RenderMesh,
+        RenderMesh,
     },
     prelude::*,
     render_asset::{
@@ -52,6 +51,7 @@ use bevy_render::{
     },
     Extract, Render, RenderApp, RenderDebugFlags, RenderStartup, RenderSystems,
 };
+use bevy_shader::Shader;
 use core::{hash::Hash, ops::Range};
 use tracing::error;
 
@@ -87,9 +87,6 @@ impl Plugin for Wireframe2dPlugin {
         ))
         .init_asset::<Wireframe2dMaterial>()
         .init_resource::<SpecializedMeshPipelines<Wireframe2dPipeline>>()
-        .register_type::<NoWireframe2d>()
-        .register_type::<Wireframe2dConfig>()
-        .register_type::<Wireframe2dColor>()
         .init_resource::<Wireframe2dConfig>()
         .init_resource::<WireframeEntitiesNeedingSpecialization>()
         .add_systems(Startup, setup_global_wireframe_material)

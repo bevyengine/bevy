@@ -1,9 +1,9 @@
 use crate::NodePbr;
 use bevy_app::{App, Plugin};
 use bevy_asset::{embedded_asset, load_embedded_asset, Handle};
+use bevy_camera::{Camera, Camera3d};
 use bevy_core_pipeline::{
     core_3d::graph::{Core3d, Node3d},
-    prelude::Camera3d,
     prepass::{DepthPrepass, NormalPrepass, ViewPrepassTextures},
 };
 use bevy_ecs::{
@@ -22,8 +22,6 @@ use bevy_render::{
     diagnostic::RecordDiagnostics,
     extract_component::ExtractComponent,
     globals::{GlobalsBuffer, GlobalsUniform},
-    load_shader_library,
-    prelude::Camera,
     render_graph::{NodeRunError, RenderGraphContext, RenderGraphExt, ViewNode, ViewNodeRunner},
     render_resource::{
         binding_types::{
@@ -38,6 +36,7 @@ use bevy_render::{
     view::{Msaa, ViewUniform, ViewUniformOffset, ViewUniforms},
     Extract, ExtractSchedule, Render, RenderApp, RenderSystems,
 };
+use bevy_shader::{load_shader_library, Shader, ShaderDefVal};
 use bevy_utils::prelude::default;
 use core::mem;
 use tracing::{error, warn};
@@ -52,8 +51,6 @@ impl Plugin for ScreenSpaceAmbientOcclusionPlugin {
         embedded_asset!(app, "preprocess_depth.wgsl");
         embedded_asset!(app, "ssao.wgsl");
         embedded_asset!(app, "spatial_denoise.wgsl");
-
-        app.register_type::<ScreenSpaceAmbientOcclusion>();
 
         app.add_plugins(SyncComponentPlugin::<ScreenSpaceAmbientOcclusion>::default());
     }

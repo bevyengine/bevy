@@ -260,9 +260,12 @@ jobs:
         with:
           target: wasm32-unknown-unknown
       - name: Check wasm
+        env:
+          RUSTFLAGS: --cfg getrandom_backend="wasm_js"
         run: cargo check --target wasm32-unknown-unknown
 
   build-wasm-atomics:
+    if: ${{ false }} # Disabled temporarily due to https://github.com/rust-lang/rust/issues/145101
     runs-on: ubuntu-latest
     timeout-minutes: 30
     needs: build
@@ -290,7 +293,7 @@ jobs:
       - name: Check wasm
         run: cargo check --target wasm32-unknown-unknown -Z build-std=std,panic_abort
         env:
-          RUSTFLAGS: "-C target-feature=+atomics,+bulk-memory"
+          RUSTFLAGS: '-C target-feature=+atomics,+bulk-memory --cfg getrandom_backend="wasm_js"'
 
   markdownlint:
     runs-on: ubuntu-latest
@@ -337,7 +340,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Check for typos
-        uses: crate-ci/typos@v1.34.0
+        uses: crate-ci/typos@v1.35.3
       - name: Typos info
         if: failure()
         run: |

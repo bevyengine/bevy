@@ -16,6 +16,7 @@
 
 use bevy_app::{App, Plugin};
 use bevy_asset::{embedded_asset, load_embedded_asset, AssetServer, Handle};
+use bevy_camera::{Camera3d, PhysicalCameraParameters, Projection};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     component::Component,
@@ -31,7 +32,6 @@ use bevy_image::BevyDefault as _;
 use bevy_math::ops;
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_render::{
-    camera::{PhysicalCameraParameters, Projection},
     diagnostic::RecordDiagnostics,
     extract_component::{ComponentUniforms, DynamicUniformIndex, UniformComponentPlugin},
     render_graph::{
@@ -44,8 +44,8 @@ use bevy_render::{
         BindGroup, BindGroupEntries, BindGroupLayout, BindGroupLayoutEntries,
         CachedRenderPipelineId, ColorTargetState, ColorWrites, FilterMode, FragmentState, LoadOp,
         Operations, PipelineCache, RenderPassColorAttachment, RenderPassDescriptor,
-        RenderPipelineDescriptor, Sampler, SamplerBindingType, SamplerDescriptor, Shader,
-        ShaderStages, ShaderType, SpecializedRenderPipeline, SpecializedRenderPipelines, StoreOp,
+        RenderPipelineDescriptor, Sampler, SamplerBindingType, SamplerDescriptor, ShaderStages,
+        ShaderType, SpecializedRenderPipeline, SpecializedRenderPipelines, StoreOp,
         TextureDescriptor, TextureDimension, TextureFormat, TextureSampleType, TextureUsages,
     },
     renderer::{RenderContext, RenderDevice},
@@ -58,6 +58,7 @@ use bevy_render::{
     },
     Extract, ExtractSchedule, Render, RenderApp, RenderStartup, RenderSystems,
 };
+use bevy_shader::Shader;
 use bevy_utils::{default, once};
 use smallvec::SmallVec;
 use tracing::{info, warn};
@@ -65,7 +66,7 @@ use tracing::{info, warn};
 use crate::{
     core_3d::{
         graph::{Core3d, Node3d},
-        Camera3d, DEPTH_TEXTURE_SAMPLING_SUPPORTED,
+        DEPTH_TEXTURE_SAMPLING_SUPPORTED,
     },
     FullscreenShader,
 };
@@ -207,8 +208,6 @@ impl Plugin for DepthOfFieldPlugin {
     fn build(&self, app: &mut App) {
         embedded_asset!(app, "dof.wgsl");
 
-        app.register_type::<DepthOfField>();
-        app.register_type::<DepthOfFieldMode>();
         app.add_plugins(UniformComponentPlugin::<DepthOfFieldUniform>::default());
 
         app.add_plugins(SyncComponentPlugin::<DepthOfField>::default());
@@ -492,7 +491,7 @@ impl DepthOfField {
     /// [`PhysicalCameraParameters`].
     ///
     /// By passing the same [`PhysicalCameraParameters`] object to this function
-    /// and to [`bevy_render::camera::Exposure::from_physical_camera`], matching
+    /// and to [`bevy_camera::Exposure::from_physical_camera`], matching
     /// results for both the exposure and depth of field effects can be
     /// obtained.
     ///

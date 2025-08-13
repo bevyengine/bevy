@@ -8,7 +8,7 @@ use bevy::{
     math::prelude::*,
     prelude::*,
 };
-use rand::{seq::SliceRandom, Rng, SeedableRng};
+use rand::{seq::IndexedRandom, Rng, SeedableRng};
 use rand_chacha::ChaCha8Rng;
 
 fn main() {
@@ -614,7 +614,7 @@ fn despawn_points(
 
     let rng = &mut random_source.0;
     // Skip a random amount of points to ensure random despawning
-    let skip = rng.gen_range(0..counter.0);
+    let skip = rng.random_range(0..counter.0);
     let despawn_amount = (counter.0 - MAX_POINTS).min(100);
     counter.0 -= samples
         .iter()

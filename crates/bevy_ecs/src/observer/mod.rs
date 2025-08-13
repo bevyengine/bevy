@@ -182,7 +182,7 @@ impl World {
     pub fn add_observer<E: Event, B: Bundle, M>(
         &mut self,
         system: impl IntoObserverSystem<E, B, M>,
-    ) -> EntityWorldMut {
+    ) -> EntityWorldMut<'_> {
         self.spawn(Observer::new(system))
     }
 
@@ -516,9 +516,6 @@ mod tests {
     struct B;
 
     #[derive(Component)]
-    struct C;
-
-    #[derive(Component)]
     #[component(storage = "SparseSet")]
     struct S;
 
@@ -721,7 +718,7 @@ mod tests {
         assert_eq!(world.query::<&A>().query(&world).count(), 1);
         assert_eq!(
             world
-                .query_filtered::<&Observer, Allows<Internal>>()
+                .query_filtered::<&Observer, Allow<Internal>>()
                 .query(&world)
                 .count(),
             2

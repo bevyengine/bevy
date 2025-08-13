@@ -28,28 +28,12 @@ pub use skybox::Skybox;
 mod fullscreen_vertex_shader;
 mod skybox;
 
-/// The core pipeline prelude.
-///
-/// This includes the most common types in this crate, re-exported for your convenience.
-pub mod prelude {
-    #[doc(hidden)]
-    pub use crate::{core_2d::Camera2d, core_3d::Camera3d};
-}
-
 use crate::{
-    blit::BlitPlugin,
-    bloom::BloomPlugin,
-    core_2d::Core2dPlugin,
-    core_3d::Core3dPlugin,
-    deferred::copy_lighting_id::CopyDeferredLightingIdPlugin,
-    dof::DepthOfFieldPlugin,
-    experimental::mip_generation::MipGenerationPlugin,
-    motion_blur::MotionBlurPlugin,
-    msaa_writeback::MsaaWritebackPlugin,
-    post_process::PostProcessingPlugin,
-    prepass::{DeferredPrepass, DepthPrepass, MotionVectorPrepass, NormalPrepass},
-    tonemapping::TonemappingPlugin,
-    upscaling::UpscalingPlugin,
+    blit::BlitPlugin, bloom::BloomPlugin, core_2d::Core2dPlugin, core_3d::Core3dPlugin,
+    deferred::copy_lighting_id::CopyDeferredLightingIdPlugin, dof::DepthOfFieldPlugin,
+    experimental::mip_generation::MipGenerationPlugin, motion_blur::MotionBlurPlugin,
+    msaa_writeback::MsaaWritebackPlugin, post_process::PostProcessingPlugin,
+    tonemapping::TonemappingPlugin, upscaling::UpscalingPlugin,
 };
 use bevy_app::{App, Plugin};
 use bevy_asset::embedded_asset;
@@ -63,12 +47,7 @@ impl Plugin for CorePipelinePlugin {
     fn build(&self, app: &mut App) {
         embedded_asset!(app, "fullscreen_vertex_shader/fullscreen.wgsl");
 
-        app.register_type::<DepthPrepass>()
-            .register_type::<NormalPrepass>()
-            .register_type::<MotionVectorPrepass>()
-            .register_type::<DeferredPrepass>()
-            .init_resource::<FullscreenShader>()
-            .add_plugins((Core2dPlugin, Core3dPlugin, CopyDeferredLightingIdPlugin))
+        app.add_plugins((Core2dPlugin, Core3dPlugin, CopyDeferredLightingIdPlugin))
             .add_plugins((
                 BlitPlugin,
                 MsaaWritebackPlugin,
