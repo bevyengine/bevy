@@ -10,7 +10,7 @@
 
 #ifdef SCREEN_SPACE_AMBIENT_OCCLUSION
 #import bevy_pbr::mesh_view_bindings::screen_space_ambient_occlusion_texture
-#import bevy_pbr::gtao_utils::gtao_multibounce
+#import bevy_pbr::ssao_utils::ssao_multibounce
 #endif
 
 struct FullscreenVertexOutput {
@@ -29,7 +29,7 @@ struct PbrDeferredLightingDepthId {
     _webgl2_padding_2: f32,
 #endif
 }
-@group(1) @binding(0)
+@group(2) @binding(0)
 var<uniform> depth_id: PbrDeferredLightingDepthId;
 
 @vertex
@@ -64,7 +64,7 @@ fn fragment(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
 
 #ifdef SCREEN_SPACE_AMBIENT_OCCLUSION
         let ssao = textureLoad(screen_space_ambient_occlusion_texture, vec2<i32>(in.position.xy), 0i).r;
-        let ssao_multibounce = gtao_multibounce(ssao, pbr_input.material.base_color.rgb);
+        let ssao_multibounce = ssao_multibounce(ssao, pbr_input.material.base_color.rgb);
         pbr_input.diffuse_occlusion = min(pbr_input.diffuse_occlusion, ssao_multibounce);
 
         // Neubelt and Pettineo 2013, "Crafting a Next-gen Material Pipeline for The Order: 1886"

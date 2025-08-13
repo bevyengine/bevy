@@ -1,0 +1,103 @@
+[package]
+name = "bevy_platform"
+version = "0.17.0-dev"
+edition = "2024"
+description = "Provides common platform agnostic APIs, as well as platform-specific features for Bevy Engine"
+homepage = "https://bevy.org"
+repository = "https://github.com/bevyengine/bevy"
+license = "MIT OR Apache-2.0"
+keywords = ["bevy"]
+
+[features]
+default = ["std"]
+
+# Functionality
+
+## Adds serialization support through `serde`.
+serialize = ["dep:serde", "hashbrown/serde"]
+
+## Adds integration with Rayon.
+rayon = ["dep:rayon", "hashbrown/rayon"]
+
+# Platform Compatibility
+
+## Allows access to the `std` crate. Enabling this feature will prevent compilation
+## on `no_std` targets, but provides access to certain additional features on
+## supported platforms.
+std = [
+  "alloc",
+  "critical-section?/std",
+  "portable-atomic/std",
+  "portable-atomic-util/std",
+  "spin/std",
+  "foldhash/std",
+  "serde?/std",
+  "wasm-bindgen-futures?/std",
+  "futures-channel/std",
+  "wasm-bindgen?/std",
+  "js-sys?/std",
+]
+
+## Allows access to the `alloc` crate.
+alloc = ["portable-atomic-util/alloc", "dep:hashbrown", "serde?/alloc"]
+
+## `critical-section` provides the building blocks for synchronization primitives
+## on all platforms, including `no_std`.
+critical-section = ["dep:critical-section", "portable-atomic/critical-section"]
+
+## Enables use of browser APIs.
+## Note this is currently only applicable on `wasm32` architectures.
+web = [
+  "std",
+  "dep:web-time",
+  "dep:getrandom",
+  "dep:wasm-bindgen-futures",
+  "dep:wasm-bindgen",
+  "dep:js-sys",
+]
+
+[dependencies]
+critical-section = { version = "1.2.0", default-features = false, optional = true }
+spin = { version = "0.10.0", default-features = false, features = [
+  "mutex",
+  "spin_mutex",
+  "rwlock",
+  "once",
+  "lazy",
+  "barrier",
+] }
+foldhash = { version = "0.1.3", default-features = false }
+hashbrown = { version = "0.15.1", features = [
+  "equivalent",
+  "raw-entry",
+], optional = true, default-features = false }
+serde = { version = "1", default-features = false, optional = true }
+rayon = { version = "1", default-features = false, optional = true }
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+web-time = { version = "1.1", default-features = false, optional = true }
+getrandom = { version = "0.3.0", default-features = false, optional = true, features = [
+  "wasm_js",
+] }
+wasm-bindgen-futures = { version = "0.4", default-features = false, optional = true }
+futures-channel = { version = "0.3", default-features = false }
+js-sys = { version = "0.3", default-features = false, optional = true }
+wasm-bindgen = { version = "0.2", default-features = false, optional = true }
+
+[target.'cfg(not(all(target_has_atomic = "8", target_has_atomic = "16", target_has_atomic = "32", target_has_atomic = "64", target_has_atomic = "ptr")))'.dependencies]
+portable-atomic = { version = "1", default-features = false, features = [
+  "fallback",
+] }
+spin = { version = "0.10.0", default-features = false, features = [
+  "portable-atomic",
+] }
+
+[target.'cfg(not(target_has_atomic = "ptr"))'.dependencies]
+portable-atomic-util = { version = "0.2.4", default-features = false }
+
+[lints]
+workspace = true
+
+[package.metadata.docs.rs]
+rustdoc-args = ["-Zunstable-options", "--generate-link-to-definition"]
+all-features = true

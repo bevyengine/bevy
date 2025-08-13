@@ -16,8 +16,6 @@ use serde::de::DeserializeSeed;
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        // Bar will be automatically registered as it's a dependency of Foo
-        .register_type::<Foo>()
         .add_systems(Startup, setup)
         .run();
 }
@@ -41,7 +39,7 @@ pub struct Foo {
     _ignored: NonReflectedValue,
 }
 
-/// This `Bar` type is used in the `nested` field on the `Test` type. We must derive `Reflect` here
+/// This `Bar` type is used in the `nested` field of the `Foo` type. We must derive `Reflect` here
 /// too (or ignore it)
 #[derive(Reflect)]
 pub struct Bar {
@@ -104,7 +102,7 @@ fn setup(type_registry: Res<AppTypeRegistry>) {
     // Deserializing returns a `Box<dyn PartialReflect>` value.
     // Generally, deserializing a value will return the "dynamic" variant of a type.
     // For example, deserializing a struct will return the DynamicStruct type.
-    // "Value types" will be deserialized as themselves.
+    // "Opaque types" will be deserialized as themselves.
     assert_eq!(
         reflect_value.reflect_type_path(),
         DynamicStruct::type_path(),

@@ -7,7 +7,7 @@ pub use bevy_state_macros::SubStates;
 /// but unlike [`ComputedStates`](crate::state::ComputedStates) - while they exist they can be manually modified.
 ///
 /// The default approach to creating [`SubStates`] is using the derive macro, and defining a single source state
-/// and value to determine it's existence.
+/// and value to determine its existence.
 ///
 /// ```
 /// # use bevy_ecs::prelude::*;
@@ -161,7 +161,7 @@ pub trait SubStates: States + FreelyMutableState {
     /// it will be created from the returned [`Some`] as the initial state.
     ///
     /// Value within [`Some`] is ignored if the state already exists in the world
-    /// and only symbolises that the state should still exist.
+    /// and only symbolizes that the state should still exist.
     ///
     /// Initial value can also be overwritten by [`NextState`](crate::state::NextState).
     fn should_exist(sources: Self::SourceStates) -> Option<Self>;

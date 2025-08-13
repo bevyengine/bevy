@@ -1,10 +1,10 @@
 use bevy_ecs::{prelude::Entity, world::World};
+use bevy_platform::collections::HashMap;
 #[cfg(feature = "trace")]
-use bevy_utils::tracing::info_span;
-use bevy_utils::HashMap;
+use tracing::info_span;
 
+use alloc::{borrow::Cow, collections::VecDeque};
 use smallvec::{smallvec, SmallVec};
-use std::{borrow::Cow, collections::VecDeque};
 use thiserror::Error;
 
 use crate::{
@@ -68,7 +68,6 @@ impl RenderGraphRunner {
         render_device: RenderDevice,
         mut diagnostics_recorder: Option<DiagnosticsRecorder>,
         queue: &wgpu::Queue,
-        adapter: &wgpu::Adapter,
         world: &World,
         finalizer: impl FnOnce(&mut wgpu::CommandEncoder),
     ) -> Result<Option<DiagnosticsRecorder>, RenderGraphRunnerError> {
@@ -76,16 +75,15 @@ impl RenderGraphRunner {
             recorder.begin_frame();
         }
 
-        let mut render_context =
-            RenderContext::new(render_device, adapter.get_info(), diagnostics_recorder);
+        let mut render_context = RenderContext::new(render_device, diagnostics_recorder);
         Self::run_graph(graph, None, &mut render_context, world, &[], None)?;
         finalizer(render_context.command_encoder());
 
         let (render_device, mut diagnostics_recorder) = {
+            let (commands, render_device, diagnostics_recorder) = render_context.finish();
+
             #[cfg(feature = "trace")]
             let _span = info_span!("submit_graph_commands").entered();
-
-            let (commands, render_device, diagnostics_recorder) = render_context.finish();
             queue.submit(commands);
 
             (render_device, diagnostics_recorder)

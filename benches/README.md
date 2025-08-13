@@ -1,27 +1,35 @@
 # Bevy Benchmarks
 
-This is a crate with a collection of benchmarks for Bevy, separate from the rest of the Bevy crates.
+This is a crate with a collection of benchmarks for Bevy.
 
-## Running the benchmarks
+## Running benchmarks
 
-1. Setup everything you need for Bevy with the [setup guide](https://bevyengine.org/learn/book/getting-started/setup/).
-2. Move into the `benches` directory (where this README is located).
+Benchmarks can be run through Cargo:
 
-    ```sh
-    bevy $ cd benches
-    ```
+```sh
+# Run all benchmarks. (This will take a while!)
+cargo bench -p benches
 
-3. Run the benchmarks with cargo (This will take a while)
+# Just compile the benchmarks, do not run them.
+cargo bench -p benches --no-run
 
-    ```sh
-    bevy/benches $ cargo bench
-    ```
+# Run the benchmarks for a specific crate. (See `Cargo.toml` for a complete list of crates
+# tracked.)
+cargo bench -p benches --bench ecs
 
-    If you'd like to only compile the benchmarks (without running them), you can do that like this:
+# Filter which benchmarks are run based on the name. This will only run benchmarks whose name
+# contains "name_fragment".
+cargo bench -p benches -- name_fragment
 
-    ```sh
-    bevy/benches $ cargo bench --no-run
-    ```
+# List all available benchmarks.
+cargo bench -p benches -- --list
+
+# Save a baseline to be compared against later.
+cargo bench -p benches -- --save-baseline before
+
+# Compare the current benchmarks against a baseline to find performance gains and regressions.
+cargo bench -p benches -- --baseline before
+```
 
 ## Criterion
 

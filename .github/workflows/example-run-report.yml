@@ -1,0 +1,123 @@
+name: Example Run - PR Comments
+
+# This workflow has write permissions on the repo
+# It must not checkout a PR and run untrusted code
+
+# Also requesting write permissions on PR to be able to comment
+permissions:
+  pull-requests: "write"
+  contents: "read"
+
+on:
+  workflow_run:
+    workflows: ["Example Run"]
+    types:
+      - completed
+
+jobs:
+  make-macos-screenshots-available:
+    if: github.event.workflow_run.event == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    outputs:
+      branch-name: ${{ steps.branch-name.outputs.result }}
+      pr-number: ${{ steps.pr-number.outputs.result }}
+    steps:
+      - name: "Download artifact"
+        id: find-artifact
+        uses: actions/github-script@v7
+        with:
+          result-encoding: string
+          script: |
+            var artifacts = await github.rest.actions.listWorkflowRunArtifacts({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              run_id: ${{github.event.workflow_run.id }},
+            });
+            var matchArtifacts = artifacts.data.artifacts.filter((artifact) => {
+              return artifact.name == "screenshots-macos"
+            });
+            if (matchArtifacts.length == 0) { return "false" }
+            var matchArtifact = matchArtifacts[0];
+            var download = await github.rest.actions.downloadArtifact({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              artifact_id: matchArtifact.id,
+              archive_format: 'zip',
+            });
+            var fs = require('fs');
+            fs.writeFileSync('${{github.workspace}}/screenshots-macos.zip', Buffer.from(download.data));
+            return "true"
+      - name: prepare artifact folder
+        run: |
+          unzip screenshots-macos.zip
+          mkdir screenshots
+          mv screenshots-* screenshots/
+      - name: save screenshots
+        uses: actions/upload-artifact@v4
+        with:
+          name: screenshots-macos
+          path: screenshots
+      - name: branch name
+        id: branch-name
+        env:
+          BRANCH_NAME: ${{ github.event.workflow_run.head_branch }}
+        run: |
+          echo "result=PR-$(cat PR)-$BRANCH_NAME" >> $GITHUB_OUTPUT
+      - name: PR number
+        id: pr-number
+        run: |
+          echo "result=$(cat PR)" >> $GITHUB_OUTPUT
+
+  compare-macos-screenshots:
+    name: Compare macOS screenshots
+    needs: [make-macos-screenshots-available]
+    uses: ./.github/workflows/send-screenshots-to-pixeleagle.yml
+    with:
+      commit: ${{ github.event.workflow_run.head_sha }}
+      branch: ${{ needs.make-macos-screenshots-available.outputs.branch-name }}
+      artifact: screenshots-macos
+      os: macos
+    secrets: inherit
+
+  comment-on-pr:
+    name: Comment on PR
+    runs-on: ubuntu-latest
+    needs: [make-macos-screenshots-available, compare-macos-screenshots]
+    if: ${{ always() && needs.compare-macos-screenshots.result == 'failure' }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: "Check if PR already has label"
+        id: check-label
+        env:
+          PR: ${{ needs.make-macos-screenshots-available.outputs.pr-number }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if [[ `gh api --jq '.labels.[].name' /repos/bevyengine/bevy/pulls/$PR` =~ "M-Deliberate-Rendering-Change" ]]
+          then
+            echo "result=true" >> $GITHUB_OUTPUT
+          else
+            echo "result=false" >> $GITHUB_OUTPUT
+          fi
+      - name: "Check if last comment is already from actions"
+        id: check-last-comment
+        env:
+          PR: ${{ needs.make-macos-screenshots-available.outputs.pr-number }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if [[ `gh api --jq '.[-1].user.login' /repos/bevyengine/bevy/issues/$PR/comments` == 'github-actions[bot' ]]
+          then
+            echo "result=true" >> $GITHUB_OUTPUT
+          else
+            echo "result=false" >> $GITHUB_OUTPUT
+          fi
+      - name: "Comment on PR"
+        if: ${{ steps.check-label.outputs.result == 'false' && steps.check-last-comment.outputs.result == 'false' }}
+        env:
+          PROJECT: B04F67C0-C054-4A6F-92EC-F599FEC2FD1D
+          PR: ${{ needs.make-macos-screenshots-available.outputs.pr-number }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          LF=$'\n'
+          COMMENT_BODY="Your PR caused a change in the graphical output of an example or rendering test. This might be intentional, but it could also mean that something broke! ${LF}You can review it at https://pixel-eagle.com/project/$PROJECT?filter=PR-$PR ${LF} ${LF}If it's expected, please add the M-Deliberate-Rendering-Change label. ${LF} ${LF}If this change seems unrelated to your PR, you can consider updating your PR to target the latest main branch, either by rebasing or merging main into it."
+          gh issue comment $PR --body "$COMMENT_BODY"

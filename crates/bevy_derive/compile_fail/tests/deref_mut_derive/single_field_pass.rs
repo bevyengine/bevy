@@ -1,6 +1,6 @@
 //@check-pass
 use bevy_derive::DerefMut;
-use std::ops::Deref;
+use core::ops::Deref;
 
 #[derive(DerefMut)]
 struct TupleStruct(#[deref] String);

@@ -1,7 +1,7 @@
 //! Isometry types for expressing rigid motions in two and three dimensions.
 
 use crate::{Affine2, Affine3, Affine3A, Dir2, Dir3, Mat3, Mat3A, Quat, Rot2, Vec2, Vec3, Vec3A};
-use std::ops::Mul;
+use core::ops::Mul;
 
 #[cfg(feature = "approx")]
 use approx::{AbsDiffEq, RelativeEq, UlpsEq};
@@ -88,7 +88,7 @@ use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 #[cfg_attr(
     feature = "bevy_reflect",
     derive(Reflect),
-    reflect(Debug, PartialEq, Default)
+    reflect(Debug, PartialEq, Default, Clone)
 )]
 #[cfg_attr(
     all(feature = "serialize", feature = "bevy_reflect"),
@@ -192,6 +192,20 @@ impl From<Isometry2d> for Affine2 {
     }
 }
 
+impl From<Vec2> for Isometry2d {
+    #[inline]
+    fn from(translation: Vec2) -> Self {
+        Isometry2d::from_translation(translation)
+    }
+}
+
+impl From<Rot2> for Isometry2d {
+    #[inline]
+    fn from(rotation: Rot2) -> Self {
+        Isometry2d::from_rotation(rotation)
+    }
+}
+
 impl Mul for Isometry2d {
     type Output = Self;
 
@@ -286,7 +300,7 @@ impl UlpsEq for Isometry2d {
 ///
 /// ```
 /// # use bevy_math::{Isometry3d, Quat, Vec3};
-/// # use core::f32::consts::FRAC_PI_2;
+/// # use std::f32::consts::FRAC_PI_2;
 /// #
 /// let iso = Isometry3d::new(Vec3::new(2.0, 1.0, 3.0), Quat::from_rotation_z(FRAC_PI_2));
 /// ```
@@ -295,7 +309,7 @@ impl UlpsEq for Isometry2d {
 ///
 /// ```
 /// # use bevy_math::{Isometry3d, Quat, Vec3};
-/// # use core::f32::consts::FRAC_PI_2;
+/// # use std::f32::consts::FRAC_PI_2;
 /// #
 /// let iso1 = Isometry3d::from_translation(Vec3::new(2.0, 1.0, 3.0));
 /// let iso2 = Isometry3d::from_rotation(Quat::from_rotation_z(FRAC_PI_2));
@@ -306,7 +320,7 @@ impl UlpsEq for Isometry2d {
 /// ```
 /// # use approx::assert_relative_eq;
 /// # use bevy_math::{Isometry3d, Quat, Vec3};
-/// # use core::f32::consts::FRAC_PI_2;
+/// # use std::f32::consts::FRAC_PI_2;
 /// #
 /// let iso = Isometry3d::new(Vec3::new(2.0, 1.0, 3.0), Quat::from_rotation_z(FRAC_PI_2));
 /// let point = Vec3::new(4.0, 4.0, 4.0);
@@ -322,7 +336,7 @@ impl UlpsEq for Isometry2d {
 ///
 /// ```
 /// # use bevy_math::{Isometry3d, Quat, Vec3};
-/// # use core::f32::consts::FRAC_PI_2;
+/// # use std::f32::consts::FRAC_PI_2;
 /// #
 /// # let iso = Isometry3d::new(Vec3::new(2.0, 1.0, 3.0), Quat::from_rotation_z(FRAC_PI_2));
 /// # let iso1 = Isometry3d::from_translation(Vec3::new(2.0, 1.0, 3.0));
@@ -336,7 +350,7 @@ impl UlpsEq for Isometry2d {
 ///
 /// ```
 /// # use bevy_math::{Isometry3d, Quat, Vec3};
-/// # use core::f32::consts::FRAC_PI_2;
+/// # use std::f32::consts::FRAC_PI_2;
 /// #
 /// let sphere_iso = Isometry3d::from_translation(Vec3::new(2.0, 1.0, 3.0));
 /// let cuboid_iso = Isometry3d::from_rotation(Quat::from_rotation_z(FRAC_PI_2));
@@ -352,7 +366,7 @@ impl UlpsEq for Isometry2d {
 #[cfg_attr(
     feature = "bevy_reflect",
     derive(Reflect),
-    reflect(Debug, PartialEq, Default)
+    reflect(Debug, PartialEq, Default, Clone)
 )]
 #[cfg_attr(
     all(feature = "serialize", feature = "bevy_reflect"),
@@ -466,6 +480,27 @@ impl From<Isometry3d> for Affine3A {
     }
 }
 
+impl From<Vec3> for Isometry3d {
+    #[inline]
+    fn from(translation: Vec3) -> Self {
+        Isometry3d::from_translation(translation)
+    }
+}
+
+impl From<Vec3A> for Isometry3d {
+    #[inline]
+    fn from(translation: Vec3A) -> Self {
+        Isometry3d::from_translation(translation)
+    }
+}
+
+impl From<Quat> for Isometry3d {
+    #[inline]
+    fn from(rotation: Quat) -> Self {
+        Isometry3d::from_rotation(rotation)
+    }
+}
+
 impl Mul for Isometry3d {
     type Output = Self;
 
@@ -554,11 +589,12 @@ impl UlpsEq for Isometry3d {
 }
 
 #[cfg(test)]
+#[cfg(feature = "approx")]
 mod tests {
     use super::*;
     use crate::{vec2, vec3, vec3a};
     use approx::assert_abs_diff_eq;
-    use std::f32::consts::{FRAC_PI_2, FRAC_PI_3};
+    use core::f32::consts::{FRAC_PI_2, FRAC_PI_3};
 
     #[test]
     fn mul_2d() {

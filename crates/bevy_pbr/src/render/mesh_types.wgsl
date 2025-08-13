@@ -17,9 +17,13 @@ struct Mesh {
     lightmap_uv_rect: vec2<u32>,
     // The index of the mesh's first vertex in the vertex buffer.
     first_vertex_index: u32,
-    pad_a: u32,
-    pad_b: u32,
-    pad_c: u32,
+    current_skin_index: u32,
+    // Low 16 bits: index of the material inside the bind group data.
+    // High 16 bits: index of the lightmap in the binding array.
+    material_and_lightmap_bind_group_slot: u32,
+    // User supplied index to identify the mesh instance
+    tag: u32,
+    pad: u32,
 };
 
 #ifdef SKINNED
@@ -35,10 +39,9 @@ struct MorphWeights {
 #endif
 
 // [2^0, 2^16)
-const MESH_FLAGS_VISIBILITY_RANGE_INDEX_BITS: u32 = 65535u;
-// 2^29
-const MESH_FLAGS_SHADOW_RECEIVER_BIT: u32 = 536870912u;
-// 2^30
-const MESH_FLAGS_TRANSMITTED_SHADOW_RECEIVER_BIT: u32 = 1073741824u;
-// 2^31 - if the flag is set, the sign is positive, else it is negative
-const MESH_FLAGS_SIGN_DETERMINANT_MODEL_3X3_BIT: u32 = 2147483648u;
+const MESH_FLAGS_VISIBILITY_RANGE_INDEX_BITS: u32     = (1u << 16u) - 1u;
+const MESH_FLAGS_NO_FRUSTUM_CULLING_BIT: u32          = 1u << 28u;
+const MESH_FLAGS_SHADOW_RECEIVER_BIT: u32             = 1u << 29u;
+const MESH_FLAGS_TRANSMITTED_SHADOW_RECEIVER_BIT: u32 = 1u << 30u;
+// if the flag is set, the sign is positive, else it is negative
+const MESH_FLAGS_SIGN_DETERMINANT_MODEL_3X3_BIT: u32  = 1u << 31u;

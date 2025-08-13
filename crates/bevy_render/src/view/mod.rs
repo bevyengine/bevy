@@ -1,49 +1,49 @@
 pub mod visibility;
 pub mod window;
 
-use bevy_asset::{load_internal_asset, Handle};
+use bevy_camera::{
+    primitives::Frustum, CameraMainTextureUsages, ClearColor, ClearColorConfig, Exposure,
+    MainPassResolutionOverride, NormalizedRenderTarget,
+};
+use bevy_diagnostic::FrameCount;
 pub use visibility::*;
 pub use window::*;
 
-use crate::extract_component::ExtractComponentPlugin;
 use crate::{
-    camera::{
-        CameraMainTextureUsages, ClearColor, ClearColorConfig, Exposure, ExtractedCamera,
-        ManualTextureViews, MipBias, TemporalJitter,
-    },
-    prelude::Shader,
-    primitives::Frustum,
+    camera::{ExtractedCamera, MipBias, NormalizedRenderTargetExt as _, TemporalJitter},
+    experimental::occlusion_culling::OcclusionCulling,
+    extract_component::ExtractComponentPlugin,
     render_asset::RenderAssets,
     render_phase::ViewRangefinder3d,
     render_resource::{DynamicUniformBuffer, ShaderType, Texture, TextureView},
     renderer::{RenderDevice, RenderQueue},
+    sync_world::MainEntity,
     texture::{
-        BevyDefault, CachedTexture, ColorAttachment, DepthAttachment, GpuImage,
+        CachedTexture, ColorAttachment, DepthAttachment, GpuImage, ManualTextureViews,
         OutputColorAttachment, TextureCache,
     },
-    Render, RenderApp, RenderSet,
+    Render, RenderApp, RenderSystems,
 };
+use alloc::sync::Arc;
 use bevy_app::{App, Plugin};
 use bevy_color::LinearRgba;
+use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::prelude::*;
+use bevy_image::{BevyDefault as _, ToExtents};
 use bevy_math::{mat3, vec2, vec3, Mat3, Mat4, UVec4, Vec2, Vec3, Vec4, Vec4Swizzles};
+use bevy_platform::collections::{hash_map::Entry, HashMap};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render_macros::ExtractComponent;
+use bevy_shader::load_shader_library;
 use bevy_transform::components::GlobalTransform;
-use bevy_utils::HashMap;
-use std::{
+use core::{
     ops::Range,
-    sync::{
-        atomic::{AtomicUsize, Ordering},
-        Arc,
-    },
+    sync::atomic::{AtomicUsize, Ordering},
 };
 use wgpu::{
-    BufferUsages, Extent3d, RenderPassColorAttachment, RenderPassDepthStencilAttachment, StoreOp,
+    BufferUsages, RenderPassColorAttachment, RenderPassDepthStencilAttachment, StoreOp,
     TextureDescriptor, TextureDimension, TextureFormat, TextureUsages,
 };
-
-pub const VIEW_TYPE_HANDLE: Handle<Shader> = Handle::weak_from_u128(15421373904451797197);
 
 /// The matrix that converts from the RGB to the LMS color space.
 ///
@@ -98,33 +98,35 @@ pub struct ViewPlugin;
 
 impl Plugin for ViewPlugin {
     fn build(&self, app: &mut App) {
-        load_internal_asset!(app, VIEW_TYPE_HANDLE, "view.wgsl", Shader::from_wgsl);
+        load_shader_library!(app, "view.wgsl");
 
-        app.register_type::<InheritedVisibility>()
-            .register_type::<ViewVisibility>()
-            .register_type::<Msaa>()
-            .register_type::<NoFrustumCulling>()
-            .register_type::<RenderLayers>()
-            .register_type::<Visibility>()
-            .register_type::<VisibleEntities>()
-            .register_type::<ColorGrading>()
+        app
             // NOTE: windows.is_changed() handles cases where a window was resized
             .add_plugins((
+                ExtractComponentPlugin::<Hdr>::default(),
                 ExtractComponentPlugin::<Msaa>::default(),
-                VisibilityPlugin,
-                VisibilityRangePlugin,
+                ExtractComponentPlugin::<OcclusionCulling>::default(),
+                RenderVisibilityRangePlugin,
             ));
 
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app.add_systems(
                 Render,
                 (
+                    // `TextureView`s need to be dropped before reconfiguring window surfaces.
+                    clear_view_attachments
+                        .in_set(RenderSystems::ManageViews)
+                        .before(create_surfaces),
+                    prepare_view_attachments
+                        .in_set(RenderSystems::ManageViews)
+                        .before(prepare_view_targets)
+                        .after(prepare_windows),
                     prepare_view_targets
-                        .in_set(RenderSet::ManageViews)
+                        .in_set(RenderSystems::ManageViews)
                         .after(prepare_windows)
                         .after(crate::render_asset::prepare_assets::<GpuImage>)
                         .ambiguous_with(crate::camera::sort_cameras), // doesn't use `sorted_camera_index_for_target`
-                    prepare_view_uniforms.in_set(RenderSet::PrepareResources),
+                    prepare_view_uniforms.in_set(RenderSystems::PrepareResources),
                 ),
             );
         }
@@ -132,19 +134,21 @@ impl Plugin for ViewPlugin {
 
     fn finish(&self, app: &mut App) {
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
-            render_app.init_resource::<ViewUniforms>();
+            render_app
+                .init_resource::<ViewUniforms>()
+                .init_resource::<ViewTargetAttachments>();
         }
     }
 }
 
-/// Configuration resource for [Multi-Sample Anti-Aliasing](https://en.wikipedia.org/wiki/Multisample_anti-aliasing).
+/// Component for configuring the number of samples for [Multi-Sample Anti-Aliasing](https://en.wikipedia.org/wiki/Multisample_anti-aliasing)
+/// for a [`Camera`](bevy_camera::Camera).
 ///
-/// The number of samples to run for Multi-Sample Anti-Aliasing for a given camera. Higher numbers
-/// result in smoother edges.
+/// Defaults to 4 samples. A higher number of samples results in smoother edges.
 ///
-/// Defaults to 4 samples. Some advanced rendering features may require that MSAA be disabled.
+/// Some advanced rendering features may require that MSAA is disabled.
 ///
-/// Note that web currently only supports 1 or 4 samples.
+/// Note that the web currently only supports 1 or 4 samples.
 #[derive(
     Component,
     Default,
@@ -158,7 +162,7 @@ impl Plugin for ViewPlugin {
     Hash,
     Debug,
 )]
-#[reflect(Component, Default)]
+#[reflect(Component, Default, PartialEq, Hash, Debug)]
 pub enum Msaa {
     Off = 1,
     Sample2 = 2,
@@ -172,10 +176,122 @@ impl Msaa {
     pub fn samples(&self) -> u32 {
         *self as u32
     }
+
+    pub fn from_samples(samples: u32) -> Self {
+        match samples {
+            1 => Msaa::Off,
+            2 => Msaa::Sample2,
+            4 => Msaa::Sample4,
+            8 => Msaa::Sample8,
+            _ => panic!("Unsupported MSAA sample count: {samples}"),
+        }
+    }
 }
 
+/// If this component is added to a camera, the camera will use an intermediate "high dynamic range" render texture.
+/// This allows rendering with a wider range of lighting values. However, this does *not* affect
+/// whether the camera will render with hdr display output (which bevy does not support currently)
+/// and only affects the intermediate render texture.
+#[derive(
+    Component, Default, Copy, Clone, ExtractComponent, Reflect, PartialEq, Eq, Hash, Debug,
+)]
+#[reflect(Component, Default, PartialEq, Hash, Debug)]
+pub struct Hdr;
+
+/// An identifier for a view that is stable across frames.
+///
+/// We can't use [`Entity`] for this because render world entities aren't
+/// stable, and we can't use just [`MainEntity`] because some main world views
+/// extract to multiple render world views. For example, a directional light
+/// extracts to one render world view per cascade, and a point light extracts to
+/// one render world view per cubemap face. So we pair the main entity with an
+/// *auxiliary entity* and a *subview index*, which *together* uniquely identify
+/// a view in the render world in a way that's stable from frame to frame.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct RetainedViewEntity {
+    /// The main entity that this view corresponds to.
+    pub main_entity: MainEntity,
+
+    /// Another entity associated with the view entity.
+    ///
+    /// This is currently used for shadow cascades. If there are multiple
+    /// cameras, each camera needs to have its own set of shadow cascades. Thus
+    /// the light and subview index aren't themselves enough to uniquely
+    /// identify a shadow cascade: we need the camera that the cascade is
+    /// associated with as well. This entity stores that camera.
+    ///
+    /// If not present, this will be `MainEntity(Entity::PLACEHOLDER)`.
+    pub auxiliary_entity: MainEntity,
+
+    /// The index of the view corresponding to the entity.
+    ///
+    /// For example, for point lights that cast shadows, this is the index of
+    /// the cubemap face (0 through 5 inclusive). For directional lights, this
+    /// is the index of the cascade.
+    pub subview_index: u32,
+}
+
+impl RetainedViewEntity {
+    /// Creates a new [`RetainedViewEntity`] from the given main world entity,
+    /// auxiliary main world entity, and subview index.
+    ///
+    /// See [`RetainedViewEntity::subview_index`] for an explanation of what
+    /// `auxiliary_entity` and `subview_index` are.
+    pub fn new(
+        main_entity: MainEntity,
+        auxiliary_entity: Option<MainEntity>,
+        subview_index: u32,
+    ) -> Self {
+        Self {
+            main_entity,
+            auxiliary_entity: auxiliary_entity.unwrap_or(Entity::PLACEHOLDER.into()),
+            subview_index,
+        }
+    }
+}
+
+/// Describes a camera in the render world.
+///
+/// Each entity in the main world can potentially extract to multiple subviews,
+/// each of which has a [`RetainedViewEntity::subview_index`]. For instance, 3D
+/// cameras extract to both a 3D camera subview with index 0 and a special UI
+/// subview with index 1. Likewise, point lights with shadows extract to 6
+/// subviews, one for each side of the shadow cubemap.
 #[derive(Component)]
 pub struct ExtractedView {
+    /// The entity in the main world corresponding to this render world view.
+    pub retained_view_entity: RetainedViewEntity,
+    /// Typically a column-major right-handed projection matrix, one of either:
+    ///
+    /// Perspective (infinite reverse z)
+    /// ```text
+    /// f = 1 / tan(fov_y_radians / 2)
+    ///
+    /// ⎡ f / aspect  0   0     0 ⎤
+    /// ⎢          0  f   0     0 ⎥
+    /// ⎢          0  0   0  near ⎥
+    /// ⎣          0  0  -1     0 ⎦
+    /// ```
+    ///
+    /// Orthographic
+    /// ```text
+    /// w = right - left
+    /// h = top - bottom
+    /// d = far - near
+    /// cw = -right - left
+    /// ch = -top - bottom
+    ///
+    /// ⎡ 2 / w      0      0   cw / w ⎤
+    /// ⎢     0  2 / h      0   ch / h ⎥
+    /// ⎢     0      0  1 / d  far / d ⎥
+    /// ⎣     0      0      0        1 ⎦
+    /// ```
+    ///
+    /// `clip_from_view[3][3] == 1.0` is the standard way to check if a projection is orthographic
+    ///
+    /// Glam matrices are column major, so for example getting the near plane of a perspective projection is `clip_from_view[3][2]`
+    ///
+    /// Custom projections are also possible however.
     pub clip_from_view: Mat4,
     pub world_from_view: GlobalTransform,
     // The view-projection matrix. When provided it is used instead of deriving it from
@@ -191,18 +307,18 @@ pub struct ExtractedView {
 impl ExtractedView {
     /// Creates a 3D rangefinder for a view
     pub fn rangefinder3d(&self) -> ViewRangefinder3d {
-        ViewRangefinder3d::from_world_from_view(&self.world_from_view.compute_matrix())
+        ViewRangefinder3d::from_world_from_view(&self.world_from_view.to_matrix())
     }
 }
 
 /// Configures filmic color grading parameters to adjust the image appearance.
 ///
 /// Color grading is applied just before tonemapping for a given
-/// [`Camera`](crate::camera::Camera) entity, with the sole exception of the
+/// [`Camera`](bevy_camera::Camera) entity, with the sole exception of the
 /// `post_saturation` value in [`ColorGradingGlobal`], which is applied after
 /// tonemapping.
 #[derive(Component, Reflect, Debug, Default, Clone)]
-#[reflect(Component, Default)]
+#[reflect(Component, Default, Debug, Clone)]
 pub struct ColorGrading {
     /// Filmic color grading values applied to the image as a whole (as opposed
     /// to individual sections, like shadows and highlights).
@@ -231,7 +347,7 @@ pub struct ColorGrading {
 /// Filmic color grading values applied to the image as a whole (as opposed to
 /// individual sections, like shadows and highlights).
 #[derive(Clone, Debug, Reflect)]
-#[reflect(Default)]
+#[reflect(Default, Clone)]
 pub struct ColorGradingGlobal {
     /// Exposure value (EV) offset, measured in stops.
     pub exposure: f32,
@@ -297,6 +413,7 @@ pub struct ColorGradingUniform {
 /// A section of color grading values that can be selectively applied to
 /// shadows, midtones, and highlights.
 #[derive(Reflect, Debug, Copy, Clone, PartialEq)]
+#[reflect(Clone, PartialEq)]
 pub struct ColorGradingSection {
     /// Values below 1.0 desaturate, with a value of 0.0 resulting in a grayscale image
     /// with luminance defined by ITU-R BT.709.
@@ -413,15 +530,51 @@ pub struct ViewUniform {
     pub world_from_clip: Mat4,
     pub world_from_view: Mat4,
     pub view_from_world: Mat4,
+    /// Typically a column-major right-handed projection matrix, one of either:
+    ///
+    /// Perspective (infinite reverse z)
+    /// ```text
+    /// f = 1 / tan(fov_y_radians / 2)
+    ///
+    /// ⎡ f / aspect  0   0     0 ⎤
+    /// ⎢          0  f   0     0 ⎥
+    /// ⎢          0  0   0  near ⎥
+    /// ⎣          0  0  -1     0 ⎦
+    /// ```
+    ///
+    /// Orthographic
+    /// ```text
+    /// w = right - left
+    /// h = top - bottom
+    /// d = far - near
+    /// cw = -right - left
+    /// ch = -top - bottom
+    ///
+    /// ⎡ 2 / w      0      0   cw / w ⎤
+    /// ⎢     0  2 / h      0   ch / h ⎥
+    /// ⎢     0      0  1 / d  far / d ⎥
+    /// ⎣     0      0      0        1 ⎦
+    /// ```
+    ///
+    /// `clip_from_view[3][3] == 1.0` is the standard way to check if a projection is orthographic
+    ///
+    /// Glam matrices are column major, so for example getting the near plane of a perspective projection is `clip_from_view[3][2]`
+    ///
+    /// Custom projections are also possible however.
     pub clip_from_view: Mat4,
     pub view_from_clip: Mat4,
     pub world_position: Vec3,
     pub exposure: f32,
     // viewport(x_origin, y_origin, width, height)
     pub viewport: Vec4,
+    pub main_pass_viewport: Vec4,
+    /// 6 world-space half spaces (normal: vec3, distance: f32) ordered left, right, top, bottom, near, far.
+    /// The normal vectors point towards the interior of the frustum.
+    /// A half space contains `p` if `normal.dot(p) + distance > 0.`
     pub frustum: [Vec4; 6],
     pub color_grading: ColorGradingUniform,
     pub mip_bias: f32,
+    pub frame_count: u32,
 }
 
 #[derive(Resource)]
@@ -458,9 +611,18 @@ pub struct ViewTarget {
     out_texture: OutputColorAttachment,
 }
 
+/// Contains [`OutputColorAttachment`] used for each target present on any view in the current
+/// frame, after being prepared by [`prepare_view_attachments`]. Users that want to override
+/// the default output color attachment for a specific target can do so by adding a
+/// [`OutputColorAttachment`] to this resource before [`prepare_view_targets`] is called.
+#[derive(Resource, Default, Deref, DerefMut)]
+pub struct ViewTargetAttachments(HashMap<NormalizedRenderTarget, OutputColorAttachment>);
+
 pub struct PostProcessWrite<'a> {
     pub source: &'a TextureView,
+    pub source_texture: &'a Texture,
     pub destination: &'a TextureView,
+    pub destination_texture: &'a Texture,
 }
 
 impl From<ColorGrading> for ColorGradingUniform {
@@ -542,17 +704,28 @@ impl From<ColorGrading> for ColorGradingUniform {
     }
 }
 
-#[derive(Component)]
-pub struct GpuCulling;
-
-#[derive(Component)]
-pub struct NoCpuCulling;
+/// Add this component to a camera to disable *indirect mode*.
+///
+/// Indirect mode, automatically enabled on supported hardware, allows Bevy to
+/// offload transform and cull operations to the GPU, reducing CPU overhead.
+/// Doing this, however, reduces the amount of control that your app has over
+/// instancing decisions. In certain circumstances, you may want to disable
+/// indirect drawing so that your app can manually instance meshes as it sees
+/// fit. See the `custom_shader_instancing` example.
+///
+/// The vast majority of applications will not need to use this component, as it
+/// generally reduces rendering performance.
+///
+/// Note: This component should only be added when initially spawning a camera. Adding
+/// or removing after spawn can result in unspecified behavior.
+#[derive(Component, Default)]
+pub struct NoIndirectDrawing;
 
 impl ViewTarget {
     pub const TEXTURE_FORMAT_HDR: TextureFormat = TextureFormat::Rgba16Float;
 
     /// Retrieve this target's main texture's color attachment.
-    pub fn get_color_attachment(&self) -> RenderPassColorAttachment {
+    pub fn get_color_attachment(&self) -> RenderPassColorAttachment<'_> {
         if self.main_texture.load(Ordering::SeqCst) == 0 {
             self.main_textures.a.get_attachment()
         } else {
@@ -561,7 +734,7 @@ impl ViewTarget {
     }
 
     /// Retrieve this target's "unsampled" main texture's color attachment.
-    pub fn get_unsampled_color_attachment(&self) -> RenderPassColorAttachment {
+    pub fn get_unsampled_color_attachment(&self) -> RenderPassColorAttachment<'_> {
         if self.main_texture.load(Ordering::SeqCst) == 0 {
             self.main_textures.a.get_unsampled_attachment()
         } else {
@@ -653,7 +826,7 @@ impl ViewTarget {
     pub fn out_texture_color_attachment(
         &self,
         clear_color: Option<LinearRgba>,
-    ) -> RenderPassColorAttachment {
+    ) -> RenderPassColorAttachment<'_> {
         self.out_texture.get_attachment(clear_color)
     }
 
@@ -670,20 +843,24 @@ impl ViewTarget {
     /// [`ViewTarget`]'s main texture to the `destination` texture, so the caller
     /// _must_ ensure `source` is copied to `destination`, with or without modifications.
     /// Failing to do so will cause the current main texture information to be lost.
-    pub fn post_process_write(&self) -> PostProcessWrite {
+    pub fn post_process_write(&self) -> PostProcessWrite<'_> {
         let old_is_a_main_texture = self.main_texture.fetch_xor(1, Ordering::SeqCst);
         // if the old main texture is a, then the post processing must write from a to b
         if old_is_a_main_texture == 0 {
             self.main_textures.b.mark_as_cleared();
             PostProcessWrite {
                 source: &self.main_textures.a.texture.default_view,
+                source_texture: &self.main_textures.a.texture.texture,
                 destination: &self.main_textures.b.texture.default_view,
+                destination_texture: &self.main_textures.b.texture.texture,
             }
         } else {
             self.main_textures.a.mark_as_cleared();
             PostProcessWrite {
                 source: &self.main_textures.b.texture.default_view,
+                source_texture: &self.main_textures.b.texture.texture,
                 destination: &self.main_textures.a.texture.default_view,
+                destination_texture: &self.main_textures.a.texture.texture,
             }
         }
     }
@@ -703,7 +880,7 @@ impl ViewDepthTexture {
         }
     }
 
-    pub fn get_attachment(&self, store: StoreOp) -> RenderPassDepthStencilAttachment {
+    pub fn get_attachment(&self, store: StoreOp) -> RenderPassDepthStencilAttachment<'_> {
         self.attachment.get_attachment(store)
     }
 
@@ -724,7 +901,9 @@ pub fn prepare_view_uniforms(
         Option<&Frustum>,
         Option<&TemporalJitter>,
         Option<&MipBias>,
+        Option<&MainPassResolutionOverride>,
     )>,
+    frame_count: Res<FrameCount>,
 ) {
     let view_iter = views.iter();
     let view_count = view_iter.len();
@@ -735,17 +914,32 @@ pub fn prepare_view_uniforms(
     else {
         return;
     };
-    for (entity, extracted_camera, extracted_view, frustum, temporal_jitter, mip_bias) in &views {
+    for (
+        entity,
+        extracted_camera,
+        extracted_view,
+        frustum,
+        temporal_jitter,
+        mip_bias,
+        resolution_override,
+    ) in &views
+    {
         let viewport = extracted_view.viewport.as_vec4();
+        let mut main_pass_viewport = viewport;
+        if let Some(resolution_override) = resolution_override {
+            main_pass_viewport.z = resolution_override.0.x as f32;
+            main_pass_viewport.w = resolution_override.0.y as f32;
+        }
+
         let unjittered_projection = extracted_view.clip_from_view;
         let mut clip_from_view = unjittered_projection;
 
         if let Some(temporal_jitter) = temporal_jitter {
-            temporal_jitter.jitter_projection(&mut clip_from_view, viewport.zw());
+            temporal_jitter.jitter_projection(&mut clip_from_view, main_pass_viewport.zw());
         }
 
         let view_from_clip = clip_from_view.inverse();
-        let world_from_view = extracted_view.world_from_view.compute_matrix();
+        let world_from_view = extracted_view.world_from_view.to_matrix();
         let view_from_world = world_from_view.inverse();
 
         let clip_from_world = if temporal_jitter.is_some() {
@@ -775,9 +969,11 @@ pub fn prepare_view_uniforms(
                     .map(|c| c.exposure)
                     .unwrap_or_else(|| Exposure::default().exposure()),
                 viewport,
+                main_pass_viewport,
                 frustum,
                 color_grading: extracted_view.color_grading.clone().into(),
                 mip_bias: mip_bias.unwrap_or(&MipBias(0.0)).0,
+                frame_count: frame_count.0,
             }),
         };
 
@@ -794,11 +990,45 @@ struct MainTargetTextures {
     main_texture: Arc<AtomicUsize>,
 }
 
-#[allow(clippy::too_many_arguments)]
-pub fn prepare_view_targets(
-    mut commands: Commands,
+/// Prepares the view target [`OutputColorAttachment`] for each view in the current frame.
+pub fn prepare_view_attachments(
     windows: Res<ExtractedWindows>,
     images: Res<RenderAssets<GpuImage>>,
+    manual_texture_views: Res<ManualTextureViews>,
+    cameras: Query<&ExtractedCamera>,
+    mut view_target_attachments: ResMut<ViewTargetAttachments>,
+) {
+    for camera in cameras.iter() {
+        let Some(target) = &camera.target else {
+            continue;
+        };
+
+        match view_target_attachments.entry(target.clone()) {
+            Entry::Occupied(_) => {}
+            Entry::Vacant(entry) => {
+                let Some(attachment) = target
+                    .get_texture_view(&windows, &images, &manual_texture_views)
+                    .cloned()
+                    .zip(target.get_texture_format(&windows, &images, &manual_texture_views))
+                    .map(|(view, format)| {
+                        OutputColorAttachment::new(view.clone(), format.add_srgb_suffix())
+                    })
+                else {
+                    continue;
+                };
+                entry.insert(attachment);
+            }
+        };
+    }
+}
+
+/// Clears the view target [`OutputColorAttachment`]s.
+pub fn clear_view_attachments(mut view_target_attachments: ResMut<ViewTargetAttachments>) {
+    view_target_attachments.clear();
+}
+
+pub fn prepare_view_targets(
+    mut commands: Commands,
     clear_color_global: Res<ClearColor>,
     render_device: Res<RenderDevice>,
     mut texture_cache: ResMut<TextureCache>,
@@ -809,31 +1039,17 @@ pub fn prepare_view_targets(
         &CameraMainTextureUsages,
         &Msaa,
     )>,
-    manual_texture_views: Res<ManualTextureViews>,
+    view_target_attachments: Res<ViewTargetAttachments>,
 ) {
-    let mut textures = HashMap::default();
-    let mut output_textures = HashMap::default();
+    let mut textures = <HashMap<_, _>>::default();
     for (entity, camera, view, texture_usage, msaa) in cameras.iter() {
         let (Some(target_size), Some(target)) = (camera.physical_target_size, &camera.target)
         else {
             continue;
         };
 
-        let Some(out_texture) = output_textures.entry(target.clone()).or_insert_with(|| {
-            target
-                .get_texture_view(&windows, &images, &manual_texture_views)
-                .zip(target.get_texture_format(&windows, &images, &manual_texture_views))
-                .map(|(view, format)| {
-                    OutputColorAttachment::new(view.clone(), format.add_srgb_suffix())
-                })
-        }) else {
+        let Some(out_attachment) = view_target_attachments.get(target) else {
             continue;
-        };
-
-        let size = Extent3d {
-            width: target_size.x,
-            height: target_size.y,
-            depth_or_array_layers: 1,
         };
 
         let main_texture_format = if view.hdr {
@@ -849,11 +1065,11 @@ pub fn prepare_view_targets(
         };
 
         let (a, b, sampled, main_texture) = textures
-            .entry((camera.target.clone(), view.hdr, msaa))
+            .entry((camera.target.clone(), texture_usage.0, view.hdr, msaa))
             .or_insert_with(|| {
                 let descriptor = TextureDescriptor {
                     label: None,
-                    size,
+                    size: target_size.to_extents(),
                     mip_level_count: 1,
                     sample_count: 1,
                     dimension: TextureDimension::D2,
@@ -884,7 +1100,7 @@ pub fn prepare_view_targets(
                         &render_device,
                         TextureDescriptor {
                             label: Some("main_texture_sampled"),
-                            size,
+                            size: target_size.to_extents(),
                             mip_level_count: 1,
                             sample_count: msaa.samples(),
                             dimension: TextureDimension::D2,
@@ -913,7 +1129,7 @@ pub fn prepare_view_targets(
             main_texture: main_textures.main_texture.clone(),
             main_textures,
             main_texture_format,
-            out_texture: out_texture.clone(),
+            out_texture: out_attachment.clone(),
         });
     }
 }

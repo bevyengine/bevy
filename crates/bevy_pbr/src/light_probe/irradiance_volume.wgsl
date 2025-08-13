@@ -7,20 +7,37 @@
     irradiance_volume_sampler,
     light_probes,
 };
+#import bevy_pbr::clustered_forward::ClusterableObjectIndexRanges
 
 #ifdef IRRADIANCE_VOLUMES_ARE_USABLE
 
 // See:
 // https://advances.realtimerendering.com/s2006/Mitchell-ShadingInValvesSourceEngine.pdf
 // Slide 28, "Ambient Cube Basis"
-fn irradiance_volume_light(world_position: vec3<f32>, N: vec3<f32>) -> vec3<f32> {
+fn irradiance_volume_light(
+    world_position: vec3<f32>,
+    N: vec3<f32>,
+    clusterable_object_index_ranges: ptr<function, ClusterableObjectIndexRanges>,
+) -> vec3<f32> {
     // Search for an irradiance volume that contains the fragment.
-    let query_result = query_light_probe(world_position, /*is_irradiance_volume=*/ true);
+    let query_result = query_light_probe(
+        world_position,
+        /*is_irradiance_volume=*/ true,
+        clusterable_object_index_ranges,
+    );
 
     // If there was no irradiance volume found, bail out.
     if (query_result.texture_index < 0) {
         return vec3(0.0f);
     }
+
+    // If we're lightmapped, and the irradiance volume contributes no diffuse
+    // light, then bail out.
+#ifdef LIGHTMAP
+    if (!query_result.affects_lightmapped_mesh_diffuse) {
+        return vec3(0.0f);
+    }
+#endif  // LIGHTMAP
 
 #ifdef MULTIPLE_LIGHT_PROBES_IN_ARRAY
     let irradiance_volume_texture = irradiance_volumes[query_result.texture_index];

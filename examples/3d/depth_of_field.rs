@@ -10,14 +10,15 @@
 //! [a blog post on depth of field in Unity]: https://catlikecoding.com/unity/tutorials/advanced-rendering/depth-of-field/
 
 use bevy::{
+    camera::PhysicalCameraParameters,
     core_pipeline::{
-        bloom::BloomSettings,
-        dof::{self, DepthOfFieldMode, DepthOfFieldSettings},
+        bloom::Bloom,
+        dof::{self, DepthOfField, DepthOfFieldMode},
         tonemapping::Tonemapping,
     },
+    gltf::GltfMeshName,
     pbr::Lightmap,
     prelude::*,
-    render::camera::PhysicalCameraParameters,
 };
 
 /// The increments in which the user can adjust the focal distance, in meters
@@ -70,44 +71,33 @@ fn main() {
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>, app_settings: Res<AppSettings>) {
     // Spawn the camera. Enable HDR and bloom, as that highlights the depth of
     // field effect.
-    let mut camera = commands.spawn(Camera3dBundle {
-        transform: Transform::from_xyz(0.0, 4.5, 8.25).looking_at(Vec3::ZERO, Vec3::Y),
-        camera: Camera {
-            hdr: true,
-            ..default()
-        },
-        tonemapping: Tonemapping::TonyMcMapface,
-        ..default()
-    });
-    camera.insert(BloomSettings::NATURAL);
+    let mut camera = commands.spawn((
+        Camera3d::default(),
+        Transform::from_xyz(0.0, 4.5, 8.25).looking_at(Vec3::ZERO, Vec3::Y),
+        Tonemapping::TonyMcMapface,
+        Bloom::NATURAL,
+    ));
 
     // Insert the depth of field settings.
-    if let Some(dof_settings) = Option::<DepthOfFieldSettings>::from(*app_settings) {
-        camera.insert(dof_settings);
+    if let Some(depth_of_field) = Option::<DepthOfField>::from(*app_settings) {
+        camera.insert(depth_of_field);
     }
 
     // Spawn the scene.
-    commands.spawn(SceneBundle {
-        scene: asset_server.load(
-            GltfAssetLabel::Scene(0)
-                .from_asset("models/DepthOfFieldExample/DepthOfFieldExample.glb"),
-        ),
-        ..default()
-    });
+    commands.spawn(SceneRoot(asset_server.load(
+        GltfAssetLabel::Scene(0).from_asset("models/DepthOfFieldExample/DepthOfFieldExample.glb"),
+    )));
 
     // Spawn the help text.
-    commands.spawn(
-        TextBundle {
-            text: create_text(&app_settings),
-            ..default()
-        }
-        .with_style(Style {
+    commands.spawn((
+        create_text(&app_settings),
+        Node {
             position_type: PositionType::Absolute,
             bottom: Val::Px(12.0),
             left: Val::Px(12.0),
             ..default()
-        }),
-    );
+        },
+    ));
 }
 
 /// Adjusts the focal distance and f-number per user inputs.
@@ -173,14 +163,14 @@ fn update_dof_settings(
     view_targets: Query<Entity, With<Camera>>,
     app_settings: Res<AppSettings>,
 ) {
-    let dof_settings: Option<DepthOfFieldSettings> = (*app_settings).into();
+    let depth_of_field: Option<DepthOfField> = (*app_settings).into();
     for view in view_targets.iter() {
-        match dof_settings {
+        match depth_of_field {
             None => {
-                commands.entity(view).remove::<DepthOfFieldSettings>();
+                commands.entity(view).remove::<DepthOfField>();
             }
-            Some(dof_settings) => {
-                commands.entity(view).insert(dof_settings);
+            Some(depth_of_field) => {
+                commands.entity(view).insert(depth_of_field);
             }
         }
     }
@@ -193,8 +183,8 @@ fn tweak_scene(
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut lights: Query<&mut DirectionalLight, Changed<DirectionalLight>>,
     mut named_entities: Query<
-        (Entity, &Name, &Handle<StandardMaterial>),
-        (With<Handle<Mesh>>, Without<Lightmap>),
+        (Entity, &GltfMeshName, &MeshMaterial3d<StandardMaterial>),
+        (With<Mesh3d>, Without<Lightmap>),
     >,
 ) {
     // Turn on shadows.
@@ -223,12 +213,12 @@ fn update_text(mut texts: Query<&mut Text>, app_settings: Res<AppSettings>) {
 
 /// Regenerates the app text component per the current app settings.
 fn create_text(app_settings: &AppSettings) -> Text {
-    Text::from_section(app_settings.help_text(), TextStyle::default())
+    app_settings.help_text().into()
 }
 
-impl From<AppSettings> for Option<DepthOfFieldSettings> {
+impl From<AppSettings> for Option<DepthOfField> {
     fn from(app_settings: AppSettings) -> Self {
-        app_settings.mode.map(|mode| DepthOfFieldSettings {
+        app_settings.mode.map(|mode| DepthOfField {
             mode,
             focal_distance: app_settings.focal_distance,
             aperture_f_stops: app_settings.aperture_f_stops,

@@ -1,7 +1,6 @@
 //! Illustrates parallel queries with `ParallelIterator`.
 
-use bevy::ecs::batching::BatchingStrategy;
-use bevy::prelude::*;
+use bevy::{ecs::batching::BatchingStrategy, prelude::*};
 use rand::{Rng, SeedableRng};
 use rand_chacha::ChaCha8Rng;
 
@@ -9,20 +8,18 @@ use rand_chacha::ChaCha8Rng;
 struct Velocity(Vec2);
 
 fn spawn_system(mut commands: Commands, asset_server: Res<AssetServer>) {
-    commands.spawn(Camera2dBundle::default());
+    commands.spawn(Camera2d);
     let texture = asset_server.load("branding/icon.png");
 
     // We're seeding the PRNG here to make this example deterministic for testing purposes.
     // This isn't strictly required in practical use unless you need your app to be deterministic.
     let mut rng = ChaCha8Rng::seed_from_u64(19878367467713);
-    for _ in 0..128 {
+    for z in 0..128 {
         commands.spawn((
-            SpriteBundle {
-                texture: texture.clone(),
-                transform: Transform::from_scale(Vec3::splat(0.1)),
-                ..default()
-            },
-            Velocity(20.0 * Vec2::new(rng.gen::<f32>() - 0.5, rng.gen::<f32>() - 0.5)),
+            Sprite::from_image(texture.clone()),
+            Transform::from_scale(Vec3::splat(0.1))
+                .with_translation(Vec2::splat(0.0).extend(z as f32)),
+            Velocity(20.0 * Vec2::new(rng.random::<f32>() - 0.5, rng.random::<f32>() - 0.5)),
         ));
     }
 }
@@ -45,8 +42,10 @@ fn move_system(mut sprites: Query<(&mut Transform, &Velocity)>) {
 }
 
 // Bounce sprites outside the window
-fn bounce_system(windows: Query<&Window>, mut sprites: Query<(&Transform, &mut Velocity)>) {
-    let window = windows.single();
+fn bounce_system(window: Query<&Window>, mut sprites: Query<(&Transform, &mut Velocity)>) {
+    let Ok(window) = window.single() else {
+        return;
+    };
     let width = window.width();
     let height = window.height();
     let left = width / -2.0;

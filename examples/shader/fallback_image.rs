@@ -6,9 +6,7 @@
 //! only tests that the images are initialized and bound so that the app does
 //! not panic.
 use bevy::{
-    prelude::*,
-    reflect::TypePath,
-    render::render_resource::{AsBindGroup, ShaderRef},
+    prelude::*, reflect::TypePath, render::render_resource::AsBindGroup, shader::ShaderRef,
 };
 
 /// This example uses a shader source file from the assets subdirectory
@@ -29,22 +27,21 @@ fn setup(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<FallbackTestMaterial>>,
 ) {
-    commands.spawn(MaterialMeshBundle {
-        mesh: meshes.add(Cuboid::default()),
-        material: materials.add(FallbackTestMaterial {
+    commands.spawn((
+        Mesh3d(meshes.add(Cuboid::default())),
+        MeshMaterial3d(materials.add(FallbackTestMaterial {
             image_1d: None,
             image_2d: None,
             image_2d_array: None,
             image_cube: None,
             image_cube_array: None,
             image_3d: None,
-        }),
-        ..default()
-    });
-    commands.spawn(Camera3dBundle {
-        transform: Transform::from_xyz(5.0, 5.0, 5.0).looking_at(Vec3::new(1.5, 0.0, 0.0), Vec3::Y),
-        ..default()
-    });
+        })),
+    ));
+    commands.spawn((
+        Camera3d::default(),
+        Transform::from_xyz(5.0, 5.0, 5.0).looking_at(Vec3::new(1.5, 0.0, 0.0), Vec3::Y),
+    ));
 }
 
 #[derive(AsBindGroup, Debug, Clone, Asset, TypePath)]

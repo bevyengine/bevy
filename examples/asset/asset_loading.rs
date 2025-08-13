@@ -19,10 +19,7 @@ fn setup(
     // For example, the next line will load GltfAssetLabel::Primitive{mesh:0,primitive:0}.from_asset("ROOT/assets/models/cube/cube.gltf"),
     // where "ROOT" is the directory of the Application.
     //
-    // This can be overridden by setting the "CARGO_MANIFEST_DIR" environment variable (see
-    // https://doc.rust-lang.org/cargo/reference/environment-variables.html)
-    // to another directory. When the Application is run through Cargo, "CARGO_MANIFEST_DIR" is
-    // automatically set to your crate (workspace) root directory.
+    // This can be overridden by setting [`AssetPlugin.file_path`].
     let cube_handle = asset_server.load(
         GltfAssetLabel::Primitive {
             mesh: 0,
@@ -76,34 +73,28 @@ fn setup(
     });
 
     // torus
-    commands.spawn(PbrBundle {
-        mesh: torus_handle,
-        material: material_handle.clone(),
-        transform: Transform::from_xyz(-3.0, 0.0, 0.0),
-        ..default()
-    });
+    commands.spawn((
+        Mesh3d(torus_handle),
+        MeshMaterial3d(material_handle.clone()),
+        Transform::from_xyz(-3.0, 0.0, 0.0),
+    ));
     // cube
-    commands.spawn(PbrBundle {
-        mesh: cube_handle,
-        material: material_handle.clone(),
-        transform: Transform::from_xyz(0.0, 0.0, 0.0),
-        ..default()
-    });
+    commands.spawn((
+        Mesh3d(cube_handle),
+        MeshMaterial3d(material_handle.clone()),
+        Transform::from_xyz(0.0, 0.0, 0.0),
+    ));
     // sphere
-    commands.spawn(PbrBundle {
-        mesh: sphere_handle,
-        material: material_handle,
-        transform: Transform::from_xyz(3.0, 0.0, 0.0),
-        ..default()
-    });
+    commands.spawn((
+        Mesh3d(sphere_handle),
+        MeshMaterial3d(material_handle),
+        Transform::from_xyz(3.0, 0.0, 0.0),
+    ));
     // light
-    commands.spawn(PointLightBundle {
-        transform: Transform::from_xyz(4.0, 5.0, 4.0),
-        ..default()
-    });
+    commands.spawn((PointLight::default(), Transform::from_xyz(4.0, 5.0, 4.0)));
     // camera
-    commands.spawn(Camera3dBundle {
-        transform: Transform::from_xyz(0.0, 3.0, 10.0).looking_at(Vec3::ZERO, Vec3::Y),
-        ..default()
-    });
+    commands.spawn((
+        Camera3d::default(),
+        Transform::from_xyz(0.0, 3.0, 10.0).looking_at(Vec3::ZERO, Vec3::Y),
+    ));
 }

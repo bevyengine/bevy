@@ -6,9 +6,10 @@ mod systems;
 pub use self::config::*;
 
 use bevy_app::prelude::*;
-use bevy_ecs::schedule::IntoSystemConfigs;
+use bevy_ecs::prelude::*;
+use bevy_render::view::screenshot::trigger_screenshots;
 use bevy_time::TimeUpdateStrategy;
-use std::time::Duration;
+use core::time::Duration;
 
 /// A plugin that instruments continuous integration testing by automatically executing user-defined actions.
 ///
@@ -16,8 +17,9 @@ use std::time::Duration;
 /// (`ci_testing_config.ron` by default) and executes its specified actions. For a reference of the
 /// allowed configuration, see [`CiTestingConfig`].
 ///
-/// This plugin is included within `DefaultPlugins` and `MinimalPlugins` when the `bevy_ci_testing`
-/// feature is enabled. It is recommended to only used this plugin during testing (manual or
+/// This plugin is included within `DefaultPlugins` and `MinimalPlugins`
+/// when the `bevy_ci_testing` feature is enabled.
+/// It is recommended to only used this plugin during testing (manual or
 /// automatic), and disable it during regular development and for production builds.
 #[derive(Default)]
 pub struct CiTestingPlugin;
@@ -28,11 +30,12 @@ impl Plugin for CiTestingPlugin {
         let config: CiTestingConfig = {
             let filename = std::env::var("CI_TESTING_CONFIG")
                 .unwrap_or_else(|_| "ci_testing_config.ron".to_string());
-            ron::from_str(
-                &std::fs::read_to_string(filename)
-                    .expect("error reading CI testing configuration file"),
-            )
-            .expect("error deserializing CI testing configuration file")
+            std::fs::read_to_string(filename)
+                .map(|content| {
+                    ron::from_str(&content)
+                        .expect("error deserializing CI testing configuration file")
+                })
+                .unwrap_or_default()
         };
 
         #[cfg(target_arch = "wasm32")]
@@ -51,7 +54,22 @@ impl Plugin for CiTestingPlugin {
             .insert_resource(config)
             .add_systems(
                 Update,
-                systems::send_events.before(bevy_window::close_when_requested),
+                systems::send_events
+                    .before(trigger_screenshots)
+                    .before(bevy_window::close_when_requested)
+                    .in_set(EventSenderSystems)
+                    .ambiguous_with_all(),
             );
+
+        // The offending system does not exist in the wasm32 target.
+        // As a result, we must conditionally order the two systems using a system set.
+        #[cfg(any(unix, windows))]
+        app.configure_sets(
+            Update,
+            EventSenderSystems.before(bevy_app::TerminalCtrlCHandlerPlugin::exit_on_flag),
+        );
     }
 }
+
+#[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
+struct EventSenderSystems;

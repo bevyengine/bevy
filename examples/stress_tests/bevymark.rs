@@ -2,23 +2,21 @@
 //!
 //! Usage: spawn more entities by clicking on the screen.
 
+use core::time::Duration;
 use std::str::FromStr;
 
 use argh::FromArgs;
 use bevy::{
+    asset::RenderAssetUsages,
     color::palettes::basic::*,
     diagnostic::{DiagnosticsStore, FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
     prelude::*,
-    render::{
-        render_asset::RenderAssetUsages,
-        render_resource::{Extent3d, TextureDimension, TextureFormat},
-    },
-    sprite::{AlphaMode2d, MaterialMesh2dBundle, Mesh2dHandle},
-    utils::Duration,
+    render::render_resource::{Extent3d, TextureDimension, TextureFormat},
+    sprite::AlphaMode2d,
     window::{PresentMode, WindowResolution},
     winit::{UpdateMode, WinitSettings},
 };
-use rand::{seq::SliceRandom, Rng, SeedableRng};
+use rand::{seq::IndexedRandom, Rng, SeedableRng};
 use rand_chacha::ChaCha8Rng;
 
 const BIRDS_PER_SECOND: u32 = 10000;
@@ -142,7 +140,7 @@ fn main() {
                 }),
                 ..default()
             }),
-            FrameTimeDiagnosticsPlugin,
+            FrameTimeDiagnosticsPlugin::default(),
             LogDiagnosticsPlugin::default(),
         ))
         .insert_resource(WinitSettings {
@@ -180,13 +178,11 @@ struct BirdScheduled {
 fn scheduled_spawner(
     mut commands: Commands,
     args: Res<Args>,
-    windows: Query<&Window>,
+    window: Single<&Window>,
     mut scheduled: ResMut<BirdScheduled>,
     mut counter: ResMut<BevyCounter>,
     bird_resources: ResMut<BirdResources>,
 ) {
-    let window = windows.single();
-
     if scheduled.waves > 0 {
         let bird_resources = bird_resources.into_inner();
         spawn_birds(
@@ -208,7 +204,7 @@ fn scheduled_spawner(
 struct BirdResources {
     textures: Vec<Handle<Image>>,
     materials: Vec<Handle<ColorMaterial>>,
-    quad: Mesh2dHandle,
+    quad: Handle<Mesh>,
     color_rng: ChaCha8Rng,
     material_rng: ChaCha8Rng,
     velocity_rng: ChaCha8Rng,
@@ -218,7 +214,6 @@ struct BirdResources {
 #[derive(Component)]
 struct StatsText;
 
-#[allow(clippy::too_many_arguments)]
 fn setup(
     mut commands: Commands,
     args: Res<Args>,
@@ -226,7 +221,7 @@ fn setup(
     mut meshes: ResMut<Assets<Mesh>>,
     material_assets: ResMut<Assets<ColorMaterial>>,
     images: ResMut<Assets<Image>>,
-    windows: Query<&Window>,
+    window: Single<&Window>,
     counter: ResMut<BevyCounter>,
 ) {
     warn!(include_str!("warning_string.txt"));
@@ -246,9 +241,7 @@ fn setup(
     let mut bird_resources = BirdResources {
         textures,
         materials,
-        quad: meshes
-            .add(Rectangle::from_size(Vec2::splat(BIRD_TEXTURE_SIZE as f32)))
-            .into(),
+        quad: meshes.add(Rectangle::from_size(Vec2::splat(BIRD_TEXTURE_SIZE as f32))),
         // We're seeding the PRNG here to make this example deterministic for testing purposes.
         // This isn't strictly required in practical use unless you need your app to be deterministic.
         color_rng: ChaCha8Rng::seed_from_u64(42),
@@ -257,43 +250,49 @@ fn setup(
         transform_rng: ChaCha8Rng::seed_from_u64(42),
     };
 
-    let text_section = move |color: Srgba, value: &str| {
-        TextSection::new(
-            value,
-            TextStyle {
-                font_size: 40.0,
-                color: color.into(),
-                ..default()
-            },
-        )
+    let font = TextFont {
+        font_size: 40.0,
+        ..Default::default()
     };
 
-    commands.spawn(Camera2dBundle::default());
+    commands.spawn(Camera2d);
     commands
-        .spawn(NodeBundle {
-            style: Style {
+        .spawn((
+            Node {
                 position_type: PositionType::Absolute,
                 padding: UiRect::all(Val::Px(5.0)),
                 ..default()
             },
-            z_index: ZIndex::Global(i32::MAX),
-            background_color: Color::BLACK.with_alpha(0.75).into(),
-            ..default()
-        })
-        .with_children(|c| {
-            c.spawn((
-                TextBundle::from_sections([
-                    text_section(LIME, "Bird Count: "),
-                    text_section(AQUA, ""),
-                    text_section(LIME, "\nFPS (raw): "),
-                    text_section(AQUA, ""),
-                    text_section(LIME, "\nFPS (SMA): "),
-                    text_section(AQUA, ""),
-                    text_section(LIME, "\nFPS (EMA): "),
-                    text_section(AQUA, ""),
-                ]),
-                StatsText,
-            ));
+            BackgroundColor(Color::BLACK.with_alpha(0.75)),
+            GlobalZIndex(i32::MAX),
+        ))
+        .with_children(|p| {
+            p.spawn((Text::default(), StatsText)).with_children(|p| {
+                p.spawn((
+                    TextSpan::new("Bird Count: "),
+                    font.clone(),
+                    TextColor(LIME.into()),
+                ));
+                p.spawn((TextSpan::new(""), font.clone(), TextColor(AQUA.into())));
+                p.spawn((
+                    TextSpan::new("\nFPS (raw): "),
+                    font.clone(),
+                    TextColor(LIME.into()),
+                ));
+                p.spawn((TextSpan::new(""), font.clone(), TextColor(AQUA.into())));
+                p.spawn((
+                    TextSpan::new("\nFPS (SMA): "),
+                    font.clone(),
+                    TextColor(LIME.into()),
+                ));
+                p.spawn((TextSpan::new(""), font.clone(), TextColor(AQUA.into())));
+                p.spawn((
+                    TextSpan::new("\nFPS (EMA): "),
+                    font.clone(),
+                    TextColor(LIME.into()),
+                ));
+                p.spawn((TextSpan::new(""), font.clone(), TextColor(AQUA.into())));
+            });
         });
 
     let mut scheduled = BirdScheduled {
@@ -307,7 +306,7 @@ fn setup(
             spawn_birds(
                 &mut commands,
                 args,
-                &windows.single().resolution,
+                &window.resolution,
                 counter,
                 scheduled.per_wave,
                 &mut bird_resources,
@@ -321,32 +320,34 @@ fn setup(
     commands.insert_resource(scheduled);
 }
 
-#[allow(clippy::too_many_arguments)]
 fn mouse_handler(
     mut commands: Commands,
     args: Res<Args>,
     time: Res<Time>,
     mouse_button_input: Res<ButtonInput<MouseButton>>,
-    windows: Query<&Window>,
+    window: Query<&Window>,
     bird_resources: ResMut<BirdResources>,
     mut counter: ResMut<BevyCounter>,
     mut rng: Local<Option<ChaCha8Rng>>,
     mut wave: Local<usize>,
 ) {
+    let Ok(window) = window.single() else {
+        return;
+    };
+
     if rng.is_none() {
         // We're seeding the PRNG here to make this example deterministic for testing purposes.
         // This isn't strictly required in practical use unless you need your app to be deterministic.
         *rng = Some(ChaCha8Rng::seed_from_u64(42));
     }
     let rng = rng.as_mut().unwrap();
-    let window = windows.single();
 
     if mouse_button_input.just_released(MouseButton::Left) {
-        counter.color = Color::linear_rgb(rng.gen(), rng.gen(), rng.gen());
+        counter.color = Color::linear_rgb(rng.random(), rng.random(), rng.random());
     }
 
     if mouse_button_input.pressed(MouseButton::Left) {
-        let spawn_count = (BIRDS_PER_SECOND as f64 * time.delta_seconds_f64()) as usize;
+        let spawn_count = (BIRDS_PER_SECOND as f64 * time.delta_secs_f64()) as usize;
         spawn_birds(
             &mut commands,
             args.into_inner(),
@@ -368,7 +369,7 @@ fn bird_velocity_transform(
     waves: Option<usize>,
     dt: f32,
 ) -> (Transform, Vec3) {
-    let mut velocity = Vec3::new(MAX_VELOCITY * (velocity_rng.gen::<f32>() - 0.5), 0., 0.);
+    let mut velocity = Vec3::new(MAX_VELOCITY * (velocity_rng.random::<f32>() - 0.5), 0., 0.);
 
     if let Some(waves) = waves {
         // Step the movement and handle collisions as if the wave had been spawned at fixed time intervals
@@ -386,7 +387,6 @@ fn bird_velocity_transform(
 
 const FIXED_DELTA_TIME: f32 = 1.0 / 60.0;
 
-#[allow(clippy::too_many_arguments)]
 fn spawn_birds(
     commands: &mut Commands,
     args: &Args,
@@ -412,7 +412,7 @@ fn spawn_birds(
                     let bird_z = if args.ordered_z {
                         (current_count + count) as f32 * 0.00001
                     } else {
-                        bird_resources.transform_rng.gen::<f32>()
+                        bird_resources.transform_rng.random::<f32>()
                     };
 
                     let (transform, velocity) = bird_velocity_transform(
@@ -425,24 +425,24 @@ fn spawn_birds(
 
                     let color = if args.vary_per_instance {
                         Color::linear_rgb(
-                            bird_resources.color_rng.gen(),
-                            bird_resources.color_rng.gen(),
-                            bird_resources.color_rng.gen(),
+                            bird_resources.color_rng.random(),
+                            bird_resources.color_rng.random(),
+                            bird_resources.color_rng.random(),
                         )
                     } else {
                         color
                     };
                     (
-                        SpriteBundle {
-                            texture: bird_resources
+                        Sprite {
+                            image: bird_resources
                                 .textures
                                 .choose(&mut bird_resources.material_rng)
                                 .unwrap()
                                 .clone(),
-                            transform,
-                            sprite: Sprite { color, ..default() },
+                            color,
                             ..default()
                         },
+                        transform,
                         Bird { velocity },
                     )
                 })
@@ -455,7 +455,7 @@ fn spawn_birds(
                     let bird_z = if args.ordered_z {
                         (current_count + count) as f32 * 0.00001
                     } else {
-                        bird_resources.transform_rng.gen::<f32>()
+                        bird_resources.transform_rng.random::<f32>()
                     };
 
                     let (transform, velocity) = bird_velocity_transform(
@@ -477,12 +477,9 @@ fn spawn_birds(
                             bird_resources.materials[wave % bird_resources.materials.len()].clone()
                         };
                     (
-                        MaterialMesh2dBundle {
-                            mesh: bird_resources.quad.clone(),
-                            material,
-                            transform,
-                            ..default()
-                        },
+                        Mesh2d(bird_resources.quad.clone()),
+                        MeshMaterial2d(material),
+                        transform,
                         Bird { velocity },
                     )
                 })
@@ -493,9 +490,9 @@ fn spawn_birds(
 
     counter.count += spawn_count;
     counter.color = Color::linear_rgb(
-        bird_resources.color_rng.gen(),
-        bird_resources.color_rng.gen(),
-        bird_resources.color_rng.gen(),
+        bird_resources.color_rng.random(),
+        bird_resources.color_rng.random(),
+        bird_resources.color_rng.random(),
     );
 }
 
@@ -513,7 +510,7 @@ fn movement_system(
     let dt = if args.benchmark {
         FIXED_DELTA_TIME
     } else {
-        time.delta_seconds()
+        time.delta_secs()
     };
     for (mut bird, mut transform) in &mut bird_query {
         step_movement(&mut transform.translation, &mut bird.velocity, dt);
@@ -534,8 +531,10 @@ fn handle_collision(half_extents: Vec2, translation: &Vec3, velocity: &mut Vec3)
         velocity.y = 0.0;
     }
 }
-fn collision_system(windows: Query<&Window>, mut bird_query: Query<(&mut Bird, &Transform)>) {
-    let window = windows.single();
+fn collision_system(window: Query<&Window>, mut bird_query: Query<(&mut Bird, &Transform)>) {
+    let Ok(window) = window.single() else {
+        return;
+    };
 
     let half_extents = 0.5 * window.size();
 
@@ -547,23 +546,24 @@ fn collision_system(windows: Query<&Window>, mut bird_query: Query<(&mut Bird, &
 fn counter_system(
     diagnostics: Res<DiagnosticsStore>,
     counter: Res<BevyCounter>,
-    mut query: Query<&mut Text, With<StatsText>>,
+    query: Single<Entity, With<StatsText>>,
+    mut writer: TextUiWriter,
 ) {
-    let mut text = query.single_mut();
+    let text = *query;
 
     if counter.is_changed() {
-        text.sections[1].value = counter.count.to_string();
+        *writer.text(text, 2) = counter.count.to_string();
     }
 
     if let Some(fps) = diagnostics.get(&FrameTimeDiagnosticsPlugin::FPS) {
         if let Some(raw) = fps.value() {
-            text.sections[3].value = format!("{raw:.2}");
+            *writer.text(text, 4) = format!("{raw:.2}");
         }
         if let Some(sma) = fps.average() {
-            text.sections[5].value = format!("{sma:.2}");
+            *writer.text(text, 6) = format!("{sma:.2}");
         }
         if let Some(ema) = fps.smoothed() {
-            text.sections[7].value = format!("{ema:.2}");
+            *writer.text(text, 8) = format!("{ema:.2}");
         }
     };
 }
@@ -573,7 +573,12 @@ fn init_textures(textures: &mut Vec<Handle<Image>>, args: &Args, images: &mut As
     // This isn't strictly required in practical use unless you need your app to be deterministic.
     let mut color_rng = ChaCha8Rng::seed_from_u64(42);
     while textures.len() < args.material_texture_count {
-        let pixel = [color_rng.gen(), color_rng.gen(), color_rng.gen(), 255];
+        let pixel = [
+            color_rng.random(),
+            color_rng.random(),
+            color_rng.random(),
+            255,
+        ];
         textures.push(images.add(Image::new_fill(
             Extent3d {
                 width: BIRD_TEXTURE_SIZE as u32,
@@ -611,6 +616,7 @@ fn init_materials(
         color: Color::WHITE,
         texture: textures.first().cloned(),
         alpha_mode,
+        ..default()
     }));
 
     // We're seeding the PRNG here to make this example deterministic for testing purposes.
@@ -620,9 +626,10 @@ fn init_materials(
     materials.extend(
         std::iter::repeat_with(|| {
             assets.add(ColorMaterial {
-                color: Color::srgb_u8(color_rng.gen(), color_rng.gen(), color_rng.gen()),
+                color: Color::srgb_u8(color_rng.random(), color_rng.random(), color_rng.random()),
                 texture: textures.choose(&mut texture_rng).cloned(),
                 alpha_mode,
+                ..default()
             })
         })
         .take(capacity - materials.len()),

@@ -3,7 +3,7 @@
 
 use std::fmt;
 
-use bevy::{prelude::*, render::texture::ImageLoaderSettings};
+use bevy::{image::ImageLoaderSettings, math::ops, prelude::*};
 
 fn main() {
     App::new()
@@ -53,6 +53,7 @@ impl Default for CurrentMethod {
         CurrentMethod(ParallaxMappingMethod::Relief { max_steps: 4 })
     }
 }
+
 impl fmt::Display for CurrentMethod {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self.0 {
@@ -63,6 +64,7 @@ impl fmt::Display for CurrentMethod {
         }
     }
 }
+
 impl CurrentMethod {
     fn next_method(&mut self) {
         use ParallaxMappingMethod::*;
@@ -80,7 +82,8 @@ fn update_parallax_depth_scale(
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut target_depth: Local<TargetDepth>,
     mut depth_update: Local<bool>,
-    mut text: Query<&mut Text>,
+    mut writer: TextUiWriter,
+    text: Single<Entity, With<Text>>,
 ) {
     if input.just_pressed(KeyCode::Digit1) {
         target_depth.0 -= DEPTH_UPDATE_STEP;
@@ -93,12 +96,11 @@ fn update_parallax_depth_scale(
         *depth_update = true;
     }
     if *depth_update {
-        let mut text = text.single_mut();
         for (_, mat) in materials.iter_mut() {
             let current_depth = mat.parallax_depth_scale;
             let new_depth = current_depth.lerp(target_depth.0, DEPTH_CHANGE_RATE);
             mat.parallax_depth_scale = new_depth;
-            text.sections[0].value = format!("Parallax depth scale: {new_depth:.5}\n");
+            *writer.text(*text, 1) = format!("Parallax depth scale: {new_depth:.5}\n");
             if (new_depth - current_depth).abs() <= 0.000000001 {
                 *depth_update = false;
             }
@@ -109,7 +111,8 @@ fn update_parallax_depth_scale(
 fn switch_method(
     input: Res<ButtonInput<KeyCode>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
-    mut text: Query<&mut Text>,
+    text: Single<Entity, With<Text>>,
+    mut writer: TextUiWriter,
     mut current: Local<CurrentMethod>,
 ) {
     if input.just_pressed(KeyCode::Space) {
@@ -117,8 +120,8 @@ fn switch_method(
     } else {
         return;
     }
-    let mut text = text.single_mut();
-    text.sections[2].value = format!("Method: {}\n", *current);
+    let text_entity = *text;
+    *writer.text(text_entity, 3) = format!("Method: {}\n", *current);
 
     for (_, mat) in materials.iter_mut() {
         mat.parallax_mapping_method = current.0;
@@ -129,7 +132,8 @@ fn update_parallax_layers(
     input: Res<ButtonInput<KeyCode>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut target_layers: Local<TargetLayers>,
-    mut text: Query<&mut Text>,
+    text: Single<Entity, With<Text>>,
+    mut writer: TextUiWriter,
 ) {
     if input.just_pressed(KeyCode::Digit3) {
         target_layers.0 -= 1.0;
@@ -139,9 +143,9 @@ fn update_parallax_layers(
     } else {
         return;
     }
-    let layer_count = target_layers.0.exp2();
-    let mut text = text.single_mut();
-    text.sections[1].value = format!("Layers: {layer_count:.0}\n");
+    let layer_count = ops::exp2(target_layers.0);
+    let text_entity = *text;
+    *writer.text(text_entity, 2) = format!("Layers: {layer_count:.0}\n");
 
     for (_, mat) in materials.iter_mut() {
         mat.max_parallax_layer_count = layer_count;
@@ -150,9 +154,9 @@ fn update_parallax_layers(
 
 fn spin(time: Res<Time>, mut query: Query<(&mut Transform, &Spin)>) {
     for (mut transform, spin) in query.iter_mut() {
-        transform.rotate_local_y(spin.speed * time.delta_seconds());
-        transform.rotate_local_x(spin.speed * time.delta_seconds());
-        transform.rotate_local_z(-spin.speed * time.delta_seconds());
+        transform.rotate_local_y(spin.speed * time.delta_secs());
+        transform.rotate_local_x(spin.speed * time.delta_secs());
+        transform.rotate_local_z(-spin.speed * time.delta_secs());
     }
 }
 
@@ -181,11 +185,10 @@ const CAMERA_POSITIONS: &[Transform] = &[
 ];
 
 fn move_camera(
-    mut camera: Query<&mut Transform, With<CameraController>>,
+    mut camera: Single<&mut Transform, With<CameraController>>,
     mut current_view: Local<usize>,
     button: Res<ButtonInput<MouseButton>>,
 ) {
-    let mut camera = camera.single_mut();
     if button.just_pressed(MouseButton::Left) {
         *current_view = (*current_view + 1) % CAMERA_POSITIONS.len();
     }
@@ -212,51 +215,47 @@ fn setup(
 
     // Camera
     commands.spawn((
-        Camera3dBundle {
-            transform: Transform::from_xyz(1.5, 1.5, 1.5).looking_at(Vec3::ZERO, Vec3::Y),
-            ..default()
-        },
+        Camera3d::default(),
+        Transform::from_xyz(1.5, 1.5, 1.5).looking_at(Vec3::ZERO, Vec3::Y),
         CameraController,
     ));
 
     // light
     commands
-        .spawn(PointLightBundle {
-            transform: Transform::from_xyz(2.0, 1.0, -1.1),
-            point_light: PointLight {
+        .spawn((
+            PointLight {
                 shadows_enabled: true,
                 ..default()
             },
-            ..default()
-        })
+            Transform::from_xyz(2.0, 1.0, -1.1),
+        ))
         .with_children(|commands| {
             // represent the light source as a sphere
             let mesh = meshes.add(Sphere::new(0.05).mesh().ico(3).unwrap());
-            commands.spawn(PbrBundle { mesh, ..default() });
+            commands.spawn((Mesh3d(mesh), MeshMaterial3d(materials.add(Color::WHITE))));
         });
 
     // Plane
-    commands.spawn(PbrBundle {
-        mesh: meshes.add(Plane3d::default().mesh().size(10.0, 10.0)),
-        material: materials.add(StandardMaterial {
+    commands.spawn((
+        Mesh3d(meshes.add(Plane3d::default().mesh().size(10.0, 10.0))),
+        MeshMaterial3d(materials.add(StandardMaterial {
             // standard material derived from dark green, but
             // with roughness and reflectance set.
             perceptual_roughness: 0.45,
             reflectance: 0.18,
             ..Color::srgb_u8(0, 80, 0).into()
-        }),
-        transform: Transform::from_xyz(0.0, -1.0, 0.0),
-        ..default()
-    });
+        })),
+        Transform::from_xyz(0.0, -1.0, 0.0),
+    ));
 
     let parallax_depth_scale = TargetDepth::default().0;
-    let max_parallax_layer_count = TargetLayers::default().0.exp2();
+    let max_parallax_layer_count = ops::exp2(TargetLayers::default().0);
     let parallax_mapping_method = CurrentMethod::default();
     let parallax_material = materials.add(StandardMaterial {
         perceptual_roughness: 0.4,
         base_color_texture: Some(asset_server.load("textures/parallax_example/cube_color.png")),
         normal_map_texture: Some(normal_handle),
-        // The depth map is a greyscale texture where black is the highest level and
+        // The depth map is a grayscale texture where black is the highest level and
         // white the lowest.
         depth_map: Some(asset_server.load("textures/parallax_example/cube_depth.png")),
         parallax_depth_scale,
@@ -265,17 +264,16 @@ fn setup(
         ..default()
     });
     commands.spawn((
-        PbrBundle {
-            mesh: meshes.add(
+        Mesh3d(
+            meshes.add(
                 // NOTE: for normal maps and depth maps to work, the mesh
                 // needs tangents generated.
                 Mesh::from(Cuboid::default())
                     .with_generated_tangents()
                     .unwrap(),
             ),
-            material: parallax_material.clone_weak(),
-            ..default()
-        },
+        ),
+        MeshMaterial3d(parallax_material.clone()),
         Spin { speed: 0.3 },
     ));
 
@@ -287,12 +285,9 @@ fn setup(
 
     let background_cube_bundle = |translation| {
         (
-            PbrBundle {
-                transform: Transform::from_translation(translation),
-                mesh: background_cube.clone(),
-                material: parallax_material.clone(),
-                ..default()
-            },
+            Mesh3d(background_cube.clone()),
+            MeshMaterial3d(parallax_material.clone()),
+            Transform::from_translation(translation),
             Spin { speed: -0.1 },
         )
     };
@@ -301,35 +296,30 @@ fn setup(
     commands.spawn(background_cube_bundle(Vec3::new(0., 0., 45.)));
     commands.spawn(background_cube_bundle(Vec3::new(0., 0., -45.)));
 
-    let style = TextStyle::default();
-
     // example instructions
-    commands.spawn(
-        TextBundle::from_sections(vec![
-            TextSection::new(
-                format!("Parallax depth scale: {parallax_depth_scale:.5}\n"),
-                style.clone(),
-            ),
-            TextSection::new(
-                format!("Layers: {max_parallax_layer_count:.0}\n"),
-                style.clone(),
-            ),
-            TextSection::new(format!("{parallax_mapping_method}\n"), style.clone()),
-            TextSection::new("\n\n", style.clone()),
-            TextSection::new("Controls:\n", style.clone()),
-            TextSection::new("Left click - Change view angle\n", style.clone()),
-            TextSection::new(
+    commands
+        .spawn((
+            Text::default(),
+            Node {
+                position_type: PositionType::Absolute,
+                top: Val::Px(12.0),
+                left: Val::Px(12.0),
+                ..default()
+            },
+        ))
+        .with_children(|p| {
+            p.spawn(TextSpan(format!(
+                "Parallax depth scale: {parallax_depth_scale:.5}\n"
+            )));
+            p.spawn(TextSpan(format!("Layers: {max_parallax_layer_count:.0}\n")));
+            p.spawn(TextSpan(format!("{parallax_mapping_method}\n")));
+            p.spawn(TextSpan::new("\n\n"));
+            p.spawn(TextSpan::new("Controls:\n"));
+            p.spawn(TextSpan::new("Left click - Change view angle\n"));
+            p.spawn(TextSpan::new(
                 "1/2 - Decrease/Increase parallax depth scale\n",
-                style.clone(),
-            ),
-            TextSection::new("3/4 - Decrease/Increase layer count\n", style.clone()),
-            TextSection::new("Space - Switch parallaxing algorithm\n", style),
-        ])
-        .with_style(Style {
-            position_type: PositionType::Absolute,
-            top: Val::Px(12.0),
-            left: Val::Px(12.0),
-            ..default()
-        }),
-    );
+            ));
+            p.spawn(TextSpan::new("3/4 - Decrease/Increase layer count\n"));
+            p.spawn(TextSpan::new("Space - Switch parallaxing algorithm\n"));
+        });
 }

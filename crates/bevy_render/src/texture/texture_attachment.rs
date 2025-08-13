@@ -1,10 +1,8 @@
 use super::CachedTexture;
 use crate::render_resource::{TextureFormat, TextureView};
+use alloc::sync::Arc;
 use bevy_color::LinearRgba;
-use std::sync::{
-    atomic::{AtomicBool, Ordering},
-    Arc,
-};
+use core::sync::atomic::{AtomicBool, Ordering};
 use wgpu::{
     LoadOp, Operations, RenderPassColorAttachment, RenderPassDepthStencilAttachment, StoreOp,
 };
@@ -36,12 +34,13 @@ impl ColorAttachment {
     /// `clear_color` if this is the first time calling this function, otherwise it will be loaded.
     ///
     /// The returned attachment will always have writing enabled (`store: StoreOp::Load`).
-    pub fn get_attachment(&self) -> RenderPassColorAttachment {
+    pub fn get_attachment(&self) -> RenderPassColorAttachment<'_> {
         if let Some(resolve_target) = self.resolve_target.as_ref() {
             let first_call = self.is_first_call.fetch_and(false, Ordering::SeqCst);
 
             RenderPassColorAttachment {
                 view: &resolve_target.default_view,
+                depth_slice: None,
                 resolve_target: Some(&self.texture.default_view),
                 ops: Operations {
                     load: match (self.clear_color, first_call) {
@@ -60,11 +59,12 @@ impl ColorAttachment {
     /// a value of `clear_color` if this is the first time calling this function, otherwise it will be loaded.
     ///
     /// The returned attachment will always have writing enabled (`store: StoreOp::Load`).
-    pub fn get_unsampled_attachment(&self) -> RenderPassColorAttachment {
+    pub fn get_unsampled_attachment(&self) -> RenderPassColorAttachment<'_> {
         let first_call = self.is_first_call.fetch_and(false, Ordering::SeqCst);
 
         RenderPassColorAttachment {
             view: &self.texture.default_view,
+            depth_slice: None,
             resolve_target: None,
             ops: Operations {
                 load: match (self.clear_color, first_call) {
@@ -82,6 +82,7 @@ impl ColorAttachment {
 }
 
 /// A wrapper for a [`TextureView`] that is used as a depth-only [`RenderPassDepthStencilAttachment`].
+#[derive(Clone)]
 pub struct DepthAttachment {
     pub view: TextureView,
     clear_value: Option<f32>,
@@ -100,7 +101,7 @@ impl DepthAttachment {
     /// Get this texture view as an attachment. The attachment will be cleared with a value of
     /// `clear_value` if this is the first time calling this function with `store` == [`StoreOp::Store`],
     /// and a clear value was provided, otherwise it will be loaded.
-    pub fn get_attachment(&self, store: StoreOp) -> RenderPassDepthStencilAttachment {
+    pub fn get_attachment(&self, store: StoreOp) -> RenderPassDepthStencilAttachment<'_> {
         let first_call = self
             .is_first_call
             .fetch_and(store != StoreOp::Store, Ordering::SeqCst);
@@ -142,11 +143,12 @@ impl OutputColorAttachment {
     /// Get this texture view as an attachment. The attachment will be cleared with a value of
     /// the provided `clear_color` if this is the first time calling this function, otherwise it
     /// will be loaded.
-    pub fn get_attachment(&self, clear_color: Option<LinearRgba>) -> RenderPassColorAttachment {
+    pub fn get_attachment(&self, clear_color: Option<LinearRgba>) -> RenderPassColorAttachment<'_> {
         let first_call = self.is_first_call.fetch_and(false, Ordering::SeqCst);
 
         RenderPassColorAttachment {
             view: &self.view,
+            depth_slice: None,
             resolve_target: None,
             ops: Operations {
                 load: match (clear_color, first_call) {

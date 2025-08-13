@@ -16,7 +16,7 @@ struct CustomAssetReader(Box<dyn ErasedAssetReader>);
 
 impl AssetReader for CustomAssetReader {
     async fn read<'a>(&'a self, path: &'a Path) -> Result<impl Reader + 'a, AssetReaderError> {
-        info!("Reading {:?}", path);
+        info!("Reading {}", path.display());
         self.0.read(path).await
     }
     async fn read_meta<'a>(&'a self, path: &'a Path) -> Result<impl Reader + 'a, AssetReaderError> {
@@ -60,9 +60,6 @@ fn main() {
 }
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
-    commands.spawn(Camera2dBundle::default());
-    commands.spawn(SpriteBundle {
-        texture: asset_server.load("branding/icon.png"),
-        ..default()
-    });
+    commands.spawn(Camera2d);
+    commands.spawn(Sprite::from_image(asset_server.load("branding/icon.png")));
 }

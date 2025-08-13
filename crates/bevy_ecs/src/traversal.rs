@@ -1,43 +1,49 @@
 //! A trait for components that let you traverse the ECS.
 
 use crate::{
-    component::{Component, StorageType},
     entity::Entity,
+    query::{ReadOnlyQueryData, ReleaseStateQueryData},
+    relationship::Relationship,
 };
 
 /// A component that can point to another entity, and which can be used to define a path through the ECS.
 ///
-/// Traversals are used to [specify the direction] of [event propagation] in [observers]. By default,
-/// events use the [`TraverseNone`] placeholder component, which cannot actually be created or added to
-/// an entity and so never causes traversal.
+/// Traversals are used to [specify the direction] of [event propagation] in [observers].
+/// The default query is `()`.
 ///
 /// Infinite loops are possible, and are not checked for. While looping can be desirable in some contexts
 /// (for example, an observer that triggers itself multiple times before stopping), following an infinite
-/// traversal loop without an eventual exit will can your application to hang. Each implementer of `Traversal`
-/// for documenting possible looping behavior, and consumers of those implementations are responsible for
+/// traversal loop without an eventual exit will cause your application to hang. Each implementer of `Traversal`
+/// is responsible for documenting possible looping behavior, and consumers of those implementations are responsible for
 /// avoiding infinite loops in their code.
 ///
-/// [specify the direction]: crate::event::Event::Traversal
-/// [event propagation]: crate::observer::Trigger::propagate
+/// Traversals may be parameterized with additional data. For example, in observer event propagation, the
+/// parameter `D` is the event type given in `On<E>`. This allows traversal to differ depending on event
+/// data.
+///
+/// [specify the direction]: crate::event::EntityEvent::Traversal
+/// [event propagation]: crate::observer::On::propagate
 /// [observers]: crate::observer::Observer
-pub trait Traversal: Component {
+pub trait Traversal<D: ?Sized>: ReadOnlyQueryData + ReleaseStateQueryData {
     /// Returns the next entity to visit.
-    fn traverse(&self) -> Option<Entity>;
+    fn traverse(item: Self::Item<'_, '_>, data: &D) -> Option<Entity>;
 }
 
-/// A traversal component that doesn't traverse anything. Used to provide a default traversal
-/// implementation for events.
-///
-/// It is not possible to actually construct an instance of this component.
-pub enum TraverseNone {}
-
-impl Traversal for TraverseNone {
-    #[inline(always)]
-    fn traverse(&self) -> Option<Entity> {
+impl<D> Traversal<D> for () {
+    fn traverse(_: Self::Item<'_, '_>, _data: &D) -> Option<Entity> {
         None
     }
 }
 
-impl Component for TraverseNone {
-    const STORAGE_TYPE: StorageType = StorageType::Table;
+/// This provides generalized hierarchy traversal for use in [event propagation].
+///
+/// # Warning
+///
+/// Traversing in a loop could result in infinite loops for relationship graphs with loops.
+///
+/// [event propagation]: crate::observer::On::propagate
+impl<R: Relationship, D> Traversal<D> for &R {
+    fn traverse(item: Self::Item<'_, '_>, _data: &D) -> Option<Entity> {
+        Some(item.get())
+    }
 }

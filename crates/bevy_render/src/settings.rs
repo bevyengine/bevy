@@ -1,12 +1,13 @@
 use crate::renderer::{
     RenderAdapter, RenderAdapterInfo, RenderDevice, RenderInstance, RenderQueue,
 };
-use std::borrow::Cow;
+use alloc::borrow::Cow;
 
 pub use wgpu::{
     Backends, Dx12Compiler, Features as WgpuFeatures, Gles3MinorVersion, InstanceFlags,
     Limits as WgpuLimits, MemoryHints, PowerPreference,
 };
+use wgpu::{DxcShaderModel, MemoryBudgetThresholds};
 
 /// Configures the priority used when automatically configuring the features/limits of `wgpu`.
 #[derive(Clone)]
@@ -52,6 +53,12 @@ pub struct WgpuSettings {
     pub instance_flags: InstanceFlags,
     /// This hints to the WGPU device about the preferred memory allocation strategy.
     pub memory_hints: MemoryHints,
+    /// The thresholds for device memory budget.
+    pub instance_memory_budget_thresholds: MemoryBudgetThresholds,
+    /// If true, will force wgpu to use a software renderer, if available.
+    pub force_fallback_adapter: bool,
+    /// The name of the adapter to use.
+    pub adapter_name: Option<String>,
 }
 
 impl Default for WgpuSettings {
@@ -68,10 +75,10 @@ impl Default for WgpuSettings {
             Backends::all()
         };
 
-        let backends = Some(wgpu::util::backend_bits_from_env().unwrap_or(default_backends));
+        let backends = Some(Backends::from_env().unwrap_or(default_backends));
 
         let power_preference =
-            wgpu::util::power_preference_from_env().unwrap_or(PowerPreference::HighPerformance);
+            PowerPreference::from_env().unwrap_or(PowerPreference::HighPerformance);
 
         let priority = settings_priority_from_env().unwrap_or(WgpuSettingsPriority::Functionality);
 
@@ -83,7 +90,11 @@ impl Default for WgpuSettings {
         {
             wgpu::Limits::downlevel_webgl2_defaults()
         } else {
-            #[allow(unused_mut)]
+            #[expect(clippy::allow_attributes, reason = "`unused_mut` is not always linted")]
+            #[allow(
+                unused_mut,
+                reason = "This variable needs to be mutable if the `ci_limits` feature is enabled"
+            )]
             let mut limits = wgpu::Limits::default();
             #[cfg(feature = "ci_limits")]
             {
@@ -93,13 +104,23 @@ impl Default for WgpuSettings {
             limits
         };
 
-        let dx12_compiler =
-            wgpu::util::dx12_shader_compiler_from_env().unwrap_or(Dx12Compiler::Dxc {
-                dxil_path: None,
-                dxc_path: None,
+        let dx12_shader_compiler =
+            Dx12Compiler::from_env().unwrap_or(if cfg!(feature = "statically-linked-dxc") {
+                Dx12Compiler::StaticDxc
+            } else {
+                let dxc = "dxcompiler.dll";
+
+                if cfg!(target_os = "windows") && std::fs::metadata(dxc).is_ok() {
+                    Dx12Compiler::DynamicDxc {
+                        dxc_path: String::from(dxc),
+                        max_shader_model: DxcShaderModel::V6_7,
+                    }
+                } else {
+                    Dx12Compiler::Fxc
+                }
             });
 
-        let gles3_minor_version = wgpu::util::gles_minor_version_from_env().unwrap_or_default();
+        let gles3_minor_version = Gles3MinorVersion::from_env().unwrap_or_default();
 
         let instance_flags = InstanceFlags::default().with_env();
 
@@ -112,24 +133,34 @@ impl Default for WgpuSettings {
             disabled_features: None,
             limits,
             constrained_limits: None,
-            dx12_shader_compiler: dx12_compiler,
+            dx12_shader_compiler,
             gles3_minor_version,
             instance_flags,
             memory_hints: MemoryHints::default(),
+            instance_memory_budget_thresholds: MemoryBudgetThresholds::default(),
+            force_fallback_adapter: false,
+            adapter_name: None,
         }
     }
 }
 
+#[derive(Clone)]
+pub struct RenderResources(
+    pub RenderDevice,
+    pub RenderQueue,
+    pub RenderAdapterInfo,
+    pub RenderAdapter,
+    pub RenderInstance,
+);
+
 /// An enum describing how the renderer will initialize resources. This is used when creating the [`RenderPlugin`](crate::RenderPlugin).
+#[expect(
+    clippy::large_enum_variant,
+    reason = "See https://github.com/bevyengine/bevy/issues/19220"
+)]
 pub enum RenderCreation {
     /// Allows renderer resource initialization to happen outside of the rendering plugin.
-    Manual(
-        RenderDevice,
-        RenderQueue,
-        RenderAdapterInfo,
-        RenderAdapter,
-        RenderInstance,
-    ),
+    Manual(RenderResources),
     /// Lets the rendering plugin create resources itself.
     Automatic(WgpuSettings),
 }
@@ -143,7 +174,13 @@ impl RenderCreation {
         adapter: RenderAdapter,
         instance: RenderInstance,
     ) -> Self {
-        Self::Manual(device, queue, adapter_info, adapter, instance)
+        RenderResources(device, queue, adapter_info, adapter, instance).into()
+    }
+}
+
+impl From<RenderResources> for RenderCreation {
+    fn from(value: RenderResources) -> Self {
+        Self::Manual(value)
     }
 }
 

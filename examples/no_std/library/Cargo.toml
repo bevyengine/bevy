@@ -1,0 +1,45 @@
+[package]
+name = "no_std_library"
+version = "0.1.0"
+edition = "2024"
+
+# Normally we'd put all dependencies in [dependencies], but this syntax is easier to document
+[dependencies.bevy]
+# In your library you'd use version = "x.y.z", but since this is an example inside the Bevy
+# repository we use a path instead.
+path = "../../../"
+# Since `std` is a default feature, first we disable default features
+default-features = false
+# We're free to enable any features our library needs.
+# Note that certain Bevy features rely on `std`.
+features = [
+  # "bevy_color",
+  # "bevy_state",
+]
+
+[features]
+# `no_std` is relatively niche, so we choose defaults to cater for the majority of our users.
+default = ["std"]
+
+# Below are some features we recommend libraries expose to assist with their usage and their own testing.
+
+# Uses the Rust standard library.
+std = ["bevy/std"]
+
+# Uses `libm` for floating point functions.
+libm = ["bevy/libm"]
+
+# Rely on `critical-section` for synchronization primitives.
+critical-section = ["bevy/critical-section"]
+
+# Enables access to browser APIs in a web context.
+web = ["bevy/web"]
+
+[lints.clippy]
+# These lints are very helpful when working on a library with `no_std` support.
+# They will warn you if you import from `std` when you could've imported from `core` or `alloc`
+# instead.
+# Since `core` and `alloc` are available on any target that has `std`, there is no downside to this.
+std_instead_of_core = "warn"
+std_instead_of_alloc = "warn"
+alloc_instead_of_core = "warn"

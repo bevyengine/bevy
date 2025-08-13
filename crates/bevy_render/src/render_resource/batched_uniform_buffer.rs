@@ -3,12 +3,12 @@ use crate::{
     render_resource::DynamicUniformBuffer,
     renderer::{RenderDevice, RenderQueue},
 };
+use core::{marker::PhantomData, num::NonZero};
 use encase::{
     private::{ArrayMetadata, BufferMut, Metadata, RuntimeSizedArray, WriteInto, Writer},
     ShaderType,
 };
 use nonmax::NonMaxU32;
-use std::{marker::PhantomData, num::NonZeroU64};
 use wgpu::{BindingResource, Limits};
 
 // 1MB else we will make really large arrays on macOS which reports very large
@@ -69,7 +69,7 @@ impl<T: GpuArrayBufferable> BatchedUniformBuffer<T> {
     }
 
     #[inline]
-    pub fn size(&self) -> NonZeroU64 {
+    pub fn size(&self) -> NonZero<u64> {
         self.temp.size()
     }
 
@@ -109,7 +109,7 @@ impl<T: GpuArrayBufferable> BatchedUniformBuffer<T> {
     }
 
     #[inline]
-    pub fn binding(&self) -> Option<BindingResource> {
+    pub fn binding(&self) -> Option<BindingResource<'_>> {
         let mut binding = self.uniforms.binding();
         if let Some(BindingResource::Buffer(binding)) = &mut binding {
             // MaxCapacityArray is runtime-sized so can't use T::min_size()
@@ -121,7 +121,7 @@ impl<T: GpuArrayBufferable> BatchedUniformBuffer<T> {
 
 #[inline]
 fn align_to_next(value: u64, alignment: u64) -> u64 {
-    debug_assert!(alignment & (alignment - 1) == 0);
+    debug_assert!(alignment.is_power_of_two());
     ((value - 1) | (alignment - 1)) + 1
 }
 
@@ -141,7 +141,7 @@ where
 
     const METADATA: Metadata<Self::ExtraMetadata> = T::METADATA;
 
-    fn size(&self) -> NonZeroU64 {
+    fn size(&self) -> NonZero<u64> {
         Self::METADATA.stride().mul(self.1.max(1) as u64).0
     }
 }

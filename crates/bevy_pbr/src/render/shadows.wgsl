@@ -3,12 +3,15 @@
 #import bevy_pbr::{
     mesh_view_types::POINT_LIGHT_FLAGS_SPOT_LIGHT_Y_NEGATIVE,
     mesh_view_bindings as view_bindings,
-    shadow_sampling::{SPOT_SHADOW_TEXEL_SIZE, sample_shadow_cubemap, sample_shadow_map}
+    shadow_sampling::{
+        SPOT_SHADOW_TEXEL_SIZE, sample_shadow_cubemap, sample_shadow_cubemap_pcss,
+        sample_shadow_map, sample_shadow_map_pcss,
+    }
 }
 
 #import bevy_render::{
     color_operations::hsv_to_rgb,
-    maths::PI_2
+    maths::{orthonormalize, PI_2}
 }
 
 const flip_z: vec3<f32> = vec3<f32>(1.0, 1.0, -1.0);
@@ -41,12 +44,30 @@ fn fetch_point_shadow(light_id: u32, frag_position: vec4<f32>, surface_normal: v
     let zw = -major_axis_magnitude * (*light).light_custom_data.xy + (*light).light_custom_data.zw;
     let depth = zw.x / zw.y;
 
-    // Do the lookup, using HW PCF and comparison. Cubemaps assume a left-handed coordinate space,
-    // so we have to flip the z-axis when sampling.
+    // If soft shadows are enabled, use the PCSS path. Cubemaps assume a
+    // left-handed coordinate space, so we have to flip the z-axis when
+    // sampling.
+    if ((*light).soft_shadow_size > 0.0) {
+        return sample_shadow_cubemap_pcss(
+            frag_ls * flip_z,
+            distance_to_light,
+            depth,
+            light_id,
+            (*light).soft_shadow_size,
+        );
+    }
+
+    // Do the lookup, using HW PCF and comparison. Cubemaps assume a left-handed
+    // coordinate space, so we have to flip the z-axis when sampling.
     return sample_shadow_cubemap(frag_ls * flip_z, distance_to_light, depth, light_id);
 }
 
-fn fetch_spot_shadow(light_id: u32, frag_position: vec4<f32>, surface_normal: vec3<f32>) -> f32 {
+fn fetch_spot_shadow(
+    light_id: u32,
+    frag_position: vec4<f32>,
+    surface_normal: vec3<f32>,
+    near_z: f32,
+) -> f32 {
     let light = &view_bindings::clusterable_objects.data[light_id];
 
     let surface_to_light = (*light).position_radius.xyz - frag_position.xyz;
@@ -67,17 +88,7 @@ fn fetch_spot_shadow(light_id: u32, frag_position: vec4<f32>, surface_normal: ve
         + ((*light).shadow_depth_bias * normalize(surface_to_light))
         + (surface_normal.xyz * (*light).shadow_normal_bias) * distance_to_light;
 
-    // the construction of the up and right vectors needs to precisely mirror the code
-    // in render/light.rs:spot_light_view_matrix
-    var sign = -1.0;
-    if (fwd.z >= 0.0) {
-        sign = 1.0;
-    }
-    let a = -1.0 / (fwd.z + sign);
-    let b = fwd.x * fwd.y * a;
-    let up_dir = vec3<f32>(1.0 + sign * fwd.x * fwd.x * a, sign * b, -sign * fwd.x);
-    let right_dir = vec3<f32>(-b, -sign - fwd.y * fwd.y * a, fwd.y);
-    let light_inv_rot = mat3x3<f32>(right_dir, up_dir, fwd);
+    let light_inv_rot = orthonormalize(fwd);
 
     // because the matrix is a pure rotation matrix, the inverse is just the transpose, and to calculate
     // the product of the transpose with a vector we can just post-multiply instead of pre-multiplying.
@@ -91,15 +102,16 @@ fn fetch_spot_shadow(light_id: u32, frag_position: vec4<f32>, surface_normal: ve
     // convert to uv coordinates
     let shadow_uv = shadow_xy_ndc * vec2<f32>(0.5, -0.5) + vec2<f32>(0.5, 0.5);
 
-    // 0.1 must match POINT_LIGHT_NEAR_Z
-    let depth = 0.1 / -projected_position.z;
+    let depth = near_z / -projected_position.z;
 
-    return sample_shadow_map(
-        shadow_uv,
-        depth,
-        i32(light_id) + view_bindings::lights.spot_light_shadowmap_offset,
-        SPOT_SHADOW_TEXEL_SIZE
-    );
+    // If soft shadows are enabled, use the PCSS path.
+    let array_index = i32(light_id) + view_bindings::lights.spot_light_shadowmap_offset;
+    if ((*light).soft_shadow_size > 0.0) {
+        return sample_shadow_map_pcss(
+            shadow_uv, depth, array_index, SPOT_SHADOW_TEXEL_SIZE, (*light).soft_shadow_size);
+    }
+
+    return sample_shadow_map(shadow_uv, depth, array_index, SPOT_SHADOW_TEXEL_SIZE);
 }
 
 fn get_cascade_index(light_id: u32, view_z: f32) -> u32 {
@@ -146,7 +158,12 @@ fn world_to_directional_light_local(
     return vec4(light_local, depth, 1.0);
 }
 
-fn sample_directional_cascade(light_id: u32, cascade_index: u32, frag_position: vec4<f32>, surface_normal: vec3<f32>) -> f32 {
+fn sample_directional_cascade(
+    light_id: u32,
+    cascade_index: u32,
+    frag_position: vec4<f32>,
+    surface_normal: vec3<f32>,
+) -> f32 {
     let light = &view_bindings::lights.directional_lights[light_id];
     let cascade = &(*light).cascades[cascade_index];
 
@@ -161,7 +178,15 @@ fn sample_directional_cascade(light_id: u32, cascade_index: u32, frag_position: 
     }
 
     let array_index = i32((*light).depth_texture_base_index + cascade_index);
-    return sample_shadow_map(light_local.xy, light_local.z, array_index, (*cascade).texel_size);
+    let texel_size = (*cascade).texel_size;
+
+    // If soft shadows are enabled, use the PCSS path.
+    if ((*light).soft_shadow_size > 0.0) {
+        return sample_shadow_map_pcss(
+            light_local.xy, light_local.z, array_index, texel_size, (*light).soft_shadow_size);
+    }
+
+    return sample_shadow_map(light_local.xy, light_local.z, array_index, texel_size);
 }
 
 fn fetch_directional_shadow(light_id: u32, frag_position: vec4<f32>, surface_normal: vec3<f32>, view_z: f32) -> f32 {

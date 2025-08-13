@@ -1,22 +1,20 @@
 //! A module adding debug visualization of [`Aabb`]s.
 
-use crate as bevy_gizmos;
-
 use bevy_app::{Plugin, PostUpdate};
+use bevy_camera::primitives::Aabb;
 use bevy_color::{Color, Oklcha};
 use bevy_ecs::{
     component::Component,
     entity::Entity,
     query::Without,
     reflect::ReflectComponent,
-    schedule::IntoSystemConfigs,
+    schedule::IntoScheduleConfigs,
     system::{Query, Res},
 };
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
-use bevy_render::primitives::Aabb;
 use bevy_transform::{
     components::{GlobalTransform, Transform},
-    TransformSystem,
+    TransformSystems,
 };
 
 use crate::{
@@ -30,22 +28,22 @@ pub struct AabbGizmoPlugin;
 
 impl Plugin for AabbGizmoPlugin {
     fn build(&self, app: &mut bevy_app::App) {
-        app.register_type::<AabbGizmoConfigGroup>()
-            .init_gizmo_group::<AabbGizmoConfigGroup>()
-            .add_systems(
-                PostUpdate,
-                (
-                    draw_aabbs,
-                    draw_all_aabbs.run_if(|config: Res<GizmoConfigStore>| {
-                        config.config::<AabbGizmoConfigGroup>().1.draw_all
-                    }),
-                )
-                    .after(TransformSystem::TransformPropagate),
-            );
+        app.init_gizmo_group::<AabbGizmoConfigGroup>().add_systems(
+            PostUpdate,
+            (
+                draw_aabbs,
+                draw_all_aabbs.run_if(|config: Res<GizmoConfigStore>| {
+                    config.config::<AabbGizmoConfigGroup>().1.draw_all
+                }),
+            )
+                .after(bevy_camera::visibility::VisibilitySystems::CalculateBounds)
+                .after(TransformSystems::Propagate),
+        );
     }
 }
 /// The [`GizmoConfigGroup`] used for debug visualizations of [`Aabb`] components on entities
 #[derive(Clone, Default, Reflect, GizmoConfigGroup)]
+#[reflect(Clone, Default)]
 pub struct AabbGizmoConfigGroup {
     /// Draws all bounding boxes in the scene when set to `true`.
     ///
@@ -63,7 +61,7 @@ pub struct AabbGizmoConfigGroup {
 
 /// Add this [`Component`] to an entity to draw its [`Aabb`] component.
 #[derive(Component, Reflect, Default, Debug)]
-#[reflect(Component, Default)]
+#[reflect(Component, Default, Debug)]
 pub struct ShowAabbGizmo {
     /// The color of the box.
     ///

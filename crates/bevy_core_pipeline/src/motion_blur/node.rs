@@ -1,5 +1,6 @@
 use bevy_ecs::{query::QueryItem, world::World};
 use bevy_render::{
+    diagnostic::RecordDiagnostics,
     extract_component::ComponentUniforms,
     globals::GlobalsBuffer,
     render_graph::{NodeRunError, RenderGraphContext, ViewNode},
@@ -15,7 +16,7 @@ use crate::prepass::ViewPrepassTextures;
 
 use super::{
     pipeline::{MotionBlurPipeline, MotionBlurPipelineId},
-    MotionBlur,
+    MotionBlurUniform,
 };
 
 #[derive(Default)]
@@ -26,23 +27,23 @@ impl ViewNode for MotionBlurNode {
         &'static ViewTarget,
         &'static MotionBlurPipelineId,
         &'static ViewPrepassTextures,
-        &'static MotionBlur,
+        &'static MotionBlurUniform,
         &'static Msaa,
     );
     fn run(
         &self,
         _graph: &mut RenderGraphContext,
         render_context: &mut RenderContext,
-        (view_target, pipeline_id, prepass_textures, settings, msaa): QueryItem<Self::ViewQuery>,
+        (view_target, pipeline_id, prepass_textures, motion_blur, msaa): QueryItem<Self::ViewQuery>,
         world: &World,
     ) -> Result<(), NodeRunError> {
-        if settings.samples == 0 || settings.shutter_angle <= 0.0 {
+        if motion_blur.samples == 0 || motion_blur.shutter_angle <= 0.0 {
             return Ok(()); // We can skip running motion blur in these cases.
         }
 
         let motion_blur_pipeline = world.resource::<MotionBlurPipeline>();
         let pipeline_cache = world.resource::<PipelineCache>();
-        let settings_uniforms = world.resource::<ComponentUniforms<MotionBlur>>();
+        let settings_uniforms = world.resource::<ComponentUniforms<MotionBlurUniform>>();
         let Some(pipeline) = pipeline_cache.get_render_pipeline(pipeline_id.0) else {
             return Ok(());
         };
@@ -58,6 +59,8 @@ impl ViewNode for MotionBlurNode {
         let Some(globals_uniforms) = world.resource::<GlobalsBuffer>().buffer.binding() else {
             return Ok(());
         };
+
+        let diagnostics = render_context.diagnostic_recorder();
 
         let post_process = view_target.post_process_write();
 
@@ -81,9 +84,10 @@ impl ViewNode for MotionBlurNode {
         );
 
         let mut render_pass = render_context.begin_tracked_render_pass(RenderPassDescriptor {
-            label: Some("motion_blur_pass"),
+            label: Some("motion_blur"),
             color_attachments: &[Some(RenderPassColorAttachment {
                 view: post_process.destination,
+                depth_slice: None,
                 resolve_target: None,
                 ops: Operations::default(),
             })],
@@ -91,10 +95,13 @@ impl ViewNode for MotionBlurNode {
             timestamp_writes: None,
             occlusion_query_set: None,
         });
+        let pass_span = diagnostics.pass_span(&mut render_pass, "motion_blur");
 
         render_pass.set_render_pipeline(pipeline);
         render_pass.set_bind_group(0, &bind_group, &[]);
         render_pass.draw(0..3, 0..1);
+
+        pass_span.end(&mut render_pass);
 
         Ok(())
     }

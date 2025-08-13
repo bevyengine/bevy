@@ -1,6 +1,6 @@
-use std::fmt::Debug;
+use core::fmt::Debug;
 
-use std::hash::Hash;
+use core::hash::Hash;
 
 /// Types that can define world-wide states in a finite-state machine.
 ///
@@ -21,8 +21,8 @@ use std::hash::Hash;
 ///
 /// ```
 /// use bevy_state::prelude::*;
-/// use bevy_ecs::prelude::IntoSystemConfigs;
-/// use bevy_ecs::system::ResMut;
+/// use bevy_ecs::prelude::IntoScheduleConfigs;
+/// use bevy_ecs::system::{ResMut, ScheduleSystem};
 ///
 ///
 /// #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, Default, States)]
@@ -46,7 +46,7 @@ use std::hash::Hash;
 ///
 /// # struct AppMock;
 /// # impl AppMock {
-/// #     fn add_systems<S, M>(&mut self, schedule: S, systems: impl IntoSystemConfigs<M>) {}
+/// #     fn add_systems<S, M>(&mut self, schedule: S, systems: impl IntoScheduleConfigs<ScheduleSystem, M>) {}
 /// # }
 /// # struct Update;
 /// # let mut app = AppMock;
@@ -64,4 +64,12 @@ pub trait States: 'static + Send + Sync + Clone + PartialEq + Eq + Hash + Debug 
     /// Used to help order transitions and de-duplicate [`ComputedStates`](crate::state::ComputedStates), as well as prevent cyclical
     /// `ComputedState` dependencies.
     const DEPENDENCY_DEPTH: usize = 1;
+
+    /// Should [state scoping](crate::state_scoped) be enabled for this state?
+    /// If set to `true`, the
+    /// [`DespawnOnEnterState`](crate::state_scoped::DespawnOnEnterState) and
+    /// [`DespawnOnExitState`](crate::state_scoped::DespawnOnEnterState)
+    /// components are used to remove entities when entering or exiting the
+    /// state.
+    const SCOPED_ENTITIES_ENABLED: bool = false;
 }

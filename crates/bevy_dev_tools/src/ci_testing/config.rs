@@ -6,7 +6,7 @@ use serde::Deserialize;
 /// It gets used when the `bevy_ci_testing` feature is enabled to automatically
 /// exit a Bevy app when run through the CI. This is needed because otherwise
 /// Bevy apps would be stuck in the game loop and wouldn't allow the CI to progress.
-#[derive(Deserialize, Resource, PartialEq, Debug)]
+#[derive(Deserialize, Resource, PartialEq, Debug, Default)]
 pub struct CiTestingConfig {
     /// The setup for this test.
     #[serde(default)]
@@ -37,6 +37,12 @@ pub enum CiTestingEvent {
     /// Takes a screenshot of the entire screen, and saves the results to
     /// `screenshot-{current_frame}.png`.
     Screenshot,
+    /// Takes a screenshot of the entire screen, saves the results to
+    /// `screenshot-{current_frame}.png`, and exits once the screenshot is taken.
+    ScreenshotAndExit,
+    /// Takes a screenshot of the entire screen, and saves the results to
+    /// `screenshot-{name}.png`.
+    NamedScreenshot(String),
     /// Stops the program by sending [`AppExit::Success`].
     ///
     /// [`AppExit::Success`]: bevy_app::AppExit::Success
@@ -46,7 +52,7 @@ pub enum CiTestingEvent {
 }
 
 /// A custom event that can be configured from a configuration file for CI testing.
-#[derive(Event)]
+#[derive(BufferedEvent)]
 pub struct CiTestingCustomEvent(pub String);
 
 #[cfg(test)]

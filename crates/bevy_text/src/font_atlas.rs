@@ -1,14 +1,10 @@
-use bevy_asset::{Assets, Handle};
+use bevy_asset::{Assets, Handle, RenderAssetUsages};
+use bevy_image::{prelude::*, ImageSampler, ToExtents};
 use bevy_math::{IVec2, UVec2};
-use bevy_render::{
-    render_asset::RenderAssetUsages,
-    render_resource::{Extent3d, TextureDimension, TextureFormat},
-    texture::Image,
-};
-use bevy_sprite::{DynamicTextureAtlasBuilder, TextureAtlasLayout};
-use bevy_utils::HashMap;
+use bevy_platform::collections::HashMap;
+use bevy_render::render_resource::{TextureDimension, TextureFormat};
 
-use crate::{GlyphAtlasLocation, TextError};
+use crate::{FontSmoothing, GlyphAtlasLocation, TextError};
 
 /// Rasterized glyphs are cached, stored in, and retrieved from, a `FontAtlas`.
 ///
@@ -21,7 +17,7 @@ use crate::{GlyphAtlasLocation, TextError};
 /// providing a trade-off between visual quality and performance.
 ///
 /// A [`CacheKey`](cosmic_text::CacheKey) encodes all of the information of a subpixel-offset glyph and is used to
-/// find that glyphs raster in a [`TextureAtlas`](bevy_sprite::TextureAtlas) through its corresponding [`GlyphAtlasLocation`].
+/// find that glyphs raster in a [`TextureAtlas`] through its corresponding [`GlyphAtlasLocation`].
 pub struct FontAtlas {
     /// Used to update the [`TextureAtlasLayout`].
     pub dynamic_texture_atlas_builder: DynamicTextureAtlasBuilder,
@@ -39,19 +35,20 @@ impl FontAtlas {
         textures: &mut Assets<Image>,
         texture_atlases_layout: &mut Assets<TextureAtlasLayout>,
         size: UVec2,
+        font_smoothing: FontSmoothing,
     ) -> FontAtlas {
-        let texture = textures.add(Image::new_fill(
-            Extent3d {
-                width: size.x,
-                height: size.y,
-                depth_or_array_layers: 1,
-            },
+        let mut image = Image::new_fill(
+            size.to_extents(),
             TextureDimension::D2,
             &[0, 0, 0, 0],
             TextureFormat::Rgba8UnormSrgb,
             // Need to keep this image CPU persistent in order to add additional glyphs later on
             RenderAssetUsages::MAIN_WORLD | RenderAssetUsages::RENDER_WORLD,
-        ));
+        );
+        if font_smoothing == FontSmoothing::None {
+            image.sampler = ImageSampler::nearest();
+        }
+        let texture = textures.add(image);
         let texture_atlas = texture_atlases_layout.add(TextureAtlasLayout::new_empty(size));
         Self {
             texture_atlas,
@@ -93,7 +90,7 @@ impl FontAtlas {
         let atlas_layout = atlas_layouts.get_mut(&self.texture_atlas).unwrap();
         let atlas_texture = textures.get_mut(&self.texture).unwrap();
 
-        if let Some(glyph_index) =
+        if let Ok(glyph_index) =
             self.dynamic_texture_atlas_builder
                 .add_texture(atlas_layout, texture, atlas_texture)
         {
@@ -111,8 +108,8 @@ impl FontAtlas {
     }
 }
 
-impl std::fmt::Debug for FontAtlas {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl core::fmt::Debug for FontAtlas {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         f.debug_struct("FontAtlas")
             .field("glyph_to_atlas_index", &self.glyph_to_atlas_index)
             .field("texture_atlas", &self.texture_atlas)

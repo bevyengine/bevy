@@ -9,13 +9,15 @@ pub use parse::ParseError;
 use parse::PathParser;
 
 use crate::{PartialReflect, Reflect};
-use std::fmt;
+use alloc::vec::Vec;
+use core::fmt;
+use derive_more::derive::From;
 use thiserror::Error;
 
 type PathResult<'a, T> = Result<T, ReflectPathError<'a>>;
 
 /// An error returned from a failed path string query.
-#[derive(Debug, PartialEq, Eq, Error)]
+#[derive(Error, Debug, PartialEq, Eq)]
 pub enum ReflectPathError<'a> {
     /// An error caused by trying to access a path that's not able to be accessed,
     /// see [`AccessError`] for details.
@@ -37,9 +39,10 @@ pub enum ReflectPathError<'a> {
         error: ParseError<'a>,
     },
 }
+
 impl<'a> From<AccessError<'a>> for ReflectPathError<'a> {
     fn from(value: AccessError<'a>) -> Self {
-        Self::InvalidAccess(value)
+        ReflectPathError::InvalidAccess(value)
     }
 }
 
@@ -79,6 +82,7 @@ pub trait ReflectPath<'a>: Sized {
         })
     }
 }
+
 impl<'a> ReflectPath<'a> for &'a str {
     fn reflect_element(self, mut root: &dyn PartialReflect) -> PathResult<'a, &dyn PartialReflect> {
         for (access, offset) in PathParser::new(self) {
@@ -124,10 +128,12 @@ impl<'a> ReflectPath<'a> for &'a str {
 /// Note that a leading dot (`.`) or hash (`#`) token is implied for the first item in a path,
 /// and may therefore be omitted.
 ///
+/// Additionally, an empty path may be used to get the struct itself.
+///
 /// ### Example
 /// ```
 /// # use bevy_reflect::{GetPath, Reflect};
-/// #[derive(Reflect)]
+/// #[derive(Reflect, PartialEq, Debug)]
 /// struct MyStruct {
 ///   value: u32
 /// }
@@ -137,6 +143,8 @@ impl<'a> ReflectPath<'a> for &'a str {
 /// assert_eq!(my_struct.path::<u32>(".value").unwrap(), &123);
 /// // Access via field index
 /// assert_eq!(my_struct.path::<u32>("#0").unwrap(), &123);
+/// // Access self
+/// assert_eq!(*my_struct.path::<MyStruct>("").unwrap(), my_struct);
 /// ```
 ///
 /// ## Tuples and Tuple Structs
@@ -237,7 +245,7 @@ impl<'a> ReflectPath<'a> for &'a str {
 /// [`Array`]: crate::Array
 /// [`Enum`]: crate::Enum
 #[diagnostic::on_unimplemented(
-    message = "`{Self}` does not provide a reflection path",
+    message = "`{Self}` does not implement `GetPath` so cannot be accessed by reflection path",
     note = "consider annotating `{Self}` with `#[derive(Reflect)]`"
 )]
 pub trait GetPath: PartialReflect {
@@ -355,8 +363,7 @@ impl From<Access<'static>> for OffsetAccess {
 /// ];
 /// let my_path = ParsedPath::from(path_elements);
 /// ```
-///
-#[derive(Clone, Debug, PartialEq, PartialOrd, Ord, Eq, Hash)]
+#[derive(Clone, Debug, PartialEq, PartialOrd, Ord, Eq, Hash, From)]
 pub struct ParsedPath(
     /// This is a vector of pre-parsed [`OffsetAccess`]es.
     pub Vec<OffsetAccess>,
@@ -407,8 +414,7 @@ impl ParsedPath {
     ///
     /// assert_eq!(parsed_path.element::<u32>(&foo).unwrap(), &123);
     /// ```
-    ///
-    pub fn parse(string: &str) -> PathResult<Self> {
+    pub fn parse(string: &str) -> PathResult<'_, Self> {
         let mut parts = Vec::new();
         for (access, offset) in PathParser::new(string) {
             parts.push(OffsetAccess {
@@ -421,7 +427,7 @@ impl ParsedPath {
 
     /// Similar to [`Self::parse`] but only works on `&'static str`
     /// and does not allocate per named field.
-    pub fn parse_static(string: &'static str) -> PathResult<Self> {
+    pub fn parse_static(string: &'static str) -> PathResult<'static, Self> {
         let mut parts = Vec::new();
         for (access, offset) in PathParser::new(string) {
             parts.push(OffsetAccess {
@@ -432,6 +438,7 @@ impl ParsedPath {
         Ok(Self(parts))
     }
 }
+
 impl<'a> ReflectPath<'a> for &'a ParsedPath {
     fn reflect_element(self, mut root: &dyn PartialReflect) -> PathResult<'a, &dyn PartialReflect> {
         for OffsetAccess { access, offset } in &self.0 {
@@ -449,16 +456,13 @@ impl<'a> ReflectPath<'a> for &'a ParsedPath {
         Ok(root)
     }
 }
-impl From<Vec<OffsetAccess>> for ParsedPath {
-    fn from(value: Vec<OffsetAccess>) -> Self {
-        ParsedPath(value)
-    }
-}
+
 impl<const N: usize> From<[OffsetAccess; N]> for ParsedPath {
     fn from(value: [OffsetAccess; N]) -> Self {
         ParsedPath(value.to_vec())
     }
 }
+
 impl From<Vec<Access<'static>>> for ParsedPath {
     fn from(value: Vec<Access<'static>>) -> Self {
         ParsedPath(
@@ -472,9 +476,17 @@ impl From<Vec<Access<'static>>> for ParsedPath {
         )
     }
 }
+
 impl<const N: usize> From<[Access<'static>; N]> for ParsedPath {
     fn from(value: [Access<'static>; N]) -> Self {
         value.to_vec().into()
+    }
+}
+
+impl<'a> TryFrom<&'a str> for ParsedPath {
+    type Error = ReflectPathError<'a>;
+    fn try_from(value: &'a str) -> Result<Self, Self::Error> {
+        ParsedPath::parse(value)
     }
 }
 
@@ -486,26 +498,31 @@ impl fmt::Display for ParsedPath {
         Ok(())
     }
 }
-impl std::ops::Index<usize> for ParsedPath {
+
+impl core::ops::Index<usize> for ParsedPath {
     type Output = OffsetAccess;
     fn index(&self, index: usize) -> &Self::Output {
         &self.0[index]
     }
 }
-impl std::ops::IndexMut<usize> for ParsedPath {
+
+impl core::ops::IndexMut<usize> for ParsedPath {
     fn index_mut(&mut self, index: usize) -> &mut Self::Output {
         &mut self.0[index]
     }
 }
 
 #[cfg(test)]
-#[allow(clippy::float_cmp, clippy::approx_constant)]
+#[expect(
+    clippy::approx_constant,
+    reason = "We don't need the exact value of Pi here."
+)]
 mod tests {
     use super::*;
-    use crate as bevy_reflect;
     use crate::*;
+    use alloc::vec;
 
-    #[derive(Reflect)]
+    #[derive(Reflect, PartialEq, Debug)]
     struct A {
         w: usize,
         x: B,
@@ -518,21 +535,21 @@ mod tests {
         tuple: (bool, f32),
     }
 
-    #[derive(Reflect)]
+    #[derive(Reflect, PartialEq, Debug)]
     struct B {
         foo: usize,
         łørđ: C,
     }
 
-    #[derive(Reflect)]
+    #[derive(Reflect, PartialEq, Debug)]
     struct C {
         mосква: f32,
     }
 
-    #[derive(Reflect)]
+    #[derive(Reflect, PartialEq, Debug)]
     struct D(E);
 
-    #[derive(Reflect)]
+    #[derive(Reflect, PartialEq, Debug)]
     struct E(f32, usize);
 
     #[derive(Reflect, PartialEq, Debug)]
@@ -566,7 +583,7 @@ mod tests {
         }
     }
 
-    fn access_field(field: &'static str) -> Access {
+    fn access_field(field: &'static str) -> Access<'static> {
         Access::Field(field.into())
     }
 
@@ -583,6 +600,21 @@ mod tests {
             access: ParsedPath::parse_static(access).unwrap()[1].access.clone(),
             offset: Some(offset),
         })
+    }
+
+    #[test]
+    fn try_from() {
+        assert_eq!(
+            ParsedPath::try_from("w").unwrap().0,
+            &[offset(access_field("w"), 1)]
+        );
+
+        let r = ParsedPath::try_from("w[");
+        let matches = matches!(r, Err(ReflectPathError::ParseError { .. }));
+        assert!(
+            matches,
+            "ParsedPath::try_from did not return a ParseError for \"w[\""
+        );
     }
 
     #[test]
@@ -717,6 +749,7 @@ mod tests {
     fn reflect_path() {
         let mut a = a_sample();
 
+        assert_eq!(*a.path::<A>("").unwrap(), a);
         assert_eq!(*a.path::<usize>("w").unwrap(), 1);
         assert_eq!(*a.path::<usize>("x.foo").unwrap(), 10);
         assert_eq!(*a.path::<f32>("x.łørđ.mосква").unwrap(), 3.14);

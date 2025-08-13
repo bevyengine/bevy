@@ -1,9 +1,13 @@
-use std::hash::{Hash, Hasher};
-use std::{borrow::Cow, collections::VecDeque};
+use alloc::{borrow::Cow, collections::VecDeque, string::String};
+use core::{
+    hash::{Hash, Hasher},
+    time::Duration,
+};
 
 use bevy_app::{App, SubApp};
-use bevy_ecs::system::{Deferred, Res, Resource, SystemBuffer, SystemParam};
-use bevy_utils::{hashbrown::HashMap, Duration, Instant, PassHash};
+use bevy_ecs::resource::Resource;
+use bevy_ecs::system::{Deferred, Res, SystemBuffer, SystemParam};
+use bevy_platform::{collections::HashMap, hash::PassHash, time::Instant};
 use const_fnv1a_hash::fnv1a_hash_str_64;
 
 use crate::DEFAULT_MAX_HISTORY_LENGTH;
@@ -100,8 +104,8 @@ impl Hash for DiagnosticPath {
     }
 }
 
-impl std::fmt::Display for DiagnosticPath {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl core::fmt::Display for DiagnosticPath {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         self.path.fmt(f)
     }
 }
@@ -109,7 +113,9 @@ impl std::fmt::Display for DiagnosticPath {
 /// A single measurement of a [`Diagnostic`].
 #[derive(Debug)]
 pub struct DiagnosticMeasurement {
+    /// When this measurement was taken.
     pub time: Instant,
+    /// Value of the measurement.
     pub value: f64,
 }
 
@@ -118,12 +124,14 @@ pub struct DiagnosticMeasurement {
 #[derive(Debug)]
 pub struct Diagnostic {
     path: DiagnosticPath,
+    /// Suffix to use when logging measurements for this [`Diagnostic`], for example to show units.
     pub suffix: Cow<'static, str>,
     history: VecDeque<DiagnosticMeasurement>,
     sum: f64,
     ema: f64,
     ema_smoothing_factor: f64,
     max_history_length: usize,
+    /// Disabled [`Diagnostic`]s are not measured or logged.
     pub is_enabled: bool,
 }
 
@@ -141,12 +149,11 @@ impl Diagnostic {
         }
 
         if self.max_history_length > 1 {
-            if self.history.len() >= self.max_history_length {
-                if let Some(removed_diagnostic) = self.history.pop_front() {
-                    if !removed_diagnostic.value.is_nan() {
-                        self.sum -= removed_diagnostic.value;
-                    }
-                }
+            if self.history.len() >= self.max_history_length
+                && let Some(removed_diagnostic) = self.history.pop_front()
+                && !removed_diagnostic.value.is_nan()
+            {
+                self.sum -= removed_diagnostic.value;
             }
 
             if measurement.value.is_finite() {
@@ -215,6 +222,7 @@ impl Diagnostic {
         self
     }
 
+    /// Get the [`DiagnosticPath`] that identifies this [`Diagnostic`].
     pub fn path(&self) -> &DiagnosticPath {
         &self.path
     }
@@ -264,13 +272,9 @@ impl Diagnostic {
             return None;
         }
 
-        if let Some(newest) = self.history.back() {
-            if let Some(oldest) = self.history.front() {
-                return Some(newest.time.duration_since(oldest.time));
-            }
-        }
-
-        None
+        let newest = self.history.back()?;
+        let oldest = self.history.front()?;
+        Some(newest.time.duration_since(oldest.time))
     }
 
     /// Return the maximum number of elements for this diagnostic.
@@ -278,10 +282,12 @@ impl Diagnostic {
         self.max_history_length
     }
 
+    /// All measured values from this [`Diagnostic`], up to the configured maximum history length.
     pub fn values(&self) -> impl Iterator<Item = &f64> {
         self.history.iter().map(|x| &x.value)
     }
 
+    /// All measurements from this [`Diagnostic`], up to the configured maximum history length.
     pub fn measurements(&self) -> impl Iterator<Item = &DiagnosticMeasurement> {
         self.history.iter()
     }
@@ -289,6 +295,8 @@ impl Diagnostic {
     /// Clear the history of this diagnostic.
     pub fn clear_history(&mut self) {
         self.history.clear();
+        self.sum = 0.0;
+        self.ema = 0.0;
     }
 }
 
@@ -306,10 +314,12 @@ impl DiagnosticsStore {
         self.diagnostics.insert(diagnostic.path.clone(), diagnostic);
     }
 
+    /// Get the [`DiagnosticMeasurement`] with the given [`DiagnosticPath`], if it exists.
     pub fn get(&self, path: &DiagnosticPath) -> Option<&Diagnostic> {
         self.diagnostics.get(path)
     }
 
+    /// Mutably get the [`DiagnosticMeasurement`] with the given [`DiagnosticPath`], if it exists.
     pub fn get_mut(&mut self, path: &DiagnosticPath) -> Option<&mut Diagnostic> {
         self.diagnostics.get_mut(path)
     }
@@ -351,8 +361,7 @@ impl<'w, 's> Diagnostics<'w, 's> {
         if self
             .store
             .get(path)
-            .filter(|diagnostic| diagnostic.is_enabled)
-            .is_some()
+            .is_some_and(|diagnostic| diagnostic.is_enabled)
         {
             let measurement = DiagnosticMeasurement {
                 time: Instant::now(),
@@ -415,5 +424,33 @@ impl RegisterDiagnostic for App {
     fn register_diagnostic(&mut self, diagnostic: Diagnostic) -> &mut Self {
         SubApp::register_diagnostic(self.main_mut(), diagnostic);
         self
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_clear_history() {
+        const MEASUREMENT: f64 = 20.0;
+
+        let mut diagnostic =
+            Diagnostic::new(DiagnosticPath::new("test")).with_max_history_length(5);
+        let mut now = Instant::now();
+
+        for _ in 0..3 {
+            for _ in 0..5 {
+                diagnostic.add_measurement(DiagnosticMeasurement {
+                    time: now,
+                    value: MEASUREMENT,
+                });
+                // Increase time to test smoothed average.
+                now += Duration::from_secs(1);
+            }
+            assert!((diagnostic.average().unwrap() - MEASUREMENT).abs() < 0.1);
+            assert!((diagnostic.smoothed().unwrap() - MEASUREMENT).abs() < 0.1);
+            diagnostic.clear_history();
+        }
     }
 }

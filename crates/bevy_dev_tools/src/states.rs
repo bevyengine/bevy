@@ -2,7 +2,7 @@
 
 use bevy_ecs::event::EventReader;
 use bevy_state::state::{StateTransitionEvent, States};
-use bevy_utils::tracing::info;
+use tracing::info;
 
 /// Logs state transitions into console.
 ///
@@ -12,7 +12,7 @@ pub fn log_transitions<S: States>(mut transitions: EventReader<StateTransitionEv
     let Some(transition) = transitions.read().last() else {
         return;
     };
-    let name = std::any::type_name::<S>();
+    let name = core::any::type_name::<S>();
     let StateTransitionEvent { exited, entered } = transition;
     info!("{} transition: {:?} => {:?}", name, exited, entered);
 }

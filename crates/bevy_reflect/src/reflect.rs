@@ -1,9 +1,12 @@
 use crate::{
-    array_debug, enum_debug, list_debug, map_debug, serde::Serializable, struct_debug, tuple_debug,
-    tuple_struct_debug, Array, DynamicTypePath, Enum, List, Map, Set, Struct, Tuple, TupleStruct,
-    TypeInfo, TypePath, Typed, ValueInfo,
+    array_debug, enum_debug, list_debug, map_debug, set_debug, struct_debug, tuple_debug,
+    tuple_struct_debug, DynamicTypePath, DynamicTyped, OpaqueInfo, ReflectCloneError, ReflectKind,
+    ReflectKindMismatchError, ReflectMut, ReflectOwned, ReflectRef, TypeInfo, TypePath, Typed,
 };
-use std::{
+use alloc::borrow::Cow;
+use alloc::boxed::Box;
+use alloc::string::ToString;
+use core::{
     any::{Any, TypeId},
     fmt::Debug,
 };
@@ -12,165 +15,62 @@ use thiserror::Error;
 
 use crate::utility::NonGenericTypeInfoCell;
 
-macro_rules! impl_reflect_enum {
-    ($name:ident$(<$lifetime:lifetime>)?) => {
-        impl $name$(<$lifetime>)? {
-            /// Returns the "kind" of this reflected type without any information.
-            pub fn kind(&self) -> ReflectKind {
-                match self {
-                    Self::Struct(_) => ReflectKind::Struct,
-                    Self::TupleStruct(_) => ReflectKind::TupleStruct,
-                    Self::Tuple(_) => ReflectKind::Tuple,
-                    Self::List(_) => ReflectKind::List,
-                    Self::Array(_) => ReflectKind::Array,
-                    Self::Map(_) => ReflectKind::Map,
-                    Self::Set(_) => ReflectKind::Set,
-                    Self::Enum(_) => ReflectKind::Enum,
-                    Self::Value(_) => ReflectKind::Value,
-                }
-            }
-        }
-
-        impl From<$name$(<$lifetime>)?> for ReflectKind {
-            fn from(value: $name) -> Self {
-                match value {
-                    $name::Struct(_) => Self::Struct,
-                    $name::TupleStruct(_) => Self::TupleStruct,
-                    $name::Tuple(_) => Self::Tuple,
-                    $name::List(_) => Self::List,
-                    $name::Array(_) => Self::Array,
-                    $name::Map(_) => Self::Map,
-                    $name::Set(_) => Self::Set,
-                    $name::Enum(_) => Self::Enum,
-                    $name::Value(_) => Self::Value,
-                }
-            }
-        }
-    };
-}
-
-/// An immutable enumeration of "kinds" of a reflected type.
-///
-/// Each variant contains a trait object with methods specific to a kind of
-/// type.
-///
-/// A [`ReflectRef`] is obtained via [`PartialReflect::reflect_ref`].
-pub enum ReflectRef<'a> {
-    Struct(&'a dyn Struct),
-    TupleStruct(&'a dyn TupleStruct),
-    Tuple(&'a dyn Tuple),
-    List(&'a dyn List),
-    Array(&'a dyn Array),
-    Map(&'a dyn Map),
-    Set(&'a dyn Set),
-    Enum(&'a dyn Enum),
-    Value(&'a dyn PartialReflect),
-}
-impl_reflect_enum!(ReflectRef<'_>);
-
-/// A mutable enumeration of "kinds" of a reflected type.
-///
-/// Each variant contains a trait object with methods specific to a kind of
-/// type.
-///
-/// A [`ReflectMut`] is obtained via [`PartialReflect::reflect_mut`].
-pub enum ReflectMut<'a> {
-    Struct(&'a mut dyn Struct),
-    TupleStruct(&'a mut dyn TupleStruct),
-    Tuple(&'a mut dyn Tuple),
-    List(&'a mut dyn List),
-    Array(&'a mut dyn Array),
-    Map(&'a mut dyn Map),
-    Set(&'a mut dyn Set),
-    Enum(&'a mut dyn Enum),
-    Value(&'a mut dyn PartialReflect),
-}
-impl_reflect_enum!(ReflectMut<'_>);
-
-/// An owned enumeration of "kinds" of a reflected type.
-///
-/// Each variant contains a trait object with methods specific to a kind of
-/// type.
-///
-/// A [`ReflectOwned`] is obtained via [`PartialReflect::reflect_owned`].
-pub enum ReflectOwned {
-    Struct(Box<dyn Struct>),
-    TupleStruct(Box<dyn TupleStruct>),
-    Tuple(Box<dyn Tuple>),
-    List(Box<dyn List>),
-    Array(Box<dyn Array>),
-    Map(Box<dyn Map>),
-    Set(Box<dyn Set>),
-    Enum(Box<dyn Enum>),
-    Value(Box<dyn PartialReflect>),
-}
-impl_reflect_enum!(ReflectOwned);
-
 /// A enumeration of all error outcomes that might happen when running [`try_apply`](PartialReflect::try_apply).
 #[derive(Error, Debug)]
 pub enum ApplyError {
     #[error("attempted to apply `{from_kind}` to `{to_kind}`")]
-    /// Attempted to apply the wrong [kind](ReflectKind) to a type, e.g. a struct to a enum.
+    /// Attempted to apply the wrong [kind](ReflectKind) to a type, e.g. a struct to an enum.
     MismatchedKinds {
+        /// Kind of the value we attempted to apply.
         from_kind: ReflectKind,
+        /// Kind of the type we attempted to apply the value to.
         to_kind: ReflectKind,
     },
 
     #[error("enum variant `{variant_name}` doesn't have a field named `{field_name}`")]
     /// Enum variant that we tried to apply to was missing a field.
     MissingEnumField {
+        /// Name of the enum variant.
         variant_name: Box<str>,
+        /// Name of the missing field.
         field_name: Box<str>,
     },
 
     #[error("`{from_type}` is not `{to_type}`")]
     /// Tried to apply incompatible types.
     MismatchedTypes {
+        /// Type of the value we attempted to apply.
         from_type: Box<str>,
+        /// Type we attempted to apply the value to.
         to_type: Box<str>,
     },
 
     #[error("attempted to apply type with {from_size} size to a type with {to_size} size")]
-    /// Attempted to apply to types with mismatched sizez, e.g. a [u8; 4] to [u8; 3].
-    DifferentSize { from_size: usize, to_size: usize },
+    /// Attempted to apply an [array-like] type to another of different size, e.g. a [u8; 4] to [u8; 3].
+    ///
+    /// [array-like]: crate::Array
+    DifferentSize {
+        /// Size of the value we attempted to apply, in elements.
+        from_size: usize,
+        /// Size of the type we attempted to apply the value to, in elements.
+        to_size: usize,
+    },
 
     #[error("variant with name `{variant_name}` does not exist on enum `{enum_name}`")]
     /// The enum we tried to apply to didn't contain a variant with the give name.
     UnknownVariant {
+        /// Name of the enum.
         enum_name: Box<str>,
+        /// Name of the missing variant.
         variant_name: Box<str>,
     },
 }
 
-/// A zero-sized enumuration of the "kinds" of a reflected type.
-///
-/// A [`ReflectKind`] is obtained via [`PartialReflect::reflect_kind`],
-/// or via [`ReflectRef::kind`],[`ReflectMut::kind`] or [`ReflectOwned::kind`].
-#[derive(Debug, PartialEq, Eq, Clone, Copy)]
-pub enum ReflectKind {
-    Struct,
-    TupleStruct,
-    Tuple,
-    List,
-    Array,
-    Map,
-    Set,
-    Enum,
-    Value,
-}
-
-impl std::fmt::Display for ReflectKind {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            ReflectKind::Struct => f.pad("struct"),
-            ReflectKind::TupleStruct => f.pad("tuple struct"),
-            ReflectKind::Tuple => f.pad("tuple"),
-            ReflectKind::List => f.pad("list"),
-            ReflectKind::Array => f.pad("array"),
-            ReflectKind::Map => f.pad("map"),
-            ReflectKind::Set => f.pad("set"),
-            ReflectKind::Enum => f.pad("enum"),
-            ReflectKind::Value => f.pad("value"),
+impl From<ReflectKindMismatchError> for ApplyError {
+    fn from(value: ReflectKindMismatchError) -> Self {
+        Self::MismatchedKinds {
+            from_kind: value.received,
+            to_kind: value.expected,
         }
     }
 }
@@ -188,6 +88,9 @@ impl std::fmt::Display for ReflectKind {
 ///
 /// [`bevy_reflect`]: crate
 /// [the derive macro for `Reflect`]: bevy_reflect_derive::Reflect
+/// [`Struct`]: crate::Struct
+/// [`TupleStruct`]: crate::TupleStruct
+/// [`Enum`]: crate::Enum
 /// [crate-level documentation]: crate
 #[diagnostic::on_unimplemented(
     message = "`{Self}` does not implement `PartialReflect` so cannot be introspected",
@@ -247,45 +150,57 @@ where
 
     /// Applies a reflected value to this value.
     ///
-    /// If a type implements an [introspection subtrait], then the semantics of this
+    /// If `Self` implements a [reflection subtrait], then the semantics of this
     /// method are as follows:
-    /// - If `T` is a [`Struct`], then the value of each named field of `value` is
+    /// - If `Self` is a [`Struct`], then the value of each named field of `value` is
     ///   applied to the corresponding named field of `self`. Fields which are
     ///   not present in both structs are ignored.
-    /// - If `T` is a [`TupleStruct`] or [`Tuple`], then the value of each
+    /// - If `Self` is a [`TupleStruct`] or [`Tuple`], then the value of each
     ///   numbered field is applied to the corresponding numbered field of
     ///   `self.` Fields which are not present in both values are ignored.
-    /// - If `T` is an [`Enum`], then the variant of `self` is `updated` to match
+    /// - If `Self` is an [`Enum`], then the variant of `self` is `updated` to match
     ///   the variant of `value`. The corresponding fields of that variant are
     ///   applied from `value` onto `self`. Fields which are not present in both
     ///   values are ignored.
-    /// - If `T` is a [`List`] or [`Array`], then each element of `value` is applied
+    /// - If `Self` is a [`List`] or [`Array`], then each element of `value` is applied
     ///   to the corresponding element of `self`. Up to `self.len()` items are applied,
     ///   and excess elements in `value` are appended to `self`.
-    /// - If `T` is a [`Map`], then for each key in `value`, the associated
+    /// - If `Self` is a [`Map`], then for each key in `value`, the associated
     ///   value is applied to the value associated with the same key in `self`.
-    ///   Keys which are not present in `self` are inserted.
-    /// - If `T` is none of these, then `value` is downcast to `T`, cloned, and
+    ///   Keys which are not present in `self` are inserted, and keys from `self` which are not present in `value` are removed.
+    /// - If `Self` is a [`Set`], then each element of `value` is applied to the corresponding
+    ///   element of `Self`. If an element of `value` does not exist in `Self` then it is
+    ///   cloned and inserted. If an element from `self` is not present in `value` then it is removed.
+    /// - If `Self` is none of these, then `value` is downcast to `Self`, cloned, and
     ///   assigned to `self`.
     ///
-    /// Note that `Reflect` must be implemented manually for [`List`]s and
-    /// [`Map`]s in order to achieve the correct semantics, as derived
+    /// Note that `Reflect` must be implemented manually for [`List`]s,
+    /// [`Map`]s, and [`Set`]s in order to achieve the correct semantics, as derived
     /// implementations will have the semantics for [`Struct`], [`TupleStruct`], [`Enum`]
-    /// or none of the above depending on the kind of type. For lists and maps, use the
-    /// [`list_apply`] and [`map_apply`] helper functions when implementing this method.
+    /// or none of the above depending on the kind of type. For lists, maps, and sets, use the
+    /// [`list_apply`], [`map_apply`], and [`set_apply`] helper functions when implementing this method.
     ///
-    /// [introspection subtrait]: crate#the-introspection-subtraits
+    /// [reflection subtrait]: crate#the-reflection-subtraits
+    /// [`Struct`]: crate::Struct
+    /// [`TupleStruct`]: crate::TupleStruct
+    /// [`Tuple`]: crate::Tuple
+    /// [`Enum`]: crate::Enum
+    /// [`List`]: crate::List
+    /// [`Array`]: crate::Array
+    /// [`Map`]: crate::Map
+    /// [`Set`]: crate::Set
     /// [`list_apply`]: crate::list_apply
     /// [`map_apply`]: crate::map_apply
+    /// [`set_apply`]: crate::set_apply
     ///
     /// # Panics
     ///
     /// Derived implementations of this method will panic:
-    /// - If the type of `value` is not of the same kind as `T` (e.g. if `T` is
+    /// - If the type of `value` is not of the same kind as `Self` (e.g. if `Self` is
     ///   a `List`, while `value` is a `Struct`).
-    /// - If `T` is any complex type and the corresponding fields or elements of
+    /// - If `Self` is any complex type and the corresponding fields or elements of
     ///   `self` and `value` are not of the same type.
-    /// - If `T` is a value type and `self` cannot be downcast to `T`
+    /// - If `Self` is an opaque type and `value` cannot be downcast to `Self`
     fn apply(&mut self, value: &dyn PartialReflect) {
         PartialReflect::try_apply(self, value).unwrap();
     }
@@ -311,26 +226,110 @@ where
     /// Returns an immutable enumeration of "kinds" of type.
     ///
     /// See [`ReflectRef`].
-    fn reflect_ref(&self) -> ReflectRef;
+    fn reflect_ref(&self) -> ReflectRef<'_>;
 
     /// Returns a mutable enumeration of "kinds" of type.
     ///
     /// See [`ReflectMut`].
-    fn reflect_mut(&mut self) -> ReflectMut;
+    fn reflect_mut(&mut self) -> ReflectMut<'_>;
 
     /// Returns an owned enumeration of "kinds" of type.
     ///
     /// See [`ReflectOwned`].
     fn reflect_owned(self: Box<Self>) -> ReflectOwned;
 
-    /// Clones the value as a `Reflect` trait object.
+    /// Converts this reflected value into its dynamic representation based on its [kind].
     ///
-    /// When deriving `Reflect` for a struct, tuple struct or enum, the value is
-    /// cloned via [`Struct::clone_dynamic`], [`TupleStruct::clone_dynamic`],
-    /// or [`Enum::clone_dynamic`], respectively.
-    /// Implementors of other `Reflect` subtraits (e.g. [`List`], [`Map`]) should
-    /// use those subtraits' respective `clone_dynamic` methods.
-    fn clone_value(&self) -> Box<dyn PartialReflect>;
+    /// For example, a [`List`] type will internally invoke [`List::to_dynamic_list`], returning [`DynamicList`].
+    /// A [`Struct`] type will invoke [`Struct::to_dynamic_struct`], returning [`DynamicStruct`].
+    /// And so on.
+    ///
+    /// If the [kind] is [opaque], then the value will attempt to be cloned directly via [`reflect_clone`],
+    /// since opaque types do not have any standard dynamic representation.
+    ///
+    /// To attempt to clone the value directly such that it returns a concrete instance of this type,
+    /// use [`reflect_clone`].
+    ///
+    /// # Panics
+    ///
+    /// This method will panic if the [kind] is [opaque] and the call to [`reflect_clone`] fails.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_reflect::{PartialReflect};
+    /// let value = (1, true, 3.14);
+    /// let dynamic_value = value.to_dynamic();
+    /// assert!(dynamic_value.is_dynamic())
+    /// ```
+    ///
+    /// [kind]: PartialReflect::reflect_kind
+    /// [`List`]: crate::List
+    /// [`List::to_dynamic_list`]: crate::List::to_dynamic_list
+    /// [`DynamicList`]: crate::DynamicList
+    /// [`Struct`]: crate::Struct
+    /// [`Struct::to_dynamic_struct`]: crate::Struct::to_dynamic_struct
+    /// [`DynamicStruct`]: crate::DynamicStruct
+    /// [opaque]: crate::ReflectKind::Opaque
+    /// [`reflect_clone`]: PartialReflect::reflect_clone
+    fn to_dynamic(&self) -> Box<dyn PartialReflect> {
+        match self.reflect_ref() {
+            ReflectRef::Struct(dyn_struct) => Box::new(dyn_struct.to_dynamic_struct()),
+            ReflectRef::TupleStruct(dyn_tuple_struct) => {
+                Box::new(dyn_tuple_struct.to_dynamic_tuple_struct())
+            }
+            ReflectRef::Tuple(dyn_tuple) => Box::new(dyn_tuple.to_dynamic_tuple()),
+            ReflectRef::List(dyn_list) => Box::new(dyn_list.to_dynamic_list()),
+            ReflectRef::Array(dyn_array) => Box::new(dyn_array.to_dynamic_array()),
+            ReflectRef::Map(dyn_map) => Box::new(dyn_map.to_dynamic_map()),
+            ReflectRef::Set(dyn_set) => Box::new(dyn_set.to_dynamic_set()),
+            ReflectRef::Enum(dyn_enum) => Box::new(dyn_enum.to_dynamic_enum()),
+            #[cfg(feature = "functions")]
+            ReflectRef::Function(dyn_function) => Box::new(dyn_function.to_dynamic_function()),
+            ReflectRef::Opaque(value) => value.reflect_clone().unwrap().into_partial_reflect(),
+        }
+    }
+
+    /// Attempts to clone `Self` using reflection.
+    ///
+    /// Unlike [`to_dynamic`], which generally returns a dynamic representation of `Self`,
+    /// this method attempts create a clone of `Self` directly, if possible.
+    ///
+    /// If the clone cannot be performed, an appropriate [`ReflectCloneError`] is returned.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_reflect::PartialReflect;
+    /// let value = (1, true, 3.14);
+    /// let cloned = value.reflect_clone().unwrap();
+    /// assert!(cloned.is::<(i32, bool, f64)>())
+    /// ```
+    ///
+    /// [`to_dynamic`]: PartialReflect::to_dynamic
+    fn reflect_clone(&self) -> Result<Box<dyn Reflect>, ReflectCloneError> {
+        Err(ReflectCloneError::NotImplemented {
+            type_path: Cow::Owned(self.reflect_type_path().to_string()),
+        })
+    }
+
+    /// For a type implementing [`PartialReflect`], combines `reflect_clone` and
+    /// `take` in a useful fashion, automatically constructing an appropriate
+    /// [`ReflectCloneError`] if the downcast fails.
+    ///
+    /// This is an associated function, rather than a method, because methods
+    /// with generic types prevent dyn-compatibility.
+    fn reflect_clone_and_take<T: 'static>(&self) -> Result<T, ReflectCloneError>
+    where
+        Self: TypePath + Sized,
+    {
+        self.reflect_clone()?
+            .take()
+            .map_err(|_| ReflectCloneError::FailedDowncast {
+                expected: Cow::Borrowed(<Self as TypePath>::type_path()),
+                received: Cow::Owned(self.reflect_type_path().to_string()),
+            })
+    }
 
     /// Returns a hash of the value (which includes the type).
     ///
@@ -352,8 +351,10 @@ where
     /// (e.g. [`List`], [`Map`]), will default to the format: `"Reflect(type_path)"`,
     /// where `type_path` is the [type path] of the underlying type.
     ///
+    /// [`List`]: crate::List
+    /// [`Map`]: crate::Map
     /// [type path]: TypePath::type_path
-    fn debug(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn debug(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self.reflect_ref() {
             ReflectRef::Struct(dyn_struct) => struct_debug(dyn_struct, f),
             ReflectRef::TupleStruct(dyn_tuple_struct) => tuple_struct_debug(dyn_tuple_struct, f),
@@ -361,16 +362,12 @@ where
             ReflectRef::List(dyn_list) => list_debug(dyn_list, f),
             ReflectRef::Array(dyn_array) => array_debug(dyn_array, f),
             ReflectRef::Map(dyn_map) => map_debug(dyn_map, f),
+            ReflectRef::Set(dyn_set) => set_debug(dyn_set, f),
             ReflectRef::Enum(dyn_enum) => enum_debug(dyn_enum, f),
-            _ => write!(f, "Reflect({})", self.reflect_type_path()),
+            #[cfg(feature = "functions")]
+            ReflectRef::Function(dyn_function) => dyn_function.fmt(f),
+            ReflectRef::Opaque(_) => write!(f, "Reflect({})", self.reflect_type_path()),
         }
-    }
-
-    /// Returns a serializable version of the value.
-    ///
-    /// If the underlying type does not support serialization, returns `None`.
-    fn serializable(&self) -> Option<Serializable> {
-        None
     }
 
     /// Indicates whether or not this type is a _dynamic_ type.
@@ -399,27 +396,34 @@ where
 /// Doing so will automatically implement this trait, [`PartialReflect`], and many other useful traits for reflection,
 /// including one of the appropriate subtraits: [`Struct`], [`TupleStruct`] or [`Enum`].
 ///
+/// If you need to use this trait as a generic bound along with other reflection traits,
+/// for your convenience, consider using [`Reflectable`] instead.
+///
 /// See the [crate-level documentation] to see how this trait can be used.
 ///
 /// [`bevy_reflect`]: crate
 /// [the derive macro]: bevy_reflect_derive::Reflect
+/// [`Struct`]: crate::Struct
+/// [`TupleStruct`]: crate::TupleStruct
+/// [`Enum`]: crate::Enum
+/// [`Reflectable`]: crate::Reflectable
 /// [crate-level documentation]: crate
 #[diagnostic::on_unimplemented(
     message = "`{Self}` does not implement `Reflect` so cannot be fully reflected",
     note = "consider annotating `{Self}` with `#[derive(Reflect)]`"
 )]
-pub trait Reflect: PartialReflect + Any {
-    /// Returns the value as a [`Box<dyn Any>`][std::any::Any].
+pub trait Reflect: PartialReflect + DynamicTyped + Any {
+    /// Returns the value as a [`Box<dyn Any>`][core::any::Any].
     ///
     /// For remote wrapper types, this will return the remote type instead.
     fn into_any(self: Box<Self>) -> Box<dyn Any>;
 
-    /// Returns the value as a [`&dyn Any`][std::any::Any].
+    /// Returns the value as a [`&dyn Any`][core::any::Any].
     ///
     /// For remote wrapper types, this will return the remote type instead.
     fn as_any(&self) -> &dyn Any;
 
-    /// Returns the value as a [`&mut dyn Any`][std::any::Any].
+    /// Returns the value as a [`&mut dyn Any`][core::any::Any].
     ///
     /// For remote wrapper types, this will return the remote type instead.
     fn as_any_mut(&mut self) -> &mut dyn Any;
@@ -448,8 +452,7 @@ impl dyn PartialReflect {
     #[inline]
     pub fn represents<T: Reflect + TypePath>(&self) -> bool {
         self.get_represented_type_info()
-            .map(|t| t.type_path() == T::type_path())
-            .unwrap_or(false)
+            .is_some_and(|t| t.type_path() == T::type_path())
     }
 
     /// Downcasts the value to type `T`, consuming the trait object.
@@ -498,7 +501,7 @@ impl dyn PartialReflect {
 }
 
 impl Debug for dyn PartialReflect {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         self.debug(f)
     }
 }
@@ -578,7 +581,7 @@ impl dyn Reflect {
 }
 
 impl Debug for dyn Reflect {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         self.debug(f)
     }
 }
@@ -586,7 +589,7 @@ impl Debug for dyn Reflect {
 impl Typed for dyn Reflect {
     fn type_info() -> &'static TypeInfo {
         static CELL: NonGenericTypeInfoCell = NonGenericTypeInfoCell::new();
-        CELL.get_or_set(|| TypeInfo::Value(ValueInfo::new::<Self>()))
+        CELL.get_or_set(|| TypeInfo::Opaque(OpaqueInfo::new::<Self>()))
     }
 }
 
@@ -605,19 +608,19 @@ impl TypePath for dyn Reflect {
 macro_rules! impl_full_reflect {
     ($(<$($id:ident),* $(,)?>)? for $ty:ty $(where $($tt:tt)*)?) => {
         impl $(<$($id),*>)? $crate::Reflect for $ty $(where $($tt)*)? {
-            fn into_any(self: Box<Self>) -> Box<dyn ::std::any::Any> {
+            fn into_any(self: bevy_platform::prelude::Box<Self>) -> bevy_platform::prelude::Box<dyn ::core::any::Any> {
                 self
             }
 
-            fn as_any(&self) -> &dyn ::std::any::Any {
+            fn as_any(&self) -> &dyn ::core::any::Any {
                 self
             }
 
-            fn as_any_mut(&mut self) -> &mut dyn ::std::any::Any {
+            fn as_any_mut(&mut self) -> &mut dyn ::core::any::Any {
                 self
             }
 
-            fn into_reflect(self: Box<Self>) -> Box<dyn $crate::Reflect> {
+            fn into_reflect(self: bevy_platform::prelude::Box<Self>) -> bevy_platform::prelude::Box<dyn $crate::Reflect> {
                 self
             }
 
@@ -631,8 +634,8 @@ macro_rules! impl_full_reflect {
 
             fn set(
                 &mut self,
-                value: Box<dyn $crate::Reflect>,
-            ) -> Result<(), Box<dyn $crate::Reflect>> {
+                value: bevy_platform::prelude::Box<dyn $crate::Reflect>,
+            ) -> Result<(), bevy_platform::prelude::Box<dyn $crate::Reflect>> {
                 *self = <dyn $crate::Reflect>::take(value)?;
                 Ok(())
             }

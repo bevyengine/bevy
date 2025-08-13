@@ -1,13 +1,11 @@
-use bevy_ecs::schedule::{IntoSystemConfigs, IntoSystemSetConfigs};
-use bevy_ecs::system::IntoSystem;
 use bevy_ecs::{
     event::EventWriter,
     prelude::Schedule,
-    system::{Commands, ResMut},
+    schedule::IntoScheduleConfigs,
+    system::{Commands, IntoSystem, ResMut},
 };
 
-use super::{states::States, NextState, State};
-use super::{take_next_state, transitions::*};
+use super::{states::States, take_next_state, transitions::*, NextState, State};
 
 /// This trait allows a state to be mutated directly using the [`NextState<S>`](crate::state::NextState) resource.
 ///
@@ -19,11 +17,11 @@ pub trait FreelyMutableState: States {
     fn register_state(schedule: &mut Schedule) {
         schedule.configure_sets((
             ApplyStateTransition::<Self>::default()
-                .in_set(StateTransitionSteps::DependentTransitions),
-            ExitSchedules::<Self>::default().in_set(StateTransitionSteps::ExitSchedules),
+                .in_set(StateTransitionSystems::DependentTransitions),
+            ExitSchedules::<Self>::default().in_set(StateTransitionSystems::ExitSchedules),
             TransitionSchedules::<Self>::default()
-                .in_set(StateTransitionSteps::TransitionSchedules),
-            EnterSchedules::<Self>::default().in_set(StateTransitionSteps::EnterSchedules),
+                .in_set(StateTransitionSystems::TransitionSchedules),
+            EnterSchedules::<Self>::default().in_set(StateTransitionSystems::EnterSchedules),
         ));
 
         schedule

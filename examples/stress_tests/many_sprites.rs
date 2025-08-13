@@ -32,7 +32,7 @@ fn main() {
         // Since this is also used as a benchmark, we want it to display performance data.
         .add_plugins((
             LogDiagnosticsPlugin::default(),
-            FrameTimeDiagnosticsPlugin,
+            FrameTimeDiagnosticsPlugin::default(),
             DefaultPlugins.set(WindowPlugin {
                 primary_window: Some(Window {
                     present_mode: PresentMode::AutoNoVsync,
@@ -58,7 +58,7 @@ fn main() {
 fn setup(mut commands: Commands, assets: Res<AssetServer>, color_tint: Res<ColorTint>) {
     warn!(include_str!("warning_string.txt"));
 
-    let mut rng = rand::thread_rng();
+    let mut rng = rand::rng();
 
     let tile_size = Vec2::splat(64.0);
     let map_size = Vec2::splat(320.0);
@@ -70,46 +70,44 @@ fn setup(mut commands: Commands, assets: Res<AssetServer>, color_tint: Res<Color
 
     // Spawns the camera
 
-    commands.spawn(Camera2dBundle::default());
+    commands.spawn(Camera2d);
 
     // Builds and spawns the sprites
     let mut sprites = vec![];
     for y in -half_y..half_y {
         for x in -half_x..half_x {
             let position = Vec2::new(x as f32, y as f32);
-            let translation = (position * tile_size).extend(rng.gen::<f32>());
-            let rotation = Quat::from_rotation_z(rng.gen::<f32>());
-            let scale = Vec3::splat(rng.gen::<f32>() * 2.0);
+            let translation = (position * tile_size).extend(rng.random::<f32>());
+            let rotation = Quat::from_rotation_z(rng.random::<f32>());
+            let scale = Vec3::splat(rng.random::<f32>() * 2.0);
 
-            sprites.push(SpriteBundle {
-                texture: sprite_handle.clone(),
-                transform: Transform {
-                    translation,
-                    rotation,
-                    scale,
-                },
-                sprite: Sprite {
+            sprites.push((
+                Sprite {
+                    image: sprite_handle.clone(),
                     custom_size: Some(tile_size),
                     color: if color_tint.0 {
-                        COLORS[rng.gen_range(0..3)]
+                        COLORS[rng.random_range(0..3)]
                     } else {
                         Color::WHITE
                     },
                     ..default()
                 },
-                ..default()
-            });
+                Transform {
+                    translation,
+                    rotation,
+                    scale,
+                },
+            ));
         }
     }
     commands.spawn_batch(sprites);
 }
 
 // System for rotating and translating the camera
-fn move_camera(time: Res<Time>, mut camera_query: Query<&mut Transform, With<Camera>>) {
-    let mut camera_transform = camera_query.single_mut();
-    camera_transform.rotate_z(time.delta_seconds() * 0.5);
-    *camera_transform = *camera_transform
-        * Transform::from_translation(Vec3::X * CAMERA_SPEED * time.delta_seconds());
+fn move_camera(time: Res<Time>, mut camera_transform: Single<&mut Transform, With<Camera>>) {
+    camera_transform.rotate_z(time.delta_secs() * 0.5);
+    **camera_transform = **camera_transform
+        * Transform::from_translation(Vec3::X * CAMERA_SPEED * time.delta_secs());
 }
 
 #[derive(Deref, DerefMut)]

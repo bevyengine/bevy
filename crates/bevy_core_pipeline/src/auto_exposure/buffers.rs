@@ -1,13 +1,13 @@
 use bevy_ecs::prelude::*;
+use bevy_platform::collections::{hash_map::Entry, HashMap};
 use bevy_render::{
     render_resource::{StorageBuffer, UniformBuffer},
     renderer::{RenderDevice, RenderQueue},
+    sync_world::RenderEntity,
     Extract,
 };
-use bevy_utils::{Entry, HashMap};
 
-use super::pipeline::AutoExposureSettingsUniform;
-use super::AutoExposureSettings;
+use super::{pipeline::AutoExposureUniform, AutoExposure};
 
 #[derive(Resource, Default)]
 pub(super) struct AutoExposureBuffers {
@@ -16,19 +16,19 @@ pub(super) struct AutoExposureBuffers {
 
 pub(super) struct AutoExposureBuffer {
     pub(super) state: StorageBuffer<f32>,
-    pub(super) settings: UniformBuffer<AutoExposureSettingsUniform>,
+    pub(super) settings: UniformBuffer<AutoExposureUniform>,
 }
 
 #[derive(Resource)]
 pub(super) struct ExtractedStateBuffers {
-    changed: Vec<(Entity, AutoExposureSettings)>,
+    changed: Vec<(Entity, AutoExposure)>,
     removed: Vec<Entity>,
 }
 
 pub(super) fn extract_buffers(
     mut commands: Commands,
-    changed: Extract<Query<(Entity, &AutoExposureSettings), Changed<AutoExposureSettings>>>,
-    mut removed: Extract<RemovedComponents<AutoExposureSettings>>,
+    changed: Extract<Query<(RenderEntity, &AutoExposure), Changed<AutoExposure>>>,
+    mut removed: Extract<RemovedComponents<AutoExposure>>,
 ) {
     commands.insert_resource(ExtractedStateBuffers {
         changed: changed
@@ -50,7 +50,7 @@ pub(super) fn prepare_buffers(
         let (low_percent, high_percent) = settings.filter.into_inner();
         let initial_state = 0.0f32.clamp(min_log_lum, max_log_lum);
 
-        let settings = AutoExposureSettingsUniform {
+        let settings = AutoExposureUniform {
             min_log_lum,
             inv_log_lum_range: 1.0 / (max_log_lum - min_log_lum),
             log_lum_range: max_log_lum - min_log_lum,

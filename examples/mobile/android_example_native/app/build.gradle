@@ -1,0 +1,67 @@
+plugins {
+    alias(libs.plugins.android.application)
+}
+
+android {
+    namespace 'org.bevyengine.example'
+    compileSdk 34
+
+    defaultConfig {
+        applicationId "org.bevyengine.example"
+        minSdk 31
+        targetSdk 33
+        versionCode 1
+        versionName "1.0"
+        // need this otherwise it won't insert libc++_shared.so
+        externalNativeBuild {
+            cmake {
+                arguments "-DANDROID_STL=c++_shared"
+            }
+        }
+        // set up targets
+        ndk {
+            abiFilters 'arm64-v8a'
+        }
+        testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+    }
+    externalNativeBuild {
+        cmake {
+            path "CMakeLists.txt"
+        }
+    }
+    buildTypes {
+        release {
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+        }
+    }
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_1_8
+        targetCompatibility JavaVersion.VERSION_1_8
+    }
+    buildFeatures {
+        viewBinding true
+    }
+    // The final part to insert libc++_shared.so only
+    packagingOptions {
+        exclude 'lib/*/libdummy.so'
+    }
+
+    sourceSets {
+        main {
+            assets.srcDirs += files('../../../../assets')
+
+            res.srcDirs += files('../../../../assets/android-res')
+        }
+    }
+}
+
+dependencies {
+
+    implementation libs.appcompat
+    implementation libs.material
+    implementation libs.constraintlayout
+    testImplementation libs.junit
+    androidTestImplementation libs.ext.junit
+    androidTestImplementation libs.espresso.core
+}

@@ -1,4 +1,3 @@
-use crate as bevy_ecs;
 use bevy_ecs::{
     change_detection::Mut,
     component::Tick,
@@ -8,13 +7,17 @@ use bevy_ecs::{
 };
 use bevy_ecs_macros::SystemSet;
 #[cfg(feature = "bevy_reflect")]
-use std::hash::Hash;
+use core::hash::Hash;
 
 use super::registry::ShouldUpdateEvents;
 
 #[doc(hidden)]
 #[derive(SystemSet, Clone, Debug, PartialEq, Eq, Hash)]
-pub struct EventUpdates;
+pub struct EventUpdateSystems;
+
+/// Deprecated alias for [`EventUpdateSystems`].
+#[deprecated(since = "0.17.0", note = "Renamed to `EventUpdateSystems`.")]
+pub type EventUpdates = EventUpdateSystems;
 
 /// Signals the [`event_update_system`] to run after `FixedUpdate` systems.
 ///
@@ -28,20 +31,16 @@ pub fn signal_event_update_system(signal: Option<ResMut<EventRegistry>>) {
 
 /// A system that calls [`Events::update`](super::Events::update) on all registered [`Events`][super::Events] in the world.
 pub fn event_update_system(world: &mut World, mut last_change_tick: Local<Tick>) {
-    if world.contains_resource::<EventRegistry>() {
-        world.resource_scope(|world, mut registry: Mut<EventRegistry>| {
-            registry.run_updates(world, *last_change_tick);
+    world.try_resource_scope(|world, mut registry: Mut<EventRegistry>| {
+        registry.run_updates(world, *last_change_tick);
 
-            registry.should_update = match registry.should_update {
-                // If we're always updating, keep doing so.
-                ShouldUpdateEvents::Always => ShouldUpdateEvents::Always,
-                // Disable the system until signal_event_update_system runs again.
-                ShouldUpdateEvents::Waiting | ShouldUpdateEvents::Ready => {
-                    ShouldUpdateEvents::Waiting
-                }
-            };
-        });
-    }
+        registry.should_update = match registry.should_update {
+            // If we're always updating, keep doing so.
+            ShouldUpdateEvents::Always => ShouldUpdateEvents::Always,
+            // Disable the system until signal_event_update_system runs again.
+            ShouldUpdateEvents::Waiting | ShouldUpdateEvents::Ready => ShouldUpdateEvents::Waiting,
+        };
+    });
     *last_change_tick = world.change_tick();
 }
 

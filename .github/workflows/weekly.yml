@@ -1,14 +1,36 @@
 name: Weekly beta compile test
 
+permissions:
+  contents: read
+
 on:
   schedule:
     # New versions of rust release on Thursdays. We test on Mondays to get at least 3 days of warning before all our CI breaks again.
     # https://forge.rust-lang.org/release/process.html#release-day-thursday
-    - cron:  '0 12 * * 1'
+    - cron: "0 12 * * 1"
   workflow_dispatch:
 
 env:
   CARGO_TERM_COLOR: always
+  CARGO_INCREMENTAL: 0
+  CARGO_PROFILE_TEST_DEBUG: 0
+  CARGO_PROFILE_DEV_DEBUG: 0
+  ISSUE_TITLE: Main branch fails to compile on Rust beta.
+
+# The jobs listed here are intentionally skipped when running on forks, for a number of reasons:
+#
+# * Scheduled workflows run on the base/default branch, with no way (currently) to change this. On
+#   forks, the base/default branch is usually kept in sync with the main Bevy repository, meaning
+#   that running this workflow on forks would just be a waste of resources.
+#
+# * Even if there was a way to change the branch that a scheduled workflow runs on, forks default
+#   to not having an issue tracker.
+#
+# * Even in the event that a fork's issue tracker is enabled, most users probably don't want to
+#   receive automated issues in the event of a compilation failure.
+#
+# Because of these reasons, this workflow is irrelevant for 99% of forks. Thus, the jobs here will
+# be skipped when running on any repository that isn't the main Bevy repository.
 
 jobs:
   test:
@@ -16,6 +38,8 @@ jobs:
       matrix:
         os: [windows-latest, ubuntu-latest, macos-latest]
     runs-on: ${{ matrix.os }}
+    # Disable this job when running on a fork.
+    if: github.repository == 'bevyengine/bevy'
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
@@ -26,11 +50,12 @@ jobs:
         # See tools/ci/src/main.rs for the commands this runs
         run: cargo run -p ci -- test
         env:
-          CARGO_INCREMENTAL: 0
           RUSTFLAGS: "-C debuginfo=0 -D warnings"
 
   lint:
     runs-on: ubuntu-latest
+    # Disable this job when running on a fork.
+    if: github.repository == 'bevyengine/bevy'
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
@@ -48,6 +73,8 @@ jobs:
 
   check-compiles:
     runs-on: ubuntu-latest
+    # Disable this job when running on a fork.
+    if: github.repository == 'bevyengine/bevy'
     timeout-minutes: 30
     needs: test
     steps:
@@ -59,53 +86,58 @@ jobs:
         # See tools/ci/src/main.rs for the commands this runs
         run: cargo run -p ci -- compile
 
-  check-doc:
+  close-any-open-issues:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    needs: ["test", "lint", "check-compiles"]
+    permissions:
+      issues: write
     steps:
-      - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@beta
-      - name: Install Linux dependencies
-        uses: ./.github/actions/install-linux-deps
-        with:
-          wayland: true
-          xkb: true
-      - name: Build and check docs
-        # See tools/ci/src/main.rs for the commands this runs
-        run: cargo run -p ci -- doc
+      - name: Close issues
+        run: |
+          previous_issue_number=$(gh issue list \
+            --search "$ISSUE_TITLE in:title" \
+            --json number \
+            --jq '.[0].number')
+          if [[ -n $previous_issue_number ]]; then
+            gh issue close $previous_issue_number \
+              -r completed \
+              -c $COMMENT
+          fi
         env:
-          CARGO_INCREMENTAL: 0
-          RUSTFLAGS: "-C debuginfo=0"
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          COMMENT: |
+            [Last pipeline run](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}) successfully completed. Closing issue.
 
   open-issue:
     name: Warn that weekly CI fails
     runs-on: ubuntu-latest
-    needs: [test, lint, check-compiles, check-doc]
+    needs: [test, lint, check-compiles]
     permissions:
       issues: write
-    # Use always() so the job doesn't get canceled if any other jobs fail 
-    if: ${{ always() && contains(needs.*.result, 'failure') }}
+    # We disable this job on forks, because
+    # Use always() so the job doesn't get canceled if any other jobs fail
+    if: ${{ github.repository == 'bevyengine/bevy' && always() && contains(needs.*.result, 'failure') }}
     steps:
       - name: Create issue
         run: |
           previous_issue_number=$(gh issue list \
-            --search "$TITLE in:title" \
+            --search "$ISSUE_TITLE in:title" \
             --json number \
             --jq '.[0].number')
           if [[ -n $previous_issue_number ]]; then
             gh issue comment $previous_issue_number \
-              --body "Weekly pipeline still fails: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" 
+              --body "Weekly pipeline still fails: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
           else
             gh issue create \
-              --title "$TITLE" \
+              --title "$ISSUE_TITLE" \
               --label "$LABELS" \
               --body "$BODY"
           fi
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_REPO: ${{ github.repository }}
-          TITLE: Main branch fails to compile on Rust beta.
           LABELS: C-Bug,S-Needs-Triage
-          BODY: | 
+          BODY: |
             ## Weekly CI run has failed.
             [The offending run.](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})

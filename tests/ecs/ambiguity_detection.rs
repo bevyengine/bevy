@@ -6,21 +6,37 @@
 
 use bevy::{
     ecs::schedule::{InternedScheduleLabel, LogLevel, ScheduleBuildSettings},
+    platform::collections::HashMap,
     prelude::*,
-    utils::HashMap,
+    render::{pipelined_rendering::PipelinedRenderingPlugin, RenderPlugin},
 };
-use bevy_render::{pipelined_rendering::RenderExtractApp, RenderApp};
 
 fn main() {
     let mut app = App::new();
-    app.add_plugins(DefaultPlugins);
+    app.add_plugins(
+        DefaultPlugins
+            .build()
+            .set(RenderPlugin {
+                // llvmpipe driver can cause segfaults when aborting the binary while pipelines are being
+                // compiled (which happens very quickly in this example since we only run for a single
+                // frame). Synchronous pipeline compilation helps prevent these segfaults as the
+                // rendering thread blocks on these pipeline compilations.
+                synchronous_pipeline_compilation: true,
+                ..Default::default()
+            })
+            // We also have to disable pipelined rendering to ensure the test doesn't end while the
+            // rendering frame is still executing in another thread.
+            .disable::<PipelinedRenderingPlugin>(),
+    );
 
-    let sub_app = app.main_mut();
-    configure_ambiguity_detection(sub_app);
-    let sub_app = app.sub_app_mut(RenderApp);
-    configure_ambiguity_detection(sub_app);
-    let sub_app = app.sub_app_mut(RenderExtractApp);
-    configure_ambiguity_detection(sub_app);
+    let main_app = app.main_mut();
+    configure_ambiguity_detection(main_app);
+
+    // Ambiguities in the RenderApp are currently allowed.
+    // Eventually, we should forbid these: see https://github.com/bevyengine/bevy/issues/7386
+    // Uncomment the lines below to show the current ambiguities in the RenderApp.
+    // let sub_app = app.sub_app_mut(bevy_render::RenderApp);
+    // configure_ambiguity_detection(sub_app);
 
     app.finish();
     app.cleanup();
@@ -29,22 +45,8 @@ fn main() {
     let main_app_ambiguities = count_ambiguities(app.main());
     assert_eq!(
         main_app_ambiguities.total(),
-        // This number *should* be zero.
-        // Over time, we are working to reduce the number: your PR should not increase it.
-        // If you decrease this by fixing an ambiguity, reduce the number to prevent regressions.
-        // See https://github.com/bevyengine/bevy/issues/7386 for progress.
-        48,
-        "Main app has unexpected ambiguities among the following schedules: \n{:#?}.",
-        main_app_ambiguities,
-    );
-
-    // RenderApp is not checked here, because it is not within the App at this point.
-    let render_extract_ambiguities = count_ambiguities(app.sub_app(RenderExtractApp));
-    assert_eq!(
-        render_extract_ambiguities.total(),
         0,
-        "RenderExtract app has unexpected ambiguities among the following schedules: \n{:#?}",
-        render_extract_ambiguities,
+        "Main app has unexpected ambiguities among the following schedules: \n{main_app_ambiguities:#?}.",
     );
 }
 
@@ -73,7 +75,7 @@ fn configure_ambiguity_detection(sub_app: &mut SubApp) {
 /// Returns the number of conflicting systems per schedule.
 fn count_ambiguities(sub_app: &SubApp) -> AmbiguitiesCount {
     let schedules = sub_app.world().resource::<Schedules>();
-    let mut ambiguities = HashMap::new();
+    let mut ambiguities = <HashMap<_, _>>::default();
     for (_, schedule) in schedules.iter() {
         let ambiguities_in_schedule = schedule.graph().conflicting_systems().len();
         ambiguities.insert(schedule.label(), ambiguities_in_schedule);

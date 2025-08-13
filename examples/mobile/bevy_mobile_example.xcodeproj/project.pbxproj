@@ -3,56 +3,20 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 51;
+	objectVersion = 54;
 	objects = {
 
 /* Begin PBXBuildFile section */
-		134866208A035F8615C99114 /* Metal.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 96A1E5B62F48B379829E8A0D /* Metal.framework */; };
-		2604C99FAB5A8322EDCABB9F /* UIKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = FE71FBCAA714DB4F42459106 /* UIKit.framework */; };
-		442540D056ADB9AE61A0A590 /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 9F1B41978FA53999AA836D0F /* Security.framework */; };
-		55892F1396056740E1AF9685 /* main.m in Sources */ = {isa = PBXBuildFile; fileRef = AF7DE91055EBD05ED77E57F9 /* main.m */; };
-		55B7188F81C3C4183F81D3AE /* libc++.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = A39528EB2CCB182F5328223A /* libc++.tbd */; };
-		57CD6306253C7A940098CD4A /* AudioToolbox.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 57CD6305253C7A940098CD4A /* AudioToolbox.framework */; };
 		57CD630E253C80EC0098CD4A /* assets in Resources */ = {isa = PBXBuildFile; fileRef = 57CD630A253C7F5F0098CD4A /* assets */; };
+		6ADF1AB92CCDA73A00AF5F8E /* QuartzCore.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 6ADF1AB82CCDA73A00AF5F8E /* QuartzCore.framework */; };
 /* End PBXBuildFile section */
 
-/* Begin PBXContainerItemProxy section */
-		26BF2C4863C966DABAB40DC8 /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 8DBF1E2B5C613DA41701F6D9 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = D08AEBE0B1A9C9A7B8C7B33F;
-			remoteInfo = cargo_ios;
-		};
-/* End PBXContainerItemProxy section */
-
 /* Begin PBXFileReference section */
-		160DB77300A3F1806F024D47 /* bindings.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = bindings.h; sourceTree = "<group>"; };
 		55EAC02897847195D2F44C15 /* bevy_mobile_example.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = bevy_mobile_example.app; sourceTree = BUILT_PRODUCTS_DIR; };
-		57CD6305253C7A940098CD4A /* AudioToolbox.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AudioToolbox.framework; path = System/Library/Frameworks/AudioToolbox.framework; sourceTree = SDKROOT; };
 		57CD630A253C7F5F0098CD4A /* assets */ = {isa = PBXFileReference; lastKnownFileType = folder; name = assets; path = ../../../assets; sourceTree = "<group>"; };
+		6ADF1AB82CCDA73A00AF5F8E /* QuartzCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = QuartzCore.framework; path = System/Library/Frameworks/QuartzCore.framework; sourceTree = SDKROOT; };
 		8EE7F1E3B0303533925D7E33 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
-		96A1E5B62F48B379829E8A0D /* Metal.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Metal.framework; path = System/Library/Frameworks/Metal.framework; sourceTree = SDKROOT; };
-		9F1B41978FA53999AA836D0F /* Security.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Security.framework; path = System/Library/Frameworks/Security.framework; sourceTree = SDKROOT; };
-		A39528EB2CCB182F5328223A /* libc++.tbd */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.text-based-dylib-definition"; name = "libc++.tbd"; path = "usr/lib/libc++.tbd"; sourceTree = SDKROOT; };
-		AF7DE91055EBD05ED77E57F9 /* main.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = main.m; sourceTree = "<group>"; };
-		FE71FBCAA714DB4F42459106 /* UIKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = UIKit.framework; path = System/Library/Frameworks/UIKit.framework; sourceTree = SDKROOT; };
 /* End PBXFileReference section */
-
-/* Begin PBXFrameworksBuildPhase section */
-		D5A822CB2D6847BA8800BE4C /* Frameworks */ = {
-			isa = PBXFrameworksBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-				442540D056ADB9AE61A0A590 /* Security.framework in Frameworks */,
-				134866208A035F8615C99114 /* Metal.framework in Frameworks */,
-				2604C99FAB5A8322EDCABB9F /* UIKit.framework in Frameworks */,
-				55B7188F81C3C4183F81D3AE /* libc++.tbd in Frameworks */,
-				57CD6306253C7A940098CD4A /* AudioToolbox.framework in Frameworks */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-/* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
 		321F7D6A765B38E746C35105 /* Products */ = {
@@ -67,9 +31,7 @@
 			isa = PBXGroup;
 			children = (
 				57CD630A253C7F5F0098CD4A /* assets */,
-				160DB77300A3F1806F024D47 /* bindings.h */,
 				8EE7F1E3B0303533925D7E33 /* Info.plist */,
-				AF7DE91055EBD05ED77E57F9 /* main.m */,
 			);
 			path = "ios-src";
 			sourceTree = "<group>";
@@ -86,48 +48,23 @@
 		EB028409C2D0655412DA6E44 /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
-				57CD6305253C7A940098CD4A /* AudioToolbox.framework */,
-				A39528EB2CCB182F5328223A /* libc++.tbd */,
-				96A1E5B62F48B379829E8A0D /* Metal.framework */,
-				9F1B41978FA53999AA836D0F /* Security.framework */,
-				FE71FBCAA714DB4F42459106 /* UIKit.framework */,
 			);
 			name = Frameworks;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
 
-/* Begin PBXLegacyTarget section */
-		D08AEBE0B1A9C9A7B8C7B33F /* cargo_ios */ = {
-			isa = PBXLegacyTarget;
-			buildArgumentsString = build_rust_deps.sh;
-			buildConfigurationList = AA00A0CFDB11F37F2BA3FC2E /* Build configuration list for PBXLegacyTarget "cargo_ios" */;
-			buildPhases = (
-				FE045B3D04D57B713A565FF8 /* Sources */,
-			);
-			buildToolPath = /bin/sh;
-			buildWorkingDirectory = .;
-			dependencies = (
-			);
-			name = cargo_ios;
-			passBuildSettingsInEnvironment = 1;
-			productName = cargo_ios;
-		};
-/* End PBXLegacyTarget section */
-
 /* Begin PBXNativeTarget section */
 		3BDB8152E4962373181B4FE5 /* bevy_mobile_example */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = E714A1AEAAE517C348B5BD27 /* Build configuration list for PBXNativeTarget "bevy_mobile_example" */;
 			buildPhases = (
-				9F13800790AD9DBC2BC0F116 /* Sources */,
-				D5A822CB2D6847BA8800BE4C /* Frameworks */,
+				ECFC92D02C6F14FA0095E5B1 /* Rust */,
 				57CD630D253C80E60098CD4A /* Resources */,
 			);
 			buildRules = (
 			);
 			dependencies = (
-				19D4B9C22ADC6705B5132B4C /* PBXTargetDependency */,
 			);
 			name = bevy_mobile_example;
 			productName = bevy_mobile_example;
@@ -154,7 +91,6 @@
 			projectRoot = "";
 			targets = (
 				3BDB8152E4962373181B4FE5 /* bevy_mobile_example */,
-				D08AEBE0B1A9C9A7B8C7B33F /* cargo_ios */,
 			);
 		};
 /* End PBXProject section */
@@ -170,31 +106,29 @@
 		};
 /* End PBXResourcesBuildPhase section */
 
-/* Begin PBXSourcesBuildPhase section */
-		9F13800790AD9DBC2BC0F116 /* Sources */ = {
-			isa = PBXSourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-				55892F1396056740E1AF9685 /* main.m in Sources */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		FE045B3D04D57B713A565FF8 /* Sources */ = {
-			isa = PBXSourcesBuildPhase;
+/* Begin PBXShellScriptBuildPhase section */
+		ECFC92D02C6F14FA0095E5B1 /* Rust */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
 			buildActionMask = 2147483647;
 			files = (
 			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+				"$(SRCROOT)/build_rust_deps.sh",
+			);
+			name = Rust;
+			outputFileListPaths = (
+			);
+			outputPaths = (
+				$TARGET_BUILD_DIR/$EXECUTABLE_PATH,
+			);
 			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "./build_rust_deps.sh\n";
 		};
-/* End PBXSourcesBuildPhase section */
-
-/* Begin PBXTargetDependency section */
-		19D4B9C22ADC6705B5132B4C /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = D08AEBE0B1A9C9A7B8C7B33F /* cargo_ios */;
-			targetProxy = 26BF2C4863C966DABAB40DC8 /* PBXContainerItemProxy */;
-		};
-/* End PBXTargetDependency section */
+/* End PBXShellScriptBuildPhase section */
 
 /* Begin XCBuildConfiguration section */
 		4AD7BC6FDD56FF18FA6DA7D7 /* Debug */ = {
@@ -267,34 +201,9 @@
 				CODE_SIGN_IDENTITY = "";
 				DEVELOPMENT_TEAM = "";
 				ENABLE_BITCODE = NO;
-				HEADER_SEARCH_PATHS = (
-					"$(inherited)",
-					"ios-src/",
-				);
 				INFOPLIST_FILE = "ios-src/Info.plist";
 				IPHONEOS_DEPLOYMENT_TARGET = 12.0;
-				LD_RUNPATH_SEARCH_PATHS = (
-					"$(inherited)",
-					"@executable_path/Frameworks",
-				);
-				"LIBRARY_SEARCH_PATHS[sdk=iphoneos*][arch=arm64]" = (
-					"$(inherited)",
-					"../../target/aarch64-apple-ios/release",
-				);
-				"LIBRARY_SEARCH_PATHS[sdk=iphonesimulator*][arch=arm64]" = (
-					"$(inherited)",
-					"../../target/aarch64-apple-ios-sim/release",
-				);
-				"LIBRARY_SEARCH_PATHS[sdk=iphonesimulator*][arch=x86_64]" = (
-					"$(inherited)",
-					"../../target/x86_64-apple-ios/release",
-				);
-				OTHER_LDFLAGS = (
-					"$(inherited)",
-					"-lbevy_mobile_example",
-					"-lc++abi",
-				);
-				PRODUCT_BUNDLE_IDENTIFIER = "org.bevyengine.example";
+				PRODUCT_BUNDLE_IDENTIFIER = org.bevyengine.example;
 				SDKROOT = iphoneos;
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};
@@ -353,19 +262,6 @@
 			};
 			name = Release;
 		};
-		8265913A25816D964A847F1B /* Debug */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				LD_RUNPATH_SEARCH_PATHS = (
-					"$(inherited)",
-					"@executable_path/Frameworks",
-				);
-				PRODUCT_BUNDLE_IDENTIFIER = "com.rust.cargo-ios";
-				SDKROOT = iphoneos;
-				TARGETED_DEVICE_FAMILY = "1,2";
-			};
-			name = Debug;
-		};
 		A2D5B73DD30D562B6F366526 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -375,51 +271,13 @@
 				CODE_SIGN_IDENTITY = "";
 				DEVELOPMENT_TEAM = "";
 				ENABLE_BITCODE = NO;
-				HEADER_SEARCH_PATHS = (
-					"$(inherited)",
-					"ios-src/",
-				);
 				INFOPLIST_FILE = "ios-src/Info.plist";
 				IPHONEOS_DEPLOYMENT_TARGET = 12.0;
-				LD_RUNPATH_SEARCH_PATHS = (
-					"$(inherited)",
-					"@executable_path/Frameworks",
-				);
-				"LIBRARY_SEARCH_PATHS[sdk=iphoneos*][arch=arm64]" = (
-					"$(inherited)",
-					"../../target/aarch64-apple-ios/debug",
-				);
-				"LIBRARY_SEARCH_PATHS[sdk=iphonesimulator*][arch=arm64]" = (
-					"$(inherited)",
-					"../../target/aarch64-apple-ios-sim/debug",
-				);
-				"LIBRARY_SEARCH_PATHS[sdk=iphonesimulator*][arch=x86_64]" = (
-					"$(inherited)",
-					"../../target/x86_64-apple-ios/debug",
-				);
-				OTHER_LDFLAGS = (
-					"$(inherited)",
-					"-lbevy_mobile_example",
-					"-lc++abi",
-				);
-				PRODUCT_BUNDLE_IDENTIFIER = "org.bevyengine.example";
+				PRODUCT_BUNDLE_IDENTIFIER = org.bevyengine.example;
 				SDKROOT = iphoneos;
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};
 			name = Debug;
-		};
-		FEA9B18D9236F9F6DC6DF799 /* Release */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				LD_RUNPATH_SEARCH_PATHS = (
-					"$(inherited)",
-					"@executable_path/Frameworks",
-				);
-				PRODUCT_BUNDLE_IDENTIFIER = "com.rust.cargo-ios";
-				SDKROOT = iphoneos;
-				TARGETED_DEVICE_FAMILY = "1,2";
-			};
-			name = Release;
 		};
 /* End XCBuildConfiguration section */
 
@@ -429,15 +287,6 @@
 			buildConfigurations = (
 				4AD7BC6FDD56FF18FA6DA7D7 /* Debug */,
 				79E3C28F06346EA58420A93D /* Release */,
-			);
-			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Debug;
-		};
-		AA00A0CFDB11F37F2BA3FC2E /* Build configuration list for PBXLegacyTarget "cargo_ios" */ = {
-			isa = XCConfigurationList;
-			buildConfigurations = (
-				8265913A25816D964A847F1B /* Debug */,
-				FEA9B18D9236F9F6DC6DF799 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Debug;

@@ -31,7 +31,7 @@ fn main() {
                 ..default()
             }),
             // You need to add this plugin to enable wireframe rendering
-            WireframePlugin,
+            WireframePlugin::default(),
         ))
         // Wireframes can be configured with this resource. This can be changed at runtime.
         .insert_resource(WireframeConfig {
@@ -56,29 +56,22 @@ fn setup(
 ) {
     // Red cube: Never renders a wireframe
     commands.spawn((
-        PbrBundle {
-            mesh: meshes.add(Cuboid::default()),
-            material: materials.add(Color::from(RED)),
-            transform: Transform::from_xyz(-1.0, 0.5, -1.0),
-            ..default()
-        },
+        Mesh3d(meshes.add(Cuboid::default())),
+        MeshMaterial3d(materials.add(Color::from(RED))),
+        Transform::from_xyz(-1.0, 0.5, -1.0),
         NoWireframe,
     ));
     // Orange cube: Follows global wireframe setting
-    commands.spawn(PbrBundle {
-        mesh: meshes.add(Cuboid::default()),
-        material: materials.add(Color::from(ORANGE)),
-        transform: Transform::from_xyz(0.0, 0.5, 0.0),
-        ..default()
-    });
+    commands.spawn((
+        Mesh3d(meshes.add(Cuboid::default())),
+        MeshMaterial3d(materials.add(Color::from(ORANGE))),
+        Transform::from_xyz(0.0, 0.5, 0.0),
+    ));
     // Green cube: Always renders a wireframe
     commands.spawn((
-        PbrBundle {
-            mesh: meshes.add(Cuboid::default()),
-            material: materials.add(Color::from(LIME)),
-            transform: Transform::from_xyz(1.0, 0.5, 1.0),
-            ..default()
-        },
+        Mesh3d(meshes.add(Cuboid::default())),
+        MeshMaterial3d(materials.add(Color::from(LIME))),
+        Transform::from_xyz(1.0, 0.5, 1.0),
         Wireframe,
         // This lets you configure the wireframe color of this entity.
         // If not set, this will use the color in `WireframeConfig`
@@ -87,11 +80,8 @@ fn setup(
 
     // plane
     commands.spawn((
-        PbrBundle {
-            mesh: meshes.add(Plane3d::default().mesh().size(5.0, 5.0)),
-            material: materials.add(Color::from(BLUE)),
-            ..default()
-        },
+        Mesh3d(meshes.add(Plane3d::default().mesh().size(5.0, 5.0))),
+        MeshMaterial3d(materials.add(Color::from(BLUE))),
         // You can insert this component without the `Wireframe` component
         // to override the color of the global wireframe for this mesh
         WireframeColor {
@@ -100,26 +90,24 @@ fn setup(
     ));
 
     // light
-    commands.spawn(PointLightBundle {
-        transform: Transform::from_xyz(2.0, 4.0, 2.0),
-        ..default()
-    });
+    commands.spawn((PointLight::default(), Transform::from_xyz(2.0, 4.0, 2.0)));
 
     // camera
-    commands.spawn(Camera3dBundle {
-        transform: Transform::from_xyz(-2.0, 2.5, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
-        ..default()
-    });
+    commands.spawn((
+        Camera3d::default(),
+        Transform::from_xyz(-2.0, 2.5, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
+    ));
 
     // Text used to show controls
-    commands.spawn(
-        TextBundle::from_section("", TextStyle::default()).with_style(Style {
+    commands.spawn((
+        Text::default(),
+        Node {
             position_type: PositionType::Absolute,
             top: Val::Px(12.0),
             left: Val::Px(12.0),
             ..default()
-        }),
-    );
+        },
+    ));
 }
 
 /// This system let's you toggle various wireframe settings
@@ -127,9 +115,9 @@ fn update_colors(
     keyboard_input: Res<ButtonInput<KeyCode>>,
     mut config: ResMut<WireframeConfig>,
     mut wireframe_colors: Query<&mut WireframeColor, With<Wireframe>>,
-    mut text: Query<&mut Text>,
+    mut text: Single<&mut Text>,
 ) {
-    text.single_mut().sections[0].value = format!(
+    text.0 = format!(
         "Controls
 ---------------
 Z - Toggle global

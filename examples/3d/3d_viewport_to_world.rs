@@ -11,33 +11,32 @@ fn main() {
 }
 
 fn draw_cursor(
-    camera_query: Query<(&Camera, &GlobalTransform)>,
-    ground_query: Query<&GlobalTransform, With<Ground>>,
-    windows: Query<&Window>,
+    camera_query: Single<(&Camera, &GlobalTransform)>,
+    ground: Single<&GlobalTransform, With<Ground>>,
+    window: Single<&Window>,
     mut gizmos: Gizmos,
 ) {
-    let (camera, camera_transform) = camera_query.single();
-    let ground = ground_query.single();
+    let (camera, camera_transform) = *camera_query;
 
-    let Some(cursor_position) = windows.single().cursor_position() else {
-        return;
-    };
+    if let Some(cursor_position) = window.cursor_position()
+        // Calculate a ray pointing from the camera into the world based on the cursor's position.
+        && let Ok(ray) = camera.viewport_to_world(camera_transform, cursor_position)
+        // Calculate if and at what distance the ray is hitting the ground plane.
+        && let Some(distance) =
+            ray.intersect_plane(ground.translation(), InfinitePlane3d::new(ground.up()))
+    {
+        let point = ray.get_point(distance);
 
-    // Calculate a ray pointing from the camera into the world based on the cursor's position.
-    let Some(ray) = camera.viewport_to_world(camera_transform, cursor_position) else {
-        return;
-    };
-
-    // Calculate if and where the ray is hitting the ground plane.
-    let Some(distance) =
-        ray.intersect_plane(ground.translation(), InfinitePlane3d::new(ground.up()))
-    else {
-        return;
-    };
-    let point = ray.get_point(distance);
-
-    // Draw a circle just above the ground plane at that position.
-    gizmos.circle(point + ground.up() * 0.01, ground.up(), 0.2, Color::WHITE);
+        // Draw a circle just above the ground plane at that position.
+        gizmos.circle(
+            Isometry3d::new(
+                point + ground.up() * 0.01,
+                Quat::from_rotation_arc(Vec3::Z, ground.up().as_vec3()),
+            ),
+            0.2,
+            Color::WHITE,
+        );
+    }
 }
 
 #[derive(Component)]
@@ -50,23 +49,20 @@ fn setup(
 ) {
     // plane
     commands.spawn((
-        PbrBundle {
-            mesh: meshes.add(Plane3d::default().mesh().size(20., 20.)),
-            material: materials.add(Color::srgb(0.3, 0.5, 0.3)),
-            ..default()
-        },
+        Mesh3d(meshes.add(Plane3d::default().mesh().size(20., 20.))),
+        MeshMaterial3d(materials.add(Color::srgb(0.3, 0.5, 0.3))),
         Ground,
     ));
 
     // light
-    commands.spawn(DirectionalLightBundle {
-        transform: Transform::from_translation(Vec3::ONE).looking_at(Vec3::ZERO, Vec3::Y),
-        ..default()
-    });
+    commands.spawn((
+        DirectionalLight::default(),
+        Transform::from_translation(Vec3::ONE).looking_at(Vec3::ZERO, Vec3::Y),
+    ));
 
     // camera
-    commands.spawn(Camera3dBundle {
-        transform: Transform::from_xyz(15.0, 5.0, 15.0).looking_at(Vec3::ZERO, Vec3::Y),
-        ..default()
-    });
+    commands.spawn((
+        Camera3d::default(),
+        Transform::from_xyz(15.0, 5.0, 15.0).looking_at(Vec3::ZERO, Vec3::Y),
+    ));
 }

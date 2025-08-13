@@ -1,7 +1,6 @@
 use proc_macro2::TokenStream;
 use quote::quote;
-use syn::parse::ParseStream;
-use syn::{Expr, Path, Token};
+use syn::{parse::ParseStream, Expr, Path, Token};
 
 #[derive(Default, Clone)]
 pub(crate) struct CustomAttributes {
@@ -27,6 +26,11 @@ impl CustomAttributes {
     pub fn push(&mut self, value: Expr) -> syn::Result<()> {
         self.attributes.push(value);
         Ok(())
+    }
+
+    /// Is the collection empty?
+    pub fn is_empty(&self) -> bool {
+        self.attributes.is_empty()
     }
 
     /// Parse `@` (custom attribute) attribute.

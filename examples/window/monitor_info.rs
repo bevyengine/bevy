@@ -1,8 +1,10 @@
 //! Displays information about available monitors (displays).
 
-use bevy::render::camera::RenderTarget;
-use bevy::window::{ExitCondition, WindowMode, WindowRef};
-use bevy::{prelude::*, window::Monitor};
+use bevy::{
+    camera::RenderTarget,
+    prelude::*,
+    window::{ExitCondition, Monitor, WindowMode, WindowRef},
+};
 
 fn main() {
     App::new()
@@ -42,7 +44,10 @@ fn update(
             .spawn((
                 Window {
                     title: name.clone(),
-                    mode: WindowMode::Fullscreen(MonitorSelection::Entity(entity)),
+                    mode: WindowMode::Fullscreen(
+                        MonitorSelection::Entity(entity),
+                        VideoModeSelection::Current,
+                    ),
                     position: WindowPosition::Centered(MonitorSelection::Entity(entity)),
                     ..default()
                 },
@@ -51,26 +56,27 @@ fn update(
             .id();
 
         let camera = commands
-            .spawn(Camera2dBundle {
-                camera: Camera {
+            .spawn((
+                Camera2d,
+                Camera {
                     target: RenderTarget::Window(WindowRef::Entity(window)),
                     ..default()
                 },
-                ..default()
-            })
+            ))
             .id();
 
         let info_text = format!(
             "Monitor: {name}\nSize: {size}\nRefresh rate: {hz}\nPosition: {position}\nScale: {scale}\n\n",
         );
         commands.spawn((
-            TextBundle::from_section(info_text, default()).with_style(Style {
+            Text(info_text),
+            Node {
                 position_type: PositionType::Relative,
                 height: Val::Percent(100.0),
                 width: Val::Percent(100.0),
                 ..default()
-            }),
-            TargetCamera(camera),
+            },
+            UiTargetCamera(camera),
             MonitorRef(entity),
         ));
     }
@@ -79,7 +85,7 @@ fn update(
     for monitor_entity in monitors_removed.read() {
         for (ref_entity, monitor_ref) in monitor_refs.iter() {
             if monitor_ref.0 == monitor_entity {
-                commands.entity(ref_entity).despawn_recursive();
+                commands.entity(ref_entity).despawn();
             }
         }
     }

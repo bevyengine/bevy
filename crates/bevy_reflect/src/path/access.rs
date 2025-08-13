@@ -1,6 +1,7 @@
 //! Representation for individual element accesses within a path.
 
-use std::{borrow::Cow, fmt};
+use alloc::borrow::Cow;
+use core::fmt;
 
 use super::error::AccessErrorKind;
 use crate::{AccessError, PartialReflect, ReflectKind, ReflectMut, ReflectRef, VariantType};

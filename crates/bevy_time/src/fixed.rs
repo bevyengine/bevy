@@ -2,7 +2,7 @@ use bevy_app::FixedMain;
 use bevy_ecs::world::World;
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::Reflect;
-use bevy_utils::Duration;
+use core::time::Duration;
 
 use crate::{time::Time, virt::Virtual};
 
@@ -65,7 +65,7 @@ use crate::{time::Time, virt::Virtual};
 /// frame. Any [`overstep()`](Time::overstep) present in the accumulator will be
 /// processed according to the new [`timestep()`](Time::timestep) value.
 #[derive(Debug, Copy, Clone)]
-#[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Clone))]
 pub struct Fixed {
     timestep: Duration,
     overstep: Duration,
@@ -233,8 +233,10 @@ impl Default for Fixed {
 }
 
 /// Runs [`FixedMain`] zero or more times based on delta of
-/// [`Time<Virtual>`](Virtual) and [`Time::overstep`]
-pub fn run_fixed_main_schedule(world: &mut World) {
+/// [`Time<Virtual>`](Virtual) and [`Time::overstep`].
+/// You can order your systems relative to this by using
+/// [`RunFixedMainLoopSystems`](bevy_app::prelude::RunFixedMainLoopSystems).
+pub(super) fn run_fixed_main_schedule(world: &mut World) {
     let delta = world.resource::<Time<Virtual>>().delta();
     world.resource_mut::<Time<Fixed>>().accumulate(delta);
 

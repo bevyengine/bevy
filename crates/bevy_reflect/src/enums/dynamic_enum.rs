@@ -1,19 +1,24 @@
 use bevy_reflect_derive::impl_type_path;
 
 use crate::{
-    self as bevy_reflect, enum_debug, enum_hash, enum_partial_eq, ApplyError, DynamicStruct,
-    DynamicTuple, Enum, PartialReflect, Reflect, ReflectKind, ReflectMut, ReflectOwned, ReflectRef,
-    Struct, Tuple, TypeInfo, VariantFieldIter, VariantType,
+    enum_debug, enum_hash, enum_partial_eq, ApplyError, DynamicStruct, DynamicTuple, Enum,
+    PartialReflect, Reflect, ReflectKind, ReflectMut, ReflectOwned, ReflectRef, Struct, Tuple,
+    TypeInfo, VariantFieldIter, VariantType,
 };
 
-use std::fmt::Formatter;
+use alloc::{boxed::Box, string::String};
+use core::fmt::Formatter;
+use derive_more::derive::From;
 
 /// A dynamic representation of an enum variant.
-#[derive(Debug, Default)]
+#[derive(Debug, Default, From)]
 pub enum DynamicVariant {
+    /// A unit variant.
     #[default]
     Unit,
+    /// A tuple variant.
     Tuple(DynamicTuple),
+    /// A struct variant.
     Struct(DynamicStruct),
 }
 
@@ -21,21 +26,9 @@ impl Clone for DynamicVariant {
     fn clone(&self) -> Self {
         match self {
             DynamicVariant::Unit => DynamicVariant::Unit,
-            DynamicVariant::Tuple(data) => DynamicVariant::Tuple(data.clone_dynamic()),
-            DynamicVariant::Struct(data) => DynamicVariant::Struct(data.clone_dynamic()),
+            DynamicVariant::Tuple(data) => DynamicVariant::Tuple(data.to_dynamic_tuple()),
+            DynamicVariant::Struct(data) => DynamicVariant::Struct(data.to_dynamic_struct()),
         }
-    }
-}
-
-impl From<DynamicTuple> for DynamicVariant {
-    fn from(dyn_tuple: DynamicTuple) -> Self {
-        Self::Tuple(dyn_tuple)
-    }
-}
-
-impl From<DynamicStruct> for DynamicVariant {
-    fn from(dyn_struct: DynamicStruct) -> Self {
-        Self::Struct(dyn_struct)
     }
 }
 
@@ -84,7 +77,6 @@ impl DynamicEnum {
     ///
     /// * `variant_name`: The name of the variant to set
     /// * `variant`: The variant data
-    ///
     pub fn new<I: Into<String>, V: Into<DynamicVariant>>(variant_name: I, variant: V) -> Self {
         Self {
             represented_type: None,
@@ -101,7 +93,6 @@ impl DynamicEnum {
     /// * `variant_index`: The index of the variant to set
     /// * `variant_name`: The name of the variant to set
     /// * `variant`: The variant data
-    ///
     pub fn new_with_index<I: Into<String>, V: Into<DynamicVariant>>(
         variant_index: usize,
         variant_name: I,
@@ -126,8 +117,7 @@ impl DynamicEnum {
         if let Some(represented_type) = represented_type {
             assert!(
                 matches!(represented_type, TypeInfo::Enum(_)),
-                "expected TypeInfo::Enum but received: {:?}",
-                represented_type
+                "expected TypeInfo::Enum but received: {represented_type:?}",
             );
         }
 
@@ -152,6 +142,22 @@ impl DynamicEnum {
         self.variant = variant.into();
     }
 
+    /// Get a reference to the [`DynamicVariant`] contained in `self`.
+    pub fn variant(&self) -> &DynamicVariant {
+        &self.variant
+    }
+
+    /// Get a mutable reference to the [`DynamicVariant`] contained in `self`.
+    ///
+    /// Using the mut reference to switch to a different variant will ___not___ update the
+    /// internal tracking of the variant name and index.
+    ///
+    /// If you want to switch variants, prefer one of the setters:
+    /// [`DynamicEnum::set_variant`] or [`DynamicEnum::set_variant_with_index`].
+    pub fn variant_mut(&mut self) -> &mut DynamicVariant {
+        &mut self.variant
+    }
+
     /// Create a [`DynamicEnum`] from an existing one.
     ///
     /// This is functionally the same as [`DynamicEnum::from_ref`] except it takes an owned value.
@@ -162,7 +168,7 @@ impl DynamicEnum {
     /// Create a [`DynamicEnum`] from an existing one.
     ///
     /// This is functionally the same as [`DynamicEnum::from`] except it takes a reference.
-    pub fn from_ref<TEnum: Enum>(value: &TEnum) -> Self {
+    pub fn from_ref<TEnum: Enum + ?Sized>(value: &TEnum) -> Self {
         let type_info = value.get_represented_type_info();
         let mut dyn_enum = match value.variant_type() {
             VariantType::Unit => DynamicEnum::new_with_index(
@@ -173,7 +179,7 @@ impl DynamicEnum {
             VariantType::Tuple => {
                 let mut data = DynamicTuple::default();
                 for field in value.iter_fields() {
-                    data.insert_boxed(field.value().clone_value());
+                    data.insert_boxed(field.value().to_dynamic());
                 }
                 DynamicEnum::new_with_index(
                     value.variant_index(),
@@ -185,7 +191,7 @@ impl DynamicEnum {
                 let mut data = DynamicStruct::default();
                 for field in value.iter_fields() {
                     let name = field.name().unwrap();
-                    data.insert_boxed(name, field.value().clone_value());
+                    data.insert_boxed(name, field.value().to_dynamic());
                 }
                 DynamicEnum::new_with_index(
                     value.variant_index(),
@@ -210,10 +216,10 @@ impl Enum for DynamicEnum {
     }
 
     fn field_at(&self, index: usize) -> Option<&dyn PartialReflect> {
-        if let DynamicVariant::Tuple(data) = &self.variant {
-            data.field(index)
-        } else {
-            None
+        match &self.variant {
+            DynamicVariant::Tuple(data) => data.field(index),
+            DynamicVariant::Struct(data) => data.field_at(index),
+            DynamicVariant::Unit => None,
         }
     }
 
@@ -226,10 +232,10 @@ impl Enum for DynamicEnum {
     }
 
     fn field_at_mut(&mut self, index: usize) -> Option<&mut dyn PartialReflect> {
-        if let DynamicVariant::Tuple(data) = &mut self.variant {
-            data.field_mut(index)
-        } else {
-            None
+        match &mut self.variant {
+            DynamicVariant::Tuple(data) => data.field_mut(index),
+            DynamicVariant::Struct(data) => data.field_at_mut(index),
+            DynamicVariant::Unit => None,
         }
     }
 
@@ -249,7 +255,7 @@ impl Enum for DynamicEnum {
         }
     }
 
-    fn iter_fields(&self) -> VariantFieldIter {
+    fn iter_fields(&self) -> VariantFieldIter<'_> {
         VariantFieldIter::new(self)
     }
 
@@ -274,15 +280,6 @@ impl Enum for DynamicEnum {
             DynamicVariant::Unit => VariantType::Unit,
             DynamicVariant::Tuple(..) => VariantType::Tuple,
             DynamicVariant::Struct(..) => VariantType::Struct,
-        }
-    }
-
-    fn clone_dynamic(&self) -> DynamicEnum {
-        Self {
-            represented_type: self.represented_type,
-            variant_index: self.variant_index,
-            variant_name: self.variant_name.clone(),
-            variant: self.variant.clone(),
         }
     }
 }
@@ -322,55 +319,50 @@ impl PartialReflect for DynamicEnum {
 
     #[inline]
     fn try_apply(&mut self, value: &dyn PartialReflect) -> Result<(), ApplyError> {
-        if let ReflectRef::Enum(value) = value.reflect_ref() {
-            if Enum::variant_name(self) == value.variant_name() {
-                // Same variant -> just update fields
-                match value.variant_type() {
-                    VariantType::Struct => {
-                        for field in value.iter_fields() {
-                            let name = field.name().unwrap();
-                            if let Some(v) = Enum::field_mut(self, name) {
-                                v.try_apply(field.value())?;
-                            }
+        let value = value.reflect_ref().as_enum()?;
+
+        if Enum::variant_name(self) == value.variant_name() {
+            // Same variant -> just update fields
+            match value.variant_type() {
+                VariantType::Struct => {
+                    for field in value.iter_fields() {
+                        let name = field.name().unwrap();
+                        if let Some(v) = Enum::field_mut(self, name) {
+                            v.try_apply(field.value())?;
                         }
                     }
-                    VariantType::Tuple => {
-                        for (index, field) in value.iter_fields().enumerate() {
-                            if let Some(v) = Enum::field_at_mut(self, index) {
-                                v.try_apply(field.value())?;
-                            }
-                        }
-                    }
-                    _ => {}
                 }
-            } else {
-                // New variant -> perform a switch
-                let dyn_variant = match value.variant_type() {
-                    VariantType::Unit => DynamicVariant::Unit,
-                    VariantType::Tuple => {
-                        let mut dyn_tuple = DynamicTuple::default();
-                        for field in value.iter_fields() {
-                            dyn_tuple.insert_boxed(field.value().clone_value());
+                VariantType::Tuple => {
+                    for (index, field) in value.iter_fields().enumerate() {
+                        if let Some(v) = Enum::field_at_mut(self, index) {
+                            v.try_apply(field.value())?;
                         }
-                        DynamicVariant::Tuple(dyn_tuple)
                     }
-                    VariantType::Struct => {
-                        let mut dyn_struct = DynamicStruct::default();
-                        for field in value.iter_fields() {
-                            dyn_struct
-                                .insert_boxed(field.name().unwrap(), field.value().clone_value());
-                        }
-                        DynamicVariant::Struct(dyn_struct)
-                    }
-                };
-                self.set_variant(value.variant_name(), dyn_variant);
+                }
+                _ => {}
             }
         } else {
-            return Err(ApplyError::MismatchedKinds {
-                from_kind: value.reflect_kind(),
-                to_kind: ReflectKind::Enum,
-            });
+            // New variant -> perform a switch
+            let dyn_variant = match value.variant_type() {
+                VariantType::Unit => DynamicVariant::Unit,
+                VariantType::Tuple => {
+                    let mut dyn_tuple = DynamicTuple::default();
+                    for field in value.iter_fields() {
+                        dyn_tuple.insert_boxed(field.value().to_dynamic());
+                    }
+                    DynamicVariant::Tuple(dyn_tuple)
+                }
+                VariantType::Struct => {
+                    let mut dyn_struct = DynamicStruct::default();
+                    for field in value.iter_fields() {
+                        dyn_struct.insert_boxed(field.name().unwrap(), field.value().to_dynamic());
+                    }
+                    DynamicVariant::Struct(dyn_struct)
+                }
+            };
+            self.set_variant(value.variant_name(), dyn_variant);
         }
+
         Ok(())
     }
 
@@ -380,23 +372,18 @@ impl PartialReflect for DynamicEnum {
     }
 
     #[inline]
-    fn reflect_ref(&self) -> ReflectRef {
+    fn reflect_ref(&self) -> ReflectRef<'_> {
         ReflectRef::Enum(self)
     }
 
     #[inline]
-    fn reflect_mut(&mut self) -> ReflectMut {
+    fn reflect_mut(&mut self) -> ReflectMut<'_> {
         ReflectMut::Enum(self)
     }
 
     #[inline]
     fn reflect_owned(self: Box<Self>) -> ReflectOwned {
         ReflectOwned::Enum(self)
-    }
-
-    #[inline]
-    fn clone_value(&self) -> Box<dyn PartialReflect> {
-        Box::new(self.clone_dynamic())
     }
 
     #[inline]
@@ -410,7 +397,7 @@ impl PartialReflect for DynamicEnum {
     }
 
     #[inline]
-    fn debug(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+    fn debug(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
         write!(f, "DynamicEnum(")?;
         enum_debug(self, f)?;
         write!(f, ")")

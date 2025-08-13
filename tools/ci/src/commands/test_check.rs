@@ -1,4 +1,4 @@
-use crate::{Flag, Prepare, PreparedCommand};
+use crate::{args::Args, Prepare, PreparedCommand};
 use argh::FromArgs;
 use xshell::cmd;
 
@@ -8,10 +8,12 @@ use xshell::cmd;
 pub struct TestCheckCommand {}
 
 impl Prepare for TestCheckCommand {
-    fn prepare<'a>(&self, sh: &'a xshell::Shell, _flags: Flag) -> Vec<PreparedCommand<'a>> {
+    fn prepare<'a>(&self, sh: &'a xshell::Shell, args: Args) -> Vec<PreparedCommand<'a>> {
+        let jobs = args.build_jobs();
+
         vec![PreparedCommand::new::<Self>(
-            cmd!(sh, "cargo check --workspace --tests"),
-            "Please fix compiler examples for tests in output above.",
+            cmd!(sh, "cargo check --workspace --tests {jobs...}"),
+            "Please fix compiler errors for tests in output above.",
         )]
     }
 }

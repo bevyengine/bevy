@@ -1,6 +1,6 @@
 //! Shows how to iterate over combinations of query results.
 
-use bevy::{color::palettes::css::ORANGE_RED, prelude::*};
+use bevy::{color::palettes::css::ORANGE_RED, math::FloatPow, prelude::*};
 use rand::{Rng, SeedableRng};
 use rand_chacha::ChaCha8Rng;
 
@@ -28,7 +28,8 @@ struct Star;
 
 #[derive(Bundle, Default)]
 struct BodyBundle {
-    pbr: PbrBundle,
+    mesh: Mesh3d,
+    material: MeshMaterial3d<StandardMaterial>,
     mass: Mass,
     last_pos: LastPos,
     acceleration: Acceleration,
@@ -49,44 +50,43 @@ fn generate_bodies(
     // This isn't strictly required in practical use unless you need your app to be deterministic.
     let mut rng = ChaCha8Rng::seed_from_u64(19878367467713);
     for _ in 0..NUM_BODIES {
-        let radius: f32 = rng.gen_range(0.1..0.7);
-        let mass_value = radius.powi(3) * 10.;
+        let radius: f32 = rng.random_range(0.1..0.7);
+        let mass_value = FloatPow::cubed(radius) * 10.;
 
         let position = Vec3::new(
-            rng.gen_range(-1.0..1.0),
-            rng.gen_range(-1.0..1.0),
-            rng.gen_range(-1.0..1.0),
+            rng.random_range(-1.0..1.0),
+            rng.random_range(-1.0..1.0),
+            rng.random_range(-1.0..1.0),
         )
         .normalize()
-            * rng.gen_range(0.2f32..1.0).cbrt()
+            * ops::cbrt(rng.random_range(0.2f32..1.0))
             * 15.;
 
-        commands.spawn(BodyBundle {
-            pbr: PbrBundle {
-                transform: Transform {
-                    translation: position,
-                    scale: Vec3::splat(radius),
-                    ..default()
-                },
-                mesh: mesh.clone(),
-                material: materials.add(Color::srgb(
-                    rng.gen_range(color_range.clone()),
-                    rng.gen_range(color_range.clone()),
-                    rng.gen_range(color_range.clone()),
-                )),
+        commands.spawn((
+            BodyBundle {
+                mesh: Mesh3d(mesh.clone()),
+                material: MeshMaterial3d(materials.add(Color::srgb(
+                    rng.random_range(color_range.clone()),
+                    rng.random_range(color_range.clone()),
+                    rng.random_range(color_range.clone()),
+                ))),
+                mass: Mass(mass_value),
+                acceleration: Acceleration(Vec3::ZERO),
+                last_pos: LastPos(
+                    position
+                        - Vec3::new(
+                            rng.random_range(vel_range.clone()),
+                            rng.random_range(vel_range.clone()),
+                            rng.random_range(vel_range.clone()),
+                        ) * time.timestep().as_secs_f32(),
+                ),
+            },
+            Transform {
+                translation: position,
+                scale: Vec3::splat(radius),
                 ..default()
             },
-            mass: Mass(mass_value),
-            acceleration: Acceleration(Vec3::ZERO),
-            last_pos: LastPos(
-                position
-                    - Vec3::new(
-                        rng.gen_range(vel_range.clone()),
-                        rng.gen_range(vel_range.clone()),
-                        rng.gen_range(vel_range.clone()),
-                    ) * time.timestep().as_secs_f32(),
-            ),
-        });
+        ));
     }
 
     // add bigger "star" body in the center
@@ -94,36 +94,29 @@ fn generate_bodies(
     commands
         .spawn((
             BodyBundle {
-                pbr: PbrBundle {
-                    transform: Transform::from_scale(Vec3::splat(star_radius)),
-                    mesh: meshes.add(Sphere::new(1.0).mesh().ico(5).unwrap()),
-                    material: materials.add(StandardMaterial {
-                        base_color: ORANGE_RED.into(),
-                        emissive: LinearRgba::from(ORANGE_RED) * 2.,
-                        ..default()
-                    }),
+                mesh: Mesh3d(meshes.add(Sphere::new(1.0).mesh().ico(5).unwrap())),
+                material: MeshMaterial3d(materials.add(StandardMaterial {
+                    base_color: ORANGE_RED.into(),
+                    emissive: LinearRgba::from(ORANGE_RED) * 2.,
                     ..default()
-                },
+                })),
+
                 mass: Mass(500.0),
                 ..default()
             },
+            Transform::from_scale(Vec3::splat(star_radius)),
             Star,
         ))
-        .with_children(|p| {
-            p.spawn(PointLightBundle {
-                point_light: PointLight {
-                    color: Color::WHITE,
-                    range: 100.0,
-                    radius: star_radius,
-                    ..default()
-                },
-                ..default()
-            });
+        .with_child(PointLight {
+            color: Color::WHITE,
+            range: 100.0,
+            radius: star_radius,
+            ..default()
         });
-    commands.spawn(Camera3dBundle {
-        transform: Transform::from_xyz(0.0, 10.5, -30.0).looking_at(Vec3::ZERO, Vec3::Y),
-        ..default()
-    });
+    commands.spawn((
+        Camera3d::default(),
+        Transform::from_xyz(0.0, 10.5, -30.0).looking_at(Vec3::ZERO, Vec3::Y),
+    ));
 }
 
 fn interact_bodies(mut query: Query<(&Mass, &GlobalTransform, &mut Acceleration)>) {
@@ -142,7 +135,7 @@ fn interact_bodies(mut query: Query<(&Mass, &GlobalTransform, &mut Acceleration)
 }
 
 fn integrate(time: Res<Time>, mut query: Query<(&mut Acceleration, &mut Transform, &mut LastPos)>) {
-    let dt_sq = time.delta_seconds() * time.delta_seconds();
+    let dt_sq = time.delta_secs() * time.delta_secs();
     for (mut acceleration, mut transform, mut last_pos) in &mut query {
         // verlet integration
         // x(t+dt) = 2x(t) - x(t-dt) + a(t)dt^2 + O(dt^4)
@@ -155,11 +148,9 @@ fn integrate(time: Res<Time>, mut query: Query<(&mut Acceleration, &mut Transfor
 }
 
 fn look_at_star(
-    mut camera: Query<&mut Transform, (With<Camera>, Without<Star>)>,
-    star: Query<&Transform, With<Star>>,
+    mut camera: Single<&mut Transform, (With<Camera>, Without<Star>)>,
+    star: Single<&Transform, With<Star>>,
 ) {
-    let mut camera = camera.single_mut();
-    let star = star.single();
     let new_rotation = camera
         .looking_at(star.translation, Vec3::Y)
         .rotation

@@ -1,7 +1,6 @@
 //! This example illustrates how to use logs in bevy.
 
-use bevy::log::once;
-use bevy::prelude::*;
+use bevy::{log::once, prelude::*};
 
 fn main() {
     App::new()
@@ -19,17 +18,16 @@ fn main() {
 }
 
 fn setup(mut commands: Commands) {
-    commands.spawn(Camera2dBundle::default());
-    commands.spawn(TextBundle {
-        text: Text::from_section("Press P to panic", TextStyle::default()),
-        style: Style {
+    commands.spawn(Camera2d);
+    commands.spawn((
+        Text::new("Press P to panic"),
+        Node {
             position_type: PositionType::Absolute,
             top: Val::Px(12.0),
             left: Val::Px(12.0),
             ..default()
         },
-        ..default()
-    });
+    ));
 }
 
 fn panic_on_p(keys: Res<ButtonInput<KeyCode>>) {

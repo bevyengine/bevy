@@ -5,9 +5,13 @@ use bevy_input::{
     touch::{ForceTouch, TouchInput, TouchPhase},
     ButtonState,
 };
-use bevy_math::Vec2;
-use bevy_window::{EnabledButtons, SystemCursorIcon, WindowLevel, WindowTheme};
+use bevy_math::{CompassOctant, Vec2};
+use bevy_window::SystemCursorIcon;
+use bevy_window::{EnabledButtons, WindowLevel, WindowTheme};
 use winit::keyboard::{Key, NamedKey, NativeKey};
+
+#[cfg(target_os = "ios")]
+use bevy_window::ScreenEdge;
 
 pub fn convert_keyboard_input(
     keyboard_input: &winit::event::KeyEvent,
@@ -17,6 +21,7 @@ pub fn convert_keyboard_input(
         state: convert_element_state(keyboard_input.state),
         key_code: convert_physical_key_code(keyboard_input.physical_key),
         logical_key: convert_logical_key(&keyboard_input.logical_key),
+        text: keyboard_input.text.clone(),
         repeat: keyboard_input.repeat,
         window,
     }
@@ -286,7 +291,7 @@ pub fn convert_physical_key_code(virtual_key_code: winit::keyboard::PhysicalKey)
     }
 }
 
-pub fn convert_logical_key(logical_key_code: &winit::keyboard::Key) -> bevy_input::keyboard::Key {
+pub fn convert_logical_key(logical_key_code: &Key) -> bevy_input::keyboard::Key {
     match logical_key_code {
         Key::Character(s) => bevy_input::keyboard::Key::Character(s.clone()),
         Key::Unidentified(nk) => bevy_input::keyboard::Key::Unidentified(convert_native_key(nk)),
@@ -702,4 +707,30 @@ pub fn convert_enabled_buttons(enabled_buttons: EnabledButtons) -> winit::window
         window_buttons.insert(winit::window::WindowButtons::CLOSE);
     }
     window_buttons
+}
+
+pub fn convert_resize_direction(resize_direction: CompassOctant) -> winit::window::ResizeDirection {
+    match resize_direction {
+        CompassOctant::West => winit::window::ResizeDirection::West,
+        CompassOctant::North => winit::window::ResizeDirection::North,
+        CompassOctant::East => winit::window::ResizeDirection::East,
+        CompassOctant::South => winit::window::ResizeDirection::South,
+        CompassOctant::NorthWest => winit::window::ResizeDirection::NorthWest,
+        CompassOctant::NorthEast => winit::window::ResizeDirection::NorthEast,
+        CompassOctant::SouthWest => winit::window::ResizeDirection::SouthWest,
+        CompassOctant::SouthEast => winit::window::ResizeDirection::SouthEast,
+    }
+}
+
+#[cfg(target_os = "ios")]
+/// Converts a [`bevy_window::ScreenEdge`] to a [`winit::platform::ios::ScreenEdge`].
+pub(crate) fn convert_screen_edge(edge: ScreenEdge) -> winit::platform::ios::ScreenEdge {
+    match edge {
+        ScreenEdge::None => winit::platform::ios::ScreenEdge::NONE,
+        ScreenEdge::Top => winit::platform::ios::ScreenEdge::TOP,
+        ScreenEdge::Bottom => winit::platform::ios::ScreenEdge::BOTTOM,
+        ScreenEdge::Left => winit::platform::ios::ScreenEdge::LEFT,
+        ScreenEdge::Right => winit::platform::ios::ScreenEdge::RIGHT,
+        ScreenEdge::All => winit::platform::ios::ScreenEdge::ALL,
+    }
 }

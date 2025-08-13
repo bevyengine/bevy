@@ -4,6 +4,7 @@ use std::collections::HashSet;
 use syn::{spanned::Spanned, Ident};
 
 /// Finds an identifier that will not conflict with the specified set of tokens.
+///
 /// If the identifier is present in `haystack`, extra characters will be added
 /// to it until it no longer conflicts with anything.
 ///
@@ -57,7 +58,6 @@ pub fn derive_label(
     input: syn::DeriveInput,
     trait_name: &str,
     trait_path: &syn::Path,
-    dyn_eq_path: &syn::Path,
 ) -> TokenStream {
     if let syn::Data::Union(_) = &input.data {
         let message = format!("Cannot derive {trait_name} for unions.");
@@ -75,26 +75,21 @@ pub fn derive_label(
     });
     where_clause.predicates.push(
         syn::parse2(quote! {
-            Self: 'static + Send + Sync + Clone + Eq + ::std::fmt::Debug + ::std::hash::Hash
+            Self: 'static + Send + Sync + Clone + Eq + ::core::fmt::Debug + ::core::hash::Hash
         })
         .unwrap(),
     );
     quote! {
-        impl #impl_generics #trait_path for #ident #ty_generics #where_clause {
-            fn dyn_clone(&self) -> ::std::boxed::Box<dyn #trait_path> {
-                ::std::boxed::Box::new(::std::clone::Clone::clone(self))
-            }
+        // To ensure alloc is available, but also prevent its name from clashing, we place the implementation inside an anonymous constant
+        const _: () = {
+            extern crate alloc;
 
-            fn as_dyn_eq(&self) -> &dyn #dyn_eq_path {
-                self
+            impl #impl_generics #trait_path for #ident #ty_generics #where_clause {
+                fn dyn_clone(&self) -> alloc::boxed::Box<dyn #trait_path> {
+                    alloc::boxed::Box::new(::core::clone::Clone::clone(self))
+                }
             }
-
-            fn dyn_hash(&self, mut state: &mut dyn ::std::hash::Hasher) {
-                let ty_id = ::std::any::TypeId::of::<Self>();
-                ::std::hash::Hash::hash(&ty_id, &mut state);
-                ::std::hash::Hash::hash(self, &mut state);
-            }
-        }
+        };
     }
     .into()
 }

@@ -1,90 +1,85 @@
-//! A simple scene to demonstrate picking events
+//! A simple scene to demonstrate picking events for UI and mesh entities.
 
-use bevy::{color::palettes::css::*, prelude::*};
+use bevy::prelude::*;
 
 fn main() {
-    let mut app = App::new();
-    app.add_plugins(DefaultPlugins);
-
-    app.add_systems(Startup, setup);
-
-    app.run();
+    App::new()
+        .add_plugins((DefaultPlugins, MeshPickingPlugin))
+        .add_systems(Startup, setup_scene)
+        .run();
 }
 
-/// set up a simple 3D scene
-fn setup(
+fn setup_scene(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
     commands
         .spawn((
-            TextBundle {
-                text: Text::from_section("Click Me to get a box", TextStyle::default()),
-                style: Style {
-                    position_type: PositionType::Absolute,
-                    top: Val::Percent(10.0),
-                    left: Val::Percent(10.0),
-                    ..default()
-                },
-                ..Default::default()
-            },
-            Pickable::default(),
-        ))
-        .observe(
-            |_click: Trigger<Pointer<Click>>,
-             mut commands: Commands,
-             mut meshes: ResMut<Assets<Mesh>>,
-             mut materials: ResMut<Assets<StandardMaterial>>,
-             mut num: Local<usize>| {
-                commands.spawn(PbrBundle {
-                    mesh: meshes.add(Cuboid::new(1.0, 1.0, 1.0)),
-                    material: materials.add(Color::srgb_u8(124, 144, 255)),
-                    transform: Transform::from_xyz(0.0, 0.5 + 1.1 * *num as f32, 0.0),
-                    ..default()
-                });
-                *num += 1;
-            },
-        )
-        .observe(|evt: Trigger<Pointer<Out>>, mut texts: Query<&mut Text>| {
-            let mut text = texts.get_mut(evt.entity()).unwrap();
-            let first = text.sections.first_mut().unwrap();
-            first.style.color = WHITE.into();
-        })
-        .observe(|evt: Trigger<Pointer<Over>>, mut texts: Query<&mut Text>| {
-            let mut text = texts.get_mut(evt.entity()).unwrap();
-            let first = text.sections.first_mut().unwrap();
-            first.style.color = BLUE.into();
-        });
-    // circular base
-    commands
-        .spawn((
-            PbrBundle {
-                mesh: meshes.add(Circle::new(4.0)),
-                material: materials.add(Color::WHITE),
-                transform: Transform::from_rotation(Quat::from_rotation_x(
-                    -std::f32::consts::FRAC_PI_2,
-                )),
+            Text::new("Click Me to get a box\nDrag cubes to rotate"),
+            Node {
+                position_type: PositionType::Absolute,
+                top: Val::Percent(12.0),
+                left: Val::Percent(12.0),
                 ..default()
             },
-            Pickable::default(),
         ))
-        .observe(|click: Trigger<Pointer<Click>>| {
-            let click = click.event();
-            println!("{click:?}");
-        });
-    // light
-    commands.spawn(PointLightBundle {
-        point_light: PointLight {
+        .observe(on_click_spawn_cube)
+        .observe(|out: On<Pointer<Out>>, mut texts: Query<&mut TextColor>| {
+            let mut text_color = texts.get_mut(out.target()).unwrap();
+            text_color.0 = Color::WHITE;
+        })
+        .observe(
+            |over: On<Pointer<Over>>, mut texts: Query<&mut TextColor>| {
+                let mut color = texts.get_mut(over.target()).unwrap();
+                color.0 = bevy::color::palettes::tailwind::CYAN_400.into();
+            },
+        );
+
+    // Base
+    commands.spawn((
+        Mesh3d(meshes.add(Circle::new(4.0))),
+        MeshMaterial3d(materials.add(Color::WHITE)),
+        Transform::from_rotation(Quat::from_rotation_x(-std::f32::consts::FRAC_PI_2)),
+    ));
+
+    // Light
+    commands.spawn((
+        PointLight {
             shadows_enabled: true,
             ..default()
         },
-        transform: Transform::from_xyz(4.0, 8.0, 4.0),
-        ..default()
-    });
-    // camera
-    commands.spawn(Camera3dBundle {
-        transform: Transform::from_xyz(-2.5, 4.5, 9.0).looking_at(Vec3::ZERO, Vec3::Y),
-        ..default()
-    });
+        Transform::from_xyz(4.0, 8.0, 4.0),
+    ));
+
+    // Camera
+    commands.spawn((
+        Camera3d::default(),
+        Transform::from_xyz(-2.5, 4.5, 9.0).looking_at(Vec3::ZERO, Vec3::Y),
+    ));
+}
+
+fn on_click_spawn_cube(
+    _click: On<Pointer<Click>>,
+    mut commands: Commands,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+    mut num: Local<usize>,
+) {
+    commands
+        .spawn((
+            Mesh3d(meshes.add(Cuboid::new(0.5, 0.5, 0.5))),
+            MeshMaterial3d(materials.add(Color::srgb_u8(124, 144, 255))),
+            Transform::from_xyz(0.0, 0.25 + 0.55 * *num as f32, 0.0),
+        ))
+        // With the MeshPickingPlugin added, you can add pointer event observers to meshes:
+        .observe(on_drag_rotate);
+    *num += 1;
+}
+
+fn on_drag_rotate(drag: On<Pointer<Drag>>, mut transforms: Query<&mut Transform>) {
+    if let Ok(mut transform) = transforms.get_mut(drag.target()) {
+        transform.rotate_y(drag.delta.x * 0.02);
+        transform.rotate_x(drag.delta.y * 0.02);
+    }
 }

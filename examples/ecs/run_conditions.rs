@@ -59,6 +59,7 @@ struct InputCounter(usize);
 struct Unused;
 
 /// Return true if any of the defined inputs were just pressed.
+///
 /// This is a custom run condition, it can take any normal system parameters as long as
 /// they are read only (except for local parameters which can be mutable).
 /// It returns a bool which determines if the system should run.
@@ -75,12 +76,13 @@ fn has_user_input(
 }
 
 /// This is a function that returns a closure which can be used as a run condition.
+///
 /// This is useful because you can reuse the same run condition but with different variables.
 /// This is how the common conditions module works.
 fn time_passed(t: f32) -> impl FnMut(Local<f32>, Res<Time>) -> bool {
     move |mut timer: Local<f32>, time: Res<Time>| {
         // Tick the timer
-        *timer += time.delta_seconds();
+        *timer += time.delta_secs();
         // Return true if the timer has passed the time
         *timer >= t
     }

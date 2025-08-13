@@ -1,11 +1,11 @@
 #![cfg_attr(docsrs, feature(doc_auto_cfg))]
 #![forbid(unsafe_code)]
 #![doc(
-    html_logo_url = "https://bevyengine.org/assets/icon.png",
-    html_favicon_url = "https://bevyengine.org/assets/icon.png"
+    html_logo_url = "https://bevy.org/assets/icon.png",
+    html_favicon_url = "https://bevy.org/assets/icon.png"
 )]
 
-//! This crate provides additional utilities for the [Bevy game engine](https://bevyengine.org),
+//! This crate provides additional utilities for the [Bevy game engine](https://bevy.org),
 //! focused on improving developer experience.
 
 use bevy_app::prelude::*;
@@ -14,9 +14,9 @@ use bevy_app::prelude::*;
 pub mod ci_testing;
 
 pub mod fps_overlay;
+pub mod frame_time_graph;
 
-#[cfg(feature = "bevy_ui_debug")]
-pub mod ui_debug_overlay;
+pub mod picking_debug;
 
 pub mod states;
 
@@ -30,7 +30,7 @@ pub mod states;
 /// To enable developer tools, you can either:
 ///
 /// - Create a custom crate feature (e.g "`dev_mode`"), which enables the `bevy_dev_tools` feature
-///     along with any other development tools you might be using:
+///   along with any other development tools you might be using:
 ///
 /// ```toml
 /// [feature]

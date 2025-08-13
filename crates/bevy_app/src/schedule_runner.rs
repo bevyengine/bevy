@@ -3,12 +3,15 @@ use crate::{
     plugin::Plugin,
     PluginsState,
 };
-use bevy_utils::{Duration, Instant};
+use bevy_platform::time::Instant;
+use core::time::Duration;
 
-#[cfg(target_arch = "wasm32")]
-use std::{cell::RefCell, rc::Rc};
-#[cfg(target_arch = "wasm32")]
-use wasm_bindgen::{prelude::*, JsCast};
+#[cfg(all(target_arch = "wasm32", feature = "web"))]
+use {
+    alloc::{boxed::Box, rc::Rc},
+    core::cell::RefCell,
+    wasm_bindgen::{prelude::*, JsCast},
+};
 
 /// Determines the method used to run an [`App`]'s [`Schedule`](bevy_ecs::schedule::Schedule).
 ///
@@ -74,7 +77,7 @@ impl Plugin for ScheduleRunnerPlugin {
             let plugins_state = app.plugins_state();
             if plugins_state != PluginsState::Cleaned {
                 while app.plugins_state() == PluginsState::Adding {
-                    #[cfg(not(target_arch = "wasm32"))]
+                    #[cfg(not(all(target_arch = "wasm32", feature = "web")))]
                     bevy_tasks::tick_global_task_pools_on_main_thread();
                 }
                 app.finish();
@@ -93,7 +96,7 @@ impl Plugin for ScheduleRunnerPlugin {
                 }
                 RunMode::Loop { wait } => {
                     let tick = move |app: &mut App,
-                                     wait: Option<Duration>|
+                                     _wait: Option<Duration>|
                           -> Result<Option<Duration>, AppExit> {
                         let start_time = Instant::now();
 
@@ -105,7 +108,7 @@ impl Plugin for ScheduleRunnerPlugin {
 
                         let end_time = Instant::now();
 
-                        if let Some(wait) = wait {
+                        if let Some(wait) = _wait {
                             let exe_time = end_time - start_time;
                             if exe_time < wait {
                                 return Ok(Some(wait - exe_time));
@@ -115,55 +118,55 @@ impl Plugin for ScheduleRunnerPlugin {
                         Ok(None)
                     };
 
-                    #[cfg(not(target_arch = "wasm32"))]
-                    {
-                        loop {
-                            match tick(&mut app, wait) {
-                                Ok(Some(delay)) => std::thread::sleep(delay),
-                                Ok(None) => continue,
-                                Err(exit) => return exit,
+                    cfg_if::cfg_if! {
+                        if #[cfg(all(target_arch = "wasm32", feature = "web"))] {
+                            fn set_timeout(callback: &Closure<dyn FnMut()>, dur: Duration) {
+                                web_sys::window()
+                                    .unwrap()
+                                    .set_timeout_with_callback_and_timeout_and_arguments_0(
+                                        callback.as_ref().unchecked_ref(),
+                                        dur.as_millis() as i32,
+                                    )
+                                    .expect("Should register `setTimeout`.");
                             }
-                        }
-                    }
+                            let asap = Duration::from_millis(1);
 
-                    #[cfg(target_arch = "wasm32")]
-                    {
-                        fn set_timeout(callback: &Closure<dyn FnMut()>, dur: Duration) {
-                            web_sys::window()
-                                .unwrap()
-                                .set_timeout_with_callback_and_timeout_and_arguments_0(
-                                    callback.as_ref().unchecked_ref(),
-                                    dur.as_millis() as i32,
-                                )
-                                .expect("Should register `setTimeout`.");
-                        }
-                        let asap = Duration::from_millis(1);
+                            let exit = Rc::new(RefCell::new(AppExit::Success));
+                            let closure_exit = exit.clone();
 
-                        let exit = Rc::new(RefCell::new(AppExit::Success));
-                        let closure_exit = exit.clone();
+                            let mut app = Rc::new(app);
+                            let moved_tick_closure = Rc::new(RefCell::new(None));
+                            let base_tick_closure = moved_tick_closure.clone();
 
-                        let mut app = Rc::new(app);
-                        let moved_tick_closure = Rc::new(RefCell::new(None));
-                        let base_tick_closure = moved_tick_closure.clone();
+                            let tick_app = move || {
+                                let app = Rc::get_mut(&mut app).unwrap();
+                                let delay = tick(app, wait);
+                                match delay {
+                                    Ok(delay) => set_timeout(
+                                        moved_tick_closure.borrow().as_ref().unwrap(),
+                                        delay.unwrap_or(asap),
+                                    ),
+                                    Err(code) => {
+                                        closure_exit.replace(code);
+                                    }
+                                }
+                            };
+                            *base_tick_closure.borrow_mut() =
+                                Some(Closure::wrap(Box::new(tick_app) as Box<dyn FnMut()>));
+                            set_timeout(base_tick_closure.borrow().as_ref().unwrap(), asap);
 
-                        let tick_app = move || {
-                            let app = Rc::get_mut(&mut app).unwrap();
-                            let delay = tick(app, wait);
-                            match delay {
-                                Ok(delay) => set_timeout(
-                                    moved_tick_closure.borrow().as_ref().unwrap(),
-                                    delay.unwrap_or(asap),
-                                ),
-                                Err(code) => {
-                                    closure_exit.replace(code);
+                            exit.take()
+                        } else {
+                            loop {
+                                match tick(&mut app, wait) {
+                                    Ok(Some(delay)) => {
+                                        bevy_platform::thread::sleep(delay);
+                                    }
+                                    Ok(None) => continue,
+                                    Err(exit) => return exit,
                                 }
                             }
-                        };
-                        *base_tick_closure.borrow_mut() =
-                            Some(Closure::wrap(Box::new(tick_app) as Box<dyn FnMut()>));
-                        set_timeout(base_tick_closure.borrow().as_ref().unwrap(), asap);
-
-                        exit.take()
+                        }
                     }
                 }
             }

@@ -1,24 +1,26 @@
 use crate::{
     config::{GizmoLineJoint, GizmoLineStyle, GizmoMeshConfig},
-    line_gizmo_vertex_buffer_layouts, line_joint_gizmo_vertex_buffer_layouts, DrawLineGizmo,
-    DrawLineJointGizmo, GizmoRenderSystem, GpuLineGizmo, LineGizmo,
-    LineGizmoUniformBindgroupLayout, SetLineGizmoBindGroup, LINE_JOINT_SHADER_HANDLE,
-    LINE_SHADER_HANDLE,
+    init_line_gizmo_uniform_bind_group_layout, line_gizmo_vertex_buffer_layouts,
+    line_joint_gizmo_vertex_buffer_layouts, DrawLineGizmo, DrawLineJointGizmo, GizmoRenderSystems,
+    GpuLineGizmo, LineGizmoUniformBindgroupLayout, SetLineGizmoBindGroup,
 };
 use bevy_app::{App, Plugin};
-use bevy_asset::Handle;
+use bevy_asset::{load_embedded_asset, AssetServer, Handle};
+use bevy_camera::visibility::RenderLayers;
 use bevy_core_pipeline::{
     core_3d::{Transparent3d, CORE_3D_DEPTH_FORMAT},
+    oit::OrderIndependentTransparencySettings,
     prepass::{DeferredPrepass, DepthPrepass, MotionVectorPrepass, NormalPrepass},
 };
 
 use bevy_ecs::{
     prelude::Entity,
     query::Has,
-    schedule::{IntoSystemConfigs, IntoSystemSetConfigs},
-    system::{Query, Res, ResMut, Resource},
-    world::{FromWorld, World},
+    resource::Resource,
+    schedule::IntoScheduleConfigs,
+    system::{Commands, Query, Res, ResMut},
 };
+use bevy_image::BevyDefault as _;
 use bevy_pbr::{MeshPipeline, MeshPipelineKey, SetMeshViewBindGroup};
 use bevy_render::{
     render_asset::{prepare_assets, RenderAssets},
@@ -27,11 +29,13 @@ use bevy_render::{
         ViewSortedRenderPhases,
     },
     render_resource::*,
-    texture::BevyDefault,
-    view::{ExtractedView, Msaa, RenderLayers, ViewTarget},
-    Render, RenderApp, RenderSet,
+    view::{ExtractedView, Msaa, ViewTarget},
+    Render, RenderApp, RenderSystems,
 };
-use bevy_utils::tracing::error;
+use bevy_render::{sync_world::MainEntity, RenderStartup};
+use bevy_shader::Shader;
+use bevy_utils::default;
+use tracing::error;
 
 pub struct LineGizmo3dPlugin;
 impl Plugin for LineGizmo3dPlugin {
@@ -42,30 +46,24 @@ impl Plugin for LineGizmo3dPlugin {
 
         render_app
             .add_render_command::<Transparent3d, DrawLineGizmo3d>()
+            .add_render_command::<Transparent3d, DrawLineGizmo3dStrip>()
             .add_render_command::<Transparent3d, DrawLineJointGizmo3d>()
             .init_resource::<SpecializedRenderPipelines<LineGizmoPipeline>>()
             .init_resource::<SpecializedRenderPipelines<LineJointGizmoPipeline>>()
             .configure_sets(
                 Render,
-                GizmoRenderSystem::QueueLineGizmos3d
-                    .in_set(RenderSet::Queue)
-                    .ambiguous_with(bevy_pbr::queue_material_meshes::<bevy_pbr::StandardMaterial>),
+                GizmoRenderSystems::QueueLineGizmos3d.in_set(RenderSystems::Queue),
+            )
+            .add_systems(
+                RenderStartup,
+                init_line_gizmo_pipelines.after(init_line_gizmo_uniform_bind_group_layout),
             )
             .add_systems(
                 Render,
                 (queue_line_gizmos_3d, queue_line_joint_gizmos_3d)
-                    .in_set(GizmoRenderSystem::QueueLineGizmos3d)
+                    .in_set(GizmoRenderSystems::QueueLineGizmos3d)
                     .after(prepare_assets::<GpuLineGizmo>),
             );
-    }
-
-    fn finish(&self, app: &mut App) {
-        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
-            return;
-        };
-
-        render_app.init_resource::<LineGizmoPipeline>();
-        render_app.init_resource::<LineJointGizmoPipeline>();
     }
 }
 
@@ -73,18 +71,25 @@ impl Plugin for LineGizmo3dPlugin {
 struct LineGizmoPipeline {
     mesh_pipeline: MeshPipeline,
     uniform_layout: BindGroupLayout,
+    shader: Handle<Shader>,
 }
 
-impl FromWorld for LineGizmoPipeline {
-    fn from_world(render_world: &mut World) -> Self {
-        LineGizmoPipeline {
-            mesh_pipeline: render_world.resource::<MeshPipeline>().clone(),
-            uniform_layout: render_world
-                .resource::<LineGizmoUniformBindgroupLayout>()
-                .layout
-                .clone(),
-        }
-    }
+fn init_line_gizmo_pipelines(
+    mut commands: Commands,
+    mesh_pipeline: Res<MeshPipeline>,
+    uniform_bind_group_layout: Res<LineGizmoUniformBindgroupLayout>,
+    asset_server: Res<AssetServer>,
+) {
+    commands.insert_resource(LineGizmoPipeline {
+        mesh_pipeline: mesh_pipeline.clone(),
+        uniform_layout: uniform_bind_group_layout.layout.clone(),
+        shader: load_embedded_asset!(asset_server.as_ref(), "lines.wgsl"),
+    });
+    commands.insert_resource(LineJointGizmoPipeline {
+        mesh_pipeline: mesh_pipeline.clone(),
+        uniform_layout: uniform_bind_group_layout.layout.clone(),
+        shader: load_embedded_asset!(asset_server.as_ref(), "line_joints.wgsl"),
+    });
 }
 
 #[derive(PartialEq, Eq, Hash, Clone)]
@@ -118,25 +123,25 @@ impl SpecializedRenderPipeline for LineGizmoPipeline {
             .mesh_pipeline
             .get_view_layout(key.view_key.into())
             .clone();
-
-        let layout = vec![view_layout, self.uniform_layout.clone()];
+        let layout = vec![view_layout.main_layout.clone(), self.uniform_layout.clone()];
 
         let fragment_entry_point = match key.line_style {
             GizmoLineStyle::Solid => "fragment_solid",
             GizmoLineStyle::Dotted => "fragment_dotted",
+            GizmoLineStyle::Dashed { .. } => "fragment_dashed",
         };
 
         RenderPipelineDescriptor {
             vertex: VertexState {
-                shader: LINE_SHADER_HANDLE,
-                entry_point: "vertex".into(),
+                shader: self.shader.clone(),
                 shader_defs: shader_defs.clone(),
                 buffers: line_gizmo_vertex_buffer_layouts(key.strip),
+                ..default()
             },
             fragment: Some(FragmentState {
-                shader: LINE_SHADER_HANDLE,
+                shader: self.shader.clone(),
                 shader_defs,
-                entry_point: fragment_entry_point.into(),
+                entry_point: Some(fragment_entry_point.into()),
                 targets: vec![Some(ColorTargetState {
                     format,
                     blend: Some(BlendState::ALPHA_BLENDING),
@@ -144,7 +149,6 @@ impl SpecializedRenderPipeline for LineGizmoPipeline {
                 })],
             }),
             layout,
-            primitive: PrimitiveState::default(),
             depth_stencil: Some(DepthStencilState {
                 format: CORE_3D_DEPTH_FORMAT,
                 depth_write_enabled: true,
@@ -157,8 +161,8 @@ impl SpecializedRenderPipeline for LineGizmoPipeline {
                 mask: !0,
                 alpha_to_coverage_enabled: false,
             },
-            label: Some("LineGizmo Pipeline".into()),
-            push_constant_ranges: vec![],
+            label: Some("LineGizmo 3d Pipeline".into()),
+            ..default()
         }
     }
 }
@@ -167,18 +171,7 @@ impl SpecializedRenderPipeline for LineGizmoPipeline {
 struct LineJointGizmoPipeline {
     mesh_pipeline: MeshPipeline,
     uniform_layout: BindGroupLayout,
-}
-
-impl FromWorld for LineJointGizmoPipeline {
-    fn from_world(render_world: &mut World) -> Self {
-        LineJointGizmoPipeline {
-            mesh_pipeline: render_world.resource::<MeshPipeline>().clone(),
-            uniform_layout: render_world
-                .resource::<LineGizmoUniformBindgroupLayout>()
-                .layout
-                .clone(),
-        }
-    }
+    shader: Handle<Shader>,
 }
 
 #[derive(PartialEq, Eq, Hash, Clone)]
@@ -211,8 +204,7 @@ impl SpecializedRenderPipeline for LineJointGizmoPipeline {
             .mesh_pipeline
             .get_view_layout(key.view_key.into())
             .clone();
-
-        let layout = vec![view_layout, self.uniform_layout.clone()];
+        let layout = vec![view_layout.main_layout.clone(), self.uniform_layout.clone()];
 
         if key.joints == GizmoLineJoint::None {
             error!("There is no entry point for line joints with GizmoLineJoints::None. Please consider aborting the drawing process before reaching this stage.");
@@ -226,23 +218,22 @@ impl SpecializedRenderPipeline for LineJointGizmoPipeline {
 
         RenderPipelineDescriptor {
             vertex: VertexState {
-                shader: LINE_JOINT_SHADER_HANDLE,
-                entry_point: entry_point.into(),
+                shader: self.shader.clone(),
+                entry_point: Some(entry_point.into()),
                 shader_defs: shader_defs.clone(),
                 buffers: line_joint_gizmo_vertex_buffer_layouts(),
             },
             fragment: Some(FragmentState {
-                shader: LINE_JOINT_SHADER_HANDLE,
+                shader: self.shader.clone(),
                 shader_defs,
-                entry_point: "fragment".into(),
                 targets: vec![Some(ColorTargetState {
                     format,
                     blend: Some(BlendState::ALPHA_BLENDING),
                     write_mask: ColorWrites::ALL,
                 })],
+                ..default()
             }),
             layout,
-            primitive: PrimitiveState::default(),
             depth_stencil: Some(DepthStencilState {
                 format: CORE_3D_DEPTH_FORMAT,
                 depth_write_enabled: true,
@@ -255,8 +246,8 @@ impl SpecializedRenderPipeline for LineJointGizmoPipeline {
                 mask: !0,
                 alpha_to_coverage_enabled: false,
             },
-            label: Some("LineJointGizmo Pipeline".into()),
-            push_constant_ranges: vec![],
+            label: Some("LineJointGizmo 3d Pipeline".into()),
+            ..default()
         }
     }
 }
@@ -265,7 +256,13 @@ type DrawLineGizmo3d = (
     SetItemPipeline,
     SetMeshViewBindGroup<0>,
     SetLineGizmoBindGroup<1>,
-    DrawLineGizmo,
+    DrawLineGizmo<false>,
+);
+type DrawLineGizmo3dStrip = (
+    SetItemPipeline,
+    SetMeshViewBindGroup<0>,
+    SetLineGizmoBindGroup<1>,
+    DrawLineGizmo<true>,
 );
 type DrawLineJointGizmo3d = (
     SetItemPipeline,
@@ -274,17 +271,15 @@ type DrawLineJointGizmo3d = (
     DrawLineJointGizmo,
 );
 
-#[allow(clippy::too_many_arguments)]
 fn queue_line_gizmos_3d(
     draw_functions: Res<DrawFunctions<Transparent3d>>,
     pipeline: Res<LineGizmoPipeline>,
     mut pipelines: ResMut<SpecializedRenderPipelines<LineGizmoPipeline>>,
     pipeline_cache: Res<PipelineCache>,
-    line_gizmos: Query<(Entity, &Handle<LineGizmo>, &GizmoMeshConfig)>,
+    line_gizmos: Query<(Entity, &MainEntity, &GizmoMeshConfig)>,
     line_gizmo_assets: Res<RenderAssets<GpuLineGizmo>>,
     mut transparent_render_phases: ResMut<ViewSortedRenderPhases<Transparent3d>>,
-    mut views: Query<(
-        Entity,
+    views: Query<(
         &ExtractedView,
         &Msaa,
         Option<&RenderLayers>,
@@ -293,20 +288,25 @@ fn queue_line_gizmos_3d(
             Has<DepthPrepass>,
             Has<MotionVectorPrepass>,
             Has<DeferredPrepass>,
+            Has<OrderIndependentTransparencySettings>,
         ),
     )>,
 ) {
     let draw_function = draw_functions.read().get_id::<DrawLineGizmo3d>().unwrap();
+    let draw_function_strip = draw_functions
+        .read()
+        .get_id::<DrawLineGizmo3dStrip>()
+        .unwrap();
 
     for (
-        view_entity,
         view,
         msaa,
         render_layers,
-        (normal_prepass, depth_prepass, motion_vector_prepass, deferred_prepass),
-    ) in &mut views
+        (normal_prepass, depth_prepass, motion_vector_prepass, deferred_prepass, oit),
+    ) in &views
     {
-        let Some(transparent_phase) = transparent_render_phases.get_mut(&view_entity) else {
+        let Some(transparent_phase) = transparent_render_phases.get_mut(&view.retained_view_entity)
+        else {
             continue;
         };
 
@@ -331,49 +331,75 @@ fn queue_line_gizmos_3d(
             view_key |= MeshPipelineKey::DEFERRED_PREPASS;
         }
 
-        for (entity, handle, config) in &line_gizmos {
+        if oit {
+            view_key |= MeshPipelineKey::OIT_ENABLED;
+        }
+
+        for (entity, main_entity, config) in &line_gizmos {
             if !config.render_layers.intersects(render_layers) {
                 continue;
             }
 
-            let Some(line_gizmo) = line_gizmo_assets.get(handle) else {
+            let Some(line_gizmo) = line_gizmo_assets.get(&config.handle) else {
                 continue;
             };
 
-            let pipeline = pipelines.specialize(
-                &pipeline_cache,
-                &pipeline,
-                LineGizmoPipelineKey {
-                    view_key,
-                    strip: line_gizmo.strip,
-                    perspective: config.line_perspective,
-                    line_style: config.line_style,
-                },
-            );
+            if line_gizmo.list_vertex_count > 0 {
+                let pipeline = pipelines.specialize(
+                    &pipeline_cache,
+                    &pipeline,
+                    LineGizmoPipelineKey {
+                        view_key,
+                        strip: false,
+                        perspective: config.line_perspective,
+                        line_style: config.line_style,
+                    },
+                );
+                transparent_phase.add(Transparent3d {
+                    entity: (entity, *main_entity),
+                    draw_function,
+                    pipeline,
+                    distance: 0.,
+                    batch_range: 0..1,
+                    extra_index: PhaseItemExtraIndex::None,
+                    indexed: true,
+                });
+            }
 
-            transparent_phase.add(Transparent3d {
-                entity,
-                draw_function,
-                pipeline,
-                distance: 0.,
-                batch_range: 0..1,
-                extra_index: PhaseItemExtraIndex::NONE,
-            });
+            if line_gizmo.strip_vertex_count >= 2 {
+                let pipeline = pipelines.specialize(
+                    &pipeline_cache,
+                    &pipeline,
+                    LineGizmoPipelineKey {
+                        view_key,
+                        strip: true,
+                        perspective: config.line_perspective,
+                        line_style: config.line_style,
+                    },
+                );
+                transparent_phase.add(Transparent3d {
+                    entity: (entity, *main_entity),
+                    draw_function: draw_function_strip,
+                    pipeline,
+                    distance: 0.,
+                    batch_range: 0..1,
+                    extra_index: PhaseItemExtraIndex::None,
+                    indexed: true,
+                });
+            }
         }
     }
 }
 
-#[allow(clippy::too_many_arguments)]
 fn queue_line_joint_gizmos_3d(
     draw_functions: Res<DrawFunctions<Transparent3d>>,
     pipeline: Res<LineJointGizmoPipeline>,
     mut pipelines: ResMut<SpecializedRenderPipelines<LineJointGizmoPipeline>>,
     pipeline_cache: Res<PipelineCache>,
-    line_gizmos: Query<(Entity, &Handle<LineGizmo>, &GizmoMeshConfig)>,
+    line_gizmos: Query<(Entity, &MainEntity, &GizmoMeshConfig)>,
     line_gizmo_assets: Res<RenderAssets<GpuLineGizmo>>,
     mut transparent_render_phases: ResMut<ViewSortedRenderPhases<Transparent3d>>,
-    mut views: Query<(
-        Entity,
+    views: Query<(
         &ExtractedView,
         &Msaa,
         Option<&RenderLayers>,
@@ -391,14 +417,14 @@ fn queue_line_joint_gizmos_3d(
         .unwrap();
 
     for (
-        view_entity,
         view,
         msaa,
         render_layers,
         (normal_prepass, depth_prepass, motion_vector_prepass, deferred_prepass),
-    ) in &mut views
+    ) in &views
     {
-        let Some(transparent_phase) = transparent_render_phases.get_mut(&view_entity) else {
+        let Some(transparent_phase) = transparent_render_phases.get_mut(&view.retained_view_entity)
+        else {
             continue;
         };
 
@@ -423,16 +449,16 @@ fn queue_line_joint_gizmos_3d(
             view_key |= MeshPipelineKey::DEFERRED_PREPASS;
         }
 
-        for (entity, handle, config) in &line_gizmos {
+        for (entity, main_entity, config) in &line_gizmos {
             if !config.render_layers.intersects(render_layers) {
                 continue;
             }
 
-            let Some(line_gizmo) = line_gizmo_assets.get(handle) else {
+            let Some(line_gizmo) = line_gizmo_assets.get(&config.handle) else {
                 continue;
             };
 
-            if !line_gizmo.strip || line_gizmo.joints == GizmoLineJoint::None {
+            if line_gizmo.strip_vertex_count < 3 || config.line_joints == GizmoLineJoint::None {
                 continue;
             }
 
@@ -442,17 +468,18 @@ fn queue_line_joint_gizmos_3d(
                 LineJointGizmoPipelineKey {
                     view_key,
                     perspective: config.line_perspective,
-                    joints: line_gizmo.joints,
+                    joints: config.line_joints,
                 },
             );
 
             transparent_phase.add(Transparent3d {
-                entity,
+                entity: (entity, *main_entity),
                 draw_function,
                 pipeline,
                 distance: 0.,
                 batch_range: 0..1,
-                extra_index: PhaseItemExtraIndex::NONE,
+                extra_index: PhaseItemExtraIndex::None,
+                indexed: true,
             });
         }
     }

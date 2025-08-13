@@ -1,7 +1,6 @@
 use crate::state::{FreelyMutableState, NextState, State, States};
 
-use bevy_ecs::reflect::from_reflect_with_fallback;
-use bevy_ecs::world::World;
+use bevy_ecs::{reflect::from_reflect_with_fallback, world::World};
 use bevy_reflect::{FromType, Reflect, TypePath, TypeRegistry};
 
 /// A struct used to operate on the reflected [`States`] trait of a type.
@@ -99,15 +98,16 @@ impl<S: FreelyMutableState + Reflect + TypePath> FromType<S> for ReflectFreelyMu
 
 #[cfg(test)]
 mod tests {
-    use crate as bevy_state;
-    use crate::app::{AppExtStates, StatesPlugin};
-    use crate::reflect::{ReflectFreelyMutableState, ReflectState};
-    use crate::state::State;
+    use crate::{
+        app::{AppExtStates, StatesPlugin},
+        reflect::{ReflectFreelyMutableState, ReflectState},
+        state::State,
+    };
     use bevy_app::App;
     use bevy_ecs::prelude::AppTypeRegistry;
     use bevy_reflect::Reflect;
     use bevy_state_macros::States;
-    use std::any::TypeId;
+    use core::any::TypeId;
 
     #[derive(Copy, Clone, PartialEq, Eq, Hash, Debug, States, Reflect)]
     enum StateTest {

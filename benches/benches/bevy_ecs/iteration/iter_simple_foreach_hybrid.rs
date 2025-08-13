@@ -20,7 +20,7 @@ impl<'w> Benchmark<'w> {
 
         let mut v = vec![];
         for _ in 0..10000 {
-            world.spawn((TableData(0.0), SparseData(0.0))).id();
+            world.spawn((TableData(0.0), SparseData(0.0)));
             v.push(world.spawn(TableData(0.)).id());
         }
 
@@ -38,6 +38,6 @@ impl<'w> Benchmark<'w> {
     pub fn run(&mut self) {
         self.1
             .iter_mut(&mut self.0)
-            .for_each(|(mut v1, v2)| v1.0 += v2.0)
+            .for_each(|(mut v1, v2)| v1.0 += v2.0);
     }
 }

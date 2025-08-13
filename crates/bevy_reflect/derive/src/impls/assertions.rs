@@ -1,5 +1,4 @@
-use crate::derive_data::ReflectDerive;
-use crate::remote::generate_remote_assertions;
+use crate::{derive_data::ReflectDerive, remote::generate_remote_assertions};
 use quote::quote;
 
 /// Generates an anonymous block containing compile-time assertions.

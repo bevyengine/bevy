@@ -1,20 +1,20 @@
-use std::{iter, mem};
+use core::{iter, mem};
 
-use bevy_ecs::entity::EntityHashMap;
+use bevy_camera::visibility::ViewVisibility;
 use bevy_ecs::prelude::*;
+use bevy_mesh::morph::{MeshMorphWeights, MAX_MORPH_WEIGHTS};
+use bevy_render::sync_world::MainEntityHashMap;
 use bevy_render::{
     batching::NoAutomaticBatching,
-    mesh::morph::{MeshMorphWeights, MAX_MORPH_WEIGHTS},
     render_resource::{BufferUsages, RawBufferVec},
     renderer::{RenderDevice, RenderQueue},
-    view::ViewVisibility,
     Extract,
 };
 use bytemuck::NoUninit;
 
 #[derive(Component)]
 pub struct MorphIndex {
-    pub(super) index: u32,
+    pub index: u32,
 }
 
 /// Maps each mesh affected by morph targets to the applicable offset within the
@@ -26,11 +26,11 @@ pub struct MorphIndex {
 pub struct MorphIndices {
     /// Maps each entity with a morphed mesh to the appropriate offset within
     /// [`MorphUniforms::current_buffer`].
-    pub current: EntityHashMap<MorphIndex>,
+    pub current: MainEntityHashMap<MorphIndex>,
 
     /// Maps each entity with a morphed mesh to the appropriate offset within
     /// [`MorphUniforms::prev_buffer`].
-    pub prev: EntityHashMap<MorphIndex>,
+    pub prev: MainEntityHashMap<MorphIndex>,
 }
 
 /// The GPU buffers containing morph weights for all meshes with morph targets.
@@ -75,7 +75,7 @@ pub fn prepare_morphs(
 }
 
 const fn can_align(step: usize, target: usize) -> bool {
-    step % target == 0 || target % step == 0
+    step.is_multiple_of(target) || target.is_multiple_of(step)
 }
 
 const WGPU_MIN_ALIGN: usize = 256;
@@ -83,13 +83,13 @@ const WGPU_MIN_ALIGN: usize = 256;
 /// Align a [`RawBufferVec`] to `N` bytes by padding the end with `T::default()` values.
 fn add_to_alignment<T: NoUninit + Default>(buffer: &mut RawBufferVec<T>) {
     let n = WGPU_MIN_ALIGN;
-    let t_size = mem::size_of::<T>();
+    let t_size = size_of::<T>();
     if !can_align(n, t_size) {
         // This panic is stripped at compile time, due to n, t_size and can_align being const
         panic!(
             "RawBufferVec should contain only types with a size multiple or divisible by {n}, \
             {} has a size of {t_size}, which is neither multiple or divisible by {n}",
-            std::any::type_name::<T>()
+            core::any::type_name::<T>()
         );
     }
 
@@ -131,8 +131,10 @@ pub fn extract_morphs(
         uniform.current_buffer.extend(legal_weights);
         add_to_alignment::<f32>(&mut uniform.current_buffer);
 
-        let index = (start * mem::size_of::<f32>()) as u32;
-        morph_indices.current.insert(entity, MorphIndex { index });
+        let index = (start * size_of::<f32>()) as u32;
+        morph_indices
+            .current
+            .insert(entity.into(), MorphIndex { index });
     }
 }
 

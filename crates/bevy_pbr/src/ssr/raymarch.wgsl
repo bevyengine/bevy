@@ -25,10 +25,10 @@
 }
 
 // Allows us to sample from the depth buffer with bilinear filtering.
-@group(1) @binding(2) var depth_linear_sampler: sampler;
+@group(2) @binding(2) var depth_linear_sampler: sampler;
 
 // Allows us to sample from the depth buffer with nearest-neighbor filtering.
-@group(1) @binding(3) var depth_nearest_sampler: sampler;
+@group(2) @binding(3) var depth_nearest_sampler: sampler;
 
 // Main code
 
@@ -242,9 +242,9 @@ fn depth_raymarch_distance_fn_evaluate(
     // * The shrink-wrap surface is no longer continuous, so it's possible for rays to miss it.
 
     let linear_depth =
-        1.0 / textureSampleLevel(depth_prepass_texture, depth_linear_sampler, interp_uv, 0.0);
+        1.0 / textureSampleLevel(depth_prepass_texture, depth_linear_sampler, interp_uv, 0u);
     let unfiltered_depth =
-        1.0 / textureSampleLevel(depth_prepass_texture, depth_nearest_sampler, interp_uv, 0.0);
+        1.0 / textureSampleLevel(depth_prepass_texture, depth_nearest_sampler, interp_uv, 0u);
 
     var max_depth: f32;
     var min_depth: f32;
@@ -286,7 +286,7 @@ struct DepthRayMarchResult {
     /// Range: `0..=1` as a lerp factor over `ray_start_cs..=ray_end_cs`.
     hit_t: f32,
 
-    /// UV correspindong to `hit_t`.
+    /// UV corresponding to `hit_t`.
     hit_uv: vec2<f32>,
 
     /// The distance that the hit point penetrates into the hit surface.

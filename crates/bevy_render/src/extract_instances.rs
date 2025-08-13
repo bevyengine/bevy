@@ -4,19 +4,20 @@
 //! This is essentially the same as the `extract_component` module, but
 //! higher-performance because it avoids the ECS overhead.
 
-use std::marker::PhantomData;
+use core::marker::PhantomData;
 
 use bevy_app::{App, Plugin};
-use bevy_asset::{Asset, AssetId, Handle};
+use bevy_camera::visibility::ViewVisibility;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
-    entity::EntityHashMap,
     prelude::Entity,
     query::{QueryFilter, QueryItem, ReadOnlyQueryData},
-    system::{lifetimeless::Read, Query, ResMut, Resource},
+    resource::Resource,
+    system::{Query, ResMut},
 };
 
-use crate::{prelude::ViewVisibility, Extract, ExtractSchedule, RenderApp};
+use crate::sync_world::MainEntityHashMap;
+use crate::{Extract, ExtractSchedule, RenderApp};
 
 /// Describes how to extract data needed for rendering from a component or
 /// components.
@@ -34,7 +35,7 @@ pub trait ExtractInstance: Send + Sync + Sized + 'static {
     type QueryFilter: QueryFilter;
 
     /// Defines how the component is transferred into the "render world".
-    fn extract(item: QueryItem<'_, Self::QueryData>) -> Option<Self>;
+    fn extract(item: QueryItem<'_, '_, Self::QueryData>) -> Option<Self>;
 }
 
 /// This plugin extracts one or more components into the "render world" as
@@ -53,7 +54,7 @@ where
 
 /// Stores all extract instances of a type in the render world.
 #[derive(Resource, Deref, DerefMut)]
-pub struct ExtractedInstances<EI>(EntityHashMap<EI>)
+pub struct ExtractedInstances<EI>(MainEntityHashMap<EI>)
 where
     EI: ExtractInstance;
 
@@ -114,7 +115,7 @@ fn extract_all<EI>(
     extracted_instances.clear();
     for (entity, other) in &query {
         if let Some(extract_instance) = EI::extract(other) {
-            extracted_instances.insert(entity, extract_instance);
+            extracted_instances.insert(entity.into(), extract_instance);
         }
     }
 }
@@ -127,22 +128,10 @@ fn extract_visible<EI>(
 {
     extracted_instances.clear();
     for (entity, view_visibility, other) in &query {
-        if view_visibility.get() {
-            if let Some(extract_instance) = EI::extract(other) {
-                extracted_instances.insert(entity, extract_instance);
-            }
+        if view_visibility.get()
+            && let Some(extract_instance) = EI::extract(other)
+        {
+            extracted_instances.insert(entity.into(), extract_instance);
         }
-    }
-}
-
-impl<A> ExtractInstance for AssetId<A>
-where
-    A: Asset,
-{
-    type QueryData = Read<Handle<A>>;
-    type QueryFilter = ();
-
-    fn extract(item: QueryItem<'_, Self::QueryData>) -> Option<Self> {
-        Some(item.id())
     }
 }

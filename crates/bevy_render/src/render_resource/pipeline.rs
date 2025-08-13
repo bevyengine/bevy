@@ -1,17 +1,18 @@
-use super::ShaderDefVal;
-use crate::{
-    define_atomic_id,
-    render_resource::{resource_macros::render_resource_wrapper, BindGroupLayout, Shader},
-};
+use super::empty_bind_group_layout;
+use crate::WgpuWrapper;
+use crate::{define_atomic_id, render_resource::BindGroupLayout};
+use alloc::borrow::Cow;
 use bevy_asset::Handle;
-use std::{borrow::Cow, ops::Deref};
+use bevy_mesh::VertexBufferLayout;
+use bevy_shader::{Shader, ShaderDefVal};
+use core::iter;
+use core::ops::Deref;
+use thiserror::Error;
 use wgpu::{
-    BufferAddress, ColorTargetState, DepthStencilState, MultisampleState, PrimitiveState,
-    PushConstantRange, VertexAttribute, VertexFormat, VertexStepMode,
+    ColorTargetState, DepthStencilState, MultisampleState, PrimitiveState, PushConstantRange,
 };
 
 define_atomic_id!(RenderPipelineId);
-render_resource_wrapper!(ErasedRenderPipeline, wgpu::RenderPipeline);
 
 /// A [`RenderPipeline`] represents a graphics pipeline and its stages (shaders), bindings and vertex buffers.
 ///
@@ -20,7 +21,7 @@ render_resource_wrapper!(ErasedRenderPipeline, wgpu::RenderPipeline);
 #[derive(Clone, Debug)]
 pub struct RenderPipeline {
     id: RenderPipelineId,
-    value: ErasedRenderPipeline,
+    value: WgpuWrapper<wgpu::RenderPipeline>,
 }
 
 impl RenderPipeline {
@@ -34,7 +35,7 @@ impl From<wgpu::RenderPipeline> for RenderPipeline {
     fn from(value: wgpu::RenderPipeline) -> Self {
         RenderPipeline {
             id: RenderPipelineId::new(),
-            value: ErasedRenderPipeline::new(value),
+            value: WgpuWrapper::new(value),
         }
     }
 }
@@ -49,7 +50,6 @@ impl Deref for RenderPipeline {
 }
 
 define_atomic_id!(ComputePipelineId);
-render_resource_wrapper!(ErasedComputePipeline, wgpu::ComputePipeline);
 
 /// A [`ComputePipeline`] represents a compute pipeline and its single shader stage.
 ///
@@ -58,7 +58,7 @@ render_resource_wrapper!(ErasedComputePipeline, wgpu::ComputePipeline);
 #[derive(Clone, Debug)]
 pub struct ComputePipeline {
     id: ComputePipelineId,
-    value: ErasedComputePipeline,
+    value: WgpuWrapper<wgpu::ComputePipeline>,
 }
 
 impl ComputePipeline {
@@ -73,7 +73,7 @@ impl From<wgpu::ComputePipeline> for ComputePipeline {
     fn from(value: wgpu::ComputePipeline) -> Self {
         ComputePipeline {
             id: ComputePipelineId::new(),
-            value: ErasedComputePipeline::new(value),
+            value: WgpuWrapper::new(value),
         }
     }
 }
@@ -88,7 +88,7 @@ impl Deref for ComputePipeline {
 }
 
 /// Describes a render (graphics) pipeline.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Default)]
 pub struct RenderPipelineDescriptor {
     /// Debug label of the pipeline. This will show up in graphics debuggers for easy identification.
     pub label: Option<Cow<'static, str>>,
@@ -107,74 +107,58 @@ pub struct RenderPipelineDescriptor {
     pub multisample: MultisampleState,
     /// The compiled fragment stage, its entry point, and the color targets.
     pub fragment: Option<FragmentState>,
+    /// Whether to zero-initialize workgroup memory by default. If you're not sure, set this to true.
+    /// If this is false, reading from workgroup variables before writing to them will result in garbage values.
+    pub zero_initialize_workgroup_memory: bool,
 }
 
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Copy, Clone, Debug, Error)]
+#[error("RenderPipelineDescriptor has no FragmentState configured")]
+pub struct NoFragmentStateError;
+
+impl RenderPipelineDescriptor {
+    pub fn fragment_mut(&mut self) -> Result<&mut FragmentState, NoFragmentStateError> {
+        self.fragment.as_mut().ok_or(NoFragmentStateError)
+    }
+
+    pub fn set_layout(&mut self, index: usize, layout: BindGroupLayout) {
+        filling_set_at(&mut self.layout, index, empty_bind_group_layout(), layout);
+    }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Default)]
 pub struct VertexState {
     /// The compiled shader module for this stage.
     pub shader: Handle<Shader>,
     pub shader_defs: Vec<ShaderDefVal>,
-    /// The name of the entry point in the compiled shader. There must be a
-    /// function with this name in the shader.
-    pub entry_point: Cow<'static, str>,
+    /// The name of the entry point in the compiled shader, or `None` if the default entry point
+    /// is used.
+    pub entry_point: Option<Cow<'static, str>>,
     /// The format of any vertex buffers used with this pipeline.
     pub buffers: Vec<VertexBufferLayout>,
 }
 
-/// Describes how the vertex buffer is interpreted.
-#[derive(Default, Clone, Debug, Hash, Eq, PartialEq)]
-pub struct VertexBufferLayout {
-    /// The stride, in bytes, between elements of this buffer.
-    pub array_stride: BufferAddress,
-    /// How often this vertex buffer is "stepped" forward.
-    pub step_mode: VertexStepMode,
-    /// The list of attributes which comprise a single vertex.
-    pub attributes: Vec<VertexAttribute>,
-}
-
-impl VertexBufferLayout {
-    /// Creates a new densely packed [`VertexBufferLayout`] from an iterator of vertex formats.
-    /// Iteration order determines the `shader_location` and `offset` of the [`VertexAttributes`](VertexAttribute).
-    /// The first iterated item will have a `shader_location` and `offset` of zero.
-    /// The `array_stride` is the sum of the size of the iterated [`VertexFormats`](VertexFormat) (in bytes).
-    pub fn from_vertex_formats<T: IntoIterator<Item = VertexFormat>>(
-        step_mode: VertexStepMode,
-        vertex_formats: T,
-    ) -> Self {
-        let mut offset = 0;
-        let mut attributes = Vec::new();
-        for (shader_location, format) in vertex_formats.into_iter().enumerate() {
-            attributes.push(VertexAttribute {
-                format,
-                offset,
-                shader_location: shader_location as u32,
-            });
-            offset += format.size();
-        }
-
-        VertexBufferLayout {
-            array_stride: offset,
-            step_mode,
-            attributes,
-        }
-    }
-}
-
 /// Describes the fragment process in a render pipeline.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Default)]
 pub struct FragmentState {
     /// The compiled shader module for this stage.
     pub shader: Handle<Shader>,
     pub shader_defs: Vec<ShaderDefVal>,
-    /// The name of the entry point in the compiled shader. There must be a
-    /// function with this name in the shader.
-    pub entry_point: Cow<'static, str>,
+    /// The name of the entry point in the compiled shader, or `None` if the default entry point
+    /// is used.
+    pub entry_point: Option<Cow<'static, str>>,
     /// The color state of the render targets.
     pub targets: Vec<Option<ColorTargetState>>,
 }
 
+impl FragmentState {
+    pub fn set_target(&mut self, index: usize, target: ColorTargetState) {
+        filling_set_at(&mut self.targets, index, None, Some(target));
+    }
+}
+
 /// Describes a compute pipeline.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq, Default)]
 pub struct ComputePipelineDescriptor {
     pub label: Option<Cow<'static, str>>,
     pub layout: Vec<BindGroupLayout>,
@@ -182,7 +166,18 @@ pub struct ComputePipelineDescriptor {
     /// The compiled shader module for this stage.
     pub shader: Handle<Shader>,
     pub shader_defs: Vec<ShaderDefVal>,
-    /// The name of the entry point in the compiled shader. There must be a
-    /// function with this name in the shader.
-    pub entry_point: Cow<'static, str>,
+    /// The name of the entry point in the compiled shader, or `None` if the default entry point
+    /// is used.
+    pub entry_point: Option<Cow<'static, str>>,
+    /// Whether to zero-initialize workgroup memory by default. If you're not sure, set this to true.
+    /// If this is false, reading from workgroup variables before writing to them will result in garbage values.
+    pub zero_initialize_workgroup_memory: bool,
+}
+
+// utility function to set a value at the specified index, extending with
+// a filler value if the index is out of bounds.
+fn filling_set_at<T: Clone>(vec: &mut Vec<T>, index: usize, filler: T, value: T) {
+    let num_to_fill = (index + 1).saturating_sub(vec.len());
+    vec.extend(iter::repeat_n(filler, num_to_fill));
+    vec[index] = value;
 }

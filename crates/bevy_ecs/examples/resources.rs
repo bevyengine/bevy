@@ -1,6 +1,12 @@
 //! In this example we add a counter resource and increase its value in one system,
 //! while a different system prints the current count to the console.
 
+#![expect(
+    clippy::std_instead_of_core,
+    clippy::print_stdout,
+    reason = "Examples should not follow this lint"
+)]
+
 use bevy_ecs::prelude::*;
 use rand::Rng;
 use std::ops::Deref;
@@ -31,7 +37,7 @@ struct Counter {
 }
 
 fn increase_counter(mut counter: ResMut<Counter>) {
-    if rand::thread_rng().gen_bool(0.5) {
+    if rand::rng().random_bool(0.5) {
         counter.value += 1;
         println!("    Increased counter value");
     }

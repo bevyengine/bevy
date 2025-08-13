@@ -1,37 +1,35 @@
 //! This example shows how you can know when a [`Component`] has been removed, so you can react to it.
-
+//!
+//! When a [`Component`] is removed from an [`Entity`], all [`Observer`] with an [`Remove`] trigger for
+//! that [`Component`] will be notified. These observers will be called immediately after the
+//! [`Component`] is removed. For more info on observers, see the
+//! [observers example](https://github.com/bevyengine/bevy/blob/main/examples/ecs/observers.rs).
+//!
+//! Advanced users may also consider using a lifecycle hook
+//! instead of an observer, as it incurs less overhead for a case like this.
+//! See the [component hooks example](https://github.com/bevyengine/bevy/blob/main/examples/ecs/component_hooks.rs).
 use bevy::prelude::*;
 
 fn main() {
-    // Information regarding removed `Component`s is discarded at the end of each frame, so you need
-    // to react to the removal before the frame is over.
-    //
-    // Also, `Components` are removed via a `Command`, which are not applied immediately.
-    // So you need to react to the removal at some stage after `apply_deferred` has run,
-    // and the Component` is removed.
-    //
-    // With these constraints in mind we make sure to place the system that removes a `Component` in
-    // `Update', and the system that reacts on the removal in `PostUpdate`.
     App::new()
         .add_plugins(DefaultPlugins)
         .add_systems(Startup, setup)
+        // This system will remove a component after two seconds.
         .add_systems(Update, remove_component)
-        .add_systems(PostUpdate, react_on_removal)
+        // This observer will react to the removal of the component.
+        .add_observer(react_on_removal)
         .run();
 }
 
-// This `Struct` is just used for convenience in this example. This is the `Component` we'll be
-// giving to the `Entity` so we have a `Component` to remove in `remove_component()`.
+/// This `struct` is just used for convenience in this example. This is the [`Component`] we'll be
+/// giving to the `Entity` so we have a [`Component`] to remove in `remove_component()`.
 #[derive(Component)]
 struct MyComponent;
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
-    commands.spawn(Camera2dBundle::default());
+    commands.spawn(Camera2d);
     commands.spawn((
-        SpriteBundle {
-            texture: asset_server.load("branding/icon.png"),
-            ..default()
-        },
+        Sprite::from_image(asset_server.load("branding/icon.png")),
         // Add the `Component`.
         MyComponent,
     ));
@@ -43,19 +41,17 @@ fn remove_component(
     query: Query<Entity, With<MyComponent>>,
 ) {
     // After two seconds have passed the `Component` is removed.
-    if time.elapsed_seconds() > 2.0 {
-        if let Some(entity) = query.iter().next() {
-            commands.entity(entity).remove::<MyComponent>();
-        }
+    if time.elapsed_secs() > 2.0
+        && let Some(entity) = query.iter().next()
+    {
+        commands.entity(entity).remove::<MyComponent>();
     }
 }
 
-fn react_on_removal(mut removed: RemovedComponents<MyComponent>, mut query: Query<&mut Sprite>) {
-    // `RemovedComponents<T>::read()` returns an iterator with the `Entity`s that had their
-    // `Component` `T` (in this case `MyComponent`) removed at some point earlier during the frame.
-    for entity in removed.read() {
-        if let Ok(mut sprite) = query.get_mut(entity) {
-            sprite.color = Color::srgb(0.5, 1., 1.);
-        }
+fn react_on_removal(trigger: On<Remove, MyComponent>, mut query: Query<&mut Sprite>) {
+    // The `Remove` trigger was automatically called on the `Entity` that had its `MyComponent` removed.
+    let entity = trigger.target();
+    if let Ok(mut sprite) = query.get_mut(entity) {
+        sprite.color = Color::srgb(0.5, 1., 1.);
     }
 }

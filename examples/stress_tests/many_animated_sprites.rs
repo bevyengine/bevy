@@ -21,7 +21,7 @@ fn main() {
         // Since this is also used as a benchmark, we want it to display performance data.
         .add_plugins((
             LogDiagnosticsPlugin::default(),
-            FrameTimeDiagnosticsPlugin,
+            FrameTimeDiagnosticsPlugin::default(),
             DefaultPlugins.set(WindowPlugin {
                 primary_window: Some(Window {
                     present_mode: PresentMode::AutoNoVsync,
@@ -55,7 +55,7 @@ fn setup(
 ) {
     warn!(include_str!("warning_string.txt"));
 
-    let mut rng = rand::thread_rng();
+    let mut rng = rand::rng();
 
     let tile_size = Vec2::splat(64.0);
     let map_size = Vec2::splat(320.0);
@@ -69,33 +69,30 @@ fn setup(
 
     // Spawns the camera
 
-    commands.spawn(Camera2dBundle::default());
+    commands.spawn(Camera2d);
 
     // Builds and spawns the sprites
     for y in -half_y..half_y {
         for x in -half_x..half_x {
             let position = Vec2::new(x as f32, y as f32);
-            let translation = (position * tile_size).extend(rng.gen::<f32>());
-            let rotation = Quat::from_rotation_z(rng.gen::<f32>());
-            let scale = Vec3::splat(rng.gen::<f32>() * 2.0);
+            let translation = (position * tile_size).extend(rng.random::<f32>());
+            let rotation = Quat::from_rotation_z(rng.random::<f32>());
+            let scale = Vec3::splat(rng.random::<f32>() * 2.0);
             let mut timer = Timer::from_seconds(0.1, TimerMode::Repeating);
-            timer.set_elapsed(Duration::from_secs_f32(rng.gen::<f32>()));
+            timer.set_elapsed(Duration::from_secs_f32(rng.random::<f32>()));
 
             commands.spawn((
-                SpriteBundle {
-                    texture: texture_handle.clone(),
-                    transform: Transform {
-                        translation,
-                        rotation,
-                        scale,
-                    },
-                    sprite: Sprite {
-                        custom_size: Some(tile_size),
-                        ..default()
-                    },
+                Sprite {
+                    image: texture_handle.clone(),
+                    texture_atlas: Some(TextureAtlas::from(texture_atlas_handle.clone())),
+                    custom_size: Some(tile_size),
                     ..default()
                 },
-                TextureAtlas::from(texture_atlas_handle.clone()),
+                Transform {
+                    translation,
+                    rotation,
+                    scale,
+                },
                 AnimationTimer(timer),
             ));
         }
@@ -103,11 +100,10 @@ fn setup(
 }
 
 // System for rotating and translating the camera
-fn move_camera(time: Res<Time>, mut camera_query: Query<&mut Transform, With<Camera>>) {
-    let mut camera_transform = camera_query.single_mut();
-    camera_transform.rotate(Quat::from_rotation_z(time.delta_seconds() * 0.5));
-    *camera_transform = *camera_transform
-        * Transform::from_translation(Vec3::X * CAMERA_SPEED * time.delta_seconds());
+fn move_camera(time: Res<Time>, mut camera_transform: Single<&mut Transform, With<Camera>>) {
+    camera_transform.rotate(Quat::from_rotation_z(time.delta_secs() * 0.5));
+    **camera_transform = **camera_transform
+        * Transform::from_translation(Vec3::X * CAMERA_SPEED * time.delta_secs());
 }
 
 #[derive(Component, Deref, DerefMut)]
@@ -116,13 +112,16 @@ struct AnimationTimer(Timer);
 fn animate_sprite(
     time: Res<Time>,
     texture_atlases: Res<Assets<TextureAtlasLayout>>,
-    mut query: Query<(&mut AnimationTimer, &mut TextureAtlas)>,
+    mut query: Query<(&mut AnimationTimer, &mut Sprite)>,
 ) {
-    for (mut timer, mut sheet) in query.iter_mut() {
+    for (mut timer, mut sprite) in query.iter_mut() {
         timer.tick(time.delta());
         if timer.just_finished() {
-            let texture_atlas = texture_atlases.get(&sheet.layout).unwrap();
-            sheet.index = (sheet.index + 1) % texture_atlas.textures.len();
+            let Some(atlas) = &mut sprite.texture_atlas else {
+                continue;
+            };
+            let texture_atlas = texture_atlases.get(&atlas.layout).unwrap();
+            atlas.index = (atlas.index + 1) % texture_atlas.textures.len();
         }
     }
 }

@@ -1,17 +1,15 @@
 //! Create a custom material to draw basic lines in 3D
 
 use bevy::{
+    asset::RenderAssetUsages,
+    mesh::{MeshVertexBufferLayoutRef, PrimitiveTopology},
     pbr::{MaterialPipeline, MaterialPipelineKey},
     prelude::*,
     reflect::TypePath,
-    render::{
-        mesh::{MeshVertexBufferLayoutRef, PrimitiveTopology},
-        render_asset::RenderAssetUsages,
-        render_resource::{
-            AsBindGroup, PolygonMode, RenderPipelineDescriptor, ShaderRef,
-            SpecializedMeshPipelineError,
-        },
+    render::render_resource::{
+        AsBindGroup, PolygonMode, RenderPipelineDescriptor, SpecializedMeshPipelineError,
     },
+    shader::ShaderRef,
 };
 
 /// This example uses a shader source file from the assets subdirectory
@@ -30,41 +28,39 @@ fn setup(
     mut materials: ResMut<Assets<LineMaterial>>,
 ) {
     // Spawn a list of lines with start and end points for each lines
-    commands.spawn(MaterialMeshBundle {
-        mesh: meshes.add(LineList {
+    commands.spawn((
+        Mesh3d(meshes.add(LineList {
             lines: vec![
                 (Vec3::ZERO, Vec3::new(1.0, 1.0, 0.0)),
                 (Vec3::new(1.0, 1.0, 0.0), Vec3::new(1.0, 0.0, 0.0)),
             ],
-        }),
-        transform: Transform::from_xyz(-1.5, 0.0, 0.0),
-        material: materials.add(LineMaterial {
+        })),
+        MeshMaterial3d(materials.add(LineMaterial {
             color: LinearRgba::GREEN,
-        }),
-        ..default()
-    });
+        })),
+        Transform::from_xyz(-1.5, 0.0, 0.0),
+    ));
 
     // Spawn a line strip that goes from point to point
-    commands.spawn(MaterialMeshBundle {
-        mesh: meshes.add(LineStrip {
+    commands.spawn((
+        Mesh3d(meshes.add(LineStrip {
             points: vec![
                 Vec3::ZERO,
                 Vec3::new(1.0, 1.0, 0.0),
                 Vec3::new(1.0, 0.0, 0.0),
             ],
-        }),
-        transform: Transform::from_xyz(0.5, 0.0, 0.0),
-        material: materials.add(LineMaterial {
+        })),
+        MeshMaterial3d(materials.add(LineMaterial {
             color: LinearRgba::BLUE,
-        }),
-        ..default()
-    });
+        })),
+        Transform::from_xyz(0.5, 0.0, 0.0),
+    ));
 
     // camera
-    commands.spawn(Camera3dBundle {
-        transform: Transform::from_xyz(-2.0, 2.5, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
-        ..default()
-    });
+    commands.spawn((
+        Camera3d::default(),
+        Transform::from_xyz(-2.0, 2.5, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
+    ));
 }
 
 #[derive(Asset, TypePath, Default, AsBindGroup, Debug, Clone)]
@@ -79,7 +75,7 @@ impl Material for LineMaterial {
     }
 
     fn specialize(
-        _pipeline: &MaterialPipeline<Self>,
+        _pipeline: &MaterialPipeline,
         descriptor: &mut RenderPipelineDescriptor,
         _layout: &MeshVertexBufferLayoutRef,
         _key: MaterialPipelineKey<Self>,

@@ -59,7 +59,7 @@ jobs:
         env:
           # needs to be in sync with [package.metadata.docs.rs]
           RUSTFLAGS: --cfg docsrs_dep
-          RUSTDOCFLAGS: -Zunstable-options --cfg=docsrs --generate-link-to-definition
+          RUSTDOCFLAGS: -Zunstable-options --cfg=docsrs --generate-link-to-definition --html-after-content docs-rs/trait-tags.html
         run: |
           cargo doc \
             -Zunstable-options \
@@ -82,7 +82,7 @@ jobs:
       - name: Finalize documentation
         run: |
           echo "<meta http-equiv=\"refresh\" content=\"0; url=bevy/index.html\">" > target/doc/index.html
-          echo "dev-docs.bevyengine.org" > target/doc/CNAME
+          echo "dev-docs.bevy.org" > target/doc/CNAME
           echo $'User-Agent: *\nDisallow: /' > target/doc/robots.txt
           rm target/doc/.lock
 
