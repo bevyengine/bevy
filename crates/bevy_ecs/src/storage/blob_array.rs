@@ -3,12 +3,13 @@ use bevy_ptr::{OwningPtr, Ptr, PtrMut};
 use bevy_utils::OnDrop;
 use core::{alloc::Layout, cell::UnsafeCell, num::NonZeroUsize, ptr::NonNull};
 
-/// A flat, type-erased data storage type similar to a [`BlobVec`](super::blob_vec::BlobVec), but with the length and capacity cut out
-/// for performance reasons. This type is reliant on its owning type to store the capacity and length information.
+/// A flat, type-erased data storage type.
 ///
 /// Used to densely store homogeneous ECS data. A blob is usually just an arbitrary block of contiguous memory without any identity, and
-/// could be used to represent any arbitrary data (i.e. string, arrays, etc). This type only stores meta-data about the Blob that it stores,
-/// and a pointer to the location of the start of the array, similar to a C array.
+/// could be used to represent any arbitrary data (i.e. string, arrays, etc). This type only stores meta-data about the blob that it stores,
+/// and a pointer to the location of the start of the array, similar to a C-style `void*` array.
+///
+/// for performance reasons. This type is reliant on its owning type to store the capacity and length information.
 #[derive(Debug)]
 pub(super) struct BlobArray {
     item_layout: Layout,
@@ -78,7 +79,7 @@ impl BlobArray {
     /// Returns a reference to the element at `index`, without doing bounds checking.
     ///
     /// *`len` refers to the length of the array, the number of elements that have been initialized, and are safe to read.
-    /// Just like [`Vec::len`], or [`BlobVec::len`](super::blob_vec::BlobVec::len).*
+    /// Just like [`Vec::len`].*
     ///
     /// # Safety
     /// - The element at index `index` is safe to access.
@@ -101,7 +102,7 @@ impl BlobArray {
     /// Returns a mutable reference to the element at `index`, without doing bounds checking.
     ///
     /// *`len` refers to the length of the array, the number of elements that have been initialized, and are safe to read.
-    /// Just like [`Vec::len`], or [`BlobVec::len`](super::blob_vec::BlobVec::len).*
+    /// Just like [`Vec::len`].*
     ///
     /// # Safety
     /// - The element with at index `index` is safe to access.
@@ -139,7 +140,7 @@ impl BlobArray {
     /// To get a slice to the entire array, the caller must plug `len` in `slice_len`.
     ///
     /// *`len` refers to the length of the array, the number of elements that have been initialized, and are safe to read.
-    /// Just like [`Vec::len`], or [`BlobVec::len`](super::blob_vec::BlobVec::len).*
+    /// Just like [`Vec::len`].*
     ///
     /// # Safety
     /// - The type `T` must be the type of the items in this [`BlobArray`].

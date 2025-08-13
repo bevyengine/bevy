@@ -5,13 +5,22 @@ use crate::{
 };
 use core::panic::Location;
 
-/// Very similar to a normal [`Column`], but with the capacities and lengths cut out for performance reasons.
+/// A type-erased contiguous container for data of a homogeneous type.
 ///
-/// This type is used by [`Table`], because all of the capacities and lengths of the [`Table`]'s columns must match.
+/// Conceptually, a `ThinColumn` is very similar to a type-erased `Box<[T]>`.
+/// It also stores the change detection ticks for its components, kept in two separate
+/// contiguous buffers internally. An element shares its data across these buffers by using the
+/// same index (i.e. the entity at row 3 has it's data at index 3 and its change detection ticks at index 3).
 ///
-/// Like many other low-level storage types, [`ThinColumn`] has a limited and highly unsafe
+/// Like many other low-level storage types, `ThinColumn` has a limited and highly unsafe
 /// interface. It's highly advised to use higher level types and their safe abstractions
-/// instead of working directly with [`ThinColumn`].
+/// instead of working directly with `ThinColumn`.
+///
+/// For performance reasons, `ThinColumn` does not does not store it's capacity and length.
+/// This type is used by [`Table`] and [`ComponentSparseSet`], because all of the capacities
+/// and lengths of the owning storaage.
+///
+/// [`ComponentSparseSet`]: crate::storage::ComponentSparseSet
 #[derive(Debug)]
 pub struct ThinColumn {
     pub(super) data: BlobArray,
@@ -351,7 +360,7 @@ impl ThinColumn {
             .map(|changed_by| changed_by.as_slice(len))
     }
 
-    /// Fetches a read-only reference to the data at `row`. Unlike [`Column::get`] this does not
+    /// Fetches a read-only reference to the data at `row`. This does not
     /// do any bounds checking.
     ///
     /// # Safety
@@ -364,7 +373,7 @@ impl ThinColumn {
 
     /// Fetches the calling location that last changed the value at `row`.
     ///
-    /// Unlike [`Column::get_changed_by`] this function does not do any bounds checking.
+    /// This function does not do any bounds checking.
     ///
     /// # Safety
     /// `row` must be within the range `[0, self.len())`.
@@ -378,8 +387,8 @@ impl ThinColumn {
             .map(|changed_by| changed_by.get_unchecked(row.index()))
     }
 
-    /// Fetches the "added" change detection tick for the value at `row`. Unlike [`Column::get_added_tick`]
-    /// this function does not do any bounds checking.
+    /// Fetches the "added" change detection tick for the value at `row`.
+    /// This function does not do any bounds checking.
     ///
     /// # Safety
     /// `row` must be within the range `[0, self.len())`.
@@ -388,8 +397,8 @@ impl ThinColumn {
         self.added_ticks.get_unchecked(row.index())
     }
 
-    /// Fetches the "changed" change detection tick for the value at `row`. Unlike [`Column::get_changed_tick`]
-    /// this function does not do any bounds checking.
+    /// Fetches the "changed" change detection tick for the value at `row`
+    /// This function does not do any bounds checking.
     ///
     /// # Safety
     /// `row` must be within the range `[0, self.len())`.
@@ -398,8 +407,8 @@ impl ThinColumn {
         self.changed_ticks.get_unchecked(row.index())
     }
 
-    /// Fetches the change detection ticks for the value at `row`. Unlike [`Column::get_ticks`]
-    /// this function does not do any bounds checking.
+    /// Fetches the change detection ticks for the value at `row`.
+    /// This function does not do any bounds checking.
     ///
     /// # Safety
     /// `row` must be within the range `[0, self.len())`.

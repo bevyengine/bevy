@@ -56,7 +56,7 @@ impl<const SEND: bool> Drop for ResourceData<SEND> {
 }
 
 impl<const SEND: bool> ResourceData<SEND> {
-    /// The only row in the underlying `BlobVec`.
+    /// The only row in the underlying `BlobArray`.
     const ROW: usize = 0;
 
     /// Validates the access to `!Send` resources is only done on the thread they were created from.
