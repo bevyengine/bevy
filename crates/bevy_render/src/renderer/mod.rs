@@ -1,4 +1,5 @@
 mod graph_runner;
+#[cfg(feature = "raw_vulkan_init")]
 pub mod raw_vulkan_init;
 mod render_device;
 
