@@ -49,6 +49,14 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             ..default()
         },
         AnimatedText,
+        children![(
+            Decoration,
+            Outline {
+                width: px(2.),
+                offset: px(2.),
+                color: Color::WHITE
+            },
+        )],
     ));
 
     // Text with multiple sections
