@@ -6,7 +6,7 @@ use rand::{Rng, SeedableRng};
 use rand_chacha::ChaCha8Rng;
 
 fn main() {
-    App::new()
+    App::default()
         .init_resource::<State>()
         .insert_resource(ClearColor(Color::BLACK))
         .add_plugins(DefaultPlugins)

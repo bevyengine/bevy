@@ -150,7 +150,7 @@ impl RemoteHttpPlugin {
     ///
     /// // Create the Bevy app and add the RemoteHttpPlugin with CORS headers
     /// fn main() {
-    ///     App::new()
+    ///     App::default()
     ///     .add_plugins(DefaultPlugins)
     ///     .add_plugins(RemotePlugin::default())
     ///     .add_plugins(RemoteHttpPlugin::default()

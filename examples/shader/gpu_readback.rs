@@ -27,7 +27,7 @@ const SHADER_ASSET_PATH: &str = "shaders/gpu_readback.wgsl";
 const BUFFER_LEN: usize = 16;
 
 fn main() {
-    App::new()
+    App::default()
         .add_plugins((
             DefaultPlugins,
             GpuReadbackPlugin,

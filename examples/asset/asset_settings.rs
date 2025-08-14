@@ -6,7 +6,7 @@ use bevy::{
 };
 
 fn main() {
-    App::new()
+    App::default()
         .add_plugins(
             // This just tells the asset server to look in the right examples folder
             DefaultPlugins.set(AssetPlugin {

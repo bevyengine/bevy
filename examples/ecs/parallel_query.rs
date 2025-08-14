@@ -71,7 +71,7 @@ fn bounce_system(window: Query<&Window>, mut sprites: Query<(&Transform, &mut Ve
 }
 
 fn main() {
-    App::new()
+    App::default()
         .add_plugins(DefaultPlugins)
         .add_systems(Startup, spawn_system)
         .add_systems(Update, (move_system, bounce_system))

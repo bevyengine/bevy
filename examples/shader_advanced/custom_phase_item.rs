@@ -162,7 +162,7 @@ static VERTICES: [Vertex; 3] = [
 
 /// The entry point.
 fn main() {
-    let mut app = App::new();
+    let mut app = App::default();
     app.add_plugins(DefaultPlugins)
         .add_plugins(ExtractComponentPlugin::<CustomRenderedEntity>::default())
         .add_systems(Startup, setup);

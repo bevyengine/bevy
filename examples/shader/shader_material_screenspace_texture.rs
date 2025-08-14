@@ -8,7 +8,7 @@ use bevy::{
 const SHADER_ASSET_PATH: &str = "shaders/custom_material_screenspace_texture.wgsl";
 
 fn main() {
-    App::new()
+    App::default()
         .add_plugins((DefaultPlugins, MaterialPlugin::<CustomMaterial>::default()))
         .add_systems(Startup, setup)
         .add_systems(Update, rotate_camera)

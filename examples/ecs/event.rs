@@ -108,7 +108,7 @@ fn play_damage_received_particle_effect(mut dmg_events: EventReader<DamageReceiv
 }
 
 fn main() {
-    App::new()
+    App::default()
         .add_plugins(DefaultPlugins)
         // Events must be added to the app before they can be used
         // using the 'add_event' method

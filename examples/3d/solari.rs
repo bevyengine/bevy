@@ -29,7 +29,7 @@ struct Args {
 fn main() {
     let args: Args = argh::from_env();
 
-    let mut app = App::new();
+    let mut app = App::default();
     app.add_plugins((DefaultPlugins, SolariPlugins, CameraControllerPlugin))
         .insert_resource(args)
         .add_systems(Startup, setup);

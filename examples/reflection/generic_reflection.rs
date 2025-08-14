@@ -4,7 +4,7 @@ use bevy::prelude::*;
 use std::any::TypeId;
 
 fn main() {
-    App::new()
+    App::default()
         .add_plugins(DefaultPlugins)
         // You must manually register each instance of a generic type
         .register_type::<MyType<u32>>()

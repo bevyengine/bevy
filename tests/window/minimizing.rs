@@ -5,7 +5,7 @@ use bevy::{diagnostic::FrameCount, prelude::*};
 fn main() {
     // TODO: Combine this with `resizing` once multiple_windows is simpler than
     // it is currently.
-    App::new()
+    App::default()
         .add_plugins(DefaultPlugins.set(WindowPlugin {
             primary_window: Some(Window {
                 title: "Minimizing".into(),

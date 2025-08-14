@@ -50,7 +50,7 @@ fn spawn_enemy(mut commands: Commands, keyboard_input: Res<ButtonInput<KeyCode>>
 #[test]
 fn did_hurt_enemy() {
     // Setup app
-    let mut app = App::new();
+    let mut app = App::default();
 
     // Add Score resource
     app.insert_resource(Score(0));
@@ -81,7 +81,7 @@ fn did_hurt_enemy() {
 #[test]
 fn did_despawn_enemy() {
     // Setup app
-    let mut app = App::new();
+    let mut app = App::default();
 
     // Add Score resource
     app.insert_resource(Score(0));
@@ -119,7 +119,7 @@ fn did_despawn_enemy() {
 #[test]
 fn spawn_enemy_using_input_resource() {
     // Setup app
-    let mut app = App::new();
+    let mut app = App::default();
 
     // Add our systems
     app.add_systems(Update, spawn_enemy);
@@ -150,7 +150,7 @@ fn spawn_enemy_using_input_resource() {
 #[test]
 fn update_score_on_event() {
     // Setup app
-    let mut app = App::new();
+    let mut app = App::default();
 
     // Add Score resource
     app.insert_resource(Score(0));

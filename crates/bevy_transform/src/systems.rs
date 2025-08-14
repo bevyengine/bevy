@@ -782,7 +782,7 @@ mod test {
 
     #[test]
     fn correct_transforms_when_no_children() {
-        let mut app = App::new();
+        let mut app = App::default();
         ComputeTaskPool::get_or_init(TaskPool::default);
 
         app.add_systems(
@@ -838,7 +838,7 @@ mod test {
         // We cannot directly edit ChildOf and Children, so we use a temp world to break the
         // hierarchy's invariants.
         let mut temp = World::new();
-        let mut app = App::new();
+        let mut app = App::default();
 
         app.add_systems(
             Update,

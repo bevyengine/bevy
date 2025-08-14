@@ -11,7 +11,7 @@ use bevy::{
 };
 
 fn main() {
-    App::new()
+    App::default()
         .add_plugins(DefaultPlugins)
         .insert_resource(Parameters(PhysicalCameraParameters {
             aperture_f_stops: 1.0,

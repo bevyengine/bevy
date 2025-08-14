@@ -38,7 +38,7 @@ impl<'a> From<&'a BindlessMaterial> for BindlessMaterialUniform {
 
 // The entry point.
 fn main() {
-    App::new()
+    App::default()
         .add_plugins((
             DefaultPlugins,
             MaterialPlugin::<BindlessMaterial>::default(),

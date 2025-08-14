@@ -3,7 +3,7 @@
 use bevy::{color::palettes::css::*, ecs::spawn::SpawnIter, prelude::*};
 
 fn main() {
-    App::new()
+    App::default()
         .add_plugins(DefaultPlugins)
         .add_systems(Startup, setup)
         .run();

@@ -126,7 +126,7 @@ mod tests {
     // Regression test for https://github.com/bevyengine/bevy/issues/17697
     #[test]
     fn world_is_truly_send() {
-        let mut app = App::new();
+        let mut app = App::default();
         app.add_plugins(GilrsPlugin);
         let world = core::mem::take(app.world_mut());
 

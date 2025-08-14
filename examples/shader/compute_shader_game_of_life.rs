@@ -30,7 +30,7 @@ const SIZE: (u32, u32) = (1280 / DISPLAY_FACTOR, 720 / DISPLAY_FACTOR);
 const WORKGROUP_SIZE: u32 = 8;
 
 fn main() {
-    App::new()
+    App::default()
         .insert_resource(ClearColor(Color::BLACK))
         .add_plugins((
             DefaultPlugins

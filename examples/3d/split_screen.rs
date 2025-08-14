@@ -7,7 +7,7 @@ use bevy::{
 };
 
 fn main() {
-    App::new()
+    App::default()
         .add_plugins(DefaultPlugins)
         .add_systems(Startup, setup)
         .add_systems(Update, (set_camera_viewports, button_system))

@@ -16,7 +16,7 @@ use bevy::{
 const SHADER_ASSET_PATH: &str = "shaders/line_material.wgsl";
 
 fn main() {
-    App::new()
+    App::default()
         .add_plugins((DefaultPlugins, MaterialPlugin::<LineMaterial>::default()))
         .add_systems(Startup, setup)
         .run();

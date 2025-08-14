@@ -15,7 +15,7 @@ use bevy::{
 const FRAGMENT_SHADER_ASSET_PATH: &str = "shaders/custom_material.wesl";
 
 fn main() {
-    App::new()
+    App::default()
         .add_plugins((
             DefaultPlugins,
             MaterialPlugin::<CustomMaterial>::default(),

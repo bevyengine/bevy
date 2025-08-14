@@ -14,7 +14,7 @@ use std::{
 };
 
 fn main() {
-    App::new()
+    App::default()
         .add_plugins(DefaultPlugins)
         .add_systems(Startup, setup_scene)
         .add_systems(Update, (update_bloom_settings, bounce_spheres))

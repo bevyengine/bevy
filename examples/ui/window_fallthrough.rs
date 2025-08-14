@@ -5,7 +5,7 @@
 use bevy::{prelude::*, window::CursorOptions};
 
 fn main() {
-    App::new()
+    App::default()
         .insert_resource(ClearColor(Color::NONE)) // Use a transparent window, to make effects obvious.
         .add_plugins(DefaultPlugins.set(WindowPlugin {
             primary_window: Some(Window {

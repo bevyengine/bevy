@@ -67,7 +67,7 @@ pub(crate) enum AppError {
 /// # use bevy_ecs::prelude::*;
 /// #
 /// fn main() {
-///    App::new()
+///    App::default()
 ///        .add_systems(Update, hello_world_system)
 ///        .run();
 /// }
@@ -142,7 +142,7 @@ impl App {
     pub fn empty() -> App {
         Self {
             sub_apps: SubApps {
-                main: SubApp::new(),
+                main: SubApp::default(),
                 sub_apps: HashMap::default(),
             },
             runner: Box::new(run_once),
@@ -214,7 +214,7 @@ impl App {
     ///     }
     /// }
     ///
-    /// App::new()
+    /// App::default()
     ///     .set_runner(my_runner);
     /// ```
     pub fn set_runner(&mut self, f: impl FnOnce(App) -> AppExit + 'static) -> &mut Self {
@@ -295,7 +295,7 @@ impl App {
     /// # use bevy_app::prelude::*;
     /// # use bevy_ecs::prelude::*;
     /// #
-    /// # let mut app = App::new();
+    /// # let mut app = App::default();
     /// # fn system_a() {}
     /// # fn system_b() {}
     /// # fn system_c() {}
@@ -357,7 +357,7 @@ impl App {
     /// #
     /// # #[derive(BufferedEvent)]
     /// # struct MyEvent;
-    /// # let mut app = App::new();
+    /// # let mut app = App::default();
     /// #
     /// app.add_event::<MyEvent>();
     /// ```
@@ -385,7 +385,7 @@ impl App {
     ///     counter: usize,
     /// }
     ///
-    /// App::new()
+    /// App::default()
     ///    .insert_resource(MyCounter { counter: 0 });
     /// ```
     pub fn insert_resource<R: Resource>(&mut self, resource: R) -> &mut Self {
@@ -419,7 +419,7 @@ impl App {
     ///     }
     /// }
     ///
-    /// App::new()
+    /// App::default()
     ///     .init_resource::<MyCounter>();
     /// ```
     pub fn init_resource<R: Resource + FromWorld>(&mut self) -> &mut Self {
@@ -443,7 +443,7 @@ impl App {
     ///     counter: usize,
     /// }
     ///
-    /// App::new()
+    /// App::default()
     ///     .insert_non_send_resource(MyCounter { counter: 0 });
     /// ```
     pub fn insert_non_send_resource<R: 'static>(&mut self, resource: R) -> &mut Self {
@@ -526,7 +526,7 @@ impl App {
     /// # impl Plugin for ImagePlugin {
     /// #    fn build(&self, app: &mut App) {}
     /// # }
-    /// # let mut app = App::new();
+    /// # let mut app = App::default();
     /// # app.add_plugins(ImagePlugin::default());
     /// let default_sampler = app.get_added_plugins::<ImagePlugin>()[0].default_sampler;
     /// ```
@@ -564,9 +564,9 @@ impl App {
     /// # impl Plugin for LogPlugin {
     /// #     fn build(&self, app: &mut App) {}
     /// # }
-    /// App::new()
+    /// App::default()
     ///     .add_plugins(MinimalPlugins);
-    /// App::new()
+    /// App::default()
     ///     .add_plugins((MinimalPlugins, LogPlugin));
     /// ```
     ///
@@ -617,7 +617,7 @@ impl App {
     /// use bevy_app::App;
     /// use bevy_reflect::{ReflectSerialize, ReflectDeserialize};
     ///
-    /// App::new()
+    /// App::default()
     ///     .register_type::<Option<String>>()
     ///     .register_type_data::<Option<String>, ReflectSerialize>()
     ///     .register_type_data::<Option<String>, ReflectDeserialize>();
@@ -664,7 +664,7 @@ impl App {
     ///     a + b
     /// }
     ///
-    /// App::new().register_function(add);
+    /// App::default().register_function(add);
     /// ```
     ///
     /// Functions cannot be registered more than once.
@@ -676,7 +676,7 @@ impl App {
     ///     a + b
     /// }
     ///
-    /// App::new()
+    /// App::default()
     ///     .register_function(add)
     ///     // Panic! A function has already been registered with the name "my_function"
     ///     .register_function(add);
@@ -688,7 +688,7 @@ impl App {
     /// use bevy_app::App;
     ///
     /// // Panic! Anonymous functions cannot be registered using `register_function`
-    /// App::new().register_function(|a: i32, b: i32| a + b);
+    /// App::default().register_function(|a: i32, b: i32| a + b);
     /// ```
     ///
     /// [`register_function_with_name`]: Self::register_function_with_name
@@ -740,7 +740,7 @@ impl App {
     ///
     /// let div = |a: i32, b: i32| a / b;
     ///
-    /// App::new()
+    /// App::default()
     ///     // Registering an anonymous function with a unique name
     ///     .register_function_with_name("my_crate::add", |a: i32, b: i32| {
     ///         a + b
@@ -762,7 +762,7 @@ impl App {
     /// fn one() {}
     /// fn two() {}
     ///
-    /// App::new()
+    /// App::default()
     ///     .register_function_with_name("my_function", one)
     ///     // Panic! A function has already been registered with the name "my_function"
     ///     .register_function_with_name("my_function", two);
@@ -820,7 +820,7 @@ impl App {
     /// #[derive(Component, Default, PartialEq, Eq, Debug)]
     /// struct C(u32);
     ///
-    /// # let mut app = App::new();
+    /// # let mut app = App::default();
     /// # app.add_plugins(MinimalPlugins).add_systems(Startup, setup);
     /// // Register B as required by A and C as required by B.
     /// app.register_required_components::<A, B>();
@@ -880,7 +880,7 @@ impl App {
     /// #[derive(Component, Default, PartialEq, Eq, Debug)]
     /// struct C(u32);
     ///
-    /// # let mut app = App::new();
+    /// # let mut app = App::default();
     /// # app.add_plugins(MinimalPlugins).add_systems(Startup, setup);
     /// // Register B and C as required by A and C as required by B.
     /// // A requiring C directly will overwrite the indirect requirement through B.
@@ -945,7 +945,7 @@ impl App {
     /// #[derive(Component, Default, PartialEq, Eq, Debug)]
     /// struct C(u32);
     ///
-    /// # let mut app = App::new();
+    /// # let mut app = App::default();
     /// # app.add_plugins(MinimalPlugins).add_systems(Startup, setup);
     /// // Register B as required by A and C as required by B.
     /// app.register_required_components::<A, B>();
@@ -1007,7 +1007,7 @@ impl App {
     /// #[derive(Component, Default, PartialEq, Eq, Debug)]
     /// struct C(u32);
     ///
-    /// # let mut app = App::new();
+    /// # let mut app = App::default();
     /// # app.add_plugins(MinimalPlugins).add_systems(Startup, setup);
     /// // Register B and C as required by A and C as required by B.
     /// // A requiring C directly will overwrite the indirect requirement through B.
@@ -1207,7 +1207,7 @@ impl App {
     /// fn system_1(_: Query<&mut A>) {}
     /// fn system_2(_: Query<&A>) {}
     ///
-    /// let mut app = App::new();
+    /// let mut app = App::default();
     /// app.configure_schedules(ScheduleBuildSettings {
     ///   ambiguity_detection: LogLevel::Error,
     ///   ..default()
@@ -1245,7 +1245,7 @@ impl App {
     /// fn system_1(_: ResMut<R>) {}
     /// fn system_2(_: Res<R>) {}
     ///
-    /// let mut app = App::new();
+    /// let mut app = App::default();
     /// app.configure_schedules(ScheduleBuildSettings {
     ///   ambiguity_detection: LogLevel::Error,
     ///   ..default()
@@ -1318,7 +1318,7 @@ impl App {
     /// # use bevy_ecs::prelude::*;
     /// # use bevy_utils::default;
     /// #
-    /// # let mut app = App::new();
+    /// # let mut app = App::default();
     /// #
     /// # #[derive(Event)]
     /// # struct Party {
@@ -1370,7 +1370,7 @@ impl App {
     /// # use bevy_app::*;
     /// # use bevy_ecs::error::warn;
     /// # fn MyPlugins(_: &mut App) {}
-    /// App::new()
+    /// App::default()
     ///     .set_error_handler(warn)
     ///     .add_plugins(MyPlugins)
     ///     .run();
@@ -1568,23 +1568,23 @@ mod tests {
 
     #[test]
     fn can_add_two_plugins() {
-        App::new().add_plugins((PluginA, PluginB));
+        App::default().add_plugins((PluginA, PluginB));
     }
 
     #[test]
     #[should_panic]
     fn cant_add_twice_the_same_plugin() {
-        App::new().add_plugins((PluginA, PluginA));
+        App::default().add_plugins((PluginA, PluginA));
     }
 
     #[test]
     fn can_add_twice_the_same_plugin_with_different_type_param() {
-        App::new().add_plugins((PluginC(0), PluginC(true)));
+        App::default().add_plugins((PluginC(0), PluginC(true)));
     }
 
     #[test]
     fn can_add_twice_the_same_plugin_not_unique() {
-        App::new().add_plugins((PluginD, PluginD));
+        App::default().add_plugins((PluginD, PluginD));
     }
 
     #[test]
@@ -1600,7 +1600,7 @@ mod tests {
                 app.add_plugins(InnerPlugin).run();
             }
         }
-        App::new().add_plugins(PluginRun);
+        App::default().add_plugins(PluginRun);
     }
 
     #[derive(ScheduleLabel, Hash, Clone, PartialEq, Eq, Debug)]
@@ -1619,7 +1619,7 @@ mod tests {
 
     #[test]
     fn add_systems_should_create_schedule_if_it_does_not_exist() {
-        let mut app = App::new();
+        let mut app = App::default();
         app.add_systems(EnterMainMenu, (foo, bar));
 
         app.world_mut().run_schedule(EnterMainMenu);
@@ -1629,7 +1629,7 @@ mod tests {
     #[test]
     #[should_panic]
     fn test_is_plugin_added_works_during_finish() {
-        let mut app = App::new();
+        let mut app = App::default();
         app.add_plugins(PluginA);
         app.add_plugins(PluginE);
         app.finish();
@@ -1775,7 +1775,7 @@ mod tests {
         #[derive(Component, Copy, Clone)]
         struct Foo;
 
-        let mut app = App::new();
+        let mut app = App::default();
         app.world_mut().spawn_batch(core::iter::repeat_n(Foo, 5));
 
         fn despawn_one_foo(mut commands: Commands, foos: Query<Entity, With<Foo>>) {
@@ -1809,13 +1809,13 @@ mod tests {
         #[derive(Resource)]
         struct Foo(usize);
 
-        let mut app = App::new();
+        let mut app = App::default();
         app.world_mut().insert_resource(Foo(0));
         app.add_systems(Update, |mut foo: ResMut<Foo>| {
             foo.0 += 1;
         });
 
-        let mut sub_app = SubApp::new();
+        let mut sub_app = SubApp::default();
         sub_app.set_extract(|main_world, _sub_world| {
             assert!(main_world.get_resource_ref::<Foo>().unwrap().is_changed());
         });
@@ -1835,7 +1835,7 @@ mod tests {
             exits.write(AppExit::from_code(73));
         }
 
-        let exit = App::new().add_systems(Update, raise_exits).run();
+        let exit = App::default().add_systems(Update, raise_exits).run();
 
         assert_eq!(exit, AppExit::from_code(4));
     }
@@ -1868,7 +1868,7 @@ mod tests {
         }
 
         // Should not panic due to missing resource
-        App::new()
+        App::default()
             .set_runner(my_runner)
             .add_systems(PreUpdate, my_system)
             .run();
@@ -1903,7 +1903,7 @@ mod tests {
             }
         }
 
-        App::new()
+        App::default()
             .init_non_send_resource::<NonSendTestResource>()
             .init_resource::<TestResource>();
     }
@@ -1921,14 +1921,14 @@ mod tests {
             }
         }
 
-        App::new().add_plugins(Foo);
+        App::default().add_plugins(Foo);
     }
     #[test]
     fn events_should_be_updated_once_per_update() {
         #[derive(BufferedEvent, Clone)]
         struct TestEvent;
 
-        let mut app = App::new();
+        let mut app = App::default();
         app.add_event::<TestEvent>();
 
         // Starts empty

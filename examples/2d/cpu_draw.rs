@@ -16,7 +16,7 @@ const IMAGE_WIDTH: u32 = 256;
 const IMAGE_HEIGHT: u32 = 256;
 
 fn main() {
-    App::new()
+    App::default()
         .add_plugins(DefaultPlugins)
         // In this example, we will use a fixed timestep to draw a pattern on the screen
         // one pixel at a time, so the pattern will gradually emerge over time, and

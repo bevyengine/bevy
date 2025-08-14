@@ -13,7 +13,7 @@ use bevy::{
 use std::path::Path;
 
 fn main() {
-    App::new()
+    App::default()
         .add_plugins((DefaultPlugins, EmbeddedAssetPlugin))
         .add_systems(Startup, setup)
         .run();

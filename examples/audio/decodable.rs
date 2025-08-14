@@ -83,7 +83,7 @@ impl Decodable for SineAudio {
 }
 
 fn main() {
-    let mut app = App::new();
+    let mut app = App::default();
     // register the audio source so that it can be used
     app.add_plugins(DefaultPlugins.set(AudioPlugin {
         global_volume: Volume::Linear(0.2).into(),

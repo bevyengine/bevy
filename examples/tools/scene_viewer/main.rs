@@ -61,7 +61,7 @@ fn main() {
 
     let deferred = args.deferred;
 
-    let mut app = App::new();
+    let mut app = App::default();
     app.add_plugins((
         DefaultPlugins
             .set(WindowPlugin {

@@ -226,7 +226,7 @@ mod tests {
     use bevy_window::WindowResolution;
 
     fn setup_test_app() -> App {
-        let mut app = App::new();
+        let mut app = App::default();
 
         app.init_resource::<UiScale>();
 

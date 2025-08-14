@@ -18,7 +18,7 @@ use bevy::{
 };
 
 fn main() {
-    App::new()
+    App::default()
         // We can modify the reporting strategy for system execution order ambiguities on a per-schedule basis.
         // You must do this for each schedule you want to inspect; child schedules executed within an inspected
         // schedule do not inherit this modification.

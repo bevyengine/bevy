@@ -28,7 +28,7 @@ fn spawn_component(mut commands: Commands) {
 
 #[test]
 fn simple_ecs_test() {
-    App::new()
+    App::default()
         .insert_resource(MyResource { value: 5.0 })
         .add_systems(Startup, spawn_component)
         .add_systems(Update, hello_world)

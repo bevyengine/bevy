@@ -12,7 +12,7 @@ use bevy::{
 const AUDIO_SCALE: f32 = 1. / 100.0;
 
 fn main() {
-    App::new()
+    App::default()
         .add_plugins(DefaultPlugins.set(AudioPlugin {
             default_spatial_scale: SpatialScale::new_2d(AUDIO_SCALE),
             ..default()

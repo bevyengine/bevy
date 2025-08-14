@@ -13,7 +13,7 @@
 //! # use bevy_asset::{AssetPlugin, AssetServer};
 //! # use bevy_app::{App, AppExit, NoopPluginGroup as MinimalPlugins, Startup};
 //! fn main() {
-//!    App::new()
+//!    App::default()
 //!         .add_plugins((MinimalPlugins, AssetPlugin::default(), AudioPlugin::default()))
 //!         .add_systems(Startup, play_background_audio)
 //!         .run();

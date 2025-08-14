@@ -8,7 +8,7 @@ use bevy::{
 };
 
 fn main() {
-    App::new()
+    App::default()
         .add_plugins(DefaultPlugins)
         .insert_resource(UiScale(2.))
         // Only run the app when there is user input. This will significantly reduce CPU/GPU use for UI-only apps.

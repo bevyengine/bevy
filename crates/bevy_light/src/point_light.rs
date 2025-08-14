@@ -150,7 +150,7 @@ impl PointLight {
 }
 
 /// Add to a [`PointLight`] to add a light texture effect.
-/// A texture mask is applied to the light source to modulate its intensity,  
+/// A texture mask is applied to the light source to modulate its intensity,
 /// simulating patterns like window shadows, gobo/cookie effects, or soft falloffs.
 #[derive(Clone, Component, Debug, Reflect)]
 #[reflect(Component, Debug)]
@@ -167,7 +167,7 @@ pub struct PointLightTexture {
 /// ```
 /// # use bevy_app::prelude::*;
 /// # use bevy_light::PointLightShadowMap;
-/// App::new()
+/// App::default()
 ///     .insert_resource(PointLightShadowMap { size: 2048 });
 /// ```
 #[derive(Resource, Clone, Debug, Reflect)]

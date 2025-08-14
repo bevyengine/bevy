@@ -23,7 +23,7 @@ const SYSTEM_INFO_DIAGNOSTICS: [DiagnosticPath; 4] = [
 ];
 
 fn main() {
-    App::new()
+    App::default()
         .add_plugins((
             // The diagnostics plugins need to be added after DefaultPlugins as they use e.g. the time plugin for timestamps.
             DefaultPlugins,

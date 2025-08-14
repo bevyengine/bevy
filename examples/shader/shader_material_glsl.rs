@@ -9,7 +9,7 @@ const VERTEX_SHADER_ASSET_PATH: &str = "shaders/custom_material.vert";
 const FRAGMENT_SHADER_ASSET_PATH: &str = "shaders/custom_material.frag";
 
 fn main() {
-    App::new()
+    App::default()
         .add_plugins((DefaultPlugins, MaterialPlugin::<CustomMaterial>::default()))
         .add_systems(Startup, setup)
         .run();

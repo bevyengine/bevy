@@ -49,7 +49,7 @@ struct MyComponentIndex(HashMap<KeyCode, Entity>);
 struct MyEvent;
 
 fn main() {
-    App::new()
+    App::default()
         .add_plugins(DefaultPlugins)
         .add_systems(Startup, setup)
         .add_systems(Update, trigger_hooks)

@@ -25,7 +25,7 @@ impl std::fmt::Display for CustomEvent {
 fn main() {
     let winit_plugin = WinitPlugin::<CustomEvent>::default();
 
-    App::new()
+    App::default()
         .add_plugins(
             DefaultPlugins
                 .build()

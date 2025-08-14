@@ -48,7 +48,7 @@ struct ExampleSphere;
 
 /// Entry point.
 pub fn main() {
-    App::new()
+    App::default()
         .init_resource::<LightMode>()
         .add_plugins(DefaultPlugins)
         .add_systems(Startup, setup)

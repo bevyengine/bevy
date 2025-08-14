@@ -686,7 +686,7 @@ mod test {
 
     #[test]
     fn visibility_propagation() {
-        let mut app = App::new();
+        let mut app = App::default();
         app.add_systems(Update, visibility_propagate_system);
 
         let root1 = app.world_mut().spawn(Visibility::Hidden).id();
@@ -776,7 +776,7 @@ mod test {
     #[test]
     fn test_visibility_propagation_on_parent_change() {
         // Setup the world and schedule
-        let mut app = App::new();
+        let mut app = App::default();
 
         app.add_systems(Update, visibility_propagate_system);
 
@@ -829,7 +829,7 @@ mod test {
     fn visibility_propagation_unconditional_visible() {
         use Visibility::{Hidden, Inherited, Visible};
 
-        let mut app = App::new();
+        let mut app = App::default();
         app.add_systems(Update, visibility_propagate_system);
 
         let root1 = app.world_mut().spawn(Visible).id();

@@ -7,7 +7,7 @@ use bevy::{light::ShadowFilteringMethod, prelude::*};
 use camera_controller::{CameraController, CameraControllerPlugin};
 
 fn main() {
-    App::new()
+    App::default()
         .add_plugins(DefaultPlugins)
         .add_plugins(CameraControllerPlugin)
         .add_systems(Startup, setup)

@@ -5,7 +5,7 @@
 use bevy::{color::palettes::css::PURPLE, prelude::*};
 
 fn main() {
-    App::new()
+    App::default()
         .insert_resource(ClearColor(Color::srgb(0.5, 0.5, 0.9)))
         .add_plugins(DefaultPlugins)
         .add_systems(Startup, setup)

@@ -8,7 +8,7 @@ use rand::{Rng, SeedableRng};
 use rand_chacha::ChaCha8Rng;
 
 fn main() {
-    App::new()
+    App::default()
         .add_plugins(DefaultPlugins)
         .init_resource::<SpatialIndex>()
         .add_systems(Startup, setup)

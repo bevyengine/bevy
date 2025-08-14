@@ -5,7 +5,7 @@ use std::f32::consts::PI;
 use bevy::{camera::visibility::RenderLayers, prelude::*, render::render_resource::TextureFormat};
 
 fn main() {
-    App::new()
+    App::default()
         .add_plugins(DefaultPlugins)
         .add_systems(Startup, setup)
         .add_systems(Update, (cube_rotator_system, rotator_system))

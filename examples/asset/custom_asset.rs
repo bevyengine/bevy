@@ -90,7 +90,7 @@ impl AssetLoader for BlobAssetLoader {
 }
 
 fn main() {
-    App::new()
+    App::default()
         .add_plugins(DefaultPlugins)
         .init_resource::<State>()
         .init_asset::<CustomAsset>()

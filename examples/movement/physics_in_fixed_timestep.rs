@@ -98,7 +98,7 @@ use std::f32::consts::FRAC_PI_2;
 use bevy::{color::palettes::tailwind, input::mouse::AccumulatedMouseMotion, prelude::*};
 
 fn main() {
-    App::new()
+    App::default()
         .add_plugins(DefaultPlugins)
         .init_resource::<DidFixedTimestepRunThisFrame>()
         .add_systems(Startup, (spawn_text, spawn_player, spawn_environment))

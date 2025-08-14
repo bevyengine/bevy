@@ -8,7 +8,7 @@ use bevy::{light::CascadeShadowConfigBuilder, prelude::*, scene::SceneInstanceRe
 const GLTF_PATH: &str = "models/animated/Fox.glb";
 
 fn main() {
-    App::new()
+    App::default()
         .insert_resource(AmbientLight {
             color: Color::WHITE,
             brightness: 2000.,

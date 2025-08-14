@@ -10,7 +10,7 @@
 use bevy::{asset::LoadedFolder, image::ImageSampler, prelude::*};
 
 fn main() {
-    App::new()
+    App::default()
         .add_plugins(DefaultPlugins.set(ImagePlugin::default_nearest())) // fallback to nearest sampling
         .init_state::<AppState>()
         .add_systems(OnEnter(AppState::Setup), load_textures)

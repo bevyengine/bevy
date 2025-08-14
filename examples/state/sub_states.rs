@@ -33,7 +33,7 @@ enum IsPaused {
 }
 
 fn main() {
-    App::new()
+    App::default()
         .add_plugins(DefaultPlugins)
         .init_state::<AppState>()
         .add_sub_state::<IsPaused>() // We set the substate up here.

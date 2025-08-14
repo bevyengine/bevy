@@ -200,7 +200,7 @@ mod test {
     #[test]
     fn calculate_bounds_2d_create_aabb_for_image_sprite_entity() {
         // Setup app
-        let mut app = App::new();
+        let mut app = App::default();
 
         // Add resources and get handle to image
         let mut image_assets = Assets::<Image>::default();
@@ -238,7 +238,7 @@ mod test {
     #[test]
     fn calculate_bounds_2d_update_aabb_when_sprite_custom_size_changes_to_some() {
         // Setup app
-        let mut app = App::new();
+        let mut app = App::default();
 
         // Add resources and get handle to image
         let mut image_assets = Assets::<Image>::default();
@@ -301,7 +301,7 @@ mod test {
     #[test]
     fn calculate_bounds_2d_correct_aabb_for_sprite_with_custom_rect() {
         // Setup app
-        let mut app = App::new();
+        let mut app = App::default();
 
         // Add resources and get handle to image
         let mut image_assets = Assets::<Image>::default();

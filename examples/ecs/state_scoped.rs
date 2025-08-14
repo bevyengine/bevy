@@ -7,7 +7,7 @@
 use bevy::prelude::*;
 
 fn main() {
-    App::new()
+    App::default()
         .add_plugins(DefaultPlugins)
         .init_state::<GameState>()
         .add_systems(Startup, setup_camera)

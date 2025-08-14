@@ -41,7 +41,7 @@ use bytemuck::{Pod, Zeroable};
 const SHADER_ASSET_PATH: &str = "shaders/instancing.wgsl";
 
 fn main() {
-    App::new()
+    App::default()
         .add_plugins((DefaultPlugins, CustomMaterialPlugin))
         .add_systems(Startup, setup)
         .run();

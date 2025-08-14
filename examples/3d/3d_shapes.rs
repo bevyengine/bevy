@@ -25,7 +25,7 @@ use bevy::{
 };
 
 fn main() {
-    App::new()
+    App::default()
         .add_plugins((
             DefaultPlugins.set(ImagePlugin::default_nearest()),
             #[cfg(not(target_arch = "wasm32"))]

@@ -40,7 +40,7 @@ use bevy::{
 use std::f32::consts::PI;
 
 fn main() {
-    App::new()
+    App::default()
         .add_plugins((DefaultPlugins, ColoredMesh2dPlugin))
         .add_systems(Startup, star)
         .run();

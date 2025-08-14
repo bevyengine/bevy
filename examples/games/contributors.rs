@@ -12,7 +12,7 @@ use std::{
 };
 
 fn main() {
-    App::new()
+    App::default()
         .add_plugins(DefaultPlugins)
         .init_resource::<SelectionTimer>()
         .init_resource::<SharedRng>()

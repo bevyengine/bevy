@@ -4,7 +4,7 @@
 use bevy::{app::PluginGroupBuilder, prelude::*};
 
 fn main() {
-    App::new()
+    App::default()
         .add_plugins((
             // Two PluginGroups that are included with bevy are DefaultPlugins and MinimalPlugins
             DefaultPlugins,

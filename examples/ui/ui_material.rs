@@ -9,7 +9,7 @@ use bevy::{
 const SHADER_ASSET_PATH: &str = "shaders/custom_ui_material.wgsl";
 
 fn main() {
-    App::new()
+    App::default()
         .add_plugins(DefaultPlugins)
         .add_plugins(UiMaterialPlugin::<CustomUiMaterial>::default())
         .add_systems(Startup, setup)

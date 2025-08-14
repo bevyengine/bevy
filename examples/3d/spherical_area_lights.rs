@@ -3,7 +3,7 @@
 use bevy::prelude::*;
 
 fn main() {
-    App::new()
+    App::default()
         .insert_resource(AmbientLight {
             brightness: 60.0,
             ..default()

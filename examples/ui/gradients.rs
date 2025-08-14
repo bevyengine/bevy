@@ -16,7 +16,7 @@ use std::f32::consts::TAU;
 struct CurrentColorSpaceLabel;
 
 fn main() {
-    App::new()
+    App::default()
         .add_plugins(DefaultPlugins)
         .add_systems(Startup, setup)
         .add_systems(Update, update)

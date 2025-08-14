@@ -22,7 +22,7 @@ fn main() {
     #[cfg(target_arch = "wasm32")]
     let args = Args::from_args(&[], &[]).unwrap();
 
-    App::new()
+    App::default()
         .add_plugins((
             DefaultPlugins.set(WindowPlugin {
                 primary_window: Some(Window {

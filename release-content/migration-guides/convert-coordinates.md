@@ -16,7 +16,7 @@ and Bevy uses:
 - up: Y
 - right: X
 
-This means that to correctly import glTFs into Bevy, vertex data should be rotated by 180 degrees around the Y axis.  
+This means that to correctly import glTFs into Bevy, vertex data should be rotated by 180 degrees around the Y axis.
 For the longest time, Bevy has simply ignored this distinction. That caused issues when working across programs, as most software respects the
 glTF coordinate system when importing and exporting glTFs. Your scene might have looked correct in Blender, Maya, TrenchBroom, etc. but everything would be flipped when importing it into Bevy!
 
@@ -48,12 +48,12 @@ If you prefer, you can also do this in code by setting `convert_coordinates` on 
 
 ```rust
 // old behavior, ignores glTF's coordinate system
-App::new()
+App::default()
     .add_plugins(DefaultPlugins)
     .run();
 
 // new behavior, converts the coordinate system of all glTF assets into Bevy's coordinate system
-App::new()
+App::default()
     .add_plugins(DefaultPlugins.set(GltfPlugin {
         convert_coordinates: true,
         ..default()

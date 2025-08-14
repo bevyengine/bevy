@@ -18,7 +18,7 @@ enum Coords {
 }
 
 fn main() {
-    App::new()
+    App::default()
         .insert_resource(UiScale(2.0))
         .add_plugins(DefaultPlugins.set(WindowPlugin {
             primary_window: Some(Window {

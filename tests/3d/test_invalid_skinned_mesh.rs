@@ -14,7 +14,7 @@ use bevy::{
 use core::f32::consts::TAU;
 
 fn main() {
-    App::new()
+    App::default()
         .add_plugins(DefaultPlugins)
         .insert_resource(AmbientLight {
             brightness: 20_000.0,

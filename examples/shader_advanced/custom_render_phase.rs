@@ -66,7 +66,7 @@ use nonmax::NonMaxU32;
 const SHADER_ASSET_PATH: &str = "shaders/custom_stencil.wgsl";
 
 fn main() {
-    App::new()
+    App::default()
         .add_plugins((DefaultPlugins, MeshStencilPhasePlugin))
         .add_systems(Startup, setup)
         .run();

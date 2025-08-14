@@ -7,7 +7,7 @@ use std::num::ParseIntError;
 use bevy::log::{debug, error, info, Level, LogPlugin};
 
 fn main() {
-    App::new()
+    App::default()
         .insert_resource(Message("42".to_string()))
         .insert_resource(OptionalWarning(Err("Got to rusty?".to_string())))
         .add_plugins(LogPlugin {

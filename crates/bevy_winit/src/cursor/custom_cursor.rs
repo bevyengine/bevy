@@ -191,7 +191,7 @@ mod tests {
         ($name:ident, $use_texture_atlas:expr, $rect:expr, $expected_rect:expr, $expected_needs_sub_image:expr) => {
             #[test]
             fn $name() {
-                let mut app = App::new();
+                let mut app = App::default();
                 let mut texture_atlas_layout_assets = Assets::<TextureAtlasLayout>::default();
 
                 // Create a simple 3x3 texture atlas layout for the test cases

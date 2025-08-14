@@ -95,7 +95,7 @@ impl<'a> From<&'a ExampleBindlessExtension> for ExampleBindlessExtensionUniform 
 
 /// The entry point.
 fn main() {
-    App::new()
+    App::default()
         .add_plugins(DefaultPlugins)
         .add_plugins(MaterialPlugin::<
             ExtendedMaterial<StandardMaterial, ExampleBindlessExtension>,
