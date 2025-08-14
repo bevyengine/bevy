@@ -53,7 +53,7 @@ impl RawVulkanInitSettings {
     ///
     /// # Safety
     /// - Callback must not remove features.
-    /// - Callback must not change anything to what the instance does not support.
+    /// - Callback must not change anything to what the device does not support.
     pub unsafe fn add_create_device_callback(
         &mut self,
         callback: impl Fn(
