@@ -151,10 +151,8 @@ pub struct RenderResources(
     pub(crate) RenderAdapterInfo,
     pub(crate) RenderAdapter,
     pub(crate) RenderInstance,
-    #[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))]
-    pub(crate)  Option<crate::DlssSuperResolutionSupported>,
-    #[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))]
-    pub(crate)  Option<crate::DlssRayReconstructionSupported>,
+    #[cfg(feature = "raw_vulkan_init")]
+    pub(crate)  crate::renderer::raw_vulkan_init::AdditionalVulkanFeatures,
 );
 
 /// An enum describing how the renderer will initialize resources. This is used when creating the [`RenderPlugin`](crate::RenderPlugin).
@@ -177,6 +175,8 @@ impl RenderCreation {
         adapter_info: RenderAdapterInfo,
         adapter: RenderAdapter,
         instance: RenderInstance,
+        #[cfg(feature = "raw_vulkan_init")]
+        additional_vulkan_features: crate::renderer::raw_vulkan_init::AdditionalVulkanFeatures,
     ) -> Self {
         RenderResources(
             device,
@@ -184,10 +184,8 @@ impl RenderCreation {
             adapter_info,
             adapter,
             instance,
-            #[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))]
-            None,
-            #[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))]
-            None,
+            #[cfg(feature = "raw_vulkan_init")]
+            additional_vulkan_features,
         )
         .into()
     }

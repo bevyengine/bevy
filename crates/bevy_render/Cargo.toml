@@ -32,6 +32,9 @@ spirv_shader_passthrough = ["wgpu/spirv"]
 # TODO: When wgpu switches to DirectX 12 instead of Vulkan by default on windows, make this a default feature
 statically-linked-dxc = ["wgpu/static-dxc"]
 
+# Forces the wgpu instance to be initialized using the raw Vulkan HAL, enabling additional configuration
+raw_vulkan_init = ["wgpu/vulkan"]
+
 trace = ["profiling"]
 tracing-tracy = ["dep:tracy-client"]
 ci_limits = []
@@ -91,7 +94,6 @@ wgpu = { version = "26", default-features = false, features = [
   "fragile-send-sync-non-atomic-wasm",
 ] }
 naga = { version = "26", features = ["wgsl-in"] }
-dlss_wgpu = { git = "https://github.com/bevyengine/dlss_wgpu", optional = true }
 bytemuck = { version = "1.5", features = ["derive", "must_cast"] }
 downcast-rs = { version = "2", default-features = false, features = ["std"] }
 thiserror = { version = "2", default-features = false }

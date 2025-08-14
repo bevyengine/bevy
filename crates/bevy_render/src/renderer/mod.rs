@@ -1,14 +1,9 @@
 mod graph_runner;
+pub mod raw_vulkan_init;
 mod render_device;
 
-use crate::WgpuWrapper;
-use bevy_derive::{Deref, DerefMut};
-#[cfg(not(all(target_arch = "wasm32", target_feature = "atomics")))]
-use bevy_tasks::ComputeTaskPool;
-use bevy_window::RawHandleWrapperHolder;
 pub use graph_runner::*;
 pub use render_device::*;
-use tracing::{debug, error, info, info_span, warn};
 
 use crate::{
     diagnostic::{internal::DiagnosticsRecorder, RecordDiagnostics},
@@ -17,11 +12,17 @@ use crate::{
     render_resource::RenderPassDescriptor,
     settings::{RenderResources, WgpuSettings, WgpuSettingsPriority},
     view::{ExtractedWindows, ViewTarget},
+    WgpuWrapper,
 };
 use alloc::sync::Arc;
+use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{prelude::*, system::SystemState};
 use bevy_platform::time::Instant;
+#[cfg(not(all(target_arch = "wasm32", target_feature = "atomics")))]
+use bevy_tasks::ComputeTaskPool;
 use bevy_time::TimeSender;
+use bevy_window::RawHandleWrapperHolder;
+use tracing::{debug, error, info, info_span, warn};
 use wgpu::{
     Adapter, AdapterInfo, Backends, CommandBuffer, CommandEncoder, DeviceType, Instance, Queue,
     RequestAdapterOptions, Trace,
@@ -175,12 +176,9 @@ pub async fn initialize_renderer(
     backends: Backends,
     primary_window: Option<RawHandleWrapperHolder>,
     options: &WgpuSettings,
-    #[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))]
-    dlss_project_id: bevy_asset::uuid::Uuid,
+    #[cfg(feature = "raw_vulkan_init")]
+    raw_vulkan_init_settings: raw_vulkan_init::RawVulkanInitSettings,
 ) -> RenderResources {
-    #[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))]
-    let mut dlss_feature_support = dlss_wgpu::FeatureSupport::default();
-
     let instance_descriptor = wgpu::InstanceDescriptor {
         backends,
         flags: options.instance_flags,
@@ -197,16 +195,16 @@ pub async fn initialize_renderer(
         },
     };
 
-    #[cfg(any(not(feature = "dlss"), feature = "force_disable_dlss"))]
+    #[cfg(not(feature = "raw_vulkan_init"))]
     let instance = Instance::new(&instance_descriptor);
-
-    #[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))]
-    let instance = dlss_wgpu::create_instance(
-        dlss_project_id,
+    #[cfg(feature = "raw_vulkan_init")]
+    let mut additional_vulkan_features = raw_vulkan_init::AdditionalVulkanFeatures::default();
+    #[cfg(feature = "raw_vulkan_init")]
+    let instance = raw_vulkan_init::create_raw_vulkan_instance(
         &instance_descriptor,
-        &mut dlss_feature_support,
-    )
-    .unwrap();
+        &raw_vulkan_init_settings,
+        &mut additional_vulkan_features,
+    );
 
     let surface = primary_window.and_then(|wrapper| {
         let maybe_handle = wrapper
@@ -441,16 +439,17 @@ pub async fn initialize_renderer(
         trace: Trace::Off,
     };
 
-    #[cfg(any(not(feature = "dlss"), feature = "force_disable_dlss"))]
+    #[cfg(not(feature = "raw_vulkan_init"))]
     let (device, queue) = adapter.request_device(&device_descriptor).await.unwrap();
 
-    #[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))]
-    let (device, queue) = dlss_wgpu::request_device(
-        dlss_project_id,
+    #[cfg(feature = "raw_vulkan_init")]
+    let (device, queue) = raw_vulkan_init::create_raw_device(
         &adapter,
         &device_descriptor,
-        &mut dlss_feature_support,
+        &raw_vulkan_init_settings,
+        &mut additional_vulkan_features,
     )
+    .await
     .unwrap();
 
     debug!("Configured wgpu adapter Limits: {:#?}", device.limits());
@@ -462,14 +461,8 @@ pub async fn initialize_renderer(
         RenderAdapterInfo(WgpuWrapper::new(adapter_info)),
         RenderAdapter(Arc::new(WgpuWrapper::new(adapter))),
         RenderInstance(Arc::new(WgpuWrapper::new(instance))),
-        #[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))]
-        dlss_feature_support
-            .super_resolution_supported
-            .then(|| crate::DlssSuperResolutionSupported),
-        #[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))]
-        dlss_feature_support
-            .ray_reconstruction_supported
-            .then(|| crate::DlssRayReconstructionSupported),
+        #[cfg(feature = "raw_vulkan_init")]
+        additional_vulkan_features,
     )
 }
 

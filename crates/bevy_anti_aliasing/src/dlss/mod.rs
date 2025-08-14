@@ -18,21 +18,23 @@ mod extract;
 mod node;
 mod prepare;
 
+pub use dlss_wgpu::DlssPerfQualityMode;
+
 use bevy_app::{App, Plugin};
 use bevy_core_pipeline::{
     core_3d::graph::{Core3d, Node3d},
     prepass::{DepthPrepass, MotionVectorPrepass},
 };
-use bevy_ecs::{
-    component::Component, prelude::ReflectComponent, resource::Resource,
-    schedule::IntoScheduleConfigs,
-};
+use bevy_ecs::prelude::*;
 use bevy_math::{UVec2, Vec2};
 use bevy_reflect::{reflect_remote, Reflect};
 use bevy_render::{
     camera::{MipBias, TemporalJitter},
     render_graph::{RenderGraphExt, ViewNodeRunner},
-    renderer::{RenderDevice, RenderQueue},
+    renderer::{
+        raw_vulkan_init::{AdditionalVulkanFeatures, RawVulkanInitSettings},
+        RenderDevice, RenderQueue,
+    },
     texture::CachedTexture,
     view::{prepare_view_targets, Hdr},
     ExtractSchedule, Render, RenderApp, RenderSystems,
@@ -42,6 +44,7 @@ use dlss_wgpu::{
         DlssRayReconstruction, DlssRayReconstructionDepthMode, DlssRayReconstructionRoughnessMode,
     },
     super_resolution::DlssSuperResolution,
+    FeatureSupport,
 };
 use std::{
     marker::PhantomData,
@@ -49,12 +52,69 @@ use std::{
     sync::{Arc, Mutex},
 };
 use tracing::info;
+use uuid::Uuid;
 
-pub use bevy_render::{
-    DlssProjectId, DlssRayReconstructionSupported, DlssSuperResolutionSupported,
-};
-pub use dlss_wgpu::DlssPerfQualityMode;
+/// Initializes DLSS support in the renderer. This must be registered before [`RenderPlugin`](bevy_render::RenderPlugin) because
+/// it configures render init code.
+#[derive(Default)]
+pub struct DlssInitPlugin;
 
+impl Plugin for DlssInitPlugin {
+    fn build(&self, app: &mut App) {
+        let dlss_project_id = app.world().get_resource::<DlssProjectId>()
+                        .expect("The `dlss` feature is enabled, but DlssProjectId was not added to the App before DlssPlugin.").0;
+        let mut raw_vulkan_settings = app
+            .world_mut()
+            .get_resource_or_init::<RawVulkanInitSettings>();
+
+        raw_vulkan_settings.create_instance_callbacks.push(Arc::new(
+            move |mut args, additional_vulkan_features| {
+                let mut feature_support = FeatureSupport::default();
+                match dlss_wgpu::register_instance_extensions(
+                    dlss_project_id,
+                    &mut args,
+                    &mut feature_support,
+                ) {
+                    Ok(_) => {
+                        if feature_support.ray_reconstruction_supported {
+                            additional_vulkan_features.register::<DlssRayReconstructionSupported>();
+                        }
+                        if feature_support.super_resolution_supported {
+                            additional_vulkan_features.register::<DlssSuperResolutionSupported>();
+                        }
+                    }
+                    Err(_) => todo!(),
+                }
+            },
+        ));
+
+        raw_vulkan_settings.create_device_callbacks.push(Arc::new(
+            move |mut args, adapter, additional_vulkan_features| {
+                let mut feature_support = FeatureSupport::default();
+                match dlss_wgpu::register_device_extensions(
+                    dlss_project_id,
+                    &mut args,
+                    adapter,
+                    &mut feature_support,
+                ) {
+                    Ok(_) => {
+                        if feature_support.ray_reconstruction_supported {
+                            additional_vulkan_features.register::<DlssRayReconstructionSupported>();
+                        }
+                        if feature_support.super_resolution_supported {
+                            additional_vulkan_features.register::<DlssSuperResolutionSupported>();
+                        }
+                    }
+                    Err(_) => todo!(),
+                }
+            },
+        ));
+    }
+}
+
+/// Enables DLSS support. This requires [`DlssInitPlugin`] to function, which must be manually registered in the correct order
+/// prior to registering this plugin.
+#[derive(Default)]
 pub struct DlssPlugin;
 
 impl Plugin for DlssPlugin {
@@ -62,32 +122,40 @@ impl Plugin for DlssPlugin {
         app.register_type::<Dlss<DlssSuperResolutionFeature>>()
             .register_type::<Dlss<DlssRayReconstructionFeature>>();
     }
-
     fn finish(&self, app: &mut App) {
-        if app
-            .world()
-            .get_resource::<DlssSuperResolutionSupported>()
-            .is_none()
-        {
-            info!("DLSS is not supported on this system");
+        let (super_resolution_supported, ray_reconstruction_supported) = {
+            let features = app
+                .sub_app_mut(RenderApp)
+                .world()
+                .resource::<AdditionalVulkanFeatures>();
+            (
+                features.has::<DlssSuperResolutionSupported>(),
+                features.has::<DlssRayReconstructionSupported>(),
+            )
+        };
+        if !super_resolution_supported {
             return;
         }
 
-        let dlss_project_id = app.world().resource::<DlssProjectId>().0;
-
-        let render_app = app.get_sub_app_mut(RenderApp).unwrap();
-        let render_device = render_app.world().resource::<RenderDevice>().clone();
-
-        let dlss_sdk =
-            dlss_wgpu::DlssSdk::new(dlss_project_id, render_device.wgpu_device().clone());
+        let wgpu_device = {
+            let render_world = app.sub_app(RenderApp).world();
+            let render_device = render_world.resource::<RenderDevice>().wgpu_device();
+            render_device.clone()
+        };
+        let project_id = app.world().get_resource::<DlssProjectId>()
+            .expect("The `dlss` feature is enabled, but DlssProjectId was not added to the App before DlssPlugin.");
+        let dlss_sdk = dlss_wgpu::DlssSdk::new(project_id.0, wgpu_device);
         if dlss_sdk.is_err() {
-            app.world_mut()
-                .remove_resource::<DlssSuperResolutionSupported>();
             info!("DLSS is not supported on this system");
             return;
         }
 
-        render_app
+        app.insert_resource(DlssSuperResolutionSupported);
+        if ray_reconstruction_supported {
+            app.insert_resource(DlssRayReconstructionSupported);
+        }
+
+        app.sub_app_mut(RenderApp)
             .insert_resource(DlssSdk(dlss_sdk.unwrap()))
             .add_systems(
                 ExtractSchedule,
@@ -303,3 +371,19 @@ enum DlssPerfQualityModeRemoteReflect {
 
 #[derive(Resource)]
 struct DlssSdk(Arc<Mutex<dlss_wgpu::DlssSdk>>);
+
+/// Application-specific ID for DLSS.
+///
+/// See the DLSS programming guide for more info.
+#[derive(Resource, Clone)]
+pub struct DlssProjectId(pub Uuid);
+
+/// When DLSS Super Resolution is supported by the current system, this resource will exist in the main world.
+/// Otherwise this resource will be absent.
+#[derive(Resource, Clone, Copy)]
+pub struct DlssSuperResolutionSupported;
+
+/// When DLSS Ray Reconstruction is supported by the current system, this resource will exist in the main world.
+/// Otherwise this resource will be absent.
+#[derive(Resource, Clone, Copy)]
+pub struct DlssRayReconstructionSupported;

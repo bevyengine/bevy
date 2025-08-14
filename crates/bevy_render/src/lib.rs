@@ -332,20 +332,20 @@ impl Plugin for RenderPlugin {
 
                     let settings = render_creation.clone();
 
-                    #[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))]
-                    let dlss_project_id = app
-                        .world()
-                        .get_resource::<DlssProjectId>()
-                        .expect("The `dlss` feature is enabled, but DlssProjectId was not added to the App before DefaultPlugins.")
-                        .0;
+                    #[cfg(feature = "raw_vulkan_init")]
+                    let raw_vulkan_init_settings = app
+                        .world_mut()
+                        .get_resource::<renderer::raw_vulkan_init::RawVulkanInitSettings>()
+                        .cloned()
+                        .unwrap_or_default();
 
                     let async_renderer = async move {
                         let render_resources = renderer::initialize_renderer(
                             backends,
                             primary_window,
                             &settings,
-                            #[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))]
-                            dlss_project_id,
+                            #[cfg(feature = "raw_vulkan_init")]
+                            raw_vulkan_init_settings,
                         )
                         .await;
 
@@ -414,19 +414,9 @@ impl Plugin for RenderPlugin {
         if let Some(future_render_resources) =
             app.world_mut().remove_resource::<FutureRenderResources>()
         {
-            #[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))]
-            let RenderResources(
-                device,
-                queue,
-                adapter_info,
-                render_adapter,
-                instance,
-                dlss_super_resolution_supported,
-                dlss_ray_reconstruction_supported,
-            ) = future_render_resources.0.lock().unwrap().take().unwrap();
-            #[cfg(any(not(feature = "dlss"), feature = "force_disable_dlss"))]
-            let RenderResources(device, queue, adapter_info, render_adapter, instance) =
-                future_render_resources.0.lock().unwrap().take().unwrap();
+            let render_resources = future_render_resources.0.lock().unwrap().take().unwrap();
+            let RenderResources(device, queue, adapter_info, render_adapter, instance, ..) =
+                render_resources;
 
             let compressed_image_format_support = CompressedImageFormatSupport(
                 CompressedImageFormats::from_features(device.features()),
@@ -438,16 +428,14 @@ impl Plugin for RenderPlugin {
                 .insert_resource(render_adapter.clone())
                 .insert_resource(compressed_image_format_support);
 
-            #[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))]
-            if let Some(dlss_super_resolution_supported) = dlss_super_resolution_supported {
-                app.insert_resource(dlss_super_resolution_supported);
-            }
-            #[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))]
-            if let Some(dlss_ray_reconstruction_supported) = dlss_ray_reconstruction_supported {
-                app.insert_resource(dlss_ray_reconstruction_supported);
-            }
-
             let render_app = app.sub_app_mut(RenderApp);
+
+            #[cfg(feature = "raw_vulkan_init")]
+            {
+                let additional_vulkan_features: renderer::raw_vulkan_init::AdditionalVulkanFeatures =
+                    render_resources.5;
+                render_app.insert_resource(additional_vulkan_features);
+            }
 
             render_app
                 .insert_resource(instance)
@@ -603,22 +591,3 @@ pub fn get_mali_driver_version(adapter: &RenderAdapter) -> Option<u32> {
 
     None
 }
-
-/// Application-specific ID for DLSS.
-///
-/// See the DLSS programming guide for more info.
-#[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))]
-#[derive(Resource)]
-pub struct DlssProjectId(pub bevy_asset::uuid::Uuid);
-
-/// When DLSS Super Resolution is supported by the current system, this resource will exist in the main world.
-/// Otherwise this resource will be absent.
-#[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))]
-#[derive(Resource, Clone, Copy)]
-pub struct DlssSuperResolutionSupported;
-
-/// When DLSS Ray Reconstruction is supported by the current system, this resource will exist in the main world.
-/// Otherwise this resource will be absent.
-#[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))]
-#[derive(Resource, Clone, Copy)]
-pub struct DlssRayReconstructionSupported;
