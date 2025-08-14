@@ -732,6 +732,7 @@ impl Default for Node {
     }
 }
 
+/// Component that represents visual UI nodes that don't occupy space in the layout.
 #[derive(Default, Component, Clone, PartialEq, Debug, Reflect)]
 #[require(
     ComputedNode,
@@ -751,7 +752,13 @@ impl Default for Node {
     derive(serde::Serialize, serde::Deserialize),
     reflect(Serialize, Deserialize)
 )]
-pub struct Decoration;
+pub struct Decoration {
+    pub width: Val,
+    /// Logical height
+    pub height: Val,
+    /// Border
+    pub border: UiRect,
+}
 
 /// Used to control how each individual item is aligned by default within the space they're given.
 /// - For Flexbox containers, sets default cross axis alignment of the child items.
