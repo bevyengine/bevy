@@ -225,7 +225,7 @@ use bevy_ecs::{
 };
 use bevy_platform::collections::HashSet;
 use bevy_reflect::{FromReflect, GetTypeRegistration, Reflect, TypePath};
-use core::any::TypeId;
+use core::{any::TypeId, ops::ControlFlow};
 use tracing::error;
 
 /// Provides "asset" loading and processing functionality. An [`Asset`] is a "runtime value" that is loaded from an [`AssetSource`],
@@ -452,52 +452,79 @@ pub trait AsAssetId: Component {
 /// This trait defines how to visit the dependencies of an asset.
 /// For example, a 3D model might require both textures and meshes to be loaded.
 ///
+/// The visitation function can return [`ControlFlow::Break`] to terminate visitation early.
+///
 /// Note that this trait is automatically implemented when deriving [`Asset`].
 pub trait VisitAssetDependencies {
-    fn visit_dependencies(&self, visit: &mut impl FnMut(UntypedAssetId));
+    fn visit_dependencies(
+        &self,
+        visit: &mut impl FnMut(UntypedAssetId) -> ControlFlow<UntypedAssetId>,
+    ) -> ControlFlow<UntypedAssetId>;
 }
 
 impl<A: Asset> VisitAssetDependencies for Handle<A> {
-    fn visit_dependencies(&self, visit: &mut impl FnMut(UntypedAssetId)) {
-        visit(self.id().untyped());
+    fn visit_dependencies(
+        &self,
+        visit: &mut impl FnMut(UntypedAssetId) -> ControlFlow<UntypedAssetId>,
+    ) -> ControlFlow<UntypedAssetId> {
+        visit(self.id().untyped())
     }
 }
 
 impl<A: Asset> VisitAssetDependencies for Option<Handle<A>> {
-    fn visit_dependencies(&self, visit: &mut impl FnMut(UntypedAssetId)) {
+    fn visit_dependencies(
+        &self,
+        visit: &mut impl FnMut(UntypedAssetId) -> ControlFlow<UntypedAssetId>,
+    ) -> ControlFlow<UntypedAssetId> {
         if let Some(handle) = self {
-            visit(handle.id().untyped());
+            visit(handle.id().untyped())?;
         }
+        ControlFlow::Continue(())
     }
 }
 
 impl VisitAssetDependencies for UntypedHandle {
-    fn visit_dependencies(&self, visit: &mut impl FnMut(UntypedAssetId)) {
-        visit(self.id());
+    fn visit_dependencies(
+        &self,
+        visit: &mut impl FnMut(UntypedAssetId) -> ControlFlow<UntypedAssetId>,
+    ) -> ControlFlow<UntypedAssetId> {
+        visit(self.id())
     }
 }
 
 impl VisitAssetDependencies for Option<UntypedHandle> {
-    fn visit_dependencies(&self, visit: &mut impl FnMut(UntypedAssetId)) {
+    fn visit_dependencies(
+        &self,
+        visit: &mut impl FnMut(UntypedAssetId) -> ControlFlow<UntypedAssetId>,
+    ) -> ControlFlow<UntypedAssetId> {
         if let Some(handle) = self {
-            visit(handle.id());
+            visit(handle.id())?;
         }
+        ControlFlow::Continue(())
     }
 }
 
 impl<A: Asset> VisitAssetDependencies for Vec<Handle<A>> {
-    fn visit_dependencies(&self, visit: &mut impl FnMut(UntypedAssetId)) {
+    fn visit_dependencies(
+        &self,
+        visit: &mut impl FnMut(UntypedAssetId) -> ControlFlow<UntypedAssetId>,
+    ) -> ControlFlow<UntypedAssetId> {
         for dependency in self {
-            visit(dependency.id().untyped());
+            visit(dependency.id().untyped())?;
         }
+        ControlFlow::Continue(())
     }
 }
 
 impl VisitAssetDependencies for Vec<UntypedHandle> {
-    fn visit_dependencies(&self, visit: &mut impl FnMut(UntypedAssetId)) {
+    fn visit_dependencies(
+        &self,
+        visit: &mut impl FnMut(UntypedAssetId) -> ControlFlow<UntypedAssetId>,
+    ) -> ControlFlow<UntypedAssetId> {
         for dependency in self {
-            visit(dependency.id());
+            visit(dependency.id())?;
         }
+        ControlFlow::Continue(())
     }
 }
 

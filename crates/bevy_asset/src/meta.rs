@@ -1,3 +1,5 @@
+use core::ops::ControlFlow;
+
 use alloc::{
     boxed::Box,
     string::{String, ToString},
@@ -192,7 +194,10 @@ impl Process for () {
 impl Asset for () {}
 
 impl VisitAssetDependencies for () {
-    fn visit_dependencies(&self, _visit: &mut impl FnMut(bevy_asset::UntypedAssetId)) {
+    fn visit_dependencies(
+        &self,
+        _visit: &mut impl FnMut(bevy_asset::UntypedAssetId) -> ControlFlow<bevy_asset::UntypedAssetId>,
+    ) -> ControlFlow<bevy_asset::UntypedAssetId> {
         unreachable!()
     }
 }
