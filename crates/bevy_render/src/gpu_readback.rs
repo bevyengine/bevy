@@ -257,26 +257,26 @@ fn prepare_buffers(
     for (entity, readback) in handles.iter() {
         match readback {
             Readback::Texture(image) => {
-                if let Some(gpu_image) = gpu_images.get(image) {
-                    if let Ok(pixel_size) = gpu_image.texture_format.pixel_size() {
-                        let layout = layout_data(gpu_image.size, gpu_image.texture_format);
-                        let buffer = buffer_pool.get(
-                            &render_device,
-                            get_aligned_size(gpu_image.size, pixel_size as u32) as u64,
-                        );
-                        let (tx, rx) = async_channel::bounded(1);
-                        readbacks.requested.push(GpuReadback {
-                            entity: entity.id(),
-                            src: ReadbackSource::Texture {
-                                texture: gpu_image.texture.clone(),
-                                layout,
-                                size: gpu_image.size,
-                            },
-                            buffer,
-                            rx,
-                            tx,
-                        });
-                    }
+                if let Some(gpu_image) = gpu_images.get(image)
+                    && let Ok(pixel_size) = gpu_image.texture_format.pixel_size()
+                {
+                    let layout = layout_data(gpu_image.size, gpu_image.texture_format);
+                    let buffer = buffer_pool.get(
+                        &render_device,
+                        get_aligned_size(gpu_image.size, pixel_size as u32) as u64,
+                    );
+                    let (tx, rx) = async_channel::bounded(1);
+                    readbacks.requested.push(GpuReadback {
+                        entity: entity.id(),
+                        src: ReadbackSource::Texture {
+                            texture: gpu_image.texture.clone(),
+                            layout,
+                            size: gpu_image.size,
+                        },
+                        buffer,
+                        rx,
+                        tx,
+                    });
                 }
             }
             Readback::Buffer {
