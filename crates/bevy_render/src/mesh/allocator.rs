@@ -1,6 +1,7 @@
 //! Manages mesh vertex and index buffers.
 
 use alloc::vec::Vec;
+use bevy_mesh::Indices;
 use core::{
     fmt::{self, Display, Formatter},
     ops::Range,
@@ -26,7 +27,7 @@ use wgpu::{
 };
 
 use crate::{
-    mesh::{Indices, Mesh, MeshVertexBufferLayouts, RenderMesh},
+    mesh::{Mesh, MeshVertexBufferLayouts, RenderMesh},
     render_asset::{prepare_assets, ExtractedAssets},
     render_resource::Buffer,
     renderer::{RenderAdapter, RenderDevice, RenderQueue},

@@ -4,10 +4,10 @@
 //!
 //! [`OrderIndependentTransparencyPlugin`]: bevy::render::pipeline::OrderIndependentTransparencyPlugin
 use bevy::{
+    camera::visibility::RenderLayers,
     color::palettes::css::{BLUE, GREEN, RED},
     core_pipeline::oit::OrderIndependentTransparencySettings,
     prelude::*,
-    render::view::RenderLayers,
 };
 
 fn main() {

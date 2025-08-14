@@ -4,8 +4,8 @@ use std::f32::consts::*;
 
 use bevy::{
     color::palettes::basic::{MAROON, RED},
+    light::NotShadowCaster,
     math::ops,
-    pbr::NotShadowCaster,
     prelude::*,
     render::view::Hdr,
 };

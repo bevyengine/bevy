@@ -16,11 +16,10 @@ use bevy_asset::{
     RenderAssetUsages,
 };
 use bevy_camera::{
-    primitives::Aabb, visibility::Visibility, Camera, OrthographicProjection,
+    primitives::Aabb, visibility::Visibility, Camera, Camera3d, OrthographicProjection,
     PerspectiveProjection, Projection, ScalingMode,
 };
 use bevy_color::{Color, LinearRgba};
-use bevy_core_pipeline::prelude::Camera3d;
 use bevy_ecs::{
     entity::{Entity, EntityHashMap},
     hierarchy::ChildSpawner,

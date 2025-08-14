@@ -3,9 +3,9 @@
 use std::ops::RangeInclusive;
 
 use bevy::{
+    camera::visibility::NoFrustumCulling,
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
     prelude::*,
-    render::view::NoFrustumCulling,
     text::FontAtlasSets,
     window::{PresentMode, WindowResolution},
 };

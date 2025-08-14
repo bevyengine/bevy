@@ -14,7 +14,7 @@ use bevy_ecs::{
     reflect::ReflectComponent,
     schedule::IntoScheduleConfigs,
     spawn::SpawnRelated,
-    system::{In, Query, Res},
+    system::{Commands, In, Query, Res},
 };
 use bevy_input_focus::tab_navigation::TabIndex;
 use bevy_picking::PickingSystems;
@@ -126,42 +126,74 @@ pub fn slider<B: Bundle>(props: SliderProps, overrides: B) -> impl Bundle {
     )
 }
 
-fn update_slider_colors(
+fn update_slider_styles(
     mut q_sliders: Query<
-        (Has<InteractionDisabled>, &mut BackgroundGradient),
+        (Entity, Has<InteractionDisabled>, &mut BackgroundGradient),
         (With<SliderStyle>, Or<(Spawned, Added<InteractionDisabled>)>),
     >,
     theme: Res<UiTheme>,
+    mut commands: Commands,
 ) {
-    for (disabled, mut gradient) in q_sliders.iter_mut() {
-        set_slider_colors(&theme, disabled, gradient.as_mut());
+    for (slider_ent, disabled, mut gradient) in q_sliders.iter_mut() {
+        set_slider_styles(
+            slider_ent,
+            &theme,
+            disabled,
+            gradient.as_mut(),
+            &mut commands,
+        );
     }
 }
 
-fn update_slider_colors_remove(
-    mut q_sliders: Query<(Has<InteractionDisabled>, &mut BackgroundGradient)>,
+fn update_slider_styles_remove(
+    mut q_sliders: Query<(Entity, Has<InteractionDisabled>, &mut BackgroundGradient)>,
     mut removed_disabled: RemovedComponents<InteractionDisabled>,
     theme: Res<UiTheme>,
+    mut commands: Commands,
 ) {
     removed_disabled.read().for_each(|ent| {
-        if let Ok((disabled, mut gradient)) = q_sliders.get_mut(ent) {
-            set_slider_colors(&theme, disabled, gradient.as_mut());
+        if let Ok((slider_ent, disabled, mut gradient)) = q_sliders.get_mut(ent) {
+            set_slider_styles(
+                slider_ent,
+                &theme,
+                disabled,
+                gradient.as_mut(),
+                &mut commands,
+            );
         }
     });
 }
 
-fn set_slider_colors(theme: &Res<'_, UiTheme>, disabled: bool, gradient: &mut BackgroundGradient) {
+fn set_slider_styles(
+    slider_ent: Entity,
+    theme: &Res<'_, UiTheme>,
+    disabled: bool,
+    gradient: &mut BackgroundGradient,
+    commands: &mut Commands,
+) {
     let bar_color = theme.color(match disabled {
         true => tokens::SLIDER_BAR_DISABLED,
         false => tokens::SLIDER_BAR,
     });
+
     let bg_color = theme.color(tokens::SLIDER_BG);
+
+    let cursor_shape = match disabled {
+        true => bevy_window::SystemCursorIcon::NotAllowed,
+        false => bevy_window::SystemCursorIcon::EwResize,
+    };
+
     if let [Gradient::Linear(linear_gradient)] = &mut gradient.0[..] {
         linear_gradient.stops[0].color = bar_color;
         linear_gradient.stops[1].color = bar_color;
         linear_gradient.stops[2].color = bg_color;
         linear_gradient.stops[3].color = bg_color;
     }
+
+    // Change cursor shape
+    commands
+        .entity(slider_ent)
+        .insert(EntityCursor::System(cursor_shape));
 }
 
 fn update_slider_pos(
@@ -203,8 +235,8 @@ impl Plugin for SliderPlugin {
         app.add_systems(
             PreUpdate,
             (
-                update_slider_colors,
-                update_slider_colors_remove,
+                update_slider_styles,
+                update_slider_styles_remove,
                 update_slider_pos,
             )
                 .in_set(PickingSystems::Last),

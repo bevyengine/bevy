@@ -94,3 +94,54 @@ pub mod prelude {
         state_scoped::{DespawnOnEnterState, DespawnOnExitState},
     };
 }
+
+#[cfg(test)]
+mod tests {
+    use bevy_app::{App, PreStartup};
+    use bevy_ecs::{
+        resource::Resource,
+        system::{Commands, ResMut},
+    };
+    use bevy_state_macros::States;
+
+    use crate::{
+        app::{AppExtStates, StatesPlugin},
+        state::OnEnter,
+    };
+
+    #[test]
+    fn state_transition_runs_before_pre_startup() {
+        // This test is not really a "requirement" of states (we could run state transitions after
+        // PreStartup), but this is the current policy and it is useful to ensure we are following
+        // it if we ever change how we initialize stuff.
+
+        let mut app = App::new();
+        app.add_plugins(StatesPlugin);
+
+        #[derive(States, Default, PartialEq, Eq, Hash, Debug, Clone)]
+        enum TestState {
+            #[default]
+            A,
+            B,
+        }
+
+        #[derive(Resource, Default, PartialEq, Eq, Debug)]
+        struct Thingy(usize);
+
+        app.init_state::<TestState>();
+
+        app.add_systems(OnEnter(TestState::A), move |mut commands: Commands| {
+            commands.init_resource::<Thingy>();
+        });
+
+        app.add_systems(PreStartup, move |mut thingy: ResMut<Thingy>| {
+            // This system will fail if it runs before OnEnter.
+            thingy.0 += 1;
+        });
+
+        app.update();
+
+        // This assert only succeeds if first OnEnter(TestState::A) runs, followed by PreStartup.
+        assert_eq!(app.world().resource::<Thingy>(), &Thingy(1));
+    }
+}

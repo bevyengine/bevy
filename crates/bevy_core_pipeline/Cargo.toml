@@ -16,7 +16,7 @@ keywords = ["bevy"]
 trace = []
 webgl = []
 webgpu = []
-tonemapping_luts = ["bevy_render/ktx2", "bevy_image/ktx2", "bevy_image/zstd"]
+tonemapping_luts = ["bevy_image/ktx2", "bevy_image/zstd"]
 
 [dependencies]
 # bevy
@@ -28,6 +28,7 @@ bevy_ecs = { path = "../bevy_ecs", version = "0.17.0-dev" }
 bevy_image = { path = "../bevy_image", version = "0.17.0-dev" }
 bevy_camera = { path = "../bevy_camera", version = "0.17.0-dev" }
 bevy_reflect = { path = "../bevy_reflect", version = "0.17.0-dev" }
+bevy_shader = { path = "../bevy_shader", version = "0.17.0-dev" }
 bevy_render = { path = "../bevy_render", version = "0.17.0-dev" }
 bevy_transform = { path = "../bevy_transform", version = "0.17.0-dev" }
 bevy_math = { path = "../bevy_math", version = "0.17.0-dev" }

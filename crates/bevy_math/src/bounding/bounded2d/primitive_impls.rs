@@ -5,15 +5,14 @@ use crate::{
     ops,
     primitives::{
         Annulus, Arc2d, Capsule2d, Circle, CircularSector, CircularSegment, ConvexPolygon, Ellipse,
-        Line2d, Plane2d, Polygon, Polyline2d, Rectangle, RegularPolygon, Rhombus, Segment2d,
-        Triangle2d,
+        Line2d, Plane2d, Rectangle, RegularPolygon, Rhombus, Segment2d, Triangle2d,
     },
     Dir2, Isometry2d, Mat2, Rot2, Vec2,
 };
 use core::f32::consts::{FRAC_PI_2, PI, TAU};
 
 #[cfg(feature = "alloc")]
-use crate::primitives::{BoxedPolygon, BoxedPolyline2d};
+use crate::primitives::{Polygon, Polyline2d};
 
 use smallvec::SmallVec;
 
@@ -279,18 +278,8 @@ impl Bounded2d for Segment2d {
     }
 }
 
-impl<const N: usize> Bounded2d for Polyline2d<N> {
-    fn aabb_2d(&self, isometry: impl Into<Isometry2d>) -> Aabb2d {
-        Aabb2d::from_point_cloud(isometry, &self.vertices)
-    }
-
-    fn bounding_circle(&self, isometry: impl Into<Isometry2d>) -> BoundingCircle {
-        BoundingCircle::from_point_cloud(isometry, &self.vertices)
-    }
-}
-
 #[cfg(feature = "alloc")]
-impl Bounded2d for BoxedPolyline2d {
+impl Bounded2d for Polyline2d {
     fn aabb_2d(&self, isometry: impl Into<Isometry2d>) -> Aabb2d {
         Aabb2d::from_point_cloud(isometry, &self.vertices)
     }
@@ -366,34 +355,25 @@ impl Bounded2d for Rectangle {
     }
 }
 
-impl<const N: usize> Bounded2d for Polygon<N> {
+#[cfg(feature = "alloc")]
+impl Bounded2d for Polygon {
     fn aabb_2d(&self, isometry: impl Into<Isometry2d>) -> Aabb2d {
         Aabb2d::from_point_cloud(isometry, &self.vertices)
     }
 
     fn bounding_circle(&self, isometry: impl Into<Isometry2d>) -> BoundingCircle {
         BoundingCircle::from_point_cloud(isometry, &self.vertices)
-    }
-}
-
-impl<const N: usize> Bounded2d for ConvexPolygon<N> {
-    fn aabb_2d(&self, isometry: impl Into<Isometry2d>) -> Aabb2d {
-        Aabb2d::from_point_cloud(isometry, self.vertices().as_slice())
-    }
-
-    fn bounding_circle(&self, isometry: impl Into<Isometry2d>) -> BoundingCircle {
-        BoundingCircle::from_point_cloud(isometry, self.vertices().as_slice())
     }
 }
 
 #[cfg(feature = "alloc")]
-impl Bounded2d for BoxedPolygon {
+impl Bounded2d for ConvexPolygon {
     fn aabb_2d(&self, isometry: impl Into<Isometry2d>) -> Aabb2d {
-        Aabb2d::from_point_cloud(isometry, &self.vertices)
+        Aabb2d::from_point_cloud(isometry, self.vertices())
     }
 
     fn bounding_circle(&self, isometry: impl Into<Isometry2d>) -> BoundingCircle {
-        BoundingCircle::from_point_cloud(isometry, &self.vertices)
+        BoundingCircle::from_point_cloud(isometry, self.vertices())
     }
 }
 
@@ -908,7 +888,7 @@ mod tests {
 
     #[test]
     fn polyline() {
-        let polyline = Polyline2d::<4>::new([
+        let polyline = Polyline2d::new([
             Vec2::ONE,
             Vec2::new(-1.0, 1.0),
             Vec2::NEG_ONE,
@@ -981,7 +961,7 @@ mod tests {
 
     #[test]
     fn polygon() {
-        let polygon = Polygon::<4>::new([
+        let polygon = Polygon::new([
             Vec2::ONE,
             Vec2::new(-1.0, 1.0),
             Vec2::NEG_ONE,

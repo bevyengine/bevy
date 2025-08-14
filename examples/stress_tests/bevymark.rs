@@ -7,13 +7,11 @@ use std::str::FromStr;
 
 use argh::FromArgs;
 use bevy::{
+    asset::RenderAssetUsages,
     color::palettes::basic::*,
     diagnostic::{DiagnosticsStore, FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
     prelude::*,
-    render::{
-        render_asset::RenderAssetUsages,
-        render_resource::{Extent3d, TextureDimension, TextureFormat},
-    },
+    render::render_resource::{Extent3d, TextureDimension, TextureFormat},
     sprite::AlphaMode2d,
     window::{PresentMode, WindowResolution},
     winit::{UpdateMode, WinitSettings},

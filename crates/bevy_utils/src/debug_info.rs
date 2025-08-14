@@ -4,6 +4,7 @@ cfg::alloc! {
 }
 #[cfg(feature = "debug")]
 use core::any::type_name;
+use core::ops::Deref;
 use disqualified::ShortName;
 
 #[cfg(not(feature = "debug"))]
@@ -95,6 +96,17 @@ impl DebugName {
     #[cfg(feature = "debug")]
     pub fn as_string(&self) -> String {
         self.name.clone().into_owned()
+    }
+}
+
+impl Deref for DebugName {
+    type Target = str;
+
+    fn deref(&self) -> &Self::Target {
+        #[cfg(feature = "debug")]
+        return &self.name;
+        #[cfg(not(feature = "debug"))]
+        return &FEATURE_DISABLED;
     }
 }
 

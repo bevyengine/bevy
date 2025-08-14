@@ -203,7 +203,7 @@
 //! ```json
 //! {
 //!      "components": {
-//!        "bevy_core_pipeline::core_3d::camera_3d::Camera3d": {
+//!        "bevy_camera::Camera3d": {
 //!          "depth_load_op": {
 //!            "Clear": 0.0
 //!          },
@@ -213,7 +213,7 @@
 //!        },
 //!        "bevy_core_pipeline::tonemapping::DebandDither": "Enabled",
 //!        "bevy_core_pipeline::tonemapping::Tonemapping": "TonyMcMapface",
-//!        "bevy_pbr::cluster::ClusterConfig": {
+//!        "bevy_light::cluster::ClusterConfig": {
 //!          "FixedZ": {
 //!         "dynamic_resizing": true,
 //!            "total": 4096,
@@ -224,7 +224,7 @@
 //!            "z_slices": 24
 //!          }
 //!        },
-//!        "bevy_render::camera::camera::Camera": {
+//!        "bevy_camera::Camera": {
 //!          "clear_color": "Default",
 //!          "is_active": true,
 //!          "msaa_writeback": true,
@@ -235,7 +235,7 @@
 //!          },
 //!       "viewport": null
 //!        },
-//!        "bevy_render::camera::projection::Projection": {
+//!        "bevy_camera::Projection": {
 //!          "Perspective": {
 //!            "aspect_ratio": 1.7777777910232544,
 //!            "far": 1000.0,
@@ -243,14 +243,14 @@
 //!            "near": 0.10000000149011612
 //!          }
 //!        },
-//!        "bevy_render::primitives::Frustum": {},
+//!        "bevy_camera::primitives::Frustum": {},
 //!     "bevy_render::sync_world::RenderEntity": 4294967291,
 //!        "bevy_render::sync_world::SyncToRenderWorld": {},
 //!        "bevy_render::view::Msaa": "Sample4",
-//!        "bevy_render::view::visibility::InheritedVisibility": true,
-//!        "bevy_render::view::visibility::ViewVisibility": false,
-//!        "bevy_render::view::visibility::Visibility": "Inherited",
-//!        "bevy_render::view::visibility::VisibleEntities": {},
+//!        "bevy_camera::visibility::InheritedVisibility": true,
+//!        "bevy_camera::visibility::ViewVisibility": false,
+//!        "bevy_camera::visibility::Visibility": "Inherited",
+//!        "bevy_camera::visibility::VisibleEntities": {},
 //!        "bevy_transform::components::global_transform::GlobalTransform": [
 //!          0.9635179042816162,
 //!          -3.725290298461914e-9,

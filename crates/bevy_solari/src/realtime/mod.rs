@@ -18,6 +18,7 @@ use bevy_render::{
     view::Hdr,
     ExtractSchedule, Render, RenderApp, RenderSystems,
 };
+use bevy_shader::load_shader_library;
 use extract::extract_solari_lighting;
 use node::SolariLightingNode;
 use prepare::prepare_solari_lighting_resources;
@@ -31,9 +32,12 @@ pub struct SolariLightingPlugin;
 
 impl Plugin for SolariLightingPlugin {
     fn build(&self, app: &mut App) {
-        embedded_asset!(app, "presample_light_tiles.wgsl");
+        load_shader_library!(app, "presample_light_tiles.wgsl");
         embedded_asset!(app, "restir_di.wgsl");
         embedded_asset!(app, "restir_gi.wgsl");
+        load_shader_library!(app, "world_cache_query.wgsl");
+        embedded_asset!(app, "world_cache_compact.wgsl");
+        embedded_asset!(app, "world_cache_update.wgsl");
 
         app.insert_resource(DefaultOpaqueRendererMethod::deferred());
     }

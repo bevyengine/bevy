@@ -16,10 +16,12 @@ use crate::{
 
 use bevy_app::{App, Plugin, PostStartup, PostUpdate};
 use bevy_asset::{AssetEvent, AssetEventSystems, AssetId, Assets};
-pub use bevy_camera::*;
 use bevy_camera::{
     primitives::Frustum,
-    visibility::{RenderLayers, VisibleEntities},
+    visibility::{self, RenderLayers, VisibleEntities},
+    Camera, Camera2d, Camera3d, CameraMainTextureUsages, CameraOutputMode, CameraUpdateSystems,
+    ClearColor, ClearColorConfig, Exposure, NormalizedRenderTarget, Projection, RenderTargetInfo,
+    Viewport,
 };
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
@@ -41,11 +43,7 @@ use bevy_math::{vec2, Mat4, URect, UVec2, UVec4, Vec2};
 use bevy_platform::collections::{HashMap, HashSet};
 use bevy_reflect::prelude::*;
 use bevy_transform::components::GlobalTransform;
-use bevy_window::{
-    NormalizedWindowRef, PrimaryWindow, Window, WindowCreated, WindowResized,
-    WindowScaleFactorChanged,
-};
-use derive_more::derive::From;
+use bevy_window::{PrimaryWindow, Window, WindowCreated, WindowResized, WindowScaleFactorChanged};
 use tracing::warn;
 use wgpu::TextureFormat;
 
@@ -148,40 +146,39 @@ impl CameraRenderGraph {
     }
 }
 
-pub trait ToNormalizedRenderTarget {
-    /// Normalize the render target down to a more concrete value, mostly used for equality comparisons.
-    fn normalize(&self, primary_window: Option<Entity>) -> Option<NormalizedRenderTarget>;
+pub trait NormalizedRenderTargetExt {
+    fn get_texture_view<'a>(
+        &self,
+        windows: &'a ExtractedWindows,
+        images: &'a RenderAssets<GpuImage>,
+        manual_texture_views: &'a ManualTextureViews,
+    ) -> Option<&'a TextureView>;
+
+    /// Retrieves the [`TextureFormat`] of this render target, if it exists.
+    fn get_texture_format<'a>(
+        &self,
+        windows: &'a ExtractedWindows,
+        images: &'a RenderAssets<GpuImage>,
+        manual_texture_views: &'a ManualTextureViews,
+    ) -> Option<TextureFormat>;
+
+    fn get_render_target_info<'a>(
+        &self,
+        resolutions: impl IntoIterator<Item = (Entity, &'a Window)>,
+        images: &Assets<Image>,
+        manual_texture_views: &ManualTextureViews,
+    ) -> Option<RenderTargetInfo>;
+
+    // Check if this render target is contained in the given changed windows or images.
+    fn is_changed(
+        &self,
+        changed_window_ids: &HashSet<Entity>,
+        changed_image_handles: &HashSet<&AssetId<Image>>,
+    ) -> bool;
 }
 
-impl ToNormalizedRenderTarget for RenderTarget {
-    fn normalize(&self, primary_window: Option<Entity>) -> Option<NormalizedRenderTarget> {
-        match self {
-            RenderTarget::Window(window_ref) => window_ref
-                .normalize(primary_window)
-                .map(NormalizedRenderTarget::Window),
-            RenderTarget::Image(handle) => Some(NormalizedRenderTarget::Image(handle.clone())),
-            RenderTarget::TextureView(id) => Some(NormalizedRenderTarget::TextureView(*id)),
-        }
-    }
-}
-
-/// Normalized version of the render target.
-///
-/// Once we have this we shouldn't need to resolve it down anymore.
-#[derive(Debug, Clone, Reflect, PartialEq, Eq, Hash, PartialOrd, Ord, From)]
-#[reflect(Clone, PartialEq, Hash)]
-pub enum NormalizedRenderTarget {
-    /// Window to which the camera's view is rendered.
-    Window(NormalizedWindowRef),
-    /// Image to which the camera's view is rendered.
-    Image(ImageRenderTarget),
-    /// Texture View to which the camera's view is rendered.
-    /// Useful when the texture view needs to be created outside of Bevy, for example OpenXR.
-    TextureView(ManualTextureViewHandle),
-}
-
-impl NormalizedRenderTarget {
-    pub fn get_texture_view<'a>(
+impl NormalizedRenderTargetExt for NormalizedRenderTarget {
+    fn get_texture_view<'a>(
         &self,
         windows: &'a ExtractedWindows,
         images: &'a RenderAssets<GpuImage>,
@@ -201,7 +198,7 @@ impl NormalizedRenderTarget {
     }
 
     /// Retrieves the [`TextureFormat`] of this render target, if it exists.
-    pub fn get_texture_format<'a>(
+    fn get_texture_format<'a>(
         &self,
         windows: &'a ExtractedWindows,
         images: &'a RenderAssets<GpuImage>,
@@ -220,7 +217,7 @@ impl NormalizedRenderTarget {
         }
     }
 
-    pub fn get_render_target_info<'a>(
+    fn get_render_target_info<'a>(
         &self,
         resolutions: impl IntoIterator<Item = (Entity, &'a Window)>,
         images: &Assets<Image>,
@@ -278,8 +275,8 @@ impl NormalizedRenderTarget {
 /// [`Res<Assets<Image>>`](Assets<Image>) -- For cameras that render to an image, this resource is used to
 /// inspect information about the render target. This system will not access any other image assets.
 ///
-/// [`OrthographicProjection`]: crate::camera::OrthographicProjection
-/// [`PerspectiveProjection`]: crate::camera::PerspectiveProjection
+/// [`OrthographicProjection`]: bevy_camera::OrthographicProjection
+/// [`PerspectiveProjection`]: bevy_camera::PerspectiveProjection
 pub fn camera_system(
     mut window_resized_events: EventReader<WindowResized>,
     mut window_created_events: EventReader<WindowCreated>,
@@ -643,7 +640,7 @@ pub fn sort_cameras(
 ///
 /// Do not use with [`OrthographicProjection`].
 ///
-/// [`OrthographicProjection`]: crate::camera::OrthographicProjection
+/// [`OrthographicProjection`]: bevy_camera::OrthographicProjection
 #[derive(Component, Clone, Default, Reflect)]
 #[reflect(Default, Component, Clone)]
 pub struct TemporalJitter {
