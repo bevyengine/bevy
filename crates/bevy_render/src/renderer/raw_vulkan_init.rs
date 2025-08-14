@@ -73,9 +73,9 @@ pub(crate) fn create_raw_vulkan_instance(
     settings: &RawVulkanInitSettings,
     additional_features: &mut AdditionalVulkanFeatures,
 ) -> Instance {
+    // SAFETY: Registering callbacks is unsafe. Callback authors promise not to remove features
+    // or change the instance to something it does not support
     unsafe {
-        // SAFETY: Registering callbacks is unsafe. Callback authors promise not to remove features
-        // or change the instance to something it does not support
         wgpu::hal::vulkan::Instance::init_with_callback(
             &wgpu::hal::InstanceDescriptor {
                 name: "wgpu",
