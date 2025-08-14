@@ -941,22 +941,22 @@ impl Image {
         asset_usage: RenderAssetUsages,
     ) -> Self {
         let mut image = Image::new_uninit(size, dimension, format, asset_usage);
-        if let Ok(pixel_size) = image.texture_descriptor.format.pixel_size() {
-            if pixel_size > 0 {
-                let byte_len = pixel_size * size.volume();
-                debug_assert_eq!(
-                    pixel.len() % pixel_size,
-                    0,
-                    "Must not have incomplete pixel data (pixel size is {}B).",
-                    pixel_size,
-                );
-                debug_assert!(
-                    pixel.len() <= byte_len,
-                    "Fill data must fit within pixel buffer (expected {byte_len}B).",
-                );
-                let data = pixel.iter().copied().cycle().take(byte_len).collect();
-                image.data = Some(data);
-            }
+        if let Ok(pixel_size) = image.texture_descriptor.format.pixel_size()
+            && pixel_size > 0
+        {
+            let byte_len = pixel_size * size.volume();
+            debug_assert_eq!(
+                pixel.len() % pixel_size,
+                0,
+                "Must not have incomplete pixel data (pixel size is {}B).",
+                pixel_size,
+            );
+            debug_assert!(
+                pixel.len() <= byte_len,
+                "Fill data must fit within pixel buffer (expected {byte_len}B).",
+            );
+            let data = pixel.iter().copied().cycle().take(byte_len).collect();
+            image.data = Some(data);
         }
         image
     }
@@ -1051,10 +1051,10 @@ impl Image {
     /// If you need to keep pixel data intact, use [`Image::resize_in_place`].
     pub fn resize(&mut self, size: Extent3d) {
         self.texture_descriptor.size = size;
-        if let Some(ref mut data) = self.data {
-            if let Ok(pixel_size) = self.texture_descriptor.format.pixel_size() {
-                data.resize(size.volume() * pixel_size, 0);
-            }
+        if let Some(ref mut data) = self.data
+            && let Ok(pixel_size) = self.texture_descriptor.format.pixel_size()
+        {
+            data.resize(size.volume() * pixel_size, 0);
         }
     }
 
@@ -1820,7 +1820,7 @@ impl Volume for Extent3d {
 /// Extends the wgpu [`TextureFormat`] with information about the pixel.
 pub trait TextureFormatPixelInfo {
     /// Returns the size of a pixel in bytes of the format.
-    /// error with TextureAccessError::UnsupportedTextureFormat if the format is compressed.
+    /// error with `TextureAccessError::UnsupportedTextureFormat` if the format is compressed.
     fn pixel_size(&self) -> Result<usize, TextureAccessError>;
 }
 
