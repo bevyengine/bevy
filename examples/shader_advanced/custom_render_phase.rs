@@ -15,12 +15,14 @@ use std::ops::Range;
 use bevy::camera::Viewport;
 use bevy::pbr::SetMeshViewEmptyBindGroup;
 use bevy::{
+    camera::MainPassResolutionOverride,
     core_pipeline::core_3d::graph::{Core3d, Node3d},
     ecs::{
         query::QueryItem,
         system::{lifetimeless::SRes, SystemParamItem},
     },
     math::FloatOrd,
+    mesh::MeshVertexBufferLayoutRef,
     pbr::{
         DrawMesh, MeshInputUniform, MeshPipeline, MeshPipelineKey, MeshPipelineViewLayoutKey,
         MeshUniform, RenderMeshInstances, SetMeshBindGroup, SetMeshViewBindGroup,
@@ -35,9 +37,9 @@ use bevy::{
             },
             GetBatchData, GetFullBatchData,
         },
-        camera::{ExtractedCamera, MainPassResolutionOverride},
+        camera::ExtractedCamera,
         extract_component::{ExtractComponent, ExtractComponentPlugin},
-        mesh::{allocator::MeshAllocator, MeshVertexBufferLayoutRef, RenderMesh},
+        mesh::{allocator::MeshAllocator, RenderMesh},
         render_asset::RenderAssets,
         render_graph::{
             NodeRunError, RenderGraphContext, RenderGraphExt, RenderLabel, ViewNode, ViewNodeRunner,

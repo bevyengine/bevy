@@ -1,6 +1,6 @@
 ---
-title: Removed `cosmic_text` re-exports
-pull_requests: [TODO]
+title: "Removed `cosmic_text` re-exports"
+pull_requests: [19516]
 ---
 
 Previously, `bevy_text` re-exported the entirety of `cosmic_text` while renaming a few of the most confusing re-exports,

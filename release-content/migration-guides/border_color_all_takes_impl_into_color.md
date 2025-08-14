@@ -1,5 +1,5 @@
 ---
-title: `BorderColor::all` now accepts any `impl Into<Color>` type
+title: "`BorderColor::all` now accepts any `impl Into<Color>` type"
 pull_requests: [20311]
 ---
 

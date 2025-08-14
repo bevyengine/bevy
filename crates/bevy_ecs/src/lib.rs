@@ -89,7 +89,7 @@ pub mod prelude {
         },
         name::{Name, NameOrEntity},
         observer::{Observer, On, Trigger},
-        query::{Added, Allows, AnyOf, Changed, Has, Or, QueryBuilder, QueryState, With, Without},
+        query::{Added, Allow, AnyOf, Changed, Has, Or, QueryBuilder, QueryState, With, Without},
         related,
         relationship::RelationshipTarget,
         resource::Resource,

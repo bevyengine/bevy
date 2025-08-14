@@ -718,7 +718,7 @@ mod tests {
         assert_eq!(world.query::<&A>().query(&world).count(), 1);
         assert_eq!(
             world
-                .query_filtered::<&Observer, Allows<Internal>>()
+                .query_filtered::<&Observer, Allow<Internal>>()
                 .query(&world)
                 .count(),
             2

@@ -45,7 +45,7 @@ pub fn basis_buffer_to_image(
 
     let image_count = transcoder.image_count(buffer);
     let texture_type = transcoder.basis_texture_type(buffer);
-    if texture_type == BasisTextureType::TextureTypeCubemapArray && image_count % 6 != 0 {
+    if texture_type == BasisTextureType::TextureTypeCubemapArray && !image_count.is_multiple_of(6) {
         return Err(TextureError::InvalidData(format!(
             "Basis file with cube map array texture with non-modulo 6 number of images: {image_count}",
         )));
