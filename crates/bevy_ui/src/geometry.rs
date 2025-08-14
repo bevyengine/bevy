@@ -304,7 +304,7 @@ macro_rules! impl_to_val_num {
     };
 }
 
-impl_to_val_num!(f32, f64, i8, i16, i32, i64, i128, u8, u16, u32, u64, u128, usize, isize);
+impl_to_val_num!(f32, f64, i8, i16, i32, i64, u8, u16, u32, u64, usize, isize);
 
 /// Returns a [`Val::Auto`] where the value is automatically determined
 /// based on the context and other [`Node`](crate::Node) properties.
