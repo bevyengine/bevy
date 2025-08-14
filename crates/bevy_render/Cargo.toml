@@ -43,8 +43,6 @@ webgpu = ["wgpu/webgpu"]
 detailed_trace = []
 ## Adds serialization support through `serde`.
 serialize = ["bevy_mesh/serialize"]
-dlss = ["dep:dlss_wgpu"]
-force_disable_dlss = ["dlss_wgpu?/mock"]
 
 [dependencies]
 # bevy

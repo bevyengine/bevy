@@ -62,7 +62,7 @@ pub struct DlssInitPlugin;
 impl Plugin for DlssInitPlugin {
     fn build(&self, app: &mut App) {
         let dlss_project_id = app.world().get_resource::<DlssProjectId>()
-                        .expect("The `dlss` feature is enabled, but DlssProjectId was not added to the App before DlssPlugin.").0;
+                        .expect("The `dlss` feature is enabled, but DlssProjectId was not added to the App before DlssInitPlugin.").0;
         let mut raw_vulkan_settings = app
             .world_mut()
             .get_resource_or_init::<RawVulkanInitSettings>();
@@ -76,11 +76,11 @@ impl Plugin for DlssInitPlugin {
                     &mut feature_support,
                 ) {
                     Ok(_) => {
-                        if feature_support.ray_reconstruction_supported {
-                            additional_vulkan_features.register::<DlssRayReconstructionSupported>();
-                        }
                         if feature_support.super_resolution_supported {
                             additional_vulkan_features.register::<DlssSuperResolutionSupported>();
+                        }
+                        if feature_support.ray_reconstruction_supported {
+                            additional_vulkan_features.register::<DlssRayReconstructionSupported>();
                         }
                     }
                     Err(_) => todo!(),
@@ -98,11 +98,15 @@ impl Plugin for DlssInitPlugin {
                     &mut feature_support,
                 ) {
                     Ok(_) => {
-                        if feature_support.ray_reconstruction_supported {
-                            additional_vulkan_features.register::<DlssRayReconstructionSupported>();
-                        }
                         if feature_support.super_resolution_supported {
                             additional_vulkan_features.register::<DlssSuperResolutionSupported>();
+                        } else {
+                            additional_vulkan_features.remove::<DlssSuperResolutionSupported>();
+                        }
+                        if feature_support.ray_reconstruction_supported {
+                            additional_vulkan_features.register::<DlssRayReconstructionSupported>();
+                        } else {
+                            additional_vulkan_features.remove::<DlssRayReconstructionSupported>();
                         }
                     }
                     Err(_) => todo!(),
@@ -122,6 +126,7 @@ impl Plugin for DlssPlugin {
         app.register_type::<Dlss<DlssSuperResolutionFeature>>()
             .register_type::<Dlss<DlssRayReconstructionFeature>>();
     }
+
     fn finish(&self, app: &mut App) {
         let (super_resolution_supported, ray_reconstruction_supported) = {
             let features = app
