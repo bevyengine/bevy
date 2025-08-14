@@ -342,20 +342,24 @@ impl CameraProjection for PerspectiveProjection {
     }
 
     fn get_clip_from_view_for_sub(&self, sub_view: &super::SubCameraView) -> Mat4 {
-        let full_width = sub_view.full_size.x as f32;
-        let full_height = sub_view.full_size.y as f32;
-        let sub_width = sub_view.size.x as f32;
-        let sub_height = sub_view.size.y as f32;
+        // let full_width = sub_view.full_size.x as f32;
+        // let full_height = sub_view.full_size.y as f32;
+        // let sub_width = sub_view.size.x as f32;
+        // let sub_height = sub_view.size.y as f32;
+        let scale = sub_view.scale;
         let offset_x = sub_view.offset.x;
-        // Y-axis increases from top to bottom
-        let offset_y = full_height - (sub_view.offset.y + sub_height);
+        let offset_y = sub_view.offset.y;
 
-        let full_aspect = full_width / full_height;
+        // Y-axis increases from top to bottom
+        // let offset_y = full_height - (sub_view.offset.y + sub_height);
+        // let offset_y = 1.0 - sub_view.offset.y;
+
+        // let full_aspect = full_width / full_height;
 
         // Original frustum parameters
         let top = self.near * ops::tan(0.5 * self.fov);
         let bottom = -top;
-        let right = top * full_aspect;
+        let right = top * self.aspect_ratio;
         let left = -right;
 
         // Calculate scaling factors
@@ -363,10 +367,10 @@ impl CameraProjection for PerspectiveProjection {
         let height = top - bottom;
 
         // Calculate the new frustum parameters
-        let left_prime = left + (width * offset_x) / full_width;
-        let right_prime = left + (width * (offset_x + sub_width)) / full_width;
-        let bottom_prime = bottom + (height * offset_y) / full_height;
-        let top_prime = bottom + (height * (offset_y + sub_height)) / full_height;
+        let top_prime = top - (height * offset_y);
+        let bottom_prime = top - (height * (offset_y + scale));
+        let right_prime = left + (width * (offset_x + scale));
+        let left_prime = left + (width * offset_x);
 
         // Compute the new projection matrix
         let x = (2.0 * self.near) / (right_prime - left_prime);
@@ -645,35 +649,43 @@ impl CameraProjection for OrthographicProjection {
     }
 
     fn get_clip_from_view_for_sub(&self, sub_view: &super::SubCameraView) -> Mat4 {
-        let full_width = sub_view.full_size.x as f32;
-        let full_height = sub_view.full_size.y as f32;
+        // let full_width = sub_view.full_size.x as f32;
+        // let full_height = sub_view.full_size.y as f32;
+        // let offset_x = sub_view.offset.x;
+        // let offset_y = sub_view.offset.y;
+        // let sub_width = sub_view.size.x as f32;
+        // let sub_height = sub_view.size.y as f32;
+        let scale = sub_view.scale;
         let offset_x = sub_view.offset.x;
         let offset_y = sub_view.offset.y;
-        let sub_width = sub_view.size.x as f32;
-        let sub_height = sub_view.size.y as f32;
 
-        let full_aspect = full_width / full_height;
+        // let full_aspect = full_width / full_height;
 
         // Base the vertical size on self.area and adjust the horizontal size
         let top = self.area.max.y;
         let bottom = self.area.min.y;
-        let ortho_height = top - bottom;
-        let ortho_width = ortho_height * full_aspect;
+        let right = self.area.max.x;
+        let left = self.area.min.x;
 
-        // Center the orthographic area horizontally
-        let center_x = (self.area.max.x + self.area.min.x) / 2.0;
-        let left = center_x - ortho_width / 2.0;
-        let right = center_x + ortho_width / 2.0;
+        let ortho_height = top - bottom;
+        let ortho_width = right - left;
+
+        // let ortho_width = ortho_height * full_aspect;
+
+        // // Center the orthographic area horizontally
+        // let center_x = (self.area.max.x + self.area.min.x) / 2.0;
+        // let left = center_x - ortho_width / 2.0;
+        // let right = center_x + ortho_width / 2.0;
 
         // Calculate scaling factors
-        let scale_w = (right - left) / full_width;
-        let scale_h = (top - bottom) / full_height;
+        // let scale_w = (right - left) / full_width;
+        // let scale_h = (top - bottom) / full_height;
 
         // Calculate the new orthographic bounds
-        let left_prime = left + scale_w * offset_x;
-        let right_prime = left_prime + scale_w * sub_width;
-        let top_prime = top - scale_h * offset_y;
-        let bottom_prime = top_prime - scale_h * sub_height;
+        let top_prime = top - (ortho_height * offset_y);
+        let bottom_prime = top - (ortho_height * (offset_y + scale));
+        let right_prime = left + (ortho_width * (offset_x + scale));
+        let left_prime = left + (ortho_width * offset_x);
 
         Mat4::orthographic_rh(
             left_prime,

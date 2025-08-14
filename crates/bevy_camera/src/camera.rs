@@ -114,6 +114,8 @@ pub struct MainPassResolutionOverride(pub UVec2);
 /// image defined by `size` and `offset` (relative to the `full_size` of the
 /// whole image) is projected to the cameras viewport.
 ///
+/// If the aspect ratio of the sub view is different from the aspect ratio of the camera's viewport, the image will be distorted.
+///
 /// Take the example of the following multi-monitor setup:
 /// ```css
 /// ┌───┬───┐
@@ -139,20 +141,26 @@ pub struct MainPassResolutionOverride(pub UVec2);
 #[derive(Debug, Clone, Copy, Reflect, PartialEq)]
 #[reflect(Clone, PartialEq, Default)]
 pub struct SubCameraView {
-    /// Size of the entire camera view
-    pub full_size: UVec2,
-    /// Offset of the sub camera
+    // /// Size of the entire camera view
+    // pub full_size: UVec2,
+    // /// Offset of the sub camera
+    // pub offset: Vec2,
+    // /// Size of the sub camera
+    // pub size: UVec2,
+    /// Scaling factor for the size of the sub view
+    pub scale: f32,
+    /// Percentage offset of the top-left corner of the sub view, from top-left at `0,0` to bottom-right at `1,1`
     pub offset: Vec2,
-    /// Size of the sub camera
-    pub size: UVec2,
 }
 
 impl Default for SubCameraView {
     fn default() -> Self {
         Self {
-            full_size: UVec2::new(1, 1),
-            offset: Vec2::new(0., 0.),
-            size: UVec2::new(1, 1),
+            // full_size: UVec2::new(1, 1),
+            // offset: Vec2::new(0., 0.),
+            // size: UVec2::new(1, 1),
+            scale: 1.0,
+            offset: Vec2::ZERO,
         }
     }
 }
