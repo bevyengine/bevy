@@ -411,7 +411,7 @@ mod tests {
         app.configure_sets(
             PostUpdate,
             PropagateSet::<ComputedUiRenderTargetInfo>::default()
-                .after(update_ui_context_system)
+                .after(propagate_ui_target_cameras)
                 .before(ui_layout_system),
         );
 
