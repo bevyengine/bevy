@@ -46,7 +46,9 @@ pub enum PlaybackDirection {
 /// A type alias for [`EntityMutExcept`] as used in animation.
 pub type TransitionEntityMut<'w, 's> = EntityMutExcept<'w, 's, AnimatedTransitionSet>;
 
-/// A collection of component IDs for tracking transitions
+/// A map containing an adapter function for each animated transition component on an entity,
+/// indexed by [`ComponentId`]. This allows the animations to be driven in a type-erased
+/// way without trait queries. The map is built automatically by component hooks.
 #[derive(Component, Default)]
 pub struct AnimatedTransitionSet(
     pub HashMap<ComponentId, Box<dyn Fn(&mut TransitionEntityMut, &Time) + Send + Sync + 'static>>,
@@ -71,8 +73,6 @@ impl AnimatedTransitionSet {
 /// be taken to avoid jumps. The recommended approach is to reset the animation's clock to zero,
 /// and change the start value to the current value of the animated property.
 #[derive(Clone, Debug)]
-// #[require(AnimatedTransitionSet)]
-// #[component(on_insert = on_add_animation, on_remove = on_remove_animation)]
 pub struct AnimatedTransition<P: TransitionProperty> {
     /// The property we are targeting.
     prop: PhantomData<P>,
@@ -101,6 +101,7 @@ impl<P: TransitionProperty + Sync + Send + 'static> Component for AnimatedTransi
 
     type Mutability = Mutable;
 
+    /// Add this component to the [`AnimatedTransitionSet`].
     fn on_insert() -> Option<bevy_ecs::lifecycle::ComponentHook> {
         Some(|mut world: DeferredWorld, context: HookContext| {
             if let Some(mut transitions) = world.get_mut::<AnimatedTransitionSet>(context.entity) {
@@ -120,6 +121,7 @@ impl<P: TransitionProperty + Sync + Send + 'static> Component for AnimatedTransi
         })
     }
 
+    /// Remove this component from the [`AnimatedTransitionSet`].
     fn on_remove() -> Option<bevy_ecs::lifecycle::ComponentHook> {
         Some(|mut world: DeferredWorld, context: HookContext| {
             if let Some(mut transitions) = world.get_mut::<AnimatedTransitionSet>(context.entity) {
