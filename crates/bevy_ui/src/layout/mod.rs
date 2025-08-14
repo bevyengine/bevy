@@ -225,7 +225,7 @@ pub fn ui_layout_system(
                 else {
                     return;
                 };
-                let parent_node = parent_node.clone();
+
                 let parent_style = parent_style.clone();
                 return update_decoration_geometry_recursive(
                     entity,
@@ -237,7 +237,7 @@ pub fn ui_layout_system(
                     ui_children,
                     inverse_target_scale_factor,
                     parent_size,
-                    &parent_node,
+                    parent_node.clone(),
                     &parent_style,
                 );
             };
@@ -394,23 +394,56 @@ pub fn ui_layout_system(
         ui_children: &UiChildren,
         inverse_target_scale_factor: f32,
         parent_size: Vec2,
-        base_computed_node: &ComputedNode,
+        mut inherited_computed_node: ComputedNode,
         style: &Node,
     ) {
         if let Ok((
             mut node,
             transform,
             mut global_transform,
-            (None, Some(_decoration)),
+            (None, Some(decoration)),
             _,
             maybe_border_radius,
             maybe_outline,
             maybe_scroll_position,
         )) = node_update_query.get_mut(entity)
         {
+            let scale_factor = inverse_target_scale_factor.recip();
+            inherited_computed_node.size.x = decoration
+                .width
+                .resolve(scale_factor, parent_size.x, target_size)
+                .unwrap_or(parent_size.x);
+            inherited_computed_node.size.y = decoration
+                .width
+                .resolve(scale_factor, parent_size.y, target_size)
+                .unwrap_or(parent_size.y);
+
+            inherited_computed_node.border = BorderRect {
+                left: decoration
+                    .border
+                    .left
+                    .resolve(scale_factor, parent_size.x, target_size)
+                    .unwrap_or(inherited_computed_node.border.left),
+                right: decoration
+                    .border
+                    .right
+                    .resolve(scale_factor, parent_size.x, target_size)
+                    .unwrap_or(inherited_computed_node.border.right),
+                top: decoration
+                    .border
+                    .top
+                    .resolve(scale_factor, parent_size.x, target_size)
+                    .unwrap_or(inherited_computed_node.border.top),
+                bottom: decoration
+                    .border
+                    .bottom
+                    .resolve(scale_factor, parent_size.x, target_size)
+                    .unwrap_or(inherited_computed_node.border.bottom),
+            };
+
             // only trigger change detection when the new values are different
-            if *node != *base_computed_node {
-                *node = *base_computed_node;
+            if *node != inherited_computed_node {
+                *node = inherited_computed_node;
             }
 
             // Computer the node's new global transform
@@ -485,6 +518,7 @@ pub fn ui_layout_system(
 
             node.bypass_change_detection().scroll_position = physical_scroll_position;
 
+            let node = node.clone();
             for child_uinode in ui_children.iter_ui_children(entity) {
                 update_decoration_geometry_recursive(
                     child_uinode,
@@ -496,7 +530,7 @@ pub fn ui_layout_system(
                     ui_children,
                     inverse_target_scale_factor,
                     parent_size,
-                    base_computed_node,
+                    node,
                     style,
                 );
             }

@@ -71,7 +71,11 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         },
         TextShadow::default(),
         Decoration::default(),
-        UiTransform::from_translation(Val2::new(vw(25.), vh(25.))),
+        UiTransform {
+            translation: Val2::new(vw(25.), vh(25.)),
+            rotation: Rot2::degrees(-30.),
+            ..Default::default()
+        },
     ));
 
     // Text with multiple sections
