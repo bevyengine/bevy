@@ -1,14 +1,12 @@
 use bevy_asset::{Assets, Handle};
+use bevy_camera::visibility::{self, Visibility, VisibilityClass};
 use bevy_color::Color;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{component::Component, reflect::ReflectComponent};
 use bevy_image::{Image, TextureAtlas, TextureAtlasLayout};
 use bevy_math::{Rect, UVec2, Vec2};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
-use bevy_render::{
-    sync_world::SyncToRenderWorld,
-    view::{self, Visibility, VisibilityClass},
-};
+use bevy_render::sync_world::SyncToRenderWorld;
 use bevy_transform::components::Transform;
 
 use crate::TextureSlicer;
@@ -17,7 +15,7 @@ use crate::TextureSlicer;
 #[derive(Component, Debug, Default, Clone, Reflect)]
 #[require(Transform, Visibility, SyncToRenderWorld, VisibilityClass, Anchor)]
 #[reflect(Component, Default, Debug, Clone)]
-#[component(on_add = view::add_visibility_class::<Sprite>)]
+#[component(on_add = visibility::add_visibility_class::<Sprite>)]
 pub struct Sprite {
     /// The image used to render the sprite
     pub image: Handle<Image>,

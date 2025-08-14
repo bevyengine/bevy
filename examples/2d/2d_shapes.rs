@@ -54,6 +54,15 @@ fn setup(
             Vec2::new(-50.0, -50.0),
             Vec2::new(50.0, -50.0),
         )),
+        meshes.add(Segment2d::new(
+            Vec2::new(-50.0, 50.0),
+            Vec2::new(50.0, -50.0),
+        )),
+        meshes.add(Polyline2d::new(vec![
+            Vec2::new(-50.0, 50.0),
+            Vec2::new(0.0, -50.0),
+            Vec2::new(50.0, 50.0),
+        ])),
     ];
     let num_shapes = shapes.len();
 

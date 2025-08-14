@@ -18,19 +18,19 @@
 //! - `bevy_ui` can render on any camera with a flag, it is special, and is not tied to a particular
 //!   camera.
 //! - To correctly sort picks, the order of `bevy_ui` is set to be the camera order plus 0.5.
-//! - The `position` reported in `HitData` is normalized relative to the node, with `(0.,0.,0.)` at
-//!   the top left and `(1., 1., 0.)` in the bottom right. Coordinates are relative to the entire
-//!   node, not just the visible region. This backend does not provide a `normal`.
+//! - The `position` reported in `HitData` is normalized relative to the node, with
+//!   `(-0.5, -0.5, 0.)` at the top left and `(0.5, 0.5, 0.)` in the bottom right. Coordinates are
+//!   relative to the entire node, not just the visible region. This backend does not provide a `normal`.
 
 #![deny(missing_docs)]
 
 use crate::{clip_check_recursive, prelude::*, ui_transform::UiGlobalTransform, UiStack};
 use bevy_app::prelude::*;
+use bevy_camera::{visibility::InheritedVisibility, Camera};
 use bevy_ecs::{prelude::*, query::QueryData};
 use bevy_math::Vec2;
 use bevy_platform::collections::HashMap;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
-use bevy_render::prelude::*;
 use bevy_window::PrimaryWindow;
 
 use bevy_picking::backend::prelude::*;
@@ -92,7 +92,7 @@ pub struct NodeQuery {
     transform: &'static UiGlobalTransform,
     pickable: Option<&'static Pickable>,
     inherited_visibility: Option<&'static InheritedVisibility>,
-    target_camera: &'static ComputedNodeTarget,
+    target_camera: &'static ComputedUiTargetCamera,
 }
 
 /// Computes the UI node entities under each pointer.

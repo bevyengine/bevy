@@ -17,7 +17,7 @@ use bevy_ecs::{
     world::{FromWorld, World},
 };
 use bevy_image::BevyDefault as _;
-use bevy_light::EnvironmentMapLight;
+use bevy_light::{EnvironmentMapLight, IrradianceVolume};
 use bevy_math::Vec4;
 use bevy_render::{
     globals::{GlobalsBuffer, GlobalsUniform},
@@ -41,8 +41,7 @@ use crate::{
     },
     environment_map::{self, RenderViewEnvironmentMapBindGroupEntries},
     irradiance_volume::{
-        self, IrradianceVolume, RenderViewIrradianceVolumeBindGroupEntries,
-        IRRADIANCE_VOLUMES_ARE_USABLE,
+        self, RenderViewIrradianceVolumeBindGroupEntries, IRRADIANCE_VOLUMES_ARE_USABLE,
     },
     prepass, EnvironmentMapUniformBuffer, FogMeta, GlobalClusterableObjectMeta,
     GpuClusterableObjects, GpuFog, GpuLights, LightMeta, LightProbesBuffer, LightProbesUniform,

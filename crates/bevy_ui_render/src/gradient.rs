@@ -21,6 +21,7 @@ use bevy_math::{
     FloatOrd, Rect, Vec2,
 };
 use bevy_math::{Affine2, Vec2Swizzles};
+use bevy_mesh::VertexBufferLayout;
 use bevy_render::{
     render_phase::*,
     render_resource::{binding_types::uniform_buffer, *},
@@ -30,6 +31,7 @@ use bevy_render::{
     Extract, ExtractSchedule, Render, RenderSystems,
 };
 use bevy_render::{sync_world::MainEntity, RenderStartup};
+use bevy_shader::Shader;
 use bevy_sprite::BorderRect;
 use bevy_ui::{
     BackgroundGradient, BorderGradient, ColorStop, ConicGradient, Gradient,
@@ -350,7 +352,7 @@ pub fn extract_gradients(
         Query<(
             Entity,
             &ComputedNode,
-            &ComputedNodeTarget,
+            &ComputedUiTargetCamera,
             &UiGlobalTransform,
             &InheritedVisibility,
             Option<&CalculatedClip>,

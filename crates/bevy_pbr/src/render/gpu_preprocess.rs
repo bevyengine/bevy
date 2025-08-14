@@ -42,7 +42,7 @@ use bevy_render::{
         binding_types::{storage_buffer, storage_buffer_read_only, texture_2d, uniform_buffer},
         BindGroup, BindGroupEntries, BindGroupLayout, BindingResource, Buffer, BufferBinding,
         CachedComputePipelineId, ComputePassDescriptor, ComputePipelineDescriptor,
-        DynamicBindGroupLayoutEntries, PipelineCache, PushConstantRange, RawBufferVec, Shader,
+        DynamicBindGroupLayoutEntries, PipelineCache, PushConstantRange, RawBufferVec,
         ShaderStages, ShaderType, SpecializedComputePipeline, SpecializedComputePipelines,
         TextureSampleType, UninitBufferVec,
     },
@@ -51,6 +51,7 @@ use bevy_render::{
     view::{ExtractedView, NoIndirectDrawing, ViewUniform, ViewUniformOffset, ViewUniforms},
     Render, RenderApp, RenderSystems,
 };
+use bevy_shader::Shader;
 use bevy_utils::{default, TypeIdMap};
 use bitflags::bitflags;
 use smallvec::{smallvec, SmallVec};

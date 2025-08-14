@@ -3,10 +3,10 @@
 use core::array;
 
 use bevy_asset::{load_embedded_asset, AssetId, AssetServer, Handle};
+use bevy_camera::Camera3d;
 use bevy_color::ColorToComponents as _;
-use bevy_core_pipeline::{
-    core_3d::Camera3d,
-    prepass::{DeferredPrepass, DepthPrepass, MotionVectorPrepass, NormalPrepass},
+use bevy_core_pipeline::prepass::{
+    DeferredPrepass, DepthPrepass, MotionVectorPrepass, NormalPrepass,
 };
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
@@ -18,12 +18,12 @@ use bevy_ecs::{
     world::World,
 };
 use bevy_image::{BevyDefault, Image};
+use bevy_light::{FogVolume, VolumetricFog, VolumetricLight};
 use bevy_math::{vec4, Mat3A, Mat4, Vec3, Vec3A, Vec4, Vec4Swizzles as _};
+use bevy_mesh::{Mesh, MeshVertexBufferLayoutRef};
 use bevy_render::{
     diagnostic::RecordDiagnostics,
-    mesh::{
-        allocator::MeshAllocator, Mesh, MeshVertexBufferLayoutRef, RenderMesh, RenderMeshBufferInfo,
-    },
+    mesh::{allocator::MeshAllocator, RenderMesh, RenderMeshBufferInfo},
     render_asset::RenderAssets,
     render_graph::{NodeRunError, RenderGraphContext, ViewNode},
     render_resource::{
@@ -34,7 +34,7 @@ use bevy_render::{
         BlendOperation, BlendState, CachedRenderPipelineId, ColorTargetState, ColorWrites,
         DynamicBindGroupEntries, DynamicUniformBuffer, Face, FragmentState, LoadOp, Operations,
         PipelineCache, PrimitiveState, RenderPassColorAttachment, RenderPassDescriptor,
-        RenderPipelineDescriptor, SamplerBindingType, Shader, ShaderStages, ShaderType,
+        RenderPipelineDescriptor, SamplerBindingType, ShaderStages, ShaderType,
         SpecializedRenderPipeline, SpecializedRenderPipelines, StoreOp, TextureFormat,
         TextureSampleType, TextureUsages, VertexState,
     },
@@ -44,15 +44,15 @@ use bevy_render::{
     view::{ExtractedView, Msaa, ViewDepthTexture, ViewTarget, ViewUniformOffset},
     Extract,
 };
+use bevy_shader::Shader;
 use bevy_transform::components::GlobalTransform;
 use bevy_utils::prelude::default;
 use bitflags::bitflags;
 
 use crate::{
-    FogVolume, MeshPipelineViewLayoutKey, MeshPipelineViewLayouts, MeshViewBindGroup,
+    MeshPipelineViewLayoutKey, MeshPipelineViewLayouts, MeshViewBindGroup,
     ViewEnvironmentMapUniformOffset, ViewFogUniformOffset, ViewLightProbesUniformOffset,
-    ViewLightsUniformOffset, ViewScreenSpaceReflectionsUniformOffset, VolumetricFog,
-    VolumetricLight,
+    ViewLightsUniformOffset, ViewScreenSpaceReflectionsUniformOffset,
 };
 
 use super::FogAssets;

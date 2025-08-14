@@ -8,11 +8,9 @@ use bevy_asset::{
     embedded_asset, load_embedded_asset, prelude::AssetChanged, AsAssetId, Asset, AssetApp,
     AssetEventSystems, AssetId, AssetServer, Assets, Handle, UntypedAssetId,
 };
+use bevy_camera::{visibility::ViewVisibility, Camera, Camera3d};
 use bevy_color::{Color, ColorToComponents};
-use bevy_core_pipeline::core_3d::{
-    graph::{Core3d, Node3d},
-    Camera3d,
-};
+use bevy_core_pipeline::core_3d::graph::{Core3d, Node3d};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     component::Tick,
@@ -20,6 +18,7 @@ use bevy_ecs::{
     query::QueryItem,
     system::{lifetimeless::SRes, SystemChangeTick, SystemParamItem},
 };
+use bevy_mesh::{Mesh3d, MeshVertexBufferLayoutRef};
 use bevy_platform::{
     collections::{HashMap, HashSet},
     hash::FixedHasher,
@@ -32,7 +31,7 @@ use bevy_render::{
     extract_resource::ExtractResource,
     mesh::{
         allocator::{MeshAllocator, SlabId},
-        Mesh3d, MeshVertexBufferLayoutRef, RenderMesh,
+        RenderMesh,
     },
     prelude::*,
     render_asset::{
@@ -54,6 +53,7 @@ use bevy_render::{
     },
     Extract, Render, RenderApp, RenderDebugFlags, RenderStartup, RenderSystems,
 };
+use bevy_shader::Shader;
 use core::{hash::Hash, ops::Range};
 use tracing::error;
 

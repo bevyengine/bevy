@@ -1,5 +1,5 @@
 use crate::{
-    ComputedNode, ComputedNodeTarget, ContentSize, FixedMeasure, Measure, MeasureArgs, Node,
+    ComputedNode, ComputedUiTargetCamera, ContentSize, FixedMeasure, Measure, MeasureArgs, Node,
     NodeMeasure,
 };
 use bevy_asset::Assets;
@@ -262,7 +262,7 @@ fn create_text_measure<'a>(
 /// A `Measure` is used by the UI's layout algorithm to determine the appropriate amount of space
 /// to provide for the text given the fonts, the text itself and the constraints of the layout.
 ///
-/// * Measures are regenerated on changes to either [`ComputedTextBlock`] or [`ComputedNodeTarget`].
+/// * Measures are regenerated on changes to either [`ComputedTextBlock`] or [`ComputedUiTargetCamera`].
 /// * Changes that only modify the colors of a `Text` do not require a new `Measure`. This system
 ///   is only able to detect that a `Text` component has changed and will regenerate the `Measure` on
 ///   color changes. This can be expensive, particularly for large blocks of text, and the [`bypass_change_detection`](bevy_ecs::change_detection::DetectChangesMut::bypass_change_detection)
@@ -276,7 +276,8 @@ pub fn measure_text_system(
             &mut ContentSize,
             &mut TextNodeFlags,
             &mut ComputedTextBlock,
-            Ref<ComputedNodeTarget>,
+            &ComputedUiTargetCamera,
+            &ComputedNode,
         ),
         With<Node>,
     >,
@@ -284,9 +285,13 @@ pub fn measure_text_system(
     mut text_pipeline: ResMut<TextPipeline>,
     mut font_system: ResMut<CosmicFontSystem>,
 ) {
-    for (entity, block, content_size, text_flags, computed, computed_target) in &mut text_query {
+    for (entity, block, content_size, text_flags, computed, computed_target, computed_node) in
+        &mut text_query
+    {
         // Note: the ComputedTextBlock::needs_rerender bool is cleared in create_text_measure().
-        if computed_target.is_changed()
+        // 1e-5 epsilon to ignore tiny scale factor float errors
+        if 1e-5
+            < (computed_target.scale_factor() - computed_node.inverse_scale_factor.recip()).abs()
             || computed.needs_rerender()
             || text_flags.needs_measure_fn
             || content_size.is_added()

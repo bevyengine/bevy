@@ -404,7 +404,7 @@ pub fn update_is_directly_hovered(
 
 #[cfg(test)]
 mod tests {
-    use bevy_render::camera::Camera;
+    use bevy_camera::Camera;
 
     use super::*;
 
