@@ -8,6 +8,7 @@ use bevy::{
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
     light::CascadeShadowConfigBuilder,
     prelude::*,
+    scene::SceneInstanceReady,
     window::{PresentMode, WindowResolution},
     winit::{UpdateMode, WinitSettings},
 };
@@ -68,7 +69,6 @@ fn main() {
         .add_systems(
             Update,
             (
-                setup_scene_once_loaded,
                 keyboard_animation_control,
                 update_fox_rings.after(keyboard_animation_control),
             ),
@@ -173,12 +173,14 @@ fn setup(
             let (x, z) = (radius * c, radius * s);
 
             commands.entity(ring_parent).with_children(|builder| {
-                builder.spawn((
-                    SceneRoot(fox_handle.clone()),
-                    Transform::from_xyz(x, 0.0, z)
-                        .with_scale(Vec3::splat(0.01))
-                        .with_rotation(base_rotation * Quat::from_rotation_y(-fox_angle)),
-                ));
+                builder
+                    .spawn((
+                        SceneRoot(fox_handle.clone()),
+                        Transform::from_xyz(x, 0.0, z)
+                            .with_scale(Vec3::splat(0.01))
+                            .with_rotation(base_rotation * Quat::from_rotation_y(-fox_angle)),
+                    ))
+                    .observe(setup_scene_once_loaded);
             });
         }
 
@@ -230,25 +232,23 @@ fn setup(
 
 // Once the scene is loaded, start the animation
 fn setup_scene_once_loaded(
+    trigger: On<SceneInstanceReady>,
     animations: Res<Animations>,
     foxes: Res<Foxes>,
     mut commands: Commands,
-    mut player: Query<(Entity, &mut AnimationPlayer)>,
-    mut done: Local<bool>,
+    children: Query<&Children>,
+    mut players: Query<&mut AnimationPlayer>,
 ) {
-    if !*done && player.iter().len() == foxes.count {
-        for (entity, mut player) in &mut player {
-            commands
-                .entity(entity)
-                .insert(AnimationGraphHandle(animations.graph.clone()))
-                .insert(AnimationTransitions::new());
-
+    for child in children.iter_descendants(trigger.target()) {
+        if let Ok(mut player) = players.get_mut(child) {
             let playing_animation = player.play(animations.node_indices[0]).repeat();
             if !foxes.sync {
-                playing_animation.seek_to(entity.index() as f32 / 10.0);
+                playing_animation.seek_to(trigger.target().index() as f32 / 10.0);
             }
+            commands
+                .entity(child)
+                .insert(AnimationGraphHandle(animations.graph.clone()));
         }
-        *done = true;
     }
 }
 
