@@ -65,8 +65,8 @@ fn setup(mut commands: Commands) {
 
     commands
         .spawn(Node {
-            width: Val::Percent(100.0),
-            height: Val::Percent(100.0),
+            width: percent(100),
+            height: percent(100),
             align_items: AlignItems::End,
             justify_content: JustifyContent::Center,
             ..default()
@@ -76,16 +76,16 @@ fn setup(mut commands: Commands) {
                 .spawn((
                     Node {
                         flex_direction: FlexDirection::Column,
-                        border: Val::Px(5.).into(),
-                        row_gap: Val::Px(5.),
-                        padding: Val::Px(5.).into(),
+                        border: px(5).into(),
+                        row_gap: px(5),
+                        padding: px(5).into(),
                         align_items: AlignItems::Center,
-                        margin: Val::Px(25.).into(),
+                        margin: px(25).into(),
                         ..Default::default()
                     },
                     BackgroundColor(NAVY.into()),
                     BorderColor::all(Color::WHITE),
-                    BorderRadius::all(Val::Px(10.)),
+                    BorderRadius::all(px(10)),
                 ))
                 .with_children(|parent: &mut RelatedSpawnerCommands<ChildOf>| {
                     parent.spawn(Text::new("virtual keyboard"));

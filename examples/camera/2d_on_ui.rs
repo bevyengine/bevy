@@ -30,8 +30,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn((
         // We could also use a `UiTargetCamera` component here instead of the general `IsDefaultUiCamera`.
         Node {
-            width: Val::Percent(100.),
-            height: Val::Percent(100.),
+            width: percent(100),
+            height: percent(100),
             display: Display::Flex,
             justify_content: JustifyContent::Center,
             align_items: AlignItems::Center,
@@ -40,14 +40,14 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         BackgroundColor(tailwind::ROSE_400.into()),
         children![(
             Node {
-                height: Val::Percent(30.),
-                width: Val::Percent(20.),
-                min_height: Val::Px(150.),
-                min_width: Val::Px(150.),
-                border: UiRect::all(Val::Px(2.)),
+                height: percent(30),
+                width: percent(20),
+                min_height: px(150),
+                min_width: px(150),
+                border: UiRect::all(px(2)),
                 ..default()
             },
-            BorderRadius::all(Val::Percent(25.0)),
+            BorderRadius::all(percent(25)),
             BorderColor::all(Color::WHITE),
         )],
     ));

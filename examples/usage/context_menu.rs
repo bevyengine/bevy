@@ -91,13 +91,13 @@ fn on_trigger_menu(trigger: On<OpenContextMenu>, mut commands: Commands) {
             ContextMenu,
             Node {
                 position_type: PositionType::Absolute,
-                left: Val::Px(pos.x),
-                top: Val::Px(pos.y),
+                left: px(pos.x),
+                top: px(pos.y),
                 flex_direction: FlexDirection::Column,
                 ..default()
             },
             BorderColor::all(Color::BLACK),
-            BorderRadius::all(Val::Px(4.)),
+            BorderRadius::all(px(4)),
             BackgroundColor(Color::linear_rgb(0.1, 0.1, 0.1)),
             children![
                 context_item("fuchsia", basic::FUCHSIA),
@@ -128,7 +128,7 @@ fn context_item(text: &str, col: Srgba) -> impl Bundle {
         ContextMenuItem(col),
         Button,
         Node {
-            padding: UiRect::all(Val::Px(5.0)),
+            padding: UiRect::all(px(5)),
             ..default()
         },
         children![(
@@ -147,8 +147,8 @@ fn background_and_button() -> impl Bundle {
     (
         Name::new("background"),
         Node {
-            width: Val::Percent(100.0),
-            height: Val::Percent(100.0),
+            width: percent(100),
+            height: percent(100),
             align_items: AlignItems::Center,
             justify_content: JustifyContent::Center,
             ..default()
@@ -160,9 +160,9 @@ fn background_and_button() -> impl Bundle {
                     Name::new("button"),
                     Button,
                     Node {
-                        width: Val::Px(250.0),
-                        height: Val::Px(65.0),
-                        border: UiRect::all(Val::Px(5.0)),
+                        width: px(250),
+                        height: px(65),
+                        border: UiRect::all(px(5)),
                         justify_content: JustifyContent::Center,
                         align_items: AlignItems::Center,
                         ..default()
