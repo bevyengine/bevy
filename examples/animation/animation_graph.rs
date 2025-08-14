@@ -433,8 +433,7 @@ fn update_ui(
             let mut bg_iter = background_query.iter_many_mut(children);
             if let Some(mut node) = bg_iter.fetch_next() {
                 // All nodes are the same width, so `NODE_RECTS[0]` is as good as any other.
-                node.width =
-                    px(NODE_RECTS[0].width * animation_weights.weights[clip_node.index]);
+                node.width = px(NODE_RECTS[0].width * animation_weights.weights[clip_node.index]);
             }
 
             // Update the node labels with the current weights.

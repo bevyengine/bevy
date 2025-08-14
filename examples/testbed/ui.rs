@@ -722,10 +722,7 @@ mod radial_gradient {
                 for (shape, shape_label) in [
                     (RadialGradientShape::ClosestSide, "ClosestSide"),
                     (RadialGradientShape::FarthestSide, "FarthestSide"),
-                    (
-                        RadialGradientShape::Circle(percent(55)),
-                        "Circle(55%)",
-                    ),
+                    (RadialGradientShape::Circle(percent(55)), "Circle(55%)"),
                     (RadialGradientShape::FarthestCorner, "FarthestCorner"),
                 ] {
                     for (position, position_label) in [
