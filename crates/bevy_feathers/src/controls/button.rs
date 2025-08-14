@@ -107,7 +107,7 @@ fn update_button_styles(
 ) {
     for (button_ent, variant, disabled, pressed, hovered, bg_color, font_color) in q_buttons.iter()
     {
-        set_button_colors(
+        set_button_styles(
             button_ent,
             variant,
             disabled,
@@ -141,7 +141,7 @@ fn update_button_styles_remove(
             if let Ok((button_ent, variant, disabled, pressed, hovered, bg_color, font_color)) =
                 q_buttons.get(ent)
             {
-                set_button_colors(
+                set_button_styles(
                     button_ent,
                     variant,
                     disabled,
@@ -155,7 +155,7 @@ fn update_button_styles_remove(
         });
 }
 
-fn set_button_colors(
+fn set_button_styles(
     button_ent: Entity,
     variant: &ButtonVariant,
     disabled: bool,

@@ -114,7 +114,7 @@ fn update_switch_styles(
         };
         // Safety: since we just checked the query, should always work.
         let (ref mut slide_style, slide_color) = q_slide.get_mut(slide_ent).unwrap();
-        set_switch_colors(
+        set_switch_styles(
             switch_ent,
             slide_ent,
             disabled,
@@ -162,7 +162,7 @@ fn update_switch_styles_remove(
                 };
                 // Safety: since we just checked the query, should always work.
                 let (ref mut slide_style, slide_color) = q_slide.get_mut(slide_ent).unwrap();
-                set_switch_colors(
+                set_switch_styles(
                     switch_ent,
                     slide_ent,
                     disabled,
@@ -178,7 +178,7 @@ fn update_switch_styles_remove(
         });
 }
 
-fn set_switch_colors(
+fn set_switch_styles(
     switch_ent: Entity,
     slide_ent: Entity,
     disabled: bool,
