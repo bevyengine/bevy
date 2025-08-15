@@ -402,8 +402,7 @@ pub fn update_text2d_layout(
                     panic!("Fatal error when processing text: {e}.");
                 }
                 Ok(()) => {
-                    text_layout_info.size.x = text_layout_info.size.x * inverse_scale_factor;
-                    text_layout_info.size.y = text_layout_info.size.y * inverse_scale_factor;
+                    text_layout_info.size *= inverse_scale_factor;
                 }
             }
         }
