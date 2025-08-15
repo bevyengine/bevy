@@ -244,7 +244,10 @@ pub trait DynamicBundle {
     /// Calls `func` on each value, in the order of this bundle's [`Component`]s. This passes
     /// ownership of the component values to `func`.
     #[doc(hidden)]
-    fn get_components(self, func: &mut impl FnMut(StorageType, OwningPtr<'_>)) -> Self::Effect;
+    unsafe fn get_components(
+        ptr: *mut Self,
+        func: &mut impl FnMut(StorageType, OwningPtr<'_>),
+    ) -> Self::Effect;
 }
 
 /// An operation on an [`Entity`](crate::entity::Entity) that occurs _after_ inserting the

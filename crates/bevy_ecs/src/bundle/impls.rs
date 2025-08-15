@@ -1,6 +1,7 @@
 use core::any::TypeId;
 
 use bevy_ptr::OwningPtr;
+use core::ptr::NonNull;
 use variadics_please::all_tuples;
 
 use crate::{
@@ -40,13 +41,17 @@ unsafe impl<C: Component> BundleFromComponents for C {
 impl<C: Component> DynamicBundle for C {
     type Effect = ();
     #[inline]
-    fn get_components(self, func: &mut impl FnMut(StorageType, OwningPtr<'_>)) -> Self::Effect {
-        OwningPtr::make(self, |ptr| func(C::STORAGE_TYPE, ptr));
+    unsafe fn get_components(
+        ptr: *mut Self,
+        func: &mut impl FnMut(StorageType, OwningPtr<'_>),
+    ) -> Self::Effect {
+        let ptr = NonNull::new_unchecked(ptr.cast::<u8>());
+        OwningPtr::make(ptr, |ptr| func(C::STORAGE_TYPE, ptr));
     }
 }
 
 macro_rules! tuple_impl {
-    ($(#[$meta:meta])* $($name: ident),*) => {
+    ($(#[$meta:meta])* $(($name: ident, $index: literal)),*) => {
         #[expect(
             clippy::allow_attributes,
             reason = "This is a tuple-related macro; as such, the lints below may not always apply."
@@ -125,27 +130,155 @@ macro_rules! tuple_impl {
                 reason = "Zero-length tuples will generate a function body equivalent to `()`; however, this macro is meant for all applicable tuples, and as such it makes no sense to rewrite it just for that case."
             )]
             #[inline(always)]
-            fn get_components(self, func: &mut impl FnMut(StorageType, OwningPtr<'_>)) -> Self::Effect {
+            unsafe fn get_components(ptr: *mut Self, func: &mut impl FnMut(StorageType, OwningPtr<'_>)) -> Self::Effect {
                 #[allow(
                     non_snake_case,
                     reason = "The names of these variables are provided by the caller, not by us."
                 )]
-                let ($(mut $name,)*) = self;
                 ($(
-                    $name.get_components(&mut *func),
+                    {
+                        let field_ptr = unsafe { ptr.byte_add(core::mem::offset_of!(Self, $index)).cast::<$name>() };
+                        $name::get_components(field_ptr, &mut *func)
+                    },
                 )*)
             }
         }
     }
 }
 
-all_tuples!(
-    #[doc(fake_variadic)]
-    tuple_impl,
-    0,
-    15,
-    B
+// #[doc(fake_variadic)]
+tuple_impl!();
+tuple_impl!((B0, 0));
+tuple_impl!((B0, 0), (B1, 1));
+tuple_impl!((B0, 0), (B1, 1), (B2, 2));
+tuple_impl!((B0, 0), (B1, 1), (B2, 2), (B3, 3));
+tuple_impl!((B0, 0), (B1, 1), (B2, 2), (B3, 3), (B4, 4));
+tuple_impl!((B0, 0), (B1, 1), (B2, 2), (B3, 3), (B4, 4), (B5, 5));
+tuple_impl!(
+    (B0, 0),
+    (B1, 1),
+    (B2, 2),
+    (B3, 3),
+    (B4, 4),
+    (B5, 5),
+    (B6, 6)
 );
+tuple_impl!(
+    (B0, 0),
+    (B1, 1),
+    (B2, 2),
+    (B3, 3),
+    (B4, 4),
+    (B5, 5),
+    (B6, 6),
+    (B7, 7)
+);
+tuple_impl!(
+    (B0, 0),
+    (B1, 1),
+    (B2, 2),
+    (B3, 3),
+    (B4, 4),
+    (B5, 5),
+    (B6, 6),
+    (B7, 7),
+    (B8, 8)
+);
+tuple_impl!(
+    (B0, 0),
+    (B1, 1),
+    (B2, 2),
+    (B3, 3),
+    (B4, 4),
+    (B5, 5),
+    (B6, 6),
+    (B7, 7),
+    (B8, 8),
+    (B9, 9)
+);
+tuple_impl!(
+    (B0, 0),
+    (B1, 1),
+    (B2, 2),
+    (B3, 3),
+    (B4, 4),
+    (B5, 5),
+    (B6, 6),
+    (B7, 7),
+    (B8, 8),
+    (B9, 9),
+    (B10, 10)
+);
+tuple_impl!(
+    (B0, 0),
+    (B1, 1),
+    (B2, 2),
+    (B3, 3),
+    (B4, 4),
+    (B5, 5),
+    (B6, 6),
+    (B7, 7),
+    (B8, 8),
+    (B9, 9),
+    (B10, 10),
+    (B11, 11)
+);
+tuple_impl!(
+    (B0, 0),
+    (B1, 1),
+    (B2, 2),
+    (B3, 3),
+    (B4, 4),
+    (B5, 5),
+    (B6, 6),
+    (B7, 7),
+    (B8, 8),
+    (B9, 9),
+    (B10, 10),
+    (B11, 11),
+    (B12, 12)
+);
+tuple_impl!(
+    (B0, 0),
+    (B1, 1),
+    (B2, 2),
+    (B3, 3),
+    (B4, 4),
+    (B5, 5),
+    (B6, 6),
+    (B7, 7),
+    (B8, 8),
+    (B9, 9),
+    (B10, 10),
+    (B11, 11),
+    (B12, 12),
+    (B13, 13)
+);
+tuple_impl!(
+    (B0, 0),
+    (B1, 1),
+    (B2, 2),
+    (B3, 3),
+    (B4, 4),
+    (B5, 5),
+    (B6, 6),
+    (B7, 7),
+    (B8, 8),
+    (B9, 9),
+    (B10, 10),
+    (B11, 11),
+    (B12, 12),
+    (B13, 13),
+    (B14, 14)
+);
+
+// all_tuples!(
+//     tuple_impl,
+//     0,
+//     15,
+//     B,
+//     INDEX
+// );
 
 macro_rules! after_effect_impl {
     ($($after_effect: ident),*) => {

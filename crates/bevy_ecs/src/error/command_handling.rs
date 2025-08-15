@@ -1,4 +1,4 @@
-use core::fmt;
+use core::{fmt, mem};
 
 use bevy_utils::prelude::DebugName;
 
@@ -125,10 +125,9 @@ where
         entity: Entity,
     ) -> impl Command<Result<(), EntityMutableFetchError>>
            + HandleError<Result<(), EntityMutableFetchError>> {
-        move |world: &mut World| -> Result<(), EntityMutableFetchError> {
-            let entity = world.get_entity_mut(entity)?;
-            self.apply(entity);
-            Ok(())
+        EntityCommandWrapper {
+            entity,
+            command: self,
         }
     }
 }
@@ -143,10 +142,64 @@ where
         entity: Entity,
     ) -> impl Command<Result<T, EntityCommandError<Err>>> + HandleError<Result<T, EntityCommandError<Err>>>
     {
-        move |world: &mut World| {
-            let entity = world.get_entity_mut(entity)?;
-            self.apply(entity)
-                .map_err(EntityCommandError::CommandFailed)
+        EntityCommandWrapper {
+            entity,
+            command: self,
         }
+    }
+}
+
+struct EntityCommandWrapper<C> {
+    entity: Entity,
+    command: C,
+}
+
+impl<C> Command<Result<(), EntityMutableFetchError>> for EntityCommandWrapper<C>
+where
+    C: EntityCommand,
+{
+    fn apply(mut self, world: &mut World) -> Result<(), EntityMutableFetchError> {
+        // SAFETY: This is being called with a mutable borrow, which must be a valid, non-null pointer.
+        unsafe { Self::apply_raw(&mut self, world) }
+    }
+
+    unsafe fn apply_raw(ptr: *mut Self, world: &mut World) -> Result<(), EntityMutableFetchError> {
+        let entity = unsafe {
+            ptr.byte_add(mem::offset_of!(EntityCommandWrapper<C>, entity))
+                .cast::<Entity>()
+                .read_unaligned()
+        };
+        let command_ptr = unsafe {
+            ptr.byte_add(mem::offset_of!(EntityCommandWrapper<C>, command))
+                .cast::<C>()
+        };
+        let entity_mut = world.get_entity_mut(entity)?;
+        C::apply_raw(command_ptr, entity_mut);
+        Ok(())
+    }
+}
+
+impl<C, T, Err> Command<Result<T, EntityCommandError<Err>>> for EntityCommandWrapper<C>
+where
+    C: EntityCommand<Result<T, Err>>,
+    Err: fmt::Debug + fmt::Display + Send + Sync + 'static,
+{
+    fn apply(mut self, world: &mut World) -> Result<T, EntityCommandError<Err>> {
+        // SAFETY: This is being called with a mutable borrow, which must be a valid, non-null pointer.
+        unsafe { Self::apply_raw(&mut self, world) }
+    }
+
+    unsafe fn apply_raw(ptr: *mut Self, world: &mut World) -> Result<T, EntityCommandError<Err>> {
+        let entity = unsafe {
+            ptr.byte_add(mem::offset_of!(EntityCommandWrapper<C>, entity))
+                .cast::<Entity>()
+                .read_unaligned()
+        };
+        let command_ptr = unsafe {
+            ptr.byte_add(mem::offset_of!(EntityCommandWrapper<C>, command))
+                .cast::<C>()
+        };
+        let entity_mut = world.get_entity_mut(entity)?;
+        C::apply_raw(command_ptr, entity_mut).map_err(EntityCommandError::CommandFailed)
     }
 }

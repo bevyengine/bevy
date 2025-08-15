@@ -2030,7 +2030,24 @@ impl<'w> EntityWorldMut<'w> {
     #[inline]
     pub(crate) fn insert_with_caller<T: Bundle>(
         &mut self,
-        bundle: T,
+        mut bundle: T,
+        mode: InsertMode,
+        caller: MaybeLocation,
+        relationship_hook_mode: RelationshipHookMode,
+    ) -> &mut Self {
+        // SAFETY: This is being called with a mutable borrow on the bundle, which should always be a valid
+        // pointer.
+        unsafe { self.insert_raw_with_caller(&mut bundle, mode, caller, relationship_hook_mode) };
+        core::mem::forget(bundle);
+        self
+    }
+
+    /// Split into a new function so we can pass the calling location into the function when using
+    /// as a command.
+    #[inline]
+    pub(crate) unsafe fn insert_raw_with_caller<T: Bundle>(
+        &mut self,
+        bundle: *mut T,
         mode: InsertMode,
         caller: MaybeLocation,
         relationship_hook_mode: RelationshipHookMode,
@@ -2044,7 +2061,7 @@ impl<'w> EntityWorldMut<'w> {
             bundle_inserter.insert(
                 self.entity,
                 location,
-                bundle,
+                bundle.cast_const(),
                 mode,
                 caller,
                 relationship_hook_mode,
@@ -4637,8 +4654,12 @@ unsafe fn insert_dynamic_bundle<
         for DynamicInsertBundle<'a, I>
     {
         type Effect = ();
-        fn get_components(self, func: &mut impl FnMut(StorageType, OwningPtr<'_>)) {
-            self.components.for_each(|(t, ptr)| func(t, ptr));
+        unsafe fn get_components(
+            ptr: *mut Self,
+            func: &mut impl FnMut(StorageType, OwningPtr<'_>),
+        ) {
+            let bundle = unsafe { ptr.read_unaligned() };
+            bundle.components.for_each(|(t, ptr)| func(t, ptr));
         }
     }
 
@@ -4652,7 +4673,7 @@ unsafe fn insert_dynamic_bundle<
             .insert(
                 entity,
                 location,
-                bundle,
+                &raw const bundle,
                 mode,
                 caller,
                 relationship_hook_insert_mode,

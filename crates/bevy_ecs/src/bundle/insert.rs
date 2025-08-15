@@ -148,7 +148,7 @@ impl<'w> BundleInserter<'w> {
         &mut self,
         entity: Entity,
         location: EntityLocation,
-        bundle: T,
+        bundle: *const T,
         insert_mode: InsertMode,
         caller: MaybeLocation,
         relationship_hook_mode: RelationshipHookMode,
@@ -204,7 +204,7 @@ impl<'w> BundleInserter<'w> {
                     entity,
                     location.table_row,
                     self.change_tick,
-                    bundle,
+                    bundle.cast_mut(),
                     insert_mode,
                     caller,
                 );
@@ -245,7 +245,7 @@ impl<'w> BundleInserter<'w> {
                     entity,
                     result.table_row,
                     self.change_tick,
-                    bundle,
+                    bundle.cast_mut(),
                     insert_mode,
                     caller,
                 );
