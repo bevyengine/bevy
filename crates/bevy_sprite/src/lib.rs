@@ -58,13 +58,11 @@ pub type SpriteSystem = SpriteSystems;
 
 impl Plugin for SpritePlugin {
     fn build(&self, app: &mut App) {
-
         if !app.is_plugin_added::<TextureAtlasPlugin>() {
             app.add_plugins(TextureAtlasPlugin);
         }
 
         #[cfg(feature = "bevy_sprite_picking_backend")]
         app.add_plugins(SpritePickingPlugin);
-
     }
 }

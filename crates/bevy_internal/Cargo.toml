@@ -191,7 +191,12 @@ bevy_ci_testing = ["bevy_dev_tools/bevy_ci_testing", "bevy_render?/ci_limits"]
 animation = ["bevy_animation", "bevy_gltf?/bevy_animation"]
 
 bevy_sprite = ["dep:bevy_sprite", "bevy_image"]
-bevy_sprite_render = ["bevy_sprite", "dep:bevy_sprite_render", "bevy_gizmos?/bevy_sprite", "bevy_gizmos?/bevy_sprite_render"]
+bevy_sprite_render = [
+  "bevy_sprite",
+  "dep:bevy_sprite_render",
+  "bevy_gizmos?/bevy_sprite",
+  "bevy_gizmos?/bevy_sprite_render",
+]
 bevy_pbr = [
   "dep:bevy_pbr",
   "bevy_gizmos?/bevy_pbr",

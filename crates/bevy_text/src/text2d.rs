@@ -1,15 +1,13 @@
 use crate::pipeline::CosmicFontSystem;
 use crate::{
-    ComputedTextBlock, Font, FontAtlasSets, LineBreak, SwashCache, TextBounds,
-    TextColor, TextError, TextFont, TextLayout, TextLayoutInfo, TextPipeline, TextReader, TextRoot,
+    ComputedTextBlock, Font, FontAtlasSets, LineBreak, SwashCache, TextBounds, TextColor,
+    TextError, TextFont, TextLayout, TextLayoutInfo, TextPipeline, TextReader, TextRoot,
     TextSpanAccess, TextWriter,
 };
 use bevy_asset::Assets;
 use bevy_camera::primitives::Aabb;
-use bevy_camera::visibility::{
-    self, NoFrustumCulling, Visibility, VisibilityClass,
-};
-use bevy_color::{Color, LinearRgba};
+use bevy_camera::visibility::{self, NoFrustumCulling, Visibility, VisibilityClass};
+use bevy_color::Color;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::entity::EntityHashSet;
 use bevy_ecs::{

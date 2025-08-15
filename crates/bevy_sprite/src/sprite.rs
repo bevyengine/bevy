@@ -325,7 +325,6 @@ mod tests {
         assert_eq!(compute(Vec2::new(-3.0, 0.0)), Err(Vec2::new(-0.5, 5.0)));
     }
 
-
     #[test]
     fn compute_pixel_space_point_for_color_sprite() {
         let image_assets = Assets::<Image>::default();
@@ -353,7 +352,7 @@ mod tests {
         assert_eq!(compute(Vec2::new(-30.0, -40.0)), Err(Vec2::new(-0.1, 0.9)));
     }
 
-     #[test]
+    #[test]
     fn compute_pixel_space_point_for_sprite_with_anchor_bottom_left() {
         let mut image_assets = Assets::<Image>::default();
         let texture_atlas_assets = Assets::<TextureAtlasLayout>::default();
@@ -586,5 +585,4 @@ mod tests {
         // The pixel is outside the texture atlas, but is still a valid pixel in the image.
         assert_eq!(compute(Vec2::new(0.0, 35.0)), Err(Vec2::new(0.0, -35.0)));
     }
-
 }

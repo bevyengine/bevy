@@ -20,9 +20,7 @@ mod tilemap_chunk;
 /// This includes the most common types in this crate, re-exported for your convenience.
 pub mod prelude {
     #[doc(hidden)]
-    pub use crate::{
-        ColorMaterial, MeshMaterial2d,
-    };
+    pub use crate::{ColorMaterial, MeshMaterial2d};
 }
 
 use bevy_camera::{
@@ -42,7 +40,9 @@ use bevy_ecs::prelude::*;
 use bevy_image::{prelude::*, TextureAtlasPlugin};
 use bevy_mesh::{Mesh, Mesh2d};
 use bevy_render::{
-    batching::sort_binned_render_phase, render_phase::AddRenderCommand, render_resource::SpecializedRenderPipelines, sync_world::SyncToRenderWorld, ExtractSchedule, Render, RenderApp, RenderStartup, RenderSystems
+    batching::sort_binned_render_phase, render_phase::AddRenderCommand,
+    render_resource::SpecializedRenderPipelines, sync_world::SyncToRenderWorld, ExtractSchedule,
+    Render, RenderApp, RenderStartup, RenderSystems,
 };
 use bevy_sprite::{Anchor, Sprite};
 

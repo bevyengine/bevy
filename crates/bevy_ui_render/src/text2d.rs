@@ -1,6 +1,3 @@
-use bevy_text::{
-    ComputedTextBlock, PositionedGlyph, Text2dShadow, TextBounds, TextColor, TextLayoutInfo
-};
 use bevy_asset::Assets;
 use bevy_camera::visibility::ViewVisibility;
 use bevy_color::LinearRgba;
@@ -10,11 +7,14 @@ use bevy_ecs::{
     system::{Commands, Query, Res, ResMut},
 };
 use bevy_image::prelude::*;
-use bevy_math::{Vec2};
+use bevy_math::Vec2;
 use bevy_render::sync_world::TemporaryRenderEntity;
 use bevy_render::Extract;
 use bevy_sprite::Anchor;
 use bevy_sprite_render::{ExtractedSlice, ExtractedSlices, ExtractedSprite, ExtractedSprites};
+use bevy_text::{
+    ComputedTextBlock, PositionedGlyph, Text2dShadow, TextBounds, TextColor, TextLayoutInfo,
+};
 use bevy_transform::prelude::GlobalTransform;
 use bevy_window::{PrimaryWindow, Window};
 
@@ -23,7 +23,7 @@ use bevy_window::{PrimaryWindow, Window};
 pub fn extract_text2d_sprite(
     mut commands: Commands,
     mut extracted_sprites: ResMut<ExtractedSprites>,
-    mut extracted_slices: ResMut<ExtractedSlices>
+    mut extracted_slices: ResMut<ExtractedSlices>,
     texture_atlases: Extract<Res<Assets<TextureAtlasLayout>>>,
     windows: Extract<Query<&Window, With<PrimaryWindow>>>,
     text2d_query: Extract<

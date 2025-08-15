@@ -55,7 +55,9 @@ impl Plugin for LineGizmo2dPlugin {
                     .in_set(RenderSystems::Queue)
                     .ambiguous_with(bevy_sprite_render::queue_sprites)
                     .ambiguous_with(
-                        bevy_sprite_render::queue_material2d_meshes::<bevy_sprite_render::ColorMaterial>,
+                        bevy_sprite_render::queue_material2d_meshes::<
+                            bevy_sprite_render::ColorMaterial,
+                        >,
                     ),
             )
             .add_systems(
