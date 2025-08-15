@@ -276,6 +276,7 @@ fn sample_local_inscattering(local_atmosphere: AtmosphereSample, ray_dir: vec3<f
 }
 
 fn sample_sun_radiance(ray_dir_ws: vec3<f32>) -> vec3<f32> {
+    // TODO: pitched cameras?
     let r = view_radius();
     let mu_view = ray_dir_ws.y;
     let shadow_factor = f32(!ray_intersects_ground(r, mu_view));
@@ -284,11 +285,11 @@ fn sample_sun_radiance(ray_dir_ws: vec3<f32>) -> vec3<f32> {
         let light = &lights.directional_lights[light_i];
         let neg_LdotV = dot((*light).direction_to_light, ray_dir_ws);
         let angle_to_sun = fast_acos(clamp(neg_LdotV, -1.0, 1.0));
-        let pixel_size = fwidth(angle_to_sun);
+        let pixel_size = max(fwidth(angle_to_sun), 1e-6);
         let sun_angular_size = (*light).angular_size;
         let sun_intensity = (*light).intensity;
         if sun_angular_size > 0.0 && sun_intensity > 0.0 {
-            let factor = smoothstep(0.0, pixel_size * ROOT_2, sun_angular_size * 0.5 - angle_to_sun);
+            let factor = 1 - smoothstep(sun_angular_size * 0.5 - pixel_size, sun_angular_size * 0.5 + pixel_size, angle_to_sun);
             let sun_solid_angle = (sun_angular_size * sun_angular_size) * 0.25 * FRAC_PI;
             sun_radiance += ((*light).color.rgb / sun_solid_angle) * sun_intensity * factor * shadow_factor;
         }
