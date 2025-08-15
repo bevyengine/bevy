@@ -13,6 +13,7 @@ use core::pin::Pin;
 use core::sync::atomic::{AtomicBool, AtomicPtr, Ordering};
 use core::task::{Context, Poll, Waker};
 use core::cell::UnsafeCell;
+use core::mem;
 use std::thread::{AccessError, ThreadId};
 
 use alloc::collections::VecDeque;
@@ -259,6 +260,8 @@ impl<'a> Executor<'a> {
             try_with_local_queue(|tls| {
                 let entry = tls.local_active.vacant_entry();
                 let index = entry.key();
+                let builder = Builder::new().propagate_panic(true);
+
                 // SAFETY: There are no instances where the value is accessed mutably
                 // from multiple locations simultaneously. This AsyncCallOnDrop will be
                 // invoked after the surrounding scope has exited in either a
@@ -266,6 +269,14 @@ impl<'a> Executor<'a> {
                 let future = AsyncCallOnDrop::new(future, move || {
                     try_with_local_queue(|tls| drop(tls.local_active.try_remove(index))).ok();
                 });
+
+                // This is a critical section which will result in UB by aliasing active
+                // if the AsyncCallOnDrop is called while still in this function.
+                //
+                // To avoid this, this guard will abort the process if it does
+                // panic. Rust's drop order will ensure that this will run before
+                // executor, and thus before the above AsyncCallOnDrop is dropped.
+                let _panic_guard = AbortOnPanic;
 
                 // Create the task and register it in the set of active tasks.
                 //
@@ -280,10 +291,11 @@ impl<'a> Executor<'a> {
                 //   must not leave the current thread of execution, and it does not
                 //   all of them are bound vy use of thread-local storage.
                 // - `self.schedule_local()` is `'static`, as checked below.
-                let (runnable, task) = Builder::new()
-                    .propagate_panic(true)
+                let (runnable, task) = builder
                     .spawn_unchecked(|()| future, self.schedule_local());
                 entry.insert(runnable.waker());
+
+                mem::forget(_panic_guard);
 
                 (runnable, task)
             }).unwrap()
@@ -997,6 +1009,15 @@ fn debug_state(state: &State, name: &str, f: &mut fmt::Formatter<'_>) -> fmt::Re
         .field("stealer_queues", &LocalRunners(&state.stealer_queues))
         .field("sleepers", &SleepCount(&state.sleepers))
         .finish()
+}
+
+struct AbortOnPanic;
+
+impl Drop for AbortOnPanic {
+    fn drop(&mut self) {
+        // Panicking while unwinding will force an abort.
+        panic!("Aborting due to allocator error");
+    }
 }
 
 /// Runs a closure when dropped.
