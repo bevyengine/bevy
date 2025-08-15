@@ -78,7 +78,7 @@ impl App {
                             text.pop();
                         }
                         KeyCode::Enter => {
-                            if text != "" {
+                            if !text.is_empty() {
                                 if let Some(index) = mode_state.selected() {
                                     mode_entries.insert(
                                         index,
