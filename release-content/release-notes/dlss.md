@@ -1,7 +1,7 @@
 ---
 title: Deep Learning Super Sampling (DLSS)
-authors: ["@JMS55"]
-pull_requests: [19817, 19864]
+authors: ["@JMS55", "@cart"]
+pull_requests: [19864, 19817, 20565]
 ---
 
 For users with NVIDIA RTX GPUs, Bevy now offers yet another form of anti-aliasing: DLSS.
