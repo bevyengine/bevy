@@ -1192,9 +1192,9 @@ mod test {
             let (stop_timeout, stopper) = async_channel::bounded::<()>(1);
             std::thread::spawn(move || {
                 future::block_on(async move {
+                    #[expect(clippy::print_stderr, reason = "Explicitly used to warn about timed out tests")]
                     let timeout = async {
                         async_io::Timer::after(Duration::from_secs(2 * 60)).await;
-                        #[expect(clippy::print_stderr, reason = "Explicitly used to warn about timed out tests")]
                         std::eprintln!("test timed out after 2m");
                         std::process::exit(1)
                     };
