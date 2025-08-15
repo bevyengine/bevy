@@ -148,6 +148,7 @@ fn load_temporal_reservoir(pixel_id: vec2<u32>, depth: f32, world_position: vec3
         let temporal_pixel_index = temporal_pixel_id.x + temporal_pixel_id.y * u32(view.main_pass_viewport.z);
         var temporal_reservoir = gi_reservoirs_a[temporal_pixel_index];
 
+        // https://graphics.cs.utah.edu/research/projects/gris/sig22_GRIS.pdf#subsection.7.5
         if distance(world_position, temporal_reservoir.sample_point_world_position) < MINIMUM_RECONNECTION_DISTANCE {
             continue;
         }
@@ -185,6 +186,7 @@ fn load_spatial_reservoir(pixel_id: vec2<u32>, depth: f32, world_position: vec3<
     let spatial_pixel_index = spatial_pixel_id.x + spatial_pixel_id.y * u32(view.main_pass_viewport.z);
     var spatial_reservoir = gi_reservoirs_b[spatial_pixel_index];
 
+    // https://graphics.cs.utah.edu/research/projects/gris/sig22_GRIS.pdf#subsection.7.5
     if distance(world_position, spatial_reservoir.sample_point_world_position) < MINIMUM_RECONNECTION_DISTANCE {
         return NeighborInfo(empty_reservoir(), spatial_world_position, spatial_world_normal, spatial_diffuse_brdf);
     }
