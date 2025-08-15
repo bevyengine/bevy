@@ -2,6 +2,8 @@
 
 #[cfg(feature = "ghost_nodes")]
 use crate::ui_node::ComputedUiTargetCamera;
+#[cfg(not(feature = "ghost_nodes"))]
+use crate::Decoration;
 use crate::Node;
 #[cfg(feature = "ghost_nodes")]
 use bevy_camera::visibility::Visibility;
@@ -37,7 +39,8 @@ pub struct UiRootNodes<'w, 's> {
 }
 
 #[cfg(not(feature = "ghost_nodes"))]
-pub type UiRootNodes<'w, 's> = Query<'w, 's, Entity, (With<Node>, Without<ChildOf>)>;
+pub type UiRootNodes<'w, 's> =
+    Query<'w, 's, Entity, (Or<(With<Node>, With<Decoration>)>, Without<ChildOf>)>;
 
 #[cfg(feature = "ghost_nodes")]
 impl<'w, 's> UiRootNodes<'w, 's> {
@@ -59,7 +62,7 @@ pub struct UiChildren<'w, 's> {
         'w,
         's,
         (Option<&'static Children>, Has<GhostNode>),
-        Or<(With<Node>, With<GhostNode>)>,
+        Or<(With<Node>, With<Decoration>, With<GhostNode>)>,
     >,
     changed_children_query: Query<'w, 's, Entity, Changed<Children>>,
     children_query: Query<'w, 's, &'static Children>,
@@ -71,7 +74,7 @@ pub struct UiChildren<'w, 's> {
 /// System param that gives access to UI children utilities.
 #[derive(SystemParam)]
 pub struct UiChildren<'w, 's> {
-    ui_children_query: Query<'w, 's, Option<&'static Children>, With<Node>>,
+    ui_children_query: Query<'w, 's, Option<&'static Children>, Or<(With<Node>, With<Decoration>)>>,
     changed_children_query: Query<'w, 's, Entity, Changed<Children>>,
     parents_query: Query<'w, 's, &'static ChildOf>,
 }
@@ -171,7 +174,7 @@ pub struct UiChildrenIter<'w, 's> {
         'w,
         's,
         (Option<&'static Children>, Has<GhostNode>),
-        Or<(With<Node>, With<GhostNode>)>,
+        Or<(With<Node>, With<Decoration>, With<GhostNode>)>,
     >,
 }
 

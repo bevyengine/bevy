@@ -28,6 +28,7 @@ struct AnimatedText;
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     // UI camera
     commands.spawn(Camera2d);
+
     // Text with one section
     commands.spawn((
         // Accepts a `String` or any type that converts into a `String`, such as `&str`
@@ -49,6 +50,32 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             ..default()
         },
         AnimatedText,
+        children![(
+            Decoration::default(),
+            Outline {
+                width: px(2.),
+                offset: px(2.),
+                color: Color::WHITE
+            },
+        )],
+    ));
+
+    // Text Decoration
+    commands.spawn((
+        Text::new("Decoration"),
+        TextFont {
+            // This font is loaded and will be used instead of the default font.
+            font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+            font_size: 67.0,
+            ..default()
+        },
+        TextShadow::default(),
+        Decoration::default(),
+        UiTransform {
+            translation: Val2::new(vw(25.), vh(25.)),
+            rotation: Rot2::degrees(-30.),
+            ..Default::default()
+        },
     ));
 
     // Text with multiple sections

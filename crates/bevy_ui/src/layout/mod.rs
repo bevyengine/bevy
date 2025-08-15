@@ -1,15 +1,15 @@
 use crate::{
     experimental::{UiChildren, UiRootNodes},
     ui_transform::{UiGlobalTransform, UiTransform},
-    BorderRadius, ComputedNode, ComputedUiTargetCamera, ContentSize, Display, LayoutConfig, Node,
-    Outline, OverflowAxis, ScrollPosition,
+    BorderRadius, ComputedNode, ComputedUiTargetCamera, ContentSize, Decoration, Display,
+    LayoutConfig, Node, Outline, OverflowAxis, ScrollPosition,
 };
 use bevy_ecs::{
     change_detection::{DetectChanges, DetectChangesMut},
     entity::Entity,
     hierarchy::Children,
     lifecycle::RemovedComponents,
-    query::Added,
+    query::{Added, AnyOf},
     system::{Query, ResMut},
     world::Ref,
 };
@@ -84,7 +84,7 @@ pub fn ui_layout_system(
         &mut ComputedNode,
         &UiTransform,
         &mut UiGlobalTransform,
-        &Node,
+        AnyOf<(&Node, &Decoration)>,
         Option<&LayoutConfig>,
         Option<&BorderRadius>,
         Option<&Outline>,
@@ -172,6 +172,7 @@ pub fn ui_layout_system(
 
         update_uinode_geometry_recursive(
             ui_root_entity,
+            Entity::PLACEHOLDER,
             &mut ui_surface,
             true,
             computed_target.physical_size().as_vec2(),
@@ -187,6 +188,7 @@ pub fn ui_layout_system(
     // Returns the combined bounding box of the node and any of its overflowing children.
     fn update_uinode_geometry_recursive(
         entity: Entity,
+        parent: Entity,
         ui_surface: &mut UiSurface,
         inherited_use_rounding: bool,
         target_size: Vec2,
@@ -195,7 +197,7 @@ pub fn ui_layout_system(
             &mut ComputedNode,
             &UiTransform,
             &mut UiGlobalTransform,
-            &Node,
+            AnyOf<(&Node, &Decoration)>,
             Option<&LayoutConfig>,
             Option<&BorderRadius>,
             Option<&Outline>,
@@ -210,13 +212,36 @@ pub fn ui_layout_system(
             mut node,
             transform,
             mut global_transform,
-            style,
+            (style, _),
             maybe_layout_config,
             maybe_border_radius,
             maybe_outline,
             maybe_scroll_position,
         )) = node_update_query.get_mut(entity)
         {
+            let Some(style) = style else {
+                let Ok((parent_node, _, _, (Some(parent_style), None), ..)) =
+                    node_update_query.get(parent)
+                else {
+                    return;
+                };
+
+                let parent_style = parent_style.clone();
+                return update_decoration_geometry_recursive(
+                    entity,
+                    ui_surface,
+                    inherited_use_rounding,
+                    target_size,
+                    inherited_transform,
+                    node_update_query,
+                    ui_children,
+                    inverse_target_scale_factor,
+                    parent_size,
+                    parent_node.clone(),
+                    &parent_style,
+                );
+            };
+
             let use_rounding = maybe_layout_config
                 .map(|layout_config| layout_config.use_rounding)
                 .unwrap_or(inherited_use_rounding);
@@ -335,6 +360,7 @@ pub fn ui_layout_system(
             for child_uinode in ui_children.iter_ui_children(entity) {
                 update_uinode_geometry_recursive(
                     child_uinode,
+                    entity,
                     ui_surface,
                     use_rounding,
                     target_size,
@@ -344,6 +370,168 @@ pub fn ui_layout_system(
                     inverse_target_scale_factor,
                     layout_size,
                     physical_scroll_position,
+                );
+            }
+        }
+    }
+
+    fn update_decoration_geometry_recursive(
+        entity: Entity,
+        ui_surface: &mut UiSurface,
+        inherited_use_rounding: bool,
+        target_size: Vec2,
+        mut inherited_transform: Affine2,
+        node_update_query: &mut Query<(
+            &mut ComputedNode,
+            &UiTransform,
+            &mut UiGlobalTransform,
+            AnyOf<(&Node, &Decoration)>,
+            Option<&LayoutConfig>,
+            Option<&BorderRadius>,
+            Option<&Outline>,
+            Option<&ScrollPosition>,
+        )>,
+        ui_children: &UiChildren,
+        inverse_target_scale_factor: f32,
+        parent_size: Vec2,
+        mut inherited_computed_node: ComputedNode,
+        style: &Node,
+    ) {
+        if let Ok((
+            mut node,
+            transform,
+            mut global_transform,
+            (None, Some(decoration)),
+            _,
+            maybe_border_radius,
+            maybe_outline,
+            maybe_scroll_position,
+        )) = node_update_query.get_mut(entity)
+        {
+            let scale_factor = inverse_target_scale_factor.recip();
+            inherited_computed_node.size.x = decoration
+                .width
+                .resolve(scale_factor, parent_size.x, target_size)
+                .unwrap_or(parent_size.x);
+            inherited_computed_node.size.y = decoration
+                .width
+                .resolve(scale_factor, parent_size.y, target_size)
+                .unwrap_or(parent_size.y);
+
+            inherited_computed_node.border = BorderRect {
+                left: decoration
+                    .border
+                    .left
+                    .resolve(scale_factor, parent_size.x, target_size)
+                    .unwrap_or(inherited_computed_node.border.left),
+                right: decoration
+                    .border
+                    .right
+                    .resolve(scale_factor, parent_size.x, target_size)
+                    .unwrap_or(inherited_computed_node.border.right),
+                top: decoration
+                    .border
+                    .top
+                    .resolve(scale_factor, parent_size.x, target_size)
+                    .unwrap_or(inherited_computed_node.border.top),
+                bottom: decoration
+                    .border
+                    .bottom
+                    .resolve(scale_factor, parent_size.x, target_size)
+                    .unwrap_or(inherited_computed_node.border.bottom),
+            };
+
+            // only trigger change detection when the new values are different
+            if *node != inherited_computed_node {
+                *node = inherited_computed_node;
+            }
+
+            // Computer the node's new global transform
+            let local_transform =
+                transform.compute_affine(inverse_target_scale_factor, node.size, target_size);
+
+            inherited_transform *= local_transform;
+
+            if inherited_transform != **global_transform {
+                *global_transform = inherited_transform.into();
+            }
+
+            if let Some(border_radius) = maybe_border_radius {
+                // We don't trigger change detection for changes to border radius
+                node.bypass_change_detection().border_radius = border_radius.resolve(
+                    inverse_target_scale_factor.recip(),
+                    node.size,
+                    target_size,
+                );
+            }
+
+            if let Some(outline) = maybe_outline {
+                // don't trigger change detection when only outlines are changed
+                let node = node.bypass_change_detection();
+                node.outline_width = if style.display != Display::None {
+                    outline
+                        .width
+                        .resolve(
+                            inverse_target_scale_factor.recip(),
+                            node.size().x,
+                            target_size,
+                        )
+                        .unwrap_or(0.)
+                        .max(0.)
+                } else {
+                    0.
+                };
+
+                node.outline_offset = outline
+                    .offset
+                    .resolve(
+                        inverse_target_scale_factor.recip(),
+                        node.size().x,
+                        target_size,
+                    )
+                    .unwrap_or(0.)
+                    .max(0.);
+            }
+
+            let scroll_position: Vec2 = maybe_scroll_position
+                .map(|scroll_pos| {
+                    Vec2::new(
+                        if style.overflow.x == OverflowAxis::Scroll {
+                            scroll_pos.x * inverse_target_scale_factor.recip()
+                        } else {
+                            0.0
+                        },
+                        if style.overflow.y == OverflowAxis::Scroll {
+                            scroll_pos.y * inverse_target_scale_factor.recip()
+                        } else {
+                            0.0
+                        },
+                    )
+                })
+                .unwrap_or_default();
+
+            let max_possible_offset =
+                (node.content_size - node.size + node.scrollbar_size).max(Vec2::ZERO);
+            let clamped_scroll_position = scroll_position.clamp(Vec2::ZERO, max_possible_offset);
+
+            let physical_scroll_position = clamped_scroll_position.floor();
+
+            node.bypass_change_detection().scroll_position = physical_scroll_position;
+
+            let node = node.clone();
+            for child_uinode in ui_children.iter_ui_children(entity) {
+                update_decoration_geometry_recursive(
+                    child_uinode,
+                    ui_surface,
+                    inherited_use_rounding,
+                    target_size,
+                    inherited_transform,
+                    node_update_query,
+                    ui_children,
+                    inverse_target_scale_factor,
+                    parent_size,
+                    node,
+                    style,
                 );
             }
         }

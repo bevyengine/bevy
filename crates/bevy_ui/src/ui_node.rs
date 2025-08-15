@@ -732,6 +732,34 @@ impl Default for Node {
     }
 }
 
+/// Component that represents visual UI nodes that don't occupy space in the layout.
+#[derive(Default, Component, Clone, PartialEq, Debug, Reflect)]
+#[require(
+    ComputedNode,
+    ComputedUiTargetCamera,
+    UiTransform,
+    BackgroundColor,
+    BorderColor,
+    BorderRadius,
+    FocusPolicy,
+    ScrollPosition,
+    Visibility,
+    ZIndex
+)]
+#[reflect(Component, Default, PartialEq, Debug, Clone)]
+#[cfg_attr(
+    feature = "serialize",
+    derive(serde::Serialize, serde::Deserialize),
+    reflect(Serialize, Deserialize)
+)]
+pub struct Decoration {
+    pub width: Val,
+    /// Logical height
+    pub height: Val,
+    /// Border
+    pub border: UiRect,
+}
+
 /// Used to control how each individual item is aligned by default within the space they're given.
 /// - For Flexbox containers, sets default cross axis alignment of the child items.
 /// - For CSS Grid containers, controls block (vertical) axis alignment of children of this grid container within their grid areas.
