@@ -78,7 +78,9 @@ impl App {
                             text.pop();
                         }
                         KeyCode::Enter => {
-                            if text != "" {
+                            if !text.is_empty()
+                                && let Some(index) = mode_state.selected()
+
                                 if let Some(index) = mode_state.selected() {
                                     mode_entries.insert(
                                         index,
@@ -312,7 +314,7 @@ fn load_content(dir: path::PathBuf, kind: &'static str) -> Result<Vec<Entry>> {
             continue;
         }
 
-        let file_content = fs::read_to_string(&dir_entry.path())
+        let file_content = fs::read_to_string(dir_entry.path())
             .into_diagnostic()
             .wrap_err(format!("unable to read {} file", kind))?;
 
