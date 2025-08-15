@@ -283,12 +283,12 @@ fn sample_sun_radiance(ray_dir_ws: vec3<f32>) -> vec3<f32> {
     for (var light_i: u32 = 0u; light_i < lights.n_directional_lights; light_i++) {
         let light = &lights.directional_lights[light_i];
         let neg_LdotV = dot((*light).direction_to_light, ray_dir_ws);
-        let angle_to_sun = fast_acos(neg_LdotV);
+        let angle_to_sun = fast_acos(clamp(neg_LdotV, -1.0, 1.0));
         let pixel_size = fwidth(angle_to_sun);
         let sun_angular_size = (*light).angular_size;
         let sun_intensity = (*light).intensity;
         if sun_angular_size > 0.0 && sun_intensity > 0.0 {
-            let factor = smoothstep(0.0, -pixel_size * ROOT_2, angle_to_sun - sun_angular_size);
+            let factor = smoothstep(0.0, pixel_size * ROOT_2, sun_angular_size * 0.5 - angle_to_sun);
             let sun_solid_angle = (sun_angular_size * sun_angular_size) * 0.25 * FRAC_PI;
             sun_radiance += ((*light).color.rgb / sun_solid_angle) * sun_intensity * factor * shadow_factor;
         }
