@@ -245,7 +245,7 @@ pub fn update_directional_light_frusta(
 #[derive(Component, Clone)]
 #[require(DirectionalLight)]
 pub struct SunLight {
-    /// The angular size of the sun disk in radians as observed from Earth.
+    /// The angular size (diameter) of the sun disk in radians as observed from Earth.
     pub angular_size: f32,
     /// Multiplier applied to the brightness of the sun disk in the sky.
     ///

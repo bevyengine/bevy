@@ -276,7 +276,6 @@ fn sample_local_inscattering(local_atmosphere: AtmosphereSample, ray_dir: vec3<f
 }
 
 fn sample_sun_radiance(ray_dir_ws: vec3<f32>) -> vec3<f32> {
-    // TODO: pitched cameras?
     let r = view_radius();
     let mu_view = ray_dir_ws.y;
     let shadow_factor = f32(!ray_intersects_ground(r, mu_view));
