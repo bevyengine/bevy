@@ -10,11 +10,13 @@ pub mod android;
 pub mod embedded;
 #[cfg(not(target_arch = "wasm32"))]
 pub mod file;
-pub mod gated;
 pub mod memory;
 pub mod processor_gated;
 #[cfg(target_arch = "wasm32")]
 pub mod wasm;
+
+#[cfg(test)]
+pub mod gated;
 
 mod source;
 

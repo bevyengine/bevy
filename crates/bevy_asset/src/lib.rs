@@ -422,8 +422,7 @@ impl Plugin for AssetPlugin {
             // and as a result has ambiguous system ordering with all other systems in `PreUpdate`.
             // This is virtually never a real problem: asset loading is async and so anything that interacts directly with it
             // needs to be robust to stochastic delays anyways.
-            .add_systems(PreUpdate, handle_internal_asset_events.ambiguous_with_all())
-            .register_type::<AssetPath>();
+            .add_systems(PreUpdate, handle_internal_asset_events.ambiguous_with_all());
     }
 }
 
@@ -677,7 +676,7 @@ mod tests {
         },
         loader::{AssetLoader, LoadContext},
         Asset, AssetApp, AssetEvent, AssetId, AssetLoadError, AssetLoadFailedEvent, AssetPath,
-        AssetPlugin, AssetServer, Assets, LoadState, UnapprovedPathMode,
+        AssetPlugin, AssetServer, Assets, InvalidGenerationError, LoadState, UnapprovedPathMode,
     };
     use alloc::{
         boxed::Box,
@@ -894,10 +893,6 @@ mod tests {
 
     #[test]
     fn load_dependencies() {
-        // The particular usage of GatedReader in this test will cause deadlocking if running single-threaded
-        #[cfg(not(feature = "multi_threaded"))]
-        panic!("This test requires the \"multi_threaded\" feature, otherwise it will deadlock.\ncargo test --package bevy_asset --features multi_threaded");
-
         let dir = Dir::default();
 
         let a_path = "a.cool.ron";
@@ -1202,10 +1197,6 @@ mod tests {
 
     #[test]
     fn failure_load_states() {
-        // The particular usage of GatedReader in this test will cause deadlocking if running single-threaded
-        #[cfg(not(feature = "multi_threaded"))]
-        panic!("This test requires the \"multi_threaded\" feature, otherwise it will deadlock.\ncargo test --package bevy_asset --features multi_threaded");
-
         let dir = Dir::default();
 
         let a_path = "a.cool.ron";
@@ -1335,10 +1326,6 @@ mod tests {
 
     #[test]
     fn dependency_load_states() {
-        // The particular usage of GatedReader in this test will cause deadlocking if running single-threaded
-        #[cfg(not(feature = "multi_threaded"))]
-        panic!("This test requires the \"multi_threaded\" feature, otherwise it will deadlock.\ncargo test --package bevy_asset --features multi_threaded");
-
         let a_path = "a.cool.ron";
         let a_ron = r#"
 (
@@ -1474,10 +1461,6 @@ mod tests {
 
     #[test]
     fn manual_asset_management() {
-        // The particular usage of GatedReader in this test will cause deadlocking if running single-threaded
-        #[cfg(not(feature = "multi_threaded"))]
-        panic!("This test requires the \"multi_threaded\" feature, otherwise it will deadlock.\ncargo test --package bevy_asset --features multi_threaded");
-
         let dir = Dir::default();
         let dep_path = "dep.cool.ron";
 
@@ -1575,10 +1558,6 @@ mod tests {
 
     #[test]
     fn load_folder() {
-        // The particular usage of GatedReader in this test will cause deadlocking if running single-threaded
-        #[cfg(not(feature = "multi_threaded"))]
-        panic!("This test requires the \"multi_threaded\" feature, otherwise it will deadlock.\ncargo test --package bevy_asset --features multi_threaded");
-
         let dir = Dir::default();
 
         let a_path = "text/a.cool.ron";
@@ -1630,37 +1609,37 @@ mod tests {
             let loaded_folders = world.resource::<Assets<LoadedFolder>>();
             let cool_texts = world.resource::<Assets<CoolText>>();
             for event in reader.read(events) {
-                if let AssetEvent::LoadedWithDependencies { id } = event {
-                    if *id == handle.id() {
-                        let loaded_folder = loaded_folders.get(&handle).unwrap();
-                        let a_handle: Handle<CoolText> =
-                            asset_server.get_handle("text/a.cool.ron").unwrap();
-                        let c_handle: Handle<CoolText> =
-                            asset_server.get_handle("text/c.cool.ron").unwrap();
+                if let AssetEvent::LoadedWithDependencies { id } = event
+                    && *id == handle.id()
+                {
+                    let loaded_folder = loaded_folders.get(&handle).unwrap();
+                    let a_handle: Handle<CoolText> =
+                        asset_server.get_handle("text/a.cool.ron").unwrap();
+                    let c_handle: Handle<CoolText> =
+                        asset_server.get_handle("text/c.cool.ron").unwrap();
 
-                        let mut found_a = false;
-                        let mut found_c = false;
-                        for asset_handle in &loaded_folder.handles {
-                            if asset_handle.id() == a_handle.id().untyped() {
-                                found_a = true;
-                            } else if asset_handle.id() == c_handle.id().untyped() {
-                                found_c = true;
-                            }
+                    let mut found_a = false;
+                    let mut found_c = false;
+                    for asset_handle in &loaded_folder.handles {
+                        if asset_handle.id() == a_handle.id().untyped() {
+                            found_a = true;
+                        } else if asset_handle.id() == c_handle.id().untyped() {
+                            found_c = true;
                         }
-                        assert!(found_a);
-                        assert!(found_c);
-                        assert_eq!(loaded_folder.handles.len(), 2);
-
-                        let a_text = cool_texts.get(&a_handle).unwrap();
-                        let b_text = cool_texts.get(&a_text.dependencies[0]).unwrap();
-                        let c_text = cool_texts.get(&c_handle).unwrap();
-
-                        assert_eq!("a", a_text.text);
-                        assert_eq!("b", b_text.text);
-                        assert_eq!("c", c_text.text);
-
-                        return Some(());
                     }
+                    assert!(found_a);
+                    assert!(found_c);
+                    assert_eq!(loaded_folder.handles.len(), 2);
+
+                    let a_text = cool_texts.get(&a_handle).unwrap();
+                    let b_text = cool_texts.get(&a_text.dependencies[0]).unwrap();
+                    let c_text = cool_texts.get(&c_handle).unwrap();
+
+                    assert_eq!("a", a_text.text);
+                    assert_eq!("b", b_text.text);
+                    assert_eq!("c", c_text.text);
+
+                    return Some(());
                 }
             }
             None
@@ -2087,5 +2066,35 @@ mod tests {
 
             Some(())
         });
+    }
+
+    #[test]
+    fn insert_dropped_handle_returns_error() {
+        let mut app = App::new();
+
+        app.add_plugins((TaskPoolPlugin::default(), AssetPlugin::default()))
+            .init_asset::<TestAsset>();
+
+        let handle = app.world().resource::<Assets<TestAsset>>().reserve_handle();
+        // We still have the asset ID, but we've dropped the handle so the asset is no longer live.
+        let asset_id = handle.id();
+        drop(handle);
+
+        // Allow `Assets` to detect the dropped handle.
+        app.world_mut()
+            .run_system_cached(Assets::<TestAsset>::track_assets)
+            .unwrap();
+
+        let AssetId::Index { index, .. } = asset_id else {
+            unreachable!("Reserving a handle always produces an index");
+        };
+
+        // Try to insert an asset into the dropped handle's spot. This should not panic.
+        assert_eq!(
+            app.world_mut()
+                .resource_mut::<Assets<TestAsset>>()
+                .insert(asset_id, TestAsset),
+            Err(InvalidGenerationError::Removed { index })
+        );
     }
 }

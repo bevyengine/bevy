@@ -17,6 +17,13 @@ default = []
 documentation = []
 # Enables macro logic related to function reflection
 functions = []
+# Enables automatic reflect registration. Does nothing by itself, 
+# must select `auto_register_inventory` or `auto_register_static` to make it work.
+auto_register = []
+# Enables automatic reflection using inventory. Not supported on all platforms.
+auto_register_inventory = ["auto_register"]
+# Enables automatic reflection on platforms not supported by inventory. See `load_type_registrations` for more info.
+auto_register_static = ["auto_register", "dep:uuid"]
 
 [dependencies]
 bevy_macro_utils = { path = "../../bevy_macro_utils", version = "0.17.0-dev" }
@@ -24,6 +31,9 @@ indexmap = "2.0"
 proc-macro2 = "1.0"
 quote = "1.0"
 syn = { version = "2.0", features = ["full", "extra-traits"] }
+uuid = { version = "1.13.1", default-features = false, features = [
+  "v4",
+], optional = true }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 # TODO: Assuming all wasm builds are for the browser. Require `no_std` support to break assumption.

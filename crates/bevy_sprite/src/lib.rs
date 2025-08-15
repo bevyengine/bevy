@@ -35,6 +35,11 @@ pub mod prelude {
     };
 }
 
+use bevy_camera::{
+    primitives::{Aabb, MeshAabb as _},
+    visibility::{NoFrustumCulling, VisibilitySystems},
+};
+use bevy_shader::load_shader_library;
 pub use mesh2d::*;
 #[cfg(feature = "bevy_sprite_picking_backend")]
 pub use picking_backend::*;
@@ -48,15 +53,11 @@ use bevy_asset::{embedded_asset, AssetEventSystems, Assets};
 use bevy_core_pipeline::core_2d::{AlphaMask2d, Opaque2d, Transparent2d};
 use bevy_ecs::prelude::*;
 use bevy_image::{prelude::*, TextureAtlasPlugin};
+use bevy_mesh::{Mesh, Mesh2d};
 use bevy_render::{
-    batching::sort_binned_render_phase,
-    load_shader_library,
-    mesh::{Mesh, Mesh2d},
-    primitives::{Aabb, MeshAabb},
-    render_phase::AddRenderCommand,
-    render_resource::SpecializedRenderPipelines,
-    view::{NoFrustumCulling, VisibilitySystems},
-    ExtractSchedule, Render, RenderApp, RenderStartup, RenderSystems,
+    batching::sort_binned_render_phase, render_phase::AddRenderCommand,
+    render_resource::SpecializedRenderPipelines, ExtractSchedule, Render, RenderApp, RenderStartup,
+    RenderSystems,
 };
 
 /// Adds support for 2D sprite rendering.
@@ -84,28 +85,23 @@ impl Plugin for SpritePlugin {
             app.add_plugins(TextureAtlasPlugin);
         }
 
-        app.register_type::<Sprite>()
-            .register_type::<SpriteImageMode>()
-            .register_type::<TextureSlicer>()
-            .register_type::<Anchor>()
-            .register_type::<Mesh2d>()
-            .add_plugins((
-                Mesh2dRenderPlugin,
-                ColorMaterialPlugin,
-                TilemapChunkPlugin,
-                TilemapChunkMaterialPlugin,
-            ))
-            .add_systems(
-                PostUpdate,
+        app.add_plugins((
+            Mesh2dRenderPlugin,
+            ColorMaterialPlugin,
+            TilemapChunkPlugin,
+            TilemapChunkMaterialPlugin,
+        ))
+        .add_systems(
+            PostUpdate,
+            (
+                calculate_bounds_2d.in_set(VisibilitySystems::CalculateBounds),
                 (
-                    calculate_bounds_2d.in_set(VisibilitySystems::CalculateBounds),
-                    (
-                        compute_slices_on_asset_event.before(AssetEventSystems),
-                        compute_slices_on_sprite_change,
-                    )
-                        .in_set(SpriteSystems::ComputeSlices),
-                ),
-            );
+                    compute_slices_on_asset_event.before(AssetEventSystems),
+                    compute_slices_on_sprite_change,
+                )
+                    .in_set(SpriteSystems::ComputeSlices),
+            ),
+        );
 
         #[cfg(feature = "bevy_sprite_picking_backend")]
         app.add_plugins(SpritePickingPlugin);
@@ -165,10 +161,10 @@ pub fn calculate_bounds_2d(
     >,
 ) {
     for (entity, mesh_handle) in &meshes_without_aabb {
-        if let Some(mesh) = meshes.get(&mesh_handle.0) {
-            if let Some(aabb) = mesh.compute_aabb() {
-                commands.entity(entity).try_insert(aabb);
-            }
+        if let Some(mesh) = meshes.get(&mesh_handle.0)
+            && let Some(aabb) = mesh.compute_aabb()
+        {
+            commands.entity(entity).try_insert(aabb);
         }
     }
     for (entity, sprite, anchor) in &sprites_to_recalculate_aabb {

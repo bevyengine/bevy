@@ -272,7 +272,7 @@ fn sample_local_inscattering(local_atmosphere: AtmosphereSample, ray_dir: vec3<f
 
         inscattering += (*light).color.rgb * (scattering_factor + multiscattering_factor);
     }
-    return inscattering * view.exposure;
+    return inscattering;
 }
 
 fn sample_sun_radiance(ray_dir_ws: vec3<f32>) -> vec3<f32> {

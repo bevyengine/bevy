@@ -27,6 +27,7 @@ bevy_reflect = ["dep:bevy_reflect"]
 
 ## Extends reflection support to functions.
 reflect_functions = ["bevy_reflect", "bevy_reflect/functions"]
+reflect_auto_register = ["bevy_reflect", "bevy_reflect/auto_register"]
 
 ## Enables automatic backtrace capturing in BevyError
 backtrace = ["std"]
@@ -129,7 +130,7 @@ concurrent-queue = { version = "2.5.0", default-features = false, features = [
 ] }
 
 [dev-dependencies]
-rand = "0.8"
+rand = "0.9"
 static_assertions = "1.1.0"
 serde_test = "1.0"
 

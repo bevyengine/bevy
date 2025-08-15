@@ -606,7 +606,7 @@ impl Mesh {
             match topology {
                 PrimitiveTopology::TriangleList => {
                     // Early return if the index count doesn't match
-                    if indices.len() % 3 != 0 {
+                    if !indices.len().is_multiple_of(3) {
                         return Err(MeshWindingInvertError::AbruptIndicesEnd);
                     }
                     for chunk in indices.chunks_mut(3) {
@@ -620,7 +620,7 @@ impl Mesh {
                 }
                 PrimitiveTopology::LineList => {
                     // Early return if the index count doesn't match
-                    if indices.len() % 2 != 0 {
+                    if !indices.len().is_multiple_of(2) {
                         return Err(MeshWindingInvertError::AbruptIndicesEnd);
                     }
                     indices.reverse();

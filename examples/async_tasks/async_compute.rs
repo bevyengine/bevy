@@ -59,7 +59,7 @@ fn spawn_tasks(mut commands: Commands) {
                 // spawn() can be used to poll for the result
                 let entity = commands.spawn_empty().id();
                 let task = thread_pool.spawn(async move {
-                    let duration = Duration::from_secs_f32(rand::thread_rng().gen_range(0.05..5.0));
+                    let duration = Duration::from_secs_f32(rand::rng().random_range(0.05..5.0));
 
                     // Pretend this is a time-intensive function. :)
                     async_std::task::sleep(duration).await;
@@ -95,7 +95,7 @@ fn spawn_tasks(mut commands: Commands) {
                     command_queue
                 });
 
-                // Spawn new entity and add our new task as a component
+                // Add our new task as a component
                 commands.entity(entity).insert(ComputeTransform(task));
             }
         }
@@ -123,7 +123,7 @@ fn handle_tasks(
 /// This system is only used to setup light and camera for the environment
 fn setup_env(mut commands: Commands) {
     // Used to center camera on spawned cubes
-    let offset = if NUM_CUBES % 2 == 0 {
+    let offset = if NUM_CUBES.is_multiple_of(2) {
         (NUM_CUBES / 2) as f32 - 0.5
     } else {
         (NUM_CUBES / 2) as f32

@@ -89,7 +89,7 @@ pub mod prelude {
         },
         name::{Name, NameOrEntity},
         observer::{Observer, On, Trigger},
-        query::{Added, Allows, AnyOf, Changed, Has, Or, QueryBuilder, QueryState, With, Without},
+        query::{Added, Allow, AnyOf, Changed, Has, Or, QueryBuilder, QueryState, With, Without},
         related,
         relationship::RelationshipTarget,
         resource::Resource,
@@ -160,7 +160,7 @@ mod tests {
     use crate::{
         bundle::Bundle,
         change_detection::Ref,
-        component::{Component, ComponentId},
+        component::Component,
         entity::{Entity, EntityMapper},
         entity_disabling::DefaultQueryFilters,
         prelude::Or,
@@ -1536,7 +1536,7 @@ mod tests {
         world.remove_resource::<DefaultQueryFilters>();
         let query = world.query_filtered::<&mut A, Changed<B>>();
 
-        let mut expected = FilteredAccess::<ComponentId>::default();
+        let mut expected = FilteredAccess::default();
         let a_id = world.components.get_id(TypeId::of::<A>()).unwrap();
         let b_id = world.components.get_id(TypeId::of::<B>()).unwrap();
         expected.add_component_write(a_id);

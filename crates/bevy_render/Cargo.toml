@@ -21,20 +21,9 @@ keywords = ["bevy"]
 # wgpu-types = { git = "https://github.com/gfx-rs/wgpu", rev = "..." }
 decoupled_naga = ["bevy_shader/decoupled_naga"]
 
-# Enables compressed KTX2 UASTC texture output on the asset processor
-compressed_image_saver = ["bevy_image/compressed_image_saver"]
-
-# Texture formats (require more than just image support)
-basis-universal = ["bevy_image/basis-universal"]
-exr = ["bevy_image/exr"]
-hdr = ["bevy_image/hdr"]
-ktx2 = ["bevy_image/ktx2"]
-
 multi_threaded = ["bevy_tasks/multi_threaded"]
 
-shader_format_glsl = ["bevy_shader/shader_format_glsl"]
 shader_format_spirv = ["bevy_shader/shader_format_spirv", "wgpu/spirv"]
-shader_format_wesl = ["bevy_shader/shader_format_wesl"]
 
 # Enable SPIR-V shader passthrough
 spirv_shader_passthrough = ["wgpu/spirv"]
@@ -42,6 +31,9 @@ spirv_shader_passthrough = ["wgpu/spirv"]
 # Statically linked DXC shader compiler for DirectX 12
 # TODO: When wgpu switches to DirectX 12 instead of Vulkan by default on windows, make this a default feature
 statically-linked-dxc = ["wgpu/static-dxc"]
+
+# Forces the wgpu instance to be initialized using the raw Vulkan HAL, enabling additional configuration
+raw_vulkan_init = ["wgpu/vulkan"]
 
 trace = ["profiling"]
 tracing-tracy = ["dep:tracy-client"]
@@ -86,7 +78,6 @@ bevy_platform = { path = "../bevy_platform", version = "0.17.0-dev", default-fea
 image = { version = "0.25.2", default-features = false }
 
 # misc
-codespan-reporting = "0.12.0"
 # `fragile-send-sync-non-atomic-wasm` feature means we can't use Wasm threads for rendering
 # It is enabled for now to avoid having to do a significant overhaul of the renderer just for wasm.
 # When the 'atomics' feature is enabled `fragile-send-sync-non-atomic` does nothing
@@ -105,8 +96,7 @@ bytemuck = { version = "1.5", features = ["derive", "must_cast"] }
 downcast-rs = { version = "2", default-features = false, features = ["std"] }
 thiserror = { version = "2", default-features = false }
 derive_more = { version = "2", default-features = false, features = ["from"] }
-futures-lite = "2.0.1"
-encase = { version = "0.10", features = ["glam"] }
+encase = { version = "0.11", features = ["glam"] }
 # For wgpu profiling using tracing. Use `RUST_LOG=info` to also capture the wgpu spans.
 profiling = { version = "1", features = [
   "profile-with-tracing",

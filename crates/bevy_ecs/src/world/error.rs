@@ -50,7 +50,11 @@ pub enum EntityComponentError {
 #[derive(thiserror::Error, Debug, Clone, Copy, PartialEq, Eq)]
 pub enum EntityMutableFetchError {
     /// The entity with the given ID does not exist.
-    #[error(transparent)]
+    #[error(
+        "{0}\n
+    If you were attempting to apply a command to this entity,
+    and want to handle this error gracefully, consider using `EntityCommands::queue_handled` or `queue_silenced`."
+    )]
     EntityDoesNotExist(#[from] EntityDoesNotExistError),
     /// The entity with the given ID was requested mutably more than once.
     #[error("The entity with ID {0} was requested mutably more than once")]
@@ -69,4 +73,51 @@ pub enum ResourceFetchError {
     /// Cannot get access to the resource with the given [`ComponentId`] in the world as it conflicts with an on going operation.
     #[error("Cannot get access to the resource with ID {0:?} in the world as it conflicts with an on going operation.")]
     NoResourceAccess(ComponentId),
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::{
+        prelude::*,
+        system::{entity_command::trigger, RunSystemOnce},
+    };
+
+    // Inspired by https://github.com/bevyengine/bevy/issues/19623
+    #[test]
+    fn fixing_panicking_entity_commands() {
+        #[derive(EntityEvent)]
+        struct Kill;
+
+        #[derive(EntityEvent)]
+        struct FollowupEvent;
+
+        fn despawn(trigger: On<Kill>, mut commands: Commands) {
+            commands.entity(trigger.target()).despawn();
+        }
+
+        fn followup(on: On<Kill>, mut commands: Commands) {
+            // When using a simple .trigger() here, this panics because the entity has already been despawned.
+            // Instead, we need to use `.queue_handled` or `.queue_silenced` to avoid the panic.
+            commands
+                .entity(on.target())
+                .queue_silenced(trigger(FollowupEvent));
+        }
+
+        let mut world = World::new();
+        // This test would pass if the order of these statements were swapped,
+        // even with panicking entity commands
+        world.add_observer(followup);
+        world.add_observer(despawn);
+
+        // Create an entity to test these observers with
+        world.spawn_empty();
+
+        // Trigger a kill event on the entity
+        fn kill_everything(mut commands: Commands, query: Query<Entity>) {
+            for id in query.iter() {
+                commands.entity(id).trigger(Kill);
+            }
+        }
+        world.run_system_once(kill_everything).unwrap();
+    }
 }

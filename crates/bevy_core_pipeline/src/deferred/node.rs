@@ -1,12 +1,12 @@
-use bevy_camera::Viewport;
+use bevy_camera::{MainPassResolutionOverride, Viewport};
 use bevy_ecs::{prelude::*, query::QueryItem};
-use bevy_render::camera::MainPassResolutionOverride;
 use bevy_render::experimental::occlusion_culling::OcclusionCulling;
 use bevy_render::render_graph::ViewNode;
 
 use bevy_render::view::{ExtractedView, NoIndirectDrawing};
 use bevy_render::{
     camera::ExtractedCamera,
+    diagnostic::RecordDiagnostics,
     render_graph::{NodeRunError, RenderGraphContext},
     render_phase::{TrackedRenderPass, ViewBinnedRenderPhases},
     render_resource::{CommandEncoderDescriptor, RenderPassDescriptor, StoreOp},
@@ -131,6 +131,8 @@ fn run_deferred_prepass<'w>(
         return Ok(());
     };
 
+    let diagnostic = render_context.diagnostic_recorder();
+
     let mut color_attachments = vec![];
     color_attachments.push(
         view_prepass_textures
@@ -223,6 +225,7 @@ fn run_deferred_prepass<'w>(
             occlusion_query_set: None,
         });
         let mut render_pass = TrackedRenderPass::new(&render_device, render_pass);
+        let pass_span = diagnostic.pass_span(&mut render_pass, label);
         if let Some(viewport) =
             Viewport::from_viewport_and_override(camera.viewport.as_ref(), resolution_override)
         {
@@ -251,6 +254,7 @@ fn run_deferred_prepass<'w>(
             }
         }
 
+        pass_span.end(&mut render_pass);
         drop(render_pass);
 
         // After rendering to the view depth texture, copy it to the prepass depth texture

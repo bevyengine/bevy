@@ -19,7 +19,6 @@ bevy_mesh = { path = "../bevy_mesh", version = "0.17.0-dev" }
 bevy_reflect = { path = "../bevy_reflect", version = "0.17.0-dev", features = [
   "petgraph",
 ] }
-bevy_render = { path = "../bevy_render", version = "0.17.0-dev" }
 bevy_time = { path = "../bevy_time", version = "0.17.0-dev" }
 bevy_utils = { path = "../bevy_utils", version = "0.17.0-dev" }
 bevy_ecs = { path = "../bevy_ecs", version = "0.17.0-dev" }

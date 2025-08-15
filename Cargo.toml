@@ -28,6 +28,8 @@ members = [
   "examples/mobile",
   # Examples of using Bevy on no_std platforms.
   "examples/no_std/*",
+  # Examples of compiling Bevy with automatic reflect type registration for platforms without `inventory` support.
+  "examples/reflection/auto_register_static",
   # Benchmarks
   "benches",
   # Internal tools that are not published.
@@ -71,6 +73,8 @@ allow_attributes = "warn"
 allow_attributes_without_reason = "warn"
 
 [workspace.lints.rust]
+# Strictly temporary until encase fixes dead code generation from ShaderType macros
+dead_code = "allow"
 missing_docs = "warn"
 unexpected_cfgs = { level = "warn", check-cfg = ['cfg(docsrs_dep)'] }
 unsafe_code = "deny"
@@ -116,6 +120,8 @@ allow_attributes = "warn"
 allow_attributes_without_reason = "warn"
 
 [lints.rust]
+# Strictly temporary until encase fixes dead code generation from ShaderType macros
+dead_code = "allow"
 missing_docs = "warn"
 unexpected_cfgs = { level = "warn", check-cfg = ['cfg(docsrs_dep)'] }
 unsafe_code = "deny"
@@ -159,6 +165,7 @@ default = [
   "hdr",
   "multi_threaded",
   "png",
+  "reflect_auto_register",
   "smaa_luts",
   "sysinfo_plugin",
   "tonemapping_luts",
@@ -319,6 +326,9 @@ spirv_shader_passthrough = ["bevy_internal/spirv_shader_passthrough"]
 
 # Statically linked DXC shader compiler for DirectX 12
 statically-linked-dxc = ["bevy_internal/statically-linked-dxc"]
+
+# Forces the wgpu instance to be initialized using the raw Vulkan HAL, enabling additional configuration
+raw_vulkan_init = ["bevy_internal/raw_vulkan_init"]
 
 # Tracing support, saving a file in Chrome Tracing format
 trace_chrome = ["trace", "bevy_internal/trace_chrome"]
@@ -548,6 +558,12 @@ reflect_functions = ["bevy_internal/reflect_functions"]
 # Enable documentation reflection
 reflect_documentation = ["bevy_internal/reflect_documentation"]
 
+# Enable automatic reflect registration
+reflect_auto_register = ["bevy_internal/reflect_auto_register"]
+
+# Enable automatic reflect registration without inventory. See `reflect::load_type_registrations` for more info.
+reflect_auto_register_static = ["bevy_internal/reflect_auto_register_static"]
+
 # Enable winit custom cursor support
 custom_cursor = ["bevy_internal/custom_cursor"]
 
@@ -596,8 +612,8 @@ tracing = { version = "0.1", default-features = false, optional = true }
 bevy_dylib = { path = "crates/bevy_dylib", version = "0.17.0-dev", default-features = false, optional = true }
 
 [dev-dependencies]
-rand = "0.8.0"
-rand_chacha = "0.3.1"
+rand = "0.9.0"
+rand_chacha = "0.9.0"
 ron = "0.10"
 flate2 = "1.0"
 serde = { version = "1", features = ["derive"] }
@@ -618,20 +634,17 @@ crossbeam-channel = "0.5.0"
 argh = "0.1.12"
 thiserror = "2.0"
 event-listener = "5.3.0"
-hyper = { version = "1", features = ["server", "http1"] }
-http-body-util = "0.1"
 anyhow = "1"
-macro_rules_attribute = "0.2"
 accesskit = "0.21"
 nonmax = "0.5"
 
 [target.'cfg(not(target_family = "wasm"))'.dev-dependencies]
-smol = "2"
-smol-macros = "0.1"
-smol-hyper = "0.1"
 ureq = { version = "3.0.8", features = ["json"] }
 
 [target.'cfg(target_arch = "wasm32")'.dev-dependencies]
+getrandom = { version = "0.3", default-features = false, features = [
+  "wasm_js",
+] }
 wasm-bindgen = { version = "0.2" }
 web-sys = { version = "0.3", features = ["Window"] }
 
@@ -2781,6 +2794,17 @@ description = "Demonstrates how to create and use type data"
 category = "Reflection"
 wasm = false
 
+[[example]]
+name = "auto_register_static"
+path = "examples/reflection/auto_register_static/src/lib.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.auto_register_static]
+name = "Automatic types registration"
+description = "Demonstrates how to set up automatic reflect types registration for platforms without `inventory` support"
+category = "Reflection"
+wasm = false
+
 # Scene
 [[example]]
 name = "scene"
@@ -3600,6 +3624,18 @@ doc-scrape-examples = true
 [package.metadata.example.z_index]
 name = "UI Z-Index"
 description = "Demonstrates how to control the relative depth (z-position) of UI elements"
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
+name = "virtual_keyboard"
+path = "examples/ui/virtual_keyboard.rs"
+doc-scrape-examples = true
+required-features = ["experimental_bevy_feathers"]
+
+[package.metadata.example.virtual_keyboard]
+name = "Virtual Keyboard"
+description = "Example demonstrating a virtual keyboard widget"
 category = "UI (User Interface)"
 wasm = true
 

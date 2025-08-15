@@ -243,10 +243,10 @@ pub fn update_interactions(
         };
 
         for entity in previously_hovered_entities.keys() {
-            if !new_interaction_state.contains_key(entity) {
-                if let Ok(mut interaction) = interact.get_mut(*entity) {
-                    interaction.set_if_neq(PickingInteraction::None);
-                }
+            if !new_interaction_state.contains_key(entity)
+                && let Ok(mut interaction) = interact.get_mut(*entity)
+            {
+                interaction.set_if_neq(PickingInteraction::None);
             }
         }
     }
@@ -404,7 +404,7 @@ pub fn update_is_directly_hovered(
 
 #[cfg(test)]
 mod tests {
-    use bevy_render::camera::Camera;
+    use bevy_camera::Camera;
 
     use super::*;
 

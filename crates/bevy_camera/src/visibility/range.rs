@@ -30,14 +30,12 @@ pub struct VisibilityRangePlugin;
 
 impl Plugin for VisibilityRangePlugin {
     fn build(&self, app: &mut App) {
-        app.register_type::<VisibilityRange>()
-            .init_resource::<VisibleEntityRanges>()
-            .add_systems(
-                PostUpdate,
-                check_visibility_ranges
-                    .in_set(VisibilitySystems::CheckVisibility)
-                    .before(check_visibility),
-            );
+        app.init_resource::<VisibleEntityRanges>().add_systems(
+            PostUpdate,
+            check_visibility_ranges
+                .in_set(VisibilitySystems::CheckVisibility)
+                .before(check_visibility),
+        );
     }
 }
 

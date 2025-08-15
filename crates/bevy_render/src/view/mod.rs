@@ -3,17 +3,16 @@ pub mod window;
 
 use bevy_camera::{
     primitives::Frustum, CameraMainTextureUsages, ClearColor, ClearColorConfig, Exposure,
-    MainPassResolutionOverride,
+    MainPassResolutionOverride, NormalizedRenderTarget,
 };
 use bevy_diagnostic::FrameCount;
 pub use visibility::*;
 pub use window::*;
 
 use crate::{
-    camera::{ExtractedCamera, MipBias, NormalizedRenderTarget, TemporalJitter},
+    camera::{ExtractedCamera, MipBias, NormalizedRenderTargetExt as _, TemporalJitter},
     experimental::occlusion_culling::OcclusionCulling,
     extract_component::ExtractComponentPlugin,
-    load_shader_library,
     render_asset::RenderAssets,
     render_phase::ViewRangefinder3d,
     render_resource::{DynamicUniformBuffer, ShaderType, Texture, TextureView},
@@ -35,6 +34,7 @@ use bevy_math::{mat3, vec2, vec3, Mat3, Mat4, UVec4, Vec2, Vec3, Vec4, Vec4Swizz
 use bevy_platform::collections::{hash_map::Entry, HashMap};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render_macros::ExtractComponent;
+use bevy_shader::load_shader_library;
 use bevy_transform::components::GlobalTransform;
 use core::{
     ops::Range,
@@ -100,9 +100,7 @@ impl Plugin for ViewPlugin {
     fn build(&self, app: &mut App) {
         load_shader_library!(app, "view.wgsl");
 
-        app.register_type::<Msaa>()
-            .register_type::<ColorGrading>()
-            .register_type::<OcclusionCulling>()
+        app
             // NOTE: windows.is_changed() handles cases where a window was resized
             .add_plugins((
                 ExtractComponentPlugin::<Hdr>::default(),
@@ -144,7 +142,7 @@ impl Plugin for ViewPlugin {
 }
 
 /// Component for configuring the number of samples for [Multi-Sample Anti-Aliasing](https://en.wikipedia.org/wiki/Multisample_anti-aliasing)
-/// for a [`Camera`](crate::camera::Camera).
+/// for a [`Camera`](bevy_camera::Camera).
 ///
 /// Defaults to 4 samples. A higher number of samples results in smoother edges.
 ///
@@ -316,7 +314,7 @@ impl ExtractedView {
 /// Configures filmic color grading parameters to adjust the image appearance.
 ///
 /// Color grading is applied just before tonemapping for a given
-/// [`Camera`](crate::camera::Camera) entity, with the sole exception of the
+/// [`Camera`](bevy_camera::Camera) entity, with the sole exception of the
 /// `post_saturation` value in [`ColorGradingGlobal`], which is applied after
 /// tonemapping.
 #[derive(Component, Reflect, Debug, Default, Clone)]
@@ -727,7 +725,7 @@ impl ViewTarget {
     pub const TEXTURE_FORMAT_HDR: TextureFormat = TextureFormat::Rgba16Float;
 
     /// Retrieve this target's main texture's color attachment.
-    pub fn get_color_attachment(&self) -> RenderPassColorAttachment {
+    pub fn get_color_attachment(&self) -> RenderPassColorAttachment<'_> {
         if self.main_texture.load(Ordering::SeqCst) == 0 {
             self.main_textures.a.get_attachment()
         } else {
@@ -736,7 +734,7 @@ impl ViewTarget {
     }
 
     /// Retrieve this target's "unsampled" main texture's color attachment.
-    pub fn get_unsampled_color_attachment(&self) -> RenderPassColorAttachment {
+    pub fn get_unsampled_color_attachment(&self) -> RenderPassColorAttachment<'_> {
         if self.main_texture.load(Ordering::SeqCst) == 0 {
             self.main_textures.a.get_unsampled_attachment()
         } else {
@@ -828,7 +826,7 @@ impl ViewTarget {
     pub fn out_texture_color_attachment(
         &self,
         clear_color: Option<LinearRgba>,
-    ) -> RenderPassColorAttachment {
+    ) -> RenderPassColorAttachment<'_> {
         self.out_texture.get_attachment(clear_color)
     }
 
@@ -845,7 +843,7 @@ impl ViewTarget {
     /// [`ViewTarget`]'s main texture to the `destination` texture, so the caller
     /// _must_ ensure `source` is copied to `destination`, with or without modifications.
     /// Failing to do so will cause the current main texture information to be lost.
-    pub fn post_process_write(&self) -> PostProcessWrite {
+    pub fn post_process_write(&self) -> PostProcessWrite<'_> {
         let old_is_a_main_texture = self.main_texture.fetch_xor(1, Ordering::SeqCst);
         // if the old main texture is a, then the post processing must write from a to b
         if old_is_a_main_texture == 0 {
@@ -882,7 +880,7 @@ impl ViewDepthTexture {
         }
     }
 
-    pub fn get_attachment(&self, store: StoreOp) -> RenderPassDepthStencilAttachment {
+    pub fn get_attachment(&self, store: StoreOp) -> RenderPassDepthStencilAttachment<'_> {
         self.attachment.get_attachment(store)
     }
 

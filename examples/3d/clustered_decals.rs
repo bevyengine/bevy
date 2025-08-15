@@ -6,17 +6,15 @@ use std::fmt::{self, Formatter};
 use bevy::{
     color::palettes::css::{LIME, ORANGE_RED, SILVER},
     input::mouse::AccumulatedMouseMotion,
-    pbr::{
-        decal::{self, clustered::ClusteredDecal},
-        ExtendedMaterial, MaterialExtension,
-    },
+    light::ClusteredDecal,
+    pbr::{decal, ExtendedMaterial, MaterialExtension},
     prelude::*,
     render::{
-        render_resource::{AsBindGroup, ShaderRef},
+        render_resource::AsBindGroup,
         renderer::{RenderAdapter, RenderDevice},
     },
-    window::SystemCursorIcon,
-    winit::cursor::CursorIcon,
+    shader::ShaderRef,
+    window::{CursorIcon, SystemCursorIcon},
 };
 use ops::{acos, cos, sin};
 use widgets::{

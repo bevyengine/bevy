@@ -1036,7 +1036,7 @@ impl<P: VectorSpace<Scalar = f32>> CubicSegment<P> {
 
     /// An iterator that returns values of `t` uniformly spaced over `0..=subdivisions`.
     #[inline]
-    fn iter_uniformly(&self, subdivisions: usize) -> impl Iterator<Item = f32> {
+    pub fn iter_uniformly(&self, subdivisions: usize) -> impl Iterator<Item = f32> {
         let step = 1.0 / subdivisions as f32;
         (0..=subdivisions).map(move |i| i as f32 * step)
     }
@@ -1605,7 +1605,7 @@ impl<P: VectorSpace<Scalar = f32>> RationalCurve<P> {
                 }
                 t -= segment.knot_span;
             }
-            return (self.segments.last().unwrap(), 1.0);
+            (self.segments.last().unwrap(), 1.0)
         }
     }
 
