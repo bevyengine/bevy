@@ -36,7 +36,6 @@
 
 
 // CONSTANTS
-
 const FRAC_PI: f32 = 0.3183098862; // 1 / π
 const FRAC_2_PI: f32 = 0.15915494309;  // 1 / (2π)
 const FRAC_3_16_PI: f32 = 0.0596831036594607509; // 3 / (16π)
@@ -289,7 +288,7 @@ fn sample_sun_radiance(ray_dir_ws: vec3<f32>) -> vec3<f32> {
         let sun_intensity = (*light).intensity;
         if sun_angular_size > 0.0 && sun_intensity > 0.0 {
             let factor = 1 - smoothstep(sun_angular_size * 0.5 - pixel_size, sun_angular_size * 0.5 + pixel_size, angle_to_sun);
-            let sun_solid_angle = (sun_angular_size * sun_angular_size) * 0.25 * FRAC_PI;
+            let sun_solid_angle = (sun_angular_size * sun_angular_size) * 0.25 * PI;
             sun_radiance += ((*light).color.rgb / sun_solid_angle) * sun_intensity * factor * shadow_factor;
         }
     }
