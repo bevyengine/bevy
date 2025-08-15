@@ -164,6 +164,7 @@ impl<T: Resource> Command for InsertResource<T> {
                 .cast::<MaybeLocation>()
                 .read_unaligned()
         };
+        // SAFETY: The Component ID was just registered above. It has to be valid for `T`.
         unsafe { world.insert_resource_by_id(id, OwningPtr::new(value_ptr), caller) }
     }
 }

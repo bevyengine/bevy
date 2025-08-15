@@ -184,7 +184,7 @@ impl RawCommandQueue {
                         if command.is_aligned() {
                             ptr::drop_in_place(command);
                         } else {
-                            drop(command.read_unaligned())
+                            drop(command.read_unaligned());
                         }
                     }
                 }
