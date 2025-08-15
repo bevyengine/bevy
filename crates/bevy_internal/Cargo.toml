@@ -73,6 +73,12 @@ bluenoise_texture = ["bevy_pbr?/bluenoise_texture"]
 # Include SMAA LUT KTX2 Files
 smaa_luts = ["bevy_anti_aliasing/smaa_luts"]
 
+# NVIDIA Deep Learning Super Sampling
+dlss = ["bevy_anti_aliasing/dlss"]
+
+# Forcibly disable DLSS so that cargo build --all-features works without the DLSS SDK being installed. Not meant for users.
+force_disable_dlss = ["bevy_anti_aliasing?/force_disable_dlss"]
+
 # Audio format support (vorbis is enabled by default)
 flac = ["bevy_audio/flac"]
 mp3 = ["bevy_audio/mp3"]
@@ -184,7 +190,7 @@ webgpu = [
   "bevy_sprite?/webgpu",
 ]
 
-# enable systems that allow for automated testing on CI
+# Enable systems that allow for automated testing on CI
 bevy_ci_testing = ["bevy_dev_tools/bevy_ci_testing", "bevy_render?/ci_limits"]
 
 # Enable animation support, and glTF animation loading
