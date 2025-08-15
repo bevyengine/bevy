@@ -23,6 +23,7 @@ bevy_executor = [
   "dep:thread_local",
   "dep:crossbeam-utils",
   "dep:pin-project-lite",
+  "futures-lite",
   "async-task/std",
 ]
 

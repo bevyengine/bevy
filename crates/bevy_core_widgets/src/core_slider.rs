@@ -23,7 +23,9 @@ use bevy_log::warn_once;
 use bevy_math::ops;
 use bevy_picking::events::{Drag, DragEnd, DragStart, Pointer, Press};
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
-use bevy_ui::{ComputedNode, ComputedNodeTarget, InteractionDisabled, UiGlobalTransform, UiScale};
+use bevy_ui::{
+    ComputedNode, ComputedUiTargetCamera, InteractionDisabled, UiGlobalTransform, UiScale,
+};
 
 use crate::{Callback, Notify, ValueChange};
 
@@ -234,7 +236,7 @@ pub(crate) fn slider_on_pointer_down(
         &SliderStep,
         Option<&SliderPrecision>,
         &ComputedNode,
-        &ComputedNodeTarget,
+        &ComputedUiTargetCamera,
         &UiGlobalTransform,
         Has<InteractionDisabled>,
     )>,

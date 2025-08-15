@@ -28,7 +28,7 @@ use bevy_render::{
 use bevy_render::{RenderApp, RenderStartup};
 use bevy_shader::{Shader, ShaderDefVal};
 use bevy_ui::{
-    BoxShadow, CalculatedClip, ComputedNode, ComputedNodeTarget, ResolvedBorderRadius,
+    BoxShadow, CalculatedClip, ComputedNode, ComputedUiTargetCamera, ResolvedBorderRadius,
     UiGlobalTransform, Val,
 };
 use bevy_utils::default;
@@ -223,7 +223,7 @@ pub fn extract_shadows(
             &InheritedVisibility,
             &BoxShadow,
             Option<&CalculatedClip>,
-            &ComputedNodeTarget,
+            &ComputedUiTargetCamera,
         )>,
     >,
     camera_map: Extract<UiCameraMap>,

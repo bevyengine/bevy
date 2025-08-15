@@ -10,7 +10,7 @@ use bevy::{
     math::ops,
     prelude::*,
     sprite::Anchor,
-    text::{FontSmoothing, LineBreak, TextBounds},
+    text::{FontSmoothing, LineBreak, Text2dShadow, TextBounds},
 };
 
 fn main() {
@@ -47,6 +47,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         Text2d::new("translation"),
         text_font.clone(),
         TextLayout::new_with_justify(text_justification),
+        Text2dShadow::default(),
         AnimateTranslation,
     ));
     // Demonstrate changing rotation
@@ -54,6 +55,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         Text2d::new("rotation"),
         text_font.clone(),
         TextLayout::new_with_justify(text_justification),
+        Text2dShadow::default(),
         AnimateRotation,
     ));
     // Demonstrate changing scale
@@ -62,6 +64,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         text_font,
         TextLayout::new_with_justify(text_justification),
         Transform::from_translation(Vec3::new(400.0, 0.0, 0.0)),
+        Text2dShadow::default(),
         AnimateScale,
     ));
     // Demonstrate text wrapping
@@ -72,6 +75,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     };
     let box_size = Vec2::new(300.0, 200.0);
     let box_position = Vec2::new(0.0, -250.0);
+    let box_color = Color::srgb(0.25, 0.25, 0.55);
+    let text_shadow_color = box_color.darker(0.05);
     commands.spawn((
         Sprite::from_color(Color::srgb(0.25, 0.25, 0.55), box_size),
         Transform::from_translation(box_position.extend(0.0)),
@@ -83,6 +88,11 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             TextBounds::from(box_size),
             // Ensure the text is drawn on top of the box
             Transform::from_translation(Vec3::Z),
+            // Add a shadow to the text
+            Text2dShadow {
+                color: text_shadow_color,
+                ..default()
+            },
         )],
     ));
 
@@ -99,6 +109,11 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             TextBounds::from(other_box_size),
             // Ensure the text is drawn on top of the box
             Transform::from_translation(Vec3::Z),
+            // Add a shadow to the text
+            Text2dShadow {
+                color: text_shadow_color,
+                ..default()
+            }
         )],
     ));
 
@@ -110,6 +125,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             .with_font_smoothing(FontSmoothing::None),
         TextLayout::new_with_justify(Justify::Center),
         Transform::from_translation(Vec3::new(-400.0, -250.0, 0.0)),
+        // Add a black shadow to the text
+        Text2dShadow::default(),
     ));
 
     commands

@@ -1,7 +1,7 @@
 ---
 title: Bevy Feathers
-authors: ["@viridia", "@Atlas16A", "@ickshonpe"]
-pull_requests: [19730, 19900, 19928, 20237, 20169, 20422, 20350]
+authors: ["@viridia", "@Atlas16A", "@ickshonpe", "@amedoeyes"]
+pull_requests: [19730, 19900, 19928, 20237, 20169, 20422, 20350, 20548]
 ---
 
 To make it easier for Bevy engine developers and third-party tool creators to make comfortable, visually cohesive tooling,
