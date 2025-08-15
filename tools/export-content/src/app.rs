@@ -78,15 +78,15 @@ impl App {
                             text.pop();
                         }
                         KeyCode::Enter => {
-                            if !text.is_empty() {
-                                if let Some(index) = mode_state.selected() {
-                                    mode_entries.insert(
-                                        index,
-                                        Entry::Section {
-                                            title: text.clone(),
-                                        },
-                                    );
-                                }
+                            if !text.is_empty()
+                                && let Some(index) = mode_state.selected()
+                            {
+                                mode_entries.insert(
+                                    index,
+                                    Entry::Section {
+                                        title: text.clone(),
+                                    },
+                                );
                             }
                             self.text_entry = None;
                         }
@@ -104,22 +104,20 @@ impl App {
                         Mode::MigrationGuides => self.mode = Mode::ReleaseNotes,
                     },
                     KeyCode::Down => {
-                        if key.modifiers.contains(KeyModifiers::SHIFT) {
-                            if let Some(index) = mode_state.selected() {
-                                if index < mode_entries.len() - 1 {
-                                    mode_entries.swap(index, index + 1);
-                                }
-                            }
+                        if key.modifiers.contains(KeyModifiers::SHIFT)
+                            && let Some(index) = mode_state.selected()
+                            && index < mode_entries.len() - 1
+                        {
+                            mode_entries.swap(index, index + 1);
                         }
                         mode_state.select_next();
                     }
                     KeyCode::Up => {
-                        if key.modifiers.contains(KeyModifiers::SHIFT) {
-                            if let Some(index) = mode_state.selected() {
-                                if index > 0 {
-                                    mode_entries.swap(index, index - 1);
-                                }
-                            }
+                        if key.modifiers.contains(KeyModifiers::SHIFT)
+                            && let Some(index) = mode_state.selected()
+                            && index > 0
+                        {
+                            mode_entries.swap(index, index - 1);
                         }
                         mode_state.select_previous();
                     }
@@ -127,10 +125,10 @@ impl App {
                         self.text_entry = Some(String::new());
                     }
                     KeyCode::Char('d') => {
-                        if let Some(index) = mode_state.selected() {
-                            if let Entry::Section { .. } = mode_entries[index] {
-                                mode_entries.remove(index);
-                            }
+                        if let Some(index) = mode_state.selected()
+                            && let Entry::Section { .. } = mode_entries[index]
+                        {
+                            mode_entries.remove(index);
                         }
                     }
                     _ => {}
@@ -332,7 +330,7 @@ fn load_content(dir: path::PathBuf, kind: &'static str) -> Result<Vec<Entry>> {
         })?;
         let content = caps.get(2).unwrap().as_str().to_owned();
 
-        entries.push(Entry::File { metadata, content })
+        entries.push(Entry::File { metadata, content });
     }
 
     Ok(entries)
