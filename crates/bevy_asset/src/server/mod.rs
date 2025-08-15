@@ -42,6 +42,8 @@ use std::path::{Path, PathBuf};
 use thiserror::Error;
 use tracing::{error, info};
 
+pub use info::AssetServerStats;
+
 /// Loads and tracks the state of [`Asset`] values from a configured [`AssetReader`](crate::io::AssetReader).
 /// This can be used to kick off new asset loads and retrieve their current load states.
 ///
@@ -1697,6 +1699,11 @@ impl AssetServer {
             .await?;
 
         Ok(())
+    }
+
+    /// Gets the current stats of the asset server.
+    pub fn stats(&self) -> AssetServerStats {
+        self.read_infos().stats.clone()
     }
 }
 
