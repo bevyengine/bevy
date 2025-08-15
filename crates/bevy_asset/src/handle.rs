@@ -531,7 +531,7 @@ mod tests {
     use alloc::boxed::Box;
     use bevy_platform::hash::FixedHasher;
     use bevy_reflect::PartialReflect;
-    use core::hash::BuildHasher;
+    use core::{hash::BuildHasher, ops::ControlFlow};
     use uuid::Uuid;
 
     use super::*;
@@ -639,7 +639,12 @@ mod tests {
         }
         impl Asset for MyAsset {}
         impl VisitAssetDependencies for MyAsset {
-            fn visit_dependencies(&self, _visit: &mut impl FnMut(UntypedAssetId)) {}
+            fn visit_dependencies(
+                &self,
+                _visit: &mut impl FnMut(UntypedAssetId) -> ControlFlow<UntypedAssetId>,
+            ) -> ControlFlow<UntypedAssetId> {
+                ControlFlow::Continue(())
+            }
         }
 
         let mut app = App::new();

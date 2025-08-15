@@ -15,7 +15,10 @@ use atomicow::CowArc;
 use bevy_ecs::{error::BevyError, world::World};
 use bevy_platform::collections::{HashMap, HashSet};
 use bevy_tasks::{BoxedFuture, ConditionalSendFuture};
-use core::any::{Any, TypeId};
+use core::{
+    any::{Any, TypeId},
+    ops::ControlFlow,
+};
 use downcast_rs::{impl_downcast, Downcast};
 use ron::error::SpannedError;
 use serde::{Deserialize, Serialize};
@@ -153,8 +156,9 @@ impl<A: Asset> LoadedAsset<A> {
     /// Create a new loaded asset. This will use [`VisitAssetDependencies`](crate::VisitAssetDependencies) to populate `dependencies`.
     pub fn new_with_dependencies(value: A) -> Self {
         let mut dependencies = <HashSet<_>>::default();
-        value.visit_dependencies(&mut |id| {
+        let _ = value.visit_dependencies(&mut |id| -> ControlFlow<UntypedAssetId> {
             dependencies.insert(id);
+            ControlFlow::Continue(())
         });
         LoadedAsset {
             value,

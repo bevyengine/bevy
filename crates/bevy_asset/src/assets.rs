@@ -1,13 +1,18 @@
 use crate::asset_changed::AssetChanges;
-use crate::{Asset, AssetEvent, AssetHandleProvider, AssetId, AssetServer, Handle, UntypedHandle};
+use crate::{
+    Asset, AssetEvent, AssetHandleProvider, AssetId, AssetServer, Handle,
+    UntypedAssetModifiedEvent, UntypedHandle,
+};
 use alloc::{sync::Arc, vec::Vec};
+use bevy_ecs::event::EventReader;
 use bevy_ecs::{
     prelude::EventWriter,
     resource::Resource,
     system::{Res, ResMut, SystemChangeTick},
 };
-use bevy_platform::collections::HashMap;
+use bevy_platform::collections::{HashMap, HashSet};
 use bevy_reflect::{Reflect, TypePath};
+use core::ops::ControlFlow;
 use core::{any::TypeId, iter::Enumerate, marker::PhantomData, sync::atomic::AtomicU32};
 use crossbeam_channel::{Receiver, Sender};
 use serde::{Deserialize, Serialize};
@@ -588,6 +593,47 @@ impl<A: Asset> Assets<A> {
 
             assets.remove_dropped(id);
         }
+    }
+
+    pub(crate) fn queue_untyped_asset_modified_events(
+        assets: Res<Self>,
+        mut untyped_asset_modified_events: EventWriter<UntypedAssetModifiedEvent>,
+    ) {
+        untyped_asset_modified_events.write_batch(assets.queued_events.iter().filter_map(|e| {
+            if let AssetEvent::Modified { id } = e {
+                Some(UntypedAssetModifiedEvent { id: id.untyped() })
+            } else {
+                None
+            }
+        }));
+    }
+
+    pub(crate) fn handle_asset_dependency_modified_events(
+        mut assets: ResMut<Self>,
+        mut untyped_asset_modified_events: EventReader<UntypedAssetModifiedEvent>,
+    ) {
+        if untyped_asset_modified_events.is_empty() {
+            return;
+        }
+        let untyped_asset_modified_events: HashSet<_> =
+            untyped_asset_modified_events.read().map(|e| e.id).collect();
+        let mut modified_events = Vec::new();
+        for (id, asset) in assets.iter() {
+            if !untyped_asset_modified_events.contains(&id.untyped())
+                && matches!(
+                    asset.visit_dependencies(&mut |dependency_id| {
+                        if untyped_asset_modified_events.contains(&dependency_id) {
+                            return ControlFlow::Break(dependency_id);
+                        }
+                        ControlFlow::Continue(())
+                    }),
+                    ControlFlow::Break(_)
+                )
+            {
+                modified_events.push(AssetEvent::Modified { id });
+            }
+        }
+        assets.queued_events.append(&mut modified_events);
     }
 
     /// A system that applies accumulated asset change events to the [`Events`] resource.

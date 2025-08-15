@@ -42,6 +42,7 @@ pub struct ColorMaterial {
     pub uv_transform: Affine2,
     #[texture(1)]
     #[sampler(2)]
+    #[dependency]
     pub texture: Option<Handle<Image>>,
 }
 

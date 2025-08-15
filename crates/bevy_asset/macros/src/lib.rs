@@ -50,7 +50,7 @@ fn derive_dependency_visitor_internal(
     let struct_name = &ast.ident;
     let (impl_generics, type_generics, where_clause) = &ast.generics.split_for_impl();
 
-    let visit_dep = |to_read| quote!(#bevy_asset_path::VisitAssetDependencies::visit_dependencies(#to_read, visit););
+    let visit_dep = |to_read| quote!(#bevy_asset_path::VisitAssetDependencies::visit_dependencies(#to_read, visit)?;);
     let is_dep_attribute = |a: &syn::Attribute| a.path().is_ident(DEPENDENCY_ATTRIBUTE);
     let field_has_dep = |f: &syn::Field| f.attrs.iter().any(is_dep_attribute);
 
@@ -119,8 +119,9 @@ fn derive_dependency_visitor_internal(
 
     Ok(quote! {
         impl #impl_generics #bevy_asset_path::VisitAssetDependencies for #struct_name #type_generics #where_clause {
-            fn visit_dependencies(&self, #visit: &mut impl FnMut(#bevy_asset_path::UntypedAssetId)) {
+            fn visit_dependencies(&self, #visit: &mut impl FnMut(#bevy_asset_path::UntypedAssetId)-> core::ops::ControlFlow<#bevy_asset_path::UntypedAssetId>)-> core::ops::ControlFlow<#bevy_asset_path::UntypedAssetId> {
                 #body
+                core::ops::ControlFlow::Continue(())
             }
         }
     })
