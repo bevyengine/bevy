@@ -61,7 +61,7 @@ pub trait Command<Out = ()>: Send + Sized + 'static {
     /// Identical to `Command::apply`, except it's only given a raw pointer to
     /// a valid, but potentially unaligned, instance of `Self`.
     ///
-    /// This function is reponsible for dropping the value pointed to by `ptr`.
+    /// This function is responsible for dropping the value pointed to by `ptr`.
     ///
     /// Implementing this function is optional and strictly an optimization.
     ///
