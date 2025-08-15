@@ -235,9 +235,18 @@ mod tests {
             PostUpdate,
         ));
 
+        app.add_plugins(HierarchyPropagatePlugin::<ComputedUiRenderTargetInfo>::new(
+            PostUpdate,
+        ));
+
         app.configure_sets(
             PostUpdate,
             PropagateSet::<ComputedUiTargetCamera>::default(),
+        );
+
+        app.configure_sets(
+            PostUpdate,
+            PropagateSet::<ComputedUiRenderTargetInfo>::default(),
         );
 
         app.add_systems(

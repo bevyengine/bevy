@@ -156,7 +156,14 @@ impl Plugin for UiPlugin {
                 PostUpdate,
                 PropagateSet::<ComputedUiTargetCamera>::default().in_set(UiSystems::Propagate),
             )
+            .configure_sets(
+                PostUpdate,
+                PropagateSet::<ComputedUiRenderTargetInfo>::default().in_set(UiSystems::Propagate),
+            )
             .add_plugins(HierarchyPropagatePlugin::<ComputedUiTargetCamera>::new(
+                PostUpdate,
+            ))
+            .add_plugins(HierarchyPropagatePlugin::<ComputedUiRenderTargetInfo>::new(
                 PostUpdate,
             ))
             .add_systems(

@@ -379,6 +379,9 @@ mod tests {
         app.add_plugins(HierarchyPropagatePlugin::<ComputedUiTargetCamera>::new(
             PostUpdate,
         ));
+        app.add_plugins(HierarchyPropagatePlugin::<ComputedUiRenderTargetInfo>::new(
+            PostUpdate,
+        ));
         app.init_resource::<UiScale>();
         app.init_resource::<UiSurface>();
         app.init_resource::<bevy_text::TextPipeline>();
@@ -402,6 +405,13 @@ mod tests {
         app.configure_sets(
             PostUpdate,
             PropagateSet::<ComputedUiTargetCamera>::default()
+                .after(propagate_ui_target_cameras)
+                .before(ui_layout_system),
+        );
+
+        app.configure_sets(
+            PostUpdate,
+            PropagateSet::<ComputedUiRenderTargetInfo>::default()
                 .after(propagate_ui_target_cameras)
                 .before(ui_layout_system),
         );
@@ -1056,9 +1066,20 @@ mod tests {
             PostUpdate,
         ));
 
+        app.add_plugins(HierarchyPropagatePlugin::<ComputedUiRenderTargetInfo>::new(
+            PostUpdate,
+        ));
+
         app.configure_sets(
             PostUpdate,
             PropagateSet::<ComputedUiTargetCamera>::default()
+                .after(propagate_ui_target_cameras)
+                .before(ui_layout_system),
+        );
+
+        app.configure_sets(
+            PostUpdate,
+            PropagateSet::<ComputedUiRenderTargetInfo>::default()
                 .after(propagate_ui_target_cameras)
                 .before(ui_layout_system),
         );
