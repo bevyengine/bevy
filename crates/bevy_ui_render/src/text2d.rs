@@ -1,6 +1,5 @@
 use bevy_text::{
-    ComputedTextBlock, PositionedGlyph, TextBounds,
-    TextColor, TextLayoutInfo,
+    ComputedTextBlock, PositionedGlyph, Text2dShadow, TextBounds, TextColor, TextLayoutInfo
 };
 use bevy_asset::Assets;
 use bevy_camera::visibility::ViewVisibility;
@@ -24,7 +23,7 @@ use bevy_window::{PrimaryWindow, Window};
 pub fn extract_text2d_sprite(
     mut commands: Commands,
     mut extracted_sprites: ResMut<ExtractedSprites>,
-    mut extracted_slices: ResMut<ExtractedSlices>,
+    mut extracted_slices: ResMut<ExtractedSlices>
     texture_atlases: Extract<Res<Assets<TextureAtlasLayout>>>,
     windows: Extract<Query<&Window, With<PrimaryWindow>>>,
     text2d_query: Extract<
@@ -35,6 +34,7 @@ pub fn extract_text2d_sprite(
             &TextLayoutInfo,
             &TextBounds,
             &Anchor,
+            Option<&Text2dShadow>,
             &GlobalTransform,
         )>,
     >,
@@ -57,6 +57,7 @@ pub fn extract_text2d_sprite(
         text_layout_info,
         text_bounds,
         anchor,
+        maybe_shadow,
         global_transform,
     ) in text2d_query.iter()
     {
@@ -70,9 +71,60 @@ pub fn extract_text2d_sprite(
         );
 
         let top_left = (Anchor::TOP_LEFT.0 - anchor.as_vec()) * size;
+
+        if let Some(shadow) = maybe_shadow {
+            let shadow_transform = *global_transform
+                * GlobalTransform::from_translation((top_left + shadow.offset).extend(0.))
+                * scaling;
+            let color = shadow.color.into();
+
+            for (
+                i,
+                PositionedGlyph {
+                    position,
+                    atlas_info,
+                    ..
+                },
+            ) in text_layout_info.glyphs.iter().enumerate()
+            {
+                let rect = texture_atlases
+                    .get(atlas_info.texture_atlas)
+                    .unwrap()
+                    .textures[atlas_info.location.glyph_index]
+                    .as_rect();
+                extracted_slices.slices.push(ExtractedSlice {
+                    offset: Vec2::new(position.x, -position.y),
+                    rect,
+                    size: rect.size(),
+                });
+
+                if text_layout_info
+                    .glyphs
+                    .get(i + 1)
+                    .is_none_or(|info| info.atlas_info.texture != atlas_info.texture)
+                {
+                    let render_entity = commands.spawn(TemporaryRenderEntity).id();
+                    extracted_sprites.sprites.push(ExtractedSprite {
+                        main_entity,
+                        render_entity,
+                        transform: shadow_transform,
+                        color,
+                        image_handle_id: atlas_info.texture,
+                        flip_x: false,
+                        flip_y: false,
+                        kind: bevy_sprite_render::ExtractedSpriteKind::Slices {
+                            indices: start..end,
+                        },
+                    });
+                    start = end;
+                }
+
+                end += 1;
+            }
+        }
+
         let transform =
             *global_transform * GlobalTransform::from_translation(top_left.extend(0.)) * scaling;
-
         let mut color = LinearRgba::WHITE;
         let mut current_span = usize::MAX;
 

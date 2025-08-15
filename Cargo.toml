@@ -334,6 +334,9 @@ spirv_shader_passthrough = ["bevy_internal/spirv_shader_passthrough"]
 # Statically linked DXC shader compiler for DirectX 12
 statically-linked-dxc = ["bevy_internal/statically-linked-dxc"]
 
+# Forces the wgpu instance to be initialized using the raw Vulkan HAL, enabling additional configuration
+raw_vulkan_init = ["bevy_internal/raw_vulkan_init"]
+
 # Tracing support, saving a file in Chrome Tracing format
 trace_chrome = ["trace", "bevy_internal/trace_chrome"]
 

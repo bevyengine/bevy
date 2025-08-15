@@ -196,6 +196,10 @@ mod tests {
             .unwrap();
 
         app.update();
+        // TODO: multiple updates to avoid debounced asset events. See comment on SceneSpawner::debounced_scene_asset_events
+        app.update();
+        app.update();
+        app.update();
 
         let child_root = app
             .world()
@@ -335,6 +339,10 @@ mod tests {
             .insert(&scene_handle, scene_1)
             .unwrap();
 
+        app.update();
+        // TODO: multiple updates to avoid debounced asset events. See comment on SceneSpawner::debounced_scene_asset_events
+        app.update();
+        app.update();
         app.update();
 
         let child_root = app

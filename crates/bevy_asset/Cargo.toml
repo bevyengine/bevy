@@ -88,6 +88,9 @@ bevy_reflect = { path = "../bevy_reflect", version = "0.17.0-dev", default-featu
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 notify-debouncer-full = { version = "0.5.0", default-features = false, optional = true }
 
+[dev-dependencies]
+async-channel = "2"
+
 [lints]
 workspace = true
 

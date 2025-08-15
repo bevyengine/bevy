@@ -9,6 +9,7 @@ use bevy_camera::primitives::Aabb;
 use bevy_camera::visibility::{
     self, NoFrustumCulling, Visibility, VisibilityClass,
 };
+use bevy_color::{Color, LinearRgba};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::entity::EntityHashSet;
 use bevy_ecs::{
@@ -125,6 +126,28 @@ pub type Text2dReader<'w, 's> = TextReader<'w, 's, Text2d>;
 
 /// 2d alias for [`TextWriter`].
 pub type Text2dWriter<'w, 's> = TextWriter<'w, 's, Text2d>;
+
+/// Adds a shadow behind `Text2d` text
+///
+/// Use `TextShadow` for text drawn with `bevy_ui`
+#[derive(Component, Copy, Clone, Debug, PartialEq, Reflect)]
+#[reflect(Component, Default, Debug, Clone, PartialEq)]
+pub struct Text2dShadow {
+    /// Shadow displacement
+    /// With a value of zero the shadow will be hidden directly behind the text
+    pub offset: Vec2,
+    /// Color of the shadow
+    pub color: Color,
+}
+
+impl Default for Text2dShadow {
+    fn default() -> Self {
+        Self {
+            offset: Vec2::new(4., -4.),
+            color: Color::BLACK,
+        }
+    }
+}
 
 /// Updates the layout and size information whenever the text or style is changed.
 /// This information is computed by the [`TextPipeline`] on insertion, then stored.

@@ -62,6 +62,9 @@ spirv_shader_passthrough = ["bevy_render/spirv_shader_passthrough"]
 # TODO: When wgpu switches to DirectX 12 instead of Vulkan by default on windows, make this a default feature
 statically-linked-dxc = ["bevy_render/statically-linked-dxc"]
 
+# Forces the wgpu instance to be initialized using the raw Vulkan HAL, enabling additional configuration
+raw_vulkan_init = ["bevy_render/raw_vulkan_init"]
+
 # Include tonemapping LUT KTX2 files.
 tonemapping_luts = ["bevy_core_pipeline/tonemapping_luts"]
 # Include Bluenoise texture for environment map generation.
