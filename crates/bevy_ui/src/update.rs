@@ -261,8 +261,7 @@ mod tests {
 
         world.spawn((
             Window {
-                resolution: WindowResolution::new(physical_size.x as f32, physical_size.y as f32)
-                    .with_scale_factor_override(10.),
+                resolution: WindowResolution::from(physical_size).with_scale_factor_override(10.),
                 ..Default::default()
             },
             PrimaryWindow,
@@ -297,8 +296,7 @@ mod tests {
 
         world.spawn((
             Window {
-                resolution: WindowResolution::new(size1.x as f32, size1.y as f32)
-                    .with_scale_factor_override(scale1),
+                resolution: WindowResolution::from(size1).with_scale_factor_override(scale1),
                 ..Default::default()
             },
             PrimaryWindow,
@@ -306,8 +304,7 @@ mod tests {
 
         let window_2 = world
             .spawn((Window {
-                resolution: WindowResolution::new(size2.x as f32, size2.y as f32)
-                    .with_scale_factor_override(scale2),
+                resolution: WindowResolution::from(size2).with_scale_factor_override(scale2),
                 ..Default::default()
             },))
             .id();
@@ -362,8 +359,7 @@ mod tests {
 
         world.spawn((
             Window {
-                resolution: WindowResolution::new(size1.x as f32, size1.y as f32)
-                    .with_scale_factor_override(scale1),
+                resolution: WindowResolution::from(size1).with_scale_factor_override(scale1),
                 ..Default::default()
             },
             PrimaryWindow,
@@ -371,8 +367,7 @@ mod tests {
 
         let window_2 = world
             .spawn((Window {
-                resolution: WindowResolution::new(size2.x as f32, size2.y as f32)
-                    .with_scale_factor_override(scale2),
+                resolution: WindowResolution::from(size2).with_scale_factor_override(scale2),
                 ..Default::default()
             },))
             .id();
@@ -461,8 +456,7 @@ mod tests {
 
         world.spawn((
             Window {
-                resolution: WindowResolution::new(size1.x as f32, size1.y as f32)
-                    .with_scale_factor_override(scale1),
+                resolution: WindowResolution::from(size1).with_scale_factor_override(scale1),
                 ..Default::default()
             },
             PrimaryWindow,
@@ -470,8 +464,7 @@ mod tests {
 
         let window_2 = world
             .spawn((Window {
-                resolution: WindowResolution::new(size2.x as f32, size2.y as f32)
-                    .with_scale_factor_override(scale2),
+                resolution: WindowResolution::from(size2).with_scale_factor_override(scale2),
                 ..Default::default()
             },))
             .id();
@@ -579,8 +572,7 @@ mod tests {
 
         world.spawn((
             Window {
-                resolution: WindowResolution::new(size.x as f32, size.y as f32)
-                    .with_scale_factor_override(scale),
+                resolution: WindowResolution::from(size).with_scale_factor_override(scale),
                 ..Default::default()
             },
             PrimaryWindow,
