@@ -11,7 +11,7 @@ keywords = ["bevy"]
 [features]
 webgl = []
 webgpu = []
-bevy_render = ["dep:bevy_render", "bevy_core_pipeline", "bevy_sprite_render"]
+bevy_render = ["dep:bevy_render", "bevy_core_pipeline"]
 
 [dependencies]
 # Bevy

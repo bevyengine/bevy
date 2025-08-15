@@ -68,22 +68,3 @@ impl Plugin for SpritePlugin {
 
     }
 }
-
-#[cfg(test)]
-mod test {
-
-    use super::*;
-
-    #[test]
-    fn calculate_bounds_2d_create_aabb_for_image_sprite_entity() {
-        // Setup app
-        let mut app = App::new();
-
-        // assert!(app
-        //     .world()
-        //     .get_entity(entity)
-        //     .expect("Could not find entity")
-        //     .contains::<Aabb>());
-    }
-
-}

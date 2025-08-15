@@ -42,9 +42,7 @@ use bevy_ecs::prelude::*;
 use bevy_image::{prelude::*, TextureAtlasPlugin};
 use bevy_mesh::{Mesh, Mesh2d};
 use bevy_render::{
-    batching::sort_binned_render_phase, render_phase::AddRenderCommand,
-    render_resource::SpecializedRenderPipelines, ExtractSchedule, Render, RenderApp, RenderStartup,
-    RenderSystems,
+    batching::sort_binned_render_phase, render_phase::AddRenderCommand, render_resource::SpecializedRenderPipelines, sync_world::SyncToRenderWorld, ExtractSchedule, Render, RenderApp, RenderStartup, RenderSystems
 };
 use bevy_sprite::{Anchor, Sprite};
 
@@ -90,6 +88,8 @@ impl Plugin for SpriteRenderingPlugin {
                     .in_set(SpriteSystems::ComputeSlices),
             ),
         );
+
+        app.register_required_components::<Sprite, SyncToRenderWorld>();
 
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app

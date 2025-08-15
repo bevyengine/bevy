@@ -270,9 +270,7 @@ bevy_solari = [
 # Provides sprite functionality
 bevy_sprite = [
   "bevy_internal/bevy_sprite",
-  "bevy_core_pipeline",
   "bevy_color",
-  "bevy_anti_aliasing",
 ]
 
 # Provides sprite rendering functionality

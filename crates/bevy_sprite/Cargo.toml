@@ -29,6 +29,7 @@ bevy_derive = { path = "../bevy_derive", version = "0.17.0-dev" }
 # other
 radsort = "0.1"
 tracing = { version = "0.1", default-features = false, features = ["std"] }
+wgpu-types = { version = "26", default-features = false }
 
 [lints]
 workspace = true

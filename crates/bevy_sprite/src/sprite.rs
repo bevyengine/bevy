@@ -281,10 +281,50 @@ mod tests {
     use bevy_image::{Image, ToExtents};
     use bevy_image::{TextureAtlas, TextureAtlasLayout};
     use bevy_math::{Rect, URect, UVec2, Vec2};
+    use wgpu_types::{TextureDimension, TextureFormat};
 
     use crate::Anchor;
 
     use super::Sprite;
+
+    /// Makes a new image of the specified size.
+    fn make_image(size: UVec2) -> Image {
+        Image::new_fill(
+            size.to_extents(),
+            TextureDimension::D2,
+            &[0, 0, 0, 255],
+            TextureFormat::Rgba8Unorm,
+            RenderAssetUsages::all(),
+        )
+    }
+
+    #[test]
+    fn compute_pixel_space_point_for_regular_sprite() {
+        let mut image_assets = Assets::<Image>::default();
+        let texture_atlas_assets = Assets::<TextureAtlasLayout>::default();
+
+        let image = image_assets.add(make_image(UVec2::new(5, 10)));
+
+        let sprite = Sprite {
+            image,
+            ..Default::default()
+        };
+
+        let compute = |point| {
+            sprite.compute_pixel_space_point(
+                point,
+                Anchor::default(),
+                &image_assets,
+                &texture_atlas_assets,
+            )
+        };
+        assert_eq!(compute(Vec2::new(-2.0, -4.5)), Ok(Vec2::new(0.5, 9.5)));
+        assert_eq!(compute(Vec2::new(0.0, 0.0)), Ok(Vec2::new(2.5, 5.0)));
+        assert_eq!(compute(Vec2::new(0.0, 4.5)), Ok(Vec2::new(2.5, 0.5)));
+        assert_eq!(compute(Vec2::new(3.0, 0.0)), Err(Vec2::new(5.5, 5.0)));
+        assert_eq!(compute(Vec2::new(-3.0, 0.0)), Err(Vec2::new(-0.5, 5.0)));
+    }
+
 
     #[test]
     fn compute_pixel_space_point_for_color_sprite() {
@@ -311,6 +351,240 @@ mod tests {
         assert_eq!(compute(Vec2::new(75.0, 100.0)), Err(Vec2::new(2.0, -0.5)));
         assert_eq!(compute(Vec2::new(-75.0, -100.0)), Err(Vec2::new(-1.0, 1.5)));
         assert_eq!(compute(Vec2::new(-30.0, -40.0)), Err(Vec2::new(-0.1, 0.9)));
+    }
+
+     #[test]
+    fn compute_pixel_space_point_for_sprite_with_anchor_bottom_left() {
+        let mut image_assets = Assets::<Image>::default();
+        let texture_atlas_assets = Assets::<TextureAtlasLayout>::default();
+
+        let image = image_assets.add(make_image(UVec2::new(5, 10)));
+
+        let sprite = Sprite {
+            image,
+            ..Default::default()
+        };
+        let anchor = Anchor::BOTTOM_LEFT;
+
+        let compute = |point| {
+            sprite.compute_pixel_space_point(point, anchor, &image_assets, &texture_atlas_assets)
+        };
+        assert_eq!(compute(Vec2::new(0.5, 9.5)), Ok(Vec2::new(0.5, 0.5)));
+        assert_eq!(compute(Vec2::new(2.5, 5.0)), Ok(Vec2::new(2.5, 5.0)));
+        assert_eq!(compute(Vec2::new(2.5, 9.5)), Ok(Vec2::new(2.5, 0.5)));
+        assert_eq!(compute(Vec2::new(5.5, 5.0)), Err(Vec2::new(5.5, 5.0)));
+        assert_eq!(compute(Vec2::new(-0.5, 5.0)), Err(Vec2::new(-0.5, 5.0)));
+    }
+
+    #[test]
+    fn compute_pixel_space_point_for_sprite_with_anchor_top_right() {
+        let mut image_assets = Assets::<Image>::default();
+        let texture_atlas_assets = Assets::<TextureAtlasLayout>::default();
+
+        let image = image_assets.add(make_image(UVec2::new(5, 10)));
+
+        let sprite = Sprite {
+            image,
+            ..Default::default()
+        };
+        let anchor = Anchor::TOP_RIGHT;
+
+        let compute = |point| {
+            sprite.compute_pixel_space_point(point, anchor, &image_assets, &texture_atlas_assets)
+        };
+        assert_eq!(compute(Vec2::new(-4.5, -0.5)), Ok(Vec2::new(0.5, 0.5)));
+        assert_eq!(compute(Vec2::new(-2.5, -5.0)), Ok(Vec2::new(2.5, 5.0)));
+        assert_eq!(compute(Vec2::new(-2.5, -0.5)), Ok(Vec2::new(2.5, 0.5)));
+        assert_eq!(compute(Vec2::new(0.5, -5.0)), Err(Vec2::new(5.5, 5.0)));
+        assert_eq!(compute(Vec2::new(-5.5, -5.0)), Err(Vec2::new(-0.5, 5.0)));
+    }
+
+    #[test]
+    fn compute_pixel_space_point_for_sprite_with_anchor_flip_x() {
+        let mut image_assets = Assets::<Image>::default();
+        let texture_atlas_assets = Assets::<TextureAtlasLayout>::default();
+
+        let image = image_assets.add(make_image(UVec2::new(5, 10)));
+
+        let sprite = Sprite {
+            image,
+            flip_x: true,
+            ..Default::default()
+        };
+        let anchor = Anchor::BOTTOM_LEFT;
+
+        let compute = |point| {
+            sprite.compute_pixel_space_point(point, anchor, &image_assets, &texture_atlas_assets)
+        };
+        assert_eq!(compute(Vec2::new(0.5, 9.5)), Ok(Vec2::new(4.5, 0.5)));
+        assert_eq!(compute(Vec2::new(2.5, 5.0)), Ok(Vec2::new(2.5, 5.0)));
+        assert_eq!(compute(Vec2::new(2.5, 9.5)), Ok(Vec2::new(2.5, 0.5)));
+        assert_eq!(compute(Vec2::new(5.5, 5.0)), Err(Vec2::new(-0.5, 5.0)));
+        assert_eq!(compute(Vec2::new(-0.5, 5.0)), Err(Vec2::new(5.5, 5.0)));
+    }
+
+    #[test]
+    fn compute_pixel_space_point_for_sprite_with_anchor_flip_y() {
+        let mut image_assets = Assets::<Image>::default();
+        let texture_atlas_assets = Assets::<TextureAtlasLayout>::default();
+
+        let image = image_assets.add(make_image(UVec2::new(5, 10)));
+
+        let sprite = Sprite {
+            image,
+            flip_y: true,
+            ..Default::default()
+        };
+        let anchor = Anchor::TOP_RIGHT;
+
+        let compute = |point| {
+            sprite.compute_pixel_space_point(point, anchor, &image_assets, &texture_atlas_assets)
+        };
+        assert_eq!(compute(Vec2::new(-4.5, -0.5)), Ok(Vec2::new(0.5, 9.5)));
+        assert_eq!(compute(Vec2::new(-2.5, -5.0)), Ok(Vec2::new(2.5, 5.0)));
+        assert_eq!(compute(Vec2::new(-2.5, -0.5)), Ok(Vec2::new(2.5, 9.5)));
+        assert_eq!(compute(Vec2::new(0.5, -5.0)), Err(Vec2::new(5.5, 5.0)));
+        assert_eq!(compute(Vec2::new(-5.5, -5.0)), Err(Vec2::new(-0.5, 5.0)));
+    }
+
+    #[test]
+    fn compute_pixel_space_point_for_sprite_with_rect() {
+        let mut image_assets = Assets::<Image>::default();
+        let texture_atlas_assets = Assets::<TextureAtlasLayout>::default();
+
+        let image = image_assets.add(make_image(UVec2::new(5, 10)));
+
+        let sprite = Sprite {
+            image,
+            rect: Some(Rect::new(1.5, 3.0, 3.0, 9.5)),
+            ..Default::default()
+        };
+        let anchor = Anchor::BOTTOM_LEFT;
+
+        let compute = |point| {
+            sprite.compute_pixel_space_point(point, anchor, &image_assets, &texture_atlas_assets)
+        };
+        assert_eq!(compute(Vec2::new(0.5, 0.5)), Ok(Vec2::new(2.0, 9.0)));
+        // The pixel is outside the rect, but is still a valid pixel in the image.
+        assert_eq!(compute(Vec2::new(2.0, 2.5)), Err(Vec2::new(3.5, 7.0)));
+    }
+
+    #[test]
+    fn compute_pixel_space_point_for_texture_atlas_sprite() {
+        let mut image_assets = Assets::<Image>::default();
+        let mut texture_atlas_assets = Assets::<TextureAtlasLayout>::default();
+
+        let image = image_assets.add(make_image(UVec2::new(5, 10)));
+        let texture_atlas = texture_atlas_assets.add(TextureAtlasLayout {
+            size: UVec2::new(5, 10),
+            textures: vec![URect::new(1, 1, 4, 4)],
+        });
+
+        let sprite = Sprite {
+            image,
+            texture_atlas: Some(TextureAtlas {
+                layout: texture_atlas,
+                index: 0,
+            }),
+            ..Default::default()
+        };
+        let anchor = Anchor::BOTTOM_LEFT;
+
+        let compute = |point| {
+            sprite.compute_pixel_space_point(point, anchor, &image_assets, &texture_atlas_assets)
+        };
+        assert_eq!(compute(Vec2::new(0.5, 0.5)), Ok(Vec2::new(1.5, 3.5)));
+        // The pixel is outside the texture atlas, but is still a valid pixel in the image.
+        assert_eq!(compute(Vec2::new(4.0, 2.5)), Err(Vec2::new(5.0, 1.5)));
+    }
+
+    #[test]
+    fn compute_pixel_space_point_for_texture_atlas_sprite_with_rect() {
+        let mut image_assets = Assets::<Image>::default();
+        let mut texture_atlas_assets = Assets::<TextureAtlasLayout>::default();
+
+        let image = image_assets.add(make_image(UVec2::new(5, 10)));
+        let texture_atlas = texture_atlas_assets.add(TextureAtlasLayout {
+            size: UVec2::new(5, 10),
+            textures: vec![URect::new(1, 1, 4, 4)],
+        });
+
+        let sprite = Sprite {
+            image,
+            texture_atlas: Some(TextureAtlas {
+                layout: texture_atlas,
+                index: 0,
+            }),
+            // The rect is relative to the texture atlas sprite.
+            rect: Some(Rect::new(1.5, 1.5, 3.0, 3.0)),
+            ..Default::default()
+        };
+        let anchor = Anchor::BOTTOM_LEFT;
+
+        let compute = |point| {
+            sprite.compute_pixel_space_point(point, anchor, &image_assets, &texture_atlas_assets)
+        };
+        assert_eq!(compute(Vec2::new(0.5, 0.5)), Ok(Vec2::new(3.0, 3.5)));
+        // The pixel is outside the texture atlas, but is still a valid pixel in the image.
+        assert_eq!(compute(Vec2::new(4.0, 2.5)), Err(Vec2::new(6.5, 1.5)));
+    }
+
+    #[test]
+    fn compute_pixel_space_point_for_sprite_with_custom_size_and_rect() {
+        let mut image_assets = Assets::<Image>::default();
+        let texture_atlas_assets = Assets::<TextureAtlasLayout>::default();
+
+        let image = image_assets.add(make_image(UVec2::new(5, 10)));
+
+        let sprite = Sprite {
+            image,
+            custom_size: Some(Vec2::new(100.0, 50.0)),
+            rect: Some(Rect::new(0.0, 0.0, 5.0, 5.0)),
+            ..Default::default()
+        };
+
+        let compute = |point| {
+            sprite.compute_pixel_space_point(
+                point,
+                Anchor::default(),
+                &image_assets,
+                &texture_atlas_assets,
+            )
+        };
+        assert_eq!(compute(Vec2::new(30.0, 15.0)), Ok(Vec2::new(4.0, 1.0)));
+        assert_eq!(compute(Vec2::new(-10.0, -15.0)), Ok(Vec2::new(2.0, 4.0)));
+        // The pixel is outside the texture atlas, but is still a valid pixel in the image.
+        assert_eq!(compute(Vec2::new(0.0, 35.0)), Err(Vec2::new(2.5, -1.0)));
+    }
+
+    #[test]
+    fn compute_pixel_space_point_for_sprite_with_zero_custom_size() {
+        let mut image_assets = Assets::<Image>::default();
+        let texture_atlas_assets = Assets::<TextureAtlasLayout>::default();
+
+        let image = image_assets.add(make_image(UVec2::new(5, 10)));
+
+        let sprite = Sprite {
+            image,
+            custom_size: Some(Vec2::new(0.0, 0.0)),
+            ..Default::default()
+        };
+
+        let compute = |point| {
+            sprite.compute_pixel_space_point(
+                point,
+                Anchor::default(),
+                &image_assets,
+                &texture_atlas_assets,
+            )
+        };
+        assert_eq!(compute(Vec2::new(30.0, 15.0)), Err(Vec2::new(30.0, -15.0)));
+        assert_eq!(
+            compute(Vec2::new(-10.0, -15.0)),
+            Err(Vec2::new(-10.0, 15.0))
+        );
+        // The pixel is outside the texture atlas, but is still a valid pixel in the image.
+        assert_eq!(compute(Vec2::new(0.0, 35.0)), Err(Vec2::new(0.0, -35.0)));
     }
 
 }
