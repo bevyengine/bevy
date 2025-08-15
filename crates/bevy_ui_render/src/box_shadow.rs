@@ -28,8 +28,8 @@ use bevy_render::{
 use bevy_render::{RenderApp, RenderStartup};
 use bevy_shader::{Shader, ShaderDefVal};
 use bevy_ui::{
-    BoxShadow, CalculatedClip, ComputedNode, ComputedUiTargetCamera, ResolvedBorderRadius,
-    UiGlobalTransform, Val,
+    BoxShadow, CalculatedClip, ComputedNode, ComputedUiRenderTargetInfo, ComputedUiTargetCamera,
+    ResolvedBorderRadius, UiGlobalTransform, Val,
 };
 use bevy_utils::default;
 use bytemuck::{Pod, Zeroable};
@@ -224,13 +224,16 @@ pub fn extract_shadows(
             &BoxShadow,
             Option<&CalculatedClip>,
             &ComputedUiTargetCamera,
+            &ComputedUiRenderTargetInfo,
         )>,
     >,
     camera_map: Extract<UiCameraMap>,
 ) {
     let mut mapping = camera_map.get_mapper();
 
-    for (entity, uinode, transform, visibility, box_shadow, clip, camera) in &box_shadow_query {
+    for (entity, uinode, transform, visibility, box_shadow, clip, camera, target) in
+        &box_shadow_query
+    {
         // Skip if no visible shadows
         if !visibility.get() || box_shadow.is_empty() || uinode.is_empty() {
             continue;
@@ -240,8 +243,8 @@ pub fn extract_shadows(
             continue;
         };
 
-        let ui_physical_viewport_size = camera.physical_size().as_vec2();
-        let scale_factor = uinode.inverse_scale_factor.recip();
+        let ui_physical_viewport_size = target.physical_size().as_vec2();
+        let scale_factor = target.scale_factor();
 
         for drop_shadow in box_shadow.iter() {
             if drop_shadow.color.is_fully_transparent() {
