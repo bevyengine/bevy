@@ -17,16 +17,75 @@ use bevy_platform::collections::HashMap;
 use bevy_time::Time;
 use bevy_ui::{BackgroundColor, BorderColor, Node, UiSystems, UiTransform, Val};
 
+/// Why the interpolation failed.
+#[derive(Clone, Debug)]
+pub enum InterpolationError {
+    /// The values to be interpolated are not in the same units.
+    MismatchedUnits,
+}
+
+/// A trait that indicates that a value may be interpolable via [`StableInterpolate`]. An
+/// interpolation may fail if the values have different units - for example, attempting to
+/// interpolate between `Val::Px` and `Val::Percent` will fail, even though they are the same
+/// type.
+pub trait FallibleInterpolate: Clone {
+    /// Attempt to interpolate the value. This may fail if the two interpolation values have
+    /// different units.
+    fn try_interpolate(&self, other: &Self, t: f32) -> Result<Self, InterpolationError>;
+}
+
+impl FallibleInterpolate for f32 {
+    fn try_interpolate(&self, other: &Self, t: f32) -> Result<Self, InterpolationError> {
+        Ok(self.interpolate_stable(other, t))
+    }
+}
+
+impl FallibleInterpolate for Vec2 {
+    fn try_interpolate(&self, other: &Self, t: f32) -> Result<Self, InterpolationError> {
+        Ok(self.interpolate_stable(other, t))
+    }
+}
+
+impl FallibleInterpolate for Srgba {
+    fn try_interpolate(&self, other: &Self, t: f32) -> Result<Self, InterpolationError> {
+        Ok(self.interpolate_stable(other, t))
+    }
+}
+
+impl FallibleInterpolate for Rot2 {
+    fn try_interpolate(&self, other: &Self, t: f32) -> Result<Self, InterpolationError> {
+        Ok(self.interpolate_stable(other, t))
+    }
+}
+
+impl FallibleInterpolate for Val {
+    fn try_interpolate(&self, other: &Self, t: f32) -> Result<Self, InterpolationError> {
+        match (self, other) {
+            (Val::Px(a), Val::Px(b)) => Ok(Val::Px(a.interpolate_stable(b, t))),
+            (Val::Percent(a), Val::Percent(b)) => Ok(Val::Percent(a.interpolate_stable(b, t))),
+            (Val::Vw(a), Val::Vw(b)) => Ok(Val::Vw(a.interpolate_stable(b, t))),
+            (Val::Vh(a), Val::Vh(b)) => Ok(Val::Vh(a.interpolate_stable(b, t))),
+            (Val::VMin(a), Val::VMin(b)) => Ok(Val::VMin(a.interpolate_stable(b, t))),
+            (Val::VMax(a), Val::VMax(b)) => Ok(Val::VMax(a.interpolate_stable(b, t))),
+            (Val::Auto, Val::Auto) => Ok(Val::Auto),
+            _ => Err(InterpolationError::MismatchedUnits),
+        }
+    }
+}
+
 /// Represents an animatable property such as `BackgroundColor` or `Width`.
 pub trait TransitionProperty {
     /// The data type of the animated property.
-    type ValueType: Copy + Send + Sync + PartialEq + 'static + StableInterpolate;
+    type ValueType: Copy + Send + Sync + PartialEq + 'static + FallibleInterpolate;
 
     /// The type of component that contains the animated property.
     type ComponentType: Component<Mutability = Mutable>;
 
+    /// Read the value of the animatable property.
+    fn get(component: &Self::ComponentType) -> Self::ValueType;
+
     /// Update the value of the animatable property.
-    fn update(component: &mut Mut<Self::ComponentType>, value: Self::ValueType);
+    fn set(component: &mut Mut<Self::ComponentType>, value: Self::ValueType);
 }
 
 /// Controls the direction of playback for a transition.
@@ -113,7 +172,7 @@ impl<P: TransitionProperty + Sync + Send + 'static> Component for AnimatedTransi
                         };
                         let value = transition.advance(time);
                         if let Some(mut target) = entity.get_mut::<P::ComponentType>() {
-                            P::update(&mut target, value);
+                            P::set(&mut target, value);
                         }
                     }),
                 );
@@ -226,7 +285,10 @@ impl<P: TransitionProperty> AnimatedTransition<P> {
             self.direction = PlaybackDirection::Paused;
         }
         let t = self.ease.sample_clamped(self.clock);
-        self.start.interpolate_stable(&self.end, t)
+        match self.start.try_interpolate(&self.end, t) {
+            Ok(value) => value,
+            Err(_) => self.end,
+        }
     }
 }
 
@@ -253,7 +315,11 @@ impl TransitionProperty for BackgroundColorTransition {
     type ValueType = Srgba;
     type ComponentType = BackgroundColor;
 
-    fn update(component: &mut Mut<Self::ComponentType>, value: Self::ValueType) {
+    fn get(component: &Self::ComponentType) -> Self::ValueType {
+        component.0.into()
+    }
+
+    fn set(component: &mut Mut<Self::ComponentType>, value: Self::ValueType) {
         component.0 = value.into();
     }
 }
@@ -265,20 +331,29 @@ impl TransitionProperty for BorderColorTransition {
     type ValueType = Srgba;
     type ComponentType = BorderColor;
 
-    fn update(component: &mut Mut<Self::ComponentType>, value: Self::ValueType) {
+    fn get(component: &Self::ComponentType) -> Self::ValueType {
+        // For now, assume all sides the same.
+        component.top.into()
+    }
+
+    fn set(component: &mut Mut<Self::ComponentType>, value: Self::ValueType) {
         component.set_all(value);
     }
 }
 
 /// Animated transition for [`Node::left`]
-pub struct LeftPercentTransition;
+pub struct LeftTransition;
 
-impl TransitionProperty for LeftPercentTransition {
-    type ValueType = f32;
+impl TransitionProperty for LeftTransition {
+    type ValueType = Val;
     type ComponentType = Node;
 
-    fn update(component: &mut Mut<Self::ComponentType>, value: Self::ValueType) {
-        component.left = Val::Percent(value);
+    fn get(component: &Self::ComponentType) -> Self::ValueType {
+        component.left
+    }
+
+    fn set(component: &mut Mut<Self::ComponentType>, value: Self::ValueType) {
+        component.left = value;
     }
 }
 
@@ -289,7 +364,11 @@ impl TransitionProperty for UiRotateTransition {
     type ValueType = Rot2;
     type ComponentType = UiTransform;
 
-    fn update(component: &mut Mut<Self::ComponentType>, value: Self::ValueType) {
+    fn get(component: &Self::ComponentType) -> Self::ValueType {
+        component.rotation
+    }
+
+    fn set(component: &mut Mut<Self::ComponentType>, value: Self::ValueType) {
         component.rotation = value;
     }
 }
@@ -301,7 +380,11 @@ impl TransitionProperty for UiScaleTransition {
     type ValueType = Vec2;
     type ComponentType = UiTransform;
 
-    fn update(component: &mut Mut<Self::ComponentType>, value: Self::ValueType) {
+    fn get(component: &Self::ComponentType) -> Self::ValueType {
+        component.scale
+    }
+
+    fn set(component: &mut Mut<Self::ComponentType>, value: Self::ValueType) {
         component.scale = value;
     }
 }

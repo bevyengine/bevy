@@ -28,7 +28,7 @@ use crate::{
     palette,
     theme::{ThemeBackgroundColor, ThemeBorderColor, UiTheme},
     tokens,
-    transition::{AnimatedTransition, BackgroundColorTransition, LeftPercentTransition},
+    transition::{AnimatedTransition, BackgroundColorTransition, LeftTransition},
 };
 
 /// Parameters for the toggle switch template, passed to [`toggle_switch`] function.
@@ -89,7 +89,7 @@ pub fn toggle_switch<B: Bundle>(props: ToggleSwitchProps, overrides: B) -> impl 
             },
             BorderRadius::all(Val::Px(3.0)),
             ToggleSwitchSlide,
-            AnimatedTransition::<LeftPercentTransition>::new(0., 50.)
+            AnimatedTransition::<LeftTransition>::new(Val::Percent(0.), Val::Percent(50.))
                 .with_duration(0.25)
                 .with_ease(EaseFunction::CubicInOut),
             ThemeBackgroundColor(tokens::SWITCH_SLIDE),
@@ -115,7 +115,7 @@ fn update_switch_styles(
     q_children: Query<&Children>,
     mut q_slide: Query<
         (
-            &mut AnimatedTransition<LeftPercentTransition>,
+            &mut AnimatedTransition<LeftTransition>,
             &ThemeBackgroundColor,
         ),
         With<ToggleSwitchSlide>,
@@ -164,7 +164,7 @@ fn update_switch_styles_remove(
     q_children: Query<&Children>,
     mut q_slide: Query<
         (
-            &mut AnimatedTransition<LeftPercentTransition>,
+            &mut AnimatedTransition<LeftTransition>,
             &ThemeBackgroundColor,
         ),
         With<ToggleSwitchSlide>,
@@ -213,7 +213,7 @@ fn set_switch_colors(
     hovered: bool,
     outline_bg: &mut AnimatedTransition<BackgroundColorTransition>,
     outline_border: &ThemeBorderColor,
-    slide_transition: &mut Mut<AnimatedTransition<LeftPercentTransition>>,
+    slide_transition: &mut Mut<AnimatedTransition<LeftTransition>>,
     slide_color: &ThemeBackgroundColor,
     theme: &Res<'_, UiTheme>,
     commands: &mut Commands,
