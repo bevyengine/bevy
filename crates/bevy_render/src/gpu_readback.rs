@@ -257,14 +257,13 @@ fn prepare_buffers(
     for (entity, readback) in handles.iter() {
         match readback {
             Readback::Texture(image) => {
-                if let Some(gpu_image) = gpu_images.get(image) {
+                if let Some(gpu_image) = gpu_images.get(image)
+                    && let Ok(pixel_size) = gpu_image.texture_format.pixel_size()
+                {
                     let layout = layout_data(gpu_image.size, gpu_image.texture_format);
                     let buffer = buffer_pool.get(
                         &render_device,
-                        get_aligned_size(
-                            gpu_image.size,
-                            gpu_image.texture_format.pixel_size() as u32,
-                        ) as u64,
+                        get_aligned_size(gpu_image.size, pixel_size as u32) as u64,
                     );
                     let (tx, rx) = async_channel::bounded(1);
                     readbacks.requested.push(GpuReadback {
@@ -384,15 +383,19 @@ pub(crate) const fn get_aligned_size(extent: Extent3d, pixel_size: u32) -> u32 {
 pub(crate) fn layout_data(extent: Extent3d, format: TextureFormat) -> TexelCopyBufferLayout {
     TexelCopyBufferLayout {
         bytes_per_row: if extent.height > 1 || extent.depth_or_array_layers > 1 {
-            // 1 = 1 row
-            Some(get_aligned_size(
-                Extent3d {
-                    width: extent.width,
-                    height: 1,
-                    depth_or_array_layers: 1,
-                },
-                format.pixel_size() as u32,
-            ))
+            if let Ok(pixel_size) = format.pixel_size() {
+                // 1 = 1 row
+                Some(get_aligned_size(
+                    Extent3d {
+                        width: extent.width,
+                        height: 1,
+                        depth_or_array_layers: 1,
+                    },
+                    pixel_size as u32,
+                ))
+            } else {
+                None
+            }
         } else {
             None
         },
