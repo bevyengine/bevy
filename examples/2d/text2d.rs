@@ -44,7 +44,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn(Camera2d);
     // Demonstrate changing translation
     commands.spawn((
-        Text2d::new("translation"),
+        Text2d::new(" translation "),
         text_font.clone(),
         TextLayout::new_with_justify(text_justification),
         TextBackgroundColor(Color::BLACK.with_alpha(0.5)),
@@ -53,7 +53,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     ));
     // Demonstrate changing rotation
     commands.spawn((
-        Text2d::new("rotation"),
+        Text2d::new(" rotation "),
         text_font.clone(),
         TextLayout::new_with_justify(text_justification),
         TextBackgroundColor(Color::BLACK.with_alpha(0.5)),
@@ -62,7 +62,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     ));
     // Demonstrate changing scale
     commands.spawn((
-        Text2d::new("scale"),
+        Text2d::new(" scale "),
         text_font,
         TextLayout::new_with_justify(text_justification),
         Transform::from_translation(Vec3::new(400.0, 0.0, 0.0)),
