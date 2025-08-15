@@ -1,6 +1,6 @@
 use std::{env, fs, io::Write, path};
 
-use miette::{diagnostic, Context, Diagnostic, IntoDiagnostic, Result};
+use miette::{diagnostic, Context, Diagnostic, IntoDiagnostic, NamedSource, Result};
 use ratatui::{
     crossterm::event::{self, Event, KeyCode, KeyModifiers},
     prelude::*,
@@ -285,7 +285,7 @@ impl Entry {
 
 /// Loads release content from files in the specified directory
 fn load_content(dir: path::PathBuf, kind: &'static str) -> Result<Vec<Entry>> {
-    let re = Regex::new(r"(?s)^---\s*\n(.*?)\n---\n(.*)").unwrap();
+    let re = Regex::new(r"(?s)^---\s*\n(?<frontmatter>.*?)\s*\n---\s*\n(?<content>.*)").unwrap();
 
     let mut entries = vec![];
 
@@ -320,15 +320,18 @@ fn load_content(dir: path::PathBuf, kind: &'static str) -> Result<Vec<Entry>> {
             file_name
         ))?;
 
-        let frontmatter = caps.get(1).unwrap().as_str();
+        let frontmatter = caps.name("frontmatter").unwrap().as_str();
         let metadata = serde_yml::from_str::<Metadata>(frontmatter).map_err(|e| ParseError {
-            src: frontmatter.to_owned(),
+            src: NamedSource::new(
+                format!("{}", dir_entry.path().display()),
+                frontmatter.to_owned(),
+            ),
             kind,
             file_name,
             err_span: e.location().map(|l| l.index()),
             error: e,
         })?;
-        let content = caps.get(2).unwrap().as_str().to_owned();
+        let content = caps.name("content").unwrap().as_str().to_owned();
 
         entries.push(Entry::File { metadata, content });
     }
@@ -340,7 +343,7 @@ fn load_content(dir: path::PathBuf, kind: &'static str) -> Result<Vec<Entry>> {
 #[error("failed to parse metadata in {kind} file {file_name}")]
 pub struct ParseError {
     #[source_code]
-    src: String,
+    src: NamedSource<String>,
     kind: &'static str,
     file_name: String,
     #[label("{error}")]
