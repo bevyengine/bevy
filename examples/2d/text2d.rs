@@ -6,11 +6,11 @@
 //! viewport, you may want to look at `games/contributors.rs` or `ui/text.rs`.
 
 use bevy::{
-    bevy_sprite::Text2dShadow,
     color::palettes::css::*,
     math::ops,
     prelude::*,
     sprite::Anchor,
+    sprite::Text2dShadow,
     text::{FontSmoothing, LineBreak, TextBounds},
 };
 
