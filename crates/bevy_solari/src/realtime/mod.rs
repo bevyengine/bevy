@@ -67,7 +67,11 @@ impl Plugin for SolariLightingPlugin {
             )
             .add_render_graph_edges(
                 Core3d,
-                (Node3d::EndMainPass, node::graph::SolariLightingNode),
+                (
+                    Node3d::EndPrepasses,
+                    node::graph::SolariLightingNode,
+                    Node3d::EndMainPass,
+                ),
             );
     }
 }

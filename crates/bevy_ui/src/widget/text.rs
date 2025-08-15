@@ -130,7 +130,7 @@ impl From<String> for Text {
 
 /// Adds a shadow behind text
 ///
-/// Not supported by `Text2d`
+/// Use the `Text2dShadow` component for `Text2d` shadows
 #[derive(Component, Copy, Clone, Debug, PartialEq, Reflect)]
 #[reflect(Component, Default, Debug, Clone, PartialEq)]
 pub struct TextShadow {
@@ -276,7 +276,8 @@ pub fn measure_text_system(
             &mut ContentSize,
             &mut TextNodeFlags,
             &mut ComputedTextBlock,
-            Ref<ComputedUiTargetCamera>,
+            &ComputedUiTargetCamera,
+            &ComputedNode,
         ),
         With<Node>,
     >,
@@ -284,9 +285,13 @@ pub fn measure_text_system(
     mut text_pipeline: ResMut<TextPipeline>,
     mut font_system: ResMut<CosmicFontSystem>,
 ) {
-    for (entity, block, content_size, text_flags, computed, computed_target) in &mut text_query {
+    for (entity, block, content_size, text_flags, computed, computed_target, computed_node) in
+        &mut text_query
+    {
         // Note: the ComputedTextBlock::needs_rerender bool is cleared in create_text_measure().
-        if computed_target.is_changed()
+        // 1e-5 epsilon to ignore tiny scale factor float errors
+        if 1e-5
+            < (computed_target.scale_factor() - computed_node.inverse_scale_factor.recip()).abs()
             || computed.needs_rerender()
             || text_flags.needs_measure_fn
             || content_size.is_added()

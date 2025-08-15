@@ -146,13 +146,13 @@ impl Default for WgpuSettings {
 
 #[derive(Clone)]
 pub struct RenderResources(
-    pub(crate) RenderDevice,
-    pub(crate) RenderQueue,
-    pub(crate) RenderAdapterInfo,
-    pub(crate) RenderAdapter,
-    pub(crate) RenderInstance,
+    pub RenderDevice,
+    pub RenderQueue,
+    pub RenderAdapterInfo,
+    pub RenderAdapter,
+    pub RenderInstance,
     #[cfg(feature = "raw_vulkan_init")]
-    pub(crate)  crate::renderer::raw_vulkan_init::AdditionalVulkanFeatures,
+    pub  crate::renderer::raw_vulkan_init::AdditionalVulkanFeatures,
 );
 
 /// An enum describing how the renderer will initialize resources. This is used when creating the [`RenderPlugin`](crate::RenderPlugin).

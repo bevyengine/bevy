@@ -1,9 +1,7 @@
+use alloc::sync::Arc;
 use bevy_ecs::resource::Resource;
 use bevy_platform::collections::HashSet;
-use std::{
-    any::{Any, TypeId},
-    sync::Arc,
-};
+use core::any::{Any, TypeId};
 use thiserror::Error;
 use wgpu::{
     hal::api::Vulkan, Adapter, Device, DeviceDescriptor, Instance, InstanceDescriptor, Queue,
@@ -12,7 +10,8 @@ use wgpu::{
 /// When the `raw_vulkan_init` feature is enabled, these settings will be used to configure the raw vulkan instance.
 #[derive(Resource, Default, Clone)]
 pub struct RawVulkanInitSettings {
-    pub create_instance_callbacks: Vec<
+    // SAFETY: this must remain private to ensure that registering callbacks is unsafe
+    create_instance_callbacks: Vec<
         Arc<
             dyn Fn(
                     &mut wgpu::hal::vulkan::CreateInstanceCallbackArgs,
@@ -21,7 +20,8 @@ pub struct RawVulkanInitSettings {
                 + Sync,
         >,
     >,
-    pub create_device_callbacks: Vec<
+    // SAFETY: this must remain private to ensure that registering callbacks is unsafe
+    create_device_callbacks: Vec<
         Arc<
             dyn Fn(
                     &mut wgpu::hal::vulkan::CreateDeviceCallbackArgs,
@@ -33,13 +33,50 @@ pub struct RawVulkanInitSettings {
     >,
 }
 
+impl RawVulkanInitSettings {
+    /// Adds a new Vulkan create instance callback. See [`wgpu::hal::vulkan::Instance::init_with_callback`] for details.
+    ///
+    /// # Safety
+    /// - Callback must not remove features.
+    /// - Callback must not change anything to what the instance does not support.
+    pub unsafe fn add_create_instance_callback(
+        &mut self,
+        callback: impl Fn(&mut wgpu::hal::vulkan::CreateInstanceCallbackArgs, &mut AdditionalVulkanFeatures)
+            + Send
+            + Sync
+            + 'static,
+    ) {
+        self.create_instance_callbacks.push(Arc::new(callback));
+    }
+
+    /// Adds a new Vulkan create device callback. See [`wgpu::hal::vulkan::Adapter::open_with_callback`] for details.
+    ///
+    /// # Safety
+    /// - Callback must not remove features.
+    /// - Callback must not change anything to what the device does not support.
+    pub unsafe fn add_create_device_callback(
+        &mut self,
+        callback: impl Fn(
+                &mut wgpu::hal::vulkan::CreateDeviceCallbackArgs,
+                &wgpu::hal::vulkan::Adapter,
+                &mut AdditionalVulkanFeatures,
+            ) + Send
+            + Sync
+            + 'static,
+    ) {
+        self.create_device_callbacks.push(Arc::new(callback));
+    }
+}
+
 pub(crate) fn create_raw_vulkan_instance(
     instance_descriptor: &InstanceDescriptor,
     settings: &RawVulkanInitSettings,
     additional_features: &mut AdditionalVulkanFeatures,
 ) -> Instance {
+    // SAFETY: Registering callbacks is unsafe. Callback authors promise not to remove features
+    // or change the instance to something it does not support
     unsafe {
-        let instance = wgpu::hal::vulkan::Instance::init_with_callback(
+        wgpu::hal::vulkan::Instance::init_with_callback(
             &wgpu::hal::InstanceDescriptor {
                 name: "wgpu",
                 flags: instance_descriptor.flags,
@@ -53,8 +90,7 @@ pub(crate) fn create_raw_vulkan_instance(
             })),
         )
         .map(|raw_instance| Instance::from_hal::<Vulkan>(raw_instance))
-        .unwrap_or_else(|_| Instance::new(instance_descriptor));
-        instance
+        .unwrap_or_else(|_| Instance::new(instance_descriptor))
     }
 }
 
@@ -64,6 +100,8 @@ pub(crate) async fn create_raw_device(
     settings: &RawVulkanInitSettings,
     additional_features: &mut AdditionalVulkanFeatures,
 ) -> Result<(Device, Queue), CreateRawVulkanDeviceError> {
+    // SAFETY: Registering callbacks is unsafe. Callback authors promise not to remove features
+    // or change the adapter to something it does not support
     unsafe {
         let Some(raw_adapter) = adapter.as_hal::<Vulkan>() else {
             return Ok(adapter.request_device(device_descriptor).await?);
@@ -73,7 +111,7 @@ pub(crate) async fn create_raw_device(
             &device_descriptor.memory_hints,
             Some(Box::new(|mut args| {
                 for callback in &settings.create_device_callbacks {
-                    (callback)(&mut args, &*raw_adapter, additional_features);
+                    (callback)(&mut args, &raw_adapter, additional_features);
                 }
             })),
         )?;

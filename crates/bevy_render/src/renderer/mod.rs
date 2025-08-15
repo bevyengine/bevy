@@ -1,4 +1,5 @@
 mod graph_runner;
+#[cfg(feature = "raw_vulkan_init")]
 pub mod raw_vulkan_init;
 mod render_device;
 
@@ -580,22 +581,24 @@ impl<'w> RenderContext<'w> {
 
         #[cfg(not(all(target_arch = "wasm32", target_feature = "atomics")))]
         {
-            let mut task_based_command_buffers = ComputeTaskPool::get().scope(|task_pool| {
-                for (i, queued_command_buffer) in self.command_buffer_queue.into_iter().enumerate()
-                {
-                    match queued_command_buffer {
-                        QueuedCommandBuffer::Ready(command_buffer) => {
-                            command_buffers.push((i, command_buffer));
-                        }
-                        QueuedCommandBuffer::Task(command_buffer_generation_task) => {
-                            let render_device = self.render_device.clone();
-                            task_pool.spawn(async move {
-                                (i, command_buffer_generation_task(render_device))
-                            });
+            let mut task_based_command_buffers =
+                bevy_tasks::ComputeTaskPool::get().scope(|task_pool| {
+                    for (i, queued_command_buffer) in
+                        self.command_buffer_queue.into_iter().enumerate()
+                    {
+                        match queued_command_buffer {
+                            QueuedCommandBuffer::Ready(command_buffer) => {
+                                command_buffers.push((i, command_buffer));
+                            }
+                            QueuedCommandBuffer::Task(command_buffer_generation_task) => {
+                                let render_device = self.render_device.clone();
+                                task_pool.spawn(async move {
+                                    (i, command_buffer_generation_task(render_device))
+                                });
+                            }
                         }
                     }
-                }
-            });
+                });
             command_buffers.append(&mut task_based_command_buffers);
         }
 

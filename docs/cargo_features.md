@@ -112,6 +112,7 @@ The default feature set enables most of the expected features of a game engine, 
 |pbr_transmission_textures|Enable support for transmission-related textures in the `StandardMaterial`, at the risk of blowing past the global, per-shader texture limit on older/lower-end GPUs|
 |pnm|PNM image format support, includes pam, pbm, pgm and ppm|
 |qoi|QOI image format support|
+|raw_vulkan_init|Forces the wgpu instance to be initialized using the raw Vulkan HAL, enabling additional configuration|
 |reflect_auto_register_static|Enable automatic reflect registration without inventory. See `reflect::load_type_registrations` for more info.|
 |reflect_documentation|Enable documentation reflection|
 |reflect_functions|Enable function reflection|
