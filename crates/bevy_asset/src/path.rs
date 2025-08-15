@@ -536,7 +536,7 @@ impl<'a> AssetPath<'a> {
 }
 
 // This is only implemented for static lifetimes to ensure `Path::clone` does not allocate
-// by ensuring that this is stored as a `CowArc::Static`. 
+// by ensuring that this is stored as a `CowArc::Static`.
 // Please read https://github.com/bevyengine/bevy/issues/19844 before changing this!
 impl From<&'static str> for AssetPath<'static> {
     #[inline]
