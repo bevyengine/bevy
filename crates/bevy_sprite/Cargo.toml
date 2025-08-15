@@ -48,6 +48,7 @@ tracing = { version = "0.1", default-features = false, features = ["std"] }
 
 [dev-dependencies]
 approx = "0.5.1"
+bevy_window = { path = "../bevy_window", version = "0.17.0-dev" }
 
 [lints]
 workspace = true

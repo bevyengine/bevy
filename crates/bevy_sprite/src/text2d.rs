@@ -512,7 +512,7 @@ mod tests {
         load_internal_binary_asset!(
             app,
             Handle::default(),
-            "FiraMono-subset.ttf",
+            "../../bevy_text/src/FiraMono-subset.ttf",
             |bytes: &[u8], _path: String| { Font::try_from_bytes(bytes.to_vec()).unwrap() }
         );
 
