@@ -509,6 +509,10 @@ impl<'w> RenderContext<'w> {
         })
     }
 
+    pub fn has_commands(&mut self) -> bool {
+        self.command_encoder.is_some()
+    }
+
     /// Creates a new [`TrackedRenderPass`] for the context,
     /// configured using the provided `descriptor`.
     pub fn begin_tracked_render_pass<'a>(
