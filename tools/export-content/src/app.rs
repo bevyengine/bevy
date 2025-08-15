@@ -312,7 +312,7 @@ fn load_content(dir: path::PathBuf, kind: &'static str) -> Result<Vec<Entry>> {
             continue;
         }
 
-        let file_content = fs::read_to_string(&dir_entry.path())
+        let file_content = fs::read_to_string(dir_entry.path())
             .into_diagnostic()
             .wrap_err(format!("unable to read {} file", kind))?;
 
