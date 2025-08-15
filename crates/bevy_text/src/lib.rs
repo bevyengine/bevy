@@ -38,6 +38,7 @@ mod font_atlas;
 mod font_atlas_set;
 mod font_loader;
 mod glyph;
+mod input;
 mod pipeline;
 mod text;
 mod text2d;
@@ -51,6 +52,7 @@ pub use font_atlas::*;
 pub use font_atlas_set::*;
 pub use font_loader::*;
 pub use glyph::*;
+pub use input::*;
 pub use pipeline::*;
 pub use text::*;
 pub use text2d::*;
@@ -119,6 +121,22 @@ impl Plugin for TextPlugin {
                     .after(AnimationSystems),
             )
             .add_systems(Last, trim_cosmic_cache);
+
+        app.init_resource::<Clipboard>()
+            .init_resource::<TextCursorBlinkInterval>()
+            .add_systems(
+                PostUpdate,
+                (
+                    update_text_input_buffers,
+                    apply_text_edits,
+                    update_password_masks,
+                    update_text_input_layouts,
+                    update_placeholder_layouts,
+                )
+                    .chain()
+                    .in_set(TextInputSystems)
+                    .ambiguous_with(Text2dUpdateSystems),
+            );
 
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app.add_systems(
