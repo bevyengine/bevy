@@ -373,11 +373,9 @@ pub fn update_text2d_layout(
                 width: if block.linebreak == LineBreak::NoWrap {
                     None
                 } else {
-                    bounds.width.map(|width| scale_value(width, scale_factor))
+                    bounds.width.map(|width| width * scale_factor)
                 },
-                height: bounds
-                    .height
-                    .map(|height| scale_value(height, scale_factor)),
+                height: bounds.height.map(|height| height * scale_factor),
             };
 
             let text_layout_info = text_layout_info.into_inner();
@@ -404,19 +402,12 @@ pub fn update_text2d_layout(
                     panic!("Fatal error when processing text: {e}.");
                 }
                 Ok(()) => {
-                    text_layout_info.size.x =
-                        scale_value(text_layout_info.size.x, inverse_scale_factor);
-                    text_layout_info.size.y =
-                        scale_value(text_layout_info.size.y, inverse_scale_factor);
+                    text_layout_info.size.x = text_layout_info.size.x * inverse_scale_factor;
+                    text_layout_info.size.y = text_layout_info.size.y * inverse_scale_factor;
                 }
             }
         }
     }
-}
-
-/// Scales `value` by `factor`.
-pub fn scale_value(value: f32, factor: f32) -> f32 {
-    value * factor
 }
 
 /// System calculating and inserting an [`Aabb`] component to entities with some

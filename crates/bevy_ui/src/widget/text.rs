@@ -18,9 +18,9 @@ use bevy_image::prelude::*;
 use bevy_math::Vec2;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_text::{
-    scale_value, ComputedTextBlock, CosmicFontSystem, Font, FontAtlasSets, LineBreak, SwashCache,
-    TextBounds, TextColor, TextError, TextFont, TextLayout, TextLayoutInfo, TextMeasureInfo,
-    TextPipeline, TextReader, TextRoot, TextSpanAccess, TextWriter,
+    ComputedTextBlock, CosmicFontSystem, Font, FontAtlasSets, LineBreak, SwashCache, TextBounds,
+    TextColor, TextError, TextFont, TextLayout, TextLayoutInfo, TextMeasureInfo, TextPipeline,
+    TextReader, TextRoot, TextSpanAccess, TextWriter,
 };
 use taffy::style::AvailableSpace;
 use tracing::error;
@@ -367,8 +367,8 @@ fn queue_text(
             panic!("Fatal error when processing text: {e}.");
         }
         Ok(()) => {
-            text_layout_info.size.x = scale_value(text_layout_info.size.x, inverse_scale_factor);
-            text_layout_info.size.y = scale_value(text_layout_info.size.y, inverse_scale_factor);
+            text_layout_info.size.x = text_layout_info.size.x * inverse_scale_factor;
+            text_layout_info.size.y = text_layout_info.size.y * inverse_scale_factor;
             text_flags.needs_recompute = false;
         }
     }
