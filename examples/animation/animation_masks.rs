@@ -161,8 +161,8 @@ fn setup_ui(mut commands: Commands) {
         Text::new("Click on a button to toggle animations for its associated bones"),
         Node {
             position_type: PositionType::Absolute,
-            left: Val::Px(12.0),
-            top: Val::Px(12.0),
+            left: px(12),
+            top: px(12),
             ..default()
         },
     ));
@@ -172,31 +172,31 @@ fn setup_ui(mut commands: Commands) {
         .spawn(Node {
             flex_direction: FlexDirection::Column,
             position_type: PositionType::Absolute,
-            row_gap: Val::Px(6.0),
-            left: Val::Px(12.0),
-            bottom: Val::Px(12.0),
+            row_gap: px(6),
+            left: px(12),
+            bottom: px(12),
             ..default()
         })
         .with_children(|parent| {
             let row_node = Node {
                 flex_direction: FlexDirection::Row,
-                column_gap: Val::Px(6.0),
+                column_gap: px(6),
                 ..default()
             };
 
-            add_mask_group_control(parent, "Head", Val::Auto, MASK_GROUP_HEAD);
+            add_mask_group_control(parent, "Head", auto(), MASK_GROUP_HEAD);
 
             parent.spawn(row_node.clone()).with_children(|parent| {
                 add_mask_group_control(
                     parent,
                     "Left Front Leg",
-                    Val::Px(MASK_GROUP_BUTTON_WIDTH),
+                    px(MASK_GROUP_BUTTON_WIDTH),
                     MASK_GROUP_LEFT_FRONT_LEG,
                 );
                 add_mask_group_control(
                     parent,
                     "Right Front Leg",
-                    Val::Px(MASK_GROUP_BUTTON_WIDTH),
+                    px(MASK_GROUP_BUTTON_WIDTH),
                     MASK_GROUP_RIGHT_FRONT_LEG,
                 );
             });
@@ -205,18 +205,18 @@ fn setup_ui(mut commands: Commands) {
                 add_mask_group_control(
                     parent,
                     "Left Hind Leg",
-                    Val::Px(MASK_GROUP_BUTTON_WIDTH),
+                    px(MASK_GROUP_BUTTON_WIDTH),
                     MASK_GROUP_LEFT_HIND_LEG,
                 );
                 add_mask_group_control(
                     parent,
                     "Right Hind Leg",
-                    Val::Px(MASK_GROUP_BUTTON_WIDTH),
+                    px(MASK_GROUP_BUTTON_WIDTH),
                     MASK_GROUP_RIGHT_HIND_LEG,
                 );
             });
 
-            add_mask_group_control(parent, "Tail", Val::Auto, MASK_GROUP_TAIL);
+            add_mask_group_control(parent, "Tail", auto(), MASK_GROUP_TAIL);
         });
 }
 
@@ -246,7 +246,7 @@ fn add_mask_group_control(
     parent
         .spawn((
             Node {
-                border: UiRect::all(Val::Px(1.0)),
+                border: UiRect::all(px(1)),
                 width,
                 flex_direction: FlexDirection::Column,
                 justify_content: JustifyContent::Center,
@@ -256,7 +256,7 @@ fn add_mask_group_control(
                 ..default()
             },
             BorderColor::all(Color::WHITE),
-            BorderRadius::all(Val::Px(3.0)),
+            BorderRadius::all(px(3)),
             BackgroundColor(Color::BLACK),
         ))
         .with_children(|builder| {
@@ -264,7 +264,7 @@ fn add_mask_group_control(
                 .spawn((
                     Node {
                         border: UiRect::ZERO,
-                        width: Val::Percent(100.0),
+                        width: percent(100),
                         justify_content: JustifyContent::Center,
                         align_items: AlignItems::Center,
                         padding: UiRect::ZERO,
@@ -277,7 +277,7 @@ fn add_mask_group_control(
                     Text::new(label),
                     label_text_style.clone(),
                     Node {
-                        margin: UiRect::vertical(Val::Px(3.0)),
+                        margin: UiRect::vertical(px(3)),
                         ..default()
                     },
                 ));
@@ -285,11 +285,11 @@ fn add_mask_group_control(
             builder
                 .spawn((
                     Node {
-                        width: Val::Percent(100.0),
+                        width: percent(100),
                         flex_direction: FlexDirection::Row,
                         justify_content: JustifyContent::Center,
                         align_items: AlignItems::Center,
-                        border: UiRect::top(Val::Px(1.0)),
+                        border: UiRect::top(px(1)),
                         ..default()
                     },
                     BorderColor::all(Color::WHITE),
@@ -315,7 +315,7 @@ fn add_mask_group_control(
                                 Node {
                                     flex_grow: 1.0,
                                     border: if index > 0 {
-                                        UiRect::left(Val::Px(1.0))
+                                        UiRect::left(px(1))
                                     } else {
                                         UiRect::ZERO
                                     },
@@ -337,7 +337,7 @@ fn add_mask_group_control(
                                 TextLayout::new_with_justify(Justify::Center),
                                 Node {
                                     flex_grow: 1.0,
-                                    margin: UiRect::vertical(Val::Px(3.0)),
+                                    margin: UiRect::vertical(px(3)),
                                     ..default()
                                 },
                             ));

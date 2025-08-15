@@ -21,29 +21,29 @@ const SHADOW_DEFAULT_SETTINGS: ShadowSettings = ShadowSettings {
 
 const SHAPES: &[(&str, fn(&mut Node, &mut BorderRadius))] = &[
     ("1", |node, radius| {
-        node.width = Val::Px(164.);
-        node.height = Val::Px(164.);
+        node.width = px(164);
+        node.height = px(164);
         *radius = BorderRadius::ZERO;
     }),
     ("2", |node, radius| {
-        node.width = Val::Px(164.);
-        node.height = Val::Px(164.);
-        *radius = BorderRadius::all(Val::Px(41.));
+        node.width = px(164);
+        node.height = px(164);
+        *radius = BorderRadius::all(px(41));
     }),
     ("3", |node, radius| {
-        node.width = Val::Px(164.);
-        node.height = Val::Px(164.);
+        node.width = px(164);
+        node.height = px(164);
         *radius = BorderRadius::MAX;
     }),
     ("4", |node, radius| {
-        node.width = Val::Px(240.);
-        node.height = Val::Px(80.);
-        *radius = BorderRadius::all(Val::Px(32.));
+        node.width = px(240);
+        node.height = px(80);
+        *radius = BorderRadius::all(px(32));
     }),
     ("5", |node, radius| {
-        node.width = Val::Px(80.);
-        node.height = Val::Px(240.);
-        *radius = BorderRadius::all(Val::Px(32.));
+        node.width = px(80);
+        node.height = px(240);
+        *radius = BorderRadius::all(px(32));
     }),
 ];
 
@@ -150,8 +150,8 @@ fn setup(
     commands
         .spawn((
             Node {
-                width: Val::Percent(100.0),
-                height: Val::Percent(100.0),
+                width: percent(100),
+                height: percent(100),
                 align_items: AlignItems::Center,
                 justify_content: JustifyContent::Center,
                 ..default()
@@ -160,9 +160,9 @@ fn setup(
         ))
         .insert(children![{
             let mut node = Node {
-                width: Val::Px(164.),
-                height: Val::Px(164.),
-                border: UiRect::all(Val::Px(1.)),
+                width: px(164),
+                height: px(164),
+                border: UiRect::all(px(1)),
                 align_items: AlignItems::Center,
                 justify_content: JustifyContent::Center,
                 ..default()
@@ -177,10 +177,10 @@ fn setup(
                 BackgroundColor(Color::srgb(0.21, 0.21, 0.21)),
                 BoxShadow(vec![ShadowStyle {
                     color: Color::BLACK.with_alpha(0.8),
-                    x_offset: Val::Px(shadow.x_offset),
-                    y_offset: Val::Px(shadow.y_offset),
-                    spread_radius: Val::Px(shadow.spread),
-                    blur_radius: Val::Px(shadow.blur),
+                    x_offset: px(shadow.x_offset),
+                    y_offset: px(shadow.y_offset),
+                    spread_radius: px(shadow.spread),
+                    blur_radius: px(shadow.blur),
                 }]),
                 ShadowNode,
             )
@@ -192,15 +192,15 @@ fn setup(
             Node {
                 flex_direction: FlexDirection::Column,
                 position_type: PositionType::Absolute,
-                left: Val::Px(24.0),
-                bottom: Val::Px(24.0),
-                width: Val::Px(270.0),
-                padding: UiRect::all(Val::Px(16.0)),
+                left: px(24),
+                bottom: px(24),
+                width: px(270),
+                padding: UiRect::all(px(16)),
                 ..default()
             },
             BackgroundColor(Color::srgb(0.12, 0.12, 0.12).with_alpha(0.85)),
             BorderColor::all(Color::WHITE.with_alpha(0.15)),
-            BorderRadius::all(Val::Px(12.0)),
+            BorderRadius::all(px(12)),
             ZIndex(10),
         ))
         .insert(children![
@@ -259,21 +259,21 @@ fn setup(
                 Node {
                     flex_direction: FlexDirection::Row,
                     align_items: AlignItems::Center,
-                    height: Val::Px(36.0),
-                    margin: UiRect::top(Val::Px(12.0)),
+                    height: px(36),
+                    margin: UiRect::top(px(12)),
                     ..default()
                 },
                 children![(
                     Button,
                     Node {
-                        width: Val::Px(90.),
-                        height: Val::Px(32.),
+                        width: px(90),
+                        height: px(32),
                         justify_content: JustifyContent::Center,
                         align_items: AlignItems::Center,
                         ..default()
                     },
                     BackgroundColor(NORMAL_BUTTON),
-                    BorderRadius::all(Val::Px(8.)),
+                    BorderRadius::all(px(8)),
                     SettingsButton::Reset,
                     children![(
                         Text::new("Reset"),
@@ -308,13 +308,13 @@ fn build_setting_row(
         Node {
             flex_direction: FlexDirection::Row,
             align_items: AlignItems::Center,
-            height: Val::Px(32.0),
+            height: px(32),
             ..default()
         },
         children![
             (
                 Node {
-                    width: Val::Px(80.0),
+                    width: px(80),
                     justify_content: JustifyContent::FlexEnd,
                     align_items: AlignItems::Center,
                     ..default()
@@ -332,15 +332,15 @@ fn build_setting_row(
             (
                 Button,
                 Node {
-                    width: Val::Px(28.),
-                    height: Val::Px(28.),
-                    margin: UiRect::left(Val::Px(8.)),
+                    width: px(28),
+                    height: px(28),
+                    margin: UiRect::left(px(8)),
                     justify_content: JustifyContent::Center,
                     align_items: AlignItems::Center,
                     ..default()
                 },
                 BackgroundColor(Color::WHITE),
-                BorderRadius::all(Val::Px(6.)),
+                BorderRadius::all(px(6)),
                 dec,
                 children![(
                     Text::new(if setting_type == SettingType::Shape {
@@ -357,14 +357,14 @@ fn build_setting_row(
             ),
             (
                 Node {
-                    width: Val::Px(48.),
-                    height: Val::Px(28.),
-                    margin: UiRect::horizontal(Val::Px(8.)),
+                    width: px(48),
+                    height: px(28),
+                    margin: UiRect::horizontal(px(8)),
                     justify_content: JustifyContent::Center,
                     align_items: AlignItems::Center,
                     ..default()
                 },
-                BorderRadius::all(Val::Px(6.)),
+                BorderRadius::all(px(6)),
                 children![{
                     (
                         Text::new(value_text),
@@ -380,14 +380,14 @@ fn build_setting_row(
             (
                 Button,
                 Node {
-                    width: Val::Px(28.),
-                    height: Val::Px(28.),
+                    width: px(28),
+                    height: px(28),
                     justify_content: JustifyContent::Center,
                     align_items: AlignItems::Center,
                     ..default()
                 },
                 BackgroundColor(Color::WHITE),
-                BorderRadius::all(Val::Px(6.)),
+                BorderRadius::all(px(6)),
                 inc,
                 children![(
                     Text::new(if setting_type == SettingType::Shape {
@@ -496,10 +496,10 @@ fn generate_shadows(shadow: &ShadowSettings) -> Vec<ShadowStyle> {
 fn make_shadow(color: Color, x_offset: f32, y_offset: f32, spread: f32, blur: f32) -> ShadowStyle {
     ShadowStyle {
         color: color.with_alpha(0.8),
-        x_offset: Val::Px(x_offset),
-        y_offset: Val::Px(y_offset),
-        spread_radius: Val::Px(spread),
-        blur_radius: Val::Px(blur),
+        x_offset: px(x_offset),
+        y_offset: px(y_offset),
+        spread_radius: px(spread),
+        blur_radius: px(blur),
     }
 }
 

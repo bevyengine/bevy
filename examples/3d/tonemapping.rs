@@ -89,8 +89,8 @@ fn setup(
         Text::default(),
         Node {
             position_type: PositionType::Absolute,
-            top: Val::Px(12.0),
-            left: Val::Px(12.0),
+            top: px(12),
+            left: px(12),
             ..default()
         },
     ));
@@ -184,7 +184,7 @@ fn setup_image_viewer_scene(
         TextLayout::new_with_justify(Justify::Center),
         Node {
             align_self: AlignSelf::Center,
-            margin: UiRect::all(Val::Auto),
+            margin: UiRect::all(auto()),
             ..default()
         },
         SceneNumber(3),

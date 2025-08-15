@@ -19,11 +19,11 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands
         .spawn((
             Node {
-                width: Val::Percent(100.),
-                height: Val::Percent(100.),
+                width: percent(100),
+                height: percent(100),
                 align_items: AlignItems::Center,
                 justify_content: JustifyContent::Center,
-                row_gap: Val::Px(40.),
+                row_gap: px(40),
                 flex_direction: FlexDirection::Column,
                 ..default()
             },
@@ -39,15 +39,15 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 parent
                     .spawn(Node {
                         flex_direction: FlexDirection::Row,
-                        column_gap: Val::Px(20.),
+                        column_gap: px(20),
                         ..default()
                     })
                     .with_children(|parent| {
                         parent
                             .spawn((
                                 Node {
-                                    padding: UiRect::all(Val::Px(10.)),
-                                    margin: UiRect::bottom(Val::Px(25.)),
+                                    padding: UiRect::all(px(10)),
+                                    margin: UiRect::bottom(px(25)),
                                     ..default()
                                 },
                                 BackgroundColor(Color::srgb(0.25, 0.25, 0.25)),
@@ -57,11 +57,11 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         parent
                             .spawn((
                                 Node {
-                                    margin: UiRect::top(Val::Px(10.)),
-                                    width: Val::Px(100.),
-                                    height: Val::Px(100.),
-                                    padding: UiRect::all(Val::Px(20.)),
-                                    border: UiRect::all(Val::Px(5.)),
+                                    margin: UiRect::top(px(10)),
+                                    width: px(100),
+                                    height: px(100),
+                                    padding: UiRect::all(px(20)),
+                                    border: UiRect::all(px(5)),
                                     overflow: Overflow::clip(),
                                     overflow_clip_margin,
                                     ..default()
@@ -73,8 +73,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                 parent
                                     .spawn((
                                         Node {
-                                            min_width: Val::Px(50.),
-                                            min_height: Val::Px(50.),
+                                            min_width: px(50),
+                                            min_height: px(50),
                                             ..default()
                                         },
                                         BackgroundColor(LIGHT_CYAN.into()),
@@ -82,8 +82,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                     .with_child((
                                         ImageNode::new(image.clone()),
                                         Node {
-                                            min_width: Val::Px(100.),
-                                            min_height: Val::Px(100.),
+                                            min_width: px(100),
+                                            min_height: px(100),
                                             ..default()
                                         },
                                     ));

@@ -75,8 +75,8 @@ fn setup(mut commands: Commands, assets: Res<AssetServer>) {
 fn button(asset_server: &AssetServer) -> impl Bundle {
     (
         Node {
-            width: Val::Percent(100.0),
-            height: Val::Percent(100.0),
+            width: percent(100),
+            height: percent(100),
             align_items: AlignItems::Center,
             justify_content: JustifyContent::Center,
             ..default()
@@ -84,9 +84,9 @@ fn button(asset_server: &AssetServer) -> impl Bundle {
         children![(
             Button,
             Node {
-                width: Val::Px(150.0),
-                height: Val::Px(65.0),
-                border: UiRect::all(Val::Px(5.0)),
+                width: px(150),
+                height: px(65),
+                border: UiRect::all(px(5)),
                 // horizontally center child text
                 justify_content: JustifyContent::Center,
                 // vertically center child text

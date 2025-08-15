@@ -27,8 +27,8 @@ fn setup(
 
     commands
         .spawn(Node {
-            width: Val::Percent(100.0),
-            height: Val::Percent(100.0),
+            width: percent(100),
+            height: percent(100),
             align_items: AlignItems::Center,
             justify_content: JustifyContent::Center,
             ..default()
@@ -38,9 +38,9 @@ fn setup(
             parent.spawn((
                 Node {
                     position_type: PositionType::Absolute,
-                    width: Val::Px(905.0 * banner_scale_factor),
-                    height: Val::Px(363.0 * banner_scale_factor),
-                    border: UiRect::all(Val::Px(20.)),
+                    width: px(905.0 * banner_scale_factor),
+                    height: px(363.0 * banner_scale_factor),
+                    border: UiRect::all(px(20)),
                     ..default()
                 },
                 MaterialNode(ui_materials.add(CustomUiMaterial {
@@ -49,11 +49,11 @@ fn setup(
                     color_texture: asset_server.load("branding/banner.png"),
                     border_color: LinearRgba::WHITE.to_f32_array().into(),
                 })),
-                BorderRadius::all(Val::Px(20.)),
+                BorderRadius::all(px(20)),
                 // UI material nodes can have outlines and shadows like any other UI node
                 Outline {
-                    width: Val::Px(2.),
-                    offset: Val::Px(100.),
+                    width: px(2),
+                    offset: px(100),
                     color: DARK_BLUE.into(),
                 },
             ));

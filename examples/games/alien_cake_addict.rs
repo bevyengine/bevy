@@ -186,8 +186,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut game: ResMu
         TextColor(Color::srgb(0.5, 0.5, 1.0)),
         Node {
             position_type: PositionType::Absolute,
-            top: Val::Px(5.0),
-            left: Val::Px(5.0),
+            top: px(5),
+            left: px(5),
             ..default()
         },
     ));
@@ -392,7 +392,7 @@ fn display_score(mut commands: Commands, game: Res<Game>) {
     commands.spawn((
         DespawnOnExitState(GameState::GameOver),
         Node {
-            width: Val::Percent(100.),
+            width: percent(100),
             align_items: AlignItems::Center,
             justify_content: JustifyContent::Center,
             ..default()

@@ -159,8 +159,8 @@ mod ui {
             .spawn((
                 Node {
                     // center button
-                    width: Val::Percent(100.),
-                    height: Val::Percent(100.),
+                    width: percent(100),
+                    height: percent(100),
                     justify_content: JustifyContent::Center,
                     align_items: AlignItems::Center,
                     ..default()
@@ -168,8 +168,8 @@ mod ui {
                 children![(
                     Button,
                     Node {
-                        width: Val::Px(150.),
-                        height: Val::Px(65.),
+                        width: px(150),
+                        height: px(65),
                         // horizontally center child text
                         justify_content: JustifyContent::Center,
                         // vertically center child text
@@ -200,18 +200,18 @@ mod ui {
             DespawnOnExitState(IsPaused::Paused),
             Node {
                 // center button
-                width: Val::Percent(100.),
-                height: Val::Percent(100.),
+                width: percent(100),
+                height: percent(100),
                 justify_content: JustifyContent::Center,
                 align_items: AlignItems::Center,
                 flex_direction: FlexDirection::Column,
-                row_gap: Val::Px(10.),
+                row_gap: px(10),
                 ..default()
             },
             children![(
                 Node {
-                    width: Val::Px(400.),
-                    height: Val::Px(400.),
+                    width: px(400),
+                    height: px(400),
                     // horizontally center child text
                     justify_content: JustifyContent::Center,
                     // vertically center child text

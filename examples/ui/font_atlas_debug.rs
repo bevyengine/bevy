@@ -56,7 +56,7 @@ fn atlas_render_system(
             Node {
                 position_type: PositionType::Absolute,
                 top: Val::ZERO,
-                left: Val::Px(image.width() as f32 * x_offset),
+                left: px(image.width() as f32 * x_offset),
                 ..default()
             },
         ));
