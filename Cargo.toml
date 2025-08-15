@@ -273,6 +273,7 @@ bevy_sprite = ["bevy_internal/bevy_sprite", "bevy_color"]
 # Provides sprite rendering functionality
 bevy_sprite_render = [
   "bevy_internal/bevy_sprite_render",
+  "bevy_sprite",
   "bevy_render",
   "bevy_core_pipeline",
   "bevy_color",
@@ -293,7 +294,12 @@ bevy_ui = [
 ]
 
 # Provides rendering functionality for bevy_ui
-bevy_ui_render = ["bevy_internal/bevy_ui_render", "bevy_render", "bevy_ui"]
+bevy_ui_render = [
+  "bevy_internal/bevy_ui_render",
+  "bevy_render",
+  "bevy_sprite_render",
+  "bevy_ui",
+]
 
 # Windowing layer
 bevy_window = ["bevy_internal/bevy_window"]

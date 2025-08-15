@@ -41,7 +41,7 @@ use bevy_app::prelude::*;
 use bevy_ecs::prelude::*;
 use bevy_image::TextureAtlasPlugin;
 
-/// Adds support for 2D sprite.
+/// Adds support for 2D sprites.
 #[derive(Default)]
 pub struct SpritePlugin;
 
