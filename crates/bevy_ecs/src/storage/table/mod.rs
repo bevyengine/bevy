@@ -135,7 +135,7 @@ impl TableRow {
 //
 // # Safety
 // The capacity of all columns is determined by that of the `entities` Vec. This means that
-// it must be the correct capacity to allocate, reallocate, and deallocate all columnts. This
+// it must be the correct capacity to allocate, reallocate, and deallocate all columns. This
 // means the safety invariant must be enforced even in `TableBuilder`.
 pub(crate) struct TableBuilder {
     columns: SparseSet<ComponentId, ThinColumn>,
@@ -186,7 +186,7 @@ impl TableBuilder {
 //
 // # Safety
 // The capacity of all columns is determined by that of the `entities` Vec. This means that
-// it must be the correct capacity to allocate, reallocate, and deallocate all columnts. This
+// it must be the correct capacity to allocate, reallocate, and deallocate all columns. This
 // means the safety invariant must be enforced even in `TableBuilder`.
 pub struct Table {
     columns: ImmutableSparseSet<ComponentId, ThinColumn>,
@@ -542,7 +542,7 @@ impl Table {
     ///
     /// # Safety
     /// The capacity of all columns is determined by that of the `entities` Vec. This means that
-    /// it must be the correct capacity to allocate, reallocate, and deallocate all columnts. This
+    /// it must be the correct capacity to allocate, reallocate, and deallocate all columns. This
     /// means the safety invariant must be enforced even in `TableBuilder`.
     fn alloc_columns(&mut self, new_capacity: NonZeroUsize) {
         // If any of these allocations trigger an unwind, the wrong capacity will be used while dropping this table - UB.
