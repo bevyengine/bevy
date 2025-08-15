@@ -13,7 +13,7 @@ use super::{state_set::StateSet, states::States};
 /// ```
 /// # use bevy_state::prelude::*;
 /// # use bevy_ecs::prelude::*;
-///
+/// #
 /// /// Computed States require some state to derive from
 /// #[derive(States, Clone, PartialEq, Eq, Hash, Debug, Default)]
 /// enum AppState {
@@ -21,7 +21,6 @@ use super::{state_set::StateSet, states::States};
 ///     Menu,
 ///     InGame { paused: bool }
 /// }
-///
 ///
 /// #[derive(Clone, PartialEq, Eq, Hash, Debug)]
 /// struct InGame;
@@ -52,7 +51,7 @@ use super::{state_set::StateSet, states::States};
 /// ```
 /// # use bevy_state::prelude::*;
 /// # use bevy_ecs::prelude::*;
-///
+/// #
 /// # struct App;
 /// # impl App {
 /// #   fn new() -> Self { App }
@@ -61,10 +60,10 @@ use super::{state_set::StateSet, states::States};
 /// # }
 /// # struct AppState;
 /// # struct InGame;
-///
-///     App::new()
-///         .init_state::<AppState>()
-///         .add_computed_state::<InGame>();
+/// #
+/// App::new()
+///     .init_state::<AppState>()
+///     .add_computed_state::<InGame>();
 /// ```
 pub trait ComputedStates: 'static + Send + Sync + Clone + PartialEq + Eq + Hash + Debug {
     /// The set of states from which the [`Self`] is derived.

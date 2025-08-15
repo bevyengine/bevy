@@ -159,6 +159,13 @@ impl Plugin for UiPlugin {
             .add_plugins(HierarchyPropagatePlugin::<ComputedUiTargetCamera>::new(
                 PostUpdate,
             ))
+            .configure_sets(
+                PostUpdate,
+                PropagateSet::<ComputedUiRenderTargetInfo>::default().in_set(UiSystems::Propagate),
+            )
+            .add_plugins(HierarchyPropagatePlugin::<ComputedUiRenderTargetInfo>::new(
+                PostUpdate,
+            ))
             .add_systems(
                 PreUpdate,
                 ui_focus_system.in_set(UiSystems::Focus).after(InputSystems),
@@ -188,6 +195,7 @@ impl Plugin for UiPlugin {
                 ui_stack_system
                     .in_set(UiSystems::Stack)
                     // These systems don't care about stack index
+                    .ambiguous_with(widget::measure_text_system)
                     .ambiguous_with(update_clipping_system)
                     .ambiguous_with(ui_layout_system)
                     .ambiguous_with(widget::update_viewport_render_target_size)

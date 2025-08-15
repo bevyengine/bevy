@@ -35,7 +35,7 @@ use bevy_math::{Mat4, Vec3};
 use bevy_mesh::{
     morph::{MeshMorphWeights, MorphAttributes, MorphTargetImage, MorphWeights},
     skinning::{SkinnedMesh, SkinnedMeshInverseBindposes},
-    Indices, Mesh, Mesh3d, MeshVertexAttribute, PrimitiveTopology, VertexAttributeValues,
+    Indices, Mesh, Mesh3d, MeshVertexAttribute, PrimitiveTopology,
 };
 #[cfg(feature = "pbr_transmission_textures")]
 use bevy_pbr::UvChannel;
@@ -771,26 +771,22 @@ impl GltfLoader {
                     }
                 }
 
-                if let Some(vertex_attribute) = reader
-                    .read_tangents()
-                    .map(|v| VertexAttributeValues::Float32x4(v.collect()))
-                {
-                    mesh.insert_attribute(Mesh::ATTRIBUTE_TANGENT, vertex_attribute);
-                } else if mesh.attribute(Mesh::ATTRIBUTE_NORMAL).is_some()
+                if !mesh.contains_attribute(Mesh::ATTRIBUTE_TANGENT)
+                    && mesh.contains_attribute(Mesh::ATTRIBUTE_NORMAL)
                     && needs_tangents(&primitive.material())
                 {
                     tracing::debug!(
-                    "Missing vertex tangents for {}, computing them using the mikktspace algorithm. Consider using a tool such as Blender to pre-compute the tangents.", file_name
-                );
+                        "Missing vertex tangents for {}, computing them using the mikktspace algorithm. Consider using a tool such as Blender to pre-compute the tangents.", file_name
+                    );
 
                     let generate_tangents_span = info_span!("generate_tangents", name = file_name);
 
                     generate_tangents_span.in_scope(|| {
                         if let Err(err) = mesh.generate_tangents() {
                             warn!(
-                            "Failed to generate vertex tangents using the mikktspace algorithm: {}",
-                            err
-                        );
+                                "Failed to generate vertex tangents using the mikktspace algorithm: {}",
+                                err
+                            );
                         }
                     });
                 }
