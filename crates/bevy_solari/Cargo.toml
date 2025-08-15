@@ -39,6 +39,7 @@ tracing = { version = "0.1", default-features = false, features = ["std"] }
 
 [features]
 dlss = ["bevy_anti_aliasing/dlss"]
+force_disable_dlss = ["bevy_anti_aliasing/force_disable_dlss"]
 
 [lints]
 workspace = true

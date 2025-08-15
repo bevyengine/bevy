@@ -1,11 +1,11 @@
 use super::SolariLighting;
-#[cfg(feature = "dlss")]
+#[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))]
 use bevy_anti_aliasing::dlss::{
     Dlss, DlssRayReconstructionFeature, ViewDlssRayReconstructionTextures,
 };
 use bevy_camera::MainPassResolutionOverride;
 use bevy_core_pipeline::{core_3d::CORE_3D_DEPTH_FORMAT, deferred::DEFERRED_PREPASS_FORMAT};
-#[cfg(feature = "dlss")]
+#[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))]
 use bevy_ecs::query::Has;
 use bevy_ecs::{
     component::Component,
@@ -15,7 +15,7 @@ use bevy_ecs::{
 };
 use bevy_image::ToExtents;
 use bevy_math::UVec2;
-#[cfg(feature = "dlss")]
+#[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))]
 use bevy_render::texture::CachedTexture;
 use bevy_render::{
     camera::ExtractedCamera,
@@ -66,7 +66,7 @@ pub struct SolariLightingResources {
 }
 
 pub fn prepare_solari_lighting_resources(
-    #[cfg(not(feature = "dlss"))] query: Query<
+    #[cfg(any(not(feature = "dlss"), feature = "force_disable_dlss"))] query: Query<
         (
             Entity,
             &ExtractedCamera,
@@ -75,7 +75,7 @@ pub fn prepare_solari_lighting_resources(
         ),
         With<SolariLighting>,
     >,
-    #[cfg(feature = "dlss")] query: Query<
+    #[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))] query: Query<
         (
             Entity,
             &ExtractedCamera,
@@ -89,9 +89,9 @@ pub fn prepare_solari_lighting_resources(
     mut commands: Commands,
 ) {
     for query_item in &query {
-        #[cfg(not(feature = "dlss"))]
+        #[cfg(any(not(feature = "dlss"), feature = "force_disable_dlss"))]
         let (entity, camera, solari_lighting_resources, resolution_override) = query_item;
-        #[cfg(feature = "dlss")]
+        #[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))]
         let (entity, camera, solari_lighting_resources, resolution_override, has_dlss_rr) =
             query_item;
 
@@ -266,7 +266,7 @@ pub fn prepare_solari_lighting_resources(
             view_size,
         });
 
-        #[cfg(feature = "dlss")]
+        #[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))]
         if has_dlss_rr {
             let diffuse_albedo = render_device.create_texture(&TextureDescriptor {
                 label: Some("solari_lighting_diffuse_albedo"),
