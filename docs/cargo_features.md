@@ -34,6 +34,7 @@ The default feature set enables most of the expected features of a game engine, 
 |bevy_scene|Provides scene functionality|
 |bevy_sprite|Provides sprite functionality|
 |bevy_sprite_picking_backend|Provides an implementation for picking sprites|
+|bevy_sprite_render|Provides sprite rendering functionality|
 |bevy_state|Enable built in global state machines|
 |bevy_text|Provides text functionality|
 |bevy_ui|A custom ECS-driven UI framework|
