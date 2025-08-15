@@ -19,8 +19,6 @@ use alloc::sync::Arc;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{prelude::*, system::SystemState};
 use bevy_platform::time::Instant;
-#[cfg(not(all(target_arch = "wasm32", target_feature = "atomics")))]
-use bevy_tasks::ComputeTaskPool;
 use bevy_time::TimeSender;
 use bevy_window::RawHandleWrapperHolder;
 use tracing::{debug, error, info, info_span, warn};
