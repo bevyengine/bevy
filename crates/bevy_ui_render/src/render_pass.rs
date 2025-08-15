@@ -267,7 +267,6 @@ impl<P: PhaseItem> RenderCommand<P> for DrawUiNode {
         // Define how to "connect" the vertices
         pass.set_index_buffer(
             indices.slice(..),
-            0,
             bevy_render::render_resource::IndexFormat::Uint32,
         );
         // Draw the vertices
