@@ -15,6 +15,7 @@ mod mesh2d;
 mod picking_backend;
 mod render;
 mod sprite;
+mod text2d;
 mod texture_slice;
 mod tilemap_chunk;
 
@@ -30,21 +31,26 @@ pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
         sprite::{Sprite, SpriteImageMode},
+        text2d::{Text2d, Text2dReader, Text2dWriter},
         texture_slice::{BorderRect, SliceScaleMode, TextureSlice, TextureSlicer},
         ColorMaterial, MeshMaterial2d, ScalingMode,
     };
 }
 
+use bevy_app::AnimationSystems;
 use bevy_camera::{
     primitives::{Aabb, MeshAabb as _},
     visibility::{NoFrustumCulling, VisibilitySystems},
+    CameraUpdateSystems,
 };
 use bevy_shader::load_shader_library;
+use bevy_text::{detect_text_needs_rerender, Text2dUpdateSystems};
 pub use mesh2d::*;
 #[cfg(feature = "bevy_sprite_picking_backend")]
 pub use picking_backend::*;
 pub use render::*;
 pub use sprite::*;
+pub use text2d::*;
 pub use texture_slice::*;
 pub use tilemap_chunk::*;
 
@@ -101,6 +107,22 @@ impl Plugin for SpritePlugin {
                 )
                     .in_set(SpriteSystems::ComputeSlices),
             ),
+        )
+        .add_systems(
+            PostUpdate,
+            (
+                detect_text_needs_rerender::<Text2d>,
+                update_text2d_layout
+                    // Potential conflict: `Assets<Image>`
+                    // In practice, they run independently since `bevy_render::camera_update_system`
+                    // will only ever observe its own render target, and `update_text2d_layout`
+                    // will never modify a pre-existing `Image` asset.
+                    .ambiguous_with(CameraUpdateSystems),
+                calculate_bounds_text2d.in_set(VisibilitySystems::CalculateBounds),
+            )
+                .chain()
+                .in_set(Text2dUpdateSystems)
+                .after(AnimationSystems),
         );
 
         #[cfg(feature = "bevy_sprite_picking_backend")]
@@ -123,6 +145,10 @@ impl Plugin for SpritePlugin {
                         extract_sprites.in_set(SpriteSystems::ExtractSprites),
                         extract_sprite_events,
                     ),
+                )
+                .add_systems(
+                    ExtractSchedule,
+                    extract_text2d_sprite.after(SpriteSystems::ExtractSprites),
                 )
                 .add_systems(
                     Render,

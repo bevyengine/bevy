@@ -35,6 +35,7 @@ bevy_derive = { path = "../bevy_derive", version = "0.17.0-dev" }
 bevy_platform = { path = "../bevy_platform", version = "0.17.0-dev", default-features = false, features = [
   "std",
 ] }
+bevy_text = { path = "../bevy_text", version = "0.17.0-dev" }
 
 # other
 bytemuck = { version = "1", features = ["derive", "must_cast"] }
@@ -44,6 +45,9 @@ bitflags = "2.3"
 radsort = "0.1"
 nonmax = "0.5"
 tracing = { version = "0.1", default-features = false, features = ["std"] }
+
+[dev-dependencies]
+approx = "0.5.1"
 
 [lints]
 workspace = true

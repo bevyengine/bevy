@@ -1,10 +1,14 @@
-use crate::pipeline::CosmicFontSystem;
-use crate::{
-    ComputedTextBlock, Font, FontAtlasSets, LineBreak, PositionedGlyph, SwashCache, TextBounds,
-    TextColor, TextError, TextFont, TextLayout, TextLayoutInfo, TextPipeline, TextReader, TextRoot,
-    TextSpanAccess, TextWriter,
+use bevy_text::{
+    ComputedTextBlock, CosmicFontSystem, Font, FontAtlasSets, LineBreak, PositionedGlyph,
+    SwashCache, TextBackgroundColor, TextBounds, TextColor, TextError, TextFont, TextLayout,
+    TextLayoutInfo, TextPipeline, TextReader, TextRoot, TextSpanAccess, TextWriter,
 };
-use bevy_asset::Assets;
+
+use crate::{
+    Anchor, ExtractedSlice, ExtractedSlices, ExtractedSprite, ExtractedSpriteKind,
+    ExtractedSprites, Sprite,
+};
+use bevy_asset::{AssetId, Assets};
 use bevy_camera::primitives::Aabb;
 use bevy_camera::visibility::{
     self, NoFrustumCulling, ViewVisibility, Visibility, VisibilityClass,
@@ -25,9 +29,6 @@ use bevy_math::{Vec2, Vec3};
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_render::sync_world::TemporaryRenderEntity;
 use bevy_render::Extract;
-use bevy_sprite::{
-    Anchor, ExtractedSlice, ExtractedSlices, ExtractedSprite, ExtractedSprites, Sprite,
-};
 use bevy_transform::components::Transform;
 use bevy_transform::prelude::GlobalTransform;
 use bevy_window::{PrimaryWindow, Window};
@@ -175,6 +176,7 @@ pub fn extract_text2d_sprite(
         )>,
     >,
     text_colors: Extract<Query<&TextColor>>,
+    text_background_colors_query: Extract<Query<&TextBackgroundColor>>,
 ) {
     let mut start = extracted_slices.slices.len();
     let mut end = start + 1;
@@ -207,6 +209,33 @@ pub fn extract_text2d_sprite(
         );
 
         let top_left = (Anchor::TOP_LEFT.0 - anchor.as_vec()) * size;
+
+        for &(section_entity, rect) in text_layout_info.section_rects.iter() {
+            let Ok(text_background_color) = text_background_colors_query.get(section_entity) else {
+                continue;
+            };
+            let render_entity = commands.spawn(TemporaryRenderEntity).id();
+            let offset = Vec2::new(rect.center().x, -rect.center().y);
+            let transform = *global_transform
+                * GlobalTransform::from_translation(top_left.extend(0.))
+                * scaling
+                * GlobalTransform::from_translation(offset.extend(0.));
+            extracted_sprites.sprites.push(ExtractedSprite {
+                main_entity,
+                render_entity,
+                transform,
+                color: text_background_color.0.into(),
+                image_handle_id: AssetId::default(),
+                flip_x: false,
+                flip_y: false,
+                kind: ExtractedSpriteKind::Single {
+                    anchor: Vec2::ZERO,
+                    rect: None,
+                    scaling_mode: None,
+                    custom_size: Some(rect.size()),
+                },
+            });
+        }
 
         if let Some(shadow) = maybe_shadow {
             let shadow_transform = *global_transform
@@ -248,7 +277,7 @@ pub fn extract_text2d_sprite(
                         image_handle_id: atlas_info.texture,
                         flip_x: false,
                         flip_y: false,
-                        kind: bevy_sprite::ExtractedSpriteKind::Slices {
+                        kind: ExtractedSpriteKind::Slices {
                             indices: start..end,
                         },
                     });
@@ -310,7 +339,7 @@ pub fn extract_text2d_sprite(
                     image_handle_id: atlas_info.texture,
                     flip_x: false,
                     flip_y: false,
-                    kind: bevy_sprite::ExtractedSpriteKind::Slices {
+                    kind: ExtractedSpriteKind::Slices {
                         indices: start..end,
                     },
                 });
@@ -373,11 +402,9 @@ pub fn update_text2d_layout(
                 width: if block.linebreak == LineBreak::NoWrap {
                     None
                 } else {
-                    bounds.width.map(|width| scale_value(width, scale_factor))
+                    bounds.width.map(|width| width * scale_factor)
                 },
-                height: bounds
-                    .height
-                    .map(|height| scale_value(height, scale_factor)),
+                height: bounds.height.map(|height| height * scale_factor),
             };
 
             let text_layout_info = text_layout_info.into_inner();
@@ -404,19 +431,11 @@ pub fn update_text2d_layout(
                     panic!("Fatal error when processing text: {e}.");
                 }
                 Ok(()) => {
-                    text_layout_info.size.x =
-                        scale_value(text_layout_info.size.x, inverse_scale_factor);
-                    text_layout_info.size.y =
-                        scale_value(text_layout_info.size.y, inverse_scale_factor);
+                    text_layout_info.size *= inverse_scale_factor;
                 }
             }
         }
     }
-}
-
-/// Scales `value` by `factor`.
-pub fn scale_value(value: f32, factor: f32) -> f32 {
-    value * factor
 }
 
 /// System calculating and inserting an [`Aabb`] component to entities with some
@@ -462,8 +481,7 @@ mod tests {
     use bevy_app::{App, Update};
     use bevy_asset::{load_internal_binary_asset, Handle};
     use bevy_ecs::schedule::IntoScheduleConfigs;
-
-    use crate::{detect_text_needs_rerender, TextIterScratch};
+    use bevy_text::{detect_text_needs_rerender, TextIterScratch};
 
     use super::*;
 
