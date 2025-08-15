@@ -66,7 +66,7 @@ pub const MATERIAL_2D_BIND_GROUP_INDEX: usize = 2;
 /// check out the [`AsBindGroup`] documentation.
 ///
 /// ```
-/// # use bevy_sprite::{Material2d, MeshMaterial2d};
+/// # use bevy_sprite_render::{Material2d, MeshMaterial2d};
 /// # use bevy_ecs::prelude::*;
 /// # use bevy_image::Image;
 /// # use bevy_reflect::TypePath;
@@ -172,7 +172,7 @@ pub trait Material2d: AsBindGroup + Asset + Clone + Sized {
 /// # Example
 ///
 /// ```
-/// # use bevy_sprite::{ColorMaterial, MeshMaterial2d};
+/// # use bevy_sprite_render::{ColorMaterial, MeshMaterial2d};
 /// # use bevy_ecs::prelude::*;
 /// # use bevy_mesh::{Mesh, Mesh2d};
 /// # use bevy_color::palettes::basic::RED;
