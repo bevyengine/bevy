@@ -27,7 +27,10 @@ use cluster::{
 mod ambient_light;
 pub use ambient_light::AmbientLight;
 mod probe;
-pub use probe::{EnvironmentMapLight, GeneratedEnvironmentMapLight, IrradianceVolume, LightProbe};
+pub use probe::{
+    AtmosphereEnvironmentMapLight, EnvironmentMapLight, GeneratedEnvironmentMapLight,
+    IrradianceVolume, LightProbe,
+};
 mod volumetric;
 pub use volumetric::{FogVolume, VolumetricFog, VolumetricLight};
 pub mod cascade;
@@ -47,6 +50,17 @@ pub use directional_light::{
     update_directional_light_frusta, DirectionalLight, DirectionalLightShadowMap,
     DirectionalLightTexture,
 };
+
+/// The light prelude.
+///
+/// This includes the most common types in this crate, re-exported for your convenience.
+pub mod prelude {
+    #[doc(hidden)]
+    pub use crate::{
+        light_consts, AmbientLight, DirectionalLight, EnvironmentMapLight,
+        GeneratedEnvironmentMapLight, LightProbe, PointLight, SpotLight,
+    };
+}
 
 use crate::directional_light::validate_shadow_map_size;
 

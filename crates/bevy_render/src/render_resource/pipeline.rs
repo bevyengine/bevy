@@ -1,12 +1,10 @@
-use super::{empty_bind_group_layout, ShaderDefVal};
-use crate::mesh::VertexBufferLayout;
+use super::empty_bind_group_layout;
 use crate::WgpuWrapper;
-use crate::{
-    define_atomic_id,
-    render_resource::{BindGroupLayout, Shader},
-};
+use crate::{define_atomic_id, render_resource::BindGroupLayout};
 use alloc::borrow::Cow;
 use bevy_asset::Handle;
+use bevy_mesh::VertexBufferLayout;
+use bevy_shader::{Shader, ShaderDefVal};
 use core::iter;
 use core::ops::Deref;
 use thiserror::Error;

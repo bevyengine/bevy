@@ -1605,7 +1605,7 @@ impl<P: VectorSpace<Scalar = f32>> RationalCurve<P> {
                 }
                 t -= segment.knot_span;
             }
-            return (self.segments.last().unwrap(), 1.0);
+            (self.segments.last().unwrap(), 1.0)
         }
     }
 

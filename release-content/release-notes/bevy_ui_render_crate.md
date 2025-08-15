@@ -1,5 +1,5 @@
 ---
-title: `bevy_ui_render` crate
+title: "`bevy_ui_render` crate"
 authors: ["@Ickshonpe"]
 pull_requests: [18703]
 ---

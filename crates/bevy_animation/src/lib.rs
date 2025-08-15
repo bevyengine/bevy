@@ -772,7 +772,7 @@ struct CurrentEvaluators {
 }
 
 impl CurrentEvaluators {
-    pub(crate) fn keys(&self) -> impl Iterator<Item = EvaluatorId> {
+    pub(crate) fn keys(&self) -> impl Iterator<Item = EvaluatorId<'_>> {
         self.component_properties
             .keys()
             .map(EvaluatorId::ComponentField)
@@ -1007,12 +1007,11 @@ pub fn advance_animations(
 
                 if let Some(active_animation) = active_animations.get_mut(&node_index) {
                     // Tick the animation if necessary.
-                    if !active_animation.paused {
-                        if let AnimationNodeType::Clip(ref clip_handle) = node.node_type {
-                            if let Some(clip) = animation_clips.get(clip_handle) {
-                                active_animation.update(delta_seconds, clip.duration);
-                            }
-                        }
+                    if !active_animation.paused
+                        && let AnimationNodeType::Clip(ref clip_handle) = node.node_type
+                        && let Some(clip) = animation_clips.get(clip_handle)
+                    {
+                        active_animation.update(delta_seconds, clip.duration);
                     }
                 }
             }
@@ -1158,21 +1157,20 @@ pub fn animate_targets(
                                 AnimationEventTarget::Node(target_id),
                                 clip,
                                 active_animation,
-                            ) {
-                                if !triggered_events.is_empty() {
-                                    par_commands.command_scope(move |mut commands| {
-                                        for TimedAnimationEvent { time, event } in
-                                            triggered_events.iter()
-                                        {
-                                            event.trigger(
-                                                &mut commands,
-                                                entity,
-                                                *time,
-                                                active_animation.weight,
-                                            );
-                                        }
-                                    });
-                                }
+                            ) && !triggered_events.is_empty()
+                            {
+                                par_commands.command_scope(move |mut commands| {
+                                    for TimedAnimationEvent { time, event } in
+                                        triggered_events.iter()
+                                    {
+                                        event.trigger(
+                                            &mut commands,
+                                            entity,
+                                            *time,
+                                            active_animation.weight,
+                                        );
+                                    }
+                                });
                             }
                         }
 
@@ -1247,7 +1245,7 @@ impl Plugin for AnimationPlugin {
                     // `PostUpdate`. For now, we just disable ambiguity testing
                     // for this system.
                     animate_targets
-                        .before(bevy_render::mesh::inherit_weights)
+                        .before(bevy_mesh::InheritWeightSystems)
                         .ambiguous_with_all(),
                     trigger_untargeted_animation_events,
                     expire_completed_transitions,
@@ -1462,7 +1460,7 @@ impl<'a> TriggeredEvents<'a> {
         self.lower.is_empty() && self.upper.is_empty()
     }
 
-    fn iter(&self) -> TriggeredEventsIter {
+    fn iter(&self) -> TriggeredEventsIter<'_> {
         match self.direction {
             TriggeredEventsDir::Forward => TriggeredEventsIter::Forward(self.lower.iter()),
             TriggeredEventsDir::Reverse => TriggeredEventsIter::Reverse(self.lower.iter().rev()),

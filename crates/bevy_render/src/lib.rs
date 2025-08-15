@@ -1,3 +1,16 @@
+//! # Useful Environment Variables
+//!
+//! Both `bevy_render` and `wgpu` have a number of environment variable options for changing the runtime behavior
+//! of both crates. Many of these may be useful in development or release environments.
+//!
+//! - `WGPU_DEBUG=1` enables debug labels, which can be useful in release builds.
+//! - `WGPU_VALIDATION=0` disables validation layers. This can help with particularly spammy errors.
+//! - `WGPU_FORCE_FALLBACK_ADAPTER=1` attempts to force software rendering. This typically matches what is used in CI.
+//! - `WGPU_ADAPTER_NAME` allows selecting a specific adapter by name.
+//! - `WGPU_SETTINGS_PRIO=webgl2` uses webgl2 limits.
+//! - `WGPU_SETTINGS_PRIO=compatibility` uses webgpu limits.
+//! - `VERBOSE_SHADER_ERROR=1` prints more detailed information about WGSL compilation errors, such as shader defs and shader entrypoint.
+
 #![expect(missing_docs, reason = "Not all docs are written yet, see #3492.")]
 #![expect(unsafe_code, reason = "Unsafe code is used to improve performance.")]
 #![cfg_attr(
@@ -29,6 +42,8 @@ pub mod diagnostic;
 pub mod erased_render_asset;
 pub mod experimental;
 pub mod extract_component;
+#[cfg(feature = "bevy_light")]
+mod extract_impls;
 pub mod extract_instances;
 mod extract_param;
 pub mod extract_resource;
@@ -50,9 +65,6 @@ pub mod sync_world;
 pub mod texture;
 pub mod view;
 mod wgpu_wrapper;
-pub use bevy_camera::primitives;
-#[cfg(feature = "bevy_light")]
-mod extract_impls;
 
 /// The render prelude.
 ///
@@ -60,28 +72,9 @@ mod extract_impls;
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
-        alpha::AlphaMode,
-        camera::ToNormalizedRenderTarget as _,
-        mesh::{
-            morph::MorphWeights, primitives::MeshBuilder, primitives::Meshable, Mesh, Mesh2d,
-            Mesh3d,
-        },
-        render_resource::Shader,
-        texture::{ImagePlugin, ManualTextureViews},
-        view::{InheritedVisibility, Msaa, ViewVisibility, Visibility},
-        ExtractSchedule,
+        alpha::AlphaMode, camera::NormalizedRenderTargetExt as _, texture::ManualTextureViews,
+        view::Msaa, ExtractSchedule,
     };
-    // TODO: Remove this in a follow-up
-    #[doc(hidden)]
-    pub use bevy_camera::{
-        Camera, ClearColor, ClearColorConfig, OrthographicProjection, PerspectiveProjection,
-        Projection,
-    };
-}
-
-#[doc(hidden)]
-pub mod _macro {
-    pub use bevy_asset;
 }
 
 pub use extract_param::Extract;
@@ -91,10 +84,11 @@ use crate::{
     gpu_readback::GpuReadbackPlugin,
     mesh::{MeshPlugin, MorphPlugin, RenderMesh},
     render_asset::prepare_assets,
-    render_resource::{init_empty_bind_group_layout, PipelineCache, Shader, ShaderLoader},
-    renderer::{render_system, RenderInstance},
+    render_resource::{init_empty_bind_group_layout, PipelineCache},
+    renderer::{render_system, RenderAdapterInfo},
     settings::RenderCreation,
     storage::StoragePlugin,
+    texture::TexturePlugin,
     view::{ViewPlugin, WindowRenderPlugin},
 };
 use alloc::sync::Arc;
@@ -106,6 +100,7 @@ use bevy_ecs::{
     schedule::{ScheduleBuildSettings, ScheduleLabel},
 };
 use bevy_image::{CompressedImageFormatSupport, CompressedImageFormats};
+use bevy_shader::{load_shader_library, Shader, ShaderLoader};
 use bevy_utils::prelude::default;
 use bevy_window::{PrimaryWindow, RawHandleWrapperHolder};
 use bitflags::bitflags;
@@ -116,30 +111,10 @@ use render_asset::{
     extract_render_asset_bytes_per_frame, reset_render_asset_bytes_per_frame,
     RenderAssetBytesPerFrame, RenderAssetBytesPerFrameLimiter,
 };
-use renderer::{RenderAdapter, RenderDevice, RenderQueue};
 use settings::RenderResources;
 use std::sync::Mutex;
 use sync_world::{despawn_temporary_render_entities, entity_sync_system, SyncWorldPlugin};
-use tracing::debug;
 pub use wgpu_wrapper::WgpuWrapper;
-
-/// Inline shader as an `embedded_asset` and load it permanently.
-///
-/// This works around a limitation of the shader loader not properly loading
-/// dependencies of shaders.
-#[macro_export]
-macro_rules! load_shader_library {
-    ($asset_server_provider: expr, $path: literal $(, $settings: expr)?) => {
-        $crate::_macro::bevy_asset::embedded_asset!($asset_server_provider, $path);
-        let handle: $crate::_macro::bevy_asset::prelude::Handle<$crate::prelude::Shader> =
-            $crate::_macro::bevy_asset::load_embedded_asset!(
-                $asset_server_provider,
-                $path
-                $(,$settings)?
-            );
-        core::mem::forget(handle);
-    }
-}
 
 /// Contains the default Bevy rendering backend based on wgpu.
 ///
@@ -353,76 +328,29 @@ impl Plugin for RenderPlugin {
                         .single(app.world())
                         .ok()
                         .cloned();
+
                     let settings = render_creation.clone();
+
+                    #[cfg(feature = "raw_vulkan_init")]
+                    let raw_vulkan_init_settings = app
+                        .world_mut()
+                        .get_resource::<renderer::raw_vulkan_init::RawVulkanInitSettings>()
+                        .cloned()
+                        .unwrap_or_default();
+
                     let async_renderer = async move {
-                        let instance = wgpu::Instance::new(&wgpu::InstanceDescriptor {
+                        let render_resources = renderer::initialize_renderer(
                             backends,
-                            flags: settings.instance_flags,
-                            memory_budget_thresholds: settings.instance_memory_budget_thresholds,
-                            backend_options: wgpu::BackendOptions {
-                                gl: wgpu::GlBackendOptions {
-                                    gles_minor_version: settings.gles3_minor_version,
-                                    fence_behavior: wgpu::GlFenceBehavior::Normal,
-                                },
-                                dx12: wgpu::Dx12BackendOptions {
-                                    shader_compiler: settings.dx12_shader_compiler.clone(),
-                                },
-                                noop: wgpu::NoopBackendOptions { enable: false },
-                            },
-                        });
+                            primary_window,
+                            &settings,
+                            #[cfg(feature = "raw_vulkan_init")]
+                            raw_vulkan_init_settings,
+                        )
+                        .await;
 
-                        let surface = primary_window.and_then(|wrapper| {
-                            let maybe_handle = wrapper.0.lock().expect(
-                                "Couldn't get the window handle in time for renderer initialization",
-                            );
-                            if let Some(wrapper) = maybe_handle.as_ref() {
-                                // SAFETY: Plugins should be set up on the main thread.
-                                let handle = unsafe { wrapper.get_handle() };
-                                Some(
-                                    instance
-                                        .create_surface(handle)
-                                        .expect("Failed to create wgpu surface"),
-                                )
-                            } else {
-                                None
-                            }
-                        });
-
-                        let force_fallback_adapter = std::env::var("WGPU_FORCE_FALLBACK_ADAPTER")
-                            .map_or(settings.force_fallback_adapter, |v| {
-                                !(v.is_empty() || v == "0" || v == "false")
-                            });
-
-                        let desired_adapter_name = std::env::var("WGPU_ADAPTER_NAME")
-                            .as_deref()
-                            .map_or(settings.adapter_name.clone(), |x| Some(x.to_lowercase()));
-
-                        let request_adapter_options = wgpu::RequestAdapterOptions {
-                            power_preference: settings.power_preference,
-                            compatible_surface: surface.as_ref(),
-                            force_fallback_adapter,
-                        };
-
-                        let (device, queue, adapter_info, render_adapter) =
-                            renderer::initialize_renderer(
-                                &instance,
-                                &settings,
-                                &request_adapter_options,
-                                desired_adapter_name,
-                            )
-                            .await;
-                        debug!("Configured wgpu adapter Limits: {:#?}", device.limits());
-                        debug!("Configured wgpu adapter Features: {:#?}", device.features());
-                        let mut future_render_resources_inner =
-                            future_render_resources_wrapper.lock().unwrap();
-                        *future_render_resources_inner = Some(RenderResources(
-                            device,
-                            queue,
-                            adapter_info,
-                            render_adapter,
-                            RenderInstance(Arc::new(WgpuWrapper::new(instance))),
-                        ));
+                        *future_render_resources_wrapper.lock().unwrap() = Some(render_resources);
                     };
+
                     // In wasm, spawn a task and detach it for execution
                     #[cfg(target_arch = "wasm32")]
                     bevy_tasks::IoTaskPool::get()
@@ -430,7 +358,7 @@ impl Plugin for RenderPlugin {
                         .detach();
                     // Otherwise, just block for it to complete
                     #[cfg(not(target_arch = "wasm32"))]
-                    futures_lite::future::block_on(async_renderer);
+                    bevy_tasks::block_on(async_renderer);
 
                     // SAFETY: Plugins should be set up on the main thread.
                     unsafe { initialize_render_app(app) };
@@ -445,6 +373,7 @@ impl Plugin for RenderPlugin {
             MeshPlugin,
             GlobalsPlugin,
             MorphPlugin,
+            TexturePlugin,
             BatchingPlugin {
                 debug_flags: self.debug_flags,
             },
@@ -484,8 +413,9 @@ impl Plugin for RenderPlugin {
         if let Some(future_render_resources) =
             app.world_mut().remove_resource::<FutureRenderResources>()
         {
-            let RenderResources(device, queue, adapter_info, render_adapter, instance) =
-                future_render_resources.0.lock().unwrap().take().unwrap();
+            let render_resources = future_render_resources.0.lock().unwrap().take().unwrap();
+            let RenderResources(device, queue, adapter_info, render_adapter, instance, ..) =
+                render_resources;
 
             let compressed_image_format_support = CompressedImageFormatSupport(
                 CompressedImageFormats::from_features(device.features()),
@@ -498,6 +428,13 @@ impl Plugin for RenderPlugin {
                 .insert_resource(compressed_image_format_support);
 
             let render_app = app.sub_app_mut(RenderApp);
+
+            #[cfg(feature = "raw_vulkan_init")]
+            {
+                let additional_vulkan_features: renderer::raw_vulkan_init::AdditionalVulkanFeatures =
+                    render_resources.5;
+                render_app.insert_resource(additional_vulkan_features);
+            }
 
             render_app
                 .insert_resource(instance)
@@ -611,16 +548,15 @@ fn apply_extract_commands(render_world: &mut World) {
     });
 }
 
-/// If the [`RenderAdapter`] is a Qualcomm Adreno, returns its model number.
+/// If the [`RenderAdapterInfo`] is a Qualcomm Adreno, returns its model number.
 ///
 /// This lets us work around hardware bugs.
-pub fn get_adreno_model(adapter: &RenderAdapter) -> Option<u32> {
+pub fn get_adreno_model(adapter_info: &RenderAdapterInfo) -> Option<u32> {
     if !cfg!(target_os = "android") {
         return None;
     }
 
-    let adapter_name = adapter.get_info().name;
-    let adreno_model = adapter_name.strip_prefix("Adreno (TM) ")?;
+    let adreno_model = adapter_info.name.strip_prefix("Adreno (TM) ")?;
 
     // Take suffixes into account (like Adreno 642L).
     Some(
@@ -632,23 +568,22 @@ pub fn get_adreno_model(adapter: &RenderAdapter) -> Option<u32> {
 }
 
 /// Get the Mali driver version if the adapter is a Mali GPU.
-pub fn get_mali_driver_version(adapter: &RenderAdapter) -> Option<u32> {
+pub fn get_mali_driver_version(adapter_info: &RenderAdapterInfo) -> Option<u32> {
     if !cfg!(target_os = "android") {
         return None;
     }
 
-    let driver_name = adapter.get_info().name;
-    if !driver_name.contains("Mali") {
+    if !adapter_info.name.contains("Mali") {
         return None;
     }
-    let driver_info = adapter.get_info().driver_info;
-    if let Some(start_pos) = driver_info.find("v1.r") {
-        if let Some(end_pos) = driver_info[start_pos..].find('p') {
-            let start_idx = start_pos + 4; // Skip "v1.r"
-            let end_idx = start_pos + end_pos;
+    let driver_info = &adapter_info.driver_info;
+    if let Some(start_pos) = driver_info.find("v1.r")
+        && let Some(end_pos) = driver_info[start_pos..].find('p')
+    {
+        let start_idx = start_pos + 4; // Skip "v1.r"
+        let end_idx = start_pos + end_pos;
 
-            return driver_info[start_idx..end_idx].parse::<u32>().ok();
-        }
+        return driver_info[start_idx..end_idx].parse::<u32>().ok();
     }
 
     None

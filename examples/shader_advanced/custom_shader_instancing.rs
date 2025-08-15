@@ -9,20 +9,20 @@
 
 use bevy::pbr::SetMeshViewBindingArrayBindGroup;
 use bevy::{
+    camera::visibility::NoFrustumCulling,
     core_pipeline::core_3d::Transparent3d,
     ecs::{
         query::QueryItem,
         system::{lifetimeless::*, SystemParamItem},
     },
+    mesh::{MeshVertexBufferLayoutRef, VertexBufferLayout},
     pbr::{
         MeshPipeline, MeshPipelineKey, RenderMeshInstances, SetMeshBindGroup, SetMeshViewBindGroup,
     },
     prelude::*,
     render::{
         extract_component::{ExtractComponent, ExtractComponentPlugin},
-        mesh::{
-            allocator::MeshAllocator, MeshVertexBufferLayoutRef, RenderMesh, RenderMeshBufferInfo,
-        },
+        mesh::{allocator::MeshAllocator, RenderMesh, RenderMeshBufferInfo},
         render_asset::RenderAssets,
         render_phase::{
             AddRenderCommand, DrawFunctions, PhaseItem, PhaseItemExtraIndex, RenderCommand,
@@ -31,7 +31,7 @@ use bevy::{
         render_resource::*,
         renderer::RenderDevice,
         sync_world::MainEntity,
-        view::{ExtractedView, NoFrustumCulling, NoIndirectDrawing},
+        view::{ExtractedView, NoIndirectDrawing},
         Render, RenderApp, RenderStartup, RenderSystems,
     },
 };

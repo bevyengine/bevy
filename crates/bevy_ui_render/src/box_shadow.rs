@@ -4,6 +4,7 @@ use core::{hash::Hash, ops::Range};
 
 use bevy_app::prelude::*;
 use bevy_asset::*;
+use bevy_camera::visibility::InheritedVisibility;
 use bevy_color::{Alpha, ColorToComponents, LinearRgba};
 use bevy_ecs::prelude::*;
 use bevy_ecs::{
@@ -15,6 +16,7 @@ use bevy_ecs::{
 };
 use bevy_image::BevyDefault as _;
 use bevy_math::{vec2, Affine2, FloatOrd, Rect, Vec2};
+use bevy_mesh::VertexBufferLayout;
 use bevy_render::sync_world::{MainEntity, TemporaryRenderEntity};
 use bevy_render::{
     render_phase::*,
@@ -24,8 +26,9 @@ use bevy_render::{
     Extract, ExtractSchedule, Render, RenderSystems,
 };
 use bevy_render::{RenderApp, RenderStartup};
+use bevy_shader::{Shader, ShaderDefVal};
 use bevy_ui::{
-    BoxShadow, CalculatedClip, ComputedNode, ComputedNodeTarget, ResolvedBorderRadius,
+    BoxShadow, CalculatedClip, ComputedNode, ComputedUiTargetCamera, ResolvedBorderRadius,
     UiGlobalTransform, Val,
 };
 use bevy_utils::default;
@@ -220,7 +223,7 @@ pub fn extract_shadows(
             &InheritedVisibility,
             &BoxShadow,
             Option<&CalculatedClip>,
-            &ComputedNodeTarget,
+            &ComputedUiTargetCamera,
         )>,
     >,
     camera_map: Extract<UiCameraMap>,

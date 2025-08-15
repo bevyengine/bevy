@@ -31,8 +31,8 @@ plugin_group! {
         bevy_render:::RenderPlugin,
         // NOTE: Load this after renderer initialization so that it knows about the supported
         // compressed texture formats.
-        #[cfg(feature = "bevy_render")]
-        bevy_render::texture:::ImagePlugin,
+        #[cfg(feature = "bevy_image")]
+        bevy_image:::ImagePlugin,
         #[cfg(feature = "bevy_render")]
         #[custom(cfg(all(not(target_arch = "wasm32"), feature = "multi_threaded")))]
         bevy_render::pipelined_rendering:::PipelinedRenderingPlugin,

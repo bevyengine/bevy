@@ -73,6 +73,8 @@ allow_attributes = "warn"
 allow_attributes_without_reason = "warn"
 
 [workspace.lints.rust]
+# Strictly temporary until encase fixes dead code generation from ShaderType macros
+dead_code = "allow"
 missing_docs = "warn"
 unexpected_cfgs = { level = "warn", check-cfg = ['cfg(docsrs_dep)'] }
 unsafe_code = "deny"
@@ -118,6 +120,8 @@ allow_attributes = "warn"
 allow_attributes_without_reason = "warn"
 
 [lints.rust]
+# Strictly temporary until encase fixes dead code generation from ShaderType macros
+dead_code = "allow"
 missing_docs = "warn"
 unexpected_cfgs = { level = "warn", check-cfg = ['cfg(docsrs_dep)'] }
 unsafe_code = "deny"
@@ -322,6 +326,9 @@ spirv_shader_passthrough = ["bevy_internal/spirv_shader_passthrough"]
 
 # Statically linked DXC shader compiler for DirectX 12
 statically-linked-dxc = ["bevy_internal/statically-linked-dxc"]
+
+# Forces the wgpu instance to be initialized using the raw Vulkan HAL, enabling additional configuration
+raw_vulkan_init = ["bevy_internal/raw_vulkan_init"]
 
 # Tracing support, saving a file in Chrome Tracing format
 trace_chrome = ["trace", "bevy_internal/trace_chrome"]
@@ -605,8 +612,8 @@ tracing = { version = "0.1", default-features = false, optional = true }
 bevy_dylib = { path = "crates/bevy_dylib", version = "0.17.0-dev", default-features = false, optional = true }
 
 [dev-dependencies]
-rand = "0.8.0"
-rand_chacha = "0.3.1"
+rand = "0.9.0"
+rand_chacha = "0.9.0"
 ron = "0.10"
 flate2 = "1.0"
 serde = { version = "1", features = ["derive"] }
@@ -635,6 +642,9 @@ nonmax = "0.5"
 ureq = { version = "3.0.8", features = ["json"] }
 
 [target.'cfg(target_arch = "wasm32")'.dev-dependencies]
+getrandom = { version = "0.3", default-features = false, features = [
+  "wasm_js",
+] }
 wasm-bindgen = { version = "0.2" }
 web-sys = { version = "0.3", features = ["Window"] }
 
