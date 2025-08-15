@@ -1,4 +1,7 @@
 use bevy_asset::Assets;
+use bevy_camera::Camera;
+#[cfg(feature = "bevy_ui_picking_backend")]
+use bevy_camera::NormalizedRenderTarget;
 use bevy_ecs::{
     component::Component,
     entity::Entity,
@@ -24,9 +27,6 @@ use bevy_picking::{
 #[cfg(feature = "bevy_ui_picking_backend")]
 use bevy_platform::collections::HashMap;
 use bevy_reflect::Reflect;
-use bevy_render::camera::Camera;
-#[cfg(feature = "bevy_ui_picking_backend")]
-use bevy_render::camera::NormalizedRenderTarget;
 #[cfg(feature = "bevy_ui_picking_backend")]
 use bevy_transform::components::GlobalTransform;
 #[cfg(feature = "bevy_ui_picking_backend")]
@@ -147,7 +147,7 @@ pub fn viewport_picking(
             };
             viewport_pointer_location.location = Some(location.clone());
 
-            commands.send_event(PointerInput {
+            commands.write_event(PointerInput {
                 location,
                 pointer_id: viewport_pointer_id,
                 action: input.action,

@@ -26,4 +26,10 @@ pub mod size {
 
     /// Width and height of a radio button
     pub const RADIO_SIZE: Val = Val::Px(18.0);
+
+    /// Width of a toggle switch
+    pub const TOGGLE_WIDTH: Val = Val::Px(32.0);
+
+    /// Height of a toggle switch
+    pub const TOGGLE_HEIGHT: Val = Val::Px(18.0);
 }

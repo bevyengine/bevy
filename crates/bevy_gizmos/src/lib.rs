@@ -95,7 +95,7 @@ use bevy_reflect::TypePath;
     feature = "bevy_render",
     any(feature = "bevy_pbr", feature = "bevy_sprite")
 ))]
-use crate::config::GizmoMeshConfig;
+use {crate::config::GizmoMeshConfig, bevy_mesh::VertexBufferLayout};
 
 use crate::{config::ErasedGizmoConfigGroup, gizmos::GizmoBuffer};
 
@@ -124,7 +124,7 @@ use {
         },
         renderer::RenderDevice,
         sync_world::{MainEntity, TemporaryRenderEntity},
-        Extract, ExtractSchedule, Render, RenderApp, RenderSystems,
+        Extract, ExtractSchedule, Render, RenderApp, RenderStartup, RenderSystems,
     },
     bytemuck::cast_slice,
 };
@@ -133,7 +133,7 @@ use {
     feature = "bevy_render",
     any(feature = "bevy_pbr", feature = "bevy_sprite"),
 ))]
-use bevy_render::render_resource::{VertexAttribute, VertexBufferLayout, VertexStepMode};
+use bevy_render::render_resource::{VertexAttribute, VertexStepMode};
 use bevy_time::Fixed;
 use bevy_utils::TypeIdMap;
 #[cfg(feature = "bevy_render")]
@@ -159,9 +159,7 @@ impl Plugin for GizmoPlugin {
             embedded_asset!(app, "line_joints.wgsl");
         }
 
-        app.register_type::<GizmoConfig>()
-            .register_type::<GizmoConfigStore>()
-            .init_asset::<GizmoAsset>()
+        app.init_asset::<GizmoAsset>()
             .init_resource::<GizmoHandles>()
             // We insert the Resource GizmoConfigStore into the world implicitly here if it does not exist.
             .init_gizmo_group::<DefaultGizmoConfigGroup>();
@@ -176,6 +174,8 @@ impl Plugin for GizmoPlugin {
 
         #[cfg(feature = "bevy_render")]
         if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
+            render_app.add_systems(RenderStartup, init_line_gizmo_uniform_bind_group_layout);
+
             render_app.add_systems(
                 Render,
                 prepare_line_gizmo_bind_group.in_set(RenderSystems::PrepareBindGroups),
@@ -198,26 +198,6 @@ impl Plugin for GizmoPlugin {
         } else {
             tracing::warn!("bevy_render feature is enabled but RenderApp was not detected. Are you sure you loaded GizmoPlugin after RenderPlugin?");
         }
-    }
-
-    #[cfg(feature = "bevy_render")]
-    fn finish(&self, app: &mut App) {
-        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
-            return;
-        };
-
-        let render_device = render_app.world().resource::<RenderDevice>();
-        let line_layout = render_device.create_bind_group_layout(
-            "LineGizmoUniform layout",
-            &BindGroupLayoutEntries::single(
-                ShaderStages::VERTEX,
-                uniform_buffer::<LineGizmoUniform>(true),
-            ),
-        );
-
-        render_app.insert_resource(LineGizmoUniformBindgroupLayout {
-            layout: line_layout,
-        });
     }
 }
 
@@ -413,6 +393,24 @@ fn update_gizmo_meshes<Config: GizmoConfigGroup>(
             *handle = Some(gizmo_assets.add(gizmo));
         }
     }
+}
+
+#[cfg(feature = "bevy_render")]
+fn init_line_gizmo_uniform_bind_group_layout(
+    mut commands: Commands,
+    render_device: Res<RenderDevice>,
+) {
+    let line_layout = render_device.create_bind_group_layout(
+        "LineGizmoUniform layout",
+        &BindGroupLayoutEntries::single(
+            ShaderStages::VERTEX,
+            uniform_buffer::<LineGizmoUniform>(true),
+        ),
+    );
+
+    commands.insert_resource(LineGizmoUniformBindgroupLayout {
+        layout: line_layout,
+    });
 }
 
 #[cfg(feature = "bevy_render")]

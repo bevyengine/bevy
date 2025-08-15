@@ -6,14 +6,15 @@
 //! [`Material2d`]: bevy::sprite::Material2d
 
 use bevy::{
-    asset::uuid_handle,
+    asset::RenderAssetUsages,
     color::palettes::basic::YELLOW,
     core_pipeline::core_2d::{Transparent2d, CORE_2D_DEPTH_FORMAT},
     math::{ops, FloatOrd},
+    mesh::{Indices, MeshVertexAttribute, VertexBufferLayout},
     prelude::*,
     render::{
-        mesh::{Indices, MeshVertexAttribute, RenderMesh},
-        render_asset::{RenderAssetUsages, RenderAssets},
+        mesh::RenderMesh,
+        render_asset::RenderAssets,
         render_phase::{
             AddRenderCommand, DrawFunctions, PhaseItemExtraIndex, SetItemPipeline,
             ViewSortedRenderPhases,
@@ -23,16 +24,16 @@ use bevy::{
             DepthStencilState, Face, FragmentState, MultisampleState, PipelineCache,
             PrimitiveState, PrimitiveTopology, RenderPipelineDescriptor, SpecializedRenderPipeline,
             SpecializedRenderPipelines, StencilFaceState, StencilState, TextureFormat,
-            VertexBufferLayout, VertexFormat, VertexState, VertexStepMode,
+            VertexFormat, VertexState, VertexStepMode,
         },
         sync_component::SyncComponentPlugin,
         sync_world::{MainEntityHashMap, RenderEntity},
         view::{ExtractedView, RenderVisibleEntities, ViewTarget},
-        Extract, Render, RenderApp, RenderSystems,
+        Extract, Render, RenderApp, RenderStartup, RenderSystems,
     },
     sprite::{
-        extract_mesh2d, DrawMesh2d, Material2dBindGroupId, Mesh2dPipeline, Mesh2dPipelineKey,
-        Mesh2dTransforms, MeshFlags, RenderMesh2dInstance, SetMesh2dBindGroup,
+        extract_mesh2d, init_mesh_2d_pipeline, DrawMesh2d, Material2dBindGroupId, Mesh2dPipeline,
+        Mesh2dPipelineKey, Mesh2dTransforms, MeshFlags, RenderMesh2dInstance, SetMesh2dBindGroup,
         SetMesh2dViewBindGroup,
     },
 };
@@ -129,14 +130,20 @@ pub struct ColoredMesh2d;
 pub struct ColoredMesh2dPipeline {
     /// This pipeline wraps the standard [`Mesh2dPipeline`]
     mesh2d_pipeline: Mesh2dPipeline,
+    /// The shader asset handle.
+    shader: Handle<Shader>,
 }
 
-impl FromWorld for ColoredMesh2dPipeline {
-    fn from_world(world: &mut World) -> Self {
-        Self {
-            mesh2d_pipeline: Mesh2dPipeline::from_world(world),
-        }
-    }
+fn init_colored_mesh_2d_pipeline(
+    mut commands: Commands,
+    mesh2d_pipeline: Res<Mesh2dPipeline>,
+    colored_mesh2d_shader: Res<ColoredMesh2dShader>,
+) {
+    commands.insert_resource(ColoredMesh2dPipeline {
+        mesh2d_pipeline: mesh2d_pipeline.clone(),
+        // Clone the shader from the shader resource we inserted in the plugin.
+        shader: colored_mesh2d_shader.0.clone(),
+    });
 }
 
 // We implement `SpecializedPipeline` to customize the default rendering from `Mesh2dPipeline`
@@ -164,14 +171,14 @@ impl SpecializedRenderPipeline for ColoredMesh2dPipeline {
         RenderPipelineDescriptor {
             vertex: VertexState {
                 // Use our custom shader
-                shader: COLORED_MESH2D_SHADER_HANDLE,
+                shader: self.shader.clone(),
                 // Use our custom vertex buffer
                 buffers: vec![vertex_layout],
                 ..default()
             },
             fragment: Some(FragmentState {
                 // Use our custom shader
-                shader: COLORED_MESH2D_SHADER_HANDLE,
+                shader: self.shader.clone(),
                 targets: vec![Some(ColorTargetState {
                     format,
                     blend: Some(BlendState::ALPHA_BLENDING),
@@ -278,9 +285,10 @@ fn fragment(in: FragmentInput) -> @location(0) vec4<f32> {
 /// Plugin that renders [`ColoredMesh2d`]s
 pub struct ColoredMesh2dPlugin;
 
-/// Handle to the custom shader with a unique random ID
-pub const COLORED_MESH2D_SHADER_HANDLE: Handle<Shader> =
-    uuid_handle!("f48b148f-7373-4638-9900-392b3b3ccc66");
+/// A resource holding the shader asset handle for the pipeline to take. There are many ways to get
+/// the shader into the pipeline - this is just one option.
+#[derive(Resource)]
+struct ColoredMesh2dShader(Handle<Shader>);
 
 /// Our custom pipeline needs its own instance storage
 #[derive(Resource, Deref, DerefMut, Default)]
@@ -290,18 +298,23 @@ impl Plugin for ColoredMesh2dPlugin {
     fn build(&self, app: &mut App) {
         // Load our custom shader
         let mut shaders = app.world_mut().resource_mut::<Assets<Shader>>();
-        shaders.insert(
-            &COLORED_MESH2D_SHADER_HANDLE,
-            Shader::from_wgsl(COLORED_MESH2D_SHADER, file!()),
-        );
+        // Here, we construct and add the shader asset manually. There are many ways to load this
+        // shader, including `embedded_asset`/`load_embedded_asset`.
+        let shader = shaders.add(Shader::from_wgsl(COLORED_MESH2D_SHADER, file!()));
+
         app.add_plugins(SyncComponentPlugin::<ColoredMesh2d>::default());
 
         // Register our custom draw function, and add our render systems
         app.get_sub_app_mut(RenderApp)
             .unwrap()
+            .insert_resource(ColoredMesh2dShader(shader))
             .add_render_command::<Transparent2d, DrawColoredMesh2d>()
             .init_resource::<SpecializedRenderPipelines<ColoredMesh2dPipeline>>()
             .init_resource::<RenderColoredMesh2dInstances>()
+            .add_systems(
+                RenderStartup,
+                init_colored_mesh_2d_pipeline.after(init_mesh_2d_pipeline),
+            )
             .add_systems(
                 ExtractSchedule,
                 extract_colored_mesh2d.after(extract_mesh2d),
@@ -310,13 +323,6 @@ impl Plugin for ColoredMesh2dPlugin {
                 Render,
                 queue_colored_mesh2d.in_set(RenderSystems::QueueMeshes),
             );
-    }
-
-    fn finish(&self, app: &mut App) {
-        // Register our custom pipeline
-        app.get_sub_app_mut(RenderApp)
-            .unwrap()
-            .init_resource::<ColoredMesh2dPipeline>();
     }
 }
 

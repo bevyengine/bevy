@@ -7,12 +7,11 @@
 
 //! This crate contains Bevy's UI system, which can be used to create UI for both 2D and 3D games
 //! # Basic usage
-//! Spawn UI elements with [`widget::Button`], [`ImageNode`], [`Text`](prelude::Text) and [`Node`]
+//! Spawn UI elements with [`widget::Button`], [`ImageNode`](widget::ImageNode), [`Text`](prelude::Text) and [`Node`]
 //! This UI is laid out with the Flexbox and CSS Grid layout models (see <https://cssreference.io/flexbox/>)
 
 pub mod interaction_states;
 pub mod measurement;
-pub mod ui_material;
 pub mod update;
 pub mod widget;
 
@@ -32,7 +31,6 @@ pub mod experimental;
 mod focus;
 mod geometry;
 mod layout;
-mod render;
 mod stack;
 mod ui_node;
 
@@ -42,23 +40,16 @@ pub use gradients::*;
 pub use interaction_states::{Checkable, Checked, InteractionDisabled, Pressed};
 pub use layout::*;
 pub use measurement::*;
-pub use render::*;
-pub use ui_material::*;
 pub use ui_node::*;
 pub use ui_transform::*;
-
-use widget::{ImageNode, ImageNodeSize, ViewportNode};
 
 /// The UI prelude.
 ///
 /// This includes the most common types in this crate, re-exported for your convenience.
 pub mod prelude {
+    #[doc(hidden)]
     #[cfg(feature = "bevy_ui_picking_backend")]
-    #[doc(hidden)]
     pub use crate::picking_backend::{UiPickingCamera, UiPickingPlugin, UiPickingSettings};
-    #[doc(hidden)]
-    #[cfg(feature = "bevy_ui_debug")]
-    pub use crate::render::UiDebugOptions;
     #[doc(hidden)]
     pub use crate::widget::{Text, TextShadow, TextUiReader, TextUiWriter};
     #[doc(hidden)]
@@ -66,11 +57,10 @@ pub mod prelude {
         crate::{
             geometry::*,
             gradients::*,
-            ui_material::*,
             ui_node::*,
             ui_transform::*,
             widget::{Button, ImageNode, Label, NodeImageMode, ViewportNode},
-            Interaction, MaterialNode, UiMaterialPlugin, UiScale,
+            Interaction, UiScale,
         },
         // `bevy_sprite` re-exports for texture slicing
         bevy_sprite::{BorderRect, SliceScaleMode, SpriteImageMode, TextureSlicer},
@@ -78,30 +68,19 @@ pub mod prelude {
     };
 }
 
-use bevy_app::{prelude::*, AnimationSystems};
+use bevy_app::{prelude::*, AnimationSystems, HierarchyPropagatePlugin, PropagateSet};
+use bevy_camera::CameraUpdateSystems;
 use bevy_ecs::prelude::*;
 use bevy_input::InputSystems;
-use bevy_render::{camera::CameraUpdateSystems, RenderApp};
 use bevy_transform::TransformSystems;
 use layout::ui_surface::UiSurface;
 use stack::ui_stack_system;
 pub use stack::UiStack;
-use update::{update_clipping_system, update_ui_context_system};
+use update::{propagate_ui_target_cameras, update_clipping_system};
 
 /// The basic plugin for Bevy UI
-pub struct UiPlugin {
-    /// If set to false, the UI's rendering systems won't be added to the `RenderApp` and no UI elements will be drawn.
-    /// The layout and interaction components will still be updated as normal.
-    pub enable_rendering: bool,
-}
-
-impl Default for UiPlugin {
-    fn default() -> Self {
-        Self {
-            enable_rendering: true,
-        }
-    }
-}
+#[derive(Default)]
+pub struct UiPlugin;
 
 /// The label enum labeling the types of systems in the Bevy UI
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
@@ -112,6 +91,8 @@ pub enum UiSystems {
     Focus,
     /// All UI systems in [`PostUpdate`] will run in or after this label.
     Prepare,
+    /// Propagate UI component values needed by layout.
+    Propagate,
     /// Update content requirements before layout.
     Content,
     /// After this label, the ui layout state has been updated.
@@ -159,50 +140,25 @@ impl Plugin for UiPlugin {
         app.init_resource::<UiSurface>()
             .init_resource::<UiScale>()
             .init_resource::<UiStack>()
-            .register_type::<BackgroundColor>()
-            .register_type::<CalculatedClip>()
-            .register_type::<ComputedNode>()
-            .register_type::<ContentSize>()
-            .register_type::<FocusPolicy>()
-            .register_type::<Interaction>()
-            .register_type::<Node>()
-            .register_type::<RelativeCursorPosition>()
-            .register_type::<ScrollPosition>()
-            .register_type::<UiTargetCamera>()
-            .register_type::<ImageNode>()
-            .register_type::<ImageNodeSize>()
-            .register_type::<ViewportNode>()
-            .register_type::<UiRect>()
-            .register_type::<UiScale>()
-            .register_type::<BorderColor>()
-            .register_type::<BorderRadius>()
-            .register_type::<BoxShadow>()
-            .register_type::<widget::Button>()
-            .register_type::<widget::Label>()
-            .register_type::<ZIndex>()
-            .register_type::<GlobalZIndex>()
-            .register_type::<Outline>()
-            .register_type::<BoxShadowSamples>()
-            .register_type::<UiAntiAlias>()
-            .register_type::<ColorStop>()
-            .register_type::<AngularColorStop>()
-            .register_type::<UiPosition>()
-            .register_type::<RadialGradientShape>()
-            .register_type::<Gradient>()
-            .register_type::<BackgroundGradient>()
-            .register_type::<BorderGradient>()
-            .register_type::<ComputedNodeTarget>()
             .configure_sets(
                 PostUpdate,
                 (
                     CameraUpdateSystems,
                     UiSystems::Prepare.after(AnimationSystems),
+                    UiSystems::Propagate,
                     UiSystems::Content,
                     UiSystems::Layout,
                     UiSystems::PostLayout,
                 )
                     .chain(),
             )
+            .configure_sets(
+                PostUpdate,
+                PropagateSet::<ComputedUiTargetCamera>::default().in_set(UiSystems::Propagate),
+            )
+            .add_plugins(HierarchyPropagatePlugin::<ComputedUiTargetCamera>::new(
+                PostUpdate,
+            ))
             .add_systems(
                 PreUpdate,
                 ui_focus_system.in_set(UiSystems::Focus).after(InputSystems),
@@ -227,11 +183,12 @@ impl Plugin for UiPlugin {
         app.add_systems(
             PostUpdate,
             (
-                update_ui_context_system.in_set(UiSystems::Prepare),
+                propagate_ui_target_cameras.in_set(UiSystems::Prepare),
                 ui_layout_system_config,
                 ui_stack_system
                     .in_set(UiSystems::Stack)
                     // These systems don't care about stack index
+                    .ambiguous_with(widget::measure_text_system)
                     .ambiguous_with(update_clipping_system)
                     .ambiguous_with(ui_layout_system)
                     .ambiguous_with(widget::update_viewport_render_target_size)
@@ -256,39 +213,11 @@ impl Plugin for UiPlugin {
         );
 
         build_text_interop(app);
-
-        if !self.enable_rendering {
-            return;
-        }
-
-        #[cfg(feature = "bevy_ui_debug")]
-        app.init_resource::<UiDebugOptions>();
-
-        build_ui_render(app);
-    }
-
-    fn finish(&self, app: &mut App) {
-        if !self.enable_rendering {
-            return;
-        }
-
-        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
-            return;
-        };
-
-        render_app.init_resource::<UiPipeline>();
     }
 }
 
 fn build_text_interop(app: &mut App) {
-    use crate::widget::TextNodeFlags;
-    use bevy_text::TextLayoutInfo;
-    use widget::{Text, TextShadow};
-
-    app.register_type::<TextLayoutInfo>()
-        .register_type::<TextNodeFlags>()
-        .register_type::<Text>()
-        .register_type::<TextShadow>();
+    use widget::Text;
 
     app.add_systems(
         PostUpdate,

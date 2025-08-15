@@ -1,5 +1,5 @@
 ---
-title: `Handle::Weak` has been replaced by `Handle::Uuid`.
+title: "`Handle::Weak` has been replaced by `Handle::Uuid`."
 pull_requests: [19896]
 ---
 

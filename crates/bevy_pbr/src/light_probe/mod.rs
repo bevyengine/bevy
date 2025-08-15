@@ -2,44 +2,46 @@
 
 use bevy_app::{App, Plugin};
 use bevy_asset::AssetId;
-use bevy_core_pipeline::core_3d::Camera3d;
+use bevy_camera::{
+    primitives::{Aabb, Frustum},
+    Camera3d,
+};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     component::Component,
     entity::Entity,
     query::With,
-    reflect::ReflectComponent,
     resource::Resource,
     schedule::IntoScheduleConfigs,
     system::{Commands, Local, Query, Res, ResMut},
 };
 use bevy_image::Image;
+use bevy_light::{EnvironmentMapLight, IrradianceVolume, LightProbe};
 use bevy_math::{Affine3A, FloatOrd, Mat4, Vec3A, Vec4};
 use bevy_platform::collections::HashMap;
-use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
     extract_instances::ExtractInstancesPlugin,
-    load_shader_library,
-    primitives::{Aabb, Frustum},
     render_asset::RenderAssets,
     render_resource::{DynamicUniformBuffer, Sampler, ShaderType, TextureView},
-    renderer::{RenderAdapter, RenderDevice, RenderQueue},
+    renderer::{RenderAdapter, RenderAdapterInfo, RenderDevice, RenderQueue},
     settings::WgpuFeatures,
     sync_world::RenderEntity,
     texture::{FallbackImage, GpuImage},
-    view::{ExtractedView, Visibility},
-    Extract, ExtractSchedule, Render, RenderApp, RenderSystems,
+    view::ExtractedView,
+    Extract, ExtractSchedule, Render, RenderApp, RenderSystems, WgpuWrapper,
 };
+use bevy_shader::load_shader_library;
 use bevy_transform::{components::Transform, prelude::GlobalTransform};
 use tracing::error;
 
 use core::{hash::Hash, ops::Deref};
 
-use crate::light_probe::environment_map::{EnvironmentMapIds, EnvironmentMapLight};
-
-use self::irradiance_volume::IrradianceVolume;
+use crate::{
+    generate::EnvironmentMapGenerationPlugin, light_probe::environment_map::EnvironmentMapIds,
+};
 
 pub mod environment_map;
+pub mod generate;
 pub mod irradiance_volume;
 
 /// The maximum number of each type of light probe that each view will consider.
@@ -58,50 +60,6 @@ const STANDARD_MATERIAL_FRAGMENT_SHADER_MIN_TEXTURE_BINDINGS: usize = 16;
 /// This also adds support for view environment maps: diffuse and specular
 /// cubemaps applied to all objects that a view renders.
 pub struct LightProbePlugin;
-
-/// A marker component for a light probe, which is a cuboid region that provides
-/// global illumination to all fragments inside it.
-///
-/// Note that a light probe will have no effect unless the entity contains some
-/// kind of illumination, which can either be an [`EnvironmentMapLight`] or an
-/// [`IrradianceVolume`].
-///
-/// The light probe range is conceptually a unit cube (1×1×1) centered on the
-/// origin. The [`Transform`] applied to this entity can scale, rotate, or translate
-/// that cube so that it contains all fragments that should take this light probe into account.
-///
-/// When multiple sources of indirect illumination can be applied to a fragment,
-/// the highest-quality one is chosen. Diffuse and specular illumination are
-/// considered separately, so, for example, Bevy may decide to sample the
-/// diffuse illumination from an irradiance volume and the specular illumination
-/// from a reflection probe. From highest priority to lowest priority, the
-/// ranking is as follows:
-///
-/// | Rank | Diffuse              | Specular             |
-/// | ---- | -------------------- | -------------------- |
-/// | 1    | Lightmap             | Lightmap             |
-/// | 2    | Irradiance volume    | Reflection probe     |
-/// | 3    | Reflection probe     | View environment map |
-/// | 4    | View environment map |                      |
-///
-/// Note that ambient light is always added to the diffuse component and does
-/// not participate in the ranking. That is, ambient light is applied in
-/// addition to, not instead of, the light sources above.
-///
-/// A terminology note: Unfortunately, there is little agreement across game and
-/// graphics engines as to what to call the various techniques that Bevy groups
-/// under the term *light probe*. In Bevy, a *light probe* is the generic term
-/// that encompasses both *reflection probes* and *irradiance volumes*. In
-/// object-oriented terms, *light probe* is the superclass, and *reflection
-/// probe* and *irradiance volume* are subclasses. In other engines, you may see
-/// the term *light probe* refer to an irradiance volume with a single voxel, or
-/// perhaps some other technique, while in Bevy *light probe* refers not to a
-/// specific technique but rather to a class of techniques. Developers familiar
-/// with other engines should be aware of this terminology difference.
-#[derive(Component, Debug, Clone, Copy, Default, Reflect)]
-#[reflect(Component, Default, Debug, Clone)]
-#[require(Transform, Visibility)]
-pub struct LightProbe;
 
 /// A GPU type that stores information about a light probe.
 #[derive(Clone, Copy, ShaderType, Default)]
@@ -302,14 +260,6 @@ pub trait LightProbeComponent: Send + Sync + Component + Sized {
     ) -> RenderViewLightProbes<Self>;
 }
 
-impl LightProbe {
-    /// Creates a new light probe component.
-    #[inline]
-    pub fn new() -> Self {
-        Self
-    }
-}
-
 /// The uniform struct extracted from [`EnvironmentMapLight`].
 /// Will be available for use in the Environment Map shader.
 #[derive(Component, ShaderType, Clone)]
@@ -341,13 +291,11 @@ impl Plugin for LightProbePlugin {
         load_shader_library!(app, "environment_map.wgsl");
         load_shader_library!(app, "irradiance_volume.wgsl");
 
-        app.register_type::<LightProbe>()
-            .register_type::<EnvironmentMapLight>()
-            .register_type::<IrradianceVolume>()
-            .add_plugins(ExtractInstancesPlugin::<EnvironmentMapIds>::new());
-    }
+        app.add_plugins((
+            EnvironmentMapGenerationPlugin,
+            ExtractInstancesPlugin::<EnvironmentMapIds>::new(),
+        ));
 
-    fn finish(&self, app: &mut App) {
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
         };
@@ -770,8 +718,10 @@ pub(crate) fn binding_arrays_are_usable(
     render_device: &RenderDevice,
     render_adapter: &RenderAdapter,
 ) -> bool {
+    let adapter_info = RenderAdapterInfo(WgpuWrapper::new(render_adapter.get_info()));
+
     !cfg!(feature = "shader_format_glsl")
-        && bevy_render::get_adreno_model(render_adapter).is_none_or(|model| model > 610)
+        && bevy_render::get_adreno_model(&adapter_info).is_none_or(|model| model > 610)
         && render_device.limits().max_storage_textures_per_shader_stage
             >= (STANDARD_MATERIAL_FRAGMENT_SHADER_MIN_TEXTURE_BINDINGS + MAX_VIEW_LIGHT_PROBES)
                 as u32

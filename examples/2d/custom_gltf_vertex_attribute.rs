@@ -2,12 +2,11 @@
 
 use bevy::{
     gltf::GltfPlugin,
+    mesh::{MeshVertexAttribute, MeshVertexBufferLayoutRef},
     prelude::*,
     reflect::TypePath,
-    render::{
-        mesh::{MeshVertexAttribute, MeshVertexBufferLayoutRef},
-        render_resource::*,
-    },
+    render::render_resource::*,
+    shader::ShaderRef,
     sprite::{Material2d, Material2dKey, Material2dPlugin},
 };
 

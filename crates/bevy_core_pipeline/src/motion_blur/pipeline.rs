@@ -1,12 +1,11 @@
 use crate::FullscreenShader;
-use bevy_asset::{load_embedded_asset, Handle};
+use bevy_asset::{load_embedded_asset, AssetServer, Handle};
 use bevy_ecs::{
     component::Component,
     entity::Entity,
     query::With,
     resource::Resource,
     system::{Commands, Query, Res, ResMut},
-    world::FromWorld,
 };
 use bevy_image::BevyDefault as _;
 use bevy_render::{
@@ -18,12 +17,13 @@ use bevy_render::{
         },
         BindGroupLayout, BindGroupLayoutEntries, CachedRenderPipelineId, ColorTargetState,
         ColorWrites, FragmentState, PipelineCache, RenderPipelineDescriptor, Sampler,
-        SamplerBindingType, SamplerDescriptor, Shader, ShaderDefVal, ShaderStages, ShaderType,
-        SpecializedRenderPipeline, SpecializedRenderPipelines, TextureFormat, TextureSampleType,
+        SamplerBindingType, SamplerDescriptor, ShaderStages, ShaderType, SpecializedRenderPipeline,
+        SpecializedRenderPipelines, TextureFormat, TextureSampleType,
     },
     renderer::RenderDevice,
     view::{ExtractedView, Msaa, ViewTarget},
 };
+use bevy_shader::{Shader, ShaderDefVal};
 use bevy_utils::default;
 
 use super::MotionBlurUniform;
@@ -94,14 +94,19 @@ impl MotionBlurPipeline {
     }
 }
 
-impl FromWorld for MotionBlurPipeline {
-    fn from_world(render_world: &mut bevy_ecs::world::World) -> Self {
-        let render_device = render_world.resource::<RenderDevice>().clone();
-
-        let fullscreen_shader = render_world.resource::<FullscreenShader>().clone();
-        let fragment_shader = load_embedded_asset!(render_world, "motion_blur.wgsl");
-        MotionBlurPipeline::new(&render_device, fullscreen_shader, fragment_shader)
-    }
+pub fn init_motion_blur_pipeline(
+    mut commands: Commands,
+    render_device: Res<RenderDevice>,
+    fullscreen_shader: Res<FullscreenShader>,
+    asset_server: Res<AssetServer>,
+) {
+    let fullscreen_shader = fullscreen_shader.clone();
+    let fragment_shader = load_embedded_asset!(asset_server.as_ref(), "motion_blur.wgsl");
+    commands.insert_resource(MotionBlurPipeline::new(
+        &render_device,
+        fullscreen_shader,
+        fragment_shader,
+    ));
 }
 
 #[derive(PartialEq, Eq, Hash, Clone, Copy)]

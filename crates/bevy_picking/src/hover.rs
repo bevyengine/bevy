@@ -243,10 +243,10 @@ pub fn update_interactions(
         };
 
         for entity in previously_hovered_entities.keys() {
-            if !new_interaction_state.contains_key(entity) {
-                if let Ok(mut interaction) = interact.get_mut(*entity) {
-                    interaction.set_if_neq(PickingInteraction::None);
-                }
+            if !new_interaction_state.contains_key(entity)
+                && let Ok(mut interaction) = interact.get_mut(*entity)
+            {
+                interaction.set_if_neq(PickingInteraction::None);
             }
         }
     }
@@ -344,7 +344,7 @@ pub fn update_is_hovered(
     }
 
     // Algorithm: for each entity having a `Hovered` component, we want to know if the current
-    // entry in the hover map is "within" (that is, in the set of descenants of) that entity. Rather
+    // entry in the hover map is "within" (that is, in the set of descendants of) that entity. Rather
     // than doing an expensive breadth-first traversal of children, instead start with the hovermap
     // entry and search upwards. We can make this even cheaper by building a set of ancestors for
     // the hovermap entry, and then testing each `Hovered` entity against that set.
@@ -404,7 +404,7 @@ pub fn update_is_directly_hovered(
 
 #[cfg(test)]
 mod tests {
-    use bevy_render::camera::Camera;
+    use bevy_camera::Camera;
 
     use super::*;
 

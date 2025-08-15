@@ -4,19 +4,14 @@ use std::f32::consts::{FRAC_PI_2, FRAC_PI_3, FRAC_PI_4, PI};
 use std::fmt::{self, Formatter};
 
 use bevy::{
+    camera::primitives::CubemapLayout,
     color::palettes::css::{SILVER, YELLOW},
     input::mouse::AccumulatedMouseMotion,
-    pbr::{
-        decal::{
-            self,
-            clustered::{DirectionalLightTexture, PointLightTexture, SpotLightTexture},
-        },
-        NotShadowCaster,
-    },
+    light::{DirectionalLightTexture, NotShadowCaster, PointLightTexture, SpotLightTexture},
+    pbr::decal,
     prelude::*,
     render::renderer::{RenderAdapter, RenderDevice},
-    window::SystemCursorIcon,
-    winit::cursor::CursorIcon,
+    window::{CursorIcon, SystemCursorIcon},
 };
 use light_consts::lux::{AMBIENT_DAYLIGHT, CLEAR_SUNRISE};
 use ops::{acos, cos, sin};
@@ -157,7 +152,7 @@ fn setup(
     // Error out if clustered decals (and so light textures) aren't supported on the current platform.
     if !decal::clustered::clustered_decals_are_usable(&render_device, &render_adapter) {
         error!("Light textures aren't usable on this platform.");
-        commands.send_event(AppExit::error());
+        commands.write_event(AppExit::error());
     }
 
     spawn_cubes(&mut commands, &mut meshes, &mut materials);
@@ -282,7 +277,7 @@ fn spawn_light_textures(
                 },
                 PointLightTexture {
                     image: asset_server.load("lightmaps/faces_pointlight_texture_blurred.png"),
-                    cubemap_layout: decal::clustered::CubemapLayout::CrossVertical,
+                    cubemap_layout: CubemapLayout::CrossVertical,
                 },
             ));
         });
@@ -372,17 +367,17 @@ fn spawn_help_text(commands: &mut Commands, app_status: &AppStatus) {
 
 /// Draws the outlines that show the bounds of the spotlight.
 fn draw_gizmos(mut gizmos: Gizmos, spotlight: Query<(&GlobalTransform, &SpotLight, &Visibility)>) {
-    if let Ok((global_transform, spotlight, visibility)) = spotlight.single() {
-        if visibility != Visibility::Hidden {
-            gizmos.primitive_3d(
-                &Cone::new(7.0 * spotlight.outer_angle, 7.0),
-                Isometry3d {
-                    rotation: global_transform.rotation() * Quat::from_rotation_x(FRAC_PI_2),
-                    translation: global_transform.translation_vec3a() * 0.5,
-                },
-                YELLOW,
-            );
-        }
+    if let Ok((global_transform, spotlight, visibility)) = spotlight.single()
+        && visibility != Visibility::Hidden
+    {
+        gizmos.primitive_3d(
+            &Cone::new(7.0 * spotlight.outer_angle, 7.0),
+            Isometry3d {
+                rotation: global_transform.rotation() * Quat::from_rotation_x(FRAC_PI_2),
+                translation: global_transform.translation_vec3a() * 0.5,
+            },
+            YELLOW,
+        );
     }
 }
 
@@ -546,14 +541,16 @@ fn process_scale_input(
 
     for (mut transform, selection) in &mut scale_selections {
         if app_status.selection == *selection {
-            transform.scale *= 1.0 + mouse_motion.delta.x * SCALE_SPEED;
+            transform.scale = (transform.scale * (1.0 + mouse_motion.delta.x * SCALE_SPEED))
+                .clamp(Vec3::splat(0.01), Vec3::splat(5.0));
         }
     }
 
     for (mut spotlight, selection) in &mut spotlight_selections {
         if app_status.selection == *selection {
-            spotlight.outer_angle =
-                (spotlight.outer_angle * (1.0 + mouse_motion.delta.x * SCALE_SPEED)).min(FRAC_PI_4);
+            spotlight.outer_angle = (spotlight.outer_angle
+                * (1.0 + mouse_motion.delta.x * SCALE_SPEED))
+                .clamp(0.01, FRAC_PI_4);
             spotlight.inner_angle = spotlight.outer_angle;
         }
     }

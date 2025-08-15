@@ -2,15 +2,12 @@ use crate::{
     ui_transform::{UiGlobalTransform, UiTransform},
     FocusPolicy, UiRect, Val,
 };
+use bevy_camera::{visibility::Visibility, Camera, RenderTarget};
 use bevy_color::{Alpha, Color};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{prelude::*, system::SystemParam};
 use bevy_math::{vec4, Rect, UVec2, Vec2, Vec4Swizzles};
 use bevy_reflect::prelude::*;
-use bevy_render::{
-    camera::{Camera, RenderTarget},
-    view::Visibility,
-};
 use bevy_sprite::BorderRect;
 use bevy_utils::once;
 use bevy_window::{PrimaryWindow, WindowRef};
@@ -42,6 +39,14 @@ pub struct ComputedNode {
     ///
     /// Automatically calculated by [`super::layout::ui_layout_system`].
     pub content_size: Vec2,
+    /// Space allocated for scrollbars.
+    ///
+    /// Automatically calculated by [`super::layout::ui_layout_system`].
+    pub scrollbar_size: Vec2,
+    /// Resolved offset of scrolled content
+    ///
+    /// Automatically calculated by [`super::layout::ui_layout_system`].
+    pub scroll_position: Vec2,
     /// The width of this node's outline.
     /// If this value is `Auto`, negative or `0.` then no outline will be rendered.
     /// Outline updates bypass change detection.
@@ -305,6 +310,8 @@ impl ComputedNode {
         stack_index: 0,
         size: Vec2::ZERO,
         content_size: Vec2::ZERO,
+        scrollbar_size: Vec2::ZERO,
+        scroll_position: Vec2::ZERO,
         outline_width: 0.,
         outline_offset: 0.,
         unrounded_size: Vec2::ZERO,
@@ -373,7 +380,7 @@ impl From<Vec2> for ScrollPosition {
 #[derive(Component, Clone, PartialEq, Debug, Reflect)]
 #[require(
     ComputedNode,
-    ComputedNodeTarget,
+    ComputedUiTargetCamera,
     UiTransform,
     BackgroundColor,
     BorderColor,
@@ -418,6 +425,9 @@ pub struct Node {
     ///
     /// <https://developer.mozilla.org/en-US/docs/Web/CSS/overflow>
     pub overflow: Overflow,
+
+    /// How much space in logical pixels should be reserved for scrollbars when overflow is set to scroll or auto on an axis.
+    pub scrollbar_width: f32,
 
     /// How the bounds of clipped content should be determined
     ///
@@ -703,6 +713,7 @@ impl Node {
         aspect_ratio: None,
         overflow: Overflow::DEFAULT,
         overflow_clip_margin: OverflowClipMargin::DEFAULT,
+        scrollbar_width: 0.,
         row_gap: Val::ZERO,
         column_gap: Val::ZERO,
         grid_auto_flow: GridAutoFlow::DEFAULT,
@@ -2102,10 +2113,17 @@ impl<T: Into<Color>> From<T> for BorderColor {
 
 impl BorderColor {
     /// Border color is transparent by default.
-    pub const DEFAULT: Self = BorderColor::all(Color::NONE);
+    pub const DEFAULT: Self = BorderColor {
+        top: Color::NONE,
+        right: Color::NONE,
+        bottom: Color::NONE,
+        left: Color::NONE,
+    };
 
     /// Helper to create a `BorderColor` struct with all borders set to the given color
-    pub const fn all(color: Color) -> Self {
+    #[inline]
+    pub fn all(color: impl Into<Color>) -> Self {
+        let color = color.into();
         Self {
             top: color,
             bottom: color,
@@ -2591,6 +2609,17 @@ impl ResolvedBorderRadius {
     };
 }
 
+impl From<ResolvedBorderRadius> for [f32; 4] {
+    fn from(radius: ResolvedBorderRadius) -> Self {
+        [
+            radius.top_left,
+            radius.top_right,
+            radius.bottom_right,
+            radius.bottom_left,
+        ]
+    }
+}
+
 #[derive(Component, Clone, Debug, Default, PartialEq, Reflect, Deref, DerefMut)]
 #[reflect(Component, PartialEq, Default, Clone)]
 #[cfg_attr(
@@ -2688,7 +2717,7 @@ impl Default for LayoutConfig {
 /// Indicates that this root [`Node`] entity should be rendered to a specific camera.
 ///
 /// UI then will be laid out respecting the camera's viewport and scale factor, and
-/// rendered to this camera's [`bevy_render::camera::RenderTarget`].
+/// rendered to this camera's [`bevy_camera::RenderTarget`].
 ///
 /// Setting this component on a non-root node will have no effect. It will be overridden
 /// by the root node's component.
@@ -2718,8 +2747,7 @@ impl UiTargetCamera {
 /// ```
 /// # use bevy_ui::prelude::*;
 /// # use bevy_ecs::prelude::Commands;
-/// # use bevy_render::camera::{Camera, RenderTarget};
-/// # use bevy_core_pipeline::prelude::Camera2d;
+/// # use bevy_camera::{Camera, Camera2d, RenderTarget};
 /// # use bevy_window::{Window, WindowRef};
 ///
 /// fn spawn_camera(mut commands: Commands) {
@@ -2771,71 +2799,20 @@ impl<'w, 's> DefaultUiCamera<'w, 's> {
     }
 }
 
-/// Marker for controlling whether Ui is rendered with or without anti-aliasing
-/// in a camera. By default, Ui is always anti-aliased.
-///
-/// **Note:** This does not affect text anti-aliasing. For that, use the `font_smoothing` property of the [`TextFont`](bevy_text::TextFont) component.
-///
-/// ```
-/// use bevy_core_pipeline::prelude::*;
-/// use bevy_ecs::prelude::*;
-/// use bevy_ui::prelude::*;
-///
-/// fn spawn_camera(mut commands: Commands) {
-///     commands.spawn((
-///         Camera2d,
-///         // This will cause all Ui in this camera to be rendered without
-///         // anti-aliasing
-///         UiAntiAlias::Off,
-///     ));
-/// }
-/// ```
-#[derive(Component, Clone, Copy, Default, Debug, Reflect, Eq, PartialEq)]
-#[reflect(Component, Default, PartialEq, Clone)]
-pub enum UiAntiAlias {
-    /// UI will render with anti-aliasing
-    #[default]
-    On,
-    /// UI will render without anti-aliasing
-    Off,
-}
-
-/// Number of shadow samples.
-/// A larger value will result in higher quality shadows.
-/// Default is 4, values higher than ~10 offer diminishing returns.
-///
-/// ```
-/// use bevy_core_pipeline::prelude::*;
-/// use bevy_ecs::prelude::*;
-/// use bevy_ui::prelude::*;
-///
-/// fn spawn_camera(mut commands: Commands) {
-///     commands.spawn((
-///         Camera2d,
-///         BoxShadowSamples(6),
-///     ));
-/// }
-/// ```
-#[derive(Component, Clone, Copy, Debug, Reflect, Eq, PartialEq)]
-#[reflect(Component, Default, PartialEq, Clone)]
-pub struct BoxShadowSamples(pub u32);
-
-impl Default for BoxShadowSamples {
-    fn default() -> Self {
-        Self(4)
-    }
-}
-
 /// Derived information about the camera target for this UI node.
+///
+/// Updated in [`UiSystems::Prepare`](crate::UiSystems::Prepare) by [`propagate_ui_target_cameras`](crate::update::propagate_ui_target_cameras)
 #[derive(Component, Clone, Copy, Debug, Reflect, PartialEq)]
 #[reflect(Component, Default, PartialEq, Clone)]
-pub struct ComputedNodeTarget {
+pub struct ComputedUiTargetCamera {
     pub(crate) camera: Entity,
+    /// The scale factor of the target camera's render target.
     pub(crate) scale_factor: f32,
+    /// The size of the target camera's viewport in physical pixels.
     pub(crate) physical_size: UVec2,
 }
 
-impl Default for ComputedNodeTarget {
+impl Default for ComputedUiTargetCamera {
     fn default() -> Self {
         Self {
             camera: Entity::PLACEHOLDER,
@@ -2845,19 +2822,23 @@ impl Default for ComputedNodeTarget {
     }
 }
 
-impl ComputedNodeTarget {
+impl ComputedUiTargetCamera {
+    /// Returns the id of the target camera for this UI node.
     pub fn camera(&self) -> Option<Entity> {
         Some(self.camera).filter(|&entity| entity != Entity::PLACEHOLDER)
     }
 
+    /// Returns the scale factor of the target camera's render target.
     pub const fn scale_factor(&self) -> f32 {
         self.scale_factor
     }
 
+    /// Returns the size of the target camera's viewport in physical pixels.
     pub const fn physical_size(&self) -> UVec2 {
         self.physical_size
     }
 
+    /// Returns the size of the target camera's viewport in logical pixels.
     pub fn logical_size(&self) -> Vec2 {
         self.physical_size.as_vec2() / self.scale_factor
     }

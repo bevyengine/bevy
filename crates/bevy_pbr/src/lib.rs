@@ -31,7 +31,6 @@ pub mod decal;
 pub mod deferred;
 mod extended_material;
 mod fog;
-mod light;
 mod light_probe;
 mod lightmap;
 mod material;
@@ -48,12 +47,16 @@ mod volumetric_fog;
 use bevy_color::{Color, LinearRgba};
 
 pub use atmosphere::*;
+use bevy_light::{
+    AmbientLight, DirectionalLight, LightPlugin, PointLight, ShadowFilteringMethod,
+    SimulationLightSystems, SpotLight,
+};
+use bevy_shader::{load_shader_library, ShaderRef};
 pub use cluster::*;
 pub use components::*;
 pub use decal::clustered::ClusteredDecalPlugin;
 pub use extended_material::*;
 pub use fog::*;
-pub use light::*;
 pub use light_probe::*;
 pub use lightmap::*;
 pub use material::*;
@@ -65,7 +68,7 @@ pub use prepass::*;
 pub use render::*;
 pub use ssao::*;
 pub use ssr::*;
-pub use volumetric_fog::{FogVolume, VolumetricFog, VolumetricFogPlugin, VolumetricLight};
+pub use volumetric_fog::VolumetricFogPlugin;
 
 /// The PBR prelude.
 ///
@@ -74,8 +77,6 @@ pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
         fog::{DistanceFog, FogFalloff},
-        light::{light_consts, AmbientLight, DirectionalLight, PointLight, SpotLight},
-        light_probe::{environment_map::EnvironmentMapLight, LightProbe},
         material::{Material, MaterialPlugin},
         mesh_material::MeshMaterial3d,
         parallax::ParallaxMappingMethod,
@@ -124,24 +125,25 @@ pub mod graph {
 
 use crate::{deferred::DeferredPbrLightingPlugin, graph::NodePbr};
 use bevy_app::prelude::*;
-use bevy_asset::{AssetApp, AssetPath, Assets, Handle};
+use bevy_asset::{AssetApp, AssetPath, Assets, Handle, RenderAssetUsages};
 use bevy_core_pipeline::core_3d::graph::{Core3d, Node3d};
 use bevy_ecs::prelude::*;
-use bevy_image::Image;
+#[cfg(feature = "bluenoise_texture")]
+use bevy_image::{CompressedImageFormats, ImageType};
+use bevy_image::{Image, ImageSampler};
 use bevy_render::{
     alpha::AlphaMode,
-    camera::{sort_cameras, CameraUpdateSystems, Projection},
+    camera::sort_cameras,
     extract_component::ExtractComponentPlugin,
     extract_resource::ExtractResourcePlugin,
-    load_shader_library,
     render_graph::RenderGraph,
-    render_resource::ShaderRef,
+    render_resource::{
+        Extent3d, TextureDataOrder, TextureDescriptor, TextureDimension, TextureFormat,
+        TextureUsages,
+    },
     sync_component::SyncComponentPlugin,
-    view::VisibilitySystems,
-    ExtractSchedule, Render, RenderApp, RenderDebugFlags, RenderSystems,
+    ExtractSchedule, Render, RenderApp, RenderDebugFlags, RenderStartup, RenderSystems,
 };
-
-use bevy_transform::TransformSystems;
 
 use std::path::PathBuf;
 
@@ -179,6 +181,13 @@ impl Default for PbrPlugin {
     }
 }
 
+/// A resource that stores the spatio-temporal blue noise texture.
+#[derive(Resource)]
+pub struct Bluenoise {
+    /// Texture handle for spatio-temporal blue noise
+    pub texture: Handle<Image>,
+}
+
 impl Plugin for PbrPlugin {
     fn build(&self, app: &mut App) {
         load_shader_library!(app, "render/pbr_types.wgsl");
@@ -205,26 +214,6 @@ impl Plugin for PbrPlugin {
         load_shader_library!(app, "meshlet/dummy_visibility_buffer_resolve.wgsl");
 
         app.register_asset_reflect::<StandardMaterial>()
-            .register_type::<AmbientLight>()
-            .register_type::<CascadeShadowConfig>()
-            .register_type::<Cascades>()
-            .register_type::<CascadesVisibleEntities>()
-            .register_type::<VisibleMeshEntities>()
-            .register_type::<ClusterConfig>()
-            .register_type::<CubemapVisibleEntities>()
-            .register_type::<DirectionalLight>()
-            .register_type::<DirectionalLightShadowMap>()
-            .register_type::<NotShadowCaster>()
-            .register_type::<NotShadowReceiver>()
-            .register_type::<PointLight>()
-            .register_type::<PointLightShadowMap>()
-            .register_type::<SpotLight>()
-            .register_type::<ShadowFilteringMethod>()
-            .init_resource::<AmbientLight>()
-            .init_resource::<GlobalVisibleClusterableObjects>()
-            .init_resource::<DirectionalLightShadowMap>()
-            .init_resource::<PointLightShadowMap>()
-            .register_type::<DefaultOpaqueRendererMethod>()
             .init_resource::<DefaultOpaqueRendererMethod>()
             .add_plugins((
                 MeshRenderPlugin {
@@ -246,7 +235,7 @@ impl Plugin for PbrPlugin {
                 ExtractComponentPlugin::<ShadowFilteringMethod>::default(),
                 LightmapPlugin,
                 LightProbePlugin,
-                PbrProjectionPlugin,
+                LightPlugin,
                 GpuMeshPreprocessPlugin {
                     use_gpu_instance_buffer_builder: self.use_gpu_instance_buffer_builder,
                 },
@@ -269,64 +258,6 @@ impl Plugin for PbrPlugin {
                     SimulationLightSystems::AssignLightsToClusters,
                 )
                     .chain(),
-            )
-            .configure_sets(
-                PostUpdate,
-                SimulationLightSystems::UpdateDirectionalLightCascades
-                    .ambiguous_with(SimulationLightSystems::UpdateDirectionalLightCascades),
-            )
-            .configure_sets(
-                PostUpdate,
-                SimulationLightSystems::CheckLightVisibility
-                    .ambiguous_with(SimulationLightSystems::CheckLightVisibility),
-            )
-            .add_systems(
-                PostUpdate,
-                (
-                    add_clusters
-                        .in_set(SimulationLightSystems::AddClusters)
-                        .after(CameraUpdateSystems),
-                    assign_objects_to_clusters
-                        .in_set(SimulationLightSystems::AssignLightsToClusters)
-                        .after(TransformSystems::Propagate)
-                        .after(VisibilitySystems::CheckVisibility)
-                        .after(CameraUpdateSystems),
-                    clear_directional_light_cascades
-                        .in_set(SimulationLightSystems::UpdateDirectionalLightCascades)
-                        .after(TransformSystems::Propagate)
-                        .after(CameraUpdateSystems),
-                    update_directional_light_frusta
-                        .in_set(SimulationLightSystems::UpdateLightFrusta)
-                        // This must run after CheckVisibility because it relies on `ViewVisibility`
-                        .after(VisibilitySystems::CheckVisibility)
-                        .after(TransformSystems::Propagate)
-                        .after(SimulationLightSystems::UpdateDirectionalLightCascades)
-                        // We assume that no entity will be both a directional light and a spot light,
-                        // so these systems will run independently of one another.
-                        // FIXME: Add an archetype invariant for this https://github.com/bevyengine/bevy/issues/1481.
-                        .ambiguous_with(update_spot_light_frusta),
-                    update_point_light_frusta
-                        .in_set(SimulationLightSystems::UpdateLightFrusta)
-                        .after(TransformSystems::Propagate)
-                        .after(SimulationLightSystems::AssignLightsToClusters),
-                    update_spot_light_frusta
-                        .in_set(SimulationLightSystems::UpdateLightFrusta)
-                        .after(TransformSystems::Propagate)
-                        .after(SimulationLightSystems::AssignLightsToClusters),
-                    (
-                        check_dir_light_mesh_visibility,
-                        check_point_light_mesh_visibility,
-                    )
-                        .in_set(SimulationLightSystems::CheckLightVisibility)
-                        .after(VisibilitySystems::CalculateBounds)
-                        .after(TransformSystems::Propagate)
-                        .after(SimulationLightSystems::UpdateLightFrusta)
-                        // NOTE: This MUST be scheduled AFTER the core renderer visibility check
-                        // because that resets entity `ViewVisibility` for the first view
-                        // which would override any results from this otherwise
-                        .after(VisibilitySystems::CheckVisibility)
-                        .before(VisibilitySystems::MarkNewlyHiddenEntitiesInvisible),
-                ),
             );
 
         if self.add_default_deferred_lighting_plugin {
@@ -342,7 +273,38 @@ impl Plugin for PbrPlugin {
                     base_color: Color::srgb(1.0, 0.0, 0.5),
                     ..Default::default()
                 },
-            );
+            )
+            .unwrap();
+
+        let has_bluenoise = app
+            .get_sub_app(RenderApp)
+            .is_some_and(|render_app| render_app.world().is_resource_added::<Bluenoise>());
+
+        if !has_bluenoise {
+            let mut images = app.world_mut().resource_mut::<Assets<Image>>();
+            #[cfg(feature = "bluenoise_texture")]
+            let handle = {
+                let image = Image::from_buffer(
+                    include_bytes!("bluenoise/stbn.ktx2"),
+                    ImageType::Extension("ktx2"),
+                    CompressedImageFormats::NONE,
+                    false,
+                    ImageSampler::Default,
+                    RenderAssetUsages::RENDER_WORLD,
+                )
+                .expect("Failed to decode embedded blue-noise texture");
+                images.add(image)
+            };
+
+            #[cfg(not(feature = "bluenoise_texture"))]
+            let handle = { images.add(stbn_placeholder()) };
+
+            if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
+                render_app
+                    .world_mut()
+                    .insert_resource(Bluenoise { texture: handle });
+            }
+        }
 
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
@@ -350,6 +312,14 @@ impl Plugin for PbrPlugin {
 
         // Extract the required data from the main world
         render_app
+            .add_systems(
+                RenderStartup,
+                (
+                    init_shadow_samplers,
+                    init_global_clusterable_object_meta,
+                    init_fallback_bindless_resources,
+                ),
+            )
             .add_systems(
                 ExtractSchedule,
                 (
@@ -394,24 +364,30 @@ impl Plugin for PbrPlugin {
             return;
         };
 
-        // Extract the required data from the main world
-        render_app
-            .init_resource::<ShadowSamplers>()
-            .init_resource::<GlobalClusterableObjectMeta>()
-            .init_resource::<FallbackBindlessResources>();
+        let global_cluster_settings = make_global_cluster_settings(render_app.world());
+        app.insert_resource(global_cluster_settings);
     }
 }
 
-/// Camera projection PBR functionality.
-#[derive(Default)]
-pub struct PbrProjectionPlugin;
-impl Plugin for PbrProjectionPlugin {
-    fn build(&self, app: &mut App) {
-        app.add_systems(
-            PostUpdate,
-            build_directional_light_cascades
-                .in_set(SimulationLightSystems::UpdateDirectionalLightCascades)
-                .after(clear_directional_light_cascades),
-        );
+pub fn stbn_placeholder() -> Image {
+    let format = TextureFormat::Rgba8Unorm;
+    let data = vec![255, 0, 255, 255];
+    Image {
+        data: Some(data),
+        data_order: TextureDataOrder::default(),
+        texture_descriptor: TextureDescriptor {
+            size: Extent3d::default(),
+            format,
+            dimension: TextureDimension::D2,
+            label: None,
+            mip_level_count: 1,
+            sample_count: 1,
+            usage: TextureUsages::TEXTURE_BINDING,
+            view_formats: &[],
+        },
+        sampler: ImageSampler::Default,
+        texture_view_descriptor: None,
+        asset_usage: RenderAssetUsages::RENDER_WORLD,
+        copy_on_resize: false,
     }
 }

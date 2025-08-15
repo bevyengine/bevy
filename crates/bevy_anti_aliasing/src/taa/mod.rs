@@ -1,8 +1,8 @@
 use bevy_app::{App, Plugin};
-use bevy_asset::{embedded_asset, load_embedded_asset, Handle};
+use bevy_asset::{embedded_asset, load_embedded_asset, AssetServer, Handle};
+use bevy_camera::{Camera, Camera3d, Projection};
 use bevy_core_pipeline::{
     core_3d::graph::{Core3d, Node3d},
-    prelude::Camera3d,
     prepass::{DepthPrepass, MotionVectorPrepass, ViewPrepassTextures},
     FullscreenShader,
 };
@@ -13,21 +13,21 @@ use bevy_ecs::{
     resource::Resource,
     schedule::IntoScheduleConfigs,
     system::{Commands, Query, Res, ResMut},
-    world::{FromWorld, World},
+    world::World,
 };
 use bevy_image::{BevyDefault as _, ToExtents};
 use bevy_math::vec2;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
     camera::{ExtractedCamera, MipBias, TemporalJitter},
-    prelude::{Camera, Projection},
+    diagnostic::RecordDiagnostics,
     render_graph::{NodeRunError, RenderGraphContext, RenderGraphExt, ViewNode, ViewNodeRunner},
     render_resource::{
         binding_types::{sampler, texture_2d, texture_depth_2d},
         BindGroupEntries, BindGroupLayout, BindGroupLayoutEntries, CachedRenderPipelineId,
         ColorTargetState, ColorWrites, FilterMode, FragmentState, Operations, PipelineCache,
         RenderPassColorAttachment, RenderPassDescriptor, RenderPipelineDescriptor, Sampler,
-        SamplerBindingType, SamplerDescriptor, Shader, ShaderStages, SpecializedRenderPipeline,
+        SamplerBindingType, SamplerDescriptor, ShaderStages, SpecializedRenderPipeline,
         SpecializedRenderPipelines, TextureDescriptor, TextureDimension, TextureFormat,
         TextureSampleType, TextureUsages,
     },
@@ -36,8 +36,9 @@ use bevy_render::{
     sync_world::RenderEntity,
     texture::{CachedTexture, TextureCache},
     view::{ExtractedView, Msaa, ViewTarget},
-    ExtractSchedule, MainWorld, Render, RenderApp, RenderSystems,
+    ExtractSchedule, MainWorld, Render, RenderApp, RenderStartup, RenderSystems,
 };
+use bevy_shader::Shader;
 use bevy_utils::default;
 use tracing::warn;
 
@@ -50,8 +51,6 @@ impl Plugin for TemporalAntiAliasPlugin {
     fn build(&self, app: &mut App) {
         embedded_asset!(app, "taa.wgsl");
 
-        app.register_type::<TemporalAntiAliasing>();
-
         app.add_plugins(SyncComponentPlugin::<TemporalAntiAliasing>::default());
 
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
@@ -59,6 +58,7 @@ impl Plugin for TemporalAntiAliasPlugin {
         };
         render_app
             .init_resource::<SpecializedRenderPipelines<TaaPipeline>>()
+            .add_systems(RenderStartup, init_taa_pipeline)
             .add_systems(ExtractSchedule, extract_taa_settings)
             .add_systems(
                 Render,
@@ -79,14 +79,6 @@ impl Plugin for TemporalAntiAliasPlugin {
                     Node3d::Tonemapping,
                 ),
             );
-    }
-
-    fn finish(&self, app: &mut App) {
-        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
-            return;
-        };
-
-        render_app.init_resource::<TaaPipeline>();
     }
 }
 
@@ -116,7 +108,7 @@ impl Plugin for TemporalAntiAliasPlugin {
 ///
 /// Any camera with this component must also disable [`Msaa`] by setting it to [`Msaa::Off`].
 ///
-/// [Currently](https://github.com/bevyengine/bevy/issues/8423), TAA cannot be used with [`bevy_render::camera::OrthographicProjection`].
+/// [Currently](https://github.com/bevyengine/bevy/issues/8423), TAA cannot be used with [`bevy_camera::OrthographicProjection`].
 ///
 /// TAA also does not work well with alpha-blended meshes, as it requires depth writing to determine motion.
 ///
@@ -188,6 +180,9 @@ impl ViewNode for TemporalAntiAliasNode {
         ) else {
             return Ok(());
         };
+
+        let diagnostics = render_context.diagnostic_recorder();
+
         let view_target = view_target.post_process_write();
 
         let taa_bind_group = render_context.render_device().create_bind_group(
@@ -205,15 +200,17 @@ impl ViewNode for TemporalAntiAliasNode {
 
         {
             let mut taa_pass = render_context.begin_tracked_render_pass(RenderPassDescriptor {
-                label: Some("taa_pass"),
+                label: Some("taa"),
                 color_attachments: &[
                     Some(RenderPassColorAttachment {
                         view: view_target.destination,
+                        depth_slice: None,
                         resolve_target: None,
                         ops: Operations::default(),
                     }),
                     Some(RenderPassColorAttachment {
                         view: &taa_history_textures.write.default_view,
+                        depth_slice: None,
                         resolve_target: None,
                         ops: Operations::default(),
                     }),
@@ -222,12 +219,16 @@ impl ViewNode for TemporalAntiAliasNode {
                 timestamp_writes: None,
                 occlusion_query_set: None,
             });
+            let pass_span = diagnostics.pass_span(&mut taa_pass, "taa");
+
             taa_pass.set_render_pipeline(taa_pipeline);
             taa_pass.set_bind_group(0, &taa_bind_group, &[]);
             if let Some(viewport) = camera.viewport.as_ref() {
                 taa_pass.set_camera_viewport(viewport);
             }
             taa_pass.draw(0..3, 0..1);
+
+            pass_span.end(&mut taa_pass);
         }
 
         Ok(())
@@ -243,52 +244,53 @@ struct TaaPipeline {
     fragment_shader: Handle<Shader>,
 }
 
-impl FromWorld for TaaPipeline {
-    fn from_world(world: &mut World) -> Self {
-        let render_device = world.resource::<RenderDevice>();
+fn init_taa_pipeline(
+    mut commands: Commands,
+    render_device: Res<RenderDevice>,
+    fullscreen_shader: Res<FullscreenShader>,
+    asset_server: Res<AssetServer>,
+) {
+    let nearest_sampler = render_device.create_sampler(&SamplerDescriptor {
+        label: Some("taa_nearest_sampler"),
+        mag_filter: FilterMode::Nearest,
+        min_filter: FilterMode::Nearest,
+        ..SamplerDescriptor::default()
+    });
+    let linear_sampler = render_device.create_sampler(&SamplerDescriptor {
+        label: Some("taa_linear_sampler"),
+        mag_filter: FilterMode::Linear,
+        min_filter: FilterMode::Linear,
+        ..SamplerDescriptor::default()
+    });
 
-        let nearest_sampler = render_device.create_sampler(&SamplerDescriptor {
-            label: Some("taa_nearest_sampler"),
-            mag_filter: FilterMode::Nearest,
-            min_filter: FilterMode::Nearest,
-            ..SamplerDescriptor::default()
-        });
-        let linear_sampler = render_device.create_sampler(&SamplerDescriptor {
-            label: Some("taa_linear_sampler"),
-            mag_filter: FilterMode::Linear,
-            min_filter: FilterMode::Linear,
-            ..SamplerDescriptor::default()
-        });
-
-        let taa_bind_group_layout = render_device.create_bind_group_layout(
-            "taa_bind_group_layout",
-            &BindGroupLayoutEntries::sequential(
-                ShaderStages::FRAGMENT,
-                (
-                    // View target (read)
-                    texture_2d(TextureSampleType::Float { filterable: true }),
-                    // TAA History (read)
-                    texture_2d(TextureSampleType::Float { filterable: true }),
-                    // Motion Vectors
-                    texture_2d(TextureSampleType::Float { filterable: true }),
-                    // Depth
-                    texture_depth_2d(),
-                    // Nearest sampler
-                    sampler(SamplerBindingType::NonFiltering),
-                    // Linear sampler
-                    sampler(SamplerBindingType::Filtering),
-                ),
+    let taa_bind_group_layout = render_device.create_bind_group_layout(
+        "taa_bind_group_layout",
+        &BindGroupLayoutEntries::sequential(
+            ShaderStages::FRAGMENT,
+            (
+                // View target (read)
+                texture_2d(TextureSampleType::Float { filterable: true }),
+                // TAA History (read)
+                texture_2d(TextureSampleType::Float { filterable: true }),
+                // Motion Vectors
+                texture_2d(TextureSampleType::Float { filterable: true }),
+                // Depth
+                texture_depth_2d(),
+                // Nearest sampler
+                sampler(SamplerBindingType::NonFiltering),
+                // Linear sampler
+                sampler(SamplerBindingType::Filtering),
             ),
-        );
+        ),
+    );
 
-        TaaPipeline {
-            taa_bind_group_layout,
-            nearest_sampler,
-            linear_sampler,
-            fullscreen_shader: world.resource::<FullscreenShader>().clone(),
-            fragment_shader: load_embedded_asset!(world, "taa.wgsl"),
-        }
-    }
+    commands.insert_resource(TaaPipeline {
+        taa_bind_group_layout,
+        nearest_sampler,
+        linear_sampler,
+        fullscreen_shader: fullscreen_shader.clone(),
+        fragment_shader: load_embedded_asset!(asset_server.as_ref(), "taa.wgsl"),
+    });
 }
 
 #[derive(PartialEq, Eq, Hash, Clone)]
@@ -348,16 +350,17 @@ fn extract_taa_settings(mut commands: Commands, mut main_world: ResMut<MainWorld
         Option<&mut TemporalAntiAliasing>,
     )>();
 
-    for (entity, camera, camera_projection, mut taa_settings) in
-        cameras_3d.iter_mut(&mut main_world)
-    {
+    for (entity, camera, camera_projection, taa_settings) in cameras_3d.iter_mut(&mut main_world) {
         let has_perspective_projection = matches!(camera_projection, Projection::Perspective(_));
         let mut entity_commands = commands
             .get_entity(entity)
             .expect("Camera entity wasn't synced.");
-        if taa_settings.is_some() && camera.is_active && has_perspective_projection {
-            entity_commands.insert(taa_settings.as_deref().unwrap().clone());
-            taa_settings.as_mut().unwrap().reset = false;
+        if let Some(mut taa_settings) = taa_settings
+            && camera.is_active
+            && has_perspective_projection
+        {
+            entity_commands.insert(taa_settings.clone());
+            taa_settings.reset = false;
         } else {
             entity_commands.remove::<(
                 TemporalAntiAliasing,
@@ -436,7 +439,7 @@ fn prepare_taa_history_textures(
             texture_descriptor.label = Some("taa_history_2_texture");
             let history_2_texture = texture_cache.get(&render_device, texture_descriptor);
 
-            let textures = if frame_count.0 % 2 == 0 {
+            let textures = if frame_count.0.is_multiple_of(2) {
                 TemporalAntiAliasHistoryTextures {
                     write: history_1_texture,
                     read: history_2_texture,

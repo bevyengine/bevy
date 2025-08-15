@@ -1,7 +1,8 @@
 use core::ops::Range;
 
 use crate::{Anchor, ComputedTextureSlices, ScalingMode, Sprite};
-use bevy_asset::{load_embedded_asset, AssetEvent, AssetId, Assets, Handle};
+use bevy_asset::{load_embedded_asset, AssetEvent, AssetId, AssetServer, Assets, Handle};
+use bevy_camera::visibility::ViewVisibility;
 use bevy_color::{ColorToComponents, LinearRgba};
 use bevy_core_pipeline::{
     core_2d::{Transparent2d, CORE_2D_DEPTH_FORMAT},
@@ -14,10 +15,11 @@ use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     prelude::*,
     query::ROQueryItem,
-    system::{lifetimeless::*, SystemParamItem, SystemState},
+    system::{lifetimeless::*, SystemParamItem},
 };
 use bevy_image::{BevyDefault, Image, ImageSampler, TextureAtlasLayout, TextureFormatPixelInfo};
 use bevy_math::{Affine3A, FloatOrd, Quat, Rect, Vec2, Vec4};
+use bevy_mesh::VertexBufferLayout;
 use bevy_platform::collections::HashMap;
 use bevy_render::view::{RenderVisibleEntities, RetainedViewEntity};
 use bevy_render::{
@@ -33,12 +35,10 @@ use bevy_render::{
     renderer::{RenderDevice, RenderQueue},
     sync_world::RenderEntity,
     texture::{DefaultImageSampler, FallbackImage, GpuImage},
-    view::{
-        ExtractedView, Msaa, ViewTarget, ViewUniform, ViewUniformOffset, ViewUniforms,
-        ViewVisibility,
-    },
+    view::{ExtractedView, Msaa, ViewTarget, ViewUniform, ViewUniformOffset, ViewUniforms},
     Extract,
 };
+use bevy_shader::{Shader, ShaderDefVal};
 use bevy_transform::components::GlobalTransform;
 use bevy_utils::default;
 use bytemuck::{Pod, Zeroable};
@@ -52,77 +52,74 @@ pub struct SpritePipeline {
     pub dummy_white_gpu_image: GpuImage,
 }
 
-impl FromWorld for SpritePipeline {
-    fn from_world(world: &mut World) -> Self {
-        let mut system_state: SystemState<(
-            Res<RenderDevice>,
-            Res<DefaultImageSampler>,
-            Res<RenderQueue>,
-        )> = SystemState::new(world);
-        let (render_device, default_sampler, render_queue) = system_state.get_mut(world);
-
-        let tonemapping_lut_entries = get_lut_bind_group_layout_entries();
-        let view_layout = render_device.create_bind_group_layout(
-            "sprite_view_layout",
-            &BindGroupLayoutEntries::sequential(
-                ShaderStages::VERTEX_FRAGMENT,
-                (
-                    uniform_buffer::<ViewUniform>(true),
-                    tonemapping_lut_entries[0].visibility(ShaderStages::FRAGMENT),
-                    tonemapping_lut_entries[1].visibility(ShaderStages::FRAGMENT),
-                ),
+pub fn init_sprite_pipeline(
+    mut commands: Commands,
+    render_device: Res<RenderDevice>,
+    default_sampler: Res<DefaultImageSampler>,
+    render_queue: Res<RenderQueue>,
+    asset_server: Res<AssetServer>,
+) {
+    let tonemapping_lut_entries = get_lut_bind_group_layout_entries();
+    let view_layout = render_device.create_bind_group_layout(
+        "sprite_view_layout",
+        &BindGroupLayoutEntries::sequential(
+            ShaderStages::VERTEX_FRAGMENT,
+            (
+                uniform_buffer::<ViewUniform>(true),
+                tonemapping_lut_entries[0].visibility(ShaderStages::FRAGMENT),
+                tonemapping_lut_entries[1].visibility(ShaderStages::FRAGMENT),
             ),
-        );
+        ),
+    );
 
-        let material_layout = render_device.create_bind_group_layout(
-            "sprite_material_layout",
-            &BindGroupLayoutEntries::sequential(
-                ShaderStages::FRAGMENT,
-                (
-                    texture_2d(TextureSampleType::Float { filterable: true }),
-                    sampler(SamplerBindingType::Filtering),
-                ),
+    let material_layout = render_device.create_bind_group_layout(
+        "sprite_material_layout",
+        &BindGroupLayoutEntries::sequential(
+            ShaderStages::FRAGMENT,
+            (
+                texture_2d(TextureSampleType::Float { filterable: true }),
+                sampler(SamplerBindingType::Filtering),
             ),
-        );
-        let dummy_white_gpu_image = {
-            let image = Image::default();
-            let texture = render_device.create_texture(&image.texture_descriptor);
-            let sampler = match image.sampler {
-                ImageSampler::Default => (**default_sampler).clone(),
-                ImageSampler::Descriptor(ref descriptor) => {
-                    render_device.create_sampler(&descriptor.as_wgpu())
-                }
-            };
-
-            let format_size = image.texture_descriptor.format.pixel_size();
-            render_queue.write_texture(
-                texture.as_image_copy(),
-                image.data.as_ref().expect("Image has no data"),
-                TexelCopyBufferLayout {
-                    offset: 0,
-                    bytes_per_row: Some(image.width() * format_size as u32),
-                    rows_per_image: None,
-                },
-                image.texture_descriptor.size,
-            );
-            let texture_view = texture.create_view(&TextureViewDescriptor::default());
-            GpuImage {
-                texture,
-                texture_view,
-                texture_format: image.texture_descriptor.format,
-                sampler,
-                size: image.texture_descriptor.size,
-                mip_level_count: image.texture_descriptor.mip_level_count,
+        ),
+    );
+    let dummy_white_gpu_image = {
+        let image = Image::default();
+        let texture = render_device.create_texture(&image.texture_descriptor);
+        let sampler = match image.sampler {
+            ImageSampler::Default => (**default_sampler).clone(),
+            ImageSampler::Descriptor(ref descriptor) => {
+                render_device.create_sampler(&descriptor.as_wgpu())
             }
         };
 
-        SpritePipeline {
-            view_layout,
-            material_layout,
-            dummy_white_gpu_image,
-            shader: load_embedded_asset!(world, "sprite.wgsl"),
+        let format_size = image.texture_descriptor.format.pixel_size();
+        render_queue.write_texture(
+            texture.as_image_copy(),
+            image.data.as_ref().expect("Image has no data"),
+            TexelCopyBufferLayout {
+                offset: 0,
+                bytes_per_row: Some(image.width() * format_size as u32),
+                rows_per_image: None,
+            },
+            image.texture_descriptor.size,
+        );
+        let texture_view = texture.create_view(&TextureViewDescriptor::default());
+        GpuImage {
+            texture,
+            texture_view,
+            texture_format: image.texture_descriptor.format,
+            sampler,
+            size: image.texture_descriptor.size,
+            mip_level_count: image.texture_descriptor.mip_level_count,
         }
-    }
+    };
+
+    commands.insert_resource(SpritePipeline {
+        view_layout,
+        material_layout,
+        dummy_white_gpu_image,
+        shader: load_embedded_asset!(asset_server.as_ref(), "sprite.wgsl"),
+    });
 }
 
 bitflags::bitflags! {

@@ -246,7 +246,7 @@ impl<'a> AssetPath<'a> {
     /// Gets the "asset source", if one was defined. If none was defined, the default source
     /// will be used.
     #[inline]
-    pub fn source(&self) -> &AssetSourceId {
+    pub fn source(&self) -> &AssetSourceId<'_> {
         &self.source
     }
 
@@ -480,7 +480,7 @@ impl<'a> AssetPath<'a> {
     }
 
     pub(crate) fn iter_secondary_extensions(full_extension: &str) -> impl Iterator<Item = &str> {
-        full_extension.chars().enumerate().filter_map(|(i, c)| {
+        full_extension.char_indices().filter_map(|(i, c)| {
             if c == '.' {
                 Some(&full_extension[i + 1..])
             } else {

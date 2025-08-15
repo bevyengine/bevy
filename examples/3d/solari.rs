@@ -5,12 +5,14 @@ mod camera_controller;
 
 use argh::FromArgs;
 use bevy::{
+    camera::CameraMainTextureUsages,
+    mesh::Indices,
     prelude::*,
-    render::{camera::CameraMainTextureUsages, mesh::Indices, render_resource::TextureUsages},
+    render::render_resource::TextureUsages,
     scene::SceneInstanceReady,
     solari::{
         pathtracer::{Pathtracer, PathtracingPlugin},
-        prelude::{RaytracingMesh3d, SolariLighting, SolariPlugin},
+        prelude::{RaytracingMesh3d, SolariLighting, SolariPlugins},
     },
 };
 use camera_controller::{CameraController, CameraControllerPlugin};
@@ -28,7 +30,7 @@ fn main() {
     let args: Args = argh::from_env();
 
     let mut app = App::new();
-    app.add_plugins((DefaultPlugins, SolariPlugin, CameraControllerPlugin))
+    app.add_plugins((DefaultPlugins, SolariPlugins, CameraControllerPlugin))
         .insert_resource(args)
         .add_systems(Startup, setup);
 
@@ -87,16 +89,16 @@ fn add_raytracing_meshes_on_scene_load(
     mut commands: Commands,
     args: Res<Args>,
 ) {
-    // Ensure meshes are bevy_solari compatible
+    // Ensure meshes are Solari compatible
     for (_, mesh) in meshes.iter_mut() {
         mesh.remove_attribute(Mesh::ATTRIBUTE_UV_1.id);
         mesh.remove_attribute(Mesh::ATTRIBUTE_COLOR.id);
         mesh.generate_tangents().unwrap();
 
-        if let Some(indices) = mesh.indices_mut() {
-            if let Indices::U16(u16_indices) = indices {
-                *indices = Indices::U32(u16_indices.iter().map(|i| *i as u32).collect());
-            }
+        if let Some(indices) = mesh.indices_mut()
+            && let Indices::U16(u16_indices) = indices
+        {
+            *indices = Indices::U32(u16_indices.iter().map(|i| *i as u32).collect());
         }
     }
 
@@ -113,8 +115,13 @@ fn add_raytracing_meshes_on_scene_load(
         }
     }
 
-    // Increase material emissive intensity to make it prettier for the example
+    // Adjust scene materials to better demo Solari features
     for (_, material) in materials.iter_mut() {
         material.emissive *= 200.0;
+
+        if material.base_color.to_linear() == LinearRgba::new(0.5, 0.5, 0.5, 1.0) {
+            material.metallic = 1.0;
+            material.perceptual_roughness = 0.15;
+        }
     }
 }

@@ -159,13 +159,6 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
             ) {
                 #(<#active_field_types as #ecs_path::bundle::Bundle>::get_component_ids(components, &mut *ids);)*
             }
-
-            fn register_required_components(
-                components: &mut #ecs_path::component::ComponentsRegistrator,
-                required_components: &mut #ecs_path::component::RequiredComponents
-            ) {
-                #(<#active_field_types as #ecs_path::bundle::Bundle>::register_required_components(components, required_components);)*
-            }
         }
     };
 
@@ -460,7 +453,7 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
                     }
                 }
 
-                fn init_access(state: &Self::State, system_meta: &mut #path::system::SystemMeta, component_access_set: &mut #path::query::FilteredAccessSet<#path::component::ComponentId>, world: &mut #path::world::World) {
+                fn init_access(state: &Self::State, system_meta: &mut #path::system::SystemMeta, component_access_set: &mut #path::query::FilteredAccessSet, world: &mut #path::world::World) {
                     <#fields_alias::<'_, '_, #punctuated_generic_idents> as #path::system::SystemParam>::init_access(&state.state, system_meta, component_access_set, world);
                 }
 
@@ -564,7 +557,7 @@ pub fn derive_event(input: TokenStream) -> TokenStream {
 /// see full explanation on `EntityEvent` trait docs.
 ///
 /// ```ignore
-/// #[derive(Event, EntityEvent)]
+/// #[derive(EntityEvent)]
 /// /// Traversal component
 /// #[entity_event(traversal = &'static ChildOf)]
 /// /// Always propagate

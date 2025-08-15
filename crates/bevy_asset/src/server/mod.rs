@@ -167,7 +167,7 @@ impl AssetServer {
         fn sender<A: Asset>(world: &mut World, id: UntypedAssetId) {
             world
                 .resource_mut::<Events<AssetEvent<A>>>()
-                .send(AssetEvent::LoadedWithDependencies { id: id.typed() });
+                .write(AssetEvent::LoadedWithDependencies { id: id.typed() });
         }
         fn failed_sender<A: Asset>(
             world: &mut World,
@@ -177,7 +177,7 @@ impl AssetServer {
         ) {
             world
                 .resource_mut::<Events<AssetLoadFailedEvent<A>>>()
-                .send(AssetLoadFailedEvent {
+                .write(AssetLoadFailedEvent {
                     id: id.typed(),
                     path,
                     error,
@@ -846,10 +846,11 @@ impl AssetServer {
                     }
                 }
 
-                if !reloaded && server.data.infos.read().should_reload(&path) {
-                    if let Err(err) = server.load_internal(None, path, true, None).await {
-                        error!("{}", err);
-                    }
+                if !reloaded
+                    && server.data.infos.read().should_reload(&path)
+                    && let Err(err) = server.load_internal(None, path, true, None).await
+                {
+                    error!("{}", err);
                 }
             })
             .detach();
@@ -1272,7 +1273,7 @@ impl AssetServer {
     }
 
     /// Returns the path for the given `id`, if it has one.
-    pub fn get_path(&self, id: impl Into<UntypedAssetId>) -> Option<AssetPath> {
+    pub fn get_path(&self, id: impl Into<UntypedAssetId>) -> Option<AssetPath<'_>> {
         let infos = self.data.infos.read();
         let info = infos.get(id.into())?;
         Some(info.path.as_ref()?.clone())
@@ -1685,7 +1686,7 @@ pub fn handle_internal_asset_events(world: &mut World) {
         }
 
         if !untyped_failures.is_empty() {
-            world.send_event_batch(untyped_failures);
+            world.write_event_batch(untyped_failures);
         }
 
         fn queue_ancestors(

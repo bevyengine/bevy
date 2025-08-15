@@ -17,7 +17,7 @@ use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 
 #[cfg(feature = "alloc")]
-use alloc::{boxed::Box, vec::Vec};
+use alloc::vec::Vec;
 
 /// A circle primitive, representing the set of points some distance from the origin
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -1245,6 +1245,14 @@ pub struct Segment2d {
 
 impl Primitive2d for Segment2d {}
 
+impl Default for Segment2d {
+    fn default() -> Self {
+        Self {
+            vertices: [Vec2::new(-0.5, 0.0), Vec2::new(0.5, 0.0)],
+        }
+    }
+}
+
 impl Segment2d {
     /// Create a new `Segment2d` from its endpoints.
     #[inline(always)]
@@ -1480,6 +1488,38 @@ impl Segment2d {
         self.reverse();
         self
     }
+
+    /// Returns the point on the [`Segment2d`] that is closest to the specified `point`.
+    #[inline(always)]
+    pub fn closest_point(&self, point: Vec2) -> Vec2 {
+        //       `point`
+        //           x
+        //          ^|
+        //         / |
+        //`offset`/  |
+        //       /   |  `segment_vector`
+        //      x----.-------------->x
+        //      0    t               1
+        let segment_vector = self.vertices[1] - self.vertices[0];
+        let offset = point - self.vertices[0];
+        // The signed projection of `offset` onto `segment_vector`, scaled by the length of the segment.
+        let projection_scaled = segment_vector.dot(offset);
+
+        // `point` is too far "left" in the picture
+        if projection_scaled <= 0.0 {
+            return self.vertices[0];
+        }
+
+        let length_squared = segment_vector.length_squared();
+        // `point` is too far "right" in the picture
+        if projection_scaled >= length_squared {
+            return self.vertices[1];
+        }
+
+        // Point lies somewhere in the middle, we compute the closest point by finding the parameter along the line.
+        let t = projection_scaled / length_squared;
+        self.vertices[0] + t * segment_vector
+    }
 }
 
 impl From<[Vec2; 2]> for Segment2d {
@@ -1497,8 +1537,7 @@ impl From<(Vec2, Vec2)> for Segment2d {
 }
 
 /// A series of connected line segments in 2D space.
-///
-/// For a version without generics: [`BoxedPolyline2d`]
+#[cfg(feature = "alloc")]
 #[derive(Clone, Debug, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
@@ -1510,62 +1549,52 @@ impl From<(Vec2, Vec2)> for Segment2d {
     all(feature = "serialize", feature = "bevy_reflect"),
     reflect(Serialize, Deserialize)
 )]
-pub struct Polyline2d<const N: usize> {
+pub struct Polyline2d {
     /// The vertices of the polyline
-    #[cfg_attr(feature = "serialize", serde(with = "super::serde::array"))]
-    pub vertices: [Vec2; N],
+    pub vertices: Vec<Vec2>,
 }
 
-impl<const N: usize> Primitive2d for Polyline2d<N> {}
+#[cfg(feature = "alloc")]
+impl Primitive2d for Polyline2d {}
 
-impl<const N: usize> FromIterator<Vec2> for Polyline2d<N> {
+#[cfg(feature = "alloc")]
+impl FromIterator<Vec2> for Polyline2d {
     fn from_iter<I: IntoIterator<Item = Vec2>>(iter: I) -> Self {
-        let mut vertices: [Vec2; N] = [Vec2::ZERO; N];
-
-        for (index, i) in iter.into_iter().take(N).enumerate() {
-            vertices[index] = i;
+        Self {
+            vertices: iter.into_iter().collect(),
         }
-        Self { vertices }
     }
 }
 
-impl<const N: usize> Polyline2d<N> {
+#[cfg(feature = "alloc")]
+impl Default for Polyline2d {
+    fn default() -> Self {
+        Self {
+            vertices: Vec::from([Vec2::new(-0.5, 0.0), Vec2::new(0.5, 0.0)]),
+        }
+    }
+}
+
+#[cfg(feature = "alloc")]
+impl Polyline2d {
     /// Create a new `Polyline2d` from its vertices
     pub fn new(vertices: impl IntoIterator<Item = Vec2>) -> Self {
         Self::from_iter(vertices)
     }
-}
 
-/// A series of connected line segments in 2D space, allocated on the heap
-/// in a `Box<[Vec2]>`.
-///
-/// For a version without alloc: [`Polyline2d`]
-#[cfg(feature = "alloc")]
-#[derive(Clone, Debug, PartialEq)]
-#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
-pub struct BoxedPolyline2d {
-    /// The vertices of the polyline
-    pub vertices: Box<[Vec2]>,
-}
+    /// Create a new `Polyline2d` from two endpoints with subdivision points.
+    /// `subdivisions = 0` creates a simple line with just start and end points.
+    /// `subdivisions = 1` adds one point in the middle, creating 2 segments, etc.
+    pub fn with_subdivisions(start: Vec2, end: Vec2, subdivisions: usize) -> Self {
+        let total_vertices = subdivisions + 2;
+        let mut vertices = Vec::with_capacity(total_vertices);
 
-#[cfg(feature = "alloc")]
-impl Primitive2d for BoxedPolyline2d {}
-
-#[cfg(feature = "alloc")]
-impl FromIterator<Vec2> for BoxedPolyline2d {
-    fn from_iter<I: IntoIterator<Item = Vec2>>(iter: I) -> Self {
-        let vertices: Vec<Vec2> = iter.into_iter().collect();
-        Self {
-            vertices: vertices.into_boxed_slice(),
+        let step = (end - start) / (subdivisions + 1) as f32;
+        for i in 0..total_vertices {
+            vertices.push(start + step * i as f32);
         }
-    }
-}
 
-#[cfg(feature = "alloc")]
-impl BoxedPolyline2d {
-    /// Create a new `BoxedPolyline2d` from its vertices
-    pub fn new(vertices: impl IntoIterator<Item = Vec2>) -> Self {
-        Self::from_iter(vertices)
+        Self { vertices }
     }
 }
 
@@ -1834,8 +1863,7 @@ impl Measured2d for Rectangle {
 }
 
 /// A polygon with N vertices.
-///
-/// For a version without generics: [`BoxedPolygon`]
+#[cfg(feature = "alloc")]
 #[derive(Clone, Debug, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
@@ -1847,26 +1875,25 @@ impl Measured2d for Rectangle {
     all(feature = "serialize", feature = "bevy_reflect"),
     reflect(Serialize, Deserialize)
 )]
-pub struct Polygon<const N: usize> {
+pub struct Polygon {
     /// The vertices of the `Polygon`
-    #[cfg_attr(feature = "serialize", serde(with = "super::serde::array"))]
-    pub vertices: [Vec2; N],
+    pub vertices: Vec<Vec2>,
 }
 
-impl<const N: usize> Primitive2d for Polygon<N> {}
+#[cfg(feature = "alloc")]
+impl Primitive2d for Polygon {}
 
-impl<const N: usize> FromIterator<Vec2> for Polygon<N> {
+#[cfg(feature = "alloc")]
+impl FromIterator<Vec2> for Polygon {
     fn from_iter<I: IntoIterator<Item = Vec2>>(iter: I) -> Self {
-        let mut vertices: [Vec2; N] = [Vec2::ZERO; N];
-
-        for (index, i) in iter.into_iter().take(N).enumerate() {
-            vertices[index] = i;
+        Self {
+            vertices: iter.into_iter().collect(),
         }
-        Self { vertices }
     }
 }
 
-impl<const N: usize> Polygon<N> {
+#[cfg(feature = "alloc")]
+impl Polygon {
     /// Create a new `Polygon` from its vertices
     pub fn new(vertices: impl IntoIterator<Item = Vec2>) -> Self {
         Self::from_iter(vertices)
@@ -1882,8 +1909,9 @@ impl<const N: usize> Polygon<N> {
     }
 }
 
-impl<const N: usize> From<ConvexPolygon<N>> for Polygon<N> {
-    fn from(val: ConvexPolygon<N>) -> Self {
+#[cfg(feature = "alloc")]
+impl From<ConvexPolygon> for Polygon {
+    fn from(val: ConvexPolygon) -> Self {
         Polygon {
             vertices: val.vertices,
         }
@@ -1891,6 +1919,7 @@ impl<const N: usize> From<ConvexPolygon<N>> for Polygon<N> {
 }
 
 /// A convex polygon with `N` vertices.
+#[cfg(feature = "alloc")]
 #[derive(Clone, Debug, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
@@ -1902,15 +1931,16 @@ impl<const N: usize> From<ConvexPolygon<N>> for Polygon<N> {
     all(feature = "serialize", feature = "bevy_reflect"),
     reflect(Serialize, Deserialize)
 )]
-pub struct ConvexPolygon<const N: usize> {
+pub struct ConvexPolygon {
     /// The vertices of the [`ConvexPolygon`].
-    #[cfg_attr(feature = "serialize", serde(with = "super::serde::array"))]
-    vertices: [Vec2; N],
+    vertices: Vec<Vec2>,
 }
 
-impl<const N: usize> Primitive2d for ConvexPolygon<N> {}
+#[cfg(feature = "alloc")]
+impl Primitive2d for ConvexPolygon {}
 
 /// An error that happens when creating a [`ConvexPolygon`].
+#[cfg(feature = "alloc")]
 #[derive(Error, Debug, Clone)]
 pub enum ConvexPolygonError {
     /// The created polygon is not convex.
@@ -1918,7 +1948,8 @@ pub enum ConvexPolygonError {
     Concave,
 }
 
-impl<const N: usize> ConvexPolygon<N> {
+#[cfg(feature = "alloc")]
+impl ConvexPolygon {
     fn triangle_winding_order(
         &self,
         a_index: usize,
@@ -1936,11 +1967,12 @@ impl<const N: usize> ConvexPolygon<N> {
     /// # Errors
     ///
     /// Returns [`ConvexPolygonError::Concave`] if the `vertices` do not form a convex polygon.
-    pub fn new(vertices: [Vec2; N]) -> Result<Self, ConvexPolygonError> {
+    pub fn new(vertices: impl IntoIterator<Item = Vec2>) -> Result<Self, ConvexPolygonError> {
         let polygon = Self::new_unchecked(vertices);
-        let ref_winding_order = polygon.triangle_winding_order(N - 1, 0, 1);
-        for i in 1..N {
-            let winding_order = polygon.triangle_winding_order(i - 1, i, (i + 1) % N);
+        let len = polygon.vertices.len();
+        let ref_winding_order = polygon.triangle_winding_order(len - 1, 0, 1);
+        for i in 1..len {
+            let winding_order = polygon.triangle_winding_order(i - 1, i, (i + 1) % len);
             if winding_order != ref_winding_order {
                 return Err(ConvexPolygonError::Concave);
             }
@@ -1951,63 +1983,24 @@ impl<const N: usize> ConvexPolygon<N> {
     /// Create a [`ConvexPolygon`] from its `vertices`, without checks.
     /// Use this version only if you know that the `vertices` make up a convex polygon.
     #[inline(always)]
-    pub fn new_unchecked(vertices: [Vec2; N]) -> Self {
-        Self { vertices }
+    pub fn new_unchecked(vertices: impl IntoIterator<Item = Vec2>) -> Self {
+        Self {
+            vertices: vertices.into_iter().collect(),
+        }
     }
 
     /// Get the vertices of this polygon
     #[inline(always)]
-    pub fn vertices(&self) -> &[Vec2; N] {
+    pub fn vertices(&self) -> &[Vec2] {
         &self.vertices
     }
 }
 
-impl<const N: usize> TryFrom<Polygon<N>> for ConvexPolygon<N> {
+impl TryFrom<Polygon> for ConvexPolygon {
     type Error = ConvexPolygonError;
 
-    fn try_from(val: Polygon<N>) -> Result<Self, Self::Error> {
+    fn try_from(val: Polygon) -> Result<Self, Self::Error> {
         ConvexPolygon::new(val.vertices)
-    }
-}
-
-/// A polygon with a variable number of vertices, allocated on the heap
-/// in a `Box<[Vec2]>`.
-///
-/// For a version without alloc: [`Polygon`]
-#[cfg(feature = "alloc")]
-#[derive(Clone, Debug, PartialEq)]
-#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
-pub struct BoxedPolygon {
-    /// The vertices of the `BoxedPolygon`
-    pub vertices: Box<[Vec2]>,
-}
-
-#[cfg(feature = "alloc")]
-impl Primitive2d for BoxedPolygon {}
-
-#[cfg(feature = "alloc")]
-impl FromIterator<Vec2> for BoxedPolygon {
-    fn from_iter<I: IntoIterator<Item = Vec2>>(iter: I) -> Self {
-        let vertices: Vec<Vec2> = iter.into_iter().collect();
-        Self {
-            vertices: vertices.into_boxed_slice(),
-        }
-    }
-}
-
-#[cfg(feature = "alloc")]
-impl BoxedPolygon {
-    /// Create a new `BoxedPolygon` from its vertices
-    pub fn new(vertices: impl IntoIterator<Item = Vec2>) -> Self {
-        Self::from_iter(vertices)
-    }
-
-    /// Tests if the polygon is simple.
-    ///
-    /// A polygon is simple if it is not self intersecting and not self tangent.
-    /// As such, no two edges of the polygon may cross each other and each vertex must not lie on another edge.
-    pub fn is_simple(&self) -> bool {
-        is_polygon_simple(&self.vertices)
     }
 }
 
@@ -2286,6 +2279,52 @@ mod tests {
         assert_eq!(rhombus.closest_point(Vec2::X * 10.0), Vec2::ZERO);
         assert_eq!(rhombus.closest_point(Vec2::NEG_ONE * 0.2), Vec2::ZERO);
         assert_eq!(rhombus.closest_point(Vec2::new(-0.55, 0.35)), Vec2::ZERO);
+    }
+
+    #[test]
+    fn segment_closest_point() {
+        assert_eq!(
+            Segment2d::new(Vec2::new(0.0, 0.0), Vec2::new(3.0, 0.0))
+                .closest_point(Vec2::new(1.0, 6.0)),
+            Vec2::new(1.0, 0.0)
+        );
+
+        let segments = [
+            Segment2d::new(Vec2::new(0.0, 0.0), Vec2::new(0.0, 0.0)),
+            Segment2d::new(Vec2::new(0.0, 0.0), Vec2::new(1.0, 0.0)),
+            Segment2d::new(Vec2::new(1.0, 0.0), Vec2::new(0.0, 1.0)),
+            Segment2d::new(Vec2::new(1.0, 0.0), Vec2::new(1.0, 5.0 * f32::EPSILON)),
+        ];
+        let points = [
+            Vec2::new(0.0, 0.0),
+            Vec2::new(1.0, 0.0),
+            Vec2::new(-1.0, 1.0),
+            Vec2::new(1.0, 1.0),
+            Vec2::new(-1.0, 0.0),
+            Vec2::new(5.0, -1.0),
+            Vec2::new(1.0, f32::EPSILON),
+        ];
+
+        for point in points.iter() {
+            for segment in segments.iter() {
+                let closest = segment.closest_point(*point);
+                assert!(
+                    point.distance_squared(closest) <= point.distance_squared(segment.point1()),
+                    "Closest point must always be at least as close as either vertex."
+                );
+                assert!(
+                    point.distance_squared(closest) <= point.distance_squared(segment.point2()),
+                    "Closest point must always be at least as close as either vertex."
+                );
+                assert!(
+                    point.distance_squared(closest) <= point.distance_squared(segment.center()),
+                    "Closest point must always be at least as close as the center."
+                );
+                let closest_to_closest = segment.closest_point(closest);
+                // Closest point must already be on the segment
+                assert_relative_eq!(closest_to_closest, closest);
+            }
+        }
     }
 
     #[test]

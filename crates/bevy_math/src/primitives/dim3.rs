@@ -13,7 +13,7 @@ use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 use glam::Quat;
 
 #[cfg(feature = "alloc")]
-use alloc::{boxed::Box, vec::Vec};
+use alloc::vec::Vec;
 
 /// A sphere primitive, representing the set of all points some distance from the origin
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -377,6 +377,14 @@ pub struct Segment3d {
 
 impl Primitive3d for Segment3d {}
 
+impl Default for Segment3d {
+    fn default() -> Self {
+        Self {
+            vertices: [Vec3::new(-0.5, 0.0, 0.0), Vec3::new(0.5, 0.0, 0.0)],
+        }
+    }
+}
+
 impl Segment3d {
     /// Create a new `Segment3d` from its endpoints.
     #[inline(always)]
@@ -548,6 +556,38 @@ impl Segment3d {
         self.reverse();
         self
     }
+
+    /// Returns the point on the [`Segment3d`] that is closest to the specified `point`.
+    #[inline(always)]
+    pub fn closest_point(&self, point: Vec3) -> Vec3 {
+        //       `point`
+        //           x
+        //          ^|
+        //         / |
+        //`offset`/  |
+        //       /   |  `segment_vector`
+        //      x----.-------------->x
+        //      0    t               1
+        let segment_vector = self.vertices[1] - self.vertices[0];
+        let offset = point - self.vertices[0];
+        // The signed projection of `offset` onto `segment_vector`, scaled by the length of the segment.
+        let projection_scaled = segment_vector.dot(offset);
+
+        // `point` is too far "left" in the picture
+        if projection_scaled <= 0.0 {
+            return self.vertices[0];
+        }
+
+        let length_squared = segment_vector.length_squared();
+        // `point` is too far "right" in the picture
+        if projection_scaled >= length_squared {
+            return self.vertices[1];
+        }
+
+        // Point lies somewhere in the middle, we compute the closest point by finding the parameter along the line.
+        let t = projection_scaled / length_squared;
+        self.vertices[0] + t * segment_vector
+    }
 }
 
 impl From<[Vec3; 2]> for Segment3d {
@@ -565,8 +605,7 @@ impl From<(Vec3, Vec3)> for Segment3d {
 }
 
 /// A series of connected line segments in 3D space.
-///
-/// For a version without generics: [`BoxedPolyline3d`]
+#[cfg(feature = "alloc")]
 #[derive(Clone, Debug, PartialEq)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
@@ -578,62 +617,50 @@ impl From<(Vec3, Vec3)> for Segment3d {
     all(feature = "serialize", feature = "bevy_reflect"),
     reflect(Serialize, Deserialize)
 )]
-pub struct Polyline3d<const N: usize> {
+pub struct Polyline3d {
     /// The vertices of the polyline
-    #[cfg_attr(feature = "serialize", serde(with = "super::serde::array"))]
-    pub vertices: [Vec3; N],
+    pub vertices: Vec<Vec3>,
 }
 
-impl<const N: usize> Primitive3d for Polyline3d<N> {}
+#[cfg(feature = "alloc")]
+impl Primitive3d for Polyline3d {}
 
-impl<const N: usize> FromIterator<Vec3> for Polyline3d<N> {
+#[cfg(feature = "alloc")]
+impl FromIterator<Vec3> for Polyline3d {
     fn from_iter<I: IntoIterator<Item = Vec3>>(iter: I) -> Self {
-        let mut vertices: [Vec3; N] = [Vec3::ZERO; N];
-
-        for (index, i) in iter.into_iter().take(N).enumerate() {
-            vertices[index] = i;
+        Self {
+            vertices: iter.into_iter().collect(),
         }
-        Self { vertices }
     }
 }
 
-impl<const N: usize> Polyline3d<N> {
+#[cfg(feature = "alloc")]
+impl Default for Polyline3d {
+    fn default() -> Self {
+        Self::new([Vec3::new(-0.5, 0.0, 0.0), Vec3::new(0.5, 0.0, 0.0)])
+    }
+}
+
+#[cfg(feature = "alloc")]
+impl Polyline3d {
     /// Create a new `Polyline3d` from its vertices
     pub fn new(vertices: impl IntoIterator<Item = Vec3>) -> Self {
         Self::from_iter(vertices)
     }
-}
 
-/// A series of connected line segments in 3D space, allocated on the heap
-/// in a `Box<[Vec3]>`.
-///
-/// For a version without alloc: [`Polyline3d`]
-#[cfg(feature = "alloc")]
-#[derive(Clone, Debug, PartialEq)]
-#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
-pub struct BoxedPolyline3d {
-    /// The vertices of the polyline
-    pub vertices: Box<[Vec3]>,
-}
+    /// Create a new `Polyline3d` from two endpoints with subdivision points.
+    /// `subdivisions = 0` creates a simple line with just start and end points.
+    /// `subdivisions = 1` adds one point in the middle, creating 2 segments, etc.
+    pub fn with_subdivisions(start: Vec3, end: Vec3, subdivisions: usize) -> Self {
+        let total_vertices = subdivisions + 2;
+        let mut vertices = Vec::with_capacity(total_vertices);
 
-#[cfg(feature = "alloc")]
-impl Primitive3d for BoxedPolyline3d {}
-
-#[cfg(feature = "alloc")]
-impl FromIterator<Vec3> for BoxedPolyline3d {
-    fn from_iter<I: IntoIterator<Item = Vec3>>(iter: I) -> Self {
-        let vertices: Vec<Vec3> = iter.into_iter().collect();
-        Self {
-            vertices: vertices.into_boxed_slice(),
+        let step = (end - start) / (subdivisions + 1) as f32;
+        for i in 0..total_vertices {
+            vertices.push(start + step * i as f32);
         }
-    }
-}
 
-#[cfg(feature = "alloc")]
-impl BoxedPolyline3d {
-    /// Create a new `BoxedPolyline3d` from its vertices
-    pub fn new(vertices: impl IntoIterator<Item = Vec3>) -> Self {
-        Self::from_iter(vertices)
+        Self { vertices }
     }
 }
 
@@ -1530,6 +1557,55 @@ mod tests {
             sphere.closest_point(Vec3::new(0.25, 0.1, 0.3)),
             Vec3::new(0.25, 0.1, 0.3)
         );
+    }
+
+    #[test]
+    fn segment_closest_point() {
+        assert_eq!(
+            Segment3d::new(Vec3::new(0.0, 0.0, 0.0), Vec3::new(3.0, 0.0, 0.0))
+                .closest_point(Vec3::new(1.0, 6.0, -2.0)),
+            Vec3::new(1.0, 0.0, 0.0)
+        );
+
+        let segments = [
+            Segment3d::new(Vec3::new(0.0, 0.0, 0.0), Vec3::new(0.0, 0.0, 0.0)),
+            Segment3d::new(Vec3::new(0.0, 0.0, 0.0), Vec3::new(1.0, 0.0, 0.0)),
+            Segment3d::new(Vec3::new(1.0, 0.0, 2.0), Vec3::new(0.0, 1.0, -2.0)),
+            Segment3d::new(
+                Vec3::new(1.0, 0.0, 0.0),
+                Vec3::new(1.0, 5.0 * f32::EPSILON, 0.0),
+            ),
+        ];
+        let points = [
+            Vec3::new(0.0, 0.0, 0.0),
+            Vec3::new(1.0, 0.0, 0.0),
+            Vec3::new(-1.0, 1.0, 2.0),
+            Vec3::new(1.0, 1.0, 1.0),
+            Vec3::new(-1.0, 0.0, 0.0),
+            Vec3::new(5.0, -1.0, 0.5),
+            Vec3::new(1.0, f32::EPSILON, 0.0),
+        ];
+
+        for point in points.iter() {
+            for segment in segments.iter() {
+                let closest = segment.closest_point(*point);
+                assert!(
+                    point.distance_squared(closest) <= point.distance_squared(segment.point1()),
+                    "Closest point must always be at least as close as either vertex."
+                );
+                assert!(
+                    point.distance_squared(closest) <= point.distance_squared(segment.point2()),
+                    "Closest point must always be at least as close as either vertex."
+                );
+                assert!(
+                    point.distance_squared(closest) <= point.distance_squared(segment.center()),
+                    "Closest point must always be at least as close as the center."
+                );
+                let closest_to_closest = segment.closest_point(closest);
+                // Closest point must already be on the segment
+                assert_relative_eq!(closest_to_closest, closest);
+            }
+        }
     }
 
     #[test]

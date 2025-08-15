@@ -45,9 +45,7 @@ use crate::{
 
 pub mod accessibility;
 mod converters;
-pub mod cursor;
-#[cfg(feature = "custom_cursor")]
-mod custom_cursor;
+mod cursor;
 mod state;
 mod system;
 mod winit_config;
@@ -124,7 +122,8 @@ impl<T: BufferedEvent> Plugin for WinitPlugin<T> {
         {
             use winit::platform::android::EventLoopBuilderExtAndroid;
             let msg = "Bevy must be setup with the #[bevy_main] macro on Android";
-            event_loop_builder.with_android_app(bevy_window::ANDROID_APP.get().expect(msg).clone());
+            event_loop_builder
+                .with_android_app(bevy_android::ANDROID_APP.get().expect(msg).clone());
         }
 
         let event_loop = event_loop_builder
@@ -150,13 +149,13 @@ impl<T: BufferedEvent> Plugin for WinitPlugin<T> {
             );
 
         app.add_plugins(AccessKitPlugin);
-        app.add_plugins(cursor::CursorPlugin);
+        app.add_plugins(cursor::WinitCursorPlugin);
     }
 }
 
 /// The default event that can be used to wake the window loop
 /// Wakes up the loop if in wait state
-#[derive(Debug, Default, Clone, Copy, Event, BufferedEvent, Reflect)]
+#[derive(Debug, Default, Clone, Copy, BufferedEvent, Reflect)]
 #[reflect(Debug, Default, Clone)]
 pub struct WakeUp;
 
@@ -167,7 +166,7 @@ pub struct WakeUp;
 ///
 /// When you receive this event it has already been handled by Bevy's main loop.
 /// Sending these events will NOT cause them to be processed by Bevy.
-#[derive(Debug, Clone, Event, BufferedEvent)]
+#[derive(Debug, Clone, BufferedEvent)]
 pub struct RawWinitWindowEvent {
     /// The window for which the event was fired.
     pub window_id: WindowId,
