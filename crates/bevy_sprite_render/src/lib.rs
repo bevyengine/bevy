@@ -12,6 +12,7 @@ extern crate alloc;
 
 mod mesh2d;
 mod render;
+mod text2d;
 mod texture_slice;
 mod tilemap_chunk;
 
@@ -45,6 +46,8 @@ use bevy_render::{
     Render, RenderApp, RenderStartup, RenderSystems,
 };
 use bevy_sprite::{Anchor, Sprite};
+
+use crate::text2d::extract_text2d_sprite;
 
 /// Adds support for 2D sprite rendering.
 #[derive(Default)]
@@ -107,6 +110,7 @@ impl Plugin for SpriteRenderingPlugin {
                     (
                         extract_sprites.in_set(SpriteSystems::ExtractSprites),
                         extract_sprite_events,
+                        extract_text2d_sprite.after(SpriteSystems::ExtractSprites),
                     ),
                 )
                 .add_systems(
