@@ -60,6 +60,7 @@ use uuid::Uuid;
 pub struct DlssInitPlugin;
 
 impl Plugin for DlssInitPlugin {
+    #[allow(unsafe_code)]
     fn build(&self, app: &mut App) {
         let dlss_project_id = app.world().get_resource::<DlssProjectId>()
                         .expect("The `dlss` feature is enabled, but DlssProjectId was not added to the App before DlssInitPlugin.").0;
@@ -67,52 +68,61 @@ impl Plugin for DlssInitPlugin {
             .world_mut()
             .get_resource_or_init::<RawVulkanInitSettings>();
 
-        raw_vulkan_settings.create_instance_callbacks.push(Arc::new(
-            move |mut args, additional_vulkan_features| {
-                let mut feature_support = FeatureSupport::default();
-                match dlss_wgpu::register_instance_extensions(
-                    dlss_project_id,
-                    &mut args,
-                    &mut feature_support,
-                ) {
-                    Ok(_) => {
-                        if feature_support.super_resolution_supported {
-                            additional_vulkan_features.register::<DlssSuperResolutionSupported>();
+        // SAFETY: this does not remove any instance features and only enables features that are supported
+        unsafe {
+            raw_vulkan_settings.add_create_instance_callback(
+                move |mut args, additional_vulkan_features| {
+                    let mut feature_support = FeatureSupport::default();
+                    match dlss_wgpu::register_instance_extensions(
+                        dlss_project_id,
+                        &mut args,
+                        &mut feature_support,
+                    ) {
+                        Ok(_) => {
+                            if feature_support.super_resolution_supported {
+                                additional_vulkan_features.insert::<DlssSuperResolutionSupported>();
+                            }
+                            if feature_support.ray_reconstruction_supported {
+                                additional_vulkan_features
+                                    .insert::<DlssRayReconstructionSupported>();
+                            }
                         }
-                        if feature_support.ray_reconstruction_supported {
-                            additional_vulkan_features.register::<DlssRayReconstructionSupported>();
-                        }
+                        Err(_) => {}
                     }
-                    Err(_) => todo!(),
-                }
-            },
-        ));
+                },
+            );
+        }
 
-        raw_vulkan_settings.create_device_callbacks.push(Arc::new(
-            move |mut args, adapter, additional_vulkan_features| {
-                let mut feature_support = FeatureSupport::default();
-                match dlss_wgpu::register_device_extensions(
-                    dlss_project_id,
-                    &mut args,
-                    adapter,
-                    &mut feature_support,
-                ) {
-                    Ok(_) => {
-                        if feature_support.super_resolution_supported {
-                            additional_vulkan_features.register::<DlssSuperResolutionSupported>();
-                        } else {
-                            additional_vulkan_features.remove::<DlssSuperResolutionSupported>();
+        // SAFETY: this does not remove any device features and only enables features that are supported
+        unsafe {
+            raw_vulkan_settings.add_create_device_callback(
+                move |mut args, adapter, additional_vulkan_features| {
+                    let mut feature_support = FeatureSupport::default();
+                    match dlss_wgpu::register_device_extensions(
+                        dlss_project_id,
+                        &mut args,
+                        adapter,
+                        &mut feature_support,
+                    ) {
+                        Ok(_) => {
+                            if feature_support.super_resolution_supported {
+                                additional_vulkan_features.insert::<DlssSuperResolutionSupported>();
+                            } else {
+                                additional_vulkan_features.remove::<DlssSuperResolutionSupported>();
+                            }
+                            if feature_support.ray_reconstruction_supported {
+                                additional_vulkan_features
+                                    .insert::<DlssRayReconstructionSupported>();
+                            } else {
+                                additional_vulkan_features
+                                    .remove::<DlssRayReconstructionSupported>();
+                            }
                         }
-                        if feature_support.ray_reconstruction_supported {
-                            additional_vulkan_features.register::<DlssRayReconstructionSupported>();
-                        } else {
-                            additional_vulkan_features.remove::<DlssRayReconstructionSupported>();
-                        }
+                        Err(_) => {}
                     }
-                    Err(_) => todo!(),
-                }
-            },
-        ));
+                },
+            )
+        };
     }
 }
 
