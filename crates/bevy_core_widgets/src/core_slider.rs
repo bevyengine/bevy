@@ -24,7 +24,7 @@ use bevy_math::ops;
 use bevy_picking::events::{Drag, DragEnd, DragStart, Pointer, Press};
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_ui::{
-    ComputedNode, ComputedUiTargetCamera, InteractionDisabled, UiGlobalTransform, UiScale,
+    ComputedNode, ComputedUiRenderTargetInfo, InteractionDisabled, UiGlobalTransform, UiScale,
 };
 
 use crate::{Callback, Notify, ValueChange};
@@ -236,7 +236,7 @@ pub(crate) fn slider_on_pointer_down(
         &SliderStep,
         Option<&SliderPrecision>,
         &ComputedNode,
-        &ComputedUiTargetCamera,
+        &ComputedUiRenderTargetInfo,
         &UiGlobalTransform,
         Has<InteractionDisabled>,
     )>,
@@ -255,7 +255,7 @@ pub(crate) fn slider_on_pointer_down(
         step,
         precision,
         node,
-        node_target,
+        node_info,
         transform,
         disabled,
     )) = q_slider.get(trigger.target())
@@ -275,7 +275,7 @@ pub(crate) fn slider_on_pointer_down(
 
         // Detect track click.
         let local_pos = transform.try_inverse().unwrap().transform_point2(
-            trigger.event().pointer_location.position * node_target.scale_factor() / ui_scale.0,
+            trigger.event().pointer_location.position * node_info.scale_factor() / ui_scale.0,
         );
         let track_width = node.size().x - thumb_size;
         // Avoid division by zero

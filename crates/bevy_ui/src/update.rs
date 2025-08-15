@@ -3,8 +3,8 @@
 use crate::{
     experimental::{UiChildren, UiRootNodes},
     ui_transform::UiGlobalTransform,
-    CalculatedClip, ComputedUiTargetCamera, DefaultUiCamera, Display, Node, OverflowAxis,
-    OverrideClip, UiScale, UiTargetCamera,
+    CalculatedClip, ComputedUiRenderTargetInfo, ComputedUiTargetCamera, DefaultUiCamera, Display,
+    Node, OverflowAxis, OverrideClip, UiScale, UiTargetCamera,
 };
 
 use super::ComputedNode;
@@ -164,8 +164,8 @@ pub fn propagate_ui_target_cameras(
 
         commands
             .entity(root_entity)
-            .insert(Propagate(ComputedUiTargetCamera {
-                camera,
+            .insert(Propagate(ComputedUiTargetCamera { camera }))
+            .insert(Propagate(ComputedUiRenderTargetInfo {
                 scale_factor,
                 physical_size,
             }));
@@ -204,6 +204,7 @@ pub(crate) fn update_cameras_test_system(
 #[cfg(test)]
 mod tests {
     use crate::update::propagate_ui_target_cameras;
+    use crate::ComputedUiRenderTargetInfo;
     use crate::ComputedUiTargetCamera;
     use crate::IsDefaultUiCamera;
     use crate::Node;
@@ -268,7 +269,7 @@ mod tests {
             PrimaryWindow,
         ));
 
-        let camera = world.spawn(Camera2d).id();
+        // let camera = world.spawn(Camera2d).id();
 
         let uinode = world.spawn(Node::default()).id();
 
@@ -276,9 +277,8 @@ mod tests {
         let world = app.world_mut();
 
         assert_eq!(
-            *world.get::<ComputedUiTargetCamera>(uinode).unwrap(),
-            ComputedUiTargetCamera {
-                camera,
+            *world.get::<ComputedUiRenderTargetInfo>(uinode).unwrap(),
+            ComputedUiRenderTargetInfo {
                 physical_size,
                 scale_factor,
             }
@@ -341,8 +341,11 @@ mod tests {
         ] {
             assert_eq!(
                 *world.get::<ComputedUiTargetCamera>(uinode).unwrap(),
-                ComputedUiTargetCamera {
-                    camera,
+                ComputedUiTargetCamera { camera }
+            );
+            assert_eq!(
+                *world.get::<ComputedUiRenderTargetInfo>(uinode).unwrap(),
+                ComputedUiRenderTargetInfo {
                     scale_factor,
                     physical_size,
                 }
@@ -395,7 +398,7 @@ mod tests {
 
         assert_eq!(
             world
-                .get::<ComputedUiTargetCamera>(uinode)
+                .get::<ComputedUiRenderTargetInfo>(uinode)
                 .unwrap()
                 .scale_factor,
             scale1
@@ -403,7 +406,7 @@ mod tests {
 
         assert_eq!(
             world
-                .get::<ComputedUiTargetCamera>(uinode)
+                .get::<ComputedUiRenderTargetInfo>(uinode)
                 .unwrap()
                 .physical_size,
             size1
@@ -425,7 +428,7 @@ mod tests {
 
         assert_eq!(
             world
-                .get::<ComputedUiTargetCamera>(uinode)
+                .get::<ComputedUiRenderTargetInfo>(uinode)
                 .unwrap()
                 .scale_factor,
             scale2
@@ -433,7 +436,7 @@ mod tests {
 
         assert_eq!(
             world
-                .get::<ComputedUiTargetCamera>(uinode)
+                .get::<ComputedUiRenderTargetInfo>(uinode)
                 .unwrap()
                 .physical_size,
             size2
@@ -496,7 +499,7 @@ mod tests {
 
         assert_eq!(
             world
-                .get::<ComputedUiTargetCamera>(uinode1)
+                .get::<ComputedUiRenderTargetInfo>(uinode1)
                 .unwrap()
                 .scale_factor(),
             scale1
@@ -504,7 +507,7 @@ mod tests {
 
         assert_eq!(
             world
-                .get::<ComputedUiTargetCamera>(uinode1)
+                .get::<ComputedUiRenderTargetInfo>(uinode1)
                 .unwrap()
                 .physical_size(),
             size1
@@ -536,7 +539,7 @@ mod tests {
 
         assert_eq!(
             world
-                .get::<ComputedUiTargetCamera>(uinode1)
+                .get::<ComputedUiRenderTargetInfo>(uinode1)
                 .unwrap()
                 .scale_factor(),
             scale2
@@ -544,7 +547,7 @@ mod tests {
 
         assert_eq!(
             world
-                .get::<ComputedUiTargetCamera>(uinode1)
+                .get::<ComputedUiRenderTargetInfo>(uinode1)
                 .unwrap()
                 .physical_size(),
             size2
@@ -600,7 +603,7 @@ mod tests {
 
         assert_eq!(
             world
-                .get::<ComputedUiTargetCamera>(uinode)
+                .get::<ComputedUiRenderTargetInfo>(uinode)
                 .unwrap()
                 .scale_factor,
             scale
@@ -608,7 +611,7 @@ mod tests {
 
         assert_eq!(
             world
-                .get::<ComputedUiTargetCamera>(uinode)
+                .get::<ComputedUiRenderTargetInfo>(uinode)
                 .unwrap()
                 .physical_size,
             size
@@ -630,7 +633,7 @@ mod tests {
 
         assert_eq!(
             world
-                .get::<ComputedUiTargetCamera>(uinode)
+                .get::<ComputedUiRenderTargetInfo>(uinode)
                 .unwrap()
                 .scale_factor(),
             2.

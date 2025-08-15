@@ -34,8 +34,8 @@ use bevy_render::{sync_world::MainEntity, RenderStartup};
 use bevy_shader::Shader;
 use bevy_sprite::BorderRect;
 use bevy_ui::{
-    BackgroundGradient, BorderGradient, ColorStop, ConicGradient, Gradient,
-    InterpolationColorSpace, LinearGradient, RadialGradient, ResolvedBorderRadius, Val,
+    BackgroundGradient, BorderGradient, ColorStop, ComputedUiRenderTargetInfo, ConicGradient,
+    Gradient, InterpolationColorSpace, LinearGradient, RadialGradient, ResolvedBorderRadius, Val,
 };
 use bevy_utils::default;
 use bytemuck::{Pod, Zeroable};
@@ -353,6 +353,7 @@ pub fn extract_gradients(
             Entity,
             &ComputedNode,
             &ComputedUiTargetCamera,
+            &ComputedUiRenderTargetInfo,
             &UiGlobalTransform,
             &InheritedVisibility,
             Option<&CalculatedClip>,
@@ -368,6 +369,7 @@ pub fn extract_gradients(
         entity,
         uinode,
         target,
+        target_render_info,
         transform,
         inherited_visibility,
         clip,
@@ -436,9 +438,9 @@ pub fn extract_gradients(
 
                         compute_color_stops(
                             stops,
-                            target.scale_factor(),
+                            target_render_info.scale_factor(),
                             length,
-                            target.physical_size().as_vec2(),
+                            target_render_info.physical_size().as_vec2(),
                             &mut sorted_stops,
                             &mut extracted_color_stops.0,
                         );
@@ -469,16 +471,16 @@ pub fn extract_gradients(
                         stops,
                     }) => {
                         let c = center.resolve(
-                            target.scale_factor(),
+                            target_render_info.scale_factor(),
                             uinode.size,
-                            target.physical_size().as_vec2(),
+                            target_render_info.physical_size().as_vec2(),
                         );
 
                         let size = shape.resolve(
                             c,
-                            target.scale_factor(),
+                            target_render_info.scale_factor(),
                             uinode.size,
-                            target.physical_size().as_vec2(),
+                            target_render_info.physical_size().as_vec2(),
                         );
 
                         let length = size.x;
@@ -486,9 +488,9 @@ pub fn extract_gradients(
                         let range_start = extracted_color_stops.0.len();
                         compute_color_stops(
                             stops,
-                            target.scale_factor(),
+                            target_render_info.scale_factor(),
                             length,
-                            target.physical_size().as_vec2(),
+                            target_render_info.physical_size().as_vec2(),
                             &mut sorted_stops,
                             &mut extracted_color_stops.0,
                         );
@@ -519,9 +521,9 @@ pub fn extract_gradients(
                         stops,
                     }) => {
                         let g_start = center.resolve(
-                            target.scale_factor(),
+                            target_render_info.scale_factor(),
                             uinode.size,
-                            target.physical_size().as_vec2(),
+                            target_render_info.physical_size().as_vec2(),
                         );
                         let range_start = extracted_color_stops.0.len();
 

@@ -1,8 +1,8 @@
 use crate::{
     experimental::{UiChildren, UiRootNodes},
     ui_transform::{UiGlobalTransform, UiTransform},
-    BorderRadius, ComputedNode, ComputedUiTargetCamera, ContentSize, Display, LayoutConfig, Node,
-    Outline, OverflowAxis, ScrollPosition,
+    BorderRadius, ComputedNode, ComputedUiRenderTargetInfo, ComputedUiTargetCamera, ContentSize,
+    Display, LayoutConfig, Node, Outline, OverflowAxis, ScrollPosition,
 };
 use bevy_ecs::{
     change_detection::{DetectChanges, DetectChangesMut},
@@ -78,6 +78,7 @@ pub fn ui_layout_system(
         Ref<Node>,
         Option<&mut ContentSize>,
         Ref<ComputedUiTargetCamera>,
+        Ref<ComputedUiRenderTargetInfo>,
     )>,
     added_node_query: Query<(), Added<Node>>,
     mut node_update_query: Query<(
@@ -102,9 +103,8 @@ pub fn ui_layout_system(
     }
 
     // Sync Node and ContentSize to Taffy for all nodes
-    node_query
-        .iter_mut()
-        .for_each(|(entity, node, content_size, computed_target)| {
+    node_query.iter_mut().for_each(
+        |(entity, node, content_size, computed_target, computed_target_info)| {
             if computed_target.is_changed()
                 || node.is_changed()
                 || content_size
@@ -112,13 +112,14 @@ pub fn ui_layout_system(
                     .is_some_and(|c| c.is_changed() || c.measure.is_some())
             {
                 let layout_context = LayoutContext::new(
-                    computed_target.scale_factor,
-                    computed_target.physical_size.as_vec2(),
+                    computed_target_info.scale_factor,
+                    computed_target_info.physical_size.as_vec2(),
                 );
                 let measure = content_size.and_then(|mut c| c.measure.take());
                 ui_surface.upsert_node(&layout_context, entity, &node, measure);
             }
-        });
+        },
+    );
 
     // update and remove children
     for entity in removed_children.read() {
@@ -161,11 +162,11 @@ pub fn ui_layout_system(
             ui_root_entity,
         );
 
-        let (_, _, _, computed_target) = node_query.get(ui_root_entity).unwrap();
+        let (_, _, _, _, computed_target_info) = node_query.get(ui_root_entity).unwrap();
 
         ui_surface.compute_layout(
             ui_root_entity,
-            computed_target.physical_size,
+            computed_target_info.physical_size,
             &mut buffer_query,
             &mut font_system,
         );
@@ -174,11 +175,11 @@ pub fn ui_layout_system(
             ui_root_entity,
             &mut ui_surface,
             true,
-            computed_target.physical_size().as_vec2(),
+            computed_target_info.physical_size().as_vec2(),
             Affine2::IDENTITY,
             &mut node_update_query,
             &ui_children,
-            computed_target.scale_factor.recip(),
+            computed_target_info.scale_factor.recip(),
             Vec2::ZERO,
             Vec2::ZERO,
         );

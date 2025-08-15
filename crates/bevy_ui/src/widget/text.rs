@@ -1,6 +1,6 @@
 use crate::{
-    ComputedNode, ComputedUiTargetCamera, ContentSize, FixedMeasure, Measure, MeasureArgs, Node,
-    NodeMeasure,
+    ComputedNode, ComputedUiRenderTargetInfo, ContentSize, FixedMeasure, Measure, MeasureArgs,
+    Node, NodeMeasure,
 };
 use bevy_asset::Assets;
 use bevy_color::Color;
@@ -276,7 +276,7 @@ pub fn measure_text_system(
             &mut ContentSize,
             &mut TextNodeFlags,
             &mut ComputedTextBlock,
-            &ComputedUiTargetCamera,
+            &ComputedUiRenderTargetInfo,
             &ComputedNode,
         ),
         With<Node>,
@@ -285,13 +285,14 @@ pub fn measure_text_system(
     mut text_pipeline: ResMut<TextPipeline>,
     mut font_system: ResMut<CosmicFontSystem>,
 ) {
-    for (entity, block, content_size, text_flags, computed, computed_target, computed_node) in
+    for (entity, block, content_size, text_flags, computed, computed_target_info, computed_node) in
         &mut text_query
     {
         // Note: the ComputedTextBlock::needs_rerender bool is cleared in create_text_measure().
         // 1e-5 epsilon to ignore tiny scale factor float errors
         if 1e-5
-            < (computed_target.scale_factor() - computed_node.inverse_scale_factor.recip()).abs()
+            < (computed_target_info.scale_factor() - computed_node.inverse_scale_factor.recip())
+                .abs()
             || computed.needs_rerender()
             || text_flags.needs_measure_fn
             || content_size.is_added()
@@ -299,7 +300,7 @@ pub fn measure_text_system(
             create_text_measure(
                 entity,
                 &fonts,
-                computed_target.scale_factor.into(),
+                computed_target_info.scale_factor.into(),
                 text_reader.iter(entity),
                 block,
                 &mut text_pipeline,

@@ -1,4 +1,7 @@
-use crate::{ComputedUiTargetCamera, ContentSize, Measure, MeasureArgs, Node, NodeMeasure};
+use crate::{
+    ComputedUiRenderTargetInfo, ComputedUiTargetCamera, ContentSize, Measure, MeasureArgs, Node,
+    NodeMeasure,
+};
 use bevy_asset::{Assets, Handle};
 use bevy_color::Color;
 use bevy_ecs::prelude::*;
@@ -261,11 +264,14 @@ pub fn update_image_content_size_system(
             Ref<ImageNode>,
             &mut ImageNodeSize,
             Ref<ComputedUiTargetCamera>,
+            Ref<ComputedUiRenderTargetInfo>,
         ),
         UpdateImageFilter,
     >,
 ) {
-    for (mut content_size, image, mut image_size, computed_target) in &mut query {
+    for (mut content_size, image, mut image_size, computed_target, computed_target_info) in
+        &mut query
+    {
         if !matches!(image.image_mode, NodeImageMode::Auto)
             || image.image.id() == TRANSPARENT_IMAGE_HANDLE.id()
         {
@@ -290,7 +296,7 @@ pub fn update_image_content_size_system(
                 image_size.size = size;
                 content_size.set(NodeMeasure::Image(ImageMeasure {
                     // multiply the image size by the scale factor to get the physical size
-                    size: size.as_vec2() * computed_target.scale_factor(),
+                    size: size.as_vec2() * computed_target_info.scale_factor(),
                 }));
             }
         }
