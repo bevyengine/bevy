@@ -191,7 +191,7 @@ impl App {
 
     fn instructions(&self) -> impl Widget {
         let text =
-            "▲ ▼ : navagate    shift + ▲ ▼ : re-order    + : insert section    d : delete section    tab : change focus    esc : save and quit";
+            "▲ ▼ : navigate    shift + ▲ ▼ : re-order    + : insert section    d : delete section    tab : change focus    esc : save and quit";
         Paragraph::new(text)
             .fg(Color::Magenta)
             .centered()
