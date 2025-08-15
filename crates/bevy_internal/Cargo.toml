@@ -169,7 +169,7 @@ webgl = [
   "bevy_pbr?/webgl",
   "bevy_render?/webgl",
   "bevy_gizmos?/webgl",
-  "bevy_sprite?/webgl",
+  "bevy_sprite_render?/webgl",
 ]
 
 webgpu = [
@@ -178,7 +178,7 @@ webgpu = [
   "bevy_pbr?/webgpu",
   "bevy_render?/webgpu",
   "bevy_gizmos?/webgpu",
-  "bevy_sprite?/webgpu",
+  "bevy_sprite_render?/webgpu",
 ]
 
 # enable systems that allow for automated testing on CI
@@ -187,7 +187,8 @@ bevy_ci_testing = ["bevy_dev_tools/bevy_ci_testing", "bevy_render?/ci_limits"]
 # Enable animation support, and glTF animation loading
 animation = ["bevy_animation", "bevy_gltf?/bevy_animation"]
 
-bevy_sprite = ["dep:bevy_sprite", "bevy_gizmos?/bevy_sprite", "bevy_image"]
+bevy_sprite = ["dep:bevy_sprite", "bevy_image"]
+bevy_sprite_render = ["bevy_sprite", "dep:bevy_sprite_render", "bevy_gizmos?/bevy_sprite"]
 bevy_pbr = [
   "dep:bevy_pbr",
   "bevy_gizmos?/bevy_pbr",
@@ -458,6 +459,7 @@ bevy_render = { path = "../bevy_render", optional = true, version = "0.17.0-dev"
 bevy_scene = { path = "../bevy_scene", optional = true, version = "0.17.0-dev" }
 bevy_solari = { path = "../bevy_solari", optional = true, version = "0.17.0-dev" }
 bevy_sprite = { path = "../bevy_sprite", optional = true, version = "0.17.0-dev" }
+bevy_sprite_render = { path = "../bevy_sprite_render", optional = true, version = "0.17.0-dev" }
 bevy_state = { path = "../bevy_state", optional = true, version = "0.17.0-dev", default-features = false, features = [
   "bevy_app",
   "bevy_reflect",

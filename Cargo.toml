@@ -153,6 +153,7 @@ default = [
   "bevy_scene",
   "bevy_sprite",
   "bevy_sprite_picking_backend",
+  "bevy_sprite_render",
   "bevy_state",
   "bevy_text",
   "bevy_ui",
@@ -269,6 +270,14 @@ bevy_solari = [
 # Provides sprite functionality
 bevy_sprite = [
   "bevy_internal/bevy_sprite",
+  "bevy_core_pipeline",
+  "bevy_color",
+  "bevy_anti_aliasing",
+]
+
+# Provides sprite rendering functionality
+bevy_sprite_render = [
+  "bevy_internal/bevy_sprite_render",
   "bevy_render",
   "bevy_core_pipeline",
   "bevy_color",

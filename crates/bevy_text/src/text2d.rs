@@ -1,15 +1,14 @@
 use crate::pipeline::CosmicFontSystem;
 use crate::{
-    ComputedTextBlock, Font, FontAtlasSets, LineBreak, PositionedGlyph, SwashCache, TextBounds,
+    ComputedTextBlock, Font, FontAtlasSets, LineBreak, SwashCache, TextBounds,
     TextColor, TextError, TextFont, TextLayout, TextLayoutInfo, TextPipeline, TextReader, TextRoot,
     TextSpanAccess, TextWriter,
 };
 use bevy_asset::Assets;
 use bevy_camera::primitives::Aabb;
 use bevy_camera::visibility::{
-    self, NoFrustumCulling, ViewVisibility, Visibility, VisibilityClass,
+    self, NoFrustumCulling, Visibility, VisibilityClass,
 };
-use bevy_color::LinearRgba;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::entity::EntityHashSet;
 use bevy_ecs::{
@@ -23,13 +22,8 @@ use bevy_ecs::{
 use bevy_image::prelude::*;
 use bevy_math::{Vec2, Vec3};
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
-use bevy_render::sync_world::TemporaryRenderEntity;
-use bevy_render::Extract;
-use bevy_sprite::{
-    Anchor, ExtractedSlice, ExtractedSlices, ExtractedSprite, ExtractedSprites, Sprite,
-};
+use bevy_sprite::{Anchor, Sprite};
 use bevy_transform::components::Transform;
-use bevy_transform::prelude::GlobalTransform;
 use bevy_window::{PrimaryWindow, Window};
 
 /// The top-level 2D text component.
@@ -131,121 +125,6 @@ pub type Text2dReader<'w, 's> = TextReader<'w, 's, Text2d>;
 
 /// 2d alias for [`TextWriter`].
 pub type Text2dWriter<'w, 's> = TextWriter<'w, 's, Text2d>;
-
-/// This system extracts the sprites from the 2D text components and adds them to the
-/// "render world".
-pub fn extract_text2d_sprite(
-    mut commands: Commands,
-    mut extracted_sprites: ResMut<ExtractedSprites>,
-    mut extracted_slices: ResMut<ExtractedSlices>,
-    texture_atlases: Extract<Res<Assets<TextureAtlasLayout>>>,
-    windows: Extract<Query<&Window, With<PrimaryWindow>>>,
-    text2d_query: Extract<
-        Query<(
-            Entity,
-            &ViewVisibility,
-            &ComputedTextBlock,
-            &TextLayoutInfo,
-            &TextBounds,
-            &Anchor,
-            &GlobalTransform,
-        )>,
-    >,
-    text_colors: Extract<Query<&TextColor>>,
-) {
-    let mut start = extracted_slices.slices.len();
-    let mut end = start + 1;
-
-    // TODO: Support window-independent scaling: https://github.com/bevyengine/bevy/issues/5621
-    let scale_factor = windows
-        .single()
-        .map(|window| window.resolution.scale_factor())
-        .unwrap_or(1.0);
-    let scaling = GlobalTransform::from_scale(Vec2::splat(scale_factor.recip()).extend(1.));
-
-    for (
-        main_entity,
-        view_visibility,
-        computed_block,
-        text_layout_info,
-        text_bounds,
-        anchor,
-        global_transform,
-    ) in text2d_query.iter()
-    {
-        if !view_visibility.get() {
-            continue;
-        }
-
-        let size = Vec2::new(
-            text_bounds.width.unwrap_or(text_layout_info.size.x),
-            text_bounds.height.unwrap_or(text_layout_info.size.y),
-        );
-
-        let top_left = (Anchor::TOP_LEFT.0 - anchor.as_vec()) * size;
-        let transform =
-            *global_transform * GlobalTransform::from_translation(top_left.extend(0.)) * scaling;
-
-        let mut color = LinearRgba::WHITE;
-        let mut current_span = usize::MAX;
-
-        for (
-            i,
-            PositionedGlyph {
-                position,
-                atlas_info,
-                span_index,
-                ..
-            },
-        ) in text_layout_info.glyphs.iter().enumerate()
-        {
-            if *span_index != current_span {
-                color = text_colors
-                    .get(
-                        computed_block
-                            .entities()
-                            .get(*span_index)
-                            .map(|t| t.entity)
-                            .unwrap_or(Entity::PLACEHOLDER),
-                    )
-                    .map(|text_color| LinearRgba::from(text_color.0))
-                    .unwrap_or_default();
-                current_span = *span_index;
-            }
-            let rect = texture_atlases
-                .get(atlas_info.texture_atlas)
-                .unwrap()
-                .textures[atlas_info.location.glyph_index]
-                .as_rect();
-            extracted_slices.slices.push(ExtractedSlice {
-                offset: Vec2::new(position.x, -position.y),
-                rect,
-                size: rect.size(),
-            });
-
-            if text_layout_info.glyphs.get(i + 1).is_none_or(|info| {
-                info.span_index != current_span || info.atlas_info.texture != atlas_info.texture
-            }) {
-                let render_entity = commands.spawn(TemporaryRenderEntity).id();
-                extracted_sprites.sprites.push(ExtractedSprite {
-                    main_entity,
-                    render_entity,
-                    transform,
-                    color,
-                    image_handle_id: atlas_info.texture,
-                    flip_x: false,
-                    flip_y: false,
-                    kind: bevy_sprite::ExtractedSpriteKind::Slices {
-                        indices: start..end,
-                    },
-                });
-                start = end;
-            }
-
-            end += 1;
-        }
-    }
-}
 
 /// Updates the layout and size information whenever the text or style is changed.
 /// This information is computed by the [`TextPipeline`] on insertion, then stored.
