@@ -378,13 +378,6 @@ pub struct AtmosphereSettings {
     /// A conversion factor between scene units and meters, used to
     /// ensure correctness at different length scales.
     pub scene_units_to_m: f32,
-
-    /// Multiplier applied to the brightness of the sun disk in the sky.
-    ///
-    /// `0.0` disables the sun disk entirely while still
-    /// allowing the sun's radiance to scatter into the atmosphere,
-    /// and `1.0` renders the sun disk at its normal intensity.
-    pub sun_disc_intensity: f32,
 }
 
 impl Default for AtmosphereSettings {
@@ -401,7 +394,6 @@ impl Default for AtmosphereSettings {
             aerial_view_lut_samples: 10,
             aerial_view_lut_max_distance: 3.2e4,
             scene_units_to_m: 1.0,
-            sun_disc_intensity: 1.0,
         }
     }
 }

@@ -47,6 +47,8 @@ pub use directional_light::{
     update_directional_light_frusta, DirectionalLight, DirectionalLightShadowMap,
     DirectionalLightTexture,
 };
+mod sun_light;
+pub use sun_light::SunLight;
 
 /// Constants for operating with the light units: lumens, and lux.
 pub mod light_consts {
