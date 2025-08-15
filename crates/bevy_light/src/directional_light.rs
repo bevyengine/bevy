@@ -241,7 +241,7 @@ pub fn update_directional_light_frusta(
     }
 }
 
-/// This component marks a directional light entity for changing the size and intensity of the sun disk.
+/// This component marks a [`DirectionalLight`] entity for changing the size and intensity of the sun disk.
 #[derive(Component, Clone)]
 #[require(DirectionalLight)]
 pub struct SunLight {
