@@ -151,6 +151,8 @@ pub struct RenderResources(
     pub RenderAdapterInfo,
     pub RenderAdapter,
     pub RenderInstance,
+    #[cfg(feature = "raw_vulkan_init")]
+    pub  crate::renderer::raw_vulkan_init::AdditionalVulkanFeatures,
 );
 
 /// An enum describing how the renderer will initialize resources. This is used when creating the [`RenderPlugin`](crate::RenderPlugin).
@@ -173,8 +175,19 @@ impl RenderCreation {
         adapter_info: RenderAdapterInfo,
         adapter: RenderAdapter,
         instance: RenderInstance,
+        #[cfg(feature = "raw_vulkan_init")]
+        additional_vulkan_features: crate::renderer::raw_vulkan_init::AdditionalVulkanFeatures,
     ) -> Self {
-        RenderResources(device, queue, adapter_info, adapter, instance).into()
+        RenderResources(
+            device,
+            queue,
+            adapter_info,
+            adapter,
+            instance,
+            #[cfg(feature = "raw_vulkan_init")]
+            additional_vulkan_features,
+        )
+        .into()
     }
 }
 
