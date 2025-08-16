@@ -139,6 +139,7 @@ mod tests {
             thingy.0 += 1;
         });
 
+        app.startup();
         app.update();
 
         // This assert only succeeds if first OnEnter(TestState::A) runs, followed by PreStartup.
