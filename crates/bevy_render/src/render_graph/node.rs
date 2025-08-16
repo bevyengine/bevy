@@ -38,6 +38,12 @@ pub trait IntoRenderNodeArray<const N: usize> {
     fn into_array(self) -> [InternedRenderLabel; N];
 }
 
+impl<const N: usize> IntoRenderNodeArray<N> for Vec<InternedRenderLabel> {
+    fn into_array(self) -> [InternedRenderLabel; N] {
+        self.try_into().unwrap()
+    }
+}
+
 macro_rules! impl_render_label_tuples {
     ($N: expr, $(#[$meta:meta])* $(($T: ident, $I: ident)),*) => {
         $(#[$meta])*
