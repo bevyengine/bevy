@@ -194,34 +194,44 @@ webgpu = [
 bevy_ci_testing = ["bevy_dev_tools/bevy_ci_testing", "bevy_render?/ci_limits"]
 
 # Enable animation support, and glTF animation loading
-animation = ["bevy_animation", "bevy_gltf?/bevy_animation"]
+animation = ["bevy_animation", "bevy_mesh", "bevy_gltf?/bevy_animation"]
 
+bevy_window = ["dep:bevy_window", "dep:bevy_a11y"]
+
+bevy_shader = ["dep:bevy_shader"]
+bevy_image = ["dep:bevy_image"]
 bevy_sprite = ["dep:bevy_sprite", "bevy_image"]
-bevy_sprite_render = [
-  "bevy_sprite",
-  "dep:bevy_sprite_render",
-  "bevy_gizmos?/bevy_sprite",
-  "bevy_gizmos?/bevy_sprite_render",
+bevy_text = ["dep:bevy_text", "bevy_image", "bevy_sprite"]
+bevy_mesh = ["dep:bevy_mesh", "bevy_image"]
+bevy_camera = ["dep:bevy_camera", "bevy_mesh"]
+bevy_light = ["dep:bevy_light", "bevy_camera"]
+bevy_render = [
+  "dep:bevy_render",
+  "bevy_gizmos?/bevy_render",
+  "bevy_camera",
+  "bevy_shader",
+  "bevy_color/wgpu-types",
+  "bevy_color/encase",
 ]
+bevy_core_pipeline = ["dep:bevy_core_pipeline", "bevy_render"]
+bevy_anti_aliasing = ["dep:bevy_anti_aliasing", "bevy_core_pipeline"]
 bevy_pbr = [
   "dep:bevy_pbr",
   "bevy_gizmos?/bevy_pbr",
   "bevy_light",
-  "bevy_render",
+  "bevy_core_pipeline",
 ]
-bevy_window = ["dep:bevy_window", "dep:bevy_a11y"]
-bevy_core_pipeline = ["dep:bevy_core_pipeline", "bevy_image"]
-bevy_anti_aliasing = ["dep:bevy_anti_aliasing", "bevy_image"]
-bevy_gizmos = ["dep:bevy_gizmos", "bevy_image"]
-bevy_gltf = ["dep:bevy_gltf", "bevy_image"]
-bevy_ui = ["dep:bevy_ui", "bevy_image"]
+bevy_sprite_render = [
+  "dep:bevy_sprite_render",
+  "bevy_sprite",
+  "bevy_core_pipeline",
+  "bevy_gizmos?/bevy_sprite",
+  "bevy_gizmos?/bevy_sprite_render",
+]
+bevy_ui = ["dep:bevy_ui", "bevy_camera"]
 bevy_ui_render = ["dep:bevy_ui_render"]
-bevy_shader = ["dep:bevy_shader"]
-bevy_image = ["dep:bevy_image"]
-
-bevy_mesh = ["dep:bevy_mesh", "bevy_image"]
-bevy_camera = ["dep:bevy_camera", "bevy_mesh"]
-bevy_light = ["dep:bevy_light", "bevy_camera"]
+bevy_gizmos = ["dep:bevy_gizmos", "bevy_camera"]
+bevy_gltf = ["dep:bevy_gltf", "bevy_pbr"]
 
 # Used to disable code that is unsupported when Bevy is dynamically linked
 dynamic_linking = ["bevy_diagnostic/dynamic_linking"]
@@ -232,17 +242,6 @@ android_shared_stdcxx = ["bevy_audio/android_shared_stdcxx"]
 # Enable AccessKit on Unix backends (currently only works with experimental
 # screen readers and forks.)
 accesskit_unix = ["bevy_winit/accesskit_unix"]
-
-bevy_text = ["dep:bevy_text", "bevy_image"]
-
-bevy_render = [
-  "dep:bevy_render",
-  "bevy_gizmos?/bevy_render",
-  "bevy_camera",
-  "bevy_shader",
-  "bevy_color/wgpu-types",
-  "bevy_color/encase",
-]
 
 # Enable assertions to check the validity of parameters passed to glam
 glam_assert = ["bevy_math/glam_assert"]
