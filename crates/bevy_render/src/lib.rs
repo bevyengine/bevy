@@ -42,8 +42,6 @@ pub mod diagnostic;
 pub mod erased_render_asset;
 pub mod experimental;
 pub mod extract_component;
-#[cfg(feature = "bevy_light")]
-mod extract_impls;
 pub mod extract_instances;
 mod extract_param;
 pub mod extract_resource;

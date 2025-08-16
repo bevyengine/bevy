@@ -47,9 +47,7 @@ bevy_mesh = { path = "../bevy_mesh", version = "0.17.0-dev" }
 bevy_shader = { path = "../bevy_shader", version = "0.17.0-dev" }
 bevy_math = { path = "../bevy_math", version = "0.17.0-dev" }
 bevy_reflect = { path = "../bevy_reflect", version = "0.17.0-dev" }
-bevy_render = { path = "../bevy_render", features = [
-  "bevy_light",
-], version = "0.17.0-dev" }
+bevy_render = { path = "../bevy_render", version = "0.17.0-dev" }
 bevy_camera = { path = "../bevy_camera", version = "0.17.0-dev" }
 bevy_tasks = { path = "../bevy_tasks", version = "0.17.0-dev", optional = true }
 bevy_transform = { path = "../bevy_transform", version = "0.17.0-dev" }
