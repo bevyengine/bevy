@@ -40,7 +40,8 @@ use bevy_window::{CursorOptions, PrimaryWindow, RawHandleWrapper};
 
 use crate::{
     accessibility::ACCESS_KIT_ADAPTERS,
-    converters, create_windows,
+    converters::{self, convert_touch_input_phase},
+    create_windows,
     system::{create_monitors, CachedWindow, WinitWindowPressedKeys},
     AppSendEvent, CreateMonitorParams, CreateWindowParams, EventLoopProxyWrapper,
     RawWinitWindowEvent, UpdateMode, WinitSettings, WINIT_WINDOWS,
@@ -320,13 +321,14 @@ impl<T: BufferedEvent> ApplicationHandler<T> for WinitAppRunnerState<T> {
                             y: delta.y,
                         }));
                     }
-                    WindowEvent::MouseWheel { delta, .. } => match delta {
+                    WindowEvent::MouseWheel { delta, phase, .. } => match delta {
                         event::MouseScrollDelta::LineDelta(x, y) => {
                             self.bevy_window_events.send(MouseWheel {
                                 unit: MouseScrollUnit::Line,
                                 x,
                                 y,
                                 window,
+                                phase: convert_touch_input_phase(phase),
                             });
                         }
                         event::MouseScrollDelta::PixelDelta(p) => {
@@ -335,6 +337,7 @@ impl<T: BufferedEvent> ApplicationHandler<T> for WinitAppRunnerState<T> {
                                 x: p.x as f32,
                                 y: p.y as f32,
                                 window,
+                                phase: convert_touch_input_phase(phase),
                             });
                         }
                     },
