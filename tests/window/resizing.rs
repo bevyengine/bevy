@@ -22,7 +22,7 @@ fn main() {
         .add_plugins(
             DefaultPlugins.set(WindowPlugin {
                 primary_window: Some(Window {
-                    resolution: WindowResolution::new(MAX_WIDTH as f32, MAX_HEIGHT as f32)
+                    resolution: WindowResolution::new(MAX_WIDTH as u32, MAX_HEIGHT as u32)
                         .with_scale_factor_override(1.0),
                     title: "Resizing".into(),
                     ..default()
