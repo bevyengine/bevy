@@ -9,6 +9,7 @@ or entities via an `EntityHashSet` express on the type level that this never can
 `EntityMutableFetchError::AliasedMutability` error.
 
 This also affects the following APIs:
+
 - `World::get_entity_mut`
 - `DeferredWorld::get_entity_mut`
 - `EntityFetcher::get_mut`
