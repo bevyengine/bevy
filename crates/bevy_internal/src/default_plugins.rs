@@ -4,7 +4,6 @@ plugin_group! {
     /// This plugin group will add all the default plugins for a *Bevy* application:
     pub struct DefaultPlugins {
         bevy_app:::PanicHandlerPlugin,
-        #[cfg(feature = "bevy_log")]
         bevy_log:::LogPlugin,
         bevy_app:::TaskPoolPlugin,
         bevy_diagnostic:::FrameCountPlugin,
