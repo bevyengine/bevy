@@ -23,6 +23,7 @@ use super::{
 pub enum AtmosphereNode {
     RenderLuts,
     RenderSky,
+    Environment,
 }
 
 #[derive(Default)]

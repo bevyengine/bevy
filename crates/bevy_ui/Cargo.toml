@@ -22,7 +22,6 @@ bevy_image = { path = "../bevy_image", version = "0.17.0-dev" }
 bevy_input = { path = "../bevy_input", version = "0.17.0-dev" }
 bevy_math = { path = "../bevy_math", version = "0.17.0-dev" }
 bevy_reflect = { path = "../bevy_reflect", version = "0.17.0-dev" }
-bevy_render = { path = "../bevy_render", version = "0.17.0-dev" }
 bevy_sprite = { path = "../bevy_sprite", version = "0.17.0-dev" }
 bevy_text = { path = "../bevy_text", version = "0.17.0-dev" }
 bevy_picking = { path = "../bevy_picking", version = "0.17.0-dev", optional = true }
@@ -42,6 +41,9 @@ derive_more = { version = "2", default-features = false, features = ["from"] }
 smallvec = { version = "1", default-features = false }
 accesskit = "0.21"
 tracing = { version = "0.1", default-features = false, features = ["std"] }
+
+[dev-dependencies]
+bevy_render = { path = "../bevy_render", version = "0.17.0-dev" }
 
 [features]
 default = []

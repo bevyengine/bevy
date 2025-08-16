@@ -25,8 +25,8 @@ use bevy_reflect::Reflect;
 use bevy_shader::load_shader_library;
 use bevy_ui::widget::{ImageNode, TextShadow, ViewportNode};
 use bevy_ui::{
-    BackgroundColor, BorderColor, CalculatedClip, ComputedNode, ComputedNodeTarget, Display, Node,
-    Outline, ResolvedBorderRadius, UiGlobalTransform,
+    BackgroundColor, BorderColor, CalculatedClip, ComputedNode, ComputedUiTargetCamera, Display,
+    Node, Outline, ResolvedBorderRadius, UiGlobalTransform,
 };
 
 use bevy_app::prelude::*;
@@ -36,29 +36,21 @@ use bevy_core_pipeline::core_2d::graph::{Core2d, Node2d};
 use bevy_core_pipeline::core_3d::graph::{Core3d, Node3d};
 use bevy_ecs::prelude::*;
 use bevy_ecs::system::SystemParam;
-use bevy_image::prelude::*;
+use bevy_image::{prelude::*, TRANSPARENT_IMAGE_HANDLE};
 use bevy_math::{Affine2, FloatOrd, Mat4, Rect, UVec4, Vec2};
-use bevy_render::render_graph::{NodeRunError, RenderGraphContext};
-use bevy_render::render_phase::ViewSortedRenderPhases;
-use bevy_render::renderer::RenderContext;
-use bevy_render::sync_world::MainEntity;
-use bevy_render::texture::TRANSPARENT_IMAGE_HANDLE;
-use bevy_render::view::{Hdr, RetainedViewEntity};
-use bevy_render::RenderStartup;
 use bevy_render::{
     render_asset::RenderAssets,
-    render_graph::{Node as RenderGraphNode, RenderGraph},
-    render_phase::{sort_phase_system, AddRenderCommand, DrawFunctions},
+    render_graph::{Node as RenderGraphNode, NodeRunError, RenderGraph, RenderGraphContext},
+    render_phase::{
+        sort_phase_system, AddRenderCommand, DrawFunctions, PhaseItem, PhaseItemExtraIndex,
+        ViewSortedRenderPhases,
+    },
     render_resource::*,
-    renderer::{RenderDevice, RenderQueue},
-    view::{ExtractedView, ViewUniforms},
-    Extract, RenderApp, RenderSystems,
-};
-use bevy_render::{
-    render_phase::{PhaseItem, PhaseItemExtraIndex},
-    sync_world::{RenderEntity, TemporaryRenderEntity},
+    renderer::{RenderContext, RenderDevice, RenderQueue},
+    sync_world::{MainEntity, RenderEntity, TemporaryRenderEntity},
     texture::GpuImage,
-    ExtractSchedule, Render,
+    view::{ExtractedView, Hdr, RetainedViewEntity, ViewUniforms},
+    Extract, ExtractSchedule, Render, RenderApp, RenderStartup, RenderSystems,
 };
 use bevy_sprite::{BorderRect, SpriteAssetEvents};
 #[cfg(feature = "bevy_ui_debug")]
@@ -309,7 +301,9 @@ pub struct UiCameraMap<'w, 's> {
 }
 
 impl<'w, 's> UiCameraMap<'w, 's> {
-    /// Get the default camera and create the mapper
+    /// Creates a [`UiCameraMapper`] for performing repeated camera-to-render-entity lookups.
+    ///
+    /// The last successful mapping is cached to avoid redundant queries.
     pub fn get_mapper(&'w self) -> UiCameraMapper<'w, 's> {
         UiCameraMapper {
             mapping: &self.mapping,
@@ -319,15 +313,19 @@ impl<'w, 's> UiCameraMap<'w, 's> {
     }
 }
 
+/// Helper for mapping UI target camera entities to their corresponding render entities,
+/// with caching to avoid repeated lookups for the same camera.
 pub struct UiCameraMapper<'w, 's> {
     mapping: &'w Query<'w, 's, RenderEntity>,
+    /// Cached camera entity from the last successful `map` call.
     camera_entity: Entity,
+    /// Cached camera entity from the last successful `map` call.
     render_entity: Entity,
 }
 
 impl<'w, 's> UiCameraMapper<'w, 's> {
-    /// Returns the render entity corresponding to the given `UiTargetCamera` or the default camera if `None`.
-    pub fn map(&mut self, computed_target: &ComputedNodeTarget) -> Option<Entity> {
+    /// Returns the render entity corresponding to the given [`ComputedUiTargetCamera`]'s camera, or none if no corresponding entity was found.
+    pub fn map(&mut self, computed_target: &ComputedUiTargetCamera) -> Option<Entity> {
         let camera_entity = computed_target.camera()?;
         if self.camera_entity != camera_entity {
             let new_render_camera_entity = self.mapping.get(camera_entity).ok()?;
@@ -338,6 +336,7 @@ impl<'w, 's> UiCameraMapper<'w, 's> {
         Some(self.render_entity)
     }
 
+    /// Returns the cached camera entity from the last successful `map` call.
     pub fn current_camera(&self) -> Entity {
         self.camera_entity
     }
@@ -438,7 +437,7 @@ pub fn extract_uinode_background_colors(
             &UiGlobalTransform,
             &InheritedVisibility,
             Option<&CalculatedClip>,
-            &ComputedNodeTarget,
+            &ComputedUiTargetCamera,
             &BackgroundColor,
         )>,
     >,
@@ -497,7 +496,7 @@ pub fn extract_uinode_images(
             &UiGlobalTransform,
             &InheritedVisibility,
             Option<&CalculatedClip>,
-            &ComputedNodeTarget,
+            &ComputedUiTargetCamera,
             &ImageNode,
         )>,
     >,
@@ -581,7 +580,7 @@ pub fn extract_uinode_borders(
             &UiGlobalTransform,
             &InheritedVisibility,
             Option<&CalculatedClip>,
-            &ComputedNodeTarget,
+            &ComputedUiTargetCamera,
             AnyOf<(&BorderColor, &Outline)>,
         )>,
     >,
@@ -843,7 +842,7 @@ pub fn extract_viewport_nodes(
             &UiGlobalTransform,
             &InheritedVisibility,
             Option<&CalculatedClip>,
-            &ComputedNodeTarget,
+            &ComputedUiTargetCamera,
             &ViewportNode,
         )>,
     >,
@@ -906,7 +905,7 @@ pub fn extract_text_sections(
             &UiGlobalTransform,
             &InheritedVisibility,
             Option<&CalculatedClip>,
-            &ComputedNodeTarget,
+            &ComputedUiTargetCamera,
             &ComputedTextBlock,
             &TextLayoutInfo,
         )>,
@@ -1001,7 +1000,7 @@ pub fn extract_text_shadows(
             Entity,
             &ComputedNode,
             &UiGlobalTransform,
-            &ComputedNodeTarget,
+            &ComputedUiTargetCamera,
             &InheritedVisibility,
             Option<&CalculatedClip>,
             &TextLayoutInfo,
@@ -1083,7 +1082,7 @@ pub fn extract_text_background_colors(
             &UiGlobalTransform,
             &InheritedVisibility,
             Option<&CalculatedClip>,
-            &ComputedNodeTarget,
+            &ComputedUiTargetCamera,
             &TextLayoutInfo,
         )>,
     >,

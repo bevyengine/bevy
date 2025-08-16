@@ -569,14 +569,14 @@ all_tuples!(
 /// Allows a query to contain entities with the component `T`, bypassing [`DefaultQueryFilters`].
 ///
 /// [`DefaultQueryFilters`]: crate::entity_disabling::DefaultQueryFilters
-pub struct Allows<T>(PhantomData<T>);
+pub struct Allow<T>(PhantomData<T>);
 
 /// SAFETY:
 /// `update_component_access` does not add any accesses.
 /// This is sound because [`QueryFilter::filter_fetch`] does not access any components.
 /// `update_component_access` adds an archetypal filter for `T`.
 /// This is sound because it doesn't affect the query
-unsafe impl<T: Component> WorldQuery for Allows<T> {
+unsafe impl<T: Component> WorldQuery for Allow<T> {
     type Fetch<'w> = ();
     type State = ComponentId;
 
@@ -608,13 +608,13 @@ unsafe impl<T: Component> WorldQuery for Allows<T> {
     }
 
     fn matches_component_set(_: &ComponentId, _: &impl Fn(ComponentId) -> bool) -> bool {
-        // Allows<T> always matches
+        // Allow<T> always matches
         true
     }
 }
 
 // SAFETY: WorldQuery impl performs no access at all
-unsafe impl<T: Component> QueryFilter for Allows<T> {
+unsafe impl<T: Component> QueryFilter for Allow<T> {
     const IS_ARCHETYPAL: bool = true;
 
     #[inline(always)]

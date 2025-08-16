@@ -82,7 +82,18 @@ pub struct SceneSpawner {
     pub(crate) spawned_dynamic_scenes: HashMap<AssetId<DynamicScene>, HashSet<InstanceId>>,
     spawned_instances: HashMap<InstanceId, InstanceInfo>,
     scene_asset_event_reader: EventCursor<AssetEvent<Scene>>,
+    // TODO: temp fix for https://github.com/bevyengine/bevy/issues/12756 effect on scenes
+    // To handle scene hot reloading, they are unloaded/reloaded on asset modifications.
+    // When loading several subassets of a scene as is common with gltf, they each trigger a complete asset load,
+    // and each will trigger either a created or modified event for the parent asset. This causes the scene to be
+    // unloaded, losing its initial setup, and reloaded without it.
+    // Debouncing scene asset events let us ignore events that happen less than SCENE_ASSET_AGE_THRESHOLD frames
+    // apart and not reload the scene in those cases as it's unlikely to be an actual asset change.
+    debounced_scene_asset_events: HashMap<AssetId<Scene>, u32>,
     dynamic_scene_asset_event_reader: EventCursor<AssetEvent<DynamicScene>>,
+    // TODO: temp fix for https://github.com/bevyengine/bevy/issues/12756 effect on scenes
+    // See debounced_scene_asset_events
+    debounced_dynamic_scene_asset_events: HashMap<AssetId<DynamicScene>, u32>,
     scenes_to_spawn: Vec<(Handle<Scene>, InstanceId, Option<Entity>)>,
     dynamic_scenes_to_spawn: Vec<(Handle<DynamicScene>, InstanceId, Option<Entity>)>,
     scenes_to_despawn: Vec<AssetId<Scene>>,
@@ -552,10 +563,21 @@ pub fn scene_spawner_system(world: &mut World) {
             .scene_asset_event_reader
             .read(scene_asset_events)
         {
-            if let AssetEvent::Modified { id } = event
-                && scene_spawner.spawned_scenes.contains_key(id)
-            {
-                updated_spawned_scenes.push(*id);
+            match event {
+                AssetEvent::Added { id } => {
+                    scene_spawner.debounced_scene_asset_events.insert(*id, 0);
+                }
+                AssetEvent::Modified { id } => {
+                    if scene_spawner
+                        .debounced_scene_asset_events
+                        .insert(*id, 0)
+                        .is_none()
+                        && scene_spawner.spawned_scenes.contains_key(id)
+                    {
+                        updated_spawned_scenes.push(*id);
+                    }
+                }
+                _ => {}
             }
         }
         let mut updated_spawned_dynamic_scenes = Vec::new();
@@ -563,10 +585,23 @@ pub fn scene_spawner_system(world: &mut World) {
             .dynamic_scene_asset_event_reader
             .read(dynamic_scene_asset_events)
         {
-            if let AssetEvent::Modified { id } = event
-                && scene_spawner.spawned_dynamic_scenes.contains_key(id)
-            {
-                updated_spawned_dynamic_scenes.push(*id);
+            match event {
+                AssetEvent::Added { id } => {
+                    scene_spawner
+                        .debounced_dynamic_scene_asset_events
+                        .insert(*id, 0);
+                }
+                AssetEvent::Modified { id } => {
+                    if scene_spawner
+                        .debounced_dynamic_scene_asset_events
+                        .insert(*id, 0)
+                        .is_none()
+                        && scene_spawner.spawned_dynamic_scenes.contains_key(id)
+                    {
+                        updated_spawned_dynamic_scenes.push(*id);
+                    }
+                }
+                _ => {}
             }
         }
 
@@ -582,6 +617,40 @@ pub fn scene_spawner_system(world: &mut World) {
             .update_spawned_dynamic_scenes(world, &updated_spawned_dynamic_scenes)
             .unwrap();
         scene_spawner.trigger_scene_ready_events(world);
+
+        const SCENE_ASSET_AGE_THRESHOLD: u32 = 2;
+        for asset_id in scene_spawner.debounced_scene_asset_events.clone().keys() {
+            let age = scene_spawner
+                .debounced_scene_asset_events
+                .get(asset_id)
+                .unwrap();
+            if *age > SCENE_ASSET_AGE_THRESHOLD {
+                scene_spawner.debounced_scene_asset_events.remove(asset_id);
+            } else {
+                scene_spawner
+                    .debounced_scene_asset_events
+                    .insert(*asset_id, *age + 1);
+            }
+        }
+        for asset_id in scene_spawner
+            .debounced_dynamic_scene_asset_events
+            .clone()
+            .keys()
+        {
+            let age = scene_spawner
+                .debounced_dynamic_scene_asset_events
+                .get(asset_id)
+                .unwrap();
+            if *age > SCENE_ASSET_AGE_THRESHOLD {
+                scene_spawner
+                    .debounced_dynamic_scene_asset_events
+                    .remove(asset_id);
+            } else {
+                scene_spawner
+                    .debounced_dynamic_scene_asset_events
+                    .insert(*asset_id, *age + 1);
+            }
+        }
     });
 }
 
