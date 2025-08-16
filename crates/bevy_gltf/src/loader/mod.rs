@@ -1539,10 +1539,19 @@ fn load_node(
                     // > the accessors of the original primitive.
                     mesh_entity.insert(MeshMorphWeights::new(weights).unwrap());
                 }
-                mesh_entity.insert(Aabb::from_min_max(
-                    Vec3::from_slice(&bounds.min),
-                    Vec3::from_slice(&bounds.max),
-                ));
+
+                let mut bounds_min = Vec3::from_slice(&bounds.min);
+                let mut bounds_max = Vec3::from_slice(&bounds.max);
+
+                if convert_coordinates {
+                    let converted_min = bounds_min.convert_coordinates();
+                    let converted_max = bounds_max.convert_coordinates();
+
+                    bounds_min = converted_min.min(converted_max);
+                    bounds_max = converted_min.max(converted_max);
+                }
+
+                mesh_entity.insert(Aabb::from_min_max(bounds_min, bounds_max));
 
                 if let Some(extras) = primitive.extras() {
                     mesh_entity.insert(GltfExtras {
