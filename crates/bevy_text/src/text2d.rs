@@ -4,6 +4,7 @@ use crate::{
     TextError, TextFont, TextLayout, TextLayoutInfo, TextPipeline, TextReader, TextRoot,
     TextSpanAccess, TextWriter,
 };
+
 use bevy_asset::Assets;
 use bevy_camera::primitives::Aabb;
 use bevy_camera::visibility::{self, NoFrustumCulling, Visibility, VisibilityClass};
