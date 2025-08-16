@@ -44,6 +44,7 @@ use bevy_window::{PrimaryWindow, Window};
 /// # use bevy_color::palettes::basic::BLUE;
 /// # use bevy_ecs::world::World;
 /// # use bevy_text::{Font, Justify, TextLayout, TextFont, TextColor, TextSpan};
+/// # use bevy_sprite::Text2d;
 /// #
 /// # let font_handle: Handle<Font> = Default::default();
 /// # let mut world = World::default();
