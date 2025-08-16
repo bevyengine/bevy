@@ -15,7 +15,6 @@ pbr_multi_layer_material_textures = [
 ]
 pbr_anisotropy_texture = ["bevy_pbr/pbr_anisotropy_texture"]
 pbr_specular_textures = ["bevy_pbr/pbr_specular_textures"]
-gltf_convert_coordinates_default = []
 
 [dependencies]
 # bevy
@@ -64,6 +63,8 @@ serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0.140"
 smallvec = { version = "1", default-features = false }
 tracing = { version = "0.1", default-features = false, features = ["std"] }
+
+[dev-dependencies]
 bevy_log = { path = "../bevy_log", version = "0.17.0-dev" }
 
 [lints]
