@@ -4,8 +4,8 @@ use bevy::{
     prelude::*,
     reflect::TypePath,
     render::render_resource::AsBindGroup,
+    render_2d::{AlphaMode2d, Material2d, Material2dPlugin},
     shader::ShaderRef,
-    sprite_render::{AlphaMode2d, Material2d, Material2dPlugin},
 };
 
 /// This example uses a shader source file from the assets subdirectory

@@ -5,7 +5,7 @@ use bevy_ecs::{
 };
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_ui::{BackgroundColor, BorderRadius, Node, PositionType, Val};
-use bevy_ui_render::ui_material::MaterialNode;
+use bevy_render_ui::ui_material::MaterialNode;
 
 use crate::{
     alpha_pattern::{AlphaPattern, AlphaPatternMaterial},

@@ -23,7 +23,7 @@ use bevy_asset::embedded_asset;
 use bevy_ecs::{query::With, schedule::IntoScheduleConfigs};
 use bevy_text::{TextColor, TextFont};
 use bevy_ui::UiSystems;
-use bevy_ui_render::UiMaterialPlugin;
+use bevy_render_ui::UiMaterialPlugin;
 
 use crate::{
     alpha_pattern::{AlphaPatternMaterial, AlphaPatternResource},

@@ -10,8 +10,8 @@ use bevy_render::{
     render_resource::{AsBindGroup, ShaderType},
     storage::ShaderStorageBuffer,
 };
+use bevy_render_ui::prelude::{UiMaterial, UiMaterialPlugin};
 use bevy_shader::{Shader, ShaderRef};
-use bevy_ui_render::prelude::{UiMaterial, UiMaterialPlugin};
 
 use crate::fps_overlay::FpsOverlayConfig;
 

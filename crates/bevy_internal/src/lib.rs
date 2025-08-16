@@ -70,6 +70,10 @@ pub use bevy_reflect as reflect;
 pub use bevy_remote as remote;
 #[cfg(feature = "bevy_render")]
 pub use bevy_render as render;
+#[cfg(feature = "bevy_render_2d")]
+pub use bevy_render_2d as render_2d;
+#[cfg(feature = "bevy_render_ui")]
+pub use bevy_render_ui as render_ui;
 #[cfg(feature = "bevy_scene")]
 pub use bevy_scene as scene;
 #[cfg(feature = "bevy_shader")]
@@ -78,8 +82,6 @@ pub use bevy_shader as shader;
 pub use bevy_solari as solari;
 #[cfg(feature = "bevy_sprite")]
 pub use bevy_sprite as sprite;
-#[cfg(feature = "bevy_sprite_render")]
-pub use bevy_sprite_render as sprite_render;
 #[cfg(feature = "bevy_state")]
 pub use bevy_state as state;
 pub use bevy_tasks as tasks;
@@ -89,8 +91,6 @@ pub use bevy_time as time;
 pub use bevy_transform as transform;
 #[cfg(feature = "bevy_ui")]
 pub use bevy_ui as ui;
-#[cfg(feature = "bevy_ui_render")]
-pub use bevy_ui_render as ui_render;
 pub use bevy_utils as utils;
 #[cfg(feature = "bevy_window")]
 pub use bevy_window as window;

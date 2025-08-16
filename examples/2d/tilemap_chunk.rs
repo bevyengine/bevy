@@ -2,7 +2,7 @@
 
 use bevy::{
     prelude::*,
-    sprite_render::{TileData, TilemapChunk, TilemapChunkTileData},
+    render_2d::{TileData, TilemapChunk, TilemapChunkTileData},
 };
 use rand::{Rng, SeedableRng};
 use rand_chacha::ChaCha8Rng;

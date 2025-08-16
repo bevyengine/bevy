@@ -1,5 +1,5 @@
 [package]
-name = "bevy_sprite_render"
+name = "bevy_render_2d"
 version = "0.17.0-dev"
 edition = "2024"
 description = "Provides sprite rendering functionality for Bevy Engine"

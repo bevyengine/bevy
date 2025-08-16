@@ -44,14 +44,14 @@ plugin_group! {
         bevy_anti_aliasing:::AntiAliasingPlugin,
         #[cfg(feature = "bevy_sprite")]
         bevy_sprite:::SpritePlugin,
-        #[cfg(feature = "bevy_sprite_render")]
-        bevy_sprite_render:::SpriteRenderingPlugin,
+        #[cfg(feature = "bevy_render_2d")]
+        bevy_render_2d:::SpriteRenderingPlugin,
         #[cfg(feature = "bevy_text")]
         bevy_text:::TextPlugin,
         #[cfg(feature = "bevy_ui")]
         bevy_ui:::UiPlugin,
-        #[cfg(feature = "bevy_ui_render")]
-        bevy_ui_render:::UiRenderPlugin,
+        #[cfg(feature = "bevy_render_ui")]
+        bevy_render_ui:::UiRenderPlugin,
         #[cfg(feature = "bevy_pbr")]
         bevy_pbr:::PbrPlugin,
         // NOTE: Load this after renderer initialization so that it knows about the supported

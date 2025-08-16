@@ -56,7 +56,7 @@ use bevy_render::{
     Extract, ExtractSchedule, Render, RenderApp, RenderStartup, RenderSystems,
 };
 use bevy_sprite::{BorderRect, SpriteSystems};
-use bevy_sprite_render::SpriteAssetEvents;
+use bevy_render_2d::SpriteAssetEvents;
 #[cfg(feature = "bevy_ui_debug")]
 pub use debug_overlay::UiDebugOptions;
 use gradient::GradientPlugin;
@@ -147,7 +147,7 @@ pub enum RenderUiSystems {
 /// use bevy_camera::prelude::*;
 /// use bevy_ecs::prelude::*;
 /// use bevy_ui::prelude::*;
-/// use bevy_ui_render::prelude::*;
+/// use bevy_render_ui::prelude::*;
 ///
 /// fn spawn_camera(mut commands: Commands) {
 ///     commands.spawn((
@@ -176,7 +176,7 @@ pub enum UiAntiAlias {
 /// use bevy_camera::prelude::*;
 /// use bevy_ecs::prelude::*;
 /// use bevy_ui::prelude::*;
-/// use bevy_ui_render::prelude::*;
+/// use bevy_render_ui::prelude::*;
 ///
 /// fn spawn_camera(mut commands: Commands) {
 ///     commands.spawn((

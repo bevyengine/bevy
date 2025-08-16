@@ -36,7 +36,7 @@ use derive_more::derive::From;
 /// # use bevy_color::LinearRgba;
 /// # use bevy_shader::ShaderRef;
 /// # use bevy_asset::{Handle, AssetServer, Assets, Asset};
-/// # use bevy_ui_render::prelude::*;
+/// # use bevy_render_ui::prelude::*;
 ///
 /// #[derive(AsBindGroup, Asset, TypePath, Debug, Clone)]
 /// pub struct CustomMaterial {

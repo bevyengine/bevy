@@ -1,4 +1,4 @@
-#define_import_path bevy_sprite_render::sprite_view_bindings
+#define_import_path bevy_render_2d::sprite_view_bindings
 
 #import bevy_render::view::View
 

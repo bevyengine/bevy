@@ -16,13 +16,13 @@ use bevy_ecs::{
     system::{Commands, Query, Res, ResMut},
 };
 use bevy_render::storage::ShaderStorageBuffer;
+use bevy_render_ui::prelude::MaterialNode;
 use bevy_text::{Font, TextColor, TextFont, TextSpan};
 use bevy_time::Time;
 use bevy_ui::{
     widget::{Text, TextUiWriter},
     FlexDirection, GlobalZIndex, Node, PositionType, Val,
 };
-use bevy_ui_render::prelude::MaterialNode;
 use core::time::Duration;
 
 use crate::frame_time_graph::{

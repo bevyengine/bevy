@@ -24,9 +24,9 @@ use bevy_render::{
     Extract, ExtractSchedule, Render, RenderSystems,
 };
 use bevy_render::{sync_world::MainEntity, RenderStartup};
+use bevy_render_2d::SpriteAssetEvents;
 use bevy_shader::Shader;
 use bevy_sprite::{SliceScaleMode, SpriteImageMode, TextureSlicer};
-use bevy_sprite_render::SpriteAssetEvents;
 use bevy_ui::widget;
 use bevy_utils::default;
 use binding_types::{sampler, texture_2d};
