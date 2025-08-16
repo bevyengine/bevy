@@ -207,7 +207,7 @@ impl Default for GltfLoaderSettings {
             include_source: false,
             default_sampler: None,
             override_sampler: false,
-            use_model_forward_direction: None,
+            convert_coordinates: None,
         }
     }
 }
@@ -247,7 +247,7 @@ impl GltfLoader {
             paths
         };
 
-        let convert_coordinates = match settings.use_model_forward_direction {
+        let convert_coordinates = match settings.convert_coordinates {
             Some(convert_coordinates) => convert_coordinates,
             None => loader.default_convert_coordinates,
         };
