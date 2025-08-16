@@ -176,14 +176,14 @@ impl TextLayout {
 /// # use bevy_color::Color;
 /// # use bevy_color::palettes::basic::{BLUE, GREEN, RED};
 /// # use bevy_ecs::{children, spawn::SpawnRelated, world::World};
-/// # use bevy_text::{Font, Justify, Text2d, TextColor, TextLayout, TextFont, TextSpan};
+/// # use bevy_text::{Font, Justify, TextColor, TextLayout, TextFont, TextSpan};
 ///
 /// # let font_handle: Handle<Font> = Default::default();
 /// # let mut world = World::default();
 /// #
 /// world.spawn((
 ///     // `Text` or `Text2d` is needed.
-///     Text2d::new("Bevy\n"),
+///     Text::new("Bevy\n"),
 ///     // Layout of the entire block of text.
 ///     TextLayout::new_with_justify(Justify::Center),
 ///     // TextFont of this node. Won't apply to children.
