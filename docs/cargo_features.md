@@ -31,15 +31,15 @@ The default feature set enables most of the expected features of a game engine, 
 |bevy_pbr|Adds PBR rendering|
 |bevy_picking|Provides picking functionality|
 |bevy_render|Provides rendering functionality|
+|bevy_render_2d|Provides sprite rendering functionality|
+|bevy_render_ui|Provides rendering functionality for bevy_ui|
 |bevy_scene|Provides scene functionality|
 |bevy_sprite|Provides sprite functionality|
 |bevy_sprite_picking_backend|Provides an implementation for picking sprites|
-|bevy_sprite_render|Provides sprite rendering functionality|
 |bevy_state|Enable built in global state machines|
 |bevy_text|Provides text functionality|
 |bevy_ui|A custom ECS-driven UI framework|
 |bevy_ui_picking_backend|Provides an implementation for picking UI|
-|bevy_ui_render|Provides rendering functionality for bevy_ui|
 |bevy_window|Windowing layer|
 |bevy_winit|winit window and input backend|
 |custom_cursor|Enable winit custom cursor support|
