@@ -4,15 +4,15 @@ use crate::{
     bounding::BoundingVolume,
     ops,
     primitives::{
-        Annulus, Arc2d, Capsule2d, Circle, CircularSector, CircularSegment, ConvexPolygon, Ellipse,
-        Line2d, Plane2d, Rectangle, RegularPolygon, Rhombus, Segment2d, Triangle2d,
+        Annulus, Arc2d, Capsule2d, Circle, CircularSector, CircularSegment, Ellipse, Line2d,
+        Plane2d, Rectangle, RegularPolygon, Rhombus, Segment2d, Triangle2d,
     },
     Dir2, Isometry2d, Mat2, Rot2, Vec2,
 };
 use core::f32::consts::{FRAC_PI_2, PI, TAU};
 
 #[cfg(feature = "alloc")]
-use crate::primitives::{Polygon, Polyline2d};
+use crate::primitives::{ConvexPolygon, Polygon, Polyline2d};
 
 use smallvec::SmallVec;
 

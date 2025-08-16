@@ -106,7 +106,7 @@ impl Deref for DebugName {
         #[cfg(feature = "debug")]
         return &self.name;
         #[cfg(not(feature = "debug"))]
-        return &FEATURE_DISABLED;
+        return FEATURE_DISABLED;
     }
 }
 
