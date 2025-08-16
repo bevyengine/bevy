@@ -6,8 +6,8 @@ use bevy::{
     prelude::*,
     reflect::TypePath,
     render::render_resource::*,
-    shader::ShaderRef,
     render_2d::{Material2d, Material2dKey, Material2dPlugin},
+    shader::ShaderRef,
 };
 
 /// This example uses a shader source file from the assets subdirectory

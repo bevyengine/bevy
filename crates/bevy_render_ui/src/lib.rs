@@ -55,8 +55,8 @@ use bevy_render::{
     view::{ExtractedView, Hdr, RetainedViewEntity, ViewUniforms},
     Extract, ExtractSchedule, Render, RenderApp, RenderStartup, RenderSystems,
 };
-use bevy_sprite::{BorderRect, SpriteSystems};
 use bevy_render_2d::SpriteAssetEvents;
+use bevy_sprite::{BorderRect, SpriteSystems};
 #[cfg(feature = "bevy_ui_debug")]
 pub use debug_overlay::UiDebugOptions;
 use gradient::GradientPlugin;

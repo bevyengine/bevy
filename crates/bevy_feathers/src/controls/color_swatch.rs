@@ -4,8 +4,8 @@ use bevy_ecs::{
     bundle::Bundle, children, component::Component, reflect::ReflectComponent, spawn::SpawnRelated,
 };
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
-use bevy_ui::{BackgroundColor, BorderRadius, Node, PositionType, Val};
 use bevy_render_ui::ui_material::MaterialNode;
+use bevy_ui::{BackgroundColor, BorderRadius, Node, PositionType, Val};
 
 use crate::{
     alpha_pattern::{AlphaPattern, AlphaPatternMaterial},

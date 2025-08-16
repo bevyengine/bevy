@@ -11,8 +11,8 @@ use bevy_ecs::{
 };
 use bevy_reflect::{prelude::ReflectDefault, Reflect, TypePath};
 use bevy_render::render_resource::AsBindGroup;
-use bevy_shader::ShaderRef;
 use bevy_render_ui::ui_material::{MaterialNode, UiMaterial};
+use bevy_shader::ShaderRef;
 
 #[derive(AsBindGroup, Asset, TypePath, Default, Debug, Clone)]
 pub(crate) struct AlphaPatternMaterial {}

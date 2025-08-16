@@ -21,9 +21,9 @@
 use bevy_app::{HierarchyPropagatePlugin, Plugin, PostUpdate, PropagateSet};
 use bevy_asset::embedded_asset;
 use bevy_ecs::{query::With, schedule::IntoScheduleConfigs};
+use bevy_render_ui::UiMaterialPlugin;
 use bevy_text::{TextColor, TextFont};
 use bevy_ui::UiSystems;
-use bevy_render_ui::UiMaterialPlugin;
 
 use crate::{
     alpha_pattern::{AlphaPatternMaterial, AlphaPatternResource},
