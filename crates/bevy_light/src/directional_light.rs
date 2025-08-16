@@ -241,7 +241,9 @@ pub fn update_directional_light_frusta(
     }
 }
 
-/// This component marks a [`DirectionalLight`] entity for changing the size and intensity of the sun disk.
+/// Add to a [`DirectionalLight`] to control rendering of the visible solar disk in the sky.
+/// Affects only the disk’s appearance, not the light’s illuminance or shadows.
+/// Requires a `bevy::pbr::Atmosphere` component on a [`Camera3d`](bevy_camera::Camera3d) to have any effect.
 ///
 /// By default, the atmosphere is rendered with [`SunDisk::EARTH`], which approximates the
 /// apparent size and brightness of the Sun as seen from Earth. You can also disable the sun
@@ -249,32 +251,28 @@ pub fn update_directional_light_frusta(
 #[derive(Component, Clone)]
 #[require(DirectionalLight)]
 pub struct SunDisk {
-    /// The angular size (diameter) of the sun disk in radians as observed from Earth.
+    /// The angular size (diameter) of the sun disk in radians, as observed from the scene.
     pub angular_size: f32,
-    /// Multiplier applied to the brightness of the sun disk in the sky.
+    /// Multiplier for the brightness of the sun disk.
     ///
-    /// `0.0` disables the sun disk entirely while still
-    /// allowing the sun's radiance to scatter into the atmosphere,
-    /// and `1.0` renders the sun disk at its normal intensity.
+    /// `0.0` disables the disk entirely (atmospheric scattering still occurs),
+    /// `1.0` is the default physical intensity, and values `>1.0` overexpose it.
     pub intensity: f32,
 }
 
 impl SunDisk {
-    /// Parameters of the sun disk as viewed from Earth.
+    /// Earth-like parameters for the sun disk.
     ///
-    /// Use this constant to render a sun disk with its typical apparent size (about 32 arcminutes)
-    /// and default intensity.
+    /// Uses the mean apparent size (~32 arcminutes) of the Sun at 1 AU distance
+    /// with default intensity.
     pub const EARTH: SunDisk = SunDisk {
-        // 32 arc minutes is the mean size of the sun disk when the Earth is
-        // exactly 1 astronomical unit from the sun.
         angular_size: 0.00930842,
         intensity: 1.0,
     };
 
-    /// Disable sun disk rendering: zero angular size and zero intensity.
+    /// No visible sun disk.
     ///
-    /// This keeps atmospheric scattering and lighting from the directional light,
-    /// but hides sun disk in atmosphere rendering.
+    /// Keeps scattering and directional light illumination, but hides the disk itself.
     pub const OFF: SunDisk = SunDisk {
         angular_size: 0.0,
         intensity: 0.0,
