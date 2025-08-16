@@ -5,7 +5,7 @@ use crate::{
     TextSpanAccess, TextWriter,
 };
 
-use bevy_asset::{AssetId, Assets};
+use bevy_asset::Assets;
 use bevy_camera::primitives::Aabb;
 use bevy_camera::visibility::{self, NoFrustumCulling, Visibility, VisibilityClass};
 use bevy_color::Color;
