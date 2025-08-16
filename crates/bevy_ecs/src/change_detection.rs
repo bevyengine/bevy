@@ -1051,7 +1051,7 @@ impl<'w> MutUntyped<'w> {
     /// Returns a [`MutUntyped`] with a smaller lifetime.
     /// This is useful if you have `&mut MutUntyped`, but you need a `MutUntyped`.
     #[inline]
-    pub fn reborrow(&mut self) -> MutUntyped {
+    pub fn reborrow(&mut self) -> MutUntyped<'_> {
         MutUntyped {
             value: self.value.reborrow(),
             ticks: TicksMut {

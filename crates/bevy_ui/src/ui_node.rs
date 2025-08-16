@@ -2,15 +2,12 @@ use crate::{
     ui_transform::{UiGlobalTransform, UiTransform},
     FocusPolicy, UiRect, Val,
 };
+use bevy_camera::{visibility::Visibility, Camera, RenderTarget};
 use bevy_color::{Alpha, Color};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{prelude::*, system::SystemParam};
 use bevy_math::{vec4, Rect, UVec2, Vec2, Vec4Swizzles};
 use bevy_reflect::prelude::*;
-use bevy_render::{
-    camera::{Camera, RenderTarget},
-    view::Visibility,
-};
 use bevy_sprite::BorderRect;
 use bevy_utils::once;
 use bevy_window::{PrimaryWindow, WindowRef};
@@ -383,7 +380,8 @@ impl From<Vec2> for ScrollPosition {
 #[derive(Component, Clone, PartialEq, Debug, Reflect)]
 #[require(
     ComputedNode,
-    ComputedNodeTarget,
+    ComputedUiTargetCamera,
+    ComputedUiRenderTargetInfo,
     UiTransform,
     BackgroundColor,
     BorderColor,
@@ -2116,10 +2114,17 @@ impl<T: Into<Color>> From<T> for BorderColor {
 
 impl BorderColor {
     /// Border color is transparent by default.
-    pub const DEFAULT: Self = BorderColor::all(Color::NONE);
+    pub const DEFAULT: Self = BorderColor {
+        top: Color::NONE,
+        right: Color::NONE,
+        bottom: Color::NONE,
+        left: Color::NONE,
+    };
 
     /// Helper to create a `BorderColor` struct with all borders set to the given color
-    pub const fn all(color: Color) -> Self {
+    #[inline]
+    pub fn all(color: impl Into<Color>) -> Self {
+        let color = color.into();
         Self {
             top: color,
             bottom: color,
@@ -2713,7 +2718,7 @@ impl Default for LayoutConfig {
 /// Indicates that this root [`Node`] entity should be rendered to a specific camera.
 ///
 /// UI then will be laid out respecting the camera's viewport and scale factor, and
-/// rendered to this camera's [`bevy_render::camera::RenderTarget`].
+/// rendered to this camera's [`bevy_camera::RenderTarget`].
 ///
 /// Setting this component on a non-root node will have no effect. It will be overridden
 /// by the root node's component.
@@ -2743,8 +2748,7 @@ impl UiTargetCamera {
 /// ```
 /// # use bevy_ui::prelude::*;
 /// # use bevy_ecs::prelude::Commands;
-/// # use bevy_render::camera::{Camera, RenderTarget};
-/// # use bevy_core_pipeline::prelude::Camera2d;
+/// # use bevy_camera::{Camera, Camera2d, RenderTarget};
 /// # use bevy_window::{Window, WindowRef};
 ///
 /// fn spawn_camera(mut commands: Commands) {
@@ -2797,37 +2801,59 @@ impl<'w, 's> DefaultUiCamera<'w, 's> {
 }
 
 /// Derived information about the camera target for this UI node.
+///
+/// Updated in [`UiSystems::Prepare`](crate::UiSystems::Prepare) by [`propagate_ui_target_cameras`](crate::update::propagate_ui_target_cameras)
 #[derive(Component, Clone, Copy, Debug, Reflect, PartialEq)]
 #[reflect(Component, Default, PartialEq, Clone)]
-pub struct ComputedNodeTarget {
+pub struct ComputedUiTargetCamera {
     pub(crate) camera: Entity,
-    pub(crate) scale_factor: f32,
-    pub(crate) physical_size: UVec2,
 }
 
-impl Default for ComputedNodeTarget {
+impl Default for ComputedUiTargetCamera {
     fn default() -> Self {
         Self {
             camera: Entity::PLACEHOLDER,
+        }
+    }
+}
+
+impl ComputedUiTargetCamera {
+    /// Returns the id of the target camera for this UI node.
+    pub fn get(&self) -> Option<Entity> {
+        Some(self.camera).filter(|&entity| entity != Entity::PLACEHOLDER)
+    }
+}
+
+/// Derived information about the render target for this UI node.
+#[derive(Component, Clone, Copy, Debug, Reflect, PartialEq)]
+#[reflect(Component, Default, PartialEq, Clone)]
+pub struct ComputedUiRenderTargetInfo {
+    /// The scale factor of the target camera's render target.
+    pub(crate) scale_factor: f32,
+    /// The size of the target camera's viewport in physical pixels.
+    pub(crate) physical_size: UVec2,
+}
+
+impl Default for ComputedUiRenderTargetInfo {
+    fn default() -> Self {
+        Self {
             scale_factor: 1.,
             physical_size: UVec2::ZERO,
         }
     }
 }
 
-impl ComputedNodeTarget {
-    pub fn camera(&self) -> Option<Entity> {
-        Some(self.camera).filter(|&entity| entity != Entity::PLACEHOLDER)
-    }
-
+impl ComputedUiRenderTargetInfo {
     pub const fn scale_factor(&self) -> f32 {
         self.scale_factor
     }
 
+    /// Returns the size of the target camera's viewport in physical pixels.
     pub const fn physical_size(&self) -> UVec2 {
         self.physical_size
     }
 
+    /// Returns the size of the target camera's viewport in logical pixels.
     pub fn logical_size(&self) -> Vec2 {
         self.physical_size.as_vec2() / self.scale_factor
     }

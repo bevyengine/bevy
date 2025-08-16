@@ -64,7 +64,7 @@ impl<'w, E, B: Bundle> On<'w, E, B> {
     }
 
     /// Returns a pointer to the triggered event.
-    pub fn event_ptr(&self) -> Ptr {
+    pub fn event_ptr(&self) -> Ptr<'_> {
         Ptr::from(&self.event)
     }
 

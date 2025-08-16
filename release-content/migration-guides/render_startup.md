@@ -1,6 +1,6 @@
 ---
 title: Many render resources now initialized in `RenderStartup`
-pull_requests: [19841, 19926, 19885, 19886, 19897, 19898, 19901, 20002, 20147]
+pull_requests: [19841, 19885, 19886, 19897, 19898, 19901, 19912, 19926, 19999, 20002, 20024, 20124, 20147, 20184, 20194, 20195, 20208, 20209, 20210]
 ---
 
 Many render resources are **no longer present** during `Plugin::finish`. Instead they are
@@ -15,6 +15,9 @@ The following are the (public) resources that are now initialized in `RenderStar
 - `FxaaPipeline`
 - `SmaaPipelines`
 - `TaaPipeline`
+- `ShadowSamplers`
+- `GlobalClusterableObjectMeta`
+- `FallbackBindlessResources`
 - `AutoExposurePipeline`
 - `MotionBlurPipeline`
 - `SkyboxPrepassPipeline`
@@ -29,13 +32,19 @@ The following are the (public) resources that are now initialized in `RenderStar
 - `UiPipeline`
 - `UiMaterialPipeline<M>`
 - `UiTextureSlicePipeline`
+- `ScreenshotToScreenPipeline`
 - `VolumetricFogPipeline`
 - `DeferredLightingLayout`
+- `CopyDeferredLightingIdPipeline`
 - `RenderLightmaps`
 - `PrepassPipeline`
 - `PrepassViewBindGroup`
 - `Wireframe3dPipeline`
+- `ScreenSpaceReflectionsPipeline`
 - `MaterialPipeline`
+- `MeshletPipelines`
+- `MeshletMeshManager`
+- `ResourceManager`
 - `Wireframe2dPipeline`
 - `Material2dPipeline`
 - `SpritePipeline`

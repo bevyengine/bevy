@@ -16,7 +16,7 @@ bevy_math = { path = "../bevy_math", version = "0.17.0-dev" }
 bevy_reflect = { path = "../bevy_reflect", version = "0.17.0-dev" }
 bevy_ecs = { path = "../bevy_ecs", version = "0.17.0-dev" }
 bevy_transform = { path = "../bevy_transform", version = "0.17.0-dev" }
-bevy_mikktspace = { path = "../bevy_mikktspace", version = "0.17.0-dev" }
+bevy_mikktspace = { version = "0.17.0-dev" }
 bevy_derive = { path = "../bevy_derive", version = "0.17.0-dev" }
 bevy_platform = { path = "../bevy_platform", version = "0.17.0-dev", default-features = false, features = [
   "std",
@@ -26,11 +26,11 @@ bevy_platform = { path = "../bevy_platform", version = "0.17.0-dev", default-fea
 # other
 bitflags = { version = "2.3", features = ["serde"] }
 bytemuck = { version = "1.5" }
-wgpu-types = { version = "25", default-features = false }
+wgpu-types = { version = "26", default-features = false }
 serde = { version = "1", default-features = false, features = [
   "derive",
 ], optional = true }
-hexasphere = "15.0"
+hexasphere = "16.0"
 thiserror = { version = "2", default-features = false }
 tracing = { version = "0.1", default-features = false, features = ["std"] }
 derive_more = { version = "2", default-features = false, features = ["from"] }

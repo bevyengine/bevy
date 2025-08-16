@@ -10,7 +10,7 @@ keywords = ["bevy"]
 rust-version = "1.85.0"
 
 [features]
-default = ["std", "smallvec", "debug"]
+default = ["std", "smallvec", "debug", "auto_register_inventory"]
 
 # Features
 
@@ -68,6 +68,22 @@ std = [
 ## on all platforms, including `no_std`.
 critical-section = ["bevy_platform/critical-section"]
 
+# Enables automatic reflect registration. Does nothing by itself, 
+# must select `auto_register_inventory` or `auto_register_static` to make it work.
+auto_register = []
+## Enables automatic reflect registration using inventory. Not supported on all platforms.
+auto_register_inventory = [
+  "auto_register",
+  "bevy_reflect_derive/auto_register_inventory",
+  "dep:inventory",
+]
+## Enable automatic reflect registration without inventory. This feature has precedence over `auto_register_inventory`.
+## See `load_type_registrations` for more info.
+auto_register_static = [
+  "auto_register",
+  "bevy_reflect_derive/auto_register_static",
+]
+
 ## Enables use of browser APIs.
 ## Note this is currently only applicable on `wasm32` architectures.
 web = ["bevy_platform/web", "uuid?/js"]
@@ -97,7 +113,7 @@ derive_more = { version = "2", default-features = false, features = ["from"] }
 serde = { version = "1", default-features = false, features = ["alloc"] }
 assert_type_match = "0.1.1"
 smallvec = { version = "1", default-features = false, optional = true }
-glam = { version = "0.29.3", default-features = false, features = [
+glam = { version = "0.30.1", default-features = false, features = [
   "serde",
 ], optional = true }
 petgraph = { version = "0.8", features = ["serde-1"], optional = true }
@@ -109,9 +125,12 @@ uuid = { version = "1.13.1", default-features = false, optional = true, features
   "serde",
 ] }
 variadics_please = "1.1"
-wgpu-types = { version = "25", features = [
+wgpu-types = { version = "26", features = [
   "serde",
 ], optional = true, default-features = false }
+
+# deps for automatic type registration
+inventory = { version = "0.3", optional = true }
 
 [dev-dependencies]
 ron = "0.10"

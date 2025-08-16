@@ -43,6 +43,7 @@ mod text;
 mod text2d;
 mod text_access;
 
+use bevy_camera::{visibility::VisibilitySystems, CameraUpdateSystems};
 pub use bounds::*;
 pub use error::*;
 pub use font::*;
@@ -67,14 +68,8 @@ pub mod prelude {
 }
 
 use bevy_app::{prelude::*, AnimationSystems};
-#[cfg(feature = "default_font")]
-use bevy_asset::{load_internal_binary_asset, Handle};
 use bevy_asset::{AssetApp, AssetEventSystems};
 use bevy_ecs::prelude::*;
-use bevy_render::{
-    camera::CameraUpdateSystems, view::VisibilitySystems, ExtractSchedule, RenderApp,
-};
-use bevy_sprite::SpriteSystems;
 
 /// The raw data for the default font used by `bevy_text`
 #[cfg(feature = "default_font")]
@@ -98,16 +93,6 @@ pub type Update2dText = Text2dUpdateSystems;
 impl Plugin for TextPlugin {
     fn build(&self, app: &mut App) {
         app.init_asset::<Font>()
-            .register_type::<Text2d>()
-            .register_type::<TextFont>()
-            .register_type::<LineHeight>()
-            .register_type::<TextColor>()
-            .register_type::<TextBackgroundColor>()
-            .register_type::<TextSpan>()
-            .register_type::<TextBounds>()
-            .register_type::<TextLayout>()
-            .register_type::<ComputedTextBlock>()
-            .register_type::<TextEntity>()
             .init_asset_loader::<FontLoader>()
             .init_resource::<FontAtlasSets>()
             .init_resource::<TextPipeline>()
@@ -133,19 +118,12 @@ impl Plugin for TextPlugin {
             )
             .add_systems(Last, trim_cosmic_cache);
 
-        if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
-            render_app.add_systems(
-                ExtractSchedule,
-                extract_text2d_sprite.after(SpriteSystems::ExtractSprites),
-            );
-        }
-
         #[cfg(feature = "default_font")]
-        load_internal_binary_asset!(
-            app,
-            Handle::default(),
-            "FiraMono-subset.ttf",
-            |bytes: &[u8], _path: String| { Font::try_from_bytes(bytes.to_vec()).unwrap() }
-        );
+        {
+            use bevy_asset::{AssetId, Assets};
+            let mut assets = app.world_mut().resource_mut::<Assets<_>>();
+            let asset = Font::try_from_bytes(DEFAULT_FONT_DATA.to_vec()).unwrap();
+            assets.insert(AssetId::default(), asset).unwrap();
+        };
     }
 }
