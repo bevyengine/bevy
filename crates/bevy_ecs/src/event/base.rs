@@ -15,11 +15,11 @@ use core::{
 ///
 /// Events must be thread-safe.
 #[diagnostic::on_unimplemented(
-    message = "`{Self}` is not an `Event`",
-    label = "invalid `Event`",
+    message = "`{Self}` is not an `ObserverEvent`",
+    label = "invalid `ObserverEvent`",
     note = "consider annotating `{Self}` with `#[derive(BroadcastEvent)]` or `#[derive(EntityEvent)]`"
 )]
-pub trait Event: Send + Sync + 'static {
+pub trait ObserverEvent: Send + Sync + 'static {
     /// Generates the [`EventKey`] for this event type.
     ///
     /// If this type has already been registered,
@@ -54,7 +54,7 @@ pub trait Event: Send + Sync + 'static {
     }
 }
 
-/// An [`Event`] without an entity target.
+/// An [`ObserverEvent`] without an entity target.
 ///
 /// [`BroadcastEvent`]s can be triggered on a [`World`] with the method [`trigger`](World::trigger),
 /// causing any global [`Observer`]s for that event to run.
@@ -107,9 +107,9 @@ pub trait Event: Send + Sync + 'static {
 /// ```
 ///
 /// [`Observer`]: crate::observer::Observer
-pub trait BroadcastEvent: Event {}
+pub trait BroadcastEvent: ObserverEvent {}
 
-/// An [`Event`] that can be targeted at specific entities.
+/// An [`ObserverEvent`] that can be targeted at specific entities.
 ///
 /// Entity events can be triggered on a [`World`] with specific entity targets using a method
 /// like [`trigger_targets`](World::trigger_targets), causing any [`Observer`] watching the event
@@ -221,7 +221,7 @@ pub trait BroadcastEvent: Event {}
     label = "invalid `EntityEvent`",
     note = "consider annotating `{Self}` with `#[derive(EntityEvent)]`"
 )]
-pub trait EntityEvent: Event {
+pub trait EntityEvent: ObserverEvent {
     /// The component that describes which [`Entity`] to propagate this event to next, when [propagation] is enabled.
     ///
     /// [`Entity`]: crate::entity::Entity
@@ -321,7 +321,7 @@ pub trait BufferedEvent: Send + Sync + 'static {}
 /// This type is an implementation detail and should never be made public.
 // TODO: refactor events to store their metadata on distinct entities, rather than using `ComponentId`
 #[derive(Component)]
-struct EventWrapperComponent<E: Event + ?Sized>(PhantomData<E>);
+struct EventWrapperComponent<E: ObserverEvent + ?Sized>(PhantomData<E>);
 
 /// An `EventId` uniquely identifies an event stored in a specific [`World`].
 ///

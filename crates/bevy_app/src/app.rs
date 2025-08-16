@@ -1340,7 +1340,7 @@ impl App {
     ///     }
     /// });
     /// ```
-    pub fn add_observer<E: Event, B: Bundle, M>(
+    pub fn add_observer<E: ObserverEvent, B: Bundle, M>(
         &mut self,
         observer: impl IntoObserverSystem<E, B, M>,
     ) -> &mut Self {

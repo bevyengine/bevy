@@ -1,7 +1,7 @@
 ---
 title: Event Split
-authors: ["@Jondolf", "@tim-blackbird"]
-pull_requests: [19647, 20101, 20104, 20151]
+authors: ["@Jondolf", "@tim-blackbird", "zeophlite"]
+pull_requests: [19647, 20101, 20104, 20151, 20598]
 ---
 
 In past releases, all event types were defined by simply deriving the `Event` trait:
@@ -30,7 +30,7 @@ This has led to a lot of confusion and frustration for users. Common footguns in
 
 **Bevy 0.17** aims to solve this ambiguity by splitting the different kinds of events into multiple traits:
 
-- `Event`: A supertrait for observer events.
+- `ObserverEvent`: A supertrait for observer events.
   - `BroadcastEvent`: An observer event without an entity target.
   - `EntityEvent`: An observer event that targets specific entities and can propagate the event from one entity to another across relationships.
 - `BufferedEvent`: An event used with `EventReader` and `EventWriter` for pull-based event handling.
