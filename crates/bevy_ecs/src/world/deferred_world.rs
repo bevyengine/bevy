@@ -254,6 +254,7 @@ impl<'w> DeferredWorld<'w> {
     /// [`&EntityHashSet`]: crate::entity::EntityHashSet
     /// [`EntityHashMap<EntityMut>`]: crate::entity::EntityHashMap
     /// [`Vec<EntityMut>`]: alloc::vec::Vec
+    /// [`EntityDoesNotExistError`]: crate::world::EntityDoesNotExistError
     #[inline]
     pub fn get_entity_mut<F: WorldEntityFetch>(
         &mut self,

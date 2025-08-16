@@ -73,11 +73,15 @@ impl<'w> EntityFetcher<'w> {
     /// - Pass an array of [`Entity`]s to receive an equally-sized array of [`EntityMut`]s.
     /// - Pass a reference to a [`EntityHashSet`](crate::entity::EntityHashMap) to receive an
     ///   [`EntityHashMap<EntityMut>`](crate::entity::EntityHashMap).
+    ///
     /// # Errors
     ///
-    /// - Returns [`EntityMutableFetchError::EntityDoesNotExist`] if any of the given `entities` do not exist in the world.
+    /// For fetching entities that may contain duplicates:
+    /// - Returns [`EntityMutableFetchError::EntityDoesNotExist`] if any of the given
+    ///   `entities` do not exist in the world.
     ///     - Only the first entity found to be missing will be returned.
-    /// - Returns [`EntityMutableFetchError::AliasedMutability`] if the same entity is requested multiple times.
+    /// - Returns [`EntityMutableFetchError::AliasedMutability`] if the same entity
+    ///   is requested multiple times.
     ///
     /// # Examples
     ///
