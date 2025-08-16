@@ -20,7 +20,7 @@
 //! Note that text measurement is only relevant in a UI context.
 //!
 //! With the actual text bounds defined, the `bevy_ui::widget::text::text_system` system (in a UI context)
-//! or [`text2d::update_text2d_layout`] system (in a 2d world space context)
+//! or `bevy_sprite::text2d::update_text2d_layout` system (in a 2d world space context)
 //! passes it into [`TextPipeline::queue_text`], which:
 //!
 //! 1. updates a [`Buffer`](cosmic_text::Buffer) from the [`TextSpan`]s, generating new [`FontAtlasSet`]s if necessary.
