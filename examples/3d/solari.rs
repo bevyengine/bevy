@@ -98,6 +98,7 @@ fn setup(
         camera.insert(SolariLighting::default());
     }
 
+    // Using DLSS Ray Reconstruction for denoising (and cheaper rendering via upscaling) is _highly_ recommended when using Solari
     #[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))]
     if dlss_rr_supported.is_some() {
         camera.insert(Dlss::<DlssRayReconstructionFeature> {
