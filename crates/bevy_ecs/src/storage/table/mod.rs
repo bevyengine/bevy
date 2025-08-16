@@ -3,14 +3,13 @@ use crate::{
     component::{CheckChangeTicks, ComponentId, ComponentInfo, ComponentTicks, Components, Tick},
     entity::Entity,
     query::DebugCheckedUnwrap,
-    storage::{blob_vec::BlobVec, ImmutableSparseSet, SparseSet},
+    storage::{AbortOnPanic, ImmutableSparseSet, SparseSet},
 };
 use alloc::{boxed::Box, vec, vec::Vec};
 use bevy_platform::collections::HashMap;
 use bevy_ptr::{OwningPtr, Ptr, UnsafeCellDeref};
 pub use column::*;
 use core::{
-    alloc::Layout,
     cell::UnsafeCell,
     num::NonZeroUsize,
     ops::{Index, IndexMut},
@@ -191,15 +190,6 @@ impl TableBuilder {
 pub struct Table {
     columns: ImmutableSparseSet<ComponentId, ThinColumn>,
     entities: Vec<Entity>,
-}
-
-struct AbortOnPanic;
-
-impl Drop for AbortOnPanic {
-    fn drop(&mut self) {
-        // Panicking while unwinding will force an abort.
-        panic!("Aborting due to allocator error");
-    }
 }
 
 impl Table {
@@ -841,7 +831,7 @@ impl Drop for Table {
         let cap = self.capacity();
         self.entities.clear();
         for col in self.columns.values_mut() {
-            // SAFETY: `cap` and `len` are correct
+            // SAFETY: `cap` and `len` are correct. `col` is never accessed again after this call.
             unsafe {
                 col.drop(cap, len);
             }
