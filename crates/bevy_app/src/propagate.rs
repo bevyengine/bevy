@@ -132,8 +132,11 @@ impl<C: Component + Clone + PartialEq> Default for PropagateSet<C> {
     }
 }
 
-impl<C: Component + Clone + PartialEq, F: QueryFilter + 'static, R: Relationship> Plugin
-    for HierarchyPropagatePlugin<C, F, R>
+impl<
+        C: Component + Clone + PartialEq,
+        F: QueryFilter + 'static,
+        R: Relationship<Collection = Entity>,
+    > Plugin for HierarchyPropagatePlugin<C, F, R>
 {
     fn build(&self, app: &mut App) {
         app.add_systems(
@@ -188,7 +191,11 @@ pub fn update_stopped<C: Component + Clone + PartialEq, F: QueryFilter>(
 }
 
 /// add/remove `Inherited::<C>` and `C` for entities which have changed relationship
-pub fn update_reparented<C: Component + Clone + PartialEq, F: QueryFilter, R: Relationship>(
+pub fn update_reparented<
+    C: Component + Clone + PartialEq,
+    F: QueryFilter,
+    R: Relationship<Collection = Entity>,
+>(
     mut commands: Commands,
     moved: Query<
         (Entity, &R, Option<&Inherited<C>>),
@@ -203,7 +210,7 @@ pub fn update_reparented<C: Component + Clone + PartialEq, F: QueryFilter, R: Re
     orphaned: Query<Entity, (With<Inherited<C>>, Without<Propagate<C>>, Without<R>, F)>,
 ) {
     for (entity, relation, maybe_inherited) in &moved {
-        if let Ok(inherited) = relations.get(relation.get()) {
+        if let Ok(inherited) = relations.get(*relation.get()) {
             commands.entity(entity).try_insert(inherited.clone());
         } else if maybe_inherited.is_some() {
             commands.entity(entity).remove::<(Inherited<C>, C)>();
