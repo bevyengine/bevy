@@ -28,7 +28,7 @@ use bevy_ecs::{
 /// See also [`On`], [`SceneSpawner::instance_is_ready`].
 ///
 /// [`On`]: bevy_ecs::observer::On
-/// [`ObserverEvent`]: bevy_ecs::event::Event
+/// [`ObserverEvent`]: bevy_ecs::event::ObserverEvent
 #[derive(Clone, Copy, Debug, Eq, PartialEq, EntityEvent, Reflect)]
 #[reflect(Debug, PartialEq, Clone)]
 pub struct SceneInstanceReady {

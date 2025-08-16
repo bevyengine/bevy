@@ -31,7 +31,7 @@ pub trait ObserverEvent: Send + Sync + 'static {
     /// # Warning
     ///
     /// This method should not be overridden by implementers,
-    /// and should always correspond to the implementation of [`event_key`](Event::event_key).
+    /// and should always correspond to the implementation of [`event_key`](ObserverEvent::event_key).
     fn register_event_key(world: &mut World) -> EventKey {
         EventKey(world.register_component::<EventWrapperComponent<Self>>())
     }
@@ -46,7 +46,7 @@ pub trait ObserverEvent: Send + Sync + 'static {
     ///
     /// This method should not be overridden by implementers,
     /// and should always correspond to the implementation of
-    /// [`register_event_key`](Event::register_event_key).
+    /// [`register_event_key`](ObserverEvent::register_event_key).
     fn event_key(world: &World) -> Option<EventKey> {
         world
             .component_id::<EventWrapperComponent<Self>>()
@@ -404,7 +404,7 @@ pub(crate) struct EventInstance<E: BufferedEvent> {
 
 /// A unique identifier for an [`ObserverEvent`], used by [observers].
 ///
-/// You can look up the key for your event by calling the [`Event::event_key`] method.
+/// You can look up the key for your event by calling the [`ObserverEvent::event_key`] method.
 ///
 /// [observers]: crate::observer
 #[derive(Debug, Copy, Clone, Hash, Ord, PartialOrd, Eq, PartialEq)]
