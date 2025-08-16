@@ -164,15 +164,8 @@ where
     }
 
     unsafe fn apply_raw(ptr: *mut Self, world: &mut World) -> Result<(), EntityMutableFetchError> {
-        let entity = unsafe {
-            ptr.byte_add(mem::offset_of!(EntityCommandWrapper<C>, entity))
-                .cast::<Entity>()
-                .read_unaligned()
-        };
-        let command_ptr = unsafe {
-            ptr.byte_add(mem::offset_of!(EntityCommandWrapper<C>, command))
-                .cast::<C>()
-        };
+        let entity = unsafe { (&raw const (*ptr).entity).read_unaligned() };
+        let command_ptr = &raw mut (*ptr).command;
         let entity_mut = world.get_entity_mut(entity)?;
         C::apply_raw(command_ptr, entity_mut);
         Ok(())
@@ -190,15 +183,8 @@ where
     }
 
     unsafe fn apply_raw(ptr: *mut Self, world: &mut World) -> Result<T, EntityCommandError<Err>> {
-        let entity = unsafe {
-            ptr.byte_add(mem::offset_of!(EntityCommandWrapper<C>, entity))
-                .cast::<Entity>()
-                .read_unaligned()
-        };
-        let command_ptr = unsafe {
-            ptr.byte_add(mem::offset_of!(EntityCommandWrapper<C>, command))
-                .cast::<C>()
-        };
+        let entity = unsafe { (&raw const (*ptr).entity).read_unaligned() };
+        let command_ptr = &raw mut (*ptr).command;
         let entity_mut = world.get_entity_mut(entity)?;
         C::apply_raw(command_ptr, entity_mut).map_err(EntityCommandError::CommandFailed)
     }

@@ -143,17 +143,9 @@ impl<B: Bundle> EntityCommand for Insert<B> {
     }
 
     unsafe fn apply_raw(ptr: *mut Self, mut entity: EntityWorldMut) -> () {
-        let mode = unsafe {
-            ptr.byte_add(mem::offset_of!(Self, mode))
-                .cast::<InsertMode>()
-                .read_unaligned()
-        };
-        let caller = unsafe {
-            ptr.byte_add(mem::offset_of!(Self, caller))
-                .cast::<MaybeLocation>()
-                .read_unaligned()
-        };
-        let bundle_ptr = unsafe { ptr.byte_add(mem::offset_of!(Self, bundle)).cast::<B>() };
+        let mode = unsafe { (&raw const (*ptr).mode).read_unaligned() };
+        let caller = unsafe { (&raw const (*ptr).caller).read_unaligned() };
+        let bundle_ptr = &raw mut (*ptr).bundle;
         entity.insert_raw_with_caller(bundle_ptr, mode, caller, RelationshipHookMode::Run);
     }
 }

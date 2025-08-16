@@ -51,7 +51,7 @@ impl<C: Component> DynamicBundle for C {
 }
 
 macro_rules! tuple_impl {
-    ($(#[$meta:meta])* $(($name: ident, $index: literal)),*) => {
+    ($(#[$meta:meta])* $(($name: ident, $index: tt)),*) => {
         #[expect(
             clippy::allow_attributes,
             reason = "This is a tuple-related macro; as such, the lints below may not always apply."
@@ -137,7 +137,7 @@ macro_rules! tuple_impl {
                 )]
                 ($(
                     {
-                        let field_ptr = unsafe { ptr.byte_add(core::mem::offset_of!(Self, $index)).cast::<$name>() };
+                        let field_ptr = &raw mut (*ptr).$index;
                         $name::get_components(field_ptr, &mut *func)
                     },
                 )*)

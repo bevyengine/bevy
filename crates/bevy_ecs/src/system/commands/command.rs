@@ -151,19 +151,10 @@ impl<T: Resource> Command for InsertResource<T> {
         let id = world.components_registrator().register_resource::<T>();
         // SAFETY: The caller must ensure that `ptr` is a valid instance of `Self`, so getting the
         // pointer to the provided resource should be valid and non-null.
-        let value_ptr = unsafe {
-            NonNull::new_unchecked(
-                ptr.byte_add(mem::offset_of!(InsertResource<T>, resource))
-                    .cast::<u8>(),
-            )
-        };
+        let value_ptr = unsafe { NonNull::new_unchecked(&raw mut (*ptr).resource).cast::<u8>() };
         // SAFETY: The caller must ensure that `ptr` is a valid instance of `Self`, so getting the
         // pointer to the provided caller location should be valid.
-        let caller = unsafe {
-            ptr.byte_add(mem::offset_of!(InsertResource<T>, caller))
-                .cast::<MaybeLocation>()
-                .read_unaligned()
-        };
+        let caller = unsafe { (&raw const (*ptr).caller).read_unaligned() };
         // SAFETY: The Component ID was just registered above. It has to be valid for `T`.
         unsafe { world.insert_resource_by_id(id, OwningPtr::new(value_ptr), caller) }
     }

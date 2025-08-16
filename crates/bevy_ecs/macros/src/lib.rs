@@ -173,7 +173,7 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
                 func: &mut impl FnMut(#ecs_path::component::StorageType, #ecs_path::ptr::OwningPtr<'_>)
             ) {
                 #(
-                    let field_ptr = unsafe { ptr.byte_add(core::mem::offset_of!(Self, #active_field_tokens)).cast::<#active_field_types>() };
+                    let field_ptr = &raw mut (*ptr).#active_field_tokens;
                     <#active_field_types as #ecs_path::bundle::DynamicBundle>::get_components(field_ptr, &mut *func);
                 )*
             }
