@@ -817,6 +817,7 @@ pub mod __macro_exports {
             }
         }
 
+        #[cfg(any(feature = "auto_register_static", feature = "auto_register_inventory"))]
         pub use __automatic_type_registration_impl::*;
     }
 }

@@ -126,6 +126,7 @@ impl BoundedExtrusion for Rectangle {
     }
 }
 
+#[cfg(feature = "alloc")]
 impl BoundedExtrusion for Polygon {
     fn extrusion_aabb_3d(&self, half_depth: f32, isometry: impl Into<Isometry3d>) -> Aabb3d {
         let isometry = isometry.into();

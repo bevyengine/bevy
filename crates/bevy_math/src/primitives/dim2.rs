@@ -1,5 +1,6 @@
 use core::f32::consts::{FRAC_1_SQRT_2, FRAC_PI_2, FRAC_PI_3, PI};
 use derive_more::derive::From;
+#[cfg(feature = "alloc")]
 use thiserror::Error;
 
 use super::{Measured2d, Primitive2d, WindingOrder};
@@ -1996,6 +1997,7 @@ impl ConvexPolygon {
     }
 }
 
+#[cfg(feature = "alloc")]
 impl TryFrom<Polygon> for ConvexPolygon {
     type Error = ConvexPolygonError;
 
