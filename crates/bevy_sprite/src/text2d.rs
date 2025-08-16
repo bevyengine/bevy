@@ -31,7 +31,7 @@ use bevy_window::{PrimaryWindow, Window};
 /// [Example usage.](https://github.com/bevyengine/bevy/blob/latest/examples/2d/text2d.rs)
 ///
 /// The string in this component is the first 'text span' in a hierarchy of text spans that are collected into
-/// a [`ComputedTextBlock`]. See [`TextSpan`](crate::TextSpan) for the component used by children of entities with [`Text2d`].
+/// a [`ComputedTextBlock`]. See `TextSpan` for the component used by children of entities with [`Text2d`].
 ///
 /// With `Text2d` the `justify` field of [`TextLayout`] only affects the internal alignment of a block of text and not its
 /// relative position, which is controlled by the [`Anchor`] component.
