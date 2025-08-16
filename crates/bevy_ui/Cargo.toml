@@ -15,7 +15,6 @@ bevy_app = { path = "../bevy_app", version = "0.17.0-dev" }
 bevy_asset = { path = "../bevy_asset", version = "0.17.0-dev" }
 bevy_camera = { path = "../bevy_camera", version = "0.17.0-dev" }
 bevy_color = { path = "../bevy_color", version = "0.17.0-dev" }
-bevy_core_pipeline = { path = "../bevy_core_pipeline", version = "0.17.0-dev" }
 bevy_derive = { path = "../bevy_derive", version = "0.17.0-dev" }
 bevy_ecs = { path = "../bevy_ecs", version = "0.17.0-dev" }
 bevy_image = { path = "../bevy_image", version = "0.17.0-dev" }
@@ -43,7 +42,7 @@ accesskit = "0.21"
 tracing = { version = "0.1", default-features = false, features = ["std"] }
 
 [dev-dependencies]
-bevy_render = { path = "../bevy_render", version = "0.17.0-dev" }
+bevy_core_pipeline = { path = "../bevy_core_pipeline", version = "0.17.0-dev" }
 
 [features]
 default = []
@@ -52,7 +51,6 @@ serialize = [
   "smallvec/serde",
   "bevy_math/serialize",
   "bevy_platform/serialize",
-  "bevy_render/serialize",
 ]
 bevy_ui_picking_backend = ["bevy_picking", "dep:uuid"]
 

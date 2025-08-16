@@ -24,6 +24,7 @@ bevy_reflect = { path = "../bevy_reflect", version = "0.17.0-dev" }
 bevy_shader = { path = "../bevy_shader", version = "0.17.0-dev" }
 bevy_render = { path = "../bevy_render", version = "0.17.0-dev" }
 bevy_sprite = { path = "../bevy_sprite", version = "0.17.0-dev" }
+bevy_sprite_render = { path = "../bevy_sprite_render", version = "0.17.0-dev" }
 bevy_picking = { path = "../bevy_picking", version = "0.17.0-dev", optional = true }
 bevy_transform = { path = "../bevy_transform", version = "0.17.0-dev" }
 bevy_utils = { path = "../bevy_utils", version = "0.17.0-dev" }
@@ -32,6 +33,7 @@ bevy_platform = { path = "../bevy_platform", version = "0.17.0-dev", default-fea
 ] }
 bevy_ui = { path = "../bevy_ui", version = "0.17.0-dev" }
 bevy_text = { path = "../bevy_text", version = "0.17.0-dev", default-features = false }
+bevy_window = { path = "../bevy_window", version = "0.17.0-dev", default-features = false }
 
 # other
 bytemuck = { version = "1.5", features = ["derive"] }

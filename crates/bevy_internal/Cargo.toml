@@ -62,6 +62,9 @@ spirv_shader_passthrough = ["bevy_render/spirv_shader_passthrough"]
 # TODO: When wgpu switches to DirectX 12 instead of Vulkan by default on windows, make this a default feature
 statically-linked-dxc = ["bevy_render/statically-linked-dxc"]
 
+# Forces the wgpu instance to be initialized using the raw Vulkan HAL, enabling additional configuration
+raw_vulkan_init = ["bevy_render/raw_vulkan_init"]
+
 # Include tonemapping LUT KTX2 files.
 tonemapping_luts = ["bevy_core_pipeline/tonemapping_luts"]
 # Include Bluenoise texture for environment map generation.
@@ -69,6 +72,15 @@ bluenoise_texture = ["bevy_pbr?/bluenoise_texture"]
 
 # Include SMAA LUT KTX2 Files
 smaa_luts = ["bevy_anti_aliasing/smaa_luts"]
+
+# NVIDIA Deep Learning Super Sampling
+dlss = ["bevy_anti_aliasing/dlss", "bevy_solari?/dlss"]
+
+# Forcibly disable DLSS so that cargo build --all-features works without the DLSS SDK being installed. Not meant for users.
+force_disable_dlss = [
+  "bevy_anti_aliasing?/force_disable_dlss",
+  "bevy_solari?/force_disable_dlss",
+]
 
 # Audio format support (vorbis is enabled by default)
 flac = ["bevy_audio/flac"]
@@ -169,7 +181,7 @@ webgl = [
   "bevy_pbr?/webgl",
   "bevy_render?/webgl",
   "bevy_gizmos?/webgl",
-  "bevy_sprite?/webgl",
+  "bevy_sprite_render?/webgl",
 ]
 
 webgpu = [
@@ -178,35 +190,51 @@ webgpu = [
   "bevy_pbr?/webgpu",
   "bevy_render?/webgpu",
   "bevy_gizmos?/webgpu",
-  "bevy_sprite?/webgpu",
+  "bevy_sprite_render?/webgpu",
 ]
 
-# enable systems that allow for automated testing on CI
+# Enable systems that allow for automated testing on CI
 bevy_ci_testing = ["bevy_dev_tools/bevy_ci_testing", "bevy_render?/ci_limits"]
 
 # Enable animation support, and glTF animation loading
-animation = ["bevy_animation", "bevy_gltf?/bevy_animation"]
+animation = ["bevy_animation", "bevy_mesh", "bevy_gltf?/bevy_animation"]
 
-bevy_sprite = ["dep:bevy_sprite", "bevy_gizmos?/bevy_sprite", "bevy_image"]
+bevy_window = ["dep:bevy_window", "dep:bevy_a11y"]
+
+bevy_shader = ["dep:bevy_shader"]
+bevy_image = ["dep:bevy_image"]
+bevy_sprite = ["dep:bevy_sprite", "bevy_image"]
+bevy_text = ["dep:bevy_text", "bevy_image", "bevy_sprite"]
+bevy_mesh = ["dep:bevy_mesh", "bevy_image"]
+bevy_camera = ["dep:bevy_camera", "bevy_mesh"]
+bevy_light = ["dep:bevy_light", "bevy_camera"]
+bevy_render = [
+  "dep:bevy_render",
+  "bevy_gizmos?/bevy_render",
+  "bevy_camera",
+  "bevy_shader",
+  "bevy_color/wgpu-types",
+  "bevy_color/encase",
+]
+bevy_core_pipeline = ["dep:bevy_core_pipeline", "bevy_render"]
+bevy_anti_aliasing = ["dep:bevy_anti_aliasing", "bevy_core_pipeline"]
 bevy_pbr = [
   "dep:bevy_pbr",
   "bevy_gizmos?/bevy_pbr",
   "bevy_light",
-  "bevy_render",
+  "bevy_core_pipeline",
 ]
-bevy_window = ["dep:bevy_window", "dep:bevy_a11y"]
-bevy_core_pipeline = ["dep:bevy_core_pipeline", "bevy_image"]
-bevy_anti_aliasing = ["dep:bevy_anti_aliasing", "bevy_image"]
-bevy_gizmos = ["dep:bevy_gizmos", "bevy_image"]
-bevy_gltf = ["dep:bevy_gltf", "bevy_image"]
-bevy_ui = ["dep:bevy_ui", "bevy_image"]
+bevy_sprite_render = [
+  "dep:bevy_sprite_render",
+  "bevy_sprite",
+  "bevy_core_pipeline",
+  "bevy_gizmos?/bevy_sprite",
+  "bevy_gizmos?/bevy_sprite_render",
+]
+bevy_ui = ["dep:bevy_ui", "bevy_camera"]
 bevy_ui_render = ["dep:bevy_ui_render"]
-bevy_shader = ["dep:bevy_shader"]
-bevy_image = ["dep:bevy_image"]
-
-bevy_mesh = ["dep:bevy_mesh", "bevy_image"]
-bevy_camera = ["dep:bevy_camera", "bevy_mesh"]
-bevy_light = ["dep:bevy_light", "bevy_camera"]
+bevy_gizmos = ["dep:bevy_gizmos", "bevy_camera"]
+bevy_gltf = ["dep:bevy_gltf", "bevy_pbr"]
 
 # Used to disable code that is unsupported when Bevy is dynamically linked
 dynamic_linking = ["bevy_diagnostic/dynamic_linking"]
@@ -217,17 +245,6 @@ android_shared_stdcxx = ["bevy_audio/android_shared_stdcxx"]
 # Enable AccessKit on Unix backends (currently only works with experimental
 # screen readers and forks.)
 accesskit_unix = ["bevy_winit/accesskit_unix"]
-
-bevy_text = ["dep:bevy_text", "bevy_image"]
-
-bevy_render = [
-  "dep:bevy_render",
-  "bevy_gizmos?/bevy_render",
-  "bevy_camera",
-  "bevy_shader",
-  "bevy_color/wgpu-types",
-  "bevy_color/encase",
-]
 
 # Enable assertions to check the validity of parameters passed to glam
 glam_assert = ["bevy_math/glam_assert"]
@@ -381,10 +398,6 @@ web = ["bevy_app/web", "bevy_platform/web", "bevy_reflect/web"]
 
 hotpatching = ["bevy_app/hotpatching", "bevy_ecs/hotpatching"]
 
-gltf_convert_coordinates_default = [
-  "bevy_gltf?/gltf_convert_coordinates_default",
-]
-
 debug = ["bevy_utils/debug"]
 
 [dependencies]
@@ -458,6 +471,7 @@ bevy_render = { path = "../bevy_render", optional = true, version = "0.17.0-dev"
 bevy_scene = { path = "../bevy_scene", optional = true, version = "0.17.0-dev" }
 bevy_solari = { path = "../bevy_solari", optional = true, version = "0.17.0-dev" }
 bevy_sprite = { path = "../bevy_sprite", optional = true, version = "0.17.0-dev" }
+bevy_sprite_render = { path = "../bevy_sprite_render", optional = true, version = "0.17.0-dev" }
 bevy_state = { path = "../bevy_state", optional = true, version = "0.17.0-dev", default-features = false, features = [
   "bevy_app",
   "bevy_reflect",

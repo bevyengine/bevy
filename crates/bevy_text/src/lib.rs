@@ -70,8 +70,6 @@ pub mod prelude {
 use bevy_app::{prelude::*, AnimationSystems};
 use bevy_asset::{AssetApp, AssetEventSystems};
 use bevy_ecs::prelude::*;
-use bevy_render::{ExtractSchedule, RenderApp};
-use bevy_sprite::SpriteSystems;
 
 /// The raw data for the default font used by `bevy_text`
 #[cfg(feature = "default_font")]
@@ -119,13 +117,6 @@ impl Plugin for TextPlugin {
                     .after(AnimationSystems),
             )
             .add_systems(Last, trim_cosmic_cache);
-
-        if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
-            render_app.add_systems(
-                ExtractSchedule,
-                extract_text2d_sprite.after(SpriteSystems::ExtractSprites),
-            );
-        }
 
         #[cfg(feature = "default_font")]
         {

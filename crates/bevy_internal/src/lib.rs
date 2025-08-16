@@ -78,6 +78,8 @@ pub use bevy_shader as shader;
 pub use bevy_solari as solari;
 #[cfg(feature = "bevy_sprite")]
 pub use bevy_sprite as sprite;
+#[cfg(feature = "bevy_sprite_render")]
+pub use bevy_sprite_render as sprite_render;
 #[cfg(feature = "bevy_state")]
 pub use bevy_state as state;
 pub use bevy_tasks as tasks;

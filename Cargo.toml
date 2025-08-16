@@ -153,6 +153,7 @@ default = [
   "bevy_scene",
   "bevy_sprite",
   "bevy_sprite_picking_backend",
+  "bevy_sprite_render",
   "bevy_state",
   "bevy_text",
   "bevy_ui",
@@ -267,8 +268,12 @@ bevy_solari = [
 ]
 
 # Provides sprite functionality
-bevy_sprite = [
-  "bevy_internal/bevy_sprite",
+bevy_sprite = ["bevy_internal/bevy_sprite", "bevy_color"]
+
+# Provides sprite rendering functionality
+bevy_sprite_render = [
+  "bevy_internal/bevy_sprite_render",
+  "bevy_sprite",
   "bevy_render",
   "bevy_core_pipeline",
   "bevy_color",
@@ -289,7 +294,12 @@ bevy_ui = [
 ]
 
 # Provides rendering functionality for bevy_ui
-bevy_ui_render = ["bevy_internal/bevy_ui_render", "bevy_render", "bevy_ui"]
+bevy_ui_render = [
+  "bevy_internal/bevy_ui_render",
+  "bevy_render",
+  "bevy_sprite_render",
+  "bevy_ui",
+]
 
 # Windowing layer
 bevy_window = ["bevy_internal/bevy_window"]
@@ -326,6 +336,9 @@ spirv_shader_passthrough = ["bevy_internal/spirv_shader_passthrough"]
 
 # Statically linked DXC shader compiler for DirectX 12
 statically-linked-dxc = ["bevy_internal/statically-linked-dxc"]
+
+# Forces the wgpu instance to be initialized using the raw Vulkan HAL, enabling additional configuration
+raw_vulkan_init = ["bevy_internal/raw_vulkan_init"]
 
 # Tracing support, saving a file in Chrome Tracing format
 trace_chrome = ["trace", "bevy_internal/trace_chrome"]
@@ -472,6 +485,12 @@ tonemapping_luts = ["bevy_internal/tonemapping_luts", "ktx2", "bevy_image/zstd"]
 # Include SMAA Look Up Tables KTX2 Files
 smaa_luts = ["bevy_internal/smaa_luts"]
 
+# NVIDIA Deep Learning Super Sampling
+dlss = ["bevy_internal/dlss"]
+
+# Forcibly disable DLSS so that cargo build --all-features works without the DLSS SDK being installed. Not meant for users.
+force_disable_dlss = ["bevy_internal/force_disable_dlss"]
+
 # Enable AccessKit on Unix backends (currently only works with experimental screen readers and forks.)
 accesskit_unix = ["bevy_internal/accesskit_unix"]
 
@@ -584,11 +603,6 @@ web = ["bevy_internal/web"]
 
 # Enable hotpatching of Bevy systems
 hotpatching = ["bevy_internal/hotpatching"]
-
-# Enable converting glTF coordinates to Bevy's coordinate system by default. This will be Bevy's default behavior starting in 0.18.
-gltf_convert_coordinates_default = [
-  "bevy_internal/gltf_convert_coordinates_default",
-]
 
 # Enable collecting debug information about systems and components to help with diagnostics
 debug = ["bevy_internal/debug"]
@@ -1027,7 +1041,7 @@ doc-scrape-examples = true
 
 [package.metadata.example.anti_aliasing]
 name = "Anti-aliasing"
-description = "Compares different anti-aliasing methods"
+description = "Compares different anti-aliasing techniques supported by Bevy"
 category = "3D Rendering"
 # TAA not supported by WebGL
 wasm = false
