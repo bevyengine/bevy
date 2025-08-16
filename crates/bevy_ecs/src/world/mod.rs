@@ -868,7 +868,7 @@ impl World {
         #[inline(never)]
         #[cold]
         #[track_caller]
-        fn panic_on_err(e: EntityMutableFetchError) -> ! {
+        fn panic_on_err(e: impl core::error::Error) -> ! {
             panic!("{e}");
         }
 
@@ -953,9 +953,15 @@ impl World {
     ///
     /// # Errors
     ///
-    /// - Returns [`EntityMutableFetchError::EntityDoesNotExist`] if any of the given `entities` do not exist in the world.
+    /// For fetching entities that may contain duplicates:
+    /// - Returns [`EntityMutableFetchError::EntityDoesNotExist`] if any of the given
+    /// `entities` do not exist in the world.
     ///     - Only the first entity found to be missing will be returned.
-    /// - Returns [`EntityMutableFetchError::AliasedMutability`] if the same entity is requested multiple times.
+    /// - Returns [`EntityMutableFetchError::AliasedMutability`] if the same entity
+    /// is requested multiple times.
+    /// 
+    /// For fetching a single entity or entities that cannot contain duplicates:
+    /// - Returns [`EntityDoesNotExistError`] if the entity does not exist.
     ///
     /// # Examples
     ///
@@ -966,7 +972,7 @@ impl World {
     pub fn get_entity_mut<F: WorldEntityFetch>(
         &mut self,
         entities: F,
-    ) -> Result<F::Mut<'_>, EntityMutableFetchError> {
+    ) -> Result<F::Mut<'_>, F::FetchMutError> {
         let cell = self.as_unsafe_world_cell();
         // SAFETY: `&mut self` gives mutable access to the entire world,
         // and prevents any other access to the world.
@@ -1432,7 +1438,7 @@ impl World {
         caller: MaybeLocation,
     ) -> Result<(), EntityDespawnError> {
         self.flush();
-        let entity = self.get_entity_mut(entity)?;
+        let entity = self.get_entity_mut(entity).map_err(|e| EntityMutableFetchError::from(e))?;
         entity.despawn_with_caller(caller);
         Ok(())
     }
@@ -3669,7 +3675,7 @@ mod tests {
     use crate::{
         change_detection::{DetectChangesMut, MaybeLocation},
         component::{ComponentCloneBehavior, ComponentDescriptor, ComponentInfo, StorageType},
-        entity::EntityHashSet,
+        entity::{EntityDoesNotExistError, EntityHashSet},
         entity_disabling::{DefaultQueryFilters, Disabled},
         ptr::OwningPtr,
         resource::Resource,
@@ -4309,7 +4315,7 @@ mod tests {
 
         assert!(matches!(
             world.get_entity_mut(e1).map(|_| {}),
-            Err(EntityMutableFetchError::EntityDoesNotExist(e)) if e.entity == e1
+            Err(EntityDoesNotExistError { entity, .. }) if entity == e1
         ));
         assert!(matches!(
             world.get_entity_mut([e1, e2]).map(|_| {}),
@@ -4327,7 +4333,7 @@ mod tests {
             world
                 .get_entity_mut(&EntityHashSet::from_iter([e1, e2]))
                 .map(|_| {}),
-            Err(EntityMutableFetchError::EntityDoesNotExist(e)) if e.entity == e1));
+            Err(EntityDoesNotExistError { entity, .. }) if entity == e1));
     }
 
     #[test]

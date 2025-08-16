@@ -88,7 +88,7 @@ impl<'w> EntityFetcher<'w> {
     pub fn get_mut<F: WorldEntityFetch>(
         &mut self,
         entities: F,
-    ) -> Result<F::DeferredMut<'_>, EntityMutableFetchError> {
+    ) -> Result<F::DeferredMut<'_>, F::FetchMutError> {
         // SAFETY: `&mut self` gives mutable access to all entities,
         // and prevents any other access to entities.
         unsafe { entities.fetch_deferred_mut(self.cell) }
@@ -131,6 +131,9 @@ pub unsafe trait WorldEntityFetch {
     /// but without structural mutability.
     type DeferredMut<'w>;
 
+    /// The possible error that mutable fetch methods may return.
+    type FetchMutError: core::error::Error + Into<EntityMutableFetchError>;
+
     /// Returns read-only reference(s) to the entities with the given
     /// [`Entity`] IDs, as determined by `self`.
     ///
@@ -159,13 +162,19 @@ pub unsafe trait WorldEntityFetch {
     ///
     /// # Errors
     ///
-    /// - Returns [`EntityMutableFetchError::EntityDoesNotExist`] if the entity does not exist.
-    /// - Returns [`EntityMutableFetchError::AliasedMutability`] if the entity was
-    ///   requested mutably more than once.
+    /// For fetching entities that may contain duplicates:
+    /// - Returns [`EntityMutableFetchError::EntityDoesNotExist`] if any of the given
+    /// `entities` do not exist in the world.
+    ///     - Only the first entity found to be missing will be returned.
+    /// - Returns [`EntityMutableFetchError::AliasedMutability`] if the same entity
+    /// is requested multiple times.
+    /// 
+    /// For fetching a single entity or entities that cannot contain duplicates:
+    /// - Returns [`EntityDoesNotExistError`] if the entity does not exist.
     unsafe fn fetch_mut(
         self,
         cell: UnsafeWorldCell<'_>,
-    ) -> Result<Self::Mut<'_>, EntityMutableFetchError>;
+    ) -> Result<Self::Mut<'_>, Self::FetchMutError>;
 
     /// Returns mutable reference(s) to the entities with the given [`Entity`]
     /// IDs, as determined by `self`, but without structural mutability.
@@ -182,13 +191,19 @@ pub unsafe trait WorldEntityFetch {
     ///
     /// # Errors
     ///
-    /// - Returns [`EntityMutableFetchError::EntityDoesNotExist`] if the entity does not exist.
-    /// - Returns [`EntityMutableFetchError::AliasedMutability`] if the entity was
-    ///   requested mutably more than once.
+    /// For fetching entities that may contain duplicates:
+    /// - Returns [`EntityMutableFetchError::EntityDoesNotExist`] if any of the given
+    /// `entities` do not exist in the world.
+    ///     - Only the first entity found to be missing will be returned.
+    /// - Returns [`EntityMutableFetchError::AliasedMutability`] if the same entity
+    /// is requested multiple times.
+    /// 
+    /// For fetching a single entity or entities that cannot contain duplicates:
+    /// - Returns [`EntityDoesNotExistError`] if the entity does not exist.
     unsafe fn fetch_deferred_mut(
         self,
         cell: UnsafeWorldCell<'_>,
-    ) -> Result<Self::DeferredMut<'_>, EntityMutableFetchError>;
+    ) -> Result<Self::DeferredMut<'_>, Self::FetchMutError>;
 }
 
 // SAFETY:
@@ -199,6 +214,7 @@ unsafe impl WorldEntityFetch for Entity {
     type Ref<'w> = EntityRef<'w>;
     type Mut<'w> = EntityWorldMut<'w>;
     type DeferredMut<'w> = EntityMut<'w>;
+    type FetchMutError = EntityDoesNotExistError;
 
     #[inline]
     unsafe fn fetch_ref(
@@ -214,7 +230,7 @@ unsafe impl WorldEntityFetch for Entity {
     unsafe fn fetch_mut(
         self,
         cell: UnsafeWorldCell<'_>,
-    ) -> Result<Self::Mut<'_>, EntityMutableFetchError> {
+    ) -> Result<Self::Mut<'_>, EntityDoesNotExistError> {
         let location = cell
             .entities()
             .get(self)
@@ -229,7 +245,7 @@ unsafe impl WorldEntityFetch for Entity {
     unsafe fn fetch_deferred_mut(
         self,
         cell: UnsafeWorldCell<'_>,
-    ) -> Result<Self::DeferredMut<'_>, EntityMutableFetchError> {
+    ) -> Result<Self::DeferredMut<'_>, EntityDoesNotExistError> {
         let ecell = cell.get_entity(self)?;
         // SAFETY: caller ensures that the world cell has mutable access to the entity.
         Ok(unsafe { EntityMut::new(ecell) })
@@ -244,6 +260,7 @@ unsafe impl<const N: usize> WorldEntityFetch for [Entity; N] {
     type Ref<'w> = [EntityRef<'w>; N];
     type Mut<'w> = [EntityMut<'w>; N];
     type DeferredMut<'w> = [EntityMut<'w>; N];
+    type FetchMutError = EntityMutableFetchError;
 
     #[inline]
     unsafe fn fetch_ref(
@@ -278,6 +295,7 @@ unsafe impl<const N: usize> WorldEntityFetch for &'_ [Entity; N] {
     type Ref<'w> = [EntityRef<'w>; N];
     type Mut<'w> = [EntityMut<'w>; N];
     type DeferredMut<'w> = [EntityMut<'w>; N];
+    type FetchMutError = EntityMutableFetchError;
 
     #[inline]
     unsafe fn fetch_ref(
@@ -343,6 +361,7 @@ unsafe impl WorldEntityFetch for &'_ [Entity] {
     type Ref<'w> = Vec<EntityRef<'w>>;
     type Mut<'w> = Vec<EntityMut<'w>>;
     type DeferredMut<'w> = Vec<EntityMut<'w>>;
+    type FetchMutError = EntityMutableFetchError;
 
     #[inline]
     unsafe fn fetch_ref(
@@ -402,6 +421,7 @@ unsafe impl WorldEntityFetch for &'_ EntityHashSet {
     type Ref<'w> = EntityHashMap<EntityRef<'w>>;
     type Mut<'w> = EntityHashMap<EntityMut<'w>>;
     type DeferredMut<'w> = EntityHashMap<EntityMut<'w>>;
+    type FetchMutError = EntityDoesNotExistError;
 
     #[inline]
     unsafe fn fetch_ref(
@@ -421,7 +441,7 @@ unsafe impl WorldEntityFetch for &'_ EntityHashSet {
     unsafe fn fetch_mut(
         self,
         cell: UnsafeWorldCell<'_>,
-    ) -> Result<Self::Mut<'_>, EntityMutableFetchError> {
+    ) -> Result<Self::Mut<'_>, EntityDoesNotExistError> {
         let mut refs = EntityHashMap::with_capacity(self.len());
         for &id in self {
             let ecell = cell.get_entity(id)?;
@@ -435,7 +455,7 @@ unsafe impl WorldEntityFetch for &'_ EntityHashSet {
     unsafe fn fetch_deferred_mut(
         self,
         cell: UnsafeWorldCell<'_>,
-    ) -> Result<Self::DeferredMut<'_>, EntityMutableFetchError> {
+    ) -> Result<Self::DeferredMut<'_>, EntityDoesNotExistError> {
         // SAFETY: caller ensures that the world cell has mutable access to the entity,
         // and `fetch_mut` does not return structurally-mutable references.
         unsafe { self.fetch_mut(cell) }

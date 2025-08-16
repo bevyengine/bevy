@@ -236,9 +236,15 @@ impl<'w> DeferredWorld<'w> {
     ///
     /// # Errors
     ///
-    /// - Returns [`EntityMutableFetchError::EntityDoesNotExist`] if any of the given `entities` do not exist in the world.
+    /// For fetching entities that may contain duplicates:
+    /// - Returns [`EntityMutableFetchError::EntityDoesNotExist`] if any of the given
+    /// `entities` do not exist in the world.
     ///     - Only the first entity found to be missing will be returned.
-    /// - Returns [`EntityMutableFetchError::AliasedMutability`] if the same entity is requested multiple times.
+    /// - Returns [`EntityMutableFetchError::AliasedMutability`] if the same entity
+    /// is requested multiple times.
+    /// 
+    /// For fetching a single entity or entities that cannot contain duplicates:
+    /// - Returns [`EntityDoesNotExistError`] if the entity does not exist.
     ///
     /// # Examples
     ///
@@ -252,7 +258,7 @@ impl<'w> DeferredWorld<'w> {
     pub fn get_entity_mut<F: WorldEntityFetch>(
         &mut self,
         entities: F,
-    ) -> Result<F::DeferredMut<'_>, EntityMutableFetchError> {
+    ) -> Result<F::DeferredMut<'_>, F::FetchMutError> {
         let cell = self.as_unsafe_world_cell();
         // SAFETY: `&mut self` gives mutable access to the entire world,
         // and prevents any other access to the world.
