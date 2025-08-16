@@ -2,7 +2,7 @@
 //!
 //! See [`OrderIndependentTransparencyPlugin`] for the trade-offs of using OIT.
 //!
-//! [`OrderIndependentTransparencyPlugin`]: bevy::render::pipeline::OrderIndependentTransparencyPlugin
+//! [`OrderIndependentTransparencyPlugin`]: bevy::core_pipeline::oit::OrderIndependentTransparencyPlugin
 use bevy::{
     camera::visibility::RenderLayers,
     color::palettes::css::{BLUE, GREEN, RED},

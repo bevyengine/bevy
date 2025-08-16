@@ -44,7 +44,7 @@ pub struct MeshAllocatorPlugin;
 /// rebinding. This resource manages these buffers.
 ///
 /// Within each slab, or hardware buffer, the underlying allocation algorithm is
-/// [`offset-allocator`], a Rust port of Sebastian Aaltonen's hard-real-time C++
+/// [`offset_allocator`], a Rust port of Sebastian Aaltonen's hard-real-time C++
 /// `OffsetAllocator`. Slabs start small and then grow as their contents fill
 /// up, up to a maximum size limit. To reduce fragmentation, vertex and index
 /// buffers that are too large bypass this system and receive their own buffers.

@@ -516,8 +516,8 @@
 //!
 //! | Default | Dependencies                      |
 //! | :-----: | :-------------------------------: |
-//! | ✅      | [`bevy_reflect_derive/auto_register_inventory`] |
-//! | ❌      | [`bevy_reflect_derive/auto_register_static`] |
+//! | ✅      | `bevy_reflect_derive/auto_register_inventory` |
+//! | ❌      | `bevy_reflect_derive/auto_register_static` |
 //!
 //! These features enable automatic registration of types that derive [`Reflect`].
 //!

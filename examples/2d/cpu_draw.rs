@@ -1,7 +1,7 @@
 //! Example of how to draw to a texture from the CPU.
 //!
 //! You can set the values of individual pixels to whatever you want.
-//! Bevy provides user-friendly APIs that work with [`Color`](bevy::color::Color)
+//! Bevy provides user-friendly APIs that work with [`Color`]
 //! values and automatically perform any necessary conversions and encoding
 //! into the texture's native pixel format.
 
