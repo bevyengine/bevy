@@ -233,7 +233,7 @@ pub fn extract_shadow_filtering_method(
 ) {
     let mut values = Vec::with_capacity(*previous_len);
     for (entity, query_item) in &query {
-        values.push((entity, query_item.clone()));
+        values.push((entity, *query_item));
     }
     *previous_len = values.len();
     commands.try_insert_batch(values);
