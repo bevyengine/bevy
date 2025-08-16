@@ -9,8 +9,8 @@ use bevy::{
     color::palettes::css::*,
     math::ops,
     prelude::*,
-    sprite::Anchor,
-    text::{FontSmoothing, LineBreak, Text2dShadow, TextBounds},
+    sprite::{Anchor, Text2dShadow},
+    text::{FontSmoothing, LineBreak, TextBounds},
 };
 
 fn main() {
