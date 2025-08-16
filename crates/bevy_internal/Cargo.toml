@@ -396,10 +396,6 @@ web = ["bevy_app/web", "bevy_platform/web", "bevy_reflect/web"]
 
 hotpatching = ["bevy_app/hotpatching", "bevy_ecs/hotpatching"]
 
-gltf_convert_coordinates_default = [
-  "bevy_gltf?/gltf_convert_coordinates_default",
-]
-
 debug = ["bevy_utils/debug"]
 
 [dependencies]
