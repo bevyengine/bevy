@@ -144,7 +144,9 @@ where
     ) -> impl Command<Result<T, EntityCommandError<Err>>> + HandleError<Result<T, EntityCommandError<Err>>>
     {
         move |world: &mut World| {
-            let entity = world.get_entity_mut(entity)?;
+            let entity = world
+                .get_entity_mut(entity)
+                .map_err(|e| EntityMutableFetchError::from(e))?;
             self.apply(entity)
                 .map_err(EntityCommandError::CommandFailed)
         }
