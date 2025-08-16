@@ -1,6 +1,6 @@
 //! Events are things that "happen" and can be processed by app logic.
 //!
-//! - [`Event`]: A supertrait for push-based events that trigger global observers added via [`add_observer`].
+//! - [`ObserverEvent`]: A supertrait for push-based events that trigger global observers added via [`add_observer`].
 //!     - [`BroadcastEvent`]: An event without an entity target. Can be used via [`trigger`].
 //!     - [`EntityEvent`]: An event targeting specific entities, triggering any observers watching those targets. Can be used via [`trigger_targets`].
 //!       They can trigger entity-specific observers added via [`observe`] and can be propagated from one entity to another.

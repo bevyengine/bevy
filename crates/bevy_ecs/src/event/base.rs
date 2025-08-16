@@ -243,10 +243,10 @@ pub trait EntityEvent: ObserverEvent {
 /// typically in a system that runs as part of a schedule.
 ///
 /// While the polling imposes a small overhead, buffered events are useful for efficiently batch processing
-/// a large number of events at once. This can make them more efficient than [`Event`]s used by [`Observer`]s
+/// a large number of events at once. This can make them more efficient than [`ObserverEvent`]s used by [`Observer`]s
 /// for events that happen at a high frequency or in large quantities.
 ///
-/// Unlike [`Event`]s triggered for observers, buffered events are evaluated at fixed points in the schedule
+/// Unlike [`ObserverEvent`]s triggered for observers, buffered events are evaluated at fixed points in the schedule
 /// rather than immediately when they are sent. This allows for more predictable scheduling and deferring
 /// event processing to a later point in time.
 ///
@@ -308,10 +308,10 @@ pub trait EntityEvent: ObserverEvent {
 )]
 pub trait BufferedEvent: Send + Sync + 'static {}
 
-/// An internal type that implements [`Component`] for a given [`Event`] type.
+/// An internal type that implements [`Component`] for a given [`ObserverEvent`] type.
 ///
-/// This exists so we can easily get access to a unique [`ComponentId`] for each [`Event`] type,
-/// without requiring that [`Event`] types implement [`Component`] directly.
+/// This exists so we can easily get access to a unique [`ComponentId`] for each [`ObserverEvent`] type,
+/// without requiring that [`ObserverEvent`] types implement [`Component`] directly.
 /// [`ComponentId`] is used internally as a unique identifier for events because they are:
 ///
 /// - Unique to each event type.
@@ -402,7 +402,7 @@ pub(crate) struct EventInstance<E: BufferedEvent> {
     pub event: E,
 }
 
-/// A unique identifier for an [`Event`], used by [observers].
+/// A unique identifier for an [`ObserverEvent`], used by [observers].
 ///
 /// You can look up the key for your event by calling the [`Event::event_key`] method.
 ///

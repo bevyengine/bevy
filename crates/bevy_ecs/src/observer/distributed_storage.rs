@@ -33,7 +33,7 @@ use crate::prelude::ReflectComponent;
 
 /// An [`Observer`] system. Add this [`Component`] to an [`Entity`] to turn it into an "observer".
 ///
-/// Observers listen for a "trigger" of a specific [`Event`]. An event can be triggered on the [`World`]
+/// Observers listen for a "trigger" of a specific [`ObserverEvent`]. An event can be triggered on the [`World`]
 /// by calling [`World::trigger`], or if the event is an [`EntityEvent`], it can also be triggered for specific
 /// entity targets using [`World::trigger_targets`].
 ///
@@ -268,7 +268,7 @@ impl Observer {
     }
 
     /// Observes the given `entity` (in addition to any entity already being observed).
-    /// This will cause the [`Observer`] to run whenever the [`Event`] is triggered for the `entity`.
+    /// This will cause the [`Observer`] to run whenever the [`ObserverEvent`] is triggered for the `entity`.
     /// Note that if this is called _after_ an [`Observer`] is spawned, it will produce no effects.
     pub fn with_entity(mut self, entity: Entity) -> Self {
         self.watch_entity(entity);
@@ -276,7 +276,7 @@ impl Observer {
     }
 
     /// Observes the given `entities` (in addition to any entity already being observed).
-    /// This will cause the [`Observer`] to run whenever the [`Event`] is triggered for any of these `entities`.
+    /// This will cause the [`Observer`] to run whenever the [`ObserverEvent`] is triggered for any of these `entities`.
     /// Note that if this is called _after_ an [`Observer`] is spawned, it will produce no effects.
     pub fn with_entities<I: IntoIterator<Item = Entity>>(mut self, entities: I) -> Self {
         self.watch_entities(entities);
@@ -284,20 +284,20 @@ impl Observer {
     }
 
     /// Observes the given `entity` (in addition to any entity already being observed).
-    /// This will cause the [`Observer`] to run whenever the [`Event`] is triggered for the `entity`.
+    /// This will cause the [`Observer`] to run whenever the [`ObserverEvent`] is triggered for the `entity`.
     /// Note that if this is called _after_ an [`Observer`] is spawned, it will produce no effects.
     pub fn watch_entity(&mut self, entity: Entity) {
         self.descriptor.entities.push(entity);
     }
 
     /// Observes the given `entity` (in addition to any entity already being observed).
-    /// This will cause the [`Observer`] to run whenever the [`Event`] is triggered for any of these `entities`.
+    /// This will cause the [`Observer`] to run whenever the [`ObserverEvent`] is triggered for any of these `entities`.
     /// Note that if this is called _after_ an [`Observer`] is spawned, it will produce no effects.
     pub fn watch_entities<I: IntoIterator<Item = Entity>>(&mut self, entities: I) {
         self.descriptor.entities.extend(entities);
     }
 
-    /// Observes the given `component`. This will cause the [`Observer`] to run whenever the [`Event`] is triggered
+    /// Observes the given `component`. This will cause the [`Observer`] to run whenever the [`ObserverEvent`] is triggered
     /// with the given component target.
     pub fn with_component(mut self, component: ComponentId) -> Self {
         self.descriptor.components.push(component);

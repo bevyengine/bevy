@@ -4,7 +4,7 @@ use crate::{component::ComponentId, prelude::*};
 use alloc::vec::Vec;
 use variadics_please::all_tuples;
 
-/// Represents a collection of targets for a specific [`On`] instance of an [`Event`].
+/// Represents a collection of targets for a specific [`On`] instance of an [`ObserverEvent`].
 ///
 /// When an event is triggered with [`TriggerTargets`], any [`Observer`] that watches for that specific
 /// event-target combination will run.

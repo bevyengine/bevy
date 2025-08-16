@@ -1,4 +1,4 @@
-//! Observers are a push-based tool for responding to [`Event`]s.
+//! Observers are a push-based tool for responding to [`ObserverEvent`]s.
 //!
 //! ## Observer targeting
 //!
@@ -16,7 +16,7 @@
 //!
 //! ## Writing observers
 //!
-//! Observers are systems which implement [`IntoObserverSystem`] that listen for [`Event`]s matching their
+//! Observers are systems which implement [`IntoObserverSystem`] that listen for [`ObserverEvent`]s matching their
 //! type and target(s).
 //! To write observer systems, use [`On`] as the first parameter of your system.
 //! This parameter provides access to the specific event that triggered the observer,
@@ -54,7 +54,7 @@
 //! ## Triggering observers
 //!
 //! Observers are most commonly triggered by [`Commands`],
-//! via [`Commands::trigger`] (for untargeted [`Event`]s) or [`Commands::trigger_targets`] (for targeted [`EntityEvent`]s).
+//! via [`Commands::trigger`] (for untargeted [`ObserverEvent`]s) or [`Commands::trigger_targets`] (for targeted [`EntityEvent`]s).
 //! Like usual, equivalent methods are available on [`World`], allowing you to reduce overhead when working with exclusive world access.
 //!
 //! If your observer is configured to watch for a specific component or set of components instead,
@@ -1344,6 +1344,7 @@ mod tests {
             },
         );
         world.trigger(BroadcastEventA);
+        world.flush();
 
         assert!(world.get_resource::<ResA>().is_some());
     }

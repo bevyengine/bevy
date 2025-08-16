@@ -12,8 +12,8 @@ use crate::{
     prelude::*,
 };
 
-/// Type containing triggered [`Event`] information for a given run of an [`Observer`]. This contains the
-/// [`Event`] data itself. If it was triggered for a specific [`Entity`], it includes that as well. It also
+/// Type containing triggered [`ObserverEvent`] information for a given run of an [`Observer`]. This contains the
+/// [`ObserverEvent`] data itself. If it was triggered for a specific [`Entity`], it includes that as well. It also
 /// contains event propagation information. See [`On::propagate`] for more information.
 ///
 /// The generic `B: Bundle` is used to modify the further specialize the events that this observer is interested in.
@@ -174,7 +174,7 @@ impl<'w, E, B: Bundle> DerefMut for On<'w, E, B> {
     }
 }
 
-/// Metadata about a specific [`Event`] that triggered an observer.
+/// Metadata about a specific [`ObserverEvent`] that triggered an observer.
 ///
 /// This information is exposed via methods on [`On`].
 #[derive(Debug)]
