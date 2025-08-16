@@ -1,8 +1,8 @@
 [package]
-name = "bevy_gizmos"
+name = "bevy_sprite_render"
 version = "0.17.0-dev"
 edition = "2024"
-description = "Provides gizmos for Bevy Engine"
+description = "Provides sprite rendering functionality for Bevy Engine"
 homepage = "https://bevy.org"
 repository = "https://github.com/bevyengine/bevy"
 license = "MIT OR Apache-2.0"
@@ -11,33 +11,35 @@ keywords = ["bevy"]
 [features]
 webgl = []
 webgpu = []
-bevy_render = ["dep:bevy_render", "bevy_core_pipeline"]
 
 [dependencies]
-# Bevy
-bevy_pbr = { path = "../bevy_pbr", version = "0.17.0-dev", optional = true }
-bevy_sprite = { path = "../bevy_sprite", version = "0.17.0-dev", optional = true }
-bevy_sprite_render = { path = "../bevy_sprite_render", version = "0.17.0-dev", optional = true }
+# bevy
 bevy_app = { path = "../bevy_app", version = "0.17.0-dev" }
-bevy_camera = { path = "../bevy_camera", version = "0.17.0-dev" }
-bevy_light = { path = "../bevy_light", version = "0.17.0-dev" }
+bevy_asset = { path = "../bevy_asset", version = "0.17.0-dev" }
 bevy_color = { path = "../bevy_color", version = "0.17.0-dev" }
+bevy_core_pipeline = { path = "../bevy_core_pipeline", version = "0.17.0-dev" }
 bevy_ecs = { path = "../bevy_ecs", version = "0.17.0-dev" }
 bevy_image = { path = "../bevy_image", version = "0.17.0-dev" }
+bevy_camera = { path = "../bevy_camera", version = "0.17.0-dev" }
 bevy_mesh = { path = "../bevy_mesh", version = "0.17.0-dev" }
 bevy_math = { path = "../bevy_math", version = "0.17.0-dev" }
-bevy_asset = { path = "../bevy_asset", version = "0.17.0-dev" }
 bevy_shader = { path = "../bevy_shader", version = "0.17.0-dev" }
-bevy_render = { path = "../bevy_render", version = "0.17.0-dev", optional = true }
-bevy_utils = { path = "../bevy_utils", version = "0.17.0-dev" }
+bevy_sprite = { path = "../bevy_sprite", version = "0.17.0-dev" }
 bevy_reflect = { path = "../bevy_reflect", version = "0.17.0-dev" }
-bevy_core_pipeline = { path = "../bevy_core_pipeline", version = "0.17.0-dev", optional = true }
+bevy_render = { path = "../bevy_render", version = "0.17.0-dev" }
 bevy_transform = { path = "../bevy_transform", version = "0.17.0-dev" }
-bevy_gizmos_macros = { path = "macros", version = "0.17.0-dev" }
-bevy_time = { path = "../bevy_time", version = "0.17.0-dev" }
+bevy_utils = { path = "../bevy_utils", version = "0.17.0-dev" }
+bevy_derive = { path = "../bevy_derive", version = "0.17.0-dev" }
+bevy_platform = { path = "../bevy_platform", version = "0.17.0-dev", default-features = false, features = [
+  "std",
+] }
 
 # other
-bytemuck = "1.0"
+bytemuck = { version = "1", features = ["derive", "must_cast"] }
+fixedbitset = "0.5"
+derive_more = { version = "2", default-features = false, features = ["from"] }
+bitflags = "2.3"
+nonmax = "0.5"
 tracing = { version = "0.1", default-features = false, features = ["std"] }
 
 [lints]

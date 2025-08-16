@@ -11,9 +11,12 @@ pub mod box_shadow;
 mod gradient;
 mod pipeline;
 mod render_pass;
+mod text2d;
 pub mod ui_material;
 mod ui_material_pipeline;
 pub mod ui_texture_slice_pipeline;
+
+use text2d::extract_text2d_sprite;
 
 #[cfg(feature = "bevy_ui_debug")]
 mod debug_overlay;
@@ -52,7 +55,8 @@ use bevy_render::{
     view::{ExtractedView, Hdr, RetainedViewEntity, ViewUniforms},
     Extract, ExtractSchedule, Render, RenderApp, RenderStartup, RenderSystems,
 };
-use bevy_sprite::{BorderRect, SpriteAssetEvents};
+use bevy_sprite::{BorderRect, SpriteSystems};
+use bevy_sprite_render::SpriteAssetEvents;
 #[cfg(feature = "bevy_ui_debug")]
 pub use debug_overlay::UiDebugOptions;
 use gradient::GradientPlugin;
@@ -281,6 +285,11 @@ impl Plugin for UiRenderPlugin {
                     graph_3d.add_node_edge(NodeUi::UiPass, Node3d::Upscaling);
                 }
             });
+
+        render_app.add_systems(
+            ExtractSchedule,
+            extract_text2d_sprite.after(SpriteSystems::ExtractSprites),
+        );
 
         app.add_plugins(UiTextureSlicerPlugin);
         app.add_plugins(GradientPlugin);

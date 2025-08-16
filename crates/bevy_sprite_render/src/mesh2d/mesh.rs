@@ -221,7 +221,7 @@ impl Mesh2dUniform {
     }
 }
 
-// NOTE: These must match the bit flags in bevy_sprite/src/mesh2d/mesh2d.wgsl!
+// NOTE: These must match the bit flags in bevy_sprite_render/src/mesh2d/mesh2d.wgsl!
 bitflags::bitflags! {
     #[repr(transparent)]
     pub struct MeshFlags: u32 {
