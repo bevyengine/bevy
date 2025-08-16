@@ -42,6 +42,7 @@ mod pipeline;
 mod text;
 mod text2d;
 mod text_access;
+pub mod undo_2;
 
 use bevy_camera::{visibility::VisibilitySystems, CameraUpdateSystems};
 pub use bounds::*;
