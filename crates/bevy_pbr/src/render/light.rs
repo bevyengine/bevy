@@ -25,7 +25,7 @@ use bevy_light::cluster::GlobalVisibleClusterableObjects;
 use bevy_light::{
     spot_light_clip_from_view, spot_light_world_from_view, AmbientLight, CascadeShadowConfig,
     Cascades, DirectionalLight, DirectionalLightShadowMap, NotShadowCaster, PointLight,
-    PointLightShadowMap, SpotLight, VolumetricLight,
+    PointLightShadowMap, ShadowFilteringMethod, SpotLight, VolumetricLight,
 };
 use bevy_math::{ops, Mat4, UVec4, Vec3, Vec3Swizzles, Vec4, Vec4Swizzles};
 use bevy_platform::collections::{HashMap, HashSet};
@@ -222,6 +222,54 @@ pub fn init_shadow_samplers(mut commands: Commands, render_device: Res<RenderDev
         #[cfg(feature = "experimental_pbr_pcss")]
         directional_light_linear_sampler: render_device.create_sampler(&base_sampler_descriptor),
     });
+}
+
+// This is needed because of the orphan rule not allowing implementing
+// foreign trait ExtractComponent on foreign type ShadowFilteringMethod
+pub fn extract_shadow_filtering_method(
+    mut commands: Commands,
+    mut previous_len: Local<usize>,
+    query: Extract<Query<(RenderEntity, &ShadowFilteringMethod)>>,
+) {
+    let mut values = Vec::with_capacity(*previous_len);
+    for (entity, query_item) in &query {
+        values.push((entity, *query_item));
+    }
+    *previous_len = values.len();
+    commands.try_insert_batch(values);
+}
+
+// This is needed because of the orphan rule not allowing implementing
+// foreign trait ExtractResource on foreign type AmbientLight
+pub fn extract_ambient_light_resource(
+    mut commands: Commands,
+    main_resource: Extract<Option<Res<AmbientLight>>>,
+    target_resource: Option<ResMut<AmbientLight>>,
+) {
+    if let Some(main_resource) = main_resource.as_ref() {
+        if let Some(mut target_resource) = target_resource {
+            if main_resource.is_changed() {
+                *target_resource = (*main_resource).clone();
+            }
+        } else {
+            commands.insert_resource((*main_resource).clone());
+        }
+    }
+}
+
+// This is needed because of the orphan rule not allowing implementing
+// foreign trait ExtractComponent on foreign type AmbientLight
+pub fn extract_ambient_light(
+    mut commands: Commands,
+    mut previous_len: Local<usize>,
+    query: Extract<Query<(RenderEntity, &AmbientLight)>>,
+) {
+    let mut values = Vec::with_capacity(*previous_len);
+    for (entity, query_item) in &query {
+        values.push((entity, query_item.clone()));
+    }
+    *previous_len = values.len();
+    commands.try_insert_batch(values);
 }
 
 pub fn extract_lights(
