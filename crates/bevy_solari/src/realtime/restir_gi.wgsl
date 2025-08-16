@@ -26,7 +26,6 @@ var<push_constant> constants: PushConstants;
 
 const SPATIAL_REUSE_RADIUS_PIXELS = 30.0;
 const CONFIDENCE_WEIGHT_CAP = 8.0;
-const MINIMUM_RECONNECTION_DISTANCE = 0.3;
 
 @compute @workgroup_size(8, 8, 1)
 fn initial_and_temporal(@builtin(global_invocation_id) global_id: vec3<u32>) {
@@ -148,12 +147,6 @@ fn load_temporal_reservoir(pixel_id: vec2<u32>, depth: f32, world_position: vec3
         let temporal_pixel_index = temporal_pixel_id.x + temporal_pixel_id.y * u32(view.main_pass_viewport.z);
         var temporal_reservoir = gi_reservoirs_a[temporal_pixel_index];
 
-        // https://graphics.cs.utah.edu/research/projects/gris/sig22_GRIS.pdf#subsection.7.5
-        // Reject short reconnections to prevent exploding jacobian values
-        if distance(world_position, temporal_reservoir.sample_point_world_position) < MINIMUM_RECONNECTION_DISTANCE {
-            continue;
-        }
-
         temporal_reservoir.confidence_weight = min(temporal_reservoir.confidence_weight, CONFIDENCE_WEIGHT_CAP);
 
         return NeighborInfo(temporal_reservoir, temporal_world_position, temporal_world_normal, temporal_diffuse_brdf);
@@ -186,12 +179,6 @@ fn load_spatial_reservoir(pixel_id: vec2<u32>, depth: f32, world_position: vec3<
 
     let spatial_pixel_index = spatial_pixel_id.x + spatial_pixel_id.y * u32(view.main_pass_viewport.z);
     var spatial_reservoir = gi_reservoirs_b[spatial_pixel_index];
-
-    // https://graphics.cs.utah.edu/research/projects/gris/sig22_GRIS.pdf#subsection.7.5
-    // Reject short reconnections to prevent exploding jacobian values
-    if distance(world_position, spatial_reservoir.sample_point_world_position) < MINIMUM_RECONNECTION_DISTANCE {
-        return NeighborInfo(empty_reservoir(), spatial_world_position, spatial_world_normal, spatial_diffuse_brdf);
-    }
 
     spatial_reservoir.radiance *= trace_point_visibility(world_position, spatial_reservoir.sample_point_world_position);
 
@@ -345,6 +332,11 @@ fn merge_reservoirs(
         canonical_reservoir.sample_point_world_position,
         canonical_reservoir.sample_point_world_normal
     );
+
+    // Don't merge samples with huge jacobians, as it explodes the variance
+    if canonical_target_function_other_sample_jacobian > 2.0 {
+        return ReservoirMergeResult(canonical_reservoir, canonical_sample_radiance);
+    }
 
     // Resampling weight for canonical sample
     let canonical_sample_mis_weight = balance_heuristic(
