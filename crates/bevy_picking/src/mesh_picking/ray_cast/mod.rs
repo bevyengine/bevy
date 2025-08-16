@@ -130,7 +130,7 @@ type MeshFilter = Or<(With<Mesh3d>, With<Mesh2d>, With<SimplifiedMesh>)>;
 /// ```
 /// # use bevy_math::prelude::*;
 /// # use bevy_picking::prelude::*;
-/// fn ray_cast_system(mut ray_cast: MeshRayCast) {
+/// fn ray_cast_system(ray_cast: MeshRayCast) {
 ///     let ray = Ray3d::new(Vec3::ZERO, Dir3::X);
 ///     let hits = ray_cast.cast_ray(ray, &MeshRayCastSettings::default());
 /// }
@@ -148,7 +148,7 @@ type MeshFilter = Or<(With<Mesh3d>, With<Mesh2d>, With<SimplifiedMesh>)>;
 /// # use bevy_picking::prelude::*;
 /// # #[derive(Component)]
 /// # struct Foo;
-/// fn ray_cast_system(mut ray_cast: MeshRayCast, foo_query: Query<(), With<Foo>>) {
+/// fn ray_cast_system(ray_cast: MeshRayCast, foo_query: Query<(), With<Foo>>) {
 ///     let ray = Ray3d::new(Vec3::ZERO, Dir3::X);
 ///
 ///     // Only ray cast against entities with the `Foo` component.
@@ -173,12 +173,6 @@ type MeshFilter = Or<(With<Mesh3d>, With<Mesh2d>, With<SimplifiedMesh>)>;
 pub struct MeshRayCast<'w, 's> {
     #[doc(hidden)]
     pub meshes: Res<'w, Assets<Mesh>>,
-    #[doc(hidden)]
-    pub hits: Local<'s, Vec<(FloatOrd, (Entity, RayMeshHit))>>,
-    #[doc(hidden)]
-    pub output: Local<'s, Vec<(Entity, RayMeshHit)>>,
-    #[doc(hidden)]
-    pub culled_list: Local<'s, Vec<(FloatOrd, Entity)>>,
     #[doc(hidden)]
     pub culling_query: Query<
         'w,
@@ -210,16 +204,14 @@ pub struct MeshRayCast<'w, 's> {
 impl<'w, 's> MeshRayCast<'w, 's> {
     /// Casts the `ray` into the world and returns a sorted list of intersections, nearest first.
     pub fn cast_ray(
-        &mut self,
+        &self,
         ray: Ray3d,
         settings: &MeshRayCastSettings,
-    ) -> &[(Entity, RayMeshHit)] {
+    ) -> Vec<(Entity, RayMeshHit)> {
         let ray_cull = info_span!("ray culling");
         let ray_cull_guard = ray_cull.enter();
 
-        self.hits.clear();
-        self.culled_list.clear();
-        self.output.clear();
+        let mut hits = Vec::new();
 
         // Check all entities to see if the ray intersects the AABB. Use this to build a short list
         // of entities that are in the path of the ray.
@@ -243,17 +235,17 @@ impl<'w, 's> MeshRayCast<'w, 's> {
                 }
             },
         );
-        *self.culled_list = aabb_hits_rx.try_iter().collect();
+        let mut culled_list: Vec<_> = aabb_hits_rx.try_iter().collect();
 
         // Sort by the distance along the ray.
-        self.culled_list.sort_by_key(|(aabb_near, _)| *aabb_near);
+        culled_list.sort_by_key(|(aabb_near, _)| *aabb_near);
 
         drop(ray_cull_guard);
 
         // Perform ray casts against the culled entities.
         let mut nearest_blocking_hit = FloatOrd(f32::INFINITY);
         let ray_cast_guard = debug_span!("ray_cast");
-        self.culled_list
+        culled_list
             .iter()
             .filter(|(_, entity)| (settings.filter)(*entity))
             .for_each(|(aabb_near, entity)| {
@@ -303,14 +295,13 @@ impl<'w, 's> MeshRayCast<'w, 's> {
                         // could possibly contain a nearer hit.
                         nearest_blocking_hit = distance.min(nearest_blocking_hit);
                     }
-                    self.hits.push((distance, (*entity, intersection)));
+                    hits.push((distance, (*entity, intersection)));
                 };
             });
 
-        self.hits.retain(|(dist, _)| *dist <= nearest_blocking_hit);
-        self.hits.sort_by_key(|(k, _)| *k);
-        let hits = self.hits.iter().map(|(_, (e, i))| (*e, i.to_owned()));
-        self.output.extend(hits);
-        self.output.as_ref()
+        hits.retain(|(dist, _)| *dist <= nearest_blocking_hit);
+        hits.sort_by_key(|(k, _)| *k);
+        let hits = hits.iter().map(|(_, (e, i))| (*e, i.to_owned()));
+        hits.collect()
     }
 }
