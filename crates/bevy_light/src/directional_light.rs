@@ -260,7 +260,7 @@ pub struct SunDisk {
 }
 
 impl SunDisk {
-    /// Parameters of the Sun disk as viewed from Earth.
+    /// Parameters of the sun disk as viewed from Earth.
     ///
     /// Use this constant to render a sun disk with its typical apparent size (about 32 arcminutes)
     /// and default intensity.
