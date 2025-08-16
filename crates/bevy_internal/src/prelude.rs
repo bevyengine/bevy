@@ -68,8 +68,8 @@ pub use crate::scene::prelude::*;
 pub use crate::sprite::prelude::*;
 
 #[doc(hidden)]
-#[cfg(feature = "bevy_sprite_render")]
-pub use crate::sprite_render::prelude::*;
+#[cfg(feature = "bevy_render_2d")]
+pub use crate::render_2d::prelude::*;
 
 #[doc(hidden)]
 #[cfg(feature = "bevy_text")]
@@ -80,8 +80,8 @@ pub use crate::text::prelude::*;
 pub use crate::ui::prelude::*;
 
 #[doc(hidden)]
-#[cfg(feature = "bevy_ui_render")]
-pub use crate::ui_render::prelude::*;
+#[cfg(feature = "bevy_render_ui")]
+pub use crate::render_ui::prelude::*;
 
 #[doc(hidden)]
 #[cfg(feature = "bevy_gizmos")]
