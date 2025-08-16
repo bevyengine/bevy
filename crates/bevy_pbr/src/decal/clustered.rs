@@ -38,6 +38,7 @@ use bevy_render::{
         SamplerBindingType, ShaderType, TextureSampleType, TextureView,
     },
     renderer::{RenderAdapter, RenderDevice, RenderQueue},
+    sync_component::SyncComponentPlugin,
     sync_world::RenderEntity,
     texture::{FallbackImage, GpuImage},
     Extract, ExtractSchedule, Render, RenderApp, RenderSystems,
@@ -141,6 +142,8 @@ impl Plugin for ClusteredDecalPlugin {
     fn build(&self, app: &mut App) {
         load_shader_library!(app, "clustered.wgsl");
 
+        app.add_plugins(SyncComponentPlugin::<ClusteredDecal>::default());
+
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
         };
@@ -162,6 +165,8 @@ impl Plugin for ClusteredDecalPlugin {
     }
 }
 
+// This is needed because of the orphan rule not allowing implementing
+// foreign trait ExtractComponent on foreign type ClusteredDecal
 fn extract_clustered_decal(
     mut commands: Commands,
     mut previous_len: Local<usize>,

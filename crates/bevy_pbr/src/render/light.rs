@@ -25,7 +25,7 @@ use bevy_light::cluster::GlobalVisibleClusterableObjects;
 use bevy_light::{
     spot_light_clip_from_view, spot_light_world_from_view, AmbientLight, CascadeShadowConfig,
     Cascades, DirectionalLight, DirectionalLightShadowMap, NotShadowCaster, PointLight,
-    PointLightShadowMap, SpotLight, VolumetricLight,
+    PointLightShadowMap, ShadowFilteringMethod, SpotLight, VolumetricLight,
 };
 use bevy_math::{ops, Mat4, UVec4, Vec3, Vec3Swizzles, Vec4, Vec4Swizzles};
 use bevy_platform::collections::{HashMap, HashSet};
@@ -224,8 +224,8 @@ pub fn init_shadow_samplers(mut commands: Commands, render_device: Res<RenderDev
     });
 }
 
-use bevy_light::ShadowFilteringMethod;
-
+// This is needed because of the orphan rule not allowing implementing
+// foreign trait ExtractComponent on foreign type ShadowFilteringMethod
 pub fn extract_shadow_filtering_method(
     mut commands: Commands,
     mut previous_len: Local<usize>,
@@ -239,7 +239,8 @@ pub fn extract_shadow_filtering_method(
     commands.try_insert_batch(values);
 }
 
-/// This system extracts the resource of the corresponding [`Resource`] type
+// This is needed because of the orphan rule not allowing implementing
+// foreign trait ExtractResource on foreign type AmbientLight
 pub fn extract_ambient_light_resource(
     mut commands: Commands,
     main_resource: Extract<Option<Res<AmbientLight>>>,
@@ -256,6 +257,8 @@ pub fn extract_ambient_light_resource(
     }
 }
 
+// This is needed because of the orphan rule not allowing implementing
+// foreign trait ExtractComponent on foreign type AmbientLight
 pub fn extract_ambient_light(
     mut commands: Commands,
     mut previous_len: Local<usize>,

@@ -47,7 +47,10 @@ mod volumetric_fog;
 use bevy_color::{Color, LinearRgba};
 
 pub use atmosphere::*;
-use bevy_light::{DirectionalLight, LightPlugin, PointLight, SimulationLightSystems, SpotLight};
+use bevy_light::{
+    AmbientLight, DirectionalLight, LightPlugin, PointLight, ShadowFilteringMethod,
+    SimulationLightSystems, SpotLight,
+};
 use bevy_shader::{load_shader_library, ShaderRef};
 pub use cluster::*;
 pub use components::*;
@@ -227,6 +230,7 @@ impl Plugin for PbrPlugin {
                 ScreenSpaceAmbientOcclusionPlugin,
                 FogPlugin,
                 ExtractResourcePlugin::<DefaultOpaqueRendererMethod>::default(),
+                SyncComponentPlugin::<ShadowFilteringMethod>::default(),
                 LightmapPlugin,
                 LightProbePlugin,
                 LightPlugin,
@@ -242,6 +246,7 @@ impl Plugin for PbrPlugin {
                 SyncComponentPlugin::<DirectionalLight>::default(),
                 SyncComponentPlugin::<PointLight>::default(),
                 SyncComponentPlugin::<SpotLight>::default(),
+                SyncComponentPlugin::<AmbientLight>::default(),
             ))
             .add_plugins(AtmospherePlugin)
             .configure_sets(
