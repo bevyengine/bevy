@@ -168,7 +168,7 @@ pub unsafe trait WorldEntityFetch {
     ///     - Only the first entity found to be missing will be returned.
     /// - Returns [`EntityMutableFetchError::AliasedMutability`] if the same entity
     /// is requested multiple times.
-    /// 
+    ///
     /// For fetching a single entity or entities that cannot contain duplicates:
     /// - Returns [`EntityDoesNotExistError`] if the entity does not exist.
     unsafe fn fetch_mut(
@@ -197,7 +197,7 @@ pub unsafe trait WorldEntityFetch {
     ///     - Only the first entity found to be missing will be returned.
     /// - Returns [`EntityMutableFetchError::AliasedMutability`] if the same entity
     /// is requested multiple times.
-    /// 
+    ///
     /// For fetching a single entity or entities that cannot contain duplicates:
     /// - Returns [`EntityDoesNotExistError`] if the entity does not exist.
     unsafe fn fetch_deferred_mut(

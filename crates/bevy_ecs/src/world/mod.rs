@@ -952,7 +952,7 @@ impl World {
     ///     - Only the first entity found to be missing will be returned.
     /// - Returns [`EntityMutableFetchError::AliasedMutability`] if the same entity
     /// is requested multiple times.
-    /// 
+    ///
     /// For fetching a single entity or entities that cannot contain duplicates:
     /// - Returns [`EntityDoesNotExistError`] if the entity does not exist.
     ///
@@ -1433,7 +1433,9 @@ impl World {
         caller: MaybeLocation,
     ) -> Result<(), EntityDespawnError> {
         self.flush();
-        let entity = self.get_entity_mut(entity).map_err(|e| EntityMutableFetchError::from(e))?;
+        let entity = self
+            .get_entity_mut(entity)
+            .map_err(|e| EntityMutableFetchError::from(e))?;
         entity.despawn_with_caller(caller);
         Ok(())
     }
