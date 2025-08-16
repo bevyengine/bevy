@@ -403,7 +403,7 @@ struct GpuDirectionalLight {
 
 impl GpuDirectionalLight {
     fn new(directional_light: &ExtractedDirectionalLight) -> Self {
-        let cos_theta_max = cos(directional_light.angular_size / 2.0);
+        let cos_theta_max = cos(directional_light.sun_disk_angular_size / 2.0);
         let solid_angle = TAU * (1.0 - cos_theta_max);
         let luminance =
             (directional_light.color.to_vec3() * directional_light.illuminance) / solid_angle;

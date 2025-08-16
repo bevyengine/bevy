@@ -242,9 +242,13 @@ pub fn update_directional_light_frusta(
 }
 
 /// This component marks a [`DirectionalLight`] entity for changing the size and intensity of the sun disk.
+///
+/// By default, the atmosphere is rendered with [`SunDisk::EARTH`], which approximates the
+/// apparent size and brightness of the Sun as seen from Earth. You can also disable the sun
+/// disk entirely with [`SunDisk::OFF`].
 #[derive(Component, Clone)]
 #[require(DirectionalLight)]
-pub struct SunLight {
+pub struct SunDisk {
     /// The angular size (diameter) of the sun disk in radians as observed from Earth.
     pub angular_size: f32,
     /// Multiplier applied to the brightness of the sun disk in the sky.
@@ -255,23 +259,36 @@ pub struct SunLight {
     pub intensity: f32,
 }
 
-impl SunLight {
-    pub const SUN: SunLight = SunLight {
+impl SunDisk {
+    /// Parameters of the Sun disk as viewed from Earth.
+    ///
+    /// Use this constant to render a sun disk with its typical apparent size (about 32 arcminutes)
+    /// and default intensity.
+    pub const EARTH: SunDisk = SunDisk {
         // 32 arc minutes is the mean size of the sun disk when the Earth is
         // exactly 1 astronomical unit from the sun.
         angular_size: 0.00930842,
         intensity: 1.0,
     };
+
+    /// Disable sun disk rendering: zero angular size and zero intensity.
+    ///
+    /// This keeps atmospheric scattering and lighting from the directional light,
+    /// but hides sun disk in atmosphere rendering.
+    pub const OFF: SunDisk = SunDisk {
+        angular_size: 0.0,
+        intensity: 0.0,
+    };
 }
 
-impl Default for SunLight {
+impl Default for SunDisk {
     fn default() -> Self {
-        Self::SUN
+        Self::EARTH
     }
 }
 
-impl Default for &SunLight {
+impl Default for &SunDisk {
     fn default() -> Self {
-        &SunLight::SUN
+        &SunDisk::EARTH
     }
 }

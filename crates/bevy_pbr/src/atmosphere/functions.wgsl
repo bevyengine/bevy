@@ -284,8 +284,8 @@ fn sample_sun_radiance(ray_dir_ws: vec3<f32>) -> vec3<f32> {
         let neg_LdotV = dot((*light).direction_to_light, ray_dir_ws);
         let angle_to_sun = fast_acos(clamp(neg_LdotV, -1.0, 1.0));
         let w = max(0.5 * fwidth(angle_to_sun), 1e-6);
-        let sun_angular_size = (*light).angular_size;
-        let sun_intensity = (*light).intensity;
+        let sun_angular_size = (*light).sun_disk_angular_size;
+        let sun_intensity = (*light).sun_disk_intensity;
         if sun_angular_size > 0.0 && sun_intensity > 0.0 {
             let factor = 1 - smoothstep(sun_angular_size * 0.5 - w, sun_angular_size * 0.5 + w, angle_to_sun);
             let sun_solid_angle = (sun_angular_size * sun_angular_size) * 0.25 * PI;
