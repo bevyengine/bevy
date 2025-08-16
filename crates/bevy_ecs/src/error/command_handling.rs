@@ -146,7 +146,7 @@ where
         move |world: &mut World| {
             let entity = world
                 .get_entity_mut(entity)
-                .map_err(|e| EntityMutableFetchError::from(e))?;
+                .map_err(EntityMutableFetchError::from)?;
             self.apply(entity)
                 .map_err(EntityCommandError::CommandFailed)
         }

@@ -238,10 +238,10 @@ impl<'w> DeferredWorld<'w> {
     ///
     /// For fetching entities that may contain duplicates:
     /// - Returns [`EntityMutableFetchError::EntityDoesNotExist`] if any of the given
-    /// `entities` do not exist in the world.
+    ///   `entities` do not exist in the world.
     ///     - Only the first entity found to be missing will be returned.
     /// - Returns [`EntityMutableFetchError::AliasedMutability`] if the same entity
-    /// is requested multiple times.
+    ///   is requested multiple times.
     ///
     /// For fetching a single entity or entities that cannot contain duplicates:
     /// - Returns [`EntityDoesNotExistError`] if the entity does not exist.

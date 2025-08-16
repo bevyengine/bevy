@@ -948,10 +948,10 @@ impl World {
     ///
     /// For fetching entities that may contain duplicates:
     /// - Returns [`EntityMutableFetchError::EntityDoesNotExist`] if any of the given
-    /// `entities` do not exist in the world.
+    ///   `entities` do not exist in the world.
     ///     - Only the first entity found to be missing will be returned.
     /// - Returns [`EntityMutableFetchError::AliasedMutability`] if the same entity
-    /// is requested multiple times.
+    ///   is requested multiple times.
     ///
     /// For fetching a single entity or entities that cannot contain duplicates:
     /// - Returns [`EntityDoesNotExistError`] if the entity does not exist.
@@ -1435,7 +1435,7 @@ impl World {
         self.flush();
         let entity = self
             .get_entity_mut(entity)
-            .map_err(|e| EntityMutableFetchError::from(e))?;
+            .map_err(EntityMutableFetchError::from)?;
         entity.despawn_with_caller(caller);
         Ok(())
     }
