@@ -2,14 +2,14 @@
 //! the mouse pointer in various ways.
 
 #[cfg(feature = "custom_cursor")]
-use bevy::winit::cursor::{CustomCursor, CustomCursorImage};
+use bevy::window::{CustomCursor, CustomCursorImage};
 use bevy::{
     diagnostic::{FrameCount, FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
     prelude::*,
     window::{
-        CursorGrabMode, CursorOptions, PresentMode, SystemCursorIcon, WindowLevel, WindowTheme,
+        CursorGrabMode, CursorIcon, CursorOptions, PresentMode, SystemCursorIcon, WindowLevel,
+        WindowTheme,
     },
-    winit::cursor::CursorIcon,
 };
 
 fn main() {
@@ -142,13 +142,13 @@ fn toggle_cursor(mut cursor_options: Single<&mut CursorOptions>, input: Res<Butt
 
 // This system will toggle the color theme used by the window
 fn toggle_theme(mut window: Single<&mut Window>, input: Res<ButtonInput<KeyCode>>) {
-    if input.just_pressed(KeyCode::KeyF) {
-        if let Some(current_theme) = window.window_theme {
-            window.window_theme = match current_theme {
-                WindowTheme::Light => Some(WindowTheme::Dark),
-                WindowTheme::Dark => Some(WindowTheme::Light),
-            };
-        }
+    if input.just_pressed(KeyCode::KeyF)
+        && let Some(current_theme) = window.window_theme
+    {
+        window.window_theme = match current_theme {
+            WindowTheme::Light => Some(WindowTheme::Dark),
+            WindowTheme::Dark => Some(WindowTheme::Light),
+        };
     }
 }
 

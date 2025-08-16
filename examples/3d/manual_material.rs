@@ -29,7 +29,7 @@ use bevy::{
         sync_world::MainEntity,
         texture::GpuImage,
         view::ExtractedView,
-        Extract, RenderApp,
+        Extract, RenderApp, RenderStartup,
     },
     utils::Parallel,
 };
@@ -55,52 +55,46 @@ impl Plugin for ImageMaterialPlugin {
                 check_entities_needing_specialization.after(AssetEventSystems),
             )
             .init_resource::<EntitiesNeedingSpecialization<ImageMaterial>>();
-    }
 
-    fn finish(&self, app: &mut App) {
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
         };
 
-        render_app.add_systems(
-            ExtractSchedule,
-            (
-                extract_image_materials,
-                extract_image_materials_needing_specialization,
-            ),
-        );
-
-        render_app.world_mut().resource_scope(
-            |world: &mut World, mut bind_group_allocators: Mut<MaterialBindGroupAllocators>| {
-                world.resource_scope(|world: &mut World, render_device: Mut<RenderDevice>| {
-                    let bind_group_layout = render_device.create_bind_group_layout(
-                        "image_material_layout",
-                        &BindGroupLayoutEntries::sequential(
-                            ShaderStages::FRAGMENT,
-                            (
-                                texture_2d(TextureSampleType::Float { filterable: false }),
-                                sampler(SamplerBindingType::NonFiltering),
-                            ),
-                        ),
-                    );
-                    let sampler = render_device.create_sampler(&SamplerDescriptor::default());
-                    world.insert_resource(ImageMaterialBindGroupLayout(bind_group_layout.clone()));
-                    world.insert_resource(ImageMaterialBindGroupSampler(sampler));
-
-                    bind_group_allocators.insert(
-                        TypeId::of::<ImageMaterial>(),
-                        MaterialBindGroupAllocator::new(
-                            &render_device,
-                            None,
-                            None,
-                            bind_group_layout,
-                            None,
-                        ),
-                    );
-                });
-            },
-        );
+        render_app
+            .add_systems(RenderStartup, init_image_material_resources)
+            .add_systems(
+                ExtractSchedule,
+                (
+                    extract_image_materials,
+                    extract_image_materials_needing_specialization,
+                ),
+            );
     }
+}
+
+fn init_image_material_resources(
+    mut commands: Commands,
+    render_device: Res<RenderDevice>,
+    mut bind_group_allocators: ResMut<MaterialBindGroupAllocators>,
+) {
+    let bind_group_layout = render_device.create_bind_group_layout(
+        "image_material_layout",
+        &BindGroupLayoutEntries::sequential(
+            ShaderStages::FRAGMENT,
+            (
+                texture_2d(TextureSampleType::Float { filterable: false }),
+                sampler(SamplerBindingType::NonFiltering),
+            ),
+        ),
+    );
+    let sampler = render_device.create_sampler(&SamplerDescriptor::default());
+    commands.insert_resource(ImageMaterialBindGroupLayout(bind_group_layout.clone()));
+    commands.insert_resource(ImageMaterialBindGroupSampler(sampler));
+
+    bind_group_allocators.insert(
+        TypeId::of::<ImageMaterial>(),
+        MaterialBindGroupAllocator::new(&render_device, None, None, bind_group_layout, None),
+    );
 }
 
 #[derive(Resource)]

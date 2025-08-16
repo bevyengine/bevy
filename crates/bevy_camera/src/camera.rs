@@ -6,12 +6,12 @@ use super::{
 };
 use bevy_asset::Handle;
 use bevy_derive::Deref;
-use bevy_ecs::{component::Component, reflect::ReflectComponent};
+use bevy_ecs::{component::Component, entity::Entity, reflect::ReflectComponent};
 use bevy_image::Image;
 use bevy_math::{ops, Dir3, FloatOrd, Mat4, Ray3d, Rect, URect, UVec2, Vec2, Vec3};
 use bevy_reflect::prelude::*;
 use bevy_transform::components::{GlobalTransform, Transform};
-use bevy_window::WindowRef;
+use bevy_window::{NormalizedWindowRef, WindowRef};
 use core::ops::Range;
 use derive_more::derive::From;
 use thiserror::Error;
@@ -80,14 +80,20 @@ impl Viewport {
         }
     }
 
-    pub fn with_override(
-        &self,
+    pub fn from_viewport_and_override(
+        viewport: Option<&Self>,
         main_pass_resolution_override: Option<&MainPassResolutionOverride>,
-    ) -> Self {
-        let mut viewport = self.clone();
+    ) -> Option<Self> {
+        let mut viewport = viewport.cloned();
+
         if let Some(override_size) = main_pass_resolution_override {
-            viewport.physical_size = **override_size;
+            if viewport.is_none() {
+                viewport = Some(Viewport::default());
+            }
+
+            viewport.as_mut().unwrap().physical_size = **override_size;
         }
+
         viewport
     }
 }
@@ -101,7 +107,8 @@ impl Viewport {
 /// * Insert this component on a 3d camera entity in the render world.
 /// * The resolution override must be smaller than the camera's viewport size.
 /// * The resolution override is specified in physical pixels.
-#[derive(Component, Reflect, Deref)]
+/// * In shaders, use `View::main_pass_viewport` instead of `View::viewport`.
+#[derive(Component, Reflect, Deref, Debug)]
 #[reflect(Component)]
 pub struct MainPassResolutionOverride(pub UVec2);
 
@@ -176,7 +183,7 @@ pub struct ComputedCameraValues {
     pub old_sub_camera_view: Option<SubCameraView>,
 }
 
-/// How much energy a `Camera3d` absorbs from incoming light.
+/// How much energy a [`Camera3d`](crate::Camera3d) absorbs from incoming light.
 ///
 /// <https://en.wikipedia.org/wiki/Exposure_(photography)>
 #[derive(Component, Clone, Copy, Reflect)]
@@ -322,8 +329,8 @@ pub enum ViewportConversionError {
 /// but custom render graphs can also be defined. Inserting a [`Camera`] with no render
 /// graph will emit an error at runtime.
 ///
-/// [`Camera2d`]: https://docs.rs/bevy/latest/bevy/core_pipeline/core_2d/struct.Camera2d.html
-/// [`Camera3d`]: https://docs.rs/bevy/latest/bevy/core_pipeline/core_3d/struct.Camera3d.html
+/// [`Camera2d`]: crate::Camera2d
+/// [`Camera3d`]: crate::Camera3d
 #[derive(Component, Debug, Reflect, Clone)]
 #[reflect(Component, Default, Debug, Clone)]
 #[require(
@@ -567,6 +574,30 @@ impl Camera {
     /// To get the world space coordinates with Normalized Device Coordinates, you should use
     /// [`ndc_to_world`](Self::ndc_to_world).
     ///
+    /// # Example
+    /// ```no_run
+    /// # use bevy_window::Window;
+    /// # use bevy_ecs::prelude::{Single, IntoScheduleConfigs};
+    /// # use bevy_transform::prelude::{GlobalTransform, TransformSystems};
+    /// # use bevy_camera::Camera;
+    /// # use bevy_app::{App, PostUpdate};
+    /// #
+    /// fn system(camera_query: Single<(&Camera, &GlobalTransform)>, window: Single<&Window>) {
+    ///     let (camera, camera_transform) = *camera_query;
+    ///
+    ///     if let Some(cursor_position) = window.cursor_position()
+    ///         // Calculate a ray pointing from the camera into the world based on the cursor's position.
+    ///         && let Ok(ray) = camera.viewport_to_world(camera_transform, cursor_position)
+    ///     {
+    ///         println!("{ray:?}");
+    ///     }
+    /// }
+    ///
+    /// # let mut app = App::new();
+    /// // Run the system after transform propagation so the camera's global transform is up-to-date.
+    /// app.add_systems(PostUpdate, system.after(TransformSystems::Propagate));
+    /// ```
+    ///
     /// # Panics
     ///
     /// Will panic if the camera's projection matrix is invalid (has a determinant of 0) and
@@ -604,6 +635,30 @@ impl Camera {
     ///
     /// To get the world space coordinates with Normalized Device Coordinates, you should use
     /// [`ndc_to_world`](Self::ndc_to_world).
+    ///
+    /// # Example
+    /// ```no_run
+    /// # use bevy_window::Window;
+    /// # use bevy_ecs::prelude::*;
+    /// # use bevy_transform::prelude::{GlobalTransform, TransformSystems};
+    /// # use bevy_camera::Camera;
+    /// # use bevy_app::{App, PostUpdate};
+    /// #
+    /// fn system(camera_query: Single<(&Camera, &GlobalTransform)>, window: Single<&Window>) {
+    ///     let (camera, camera_transform) = *camera_query;
+    ///
+    ///     if let Some(cursor_position) = window.cursor_position()
+    ///         // Calculate a world position based on the cursor's position.
+    ///         && let Ok(world_pos) = camera.viewport_to_world_2d(camera_transform, cursor_position)
+    ///     {
+    ///         println!("World position: {world_pos:.2}");
+    ///     }
+    /// }
+    ///
+    /// # let mut app = App::new();
+    /// // Run the system after transform propagation so the camera's global transform is up-to-date.
+    /// app.add_systems(PostUpdate, system.after(TransformSystems::Propagate));
+    /// ```
     ///
     /// # Panics
     ///
@@ -752,6 +807,34 @@ impl RenderTarget {
             None
         }
     }
+}
+
+impl RenderTarget {
+    /// Normalize the render target down to a more concrete value, mostly used for equality comparisons.
+    pub fn normalize(&self, primary_window: Option<Entity>) -> Option<NormalizedRenderTarget> {
+        match self {
+            RenderTarget::Window(window_ref) => window_ref
+                .normalize(primary_window)
+                .map(NormalizedRenderTarget::Window),
+            RenderTarget::Image(handle) => Some(NormalizedRenderTarget::Image(handle.clone())),
+            RenderTarget::TextureView(id) => Some(NormalizedRenderTarget::TextureView(*id)),
+        }
+    }
+}
+
+/// Normalized version of the render target.
+///
+/// Once we have this we shouldn't need to resolve it down anymore.
+#[derive(Debug, Clone, Reflect, PartialEq, Eq, Hash, PartialOrd, Ord, From)]
+#[reflect(Clone, PartialEq, Hash)]
+pub enum NormalizedRenderTarget {
+    /// Window to which the camera's view is rendered.
+    Window(NormalizedWindowRef),
+    /// Image to which the camera's view is rendered.
+    Image(ImageRenderTarget),
+    /// Texture View to which the camera's view is rendered.
+    /// Useful when the texture view needs to be created outside of Bevy, for example OpenXR.
+    TextureView(ManualTextureViewHandle),
 }
 
 /// A unique id that corresponds to a specific `ManualTextureView` in the `ManualTextureViews` collection.

@@ -20,7 +20,7 @@ fn main() {
 #[derive(Resource, Deref)]
 struct StreamReceiver(Receiver<u32>);
 
-#[derive(Event, BufferedEvent)]
+#[derive(BufferedEvent)]
 struct StreamEvent(u32);
 
 fn setup(mut commands: Commands) {
@@ -36,7 +36,7 @@ fn setup(mut commands: Commands) {
             // This is where you could connect to an external data source
 
             // This will block until the previous value has been read in system `read_stream`
-            tx.send(rng.gen_range(0..2000)).unwrap();
+            tx.send(rng.random_range(0..2000)).unwrap();
         }
     });
 

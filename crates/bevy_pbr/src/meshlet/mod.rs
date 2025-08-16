@@ -49,16 +49,20 @@ use self::{
     material_shade_nodes::{
         MeshletDeferredGBufferPrepassNode, MeshletMainOpaquePass3dNode, MeshletPrepassNode,
     },
-    meshlet_mesh_manager::{perform_pending_meshlet_mesh_writes, MeshletMeshManager},
+    meshlet_mesh_manager::perform_pending_meshlet_mesh_writes,
     pipelines::*,
     resource_manager::{
         prepare_meshlet_per_frame_resources, prepare_meshlet_view_bind_groups, ResourceManager,
     },
     visibility_buffer_raster_node::MeshletVisibilityBufferRasterPassNode,
 };
-use crate::{graph::NodePbr, PreviousGlobalTransform};
+use crate::{
+    graph::NodePbr, meshlet::meshlet_mesh_manager::init_meshlet_mesh_manager,
+    PreviousGlobalTransform,
+};
 use bevy_app::{App, Plugin};
 use bevy_asset::{embedded_asset, AssetApp, AssetId, Handle};
+use bevy_camera::visibility::{self, Visibility, VisibilityClass};
 use bevy_core_pipeline::{
     core_3d::graph::{Core3d, Node3d},
     prepass::{DeferredPrepass, MotionVectorPrepass, NormalPrepass},
@@ -70,17 +74,17 @@ use bevy_ecs::{
     query::Has,
     reflect::ReflectComponent,
     schedule::IntoScheduleConfigs,
-    system::{Commands, Query},
+    system::{Commands, Query, Res},
 };
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
-    load_shader_library,
     render_graph::{RenderGraphExt, ViewNodeRunner},
     renderer::RenderDevice,
     settings::WgpuFeatures,
-    view::{self, prepare_view_targets, Msaa, Visibility, VisibilityClass},
-    ExtractSchedule, Render, RenderApp, RenderSystems,
+    view::{prepare_view_targets, Msaa},
+    ExtractSchedule, Render, RenderApp, RenderStartup, RenderSystems,
 };
+use bevy_shader::load_shader_library;
 use bevy_transform::components::Transform;
 use derive_more::From;
 use tracing::error;
@@ -163,22 +167,18 @@ impl Plugin for MeshletPlugin {
 
         app.init_asset::<MeshletMesh>()
             .register_asset_loader(MeshletMeshLoader);
-    }
 
-    fn finish(&self, app: &mut App) {
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
         };
 
-        let render_device = render_app.world().resource::<RenderDevice>().clone();
-        let features = render_device.features();
-        if !features.contains(Self::required_wgpu_features()) {
-            error!(
-                "MeshletPlugin can't be used. GPU lacks support for required features: {:?}.",
-                Self::required_wgpu_features().difference(features)
-            );
-            std::process::exit(1);
-        }
+        // Create a variable here so we can move-capture it.
+        let cluster_buffer_slots = self.cluster_buffer_slots;
+        let init_resource_manager_system =
+            move |mut commands: Commands, render_device: Res<RenderDevice>| {
+                commands
+                    .insert_resource(ResourceManager::new(cluster_buffer_slots, &render_device));
+            };
 
         render_app
             .add_render_graph_node::<MeshletVisibilityBufferRasterPassNode>(
@@ -214,13 +214,18 @@ impl Plugin for MeshletPlugin {
                     Node3d::EndMainPass,
                 ),
             )
-            .init_resource::<MeshletMeshManager>()
             .insert_resource(InstanceManager::new())
-            .insert_resource(ResourceManager::new(
-                self.cluster_buffer_slots,
-                &render_device,
-            ))
-            .init_resource::<MeshletPipelines>()
+            .add_systems(
+                RenderStartup,
+                (
+                    check_meshlet_features,
+                    (
+                        (init_resource_manager_system, init_meshlet_pipelines).chain(),
+                        init_meshlet_mesh_manager,
+                    ),
+                )
+                    .chain(),
+            )
             .add_systems(ExtractSchedule, extract_meshlet_mesh_entities)
             .add_systems(
                 Render,
@@ -240,11 +245,22 @@ impl Plugin for MeshletPlugin {
     }
 }
 
-/// The meshlet mesh equivalent of [`bevy_render::mesh::Mesh3d`].
+fn check_meshlet_features(render_device: Res<RenderDevice>) {
+    let features = render_device.features();
+    if !features.contains(MeshletPlugin::required_wgpu_features()) {
+        error!(
+            "MeshletPlugin can't be used. GPU lacks support for required features: {:?}.",
+            MeshletPlugin::required_wgpu_features().difference(features)
+        );
+        std::process::exit(1);
+    }
+}
+
+/// The meshlet mesh equivalent of [`bevy_mesh::Mesh3d`].
 #[derive(Component, Clone, Debug, Default, Deref, DerefMut, Reflect, PartialEq, Eq, From)]
 #[reflect(Component, Default, Clone, PartialEq)]
 #[require(Transform, PreviousGlobalTransform, Visibility, VisibilityClass)]
-#[component(on_add = view::add_visibility_class::<MeshletMesh3d>)]
+#[component(on_add = visibility::add_visibility_class::<MeshletMesh3d>)]
 pub struct MeshletMesh3d(pub Handle<MeshletMesh>);
 
 impl From<MeshletMesh3d> for AssetId<MeshletMesh> {

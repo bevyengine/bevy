@@ -13,6 +13,7 @@ keywords = ["bevy"]
 bevy_a11y = { path = "../bevy_a11y", version = "0.17.0-dev" }
 bevy_app = { path = "../bevy_app", version = "0.17.0-dev" }
 bevy_asset = { path = "../bevy_asset", version = "0.17.0-dev" }
+bevy_camera = { path = "../bevy_camera", version = "0.17.0-dev" }
 bevy_color = { path = "../bevy_color", version = "0.17.0-dev" }
 bevy_core_pipeline = { path = "../bevy_core_pipeline", version = "0.17.0-dev" }
 bevy_derive = { path = "../bevy_derive", version = "0.17.0-dev" }
@@ -21,7 +22,6 @@ bevy_image = { path = "../bevy_image", version = "0.17.0-dev" }
 bevy_input = { path = "../bevy_input", version = "0.17.0-dev" }
 bevy_math = { path = "../bevy_math", version = "0.17.0-dev" }
 bevy_reflect = { path = "../bevy_reflect", version = "0.17.0-dev" }
-bevy_render = { path = "../bevy_render", version = "0.17.0-dev" }
 bevy_sprite = { path = "../bevy_sprite", version = "0.17.0-dev" }
 bevy_text = { path = "../bevy_text", version = "0.17.0-dev" }
 bevy_picking = { path = "../bevy_picking", version = "0.17.0-dev", optional = true }
@@ -39,8 +39,11 @@ uuid = { version = "1.1", features = ["v4"], optional = true }
 thiserror = { version = "2", default-features = false }
 derive_more = { version = "2", default-features = false, features = ["from"] }
 smallvec = { version = "1", default-features = false }
-accesskit = "0.19"
+accesskit = "0.21"
 tracing = { version = "0.1", default-features = false, features = ["std"] }
+
+[dev-dependencies]
+bevy_render = { path = "../bevy_render", version = "0.17.0-dev" }
 
 [features]
 default = []

@@ -4,7 +4,10 @@
 //!
 //! See [`SolariPlugins`] for more info.
 //!
-//! ![`bevy_solari` logo](https://raw.githubusercontent.com/bevyengine/bevy/assets/branding/bevy_solari.svg)
+//! ![`bevy_solari` logo](https://raw.githubusercontent.com/bevyengine/bevy/refs/heads/main/assets/branding/bevy_solari.svg)
+
+extern crate alloc;
+
 pub mod pathtracer;
 pub mod realtime;
 pub mod scene;
@@ -44,7 +47,7 @@ impl PluginGroup for SolariPlugins {
 }
 
 impl SolariPlugins {
-    /// [`WgpuFeatures`] required for this plugin to function.
+    /// [`WgpuFeatures`] required for these plugins to function.
     pub fn required_wgpu_features() -> WgpuFeatures {
         WgpuFeatures::EXPERIMENTAL_RAY_TRACING_ACCELERATION_STRUCTURE
             | WgpuFeatures::EXPERIMENTAL_RAY_QUERY

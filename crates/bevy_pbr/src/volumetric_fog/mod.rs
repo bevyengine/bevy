@@ -6,14 +6,14 @@
 //! for light beams from directional lights to shine through, creating what is
 //! known as *light shafts* or *god rays*.
 //!
-//! To add volumetric fog to a scene, add [`crate::VolumetricFog`] to the
-//! camera, and add [`crate::VolumetricLight`] to directional lights that you wish to
-//! be volumetric. [`crate::VolumetricFog`] feature numerous settings that
+//! To add volumetric fog to a scene, add [`bevy_light::VolumetricFog`] to the
+//! camera, and add [`bevy_light::VolumetricLight`] to directional lights that you wish to
+//! be volumetric. [`bevy_light::VolumetricFog`] feature numerous settings that
 //! allow you to define the accuracy of the simulation, as well as the look of
 //! the fog. Currently, only interaction with directional lights that have
 //! shadow maps is supported. Note that the overhead of the effect scales
 //! directly with the number of directional lights in use, so apply
-//! [`crate::VolumetricLight`] sparingly for the best results.
+//! [`bevy_light::VolumetricLight`] sparingly for the best results.
 //!
 //! The overall algorithm, which is implemented as a postprocessing effect, is a
 //! combination of the techniques described in [Scratchapixel] and [this blog
@@ -41,16 +41,16 @@ use bevy_math::{
     primitives::{Cuboid, Plane3d},
     Vec2, Vec3,
 };
+use bevy_mesh::{Mesh, Meshable};
 use bevy_render::{
-    mesh::{Mesh, Meshable},
     render_graph::{RenderGraphExt, ViewNodeRunner},
     render_resource::SpecializedRenderPipelines,
     sync_component::SyncComponentPlugin,
-    ExtractSchedule, Render, RenderApp, RenderSystems,
+    ExtractSchedule, Render, RenderApp, RenderStartup, RenderSystems,
 };
 use render::{VolumetricFogNode, VolumetricFogPipeline, VolumetricFogUniformBuffer};
 
-use crate::graph::NodePbr;
+use crate::{graph::NodePbr, volumetric_fog::render::init_volumetric_fog_pipeline};
 
 pub mod render;
 
@@ -84,6 +84,7 @@ impl Plugin for VolumetricFogPlugin {
             })
             .init_resource::<SpecializedRenderPipelines<VolumetricFogPipeline>>()
             .init_resource::<VolumetricFogUniformBuffer>()
+            .add_systems(RenderStartup, init_volumetric_fog_pipeline)
             .add_systems(ExtractSchedule, render::extract_volumetric_fog)
             .add_systems(
                 Render,
@@ -94,16 +95,7 @@ impl Plugin for VolumetricFogPlugin {
                         .in_set(RenderSystems::Prepare)
                         .before(prepare_core_3d_depth_textures),
                 ),
-            );
-    }
-
-    fn finish(&self, app: &mut App) {
-        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
-            return;
-        };
-
-        render_app
-            .init_resource::<VolumetricFogPipeline>()
+            )
             .add_render_graph_node::<ViewNodeRunner<VolumetricFogNode>>(
                 Core3d,
                 NodePbr::VolumetricFog,

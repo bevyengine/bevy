@@ -2,7 +2,10 @@
 
 use bevy_app::{App, Plugin};
 use bevy_asset::AssetId;
-use bevy_core_pipeline::core_3d::Camera3d;
+use bevy_camera::{
+    primitives::{Aabb, Frustum},
+    Camera3d,
+};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     component::Component,
@@ -13,32 +16,32 @@ use bevy_ecs::{
     system::{Commands, Local, Query, Res, ResMut},
 };
 use bevy_image::Image;
-use bevy_light::{EnvironmentMapLight, LightProbe};
+use bevy_light::{EnvironmentMapLight, IrradianceVolume, LightProbe};
 use bevy_math::{Affine3A, FloatOrd, Mat4, Vec3A, Vec4};
 use bevy_platform::collections::HashMap;
 use bevy_render::{
     extract_instances::ExtractInstancesPlugin,
-    load_shader_library,
-    primitives::{Aabb, Frustum},
     render_asset::RenderAssets,
     render_resource::{DynamicUniformBuffer, Sampler, ShaderType, TextureView},
-    renderer::{RenderAdapter, RenderDevice, RenderQueue},
+    renderer::{RenderAdapter, RenderAdapterInfo, RenderDevice, RenderQueue},
     settings::WgpuFeatures,
     sync_world::RenderEntity,
     texture::{FallbackImage, GpuImage},
     view::ExtractedView,
-    Extract, ExtractSchedule, Render, RenderApp, RenderSystems,
+    Extract, ExtractSchedule, Render, RenderApp, RenderSystems, WgpuWrapper,
 };
+use bevy_shader::load_shader_library;
 use bevy_transform::{components::Transform, prelude::GlobalTransform};
 use tracing::error;
 
 use core::{hash::Hash, ops::Deref};
 
-use crate::light_probe::environment_map::EnvironmentMapIds;
-
-use self::irradiance_volume::IrradianceVolume;
+use crate::{
+    generate::EnvironmentMapGenerationPlugin, light_probe::environment_map::EnvironmentMapIds,
+};
 
 pub mod environment_map;
+pub mod generate;
 pub mod irradiance_volume;
 
 /// The maximum number of each type of light probe that each view will consider.
@@ -288,10 +291,11 @@ impl Plugin for LightProbePlugin {
         load_shader_library!(app, "environment_map.wgsl");
         load_shader_library!(app, "irradiance_volume.wgsl");
 
-        app.add_plugins(ExtractInstancesPlugin::<EnvironmentMapIds>::new());
-    }
+        app.add_plugins((
+            EnvironmentMapGenerationPlugin,
+            ExtractInstancesPlugin::<EnvironmentMapIds>::new(),
+        ));
 
-    fn finish(&self, app: &mut App) {
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
         };
@@ -714,8 +718,10 @@ pub(crate) fn binding_arrays_are_usable(
     render_device: &RenderDevice,
     render_adapter: &RenderAdapter,
 ) -> bool {
+    let adapter_info = RenderAdapterInfo(WgpuWrapper::new(render_adapter.get_info()));
+
     !cfg!(feature = "shader_format_glsl")
-        && bevy_render::get_adreno_model(render_adapter).is_none_or(|model| model > 610)
+        && bevy_render::get_adreno_model(&adapter_info).is_none_or(|model| model > 610)
         && render_device.limits().max_storage_textures_per_shader_stage
             >= (STANDARD_MATERIAL_FRAGMENT_SHADER_MIN_TEXTURE_BINDINGS + MAX_VIEW_LIGHT_PROBES)
                 as u32

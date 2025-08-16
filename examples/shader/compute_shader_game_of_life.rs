@@ -4,16 +4,21 @@
 //! is rendered to the screen.
 
 use bevy::{
+    asset::RenderAssetUsages,
     prelude::*,
     render::{
         extract_resource::{ExtractResource, ExtractResourcePlugin},
-        render_asset::{RenderAssetUsages, RenderAssets},
+        render_asset::RenderAssets,
         render_graph::{self, RenderGraph, RenderLabel},
-        render_resource::{binding_types::texture_storage_2d, *},
-        renderer::{RenderContext, RenderDevice},
+        render_resource::{
+            binding_types::{texture_storage_2d, uniform_buffer},
+            *,
+        },
+        renderer::{RenderContext, RenderDevice, RenderQueue},
         texture::GpuImage,
-        Render, RenderApp, RenderSystems,
+        Render, RenderApp, RenderStartup, RenderSystems,
     },
+    shader::PipelineCacheError,
 };
 use std::borrow::Cow;
 
@@ -51,17 +56,8 @@ fn main() {
 }
 
 fn setup(mut commands: Commands, mut images: ResMut<Assets<Image>>) {
-    let mut image = Image::new_fill(
-        Extent3d {
-            width: SIZE.0,
-            height: SIZE.1,
-            depth_or_array_layers: 1,
-        },
-        TextureDimension::D2,
-        &[0, 0, 0, 255],
-        TextureFormat::R32Float,
-        RenderAssetUsages::RENDER_WORLD,
-    );
+    let mut image = Image::new_target_texture(SIZE.0, SIZE.1, TextureFormat::Rgba32Float);
+    image.asset_usage = RenderAssetUsages::RENDER_WORLD;
     image.texture_descriptor.usage =
         TextureUsages::COPY_DST | TextureUsages::STORAGE_BINDING | TextureUsages::TEXTURE_BINDING;
     let image0 = images.add(image.clone());
@@ -80,6 +76,10 @@ fn setup(mut commands: Commands, mut images: ResMut<Assets<Image>>) {
     commands.insert_resource(GameOfLifeImages {
         texture_a: image0,
         texture_b: image1,
+    });
+
+    commands.insert_resource(GameOfLifeUniforms {
+        alive_color: LinearRgba::RED,
     });
 }
 
@@ -101,21 +101,21 @@ impl Plugin for GameOfLifeComputePlugin {
     fn build(&self, app: &mut App) {
         // Extract the game of life image resource from the main world into the render world
         // for operation on by the compute shader and display on the sprite.
-        app.add_plugins(ExtractResourcePlugin::<GameOfLifeImages>::default());
+        app.add_plugins((
+            ExtractResourcePlugin::<GameOfLifeImages>::default(),
+            ExtractResourcePlugin::<GameOfLifeUniforms>::default(),
+        ));
         let render_app = app.sub_app_mut(RenderApp);
-        render_app.add_systems(
-            Render,
-            prepare_bind_group.in_set(RenderSystems::PrepareBindGroups),
-        );
+        render_app
+            .add_systems(RenderStartup, init_game_of_life_pipeline)
+            .add_systems(
+                Render,
+                prepare_bind_group.in_set(RenderSystems::PrepareBindGroups),
+            );
 
         let mut render_graph = render_app.world_mut().resource_mut::<RenderGraph>();
         render_graph.add_node(GameOfLifeLabel, GameOfLifeNode::default());
         render_graph.add_node_edge(GameOfLifeLabel, bevy::render::graph::CameraDriverLabel);
-    }
-
-    fn finish(&self, app: &mut App) {
-        let render_app = app.sub_app_mut(RenderApp);
-        render_app.init_resource::<GameOfLifePipeline>();
     }
 }
 
@@ -123,6 +123,11 @@ impl Plugin for GameOfLifeComputePlugin {
 struct GameOfLifeImages {
     texture_a: Handle<Image>,
     texture_b: Handle<Image>,
+}
+
+#[derive(Resource, Clone, ExtractResource, ShaderType)]
+struct GameOfLifeUniforms {
+    alive_color: LinearRgba,
 }
 
 #[derive(Resource)]
@@ -133,19 +138,35 @@ fn prepare_bind_group(
     pipeline: Res<GameOfLifePipeline>,
     gpu_images: Res<RenderAssets<GpuImage>>,
     game_of_life_images: Res<GameOfLifeImages>,
+    game_of_life_uniforms: Res<GameOfLifeUniforms>,
     render_device: Res<RenderDevice>,
+    queue: Res<RenderQueue>,
 ) {
     let view_a = gpu_images.get(&game_of_life_images.texture_a).unwrap();
     let view_b = gpu_images.get(&game_of_life_images.texture_b).unwrap();
+
+    // Uniform buffer is used here to demonstrate how to set up a uniform in a compute shader
+    // Alternatives such as storage buffers or push constants may be more suitable for your use case
+    let mut uniform_buffer = UniformBuffer::from(game_of_life_uniforms.into_inner());
+    uniform_buffer.write_buffer(&render_device, &queue);
+
     let bind_group_0 = render_device.create_bind_group(
         None,
         &pipeline.texture_bind_group_layout,
-        &BindGroupEntries::sequential((&view_a.texture_view, &view_b.texture_view)),
+        &BindGroupEntries::sequential((
+            &view_a.texture_view,
+            &view_b.texture_view,
+            &uniform_buffer,
+        )),
     );
     let bind_group_1 = render_device.create_bind_group(
         None,
         &pipeline.texture_bind_group_layout,
-        &BindGroupEntries::sequential((&view_b.texture_view, &view_a.texture_view)),
+        &BindGroupEntries::sequential((
+            &view_b.texture_view,
+            &view_a.texture_view,
+            &uniform_buffer,
+        )),
     );
     commands.insert_resource(GameOfLifeImageBindGroups([bind_group_0, bind_group_1]));
 }
@@ -157,40 +178,42 @@ struct GameOfLifePipeline {
     update_pipeline: CachedComputePipelineId,
 }
 
-impl FromWorld for GameOfLifePipeline {
-    fn from_world(world: &mut World) -> Self {
-        let render_device = world.resource::<RenderDevice>();
-        let texture_bind_group_layout = render_device.create_bind_group_layout(
-            "GameOfLifeImages",
-            &BindGroupLayoutEntries::sequential(
-                ShaderStages::COMPUTE,
-                (
-                    texture_storage_2d(TextureFormat::R32Float, StorageTextureAccess::ReadOnly),
-                    texture_storage_2d(TextureFormat::R32Float, StorageTextureAccess::WriteOnly),
-                ),
+fn init_game_of_life_pipeline(
+    mut commands: Commands,
+    render_device: Res<RenderDevice>,
+    asset_server: Res<AssetServer>,
+    pipeline_cache: Res<PipelineCache>,
+) {
+    let texture_bind_group_layout = render_device.create_bind_group_layout(
+        "GameOfLifeImages",
+        &BindGroupLayoutEntries::sequential(
+            ShaderStages::COMPUTE,
+            (
+                texture_storage_2d(TextureFormat::Rgba32Float, StorageTextureAccess::ReadOnly),
+                texture_storage_2d(TextureFormat::Rgba32Float, StorageTextureAccess::WriteOnly),
+                uniform_buffer::<GameOfLifeUniforms>(false),
             ),
-        );
-        let shader = world.load_asset(SHADER_ASSET_PATH);
-        let pipeline_cache = world.resource::<PipelineCache>();
-        let init_pipeline = pipeline_cache.queue_compute_pipeline(ComputePipelineDescriptor {
-            layout: vec![texture_bind_group_layout.clone()],
-            shader: shader.clone(),
-            entry_point: Some(Cow::from("init")),
-            ..default()
-        });
-        let update_pipeline = pipeline_cache.queue_compute_pipeline(ComputePipelineDescriptor {
-            layout: vec![texture_bind_group_layout.clone()],
-            shader,
-            entry_point: Some(Cow::from("update")),
-            ..default()
-        });
+        ),
+    );
+    let shader = asset_server.load(SHADER_ASSET_PATH);
+    let init_pipeline = pipeline_cache.queue_compute_pipeline(ComputePipelineDescriptor {
+        layout: vec![texture_bind_group_layout.clone()],
+        shader: shader.clone(),
+        entry_point: Some(Cow::from("init")),
+        ..default()
+    });
+    let update_pipeline = pipeline_cache.queue_compute_pipeline(ComputePipelineDescriptor {
+        layout: vec![texture_bind_group_layout.clone()],
+        shader,
+        entry_point: Some(Cow::from("update")),
+        ..default()
+    });
 
-        GameOfLifePipeline {
-            texture_bind_group_layout,
-            init_pipeline,
-            update_pipeline,
-        }
-    }
+    commands.insert_resource(GameOfLifePipeline {
+        texture_bind_group_layout,
+        init_pipeline,
+        update_pipeline,
+    });
 }
 
 enum GameOfLifeState {

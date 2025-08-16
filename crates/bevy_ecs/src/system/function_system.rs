@@ -1,5 +1,5 @@
 use crate::{
-    component::{CheckChangeTicks, ComponentId, Tick},
+    component::{CheckChangeTicks, Tick},
     error::{BevyError, Result},
     never::Never,
     prelude::FromWorld,
@@ -135,7 +135,7 @@ impl SystemMeta {
 /// # use bevy_ecs::system::SystemState;
 /// # use bevy_ecs::event::Events;
 /// #
-/// # #[derive(Event, BufferedEvent)]
+/// # #[derive(BufferedEvent)]
 /// # struct MyEvent;
 /// # #[derive(Resource)]
 /// # struct MyResource(u32);
@@ -168,7 +168,7 @@ impl SystemMeta {
 /// # use bevy_ecs::system::SystemState;
 /// # use bevy_ecs::event::Events;
 /// #
-/// # #[derive(Event, BufferedEvent)]
+/// # #[derive(BufferedEvent)]
 /// # struct MyEvent;
 /// #[derive(Resource)]
 /// struct CachedSystemState {
@@ -193,6 +193,22 @@ impl SystemMeta {
 ///         println!("Hello World!");
 ///     }
 /// });
+/// ```
+/// Exclusive System:
+/// ```
+/// # use bevy_ecs::prelude::*;
+/// # use bevy_ecs::system::SystemState;
+/// #
+/// # #[derive(BufferedEvent)]
+/// # struct MyEvent;
+/// #
+/// fn exclusive_system(world: &mut World, system_state: &mut SystemState<EventReader<MyEvent>>) {
+///     let mut event_reader = system_state.get_mut(world);
+///
+///     for events in event_reader.read() {
+///         println!("Hello World!");
+///     }
+/// }
 /// ```
 pub struct SystemState<Param: SystemParam + 'static> {
     meta: SystemMeta,
@@ -733,7 +749,7 @@ where
     }
 
     #[inline]
-    fn initialize(&mut self, world: &mut World) -> FilteredAccessSet<ComponentId> {
+    fn initialize(&mut self, world: &mut World) -> FilteredAccessSet {
         if let Some(state) = &self.state {
             assert_eq!(
                 state.world_id,

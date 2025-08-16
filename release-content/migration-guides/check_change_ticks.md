@@ -1,5 +1,5 @@
 ---
-title: `CheckChangeTicks` parameter in `System::check_change_tick`
+title: "`CheckChangeTicks` parameter in `System::check_change_tick`"
 pull_requests: [19274, 19600]
 ---
 
