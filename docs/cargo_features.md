@@ -34,6 +34,7 @@ The default feature set enables most of the expected features of a game engine, 
 |bevy_scene|Provides scene functionality|
 |bevy_sprite|Provides sprite functionality|
 |bevy_sprite_picking_backend|Provides an implementation for picking sprites|
+|bevy_sprite_render|Provides sprite rendering functionality|
 |bevy_state|Enable built in global state machines|
 |bevy_text|Provides text functionality|
 |bevy_ui|A custom ECS-driven UI framework|
@@ -96,7 +97,6 @@ The default feature set enables most of the expected features of a game engine, 
 |ghost_nodes|Experimental support for nodes that are ignored for UI layouting|
 |gif|GIF image format support|
 |glam_assert|Enable assertions to check the validity of parameters passed to glam|
-|gltf_convert_coordinates_default|Enable converting glTF coordinates to Bevy's coordinate system by default. This will be Bevy's default behavior starting in 0.18.|
 |hotpatching|Enable hotpatching of Bevy systems|
 |ico|ICO image format support|
 |jpeg|JPEG image format support|
