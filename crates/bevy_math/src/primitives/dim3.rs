@@ -1297,14 +1297,16 @@ impl Triangle3d {
         let ca = a - c;
 
         let mut largest_side_points = (a, b);
-        let mut largest_side_length = ab.length();
+        let mut largest_side_length = ab.length_squared();
 
-        if bc.length() > largest_side_length {
+        let bc_length = bc.length_squared();
+        if bc_length > largest_side_length {
             largest_side_points = (b, c);
-            largest_side_length = bc.length();
+            largest_side_length = bc_length;
         }
 
-        if ca.length() > largest_side_length {
+        let ca_length = ca.length_squared();
+        if ca_length > largest_side_length {
             largest_side_points = (a, c);
         }
 
