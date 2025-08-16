@@ -11,7 +11,7 @@ use bevy_ecs::{
 /// ```
 /// # use bevy_ecs::prelude::*;
 ///
-/// #[derive(Event, BufferedEvent)]
+/// #[derive(BufferedEvent)]
 /// pub struct MyEvent; // Custom event type.
 /// fn my_system(mut writer: EventWriter<MyEvent>) {
 ///     writer.write(MyEvent);
@@ -38,7 +38,7 @@ use bevy_ecs::{
 ///
 /// ```
 /// # use bevy_ecs::{prelude::*, event::Events};
-/// # #[derive(Event, BufferedEvent)]
+/// # #[derive(BufferedEvent)]
 /// # pub struct MyEvent;
 /// fn write_untyped(mut commands: Commands) {
 ///     // Write an event of a specific type without having to declare that

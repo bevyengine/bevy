@@ -1,5 +1,5 @@
 use alloc::{borrow::Cow, vec::Vec};
-use bevy_platform::{collections::HashSet, sync::PoisonError};
+use bevy_platform::{hash::FixedHasher, sync::PoisonError};
 use bevy_ptr::OwningPtr;
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::Reflect;
@@ -10,6 +10,7 @@ use core::{
     fmt::Debug,
     mem::needs_drop,
 };
+use indexmap::IndexSet;
 
 use crate::{
     archetype::ArchetypeFlags,
@@ -30,7 +31,9 @@ pub struct ComponentInfo {
     pub(super) descriptor: ComponentDescriptor,
     pub(super) hooks: ComponentHooks,
     pub(super) required_components: RequiredComponents,
-    pub(super) required_by: HashSet<ComponentId>,
+    /// The set of components that require this components.
+    /// Invariant: components in this set always appear after the components that they require.
+    pub(super) required_by: IndexSet<ComponentId, FixedHasher>,
 }
 
 impl ComponentInfo {
@@ -506,6 +509,13 @@ impl Components {
     }
 
     #[inline]
+    pub(crate) fn get_required_components(&self, id: ComponentId) -> Option<&RequiredComponents> {
+        self.components
+            .get(id.0)
+            .and_then(|info| info.as_ref().map(|info| &info.required_components))
+    }
+
+    #[inline]
     pub(crate) fn get_required_components_mut(
         &mut self,
         id: ComponentId,
@@ -516,7 +526,10 @@ impl Components {
     }
 
     #[inline]
-    pub(crate) fn get_required_by(&self, id: ComponentId) -> Option<&HashSet<ComponentId>> {
+    pub(crate) fn get_required_by(
+        &self,
+        id: ComponentId,
+    ) -> Option<&IndexSet<ComponentId, FixedHasher>> {
         self.components
             .get(id.0)
             .and_then(|info| info.as_ref().map(|info| &info.required_by))
@@ -526,7 +539,7 @@ impl Components {
     pub(crate) fn get_required_by_mut(
         &mut self,
         id: ComponentId,
-    ) -> Option<&mut HashSet<ComponentId>> {
+    ) -> Option<&mut IndexSet<ComponentId, FixedHasher>> {
         self.components
             .get_mut(id.0)
             .and_then(|info| info.as_mut().map(|info| &mut info.required_by))
@@ -641,6 +654,7 @@ impl Components {
     ///
     /// # See also
     ///
+    /// * [`ComponentIdFor`](super::ComponentIdFor)
     /// * [`Components::get_id()`]
     /// * [`Components::resource_id()`]
     /// * [`World::component_id()`](crate::world::World::component_id)

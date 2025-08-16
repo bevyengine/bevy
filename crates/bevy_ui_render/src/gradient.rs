@@ -7,7 +7,7 @@ use core::{
 use super::shader_flags::BORDER_ALL;
 use crate::*;
 use bevy_asset::*;
-use bevy_color::{ColorToComponents, LinearRgba};
+use bevy_color::{ColorToComponents, Hsla, Hsva, LinearRgba, Oklaba, Oklcha, Srgba};
 use bevy_ecs::{
     prelude::Component,
     system::{
@@ -21,6 +21,7 @@ use bevy_math::{
     FloatOrd, Rect, Vec2,
 };
 use bevy_math::{Affine2, Vec2Swizzles};
+use bevy_mesh::VertexBufferLayout;
 use bevy_render::{
     render_phase::*,
     render_resource::{binding_types::uniform_buffer, *},
@@ -30,10 +31,11 @@ use bevy_render::{
     Extract, ExtractSchedule, Render, RenderSystems,
 };
 use bevy_render::{sync_world::MainEntity, RenderStartup};
+use bevy_shader::Shader;
 use bevy_sprite::BorderRect;
 use bevy_ui::{
-    BackgroundGradient, BorderGradient, ColorStop, ConicGradient, Gradient,
-    InterpolationColorSpace, LinearGradient, RadialGradient, ResolvedBorderRadius, Val,
+    BackgroundGradient, BorderGradient, ColorStop, ComputedUiRenderTargetInfo, ConicGradient,
+    Gradient, InterpolationColorSpace, LinearGradient, RadialGradient, ResolvedBorderRadius, Val,
 };
 use bevy_utils::default;
 use bytemuck::{Pod, Zeroable};
@@ -181,15 +183,15 @@ impl SpecializedRenderPipeline for GradientPipeline {
             ],
         );
         let color_space = match key.color_space {
-            InterpolationColorSpace::OkLab => "IN_OKLAB",
-            InterpolationColorSpace::OkLch => "IN_OKLCH",
-            InterpolationColorSpace::OkLchLong => "IN_OKLCH_LONG",
-            InterpolationColorSpace::Srgb => "IN_SRGB",
-            InterpolationColorSpace::LinearRgb => "IN_LINEAR_RGB",
-            InterpolationColorSpace::Hsl => "IN_HSL",
-            InterpolationColorSpace::HslLong => "IN_HSL_LONG",
-            InterpolationColorSpace::Hsv => "IN_HSV",
-            InterpolationColorSpace::HsvLong => "IN_HSV_LONG",
+            InterpolationColorSpace::Oklaba => "IN_OKLAB",
+            InterpolationColorSpace::Oklcha => "IN_OKLCH",
+            InterpolationColorSpace::OklchaLong => "IN_OKLCH_LONG",
+            InterpolationColorSpace::Srgba => "IN_SRGB",
+            InterpolationColorSpace::LinearRgba => "IN_LINEAR_RGB",
+            InterpolationColorSpace::Hsla => "IN_HSL",
+            InterpolationColorSpace::HslaLong => "IN_HSL_LONG",
+            InterpolationColorSpace::Hsva => "IN_HSV",
+            InterpolationColorSpace::HsvaLong => "IN_HSV_LONG",
         };
 
         let shader_defs = if key.anti_alias {
@@ -350,7 +352,8 @@ pub fn extract_gradients(
         Query<(
             Entity,
             &ComputedNode,
-            &ComputedNodeTarget,
+            &ComputedUiTargetCamera,
+            &ComputedUiRenderTargetInfo,
             &UiGlobalTransform,
             &InheritedVisibility,
             Option<&CalculatedClip>,
@@ -365,6 +368,7 @@ pub fn extract_gradients(
     for (
         entity,
         uinode,
+        camera,
         target,
         transform,
         inherited_visibility,
@@ -377,7 +381,7 @@ pub fn extract_gradients(
             continue;
         }
 
-        let Some(extracted_camera_entity) = camera_mapper.map(target) else {
+        let Some(extracted_camera_entity) = camera_mapper.map(camera) else {
             continue;
         };
 
@@ -654,6 +658,40 @@ struct UiGradientVertex {
     hint: f32,
 }
 
+fn convert_color_to_space(color: LinearRgba, space: InterpolationColorSpace) -> [f32; 4] {
+    match space {
+        InterpolationColorSpace::Oklaba => {
+            let oklaba: Oklaba = color.into();
+            [oklaba.lightness, oklaba.a, oklaba.b, oklaba.alpha]
+        }
+        InterpolationColorSpace::Oklcha | InterpolationColorSpace::OklchaLong => {
+            let oklcha: Oklcha = color.into();
+            [
+                oklcha.lightness,
+                oklcha.chroma,
+                // The shader expects normalized hues
+                oklcha.hue / 360.,
+                oklcha.alpha,
+            ]
+        }
+        InterpolationColorSpace::Srgba => {
+            let srgba: Srgba = color.into();
+            [srgba.red, srgba.green, srgba.blue, srgba.alpha]
+        }
+        InterpolationColorSpace::LinearRgba => color.to_f32_array(),
+        InterpolationColorSpace::Hsla | InterpolationColorSpace::HslaLong => {
+            let hsla: Hsla = color.into();
+            // The shader expects normalized hues
+            [hsla.hue / 360., hsla.saturation, hsla.lightness, hsla.alpha]
+        }
+        InterpolationColorSpace::Hsva | InterpolationColorSpace::HsvaLong => {
+            let hsva: Hsva = color.into();
+            // The shader expects normalized hues
+            [hsva.hue / 360., hsva.saturation, hsva.value, hsva.alpha]
+        }
+    }
+}
+
 pub fn prepare_gradient(
     mut commands: Commands,
     render_device: Res<RenderDevice>,
@@ -804,8 +842,9 @@ pub fn prepare_gradient(
                                 continue;
                             }
                         }
-                        let start_color = start_stop.0.to_f32_array();
-                        let end_color = end_stop.0.to_f32_array();
+                        let start_color =
+                            convert_color_to_space(start_stop.0, gradient.color_space);
+                        let end_color = convert_color_to_space(end_stop.0, gradient.color_space);
                         let mut stop_flags = flags;
                         if 0. < start_stop.1
                             && (stop_index == gradient.stops_range.start || segment_count == 0)

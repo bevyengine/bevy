@@ -31,7 +31,9 @@ mod autofocus;
 pub use autofocus::*;
 
 use bevy_app::{App, Plugin, PostStartup, PreUpdate};
-use bevy_ecs::{prelude::*, query::QueryData, system::SystemParam, traversal::Traversal};
+use bevy_ecs::{
+    entity::Entities, prelude::*, query::QueryData, system::SystemParam, traversal::Traversal,
+};
 use bevy_input::{gamepad::GamepadButtonChangedEvent, keyboard::KeyboardInput, mouse::MouseWheel};
 use bevy_window::{PrimaryWindow, Window};
 use core::fmt::Debug;
@@ -137,7 +139,7 @@ pub struct InputFocusVisible(pub bool);
 ///
 /// To set up your own bubbling input event, add the [`dispatch_focused_input::<MyEvent>`](dispatch_focused_input) system to your app,
 /// in the [`InputFocusSystems::Dispatch`] system set during [`PreUpdate`].
-#[derive(Event, EntityEvent, Clone, Debug, Component)]
+#[derive(EntityEvent, Clone, Debug, Component)]
 #[entity_event(traversal = WindowTraversal, auto_propagate)]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Component, Clone))]
 pub struct FocusedInput<E: BufferedEvent + Clone> {
@@ -149,7 +151,7 @@ pub struct FocusedInput<E: BufferedEvent + Clone> {
 
 /// An event which is used to set input focus. Trigger this on an entity, and it will bubble
 /// until it finds a focusable entity, and then set focus to it.
-#[derive(Clone, Event, EntityEvent)]
+#[derive(Clone, EntityEvent)]
 #[entity_event(traversal = WindowTraversal, auto_propagate)]
 pub struct AcquireFocus {
     /// The primary window entity.
@@ -219,11 +221,6 @@ impl Plugin for InputDispatchPlugin {
                 )
                     .in_set(InputFocusSystems::Dispatch),
             );
-
-        #[cfg(feature = "bevy_reflect")]
-        app.register_type::<AutoFocus>()
-            .register_type::<InputFocus>()
-            .register_type::<InputFocusVisible>();
     }
 }
 
@@ -252,23 +249,42 @@ pub fn set_initial_focus(
 
 /// System which dispatches bubbled input events to the focused entity, or to the primary window
 /// if no entity has focus.
+///
+/// If the currently focused entity no longer exists (has been despawned), this system will
+/// automatically clear the focus and dispatch events to the primary window instead.
 pub fn dispatch_focused_input<E: BufferedEvent + Clone>(
     mut key_events: EventReader<E>,
-    focus: Res<InputFocus>,
+    mut focus: ResMut<InputFocus>,
     windows: Query<Entity, With<PrimaryWindow>>,
+    entities: &Entities,
     mut commands: Commands,
 ) {
     if let Ok(window) = windows.single() {
         // If an element has keyboard focus, then dispatch the input event to that element.
         if let Some(focused_entity) = focus.0 {
-            for ev in key_events.read() {
-                commands.trigger_targets(
-                    FocusedInput {
-                        input: ev.clone(),
+            // Check if the focused entity is still alive
+            if entities.contains(focused_entity) {
+                for ev in key_events.read() {
+                    commands.trigger_targets(
+                        FocusedInput {
+                            input: ev.clone(),
+                            window,
+                        },
+                        focused_entity,
+                    );
+                }
+            } else {
+                // If the focused entity no longer exists, clear focus and dispatch to window
+                focus.0 = None;
+                for ev in key_events.read() {
+                    commands.trigger_targets(
+                        FocusedInput {
+                            input: ev.clone(),
+                            window,
+                        },
                         window,
-                    },
-                    focused_entity,
-                );
+                    );
+                }
             }
         } else {
             // If no element has input focus, then dispatch the input event to the primary window.
@@ -626,5 +642,27 @@ mod tests {
                 assert!(world.is_focus_within_visible(child_of_b));
             })
             .unwrap();
+    }
+
+    #[test]
+    fn dispatch_clears_focus_when_focused_entity_despawned() {
+        let mut app = App::new();
+        app.add_plugins((InputPlugin, InputDispatchPlugin));
+
+        app.world_mut().spawn((Window::default(), PrimaryWindow));
+        app.update();
+
+        let entity = app.world_mut().spawn_empty().id();
+        app.world_mut()
+            .insert_resource(InputFocus::from_entity(entity));
+        app.world_mut().entity_mut(entity).despawn();
+
+        assert_eq!(app.world().resource::<InputFocus>().0, Some(entity));
+
+        // Send input event - this should clear focus instead of panicking
+        app.world_mut().write_event(key_a_event());
+        app.update();
+
+        assert_eq!(app.world().resource::<InputFocus>().0, None);
     }
 }

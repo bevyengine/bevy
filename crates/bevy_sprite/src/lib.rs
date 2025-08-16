@@ -6,17 +6,14 @@
     html_favicon_url = "https://bevy.org/assets/icon.png"
 )]
 
-//! Provides 2D sprite rendering functionality.
+//! Provides 2D sprite functionality.
 
 extern crate alloc;
 
-mod mesh2d;
 #[cfg(feature = "bevy_sprite_picking_backend")]
 mod picking_backend;
-mod render;
 mod sprite;
 mod texture_slice;
-mod tilemap_chunk;
 
 /// The sprite prelude.
 ///
@@ -31,35 +28,26 @@ pub mod prelude {
     pub use crate::{
         sprite::{Sprite, SpriteImageMode},
         texture_slice::{BorderRect, SliceScaleMode, TextureSlice, TextureSlicer},
-        ColorMaterial, MeshMaterial2d, ScalingMode,
+        ScalingMode,
     };
 }
 
-pub use mesh2d::*;
+use bevy_asset::Assets;
+use bevy_camera::{
+    primitives::{Aabb, MeshAabb},
+    visibility::{NoFrustumCulling, VisibilitySystems},
+};
+use bevy_mesh::{Mesh, Mesh2d};
 #[cfg(feature = "bevy_sprite_picking_backend")]
 pub use picking_backend::*;
-pub use render::*;
 pub use sprite::*;
 pub use texture_slice::*;
-pub use tilemap_chunk::*;
 
 use bevy_app::prelude::*;
-use bevy_asset::{embedded_asset, AssetEventSystems, Assets};
-use bevy_core_pipeline::core_2d::{AlphaMask2d, Opaque2d, Transparent2d};
 use bevy_ecs::prelude::*;
-use bevy_image::{prelude::*, TextureAtlasPlugin};
-use bevy_render::{
-    batching::sort_binned_render_phase,
-    load_shader_library,
-    mesh::{Mesh, Mesh2d},
-    primitives::{Aabb, MeshAabb},
-    render_phase::AddRenderCommand,
-    render_resource::SpecializedRenderPipelines,
-    view::{NoFrustumCulling, VisibilitySystems},
-    ExtractSchedule, Render, RenderApp, RenderSystems,
-};
+use bevy_image::{Image, TextureAtlasLayout, TextureAtlasPlugin};
 
-/// Adds support for 2D sprite rendering.
+/// Adds support for 2D sprites.
 #[derive(Default)]
 pub struct SpritePlugin;
 
@@ -76,77 +64,16 @@ pub type SpriteSystem = SpriteSystems;
 
 impl Plugin for SpritePlugin {
     fn build(&self, app: &mut App) {
-        load_shader_library!(app, "render/sprite_view_bindings.wgsl");
-
-        embedded_asset!(app, "render/sprite.wgsl");
-
         if !app.is_plugin_added::<TextureAtlasPlugin>() {
             app.add_plugins(TextureAtlasPlugin);
         }
-
-        app.register_type::<Sprite>()
-            .register_type::<SpriteImageMode>()
-            .register_type::<TextureSlicer>()
-            .register_type::<Anchor>()
-            .register_type::<Mesh2d>()
-            .add_plugins((
-                Mesh2dRenderPlugin,
-                ColorMaterialPlugin,
-                TilemapChunkPlugin,
-                TilemapChunkMaterialPlugin,
-            ))
-            .add_systems(
-                PostUpdate,
-                (
-                    calculate_bounds_2d.in_set(VisibilitySystems::CalculateBounds),
-                    (
-                        compute_slices_on_asset_event.before(AssetEventSystems),
-                        compute_slices_on_sprite_change,
-                    )
-                        .in_set(SpriteSystems::ComputeSlices),
-                ),
-            );
+        app.add_systems(
+            PostUpdate,
+            calculate_bounds_2d.in_set(VisibilitySystems::CalculateBounds),
+        );
 
         #[cfg(feature = "bevy_sprite_picking_backend")]
         app.add_plugins(SpritePickingPlugin);
-
-        if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
-            render_app
-                .init_resource::<ImageBindGroups>()
-                .init_resource::<SpecializedRenderPipelines<SpritePipeline>>()
-                .init_resource::<SpriteMeta>()
-                .init_resource::<ExtractedSprites>()
-                .init_resource::<ExtractedSlices>()
-                .init_resource::<SpriteAssetEvents>()
-                .add_render_command::<Transparent2d, DrawSprite>()
-                .add_systems(
-                    ExtractSchedule,
-                    (
-                        extract_sprites.in_set(SpriteSystems::ExtractSprites),
-                        extract_sprite_events,
-                    ),
-                )
-                .add_systems(
-                    Render,
-                    (
-                        queue_sprites
-                            .in_set(RenderSystems::Queue)
-                            .ambiguous_with(queue_material2d_meshes::<ColorMaterial>),
-                        prepare_sprite_image_bind_groups.in_set(RenderSystems::PrepareBindGroups),
-                        prepare_sprite_view_bind_groups.in_set(RenderSystems::PrepareBindGroups),
-                        sort_binned_render_phase::<Opaque2d>.in_set(RenderSystems::PhaseSort),
-                        sort_binned_render_phase::<AlphaMask2d>.in_set(RenderSystems::PhaseSort),
-                    ),
-                );
-        };
-    }
-
-    fn finish(&self, app: &mut App) {
-        if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
-            render_app
-                .init_resource::<SpriteBatches>()
-                .init_resource::<SpritePipeline>();
-        }
     }
 }
 
@@ -171,10 +98,10 @@ pub fn calculate_bounds_2d(
     >,
 ) {
     for (entity, mesh_handle) in &meshes_without_aabb {
-        if let Some(mesh) = meshes.get(&mesh_handle.0) {
-            if let Some(aabb) = mesh.compute_aabb() {
-                commands.entity(entity).try_insert(aabb);
-            }
+        if let Some(mesh) = meshes.get(&mesh_handle.0)
+            && let Some(aabb) = mesh.compute_aabb()
+        {
+            commands.entity(entity).try_insert(aabb);
         }
     }
     for (entity, sprite, anchor) in &sprites_to_recalculate_aabb {
@@ -201,11 +128,8 @@ pub fn calculate_bounds_2d(
 
 #[cfg(test)]
 mod test {
-
-    use bevy_math::{Rect, Vec2, Vec3A};
-    use bevy_utils::default;
-
     use super::*;
+    use bevy_math::{Rect, Vec2, Vec3A};
 
     #[test]
     fn calculate_bounds_2d_create_aabb_for_image_sprite_entity() {
@@ -268,7 +192,7 @@ mod test {
             .spawn(Sprite {
                 custom_size: Some(Vec2::ZERO),
                 image: image_handle,
-                ..default()
+                ..Sprite::default()
             })
             .id();
 
@@ -332,7 +256,7 @@ mod test {
                 Sprite {
                     rect: Some(Rect::new(0., 0., 0.5, 1.)),
                     image: image_handle,
-                    ..default()
+                    ..Sprite::default()
                 },
                 Anchor::TOP_RIGHT,
             ))

@@ -8,12 +8,13 @@
 //! The purpose of this module is primarily to provide a common interface that can be
 //! driven by lower-level input devices and consumed by higher-level interaction systems.
 
+use bevy_camera::Camera;
+use bevy_camera::NormalizedRenderTarget;
 use bevy_ecs::prelude::*;
 use bevy_input::mouse::MouseScrollUnit;
 use bevy_math::Vec2;
 use bevy_platform::collections::HashMap;
 use bevy_reflect::prelude::*;
-use bevy_render::camera::{Camera, NormalizedRenderTarget, ToNormalizedRenderTarget as _};
 use bevy_window::PrimaryWindow;
 
 use uuid::Uuid;
@@ -269,7 +270,7 @@ pub enum PointerAction {
 }
 
 /// An input event effecting a pointer.
-#[derive(Event, BufferedEvent, Debug, Clone, Reflect)]
+#[derive(BufferedEvent, Debug, Clone, Reflect)]
 #[reflect(Clone)]
 pub struct PointerInput {
     /// The id of the pointer.
