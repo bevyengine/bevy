@@ -3,6 +3,8 @@ use super::{
     SolariLighting,
 };
 use crate::scene::RaytracingSceneBindings;
+#[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))]
+use bevy_anti_aliasing::dlss::ViewDlssRayReconstructionTextures;
 use bevy_asset::{load_embedded_asset, Handle};
 use bevy_core_pipeline::prepass::{
     PreviousViewData, PreviousViewUniformOffset, PreviousViewUniforms, ViewPrepassTextures,
@@ -40,6 +42,8 @@ pub mod graph {
 pub struct SolariLightingNode {
     bind_group_layout: BindGroupLayout,
     bind_group_layout_world_cache_active_cells_dispatch: BindGroupLayout,
+    #[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))]
+    bind_group_layout_resolve_dlss_rr_textures: BindGroupLayout,
     decay_world_cache_pipeline: CachedComputePipelineId,
     compact_world_cache_single_block_pipeline: CachedComputePipelineId,
     compact_world_cache_blocks_pipeline: CachedComputePipelineId,
@@ -51,9 +55,12 @@ pub struct SolariLightingNode {
     di_spatial_and_shade_pipeline: CachedComputePipelineId,
     gi_initial_and_temporal_pipeline: CachedComputePipelineId,
     gi_spatial_and_shade_pipeline: CachedComputePipelineId,
+    #[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))]
+    resolve_dlss_rr_textures_pipeline: CachedComputePipelineId,
 }
 
 impl ViewNode for SolariLightingNode {
+    #[cfg(any(not(feature = "dlss"), feature = "force_disable_dlss"))]
     type ViewQuery = (
         &'static SolariLighting,
         &'static SolariLightingResources,
@@ -62,18 +69,37 @@ impl ViewNode for SolariLightingNode {
         &'static ViewUniformOffset,
         &'static PreviousViewUniformOffset,
     );
+    #[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))]
+    type ViewQuery = (
+        &'static SolariLighting,
+        &'static SolariLightingResources,
+        &'static ViewTarget,
+        &'static ViewPrepassTextures,
+        &'static ViewUniformOffset,
+        &'static PreviousViewUniformOffset,
+        Option<&'static ViewDlssRayReconstructionTextures>,
+    );
 
     fn run(
         &self,
         _graph: &mut RenderGraphContext,
         render_context: &mut RenderContext,
-        (
+        #[cfg(any(not(feature = "dlss"), feature = "force_disable_dlss"))] (
             solari_lighting,
             solari_lighting_resources,
             view_target,
             view_prepass_textures,
             view_uniform_offset,
             previous_view_uniform_offset,
+        ): QueryItem<Self::ViewQuery>,
+        #[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))] (
+            solari_lighting,
+            solari_lighting_resources,
+            view_target,
+            view_prepass_textures,
+            view_uniform_offset,
+            previous_view_uniform_offset,
+            view_dlss_rr_textures,
         ): QueryItem<Self::ViewQuery>,
         world: &World,
     ) -> Result<(), NodeRunError> {
@@ -123,6 +149,12 @@ impl ViewNode for SolariLightingNode {
         else {
             return Ok(());
         };
+        #[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))]
+        let Some(resolve_dlss_rr_textures_pipeline) =
+            pipeline_cache.get_compute_pipeline(self.resolve_dlss_rr_textures_pipeline)
+        else {
+            return Ok(());
+        };
 
         let s = solari_lighting_resources;
         let bind_group = render_context.render_device().create_bind_group(
@@ -160,6 +192,19 @@ impl ViewNode for SolariLightingNode {
                 &self.bind_group_layout_world_cache_active_cells_dispatch,
                 &BindGroupEntries::single(s.world_cache_active_cells_dispatch.as_entire_binding()),
             );
+        #[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))]
+        let bind_group_resolve_dlss_rr_textures = view_dlss_rr_textures.map(|d| {
+            render_context.render_device().create_bind_group(
+                "solari_lighting_bind_group_resolve_dlss_rr_textures",
+                &self.bind_group_layout_resolve_dlss_rr_textures,
+                &BindGroupEntries::sequential((
+                    &d.diffuse_albedo.default_view,
+                    &d.specular_albedo.default_view,
+                    &d.normal_roughness.default_view,
+                    &d.specular_motion_vectors.default_view,
+                )),
+            )
+        });
 
         // Choice of number here is arbitrary
         let frame_index = frame_count.0.wrapping_mul(5782582);
@@ -185,6 +230,14 @@ impl ViewNode for SolariLightingNode {
                 previous_view_uniform_offset.offset,
             ],
         );
+
+        #[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))]
+        if let Some(bind_group_resolve_dlss_rr_textures) = bind_group_resolve_dlss_rr_textures {
+            pass.set_bind_group(2, &bind_group_resolve_dlss_rr_textures, &[]);
+            pass.set_pipeline(resolve_dlss_rr_textures_pipeline);
+            pass.dispatch_workgroups(dx, dy, 1);
+        }
+
         pass.set_bind_group(2, &bind_group_world_cache_active_cells_dispatch, &[]);
 
         pass.set_pipeline(decay_world_cache_pipeline);
@@ -333,6 +386,20 @@ impl FromWorld for SolariLightingNode {
                 ),
             );
 
+        #[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))]
+        let bind_group_layout_resolve_dlss_rr_textures = render_device.create_bind_group_layout(
+            "solari_lighting_bind_group_layout_resolve_dlss_rr_textures",
+            &BindGroupLayoutEntries::sequential(
+                ShaderStages::COMPUTE,
+                (
+                    texture_storage_2d(TextureFormat::Rgba8Unorm, StorageTextureAccess::WriteOnly),
+                    texture_storage_2d(TextureFormat::Rgba8Unorm, StorageTextureAccess::WriteOnly),
+                    texture_storage_2d(TextureFormat::Rgba16Float, StorageTextureAccess::WriteOnly),
+                    texture_storage_2d(TextureFormat::Rg16Float, StorageTextureAccess::WriteOnly),
+                ),
+            ),
+        );
+
         let create_pipeline = |label: &'static str,
                                entry_point: &'static str,
                                shader: Handle<Shader>,
@@ -370,6 +437,9 @@ impl FromWorld for SolariLightingNode {
             bind_group_layout: bind_group_layout.clone(),
             bind_group_layout_world_cache_active_cells_dispatch:
                 bind_group_layout_world_cache_active_cells_dispatch.clone(),
+            #[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))]
+            bind_group_layout_resolve_dlss_rr_textures: bind_group_layout_resolve_dlss_rr_textures
+                .clone(),
             decay_world_cache_pipeline: create_pipeline(
                 "solari_lighting_decay_world_cache_pipeline",
                 "decay_world_cache",
@@ -445,6 +515,14 @@ impl FromWorld for SolariLightingNode {
                 "spatial_and_shade",
                 load_embedded_asset!(world, "restir_gi.wgsl"),
                 None,
+                vec![],
+            ),
+            #[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))]
+            resolve_dlss_rr_textures_pipeline: create_pipeline(
+                "solari_lighting_resolve_dlss_rr_textures_pipeline",
+                "resolve_dlss_rr_textures",
+                load_embedded_asset!(world, "resolve_dlss_rr_textures.wgsl"),
+                Some(&bind_group_layout_resolve_dlss_rr_textures),
                 vec![],
             ),
         }

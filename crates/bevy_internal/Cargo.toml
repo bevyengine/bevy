@@ -74,10 +74,13 @@ bluenoise_texture = ["bevy_pbr?/bluenoise_texture"]
 smaa_luts = ["bevy_anti_aliasing/smaa_luts"]
 
 # NVIDIA Deep Learning Super Sampling
-dlss = ["bevy_anti_aliasing/dlss"]
+dlss = ["bevy_anti_aliasing/dlss", "bevy_solari?/dlss"]
 
 # Forcibly disable DLSS so that cargo build --all-features works without the DLSS SDK being installed. Not meant for users.
-force_disable_dlss = ["bevy_anti_aliasing?/force_disable_dlss"]
+force_disable_dlss = [
+  "bevy_anti_aliasing?/force_disable_dlss",
+  "bevy_solari?/force_disable_dlss",
+]
 
 # Audio format support (vorbis is enabled by default)
 flac = ["bevy_audio/flac"]
