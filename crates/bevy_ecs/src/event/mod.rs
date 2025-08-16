@@ -1,4 +1,20 @@
-//! Event handling types.
+//! Events are things that "happen" and can be processed by app logic.
+//!
+//! - [`ObserverEvent`]: A supertrait for push-based events that trigger global observers added via [`add_observer`].
+//!     - [`BroadcastEvent`]: An event without an entity target. Can be used via [`trigger`].
+//!     - [`EntityEvent`]: An event targeting specific entities, triggering any observers watching those targets. Can be used via [`trigger_targets`].
+//!       They can trigger entity-specific observers added via [`observe`] and can be propagated from one entity to another.
+//! - [`BufferedEvent`]: Support a pull-based event handling system where events are written using an [`EventWriter`]
+//!   and read later using an [`EventReader`]. This is an alternative to observers that allows efficient batch processing
+//!   of events at fixed points in a schedule.
+//!
+//! [`World`]: crate::world::World
+//! [`add_observer`]: crate::world::World::add_observer
+//! [`observe`]: crate::world::EntityWorldMut::observe
+//! [`trigger`]: crate::world::World::trigger
+//! [`trigger_targets`]: crate::world::World::trigger_targets
+//! [`Observer`]: crate::observer::Observer
+
 mod base;
 mod collections;
 mod event_cursor;
@@ -11,8 +27,8 @@ mod update;
 mod writer;
 
 pub(crate) use base::EventInstance;
-pub use base::{BufferedEvent, EntityEvent, Event, EventId, EventKey};
-pub use bevy_ecs_macros::{BufferedEvent, EntityEvent, Event};
+pub use base::{BroadcastEvent, BufferedEvent, EntityEvent, EventId, EventKey, ObserverEvent};
+pub use bevy_ecs_macros::{BroadcastEvent, BufferedEvent, EntityEvent};
 #[expect(deprecated, reason = "`SendBatchIds` was renamed to `WriteBatchIds`.")]
 pub use collections::{Events, SendBatchIds, WriteBatchIds};
 pub use event_cursor::EventCursor;

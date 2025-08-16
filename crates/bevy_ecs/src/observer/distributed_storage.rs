@@ -33,7 +33,7 @@ use crate::prelude::ReflectComponent;
 
 /// An [`Observer`] system. Add this [`Component`] to an [`Entity`] to turn it into an "observer".
 ///
-/// Observers listen for a "trigger" of a specific [`Event`]. An event can be triggered on the [`World`]
+/// Observers listen for a "trigger" of a specific [`ObserverEvent`]. An event can be triggered on the [`World`]
 /// by calling [`World::trigger`], or if the event is an [`EntityEvent`], it can also be triggered for specific
 /// entity targets using [`World::trigger_targets`].
 ///
@@ -47,7 +47,7 @@ use crate::prelude::ReflectComponent;
 /// ```
 /// # use bevy_ecs::prelude::*;
 /// # let mut world = World::default();
-/// #[derive(Event)]
+/// #[derive(BroadcastEvent)]
 /// struct Speak {
 ///     message: String,
 /// }
@@ -70,7 +70,7 @@ use crate::prelude::ReflectComponent;
 /// ```
 /// # use bevy_ecs::prelude::*;
 /// # let mut world = World::default();
-/// # #[derive(Event)]
+/// # #[derive(BroadcastEvent)]
 /// # struct Speak;
 /// // These are functionally the same:
 /// world.add_observer(|trigger: On<Speak>| {});
@@ -82,7 +82,7 @@ use crate::prelude::ReflectComponent;
 /// ```
 /// # use bevy_ecs::prelude::*;
 /// # let mut world = World::default();
-/// # #[derive(Event)]
+/// # #[derive(BroadcastEvent)]
 /// # struct PrintNames;
 /// # #[derive(Component, Debug)]
 /// # struct Name;
@@ -100,7 +100,7 @@ use crate::prelude::ReflectComponent;
 /// ```
 /// # use bevy_ecs::prelude::*;
 /// # let mut world = World::default();
-/// # #[derive(Event)]
+/// # #[derive(BroadcastEvent)]
 /// # struct SpawnThing;
 /// # #[derive(Component, Debug)]
 /// # struct Thing;
@@ -114,9 +114,9 @@ use crate::prelude::ReflectComponent;
 /// ```
 /// # use bevy_ecs::prelude::*;
 /// # let mut world = World::default();
-/// # #[derive(Event)]
+/// # #[derive(BroadcastEvent)]
 /// # struct A;
-/// # #[derive(Event)]
+/// # #[derive(BroadcastEvent)]
 /// # struct B;
 /// world.add_observer(|trigger: On<A>, mut commands: Commands| {
 ///     commands.trigger(B);
@@ -213,13 +213,13 @@ pub struct Observer {
 }
 
 impl Observer {
-    /// Creates a new [`Observer`], which defaults to a "global" observer. This means it will run whenever the event `E` is triggered
+    /// Creates a new [`Observer`], which defaults to a global observer. This means it will run whenever the event `E` is triggered
     /// for _any_ entity (or no entity).
     ///
     /// # Panics
     ///
     /// Panics if the given system is an exclusive system.
-    pub fn new<E: Event, B: Bundle, M, I: IntoObserverSystem<E, B, M>>(system: I) -> Self {
+    pub fn new<E: ObserverEvent, B: Bundle, M, I: IntoObserverSystem<E, B, M>>(system: I) -> Self {
         let system = Box::new(IntoObserverSystem::into_system(system));
         assert!(
             !system.is_exclusive(),
@@ -268,7 +268,7 @@ impl Observer {
     }
 
     /// Observes the given `entity` (in addition to any entity already being observed).
-    /// This will cause the [`Observer`] to run whenever the [`Event`] is triggered for the `entity`.
+    /// This will cause the [`Observer`] to run whenever the [`ObserverEvent`] is triggered for the `entity`.
     /// Note that if this is called _after_ an [`Observer`] is spawned, it will produce no effects.
     pub fn with_entity(mut self, entity: Entity) -> Self {
         self.watch_entity(entity);
@@ -276,7 +276,7 @@ impl Observer {
     }
 
     /// Observes the given `entities` (in addition to any entity already being observed).
-    /// This will cause the [`Observer`] to run whenever the [`Event`] is triggered for any of these `entities`.
+    /// This will cause the [`Observer`] to run whenever the [`ObserverEvent`] is triggered for any of these `entities`.
     /// Note that if this is called _after_ an [`Observer`] is spawned, it will produce no effects.
     pub fn with_entities<I: IntoIterator<Item = Entity>>(mut self, entities: I) -> Self {
         self.watch_entities(entities);
@@ -284,20 +284,20 @@ impl Observer {
     }
 
     /// Observes the given `entity` (in addition to any entity already being observed).
-    /// This will cause the [`Observer`] to run whenever the [`Event`] is triggered for the `entity`.
+    /// This will cause the [`Observer`] to run whenever the [`ObserverEvent`] is triggered for the `entity`.
     /// Note that if this is called _after_ an [`Observer`] is spawned, it will produce no effects.
     pub fn watch_entity(&mut self, entity: Entity) {
         self.descriptor.entities.push(entity);
     }
 
     /// Observes the given `entity` (in addition to any entity already being observed).
-    /// This will cause the [`Observer`] to run whenever the [`Event`] is triggered for any of these `entities`.
+    /// This will cause the [`Observer`] to run whenever the [`ObserverEvent`] is triggered for any of these `entities`.
     /// Note that if this is called _after_ an [`Observer`] is spawned, it will produce no effects.
     pub fn watch_entities<I: IntoIterator<Item = Entity>>(&mut self, entities: I) {
         self.descriptor.entities.extend(entities);
     }
 
-    /// Observes the given `component`. This will cause the [`Observer`] to run whenever the [`Event`] is triggered
+    /// Observes the given `component`. This will cause the [`Observer`] to run whenever the [`ObserverEvent`] is triggered
     /// with the given component target.
     pub fn with_component(mut self, component: ComponentId) -> Self {
         self.descriptor.components.push(component);
@@ -430,7 +430,7 @@ impl ObserverDescriptor {
 /// The type parameters of this function _must_ match those used to create the [`Observer`].
 /// As such, it is recommended to only use this function within the [`Observer::new`] method to
 /// ensure type parameters match.
-fn hook_on_add<E: Event, B: Bundle, S: ObserverSystem<E, B>>(
+fn hook_on_add<E: ObserverEvent, B: Bundle, S: ObserverSystem<E, B>>(
     mut world: DeferredWorld<'_>,
     HookContext { entity, .. }: HookContext,
 ) {

@@ -11,31 +11,62 @@ use core::{
     marker::PhantomData,
 };
 
-/// Something that "happens" and can be processed by app logic.
-///
-/// Events can be triggered on a [`World`] using a method like [`trigger`](World::trigger),
-/// causing any global [`Observer`] watching that event to run. This allows for push-based
-/// event handling where observers are immediately notified of events as they happen.
-///
-/// Additional event handling behavior can be enabled by implementing the [`EntityEvent`]
-/// and [`BufferedEvent`] traits:
-///
-/// - [`EntityEvent`]s support targeting specific entities, triggering any observers watching those targets.
-///   They are useful for entity-specific event handlers and can even be propagated from one entity to another.
-/// - [`BufferedEvent`]s support a pull-based event handling system where events are written using an [`EventWriter`]
-///   and read later using an [`EventReader`]. This is an alternative to observers that allows efficient batch processing
-///   of events at fixed points in a schedule.
+/// Supertrait for the observer based [`BroadcastEvent`] and [`EntityEvent`].
 ///
 /// Events must be thread-safe.
+#[diagnostic::on_unimplemented(
+    message = "`{Self}` is not an `ObserverEvent`",
+    label = "invalid `ObserverEvent`",
+    note = "consider annotating `{Self}` with `#[derive(BroadcastEvent)]` or `#[derive(EntityEvent)]`"
+)]
+pub trait ObserverEvent: Send + Sync + 'static {
+    /// Generates the [`EventKey`] for this event type.
+    ///
+    /// If this type has already been registered,
+    /// this will return the existing [`EventKey`].
+    ///
+    /// This is used by various dynamically typed observer APIs,
+    /// such as [`World::trigger_targets_dynamic`].
+    ///
+    /// # Warning
+    ///
+    /// This method should not be overridden by implementers,
+    /// and should always correspond to the implementation of [`event_key`](ObserverEvent::event_key).
+    fn register_event_key(world: &mut World) -> EventKey {
+        EventKey(world.register_component::<EventWrapperComponent<Self>>())
+    }
+
+    /// Fetches the [`EventKey`] for this event type,
+    /// if it has already been generated.
+    ///
+    /// This is used by various dynamically typed observer APIs,
+    /// such as [`World::trigger_targets_dynamic`].
+    ///
+    /// # Warning
+    ///
+    /// This method should not be overridden by implementers,
+    /// and should always correspond to the implementation of
+    /// [`register_event_key`](ObserverEvent::register_event_key).
+    fn event_key(world: &World) -> Option<EventKey> {
+        world
+            .component_id::<EventWrapperComponent<Self>>()
+            .map(EventKey)
+    }
+}
+
+/// An [`ObserverEvent`] without an entity target.
+///
+/// [`BroadcastEvent`]s can be triggered on a [`World`] with the method [`trigger`](World::trigger),
+/// causing any global [`Observer`]s for that event to run.
 ///
 /// # Usage
 ///
-/// The [`Event`] trait can be derived:
+/// The [`BroadcastEvent`] trait can be derived:
 ///
 /// ```
 /// # use bevy_ecs::prelude::*;
 /// #
-/// #[derive(Event)]
+/// #[derive(BroadcastEvent)]
 /// struct Speak {
 ///     message: String,
 /// }
@@ -46,7 +77,7 @@ use core::{
 /// ```
 /// # use bevy_ecs::prelude::*;
 /// #
-/// # #[derive(Event)]
+/// # #[derive(BroadcastEvent)]
 /// # struct Speak {
 /// #     message: String,
 /// # }
@@ -63,78 +94,28 @@ use core::{
 /// ```
 /// # use bevy_ecs::prelude::*;
 /// #
-/// # #[derive(Event)]
+/// # #[derive(BroadcastEvent)]
 /// # struct Speak {
 /// #     message: String,
 /// # }
 /// #
 /// # let mut world = World::new();
 /// #
-/// # world.add_observer(|trigger: On<Speak>| {
-/// #     println!("{}", trigger.message);
-/// # });
-/// #
-/// # world.flush();
-/// #
 /// world.trigger(Speak {
 ///     message: "Hello!".to_string(),
 /// });
 /// ```
 ///
-/// For events that additionally need entity targeting or buffering, consider also deriving
-/// [`EntityEvent`] or [`BufferedEvent`], respectively.
-///
-/// [`World`]: crate::world::World
 /// [`Observer`]: crate::observer::Observer
-/// [`EventReader`]: super::EventReader
-/// [`EventWriter`]: super::EventWriter
-#[diagnostic::on_unimplemented(
-    message = "`{Self}` is not an `Event`",
-    label = "invalid `Event`",
-    note = "consider annotating `{Self}` with `#[derive(Event)]`"
-)]
-pub trait Event: Send + Sync + 'static {
-    /// Generates the [`EventKey`] for this event type.
-    ///
-    /// If this type has already been registered,
-    /// this will return the existing [`EventKey`].
-    ///
-    /// This is used by various dynamically typed observer APIs,
-    /// such as [`World::trigger_targets_dynamic`].
-    ///
-    /// # Warning
-    ///
-    /// This method should not be overridden by implementers,
-    /// and should always correspond to the implementation of [`event_key`](Event::event_key).
-    fn register_event_key(world: &mut World) -> EventKey {
-        EventKey(world.register_component::<EventWrapperComponent<Self>>())
-    }
+pub trait BroadcastEvent: ObserverEvent {}
 
-    /// Fetches the [`EventKey`] for this event type,
-    /// if it has already been generated.
-    ///
-    /// This is used by various dynamically typed observer APIs,
-    /// such as [`World::trigger_targets_dynamic`].
-    ///
-    /// # Warning
-    ///
-    /// This method should not be overridden by implementers,
-    /// and should always correspond to the implementation of
-    /// [`register_event_key`](Event::register_event_key).
-    fn event_key(world: &World) -> Option<EventKey> {
-        world
-            .component_id::<EventWrapperComponent<Self>>()
-            .map(EventKey)
-    }
-}
-
-/// An [`Event`] that can be targeted at specific entities.
+/// An [`ObserverEvent`] that can be targeted at specific entities.
 ///
 /// Entity events can be triggered on a [`World`] with specific entity targets using a method
 /// like [`trigger_targets`](World::trigger_targets), causing any [`Observer`] watching the event
 /// for those entities to run.
 ///
-/// Unlike basic [`Event`]s, entity events can optionally be propagated from one entity target to another
+/// Unlike [`BroadcastEvent`]s, entity events can optionally be propagated from one entity target to another
 /// based on the [`EntityEvent::Traversal`] type associated with the event. This enables use cases
 /// such as bubbling events to parent entities for UI purposes.
 ///
@@ -142,7 +123,7 @@ pub trait Event: Send + Sync + 'static {
 ///
 /// # Usage
 ///
-/// The [`EntityEvent`] trait can be derived. The `event` attribute can be used to further configure
+/// The [`EntityEvent`] trait can be derived. The `entity_event` attribute can be used to further configure
 /// the propagation behavior: adding `auto_propagate` sets [`EntityEvent::AUTO_PROPAGATE`] to `true`,
 /// while adding `traversal = X` sets [`EntityEvent::Traversal`] to be of type `X`.
 ///
@@ -233,18 +214,14 @@ pub trait Event: Send + Sync + 'static {
 /// world.trigger_targets(Damage { amount: 10.0 }, armor_piece);
 /// ```
 ///
-/// [`World`]: crate::world::World
 /// [`TriggerTargets`]: crate::observer::TriggerTargets
 /// [`Observer`]: crate::observer::Observer
-/// [`Events<E>`]: super::Events
-/// [`EventReader`]: super::EventReader
-/// [`EventWriter`]: super::EventWriter
 #[diagnostic::on_unimplemented(
     message = "`{Self}` is not an `EntityEvent`",
     label = "invalid `EntityEvent`",
     note = "consider annotating `{Self}` with `#[derive(EntityEvent)]`"
 )]
-pub trait EntityEvent: Event {
+pub trait EntityEvent: ObserverEvent {
     /// The component that describes which [`Entity`] to propagate this event to next, when [propagation] is enabled.
     ///
     /// [`Entity`]: crate::entity::Entity
@@ -266,10 +243,10 @@ pub trait EntityEvent: Event {
 /// typically in a system that runs as part of a schedule.
 ///
 /// While the polling imposes a small overhead, buffered events are useful for efficiently batch processing
-/// a large number of events at once. This can make them more efficient than [`Event`]s used by [`Observer`]s
+/// a large number of events at once. This can make them more efficient than [`ObserverEvent`]s used by [`Observer`]s
 /// for events that happen at a high frequency or in large quantities.
 ///
-/// Unlike [`Event`]s triggered for observers, buffered events are evaluated at fixed points in the schedule
+/// Unlike [`ObserverEvent`]s triggered for observers, buffered events are evaluated at fixed points in the schedule
 /// rather than immediately when they are sent. This allows for more predictable scheduling and deferring
 /// event processing to a later point in time.
 ///
@@ -331,10 +308,10 @@ pub trait EntityEvent: Event {
 )]
 pub trait BufferedEvent: Send + Sync + 'static {}
 
-/// An internal type that implements [`Component`] for a given [`Event`] type.
+/// An internal type that implements [`Component`] for a given [`ObserverEvent`] type.
 ///
-/// This exists so we can easily get access to a unique [`ComponentId`] for each [`Event`] type,
-/// without requiring that [`Event`] types implement [`Component`] directly.
+/// This exists so we can easily get access to a unique [`ComponentId`] for each [`ObserverEvent`] type,
+/// without requiring that [`ObserverEvent`] types implement [`Component`] directly.
 /// [`ComponentId`] is used internally as a unique identifier for events because they are:
 ///
 /// - Unique to each event type.
@@ -344,7 +321,7 @@ pub trait BufferedEvent: Send + Sync + 'static {}
 /// This type is an implementation detail and should never be made public.
 // TODO: refactor events to store their metadata on distinct entities, rather than using `ComponentId`
 #[derive(Component)]
-struct EventWrapperComponent<E: Event + ?Sized>(PhantomData<E>);
+struct EventWrapperComponent<E: ObserverEvent + ?Sized>(PhantomData<E>);
 
 /// An `EventId` uniquely identifies an event stored in a specific [`World`].
 ///
@@ -425,9 +402,9 @@ pub(crate) struct EventInstance<E: BufferedEvent> {
     pub event: E,
 }
 
-/// A unique identifier for an [`Event`], used by [observers].
+/// A unique identifier for an [`ObserverEvent`], used by [observers].
 ///
-/// You can look up the key for your event by calling the [`Event::event_key`] method.
+/// You can look up the key for your event by calling the [`ObserverEvent::event_key`] method.
 ///
 /// [observers]: crate::observer
 #[derive(Debug, Copy, Clone, Hash, Ord, PartialOrd, Eq, PartialEq)]

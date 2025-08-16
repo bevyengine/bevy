@@ -1320,7 +1320,7 @@ impl App {
     /// #
     /// # let mut app = App::new();
     /// #
-    /// # #[derive(Event)]
+    /// # #[derive(BroadcastEvent)]
     /// # struct Party {
     /// #   friends_allowed: bool,
     /// # };
@@ -1340,7 +1340,7 @@ impl App {
     ///     }
     /// });
     /// ```
-    pub fn add_observer<E: Event, B: Bundle, M>(
+    pub fn add_observer<E: ObserverEvent, B: Bundle, M>(
         &mut self,
         observer: impl IntoObserverSystem<E, B, M>,
     ) -> &mut Self {

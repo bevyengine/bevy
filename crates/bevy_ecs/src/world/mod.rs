@@ -50,7 +50,7 @@ use crate::{
     },
     entity::{Entities, Entity, EntityDoesNotExistError},
     entity_disabling::DefaultQueryFilters,
-    event::{Event, EventId, Events, WriteBatchIds},
+    event::{EventId, Events, ObserverEvent, WriteBatchIds},
     lifecycle::RemovedComponentEvents,
     observer::Observers,
     query::{DebugCheckedUnwrap, QueryData, QueryFilter, QueryState},
