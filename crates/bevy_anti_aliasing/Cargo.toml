@@ -13,6 +13,8 @@ trace = []
 webgl = []
 webgpu = []
 smaa_luts = ["bevy_image/ktx2", "bevy_image/zstd"]
+dlss = ["dep:dlss_wgpu", "dep:uuid", "bevy_render/raw_vulkan_init"]
+force_disable_dlss = ["dlss_wgpu?/mock"]
 
 [dependencies]
 # bevy
@@ -32,6 +34,8 @@ bevy_diagnostic = { path = "../bevy_diagnostic", version = "0.17.0-dev" }
 
 # other
 tracing = { version = "0.1", default-features = false, features = ["std"] }
+dlss_wgpu = { version = "1", optional = true }
+uuid = { version = "1", optional = true }
 
 [lints]
 workspace = true

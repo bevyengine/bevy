@@ -12,7 +12,7 @@ use bevy::{
     diagnostic::{DiagnosticsStore, FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
     prelude::*,
     render::render_resource::{Extent3d, TextureDimension, TextureFormat},
-    sprite::AlphaMode2d,
+    sprite_render::AlphaMode2d,
     window::{PresentMode, WindowResolution},
     winit::{UpdateMode, WinitSettings},
 };

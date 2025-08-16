@@ -226,7 +226,7 @@ impl Plugin for GltfPlugin {
             supported_compressed_formats,
             custom_vertex_attributes: self.custom_vertex_attributes.clone(),
             default_sampler,
-            default_convert_coordinates: self.convert_coordinates,
+            default_use_model_forward_direction: self.use_model_forward_direction,
         });
     }
 }

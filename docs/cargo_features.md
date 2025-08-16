@@ -34,6 +34,7 @@ The default feature set enables most of the expected features of a game engine, 
 |bevy_scene|Provides scene functionality|
 |bevy_sprite|Provides sprite functionality|
 |bevy_sprite_picking_backend|Provides an implementation for picking sprites|
+|bevy_sprite_render|Provides sprite rendering functionality|
 |bevy_state|Enable built in global state machines|
 |bevy_text|Provides text functionality|
 |bevy_ui|A custom ECS-driven UI framework|
@@ -83,6 +84,7 @@ The default feature set enables most of the expected features of a game engine, 
 |debug_glam_assert|Enable assertions in debug builds to check the validity of parameters passed to glam|
 |default_no_std|Recommended defaults for no_std applications|
 |detailed_trace|Enable detailed trace event logging. These trace events are expensive even when off, thus they require compile time opt-in|
+|dlss|NVIDIA Deep Learning Super Sampling|
 |dynamic_linking|Force dynamic linking, which improves iterative compile times|
 |embedded_watcher|Enables watching in memory asset providers for Bevy Asset hot-reloading|
 |experimental_bevy_feathers|Feathers widget collection.|
@@ -91,6 +93,7 @@ The default feature set enables most of the expected features of a game engine, 
 |ff|Farbfeld image format support|
 |file_watcher|Enables watching the filesystem for Bevy Asset hot-reloading|
 |flac|FLAC audio format support|
+|force_disable_dlss|Forcibly disable DLSS so that cargo build --all-features works without the DLSS SDK being installed. Not meant for users.|
 |ghost_nodes|Experimental support for nodes that are ignored for UI layouting|
 |gif|GIF image format support|
 |glam_assert|Enable assertions to check the validity of parameters passed to glam|
