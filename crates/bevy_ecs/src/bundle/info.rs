@@ -240,58 +240,59 @@ impl BundleInfo {
         entity: Entity,
         table_row: TableRow,
         change_tick: Tick,
-        bundle: T,
+        bundle: *const T,
         insert_mode: InsertMode,
         caller: MaybeLocation,
     ) -> T::Effect {
         // NOTE: get_components calls this closure on each component in "bundle order".
         // bundle_info.component_ids are also in "bundle order"
         let mut bundle_component = 0;
-        let after_effect = bundle.get_components(&mut |storage_type, component_ptr| {
-            let component_id = *self
-                .contributed_component_ids
-                .get_unchecked(bundle_component);
-            // SAFETY: bundle_component is a valid index for this bundle
-            let status = unsafe { bundle_component_status.get_status(bundle_component) };
-            match storage_type {
-                StorageType::Table => {
-                    let column =
+        let after_effect =
+            T::get_components(bundle.cast_mut(), &mut |storage_type, component_ptr| {
+                let component_id = *self
+                    .contributed_component_ids
+                    .get_unchecked(bundle_component);
+                // SAFETY: bundle_component is a valid index for this bundle
+                let status = unsafe { bundle_component_status.get_status(bundle_component) };
+                match storage_type {
+                    StorageType::Table => {
+                        let column =
                         // SAFETY: If component_id is in self.component_ids, BundleInfo::new ensures that
                         // the target table contains the component.
                         unsafe { table.get_column_mut(component_id).debug_checked_unwrap() };
-                    match (status, insert_mode) {
-                        (ComponentStatus::Added, _) => {
-                            column.initialize(table_row, component_ptr, change_tick, caller);
-                        }
-                        (ComponentStatus::Existing, InsertMode::Replace) => {
-                            column.replace(table_row, component_ptr, change_tick, caller);
-                        }
-                        (ComponentStatus::Existing, InsertMode::Keep) => {
-                            if let Some(drop_fn) = table.get_drop_for(component_id) {
-                                drop_fn(component_ptr);
+                        match (status, insert_mode) {
+                            (ComponentStatus::Added, _) => {
+                                column.initialize(table_row, component_ptr, change_tick, caller);
+                            }
+                            (ComponentStatus::Existing, InsertMode::Replace) => {
+                                column.replace(table_row, component_ptr, change_tick, caller);
+                            }
+                            (ComponentStatus::Existing, InsertMode::Keep) => {
+                                if let Some(drop_fn) = table.get_drop_for(component_id) {
+                                    drop_fn(component_ptr);
+                                }
                             }
                         }
                     }
-                }
-                StorageType::SparseSet => {
-                    let sparse_set =
+                    StorageType::SparseSet => {
+                        let sparse_set =
                         // SAFETY: If component_id is in self.component_ids, BundleInfo::new ensures that
                         // a sparse set exists for the component.
                         unsafe { sparse_sets.get_mut(component_id).debug_checked_unwrap() };
-                    match (status, insert_mode) {
-                        (ComponentStatus::Added, _) | (_, InsertMode::Replace) => {
-                            sparse_set.insert(entity, component_ptr, change_tick, caller);
-                        }
-                        (ComponentStatus::Existing, InsertMode::Keep) => {
-                            if let Some(drop_fn) = sparse_set.get_drop() {
-                                drop_fn(component_ptr);
+                        match (status, insert_mode) {
+                            (ComponentStatus::Added, _) | (_, InsertMode::Replace) => {
+                                sparse_set.insert(entity, component_ptr, change_tick, caller);
+                            }
+                            (ComponentStatus::Existing, InsertMode::Keep) => {
+                                if let Some(drop_fn) = sparse_set.get_drop() {
+                                    drop_fn(component_ptr);
+                                }
                             }
                         }
                     }
                 }
-            }
-            bundle_component += 1;
-        });
+                bundle_component += 1;
+            });
 
         for required_component in required_components {
             required_component.initialize(

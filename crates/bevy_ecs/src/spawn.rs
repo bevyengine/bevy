@@ -285,13 +285,16 @@ unsafe impl<R: Relationship, L: SpawnableList<R> + Send + Sync + 'static> Bundle
 impl<R: Relationship, L: SpawnableList<R>> DynamicBundle for SpawnRelatedBundle<R, L> {
     type Effect = Self;
 
-    fn get_components(
-        self,
+    unsafe fn get_components(
+        ptr: *mut Self,
         func: &mut impl FnMut(crate::component::StorageType, bevy_ptr::OwningPtr<'_>),
     ) -> Self::Effect {
-        <R::RelationshipTarget as RelationshipTarget>::with_capacity(self.list.size_hint())
-            .get_components(func);
-        self
+        let effect = unsafe { ptr.read_unaligned() };
+        let mut target =
+            <R::RelationshipTarget as RelationshipTarget>::with_capacity(effect.list.size_hint());
+        <R::RelationshipTarget as DynamicBundle>::get_components(&mut target, func);
+        core::mem::forget(target);
+        effect
     }
 }
 
@@ -314,12 +317,14 @@ impl<R: Relationship, B: Bundle> BundleEffect for SpawnOneRelated<R, B> {
 impl<R: Relationship, B: Bundle> DynamicBundle for SpawnOneRelated<R, B> {
     type Effect = Self;
 
-    fn get_components(
-        self,
+    unsafe fn get_components(
+        ptr: *mut Self,
         func: &mut impl FnMut(crate::component::StorageType, bevy_ptr::OwningPtr<'_>),
     ) -> Self::Effect {
-        <R::RelationshipTarget as RelationshipTarget>::with_capacity(1).get_components(func);
-        self
+        let effect = unsafe { ptr.read_unaligned() };
+        let mut target = <R::RelationshipTarget as RelationshipTarget>::with_capacity(1);
+        <R::RelationshipTarget as DynamicBundle>::get_components(&mut target, func);
+        effect
     }
 }
 
