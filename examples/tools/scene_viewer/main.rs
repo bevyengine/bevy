@@ -13,6 +13,7 @@ use bevy::{
     asset::UnapprovedPathMode,
     camera::primitives::{Aabb, Sphere},
     core_pipeline::prepass::{DeferredPrepass, DepthPrepass},
+    gltf::GltfPlugin,
     pbr::DefaultOpaqueRendererMethod,
     prelude::*,
     render::experimental::occlusion_culling::OcclusionCulling,
@@ -51,6 +52,9 @@ struct Args {
     /// spawn a light even if the scene already has one
     #[argh(switch)]
     add_light: Option<bool>,
+    /// enable `GltfPlugin::use_model_forward_direction`
+    #[argh(switch)]
+    use_model_forward_direction: Option<bool>,
 }
 
 fn main() {
@@ -75,6 +79,10 @@ fn main() {
                 file_path: std::env::var("CARGO_MANIFEST_DIR").unwrap_or_else(|_| ".".to_string()),
                 // Allow scenes to be loaded from anywhere on disk
                 unapproved_path_mode: UnapprovedPathMode::Allow,
+                ..default()
+            })
+            .set(GltfPlugin {
+                use_model_forward_direction: args.use_model_forward_direction.unwrap_or(false),
                 ..default()
             }),
         CameraControllerPlugin,
