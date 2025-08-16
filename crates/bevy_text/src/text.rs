@@ -170,46 +170,6 @@ impl TextLayout {
 /// with `TextSpan` extend this text by appending their content to the parent's text in sequence to
 /// form a [`ComputedTextBlock`]. The parent's [`TextLayout`] determines the layout of the block
 /// but each node has its own [`TextFont`] and [`TextColor`].
-///
-/// ```
-/// # use bevy_asset::Handle;
-/// # use bevy_color::Color;
-/// # use bevy_color::palettes::basic::{BLUE, GREEN, RED};
-/// # use bevy_ecs::{children, spawn::SpawnRelated, world::World};
-/// # use bevy_text::{Font, Justify, TextColor, TextLayout, TextFont, TextSpan};
-///
-/// # let font_handle: Handle<Font> = Default::default();
-/// # let mut world = World::default();
-/// #
-/// world.spawn((
-///     // `Text` or `Text2d` is needed.
-///     Text::new("Bevy\n"),
-///     // Layout of the entire block of text.
-///     TextLayout::new_with_justify(Justify::Center),
-///     // TextFont of this node. Won't apply to children.
-///     TextFont::from_font_size(50.0),
-///     // TextColor of this node. Won't apply to children.
-///     TextColor(BLUE.into()),
-///     // Children must be `TextSpan`, not `Text` or `Text2d`.
-///     children![
-///         (
-///             TextSpan::new("Bevy\n"),
-///             TextFont::from_font_size(40.0),
-///             TextColor(RED.into()),
-///         ),
-///         (
-///             TextSpan::new("Bevy\n"),
-///             TextFont::from_font_size(30.0),
-///             // Default TextColor will be inserted because TextSpan requires it.
-///         ),
-///         (
-///             TextSpan::new("Bevy"),
-///             TextColor(GREEN.into()),
-///             // Default TextFont will be inserted because TextSpan requires it.
-///         )
-///     ],
-/// ));
-/// ```
 #[derive(Component, Debug, Default, Clone, Deref, DerefMut, Reflect)]
 #[reflect(Component, Default, Debug, Clone)]
 #[require(TextFont, TextColor)]
