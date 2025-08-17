@@ -4,6 +4,8 @@ authors: ["@janhohenheim"]
 pull_requests: [19633, 19685, 19816, 20131, 20122]
 ---
 
+_CAUTION: This is an experimental feature with [known issues](https://github.com/bevyengine/bevy/issues/20621). Behavior may change in future versions._
+
 Bevy uses the following coordinate system for all worldspace entities that have a `Transform`:
 
 - forward: -Z
