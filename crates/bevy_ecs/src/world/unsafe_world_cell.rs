@@ -391,9 +391,11 @@ impl<'w> UnsafeWorldCell<'w> {
             .entities()
             .get(entity)
             .ok_or(EntityDoesNotExistError::new(entity, self.entities()))?;
-        Ok(UnsafeEntityCell::new(
-            self, entity, location, last_run, this_run,
-        ))
+        Ok(unsafe {
+            UnsafeEntityCell::new(
+                self, entity, location, last_run, this_run,
+            )
+        })
     }
 
     /// Gets a reference to the resource of the given type if it exists

@@ -1333,7 +1333,7 @@ impl<'w> EntityWorldMut<'w> {
         unsafe {
             self.world
                 .archetypes
-                .get(self.location.archetype_id)
+                .get(location.archetype_id)
                 .debug_checked_unwrap()
         }
     }
@@ -2375,7 +2375,7 @@ impl<'w> EntityWorldMut<'w> {
             .register_info::<T>(&mut registrator, storages);
         // SAFETY: `retained_bundle` exists as we just initialized it.
         let retained_bundle_info = unsafe { self.world.bundles.get_unchecked(retained_bundle) };
-        let old_archetype = &mut archetypes[old_location.archetype_id];
+        let old_archetype = unsafe { archetypes.get_unchecked_mut(old_location.archetype_id) };
 
         // PERF: this could be stored in an Archetype Edge
         let to_remove = &old_archetype
@@ -2582,13 +2582,12 @@ impl<'w> EntityWorldMut<'w> {
     pub(crate) fn despawn_with_caller(self, caller: MaybeLocation) {
         let location = self.location();
         let world = self.world;
-        let archetype = &world.archetypes[location.archetype_id];
 
         // SAFETY: Archetype cannot be mutably aliased by DeferredWorld
         let (archetype, mut deferred_world) = unsafe {
             let archetype: *const Archetype = world
                 .archetypes
-                .get(self.location.archetype_id)
+                .get(location.archetype_id)
                 .debug_checked_unwrap();
             let world = world.as_unsafe_world_cell();
             (&*archetype, world.into_deferred())
@@ -2706,7 +2705,8 @@ impl<'w> EntityWorldMut<'w> {
                 world
                     .storages
                     .tables
-                    .get_unchecked_mut(archetype.table_id())
+                    .get_mut(archetype.table_id())
+                    .debug_checked_unwrap()
                     .swap_remove_unchecked(table_row)
             };
         };
@@ -4294,7 +4294,6 @@ where
             })
             .flatten()
     }
->>>>>>> main
 
     /// Returns `true` if the current entity has a component of type `T`.
     /// Otherwise, this returns `false`.

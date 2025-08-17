@@ -13,7 +13,6 @@ use core::{
     alloc::Layout,
     cell::UnsafeCell,
     num::NonZeroUsize,
-    ops::{Index, IndexMut},
     panic::Location,
 };
 use nonmax::NonMaxU32;
@@ -734,6 +733,18 @@ impl Tables {
         self.tables.get(id.as_usize())
     }
 
+    pub(crate) fn get_mut(&mut self, id: TableId) -> Option<&mut Table> {
+        self.tables.get_mut(id.as_usize())
+    }
+
+    pub(crate) fn empty(&self) -> &Table {
+        unsafe { self.tables.get_unchecked(TableId::empty().as_usize()) }
+    }
+
+    pub(crate) fn empty_mut(&mut self) -> &mut Table {
+        unsafe { self.tables.get_unchecked_mut(TableId::empty().as_usize()) }
+    }
+
     /// Fetches mutable references to two different [`Table`]s.
     ///
     /// # Panics
@@ -797,22 +808,6 @@ impl Tables {
         for table in &mut self.tables {
             table.check_change_ticks(check);
         }
-    }
-}
-
-impl Index<TableId> for Tables {
-    type Output = Table;
-
-    #[inline]
-    fn index(&self, index: TableId) -> &Self::Output {
-        &self.tables[index.as_usize()]
-    }
-}
-
-impl IndexMut<TableId> for Tables {
-    #[inline]
-    fn index_mut(&mut self, index: TableId) -> &mut Self::Output {
-        &mut self.tables[index.as_usize()]
     }
 }
 

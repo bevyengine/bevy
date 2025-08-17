@@ -13,6 +13,7 @@ use crate::{
     relationship::RelationshipHookMode,
     storage::{SparseSets, Storages, Table},
     world::{unsafe_world_cell::UnsafeWorldCell, World},
+    query::DebugCheckedUnwrap,
 };
 
 // SAFETY: We have exclusive world access so our pointers can't be invalidated externally
@@ -80,7 +81,7 @@ impl<'w> BundleRemover<'w> {
         }
 
         let (old_archetype, new_archetype) =
-            world.archetypes.get_2_mut(archetype_id, new_archetype_id);
+            unsafe { world.archetypes.get_2_unchecked_mut(archetype_id, new_archetype_id) };
 
         let tables = if old_archetype.table_id() == new_archetype.table_id() {
             None
@@ -219,7 +220,7 @@ impl<'w> BundleRemover<'w> {
         let remove_result = self
             .old_archetype
             .as_mut()
-            .swap_remove(location.archetype_row);
+            .swap_remove_unchecked(location.archetype_row);
         // if an entity was moved into this entity's archetype row, update its archetype row
         if let Some(swapped_entity) = remove_result.swapped_entity {
             let swapped_location = world.entities.get(swapped_entity).unwrap();
@@ -274,7 +275,8 @@ impl<'w> BundleRemover<'w> {
                         table_row: location.table_row,
                     }),
                 );
-                world.archetypes[swapped_location.archetype_id]
+                world.archetypes
+                    .get_unchecked_mut(swapped_location.archetype_id)
                     .set_entity_table_row(swapped_location.archetype_row, location.table_row);
             }
 
@@ -323,7 +325,7 @@ impl BundleInfo {
         // Check the archetype graph to see if the bundle has been
         // removed from this archetype in the past.
         let archetype_after_remove_result = {
-            let edges = archetypes[archetype_id].edges();
+            let edges = unsafe { archetypes.get(archetype_id).debug_checked_unwrap() }.edges();
             if intersection {
                 edges.get_archetype_after_bundle_remove(self.id())
             } else {
@@ -338,7 +340,7 @@ impl BundleInfo {
             let mut next_sparse_set_components;
             let next_table_id;
             {
-                let current_archetype = &mut archetypes[archetype_id];
+                let current_archetype = unsafe { archetypes.get_unchecked_mut(archetype_id) };
                 let mut removed_table_components = Vec::new();
                 let mut removed_sparse_set_components = Vec::new();
                 for component_id in self.iter_explicit_components() {
@@ -394,7 +396,7 @@ impl BundleInfo {
             );
             (Some(new_archetype_id), is_new_created)
         };
-        let current_archetype = &mut archetypes[archetype_id];
+        let current_archetype = unsafe { archetypes.get_unchecked_mut(archetype_id) };
         // Cache the result in an edge.
         if intersection {
             current_archetype

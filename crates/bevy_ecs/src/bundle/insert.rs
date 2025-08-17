@@ -12,8 +12,8 @@ use crate::{
     component::{Components, ComponentsRegistrator, StorageType, Tick},
     entity::{Entities, Entity, EntityLocation},
     lifecycle::{ADD, INSERT, REPLACE},
+    query::DebugCheckedUnwrap,
     observer::Observers,
-    query::DebugCheckedUnwrap as _,
     relationship::RelationshipHookMode,
     storage::{Storages, Table},
     world::{unsafe_world_cell::UnsafeWorldCell, World},
@@ -51,6 +51,7 @@ impl<'w> BundleInserter<'w> {
     ///
     /// # Safety
     /// - Caller must ensure that `bundle_id` exists in `world.bundles`.
+    /// - Caller must ensure that `archetype_id` exists in `world.archetypes`
     #[inline]
     pub(crate) unsafe fn new_with_id(
         world: &'w mut World,
@@ -70,7 +71,7 @@ impl<'w> BundleInserter<'w> {
         );
 
         let inserter = if new_archetype_id == archetype_id {
-            let archetype = &mut world.archetypes[archetype_id];
+            let archetype = world.archetypes.get_unchecked_mut(archetype_id);
             // SAFETY: The edge is assured to be initialized when we called insert_bundle_into_archetype
             let archetype_after_insert = unsafe {
                 archetype
@@ -79,7 +80,7 @@ impl<'w> BundleInserter<'w> {
                     .debug_checked_unwrap()
             };
             let table_id = archetype.table_id();
-            let table = &mut world.storages.tables[table_id];
+            let table = world.storages.tables.get_mut(table_id).debug_checked_unwrap();
             Self {
                 archetype_after_insert: archetype_after_insert.into(),
                 archetype: archetype.into(),
@@ -91,7 +92,7 @@ impl<'w> BundleInserter<'w> {
             }
         } else {
             let (archetype, new_archetype) =
-                world.archetypes.get_2_mut(archetype_id, new_archetype_id);
+                unsafe { world.archetypes.get_2_unchecked_mut(archetype_id, new_archetype_id) };
             // SAFETY: The edge is assured to be initialized when we called insert_bundle_into_archetype
             let archetype_after_insert = unsafe {
                 archetype
@@ -102,7 +103,7 @@ impl<'w> BundleInserter<'w> {
             let table_id = archetype.table_id();
             let new_table_id = new_archetype.table_id();
             if table_id == new_table_id {
-                let table = &mut world.storages.tables[table_id];
+                let table = world.storages.tables.get_mut(table_id).debug_checked_unwrap();
                 Self {
                     archetype_after_insert: archetype_after_insert.into(),
                     archetype: archetype.into(),
@@ -220,7 +221,7 @@ impl<'w> BundleInserter<'w> {
                     (&mut world.storages.sparse_sets, &mut world.entities)
                 };
 
-                let result = archetype.swap_remove(location.archetype_row);
+                let result = archetype.swap_remove_unchecked(location.archetype_row);
                 if let Some(swapped_entity) = result.swapped_entity {
                     let swapped_location =
                         // SAFETY: If the swap was successful, swapped_entity must be valid.
@@ -269,7 +270,7 @@ impl<'w> BundleInserter<'w> {
                         &mut world.entities,
                     )
                 };
-                let result = archetype.swap_remove(location.archetype_row);
+                let result = archetype.swap_remove_unchecked(location.archetype_row);
                 if let Some(swapped_entity) = result.swapped_entity {
                     let swapped_location =
                         // SAFETY: If the swap was successful, swapped_entity must be valid.
@@ -425,7 +426,9 @@ impl BundleInfo {
         observers: &Observers,
         archetype_id: ArchetypeId,
     ) -> (ArchetypeId, bool) {
-        if let Some(archetype_after_insert_id) = archetypes[archetype_id]
+        if let Some(archetype_after_insert_id) = archetypes
+            .get(archetype_id)
+            .debug_checked_unwrap()
             .edges()
             .get_archetype_after_bundle_insert(self.id)
         {
@@ -438,7 +441,7 @@ impl BundleInfo {
         let mut added = Vec::new();
         let mut existing = Vec::new();
 
-        let current_archetype = &mut archetypes[archetype_id];
+        let current_archetype = archetypes.get_unchecked_mut(archetype_id);
         for component_id in self.iter_explicit_components() {
             if current_archetype.contains(component_id) {
                 bundle_status.push(ComponentStatus::Existing);
@@ -490,7 +493,7 @@ impl BundleInfo {
             let sparse_set_components;
             // The archetype changes when we insert this bundle. Prepare the new archetype and storages.
             {
-                let current_archetype = &archetypes[archetype_id];
+                let current_archetype = archetypes.get(archetype_id).debug_checked_unwrap();
                 table_components = if new_table_components.is_empty() {
                     // If there are no new table components, we can keep using this table.
                     table_id = current_archetype.table_id();
@@ -528,7 +531,8 @@ impl BundleInfo {
             );
 
             // Add an edge from the old archetype to the new archetype.
-            archetypes[archetype_id]
+            archetypes
+                .get_unchecked_mut(archetype_id)
                 .edges_mut()
                 .cache_archetype_after_bundle_insert(
                     self.id,

@@ -4,7 +4,7 @@ use crate::{
     entity::{Entity, EntityEquivalent, EntitySet, UniqueEntityArray},
     entity_disabling::DefaultQueryFilters,
     prelude::FromWorld,
-    query::{FilteredAccess, QueryCombinationIter, QueryIter, QueryParIter, WorldQuery},
+    query::{FilteredAccess, QueryCombinationIter, QueryIter, QueryParIter, WorldQuery, DebugCheckedUnwrap},
     storage::{SparseSetIndex, TableId},
     system::Query,
     world::{unsafe_world_cell::UnsafeWorldCell, World, WorldId},
@@ -544,7 +544,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
                         continue;
                     }
                     // SAFETY: get_potential_archetypes only returns archetype ids that are valid for the world
-                    let archetype = &world.archetypes()[*archetype_id];
+                    let archetype = unsafe { world.archetypes().get(*archetype_id).debug_checked_unwrap() };
                     // SAFETY: The validate_world call ensures that the world is the same the QueryState
                     // was initialized from.
                     unsafe {
@@ -1464,11 +1464,11 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
 
             let storage_entity_count = |storage_id: StorageId| -> u32 {
                 if self.is_dense {
-                    tables[storage_id.table_id].entity_count()
+                    tables.get(storage_id.table_id).debug_checked_unwrap().entity_count()
                 } else {
                     // SAFETY: The table has been matched with the query and tables cannot be deleted,
                     // and so archetype_id must be valid.
-                    unsafe { archetypes.get(archetype_id).debug_checked_unwrap().len() };
+                    unsafe { archetypes.get(storage_id.archetype_id).debug_checked_unwrap().len() };
                 }
             };
 

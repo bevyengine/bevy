@@ -75,7 +75,6 @@ pub use unique_vec::{UniqueEntityEquivalentVec, UniqueEntityVec};
 
 use crate::{
     archetype::{ArchetypeId, ArchetypeRow},
-    query::UnsafeVecExtensions,
     change_detection::MaybeLocation,
     component::{CheckChangeTicks, Tick},
     storage::{SparseSetIndex, TableId, TableRow},
