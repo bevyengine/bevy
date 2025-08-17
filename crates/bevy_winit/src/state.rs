@@ -615,23 +615,21 @@ impl<T: BufferedEvent> WinitAppRunnerState<T> {
             }
 
             // Read RequestRedraw events that may have been sent during the update
-            if let Some(app_redraw_events) = self.world().get_resource::<Events<RequestRedraw>>() {
-                if redraw_event_reader.read(app_redraw_events).last().is_some() {
-                    self.redraw_requested = true;
-                }
+            if let Some(app_redraw_events) = self.world().get_resource::<Events<RequestRedraw>>()
+                && redraw_event_reader.read(app_redraw_events).last().is_some()
+            {
+                self.redraw_requested = true;
             }
 
             // Running the app may have produced WindowCloseRequested events that should be processed
             if let Some(close_request_events) =
                 self.world().get_resource::<Events<WindowCloseRequested>>()
-            {
-                if close_event_reader
+                && close_event_reader
                     .read(close_request_events)
                     .last()
                     .is_some()
-                {
-                    self.redraw_requested = true;
-                }
+            {
+                self.redraw_requested = true;
             }
 
             // Running the app may have changed the WinitSettings resource, so we have to re-extract it.
