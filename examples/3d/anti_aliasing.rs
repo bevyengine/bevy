@@ -1,60 +1,74 @@
 //! This example compares MSAA (Multi-Sample Anti-aliasing), FXAA (Fast Approximate Anti-aliasing), and TAA (Temporal Anti-aliasing).
 
-use std::f32::consts::PI;
+use std::{f32::consts::PI, fmt::Write};
 
 use bevy::{
-    core_pipeline::{
-        contrast_adaptive_sharpening::ContrastAdaptiveSharpeningSettings,
-        experimental::taa::{
-            TemporalAntiAliasBundle, TemporalAntiAliasPlugin, TemporalAntiAliasSettings,
-        },
+    anti_aliasing::{
+        contrast_adaptive_sharpening::ContrastAdaptiveSharpening,
         fxaa::{Fxaa, Sensitivity},
+        smaa::{Smaa, SmaaPreset},
+        taa::TemporalAntiAliasing,
     },
-    pbr::CascadeShadowConfigBuilder,
+    asset::RenderAssetUsages,
+    core_pipeline::prepass::{DepthPrepass, MotionVectorPrepass},
+    image::{ImageSampler, ImageSamplerDescriptor},
+    light::CascadeShadowConfigBuilder,
     prelude::*,
     render::{
-        render_asset::RenderAssetUsages,
+        camera::{MipBias, TemporalJitter},
         render_resource::{Extent3d, TextureDimension, TextureFormat},
-        texture::{ImageSampler, ImageSamplerDescriptor},
+        view::Hdr,
     },
 };
 
 fn main() {
     App::new()
-        .insert_resource(Msaa::Off)
-        .add_plugins((DefaultPlugins, TemporalAntiAliasPlugin))
+        .add_plugins(DefaultPlugins)
         .add_systems(Startup, setup)
         .add_systems(Update, (modify_aa, modify_sharpening, update_ui))
         .run();
 }
 
+type TaaComponents = (
+    TemporalAntiAliasing,
+    TemporalJitter,
+    MipBias,
+    DepthPrepass,
+    MotionVectorPrepass,
+);
+
 fn modify_aa(
     keys: Res<ButtonInput<KeyCode>>,
-    mut camera: Query<
+    camera: Single<
         (
             Entity,
             Option<&mut Fxaa>,
-            Option<&TemporalAntiAliasSettings>,
+            Option<&mut Smaa>,
+            Option<&TemporalAntiAliasing>,
+            &mut Msaa,
         ),
         With<Camera>,
     >,
-    mut msaa: ResMut<Msaa>,
     mut commands: Commands,
 ) {
-    let (camera_entity, fxaa, taa) = camera.single_mut();
+    let (camera_entity, fxaa, smaa, taa, mut msaa) = camera.into_inner();
     let mut camera = commands.entity(camera_entity);
 
     // No AA
     if keys.just_pressed(KeyCode::Digit1) {
         *msaa = Msaa::Off;
-        camera.remove::<Fxaa>();
-        camera.remove::<TemporalAntiAliasBundle>();
+        camera
+            .remove::<Fxaa>()
+            .remove::<Smaa>()
+            .remove::<TaaComponents>();
     }
 
     // MSAA
     if keys.just_pressed(KeyCode::Digit2) && *msaa == Msaa::Off {
-        camera.remove::<Fxaa>();
-        camera.remove::<TemporalAntiAliasBundle>();
+        camera
+            .remove::<Fxaa>()
+            .remove::<Smaa>()
+            .remove::<TaaComponents>();
 
         *msaa = Msaa::Sample4;
     }
@@ -75,9 +89,10 @@ fn modify_aa(
     // FXAA
     if keys.just_pressed(KeyCode::Digit3) && fxaa.is_none() {
         *msaa = Msaa::Off;
-        camera.remove::<TemporalAntiAliasBundle>();
-
-        camera.insert(Fxaa::default());
+        camera
+            .remove::<Smaa>()
+            .remove::<TaaComponents>()
+            .insert(Fxaa::default());
     }
 
     // FXAA Settings
@@ -104,18 +119,44 @@ fn modify_aa(
         }
     }
 
-    // TAA
-    if keys.just_pressed(KeyCode::Digit4) && taa.is_none() {
+    // SMAA
+    if keys.just_pressed(KeyCode::Digit4) && smaa.is_none() {
         *msaa = Msaa::Off;
-        camera.remove::<Fxaa>();
+        camera
+            .remove::<Fxaa>()
+            .remove::<TaaComponents>()
+            .insert(Smaa::default());
+    }
 
-        camera.insert(TemporalAntiAliasBundle::default());
+    // SMAA Settings
+    if let Some(mut smaa) = smaa {
+        if keys.just_pressed(KeyCode::KeyQ) {
+            smaa.preset = SmaaPreset::Low;
+        }
+        if keys.just_pressed(KeyCode::KeyW) {
+            smaa.preset = SmaaPreset::Medium;
+        }
+        if keys.just_pressed(KeyCode::KeyE) {
+            smaa.preset = SmaaPreset::High;
+        }
+        if keys.just_pressed(KeyCode::KeyR) {
+            smaa.preset = SmaaPreset::Ultra;
+        }
+    }
+
+    // TAA
+    if keys.just_pressed(KeyCode::Digit5) && taa.is_none() {
+        *msaa = Msaa::Off;
+        camera
+            .remove::<Fxaa>()
+            .remove::<Smaa>()
+            .insert(TemporalAntiAliasing::default());
     }
 }
 
 fn modify_sharpening(
     keys: Res<ButtonInput<KeyCode>>,
-    mut query: Query<&mut ContrastAdaptiveSharpeningSettings>,
+    mut query: Query<&mut ContrastAdaptiveSharpening>,
 ) {
     for mut cas in &mut query {
         if keys.just_pressed(KeyCode::Digit0) {
@@ -138,115 +179,74 @@ fn modify_sharpening(
 }
 
 fn update_ui(
-    camera: Query<
+    camera: Single<
         (
             Option<&Fxaa>,
-            Option<&TemporalAntiAliasSettings>,
-            &ContrastAdaptiveSharpeningSettings,
+            Option<&Smaa>,
+            Option<&TemporalAntiAliasing>,
+            &ContrastAdaptiveSharpening,
+            &Msaa,
         ),
         With<Camera>,
     >,
-    msaa: Res<Msaa>,
-    mut ui: Query<&mut Text>,
+    mut ui: Single<&mut Text>,
 ) {
-    let (fxaa, taa, cas_settings) = camera.single();
+    let (fxaa, smaa, taa, cas, msaa) = *camera;
 
-    let mut ui = ui.single_mut();
-    let ui = &mut ui.sections[0].value;
-
+    let ui = &mut ui.0;
     *ui = "Antialias Method\n".to_string();
 
-    if *msaa == Msaa::Off && fxaa.is_none() && taa.is_none() {
-        ui.push_str("(1) *No AA*\n");
-    } else {
-        ui.push_str("(1) No AA\n");
-    }
+    draw_selectable_menu_item(
+        ui,
+        "No AA",
+        '1',
+        *msaa == Msaa::Off && fxaa.is_none() && taa.is_none() && smaa.is_none(),
+    );
+    draw_selectable_menu_item(ui, "MSAA", '2', *msaa != Msaa::Off);
+    draw_selectable_menu_item(ui, "FXAA", '3', fxaa.is_some());
+    draw_selectable_menu_item(ui, "SMAA", '4', smaa.is_some());
+    draw_selectable_menu_item(ui, "TAA", '5', taa.is_some());
 
     if *msaa != Msaa::Off {
-        ui.push_str("(2) *MSAA*\n");
-    } else {
-        ui.push_str("(2) MSAA\n");
-    }
-
-    if fxaa.is_some() {
-        ui.push_str("(3) *FXAA*\n");
-    } else {
-        ui.push_str("(3) FXAA\n");
-    }
-
-    if taa.is_some() {
-        ui.push_str("(4) *TAA*");
-    } else {
-        ui.push_str("(4) TAA");
-    }
-
-    if *msaa != Msaa::Off {
-        ui.push_str("\n\n----------\n\nSample Count\n");
-
-        if *msaa == Msaa::Sample2 {
-            ui.push_str("(Q) *2*\n");
-        } else {
-            ui.push_str("(Q) 2\n");
-        }
-        if *msaa == Msaa::Sample4 {
-            ui.push_str("(W) *4*\n");
-        } else {
-            ui.push_str("(W) 4\n");
-        }
-        if *msaa == Msaa::Sample8 {
-            ui.push_str("(E) *8*");
-        } else {
-            ui.push_str("(E) 8");
-        }
+        ui.push_str("\n----------\n\nSample Count\n");
+        draw_selectable_menu_item(ui, "2", 'Q', *msaa == Msaa::Sample2);
+        draw_selectable_menu_item(ui, "4", 'W', *msaa == Msaa::Sample4);
+        draw_selectable_menu_item(ui, "8", 'E', *msaa == Msaa::Sample8);
     }
 
     if let Some(fxaa) = fxaa {
-        ui.push_str("\n\n----------\n\nSensitivity\n");
-
-        if fxaa.edge_threshold == Sensitivity::Low {
-            ui.push_str("(Q) *Low*\n");
-        } else {
-            ui.push_str("(Q) Low\n");
-        }
-
-        if fxaa.edge_threshold == Sensitivity::Medium {
-            ui.push_str("(W) *Medium*\n");
-        } else {
-            ui.push_str("(W) Medium\n");
-        }
-
-        if fxaa.edge_threshold == Sensitivity::High {
-            ui.push_str("(E) *High*\n");
-        } else {
-            ui.push_str("(E) High\n");
-        }
-
-        if fxaa.edge_threshold == Sensitivity::Ultra {
-            ui.push_str("(R) *Ultra*\n");
-        } else {
-            ui.push_str("(R) Ultra\n");
-        }
-
-        if fxaa.edge_threshold == Sensitivity::Extreme {
-            ui.push_str("(T) *Extreme*");
-        } else {
-            ui.push_str("(T) Extreme");
-        }
+        ui.push_str("\n----------\n\nSensitivity\n");
+        draw_selectable_menu_item(ui, "Low", 'Q', fxaa.edge_threshold == Sensitivity::Low);
+        draw_selectable_menu_item(
+            ui,
+            "Medium",
+            'W',
+            fxaa.edge_threshold == Sensitivity::Medium,
+        );
+        draw_selectable_menu_item(ui, "High", 'E', fxaa.edge_threshold == Sensitivity::High);
+        draw_selectable_menu_item(ui, "Ultra", 'R', fxaa.edge_threshold == Sensitivity::Ultra);
+        draw_selectable_menu_item(
+            ui,
+            "Extreme",
+            'T',
+            fxaa.edge_threshold == Sensitivity::Extreme,
+        );
     }
 
-    if cas_settings.enabled {
-        ui.push_str("\n\n----------\n\n(0) Sharpening (Enabled)\n");
-        ui.push_str(&format!(
-            "(-/+) Strength: {:.1}\n",
-            cas_settings.sharpening_strength
-        ));
-        if cas_settings.denoise {
-            ui.push_str("(D) Denoising (Enabled)\n");
-        } else {
-            ui.push_str("(D) Denoising (Disabled)\n");
-        }
-    } else {
-        ui.push_str("\n\n----------\n\n(0) Sharpening (Disabled)\n");
+    if let Some(smaa) = smaa {
+        ui.push_str("\n----------\n\nQuality\n");
+        draw_selectable_menu_item(ui, "Low", 'Q', smaa.preset == SmaaPreset::Low);
+        draw_selectable_menu_item(ui, "Medium", 'W', smaa.preset == SmaaPreset::Medium);
+        draw_selectable_menu_item(ui, "High", 'E', smaa.preset == SmaaPreset::High);
+        draw_selectable_menu_item(ui, "Ultra", 'R', smaa.preset == SmaaPreset::Ultra);
+    }
+
+    ui.push_str("\n----------\n\n");
+    draw_selectable_menu_item(ui, "Sharpening", '0', cas.enabled);
+
+    if cas.enabled {
+        ui.push_str(&format!("(-/+) Strength: {:.1}\n", cas.sharpening_strength));
+        draw_selectable_menu_item(ui, "Denoising", 'D', cas.denoise);
     }
 }
 
@@ -259,11 +259,10 @@ fn setup(
     asset_server: Res<AssetServer>,
 ) {
     // Plane
-    commands.spawn(PbrBundle {
-        mesh: meshes.add(Plane3d::default().mesh().size(50.0, 50.0)),
-        material: materials.add(Color::srgb(0.1, 0.2, 0.1)),
-        ..default()
-    });
+    commands.spawn((
+        Mesh3d(meshes.add(Plane3d::default().mesh().size(50.0, 50.0))),
+        MeshMaterial3d(materials.add(Color::srgb(0.1, 0.2, 0.1))),
+    ));
 
     let cube_material = materials.add(StandardMaterial {
         base_color_texture: Some(images.add(uv_debug_texture())),
@@ -272,54 +271,40 @@ fn setup(
 
     // Cubes
     for i in 0..5 {
-        commands.spawn(PbrBundle {
-            mesh: meshes.add(Cuboid::new(0.25, 0.25, 0.25)),
-            material: cube_material.clone(),
-            transform: Transform::from_xyz(i as f32 * 0.25 - 1.0, 0.125, -i as f32 * 0.5),
-            ..default()
-        });
+        commands.spawn((
+            Mesh3d(meshes.add(Cuboid::new(0.25, 0.25, 0.25))),
+            MeshMaterial3d(cube_material.clone()),
+            Transform::from_xyz(i as f32 * 0.25 - 1.0, 0.125, -i as f32 * 0.5),
+        ));
     }
 
     // Flight Helmet
-    commands.spawn(SceneBundle {
-        scene: asset_server.load("models/FlightHelmet/FlightHelmet.gltf#Scene0"),
-        ..default()
-    });
+    commands.spawn(SceneRoot(asset_server.load(
+        GltfAssetLabel::Scene(0).from_asset("models/FlightHelmet/FlightHelmet.gltf"),
+    )));
 
     // Light
-    commands.spawn(DirectionalLightBundle {
-        directional_light: DirectionalLight {
+    commands.spawn((
+        DirectionalLight {
             illuminance: light_consts::lux::FULL_DAYLIGHT,
             shadows_enabled: true,
             ..default()
         },
-        transform: Transform::from_rotation(Quat::from_euler(
-            EulerRot::ZYX,
-            0.0,
-            PI * -0.15,
-            PI * -0.15,
-        )),
-        cascade_shadow_config: CascadeShadowConfigBuilder {
+        Transform::from_rotation(Quat::from_euler(EulerRot::ZYX, 0.0, PI * -0.15, PI * -0.15)),
+        CascadeShadowConfigBuilder {
             maximum_distance: 3.0,
             first_cascade_far_bound: 0.9,
             ..default()
         }
-        .into(),
-        ..default()
-    });
+        .build(),
+    ));
 
     // Camera
     commands.spawn((
-        Camera3dBundle {
-            camera: Camera {
-                hdr: true,
-                ..default()
-            },
-            transform: Transform::from_xyz(0.7, 0.7, 1.0)
-                .looking_at(Vec3::new(0.0, 0.3, 0.0), Vec3::Y),
-            ..default()
-        },
-        ContrastAdaptiveSharpeningSettings {
+        Camera3d::default(),
+        Hdr,
+        Transform::from_xyz(0.7, 0.7, 1.0).looking_at(Vec3::new(0.0, 0.3, 0.0), Vec3::Y),
+        ContrastAdaptiveSharpening {
             enabled: false,
             ..default()
         },
@@ -327,8 +312,9 @@ fn setup(
             diffuse_map: asset_server.load("environment_maps/pisa_diffuse_rgb9e5_zstd.ktx2"),
             specular_map: asset_server.load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2"),
             intensity: 150.0,
+            ..default()
         },
-        FogSettings {
+        DistanceFog {
             color: Color::srgba_u8(43, 44, 47, 255),
             falloff: FogFalloff::Linear {
                 start: 1.0,
@@ -339,21 +325,21 @@ fn setup(
     ));
 
     // example instructions
-    commands.spawn(
-        TextBundle::from_section(
-            "",
-            TextStyle {
-                font_size: 20.,
-                ..default()
-            },
-        )
-        .with_style(Style {
+    commands.spawn((
+        Text::default(),
+        Node {
             position_type: PositionType::Absolute,
             top: Val::Px(12.0),
             left: Val::Px(12.0),
             ..default()
-        }),
-    );
+        },
+    ));
+}
+
+/// Writes a simple menu item that can be on or off.
+fn draw_selectable_menu_item(ui: &mut String, label: &str, shortcut: char, enabled: bool) {
+    let star = if enabled { "*" } else { "" };
+    let _ = writeln!(*ui, "({shortcut}) {star}{label}{star}");
 }
 
 /// Creates a colorful test pattern

@@ -1,16 +1,18 @@
 //! A shader that uses "shaders defs", which selectively toggle parts of a shader.
 
 use bevy::{
+    mesh::MeshVertexBufferLayoutRef,
     pbr::{MaterialPipeline, MaterialPipelineKey},
     prelude::*,
     reflect::TypePath,
-    render::{
-        mesh::MeshVertexBufferLayoutRef,
-        render_resource::{
-            AsBindGroup, RenderPipelineDescriptor, ShaderRef, SpecializedMeshPipelineError,
-        },
+    render::render_resource::{
+        AsBindGroup, RenderPipelineDescriptor, SpecializedMeshPipelineError,
     },
+    shader::ShaderRef,
 };
+
+/// This example uses a shader source file from the assets subdirectory
+const SHADER_ASSET_PATH: &str = "shaders/shader_defs.wgsl";
 
 fn main() {
     App::new()
@@ -26,46 +28,44 @@ fn setup(
     mut materials: ResMut<Assets<CustomMaterial>>,
 ) {
     // blue cube
-    commands.spawn(MaterialMeshBundle {
-        mesh: meshes.add(Cuboid::default()),
-        transform: Transform::from_xyz(-1.0, 0.5, 0.0),
-        material: materials.add(CustomMaterial {
+    commands.spawn((
+        Mesh3d(meshes.add(Cuboid::default())),
+        MeshMaterial3d(materials.add(CustomMaterial {
             color: LinearRgba::BLUE,
             is_red: false,
-        }),
-        ..default()
-    });
+        })),
+        Transform::from_xyz(-1.0, 0.5, 0.0),
+    ));
 
     // red cube (with green color overridden by the IS_RED "shader def")
-    commands.spawn(MaterialMeshBundle {
-        mesh: meshes.add(Cuboid::default()),
-        transform: Transform::from_xyz(1.0, 0.5, 0.0),
-        material: materials.add(CustomMaterial {
+    commands.spawn((
+        Mesh3d(meshes.add(Cuboid::default())),
+        MeshMaterial3d(materials.add(CustomMaterial {
             color: LinearRgba::GREEN,
             is_red: true,
-        }),
-        ..default()
-    });
+        })),
+        Transform::from_xyz(1.0, 0.5, 0.0),
+    ));
 
     // camera
-    commands.spawn(Camera3dBundle {
-        transform: Transform::from_xyz(-2.0, 2.5, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
-        ..default()
-    });
+    commands.spawn((
+        Camera3d::default(),
+        Transform::from_xyz(-2.0, 2.5, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
+    ));
 }
 
 impl Material for CustomMaterial {
     fn fragment_shader() -> ShaderRef {
-        "shaders/shader_defs.wgsl".into()
+        SHADER_ASSET_PATH.into()
     }
 
     fn specialize(
-        _pipeline: &MaterialPipeline<Self>,
+        _pipeline: &MaterialPipeline,
         descriptor: &mut RenderPipelineDescriptor,
         _layout: &MeshVertexBufferLayoutRef,
         key: MaterialPipelineKey<Self>,
     ) -> Result<(), SpecializedMeshPipelineError> {
-        if key.bind_group_data.is_red {
+        if key.bind_group_data.is_red == 1 {
             let fragment = descriptor.fragment.as_mut().unwrap();
             fragment.shader_defs.push("IS_RED".into());
         }
@@ -85,16 +85,19 @@ struct CustomMaterial {
 // This key is used to identify a specific permutation of this material pipeline.
 // In this case, we specialize on whether or not to configure the "IS_RED" shader def.
 // Specialization keys should be kept as small / cheap to hash as possible,
-// as they will be used to look up the pipeline for each drawn entity with this material type.
-#[derive(Eq, PartialEq, Hash, Clone)]
+// as they will be used to look up the pipeline for each drawn entity with this material type,
+// Which is why they are required to be `bytemuck::Pod` and `bytemuck::Zeroable` for materials
+// that use the `AsBindGroup` derive macro.
+#[repr(C)]
+#[derive(Eq, PartialEq, Hash, Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
 struct CustomMaterialKey {
-    is_red: bool,
+    is_red: u32,
 }
 
 impl From<&CustomMaterial> for CustomMaterialKey {
     fn from(material: &CustomMaterial) -> Self {
         Self {
-            is_red: material.is_red,
+            is_red: material.is_red as u32,
         }
     }
 }

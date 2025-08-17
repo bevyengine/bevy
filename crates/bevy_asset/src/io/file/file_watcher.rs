@@ -1,37 +1,43 @@
-use crate::io::{AssetSourceEvent, AssetWatcher};
-use crate::path::normalize_path;
-use bevy_utils::tracing::error;
-use bevy_utils::Duration;
+use crate::{
+    io::{AssetSourceEvent, AssetWatcher},
+    path::normalize_path,
+};
+use alloc::borrow::ToOwned;
+use core::time::Duration;
 use crossbeam_channel::Sender;
 use notify_debouncer_full::{
     new_debouncer,
     notify::{
         self,
         event::{AccessKind, AccessMode, CreateKind, ModifyKind, RemoveKind, RenameMode},
-        RecommendedWatcher, RecursiveMode, Watcher,
+        RecommendedWatcher, RecursiveMode,
     },
-    DebounceEventResult, Debouncer, FileIdMap,
+    DebounceEventResult, Debouncer, RecommendedCache,
 };
 use std::path::{Path, PathBuf};
+use tracing::error;
 
 /// An [`AssetWatcher`] that watches the filesystem for changes to asset files in a given root folder and emits [`AssetSourceEvent`]
-/// for each relevant change. This uses [`notify_debouncer_full`] to retrieve "debounced" filesystem events.
+/// for each relevant change.
+///
+/// This uses [`notify_debouncer_full`] to retrieve "debounced" filesystem events.
 /// "Debouncing" defines a time window to hold on to events and then removes duplicate events that fall into this window.
 /// This introduces a small delay in processing events, but it helps reduce event duplicates. A small delay is also necessary
 /// on some systems to avoid processing a change event before it has actually been applied.
 pub struct FileWatcher {
-    _watcher: Debouncer<RecommendedWatcher, FileIdMap>,
+    _watcher: Debouncer<RecommendedWatcher, RecommendedCache>,
 }
 
 impl FileWatcher {
+    /// Creates a new [`FileWatcher`] that watches for changes to the asset files in the given `path`.
     pub fn new(
-        root: PathBuf,
+        path: PathBuf,
         sender: Sender<AssetSourceEvent>,
         debounce_wait_time: Duration,
     ) -> Result<Self, notify::Error> {
-        let root = normalize_path(super::get_base_path().join(root).as_path());
+        let root = normalize_path(&path).canonicalize()?;
         let watcher = new_asset_event_debouncer(
-            root.clone(),
+            path.clone(),
             debounce_wait_time,
             FileEventHandler {
                 root,
@@ -46,11 +52,14 @@ impl FileWatcher {
 impl AssetWatcher for FileWatcher {}
 
 pub(crate) fn get_asset_path(root: &Path, absolute_path: &Path) -> (PathBuf, bool) {
-    let relative_path = absolute_path.strip_prefix(root).unwrap();
-    let is_meta = relative_path
-        .extension()
-        .map(|e| e == "meta")
-        .unwrap_or(false);
+    let relative_path = absolute_path.strip_prefix(root).unwrap_or_else(|_| {
+        panic!(
+            "FileWatcher::get_asset_path() failed to strip prefix from absolute path: absolute_path={}, root={}",
+            absolute_path.display(),
+            root.display()
+        )
+    });
+    let is_meta = relative_path.extension().is_some_and(|e| e == "meta");
     let asset_path = if is_meta {
         relative_path.with_extension("")
     } else {
@@ -66,7 +75,7 @@ pub(crate) fn new_asset_event_debouncer(
     root: PathBuf,
     debounce_wait_time: Duration,
     mut handler: impl FilesystemEventHandler,
-) -> Result<Debouncer<RecommendedWatcher, FileIdMap>, notify::Error> {
+) -> Result<Debouncer<RecommendedWatcher, RecommendedCache>, notify::Error> {
     let root = super::get_base_path().join(root);
     let mut debouncer = new_debouncer(
         debounce_wait_time,
@@ -238,8 +247,7 @@ pub(crate) fn new_asset_event_debouncer(
             }
         },
     )?;
-    debouncer.watcher().watch(&root, RecursiveMode::Recursive)?;
-    debouncer.cache().add_root(&root, RecursiveMode::Recursive);
+    debouncer.watch(&root, RecursiveMode::Recursive)?;
     Ok(debouncer)
 }
 
@@ -254,7 +262,8 @@ impl FilesystemEventHandler for FileEventHandler {
         self.last_event = None;
     }
     fn get_path(&self, absolute_path: &Path) -> Option<(PathBuf, bool)> {
-        Some(get_asset_path(&self.root, absolute_path))
+        let absolute_path = absolute_path.canonicalize().ok()?;
+        Some(get_asset_path(&self.root, &absolute_path))
     }
 
     fn handle(&mut self, _absolute_paths: &[PathBuf], event: AssetSourceEvent) {

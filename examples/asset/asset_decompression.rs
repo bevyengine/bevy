@@ -3,14 +3,13 @@
 use bevy::{
     asset::{
         io::{Reader, VecReader},
-        AssetLoader, AsyncReadExt, ErasedLoadedAsset, LoadContext, LoadDirectError,
+        AssetLoader, ErasedLoadedAsset, LoadContext, LoadDirectError,
     },
     prelude::*,
     reflect::TypePath,
 };
 use flate2::read::GzDecoder;
-use std::io::prelude::*;
-use std::marker::PhantomData;
+use std::{io::prelude::*, marker::PhantomData};
 use thiserror::Error;
 
 #[derive(Asset, TypePath)]
@@ -24,7 +23,7 @@ struct GzAssetLoader;
 /// Possible errors that can be produced by [`GzAssetLoader`]
 #[non_exhaustive]
 #[derive(Debug, Error)]
-pub enum GzAssetLoaderError {
+enum GzAssetLoaderError {
     /// An [IO](std::io) Error
     #[error("Could not load asset: {0}")]
     Io(#[from] std::io::Error),
@@ -40,11 +39,12 @@ impl AssetLoader for GzAssetLoader {
     type Asset = GzAsset;
     type Settings = ();
     type Error = GzAssetLoaderError;
-    async fn load<'a>(
-        &'a self,
-        reader: &'a mut Reader<'_>,
-        _settings: &'a (),
-        load_context: &'a mut LoadContext<'_>,
+
+    async fn load(
+        &self,
+        reader: &mut dyn Reader,
+        _settings: &(),
+        load_context: &mut LoadContext<'_>,
     ) -> Result<Self::Asset, Self::Error> {
         let compressed_path = load_context.path();
         let file_name = compressed_path
@@ -72,7 +72,11 @@ impl AssetLoader for GzAssetLoader {
         let mut reader = VecReader::new(bytes_uncompressed);
 
         let uncompressed = load_context
-            .load_direct_with_reader(&mut reader, contained_path)
+            .loader()
+            .with_unknown_type()
+            .immediate()
+            .with_reader(&mut reader)
+            .load(contained_path)
             .await?;
 
         Ok(GzAsset { uncompressed })
@@ -95,25 +99,20 @@ fn main() {
         .init_asset::<GzAsset>()
         .init_asset_loader::<GzAssetLoader>()
         .add_systems(Startup, setup)
-        .add_systems(Update, decompress::<Image>)
+        .add_systems(Update, decompress::<Sprite, Image>)
         .run();
 }
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
-    commands.spawn(Camera2dBundle::default());
+    commands.spawn(Camera2d);
 
-    commands.spawn((
-        Compressed::<Image> {
-            compressed: asset_server.load("data/compressed_image.png.gz"),
-            ..default()
-        },
-        Sprite::default(),
-        TransformBundle::default(),
-        VisibilityBundle::default(),
-    ));
+    commands.spawn(Compressed::<Image> {
+        compressed: asset_server.load("data/compressed_image.png.gz"),
+        ..default()
+    });
 }
 
-fn decompress<A: Asset>(
+fn decompress<T: Component + From<Handle<A>>, A: Asset>(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
     mut compressed_assets: ResMut<Assets<GzAsset>>,
@@ -129,6 +128,6 @@ fn decompress<A: Asset>(
         commands
             .entity(entity)
             .remove::<Compressed<A>>()
-            .insert(asset_server.add(uncompressed));
+            .insert(T::from(asset_server.add(uncompressed)));
     }
 }

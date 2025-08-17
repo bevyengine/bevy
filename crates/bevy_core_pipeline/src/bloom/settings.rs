@@ -1,8 +1,13 @@
 use super::downsampling_pipeline::BloomUniforms;
-use bevy_ecs::{prelude::Component, query::QueryItem, reflect::ReflectComponent};
-use bevy_math::{AspectRatio, URect, UVec4, Vec4};
+use bevy_camera::Camera;
+use bevy_ecs::{
+    prelude::Component,
+    query::{QueryItem, With},
+    reflect::ReflectComponent,
+};
+use bevy_math::{AspectRatio, URect, UVec4, Vec2, Vec4};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
-use bevy_render::{extract_component::ExtractComponent, prelude::Camera};
+use bevy_render::{extract_component::ExtractComponent, view::Hdr};
 
 /// Applies a bloom effect to an HDR-enabled 2d or 3d camera.
 ///
@@ -25,8 +30,9 @@ use bevy_render::{extract_component::ExtractComponent, prelude::Camera};
 /// See <https://starlederer.github.io/bloom/> for a visualization of the parametric curve
 /// used in Bevy as well as a visualization of the curve's respective scattering profile.
 #[derive(Component, Reflect, Clone)]
-#[reflect(Component, Default)]
-pub struct BloomSettings {
+#[reflect(Component, Default, Clone)]
+#[require(Hdr)]
+pub struct Bloom {
     /// Controls the baseline of how much the image is scattered (default: 0.15).
     ///
     /// This parameter should be used only to control the strength of the bloom
@@ -79,7 +85,7 @@ pub struct BloomSettings {
     /// Somewhat comparable to the Q factor of an equalizer node.
     ///
     /// Valid range:
-    /// * 0.0 - base base intensity and boosted intensity are linearly interpolated
+    /// * 0.0 - base intensity and boosted intensity are linearly interpolated
     /// * 1.0 - all frequencies below maximum are at boosted intensity level
     pub low_frequency_boost_curvature: f32,
 
@@ -90,21 +96,38 @@ pub struct BloomSettings {
     /// * 1.0 - maximum scattering angle is 90 degrees
     pub high_pass_frequency: f32,
 
-    pub prefilter_settings: BloomPrefilterSettings,
+    /// Controls the threshold filter used for extracting the brightest regions from the input image
+    /// before blurring them and compositing back onto the original image.
+    ///
+    /// Changing these settings creates a physically inaccurate image and makes it easy to make
+    /// the final result look worse. However, they can be useful when emulating the 1990s-2000s game look.
+    /// See [`BloomPrefilter`] for more information.
+    pub prefilter: BloomPrefilter,
 
     /// Controls whether bloom textures
     /// are blended between or added to each other. Useful
     /// if image brightening is desired and a must-change
-    /// if `prefilter_settings` are used.
+    /// if `prefilter` is used.
     ///
     /// # Recommendation
-    /// Set to [`BloomCompositeMode::Additive`] if `prefilter_settings` are
+    /// Set to [`BloomCompositeMode::Additive`] if `prefilter` is
     /// configured in a non-energy-conserving way,
     /// otherwise set to [`BloomCompositeMode::EnergyConserving`].
     pub composite_mode: BloomCompositeMode,
+
+    /// Maximum size of each dimension for the largest mipchain texture used in downscaling/upscaling.
+    /// Only tweak if you are seeing visual artifacts.
+    pub max_mip_dimension: u32,
+
+    /// Amount to stretch the bloom on each axis. Artistic control, can be used to emulate
+    /// anamorphic blur by using a large x-value. For large values, you may need to increase
+    /// [`Bloom::max_mip_dimension`] to reduce sampling artifacts.
+    pub scale: Vec2,
 }
 
-impl BloomSettings {
+impl Bloom {
+    const DEFAULT_MAX_MIP_DIMENSION: u32 = 512;
+
     /// The default bloom preset.
     ///
     /// This uses the [`EnergyConserving`](BloomCompositeMode::EnergyConserving) composite mode.
@@ -113,11 +136,21 @@ impl BloomSettings {
         low_frequency_boost: 0.7,
         low_frequency_boost_curvature: 0.95,
         high_pass_frequency: 1.0,
-        prefilter_settings: BloomPrefilterSettings {
+        prefilter: BloomPrefilter {
             threshold: 0.0,
             threshold_softness: 0.0,
         },
         composite_mode: BloomCompositeMode::EnergyConserving,
+        max_mip_dimension: Self::DEFAULT_MAX_MIP_DIMENSION,
+        scale: Vec2::ONE,
+    };
+
+    /// Emulates the look of stylized anamorphic bloom, stretched horizontally.
+    pub const ANAMORPHIC: Self = Self {
+        // The larger scale necessitates a larger resolution to reduce artifacts:
+        max_mip_dimension: Self::DEFAULT_MAX_MIP_DIMENSION * 2,
+        scale: Vec2::new(4.0, 1.0),
+        ..Self::NATURAL
     };
 
     /// A preset that's similar to how older games did bloom.
@@ -126,11 +159,13 @@ impl BloomSettings {
         low_frequency_boost: 0.7,
         low_frequency_boost_curvature: 0.95,
         high_pass_frequency: 1.0,
-        prefilter_settings: BloomPrefilterSettings {
+        prefilter: BloomPrefilter {
             threshold: 0.6,
             threshold_softness: 0.2,
         },
         composite_mode: BloomCompositeMode::Additive,
+        max_mip_dimension: Self::DEFAULT_MAX_MIP_DIMENSION,
+        scale: Vec2::ONE,
     };
 
     /// A preset that applies a very strong bloom, and blurs the whole screen.
@@ -139,15 +174,17 @@ impl BloomSettings {
         low_frequency_boost: 0.0,
         low_frequency_boost_curvature: 0.0,
         high_pass_frequency: 1.0 / 3.0,
-        prefilter_settings: BloomPrefilterSettings {
+        prefilter: BloomPrefilter {
             threshold: 0.0,
             threshold_softness: 0.0,
         },
         composite_mode: BloomCompositeMode::EnergyConserving,
+        max_mip_dimension: Self::DEFAULT_MAX_MIP_DIMENSION,
+        scale: Vec2::ONE,
     };
 }
 
-impl Default for BloomSettings {
+impl Default for Bloom {
     fn default() -> Self {
         Self::NATURAL
     }
@@ -162,7 +199,8 @@ impl Default for BloomSettings {
 /// * Changing these settings makes it easy to make the final result look worse
 /// * Non-default prefilter settings should be used in conjunction with [`BloomCompositeMode::Additive`]
 #[derive(Default, Clone, Reflect)]
-pub struct BloomPrefilterSettings {
+#[reflect(Clone, Default)]
+pub struct BloomPrefilter {
     /// Baseline of the quadratic threshold curve (default: 0.0).
     ///
     /// RGB values under the threshold curve will not contribute to the effect.
@@ -178,28 +216,30 @@ pub struct BloomPrefilterSettings {
 }
 
 #[derive(Debug, Clone, Reflect, PartialEq, Eq, Hash, Copy)]
+#[reflect(Clone, Hash, PartialEq)]
 pub enum BloomCompositeMode {
     EnergyConserving,
     Additive,
 }
 
-impl ExtractComponent for BloomSettings {
+impl ExtractComponent for Bloom {
     type QueryData = (&'static Self, &'static Camera);
 
-    type QueryFilter = ();
+    type QueryFilter = With<Hdr>;
     type Out = (Self, BloomUniforms);
 
-    fn extract_component((settings, camera): QueryItem<'_, Self::QueryData>) -> Option<Self::Out> {
+    fn extract_component((bloom, camera): QueryItem<'_, '_, Self::QueryData>) -> Option<Self::Out> {
         match (
             camera.physical_viewport_rect(),
             camera.physical_viewport_size(),
             camera.physical_target_size(),
             camera.is_active,
-            camera.hdr,
         ) {
-            (Some(URect { min: origin, .. }), Some(size), Some(target_size), true, true) => {
-                let threshold = settings.prefilter_settings.threshold;
-                let threshold_softness = settings.prefilter_settings.threshold_softness;
+            (Some(URect { min: origin, .. }), Some(size), Some(target_size), true)
+                if size.x != 0 && size.y != 0 =>
+            {
+                let threshold = bloom.prefilter.threshold;
+                let threshold_softness = bloom.prefilter.threshold_softness;
                 let knee = threshold * threshold_softness.clamp(0.0, 1.0);
 
                 let uniform = BloomUniforms {
@@ -212,10 +252,13 @@ impl ExtractComponent for BloomSettings {
                     viewport: UVec4::new(origin.x, origin.y, size.x, size.y).as_vec4()
                         / UVec4::new(target_size.x, target_size.y, target_size.x, target_size.y)
                             .as_vec4(),
-                    aspect: AspectRatio::from_pixels(size.x, size.y).into(),
+                    aspect: AspectRatio::try_from_pixels(size.x, size.y)
+                        .expect("Valid screen size values for Bloom settings")
+                        .ratio(),
+                    scale: bloom.scale,
                 };
 
-                Some((settings.clone(), uniform))
+                Some((bloom.clone(), uniform))
             }
             _ => None,
         }

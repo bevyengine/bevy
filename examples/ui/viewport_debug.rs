@@ -1,8 +1,8 @@
 //! A simple example for debugging viewport coordinates
 //!
-//! This example creates two uinode trees, one using viewport coordinates and one using pixel coordinates,
+//! This example creates two UI node trees, one using viewport coordinates and one using pixel coordinates,
 //! and then switches between them once per second using the `Display` style property.
-//! If there are no problems both layouts should be identical, except for the color of the margin changing which is used to signal that the displayed uinode tree has changed
+//! If there are no problems both layouts should be identical, except for the color of the margin changing which is used to signal that the displayed UI node tree has changed
 //! (red for viewport, yellow for pixel).
 use bevy::{color::palettes::css::*, prelude::*};
 
@@ -40,17 +40,17 @@ fn update(
     mut timer: Local<f32>,
     mut visible_tree: Local<Coords>,
     time: Res<Time>,
-    mut coords_style_query: Query<(&Coords, &mut Style)>,
+    mut coords_nodes: Query<(&Coords, &mut Node)>,
 ) {
-    *timer -= time.delta_seconds();
+    *timer -= time.delta_secs();
     if *timer <= 0. {
         *timer = 1.;
         *visible_tree = match *visible_tree {
             Coords::Viewport => Coords::Pixel,
             Coords::Pixel => Coords::Viewport,
         };
-        for (coords, mut style) in coords_style_query.iter_mut() {
-            style.display = if *coords == *visible_tree {
+        for (coords, mut node) in coords_nodes.iter_mut() {
+            node.display = if *coords == *visible_tree {
                 Display::Flex
             } else {
                 Display::None
@@ -60,7 +60,7 @@ fn update(
 }
 
 fn setup(mut commands: Commands) {
-    commands.spawn(Camera2dBundle::default());
+    commands.spawn(Camera2d);
     spawn_with_viewport_coords(&mut commands);
     spawn_with_pixel_coords(&mut commands);
 }
@@ -68,173 +68,155 @@ fn setup(mut commands: Commands) {
 fn spawn_with_viewport_coords(commands: &mut Commands) {
     commands
         .spawn((
-            NodeBundle {
-                style: Style {
-                    width: Val::Vw(100.),
-                    height: Val::Vh(100.),
-                    border: UiRect::axes(Val::Vw(5.), Val::Vh(5.)),
-                    flex_wrap: FlexWrap::Wrap,
-                    ..default()
-                },
-                border_color: PALETTE[0].into(),
+            Node {
+                width: Val::Vw(100.),
+                height: Val::Vh(100.),
+                border: UiRect::axes(Val::Vw(5.), Val::Vh(5.)),
+                flex_wrap: FlexWrap::Wrap,
                 ..default()
             },
+            BorderColor::all(PALETTE[0]),
             Coords::Viewport,
         ))
         .with_children(|builder| {
-            builder.spawn(NodeBundle {
-                style: Style {
+            builder.spawn((
+                Node {
                     width: Val::Vw(30.),
                     height: Val::Vh(30.),
                     border: UiRect::all(Val::VMin(5.)),
                     ..default()
                 },
-                background_color: PALETTE[2].into(),
-                border_color: PALETTE[9].into(),
-                ..default()
-            });
+                BackgroundColor(PALETTE[2].into()),
+                BorderColor::all(PALETTE[9]),
+            ));
 
-            builder.spawn(NodeBundle {
-                style: Style {
+            builder.spawn((
+                Node {
                     width: Val::Vw(60.),
                     height: Val::Vh(30.),
                     ..default()
                 },
-                background_color: PALETTE[3].into(),
-                ..default()
-            });
+                BackgroundColor(PALETTE[3].into()),
+            ));
 
-            builder.spawn(NodeBundle {
-                style: Style {
+            builder.spawn((
+                Node {
                     width: Val::Vw(45.),
                     height: Val::Vh(30.),
                     border: UiRect::left(Val::VMax(45. / 2.)),
                     ..default()
                 },
-                background_color: PALETTE[4].into(),
-                border_color: PALETTE[8].into(),
-                ..default()
-            });
+                BackgroundColor(PALETTE[4].into()),
+                BorderColor::all(PALETTE[8]),
+            ));
 
-            builder.spawn(NodeBundle {
-                style: Style {
+            builder.spawn((
+                Node {
                     width: Val::Vw(45.),
                     height: Val::Vh(30.),
                     border: UiRect::right(Val::VMax(45. / 2.)),
                     ..default()
                 },
-                background_color: PALETTE[5].into(),
-                border_color: PALETTE[8].into(),
-                ..default()
-            });
+                BackgroundColor(PALETTE[5].into()),
+                BorderColor::all(PALETTE[8]),
+            ));
 
-            builder.spawn(NodeBundle {
-                style: Style {
+            builder.spawn((
+                Node {
                     width: Val::Vw(60.),
                     height: Val::Vh(30.),
                     ..default()
                 },
-                background_color: PALETTE[6].into(),
-                ..default()
-            });
+                BackgroundColor(PALETTE[6].into()),
+            ));
 
-            builder.spawn(NodeBundle {
-                style: Style {
+            builder.spawn((
+                Node {
                     width: Val::Vw(30.),
                     height: Val::Vh(30.),
                     border: UiRect::all(Val::VMin(5.)),
                     ..default()
                 },
-                background_color: PALETTE[7].into(),
-                border_color: PALETTE[9].into(),
-                ..default()
-            });
+                BackgroundColor(PALETTE[7].into()),
+                BorderColor::all(PALETTE[9]),
+            ));
         });
 }
 
 fn spawn_with_pixel_coords(commands: &mut Commands) {
     commands
         .spawn((
-            NodeBundle {
-                style: Style {
-                    width: Val::Px(640.),
-                    height: Val::Px(360.),
-                    border: UiRect::axes(Val::Px(32.), Val::Px(18.)),
-                    flex_wrap: FlexWrap::Wrap,
-                    ..default()
-                },
-                border_color: PALETTE[1].into(),
+            Node {
+                width: Val::Px(640.),
+                height: Val::Px(360.),
+                border: UiRect::axes(Val::Px(32.), Val::Px(18.)),
+                flex_wrap: FlexWrap::Wrap,
                 ..default()
             },
+            BorderColor::all(PALETTE[1]),
             Coords::Pixel,
         ))
         .with_children(|builder| {
-            builder.spawn(NodeBundle {
-                style: Style {
+            builder.spawn((
+                Node {
                     width: Val::Px(192.),
                     height: Val::Px(108.),
                     border: UiRect::axes(Val::Px(18.), Val::Px(18.)),
                     ..default()
                 },
-                background_color: PALETTE[2].into(),
-                border_color: PALETTE[9].into(),
-                ..default()
-            });
+                BackgroundColor(PALETTE[2].into()),
+                BorderColor::all(PALETTE[9]),
+            ));
 
-            builder.spawn(NodeBundle {
-                style: Style {
+            builder.spawn((
+                Node {
                     width: Val::Px(384.),
                     height: Val::Px(108.),
                     ..default()
                 },
-                background_color: PALETTE[3].into(),
-                ..default()
-            });
+                BackgroundColor(PALETTE[3].into()),
+            ));
 
-            builder.spawn(NodeBundle {
-                style: Style {
+            builder.spawn((
+                Node {
                     width: Val::Px(288.),
                     height: Val::Px(108.),
                     border: UiRect::left(Val::Px(144.)),
                     ..default()
                 },
-                background_color: PALETTE[4].into(),
-                border_color: PALETTE[8].into(),
-                ..default()
-            });
+                BackgroundColor(PALETTE[4].into()),
+                BorderColor::all(PALETTE[8]),
+            ));
 
-            builder.spawn(NodeBundle {
-                style: Style {
+            builder.spawn((
+                Node {
                     width: Val::Px(288.),
                     height: Val::Px(108.),
                     border: UiRect::right(Val::Px(144.)),
                     ..default()
                 },
-                background_color: PALETTE[5].into(),
-                border_color: PALETTE[8].into(),
-                ..default()
-            });
+                BackgroundColor(PALETTE[5].into()),
+                BorderColor::all(PALETTE[8]),
+            ));
 
-            builder.spawn(NodeBundle {
-                style: Style {
+            builder.spawn((
+                Node {
                     width: Val::Px(384.),
                     height: Val::Px(108.),
                     ..default()
                 },
-                background_color: PALETTE[6].into(),
-                ..default()
-            });
+                BackgroundColor(PALETTE[6].into()),
+            ));
 
-            builder.spawn(NodeBundle {
-                style: Style {
+            builder.spawn((
+                Node {
                     width: Val::Px(192.),
                     height: Val::Px(108.),
                     border: UiRect::axes(Val::Px(18.), Val::Px(18.)),
                     ..default()
                 },
-                background_color: PALETTE[7].into(),
-                border_color: PALETTE[9].into(),
-                ..default()
-            });
+                BackgroundColor(PALETTE[7].into()),
+                BorderColor::all(PALETTE[9]),
+            ));
         });
 }

@@ -1,10 +1,12 @@
 #import bevy_pbr::{
     prepass_bindings,
+    mesh_bindings::mesh,
     mesh_functions,
     prepass_io::{Vertex, VertexOutput, FragmentOutput},
     skinning,
     morph,
-    mesh_view_bindings::{view, previous_view_proj},
+    mesh_view_bindings::view,
+    view_transformations::position_world_to_clip,
 }
 
 #ifdef DEFERRED_PREPASS
@@ -14,23 +16,45 @@
 #ifdef MORPH_TARGETS
 fn morph_vertex(vertex_in: Vertex) -> Vertex {
     var vertex = vertex_in;
+    let first_vertex = mesh[vertex.instance_index].first_vertex_index;
+    let vertex_index = vertex.index - first_vertex;
+
     let weight_count = morph::layer_count();
     for (var i: u32 = 0u; i < weight_count; i ++) {
         let weight = morph::weight_at(i);
         if weight == 0.0 {
             continue;
         }
-        vertex.position += weight * morph::morph(vertex.index, morph::position_offset, i);
+        vertex.position += weight * morph::morph(vertex_index, morph::position_offset, i);
 #ifdef VERTEX_NORMALS
-        vertex.normal += weight * morph::morph(vertex.index, morph::normal_offset, i);
+        vertex.normal += weight * morph::morph(vertex_index, morph::normal_offset, i);
 #endif
 #ifdef VERTEX_TANGENTS
-        vertex.tangent += vec4(weight * morph::morph(vertex.index, morph::tangent_offset, i), 0.0);
+        vertex.tangent += vec4(weight * morph::morph(vertex_index, morph::tangent_offset, i), 0.0);
 #endif
     }
     return vertex;
 }
-#endif
+
+// Returns the morphed position of the given vertex from the previous frame.
+//
+// This function is used for motion vector calculation, and, as such, it doesn't
+// bother morphing the normals and tangents.
+fn morph_prev_vertex(vertex_in: Vertex) -> Vertex {
+    var vertex = vertex_in;
+    let weight_count = morph::layer_count();
+    for (var i: u32 = 0u; i < weight_count; i ++) {
+        let weight = morph::prev_weight_at(i);
+        if weight == 0.0 {
+            continue;
+        }
+        vertex.position += weight * morph::morph(vertex.index, morph::position_offset, i);
+        // Don't bother morphing normals and tangents; we don't need them for
+        // motion vector calculation.
+    }
+    return vertex;
+}
+#endif  // MORPH_TARGETS
 
 @vertex
 fn vertex(vertex_no_morph: Vertex) -> VertexOutput {
@@ -42,31 +66,39 @@ fn vertex(vertex_no_morph: Vertex) -> VertexOutput {
     var vertex = vertex_no_morph;
 #endif
 
+    let mesh_world_from_local = mesh_functions::get_world_from_local(vertex_no_morph.instance_index);
+
 #ifdef SKINNED
-    var model = skinning::skin_model(vertex.joint_indices, vertex.joint_weights);
+    var world_from_local = skinning::skin_model(
+        vertex.joint_indices,
+        vertex.joint_weights,
+        vertex_no_morph.instance_index
+    );
 #else // SKINNED
     // Use vertex_no_morph.instance_index instead of vertex.instance_index to work around a wgpu dx12 bug.
     // See https://github.com/gfx-rs/naga/issues/2416
-    var model = mesh_functions::get_model_matrix(vertex_no_morph.instance_index);
+    var world_from_local = mesh_world_from_local;
 #endif // SKINNED
 
-    out.position = mesh_functions::mesh_position_local_to_clip(model, vec4(vertex.position, 1.0));
-#ifdef DEPTH_CLAMP_ORTHO
-    out.clip_position_unclamped = out.position;
-    out.position.z = min(out.position.z, 1.0);
-#endif // DEPTH_CLAMP_ORTHO
+    out.world_position = mesh_functions::mesh_position_local_to_world(world_from_local, vec4<f32>(vertex.position, 1.0));
+    out.position = position_world_to_clip(out.world_position.xyz);
+#ifdef UNCLIPPED_DEPTH_ORTHO_EMULATION
+    out.unclipped_depth = out.position.z;
+    out.position.z = min(out.position.z, 1.0); // Clamp depth to avoid clipping
+#endif // UNCLIPPED_DEPTH_ORTHO_EMULATION
 
-#ifdef VERTEX_UVS
+#ifdef VERTEX_UVS_A
     out.uv = vertex.uv;
-#endif // VERTEX_UVS
+#endif // VERTEX_UVS_A
 
 #ifdef VERTEX_UVS_B
     out.uv_b = vertex.uv_b;
 #endif // VERTEX_UVS_B
 
 #ifdef NORMAL_PREPASS_OR_DEFERRED_PREPASS
+#ifdef VERTEX_NORMALS
 #ifdef SKINNED
-    out.world_normal = skinning::skin_normals(model, vertex.normal);
+    out.world_normal = skinning::skin_normals(world_from_local, vertex.normal);
 #else // SKINNED
     out.world_normal = mesh_functions::mesh_normal_local_to_world(
         vertex.normal,
@@ -75,10 +107,11 @@ fn vertex(vertex_no_morph: Vertex) -> VertexOutput {
         vertex_no_morph.instance_index
     );
 #endif // SKINNED
+#endif // VERTEX_NORMALS
 
 #ifdef VERTEX_TANGENTS
     out.world_tangent = mesh_functions::mesh_tangent_local_to_world(
-        model,
+        world_from_local,
         vertex.tangent,
         // Use vertex_no_morph.instance_index instead of vertex.instance_index to work around a wgpu dx12 bug.
         // See https://github.com/gfx-rs/naga/issues/2416
@@ -91,14 +124,43 @@ fn vertex(vertex_no_morph: Vertex) -> VertexOutput {
     out.color = vertex.color;
 #endif
 
-    out.world_position = mesh_functions::mesh_position_local_to_world(model, vec4<f32>(vertex.position, 1.0));
-
+    // Compute the motion vector for TAA among other purposes. For this we need
+    // to know where the vertex was last frame.
 #ifdef MOTION_VECTOR_PREPASS
-    // Use vertex_no_morph.instance_index instead of vertex.instance_index to work around a wgpu dx12 bug.
-    // See https://github.com/gfx-rs/naga/issues/2416
+
+    // Take morph targets into account.
+#ifdef MORPH_TARGETS
+
+#ifdef HAS_PREVIOUS_MORPH
+    let prev_vertex = morph_prev_vertex(vertex_no_morph);
+#else   // HAS_PREVIOUS_MORPH
+    let prev_vertex = vertex_no_morph;
+#endif  // HAS_PREVIOUS_MORPH
+
+#else   // MORPH_TARGETS
+    let prev_vertex = vertex_no_morph;
+#endif  // MORPH_TARGETS
+
+    // Take skinning into account.
+#ifdef SKINNED
+
+#ifdef HAS_PREVIOUS_SKIN
+    let prev_model = skinning::skin_prev_model(
+        prev_vertex.joint_indices,
+        prev_vertex.joint_weights,
+        vertex_no_morph.instance_index
+    );
+#else   // HAS_PREVIOUS_SKIN
+    let prev_model = mesh_functions::get_previous_world_from_local(prev_vertex.instance_index);
+#endif  // HAS_PREVIOUS_SKIN
+
+#else   // SKINNED
+    let prev_model = mesh_functions::get_previous_world_from_local(prev_vertex.instance_index);
+#endif  // SKINNED
+
     out.previous_world_position = mesh_functions::mesh_position_local_to_world(
-        mesh_functions::get_previous_model_matrix(vertex_no_morph.instance_index),
-        vec4<f32>(vertex.position, 1.0)
+        prev_model,
+        vec4<f32>(prev_vertex.position, 1.0)
     );
 #endif // MOTION_VECTOR_PREPASS
 
@@ -107,6 +169,11 @@ fn vertex(vertex_no_morph: Vertex) -> VertexOutput {
     // See https://github.com/gfx-rs/naga/issues/2416
     out.instance_index = vertex_no_morph.instance_index;
 #endif
+
+#ifdef VISIBILITY_RANGE_DITHER
+    out.visibility_range_dither = mesh_functions::get_visibility_range_dither_level(
+        vertex_no_morph.instance_index, mesh_world_from_local[3]);
+#endif  // VISIBILITY_RANGE_DITHER
 
     return out;
 }
@@ -120,14 +187,14 @@ fn fragment(in: VertexOutput) -> FragmentOutput {
     out.normal = vec4(in.world_normal * 0.5 + vec3(0.5), 1.0);
 #endif
 
-#ifdef DEPTH_CLAMP_ORTHO
-    out.frag_depth = in.clip_position_unclamped.z;
-#endif // DEPTH_CLAMP_ORTHO
+#ifdef UNCLIPPED_DEPTH_ORTHO_EMULATION
+    out.frag_depth = in.unclipped_depth;
+#endif // UNCLIPPED_DEPTH_ORTHO_EMULATION
 
 #ifdef MOTION_VECTOR_PREPASS
-    let clip_position_t = view.unjittered_view_proj * in.world_position;
+    let clip_position_t = view.unjittered_clip_from_world * in.world_position;
     let clip_position = clip_position_t.xy / clip_position_t.w;
-    let previous_clip_position_t = prepass_bindings::previous_view_proj * in.previous_world_position;
+    let previous_clip_position_t = prepass_bindings::previous_view_uniforms.clip_from_world * in.previous_world_position;
     let previous_clip_position = previous_clip_position_t.xy / previous_clip_position_t.w;
     // These motion vectors are used as offsets to UV positions and are stored
     // in the range -1,1 to allow offsetting from the one corner to the

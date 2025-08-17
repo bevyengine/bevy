@@ -1,0 +1,11 @@
+error[E0499]: cannot borrow `iter` as mutable more than once at a time
+  --> tests/ui/system_query_iter_many_mut_lifetime_safety.rs:10:25
+   |
+10 |     while let Some(a) = iter.fetch_next() {
+   |                         ^^^^ `iter` was mutably borrowed here in the previous iteration of the loop
+11 |         results.push(a);
+   |         ------- first borrow used here, in later iteration of loop
+
+error: aborting due to 1 previous error
+
+For more information about this error, try `rustc --explain E0499`.

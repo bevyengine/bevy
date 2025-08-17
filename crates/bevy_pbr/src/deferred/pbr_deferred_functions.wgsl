@@ -23,21 +23,24 @@
 
 // Creates the deferred gbuffer from a PbrInput.
 fn deferred_gbuffer_from_pbr_input(in: PbrInput) -> vec4<u32> {
-     // Only monochrome occlusion supported. May not be worth including at all.
-     // Some models have baked occlusion, GLTF only supports monochrome.
-     // Real time occlusion is applied in the deferred lighting pass.
-     // Deriving luminance via Rec. 709. coefficients
-     // https://en.wikipedia.org/wiki/Rec._709
-    let diffuse_occlusion = dot(in.diffuse_occlusion, vec3<f32>(0.2126, 0.7152, 0.0722));
+    // Only monochrome occlusion supported. May not be worth including at all.
+    // Some models have baked occlusion, GLTF only supports monochrome.
+    // Real time occlusion is applied in the deferred lighting pass.
+    // Deriving luminance via Rec. 709. coefficients
+    // https://en.wikipedia.org/wiki/Rec._709
+    let rec_709_coeffs = vec3<f32>(0.2126, 0.7152, 0.0722);
+    let diffuse_occlusion = dot(in.diffuse_occlusion, rec_709_coeffs);
+    // Only monochrome specular supported.
+    let reflectance = dot(in.material.reflectance, rec_709_coeffs);
 #ifdef WEBGL2 // More crunched for webgl so we can also fit depth.
     var props = deferred_types::pack_unorm3x4_plus_unorm_20_(vec4(
-        in.material.reflectance,
+        reflectance,
         in.material.metallic,
         diffuse_occlusion,
         in.frag_coord.z));
 #else
     var props = deferred_types::pack_unorm4x8_(vec4(
-        in.material.reflectance, // could be fewer bits
+        reflectance, // could be fewer bits
         in.material.metallic, // could be fewer bits
         diffuse_occlusion, // is this worth including?
         0.0)); // spare
@@ -53,6 +56,22 @@ fn deferred_gbuffer_from_pbr_input(in: PbrInput) -> vec4<u32> {
     } else {
         base_color_srgb = pow(in.material.base_color.rgb, vec3(1.0 / 2.2));
     }
+
+    // Utilize the emissive channel to transmit the lightmap data. To ensure
+    // it matches the output in forward shading, pre-multiply it with the 
+    // calculated diffuse color.
+    let base_color = in.material.base_color.rgb;
+    let metallic = in.material.metallic;
+    let specular_transmission = in.material.specular_transmission;
+    let diffuse_transmission = in.material.diffuse_transmission;
+    let diffuse_color = pbr_functions::calculate_diffuse_color(
+        base_color,
+        metallic,
+        specular_transmission,
+        diffuse_transmission
+    );
+    emissive += in.lightmap_light * diffuse_color * view.exposure;
+
     let deferred = vec4(
         deferred_types::pack_unorm4x8_(vec4(base_color_srgb, in.material.perceptual_roughness)),
         rgb9e5::vec3_to_rgb9e5_(emissive),
@@ -76,18 +95,18 @@ fn pbr_input_from_deferred_gbuffer(frag_coord: vec4<f32>, gbuffer: vec4<u32>) ->
     let emissive = rgb9e5::rgb9e5_to_vec3_(gbuffer.g);
     if ((pbr.material.flags & STANDARD_MATERIAL_FLAGS_UNLIT_BIT) != 0u) {
         pbr.material.base_color = vec4(emissive, 1.0);
-        pbr.material.emissive = vec4(vec3(0.0), 1.0);
+        pbr.material.emissive = vec4(vec3(0.0), 0.0);
     } else {
         pbr.material.base_color = vec4(pow(base_rough.rgb, vec3(2.2)), 1.0);
-        pbr.material.emissive = vec4(emissive, 1.0);
+        pbr.material.emissive = vec4(emissive, 0.0);
     }
 #ifdef WEBGL2 // More crunched for webgl so we can also fit depth.
     let props = deferred_types::unpack_unorm3x4_plus_unorm_20_(gbuffer.b);
     // Bias to 0.5 since that's the value for almost all materials.
-    pbr.material.reflectance = saturate(props.r - 0.03333333333);
+    pbr.material.reflectance = vec3(saturate(props.r - 0.03333333333));
 #else
     let props = deferred_types::unpack_unorm4x8_(gbuffer.b);
-    pbr.material.reflectance = props.r;
+    pbr.material.reflectance = vec3(props.r);
 #endif // WEBGL2
     pbr.material.metallic = props.g;
     pbr.diffuse_occlusion = vec3(props.b);
@@ -95,7 +114,7 @@ fn pbr_input_from_deferred_gbuffer(frag_coord: vec4<f32>, gbuffer: vec4<u32>) ->
     let N = octahedral_decode(octahedral_normal);
 
     let world_position = vec4(position_ndc_to_world(frag_coord_to_ndc(frag_coord)), 1.0);
-    let is_orthographic = view.projection[3].w == 1.0;
+    let is_orthographic = view.clip_from_view[3].w == 1.0;
     let V = pbr_functions::calculate_view(world_position, is_orthographic);
 
     pbr.frag_coord = frag_coord;

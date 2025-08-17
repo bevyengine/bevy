@@ -1,38 +1,45 @@
 [package]
 name = "bevy_text"
-version = "0.14.0-dev"
-edition = "2021"
+version = "0.17.0-dev"
+edition = "2024"
 description = "Provides text functionality for Bevy Engine"
-homepage = "https://bevyengine.org"
+homepage = "https://bevy.org"
 repository = "https://github.com/bevyengine/bevy"
 license = "MIT OR Apache-2.0"
 keywords = ["bevy"]
 
 [features]
-subpixel_glyph_atlas = []
 default_font = []
 
 [dependencies]
 # bevy
-bevy_app = { path = "../bevy_app", version = "0.14.0-dev" }
-bevy_asset = { path = "../bevy_asset", version = "0.14.0-dev" }
-bevy_color = { path = "../bevy_color", version = "0.14.0-dev" }
-bevy_ecs = { path = "../bevy_ecs", version = "0.14.0-dev" }
-bevy_math = { path = "../bevy_math", version = "0.14.0-dev" }
-bevy_reflect = { path = "../bevy_reflect", version = "0.14.0-dev", features = [
-  "bevy",
+bevy_app = { path = "../bevy_app", version = "0.17.0-dev" }
+bevy_asset = { path = "../bevy_asset", version = "0.17.0-dev" }
+bevy_color = { path = "../bevy_color", version = "0.17.0-dev" }
+bevy_derive = { path = "../bevy_derive", version = "0.17.0-dev" }
+bevy_ecs = { path = "../bevy_ecs", version = "0.17.0-dev" }
+bevy_image = { path = "../bevy_image", version = "0.17.0-dev" }
+bevy_log = { path = "../bevy_log", version = "0.17.0-dev" }
+bevy_math = { path = "../bevy_math", version = "0.17.0-dev" }
+bevy_reflect = { path = "../bevy_reflect", version = "0.17.0-dev" }
+bevy_camera = { path = "../bevy_camera", version = "0.17.0-dev" }
+bevy_render = { path = "../bevy_render", version = "0.17.0-dev" }
+bevy_sprite = { path = "../bevy_sprite", version = "0.17.0-dev" }
+bevy_transform = { path = "../bevy_transform", version = "0.17.0-dev" }
+bevy_window = { path = "../bevy_window", version = "0.17.0-dev" }
+bevy_utils = { path = "../bevy_utils", version = "0.17.0-dev" }
+bevy_platform = { path = "../bevy_platform", version = "0.17.0-dev", default-features = false, features = [
+  "std",
+  "serialize",
 ] }
-bevy_render = { path = "../bevy_render", version = "0.14.0-dev" }
-bevy_sprite = { path = "../bevy_sprite", version = "0.14.0-dev" }
-bevy_transform = { path = "../bevy_transform", version = "0.14.0-dev" }
-bevy_window = { path = "../bevy_window", version = "0.14.0-dev" }
-bevy_utils = { path = "../bevy_utils", version = "0.14.0-dev" }
 
 # other
-ab_glyph = "0.2.6"
-glyph_brush_layout = "0.2.1"
-thiserror = "1.0"
+cosmic-text = { version = "0.14", features = ["shape-run-cache"] }
+thiserror = { version = "2", default-features = false }
 serde = { version = "1", features = ["derive"] }
+smallvec = { version = "1", default-features = false }
+sys-locale = "0.3.0"
+tracing = { version = "0.1", default-features = false, features = ["std"] }
 
 [dev-dependencies]
 approx = "0.5.1"
@@ -41,5 +48,5 @@ approx = "0.5.1"
 workspace = true
 
 [package.metadata.docs.rs]
-rustdoc-args = ["-Zunstable-options", "--cfg", "docsrs"]
+rustdoc-args = ["-Zunstable-options", "--generate-link-to-definition"]
 all-features = true

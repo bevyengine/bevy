@@ -1,14 +1,14 @@
 //! Loads animations from a skinned glTF, spawns many of them, and plays the
 //! animation to stress test skinned meshes.
 
-use std::f32::consts::PI;
-use std::time::Duration;
+use std::{f32::consts::PI, time::Duration};
 
 use argh::FromArgs;
 use bevy::{
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
-    pbr::CascadeShadowConfigBuilder,
+    light::CascadeShadowConfigBuilder,
     prelude::*,
+    scene::SceneInstanceReady,
     window::{PresentMode, WindowResolution},
     winit::{UpdateMode, WinitSettings},
 };
@@ -52,7 +52,7 @@ fn main() {
                 }),
                 ..default()
             }),
-            FrameTimeDiagnosticsPlugin,
+            FrameTimeDiagnosticsPlugin::default(),
             LogDiagnosticsPlugin::default(),
         ))
         .insert_resource(WinitSettings {
@@ -69,7 +69,6 @@ fn main() {
         .add_systems(
             Update,
             (
-                setup_scene_once_loaded,
                 keyboard_animation_control,
                 update_fox_rings.after(keyboard_animation_control),
             ),
@@ -118,9 +117,9 @@ fn setup(
 
     // Insert a resource with the current scene information
     let animation_clips = [
-        asset_server.load("models/animated/Fox.glb#Animation2"),
-        asset_server.load("models/animated/Fox.glb#Animation1"),
-        asset_server.load("models/animated/Fox.glb#Animation0"),
+        asset_server.load(GltfAssetLabel::Animation(2).from_asset("models/animated/Fox.glb")),
+        asset_server.load(GltfAssetLabel::Animation(1).from_asset("models/animated/Fox.glb")),
+        asset_server.load(GltfAssetLabel::Animation(0).from_asset("models/animated/Fox.glb")),
     ];
     let mut animation_graph = AnimationGraph::new();
     let node_indices = animation_graph
@@ -136,7 +135,8 @@ fn setup(
     // The foxes in each ring are spaced at least 2m apart around its circumference.'
 
     // NOTE: This fox model faces +z
-    let fox_handle = asset_server.load("models/animated/Fox.glb#Scene0");
+    let fox_handle =
+        asset_server.load(GltfAssetLabel::Scene(0).from_asset("models/animated/Fox.glb"));
 
     let ring_directions = [
         (
@@ -156,7 +156,8 @@ fn setup(
         let (base_rotation, ring_direction) = ring_directions[ring_index % 2];
         let ring_parent = commands
             .spawn((
-                SpatialBundle::INHERITED_IDENTITY,
+                Transform::default(),
+                Visibility::default(),
                 ring_direction,
                 Ring { radius },
             ))
@@ -168,17 +169,18 @@ fn setup(
 
         for fox_i in 0..foxes_in_ring {
             let fox_angle = fox_i as f32 * fox_spacing_angle;
-            let (s, c) = fox_angle.sin_cos();
+            let (s, c) = ops::sin_cos(fox_angle);
             let (x, z) = (radius * c, radius * s);
 
             commands.entity(ring_parent).with_children(|builder| {
-                builder.spawn(SceneBundle {
-                    scene: fox_handle.clone(),
-                    transform: Transform::from_xyz(x, 0.0, z)
-                        .with_scale(Vec3::splat(0.01))
-                        .with_rotation(base_rotation * Quat::from_rotation_y(-fox_angle)),
-                    ..default()
-                });
+                builder
+                    .spawn((
+                        SceneRoot(fox_handle.clone()),
+                        Transform::from_xyz(x, 0.0, z)
+                            .with_scale(Vec3::splat(0.01))
+                            .with_rotation(base_rotation * Quat::from_rotation_y(-fox_angle)),
+                    ))
+                    .observe(setup_scene_once_loaded);
             });
         }
 
@@ -194,34 +196,32 @@ fn setup(
         radius * 0.5 * zoom,
         radius * 1.5 * zoom,
     );
-    commands.spawn(Camera3dBundle {
-        transform: Transform::from_translation(translation)
+    commands.spawn((
+        Camera3d::default(),
+        Transform::from_translation(translation)
             .looking_at(0.2 * Vec3::new(translation.x, 0.0, translation.z), Vec3::Y),
-        ..default()
-    });
+    ));
 
     // Plane
-    commands.spawn(PbrBundle {
-        mesh: meshes.add(Plane3d::default().mesh().size(5000.0, 5000.0)),
-        material: materials.add(Color::srgb(0.3, 0.5, 0.3)),
-        ..default()
-    });
+    commands.spawn((
+        Mesh3d(meshes.add(Plane3d::default().mesh().size(5000.0, 5000.0))),
+        MeshMaterial3d(materials.add(Color::srgb(0.3, 0.5, 0.3))),
+    ));
 
     // Light
-    commands.spawn(DirectionalLightBundle {
-        transform: Transform::from_rotation(Quat::from_euler(EulerRot::ZYX, 0.0, 1.0, -PI / 4.)),
-        directional_light: DirectionalLight {
+    commands.spawn((
+        Transform::from_rotation(Quat::from_euler(EulerRot::ZYX, 0.0, 1.0, -PI / 4.)),
+        DirectionalLight {
             shadows_enabled: true,
             ..default()
         },
-        cascade_shadow_config: CascadeShadowConfigBuilder {
+        CascadeShadowConfigBuilder {
             first_cascade_far_bound: 0.9 * radius,
             maximum_distance: 2.8 * radius,
             ..default()
         }
-        .into(),
-        ..default()
-    });
+        .build(),
+    ));
 
     println!("Animation controls:");
     println!("  - spacebar: play / pause");
@@ -232,25 +232,23 @@ fn setup(
 
 // Once the scene is loaded, start the animation
 fn setup_scene_once_loaded(
+    trigger: On<SceneInstanceReady>,
     animations: Res<Animations>,
     foxes: Res<Foxes>,
     mut commands: Commands,
-    mut player: Query<(Entity, &mut AnimationPlayer)>,
-    mut done: Local<bool>,
+    children: Query<&Children>,
+    mut players: Query<&mut AnimationPlayer>,
 ) {
-    if !*done && player.iter().len() == foxes.count {
-        for (entity, mut player) in &mut player {
-            commands
-                .entity(entity)
-                .insert(animations.graph.clone())
-                .insert(AnimationTransitions::new());
-
+    for child in children.iter_descendants(trigger.target()) {
+        if let Ok(mut player) = players.get_mut(child) {
             let playing_animation = player.play(animations.node_indices[0]).repeat();
             if !foxes.sync {
-                playing_animation.seek_to(entity.index() as f32 / 10.0);
+                playing_animation.seek_to(trigger.target().index() as f32 / 10.0);
             }
+            commands
+                .entity(child)
+                .insert(AnimationGraphHandle(animations.graph.clone()));
         }
-        *done = true;
     }
 }
 
@@ -263,7 +261,7 @@ fn update_fox_rings(
         return;
     }
 
-    let dt = time.delta_seconds();
+    let dt = time.delta_secs();
     for (ring, rotation_direction, mut transform) in &mut rings {
         let angular_velocity = foxes.speed / ring.radius;
         transform.rotate_y(rotation_direction.sign() * angular_velocity * dt);

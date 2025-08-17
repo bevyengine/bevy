@@ -1,18 +1,23 @@
-// FIXME(3492): remove once docs are ready
-#![allow(missing_docs)]
 #![cfg_attr(docsrs, feature(doc_auto_cfg))]
 #![forbid(unsafe_code)]
 #![doc(
-    html_logo_url = "https://bevyengine.org/assets/icon.png",
-    html_favicon_url = "https://bevyengine.org/assets/icon.png"
+    html_logo_url = "https://bevy.org/assets/icon.png",
+    html_favicon_url = "https://bevy.org/assets/icon.png"
 )]
+#![no_std]
 
-//! This crate provides a straightforward solution for integrating diagnostics in the [Bevy game engine](https://bevyengine.org/).
+//! This crate provides a straightforward solution for integrating diagnostics in the [Bevy game engine](https://bevy.org/).
 //! It allows users to easily add diagnostic functionality to their Bevy applications, enhancing
 //! their ability to monitor and optimize their game's.
 
+#[cfg(feature = "std")]
+extern crate std;
+
+extern crate alloc;
+
 mod diagnostic;
 mod entity_count_diagnostics_plugin;
+mod frame_count_diagnostics_plugin;
 mod frame_time_diagnostics_plugin;
 mod log_diagnostics_plugin;
 #[cfg(feature = "sysinfo_plugin")]
@@ -21,8 +26,9 @@ mod system_information_diagnostics_plugin;
 pub use diagnostic::*;
 
 pub use entity_count_diagnostics_plugin::EntityCountDiagnosticsPlugin;
+pub use frame_count_diagnostics_plugin::{update_frame_count, FrameCount, FrameCountPlugin};
 pub use frame_time_diagnostics_plugin::FrameTimeDiagnosticsPlugin;
-pub use log_diagnostics_plugin::LogDiagnosticsPlugin;
+pub use log_diagnostics_plugin::{LogDiagnosticsPlugin, LogDiagnosticsState};
 #[cfg(feature = "sysinfo_plugin")]
 pub use system_information_diagnostics_plugin::{SystemInfo, SystemInformationDiagnosticsPlugin};
 
@@ -37,7 +43,7 @@ impl Plugin for DiagnosticsPlugin {
         app.init_resource::<DiagnosticsStore>();
 
         #[cfg(feature = "sysinfo_plugin")]
-        app.init_resource::<system_information_diagnostics_plugin::SystemInfo>();
+        app.init_resource::<SystemInfo>();
     }
 }
 

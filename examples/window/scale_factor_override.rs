@@ -3,6 +3,9 @@
 
 use bevy::{prelude::*, window::WindowResolution};
 
+#[derive(Component)]
+struct CustomText;
+
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins.set(WindowPlugin {
@@ -22,63 +25,63 @@ fn main() {
 
 fn setup(mut commands: Commands) {
     // camera
-    commands.spawn(Camera2dBundle::default());
+    commands.spawn(Camera2d);
     // root node
     commands
-        .spawn(NodeBundle {
-            style: Style {
-                width: Val::Percent(100.0),
-                height: Val::Percent(100.0),
-                justify_content: JustifyContent::SpaceBetween,
-                ..default()
-            },
+        .spawn(Node {
+            width: Val::Percent(100.0),
+            height: Val::Percent(100.0),
+            justify_content: JustifyContent::SpaceBetween,
             ..default()
         })
         .with_children(|parent| {
             // left vertical fill (border)
             parent
-                .spawn(NodeBundle {
-                    style: Style {
-                        width: Val::Px(200.0),
+                .spawn((
+                    Node {
+                        width: Val::Px(300.0),
                         height: Val::Percent(100.0),
                         border: UiRect::all(Val::Px(2.0)),
                         ..default()
                     },
-                    background_color: Color::srgb(0.65, 0.65, 0.65).into(),
-                    ..default()
-                })
-                .with_children(|parent| {
-                    parent.spawn(
-                        TextBundle::from_section(
-                            "Example text",
-                            TextStyle {
-                                font_size: 30.0,
-                                ..default()
-                            },
-                        )
-                        .with_style(Style {
-                            align_self: AlignSelf::FlexEnd,
-                            ..default()
-                        }),
-                    );
-                });
+                    BackgroundColor(Color::srgb(0.65, 0.65, 0.65)),
+                ))
+                .with_child((
+                    CustomText,
+                    Text::new("Example text"),
+                    TextFont {
+                        font_size: 25.0,
+                        ..default()
+                    },
+                    Node {
+                        align_self: AlignSelf::FlexEnd,
+                        ..default()
+                    },
+                ));
         });
 }
 
 /// Set the title of the window to the current override
-fn display_override(mut windows: Query<&mut Window>) {
-    let mut window = windows.single_mut();
-
-    window.title = format!(
-        "Scale override: {:?}",
-        window.resolution.scale_factor_override()
+fn display_override(
+    mut window: Single<&mut Window>,
+    mut custom_text: Single<&mut Text, With<CustomText>>,
+) {
+    let text = format!(
+        "Scale factor: {:.1} {}",
+        window.scale_factor(),
+        if window.resolution.scale_factor_override().is_some() {
+            "(overridden)"
+        } else {
+            "(default)"
+        }
     );
+
+    window.title.clone_from(&text);
+    custom_text.0 = text;
 }
 
 /// This system toggles scale factor overrides when enter is pressed
-fn toggle_override(input: Res<ButtonInput<KeyCode>>, mut windows: Query<&mut Window>) {
-    let mut window = windows.single_mut();
-
+fn toggle_override(input: Res<ButtonInput<KeyCode>>, mut window: Single<&mut Window>) {
     if input.just_pressed(KeyCode::Enter) {
         let scale_factor_override = window.resolution.scale_factor_override();
         window
@@ -88,8 +91,7 @@ fn toggle_override(input: Res<ButtonInput<KeyCode>>, mut windows: Query<&mut Win
 }
 
 /// This system changes the scale factor override when up or down is pressed
-fn change_scale_factor(input: Res<ButtonInput<KeyCode>>, mut windows: Query<&mut Window>) {
-    let mut window = windows.single_mut();
+fn change_scale_factor(input: Res<ButtonInput<KeyCode>>, mut window: Single<&mut Window>) {
     let scale_factor_override = window.resolution.scale_factor_override();
     if input.just_pressed(KeyCode::ArrowUp) {
         window

@@ -1,4 +1,6 @@
 //! Demonstrate stepping through systems in order of execution.
+//!
+//! To run this example, you must enable the `bevy_debug_stepping` feature.
 
 use bevy::{ecs::schedule::Stepping, log::LogPlugin, prelude::*};
 
@@ -54,7 +56,7 @@ fn main() {
              * Stepping::continue_frame() is called
              * System has been configured to always run"#
     );
-    let mut stepping = app.world.resource_mut::<Stepping>();
+    let mut stepping = app.world_mut().resource_mut::<Stepping>();
     stepping.add_schedule(Update).enable();
     app.update();
 
@@ -65,7 +67,7 @@ fn main() {
              Stepping, step means run the next system across all the schedules 
              that have been added to the Stepping resource."#
     );
-    let mut stepping = app.world.resource_mut::<Stepping>();
+    let mut stepping = app.world_mut().resource_mut::<Stepping>();
     stepping.step_frame();
     app.update();
 
@@ -89,7 +91,7 @@ fn main() {
              case, we previously performed a step, running one system in Update.
              This continue will cause all remaining systems in Update to run."#
     );
-    let mut stepping = app.world.resource_mut::<Stepping>();
+    let mut stepping = app.world_mut().resource_mut::<Stepping>();
     stepping.continue_frame();
     app.update();
 
@@ -102,7 +104,7 @@ fn main() {
              systems."#
     );
     for _ in 0..4 {
-        let mut stepping = app.world.resource_mut::<Stepping>();
+        let mut stepping = app.world_mut().resource_mut::<Stepping>();
         stepping.step_frame();
         app.update();
     }
@@ -116,10 +118,10 @@ fn main() {
              execute all systems in the frame.  Stepping::always_run() allows
              us to granularly allow systems to run when stepping is enabled."#
     );
-    let mut stepping = app.world.resource_mut::<Stepping>();
+    let mut stepping = app.world_mut().resource_mut::<Stepping>();
     stepping.always_run(Update, update_system_two);
     for _ in 0..3 {
-        let mut stepping = app.world.resource_mut::<Stepping>();
+        let mut stepping = app.world_mut().resource_mut::<Stepping>();
         stepping.step_frame();
         app.update();
     }
@@ -132,7 +134,7 @@ fn main() {
              Stepping::never_run() allows us to disable systems while Stepping
              is enabled."#
     );
-    let mut stepping = app.world.resource_mut::<Stepping>();
+    let mut stepping = app.world_mut().resource_mut::<Stepping>();
     stepping.never_run(Update, update_system_two);
     stepping.continue_frame();
     app.update();
@@ -155,14 +157,14 @@ fn main() {
              During the final continue pre_update_system() and
              update_system_three() run."#
     );
-    let mut stepping = app.world.resource_mut::<Stepping>();
+    let mut stepping = app.world_mut().resource_mut::<Stepping>();
     stepping.set_breakpoint(Update, update_system_two);
     stepping.continue_frame();
     app.update();
-    let mut stepping = app.world.resource_mut::<Stepping>();
+    let mut stepping = app.world_mut().resource_mut::<Stepping>();
     stepping.step_frame();
     app.update();
-    let mut stepping = app.world.resource_mut::<Stepping>();
+    let mut stepping = app.world_mut().resource_mut::<Stepping>();
     stepping.continue_frame();
     app.update();
 
@@ -172,7 +174,7 @@ fn main() {
              through all systems
      Result: All systems will run"#
     );
-    let mut stepping = app.world.resource_mut::<Stepping>();
+    let mut stepping = app.world_mut().resource_mut::<Stepping>();
     stepping.clear_breakpoint(Update, update_system_two);
     stepping.continue_frame();
     app.update();
@@ -184,7 +186,7 @@ fn main() {
              call Stepping::step_frame() or Stepping::continue_frame() to run
              systems in the Update schedule."#
     );
-    let mut stepping = app.world.resource_mut::<Stepping>();
+    let mut stepping = app.world_mut().resource_mut::<Stepping>();
     stepping.disable();
     app.update();
 }

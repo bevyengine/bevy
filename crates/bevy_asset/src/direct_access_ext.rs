@@ -5,6 +5,7 @@ use bevy_ecs::world::World;
 
 use crate::{meta::Settings, Asset, AssetPath, AssetServer, Assets, Handle};
 
+/// An extension trait for methods for working with assets directly from a [`World`].
 pub trait DirectAssetAccessExt {
     /// Insert an asset similarly to [`Assets::add`].
     fn add_asset<A: Asset>(&mut self, asset: impl Into<A>) -> Handle<A>;
@@ -19,6 +20,7 @@ pub trait DirectAssetAccessExt {
         settings: impl Fn(&mut S) + Send + Sync + 'static,
     ) -> Handle<A>;
 }
+
 impl DirectAssetAccessExt for World {
     /// Insert an asset similarly to [`Assets::add`].
     ///

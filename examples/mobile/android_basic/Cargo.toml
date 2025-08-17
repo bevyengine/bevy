@@ -1,0 +1,69 @@
+[package]
+name = "bevy_mobile_example"
+# Version is required by `cargo-apk`, though this value will never change.
+version = "0.0.0"
+edition = "2024"
+description = "Example for building an iOS or Android app with Bevy"
+publish = false
+license = "MIT OR Apache-2.0"
+
+[lib]
+name = "bevy_mobile_example"
+crate-type = ["staticlib", "cdylib"]
+
+[dependencies]
+bevy = { path = "../../", default-features = false, features = [
+  "android-native-activity",
+  "android_shared_stdcxx",
+  "animation",
+  "bevy_animation",
+  "bevy_asset",
+  "bevy_audio",
+  "bevy_color",
+  "bevy_core_pipeline",
+  "bevy_gilrs",
+  "bevy_gizmos",
+  "bevy_gltf",
+  "bevy_pbr",
+  "bevy_render",
+  "bevy_scene",
+  "bevy_sprite",
+  "bevy_state",
+  "bevy_text",
+  "bevy_ui",
+  "bevy_winit",
+  "default_font",
+  "hdr",
+  "ktx2",
+  "multi_threaded",
+  "png",
+  "sysinfo_plugin",
+  "tonemapping_luts",
+  "vorbis",
+  "webgl2",
+  "x11",
+  "zstd",
+] }
+
+[package.metadata.android]
+package = "org.bevyengine.example"
+apk_name = "bevyexample"
+assets = "../../assets"
+resources = "../../assets/android-res"
+# This strips debug symbols from the shared libraries, drastically reducing APK size. If you need them, remove the option.
+strip = "strip"
+build_targets = ["aarch64-linux-android", "armv7-linux-androideabi"]
+
+[package.metadata.android.sdk]
+target_sdk_version = 33
+
+[package.metadata.android.application]
+icon = "@mipmap/ic_launcher"
+label = "Bevy Example"
+
+[lints]
+workspace = true
+
+[package.metadata.docs.rs]
+rustdoc-args = ["-Zunstable-options", "--cfg", "docsrs"]
+all-features = true

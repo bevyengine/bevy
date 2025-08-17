@@ -4,12 +4,10 @@
 //! - Insert an initialized `SceneHandle` resource into your App's `AssetServer`.
 
 use bevy::{
-    asset::LoadState, gltf::Gltf, input::common_conditions::input_just_pressed, prelude::*,
-    scene::InstanceId,
+    gltf::Gltf, input::common_conditions::input_just_pressed, prelude::*, scene::InstanceId,
 };
 
-use std::f32::consts::*;
-use std::fmt;
+use std::{f32::consts::*, fmt};
 
 use super::camera_controller::*;
 
@@ -92,7 +90,10 @@ fn scene_load_check(
 ) {
     match scene_handle.instance_id {
         None => {
-            if asset_server.load_state(&scene_handle.gltf_handle) == LoadState::Loaded {
+            if asset_server
+                .load_state(&scene_handle.gltf_handle)
+                .is_loaded()
+            {
                 let gltf = gltf_assets.get(&scene_handle.gltf_handle).unwrap();
                 if gltf.scenes.len() > 1 {
                     info!(
@@ -124,8 +125,7 @@ fn scene_load_check(
                             maybe_directional_light.is_some() || maybe_point_light.is_some()
                         });
 
-                scene_handle.instance_id =
-                    Some(scene_spawner.spawn(gltf_scene_handle.clone_weak()));
+                scene_handle.instance_id = Some(scene_spawner.spawn(gltf_scene_handle.clone()));
 
                 info!("Spawning scene...");
             }
@@ -160,7 +160,7 @@ fn update_lights(
             transform.rotation = Quat::from_euler(
                 EulerRot::ZYX,
                 0.0,
-                time.elapsed_seconds() * PI / 15.0,
+                time.elapsed_secs() * PI / 15.0,
                 -FRAC_PI_4,
             );
         }
@@ -218,17 +218,17 @@ fn camera_tracker(
 
     if keyboard_input.just_pressed(KeyCode::KeyC) {
         // disable currently active camera
-        if let Some(e) = camera_tracker.active_camera() {
-            if let Ok(mut camera) = queries.p2().get_mut(e) {
-                camera.is_active = false;
-            }
+        if let Some(e) = camera_tracker.active_camera()
+            && let Ok(mut camera) = queries.p2().get_mut(e)
+        {
+            camera.is_active = false;
         }
 
         // enable next active camera
-        if let Some(e) = camera_tracker.set_next_active() {
-            if let Ok(mut camera) = queries.p2().get_mut(e) {
-                camera.is_active = true;
-            }
+        if let Some(e) = camera_tracker.set_next_active()
+            && let Ok(mut camera) = queries.p2().get_mut(e)
+        {
+            camera.is_active = true;
         }
     }
 }

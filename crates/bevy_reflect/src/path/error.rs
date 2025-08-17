@@ -1,4 +1,4 @@
-use std::fmt;
+use core::fmt;
 
 use super::Access;
 use crate::{ReflectKind, VariantType};
@@ -64,17 +64,18 @@ impl<'a> AccessError<'a> {
     }
 
     /// The returns the [`Access`] that this [`AccessError`] occurred in.
-    pub const fn access(&self) -> &Access {
+    pub const fn access(&self) -> &Access<'_> {
         &self.access
     }
 
     /// If the [`Access`] was created with a parser or an offset was manually provided,
-    /// returns the offset of the [`Access`] in it's path string.
+    /// returns the offset of the [`Access`] in its path string.
     pub const fn offset(&self) -> Option<&usize> {
         self.offset.as_ref()
     }
 }
-impl std::fmt::Display for AccessError<'_> {
+
+impl fmt::Display for AccessError<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let AccessError {
             kind,
@@ -126,4 +127,5 @@ impl std::fmt::Display for AccessError<'_> {
         }
     }
 }
-impl std::error::Error for AccessError<'_> {}
+
+impl core::error::Error for AccessError<'_> {}

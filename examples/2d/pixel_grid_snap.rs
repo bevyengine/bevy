@@ -1,15 +1,13 @@
 //! Shows how to create graphics that snap to the pixel grid by rendering to a texture in 2D
 
 use bevy::{
+    camera::visibility::RenderLayers,
+    camera::RenderTarget,
+    color::palettes::css::GRAY,
     prelude::*,
-    render::{
-        camera::RenderTarget,
-        render_resource::{
-            Extent3d, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages,
-        },
-        view::RenderLayers,
+    render::render_resource::{
+        Extent3d, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages,
     },
-    sprite::MaterialMesh2dBundle,
     window::WindowResized,
 };
 
@@ -29,7 +27,6 @@ const HIGH_RES_LAYERS: RenderLayers = RenderLayers::layer(1);
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins.set(ImagePlugin::default_nearest()))
-        .insert_resource(Msaa::Off)
         .add_systems(Startup, (setup_camera, setup_sprite, setup_mesh))
         .add_systems(Update, (rotate, fit_canvas))
         .run();
@@ -52,24 +49,18 @@ struct OuterCamera;
 struct Rotate;
 
 fn setup_sprite(mut commands: Commands, asset_server: Res<AssetServer>) {
-    // the sample sprite that will be rendered to the pixel-perfect canvas
+    // The sample sprite that will be rendered to the pixel-perfect canvas
     commands.spawn((
-        SpriteBundle {
-            texture: asset_server.load("pixel/bevy_pixel_dark.png"),
-            transform: Transform::from_xyz(-40., 20., 2.),
-            ..default()
-        },
+        Sprite::from_image(asset_server.load("pixel/bevy_pixel_dark.png")),
+        Transform::from_xyz(-45., 20., 2.),
         Rotate,
         PIXEL_PERFECT_LAYERS,
     ));
 
-    // the sample sprite that will be rendered to the high-res "outer world"
+    // The sample sprite that will be rendered to the high-res "outer world"
     commands.spawn((
-        SpriteBundle {
-            texture: asset_server.load("pixel/bevy_pixel_light.png"),
-            transform: Transform::from_xyz(-40., -20., 2.),
-            ..default()
-        },
+        Sprite::from_image(asset_server.load("pixel/bevy_pixel_light.png")),
+        Transform::from_xyz(-45., -20., 2.),
         Rotate,
         HIGH_RES_LAYERS,
     ));
@@ -82,12 +73,9 @@ fn setup_mesh(
     mut materials: ResMut<Assets<ColorMaterial>>,
 ) {
     commands.spawn((
-        MaterialMesh2dBundle {
-            mesh: meshes.add(Capsule2d::default()).into(),
-            transform: Transform::from_xyz(40., 0., 2.).with_scale(Vec3::splat(32.)),
-            material: materials.add(Color::BLACK),
-            ..default()
-        },
+        Mesh2d(meshes.add(Capsule2d::default())),
+        MeshMaterial2d(materials.add(Color::BLACK)),
+        Transform::from_xyz(25., 0., 2.).with_scale(Vec3::splat(32.)),
         Rotate,
         PIXEL_PERFECT_LAYERS,
     ));
@@ -100,7 +88,7 @@ fn setup_camera(mut commands: Commands, mut images: ResMut<Assets<Image>>) {
         ..default()
     };
 
-    // this Image serves as a canvas representing the low-resolution game screen
+    // This Image serves as a canvas representing the low-resolution game screen
     let mut canvas = Image {
         texture_descriptor: TextureDescriptor {
             label: None,
@@ -117,45 +105,38 @@ fn setup_camera(mut commands: Commands, mut images: ResMut<Assets<Image>>) {
         ..default()
     };
 
-    // fill image.data with zeroes
+    // Fill image.data with zeroes
     canvas.resize(canvas_size);
 
     let image_handle = images.add(canvas);
 
-    // this camera renders whatever is on `PIXEL_PERFECT_LAYERS` to the canvas
+    // This camera renders whatever is on `PIXEL_PERFECT_LAYERS` to the canvas
     commands.spawn((
-        Camera2dBundle {
-            camera: Camera {
-                // render before the "main pass" camera
-                order: -1,
-                target: RenderTarget::Image(image_handle.clone()),
-                ..default()
-            },
+        Camera2d,
+        Camera {
+            // Render before the "main pass" camera
+            order: -1,
+            target: RenderTarget::Image(image_handle.clone().into()),
+            clear_color: ClearColorConfig::Custom(GRAY.into()),
             ..default()
         },
+        Msaa::Off,
         InGameCamera,
         PIXEL_PERFECT_LAYERS,
     ));
 
-    // spawn the canvas
-    commands.spawn((
-        SpriteBundle {
-            texture: image_handle,
-            ..default()
-        },
-        Canvas,
-        HIGH_RES_LAYERS,
-    ));
+    // Spawn the canvas
+    commands.spawn((Sprite::from_image(image_handle), Canvas, HIGH_RES_LAYERS));
 
-    // the "outer" camera renders whatever is on `HIGH_RES_LAYERS` to the screen.
+    // The "outer" camera renders whatever is on `HIGH_RES_LAYERS` to the screen.
     // here, the canvas and one of the sample sprites will be rendered by this camera
-    commands.spawn((Camera2dBundle::default(), OuterCamera, HIGH_RES_LAYERS));
+    commands.spawn((Camera2d, Msaa::Off, OuterCamera, HIGH_RES_LAYERS));
 }
 
 /// Rotates entities to demonstrate grid snapping.
 fn rotate(time: Res<Time>, mut transforms: Query<&mut Transform, With<Rotate>>) {
     for mut transform in &mut transforms {
-        let dt = time.delta_seconds();
+        let dt = time.delta_secs();
         transform.rotate_z(dt);
     }
 }
@@ -163,12 +144,14 @@ fn rotate(time: Res<Time>, mut transforms: Query<&mut Transform, With<Rotate>>) 
 /// Scales camera projection to fit the window (integer multiples only).
 fn fit_canvas(
     mut resize_events: EventReader<WindowResized>,
-    mut projections: Query<&mut OrthographicProjection, With<OuterCamera>>,
+    mut projection: Single<&mut Projection, With<OuterCamera>>,
 ) {
+    let Projection::Orthographic(projection) = &mut **projection else {
+        return;
+    };
     for event in resize_events.read() {
         let h_scale = event.width / RES_WIDTH as f32;
         let v_scale = event.height / RES_HEIGHT as f32;
-        let mut projection = projections.single_mut();
         projection.scale = 1. / h_scale.min(v_scale).round();
     }
 }

@@ -1,7 +1,15 @@
 //! Example of loading an embedded asset.
 
-use bevy::asset::{embedded_asset, io::AssetSourceId, AssetPath};
-use bevy::prelude::*;
+//! An embedded asset is an asset included in the program's memory, in contrast to other assets that are normally loaded from disk to memory when needed.
+//! The below example embeds the asset at program startup, unlike the common use case of embedding an asset at build time. Embedded an asset at program startup can be useful
+//! for things like loading screens, since it might be nice to display some art while other, non-embedded, assets are loading.
+
+//! One common use case for embedded assets is including them directly within the executable during its creation. By embedding an asset at build time rather than runtime
+//! the program never needs to go to disk for the asset at all, since it is already located in the program's binary executable.
+use bevy::{
+    asset::{embedded_asset, io::AssetSourceId, AssetPath},
+    prelude::*,
+};
 use std::path::Path;
 
 fn main() {
@@ -25,7 +33,7 @@ impl Plugin for EmbeddedAssetPlugin {
 }
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
-    commands.spawn(Camera2dBundle::default());
+    commands.spawn(Camera2d);
 
     // Each example is its own crate (with name from [[example]] in Cargo.toml).
     let crate_name = "embedded_asset";
@@ -46,8 +54,5 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         "embedded://embedded_asset/files/bevy_pixel_light.png".into()
     );
 
-    commands.spawn(SpriteBundle {
-        texture: asset_server.load(asset_path),
-        ..default()
-    });
+    commands.spawn(Sprite::from_image(asset_server.load(asset_path)));
 }

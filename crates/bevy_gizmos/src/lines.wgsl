@@ -1,15 +1,19 @@
 // TODO use common view binding
-#import bevy_render::view::View
+#import bevy_render::{view::View, maths::affine3_to_square}
 
 @group(0) @binding(0) var<uniform> view: View;
 
 
 struct LineGizmoUniform {
+    world_from_local: mat3x4<f32>,
     line_width: f32,
     depth_bias: f32,
+    _joints_resolution: u32,
+    gap_scale: f32,
+    line_scale: f32,
 #ifdef SIXTEEN_BYTE_ALIGNMENT
     // WebGL2 structs must be 16 byte aligned.
-    _padding: vec2<f32>,
+    _padding: vec3<f32>,
 #endif
 }
 
@@ -27,6 +31,7 @@ struct VertexOutput {
     @builtin(position) clip_position: vec4<f32>,
     @location(0) color: vec4<f32>,
     @location(1) uv: f32,
+    @location(2) line_fraction: f32,
 };
 
 const EPSILON: f32 = 4.88e-04;
@@ -43,9 +48,11 @@ fn vertex(vertex: VertexInput) -> VertexOutput {
     );
     let position = positions[vertex.index];
 
+    let world_from_local = affine3_to_square(line_gizmo.world_from_local);
+
     // algorithm based on https://wwwtyro.net/2019/11/18/instanced-lines.html
-    var clip_a = view.view_proj * vec4(vertex.position_a, 1.);
-    var clip_b = view.view_proj * vec4(vertex.position_b, 1.);
+    var clip_a = view.clip_from_world * world_from_local * vec4(vertex.position_a, 1.);
+    var clip_b = view.clip_from_world * world_from_local * vec4(vertex.position_b, 1.);
 
     // Manual near plane clipping to avoid errors when doing the perspective divide inside this shader.
     clip_a = clip_near_plane(clip_a, clip_b);
@@ -69,13 +76,13 @@ fn vertex(vertex: VertexInput) -> VertexOutput {
     line_width /= clip.w;
 
     // get height of near clipping plane in world space
-    let pos0 = view.inverse_projection * vec4(0, -1, 0, 1); // Bottom of the screen
-    let pos1 = view.inverse_projection * vec4(0, 1, 0, 1); // Top of the screen
+    let pos0 = view.view_from_clip * vec4(0, -1, 0, 1); // Bottom of the screen
+    let pos1 = view.view_from_clip * vec4(0, 1, 0, 1); // Top of the screen
     let near_clipping_plane_height = length(pos0.xyz - pos1.xyz);
 
     // We can't use vertex.position_X because we may have changed the clip positions with clip_near_plane
-    let position_a = view.inverse_view_proj * clip_a;
-    let position_b = view.inverse_view_proj * clip_b;
+    let position_a = view.world_from_clip * clip_a;
+    let position_b = view.world_from_clip * clip_b;
     let world_distance = length(position_a.xyz - position_b.xyz);
 
     // Offset to compensate for moved clip positions. If removed dots on lines will slide when position a is ofscreen.
@@ -84,7 +91,7 @@ fn vertex(vertex: VertexInput) -> VertexOutput {
     uv = (clipped_offset + position.y * world_distance) * resolution.y / near_clipping_plane_height / line_gizmo.line_width;
 #else
     // Get the distance of b to the camera along camera axes
-    let camera_b = view.inverse_projection * clip_b;
+    let camera_b = view.view_from_clip * clip_b;
 
     // This differentiates between orthographic and perspective cameras.
     // For orthographic cameras no depth adaptment (depth_adaptment = 1) is needed.
@@ -123,7 +130,9 @@ fn vertex(vertex: VertexInput) -> VertexOutput {
 
     var clip_position = vec4(clip.w * ((2. * screen) / resolution - 1.), depth, clip.w);
 
-    return VertexOutput(clip_position, color, uv);
+    let line_fraction = 2.0 * line_gizmo.line_scale / (line_gizmo.gap_scale + line_gizmo.line_scale);
+    uv /= (line_gizmo.gap_scale + line_gizmo.line_scale) / 2.0;
+    return VertexOutput(clip_position, color, uv, line_fraction);
 }
 
 fn clip_near_plane(a: vec4<f32>, b: vec4<f32>) -> vec4<f32> {
@@ -144,6 +153,7 @@ struct FragmentInput {
     @builtin(position) position: vec4<f32>,
     @location(0) color: vec4<f32>,
     @location(1) uv: f32,
+    @location(2) line_fraction: f32,
 };
 
 struct FragmentOutput {
@@ -162,6 +172,18 @@ fn fragment_dotted(in: FragmentInput) -> FragmentOutput {
 #else
     alpha = 1 - floor((in.uv * in.position.w) % 2.0);
 #endif
+    
+    return FragmentOutput(vec4(in.color.xyz, in.color.w * alpha));
+}
+
+@fragment
+fn fragment_dashed(in: FragmentInput) -> FragmentOutput {
+#ifdef PERSPECTIVE
+    let uv = in.uv;
+#else
+    let uv = in.uv * in.position.w;
+#endif
+    let alpha = 1.0 - floor(min((uv % 2.0) / in.line_fraction, 1.0));
     
     return FragmentOutput(vec4(in.color.xyz, in.color.w * alpha));
 }

@@ -15,7 +15,8 @@
 @group(0) @binding(1) var depth_differences: texture_2d<u32>;
 @group(0) @binding(2) var ambient_occlusion: texture_storage_2d<r16float, write>;
 @group(1) @binding(0) var point_clamp_sampler: sampler;
-@group(1) @binding(1) var<uniform> view: View;
+@group(1) @binding(1) var linear_clamp_sampler: sampler;
+@group(1) @binding(2) var<uniform> view: View;
 
 @compute
 @workgroup_size(8, 8, 1)

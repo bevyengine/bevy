@@ -2,36 +2,37 @@ use crate::{
     core_3d::Opaque3d,
     skybox::{SkyboxBindGroup, SkyboxPipelineId},
 };
+use bevy_camera::{MainPassResolutionOverride, Viewport};
 use bevy_ecs::{prelude::World, query::QueryItem};
 use bevy_render::{
     camera::ExtractedCamera,
     diagnostic::RecordDiagnostics,
     render_graph::{NodeRunError, RenderGraphContext, ViewNode},
-    render_phase::{BinnedRenderPhase, TrackedRenderPass},
+    render_phase::{TrackedRenderPass, ViewBinnedRenderPhases},
     render_resource::{CommandEncoderDescriptor, PipelineCache, RenderPassDescriptor, StoreOp},
     renderer::RenderContext,
-    view::{ViewDepthTexture, ViewTarget, ViewUniformOffset},
+    view::{ExtractedView, ViewDepthTexture, ViewTarget, ViewUniformOffset},
 };
+use tracing::error;
 #[cfg(feature = "trace")]
-use bevy_utils::tracing::info_span;
+use tracing::info_span;
 
 use super::AlphaMask3d;
 
-/// A [`bevy_render::render_graph::Node`] that runs the [`Opaque3d`]
-/// [`BinnedRenderPhase`] and [`AlphaMask3d`]
-/// [`bevy_render::render_phase::SortedRenderPhase`]s.
+/// A [`bevy_render::render_graph::Node`] that runs the [`Opaque3d`] and [`AlphaMask3d`]
+/// [`ViewBinnedRenderPhases`]s.
 #[derive(Default)]
 pub struct MainOpaquePass3dNode;
 impl ViewNode for MainOpaquePass3dNode {
     type ViewQuery = (
         &'static ExtractedCamera,
-        &'static BinnedRenderPhase<Opaque3d>,
-        &'static BinnedRenderPhase<AlphaMask3d>,
+        &'static ExtractedView,
         &'static ViewTarget,
         &'static ViewDepthTexture,
         Option<&'static SkyboxPipelineId>,
         Option<&'static SkyboxBindGroup>,
         &'static ViewUniformOffset,
+        Option<&'static MainPassResolutionOverride>,
     );
 
     fn run<'w>(
@@ -40,16 +41,30 @@ impl ViewNode for MainOpaquePass3dNode {
         render_context: &mut RenderContext<'w>,
         (
             camera,
-            opaque_phase,
-            alpha_mask_phase,
+            extracted_view,
             target,
             depth,
             skybox_pipeline,
             skybox_bind_group,
             view_uniform_offset,
-        ): QueryItem<'w, Self::ViewQuery>,
+            resolution_override,
+        ): QueryItem<'w, '_, Self::ViewQuery>,
         world: &'w World,
     ) -> Result<(), NodeRunError> {
+        let (Some(opaque_phases), Some(alpha_mask_phases)) = (
+            world.get_resource::<ViewBinnedRenderPhases<Opaque3d>>(),
+            world.get_resource::<ViewBinnedRenderPhases<AlphaMask3d>>(),
+        ) else {
+            return Ok(());
+        };
+
+        let (Some(opaque_phase), Some(alpha_mask_phase)) = (
+            opaque_phases.get(&extracted_view.retained_view_entity),
+            alpha_mask_phases.get(&extracted_view.retained_view_entity),
+        ) else {
+            return Ok(());
+        };
+
         let diagnostics = render_context.diagnostic_recorder();
 
         let color_attachments = [Some(target.get_color_attachment())];
@@ -77,22 +92,28 @@ impl ViewNode for MainOpaquePass3dNode {
             let mut render_pass = TrackedRenderPass::new(&render_device, render_pass);
             let pass_span = diagnostics.pass_span(&mut render_pass, "main_opaque_pass_3d");
 
-            if let Some(viewport) = camera.viewport.as_ref() {
-                render_pass.set_camera_viewport(viewport);
+            if let Some(viewport) =
+                Viewport::from_viewport_and_override(camera.viewport.as_ref(), resolution_override)
+            {
+                render_pass.set_camera_viewport(&viewport);
             }
 
             // Opaque draws
             if !opaque_phase.is_empty() {
                 #[cfg(feature = "trace")]
                 let _opaque_main_pass_3d_span = info_span!("opaque_main_pass_3d").entered();
-                opaque_phase.render(&mut render_pass, world, view_entity);
+                if let Err(err) = opaque_phase.render(&mut render_pass, world, view_entity) {
+                    error!("Error encountered while rendering the opaque phase {err:?}");
+                }
             }
 
             // Alpha draws
             if !alpha_mask_phase.is_empty() {
                 #[cfg(feature = "trace")]
                 let _alpha_mask_main_pass_3d_span = info_span!("alpha_mask_main_pass_3d").entered();
-                alpha_mask_phase.render(&mut render_pass, world, view_entity);
+                if let Err(err) = alpha_mask_phase.render(&mut render_pass, world, view_entity) {
+                    error!("Error encountered while rendering the alpha mask phase {err:?}");
+                }
             }
 
             // Skybox draw using a fullscreen triangle

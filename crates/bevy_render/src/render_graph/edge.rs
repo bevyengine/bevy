@@ -19,7 +19,7 @@ use super::InternedRenderLabel;
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum Edge {
     /// An edge describing to ordering of both nodes (`output_node` before `input_node`)
-    /// and connecting the output slot at the `output_index` of the output_node
+    /// and connecting the output slot at the `output_index` of the `output_node`
     /// with the slot at the `input_index` of the `input_node`.
     SlotEdge {
         input_node: InternedRenderLabel,

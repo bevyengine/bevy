@@ -1,13 +1,18 @@
 //! A freecam-style camera controller plugin.
 //! To use in your own application:
 //! - Copy the code for the [`CameraControllerPlugin`] and add the plugin to your App.
-//! - Attach the [`CameraController`] component to an entity with a [`Camera3dBundle`].
+//! - Attach the [`CameraController`] component to an entity with a [`Camera3d`].
+//!
+//! Unlike other examples, which demonstrate an application, this demonstrates a plugin library.
 
-use bevy::input::mouse::{MouseMotion, MouseScrollUnit, MouseWheel};
-use bevy::prelude::*;
-use bevy::window::CursorGrabMode;
+use bevy::{
+    input::mouse::{AccumulatedMouseMotion, AccumulatedMouseScroll, MouseScrollUnit},
+    prelude::*,
+    window::{CursorGrabMode, CursorOptions},
+};
 use std::{f32::consts::*, fmt};
 
+/// A freecam-style camera controller plugin.
 pub struct CameraControllerPlugin;
 
 impl Plugin for CameraControllerPlugin {
@@ -21,26 +26,48 @@ impl Plugin for CameraControllerPlugin {
 /// it because it felt nice.
 pub const RADIANS_PER_DOT: f32 = 1.0 / 180.0;
 
+/// Camera controller [`Component`].
 #[derive(Component)]
 pub struct CameraController {
+    /// Enables this [`CameraController`] when `true`.
     pub enabled: bool,
+    /// Indicates if this controller has been initialized by the [`CameraControllerPlugin`].
     pub initialized: bool,
+    /// Multiplier for pitch and yaw rotation speed.
     pub sensitivity: f32,
+    /// [`KeyCode`] for forward translation.
     pub key_forward: KeyCode,
+    /// [`KeyCode`] for backward translation.
     pub key_back: KeyCode,
+    /// [`KeyCode`] for left translation.
     pub key_left: KeyCode,
+    /// [`KeyCode`] for right translation.
     pub key_right: KeyCode,
+    /// [`KeyCode`] for up translation.
     pub key_up: KeyCode,
+    /// [`KeyCode`] for down translation.
     pub key_down: KeyCode,
+    /// [`KeyCode`] to use [`run_speed`](CameraController::run_speed) instead of
+    /// [`walk_speed`](CameraController::walk_speed) for translation.
     pub key_run: KeyCode,
+    /// [`MouseButton`] for grabbing the mouse focus.
     pub mouse_key_cursor_grab: MouseButton,
+    /// [`KeyCode`] for grabbing the keyboard focus.
     pub keyboard_key_toggle_cursor_grab: KeyCode,
+    /// Multiplier for unmodified translation speed.
     pub walk_speed: f32,
+    /// Multiplier for running translation speed.
     pub run_speed: f32,
+    /// Multiplier for how the mouse scroll wheel modifies [`walk_speed`](CameraController::walk_speed)
+    /// and [`run_speed`](CameraController::run_speed).
     pub scroll_factor: f32,
+    /// Friction factor used to exponentially decay [`velocity`](CameraController::velocity) over time.
     pub friction: f32,
+    /// This [`CameraController`]'s pitch rotation.
     pub pitch: f32,
+    /// This [`CameraController`]'s yaw rotation.
     pub yaw: f32,
+    /// This [`CameraController`]'s translation velocity.
     pub velocity: Vec3,
 }
 
@@ -97,138 +124,132 @@ Freecam Controls:
     }
 }
 
-#[allow(clippy::too_many_arguments)]
 fn run_camera_controller(
     time: Res<Time>,
-    mut windows: Query<&mut Window>,
-    mut mouse_events: EventReader<MouseMotion>,
-    mut scroll_events: EventReader<MouseWheel>,
+    mut windows: Query<(&Window, &mut CursorOptions)>,
+    accumulated_mouse_motion: Res<AccumulatedMouseMotion>,
+    accumulated_mouse_scroll: Res<AccumulatedMouseScroll>,
     mouse_button_input: Res<ButtonInput<MouseButton>>,
     key_input: Res<ButtonInput<KeyCode>>,
     mut toggle_cursor_grab: Local<bool>,
     mut mouse_cursor_grab: Local<bool>,
     mut query: Query<(&mut Transform, &mut CameraController), With<Camera>>,
 ) {
-    let dt = time.delta_seconds();
+    let dt = time.delta_secs();
 
-    if let Ok((mut transform, mut controller)) = query.get_single_mut() {
-        if !controller.initialized {
-            let (yaw, pitch, _roll) = transform.rotation.to_euler(EulerRot::YXZ);
-            controller.yaw = yaw;
-            controller.pitch = pitch;
-            controller.initialized = true;
-            info!("{}", *controller);
-        }
-        if !controller.enabled {
-            mouse_events.clear();
-            return;
-        }
+    let Ok((mut transform, mut controller)) = query.single_mut() else {
+        return;
+    };
 
-        let mut scroll = 0.0;
-        for scroll_event in scroll_events.read() {
-            let amount = match scroll_event.unit {
-                MouseScrollUnit::Line => scroll_event.y,
-                MouseScrollUnit::Pixel => scroll_event.y / 16.0,
-            };
-            scroll += amount;
-        }
-        controller.walk_speed += scroll * controller.scroll_factor * controller.walk_speed;
-        controller.run_speed = controller.walk_speed * 3.0;
+    if !controller.initialized {
+        let (yaw, pitch, _roll) = transform.rotation.to_euler(EulerRot::YXZ);
+        controller.yaw = yaw;
+        controller.pitch = pitch;
+        controller.initialized = true;
+        info!("{}", *controller);
+    }
+    if !controller.enabled {
+        return;
+    }
 
-        // Handle key input
-        let mut axis_input = Vec3::ZERO;
-        if key_input.pressed(controller.key_forward) {
-            axis_input.z += 1.0;
-        }
-        if key_input.pressed(controller.key_back) {
-            axis_input.z -= 1.0;
-        }
-        if key_input.pressed(controller.key_right) {
-            axis_input.x += 1.0;
-        }
-        if key_input.pressed(controller.key_left) {
-            axis_input.x -= 1.0;
-        }
-        if key_input.pressed(controller.key_up) {
-            axis_input.y += 1.0;
-        }
-        if key_input.pressed(controller.key_down) {
-            axis_input.y -= 1.0;
-        }
+    let mut scroll = 0.0;
 
-        let mut cursor_grab_change = false;
-        if key_input.just_pressed(controller.keyboard_key_toggle_cursor_grab) {
-            *toggle_cursor_grab = !*toggle_cursor_grab;
-            cursor_grab_change = true;
-        }
-        if mouse_button_input.just_pressed(controller.mouse_key_cursor_grab) {
-            *mouse_cursor_grab = true;
-            cursor_grab_change = true;
-        }
-        if mouse_button_input.just_released(controller.mouse_key_cursor_grab) {
-            *mouse_cursor_grab = false;
-            cursor_grab_change = true;
-        }
-        let cursor_grab = *mouse_cursor_grab || *toggle_cursor_grab;
+    let amount = match accumulated_mouse_scroll.unit {
+        MouseScrollUnit::Line => accumulated_mouse_scroll.delta.y,
+        MouseScrollUnit::Pixel => accumulated_mouse_scroll.delta.y / 16.0,
+    };
+    scroll += amount;
+    controller.walk_speed += scroll * controller.scroll_factor * controller.walk_speed;
+    controller.run_speed = controller.walk_speed * 3.0;
 
-        // Apply movement update
-        if axis_input != Vec3::ZERO {
-            let max_speed = if key_input.pressed(controller.key_run) {
-                controller.run_speed
-            } else {
-                controller.walk_speed
-            };
-            controller.velocity = axis_input.normalize() * max_speed;
+    // Handle key input
+    let mut axis_input = Vec3::ZERO;
+    if key_input.pressed(controller.key_forward) {
+        axis_input.z += 1.0;
+    }
+    if key_input.pressed(controller.key_back) {
+        axis_input.z -= 1.0;
+    }
+    if key_input.pressed(controller.key_right) {
+        axis_input.x += 1.0;
+    }
+    if key_input.pressed(controller.key_left) {
+        axis_input.x -= 1.0;
+    }
+    if key_input.pressed(controller.key_up) {
+        axis_input.y += 1.0;
+    }
+    if key_input.pressed(controller.key_down) {
+        axis_input.y -= 1.0;
+    }
+
+    let mut cursor_grab_change = false;
+    if key_input.just_pressed(controller.keyboard_key_toggle_cursor_grab) {
+        *toggle_cursor_grab = !*toggle_cursor_grab;
+        cursor_grab_change = true;
+    }
+    if mouse_button_input.just_pressed(controller.mouse_key_cursor_grab) {
+        *mouse_cursor_grab = true;
+        cursor_grab_change = true;
+    }
+    if mouse_button_input.just_released(controller.mouse_key_cursor_grab) {
+        *mouse_cursor_grab = false;
+        cursor_grab_change = true;
+    }
+    let cursor_grab = *mouse_cursor_grab || *toggle_cursor_grab;
+
+    // Update velocity
+    if axis_input != Vec3::ZERO {
+        let max_speed = if key_input.pressed(controller.key_run) {
+            controller.run_speed
         } else {
-            let friction = controller.friction.clamp(0.0, 1.0);
-            controller.velocity *= 1.0 - friction;
-            if controller.velocity.length_squared() < 1e-6 {
-                controller.velocity = Vec3::ZERO;
-            }
+            controller.walk_speed
+        };
+        controller.velocity = axis_input.normalize() * max_speed;
+    } else {
+        let friction = controller.friction.clamp(0.0, 1.0);
+        controller.velocity *= 1.0 - friction;
+        if controller.velocity.length_squared() < 1e-6 {
+            controller.velocity = Vec3::ZERO;
         }
+    }
+
+    // Apply movement update
+    if controller.velocity != Vec3::ZERO {
         let forward = *transform.forward();
         let right = *transform.right();
         transform.translation += controller.velocity.x * dt * right
             + controller.velocity.y * dt * Vec3::Y
             + controller.velocity.z * dt * forward;
+    }
 
-        // Handle cursor grab
-        if cursor_grab_change {
-            if cursor_grab {
-                for mut window in &mut windows {
-                    if !window.focused {
-                        continue;
-                    }
-
-                    window.cursor.grab_mode = CursorGrabMode::Locked;
-                    window.cursor.visible = false;
-                }
-            } else {
-                for mut window in &mut windows {
-                    window.cursor.grab_mode = CursorGrabMode::None;
-                    window.cursor.visible = true;
-                }
-            }
-        }
-
-        // Handle mouse input
-        let mut mouse_delta = Vec2::ZERO;
+    // Handle cursor grab
+    if cursor_grab_change {
         if cursor_grab {
-            for mouse_event in mouse_events.read() {
-                mouse_delta += mouse_event.delta;
+            for (window, mut cursor_options) in &mut windows {
+                if !window.focused {
+                    continue;
+                }
+
+                cursor_options.grab_mode = CursorGrabMode::Locked;
+                cursor_options.visible = false;
             }
         } else {
-            mouse_events.clear();
+            for (_, mut cursor_options) in &mut windows {
+                cursor_options.grab_mode = CursorGrabMode::None;
+                cursor_options.visible = true;
+            }
         }
+    }
 
-        if mouse_delta != Vec2::ZERO {
-            // Apply look update
-            controller.pitch = (controller.pitch
-                - mouse_delta.y * RADIANS_PER_DOT * controller.sensitivity)
-                .clamp(-PI / 2., PI / 2.);
-            controller.yaw -= mouse_delta.x * RADIANS_PER_DOT * controller.sensitivity;
-            transform.rotation =
-                Quat::from_euler(EulerRot::ZYX, 0.0, controller.yaw, controller.pitch);
-        }
+    // Handle mouse input
+    if accumulated_mouse_motion.delta != Vec2::ZERO && cursor_grab {
+        // Apply look update
+        controller.pitch = (controller.pitch
+            - accumulated_mouse_motion.delta.y * RADIANS_PER_DOT * controller.sensitivity)
+            .clamp(-PI / 2., PI / 2.);
+        controller.yaw -=
+            accumulated_mouse_motion.delta.x * RADIANS_PER_DOT * controller.sensitivity;
+        transform.rotation = Quat::from_euler(EulerRot::ZYX, 0.0, controller.yaw, controller.pitch);
     }
 }

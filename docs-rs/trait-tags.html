@@ -1,0 +1,172 @@
+<script>
+    // Adds tags to documentation pages for common Bevy traits like `Component` or `Resource`.
+    // This makes it easier to see at a glance what types are used for.
+    //
+    // This extension is passed to `rustdoc` using the `--html-after-content` flag.
+
+    // Traits that we want to show as tags.
+    // Order determines sort order of items in listings.
+    const bevyTraits = [
+        'Plugin',
+        'PluginGroup',
+        'Component',
+        'Resource',
+        'Asset',
+        'Event',
+        'ScheduleLabel',
+        'SystemSet',
+        'SystemParam',
+        'Relationship',
+        'RelationshipTarget'
+    ];
+
+    // Find all traits that are implemented by the current type.
+    const implementedBevyTraits = findImplementedBevyTraits(document);
+
+    // If we found any implemented traits, add them as tags to the top of the page.
+    if (implementedBevyTraits.size > 0) {
+        // Create a container for the tags.
+        const heading = document.body.querySelector(".main-heading h1");
+        const tagContainer = document.createElement('div');
+        tagContainer.className = 'bevy-tag-container';
+        heading.appendChild(tagContainer);
+
+        // Check if an implemented trait has a `type Mutability = Immutable` associated type.
+        // This is used to determine if a `Component` is immutable or not.
+        // TODO: Ideally we should just check the associated types of the `Component` trait,
+        //       but the docs.rs layout makes it tricky to do so in a robust way.
+        const associatedTypeHeader = document.querySelectorAll(".trait-impl.associatedtype .code-header");
+        const isImmutable = [...associatedTypeHeader].some(el => el.innerText.includes('type Mutability = Immutable'));
+
+        // Create a tag for each implemented trait.
+        for (let [tagName, href] of implementedBevyTraits) {
+            if (tagName == 'Component' & isImmutable) {
+                tagName = 'Immutable Component';
+            }
+
+            // Create the tag and append it to the container.
+            tagContainer.appendChild(createBevyTag(tagName, href));
+        }
+    }
+
+    function findImplementedBevyTraits(doc) {
+        // Traits that are implemented by the current type.
+        // The key is the trait name, and the value is the href to the trait's documentation.
+        const implementedTraits = new Map();
+
+        // Find all trait implementation headers.
+        const allTraitHeaders = doc.body.querySelectorAll(
+            '#trait-implementations-list .impl .code-header, #blanket-implementations-list .impl .code-header'
+        );
+
+        for (const header of allTraitHeaders) {
+            // We can extract the trait name by removing any generics and splitting the string by spaces.
+            // This results in ['impl', 'TraitName', 'for', 'TypeName'].
+            const traitName = removeGenerics(header.innerText).split(' ')[1].trim();
+
+            // Find the link to the trait if the anchor element exists.
+            // Otherwise, the trait is just in plain text.
+            const traitLinkEl = [...header.children].find(el => el.getAttribute('href')?.includes(`trait.${traitName}.html`));
+            const href = traitLinkEl?.getAttribute('href');
+
+            implementedTraits.set(traitName, href);
+        }
+
+        const implementedBevyTraits = new Map(
+            [...implementedTraits].filter(([traitName, _]) => bevyTraits.find((x) => x == traitName))
+        );
+
+        return implementedBevyTraits;
+    }
+
+    // Helper function to remove generics from a string of Rust code.
+    // For example, 'Vec<T>' would become 'Vec'.
+    function removeGenerics(str) {
+        // Remove the innermost generics.
+        const newStr = str.replace(/<([^<>])*>/g, '');
+
+        // If there are still generics, perform the removal again recursively.
+        if (newStr !== str) {
+            return removeGenerics(newStr);
+        }
+
+        // No more generics to remove.
+        return newStr;
+    }
+
+    // Helper function to create a tag element with the given name and href,
+    // if available.
+    function createBevyTag(tagName, href) {
+        const el = document.createElement('a');
+        const kebabCaseName = tagName.toLowerCase().replace(' ', '-');
+
+        if (href) {
+            el.setAttribute('href', href);
+        }
+
+        el.innerText = tagName;
+        el.className = `bevy-tag ${kebabCaseName}-tag`;
+        return el;
+    }
+</script>
+
+<style>
+    .bevy-tag-container {
+        padding: 0.5rem 0;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+    }
+
+    .bevy-tag {
+        display: flex;
+        align-items: center;
+        width: fit-content;
+        height: 1.5rem;
+        padding: 0 0.5rem;
+        border-radius: 0.75rem;
+        font-size: 1rem;
+        font-weight: normal;
+        color: white;
+    }
+
+    .bevy-tag {
+        background-color: var(--tag-color);
+    }
+
+    .component-tag,
+    .immutable-component-tag {
+        --tag-color: oklch(50% 27% 95);
+    }
+
+    .resource-tag {
+        --tag-color: oklch(50% 27% 110);
+    }
+
+    .asset-tag {
+        --tag-color: oklch(50% 27% 0);
+    }
+
+    .event-tag {
+        --tag-color: oklch(50% 27% 310);
+    }
+
+    .plugin-tag,
+    .plugingroup-tag {
+        --tag-color: oklch(50% 27% 50);
+    }
+
+    .schedulelabel-tag,
+    .systemset-tag {
+        --tag-color: oklch(50% 27% 270);
+    }
+
+    .systemparam-tag {
+        --tag-color: oklch(50% 27% 200);
+    }
+
+    .relationship-tag,
+    .relationshiptarget-tag {
+        --tag-color: oklch(50% 27% 150);
+    }
+</style>

@@ -8,9 +8,12 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  ci:
+  bump:
     if: github.repository == 'bevyengine/bevy'
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
     steps:
       - uses: actions/checkout@v4
 
@@ -27,9 +30,9 @@ jobs:
           # Read the current version from Cargo.toml
           current_version=$(cargo metadata --format-version 1 --no-deps | \
             jq --raw-output '.packages | .[] | select(.name == "bevy").version')
-          # Sanity check: current version should be 0.X.Y
-          if ! grep -q '^0\.[0-9]\+\.[0-9]\+$' <<< "${current_version}"; then
-            echo "Invalid version (not in 0.X.Y format): ${current_version}"
+          # Sanity check: current version should be 0.X.Y-dev
+          if ! grep -q '^0\.[0-9]\+\.[0-9]\+-dev$' <<< "${current_version}"; then
+            echo "Invalid version (not in 0.X.Y-dev format): ${current_version}"
             exit 1
           fi
           minor_version=$(sed 's/^0\.\([0-9]\+\).*/\1/' <<< "${current_version}")
@@ -46,10 +49,11 @@ jobs:
             --exclude ci \
             --exclude errors \
             --exclude bevy_mobile_example \
-            --exclude build-wasm-example
+            --exclude build-wasm-example \
+            --exclude no_std_library
 
       - name: Create PR
-        uses: peter-evans/create-pull-request@v6
+        uses: peter-evans/create-pull-request@v7
         with:
           delete-branch: true
           base: "main"

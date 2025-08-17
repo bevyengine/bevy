@@ -1,13 +1,15 @@
 //! This example illustrates how to create a button that changes color and text based on its
 //! interaction state.
 
-use bevy::{color::palettes::basic::*, prelude::*, winit::WinitSettings};
+use bevy::{color::palettes::basic::*, input_focus::InputFocus, prelude::*, winit::WinitSettings};
 
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         // Only run the app when there is user input. This will significantly reduce CPU/GPU use.
         .insert_resource(WinitSettings::desktop_app())
+        // `InputFocus` must be set for accessibility to recognize the button.
+        .init_resource::<InputFocus>()
         .add_systems(Startup, setup)
         .add_systems(Update, button_system)
         .run();
@@ -18,75 +20,92 @@ const HOVERED_BUTTON: Color = Color::srgb(0.25, 0.25, 0.25);
 const PRESSED_BUTTON: Color = Color::srgb(0.35, 0.75, 0.35);
 
 fn button_system(
+    mut input_focus: ResMut<InputFocus>,
     mut interaction_query: Query<
-        (&Interaction, &mut UiImage, &mut BorderColor, &Children),
-        (Changed<Interaction>, With<Button>),
+        (
+            Entity,
+            &Interaction,
+            &mut BackgroundColor,
+            &mut BorderColor,
+            &mut Button,
+            &Children,
+        ),
+        Changed<Interaction>,
     >,
     mut text_query: Query<&mut Text>,
 ) {
-    for (interaction, mut image, mut border_color, children) in &mut interaction_query {
+    for (entity, interaction, mut color, mut border_color, mut button, children) in
+        &mut interaction_query
+    {
         let mut text = text_query.get_mut(children[0]).unwrap();
+
         match *interaction {
             Interaction::Pressed => {
-                text.sections[0].value = "Press".to_string();
-                image.color = PRESSED_BUTTON;
-                border_color.0 = RED.into();
+                input_focus.set(entity);
+                **text = "Press".to_string();
+                *color = PRESSED_BUTTON.into();
+                *border_color = BorderColor::all(RED);
+
+                // The accessibility system's only update the button's state when the `Button` component is marked as changed.
+                button.set_changed();
             }
             Interaction::Hovered => {
-                text.sections[0].value = "Hover".to_string();
-                image.color = HOVERED_BUTTON;
-                border_color.0 = Color::WHITE;
+                input_focus.set(entity);
+                **text = "Hover".to_string();
+                *color = HOVERED_BUTTON.into();
+                *border_color = BorderColor::all(Color::WHITE);
+                button.set_changed();
             }
             Interaction::None => {
-                text.sections[0].value = "Button".to_string();
-                image.color = NORMAL_BUTTON;
-                border_color.0 = Color::BLACK;
+                input_focus.clear();
+                **text = "Button".to_string();
+                *color = NORMAL_BUTTON.into();
+                *border_color = BorderColor::all(Color::BLACK);
             }
         }
     }
 }
 
-fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
+fn setup(mut commands: Commands, assets: Res<AssetServer>) {
     // ui camera
-    commands.spawn(Camera2dBundle::default());
-    commands
-        .spawn(NodeBundle {
-            style: Style {
-                width: Val::Percent(100.0),
-                height: Val::Percent(100.0),
-                align_items: AlignItems::Center,
+    commands.spawn(Camera2d);
+    commands.spawn(button(&assets));
+}
+
+fn button(asset_server: &AssetServer) -> impl Bundle {
+    (
+        Node {
+            width: Val::Percent(100.0),
+            height: Val::Percent(100.0),
+            align_items: AlignItems::Center,
+            justify_content: JustifyContent::Center,
+            ..default()
+        },
+        children![(
+            Button,
+            Node {
+                width: Val::Px(150.0),
+                height: Val::Px(65.0),
+                border: UiRect::all(Val::Px(5.0)),
+                // horizontally center child text
                 justify_content: JustifyContent::Center,
+                // vertically center child text
+                align_items: AlignItems::Center,
                 ..default()
             },
-            ..default()
-        })
-        .with_children(|parent| {
-            parent
-                .spawn(ButtonBundle {
-                    style: Style {
-                        width: Val::Px(150.0),
-                        height: Val::Px(65.0),
-                        border: UiRect::all(Val::Px(5.0)),
-                        // horizontally center child text
-                        justify_content: JustifyContent::Center,
-                        // vertically center child text
-                        align_items: AlignItems::Center,
-                        ..default()
-                    },
-                    border_color: BorderColor(Color::BLACK),
-                    border_radius: BorderRadius::MAX,
-                    image: UiImage::default().with_color(NORMAL_BUTTON),
+            BorderColor::all(Color::WHITE),
+            BorderRadius::MAX,
+            BackgroundColor(Color::BLACK),
+            children![(
+                Text::new("Button"),
+                TextFont {
+                    font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                    font_size: 33.0,
                     ..default()
-                })
-                .with_children(|parent| {
-                    parent.spawn(TextBundle::from_section(
-                        "Button",
-                        TextStyle {
-                            font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                            font_size: 40.0,
-                            color: Color::srgb(0.9, 0.9, 0.9),
-                        },
-                    ));
-                });
-        });
+                },
+                TextColor(Color::srgb(0.9, 0.9, 0.9)),
+                TextShadow::default(),
+            )]
+        )],
+    )
 }

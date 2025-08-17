@@ -1,4 +1,4 @@
-# Bevy Ptr
+# Bevy Pointer
 
 [![License](https://img.shields.io/badge/license-MIT%2FApache-blue.svg)](https://github.com/bevyengine/bevy#license)
 [![Crates.io](https://img.shields.io/crates/v/bevy_ptr.svg)](https://crates.io/crates/bevy_ptr)
@@ -68,7 +68,7 @@ of type `T`. If you've ever worked with C++, `NonNull<T>` is very close to a C++
 untyped memory address. Pointing at the unit type (or some other zero-sized type) just happens to be the convention. The only way to reasonably use them is to
 cast back to a typed pointer. They show up occasionally when dealing with FFI and the rare occasion where dynamic dispatch is required, but a trait is too
 constraining of an interface to work with. A great example of this are the [RawWaker] APIs, where a singular trait (or set of traits) may be insufficient to capture
-all usage patterns. `*mut ()` should only be used to carry the mutability of the target, and as there is no way to to mutate an unknown type.
+all usage patterns. `*mut ()` should only be used to carry the mutability of the target, and as there is no way to mutate an unknown type.
 
 [RawWaker]: https://doc.rust-lang.org/std/task/struct.RawWaker.html
 
@@ -83,7 +83,7 @@ all usage patterns. `*mut ()` should only be used to carry the mutability of the
 as a `Box<T>` that does not allocate on initialization or deallocated when it's dropped, and is in fact used to implement common types like `Box<T>`, `Vec<T>`,
 etc.
 
-`Shared<T>` is currently available in `core::ptr` on nightly Rust builds. It's the pointer that backs both `Rc<T>` and `Arc<T>`. It's semantics allow for
+`Shared<T>` is currently available in `core::ptr` on nightly Rust builds. It's the pointer that backs both `Rc<T>` and `Arc<T>`. Its semantics allow for
 multiple instances to collectively own the data it points to, and as a result, forbids getting a mutable borrow.
 
 `bevy_ptr` does not support these types right now, but may support [polyfills] for these pointer types if the need arises.

@@ -1,0 +1,14 @@
+error: `#[deref]` attribute can only be used on a single field
+ --> tests/deref_mut_derive/multiple_attributes_fail.rs:7:5
+  |
+7 |     #[deref] String
+  |     ^^^^^^^^
+
+error: `#[deref]` attribute can only be used on a single field
+  --> tests/deref_mut_derive/multiple_attributes_fail.rs:23:5
+   |
+23 |     #[deref]
+   |     ^^^^^^^^
+
+error: aborting due to 2 previous errors
+

@@ -1,7 +1,9 @@
 use crate::{
-    impl_componentwise_vector_space, Alpha, ClampColor, Hsla, Hsva, Hwba, LinearRgba, Luminance,
-    Mix, Oklaba, Srgba, StandardColor, Xyza,
+    impl_componentwise_vector_space, Alpha, ColorToComponents, Gray, Hsla, Hsva, Hwba, LinearRgba,
+    Luminance, Mix, Oklaba, Srgba, StandardColor, Xyza,
 };
+use bevy_math::{ops, Vec3, Vec4};
+#[cfg(feature = "bevy_reflect")]
 use bevy_reflect::prelude::*;
 
 /// Color in LAB color space, with alpha
@@ -9,11 +11,15 @@ use bevy_reflect::prelude::*;
 /// <div>
 #[doc = include_str!("../docs/diagrams/model_graph.svg")]
 /// </div>
-#[derive(Debug, Clone, Copy, PartialEq, Reflect)]
-#[reflect(PartialEq, Default)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 #[cfg_attr(
-    feature = "serialize",
-    derive(serde::Serialize, serde::Deserialize),
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Clone, PartialEq, Default)
+)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(
+    all(feature = "serialize", feature = "bevy_reflect"),
     reflect(Serialize, Deserialize)
 )]
 pub struct Laba {
@@ -100,6 +106,11 @@ impl Mix for Laba {
     }
 }
 
+impl Gray for Laba {
+    const BLACK: Self = Self::new(0., 0., 0., 1.);
+    const WHITE: Self = Self::new(1., 0., 0., 1.);
+}
+
 impl Alpha for Laba {
     #[inline]
     fn with_alpha(&self, alpha: f32) -> Self {
@@ -114,24 +125,6 @@ impl Alpha for Laba {
     #[inline]
     fn set_alpha(&mut self, alpha: f32) {
         self.alpha = alpha;
-    }
-}
-
-impl ClampColor for Laba {
-    fn clamped(&self) -> Self {
-        Self {
-            lightness: self.lightness.clamp(0., 1.5),
-            a: self.a.clamp(-1.5, 1.5),
-            b: self.b.clamp(-1.5, 1.5),
-            alpha: self.alpha.clamp(0., 1.),
-        }
-    }
-
-    fn is_within_bounds(&self) -> bool {
-        (0. ..=1.5).contains(&self.lightness)
-            && (-1.5..=1.5).contains(&self.a)
-            && (-1.5..=1.5).contains(&self.b)
-            && (0. ..=1.).contains(&self.alpha)
     }
 }
 
@@ -164,6 +157,60 @@ impl Luminance for Laba {
     }
 }
 
+impl ColorToComponents for Laba {
+    fn to_f32_array(self) -> [f32; 4] {
+        [self.lightness, self.a, self.b, self.alpha]
+    }
+
+    fn to_f32_array_no_alpha(self) -> [f32; 3] {
+        [self.lightness, self.a, self.b]
+    }
+
+    fn to_vec4(self) -> Vec4 {
+        Vec4::new(self.lightness, self.a, self.b, self.alpha)
+    }
+
+    fn to_vec3(self) -> Vec3 {
+        Vec3::new(self.lightness, self.a, self.b)
+    }
+
+    fn from_f32_array(color: [f32; 4]) -> Self {
+        Self {
+            lightness: color[0],
+            a: color[1],
+            b: color[2],
+            alpha: color[3],
+        }
+    }
+
+    fn from_f32_array_no_alpha(color: [f32; 3]) -> Self {
+        Self {
+            lightness: color[0],
+            a: color[1],
+            b: color[2],
+            alpha: 1.0,
+        }
+    }
+
+    fn from_vec4(color: Vec4) -> Self {
+        Self {
+            lightness: color[0],
+            a: color[1],
+            b: color[2],
+            alpha: color[3],
+        }
+    }
+
+    fn from_vec3(color: Vec3) -> Self {
+        Self {
+            lightness: color[0],
+            a: color[1],
+            b: color[2],
+            alpha: 1.0,
+        }
+    }
+}
+
 impl From<Laba> for Xyza {
     fn from(
         Laba {
@@ -182,7 +229,7 @@ impl From<Laba> for Xyza {
         let fx = a / 500.0 + fy;
         let fz = fy - b / 200.0;
         let xr = {
-            let fx3 = fx.powf(3.0);
+            let fx3 = ops::powf(fx, 3.0);
 
             if fx3 > Laba::CIE_EPSILON {
                 fx3
@@ -191,12 +238,12 @@ impl From<Laba> for Xyza {
             }
         };
         let yr = if l > Laba::CIE_EPSILON * Laba::CIE_KAPPA {
-            ((l + 16.0) / 116.0).powf(3.0)
+            ops::powf((l + 16.0) / 116.0, 3.0)
         } else {
             l / Laba::CIE_KAPPA
         };
         let zr = {
-            let fz3 = fz.powf(3.0);
+            let fz3 = ops::powf(fz, 3.0);
 
             if fz3 > Laba::CIE_EPSILON {
                 fz3
@@ -219,17 +266,17 @@ impl From<Xyza> for Laba {
         let yr = y / Xyza::D65_WHITE.y;
         let zr = z / Xyza::D65_WHITE.z;
         let fx = if xr > Laba::CIE_EPSILON {
-            xr.cbrt()
+            ops::cbrt(xr)
         } else {
             (Laba::CIE_KAPPA * xr + 16.0) / 116.0
         };
         let fy = if yr > Laba::CIE_EPSILON {
-            yr.cbrt()
+            ops::cbrt(yr)
         } else {
             (Laba::CIE_KAPPA * yr + 16.0) / 116.0
         };
         let fz = if yr > Laba::CIE_EPSILON {
-            zr.cbrt()
+            ops::cbrt(zr)
         } else {
             (Laba::CIE_KAPPA * zr + 16.0) / 116.0
         };
@@ -320,7 +367,6 @@ mod tests {
     use super::*;
     use crate::{
         color_difference::EuclideanDistance, test_colors::TEST_COLORS, testing::assert_approx_eq,
-        Srgba,
     };
 
     #[test]
@@ -377,22 +423,5 @@ mod tests {
             }
             assert_approx_eq!(color.lab.alpha, laba.alpha, 0.001);
         }
-    }
-
-    #[test]
-    fn test_clamp() {
-        let color_1 = Laba::lab(-1., 2., -2.);
-        let color_2 = Laba::lab(1., 1.5, -1.2);
-        let mut color_3 = Laba::lab(-0.4, 1., 1.);
-
-        assert!(!color_1.is_within_bounds());
-        assert_eq!(color_1.clamped(), Laba::lab(0., 1.5, -1.5));
-
-        assert!(color_2.is_within_bounds());
-        assert_eq!(color_2, color_2.clamped());
-
-        color_3.clamp();
-        assert!(color_3.is_within_bounds());
-        assert_eq!(color_3, Laba::lab(0., 1., 1.));
     }
 }

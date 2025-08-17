@@ -1,9 +1,9 @@
 diff --git a/crates/bevy_window/src/window.rs b/crates/bevy_window/src/window.rs
-index 10bdd8fe8..dda272569 100644
+index f578658cd..ffac22062 100644
 --- a/crates/bevy_window/src/window.rs
 +++ b/crates/bevy_window/src/window.rs
-@@ -232,7 +232,7 @@ impl Default for Window {
-             cursor: Default::default(),
+@@ -318,7 +318,7 @@ impl Default for Window {
+             name: None,
              present_mode: Default::default(),
              mode: Default::default(),
 -            position: Default::default(),

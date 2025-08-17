@@ -1,3 +1,5 @@
+use bevy_math::{ops, Vec3, Vec4};
+
 /// Methods for changing the luminance of a color. Note that these methods are not
 /// guaranteed to produce consistent results across color spaces,
 /// but will be within a given space.
@@ -40,12 +42,25 @@ pub trait Mix: Sized {
     }
 }
 
+/// Trait for returning a grayscale color of a provided lightness.
+pub trait Gray: Mix + Sized {
+    /// A pure black color.
+    const BLACK: Self;
+    /// A pure white color.
+    const WHITE: Self;
+
+    /// Returns a grey color with the provided lightness from (0.0 - 1.0). 0 is black, 1 is white.
+    fn gray(lightness: f32) -> Self {
+        Self::BLACK.mix(&Self::WHITE, lightness)
+    }
+}
+
 /// Methods for manipulating alpha values.
 pub trait Alpha: Sized {
     /// Return a new version of this color with the given alpha value.
     fn with_alpha(&self, alpha: f32) -> Self;
 
-    /// Return a the alpha component of this color.
+    /// Return the alpha component of this color.
     fn alpha(&self) -> f32;
 
     /// Sets the alpha component of this color.
@@ -62,6 +77,20 @@ pub trait Alpha: Sized {
     }
 }
 
+impl Alpha for f32 {
+    fn with_alpha(&self, alpha: f32) -> Self {
+        alpha
+    }
+
+    fn alpha(&self) -> f32 {
+        *self
+    }
+
+    fn set_alpha(&mut self, alpha: f32) {
+        *self = alpha;
+    }
+}
+
 /// Trait for manipulating the hue of a color.
 pub trait Hue: Sized {
     /// Return a new version of this color with the hue channel set to the given value.
@@ -75,38 +104,70 @@ pub trait Hue: Sized {
 
     /// Return a new version of this color with the hue channel rotated by the given degrees.
     fn rotate_hue(&self, degrees: f32) -> Self {
-        let rotated_hue = (self.hue() + degrees).rem_euclid(360.);
+        let rotated_hue = ops::rem_euclid(self.hue() + degrees, 360.);
         self.with_hue(rotated_hue)
     }
 }
 
-/// Trait with methods for asserting a colorspace is within bounds.
+/// Trait for manipulating the saturation of a color.
 ///
-/// During ordinary usage (e.g. reading images from disk, rendering images, picking colors for UI), colors should always be within their ordinary bounds (such as 0 to 1 for RGB colors).
-/// However, some applications, such as high dynamic range rendering or bloom rely on unbounded colors to naturally represent a wider array of choices.
-pub trait ClampColor: Sized {
-    /// Return a new version of this color clamped, with all fields in bounds.
-    fn clamped(&self) -> Self;
+/// When working with color spaces that do not have native saturation components
+/// the operations are performed in [`crate::Hsla`].
+pub trait Saturation: Sized {
+    /// Return a new version of this color with the saturation channel set to the given value.
+    fn with_saturation(&self, saturation: f32) -> Self;
 
-    /// Changes all the fields of this color to ensure they are within bounds.
-    fn clamp(&mut self) {
-        *self = self.clamped();
-    }
+    /// Return the saturation of this color [0.0, 1.0].
+    fn saturation(&self) -> f32;
 
-    /// Are all the fields of this color in bounds?
-    fn is_within_bounds(&self) -> bool;
+    /// Sets the saturation of this color.
+    fn set_saturation(&mut self, saturation: f32);
+}
+
+/// Trait with methods for converting colors to non-color types
+pub trait ColorToComponents {
+    /// Convert to an f32 array
+    fn to_f32_array(self) -> [f32; 4];
+    /// Convert to an f32 array without the alpha value
+    fn to_f32_array_no_alpha(self) -> [f32; 3];
+    /// Convert to a Vec4
+    fn to_vec4(self) -> Vec4;
+    /// Convert to a Vec3
+    fn to_vec3(self) -> Vec3;
+    /// Convert from an f32 array
+    fn from_f32_array(color: [f32; 4]) -> Self;
+    /// Convert from an f32 array without the alpha value
+    fn from_f32_array_no_alpha(color: [f32; 3]) -> Self;
+    /// Convert from a Vec4
+    fn from_vec4(color: Vec4) -> Self;
+    /// Convert from a Vec3
+    fn from_vec3(color: Vec3) -> Self;
+}
+
+/// Trait with methods for converting colors to packed non-color types
+pub trait ColorToPacked {
+    /// Convert to [u8; 4] where that makes sense (Srgba is most relevant)
+    fn to_u8_array(self) -> [u8; 4];
+    /// Convert to [u8; 3] where that makes sense (Srgba is most relevant)
+    fn to_u8_array_no_alpha(self) -> [u8; 3];
+    /// Convert from [u8; 4] where that makes sense (Srgba is most relevant)
+    fn from_u8_array(color: [u8; 4]) -> Self;
+    /// Convert to [u8; 3] where that makes sense (Srgba is most relevant)
+    fn from_u8_array_no_alpha(color: [u8; 3]) -> Self;
 }
 
 /// Utility function for interpolating hue values. This ensures that the interpolation
 /// takes the shortest path around the color wheel, and that the result is always between
 /// 0 and 360.
 pub(crate) fn lerp_hue(a: f32, b: f32, t: f32) -> f32 {
-    let diff = (b - a + 180.0).rem_euclid(360.) - 180.;
-    (a + diff * t).rem_euclid(360.0)
+    let diff = ops::rem_euclid(b - a + 180.0, 360.) - 180.;
+    ops::rem_euclid(a + diff * t, 360.)
 }
 
 #[cfg(test)]
 mod tests {
+    use core::fmt::Debug;
+
     use super::*;
     use crate::{testing::assert_approx_eq, Hsla};
 
@@ -139,5 +200,26 @@ mod tests {
         assert_approx_eq!(lerp_hue(350., 10., 0.25), 355., 0.001);
         assert_approx_eq!(lerp_hue(350., 10., 0.5), 0., 0.001);
         assert_approx_eq!(lerp_hue(350., 10., 0.75), 5., 0.001);
+    }
+
+    fn verify_gray<Col>()
+    where
+        Col: Gray + Debug + PartialEq,
+    {
+        assert_eq!(Col::gray(0.), Col::BLACK);
+        assert_eq!(Col::gray(1.), Col::WHITE);
+    }
+
+    #[test]
+    fn test_gray() {
+        verify_gray::<Hsla>();
+        verify_gray::<crate::Hsva>();
+        verify_gray::<crate::Hwba>();
+        verify_gray::<crate::Laba>();
+        verify_gray::<crate::Lcha>();
+        verify_gray::<crate::LinearRgba>();
+        verify_gray::<crate::Oklaba>();
+        verify_gray::<crate::Oklcha>();
+        verify_gray::<crate::Xyza>();
     }
 }

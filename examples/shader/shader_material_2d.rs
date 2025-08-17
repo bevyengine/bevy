@@ -3,9 +3,13 @@
 use bevy::{
     prelude::*,
     reflect::TypePath,
-    render::render_resource::{AsBindGroup, ShaderRef},
-    sprite::{Material2d, Material2dPlugin, MaterialMesh2dBundle},
+    render::render_resource::AsBindGroup,
+    shader::ShaderRef,
+    sprite::{AlphaMode2d, Material2d, Material2dPlugin},
 };
+
+/// This example uses a shader source file from the assets subdirectory
+const SHADER_ASSET_PATH: &str = "shaders/custom_material_2d.wgsl";
 
 fn main() {
     App::new()
@@ -25,18 +29,17 @@ fn setup(
     asset_server: Res<AssetServer>,
 ) {
     // camera
-    commands.spawn(Camera2dBundle::default());
+    commands.spawn(Camera2d);
 
     // quad
-    commands.spawn(MaterialMesh2dBundle {
-        mesh: meshes.add(Rectangle::default()).into(),
-        transform: Transform::default().with_scale(Vec3::splat(128.)),
-        material: materials.add(CustomMaterial {
+    commands.spawn((
+        Mesh2d(meshes.add(Rectangle::default())),
+        MeshMaterial2d(materials.add(CustomMaterial {
             color: LinearRgba::BLUE,
             color_texture: Some(asset_server.load("branding/icon.png")),
-        }),
-        ..default()
-    });
+        })),
+        Transform::default().with_scale(Vec3::splat(128.)),
+    ));
 }
 
 // This is the struct that will be passed to your shader
@@ -53,6 +56,10 @@ struct CustomMaterial {
 /// You only need to implement functions for features that need non-default behavior. See the Material2d api docs for details!
 impl Material2d for CustomMaterial {
     fn fragment_shader() -> ShaderRef {
-        "shaders/custom_material_2d.wgsl".into()
+        SHADER_ASSET_PATH.into()
+    }
+
+    fn alpha_mode(&self) -> AlphaMode2d {
+        AlphaMode2d::Mask(0.5)
     }
 }

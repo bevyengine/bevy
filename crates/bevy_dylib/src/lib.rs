@@ -1,7 +1,7 @@
 #![cfg_attr(docsrs, feature(doc_auto_cfg))]
 #![doc(
-    html_logo_url = "https://bevyengine.org/assets/icon.png",
-    html_favicon_url = "https://bevyengine.org/assets/icon.png"
+    html_logo_url = "https://bevy.org/assets/icon.png",
+    html_favicon_url = "https://bevy.org/assets/icon.png"
 )]
 
 //! Forces dynamic linking of Bevy.
@@ -54,6 +54,9 @@
 //! ```
 
 // Force linking of the main bevy crate
-#[allow(unused_imports)]
-#[allow(clippy::single_component_path_imports)]
+#[expect(
+    unused_imports,
+    clippy::single_component_path_imports,
+    reason = "This links the main bevy crate when using dynamic linking, and as such cannot be removed or changed without affecting dynamic linking."
+)]
 use bevy_internal;

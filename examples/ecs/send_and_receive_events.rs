@@ -1,7 +1,7 @@
 //! From time to time, you may find that you want to both send and receive an event of the same type in a single system.
 //!
 //! Of course, this results in an error: the borrows of [`EventWriter`] and [`EventReader`] overlap,
-//! if and only if the [`Event`] type is the same.
+//! if and only if the [`BufferedEvent`] type is the same.
 //! One system parameter borrows the [`Events`] resource mutably, and another system parameter borrows the [`Events`] resource immutably.
 //! If Bevy allowed this, this would violate Rust's rules against aliased mutability.
 //! In other words, this would be Undefined Behavior (UB)!
@@ -9,7 +9,7 @@
 //! There are two ways to solve this problem:
 //!
 //! 1. Use [`ParamSet`] to check out the [`EventWriter`] and [`EventReader`] one at a time.
-//! 2. Use a [`Local`] [`ManualEventReader`] instead of an [`EventReader`], and use [`ResMut`] to access [`Events`].
+//! 2. Use a [`Local`] [`EventCursor`] instead of an [`EventReader`], and use [`ResMut`] to access [`Events`].
 //!
 //! In the first case, you're being careful to only check out only one of the [`EventWriter`] or [`EventReader`] at a time.
 //! By "temporally" separating them, you avoid the overlap.
@@ -19,9 +19,7 @@
 //!
 //! Let's look at an example of each.
 
-use bevy::core::FrameCount;
-use bevy::ecs::event::ManualEventReader;
-use bevy::prelude::*;
+use bevy::{diagnostic::FrameCount, ecs::event::EventCursor, prelude::*};
 
 fn main() {
     let mut app = App::new();
@@ -48,10 +46,10 @@ fn main() {
     app.update();
 }
 
-#[derive(Event)]
+#[derive(BufferedEvent)]
 struct A;
 
-#[derive(Event)]
+#[derive(BufferedEvent)]
 struct B;
 
 // This works fine, because the types are different,
@@ -60,11 +58,11 @@ struct B;
 // not at compile time, as Bevy uses internal unsafe code to split the `World` into disjoint pieces.
 fn read_and_write_different_event_types(mut a: EventWriter<A>, mut b: EventReader<B>) {
     for _ in b.read() {}
-    a.send(A);
+    a.write(A);
 }
 
 /// A dummy event type.
-#[derive(Debug, Clone, Event)]
+#[derive(Debug, Clone, BufferedEvent)]
 struct DebugEvent {
     resend_from_param_set: bool,
     resend_from_local_event_reader: bool,
@@ -73,24 +71,24 @@ struct DebugEvent {
 
 /// A system that sends all combinations of events.
 fn send_events(mut events: EventWriter<DebugEvent>, frame_count: Res<FrameCount>) {
-    println!("Sending events for frame {:?}", frame_count.0);
+    println!("Sending events for frame {}", frame_count.0);
 
-    events.send(DebugEvent {
+    events.write(DebugEvent {
         resend_from_param_set: false,
         resend_from_local_event_reader: false,
         times_sent: 1,
     });
-    events.send(DebugEvent {
+    events.write(DebugEvent {
         resend_from_param_set: true,
         resend_from_local_event_reader: false,
         times_sent: 1,
     });
-    events.send(DebugEvent {
+    events.write(DebugEvent {
         resend_from_param_set: false,
         resend_from_local_event_reader: true,
         times_sent: 1,
     });
-    events.send(DebugEvent {
+    events.write(DebugEvent {
         resend_from_param_set: true,
         resend_from_local_event_reader: true,
         times_sent: 1,
@@ -102,7 +100,7 @@ fn send_events(mut events: EventWriter<DebugEvent>, frame_count: Res<FrameCount>
 /// Note that some events will be printed twice, because they were sent twice.
 fn debug_events(mut events: EventReader<DebugEvent>) {
     for event in events.read() {
-        println!("{:?}", event);
+        println!("{event:?}");
     }
 }
 
@@ -129,21 +127,21 @@ fn send_and_receive_param_set(
     // This is p1, as the second parameter in the `ParamSet` is the writer.
     for mut event in events_to_resend {
         event.times_sent += 1;
-        param_set.p1().send(event);
+        param_set.p1().write(event);
     }
 }
 
-/// A system that both sends and receives events using a [`Local`] [`ManualEventReader`].
+/// A system that both sends and receives events using a [`Local`] [`EventCursor`].
 fn send_and_receive_manual_event_reader(
     // The `Local` `SystemParam` stores state inside the system itself, rather than in the world.
-    // `ManualEventReader<T>` is the internal state of `EventReader<T>`, which tracks which events have been seen.
-    mut local_event_reader: Local<ManualEventReader<DebugEvent>>,
+    // `EventCursor<T>` is the internal state of `EventReader<T>`, which tracks which events have been seen.
+    mut local_event_reader: Local<EventCursor<DebugEvent>>,
     // We can access the `Events` resource mutably, allowing us to both read and write its contents.
     mut events: ResMut<Events<DebugEvent>>,
     frame_count: Res<FrameCount>,
 ) {
     println!(
-        "Sending and receiving events for frame {} with a `Local<ManualEventReader>",
+        "Sending and receiving events for frame {} with a `Local<EventCursor>",
         frame_count.0
     );
 
@@ -162,6 +160,6 @@ fn send_and_receive_manual_event_reader(
 
     for mut event in events_to_resend {
         event.times_sent += 1;
-        events.send(event);
+        events.write(event);
     }
 }

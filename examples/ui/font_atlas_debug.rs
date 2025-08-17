@@ -39,26 +39,27 @@ fn atlas_render_system(
     mut commands: Commands,
     mut state: ResMut<State>,
     font_atlas_sets: Res<FontAtlasSets>,
+    images: Res<Assets<Image>>,
 ) {
-    if let Some(set) = font_atlas_sets.get(&state.handle) {
-        if let Some((_size, font_atlas)) = set.iter().next() {
-            let x_offset = state.atlas_count as f32;
-            if state.atlas_count == font_atlas.len() as u32 {
-                return;
-            }
-            let font_atlas = &font_atlas[state.atlas_count as usize];
-            state.atlas_count += 1;
-            commands.spawn(ImageBundle {
-                image: font_atlas.texture.clone().into(),
-                style: Style {
-                    position_type: PositionType::Absolute,
-                    top: Val::ZERO,
-                    left: Val::Px(512.0 * x_offset),
-                    ..default()
-                },
-                ..default()
-            });
+    if let Some(set) = font_atlas_sets.get(&state.handle)
+        && let Some((_size, font_atlases)) = set.iter().next()
+    {
+        let x_offset = state.atlas_count as f32;
+        if state.atlas_count == font_atlases.len() as u32 {
+            return;
         }
+        let font_atlas = &font_atlases[state.atlas_count as usize];
+        let image = images.get(&font_atlas.texture).unwrap();
+        state.atlas_count += 1;
+        commands.spawn((
+            ImageNode::new(font_atlas.texture.clone()),
+            Node {
+                position_type: PositionType::Absolute,
+                top: Val::ZERO,
+                left: Val::Px(image.width() as f32 * x_offset),
+                ..default()
+            },
+        ));
     }
 }
 
@@ -68,41 +69,41 @@ fn text_update_system(
     mut query: Query<&mut Text>,
     mut seeded_rng: ResMut<SeededRng>,
 ) {
-    if state.timer.tick(time.delta()).finished() {
-        for mut text in &mut query {
-            let c = seeded_rng.gen::<u8>() as char;
-            let string = &mut text.sections[0].value;
-            if !string.contains(c) {
-                string.push(c);
-            }
-        }
+    if !state.timer.tick(time.delta()).just_finished() {
+        return;
+    }
 
-        state.timer.reset();
+    for mut text in &mut query {
+        let c = seeded_rng.random::<u8>() as char;
+        let string = &mut **text;
+        if !string.contains(c) {
+            string.push(c);
+        }
     }
 }
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut state: ResMut<State>) {
     let font_handle = asset_server.load("fonts/FiraSans-Bold.ttf");
     state.handle = font_handle.clone();
-    commands.spawn(Camera2dBundle::default());
+    commands.spawn(Camera2d);
     commands
-        .spawn(NodeBundle {
-            background_color: Color::NONE.into(),
-            style: Style {
+        .spawn((
+            Node {
                 position_type: PositionType::Absolute,
                 bottom: Val::ZERO,
                 ..default()
             },
-            ..default()
-        })
+            BackgroundColor(Color::NONE),
+        ))
         .with_children(|parent| {
-            parent.spawn(TextBundle::from_section(
-                "a",
-                TextStyle {
+            parent.spawn((
+                Text::new("a"),
+                TextFont {
                     font: font_handle,
-                    font_size: 60.0,
-                    color: YELLOW.into(),
+                    font_size: 50.0,
+                    ..default()
                 },
+                TextColor(YELLOW.into()),
             ));
         });
     // We're seeding the PRNG here to make this example deterministic for testing purposes.

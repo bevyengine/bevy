@@ -1,33 +1,42 @@
 //! Meshlet rendering for dense high-poly scenes (experimental).
 
+// Note: This example showcases the meshlet API, but is not the type of scene that would benefit from using meshlets.
+
 #[path = "../helpers/camera_controller.rs"]
 mod camera_controller;
 
 use bevy::{
-    pbr::{
-        experimental::meshlet::{MaterialMeshletMeshBundle, MeshletMesh, MeshletPlugin},
-        CascadeShadowConfigBuilder, DirectionalLightShadowMap,
-    },
+    light::{CascadeShadowConfigBuilder, DirectionalLightShadowMap},
+    pbr::experimental::meshlet::{MeshletMesh3d, MeshletPlugin},
     prelude::*,
     render::render_resource::AsBindGroup,
 };
 use camera_controller::{CameraController, CameraControllerPlugin};
-use std::f32::consts::PI;
+use std::{f32::consts::PI, path::Path, process::ExitCode};
 
-// Note: This example showcases the meshlet API, but is not the type of scene that would benefit from using meshlets.
+const ASSET_URL: &str =
+    "https://raw.githubusercontent.com/atlv24/assets/69bb39164fd35aadf863f6009520d4981eafcea0/bunny.meshlet_mesh";
 
-fn main() {
+fn main() -> ExitCode {
+    if !Path::new("./assets/external/models/bunny.meshlet_mesh").exists() {
+        eprintln!("ERROR: Asset at path <bevy>/assets/external/models/bunny.meshlet_mesh is missing. Please download it from {ASSET_URL}");
+        return ExitCode::FAILURE;
+    }
+
     App::new()
         .insert_resource(DirectionalLightShadowMap { size: 4096 })
         .add_plugins((
             DefaultPlugins,
-            MeshletPlugin,
+            MeshletPlugin {
+                cluster_buffer_slots: 1 << 14,
+            },
             MaterialPlugin::<MeshletDebugMaterial>::default(),
             CameraControllerPlugin,
         ))
         .add_systems(Startup, setup)
-        .add_systems(Update, draw_bounding_spheres)
         .run();
+
+    ExitCode::SUCCESS
 }
 
 fn setup(
@@ -37,54 +46,45 @@ fn setup(
     mut debug_materials: ResMut<Assets<MeshletDebugMaterial>>,
     mut meshes: ResMut<Assets<Mesh>>,
 ) {
-    info!("\nMeshlet Controls:\n    Space - Toggle bounding spheres");
-
     commands.spawn((
-        Camera3dBundle {
-            transform: Transform::from_translation(Vec3::new(1.8, 0.4, -0.1))
-                .looking_at(Vec3::ZERO, Vec3::Y),
-            ..default()
-        },
+        Camera3d::default(),
+        Transform::from_translation(Vec3::new(1.8, 0.4, -0.1)).looking_at(Vec3::ZERO, Vec3::Y),
+        Msaa::Off,
         EnvironmentMapLight {
             diffuse_map: asset_server.load("environment_maps/pisa_diffuse_rgb9e5_zstd.ktx2"),
             specular_map: asset_server.load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2"),
             intensity: 150.0,
+            ..default()
         },
         CameraController::default(),
     ));
 
-    commands.spawn(DirectionalLightBundle {
-        directional_light: DirectionalLight {
+    commands.spawn((
+        DirectionalLight {
             illuminance: light_consts::lux::FULL_DAYLIGHT,
             shadows_enabled: true,
             ..default()
         },
-        cascade_shadow_config: CascadeShadowConfigBuilder {
+        CascadeShadowConfigBuilder {
             num_cascades: 1,
-            maximum_distance: 5.0,
+            maximum_distance: 15.0,
             ..default()
         }
         .build(),
-        transform: Transform::from_rotation(Quat::from_euler(
-            EulerRot::ZYX,
-            0.0,
-            PI * -0.15,
-            PI * -0.15,
-        )),
-        ..default()
-    });
+        Transform::from_rotation(Quat::from_euler(EulerRot::ZYX, 0.0, PI * -0.15, PI * -0.15)),
+    ));
 
-    // A custom file format storing a [`bevy_render::mesh::Mesh`]
+    // A custom file format storing a [`bevy_mesh::Mesh`]
     // that has been converted to a [`bevy_pbr::meshlet::MeshletMesh`]
     // using [`bevy_pbr::meshlet::MeshletMesh::from_mesh`], which is
     // a function only available when the `meshlet_processor` cargo feature is enabled.
-    let meshlet_mesh_handle = asset_server.load("models/bunny.meshlet_mesh");
+    let meshlet_mesh_handle = asset_server.load("external/models/bunny.meshlet_mesh");
     let debug_material = debug_materials.add(MeshletDebugMaterial::default());
 
     for x in -2..=2 {
-        commands.spawn(MaterialMeshletMeshBundle {
-            meshlet_mesh: meshlet_mesh_handle.clone(),
-            material: standard_materials.add(StandardMaterial {
+        commands.spawn((
+            MeshletMesh3d(meshlet_mesh_handle.clone()),
+            MeshMaterial3d(standard_materials.add(StandardMaterial {
                 base_color: match x {
                     -2 => Srgba::hex("#dc2626").unwrap().into(),
                     -1 => Srgba::hex("#ea580c").unwrap().into(),
@@ -95,86 +95,36 @@ fn setup(
                 },
                 perceptual_roughness: (x + 2) as f32 / 4.0,
                 ..default()
-            }),
-            transform: Transform::default()
+            })),
+            Transform::default()
                 .with_scale(Vec3::splat(0.2))
                 .with_translation(Vec3::new(x as f32 / 2.0, 0.0, -0.3)),
-            ..default()
-        });
+        ));
     }
     for x in -2..=2 {
-        commands.spawn(MaterialMeshletMeshBundle {
-            meshlet_mesh: meshlet_mesh_handle.clone(),
-            material: debug_material.clone(),
-            transform: Transform::default()
+        commands.spawn((
+            MeshletMesh3d(meshlet_mesh_handle.clone()),
+            MeshMaterial3d(debug_material.clone()),
+            Transform::default()
                 .with_scale(Vec3::splat(0.2))
                 .with_rotation(Quat::from_rotation_y(PI))
                 .with_translation(Vec3::new(x as f32 / 2.0, 0.0, 0.3)),
-            ..default()
-        });
+        ));
     }
 
-    commands.spawn(PbrBundle {
-        mesh: meshes.add(Plane3d::default().mesh().size(5.0, 5.0)),
-        material: standard_materials.add(StandardMaterial {
+    commands.spawn((
+        Mesh3d(meshes.add(Plane3d::default().mesh().size(5.0, 5.0))),
+        MeshMaterial3d(standard_materials.add(StandardMaterial {
             base_color: Color::WHITE,
             perceptual_roughness: 1.0,
             ..default()
-        }),
-        ..default()
-    });
-}
-
-#[allow(clippy::too_many_arguments)]
-fn draw_bounding_spheres(
-    query: Query<(&Handle<MeshletMesh>, &Transform), With<Handle<MeshletDebugMaterial>>>,
-    debug: Query<&MeshletBoundingSpheresDebug>,
-    camera: Query<&Transform, With<Camera>>,
-    mut commands: Commands,
-    meshlets: Res<Assets<MeshletMesh>>,
-    mut gizmos: Gizmos,
-    keys: Res<ButtonInput<KeyCode>>,
-    mut should_draw: Local<bool>,
-) {
-    if keys.just_pressed(KeyCode::Space) {
-        *should_draw = !*should_draw;
-    }
-
-    match debug.get_single() {
-        Ok(meshlet_debug) if *should_draw => {
-            let camera_pos = camera.single().translation;
-            for circle in &meshlet_debug.circles {
-                gizmos.circle(
-                    circle.0,
-                    Dir3::new(camera_pos - circle.0).unwrap(),
-                    circle.1,
-                    Color::BLACK,
-                );
-            }
-        }
-        Err(_) => {
-            if let Some((handle, transform)) = query.iter().last() {
-                if let Some(meshlets) = meshlets.get(handle) {
-                    let mut circles = Vec::new();
-                    for bounding_sphere in meshlets.meshlet_bounding_spheres.iter() {
-                        let center = transform.transform_point(bounding_sphere.center);
-                        circles.push((center, transform.scale.x * bounding_sphere.radius));
-                    }
-                    commands.spawn(MeshletBoundingSpheresDebug { circles });
-                }
-            }
-        }
-        _ => {}
-    }
-}
-
-#[derive(Component)]
-struct MeshletBoundingSpheresDebug {
-    circles: Vec<(Vec3, f32)>,
+        })),
+    ));
 }
 
 #[derive(Asset, TypePath, AsBindGroup, Clone, Default)]
 struct MeshletDebugMaterial {
     _dummy: (),
 }
+
 impl Material for MeshletDebugMaterial {}

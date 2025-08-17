@@ -1,177 +1,222 @@
 use bevy_app::Plugin;
-use bevy_asset::{load_internal_asset, AssetId, Handle};
+use bevy_asset::{embedded_asset, load_embedded_asset, AssetId, AssetServer, Handle};
+use bevy_camera::{visibility::ViewVisibility, Camera2d};
+use bevy_render::RenderStartup;
+use bevy_shader::{load_shader_library, Shader, ShaderDefVal, ShaderSettings};
 
-use bevy_core_pipeline::core_2d::Transparent2d;
+use crate::{tonemapping_pipeline_key, Material2dBindGroupId};
+use bevy_core_pipeline::{
+    core_2d::{AlphaMask2d, Opaque2d, Transparent2d, CORE_2D_DEPTH_FORMAT},
+    tonemapping::{
+        get_lut_bind_group_layout_entries, get_lut_bindings, DebandDither, Tonemapping,
+        TonemappingLuts,
+    },
+};
 use bevy_derive::{Deref, DerefMut};
-use bevy_ecs::entity::EntityHashMap;
+use bevy_ecs::component::Tick;
+use bevy_ecs::system::SystemChangeTick;
 use bevy_ecs::{
     prelude::*,
     query::ROQueryItem,
-    system::{lifetimeless::*, SystemParamItem, SystemState},
+    system::{lifetimeless::*, SystemParamItem},
 };
+use bevy_image::{BevyDefault, Image, ImageSampler, TextureFormatPixelInfo};
 use bevy_math::{Affine3, Vec4};
-use bevy_reflect::{std_traits::ReflectDefault, Reflect};
-use bevy_render::mesh::MeshVertexBufferLayoutRef;
+use bevy_mesh::{Mesh, Mesh2d, MeshTag, MeshVertexBufferLayoutRef};
+use bevy_render::prelude::Msaa;
+use bevy_render::RenderSystems::PrepareAssets;
 use bevy_render::{
     batching::{
-        batch_and_prepare_sorted_render_phase, write_batched_instance_buffer, GetBatchData,
-        NoAutomaticBatching,
+        gpu_preprocessing::IndirectParametersCpuMetadata,
+        no_gpu_preprocessing::{
+            self, batch_and_prepare_binned_render_phase, batch_and_prepare_sorted_render_phase,
+            write_batched_instance_buffer, BatchedInstanceBuffer,
+        },
+        GetBatchData, GetFullBatchData, NoAutomaticBatching,
     },
     globals::{GlobalsBuffer, GlobalsUniform},
-    mesh::{GpuBufferInfo, Mesh},
+    mesh::{allocator::MeshAllocator, RenderMesh, RenderMeshBufferInfo},
     render_asset::RenderAssets,
-    render_phase::{PhaseItem, RenderCommand, RenderCommandResult, TrackedRenderPass},
+    render_phase::{
+        sweep_old_entities, PhaseItem, PhaseItemExtraIndex, RenderCommand, RenderCommandResult,
+        TrackedRenderPass,
+    },
     render_resource::{binding_types::uniform_buffer, *},
     renderer::{RenderDevice, RenderQueue},
-    texture::{
-        BevyDefault, DefaultImageSampler, GpuImage, Image, ImageSampler, TextureFormatPixelInfo,
-    },
-    view::{
-        ExtractedView, ViewTarget, ViewUniform, ViewUniformOffset, ViewUniforms, ViewVisibility,
-    },
-    Extract, ExtractSchedule, Render, RenderApp, RenderSet,
+    sync_world::{MainEntity, MainEntityHashMap},
+    texture::{DefaultImageSampler, FallbackImage, GpuImage},
+    view::{ExtractedView, ViewTarget, ViewUniform, ViewUniformOffset, ViewUniforms},
+    Extract, ExtractSchedule, Render, RenderApp, RenderSystems,
 };
 use bevy_transform::components::GlobalTransform;
-
-use crate::Material2dBindGroupId;
-
-/// Component for rendering with meshes in the 2d pipeline, usually with a [2d material](crate::Material2d) such as [`ColorMaterial`](crate::ColorMaterial).
-///
-/// It wraps a [`Handle<Mesh>`] to differentiate from the 3d pipelines which use the handles directly as components
-#[derive(Default, Clone, Component, Debug, Reflect, PartialEq, Eq)]
-#[reflect(Default, Component)]
-pub struct Mesh2dHandle(pub Handle<Mesh>);
-
-impl From<Handle<Mesh>> for Mesh2dHandle {
-    fn from(handle: Handle<Mesh>) -> Self {
-        Self(handle)
-    }
-}
+use bevy_utils::default;
+use nonmax::NonMaxU32;
+use tracing::error;
 
 #[derive(Default)]
 pub struct Mesh2dRenderPlugin;
 
-pub const MESH2D_VERTEX_OUTPUT: Handle<Shader> = Handle::weak_from_u128(7646632476603252194);
-pub const MESH2D_VIEW_TYPES_HANDLE: Handle<Shader> = Handle::weak_from_u128(12677582416765805110);
-pub const MESH2D_VIEW_BINDINGS_HANDLE: Handle<Shader> = Handle::weak_from_u128(6901431444735842434);
-pub const MESH2D_TYPES_HANDLE: Handle<Shader> = Handle::weak_from_u128(8994673400261890424);
-pub const MESH2D_BINDINGS_HANDLE: Handle<Shader> = Handle::weak_from_u128(8983617858458862856);
-pub const MESH2D_FUNCTIONS_HANDLE: Handle<Shader> = Handle::weak_from_u128(4976379308250389413);
-pub const MESH2D_SHADER_HANDLE: Handle<Shader> = Handle::weak_from_u128(2971387252468633715);
-
 impl Plugin for Mesh2dRenderPlugin {
     fn build(&self, app: &mut bevy_app::App) {
-        load_internal_asset!(
-            app,
-            MESH2D_VERTEX_OUTPUT,
-            "mesh2d_vertex_output.wgsl",
-            Shader::from_wgsl
-        );
-        load_internal_asset!(
-            app,
-            MESH2D_VIEW_TYPES_HANDLE,
-            "mesh2d_view_types.wgsl",
-            Shader::from_wgsl
-        );
-        load_internal_asset!(
-            app,
-            MESH2D_VIEW_BINDINGS_HANDLE,
-            "mesh2d_view_bindings.wgsl",
-            Shader::from_wgsl
-        );
-        load_internal_asset!(
-            app,
-            MESH2D_TYPES_HANDLE,
-            "mesh2d_types.wgsl",
-            Shader::from_wgsl
-        );
-        load_internal_asset!(
-            app,
-            MESH2D_FUNCTIONS_HANDLE,
-            "mesh2d_functions.wgsl",
-            Shader::from_wgsl
-        );
-        load_internal_asset!(app, MESH2D_SHADER_HANDLE, "mesh2d.wgsl", Shader::from_wgsl);
+        load_shader_library!(app, "mesh2d_vertex_output.wgsl");
+        load_shader_library!(app, "mesh2d_view_types.wgsl");
+        load_shader_library!(app, "mesh2d_view_bindings.wgsl");
+        load_shader_library!(app, "mesh2d_types.wgsl");
+        load_shader_library!(app, "mesh2d_functions.wgsl");
 
-        if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
+        embedded_asset!(app, "mesh2d.wgsl");
+
+        // These bindings should be loaded as a shader library, but it depends on runtime
+        // information, so we will load it in a system.
+        embedded_asset!(app, "mesh2d_bindings.wgsl");
+
+        if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
             render_app
+                .init_resource::<ViewKeyCache>()
                 .init_resource::<RenderMesh2dInstances>()
                 .init_resource::<SpecializedMeshPipelines<Mesh2dPipeline>>()
+                .init_resource::<ViewSpecializationTicks>()
+                .add_systems(
+                    RenderStartup,
+                    (
+                        init_mesh_2d_pipeline,
+                        init_batched_instance_buffer,
+                        load_mesh2d_bindings,
+                    ),
+                )
                 .add_systems(ExtractSchedule, extract_mesh2d)
                 .add_systems(
                     Render,
                     (
+                        check_views_need_specialization.in_set(PrepareAssets),
+                        (
+                            sweep_old_entities::<Opaque2d>,
+                            sweep_old_entities::<AlphaMask2d>,
+                        )
+                            .in_set(RenderSystems::QueueSweep),
+                        batch_and_prepare_binned_render_phase::<Opaque2d, Mesh2dPipeline>
+                            .in_set(RenderSystems::PrepareResources),
+                        batch_and_prepare_binned_render_phase::<AlphaMask2d, Mesh2dPipeline>
+                            .in_set(RenderSystems::PrepareResources),
                         batch_and_prepare_sorted_render_phase::<Transparent2d, Mesh2dPipeline>
-                            .in_set(RenderSet::PrepareResources),
+                            .in_set(RenderSystems::PrepareResources),
                         write_batched_instance_buffer::<Mesh2dPipeline>
-                            .in_set(RenderSet::PrepareResourcesFlush),
-                        prepare_mesh2d_bind_group.in_set(RenderSet::PrepareBindGroups),
-                        prepare_mesh2d_view_bind_groups.in_set(RenderSet::PrepareBindGroups),
+                            .in_set(RenderSystems::PrepareResourcesFlush),
+                        prepare_mesh2d_bind_group.in_set(RenderSystems::PrepareBindGroups),
+                        prepare_mesh2d_view_bind_groups.in_set(RenderSystems::PrepareBindGroups),
+                        no_gpu_preprocessing::clear_batched_cpu_instance_buffers::<Mesh2dPipeline>
+                            .in_set(RenderSystems::Cleanup)
+                            .after(RenderSystems::Render),
                     ),
                 );
         }
     }
+}
 
-    fn finish(&self, app: &mut bevy_app::App) {
-        let mut mesh_bindings_shader_defs = Vec::with_capacity(1);
+#[derive(Resource, Deref, DerefMut, Default, Debug, Clone)]
+pub struct ViewKeyCache(MainEntityHashMap<Mesh2dPipelineKey>);
 
-        if let Ok(render_app) = app.get_sub_app_mut(RenderApp) {
-            if let Some(per_object_buffer_batch_size) = GpuArrayBuffer::<Mesh2dUniform>::batch_size(
-                render_app.world.resource::<RenderDevice>(),
-            ) {
-                mesh_bindings_shader_defs.push(ShaderDefVal::UInt(
-                    "PER_OBJECT_BUFFER_BATCH_SIZE".into(),
-                    per_object_buffer_batch_size,
-                ));
+#[derive(Resource, Deref, DerefMut, Default, Debug, Clone)]
+pub struct ViewSpecializationTicks(MainEntityHashMap<Tick>);
+
+pub fn check_views_need_specialization(
+    mut view_key_cache: ResMut<ViewKeyCache>,
+    mut view_specialization_ticks: ResMut<ViewSpecializationTicks>,
+    views: Query<(
+        &MainEntity,
+        &ExtractedView,
+        &Msaa,
+        Option<&Tonemapping>,
+        Option<&DebandDither>,
+    )>,
+    ticks: SystemChangeTick,
+) {
+    for (view_entity, view, msaa, tonemapping, dither) in &views {
+        let mut view_key = Mesh2dPipelineKey::from_msaa_samples(msaa.samples())
+            | Mesh2dPipelineKey::from_hdr(view.hdr);
+
+        if !view.hdr {
+            if let Some(tonemapping) = tonemapping {
+                view_key |= Mesh2dPipelineKey::TONEMAP_IN_SHADER;
+                view_key |= tonemapping_pipeline_key(*tonemapping);
             }
-
-            render_app
-                .insert_resource(GpuArrayBuffer::<Mesh2dUniform>::new(
-                    render_app.world.resource::<RenderDevice>(),
-                ))
-                .init_resource::<Mesh2dPipeline>();
+            if let Some(DebandDither::Enabled) = dither {
+                view_key |= Mesh2dPipelineKey::DEBAND_DITHER;
+            }
         }
 
-        // Load the mesh_bindings shader module here as it depends on runtime information about
-        // whether storage buffers are supported, or the maximum uniform buffer binding size.
-        load_internal_asset!(
-            app,
-            MESH2D_BINDINGS_HANDLE,
-            "mesh2d_bindings.wgsl",
-            Shader::from_wgsl_with_defs,
-            mesh_bindings_shader_defs
-        );
+        if !view_key_cache
+            .get_mut(view_entity)
+            .is_some_and(|current_key| *current_key == view_key)
+        {
+            view_key_cache.insert(*view_entity, view_key);
+            view_specialization_ticks.insert(*view_entity, ticks.this_run());
+        }
     }
+}
+
+pub fn init_batched_instance_buffer(mut commands: Commands, render_device: Res<RenderDevice>) {
+    commands.insert_resource(BatchedInstanceBuffer::<Mesh2dUniform>::new(&render_device));
+}
+
+fn load_mesh2d_bindings(render_device: Res<RenderDevice>, asset_server: Res<AssetServer>) {
+    let mut mesh_bindings_shader_defs = Vec::with_capacity(1);
+
+    if let Some(per_object_buffer_batch_size) =
+        GpuArrayBuffer::<Mesh2dUniform>::batch_size(&render_device)
+    {
+        mesh_bindings_shader_defs.push(ShaderDefVal::UInt(
+            "PER_OBJECT_BUFFER_BATCH_SIZE".into(),
+            per_object_buffer_batch_size,
+        ));
+    }
+
+    // Load the mesh_bindings shader module here as it depends on runtime information about
+    // whether storage buffers are supported, or the maximum uniform buffer binding size.
+    let handle: Handle<Shader> = load_embedded_asset!(
+        asset_server.as_ref(),
+        "mesh2d_bindings.wgsl",
+        move |settings| {
+            *settings = ShaderSettings {
+                shader_defs: mesh_bindings_shader_defs.clone(),
+            }
+        }
+    );
+    // Forget the handle so we don't have to store it anywhere, and we keep the embedded asset
+    // loaded. Note: This is what happens in `load_shader_library` internally.
+    core::mem::forget(handle);
 }
 
 #[derive(Component)]
 pub struct Mesh2dTransforms {
-    pub transform: Affine3,
+    pub world_from_local: Affine3,
     pub flags: u32,
 }
 
-#[derive(ShaderType, Clone)]
+#[derive(ShaderType, Clone, Copy)]
 pub struct Mesh2dUniform {
     // Affine 4x3 matrix transposed to 3x4
-    pub transform: [Vec4; 3],
+    pub world_from_local: [Vec4; 3],
     // 3x3 matrix packed in mat2x4 and f32 as:
     //   [0].xyz, [1].x,
     //   [1].yz, [2].xy
     //   [2].z
-    pub inverse_transpose_model_a: [Vec4; 2],
-    pub inverse_transpose_model_b: f32,
+    pub local_from_world_transpose_a: [Vec4; 2],
+    pub local_from_world_transpose_b: f32,
     pub flags: u32,
+    pub tag: u32,
 }
 
-impl From<&Mesh2dTransforms> for Mesh2dUniform {
-    fn from(mesh_transforms: &Mesh2dTransforms) -> Self {
-        let (inverse_transpose_model_a, inverse_transpose_model_b) =
-            mesh_transforms.transform.inverse_transpose_3x3();
+impl Mesh2dUniform {
+    fn from_components(mesh_transforms: &Mesh2dTransforms, tag: u32) -> Self {
+        let (local_from_world_transpose_a, local_from_world_transpose_b) =
+            mesh_transforms.world_from_local.inverse_transpose_3x3();
         Self {
-            transform: mesh_transforms.transform.to_transpose(),
-            inverse_transpose_model_a,
-            inverse_transpose_model_b,
+            world_from_local: mesh_transforms.world_from_local.to_transpose(),
+            local_from_world_transpose_a,
+            local_from_world_transpose_b,
             flags: mesh_transforms.flags,
+            tag,
         }
     }
 }
@@ -190,140 +235,134 @@ pub struct RenderMesh2dInstance {
     pub mesh_asset_id: AssetId<Mesh>,
     pub material_bind_group_id: Material2dBindGroupId,
     pub automatic_batching: bool,
+    pub tag: u32,
 }
 
 #[derive(Default, Resource, Deref, DerefMut)]
-pub struct RenderMesh2dInstances(EntityHashMap<RenderMesh2dInstance>);
+pub struct RenderMesh2dInstances(MainEntityHashMap<RenderMesh2dInstance>);
 
-#[derive(Component)]
-pub struct Mesh2d;
+#[derive(Component, Default)]
+pub struct Mesh2dMarker;
 
 pub fn extract_mesh2d(
-    mut commands: Commands,
-    mut previous_len: Local<usize>,
     mut render_mesh_instances: ResMut<RenderMesh2dInstances>,
     query: Extract<
         Query<(
             Entity,
             &ViewVisibility,
             &GlobalTransform,
-            &Mesh2dHandle,
+            &Mesh2d,
+            Option<&MeshTag>,
             Has<NoAutomaticBatching>,
         )>,
     >,
 ) {
     render_mesh_instances.clear();
-    let mut entities = Vec::with_capacity(*previous_len);
 
-    for (entity, view_visibility, transform, handle, no_automatic_batching) in &query {
+    for (entity, view_visibility, transform, handle, tag, no_automatic_batching) in &query {
         if !view_visibility.get() {
             continue;
         }
-        // FIXME: Remove this - it is just a workaround to enable rendering to work as
-        // render commands require an entity to exist at the moment.
-        entities.push((entity, Mesh2d));
         render_mesh_instances.insert(
-            entity,
+            entity.into(),
             RenderMesh2dInstance {
                 transforms: Mesh2dTransforms {
-                    transform: (&transform.affine()).into(),
+                    world_from_local: (&transform.affine()).into(),
                     flags: MeshFlags::empty().bits(),
                 },
                 mesh_asset_id: handle.0.id(),
                 material_bind_group_id: Material2dBindGroupId::default(),
                 automatic_batching: !no_automatic_batching,
+                tag: tag.map_or(0, |i| **i),
             },
         );
     }
-    *previous_len = entities.len();
-    commands.insert_or_spawn_batch(entities);
 }
 
 #[derive(Resource, Clone)]
 pub struct Mesh2dPipeline {
     pub view_layout: BindGroupLayout,
     pub mesh_layout: BindGroupLayout,
+    pub shader: Handle<Shader>,
     // This dummy white texture is to be used in place of optional textures
     pub dummy_white_gpu_image: GpuImage,
     pub per_object_buffer_batch_size: Option<u32>,
 }
 
-impl FromWorld for Mesh2dPipeline {
-    fn from_world(world: &mut World) -> Self {
-        let mut system_state: SystemState<(
-            Res<RenderDevice>,
-            Res<RenderQueue>,
-            Res<DefaultImageSampler>,
-        )> = SystemState::new(world);
-        let (render_device, render_queue, default_sampler) = system_state.get_mut(world);
-        let render_device = render_device.into_inner();
-        let view_layout = render_device.create_bind_group_layout(
-            "mesh2d_view_layout",
-            &BindGroupLayoutEntries::sequential(
-                ShaderStages::VERTEX_FRAGMENT,
-                (
-                    // View
-                    uniform_buffer::<ViewUniform>(true),
-                    uniform_buffer::<GlobalsUniform>(false),
-                ),
+pub fn init_mesh_2d_pipeline(
+    mut commands: Commands,
+    render_device: Res<RenderDevice>,
+    render_queue: Res<RenderQueue>,
+    default_sampler: Res<DefaultImageSampler>,
+    asset_server: Res<AssetServer>,
+) {
+    let tonemapping_lut_entries = get_lut_bind_group_layout_entries();
+    let view_layout = render_device.create_bind_group_layout(
+        "mesh2d_view_layout",
+        &BindGroupLayoutEntries::sequential(
+            ShaderStages::VERTEX_FRAGMENT,
+            (
+                uniform_buffer::<ViewUniform>(true),
+                uniform_buffer::<GlobalsUniform>(false),
+                tonemapping_lut_entries[0].visibility(ShaderStages::FRAGMENT),
+                tonemapping_lut_entries[1].visibility(ShaderStages::FRAGMENT),
             ),
-        );
+        ),
+    );
 
-        let mesh_layout = render_device.create_bind_group_layout(
-            "mesh2d_layout",
-            &BindGroupLayoutEntries::single(
-                ShaderStages::VERTEX_FRAGMENT,
-                GpuArrayBuffer::<Mesh2dUniform>::binding_layout(render_device),
-            ),
-        );
-        // A 1x1x1 'all 1.0' texture to use as a dummy texture to use in place of optional StandardMaterial textures
-        let dummy_white_gpu_image = {
-            let image = Image::default();
-            let texture = render_device.create_texture(&image.texture_descriptor);
-            let sampler = match image.sampler {
-                ImageSampler::Default => (**default_sampler).clone(),
-                ImageSampler::Descriptor(ref descriptor) => {
-                    render_device.create_sampler(&descriptor.as_wgpu())
-                }
-            };
-
-            let format_size = image.texture_descriptor.format.pixel_size();
-            render_queue.write_texture(
-                texture.as_image_copy(),
-                &image.data,
-                ImageDataLayout {
-                    offset: 0,
-                    bytes_per_row: Some(image.width() * format_size as u32),
-                    rows_per_image: None,
-                },
-                image.texture_descriptor.size,
-            );
-
-            let texture_view = texture.create_view(&TextureViewDescriptor::default());
-            GpuImage {
-                texture,
-                texture_view,
-                texture_format: image.texture_descriptor.format,
-                sampler,
-                size: image.size(),
-                mip_level_count: image.texture_descriptor.mip_level_count,
+    let mesh_layout = render_device.create_bind_group_layout(
+        "mesh2d_layout",
+        &BindGroupLayoutEntries::single(
+            ShaderStages::VERTEX_FRAGMENT,
+            GpuArrayBuffer::<Mesh2dUniform>::binding_layout(&render_device),
+        ),
+    );
+    // A 1x1x1 'all 1.0' texture to use as a dummy texture to use in place of optional StandardMaterial textures
+    let dummy_white_gpu_image = {
+        let image = Image::default();
+        let texture = render_device.create_texture(&image.texture_descriptor);
+        let sampler = match image.sampler {
+            ImageSampler::Default => (**default_sampler).clone(),
+            ImageSampler::Descriptor(ref descriptor) => {
+                render_device.create_sampler(&descriptor.as_wgpu())
             }
         };
-        Mesh2dPipeline {
-            view_layout,
-            mesh_layout,
-            dummy_white_gpu_image,
-            per_object_buffer_batch_size: GpuArrayBuffer::<Mesh2dUniform>::batch_size(
-                render_device,
-            ),
+
+        let format_size = image.texture_descriptor.format.pixel_size();
+        render_queue.write_texture(
+            texture.as_image_copy(),
+            image.data.as_ref().expect("Image has no data"),
+            TexelCopyBufferLayout {
+                offset: 0,
+                bytes_per_row: Some(image.width() * format_size as u32),
+                rows_per_image: None,
+            },
+            image.texture_descriptor.size,
+        );
+
+        let texture_view = texture.create_view(&TextureViewDescriptor::default());
+        GpuImage {
+            texture,
+            texture_view,
+            texture_format: image.texture_descriptor.format,
+            sampler,
+            size: image.texture_descriptor.size,
+            mip_level_count: image.texture_descriptor.mip_level_count,
         }
-    }
+    };
+    commands.insert_resource(Mesh2dPipeline {
+        view_layout,
+        mesh_layout,
+        dummy_white_gpu_image,
+        per_object_buffer_batch_size: GpuArrayBuffer::<Mesh2dUniform>::batch_size(&render_device),
+        shader: load_embedded_asset!(asset_server.as_ref(), "mesh2d.wgsl"),
+    });
 }
 
 impl Mesh2dPipeline {
     pub fn get_image_texture<'a>(
         &'a self,
-        gpu_images: &'a RenderAssets<Image>,
+        gpu_images: &'a RenderAssets<GpuImage>,
         handle_option: &Option<Handle<Image>>,
     ) -> Option<(&'a TextureView, &'a Sampler)> {
         if let Some(handle) = handle_option {
@@ -339,22 +378,92 @@ impl Mesh2dPipeline {
 }
 
 impl GetBatchData for Mesh2dPipeline {
-    type Param = SRes<RenderMesh2dInstances>;
+    type Param = (
+        SRes<RenderMesh2dInstances>,
+        SRes<RenderAssets<RenderMesh>>,
+        SRes<MeshAllocator>,
+    );
     type CompareData = (Material2dBindGroupId, AssetId<Mesh>);
     type BufferData = Mesh2dUniform;
 
     fn get_batch_data(
-        mesh_instances: &SystemParamItem<Self::Param>,
-        entity: Entity,
+        (mesh_instances, _, _): &SystemParamItem<Self::Param>,
+        (_entity, main_entity): (Entity, MainEntity),
     ) -> Option<(Self::BufferData, Option<Self::CompareData>)> {
-        let mesh_instance = mesh_instances.get(&entity)?;
+        let mesh_instance = mesh_instances.get(&main_entity)?;
         Some((
-            (&mesh_instance.transforms).into(),
+            Mesh2dUniform::from_components(&mesh_instance.transforms, mesh_instance.tag),
             mesh_instance.automatic_batching.then_some((
                 mesh_instance.material_bind_group_id,
                 mesh_instance.mesh_asset_id,
             )),
         ))
+    }
+}
+
+impl GetFullBatchData for Mesh2dPipeline {
+    type BufferInputData = ();
+
+    fn get_binned_batch_data(
+        (mesh_instances, _, _): &SystemParamItem<Self::Param>,
+        main_entity: MainEntity,
+    ) -> Option<Self::BufferData> {
+        let mesh_instance = mesh_instances.get(&main_entity)?;
+        Some(Mesh2dUniform::from_components(
+            &mesh_instance.transforms,
+            mesh_instance.tag,
+        ))
+    }
+
+    fn get_index_and_compare_data(
+        _: &SystemParamItem<Self::Param>,
+        _query_item: MainEntity,
+    ) -> Option<(NonMaxU32, Option<Self::CompareData>)> {
+        error!(
+            "`get_index_and_compare_data` is only intended for GPU mesh uniform building, \
+            but this is not yet implemented for 2d meshes"
+        );
+        None
+    }
+
+    fn get_binned_index(
+        _: &SystemParamItem<Self::Param>,
+        _query_item: MainEntity,
+    ) -> Option<NonMaxU32> {
+        error!(
+            "`get_binned_index` is only intended for GPU mesh uniform building, \
+            but this is not yet implemented for 2d meshes"
+        );
+        None
+    }
+
+    fn write_batch_indirect_parameters_metadata(
+        indexed: bool,
+        base_output_index: u32,
+        batch_set_index: Option<NonMaxU32>,
+        indirect_parameters_buffer: &mut bevy_render::batching::gpu_preprocessing::UntypedPhaseIndirectParametersBuffers,
+        indirect_parameters_offset: u32,
+    ) {
+        // Note that `IndirectParameters` covers both of these structures, even
+        // though they actually have distinct layouts. See the comment above that
+        // type for more information.
+        let indirect_parameters = IndirectParametersCpuMetadata {
+            base_output_index,
+            batch_set_index: match batch_set_index {
+                None => !0,
+                Some(batch_set_index) => u32::from(batch_set_index),
+            },
+        };
+
+        if indexed {
+            indirect_parameters_buffer
+                .indexed
+                .set(indirect_parameters_offset, indirect_parameters);
+        } else {
+            indirect_parameters_buffer
+                .non_indexed
+                .set(indirect_parameters_offset, indirect_parameters);
+        }
     }
 }
 
@@ -369,6 +478,8 @@ bitflags::bitflags! {
         const HDR                               = 1 << 0;
         const TONEMAP_IN_SHADER                 = 1 << 1;
         const DEBAND_DITHER                     = 1 << 2;
+        const BLEND_ALPHA                       = 1 << 3;
+        const MAY_DISCARD                       = 1 << 4;
         const MSAA_RESERVED_BITS                = Self::MSAA_MASK_BITS << Self::MSAA_SHIFT_BITS;
         const PRIMITIVE_TOPOLOGY_RESERVED_BITS  = Self::PRIMITIVE_TOPOLOGY_MASK_BITS << Self::PRIMITIVE_TOPOLOGY_SHIFT_BITS;
         const TONEMAP_METHOD_RESERVED_BITS      = Self::TONEMAP_METHOD_MASK_BITS << Self::TONEMAP_METHOD_SHIFT_BITS;
@@ -469,6 +580,14 @@ impl SpecializedMeshPipeline for Mesh2dPipeline {
 
         if key.contains(Mesh2dPipelineKey::TONEMAP_IN_SHADER) {
             shader_defs.push("TONEMAP_IN_SHADER".into());
+            shader_defs.push(ShaderDefVal::UInt(
+                "TONEMAPPING_LUT_TEXTURE_BINDING_INDEX".into(),
+                2,
+            ));
+            shader_defs.push(ShaderDefVal::UInt(
+                "TONEMAPPING_LUT_SAMPLER_BINDING_INDEX".into(),
+                3,
+            ));
 
             let method = key.intersection(Mesh2dPipelineKey::TONEMAP_METHOD_RESERVED_BITS);
 
@@ -505,43 +624,46 @@ impl SpecializedMeshPipeline for Mesh2dPipeline {
             }
         }
 
+        if key.contains(Mesh2dPipelineKey::MAY_DISCARD) {
+            shader_defs.push("MAY_DISCARD".into());
+        }
+
         let vertex_buffer_layout = layout.0.get_layout(&vertex_attributes)?;
 
         let format = match key.contains(Mesh2dPipelineKey::HDR) {
             true => ViewTarget::TEXTURE_FORMAT_HDR,
             false => TextureFormat::bevy_default(),
         };
-        let mut push_constant_ranges = Vec::with_capacity(1);
-        if cfg!(all(
-            feature = "webgl",
-            target_arch = "wasm32",
-            not(feature = "webgpu")
-        )) {
-            push_constant_ranges.push(PushConstantRange {
-                stages: ShaderStages::VERTEX,
-                range: 0..4,
-            });
+
+        let (depth_write_enabled, label, blend);
+        if key.contains(Mesh2dPipelineKey::BLEND_ALPHA) {
+            label = "transparent_mesh2d_pipeline";
+            blend = Some(BlendState::ALPHA_BLENDING);
+            depth_write_enabled = false;
+        } else {
+            label = "opaque_mesh2d_pipeline";
+            blend = None;
+            depth_write_enabled = true;
         }
 
         Ok(RenderPipelineDescriptor {
             vertex: VertexState {
-                shader: MESH2D_SHADER_HANDLE,
-                entry_point: "vertex".into(),
+                shader: self.shader.clone(),
                 shader_defs: shader_defs.clone(),
                 buffers: vec![vertex_buffer_layout],
+                ..default()
             },
             fragment: Some(FragmentState {
-                shader: MESH2D_SHADER_HANDLE,
+                shader: self.shader.clone(),
                 shader_defs,
-                entry_point: "fragment".into(),
                 targets: vec![Some(ColorTargetState {
                     format,
-                    blend: Some(BlendState::ALPHA_BLENDING),
+                    blend,
                     write_mask: ColorWrites::ALL,
                 })],
+                ..default()
             }),
             layout: vec![self.view_layout.clone(), self.mesh_layout.clone()],
-            push_constant_ranges,
             primitive: PrimitiveState {
                 front_face: FrontFace::Ccw,
                 cull_mode: None,
@@ -551,13 +673,29 @@ impl SpecializedMeshPipeline for Mesh2dPipeline {
                 topology: key.primitive_topology(),
                 strip_index_format: None,
             },
-            depth_stencil: None,
+            depth_stencil: Some(DepthStencilState {
+                format: CORE_2D_DEPTH_FORMAT,
+                depth_write_enabled,
+                depth_compare: CompareFunction::GreaterEqual,
+                stencil: StencilState {
+                    front: StencilFaceState::IGNORE,
+                    back: StencilFaceState::IGNORE,
+                    read_mask: 0,
+                    write_mask: 0,
+                },
+                bias: DepthBiasState {
+                    constant: 0,
+                    slope_scale: 0.0,
+                    clamp: 0.0,
+                },
+            }),
             multisample: MultisampleState {
                 count: key.msaa_samples(),
                 mask: !0,
                 alpha_to_coverage_enabled: false,
             },
-            label: Some("transparent_mesh2d_pipeline".into()),
+            label: Some(label.into()),
+            ..default()
         })
     }
 }
@@ -571,9 +709,9 @@ pub fn prepare_mesh2d_bind_group(
     mut commands: Commands,
     mesh2d_pipeline: Res<Mesh2dPipeline>,
     render_device: Res<RenderDevice>,
-    mesh2d_uniforms: Res<GpuArrayBuffer<Mesh2dUniform>>,
+    mesh2d_uniforms: Res<BatchedInstanceBuffer<Mesh2dUniform>>,
 ) {
-    if let Some(binding) = mesh2d_uniforms.binding() {
+    if let Some(binding) = mesh2d_uniforms.instance_data_binding() {
         commands.insert_resource(Mesh2dBindGroup {
             value: render_device.create_bind_group(
                 "mesh2d_bind_group",
@@ -594,24 +732,36 @@ pub fn prepare_mesh2d_view_bind_groups(
     render_device: Res<RenderDevice>,
     mesh2d_pipeline: Res<Mesh2dPipeline>,
     view_uniforms: Res<ViewUniforms>,
-    views: Query<Entity, With<ExtractedView>>,
+    views: Query<(Entity, &Tonemapping), (With<ExtractedView>, With<Camera2d>)>,
     globals_buffer: Res<GlobalsBuffer>,
+    tonemapping_luts: Res<TonemappingLuts>,
+    images: Res<RenderAssets<GpuImage>>,
+    fallback_image: Res<FallbackImage>,
 ) {
-    if let (Some(view_binding), Some(globals)) = (
+    let (Some(view_binding), Some(globals)) = (
         view_uniforms.uniforms.binding(),
         globals_buffer.buffer.binding(),
-    ) {
-        for entity in &views {
-            let view_bind_group = render_device.create_bind_group(
-                "mesh2d_view_bind_group",
-                &mesh2d_pipeline.view_layout,
-                &BindGroupEntries::sequential((view_binding.clone(), globals.clone())),
-            );
+    ) else {
+        return;
+    };
 
-            commands.entity(entity).insert(Mesh2dViewBindGroup {
-                value: view_bind_group,
-            });
-        }
+    for (entity, tonemapping) in &views {
+        let lut_bindings =
+            get_lut_bindings(&images, &tonemapping_luts, tonemapping, &fallback_image);
+        let view_bind_group = render_device.create_bind_group(
+            "mesh2d_view_bind_group",
+            &mesh2d_pipeline.view_layout,
+            &BindGroupEntries::sequential((
+                view_binding.clone(),
+                globals.clone(),
+                lut_bindings.0,
+                lut_bindings.1,
+            )),
+        );
+
+        commands.entity(entity).insert(Mesh2dViewBindGroup {
+            value: view_bind_group,
+        });
     }
 }
 
@@ -624,7 +774,7 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMesh2dViewBindGroup<I
     #[inline]
     fn render<'w>(
         _item: &P,
-        (view_uniform, mesh2d_view_bind_group): ROQueryItem<'w, Self::ViewQuery>,
+        (view_uniform, mesh2d_view_bind_group): ROQueryItem<'w, '_, Self::ViewQuery>,
         _view: Option<()>,
         _param: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
@@ -651,8 +801,8 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMesh2dBindGroup<I> {
     ) -> RenderCommandResult {
         let mut dynamic_offsets: [u32; 1] = Default::default();
         let mut offset_count = 0;
-        if let Some(dynamic_offset) = item.dynamic_offset() {
-            dynamic_offsets[offset_count] = dynamic_offset.get();
+        if let PhaseItemExtraIndex::DynamicOffset(dynamic_offset) = item.extra_index() {
+            dynamic_offsets[offset_count] = dynamic_offset;
             offset_count += 1;
         }
         pass.set_bind_group(
@@ -666,7 +816,11 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMesh2dBindGroup<I> {
 
 pub struct DrawMesh2d;
 impl<P: PhaseItem> RenderCommand<P> for DrawMesh2d {
-    type Param = (SRes<RenderAssets<Mesh>>, SRes<RenderMesh2dInstances>);
+    type Param = (
+        SRes<RenderAssets<RenderMesh>>,
+        SRes<RenderMesh2dInstances>,
+        SRes<MeshAllocator>,
+    );
     type ViewQuery = ();
     type ItemQuery = ();
 
@@ -675,41 +829,48 @@ impl<P: PhaseItem> RenderCommand<P> for DrawMesh2d {
         item: &P,
         _view: (),
         _item_query: Option<()>,
-        (meshes, render_mesh2d_instances): SystemParamItem<'w, '_, Self::Param>,
+        (meshes, render_mesh2d_instances, mesh_allocator): SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
         let meshes = meshes.into_inner();
         let render_mesh2d_instances = render_mesh2d_instances.into_inner();
+        let mesh_allocator = mesh_allocator.into_inner();
 
         let Some(RenderMesh2dInstance { mesh_asset_id, .. }) =
-            render_mesh2d_instances.get(&item.entity())
+            render_mesh2d_instances.get(&item.main_entity())
         else {
-            return RenderCommandResult::Failure;
+            return RenderCommandResult::Skip;
         };
         let Some(gpu_mesh) = meshes.get(*mesh_asset_id) else {
-            return RenderCommandResult::Failure;
+            return RenderCommandResult::Skip;
+        };
+        let Some(vertex_buffer_slice) = mesh_allocator.mesh_vertex_slice(mesh_asset_id) else {
+            return RenderCommandResult::Skip;
         };
 
-        pass.set_vertex_buffer(0, gpu_mesh.vertex_buffer.slice(..));
+        pass.set_vertex_buffer(0, vertex_buffer_slice.buffer.slice(..));
 
         let batch_range = item.batch_range();
-        #[cfg(all(feature = "webgl", target_arch = "wasm32", not(feature = "webgpu")))]
-        pass.set_push_constants(
-            ShaderStages::VERTEX,
-            0,
-            &(batch_range.start as i32).to_le_bytes(),
-        );
         match &gpu_mesh.buffer_info {
-            GpuBufferInfo::Indexed {
-                buffer,
+            RenderMeshBufferInfo::Indexed {
                 index_format,
                 count,
             } => {
-                pass.set_index_buffer(buffer.slice(..), 0, *index_format);
-                pass.draw_indexed(0..*count, 0, batch_range.clone());
+                let Some(index_buffer_slice) = mesh_allocator.mesh_index_slice(mesh_asset_id)
+                else {
+                    return RenderCommandResult::Skip;
+                };
+
+                pass.set_index_buffer(index_buffer_slice.buffer.slice(..), 0, *index_format);
+
+                pass.draw_indexed(
+                    index_buffer_slice.range.start..(index_buffer_slice.range.start + count),
+                    vertex_buffer_slice.range.start as i32,
+                    batch_range.clone(),
+                );
             }
-            GpuBufferInfo::NonIndexed => {
-                pass.draw(0..gpu_mesh.vertex_count, batch_range.clone());
+            RenderMeshBufferInfo::NonIndexed => {
+                pass.draw(vertex_buffer_slice.range, batch_range.clone());
             }
         }
         RenderCommandResult::Success

@@ -1,8 +1,6 @@
 //! Showcases the [`RelativeCursorPosition`] component, used to check the position of the cursor relative to a UI node.
 
-use bevy::{
-    prelude::*, render::camera::Viewport, ui::RelativeCursorPosition, winit::WinitSettings,
-};
+use bevy::{camera::Viewport, prelude::*, ui::RelativeCursorPosition, winit::WinitSettings};
 
 fn main() {
     App::new()
@@ -15,8 +13,9 @@ fn main() {
 }
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
-    commands.spawn(Camera2dBundle {
-        camera: Camera {
+    commands.spawn((
+        Camera2d,
+        Camera {
             // Cursor position will take the viewport offset into account
             viewport: Some(Viewport {
                 physical_position: [200, 100].into(),
@@ -25,69 +24,59 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             }),
             ..default()
         },
-        ..default()
-    });
+    ));
 
     commands
-        .spawn(NodeBundle {
-            style: Style {
-                width: Val::Percent(100.),
-                height: Val::Percent(100.0),
-                align_items: AlignItems::Center,
-                justify_content: JustifyContent::Center,
-                flex_direction: FlexDirection::Column,
-                ..default()
-            },
+        .spawn(Node {
+            width: Val::Percent(100.),
+            height: Val::Percent(100.0),
+            align_items: AlignItems::Center,
+            justify_content: JustifyContent::Center,
+            flex_direction: FlexDirection::Column,
             ..default()
         })
         .with_children(|parent| {
             parent
-                .spawn(NodeBundle {
-                    style: Style {
+                .spawn((
+                    Node {
                         width: Val::Px(250.),
                         height: Val::Px(250.),
                         margin: UiRect::bottom(Val::Px(15.)),
                         ..default()
                     },
-                    background_color: Color::srgb(235., 35., 12.).into(),
-                    ..default()
-                })
+                    BackgroundColor(Color::srgb(235., 35., 12.)),
+                ))
                 .insert(RelativeCursorPosition::default());
 
-            parent.spawn(TextBundle {
-                text: Text::from_section(
-                    "(0.0, 0.0)",
-                    TextStyle {
-                        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                        font_size: 40.0,
-                        color: Color::srgb(0.9, 0.9, 0.9),
-                    },
-                ),
-                ..default()
-            });
+            parent.spawn((
+                Text::new("(0.0, 0.0)"),
+                TextFont {
+                    font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                    font_size: 33.0,
+                    ..default()
+                },
+                TextColor(Color::srgb(0.9, 0.9, 0.9)),
+            ));
         });
 }
 
 /// This systems polls the relative cursor position and displays its value in a text component.
 fn relative_cursor_position_system(
-    relative_cursor_position_query: Query<&RelativeCursorPosition>,
-    mut output_query: Query<&mut Text>,
+    relative_cursor_position: Single<&RelativeCursorPosition>,
+    output_query: Single<(&mut Text, &mut TextColor)>,
 ) {
-    let relative_cursor_position = relative_cursor_position_query.single();
+    let (mut output, mut text_color) = output_query.into_inner();
 
-    let mut output = output_query.single_mut();
+    **output = if let Some(relative_cursor_position) = relative_cursor_position.normalized {
+        format!(
+            "({:.1}, {:.1})",
+            relative_cursor_position.x, relative_cursor_position.y
+        )
+    } else {
+        "unknown".to_string()
+    };
 
-    output.sections[0].value =
-        if let Some(relative_cursor_position) = relative_cursor_position.normalized {
-            format!(
-                "({:.1}, {:.1})",
-                relative_cursor_position.x, relative_cursor_position.y
-            )
-        } else {
-            "unknown".to_string()
-        };
-
-    output.sections[0].style.color = if relative_cursor_position.mouse_over() {
+    text_color.0 = if relative_cursor_position.cursor_over() {
         Color::srgb(0.1, 0.9, 0.1)
     } else {
         Color::srgb(0.9, 0.1, 0.1)

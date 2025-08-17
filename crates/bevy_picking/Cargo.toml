@@ -1,0 +1,46 @@
+[package]
+name = "bevy_picking"
+version = "0.17.0-dev"
+edition = "2024"
+description = "Provides screen picking functionality for Bevy Engine"
+homepage = "https://bevy.org"
+repository = "https://github.com/bevyengine/bevy"
+license = "MIT OR Apache-2.0"
+
+[features]
+# Provides a mesh picking backend
+bevy_mesh_picking_backend = ["dep:bevy_mesh", "dep:crossbeam-channel"]
+
+[dependencies]
+# bevy
+bevy_app = { path = "../bevy_app", version = "0.17.0-dev" }
+bevy_asset = { path = "../bevy_asset", version = "0.17.0-dev" }
+bevy_derive = { path = "../bevy_derive", version = "0.17.0-dev" }
+bevy_ecs = { path = "../bevy_ecs", version = "0.17.0-dev" }
+bevy_input = { path = "../bevy_input", version = "0.17.0-dev" }
+bevy_math = { path = "../bevy_math", version = "0.17.0-dev" }
+bevy_mesh = { path = "../bevy_mesh", version = "0.17.0-dev", optional = true }
+bevy_camera = { path = "../bevy_camera", version = "0.17.0-dev" }
+bevy_reflect = { path = "../bevy_reflect", version = "0.17.0-dev" }
+bevy_time = { path = "../bevy_time", version = "0.17.0-dev" }
+bevy_transform = { path = "../bevy_transform", version = "0.17.0-dev" }
+bevy_window = { path = "../bevy_window", version = "0.17.0-dev" }
+bevy_platform = { path = "../bevy_platform", version = "0.17.0-dev", default-features = false, features = [
+  "std",
+] }
+
+# other
+crossbeam-channel = { version = "0.5", optional = true }
+uuid = { version = "1.13.1", features = ["v4"] }
+tracing = { version = "0.1", default-features = false, features = ["std"] }
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+# TODO: Assuming all wasm builds are for the browser. Require `no_std` support to break assumption.
+uuid = { version = "1.13.1", default-features = false, features = ["js"] }
+
+[lints]
+workspace = true
+
+[package.metadata.docs.rs]
+rustdoc-args = ["-Zunstable-options"]
+all-features = true

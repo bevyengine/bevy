@@ -17,15 +17,13 @@ fn setup(
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
     commands.spawn((
-        Camera3dBundle {
-            transform: Transform::from_xyz(3.0, 1.0, 3.0)
-                .looking_at(Vec3::new(0.0, -0.5, 0.0), Vec3::Y),
-            ..default()
-        },
+        Camera3d::default(),
+        Transform::from_xyz(3.0, 1.0, 3.0).looking_at(Vec3::new(0.0, -0.5, 0.0), Vec3::Y),
         EnvironmentMapLight {
             diffuse_map: asset_server.load("environment_maps/pisa_diffuse_rgb9e5_zstd.ktx2"),
             specular_map: asset_server.load("environment_maps/pisa_specular_rgb9e5_zstd.ktx2"),
             intensity: 2_000.0,
+            ..default()
         },
     ));
 
@@ -36,27 +34,26 @@ fn setup(
     let mut hsla = Hsla::hsl(0.0, 1.0, 0.5);
     for x in -1..2 {
         for z in -1..2 {
-            commands.spawn(PbrBundle {
-                mesh: cube.clone(),
-                material: materials.add(Color::from(hsla)),
-                transform: Transform::from_translation(Vec3::new(x as f32, 0.0, z as f32)),
-                ..default()
-            });
+            commands.spawn((
+                Mesh3d(cube.clone()),
+                MeshMaterial3d(materials.add(Color::from(hsla))),
+                Transform::from_translation(Vec3::new(x as f32, 0.0, z as f32)),
+            ));
             hsla = hsla.rotate_hue(GOLDEN_ANGLE);
         }
     }
 }
 
 fn animate_materials(
-    material_handles: Query<&Handle<StandardMaterial>>,
+    material_handles: Query<&MeshMaterial3d<StandardMaterial>>,
     time: Res<Time>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
     for material_handle in material_handles.iter() {
-        if let Some(material) = materials.get_mut(material_handle) {
-            if let Color::Hsla(ref mut hsla) = material.base_color {
-                *hsla = hsla.rotate_hue(time.delta_seconds() * 100.0);
-            }
+        if let Some(material) = materials.get_mut(material_handle)
+            && let Color::Hsla(ref mut hsla) = material.base_color
+        {
+            *hsla = hsla.rotate_hue(time.delta_secs() * 100.0);
         }
     }
 }

@@ -45,11 +45,13 @@ git checkout v0.4.0
   - [Android](#android)
     - [Setup](#setup)
     - [Build & Run](#build--run)
+    - [About `libc++_shared.so`](#about-libc_sharedso)
     - [Old phones](#old-phones)
+    - [About `cargo-apk`](#about-cargo-apk)
   - [iOS](#ios)
     - [Setup](#setup-1)
     - [Build & Run](#build--run-1)
-  - [WASM](#wasm)
+  - [Wasm](#wasm)
     - [Setup](#setup-2)
     - [Build & Run](#build--run-2)
     - [WebGL2 and WebGPU](#webgl2-and-webgpu)
@@ -57,67 +59,86 @@ git checkout v0.4.0
     - [Optimizing](#optimizing)
     - [Loading Assets](#loading-assets)
 
-# The Bare Minimum
+## The Bare Minimum
 
 <!-- MD026 - Hello, World! looks better with the ! -->
 <!-- markdownlint-disable-next-line MD026 -->
-## Hello, World!
+### Hello, World!
 
 Example | Description
 --- | ---
 [`hello_world.rs`](./hello_world.rs) | Runs a minimal example that outputs "hello world"
 
-# Cross-Platform Examples
+## Cross-Platform Examples
 {% for category, details in all_examples %}
-## {{ category }}
+### {{ category }}
 
 {% if details.description is string %}{{ details.description }}
 {% endif %}Example | Description
 --- | ---
 {% for example in details.examples %}[{{ example.name }}](../{{ example.path }}) | {{ example.description }}
 {% endfor %}{% endfor %}
-# Tests
+## Tests
 
 Example | Description
 --- | ---
+[How to Test Apps](../tests/how_to_test_apps.rs) | How to test apps (simple integration testing)
 [How to Test Systems](../tests/how_to_test_systems.rs) | How to test systems with commands, queries or resources
 
-# Platform-Specific Examples
+## Platform-Specific Examples
 
-## Android
+### Android
 
-### Setup
+#### Setup
 
 ```sh
-rustup target add aarch64-linux-android armv7-linux-androideabi
-cargo install cargo-apk
+rustup target add aarch64-linux-android
+cargo install cargo-ndk
 ```
 
 The Android SDK must be installed, and the environment variable `ANDROID_SDK_ROOT` set to the root Android `sdk` folder.
 
 When using `NDK (Side by side)`, the environment variable `ANDROID_NDK_ROOT` must also be set to one of the NDKs in `sdk\ndk\[NDK number]`.
 
-### Build & Run
+Alternatively, you can install Android Studio.
 
-To run on a device setup for Android development, run:
+#### Build & Run
+
+To build an Android app, you first need to build shared object files for the target architecture with `cargo-ndk`:
 
 ```sh
-cargo apk run -p bevy_mobile_example
+cargo ndk -t <target_name> -o <project_name>/app/src/main/jniLibs build
 ```
 
-When using Bevy as a library, the following fields must be added to `Cargo.toml`:
+For example, to compile to a 64-bit ARM platform:
 
-```toml
-[package.metadata.android]
-build_targets = ["aarch64-linux-android", "armv7-linux-androideabi"]
-
-[package.metadata.android.sdk]
-target_sdk_version = 31
+```sh
+cargo ndk -t arm64-v8a -o android_example/app/src/main/jniLibs build
 ```
 
-Please reference `cargo-apk` [README](https://crates.io/crates/cargo-apk) for other Android Manifest fields.
+Setting the output path ensures the shared object files can be found in target-specific directories under `jniLibs` where the JNI can find them.
 
-### Debugging
+See the `cargo-ndk` [README](https://crates.io/crates/cargo-ndk) for other options.
+
+After this you can build it with `gradlew`:
+
+```sh
+./gradlew build
+```
+
+Or build it with Android Studio.
+
+Then you can test it in your Android project.
+
+##### About `libc++_shared.so`
+
+Bevy may require `libc++_shared.so` to run on Android, as it is needed by the `oboe` crate, but typically `cargo-ndk` does not copy this file automatically.
+
+To include it, you can manually obtain it from NDK source or use a `build.rs` script for automation, as described in the `cargo-ndk` [README](https://github.com/bbqsrc/cargo-ndk?tab=readme-ov-file#linking-against-and-copying-libc_sharedso-into-the-relevant-places-in-the-output-directory).
+
+Alternatively, you can modify project files to include it when building an APK. To understand the specific steps taken in this project, please refer to the comments within the project files for detailed instructions(`app/CMakeList.txt`, `app/build.gradle`, `app/src/main/cpp/dummy.cpp`).
+
+#### Debugging
 
 You can view the logs with the following command:
 
@@ -133,27 +154,31 @@ Sometimes, running the app complains about an unknown activity. This may be fixe
 adb uninstall org.bevyengine.example
 ```
 
-### Old phones
+#### Old phones
 
-Bevy by default targets Android API level 31 in its examples which is the <!-- markdown-link-check-disable -->
-[Play Store's minimum API to upload or update apps](https://developer.android.com/distribute/best-practices/develop/target-sdk). <!-- markdown-link-check-enable -->
-Users of older phones may want to use an older API when testing.
+In its examples, Bevy targets the minimum Android API that Play Store  <!-- markdown-link-check-disable -->
+[requires](https://developer.android.com/distribute/best-practices/develop/target-sdk) to upload and update apps. <!-- markdown-link-check-enable -->
+Users of older phones may want to use an older API when testing. By default, Bevy uses [`GameActivity`](https://developer.android.com/games/agdk/game-activity), which only works for Android API level 31 and higher, so if you want to use older API, you need to switch to `NativeActivity`.
 
-To use a different API, the following fields must be updated in Cargo.toml:
+To use `NativeActivity`, you need to edit it in `cargo.toml` manually like this:
 
 ```toml
-[package.metadata.android.sdk]
-target_sdk_version = >>API<<
-min_sdk_version = >>API or less<<
+bevy = { version = "0.14", default-features = false, features = ["android-native-activity", ...] }
 ```
+
+Then build it as the [Build & Run](#build--run) section stated above.
+
+##### About `cargo-apk`
+
+You can also build an APK with `cargo-apk`, a simpler and deprecated tool which doesn't support `GameActivity`. If you want to use this, there is a [folder](./mobile/android_basic) inside the mobile example with instructions.
 
 Example | File | Description
 --- | --- | ---
 `android` | [`mobile/src/lib.rs`](./mobile/src/lib.rs) | A 3d Scene with a button and playing sound
 
-## iOS
+### iOS
 
-### Setup
+#### Setup
 
 You need to install the correct rust targets:
 
@@ -165,7 +190,7 @@ You need to install the correct rust targets:
 rustup target add aarch64-apple-ios x86_64-apple-ios aarch64-apple-ios-sim
 ```
 
-### Build & Run
+#### Build & Run
 
 Using bash:
 
@@ -195,16 +220,16 @@ Example | File | Description
 --- | --- | ---
 `ios` | [`mobile/src/lib.rs`](./mobile/src/lib.rs) | A 3d Scene with a button and playing sound
 
-## WASM
+### Wasm
 
-### Setup
+#### Setup
 
 ```sh
 rustup target add wasm32-unknown-unknown
 cargo install wasm-bindgen-cli
 ```
 
-### Build & Run
+#### Build & Run
 
 Following is an example for `lighting`. For other examples, change the `lighting` in the
 following commands.
@@ -224,113 +249,72 @@ javascript bindings to this wasm file in the output file `examples/wasm/target/w
 Then serve `examples/wasm` directory to browser. i.e.
 
 ```sh
-# cargo install basic-http-server
+## cargo install basic-http-server
 basic-http-server examples/wasm
 
-# with python
+## with python
 python3 -m http.server --directory examples/wasm
 
-# with ruby
+## with ruby
 ruby -run -ehttpd examples/wasm
 ```
 
-#### WebGL2 and WebGPU
+##### WebGL2 and WebGPU
 
 Bevy support for WebGPU is being worked on, but is currently experimental.
 
 To build for WebGPU, you'll need to enable the `webgpu` feature. This will override the `webgl2` feature, and builds with the `webgpu` feature enabled won't be able to run on browsers that don't support WebGPU.
 
-Bevy has an helper to build its examples:
+Bevy has a helper to build its examples:
 
 - Build for WebGL2: `cargo run -p build-wasm-example -- --api webgl2 load_gltf`
 - Build for WebGPU: `cargo run -p build-wasm-example -- --api webgpu load_gltf`
+- Debug: `cargo run -p build-wasm-example -- --debug --api webgl2 load_gltf`
 
 This helper will log the command used to build the examples.
 
-### Audio in the browsers
+#### Audio in the browsers
 
 For the moment, everything is single threaded, this can lead to stuttering when playing audio in browsers. Not all browsers react the same way for all games, you will have to experiment for your game.
 
 In browsers, audio is not authorized to start without being triggered by an user interaction. This is to avoid multiple tabs all starting to auto play some sounds. You can find more context and explanation for this on [Google Chrome blog](https://developer.chrome.com/blog/web-audio-autoplay/). This page also describes a JS workaround to resume audio as soon as the user interact with your game.
 
-### Optimizing
+#### Optimizing
 
 On the web, it's useful to reduce the size of the files that are distributed.
-With rust, there are many ways to improve your executable sizes.
-Here are some.
+With rust, there are many ways to improve your executable sizes, starting with
+the steps described in [the quick-start guide](https://bevy.org/learn/quick-start/getting-started/setup/#compile-with-performance-optimizations).
 
-#### 1. Tweak your `Cargo.toml`
-
-Add a new [profile](https://doc.rust-lang.org/cargo/reference/profiles.html)
-to your `Cargo.toml`:
-
-```toml
-[profile.wasm-release]
-# Use release profile as default values
-inherits = "release"
-
-# Optimize with size in mind, also try "s", sometimes it is better.
-# This doesn't increase compilation times compared to -O3, great improvements
-opt-level = "z"
-
-# Do a second optimization pass removing duplicate or unused code from dependencies.
-# Slows compile times, marginal improvements
-lto = "fat"
-
-# When building crates, optimize larger chunks at a time
-# Slows compile times, marginal improvements
-codegen-units = 1
-```
-
-Now, when building the final executable, use the `wasm-release` profile
-by replacing `--release` by `--profile wasm-release` in the cargo command.
+Now, when building the executable, use `--profile wasm-release` instead of `--release`:
 
 ```sh
 cargo build --profile wasm-release --example lighting --target wasm32-unknown-unknown
 ```
 
-Make sure your final executable size is smaller, some of those optimizations
-may not be worth keeping, due to compilation time increases.
-
-#### 2. Use `wasm-opt` from the binaryen package
-
-Binaryen is a set of tools for working with wasm. It has a `wasm-opt` CLI tool.
-
-First download the `binaryen` package,
-then locate the `.wasm` file generated by `wasm-bindgen`.
-It should be in the `--out-dir` you specified in the command line,
-the file name should end in `_bg.wasm`.
-
-Then run `wasm-opt` with the `-Oz` flag. Note that `wasm-opt` is _very slow_.
-
-Note that `wasm-opt` optimizations might not be as effective if you
-didn't apply the optimizations from the previous section.
+To apply `wasm-opt`, first locate the `.wasm` file generated in the `--out-dir` of the
+earlier `wasm-bindgen-cli` command (the filename should end with `_bg.wasm`), then run:
 
 ```sh
 wasm-opt -Oz --output optimized.wasm examples/wasm/target/lighting_bg.wasm
 mv optimized.wasm examples/wasm/target/lighting_bg.wasm
 ```
 
+Make sure your final executable size is actually smaller. Some optimizations
+may not be worth keeping due to compilation time increases.
+
 For a small project with a basic 3d model and two lights,
 the generated file sizes are, as of July 2022, as follows:
 
-|profile                           | wasm-opt | no wasm-opt |
-|----------------------------------|----------|-------------|
-|Default                           | 8.5M     | 13.0M       |
-|opt-level = "z"                   | 6.1M     | 12.7M       |
-|"z" + lto = "thin"                | 5.9M     | 12M         |
-|"z" + lto = "fat"                 | 5.1M     | 9.4M        |
-|"z" + "thin" + codegen-units = 1  | 5.3M     | 11M         |
-|"z" + "fat"  + codegen-units = 1  | 4.8M     | 8.5M        |
+profile                           | wasm-opt | no wasm-opt
+----------------------------------|----------|-------------
+Default                           | 8.5M     | 13.0M
+opt-level = "z"                   | 6.1M     | 12.7M
+"z" + lto = "thin"                | 5.9M     | 12M
+"z" + lto = "fat"                 | 5.1M     | 9.4M
+"z" + "thin" + codegen-units = 1  | 5.3M     | 11M
+"z" + "fat"  + codegen-units = 1  | 4.8M     | 8.5M
 
-There are more advanced optimization options available,
-check the following pages for more info:
-
-- <https://rustwasm.github.io/book/reference/code-size.html>
-- <https://rustwasm.github.io/docs/wasm-bindgen/reference/optimize-size.html>
-- <https://rustwasm.github.io/book/game-of-life/code-size.html>
-
-### Loading Assets
+#### Loading Assets
 
 To load assets, they need to be available in the folder examples/wasm/assets. Cloning this
 repository will set it up as a symlink on Linux and macOS, but you will need to manually move

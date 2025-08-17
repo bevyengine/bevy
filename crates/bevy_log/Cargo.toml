@@ -1,9 +1,9 @@
 [package]
 name = "bevy_log"
-version = "0.14.0-dev"
-edition = "2021"
+version = "0.17.0-dev"
+edition = "2024"
 description = "Provides logging for Bevy Engine"
-homepage = "https://bevyengine.org"
+homepage = "https://bevy.org"
 repository = "https://github.com/bevyengine/bevy"
 license = "MIT OR Apache-2.0"
 keywords = ["bevy"]
@@ -13,10 +13,13 @@ trace = ["tracing-error"]
 trace_tracy_memory = ["dep:tracy-client"]
 
 [dependencies]
-bevy_app = { path = "../bevy_app", version = "0.14.0-dev" }
-bevy_utils = { path = "../bevy_utils", version = "0.14.0-dev" }
-bevy_ecs = { path = "../bevy_ecs", version = "0.14.0-dev" }
+# bevy
+bevy_app = { path = "../bevy_app", version = "0.17.0-dev" }
+bevy_utils = { path = "../bevy_utils", version = "0.17.0-dev" }
+bevy_platform = { path = "../bevy_platform", version = "0.17.0-dev" }
+bevy_ecs = { path = "../bevy_ecs", version = "0.17.0-dev" }
 
+# other
 tracing-subscriber = { version = "0.3.1", features = [
   "registry",
   "env-filter",
@@ -24,21 +27,29 @@ tracing-subscriber = { version = "0.3.1", features = [
 tracing-chrome = { version = "0.7.0", optional = true }
 tracing-log = "0.2.0"
 tracing-error = { version = "0.2.0", optional = true }
+tracing = { version = "0.1", default-features = false, features = ["std"] }
 
 # Tracy dependency compatibility table:
 # https://github.com/nagisa/rust_tracy_client
-tracing-tracy = { version = "0.11.0", optional = true }
-tracy-client = { version = "0.17.0", optional = true }
+tracing-tracy = { version = "0.11.4", optional = true }
+tracy-client = { version = "0.18.0", optional = true }
 
 [target.'cfg(target_os = "android")'.dependencies]
 android_log-sys = "0.3.0"
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 tracing-wasm = "0.2.1"
+# TODO: Assuming all wasm builds are for the browser. Require `no_std` support to break assumption.
+bevy_app = { path = "../bevy_app", version = "0.17.0-dev", default-features = false, features = [
+  "web",
+] }
+
+[target.'cfg(target_os = "ios")'.dependencies]
+tracing-oslog = "0.3"
 
 [lints]
 workspace = true
 
 [package.metadata.docs.rs]
-rustdoc-args = ["-Zunstable-options", "--cfg", "docsrs"]
+rustdoc-args = ["-Zunstable-options", "--generate-link-to-definition"]
 all-features = true

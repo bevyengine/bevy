@@ -1,9 +1,17 @@
-use crate::{self as bevy_asset, DeserializeMetaError, VisitAssetDependencies};
-use crate::{loader::AssetLoader, processor::Process, Asset, AssetPath};
-use bevy_utils::tracing::error;
+use alloc::{
+    boxed::Box,
+    string::{String, ToString},
+    vec::Vec,
+};
+
+use crate::{
+    loader::AssetLoader, processor::Process, Asset, AssetPath, DeserializeMetaError,
+    VisitAssetDependencies,
+};
 use downcast_rs::{impl_downcast, Downcast};
 use ron::ser::PrettyConfig;
 use serde::{Deserialize, Serialize};
+use tracing::error;
 
 pub const META_FORMAT_VERSION: &str = "1.0";
 pub type MetaTransform = Box<dyn Fn(&mut dyn AssetMetaDyn) + Send + Sync>;
@@ -71,7 +79,7 @@ pub enum AssetAction<LoaderSettings, ProcessSettings> {
 pub struct ProcessedInfo {
     /// A hash of the asset bytes and the asset .meta data
     pub hash: AssetHash,
-    /// A hash of the asset bytes, the asset .meta data, and the `full_hash` of every process_dependency
+    /// A hash of the asset bytes, the asset .meta data, and the `full_hash` of every `process_dependency`
     pub full_hash: AssetHash,
     /// Information about the "process dependencies" used to process this asset.
     pub process_dependencies: Vec<ProcessDependencyInfo>,
@@ -171,11 +179,11 @@ impl Process for () {
     type Settings = ();
     type OutputLoader = ();
 
-    async fn process<'a>(
-        &'a self,
-        _context: &'a mut bevy_asset::processor::ProcessContext<'_>,
+    async fn process(
+        &self,
+        _context: &mut bevy_asset::processor::ProcessContext<'_>,
         _meta: AssetMeta<(), Self>,
-        _writer: &'a mut bevy_asset::io::Writer,
+        _writer: &mut bevy_asset::io::Writer,
     ) -> Result<(), bevy_asset::processor::ProcessError> {
         unreachable!()
     }
@@ -194,11 +202,11 @@ impl AssetLoader for () {
     type Asset = ();
     type Settings = ();
     type Error = std::io::Error;
-    async fn load<'a>(
-        &'a self,
-        _reader: &'a mut crate::io::Reader<'_>,
-        _settings: &'a Self::Settings,
-        _load_context: &'a mut crate::LoadContext<'_>,
+    async fn load(
+        &self,
+        _reader: &mut dyn crate::io::Reader,
+        _settings: &Self::Settings,
+        _load_context: &mut crate::LoadContext<'_>,
     ) -> Result<Self::Asset, Self::Error> {
         unreachable!();
     }
@@ -208,21 +216,26 @@ impl AssetLoader for () {
     }
 }
 
+pub(crate) fn meta_transform_settings<S: Settings>(
+    meta: &mut dyn AssetMetaDyn,
+    settings: &(impl Fn(&mut S) + Send + Sync + 'static),
+) {
+    if let Some(loader_settings) = meta.loader_settings_mut() {
+        if let Some(loader_settings) = loader_settings.downcast_mut::<S>() {
+            settings(loader_settings);
+        } else {
+            error!(
+                "Configured settings type {} does not match AssetLoader settings type",
+                core::any::type_name::<S>(),
+            );
+        }
+    }
+}
+
 pub(crate) fn loader_settings_meta_transform<S: Settings>(
     settings: impl Fn(&mut S) + Send + Sync + 'static,
 ) -> MetaTransform {
-    Box::new(move |meta| {
-        if let Some(loader_settings) = meta.loader_settings_mut() {
-            if let Some(loader_settings) = loader_settings.downcast_mut::<S>() {
-                settings(loader_settings);
-            } else {
-                error!(
-                    "Configured settings type {} does not match AssetLoader settings type",
-                    std::any::type_name::<S>(),
-                );
-            }
-        }
-    })
+    Box::new(move |meta| meta_transform_settings(meta, &settings))
 }
 
 pub type AssetHash = [u8; 32];

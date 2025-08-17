@@ -1,12 +1,13 @@
 [package]
 name = "bevy_ptr"
-version = "0.14.0-dev"
-edition = "2021"
+version = "0.17.0-dev"
+edition = "2024"
 description = "Utilities for working with untyped pointers in a more safe way"
-homepage = "https://bevyengine.org"
+homepage = "https://bevy.org"
 repository = "https://github.com/bevyengine/bevy"
 license = "MIT OR Apache-2.0"
 keywords = ["bevy", "no_std"]
+rust-version = "1.85.0"
 
 [dependencies]
 
@@ -14,5 +15,5 @@ keywords = ["bevy", "no_std"]
 workspace = true
 
 [package.metadata.docs.rs]
-rustdoc-args = ["-Zunstable-options", "--cfg", "docsrs"]
+rustdoc-args = ["-Zunstable-options", "--generate-link-to-definition"]
 all-features = true

@@ -1,37 +1,50 @@
 use crate::core_3d::Transparent3d;
+use bevy_camera::{MainPassResolutionOverride, Viewport};
 use bevy_ecs::{prelude::*, query::QueryItem};
 use bevy_render::{
     camera::ExtractedCamera,
     diagnostic::RecordDiagnostics,
     render_graph::{NodeRunError, RenderGraphContext, ViewNode},
-    render_phase::SortedRenderPhase,
+    render_phase::ViewSortedRenderPhases,
     render_resource::{RenderPassDescriptor, StoreOp},
     renderer::RenderContext,
-    view::{ViewDepthTexture, ViewTarget},
+    view::{ExtractedView, ViewDepthTexture, ViewTarget},
 };
+use tracing::error;
 #[cfg(feature = "trace")]
-use bevy_utils::tracing::info_span;
+use tracing::info_span;
 
 /// A [`bevy_render::render_graph::Node`] that runs the [`Transparent3d`]
-/// [`SortedRenderPhase`].
+/// [`ViewSortedRenderPhases`].
 #[derive(Default)]
 pub struct MainTransparentPass3dNode;
 
 impl ViewNode for MainTransparentPass3dNode {
     type ViewQuery = (
         &'static ExtractedCamera,
-        &'static SortedRenderPhase<Transparent3d>,
+        &'static ExtractedView,
         &'static ViewTarget,
         &'static ViewDepthTexture,
+        Option<&'static MainPassResolutionOverride>,
     );
     fn run(
         &self,
         graph: &mut RenderGraphContext,
         render_context: &mut RenderContext,
-        (camera, transparent_phase, target, depth): QueryItem<Self::ViewQuery>,
+        (camera, view, target, depth, resolution_override): QueryItem<Self::ViewQuery>,
         world: &World,
     ) -> Result<(), NodeRunError> {
         let view_entity = graph.view_entity();
+
+        let Some(transparent_phases) =
+            world.get_resource::<ViewSortedRenderPhases<Transparent3d>>()
+        else {
+            return Ok(());
+        };
+
+        let Some(transparent_phase) = transparent_phases.get(&view.retained_view_entity) else {
+            return Ok(());
+        };
 
         if !transparent_phase.items.is_empty() {
             // Run the transparent pass, sorted back-to-front
@@ -57,11 +70,15 @@ impl ViewNode for MainTransparentPass3dNode {
 
             let pass_span = diagnostics.pass_span(&mut render_pass, "main_transparent_pass_3d");
 
-            if let Some(viewport) = camera.viewport.as_ref() {
-                render_pass.set_camera_viewport(viewport);
+            if let Some(viewport) =
+                Viewport::from_viewport_and_override(camera.viewport.as_ref(), resolution_override)
+            {
+                render_pass.set_camera_viewport(&viewport);
             }
 
-            transparent_phase.render(&mut render_pass, world, view_entity);
+            if let Err(err) = transparent_phase.render(&mut render_pass, world, view_entity) {
+                error!("Error encountered while rendering the transparent phase {err:?}");
+            }
 
             pass_span.end(&mut render_pass);
         }

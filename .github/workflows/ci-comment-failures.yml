@@ -30,7 +30,7 @@ jobs:
             var artifacts = await github.rest.actions.listWorkflowRunArtifacts({
                owner: context.repo.owner,
                repo: context.repo.repo,
-               run_id: ${{github.event.workflow_run.id }},
+               run_id: ${{ github.event.workflow_run.id }},
             });
             var matchArtifacts = artifacts.data.artifacts.filter((artifact) => {
               return artifact.name == "missing-examples"
@@ -48,8 +48,21 @@ jobs:
             return "true"
       - run: unzip missing-examples.zip
         if: ${{ steps.find-artifact.outputs.result == 'true' }}
-      - name: 'Comment on PR'
+      - name: "Check if last comment is already from actions"
         if: ${{ steps.find-artifact.outputs.result == 'true' }}
+        id: check-last-comment
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          PR=`cat ./NR`
+          if [[ `gh api --jq '.[-1].user.login' /repos/bevyengine/bevy/issues/$PR/comments` == 'github-actions[bot]' ]]
+          then
+            echo "result=true" >> $GITHUB_OUTPUT
+          else
+            echo "result=false" >> $GITHUB_OUTPUT
+          fi
+      - name: "Comment on PR"
+        if: ${{ steps.find-artifact.outputs.result == 'true' && steps.check-last-comment.outputs.result == 'false' }}
         uses: actions/github-script@v7
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
@@ -88,7 +101,7 @@ jobs:
             var artifacts = await github.rest.actions.listWorkflowRunArtifacts({
                owner: context.repo.owner,
                repo: context.repo.repo,
-               run_id: ${{github.event.workflow_run.id }},
+               run_id: ${{ github.event.workflow_run.id }},
             });
             var matchArtifacts = artifacts.data.artifacts.filter((artifact) => {
               return artifact.name == "missing-features"
@@ -106,8 +119,21 @@ jobs:
             return "true"
       - run: unzip missing-features.zip
         if: ${{ steps.find-artifact.outputs.result == 'true' }}
-      - name: 'Comment on PR'
+      - name: "Check if last comment is already from actions"
         if: ${{ steps.find-artifact.outputs.result == 'true' }}
+        id: check-last-comment
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          PR=`cat ./NR`
+          if [[ `gh api --jq '.[-1].user.login' /repos/bevyengine/bevy/issues/$PR/comments` == 'github-actions[bot]' ]]
+          then
+            echo "result=true" >> $GITHUB_OUTPUT
+          else
+            echo "result=false" >> $GITHUB_OUTPUT
+          fi
+      - name: "Comment on PR"
+        if: ${{ steps.find-artifact.outputs.result == 'true' && steps.check-last-comment.outputs.result == 'false' }}
         uses: actions/github-script@v7
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
@@ -146,7 +172,7 @@ jobs:
             var artifacts = await github.rest.actions.listWorkflowRunArtifacts({
                owner: context.repo.owner,
                repo: context.repo.repo,
-               run_id: ${{github.event.workflow_run.id }},
+               run_id: ${{ github.event.workflow_run.id }},
             });
             var matchArtifacts = artifacts.data.artifacts.filter((artifact) => {
               return artifact.name == "msrv"
@@ -164,8 +190,21 @@ jobs:
             return "true"
       - run: unzip msrv.zip
         if: ${{ steps.find-artifact.outputs.result == 'true' }}
-      - name: 'Comment on PR'
+      - name: "Check if last comment is already from actions"
         if: ${{ steps.find-artifact.outputs.result == 'true' }}
+        id: check-last-comment
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          PR=`cat ./NR`
+          if [[ `gh api --jq '.[-1].user.login' /repos/bevyengine/bevy/issues/$PR/comments` == 'github-actions[bot]' ]]
+          then
+            echo "result=true" >> $GITHUB_OUTPUT
+          else
+            echo "result=false" >> $GITHUB_OUTPUT
+          fi
+      - name: "Comment on PR"
+        if: ${{ steps.find-artifact.outputs.result == 'true' && steps.check-last-comment.outputs.result == 'false' }}
         uses: actions/github-script@v7
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}

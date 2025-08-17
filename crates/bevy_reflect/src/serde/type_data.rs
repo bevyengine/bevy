@@ -1,6 +1,6 @@
 use crate::Reflect;
-use bevy_utils::hashbrown::hash_map::Iter;
-use bevy_utils::HashMap;
+use alloc::boxed::Box;
+use bevy_platform::collections::{hash_map::Iter, HashMap};
 
 /// Contains data relevant to the automatic reflect powered (de)serialization of a type.
 #[derive(Debug, Clone)]
@@ -14,9 +14,9 @@ impl SerializationData {
     /// # Arguments
     ///
     /// * `skipped_iter`: The iterator of field indices to be skipped during (de)serialization.
-    ///                   Indices are assigned only to reflected fields.
-    ///                   Ignored fields (i.e. those marked `#[reflect(ignore)]`) are implicitly skipped
-    ///                   and do not need to be included in this iterator.
+    ///   Indices are assigned only to reflected fields.
+    ///   Ignored fields (i.e. those marked `#[reflect(ignore)]`) are implicitly skipped
+    ///   and do not need to be included in this iterator.
     pub fn new<I: Iterator<Item = (usize, SkippedField)>>(skipped_iter: I) -> Self {
         Self {
             skipped_fields: skipped_iter.collect(),
@@ -27,7 +27,7 @@ impl SerializationData {
     /// # Example
     ///
     /// ```
-    /// # use std::any::TypeId;
+    /// # use core::any::TypeId;
     /// # use bevy_reflect::{Reflect, Struct, TypeRegistry, serde::SerializationData};
     /// #[derive(Reflect)]
     /// struct MyStruct {
@@ -67,7 +67,7 @@ impl SerializationData {
     /// # Example
     ///
     /// ```
-    /// # use std::any::TypeId;
+    /// # use core::any::TypeId;
     /// # use bevy_reflect::{Reflect, Struct, TypeRegistry, serde::SerializationData};
     /// #[derive(Reflect)]
     /// struct MyStruct {
@@ -90,7 +90,7 @@ impl SerializationData {
     pub fn generate_default(&self, index: usize) -> Option<Box<dyn Reflect>> {
         self.skipped_fields
             .get(&index)
-            .map(|field| field.generate_default())
+            .map(SkippedField::generate_default)
     }
 
     /// Returns the number of skipped fields.

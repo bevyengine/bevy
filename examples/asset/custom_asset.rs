@@ -1,7 +1,7 @@
 //! Implements loader for a custom asset type.
 
 use bevy::{
-    asset::{io::Reader, ron, AssetLoader, AsyncReadExt, LoadContext},
+    asset::{io::Reader, AssetLoader, LoadContext},
     prelude::*,
     reflect::TypePath,
 };
@@ -10,7 +10,10 @@ use thiserror::Error;
 
 #[derive(Asset, TypePath, Debug, Deserialize)]
 struct CustomAsset {
-    #[allow(dead_code)]
+    #[expect(
+        dead_code,
+        reason = "Used to show how the data inside an asset file will be loaded into the struct"
+    )]
     value: i32,
 }
 
@@ -20,7 +23,7 @@ struct CustomAssetLoader;
 /// Possible errors that can be produced by [`CustomAssetLoader`]
 #[non_exhaustive]
 #[derive(Debug, Error)]
-pub enum CustomAssetLoaderError {
+enum CustomAssetLoaderError {
     /// An [IO](std::io) Error
     #[error("Could not load asset: {0}")]
     Io(#[from] std::io::Error),
@@ -33,11 +36,11 @@ impl AssetLoader for CustomAssetLoader {
     type Asset = CustomAsset;
     type Settings = ();
     type Error = CustomAssetLoaderError;
-    async fn load<'a>(
-        &'a self,
-        reader: &'a mut Reader<'_>,
-        _settings: &'a (),
-        _load_context: &'a mut LoadContext<'_>,
+    async fn load(
+        &self,
+        reader: &mut dyn Reader,
+        _settings: &(),
+        _load_context: &mut LoadContext<'_>,
     ) -> Result<Self::Asset, Self::Error> {
         let mut bytes = Vec::new();
         reader.read_to_end(&mut bytes).await?;
@@ -58,10 +61,10 @@ struct Blob {
 #[derive(Default)]
 struct BlobAssetLoader;
 
-/// Possible errors that can be produced by [`CustomAssetLoader`]
+/// Possible errors that can be produced by [`BlobAssetLoader`]
 #[non_exhaustive]
 #[derive(Debug, Error)]
-pub enum BlobAssetLoaderError {
+enum BlobAssetLoaderError {
     /// An [IO](std::io) Error
     #[error("Could not load file: {0}")]
     Io(#[from] std::io::Error),
@@ -72,11 +75,11 @@ impl AssetLoader for BlobAssetLoader {
     type Settings = ();
     type Error = BlobAssetLoaderError;
 
-    async fn load<'a>(
-        &'a self,
-        reader: &'a mut Reader<'_>,
-        _settings: &'a (),
-        _load_context: &'a mut LoadContext<'_>,
+    async fn load(
+        &self,
+        reader: &mut dyn Reader,
+        _settings: &(),
+        _load_context: &mut LoadContext<'_>,
     ) -> Result<Self::Asset, Self::Error> {
         info!("Loading Blob...");
         let mut bytes = Vec::new();
@@ -149,7 +152,7 @@ fn print_on_load(
 
     info!("Custom asset loaded: {:?}", custom_asset.unwrap());
     info!("Custom asset loaded: {:?}", other_custom_asset.unwrap());
-    info!("Blob Size: {:?} Bytes", blob.unwrap().bytes.len());
+    info!("Blob Size: {} Bytes", blob.unwrap().bytes.len());
 
     // Once printed, we won't print again
     state.printed = true;

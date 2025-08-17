@@ -2,7 +2,7 @@
 //! If you build this, and hit 'P' it should toggle on/off the mouse's passthrough.
 //! Note: this example will not work on following platforms: iOS / Android / Web / X11. Window fall through is not supported there.
 
-use bevy::prelude::*;
+use bevy::{prelude::*, window::CursorOptions};
 
 fn main() {
     App::new()
@@ -24,35 +24,31 @@ fn main() {
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     // UI camera
-    commands.spawn(Camera2dBundle::default());
-    // Text with one section
+    commands.spawn(Camera2d);
+    // Text with one span
     commands.spawn((
-        // Create a TextBundle that has a Text with a single section.
-        TextBundle::from_section(
-            // Accepts a `String` or any type that converts into a `String`, such as `&str`
-            "Hit 'P' then scroll/click around!",
-            TextStyle {
-                font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                font_size: 100.0, // Nice and big so you can see it!
-                ..default()
-            },
-        )
+        // Accepts a `String` or any type that converts into a `String`, such as `&str`
+        Text::new("Hit 'P' then scroll/click around!"),
+        TextFont {
+            font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+            font_size: 83.0, // Nice and big so you can see it!
+            ..default()
+        },
         // Set the style of the TextBundle itself.
-        .with_style(Style {
+        Node {
             position_type: PositionType::Absolute,
             bottom: Val::Px(5.),
             right: Val::Px(10.),
             ..default()
-        }),
+        },
     ));
 }
-// A simple system to handle some keyboard input and toggle on/off the hittest.
+// A simple system to handle some keyboard input and toggle on/off the hit test.
 fn toggle_mouse_passthrough(
     keyboard_input: Res<ButtonInput<KeyCode>>,
-    mut windows: Query<&mut Window>,
+    mut cursor_options: Single<&mut CursorOptions>,
 ) {
     if keyboard_input.just_pressed(KeyCode::KeyP) {
-        let mut window = windows.single_mut();
-        window.cursor.hit_test = !window.cursor.hit_test;
+        cursor_options.hit_test = !cursor_options.hit_test;
     }
 }

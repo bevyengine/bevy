@@ -18,7 +18,11 @@
 //! | `humanoids_inactive` | 4000 humanoid rigs. Only 10 are active.                           |
 //! | `humanoids_mixed`    | 2000 active and 2000 inactive humanoid rigs.                      |
 
-use bevy::prelude::*;
+use bevy::{
+    diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
+    prelude::*,
+    window::ExitCondition,
+};
 use rand::Rng;
 
 /// pre-defined test configurations with name
@@ -183,7 +187,15 @@ fn main() {
 
     App::new()
         .insert_resource(cfg)
-        .add_plugins((MinimalPlugins, TransformPlugin))
+        .add_plugins((
+            DefaultPlugins.set(WindowPlugin {
+                primary_window: None,
+                exit_condition: ExitCondition::DontExit,
+                ..default()
+            }),
+            FrameTimeDiagnosticsPlugin::default(),
+            LogDiagnosticsPlugin::default(),
+        ))
         .add_systems(Startup, setup)
         // Updating transforms *must* be done before `PostUpdate`
         // or the hierarchy will momentarily be in an invalid state.
@@ -200,7 +212,6 @@ struct Cfg {
     update_filter: UpdateFilter,
 }
 
-#[allow(unused)]
 #[derive(Debug, Clone)]
 enum TestCase {
     /// a uniform tree, exponentially growing with depth
@@ -246,24 +257,21 @@ struct UpdateValue(f32);
 /// update positions system
 fn update(time: Res<Time>, mut query: Query<(&mut Transform, &mut UpdateValue)>) {
     for (mut t, mut u) in &mut query {
-        u.0 += time.delta_seconds() * 0.1;
+        u.0 += time.delta_secs() * 0.1;
         set_translation(&mut t.translation, u.0);
     }
 }
 
 /// set translation based on the angle `a`
 fn set_translation(translation: &mut Vec3, a: f32) {
-    translation.x = a.cos() * 32.0;
-    translation.y = a.sin() * 32.0;
+    translation.x = ops::cos(a) * 32.0;
+    translation.y = ops::sin(a) * 32.0;
 }
 
 fn setup(mut commands: Commands, cfg: Res<Cfg>) {
     warn!(include_str!("warning_string.txt"));
 
-    let mut cam = Camera2dBundle::default();
-
-    cam.transform.translation.z = 100.0;
-    commands.spawn(cam);
+    commands.spawn((Camera2d, Transform::from_xyz(0.0, 0.0, 100.0)));
 
     let result = match cfg.test_case {
         TestCase::Tree {
@@ -282,7 +290,7 @@ fn setup(mut commands: Commands, cfg: Res<Cfg>) {
         }
         TestCase::Humanoids { active, inactive } => {
             let mut result = InsertResult::default();
-            let mut rng = rand::thread_rng();
+            let mut rng = rand::rng();
 
             for _ in 0..active {
                 result.combine(spawn_tree(
@@ -290,8 +298,8 @@ fn setup(mut commands: Commands, cfg: Res<Cfg>) {
                     &mut commands,
                     &cfg.update_filter,
                     Transform::from_xyz(
-                        rng.gen::<f32>() * 500.0 - 250.0,
-                        rng.gen::<f32>() * 500.0 - 250.0,
+                        rng.random::<f32>() * 500.0 - 250.0,
+                        rng.random::<f32>() * 500.0 - 250.0,
                         0.0,
                     ),
                 ));
@@ -307,8 +315,8 @@ fn setup(mut commands: Commands, cfg: Res<Cfg>) {
                         ..cfg.update_filter
                     },
                     Transform::from_xyz(
-                        rng.gen::<f32>() * 500.0 - 250.0,
-                        rng.gen::<f32>() * 500.0 - 250.0,
+                        rng.random::<f32>() * 500.0 - 250.0,
+                        rng.random::<f32>() * 500.0 - 250.0,
                         0.0,
                     ),
                 ));
@@ -368,10 +376,10 @@ fn spawn_tree(
     }
 
     // insert root
-    ents.push(commands.spawn(TransformBundle::from(root_transform)).id());
+    ents.push(commands.spawn(root_transform).id());
 
     let mut result = InsertResult::default();
-    let mut rng = rand::thread_rng();
+    let mut rng = rand::rng();
     // used to count through the number of children (used only for visual layout)
     let mut child_idx: Vec<u16> = vec![0; count];
 
@@ -397,7 +405,7 @@ fn spawn_tree(
             let mut cmd = commands.spawn_empty();
 
             // check whether or not to update this node
-            let update = (rng.gen::<f32>() <= update_filter.probability)
+            let update = (rng.random::<f32>() <= update_filter.probability)
                 && (depth >= update_filter.min_depth && depth <= update_filter.max_depth);
 
             if update {
@@ -414,14 +422,12 @@ fn spawn_tree(
             };
 
             // only insert the components necessary for the transform propagation
-            cmd.insert(TransformBundle::from(transform));
+            cmd.insert(transform);
 
             cmd.id()
         };
 
-        commands
-            .get_or_spawn(ents[parent_idx])
-            .add_child(child_entity);
+        commands.entity(ents[parent_idx]).add_child(child_entity);
 
         ents.push(child_entity);
     }
@@ -441,7 +447,7 @@ fn gen_tree(depth: u32, branch_width: u32) -> Vec<usize> {
     // the tree is built using this pattern:
     // 0, 0, 0, ... 1, 1, 1, ... 2, 2, 2, ... (count - 1)
     (0..count)
-        .flat_map(|i| std::iter::repeat(i).take(branch_width.try_into().unwrap()))
+        .flat_map(|i| std::iter::repeat_n(i, branch_width.try_into().unwrap()))
         .collect()
 }
 

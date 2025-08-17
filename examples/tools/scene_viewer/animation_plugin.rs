@@ -11,6 +11,7 @@ struct Clips {
     nodes: Vec<AnimationNodeIndex>,
     current: usize,
 }
+
 impl Clips {
     fn new(clips: Vec<AnimationNodeIndex>) -> Self {
         Clips {
@@ -32,11 +33,10 @@ impl Clips {
 /// Automatically assign [`AnimationClip`]s to [`AnimationPlayer`] and play
 /// them, if the clips refer to descendants of the animation player (which is
 /// the common case).
-#[allow(clippy::too_many_arguments)]
 fn assign_clips(
     mut players: Query<&mut AnimationPlayer>,
     targets: Query<(Entity, &AnimationTarget)>,
-    parents: Query<&Parent>,
+    children: Query<&ChildOf>,
     scene_handle: Res<SceneHandle>,
     clips: Res<Assets<AnimationClip>>,
     gltf_assets: Res<Assets<Gltf>>,
@@ -108,20 +108,20 @@ fn assign_clips(
                 }
 
                 // Go to the next parent.
-                current = parents.get(entity).ok().map(|parent| parent.get());
+                current = children.get(entity).ok().map(ChildOf::parent);
             }
         }
 
         let Some(ancestor_player) = ancestor_player else {
             warn!(
-                "Unexpected animation hierarchy for animation clip {:?}; ignoring.",
+                "Unexpected animation hierarchy for animation clip {}; ignoring.",
                 clip_id
             );
             continue;
         };
 
         let Some(clip_handle) = assets.get_id_handle(clip_id) else {
-            warn!("Clip {:?} wasn't loaded.", clip_id);
+            warn!("Clip {} wasn't loaded.", clip_id);
             continue;
         };
 
@@ -145,7 +145,7 @@ fn assign_clips(
         commands
             .entity(player_entity)
             .insert(animations)
-            .insert(graph);
+            .insert(AnimationGraphHandle(graph));
     }
 }
 
@@ -156,7 +156,7 @@ fn handle_inputs(
     for (mut player, mut clips, entity, name) in &mut animation_player {
         let display_entity_name = match name {
             Some(name) => name.to_string(),
-            None => format!("entity {entity:?}"),
+            None => format!("entity {entity}"),
         };
         if keyboard_input.just_pressed(KeyCode::Space) {
             if player.all_paused() {

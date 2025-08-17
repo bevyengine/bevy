@@ -1,9 +1,38 @@
 use super::GlobalTransform;
-use bevy_ecs::{component::Component, reflect::ReflectComponent};
-use bevy_math::{Affine3A, Dir3, Mat3, Mat4, Quat, Vec3};
-use bevy_reflect::prelude::*;
-use bevy_reflect::Reflect;
-use std::ops::Mul;
+use bevy_math::{Affine3A, Dir3, Isometry3d, Mat3, Mat4, Quat, Vec3};
+use core::ops::Mul;
+
+#[cfg(feature = "bevy-support")]
+use bevy_ecs::component::Component;
+
+#[cfg(feature = "bevy_reflect")]
+use {bevy_ecs::reflect::ReflectComponent, bevy_reflect::prelude::*};
+
+/// Checks that a vector with the given squared length is normalized.
+///
+/// Warns for small error with a length threshold of approximately `1e-4`,
+/// and panics for large error with a length threshold of approximately `1e-2`.
+#[cfg(debug_assertions)]
+fn assert_is_normalized(message: &str, length_squared: f32) {
+    use bevy_math::ops;
+    #[cfg(feature = "std")]
+    use std::eprintln;
+
+    let length_error_squared = ops::abs(length_squared - 1.0);
+
+    // Panic for large error and warn for slight error.
+    if length_error_squared > 2e-2 || length_error_squared.is_nan() {
+        // Length error is approximately 1e-2 or more.
+        panic!("Error: {message}",);
+    } else if length_error_squared > 2e-4 {
+        // Length error is approximately 1e-4 or more.
+        #[cfg(feature = "std")]
+        #[expect(clippy::print_stderr, reason = "Allowed behind `std` feature gate.")]
+        {
+            eprintln!("Warning: {message}",);
+        }
+    }
+}
 
 /// Describe the position of an entity. If the entity has a parent, the position is relative
 /// to its parent position.
@@ -11,30 +40,45 @@ use std::ops::Mul;
 /// * To place or move an entity, you should set its [`Transform`].
 /// * To get the global transform of an entity, you should get its [`GlobalTransform`].
 /// * To be displayed, an entity must have both a [`Transform`] and a [`GlobalTransform`].
-///   * You may use the [`TransformBundle`](crate::TransformBundle) to guarantee this.
+///   [`GlobalTransform`] is automatically inserted whenever [`Transform`] is inserted.
 ///
 /// ## [`Transform`] and [`GlobalTransform`]
 ///
 /// [`Transform`] is the position of an entity relative to its parent position, or the reference
-/// frame if it doesn't have a [`Parent`](bevy_hierarchy::Parent).
+/// frame if it doesn't have a [`ChildOf`](bevy_ecs::hierarchy::ChildOf) component.
 ///
 /// [`GlobalTransform`] is the position of an entity relative to the reference frame.
 ///
-/// [`GlobalTransform`] is updated from [`Transform`] by systems in the system set
-/// [`TransformPropagate`](crate::TransformSystem::TransformPropagate).
+/// [`GlobalTransform`] is updated from [`Transform`] in the [`TransformSystems::Propagate`]
+/// system set.
 ///
 /// This system runs during [`PostUpdate`](bevy_app::PostUpdate). If you
 /// update the [`Transform`] of an entity during this set or after, you will notice a 1 frame lag
 /// before the [`GlobalTransform`] is updated.
 ///
+/// [`TransformSystems::Propagate`]: crate::TransformSystems::Propagate
+///
 /// # Examples
 ///
-/// - [`transform`]
+/// - [`transform`][transform_example]
 ///
-/// [`transform`]: https://github.com/bevyengine/bevy/blob/latest/examples/transforms/transform.rs
-#[derive(Component, Debug, PartialEq, Clone, Copy, Reflect)]
+/// [transform_example]: https://github.com/bevyengine/bevy/blob/latest/examples/transforms/transform.rs
+#[derive(Debug, PartialEq, Clone, Copy)]
 #[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
-#[reflect(Component, Default, PartialEq)]
+#[cfg_attr(
+    feature = "bevy-support",
+    derive(Component),
+    require(GlobalTransform, TransformTreeChanged)
+)]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Component, Default, PartialEq, Debug, Clone)
+)]
+#[cfg_attr(
+    all(feature = "bevy_reflect", feature = "serialize"),
+    reflect(Serialize, Deserialize)
+)]
 pub struct Transform {
     /// Position of the entity. In 2d, the last value of the `Vec3` is used for z-ordering.
     ///
@@ -75,8 +119,8 @@ impl Transform {
     /// Extracts the translation, rotation, and scale from `matrix`. It must be a 3d affine
     /// transformation matrix.
     #[inline]
-    pub fn from_matrix(matrix: Mat4) -> Self {
-        let (scale, rotation, translation) = matrix.to_scale_rotation_translation();
+    pub fn from_matrix(world_from_local: Mat4) -> Self {
+        let (scale, rotation, translation) = world_from_local.to_scale_rotation_translation();
 
         Transform {
             translation,
@@ -111,6 +155,18 @@ impl Transform {
     pub const fn from_scale(scale: Vec3) -> Self {
         Transform {
             scale,
+            ..Self::IDENTITY
+        }
+    }
+
+    /// Creates a new [`Transform`] that is equivalent to the given [isometry].
+    ///
+    /// [isometry]: Isometry3d
+    #[inline]
+    pub fn from_isometry(iso: Isometry3d) -> Self {
+        Transform {
+            translation: iso.translation.into(),
+            rotation: iso.rotation,
             ..Self::IDENTITY
         }
     }
@@ -154,8 +210,8 @@ impl Transform {
     /// * if `main_axis` or `main_direction` fail converting to `Dir3` (e.g are zero), `Dir3::X` takes their place
     /// * if `secondary_axis` or `secondary_direction` fail converting, `Dir3::Y` takes their place
     /// * if `main_axis` is parallel with `secondary_axis` or `main_direction` is parallel with `secondary_direction`,
-    /// a rotation is constructed which takes `main_axis` to `main_direction` along a great circle, ignoring the secondary
-    /// counterparts
+    ///   a rotation is constructed which takes `main_axis` to `main_direction` along a great circle, ignoring the secondary
+    ///   counterparts
     ///
     /// See [`Transform::align`] for additional details.
     #[inline]
@@ -200,10 +256,10 @@ impl Transform {
         self
     }
 
-    /// Returns the 3d affine transformation matrix from this transforms translation,
+    /// Computes the 3d affine transformation matrix from this transform's translation,
     /// rotation, and scale.
     #[inline]
-    pub fn compute_matrix(&self) -> Mat4 {
+    pub fn to_matrix(&self) -> Mat4 {
         Mat4::from_scale_rotation_translation(self.scale, self.rotation, self.translation)
     }
 
@@ -217,8 +273,8 @@ impl Transform {
     /// Get the unit vector in the local `X` direction.
     #[inline]
     pub fn local_x(&self) -> Dir3 {
-        // Dir3::new(x) panics if x is of invalid length, but quat * unit vector is length 1
-        Dir3::new(self.rotation * Vec3::X).unwrap()
+        // Quat * unit vector is length 1
+        Dir3::new_unchecked(self.rotation * Vec3::X)
     }
 
     /// Equivalent to [`-local_x()`][Transform::local_x()]
@@ -236,8 +292,8 @@ impl Transform {
     /// Get the unit vector in the local `Y` direction.
     #[inline]
     pub fn local_y(&self) -> Dir3 {
-        // Dir3::new(x) panics if x is of invalid length, but quat * unit vector is length 1
-        Dir3::new(self.rotation * Vec3::Y).unwrap()
+        // Quat * unit vector is length 1
+        Dir3::new_unchecked(self.rotation * Vec3::Y)
     }
 
     /// Equivalent to [`local_y()`][Transform::local_y]
@@ -255,8 +311,8 @@ impl Transform {
     /// Get the unit vector in the local `Z` direction.
     #[inline]
     pub fn local_z(&self) -> Dir3 {
-        // Dir3::new(x) panics if x is of invalid length, but quat * unit vector is length 1
-        Dir3::new(self.rotation * Vec3::Z).unwrap()
+        // Quat * unit vector is length 1
+        Dir3::new_unchecked(self.rotation * Vec3::Z)
     }
 
     /// Equivalent to [`-local_z()`][Transform::local_z]
@@ -288,9 +344,22 @@ impl Transform {
     /// Rotates this [`Transform`] around the given `axis` by `angle` (in radians).
     ///
     /// If this [`Transform`] has a parent, the `axis` is relative to the rotation of the parent.
+    ///
+    /// # Warning
+    ///
+    /// If you pass in an `axis` based on the current rotation (e.g. obtained via [`Transform::local_x`]),
+    /// floating point errors can accumulate exponentially when applying rotations repeatedly this way. This will
+    /// result in a denormalized rotation. In this case, it is recommended to normalize the [`Transform::rotation`] after
+    /// each call to this method.
     #[inline]
-    pub fn rotate_axis(&mut self, axis: Vec3, angle: f32) {
-        self.rotate(Quat::from_axis_angle(axis, angle));
+    pub fn rotate_axis(&mut self, axis: Dir3, angle: f32) {
+        #[cfg(debug_assertions)]
+        assert_is_normalized(
+            "The axis given to `Transform::rotate_axis` is not normalized. This may be a result of obtaining \
+            the axis from the transform. See the documentation of `Transform::rotate_axis` for more details.",
+            axis.length_squared(),
+        );
+        self.rotate(Quat::from_axis_angle(axis.into(), angle));
     }
 
     /// Rotates this [`Transform`] around the `X` axis by `angle` (in radians).
@@ -326,9 +395,22 @@ impl Transform {
     }
 
     /// Rotates this [`Transform`] around its local `axis` by `angle` (in radians).
+    ///
+    /// # Warning
+    ///
+    /// If you pass in an `axis` based on the current rotation (e.g. obtained via [`Transform::local_x`]),
+    /// floating point errors can accumulate exponentially when applying rotations repeatedly this way. This will
+    /// result in a denormalized rotation. In this case, it is recommended to normalize the [`Transform::rotation`] after
+    /// each call to this method.
     #[inline]
-    pub fn rotate_local_axis(&mut self, axis: Vec3, angle: f32) {
-        self.rotate_local(Quat::from_axis_angle(axis, angle));
+    pub fn rotate_local_axis(&mut self, axis: Dir3, angle: f32) {
+        #[cfg(debug_assertions)]
+        assert_is_normalized(
+            "The axis given to `Transform::rotate_axis_local` is not normalized. This may be a result of obtaining \
+            the axis from the transform. See the documentation of `Transform::rotate_axis_local` for more details.",
+            axis.length_squared(),
+        );
+        self.rotate_local(Quat::from_axis_angle(axis.into(), angle));
     }
 
     /// Rotates this [`Transform`] around its local `X` axis by `angle` (in radians).
@@ -407,7 +489,7 @@ impl Transform {
     /// More precisely, the [`Transform::rotation`] produced will be such that:
     /// * applying it to `main_axis` results in `main_direction`
     /// * applying it to `secondary_axis` produces a vector that lies in the half-plane generated by `main_direction` and
-    /// `secondary_direction` (with positive contribution by `secondary_direction`)
+    ///   `secondary_direction` (with positive contribution by `secondary_direction`)
     ///
     /// [`Transform::look_to`] is recovered, for instance, when `main_axis` is `Dir3::NEG_Z` (the [`Transform::forward`]
     /// direction in the default orientation) and `secondary_axis` is `Dir3::Y` (the [`Transform::up`] direction in the default
@@ -417,8 +499,8 @@ impl Transform {
     /// * if `main_axis` or `main_direction` fail converting to `Dir3` (e.g are zero), `Dir3::X` takes their place
     /// * if `secondary_axis` or `secondary_direction` fail converting, `Dir3::Y` takes their place
     /// * if `main_axis` is parallel with `secondary_axis` or `main_direction` is parallel with `secondary_direction`,
-    /// a rotation is constructed which takes `main_axis` to `main_direction` along a great circle, ignoring the secondary
-    /// counterparts
+    ///   a rotation is constructed which takes `main_axis` to `main_direction` along a great circle, ignoring the secondary
+    ///   counterparts
     ///
     /// Example
     /// ```
@@ -495,14 +577,15 @@ impl Transform {
 
     /// Transforms the given `point`, applying scale, rotation and translation.
     ///
-    /// If this [`Transform`] has a parent, this will transform a `point` that is
-    /// relative to the parent's [`Transform`] into one relative to this [`Transform`].
+    /// If this [`Transform`] has an ancestor entity with a [`Transform`] component,
+    /// [`Transform::transform_point`] will transform a point in local space into its
+    /// parent transform's space.
     ///
-    /// If this [`Transform`] does not have a parent, this will transform a `point`
-    /// that is in global space into one relative to this [`Transform`].
+    /// If this [`Transform`] does not have a parent, [`Transform::transform_point`] will
+    /// transform a point in local space into worldspace coordinates.
     ///
-    /// If you want to transform a `point` in global space to the local space of this [`Transform`],
-    /// consider using [`GlobalTransform::transform_point()`] instead.
+    /// If you always want to transform a point in local space to worldspace, or if you need
+    /// the inverse transformations, see [`GlobalTransform::transform_point()`].
     #[inline]
     pub fn transform_point(&self, mut point: Vec3) -> Vec3 {
         point = self.scale * point;
@@ -518,6 +601,14 @@ impl Transform {
     #[must_use]
     pub fn is_finite(&self) -> bool {
         self.translation.is_finite() && self.rotation.is_finite() && self.scale.is_finite()
+    }
+
+    /// Get the [isometry] defined by this transform's rotation and translation, ignoring scale.
+    ///
+    /// [isometry]: Isometry3d
+    #[inline]
+    pub fn to_isometry(&self) -> Isometry3d {
+        Isometry3d::new(self.translation, self.rotation)
     }
 }
 
@@ -559,3 +650,20 @@ impl Mul<Vec3> for Transform {
         self.transform_point(value)
     }
 }
+
+/// An optimization for transform propagation. This ZST marker component uses change detection to
+/// mark all entities of the hierarchy as "dirty" if any of their descendants have a changed
+/// `Transform`. If this component is *not* marked `is_changed()`, propagation will halt.
+#[derive(Clone, Copy, Default, PartialEq, Debug)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "bevy-support", derive(Component))]
+#[cfg_attr(
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Component, Default, PartialEq, Debug)
+)]
+#[cfg_attr(
+    all(feature = "bevy_reflect", feature = "serialize"),
+    reflect(Serialize, Deserialize)
+)]
+pub struct TransformTreeChanged;

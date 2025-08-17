@@ -11,6 +11,8 @@ on:
 jobs:
   welcome:
     runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
     steps:
       - uses: actions/github-script@v7
         with:
@@ -41,5 +43,5 @@ jobs:
               repo: context.repo.repo,
               body: `**Welcome**, new contributor!
 
-              Please make sure you've read our [contributing guide](https://github.com/bevyengine/bevy/blob/main/CONTRIBUTING.md) and we look forward to reviewing your pull request shortly ✨`
+              Please make sure you've read our [contributing guide](https://bevy.org/learn/contribute/introduction) and we look forward to reviewing your pull request shortly ✨`
             })
