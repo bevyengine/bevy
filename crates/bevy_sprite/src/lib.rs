@@ -13,6 +13,7 @@ extern crate alloc;
 #[cfg(feature = "bevy_sprite_picking_backend")]
 mod picking_backend;
 mod sprite;
+mod text2d;
 mod texture_slice;
 
 /// The sprite prelude.
@@ -27,20 +28,26 @@ pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
         sprite::{Sprite, SpriteImageMode},
+        text2d::{Text2d, Text2dReader, Text2dWriter},
         texture_slice::{BorderRect, SliceScaleMode, TextureSlice, TextureSlicer},
         ScalingMode,
     };
 }
 
+use bevy_app::AnimationSystems;
 use bevy_asset::Assets;
 use bevy_camera::{
     primitives::{Aabb, MeshAabb},
-    visibility::{NoFrustumCulling, VisibilitySystems},
+    visibility::NoFrustumCulling,
 };
+use bevy_camera::{visibility::VisibilitySystems, CameraUpdateSystems};
 use bevy_mesh::{Mesh, Mesh2d};
+use bevy_text::detect_text_needs_rerender;
+use bevy_text::Text2dUpdateSystems;
 #[cfg(feature = "bevy_sprite_picking_backend")]
 pub use picking_backend::*;
 pub use sprite::*;
+pub use text2d::*;
 pub use texture_slice::*;
 
 use bevy_app::prelude::*;
@@ -70,6 +77,24 @@ impl Plugin for SpritePlugin {
         app.add_systems(
             PostUpdate,
             calculate_bounds_2d.in_set(VisibilitySystems::CalculateBounds),
+        );
+
+        app.add_systems(
+            PostUpdate,
+            (
+                detect_text_needs_rerender::<Text2d>,
+                update_text2d_layout
+                    // Potential conflict: `Assets<Image>`
+                    // In practice, they run independently since `bevy_render::camera_update_system`
+                    // will only ever observe its own render target, and `update_text2d_layout`
+                    // will never modify a pre-existing `Image` asset.
+                    .ambiguous_with(CameraUpdateSystems)
+                    .after(bevy_text::remove_dropped_font_atlas_sets),
+                calculate_bounds_text2d.in_set(VisibilitySystems::CalculateBounds),
+            )
+                .chain()
+                .in_set(Text2dUpdateSystems)
+                .after(AnimationSystems),
         );
 
         #[cfg(feature = "bevy_sprite_picking_backend")]

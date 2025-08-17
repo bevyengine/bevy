@@ -22,10 +22,11 @@ use bevy_ecs::{
 use bevy_light::cascade::Cascade;
 use bevy_light::cluster::assign::{calculate_cluster_factors, ClusterableObjectType};
 use bevy_light::cluster::GlobalVisibleClusterableObjects;
+use bevy_light::SunDisk;
 use bevy_light::{
     spot_light_clip_from_view, spot_light_world_from_view, AmbientLight, CascadeShadowConfig,
     Cascades, DirectionalLight, DirectionalLightShadowMap, NotShadowCaster, PointLight,
-    PointLightShadowMap, SpotLight, VolumetricLight,
+    PointLightShadowMap, ShadowFilteringMethod, SpotLight, VolumetricLight,
 };
 use bevy_math::{ops, Mat4, UVec4, Vec3, Vec3Swizzles, Vec4, Vec4Swizzles};
 use bevy_platform::collections::{HashMap, HashSet};
@@ -103,6 +104,8 @@ pub struct ExtractedDirectionalLight {
     pub soft_shadow_size: Option<f32>,
     /// True if this light is using two-phase occlusion culling.
     pub occlusion_culling: bool,
+    pub sun_disk_angular_size: f32,
+    pub sun_disk_intensity: f32,
 }
 
 // NOTE: These must match the bit flags in bevy_pbr/src/render/mesh_view_types.wgsl!
@@ -138,6 +141,8 @@ pub struct GpuDirectionalLight {
     cascades_overlap_proportion: f32,
     depth_texture_base_index: u32,
     decal_index: u32,
+    sun_disk_angular_size: f32,
+    sun_disk_intensity: f32,
 }
 
 // NOTE: These must match the bit flags in bevy_pbr/src/render/mesh_view_types.wgsl!
@@ -224,6 +229,54 @@ pub fn init_shadow_samplers(mut commands: Commands, render_device: Res<RenderDev
     });
 }
 
+// This is needed because of the orphan rule not allowing implementing
+// foreign trait ExtractComponent on foreign type ShadowFilteringMethod
+pub fn extract_shadow_filtering_method(
+    mut commands: Commands,
+    mut previous_len: Local<usize>,
+    query: Extract<Query<(RenderEntity, &ShadowFilteringMethod)>>,
+) {
+    let mut values = Vec::with_capacity(*previous_len);
+    for (entity, query_item) in &query {
+        values.push((entity, *query_item));
+    }
+    *previous_len = values.len();
+    commands.try_insert_batch(values);
+}
+
+// This is needed because of the orphan rule not allowing implementing
+// foreign trait ExtractResource on foreign type AmbientLight
+pub fn extract_ambient_light_resource(
+    mut commands: Commands,
+    main_resource: Extract<Option<Res<AmbientLight>>>,
+    target_resource: Option<ResMut<AmbientLight>>,
+) {
+    if let Some(main_resource) = main_resource.as_ref() {
+        if let Some(mut target_resource) = target_resource {
+            if main_resource.is_changed() {
+                *target_resource = (*main_resource).clone();
+            }
+        } else {
+            commands.insert_resource((*main_resource).clone());
+        }
+    }
+}
+
+// This is needed because of the orphan rule not allowing implementing
+// foreign trait ExtractComponent on foreign type AmbientLight
+pub fn extract_ambient_light(
+    mut commands: Commands,
+    mut previous_len: Local<usize>,
+    query: Extract<Query<(RenderEntity, &AmbientLight)>>,
+) {
+    let mut values = Vec::with_capacity(*previous_len);
+    for (entity, query_item) in &query {
+        values.push((entity, query_item.clone()));
+    }
+    *previous_len = values.len();
+    commands.try_insert_batch(values);
+}
+
 pub fn extract_lights(
     mut commands: Commands,
     point_light_shadow_map: Extract<Res<PointLightShadowMap>>,
@@ -279,6 +332,7 @@ pub fn extract_lights(
                 Option<&RenderLayers>,
                 Option<&VolumetricLight>,
                 Has<OcclusionCulling>,
+                Option<&SunDisk>,
             ),
             Without<SpotLight>,
         >,
@@ -460,6 +514,7 @@ pub fn extract_lights(
         maybe_layers,
         volumetric_light,
         occlusion_culling,
+        sun_disk,
     ) in &directional_lights
     {
         if !view_visibility.get() {
@@ -526,6 +581,8 @@ pub fn extract_lights(
                     frusta: extracted_frusta,
                     render_layers: maybe_layers.unwrap_or_default().clone(),
                     occlusion_culling,
+                    sun_disk_angular_size: sun_disk.unwrap_or_default().angular_size,
+                    sun_disk_intensity: sun_disk.unwrap_or_default().intensity,
                 },
                 RenderCascadesVisibleEntities {
                     entities: cascade_visible_entities,
@@ -1152,6 +1209,8 @@ pub fn prepare_lights(
                 num_cascades: num_cascades as u32,
                 cascades_overlap_proportion: light.cascade_shadow_config.overlap_proportion,
                 depth_texture_base_index: num_directional_cascades_enabled_for_this_view as u32,
+                sun_disk_angular_size: light.sun_disk_angular_size,
+                sun_disk_intensity: light.sun_disk_intensity,
                 decal_index: decals
                     .as_ref()
                     .and_then(|decals| decals.get(*light_entity))
