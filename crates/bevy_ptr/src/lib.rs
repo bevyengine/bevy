@@ -200,20 +200,18 @@ pub struct OwningPtr<'a, A: IsAligned = Aligned>(NonNull<u8>, PhantomData<(&'a m
 
 macro_rules! impl_ptr {
     ($ptr:ident) => {
-        impl<'a> $ptr<'a, Aligned> {
-            /// Removes the alignment requirement of this pointer
-            pub fn to_unaligned(self) -> $ptr<'a, Unaligned> {
-                $ptr(self.0, PhantomData)
-            }
-        }
-
         impl<'a, A: IsAligned> From<$ptr<'a, A>> for NonNull<u8> {
             fn from(ptr: $ptr<'a, A>) -> Self {
                 ptr.0
             }
         }
 
-        impl<A: IsAligned> $ptr<'_, A> {
+        impl<'a, A: IsAligned> $ptr<'a, A> {
+            /// Removes the alignment requirement of this pointer
+            pub fn to_unaligned(self) -> $ptr<'a, Unaligned> {
+                $ptr(self.0, PhantomData)
+            }
+
             /// Calculates the offset from a pointer.
             /// As the pointer is type-erased, there is no size information available. The provided
             /// `count` parameter is in raw bytes.
@@ -257,6 +255,49 @@ macro_rules! impl_ptr {
                     PhantomData,
                 )
             }
+
+            /// Returns whether the pointer is aligned to `align`.
+            ///
+            //// For non-Sized pointees this operation considers only the data pointer, ignoring the metadata.
+            ///
+            /// # Panics
+            ///
+            /// This function will panic when `debug_assertions` is enabled if `align` is not a power of two.
+            ///
+            /// # Safety
+            /// `align` must be a power of two.
+            #[inline]
+            pub unsafe fn is_aligned_to(self, align: usize) -> bool {
+                debug_assert!(
+                    align.is_power_of_two(),
+                    "is_aligned_to is not a power of two"
+                );
+                // Taken from the currently unstable `pointer::is_aligned_to`.
+                // TODO: Replace this with a call to `pointer::is_aligned_to` if/when it stablizes.
+                self.as_ptr().addr() & (align - 1) == 0
+            }
+
+            /// Attempts to convert an unaligned pointer into an aligned version by asserting that
+            /// the pointer is properly aligned.
+            ///
+            /// Returns `None` if the underlying is not aligned to the provided `align` argument.`
+            ///
+            /// # Panics
+            /// This function will panic when `debug_assertions` is enabled if `align` is not a power of two.
+            ///
+            /// # Safety
+            /// - `align` must be a power of two.
+            /// - The provided `align` must match the underlying type pointed to by this pointer.
+            #[inline]
+            pub unsafe fn try_into_aligned(self, align: usize) -> Option<$ptr<'a, Aligned>> {
+                let inner = self.0;
+                // SAFETY: The caller guarantees that `align` is a power of two.
+                unsafe { self.is_aligned_to(align) }.then(|| {
+                    // SAFETY: This is strictly a conversion function. The invariants of the surrounding type
+                    // have been enforced, and the alignment check is done above.
+                    unsafe { $ptr::new(inner) }
+                })
+            }
         }
 
         impl<A: IsAligned> Pointer for $ptr<'_, A> {
@@ -272,6 +313,7 @@ macro_rules! impl_ptr {
                 write!(f, "{}<Aligned>({:?})", stringify!($ptr), self.0)
             }
         }
+
         impl Debug for $ptr<'_, Unaligned> {
             #[inline]
             fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
@@ -634,7 +676,7 @@ impl<T: Sized> DebugEnsureAligned for *mut T {
         //
         // Replace once https://github.com/rust-lang/rust/issues/96284 is stable.
         assert_eq!(
-            self as usize & (align - 1),
+            self.addr() & (align - 1),
             0,
             "pointer is not aligned. Address {:p} does not have alignment {} for type {}",
             self,

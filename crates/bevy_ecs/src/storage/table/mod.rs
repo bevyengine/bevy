@@ -7,7 +7,7 @@ use crate::{
 };
 use alloc::{boxed::Box, vec, vec::Vec};
 use bevy_platform::collections::HashMap;
-use bevy_ptr::{OwningPtr, Ptr, UnsafeCellDeref};
+use bevy_ptr::{IsAligned, OwningPtr, Ptr, UnsafeCellDeref};
 pub use column::*;
 use core::{
     alloc::Layout,
@@ -603,8 +603,14 @@ impl Table {
 
     /// Get the drop function for some component that is stored in this table.
     #[inline]
-    pub fn get_drop_for(&self, component_id: ComponentId) -> Option<unsafe fn(OwningPtr<'_>)> {
-        self.get_column(component_id)?.data.drop
+    pub unsafe fn drop_for<A: IsAligned>(
+        &self,
+        component_id: ComponentId,
+        value: OwningPtr<'_, A>,
+    ) {
+        if let Some(column) = self.get_column(component_id) {
+            column.drop_for(value);
+        }
     }
 
     /// Gets the number of components being stored in the table.

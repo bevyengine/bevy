@@ -1,9 +1,15 @@
 use super::blob_vec::array_layout;
 use crate::storage::blob_vec::array_layout_unchecked;
 use alloc::alloc::handle_alloc_error;
-use bevy_ptr::{OwningPtr, Ptr, PtrMut};
+use bevy_ptr::{Aligned, IsAligned, OwningPtr, Ptr, PtrMut};
 use bevy_utils::OnDrop;
-use core::{alloc::Layout, cell::UnsafeCell, num::NonZeroUsize, ptr::NonNull};
+use core::{
+    alloc::Layout,
+    cell::UnsafeCell,
+    num::NonZeroUsize,
+    ptr::{self, NonNull},
+};
+use alloc::alloc::dealloc;
 
 /// A flat, type-erased data storage type similar to a [`BlobVec`](super::blob_vec::BlobVec), but with the length and capacity cut out
 /// for performance reasons. This type is reliant on its owning type to store the capacity and length information.
@@ -195,7 +201,7 @@ impl BlobArray {
             if !self.is_zst() {
                 let layout =
                     array_layout(&self.item_layout, cap).expect("array layout should be valid");
-                alloc::alloc::dealloc(self.data.as_ptr().cast(), layout);
+                dealloc(self.data.as_ptr().cast(), layout);
             }
             #[cfg(debug_assertions)]
             {
@@ -292,12 +298,16 @@ impl BlobArray {
     ///   and it must be safe to use the `drop` function of this [`BlobArray`] to drop `value`.
     /// - `value` must not point to the same value that is being initialized.
     #[inline]
-    pub unsafe fn initialize_unchecked(&mut self, index: usize, value: OwningPtr<'_>) {
+    pub unsafe fn initialize_unchecked<A: IsAligned>(
+        &mut self,
+        index: usize,
+        value: OwningPtr<'_, A>,
+    ) {
         #[cfg(debug_assertions)]
         debug_assert!(self.capacity > index);
         let size = self.item_layout.size();
         let dst = self.get_unchecked_mut(index);
-        core::ptr::copy::<u8>(value.as_ptr(), dst.as_ptr(), size);
+        ptr::copy::<u8>(value.as_ptr(), dst.as_ptr(), size);
     }
 
     /// Replaces the value at `index` with `value`. This function does not do any bounds checking.
@@ -307,7 +317,11 @@ impl BlobArray {
     /// - `value`'s [`Layout`] must match this [`BlobArray`]'s `item_layout`,
     ///   and it must be safe to use the `drop` function of this [`BlobArray`] to drop `value`.
     /// - `value` must not point to the same value that is being replaced.
-    pub unsafe fn replace_unchecked(&mut self, index: usize, value: OwningPtr<'_>) {
+    pub unsafe fn replace_unchecked<A: IsAligned>(
+        &mut self,
+        index: usize,
+        value: OwningPtr<'_, A>,
+    ) {
         #[cfg(debug_assertions)]
         debug_assert!(self.capacity > index);
         // Pointer to the value in the vector that will get replaced.
@@ -332,7 +346,7 @@ impl BlobArray {
 
             // This closure will run in case `drop()` panics,
             // which ensures that `value` does not get forgotten.
-            let on_unwind = OnDrop::new(|| drop(value));
+            let on_unwind = OnDrop::new(|| unsafe { self.drop_for(value) });
 
             drop(old_value);
 
@@ -351,11 +365,7 @@ impl BlobArray {
         // - `source` and `destination` were obtained from different memory locations,
         //   both of which we have exclusive access to, so they are guaranteed not to overlap.
         unsafe {
-            core::ptr::copy_nonoverlapping::<u8>(
-                source,
-                destination.as_ptr(),
-                self.item_layout.size(),
-            );
+            ptr::copy_nonoverlapping::<u8>(source, destination.as_ptr(), self.item_layout.size());
         }
     }
 
@@ -411,7 +421,7 @@ impl BlobArray {
             debug_assert_ne!(index_to_keep, index_to_remove);
         }
         debug_assert_ne!(index_to_keep, index_to_remove);
-        core::ptr::swap_nonoverlapping::<u8>(
+        ptr::swap_nonoverlapping::<u8>(
             self.get_unchecked_mut(index_to_keep).as_ptr(),
             self.get_unchecked_mut(index_to_remove).as_ptr(),
             self.item_layout.size(),
@@ -473,6 +483,27 @@ impl BlobArray {
         let value = self.swap_remove_unchecked_nonoverlapping(index_to_remove, index_to_keep);
         if let Some(drop) = drop {
             drop(value);
+        }
+    }
+
+    pub unsafe fn drop_for<A: IsAligned>(&self, value: OwningPtr<'_, A>) {
+        let value_ptr = value.as_ptr();
+        let Some(drop) = self.drop else { return };
+        // SAFETY:
+        // - The align in `Layout` must be a power of two.
+        // - The caller guarantees that `value` is valid for the type stored in this `BlobArray`.
+        //   and thus the align of `item_layout` must be valid
+        if let Some(aligned_value) = value.try_into_aligned(self.item_layout.align()) {
+            drop(aligned_value);
+        } else {
+            // As the value is not aligned, the value cannot be dropped without moving it.
+            let scratch_ptr = alloc::alloc::alloc(self.item_layout);
+            let scratch = OwningPtr::<Aligned>::new(
+                NonNull::new(scratch_ptr).unwrap_or_else(|| handle_alloc_error(self.item_layout)),
+            );
+            ptr::copy_nonoverlapping::<u8>(value_ptr, scratch.as_ptr(), self.item_layout.size());
+            drop(scratch);
+            dealloc(scratch_ptr, self.item_layout);
         }
     }
 }

@@ -1,12 +1,13 @@
 use core::any::TypeId;
 
-use bevy_ptr::OwningPtr;
+use bevy_ptr::{OwningPtr, Unaligned};
 use core::ptr::NonNull;
 use variadics_please::all_tuples;
 
 use crate::{
     bundle::{Bundle, BundleEffect, BundleFromComponents, DynamicBundle, NoBundleEffect},
     component::{Component, ComponentId, Components, ComponentsRegistrator, StorageType},
+    query::DebugCheckedUnwrap,
     world::EntityWorldMut,
 };
 
@@ -43,10 +44,11 @@ impl<C: Component> DynamicBundle for C {
     #[inline]
     unsafe fn get_components(
         ptr: *mut Self,
-        func: &mut impl FnMut(StorageType, OwningPtr<'_>),
+        func: &mut impl FnMut(StorageType, OwningPtr<'_, Unaligned>),
     ) -> Self::Effect {
-        let ptr = NonNull::new_unchecked(ptr.cast::<u8>());
-        OwningPtr::make(ptr, |ptr| func(C::STORAGE_TYPE, ptr));
+        let ptr = NonNull::new(ptr).debug_checked_unwrap().cast();
+        let ptr = OwningPtr::<Unaligned>::new(ptr);
+        func(C::STORAGE_TYPE, ptr);
     }
 }
 
@@ -130,7 +132,7 @@ macro_rules! tuple_impl {
                 reason = "Zero-length tuples will generate a function body equivalent to `()`; however, this macro is meant for all applicable tuples, and as such it makes no sense to rewrite it just for that case."
             )]
             #[inline(always)]
-            unsafe fn get_components(ptr: *mut Self, func: &mut impl FnMut(StorageType, OwningPtr<'_>)) -> Self::Effect {
+            unsafe fn get_components(ptr: *mut Self, func: &mut impl FnMut(StorageType, OwningPtr<'_, Unaligned>)) -> Self::Effect {
                 #[allow(
                     non_snake_case,
                     reason = "The names of these variables are provided by the caller, not by us."

@@ -14,6 +14,7 @@ pub(crate) use insert::BundleInserter;
 pub(crate) use remove::BundleRemover;
 pub(crate) use spawner::BundleSpawner;
 
+use bevy_ptr::Unaligned;
 pub use info::*;
 
 /// Derive the [`Bundle`] trait
@@ -246,7 +247,7 @@ pub trait DynamicBundle {
     #[doc(hidden)]
     unsafe fn get_components(
         ptr: *mut Self,
-        func: &mut impl FnMut(StorageType, OwningPtr<'_>),
+        func: &mut impl FnMut(StorageType, OwningPtr<'_, Unaligned>),
     ) -> Self::Effect;
 }
 

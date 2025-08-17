@@ -1,4 +1,4 @@
-use core::{fmt, mem};
+use core::fmt;
 
 use bevy_utils::prelude::DebugName;
 

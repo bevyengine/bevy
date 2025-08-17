@@ -134,6 +134,7 @@ pub mod __macro_exports {
     // included `extern crate alloc;`. This re-export ensures we have access
     // to `Vec` in `no_std` and `std` contexts.
     pub use alloc::vec::Vec;
+    pub use bevy_ptr::Unaligned;
 }
 
 /// Event sent when a hotpatch happens.

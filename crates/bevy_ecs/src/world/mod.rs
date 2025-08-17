@@ -68,7 +68,7 @@ use crate::{
 };
 use alloc::{boxed::Box, vec::Vec};
 use bevy_platform::sync::atomic::{AtomicU32, Ordering};
-use bevy_ptr::{OwningPtr, Ptr, UnsafeCellDeref};
+use bevy_ptr::{IsAligned, OwningPtr, Ptr, UnsafeCellDeref};
 use core::{any::TypeId, fmt};
 use log::warn;
 use unsafe_world_cell::{UnsafeEntityCell, UnsafeWorldCell};
@@ -2697,10 +2697,10 @@ impl World {
     /// The value referenced by `value` must be valid for the given [`ComponentId`] of this world.
     #[inline]
     #[track_caller]
-    pub unsafe fn insert_resource_by_id(
+    pub unsafe fn insert_resource_by_id<A: IsAligned>(
         &mut self,
         component_id: ComponentId,
-        value: OwningPtr<'_>,
+        value: OwningPtr<'_, A>,
         caller: MaybeLocation,
     ) {
         let change_tick = self.change_tick();
@@ -2726,10 +2726,10 @@ impl World {
     /// The value referenced by `value` must be valid for the given [`ComponentId`] of this world.
     #[inline]
     #[track_caller]
-    pub unsafe fn insert_non_send_by_id(
+    pub unsafe fn insert_non_send_by_id<A: IsAligned>(
         &mut self,
         component_id: ComponentId,
-        value: OwningPtr<'_>,
+        value: OwningPtr<'_, A>,
         caller: MaybeLocation,
     ) {
         let change_tick = self.change_tick();

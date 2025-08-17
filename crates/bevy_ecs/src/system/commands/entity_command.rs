@@ -4,8 +4,6 @@
 //! It also contains functions that return closures for use with
 //! [`EntityCommands`](crate::system::EntityCommands).
 
-use core::mem;
-
 use alloc::vec::Vec;
 use log::info;
 
@@ -138,11 +136,11 @@ struct Insert<B> {
 }
 
 impl<B: Bundle> EntityCommand for Insert<B> {
-    fn apply(mut self, entity: EntityWorldMut) -> () {
+    fn apply(mut self, entity: EntityWorldMut) {
         unsafe { Self::apply_raw(&mut self, entity) }
     }
 
-    unsafe fn apply_raw(ptr: *mut Self, mut entity: EntityWorldMut) -> () {
+    unsafe fn apply_raw(ptr: *mut Self, mut entity: EntityWorldMut) {
         let mode = unsafe { (&raw const (*ptr).mode).read_unaligned() };
         let caller = unsafe { (&raw const (*ptr).caller).read_unaligned() };
         let bundle_ptr = &raw mut (*ptr).bundle;

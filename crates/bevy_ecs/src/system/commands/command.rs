@@ -18,7 +18,8 @@ use crate::{
     system::{IntoSystem, SystemId, SystemInput},
     world::{FromWorld, SpawnBatchIter, World},
 };
-use core::{mem, ptr::NonNull};
+use core::ptr::NonNull;
+use bevy_ptr::Unaligned;
 
 /// A [`World`] mutation.
 ///
@@ -156,7 +157,7 @@ impl<T: Resource> Command for InsertResource<T> {
         // pointer to the provided caller location should be valid.
         let caller = unsafe { (&raw const (*ptr).caller).read_unaligned() };
         // SAFETY: The Component ID was just registered above. It has to be valid for `T`.
-        unsafe { world.insert_resource_by_id(id, OwningPtr::new(value_ptr), caller) }
+        unsafe { world.insert_resource_by_id(id, OwningPtr::<Unaligned>::new(value_ptr), caller) }
     }
 }
 

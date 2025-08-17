@@ -8,6 +8,7 @@ use crate::{
     world::{EntityWorldMut, World},
 };
 use alloc::vec::Vec;
+use bevy_ptr::Unaligned;
 use core::marker::PhantomData;
 use variadics_please::all_tuples;
 
@@ -287,7 +288,7 @@ impl<R: Relationship, L: SpawnableList<R>> DynamicBundle for SpawnRelatedBundle<
 
     unsafe fn get_components(
         ptr: *mut Self,
-        func: &mut impl FnMut(crate::component::StorageType, bevy_ptr::OwningPtr<'_>),
+        func: &mut impl FnMut(crate::component::StorageType, bevy_ptr::OwningPtr<'_, Unaligned>),
     ) -> Self::Effect {
         let effect = unsafe { ptr.read_unaligned() };
         let mut target =
@@ -319,7 +320,7 @@ impl<R: Relationship, B: Bundle> DynamicBundle for SpawnOneRelated<R, B> {
 
     unsafe fn get_components(
         ptr: *mut Self,
-        func: &mut impl FnMut(crate::component::StorageType, bevy_ptr::OwningPtr<'_>),
+        func: &mut impl FnMut(crate::component::StorageType, bevy_ptr::OwningPtr<'_, Unaligned>),
     ) -> Self::Effect {
         let effect = unsafe { ptr.read_unaligned() };
         let mut target = <R::RelationshipTarget as RelationshipTarget>::with_capacity(1);
