@@ -39,7 +39,7 @@ fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
 
     let tile = get_tile_data(tile_coord);
 
-    if tile.tileset_index == 0xffffu || !tile.visible {
+    if (tile.tileset_index == 0xffffu || !tile.visible) {
         discard;
     }
 
@@ -47,7 +47,7 @@ fn fragment(in: VertexOutput) -> @location(0) vec4<f32> {
     let tex_color = textureSample(tileset, tileset_sampler, local_uv, tile.tileset_index);
     let final_color = tex_color * tile.color;
 
-    if final_color.a < 0.001 {
+    if (final_color.a < 0.001) {
         discard;
     }
 
