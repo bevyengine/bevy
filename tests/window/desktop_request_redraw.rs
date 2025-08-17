@@ -82,7 +82,7 @@ fn setup(
             AnimationActive,
         ))
         .observe(
-            |trigger: Trigger<Pointer<Click>>, mut commands: Commands| match trigger.button {
+            |trigger: On<Pointer<Click>>, mut commands: Commands| match trigger.button {
                 PointerButton::Primary => {
                     commands.entity(trigger.target()).insert(AnimationActive);
                 }
