@@ -33,11 +33,13 @@
 //!
 //! [Unreal Engine Implementation]: https://github.com/sebh/UnrealEngineSkyAtmosphere
 
+mod environment;
 mod node;
 pub mod resources;
 
-use bevy_app::{App, Plugin};
-use bevy_asset::load_internal_asset;
+use bevy_app::{App, Plugin, Update};
+use bevy_asset::embedded_asset;
+use bevy_camera::Camera3d;
 use bevy_core_pipeline::core_3d::graph::Node3d;
 use bevy_ecs::{
     component::Component,
@@ -50,16 +52,24 @@ use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
     extract_component::UniformComponentPlugin,
     render_resource::{DownlevelFlags, ShaderType, SpecializedRenderPipelines},
+    view::Hdr,
+    RenderStartup,
 };
 use bevy_render::{
     extract_component::{ExtractComponent, ExtractComponentPlugin},
-    render_graph::{RenderGraphApp, ViewNodeRunner},
-    render_resource::{Shader, TextureFormat, TextureUsages},
+    render_graph::{RenderGraphExt, ViewNodeRunner},
+    render_resource::{TextureFormat, TextureUsages},
     renderer::RenderAdapter,
     Render, RenderApp, RenderSystems,
 };
 
-use bevy_core_pipeline::core_3d::{graph::Core3d, Camera3d};
+use bevy_core_pipeline::core_3d::graph::Core3d;
+use bevy_shader::load_shader_library;
+use environment::{
+    init_atmosphere_probe_layout, prepare_atmosphere_probe_bind_groups,
+    prepare_atmosphere_probe_components, prepare_probe_textures, queue_atmosphere_probe_pipelines,
+    AtmosphereEnvironmentMap, EnvironmentNode,
+};
 use resources::{
     prepare_atmosphere_transforms, queue_render_sky_pipelines, AtmosphereTransforms,
     RenderSkyBindGroupLayouts,
@@ -74,85 +84,31 @@ use self::{
     },
 };
 
-mod shaders {
-    use bevy_asset::{weak_handle, Handle};
-    use bevy_render::render_resource::Shader;
-
-    pub const TYPES: Handle<Shader> = weak_handle!("ef7e147e-30a0-4513-bae3-ddde2a6c20c5");
-    pub const FUNCTIONS: Handle<Shader> = weak_handle!("7ff93872-2ee9-4598-9f88-68b02fef605f");
-    pub const BRUNETON_FUNCTIONS: Handle<Shader> =
-        weak_handle!("e2dccbb0-7322-444a-983b-e74d0a08bcda");
-    pub const BINDINGS: Handle<Shader> = weak_handle!("bcc55ce5-0fc4-451e-8393-1b9efd2612c4");
-
-    pub const TRANSMITTANCE_LUT: Handle<Shader> =
-        weak_handle!("a4187282-8cb1-42d3-889c-cbbfb6044183");
-    pub const MULTISCATTERING_LUT: Handle<Shader> =
-        weak_handle!("bde3a71a-73e9-49fe-a379-a81940c67a1e");
-    pub const SKY_VIEW_LUT: Handle<Shader> = weak_handle!("f87e007a-bf4b-4f99-9ef0-ac21d369f0e5");
-    pub const AERIAL_VIEW_LUT: Handle<Shader> =
-        weak_handle!("a3daf030-4b64-49ae-a6a7-354489597cbe");
-    pub const RENDER_SKY: Handle<Shader> = weak_handle!("09422f46-d0f7-41c1-be24-121c17d6e834");
-}
-
 #[doc(hidden)]
 pub struct AtmospherePlugin;
 
 impl Plugin for AtmospherePlugin {
     fn build(&self, app: &mut App) {
-        load_internal_asset!(app, shaders::TYPES, "types.wgsl", Shader::from_wgsl);
-        load_internal_asset!(app, shaders::FUNCTIONS, "functions.wgsl", Shader::from_wgsl);
-        load_internal_asset!(
-            app,
-            shaders::BRUNETON_FUNCTIONS,
-            "bruneton_functions.wgsl",
-            Shader::from_wgsl
-        );
+        load_shader_library!(app, "types.wgsl");
+        load_shader_library!(app, "functions.wgsl");
+        load_shader_library!(app, "bruneton_functions.wgsl");
+        load_shader_library!(app, "bindings.wgsl");
 
-        load_internal_asset!(app, shaders::BINDINGS, "bindings.wgsl", Shader::from_wgsl);
+        embedded_asset!(app, "transmittance_lut.wgsl");
+        embedded_asset!(app, "multiscattering_lut.wgsl");
+        embedded_asset!(app, "sky_view_lut.wgsl");
+        embedded_asset!(app, "aerial_view_lut.wgsl");
+        embedded_asset!(app, "render_sky.wgsl");
+        embedded_asset!(app, "environment.wgsl");
 
-        load_internal_asset!(
-            app,
-            shaders::TRANSMITTANCE_LUT,
-            "transmittance_lut.wgsl",
-            Shader::from_wgsl
-        );
-
-        load_internal_asset!(
-            app,
-            shaders::MULTISCATTERING_LUT,
-            "multiscattering_lut.wgsl",
-            Shader::from_wgsl
-        );
-
-        load_internal_asset!(
-            app,
-            shaders::SKY_VIEW_LUT,
-            "sky_view_lut.wgsl",
-            Shader::from_wgsl
-        );
-
-        load_internal_asset!(
-            app,
-            shaders::AERIAL_VIEW_LUT,
-            "aerial_view_lut.wgsl",
-            Shader::from_wgsl
-        );
-
-        load_internal_asset!(
-            app,
-            shaders::RENDER_SKY,
-            "render_sky.wgsl",
-            Shader::from_wgsl
-        );
-
-        app.register_type::<Atmosphere>()
-            .register_type::<AtmosphereSettings>()
-            .add_plugins((
-                ExtractComponentPlugin::<Atmosphere>::default(),
-                ExtractComponentPlugin::<AtmosphereSettings>::default(),
-                UniformComponentPlugin::<Atmosphere>::default(),
-                UniformComponentPlugin::<AtmosphereSettings>::default(),
-            ));
+        app.add_plugins((
+            ExtractComponentPlugin::<Atmosphere>::default(),
+            ExtractComponentPlugin::<AtmosphereSettings>::default(),
+            ExtractComponentPlugin::<AtmosphereEnvironmentMap>::default(),
+            UniformComponentPlugin::<Atmosphere>::default(),
+            UniformComponentPlugin::<AtmosphereSettings>::default(),
+        ))
+        .add_systems(Update, prepare_atmosphere_probe_components);
     }
 
     fn finish(&self, app: &mut App) {
@@ -187,12 +143,20 @@ impl Plugin for AtmospherePlugin {
             .init_resource::<AtmosphereLutPipelines>()
             .init_resource::<AtmosphereTransforms>()
             .init_resource::<SpecializedRenderPipelines<RenderSkyBindGroupLayouts>>()
+            .add_systems(RenderStartup, init_atmosphere_probe_layout)
             .add_systems(
                 Render,
                 (
                     configure_camera_depth_usages.in_set(RenderSystems::ManageViews),
                     queue_render_sky_pipelines.in_set(RenderSystems::Queue),
                     prepare_atmosphere_textures.in_set(RenderSystems::PrepareResources),
+                    prepare_probe_textures
+                        .in_set(RenderSystems::PrepareResources)
+                        .after(prepare_atmosphere_textures),
+                    prepare_atmosphere_probe_bind_groups.in_set(RenderSystems::PrepareBindGroups),
+                    queue_atmosphere_probe_pipelines
+                        .in_set(RenderSystems::Queue)
+                        .after(init_atmosphere_probe_layout),
                     prepare_atmosphere_transforms.in_set(RenderSystems::PrepareResources),
                     prepare_atmosphere_bind_groups.in_set(RenderSystems::PrepareBindGroups),
                 ),
@@ -214,6 +178,7 @@ impl Plugin for AtmospherePlugin {
                 Core3d,
                 AtmosphereNode::RenderSky,
             )
+            .add_render_graph_node::<EnvironmentNode>(Core3d, AtmosphereNode::Environment)
             .add_render_graph_edges(
                 Core3d,
                 (
@@ -246,7 +211,7 @@ impl Plugin for AtmospherePlugin {
 /// from the planet's surface, ozone only exists in a band centered at a fairly
 /// high altitude.
 #[derive(Clone, Component, Reflect, ShaderType)]
-#[require(AtmosphereSettings)]
+#[require(AtmosphereSettings, Hdr)]
 #[reflect(Clone, Default)]
 pub struct Atmosphere {
     /// Radius of the planet
@@ -362,7 +327,7 @@ impl ExtractComponent for Atmosphere {
 
     type Out = Atmosphere;
 
-    fn extract_component(item: QueryItem<'_, Self::QueryData>) -> Option<Self::Out> {
+    fn extract_component(item: QueryItem<'_, '_, Self::QueryData>) -> Option<Self::Out> {
         Some(item.clone())
     }
 }
@@ -458,7 +423,7 @@ impl ExtractComponent for AtmosphereSettings {
 
     type Out = AtmosphereSettings;
 
-    fn extract_component(item: QueryItem<'_, Self::QueryData>) -> Option<Self::Out> {
+    fn extract_component(item: QueryItem<'_, '_, Self::QueryData>) -> Option<Self::Out> {
         Some(item.clone())
     }
 }

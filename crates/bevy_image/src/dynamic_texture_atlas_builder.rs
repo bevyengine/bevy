@@ -5,8 +5,11 @@ use guillotiere::{size2, Allocation, AtlasAllocator};
 use thiserror::Error;
 use tracing::error;
 
+/// An error produced by [`DynamicTextureAtlasBuilder`] when trying to add a new
+/// texture to a [`TextureAtlasLayout`].
 #[derive(Debug, Error)]
 pub enum DynamicTextureAtlasBuilderError {
+    /// Unable to allocate space within the atlas for the new texture
     #[error("Couldn't allocate space to add the image requested")]
     FailedToAllocateSpace,
     /// Attempted to add a texture to an uninitialized atlas

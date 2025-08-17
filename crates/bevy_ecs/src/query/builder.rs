@@ -36,7 +36,7 @@ use super::{FilteredAccess, QueryData, QueryFilter};
 /// let (entity, b) = query.single(&world).unwrap();
 /// ```
 pub struct QueryBuilder<'w, D: QueryData = (), F: QueryFilter = ()> {
-    access: FilteredAccess<ComponentId>,
+    access: FilteredAccess,
     world: &'w mut World,
     or: bool,
     first: bool,
@@ -105,7 +105,7 @@ impl<'w, D: QueryData, F: QueryFilter> QueryBuilder<'w, D, F> {
     }
 
     /// Adds access to self's underlying [`FilteredAccess`] respecting [`Self::or`] and [`Self::and`]
-    pub fn extend_access(&mut self, mut access: FilteredAccess<ComponentId>) {
+    pub fn extend_access(&mut self, mut access: FilteredAccess) {
         if self.or {
             if self.first {
                 access.required.clear();
@@ -231,7 +231,7 @@ impl<'w, D: QueryData, F: QueryFilter> QueryBuilder<'w, D, F> {
     }
 
     /// Returns a reference to the [`FilteredAccess`] that will be provided to the built [`Query`].
-    pub fn access(&self) -> &FilteredAccess<ComponentId> {
+    pub fn access(&self) -> &FilteredAccess {
         &self.access
     }
 

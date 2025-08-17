@@ -1,10 +1,12 @@
 use crate::{
     config::{GizmoLineJoint, GizmoLineStyle, GizmoMeshConfig},
-    line_gizmo_vertex_buffer_layouts, line_joint_gizmo_vertex_buffer_layouts, DrawLineGizmo,
-    DrawLineJointGizmo, GizmoRenderSystems, GpuLineGizmo, LineGizmoUniformBindgroupLayout,
-    SetLineGizmoBindGroup, LINE_JOINT_SHADER_HANDLE, LINE_SHADER_HANDLE,
+    init_line_gizmo_uniform_bind_group_layout, line_gizmo_vertex_buffer_layouts,
+    line_joint_gizmo_vertex_buffer_layouts, DrawLineGizmo, DrawLineJointGizmo, GizmoRenderSystems,
+    GpuLineGizmo, LineGizmoUniformBindgroupLayout, SetLineGizmoBindGroup,
 };
 use bevy_app::{App, Plugin};
+use bevy_asset::{load_embedded_asset, AssetServer, Handle};
+use bevy_camera::visibility::RenderLayers;
 use bevy_core_pipeline::{
     core_3d::{Transparent3d, CORE_3D_DEPTH_FORMAT},
     oit::OrderIndependentTransparencySettings,
@@ -16,12 +18,10 @@ use bevy_ecs::{
     query::Has,
     resource::Resource,
     schedule::IntoScheduleConfigs,
-    system::{Query, Res, ResMut},
-    world::{FromWorld, World},
+    system::{Commands, Query, Res, ResMut},
 };
 use bevy_image::BevyDefault as _;
 use bevy_pbr::{MeshPipeline, MeshPipelineKey, SetMeshViewBindGroup};
-use bevy_render::sync_world::MainEntity;
 use bevy_render::{
     render_asset::{prepare_assets, RenderAssets},
     render_phase::{
@@ -29,9 +29,12 @@ use bevy_render::{
         ViewSortedRenderPhases,
     },
     render_resource::*,
-    view::{ExtractedView, Msaa, RenderLayers, ViewTarget},
+    view::{ExtractedView, Msaa, ViewTarget},
     Render, RenderApp, RenderSystems,
 };
+use bevy_render::{sync_world::MainEntity, RenderStartup};
+use bevy_shader::Shader;
+use bevy_utils::default;
 use tracing::error;
 
 pub struct LineGizmo3dPlugin;
@@ -49,9 +52,11 @@ impl Plugin for LineGizmo3dPlugin {
             .init_resource::<SpecializedRenderPipelines<LineJointGizmoPipeline>>()
             .configure_sets(
                 Render,
-                GizmoRenderSystems::QueueLineGizmos3d
-                    .in_set(RenderSystems::Queue)
-                    .ambiguous_with(bevy_pbr::queue_material_meshes::<bevy_pbr::StandardMaterial>),
+                GizmoRenderSystems::QueueLineGizmos3d.in_set(RenderSystems::Queue),
+            )
+            .add_systems(
+                RenderStartup,
+                init_line_gizmo_pipelines.after(init_line_gizmo_uniform_bind_group_layout),
             )
             .add_systems(
                 Render,
@@ -60,33 +65,31 @@ impl Plugin for LineGizmo3dPlugin {
                     .after(prepare_assets::<GpuLineGizmo>),
             );
     }
-
-    fn finish(&self, app: &mut App) {
-        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
-            return;
-        };
-
-        render_app.init_resource::<LineGizmoPipeline>();
-        render_app.init_resource::<LineJointGizmoPipeline>();
-    }
 }
 
 #[derive(Clone, Resource)]
 struct LineGizmoPipeline {
     mesh_pipeline: MeshPipeline,
     uniform_layout: BindGroupLayout,
+    shader: Handle<Shader>,
 }
 
-impl FromWorld for LineGizmoPipeline {
-    fn from_world(render_world: &mut World) -> Self {
-        LineGizmoPipeline {
-            mesh_pipeline: render_world.resource::<MeshPipeline>().clone(),
-            uniform_layout: render_world
-                .resource::<LineGizmoUniformBindgroupLayout>()
-                .layout
-                .clone(),
-        }
-    }
+fn init_line_gizmo_pipelines(
+    mut commands: Commands,
+    mesh_pipeline: Res<MeshPipeline>,
+    uniform_bind_group_layout: Res<LineGizmoUniformBindgroupLayout>,
+    asset_server: Res<AssetServer>,
+) {
+    commands.insert_resource(LineGizmoPipeline {
+        mesh_pipeline: mesh_pipeline.clone(),
+        uniform_layout: uniform_bind_group_layout.layout.clone(),
+        shader: load_embedded_asset!(asset_server.as_ref(), "lines.wgsl"),
+    });
+    commands.insert_resource(LineJointGizmoPipeline {
+        mesh_pipeline: mesh_pipeline.clone(),
+        uniform_layout: uniform_bind_group_layout.layout.clone(),
+        shader: load_embedded_asset!(asset_server.as_ref(), "line_joints.wgsl"),
+    });
 }
 
 #[derive(PartialEq, Eq, Hash, Clone)]
@@ -120,8 +123,7 @@ impl SpecializedRenderPipeline for LineGizmoPipeline {
             .mesh_pipeline
             .get_view_layout(key.view_key.into())
             .clone();
-
-        let layout = vec![view_layout, self.uniform_layout.clone()];
+        let layout = vec![view_layout.main_layout.clone(), self.uniform_layout.clone()];
 
         let fragment_entry_point = match key.line_style {
             GizmoLineStyle::Solid => "fragment_solid",
@@ -131,15 +133,15 @@ impl SpecializedRenderPipeline for LineGizmoPipeline {
 
         RenderPipelineDescriptor {
             vertex: VertexState {
-                shader: LINE_SHADER_HANDLE,
-                entry_point: "vertex".into(),
+                shader: self.shader.clone(),
                 shader_defs: shader_defs.clone(),
                 buffers: line_gizmo_vertex_buffer_layouts(key.strip),
+                ..default()
             },
             fragment: Some(FragmentState {
-                shader: LINE_SHADER_HANDLE,
+                shader: self.shader.clone(),
                 shader_defs,
-                entry_point: fragment_entry_point.into(),
+                entry_point: Some(fragment_entry_point.into()),
                 targets: vec![Some(ColorTargetState {
                     format,
                     blend: Some(BlendState::ALPHA_BLENDING),
@@ -147,7 +149,6 @@ impl SpecializedRenderPipeline for LineGizmoPipeline {
                 })],
             }),
             layout,
-            primitive: PrimitiveState::default(),
             depth_stencil: Some(DepthStencilState {
                 format: CORE_3D_DEPTH_FORMAT,
                 depth_write_enabled: true,
@@ -161,8 +162,7 @@ impl SpecializedRenderPipeline for LineGizmoPipeline {
                 alpha_to_coverage_enabled: false,
             },
             label: Some("LineGizmo 3d Pipeline".into()),
-            push_constant_ranges: vec![],
-            zero_initialize_workgroup_memory: false,
+            ..default()
         }
     }
 }
@@ -171,18 +171,7 @@ impl SpecializedRenderPipeline for LineGizmoPipeline {
 struct LineJointGizmoPipeline {
     mesh_pipeline: MeshPipeline,
     uniform_layout: BindGroupLayout,
-}
-
-impl FromWorld for LineJointGizmoPipeline {
-    fn from_world(render_world: &mut World) -> Self {
-        LineJointGizmoPipeline {
-            mesh_pipeline: render_world.resource::<MeshPipeline>().clone(),
-            uniform_layout: render_world
-                .resource::<LineGizmoUniformBindgroupLayout>()
-                .layout
-                .clone(),
-        }
-    }
+    shader: Handle<Shader>,
 }
 
 #[derive(PartialEq, Eq, Hash, Clone)]
@@ -215,8 +204,7 @@ impl SpecializedRenderPipeline for LineJointGizmoPipeline {
             .mesh_pipeline
             .get_view_layout(key.view_key.into())
             .clone();
-
-        let layout = vec![view_layout, self.uniform_layout.clone()];
+        let layout = vec![view_layout.main_layout.clone(), self.uniform_layout.clone()];
 
         if key.joints == GizmoLineJoint::None {
             error!("There is no entry point for line joints with GizmoLineJoints::None. Please consider aborting the drawing process before reaching this stage.");
@@ -230,23 +218,22 @@ impl SpecializedRenderPipeline for LineJointGizmoPipeline {
 
         RenderPipelineDescriptor {
             vertex: VertexState {
-                shader: LINE_JOINT_SHADER_HANDLE,
-                entry_point: entry_point.into(),
+                shader: self.shader.clone(),
+                entry_point: Some(entry_point.into()),
                 shader_defs: shader_defs.clone(),
                 buffers: line_joint_gizmo_vertex_buffer_layouts(),
             },
             fragment: Some(FragmentState {
-                shader: LINE_JOINT_SHADER_HANDLE,
+                shader: self.shader.clone(),
                 shader_defs,
-                entry_point: "fragment".into(),
                 targets: vec![Some(ColorTargetState {
                     format,
                     blend: Some(BlendState::ALPHA_BLENDING),
                     write_mask: ColorWrites::ALL,
                 })],
+                ..default()
             }),
             layout,
-            primitive: PrimitiveState::default(),
             depth_stencil: Some(DepthStencilState {
                 format: CORE_3D_DEPTH_FORMAT,
                 depth_write_enabled: true,
@@ -260,8 +247,7 @@ impl SpecializedRenderPipeline for LineJointGizmoPipeline {
                 alpha_to_coverage_enabled: false,
             },
             label: Some("LineJointGizmo 3d Pipeline".into()),
-            push_constant_ranges: vec![],
-            zero_initialize_workgroup_memory: false,
+            ..default()
         }
     }
 }

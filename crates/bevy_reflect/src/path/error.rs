@@ -64,7 +64,7 @@ impl<'a> AccessError<'a> {
     }
 
     /// The returns the [`Access`] that this [`AccessError`] occurred in.
-    pub const fn access(&self) -> &Access {
+    pub const fn access(&self) -> &Access<'_> {
         &self.access
     }
 
@@ -74,6 +74,7 @@ impl<'a> AccessError<'a> {
         self.offset.as_ref()
     }
 }
+
 impl fmt::Display for AccessError<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let AccessError {
@@ -126,4 +127,5 @@ impl fmt::Display for AccessError<'_> {
         }
     }
 }
+
 impl core::error::Error for AccessError<'_> {}

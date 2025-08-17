@@ -8,7 +8,7 @@
 //! | `S`                | Toggle Directional Light Fog Influence |
 
 use bevy::{
-    pbr::{CascadeShadowConfigBuilder, NotShadowCaster},
+    light::{CascadeShadowConfigBuilder, NotShadowCaster},
     prelude::*,
 };
 

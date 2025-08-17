@@ -3,14 +3,22 @@
 use std::f32::consts::PI;
 
 use bevy::{
+    camera::Viewport,
     math::ops::{cos, sin},
     prelude::*,
-    render::camera::Viewport,
+    window::{PresentMode, WindowResolution},
 };
 
 fn main() {
     App::new()
-        .add_plugins(DefaultPlugins)
+        .add_plugins(DefaultPlugins.set(WindowPlugin {
+            primary_window: Some(Window {
+                present_mode: PresentMode::AutoNoVsync,
+                resolution: WindowResolution::new(1920.0, 1080.0).with_scale_factor_override(1.0),
+                ..default()
+            }),
+            ..default()
+        }))
         .add_systems(Startup, setup)
         .add_systems(Update, rotate_cameras)
         .run();

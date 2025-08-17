@@ -1,0 +1,151 @@
+name: Update Actions Caches
+
+permissions:
+  contents: read
+
+on:
+  # Manually
+  workflow_dispatch:
+  # On PR merge
+  push:
+    branches:
+      - main
+  # After nightly release
+  schedule:
+    - cron: "0 1 * * *"
+
+# Environment variables must be kept in sync with all workflows that defines them.
+env:
+  CARGO_INCREMENTAL: 0
+  CARGO_PROFILE_TEST_DEBUG: 0
+  CARGO_PROFILE_DEV_DEBUG: 0
+  # If nightly is breaking CI, modify this variable to target a specific nightly version.
+  NIGHTLY_TOOLCHAIN: nightly
+
+jobs:
+  env:
+    runs-on: ubuntu-latest
+    outputs:
+      NIGHTLY_TOOLCHAIN: ${{ steps.env.outputs.NIGHTLY_TOOLCHAIN }}
+      MSRV: ${{ steps.msrv.outputs.MSRV }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: get MSRV
+        id: msrv
+        run: |
+          msrv=`cargo metadata --no-deps --format-version 1 | jq --raw-output '.packages[] | select(.name=="bevy") | .rust_version'`
+          echo "MSRV=$msrv" >> $GITHUB_OUTPUT
+      - name: Expose Env
+        id: env
+        run: |
+          echo "NIGHTLY_TOOLCHAIN=${{ env.NIGHTLY_TOOLCHAIN }}" >> $GITHUB_OUTPUT
+
+  build-caches:
+    name: Build Caches
+    needs: ["env"]
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            toolchain: stable
+            target: ""
+          - os: macos-latest
+            toolchain: stable
+            target: ""
+          - os: windows-latest
+            toolchain: stable
+            target: ""
+          - os: ubuntu-latest
+            toolchain: ${{ needs.env.outputs.NIGHTLY_TOOLCHAIN }}
+            target: ""
+          - os: ubuntu-latest
+            toolchain: ${{ needs.env.outputs.MSRV }}
+            target: ""
+          - os: macos-latest
+            toolchain: ${{ needs.env.outputs.NIGHTLY_TOOLCHAIN }}
+            target: ""
+          - os: ubuntu-latest
+            toolchain: ${{ needs.env.outputs.NIGHTLY_TOOLCHAIN }}
+            target: wasm32-unknown-unknown
+          - os: ubuntu-latest
+            toolchain: stable
+            target: wasm32-unknown-unknown
+          - os: ubuntu-latest
+            toolchain: stable
+            target: x86_64-unknown-none
+          - os: ubuntu-latest
+            toolchain: stable
+            target: thumbv6m-none-eabi
+          - os: ubuntu-latest
+            toolchain: stable
+            target: aarch64-linux-android
+          - os: macos-latest
+            toolchain: stable
+            target: aarch64-apple-ios-sim
+
+    steps:
+      # prepare the date - used to rebuild the cache daily to update the cache for rust nightly, even if no change on Bevy dependencies
+      - name: Get Date
+        id: get-date
+        run: |
+          echo "date=$(/bin/date -u "+%Y%m%d")" >> $GITHUB_OUTPUT
+        shell: bash
+
+      - name: Checkout Bevy main branch
+        uses: actions/checkout@v4
+        with:
+          repository: "bevyengine/bevy"
+          ref: "main"
+
+      - name: Setup Rust
+        id: rust
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{ matrix.toolchain }}
+          target: ${{ matrix.target }}
+
+      # prepare the lockfile - to have a complete image of the dependencies on the current platform
+      - name: Create lock file
+        run: cargo update
+
+      - name: Install Bevy dependencies
+        uses: ./.github/actions/install-linux-deps
+        with:
+          wayland: true
+          xkb: true
+
+      # Fetch the cache using the complete key - to avoid rebuilding the cache if nothing changed
+      - uses: actions/cache/restore@v4
+        id: cache
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-${{ matrix.toolchain }}-${{ matrix.target }}-${{ hashFiles('**/Cargo.toml') }}-${{ hashFiles('Cargo.lock') }}-${{ steps.get-date.outputs.date }}
+
+      # Build Bevy for the dev profile, used by check, doc, ...
+      - name: Build dev cache
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: cargo build --profile dev --package bevy
+
+      # Build Bevy for the test profile, used by test
+      - name: Build test cache
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: cargo build --profile test --package bevy
+
+      - name: Save cache
+        if: steps.cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-${{ matrix.toolchain }}-${{ matrix.target }}-${{ hashFiles('**/Cargo.toml') }}-${{ hashFiles('Cargo.lock') }}-${{ steps.get-date.outputs.date }}

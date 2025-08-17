@@ -4,9 +4,10 @@ use std::f32::consts::*;
 
 use bevy::{
     color::palettes::basic::{MAROON, RED},
+    light::NotShadowCaster,
     math::ops,
-    pbr::NotShadowCaster,
     prelude::*,
+    render::view::Hdr,
 };
 use rand::{Rng, SeedableRng};
 use rand_chacha::ChaCha8Rng;
@@ -56,9 +57,9 @@ fn setup(
 
     commands.spawn_batch(
         std::iter::repeat_with(move || {
-            let x = rng.gen_range(-5.0..5.0);
-            let y = rng.gen_range(0.0..3.0);
-            let z = rng.gen_range(-5.0..5.0);
+            let x = rng.random_range(-5.0..5.0);
+            let y = rng.random_range(0.0..3.0);
+            let z = rng.random_range(-5.0..5.0);
 
             (
                 Mesh3d(cube_mesh.clone()),
@@ -119,10 +120,7 @@ fn setup(
     // camera
     commands.spawn((
         Camera3d::default(),
-        Camera {
-            hdr: true,
-            ..default()
-        },
+        Hdr,
         Transform::from_xyz(-4.0, 5.0, 10.0).looking_at(Vec3::ZERO, Vec3::Y),
     ));
 

@@ -1,13 +1,10 @@
-use bevy_asset::{AssetEvent, AssetId, Assets};
+use bevy_asset::{AssetEvent, AssetId, Assets, RenderAssetUsages};
 use bevy_ecs::{event::EventReader, resource::Resource, system::ResMut};
 use bevy_image::prelude::*;
 use bevy_math::{IVec2, UVec2};
 use bevy_platform::collections::HashMap;
 use bevy_reflect::TypePath;
-use bevy_render::{
-    render_asset::RenderAssetUsages,
-    render_resource::{Extent3d, TextureDimension, TextureFormat},
-};
+use wgpu_types::{Extent3d, TextureDimension, TextureFormat};
 
 use crate::{error::TextError, Font, FontAtlas, FontSmoothing, GlyphAtlasInfo};
 
@@ -172,8 +169,8 @@ impl FontAtlasSet {
                         .get_glyph_index(cache_key)
                         .map(|location| GlyphAtlasInfo {
                             location,
-                            texture_atlas: atlas.texture_atlas.clone_weak(),
-                            texture: atlas.texture.clone_weak(),
+                            texture_atlas: atlas.texture_atlas.id(),
+                            texture: atlas.texture.id(),
                         })
                 })
             })
