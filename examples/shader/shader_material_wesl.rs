@@ -100,15 +100,15 @@ struct CustomMaterial {
 }
 
 #[repr(C)]
-#[derive(Eq, PartialEq, Hash, Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
+#[derive(Eq, PartialEq, Hash, Copy, Clone)]
 struct CustomMaterialKey {
-    party_mode: u32,
+    party_mode: bool,
 }
 
 impl From<&CustomMaterial> for CustomMaterialKey {
     fn from(material: &CustomMaterial) -> Self {
         Self {
-            party_mode: material.party_mode as u32,
+            party_mode: material.party_mode,
         }
     }
 }
