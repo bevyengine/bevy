@@ -23,7 +23,7 @@ uses a different coordinate system for scenes:
 (glTF cameras and lights are an exception - they use the Bevy coordinate system. Some glTF files may ignore
 the glTF scene standard and use their own convention.)
 
-These differences mean that the common case of spawning a glTF scene on a Bevy entity can have surprising behaviour:
+These differences mean that the common case of spawning a glTF scene on a Bevy entity can have surprising behavior:
 
 ```rust
 let gltf_scene = asset_server.load("fox.gltf#Scene0");
