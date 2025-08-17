@@ -1,4 +1,4 @@
-# Bevy Sprite
+# Bevy Render 2d
 
 [![License](https://img.shields.io/badge/license-MIT%2FApache-blue.svg)](https://github.com/bevyengine/bevy#license)
 [![Crates.io](https://img.shields.io/crates/v/bevy_render_2d.svg)](https://crates.io/crates/bevy_render_2d)
