@@ -9,7 +9,7 @@ use core::{
 
 use bevy_color::{Color, LinearRgba};
 use bevy_ecs::{
-    component::{ComponentId, Tick},
+    component::Tick,
     query::FilteredAccessSet,
     resource::Resource,
     system::{
@@ -209,7 +209,7 @@ where
     fn init_access(
         state: &Self::State,
         system_meta: &mut SystemMeta,
-        component_access_set: &mut FilteredAccessSet<ComponentId>,
+        component_access_set: &mut FilteredAccessSet,
         world: &mut World,
     ) {
         GizmosState::<Config, Clear>::init_access(
@@ -355,7 +355,7 @@ where
     }
 
     /// Read-only view into the buffers data.
-    pub fn buffer(&self) -> GizmoBufferView {
+    pub fn buffer(&self) -> GizmoBufferView<'_> {
         let GizmoBuffer {
             list_positions,
             list_colors,

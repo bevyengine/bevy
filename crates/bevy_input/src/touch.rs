@@ -2,7 +2,7 @@
 
 use bevy_ecs::{
     entity::Entity,
-    event::{BufferedEvent, Event, EventReader},
+    event::{BufferedEvent, EventReader},
     resource::Resource,
     system::ResMut,
 };
@@ -37,7 +37,7 @@ use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 ///
 /// This event is the translated version of the `WindowEvent::Touch` from the `winit` crate.
 /// It is available to the end user and can be used for game logic.
-#[derive(Event, BufferedEvent, Debug, Clone, Copy, PartialEq)]
+#[derive(BufferedEvent, Debug, Clone, Copy, PartialEq)]
 #[cfg_attr(
     feature = "bevy_reflect",
     derive(Reflect),

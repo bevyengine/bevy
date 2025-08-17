@@ -4,8 +4,10 @@
 mod camera_controller;
 
 use bevy::{
+    anti_aliasing::taa::TemporalAntiAliasing,
     core_pipeline::Skybox,
     image::CompressedImageFormats,
+    pbr::ScreenSpaceAmbientOcclusion,
     prelude::*,
     render::{
         render_resource::{TextureViewDescriptor, TextureViewDimension},
@@ -71,6 +73,9 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     // camera
     commands.spawn((
         Camera3d::default(),
+        Msaa::Off,
+        TemporalAntiAliasing::default(),
+        ScreenSpaceAmbientOcclusion::default(),
         Transform::from_xyz(0.0, 0.0, 8.0).looking_at(Vec3::ZERO, Vec3::Y),
         CameraController::default(),
         Skybox {

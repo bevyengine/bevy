@@ -76,8 +76,7 @@ impl Plugin for TimePlugin {
             app.register_type::<Time>()
                 .register_type::<Time<Real>>()
                 .register_type::<Time<Virtual>>()
-                .register_type::<Time<Fixed>>()
-                .register_type::<Timer>();
+                .register_type::<Time<Fixed>>();
         }
 
         app.add_systems(
@@ -186,8 +185,7 @@ mod tests {
     use bevy_app::{App, FixedUpdate, Startup, Update};
     use bevy_ecs::{
         event::{
-            BufferedEvent, Event, EventReader, EventRegistry, EventWriter, Events,
-            ShouldUpdateEvents,
+            BufferedEvent, EventReader, EventRegistry, EventWriter, Events, ShouldUpdateEvents,
         },
         resource::Resource,
         system::{Local, Res, ResMut},
@@ -196,7 +194,7 @@ mod tests {
     use core::time::Duration;
     use std::println;
 
-    #[derive(Event, BufferedEvent)]
+    #[derive(BufferedEvent)]
     struct TestEvent<T: Default> {
         sender: std::sync::mpsc::Sender<T>,
     }
@@ -209,7 +207,7 @@ mod tests {
         }
     }
 
-    #[derive(Event, BufferedEvent)]
+    #[derive(BufferedEvent)]
     struct DummyEvent;
 
     #[derive(Resource, Default)]
@@ -343,15 +341,15 @@ mod tests {
         let fixed_update_timestep = Time::<Fixed>::default().timestep();
         let time_step = fixed_update_timestep / 2 + Duration::from_millis(1);
 
-        fn send_event(mut events: ResMut<Events<DummyEvent>>) {
-            events.send(DummyEvent);
+        fn write_event(mut events: ResMut<Events<DummyEvent>>) {
+            events.write(DummyEvent);
         }
 
         let mut app = App::new();
         app.add_plugins(TimePlugin)
             .add_event::<DummyEvent>()
             .init_resource::<FixedUpdateCounter>()
-            .add_systems(Startup, send_event)
+            .add_systems(Startup, write_event)
             .add_systems(FixedUpdate, count_fixed_updates)
             .insert_resource(TimeUpdateStrategy::ManualDuration(time_step));
 

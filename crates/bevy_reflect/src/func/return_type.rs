@@ -76,7 +76,8 @@ impl<'a> Return<'a> {
 /// This trait is used instead of a blanket [`Into`] implementation due to coherence issues:
 /// we can't implement `Into<Return>` for both `T` and `&T`/`&mut T`.
 ///
-/// This trait is automatically implemented when using the `Reflect` [derive macro].
+/// This trait is automatically implemented for non-reference types when using the `Reflect`
+/// [derive macro]. Blanket impls cover `&T` and `&mut T`.
 ///
 /// [`ReflectFn`]: crate::func::ReflectFn
 /// [`ReflectFnMut`]: crate::func::ReflectFnMut
@@ -86,6 +87,26 @@ pub trait IntoReturn {
     fn into_return<'a>(self) -> Return<'a>
     where
         Self: 'a;
+}
+
+// Blanket impl.
+impl<T: PartialReflect> IntoReturn for &'_ T {
+    fn into_return<'a>(self) -> Return<'a>
+    where
+        Self: 'a,
+    {
+        Return::Ref(self)
+    }
+}
+
+// Blanket impl.
+impl<T: PartialReflect> IntoReturn for &'_ mut T {
+    fn into_return<'a>(self) -> Return<'a>
+    where
+        Self: 'a,
+    {
+        Return::Mut(self)
+    }
 }
 
 impl IntoReturn for () {
@@ -105,18 +126,13 @@ macro_rules! impl_into_return {
     (
         $ty: ty
         $(;
-            <
-                $($T: ident $(: $T1: tt $(+ $T2: tt)*)?),*
-            >
+            < $($T: ident $(: $T1: tt $(+ $T2: tt)*)?),* >
         )?
         $(
-            [
-                $(const $N: ident : $size: ident),*
-            ]
+            [ $(const $N: ident : $size: ident),* ]
         )?
         $(
-            where
-                $($U: ty $(: $U1: tt $(+ $U2: tt)*)?),*
+            where $($U: ty $(: $U1: tt $(+ $U2: tt)*)?),*
         )?
     ) => {
         impl <
@@ -124,40 +140,13 @@ macro_rules! impl_into_return {
             $(, $(const $N : $size),*)?
         > $crate::func::IntoReturn for $ty
         $(
-            where
-                $($U $(: $U1 $(+ $U2)*)?),*
+            where $($U $(: $U1 $(+ $U2)*)?),*
         )?
         {
-            fn into_return<'into_return>(self) -> $crate::func::Return<'into_return> where Self: 'into_return {
+            fn into_return<'into_return>(self) -> $crate::func::Return<'into_return>
+                where Self: 'into_return
+            {
                 $crate::func::Return::Owned(bevy_platform::prelude::Box::new(self))
-            }
-        }
-
-        impl <
-            $($($T $(: $T1 $(+ $T2)*)?),*)?
-            $(, $(const $N : $size),*)?
-        > $crate::func::IntoReturn for &'static $ty
-        $(
-            where
-                $($U $(: $U1 $(+ $U2)*)?),*
-        )?
-        {
-            fn into_return<'into_return>(self) -> $crate::func::Return<'into_return> where Self: 'into_return {
-                $crate::func::Return::Ref(self)
-            }
-        }
-
-        impl <
-            $($($T $(: $T1 $(+ $T2)*)?),*)?
-            $(, $(const $N : $size),*)?
-        > $crate::func::IntoReturn for &'static mut $ty
-        $(
-            where
-                $($U $(: $U1 $(+ $U2)*)?),*
-        )?
-        {
-            fn into_return<'into_return>(self) -> $crate::func::Return<'into_return> where Self: 'into_return {
-                $crate::func::Return::Mut(self)
             }
         }
     };

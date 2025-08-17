@@ -55,11 +55,11 @@ impl PartialReflect for Cow<'static, str> {
         ReflectKind::Opaque
     }
 
-    fn reflect_ref(&self) -> ReflectRef {
+    fn reflect_ref(&self) -> ReflectRef<'_> {
         ReflectRef::Opaque(self)
     }
 
-    fn reflect_mut(&mut self) -> ReflectMut {
+    fn reflect_mut(&mut self) -> ReflectMut<'_> {
         ReflectMut::Opaque(self)
     }
 
@@ -180,7 +180,7 @@ impl<T: FromReflect + MaybeTyped + Clone + TypePath + GetTypeRegistration> List
         self.as_ref().len()
     }
 
-    fn iter(&self) -> ListIter {
+    fn iter(&self) -> ListIter<'_> {
         ListIter::new(self)
     }
 
@@ -228,11 +228,11 @@ impl<T: FromReflect + MaybeTyped + Clone + TypePath + GetTypeRegistration> Parti
         ReflectKind::List
     }
 
-    fn reflect_ref(&self) -> ReflectRef {
+    fn reflect_ref(&self) -> ReflectRef<'_> {
         ReflectRef::List(self)
     }
 
-    fn reflect_mut(&mut self) -> ReflectMut {
+    fn reflect_mut(&mut self) -> ReflectMut<'_> {
         ReflectMut::List(self)
     }
 

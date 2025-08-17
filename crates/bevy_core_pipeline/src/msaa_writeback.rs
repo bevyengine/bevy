@@ -8,7 +8,8 @@ use bevy_color::LinearRgba;
 use bevy_ecs::{prelude::*, query::QueryItem};
 use bevy_render::{
     camera::ExtractedCamera,
-    render_graph::{NodeRunError, RenderGraphApp, RenderGraphContext, ViewNode, ViewNodeRunner},
+    diagnostic::RecordDiagnostics,
+    render_graph::{NodeRunError, RenderGraphContext, RenderGraphExt, ViewNode, ViewNodeRunner},
     render_resource::*,
     renderer::RenderContext,
     view::{Msaa, ViewTarget},
@@ -16,7 +17,7 @@ use bevy_render::{
 };
 
 /// This enables "msaa writeback" support for the `core_2d` and `core_3d` pipelines, which can be enabled on cameras
-/// using [`bevy_render::camera::Camera::msaa_writeback`]. See the docs on that field for more information.
+/// using [`bevy_camera::Camera::msaa_writeback`]. See the docs on that field for more information.
 pub struct MsaaWritebackPlugin;
 
 impl Plugin for MsaaWritebackPlugin {
@@ -74,6 +75,8 @@ impl ViewNode for MsaaWritebackNode {
             return Ok(());
         };
 
+        let diagnostics = render_context.diagnostic_recorder();
+
         // The current "main texture" needs to be bound as an input resource, and we need the "other"
         // unused target to be the "resolve target" for the MSAA write. Therefore this is the same
         // as a post process write!
@@ -87,6 +90,7 @@ impl ViewNode for MsaaWritebackNode {
             color_attachments: &[Some(RenderPassColorAttachment {
                 // If MSAA is enabled, then the sampled texture will always exist
                 view: target.sampled_main_texture_view().unwrap(),
+                depth_slice: None,
                 resolve_target: Some(post_process.destination),
                 ops: Operations {
                     load: LoadOp::Clear(LinearRgba::BLACK.into()),
@@ -98,19 +102,19 @@ impl ViewNode for MsaaWritebackNode {
             occlusion_query_set: None,
         };
 
-        let bind_group = render_context.render_device().create_bind_group(
-            None,
-            &blit_pipeline.texture_bind_group,
-            &BindGroupEntries::sequential((post_process.source, &blit_pipeline.sampler)),
-        );
+        let bind_group =
+            blit_pipeline.create_bind_group(render_context.render_device(), post_process.source);
 
         let mut render_pass = render_context
             .command_encoder()
             .begin_render_pass(&pass_descriptor);
+        let pass_span = diagnostics.pass_span(&mut render_pass, "msaa_writeback");
 
         render_pass.set_pipeline(pipeline);
         render_pass.set_bind_group(0, &bind_group, &[]);
         render_pass.draw(0..3, 0..1);
+
+        pass_span.end(&mut render_pass);
 
         Ok(())
     }

@@ -1,23 +1,20 @@
 use bevy_asset::{Assets, Handle};
+use bevy_camera::visibility::{self, Visibility, VisibilityClass};
 use bevy_color::Color;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{component::Component, reflect::ReflectComponent};
 use bevy_image::{Image, TextureAtlas, TextureAtlasLayout};
 use bevy_math::{Rect, UVec2, Vec2};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
-use bevy_render::{
-    sync_world::SyncToRenderWorld,
-    view::{self, Visibility, VisibilityClass},
-};
 use bevy_transform::components::Transform;
 
 use crate::TextureSlicer;
 
 /// Describes a sprite to be rendered to a 2D camera
 #[derive(Component, Debug, Default, Clone, Reflect)]
-#[require(Transform, Visibility, SyncToRenderWorld, VisibilityClass, Anchor)]
+#[require(Transform, Visibility, VisibilityClass, Anchor)]
 #[reflect(Component, Default, Debug, Clone)]
-#[component(on_add = view::add_visibility_class::<Sprite>)]
+#[component(on_add = visibility::add_visibility_class::<Sprite>)]
 pub struct Sprite {
     /// The image used to render the sprite
     pub image: Handle<Image>,
@@ -124,12 +121,15 @@ impl Sprite {
             point_relative_to_sprite_center.y *= -1.0;
         }
 
+        if sprite_size.x == 0.0 || sprite_size.y == 0.0 {
+            return Err(point_relative_to_sprite_center);
+        }
+
         let sprite_to_texture_ratio = {
             let texture_size = texture_rect.size();
-            let div_or_zero = |a, b| if b == 0.0 { 0.0 } else { a / b };
             Vec2::new(
-                div_or_zero(texture_size.x, sprite_size.x),
-                div_or_zero(texture_size.y, sprite_size.y),
+                texture_size.x / sprite_size.x,
+                texture_size.y / sprite_size.y,
             )
         };
 
@@ -281,7 +281,7 @@ mod tests {
     use bevy_image::{Image, ToExtents};
     use bevy_image::{TextureAtlas, TextureAtlasLayout};
     use bevy_math::{Rect, URect, UVec2, Vec2};
-    use bevy_render::render_resource::{TextureDimension, TextureFormat};
+    use wgpu_types::{TextureDimension, TextureFormat};
 
     use crate::Anchor;
 
@@ -554,5 +554,35 @@ mod tests {
         assert_eq!(compute(Vec2::new(-10.0, -15.0)), Ok(Vec2::new(2.0, 4.0)));
         // The pixel is outside the texture atlas, but is still a valid pixel in the image.
         assert_eq!(compute(Vec2::new(0.0, 35.0)), Err(Vec2::new(2.5, -1.0)));
+    }
+
+    #[test]
+    fn compute_pixel_space_point_for_sprite_with_zero_custom_size() {
+        let mut image_assets = Assets::<Image>::default();
+        let texture_atlas_assets = Assets::<TextureAtlasLayout>::default();
+
+        let image = image_assets.add(make_image(UVec2::new(5, 10)));
+
+        let sprite = Sprite {
+            image,
+            custom_size: Some(Vec2::new(0.0, 0.0)),
+            ..Default::default()
+        };
+
+        let compute = |point| {
+            sprite.compute_pixel_space_point(
+                point,
+                Anchor::default(),
+                &image_assets,
+                &texture_atlas_assets,
+            )
+        };
+        assert_eq!(compute(Vec2::new(30.0, 15.0)), Err(Vec2::new(30.0, -15.0)));
+        assert_eq!(
+            compute(Vec2::new(-10.0, -15.0)),
+            Err(Vec2::new(-10.0, 15.0))
+        );
+        // The pixel is outside the texture atlas, but is still a valid pixel in the image.
+        assert_eq!(compute(Vec2::new(0.0, 35.0)), Err(Vec2::new(0.0, -35.0)));
     }
 }

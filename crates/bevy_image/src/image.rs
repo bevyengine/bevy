@@ -1,15 +1,18 @@
+use crate::ImageLoader;
+
 #[cfg(feature = "basis-universal")]
 use super::basis::*;
 #[cfg(feature = "dds")]
 use super::dds::*;
 #[cfg(feature = "ktx2")]
 use super::ktx2::*;
+use bevy_app::{App, Plugin};
 #[cfg(not(feature = "bevy_reflect"))]
 use bevy_reflect::TypePath;
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 
-use bevy_asset::{Asset, RenderAssetUsages};
+use bevy_asset::{uuid_handle, Asset, AssetApp, Assets, Handle, RenderAssetUsages};
 use bevy_color::{Color, ColorToComponents, Gray, LinearRgba, Srgba, Xyza};
 use bevy_ecs::resource::Resource;
 use bevy_math::{AspectRatio, UVec2, UVec3, Vec2};
@@ -32,6 +35,84 @@ pub trait BevyDefault {
 impl BevyDefault for TextureFormat {
     fn bevy_default() -> Self {
         TextureFormat::Rgba8UnormSrgb
+    }
+}
+
+/// A handle to a 1 x 1 transparent white image.
+///
+/// Like [`Handle<Image>::default`], this is a handle to a fallback image asset.
+/// While that handle points to an opaque white 1 x 1 image, this handle points to a transparent 1 x 1 white image.
+// Number randomly selected by fair WolframAlpha query. Totally arbitrary.
+pub const TRANSPARENT_IMAGE_HANDLE: Handle<Image> =
+    uuid_handle!("d18ad97e-a322-4981-9505-44c59a4b5e46");
+
+/// Adds the [`Image`] as an asset and makes sure that they are extracted and prepared for the GPU.
+pub struct ImagePlugin {
+    /// The default image sampler to use when [`ImageSampler`] is set to `Default`.
+    pub default_sampler: ImageSamplerDescriptor,
+}
+
+impl Default for ImagePlugin {
+    fn default() -> Self {
+        ImagePlugin::default_linear()
+    }
+}
+
+impl ImagePlugin {
+    /// Creates image settings with linear sampling by default.
+    pub fn default_linear() -> ImagePlugin {
+        ImagePlugin {
+            default_sampler: ImageSamplerDescriptor::linear(),
+        }
+    }
+
+    /// Creates image settings with nearest sampling by default.
+    pub fn default_nearest() -> ImagePlugin {
+        ImagePlugin {
+            default_sampler: ImageSamplerDescriptor::nearest(),
+        }
+    }
+}
+
+impl Plugin for ImagePlugin {
+    fn build(&self, app: &mut App) {
+        #[cfg(feature = "exr")]
+        app.init_asset_loader::<crate::ExrTextureLoader>();
+
+        #[cfg(feature = "hdr")]
+        app.init_asset_loader::<crate::HdrTextureLoader>();
+
+        app.init_asset::<Image>();
+        #[cfg(feature = "bevy_reflect")]
+        app.register_asset_reflect::<Image>();
+
+        let mut image_assets = app.world_mut().resource_mut::<Assets<Image>>();
+
+        image_assets
+            .insert(&Handle::default(), Image::default())
+            .unwrap();
+        image_assets
+            .insert(&TRANSPARENT_IMAGE_HANDLE, Image::transparent())
+            .unwrap();
+
+        #[cfg(feature = "compressed_image_saver")]
+        if let Some(processor) = app
+            .world()
+            .get_resource::<bevy_asset::processor::AssetProcessor>()
+        {
+            processor.register_processor::<bevy_asset::processor::LoadTransformAndSave<
+                ImageLoader,
+                bevy_asset::transformer::IdentityAssetTransformer<Image>,
+                crate::CompressedImageSaver,
+            >>(crate::CompressedImageSaver.into());
+            processor.set_default_processor::<bevy_asset::processor::LoadTransformAndSave<
+                ImageLoader,
+                bevy_asset::transformer::IdentityAssetTransformer<Image>,
+                crate::CompressedImageSaver,
+            >>("png");
+        }
+
+        app.preregister_asset_loader::<ImageLoader>(ImageLoader::SUPPORTED_FILE_EXTENSIONS);
     }
 }
 
@@ -359,7 +440,13 @@ impl ToExtents for UVec3 {
     }
 }
 
-#[derive(Asset, Debug, Clone)]
+/// An image, optimized for usage in rendering.
+///
+/// ## Remote Inspection
+///
+/// To transmit an [`Image`] between two running Bevy apps, e.g. through BRP, use [`SerializedImage`](crate::SerializedImage).
+/// This type is only meant for short-term transmission between same versions and should not be stored anywhere.
+#[derive(Asset, Debug, Clone, PartialEq)]
 #[cfg_attr(
     feature = "bevy_reflect",
     derive(Reflect),
@@ -377,9 +464,23 @@ pub struct Image {
     /// Use [`TextureDataOrder::default()`] for all other cases.
     pub data_order: TextureDataOrder,
     // TODO: this nesting makes accessing Image metadata verbose. Either flatten out descriptor or add accessors.
+    /// Describes the data layout of the GPU texture.\
+    /// For example, whether a texture contains 1D/2D/3D data, and what the format of the texture data is.
+    ///
+    /// ## Field Usage Notes
+    /// - [`TextureDescriptor::label`] is used for caching purposes when not using `Asset<Image>`.\
+    ///   If you use assets, the label is purely a debugging aid.
+    /// - [`TextureDescriptor::view_formats`] is currently unused by Bevy.
     pub texture_descriptor: TextureDescriptor<Option<&'static str>, &'static [TextureFormat]>,
     /// The [`ImageSampler`] to use during rendering.
     pub sampler: ImageSampler,
+    /// Describes how the GPU texture should be interpreted.\
+    /// For example, 2D image data could be read as plain 2D, an array texture of layers of 2D with the same dimensions (and the number of layers in that case),
+    /// a cube map, an array of cube maps, etc.
+    ///
+    /// ## Field Usage Notes
+    /// - [`TextureViewDescriptor::label`] is used for caching purposes when not using `Asset<Image>`.\
+    ///   If you use assets, the label is purely a debugging aid.
     pub texture_view_descriptor: Option<TextureViewDescriptor<Option<&'static str>>>,
     pub asset_usage: RenderAssetUsages,
     /// Whether this image should be copied on the GPU when resized.
@@ -841,6 +942,58 @@ impl Image {
         );
         let data = pixel.iter().copied().cycle().take(byte_len).collect();
         Image::new(size, dimension, data, format, asset_usage)
+    }
+
+    /// Create a new zero-filled image with a given size, which can be rendered to.
+    /// Useful for mirrors, UI, or exporting images for example.
+    /// This is primarily for use as a render target for a [`Camera`].
+    /// See [`RenderTarget::Image`].
+    ///
+    /// For Standard Dynamic Range (SDR) images you can use [`TextureFormat::Rgba8UnormSrgb`].
+    /// For High Dynamic Range (HDR) images you can use [`TextureFormat::Rgba16Float`].
+    ///
+    /// The default [`TextureUsages`] are
+    /// [`TEXTURE_BINDING`](TextureUsages::TEXTURE_BINDING),
+    /// [`COPY_DST`](TextureUsages::COPY_DST),
+    /// [`RENDER_ATTACHMENT`](TextureUsages::RENDER_ATTACHMENT).
+    ///
+    /// The default [`RenderAssetUsages`] is [`MAIN_WORLD | RENDER_WORLD`](RenderAssetUsages::default)
+    /// so that it is accessible from the CPU and GPU.
+    /// You can customize this by changing the [`asset_usage`](Image::asset_usage) field.
+    ///
+    /// [`Camera`]: https://docs.rs/bevy/latest/bevy/render/camera/struct.Camera.html
+    /// [`RenderTarget::Image`]: https://docs.rs/bevy/latest/bevy/render/camera/enum.RenderTarget.html#variant.Image
+    pub fn new_target_texture(width: u32, height: u32, format: TextureFormat) -> Self {
+        let size = Extent3d {
+            width,
+            height,
+            ..Default::default()
+        };
+        // You need to set these texture usage flags in order to use the image as a render target
+        let usage = TextureUsages::TEXTURE_BINDING
+            | TextureUsages::COPY_DST
+            | TextureUsages::RENDER_ATTACHMENT;
+        // Fill with zeroes
+        let data = vec![0; format.pixel_size() * size.volume()];
+
+        Image {
+            data: Some(data),
+            data_order: TextureDataOrder::default(),
+            texture_descriptor: TextureDescriptor {
+                size,
+                format,
+                dimension: TextureDimension::D2,
+                label: None,
+                mip_level_count: 1,
+                sample_count: 1,
+                usage,
+                view_formats: &[],
+            },
+            sampler: ImageSampler::Default,
+            texture_view_descriptor: None,
+            asset_usage: RenderAssetUsages::default(),
+            copy_on_resize: true,
+        }
     }
 
     /// Returns the width of a 2D image.
@@ -1558,11 +1711,11 @@ pub enum DataFormat {
 pub enum TranscodeFormat {
     Etc1s,
     Uastc(DataFormat),
-    // Has to be transcoded to R8Unorm for use with `wgpu`.
+    /// Has to be transcoded from `R8UnormSrgb` to `R8Unorm` for use with `wgpu`.
     R8UnormSrgb,
-    // Has to be transcoded to R8G8Unorm for use with `wgpu`.
+    /// Has to be transcoded from `Rg8UnormSrgb` to `R8G8Unorm` for use with `wgpu`.
     Rg8UnormSrgb,
-    // Has to be transcoded to Rgba8 for use with `wgpu`.
+    /// Has to be transcoded from `Rgb8` to `Rgba8` for use with `wgpu`.
     Rgb8,
 }
 

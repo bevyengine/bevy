@@ -3,15 +3,15 @@ mod blas;
 mod extract;
 mod types;
 
+use bevy_shader::load_shader_library;
 pub use binder::RaytracingSceneBindings;
 pub use types::RaytracingMesh3d;
 
-use crate::SolariPlugin;
+use crate::SolariPlugins;
 use bevy_app::{App, Plugin};
 use bevy_ecs::schedule::IntoScheduleConfigs;
 use bevy_render::{
     extract_resource::ExtractResourcePlugin,
-    load_shader_library,
     mesh::{
         allocator::{allocate_and_free_meshes, MeshAllocator},
         RenderMesh,
@@ -22,7 +22,7 @@ use bevy_render::{
     ExtractSchedule, Render, RenderApp, RenderSystems,
 };
 use binder::prepare_raytracing_scene_bindings;
-use blas::{prepare_raytracing_blas, BlasManager};
+use blas::{compact_raytracing_blas, prepare_raytracing_blas, BlasManager};
 use extract::{extract_raytracing_scene, StandardMaterialAssets};
 use tracing::warn;
 
@@ -31,20 +31,19 @@ pub struct RaytracingScenePlugin;
 
 impl Plugin for RaytracingScenePlugin {
     fn build(&self, app: &mut App) {
+        load_shader_library!(app, "brdf.wgsl");
         load_shader_library!(app, "raytracing_scene_bindings.wgsl");
         load_shader_library!(app, "sampling.wgsl");
-
-        app.register_type::<RaytracingMesh3d>();
     }
 
     fn finish(&self, app: &mut App) {
         let render_app = app.sub_app_mut(RenderApp);
         let render_device = render_app.world().resource::<RenderDevice>();
         let features = render_device.features();
-        if !features.contains(SolariPlugin::required_wgpu_features()) {
+        if !features.contains(SolariPlugins::required_wgpu_features()) {
             warn!(
                 "RaytracingScenePlugin not loaded. GPU lacks support for required features: {:?}.",
-                SolariPlugin::required_wgpu_features().difference(features)
+                SolariPlugins::required_wgpu_features().difference(features)
             );
             return;
         }
@@ -70,6 +69,9 @@ impl Plugin for RaytracingScenePlugin {
                         .in_set(RenderSystems::PrepareAssets)
                         .before(prepare_assets::<RenderMesh>)
                         .after(allocate_and_free_meshes),
+                    compact_raytracing_blas
+                        .in_set(RenderSystems::PrepareAssets)
+                        .after(prepare_raytracing_blas),
                     prepare_raytracing_scene_bindings.in_set(RenderSystems::PrepareBindGroups),
                 ),
             );

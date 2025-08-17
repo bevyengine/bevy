@@ -190,11 +190,16 @@ impl WinitWindows {
         bevy_log::debug!("{display_info}");
 
         #[cfg(any(
-            target_os = "linux",
-            target_os = "dragonfly",
-            target_os = "freebsd",
-            target_os = "netbsd",
-            target_os = "openbsd",
+            all(
+                any(feature = "wayland", feature = "x11"),
+                any(
+                    target_os = "linux",
+                    target_os = "dragonfly",
+                    target_os = "freebsd",
+                    target_os = "netbsd",
+                    target_os = "openbsd",
+                )
+            ),
             target_os = "windows"
         ))]
         if let Some(name) = &window.name {
@@ -285,7 +290,7 @@ impl WinitWindows {
                     let canvas = canvas.dyn_into::<web_sys::HtmlCanvasElement>().ok();
                     winit_window_attributes = winit_window_attributes.with_canvas(canvas);
                 } else {
-                    panic!("Cannot find element: {}.", selector);
+                    panic!("Cannot find element: {selector}.");
                 }
             }
 
@@ -319,13 +324,13 @@ impl WinitWindows {
 
         // Do not set the cursor hittest on window creation if it's false, as it will always fail on
         // some platforms and log an unfixable warning.
-        if !cursor_options.hit_test {
-            if let Err(err) = winit_window.set_cursor_hittest(cursor_options.hit_test) {
-                warn!(
-                    "Could not set cursor hit test for window {}: {}",
-                    window.title, err
-                );
-            }
+        if !cursor_options.hit_test
+            && let Err(err) = winit_window.set_cursor_hittest(cursor_options.hit_test)
+        {
+            warn!(
+                "Could not set cursor hit test for window {}: {}",
+                window.title, err
+            );
         }
 
         self.entity_to_winit.insert(entity, winit_window.id());

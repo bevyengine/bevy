@@ -64,7 +64,7 @@ pub struct FontFaceInfo {
     pub family_name: Arc<str>,
 }
 
-/// The `TextPipeline` is used to layout and render text blocks (see `Text`/[`Text2d`](crate::Text2d)).
+/// The `TextPipeline` is used to layout and render text blocks (see `Text`/`Text2d`).
 ///
 /// See the [crate-level documentation](crate) for more information.
 #[derive(Default, Resource)]
@@ -340,7 +340,7 @@ impl TextPipeline {
                             )
                         })?;
 
-                    let texture_atlas = texture_atlases.get(&atlas_info.texture_atlas).unwrap();
+                    let texture_atlas = texture_atlases.get(atlas_info.texture_atlas).unwrap();
                     let location = atlas_info.location;
                     let glyph_rect = texture_atlas.textures[location.glyph_index];
                     let left = location.offset.x as f32;

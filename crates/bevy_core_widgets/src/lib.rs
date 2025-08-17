@@ -14,32 +14,53 @@
 // styled/opinionated widgets that use them. Components which are directly exposed to users above
 // the widget level, like `SliderValue`, should not have the `Core` prefix.
 
+mod callback;
 mod core_button;
 mod core_checkbox;
 mod core_radio;
+mod core_scrollbar;
 mod core_slider;
 
-use bevy_app::{App, Plugin};
+use bevy_app::{PluginGroup, PluginGroupBuilder};
 
+use bevy_ecs::entity::Entity;
+pub use callback::{Callback, Notify};
 pub use core_button::{CoreButton, CoreButtonPlugin};
 pub use core_checkbox::{CoreCheckbox, CoreCheckboxPlugin, SetChecked, ToggleChecked};
 pub use core_radio::{CoreRadio, CoreRadioGroup, CoreRadioGroupPlugin};
+pub use core_scrollbar::{
+    ControlOrientation, CoreScrollbar, CoreScrollbarDragState, CoreScrollbarPlugin,
+    CoreScrollbarThumb,
+};
 pub use core_slider::{
     CoreSlider, CoreSliderDragState, CoreSliderPlugin, CoreSliderThumb, SetSliderValue,
-    SliderRange, SliderStep, SliderValue, TrackClick,
+    SliderPrecision, SliderRange, SliderStep, SliderValue, TrackClick,
 };
 
-/// A plugin that registers the observers for all of the core widgets. If you don't want to
+/// A plugin group that registers the observers for all of the core widgets. If you don't want to
 /// use all of the widgets, you can import the individual widget plugins instead.
-pub struct CoreWidgetsPlugin;
+pub struct CoreWidgetsPlugins;
 
-impl Plugin for CoreWidgetsPlugin {
-    fn build(&self, app: &mut App) {
-        app.add_plugins((
-            CoreButtonPlugin,
-            CoreCheckboxPlugin,
-            CoreRadioGroupPlugin,
-            CoreSliderPlugin,
-        ));
+impl PluginGroup for CoreWidgetsPlugins {
+    fn build(self) -> PluginGroupBuilder {
+        PluginGroupBuilder::start::<Self>()
+            .add(CoreButtonPlugin)
+            .add(CoreCheckboxPlugin)
+            .add(CoreRadioGroupPlugin)
+            .add(CoreScrollbarPlugin)
+            .add(CoreSliderPlugin)
     }
+}
+
+/// Notification sent by a button or menu item.
+#[derive(Copy, Clone, Debug, PartialEq)]
+pub struct Activate(pub Entity);
+
+/// Notification sent by a widget that edits a scalar value.
+#[derive(Copy, Clone, Debug, PartialEq)]
+pub struct ValueChange<T> {
+    /// The id of the widget that produced this value.
+    pub source: Entity,
+    /// The new value.
+    pub value: T,
 }

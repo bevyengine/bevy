@@ -182,6 +182,10 @@ fn setup_assets_programmatically(
             .spawn(async move {
                 use std::io::Write;
 
+                let animation_graph: SerializedAnimationGraph = animation_graph
+                    .try_into()
+                    .expect("The animation graph failed to convert to its serialized form");
+
                 let serialized_graph =
                     ron::ser::to_string_pretty(&animation_graph, PrettyConfig::default())
                         .expect("Failed to serialize the animation graph");
@@ -297,7 +301,7 @@ fn setup_node_rects(commands: &mut Commands) {
                     justify_content: JustifyContent::Center,
                     ..default()
                 },
-                BorderColor::all(WHITE.into()),
+                BorderColor::all(WHITE),
                 Outline::new(Val::Px(1.), Val::ZERO, Color::WHITE),
             ));
 
@@ -351,7 +355,7 @@ fn setup_node_lines(commands: &mut Commands) {
                 border: UiRect::bottom(Val::Px(1.0)),
                 ..default()
             },
-            BorderColor::all(WHITE.into()),
+            BorderColor::all(WHITE),
         ));
     }
 
@@ -366,7 +370,7 @@ fn setup_node_lines(commands: &mut Commands) {
                 border: UiRect::left(Val::Px(1.0)),
                 ..default()
             },
-            BorderColor::all(WHITE.into()),
+            BorderColor::all(WHITE),
         ));
     }
 }

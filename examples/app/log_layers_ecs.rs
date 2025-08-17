@@ -38,7 +38,7 @@ fn main() {
 }
 
 /// A basic message. This is what we will be sending from the [`CaptureLayer`] to [`CapturedLogEvents`] non-send resource.
-#[derive(Debug, Event, BufferedEvent)]
+#[derive(Debug, BufferedEvent)]
 struct LogEvent {
     message: String,
     level: Level,
@@ -150,13 +150,16 @@ fn print_logs(
 
     commands.entity(root_entity).with_children(|child| {
         for event in events.read() {
-            child.spawn(Text::default()).with_children(|child| {
-                child.spawn((
-                    TextSpan::new(format!("{:5} ", event.level)),
-                    TextColor(level_color(&event.level)),
-                ));
-                child.spawn(TextSpan::new(&event.message));
-            });
+            child.spawn((
+                Text::default(),
+                children![
+                    (
+                        TextSpan::new(format!("{:5} ", event.level)),
+                        TextColor(level_color(&event.level)),
+                    ),
+                    TextSpan::new(&event.message),
+                ],
+            ));
         }
     });
 }
