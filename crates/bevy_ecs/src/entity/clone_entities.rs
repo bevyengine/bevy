@@ -8,7 +8,7 @@ use derive_more::derive::From;
 
 use crate::{
     archetype::Archetype,
-    bundle::{Bundle, BundleId, BundleRemover, InsertMode},
+    bundle::{Bundle, BundleRemover, InsertMode},
     change_detection::MaybeLocation,
     component::{Component, ComponentCloneBehavior, ComponentCloneFn, ComponentId, ComponentInfo},
     entity::{hash_map::EntityHashMap, Entities, Entity, EntityMapper},
@@ -1376,7 +1376,9 @@ impl Required {
 }
 
 mod private {
-    use super::*;
+    use crate::{bundle::BundleId, component::ComponentId};
+    use core::any::TypeId;
+    use derive_more::From;
 
     /// Marker trait to allow multiple blanket implementations for [`FilterableIds`].
     pub trait Marker {}
