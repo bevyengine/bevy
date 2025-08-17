@@ -57,11 +57,10 @@ use bevy_render::{mesh::allocator::MeshAllocator, sync_world::MainEntityHashMap}
 use bevy_render::{texture::FallbackImage, view::RenderVisibleEntities};
 use bevy_shader::{Shader, ShaderDefVal};
 use bevy_utils::Parallel;
-use core::any::TypeId;
+use core::any::{Any, TypeId};
+use core::hash::{BuildHasher, Hasher};
 use core::{hash::Hash, marker::PhantomData};
 use smallvec::SmallVec;
-use std::any::Any;
-use std::hash::{BuildHasher, Hasher};
 use tracing::error;
 
 pub const MATERIAL_BIND_GROUP_INDEX: usize = 3;
@@ -1312,10 +1311,7 @@ impl ErasedMaterialKey {
         T: Clone + Hash + PartialEq + Send + Sync + 'static,
     {
         let type_id = TypeId::of::<T>();
-
-        let mut hasher = FixedHasher::default().build_hasher();
-        material_key.hash(&mut hasher);
-        let hash = hasher.finish();
+        let hash = FixedHasher::hash_one(&FixedHasher, &material_key);
 
         fn clone<T: Clone + Send + Sync + 'static>(any: &dyn Any) -> Box<dyn Any + Send + Sync> {
             Box::new(any.downcast_ref::<T>().unwrap().clone())
