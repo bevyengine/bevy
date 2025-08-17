@@ -712,7 +712,12 @@ impl GltfLoader {
                             primitive: primitive.index(),
                         };
                         let morph_target_image = MorphTargetImage::new(
-                            morph_target_reader.map(PrimitiveMorphAttributesIter),
+                            morph_target_reader.map(|i| PrimitiveMorphAttributesIter {
+                                convert_coordinates,
+                                positions: i.0,
+                                normals: i.1,
+                                tangents: i.2,
+                            }),
                             mesh.count_vertices(),
                             RenderAssetUsages::default(),
                         )?;
@@ -1814,30 +1819,39 @@ impl ImageOrPath {
     }
 }
 
-struct PrimitiveMorphAttributesIter<'s>(
-    pub  (
-        Option<Iter<'s, [f32; 3]>>,
-        Option<Iter<'s, [f32; 3]>>,
-        Option<Iter<'s, [f32; 3]>>,
-    ),
-);
+struct PrimitiveMorphAttributesIter<'s> {
+    convert_coordinates: bool,
+    positions: Option<Iter<'s, [f32; 3]>>,
+    normals: Option<Iter<'s, [f32; 3]>>,
+    tangents: Option<Iter<'s, [f32; 3]>>,
+}
 
 impl<'s> Iterator for PrimitiveMorphAttributesIter<'s> {
     type Item = MorphAttributes;
 
     fn next(&mut self) -> Option<Self::Item> {
-        let position = self.0 .0.as_mut().and_then(Iterator::next);
-        let normal = self.0 .1.as_mut().and_then(Iterator::next);
-        let tangent = self.0 .2.as_mut().and_then(Iterator::next);
+        let position = self.positions.as_mut().and_then(Iterator::next);
+        let normal = self.normals.as_mut().and_then(Iterator::next);
+        let tangent = self.tangents.as_mut().and_then(Iterator::next);
         if position.is_none() && normal.is_none() && tangent.is_none() {
             return None;
         }
 
-        Some(MorphAttributes {
+        let mut attributes = MorphAttributes {
             position: position.map(Into::into).unwrap_or(Vec3::ZERO),
             normal: normal.map(Into::into).unwrap_or(Vec3::ZERO),
             tangent: tangent.map(Into::into).unwrap_or(Vec3::ZERO),
-        })
+        };
+
+        if self.convert_coordinates {
+            attributes = MorphAttributes {
+                position: attributes.position.convert_coordinates(),
+                normal: attributes.normal.convert_coordinates(),
+                tangent: attributes.tangent.convert_coordinates(),
+            }
+        }
+
+        Some(attributes)
     }
 }
 
