@@ -127,7 +127,7 @@ impl Material for CustomMaterial {
         let fragment = descriptor.fragment.as_mut().unwrap();
         fragment.shader_defs.push(ShaderDefVal::Bool(
             "PARTY_MODE".to_string(),
-            key.bind_group_data.party_mode == 1,
+            key.bind_group_data.party_mode,
         ));
         Ok(())
     }
