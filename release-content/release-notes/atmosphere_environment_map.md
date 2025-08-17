@@ -20,9 +20,6 @@ commands.spawn((
 ));
 ```
 
-Notes:
-
-- Negligible cost for the atmosphere cubemap pass, filtering adds a small overhead per view.
-- Currently tied to the active view, scene light probes are not yet supported.
+Note that this is a per-view effect (per camera). Light probes are not yet supported.
 
 Special thanks to @atlv24, @JMS55 and @ecoskey for reviews and feedback.
