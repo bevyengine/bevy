@@ -1626,6 +1626,9 @@ impl AssetServer {
             Err(AssetReaderError::HttpError(err)) => {
                 return Err(WriteDefaultMetaError::HttpErrorFromExistingMetaCheck(err))
             }
+            Err(AssetReaderError::NotAllowed(_)) => {
+                // The meta file wasn't allowed so just fall through.
+            }
         }
 
         let writer = source.writer()?;

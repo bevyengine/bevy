@@ -3,11 +3,14 @@
 //! Run with the feature `https`, and optionally `web_asset_cache`
 //! for a simple caching mechanism that never invalidates.
 //!
+use bevy::asset::web::{PathFilter, WebAssetPlugin};
 use bevy::prelude::*;
 
 fn main() {
     App::new()
-        .add_plugins(DefaultPlugins)
+        .add_plugins(DefaultPlugins.set(WebAssetPlugin(PathFilter {
+            url_allowed: |url| url.starts_with("raw.githubusercontent.com"),
+        })))
         .add_systems(Startup, setup)
         .run();
 }

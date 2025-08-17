@@ -52,6 +52,9 @@ pub enum AssetReaderError {
     /// - If the request fails before getting a status code (e.g. request timeout, interrupted connection, etc), expect [`AssetReaderError::Io`].
     #[error("Encountered HTTP status {0:?} when loading asset")]
     HttpError(u16),
+
+    #[error("Path not allowed: {}", _0.display())]
+    NotAllowed(PathBuf),
 }
 
 impl PartialEq for AssetReaderError {

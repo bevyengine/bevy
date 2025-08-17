@@ -9,10 +9,30 @@ use std::path::{Path, PathBuf};
 
 /// Adds the `http` and `https` asset sources to the app.
 ///
+///
 /// NOTE: Make sure to add this plugin *before* `AssetPlugin` to properly register http asset sources.
 ///
 /// Any asset path that begins with `http` (when the `http` feature is enabled) or `https` (when the
 /// `https` feature is enabled) will be loaded from the web via `fetch`(wasm) or `ureq`(native).
+///
+/// It is possible to filter allowed domains by setting the `WebAssetPlugin` to have a [`PathFilter`]
+/// at startup:
+///
+/// ```rust
+/// # use bevy::asset::web::{PathFilter, WebAssetPlugin};
+/// # fn main() {
+/// App::new()
+///     .add_plugins(DefaultPlugins.set(WebAssetPlugin(PathFilter {
+///         url_allowed: |url| url.starts_with("example.net/"),
+///     })))
+/// #   .add_systems(Startup, setup).run();
+/// # }
+/// // ...
+/// # fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
+/// commands.spawn(Sprite::from_image(asset_server.load("https://example.com/favicon.png")));
+/// # }
+///
+/// ```
 ///
 /// By default, `ureq`'s HTTP compression is disabled. To enable gzip and brotli decompression, add
 /// the following dependency and features to your Cargo.toml. This will improve bandwidth
@@ -22,53 +42,66 @@ use std::path::{Path, PathBuf};
 /// [target.'cfg(not(target_family = "wasm"))'.dev-dependencies]
 /// ureq = { version = "3", default-features = false, features = ["gzip", "brotli"] }
 /// ```
-pub struct WebAssetPlugin;
+#[derive(Default)]
+pub struct WebAssetPlugin(pub PathFilter);
 
 impl Plugin for WebAssetPlugin {
     fn build(&self, app: &mut App) {
+        let filter = self.0;
         #[cfg(feature = "http")]
         app.register_asset_source(
             "http",
             AssetSource::build()
-                .with_reader(|| Box::new(WebAssetReader::Http))
-                .with_processed_reader(|| Box::new(WebAssetReader::Http)),
+                .with_reader(|| Box::new(WebAssetReader::Http(filter)))
+                .with_processed_reader(|| Box::new(WebAssetReader::Http(filter))),
         );
 
         #[cfg(feature = "https")]
         app.register_asset_source(
             "https",
             AssetSource::build()
-                .with_reader(|| Box::new(WebAssetReader::Https))
-                .with_processed_reader(|| Box::new(WebAssetReader::Https)),
+                .with_reader(move || Box::new(WebAssetReader::Https(filter)))
+                .with_processed_reader(move || Box::new(WebAssetReader::Https(filter))),
         );
     }
 }
 
-impl Default for WebAssetPlugin {
+/// Allows filtering web assets by path.
+#[derive(Clone, Copy)]
+pub struct PathFilter {
+    pub url_allowed: fn(&Path) -> bool,
+}
+
+impl Default for PathFilter {
     fn default() -> Self {
-        Self
+        Self {
+            url_allowed: |_| true,
+        }
     }
 }
 
 /// Asset reader that treats paths as urls to load assets from.
 pub enum WebAssetReader {
     /// Unencrypted connections.
-    Http,
+    Http(PathFilter),
     /// Use TLS for setting up connections.
-    Https,
+    Https(PathFilter),
 }
 
 impl WebAssetReader {
-    fn make_uri(&self, path: &Path) -> PathBuf {
-        PathBuf::from(match self {
-            Self::Http => "http://",
-            Self::Https => "https://",
-        })
-        .join(path)
+    fn make_uri(&self, path: &Path) -> Result<PathBuf, AssetReaderError> {
+        let (prefix, PathFilter { url_allowed }) = match self {
+            Self::Http(url_allowed) => ("http://", url_allowed),
+            Self::Https(url_allowed) => ("https://", url_allowed),
+        };
+        if !url_allowed(path) {
+            return Err(AssetReaderError::NotAllowed(path.to_path_buf()));
+        }
+        Ok(PathBuf::from(prefix).join(path))
     }
 
     /// See [`crate::io::get_meta_path`]
-    fn make_meta_uri(&self, path: &Path) -> PathBuf {
+    fn make_meta_uri(&self, path: &Path) -> Result<PathBuf, AssetReaderError> {
         let meta_path = crate::io::get_meta_path(path);
         self.make_uri(&meta_path)
     }
@@ -85,7 +118,9 @@ async fn get<'a>(path: PathBuf) -> Result<Box<dyn Reader>, AssetReaderError> {
 }
 
 #[cfg(not(target_arch = "wasm32"))]
-async fn get(path: PathBuf) -> Result<Box<dyn Reader>, AssetReaderError> {
+async fn get(path: Result<PathBuf, AssetReaderError>) -> Result<Box<dyn Reader>, AssetReaderError> {
+    let path = path?;
+
     use crate::io::VecReader;
     use alloc::{boxed::Box, vec::Vec};
     use bevy_platform::sync::LazyLock;
@@ -162,7 +197,7 @@ impl AssetReader for WebAssetReader {
         &'a self,
         path: &'a Path,
     ) -> Result<Box<PathStream>, AssetReaderError> {
-        Err(AssetReaderError::NotFound(self.make_uri(path)))
+        Err(AssetReaderError::NotFound(self.make_uri(path)?))
     }
 }
 
@@ -223,8 +258,9 @@ mod tests {
     #[test]
     fn make_http_uri() {
         assert_eq!(
-            WebAssetReader::Http
+            WebAssetReader::Http(PathFilter::default())
                 .make_uri(Path::new("example.com/favicon.png"))
+                .unwrap()
                 .to_str()
                 .unwrap(),
             "http://example.com/favicon.png"
@@ -234,8 +270,9 @@ mod tests {
     #[test]
     fn make_https_uri() {
         assert_eq!(
-            WebAssetReader::Https
+            WebAssetReader::Https(PathFilter::default())
                 .make_uri(Path::new("example.com/favicon.png"))
+                .unwrap()
                 .to_str()
                 .unwrap(),
             "https://example.com/favicon.png"
@@ -245,8 +282,9 @@ mod tests {
     #[test]
     fn make_http_meta_uri() {
         assert_eq!(
-            WebAssetReader::Http
+            WebAssetReader::Http(PathFilter::default())
                 .make_meta_uri(Path::new("example.com/favicon.png"))
+                .unwrap()
                 .to_str()
                 .unwrap(),
             "http://example.com/favicon.png.meta"
@@ -256,8 +294,9 @@ mod tests {
     #[test]
     fn make_https_meta_uri() {
         assert_eq!(
-            WebAssetReader::Https
+            WebAssetReader::Https(PathFilter::default())
                 .make_meta_uri(Path::new("example.com/favicon.png"))
+                .unwrap()
                 .to_str()
                 .unwrap(),
             "https://example.com/favicon.png.meta"
@@ -267,11 +306,24 @@ mod tests {
     #[test]
     fn make_https_without_extension_meta_uri() {
         assert_eq!(
-            WebAssetReader::Https
+            WebAssetReader::Https(PathFilter::default())
                 .make_meta_uri(Path::new("example.com/favicon"))
+                .unwrap()
                 .to_str()
                 .unwrap(),
             "https://example.com/favicon.meta"
+        );
+    }
+
+    #[test]
+    fn make_disallowed_uri_fails() {
+        let path = Path::new("example.com/favicon.png");
+        assert_eq!(
+            WebAssetReader::Http(PathFilter {
+                url_allowed: |path| path.starts_with("https://example.net/")
+            })
+            .make_uri(path),
+            Err(AssetReaderError::NotAllowed(path.to_path_buf()))
         );
     }
 }

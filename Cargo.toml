@@ -176,6 +176,7 @@ default = [
   "wayland",
   "debug",
   "zstd_rust",
+  "https",
 ]
 
 # Recommended defaults for no_std applications

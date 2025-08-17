@@ -304,6 +304,9 @@ impl AssetProcessor {
             Err(AssetReaderError::HttpError(err)) => {
                 return Err(WriteDefaultMetaError::HttpErrorFromExistingMetaCheck(err))
             }
+            Err(AssetReaderError::NotAllowed(_)) => {
+                // The meta file wasn't allowed so just fall through.
+            }
         }
 
         let writer = source.writer()?;
@@ -406,6 +409,9 @@ impl AssetProcessor {
                                     AssetPath::from_path(&path).with_source(source.id())
                                 );
                             }
+                            AssetReaderError::NotAllowed(_) => {
+                                // if the path is not allowed, a processed version does not exist
+                            }
                         }
                     }
                 }
@@ -473,6 +479,9 @@ impl AssetProcessor {
                         "Unrecoverable Error: Failed to read the processed assets at {path:?} in order to remove assets that no longer exist \
                         in the source directory. Restart the asset processor to fully reprocess assets. Error: {err}"
                     );
+                }
+                AssetReaderError::NotAllowed(_err) => {
+                    // The processed folder wasnt allowed in the first place. No need to update anything
                 }
             },
         }
