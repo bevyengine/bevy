@@ -391,6 +391,7 @@ impl<'w> UnsafeWorldCell<'w> {
             .entities()
             .get(entity)
             .ok_or(EntityDoesNotExistError::new(entity, self.entities()))?;
+        // SAFETY: Location was just fetched from `Entities`, it must be valid for `entity`
         Ok(unsafe { UnsafeEntityCell::new(self, entity, location, last_run, this_run) })
     }
 

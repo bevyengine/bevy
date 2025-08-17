@@ -80,21 +80,26 @@ impl<'w> BundleRemover<'w> {
             return None;
         }
 
+        // SAFETY: The call to `remove_bundle_from_archetype` ensures that both archetypes are valid,
+        // and the check above ensures the two archetypes are not the same.
         let (old_archetype, new_archetype) = unsafe {
             world
                 .archetypes
                 .get_2_unchecked_mut(archetype_id, new_archetype_id)
         };
 
-        let tables = if old_archetype.table_id() == new_archetype.table_id() {
-            None
-        } else {
-            let (old, new) = world
-                .storages
-                .tables
-                .get_2_mut(old_archetype.table_id(), new_archetype.table_id());
-            Some((old.into(), new.into()))
-        };
+        let tables = (old_archetype.table_id() != new_archetype.table_id()).then(|| {
+            // SAFETY: If there exist two archetypes, their tables must be valid, and the check above
+            // ensures they're not the same table.
+            let (old, new) = unsafe {
+                world
+                    .storages
+                    .tables
+                    .get_2_unchecked_mut(old_archetype.table_id(), new_archetype.table_id())
+            };
+
+            (old.into(), new.into())
+        });
 
         let remover = Self {
             bundle_info: bundle_info.into(),
@@ -329,6 +334,7 @@ impl BundleInfo {
         // Check the archetype graph to see if the bundle has been
         // removed from this archetype in the past.
         let archetype_after_remove_result = {
+            // SAFETY: Caller guarantees that `archetype_id` must be valid.
             let edges = unsafe { archetypes.get(archetype_id).debug_checked_unwrap() }.edges();
             if intersection {
                 edges.get_archetype_after_bundle_remove(self.id())
@@ -344,6 +350,7 @@ impl BundleInfo {
             let mut next_sparse_set_components;
             let next_table_id;
             {
+                // SAFETY: Caller guarantees that `archetype_id` must be valid.
                 let current_archetype = unsafe { archetypes.get_unchecked_mut(archetype_id) };
                 let mut removed_table_components = Vec::new();
                 let mut removed_sparse_set_components = Vec::new();
@@ -400,6 +407,7 @@ impl BundleInfo {
             );
             (Some(new_archetype_id), is_new_created)
         };
+        // SAFETY: Caller guarantees that `archetype_id` must be valid.
         let current_archetype = unsafe { archetypes.get_unchecked_mut(archetype_id) };
         // Cache the result in an edge.
         if intersection {

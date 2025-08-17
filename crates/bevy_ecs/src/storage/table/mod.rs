@@ -733,27 +733,34 @@ impl Tables {
     }
 
     pub(crate) fn empty(&self) -> &Table {
+        // SAFETY: The empty table is always present.
         unsafe { self.tables.get_unchecked(TableId::empty().as_usize()) }
     }
 
     pub(crate) fn empty_mut(&mut self) -> &mut Table {
+        // SAFETY: The empty table is always present.
         unsafe { self.tables.get_unchecked_mut(TableId::empty().as_usize()) }
     }
 
     /// Fetches mutable references to two different [`Table`]s.
     ///
-    /// # Panics
-    ///
-    /// Panics if `a` and `b` are equal.
+    /// # Safety
+    /// - `a` must not equal `b`
+    /// - `a` and `b` must both point to valid tables in bounds.
     #[inline]
-    pub(crate) fn get_2_mut(&mut self, a: TableId, b: TableId) -> (&mut Table, &mut Table) {
-        if a.as_usize() > b.as_usize() {
-            let (b_slice, a_slice) = self.tables.split_at_mut(a.as_usize());
-            (&mut a_slice[0], &mut b_slice[b.as_usize()])
-        } else {
-            let (a_slice, b_slice) = self.tables.split_at_mut(b.as_usize());
-            (&mut a_slice[a.as_usize()], &mut b_slice[0])
-        }
+    pub(crate) unsafe fn get_2_unchecked_mut(
+        &mut self,
+        a: TableId,
+        b: TableId,
+    ) -> (&mut Table, &mut Table) {
+        debug_assert!(
+            a != b && a.as_usize() < self.tables.len() && b.as_usize() < self.tables.len()
+        );
+        let ptr = self.tables.as_mut_ptr();
+        (
+            ptr.add(a.as_usize()).as_mut().debug_checked_unwrap(),
+            ptr.add(b.as_usize()).as_mut().debug_checked_unwrap(),
+        )
     }
 
     /// Attempts to fetch a table based on the provided components,

@@ -62,6 +62,9 @@ impl<'w> BundleInserter<'w> {
         // SAFETY: We will not make any accesses to the command queue, component or resource data of this world
         let bundle_info = world.bundles.get_unchecked(bundle_id);
         let bundle_id = bundle_info.id();
+        // SAFETY:
+        //  - `components` is the same one passed into the `bundle_info`'s constructor.
+        //  - Caller must ensure `archetype_id` must exist in `world.archetypes`.
         let (new_archetype_id, is_new_created) = bundle_info.insert_bundle_into_archetype(
             &mut world.archetypes,
             &mut world.storages,
@@ -71,8 +74,9 @@ impl<'w> BundleInserter<'w> {
         );
 
         let inserter = if new_archetype_id == archetype_id {
+            // SAFETY: Caller must ensure `archetype_id` must exist in `world.archetypes`.
             let archetype = world.archetypes.get_unchecked_mut(archetype_id);
-            // SAFETY: The edge is assured to be initialized when we called insert_bundle_into_archetype
+            // SAFETY: The edge is assured to be initialized when we called `insert_bundle_into_archetype`
             let archetype_after_insert = unsafe {
                 archetype
                     .edges()
@@ -95,26 +99,23 @@ impl<'w> BundleInserter<'w> {
                 world: world.as_unsafe_world_cell(),
             }
         } else {
+            // SAFETY: The call to `insert_bundle_into_archetype` ensures both archetypes exist.
             let (archetype, new_archetype) = unsafe {
                 world
                     .archetypes
                     .get_2_unchecked_mut(archetype_id, new_archetype_id)
             };
-            // SAFETY: The edge is assured to be initialized when we called insert_bundle_into_archetype
-            let archetype_after_insert = unsafe {
-                archetype
-                    .edges()
-                    .get_archetype_after_bundle_insert_internal(bundle_id)
-                    .debug_checked_unwrap()
-            };
+            let archetype_after_insert = archetype
+                .edges()
+                .get_archetype_after_bundle_insert_internal(bundle_id);
+            // SAFETY: The edge is assured to be initialized in the call into `insert_bundle_into_archetype`
+            let archetype_after_insert = unsafe { archetype_after_insert.debug_checked_unwrap() };
             let table_id = archetype.table_id();
             let new_table_id = new_archetype.table_id();
             if table_id == new_table_id {
-                let table = world
-                    .storages
-                    .tables
-                    .get_mut(table_id)
-                    .debug_checked_unwrap();
+                let table = world.storages.tables.get_mut(table_id);
+                // SAFETY: The edge is assured to be initialized in the call into `insert_bundle_into_archetype`
+                let table = unsafe { table.debug_checked_unwrap() };
                 Self {
                     archetype_after_insert: archetype_after_insert.into(),
                     archetype: archetype.into(),
@@ -127,7 +128,14 @@ impl<'w> BundleInserter<'w> {
                     world: world.as_unsafe_world_cell(),
                 }
             } else {
-                let (table, new_table) = world.storages.tables.get_2_mut(table_id, new_table_id);
+                // SAFETY: Both tables is assured to be initialized in the call into `insert_bundle_into_archetype`
+                // and the check above ensures that they're not the same.
+                let (table, new_table) = unsafe {
+                    world
+                        .storages
+                        .tables
+                        .get_2_unchecked_mut(table_id, new_table_id)
+                };
                 Self {
                     archetype_after_insert: archetype_after_insert.into(),
                     archetype: archetype.into(),
@@ -428,7 +436,8 @@ impl BundleInfo {
     /// Results are cached in the [`Archetype`] graph to avoid redundant work.
     ///
     /// # Safety
-    /// `components` must be the same components as passed in [`Self::new`]
+    /// - `components` must be the same components as passed in [`Self::new`]
+    /// - `archetype_id` must be valid within `archetypes`
     pub(crate) unsafe fn insert_bundle_into_archetype(
         &self,
         archetypes: &mut Archetypes,

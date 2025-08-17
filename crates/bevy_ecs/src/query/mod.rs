@@ -115,9 +115,9 @@ impl<T> UnsafeVecExtensions<T> for Vec<T> {
         // SAFETY: Caller guarantees that `index` is in bounds. We replace self[index] with the last element.
         // If index is in bounds, there must be a last element (which can be self[index] itself).
         unsafe {
-            let value = std::ptr::read(self.as_ptr().add(index));
+            let value = core::ptr::read(self.as_ptr().add(index));
             let base_ptr = self.as_mut_ptr();
-            std::ptr::copy(base_ptr.add(len - 1), base_ptr.add(index), 1);
+            core::ptr::copy(base_ptr.add(len - 1), base_ptr.add(index), 1);
             self.set_len(len - 1);
             value
         }
