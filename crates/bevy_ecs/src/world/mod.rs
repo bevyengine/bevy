@@ -1003,7 +1003,15 @@ impl World {
                 .entities_with_location()
                 .map(move |(entity, location)| {
                     // SAFETY: entity exists and location accurately specifies the archetype where the entity is stored.
-                    let cell = unsafe { UnsafeEntityCell::new(world_cell, entity, location, last_change_tick, change_tick) };
+                    let cell = unsafe {
+                        UnsafeEntityCell::new(
+                            world_cell,
+                            entity,
+                            location,
+                            last_change_tick,
+                            change_tick,
+                        )
+                    };
                     // SAFETY: We have exclusive access to the entire world. We only create one borrow for each entity,
                     // so none will conflict with one another.
                     unsafe { EntityMut::new(cell) }

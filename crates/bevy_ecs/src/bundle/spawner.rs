@@ -3,7 +3,16 @@ use core::ptr::NonNull;
 use bevy_ptr::ConstNonNull;
 
 use crate::{
-    archetype::{Archetype, ArchetypeCreated, ArchetypeId, SpawnBundleStatus}, bundle::{Bundle, BundleId, BundleInfo, DynamicBundle, InsertMode}, change_detection::MaybeLocation, component::{ComponentsRegistrator, Tick}, entity::{Entities, Entity, EntityLocation}, lifecycle::{ADD, INSERT}, query::DebugCheckedUnwrap, relationship::RelationshipHookMode, storage::Table, world::{unsafe_world_cell::UnsafeWorldCell, World}
+    archetype::{Archetype, ArchetypeCreated, ArchetypeId, SpawnBundleStatus},
+    bundle::{Bundle, BundleId, BundleInfo, DynamicBundle, InsertMode},
+    change_detection::MaybeLocation,
+    component::{ComponentsRegistrator, Tick},
+    entity::{Entities, Entity, EntityLocation},
+    lifecycle::{ADD, INSERT},
+    query::DebugCheckedUnwrap,
+    relationship::RelationshipHookMode,
+    storage::Table,
+    world::{unsafe_world_cell::UnsafeWorldCell, World},
 };
 
 // SAFETY: We have exclusive world access so our pointers can't be invalidated externally
@@ -48,7 +57,11 @@ impl<'w> BundleSpawner<'w> {
         );
 
         let archetype = world.archetypes.get_unchecked_mut(new_archetype_id);
-        let table = world.storages.tables.get_mut(archetype.table_id()).debug_checked_unwrap();
+        let table = world
+            .storages
+            .tables
+            .get_mut(archetype.table_id())
+            .debug_checked_unwrap();
         let spawner = Self {
             bundle_info: bundle_info.into(),
             table: table.into(),

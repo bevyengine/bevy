@@ -12,8 +12,8 @@ use crate::{
     component::{Components, ComponentsRegistrator, StorageType, Tick},
     entity::{Entities, Entity, EntityLocation},
     lifecycle::{ADD, INSERT, REPLACE},
-    query::DebugCheckedUnwrap,
     observer::Observers,
+    query::DebugCheckedUnwrap,
     relationship::RelationshipHookMode,
     storage::{Storages, Table},
     world::{unsafe_world_cell::UnsafeWorldCell, World},
@@ -80,7 +80,11 @@ impl<'w> BundleInserter<'w> {
                     .debug_checked_unwrap()
             };
             let table_id = archetype.table_id();
-            let table = world.storages.tables.get_mut(table_id).debug_checked_unwrap();
+            let table = world
+                .storages
+                .tables
+                .get_mut(table_id)
+                .debug_checked_unwrap();
             Self {
                 archetype_after_insert: archetype_after_insert.into(),
                 archetype: archetype.into(),
@@ -91,8 +95,11 @@ impl<'w> BundleInserter<'w> {
                 world: world.as_unsafe_world_cell(),
             }
         } else {
-            let (archetype, new_archetype) =
-                unsafe { world.archetypes.get_2_unchecked_mut(archetype_id, new_archetype_id) };
+            let (archetype, new_archetype) = unsafe {
+                world
+                    .archetypes
+                    .get_2_unchecked_mut(archetype_id, new_archetype_id)
+            };
             // SAFETY: The edge is assured to be initialized when we called insert_bundle_into_archetype
             let archetype_after_insert = unsafe {
                 archetype
@@ -103,7 +110,11 @@ impl<'w> BundleInserter<'w> {
             let table_id = archetype.table_id();
             let new_table_id = new_archetype.table_id();
             if table_id == new_table_id {
-                let table = world.storages.tables.get_mut(table_id).debug_checked_unwrap();
+                let table = world
+                    .storages
+                    .tables
+                    .get_mut(table_id)
+                    .debug_checked_unwrap();
                 Self {
                     archetype_after_insert: archetype_after_insert.into(),
                     archetype: archetype.into(),

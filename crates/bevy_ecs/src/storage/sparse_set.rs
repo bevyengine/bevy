@@ -545,7 +545,7 @@ impl<I: SparseSetIndex, V> SparseSet<I, V> {
             // in the dense Vec.
             let value = unsafe { self.dense.swap_remove_unchecked(index) };
             // SAFETY: If dense_index was in the sparse array, it must still be valid and within bounds
-            // in the indicies Vec.
+            // in the indices Vec.
             unsafe { self.indices.swap_remove_unchecked(index) };
             if !is_last {
                 // SAFETY: This index was just swapped to above, it must be valid.

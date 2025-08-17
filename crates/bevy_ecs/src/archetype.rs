@@ -23,9 +23,9 @@ use crate::{
     bundle::BundleId,
     component::{ComponentId, Components, RequiredComponentConstructor, StorageType},
     entity::{Entity, EntityLocation},
-    query::{DebugCheckedUnwrap, UnsafeVecExtensions},
     event::Event,
     observer::Observers,
+    query::{DebugCheckedUnwrap, UnsafeVecExtensions},
     storage::{ImmutableSparseSet, SparseArray, SparseSet, TableId, TableRow},
 };
 use alloc::{boxed::Box, vec::Vec};

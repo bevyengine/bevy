@@ -9,12 +9,7 @@ use alloc::{boxed::Box, vec, vec::Vec};
 use bevy_platform::collections::HashMap;
 use bevy_ptr::{OwningPtr, Ptr, UnsafeCellDeref};
 pub use column::*;
-use core::{
-    alloc::Layout,
-    cell::UnsafeCell,
-    num::NonZeroUsize,
-    panic::Location,
-};
+use core::{alloc::Layout, cell::UnsafeCell, num::NonZeroUsize, panic::Location};
 use nonmax::NonMaxU32;
 mod column;
 

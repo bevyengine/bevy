@@ -10,10 +10,10 @@ use crate::{
     entity::{Entity, EntityLocation},
     lifecycle::{REMOVE, REPLACE},
     observer::Observers,
+    query::DebugCheckedUnwrap,
     relationship::RelationshipHookMode,
     storage::{SparseSets, Storages, Table},
     world::{unsafe_world_cell::UnsafeWorldCell, World},
-    query::DebugCheckedUnwrap,
 };
 
 // SAFETY: We have exclusive world access so our pointers can't be invalidated externally
@@ -80,8 +80,11 @@ impl<'w> BundleRemover<'w> {
             return None;
         }
 
-        let (old_archetype, new_archetype) =
-            unsafe { world.archetypes.get_2_unchecked_mut(archetype_id, new_archetype_id) };
+        let (old_archetype, new_archetype) = unsafe {
+            world
+                .archetypes
+                .get_2_unchecked_mut(archetype_id, new_archetype_id)
+        };
 
         let tables = if old_archetype.table_id() == new_archetype.table_id() {
             None
@@ -275,7 +278,8 @@ impl<'w> BundleRemover<'w> {
                         table_row: location.table_row,
                     }),
                 );
-                world.archetypes
+                world
+                    .archetypes
                     .get_unchecked_mut(swapped_location.archetype_id)
                     .set_entity_table_row(swapped_location.archetype_row, location.table_row);
             }

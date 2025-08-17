@@ -2689,7 +2689,7 @@ impl<'w> EntityWorldMut<'w> {
             table_row = remove_result.table_row;
 
             for component_id in archetype.sparse_set_components() {
-                // SAFETY: The component ID is guarenteed to be a sparse set component and
+                // SAFETY: The component ID is guararnteed to be a sparse set component and
                 // entity has a corresponding component.
                 unsafe {
                     world
