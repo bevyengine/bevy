@@ -19,7 +19,8 @@ use std::path::{Path, PathBuf};
 /// at startup:
 ///
 /// ```rust
-/// # use bevy::asset::web::{PathFilter, WebAssetPlugin};
+/// # use bevy_app::App;
+/// # use bevy_asset::web::{PathFilter, WebAssetPlugin};
 /// # fn main() {
 /// App::new()
 ///     .add_plugins(DefaultPlugins.set(WebAssetPlugin(PathFilter {
@@ -52,8 +53,8 @@ impl Plugin for WebAssetPlugin {
         app.register_asset_source(
             "http",
             AssetSource::build()
-                .with_reader(|| Box::new(WebAssetReader::Http(filter)))
-                .with_processed_reader(|| Box::new(WebAssetReader::Http(filter))),
+                .with_reader(move || Box::new(WebAssetReader::Http(filter)))
+                .with_processed_reader(move || Box::new(WebAssetReader::Http(filter))),
         );
 
         #[cfg(feature = "https")]
