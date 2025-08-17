@@ -37,7 +37,7 @@ fn fragment(
 
     let uv = (material.uv_transform * vec3(mesh.uv, 1.0)).xy;
 
-    if (material.flags & COLOR_MATERIAL_FLAGS_TEXTURE_BIT) != 0u {
+    if ((material.flags & COLOR_MATERIAL_FLAGS_TEXTURE_BIT) != 0u) {
         output_color = output_color * textureSample(texture, texture_sampler, uv);
     }
 
