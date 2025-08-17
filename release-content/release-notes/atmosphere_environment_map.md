@@ -26,4 +26,3 @@ Notes:
 - Currently tied to the active view, scene light probes are not yet supported.
 
 Special thanks to @atlv24, @JMS55 and @ecoskey for reviews and feedback.
-
