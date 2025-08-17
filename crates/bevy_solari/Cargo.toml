@@ -10,6 +10,7 @@ keywords = ["bevy"]
 
 [dependencies]
 # bevy
+bevy_anti_aliasing = { path = "../bevy_anti_aliasing", version = "0.17.0-dev" }
 bevy_app = { path = "../bevy_app", version = "0.17.0-dev" }
 bevy_asset = { path = "../bevy_asset", version = "0.17.0-dev" }
 bevy_camera = { path = "../bevy_camera", version = "0.17.0-dev" }
@@ -35,6 +36,10 @@ bevy_transform = { path = "../bevy_transform", version = "0.17.0-dev" }
 bytemuck = { version = "1" }
 derive_more = { version = "2", default-features = false, features = ["from"] }
 tracing = { version = "0.1", default-features = false, features = ["std"] }
+
+[features]
+dlss = ["bevy_anti_aliasing/dlss"]
+force_disable_dlss = ["bevy_anti_aliasing/force_disable_dlss"]
 
 [lints]
 workspace = true

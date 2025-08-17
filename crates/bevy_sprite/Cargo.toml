@@ -26,11 +26,16 @@ bevy_reflect = { path = "../bevy_reflect", version = "0.17.0-dev" }
 bevy_transform = { path = "../bevy_transform", version = "0.17.0-dev" }
 bevy_window = { path = "../bevy_window", version = "0.17.0-dev", optional = true }
 bevy_derive = { path = "../bevy_derive", version = "0.17.0-dev" }
+bevy_text = { path = "../bevy_text", version = "0.17.0-dev" }
 
 # other
 radsort = "0.1"
 tracing = { version = "0.1", default-features = false, features = ["std"] }
 wgpu-types = { version = "26", default-features = false }
+
+[dev-dependencies]
+approx = "0.5.1"
+bevy_window = { path = "../bevy_window", version = "0.17.0-dev" }
 
 [lints]
 workspace = true
