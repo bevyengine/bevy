@@ -409,7 +409,7 @@ where
     fn clone(&self) -> Self {
         Self {
             mesh_key: self.mesh_key,
-            bind_group_data: self.bind_group_data,
+            bind_group_data: self.bind_group_data.clone(),
         }
     }
 }
@@ -763,7 +763,7 @@ pub fn specialize_material2d_meshes<M: Material2d>(
                 &material2d_pipeline,
                 Material2dKey {
                     mesh_key,
-                    bind_group_data: material_2d.key,
+                    bind_group_data: material_2d.key.clone(),
                 },
                 &mesh.layout,
             );

@@ -23,10 +23,6 @@ use core::{f32::consts::TAU, hash::Hash, num::NonZeroU32, ops::Deref};
 const MAX_MESH_SLAB_COUNT: NonZeroU32 = NonZeroU32::new(500).unwrap();
 const MAX_TEXTURE_COUNT: NonZeroU32 = NonZeroU32::new(5_000).unwrap();
 
-/// Average angular diameter of the sun as seen from earth.
-/// <https://en.wikipedia.org/wiki/Angular_diameter#Use_in_astronomy>
-const SUN_ANGULAR_DIAMETER_RADIANS: f32 = 0.00930842;
-
 const TEXTURE_MAP_NONE: u32 = u32::MAX;
 const LIGHT_NOT_PRESENT_THIS_FRAME: u32 = u32::MAX;
 
@@ -407,7 +403,7 @@ struct GpuDirectionalLight {
 
 impl GpuDirectionalLight {
     fn new(directional_light: &ExtractedDirectionalLight) -> Self {
-        let cos_theta_max = cos(SUN_ANGULAR_DIAMETER_RADIANS / 2.0);
+        let cos_theta_max = cos(directional_light.sun_disk_angular_size / 2.0);
         let solid_angle = TAU * (1.0 - cos_theta_max);
         let luminance =
             (directional_light.color.to_vec3() * directional_light.illuminance) / solid_angle;
