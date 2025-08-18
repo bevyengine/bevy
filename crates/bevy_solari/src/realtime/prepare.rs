@@ -1,6 +1,12 @@
 use super::SolariLighting;
+#[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))]
+use bevy_anti_aliasing::dlss::{
+    Dlss, DlssRayReconstructionFeature, ViewDlssRayReconstructionTextures,
+};
 use bevy_camera::MainPassResolutionOverride;
 use bevy_core_pipeline::{core_3d::CORE_3D_DEPTH_FORMAT, deferred::DEFERRED_PREPASS_FORMAT};
+#[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))]
+use bevy_ecs::query::Has;
 use bevy_ecs::{
     component::Component,
     entity::Entity,
@@ -9,6 +15,8 @@ use bevy_ecs::{
 };
 use bevy_image::ToExtents;
 use bevy_math::UVec2;
+#[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))]
+use bevy_render::texture::CachedTexture;
 use bevy_render::{
     camera::ExtractedCamera,
     render_resource::{
@@ -58,7 +66,7 @@ pub struct SolariLightingResources {
 }
 
 pub fn prepare_solari_lighting_resources(
-    query: Query<
+    #[cfg(any(not(feature = "dlss"), feature = "force_disable_dlss"))] query: Query<
         (
             Entity,
             &ExtractedCamera,
@@ -67,10 +75,26 @@ pub fn prepare_solari_lighting_resources(
         ),
         With<SolariLighting>,
     >,
+    #[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))] query: Query<
+        (
+            Entity,
+            &ExtractedCamera,
+            Option<&SolariLightingResources>,
+            Option<&MainPassResolutionOverride>,
+            Has<Dlss<DlssRayReconstructionFeature>>,
+        ),
+        With<SolariLighting>,
+    >,
     render_device: Res<RenderDevice>,
     mut commands: Commands,
 ) {
-    for (entity, camera, solari_lighting_resources, resolution_override) in &query {
+    for query_item in &query {
+        #[cfg(any(not(feature = "dlss"), feature = "force_disable_dlss"))]
+        let (entity, camera, solari_lighting_resources, resolution_override) = query_item;
+        #[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))]
+        let (entity, camera, solari_lighting_resources, resolution_override, has_dlss_rr) =
+            query_item;
+
         let Some(mut view_size) = camera.physical_viewport_size else {
             continue;
         };
@@ -241,5 +265,80 @@ pub fn prepare_solari_lighting_resources(
             world_cache_active_cells_dispatch,
             view_size,
         });
+
+        #[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))]
+        if has_dlss_rr {
+            let diffuse_albedo = render_device.create_texture(&TextureDescriptor {
+                label: Some("solari_lighting_diffuse_albedo"),
+                size: view_size.to_extents(),
+                mip_level_count: 1,
+                sample_count: 1,
+                dimension: TextureDimension::D2,
+                format: TextureFormat::Rgba8Unorm,
+                usage: TextureUsages::TEXTURE_BINDING | TextureUsages::STORAGE_BINDING,
+                view_formats: &[],
+            });
+            let diffuse_albedo_view = diffuse_albedo.create_view(&TextureViewDescriptor::default());
+
+            let specular_albedo = render_device.create_texture(&TextureDescriptor {
+                label: Some("solari_lighting_specular_albedo"),
+                size: view_size.to_extents(),
+                mip_level_count: 1,
+                sample_count: 1,
+                dimension: TextureDimension::D2,
+                format: TextureFormat::Rgba8Unorm,
+                usage: TextureUsages::TEXTURE_BINDING | TextureUsages::STORAGE_BINDING,
+                view_formats: &[],
+            });
+            let specular_albedo_view =
+                specular_albedo.create_view(&TextureViewDescriptor::default());
+
+            let normal_roughness = render_device.create_texture(&TextureDescriptor {
+                label: Some("solari_lighting_normal_roughness"),
+                size: view_size.to_extents(),
+                mip_level_count: 1,
+                sample_count: 1,
+                dimension: TextureDimension::D2,
+                format: TextureFormat::Rgba16Float,
+                usage: TextureUsages::TEXTURE_BINDING | TextureUsages::STORAGE_BINDING,
+                view_formats: &[],
+            });
+            let normal_roughness_view =
+                normal_roughness.create_view(&TextureViewDescriptor::default());
+
+            let specular_motion_vectors = render_device.create_texture(&TextureDescriptor {
+                label: Some("solari_lighting_specular_motion_vectors"),
+                size: view_size.to_extents(),
+                mip_level_count: 1,
+                sample_count: 1,
+                dimension: TextureDimension::D2,
+                format: TextureFormat::Rg16Float,
+                usage: TextureUsages::TEXTURE_BINDING | TextureUsages::STORAGE_BINDING,
+                view_formats: &[],
+            });
+            let specular_motion_vectors_view =
+                specular_motion_vectors.create_view(&TextureViewDescriptor::default());
+
+            commands
+                .entity(entity)
+                .insert(ViewDlssRayReconstructionTextures {
+                    diffuse_albedo: CachedTexture {
+                        texture: diffuse_albedo,
+                        default_view: diffuse_albedo_view,
+                    },
+                    specular_albedo: CachedTexture {
+                        texture: specular_albedo,
+                        default_view: specular_albedo_view,
+                    },
+                    normal_roughness: CachedTexture {
+                        texture: normal_roughness,
+                        default_view: normal_roughness_view,
+                    },
+                    specular_motion_vectors: CachedTexture {
+                        texture: specular_motion_vectors,
+                        default_view: specular_motion_vectors_view,
+                    },
+                });
+        }
     }
 }

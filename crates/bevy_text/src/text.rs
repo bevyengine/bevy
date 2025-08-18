@@ -109,7 +109,7 @@ impl Default for ComputedTextBlock {
 /// spans associated with a text block are collected into [`ComputedTextBlock`] for layout, and then inserted
 /// to [`TextLayoutInfo`] for rendering.
 ///
-/// See [`Text2d`](crate::Text2d) for the core component of 2d text, and `Text` in `bevy_ui` for UI text.
+/// See `Text2d` in `bevy_sprite` for the core component of 2d text, and `Text` in `bevy_ui` for UI text.
 #[derive(Component, Debug, Copy, Clone, Default, Reflect)]
 #[reflect(Component, Default, Debug, Clone)]
 #[require(ComputedTextBlock, TextLayoutInfo)]
@@ -170,46 +170,6 @@ impl TextLayout {
 /// with `TextSpan` extend this text by appending their content to the parent's text in sequence to
 /// form a [`ComputedTextBlock`]. The parent's [`TextLayout`] determines the layout of the block
 /// but each node has its own [`TextFont`] and [`TextColor`].
-///
-/// ```
-/// # use bevy_asset::Handle;
-/// # use bevy_color::Color;
-/// # use bevy_color::palettes::basic::{BLUE, GREEN, RED};
-/// # use bevy_ecs::{children, spawn::SpawnRelated, world::World};
-/// # use bevy_text::{Font, Justify, Text2d, TextColor, TextLayout, TextFont, TextSpan};
-///
-/// # let font_handle: Handle<Font> = Default::default();
-/// # let mut world = World::default();
-/// #
-/// world.spawn((
-///     // `Text` or `Text2d` is needed.
-///     Text2d::new("Bevy\n"),
-///     // Layout of the entire block of text.
-///     TextLayout::new_with_justify(Justify::Center),
-///     // TextFont of this node. Won't apply to children.
-///     TextFont::from_font_size(50.0),
-///     // TextColor of this node. Won't apply to children.
-///     TextColor(BLUE.into()),
-///     // Children must be `TextSpan`, not `Text` or `Text2d`.
-///     children![
-///         (
-///             TextSpan::new("Bevy\n"),
-///             TextFont::from_font_size(40.0),
-///             TextColor(RED.into()),
-///         ),
-///         (
-///             TextSpan::new("Bevy\n"),
-///             TextFont::from_font_size(30.0),
-///             // Default TextColor will be inserted because TextSpan requires it.
-///         ),
-///         (
-///             TextSpan::new("Bevy"),
-///             TextColor(GREEN.into()),
-///             // Default TextFont will be inserted because TextSpan requires it.
-///         )
-///     ],
-/// ));
-/// ```
 #[derive(Component, Debug, Default, Clone, Deref, DerefMut, Reflect)]
 #[reflect(Component, Default, Debug, Clone)]
 #[require(TextFont, TextColor)]
@@ -500,7 +460,7 @@ pub enum FontSmoothing {
 
 /// System that detects changes to text blocks and sets `ComputedTextBlock::should_rerender`.
 ///
-/// Generic over the root text component and text span component. For example, [`Text2d`](crate::Text2d)/[`TextSpan`] for
+/// Generic over the root text component and text span component. For example, `Text2d`/[`TextSpan`] for
 /// 2d or `Text`/[`TextSpan`] for UI.
 pub fn detect_text_needs_rerender<Root: Component>(
     changed_roots: Query<

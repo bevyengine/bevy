@@ -740,6 +740,14 @@ pub mod __macro_exports {
     pub mod auto_register {
         pub use super::*;
 
+        #[cfg(all(
+            not(feature = "auto_register_inventory"),
+            not(feature = "auto_register_static")
+        ))]
+        compile_error!(
+            "Choosing a backend is required for automatic reflect registration. Please enable either the \"auto_register_inventory\" or the \"auto_register_static\" feature."
+        );
+
         /// inventory impl
         #[cfg(all(
             not(feature = "auto_register_static"),
@@ -817,6 +825,7 @@ pub mod __macro_exports {
             }
         }
 
+        #[cfg(any(feature = "auto_register_static", feature = "auto_register_inventory"))]
         pub use __automatic_type_registration_impl::*;
     }
 }

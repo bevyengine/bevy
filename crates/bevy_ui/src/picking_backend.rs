@@ -180,7 +180,7 @@ pub fn ui_picking(
         {
             continue;
         }
-        let Some(camera_entity) = node.target_camera.camera() else {
+        let Some(camera_entity) = node.target_camera.get() else {
             continue;
         };
 
@@ -224,7 +224,7 @@ pub fn ui_picking(
         for (hovered_node, position) in hovered {
             let node = node_query.get(*hovered_node).unwrap();
 
-            let Some(camera_entity) = node.target_camera.camera() else {
+            let Some(camera_entity) = node.target_camera.get() else {
                 continue;
             };
 

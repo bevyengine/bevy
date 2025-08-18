@@ -23,6 +23,7 @@ use bevy_camera::{Camera, Camera2d, Camera3d};
 use bevy_reflect::prelude::ReflectDefault;
 use bevy_reflect::Reflect;
 use bevy_shader::load_shader_library;
+use bevy_sprite_render::SpriteAssetEvents;
 use bevy_ui::widget::{ImageNode, TextShadow, ViewportNode};
 use bevy_ui::{
     BackgroundColor, BorderColor, CalculatedClip, ComputedNode, ComputedUiTargetCamera, Display,
@@ -52,7 +53,7 @@ use bevy_render::{
     view::{ExtractedView, Hdr, RetainedViewEntity, ViewUniforms},
     Extract, ExtractSchedule, Render, RenderApp, RenderStartup, RenderSystems,
 };
-use bevy_sprite::{BorderRect, SpriteAssetEvents};
+use bevy_sprite::BorderRect;
 #[cfg(feature = "bevy_ui_debug")]
 pub use debug_overlay::UiDebugOptions;
 use gradient::GradientPlugin;
@@ -326,7 +327,7 @@ pub struct UiCameraMapper<'w, 's> {
 impl<'w, 's> UiCameraMapper<'w, 's> {
     /// Returns the render entity corresponding to the given [`ComputedUiTargetCamera`]'s camera, or none if no corresponding entity was found.
     pub fn map(&mut self, computed_target: &ComputedUiTargetCamera) -> Option<Entity> {
-        let camera_entity = computed_target.camera()?;
+        let camera_entity = computed_target.get()?;
         if self.camera_entity != camera_entity {
             let new_render_camera_entity = self.mapping.get(camera_entity).ok()?;
             self.render_entity = new_render_camera_entity;

@@ -1,7 +1,7 @@
 ---
 title: "`RenderStartup` and making the renderer my ECS-y"
 authors: ["@IceSentry", "@andriyDev"]
-pull_requests: [19841, 19926, 19885, 19886, 19897, 19898, 19901]
+pull_requests: [19841, 19885, 19886, 19897, 19898, 19901, 19912, 19926, 19999, 20002, 20024, 20124, 20147, 20184, 20194, 20195, 20208, 20209, 20210]
 ---
 
 Previous rendering code looked quite different from other Bevy code. In general, resources were

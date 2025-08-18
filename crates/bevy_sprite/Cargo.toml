@@ -9,41 +9,32 @@ license = "MIT OR Apache-2.0"
 keywords = ["bevy"]
 
 [features]
-bevy_sprite_picking_backend = ["bevy_picking", "bevy_window"]
-webgl = []
-webgpu = []
+bevy_sprite_picking_backend = ["bevy_picking"]
 
 [dependencies]
 # bevy
 bevy_app = { path = "../bevy_app", version = "0.17.0-dev" }
 bevy_asset = { path = "../bevy_asset", version = "0.17.0-dev" }
 bevy_color = { path = "../bevy_color", version = "0.17.0-dev" }
-bevy_core_pipeline = { path = "../bevy_core_pipeline", version = "0.17.0-dev" }
 bevy_ecs = { path = "../bevy_ecs", version = "0.17.0-dev" }
 bevy_image = { path = "../bevy_image", version = "0.17.0-dev" }
 bevy_camera = { path = "../bevy_camera", version = "0.17.0-dev" }
 bevy_mesh = { path = "../bevy_mesh", version = "0.17.0-dev" }
 bevy_math = { path = "../bevy_math", version = "0.17.0-dev" }
-bevy_shader = { path = "../bevy_shader", version = "0.17.0-dev" }
 bevy_picking = { path = "../bevy_picking", version = "0.17.0-dev", optional = true }
 bevy_reflect = { path = "../bevy_reflect", version = "0.17.0-dev" }
-bevy_render = { path = "../bevy_render", version = "0.17.0-dev" }
 bevy_transform = { path = "../bevy_transform", version = "0.17.0-dev" }
-bevy_utils = { path = "../bevy_utils", version = "0.17.0-dev" }
-bevy_window = { path = "../bevy_window", version = "0.17.0-dev", optional = true }
+bevy_window = { path = "../bevy_window", version = "0.17.0-dev" }
 bevy_derive = { path = "../bevy_derive", version = "0.17.0-dev" }
-bevy_platform = { path = "../bevy_platform", version = "0.17.0-dev", default-features = false, features = [
-  "std",
-] }
+bevy_text = { path = "../bevy_text", version = "0.17.0-dev" }
 
 # other
-bytemuck = { version = "1", features = ["derive", "must_cast"] }
-fixedbitset = "0.5"
-derive_more = { version = "2", default-features = false, features = ["from"] }
-bitflags = "2.3"
 radsort = "0.1"
-nonmax = "0.5"
 tracing = { version = "0.1", default-features = false, features = ["std"] }
+wgpu-types = { version = "26", default-features = false }
+
+[dev-dependencies]
+approx = "0.5.1"
 
 [lints]
 workspace = true
