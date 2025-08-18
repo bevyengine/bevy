@@ -88,7 +88,7 @@ impl Plugin for WebAssetPlugin {
 impl Default for WebAssetPlugin {
     fn default() -> Self {
         Self {
-            path_is_allowed: |_| true,
+            path_is_allowed: |_| false,
         }
     }
 }
