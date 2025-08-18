@@ -2,9 +2,10 @@ use crate::{
     batching::BatchingStrategy,
     component::Tick,
     entity::{EntityEquivalent, UniqueEntityEquivalentVec},
-    query::DebugCheckedUnwrap,
     world::unsafe_world_cell::UnsafeWorldCell,
 };
+#[cfg(all(not(target_arch = "wasm32"), feature = "multi_threaded"))]
+use crate::query::DebugCheckedUnwrap;
 
 use super::{QueryData, QueryFilter, QueryItem, QueryState, ReadOnlyQueryData};
 
