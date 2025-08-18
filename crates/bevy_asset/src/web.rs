@@ -14,7 +14,7 @@ use std::path::{Path, PathBuf};
 /// Any asset path that begins with `http` (when the `http` feature is enabled) or `https` (when the
 /// `https` feature is enabled) will be loaded from the web via `fetch` (wasm) or `ureq` (native).
 ///
-/// It is possible to filter allowed domains by setting the `WebAssetPlugin` to have a [`PathFilter`]
+/// It is possible to filter allowed domains by setting `WebAssetPlugin::path_is_allowed`
 /// at startup. This is provided for security reasons, so that domain filters can be enforced.
 ///
 /// The `path_is_allowed` callback is provided fully formed asset paths, such as
