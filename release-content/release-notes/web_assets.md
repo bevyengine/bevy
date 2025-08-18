@@ -22,6 +22,7 @@ App::new()
     .add_plugins(DefaultPlugins.set(WebAssetPlugin {
          path_is_allowed: |url| url.starts_with("https://example.com/")
     })))
+```
 
 The implementation has changed quite a bit but this feature originally started out as an upstreaming of the [`bevy_web_asset`](https://github.com/johanhelsing/bevy_web_asset) crate.
 Special thanks to @johanhelsing and bevy_web_asset's contributors!
