@@ -135,32 +135,33 @@ fn setup(
 fn add_raytracing_meshes_on_scene_load(
     trigger: On<SceneInstanceReady>,
     children: Query<&Children>,
-    mesh: Query<&Mesh3d>,
+    mesh_query: Query<&Mesh3d>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut commands: Commands,
     args: Res<Args>,
 ) {
-    // Ensure meshes are Solari compatible
-    for (_, mesh) in meshes.iter_mut() {
-        if !mesh.contains_attribute(Mesh::ATTRIBUTE_UV_0) {
-            mesh.insert_attribute(
-                Mesh::ATTRIBUTE_UV_0,
-                vec![[0.0, 0.0]; mesh.count_vertices()],
-            );
-        }
-
-        if !mesh.contains_attribute(Mesh::ATTRIBUTE_TANGENT) {
-            mesh.generate_tangents().unwrap();
-        }
-    }
-
-    // Add raytracing mesh handles
     for descendant in children.iter_descendants(trigger.target()) {
-        if let Ok(mesh) = mesh.get(descendant) {
+        if let Ok(Mesh3d(mesh_handle)) = mesh_query.get(descendant) {
+            // Ensure meshes are Solari compatible
+            let mesh = meshes.get_mut(mesh_handle).unwrap();
+            if !mesh.contains_attribute(Mesh::ATTRIBUTE_UV_0) {
+                let vertex_count = mesh.count_vertices();
+                mesh.insert_attribute(Mesh::ATTRIBUTE_UV_0, vec![[0.0, 0.0]; vertex_count]);
+                mesh.insert_attribute(
+                    Mesh::ATTRIBUTE_TANGENT,
+                    vec![[0.0, 0.0, 0.0, 0.0]; vertex_count],
+                );
+            }
+            if !mesh.contains_attribute(Mesh::ATTRIBUTE_TANGENT) {
+                mesh.generate_tangents().unwrap();
+            }
+
+            // Add raytracing mesh component
             commands
                 .entity(descendant)
-                .insert(RaytracingMesh3d(mesh.0.clone()));
+                .insert(RaytracingMesh3d(mesh_handle.clone()));
 
+            // Prevent rasterization if using pathtracer
             if args.pathtracer == Some(true) {
                 commands.entity(descendant).remove::<Mesh3d>();
             }
