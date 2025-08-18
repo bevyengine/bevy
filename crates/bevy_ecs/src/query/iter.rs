@@ -2269,7 +2269,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter, const K: usize> QueryCombinationIter<
         let ptr = values.as_mut_ptr().cast::<D::Item<'w, 's>>();
         for (offset, cursor) in self.cursors.iter_mut().enumerate() {
             ptr.add(offset)
-                .write(cursor.peek_last(self.query_state).unwrap());
+                .write(cursor.peek_last(self.query_state).debug_checked_unwrap());
         }
 
         Some(values.assume_init())

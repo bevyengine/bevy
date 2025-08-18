@@ -216,8 +216,8 @@ impl<'w> BundleRemover<'w> {
                         .storages
                         .sparse_sets
                         .get_mut(component_id)
-                        // Set exists because the component existed on the entity
-                        .unwrap()
+                        // SAFETY: The set must exist because the component existed on the entity
+                        .debug_checked_unwrap()
                         // If it was already forgotten, it would not be in the set.
                         .remove(entity);
                 }
@@ -231,7 +231,10 @@ impl<'w> BundleRemover<'w> {
             .swap_remove_unchecked(location.archetype_row);
         // if an entity was moved into this entity's archetype row, update its archetype row
         if let Some(swapped_entity) = remove_result.swapped_entity {
-            let swapped_location = world.entities.get(swapped_entity).unwrap();
+            let swapped_location = world.entities.get(swapped_entity);
+            // SAFETY: The entity was just moved within a valid archetype. The swapped entity must
+            // be valid and alive.
+            let swapped_location = unsafe { swapped_location.debug_checked_unwrap() };
 
             world.entities.set(
                 swapped_entity.index(),
@@ -272,7 +275,10 @@ impl<'w> BundleRemover<'w> {
 
             // if an entity was moved into this entity's table row, update its table row
             if let Some(swapped_entity) = move_result.swapped_entity {
-                let swapped_location = world.entities.get(swapped_entity).unwrap();
+                let swapped_location = world.entities.get(swapped_entity);
+                // SAFETY: The entity was just moved within a valid archetype. The swapped entity must
+                // be valid and alive.
+                let swapped_location = unsafe { swapped_location.debug_checked_unwrap() };
 
                 world.entities.set(
                     swapped_entity.index(),

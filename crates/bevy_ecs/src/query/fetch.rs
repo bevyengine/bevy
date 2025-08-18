@@ -1254,7 +1254,7 @@ where
         let cell = fetch
             .world
             .get_entity_with_ticks(entity, fetch.last_run, fetch.this_run)
-            .unwrap();
+            .debug_checked_unwrap();
         EntityRefExcept::new(cell, access)
     }
 }
@@ -1368,7 +1368,7 @@ where
         let cell = fetch
             .world
             .get_entity_with_ticks(entity, fetch.last_run, fetch.this_run)
-            .unwrap();
+            .debug_checked_unwrap();
         EntityMutExcept::new(cell, access)
     }
 }

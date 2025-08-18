@@ -2232,7 +2232,10 @@ impl<'w> EntityWorldMut<'w> {
                     (
                         false,
                         T::from_components(&mut (sets, table), &mut |(sets, table)| {
-                            let component_id = bundle_components.next().unwrap();
+                            let component_id = bundle_components.next();
+                            // SAFETY: As required by `Bundle::from_components`, it must always be called
+                            // exactly once per bundle member. This can never return `None`.`
+                            let component_id = component_id.debug_checked_unwrap();
                             // SAFETY: the component existed to be removed, so its id must be valid.
                             let component_info = components.get_info_unchecked(component_id);
                             match component_info.storage_type() {
@@ -2246,9 +2249,11 @@ impl<'w> EntityWorldMut<'w> {
                                 }
                                 StorageType::SparseSet => sets
                                     .get_mut(component_id)
-                                    .unwrap()
+                                    // SAFETY: The SparseSet must be valid if the component is in it.
+                                    .debug_checked_unwrap()
                                     .remove_and_forget(entity)
-                                    .unwrap(),
+                                    // SAFETY: The component must be valid if it's in the SparseSet.
+                                    .debug_checked_unwrap(),
                             }
                         }),
                     )
@@ -3468,8 +3473,8 @@ impl<'w, 'a, T: Component<Mutability = Mutable>> OccupiedComponentEntry<'w, 'a, 
     /// ```
     #[inline]
     pub fn get_mut(&mut self) -> Mut<'_, T> {
-        // This shouldn't panic because if we have an OccupiedComponentEntry the component must exist.
-        self.entity_world.get_mut::<T>().unwrap()
+        // SAFETY: If we have an OccupiedEntry the component must exist.
+        unsafe { self.entity_world.get_mut::<T>().debug_checked_unwrap() }
     }
 
     /// Converts the [`OccupiedComponentEntry`] into a mutable reference to the value in the entry with

@@ -650,7 +650,12 @@ impl SparseSets {
             );
         }
 
-        self.sets.get_mut(component_info.id()).unwrap()
+        // SAFETY: If the set was not present before, it was just initialized above.
+        unsafe {
+            self.sets
+                .get_mut(component_info.id())
+                .debug_checked_unwrap()
+        }
     }
 
     /// Gets a mutable reference to the [`ComponentSparseSet`] of a [`ComponentId`]. This may be `None` if the component has never been spawned.
