@@ -13,6 +13,7 @@ extern crate alloc;
 #[cfg(feature = "bevy_sprite_picking_backend")]
 mod picking_backend;
 mod sprite;
+#[cfg(feature = "text2d")]
 mod text2d;
 mod texture_slice;
 
@@ -25,10 +26,12 @@ pub mod prelude {
     pub use crate::picking_backend::{
         SpritePickingCamera, SpritePickingMode, SpritePickingPlugin, SpritePickingSettings,
     };
+    #[cfg(feature = "text2d")]
+    #[doc(hidden)]
+    pub use crate::text2d::{Text2d, Text2dReader, Text2dWriter};
     #[doc(hidden)]
     pub use crate::{
         sprite::{Sprite, SpriteImageMode},
-        text2d::{Text2d, Text2dReader, Text2dWriter},
         texture_slice::{BorderRect, SliceScaleMode, TextureSlice, TextureSlicer},
         ScalingMode,
     };
@@ -42,11 +45,14 @@ use bevy_camera::{
 };
 use bevy_camera::{visibility::VisibilitySystems, CameraUpdateSystems};
 use bevy_mesh::{Mesh, Mesh2d};
+#[cfg(feature = "text2d")]
 use bevy_text::detect_text_needs_rerender;
+#[cfg(feature = "text2d")]
 use bevy_text::Text2dUpdateSystems;
 #[cfg(feature = "bevy_sprite_picking_backend")]
 pub use picking_backend::*;
 pub use sprite::*;
+#[cfg(feature = "text2d")]
 pub use text2d::*;
 pub use texture_slice::*;
 
@@ -79,6 +85,7 @@ impl Plugin for SpritePlugin {
             calculate_bounds_2d.in_set(VisibilitySystems::CalculateBounds),
         );
 
+        #[cfg(feature = "text2d")]
         app.add_systems(
             PostUpdate,
             (
