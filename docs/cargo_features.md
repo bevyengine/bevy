@@ -53,6 +53,7 @@ The default feature set enables most of the expected features of a game engine, 
 |smaa_luts|Include SMAA Look Up Tables KTX2 Files|
 |std|Allows access to the `std` crate.|
 |sysinfo_plugin|Enables system information diagnostic plugin|
+|text2d|Enables text rendering using `bevy_render_2d`|
 |tonemapping_luts|Include tonemapping Look Up Tables KTX2 files. If everything is pink, you need to enable this feature or change the `Tonemapping` method for your `Camera2d` or `Camera3d`.|
 |vorbis|OGG/VORBIS audio format support|
 |wayland|Wayland display server support|
