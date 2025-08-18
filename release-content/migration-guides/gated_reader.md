@@ -1,5 +1,5 @@
 ---
-title: `GatedReader` and `GatedOpener` are now private.
+title: "`GatedReader` and `GatedOpener` are now private."
 pull_requests: [18473]
 ---
 

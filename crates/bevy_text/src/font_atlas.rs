@@ -2,7 +2,7 @@ use bevy_asset::{Assets, Handle, RenderAssetUsages};
 use bevy_image::{prelude::*, ImageSampler, ToExtents};
 use bevy_math::{IVec2, UVec2};
 use bevy_platform::collections::HashMap;
-use bevy_render::render_resource::{TextureDimension, TextureFormat};
+use wgpu_types::{TextureDimension, TextureFormat};
 
 use crate::{FontSmoothing, GlyphAtlasLocation, TextError};
 

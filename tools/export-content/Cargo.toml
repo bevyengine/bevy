@@ -1,0 +1,15 @@
+[package]
+name = "export-content"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+miette = { version = "7.6.0", features = ["fancy"] }
+ratatui = "0.29.0"
+regex = "1.11.1"
+serde = { version = "1.0", features = ["derive"] }
+serde_yml = "0.0.12"
+thiserror = "2.0.12"
+
+[lints]
+workspace = true

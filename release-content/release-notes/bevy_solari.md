@@ -1,8 +1,10 @@
 ---
 title: Initial raytraced lighting progress (bevy_solari)
 authors: ["@JMS55", "@SparkyPotato"]
-pull_requests: [19058, 19620, 19790, 20020, 20113, 20156, 20213, 20242, 20259, 20406, 20457]
+pull_requests: [19058, 19620, 19790, 20020, 20113, 20156, 20213, 20242, 20259, 20406, 20457, 20580, 20596]
 ---
+
+## Overview
 
 (TODO: Embed solari example screenshot here)
 
@@ -25,7 +27,23 @@ The problem with these methods is that they all have large downsides:
 
 Bevy Solari is intended as a completely alternate, high-end lighting solution for Bevy that uses GPU-accelerated raytracing to fix all of the above problems. Emissive meshes properly cast light and shadows, you can have hundreds of shadow casting lights, quality is much better, it requires no baking time, and it supports _fully_ dynamic scenes!
 
-While Bevy 0.17 adds the bevy_solari crate, it's intended as a long-term project. It is not yet usable by game developers. However, feel free to run the solari example (`cargo run --release --example solari --features bevy_solari` (realtime, no denoising) or `cargo run --release --example solari --features bevy_solari -- --pathtracer` (non-realtime)) to check out the progress we've made, and look forward to more work on Bevy Solari in future releases!
+## Try it out
+
+While Bevy 0.17 adds the bevy_solari crate, it is not yet production ready.
+
+However, feel free to run the solari example to check out the progress we've made. There are two different modes you can try out:
+
+A non-realtime "reference" mode that uses pathtracing: `cargo run --release --example solari --features bevy_solari -- --pathtracer`.
+
+A realtime mode that uses a combination of techniques, and currently supports only diffuse materials: `cargo run --release --example solari --features bevy_solari`.
+
+Additionally, if you have a NVIDIA GPU, you can enable DLSS Ray Reconstruction with the realtime mode for a combination of denoising (Bevy Solari does not otherwise come with a denoiser), lower rendering times, and anti aliasing: `cargo run --release --example solari --features bevy_solari,dlss`.
+
+## How it works
+
+TODO: Showcase the different aspects/steps of Solari (direct initial+temporal+spatial, indirect initial+temporal+spatial, world cache, DLSS RR)
+
+Look forward to more work on Bevy Solari in future releases!
 
 (TODO: Embed bevy_solari logo here, or somewhere else that looks good)
 

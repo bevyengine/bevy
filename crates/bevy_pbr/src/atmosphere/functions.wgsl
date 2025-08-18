@@ -36,7 +36,6 @@
 
 
 // CONSTANTS
-
 const FRAC_PI: f32 = 0.3183098862; // 1 / π
 const FRAC_2_PI: f32 = 0.15915494309;  // 1 / (2π)
 const FRAC_3_16_PI: f32 = 0.0596831036594607509; // 3 / (16π)
@@ -275,8 +274,6 @@ fn sample_local_inscattering(local_atmosphere: AtmosphereSample, ray_dir: vec3<f
     return inscattering;
 }
 
-const SUN_ANGULAR_SIZE: f32 = 0.0174533; // angular diameter of sun in radians
-
 fn sample_sun_radiance(ray_dir_ws: vec3<f32>) -> vec3<f32> {
     let r = view_radius();
     let mu_view = ray_dir_ws.y;
@@ -285,11 +282,15 @@ fn sample_sun_radiance(ray_dir_ws: vec3<f32>) -> vec3<f32> {
     for (var light_i: u32 = 0u; light_i < lights.n_directional_lights; light_i++) {
         let light = &lights.directional_lights[light_i];
         let neg_LdotV = dot((*light).direction_to_light, ray_dir_ws);
-        let angle_to_sun = fast_acos(neg_LdotV);
-        let pixel_size = fwidth(angle_to_sun);
-        let factor = smoothstep(0.0, -pixel_size * ROOT_2, angle_to_sun - SUN_ANGULAR_SIZE * 0.5);
-        let sun_solid_angle = (SUN_ANGULAR_SIZE * SUN_ANGULAR_SIZE) * 4.0 * FRAC_PI;
-        sun_radiance += ((*light).color.rgb / sun_solid_angle) * factor * shadow_factor;
+        let angle_to_sun = fast_acos(clamp(neg_LdotV, -1.0, 1.0));
+        let w = max(0.5 * fwidth(angle_to_sun), 1e-6);
+        let sun_angular_size = (*light).sun_disk_angular_size;
+        let sun_intensity = (*light).sun_disk_intensity;
+        if sun_angular_size > 0.0 && sun_intensity > 0.0 {
+            let factor = 1 - smoothstep(sun_angular_size * 0.5 - w, sun_angular_size * 0.5 + w, angle_to_sun);
+            let sun_solid_angle = (sun_angular_size * sun_angular_size) * 0.25 * PI;
+            sun_radiance += ((*light).color.rgb / sun_solid_angle) * sun_intensity * factor * shadow_factor;
+        }
     }
     return sun_radiance;
 }

@@ -126,9 +126,14 @@ impl TableRow {
 /// [`with_capacity`]: Self::with_capacity
 /// [`add_column`]: Self::add_column
 /// [`build`]: Self::build
+//
+// # Safety
+// The capacity of all columns is determined by that of the `entities` Vec. This means that
+// it must be the correct capacity to allocate, reallocate, and deallocate all columns. This
+// means the safety invariant must be enforced even in `TableBuilder`.
 pub(crate) struct TableBuilder {
     columns: SparseSet<ComponentId, ThinColumn>,
-    capacity: usize,
+    entities: Vec<Entity>,
 }
 
 impl TableBuilder {
@@ -136,7 +141,7 @@ impl TableBuilder {
     pub fn with_capacity(capacity: usize, column_capacity: usize) -> Self {
         Self {
             columns: SparseSet::with_capacity(column_capacity),
-            capacity,
+            entities: Vec::with_capacity(capacity),
         }
     }
 
@@ -145,7 +150,7 @@ impl TableBuilder {
     pub fn add_column(mut self, component_info: &ComponentInfo) -> Self {
         self.columns.insert(
             component_info.id(),
-            ThinColumn::with_capacity(component_info, self.capacity),
+            ThinColumn::with_capacity(component_info, self.entities.capacity()),
         );
         self
     }
@@ -155,7 +160,7 @@ impl TableBuilder {
     pub fn build(self) -> Table {
         Table {
             columns: self.columns.into_immutable(),
-            entities: Vec::with_capacity(self.capacity),
+            entities: self.entities,
         }
     }
 }
@@ -172,6 +177,11 @@ impl TableBuilder {
 /// [structure-of-arrays]: https://en.wikipedia.org/wiki/AoS_and_SoA#Structure_of_arrays
 /// [`Component`]: crate::component::Component
 /// [`World`]: crate::world::World
+//
+// # Safety
+// The capacity of all columns is determined by that of the `entities` Vec. This means that
+// it must be the correct capacity to allocate, reallocate, and deallocate all columns. This
+// means the safety invariant must be enforced even in `TableBuilder`.
 pub struct Table {
     columns: ImmutableSparseSet<ComponentId, ThinColumn>,
     entities: Vec<Entity>,
@@ -523,6 +533,11 @@ impl Table {
     /// Allocate memory for the columns in the [`Table`]
     ///
     /// The current capacity of the columns should be 0, if it's not 0, then the previous data will be overwritten and leaked.
+    ///
+    /// # Safety
+    /// The capacity of all columns is determined by that of the `entities` Vec. This means that
+    /// it must be the correct capacity to allocate, reallocate, and deallocate all columns. This
+    /// means the safety invariant must be enforced even in `TableBuilder`.
     fn alloc_columns(&mut self, new_capacity: NonZeroUsize) {
         // If any of these allocations trigger an unwind, the wrong capacity will be used while dropping this table - UB.
         // To avoid this, we use `AbortOnPanic`. If the allocation triggered a panic, the `AbortOnPanic`'s Drop impl will be
@@ -538,6 +553,10 @@ impl Table {
     ///
     /// # Safety
     /// - `current_column_capacity` is indeed the capacity of the columns
+    ///
+    /// The capacity of all columns is determined by that of the `entities` Vec. This means that
+    /// it must be the correct capacity to allocate, reallocate, and deallocate all columnts. This
+    /// means the safety invariant must be enforced even in `TableBuilder`.
     unsafe fn realloc_columns(
         &mut self,
         current_column_capacity: NonZeroUsize,

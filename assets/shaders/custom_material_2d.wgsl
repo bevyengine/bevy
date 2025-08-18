@@ -1,4 +1,4 @@
-#import bevy_sprite::mesh2d_vertex_output::VertexOutput
+#import bevy_sprite_render::mesh2d_vertex_output::VertexOutput
 // we can import items from shader modules in the assets folder with a quoted path
 #import "shaders/custom_material_import.wgsl"::COLOR_MULTIPLIER
 
