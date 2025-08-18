@@ -2,6 +2,7 @@ use crate::{
     batching::BatchingStrategy,
     component::Tick,
     entity::{EntityEquivalent, UniqueEntityEquivalentVec},
+    query::DebugCheckedUnwrap,
     world::unsafe_world_cell::UnsafeWorldCell,
 };
 
@@ -137,14 +138,25 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryParIter<'w, 's, D, F> {
                 // SAFETY: We only access table metadata.
                 let tables = unsafe { &self.world.world_metadata().storages().tables };
                 id_iter
-                    // SAFETY: The if check ensures that matched_storage_ids stores TableIds
-                    .map(|id| unsafe { tables[id.table_id].entity_count() })
+                    // SAFETY: 
+                    // - The if check ensures that matched_storage_ids stores TableIds
+                    // - If a table ID is matched, it must still be valid.
+                    .map(|id| unsafe {
+                        tables
+                            .get(id.table_id)
+                            .debug_checked_unwrap()
+                            .entity_count()
+                    })
                     .max()
             } else {
                 let archetypes = &self.world.archetypes();
                 id_iter
-                    // SAFETY: The if check ensures that matched_storage_ids stores ArchetypeIds
-                    .map(|id| unsafe { archetypes[id.archetype_id].len() })
+                    // SAFETY: 
+                    // - The if check ensures that matched_storage_ids stores ArchetypeIds
+                    // - If an archetype ID is matched, it must still be valid.
+                    .map(|id| unsafe {
+                        archetypes.get(id.archetype_id).debug_checked_unwrap().len()
+                    })
                     .max()
             }
             .map(|v| v as usize)

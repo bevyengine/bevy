@@ -1480,7 +1480,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
                             .get(storage_id.archetype_id)
                             .debug_checked_unwrap()
                             .len()
-                    };
+                    }
                 }
             };
 
