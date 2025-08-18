@@ -295,17 +295,14 @@ impl AssetProcessor {
         let reader = source.reader();
         match reader.read_meta_bytes(path.path()).await {
             Ok(_) => return Err(WriteDefaultMetaError::MetaAlreadyExists),
-            Err(AssetReaderError::NotFound(_)) => {
-                // The meta file couldn't be found so just fall through.
+            Err(AssetReaderError::NotAllowed(_)) | Err(AssetReaderError::NotFound(_)) => {
+                // The meta file either asn't allowed or couldn't be found so just fall through.
             }
             Err(AssetReaderError::Io(err)) => {
                 return Err(WriteDefaultMetaError::IoErrorFromExistingMetaCheck(err))
             }
             Err(AssetReaderError::HttpError(err)) => {
                 return Err(WriteDefaultMetaError::HttpErrorFromExistingMetaCheck(err))
-            }
-            Err(AssetReaderError::NotAllowed(_)) => {
-                // The meta file wasn't allowed so just fall through.
             }
         }
 
@@ -392,8 +389,8 @@ impl AssetProcessor {
                     }
                     Err(err) => {
                         match err {
-                            AssetReaderError::NotFound(_) => {
-                                // if the path is not found, a processed version does not exist
+                            AssetReaderError::NotAllowed(_) | AssetReaderError::NotFound(_) => {
+                                // if the path is not found or not allowed, a processed version does not exist
                             }
                             AssetReaderError::Io(err) => {
                                 error!(
@@ -408,9 +405,6 @@ impl AssetProcessor {
                                     was a folder or a file due to receiving an unexpected HTTP Status {status}",
                                     AssetPath::from_path(&path).with_source(source.id())
                                 );
-                            }
-                            AssetReaderError::NotAllowed(_) => {
-                                // if the path is not allowed, a processed version does not exist
                             }
                         }
                     }
@@ -463,8 +457,8 @@ impl AssetProcessor {
                 }
             }
             Err(err) => match err {
-                AssetReaderError::NotFound(_err) => {
-                    // The processed folder does not exist. No need to update anything
+                AssetReaderError::NotAllowed(_) | AssetReaderError::NotFound(_) => {
+                    // The processed folder does not exist, or wasnt allowed in the first place. No need to update anything
                 }
                 AssetReaderError::HttpError(status) => {
                     self.log_unrecoverable().await;
@@ -479,9 +473,6 @@ impl AssetProcessor {
                         "Unrecoverable Error: Failed to read the processed assets at {path:?} in order to remove assets that no longer exist \
                         in the source directory. Restart the asset processor to fully reprocess assets. Error: {err}"
                     );
-                }
-                AssetReaderError::NotAllowed(_err) => {
-                    // The processed folder wasnt allowed in the first place. No need to update anything
                 }
             },
         }

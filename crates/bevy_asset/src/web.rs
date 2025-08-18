@@ -19,8 +19,16 @@ use std::path::{Path, PathBuf};
 /// at startup:
 ///
 /// ```rust
-/// # use bevy_app::App;
-/// # use bevy_asset::web::{PathFilter, WebAssetPlugin};
+/// # use bevy_app::{App, Startup};
+/// # use bevy_ecs::prelude::{Commands, Res};
+/// # use bevy_asset::web::{PathFilter, WebAssetPlugin, AssetServer};
+/// # struct DefaultPlugins;
+/// # impl DefaultPlugins { fn set(plugin: WebAssetPlugin) -> WebAssetPlugin { plugin } }
+/// # #[derive(Asset, TypePath, Default)]
+/// # struct Image;
+/// # #[derive(Component)]
+/// # struct Sprite;
+/// # impl Sprite { fn from_image(_: Handle<Image>) -> Self { Sprite } }
 /// # fn main() {
 /// App::new()
 ///     .add_plugins(DefaultPlugins.set(WebAssetPlugin(PathFilter {
@@ -32,7 +40,6 @@ use std::path::{Path, PathBuf};
 /// # fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 /// commands.spawn(Sprite::from_image(asset_server.load("https://example.com/favicon.png")));
 /// # }
-///
 /// ```
 ///
 /// By default, `ureq`'s HTTP compression is disabled. To enable gzip and brotli decompression, add
@@ -319,12 +326,15 @@ mod tests {
     #[test]
     fn make_disallowed_uri_fails() {
         let path = Path::new("example.com/favicon.png");
-        assert_eq!(
+
+        // This is written weirdly because AssetReaderError can't impl PartialEq
+        assert!(matches!(
             WebAssetReader::Http(PathFilter {
                 url_allowed: |path| path.starts_with("https://example.net/")
             })
-            .make_uri(path),
-            Err(AssetReaderError::NotAllowed(path.to_path_buf()))
-        );
+            .make_uri(path)
+            .expect_err("should be an error"),
+            AssetReaderError::NotAllowed(p) if p == path.to_path_buf()
+        ));
     }
 }
