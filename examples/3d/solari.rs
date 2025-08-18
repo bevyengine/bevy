@@ -6,7 +6,6 @@ mod camera_controller;
 use argh::FromArgs;
 use bevy::{
     camera::CameraMainTextureUsages,
-    mesh::Indices,
     prelude::*,
     render::render_resource::TextureUsages,
     scene::SceneInstanceReady,
@@ -43,7 +42,8 @@ fn main() {
 
     app.add_plugins((DefaultPlugins, SolariPlugins, CameraControllerPlugin))
         .insert_resource(args)
-        .add_systems(Startup, setup);
+        .add_systems(Startup, setup)
+        .add_systems(Update, rotate_directional_light);
 
     if args.pathtracer == Some(true) {
         app.add_plugins(PathtracingPlugin);
@@ -61,9 +61,25 @@ fn setup(
     >,
 ) {
     commands
-        .spawn(SceneRoot(asset_server.load(
-            GltfAssetLabel::Scene(0).from_asset("models/CornellBox/CornellBox.glb"),
-        )))
+        .spawn((
+            SceneRoot(
+                asset_server.load(
+                    GltfAssetLabel::Scene(0)
+                        .from_asset("models/PicaPica/pica_pica_-_mini_diorama_01.glb"),
+                ),
+            ),
+            Transform::from_scale(Vec3::splat(10.0)),
+        ))
+        .observe(add_raytracing_meshes_on_scene_load);
+
+    // TODO: Animate robot, makes eyes emissive
+    commands
+        .spawn((
+            SceneRoot(asset_server.load(
+                GltfAssetLabel::Scene(0).from_asset("models/PicaPica/pica_pica_-_robot_01.glb"),
+            )),
+            Transform::from_scale(Vec3::splat(3.0)).with_translation(Vec3::new(0.0, 0.05, 0.0)),
+        ))
         .observe(add_raytracing_meshes_on_scene_load);
 
     commands.spawn((
@@ -72,7 +88,12 @@ fn setup(
             shadows_enabled: false, // Solari replaces shadow mapping
             ..default()
         },
-        Transform::from_rotation(Quat::from_euler(EulerRot::XYZ, PI * -0.43, PI * -0.08, 0.0)),
+        Transform::from_rotation(Quat::from_xyzw(
+            -0.13334629,
+            -0.86597735,
+            -0.3586996,
+            0.3219264,
+        )),
     ));
 
     let mut camera = commands.spawn((
@@ -82,11 +103,13 @@ fn setup(
             ..default()
         },
         CameraController {
-            walk_speed: 500.0,
-            run_speed: 1500.0,
+            walk_speed: 3.0,
+            run_speed: 10.0,
             ..Default::default()
         },
-        Transform::from_xyz(-278.0, 273.0, 800.0),
+        Transform::from_translation(Vec3::new(0.219417, 2.5764852, 6.9718704)).with_rotation(
+            Quat::from_xyzw(-0.1466768, 0.013738206, 0.002037309, 0.989087),
+        ),
         // Msaa::Off and CameraMainTextureUsages with STORAGE_BINDING are required for Solari
         CameraMainTextureUsages::default().with(TextureUsages::STORAGE_BINDING),
         Msaa::Off,
@@ -114,20 +137,20 @@ fn add_raytracing_meshes_on_scene_load(
     children: Query<&Children>,
     mesh: Query<&Mesh3d>,
     mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
     mut commands: Commands,
     args: Res<Args>,
 ) {
     // Ensure meshes are Solari compatible
     for (_, mesh) in meshes.iter_mut() {
-        mesh.remove_attribute(Mesh::ATTRIBUTE_UV_1.id);
-        mesh.remove_attribute(Mesh::ATTRIBUTE_COLOR.id);
-        mesh.generate_tangents().unwrap();
+        if !mesh.contains_attribute(Mesh::ATTRIBUTE_UV_0) {
+            mesh.insert_attribute(
+                Mesh::ATTRIBUTE_UV_0,
+                vec![[0.0, 0.0]; mesh.count_vertices()],
+            );
+        }
 
-        if let Some(indices) = mesh.indices_mut()
-            && let Indices::U16(u16_indices) = indices
-        {
-            *indices = Indices::U32(u16_indices.iter().map(|i| *i as u32).collect());
+        if !mesh.contains_attribute(Mesh::ATTRIBUTE_TANGENT) {
+            mesh.generate_tangents().unwrap();
         }
     }
 
@@ -143,14 +166,33 @@ fn add_raytracing_meshes_on_scene_load(
             }
         }
     }
+}
 
-    // Adjust scene materials to better demo Solari features
-    for (_, material) in materials.iter_mut() {
-        material.emissive *= 200.0;
+fn rotate_directional_light(
+    mut animate_directional_light: Local<bool>,
+    mut directional_light_transform: Single<&mut Transform, With<DirectionalLight>>,
+    mut pathtracer: Option<Single<&mut Pathtracer>>,
+    key_input: Res<ButtonInput<KeyCode>>,
+    time: Res<Time>,
+) {
+    if key_input.just_pressed(KeyCode::KeyL) {
+        *animate_directional_light = !*animate_directional_light;
+    }
 
-        if material.base_color.to_linear() == LinearRgba::new(0.5, 0.5, 0.5, 1.0) {
-            material.metallic = 1.0;
-            material.perceptual_roughness = 0.15;
+    if *animate_directional_light {
+        directional_light_transform.rotation = Quat::from_euler(
+            EulerRot::ZYX,
+            0.0,
+            time.elapsed_secs() * PI / 4.0,
+            -std::f32::consts::FRAC_PI_4,
+        );
+
+        if let Some(pathtracer) = pathtracer.as_deref_mut() {
+            pathtracer.reset = true;
+        }
+    } else {
+        if let Some(pathtracer) = pathtracer.as_deref_mut() {
+            pathtracer.reset = false;
         }
     }
 }
