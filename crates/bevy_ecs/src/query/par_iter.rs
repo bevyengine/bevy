@@ -138,7 +138,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryParIter<'w, 's, D, F> {
                 // SAFETY: We only access table metadata.
                 let tables = unsafe { &self.world.world_metadata().storages().tables };
                 id_iter
-                    // SAFETY: 
+                    // SAFETY:
                     // - The if check ensures that matched_storage_ids stores TableIds
                     // - If a table ID is matched, it must still be valid.
                     .map(|id| unsafe {
@@ -151,7 +151,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryParIter<'w, 's, D, F> {
             } else {
                 let archetypes = &self.world.archetypes();
                 id_iter
-                    // SAFETY: 
+                    // SAFETY:
                     // - The if check ensures that matched_storage_ids stores ArchetypeIds
                     // - If an archetype ID is matched, it must still be valid.
                     .map(|id| unsafe {
