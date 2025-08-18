@@ -142,7 +142,7 @@ Example | Description
 [3D Viewport To World](../examples/3d/3d_viewport_to_world.rs) | Demonstrates how to use the `Camera::viewport_to_world` method
 [Animated Material](../examples/3d/animated_material.rs) | Shows how to animate material properties
 [Anisotropy](../examples/3d/anisotropy.rs) | Displays an example model with anisotropy
-[Anti-aliasing](../examples/3d/anti_aliasing.rs) | Compares different anti-aliasing methods
+[Anti-aliasing](../examples/3d/anti_aliasing.rs) | Compares different anti-aliasing techniques supported by Bevy
 [Atmosphere](../examples/3d/atmosphere.rs) | A scene showcasing pbr atmospheric scattering
 [Atmospheric Fog](../examples/3d/atmospheric_fog.rs) | A scene showcasing the atmospheric fog effect
 [Auto Exposure](../examples/3d/auto_exposure.rs) | A scene showcasing auto exposure

@@ -9,8 +9,8 @@ use bevy::{
     color::palettes::css::*,
     math::ops,
     prelude::*,
-    sprite::Anchor,
-    text::{FontSmoothing, LineBreak, Text2dShadow, TextBounds},
+    sprite::{Anchor, Text2dShadow},
+    text::{FontSmoothing, LineBreak, TextBounds},
 };
 
 fn main() {
@@ -44,26 +44,29 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn(Camera2d);
     // Demonstrate changing translation
     commands.spawn((
-        Text2d::new("translation"),
+        Text2d::new(" translation "),
         text_font.clone(),
         TextLayout::new_with_justify(text_justification),
+        TextBackgroundColor(Color::BLACK.with_alpha(0.5)),
         Text2dShadow::default(),
         AnimateTranslation,
     ));
     // Demonstrate changing rotation
     commands.spawn((
-        Text2d::new("rotation"),
+        Text2d::new(" rotation "),
         text_font.clone(),
         TextLayout::new_with_justify(text_justification),
+        TextBackgroundColor(Color::BLACK.with_alpha(0.5)),
         Text2dShadow::default(),
         AnimateRotation,
     ));
     // Demonstrate changing scale
     commands.spawn((
-        Text2d::new("scale"),
+        Text2d::new(" scale "),
         text_font,
         TextLayout::new_with_justify(text_justification),
         Transform::from_translation(Vec3::new(400.0, 0.0, 0.0)),
+        TextBackgroundColor(Color::BLACK.with_alpha(0.5)),
         Text2dShadow::default(),
         AnimateScale,
     ));
@@ -150,16 +153,20 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         Text2d::new(" Anchor".to_string()),
                         slightly_smaller_text_font.clone(),
                         text_anchor,
+                        TextBackgroundColor(Color::WHITE.darker(0.8)),
+                        Transform::from_translation(-1. * Vec3::Z),
                     ))
                     .with_child((
                         TextSpan("::".to_string()),
                         slightly_smaller_text_font.clone(),
                         TextColor(LIGHT_GREY.into()),
+                        TextBackgroundColor(DARK_BLUE.into()),
                     ))
                     .with_child((
                         TextSpan(format!("{text_anchor:?} ")),
                         slightly_smaller_text_font.clone(),
                         TextColor(color),
+                        TextBackgroundColor(color.darker(0.3)),
                     ));
             }
         });

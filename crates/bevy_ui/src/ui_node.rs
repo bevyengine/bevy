@@ -381,6 +381,7 @@ impl From<Vec2> for ScrollPosition {
 #[require(
     ComputedNode,
     ComputedUiTargetCamera,
+    ComputedUiRenderTargetInfo,
     UiTransform,
     BackgroundColor,
     BorderColor,
@@ -2806,29 +2807,43 @@ impl<'w, 's> DefaultUiCamera<'w, 's> {
 #[reflect(Component, Default, PartialEq, Clone)]
 pub struct ComputedUiTargetCamera {
     pub(crate) camera: Entity,
-    /// The scale factor of the target camera's render target.
-    pub(crate) scale_factor: f32,
-    /// The size of the target camera's viewport in physical pixels.
-    pub(crate) physical_size: UVec2,
 }
 
 impl Default for ComputedUiTargetCamera {
     fn default() -> Self {
         Self {
             camera: Entity::PLACEHOLDER,
-            scale_factor: 1.,
-            physical_size: UVec2::ZERO,
         }
     }
 }
 
 impl ComputedUiTargetCamera {
     /// Returns the id of the target camera for this UI node.
-    pub fn camera(&self) -> Option<Entity> {
+    pub fn get(&self) -> Option<Entity> {
         Some(self.camera).filter(|&entity| entity != Entity::PLACEHOLDER)
     }
+}
 
-    /// Returns the scale factor of the target camera's render target.
+/// Derived information about the render target for this UI node.
+#[derive(Component, Clone, Copy, Debug, Reflect, PartialEq)]
+#[reflect(Component, Default, PartialEq, Clone)]
+pub struct ComputedUiRenderTargetInfo {
+    /// The scale factor of the target camera's render target.
+    pub(crate) scale_factor: f32,
+    /// The size of the target camera's viewport in physical pixels.
+    pub(crate) physical_size: UVec2,
+}
+
+impl Default for ComputedUiRenderTargetInfo {
+    fn default() -> Self {
+        Self {
+            scale_factor: 1.,
+            physical_size: UVec2::ZERO,
+        }
+    }
+}
+
+impl ComputedUiRenderTargetInfo {
     pub const fn scale_factor(&self) -> f32 {
         self.scale_factor
     }

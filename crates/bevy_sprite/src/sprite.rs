@@ -6,14 +6,13 @@ use bevy_ecs::{component::Component, reflect::ReflectComponent};
 use bevy_image::{Image, TextureAtlas, TextureAtlasLayout};
 use bevy_math::{Rect, UVec2, Vec2};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
-use bevy_render::sync_world::SyncToRenderWorld;
 use bevy_transform::components::Transform;
 
 use crate::TextureSlicer;
 
 /// Describes a sprite to be rendered to a 2D camera
 #[derive(Component, Debug, Default, Clone, Reflect)]
-#[require(Transform, Visibility, SyncToRenderWorld, VisibilityClass, Anchor)]
+#[require(Transform, Visibility, VisibilityClass, Anchor)]
 #[reflect(Component, Default, Debug, Clone)]
 #[component(on_add = visibility::add_visibility_class::<Sprite>)]
 pub struct Sprite {
@@ -282,7 +281,7 @@ mod tests {
     use bevy_image::{Image, ToExtents};
     use bevy_image::{TextureAtlas, TextureAtlasLayout};
     use bevy_math::{Rect, URect, UVec2, Vec2};
-    use bevy_render::render_resource::{TextureDimension, TextureFormat};
+    use wgpu_types::{TextureDimension, TextureFormat};
 
     use crate::Anchor;
 

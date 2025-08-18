@@ -81,7 +81,7 @@ jobs:
           - os: ubuntu-latest
             toolchain: stable
             target: aarch64-linux-android
-          - os: macos-latest
+          - os: macos-14
             toolchain: stable
             target: aarch64-apple-ios-sim
 
