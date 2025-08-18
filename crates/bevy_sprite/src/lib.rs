@@ -37,13 +37,16 @@ pub mod prelude {
     };
 }
 
+#[cfg(feature = "text2d")]
 use bevy_app::AnimationSystems;
 use bevy_asset::Assets;
+#[cfg(feature = "text2d")]
+use bevy_camera::CameraUpdateSystems;
 use bevy_camera::{
     primitives::{Aabb, MeshAabb},
     visibility::NoFrustumCulling,
+    visibility::VisibilitySystems,
 };
-use bevy_camera::{visibility::VisibilitySystems, CameraUpdateSystems};
 use bevy_mesh::{Mesh, Mesh2d};
 #[cfg(feature = "text2d")]
 use bevy_text::detect_text_needs_rerender;

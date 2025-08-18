@@ -132,6 +132,7 @@ impl Default for UiScale {
 #[derive(SystemSet, Debug, Hash, PartialEq, Eq, Clone)]
 struct AmbiguousWithText;
 
+#[cfg(feature = "text2d")]
 #[derive(SystemSet, Debug, Hash, PartialEq, Eq, Clone)]
 struct AmbiguousWithUpdateText2dLayout;
 
@@ -182,10 +183,34 @@ impl Plugin for UiPlugin {
             .in_set(UiSystems::Layout)
             .before(TransformSystems::Propagate);
 
+        #[cfg(feature = "text2d")]
         let ui_layout_system_config = ui_layout_system_config
             // Text and Text2D operate on disjoint sets of entities
-            .ambiguous_with(bevy_sprite::update_text2d_layout)
-            .ambiguous_with(bevy_text::detect_text_needs_rerender::<bevy_sprite::Text2d>);
+            .ambiguous_with(bevy_text::detect_text_needs_rerender::<bevy_sprite::Text2d>)
+            .ambiguous_with(bevy_sprite::update_text2d_layout);
+
+        // Potential conflicts: `Assets<Image>`
+        // They run independently since `widget::image_node_system` will only ever observe
+        // its own ImageNode, and `widget::text_system` & `bevy_text::update_text2d_layout`
+        // will never modify a pre-existing `Image` asset.
+        let update_image_content_size_system_config = widget::update_image_content_size_system
+            .in_set(UiSystems::Content)
+            .in_set(AmbiguousWithText);
+
+        #[cfg(feature = "text2d")]
+        let update_image_content_size_system_config =
+            update_image_content_size_system_config.in_set(AmbiguousWithUpdateText2dLayout);
+
+        // Potential conflicts: `Assets<Image>`
+        // `widget::text_system` and `bevy_text::update_text2d_layout` run independently
+        // since this system will only ever update viewport images.
+        let update_viewport_render_target_size_config = widget::update_viewport_render_target_size
+            .in_set(UiSystems::PostLayout)
+            .in_set(AmbiguousWithText);
+
+        #[cfg(feature = "text2d")]
+        let update_viewport_render_target_size_config =
+            update_viewport_render_target_size_config.in_set(AmbiguousWithUpdateText2dLayout);
 
         app.add_systems(
             PostUpdate,
@@ -201,21 +226,8 @@ impl Plugin for UiPlugin {
                     .ambiguous_with(widget::update_viewport_render_target_size)
                     .in_set(AmbiguousWithText),
                 update_clipping_system.after(TransformSystems::Propagate),
-                // Potential conflicts: `Assets<Image>`
-                // They run independently since `widget::image_node_system` will only ever observe
-                // its own ImageNode, and `widget::text_system` & `bevy_text::update_text2d_layout`
-                // will never modify a pre-existing `Image` asset.
-                widget::update_image_content_size_system
-                    .in_set(UiSystems::Content)
-                    .in_set(AmbiguousWithText)
-                    .in_set(AmbiguousWithUpdateText2dLayout),
-                // Potential conflicts: `Assets<Image>`
-                // `widget::text_system` and `bevy_text::update_text2d_layout` run independently
-                // since this system will only ever update viewport images.
-                widget::update_viewport_render_target_size
-                    .in_set(UiSystems::PostLayout)
-                    .in_set(AmbiguousWithText)
-                    .in_set(AmbiguousWithUpdateText2dLayout),
+                update_image_content_size_system_config,
+                update_viewport_render_target_size_config,
             ),
         );
 
@@ -226,6 +238,7 @@ impl Plugin for UiPlugin {
 fn build_text_interop(app: &mut App) {
     use widget::Text;
 
+    #[cfg(feature = "text2d")]
     app.add_systems(
         PostUpdate,
         (
@@ -255,6 +268,24 @@ fn build_text_interop(app: &mut App) {
         ),
     );
 
+    #[cfg(not(feature = "text2d"))]
+    app.add_systems(
+        PostUpdate,
+        (
+            (
+                bevy_text::detect_text_needs_rerender::<Text>,
+                widget::measure_text_system,
+            )
+                .chain()
+                .in_set(UiSystems::Content)
+                .ambiguous_with(widget::update_image_content_size_system),
+            widget::text_system
+                .in_set(UiSystems::PostLayout)
+                .after(bevy_text::remove_dropped_font_atlas_sets)
+                .before(bevy_asset::AssetEventSystems),
+        ),
+    );
+
     app.add_plugins(accessibility::AccessibilityPlugin);
 
     app.add_observer(interaction_states::on_add_disabled)
@@ -269,6 +300,7 @@ fn build_text_interop(app: &mut App) {
         AmbiguousWithText.ambiguous_with(widget::text_system),
     );
 
+    #[cfg(feature = "text2d")]
     app.configure_sets(
         PostUpdate,
         AmbiguousWithUpdateText2dLayout.ambiguous_with(bevy_sprite::update_text2d_layout),
