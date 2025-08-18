@@ -9,14 +9,24 @@ use std::path::{Path, PathBuf};
 
 /// Adds the `http` and `https` asset sources to the app.
 ///
-///
 /// NOTE: Make sure to add this plugin *before* `AssetPlugin` to properly register http asset sources.
 ///
 /// Any asset path that begins with `http` (when the `http` feature is enabled) or `https` (when the
-/// `https` feature is enabled) will be loaded from the web via `fetch`(wasm) or `ureq`(native).
+/// `https` feature is enabled) will be loaded from the web via `fetch` (wasm) or `ureq` (native).
 ///
 /// It is possible to filter allowed domains by setting the `WebAssetPlugin` to have a [`PathFilter`]
-/// at startup:
+/// at startup. This is provided for security reasons, so that domain filters can be enforced.
+///
+/// The `path_is_allowed` callback is provided fully formed asset paths, such as
+/// `"https://example.com/favicon.png"`, and should return true if the path is deemed permissible to request.
+///
+/// IMPORTANT: when filtering by domain name, ensure a trailing slash is matched against. Otherwise,
+/// subdomains can be used to defeat a simple url validation scheme:
+/// ```rust
+/// assert!("https://example.com.malicious.com".starts_with("https://example.com"))
+/// ```
+///
+/// Example usage:
 ///
 /// ```rust
 /// # use bevy_app::{App, Startup};
@@ -31,9 +41,9 @@ use std::path::{Path, PathBuf};
 /// # impl Sprite { fn from_image(_: Handle<Image>) -> Self { Sprite } }
 /// # fn main() {
 /// App::new()
-///     .add_plugins(DefaultPlugins.set(WebAssetPlugin(PathFilter(|url| {
-///         url.starts_with("https://example.com/")
-///     }))))
+///     .add_plugins(DefaultPlugins.set(WebAssetPlugin {
+///         path_is_allowed: |url| url.starts_with("https://example.com/"), // Always include the trailing slash.
+///     }))
 /// #   .add_systems(Startup, setup).run();
 /// # }
 /// // ...
@@ -50,61 +60,59 @@ use std::path::{Path, PathBuf};
 /// [target.'cfg(not(target_family = "wasm"))'.dev-dependencies]
 /// ureq = { version = "3", default-features = false, features = ["gzip", "brotli"] }
 /// ```
-#[derive(Default)]
-pub struct WebAssetPlugin(pub PathFilter);
+pub struct WebAssetPlugin {
+    pub path_is_allowed: fn(&PathBuf) -> bool,
+}
 
 impl Plugin for WebAssetPlugin {
     fn build(&self, app: &mut App) {
-        let filter = self.0;
+        let path_is_allowed = self.path_is_allowed;
         #[cfg(feature = "http")]
         app.register_asset_source(
             "http",
             AssetSource::build()
-                .with_reader(move || Box::new(WebAssetReader::Http(filter)))
-                .with_processed_reader(move || Box::new(WebAssetReader::Http(filter))),
+                .with_reader(move || Box::new(WebAssetReader::Http { path_is_allowed }))
+                .with_processed_reader(move || Box::new(WebAssetReader::Http { path_is_allowed })),
         );
 
         #[cfg(feature = "https")]
         app.register_asset_source(
             "https",
             AssetSource::build()
-                .with_reader(move || Box::new(WebAssetReader::Https(filter)))
-                .with_processed_reader(move || Box::new(WebAssetReader::Https(filter))),
+                .with_reader(move || Box::new(WebAssetReader::Https { path_is_allowed }))
+                .with_processed_reader(move || Box::new(WebAssetReader::Https { path_is_allowed })),
         );
     }
 }
 
-/// Allows filtering web assets by path. This is provided for security reasons,
-/// so that domain filters can be enforced.
-///
-/// This callback is provided fully formed web asset paths, such as
-/// `"https://example.com/favicon.png"`, and should return true if
-/// the path is deemed permissible to request.
-#[derive(Clone, Copy)]
-pub struct PathFilter(pub fn(&PathBuf) -> bool);
-
-impl Default for PathFilter {
+impl Default for WebAssetPlugin {
     fn default() -> Self {
-        Self(|_| true)
+        Self {
+            path_is_allowed: |_| true,
+        }
     }
 }
 
 /// Asset reader that treats paths as urls to load assets from.
 pub enum WebAssetReader {
     /// Unencrypted connections.
-    Http(PathFilter),
+    Http {
+        path_is_allowed: fn(&PathBuf) -> bool,
+    },
     /// Use TLS for setting up connections.
-    Https(PathFilter),
+    Https {
+        path_is_allowed: fn(&PathBuf) -> bool,
+    },
 }
 
 impl WebAssetReader {
     fn make_uri(&self, path: &Path) -> Result<PathBuf, AssetReaderError> {
-        let (prefix, PathFilter(is_allowed)) = match self {
-            Self::Http(is_allowed) => ("http://", is_allowed),
-            Self::Https(is_allowed) => ("https://", is_allowed),
+        let (prefix, path_is_allowed) = match self {
+            Self::Http { path_is_allowed } => ("http://", path_is_allowed),
+            Self::Https { path_is_allowed } => ("https://", path_is_allowed),
         };
         let pathbuf = PathBuf::from(prefix).join(path);
-        if !is_allowed(&pathbuf) {
+        if !path_is_allowed(&pathbuf) {
             return Err(AssetReaderError::NotAllowed(pathbuf));
         }
         Ok(pathbuf)
@@ -268,11 +276,13 @@ mod tests {
     #[test]
     fn make_http_uri() {
         assert_eq!(
-            WebAssetReader::Http(PathFilter::default())
-                .make_uri(Path::new("example.com/favicon.png"))
-                .unwrap()
-                .to_str()
-                .unwrap(),
+            WebAssetReader::Http {
+                path_is_allowed: |_| true
+            }
+            .make_uri(Path::new("example.com/favicon.png"))
+            .unwrap()
+            .to_str()
+            .unwrap(),
             "http://example.com/favicon.png"
         );
     }
@@ -280,11 +290,13 @@ mod tests {
     #[test]
     fn make_https_uri() {
         assert_eq!(
-            WebAssetReader::Https(PathFilter::default())
-                .make_uri(Path::new("example.com/favicon.png"))
-                .unwrap()
-                .to_str()
-                .unwrap(),
+            WebAssetReader::Https {
+                path_is_allowed: |_| true
+            }
+            .make_uri(Path::new("example.com/favicon.png"))
+            .unwrap()
+            .to_str()
+            .unwrap(),
             "https://example.com/favicon.png"
         );
     }
@@ -292,11 +304,13 @@ mod tests {
     #[test]
     fn make_http_meta_uri() {
         assert_eq!(
-            WebAssetReader::Http(PathFilter::default())
-                .make_meta_uri(Path::new("example.com/favicon.png"))
-                .unwrap()
-                .to_str()
-                .unwrap(),
+            WebAssetReader::Http {
+                path_is_allowed: |_| true
+            }
+            .make_meta_uri(Path::new("example.com/favicon.png"))
+            .unwrap()
+            .to_str()
+            .unwrap(),
             "http://example.com/favicon.png.meta"
         );
     }
@@ -304,11 +318,13 @@ mod tests {
     #[test]
     fn make_https_meta_uri() {
         assert_eq!(
-            WebAssetReader::Https(PathFilter::default())
-                .make_meta_uri(Path::new("example.com/favicon.png"))
-                .unwrap()
-                .to_str()
-                .unwrap(),
+            WebAssetReader::Https {
+                path_is_allowed: |_| true
+            }
+            .make_meta_uri(Path::new("example.com/favicon.png"))
+            .unwrap()
+            .to_str()
+            .unwrap(),
             "https://example.com/favicon.png.meta"
         );
     }
@@ -316,11 +332,13 @@ mod tests {
     #[test]
     fn make_https_without_extension_meta_uri() {
         assert_eq!(
-            WebAssetReader::Https(PathFilter::default())
-                .make_meta_uri(Path::new("example.com/favicon"))
-                .unwrap()
-                .to_str()
-                .unwrap(),
+            WebAssetReader::Https {
+                path_is_allowed: |_| true
+            }
+            .make_meta_uri(Path::new("example.com/favicon"))
+            .unwrap()
+            .to_str()
+            .unwrap(),
             "https://example.com/favicon.meta"
         );
     }
@@ -329,13 +347,15 @@ mod tests {
     fn make_disallowed_uri_fails() {
         let path = Path::new("example.com/favicon.png");
 
+        let error = WebAssetReader::Http {
+            path_is_allowed: |path| path.starts_with("http://example.net/"),
+        }
+        .make_uri(path)
+        .expect_err("should be an error");
+
         // This is written weirdly because AssetReaderError can't impl PartialEq
         assert!(matches!(
-            WebAssetReader::Http(PathFilter(
-                |path| path.starts_with("http://example.net/")
-            ))
-            .make_uri(path)
-            .expect_err("should be an error"),
+            error,
             AssetReaderError::NotAllowed(p) if p == path.to_path_buf()
         ));
     }
