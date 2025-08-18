@@ -188,7 +188,9 @@ impl<'w> BundleInserter<'w> {
         // so this reference can only be promoted from shared to &mut down here, after they have been ran
         let archetype = self.archetype.as_mut();
 
-        let (new_archetype, new_location, after_effect) = match &mut self.archetype_move_type {
+        let (new_archetype, new_location, sparse_sets, table, table_row) = match &mut self
+            .archetype_move_type
+        {
             ArchetypeMoveType::SameArchetype => {
                 // SAFETY: Mutable references do not alias and will be dropped after this block
                 let sparse_sets = {
@@ -196,20 +198,7 @@ impl<'w> BundleInserter<'w> {
                     &mut world.storages.sparse_sets
                 };
 
-                let after_effect = bundle_info.write_components(
-                    table,
-                    sparse_sets,
-                    archetype_after_insert,
-                    archetype_after_insert.required_components.iter(),
-                    entity,
-                    location.table_row,
-                    self.change_tick,
-                    bundle,
-                    insert_mode,
-                    caller,
-                );
-
-                (archetype, location, after_effect)
+                (archetype, location, sparse_sets, table, location.table_row)
             }
             ArchetypeMoveType::NewArchetypeSameTable { new_archetype } => {
                 let new_archetype = new_archetype.as_mut();
@@ -237,20 +226,14 @@ impl<'w> BundleInserter<'w> {
                 }
                 let new_location = new_archetype.allocate(entity, result.table_row);
                 entities.set(entity.index(), Some(new_location));
-                let after_effect = bundle_info.write_components(
-                    table,
-                    sparse_sets,
-                    archetype_after_insert,
-                    archetype_after_insert.required_components.iter(),
-                    entity,
-                    result.table_row,
-                    self.change_tick,
-                    bundle,
-                    insert_mode,
-                    caller,
-                );
 
-                (new_archetype, new_location, after_effect)
+                (
+                    new_archetype,
+                    new_location,
+                    sparse_sets,
+                    table,
+                    result.table_row,
+                )
             }
             ArchetypeMoveType::NewArchetypeNewTable {
                 new_archetype,
@@ -319,22 +302,28 @@ impl<'w> BundleInserter<'w> {
                     }
                 }
 
-                let after_effect = bundle_info.write_components(
-                    new_table,
+                (
+                    new_archetype,
+                    new_location,
                     sparse_sets,
-                    archetype_after_insert,
-                    archetype_after_insert.required_components.iter(),
-                    entity,
+                    new_table,
                     move_result.new_row,
-                    self.change_tick,
-                    bundle,
-                    insert_mode,
-                    caller,
-                );
-
-                (new_archetype, new_location, after_effect)
+                )
             }
         };
+
+        let after_effect = bundle_info.write_components(
+            table,
+            sparse_sets,
+            archetype_after_insert,
+            archetype_after_insert.required_components.iter(),
+            entity,
+            table_row,
+            self.change_tick,
+            bundle,
+            insert_mode,
+            caller,
+        );
 
         let new_archetype = &*new_archetype;
         // SAFETY: We have no outstanding mutable references to world as they were dropped
