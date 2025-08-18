@@ -659,9 +659,6 @@ accesskit = "0.21"
 nonmax = "0.5"
 
 [target.'cfg(not(target_family = "wasm"))'.dev-dependencies]
-smol = "2"
-smol-macros = "0.1"
-smol-hyper = "0.1"
 ureq = { version = "3.0.8", features = ["json"] }
 
 [target.'cfg(target_arch = "wasm32")'.dev-dependencies]
