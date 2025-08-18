@@ -31,7 +31,7 @@ use std::path::{Path, PathBuf};
 /// ```rust
 /// # use bevy_app::{App, Startup};
 /// # use bevy_ecs::prelude::{Commands, Res};
-/// # use bevy_asset::web::{PathFilter, WebAssetPlugin, AssetServer};
+/// # use bevy_asset::web::{WebAssetPlugin, AssetServer};
 /// # struct DefaultPlugins;
 /// # impl DefaultPlugins { fn set(plugin: WebAssetPlugin) -> WebAssetPlugin { plugin } }
 /// # #[derive(Asset, TypePath, Default)]
