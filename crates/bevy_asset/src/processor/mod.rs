@@ -296,7 +296,7 @@ impl AssetProcessor {
         match reader.read_meta_bytes(path.path()).await {
             Ok(_) => return Err(WriteDefaultMetaError::MetaAlreadyExists),
             Err(AssetReaderError::NotAllowed(_)) | Err(AssetReaderError::NotFound(_)) => {
-                // The meta file either asn't allowed or couldn't be found so just fall through.
+                // The meta file either isn't allowed or couldn't be found so just fall through.
             }
             Err(AssetReaderError::Io(err)) => {
                 return Err(WriteDefaultMetaError::IoErrorFromExistingMetaCheck(err))
@@ -458,7 +458,7 @@ impl AssetProcessor {
             }
             Err(err) => match err {
                 AssetReaderError::NotAllowed(_) | AssetReaderError::NotFound(_) => {
-                    // The processed folder does not exist, or wasnt allowed in the first place. No need to update anything
+                    // The processed folder does not exist or wasn't allowed in the first place. No need to update anything
                 }
                 AssetReaderError::HttpError(status) => {
                     self.log_unrecoverable().await;

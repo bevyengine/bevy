@@ -1,6 +1,6 @@
 ---
 title: Web Assets
-authors: ["@johanhelsing", "@mrchantey", "@jf908"]
+authors: ["@johanhelsing", "@mrchantey", "@jf908", "@atlv24"]
 pull_requests: [17889]
 ---
 
