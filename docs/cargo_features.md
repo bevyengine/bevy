@@ -46,7 +46,6 @@ The default feature set enables most of the expected features of a game engine, 
 |debug|Enable collecting debug information about systems and components to help with diagnostics|
 |default_font|Include a default font, containing only ASCII characters, at the cost of a 20kB binary size increase|
 |hdr|HDR image format support|
-|https|Enables downloading assets from HTTPS sources|
 |ktx2|KTX2 compressed texture support|
 |multi_threaded|Enables multithreaded parallelism in the engine. Disabling it forces all engine tasks to run on a single thread.|
 |png|PNG image format support|
@@ -100,6 +99,7 @@ The default feature set enables most of the expected features of a game engine, 
 |glam_assert|Enable assertions to check the validity of parameters passed to glam|
 |hotpatching|Enable hotpatching of Bevy systems|
 |http|Enables downloading assets from HTTP sources|
+|https|Enables downloading assets from HTTPS sources|
 |ico|ICO image format support|
 |jpeg|JPEG image format support|
 |libm|Uses the `libm` maths library instead of the one provided in `std` and `core`.|
