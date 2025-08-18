@@ -31,9 +31,9 @@ use std::path::{Path, PathBuf};
 /// # impl Sprite { fn from_image(_: Handle<Image>) -> Self { Sprite } }
 /// # fn main() {
 /// App::new()
-///     .add_plugins(DefaultPlugins.set(WebAssetPlugin(PathFilter {
-///         url_allowed: |url| url.starts_with("example.net/"),
-///     })))
+///     .add_plugins(DefaultPlugins.set(WebAssetPlugin(PathFilter(|url| {
+///         url.starts_with("https://example.com/")
+///     }))))
 /// #   .add_systems(Startup, setup).run();
 /// # }
 /// // ...
@@ -74,17 +74,18 @@ impl Plugin for WebAssetPlugin {
     }
 }
 
-/// Allows filtering web assets by path.
+/// Allows filtering web assets by path. This is provided for security reasons,
+/// so that domain filters can be enforced.
+///
+/// This callback is provided fully formed web asset paths, such as
+/// `"https://example.com/favicon.png"`, and should return true if
+/// the path is deemed permissible to request.
 #[derive(Clone, Copy)]
-pub struct PathFilter {
-    pub url_allowed: fn(&Path) -> bool,
-}
+pub struct PathFilter(pub fn(&PathBuf) -> bool);
 
 impl Default for PathFilter {
     fn default() -> Self {
-        Self {
-            url_allowed: |_| true,
-        }
+        Self(|_| true)
     }
 }
 
@@ -98,14 +99,15 @@ pub enum WebAssetReader {
 
 impl WebAssetReader {
     fn make_uri(&self, path: &Path) -> Result<PathBuf, AssetReaderError> {
-        let (prefix, PathFilter { url_allowed }) = match self {
-            Self::Http(url_allowed) => ("http://", url_allowed),
-            Self::Https(url_allowed) => ("https://", url_allowed),
+        let (prefix, PathFilter(is_allowed)) = match self {
+            Self::Http(is_allowed) => ("http://", is_allowed),
+            Self::Https(is_allowed) => ("https://", is_allowed),
         };
-        if !url_allowed(path) {
-            return Err(AssetReaderError::NotAllowed(path.to_path_buf()));
+        let pathbuf = PathBuf::from(prefix).join(path);
+        if !is_allowed(&pathbuf) {
+            return Err(AssetReaderError::NotAllowed(pathbuf));
         }
-        Ok(PathBuf::from(prefix).join(path))
+        Ok(pathbuf)
     }
 
     /// See [`crate::io::get_meta_path`]
@@ -329,9 +331,9 @@ mod tests {
 
         // This is written weirdly because AssetReaderError can't impl PartialEq
         assert!(matches!(
-            WebAssetReader::Http(PathFilter {
-                url_allowed: |path| path.starts_with("https://example.net/")
-            })
+            WebAssetReader::Http(PathFilter(
+                |path| path.starts_with("http://example.net/")
+            ))
             .make_uri(path)
             .expect_err("should be an error"),
             AssetReaderError::NotAllowed(p) if p == path.to_path_buf()

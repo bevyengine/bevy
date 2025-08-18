@@ -1,7 +1,7 @@
 ---
 title: Web Assets
 authors: ["@johanhelsing", "@mrchantey", "@jf908", "@atlv24"]
-pull_requests: [17889]
+pull_requests: [20628]
 ---
 
 Bevy now supports downloading assets from the web over http and https.
@@ -14,6 +14,15 @@ commands.spawn(Sprite::from_image(image));
 ```
 
 By default these assets aren’t saved anywhere but you can enable the `web_asset_cache` feature to cache assets on your file system.
+
+You may also add rules to which web assets may be loaded using a `PathFilter`:
+
+```rust
+App::new()
+    .add_plugins(DefaultPlugins.set(WebAssetPlugin(PathFilter(|url| {
+        url.starts_with("https://example.com/")
+    }))))
+```
 
 The implementation has changed quite a bit but this feature originally started out as an upstreaming of the [`bevy_web_asset`](https://github.com/johanhelsing/bevy_web_asset) crate.
 Special thanks to @johanhelsing and bevy_web_asset's contributors!

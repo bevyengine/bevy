@@ -8,9 +8,9 @@ use bevy::prelude::*;
 
 fn main() {
     App::new()
-        .add_plugins(DefaultPlugins.set(WebAssetPlugin(PathFilter {
-            url_allowed: |url| url.starts_with("raw.githubusercontent.com"),
-        })))
+        .add_plugins(DefaultPlugins.set(WebAssetPlugin(PathFilter(|url| {
+            url.starts_with("https://raw.githubusercontent.com/")
+        }))))
         .add_systems(Startup, setup)
         .run();
 }
