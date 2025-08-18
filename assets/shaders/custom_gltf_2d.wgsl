@@ -1,4 +1,4 @@
-#import bevy_sprite_render::{
+#import bevy_sprite::{
     mesh2d_view_bindings::globals,
     mesh2d_functions::{get_world_from_local, mesh2d_position_local_to_clip},
 }
