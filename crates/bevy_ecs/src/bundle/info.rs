@@ -72,10 +72,10 @@ pub struct BundleInfo {
     /// must have its storage initialized (i.e. columns created in tables, sparse set created),
     /// and the range (0..`explicit_components_len`) must be in the same order as the source bundle
     /// type writes its components in.
-    pub(super) contributed_component_ids: Vec<ComponentId>,
+    pub(super) contributed_component_ids: Box<[ComponentId]>,
 
     /// The list of constructors for all required components indirectly contributed by this bundle.
-    pub(super) required_component_constructors: Vec<RequiredComponentConstructor>,
+    pub(super) required_component_constructors: Box<[RequiredComponentConstructor]>,
 }
 
 impl BundleInfo {
@@ -142,7 +142,7 @@ impl BundleInfo {
                 component_ids.push(required_id);
             })
             .map(|(_, required_component)| required_component.constructor)
-            .collect::<Vec<_>>();
+            .collect::<Box<_>>();
 
         // SAFETY: The caller ensures that component_ids:
         // - is valid for the associated world
@@ -150,7 +150,7 @@ impl BundleInfo {
         // - is in the same order as the source bundle type
         BundleInfo {
             id,
-            contributed_component_ids: component_ids,
+            contributed_component_ids: component_ids.into(),
             required_component_constructors: required_components,
         }
     }
