@@ -28,10 +28,10 @@ impl BevyManifest {
             .expect("The Cargo.toml should have a modified time");
 
         let manifests = MANIFESTS.read().unwrap_or_else(PoisonError::into_inner);
-        if let Some(manifest) = manifests.get(&manifest_path) {
-            if manifest.modified_time == modified_time {
-                return f(&manifest);
-            }
+        if let Some(manifest) = manifests.get(&manifest_path)
+            && manifest.modified_time == modified_time
+        {
+            return f(manifest);
         }
 
         drop(manifests);

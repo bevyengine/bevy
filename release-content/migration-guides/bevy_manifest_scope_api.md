@@ -4,7 +4,6 @@ pull_requests: [20630]
 ---
 
 In previous versions of Bevy, `BevyManifest` returned a mapped `RwLock` guard. Now, it's a scope-like API:
-`Assets::get_or_insert_with` returns an error you can inspect.
 
 ```rust
 // 0.16
