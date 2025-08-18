@@ -297,12 +297,8 @@ impl AssetServer {
     ) -> Result<Arc<dyn ErasedAssetLoader>, MissingAssetLoaderForTypeIdError> {
         let error = || MissingAssetLoaderForTypeIdError { type_id };
 
-        self.read_loaders()
-            .get_by_type(type_id)
-            .ok_or_else(error)?
-            .get()
-            .await
-            .map_err(|_| error())
+        let loader = self.read_loaders().get_by_type(type_id).ok_or_else(error)?;
+        loader.get().await.map_err(|_| error())
     }
 
     /// Retrieves the default [`AssetLoader`] for the given [`Asset`] type, if one can be found.
