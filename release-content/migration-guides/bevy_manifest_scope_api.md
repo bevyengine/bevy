@@ -1,6 +1,6 @@
 ---
 title: `BevyManifest::shared` is now a scope-like API.
-pull_requests: []
+pull_requests: [20630]
 ---
 
 In previous versions of Bevy, `BevyManifest` returned a mapped `RwLock` guard. Now, it's a scope-like API:
