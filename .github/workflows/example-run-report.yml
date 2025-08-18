@@ -82,7 +82,7 @@ jobs:
 
   comment-on-pr:
     name: Comment on PR
-    runs-on: ubuntu-14
+    runs-on: ubuntu-latest
     needs: [make-macos-screenshots-available, compare-macos-screenshots]
     if: ${{ always() && needs.compare-macos-screenshots.result == 'failure' }}
     steps:
