@@ -1,6 +1,6 @@
 [package]
 name = "bevy_image"
-version = "0.15.3"
+version = "0.15.4"
 edition = "2021"
 description = "Provides image types for Bevy Engine"
 homepage = "https://bevyengine.org"
@@ -32,16 +32,16 @@ zlib = ["flate2"]
 zstd = ["ruzstd"]
 
 [dependencies]
-bevy_asset = { path = "../bevy_asset", version = "0.15.3" }
-bevy_color = { path = "../bevy_color", version = "0.15.4", features = [
+bevy_asset = { path = "../bevy_asset", version = "0.15.4" }
+bevy_color = { path = "../bevy_color", version = "0.15.5", features = [
   "serialize",
   "wgpu-types",
 ] }
-bevy_math = { path = "../bevy_math", version = "0.15.3" }
-bevy_reflect = { path = "../bevy_reflect", version = "0.15.3", features = [
+bevy_math = { path = "../bevy_math", version = "0.15.4" }
+bevy_reflect = { path = "../bevy_reflect", version = "0.15.4", features = [
   "bevy",
 ] }
-bevy_utils = { path = "../bevy_utils", version = "0.15.3" }
+bevy_utils = { path = "../bevy_utils", version = "0.15.4" }
 
 # rendering
 image = { version = "0.25.2", default-features = false }
