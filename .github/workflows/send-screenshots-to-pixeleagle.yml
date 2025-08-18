@@ -51,7 +51,7 @@ jobs:
           branch: ${{ inputs.branch }}
         run: |
           # Create a new run with its associated metadata
-          metadata='{"os":"${{ inputs.os }}", "commit": "${{ inputs.commit }}", "branch": "$branch"}'
+          metadata='{"os":"${{ inputs.os }}", "commit": "${{ inputs.commit }}", "branch": "'$branch'"}'
           run=`curl https://pixel-eagle.com/$project/runs --json "$metadata" --oauth2-bearer ${{ secrets.PIXELEAGLE_TOKEN }} | jq '.id'`
 
           SAVEIFS=$IFS
