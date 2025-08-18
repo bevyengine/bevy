@@ -9,7 +9,7 @@ use std::{
 };
 
 #[cfg(feature = "bevy_animation")]
-use bevy_animation::{prelude::*, AnimationTarget, AnimationTargetId};
+use bevy_animation::{prelude::*, AnimationTargetId, AnimationTargetPlayer};
 use bevy_asset::{
     io::Reader, AssetLoadError, AssetLoader, Handle, LoadContext, ReadAssetBytesError,
     RenderAssetUsages,
@@ -1430,10 +1430,10 @@ fn load_node(
     if let Some(ref mut animation_context) = animation_context {
         animation_context.path.push(name);
 
-        node.insert(AnimationTarget {
-            id: AnimationTargetId::from_names(animation_context.path.iter()),
-            player: animation_context.root,
-        });
+        node.insert((
+            AnimationTargetId::from_names(animation_context.path.iter()),
+            AnimationTargetPlayer(animation_context.root),
+        ));
     }
 
     if let Some(extras) = gltf_node.extras() {

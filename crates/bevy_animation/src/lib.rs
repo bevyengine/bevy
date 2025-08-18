@@ -156,6 +156,7 @@ pub type AnimationCurves = HashMap<AnimationTargetId, Vec<VariableCurve>, NoOpHa
 
 /// A unique [UUID] for an animation target (e.g. bone in a skinned mesh).
 ///
+/// XXX TODO
 /// The [`AnimationClip`] asset and the [`AnimationTarget`] component both use
 /// this to refer to targets (e.g. bones in a skinned mesh) to be animated.
 ///
@@ -175,8 +176,10 @@ pub type AnimationCurves = HashMap<AnimationTargetId, Vec<VariableCurve>, NoOpHa
 /// connected to a bone named `Stomach`.
 ///
 /// [UUID]: https://en.wikipedia.org/wiki/Universally_unique_identifier
-#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Reflect, Debug, Serialize, Deserialize)]
-#[reflect(Clone)]
+#[derive(
+    Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Reflect, Debug, Serialize, Deserialize, Component,
+)]
+#[reflect(Component, Clone)]
 pub struct AnimationTargetId(pub Uuid);
 
 impl Hash for AnimationTargetId {
@@ -186,6 +189,7 @@ impl Hash for AnimationTargetId {
     }
 }
 
+/// XXX TODO
 /// An entity that can be animated by an [`AnimationPlayer`].
 ///
 /// These are frequently referred to as *bones* or *joints*, because they often
@@ -209,16 +213,7 @@ impl Hash for AnimationTargetId {
 /// runtime to change which player is responsible for animating the entity.
 #[derive(Clone, Copy, Component, Reflect)]
 #[reflect(Component, Clone)]
-pub struct AnimationTarget {
-    /// The ID of this animation target.
-    ///
-    /// Typically, this is derived from the path.
-    pub id: AnimationTargetId,
-
-    /// The entity containing the [`AnimationPlayer`].
-    #[entities]
-    pub player: Entity,
-}
+pub struct AnimationTargetPlayer(#[entities] pub Entity);
 
 impl AnimationClip {
     #[inline]
@@ -1019,8 +1014,16 @@ pub fn advance_animations(
 }
 
 /// A type alias for [`EntityMutExcept`] as used in animation.
-pub type AnimationEntityMut<'w, 's> =
-    EntityMutExcept<'w, 's, (AnimationTarget, AnimationPlayer, AnimationGraphHandle)>;
+pub type AnimationEntityMut<'w, 's> = EntityMutExcept<
+    'w,
+    's,
+    (
+        AnimationTargetId,
+        AnimationTargetPlayer,
+        AnimationPlayer,
+        AnimationGraphHandle,
+    ),
+>;
 
 /// A system that modifies animation targets (e.g. bones in a skinned mesh)
 /// according to the currently-playing animations.
@@ -1030,18 +1033,17 @@ pub fn animate_targets(
     graphs: Res<Assets<AnimationGraph>>,
     threaded_animation_graphs: Res<ThreadedAnimationGraphs>,
     players: Query<(&AnimationPlayer, &AnimationGraphHandle)>,
-    mut targets: Query<(Entity, &AnimationTarget, AnimationEntityMut)>,
+    mut targets: Query<(
+        Entity,
+        &AnimationTargetId,
+        &AnimationTargetPlayer,
+        AnimationEntityMut,
+    )>,
     animation_evaluation_state: Local<ThreadLocal<RefCell<AnimationEvaluationState>>>,
 ) {
     // Evaluate all animation targets in parallel.
-    targets
-        .par_iter_mut()
-        .for_each(|(entity, target, entity_mut)| {
-            let &AnimationTarget {
-                id: target_id,
-                player: player_id,
-            } = target;
-
+    targets.par_iter_mut().for_each(
+        |(entity, &target_id, &AnimationTargetPlayer(player_id), entity_mut)| {
             let (animation_player, animation_graph_id) =
                 if let Ok((player, graph_handle)) = players.get(player_id) {
                     (player, graph_handle.id())
@@ -1217,7 +1219,8 @@ pub fn animate_targets(
             if let Err(err) = evaluation_state.commit_all(entity_mut) {
                 warn!("Animation application failed: {:?}", err);
             }
-        });
+        },
+    );
 }
 
 /// Adds animation support to an app

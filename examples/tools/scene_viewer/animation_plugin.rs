@@ -1,7 +1,7 @@
 //! Control animations of entities in the loaded scene.
 use std::collections::HashMap;
 
-use bevy::{animation::AnimationTarget, ecs::entity::EntityHashMap, gltf::Gltf, prelude::*};
+use bevy::{animation::AnimationTargetId, ecs::entity::EntityHashMap, gltf::Gltf, prelude::*};
 
 use crate::scene_viewer_plugin::SceneHandle;
 
@@ -35,7 +35,7 @@ impl Clips {
 /// the common case).
 fn assign_clips(
     mut players: Query<&mut AnimationPlayer>,
-    targets: Query<(Entity, &AnimationTarget)>,
+    targets: Query<(Entity, &AnimationTargetId)>,
     children: Query<&ChildOf>,
     scene_handle: Res<SceneHandle>,
     clips: Res<Assets<AnimationClip>>,
@@ -66,7 +66,7 @@ fn assign_clips(
     // Map animation target IDs to entities.
     let animation_target_id_to_entity: HashMap<_, _> = targets
         .iter()
-        .map(|(entity, target)| (target.id, entity))
+        .map(|(entity, target)| (target, entity))
         .collect();
 
     // Build up a list of all animation clips that belong to each player. A clip

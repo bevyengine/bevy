@@ -1,7 +1,7 @@
 //! Demonstrates how to use masks to limit the scope of animations.
 
 use bevy::{
-    animation::{AnimationTarget, AnimationTargetId},
+    animation::{AnimationTargetId, AnimationTargetPlayer},
     color::palettes::css::{LIGHT_GRAY, WHITE},
     prelude::*,
 };
@@ -353,7 +353,7 @@ fn setup_animation_graph_once_loaded(
     asset_server: Res<AssetServer>,
     mut animation_graphs: ResMut<Assets<AnimationGraph>>,
     mut players: Query<(Entity, &mut AnimationPlayer), Added<AnimationPlayer>>,
-    targets: Query<(Entity, &AnimationTarget)>,
+    targets: Query<(Entity, &AnimationTargetId)>,
 ) {
     for (entity, mut player) in &mut players {
         // Load the animation clip from the glTF file.
@@ -400,8 +400,11 @@ fn setup_animation_graph_once_loaded(
         // don't do that, those bones will play all animations at once, which is
         // ugly.
         for (target_entity, target) in &targets {
-            if !all_animation_target_ids.contains(&target.id) {
-                commands.entity(target_entity).remove::<AnimationTarget>();
+            if !all_animation_target_ids.contains(target) {
+                commands.entity(target_entity).remove::<AnimationTargetId>();
+                commands
+                    .entity(target_entity)
+                    .remove::<AnimationTargetPlayer>();
             }
         }
 
