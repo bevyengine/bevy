@@ -2,10 +2,6 @@
 name = "bevy_core_pipeline"
 version = "0.17.0-dev"
 edition = "2024"
-authors = [
-  "Bevy Contributors <bevyengine@gmail.com>",
-  "Carter Anderson <mcanders1@gmail.com>",
-]
 description = "Provides a core render pipeline for Bevy Engine."
 homepage = "https://bevy.org"
 repository = "https://github.com/bevyengine/bevy"
