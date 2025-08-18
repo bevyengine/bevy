@@ -240,6 +240,7 @@ impl<'w> BundleInserter<'w> {
                     (&mut world.storages.sparse_sets, &mut world.entities)
                 };
 
+                // SAFETY: The location must be valid, as a live entity is stored there.
                 let result = archetype.swap_remove_unchecked(location.archetype_row);
                 if let Some(swapped_entity) = result.swapped_entity {
                     let swapped_location =
@@ -289,6 +290,7 @@ impl<'w> BundleInserter<'w> {
                         &mut world.entities,
                     )
                 };
+                // SAFETY: The location must be valid, as a live entity is stored there.
                 let result = archetype.swap_remove_unchecked(location.archetype_row);
                 if let Some(swapped_entity) = result.swapped_entity {
                     let swapped_location =

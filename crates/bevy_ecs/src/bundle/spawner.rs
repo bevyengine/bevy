@@ -56,6 +56,7 @@ impl<'w> BundleSpawner<'w> {
             ArchetypeId::EMPTY,
         );
 
+        // SAFETY: The archetypes was just creatd in `insert_bundle_into_archetype`
         let archetype = world.archetypes.get_unchecked_mut(new_archetype_id);
         let table = world
             .storages
