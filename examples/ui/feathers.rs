@@ -25,6 +25,7 @@ use bevy::{
     ui::{Checked, InteractionDisabled},
     winit::WinitSettings,
 };
+use bevy_ecs::relationship::RelatedSpawner;
 
 /// A struct to hold the state of various widgets shown in the demo.
 #[derive(Resource)]
@@ -81,48 +82,7 @@ fn demo_root(commands: &mut Commands) -> impl Bundle {
         },
     );
 
-    let change_red = commands.register_system(
-        |change: In<ValueChange<f32>>, mut color: ResMut<DemoWidgetStates>| {
-            color.rgb_color.red = change.value;
-        },
-    );
-
-    let change_green = commands.register_system(
-        |change: In<ValueChange<f32>>, mut color: ResMut<DemoWidgetStates>| {
-            color.rgb_color.green = change.value;
-        },
-    );
-
-    let change_blue = commands.register_system(
-        |change: In<ValueChange<f32>>, mut color: ResMut<DemoWidgetStates>| {
-            color.rgb_color.blue = change.value;
-        },
-    );
-
-    let change_alpha = commands.register_system(
-        |change: In<ValueChange<f32>>, mut color: ResMut<DemoWidgetStates>| {
-            color.rgb_color.alpha = change.value;
-        },
-    );
-
-    let change_hue = commands.register_system(
-        |change: In<ValueChange<f32>>, mut color: ResMut<DemoWidgetStates>| {
-            color.hsl_color.hue = change.value;
-        },
-    );
-
-    let change_saturation = commands.register_system(
-        |change: In<ValueChange<f32>>, mut color: ResMut<DemoWidgetStates>| {
-            color.hsl_color.saturation = change.value;
-        },
-    );
-
-    let change_lightness = commands.register_system(
-        |change: In<ValueChange<f32>>, mut color: ResMut<DemoWidgetStates>| {
-            color.hsl_color.lightness = change.value;
-        },
-    );
-
+    // Note: This uses `SpawnWith` to avoid overflowing the stack on Windows.
     (
         Node {
             width: Val::Percent(100.0),
@@ -148,8 +108,8 @@ fn demo_root(commands: &mut Commands) -> impl Bundle {
                 min_width: Val::Px(200.),
                 ..default()
             },
-            children![
-                (
+            Children::spawn((
+                Spawn((
                     Node {
                         display: Display::Flex,
                         flex_direction: FlexDirection::Row,
@@ -197,8 +157,8 @@ fn demo_root(commands: &mut Commands) -> impl Bundle {
                             Spawn((Text::new("Primary"), ThemedText))
                         ),
                     ]
-                ),
-                (
+                )),
+                Spawn((
                     Node {
                         display: Display::Flex,
                         flex_direction: FlexDirection::Row,
@@ -248,8 +208,8 @@ fn demo_root(commands: &mut Commands) -> impl Bundle {
                             Spawn((Text::new("Right"), ThemedText))
                         ),
                     ]
-                ),
-                button(
+                )),
+                Spawn(button(
                     ButtonProps {
                         on_click: Callback::System(commands.register_system(|_: In<Activate>| {
                             info!("Wide button clicked!");
@@ -258,29 +218,29 @@ fn demo_root(commands: &mut Commands) -> impl Bundle {
                     },
                     (),
                     Spawn((Text::new("Button"), ThemedText))
-                ),
-                checkbox(
+                )),
+                Spawn(checkbox(
                     CheckboxProps {
                         on_change: Callback::Ignore,
                     },
                     Checked,
                     Spawn((Text::new("Checkbox"), ThemedText))
-                ),
-                checkbox(
+                )),
+                Spawn(checkbox(
                     CheckboxProps {
                         on_change: Callback::Ignore,
                     },
                     InteractionDisabled,
                     Spawn((Text::new("Disabled"), ThemedText))
-                ),
-                checkbox(
+                )),
+                Spawn(checkbox(
                     CheckboxProps {
                         on_change: Callback::Ignore,
                     },
                     (InteractionDisabled, Checked),
                     Spawn((Text::new("Disabled+Checked"), ThemedText))
-                ),
-                (
+                )),
+                Spawn((
                     Node {
                         display: Display::Flex,
                         flex_direction: FlexDirection::Column,
@@ -299,8 +259,8 @@ fn demo_root(commands: &mut Commands) -> impl Bundle {
                             Spawn((Text::new("Disabled"), ThemedText))
                         ),
                     ]
-                ),
-                (
+                )),
+                Spawn((
                     Node {
                         display: Display::Flex,
                         flex_direction: FlexDirection::Row,
@@ -329,90 +289,143 @@ fn demo_root(commands: &mut Commands) -> impl Bundle {
                             (InteractionDisabled, Checked),
                         ),
                     ]
-                ),
-                slider(
+                )),
+                Spawn(slider(
                     SliderProps {
                         max: 100.0,
                         value: 20.0,
                         ..default()
                     },
                     (SliderStep(10.), SliderPrecision(2)),
-                ),
-                (
-                    Node {
-                        display: Display::Flex,
-                        flex_direction: FlexDirection::Row,
-                        justify_content: JustifyContent::SpaceBetween,
-                        ..default()
-                    },
-                    children![Text("Srgba".to_owned()), color_swatch(SwatchType::Rgb),]
-                ),
-                color_slider(
-                    ColorSliderProps {
-                        value: 0.5,
-                        on_change: Callback::System(change_red),
-                        channel: ColorChannel::Red
-                    },
-                    ()
-                ),
-                color_slider(
-                    ColorSliderProps {
-                        value: 0.5,
-                        on_change: Callback::System(change_green),
-                        channel: ColorChannel::Green
-                    },
-                    ()
-                ),
-                color_slider(
-                    ColorSliderProps {
-                        value: 0.5,
-                        on_change: Callback::System(change_blue),
-                        channel: ColorChannel::Blue
-                    },
-                    ()
-                ),
-                color_slider(
-                    ColorSliderProps {
-                        value: 0.5,
-                        on_change: Callback::System(change_alpha),
-                        channel: ColorChannel::Alpha
-                    },
-                    ()
-                ),
-                (
-                    Node {
-                        display: Display::Flex,
-                        flex_direction: FlexDirection::Row,
-                        justify_content: JustifyContent::SpaceBetween,
-                        ..default()
-                    },
-                    children![Text("Hsl".to_owned()), color_swatch(SwatchType::Hsl),]
-                ),
-                color_slider(
-                    ColorSliderProps {
-                        value: 0.5,
-                        on_change: Callback::System(change_hue),
-                        channel: ColorChannel::HslHue
-                    },
-                    ()
-                ),
-                color_slider(
-                    ColorSliderProps {
-                        value: 0.5,
-                        on_change: Callback::System(change_saturation),
-                        channel: ColorChannel::HslSaturation
-                    },
-                    ()
-                ),
-                color_slider(
-                    ColorSliderProps {
-                        value: 0.5,
-                        on_change: Callback::System(change_lightness),
-                        channel: ColorChannel::HslLightness
-                    },
-                    ()
-                )
-            ]
+                )),
+                SpawnWith(|parent: &mut RelatedSpawner<ChildOf>| {
+                    let change_red = parent.world_mut().commands().register_system(
+                        |change: In<ValueChange<f32>>, mut color: ResMut<DemoWidgetStates>| {
+                            color.rgb_color.red = change.value;
+                        },
+                    );
+
+                    let change_green = parent.world_mut().commands().register_system(
+                        |change: In<ValueChange<f32>>, mut color: ResMut<DemoWidgetStates>| {
+                            color.rgb_color.green = change.value;
+                        },
+                    );
+
+                    let change_blue = parent.world_mut().commands().register_system(
+                        |change: In<ValueChange<f32>>, mut color: ResMut<DemoWidgetStates>| {
+                            color.rgb_color.blue = change.value;
+                        },
+                    );
+
+                    let change_alpha = parent.world_mut().commands().register_system(
+                        |change: In<ValueChange<f32>>, mut color: ResMut<DemoWidgetStates>| {
+                            color.rgb_color.alpha = change.value;
+                        },
+                    );
+
+                    parent.spawn((
+                        Node {
+                            display: Display::Flex,
+                            flex_direction: FlexDirection::Row,
+                            justify_content: JustifyContent::SpaceBetween,
+                            ..default()
+                        },
+                        children![Text("Srgba".to_owned()), color_swatch(SwatchType::Rgb),],
+                    ));
+
+                    parent.spawn(color_slider(
+                        ColorSliderProps {
+                            value: 0.5,
+                            on_change: Callback::System(change_red),
+                            channel: ColorChannel::Red,
+                        },
+                        (),
+                    ));
+
+                    parent.spawn(color_slider(
+                        ColorSliderProps {
+                            value: 0.5,
+                            on_change: Callback::System(change_green),
+                            channel: ColorChannel::Green,
+                        },
+                        (),
+                    ));
+
+                    parent.spawn(color_slider(
+                        ColorSliderProps {
+                            value: 0.5,
+                            on_change: Callback::System(change_blue),
+                            channel: ColorChannel::Blue,
+                        },
+                        (),
+                    ));
+
+                    parent.spawn(color_slider(
+                        ColorSliderProps {
+                            value: 0.5,
+                            on_change: Callback::System(change_alpha),
+                            channel: ColorChannel::Alpha,
+                        },
+                        (),
+                    ));
+                }),
+                SpawnWith(|parent: &mut RelatedSpawner<ChildOf>| {
+                    let change_hue = parent.world_mut().commands().register_system(
+                        |change: In<ValueChange<f32>>, mut color: ResMut<DemoWidgetStates>| {
+                            color.hsl_color.hue = change.value;
+                        },
+                    );
+
+                    let change_saturation = parent.world_mut().commands().register_system(
+                        |change: In<ValueChange<f32>>, mut color: ResMut<DemoWidgetStates>| {
+                            color.hsl_color.saturation = change.value;
+                        },
+                    );
+
+                    let change_lightness = parent.world_mut().commands().register_system(
+                        |change: In<ValueChange<f32>>, mut color: ResMut<DemoWidgetStates>| {
+                            color.hsl_color.lightness = change.value;
+                        },
+                    );
+
+                    parent.spawn((
+                        Node {
+                            display: Display::Flex,
+                            flex_direction: FlexDirection::Row,
+                            justify_content: JustifyContent::SpaceBetween,
+                            ..default()
+                        },
+                        children![Text("Hsl".to_owned()), color_swatch(SwatchType::Hsl),],
+                    ));
+
+                    parent.spawn(color_slider(
+                        ColorSliderProps {
+                            value: 0.5,
+                            on_change: Callback::System(change_hue),
+                            channel: ColorChannel::HslHue,
+                        },
+                        (),
+                    ));
+
+                    parent.spawn(color_slider(
+                        ColorSliderProps {
+                            value: 0.5,
+                            on_change: Callback::System(change_saturation),
+                            channel: ColorChannel::HslSaturation,
+                        },
+                        (),
+                    ));
+
+                    parent.spawn(color_slider(
+                        ColorSliderProps {
+                            value: 0.5,
+                            on_change: Callback::System(change_lightness),
+                            channel: ColorChannel::HslLightness,
+                        },
+                        (),
+                    ));
+                }),
+            ))
         ),],
     )
 }
