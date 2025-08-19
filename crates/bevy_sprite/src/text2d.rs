@@ -178,15 +178,15 @@ pub fn update_text2d_layout(
     mut swash_cache: ResMut<SwashCache>,
 ) {
     target_scale_factors.clear();
-
-    *target_scale_factors = camera_query
-        .iter()
-        .filter_map(|(camera, maybe_camera_mask)| {
-            camera
-                .target_scaling_factor()
-                .map(|scale_factor| (scale_factor, maybe_camera_mask.cloned().unwrap_or_default()))
-        })
-        .collect();
+    target_scale_factors.extend(
+        camera_query
+            .iter()
+            .filter_map(|(camera, maybe_camera_mask)| {
+                camera.target_scaling_factor().map(|scale_factor| {
+                    (scale_factor, maybe_camera_mask.cloned().unwrap_or_default())
+                })
+            }),
+    );
 
     for (entity, maybe_entity_mask, block, bounds, text_layout_info, mut computed) in
         &mut text_query
