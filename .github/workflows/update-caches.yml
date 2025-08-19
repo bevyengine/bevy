@@ -29,7 +29,7 @@ jobs:
       NIGHTLY_TOOLCHAIN: ${{ steps.env.outputs.NIGHTLY_TOOLCHAIN }}
       MSRV: ${{ steps.msrv.outputs.MSRV }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: dtolnay/rust-toolchain@stable
       - name: get MSRV
         id: msrv
@@ -81,7 +81,7 @@ jobs:
           - os: ubuntu-latest
             toolchain: stable
             target: aarch64-linux-android
-          - os: macos-latest
+          - os: macos-14
             toolchain: stable
             target: aarch64-apple-ios-sim
 
@@ -94,7 +94,7 @@ jobs:
         shell: bash
 
       - name: Checkout Bevy main branch
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           repository: "bevyengine/bevy"
           ref: "main"

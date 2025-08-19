@@ -1,4 +1,4 @@
-#define_import_path bevy_sprite_render::mesh2d_types
+#define_import_path bevy_sprite::mesh2d_types
 
 struct Mesh2d {
     // Affine 4x3 matrix transposed to 3x4
