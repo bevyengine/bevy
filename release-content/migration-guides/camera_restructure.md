@@ -1,5 +1,5 @@
 ---
-title: Camera Restructure
+title: Camera Component Restructure
 pull_requests: [18873]
 ---
 
