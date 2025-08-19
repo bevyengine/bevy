@@ -254,7 +254,7 @@ debug_glam_assert = ["bevy_math/debug_glam_assert"]
 
 default_font = ["bevy_text?/default_font"]
 
-# Enables text rendering using `bevy_render_2d`
+# Enables text rendering using `bevy_sprite_render`
 text2d = [
   "bevy_text",
   "bevy_sprite/text2d",

@@ -209,7 +209,7 @@ dynamic_linking = ["dep:bevy_dylib", "bevy_internal/dynamic_linking"]
 # Enables system information diagnostic plugin
 sysinfo_plugin = ["bevy_internal/sysinfo_plugin"]
 
-# Enables text rendering using `bevy_render_2d`
+# Enables text rendering using `bevy_sprite_render`
 text2d = ["bevy_internal/text2d"]
 
 # Provides animation functionality
