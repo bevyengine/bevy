@@ -190,7 +190,7 @@ impl TaskPoolOptions {
                     builder
                 };
 
-                builder.build()
+                builder
             });
         }
 
@@ -220,7 +220,7 @@ impl TaskPoolOptions {
                     builder
                 };
 
-                builder.build()
+                builder
             });
         }
 
@@ -250,7 +250,7 @@ impl TaskPoolOptions {
                     builder
                 };
 
-                builder.build()
+                builder
             });
         }
     }

@@ -7,7 +7,6 @@
     reason = "Not all functions are used with every feature combination"
 )]
 
-use core::marker::PhantomData;
 use core::panic::{RefUnwindSafe, UnwindSafe};
 use core::pin::Pin;
 use core::sync::atomic::{AtomicBool, AtomicPtr, Ordering};
@@ -20,7 +19,7 @@ use alloc::collections::VecDeque;
 use alloc::fmt;
 use async_task::{Builder, Runnable, Task};
 use bevy_platform::prelude::Vec;
-use bevy_platform::sync::{Arc, Mutex, MutexGuard, PoisonError, RwLock, TryLockError};
+use bevy_platform::sync::{Mutex, PoisonError, RwLock, TryLockError};
 use concurrent_queue::ConcurrentQueue;
 use futures_lite::{future,FutureExt};
 use slab::Slab;
@@ -31,17 +30,12 @@ use crossbeam_utils::CachePadded;
 // See: https://github.com/Amanieu/thread_local-rs/issues/75
 static THREAD_LOCAL_STATE: ThreadLocal<ThreadLocalState> = ThreadLocal::new();
 
-pub(crate) fn install_runtime_into_current_thread(executor: &Executor) {
+pub(crate) fn install_runtime_into_current_thread(executor: &'static Executor) {
     // Use LOCAL_QUEUE here to set the thread destructor
     LOCAL_QUEUE.with(|_| {
         let tls = THREAD_LOCAL_STATE.get_or_default();
-        let state = executor.state_as_arc();
-        let state_ptr = Arc::into_raw(state).cast_mut();
-        let old_ptr = tls.executor.swap(state_ptr, Ordering::Relaxed);
-        if !old_ptr.is_null() {
-            // SAFETY: If this pointer was not null, it was initialized from Arc::into_raw.
-            drop(unsafe { Arc::from_raw(old_ptr) });
-        }
+        let state_ptr: *const State = &executor.state;
+        tls.executor.swap(state_ptr.cast_mut(), Ordering::Relaxed);
     });
 }
 
@@ -102,14 +96,13 @@ impl Default for ThreadLocalState {
 ///
 /// [`TaskPool::current_thread_spawner`]: crate::TaskPool::current_thread_spawner
 #[derive(Clone, Debug)]
-pub struct ThreadSpawner<'a> {
+pub struct ThreadSpawner {
     thread_id: ThreadId,
     target_queue: &'static ConcurrentQueue<Runnable>,
-    state: Arc<State>,
-    _marker: PhantomData<&'a ()>,
+    state: &'static State,
 }
 
-impl<'a> ThreadSpawner<'a> {
+impl ThreadSpawner {
     /// Spawns a task onto the specific target thread.
     pub fn spawn<T: Send + 'static>(
         &self,
@@ -123,18 +116,10 @@ impl<'a> ThreadSpawner<'a> {
     ///
     /// # Safety
     /// The caller must ensure that the returned Task does not outlive 'a.
-    pub unsafe fn spawn_scoped<T: Send + 'a>(
+    pub unsafe fn spawn_scoped<'a, T: Send + 'a>(
         &self,
         future: impl Future<Output = T> + Send + 'a,
     ) -> Task<T> {
-        let mut active = self.state.active();
-
-        // Remove the task from the set of active tasks when the future finishes.
-        let entry = active.vacant_entry();
-        let index = entry.key();
-        let state = self.state.clone();
-        let future = AsyncCallOnDrop::new(future, move || drop(state.active().try_remove(index)));
-
         // Create the task and register it in the set of active tasks.
         //
         // SAFETY:
@@ -151,7 +136,6 @@ impl<'a> ThreadSpawner<'a> {
                 .propagate_panic(true)
                 .spawn_unchecked(|()| future, self.schedule())
         };
-        entry.insert(runnable.waker());
 
         // Instead of directly scheduling this task, it's put into the onto the
         // thread locked queue to be moved to the target thread, where it will
@@ -164,7 +148,7 @@ impl<'a> ThreadSpawner<'a> {
     /// Returns a function that schedules a runnable task when it gets woken up.
     fn schedule(&self) -> impl Fn(Runnable) + Send + Sync + 'static {
         let thread_id = self.thread_id;
-        let state = self.state.clone();
+        let state = self.state;
 
         move |runnable| {
             // SAFETY: This value is in thread local storage and thus can only be accessed
@@ -178,42 +162,35 @@ impl<'a> ThreadSpawner<'a> {
 }
 
 /// An async executor.
-pub struct Executor<'a> {
+pub struct Executor {
     /// The executor state.
-    state: AtomicPtr<State>,
-
-    /// Makes the `'a` lifetime invariant.
-    _marker: PhantomData<&'a ()>,
+    state: State,
 }
 
-impl UnwindSafe for Executor<'_> {}
-impl RefUnwindSafe for Executor<'_> {}
+impl UnwindSafe for Executor {}
+impl RefUnwindSafe for Executor {}
 
-impl fmt::Debug for Executor<'_> {
+impl fmt::Debug for Executor {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         debug_executor(self, "Executor", f)
     }
 }
 
-impl<'a> Executor<'a> {
+impl Executor {
     /// Creates a new executor.
-    pub const fn new() -> Executor<'a> {
+    pub const fn new() -> Executor {
         Executor {
-            state: AtomicPtr::new(core::ptr::null_mut()),
-            _marker: PhantomData,
+            state: State::new()
         }
     }
 
     /// Spawns a task onto the executor.
-    pub fn spawn<T: Send + 'a>(&self, future: impl Future<Output = T> + Send + 'a) -> Task<T> {
-        let mut active = self.state().active();
+    pub fn spawn<T: Send + 'static>(&'static self, future: impl Future<Output = T> + Send + 'static) -> Task<T> {
+        // SAFETY: Both `T` and `future` are 'static.
+        unsafe { self.spawn_scoped(future) }
+    }
 
-        // Remove the task from the set of active tasks when the future finishes.
-        let entry = active.vacant_entry();
-        let index = entry.key();
-        let state = self.state_as_arc();
-        let future = AsyncCallOnDrop::new(future, move || drop(state.active().try_remove(index)));
-
+    pub unsafe fn spawn_scoped<'a, T: Send + 'a>(&'static self, future: impl Future<Output = T> + Send + 'a) -> Task<T> {
         // Create the task and register it in the set of active tasks.
         //
         // SAFETY:
@@ -233,14 +210,13 @@ impl<'a> Executor<'a> {
                 .propagate_panic(true)
                 .spawn_unchecked(|()| future, self.schedule())
         };
-        entry.insert(runnable.waker());
 
         runnable.schedule();
         task
     }
 
     /// Spawns a non-Send task onto the executor.
-    pub fn spawn_local<T: 'static>(&self, future: impl Future<Output = T> + 'static) -> Task<T> {
+    pub fn spawn_local<T: 'static>(&'static self, future: impl Future<Output = T> + 'static) -> Task<T> {
         // SAFETY: future is 'static
         unsafe { self.spawn_local_scoped(future) }
     }
@@ -249,8 +225,8 @@ impl<'a> Executor<'a> {
     ///
     /// # Safety
     /// The caller must ensure that the returned Task does not outlive 'a.
-    pub unsafe fn spawn_local_scoped<T: 'a>(
-        &self,
+    pub unsafe fn spawn_local_scoped<'a, T: 'a>(
+        &'static self,
         future: impl Future<Output = T> + 'a,
     ) -> Task<T> {
         // Remove the task from the set of active tasks when the future finishes.
@@ -306,12 +282,11 @@ impl<'a> Executor<'a> {
         task
     }
 
-    pub fn current_thread_spawner(&self) -> ThreadSpawner<'a> {
+    pub fn current_thread_spawner(&'static self) -> ThreadSpawner {
         ThreadSpawner {
             thread_id: std::thread::current().id(),
             target_queue: &THREAD_LOCAL_STATE.get_or_default().thread_locked_queue,
-            state: self.state_as_arc(),
-            _marker: PhantomData,
+            state: &self.state,
         }
     }
 
@@ -328,8 +303,8 @@ impl<'a> Executor<'a> {
     }
 
     /// Runs the executor until the given future completes.
-    pub fn run<'b, T>(&'b self, future: impl Future<Output = T> + 'b) -> impl Future<Output = T> + 'b {
-        let mut runner = Runner::new(self.state());
+    pub fn run<'b, T>(&'static self, future: impl Future<Output = T> + 'b) -> impl Future<Output = T> + 'b {
+        let mut runner = Runner::new(&self.state);
 
         // A future that runs tasks forever.
         let run_forever = async move {
@@ -348,14 +323,14 @@ impl<'a> Executor<'a> {
     }
 
     /// Returns a function that schedules a runnable task when it gets woken up.
-    fn schedule(&self) -> impl Fn(Runnable) + Send + Sync + 'static {
-        let state = self.state_as_arc();
+    fn schedule(&'static self) -> impl Fn(Runnable) + Send + Sync + 'static {
+        let state = &self.state;
 
         move |runnable| {
             // Attempt to push onto the local queue first in dedicated executor threads,
             // because we know that this thread is awake and always processing new tasks.
             let runnable = if let Some(local_state) = THREAD_LOCAL_STATE.get() {
-                if core::ptr::eq(local_state.executor.load(Ordering::Relaxed), Arc::as_ptr(&state)) {
+                if core::ptr::eq(local_state.executor.load(Ordering::Relaxed), state) {
                     match local_state.stealable_queue.push(runnable) {
                         Ok(()) => {
                             state.notify_specific_thread(std::thread::current().id(), true);
@@ -377,8 +352,8 @@ impl<'a> Executor<'a> {
     }
 
     /// Returns a function that schedules a runnable task when it gets woken up.
-    fn schedule_local(&self) -> impl Fn(Runnable) + 'static {
-        let state = self.state_as_arc();
+    fn schedule_local(&'static self) -> impl Fn(Runnable) + 'static {
+        let state = &self.state;
         move |runnable| {
             // SAFETY: This value is in thread local storage and thus can only be accessed
             // from one thread. There are no instances where the value is accessed mutably
@@ -387,74 +362,6 @@ impl<'a> Executor<'a> {
                 state.notify_specific_thread(std::thread::current().id(), false);
             }
         }
-    }
-
-    /// Returns a pointer to the inner state.
-    #[inline]
-    fn state_ptr(&self) -> *const State {
-        #[cold]
-        fn alloc_state(atomic_ptr: &AtomicPtr<State>) -> *mut State {
-            let state = Arc::new(State::new());
-            let ptr = Arc::into_raw(state).cast_mut();
-            if let Err(actual) = atomic_ptr.compare_exchange(
-                core::ptr::null_mut(),
-                ptr,
-                Ordering::AcqRel,
-                Ordering::Acquire,
-            ) {
-                // SAFETY: This was just created from Arc::into_raw.
-                drop(unsafe { Arc::from_raw(ptr) });
-                actual
-            } else {
-                ptr
-            }
-        }
-
-        let mut ptr = self.state.load(Ordering::Acquire);
-        if ptr.is_null() {
-            ptr = alloc_state(&self.state);
-        }
-        ptr
-    }
-
-    /// Returns a reference to the inner state.
-    #[inline]
-    fn state(&self) -> &State {
-        // SAFETY: So long as an Executor lives, it's state pointer will always be valid
-        // when accessed through state_ptr.
-        unsafe { &*self.state_ptr() }
-    }
-
-    // Clones the inner state Arc
-    #[inline]
-    fn state_as_arc(&self) -> Arc<State> {
-        // SAFETY: So long as an Executor lives, it's state pointer will always be a valid
-        // Arc when accessed through state_ptr.
-        let arc = unsafe { Arc::from_raw(self.state_ptr()) };
-        let clone = arc.clone();
-        mem::forget(arc);
-        clone
-    }
-}
-
-impl Drop for Executor<'_> {
-    fn drop(&mut self) {
-        let ptr = *self.state.get_mut();
-        if ptr.is_null() {
-            return;
-        }
-
-        // SAFETY: As ptr is not null, it was allocated via Arc::new and converted
-        // via Arc::into_raw in state_ptr.
-        let state = unsafe { Arc::from_raw(ptr) };
-
-        let mut active = state.active();
-        for w in active.drain() {
-            w.wake();
-        }
-        drop(active);
-
-        while state.queue.pop().is_ok() {}
     }
 }
 
@@ -471,9 +378,6 @@ struct State {
 
     /// A list of sleeping tickers.
     sleepers: Mutex<Sleepers>,
-
-    /// Currently active tasks.
-    active: Mutex<Slab<Waker>>,
 }
 
 impl State {
@@ -488,13 +392,7 @@ impl State {
                 wakers: Vec::new(),
                 free_ids: Vec::new(),
             }),
-            active: Mutex::new(Slab::new()),
         }
-    }
-
-    /// Returns a reference to currently active tasks.
-    fn active(&self) -> MutexGuard<'_, Slab<Waker>> {
-        self.active.lock().unwrap_or_else(PoisonError::into_inner)
     }
 
     /// Notifies a sleeping ticker.
@@ -910,28 +808,8 @@ fn flush_to_local(src: &ConcurrentQueue<Runnable>, dst: &mut LocalQueue) {
 }
 
 /// Debug implementation for `Executor`.
-fn debug_executor(executor: &Executor<'_>, name: &str, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-    // Get a reference to the state.
-    let ptr = executor.state.load(Ordering::Acquire);
-    if ptr.is_null() {
-        // The executor has not been initialized.
-        struct Uninitialized;
-
-        impl fmt::Debug for Uninitialized {
-            fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-                f.write_str("<uninitialized>")
-            }
-        }
-
-        return f.debug_tuple(name).field(&Uninitialized).finish();
-    }
-
-    // SAFETY: If the state pointer is not null, it must have been
-    // allocated properly by Arc::new and converted via Arc::into_raw
-    // in state_ptr.
-    let state = unsafe { &*ptr };
-
-    debug_state(state, name, f)
+fn debug_executor(executor: &Executor, name: &str, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+    debug_state(&executor.state, name, f)
 }
 
 /// Debug implementation for `Executor`.
@@ -979,7 +857,6 @@ fn debug_state(state: &State, name: &str, f: &mut fmt::Formatter<'_>) -> fmt::Re
     }
 
     f.debug_struct(name)
-        .field("active", &ActiveTasks(&state.active))
         .field("global_tasks", &state.queue.len())
         .field("stealer_queues", &LocalRunners(&state.stealer_queues))
         .field("sleepers", &SleepCount(&state.sleepers))
@@ -1043,124 +920,42 @@ mod test {
     use async_task::Task;
     use core::time::Duration;
 
+    static EX: Executor = Executor::new();
+
     fn _ensure_send_and_sync() {
         fn is_send<T: Send>(_: T) {}
         fn is_sync<T: Sync>(_: T) {}
         fn is_static<T: 'static>(_: T) {}
 
-        is_send::<Executor<'_>>(Executor::new());
-        is_sync::<Executor<'_>>(Executor::new());
+        is_send::<Executor>(Executor::new());
+        is_sync::<Executor>(Executor::new());
 
-        let ex = Executor::new();
-        is_send(ex.schedule());
-        is_sync(ex.schedule());
-        is_static(ex.schedule());
-        is_send(ex.current_thread_spawner());
-        is_sync(ex.current_thread_spawner());
+        is_send(EX.schedule());
+        is_sync(EX.schedule());
+        is_static(EX.schedule());
+        is_send(EX.current_thread_spawner());
+        is_sync(EX.current_thread_spawner());
         is_send(THREAD_LOCAL_STATE.get_or_default());
         is_sync(THREAD_LOCAL_STATE.get_or_default());
-    }
-
-    #[test]
-    fn executor_cancels_everything() {
-        static DROP: AtomicUsize = AtomicUsize::new(0);
-        static WAKER: Mutex<Option<Waker>> = Mutex::new(None);
-
-        let ex = Executor::new();
-
-        let task = ex.spawn(async {
-            let _guard = CallOnDrop(|| {
-                DROP.fetch_add(1, Ordering::SeqCst);
-            });
-
-            future::poll_fn(|cx| {
-                *WAKER.lock().unwrap() = Some(cx.waker().clone());
-                Poll::Pending::<()>
-            })
-            .await;
-        });
-
-        future::block_on(ex.run(async {
-            for _ in 0..10 {
-                future::yield_now().await;
-            }
-        }));
-
-        assert!(WAKER.lock().unwrap().is_some());
-        assert_eq!(DROP.load(Ordering::SeqCst), 0);
-
-        drop(ex);
-        assert_eq!(DROP.load(Ordering::SeqCst), 1);
-
-        assert!(catch_unwind(|| future::block_on(task)).is_err());
-        assert_eq!(DROP.load(Ordering::SeqCst), 1);
     }
 
     #[test]
     fn await_task_after_dropping_executor() {
         let s: String = "hello".into();
 
-        let ex = Executor::new();
-        let task: Task<&str> = ex.spawn(async { &*s });
-        future::block_on(ex.run(async {
+        // SAFETY: We make sure that the task does not outlive the borrow on `s`.
+        let task: Task<&str> = unsafe { EX.spawn_scoped(async { &*s }) };
+        future::block_on(EX.run(async {
             for _ in 0..10 {
                 future::yield_now().await;
             }
         }));
 
-
-        drop(ex);
         assert_eq!(future::block_on(task), "hello");
         drop(s);
     }
 
-    #[test]
-    fn drop_executor_and_then_drop_finished_task() {
-        static DROP: AtomicUsize = AtomicUsize::new(0);
-
-        let ex = Executor::new();
-        let task = ex.spawn(async {
-            CallOnDrop(|| {
-                DROP.fetch_add(1, Ordering::SeqCst);
-            })
-        });
-        future::block_on(ex.run(async {
-            for _ in 0..10 {
-                future::yield_now().await;
-            }
-        }));
-
-        assert_eq!(DROP.load(Ordering::SeqCst), 0);
-        drop(ex);
-        assert_eq!(DROP.load(Ordering::SeqCst), 0);
-        drop(task);
-        assert_eq!(DROP.load(Ordering::SeqCst), 1);
-    }
-
-    #[test]
-    fn drop_finished_task_and_then_drop_executor() {
-        static DROP: AtomicUsize = AtomicUsize::new(0);
-
-        let ex = Executor::new();
-        let task = ex.spawn(async {
-            CallOnDrop(|| {
-                DROP.fetch_add(1, Ordering::SeqCst);
-            })
-        });
-        future::block_on(ex.run(async {
-            for _ in 0..10 {
-                future::yield_now().await;
-            }
-        }));
-
-        assert_eq!(DROP.load(Ordering::SeqCst), 0);
-        drop(task);
-        assert_eq!(DROP.load(Ordering::SeqCst), 1);
-        drop(ex);
-        assert_eq!(DROP.load(Ordering::SeqCst), 1);
-    }
-
-    fn do_run<Fut: Future<Output = ()>>(mut f: impl FnMut(Arc<Executor<'static>>) -> Fut) {
+    fn do_run<Fut: Future<Output = ()>>(mut f: impl FnMut(&'static Executor) -> Fut) {
         // This should not run for longer than two minutes.
         #[cfg(not(miri))]
         let _stop_timeout = {
@@ -1180,10 +975,8 @@ mod test {
             stop_timeout
         };
 
-        let ex = Arc::new(Executor::new());
-
         // Test 1: Use the `run` command.
-        future::block_on(ex.run(f(ex.clone())));
+        future::block_on(EX.run(f(&EX)));
 
         // Test 2: Run on many threads.
         std::thread::scope(|scope| {
@@ -1191,11 +984,11 @@ mod test {
 
             for _ in 0..16 {
                 let shutdown = shutdown.clone();
-                let ex = &ex;
+                let ex = &EX;
                 scope.spawn(move || future::block_on(ex.run(shutdown.recv())));
             }
 
-            future::block_on(f(ex.clone()));
+            future::block_on(f(&EX));
         });
     }
 
@@ -1219,11 +1012,10 @@ mod test {
 
     #[test]
     fn test_panic_propagation() {
-        let ex = Executor::new();
-        let task = ex.spawn(async { panic!("should be caught by the task") });
+        let task = EX.spawn(async { panic!("should be caught by the task") });
 
         // Running the executor should not panic.
-        future::block_on(ex.run(async {
+        future::block_on(EX.run(async {
             for _ in 0..10 {
                 future::yield_now().await;
             }
@@ -1237,10 +1029,9 @@ mod test {
     fn two_queues() {
         future::block_on(async {
             // Create an executor with two runners.
-            let ex = Executor::new();
             let (run1, run2) = (
-                ex.run(future::pending::<()>()),
-                ex.run(future::pending::<()>()),
+                EX.run(future::pending::<()>()),
+                EX.run(future::pending::<()>()),
             );
             let mut run1 = Box::pin(run1);
             pin!(run2);

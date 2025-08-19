@@ -48,12 +48,11 @@ use futures_lite::FutureExt;
 ///         drop(signal);
 ///     }));
 /// ```
-pub struct Executor<'a, const C: usize = 64> {
-    state: LazyLock<Arc<State<C>>>,
-    _invariant: PhantomData<core::cell::UnsafeCell<&'a ()>>,
+pub struct Executor<const C: usize = 64> {
+    state: LazyLock<State<C>>,
 }
 
-impl<'a, const C: usize> Executor<'a, C> {
+impl<const C: usize> Executor<C> {
     /// Creates a new executor.
     ///
     /// # Examples
@@ -65,8 +64,7 @@ impl<'a, const C: usize> Executor<'a, C> {
     /// ```
     pub const fn new() -> Self {
         Self {
-            state: LazyLock::new(|| Arc::new(State::new())),
-            _invariant: PhantomData,
+            state: LazyLock::new(|| State::new()),
         }
     }
 
@@ -87,7 +85,16 @@ impl<'a, const C: usize> Executor<'a, C> {
     /// Note that if the executor's queue size is equal to the number of currently
     /// spawned and running tasks, spawning this additional task might cause the executor to panic
     /// later, when the task is scheduled for polling.
-    pub fn spawn<F>(&self, fut: F) -> Task<F::Output>
+    pub fn spawn<F>(&'static self, fut: F) -> Task<F::Output>
+    where
+        F: Future + Send + 'static,
+        F::Output: Send + 'static,
+    {
+        // SAFETY: Original implementation missing safety documentation
+        unsafe { self.spawn_unchecked(fut) }
+    }
+
+    pub unsafe fn spawn_scoped<'a, F>(&'static self, fut: F) -> Task<F::Output>
     where
         F: Future + Send + 'a,
         F::Output: Send + 'a,
@@ -96,7 +103,16 @@ impl<'a, const C: usize> Executor<'a, C> {
         unsafe { self.spawn_unchecked(fut) }
     }
 
-    pub fn spawn_local<F>(&self, fut: F) -> Task<F::Output>
+    pub fn spawn_local<F>(&'static self, fut: F) -> Task<F::Output>
+    where
+        F: Future + 'static,
+        F::Output: 'static,
+    {
+        // SAFETY: Original implementation missing safety documentation
+        unsafe { self.spawn_unchecked(fut) }
+    }
+
+    pub unsafe fn spawn_local_scoped<'a, F>(&'static self, fut: F) -> Task<F::Output>
     where
         F: Future + 'a,
         F::Output: 'a,
@@ -168,7 +184,7 @@ impl<'a, const C: usize> Executor<'a, C> {
     ///
     /// assert_eq!(res, 6);
     /// ```
-    pub async fn run<F>(&self, fut: F) -> F::Output
+    pub async fn run<'a, F>(&'static self, fut: F) -> F::Output
     where
         F: Future + 'a,
     {
@@ -183,7 +199,7 @@ impl<'a, const C: usize> Executor<'a, C> {
 
     /// Polls the first task scheduled for execution by the executor.
     fn poll_runnable(&self, ctx: &Context<'_>) -> Poll<Runnable> {
-        self.state().waker.register(ctx.waker());
+        LazyLock::get(&self.state).waker.register(ctx.waker());
 
         if let Some(runnable) = self.try_runnable() {
             Poll::Ready(runnable)
@@ -209,7 +225,7 @@ impl<'a, const C: usize> Executor<'a, C> {
             target_has_atomic = "ptr"
         ))]
         {
-            runnable = self.state().queue.pop().ok();
+            runnable = LazyLock::get(&self.state).queue.pop();
         }
 
         #[cfg(not(all(
@@ -229,12 +245,12 @@ impl<'a, const C: usize> Executor<'a, C> {
     /// # Safety
     ///
     /// Original implementation missing safety documentation
-    unsafe fn spawn_unchecked<F>(&self, fut: F) -> Task<F::Output>
+    unsafe fn spawn_unchecked<F>(&'static self, fut: F) -> Task<F::Output>
     where
         F: Future,
     {
         let schedule = {
-            let state = self.state().clone();
+            let state = &self.state;
 
             move |runnable| {
                 #[cfg(all(
@@ -288,23 +304,18 @@ impl<'a, const C: usize> Executor<'a, C> {
 
         run_forever.or(fut).await
     }
-
-    /// Returns a reference to the inner state.
-    fn state(&self) -> &Arc<State<C>> {
-        &self.state
-    }
 }
 
-impl<'a, const C: usize> Default for Executor<'a, C> {
+impl<const C: usize> Default for Executor<C> {
     fn default() -> Self {
         Self::new()
     }
 }
 
 // SAFETY: Original implementation missing safety documentation
-unsafe impl<'a, const C: usize> Send for Executor<'a, C> {}
+unsafe impl<const C: usize> Send for Executor<C> {}
 // SAFETY: Original implementation missing safety documentation
-unsafe impl<'a, const C: usize> Sync for Executor<'a, C> {}
+unsafe impl<const C: usize> Sync for Executor<C> {}
 
 struct State<const C: usize> {
     #[cfg(all(

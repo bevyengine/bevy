@@ -11,7 +11,7 @@ crate::cfg::bevy_executor! {
     }
 }
 
-static EXECUTOR: Executor<'static> = const { Executor::new() };
+static EXECUTOR: Executor = const { Executor::new() };
 
 /// Used to create a [`TaskPool`].
 #[derive(Debug, Default, Clone)]
@@ -58,6 +58,10 @@ impl TaskPoolBuilder {
 
     /// Creates a new [`TaskPool`]
     pub fn build(self) -> TaskPool {
+        TaskPool::new_internal()
+    }
+
+    pub(crate) fn build_static(self, _executor: &'static Executor) -> TaskPool {
         TaskPool::new_internal()
     }
 }
@@ -123,9 +127,6 @@ impl TaskPool {
         // Any usages of the references passed into `Scope` must be accessed through
         // the transmuted reference for the rest of this function.
 
-        // SAFETY: As above, all futures must complete in this function so we can change the lifetime
-        let executor_ref: &'env Executor<'env> = unsafe { mem::transmute(&EXECUTOR) };
-
         // Kept around to ensure that, in the case of an unwinding panic, all scheduled Tasks are cancelled.
         let tasks: RefCell<Vec<async_task::Task<T>>> = RefCell::new(Vec::new());
         // SAFETY: As above, all futures must complete in this function so we can change the lifetime
@@ -136,7 +137,7 @@ impl TaskPool {
         let pending_tasks: &'env Cell<usize> = unsafe { mem::transmute(&pending_tasks) };
 
         let mut scope = Scope {
-            executor_ref,
+            executor_ref: &EXECUTOR,
             tasks_ref,
             pending_tasks,
             scope: PhantomData,
@@ -223,7 +224,7 @@ impl TaskPool {
 ///
 /// For more information, see [`TaskPool::scope`].
 pub struct Scope<'scope, 'env: 'scope, T> {
-    executor_ref: &'scope Executor<'scope>,
+    executor_ref: &'static Executor,
     // The number of pending tasks spawned on the scope
     pending_tasks: &'scope Cell<usize>,
     // Vector to gather results of all futures spawned during scope run
@@ -278,16 +279,11 @@ impl<'scope, 'env, T: Send + 'env> Scope<'scope, 'env, T> {
         };
 
         let mut tasks = self.tasks_ref.borrow_mut();
-        crate::cfg::bevy_executor! {
-            if {
-                #[expect(unsafe_code, reason = "Executor::spawn_local_scoped is unsafe")]
-                // SAFETY: The surrounding scope will not terminate until all local tasks are done
-                // ensuring that the borrowed variables do not outlive the detached task.
-                tasks.push(unsafe { self.executor_ref.spawn_local_scoped(f) });
-            } else {
-                tasks.push(self.executor_ref.spawn_local(f));
-            }
-        }
+
+        #[expect(unsafe_code, reason = "Executor::spawn_local_scoped is unsafe")]
+        // SAFETY: The surrounding scope will not terminate until all local tasks are done
+        // ensuring that the borrowed variables do not outlive the detached task.
+        tasks.push(unsafe { self.executor_ref.spawn_local_scoped(f) });
     }
 }
 

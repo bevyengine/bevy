@@ -113,7 +113,11 @@ impl TaskPoolBuilder {
 
     /// Creates a new [`TaskPool`] based on the current options.
     pub fn build(self) -> TaskPool {
-        TaskPool::new_internal(self)
+        TaskPool::new_internal(self, Box::leak(Box::new(Executor::new())))
+    }
+
+    pub(crate) fn build_static(self, executor: &'static Executor) -> TaskPool {
+        TaskPool::new_internal(self, executor)
     }
 }
 
@@ -130,7 +134,7 @@ impl TaskPoolBuilder {
 #[derive(Debug)]
 pub struct TaskPool {
     /// The executor for the pool.
-    executor: Arc<Executor<'static>>,
+    executor: &'static Executor,
 
     // The inner state of the pool.
     threads: Vec<JoinHandle<()>>,
@@ -140,19 +144,17 @@ pub struct TaskPool {
 impl TaskPool {
     /// Creates a [`ThreadSpawner`] for this current thread of execution.
     /// Can be used to spawn new tasks to execute exclusively on this thread.
-    pub fn current_thread_spawner(&self) -> ThreadSpawner<'static> {
+    pub fn current_thread_spawner(&self) -> ThreadSpawner {
         self.executor.current_thread_spawner()
     }
 
     /// Create a `TaskPool` with the default configuration.
-    pub fn new() -> Self {
+    pub(crate) fn new() -> Self {
         TaskPoolBuilder::new().build()
     }
 
-    fn new_internal(builder: TaskPoolBuilder) -> Self {
+    fn new_internal(builder: TaskPoolBuilder, executor: &'static Executor) -> Self {
         let (shutdown_tx, shutdown_rx) = async_channel::unbounded::<()>();
-
-        let executor = Arc::new(Executor::new());
 
         let num_threads = builder
             .num_threads
@@ -160,7 +162,6 @@ impl TaskPool {
 
         let threads = (0..num_threads)
             .map(|i| {
-                let ex = Arc::clone(&executor);
                 let shutdown_rx = shutdown_rx.clone();
 
                 let thread_name = if let Some(thread_name) = builder.thread_name.as_deref() {
@@ -179,7 +180,7 @@ impl TaskPool {
 
                 thread_builder
                     .spawn(move || {
-                        crate::bevy_executor::install_runtime_into_current_thread(&ex);
+                        crate::bevy_executor::install_runtime_into_current_thread(executor);
 
                         if let Some(on_thread_spawn) = on_thread_spawn {
                             on_thread_spawn();
@@ -188,7 +189,7 @@ impl TaskPool {
                         let _destructor = CallOnDrop(on_thread_destroy);
                         loop {
                             let res =
-                                std::panic::catch_unwind(|| block_on(ex.run(shutdown_rx.recv())));
+                                std::panic::catch_unwind(|| block_on(executor.run(shutdown_rx.recv())));
                             if let Ok(value) = res {
                                 // Use unwrap_err because we expect a Closed error
                                 value.unwrap_err();
@@ -309,7 +310,7 @@ impl TaskPool {
     /// See [`Self::scope`] for more details in general about how scopes work.
     pub fn scope_with_executor<'env, F, T>(
         &self,
-        external_spawner: Option<ThreadSpawner<'env>>,
+        external_spawner: Option<ThreadSpawner>,
         f: F,
     ) -> Vec<T>
     where
@@ -329,8 +330,8 @@ impl TaskPool {
     #[expect(unsafe_code, reason = "Required to transmute lifetimes.")]
     fn scope_with_executor_inner<'env, F, T>(
         &self,
-        external_spawner: ThreadSpawner<'env>,
-        scope_spawner: ThreadSpawner<'env>,
+        external_spawner: ThreadSpawner,
+        scope_spawner: ThreadSpawner,
         f: F,
     ) -> Vec<T>
     where
@@ -344,9 +345,6 @@ impl TaskPool {
         // transmute the lifetimes to 'env here to appease the compiler as it is unable to validate safety.
         // Any usages of the references passed into `Scope` must be accessed through
         // the transmuted reference for the rest of this function.
-        let executor: &Executor = &self.executor;
-        // SAFETY: As above, all futures must complete in this function so we can change the lifetime
-        let executor: &'env Executor = unsafe { mem::transmute(executor) };
         let spawned: ConcurrentQueue<FallibleTask<Result<T, Box<dyn core::any::Any + Send>>>> =
             ConcurrentQueue::unbounded();
         // shadow the variable so that the owned value cannot be used for the rest of the function
@@ -355,7 +353,7 @@ impl TaskPool {
             unsafe { mem::transmute(&spawned) };
 
         let scope = Scope {
-            executor,
+            executor: self.executor,
             external_spawner,
             scope_spawner,
             spawned,
@@ -424,12 +422,6 @@ impl TaskPool {
     }
 }
 
-impl Default for TaskPool {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
 impl Drop for TaskPool {
     fn drop(&mut self) {
         self.shutdown_tx.close();
@@ -449,9 +441,9 @@ impl Drop for TaskPool {
 /// For more information, see [`TaskPool::scope`].
 #[derive(Debug)]
 pub struct Scope<'scope, 'env: 'scope, T> {
-    executor: &'scope Executor<'scope>,
-    external_spawner: ThreadSpawner<'scope>,
-    scope_spawner: ThreadSpawner<'scope>,
+    executor: &'static Executor,
+    external_spawner: ThreadSpawner,
+    scope_spawner: ThreadSpawner,
     spawned: &'scope ConcurrentQueue<FallibleTask<Result<T, Box<dyn core::any::Any + Send>>>>,
     // make `Scope` invariant over 'scope and 'env
     scope: PhantomData<&'scope mut &'scope ()>,
@@ -459,6 +451,10 @@ pub struct Scope<'scope, 'env: 'scope, T> {
 }
 
 impl<'scope, 'env, T: Send + 'scope> Scope<'scope, 'env, T> {
+    #[expect(
+        unsafe_code,
+        reason = "Executor::spawn otherwise requires 'static Futures"
+    )]
     /// Spawns a scoped future onto the thread pool. The scope *must* outlive
     /// the provided future. The results of the future will be returned as a part of
     /// [`TaskPool::scope`]'s return value.
@@ -468,10 +464,13 @@ impl<'scope, 'env, T: Send + 'scope> Scope<'scope, 'env, T> {
     ///
     /// For more information, see [`TaskPool::scope`].
     pub fn spawn<Fut: Future<Output = T> + 'scope + Send>(&self, f: Fut) {
-        let task = self
-            .executor
-            .spawn(AssertUnwindSafe(f).catch_unwind())
-            .fallible();
+        // SAFETY: The scope call that generated this `Scope` ensures that the created
+        // Task does not outlive 'scope.
+        let task = unsafe {
+            self.executor
+                .spawn_scoped(AssertUnwindSafe(f).catch_unwind())
+                .fallible()
+        };
         let result = self.spawned.push(task);
         debug_assert!(result.is_ok());
     }
@@ -577,6 +576,7 @@ mod tests {
     #[test]
     fn test_thread_callbacks() {
         let counter = Arc::new(AtomicI32::new(0));
+        static EX: Executor = Executor::new();
         let start_counter = counter.clone();
         {
             let barrier = Arc::new(Barrier::new(11));
@@ -588,7 +588,7 @@ mod tests {
                     start_counter.fetch_add(1, Ordering::Relaxed);
                     barrier.clone().wait();
                 })
-                .build();
+                .build_static(&EX);
             last_barrier.wait();
             assert_eq!(10, counter.load(Ordering::Relaxed));
         }
@@ -600,7 +600,7 @@ mod tests {
                 .on_thread_destroy(move || {
                     end_counter.fetch_sub(1, Ordering::Relaxed);
                 })
-                .build();
+                .build_static(&EX);
             assert_eq!(10, counter.load(Ordering::Relaxed));
         }
         assert_eq!(-10, counter.load(Ordering::Relaxed));
@@ -618,7 +618,7 @@ mod tests {
                 .on_thread_destroy(move || {
                     end_counter.fetch_sub(1, Ordering::Relaxed);
                 })
-                .build();
+                .build_static(&EX);
             last_barrier.wait();
             assert_eq!(-5, counter.load(Ordering::Relaxed));
         }

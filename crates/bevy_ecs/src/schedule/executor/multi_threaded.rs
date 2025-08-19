@@ -1,6 +1,6 @@
 use alloc::{boxed::Box, vec::Vec};
 use bevy_platform::cell::SyncUnsafeCell;
-use bevy_tasks::{ComputeTaskPool, Scope, TaskPool, ThreadSpawner};
+use bevy_tasks::{ComputeTaskPool, Scope, TaskPoolBuilder, ThreadSpawner};
 use concurrent_queue::ConcurrentQueue;
 use core::{any::Any, panic::AssertUnwindSafe};
 use fixedbitset::FixedBitSet;
@@ -274,7 +274,7 @@ impl SystemExecutor for MultiThreadedExecutor {
 
         let environment = &Environment::new(self, schedule, world);
 
-        ComputeTaskPool::get_or_init(TaskPool::default).scope_with_executor(
+        ComputeTaskPool::get_or_init(TaskPoolBuilder::default).scope_with_executor(
             thread_executor,
             |scope| {
                 let context = Context {
@@ -863,7 +863,7 @@ unsafe fn evaluate_and_fold_conditions(
 
 /// New-typed [`ThreadSpawner`] [`Resource`] that is used to run systems on the main thread
 #[derive(Resource, Clone)]
-pub struct MainThreadSpawner(pub ThreadSpawner<'static>);
+pub struct MainThreadSpawner(pub ThreadSpawner);
 
 impl Default for MainThreadSpawner {
     fn default() -> Self {
