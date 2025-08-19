@@ -14,8 +14,8 @@ keywords = ["bevy"]
 file_watcher = ["notify-debouncer-full", "watch", "multi_threaded"]
 embedded_watcher = ["file_watcher"]
 multi_threaded = ["bevy_tasks/multi_threaded"]
-http = ["blocking", "ureq"]
-https = ["blocking", "ureq", "ureq/rustls"]
+http = ["blocking", "ureq", "url"]
+https = ["blocking", "ureq", "ureq/rustls", "url"]
 web_asset_cache = []
 asset_processor = []
 watch = []
@@ -66,6 +66,7 @@ uuid = { version = "1.13.1", default-features = false, features = [
   "serde",
 ] }
 tracing = { version = "0.1", default-features = false }
+url = { version = "2.5", optional = true }
 
 [target.'cfg(target_os = "android")'.dependencies]
 bevy_android = { path = "../bevy_android", version = "0.17.0-dev", default-features = false }

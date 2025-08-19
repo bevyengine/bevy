@@ -14,6 +14,8 @@ pub mod memory;
 pub mod processor_gated;
 #[cfg(target_arch = "wasm32")]
 pub mod wasm;
+#[cfg(any(feature = "http", feature = "https"))]
+pub mod web;
 
 #[cfg(test)]
 pub mod gated;

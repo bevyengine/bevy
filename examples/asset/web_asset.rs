@@ -3,14 +3,18 @@
 //! Run with the feature `https`, and optionally `web_asset_cache`
 //! for a simple caching mechanism that never invalidates.
 //!
-use bevy::asset::web::WebAssetPlugin;
+use bevy::asset::io::web::WebAssetPlugin;
 use bevy::prelude::*;
 
 fn main() {
     App::new()
-        .add_plugins(DefaultPlugins.set(WebAssetPlugin {
-            path_is_allowed: |url| url.starts_with("https://raw.githubusercontent.com/"),
-        }))
+        .add_plugins((
+            // Always add WebAssetPlugin before AssetPlugin, which is included in DefaultPlugins
+            // Don't use a URL you don't control, and be as specific as possible
+            WebAssetPlugin::allowed_url("https://raw.githubusercontent.com/bevyengine/bevy")
+                .unwrap(),
+            DefaultPlugins,
+        ))
         .add_systems(Startup, setup)
         .run();
 }

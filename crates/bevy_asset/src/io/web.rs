@@ -1,11 +1,64 @@
 use crate::io::{AssetReader, AssetReaderError, Reader};
 use crate::io::{AssetSource, PathStream};
-use crate::AssetApp;
-use alloc::{borrow::ToOwned, boxed::Box};
+use crate::{AssetApp, AssetServer};
+use alloc::{borrow::ToOwned, boxed::Box, vec::Vec};
 use bevy_app::{App, Plugin};
 use bevy_tasks::ConditionalSendFuture;
 use blocking::unblock;
+use core::str::FromStr;
 use std::path::{Path, PathBuf};
+use tracing::error;
+use url::Url;
+
+// TODO: taken from https://doc.rust-lang.org/stable/std/path/struct.Path.html#method.normalize_lexically
+// replace when https://github.com/rust-lang/rust/issues/134694 is stable
+struct NormalizeError;
+fn normalize_path_lexically(path: &PathBuf) -> Result<PathBuf, NormalizeError> {
+    use std::path::Component;
+    let mut lexical = PathBuf::new();
+    let mut iter = path.components().peekable();
+
+    // Find the root, if any, and add it to the lexical path.
+    // Here we treat the Windows path "C:\" as a single "root" even though
+    // `components` splits it into two: (Prefix, RootDir).
+    let root = match iter.peek() {
+        Some(Component::ParentDir) => return Err(NormalizeError),
+        Some(p @ Component::RootDir) | Some(p @ Component::CurDir) => {
+            lexical.push(p);
+            iter.next();
+            lexical.as_os_str().len()
+        }
+        Some(Component::Prefix(prefix)) => {
+            lexical.push(prefix.as_os_str());
+            iter.next();
+            if let Some(p @ Component::RootDir) = iter.peek() {
+                lexical.push(p);
+                iter.next();
+            }
+            lexical.as_os_str().len()
+        }
+        None => return Ok(PathBuf::new()),
+        Some(Component::Normal(_)) => 0,
+    };
+
+    for component in iter {
+        match component {
+            Component::RootDir => unreachable!(),
+            Component::Prefix(_) => return Err(NormalizeError),
+            Component::CurDir => continue,
+            Component::ParentDir => {
+                // It's an error if ParentDir causes us to go above the "root".
+                if lexical.as_os_str().len() == root {
+                    return Err(NormalizeError);
+                } else {
+                    lexical.pop();
+                }
+            }
+            Component::Normal(path) => lexical.push(path),
+        }
+    }
+    Ok(lexical)
+}
 
 /// Adds the `http` and `https` asset sources to the app.
 ///
@@ -14,26 +67,19 @@ use std::path::{Path, PathBuf};
 /// Any asset path that begins with `http` (when the `http` feature is enabled) or `https` (when the
 /// `https` feature is enabled) will be loaded from the web via `fetch` (wasm) or `ureq` (native).
 ///
-/// It is possible to filter allowed domains by setting `WebAssetPlugin::path_is_allowed`
-/// at startup. This is provided for security reasons, so that domain filters can be enforced.
-///
-/// The `path_is_allowed` callback is provided fully formed asset paths, such as
-/// `"https://example.com/favicon.png"`, and should return true if the path is deemed permissible to request.
-///
-/// IMPORTANT: when filtering by domain name, ensure a trailing slash is matched against. Otherwise,
-/// subdomains can be used to defeat a simple url validation scheme:
-/// ```rust
-/// assert!("https://example.com.malicious.com".starts_with("https://example.com"))
-/// ```
+/// You must provide valid URLs to the `WebAssetPlugin` constructor, either [`Self::allowed_url`] or [`Self::allowed_urls`].
+/// Only assets available on those URLs can be used.
 ///
 /// Example usage:
 ///
 /// ```rust
-/// # use bevy_app::{App, Startup};
-/// # use bevy_ecs::prelude::{Commands, Res};
-/// # use bevy_asset::web::{WebAssetPlugin, AssetServer};
+/// # use bevy_app::{App, Startup, Plugin};
+/// # use bevy_ecs::prelude::{Commands, Res, Component};
+/// # use bevy_asset::io::web::WebAssetPlugin;
+/// # use bevy_asset::{AssetServer, Asset, Handle};
+/// # use bevy_reflect::TypePath;
 /// # struct DefaultPlugins;
-/// # impl DefaultPlugins { fn set(plugin: WebAssetPlugin) -> WebAssetPlugin { plugin } }
+/// # impl Plugin for DefaultPlugins { fn build(&self, _: &mut App) { } }
 /// # #[derive(Asset, TypePath, Default)]
 /// # struct Image;
 /// # #[derive(Component)]
@@ -41,10 +87,11 @@ use std::path::{Path, PathBuf};
 /// # impl Sprite { fn from_image(_: Handle<Image>) -> Self { Sprite } }
 /// # fn main() {
 /// App::new()
-///     .add_plugins(DefaultPlugins.set(WebAssetPlugin {
-///         path_is_allowed: |url| url.starts_with("https://example.com/"), // Always include the trailing slash.
-///     }))
-/// #   .add_systems(Startup, setup).run();
+///     .add_plugins((
+///         WebAssetPlugin::allowed_url("https://example.com/").unwrap(),
+///         DefaultPlugins,
+///     ))
+/// # ;
 /// # }
 /// // ...
 /// # fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
@@ -57,38 +104,65 @@ use std::path::{Path, PathBuf};
 /// utilization when its supported by the server.
 ///
 /// ```toml
-/// [target.'cfg(not(target_family = "wasm"))'.dev-dependencies]
+/// [target.'cfg(not(target_family = "wasm"))'.dependencies]
 /// ureq = { version = "3", default-features = false, features = ["gzip", "brotli"] }
 /// ```
 pub struct WebAssetPlugin {
-    pub path_is_allowed: fn(&PathBuf) -> bool,
+    pub allowed_urls: &'static [Url],
+}
+
+impl WebAssetPlugin {
+    /// Creates a new `WebAssetPlugin` with a single allowed URL.
+    pub fn allowed_url(allowed_url: &str) -> Result<Self, url::ParseError> {
+        let mut vec = Vec::new();
+        vec.push(Url::from_str(allowed_url)?);
+
+        Ok(Self {
+            allowed_urls: Box::leak(Box::new(vec)).as_slice(),
+        })
+    }
+
+    /// Creates a new `WebAssetPlugin` with multiple allowed URLs.
+    pub fn allowed_urls(allowed_urls: &[&str]) -> Result<Self, url::ParseError> {
+        let mut vec = Vec::new();
+        for allowed_url in allowed_urls {
+            vec.push(Url::from_str(allowed_url)?);
+        }
+
+        Ok(Self {
+            allowed_urls: Box::leak(Box::new(vec)),
+        })
+    }
 }
 
 impl Plugin for WebAssetPlugin {
     fn build(&self, app: &mut App) {
-        let path_is_allowed = self.path_is_allowed;
+        if app.world().get_resource::<AssetServer>().is_some() {
+            error!("WebAssetPlugin must be added before `AssetPlugin` (typically added as part of `DefaultPlugins`)");
+        }
+
         #[cfg(feature = "http")]
-        app.register_asset_source(
-            "http",
-            AssetSource::build()
-                .with_reader(move || Box::new(WebAssetReader::Http { path_is_allowed }))
-                .with_processed_reader(move || Box::new(WebAssetReader::Http { path_is_allowed })),
-        );
+        {
+            let allowed_urls = self.allowed_urls;
+            app.register_asset_source(
+                "http",
+                AssetSource::build()
+                    .with_reader(move || Box::new(WebAssetReader::Http { allowed_urls }))
+                    .with_processed_reader(move || Box::new(WebAssetReader::Http { allowed_urls })),
+            );
+        }
 
         #[cfg(feature = "https")]
-        app.register_asset_source(
-            "https",
-            AssetSource::build()
-                .with_reader(move || Box::new(WebAssetReader::Https { path_is_allowed }))
-                .with_processed_reader(move || Box::new(WebAssetReader::Https { path_is_allowed })),
-        );
-    }
-}
-
-impl Default for WebAssetPlugin {
-    fn default() -> Self {
-        Self {
-            path_is_allowed: |_| false,
+        {
+            let allowed_urls = self.allowed_urls;
+            app.register_asset_source(
+                "https",
+                AssetSource::build()
+                    .with_reader(move || Box::new(WebAssetReader::Https { allowed_urls }))
+                    .with_processed_reader(move || {
+                        Box::new(WebAssetReader::Https { allowed_urls })
+                    }),
+            );
         }
     }
 }
@@ -96,25 +170,30 @@ impl Default for WebAssetPlugin {
 /// Asset reader that treats paths as urls to load assets from.
 pub enum WebAssetReader {
     /// Unencrypted connections.
-    Http {
-        path_is_allowed: fn(&PathBuf) -> bool,
-    },
+    Http { allowed_urls: &'static [Url] },
     /// Use TLS for setting up connections.
-    Https {
-        path_is_allowed: fn(&PathBuf) -> bool,
-    },
+    Https { allowed_urls: &'static [Url] },
 }
 
 impl WebAssetReader {
     fn make_uri(&self, path: &Path) -> Result<PathBuf, AssetReaderError> {
-        let (prefix, path_is_allowed) = match self {
-            Self::Http { path_is_allowed } => ("http://", path_is_allowed),
-            Self::Https { path_is_allowed } => ("https://", path_is_allowed),
+        let (prefix, allowed_urls) = match self {
+            Self::Http { allowed_urls } => ("http://", allowed_urls),
+            Self::Https { allowed_urls } => ("https://", allowed_urls),
         };
+
         let pathbuf = PathBuf::from(prefix).join(path);
-        if !path_is_allowed(&pathbuf) {
-            return Err(AssetReaderError::NotAllowed(pathbuf));
+        let Ok(normalized) = normalize_path_lexically(&pathbuf) else {
+            return Err(AssetReaderError::NotAllowed(path.to_path_buf()));
+        };
+
+        if !allowed_urls
+            .iter()
+            .any(|url| normalized.starts_with(url.as_str()))
+        {
+            return Err(AssetReaderError::NotAllowed(path.to_path_buf()));
         }
+
         Ok(pathbuf)
     }
 
@@ -271,18 +350,34 @@ mod web_asset_cache {
 
 #[cfg(test)]
 mod tests {
+
+    use std::vec;
+
     use super::*;
+
+    impl WebAssetReader {
+        fn http(allowed_url: &str) -> Self {
+            Self::Http {
+                allowed_urls: Box::leak(Box::new(vec![Url::from_str(allowed_url).unwrap()]))
+                    .as_slice(),
+            }
+        }
+        fn https(allowed_url: &str) -> Self {
+            Self::Https {
+                allowed_urls: Box::leak(Box::new(vec![Url::from_str(allowed_url).unwrap()]))
+                    .as_slice(),
+            }
+        }
+    }
 
     #[test]
     fn make_http_uri() {
         assert_eq!(
-            WebAssetReader::Http {
-                path_is_allowed: |_| true
-            }
-            .make_uri(Path::new("example.com/favicon.png"))
-            .unwrap()
-            .to_str()
-            .unwrap(),
+            WebAssetReader::http("http://example.com")
+                .make_uri(Path::new("example.com/favicon.png"))
+                .unwrap()
+                .to_str()
+                .unwrap(),
             "http://example.com/favicon.png"
         );
     }
@@ -290,13 +385,11 @@ mod tests {
     #[test]
     fn make_https_uri() {
         assert_eq!(
-            WebAssetReader::Https {
-                path_is_allowed: |_| true
-            }
-            .make_uri(Path::new("example.com/favicon.png"))
-            .unwrap()
-            .to_str()
-            .unwrap(),
+            WebAssetReader::https("https://example.com")
+                .make_uri(Path::new("example.com/favicon.png"))
+                .unwrap()
+                .to_str()
+                .unwrap(),
             "https://example.com/favicon.png"
         );
     }
@@ -304,13 +397,11 @@ mod tests {
     #[test]
     fn make_http_meta_uri() {
         assert_eq!(
-            WebAssetReader::Http {
-                path_is_allowed: |_| true
-            }
-            .make_meta_uri(Path::new("example.com/favicon.png"))
-            .unwrap()
-            .to_str()
-            .unwrap(),
+            WebAssetReader::http("http://example.com")
+                .make_meta_uri(Path::new("example.com/favicon.png"))
+                .unwrap()
+                .to_str()
+                .unwrap(),
             "http://example.com/favicon.png.meta"
         );
     }
@@ -318,13 +409,11 @@ mod tests {
     #[test]
     fn make_https_meta_uri() {
         assert_eq!(
-            WebAssetReader::Https {
-                path_is_allowed: |_| true
-            }
-            .make_meta_uri(Path::new("example.com/favicon.png"))
-            .unwrap()
-            .to_str()
-            .unwrap(),
+            WebAssetReader::https("https://example.com")
+                .make_meta_uri(Path::new("example.com/favicon.png"))
+                .unwrap()
+                .to_str()
+                .unwrap(),
             "https://example.com/favicon.png.meta"
         );
     }
@@ -332,13 +421,11 @@ mod tests {
     #[test]
     fn make_https_without_extension_meta_uri() {
         assert_eq!(
-            WebAssetReader::Https {
-                path_is_allowed: |_| true
-            }
-            .make_meta_uri(Path::new("example.com/favicon"))
-            .unwrap()
-            .to_str()
-            .unwrap(),
+            WebAssetReader::https("https://example.com")
+                .make_meta_uri(Path::new("example.com/favicon"))
+                .unwrap()
+                .to_str()
+                .unwrap(),
             "https://example.com/favicon.meta"
         );
     }
@@ -347,15 +434,77 @@ mod tests {
     fn make_disallowed_uri_fails() {
         let path = Path::new("example.com/favicon.png");
 
-        let error = WebAssetReader::Http {
-            path_is_allowed: |path| path.starts_with("http://example.net/"),
-        }
-        .make_uri(path)
-        .expect_err("should be an error");
+        let error = WebAssetReader::http("http://example.net/")
+            .make_uri(path)
+            .expect_err("should be an error");
 
         // This is written weirdly because AssetReaderError can't impl PartialEq
         assert!(matches!(
             error,
+            AssetReaderError::NotAllowed(p) if p == path.to_path_buf()
+        ));
+    }
+
+    // This test mostly checks that the url crate adds a trailing slash to the domain.
+    #[test]
+    fn enfore_trailing_slash_on_domain() {
+        let reader = WebAssetReader::http("http://example.co");
+
+        let path = Path::new("example.com/favicon.png");
+        assert!(matches!(
+            reader.make_uri(path).expect_err("should be an error"),
+            AssetReaderError::NotAllowed(p) if p == path.to_path_buf()
+        ));
+
+        let path = Path::new("example.co/favicon.png");
+        assert_eq!(
+            reader.make_uri(path).unwrap().to_str().unwrap(),
+            "http://example.co/favicon.png"
+        );
+    }
+
+    // This test mostly checks that PathBuf checks path prefixes
+    #[test]
+    fn enfore_trailing_slash_on_path() {
+        let reader = WebAssetReader::http("http://example.com/ima");
+
+        let path = Path::new("example.com/images/favicon.png");
+        assert!(matches!(
+            reader.make_uri(path).expect_err("should be an error"),
+            AssetReaderError::NotAllowed(p) if p == path.to_path_buf()
+        ));
+
+        let path = Path::new("example.com/ima/favicon.png");
+        assert_eq!(
+            reader.make_uri(path).unwrap().to_str().unwrap(),
+            "http://example.com/ima/favicon.png"
+        );
+    }
+
+    #[test]
+    fn block_path_traversal() {
+        let reader = WebAssetReader::http("http://example.com/images");
+
+        let path = Path::new("example.com/images/../favicon.png");
+        assert!(matches!(
+            reader.make_uri(path).expect_err("should be an error"),
+            AssetReaderError::NotAllowed(p) if p == path.to_path_buf()
+        ));
+
+        let path = Path::new("example.com/images/extra/../favicon.png");
+        assert_eq!(
+            reader.make_uri(path).unwrap().to_str().unwrap(),
+            "http://example.com/images/extra/../favicon.png"
+        );
+    }
+
+    #[test]
+    fn fail_https_on_http() {
+        let reader = WebAssetReader::http("https://example.com/");
+
+        let path = Path::new("example.com/favicon.png");
+        assert!(matches!(
+            reader.make_uri(path).expect_err("should be an error"),
             AssetReaderError::NotAllowed(p) if p == path.to_path_buf()
         ));
     }
