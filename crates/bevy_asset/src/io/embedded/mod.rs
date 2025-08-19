@@ -13,7 +13,7 @@ use alloc::boxed::Box;
 use bevy_app::App;
 use bevy_ecs::{resource::Resource, world::World};
 #[cfg(feature = "embedded_watcher")]
-use bevy_platform::sync::{Arc, RwLock, PoisonError};
+use bevy_platform::sync::{Arc, PoisonError, RwLock};
 use std::path::{Path, PathBuf};
 
 #[cfg(feature = "embedded_watcher")]
