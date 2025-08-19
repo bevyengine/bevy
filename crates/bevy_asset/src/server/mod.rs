@@ -240,12 +240,11 @@ impl AssetServer {
             extensions: vec![extension.to_string()],
         };
 
-        self.read_loaders()
+        let loader = self
+            .read_loaders()
             .get_by_extension(extension)
-            .ok_or_else(error)?
-            .get()
-            .await
-            .map_err(|_| error())
+            .ok_or_else(error)?;
+        loader.get().await.map_err(|_| error())
     }
 
     /// Returns the registered [`AssetLoader`] associated with the given [`core::any::type_name`], if it exists.
