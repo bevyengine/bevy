@@ -430,7 +430,7 @@ impl<'a> Executor<'a> {
         // Arc when accessed through state_ptr.
         let arc = unsafe { Arc::from_raw(self.state_ptr()) };
         let clone = arc.clone();
-        core::mem::forget(arc);
+        mem::forget(arc);
         clone
     }
 }
