@@ -209,7 +209,7 @@ impl<'a, const C: usize> Executor<'a, C> {
             target_has_atomic = "ptr"
         ))]
         {
-            runnable = self.state().queue.pop();
+            runnable = self.state().queue.pop().ok();
         }
 
         #[cfg(not(all(
@@ -314,7 +314,7 @@ struct State<const C: usize> {
         target_has_atomic = "64",
         target_has_atomic = "ptr"
     ))]
-    queue: crossbeam_queue::ArrayQueue<Runnable>,
+    queue: concurrent_queue::ConcurrentQueue<Runnable>,
     #[cfg(not(all(
         target_has_atomic = "8",
         target_has_atomic = "16",
@@ -336,7 +336,7 @@ impl<const C: usize> State<C> {
                 target_has_atomic = "64",
                 target_has_atomic = "ptr"
             ))]
-            queue: crossbeam_queue::ArrayQueue::new(C),
+            queue: concurrent_queue::ConcurrentQueue::bounded(C),
             #[cfg(not(all(
                 target_has_atomic = "8",
                 target_has_atomic = "16",
