@@ -186,11 +186,13 @@ impl<'w> BundleInserter<'w> {
         // SAFETY: Archetype gets borrowed when running the on_replace observers above,
         // so this reference can only be promoted from shared to &mut down here, after they have been ran
 
-        let world = world.world_mut();
         match archetype_move_type {
             ArchetypeMoveType::SameArchetype => {
                 // SAFETY: Mutable references do not alias and will be dropped after this block
-                let sparse_sets = &mut world.storages.sparse_sets;
+                let sparse_sets = {
+                    let world = world.world_mut();
+                    &mut world.storages.sparse_sets
+                };
 
                 (
                     &*archetype,
@@ -204,8 +206,10 @@ impl<'w> BundleInserter<'w> {
                 let new_archetype = new_archetype.as_mut();
 
                 // SAFETY: Mutable references do not alias and will be dropped after this block
-                let (sparse_sets, entities) =
-                    (&mut world.storages.sparse_sets, &mut world.entities);
+                let (sparse_sets, entities) = {
+                    let world = world.world_mut();
+                    (&mut world.storages.sparse_sets, &mut world.entities)
+                };
 
                 let result = archetype.swap_remove(location.archetype_row);
                 if let Some(swapped_entity) = result.swapped_entity {
@@ -242,6 +246,7 @@ impl<'w> BundleInserter<'w> {
 
                 // SAFETY: Mutable references do not alias and will be dropped after this block
                 let (archetypes_ptr, sparse_sets, entities) = {
+                    let world = world.world_mut();
                     let archetype_ptr: *mut Archetype = world.archetypes.archetypes.as_mut_ptr();
                     (
                         archetype_ptr,
