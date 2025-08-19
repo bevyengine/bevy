@@ -1,7 +1,7 @@
 use crate::io::{AssetReader, AssetReaderError, Reader};
 use crate::io::{AssetSource, PathStream};
 use crate::{AssetApp, AssetServer};
-use alloc::{borrow::ToOwned, boxed::Box, vec::Vec};
+use alloc::{borrow::ToOwned, boxed::Box, vec::Vec, vec};
 use bevy_app::{App, Plugin};
 use bevy_tasks::ConditionalSendFuture;
 use blocking::unblock;
@@ -13,7 +13,7 @@ use url::Url;
 // TODO: taken from https://doc.rust-lang.org/stable/std/path/struct.Path.html#method.normalize_lexically
 // replace when https://github.com/rust-lang/rust/issues/134694 is stable
 struct NormalizeError;
-fn normalize_path_lexically(path: &PathBuf) -> Result<PathBuf, NormalizeError> {
+fn normalize_path_lexically(path: &Path) -> Result<PathBuf, NormalizeError> {
     use std::path::Component;
     let mut lexical = PathBuf::new();
     let mut iter = path.components().peekable();
@@ -114,8 +114,7 @@ pub struct WebAssetPlugin {
 impl WebAssetPlugin {
     /// Creates a new `WebAssetPlugin` with a single allowed URL.
     pub fn allowed_url(allowed_url: &str) -> Result<Self, url::ParseError> {
-        let mut vec = Vec::new();
-        vec.push(Url::from_str(allowed_url)?);
+        let vec = vec![Url::from_str(allowed_url)?];
 
         Ok(Self {
             allowed_urls: Box::leak(Box::new(vec)).as_slice(),
