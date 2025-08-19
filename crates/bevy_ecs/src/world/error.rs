@@ -91,8 +91,8 @@ mod tests {
         #[derive(EntityEvent)]
         struct FollowupEvent;
 
-        fn despawn(trigger: On<Kill>, mut commands: Commands) {
-            commands.entity(trigger.entity()).despawn();
+        fn despawn(event: On<Kill>, mut commands: Commands) {
+            commands.entity(event.entity()).despawn();
         }
 
         fn followup(on: On<Kill>, mut commands: Commands) {

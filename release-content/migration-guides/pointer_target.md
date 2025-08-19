@@ -20,9 +20,12 @@ struct TransformedEntityEvent<E: EntityEvent> {
 }
 
 // A generic observer that handles this transformation
-fn transform_entity_event<E: EntityEvent>(trigger: On<E>, event_writer: EventWriter<TransformedEntityEvent<E>>){
-    if trigger.entity() == trigger.original_entity(){
-        event_writer.send(trigger.event())
+fn transform_entity_event<E: EntityEvent>(event: On<E>, event_writer: EventWriter<TransformedEntityEvent<E>>){
+    if event.entity() == event.original_entity() {
+        event_writer.send(TransformedEntityEvent {
+            event: event.event().clone(),
+            entity: event.entity(),
+        );
     }
 }
 ```

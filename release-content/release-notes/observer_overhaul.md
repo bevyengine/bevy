@@ -21,8 +21,8 @@ for a `Player`.
 such as `OnAdd` and `OnRemove`:
 
 ```rust
-app.add_observer(|trigger: On<Add, Player>| {
-    info!("Added player {}", trigger.entity());
+app.add_observer(|event: On<Add, Player>| {
+    info!("Added player {}", event.entity());
 });
 ```
 

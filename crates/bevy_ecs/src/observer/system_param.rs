@@ -86,8 +86,8 @@ impl<'w, E, B: Bundle> On<'w, E, B> {
     /// #[derive(EntityEvent)]  
     /// struct AssertEvent;  
     ///
-    /// fn assert_observer(trigger: On<AssertEvent>) {  
-    ///     assert_eq!(trigger.observer(), trigger.entity());  
+    /// fn assert_observer(event: On<AssertEvent>) {  
+    ///     assert_eq!(event.observer(), event.entity());  
     /// }  
     ///
     /// let mut world = World::new();  

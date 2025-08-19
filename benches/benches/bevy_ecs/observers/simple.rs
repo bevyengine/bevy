@@ -46,8 +46,8 @@ pub fn observe_simple(criterion: &mut Criterion) {
     group.finish();
 }
 
-fn empty_listener_base(trigger: On<EventBase>) {
-    black_box(trigger);
+fn empty_listener_base(event: On<EventBase>) {
+    black_box(event);
 }
 
 fn send_base_event(world: &mut World, entities: impl TriggerTargets) {

@@ -387,14 +387,14 @@ fn click_to_focus(
 ///
 /// Any [`TabNavigationError`]s that occur during tab navigation are logged as warnings.
 pub fn handle_tab_navigation(
-    mut trigger: On<FocusedInput<KeyboardInput>>,
+    mut event: On<FocusedInput<KeyboardInput>>,
     nav: TabNavigation,
     mut focus: ResMut<InputFocus>,
     mut visible: ResMut<InputFocusVisible>,
     keys: Res<ButtonInput<KeyCode>>,
 ) {
     // Tab navigation.
-    let key_event = &trigger.event().input;
+    let key_event = &event.input;
     if key_event.key_code == KeyCode::Tab
         && key_event.state == ButtonState::Pressed
         && !key_event.repeat
@@ -410,7 +410,7 @@ pub fn handle_tab_navigation(
 
         match maybe_next {
             Ok(next) => {
-                trigger.propagate(false);
+                event.propagate(false);
                 focus.set(next);
                 visible.0 = true;
             }
@@ -418,7 +418,7 @@ pub fn handle_tab_navigation(
                 warn!("Tab navigation error: {e}");
                 // This failure mode is recoverable, but still indicates a problem.
                 if let TabNavigationError::NoTabGroupForCurrentFocus { new_focus, .. } = e {
-                    trigger.propagate(false);
+                    event.propagate(false);
                     focus.set(new_focus);
                     visible.0 = true;
                 }

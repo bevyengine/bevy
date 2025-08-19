@@ -232,18 +232,18 @@ fn setup(
 
 // Once the scene is loaded, start the animation
 fn setup_scene_once_loaded(
-    trigger: On<SceneInstanceReady>,
+    event: On<SceneInstanceReady>,
     animations: Res<Animations>,
     foxes: Res<Foxes>,
     mut commands: Commands,
     children: Query<&Children>,
     mut players: Query<&mut AnimationPlayer>,
 ) {
-    for child in children.iter_descendants(trigger.entity()) {
+    for child in children.iter_descendants(event.entity()) {
         if let Ok(mut player) = players.get_mut(child) {
             let playing_animation = player.play(animations.node_indices[0]).repeat();
             if !foxes.sync {
-                playing_animation.seek_to(trigger.entity().index() as f32 / 10.0);
+                playing_animation.seek_to(event.entity().index() as f32 / 10.0);
             }
             commands
                 .entity(child)
