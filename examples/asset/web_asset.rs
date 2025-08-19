@@ -8,9 +8,13 @@ use bevy::prelude::*;
 
 fn main() {
     App::new()
-        .add_plugins(DefaultPlugins.set(WebAssetPlugin {
-            path_is_allowed: |url| url.starts_with("https://raw.githubusercontent.com/"),
-        }))
+        .add_plugins((
+            // Always add WebAssetPlugin before AssetPlugin, which is included in DefaultPlugins
+            WebAssetPlugin {
+                path_is_allowed: |url| url.starts_with("https://raw.githubusercontent.com/"),
+            },
+            DefaultPlugins,
+        ))
         .add_systems(Startup, setup)
         .run();
 }

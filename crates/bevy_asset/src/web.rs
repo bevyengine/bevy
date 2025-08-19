@@ -1,11 +1,12 @@
 use crate::io::{AssetReader, AssetReaderError, Reader};
 use crate::io::{AssetSource, PathStream};
-use crate::AssetApp;
+use crate::{AssetApp, AssetPlugin};
 use alloc::{borrow::ToOwned, boxed::Box};
 use bevy_app::{App, Plugin};
 use bevy_tasks::ConditionalSendFuture;
 use blocking::unblock;
 use std::path::{Path, PathBuf};
+use tracing::warn;
 
 /// Adds the `http` and `https` asset sources to the app.
 ///
@@ -14,8 +15,8 @@ use std::path::{Path, PathBuf};
 /// Any asset path that begins with `http` (when the `http` feature is enabled) or `https` (when the
 /// `https` feature is enabled) will be loaded from the web via `fetch` (wasm) or `ureq` (native).
 ///
-/// It is possible to filter allowed domains by setting `WebAssetPlugin::path_is_allowed`
-/// at startup. This is provided for security reasons, so that domain filters can be enforced.
+/// It is necessary to provide a filter for allowed domains by setting `WebAssetPlugin::path_is_allowed`
+/// at startup. This is enforced for security reasons.
 ///
 /// The `path_is_allowed` callback is provided fully formed asset paths, such as
 /// `"https://example.com/favicon.png"`, and should return true if the path is deemed permissible to request.
@@ -41,9 +42,13 @@ use std::path::{Path, PathBuf};
 /// # impl Sprite { fn from_image(_: Handle<Image>) -> Self { Sprite } }
 /// # fn main() {
 /// App::new()
-///     .add_plugins(DefaultPlugins.set(WebAssetPlugin {
-///         path_is_allowed: |url| url.starts_with("https://example.com/"), // Always include the trailing slash.
-///     }))
+///     .add_plugins((
+///         // Always add WebAssetPlugin before AssetPlugin, which is included in DefaultPlugins
+///         WebAssetPlugin {
+///             path_is_allowed: |url| url.starts_with("https://raw.githubusercontent.com/"),
+///         },
+///         DefaultPlugins,
+///     ))
 /// #   .add_systems(Startup, setup).run();
 /// # }
 /// // ...
@@ -66,6 +71,9 @@ pub struct WebAssetPlugin {
 
 impl Plugin for WebAssetPlugin {
     fn build(&self, app: &mut App) {
+        if app.is_plugin_added::<AssetPlugin>() {
+            warn!("WebAssetPlugin must be added before AssetPlugin for it to work!");
+        }
         let path_is_allowed = self.path_is_allowed;
         #[cfg(feature = "http")]
         app.register_asset_source(
@@ -82,14 +90,6 @@ impl Plugin for WebAssetPlugin {
                 .with_reader(move || Box::new(WebAssetReader::Https { path_is_allowed }))
                 .with_processed_reader(move || Box::new(WebAssetReader::Https { path_is_allowed })),
         );
-    }
-}
-
-impl Default for WebAssetPlugin {
-    fn default() -> Self {
-        Self {
-            path_is_allowed: |_| false,
-        }
     }
 }
 
