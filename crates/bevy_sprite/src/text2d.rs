@@ -1,3 +1,4 @@
+use bevy_camera::Camera;
 use bevy_text::{
     ComputedTextBlock, CosmicFontSystem, Font, FontAtlasSets, LineBreak, SwashCache, TextBounds,
     TextColor, TextError, TextFont, TextLayout, TextLayoutInfo, TextPipeline, TextReader, TextRoot,
@@ -7,7 +8,7 @@ use bevy_text::{
 use crate::{Anchor, Sprite};
 use bevy_asset::Assets;
 use bevy_camera::primitives::Aabb;
-use bevy_camera::visibility::{self, NoFrustumCulling, Visibility, VisibilityClass};
+use bevy_camera::visibility::{self, NoFrustumCulling, RenderLayers, Visibility, VisibilityClass};
 use bevy_color::Color;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::entity::EntityHashSet;
@@ -156,17 +157,19 @@ impl Default for Text2dShadow {
 /// [`ResMut<Assets<Image>>`](Assets<Image>) -- This system only adds new [`Image`] assets.
 /// It does not modify or observe existing ones.
 pub fn update_text2d_layout(
-    mut last_scale_factor: Local<Option<f32>>,
+    mut target_scale_factors: Local<Vec<(Entity, f32, RenderLayers)>>,
     // Text items which should be reprocessed again, generally when the font hasn't loaded yet.
     mut queue: Local<EntityHashSet>,
     mut textures: ResMut<Assets<Image>>,
     fonts: Res<Assets<Font>>,
-    windows: Query<&Window, With<PrimaryWindow>>,
+    primary_window_query: Query<&Window, With<PrimaryWindow>>,
+    camera_query: Query<(Entity, &Camera, Option<&RenderLayers>)>,
     mut texture_atlases: ResMut<Assets<TextureAtlasLayout>>,
     mut font_atlas_sets: ResMut<FontAtlasSets>,
     mut text_pipeline: ResMut<TextPipeline>,
     mut text_query: Query<(
         Entity,
+        Option<&RenderLayers>,
         Ref<TextLayout>,
         Ref<TextBounds>,
         &mut TextLayoutInfo,
@@ -176,21 +179,39 @@ pub fn update_text2d_layout(
     mut font_system: ResMut<CosmicFontSystem>,
     mut swash_cache: ResMut<SwashCache>,
 ) {
-    // TODO: Support window-independent scaling: https://github.com/bevyengine/bevy/issues/5621
-    let scale_factor = windows
+    target_scale_factors.clear();
+
+    let default_scale_factor = primary_window_query
         .single()
         .ok()
         .map(|window| window.resolution.scale_factor())
-        .or(*last_scale_factor)
         .unwrap_or(1.);
 
-    let inverse_scale_factor = scale_factor.recip();
+    *target_scale_factors = camera_query
+        .iter()
+        .map(|(entity, camera, maybe_camera_mask)| {
+            (
+                entity,
+                camera
+                    .target_scaling_factor()
+                    .unwrap_or(default_scale_factor),
+                maybe_camera_mask.cloned().unwrap_or_default(),
+            )
+        })
+        .collect();
+    target_scale_factors.sort_by_key(|(entity, _, _)| entity.index());
 
-    let factor_changed = *last_scale_factor != Some(scale_factor);
-    *last_scale_factor = Some(scale_factor);
+    for (entity, maybe_entity_mask, block, bounds, text_layout_info, mut computed) in
+        &mut text_query
+    {
+        let entity_mask = maybe_entity_mask.unwrap_or_default();
+        let scale_factor = target_scale_factors
+            .iter()
+            .find(|(_, _, camera_mask)| camera_mask.intersects(entity_mask))
+            .map(|(_, scale_factor, _)| *scale_factor)
+            .unwrap_or(default_scale_factor);
 
-    for (entity, block, bounds, text_layout_info, mut computed) in &mut text_query {
-        if factor_changed
+        if scale_factor != text_layout_info.scale_factor
             || computed.needs_rerender()
             || bounds.is_changed()
             || (!queue.is_empty() && queue.remove(&entity))
@@ -209,7 +230,7 @@ pub fn update_text2d_layout(
                 text_layout_info,
                 &fonts,
                 text_reader.iter(entity),
-                scale_factor.into(),
+                scale_factor as f64,
                 &block,
                 text_bounds,
                 &mut font_atlas_sets,
@@ -228,7 +249,8 @@ pub fn update_text2d_layout(
                     panic!("Fatal error when processing text: {e}.");
                 }
                 Ok(()) => {
-                    text_layout_info.size *= inverse_scale_factor;
+                    text_layout_info.scale_factor = scale_factor;
+                    text_layout_info.size *= scale_factor.recip();
                 }
             }
         }
