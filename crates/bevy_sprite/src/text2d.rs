@@ -1,3 +1,5 @@
+use std::any::TypeId;
+
 use bevy_camera::Camera;
 use bevy_text::{
     ComputedTextBlock, CosmicFontSystem, Font, FontAtlasSets, LineBreak, SwashCache, TextBounds,
@@ -8,7 +10,9 @@ use bevy_text::{
 use crate::{Anchor, Sprite};
 use bevy_asset::Assets;
 use bevy_camera::primitives::Aabb;
-use bevy_camera::visibility::{self, NoFrustumCulling, RenderLayers, Visibility, VisibilityClass};
+use bevy_camera::visibility::{
+    self, NoFrustumCulling, RenderLayers, Visibility, VisibilityClass, VisibleEntities,
+};
 use bevy_color::Color;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::entity::EntityHashSet;
@@ -161,7 +165,7 @@ pub fn update_text2d_layout(
     mut queue: Local<EntityHashSet>,
     mut textures: ResMut<Assets<Image>>,
     fonts: Res<Assets<Font>>,
-    camera_query: Query<(&Camera, Option<&RenderLayers>)>,
+    camera_query: Query<(&Camera, &VisibleEntities, Option<&RenderLayers>)>,
     mut texture_atlases: ResMut<Assets<TextureAtlasLayout>>,
     mut font_atlas_sets: ResMut<FontAtlasSets>,
     mut text_pipeline: ResMut<TextPipeline>,
@@ -181,7 +185,10 @@ pub fn update_text2d_layout(
     target_scale_factors.extend(
         camera_query
             .iter()
-            .filter_map(|(camera, maybe_camera_mask)| {
+            .filter(|(_, visible_entities, _)| {
+                !visible_entities.get(TypeId::of::<Sprite>()).is_empty()
+            })
+            .filter_map(|(camera, _, maybe_camera_mask)| {
                 camera.target_scaling_factor().map(|scale_factor| {
                     (scale_factor, maybe_camera_mask.cloned().unwrap_or_default())
                 })
