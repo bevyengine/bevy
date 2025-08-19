@@ -182,6 +182,9 @@ fn add_raytracing_meshes_on_scene_load(
             if !mesh.contains_attribute(Mesh::ATTRIBUTE_TANGENT) {
                 mesh.generate_tangents().unwrap();
             }
+            if mesh.contains_attribute(Mesh::ATTRIBUTE_UV_1) {
+                mesh.remove_attribute(Mesh::ATTRIBUTE_UV_1);
+            }
 
             // Prevent rasterization if using pathtracer
             if args.pathtracer == Some(true) {
