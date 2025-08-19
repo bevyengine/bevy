@@ -13,7 +13,7 @@ use alloc::boxed::Box;
 use bevy_app::App;
 use bevy_ecs::{resource::Resource, world::World};
 #[cfg(feature = "embedded_watcher")]
-use bevy_platform::sync::{PoisonError, PoisonError};
+use bevy_platform::sync::{Arc, RwLock, PoisonError};
 use std::path::{Path, PathBuf};
 
 #[cfg(feature = "embedded_watcher")]
@@ -32,9 +32,7 @@ pub const EMBEDDED: &str = "embedded";
 pub struct EmbeddedAssetRegistry {
     dir: Dir,
     #[cfg(feature = "embedded_watcher")]
-    root_paths: bevy_platform::sync::Arc<
-        bevy_platform::sync::RwLock<bevy_platform::collections::HashMap<Box<Path>, PathBuf>>,
-    >,
+    root_paths: Arc<RwLock<bevy_platform::collections::HashMap<Box<Path>, PathBuf>>>,
 }
 
 impl EmbeddedAssetRegistry {
