@@ -124,6 +124,13 @@ impl ComputedNode {
         self.unrounded_size
     }
 
+    /// The calculated node size as width and height in physical pixels, accounting for a non-uniform window scale factor.
+    ///
+    #[inline]
+    pub fn logical_size(&self) -> Vec2 {
+        self.size() * self.inverse_scale_factor()
+    }
+
     /// Returns the thickness of the UI node's outline in physical pixels.
     /// If this value is negative or `0.` then no outline will be rendered.
     ///
