@@ -188,8 +188,8 @@ pub trait Event: Send + Sync + 'static {
 /// let armor_piece = world
 ///     .spawn((ArmorPiece, Health(25.0), ChildOf(enemy)))
 ///     .observe(|trigger: On<Damage>, mut query: Query<&mut Health>| {
-///         // Note: `On::target` only exists because this is an `EntityEvent`.
-///         let mut health = query.get_mut(trigger.target()).unwrap();
+///         // Note: `On::entity` only exists because this is an `EntityEvent`.
+///         let mut health = query.get_mut(trigger.entity()).unwrap();
 ///         health.0 -= trigger.amount;
 ///     })
 ///     .id();
@@ -222,8 +222,8 @@ pub trait Event: Send + Sync + 'static {
 /// # let armor_piece = world
 /// #     .spawn((ArmorPiece, Health(25.0), ChildOf(enemy)))
 /// #     .observe(|trigger: On<Damage>, mut query: Query<&mut Health>| {
-/// #         // Note: `On::target` only exists because this is an `EntityEvent`.
-/// #         let mut health = query.get_mut(trigger.target()).unwrap();
+/// #         // Note: `On::entity` only exists because this is an `EntityEvent`.
+/// #         let mut health = query.get_mut(trigger.entity()).unwrap();
 /// #         health.0 -= trigger.amount;
 /// #     })
 /// #     .id();

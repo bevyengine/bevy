@@ -322,14 +322,14 @@ pub(crate) fn acquire_focus(
     mut focus: ResMut<InputFocus>,
 ) {
     // If the entity has a TabIndex
-    if focusable.contains(ev.target()) {
+    if focusable.contains(ev.entity()) {
         // Stop and focus it
         ev.propagate(false);
         // Don't mutate unless we need to, for change detection
-        if focus.0 != Some(ev.target()) {
-            focus.0 = Some(ev.target());
+        if focus.0 != Some(ev.entity()) {
+            focus.0 = Some(ev.entity());
         }
-    } else if windows.contains(ev.target()) {
+    } else if windows.contains(ev.entity()) {
         // Stop and clear focus
         ev.propagate(false);
         // Don't mutate unless we need to, for change detection
@@ -366,7 +366,7 @@ fn click_to_focus(
     // for every ancestor, but only for the original entity. Also, users may want to stop
     // propagation on the pointer event at some point along the bubbling chain, so we need our
     // own dedicated event whose propagation we can control.
-    if ev.target() == ev.original_target() {
+    if ev.entity() == ev.original_entity() {
         // Clicking hides focus
         if focus_visible.0 {
             focus_visible.0 = false;
@@ -374,7 +374,7 @@ fn click_to_focus(
         // Search for a focusable parent entity, defaulting to window if none.
         if let Ok(window) = windows.single() {
             commands
-                .entity(ev.target())
+                .entity(ev.entity())
                 .trigger(AcquireFocus { window });
         }
     }

@@ -908,7 +908,7 @@ mod tests {
             move |trigger: On<Replace, MyComponent>,
                   has_relationship: Query<Has<ChildOf>>,
                   mut results: Query<&mut ObserverResult>| {
-                let entity = trigger.target();
+                let entity = trigger.entity();
                 if has_relationship.get(entity).unwrap_or(false) {
                     results.get_mut(result_entity).unwrap().success = true;
                 }

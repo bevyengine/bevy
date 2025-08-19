@@ -95,14 +95,14 @@ impl Plugin for SyncWorldPlugin {
         app.init_resource::<PendingSyncEntity>();
         app.add_observer(
             |trigger: On<Add, SyncToRenderWorld>, mut pending: ResMut<PendingSyncEntity>| {
-                pending.push(EntityRecord::Added(trigger.target()));
+                pending.push(EntityRecord::Added(trigger.entity()));
             },
         );
         app.add_observer(
             |trigger: On<Remove, SyncToRenderWorld>,
              mut pending: ResMut<PendingSyncEntity>,
              query: Query<&RenderEntity>| {
-                if let Ok(e) = query.get(trigger.target()) {
+                if let Ok(e) = query.get(trigger.entity()) {
                     pending.push(EntityRecord::Removed(*e));
                 };
             },
@@ -527,14 +527,14 @@ mod tests {
 
         main_world.add_observer(
             |trigger: On<Add, SyncToRenderWorld>, mut pending: ResMut<PendingSyncEntity>| {
-                pending.push(EntityRecord::Added(trigger.target()));
+                pending.push(EntityRecord::Added(trigger.entity()));
             },
         );
         main_world.add_observer(
             |trigger: On<Remove, SyncToRenderWorld>,
              mut pending: ResMut<PendingSyncEntity>,
              query: Query<&RenderEntity>| {
-                if let Ok(e) = query.get(trigger.target()) {
+                if let Ok(e) = query.get(trigger.entity()) {
                     pending.push(EntityRecord::Removed(*e));
                 };
             },

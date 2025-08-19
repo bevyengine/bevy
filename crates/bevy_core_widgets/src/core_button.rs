@@ -34,7 +34,7 @@ fn button_on_key_event(
     q_state: Query<(&CoreButton, Has<InteractionDisabled>)>,
     mut commands: Commands,
 ) {
-    if let Ok((bstate, disabled)) = q_state.get(trigger.target())
+    if let Ok((bstate, disabled)) = q_state.get(trigger.entity())
         && !disabled
     {
         let event = &trigger.event().input;
@@ -43,7 +43,7 @@ fn button_on_key_event(
             && (event.key_code == KeyCode::Enter || event.key_code == KeyCode::Space)
         {
             trigger.propagate(false);
-            commands.notify_with(&bstate.on_activate, Activate(trigger.target()));
+            commands.notify_with(&bstate.on_activate, Activate(trigger.entity()));
         }
     }
 }
@@ -53,10 +53,10 @@ fn button_on_pointer_click(
     mut q_state: Query<(&CoreButton, Has<Pressed>, Has<InteractionDisabled>)>,
     mut commands: Commands,
 ) {
-    if let Ok((bstate, pressed, disabled)) = q_state.get_mut(trigger.target()) {
+    if let Ok((bstate, pressed, disabled)) = q_state.get_mut(trigger.entity()) {
         trigger.propagate(false);
         if pressed && !disabled {
-            commands.notify_with(&bstate.on_activate, Activate(trigger.target()));
+            commands.notify_with(&bstate.on_activate, Activate(trigger.entity()));
         }
     }
 }
@@ -66,7 +66,7 @@ fn button_on_pointer_down(
     mut q_state: Query<(Entity, Has<InteractionDisabled>, Has<Pressed>), With<CoreButton>>,
     mut commands: Commands,
 ) {
-    if let Ok((button, disabled, pressed)) = q_state.get_mut(trigger.target()) {
+    if let Ok((button, disabled, pressed)) = q_state.get_mut(trigger.entity()) {
         trigger.propagate(false);
         if !disabled && !pressed {
             commands.entity(button).insert(Pressed);
@@ -79,7 +79,7 @@ fn button_on_pointer_up(
     mut q_state: Query<(Entity, Has<InteractionDisabled>, Has<Pressed>), With<CoreButton>>,
     mut commands: Commands,
 ) {
-    if let Ok((button, disabled, pressed)) = q_state.get_mut(trigger.target()) {
+    if let Ok((button, disabled, pressed)) = q_state.get_mut(trigger.entity()) {
         trigger.propagate(false);
         if !disabled && pressed {
             commands.entity(button).remove::<Pressed>();
@@ -92,7 +92,7 @@ fn button_on_pointer_drag_end(
     mut q_state: Query<(Entity, Has<InteractionDisabled>, Has<Pressed>), With<CoreButton>>,
     mut commands: Commands,
 ) {
-    if let Ok((button, disabled, pressed)) = q_state.get_mut(trigger.target()) {
+    if let Ok((button, disabled, pressed)) = q_state.get_mut(trigger.entity()) {
         trigger.propagate(false);
         if !disabled && pressed {
             commands.entity(button).remove::<Pressed>();
@@ -105,7 +105,7 @@ fn button_on_pointer_cancel(
     mut q_state: Query<(Entity, Has<InteractionDisabled>, Has<Pressed>), With<CoreButton>>,
     mut commands: Commands,
 ) {
-    if let Ok((button, disabled, pressed)) = q_state.get_mut(trigger.target()) {
+    if let Ok((button, disabled, pressed)) = q_state.get_mut(trigger.entity()) {
         trigger.propagate(false);
         if !disabled && pressed {
             commands.entity(button).remove::<Pressed>();

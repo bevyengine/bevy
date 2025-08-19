@@ -4,7 +4,7 @@ pull_requests: [19663]
 ---
 
 The `Pointer.target` field, which tracks the original target of the pointer event before bubbling, has been removed.
-Instead, all observers now track this information, available via the `On::original_target()` method.
+Instead, all observers now track this information, available via the `On::original_entity()` method.
 
 If you were using this information via the buffered event API of picking, please migrate to observers.
 If you cannot for performance reasons, please open an issue explaining your exact use case!
@@ -21,10 +21,10 @@ struct TransformedEntityEvent<E: EntityEvent> {
 
 // A generic observer that handles this transformation
 fn transform_entity_event<E: EntityEvent>(trigger: On<E>, event_writer: EventWriter<TransformedEntityEvent<E>>){
-    if trigger.target() == trigger.original_target(){
+    if trigger.entity() == trigger.original_entity(){
         event_writer.send(trigger.event())
     }
 }
 ```
 
-Additionally, the `ObserverTrigger::target` field has been renamed to `ObserverTrigger::current_target` and a new `ObserverTrigger::original_target` field has been added.
+Additionally, the `ObserverTrigger::target` field has been renamed to `ObserverTrigger::entity` and a new `ObserverTrigger::original_entity` field has been added.

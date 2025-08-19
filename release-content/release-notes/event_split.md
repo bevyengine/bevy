@@ -82,8 +82,8 @@ let enemy = commands.spawn((Enemy, Health(100.0))).id();
 let armor_piece = commands
     .spawn((ArmorPiece, Health(25.0), ChildOf(enemy)))
     .observe(|trigger: On<Damage>, mut query: Query<&mut Health>| {
-        // Note: `On::target` only exists because this is an `EntityEvent`.
-        let mut health = query.get(trigger.target()).unwrap();
+        // Note: `On::entity` only exists because this is an `EntityEvent`.
+        let mut health = query.get(trigger.entity()).unwrap();
         health.0 -= trigger.amount();
     })
     .id();

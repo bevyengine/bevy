@@ -138,8 +138,8 @@ use crate::prelude::ReflectComponent;
 /// struct Explode;
 ///
 /// world.add_observer(|trigger: On<Explode>, mut commands: Commands| {
-///     println!("Entity {} goes BOOM!", trigger.target());
-///     commands.entity(trigger.target()).despawn();
+///     println!("Entity {} goes BOOM!", trigger.entity());
+///     commands.entity(trigger.entity()).despawn();
 /// });
 ///
 /// world.flush();
@@ -172,7 +172,7 @@ use crate::prelude::ReflectComponent;
 /// # struct Explode;
 /// world.entity_mut(e1).observe(|trigger: On<Explode>, mut commands: Commands| {
 ///     println!("Boom!");
-///     commands.entity(trigger.target()).despawn();
+///     commands.entity(trigger.entity()).despawn();
 /// });
 ///
 /// world.entity_mut(e2).observe(|trigger: On<Explode>, mut commands: Commands| {

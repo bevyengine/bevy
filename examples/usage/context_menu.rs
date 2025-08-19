@@ -43,7 +43,7 @@ fn text_color_on_hover<T: Debug + Clone + Reflect>(
     move |mut trigger: On<Pointer<T>>,
           mut text_color: Query<&mut TextColor>,
           children: Query<&Children>| {
-        let Ok(children) = children.get(trigger.original_target()) else {
+        let Ok(children) = children.get(trigger.original_entity()) else {
             return;
         };
         trigger.propagate(false);
@@ -112,7 +112,7 @@ fn on_trigger_menu(trigger: On<OpenContextMenu>, mut commands: Commands) {
              menu_items: Query<&ContextMenuItem>,
              mut clear_col: ResMut<ClearColor>,
              mut commands: Commands| {
-                let target = trigger.original_target();
+                let target = trigger.original_entity();
 
                 if let Ok(item) = menu_items.get(target) {
                     clear_col.0 = item.0.into();

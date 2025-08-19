@@ -61,7 +61,7 @@ fn on_scroll_handler(
     mut trigger: On<Scroll>,
     mut query: Query<(&mut ScrollPosition, &Node, &ComputedNode)>,
 ) {
-    let target = trigger.target();
+    let target = trigger.entity();
     let delta = &mut trigger.event_mut().delta;
 
     let Ok((mut scroll_position, node, computed)) = query.get_mut(target) else {
@@ -176,7 +176,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                     .observe(
                                         |trigger: On<Pointer<Press>>, mut commands: Commands| {
                                             if trigger.event().button == PointerButton::Primary {
-                                                commands.entity(trigger.target()).despawn();
+                                                commands.entity(trigger.entity()).despawn();
                                             }
                                         },
                                     );

@@ -239,11 +239,11 @@ fn setup_scene_once_loaded(
     children: Query<&Children>,
     mut players: Query<&mut AnimationPlayer>,
 ) {
-    for child in children.iter_descendants(trigger.target()) {
+    for child in children.iter_descendants(trigger.entity()) {
         if let Ok(mut player) = players.get_mut(child) {
             let playing_animation = player.play(animations.node_indices[0]).repeat();
             if !foxes.sync {
-                playing_animation.seek_to(trigger.target().index() as f32 / 10.0);
+                playing_animation.seek_to(trigger.entity().index() as f32 / 10.0);
             }
             commands
                 .entity(child)
