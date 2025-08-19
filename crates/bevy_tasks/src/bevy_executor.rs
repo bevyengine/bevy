@@ -21,7 +21,7 @@ use alloc::fmt;
 use async_task::{Builder, Runnable, Task};
 use bevy_platform::prelude::Vec;
 use bevy_platform::sync::{Arc, Mutex, MutexGuard, PoisonError, RwLock, TryLockError};
-use concurrent_queue::{ConcurrentQueue, PushError};
+use concurrent_queue::ConcurrentQueue;
 use futures_lite::{future,FutureExt};
 use slab::Slab;
 use thread_local::ThreadLocal;
@@ -156,7 +156,8 @@ impl<'a> ThreadSpawner<'a> {
         // Instead of directly scheduling this task, it's put into the onto the
         // thread locked queue to be moved to the target thread, where it will
         // either be run immediately or flushed into the thread's local queue.
-        self.target_queue.push(runnable);
+        let result = self.target_queue.push(runnable);
+        debug_assert!(result.is_ok());
         task
     }
 
@@ -369,7 +370,8 @@ impl<'a> Executor<'a> {
                 runnable
             };
             // Otherwise push onto the global queue instead.
-            state.queue.push(runnable);
+            let result = state.queue.push(runnable);
+            debug_assert!(result.is_ok());
             state.notify();
         }
     }
@@ -503,7 +505,7 @@ impl State {
             .compare_exchange(false, true, Ordering::AcqRel, Ordering::Acquire)
             .is_ok()
         {
-            let waker = self.sleepers.lock().unwrap().notify();
+            let waker = self.sleepers.lock().unwrap_or_else(PoisonError::into_inner).notify();
             if let Some(w) = waker {
                 w.wake();
             }
@@ -513,7 +515,7 @@ impl State {
     /// Notifies a sleeping ticker.
     #[inline]
     fn notify_specific_thread(&self, thread_id: ThreadId, allow_stealing: bool) {
-        let mut sleepers = self.sleepers.lock().unwrap();
+        let mut sleepers = self.sleepers.lock().unwrap_or_else(PoisonError::into_inner);
         let mut waker = sleepers.notify_specific_thread(thread_id);
         if waker.is_none()
             && allow_stealing
@@ -649,7 +651,7 @@ impl Ticker<'_> {
     ///
     /// Returns `false` if the ticker was already sleeping and unnotified.
     fn sleep(&mut self, waker: &Waker) -> bool {
-        let mut sleepers = self.state.sleepers.lock().unwrap();
+        let mut sleepers = self.state.sleepers.lock().unwrap_or_else(PoisonError::into_inner);
 
         match self.sleeping {
             // Move to sleeping state.
@@ -675,7 +677,7 @@ impl Ticker<'_> {
     /// Moves the ticker into woken state.
     fn wake(&mut self) {
         if self.sleeping != 0 {
-            let mut sleepers = self.state.sleepers.lock().unwrap();
+            let mut sleepers = self.state.sleepers.lock().unwrap_or_else(PoisonError::into_inner);
             sleepers.remove(self.sleeping);
 
             self.state
@@ -716,7 +718,7 @@ impl Ticker<'_> {
                             }
                         }
                     }
-                }).unwrap()
+                }).unwrap_or(Poll::Pending)
             }
         })
     }
@@ -726,7 +728,7 @@ impl Drop for Ticker<'_> {
     fn drop(&mut self) {
         // If this ticker is in sleeping state, it must be removed from the sleepers list.
         if self.sleeping != 0 {
-            let mut sleepers = self.state.sleepers.lock().unwrap();
+            let mut sleepers = self.state.sleepers.lock().unwrap_or_else(PoisonError::into_inner);
             let notified = sleepers.remove(self.sleeping);
 
             self.state
@@ -772,7 +774,7 @@ impl Runner<'_> {
         state
             .stealer_queues
             .write()
-            .unwrap()
+            .unwrap_or_else(PoisonError::into_inner)
             .push(&local_state.stealable_queue);
         runner
     }
@@ -790,7 +792,7 @@ impl Runner<'_> {
                 }
 
                 crate::cfg::multi_threaded! {
-                    if{
+                    if {
                         // Try the local queue.
                         if let Ok(r) = self.local_state.stealable_queue.pop() {
                             return Some(r);

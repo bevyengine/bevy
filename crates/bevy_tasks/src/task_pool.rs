@@ -5,7 +5,7 @@ use std::thread::{self, JoinHandle};
 use crate::bevy_executor::Executor;
 use async_task::FallibleTask;
 use bevy_platform::sync::Arc;
-use crossbeam_queue::SegQueue;
+use concurrent_queue::ConcurrentQueue;
 use futures_lite::FutureExt;
 
 use crate::{block_on, Task};
@@ -347,11 +347,11 @@ impl TaskPool {
         let executor: &Executor = &self.executor;
         // SAFETY: As above, all futures must complete in this function so we can change the lifetime
         let executor: &'env Executor = unsafe { mem::transmute(executor) };
-        let spawned: SegQueue<FallibleTask<Result<T, Box<dyn core::any::Any + Send>>>> =
-            SegQueue::new();
+        let spawned: ConcurrentQueue<FallibleTask<Result<T, Box<dyn core::any::Any + Send>>>> =
+            ConcurrentQueue::unbounded();
         // shadow the variable so that the owned value cannot be used for the rest of the function
         // SAFETY: As above, all futures must complete in this function so we can change the lifetime
-        let spawned: &'env SegQueue<FallibleTask<Result<T, Box<dyn core::any::Any + Send>>>> =
+        let spawned: &'env ConcurrentQueue<FallibleTask<Result<T, Box<dyn core::any::Any + Send>>>> =
             unsafe { mem::transmute(&spawned) };
 
         let scope = Scope {
@@ -374,14 +374,11 @@ impl TaskPool {
         } else {
             block_on(self.executor.run(async move {
                 let mut results = Vec::with_capacity(spawned.len());
-                while let Some(task) = spawned.pop() {
-                    if let Some(res) = task.await {
-                        match res {
-                            Ok(res) => results.push(res),
-                            Err(payload) => std::panic::resume_unwind(payload),
-                        }
-                    } else {
-                        panic!("Failed to catch panic!");
+                while let Ok(task) = spawned.pop() {
+                    match task.await {
+                        Some(Ok(res)) => results.push(res),
+                        Some(Err(payload)) => std::panic::resume_unwind(payload),
+                        None => panic!("Failed to catch panic!"),
                     }
                 }
                 results
@@ -455,7 +452,7 @@ pub struct Scope<'scope, 'env: 'scope, T> {
     executor: &'scope Executor<'scope>,
     external_spawner: ThreadSpawner<'scope>,
     scope_spawner: ThreadSpawner<'scope>,
-    spawned: &'scope SegQueue<FallibleTask<Result<T, Box<dyn core::any::Any + Send>>>>,
+    spawned: &'scope ConcurrentQueue<FallibleTask<Result<T, Box<dyn core::any::Any + Send>>>>,
     // make `Scope` invariant over 'scope and 'env
     scope: PhantomData<&'scope mut &'scope ()>,
     env: PhantomData<&'env mut &'env ()>,
@@ -475,7 +472,8 @@ impl<'scope, 'env, T: Send + 'scope> Scope<'scope, 'env, T> {
             .executor
             .spawn(AssertUnwindSafe(f).catch_unwind())
             .fallible();
-        self.spawned.push(task);
+        let result = self.spawned.push(task);
+        debug_assert!(result.is_ok());
     }
 
     #[expect(
@@ -496,7 +494,8 @@ impl<'scope, 'env, T: Send + 'scope> Scope<'scope, 'env, T> {
                 .spawn_scoped(AssertUnwindSafe(f).catch_unwind())
                 .fallible()
         };
-        self.spawned.push(task);
+        let result = self.spawned.push(task);
+        debug_assert!(result.is_ok());
     }
 
     #[expect(
@@ -519,8 +518,9 @@ impl<'scope, 'env, T: Send + 'scope> Scope<'scope, 'env, T> {
                 .fallible()
         };
         // ConcurrentQueue only errors when closed or full, but we never
-        // close and use an unbounded queue, so it is safe to unwrap
-        self.spawned.push(task);
+        // close and use an unbounded queue, so pushing should always succeed.
+        let result = self.spawned.push(task);
+        debug_assert!(result.is_ok());
     }
 }
 
@@ -530,7 +530,7 @@ where
 {
     fn drop(&mut self) {
         block_on(async {
-            while let Some(task) = self.spawned.pop() {
+            while let Ok(task) = self.spawned.pop() {
                 task.cancel().await;
             }
         });
