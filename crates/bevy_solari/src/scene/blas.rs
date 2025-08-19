@@ -105,16 +105,18 @@ pub fn compact_raytracing_blas(
     mut blas_manager: ResMut<BlasManager>,
     render_queue: Res<RenderQueue>,
 ) {
-    let mut i = 0;
-    let queue_len = blas_manager.compaction_queue.len();
-
+    let queue_size = blas_manager.compaction_queue.len();
+    let mut meshes_processed = 0;
     let mut vertices_compacted = 0;
-    while let Some((mesh, vertex_count, compaction_started)) =
-        blas_manager.compaction_queue.pop_front()
+
+    while !blas_manager.compaction_queue.is_empty()
         && vertices_compacted < MAX_COMPACTION_VERTICES_PER_FRAME
-        && i < queue_len
+        && meshes_processed < queue_size
     {
-        i += 1;
+        meshes_processed += 1;
+
+        let (mesh, vertex_count, compaction_started) =
+            blas_manager.compaction_queue.pop_front().unwrap();
 
         let Some(blas) = blas_manager.get(&mesh) else {
             continue;
