@@ -296,7 +296,9 @@ mod tests {
 
     use bevy_app::{App, Update};
     use bevy_asset::{load_internal_binary_asset, Handle};
+    use bevy_camera::{ComputedCameraValues, RenderTargetInfo};
     use bevy_ecs::schedule::IntoScheduleConfigs;
+    use bevy_math::UVec2;
     use bevy_text::{detect_text_needs_rerender, TextIterScratch};
 
     use super::*;
@@ -323,6 +325,23 @@ mod tests {
                 )
                     .chain(),
             );
+
+        let mut visible_entities = VisibleEntities::default();
+        visible_entities.push(Entity::PLACEHOLDER, TypeId::of::<Sprite>());
+
+        app.world_mut().spawn((
+            Camera {
+                computed: ComputedCameraValues {
+                    target_info: Some(RenderTargetInfo {
+                        physical_size: UVec2::splat(1000),
+                        scale_factor: 1.,
+                    }),
+                    ..Default::default()
+                },
+                ..Default::default()
+            },
+            visible_entities,
+        ));
 
         // A font is needed to ensure the text is laid out with an actual size.
         load_internal_binary_asset!(
