@@ -25,7 +25,7 @@ use bevy::{
     ui::{Checked, InteractionDisabled},
     winit::WinitSettings,
 };
-use bevy_ecs::relationship::RelatedSpawner;
+use bevy::ecs::relationship::RelatedSpawner;
 
 /// A struct to hold the state of various widgets shown in the demo.
 #[derive(Resource)]
