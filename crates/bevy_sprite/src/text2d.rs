@@ -16,15 +16,14 @@ use bevy_ecs::{
     change_detection::{DetectChanges, Ref},
     component::Component,
     entity::Entity,
-    prelude::{ReflectComponent, With},
+    prelude::ReflectComponent,
     query::{Changed, Without},
     system::{Commands, Local, Query, Res, ResMut},
 };
 use bevy_image::prelude::*;
-use bevy_math::{Vec2, Vec3};
+use bevy_math::{FloatOrd, Vec2, Vec3};
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_transform::components::Transform;
-use bevy_window::{PrimaryWindow, Window};
 
 /// The top-level 2D text component.
 ///
@@ -157,13 +156,12 @@ impl Default for Text2dShadow {
 /// [`ResMut<Assets<Image>>`](Assets<Image>) -- This system only adds new [`Image`] assets.
 /// It does not modify or observe existing ones.
 pub fn update_text2d_layout(
-    mut target_scale_factors: Local<Vec<(Entity, f32, RenderLayers)>>,
+    mut target_scale_factors: Local<Vec<(f32, RenderLayers)>>,
     // Text items which should be reprocessed again, generally when the font hasn't loaded yet.
     mut queue: Local<EntityHashSet>,
     mut textures: ResMut<Assets<Image>>,
     fonts: Res<Assets<Font>>,
-    primary_window_query: Query<&Window, With<PrimaryWindow>>,
-    camera_query: Query<(Entity, &Camera, Option<&RenderLayers>)>,
+    camera_query: Query<(&Camera, Option<&RenderLayers>)>,
     mut texture_atlases: ResMut<Assets<TextureAtlasLayout>>,
     mut font_atlas_sets: ResMut<FontAtlasSets>,
     mut text_pipeline: ResMut<TextPipeline>,
@@ -181,35 +179,27 @@ pub fn update_text2d_layout(
 ) {
     target_scale_factors.clear();
 
-    let default_scale_factor = primary_window_query
-        .single()
-        .ok()
-        .map(|window| window.resolution.scale_factor())
-        .unwrap_or(1.);
-
     *target_scale_factors = camera_query
         .iter()
-        .map(|(entity, camera, maybe_camera_mask)| {
-            (
-                entity,
-                camera
-                    .target_scaling_factor()
-                    .unwrap_or(default_scale_factor),
-                maybe_camera_mask.cloned().unwrap_or_default(),
-            )
+        .map(|(camera, maybe_camera_mask)| {
+            camera
+                .target_scaling_factor()
+                .map(|scale_factor| (scale_factor, maybe_camera_mask.cloned().unwrap_or_default()))
         })
+        .flatten()
         .collect();
-    target_scale_factors.sort_by_key(|(entity, _, _)| entity.index());
 
     for (entity, maybe_entity_mask, block, bounds, text_layout_info, mut computed) in
         &mut text_query
     {
         let entity_mask = maybe_entity_mask.unwrap_or_default();
-        let scale_factor = target_scale_factors
+        let Some(&(scale_factor, _)) = target_scale_factors
             .iter()
-            .find(|(_, _, camera_mask)| camera_mask.intersects(entity_mask))
-            .map(|(_, scale_factor, _)| *scale_factor)
-            .unwrap_or(default_scale_factor);
+            .filter(|(_, camera_mask)| camera_mask.intersects(entity_mask))
+            .max_by_key(|(scale_factor, _)| FloatOrd(*scale_factor))
+        else {
+            continue;
+        };
 
         if scale_factor != text_layout_info.scale_factor
             || computed.needs_rerender()
