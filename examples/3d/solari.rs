@@ -6,6 +6,7 @@ mod camera_controller;
 use argh::FromArgs;
 use bevy::{
     camera::CameraMainTextureUsages,
+    gltf::GltfMaterialName,
     prelude::*,
     render::render_resource::TextureUsages,
     scene::SceneInstanceReady,
@@ -72,7 +73,7 @@ fn setup(
         ))
         .observe(add_raytracing_meshes_on_scene_load);
 
-    // TODO: Animate robot, makes eyes emissive
+    // TODO: Animate robot
     commands
         .spawn((
             SceneRoot(asset_server.load(
@@ -135,13 +136,20 @@ fn setup(
 fn add_raytracing_meshes_on_scene_load(
     trigger: On<SceneInstanceReady>,
     children: Query<&Children>,
-    mesh_query: Query<&Mesh3d>,
+    mesh_query: Query<(
+        &Mesh3d,
+        &MeshMaterial3d<StandardMaterial>,
+        Option<&GltfMaterialName>,
+    )>,
     mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
     mut commands: Commands,
     args: Res<Args>,
 ) {
     for descendant in children.iter_descendants(trigger.target()) {
-        if let Ok(Mesh3d(mesh_handle)) = mesh_query.get(descendant) {
+        if let Ok((Mesh3d(mesh_handle), MeshMaterial3d(material_handle), material_name)) =
+            mesh_query.get(descendant)
+        {
             // Ensure meshes are Solari compatible
             let mesh = meshes.get_mut(mesh_handle).unwrap();
             if !mesh.contains_attribute(Mesh::ATTRIBUTE_UV_0) {
@@ -164,6 +172,21 @@ fn add_raytracing_meshes_on_scene_load(
             // Prevent rasterization if using pathtracer
             if args.pathtracer == Some(true) {
                 commands.entity(descendant).remove::<Mesh3d>();
+            }
+
+            // Adjust scene materials to better demo Solari features
+            if material_name.map(|s| s.0.as_str()) == Some("material") {
+                let material = materials.get_mut(material_handle).unwrap();
+                material.emissive = LinearRgba::BLACK;
+            }
+            if material_name.map(|s| s.0.as_str()) == Some("Lights") {
+                let material = materials.get_mut(material_handle).unwrap();
+                material.emissive = LinearRgba::from(Color::srgb(0.941, 0.714, 0.043)) * 300_000.0;
+                material.alpha_mode = AlphaMode::Opaque;
+            }
+            if material_name.map(|s| s.0.as_str()) == Some("Glass_Dark_01") {
+                let material = materials.get_mut(material_handle).unwrap();
+                material.alpha_mode = AlphaMode::Opaque;
             }
         }
     }
