@@ -447,7 +447,7 @@ mod tests {
 
     // This test mostly checks that the url crate adds a trailing slash to the domain.
     #[test]
-    fn enfore_trailing_slash_on_domain() {
+    fn enforce_trailing_slash_on_domain() {
         let reader = WebAssetReader::http("http://example.co");
 
         let path = Path::new("example.com/favicon.png");
@@ -465,7 +465,7 @@ mod tests {
 
     // This test mostly checks that PathBuf checks path prefixes
     #[test]
-    fn enfore_trailing_slash_on_path() {
+    fn enforce_trailing_slash_on_path() {
         let reader = WebAssetReader::http("http://example.com/ima");
 
         let path = Path::new("example.com/images/favicon.png");
