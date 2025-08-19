@@ -1,18 +1,10 @@
-use std::any::TypeId;
-
-use bevy_camera::Camera;
-use bevy_text::{
-    ComputedTextBlock, CosmicFontSystem, Font, FontAtlasSets, LineBreak, SwashCache, TextBounds,
-    TextColor, TextError, TextFont, TextLayout, TextLayoutInfo, TextPipeline, TextReader, TextRoot,
-    TextSpanAccess, TextWriter,
-};
-
 use crate::{Anchor, Sprite};
 use bevy_asset::Assets;
 use bevy_camera::primitives::Aabb;
 use bevy_camera::visibility::{
     self, NoFrustumCulling, RenderLayers, Visibility, VisibilityClass, VisibleEntities,
 };
+use bevy_camera::Camera;
 use bevy_color::Color;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::entity::EntityHashSet;
@@ -27,7 +19,13 @@ use bevy_ecs::{
 use bevy_image::prelude::*;
 use bevy_math::{FloatOrd, Vec2, Vec3};
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
+use bevy_text::{
+    ComputedTextBlock, CosmicFontSystem, Font, FontAtlasSets, LineBreak, SwashCache, TextBounds,
+    TextColor, TextError, TextFont, TextLayout, TextLayoutInfo, TextPipeline, TextReader, TextRoot,
+    TextSpanAccess, TextWriter,
+};
 use bevy_transform::components::Transform;
+use core::any::TypeId;
 
 /// The top-level 2D text component.
 ///
