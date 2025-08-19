@@ -44,7 +44,7 @@ fn main() {
     app.add_plugins((DefaultPlugins, SolariPlugins, CameraControllerPlugin))
         .insert_resource(args)
         .add_systems(Startup, setup)
-        .add_systems(Update, rotate_directional_light);
+        .add_systems(Update, (rotate_directional_light, patrol_path));
 
     if args.pathtracer == Some(true) {
         app.add_plugins(PathtracingPlugin);
@@ -73,13 +73,26 @@ fn setup(
         ))
         .observe(add_raytracing_meshes_on_scene_load);
 
-    // TODO: Animate robot
     commands
         .spawn((
             SceneRoot(asset_server.load(
                 GltfAssetLabel::Scene(0).from_asset("models/PicaPica/pica_pica_-_robot_01.glb"),
             )),
-            Transform::from_scale(Vec3::splat(3.0)).with_translation(Vec3::new(0.0, 0.05, 0.0)),
+            Transform::from_scale(Vec3::splat(2.0))
+                .with_translation(Vec3::new(-2.0, 0.05, -2.1))
+                .with_rotation(Quat::from_rotation_y(PI / 2.0)),
+            PatrolPath {
+                path: vec![
+                    (Vec3::new(-2.0, 0.05, -2.1), Quat::from_rotation_y(PI / 2.0)),
+                    (Vec3::new(2.2, 0.05, -2.1), Quat::from_rotation_y(0.0)),
+                    (
+                        Vec3::new(2.2, 0.05, 2.1),
+                        Quat::from_rotation_y(3.0 * PI / 2.0),
+                    ),
+                    (Vec3::new(-2.0, 0.05, 2.1), Quat::from_rotation_y(PI)),
+                ],
+                i: 0,
+            },
         ))
         .observe(add_raytracing_meshes_on_scene_load);
 
@@ -219,6 +232,37 @@ fn rotate_directional_light(
     } else {
         if let Some(pathtracer) = pathtracer.as_deref_mut() {
             pathtracer.reset = false;
+        }
+    }
+}
+
+#[derive(Component)]
+struct PatrolPath {
+    path: Vec<(Vec3, Quat)>,
+    i: usize,
+}
+
+fn patrol_path(mut query: Query<(&mut PatrolPath, &mut Transform)>, time: Res<Time>) {
+    for (mut path, mut transform) in query.iter_mut() {
+        let (mut target_position, mut target_rotation) = path.path[path.i];
+        let mut distance_to_target = transform.translation.distance(target_position);
+        if distance_to_target < 0.01 {
+            transform.translation = target_position;
+            transform.rotation = target_rotation;
+
+            path.i = (path.i + 1) % path.path.len();
+            (target_position, target_rotation) = path.path[path.i];
+            distance_to_target = transform.translation.distance(target_position);
+        }
+
+        let direction = (target_position - transform.translation).normalize();
+        let movement = direction * time.delta_secs();
+
+        if movement.length() > distance_to_target {
+            transform.translation = target_position;
+            transform.rotation = target_rotation;
+        } else {
+            transform.translation += movement;
         }
     }
 }
