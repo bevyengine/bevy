@@ -90,7 +90,14 @@ impl Plugin for AudioPlugin {
             )
             .add_systems(
                 PostUpdate,
-                (update_emitter_positions, update_listener_positions).in_set(AudioPlaybackSystems),
+                (
+                    update_emitter_positions,
+                    update_listener_positions,
+                    update_playing_audio_volume
+                        .run_if(resource_changed::<GlobalVolume>)
+                        .ambiguous_with_all(),
+                )
+                    .in_set(AudioPlaybackSystems),
             )
             .init_resource::<AudioOutput>();
 
