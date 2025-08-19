@@ -43,11 +43,12 @@ fn main() {
 
     app.add_plugins((DefaultPlugins, SolariPlugins, CameraControllerPlugin))
         .insert_resource(args)
-        .add_systems(Startup, setup)
-        .add_systems(Update, (rotate_directional_light, patrol_path));
+        .add_systems(Startup, setup);
 
     if args.pathtracer == Some(true) {
         app.add_plugins(PathtracingPlugin);
+    } else {
+        app.add_systems(Update, (pause_scene, toggle_lights, patrol_path));
     }
 
     app.run();
@@ -163,6 +164,11 @@ fn add_raytracing_meshes_on_scene_load(
         if let Ok((Mesh3d(mesh_handle), MeshMaterial3d(material_handle), material_name)) =
             mesh_query.get(descendant)
         {
+            // Add raytracing mesh component
+            commands
+                .entity(descendant)
+                .insert(RaytracingMesh3d(mesh_handle.clone()));
+
             // Ensure meshes are Solari compatible
             let mesh = meshes.get_mut(mesh_handle).unwrap();
             if !mesh.contains_attribute(Mesh::ATTRIBUTE_UV_0) {
@@ -176,11 +182,6 @@ fn add_raytracing_meshes_on_scene_load(
             if !mesh.contains_attribute(Mesh::ATTRIBUTE_TANGENT) {
                 mesh.generate_tangents().unwrap();
             }
-
-            // Add raytracing mesh component
-            commands
-                .entity(descendant)
-                .insert(RaytracingMesh3d(mesh_handle.clone()));
 
             // Prevent rasterization if using pathtracer
             if args.pathtracer == Some(true) {
@@ -197,6 +198,8 @@ fn add_raytracing_meshes_on_scene_load(
                 material.emissive = LinearRgba::from(Color::srgb(0.941, 0.714, 0.043)) * 300_000.0;
                 material.alpha_mode = AlphaMode::Opaque;
                 material.specular_transmission = 0.0;
+
+                commands.insert_resource(RobotLightMaterial(material_handle.clone()));
             }
             if material_name.map(|s| s.0.as_str()) == Some("Glass_Dark_01") {
                 let material = materials.get_mut(material_handle).unwrap();
@@ -207,31 +210,54 @@ fn add_raytracing_meshes_on_scene_load(
     }
 }
 
-fn rotate_directional_light(
-    mut animate_directional_light: Local<bool>,
-    mut directional_light_transform: Single<&mut Transform, With<DirectionalLight>>,
-    mut pathtracer: Option<Single<&mut Pathtracer>>,
+fn pause_scene(mut time: ResMut<Time<Virtual>>, key_input: Res<ButtonInput<KeyCode>>) {
+    if key_input.just_pressed(KeyCode::Space) {
+        if time.is_paused() {
+            time.unpause();
+        } else {
+            time.pause();
+        }
+    }
+}
+
+#[derive(Resource)]
+struct RobotLightMaterial(Handle<StandardMaterial>);
+
+fn toggle_lights(
     key_input: Res<ButtonInput<KeyCode>>,
-    time: Res<Time>,
+    robot_light_material: Option<Res<RobotLightMaterial>>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+    directional_light: Query<Entity, With<DirectionalLight>>,
+    mut commands: Commands,
 ) {
-    if key_input.just_pressed(KeyCode::KeyL) {
-        *animate_directional_light = !*animate_directional_light;
+    if key_input.just_pressed(KeyCode::Digit1) {
+        if let Some(robot_light_material) = robot_light_material {
+            let material = materials.get_mut(&robot_light_material.0).unwrap();
+            if material.emissive == LinearRgba::BLACK {
+                material.emissive = LinearRgba::from(Color::srgb(0.941, 0.714, 0.043)) * 300_000.0;
+            } else {
+                material.emissive = LinearRgba::BLACK;
+            }
+        }
     }
 
-    if *animate_directional_light {
-        directional_light_transform.rotation = Quat::from_euler(
-            EulerRot::ZYX,
-            0.0,
-            time.elapsed_secs() * PI / 4.0,
-            -std::f32::consts::FRAC_PI_4,
-        );
-
-        if let Some(pathtracer) = pathtracer.as_deref_mut() {
-            pathtracer.reset = true;
-        }
-    } else {
-        if let Some(pathtracer) = pathtracer.as_deref_mut() {
-            pathtracer.reset = false;
+    if key_input.just_pressed(KeyCode::Digit2) {
+        if let Ok(directional_light) = directional_light.single() {
+            commands.entity(directional_light).despawn();
+        } else {
+            commands.spawn((
+                DirectionalLight {
+                    illuminance: light_consts::lux::FULL_DAYLIGHT,
+                    shadows_enabled: false, // Solari replaces shadow mapping
+                    ..default()
+                },
+                Transform::from_rotation(Quat::from_xyzw(
+                    -0.13334629,
+                    -0.86597735,
+                    -0.3586996,
+                    0.3219264,
+                )),
+            ));
         }
     }
 }
@@ -242,7 +268,7 @@ struct PatrolPath {
     i: usize,
 }
 
-fn patrol_path(mut query: Query<(&mut PatrolPath, &mut Transform)>, time: Res<Time>) {
+fn patrol_path(mut query: Query<(&mut PatrolPath, &mut Transform)>, time: Res<Time<Virtual>>) {
     for (mut path, mut transform) in query.iter_mut() {
         let (mut target_position, mut target_rotation) = path.path[path.i];
         let mut distance_to_target = transform.translation.distance(target_position);
