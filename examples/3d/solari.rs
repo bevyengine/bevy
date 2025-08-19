@@ -183,10 +183,12 @@ fn add_raytracing_meshes_on_scene_load(
                 let material = materials.get_mut(material_handle).unwrap();
                 material.emissive = LinearRgba::from(Color::srgb(0.941, 0.714, 0.043)) * 300_000.0;
                 material.alpha_mode = AlphaMode::Opaque;
+                material.specular_transmission = 0.0;
             }
             if material_name.map(|s| s.0.as_str()) == Some("Glass_Dark_01") {
                 let material = materials.get_mut(material_handle).unwrap();
                 material.alpha_mode = AlphaMode::Opaque;
+                material.specular_transmission = 0.0;
             }
         }
     }
