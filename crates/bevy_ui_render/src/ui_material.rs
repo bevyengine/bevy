@@ -112,6 +112,10 @@ pub trait UiMaterial: AsBindGroup + Asset + Clone + Sized {
         ShaderRef::Default
     }
 
+    fn stack_z_offset() -> f32 {
+        crate::stack_z_offsets::MATERIAL
+    }
+
     #[expect(
         unused_variables,
         reason = "The parameters here are intentionally unused by the default implementation; however, putting underscores here will result in the underscores being copied by rust-analyzer's tab completion."
