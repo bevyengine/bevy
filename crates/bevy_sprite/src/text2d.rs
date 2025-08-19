@@ -181,12 +181,11 @@ pub fn update_text2d_layout(
 
     *target_scale_factors = camera_query
         .iter()
-        .map(|(camera, maybe_camera_mask)| {
+        .filter_map(|(camera, maybe_camera_mask)| {
             camera
                 .target_scaling_factor()
                 .map(|scale_factor| (scale_factor, maybe_camera_mask.cloned().unwrap_or_default()))
         })
-        .flatten()
         .collect();
 
     for (entity, maybe_entity_mask, block, bounds, text_layout_info, mut computed) in
