@@ -1,8 +1,8 @@
 use crate::{
     meta::{AssetHash, MetaTransform},
-    Asset, AssetHandleProvider, AssetLoadError, AssetPath, DependencyLoadState, ErasedLoadedAsset,
-    Handle, InternalAssetEvent, LoadState, RecursiveDependencyLoadState, StrongHandle,
-    UntypedAssetId, UntypedHandle,
+    Asset, AssetHandleProvider, AssetLoadError, AssetPath, AssetServer, DependencyLoadState,
+    ErasedLoadedAsset, Handle, InternalAssetEvent, LoadState, RecursiveDependencyLoadState,
+    StrongHandle, UntypedAssetId, UntypedHandle,
 };
 use alloc::{
     borrow::ToOwned,
@@ -13,7 +13,7 @@ use alloc::{
 use bevy_ecs::world::World;
 use bevy_platform::collections::{hash_map::Entry, HashMap, HashSet};
 use bevy_tasks::Task;
-use bevy_utils::TypeIdMap;
+use bevy_utils::{OnDrop, TypeIdMap};
 use core::{any::TypeId, task::Waker};
 use crossbeam_channel::Sender;
 use either::Either;
@@ -86,6 +86,21 @@ impl AssetServerStats {
     /// Returns the number of load tasks that have been finished.
     pub fn finished_load_tasks(&self) -> usize {
         self.finished_load_tasks
+    }
+
+    /// Starts tracking a load and provides a "token" that will automatically mark the load as
+    /// finished on drop.
+    ///
+    /// `self` must be part of `asset_server`, and dropping the token will lock `asset_server`, so
+    /// ensure the current guard around `self` is dropped before dropping the token.
+    pub(crate) fn start_tracking_load(
+        &mut self,
+        asset_server: AssetServer,
+    ) -> impl Drop + Send + Sync + 'static + use<> {
+        self.started_load_tasks += 1;
+        OnDrop::new(move || {
+            asset_server.data.infos.write().stats.finished_load_tasks += 1;
+        })
     }
 }
 

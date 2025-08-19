@@ -858,6 +858,16 @@ impl AssetServer {
             .detach();
     }
 
+    /// Starts tracking a load and provides a "token" that will automatically mark the load as
+    /// finished on drop.
+    ///
+    /// Dropping the token will lock `self`, so ensure no guards are held on `self` before dropping
+    /// the token.
+    pub(crate) fn start_tracking_load_stats(&self) -> impl Drop + Send + Sync + 'static + use<> {
+        let this = self.clone();
+        self.data.infos.write().stats.start_tracking_load(this)
+    }
+
     /// Queues a new asset to be tracked by the [`AssetServer`] and returns a [`Handle`] to it. This can be used to track
     /// dependencies of assets created at runtime.
     ///
