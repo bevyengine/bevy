@@ -192,6 +192,9 @@ pub fn update_text2d_layout(
         &mut text_query
     {
         let entity_mask = maybe_entity_mask.unwrap_or_default();
+
+        // `Text2d` only supports generating a single text layout per Text2d entity. If a `Text2d` entity has multiple
+        // render targets with different scale factors, then we use the maximum of the scale factors.
         let Some(&(scale_factor, _)) = target_scale_factors
             .iter()
             .filter(|(_, camera_mask)| camera_mask.intersects(entity_mask))
