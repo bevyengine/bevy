@@ -145,21 +145,6 @@ impl TextInputBuffer {
     }
 }
 
-/// Component containing the change history for a text input.
-/// Text input entities without this component will ignore undo and redo actions.
-#[derive(Component, Debug, Default)]
-pub struct UndoHistory {
-    /// The commands to undo and undo
-    pub changes: cosmic_undo_2::Commands<cosmic_text::Change>,
-}
-
-impl UndoHistory {
-    /// Clear the history for the text input
-    pub fn clear(&mut self) {
-        self.changes.clear();
-    }
-}
-
 /// Details of the target the text input will be rendered to
 #[derive(Component, PartialEq, Debug, Default)]
 pub struct TextInputTarget {
@@ -416,10 +401,6 @@ pub enum TextEdit {
         /// Negative values scroll upwards towards the start of the text, positive downwards to the end of the text.
         lines: i32,
     },
-    /// Undo the previous action.
-    Undo,
-    /// Redo an undone action. Must directly follow an Undo.
-    Redo,
     /// Select the entire contents of the text input buffer.
     SelectAll,
     /// Select the line at the cursor.
@@ -474,24 +455,6 @@ pub fn is_cursor_at_end_of_line(editor: &mut Editor<'_>) -> bool {
     })
 }
 
-/// Apply an action from the undo history to the text input buffer.
-fn apply_action<'a>(
-    editor: &mut BorrowedWithFontSystem<Editor<'a>>,
-    action: cosmic_undo_2::Action<&cosmic_text::Change>,
-) {
-    match action {
-        cosmic_undo_2::Action::Do(change) => {
-            editor.apply_change(change);
-        }
-        cosmic_undo_2::Action::Undo(change) => {
-            let mut reversed = change.clone();
-            reversed.reverse();
-            editor.apply_change(&reversed);
-        }
-    }
-    editor.set_redraw(true);
-}
-
 /// Applies the [`TextEdit`]s queued for each [`TextInputBuffer`] and emits [`TextInputEvent`]s in response.
 ///
 /// After all edits are applied, if a text input entity has a [TextInputValue] component and its buffer was changed,
@@ -505,7 +468,6 @@ pub fn apply_text_edits(
         &mut TextEdits,
         &TextInputAttributes,
         Option<&TextInputFilter>,
-        Option<&mut UndoHistory>,
         Option<&mut TextInputValue>,
     )>,
     mut clipboard: ResMut<Clipboard>,
@@ -516,7 +478,6 @@ pub fn apply_text_edits(
         mut text_input_actions,
         attribs,
         maybe_filter,
-        mut maybe_history,
         maybe_value,
     ) in text_input_query.iter_mut()
     {
@@ -533,22 +494,16 @@ pub fn apply_text_edits(
                     if attribs.clear_on_submit {
                         let _ = apply_text_edit(
                             buffer.editor.borrow_with(&mut font_system),
-                            maybe_history.as_mut().map(AsMut::as_mut),
                             maybe_filter,
                             attribs.max_chars,
                             &mut clipboard,
                             &TextEdit::Clear,
                         );
-
-                        if let Some(history) = maybe_history.as_mut() {
-                            history.clear();
-                        }
                     }
                 }
                 edit => {
                     if let Err(error) = apply_text_edit(
                         buffer.editor.borrow_with(&mut font_system),
-                        maybe_history.as_mut().map(AsMut::as_mut),
                         maybe_filter,
                         attribs.max_chars,
                         &mut clipboard,
@@ -986,7 +941,6 @@ pub enum InvalidTextEditError {
 /// Apply a text input action to a text input
 fn apply_text_edit(
     mut editor: BorrowedWithFontSystem<'_, Editor<'static>>,
-    mut maybe_history: Option<&mut UndoHistory>,
     maybe_filter: Option<&TextInputFilter>,
     max_chars: Option<usize>,
     clipboard_contents: &mut ResMut<Clipboard>,
@@ -1078,20 +1032,6 @@ fn apply_text_edit(
         &TextEdit::Scroll { lines } => {
             editor.action(Action::Scroll { lines });
         }
-        TextEdit::Undo => {
-            if let Some(history) = maybe_history.as_mut() {
-                for action in history.changes.undo() {
-                    apply_action(&mut editor, action);
-                }
-            }
-        }
-        TextEdit::Redo => {
-            if let Some(history) = maybe_history.as_mut() {
-                for action in history.changes.redo() {
-                    apply_action(&mut editor, action);
-                }
-            }
-        }
         TextEdit::SelectAll => {
             editor.action(Action::Motion(Motion::BufferStart));
             let cursor = editor.cursor();
@@ -1144,10 +1084,6 @@ fn apply_text_edit(
             editor.apply_change(&change);
             return Err(InvalidTextEditError::Overflowed);
         }
-    }
-
-    if let Some(history) = maybe_history.as_mut() {
-        history.changes.push(change);
     }
 
     // Set redraw manually, sometimes the editor doesn't set it automatically.

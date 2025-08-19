@@ -16,7 +16,7 @@ use bevy::{
     text::{
         LineBreak, Motion, Placeholder, PlaceholderLayout, PositionedGlyph, TextBounds,
         TextCursorBlinkInterval, TextEdit, TextEdits, TextInputAttributes, TextInputBuffer,
-        TextInputEvent, TextInputSystems, TextInputTarget, TextLayoutInfo, UndoHistory,
+        TextInputEvent, TextInputSystems, TextInputTarget, TextLayoutInfo,
     },
     window::PrimaryWindow,
 };
@@ -76,7 +76,6 @@ fn setup(mut commands: Commands) {
             TextFont::default(),
             TextInputSize(Vec2::new(500., 250.)),
             Transform::from_translation(Vec3::new(0., 150., 0.)),
-            UndoHistory::default(),
             Placeholder::new("type here.."),
             Visibility::default(),
             VisibilityClass([TypeId::of::<Sprite>()].into()),
@@ -184,17 +183,6 @@ fn update_inputs(
                                 ('v', false) => {
                                     // paste
                                     actions.queue(TextEdit::Paste);
-                                }
-                                ('z', false) => {
-                                    actions.queue(TextEdit::Undo);
-                                }
-                                #[cfg(target_os = "macos")]
-                                ('z', true) => {
-                                    actions.queue(TextEdit::Redo);
-                                }
-                                #[cfg(not(target_os = "macos"))]
-                                ('y', false) => {
-                                    actions.queue(TextEdit::Redo);
                                 }
                                 ('a', false) => {
                                     // select all

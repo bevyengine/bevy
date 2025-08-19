@@ -4,7 +4,7 @@ authors: ["@Ickshonpe"]
 pull_requests: [20366]
 ---
 
-A long-standing feature request from our users is support for text input. Whether the user is creating a new character, logging in with a username and password, or creating a new save file, it's vitally important for them to be able to enter a string of text. Unfortunately, writing a robust and feature-rich text input widget is not easy, especially one that supports all of the expected capabilities (such as undo, range selection, and scrolling). This effort is made much easier now that Bevy has incorporated the cosmic crate for text handling.
+A long-standing feature request from our users is support for text input. Whether the user is creating a new character, logging in with a username and password, or creating a new save file, it's vitally important for them to be able to enter a string of text. Unfortunately, writing a robust and feature-rich text input widget is not easy, especially one that supports all of the expected capabilities (such as range selection, and scrolling). This effort is made much easier now that Bevy has incorporated the cosmic crate for text handling.
 
 Features:
 * Placeholder text for empty inputs
@@ -16,7 +16,6 @@ Features:
 * Responsive height sizing.
 * Vertical and horizontal scrolling
 * Fixes the line cropping while vertical scrolling bug in cosmic-text.
-* Full undo and redo.
 * Text selection.
 * Cut, copy and paste.
 * Numeric input modes.
