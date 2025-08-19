@@ -195,7 +195,8 @@ fn add_raytracing_meshes_on_scene_load(
             }
             if material_name.map(|s| s.0.as_str()) == Some("Lights") {
                 let material = materials.get_mut(material_handle).unwrap();
-                material.emissive = LinearRgba::from(Color::srgb(0.941, 0.714, 0.043)) * 300_000.0;
+                material.emissive =
+                    LinearRgba::from(Color::srgb(0.941, 0.714, 0.043)) * 1_000_000.0;
                 material.alpha_mode = AlphaMode::Opaque;
                 material.specular_transmission = 0.0;
 
@@ -234,7 +235,8 @@ fn toggle_lights(
         if let Some(robot_light_material) = robot_light_material {
             let material = materials.get_mut(&robot_light_material.0).unwrap();
             if material.emissive == LinearRgba::BLACK {
-                material.emissive = LinearRgba::from(Color::srgb(0.941, 0.714, 0.043)) * 300_000.0;
+                material.emissive =
+                    LinearRgba::from(Color::srgb(0.941, 0.714, 0.043)) * 1_000_000.0;
             } else {
                 material.emissive = LinearRgba::BLACK;
             }
