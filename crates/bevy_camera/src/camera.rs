@@ -509,10 +509,10 @@ impl Camera {
             .ok_or(ViewportConversionError::InvalidData)?;
         // NDC z-values outside of 0 < z < 1 are outside the (implicit) camera frustum and are thus not in viewport-space
         if ndc_space_coords.z < 0.0 {
-            return Err(ViewportConversionError::PastNearPlane);
+            return Err(ViewportConversionError::PastFarPlane);
         }
         if ndc_space_coords.z > 1.0 {
-            return Err(ViewportConversionError::PastFarPlane);
+            return Err(ViewportConversionError::PastNearPlane);
         }
 
         // Flip the Y co-ordinate origin from the bottom to the top.
@@ -547,10 +547,10 @@ impl Camera {
             .ok_or(ViewportConversionError::InvalidData)?;
         // NDC z-values outside of 0 < z < 1 are outside the (implicit) camera frustum and are thus not in viewport-space
         if ndc_space_coords.z < 0.0 {
-            return Err(ViewportConversionError::PastNearPlane);
+            return Err(ViewportConversionError::PastFarPlane);
         }
         if ndc_space_coords.z > 1.0 {
-            return Err(ViewportConversionError::PastFarPlane);
+            return Err(ViewportConversionError::PastNearPlane);
         }
 
         // Stretching ndc depth to value via near plane and negating result to be in positive room again.
