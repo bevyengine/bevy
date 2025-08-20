@@ -34,6 +34,7 @@ pub mod batching;
 pub mod bundle;
 pub mod change_detection;
 pub mod component;
+pub mod debug_tag;
 pub mod entity;
 pub mod entity_disabling;
 pub mod error;
