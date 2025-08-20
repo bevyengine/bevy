@@ -1,7 +1,7 @@
 use crate::io::{AssetReader, AssetReaderError, Reader};
 use crate::io::{AssetSource, PathStream};
 use crate::{AssetApp, AssetServer};
-use alloc::{borrow::ToOwned, boxed::Box, vec::Vec, vec};
+use alloc::{borrow::ToOwned, boxed::Box, vec, vec::Vec};
 use bevy_app::{App, Plugin};
 use bevy_tasks::ConditionalSendFuture;
 use blocking::unblock;
