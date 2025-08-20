@@ -8,7 +8,7 @@ use bevy_asset::Handle;
 use bevy_derive::Deref;
 use bevy_ecs::{component::Component, entity::Entity, reflect::ReflectComponent};
 use bevy_image::Image;
-use bevy_math::{ops, Dir3, FloatOrd, Mat4, Ray3d, Rect, URect, UVec2, Vec2, Vec3};
+use bevy_math::{ops, Dir3, FloatOrd, Mat4, Ray3d, Rect, URect, UVec2, Vec2, Vec3, Vec3A};
 use bevy_reflect::prelude::*;
 use bevy_transform::components::{GlobalTransform, Transform};
 use bevy_window::{NormalizedWindowRef, WindowRef};
@@ -686,10 +686,10 @@ impl Camera {
         Ok(world_near_plane.truncate())
     }
 
-    /// Given a position in world space, use the camera's viewport to compute the Normalized Device Coordinates.
+    /// Given a point in world space, use the camera's viewport to compute the Normalized Device Coordinates of the point.
     ///
-    /// When the position is within the viewport the values returned will be between -1.0 and 1.0 on the X and Y axes,
-    /// and between 0.0 and 1.0 on the Z axis.
+    /// When the point is within the viewport the values returned will be between -1.0 (bottom left) and 1.0 (top right)
+    /// on the X and Y axes, and between 0.0 (far) and 1.0 (near) on the Z axis.
     /// To get the coordinates in the render target's viewport dimensions, you should use
     /// [`world_to_viewport`](Self::world_to_viewport).
     ///
@@ -699,11 +699,11 @@ impl Camera {
     /// # Panics
     ///
     /// Will panic if the `camera_transform` contains `NAN` and the `glam_assert` feature is enabled.
-    pub fn world_to_ndc(
+    pub fn world_to_ndc<V: Into<Vec3A> + From<Vec3A>>(
         &self,
         camera_transform: &GlobalTransform,
-        world_point: Vec3,
-    ) -> Option<Vec3> {
+        world_point: V,
+    ) -> Option<V> {
         // Build a transformation matrix to convert from world space to NDC using camera data
         let view_point = camera_transform
             .affine()
