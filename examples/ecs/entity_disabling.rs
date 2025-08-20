@@ -5,7 +5,7 @@
 //!
 //! While disabling entities *will* make them invisible,
 //! that's not its primary purpose!
-//! [`Visibility`](bevy::prelude::Visibility) should be used to hide entities;
+//! [`Visibility`] should be used to hide entities;
 //! disabled entities are skipped entirely, which can lead to subtle bugs.
 //!
 //! # Default query filters
