@@ -847,7 +847,7 @@ impl Runner<'_> {
         // Bump the tick counter.
         self.ticks = self.ticks.wrapping_add(1);
 
-        if self.ticks % 64 == 0 {
+        if self.ticks.is_multiple_of(64) {
             // Steal tasks from the global queue to ensure fair task scheduling.
             steal(&self.state.queue, &self.local_state.stealable_queue);
         }
