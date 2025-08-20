@@ -121,7 +121,7 @@ impl Rot2 {
     ///
     /// # Note
     ///
-    /// Angles larger than or equal to 2π (in either direction) loop around to smaller rotations, since a full rotation returns an object into its starting orientation.
+    /// Angles larger than or equal to 2π (in either direction) loop around to smaller rotations, since a full rotation returns an object to its starting orientation.
     ///
     /// # Example
     ///
@@ -154,7 +154,7 @@ impl Rot2 {
     ///
     /// # Note
     ///
-    /// Angles larger than or equal to 360° (in either direction) loop around to smaller rotations, since a full rotation returns an object into its starting orientation.
+    /// Angles larger than or equal to 360° (in either direction) loop around to smaller rotations, since a full rotation returns an object to its starting orientation.
     ///
     /// # Example
     ///
@@ -185,7 +185,7 @@ impl Rot2 {
     ///
     /// # Note
     ///
-    /// Angles larger than or equal to 1 turn (in either direction) loop around to smaller rotations, since a full rotation returns an object into its starting orientation.
+    /// Angles larger than or equal to 1 turn (in either direction) loop around to smaller rotations, since a full rotation returns an object to its starting orientation.
     ///
     /// # Example
     ///
