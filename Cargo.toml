@@ -3406,6 +3406,17 @@ category = "UI (User Interface)"
 wasm = true
 
 [[example]]
+name = "ui_picking_debug"
+path = "examples/ui/ui_picking_debug.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.ui_picking_debug]
+name = "UI Picking debug"
+description = "UI picking debug example"
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
 name = "display_and_visibility"
 path = "examples/ui/display_and_visibility.rs"
 doc-scrape-examples = true
