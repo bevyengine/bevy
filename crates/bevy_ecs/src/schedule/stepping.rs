@@ -70,7 +70,7 @@ enum SystemIdentifier {
     Node(NodeId),
 }
 
-/// Updates to [`Stepping.schedule_states`] that will be applied at the start
+/// Updates to [`Stepping::schedule_states`] that will be applied at the start
 /// of the next render frame
 enum Update {
     /// Set the action stepping will perform for this render frame
