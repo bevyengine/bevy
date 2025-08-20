@@ -314,6 +314,9 @@ fn update_text(
     materials: Res<Assets<StandardMaterial>>,
     directional_light: Query<Entity, With<DirectionalLight>>,
     time: Res<Time<Virtual>>,
+    #[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))] dlss_rr_supported: Option<
+        Res<DlssRayReconstructionSupported>,
+    >,
 ) {
     text.0.clear();
 
@@ -337,4 +340,17 @@ fn update_text(
             text.0.push_str("\n(2): Enable robot emissive light");
         }
     }
+
+    #[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))]
+    if dlss_rr_supported.is_some() {
+        text.0
+            .push_str("\nDenoising: DLSS Ray Reconstruction enabled");
+    } else {
+        text.0
+            .push_str("\nDenoising: DLSS Ray Reconstruction not supported");
+    }
+
+    #[cfg(any(not(feature = "dlss"), feature = "force_disable_dlss"))]
+    text.0
+        .push_str("\nDenoising: App not compiled with DLSS support");
 }
