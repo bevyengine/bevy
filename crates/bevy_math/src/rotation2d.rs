@@ -72,8 +72,9 @@ impl Rot2 {
     ///  ```
     /// # use approx::assert_relative_eq;
     /// # use bevy_math::Rot2;
+    /// # use std::f32::consts::PI;
     /// #[cfg(feature = "approx")]
-    /// assert_relative_eq!(Rot2::IDENTITY, Rot2::degrees(360.0));
+    /// assert_relative_eq!(Rot2::IDENTITY, Rot2::degrees(360.0), epsilon = 2e-7);
     /// ```
     pub const IDENTITY: Self = Self { cos: 1.0, sin: 0.0 };
 
@@ -141,7 +142,7 @@ impl Rot2 {
     ///
     /// // A rotation by 3π and 1π are the same
     /// #[cfg(feature = "approx")]
-    /// assert_relative_eq!(Rot2::radians(3 * PI), Rot2::radians(PI));
+    /// assert_relative_eq!(Rot2::radians(3.0 * PI), Rot2::radians(PI));
     /// ```
     #[inline]
     pub fn radians(radians: f32) -> Self {
@@ -160,7 +161,7 @@ impl Rot2 {
     ///
     /// ```
     /// # use bevy_math::Rot2;
-    /// # use approx::assert_relative_eq;
+    /// # use approx::{assert_relative_eq, assert_abs_diff_eq};
     ///
     /// let rot1 = Rot2::degrees(270.0);
     /// let rot2 = Rot2::degrees(-90.0);
@@ -173,7 +174,7 @@ impl Rot2 {
     ///
     /// // A rotation by 365° and 5° are the same
     /// #[cfg(feature = "approx")]
-    /// assert_relative_eq!(Rot2::degrees(365), Rot2::degrees(5));
+    /// assert_abs_diff_eq!(Rot2::degrees(365.0), Rot2::degrees(5.0), epsilon = 2e-7);
     /// ```
     #[inline]
     pub fn degrees(degrees: f32) -> Self {
