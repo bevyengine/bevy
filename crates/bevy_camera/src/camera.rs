@@ -702,14 +702,16 @@ impl Camera {
     pub fn world_to_ndc(
         &self,
         camera_transform: &GlobalTransform,
-        world_position: Vec3,
+        world_point: Vec3,
     ) -> Option<Vec3> {
         // Build a transformation matrix to convert from world space to NDC using camera data
-        let clip_from_world: Mat4 =
-            self.computed.clip_from_view * camera_transform.to_matrix().inverse();
-        let ndc_space_coords: Vec3 = clip_from_world.project_point3(world_position);
+        let view_point = camera_transform
+            .affine()
+            .inverse()
+            .transform_point3a(world_point.into());
+        let ndc_point = self.computed.clip_from_view.project_point3a(view_point);
 
-        (!ndc_space_coords.is_nan()).then_some(ndc_space_coords)
+        (!ndc_point.is_nan()).then_some(ndc_point.into())
     }
 
     /// Given a position in Normalized Device Coordinates,
