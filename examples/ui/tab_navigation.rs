@@ -34,7 +34,7 @@ fn button_system(
         match *interaction {
             Interaction::Pressed => {
                 *color = PRESSED_BUTTON.into();
-                *border_color = BorderColor::all(RED.into());
+                *border_color = BorderColor::all(RED);
             }
             Interaction::Hovered => {
                 *color = HOVERED_BUTTON.into();
@@ -131,7 +131,7 @@ fn setup(mut commands: Commands) {
                                     BackgroundColor(NORMAL_BUTTON),
                                     TabIndex(i),
                                     children![(
-                                        Text::new(format!("TabIndex {}", i)),
+                                        Text::new(format!("TabIndex {i}")),
                                         TextFont {
                                             font_size: 20.0,
                                             ..default()

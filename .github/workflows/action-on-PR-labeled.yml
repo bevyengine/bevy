@@ -16,7 +16,7 @@ jobs:
     runs-on: ubuntu-latest
     if: github.event.label.name == 'M-Needs-Migration-Guide'
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           ref: ${{ github.event.pull_request.head.sha }}
           fetch-depth: 2
@@ -46,7 +46,7 @@ jobs:
     runs-on: ubuntu-latest
     if: github.event.label.name == 'M-Needs-Release-Note'
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           ref: ${{ github.event.pull_request.head.sha }}
           fetch-depth: 2
@@ -70,5 +70,5 @@ jobs:
               repo: context.repo.repo,
               body: `It looks like your PR has been selected for a highlight in the next release blog post, but **you didn't provide a release note**.
 
-              Please review the [instructions for writing release notes](https://github.com/bevyengine/bevy/tree/main/release-content/release_notes.md), then expand or revise the content in the [release notes directory](https://github.com/bevyengine/bevy/tree/main/release-content/release_notes) to showcase your changes.`
+              Please review the [instructions for writing release notes](https://github.com/bevyengine/bevy/tree/main/release-content/release_notes.md), then expand or revise the content in the [release notes directory](https://github.com/bevyengine/bevy/tree/main/release-content/release-notes) to showcase your changes.`
             })

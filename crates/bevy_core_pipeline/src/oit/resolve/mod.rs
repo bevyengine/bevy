@@ -1,3 +1,4 @@
+use super::OitBuffers;
 use crate::{oit::OrderIndependentTransparencySettings, FullscreenShader};
 use bevy_app::Plugin;
 use bevy_asset::{embedded_asset, load_embedded_asset, AssetServer};
@@ -12,16 +13,15 @@ use bevy_render::{
         binding_types::{storage_buffer_sized, texture_depth_2d, uniform_buffer},
         BindGroup, BindGroupEntries, BindGroupLayout, BindGroupLayoutEntries, BlendComponent,
         BlendState, CachedRenderPipelineId, ColorTargetState, ColorWrites, DownlevelFlags,
-        FragmentState, MultisampleState, PipelineCache, PrimitiveState, RenderPipelineDescriptor,
-        ShaderDefVal, ShaderStages, TextureFormat,
+        FragmentState, PipelineCache, RenderPipelineDescriptor, ShaderStages, TextureFormat,
     },
     renderer::{RenderAdapter, RenderDevice},
     view::{ExtractedView, ViewTarget, ViewUniform, ViewUniforms},
     Render, RenderApp, RenderSystems,
 };
+use bevy_shader::ShaderDefVal;
+use bevy_utils::default;
 use tracing::warn;
-
-use super::OitBuffers;
 
 /// Contains the render node used to run the resolve pass.
 pub mod node;
@@ -167,11 +167,11 @@ pub fn queue_oit_resolve_pipeline(
             layer_count: oit_settings.layer_count,
         };
 
-        if let Some((cached_key, id)) = cached_pipeline_id.get(&e) {
-            if *cached_key == key {
-                commands.entity(e).insert(OitResolvePipelineId(*id));
-                continue;
-            }
+        if let Some((cached_key, id)) = cached_pipeline_id.get(&e)
+            && *cached_key == key
+        {
+            commands.entity(e).insert(OitResolvePipelineId(*id));
+            continue;
         }
 
         let desc = specialize_oit_resolve_pipeline(
@@ -213,7 +213,6 @@ fn specialize_oit_resolve_pipeline(
             resolve_pipeline.oit_depth_bind_group_layout.clone(),
         ],
         fragment: Some(FragmentState {
-            entry_point: "fragment".into(),
             shader: load_embedded_asset!(asset_server, "oit_resolve.wgsl"),
             shader_defs: vec![ShaderDefVal::UInt(
                 "LAYER_COUNT".into(),
@@ -227,13 +226,10 @@ fn specialize_oit_resolve_pipeline(
                 }),
                 write_mask: ColorWrites::ALL,
             })],
+            ..default()
         }),
         vertex: fullscreen_shader.to_vertex_state(),
-        primitive: PrimitiveState::default(),
-        depth_stencil: None,
-        multisample: MultisampleState::default(),
-        push_constant_ranges: vec![],
-        zero_initialize_workgroup_memory: false,
+        ..default()
     }
 }
 

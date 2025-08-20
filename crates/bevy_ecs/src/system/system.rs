@@ -4,12 +4,12 @@
 )]
 use bevy_utils::prelude::DebugName;
 use bitflags::bitflags;
-use core::fmt::Debug;
+use core::fmt::{Debug, Display};
 use log::warn;
-use thiserror::Error;
 
 use crate::{
-    component::{CheckChangeTicks, ComponentId, Tick},
+    component::{CheckChangeTicks, Tick},
+    error::BevyError,
     query::FilteredAccessSet,
     schedule::InternedSystemSet,
     system::{input::SystemInput, SystemIn},
@@ -17,7 +17,7 @@ use crate::{
 };
 
 use alloc::{boxed::Box, vec::Vec};
-use core::any::TypeId;
+use core::any::{Any, TypeId};
 
 use super::{IntoSystem, SystemParamValidationError};
 
@@ -94,8 +94,11 @@ pub trait System: Send + Sync + 'static {
     ///   simultaneous accesses while the system is running.
     /// - If [`System::is_exclusive`] returns `true`, then it must be valid to call
     ///   [`UnsafeWorldCell::world_mut`] on `world`.
-    unsafe fn run_unsafe(&mut self, input: SystemIn<'_, Self>, world: UnsafeWorldCell)
-        -> Self::Out;
+    unsafe fn run_unsafe(
+        &mut self,
+        input: SystemIn<'_, Self>,
+        world: UnsafeWorldCell,
+    ) -> Result<Self::Out, RunSystemError>;
 
     /// Refresh the inner pointer based on the latest hot patch jump table
     #[cfg(feature = "hotpatching")]
@@ -108,10 +111,14 @@ pub trait System: Send + Sync + 'static {
     /// Unlike [`System::run_unsafe`], this will apply deferred parameters *immediately*.
     ///
     /// [`run_readonly`]: ReadOnlySystem::run_readonly
-    fn run(&mut self, input: SystemIn<'_, Self>, world: &mut World) -> Self::Out {
-        let ret = self.run_without_applying_deferred(input, world);
+    fn run(
+        &mut self,
+        input: SystemIn<'_, Self>,
+        world: &mut World,
+    ) -> Result<Self::Out, RunSystemError> {
+        let ret = self.run_without_applying_deferred(input, world)?;
         self.apply_deferred(world);
-        ret
+        Ok(ret)
     }
 
     /// Runs the system with the given input in the world.
@@ -121,10 +128,14 @@ pub trait System: Send + Sync + 'static {
         &mut self,
         input: SystemIn<'_, Self>,
         world: &mut World,
-    ) -> Self::Out {
+    ) -> Result<Self::Out, RunSystemError> {
         let world_cell = world.as_unsafe_world_cell();
         // SAFETY:
         // - We have exclusive access to the entire world.
+        unsafe { self.validate_param_unsafe(world_cell) }?;
+        // SAFETY:
+        // - We have exclusive access to the entire world.
+        // - `update_archetype_component_access` has been called.
         unsafe { self.run_unsafe(input, world_cell) }
     }
 
@@ -170,7 +181,7 @@ pub trait System: Send + Sync + 'static {
     /// Initialize the system.
     ///
     /// Returns a [`FilteredAccessSet`] with the access required to run the system.
-    fn initialize(&mut self, _world: &mut World) -> FilteredAccessSet<ComponentId>;
+    fn initialize(&mut self, _world: &mut World) -> FilteredAccessSet;
 
     /// Checks any [`Tick`]s stored on this system and wraps their value if they get too old.
     ///
@@ -210,21 +221,36 @@ pub trait System: Send + Sync + 'static {
 ///
 /// This must only be implemented for system types which do not mutate the `World`
 /// when [`System::run_unsafe`] is called.
+#[diagnostic::on_unimplemented(
+    message = "`{Self}` is not a read-only system",
+    label = "invalid read-only system"
+)]
 pub unsafe trait ReadOnlySystem: System {
     /// Runs this system with the given input in the world.
     ///
     /// Unlike [`System::run`], this can be called with a shared reference to the world,
     /// since this system is known not to modify the world.
-    fn run_readonly(&mut self, input: SystemIn<'_, Self>, world: &World) -> Self::Out {
+    fn run_readonly(
+        &mut self,
+        input: SystemIn<'_, Self>,
+        world: &World,
+    ) -> Result<Self::Out, RunSystemError> {
         let world = world.as_unsafe_world_cell_readonly();
         // SAFETY:
         // - We have read-only access to the entire world.
+        unsafe { self.validate_param_unsafe(world) }?;
+        // SAFETY:
+        // - We have read-only access to the entire world.
+        // - `update_archetype_component_access` has been called.
         unsafe { self.run_unsafe(input, world) }
     }
 }
 
 /// A convenience type alias for a boxed [`System`] trait object.
 pub type BoxedSystem<In = (), Out = ()> = Box<dyn System<In = In, Out = Out>>;
+
+/// A convenience type alias for a boxed [`ReadOnlySystem`] trait object.
+pub type BoxedReadOnlySystem<In = (), Out = ()> = Box<dyn ReadOnlySystem<In = In, Out = Out>>;
 
 pub(crate) fn check_system_change_tick(
     last_run: &mut Tick,
@@ -382,34 +408,56 @@ impl RunSystemOnce for &mut World {
     {
         let mut system: T::System = IntoSystem::into_system(system);
         system.initialize(self);
-        system
-            .validate_param(self)
-            .map_err(|err| RunSystemError::InvalidParams {
-                system: system.name(),
-                err,
-            })?;
-        Ok(system.run(input, self))
+        system.run(input, self)
     }
 }
 
 /// Running system failed.
-#[derive(Error, Debug)]
+#[derive(Debug)]
 pub enum RunSystemError {
     /// System could not be run due to parameters that failed validation.
-    /// This should not be considered an error if [`field@SystemParamValidationError::skipped`] is `true`.
-    #[error("System {system} did not run due to failed parameter validation: {err}")]
-    InvalidParams {
-        /// The identifier of the system that was run.
-        system: DebugName,
-        /// The returned parameter validation error.
-        err: SystemParamValidationError,
-    },
+    /// This is not considered an error.
+    Skipped(SystemParamValidationError),
+    /// System returned an error or failed required parameter validation.
+    Failed(BevyError),
+}
+
+impl Display for RunSystemError {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        match self {
+            Self::Skipped(err) => write!(
+                f,
+                "System did not run due to failed parameter validation: {err}"
+            ),
+            Self::Failed(err) => write!(f, "{err}"),
+        }
+    }
+}
+
+impl<E: Any> From<E> for RunSystemError
+where
+    BevyError: From<E>,
+{
+    fn from(mut value: E) -> Self {
+        // Specialize the impl so that a skipped `SystemParamValidationError`
+        // is converted to `Skipped` instead of `Failed`.
+        // Note that the `downcast_mut` check is based on the static type,
+        // and can be optimized out after monomorphization.
+        let any: &mut dyn Any = &mut value;
+        if let Some(err) = any.downcast_mut::<SystemParamValidationError>() {
+            if err.skipped {
+                return Self::Skipped(core::mem::replace(err, SystemParamValidationError::EMPTY));
+            }
+        }
+        Self::Failed(From::from(value))
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::prelude::*;
+    use alloc::string::ToString;
 
     #[test]
     fn run_system_once() {
@@ -446,16 +494,19 @@ mod tests {
         assert_eq!(*world.resource::<Counter>(), Counter(2));
     }
 
+    #[derive(Component)]
+    struct A;
+
     fn spawn_entity(mut commands: Commands) {
-        commands.spawn_empty();
+        commands.spawn(A);
     }
 
     #[test]
     fn command_processing() {
         let mut world = World::new();
-        assert_eq!(world.entities.len(), 0);
+        assert_eq!(world.query::<&A>().query(&world).count(), 0);
         world.run_system_once(spawn_entity).unwrap();
-        assert_eq!(world.entities.len(), 1);
+        assert_eq!(world.query::<&A>().query(&world).count(), 1);
     }
 
     #[test]
@@ -481,6 +532,16 @@ mod tests {
         // This fails because `T` has not been added to the world yet.
         let result = world.run_system_once(system);
 
-        assert!(matches!(result, Err(RunSystemError::InvalidParams { .. })));
+        assert!(matches!(result, Err(RunSystemError::Failed { .. })));
+
+        let expected = "Resource does not exist";
+        let actual = result.unwrap_err().to_string();
+
+        assert!(
+            actual.contains(expected),
+            "Expected error message to contain `{}` but got `{}`",
+            expected,
+            actual
+        );
     }
 }

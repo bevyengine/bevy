@@ -1,9 +1,9 @@
 use crate::{
-    render_asset::{PrepareAssetError, RenderAsset, RenderAssetUsages},
+    render_asset::{PrepareAssetError, RenderAsset},
     render_resource::{DefaultImageSampler, Sampler, Texture, TextureView},
     renderer::{RenderDevice, RenderQueue},
 };
-use bevy_asset::AssetId;
+use bevy_asset::{AssetId, RenderAssetUsages};
 use bevy_ecs::system::{lifetimeless::SRes, SystemParamItem};
 use bevy_image::{Image, ImageSampler};
 use bevy_math::{AspectRatio, UVec2};
@@ -51,8 +51,7 @@ impl RenderAsset for GpuImage {
             render_device.create_texture_with_data(
                 render_queue,
                 &image.texture_descriptor,
-                // TODO: Is this correct? Do we need to use `MipMajor` if it's a ktx2 file?
-                wgpu::util::TextureDataOrder::default(),
+                image.data_order,
                 data,
             )
         } else {

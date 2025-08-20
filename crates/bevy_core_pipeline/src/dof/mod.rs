@@ -16,6 +16,7 @@
 
 use bevy_app::{App, Plugin};
 use bevy_asset::{embedded_asset, load_embedded_asset, AssetServer, Handle};
+use bevy_camera::{Camera3d, PhysicalCameraParameters, Projection};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     component::Component,
@@ -25,16 +26,16 @@ use bevy_ecs::{
     resource::Resource,
     schedule::IntoScheduleConfigs as _,
     system::{lifetimeless::Read, Commands, Query, Res, ResMut},
-    world::{FromWorld, World},
+    world::World,
 };
 use bevy_image::BevyDefault as _;
 use bevy_math::ops;
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_render::{
-    camera::{PhysicalCameraParameters, Projection},
+    diagnostic::RecordDiagnostics,
     extract_component::{ComponentUniforms, DynamicUniformIndex, UniformComponentPlugin},
     render_graph::{
-        NodeRunError, RenderGraphApp as _, RenderGraphContext, ViewNode, ViewNodeRunner,
+        NodeRunError, RenderGraphContext, RenderGraphExt as _, ViewNode, ViewNodeRunner,
     },
     render_resource::{
         binding_types::{
@@ -43,8 +44,8 @@ use bevy_render::{
         BindGroup, BindGroupEntries, BindGroupLayout, BindGroupLayoutEntries,
         CachedRenderPipelineId, ColorTargetState, ColorWrites, FilterMode, FragmentState, LoadOp,
         Operations, PipelineCache, RenderPassColorAttachment, RenderPassDescriptor,
-        RenderPipelineDescriptor, Sampler, SamplerBindingType, SamplerDescriptor, Shader,
-        ShaderStages, ShaderType, SpecializedRenderPipeline, SpecializedRenderPipelines, StoreOp,
+        RenderPipelineDescriptor, Sampler, SamplerBindingType, SamplerDescriptor, ShaderStages,
+        ShaderType, SpecializedRenderPipeline, SpecializedRenderPipelines, StoreOp,
         TextureDescriptor, TextureDimension, TextureFormat, TextureSampleType, TextureUsages,
     },
     renderer::{RenderContext, RenderDevice},
@@ -55,8 +56,9 @@ use bevy_render::{
         prepare_view_targets, ExtractedView, Msaa, ViewDepthTexture, ViewTarget, ViewUniform,
         ViewUniformOffset, ViewUniforms,
     },
-    Extract, ExtractSchedule, Render, RenderApp, RenderSystems,
+    Extract, ExtractSchedule, Render, RenderApp, RenderStartup, RenderSystems,
 };
+use bevy_shader::Shader;
 use bevy_utils::{default, once};
 use smallvec::SmallVec;
 use tracing::{info, warn};
@@ -64,7 +66,7 @@ use tracing::{info, warn};
 use crate::{
     core_3d::{
         graph::{Core3d, Node3d},
-        Camera3d, DEPTH_TEXTURE_SAMPLING_SUPPORTED,
+        DEPTH_TEXTURE_SAMPLING_SUPPORTED,
     },
     FullscreenShader,
 };
@@ -206,8 +208,6 @@ impl Plugin for DepthOfFieldPlugin {
     fn build(&self, app: &mut App) {
         embedded_asset!(app, "dof.wgsl");
 
-        app.register_type::<DepthOfField>();
-        app.register_type::<DepthOfFieldMode>();
         app.add_plugins(UniformComponentPlugin::<DepthOfFieldUniform>::default());
 
         app.add_plugins(SyncComponentPlugin::<DepthOfField>::default());
@@ -219,6 +219,7 @@ impl Plugin for DepthOfFieldPlugin {
         render_app
             .init_resource::<SpecializedRenderPipelines<DepthOfFieldPipeline>>()
             .init_resource::<DepthOfFieldGlobalBindGroup>()
+            .add_systems(RenderStartup, init_dof_global_bind_group_layout)
             .add_systems(ExtractSchedule, extract_depth_of_field_settings)
             .add_systems(
                 Render,
@@ -247,14 +248,6 @@ impl Plugin for DepthOfFieldPlugin {
                 Core3d,
                 (Node3d::Bloom, Node3d::DepthOfField, Node3d::Tonemapping),
             );
-    }
-
-    fn finish(&self, app: &mut App) {
-        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
-            return;
-        };
-
-        render_app.init_resource::<DepthOfFieldGlobalBindGroupLayout>();
     }
 }
 
@@ -361,6 +354,8 @@ impl ViewNode for DepthOfFieldNode {
         let view_uniforms = world.resource::<ViewUniforms>();
         let global_bind_group = world.resource::<DepthOfFieldGlobalBindGroup>();
 
+        let diagnostics = render_context.diagnostic_recorder();
+
         // We can be in either Gaussian blur or bokeh mode here. Both modes are
         // similar, consisting of two passes each. We factor out the information
         // specific to each pass into
@@ -416,6 +411,7 @@ impl ViewNode for DepthOfFieldNode {
             let mut color_attachments: SmallVec<[_; 2]> = SmallVec::new();
             color_attachments.push(Some(RenderPassColorAttachment {
                 view: postprocess.destination,
+                depth_slice: None,
                 resolve_target: None,
                 ops: Operations {
                     load: LoadOp::Clear(default()),
@@ -436,6 +432,7 @@ impl ViewNode for DepthOfFieldNode {
                 };
                 color_attachments.push(Some(RenderPassColorAttachment {
                     view: &auxiliary_dof_texture.default_view,
+                    depth_slice: None,
                     resolve_target: None,
                     ops: Operations {
                         load: LoadOp::Clear(default()),
@@ -453,6 +450,9 @@ impl ViewNode for DepthOfFieldNode {
             let mut render_pass = render_context
                 .command_encoder()
                 .begin_render_pass(&render_pass_descriptor);
+            let pass_span =
+                diagnostics.pass_span(&mut render_pass, pipeline_render_info.pass_label);
+
             render_pass.set_pipeline(render_pipeline);
             // Set the per-view bind group.
             render_pass.set_bind_group(0, &view_bind_group, &[view_uniform_offset.offset]);
@@ -464,6 +464,8 @@ impl ViewNode for DepthOfFieldNode {
             );
             // Render the full-screen pass.
             render_pass.draw(0..3, 0..1);
+
+            pass_span.end(&mut render_pass);
         }
 
         Ok(())
@@ -489,7 +491,7 @@ impl DepthOfField {
     /// [`PhysicalCameraParameters`].
     ///
     /// By passing the same [`PhysicalCameraParameters`] object to this function
-    /// and to [`bevy_render::camera::Exposure::from_physical_camera`], matching
+    /// and to [`bevy_camera::Exposure::from_physical_camera`], matching
     /// results for both the exposure and depth of field effects can be
     /// obtained.
     ///
@@ -504,38 +506,34 @@ impl DepthOfField {
     }
 }
 
-impl FromWorld for DepthOfFieldGlobalBindGroupLayout {
-    fn from_world(world: &mut World) -> Self {
-        let render_device = world.resource::<RenderDevice>();
-
-        // Create the bind group layout that will be shared among all instances
-        // of the depth of field shader.
-        let layout = render_device.create_bind_group_layout(
-            Some("depth of field global bind group layout"),
-            &BindGroupLayoutEntries::sequential(
-                ShaderStages::FRAGMENT,
-                (
-                    // `dof_params`
-                    uniform_buffer::<DepthOfFieldUniform>(true),
-                    // `color_texture_sampler`
-                    sampler(SamplerBindingType::Filtering),
-                ),
+pub fn init_dof_global_bind_group_layout(mut commands: Commands, render_device: Res<RenderDevice>) {
+    // Create the bind group layout that will be shared among all instances
+    // of the depth of field shader.
+    let layout = render_device.create_bind_group_layout(
+        Some("depth of field global bind group layout"),
+        &BindGroupLayoutEntries::sequential(
+            ShaderStages::FRAGMENT,
+            (
+                // `dof_params`
+                uniform_buffer::<DepthOfFieldUniform>(true),
+                // `color_texture_sampler`
+                sampler(SamplerBindingType::Filtering),
             ),
-        );
+        ),
+    );
 
-        // Create the color texture sampler.
-        let sampler = render_device.create_sampler(&SamplerDescriptor {
-            label: Some("depth of field sampler"),
-            mag_filter: FilterMode::Linear,
-            min_filter: FilterMode::Linear,
-            ..default()
-        });
+    // Create the color texture sampler.
+    let sampler = render_device.create_sampler(&SamplerDescriptor {
+        label: Some("depth of field sampler"),
+        mag_filter: FilterMode::Linear,
+        min_filter: FilterMode::Linear,
+        ..default()
+    });
 
-        DepthOfFieldGlobalBindGroupLayout {
-            color_texture_sampler: sampler,
-            layout,
-        }
-    }
+    commands.insert_resource(DepthOfFieldGlobalBindGroupLayout {
+        color_texture_sampler: sampler,
+        layout,
+    });
 }
 
 /// Creates the bind group layouts for the depth of field effect that are
@@ -800,23 +798,19 @@ impl SpecializedRenderPipeline for DepthOfFieldPipeline {
         RenderPipelineDescriptor {
             label: Some("depth of field pipeline".into()),
             layout,
-            push_constant_ranges: vec![],
             vertex: self.fullscreen_shader.to_vertex_state(),
-            primitive: default(),
-            depth_stencil: None,
-            multisample: default(),
             fragment: Some(FragmentState {
                 shader: self.fragment_shader.clone(),
                 shader_defs,
-                entry_point: match key.pass {
+                entry_point: Some(match key.pass {
                     DofPass::GaussianHorizontal => "gaussian_horizontal".into(),
                     DofPass::GaussianVertical => "gaussian_vertical".into(),
                     DofPass::BokehPass0 => "bokeh_pass_0".into(),
                     DofPass::BokehPass1 => "bokeh_pass_1".into(),
-                },
+                }),
                 targets,
             }),
-            zero_initialize_workgroup_memory: false,
+            ..default()
         }
     }
 }

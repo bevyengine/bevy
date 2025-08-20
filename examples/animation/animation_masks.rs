@@ -328,7 +328,7 @@ fn add_mask_group_control(
                                 },
                             ))
                             .with_child((
-                                Text(format!("{:?}", label)),
+                                Text(format!("{label:?}")),
                                 if index > 0 {
                                     button_text_style.clone()
                                 } else {

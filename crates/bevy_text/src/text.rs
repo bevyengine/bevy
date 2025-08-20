@@ -4,7 +4,7 @@ use bevy_color::Color;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{prelude::*, reflect::ReflectComponent};
 use bevy_reflect::prelude::*;
-use bevy_utils::once;
+use bevy_utils::{default, once};
 use cosmic_text::{Buffer, Metrics};
 use serde::{Deserialize, Serialize};
 use smallvec::SmallVec;
@@ -109,7 +109,7 @@ impl Default for ComputedTextBlock {
 /// spans associated with a text block are collected into [`ComputedTextBlock`] for layout, and then inserted
 /// to [`TextLayoutInfo`] for rendering.
 ///
-/// See [`Text2d`](crate::Text2d) for the core component of 2d text, and `Text` in `bevy_ui` for UI text.
+/// See `Text2d` in `bevy_sprite` for the core component of 2d text, and `Text` in `bevy_ui` for UI text.
 #[derive(Component, Debug, Copy, Clone, Default, Reflect)]
 #[reflect(Component, Default, Debug, Clone)]
 #[require(ComputedTextBlock, TextLayoutInfo)]
@@ -165,43 +165,11 @@ impl TextLayout {
 
 /// A span of text in a tree of spans.
 ///
-/// `TextSpan` is only valid as a child of an entity with [`TextLayout`], which is provided by `Text`
-/// for text in `bevy_ui` or `Text2d` for text in 2d world-space.
-///
-/// Spans are collected in hierarchy traversal order into a [`ComputedTextBlock`] for layout.
-///
-/// ```
-/// # use bevy_asset::Handle;
-/// # use bevy_color::Color;
-/// # use bevy_color::palettes::basic::{RED, BLUE};
-/// # use bevy_ecs::world::World;
-/// # use bevy_text::{Font, TextLayout, TextFont, TextSpan, TextColor};
-///
-/// # let font_handle: Handle<Font> = Default::default();
-/// # let mut world = World::default();
-/// #
-/// world.spawn((
-///     // `Text` or `Text2d` are needed, and will provide default instances
-///     // of the following components.
-///     TextLayout::default(),
-///     TextFont {
-///         font: font_handle.clone().into(),
-///         font_size: 60.0,
-///         ..Default::default()
-///     },
-///     TextColor(BLUE.into()),
-/// ))
-/// .with_child((
-///     // Children must be `TextSpan`, not `Text` or `Text2d`.
-///     TextSpan::new("Hello!"),
-///     TextFont {
-///         font: font_handle.into(),
-///         font_size: 60.0,
-///         ..Default::default()
-///     },
-///     TextColor(RED.into()),
-/// ));
-/// ```
+/// A `TextSpan` is only valid when it exists as a child of a parent that has either `Text` or
+/// `Text2d`. The parent's `Text` / `Text2d` component contains the base text content. Any children
+/// with `TextSpan` extend this text by appending their content to the parent's text in sequence to
+/// form a [`ComputedTextBlock`]. The parent's [`TextLayout`] determines the layout of the block
+/// but each node has its own [`TextFont`] and [`TextColor`].
 #[derive(Component, Debug, Default, Clone, Deref, DerefMut, Reflect)]
 #[reflect(Component, Default, Debug, Clone)]
 #[require(TextFont, TextColor)]
@@ -276,7 +244,7 @@ impl From<Justify> for cosmic_text::Align {
 
 /// `TextFont` determines the style of a text span within a [`ComputedTextBlock`], specifically
 /// the font face, the font size, and the color.
-#[derive(Component, Clone, Debug, Reflect)]
+#[derive(Component, Clone, Debug, Reflect, PartialEq)]
 #[reflect(Component, Default, Debug, Clone)]
 pub struct TextFont {
     /// The specific font face to use, as a `Handle` to a [`Font`] asset.
@@ -315,6 +283,11 @@ impl TextFont {
         Self::default().with_font_size(font_size)
     }
 
+    /// Returns a new [`TextFont`] with the specified line height.
+    pub fn from_line_height(line_height: LineHeight) -> Self {
+        Self::default().with_line_height(line_height)
+    }
+
     /// Returns this [`TextFont`] with the specified font face handle.
     pub fn with_font(mut self, font: Handle<Font>) -> Self {
         self.font = font;
@@ -337,6 +310,21 @@ impl TextFont {
     pub const fn with_line_height(mut self, line_height: LineHeight) -> Self {
         self.line_height = line_height;
         self
+    }
+}
+
+impl From<Handle<Font>> for TextFont {
+    fn from(font: Handle<Font>) -> Self {
+        Self { font, ..default() }
+    }
+}
+
+impl From<LineHeight> for TextFont {
+    fn from(line_height: LineHeight) -> Self {
+        Self {
+            line_height,
+            ..default()
+        }
     }
 }
 
@@ -472,7 +460,7 @@ pub enum FontSmoothing {
 
 /// System that detects changes to text blocks and sets `ComputedTextBlock::should_rerender`.
 ///
-/// Generic over the root text component and text span component. For example, [`Text2d`](crate::Text2d)/[`TextSpan`] for
+/// Generic over the root text component and text span component. For example, `Text2d`/[`TextSpan`] for
 /// 2d or `Text`/[`TextSpan`] for UI.
 pub fn detect_text_needs_rerender<Root: Component>(
     changed_roots: Query<

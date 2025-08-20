@@ -27,12 +27,14 @@ plugin_group! {
         bevy_scene:::ScenePlugin,
         #[cfg(feature = "bevy_winit")]
         bevy_winit:::WinitPlugin,
+        #[custom(cfg(all(feature = "dlss", not(feature = "force_disable_dlss"))))]
+        bevy_anti_aliasing::dlss:::DlssInitPlugin,
         #[cfg(feature = "bevy_render")]
         bevy_render:::RenderPlugin,
         // NOTE: Load this after renderer initialization so that it knows about the supported
         // compressed texture formats.
-        #[cfg(feature = "bevy_render")]
-        bevy_render::texture:::ImagePlugin,
+        #[cfg(feature = "bevy_image")]
+        bevy_image:::ImagePlugin,
         #[cfg(feature = "bevy_render")]
         #[custom(cfg(all(not(target_arch = "wasm32"), feature = "multi_threaded")))]
         bevy_render::pipelined_rendering:::PipelinedRenderingPlugin,
@@ -42,10 +44,14 @@ plugin_group! {
         bevy_anti_aliasing:::AntiAliasingPlugin,
         #[cfg(feature = "bevy_sprite")]
         bevy_sprite:::SpritePlugin,
+        #[cfg(feature = "bevy_sprite_render")]
+        bevy_sprite_render:::SpriteRenderingPlugin,
         #[cfg(feature = "bevy_text")]
         bevy_text:::TextPlugin,
         #[cfg(feature = "bevy_ui")]
         bevy_ui:::UiPlugin,
+        #[cfg(feature = "bevy_ui_render")]
+        bevy_ui_render:::UiRenderPlugin,
         #[cfg(feature = "bevy_pbr")]
         bevy_pbr:::PbrPlugin,
         // NOTE: Load this after renderer initialization so that it knows about the supported

@@ -1,28 +1,34 @@
 use bevy_asset::Assets;
+use bevy_camera::Camera;
+#[cfg(feature = "bevy_ui_picking_backend")]
+use bevy_camera::NormalizedRenderTarget;
 use bevy_ecs::{
     component::Component,
     entity::Entity,
-    event::EventReader,
     query::{Changed, Or},
     reflect::ReflectComponent,
-    system::{Commands, Query, Res, ResMut},
+    system::{Query, ResMut},
 };
-use bevy_image::Image;
+#[cfg(feature = "bevy_ui_picking_backend")]
+use bevy_ecs::{
+    event::EventReader,
+    system::{Commands, Res},
+};
+use bevy_image::{Image, ToExtents};
+#[cfg(feature = "bevy_ui_picking_backend")]
 use bevy_math::Rect;
+use bevy_math::UVec2;
 #[cfg(feature = "bevy_ui_picking_backend")]
 use bevy_picking::{
     events::PointerState,
     hover::HoverMap,
     pointer::{Location, PointerId, PointerInput, PointerLocation},
 };
+#[cfg(feature = "bevy_ui_picking_backend")]
 use bevy_platform::collections::HashMap;
 use bevy_reflect::Reflect;
-use bevy_render::{
-    camera::{Camera, NormalizedRenderTarget},
-    render_resource::Extent3d,
-};
+#[cfg(feature = "bevy_ui_picking_backend")]
 use bevy_transform::components::GlobalTransform;
-use bevy_utils::default;
 #[cfg(feature = "bevy_ui_picking_backend")]
 use uuid::Uuid;
 
@@ -141,7 +147,7 @@ pub fn viewport_picking(
             };
             viewport_pointer_location.location = Some(location.clone());
 
-            commands.send_event(PointerInput {
+            commands.write_event(PointerInput {
                 location,
                 pointer_id: viewport_pointer_id,
                 action: input.action,
@@ -166,11 +172,7 @@ pub fn update_viewport_render_target_size(
         let Some(image_handle) = camera.target.as_image() else {
             continue;
         };
-        let size = Extent3d {
-            width: u32::max(1, size.x as u32),
-            height: u32::max(1, size.y as u32),
-            ..default()
-        };
+        let size = size.as_uvec2().max(UVec2::ONE).to_extents();
         images.get_mut(image_handle).unwrap().resize(size);
     }
 }

@@ -132,18 +132,20 @@ fn build_ui(
             return;
         };
 
-        for (node_id, system) in systems {
+        for (key, system) in systems {
             // skip bevy default systems; we don't want to step those
             #[cfg(feature = "debug")]
             if system.name().as_string().starts_with("bevy") {
-                always_run.push((*label, node_id));
+                always_run.push((*label, NodeId::System(key)));
                 continue;
             }
 
             // Add an entry to our systems list so we can find where to draw
             // the cursor when the stepping cursor is at this system
             // we add plus 1 to account for the empty root span
-            state.systems.push((*label, node_id, text_spans.len() + 1));
+            state
+                .systems
+                .push((*label, NodeId::System(key), text_spans.len() + 1));
 
             // Add a text section for displaying the cursor for this system
             text_spans.push((
@@ -258,10 +260,9 @@ fn update_ui(
         return;
     }
 
-    let (cursor_schedule, cursor_system) = match stepping.cursor() {
-        // no cursor means stepping isn't enabled, so we're done here
-        None => return,
-        Some(c) => c,
+    // no cursor means stepping isn't enabled, so we're done here
+    let Some((cursor_schedule, cursor_system)) = stepping.cursor() else {
+        return;
     };
 
     for (schedule, system, text_index) in &state.systems {

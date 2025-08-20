@@ -196,7 +196,7 @@ pub struct GizmoConfig {
     ///
     /// Gizmos will only be rendered to cameras with intersecting layers.
     #[cfg(feature = "bevy_render")]
-    pub render_layers: bevy_render::view::RenderLayers,
+    pub render_layers: bevy_camera::visibility::RenderLayers,
 }
 
 impl Default for GizmoConfig {
@@ -253,6 +253,6 @@ pub(crate) struct GizmoMeshConfig {
     pub line_perspective: bool,
     pub line_style: GizmoLineStyle,
     pub line_joints: GizmoLineJoint,
-    pub render_layers: bevy_render::view::RenderLayers,
+    pub render_layers: bevy_camera::visibility::RenderLayers,
     pub handle: Handle<GizmoAsset>,
 }

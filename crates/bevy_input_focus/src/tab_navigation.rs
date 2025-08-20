@@ -102,6 +102,7 @@ impl TabGroup {
 /// A navigation action that users might take to navigate your user interface in a cyclic fashion.
 ///
 /// These values are consumed by the [`TabNavigation`] system param.
+#[derive(Clone, Copy)]
 pub enum NavAction {
     /// Navigate to the next focusable entity, wrapping around to the beginning if at the end.
     ///
@@ -344,9 +345,6 @@ pub struct TabNavigationPlugin;
 impl Plugin for TabNavigationPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(Startup, setup_tab_navigation);
-
-        #[cfg(feature = "bevy_reflect")]
-        app.register_type::<TabIndex>().register_type::<TabGroup>();
         app.add_observer(acquire_focus);
         app.add_observer(click_to_focus);
     }
@@ -417,7 +415,7 @@ pub fn handle_tab_navigation(
                 visible.0 = true;
             }
             Err(e) => {
-                warn!("Tab navigation error: {}", e);
+                warn!("Tab navigation error: {e}");
                 // This failure mode is recoverable, but still indicates a problem.
                 if let TabNavigationError::NoTabGroupForCurrentFocus { new_focus, .. } = e {
                     trigger.propagate(false);

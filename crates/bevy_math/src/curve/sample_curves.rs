@@ -279,7 +279,10 @@ impl<T, I> UnevenSampleCurve<T, I> {
     pub fn new(
         timed_samples: impl IntoIterator<Item = (f32, T)>,
         interpolation: I,
-    ) -> Result<Self, UnevenCoreError> {
+    ) -> Result<Self, UnevenCoreError>
+    where
+        I: Fn(&T, &T, f32) -> T,
+    {
         Ok(Self {
             core: UnevenCore::new(timed_samples)?,
             interpolation,
@@ -402,5 +405,12 @@ mod tests {
         let _: Box<dyn Reflect> = Box::new(UnevenSampleCurve::new(keyframes, foo).unwrap());
         let _: Box<dyn Reflect> = Box::new(UnevenSampleCurve::new(keyframes, bar).unwrap());
         let _: Box<dyn Reflect> = Box::new(UnevenSampleCurve::new(keyframes, baz).unwrap());
+    }
+    #[test]
+    fn test_infer_interp_arguments() {
+        // it should be possible to infer the x and y arguments of the interpolation function
+        // from the input samples. If that becomes impossible, this will fail to compile.
+        SampleCurve::new(Interval::UNIT, [0.0, 1.0], |x, y, t| x.lerp(*y, t)).ok();
+        UnevenSampleCurve::new([(0.1, 1.0), (1.0, 3.0)], |x, y, t| x.lerp(*y, t)).ok();
     }
 }

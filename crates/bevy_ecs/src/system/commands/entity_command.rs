@@ -143,12 +143,38 @@ pub unsafe fn insert_by_id<T: Send + 'static>(
 
 /// An [`EntityCommand`] that adds a component to an entity using
 /// the component's [`FromWorld`] implementation.
+///
+/// `T::from_world` will only be invoked if the component will actually be inserted.
+/// In other words, `T::from_world` will *not* be invoked if `mode` is [`InsertMode::Keep`]
+/// and the entity already has the component.
 #[track_caller]
 pub fn insert_from_world<T: Component + FromWorld>(mode: InsertMode) -> impl EntityCommand {
     let caller = MaybeLocation::caller();
     move |mut entity: EntityWorldMut| {
-        let value = entity.world_scope(|world| T::from_world(world));
-        entity.insert_with_caller(value, mode, caller, RelationshipHookMode::Run);
+        if !(mode == InsertMode::Keep && entity.contains::<T>()) {
+            let value = entity.world_scope(|world| T::from_world(world));
+            entity.insert_with_caller(value, mode, caller, RelationshipHookMode::Run);
+        }
+    }
+}
+
+/// An [`EntityCommand`] that adds a component to an entity using
+/// some function that returns the component.
+///
+/// The function will only be invoked if the component will actually be inserted.
+/// In other words, the function will *not* be invoked if `mode` is [`InsertMode::Keep`]
+/// and the entity already has the component.
+#[track_caller]
+pub fn insert_with<T: Component, F>(component_fn: F, mode: InsertMode) -> impl EntityCommand
+where
+    F: FnOnce() -> T + Send + 'static,
+{
+    let caller = MaybeLocation::caller();
+    move |mut entity: EntityWorldMut| {
+        if !(mode == InsertMode::Keep && entity.contains::<T>()) {
+            let value = component_fn();
+            entity.insert_with_caller(value, mode, caller, RelationshipHookMode::Run);
+        }
     }
 }
 
@@ -284,8 +310,20 @@ pub fn clone_components<B: Bundle>(target: Entity) -> impl EntityCommand {
     }
 }
 
-/// An [`EntityCommand`] that clones the specified components of an entity
-/// and inserts them into another entity, then removes them from the original entity.
+/// An [`EntityCommand`] moves the specified components of this entity into another entity.
+///
+/// Components with [`Ignore`] clone behavior will not be moved, while components that
+/// have a [`Custom`] clone behavior will be cloned using it and then removed from the source entity.
+/// All other components will be moved without any other special handling.
+///
+/// Note that this will trigger `on_remove` hooks/observers on this entity and `on_insert`/`on_add` hooks/observers on the target entity.
+///
+/// # Panics
+///
+/// The command will panic when applied if the target entity does not exist.
+///
+/// [`Ignore`]: crate::component::ComponentCloneBehavior::Ignore
+/// [`Custom`]: crate::component::ComponentCloneBehavior::Custom
 pub fn move_components<B: Bundle>(target: Entity) -> impl EntityCommand {
     move |mut entity: EntityWorldMut| {
         entity.move_components::<B>(target);

@@ -6,10 +6,8 @@
 mod camera_controller;
 
 use bevy::{
-    pbr::{
-        experimental::meshlet::{MeshletMesh3d, MeshletPlugin},
-        CascadeShadowConfigBuilder, DirectionalLightShadowMap,
-    },
+    light::{CascadeShadowConfigBuilder, DirectionalLightShadowMap},
+    pbr::experimental::meshlet::{MeshletMesh3d, MeshletPlugin},
     prelude::*,
     render::render_resource::AsBindGroup,
 };
@@ -17,7 +15,7 @@ use camera_controller::{CameraController, CameraControllerPlugin};
 use std::{f32::consts::PI, path::Path, process::ExitCode};
 
 const ASSET_URL: &str =
-    "https://raw.githubusercontent.com/JMS55/bevy_meshlet_asset/7a7c14138021f63904b584d5f7b73b695c7f4bbf/bunny.meshlet_mesh";
+    "https://raw.githubusercontent.com/atlv24/assets/69bb39164fd35aadf863f6009520d4981eafcea0/bunny.meshlet_mesh";
 
 fn main() -> ExitCode {
     if !Path::new("./assets/external/models/bunny.meshlet_mesh").exists() {
@@ -30,7 +28,7 @@ fn main() -> ExitCode {
         .add_plugins((
             DefaultPlugins,
             MeshletPlugin {
-                cluster_buffer_slots: 8192,
+                cluster_buffer_slots: 1 << 14,
             },
             MaterialPlugin::<MeshletDebugMaterial>::default(),
             CameraControllerPlugin,
@@ -76,7 +74,7 @@ fn setup(
         Transform::from_rotation(Quat::from_euler(EulerRot::ZYX, 0.0, PI * -0.15, PI * -0.15)),
     ));
 
-    // A custom file format storing a [`bevy_render::mesh::Mesh`]
+    // A custom file format storing a [`bevy_mesh::Mesh`]
     // that has been converted to a [`bevy_pbr::meshlet::MeshletMesh`]
     // using [`bevy_pbr::meshlet::MeshletMesh::from_mesh`], which is
     // a function only available when the `meshlet_processor` cargo feature is enabled.

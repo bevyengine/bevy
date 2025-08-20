@@ -67,8 +67,7 @@ pub struct DelayedComponentPlugin;
 
 impl Plugin for DelayedComponentPlugin {
     fn build(&self, app: &mut App) {
-        app.register_type::<DelayedComponentTimer>()
-            .add_systems(Update, tick_timers);
+        app.add_systems(Update, tick_timers);
     }
 }
 
@@ -106,7 +105,7 @@ struct DelayedComponentTimer(Timer);
 #[component(immutable)]
 struct DelayedComponent<B: Bundle>(B);
 
-#[derive(Event, EntityEvent)]
+#[derive(EntityEvent)]
 struct Unwrap;
 
 fn tick_timers(
@@ -127,10 +126,10 @@ fn tick_timers(
 }
 
 fn unwrap<B: Bundle>(trigger: On<Unwrap>, world: &mut World) {
-    if let Ok(mut target) = world.get_entity_mut(trigger.target()) {
-        if let Some(DelayedComponent(bundle)) = target.take::<DelayedComponent<B>>() {
-            target.insert(bundle);
-        }
+    if let Ok(mut target) = world.get_entity_mut(trigger.target())
+        && let Some(DelayedComponent(bundle)) = target.take::<DelayedComponent<B>>()
+    {
+        target.insert(bundle);
     }
 
     world.despawn(trigger.observer());

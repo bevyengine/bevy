@@ -3,10 +3,10 @@
 use bevy::{
     color::palettes::basic::*,
     core_widgets::{
-        CoreButton, CoreCheckbox, CoreRadio, CoreRadioGroup, CoreSlider, CoreSliderThumb,
-        CoreWidgetsPlugin, SliderRange, SliderValue, TrackClick,
+        Activate, Callback, CoreButton, CoreCheckbox, CoreRadio, CoreRadioGroup, CoreSlider,
+        CoreSliderDragState, CoreSliderThumb, CoreWidgetsPlugins, SliderRange, SliderValue,
+        TrackClick, ValueChange,
     },
-    ecs::system::SystemId,
     input_focus::{
         tab_navigation::{TabGroup, TabIndex, TabNavigationPlugin},
         InputDispatchPlugin,
@@ -21,7 +21,7 @@ fn main() {
     App::new()
         .add_plugins((
             DefaultPlugins,
-            CoreWidgetsPlugin,
+            CoreWidgetsPlugins,
             InputDispatchPlugin,
             TabNavigationPlugin,
         ))
@@ -53,8 +53,9 @@ const HOVERED_BUTTON: Color = Color::srgb(0.25, 0.25, 0.25);
 const PRESSED_BUTTON: Color = Color::srgb(0.35, 0.75, 0.35);
 const SLIDER_TRACK: Color = Color::srgb(0.05, 0.05, 0.05);
 const SLIDER_THUMB: Color = Color::srgb(0.35, 0.75, 0.35);
-const CHECKBOX_OUTLINE: Color = Color::srgb(0.45, 0.45, 0.45);
-const CHECKBOX_CHECK: Color = Color::srgb(0.35, 0.75, 0.35);
+const ELEMENT_OUTLINE: Color = Color::srgb(0.45, 0.45, 0.45);
+const ELEMENT_FILL: Color = Color::srgb(0.35, 0.75, 0.35);
+const ELEMENT_FILL_DISABLED: Color = Color::srgb(0.5019608, 0.5019608, 0.5019608);
 
 /// Marker which identifies buttons with a particular style, in this case the "Demo style".
 #[derive(Component)]
@@ -119,24 +120,24 @@ fn update_widget_values(
 
 fn setup(mut commands: Commands, assets: Res<AssetServer>) {
     // System to print a value when the button is clicked.
-    let on_click = commands.register_system(|| {
+    let on_click = commands.register_system(|_: In<Activate>| {
         info!("Button clicked!");
     });
 
     // System to update a resource when the slider value changes. Note that we could have
     // updated the slider value directly, but we want to demonstrate externalizing the state.
     let on_change_value = commands.register_system(
-        |value: In<f32>, mut widget_states: ResMut<DemoWidgetStates>| {
-            widget_states.slider_value = *value;
+        |value: In<ValueChange<f32>>, mut widget_states: ResMut<DemoWidgetStates>| {
+            widget_states.slider_value = value.0.value;
         },
     );
 
     // System to update a resource when the radio group changes.
     let on_change_radio = commands.register_system(
-        |value: In<Entity>,
+        |value: In<Activate>,
          mut widget_states: ResMut<DemoWidgetStates>,
          q_radios: Query<&DemoRadio>| {
-            if let Ok(radio) = q_radios.get(*value) {
+            if let Ok(radio) = q_radios.get(value.0 .0) {
                 widget_states.slider_click = radio.0;
             }
         },
@@ -146,17 +147,17 @@ fn setup(mut commands: Commands, assets: Res<AssetServer>) {
     commands.spawn(Camera2d);
     commands.spawn(demo_root(
         &assets,
-        on_click,
-        on_change_value,
-        on_change_radio,
+        Callback::System(on_click),
+        Callback::System(on_change_value),
+        Callback::System(on_change_radio),
     ));
 }
 
 fn demo_root(
     asset_server: &AssetServer,
-    on_click: SystemId,
-    on_change_value: SystemId<In<f32>>,
-    on_change_radio: SystemId<In<Entity>>,
+    on_click: Callback<In<Activate>>,
+    on_change_value: Callback<In<ValueChange<f32>>>,
+    on_change_radio: Callback<In<Activate>>,
 ) -> impl Bundle {
     (
         Node {
@@ -172,15 +173,15 @@ fn demo_root(
         TabGroup::default(),
         children![
             button(asset_server, on_click),
-            slider(0.0, 100.0, 50.0, Some(on_change_value)),
-            checkbox(asset_server, "Checkbox", None),
-            radio_group(asset_server, Some(on_change_radio)),
+            slider(0.0, 100.0, 50.0, on_change_value),
+            checkbox(asset_server, "Checkbox", Callback::Ignore),
+            radio_group(asset_server, on_change_radio),
             Text::new("Press 'D' to toggle widget disabled states"),
         ],
     )
 }
 
-fn button(asset_server: &AssetServer, on_click: SystemId) -> impl Bundle {
+fn button(asset_server: &AssetServer, on_click: Callback<In<Activate>>) -> impl Bundle {
     (
         Node {
             width: Val::Px(150.0),
@@ -192,7 +193,7 @@ fn button(asset_server: &AssetServer, on_click: SystemId) -> impl Bundle {
         },
         DemoButton,
         CoreButton {
-            on_click: Some(on_click),
+            on_activate: on_click,
         },
         Hovered::default(),
         TabIndex(0),
@@ -323,7 +324,12 @@ fn set_button_style(
 }
 
 /// Create a demo slider
-fn slider(min: f32, max: f32, value: f32, on_change: Option<SystemId<In<f32>>>) -> impl Bundle {
+fn slider(
+    min: f32,
+    max: f32,
+    value: f32,
+    on_change: Callback<In<ValueChange<f32>>>,
+) -> impl Bundle {
     (
         Node {
             display: Display::Flex,
@@ -353,7 +359,7 @@ fn slider(min: f32, max: f32, value: f32, on_change: Option<SystemId<In<f32>>>) 
                     height: Val::Px(6.0),
                     ..default()
                 },
-                BackgroundColor(SLIDER_TRACK), // Border color for the checkbox
+                BackgroundColor(SLIDER_TRACK), // Border color for the slider
                 BorderRadius::all(Val::Px(3.0)),
             )),
             // Invisible track to allow absolute placement of thumb entity. This is narrower than
@@ -398,6 +404,7 @@ fn update_slider_style(
             &SliderValue,
             &SliderRange,
             &Hovered,
+            &CoreSliderDragState,
             Has<InteractionDisabled>,
         ),
         (
@@ -405,6 +412,7 @@ fn update_slider_style(
                 Changed<SliderValue>,
                 Changed<SliderRange>,
                 Changed<Hovered>,
+                Changed<CoreSliderDragState>,
                 Added<InteractionDisabled>,
             )>,
             With<DemoSlider>,
@@ -413,31 +421,39 @@ fn update_slider_style(
     children: Query<&Children>,
     mut thumbs: Query<(&mut Node, &mut BackgroundColor, Has<DemoSliderThumb>), Without<DemoSlider>>,
 ) {
-    for (slider_ent, value, range, hovered, disabled) in sliders.iter() {
+    for (slider_ent, value, range, hovered, drag_state, disabled) in sliders.iter() {
         for child in children.iter_descendants(slider_ent) {
-            if let Ok((mut thumb_node, mut thumb_bg, is_thumb)) = thumbs.get_mut(child) {
-                if is_thumb {
-                    thumb_node.left = Val::Percent(range.thumb_position(value.0) * 100.0);
-                    thumb_bg.0 = thumb_color(disabled, hovered.0);
-                }
+            if let Ok((mut thumb_node, mut thumb_bg, is_thumb)) = thumbs.get_mut(child)
+                && is_thumb
+            {
+                thumb_node.left = Val::Percent(range.thumb_position(value.0) * 100.0);
+                thumb_bg.0 = thumb_color(disabled, hovered.0 | drag_state.dragging);
             }
         }
     }
 }
 
 fn update_slider_style2(
-    sliders: Query<(Entity, &Hovered, Has<InteractionDisabled>), With<DemoSlider>>,
+    sliders: Query<
+        (
+            Entity,
+            &Hovered,
+            &CoreSliderDragState,
+            Has<InteractionDisabled>,
+        ),
+        With<DemoSlider>,
+    >,
     children: Query<&Children>,
     mut thumbs: Query<(&mut BackgroundColor, Has<DemoSliderThumb>), Without<DemoSlider>>,
     mut removed_disabled: RemovedComponents<InteractionDisabled>,
 ) {
     removed_disabled.read().for_each(|entity| {
-        if let Ok((slider_ent, hovered, disabled)) = sliders.get(entity) {
+        if let Ok((slider_ent, hovered, drag_state, disabled)) = sliders.get(entity) {
             for child in children.iter_descendants(slider_ent) {
-                if let Ok((mut thumb_bg, is_thumb)) = thumbs.get_mut(child) {
-                    if is_thumb {
-                        thumb_bg.0 = thumb_color(disabled, hovered.0);
-                    }
+                if let Ok((mut thumb_bg, is_thumb)) = thumbs.get_mut(child)
+                    && is_thumb
+                {
+                    thumb_bg.0 = thumb_color(disabled, hovered.0 | drag_state.dragging);
                 }
             }
         }
@@ -446,7 +462,7 @@ fn update_slider_style2(
 
 fn thumb_color(disabled: bool, hovered: bool) -> Color {
     match (disabled, hovered) {
-        (true, _) => GRAY.into(),
+        (true, _) => ELEMENT_FILL_DISABLED,
 
         (false, true) => SLIDER_THUMB.lighter(0.3),
 
@@ -458,7 +474,7 @@ fn thumb_color(disabled: bool, hovered: bool) -> Color {
 fn checkbox(
     asset_server: &AssetServer,
     caption: &str,
-    on_change: Option<SystemId<In<bool>>>,
+    on_change: Callback<In<ValueChange<bool>>>,
 ) -> impl Bundle {
     (
         Node {
@@ -485,7 +501,7 @@ fn checkbox(
                     border: UiRect::all(Val::Px(2.0)),
                     ..default()
                 },
-                BorderColor::all(CHECKBOX_OUTLINE), // Border color for the checkbox
+                BorderColor::all(ELEMENT_OUTLINE), // Border color for the checkbox
                 BorderRadius::all(Val::Px(3.0)),
                 children![
                     // Checkbox inner
@@ -499,7 +515,7 @@ fn checkbox(
                             top: Val::Px(2.0),
                             ..default()
                         },
-                        BackgroundColor(CHECKBOX_CHECK),
+                        BackgroundColor(ELEMENT_FILL),
                     ),
                 ],
             )),
@@ -515,7 +531,7 @@ fn checkbox(
     )
 }
 
-// Update the checkbox's styles.
+// Update the element's styles.
 fn update_checkbox_or_radio_style(
     mut q_checkbox: Query<
         (Has<Checked>, &Hovered, Has<InteractionDisabled>, &Children),
@@ -625,33 +641,33 @@ fn set_checkbox_or_radio_style(
     mark_bg: &mut BackgroundColor,
 ) {
     let color: Color = if disabled {
-        // If the checkbox is disabled, use a lighter color
-        CHECKBOX_OUTLINE.with_alpha(0.2)
+        // If the element is disabled, use a lighter color
+        ELEMENT_OUTLINE.with_alpha(0.2)
     } else if hovering {
         // If hovering, use a lighter color
-        CHECKBOX_OUTLINE.lighter(0.2)
+        ELEMENT_OUTLINE.lighter(0.2)
     } else {
-        // Default color for the checkbox
-        CHECKBOX_OUTLINE
+        // Default color for the element
+        ELEMENT_OUTLINE
     };
 
-    // Update the background color of the check mark
+    // Update the background color of the element
     border_color.set_all(color);
 
     let mark_color: Color = match (disabled, checked) {
-        (true, true) => CHECKBOX_CHECK.with_alpha(0.5),
-        (false, true) => CHECKBOX_CHECK,
+        (true, true) => ELEMENT_FILL_DISABLED,
+        (false, true) => ELEMENT_FILL,
         (_, false) => Srgba::NONE.into(),
     };
 
     if mark_bg.0 != mark_color {
-        // Update the color of the check mark
+        // Update the color of the element
         mark_bg.0 = mark_color;
     }
 }
 
 /// Create a demo radio group
-fn radio_group(asset_server: &AssetServer, on_change: Option<SystemId<In<Entity>>>) -> impl Bundle {
+fn radio_group(asset_server: &AssetServer, on_change: Callback<In<Activate>>) -> impl Bundle {
     (
         Node {
             display: Display::Flex,
@@ -697,7 +713,7 @@ fn radio(asset_server: &AssetServer, value: TrackClick, caption: &str) -> impl B
                     border: UiRect::all(Val::Px(2.0)),
                     ..default()
                 },
-                BorderColor::all(CHECKBOX_OUTLINE), // Border color for the checkbox
+                BorderColor::all(ELEMENT_OUTLINE), // Border color for the radio button
                 BorderRadius::MAX,
                 children![
                     // Radio inner
@@ -712,7 +728,7 @@ fn radio(asset_server: &AssetServer, value: TrackClick, caption: &str) -> impl B
                             ..default()
                         },
                         BorderRadius::MAX,
-                        BackgroundColor(CHECKBOX_CHECK),
+                        BackgroundColor(ELEMENT_FILL),
                     ),
                 ],
             )),

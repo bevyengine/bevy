@@ -3,12 +3,11 @@ use crate::FullscreenShader;
 use super::{
     downsampling_pipeline::BloomUniforms, Bloom, BloomCompositeMode, BLOOM_TEXTURE_FORMAT,
 };
-use bevy_asset::{load_embedded_asset, Handle};
+use bevy_asset::{load_embedded_asset, AssetServer, Handle};
 use bevy_ecs::{
     prelude::{Component, Entity},
     resource::Resource,
     system::{Commands, Query, Res, ResMut},
-    world::{FromWorld, World},
 };
 use bevy_render::{
     render_resource::{
@@ -18,6 +17,8 @@ use bevy_render::{
     renderer::RenderDevice,
     view::ViewTarget,
 };
+use bevy_shader::Shader;
+use bevy_utils::default;
 
 #[derive(Component)]
 pub struct UpsamplingPipelineIds {
@@ -40,31 +41,32 @@ pub struct BloomUpsamplingPipelineKeys {
     final_pipeline: bool,
 }
 
-impl FromWorld for BloomUpsamplingPipeline {
-    fn from_world(world: &mut World) -> Self {
-        let render_device = world.resource::<RenderDevice>();
-
-        let bind_group_layout = render_device.create_bind_group_layout(
-            "bloom_upsampling_bind_group_layout",
-            &BindGroupLayoutEntries::sequential(
-                ShaderStages::FRAGMENT,
-                (
-                    // Input texture
-                    texture_2d(TextureSampleType::Float { filterable: true }),
-                    // Sampler
-                    sampler(SamplerBindingType::Filtering),
-                    // BloomUniforms
-                    uniform_buffer::<BloomUniforms>(true),
-                ),
+pub fn init_bloom_upscaling_pipeline(
+    mut commands: Commands,
+    render_device: Res<RenderDevice>,
+    fullscreen_shader: Res<FullscreenShader>,
+    asset_server: Res<AssetServer>,
+) {
+    let bind_group_layout = render_device.create_bind_group_layout(
+        "bloom_upsampling_bind_group_layout",
+        &BindGroupLayoutEntries::sequential(
+            ShaderStages::FRAGMENT,
+            (
+                // Input texture
+                texture_2d(TextureSampleType::Float { filterable: true }),
+                // Sampler
+                sampler(SamplerBindingType::Filtering),
+                // BloomUniforms
+                uniform_buffer::<BloomUniforms>(true),
             ),
-        );
+        ),
+    );
 
-        BloomUpsamplingPipeline {
-            bind_group_layout,
-            fullscreen_shader: world.resource::<FullscreenShader>().clone(),
-            fragment_shader: load_embedded_asset!(world, "bloom.wgsl"),
-        }
-    }
+    commands.insert_resource(BloomUpsamplingPipeline {
+        bind_group_layout,
+        fullscreen_shader: fullscreen_shader.clone(),
+        fragment_shader: load_embedded_asset!(asset_server.as_ref(), "bloom.wgsl"),
+    });
 }
 
 impl SpecializedRenderPipeline for BloomUpsamplingPipeline {
@@ -115,8 +117,7 @@ impl SpecializedRenderPipeline for BloomUpsamplingPipeline {
             vertex: self.fullscreen_shader.to_vertex_state(),
             fragment: Some(FragmentState {
                 shader: self.fragment_shader.clone(),
-                shader_defs: vec![],
-                entry_point: "upsample".into(),
+                entry_point: Some("upsample".into()),
                 targets: vec![Some(ColorTargetState {
                     format: texture_format,
                     blend: Some(BlendState {
@@ -129,12 +130,9 @@ impl SpecializedRenderPipeline for BloomUpsamplingPipeline {
                     }),
                     write_mask: ColorWrites::ALL,
                 })],
+                ..default()
             }),
-            primitive: PrimitiveState::default(),
-            depth_stencil: None,
-            multisample: MultisampleState::default(),
-            push_constant_ranges: Vec::new(),
-            zero_initialize_workgroup_memory: false,
+            ..default()
         }
     }
 }

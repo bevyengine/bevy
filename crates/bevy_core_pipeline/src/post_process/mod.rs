@@ -3,7 +3,10 @@
 //! Currently, this consists only of chromatic aberration.
 
 use bevy_app::{App, Plugin};
-use bevy_asset::{embedded_asset, load_embedded_asset, weak_handle, Assets, Handle};
+use bevy_asset::{
+    embedded_asset, load_embedded_asset, AssetServer, Assets, Handle, RenderAssetUsages,
+};
+use bevy_camera::Camera;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     component::Component,
@@ -13,32 +16,32 @@ use bevy_ecs::{
     resource::Resource,
     schedule::IntoScheduleConfigs as _,
     system::{lifetimeless::Read, Commands, Query, Res, ResMut},
-    world::{FromWorld, World},
+    world::World,
 };
 use bevy_image::{BevyDefault, Image};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
-    camera::Camera,
+    diagnostic::RecordDiagnostics,
     extract_component::{ExtractComponent, ExtractComponentPlugin},
-    load_shader_library,
-    render_asset::{RenderAssetUsages, RenderAssets},
+    render_asset::RenderAssets,
     render_graph::{
-        NodeRunError, RenderGraphApp as _, RenderGraphContext, ViewNode, ViewNodeRunner,
+        NodeRunError, RenderGraphContext, RenderGraphExt as _, ViewNode, ViewNodeRunner,
     },
     render_resource::{
         binding_types::{sampler, texture_2d, uniform_buffer},
         BindGroupEntries, BindGroupLayout, BindGroupLayoutEntries, CachedRenderPipelineId,
         ColorTargetState, ColorWrites, DynamicUniformBuffer, Extent3d, FilterMode, FragmentState,
         Operations, PipelineCache, RenderPassColorAttachment, RenderPassDescriptor,
-        RenderPipelineDescriptor, Sampler, SamplerBindingType, SamplerDescriptor, Shader,
-        ShaderStages, ShaderType, SpecializedRenderPipeline, SpecializedRenderPipelines,
-        TextureDimension, TextureFormat, TextureSampleType,
+        RenderPipelineDescriptor, Sampler, SamplerBindingType, SamplerDescriptor, ShaderStages,
+        ShaderType, SpecializedRenderPipeline, SpecializedRenderPipelines, TextureDimension,
+        TextureFormat, TextureSampleType,
     },
     renderer::{RenderContext, RenderDevice, RenderQueue},
     texture::GpuImage,
     view::{ExtractedView, ViewTarget},
-    Render, RenderApp, RenderSystems,
+    Render, RenderApp, RenderStartup, RenderSystems,
 };
+use bevy_shader::{load_shader_library, Shader};
 use bevy_utils::prelude::default;
 
 use crate::{
@@ -46,13 +49,6 @@ use crate::{
     core_3d::graph::{Core3d, Node3d},
     FullscreenShader,
 };
-
-/// The handle to the default chromatic aberration lookup texture.
-///
-/// This is just a 3x1 image consisting of one red pixel, one green pixel, and
-/// one blue pixel, in that order.
-const DEFAULT_CHROMATIC_ABERRATION_LUT_HANDLE: Handle<Image> =
-    weak_handle!("dc3e3307-40a1-49bb-be6d-e0634e8836b2");
 
 /// The default chromatic aberration intensity amount, in a fraction of the
 /// window size.
@@ -67,6 +63,9 @@ const DEFAULT_CHROMATIC_ABERRATION_MAX_SAMPLES: u32 = 8;
 /// order.
 static DEFAULT_CHROMATIC_ABERRATION_LUT_DATA: [u8; 12] =
     [255, 0, 0, 255, 0, 255, 0, 255, 0, 0, 255, 255];
+
+#[derive(Resource)]
+struct DefaultChromaticAberrationLut(Handle<Image>);
 
 /// A plugin that implements a built-in postprocessing stack with some common
 /// effects.
@@ -96,14 +95,14 @@ pub struct PostProcessingPlugin;
 pub struct ChromaticAberration {
     /// The lookup texture that determines the color gradient.
     ///
-    /// By default, this is a 3×1 texel texture consisting of one red pixel, one
-    /// green pixel, and one blue texel, in that order. This recreates the most
-    /// typical chromatic aberration pattern. However, you can change it to
-    /// achieve different artistic effects.
+    /// By default (if None), this is a 3×1 texel texture consisting of one red
+    /// pixel, one green pixel, and one blue texel, in that order. This
+    /// recreates the most typical chromatic aberration pattern. However, you
+    /// can change it to achieve different artistic effects.
     ///
     /// The texture is always sampled in its vertical center, so it should
     /// ordinarily have a height of 1 texel.
-    pub color_lut: Handle<Image>,
+    pub color_lut: Option<Handle<Image>>,
 
     /// The size of the streaks around the edges of objects, as a fraction of
     /// the window size.
@@ -192,22 +191,18 @@ impl Plugin for PostProcessingPlugin {
 
         // Load the default chromatic aberration LUT.
         let mut assets = app.world_mut().resource_mut::<Assets<_>>();
-        assets.insert(
-            DEFAULT_CHROMATIC_ABERRATION_LUT_HANDLE.id(),
-            Image::new(
-                Extent3d {
-                    width: 3,
-                    height: 1,
-                    depth_or_array_layers: 1,
-                },
-                TextureDimension::D2,
-                DEFAULT_CHROMATIC_ABERRATION_LUT_DATA.to_vec(),
-                TextureFormat::Rgba8UnormSrgb,
-                RenderAssetUsages::RENDER_WORLD,
-            ),
-        );
+        let default_lut = assets.add(Image::new(
+            Extent3d {
+                width: 3,
+                height: 1,
+                depth_or_array_layers: 1,
+            },
+            TextureDimension::D2,
+            DEFAULT_CHROMATIC_ABERRATION_LUT_DATA.to_vec(),
+            TextureFormat::Rgba8UnormSrgb,
+            RenderAssetUsages::RENDER_WORLD,
+        ));
 
-        app.register_type::<ChromaticAberration>();
         app.add_plugins(ExtractComponentPlugin::<ChromaticAberration>::default());
 
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
@@ -215,8 +210,10 @@ impl Plugin for PostProcessingPlugin {
         };
 
         render_app
+            .insert_resource(DefaultChromaticAberrationLut(default_lut))
             .init_resource::<SpecializedRenderPipelines<PostProcessingPipeline>>()
             .init_resource::<PostProcessingUniformBuffers>()
+            .add_systems(RenderStartup, init_post_processing_pipeline)
             .add_systems(
                 Render,
                 (
@@ -246,74 +243,68 @@ impl Plugin for PostProcessingPlugin {
                 (Node2d::Bloom, Node2d::PostProcessing, Node2d::Tonemapping),
             );
     }
-
-    fn finish(&self, app: &mut App) {
-        let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
-            return;
-        };
-        render_app.init_resource::<PostProcessingPipeline>();
-    }
 }
 
 impl Default for ChromaticAberration {
     fn default() -> Self {
         Self {
-            color_lut: DEFAULT_CHROMATIC_ABERRATION_LUT_HANDLE,
+            color_lut: None,
             intensity: DEFAULT_CHROMATIC_ABERRATION_INTENSITY,
             max_samples: DEFAULT_CHROMATIC_ABERRATION_MAX_SAMPLES,
         }
     }
 }
 
-impl FromWorld for PostProcessingPipeline {
-    fn from_world(world: &mut World) -> Self {
-        let render_device = world.resource::<RenderDevice>();
-
-        // Create our single bind group layout.
-        let bind_group_layout = render_device.create_bind_group_layout(
-            Some("postprocessing bind group layout"),
-            &BindGroupLayoutEntries::sequential(
-                ShaderStages::FRAGMENT,
-                (
-                    // Chromatic aberration source:
-                    texture_2d(TextureSampleType::Float { filterable: true }),
-                    // Chromatic aberration source sampler:
-                    sampler(SamplerBindingType::Filtering),
-                    // Chromatic aberration LUT:
-                    texture_2d(TextureSampleType::Float { filterable: true }),
-                    // Chromatic aberration LUT sampler:
-                    sampler(SamplerBindingType::Filtering),
-                    // Chromatic aberration settings:
-                    uniform_buffer::<ChromaticAberrationUniform>(true),
-                ),
+pub fn init_post_processing_pipeline(
+    mut commands: Commands,
+    render_device: Res<RenderDevice>,
+    fullscreen_shader: Res<FullscreenShader>,
+    asset_server: Res<AssetServer>,
+) {
+    // Create our single bind group layout.
+    let bind_group_layout = render_device.create_bind_group_layout(
+        Some("postprocessing bind group layout"),
+        &BindGroupLayoutEntries::sequential(
+            ShaderStages::FRAGMENT,
+            (
+                // Chromatic aberration source:
+                texture_2d(TextureSampleType::Float { filterable: true }),
+                // Chromatic aberration source sampler:
+                sampler(SamplerBindingType::Filtering),
+                // Chromatic aberration LUT:
+                texture_2d(TextureSampleType::Float { filterable: true }),
+                // Chromatic aberration LUT sampler:
+                sampler(SamplerBindingType::Filtering),
+                // Chromatic aberration settings:
+                uniform_buffer::<ChromaticAberrationUniform>(true),
             ),
-        );
+        ),
+    );
 
-        // Both source and chromatic aberration LUTs should be sampled
-        // bilinearly.
+    // Both source and chromatic aberration LUTs should be sampled
+    // bilinearly.
 
-        let source_sampler = render_device.create_sampler(&SamplerDescriptor {
-            mipmap_filter: FilterMode::Linear,
-            min_filter: FilterMode::Linear,
-            mag_filter: FilterMode::Linear,
-            ..default()
-        });
+    let source_sampler = render_device.create_sampler(&SamplerDescriptor {
+        mipmap_filter: FilterMode::Linear,
+        min_filter: FilterMode::Linear,
+        mag_filter: FilterMode::Linear,
+        ..default()
+    });
 
-        let chromatic_aberration_lut_sampler = render_device.create_sampler(&SamplerDescriptor {
-            mipmap_filter: FilterMode::Linear,
-            min_filter: FilterMode::Linear,
-            mag_filter: FilterMode::Linear,
-            ..default()
-        });
+    let chromatic_aberration_lut_sampler = render_device.create_sampler(&SamplerDescriptor {
+        mipmap_filter: FilterMode::Linear,
+        min_filter: FilterMode::Linear,
+        mag_filter: FilterMode::Linear,
+        ..default()
+    });
 
-        PostProcessingPipeline {
-            bind_group_layout,
-            source_sampler,
-            chromatic_aberration_lut_sampler,
-            fullscreen_shader: world.resource::<FullscreenShader>().clone(),
-            fragment_shader: load_embedded_asset!(world, "post_process.wgsl"),
-        }
-    }
+    commands.insert_resource(PostProcessingPipeline {
+        bind_group_layout,
+        source_sampler,
+        chromatic_aberration_lut_sampler,
+        fullscreen_shader: fullscreen_shader.clone(),
+        fragment_shader: load_embedded_asset!(asset_server.as_ref(), "post_process.wgsl"),
+    });
 }
 
 impl SpecializedRenderPipeline for PostProcessingPipeline {
@@ -326,19 +317,14 @@ impl SpecializedRenderPipeline for PostProcessingPipeline {
             vertex: self.fullscreen_shader.to_vertex_state(),
             fragment: Some(FragmentState {
                 shader: self.fragment_shader.clone(),
-                shader_defs: vec![],
-                entry_point: "fragment_main".into(),
                 targets: vec![Some(ColorTargetState {
                     format: key.texture_format,
                     blend: None,
                     write_mask: ColorWrites::ALL,
                 })],
+                ..default()
             }),
-            primitive: default(),
-            depth_stencil: None,
-            multisample: default(),
-            push_constant_ranges: vec![],
-            zero_initialize_workgroup_memory: false,
+            ..default()
         }
     }
 }
@@ -362,6 +348,7 @@ impl ViewNode for PostProcessingNode {
         let post_processing_pipeline = world.resource::<PostProcessingPipeline>();
         let post_processing_uniform_buffers = world.resource::<PostProcessingUniformBuffers>();
         let gpu_image_assets = world.resource::<RenderAssets<GpuImage>>();
+        let default_lut = world.resource::<DefaultChromaticAberrationLut>();
 
         // We need a render pipeline to be prepared.
         let Some(pipeline) = pipeline_cache.get_render_pipeline(**pipeline_id) else {
@@ -369,8 +356,12 @@ impl ViewNode for PostProcessingNode {
         };
 
         // We need the chromatic aberration LUT to be present.
-        let Some(chromatic_aberration_lut) = gpu_image_assets.get(&chromatic_aberration.color_lut)
-        else {
+        let Some(chromatic_aberration_lut) = gpu_image_assets.get(
+            chromatic_aberration
+                .color_lut
+                .as_ref()
+                .unwrap_or(&default_lut.0),
+        ) else {
             return Ok(());
         };
 
@@ -382,14 +373,17 @@ impl ViewNode for PostProcessingNode {
             return Ok(());
         };
 
+        let diagnostics = render_context.diagnostic_recorder();
+
         // Use the [`PostProcessWrite`] infrastructure, since this is a
         // full-screen pass.
         let post_process = view_target.post_process_write();
 
         let pass_descriptor = RenderPassDescriptor {
-            label: Some("postprocessing pass"),
+            label: Some("postprocessing"),
             color_attachments: &[Some(RenderPassColorAttachment {
                 view: post_process.destination,
+                depth_slice: None,
                 resolve_target: None,
                 ops: Operations::default(),
             })],
@@ -413,10 +407,13 @@ impl ViewNode for PostProcessingNode {
         let mut render_pass = render_context
             .command_encoder()
             .begin_render_pass(&pass_descriptor);
+        let pass_span = diagnostics.pass_span(&mut render_pass, "postprocessing");
 
         render_pass.set_pipeline(pipeline);
         render_pass.set_bind_group(0, &bind_group, &[**post_processing_uniform_buffer_offsets]);
         render_pass.draw(0..3, 0..1);
+
+        pass_span.end(&mut render_pass);
 
         Ok(())
     }

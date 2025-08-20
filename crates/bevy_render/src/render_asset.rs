@@ -3,8 +3,7 @@ use crate::{
     RenderSystems, Res,
 };
 use bevy_app::{App, Plugin, SubApp};
-pub use bevy_asset::RenderAssetUsages;
-use bevy_asset::{Asset, AssetEvent, AssetId, Assets};
+use bevy_asset::{Asset, AssetEvent, AssetId, Assets, RenderAssetUsages};
 use bevy_ecs::{
     prelude::{Commands, EventReader, IntoScheduleConfigs, ResMut, Resource},
     schedule::{ScheduleConfigs, SystemSet},
@@ -499,14 +498,14 @@ impl RenderAssetBytesPerFrameLimiter {
     }
 
     /// Decreases the available bytes for the current frame.
-    fn write_bytes(&self, bytes: usize) {
+    pub(crate) fn write_bytes(&self, bytes: usize) {
         if self.max_bytes.is_some() && bytes > 0 {
             self.bytes_written.fetch_add(bytes, Ordering::Relaxed);
         }
     }
 
     /// Returns `true` if there are no remaining bytes available for writing this frame.
-    fn exhausted(&self) -> bool {
+    pub(crate) fn exhausted(&self) -> bool {
         if let Some(max_bytes) = self.max_bytes {
             let bytes_written = self.bytes_written.load(Ordering::Relaxed);
             bytes_written >= max_bytes
