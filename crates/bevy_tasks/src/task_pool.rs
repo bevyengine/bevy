@@ -422,6 +422,12 @@ impl TaskPool {
     }
 }
 
+impl Default for TaskPool {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Drop for TaskPool {
     fn drop(&mut self) {
         self.shutdown_tx.close();

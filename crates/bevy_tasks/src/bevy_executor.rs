@@ -184,12 +184,16 @@ impl Executor {
         }
     }
 
-    /// Spawns a task onto the executor.
+    /// Spawns a 'static and Send task onto the executor.
     pub fn spawn<T: Send + 'static>(&'static self, future: impl Future<Output = T> + Send + 'static) -> Task<T> {
         // SAFETY: Both `T` and `future` are 'static.
         unsafe { self.spawn_scoped(future) }
     }
 
+    /// Spawns a non-'static Send task onto the executor.
+    ///
+    /// # Safety
+    /// The caller must ensure that the returned Task does not outlive 'a.
     pub unsafe fn spawn_scoped<'a, T: Send + 'a>(&'static self, future: impl Future<Output = T> + Send + 'a) -> Task<T> {
         // Create the task and register it in the set of active tasks.
         //
