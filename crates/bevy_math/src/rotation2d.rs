@@ -117,7 +117,7 @@ impl Rot2 {
     };
 
     /// Creates a [`Rot2`] from a counterclockwise angle in radians.
-    /// Negative argument corresponds to a clockwise rotation.
+    /// A negative argument corresponds to a clockwise rotation.
     ///
     /// # Note
     ///
@@ -150,7 +150,7 @@ impl Rot2 {
     }
 
     /// Creates a [`Rot2`] from a counterclockwise angle in degrees.
-    /// Negative argument corresponds to a clockwise rotation.
+    /// A negative argument corresponds to a clockwise rotation.
     ///
     /// # Note
     ///
@@ -181,7 +181,7 @@ impl Rot2 {
     }
 
     /// Creates a [`Rot2`] from a counterclockwise fraction of a full turn of 360 degrees.
-    /// Negative argument corresponds to a clockwise rotation.
+    /// A negative argument corresponds to a clockwise rotation.
     ///
     /// # Note
     ///
