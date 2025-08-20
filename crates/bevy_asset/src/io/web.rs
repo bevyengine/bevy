@@ -50,9 +50,8 @@ fn normalize_path_lexically(path: &Path) -> Result<PathBuf, NormalizeError> {
                 // It's an error if ParentDir causes us to go above the "root".
                 if lexical.as_os_str().len() == root {
                     return Err(NormalizeError);
-                } else {
-                    lexical.pop();
                 }
+                lexical.pop();
             }
             Component::Normal(path) => lexical.push(path),
         }
