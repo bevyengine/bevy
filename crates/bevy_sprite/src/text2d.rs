@@ -193,19 +193,29 @@ pub fn update_text2d_layout(
             }),
     );
 
+    let mut previous_scale_factor = -1.;
+    let mut previous_mask = &RenderLayers::none();
+
     for (entity, maybe_entity_mask, block, bounds, text_layout_info, mut computed) in
         &mut text_query
     {
         let entity_mask = maybe_entity_mask.unwrap_or_default();
 
-        // `Text2d` only supports generating a single text layout per Text2d entity. If a `Text2d` entity has multiple
-        // render targets with different scale factors, then we use the maximum of the scale factors.
-        let Some(&(scale_factor, _)) = target_scale_factors
-            .iter()
-            .filter(|(_, camera_mask)| camera_mask.intersects(entity_mask))
-            .max_by_key(|(scale_factor, _)| FloatOrd(*scale_factor))
-        else {
-            continue;
+        let scale_factor = if entity_mask == previous_mask && 0. < previous_scale_factor {
+            previous_scale_factor
+        } else {
+            // `Text2d` only supports generating a single text layout per Text2d entity. If a `Text2d` entity has multiple
+            // render targets with different scale factors, then we use the maximum of the scale factors.
+            let Some((scale_factor, mask)) = target_scale_factors
+                .iter()
+                .filter(|(_, camera_mask)| camera_mask.intersects(entity_mask))
+                .max_by_key(|(scale_factor, _)| FloatOrd(*scale_factor))
+            else {
+                continue;
+            };
+            previous_scale_factor = *scale_factor;
+            previous_mask = mask;
+            *scale_factor
         };
 
         if scale_factor != text_layout_info.scale_factor
