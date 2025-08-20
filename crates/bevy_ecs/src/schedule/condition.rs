@@ -1416,7 +1416,7 @@ mod tests {
     fn combinators_with_maybe_failing_condition() {
         use crate::system::RunSystemOnce;
         use alloc::sync::Arc;
-        use core::sync::atomic::{AtomicUsize, Ordering};
+        use std::sync::Mutex;
 
         // Things that should be tested:
         // - the final result of the combinator is correct
@@ -1429,7 +1429,7 @@ mod tests {
         // SystemConditions don't have mutable access to the world, so we use a
         // `Res<AtomicCounter>` to count invocations.
         #[derive(Resource, Default)]
-        struct AtomicCounter(Arc<AtomicUsize>);
+        struct Counter(Arc<Mutex<usize>>);
 
         // The following constants are used to represent a system having run.
         // both are prime so that when multiplied they give a unique value for any TRUE^n*FALSE^m
@@ -1437,12 +1437,12 @@ mod tests {
         const TRUE: usize = 3;
 
         // this is a system, but has the same side effect as `test_true`
-        fn is_true_inc(counter: Res<AtomicCounter>) -> bool {
+        fn is_true_inc(counter: Res<Counter>) -> bool {
             test_true(&counter)
         }
 
         // this is a system, but has the same side effect as `test_false`
-        fn is_false_inc(counter: Res<AtomicCounter>) -> bool {
+        fn is_false_inc(counter: Res<Counter>) -> bool {
             test_false(&counter)
         }
 
@@ -1451,36 +1451,39 @@ mod tests {
             true
         }
 
-        fn test_true(counter: &AtomicCounter) -> bool {
-            _ = counter
-                .0
-                .fetch_update(Ordering::SeqCst, Ordering::SeqCst, |v| Some(v * TRUE));
+        fn test_true(counter: &Counter) -> bool {
+            *counter.0.lock().unwrap() *= TRUE;
             true
         }
 
-        fn test_false(counter: &AtomicCounter) -> bool {
-            _ = counter
-                .0
-                .fetch_update(Ordering::SeqCst, Ordering::SeqCst, |v| Some(v * FALSE));
+        fn test_false(counter: &Counter) -> bool {
+            *counter.0.lock().unwrap() *= FALSE;
             false
         }
 
         // Helper function that runs a logic call and returns the result, as
-        // well as the prime factorization of the calls.
-        fn logic_call_result(f: impl FnOnce(&AtomicCounter) -> bool) -> (usize, bool) {
-            let counter = AtomicCounter(Arc::new(AtomicUsize::new(1)));
+        // well as the composite number of the calls.
+        fn logic_call_result(f: impl FnOnce(&Counter) -> bool) -> (usize, bool) {
+            let counter = Counter(Arc::new(Mutex::new(1)));
             let result = f(&counter);
-            (counter.0.load(Ordering::SeqCst), result)
+            (*counter.0.lock().unwrap(), result)
         }
 
-        // we expect `true() || false()` to yield `true`, and short circuit after `true()`
+        // `test_true` and `test_false` can't fail like the systems can, and so
+        // we use them to model the short circuiting behaviour of rust's logical
+        // operators. The goal is to end up with a composite number that
+        // describes rust's behaviour and compare that to the result of the
+        // combinators.
+
+        // we expect `true() || false()` to yield `true`, and short circuit
+        // after `true()`
         assert_eq!(
             logic_call_result(|c| test_true(c) || test_false(c)),
             (TRUE.pow(1) * FALSE.pow(0), true)
         );
 
         let mut world = World::new();
-        world.init_resource::<AtomicCounter>();
+        world.init_resource::<Counter>();
 
         // ensure there are no `Vacant` entities
         assert!(world.query::<&Vacant>().iter(&world).next().is_none());
@@ -1496,14 +1499,11 @@ mod tests {
         fn assert_system<Marker>(
             world: &mut World,
             system: impl crate::system::IntoSystem<(), bool, Marker>,
-            equivalent_to: impl FnOnce(&AtomicCounter) -> bool,
+            equivalent_to: impl FnOnce(&Counter) -> bool,
         ) {
             use crate::system::System;
 
-            world
-                .resource::<AtomicCounter>()
-                .0
-                .store(1, Ordering::SeqCst);
+            *world.resource::<Counter>().0.lock().unwrap() = 1;
 
             let system = crate::system::IntoSystem::into_system(system);
             let name = system.name();
@@ -1512,10 +1512,7 @@ mod tests {
 
             let (expected_counter, expected) = logic_call_result(equivalent_to);
             let caller = std::panic::Location::caller();
-            let counter = world
-                .resource::<AtomicCounter>()
-                .0
-                .swap(1, Ordering::SeqCst);
+            let counter = *world.resource::<Counter>().0.lock().unwrap();
 
             assert_eq!(
                 out,
