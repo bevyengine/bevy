@@ -23,7 +23,7 @@ pub struct TaskPoolBuilder {}
 /// `wasm_bindgen_futures::spawn_local` for spawning which just runs tasks on the main thread
 /// and so the [`ThreadSpawner`] does nothing.
 #[derive(Clone)]
-pub struct ThreadSpawner<'a>(PhantomData<&'a ()>);
+pub struct ThreadSpawner;
 
 impl TaskPoolBuilder {
     /// Creates a new `TaskPoolBuilder` instance

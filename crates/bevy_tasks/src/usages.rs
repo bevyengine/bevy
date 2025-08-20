@@ -3,7 +3,7 @@ use bevy_platform::sync::OnceLock;
 use core::ops::Deref;
 
 crate::cfg::bevy_executor! {
-    if { 
+    if {
         use crate::bevy_executor::Executor;
     } else {
         use crate::edge_executor::Executor;

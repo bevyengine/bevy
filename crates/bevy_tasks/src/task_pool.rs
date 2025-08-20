@@ -149,7 +149,7 @@ impl TaskPool {
     }
 
     /// Create a `TaskPool` with the default configuration.
-    pub(crate) fn new() -> Self {
+    pub fn new() -> Self {
         TaskPoolBuilder::new().build()
     }
 

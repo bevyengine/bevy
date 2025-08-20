@@ -913,10 +913,6 @@ mod test {
     use super::THREAD_LOCAL_STATE;
     use alloc::{string::String, boxed::Box};
     use futures_lite::{future, pin};
-    use std::panic::catch_unwind;
-    use core::sync::atomic::{AtomicUsize, Ordering};
-    use bevy_platform::sync::Mutex;
-    use core::task::{Poll, Waker};
     use async_task::Task;
     use core::time::Duration;
 
