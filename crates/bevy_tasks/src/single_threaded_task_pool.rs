@@ -150,7 +150,7 @@ impl TaskPool {
         f(scope_ref);
 
         // Wait until the scope is complete
-        block_on(EX.run(async {
+        block_on(EXECUTOR.run(async {
             while pending_tasks.get() != 0 {
                 futures_lite::future::yield_now().await;
             }
