@@ -449,7 +449,7 @@ impl TextPipeline {
 #[derive(Component, Clone, Default, Debug, Reflect)]
 #[reflect(Component, Default, Debug, Clone)]
 pub struct TextLayoutInfo {
-    /// Scale factor for this text layout
+    /// The target scale factor for this text layout
     pub scale_factor: f32,
     /// Scaled and positioned glyphs in screenspace
     pub glyphs: Vec<PositionedGlyph>,
