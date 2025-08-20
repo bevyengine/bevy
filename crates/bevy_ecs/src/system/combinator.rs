@@ -201,7 +201,7 @@ where
     #[inline]
     unsafe fn validate_param_unsafe(
         &mut self,
-        world: UnsafeWorldCell,
+        _world: UnsafeWorldCell,
     ) -> Result<(), SystemParamValidationError> {
         // Both systems are validated in `Self::run_unsafe`, so that we get the
         // chance to run the second system even if the first one fails to
