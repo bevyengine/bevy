@@ -19,7 +19,7 @@ fn main() {
                 primary_window: Some(Window {
                     title: "I am a window!".into(),
                     name: Some("bevy.app".into()),
-                    resolution: (500., 300.).into(),
+                    resolution: (500, 300).into(),
                     present_mode: PresentMode::AutoVsync,
                     // Tells Wasm to resize the window according to the available canvas
                     fit_canvas_to_parent: true,
