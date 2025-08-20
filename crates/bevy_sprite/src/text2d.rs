@@ -193,7 +193,7 @@ pub fn update_text2d_layout(
             }),
     );
 
-    let mut previous_scale_factor = -1.;
+    let mut previous_scale_factor = 0.;
     let mut previous_mask = &RenderLayers::none();
 
     for (entity, maybe_entity_mask, block, bounds, text_layout_info, mut computed) in
