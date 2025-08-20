@@ -72,7 +72,6 @@ impl Rot2 {
     ///  ```
     /// # use approx::assert_relative_eq;
     /// # use bevy_math::Rot2;
-    /// # use std::f32::consts::PI;
     /// #[cfg(feature = "approx")]
     /// assert_relative_eq!(Rot2::IDENTITY, Rot2::degrees(360.0), epsilon = 2e-7);
     /// ```
@@ -86,32 +85,32 @@ impl Rot2 {
     };
 
     /// A counterclockwise rotation of π/2 radians.
-    /// Corresponds to a turn by a right angle.
+    /// Corresponds to a counterclockwise quarter-turn.
     pub const FRAC_PI_2: Self = Self { cos: 0.0, sin: 1.0 };
 
     /// A counterclockwise rotation of π/3 radians.
-    /// Corresponds to a turn by 60°.
+    /// Corresponds to a counterclockwise turn by 60°.
     pub const FRAC_PI_3: Self = Self {
         cos: 0.5,
         sin: 0.866_025_4,
     };
 
     /// A counterclockwise rotation of π/4 radians.
-    /// Corresponds to a turn by 45°.
+    /// Corresponds to a counterclockwise turn by 45°.
     pub const FRAC_PI_4: Self = Self {
         cos: core::f32::consts::FRAC_1_SQRT_2,
         sin: core::f32::consts::FRAC_1_SQRT_2,
     };
 
     /// A counterclockwise rotation of π/6 radians.
-    /// Corresponds to a turn by 30°.
+    /// Corresponds to a counterclockwise turn by 30°.
     pub const FRAC_PI_6: Self = Self {
         cos: 0.866_025_4,
         sin: 0.5,
     };
 
     /// A counterclockwise rotation of π/8 radians.
-    /// Corresponds to a turn by 22.5°.
+    /// Corresponds to a counterclockwise turn by 22.5°.
     pub const FRAC_PI_8: Self = Self {
         cos: 0.923_879_5,
         sin: 0.382_683_43,
