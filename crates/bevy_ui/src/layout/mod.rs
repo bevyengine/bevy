@@ -258,8 +258,11 @@ pub fn ui_layout_system(
             node.bypass_change_detection().padding = taffy_rect_to_border_rect(layout.padding);
 
             // Computer the node's new global transform
-            let mut local_transform =
-                transform.compute_affine(inverse_target_scale_factor, layout_size, target_size);
+            let mut local_transform = transform.compute_affine(
+                inverse_target_scale_factor.recip(),
+                layout_size,
+                target_size,
+            );
             local_transform.translation += local_center;
             inherited_transform *= local_transform;
 
