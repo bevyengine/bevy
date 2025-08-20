@@ -349,7 +349,7 @@ mod web_asset_cache {
 #[cfg(test)]
 mod tests {
 
-    use std::vec;
+    use alloc::vec;
 
     use super::*;
 
