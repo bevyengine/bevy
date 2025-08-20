@@ -47,7 +47,6 @@ fn setup(mut commands: Commands) {
                                 border: UiRect::all(Val::Px(5.)),
                                 grid_row: GridPlacement::start(row + 1),
                                 grid_column: GridPlacement::start(column + 1),
-                                
                                 align_items: AlignItems::Center,
                                 justify_content: JustifyContent::Center,
                                 ..Default::default()
@@ -77,14 +76,14 @@ fn setup(mut commands: Commands) {
                                 border_color.set_all(tile_border_color);
                             }
                         })
-                        .observe(|on_drag_start: On<Pointer<DragStart>>, mut query: Query<(&mut Outline, &mut GlobalZIndex)>| {                
+                        .observe(|on_drag_start: On<Pointer<DragStart>>, mut query: Query<(&mut Outline, &mut GlobalZIndex)>| {
                             if let Ok((mut outline, mut global_zindex, )) = query.get_mut(on_drag_start.target()) {
                                 outline.color = Color::WHITE;
                                 global_zindex.0 = 1;
                             }
                         })
                         .observe(|on_drag: On<Pointer<Drag>>, mut query: Query<&mut UiTransform>| {
-                            if let Ok(mut transform) = query.get_mut(on_drag.target()) {      
+                            if let Ok(mut transform) = query.get_mut(on_drag.target()) {
                                 transform.translation = Val2::px(on_drag.distance.x, on_drag.distance.y);
                             }
                         })
