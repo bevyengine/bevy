@@ -704,11 +704,8 @@ impl Camera {
         camera_transform: &GlobalTransform,
         world_point: V,
     ) -> Option<V> {
-        // Build a transformation matrix to convert from world space to NDC using camera data
-        let view_point = camera_transform
-            .affine()
-            .inverse()
-            .transform_point3a(world_point.into());
+        let view_from_world = camera_transform.affine().inverse();
+        let view_point = view_from_world.transform_point3a(world_point.into());
         let ndc_point = self.computed.clip_from_view.project_point3a(view_point);
 
         (!ndc_point.is_nan()).then_some(ndc_point.into())
