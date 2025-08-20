@@ -167,9 +167,10 @@ where
             // passed to a function as an unbound non-'static generic argument, they can never be called in parallel
             // or re-entrantly because that would require forging another instance of `PrivateUnsafeWorldCell`.
             // This means that the world accesses in the two closures will not conflict with each other.
-            |input, world| unsafe { self.a.run_unsafe(input, world.0) },
-            // `Self::validate_param_unsafe` already validated the first system,
-            // but we still need to validate the second system once the first one runs.
+            |input, world| unsafe {
+                self.a.validate_param_unsafe(world.0)?;
+                self.a.run_unsafe(input, world.0)
+            },
             // SAFETY: See the comment above.
             |input, world| unsafe {
                 self.b.validate_param_unsafe(world.0)?;
@@ -202,12 +203,10 @@ where
         &mut self,
         world: UnsafeWorldCell,
     ) -> Result<(), SystemParamValidationError> {
-        // We only validate parameters for the first system,
-        // since it may make changes to the world that affect
-        // whether the second system has valid parameters.
-        // The second system will be validated in `Self::run_unsafe`.
-        // SAFETY: Delegate to other `System` implementations.
-        unsafe { self.a.validate_param_unsafe(world) }
+        // Both systems are validated in `Self::run_unsafe`, so that we get the
+        // chance to run the second system even if the first one fails to
+        // validate.
+        Ok(())
     }
 
     fn initialize(&mut self, world: &mut World) -> FilteredAccessSet {

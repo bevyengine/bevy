@@ -1238,7 +1238,7 @@ where
         a: impl FnOnce(SystemIn<'_, A>, &mut T) -> Result<A::Out, RunSystemError>,
         b: impl FnOnce(SystemIn<'_, A>, &mut T) -> Result<B::Out, RunSystemError>,
     ) -> Result<Self::Out, RunSystemError> {
-        Ok(!(a(input, data)? || b(input, data)?))
+        <OrMarker as Combine<A, B>>::combine(input, data, a, b).map(|result| !result)
     }
 }
 
@@ -1260,7 +1260,12 @@ where
         a: impl FnOnce(SystemIn<'_, A>, &mut T) -> Result<A::Out, RunSystemError>,
         b: impl FnOnce(SystemIn<'_, A>, &mut T) -> Result<B::Out, RunSystemError>,
     ) -> Result<Self::Out, RunSystemError> {
-        Ok(a(input, data)? || b(input, data)?)
+        // `a` might fail to validate against the current world, but if it
+        // fails, we still want to try running `b`.
+        match a(input, data) {
+            Ok(true) => Ok(true),
+            _ => b(input, data),
+        }
     }
 }
 
@@ -1282,7 +1287,7 @@ where
         a: impl FnOnce(SystemIn<'_, A>, &mut T) -> Result<A::Out, RunSystemError>,
         b: impl FnOnce(SystemIn<'_, A>, &mut T) -> Result<B::Out, RunSystemError>,
     ) -> Result<Self::Out, RunSystemError> {
-        Ok(!(a(input, data)? ^ b(input, data)?))
+        <XorMarker as Combine<A, B>>::combine(input, data, a, b).map(|result| !result)
     }
 }
 
@@ -1304,7 +1309,14 @@ where
         a: impl FnOnce(SystemIn<'_, A>, &mut T) -> Result<A::Out, RunSystemError>,
         b: impl FnOnce(SystemIn<'_, A>, &mut T) -> Result<B::Out, RunSystemError>,
     ) -> Result<Self::Out, RunSystemError> {
-        Ok(a(input, data)? ^ b(input, data)?)
+        // even if `a` fails to validate, `b` might succeed, in which case XOR
+        // ought to return true.
+        match (a(input, data), b(input, data)) {
+            // arbitrarily return the first error because `a` failed first.
+            (Err(a), Err(_)) => Err(a),
+            (Err(_), Ok(v)) | (Ok(v), Err(_)) => Ok(v),
+            (Ok(a), Ok(b)) => Ok(a ^ b),
+        }
     }
 }
 
@@ -1313,7 +1325,7 @@ mod tests {
     use super::{common_conditions::*, SystemCondition};
     use crate::error::{BevyError, DefaultErrorHandler, ErrorContext};
     use crate::{
-        change_detection::ResMut,
+        change_detection::{Res, ResMut},
         component::Component,
         message::Message,
         query::With,
@@ -1364,6 +1376,76 @@ mod tests {
         schedule.run(&mut world);
         schedule.run(&mut world);
         assert_eq!(world.resource::<Counter>().0, 6);
+    }
+
+    #[test]
+    fn run_fallible_condition() {
+        use alloc::sync::Arc;
+        use core::sync::atomic::{AtomicUsize, Ordering};
+
+        #[derive(Component)]
+        struct Vacant;
+
+        #[derive(Resource, Default)]
+        struct AtomicCounter(Arc<AtomicUsize>);
+
+        fn is_true() -> bool {
+            true
+        }
+
+        fn is_true_inc(counter: Res<AtomicCounter>) -> bool {
+            counter.0.fetch_add(1, Ordering::SeqCst);
+            true
+        }
+
+        fn noop() {}
+
+        // This condition will always return true false, because `Vacant` is never present.
+        fn vacant(_: crate::system::Single<&Vacant>) -> bool {
+            true
+        }
+
+        let mut world = World::new();
+        world.init_resource::<Counter>();
+        world.init_resource::<AtomicCounter>();
+        let mut schedule = Schedule::default();
+
+        // This system should fail
+        assert!(crate::system::RunSystemOnce::run_system_once(&mut world, vacant).is_err());
+
+        schedule.add_systems(
+            (
+                increment_counter.run_if(is_true.or(vacant)),
+                increment_counter.run_if(is_true.xor(vacant)),
+                increment_counter.run_if(is_true.and(vacant)),
+                // vacant first
+                increment_counter.run_if(vacant.or(is_true)),
+                increment_counter.run_if(vacant.xor(is_true)),
+                increment_counter.run_if(vacant.and(is_true)),
+            )
+                .chain(),
+        );
+        schedule.add_systems(
+            (
+                increment_counter.run_if(is_true_inc.and(vacant)),
+                increment_counter.run_if(is_true_inc.xor(vacant)),
+                increment_counter.run_if(is_true_inc.or(vacant)),
+                noop.run_if(is_true_inc.or(vacant)),
+                // vacant first
+                increment_counter.run_if(vacant.and(is_true_inc)),
+                increment_counter.run_if(vacant.xor(is_true_inc)),
+                increment_counter.run_if(vacant.or(is_true_inc)),
+                noop.run_if(vacant.or(is_true_inc)),
+            )
+                .chain(),
+        );
+
+        schedule.run(&mut world);
+        assert_eq!(world.resource::<Counter>().0, 8);
+        assert_eq!(
+            world.resource::<AtomicCounter>().0.load(Ordering::SeqCst),
+            7
+        );
     }
 
     #[test]
