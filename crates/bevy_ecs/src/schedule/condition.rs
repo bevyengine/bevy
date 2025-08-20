@@ -1413,73 +1413,246 @@ mod tests {
     }
 
     #[test]
-    fn run_fallible_condition() {
+    fn combinators_with_maybe_failing_condition() {
+        use crate::system::RunSystemOnce;
         use alloc::sync::Arc;
         use core::sync::atomic::{AtomicUsize, Ordering};
+
+        // Things that should be tested:
+        // - the final result of the combinator is correct
+        // - the systems that are expected to run do run
+        // - the systems that are expected to not run do not run
 
         #[derive(Component)]
         struct Vacant;
 
+        // SystemConditions don't have mutable access to the world, so we use a
+        // `Res<AtomicCounter>` to count invocations.
         #[derive(Resource, Default)]
         struct AtomicCounter(Arc<AtomicUsize>);
 
-        fn is_true() -> bool {
-            true
-        }
+        // The following constants are used to represent a system having run.
+        // both are prime so that when multiplied they give a unique value for any TRUE^n*FALSE^m
+        const FALSE: usize = 2;
+        const TRUE: usize = 3;
 
+        // this is a system, but has the same side effect as `test_true`
         fn is_true_inc(counter: Res<AtomicCounter>) -> bool {
-            counter.0.fetch_add(1, Ordering::SeqCst);
-            true
+            test_true(&counter)
         }
 
-        fn noop() {}
+        // this is a system, but has the same side effect as `test_false`
+        fn is_false_inc(counter: Res<AtomicCounter>) -> bool {
+            test_false(&counter)
+        }
 
-        // This condition will always return true false, because `Vacant` is never present.
+        // This condition will always yield `false`, because `Vacant` is never present.
         fn vacant(_: crate::system::Single<&Vacant>) -> bool {
             true
         }
 
+        fn test_true(counter: &AtomicCounter) -> bool {
+            _ = counter
+                .0
+                .fetch_update(Ordering::SeqCst, Ordering::SeqCst, |v| Some(v * TRUE));
+            true
+        }
+
+        fn test_false(counter: &AtomicCounter) -> bool {
+            _ = counter
+                .0
+                .fetch_update(Ordering::SeqCst, Ordering::SeqCst, |v| Some(v * FALSE));
+            false
+        }
+
+        // Helper function that runs a logic call and returns the result, as
+        // well as the prime factorization of the calls.
+        fn logic_call_result(f: impl FnOnce(&AtomicCounter) -> bool) -> (usize, bool) {
+            let counter = AtomicCounter(Arc::new(AtomicUsize::new(1)));
+            let result = f(&counter);
+            (counter.0.load(Ordering::SeqCst), result)
+        }
+
+        // we expect `true() || false()` to yield `true`, and short circuit after `true()`
+        assert_eq!(
+            logic_call_result(|c| test_true(c) || test_false(c)),
+            (TRUE.pow(1) * FALSE.pow(0), true)
+        );
+
         let mut world = World::new();
-        world.init_resource::<Counter>();
         world.init_resource::<AtomicCounter>();
-        let mut schedule = Schedule::default();
+
+        // ensure there are no `Vacant` entities
+        assert!(world.query::<&Vacant>().iter(&world).next().is_none());
+        assert!(matches!(
+            world.run_system_once((|| true).or(vacant)),
+            Ok(true)
+        ));
 
         // This system should fail
-        assert!(crate::system::RunSystemOnce::run_system_once(&mut world, vacant).is_err());
+        assert!(RunSystemOnce::run_system_once(&mut world, vacant).is_err());
 
-        schedule.add_systems(
-            (
-                increment_counter.run_if(is_true.or(vacant)),
-                increment_counter.run_if(is_true.xor(vacant)),
-                increment_counter.run_if(is_true.and(vacant)),
-                // vacant first
-                increment_counter.run_if(vacant.or(is_true)),
-                increment_counter.run_if(vacant.xor(is_true)),
-                increment_counter.run_if(vacant.and(is_true)),
-            )
-                .chain(),
-        );
-        schedule.add_systems(
-            (
-                increment_counter.run_if(is_true_inc.and(vacant)),
-                increment_counter.run_if(is_true_inc.xor(vacant)),
-                increment_counter.run_if(is_true_inc.or(vacant)),
-                noop.run_if(is_true_inc.or(vacant)),
-                // vacant first
-                increment_counter.run_if(vacant.and(is_true_inc)),
-                increment_counter.run_if(vacant.xor(is_true_inc)),
-                increment_counter.run_if(vacant.or(is_true_inc)),
-                noop.run_if(vacant.or(is_true_inc)),
-            )
-                .chain(),
-        );
+        #[track_caller]
+        fn assert_system<Marker>(
+            world: &mut World,
+            system: impl crate::system::IntoSystem<(), bool, Marker>,
+            equivalent_to: impl FnOnce(&AtomicCounter) -> bool,
+        ) {
+            use crate::system::System;
 
-        schedule.run(&mut world);
-        assert_eq!(world.resource::<Counter>().0, 8);
-        assert_eq!(
-            world.resource::<AtomicCounter>().0.load(Ordering::SeqCst),
-            7
-        );
+            world
+                .resource::<AtomicCounter>()
+                .0
+                .store(1, Ordering::SeqCst);
+
+            let system = crate::system::IntoSystem::into_system(system);
+            let name = system.name();
+
+            let out = RunSystemOnce::run_system_once(&mut *world, system).unwrap_or(false);
+
+            let (expected_counter, expected) = logic_call_result(equivalent_to);
+            let caller = std::panic::Location::caller();
+            let counter = world
+                .resource::<AtomicCounter>()
+                .0
+                .swap(1, Ordering::SeqCst);
+
+            assert_eq!(
+                out,
+                expected,
+                "At {}:{} System `{name}` yielded unexpected value `{out}`, expected `{expected}`",
+                caller.file(),
+                caller.line(),
+            );
+
+            assert_eq!(
+                counter, expected_counter,
+                "At {}:{} System `{name}` did not increment counter as expected: expected `{expected_counter}`, got `{counter}`",
+                caller.file(),
+                caller.line(),
+            );
+        }
+
+        assert_system(&mut world, is_true_inc.or(vacant), |c| {
+            test_true(c) || false
+        });
+        assert_system(&mut world, is_true_inc.nor(vacant), |c| {
+            !(test_true(c) || false)
+        });
+        assert_system(&mut world, is_true_inc.xor(vacant), |c| {
+            test_true(c) ^ false
+        });
+        assert_system(&mut world, is_true_inc.xnor(vacant), |c| {
+            !(test_true(c) ^ false)
+        });
+        assert_system(&mut world, is_true_inc.and(vacant), |c| {
+            test_true(c) && false
+        });
+        assert_system(&mut world, is_true_inc.nand(vacant), |c| {
+            !(test_true(c) && false)
+        });
+
+        // even if `vacant` fails as the first condition, where applicable (or,
+        // xor), `is_true_inc` should still be called. `and` and `nand` short
+        // circuit on an initial `false`.
+        assert_system(&mut world, vacant.or(is_true_inc), |c| {
+            false || test_true(c)
+        });
+        assert_system(&mut world, vacant.nor(is_true_inc), |c| {
+            !(false || test_true(c))
+        });
+        assert_system(&mut world, vacant.xor(is_true_inc), |c| {
+            false ^ test_true(c)
+        });
+        assert_system(&mut world, vacant.xnor(is_true_inc), |c| {
+            !(false ^ test_true(c))
+        });
+        assert_system(&mut world, vacant.and(is_true_inc), |c| {
+            false && test_true(c)
+        });
+        assert_system(&mut world, vacant.nand(is_true_inc), |c| {
+            !(false && test_true(c))
+        });
+
+        // the same logic ought to be the case with a condition that runs, but yields `false`:
+        assert_system(&mut world, is_true_inc.or(is_false_inc), |c| {
+            test_true(c) || test_false(c)
+        });
+        assert_system(&mut world, is_true_inc.nor(is_false_inc), |c| {
+            !(test_true(c) || test_false(c))
+        });
+        assert_system(&mut world, is_true_inc.xor(is_false_inc), |c| {
+            test_true(c) ^ test_false(c)
+        });
+        assert_system(&mut world, is_true_inc.xnor(is_false_inc), |c| {
+            !(test_true(c) ^ test_false(c))
+        });
+        assert_system(&mut world, is_true_inc.and(is_false_inc), |c| {
+            test_true(c) && test_false(c)
+        });
+        assert_system(&mut world, is_true_inc.nand(is_false_inc), |c| {
+            !(test_true(c) && test_false(c))
+        });
+
+        // and where one condition yields `false` and the other fails:
+        assert_system(&mut world, is_false_inc.or(vacant), |c| {
+            test_false(c) || false
+        });
+        assert_system(&mut world, is_false_inc.nor(vacant), |c| {
+            !(test_false(c) || false)
+        });
+        assert_system(&mut world, is_false_inc.xor(vacant), |c| {
+            test_false(c) ^ false
+        });
+        assert_system(&mut world, is_false_inc.xnor(vacant), |c| {
+            !(test_false(c) ^ false)
+        });
+        assert_system(&mut world, is_false_inc.and(vacant), |c| {
+            test_false(c) && false
+        });
+        assert_system(&mut world, is_false_inc.nand(vacant), |c| {
+            !(test_false(c) && false)
+        });
+
+        // and where both conditions yield `true`:
+        assert_system(&mut world, is_true_inc.or(is_true_inc), |c| {
+            test_true(c) || test_true(c)
+        });
+        assert_system(&mut world, is_true_inc.nor(is_true_inc), |c| {
+            !(test_true(c) || test_true(c))
+        });
+        assert_system(&mut world, is_true_inc.xor(is_true_inc), |c| {
+            test_true(c) ^ test_true(c)
+        });
+        assert_system(&mut world, is_true_inc.xnor(is_true_inc), |c| {
+            !(test_true(c) ^ test_true(c))
+        });
+        assert_system(&mut world, is_true_inc.and(is_true_inc), |c| {
+            test_true(c) && test_true(c)
+        });
+        assert_system(&mut world, is_true_inc.nand(is_true_inc), |c| {
+            !(test_true(c) && test_true(c))
+        });
+
+        // and where both conditions yield `false`:
+        assert_system(&mut world, is_false_inc.or(is_false_inc), |c| {
+            test_false(c) || test_false(c)
+        });
+        assert_system(&mut world, is_false_inc.nor(is_false_inc), |c| {
+            !(test_false(c) || test_false(c))
+        });
+        assert_system(&mut world, is_false_inc.xor(is_false_inc), |c| {
+            test_false(c) ^ test_false(c)
+        });
+        assert_system(&mut world, is_false_inc.xnor(is_false_inc), |c| {
+            !(test_false(c) ^ test_false(c))
+        });
+        assert_system(&mut world, is_false_inc.and(is_false_inc), |c| {
+            test_false(c) && test_false(c)
+        });
+        assert_system(&mut world, is_false_inc.nand(is_false_inc), |c| {
+            !(test_false(c) && test_false(c))
+        });
     }
 
     #[test]
