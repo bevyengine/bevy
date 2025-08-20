@@ -1,5 +1,5 @@
 ---
-title: Internal Entities
+title: Observers and One-Shot Systems are now marked as `Internal`
 pull_requests: [20204]
 ---
 

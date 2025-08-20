@@ -1,5 +1,5 @@
 ---
-title: Interned labels cleanup
+title: Interned labels and `DynEq`
 pull_requests: [18984]
 ---
 

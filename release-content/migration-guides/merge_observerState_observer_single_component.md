@@ -1,5 +1,5 @@
 ---
-title: Integrate `ObserverState` component into `Observer`.
+title: Unify `ObserverState` and `Observer` components
 pull_requests: [18728]
 ---
 

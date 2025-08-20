@@ -1,5 +1,5 @@
 ---
-title: Entities APIs
+title: "`Entities` API changes"
 pull_requests: [19350, 19433]
 ---
 

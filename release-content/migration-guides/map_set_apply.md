@@ -1,5 +1,5 @@
 ---
-title: "`DynamicMap` is now unordered, `Map::get_at` and `Map::get_at_mut` are now removed, and `apply` removes excess entries from reflected maps"
+title: "Reflection-based maps are now unordered"
 pull_requests: [19802]
 ---
 

@@ -1,5 +1,5 @@
 ---
-title: Remove default implementation of extend_from_iter from RelationshipSourceCollection
+title: Remove default implementation of `extend_from_iter` from `RelationshipSourceCollection`
 pull_requests: [20255]
 ---
 
