@@ -73,8 +73,8 @@ pub struct TaskPool {}
 
 impl TaskPool {
     /// Just create a new `ThreadExecutor` for wasm
-    pub fn current_thread_spawner(&self) -> ThreadSpawner<'static> {
-        ThreadSpawner(PhantomData)
+    pub fn current_thread_spawner(&self) -> ThreadSpawner {
+        ThreadSpawner
     }
 
     /// Create a `TaskPool` with the default configuration.
@@ -150,7 +150,7 @@ impl TaskPool {
         f(scope_ref);
 
         // Wait until the scope is complete
-        block_on(executor_ref.run(async {
+        block_on(EX.run(async {
             while pending_tasks.get() != 0 {
                 futures_lite::future::yield_now().await;
             }
