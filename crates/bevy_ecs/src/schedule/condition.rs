@@ -1414,6 +1414,12 @@ mod tests {
 
     #[test]
     fn combinators_with_maybe_failing_condition() {
+        #![allow(
+            clippy::nonminimal_bool,
+            clippy::overly_complex_bool_expr,
+            reason = "Trailing `|| false` and `&& true` are used in this test to visually remain consistent with the combinators"
+        )]
+
         use crate::system::RunSystemOnce;
         use alloc::sync::Arc;
         use std::sync::Mutex;
@@ -1511,7 +1517,7 @@ mod tests {
             let out = RunSystemOnce::run_system_once(&mut *world, system).unwrap_or(false);
 
             let (expected_counter, expected) = logic_call_result(equivalent_to);
-            let caller = std::panic::Location::caller();
+            let caller = core::panic::Location::caller();
             let counter = *world.resource::<Counter>().0.lock().unwrap();
 
             assert_eq!(
