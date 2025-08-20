@@ -738,7 +738,7 @@ pub fn specialize_material2d_meshes<M: Material2d>(
                 continue;
             };
             let Some(entity_tick) = entity_specialization_ticks.get(visible_entity) else {
-                error!("Entity {} is missing specialization tick. spawning Mesh2d in PostUpdate and later is currently not properly implemented. please see PR #19064 for details.", visible_entity.id());
+                error!("{} is missing specialization tick. Spawning Mesh2d in PostUpdate or later is currently not fully supported. Please see PR #19064 for details.", visible_entity);
                 continue;
             };
             let last_specialized_tick = view_specialized_material_pipeline_cache
