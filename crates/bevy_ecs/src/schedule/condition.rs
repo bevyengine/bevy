@@ -1173,7 +1173,15 @@ where
         a: impl FnOnce(SystemIn<'_, A>) -> Result<A::Out, RunSystemError>,
         b: impl FnOnce(SystemIn<'_, A>) -> Result<B::Out, RunSystemError>,
     ) -> Result<Self::Out, RunSystemError> {
-        Ok(!(a(input)? && b(input)?))
+        match a(input) {
+            // short circuit because `a` && `b` short circuits if `a` is false
+            Ok(false) | Err(_) => Ok(true),
+            Ok(true) => match b(input) {
+                Ok(b) => Ok(!b),
+                // if `b` fails, we yield `true`
+                Err(_) => Ok(true),
+            },
+        }
     }
 }
 
@@ -1194,7 +1202,19 @@ where
         a: impl FnOnce(SystemIn<'_, A>) -> Result<A::Out, RunSystemError>,
         b: impl FnOnce(SystemIn<'_, A>) -> Result<B::Out, RunSystemError>,
     ) -> Result<Self::Out, RunSystemError> {
-        <OrMarker as Combine<A, B>>::combine(input, a, b).map(|result| !result)
+        // `a` might fail to validate against the current world, but if it
+        // fails, we still want to try running `b`.
+        // !(`a` || `b`)
+        match a(input) {
+            Ok(true) => Ok(false),
+            // a is `(Ok(false) | Err(_))`
+            a => match (a, b(input)) {
+                (_, Ok(false) | Err(_)) => Ok(true),
+                // propagate error
+                (Err(e), _) => Err(e),
+                (_, Ok(true)) => Ok(false),
+            },
+        }
     }
 }
 
@@ -1218,6 +1238,7 @@ where
         // `a` might fail to validate against the current world, but if it
         // fails, we still want to try running `b`.
         match a(input) {
+            // short circuit if `a` is true
             Ok(true) => Ok(true),
             _ => b(input),
         }
@@ -1241,7 +1262,20 @@ where
         a: impl FnOnce(SystemIn<'_, A>) -> Result<A::Out, RunSystemError>,
         b: impl FnOnce(SystemIn<'_, A>) -> Result<B::Out, RunSystemError>,
     ) -> Result<Self::Out, RunSystemError> {
-        <XorMarker as Combine<A, B>>::combine(input, a, b).map(|result| !result)
+        // even if `a` fails to validate, `b` might succeed
+        match (a(input), b(input)) {
+            (Err(_), Err(_)) => Ok(true),
+            (Err(e), Ok(v)) | (Ok(v), Err(e)) => {
+                if !v {
+                    // !(`false` ^ `false`) == true
+                    Ok(true)
+                } else {
+                    // !(`false` ^ `true`) == `false`, but yield error
+                    Err(e)
+                }
+            }
+            (Ok(a), Ok(b)) => Ok(!(a ^ b)),
+        }
     }
 }
 
