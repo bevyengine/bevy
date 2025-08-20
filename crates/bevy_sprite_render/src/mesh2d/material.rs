@@ -737,7 +737,10 @@ pub fn specialize_material2d_meshes<M: Material2d>(
             let Some(mesh_instance) = render_mesh_instances.get_mut(visible_entity) else {
                 continue;
             };
-            let entity_tick = entity_specialization_ticks.get(visible_entity).unwrap();
+            let Some(entity_tick) = entity_specialization_ticks.get(visible_entity) else {
+                error!("Entity {} is missing specialization tick. spawning Mesh2d in PostUpdate and later is currently not properly implemented. please see PR #19064 for details.", visible_entity.id());
+                continue;
+            };
             let last_specialized_tick = view_specialized_material_pipeline_cache
                 .get(visible_entity)
                 .map(|(tick, _)| *tick);
