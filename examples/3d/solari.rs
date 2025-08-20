@@ -49,6 +49,7 @@ fn main() {
         app.add_plugins(PathtracingPlugin);
     } else {
         app.add_systems(Update, (pause_scene, toggle_lights, patrol_path));
+        app.add_systems(PostUpdate, update_text);
     }
 
     app.run();
@@ -145,6 +146,16 @@ fn setup(
             _phantom_data: Default::default(),
         });
     }
+
+    commands.spawn((
+        Text::default(),
+        Node {
+            position_type: PositionType::Absolute,
+            top: Val::Px(12.0),
+            left: Val::Px(12.0),
+            ..default()
+        },
+    ));
 }
 
 fn add_raytracing_meshes_on_scene_load(
@@ -293,6 +304,37 @@ fn patrol_path(mut query: Query<(&mut PatrolPath, &mut Transform)>, time: Res<Ti
             transform.rotation = target_rotation;
         } else {
             transform.translation += movement;
+        }
+    }
+}
+
+fn update_text(
+    mut text: Single<&mut Text>,
+    robot_light_material: Option<Res<RobotLightMaterial>>,
+    materials: Res<Assets<StandardMaterial>>,
+    directional_light: Query<Entity, With<DirectionalLight>>,
+    time: Res<Time<Virtual>>,
+) {
+    text.0.clear();
+
+    if time.is_paused() {
+        text.0.push_str("(Space): Resume");
+    } else {
+        text.0.push_str("(Space): Pause");
+    }
+
+    if directional_light.single().is_ok() {
+        text.0.push_str("\n(1): Disable directional light");
+    } else {
+        text.0.push_str("\n(1): Enable directional light");
+    }
+
+    match robot_light_material.and_then(|m| materials.get(&m.0)) {
+        Some(robot_light_material) if robot_light_material.emissive != LinearRgba::BLACK => {
+            text.0.push_str("\n(2): Disable robot emissive light");
+        }
+        _ => {
+            text.0.push_str("\n(2): Enable robot emissive light");
         }
     }
 }
