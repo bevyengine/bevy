@@ -68,7 +68,13 @@ impl AssetInfo {
     }
 }
 
-/// Tracks the stats of the asset server.
+/// Tracks statistics of the asset server.
+///
+/// This allows users (and tests) to know about various metrics related to the [`AssetServer`]. This
+/// can be accessed using [`AssetServer::stats`].
+///
+/// [`AssetServer`]: crate::AssetServer
+/// [`AssetServer::stats`]: crate::AssetServer::stats
 #[derive(Default, Clone, PartialEq, Eq)]
 pub struct AssetServerStats {
     /// The number of load tasks that have been started.
