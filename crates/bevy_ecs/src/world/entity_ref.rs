@@ -13,8 +13,8 @@ use crate::{
         ContainsEntity, Entity, EntityCloner, EntityClonerBuilder, EntityEquivalent,
         EntityIdLocation, EntityLocation, OptIn, OptOut,
     },
-    event::EntityEvent,
-    lifecycle::{DESPAWN, REMOVE, REPLACE},
+    event::{EntityComponents, EntityEvent, EntityTarget, Event},
+    lifecycle::{Despawn, Remove, Replace, DESPAWN, REMOVE, REPLACE},
     observer::Observer,
     query::{Access, DebugCheckedUnwrap, ReadOnlyQueryData, ReleaseStateQueryData},
     relationship::RelationshipHookMode,
@@ -2361,7 +2361,7 @@ impl<'w> EntityWorldMut<'w> {
 
         // PERF: this could be stored in an Archetype Edge
         let to_remove = &old_archetype
-            .components()
+            .iter_components()
             .filter(|c| !retained_bundle_info.contributed_components().contains(c))
             .collect::<Vec<_>>();
         let remove_bundle =
@@ -2512,7 +2512,8 @@ impl<'w> EntityWorldMut<'w> {
     #[inline]
     pub(crate) fn clear_with_caller(&mut self, caller: MaybeLocation) -> &mut Self {
         let location = self.location();
-        let component_ids: Vec<ComponentId> = self.archetype().components().collect();
+        // PERF: this should not be necessary
+        let component_ids: Vec<ComponentId> = self.archetype().components().to_vec();
         let components = &mut self.world.components;
 
         let bundle_id = self.world.bundles.init_dynamic_info(
@@ -2576,51 +2577,60 @@ impl<'w> EntityWorldMut<'w> {
         // SAFETY: All components in the archetype exist in world
         unsafe {
             if archetype.has_despawn_observer() {
-                deferred_world.trigger_observers(
+                deferred_world.trigger_raw(
                     DESPAWN,
-                    Some(self.entity),
-                    archetype.components(),
+                    &mut Despawn,
+                    EntityComponents {
+                        entity: self.entity,
+                        components: archetype.components(),
+                    },
                     caller,
                 );
             }
             deferred_world.trigger_on_despawn(
                 archetype,
                 self.entity,
-                archetype.components(),
+                archetype.iter_components(),
                 caller,
             );
             if archetype.has_replace_observer() {
-                deferred_world.trigger_observers(
+                deferred_world.trigger_raw(
                     REPLACE,
-                    Some(self.entity),
-                    archetype.components(),
+                    &mut Replace,
+                    EntityComponents {
+                        entity: self.entity,
+                        components: archetype.components(),
+                    },
                     caller,
                 );
             }
             deferred_world.trigger_on_replace(
                 archetype,
                 self.entity,
-                archetype.components(),
+                archetype.iter_components(),
                 caller,
                 RelationshipHookMode::Run,
             );
             if archetype.has_remove_observer() {
-                deferred_world.trigger_observers(
+                deferred_world.trigger_raw(
                     REMOVE,
-                    Some(self.entity),
-                    archetype.components(),
+                    &mut Remove,
+                    EntityComponents {
+                        entity: self.entity,
+                        components: archetype.components(),
+                    },
                     caller,
                 );
             }
             deferred_world.trigger_on_remove(
                 archetype,
                 self.entity,
-                archetype.components(),
+                archetype.iter_components(),
                 caller,
             );
         }
 
-        for component_id in archetype.components() {
+        for component_id in archetype.iter_components() {
             world.removed_components.write(component_id, self.entity);
         }
 
@@ -2852,14 +2862,14 @@ impl<'w> EntityWorldMut<'w> {
     ///
     /// Panics if the given system is an exclusive system.
     #[track_caller]
-    pub fn observe<E: EntityEvent, B: Bundle, M>(
+    pub fn observe<'a, E: Event<Target<'a>: EntityTarget>, B: Bundle, M>(
         &mut self,
         observer: impl IntoObserverSystem<E, B, M>,
     ) -> &mut Self {
         self.observe_with_caller(observer, MaybeLocation::caller())
     }
 
-    pub(crate) fn observe_with_caller<E: EntityEvent, B: Bundle, M>(
+    pub(crate) fn observe_with_caller<'a, E: Event<Target<'a>: EntityTarget>, B: Bundle, M>(
         &mut self,
         observer: impl IntoObserverSystem<E, B, M>,
         caller: MaybeLocation,
@@ -5239,7 +5249,7 @@ mod tests {
         let ent = world.spawn((Marker::<1>, Marker::<2>, Marker::<3>)).id();
 
         world.entity_mut(ent).retain::<()>();
-        assert_eq!(world.entity(ent).archetype().components().next(), None);
+        assert_eq!(world.entity(ent).archetype().components().len(), 0);
     }
 
     // Test removing some components with `retain`, including components not on the entity.
@@ -5255,15 +5265,7 @@ mod tests {
         // Check that marker 2 was retained.
         assert!(world.entity(ent).get::<Marker<2>>().is_some());
         // Check that only marker 2 was retained.
-        assert_eq!(
-            world
-                .entity(ent)
-                .archetype()
-                .components()
-                .collect::<Vec<_>>()
-                .len(),
-            1
-        );
+        assert_eq!(world.entity(ent).archetype().components().len(), 1);
     }
 
     // regression test for https://github.com/bevyengine/bevy/pull/7805

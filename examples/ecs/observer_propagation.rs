@@ -45,16 +45,14 @@ fn setup(mut commands: Commands) {
 //
 // We enable propagation by adding the event attribute and specifying two important pieces of information.
 //
-// - **traversal:**
-// Which component we want to propagate along. In this case, we want to "bubble" (meaning propagate
-// from child to parent) so we use the `ChildOf` component for propagation. The component supplied
-// must implement the `Traversal` trait.
+// - **propagate:**
+// Enables the default propagation behavior ("bubbling" up from child to parent using the ChildOf component).
 //
 // - **auto_propagate:**
 // We can also choose whether or not this event will propagate by default when triggered. If this is
 // false, it will only propagate following a call to `On::propagate(true)`.
 #[derive(Clone, Component, EntityEvent)]
-#[entity_event(traversal = &'static ChildOf, auto_propagate)]
+#[entity_event(propagate, auto_propagate)]
 struct Attack {
     damage: u16,
 }

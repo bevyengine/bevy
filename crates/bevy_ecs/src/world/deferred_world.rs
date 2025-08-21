@@ -7,15 +7,16 @@ use crate::{
     change_detection::{MaybeLocation, MutUntyped},
     component::{ComponentId, Mutable},
     entity::Entity,
-    event::{BufferedEvent, EntityEvent, Event, EventId, EventKey, Events, WriteBatchIds},
-    lifecycle::{HookContext, INSERT, REPLACE},
-    observer::{Observers, TriggerTargets},
+    event::{
+        BufferedEvent, EntityComponents, Event, EventId, EventKey, Events, Trigger, WriteBatchIds,
+    },
+    lifecycle::{HookContext, Insert, Replace, INSERT, REPLACE},
+    observer::{EventTargets, TriggerContext},
     prelude::{Component, QueryState},
     query::{QueryData, QueryFilter},
     relationship::RelationshipHookMode,
     resource::Resource,
     system::{Commands, Query},
-    traversal::Traversal,
     world::{error::EntityMutableFetchError, EntityFetcher, WorldEntityFetch},
 };
 
@@ -167,10 +168,13 @@ impl<'w> DeferredWorld<'w> {
                 relationship_hook_mode,
             );
             if archetype.has_replace_observer() {
-                self.trigger_observers(
+                self.trigger_raw(
                     REPLACE,
-                    Some(entity),
-                    [component_id].into_iter(),
+                    &mut Replace,
+                    EntityComponents {
+                        entity,
+                        components: &[component_id],
+                    },
                     MaybeLocation::caller(),
                 );
             }
@@ -207,10 +211,13 @@ impl<'w> DeferredWorld<'w> {
                 relationship_hook_mode,
             );
             if archetype.has_insert_observer() {
-                self.trigger_observers(
+                self.trigger_raw(
                     INSERT,
-                    Some(entity),
-                    [component_id].into_iter(),
+                    &mut Insert,
+                    EntityComponents {
+                        entity,
+                        components: &[component_id],
+                    },
                     MaybeLocation::caller(),
                 );
             }
@@ -778,85 +785,32 @@ impl<'w> DeferredWorld<'w> {
         }
     }
 
-    /// Triggers all event observers for [`ComponentId`] in target.
-    ///
-    /// # Safety
-    /// Caller must ensure observers listening for `event_key` can accept ZST pointers
-    #[inline]
-    pub(crate) unsafe fn trigger_observers(
-        &mut self,
-        event_key: EventKey,
-        target: Option<Entity>,
-        components: impl Iterator<Item = ComponentId> + Clone,
-        caller: MaybeLocation,
-    ) {
-        Observers::invoke::<_>(
-            self.reborrow(),
-            event_key,
-            target,
-            target,
-            components,
-            &mut (),
-            &mut false,
-            caller,
-        );
-    }
-
-    /// Triggers all event observers for [`ComponentId`] in target.
+    /// Triggers all `event` observers for the given `targets`
     ///
     /// # Safety
     /// Caller must ensure `E` is accessible as the type represented by `event_key`
     #[inline]
-    pub(crate) unsafe fn trigger_observers_with_data<E, T>(
+    pub(crate) unsafe fn trigger_raw<'a, E: Event>(
         &mut self,
         event_key: EventKey,
-        current_target: Option<Entity>,
-        original_entity: Option<Entity>,
-        components: impl Iterator<Item = ComponentId> + Clone,
-        data: &mut E,
-        mut propagate: bool,
+        event: &mut E,
+        targets: impl EventTargets<E::Target<'a>>,
         caller: MaybeLocation,
-    ) where
-        T: Traversal<E>,
-    {
-        Observers::invoke::<_>(
-            self.reborrow(),
-            event_key,
-            current_target,
-            original_entity,
-            components.clone(),
-            data,
-            &mut propagate,
-            caller,
-        );
-        let Some(mut current_target) = current_target else {
-            return;
-        };
-
-        loop {
-            if !propagate {
+    ) {
+        // SAFETY: You cannot get a mutable reference to `observers` from `DeferredWorld`
+        let (mut world, observers) = unsafe {
+            let world = self.as_unsafe_world_cell();
+            let observers = world.observers();
+            let Some(observers) = observers.try_get_observers(event_key) else {
                 return;
-            }
-            if let Some(traverse_to) = self
-                .get_entity(current_target)
-                .ok()
-                .and_then(|entity| entity.get_components::<T>())
-                .and_then(|item| T::traverse(item, data))
-            {
-                current_target = traverse_to;
-            } else {
-                break;
-            }
-            Observers::invoke::<_>(
-                self.reborrow(),
-                event_key,
-                Some(current_target),
-                original_entity,
-                components.clone(),
-                data,
-                &mut propagate,
-                caller,
-            );
+            };
+            // SAFETY: The only outstanding reference to world is `observers`
+            (world.into_deferred(), observers)
+        };
+        let context = TriggerContext { event_key, caller };
+        for target in targets.targets() {
+            let mut trigger = <E::Trigger as Default>::default();
+            trigger.trigger(world.reborrow(), observers, event.into(), target, &context);
         }
     }
 
@@ -865,7 +819,8 @@ impl<'w> DeferredWorld<'w> {
     /// This will run any [`Observer`] of the given [`Event`] that isn't scoped to specific targets.
     ///
     /// [`Observer`]: crate::observer::Observer
-    pub fn trigger(&mut self, trigger: impl Event) {
+    pub fn trigger<'a>(&mut self, trigger: impl Event<Target<'a> = ()>) {
+        // TODO: can we just use trigger_raw here?
         self.commands().trigger(trigger);
     }
 
@@ -874,11 +829,12 @@ impl<'w> DeferredWorld<'w> {
     /// This will run any [`Observer`] of the given [`EntityEvent`] watching those targets.
     ///
     /// [`Observer`]: crate::observer::Observer
-    pub fn trigger_targets(
+    pub fn trigger_targets<'a, E: Event>(
         &mut self,
-        trigger: impl EntityEvent,
-        targets: impl TriggerTargets + Send + Sync + 'static,
+        trigger: E,
+        targets: impl EventTargets<E::Target<'a>> + 'static,
     ) {
+        // TODO: can we just use trigger_raw here?
         self.commands().trigger_targets(trigger, targets);
     }
 

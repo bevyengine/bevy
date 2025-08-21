@@ -511,7 +511,11 @@ impl SceneSpawner {
                     .trigger_targets(SceneInstanceReady { instance_id }, parent);
             } else {
                 // Defer via commands otherwise SceneSpawner is not available in the observer.
-                world.commands().trigger(SceneInstanceReady { instance_id });
+                // TODO: triggering this for PLACEHOLDER is suboptimal, but this scene system is on
+                // its way out, so lets avoid breaking people by making a second event.
+                world
+                    .commands()
+                    .trigger_targets(SceneInstanceReady { instance_id }, Entity::PLACEHOLDER);
             }
         }
     }

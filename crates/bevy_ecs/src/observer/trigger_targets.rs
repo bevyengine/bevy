@@ -1,8 +1,7 @@
 //! Stores the [`TriggerTargets`] trait.
 
-use crate::{component::ComponentId, prelude::*};
+use crate::{entity::Entity, event::EntityComponents};
 use alloc::vec::Vec;
-use variadics_please::all_tuples;
 
 /// Represents a collection of targets for a specific [`On`] instance of an [`Event`].
 ///
@@ -12,106 +11,71 @@ use variadics_please::all_tuples;
 /// This trait is implemented for both [`Entity`] and [`ComponentId`], allowing you to target specific entities or components.
 /// It is also implemented for various collections of these types, such as [`Vec`], arrays, and tuples,
 /// allowing you to trigger events for multiple targets at once.
-pub trait TriggerTargets {
-    /// The components the trigger should target.
-    fn components(&self) -> impl Iterator<Item = ComponentId> + Clone + '_;
-
-    /// The entities the trigger should target.
-    fn entities(&self) -> impl Iterator<Item = Entity> + Clone + '_;
+pub trait EventTargets<T>: Send + Sync {
+    fn targets<'a>(&'a self) -> impl Iterator<Item = &'a T> + 'a
+    where
+        T: 'a;
 }
 
-impl<T: TriggerTargets + ?Sized> TriggerTargets for &T {
-    fn components(&self) -> impl Iterator<Item = ComponentId> + Clone + '_ {
-        (**self).components()
-    }
-
-    fn entities(&self) -> impl Iterator<Item = Entity> + Clone + '_ {
-        (**self).entities()
+impl<L: EventTargets<T> + ?Sized, T: 'static> EventTargets<T> for &L {
+    fn targets<'a>(&'a self) -> impl Iterator<Item = &'a T> + 'a
+    where
+        T: 'a,
+    {
+        (**self).targets()
     }
 }
 
-impl TriggerTargets for Entity {
-    fn components(&self) -> impl Iterator<Item = ComponentId> + Clone + '_ {
-        [].into_iter()
-    }
-
-    fn entities(&self) -> impl Iterator<Item = Entity> + Clone + '_ {
-        core::iter::once(*self)
-    }
-}
-
-impl TriggerTargets for ComponentId {
-    fn components(&self) -> impl Iterator<Item = ComponentId> + Clone + '_ {
-        core::iter::once(*self)
-    }
-
-    fn entities(&self) -> impl Iterator<Item = Entity> + Clone + '_ {
-        [].into_iter()
+impl EventTargets<Entity> for Entity {
+    fn targets<'a>(&'a self) -> impl Iterator<Item = &'a Entity> + 'a
+    where
+        Entity: 'a,
+    {
+        core::iter::once(self)
     }
 }
 
-impl<T: TriggerTargets> TriggerTargets for Vec<T> {
-    fn components(&self) -> impl Iterator<Item = ComponentId> + Clone + '_ {
-        self.iter().flat_map(T::components)
-    }
-
-    fn entities(&self) -> impl Iterator<Item = Entity> + Clone + '_ {
-        self.iter().flat_map(T::entities)
-    }
-}
-
-impl<const N: usize, T: TriggerTargets> TriggerTargets for [T; N] {
-    fn components(&self) -> impl Iterator<Item = ComponentId> + Clone + '_ {
-        self.iter().flat_map(T::components)
-    }
-
-    fn entities(&self) -> impl Iterator<Item = Entity> + Clone + '_ {
-        self.iter().flat_map(T::entities)
+impl<'a> EventTargets<EntityComponents<'a>> for EntityComponents<'a> {
+    fn targets<'b>(&'b self) -> impl Iterator<Item = &'b EntityComponents<'a>> + 'b
+    where
+        EntityComponents<'a>: 'b,
+    {
+        core::iter::once(self)
     }
 }
 
-impl<T: TriggerTargets> TriggerTargets for [T] {
-    fn components(&self) -> impl Iterator<Item = ComponentId> + Clone + '_ {
-        self.iter().flat_map(T::components)
-    }
-
-    fn entities(&self) -> impl Iterator<Item = Entity> + Clone + '_ {
-        self.iter().flat_map(T::entities)
-    }
-}
-
-macro_rules! impl_trigger_targets_tuples {
-    ($(#[$meta:meta])* $($trigger_targets: ident),*) => {
-        #[expect(clippy::allow_attributes, reason = "can't guarantee violation of non_snake_case")]
-        #[allow(non_snake_case, reason = "`all_tuples!()` generates non-snake-case variable names.")]
-        $(#[$meta])*
-        impl<$($trigger_targets: TriggerTargets),*> TriggerTargets for ($($trigger_targets,)*)
-        {
-            fn components(&self) -> impl Iterator<Item = ComponentId> + Clone + '_ {
-                let iter = [].into_iter();
-                let ($($trigger_targets,)*) = self;
-                $(
-                    let iter = iter.chain($trigger_targets.components());
-                )*
-                iter
-            }
-
-            fn entities(&self) -> impl Iterator<Item = Entity> + Clone + '_ {
-                let iter = [].into_iter();
-                let ($($trigger_targets,)*) = self;
-                $(
-                    let iter = iter.chain($trigger_targets.entities());
-                )*
-                iter
-            }
-        }
+impl EventTargets<()> for () {
+    fn targets<'a>(&'a self) -> impl Iterator<Item = &'a ()> + 'a
+    where
+        (): 'a,
+    {
+        core::iter::once(&())
     }
 }
 
-all_tuples!(
-    #[doc(fake_variadic)]
-    impl_trigger_targets_tuples,
-    0,
-    15,
-    T
-);
+impl<T: Send + Sync> EventTargets<T> for Vec<T> {
+    fn targets<'a>(&'a self) -> impl Iterator<Item = &'a T> + 'a
+    where
+        T: 'a,
+    {
+        self.iter()
+    }
+}
+
+impl<const N: usize, T: Send + Sync> EventTargets<T> for [T; N] {
+    fn targets<'a>(&'a self) -> impl Iterator<Item = &'a T> + 'a
+    where
+        T: 'a,
+    {
+        self.iter()
+    }
+}
+
+impl<T: Send + Sync> EventTargets<T> for [T] {
+    fn targets<'a>(&'a self) -> impl Iterator<Item = &'a T> + 'a
+    where
+        T: 'a,
+    {
+        self.iter()
+    }
+}

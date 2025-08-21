@@ -12,13 +12,8 @@
 use bevy_platform::collections::HashMap;
 
 use crate::{
-    archetype::ArchetypeFlags,
-    change_detection::MaybeLocation,
-    component::ComponentId,
-    entity::EntityHashMap,
-    observer::{ObserverRunner, ObserverTrigger},
-    prelude::*,
-    world::DeferredWorld,
+    archetype::ArchetypeFlags, component::ComponentId, entity::EntityHashMap,
+    observer::ObserverRunner, prelude::*,
 };
 
 /// An internal lookup table tracking all of the observers in the world.
@@ -69,80 +64,6 @@ impl Observers {
             DESPAWN => Some(&self.despawn),
             _ => self.cache.get(&event_key),
         }
-    }
-
-    /// This will run the observers of the given `event_key`, targeting the given `entity` and `components`.
-    pub(crate) fn invoke<T>(
-        mut world: DeferredWorld,
-        event_key: EventKey,
-        current_target: Option<Entity>,
-        original_entity: Option<Entity>,
-        components: impl Iterator<Item = ComponentId> + Clone,
-        data: &mut T,
-        propagate: &mut bool,
-        caller: MaybeLocation,
-    ) {
-        // SAFETY: You cannot get a mutable reference to `observers` from `DeferredWorld`
-        let (mut world, observers) = unsafe {
-            let world = world.as_unsafe_world_cell();
-            // SAFETY: There are no outstanding world references
-            world.increment_trigger_id();
-            let observers = world.observers();
-            let Some(observers) = observers.try_get_observers(event_key) else {
-                return;
-            };
-            // SAFETY: The only outstanding reference to world is `observers`
-            (world.into_deferred(), observers)
-        };
-
-        let trigger_for_components = components.clone();
-
-        let mut trigger_observer = |(&observer, runner): (&Entity, &ObserverRunner)| {
-            (runner)(
-                world.reborrow(),
-                ObserverTrigger {
-                    observer,
-                    event_key,
-                    components: components.clone().collect(),
-                    entity: current_target,
-                    original_entity,
-                    caller,
-                },
-                data.into(),
-                propagate,
-            );
-        };
-        // Trigger observers listening for any kind of this trigger
-        observers
-            .global_observers
-            .iter()
-            .for_each(&mut trigger_observer);
-
-        // Trigger entity observers listening for this kind of trigger
-        if let Some(target_entity) = current_target {
-            if let Some(map) = observers.entity_observers.get(&target_entity) {
-                map.iter().for_each(&mut trigger_observer);
-            }
-        }
-
-        // Trigger observers listening to this trigger targeting a specific component
-        trigger_for_components.for_each(|id| {
-            if let Some(component_observers) = observers.component_observers.get(&id) {
-                component_observers
-                    .global_observers
-                    .iter()
-                    .for_each(&mut trigger_observer);
-
-                if let Some(target_entity) = current_target {
-                    if let Some(map) = component_observers
-                        .entity_component_observers
-                        .get(&target_entity)
-                    {
-                        map.iter().for_each(&mut trigger_observer);
-                    }
-                }
-            }
-        });
     }
 
     pub(crate) fn is_archetype_cached(event_key: EventKey) -> Option<ArchetypeFlags> {
@@ -207,13 +128,13 @@ impl CachedObservers {
     }
 
     /// Returns the observers listening for this trigger targeting components.
-    pub fn get_component_observers(&self) -> &HashMap<ComponentId, CachedComponentObservers> {
+    pub fn component_observers(&self) -> &HashMap<ComponentId, CachedComponentObservers> {
         &self.component_observers
     }
 
     /// Returns the observers listening for this trigger targeting entities.
-    pub fn entity_observers(&self) -> &HashMap<ComponentId, CachedComponentObservers> {
-        &self.component_observers
+    pub fn entity_observers(&self) -> &EntityHashMap<ObserverMap> {
+        &self.entity_observers
     }
 }
 

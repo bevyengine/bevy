@@ -1,7 +1,10 @@
-use crate::change_detection::MaybeLocation;
-use crate::component::ComponentId;
-use crate::world::World;
-use crate::{component::Component, traversal::Traversal};
+use crate::{
+    change_detection::MaybeLocation,
+    component::{Component, ComponentId},
+    entity::Entity,
+    event::Trigger,
+    world::World,
+};
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::Reflect;
 use core::{
@@ -10,6 +13,132 @@ use core::{
     hash::{Hash, Hasher},
     marker::PhantomData,
 };
+
+/// An [`Event`] that can be targeted at specific entities.
+///
+/// Entity events can be triggered on a [`World`] with specific entity targets using a method
+/// like [`trigger_targets`](World::trigger_targets), causing any [`Observer`] watching the event
+/// for those entities to run.
+///
+/// Unlike basic [`Event`]s, entity events can optionally be propagated from one entity target to another
+/// based on the [`EntityEvent::Traversal`] type associated with the event. This enables use cases
+/// such as bubbling events to parent entities for UI purposes.
+///
+/// Entity events must be thread-safe.
+///
+/// # Usage
+///
+/// The [`EntityEvent`] trait can be derived. The `event` attribute can be used to further configure
+/// the propagation behavior: adding `auto_propagate` sets [`EntityEvent::AUTO_PROPAGATE`] to `true`,
+/// while adding `propagate = X` sets [`EntityEvent::Traversal`] to be of type `X`.
+///
+/// ```
+/// # use bevy_ecs::prelude::*;
+/// #
+/// // When the `Damage` event is triggered on an entity, bubble the event up to ancestors.
+/// #[derive(EntityEvent)]
+/// #[entity_event(propagate, auto_propagate)]
+/// struct Damage {
+///     amount: f32,
+/// }
+/// ```
+///
+/// An [`Observer`] can then be added to listen for this event type for the desired entity:
+///
+/// ```
+/// # use bevy_ecs::prelude::*;
+/// #
+/// # #[derive(EntityEvent)]
+/// # #[entity_event(propagate, auto_propagate)]
+/// # struct Damage {
+/// #     amount: f32,
+/// # }
+/// #
+/// # #[derive(Component)]
+/// # struct Health(f32);
+/// #
+/// # #[derive(Component)]
+/// # struct Enemy;
+/// #
+/// # #[derive(Component)]
+/// # struct ArmorPiece;
+/// #
+/// # let mut world = World::new();
+/// #
+/// // Spawn an enemy entity.
+/// let enemy = world.spawn((Enemy, Health(100.0))).id();
+///
+/// // Spawn some armor as a child of the enemy entity.
+/// // When the armor takes damage, it will bubble the event up to the enemy,
+/// // which can then handle the event with its own observer.
+/// let armor_piece = world
+///     .spawn((ArmorPiece, Health(25.0), ChildOf(enemy)))
+///     .observe(|event: On<Damage>, mut query: Query<&mut Health>| {
+///         // Note: `On::entity` only exists because this is an `EntityEvent`.
+///         let mut health = query.get_mut(event.entity()).unwrap();
+///         health.0 -= event.amount;
+///     })
+///     .id();
+/// ```
+///
+/// The event can be triggered on the [`World`] using the [`trigger_targets`](World::trigger_targets) method,
+/// providing the desired entity target(s):
+///
+/// ```
+/// # use bevy_ecs::prelude::*;
+/// #
+/// # #[derive(EntityEvent)]
+/// # #[entity_event(propagate, auto_propagate)]
+/// # struct Damage {
+/// #     amount: f32,
+/// # }
+/// #
+/// # #[derive(Component)]
+/// # struct Health(f32);
+/// #
+/// # #[derive(Component)]
+/// # struct Enemy;
+/// #
+/// # #[derive(Component)]
+/// # struct ArmorPiece;
+/// #
+/// # let mut world = World::new();
+/// #
+/// # let enemy = world.spawn((Enemy, Health(100.0))).id();
+/// # let armor_piece = world
+/// #     .spawn((ArmorPiece, Health(25.0), ChildOf(enemy)))
+/// #     .observe(|event: On<Damage>, mut query: Query<&mut Health>| {
+/// #         // Note: `On::entity` only exists because this is an `EntityEvent`.
+/// #         let mut health = query.get_mut(event.entity()).unwrap();
+/// #         health.0 -= event.amount;
+/// #     })
+/// #     .id();
+/// #
+/// # world.flush();
+/// #
+/// world.trigger_targets(Damage { amount: 10.0 }, armor_piece);
+/// ```
+///
+/// [`World`]: crate::world::World
+/// [`TriggerTargets`]: crate::observer::TriggerTargets
+/// [`Observer`]: crate::observer::Observer
+/// [`Events<E>`]: super::Events
+/// [`EventReader`]: super::EventReader
+/// [`EventWriter`]: super::EventWriter
+#[diagnostic::on_unimplemented(
+    message = "`{Self}` is not an `EntityEvent`",
+    label = "invalid `EntityEvent`",
+    note = "consider annotating `{Self}` with `#[derive(EntityEvent)]`"
+)]
+pub trait EntityEvent:
+    for<'a> Event<Target<'a> = Entity, Trigger: Trigger<Target<'a> = Entity>>
+{
+}
+
+impl<E: for<'a> Event<Target<'a> = Entity, Trigger: Trigger<Target<'a> = Entity>>> EntityEvent
+    for E
+{
+}
 
 /// Something that "happens" and can be processed by app logic.
 ///
@@ -94,6 +223,9 @@ use core::{
     note = "consider annotating `{Self}` with `#[derive(Event)]`"
 )]
 pub trait Event: Send + Sync + 'static {
+    type Target<'a>;
+    type Trigger: for<'a> Trigger<Target<'a> = Self::Target<'a>>;
+
     /// Generates the [`EventKey`] for this event type.
     ///
     /// If this type has already been registered,
@@ -126,137 +258,6 @@ pub trait Event: Send + Sync + 'static {
             .component_id::<EventWrapperComponent<Self>>()
             .map(EventKey)
     }
-}
-
-/// An [`Event`] that can be targeted at specific entities.
-///
-/// Entity events can be triggered on a [`World`] with specific entity targets using a method
-/// like [`trigger_targets`](World::trigger_targets), causing any [`Observer`] watching the event
-/// for those entities to run.
-///
-/// Unlike basic [`Event`]s, entity events can optionally be propagated from one entity target to another
-/// based on the [`EntityEvent::Traversal`] type associated with the event. This enables use cases
-/// such as bubbling events to parent entities for UI purposes.
-///
-/// Entity events must be thread-safe.
-///
-/// # Usage
-///
-/// The [`EntityEvent`] trait can be derived. The `event` attribute can be used to further configure
-/// the propagation behavior: adding `auto_propagate` sets [`EntityEvent::AUTO_PROPAGATE`] to `true`,
-/// while adding `traversal = X` sets [`EntityEvent::Traversal`] to be of type `X`.
-///
-/// ```
-/// # use bevy_ecs::prelude::*;
-/// #
-/// // When the `Damage` event is triggered on an entity, bubble the event up to ancestors.
-/// #[derive(EntityEvent)]
-/// #[entity_event(traversal = &'static ChildOf, auto_propagate)]
-/// struct Damage {
-///     amount: f32,
-/// }
-/// ```
-///
-/// An [`Observer`] can then be added to listen for this event type for the desired entity:
-///
-/// ```
-/// # use bevy_ecs::prelude::*;
-/// #
-/// # #[derive(EntityEvent)]
-/// # #[entity_event(traversal = &'static ChildOf, auto_propagate)]
-/// # struct Damage {
-/// #     amount: f32,
-/// # }
-/// #
-/// # #[derive(Component)]
-/// # struct Health(f32);
-/// #
-/// # #[derive(Component)]
-/// # struct Enemy;
-/// #
-/// # #[derive(Component)]
-/// # struct ArmorPiece;
-/// #
-/// # let mut world = World::new();
-/// #
-/// // Spawn an enemy entity.
-/// let enemy = world.spawn((Enemy, Health(100.0))).id();
-///
-/// // Spawn some armor as a child of the enemy entity.
-/// // When the armor takes damage, it will bubble the event up to the enemy,
-/// // which can then handle the event with its own observer.
-/// let armor_piece = world
-///     .spawn((ArmorPiece, Health(25.0), ChildOf(enemy)))
-///     .observe(|event: On<Damage>, mut query: Query<&mut Health>| {
-///         // Note: `On::entity` only exists because this is an `EntityEvent`.
-///         let mut health = query.get_mut(event.entity()).unwrap();
-///         health.0 -= event.amount;
-///     })
-///     .id();
-/// ```
-///
-/// The event can be triggered on the [`World`] using the [`trigger_targets`](World::trigger_targets) method,
-/// providing the desired entity target(s):
-///
-/// ```
-/// # use bevy_ecs::prelude::*;
-/// #
-/// # #[derive(EntityEvent)]
-/// # #[entity_event(traversal = &'static ChildOf, auto_propagate)]
-/// # struct Damage {
-/// #     amount: f32,
-/// # }
-/// #
-/// # #[derive(Component)]
-/// # struct Health(f32);
-/// #
-/// # #[derive(Component)]
-/// # struct Enemy;
-/// #
-/// # #[derive(Component)]
-/// # struct ArmorPiece;
-/// #
-/// # let mut world = World::new();
-/// #
-/// # let enemy = world.spawn((Enemy, Health(100.0))).id();
-/// # let armor_piece = world
-/// #     .spawn((ArmorPiece, Health(25.0), ChildOf(enemy)))
-/// #     .observe(|event: On<Damage>, mut query: Query<&mut Health>| {
-/// #         // Note: `On::entity` only exists because this is an `EntityEvent`.
-/// #         let mut health = query.get_mut(event.entity()).unwrap();
-/// #         health.0 -= event.amount;
-/// #     })
-/// #     .id();
-/// #
-/// # world.flush();
-/// #
-/// world.trigger_targets(Damage { amount: 10.0 }, armor_piece);
-/// ```
-///
-/// [`World`]: crate::world::World
-/// [`TriggerTargets`]: crate::observer::TriggerTargets
-/// [`Observer`]: crate::observer::Observer
-/// [`Events<E>`]: super::Events
-/// [`EventReader`]: super::EventReader
-/// [`EventWriter`]: super::EventWriter
-#[diagnostic::on_unimplemented(
-    message = "`{Self}` is not an `EntityEvent`",
-    label = "invalid `EntityEvent`",
-    note = "consider annotating `{Self}` with `#[derive(EntityEvent)]`"
-)]
-pub trait EntityEvent: Event {
-    /// The component that describes which [`Entity`] to propagate this event to next, when [propagation] is enabled.
-    ///
-    /// [`Entity`]: crate::entity::Entity
-    /// [propagation]: crate::observer::On::propagate
-    type Traversal: Traversal<Self>;
-
-    /// When true, this event will always attempt to propagate when [triggered], without requiring a call
-    /// to [`On::propagate`].
-    ///
-    /// [triggered]: crate::system::Commands::trigger_targets
-    /// [`On::propagate`]: crate::observer::On::propagate
-    const AUTO_PROPAGATE: bool = false;
 }
 
 /// A buffered event for pull-based event handling.

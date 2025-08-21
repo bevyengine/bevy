@@ -8,7 +8,8 @@ use crate::{
     change_detection::MaybeLocation,
     component::{ComponentId, Components, ComponentsRegistrator, StorageType},
     entity::{Entity, EntityLocation},
-    lifecycle::{REMOVE, REPLACE},
+    event::EntityComponents,
+    lifecycle::{Remove, Replace, REMOVE, REPLACE},
     observer::Observers,
     relationship::RelationshipHookMode,
     storage::{SparseSets, Storages, Table},
@@ -150,10 +151,14 @@ impl<'w> BundleRemover<'w> {
                     .filter(|component_id| self.old_archetype.as_ref().contains(*component_id))
             };
             if self.old_archetype.as_ref().has_replace_observer() {
-                deferred_world.trigger_observers(
+                let components = bundle_components_in_archetype().collect::<Vec<_>>();
+                deferred_world.trigger_raw(
                     REPLACE,
-                    Some(entity),
-                    bundle_components_in_archetype(),
+                    &mut Replace,
+                    EntityComponents {
+                        entity,
+                        components: &components,
+                    },
                     caller,
                 );
             }
@@ -165,10 +170,14 @@ impl<'w> BundleRemover<'w> {
                 self.relationship_hook_mode,
             );
             if self.old_archetype.as_ref().has_remove_observer() {
-                deferred_world.trigger_observers(
+                let components = bundle_components_in_archetype().collect::<Vec<_>>();
+                deferred_world.trigger_raw(
                     REMOVE,
-                    Some(entity),
-                    bundle_components_in_archetype(),
+                    &mut Remove,
+                    EntityComponents {
+                        entity,
+                        components: &components,
+                    },
                     caller,
                 );
             }

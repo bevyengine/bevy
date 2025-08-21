@@ -1,15 +1,19 @@
 //! System parameters for working with observers.
 
-use core::marker::PhantomData;
-use core::ops::DerefMut;
-use core::{fmt::Debug, ops::Deref};
+use core::{
+    fmt::Debug,
+    marker::PhantomData,
+    ops::{Deref, DerefMut},
+};
 
 use bevy_ptr::Ptr;
-use smallvec::SmallVec;
 
 use crate::{
-    bundle::Bundle, change_detection::MaybeLocation, component::ComponentId, event::EntityEvent,
+    bundle::Bundle,
+    change_detection::MaybeLocation,
+    event::{EntityTarget, Event, PropagateEntityTrigger},
     prelude::*,
+    traversal::Traversal,
 };
 
 /// Type containing triggered [`Event`] information for a given run of an [`Observer`]. This contains the
@@ -26,10 +30,12 @@ use crate::{
 /// Providing multiple components in this bundle will cause this event to be triggered by any
 /// matching component in the bundle,
 /// [rather than requiring all of them to be present](https://github.com/bevyengine/bevy/issues/15325).
-pub struct On<'w, E, B: Bundle = ()> {
+pub struct On<'w, E: Event, B: Bundle = ()> {
     event: &'w mut E,
-    propagate: &'w mut bool,
-    trigger: ObserverTrigger,
+    observer: Entity,
+    target: &'w E::Target<'w>,
+    trigger: &'w mut E::Trigger,
+    trigger_context: &'w TriggerContext,
     _marker: PhantomData<B>,
 }
 
@@ -37,20 +43,28 @@ pub struct On<'w, E, B: Bundle = ()> {
 #[deprecated(since = "0.17.0", note = "Renamed to `On`.")]
 pub type Trigger<'w, E, B = ()> = On<'w, E, B>;
 
-impl<'w, E, B: Bundle> On<'w, E, B> {
+impl<'w, E: Event, B: Bundle> On<'w, E, B> {
     /// Creates a new instance of [`On`] for the given event and observer information.
-    pub fn new(event: &'w mut E, propagate: &'w mut bool, trigger: ObserverTrigger) -> Self {
+    pub fn new(
+        event: &'w mut E,
+        observer: Entity,
+        target: &'w E::Target<'w>,
+        trigger: &'w mut E::Trigger,
+        trigger_context: &'w TriggerContext,
+    ) -> Self {
         Self {
             event,
-            propagate,
+            observer,
+            target,
             trigger,
+            trigger_context,
             _marker: PhantomData,
         }
     }
 
     /// Returns the event type of this [`On`] instance.
     pub fn event_key(&self) -> EventKey {
-        self.trigger.event_key
+        self.trigger_context.event_key
     }
 
     /// Returns a reference to the triggered event.
@@ -68,11 +82,14 @@ impl<'w, E, B: Bundle> On<'w, E, B> {
         Ptr::from(&self.event)
     }
 
-    /// Returns the components that triggered the observer, out of the
-    /// components defined in `B`. Does not necessarily include all of them as
-    /// `B` acts like an `OR` filter rather than an `AND` filter.
-    pub fn components(&self) -> &[ComponentId] {
-        &self.trigger.components
+    /// Returns the trigger context for this event.
+    pub fn trigger(&self) -> &E::Trigger {
+        self.trigger
+    }
+
+    /// Returns the target for this event. For entity events, consider using [`On::entity`].
+    pub fn target(&self) -> &E::Target<'w> {
+        self.target
     }
 
     /// Returns the [`Entity`] that observed the triggered event.
@@ -96,16 +113,16 @@ impl<'w, E, B: Bundle> On<'w, E, B> {
     /// world.trigger_targets(AssertEvent, observer);  
     /// ```
     pub fn observer(&self) -> Entity {
-        self.trigger.observer
+        self.observer
     }
 
     /// Returns the source code location that triggered this observer.
     pub fn caller(&self) -> MaybeLocation {
-        self.trigger.caller
+        self.trigger_context.caller
     }
 }
 
-impl<'w, E: EntityEvent, B: Bundle> On<'w, E, B> {
+impl<'w, E: for<'t> Event<Target<'t>: EntityTarget>, B: Bundle> On<'w, E, B> {
     /// Returns the [`Entity`] that was targeted by the `event` that triggered this observer.
     ///
     /// Note that if event propagation is enabled, this may not be the same as the original target of the event,
@@ -113,16 +130,23 @@ impl<'w, E: EntityEvent, B: Bundle> On<'w, E, B> {
     ///
     /// If the event was not targeted at a specific entity, this will return [`Entity::PLACEHOLDER`].
     pub fn entity(&self) -> Entity {
-        self.trigger.entity.unwrap_or(Entity::PLACEHOLDER)
+        self.target.entity()
     }
+}
 
+impl<
+        'w,
+        const AUTO_PROPAGATE: bool,
+        E: for<'t> Event<Target<'t> = Entity, Trigger = PropagateEntityTrigger<AUTO_PROPAGATE, E, T>>,
+        B: Bundle,
+        T: Traversal<E>,
+    > On<'w, E, B>
+{
     /// Returns the original [`Entity`] that the `event` was targeted at when it was first triggered.
     ///
     /// If event propagation is not enabled, this will always return the same value as [`On::entity`].
-    ///
-    /// If the event was not targeted at a specific entity, this will return [`Entity::PLACEHOLDER`].
     pub fn original_entity(&self) -> Entity {
-        self.trigger.original_entity.unwrap_or(Entity::PLACEHOLDER)
+        self.trigger.original_entity
     }
 
     /// Enables or disables event propagation, allowing the same event to trigger observers on a chain of different entities.
@@ -138,29 +162,31 @@ impl<'w, E: EntityEvent, B: Bundle> On<'w, E, B> {
     ///
     /// [`Traversal`]: crate::traversal::Traversal
     pub fn propagate(&mut self, should_propagate: bool) {
-        *self.propagate = should_propagate;
+        self.trigger.propagate = should_propagate;
     }
 
     /// Returns the value of the flag that controls event propagation. See [`propagate`] for more information.
     ///
     /// [`propagate`]: On::propagate
     pub fn get_propagate(&self) -> bool {
-        *self.propagate
+        self.trigger.propagate
     }
 }
 
-impl<'w, E: Debug, B: Bundle> Debug for On<'w, E, B> {
+impl<'w, E: for<'t> Event<Trigger: Debug, Target<'t>: Debug> + Debug, B: Bundle> Debug
+    for On<'w, E, B>
+{
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         f.debug_struct("On")
             .field("event", &self.event)
-            .field("propagate", &self.propagate)
             .field("trigger", &self.trigger)
+            .field("target", &self.target)
             .field("_marker", &self._marker)
             .finish()
     }
 }
 
-impl<'w, E, B: Bundle> Deref for On<'w, E, B> {
+impl<'w, E: Event, B: Bundle> Deref for On<'w, E, B> {
     type Target = E;
 
     fn deref(&self) -> &Self::Target {
@@ -168,7 +194,7 @@ impl<'w, E, B: Bundle> Deref for On<'w, E, B> {
     }
 }
 
-impl<'w, E, B: Bundle> DerefMut for On<'w, E, B> {
+impl<'w, E: Event, B: Bundle> DerefMut for On<'w, E, B> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         self.event
     }
@@ -177,30 +203,18 @@ impl<'w, E, B: Bundle> DerefMut for On<'w, E, B> {
 /// Metadata about a specific [`Event`] that triggered an observer.
 ///
 /// This information is exposed via methods on [`On`].
-#[derive(Debug)]
-pub struct ObserverTrigger {
-    /// The [`Entity`] of the observer handling the trigger.
-    pub observer: Entity,
+pub struct TriggerContext {
     /// The [`EventKey`] the trigger targeted.
-    pub event_key: EventKey,
-    /// The [`ComponentId`]s the trigger targeted.
-    pub components: SmallVec<[ComponentId; 2]>,
-    /// The entity that the entity-event targeted, if any.
-    ///
-    /// Note that if event propagation is enabled, this may not be the same as [`ObserverTrigger::original_entity`].
-    pub entity: Option<Entity>,
-    /// The entity that the entity-event was originally targeted at, if any.
-    ///
-    /// If event propagation is enabled, this will be the first entity that the event was targeted at,
-    /// even if the event was propagated to other entities.
-    pub original_entity: Option<Entity>,
+    pub(crate) event_key: EventKey,
     /// The location of the source code that triggered the observer.
-    pub caller: MaybeLocation,
+    pub(crate) caller: MaybeLocation,
 }
 
-impl ObserverTrigger {
-    /// Returns the components that the trigger targeted.
-    pub fn components(&self) -> &[ComponentId] {
-        &self.components
+impl TriggerContext {
+    pub fn new<E: Event>(world: &mut World, caller: MaybeLocation) -> Self {
+        Self {
+            event_key: E::register_event_key(world),
+            caller,
+        }
     }
 }

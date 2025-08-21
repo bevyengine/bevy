@@ -21,7 +21,7 @@ use crate::{
     entity::{Entities, Entity, EntityClonerBuilder, EntityDoesNotExistError, OptIn, OptOut},
     error::{warn, BevyError, CommandWithEntity, ErrorContext, HandleError},
     event::{BufferedEvent, EntityEvent, Event},
-    observer::{Observer, TriggerTargets},
+    observer::{EventTargets, Observer},
     resource::Resource,
     schedule::ScheduleLabel,
     system::{
@@ -1094,7 +1094,7 @@ impl<'w, 's> Commands<'w, 's> {
     /// with [`entity_command::trigger(event)`](entity_command::trigger).
     /// [`EntityCommands::queue_silenced`] may also be used to ignore the error completely.
     #[track_caller]
-    pub fn trigger(&mut self, event: impl Event) {
+    pub fn trigger<'a>(&mut self, event: impl Event<Target<'a> = ()>) {
         self.queue(command::trigger(event));
     }
 
@@ -1109,10 +1109,10 @@ impl<'w, 's> Commands<'w, 's> {
     /// with [`entity_command::trigger(event)`](entity_command::trigger).
     /// [`EntityCommands::queue_silenced`] may also be used to ignore the error completely.
     #[track_caller]
-    pub fn trigger_targets(
+    pub fn trigger_targets<'a, E: Event>(
         &mut self,
-        event: impl EntityEvent,
-        targets: impl TriggerTargets + Send + Sync + 'static,
+        event: E,
+        targets: impl EventTargets<E::Target<'a>> + 'static,
     ) {
         self.queue(command::trigger_targets(event, targets));
     }

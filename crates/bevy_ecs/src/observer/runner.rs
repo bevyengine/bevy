@@ -4,33 +4,40 @@ use core::any::Any;
 
 use crate::{
     error::ErrorContext,
-    observer::ObserverTrigger,
+    event::Event,
+    observer::TriggerContext,
     prelude::*,
     query::DebugCheckedUnwrap,
     system::{ObserverSystem, RunSystemError},
     world::DeferredWorld,
 };
-use bevy_ptr::PtrMut;
+use bevy_ptr::{Ptr, PtrMut};
 
 /// Type for function that is run when an observer is triggered.
 ///
 /// Typically refers to the default runner that runs the system stored in the associated [`Observer`] component,
 /// but can be overridden for custom behavior.
-pub type ObserverRunner = fn(DeferredWorld, ObserverTrigger, PtrMut, propagate: &mut bool);
+pub type ObserverRunner = fn(
+    DeferredWorld,
+    observer: Entity,
+    &TriggerContext,
+    event: PtrMut,
+    target: Ptr,
+    trigger: PtrMut,
+);
 
 pub(super) fn observer_system_runner<E: Event, B: Bundle, S: ObserverSystem<E, B>>(
     mut world: DeferredWorld,
-    observer_trigger: ObserverTrigger,
-    ptr: PtrMut,
-    propagate: &mut bool,
+    observer: Entity,
+    trigger_context: &TriggerContext,
+    event_ptr: PtrMut,
+    target_ptr: Ptr,
+    trigger_ptr: PtrMut,
 ) {
     let world = world.as_unsafe_world_cell();
+
     // SAFETY: Observer was triggered so must still exist in world
-    let observer_cell = unsafe {
-        world
-            .get_entity(observer_trigger.observer)
-            .debug_checked_unwrap()
-    };
+    let observer_cell = unsafe { world.get_entity(observer).debug_checked_unwrap() };
     // SAFETY: Observer was triggered so must have an `Observer`
     let mut state = unsafe { observer_cell.get_mut::<Observer>().debug_checked_unwrap() };
 
@@ -41,11 +48,18 @@ pub(super) fn observer_system_runner<E: Event, B: Bundle, S: ObserverSystem<E, B
     }
     state.last_trigger_id = last_trigger;
 
+    // SAFETY: Caller ensures `trigger_ptr` is castable to `&mut E::Trigger`
+    let trigger: &mut E::Trigger = unsafe { trigger_ptr.deref_mut() };
+    // SAFETY: Caller ensures `target_ptr` is castable to `&E::Target`
+    let target: &E::Target<'_> = unsafe { target_ptr.deref() };
+
     let on: On<E, B> = On::new(
         // SAFETY: Caller ensures `ptr` is castable to `&mut T`
-        unsafe { ptr.deref_mut() },
-        propagate,
-        observer_trigger,
+        unsafe { event_ptr.deref_mut() },
+        observer,
+        target,
+        trigger,
+        trigger_context,
     );
 
     // SAFETY:

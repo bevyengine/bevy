@@ -18,6 +18,7 @@ use crate::{
     entity::Entity,
     entity_disabling::Internal,
     error::{ErrorContext, ErrorHandler},
+    event::Event,
     lifecycle::{ComponentHook, HookContext},
     observer::{observer_system_runner, ObserverRunner},
     prelude::*,

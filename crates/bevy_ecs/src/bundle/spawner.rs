@@ -8,7 +8,8 @@ use crate::{
     change_detection::MaybeLocation,
     component::{ComponentsRegistrator, Tick},
     entity::{Entities, Entity, EntityLocation},
-    lifecycle::{ADD, INSERT},
+    event::EntityComponents,
+    lifecycle::{Add, Insert, ADD, INSERT},
     relationship::RelationshipHookMode,
     storage::Table,
     world::{unsafe_world_cell::UnsafeWorldCell, World},
@@ -135,10 +136,13 @@ impl<'w> BundleSpawner<'w> {
                 caller,
             );
             if archetype.has_add_observer() {
-                deferred_world.trigger_observers(
+                deferred_world.trigger_raw(
                     ADD,
-                    Some(entity),
-                    bundle_info.iter_contributed_components(),
+                    &mut Add,
+                    EntityComponents {
+                        entity,
+                        components: bundle_info.contributed_components(),
+                    },
                     caller,
                 );
             }
@@ -150,10 +154,13 @@ impl<'w> BundleSpawner<'w> {
                 RelationshipHookMode::Run,
             );
             if archetype.has_insert_observer() {
-                deferred_world.trigger_observers(
+                deferred_world.trigger_raw(
                     INSERT,
-                    Some(entity),
-                    bundle_info.iter_contributed_components(),
+                    &mut Insert,
+                    EntityComponents {
+                        entity,
+                        components: bundle_info.contributed_components(),
+                    },
                     caller,
                 );
             }

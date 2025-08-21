@@ -51,7 +51,7 @@ fn send_scroll_events(
 
 /// UI scrolling event.
 #[derive(EntityEvent, Debug)]
-#[entity_event(auto_propagate, traversal = &'static ChildOf)]
+#[entity_event(propagate, auto_propagate)]
 struct Scroll {
     /// Scroll delta in logical coordinates.
     delta: Vec2,

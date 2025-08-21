@@ -1,4 +1,5 @@
 use crate::{
+    event::Event,
     prelude::{Bundle, On},
     system::System,
 };
@@ -6,12 +7,12 @@ use crate::{
 use super::IntoSystem;
 
 /// Implemented for [`System`]s that have [`On`] as the first argument.
-pub trait ObserverSystem<E: 'static, B: Bundle, Out = ()>:
+pub trait ObserverSystem<E: Event, B: Bundle, Out = ()>:
     System<In = On<'static, E, B>, Out = Out> + Send + 'static
 {
 }
 
-impl<E: 'static, B: Bundle, Out, T> ObserverSystem<E, B, Out> for T where
+impl<E: Event, B: Bundle, Out, T> ObserverSystem<E, B, Out> for T where
     T: System<In = On<'static, E, B>, Out = Out> + Send + 'static
 {
 }
@@ -28,7 +29,7 @@ impl<E: 'static, B: Bundle, Out, T> ObserverSystem<E, B, Out> for T where
     label = "the trait `IntoObserverSystem` is not implemented",
     note = "for function `ObserverSystem`s, ensure the first argument is `On<T>` and any subsequent ones are `SystemParam`"
 )]
-pub trait IntoObserverSystem<E: 'static, B: Bundle, M, Out = ()>: Send + 'static {
+pub trait IntoObserverSystem<E: Event, B: Bundle, M, Out = ()>: Send + 'static {
     /// The type of [`System`] that this instance converts into.
     type System: ObserverSystem<E, B, Out>;
 
@@ -36,7 +37,7 @@ pub trait IntoObserverSystem<E: 'static, B: Bundle, M, Out = ()>: Send + 'static
     fn into_system(this: Self) -> Self::System;
 }
 
-impl<E, B, M, Out, S> IntoObserverSystem<E, B, M, Out> for S
+impl<E: Event, B, M, Out, S> IntoObserverSystem<E, B, M, Out> for S
 where
     S: IntoSystem<On<'static, E, B>, Out, M> + Send + 'static,
     S::System: ObserverSystem<E, B, Out>,

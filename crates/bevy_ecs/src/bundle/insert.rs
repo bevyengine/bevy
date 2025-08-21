@@ -11,7 +11,8 @@ use crate::{
     change_detection::MaybeLocation,
     component::{Components, ComponentsRegistrator, StorageType, Tick},
     entity::{Entities, Entity, EntityLocation},
-    lifecycle::{ADD, INSERT, REPLACE},
+    event::EntityComponents,
+    lifecycle::{Add, Insert, Replace, ADD, INSERT, REPLACE},
     observer::Observers,
     query::DebugCheckedUnwrap as _,
     relationship::RelationshipHookMode,
@@ -165,10 +166,13 @@ impl<'w> BundleInserter<'w> {
 
             if insert_mode == InsertMode::Replace {
                 if archetype.has_replace_observer() {
-                    deferred_world.trigger_observers(
+                    deferred_world.trigger_raw(
                         REPLACE,
-                        Some(entity),
-                        archetype_after_insert.iter_existing(),
+                        &mut Replace,
+                        EntityComponents {
+                            entity,
+                            components: &archetype_after_insert.existing,
+                        },
                         caller,
                     );
                 }
@@ -350,10 +354,13 @@ impl<'w> BundleInserter<'w> {
                 caller,
             );
             if new_archetype.has_add_observer() {
-                deferred_world.trigger_observers(
+                deferred_world.trigger_raw(
                     ADD,
-                    Some(entity),
-                    archetype_after_insert.iter_added(),
+                    &mut Add,
+                    EntityComponents {
+                        entity,
+                        components: &archetype_after_insert.added,
+                    },
                     caller,
                 );
             }
@@ -368,10 +375,17 @@ impl<'w> BundleInserter<'w> {
                         relationship_hook_mode,
                     );
                     if new_archetype.has_insert_observer() {
-                        deferred_world.trigger_observers(
+                        deferred_world.trigger_raw(
                             INSERT,
-                            Some(entity),
-                            archetype_after_insert.iter_inserted(),
+                            &mut Insert,
+                            EntityComponents {
+                                entity,
+                                // PERF: this is not a regression from what we were doing before, but ideally we don't
+                                // need to collect here
+                                components: &archetype_after_insert
+                                    .iter_inserted()
+                                    .collect::<Vec<_>>(),
+                            },
                             caller,
                         );
                     }
@@ -387,10 +401,13 @@ impl<'w> BundleInserter<'w> {
                         relationship_hook_mode,
                     );
                     if new_archetype.has_insert_observer() {
-                        deferred_world.trigger_observers(
+                        deferred_world.trigger_raw(
                             INSERT,
-                            Some(entity),
-                            archetype_after_insert.iter_added(),
+                            &mut Insert,
+                            EntityComponents {
+                                entity,
+                                components: &archetype_after_insert.added,
+                            },
                             caller,
                         );
                     }

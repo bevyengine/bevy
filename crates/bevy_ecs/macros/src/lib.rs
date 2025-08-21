@@ -558,8 +558,10 @@ pub fn derive_event(input: TokenStream) -> TokenStream {
 ///
 /// ```ignore
 /// #[derive(EntityEvent)]
-/// /// Traversal component
-/// #[entity_event(traversal = &'static ChildOf)]
+/// /// Enable propagation, which defaults to using the ChildOf component
+/// #[entity_event(propagate)]
+/// /// Enable propagation using the given Traversal implementation
+/// #[entity_event(propagate = &'static ChildOf)]
 /// /// Always propagate
 /// #[entity_event(auto_propagate)]
 /// struct MyEvent;
