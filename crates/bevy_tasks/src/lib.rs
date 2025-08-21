@@ -176,3 +176,28 @@ pub fn available_parallelism() -> usize {
         }
     }}
 }
+
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[repr(u8)]
+pub enum TaskPriority {
+    BlockingIO,
+    BlockingCompute,
+    AsyncIO,
+    #[default] Compute,
+    RunNow,
+}
+
+impl TaskPriority {
+    const MAX: usize = TaskPriority::RunNow as u8 as usize + 1;
+
+    #[inline]
+    fn to_index(self) -> usize {
+        self as u8 as usize
+    }
+}
+
+#[derive(Debug, Default)]
+pub(crate) struct Metadata {
+    pub priority: TaskPriority,
+    pub is_send: bool,
+}

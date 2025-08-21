@@ -2,7 +2,7 @@ use alloc::{boxed::Box, format, string::String, vec::Vec};
 use core::{future::Future, marker::PhantomData, mem, panic::AssertUnwindSafe};
 use std::thread::{self, JoinHandle};
 
-use crate::bevy_executor::Executor;
+use crate::{bevy_executor::Executor, Metadata};
 use async_task::FallibleTask;
 use bevy_platform::sync::Arc;
 use concurrent_queue::ConcurrentQueue;
@@ -345,11 +345,10 @@ impl TaskPool {
         // transmute the lifetimes to 'env here to appease the compiler as it is unable to validate safety.
         // Any usages of the references passed into `Scope` must be accessed through
         // the transmuted reference for the rest of this function.
-        let spawned: ConcurrentQueue<FallibleTask<Result<T, Box<dyn core::any::Any + Send>>>> =
-            ConcurrentQueue::unbounded();
+        let spawned: ConcurrentQueue<ScopeTask<T>> = ConcurrentQueue::unbounded();
         // shadow the variable so that the owned value cannot be used for the rest of the function
         // SAFETY: As above, all futures must complete in this function so we can change the lifetime
-        let spawned: &'env ConcurrentQueue<FallibleTask<Result<T, Box<dyn core::any::Any + Send>>>> =
+        let spawned: &'env ConcurrentQueue<ScopeTask<T>> =
             unsafe { mem::transmute(&spawned) };
 
         let scope = Scope {
@@ -396,7 +395,7 @@ impl TaskPool {
     where
         T: Send + 'static,
     {
-        Task::new(self.executor.spawn(future))
+        Task::new(self.executor.spawn(future, Metadata::default()))
     }
 
     /// Spawns a static future on the thread-local async executor for the
@@ -414,7 +413,7 @@ impl TaskPool {
     where
         T: 'static,
     {
-        Task::new(self.executor.spawn_local(future))
+        Task::new(self.executor.spawn_local(future, Metadata::default()))
     }
 
     pub(crate) fn try_tick_local() -> bool {
@@ -442,6 +441,8 @@ impl Drop for TaskPool {
     }
 }
 
+type ScopeTask<T> = FallibleTask<Result<T, Box<dyn core::any::Any + Send>>, Metadata>;
+
 /// A [`TaskPool`] scope for running one or more non-`'static` futures.
 ///
 /// For more information, see [`TaskPool::scope`].
@@ -450,7 +451,7 @@ pub struct Scope<'scope, 'env: 'scope, T> {
     executor: &'static Executor,
     external_spawner: ThreadSpawner,
     scope_spawner: ThreadSpawner,
-    spawned: &'scope ConcurrentQueue<FallibleTask<Result<T, Box<dyn core::any::Any + Send>>>>,
+    spawned: &'scope ConcurrentQueue<ScopeTask<T>>,
     // make `Scope` invariant over 'scope and 'env
     scope: PhantomData<&'scope mut &'scope ()>,
     env: PhantomData<&'env mut &'env ()>,
@@ -474,7 +475,7 @@ impl<'scope, 'env, T: Send + 'scope> Scope<'scope, 'env, T> {
         // Task does not outlive 'scope.
         let task = unsafe {
             self.executor
-                .spawn_scoped(AssertUnwindSafe(f).catch_unwind())
+                .spawn_scoped(AssertUnwindSafe(f).catch_unwind(), Metadata::default())
                 .fallible()
         };
         let result = self.spawned.push(task);
@@ -497,6 +498,7 @@ impl<'scope, 'env, T: Send + 'scope> Scope<'scope, 'env, T> {
         let task = unsafe {
             self.scope_spawner
                 .spawn_scoped(AssertUnwindSafe(f).catch_unwind())
+                .into_inner()
                 .fallible()
         };
         let result = self.spawned.push(task);
@@ -520,6 +522,7 @@ impl<'scope, 'env, T: Send + 'scope> Scope<'scope, 'env, T> {
         let task = unsafe {
             self.external_spawner
                 .spawn_scoped(AssertUnwindSafe(f).catch_unwind())
+                .into_inner()
                 .fallible()
         };
         // ConcurrentQueue only errors when closed or full, but we never

@@ -9,15 +9,18 @@
 
 use core::panic::{RefUnwindSafe, UnwindSafe};
 use core::pin::Pin;
-use core::sync::atomic::{AtomicBool, AtomicPtr, Ordering};
+use core::sync::atomic::{AtomicBool, AtomicPtr, AtomicUsize, Ordering};
 use core::task::{Context, Poll, Waker};
 use core::cell::UnsafeCell;
 use core::mem;
+use std::boxed::Box;
 use std::thread::{AccessError, ThreadId};
 
+use crate::{Metadata, TaskPriority};
 use alloc::collections::VecDeque;
 use alloc::fmt;
-use async_task::{Builder, Runnable, Task};
+use core::num::{NonZero, NonZeroUsize};
+use async_task::Builder;
 use bevy_platform::prelude::Vec;
 use bevy_platform::sync::{Mutex, PoisonError, RwLock, TryLockError};
 use concurrent_queue::ConcurrentQueue;
@@ -25,6 +28,9 @@ use futures_lite::{future,FutureExt};
 use slab::Slab;
 use thread_local::ThreadLocal;
 use crossbeam_utils::CachePadded;
+
+type Runnable = async_task::Runnable<Metadata>;
+type Task<T> = async_task::Task<T, Metadata>;
 
 // ThreadLocalState *must* stay `Sync` due to a currently existing soundness hole.
 // See: https://github.com/Amanieu/thread_local-rs/issues/75
@@ -107,7 +113,7 @@ impl ThreadSpawner {
     pub fn spawn<T: Send + 'static>(
         &self,
         future: impl Future<Output = T> + Send + 'static,
-    ) -> Task<T> {
+    ) -> crate::Task<T> {
         // SAFETY: T and `future` are both 'static, so the Task is guaranteed to not outlive it.
         unsafe { self.spawn_scoped(future) }
     }
@@ -119,7 +125,14 @@ impl ThreadSpawner {
     pub unsafe fn spawn_scoped<'a, T: Send + 'a>(
         &self,
         future: impl Future<Output = T> + Send + 'a,
-    ) -> Task<T> {
+    ) -> crate::Task<T> {
+        let builder = Builder::new()
+            .propagate_panic(true)
+            .metadata(Metadata {
+                priority: TaskPriority::Compute,
+                is_send: false,
+            });
+
         // Create the task and register it in the set of active tasks.
         //
         // SAFETY:
@@ -132,9 +145,7 @@ impl ThreadSpawner {
         //   Therefore we do not need to worry about what is done with the
         //   `Waker`.
         let (runnable, task) = unsafe {
-            Builder::new()
-                .propagate_panic(true)
-                .spawn_unchecked(|()| future, self.schedule())
+            builder.spawn_unchecked(|_| future, self.schedule())
         };
 
         // Instead of directly scheduling this task, it's put into the onto the
@@ -142,7 +153,7 @@ impl ThreadSpawner {
         // either be run immediately or flushed into the thread's local queue.
         let result = self.target_queue.push(runnable);
         debug_assert!(result.is_ok());
-        task
+        crate::Task::new(task)
     }
 
     /// Returns a function that schedules a runnable task when it gets woken up.
@@ -185,16 +196,18 @@ impl Executor {
     }
 
     /// Spawns a 'static and Send task onto the executor.
-    pub fn spawn<T: Send + 'static>(&'static self, future: impl Future<Output = T> + Send + 'static) -> Task<T> {
+    pub fn spawn<T: Send + 'static>(&'static self, future: impl Future<Output = T> + Send + 'static, metadata: Metadata) -> Task<T> {
         // SAFETY: Both `T` and `future` are 'static.
-        unsafe { self.spawn_scoped(future) }
+        unsafe { self.spawn_scoped(future, metadata) }
     }
 
     /// Spawns a non-'static Send task onto the executor.
     ///
     /// # Safety
     /// The caller must ensure that the returned Task does not outlive 'a.
-    pub unsafe fn spawn_scoped<'a, T: Send + 'a>(&'static self, future: impl Future<Output = T> + Send + 'a) -> Task<T> {
+    pub unsafe fn spawn_scoped<'a, T: Send + 'a>(&'static self, future: impl Future<Output = T> + Send + 'a, mut metadata: Metadata) -> Task<T> {
+        metadata.is_send = true;
+        let builder = Builder::new().propagate_panic(true).metadata(metadata);
         // Create the task and register it in the set of active tasks.
         //
         // SAFETY:
@@ -210,9 +223,7 @@ impl Executor {
         //   Therefore we do not need to worry about what is done with the
         //   `Waker`.
         let (runnable, task) = unsafe {
-            Builder::new()
-                .propagate_panic(true)
-                .spawn_unchecked(|()| future, self.schedule())
+            builder.spawn_unchecked(|_| future, self.schedule())
         };
 
         runnable.schedule();
@@ -220,9 +231,9 @@ impl Executor {
     }
 
     /// Spawns a non-Send task onto the executor.
-    pub fn spawn_local<T: 'static>(&'static self, future: impl Future<Output = T> + 'static) -> Task<T> {
+    pub fn spawn_local<T: 'static>(&'static self, future: impl Future<Output = T> + 'static, metadata: Metadata) -> Task<T> {
         // SAFETY: future is 'static
-        unsafe { self.spawn_local_scoped(future) }
+        unsafe { self.spawn_local_scoped(future, metadata) }
     }
 
     /// Spawns a non-'static and non-Send task onto the executor.
@@ -232,7 +243,9 @@ impl Executor {
     pub unsafe fn spawn_local_scoped<'a, T: 'a>(
         &'static self,
         future: impl Future<Output = T> + 'a,
+        mut metadata: Metadata,
     ) -> Task<T> {
+        metadata.is_send = false;
         // Remove the task from the set of active tasks when the future finishes.
         //
         // SAFETY: There are no instances where the value is accessed mutably
@@ -241,7 +254,7 @@ impl Executor {
             try_with_local_queue(|tls| {
                 let entry = tls.local_active.vacant_entry();
                 let index = entry.key();
-                let builder = Builder::new().propagate_panic(true);
+                let builder = Builder::new().propagate_panic(true).metadata(metadata);
 
                 // SAFETY: There are no instances where the value is accessed mutably
                 // from multiple locations simultaneously. This AsyncCallOnDrop will be
@@ -273,7 +286,7 @@ impl Executor {
                 //   all of them are bound vy use of thread-local storage.
                 // - `self.schedule_local()` is `'static`, as checked below.
                 let (runnable, task) = builder
-                    .spawn_unchecked(|()| future, self.schedule_local());
+                    .spawn_unchecked(|_| future, self.schedule_local());
                 entry.insert(runnable.waker());
 
                 mem::forget(_panic_guard);
@@ -308,15 +321,26 @@ impl Executor {
 
     /// Runs the executor until the given future completes.
     pub fn run<'b, T>(&'static self, future: impl Future<Output = T> + 'b) -> impl Future<Output = T> + 'b {
+        const MAX_CONSECUTIVE_FAILURES: usize = 5;
         let mut runner = Runner::new(&self.state);
 
         // A future that runs tasks forever.
         let run_forever = async move {
             let mut rng = fastrand::Rng::new();
             loop {
+                let mut failed = 0;
                 for _ in 0..200 {
                     let runnable = runner.runnable(&mut rng).await;
-                    runnable.run();
+
+                    if !Self::execute(&self.state, runnable) {
+                        failed += 1;
+                    } else {
+                        failed = 0;
+                    }
+
+                    if failed >= MAX_CONSECUTIVE_FAILURES {
+                        break;
+                    }
                 }
                 future::yield_now().await;
             }
@@ -326,32 +350,31 @@ impl Executor {
         future.or(run_forever)
     }
 
+    fn execute(state: &'static State, runnable: Runnable) -> bool {
+        let metadata = runnable.metadata();
+        // SAFETY: This can never be outo bounds.
+        let semaphore = unsafe { state.priority_limits.get_unchecked(metadata.priority.to_index()) };
+        match semaphore.acquire() {
+            Permit::Unrestricted | Permit::Held(_) => {
+                runnable.run();
+                true
+            },
+            Permit::Blocked => if metadata.is_send {
+                Self::queue_send(state, runnable);
+                false
+            } else {
+                Self::queue_local(state, runnable);
+                false
+            },
+        }
+    }
+
     /// Returns a function that schedules a runnable task when it gets woken up.
     fn schedule(&'static self) -> impl Fn(Runnable) + Send + Sync + 'static {
         let state = &self.state;
 
         move |runnable| {
-            // Attempt to push onto the local queue first in dedicated executor threads,
-            // because we know that this thread is awake and always processing new tasks.
-            let runnable = if let Some(local_state) = THREAD_LOCAL_STATE.get() {
-                if core::ptr::eq(local_state.executor.load(Ordering::Relaxed), state) {
-                    match local_state.stealable_queue.push(runnable) {
-                        Ok(()) => {
-                            state.notify_specific_thread(std::thread::current().id(), true);
-                            return;
-                        }
-                        Err(r) => r.into_inner(),
-                    }
-                } else {
-                    runnable
-                }
-            } else {
-                runnable
-            };
-            // Otherwise push onto the global queue instead.
-            let result = state.queue.push(runnable);
-            debug_assert!(result.is_ok());
-            state.notify();
+            Self::queue_send(state, runnable);
         }
     }
 
@@ -359,12 +382,60 @@ impl Executor {
     fn schedule_local(&'static self) -> impl Fn(Runnable) + 'static {
         let state = &self.state;
         move |runnable| {
+            Self::queue_local(state, runnable);
+        }
+    }
+
+    fn queue_send(state: &'static State, runnable: Runnable)  {
+        debug_assert!(runnable.metadata().is_send);
+        if runnable.metadata().priority == TaskPriority::RunNow {
             // SAFETY: This value is in thread local storage and thus can only be accessed
             // from one thread. There are no instances where the value is accessed mutably
             // from multiple locations simultaneously.
-            if unsafe { try_with_local_queue(|tls| tls.local_queue.push_back(runnable)) }.is_ok() {
+            if unsafe { try_with_local_queue(|tls| tls.local_queue.push_front(runnable)) }.is_ok() {
                 state.notify_specific_thread(std::thread::current().id(), false);
             }
+            return;
+        }
+
+        // Attempt to push onto the local queue first in dedicated executor threads,
+        // because we know that this thread is awake and always processing new tasks.
+        let runnable = if let Some(local_state) = THREAD_LOCAL_STATE.get() {
+            if core::ptr::eq(local_state.executor.load(Ordering::Relaxed), state) {
+                match local_state.stealable_queue.push(runnable) {
+                    Ok(()) => {
+                        state.notify_specific_thread(std::thread::current().id(), true);
+                        return;
+                    }
+                    Err(r) => r.into_inner(),
+                }
+            } else {
+                runnable
+            }
+        } else {
+            runnable
+        };
+        // Otherwise push onto the global queue instead.
+        let result = state.queue.push(runnable);
+        debug_assert!(result.is_ok());
+        state.notify();
+    }
+
+    fn queue_local(state: &'static State, runnable: Runnable) {
+        debug_assert!(!runnable.metadata().is_send);
+        let result = if runnable.metadata().priority == TaskPriority::RunNow {
+            // SAFETY: This value is in thread local storage and thus can only be accessed
+            // from one thread. There are no instances where the value is accessed mutably
+            // from multiple locations simultaneously.
+            unsafe { try_with_local_queue(|tls| tls.local_queue.push_front(runnable)) }
+        } else {
+            // SAFETY: This value is in thread local storage and thus can only be accessed
+            // from one thread. There are no instances where the value is accessed mutably
+            // from multiple locations simultaneously.
+            unsafe { try_with_local_queue(|tls| tls.local_queue.push_back(runnable)) }
+        };
+        if result.is_ok() {
+            state.notify_specific_thread(std::thread::current().id(), false);
         }
     }
 }
@@ -382,6 +453,9 @@ struct State {
 
     /// A list of sleeping tickers.
     sleepers: Mutex<Sleepers>,
+
+    // Semaphores for each priority level.
+    priority_limits: [CachePadded<AtomicSemaphore>; TaskPriority::MAX]
 }
 
 impl State {
@@ -396,6 +470,13 @@ impl State {
                 wakers: Vec::new(),
                 free_ids: Vec::new(),
             }),
+            priority_limits: [
+                CachePadded::new(AtomicSemaphore::new(None)),
+                CachePadded::new(AtomicSemaphore::new(None)),
+                CachePadded::new(AtomicSemaphore::new(None)),
+                CachePadded::new(AtomicSemaphore::new(None)),
+                CachePadded::new(AtomicSemaphore::new(None))
+            ],
         }
     }
 
@@ -807,6 +888,57 @@ fn flush_to_local(src: &ConcurrentQueue<Runnable>, dst: &mut LocalQueue) {
         for _ in 0..count {
             let Ok(val) = src.pop() else { break };
             dst.local_queue.push_front(val);
+        }
+    }
+}
+
+struct AtomicSemaphore {
+    available: AtomicUsize,
+    limit: Option<NonZeroUsize>,
+}
+
+impl AtomicSemaphore {
+    pub const fn new(limit: Option<NonZeroUsize>) -> Self {
+        match limit {
+            Some(limit) => Self {
+                available: AtomicUsize::new(limit.get()),
+                limit: Some(limit),
+            },
+            None => Self {
+                available: AtomicUsize::new(0),
+                limit: None,
+            }
+        }
+    }
+
+    pub fn acquire<'a>(&'a self) -> Permit<'a> {
+        if self.limit.is_none() {
+            return Permit::Unrestricted;
+        }
+        let mut current = self.available.load(Ordering::Acquire);
+        if current == 0 {
+            return Permit::Blocked;
+        }
+        loop {
+            match self.available.compare_exchange_weak(current, current - 1, Ordering::AcqRel, Ordering::Relaxed) {
+                Ok(_) => return Permit::Held(self),
+                Err(0) => return Permit::Blocked,
+                Err(actual) => current = actual,
+            }
+        }
+    }
+}
+
+enum Permit<'a> {
+    Unrestricted,
+    Held(&'a AtomicSemaphore),
+    Blocked,
+}
+
+impl<'a> Drop for Permit<'a> {
+    fn drop(&mut self) {
+        if let Permit::Held(sempahore) = self {
+            sempahore.available.fetch_add(1, Ordering::AcqRel);
         }
     }
 }

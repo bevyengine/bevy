@@ -57,6 +57,7 @@ async-io = { version = "2.0.0", optional = true }
 atomic-waker = { version = "1", default-features = false }
 concurrent-queue = { version = "2.5", default-features = false }
 crossbeam-utils = { version = "0.8", default-features = false, optional = true }
+bitflags = "2.9"
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 async-channel = "2.3.0"

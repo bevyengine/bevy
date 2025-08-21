@@ -7,6 +7,19 @@ use core::{
 
 use crate::cfg;
 
+crate::cfg::switch! {
+    crate::cfg::web => {
+        type TaskInner<T> = async_channel::Receiver<Result<T, Panic>>;
+    }
+    crate::cfg::bevy_executor =>  {
+        use crate::Metadata;
+        type TaskInner<T> = async_task::Task<T, Metadata>;
+    }
+    _ =>  {
+        type TaskInner<T> = async_task::Task<T>;
+    }
+}
+
 /// Wraps `async_executor::Task`, a spawned future.
 ///
 /// Tasks are also futures themselves and yield the output of the spawned future.
@@ -16,15 +29,7 @@ use crate::cfg;
 ///
 /// Tasks that panic get immediately canceled. Awaiting a canceled task also causes a panic.
 #[must_use = "Tasks are canceled when dropped, use `.detach()` to run them in the background."]
-pub struct Task<T>(
-    cfg::web! {
-        if {
-            async_channel::Receiver<Result<T, Panic>>
-        } else {
-            async_task::Task<T>
-        }
-    },
-);
+pub struct Task<T>(TaskInner<T>);
 
 // Custom constructors for web and non-web platforms
 cfg::web! {
@@ -49,8 +54,14 @@ cfg::web! {
     } else {
         impl<T> Task<T> {
             /// Creates a new task from a given `async_executor::Task`
-            pub(crate) fn new(task: async_task::Task<T>) -> Self {
+            #[inline]
+            pub(crate) fn new(task: TaskInner<T>) -> Self {
                 Self(task)
+            }
+
+            #[inline]
+            pub(crate) fn into_inner(self) -> TaskInner<T> {
+                self.0
             }
         }
     }
