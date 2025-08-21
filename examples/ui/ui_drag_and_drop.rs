@@ -1,6 +1,6 @@
 //! Demonstrates dragging and dropping UI nodes
 
-use bevy::{color::palettes::css::LIGHT_GRAY, prelude::*, winit::WinitSettings};
+use bevy::{prelude::*, winit::WinitSettings};
 
 fn main() {
     App::new()
@@ -22,26 +22,24 @@ fn setup(mut commands: Commands) {
             display: Display::Grid,
             align_self: AlignSelf::Center,
             justify_self: JustifySelf::Center,
-            row_gap: Val::Px(1.),
-                                column_gap: Val::Px(1.),
             ..Default::default()
-        }, Pickable::IGNORE, BackgroundColor(LIGHT_GRAY.into())))
+        }, Pickable::IGNORE, BackgroundColor(Color::srgb(0.4, 0.4, 0.4))))
         .with_children(|parent| {
             let tile_colors = [
-                Color::srgb(0.8, 0.8, 0.99).darker(0.3),
-                Color::srgb(0.8, 0.99, 0.8).darker(0.3)
+                Color::srgb(0.4, 0.4, 0.8),
+                Color::srgb(0.4, 0.8, 0.4)
             ];
             for column in 0..COLUMNS {
                 for row in 0..ROWS {
                     let i = column + row * COLUMNS;
                     let tile_color = tile_colors[((row % 2) + column) as usize % tile_colors.len()];
-                    let tile_border_color = tile_color.lighter(0.2);
+                    let tile_border_color = tile_color.darker(0.025);
                     parent
                         .spawn((
                             Node {
                                 width: Val::Px(TILE_SIZE),
                                 height: Val::Px(TILE_SIZE),
-                                border: UiRect::all(Val::Px(5.)),
+                                border: UiRect::all(Val::Px(4.)),
                                 grid_row: GridPlacement::start(row + 1),
                                 grid_column: GridPlacement::start(column + 1),
                                 align_items: AlignItems::Center,
@@ -51,7 +49,7 @@ fn setup(mut commands: Commands) {
                             BorderColor::all(tile_border_color),
                             BackgroundColor(tile_color),
                             Outline {
-                                width: Val::Px(5.),
+                                width: Val::Px(2.),
                                 offset: Val::ZERO,
                                 color: Color::NONE,
                             },
