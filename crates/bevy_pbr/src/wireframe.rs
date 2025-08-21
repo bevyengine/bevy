@@ -8,11 +8,9 @@ use bevy_asset::{
     embedded_asset, load_embedded_asset, prelude::AssetChanged, AsAssetId, Asset, AssetApp,
     AssetEventSystems, AssetId, AssetServer, Assets, Handle, UntypedAssetId,
 };
+use bevy_camera::{visibility::ViewVisibility, Camera, Camera3d};
 use bevy_color::{Color, ColorToComponents};
-use bevy_core_pipeline::core_3d::{
-    graph::{Core3d, Node3d},
-    Camera3d,
-};
+use bevy_core_pipeline::core_3d::graph::{Core3d, Node3d};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     component::Tick,
@@ -20,6 +18,7 @@ use bevy_ecs::{
     query::QueryItem,
     system::{lifetimeless::SRes, SystemChangeTick, SystemParamItem},
 };
+use bevy_mesh::{Mesh3d, MeshVertexBufferLayoutRef};
 use bevy_platform::{
     collections::{HashMap, HashSet},
     hash::FixedHasher,
@@ -27,11 +26,12 @@ use bevy_platform::{
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
     batching::gpu_preprocessing::{GpuPreprocessingMode, GpuPreprocessingSupport},
-    camera::ExtractedCamera,
+    camera::{extract_cameras, ExtractedCamera},
+    diagnostic::RecordDiagnostics,
     extract_resource::ExtractResource,
     mesh::{
         allocator::{MeshAllocator, SlabId},
-        Mesh3d, MeshVertexBufferLayoutRef, RenderMesh,
+        RenderMesh,
     },
     prelude::*,
     render_asset::{
@@ -45,17 +45,17 @@ use bevy_render::{
         SetItemPipeline, TrackedRenderPass, ViewBinnedRenderPhases,
     },
     render_resource::*,
-    renderer::RenderContext,
+    renderer::{RenderContext, RenderDevice},
     sync_world::{MainEntity, MainEntityHashMap},
     view::{
         ExtractedView, NoIndirectDrawing, RenderVisibilityRanges, RenderVisibleEntities,
         RetainedViewEntity, ViewDepthTexture, ViewTarget,
     },
-    Extract, Render, RenderApp, RenderDebugFlags, RenderSystems,
+    Extract, Render, RenderApp, RenderDebugFlags, RenderStartup, RenderSystems,
 };
-use bevy_render::{camera::extract_cameras, RenderStartup};
+use bevy_shader::Shader;
 use core::{hash::Hash, ops::Range};
-use tracing::error;
+use tracing::{error, warn};
 
 /// A [`Plugin`] that draws wireframes.
 ///
@@ -89,9 +89,6 @@ impl Plugin for WireframePlugin {
         ))
         .init_asset::<WireframeMaterial>()
         .init_resource::<SpecializedMeshPipelines<Wireframe3dPipeline>>()
-        .register_type::<NoWireframe>()
-        .register_type::<WireframeConfig>()
-        .register_type::<WireframeColor>()
         .init_resource::<WireframeConfig>()
         .init_resource::<WireframeEntitiesNeedingSpecialization>()
         .add_systems(Startup, setup_global_wireframe_material)
@@ -111,10 +108,22 @@ impl Plugin for WireframePlugin {
                 .after(AssetEventSystems)
                 .run_if(resource_exists::<WireframeConfig>),
         );
+    }
 
+    fn finish(&self, app: &mut App) {
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
         };
+
+        let required_features = WgpuFeatures::POLYGON_MODE_LINE | WgpuFeatures::PUSH_CONSTANTS;
+        let render_device = render_app.world().resource::<RenderDevice>();
+        if !render_device.features().contains(required_features) {
+            warn!(
+                "WireframePlugin not loaded. GPU lacks support for required features: {:?}.",
+                required_features
+            );
+            return;
+        }
 
         render_app
             .init_resource::<WireframeEntitySpecializationTicks>()
@@ -384,13 +393,16 @@ impl ViewNode for Wireframe3dNode {
             return Ok(());
         };
 
+        let diagnostics = render_context.diagnostic_recorder();
+
         let mut render_pass = render_context.begin_tracked_render_pass(RenderPassDescriptor {
-            label: Some("wireframe_3d_pass"),
+            label: Some("wireframe_3d"),
             color_attachments: &[Some(target.get_color_attachment())],
             depth_stencil_attachment: Some(depth.get_attachment(StoreOp::Store)),
             timestamp_writes: None,
             occlusion_query_set: None,
         });
+        let pass_span = diagnostics.pass_span(&mut render_pass, "wireframe_3d");
 
         if let Some(viewport) = camera.viewport.as_ref() {
             render_pass.set_camera_viewport(viewport);
@@ -400,6 +412,8 @@ impl ViewNode for Wireframe3dNode {
             error!("Error encountered while rendering the stencil phase {err:?}");
             return Err(NodeRunError::DrawError(err));
         }
+
+        pass_span.end(&mut render_pass);
 
         Ok(())
     }

@@ -3522,7 +3522,7 @@ impl<'w, 'a, T: Component> VacantComponentEntry<'w, 'a, T> {
 #[derive(Clone, Copy)]
 pub struct FilteredEntityRef<'w, 's> {
     entity: UnsafeEntityCell<'w>,
-    access: &'s Access<ComponentId>,
+    access: &'s Access,
 }
 
 impl<'w, 's> FilteredEntityRef<'w, 's> {
@@ -3532,10 +3532,7 @@ impl<'w, 's> FilteredEntityRef<'w, 's> {
     ///   component can exist at the same time as the returned [`FilteredEntityMut`]
     /// - If `access` takes any access for a component `entity` must have that component.
     #[inline]
-    pub(crate) unsafe fn new(
-        entity: UnsafeEntityCell<'w>,
-        access: &'s Access<ComponentId>,
-    ) -> Self {
+    pub(crate) unsafe fn new(entity: UnsafeEntityCell<'w>, access: &'s Access) -> Self {
         Self { entity, access }
     }
 
@@ -3560,7 +3557,7 @@ impl<'w, 's> FilteredEntityRef<'w, 's> {
 
     /// Returns a reference to the underlying [`Access`].
     #[inline]
-    pub fn access(&self) -> &Access<ComponentId> {
+    pub fn access(&self) -> &Access {
         self.access
     }
 
@@ -3840,7 +3837,7 @@ unsafe impl EntityEquivalent for FilteredEntityRef<'_, '_> {}
 /// ```
 pub struct FilteredEntityMut<'w, 's> {
     entity: UnsafeEntityCell<'w>,
-    access: &'s Access<ComponentId>,
+    access: &'s Access,
 }
 
 impl<'w, 's> FilteredEntityMut<'w, 's> {
@@ -3852,10 +3849,7 @@ impl<'w, 's> FilteredEntityMut<'w, 's> {
     ///   may exist at the same time as the returned [`FilteredEntityMut`]
     /// - If `access` takes any access for a component `entity` must have that component.
     #[inline]
-    pub(crate) unsafe fn new(
-        entity: UnsafeEntityCell<'w>,
-        access: &'s Access<ComponentId>,
-    ) -> Self {
+    pub(crate) unsafe fn new(entity: UnsafeEntityCell<'w>, access: &'s Access) -> Self {
         Self { entity, access }
     }
 
@@ -3893,7 +3887,7 @@ impl<'w, 's> FilteredEntityMut<'w, 's> {
 
     /// Returns a reference to the underlying [`Access`].
     #[inline]
-    pub fn access(&self) -> &Access<ComponentId> {
+    pub fn access(&self) -> &Access {
         self.access
     }
 
@@ -4168,7 +4162,7 @@ where
     B: StaticBundle,
 {
     entity: UnsafeEntityCell<'w>,
-    access: &'s Access<ComponentId>,
+    access: &'s Access,
     phantom: PhantomData<B>,
 }
 
@@ -4178,10 +4172,7 @@ where
 {
     /// # Safety
     /// Other users of `UnsafeEntityCell` must only have mutable access to the components in `B`.
-    pub(crate) unsafe fn new(
-        entity: UnsafeEntityCell<'w>,
-        access: &'s Access<ComponentId>,
-    ) -> Self {
+    pub(crate) unsafe fn new(entity: UnsafeEntityCell<'w>, access: &'s Access) -> Self {
         Self {
             entity,
             access,
@@ -4406,7 +4397,7 @@ where
     B: StaticBundle,
 {
     entity: UnsafeEntityCell<'w>,
-    access: &'s Access<ComponentId>,
+    access: &'s Access,
     phantom: PhantomData<B>,
 }
 
@@ -4416,10 +4407,7 @@ where
 {
     /// # Safety
     /// Other users of `UnsafeEntityCell` must not have access to any components not in `B`.
-    pub(crate) unsafe fn new(
-        entity: UnsafeEntityCell<'w>,
-        access: &'s Access<ComponentId>,
-    ) -> Self {
+    pub(crate) unsafe fn new(entity: UnsafeEntityCell<'w>, access: &'s Access) -> Self {
         Self {
             entity,
             access,

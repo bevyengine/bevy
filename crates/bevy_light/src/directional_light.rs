@@ -9,6 +9,7 @@ use bevy_ecs::prelude::*;
 use bevy_image::Image;
 use bevy_reflect::prelude::*;
 use bevy_transform::components::Transform;
+use tracing::warn;
 
 use super::{
     cascade::CascadeShadowConfig, cluster::ClusterVisibilityClass, light_consts, Cascades,
@@ -182,6 +183,8 @@ pub struct DirectionalLightTexture {
 pub struct DirectionalLightShadowMap {
     // The width and height of each cascade.
     ///
+    /// Must be a power of two to avoid unstable cascade positioning.
+    ///
     /// Defaults to `2048`.
     pub size: usize,
 }
@@ -189,6 +192,14 @@ pub struct DirectionalLightShadowMap {
 impl Default for DirectionalLightShadowMap {
     fn default() -> Self {
         Self { size: 2048 }
+    }
+}
+
+pub fn validate_shadow_map_size(mut shadow_map: ResMut<DirectionalLightShadowMap>) {
+    if shadow_map.is_changed() && !shadow_map.size.is_power_of_two() {
+        let new_size = shadow_map.size.next_power_of_two();
+        warn!("Non-power-of-two DirectionalLightShadowMap sizes are not supported, correcting {} to {new_size}", shadow_map.size);
+        shadow_map.size = new_size;
     }
 }
 
@@ -227,5 +238,55 @@ pub fn update_directional_light_frusta(
                 )
             })
             .collect();
+    }
+}
+
+/// Add to a [`DirectionalLight`] to control rendering of the visible solar disk in the sky.
+/// Affects only the disk’s appearance, not the light’s illuminance or shadows.
+/// Requires a `bevy::pbr::Atmosphere` component on a [`Camera3d`](bevy_camera::Camera3d) to have any effect.
+///
+/// By default, the atmosphere is rendered with [`SunDisk::EARTH`], which approximates the
+/// apparent size and brightness of the Sun as seen from Earth. You can also disable the sun
+/// disk entirely with [`SunDisk::OFF`].
+#[derive(Component, Clone)]
+#[require(DirectionalLight)]
+pub struct SunDisk {
+    /// The angular size (diameter) of the sun disk in radians, as observed from the scene.
+    pub angular_size: f32,
+    /// Multiplier for the brightness of the sun disk.
+    ///
+    /// `0.0` disables the disk entirely (atmospheric scattering still occurs),
+    /// `1.0` is the default physical intensity, and values `>1.0` overexpose it.
+    pub intensity: f32,
+}
+
+impl SunDisk {
+    /// Earth-like parameters for the sun disk.
+    ///
+    /// Uses the mean apparent size (~32 arcminutes) of the Sun at 1 AU distance
+    /// with default intensity.
+    pub const EARTH: SunDisk = SunDisk {
+        angular_size: 0.00930842,
+        intensity: 1.0,
+    };
+
+    /// No visible sun disk.
+    ///
+    /// Keeps scattering and directional light illumination, but hides the disk itself.
+    pub const OFF: SunDisk = SunDisk {
+        angular_size: 0.0,
+        intensity: 0.0,
+    };
+}
+
+impl Default for SunDisk {
+    fn default() -> Self {
+        Self::EARTH
+    }
+}
+
+impl Default for &SunDisk {
+    fn default() -> Self {
+        &SunDisk::EARTH
     }
 }

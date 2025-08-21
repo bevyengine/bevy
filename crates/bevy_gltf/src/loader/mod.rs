@@ -2,7 +2,6 @@ mod extensions;
 mod gltf_ext;
 
 use alloc::sync::Arc;
-use bevy_log::warn_once;
 use std::{
     io::Error,
     path::{Path, PathBuf},
@@ -15,8 +14,11 @@ use bevy_asset::{
     io::Reader, AssetLoadError, AssetLoader, Handle, LoadContext, ReadAssetBytesError,
     RenderAssetUsages,
 };
+use bevy_camera::{
+    primitives::Aabb, visibility::Visibility, Camera, Camera3d, OrthographicProjection,
+    PerspectiveProjection, Projection, ScalingMode,
+};
 use bevy_color::{Color, LinearRgba};
-use bevy_core_pipeline::prelude::Camera3d;
 use bevy_ecs::{
     entity::{Entity, EntityHashMap},
     hierarchy::ChildSpawner,
@@ -27,25 +29,18 @@ use bevy_image::{
     CompressedImageFormats, Image, ImageLoaderSettings, ImageSampler, ImageSamplerDescriptor,
     ImageType, TextureError,
 };
+use bevy_light::{DirectionalLight, PointLight, SpotLight};
 use bevy_math::{Mat4, Vec3};
 use bevy_mesh::{
     morph::{MeshMorphWeights, MorphAttributes, MorphTargetImage, MorphWeights},
     skinning::{SkinnedMesh, SkinnedMeshInverseBindposes},
-    Indices, Mesh, MeshVertexAttribute, PrimitiveTopology, VertexAttributeValues,
+    Indices, Mesh, Mesh3d, MeshVertexAttribute, PrimitiveTopology,
 };
 #[cfg(feature = "pbr_transmission_textures")]
 use bevy_pbr::UvChannel;
-use bevy_pbr::{
-    DirectionalLight, MeshMaterial3d, PointLight, SpotLight, StandardMaterial, MAX_JOINTS,
-};
+use bevy_pbr::{MeshMaterial3d, StandardMaterial, MAX_JOINTS};
 use bevy_platform::collections::{HashMap, HashSet};
-use bevy_render::{
-    camera::{Camera, OrthographicProjection, PerspectiveProjection, Projection, ScalingMode},
-    mesh::Mesh3d,
-    primitives::Aabb,
-    render_resource::Face,
-    view::Visibility,
-};
+use bevy_render::render_resource::Face;
 use bevy_scene::Scene;
 #[cfg(not(target_arch = "wasm32"))]
 use bevy_tasks::IoTaskPool;
@@ -152,20 +147,17 @@ pub struct GltfLoader {
     pub custom_vertex_attributes: HashMap<Box<str>, MeshVertexAttribute>,
     /// Arc to default [`ImageSamplerDescriptor`].
     pub default_sampler: Arc<Mutex<ImageSamplerDescriptor>>,
-    /// Whether to convert glTF coordinates to Bevy's coordinate system by default.
-    /// If set to `true`, the loader will convert the coordinate system of loaded glTF assets to Bevy's coordinate system
-    /// such that objects looking forward in glTF will also look forward in Bevy.
+    /// How to convert glTF coordinates on import. Assuming glTF cameras, glTF lights, and glTF meshes had global identity transforms,
+    /// their Bevy [`Transform::forward`](bevy_transform::components::Transform::forward) will be pointing in the following global directions:
+    /// - When set to `false`
+    ///   - glTF cameras and glTF lights: global -Z,
+    ///   - glTF models: global +Z.
+    /// - When set to `true`
+    ///   - glTF cameras and glTF lights: global +Z,
+    ///   - glTF models: global -Z.
     ///
-    /// The exact coordinate system conversion is as follows:
-    /// - glTF:
-    ///   - forward: Z
-    ///   - up: Y
-    ///   - right: -X
-    /// - Bevy:
-    ///   - forward: -Z
-    ///   - up: Y
-    ///   - right: X
-    pub default_convert_coordinates: bool,
+    /// The default is `false`.
+    pub default_use_model_forward_direction: bool,
 }
 
 /// Specifies optional settings for processing gltfs at load time. By default, all recognized contents of
@@ -207,23 +199,19 @@ pub struct GltfLoaderSettings {
     pub default_sampler: Option<ImageSamplerDescriptor>,
     /// If true, the loader will ignore sampler data from gltf and use the default sampler.
     pub override_sampler: bool,
-    /// Overrides the default glTF coordinate conversion setting.
+    /// _CAUTION: This is an experimental feature with [known issues](https://github.com/bevyengine/bevy/issues/20621). Behavior may change in future versions._
     ///
-    /// If set to `Some(true)`, the loader will convert the coordinate system of loaded glTF assets to Bevy's coordinate system
-    /// such that objects looking forward in glTF will also look forward in Bevy.
+    /// How to convert glTF coordinates on import. Assuming glTF cameras, glTF lights, and glTF meshes had global unit transforms,
+    /// their Bevy [`Transform::forward`](bevy_transform::components::Transform::forward) will be pointing in the following global directions:
+    /// - When set to `false`
+    ///   - glTF cameras and glTF lights: global -Z,
+    ///   - glTF models: global +Z.
+    /// - When set to `true`
+    ///   - glTF cameras and glTF lights: global +Z,
+    ///   - glTF models: global -Z.
     ///
-    /// The exact coordinate system conversion is as follows:
-    /// - glTF:
-    ///   - forward: Z
-    ///   - up: Y
-    ///   - right: -X
-    /// - Bevy:
-    ///   - forward: -Z
-    ///   - up: Y
-    ///   - right: X
-    ///
-    /// If `None`, uses the global default set by [`GltfPlugin::convert_coordinates`](crate::GltfPlugin::convert_coordinates).
-    pub convert_coordinates: Option<bool>,
+    /// If `None`, uses the global default set by [`GltfPlugin::use_model_forward_direction`](crate::GltfPlugin::use_model_forward_direction).
+    pub use_model_forward_direction: Option<bool>,
 }
 
 impl Default for GltfLoaderSettings {
@@ -236,7 +224,7 @@ impl Default for GltfLoaderSettings {
             include_source: false,
             default_sampler: None,
             override_sampler: false,
-            convert_coordinates: None,
+            use_model_forward_direction: None,
         }
     }
 }
@@ -276,20 +264,9 @@ impl GltfLoader {
             paths
         };
 
-        let convert_coordinates = match settings.convert_coordinates {
+        let convert_coordinates = match settings.use_model_forward_direction {
             Some(convert_coordinates) => convert_coordinates,
-            None => {
-                let convert_by_default = loader.default_convert_coordinates;
-                if !convert_by_default && !cfg!(feature = "gltf_convert_coordinates_default") {
-                    warn_once!(
-                    "Starting from Bevy 0.18, by default all imported glTF models will be rotated by 180 degrees around the Y axis to align with Bevy's coordinate system. \
-                    You are currently importing glTF files using the old behavior. Consider opting-in to the new import behavior by enabling the `gltf_convert_coordinates_default` feature. \
-                    If you encounter any issues please file a bug! \
-                    If you want to continue using the old behavior going forward (even when the default changes in 0.18), manually set the corresponding option in the `GltfPlugin` or `GltfLoaderSettings`. See the migration guide for more details."
-                );
-                }
-                convert_by_default
-            }
+            None => loader.default_use_model_forward_direction,
         };
 
         #[cfg(feature = "bevy_animation")]
@@ -737,7 +714,12 @@ impl GltfLoader {
                             primitive: primitive.index(),
                         };
                         let morph_target_image = MorphTargetImage::new(
-                            morph_target_reader.map(PrimitiveMorphAttributesIter),
+                            morph_target_reader.map(|i| PrimitiveMorphAttributesIter {
+                                convert_coordinates,
+                                positions: i.0,
+                                normals: i.1,
+                                tangents: i.2,
+                            }),
                             mesh.count_vertices(),
                             RenderAssetUsages::default(),
                         )?;
@@ -775,26 +757,22 @@ impl GltfLoader {
                     }
                 }
 
-                if let Some(vertex_attribute) = reader
-                    .read_tangents()
-                    .map(|v| VertexAttributeValues::Float32x4(v.collect()))
-                {
-                    mesh.insert_attribute(Mesh::ATTRIBUTE_TANGENT, vertex_attribute);
-                } else if mesh.attribute(Mesh::ATTRIBUTE_NORMAL).is_some()
+                if !mesh.contains_attribute(Mesh::ATTRIBUTE_TANGENT)
+                    && mesh.contains_attribute(Mesh::ATTRIBUTE_NORMAL)
                     && needs_tangents(&primitive.material())
                 {
                     tracing::debug!(
-                    "Missing vertex tangents for {}, computing them using the mikktspace algorithm. Consider using a tool such as Blender to pre-compute the tangents.", file_name
-                );
+                        "Missing vertex tangents for {}, computing them using the mikktspace algorithm. Consider using a tool such as Blender to pre-compute the tangents.", file_name
+                    );
 
                     let generate_tangents_span = info_span!("generate_tangents", name = file_name);
 
                     generate_tangents_span.in_scope(|| {
                         if let Err(err) = mesh.generate_tangents() {
                             warn!(
-                            "Failed to generate vertex tangents using the mikktspace algorithm: {}",
-                            err
-                        );
+                                "Failed to generate vertex tangents using the mikktspace algorithm: {}",
+                                err
+                            );
                         }
                     });
                 }
@@ -1465,49 +1443,49 @@ fn load_node(
     }
 
     // create camera node
-    if settings.load_cameras {
-        if let Some(camera) = gltf_node.camera() {
-            let projection = match camera.projection() {
-                gltf::camera::Projection::Orthographic(orthographic) => {
-                    let xmag = orthographic.xmag();
-                    let orthographic_projection = OrthographicProjection {
-                        near: orthographic.znear(),
-                        far: orthographic.zfar(),
-                        scaling_mode: ScalingMode::FixedHorizontal {
-                            viewport_width: xmag,
-                        },
-                        ..OrthographicProjection::default_3d()
-                    };
-                    Projection::Orthographic(orthographic_projection)
-                }
-                gltf::camera::Projection::Perspective(perspective) => {
-                    let mut perspective_projection: PerspectiveProjection = PerspectiveProjection {
-                        fov: perspective.yfov(),
-                        near: perspective.znear(),
-                        ..Default::default()
-                    };
-                    if let Some(zfar) = perspective.zfar() {
-                        perspective_projection.far = zfar;
-                    }
-                    if let Some(aspect_ratio) = perspective.aspect_ratio() {
-                        perspective_projection.aspect_ratio = aspect_ratio;
-                    }
-                    Projection::Perspective(perspective_projection)
-                }
-            };
-
-            node.insert((
-                Camera3d::default(),
-                projection,
-                transform,
-                Camera {
-                    is_active: !*active_camera_found,
+    if settings.load_cameras
+        && let Some(camera) = gltf_node.camera()
+    {
+        let projection = match camera.projection() {
+            gltf::camera::Projection::Orthographic(orthographic) => {
+                let xmag = orthographic.xmag();
+                let orthographic_projection = OrthographicProjection {
+                    near: orthographic.znear(),
+                    far: orthographic.zfar(),
+                    scaling_mode: ScalingMode::FixedHorizontal {
+                        viewport_width: xmag,
+                    },
+                    ..OrthographicProjection::default_3d()
+                };
+                Projection::Orthographic(orthographic_projection)
+            }
+            gltf::camera::Projection::Perspective(perspective) => {
+                let mut perspective_projection: PerspectiveProjection = PerspectiveProjection {
+                    fov: perspective.yfov(),
+                    near: perspective.znear(),
                     ..Default::default()
-                },
-            ));
+                };
+                if let Some(zfar) = perspective.zfar() {
+                    perspective_projection.far = zfar;
+                }
+                if let Some(aspect_ratio) = perspective.aspect_ratio() {
+                    perspective_projection.aspect_ratio = aspect_ratio;
+                }
+                Projection::Perspective(perspective_projection)
+            }
+        };
 
-            *active_camera_found = true;
-        }
+        node.insert((
+            Camera3d::default(),
+            projection,
+            transform,
+            Camera {
+                is_active: !*active_camera_found,
+                ..Default::default()
+            },
+        ));
+
+        *active_camera_found = true;
     }
 
     // Map node index to entity
@@ -1517,161 +1495,170 @@ fn load_node(
 
     node.with_children(|parent| {
         // Only include meshes in the output if they're set to be retained in the MAIN_WORLD and/or RENDER_WORLD by the load_meshes flag
-        if !settings.load_meshes.is_empty() {
-            if let Some(mesh) = gltf_node.mesh() {
-                // append primitives
-                for primitive in mesh.primitives() {
-                    let material = primitive.material();
-                    let material_label = material_label(&material, is_scale_inverted).to_string();
+        if !settings.load_meshes.is_empty()
+            && let Some(mesh) = gltf_node.mesh()
+        {
+            // append primitives
+            for primitive in mesh.primitives() {
+                let material = primitive.material();
+                let material_label = material_label(&material, is_scale_inverted).to_string();
 
-                    // This will make sure we load the default material now since it would not have been
-                    // added when iterating over all the gltf materials (since the default material is
-                    // not explicitly listed in the gltf).
-                    // It also ensures an inverted scale copy is instantiated if required.
-                    if !root_load_context.has_labeled_asset(&material_label)
-                        && !load_context.has_labeled_asset(&material_label)
-                    {
-                        load_material(&material, load_context, document, is_scale_inverted);
-                    }
+                // This will make sure we load the default material now since it would not have been
+                // added when iterating over all the gltf materials (since the default material is
+                // not explicitly listed in the gltf).
+                // It also ensures an inverted scale copy is instantiated if required.
+                if !root_load_context.has_labeled_asset(&material_label)
+                    && !load_context.has_labeled_asset(&material_label)
+                {
+                    load_material(&material, load_context, document, is_scale_inverted);
+                }
 
-                    let primitive_label = GltfAssetLabel::Primitive {
-                        mesh: mesh.index(),
-                        primitive: primitive.index(),
+                let primitive_label = GltfAssetLabel::Primitive {
+                    mesh: mesh.index(),
+                    primitive: primitive.index(),
+                };
+                let bounds = primitive.bounding_box();
+
+                let mut mesh_entity = parent.spawn((
+                    // TODO: handle missing label handle errors here?
+                    Mesh3d(load_context.get_label_handle(primitive_label.to_string())),
+                    MeshMaterial3d::<StandardMaterial>(
+                        load_context.get_label_handle(&material_label),
+                    ),
+                ));
+
+                let target_count = primitive.morph_targets().len();
+                if target_count != 0 {
+                    let weights = match mesh.weights() {
+                        Some(weights) => weights.to_vec(),
+                        None => vec![0.0; target_count],
                     };
-                    let bounds = primitive.bounding_box();
 
-                    let mut mesh_entity = parent.spawn((
-                        // TODO: handle missing label handle errors here?
-                        Mesh3d(load_context.get_label_handle(primitive_label.to_string())),
-                        MeshMaterial3d::<StandardMaterial>(
-                            load_context.get_label_handle(&material_label),
-                        ),
-                    ));
-
-                    let target_count = primitive.morph_targets().len();
-                    if target_count != 0 {
-                        let weights = match mesh.weights() {
-                            Some(weights) => weights.to_vec(),
-                            None => vec![0.0; target_count],
-                        };
-
-                        if morph_weights.is_none() {
-                            morph_weights = Some(weights.clone());
-                        }
-
-                        // unwrap: the parent's call to `MeshMorphWeights::new`
-                        // means this code doesn't run if it returns an `Err`.
-                        // According to https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#morph-targets
-                        // they should all have the same length.
-                        // > All morph target accessors MUST have the same count as
-                        // > the accessors of the original primitive.
-                        mesh_entity.insert(MeshMorphWeights::new(weights).unwrap());
-                    }
-                    mesh_entity.insert(Aabb::from_min_max(
-                        Vec3::from_slice(&bounds.min),
-                        Vec3::from_slice(&bounds.max),
-                    ));
-
-                    if let Some(extras) = primitive.extras() {
-                        mesh_entity.insert(GltfExtras {
-                            value: extras.get().to_string(),
-                        });
+                    if morph_weights.is_none() {
+                        morph_weights = Some(weights.clone());
                     }
 
-                    if let Some(extras) = mesh.extras() {
-                        mesh_entity.insert(GltfMeshExtras {
-                            value: extras.get().to_string(),
-                        });
-                    }
+                    // unwrap: the parent's call to `MeshMorphWeights::new`
+                    // means this code doesn't run if it returns an `Err`.
+                    // According to https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#morph-targets
+                    // they should all have the same length.
+                    // > All morph target accessors MUST have the same count as
+                    // > the accessors of the original primitive.
+                    mesh_entity.insert(MeshMorphWeights::new(weights).unwrap());
+                }
 
-                    if let Some(extras) = material.extras() {
-                        mesh_entity.insert(GltfMaterialExtras {
-                            value: extras.get().to_string(),
-                        });
-                    }
+                let mut bounds_min = Vec3::from_slice(&bounds.min);
+                let mut bounds_max = Vec3::from_slice(&bounds.max);
 
-                    if let Some(name) = mesh.name() {
-                        mesh_entity.insert(GltfMeshName(name.to_string()));
-                    }
+                if convert_coordinates {
+                    let converted_min = bounds_min.convert_coordinates();
+                    let converted_max = bounds_max.convert_coordinates();
 
-                    if let Some(name) = material.name() {
-                        mesh_entity.insert(GltfMaterialName(name.to_string()));
-                    }
+                    bounds_min = converted_min.min(converted_max);
+                    bounds_max = converted_min.max(converted_max);
+                }
 
-                    mesh_entity.insert(Name::new(primitive_name(&mesh, &material)));
+                mesh_entity.insert(Aabb::from_min_max(bounds_min, bounds_max));
 
-                    // Mark for adding skinned mesh
-                    if let Some(skin) = gltf_node.skin() {
-                        entity_to_skin_index_map.insert(mesh_entity.id(), skin.index());
-                    }
+                if let Some(extras) = primitive.extras() {
+                    mesh_entity.insert(GltfExtras {
+                        value: extras.get().to_string(),
+                    });
+                }
+
+                if let Some(extras) = mesh.extras() {
+                    mesh_entity.insert(GltfMeshExtras {
+                        value: extras.get().to_string(),
+                    });
+                }
+
+                if let Some(extras) = material.extras() {
+                    mesh_entity.insert(GltfMaterialExtras {
+                        value: extras.get().to_string(),
+                    });
+                }
+
+                if let Some(name) = mesh.name() {
+                    mesh_entity.insert(GltfMeshName(name.to_string()));
+                }
+
+                if let Some(name) = material.name() {
+                    mesh_entity.insert(GltfMaterialName(name.to_string()));
+                }
+
+                mesh_entity.insert(Name::new(primitive_name(&mesh, &material)));
+
+                // Mark for adding skinned mesh
+                if let Some(skin) = gltf_node.skin() {
+                    entity_to_skin_index_map.insert(mesh_entity.id(), skin.index());
                 }
             }
         }
 
-        if settings.load_lights {
-            if let Some(light) = gltf_node.light() {
-                match light.kind() {
-                    gltf::khr_lights_punctual::Kind::Directional => {
-                        let mut entity = parent.spawn(DirectionalLight {
-                            color: Color::srgb_from_array(light.color()),
-                            // NOTE: KHR_punctual_lights defines the intensity units for directional
-                            // lights in lux (lm/m^2) which is what we need.
-                            illuminance: light.intensity(),
-                            ..Default::default()
-                        });
-                        if let Some(name) = light.name() {
-                            entity.insert(Name::new(name.to_string()));
-                        }
-                        if let Some(extras) = light.extras() {
-                            entity.insert(GltfExtras {
-                                value: extras.get().to_string(),
-                            });
-                        }
+        if settings.load_lights
+            && let Some(light) = gltf_node.light()
+        {
+            match light.kind() {
+                gltf::khr_lights_punctual::Kind::Directional => {
+                    let mut entity = parent.spawn(DirectionalLight {
+                        color: Color::srgb_from_array(light.color()),
+                        // NOTE: KHR_punctual_lights defines the intensity units for directional
+                        // lights in lux (lm/m^2) which is what we need.
+                        illuminance: light.intensity(),
+                        ..Default::default()
+                    });
+                    if let Some(name) = light.name() {
+                        entity.insert(Name::new(name.to_string()));
                     }
-                    gltf::khr_lights_punctual::Kind::Point => {
-                        let mut entity = parent.spawn(PointLight {
-                            color: Color::srgb_from_array(light.color()),
-                            // NOTE: KHR_punctual_lights defines the intensity units for point lights in
-                            // candela (lm/sr) which is luminous intensity and we need luminous power.
-                            // For a point light, luminous power = 4 * pi * luminous intensity
-                            intensity: light.intensity() * core::f32::consts::PI * 4.0,
-                            range: light.range().unwrap_or(20.0),
-                            radius: 0.0,
-                            ..Default::default()
+                    if let Some(extras) = light.extras() {
+                        entity.insert(GltfExtras {
+                            value: extras.get().to_string(),
                         });
-                        if let Some(name) = light.name() {
-                            entity.insert(Name::new(name.to_string()));
-                        }
-                        if let Some(extras) = light.extras() {
-                            entity.insert(GltfExtras {
-                                value: extras.get().to_string(),
-                            });
-                        }
                     }
-                    gltf::khr_lights_punctual::Kind::Spot {
-                        inner_cone_angle,
-                        outer_cone_angle,
-                    } => {
-                        let mut entity = parent.spawn(SpotLight {
-                            color: Color::srgb_from_array(light.color()),
-                            // NOTE: KHR_punctual_lights defines the intensity units for spot lights in
-                            // candela (lm/sr) which is luminous intensity and we need luminous power.
-                            // For a spot light, we map luminous power = 4 * pi * luminous intensity
-                            intensity: light.intensity() * core::f32::consts::PI * 4.0,
-                            range: light.range().unwrap_or(20.0),
-                            radius: light.range().unwrap_or(0.0),
-                            inner_angle: inner_cone_angle,
-                            outer_angle: outer_cone_angle,
-                            ..Default::default()
+                }
+                gltf::khr_lights_punctual::Kind::Point => {
+                    let mut entity = parent.spawn(PointLight {
+                        color: Color::srgb_from_array(light.color()),
+                        // NOTE: KHR_punctual_lights defines the intensity units for point lights in
+                        // candela (lm/sr) which is luminous intensity and we need luminous power.
+                        // For a point light, luminous power = 4 * pi * luminous intensity
+                        intensity: light.intensity() * core::f32::consts::PI * 4.0,
+                        range: light.range().unwrap_or(20.0),
+                        radius: 0.0,
+                        ..Default::default()
+                    });
+                    if let Some(name) = light.name() {
+                        entity.insert(Name::new(name.to_string()));
+                    }
+                    if let Some(extras) = light.extras() {
+                        entity.insert(GltfExtras {
+                            value: extras.get().to_string(),
                         });
-                        if let Some(name) = light.name() {
-                            entity.insert(Name::new(name.to_string()));
-                        }
-                        if let Some(extras) = light.extras() {
-                            entity.insert(GltfExtras {
-                                value: extras.get().to_string(),
-                            });
-                        }
+                    }
+                }
+                gltf::khr_lights_punctual::Kind::Spot {
+                    inner_cone_angle,
+                    outer_cone_angle,
+                } => {
+                    let mut entity = parent.spawn(SpotLight {
+                        color: Color::srgb_from_array(light.color()),
+                        // NOTE: KHR_punctual_lights defines the intensity units for spot lights in
+                        // candela (lm/sr) which is luminous intensity and we need luminous power.
+                        // For a spot light, we map luminous power = 4 * pi * luminous intensity
+                        intensity: light.intensity() * core::f32::consts::PI * 4.0,
+                        range: light.range().unwrap_or(20.0),
+                        radius: light.range().unwrap_or(0.0),
+                        inner_angle: inner_cone_angle,
+                        outer_angle: outer_cone_angle,
+                        ..Default::default()
+                    });
+                    if let Some(name) = light.name() {
+                        entity.insert(Name::new(name.to_string()));
+                    }
+                    if let Some(extras) = light.extras() {
+                        entity.insert(GltfExtras {
+                            value: extras.get().to_string(),
+                        });
                     }
                 }
             }
@@ -1703,16 +1690,16 @@ fn load_node(
     });
 
     // Only include meshes in the output if they're set to be retained in the MAIN_WORLD and/or RENDER_WORLD by the load_meshes flag
-    if !settings.load_meshes.is_empty() {
-        if let (Some(mesh), Some(weights)) = (gltf_node.mesh(), morph_weights) {
-            let primitive_label = mesh.primitives().next().map(|p| GltfAssetLabel::Primitive {
-                mesh: mesh.index(),
-                primitive: p.index(),
-            });
-            let first_mesh =
-                primitive_label.map(|label| load_context.get_label_handle(label.to_string()));
-            node.insert(MorphWeights::new(weights, first_mesh)?);
-        }
+    if !settings.load_meshes.is_empty()
+        && let (Some(mesh), Some(weights)) = (gltf_node.mesh(), morph_weights)
+    {
+        let primitive_label = mesh.primitives().next().map(|p| GltfAssetLabel::Primitive {
+            mesh: mesh.index(),
+            primitive: p.index(),
+        });
+        let first_mesh =
+            primitive_label.map(|label| load_context.get_label_handle(label.to_string()));
+        node.insert(MorphWeights::new(weights, first_mesh)?);
     }
 
     if let Some(err) = gltf_error {
@@ -1843,30 +1830,39 @@ impl ImageOrPath {
     }
 }
 
-struct PrimitiveMorphAttributesIter<'s>(
-    pub  (
-        Option<Iter<'s, [f32; 3]>>,
-        Option<Iter<'s, [f32; 3]>>,
-        Option<Iter<'s, [f32; 3]>>,
-    ),
-);
+struct PrimitiveMorphAttributesIter<'s> {
+    convert_coordinates: bool,
+    positions: Option<Iter<'s, [f32; 3]>>,
+    normals: Option<Iter<'s, [f32; 3]>>,
+    tangents: Option<Iter<'s, [f32; 3]>>,
+}
 
 impl<'s> Iterator for PrimitiveMorphAttributesIter<'s> {
     type Item = MorphAttributes;
 
     fn next(&mut self) -> Option<Self::Item> {
-        let position = self.0 .0.as_mut().and_then(Iterator::next);
-        let normal = self.0 .1.as_mut().and_then(Iterator::next);
-        let tangent = self.0 .2.as_mut().and_then(Iterator::next);
+        let position = self.positions.as_mut().and_then(Iterator::next);
+        let normal = self.normals.as_mut().and_then(Iterator::next);
+        let tangent = self.tangents.as_mut().and_then(Iterator::next);
         if position.is_none() && normal.is_none() && tangent.is_none() {
             return None;
         }
 
-        Some(MorphAttributes {
+        let mut attributes = MorphAttributes {
             position: position.map(Into::into).unwrap_or(Vec3::ZERO),
             normal: normal.map(Into::into).unwrap_or(Vec3::ZERO),
             tangent: tangent.map(Into::into).unwrap_or(Vec3::ZERO),
-        })
+        };
+
+        if self.convert_coordinates {
+            attributes = MorphAttributes {
+                position: attributes.position.convert_coordinates(),
+                normal: attributes.normal.convert_coordinates(),
+                tangent: attributes.tangent.convert_coordinates(),
+            }
+        }
+
+        Some(attributes)
     }
 }
 

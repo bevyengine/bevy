@@ -7,12 +7,14 @@ use bevy_ecs::{
     hierarchy::{ChildOf, Children},
     lifecycle::RemovedComponents,
     query::{Added, Changed, Has, Or},
+    reflect::ReflectComponent,
     schedule::IntoScheduleConfigs,
     spawn::{SpawnRelated, SpawnableList},
     system::{Commands, In, Query},
 };
 use bevy_input_focus::tab_navigation::TabIndex;
 use bevy_picking::{hover::Hovered, PickingSystems};
+use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_ui::{AlignItems, InteractionDisabled, JustifyContent, Node, Pressed, UiRect, Val};
 
 use crate::{
@@ -27,7 +29,8 @@ use crate::{
 
 /// Color variants for buttons. This also functions as a component used by the dynamic styling
 /// system to identify which entities are buttons.
-#[derive(Component, Default, Clone)]
+#[derive(Component, Default, Clone, Reflect)]
+#[reflect(Component, Clone, Default)]
 pub enum ButtonVariant {
     /// The standard button appearance
     #[default]
@@ -104,7 +107,7 @@ fn update_button_styles(
 ) {
     for (button_ent, variant, disabled, pressed, hovered, bg_color, font_color) in q_buttons.iter()
     {
-        set_button_colors(
+        set_button_styles(
             button_ent,
             variant,
             disabled,
@@ -138,7 +141,7 @@ fn update_button_styles_remove(
             if let Ok((button_ent, variant, disabled, pressed, hovered, bg_color, font_color)) =
                 q_buttons.get(ent)
             {
-                set_button_colors(
+                set_button_styles(
                     button_ent,
                     variant,
                     disabled,
@@ -152,7 +155,7 @@ fn update_button_styles_remove(
         });
 }
 
-fn set_button_colors(
+fn set_button_styles(
     button_ent: Entity,
     variant: &ButtonVariant,
     disabled: bool,
@@ -180,6 +183,11 @@ fn set_button_colors(
         (ButtonVariant::Primary, false) => tokens::BUTTON_PRIMARY_TEXT,
     };
 
+    let cursor_shape = match disabled {
+        true => bevy_window::SystemCursorIcon::NotAllowed,
+        false => bevy_window::SystemCursorIcon::Pointer,
+    };
+
     // Change background color
     if bg_color.0 != bg_token {
         commands
@@ -193,6 +201,11 @@ fn set_button_colors(
             .entity(button_ent)
             .insert(ThemeFontColor(font_color_token));
     }
+
+    // Change cursor shape
+    commands
+        .entity(button_ent)
+        .insert(EntityCursor::System(cursor_shape));
 }
 
 /// Plugin which registers the systems for updating the button styles.

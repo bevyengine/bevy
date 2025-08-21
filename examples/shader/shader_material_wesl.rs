@@ -1,16 +1,14 @@
 //! A shader that uses the WESL shading language.
 
 use bevy::{
+    mesh::MeshVertexBufferLayoutRef,
     pbr::{MaterialPipeline, MaterialPipelineKey},
     prelude::*,
     reflect::TypePath,
-    render::{
-        mesh::MeshVertexBufferLayoutRef,
-        render_resource::{
-            AsBindGroup, RenderPipelineDescriptor, ShaderDefVal, ShaderRef,
-            SpecializedMeshPipelineError,
-        },
+    render::render_resource::{
+        AsBindGroup, RenderPipelineDescriptor, SpecializedMeshPipelineError,
     },
+    shader::{ShaderDefVal, ShaderRef},
 };
 
 /// This example uses shader source files from the assets subdirectory
@@ -102,15 +100,15 @@ struct CustomMaterial {
 }
 
 #[repr(C)]
-#[derive(Eq, PartialEq, Hash, Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
+#[derive(Eq, PartialEq, Hash, Copy, Clone)]
 struct CustomMaterialKey {
-    party_mode: u32,
+    party_mode: bool,
 }
 
 impl From<&CustomMaterial> for CustomMaterialKey {
     fn from(material: &CustomMaterial) -> Self {
         Self {
-            party_mode: material.party_mode as u32,
+            party_mode: material.party_mode,
         }
     }
 }
@@ -129,7 +127,7 @@ impl Material for CustomMaterial {
         let fragment = descriptor.fragment.as_mut().unwrap();
         fragment.shader_defs.push(ShaderDefVal::Bool(
             "PARTY_MODE".to_string(),
-            key.bind_group_data.party_mode == 1,
+            key.bind_group_data.party_mode,
         ));
         Ok(())
     }

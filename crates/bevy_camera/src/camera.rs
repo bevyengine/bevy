@@ -6,12 +6,12 @@ use super::{
 };
 use bevy_asset::Handle;
 use bevy_derive::Deref;
-use bevy_ecs::{component::Component, reflect::ReflectComponent};
+use bevy_ecs::{component::Component, entity::Entity, reflect::ReflectComponent};
 use bevy_image::Image;
-use bevy_math::{ops, Dir3, FloatOrd, Mat4, Ray3d, Rect, URect, UVec2, Vec2, Vec3};
+use bevy_math::{ops, Dir3, FloatOrd, Mat4, Ray3d, Rect, URect, UVec2, Vec2, Vec3, Vec3A};
 use bevy_reflect::prelude::*;
 use bevy_transform::components::{GlobalTransform, Transform};
-use bevy_window::WindowRef;
+use bevy_window::{NormalizedWindowRef, WindowRef};
 use core::ops::Range;
 use derive_more::derive::From;
 use thiserror::Error;
@@ -80,14 +80,20 @@ impl Viewport {
         }
     }
 
-    pub fn with_override(
-        &self,
+    pub fn from_viewport_and_override(
+        viewport: Option<&Self>,
         main_pass_resolution_override: Option<&MainPassResolutionOverride>,
-    ) -> Self {
-        let mut viewport = self.clone();
+    ) -> Option<Self> {
+        let mut viewport = viewport.cloned();
+
         if let Some(override_size) = main_pass_resolution_override {
-            viewport.physical_size = **override_size;
+            if viewport.is_none() {
+                viewport = Some(Viewport::default());
+            }
+
+            viewport.as_mut().unwrap().physical_size = **override_size;
         }
+
         viewport
     }
 }
@@ -101,7 +107,8 @@ impl Viewport {
 /// * Insert this component on a 3d camera entity in the render world.
 /// * The resolution override must be smaller than the camera's viewport size.
 /// * The resolution override is specified in physical pixels.
-#[derive(Component, Reflect, Deref)]
+/// * In shaders, use `View::main_pass_viewport` instead of `View::viewport`.
+#[derive(Component, Reflect, Deref, Debug)]
 #[reflect(Component)]
 pub struct MainPassResolutionOverride(pub UVec2);
 
@@ -176,7 +183,7 @@ pub struct ComputedCameraValues {
     pub old_sub_camera_view: Option<SubCameraView>,
 }
 
-/// How much energy a `Camera3d` absorbs from incoming light.
+/// How much energy a [`Camera3d`](crate::Camera3d) absorbs from incoming light.
 ///
 /// <https://en.wikipedia.org/wiki/Exposure_(photography)>
 #[derive(Component, Clone, Copy, Reflect)]
@@ -322,8 +329,8 @@ pub enum ViewportConversionError {
 /// but custom render graphs can also be defined. Inserting a [`Camera`] with no render
 /// graph will emit an error at runtime.
 ///
-/// [`Camera2d`]: https://docs.rs/bevy/latest/bevy/core_pipeline/core_2d/struct.Camera2d.html
-/// [`Camera3d`]: https://docs.rs/bevy/latest/bevy/core_pipeline/core_3d/struct.Camera3d.html
+/// [`Camera2d`]: crate::Camera2d
+/// [`Camera3d`]: crate::Camera3d
 #[derive(Component, Debug, Reflect, Clone)]
 #[reflect(Component, Default, Debug, Clone)]
 #[require(
@@ -502,10 +509,10 @@ impl Camera {
             .ok_or(ViewportConversionError::InvalidData)?;
         // NDC z-values outside of 0 < z < 1 are outside the (implicit) camera frustum and are thus not in viewport-space
         if ndc_space_coords.z < 0.0 {
-            return Err(ViewportConversionError::PastNearPlane);
+            return Err(ViewportConversionError::PastFarPlane);
         }
         if ndc_space_coords.z > 1.0 {
-            return Err(ViewportConversionError::PastFarPlane);
+            return Err(ViewportConversionError::PastNearPlane);
         }
 
         // Flip the Y co-ordinate origin from the bottom to the top.
@@ -540,10 +547,10 @@ impl Camera {
             .ok_or(ViewportConversionError::InvalidData)?;
         // NDC z-values outside of 0 < z < 1 are outside the (implicit) camera frustum and are thus not in viewport-space
         if ndc_space_coords.z < 0.0 {
-            return Err(ViewportConversionError::PastNearPlane);
+            return Err(ViewportConversionError::PastFarPlane);
         }
         if ndc_space_coords.z > 1.0 {
-            return Err(ViewportConversionError::PastFarPlane);
+            return Err(ViewportConversionError::PastNearPlane);
         }
 
         // Stretching ndc depth to value via near plane and negating result to be in positive room again.
@@ -679,10 +686,10 @@ impl Camera {
         Ok(world_near_plane.truncate())
     }
 
-    /// Given a position in world space, use the camera's viewport to compute the Normalized Device Coordinates.
+    /// Given a point in world space, use the camera's viewport to compute the Normalized Device Coordinates of the point.
     ///
-    /// When the position is within the viewport the values returned will be between -1.0 and 1.0 on the X and Y axes,
-    /// and between 0.0 and 1.0 on the Z axis.
+    /// When the point is within the viewport the values returned will be between -1.0 (bottom left) and 1.0 (top right)
+    /// on the X and Y axes, and between 0.0 (far) and 1.0 (near) on the Z axis.
     /// To get the coordinates in the render target's viewport dimensions, you should use
     /// [`world_to_viewport`](Self::world_to_viewport).
     ///
@@ -692,17 +699,16 @@ impl Camera {
     /// # Panics
     ///
     /// Will panic if the `camera_transform` contains `NAN` and the `glam_assert` feature is enabled.
-    pub fn world_to_ndc(
+    pub fn world_to_ndc<V: Into<Vec3A> + From<Vec3A>>(
         &self,
         camera_transform: &GlobalTransform,
-        world_position: Vec3,
-    ) -> Option<Vec3> {
-        // Build a transformation matrix to convert from world space to NDC using camera data
-        let clip_from_world: Mat4 =
-            self.computed.clip_from_view * camera_transform.to_matrix().inverse();
-        let ndc_space_coords: Vec3 = clip_from_world.project_point3(world_position);
+        world_point: V,
+    ) -> Option<V> {
+        let view_from_world = camera_transform.affine().inverse();
+        let view_point = view_from_world.transform_point3a(world_point.into());
+        let ndc_point = self.computed.clip_from_view.project_point3a(view_point);
 
-        (!ndc_space_coords.is_nan()).then_some(ndc_space_coords)
+        (!ndc_point.is_nan()).then_some(ndc_point.into())
     }
 
     /// Given a position in Normalized Device Coordinates,
@@ -800,6 +806,34 @@ impl RenderTarget {
             None
         }
     }
+}
+
+impl RenderTarget {
+    /// Normalize the render target down to a more concrete value, mostly used for equality comparisons.
+    pub fn normalize(&self, primary_window: Option<Entity>) -> Option<NormalizedRenderTarget> {
+        match self {
+            RenderTarget::Window(window_ref) => window_ref
+                .normalize(primary_window)
+                .map(NormalizedRenderTarget::Window),
+            RenderTarget::Image(handle) => Some(NormalizedRenderTarget::Image(handle.clone())),
+            RenderTarget::TextureView(id) => Some(NormalizedRenderTarget::TextureView(*id)),
+        }
+    }
+}
+
+/// Normalized version of the render target.
+///
+/// Once we have this we shouldn't need to resolve it down anymore.
+#[derive(Debug, Clone, Reflect, PartialEq, Eq, Hash, PartialOrd, Ord, From)]
+#[reflect(Clone, PartialEq, Hash)]
+pub enum NormalizedRenderTarget {
+    /// Window to which the camera's view is rendered.
+    Window(NormalizedWindowRef),
+    /// Image to which the camera's view is rendered.
+    Image(ImageRenderTarget),
+    /// Texture View to which the camera's view is rendered.
+    /// Useful when the texture view needs to be created outside of Bevy, for example OpenXR.
+    TextureView(ManualTextureViewHandle),
 }
 
 /// A unique id that corresponds to a specific `ManualTextureView` in the `ManualTextureViews` collection.

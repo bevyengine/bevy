@@ -183,7 +183,7 @@ impl World {
     pub fn add_observer<E: Event, B: StaticBundle, M>(
         &mut self,
         system: impl IntoObserverSystem<E, B, M>,
-    ) -> EntityWorldMut {
+    ) -> EntityWorldMut<'_> {
         self.spawn(Observer::new(system))
     }
 
@@ -517,9 +517,6 @@ mod tests {
     struct B;
 
     #[derive(Component)]
-    struct C;
-
-    #[derive(Component)]
     #[component(storage = "SparseSet")]
     struct S;
 
@@ -722,7 +719,7 @@ mod tests {
         assert_eq!(world.query::<&A>().query(&world).count(), 1);
         assert_eq!(
             world
-                .query_filtered::<&Observer, Allows<Internal>>()
+                .query_filtered::<&Observer, Allow<Internal>>()
                 .query(&world)
                 .count(),
             2
@@ -1399,5 +1396,49 @@ mod tests {
         assert_eq!(vec!["a", "a"], world.resource::<Order>().0);
         world.trigger_targets(EventA, [entities[2], entities[3]]);
         assert_eq!(vec!["a", "a"], world.resource::<Order>().0);
+    }
+
+    #[test]
+    fn unregister_global_observer() {
+        let mut world = World::new();
+        let mut observer = world.add_observer(|_: On<EventA>| {});
+        observer.remove::<Observer>();
+        let id = observer.id();
+        let event_key = EventA::event_key(&world).unwrap();
+        assert!(!world
+            .observers
+            .get_observers_mut(event_key)
+            .global_observers
+            .contains_key(&id));
+    }
+
+    #[test]
+    fn unregister_entity_observer() {
+        let mut world = World::new();
+        let entity = world.spawn_empty().id();
+        let observer = Observer::new(|_: On<EventA>| {}).with_entity(entity);
+        let mut observer = world.spawn(observer);
+        observer.remove::<Observer>();
+        let event_key = EventA::event_key(&world).unwrap();
+        assert!(!world
+            .observers
+            .get_observers_mut(event_key)
+            .entity_observers
+            .contains_key(&entity));
+    }
+
+    #[test]
+    fn unregister_component_observer() {
+        let mut world = World::new();
+        let a = world.register_component::<A>();
+        let observer = Observer::new(|_: On<EventA>| {}).with_component(a);
+        let mut observer = world.spawn(observer);
+        observer.remove::<Observer>();
+        let event_key = EventA::event_key(&world).unwrap();
+        assert!(!world
+            .observers
+            .get_observers_mut(event_key)
+            .get_component_observers()
+            .contains_key(&a));
     }
 }

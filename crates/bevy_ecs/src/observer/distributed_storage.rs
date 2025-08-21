@@ -14,8 +14,7 @@ use core::any::Any;
 use crate::{
     bundle::StaticBundle,
     component::{
-        ComponentCloneBehavior, ComponentId, ComponentsRegistrator, Mutable, RequiredComponents,
-        StorageType,
+        ComponentCloneBehavior, ComponentId, Mutable, RequiredComponentsRegistrator, StorageType,
     },
     entity::Entity,
     entity_disabling::Internal,
@@ -365,17 +364,9 @@ impl Component for Observer {
 
     fn register_required_components(
         _component_id: ComponentId,
-        components: &mut ComponentsRegistrator,
-        required_components: &mut RequiredComponents,
-        inheritance_depth: u16,
-        recursion_check_stack: &mut Vec<ComponentId>,
+        required_components: &mut RequiredComponentsRegistrator,
     ) {
-        components.register_required_components_manual::<Self, Internal>(
-            required_components,
-            Internal::default,
-            inheritance_depth,
-            recursion_check_stack,
-        );
+        required_components.register_required(Internal::default);
     }
 }
 
