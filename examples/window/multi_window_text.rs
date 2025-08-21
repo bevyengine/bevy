@@ -27,7 +27,7 @@ fn main() {
 fn setup_scene(mut commands: Commands) {
     // The first camera; no render target is specified, its render target will be set to the primary window automatically.
     // The camera has no `RenderLayers` component, so it only render entities belonging to render layer `0`.
-    commands.spawn(Camera2d::default());
+    commands.spawn(Camera2d);
 
     // Spawn a second window
     let secondary_window = commands
@@ -44,7 +44,7 @@ fn setup_scene(mut commands: Commands) {
     // Spawn a second camera
     let secondary_window_camera = commands
         .spawn((
-            Camera2d::default(),
+            Camera2d,
             // This camera will only render entities belonging to render layer `1`.
             RenderLayers::layer(1),
             Camera {
