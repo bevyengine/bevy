@@ -17,12 +17,11 @@
 //! # struct MyComponent;
 //! # let mut world = World::new();
 //! world.spawn(MyComponent)
-//!     .observe(|mut trigger: On<Pointer<Click>>| {
-//!         println!("I was just clicked!");
-//!         // Get the underlying pointer event data
-//!         let click_event: &Pointer<Click> = trigger.event();
+//!     .observe(|mut event: On<Pointer<Click>>| {
+//!         // Read the underlying pointer event data
+//!         println!("Pointer {:?} was just clicked!", event.pointer_id);
 //!         // Stop the event from bubbling up the entity hierarchy
-//!         trigger.propagate(false);
+//!         event.propagate(false);
 //!     });
 //! ```
 //!
@@ -54,16 +53,15 @@
 //!     commands.spawn(Transform::default())
 //!         // Spawn your entity here, e.g. a `Mesh3d`.
 //!         // When dragged, mutate the `Transform` component on the dragged target entity:
-//!         .observe(|trigger: On<Pointer<Drag>>, mut transforms: Query<&mut Transform>| {
-//!             let mut transform = transforms.get_mut(trigger.target()).unwrap();
-//!             let drag = trigger.event();
-//!             transform.rotate_local_y(drag.delta.x / 50.0);
+//!         .observe(|event: On<Pointer<Drag>>, mut transforms: Query<&mut Transform>| {
+//!             let mut transform = transforms.get_mut(event.entity()).unwrap();
+//!             transform.rotate_local_y(event.delta.x / 50.0);
 //!         })
-//!         .observe(|trigger: On<Pointer<Click>>, mut commands: Commands| {
-//!             println!("Entity {} goes BOOM!", trigger.target());
-//!             commands.entity(trigger.target()).despawn();
+//!         .observe(|event: On<Pointer<Click>>, mut commands: Commands| {
+//!             println!("Entity {} goes BOOM!", event.entity());
+//!             commands.entity(event.entity()).despawn();
 //!         })
-//!         .observe(|trigger: On<Pointer<Over>>, mut events: EventWriter<Greeting>| {
+//!         .observe(|event: On<Pointer<Over>>, mut events: EventWriter<Greeting>| {
 //!             events.write(Greeting);
 //!         });
 //! }

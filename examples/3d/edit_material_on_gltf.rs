@@ -58,7 +58,7 @@ fn setup_scene(mut commands: Commands, asset_server: Res<AssetServer>) {
 }
 
 fn change_material(
-    trigger: On<SceneInstanceReady>,
+    event: On<SceneInstanceReady>,
     mut commands: Commands,
     children: Query<&Children>,
     color_override: Query<&ColorOverride>,
@@ -66,12 +66,12 @@ fn change_material(
     mut asset_materials: ResMut<Assets<StandardMaterial>>,
 ) {
     // Get the `ColorOverride` of the entity, if it does not have a color override, skip
-    let Ok(color_override) = color_override.get(trigger.target()) else {
+    let Ok(color_override) = color_override.get(event.entity()) else {
         return;
     };
 
     // Iterate over all children recursively
-    for descendants in children.iter_descendants(trigger.target()) {
+    for descendants in children.iter_descendants(event.entity()) {
         // Get the material of the descendant
         if let Some(material) = mesh_materials
             .get(descendants)
