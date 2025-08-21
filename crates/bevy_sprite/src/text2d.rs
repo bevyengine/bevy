@@ -176,7 +176,6 @@ pub fn update_text2d_layout(
     mut font_system: ResMut<CosmicFontSystem>,
     mut swash_cache: ResMut<SwashCache>,
 ) {
-    println!("update text2d layout");
     // TODO: Support window-independent scaling: https://github.com/bevyengine/bevy/issues/5621
     let scale_factor = windows
         .single()
@@ -253,7 +252,6 @@ pub fn calculate_bounds_text2d(
         (Changed<TextLayoutInfo>, Without<NoFrustumCulling>),
     >,
 ) {
-    println!("calc bounds text2d");
     for (entity, layout_info, anchor, text_bounds, aabb) in &mut text_to_update_aabb {
         let size = Vec2::new(
             text_bounds.width.unwrap_or(layout_info.size.x),

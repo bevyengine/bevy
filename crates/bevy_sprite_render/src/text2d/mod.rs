@@ -43,7 +43,6 @@ pub fn extract_text2d_sprite(
     text_colors: Extract<Query<&TextColor>>,
     text_background_colors_query: Extract<Query<&TextBackgroundColor>>,
 ) {
-    println!("extract text2d");
     let mut start = extracted_slices.slices.len();
     let mut end = start + 1;
 
