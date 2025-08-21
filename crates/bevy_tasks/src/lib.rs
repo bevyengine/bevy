@@ -66,6 +66,8 @@ pub trait ConditionalSendFuture: Future + ConditionalSend {}
 
 impl<T: Future + ConditionalSend> ConditionalSendFuture for T {}
 
+use core::marker::PhantomData;
+
 use alloc::boxed::Box;
 
 /// An owned and dynamically typed Future used when you can't statically type your result or need to add some indirection.
@@ -200,4 +202,31 @@ impl TaskPriority {
 pub(crate) struct Metadata {
     pub priority: TaskPriority,
     pub is_send: bool,
+}
+
+pub struct TaskBuilder<T> {
+    priority: TaskPriority,
+    marker_: PhantomData<*const T>
+}
+
+impl<T> TaskBuilder<T> {
+    pub fn with_priority(mut self, priority: TaskPriority) -> Self {
+        self.priority = priority;
+        self
+    }
+
+    pub fn build_metadata(self) -> Metadata {
+        Metadata { 
+            priority: self.priority, 
+            is_send: false,
+        }
+    }
+}
+
+pub struct ScopeTaskBuilder<'a: 'scope, 'scope: 'env, 'env, T> {
+    scope: &'a Scope<'scope, 'env, T>,
+}
+
+impl<'a, 'scope, 'env> ScopeTaskBuilder<'a, 'scope, 'env, T> {
+
 }

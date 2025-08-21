@@ -1,6 +1,6 @@
 use alloc::{boxed::Box, format, string::String, vec::Vec};
 use core::{future::Future, marker::PhantomData, mem, panic::AssertUnwindSafe};
-use std::thread::{self, JoinHandle};
+use std::{sync::OnceLock, thread::{self, JoinHandle}};
 
 use crate::{bevy_executor::Executor, Metadata};
 use async_task::FallibleTask;
@@ -11,6 +11,9 @@ use futures_lite::FutureExt;
 use crate::{block_on, Task};
 
 pub use crate::bevy_executor::ThreadSpawner;
+
+static EXECUTOR: Executor = Executor::new();
+static TASK_POOL: OnceLock<TaskPool> = OnceLock::new();
 
 struct CallOnDrop(Option<Arc<dyn Fn() + Send + Sync + 'static>>);
 
@@ -148,9 +151,16 @@ impl TaskPool {
         self.executor.current_thread_spawner()
     }
 
-    /// Create a `TaskPool` with the default configuration.
-    pub fn new() -> Self {
-        TaskPoolBuilder::new().build()
+    pub fn try_get() -> Option<&'static TaskPool> {
+        TASK_POOL.get()
+    }
+
+    pub fn get() -> &'static TaskPool {
+        Self::get_or_init(Default::default)
+    }
+
+    pub fn get_or_init(f: impl FnOnce() -> TaskPoolBuilder) -> &'static TaskPool {
+        TASK_POOL.get_or_init(|| f().build_static(&EXECUTOR))
     }
 
     fn new_internal(builder: TaskPoolBuilder, executor: &'static Executor) -> Self {
@@ -421,12 +431,6 @@ impl TaskPool {
     }
 }
 
-impl Default for TaskPool {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
 impl Drop for TaskPool {
     fn drop(&mut self) {
         self.shutdown_tx.close();
@@ -553,7 +557,7 @@ mod tests {
 
     #[test]
     fn test_spawn() {
-        let pool = TaskPool::new();
+        let pool = TaskPool::get();
 
         let foo = Box::new(42);
         let foo = &*foo;
@@ -636,7 +640,7 @@ mod tests {
 
     #[test]
     fn test_mixed_spawn_on_scope_and_spawn() {
-        let pool = TaskPool::new();
+        let pool = TaskPool::get();
 
         let foo = Box::new(42);
         let foo = &*foo;
@@ -681,7 +685,7 @@ mod tests {
 
     #[test]
     fn test_thread_locality() {
-        let pool = Arc::new(TaskPool::new());
+        let pool = TaskPool::get();
         let count = Arc::new(AtomicI32::new(0));
         let barrier = Arc::new(Barrier::new(101));
         let thread_check_failed = Arc::new(AtomicBool::new(false));
@@ -718,7 +722,7 @@ mod tests {
 
     #[test]
     fn test_nested_spawn() {
-        let pool = TaskPool::new();
+        let pool = TaskPool::get();
 
         let foo = Box::new(42);
         let foo = &*foo;
@@ -756,7 +760,7 @@ mod tests {
 
     #[test]
     fn test_nested_locality() {
-        let pool = Arc::new(TaskPool::new());
+        let pool = TaskPool::get();
         let count = Arc::new(AtomicI32::new(0));
         let barrier = Arc::new(Barrier::new(101));
         let thread_check_failed = Arc::new(AtomicBool::new(false));
@@ -795,7 +799,7 @@ mod tests {
     // This test will often freeze on other executors.
     #[test]
     fn test_nested_scopes() {
-        let pool = TaskPool::new();
+        let pool = TaskPool::get();
         let count = Arc::new(AtomicI32::new(0));
 
         pool.scope(|scope| {

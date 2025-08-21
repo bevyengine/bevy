@@ -13,13 +13,12 @@ use core::sync::atomic::{AtomicBool, AtomicPtr, AtomicUsize, Ordering};
 use core::task::{Context, Poll, Waker};
 use core::cell::UnsafeCell;
 use core::mem;
-use std::boxed::Box;
 use std::thread::{AccessError, ThreadId};
 
 use crate::{Metadata, TaskPriority};
 use alloc::collections::VecDeque;
 use alloc::fmt;
-use core::num::{NonZero, NonZeroUsize};
+use core::num::NonZeroUsize;
 use async_task::Builder;
 use bevy_platform::prelude::Vec;
 use bevy_platform::sync::{Mutex, PoisonError, RwLock, TryLockError};
