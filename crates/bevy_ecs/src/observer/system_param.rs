@@ -86,8 +86,8 @@ impl<'w, E, B: Bundle> On<'w, E, B> {
     /// #[derive(EntityEvent)]  
     /// struct AssertEvent;  
     ///
-    /// fn assert_observer(trigger: On<AssertEvent>) {  
-    ///     assert_eq!(trigger.observer(), trigger.target());  
+    /// fn assert_observer(event: On<AssertEvent>) {  
+    ///     assert_eq!(event.observer(), event.entity());  
     /// }  
     ///
     /// let mut world = World::new();  
@@ -109,20 +109,20 @@ impl<'w, E: EntityEvent, B: Bundle> On<'w, E, B> {
     /// Returns the [`Entity`] that was targeted by the [`EntityEvent`] that triggered this observer.
     ///
     /// Note that if event propagation is enabled, this may not be the same as the original target of the event,
-    /// which can be accessed via [`On::original_target`].
+    /// which can be accessed via [`On::original_entity`].
     ///
     /// If the event is also a [`BroadcastEvent`] sent with [`trigger`](World::trigger), this will return [`Entity::PLACEHOLDER`].
-    pub fn target(&self) -> Entity {
-        self.trigger.current_target.unwrap_or(Entity::PLACEHOLDER)
+    pub fn entity(&self) -> Entity {
+        self.trigger.entity.unwrap_or(Entity::PLACEHOLDER)
     }
 
     /// Returns the original [`Entity`] that the [`EntityEvent`] was targeted at when it was first triggered.
     ///
-    /// If event propagation is not enabled, this will always return the same value as [`On::target`].
+    /// If event propagation is not enabled, this will always return the same value as [`On::entity`].
     ///
     /// If the event is also a [`BroadcastEvent`] sent with [`trigger`](World::trigger), this will return [`Entity::PLACEHOLDER`].
-    pub fn original_target(&self) -> Entity {
-        self.trigger.original_target.unwrap_or(Entity::PLACEHOLDER)
+    pub fn original_entity(&self) -> Entity {
+        self.trigger.original_entity.unwrap_or(Entity::PLACEHOLDER)
     }
 
     /// Enables or disables event propagation, allowing the same event to trigger observers on a chain of different entities.
@@ -188,14 +188,14 @@ pub struct ObserverTrigger {
     /// For [`EntityEvent`]s used with `trigger_targets` this is the entity that the event targeted.
     /// Can only be `None` for [`BroadcastEvent`]s used with `trigger`.
     ///
-    /// Note that if event propagation is enabled, this may not be the same as [`ObserverTrigger::original_target`].
-    pub current_target: Option<Entity>,
+    /// Note that if event propagation is enabled, this may not be the same as [`ObserverTrigger::original_entity`].
+    pub entity: Option<Entity>,
     /// For [`EntityEvent`]s used with `trigger_targets` this is the entity that the event was originally targeted at.
     /// Can only be `None` for [`BroadcastEvent`]s used with `trigger`.
     ///
     /// If event propagation is enabled, this will be the first entity that the event was targeted at,
     /// even if the event was propagated to other entities.
-    pub original_target: Option<Entity>,
+    pub original_entity: Option<Entity>,
     /// The location of the source code that triggered the observer.
     pub caller: MaybeLocation,
 }

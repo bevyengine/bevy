@@ -1,4 +1,7 @@
-use bevy_asset::Assets;
+use crate::{
+    ExtractedSlice, ExtractedSlices, ExtractedSprite, ExtractedSpriteKind, ExtractedSprites,
+};
+use bevy_asset::{AssetId, Assets};
 use bevy_camera::visibility::ViewVisibility;
 use bevy_color::LinearRgba;
 use bevy_ecs::{
@@ -10,10 +13,9 @@ use bevy_image::prelude::*;
 use bevy_math::Vec2;
 use bevy_render::sync_world::TemporaryRenderEntity;
 use bevy_render::Extract;
-use bevy_sprite::Anchor;
-use bevy_sprite_render::{ExtractedSlice, ExtractedSlices, ExtractedSprite, ExtractedSprites};
+use bevy_sprite::{Anchor, Text2dShadow};
 use bevy_text::{
-    ComputedTextBlock, PositionedGlyph, Text2dShadow, TextBounds, TextColor, TextLayoutInfo,
+    ComputedTextBlock, PositionedGlyph, TextBackgroundColor, TextBounds, TextColor, TextLayoutInfo,
 };
 use bevy_transform::prelude::GlobalTransform;
 use bevy_window::{PrimaryWindow, Window};
@@ -39,6 +41,7 @@ pub fn extract_text2d_sprite(
         )>,
     >,
     text_colors: Extract<Query<&TextColor>>,
+    text_background_colors_query: Extract<Query<&TextBackgroundColor>>,
 ) {
     let mut start = extracted_slices.slices.len();
     let mut end = start + 1;
@@ -71,6 +74,33 @@ pub fn extract_text2d_sprite(
         );
 
         let top_left = (Anchor::TOP_LEFT.0 - anchor.as_vec()) * size;
+
+        for &(section_entity, rect) in text_layout_info.section_rects.iter() {
+            let Ok(text_background_color) = text_background_colors_query.get(section_entity) else {
+                continue;
+            };
+            let render_entity = commands.spawn(TemporaryRenderEntity).id();
+            let offset = Vec2::new(rect.center().x, -rect.center().y);
+            let transform = *global_transform
+                * GlobalTransform::from_translation(top_left.extend(0.))
+                * scaling
+                * GlobalTransform::from_translation(offset.extend(0.));
+            extracted_sprites.sprites.push(ExtractedSprite {
+                main_entity,
+                render_entity,
+                transform,
+                color: text_background_color.0.into(),
+                image_handle_id: AssetId::default(),
+                flip_x: false,
+                flip_y: false,
+                kind: ExtractedSpriteKind::Single {
+                    anchor: Vec2::ZERO,
+                    rect: None,
+                    scaling_mode: None,
+                    custom_size: Some(rect.size()),
+                },
+            });
+        }
 
         if let Some(shadow) = maybe_shadow {
             let shadow_transform = *global_transform
@@ -112,7 +142,7 @@ pub fn extract_text2d_sprite(
                         image_handle_id: atlas_info.texture,
                         flip_x: false,
                         flip_y: false,
-                        kind: bevy_sprite_render::ExtractedSpriteKind::Slices {
+                        kind: ExtractedSpriteKind::Slices {
                             indices: start..end,
                         },
                     });
@@ -174,7 +204,7 @@ pub fn extract_text2d_sprite(
                     image_handle_id: atlas_info.texture,
                     flip_x: false,
                     flip_y: false,
-                    kind: bevy_sprite_render::ExtractedSpriteKind::Slices {
+                    kind: ExtractedSpriteKind::Slices {
                         indices: start..end,
                     },
                 });

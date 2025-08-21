@@ -18,6 +18,11 @@ use bevy::{
 use camera_controller::{CameraController, CameraControllerPlugin};
 use std::f32::consts::PI;
 
+#[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))]
+use bevy::anti_aliasing::dlss::{
+    Dlss, DlssProjectId, DlssRayReconstructionFeature, DlssRayReconstructionSupported,
+};
+
 /// `bevy_solari` demo.
 #[derive(FromArgs, Resource, Clone, Copy)]
 struct Args {
@@ -30,6 +35,12 @@ fn main() {
     let args: Args = argh::from_env();
 
     let mut app = App::new();
+
+    #[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))]
+    app.insert_resource(DlssProjectId(bevy_asset::uuid::uuid!(
+        "5417916c-0291-4e3f-8f65-326c1858ab96" // Don't copy paste this - generate your own UUID!
+    )));
+
     app.add_plugins((DefaultPlugins, SolariPlugins, CameraControllerPlugin))
         .insert_resource(args)
         .add_systems(Startup, setup);
@@ -41,7 +52,14 @@ fn main() {
     app.run();
 }
 
-fn setup(mut commands: Commands, asset_server: Res<AssetServer>, args: Res<Args>) {
+fn setup(
+    mut commands: Commands,
+    asset_server: Res<AssetServer>,
+    args: Res<Args>,
+    #[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))] dlss_rr_supported: Option<
+        Res<DlssRayReconstructionSupported>,
+    >,
+) {
     commands
         .spawn(SceneRoot(asset_server.load(
             GltfAssetLabel::Scene(0).from_asset("models/CornellBox/CornellBox.glb"),
@@ -73,15 +91,26 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, args: Res<Args>
         CameraMainTextureUsages::default().with(TextureUsages::STORAGE_BINDING),
         Msaa::Off,
     ));
+
     if args.pathtracer == Some(true) {
         camera.insert(Pathtracer::default());
     } else {
         camera.insert(SolariLighting::default());
     }
+
+    // Using DLSS Ray Reconstruction for denoising (and cheaper rendering via upscaling) is _highly_ recommended when using Solari
+    #[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))]
+    if dlss_rr_supported.is_some() {
+        camera.insert(Dlss::<DlssRayReconstructionFeature> {
+            perf_quality_mode: Default::default(),
+            reset: Default::default(),
+            _phantom_data: Default::default(),
+        });
+    }
 }
 
 fn add_raytracing_meshes_on_scene_load(
-    trigger: On<SceneInstanceReady>,
+    event: On<SceneInstanceReady>,
     children: Query<&Children>,
     mesh: Query<&Mesh3d>,
     mut meshes: ResMut<Assets<Mesh>>,
@@ -103,7 +132,7 @@ fn add_raytracing_meshes_on_scene_load(
     }
 
     // Add raytracing mesh handles
-    for descendant in children.iter_descendants(trigger.target()) {
+    for descendant in children.iter_descendants(event.entity()) {
         if let Ok(mesh) = mesh.get(descendant) {
             commands
                 .entity(descendant)

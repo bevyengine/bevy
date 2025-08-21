@@ -1,9 +1,10 @@
-use crate::pipeline::CosmicFontSystem;
-use crate::{
-    ComputedTextBlock, Font, FontAtlasSets, LineBreak, SwashCache, TextBounds, TextColor,
-    TextError, TextFont, TextLayout, TextLayoutInfo, TextPipeline, TextReader, TextRoot,
+use bevy_text::{
+    ComputedTextBlock, CosmicFontSystem, Font, FontAtlasSets, LineBreak, SwashCache, TextBounds,
+    TextColor, TextError, TextFont, TextLayout, TextLayoutInfo, TextPipeline, TextReader, TextRoot,
     TextSpanAccess, TextWriter,
 };
+
+use crate::{Anchor, Sprite};
 use bevy_asset::Assets;
 use bevy_camera::primitives::Aabb;
 use bevy_camera::visibility::{self, NoFrustumCulling, Visibility, VisibilityClass};
@@ -21,7 +22,6 @@ use bevy_ecs::{
 use bevy_image::prelude::*;
 use bevy_math::{Vec2, Vec3};
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
-use bevy_sprite::{Anchor, Sprite};
 use bevy_transform::components::Transform;
 use bevy_window::{PrimaryWindow, Window};
 
@@ -31,7 +31,7 @@ use bevy_window::{PrimaryWindow, Window};
 /// [Example usage.](https://github.com/bevyengine/bevy/blob/latest/examples/2d/text2d.rs)
 ///
 /// The string in this component is the first 'text span' in a hierarchy of text spans that are collected into
-/// a [`ComputedTextBlock`]. See [`TextSpan`](crate::TextSpan) for the component used by children of entities with [`Text2d`].
+/// a [`ComputedTextBlock`]. See `TextSpan` for the component used by children of entities with [`Text2d`].
 ///
 /// With `Text2d` the `justify` field of [`TextLayout`] only affects the internal alignment of a block of text and not its
 /// relative position, which is controlled by the [`Anchor`] component.
@@ -43,7 +43,8 @@ use bevy_window::{PrimaryWindow, Window};
 /// # use bevy_color::Color;
 /// # use bevy_color::palettes::basic::BLUE;
 /// # use bevy_ecs::world::World;
-/// # use bevy_text::{Font, Justify, Text2d, TextLayout, TextFont, TextColor, TextSpan};
+/// # use bevy_text::{Font, Justify, TextLayout, TextFont, TextColor, TextSpan};
+/// # use bevy_sprite::Text2d;
 /// #
 /// # let font_handle: Handle<Font> = Default::default();
 /// # let mut world = World::default();
@@ -277,8 +278,7 @@ mod tests {
     use bevy_app::{App, Update};
     use bevy_asset::{load_internal_binary_asset, Handle};
     use bevy_ecs::schedule::IntoScheduleConfigs;
-
-    use crate::{detect_text_needs_rerender, TextIterScratch};
+    use bevy_text::{detect_text_needs_rerender, TextIterScratch};
 
     use super::*;
 
@@ -309,7 +309,7 @@ mod tests {
         load_internal_binary_asset!(
             app,
             Handle::default(),
-            "FiraMono-subset.ttf",
+            "../../bevy_text/src/FiraMono-subset.ttf",
             |bytes: &[u8], _path: String| { Font::try_from_bytes(bytes.to_vec()).unwrap() }
         );
 

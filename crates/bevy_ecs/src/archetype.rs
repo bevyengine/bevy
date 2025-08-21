@@ -137,16 +137,16 @@ pub(crate) struct ArchetypeAfterBundleInsert {
     pub archetype_id: ArchetypeId,
     /// For each component iterated in the same order as the source [`Bundle`](crate::bundle::Bundle),
     /// indicate if the component is newly added to the target archetype or if it already existed.
-    pub bundle_status: Vec<ComponentStatus>,
+    bundle_status: Box<[ComponentStatus]>,
     /// The set of additional required components that must be initialized immediately when adding this Bundle.
     ///
     /// The initial values are determined based on the provided constructor, falling back to the `Default` trait if none is given.
-    pub required_components: Vec<RequiredComponentConstructor>,
+    pub required_components: Box<[RequiredComponentConstructor]>,
     /// The components added by this bundle. This includes any Required Components that are inserted when adding this bundle.
-    pub added: Vec<ComponentId>,
+    added: Box<[ComponentId]>,
     /// The components that were explicitly contributed by this bundle, but already existed in the archetype. This _does not_ include any
     /// Required Components.
-    pub existing: Vec<ComponentId>,
+    existing: Box<[ComponentId]>,
 }
 
 impl ArchetypeAfterBundleInsert {
@@ -242,19 +242,19 @@ impl Edges {
         &mut self,
         bundle_id: BundleId,
         archetype_id: ArchetypeId,
-        bundle_status: Vec<ComponentStatus>,
-        required_components: Vec<RequiredComponentConstructor>,
-        added: Vec<ComponentId>,
-        existing: Vec<ComponentId>,
+        bundle_status: impl Into<Box<[ComponentStatus]>>,
+        required_components: impl Into<Box<[RequiredComponentConstructor]>>,
+        added: impl Into<Box<[ComponentId]>>,
+        existing: impl Into<Box<[ComponentId]>>,
     ) {
         self.insert_bundle.insert(
             bundle_id,
             ArchetypeAfterBundleInsert {
                 archetype_id,
-                bundle_status,
-                required_components,
-                added,
-                existing,
+                bundle_status: bundle_status.into(),
+                required_components: required_components.into(),
+                added: added.into(),
+                existing: existing.into(),
             },
         );
     }

@@ -1332,8 +1332,8 @@ impl App {
     /// # struct Friend;
     /// #
     ///
-    /// app.add_observer(|trigger: On<Party>, friends: Query<Entity, With<Friend>>, mut commands: Commands| {
-    ///     if trigger.event().friends_allowed {
+    /// app.add_observer(|event: On<Party>, friends: Query<Entity, With<Friend>>, mut commands: Commands| {
+    ///     if event.friends_allowed {
     ///         for friend in friends.iter() {
     ///             commands.trigger_targets(Invite, friend);
     ///         }

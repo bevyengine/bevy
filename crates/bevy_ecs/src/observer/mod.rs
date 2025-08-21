@@ -25,7 +25,7 @@
 //! Observers can request other data from the world, such as via a [`Query`] or [`Res`].
 //! Commonly, you might want to verify that the entity that the observable event is targeting
 //! has a specific component, or meets some other condition. [`Query::get`] or [`Query::contains`]
-//! on the [`On::target`] entity is a good way to do this.
+//! on the [`On::entity`] entity is a good way to do this.
 //!
 //! [`Commands`] can also be used inside of observers.
 //! This can be particularly useful for triggering other observers!
@@ -660,20 +660,20 @@ mod tests {
         world.add_observer(
             |obs: On<Add, A>, mut res: ResMut<Order>, mut commands: Commands| {
                 res.observed("add_a");
-                commands.entity(obs.target()).insert(B);
+                commands.entity(obs.entity()).insert(B);
             },
         );
         world.add_observer(
             |obs: On<Remove, A>, mut res: ResMut<Order>, mut commands: Commands| {
                 res.observed("remove_a");
-                commands.entity(obs.target()).remove::<B>();
+                commands.entity(obs.entity()).remove::<B>();
             },
         );
 
         world.add_observer(
             |obs: On<Add, B>, mut res: ResMut<Order>, mut commands: Commands| {
                 res.observed("add_b");
-                commands.entity(obs.target()).remove::<A>();
+                commands.entity(obs.entity()).remove::<A>();
             },
         );
         world.add_observer(|_: On<Remove, B>, mut res: ResMut<Order>| {
@@ -694,14 +694,14 @@ mod tests {
     fn observer_trigger_ref() {
         let mut world = World::new();
 
-        world.add_observer(|mut trigger: On<BroadcastEventWithData>| {
-            trigger.event_mut().counter += 1;
+        world.add_observer(|mut event: On<BroadcastEventWithData>| {
+            event.event_mut().counter += 1;
         });
-        world.add_observer(|mut trigger: On<BroadcastEventWithData>| {
-            trigger.event_mut().counter += 2;
+        world.add_observer(|mut event: On<BroadcastEventWithData>| {
+            event.event_mut().counter += 2;
         });
-        world.add_observer(|mut trigger: On<BroadcastEventWithData>| {
-            trigger.event_mut().counter += 4;
+        world.add_observer(|mut event: On<BroadcastEventWithData>| {
+            event.event_mut().counter += 4;
         });
 
         let mut event = BroadcastEventWithData { counter: 0 };
@@ -713,14 +713,14 @@ mod tests {
     fn observer_trigger_targets_ref() {
         let mut world = World::new();
 
-        world.add_observer(|mut trigger: On<EntityEventWithData, A>| {
-            trigger.event_mut().counter += 1;
+        world.add_observer(|mut event: On<EntityEventWithData, A>| {
+            event.event_mut().counter += 1;
         });
-        world.add_observer(|mut trigger: On<EntityEventWithData, B>| {
-            trigger.event_mut().counter += 2;
+        world.add_observer(|mut event: On<EntityEventWithData, B>| {
+            event.event_mut().counter += 2;
         });
-        world.add_observer(|mut trigger: On<EntityEventWithData, A>| {
-            trigger.event_mut().counter += 4;
+        world.add_observer(|mut event: On<EntityEventWithData, A>| {
+            event.event_mut().counter += 4;
         });
 
         let mut event = EntityEventWithData { counter: 0 };
@@ -848,7 +848,7 @@ mod tests {
         };
         world.spawn_empty().observe(system);
         world.add_observer(move |obs: On<EventA>, mut res: ResMut<Order>| {
-            assert_eq!(obs.target(), Entity::PLACEHOLDER);
+            assert_eq!(obs.entity(), Entity::PLACEHOLDER);
             res.observed("event_a");
         });
 
@@ -871,7 +871,7 @@ mod tests {
             .observe(|_: On<EntityEventA>, mut res: ResMut<Order>| res.observed("a_1"))
             .id();
         world.add_observer(move |obs: On<EntityEventA>, mut res: ResMut<Order>| {
-            assert_eq!(obs.target(), entity);
+            assert_eq!(obs.entity(), entity);
             res.observed("a_2");
         });
 
@@ -1040,19 +1040,19 @@ mod tests {
         let child = world.spawn(ChildOf(parent)).id();
 
         world.entity_mut(parent).observe(
-            move |trigger: On<EventPropagating>, mut res: ResMut<Order>| {
+            move |event: On<EventPropagating>, mut res: ResMut<Order>| {
                 res.observed("parent");
 
-                assert_eq!(trigger.target(), parent);
-                assert_eq!(trigger.original_target(), child);
+                assert_eq!(event.entity(), parent);
+                assert_eq!(event.original_entity(), child);
             },
         );
 
         world.entity_mut(child).observe(
-            move |trigger: On<EventPropagating>, mut res: ResMut<Order>| {
+            move |event: On<EventPropagating>, mut res: ResMut<Order>| {
                 res.observed("child");
-                assert_eq!(trigger.target(), child);
-                assert_eq!(trigger.original_target(), child);
+                assert_eq!(event.entity(), child);
+                assert_eq!(event.original_entity(), child);
             },
         );
 
@@ -1128,12 +1128,10 @@ mod tests {
 
         let child = world
             .spawn(ChildOf(parent))
-            .observe(
-                |mut trigger: On<EventPropagating>, mut res: ResMut<Order>| {
-                    res.observed("child");
-                    trigger.propagate(false);
-                },
-            )
+            .observe(|mut event: On<EventPropagating>, mut res: ResMut<Order>| {
+                res.observed("child");
+                event.propagate(false);
+            })
             .id();
 
         world.trigger_targets(EventPropagating, child);
@@ -1205,12 +1203,10 @@ mod tests {
 
         let child_a = world
             .spawn(ChildOf(parent_a))
-            .observe(
-                |mut trigger: On<EventPropagating>, mut res: ResMut<Order>| {
-                    res.observed("child_a");
-                    trigger.propagate(false);
-                },
-            )
+            .observe(|mut event: On<EventPropagating>, mut res: ResMut<Order>| {
+                res.observed("child_a");
+                event.propagate(false);
+            })
             .id();
 
         let parent_b = world
@@ -1259,8 +1255,8 @@ mod tests {
         world.init_resource::<Order>();
 
         world.add_observer(
-            |trigger: On<EventPropagating>, query: Query<&A>, mut res: ResMut<Order>| {
-                if query.get(trigger.target()).is_ok() {
+            |event: On<EventPropagating>, query: Query<&A>, mut res: ResMut<Order>| {
+                if query.get(event.entity()).is_ok() {
                     res.observed("event");
                 }
             },
@@ -1278,9 +1274,9 @@ mod tests {
     // Originally for https://github.com/bevyengine/bevy/issues/18452
     #[test]
     fn observer_modifies_relationship() {
-        fn on_add(trigger: On<Add, A>, mut commands: Commands) {
+        fn on_add(event: On<Add, A>, mut commands: Commands) {
             commands
-                .entity(trigger.target())
+                .entity(event.entity())
                 .with_related_entities::<crate::hierarchy::ChildOf>(|rsc| {
                     rsc.spawn_empty();
                 });
@@ -1357,8 +1353,8 @@ mod tests {
 
         let caller = MaybeLocation::caller();
         let mut world = World::new();
-        world.add_observer(move |trigger: On<EventA>| {
-            assert_eq!(trigger.caller(), caller);
+        world.add_observer(move |event: On<EventA>| {
+            assert_eq!(event.caller(), caller);
         });
         world.trigger(EventA);
     }
@@ -1371,11 +1367,11 @@ mod tests {
 
         let caller = MaybeLocation::caller();
         let mut world = World::new();
-        world.add_observer(move |trigger: On<Add, Component>| {
-            assert_eq!(trigger.caller(), caller);
+        world.add_observer(move |event: On<Add, Component>| {
+            assert_eq!(event.caller(), caller);
         });
-        world.add_observer(move |trigger: On<Remove, Component>| {
-            assert_eq!(trigger.caller(), caller);
+        world.add_observer(move |event: On<Remove, Component>| {
+            assert_eq!(event.caller(), caller);
         });
         world.commands().spawn(Component).clear();
     }
@@ -1391,8 +1387,8 @@ mod tests {
         let b_id = world.register_component::<B>();
 
         world.add_observer(
-            |trigger: On<EntityEventA, (A, B)>, mut counter: ResMut<Counter>| {
-                for &component in trigger.components() {
+            |event: On<EntityEventA, (A, B)>, mut counter: ResMut<Counter>| {
+                for &component in event.components() {
                     *counter.0.entry(component).or_default() += 1;
                 }
             },
@@ -1425,5 +1421,49 @@ mod tests {
         assert_eq!(vec!["a", "a"], world.resource::<Order>().0);
         world.trigger_targets(EventA, [entities[2], entities[3]]);
         assert_eq!(vec!["a", "a"], world.resource::<Order>().0);
+    }
+
+    #[test]
+    fn unregister_global_observer() {
+        let mut world = World::new();
+        let mut observer = world.add_observer(|_: On<EventA>| {});
+        observer.remove::<Observer>();
+        let id = observer.id();
+        let event_key = EventA::event_key(&world).unwrap();
+        assert!(!world
+            .observers
+            .get_observers_mut(event_key)
+            .global_observers
+            .contains_key(&id));
+    }
+
+    #[test]
+    fn unregister_entity_observer() {
+        let mut world = World::new();
+        let entity = world.spawn_empty().id();
+        let observer = Observer::new(|_: On<EventA>| {}).with_entity(entity);
+        let mut observer = world.spawn(observer);
+        observer.remove::<Observer>();
+        let event_key = EventA::event_key(&world).unwrap();
+        assert!(!world
+            .observers
+            .get_observers_mut(event_key)
+            .entity_observers
+            .contains_key(&entity));
+    }
+
+    #[test]
+    fn unregister_component_observer() {
+        let mut world = World::new();
+        let a = world.register_component::<A>();
+        let observer = Observer::new(|_: On<EventA>| {}).with_component(a);
+        let mut observer = world.spawn(observer);
+        observer.remove::<Observer>();
+        let event_key = EventA::event_key(&world).unwrap();
+        assert!(!world
+            .observers
+            .get_observers_mut(event_key)
+            .get_component_observers()
+            .contains_key(&a));
     }
 }
