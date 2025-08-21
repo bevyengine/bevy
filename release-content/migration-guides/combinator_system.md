@@ -13,10 +13,10 @@ Specifically, the combinators act as follows:
 | Combinator | Rust Equivalent |
 |:----------:|:---------------:|
 | `and`      | `a && b`        |
-| `or`       | `a || b`        |
+| `or`       | `a \|\| b`      |
 | `xor`      | `a ^ b`         |
 | `nand`     | `!(a && b)`     |
-| `nor`      | `!(a || b)`     |
+| `nor`      | `!(a \|\| b)`   |
 | `xnor`     | `!(a ^ b)`      |
 
 ```rust

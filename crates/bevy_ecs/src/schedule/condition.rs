@@ -1476,9 +1476,9 @@ mod tests {
         }
 
         // `test_true` and `test_false` can't fail like the systems can, and so
-        // we use them to model the short circuiting behaviour of rust's logical
+        // we use them to model the short circuiting behavior of rust's logical
         // operators. The goal is to end up with a composite number that
-        // describes rust's behaviour and compare that to the result of the
+        // describes rust's behavior and compare that to the result of the
         // combinators.
 
         // we expect `true() || false()` to yield `true`, and short circuit
