@@ -253,6 +253,7 @@ pub fn calculate_bounds_text2d(
         (Changed<TextLayoutInfo>, Without<NoFrustumCulling>),
     >,
 ) {
+    println!("calc bounds text2d");
     for (entity, layout_info, anchor, text_bounds, aabb) in &mut text_to_update_aabb {
         let size = Vec2::new(
             text_bounds.width.unwrap_or(layout_info.size.x),
