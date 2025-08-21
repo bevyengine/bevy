@@ -1,3 +1,6 @@
+use crate::{
+    ExtractedSlice, ExtractedSlices, ExtractedSprite, ExtractedSpriteKind, ExtractedSprites,
+};
 use bevy_asset::{AssetId, Assets};
 use bevy_camera::visibility::ViewVisibility;
 use bevy_color::LinearRgba;
@@ -10,13 +13,9 @@ use bevy_image::prelude::*;
 use bevy_math::Vec2;
 use bevy_render::sync_world::TemporaryRenderEntity;
 use bevy_render::Extract;
-use bevy_sprite::Anchor;
-use bevy_sprite_render::{
-    ExtractedSlice, ExtractedSlices, ExtractedSprite, ExtractedSpriteKind, ExtractedSprites,
-};
+use bevy_sprite::{Anchor, Text2dShadow};
 use bevy_text::{
-    ComputedTextBlock, PositionedGlyph, Text2dShadow, TextBackgroundColor, TextBounds, TextColor,
-    TextLayoutInfo,
+    ComputedTextBlock, PositionedGlyph, TextBackgroundColor, TextBounds, TextColor, TextLayoutInfo,
 };
 use bevy_transform::prelude::GlobalTransform;
 use bevy_window::{PrimaryWindow, Window};
