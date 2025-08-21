@@ -140,6 +140,8 @@ impl<'w> BundleInserter<'w> {
         inserter
     }
 
+    // A non-generic prelude to insert used to minimize duplicated monomorphized code.
+    // In combination with after_insert, this reduces compile time of bevy by 10%.
     unsafe fn before_insert<'a>(
         entity: Entity,
         location: EntityLocation,
@@ -334,35 +336,41 @@ impl<'w> BundleInserter<'w> {
     ) -> (EntityLocation, T::Effect) {
         let archetype_after_insert = self.archetype_after_insert.as_ref();
 
-        let (new_archetype, new_location, sparse_sets, table, table_row) = Self::before_insert(
-            entity,
-            location,
-            insert_mode,
-            caller,
-            relationship_hook_mode,
-            self.table,
-            self.archetype,
-            archetype_after_insert,
-            &self.world,
-            &mut self.archetype_move_type,
-        );
+        let (new_archetype, new_location, after_effect) = {
+            // Non-generic prelude extracted to improve compile time by minimizing monomorphized code.
+            let (new_archetype, new_location, sparse_sets, table, table_row) = Self::before_insert(
+                entity,
+                location,
+                insert_mode,
+                caller,
+                relationship_hook_mode,
+                self.table,
+                self.archetype,
+                archetype_after_insert,
+                &self.world,
+                &mut self.archetype_move_type,
+            );
 
-        let after_effect = self.bundle_info.as_ref().write_components(
-            table,
-            sparse_sets,
-            archetype_after_insert,
-            archetype_after_insert.required_components.iter(),
-            entity,
-            table_row,
-            self.change_tick,
-            bundle,
-            insert_mode,
-            caller,
-        );
+            let after_effect = self.bundle_info.as_ref().write_components(
+                table,
+                sparse_sets,
+                archetype_after_insert,
+                archetype_after_insert.required_components.iter(),
+                entity,
+                table_row,
+                self.change_tick,
+                bundle,
+                insert_mode,
+                caller,
+            );
+
+            (new_archetype, new_location, after_effect)
+        };
 
         // SAFETY: We have no outstanding mutable references to world as they were dropped
         let deferred_world = unsafe { self.world.into_deferred() };
 
+        // Non-generic postlude extracted to improve compile time by minimizing monomorphized code.
         Self::after_insert(
             entity,
             insert_mode,
@@ -376,6 +384,8 @@ impl<'w> BundleInserter<'w> {
         (new_location, after_effect)
     }
 
+    // A non-generic postlude to insert used to minimize duplicated monomorphized code.
+    // In combination with before_insert, this reduces compile time of bevy by 10%.
     fn after_insert(
         entity: Entity,
         insert_mode: InsertMode,
