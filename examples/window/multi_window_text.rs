@@ -9,7 +9,7 @@ use bevy::{
 
 fn main() {
     App::new()
-        // By default, a primary window gets spawned by `WindowPlugin`, contained in `DefaultPlugins`
+        // By default, a primary window is spawned by `WindowPlugin`, contained in `DefaultPlugins`.
         // The primary window is given the `PrimaryWindow` marker component.
         .add_plugins(DefaultPlugins.set(WindowPlugin {
             primary_window: Some(Window {
@@ -25,16 +25,16 @@ fn main() {
 }
 
 fn setup_scene(mut commands: Commands) {
-    // The first camera, no render target is specified so its render target will be set to the primary window automatically.
-    // It has no `RenderLayers` component, so it will only render entities belonging to render layer `0`
-    commands.spawn(Camera2d::default()).id();
+    // The first camera; no render target is specified, its render target will be set to the primary window automatically.
+    // It has no `RenderLayers` component, so it only render entities belonging to render layer `0`.
+    commands.spawn(Camera2d::default());
 
     // Spawn a second window
     let secondary_window = commands
         .spawn(Window {
             title: "Secondary window".to_owned(),
             // Override the secondary window's scale factor so it is double that of the primary window.
-            // This means the second window's text will use glyph's drawn at twice the resolution of the primary window's text,
+            // This means the second window's text will use glyphs drawn at twice the resolution of the primary window's text,
             // and they will be twice as big on screen.
             resolution: WindowResolution::default().with_scale_factor_override(2.),
             ..default()
@@ -45,10 +45,10 @@ fn setup_scene(mut commands: Commands) {
     let secondary_window_camera = commands
         .spawn((
             Camera2d::default(),
-            // This camera will only render entities belonging to render layer `1`
+            // This camera will only render entities belonging to render layer `1`.
             RenderLayers::layer(1),
             Camera {
-                // Without an explicit render target, this camera would also target the primary window
+                // Without an explicit render target, this camera would also target the primary window.
                 target: RenderTarget::Window(WindowRef::Entity(secondary_window)),
                 ..default()
             },
@@ -66,8 +66,8 @@ fn setup_scene(mut commands: Commands) {
 
     // UI nodes can only be rendered by one camera at a time and ignore `RenderLayers`.
     // This root UI node has no `UiTargetCamera` so `bevy_ui` will try to find a
-    // camera with the `IsDefaultUiCamera` marker component. When that fails, neither
-    // camera spawned in this example has an `IsDefaultUCamera`, it queuries for the
+    // camera with the `IsDefaultUiCamera` marker component. When that fails (neither
+    // camera spawned here has an `IsDefaultUiCamera`), it queries for the
     // first camera targeting the primary window and uses that.
     commands.spawn(node.clone()).with_child((
         Text::new("UI Text Primary window"),
