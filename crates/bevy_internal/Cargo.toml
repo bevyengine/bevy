@@ -254,14 +254,6 @@ debug_glam_assert = ["bevy_math/debug_glam_assert"]
 
 default_font = ["bevy_text?/default_font"]
 
-# Enables text rendering using `bevy_sprite_render`
-text2d = [
-  "bevy_text",
-  "bevy_sprite/text2d",
-  "bevy_sprite_render/text2d",
-  "bevy_ui?/text2d",
-]
-
 # Enables the built-in asset processor for processed assets.
 asset_processor = ["bevy_asset?/asset_processor"]
 

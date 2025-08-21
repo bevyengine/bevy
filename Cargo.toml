@@ -169,7 +169,6 @@ default = [
   "reflect_auto_register",
   "smaa_luts",
   "sysinfo_plugin",
-  "text2d",
   "tonemapping_luts",
   "vorbis",
   "webgl2",
@@ -208,9 +207,6 @@ dynamic_linking = ["dep:bevy_dylib", "bevy_internal/dynamic_linking"]
 
 # Enables system information diagnostic plugin
 sysinfo_plugin = ["bevy_internal/sysinfo_plugin"]
-
-# Enables text rendering using `bevy_sprite_render`
-text2d = ["bevy_internal/text2d"]
 
 # Provides animation functionality
 bevy_animation = ["bevy_internal/bevy_animation", "bevy_color"]
