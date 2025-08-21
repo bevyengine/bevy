@@ -515,3 +515,33 @@ impl<T: Any + System> AnyNamedSystem for T {
         self.name()
     }
 }
+
+#[derive(Component)]
+#[component(on_add = on_add_observable_hook)]
+struct Observable(Vec<Observer>);
+
+impl Observable {
+    pub fn new() -> Self {
+        Self(Vec::new())
+    }
+    pub fn by<E: Event, B: Bundle, M, I: IntoObserverSystem<E, B, M>>(mut self, system: I) -> Self {
+        self.0.push(Observer::new(system));
+        self
+    }
+}
+
+fn on_add_observable_hook(mut world: DeferredWorld, context: HookContext) {
+    let observers = world
+        .get_mut::<Observable>(context.entity)
+        .unwrap()
+        .0
+        .drain(..)
+        .collect::<Vec<_>>();
+    for observer in observers {
+        world.commands().spawn(observer.with_entity(context.entity));
+    }
+    world
+        .commands()
+        .entity(context.entity)
+        .remove::<Observable>();
+}
