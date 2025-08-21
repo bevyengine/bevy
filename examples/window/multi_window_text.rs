@@ -26,14 +26,14 @@ fn main() {
 
 fn setup_scene(mut commands: Commands) {
     // The first camera; no render target is specified, its render target will be set to the primary window automatically.
-    // The camera has no `RenderLayers` component, so it only render entities belonging to render layer `0`.
+    // This camera has no `RenderLayers` component, so it only renders entities belonging to render layer `0`.
     commands.spawn(Camera2d);
 
     // Spawn a second window
     let secondary_window = commands
         .spawn(Window {
             title: "Secondary window".to_owned(),
-            // Override the secondary window's scale factor so it is double that of the primary window.
+            // Override the secondary window's scale factor and set it to double that of the primary window.
             // This means the second window's text will use glyphs drawn at twice the resolution of the primary window's text,
             // and they will be twice as big on screen.
             resolution: WindowResolution::default().with_scale_factor_override(2.),
@@ -103,7 +103,7 @@ fn setup_scene(mut commands: Commands) {
     // This `Text2d` entity belongs to both render layers `0` and `1`, so it will be rendered by both
     // cameras. A single text layout is generated per `Text2d` entity, targeting a specific scale
     // factor. Since the two camera's render targets have different scale factors, the text layout
-    // will be generated using the secondary window's scale factor, and then downscaled when it is
+    // will be generated using the higher scale factor (the secondary window's), and then downscaled when it is
     // drawn by the camera targeting the primary window.
     commands.spawn((
         Text2d::new("Text2d Both Windows"),
