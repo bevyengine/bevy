@@ -11,7 +11,7 @@ keywords = ["bevy"]
 [features]
 default = ["http", "bevy_asset", "documentation", "bevy_math"]
 documentation = ["bevy_reflect/documentation"]
-http = ["dep:async-io", "dep:smol-hyper"]
+http = ["dep:async-io", "dep:smol-hyper", "bevy_tasks/async-io"]
 bevy_asset = ["dep:bevy_asset"]
 bevy_math = ["dep:bevy_math", "bevy_reflect/glam"]
 

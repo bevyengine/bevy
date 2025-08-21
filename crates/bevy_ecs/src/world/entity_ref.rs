@@ -6089,8 +6089,8 @@ mod tests {
         let mut world = World::new();
         let entity = world
             .spawn_empty()
-            .observe(|trigger: On<TestEvent>, mut commands: Commands| {
-                commands.entity(trigger.target()).insert(TestComponent(0));
+            .observe(|event: On<TestEvent>, mut commands: Commands| {
+                commands.entity(event.entity()).insert(TestComponent(0));
             })
             .id();
 
@@ -6108,8 +6108,8 @@ mod tests {
     #[should_panic]
     fn location_on_despawned_entity_panics() {
         let mut world = World::new();
-        world.add_observer(|trigger: On<Add, TestComponent>, mut commands: Commands| {
-            commands.entity(trigger.target()).despawn();
+        world.add_observer(|event: On<Add, TestComponent>, mut commands: Commands| {
+            commands.entity(event.entity()).despawn();
         });
         let entity = world.spawn_empty().id();
         let mut a = world.entity_mut(entity);
@@ -6198,19 +6198,19 @@ mod tests {
             .push("OrdA hook on_remove");
     }
 
-    fn ord_a_observer_on_add(_trigger: On<Add, OrdA>, mut res: ResMut<TestVec>) {
+    fn ord_a_observer_on_add(_event: On<Add, OrdA>, mut res: ResMut<TestVec>) {
         res.0.push("OrdA observer on_add");
     }
 
-    fn ord_a_observer_on_insert(_trigger: On<Insert, OrdA>, mut res: ResMut<TestVec>) {
+    fn ord_a_observer_on_insert(_event: On<Insert, OrdA>, mut res: ResMut<TestVec>) {
         res.0.push("OrdA observer on_insert");
     }
 
-    fn ord_a_observer_on_replace(_trigger: On<Replace, OrdA>, mut res: ResMut<TestVec>) {
+    fn ord_a_observer_on_replace(_event: On<Replace, OrdA>, mut res: ResMut<TestVec>) {
         res.0.push("OrdA observer on_replace");
     }
 
-    fn ord_a_observer_on_remove(_trigger: On<Remove, OrdA>, mut res: ResMut<TestVec>) {
+    fn ord_a_observer_on_remove(_event: On<Remove, OrdA>, mut res: ResMut<TestVec>) {
         res.0.push("OrdA observer on_remove");
     }
 
@@ -6249,19 +6249,19 @@ mod tests {
             .push("OrdB hook on_remove");
     }
 
-    fn ord_b_observer_on_add(_trigger: On<Add, OrdB>, mut res: ResMut<TestVec>) {
+    fn ord_b_observer_on_add(_event: On<Add, OrdB>, mut res: ResMut<TestVec>) {
         res.0.push("OrdB observer on_add");
     }
 
-    fn ord_b_observer_on_insert(_trigger: On<Insert, OrdB>, mut res: ResMut<TestVec>) {
+    fn ord_b_observer_on_insert(_event: On<Insert, OrdB>, mut res: ResMut<TestVec>) {
         res.0.push("OrdB observer on_insert");
     }
 
-    fn ord_b_observer_on_replace(_trigger: On<Replace, OrdB>, mut res: ResMut<TestVec>) {
+    fn ord_b_observer_on_replace(_event: On<Replace, OrdB>, mut res: ResMut<TestVec>) {
         res.0.push("OrdB observer on_replace");
     }
 
-    fn ord_b_observer_on_remove(_trigger: On<Remove, OrdB>, mut res: ResMut<TestVec>) {
+    fn ord_b_observer_on_remove(_event: On<Remove, OrdB>, mut res: ResMut<TestVec>) {
         res.0.push("OrdB observer on_remove");
     }
 

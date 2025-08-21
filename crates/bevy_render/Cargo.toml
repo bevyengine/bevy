@@ -32,6 +32,9 @@ spirv_shader_passthrough = ["wgpu/spirv"]
 # TODO: When wgpu switches to DirectX 12 instead of Vulkan by default on windows, make this a default feature
 statically-linked-dxc = ["wgpu/static-dxc"]
 
+# Forces the wgpu instance to be initialized using the raw Vulkan HAL, enabling additional configuration
+raw_vulkan_init = ["wgpu/vulkan"]
+
 trace = ["profiling"]
 tracing-tracy = ["dep:tracy-client"]
 ci_limits = []
@@ -65,7 +68,6 @@ bevy_image = { path = "../bevy_image", version = "0.17.0-dev" }
 bevy_mesh = { path = "../bevy_mesh", version = "0.17.0-dev" }
 bevy_camera = { path = "../bevy_camera", version = "0.17.0-dev" }
 bevy_shader = { path = "../bevy_shader", version = "0.17.0-dev" }
-bevy_light = { path = "../bevy_light", optional = true, version = "0.17.0-dev" }
 bevy_platform = { path = "../bevy_platform", version = "0.17.0-dev", default-features = false, features = [
   "std",
   "serialize",

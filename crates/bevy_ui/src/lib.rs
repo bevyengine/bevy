@@ -159,6 +159,13 @@ impl Plugin for UiPlugin {
             .add_plugins(HierarchyPropagatePlugin::<ComputedUiTargetCamera>::new(
                 PostUpdate,
             ))
+            .configure_sets(
+                PostUpdate,
+                PropagateSet::<ComputedUiRenderTargetInfo>::default().in_set(UiSystems::Propagate),
+            )
+            .add_plugins(HierarchyPropagatePlugin::<ComputedUiRenderTargetInfo>::new(
+                PostUpdate,
+            ))
             .add_systems(
                 PreUpdate,
                 ui_focus_system.in_set(UiSystems::Focus).after(InputSystems),
@@ -177,8 +184,8 @@ impl Plugin for UiPlugin {
 
         let ui_layout_system_config = ui_layout_system_config
             // Text and Text2D operate on disjoint sets of entities
-            .ambiguous_with(bevy_text::update_text2d_layout)
-            .ambiguous_with(bevy_text::detect_text_needs_rerender::<bevy_text::Text2d>);
+            .ambiguous_with(bevy_sprite::update_text2d_layout)
+            .ambiguous_with(bevy_text::detect_text_needs_rerender::<bevy_sprite::Text2d>);
 
         app.add_systems(
             PostUpdate,
@@ -229,11 +236,11 @@ fn build_text_interop(app: &mut App) {
                 .chain()
                 .in_set(UiSystems::Content)
                 // Text and Text2d are independent.
-                .ambiguous_with(bevy_text::detect_text_needs_rerender::<bevy_text::Text2d>)
+                .ambiguous_with(bevy_text::detect_text_needs_rerender::<bevy_sprite::Text2d>)
                 // Potential conflict: `Assets<Image>`
                 // Since both systems will only ever insert new [`Image`] assets,
                 // they will never observe each other's effects.
-                .ambiguous_with(bevy_text::update_text2d_layout)
+                .ambiguous_with(bevy_sprite::update_text2d_layout)
                 // We assume Text is on disjoint UI entities to ImageNode and UiTextureAtlasImage
                 // FIXME: Add an archetype invariant for this https://github.com/bevyengine/bevy/issues/1481.
                 .ambiguous_with(widget::update_image_content_size_system),
@@ -242,9 +249,9 @@ fn build_text_interop(app: &mut App) {
                 .after(bevy_text::remove_dropped_font_atlas_sets)
                 .before(bevy_asset::AssetEventSystems)
                 // Text2d and bevy_ui text are entirely on separate entities
-                .ambiguous_with(bevy_text::detect_text_needs_rerender::<bevy_text::Text2d>)
-                .ambiguous_with(bevy_text::update_text2d_layout)
-                .ambiguous_with(bevy_text::calculate_bounds_text2d),
+                .ambiguous_with(bevy_text::detect_text_needs_rerender::<bevy_sprite::Text2d>)
+                .ambiguous_with(bevy_sprite::update_text2d_layout)
+                .ambiguous_with(bevy_sprite::calculate_bounds_text2d),
         ),
     );
 
@@ -264,6 +271,6 @@ fn build_text_interop(app: &mut App) {
 
     app.configure_sets(
         PostUpdate,
-        AmbiguousWithUpdateText2dLayout.ambiguous_with(bevy_text::update_text2d_layout),
+        AmbiguousWithUpdateText2dLayout.ambiguous_with(bevy_sprite::update_text2d_layout),
     );
 }

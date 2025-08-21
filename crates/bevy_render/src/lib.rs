@@ -42,8 +42,6 @@ pub mod diagnostic;
 pub mod erased_render_asset;
 pub mod experimental;
 pub mod extract_component;
-#[cfg(feature = "bevy_light")]
-mod extract_impls;
 pub mod extract_instances;
 mod extract_param;
 pub mod extract_resource;
@@ -85,7 +83,7 @@ use crate::{
     mesh::{MeshPlugin, MorphPlugin, RenderMesh},
     render_asset::prepare_assets,
     render_resource::{init_empty_bind_group_layout, PipelineCache},
-    renderer::{render_system, RenderAdapterInfo, RenderInstance},
+    renderer::{render_system, RenderAdapterInfo},
     settings::RenderCreation,
     storage::StoragePlugin,
     texture::TexturePlugin,
@@ -114,7 +112,6 @@ use render_asset::{
 use settings::RenderResources;
 use std::sync::Mutex;
 use sync_world::{despawn_temporary_render_entities, entity_sync_system, SyncWorldPlugin};
-use tracing::debug;
 pub use wgpu_wrapper::WgpuWrapper;
 
 /// Contains the default Bevy rendering backend based on wgpu.
@@ -329,76 +326,29 @@ impl Plugin for RenderPlugin {
                         .single(app.world())
                         .ok()
                         .cloned();
+
                     let settings = render_creation.clone();
+
+                    #[cfg(feature = "raw_vulkan_init")]
+                    let raw_vulkan_init_settings = app
+                        .world_mut()
+                        .get_resource::<renderer::raw_vulkan_init::RawVulkanInitSettings>()
+                        .cloned()
+                        .unwrap_or_default();
+
                     let async_renderer = async move {
-                        let instance = wgpu::Instance::new(&wgpu::InstanceDescriptor {
+                        let render_resources = renderer::initialize_renderer(
                             backends,
-                            flags: settings.instance_flags,
-                            memory_budget_thresholds: settings.instance_memory_budget_thresholds,
-                            backend_options: wgpu::BackendOptions {
-                                gl: wgpu::GlBackendOptions {
-                                    gles_minor_version: settings.gles3_minor_version,
-                                    fence_behavior: wgpu::GlFenceBehavior::Normal,
-                                },
-                                dx12: wgpu::Dx12BackendOptions {
-                                    shader_compiler: settings.dx12_shader_compiler.clone(),
-                                },
-                                noop: wgpu::NoopBackendOptions { enable: false },
-                            },
-                        });
+                            primary_window,
+                            &settings,
+                            #[cfg(feature = "raw_vulkan_init")]
+                            raw_vulkan_init_settings,
+                        )
+                        .await;
 
-                        let surface = primary_window.and_then(|wrapper| {
-                            let maybe_handle = wrapper.0.lock().expect(
-                                "Couldn't get the window handle in time for renderer initialization",
-                            );
-                            if let Some(wrapper) = maybe_handle.as_ref() {
-                                // SAFETY: Plugins should be set up on the main thread.
-                                let handle = unsafe { wrapper.get_handle() };
-                                Some(
-                                    instance
-                                        .create_surface(handle)
-                                        .expect("Failed to create wgpu surface"),
-                                )
-                            } else {
-                                None
-                            }
-                        });
-
-                        let force_fallback_adapter = std::env::var("WGPU_FORCE_FALLBACK_ADAPTER")
-                            .map_or(settings.force_fallback_adapter, |v| {
-                                !(v.is_empty() || v == "0" || v == "false")
-                            });
-
-                        let desired_adapter_name = std::env::var("WGPU_ADAPTER_NAME")
-                            .as_deref()
-                            .map_or(settings.adapter_name.clone(), |x| Some(x.to_lowercase()));
-
-                        let request_adapter_options = wgpu::RequestAdapterOptions {
-                            power_preference: settings.power_preference,
-                            compatible_surface: surface.as_ref(),
-                            force_fallback_adapter,
-                        };
-
-                        let (device, queue, adapter_info, render_adapter) =
-                            renderer::initialize_renderer(
-                                &instance,
-                                &settings,
-                                &request_adapter_options,
-                                desired_adapter_name,
-                            )
-                            .await;
-                        debug!("Configured wgpu adapter Limits: {:#?}", device.limits());
-                        debug!("Configured wgpu adapter Features: {:#?}", device.features());
-                        let mut future_render_resources_inner =
-                            future_render_resources_wrapper.lock().unwrap();
-                        *future_render_resources_inner = Some(RenderResources(
-                            device,
-                            queue,
-                            adapter_info,
-                            render_adapter,
-                            RenderInstance(Arc::new(WgpuWrapper::new(instance))),
-                        ));
+                        *future_render_resources_wrapper.lock().unwrap() = Some(render_resources);
                     };
+
                     // In wasm, spawn a task and detach it for execution
                     #[cfg(target_arch = "wasm32")]
                     bevy_tasks::IoTaskPool::get()
@@ -461,8 +411,9 @@ impl Plugin for RenderPlugin {
         if let Some(future_render_resources) =
             app.world_mut().remove_resource::<FutureRenderResources>()
         {
-            let RenderResources(device, queue, adapter_info, render_adapter, instance) =
-                future_render_resources.0.lock().unwrap().take().unwrap();
+            let render_resources = future_render_resources.0.lock().unwrap().take().unwrap();
+            let RenderResources(device, queue, adapter_info, render_adapter, instance, ..) =
+                render_resources;
 
             let compressed_image_format_support = CompressedImageFormatSupport(
                 CompressedImageFormats::from_features(device.features()),
@@ -475,6 +426,13 @@ impl Plugin for RenderPlugin {
                 .insert_resource(compressed_image_format_support);
 
             let render_app = app.sub_app_mut(RenderApp);
+
+            #[cfg(feature = "raw_vulkan_init")]
+            {
+                let additional_vulkan_features: renderer::raw_vulkan_init::AdditionalVulkanFeatures =
+                    render_resources.5;
+                render_app.insert_resource(additional_vulkan_features);
+            }
 
             render_app
                 .insert_resource(instance)
