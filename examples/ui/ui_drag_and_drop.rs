@@ -26,8 +26,8 @@ fn setup(mut commands: Commands) {
         }, Pickable::IGNORE, BackgroundColor(Color::srgb(0.4, 0.4, 0.4))))
         .with_children(|parent| {
             let tile_colors = [
-                Color::srgb(0.4, 0.4, 0.8),
-                Color::srgb(0.4, 0.8, 0.4)
+                Color::srgb(0.2, 0.2, 0.8),
+                Color::srgb(0.8, 0.2, 0.2)
             ];
             for column in 0..COLUMNS {
                 for row in 0..ROWS {
