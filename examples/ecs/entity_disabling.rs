@@ -36,11 +36,11 @@ fn main() {
 struct DisableOnClick;
 
 fn disable_entities_on_click(
-    trigger: On<Pointer<Click>>,
+    event: On<Pointer<Click>>,
     valid_query: Query<&DisableOnClick>,
     mut commands: Commands,
 ) {
-    let clicked_entity = trigger.target();
+    let clicked_entity = event.entity();
     // Windows and text are entities and can be clicked!
     // We definitely don't want to disable the window itself,
     // because that would cause the app to close!

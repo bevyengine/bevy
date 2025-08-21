@@ -110,10 +110,10 @@ fn scrollbar_on_pointer_down(
     mut q_scroll_pos: Query<(&mut ScrollPosition, &ComputedNode), Without<CoreScrollbar>>,
     ui_scale: Res<UiScale>,
 ) {
-    if q_thumb.contains(ev.target()) {
+    if q_thumb.contains(ev.entity()) {
         // If they click on the thumb, do nothing. This will be handled by the drag event.
         ev.propagate(false);
-    } else if let Ok((scrollbar, node, node_target, transform)) = q_scrollbar.get_mut(ev.target()) {
+    } else if let Ok((scrollbar, node, node_target, transform)) = q_scrollbar.get_mut(ev.entity()) {
         // If they click on the scrollbar track, page up or down.
         ev.propagate(false);
 
@@ -162,7 +162,7 @@ fn scrollbar_on_drag_start(
     q_scrollbar: Query<&CoreScrollbar>,
     q_scroll_area: Query<&ScrollPosition>,
 ) {
-    if let Ok((ChildOf(thumb_parent), mut drag)) = q_thumb.get_mut(ev.target()) {
+    if let Ok((ChildOf(thumb_parent), mut drag)) = q_thumb.get_mut(ev.entity()) {
         ev.propagate(false);
         if let Ok(scrollbar) = q_scrollbar.get(*thumb_parent)
             && let Ok(scroll_area) = q_scroll_area.get(scrollbar.target)
@@ -183,7 +183,7 @@ fn scrollbar_on_drag(
     mut q_scroll_pos: Query<(&mut ScrollPosition, &ComputedNode), Without<CoreScrollbar>>,
     ui_scale: Res<UiScale>,
 ) {
-    if let Ok((ChildOf(thumb_parent), drag)) = q_thumb.get_mut(ev.target())
+    if let Ok((ChildOf(thumb_parent), drag)) = q_thumb.get_mut(ev.entity())
         && let Ok((node, scrollbar)) = q_scrollbar.get_mut(*thumb_parent)
     {
         ev.propagate(false);
@@ -219,7 +219,7 @@ fn scrollbar_on_drag_end(
     mut ev: On<Pointer<DragEnd>>,
     mut q_thumb: Query<&mut CoreScrollbarDragState, With<CoreScrollbarThumb>>,
 ) {
-    if let Ok(mut drag) = q_thumb.get_mut(ev.target()) {
+    if let Ok(mut drag) = q_thumb.get_mut(ev.entity()) {
         ev.propagate(false);
         if drag.dragging {
             drag.dragging = false;
@@ -231,7 +231,7 @@ fn scrollbar_on_drag_cancel(
     mut ev: On<Pointer<Cancel>>,
     mut q_thumb: Query<&mut CoreScrollbarDragState, With<CoreScrollbarThumb>>,
 ) {
-    if let Ok(mut drag) = q_thumb.get_mut(ev.target()) {
+    if let Ok(mut drag) = q_thumb.get_mut(ev.entity()) {
         ev.propagate(false);
         if drag.dragging {
             drag.dragging = false;

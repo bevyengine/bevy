@@ -58,11 +58,11 @@ struct Scroll {
 }
 
 fn on_scroll_handler(
-    mut trigger: On<Scroll>,
+    mut event: On<Scroll>,
     mut query: Query<(&mut ScrollPosition, &Node, &ComputedNode)>,
 ) {
-    let target = trigger.target();
-    let delta = &mut trigger.event_mut().delta;
+    let target = event.entity();
+    let delta = &mut event.delta;
 
     let Ok((mut scroll_position, node, computed)) = query.get_mut(target) else {
         return;
@@ -102,7 +102,7 @@ fn on_scroll_handler(
 
     // Stop propagating when the delta is fully consumed.
     if *delta == Vec2::ZERO {
-        trigger.propagate(false);
+        event.propagate(false);
     }
 }
 
@@ -174,9 +174,9 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                         },
                                     ))
                                     .observe(
-                                        |trigger: On<Pointer<Press>>, mut commands: Commands| {
-                                            if trigger.event().button == PointerButton::Primary {
-                                                commands.entity(trigger.target()).despawn();
+                                        |event: On<Pointer<Press>>, mut commands: Commands| {
+                                            if event.event().button == PointerButton::Primary {
+                                                commands.entity(event.entity()).despawn();
                                             }
                                         },
                                     );
