@@ -99,10 +99,11 @@ pub trait Combine<A: System, B: System> {
     /// the two composite systems are invoked and their outputs are combined.
     ///
     /// See the trait-level docs for [`Combine`] for an example implementation.
-    fn combine(
+    fn combine<T>(
         input: <Self::In as SystemInput>::Inner<'_>,
-        a: impl FnOnce(SystemIn<'_, A>) -> Result<A::Out, RunSystemError>,
-        b: impl FnOnce(SystemIn<'_, B>) -> Result<B::Out, RunSystemError>,
+        shared: T,
+        a: impl FnOnce(SystemIn<'_, A>, &mut T) -> Result<A::Out, RunSystemError>,
+        b: impl FnOnce(SystemIn<'_, B>, &mut T) -> Result<B::Out, RunSystemError>,
     ) -> Result<Self::Out, RunSystemError>;
 }
 
@@ -155,16 +156,17 @@ where
     ) -> Result<Self::Out, RunSystemError> {
         Func::combine(
             input,
+            world,
             // SAFETY: The world accesses for both underlying systems have been registered,
             // so the caller will guarantee that no other systems will conflict with `a` or `b`.
             // If either system has `is_exclusive()`, then the combined system also has `is_exclusive`.
-            // Since these closures are `!Send + !Sync + !'static`, they can never be called
-            // in parallel, so their world accesses will not conflict with each other.
-            |input| unsafe { self.a.run_unsafe(input, world) },
+            // Since we require a `combine` to pass in a mutable reference to `world` they can never be
+            // called in parallel or re-entrantly, so their world accesses will not conflict with each other.
+            |input, &mut world| unsafe { self.a.run_unsafe(input, world) },
             // `Self::validate_param_unsafe` already validated the first system,
             // but we still need to validate the second system once the first one runs.
             // SAFETY: See the comment above.
-            |input| unsafe {
+            |input, &mut world| unsafe {
                 self.b.validate_param_unsafe(world)?;
                 self.b.run_unsafe(input, world)
             },
