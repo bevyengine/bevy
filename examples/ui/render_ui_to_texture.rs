@@ -101,7 +101,7 @@ fn setup(
                 ))
                 .observe(
                     |pointer: On<Pointer<Drag>>, mut nodes: Query<(&mut Node, &ComputedNode)>| {
-                        let (mut node, computed) = nodes.get_mut(pointer.target()).unwrap();
+                        let (mut node, computed) = nodes.get_mut(pointer.entity()).unwrap();
                         node.left =
                             Val::Px(pointer.pointer_location.position.x - computed.size.x / 2.0);
                         node.top = Val::Px(pointer.pointer_location.position.y - 50.0);
@@ -109,12 +109,12 @@ fn setup(
                 )
                 .observe(
                     |pointer: On<Pointer<Over>>, mut colors: Query<&mut BackgroundColor>| {
-                        colors.get_mut(pointer.target()).unwrap().0 = RED.into();
+                        colors.get_mut(pointer.entity()).unwrap().0 = RED.into();
                     },
                 )
                 .observe(
                     |pointer: On<Pointer<Out>>, mut colors: Query<&mut BackgroundColor>| {
-                        colors.get_mut(pointer.target()).unwrap().0 = BLUE.into();
+                        colors.get_mut(pointer.entity()).unwrap().0 = BLUE.into();
                     },
                 )
                 .with_children(|parent| {
