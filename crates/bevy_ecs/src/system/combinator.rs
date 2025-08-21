@@ -36,12 +36,13 @@ use super::{IntoSystem, ReadOnlySystem, RunSystemError, System};
 ///     type In = ();
 ///     type Out = bool;
 ///
-///     fn combine(
+///     fn combine<T>(
 ///         _input: Self::In,
-///         a: impl FnOnce(A::In) -> Result<A::Out, RunSystemError>,
-///         b: impl FnOnce(B::In) -> Result<B::Out, RunSystemError>,
+///         mut data: T,
+///         a: impl FnOnce(A::In, &mut T) -> Result<A::Out, RunSystemError>,
+///         b: impl FnOnce(B::In, &mut T) -> Result<B::Out, RunSystemError>,
 ///     ) -> Result<Self::Out, RunSystemError> {
-///         Ok(a(())? ^ b(())?)
+///         Ok(a((), &mut data)? ^ b((), &mut data)?)
 ///     }
 /// }
 ///
