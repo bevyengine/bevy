@@ -159,7 +159,7 @@ fn setup(
 }
 
 fn add_raytracing_meshes_on_scene_load(
-    trigger: On<SceneInstanceReady>,
+    event: On<SceneInstanceReady>,
     children: Query<&Children>,
     mesh_query: Query<(
         &Mesh3d,
@@ -171,7 +171,7 @@ fn add_raytracing_meshes_on_scene_load(
     mut commands: Commands,
     args: Res<Args>,
 ) {
-    for descendant in children.iter_descendants(trigger.target()) {
+    for descendant in children.iter_descendants(event.entity()) {
         if let Ok((Mesh3d(mesh_handle), MeshMaterial3d(material_handle), material_name)) =
             mesh_query.get(descendant)
         {
