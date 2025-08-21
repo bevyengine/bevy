@@ -100,7 +100,11 @@ fn setup_scene(mut commands: Commands) {
         RenderLayers::layer(1),
     ));
 
-    // `Text2d` belonging to both render layers `0` and `1`, so it is rendered by both cameras.
+    // This `Text2d` entity belongs to both render layers `0` and `1`, so it will be rendered by both
+    // cameras. A single text layout is generated per `Text2d` entity, targeting a specific scale
+    // factor. Since the two camera's render targets have different scale factors, the text layout
+    // will be generated using the secondary window's scale factor, and then downscaled when it is
+    // drawn by the camera targeting the primary window.
     commands.spawn((
         Text2d::new("Text2d Both Windows"),
         TextColor(LIGHT_CYAN.into()),
