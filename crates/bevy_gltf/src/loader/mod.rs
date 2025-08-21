@@ -61,8 +61,9 @@ use thiserror::Error;
 use tracing::{error, info_span, warn};
 
 use crate::{
-    vertex_attributes::convert_attribute, Gltf, GltfAssetLabel, GltfExtras, GltfMaterialExtras,
-    GltfMaterialName, GltfMeshExtras, GltfMeshName, GltfNode, GltfSceneExtras, GltfSkin,
+    convert_coordinates::ConvertCoordinates as _, vertex_attributes::convert_attribute, Gltf,
+    GltfAssetLabel, GltfExtras, GltfMaterialExtras, GltfMaterialName, GltfMeshExtras, GltfMeshName,
+    GltfNode, GltfSceneExtras, GltfSkin,
 };
 
 #[cfg(feature = "bevy_animation")]
@@ -680,7 +681,7 @@ impl GltfLoader {
                         };
                         let morph_target_image = MorphTargetImage::new(
                             morph_target_reader.map(|i| PrimitiveMorphAttributesIter {
-                                convert_coordinates,
+                                convert_coordinates: convert_coordinates.meshes,
                                 positions: i.0,
                                 normals: i.1,
                                 tangents: i.2,
@@ -1519,7 +1520,7 @@ fn load_node(
                 let mut bounds_min = Vec3::from_slice(&bounds.min);
                 let mut bounds_max = Vec3::from_slice(&bounds.max);
 
-                if convert_coordinates {
+                if convert_coordinates.meshes {
                     let converted_min = bounds_min.convert_coordinates();
                     let converted_max = bounds_max.convert_coordinates();
 
