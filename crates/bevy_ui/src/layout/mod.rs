@@ -257,9 +257,12 @@ pub fn ui_layout_system(
             node.bypass_change_detection().border = taffy_rect_to_border_rect(layout.border);
             node.bypass_change_detection().padding = taffy_rect_to_border_rect(layout.padding);
 
-            // Computer the node's new global transform
-            let mut local_transform =
-                transform.compute_affine(inverse_target_scale_factor, layout_size, target_size);
+            // Compute the node's new global transform
+            let mut local_transform = transform.compute_affine(
+                inverse_target_scale_factor.recip(),
+                layout_size,
+                target_size,
+            );
             local_transform.translation += local_center;
             inherited_transform *= local_transform;
 
@@ -369,8 +372,8 @@ mod tests {
     use taffy::TraversePartialTree;
 
     // these window dimensions are easy to convert to and from percentage values
-    const WINDOW_WIDTH: f32 = 1000.;
-    const WINDOW_HEIGHT: f32 = 100.;
+    const WINDOW_WIDTH: u32 = 1000;
+    const WINDOW_HEIGHT: u32 = 100;
 
     fn setup_ui_test_app() -> App {
         let mut app = App::new();
@@ -460,8 +463,8 @@ mod tests {
 
         for ui_entity in [ui_root, ui_child] {
             let layout = ui_surface.get_layout(ui_entity, true).unwrap().0;
-            assert_eq!(layout.size.width, WINDOW_WIDTH);
-            assert_eq!(layout.size.height, WINDOW_HEIGHT);
+            assert_eq!(layout.size.width, WINDOW_WIDTH as f32);
+            assert_eq!(layout.size.height, WINDOW_HEIGHT as f32);
         }
     }
 
