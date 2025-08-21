@@ -78,7 +78,7 @@ fn setup_scene(mut commands: Commands) {
     commands
         .spawn((node, UiTargetCamera(secondary_window_camera)))
         .with_child((
-            Text::new("Ui Text Secondary window"),
+            Text::new("UI Text Secondary window"),
             text_font.clone(),
             TextShadow::default(),
         ));
