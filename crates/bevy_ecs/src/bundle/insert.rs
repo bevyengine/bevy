@@ -146,8 +146,8 @@ impl<'w> BundleInserter<'w> {
         insert_mode: InsertMode,
         caller: MaybeLocation,
         relationship_hook_mode: RelationshipHookMode,
-        table: &'a mut Table,
-        archetype: &'a mut Archetype,
+        mut table: NonNull<Table>,
+        mut archetype: NonNull<Archetype>,
         archetype_after_insert: &ArchetypeAfterBundleInsert,
         world: &'a UnsafeWorldCell<'w>,
         archetype_move_type: &'a mut ArchetypeMoveType,
@@ -165,6 +165,7 @@ impl<'w> BundleInserter<'w> {
             let mut deferred_world = world.into_deferred();
 
             if insert_mode == InsertMode::Replace {
+                let archetype = archetype.as_ref();
                 if archetype.has_replace_observer() {
                     deferred_world.trigger_observers(
                         REPLACE,
@@ -183,8 +184,11 @@ impl<'w> BundleInserter<'w> {
             }
         }
 
+        let table = table.as_mut();
+
         // SAFETY: Archetype gets borrowed when running the on_replace observers above,
         // so this reference can only be promoted from shared to &mut down here, after they have been ran
+        let archetype = archetype.as_mut();
 
         match archetype_move_type {
             ArchetypeMoveType::SameArchetype => {
@@ -336,8 +340,8 @@ impl<'w> BundleInserter<'w> {
             insert_mode,
             caller,
             relationship_hook_mode,
-            self.table.as_mut(),
-            self.archetype.as_mut(),
+            self.table,
+            self.archetype,
             archetype_after_insert,
             &self.world,
             &mut self.archetype_move_type,
