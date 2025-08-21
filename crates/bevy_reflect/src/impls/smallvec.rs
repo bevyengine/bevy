@@ -4,7 +4,7 @@ use crate::{
     ReflectMut, ReflectOwned, ReflectRef, TypeInfo, TypeParamInfo, TypePath, TypeRegistration,
     Typed,
 };
-use alloc::{borrow::Cow, boxed::Box, string::ToString, vec::Vec};
+use alloc::{boxed::Box, vec::Vec};
 use bevy_reflect::ReflectCloneError;
 use bevy_reflect_derive::impl_type_path;
 use core::any::Any;
@@ -67,7 +67,7 @@ where
         <SmallVec<T>>::len(self)
     }
 
-    fn iter(&self) -> ListIter {
+    fn iter(&self) -> ListIter<'_> {
         ListIter::new(self)
     }
 
@@ -77,6 +77,7 @@ where
             .collect()
     }
 }
+
 impl<T: SmallArray + TypePath + Send + Sync> PartialReflect for SmallVec<T>
 where
     T::Item: FromReflect + MaybeTyped + TypePath,
@@ -122,11 +123,11 @@ where
         ReflectKind::List
     }
 
-    fn reflect_ref(&self) -> ReflectRef {
+    fn reflect_ref(&self) -> ReflectRef<'_> {
         ReflectRef::List(self)
     }
 
-    fn reflect_mut(&mut self) -> ReflectMut {
+    fn reflect_mut(&mut self) -> ReflectMut<'_> {
         ReflectMut::List(self)
     }
 
@@ -136,16 +137,11 @@ where
 
     fn reflect_clone(&self) -> Result<Box<dyn Reflect>, ReflectCloneError> {
         Ok(Box::new(
-            self.iter()
-                .map(|value| {
-                    value
-                        .reflect_clone()?
-                        .take()
-                        .map_err(|_| ReflectCloneError::FailedDowncast {
-                            expected: Cow::Borrowed(<T::Item as TypePath>::type_path()),
-                            received: Cow::Owned(value.reflect_type_path().to_string()),
-                        })
-                })
+            // `(**self)` avoids getting `SmallVec<T> as List::iter`, which
+            // would give us the wrong item type.
+            (**self)
+                .iter()
+                .map(PartialReflect::reflect_clone_and_take)
                 .collect::<Result<Self, ReflectCloneError>>()?,
         ))
     }

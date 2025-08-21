@@ -1,8 +1,8 @@
 #![cfg_attr(docsrs, feature(doc_auto_cfg))]
 #![forbid(unsafe_code)]
 #![doc(
-    html_logo_url = "https://bevyengine.org/assets/icon.png",
-    html_favicon_url = "https://bevyengine.org/assets/icon.png"
+    html_logo_url = "https://bevy.org/assets/icon.png",
+    html_favicon_url = "https://bevy.org/assets/icon.png"
 )]
 
 //! Plugin providing an [`AssetLoader`](bevy_asset::AssetLoader) and type definitions
@@ -91,6 +91,7 @@
 //! You can use [`GltfAssetLabel`] to ensure you are using the correct label.
 
 mod assets;
+mod convert_coordinates;
 mod label;
 mod loader;
 mod vertex_attributes;
@@ -99,15 +100,15 @@ extern crate alloc;
 
 use alloc::sync::Arc;
 use std::sync::Mutex;
+use tracing::warn;
 
 use bevy_platform::collections::HashMap;
 
 use bevy_app::prelude::*;
 use bevy_asset::AssetApp;
 use bevy_ecs::prelude::Resource;
-use bevy_image::{CompressedImageFormats, ImageSamplerDescriptor};
+use bevy_image::{CompressedImageFormatSupport, CompressedImageFormats, ImageSamplerDescriptor};
 use bevy_mesh::MeshVertexAttribute;
-use bevy_render::renderer::RenderDevice;
 
 /// The glTF prelude.
 ///
@@ -155,8 +156,23 @@ impl DefaultGltfImageSampler {
 pub struct GltfPlugin {
     /// The default image sampler to lay glTF sampler data on top of.
     ///
-    /// Can be modified with [`DefaultGltfImageSampler`] resource.
+    /// Can be modified with the [`DefaultGltfImageSampler`] resource.
     pub default_sampler: ImageSamplerDescriptor,
+
+    /// _CAUTION: This is an experimental feature with [known issues](https://github.com/bevyengine/bevy/issues/20621). Behavior may change in future versions._
+    ///
+    /// How to convert glTF coordinates on import. Assuming glTF cameras, glTF lights, and glTF meshes had global identity transforms,
+    /// their Bevy [`Transform::forward`](bevy_transform::components::Transform::forward) will be pointing in the following global directions:
+    /// - When set to `false`
+    ///   - glTF cameras and glTF lights: global -Z,
+    ///   - glTF models: global +Z.
+    /// - When set to `true`
+    ///   - glTF cameras and glTF lights: global +Z,
+    ///   - glTF models: global -Z.
+    ///
+    /// The default is `false`.
+    pub use_model_forward_direction: bool,
+
     /// Registry for custom vertex attributes.
     ///
     /// To specify, use [`GltfPlugin::add_custom_vertex_attribute`].
@@ -168,6 +184,7 @@ impl Default for GltfPlugin {
         GltfPlugin {
             default_sampler: ImageSamplerDescriptor::linear(),
             custom_vertex_attributes: HashMap::default(),
+            use_model_forward_direction: false,
         }
     }
 }
@@ -190,12 +207,7 @@ impl GltfPlugin {
 
 impl Plugin for GltfPlugin {
     fn build(&self, app: &mut App) {
-        app.register_type::<GltfExtras>()
-            .register_type::<GltfSceneExtras>()
-            .register_type::<GltfMeshExtras>()
-            .register_type::<GltfMaterialExtras>()
-            .register_type::<GltfMaterialName>()
-            .init_asset::<Gltf>()
+        app.init_asset::<Gltf>()
             .init_asset::<GltfNode>()
             .init_asset::<GltfPrimitive>()
             .init_asset::<GltfMesh>()
@@ -204,17 +216,25 @@ impl Plugin for GltfPlugin {
     }
 
     fn finish(&self, app: &mut App) {
-        let supported_compressed_formats = match app.world().get_resource::<RenderDevice>() {
-            Some(render_device) => CompressedImageFormats::from_features(render_device.features()),
-            None => CompressedImageFormats::NONE,
+        let supported_compressed_formats = if let Some(resource) =
+            app.world().get_resource::<CompressedImageFormatSupport>()
+        {
+            resource.0
+        } else {
+            warn!("CompressedImageFormatSupport resource not found. It should either be initialized in finish() of \
+            RenderPlugin, or manually if not using the RenderPlugin or the WGPU backend.");
+            CompressedImageFormats::NONE
         };
+
         let default_sampler_resource = DefaultGltfImageSampler::new(&self.default_sampler);
         let default_sampler = default_sampler_resource.get_internal();
         app.insert_resource(default_sampler_resource);
+
         app.register_asset_loader(GltfLoader {
             supported_compressed_formats,
             custom_vertex_attributes: self.custom_vertex_attributes.clone(),
             default_sampler,
+            default_use_model_forward_direction: self.use_model_forward_direction,
         });
     }
 }

@@ -10,14 +10,15 @@
 //! [a blog post on depth of field in Unity]: https://catlikecoding.com/unity/tutorials/advanced-rendering/depth-of-field/
 
 use bevy::{
+    camera::PhysicalCameraParameters,
     core_pipeline::{
         bloom::Bloom,
         dof::{self, DepthOfField, DepthOfFieldMode},
         tonemapping::Tonemapping,
     },
+    gltf::GltfMeshName,
     pbr::Lightmap,
     prelude::*,
-    render::camera::PhysicalCameraParameters,
 };
 
 /// The increments in which the user can adjust the focal distance, in meters
@@ -73,10 +74,6 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, app_settings: R
     let mut camera = commands.spawn((
         Camera3d::default(),
         Transform::from_xyz(0.0, 4.5, 8.25).looking_at(Vec3::ZERO, Vec3::Y),
-        Camera {
-            hdr: true,
-            ..default()
-        },
         Tonemapping::TonyMcMapface,
         Bloom::NATURAL,
     ));
@@ -186,7 +183,7 @@ fn tweak_scene(
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut lights: Query<&mut DirectionalLight, Changed<DirectionalLight>>,
     mut named_entities: Query<
-        (Entity, &Name, &MeshMaterial3d<StandardMaterial>),
+        (Entity, &GltfMeshName, &MeshMaterial3d<StandardMaterial>),
         (With<Mesh3d>, Without<Lightmap>),
     >,
 ) {

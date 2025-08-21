@@ -8,12 +8,13 @@
 //! The purpose of this module is primarily to provide a common interface that can be
 //! driven by lower-level input devices and consumed by higher-level interaction systems.
 
+use bevy_camera::Camera;
+use bevy_camera::NormalizedRenderTarget;
 use bevy_ecs::prelude::*;
 use bevy_input::mouse::MouseScrollUnit;
 use bevy_math::Vec2;
 use bevy_platform::collections::HashMap;
 use bevy_reflect::prelude::*;
-use bevy_render::camera::{Camera, NormalizedRenderTarget};
 use bevy_window::PrimaryWindow;
 
 use uuid::Uuid;
@@ -205,8 +206,8 @@ impl PointerLocation {
 /// - a pointer is not associated with a [`Camera`] because multiple cameras can target the same
 ///   render target. It is up to picking backends to associate a Pointer's `Location` with a
 ///   specific `Camera`, if any.
-#[derive(Debug, Clone, Component, Reflect, PartialEq)]
-#[reflect(Component, Debug, PartialEq, Clone)]
+#[derive(Debug, Clone, Reflect, PartialEq)]
+#[reflect(Debug, PartialEq, Clone)]
 pub struct Location {
     /// The [`NormalizedRenderTarget`] associated with the pointer, usually a window.
     pub target: NormalizedRenderTarget,
@@ -269,7 +270,7 @@ pub enum PointerAction {
 }
 
 /// An input event effecting a pointer.
-#[derive(Event, Debug, Clone, Reflect)]
+#[derive(BufferedEvent, Debug, Clone, Reflect)]
 #[reflect(Clone)]
 pub struct PointerInput {
     /// The id of the pointer.

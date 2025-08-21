@@ -2,17 +2,17 @@ use core::mem::{self, size_of};
 use std::sync::OnceLock;
 
 use bevy_asset::{prelude::AssetChanged, Assets};
+use bevy_camera::visibility::ViewVisibility;
 use bevy_ecs::prelude::*;
 use bevy_math::Mat4;
+use bevy_mesh::skinning::{SkinnedMesh, SkinnedMeshInverseBindposes};
 use bevy_platform::collections::hash_map::Entry;
 use bevy_render::render_resource::{Buffer, BufferDescriptor};
 use bevy_render::sync_world::{MainEntity, MainEntityHashMap, MainEntityHashSet};
 use bevy_render::{
     batching::NoAutomaticBatching,
-    mesh::skinning::{SkinnedMesh, SkinnedMeshInverseBindposes},
     render_resource::BufferUsages,
     renderer::{RenderDevice, RenderQueue},
-    view::ViewVisibility,
     Extract,
 };
 use bevy_transform::prelude::GlobalTransform;
@@ -220,7 +220,7 @@ pub fn prepare_skins(
         let mut new_size = uniform.current_buffer.size();
         while new_size < needed_size {
             // 1.5× growth factor.
-            new_size += new_size / 2;
+            new_size = (new_size + new_size / 2).next_multiple_of(4);
         }
 
         // Create the new buffers.
@@ -309,7 +309,6 @@ pub fn extract_skins(
     skinned_mesh_inverse_bindposes: Extract<Res<Assets<SkinnedMeshInverseBindposes>>>,
     changed_transforms: Extract<Query<(Entity, &GlobalTransform), Changed<GlobalTransform>>>,
     joints: Extract<Query<&GlobalTransform>>,
-    mut removed_visibilities_query: Extract<RemovedComponents<ViewVisibility>>,
     mut removed_skinned_meshes_query: Extract<RemovedComponents<SkinnedMesh>>,
 ) {
     let skin_uniforms = skin_uniforms.into_inner();
@@ -335,10 +334,7 @@ pub fn extract_skins(
     );
 
     // Delete skins that became invisible.
-    for skinned_mesh_entity in removed_visibilities_query
-        .read()
-        .chain(removed_skinned_meshes_query.read())
-    {
+    for skinned_mesh_entity in removed_skinned_meshes_query.read() {
         // Only remove a skin if we didn't pick it up in `add_or_delete_skins`.
         // It's possible that a necessary component was removed and re-added in
         // the same frame.

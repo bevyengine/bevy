@@ -1,7 +1,7 @@
 use super::compensation_curve::{
     AutoExposureCompensationCurve, AutoExposureCompensationCurveUniform,
 };
-use bevy_asset::{prelude::*, weak_handle};
+use bevy_asset::{load_embedded_asset, prelude::*};
 use bevy_ecs::prelude::*;
 use bevy_image::Image;
 use bevy_render::{
@@ -10,6 +10,8 @@ use bevy_render::{
     renderer::RenderDevice,
     view::ViewUniform,
 };
+use bevy_shader::Shader;
+use bevy_utils::default;
 use core::num::NonZero;
 
 #[derive(Resource)]
@@ -44,36 +46,33 @@ pub enum AutoExposurePass {
     Average,
 }
 
-pub const METERING_SHADER_HANDLE: Handle<Shader> =
-    weak_handle!("05c84384-afa4-41d9-844e-e9cd5e7609af");
-
 pub const HISTOGRAM_BIN_COUNT: u64 = 64;
 
-impl FromWorld for AutoExposurePipeline {
-    fn from_world(world: &mut World) -> Self {
-        let render_device = world.resource::<RenderDevice>();
-
-        Self {
-            histogram_layout: render_device.create_bind_group_layout(
-                "compute histogram bind group",
-                &BindGroupLayoutEntries::sequential(
-                    ShaderStages::COMPUTE,
-                    (
-                        uniform_buffer::<GlobalsUniform>(false),
-                        uniform_buffer::<AutoExposureUniform>(false),
-                        texture_2d(TextureSampleType::Float { filterable: false }),
-                        texture_2d(TextureSampleType::Float { filterable: false }),
-                        texture_1d(TextureSampleType::Float { filterable: false }),
-                        uniform_buffer::<AutoExposureCompensationCurveUniform>(false),
-                        storage_buffer_sized(false, NonZero::<u64>::new(HISTOGRAM_BIN_COUNT * 4)),
-                        storage_buffer_sized(false, NonZero::<u64>::new(4)),
-                        storage_buffer::<ViewUniform>(true),
-                    ),
+pub fn init_auto_exposure_pipeline(
+    mut commands: Commands,
+    render_device: Res<RenderDevice>,
+    asset_server: Res<AssetServer>,
+) {
+    commands.insert_resource(AutoExposurePipeline {
+        histogram_layout: render_device.create_bind_group_layout(
+            "compute histogram bind group",
+            &BindGroupLayoutEntries::sequential(
+                ShaderStages::COMPUTE,
+                (
+                    uniform_buffer::<GlobalsUniform>(false),
+                    uniform_buffer::<AutoExposureUniform>(false),
+                    texture_2d(TextureSampleType::Float { filterable: false }),
+                    texture_2d(TextureSampleType::Float { filterable: false }),
+                    texture_1d(TextureSampleType::Float { filterable: false }),
+                    uniform_buffer::<AutoExposureCompensationCurveUniform>(false),
+                    storage_buffer_sized(false, NonZero::<u64>::new(HISTOGRAM_BIN_COUNT * 4)),
+                    storage_buffer_sized(false, NonZero::<u64>::new(4)),
+                    storage_buffer::<ViewUniform>(true),
                 ),
             ),
-            histogram_shader: METERING_SHADER_HANDLE.clone(),
-        }
-    }
+        ),
+        histogram_shader: load_embedded_asset!(asset_server.as_ref(), "auto_exposure.wgsl"),
+    });
 }
 
 impl SpecializedComputePipeline for AutoExposurePipeline {
@@ -85,12 +84,11 @@ impl SpecializedComputePipeline for AutoExposurePipeline {
             layout: vec![self.histogram_layout.clone()],
             shader: self.histogram_shader.clone(),
             shader_defs: vec![],
-            entry_point: match pass {
+            entry_point: Some(match pass {
                 AutoExposurePass::Histogram => "compute_histogram".into(),
                 AutoExposurePass::Average => "compute_average".into(),
-            },
-            push_constant_ranges: vec![],
-            zero_initialize_workgroup_memory: false,
+            }),
+            ..default()
         }
     }
 }

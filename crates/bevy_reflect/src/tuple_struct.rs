@@ -53,13 +53,7 @@ pub trait TupleStruct: PartialReflect {
     fn field_len(&self) -> usize;
 
     /// Returns an iterator over the values of the tuple struct's fields.
-    fn iter_fields(&self) -> TupleStructFieldIter;
-
-    /// Clones the struct into a [`DynamicTupleStruct`].
-    #[deprecated(since = "0.16.0", note = "use `to_dynamic_tuple_struct` instead")]
-    fn clone_dynamic(&self) -> DynamicTupleStruct {
-        self.to_dynamic_tuple_struct()
-    }
+    fn iter_fields(&self) -> TupleStructFieldIter<'_>;
 
     /// Creates a new [`DynamicTupleStruct`] from this tuple struct.
     fn to_dynamic_tuple_struct(&self) -> DynamicTupleStruct {
@@ -152,6 +146,7 @@ pub struct TupleStructFieldIter<'a> {
 }
 
 impl<'a> TupleStructFieldIter<'a> {
+    /// Creates a new [`TupleStructFieldIter`].
     pub fn new(value: &'a dyn TupleStruct) -> Self {
         TupleStructFieldIter {
             tuple_struct: value,
@@ -248,8 +243,7 @@ impl DynamicTupleStruct {
         if let Some(represented_type) = represented_type {
             assert!(
                 matches!(represented_type, TypeInfo::TupleStruct(_)),
-                "expected TypeInfo::TupleStruct but received: {:?}",
-                represented_type
+                "expected TypeInfo::TupleStruct but received: {represented_type:?}"
             );
         }
 
@@ -284,7 +278,7 @@ impl TupleStruct for DynamicTupleStruct {
     }
 
     #[inline]
-    fn iter_fields(&self) -> TupleStructFieldIter {
+    fn iter_fields(&self) -> TupleStructFieldIter<'_> {
         TupleStructFieldIter {
             tuple_struct: self,
             index: 0,
@@ -343,12 +337,12 @@ impl PartialReflect for DynamicTupleStruct {
     }
 
     #[inline]
-    fn reflect_ref(&self) -> ReflectRef {
+    fn reflect_ref(&self) -> ReflectRef<'_> {
         ReflectRef::TupleStruct(self)
     }
 
     #[inline]
-    fn reflect_mut(&mut self) -> ReflectMut {
+    fn reflect_mut(&mut self) -> ReflectMut<'_> {
         ReflectMut::TupleStruct(self)
     }
 

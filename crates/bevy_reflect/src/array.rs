@@ -63,16 +63,10 @@ pub trait Array: PartialReflect {
     }
 
     /// Returns an iterator over the array.
-    fn iter(&self) -> ArrayIter;
+    fn iter(&self) -> ArrayIter<'_>;
 
     /// Drain the elements of this array to get a vector of owned values.
     fn drain(self: Box<Self>) -> Vec<Box<dyn PartialReflect>>;
-
-    /// Clones the list, producing a [`DynamicArray`].
-    #[deprecated(since = "0.16.0", note = "use `to_dynamic_array` instead")]
-    fn clone_dynamic(&self) -> DynamicArray {
-        self.to_dynamic_array()
-    }
 
     /// Creates a new [`DynamicArray`] from this array.
     fn to_dynamic_array(&self) -> DynamicArray {
@@ -173,6 +167,7 @@ pub struct DynamicArray {
 }
 
 impl DynamicArray {
+    /// Creates a new [`DynamicArray`].
     #[inline]
     pub fn new(values: Box<[Box<dyn PartialReflect>]>) -> Self {
         Self {
@@ -192,8 +187,7 @@ impl DynamicArray {
         if let Some(represented_type) = represented_type {
             assert!(
                 matches!(represented_type, TypeInfo::Array(_)),
-                "expected TypeInfo::Array but received: {:?}",
-                represented_type
+                "expected TypeInfo::Array but received: {represented_type:?}"
             );
         }
 
@@ -248,12 +242,12 @@ impl PartialReflect for DynamicArray {
     }
 
     #[inline]
-    fn reflect_ref(&self) -> ReflectRef {
+    fn reflect_ref(&self) -> ReflectRef<'_> {
         ReflectRef::Array(self)
     }
 
     #[inline]
-    fn reflect_mut(&mut self) -> ReflectMut {
+    fn reflect_mut(&mut self) -> ReflectMut<'_> {
         ReflectMut::Array(self)
     }
 
@@ -300,7 +294,7 @@ impl Array for DynamicArray {
     }
 
     #[inline]
-    fn iter(&self) -> ArrayIter {
+    fn iter(&self) -> ArrayIter<'_> {
         ArrayIter::new(self)
     }
 
@@ -357,7 +351,7 @@ pub struct ArrayIter<'a> {
 impl ArrayIter<'_> {
     /// Creates a new [`ArrayIter`].
     #[inline]
-    pub const fn new(array: &dyn Array) -> ArrayIter {
+    pub const fn new(array: &dyn Array) -> ArrayIter<'_> {
         ArrayIter { array, index: 0 }
     }
 }

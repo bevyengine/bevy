@@ -3,18 +3,19 @@
 use std::f32::consts::PI;
 
 use bevy::{
-    anti_aliasing::experimental::taa::{TemporalAntiAliasPlugin, TemporalAntiAliasing},
+    anti_aliasing::taa::TemporalAntiAliasing,
+    camera::{
+        primitives::{CubemapFrusta, Frustum},
+        visibility::{CubemapVisibleEntities, VisibleMeshEntities},
+    },
     core_pipeline::{
         prepass::{DepthPrepass, MotionVectorPrepass},
         Skybox,
     },
+    light::ShadowFilteringMethod,
     math::vec3,
-    pbr::{CubemapVisibleEntities, ShadowFilteringMethod, VisibleMeshEntities},
     prelude::*,
-    render::{
-        camera::TemporalJitter,
-        primitives::{CubemapFrusta, Frustum},
-    },
+    render::camera::TemporalJitter,
 };
 
 use crate::widgets::{RadioButton, RadioButtonText, WidgetClickEvent, WidgetClickSender};
@@ -120,7 +121,6 @@ fn main() {
             }),
             ..default()
         }))
-        .add_plugins(TemporalAntiAliasPlugin)
         .add_event::<WidgetClickEvent<AppSetting>>()
         .add_systems(Startup, setup)
         .add_systems(Update, widgets::handle_ui_interactions::<AppSetting>)

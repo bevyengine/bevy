@@ -35,7 +35,7 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - uses: dtolnay/rust-toolchain@master
         with:
@@ -82,7 +82,7 @@ jobs:
       - name: Finalize documentation
         run: |
           echo "<meta http-equiv=\"refresh\" content=\"0; url=bevy/index.html\">" > target/doc/index.html
-          echo "dev-docs.bevyengine.org" > target/doc/CNAME
+          echo "dev-docs.bevy.org" > target/doc/CNAME
           echo $'User-Agent: *\nDisallow: /' > target/doc/robots.txt
           rm target/doc/.lock
 

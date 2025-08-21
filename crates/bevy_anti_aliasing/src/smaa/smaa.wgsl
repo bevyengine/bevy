@@ -146,10 +146,10 @@
  *         * (See SMAA_INCLUDE_VS and SMAA_INCLUDE_PS below).
  *
  *     And four presets:
- *         SMAA_PRESET_LOW          (%60 of the quality)
- *         SMAA_PRESET_MEDIUM       (%80 of the quality)
- *         SMAA_PRESET_HIGH         (%95 of the quality)
- *         SMAA_PRESET_ULTRA        (%99 of the quality)
+ *         SMAA_PRESET_LOW          (60% of the quality)
+ *         SMAA_PRESET_MEDIUM       (80% of the quality)
+ *         SMAA_PRESET_HIGH         (95% of the quality)
+ *         SMAA_PRESET_ULTRA        (99% of the quality)
  *
  *     For example:
  *         #define SMAA_RT_METRICS float4(1.0 / 1280.0, 1.0 / 720.0, 1280.0, 720.0)
@@ -894,7 +894,7 @@ fn area(dist: vec2<f32>, e1: f32, e2: f32, offset: f32) -> vec2<f32> {
     tex_coord.y += SMAA_AREATEX_SUBTEX_SIZE * offset;
 
     // Do it!
-    return textureSample(area_texture, edges_sampler, tex_coord).rg;
+    return textureSampleLevel(area_texture, edges_sampler, tex_coord, 0.0).rg;
 }
 
 //-----------------------------------------------------------------------------

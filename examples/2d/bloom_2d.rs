@@ -25,7 +25,6 @@ fn setup(
     commands.spawn((
         Camera2d,
         Camera {
-            hdr: true, // 1. HDR is required for bloom
             clear_color: ClearColorConfig::Custom(Color::BLACK),
             ..default()
         },
@@ -191,7 +190,7 @@ fn update_bloom_settings(
         }
     }
 
-    text.push_str(&format!("(O) Tonemapping: {:?}\n", tonemapping));
+    text.push_str(&format!("(O) Tonemapping: {tonemapping:?}\n"));
     if keycode.just_pressed(KeyCode::KeyO) {
         commands
             .entity(camera_entity)

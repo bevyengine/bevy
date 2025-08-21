@@ -35,7 +35,7 @@ enum Constraint {
 #[derive(Copy, Clone, Component)]
 struct ButtonValue(Val);
 
-#[derive(Event)]
+#[derive(BufferedEvent)]
 struct ButtonActivatedEvent(Entity);
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
@@ -221,7 +221,7 @@ fn spawn_button(
                 margin: UiRect::horizontal(Val::Px(2.)),
                 ..Default::default()
             },
-            BorderColor(if active {
+            BorderColor::all(if active {
                 ACTIVE_BORDER_COLOR
             } else {
                 INACTIVE_BORDER_COLOR
@@ -251,7 +251,7 @@ fn spawn_button(
                     } else {
                         UNHOVERED_TEXT_COLOR
                     }),
-                    TextLayout::new_with_justify(JustifyText::Center),
+                    TextLayout::new_with_justify(Justify::Center),
                 ));
         });
 }
@@ -290,10 +290,10 @@ fn update_buttons(
                     for &child in children {
                         if let Ok(grand_children) = children_query.get(child) {
                             for &grandchild in grand_children {
-                                if let Ok(mut text_color) = text_query.get_mut(grandchild) {
-                                    if text_color.0 != ACTIVE_TEXT_COLOR {
-                                        text_color.0 = HOVERED_TEXT_COLOR;
-                                    }
+                                if let Ok(mut text_color) = text_query.get_mut(grandchild)
+                                    && text_color.0 != ACTIVE_TEXT_COLOR
+                                {
+                                    text_color.0 = HOVERED_TEXT_COLOR;
                                 }
                             }
                         }
@@ -305,10 +305,10 @@ fn update_buttons(
                     for &child in children {
                         if let Ok(grand_children) = children_query.get(child) {
                             for &grandchild in grand_children {
-                                if let Ok(mut text_color) = text_query.get_mut(grandchild) {
-                                    if text_color.0 != ACTIVE_TEXT_COLOR {
-                                        text_color.0 = UNHOVERED_TEXT_COLOR;
-                                    }
+                                if let Ok(mut text_color) = text_query.get_mut(grandchild)
+                                    && text_color.0 != ACTIVE_TEXT_COLOR
+                                {
+                                    text_color.0 = UNHOVERED_TEXT_COLOR;
                                 }
                             }
                         }
@@ -345,7 +345,7 @@ fn update_radio_buttons_colors(
                     )
                 };
 
-                border_query.get_mut(id).unwrap().0 = border_color;
+                *border_query.get_mut(id).unwrap() = BorderColor::all(border_color);
                 for &child in children_query.get(id).into_iter().flatten() {
                     color_query.get_mut(child).unwrap().0 = inner_color;
                     for &grandchild in children_query.get(child).into_iter().flatten() {
