@@ -152,17 +152,19 @@ pub struct SubCameraView {
     /// Scaling factor for the size of the sub view. The height of the sub view will be scale * the height of the full view
     pub scale: f32,
     /// Aspect ratio of the sub view. Automatically updated by Bevy's `camera_system`.
-    /// The width of the sub view will be aspect_ratio * the height of the sub view
-    pub aspect_ratio: f32,
+    /// The width of the sub view will be aspect_ratio * the height of the sub view.
+    /// If `None`, the aspect ratio of the camera's full projection will be used and automatically updated instead.
+    pub aspect_ratio: Option<f32>,
     /// Percentage offset of the top-left corner of the sub view, from top-left at `0,0` to bottom-right at `1,1`
     pub offset: Vec2,
 }
 
 impl SubCameraView {
     pub fn update_aspect_ratio(&mut self, width: f32, height: f32) {
-        self.aspect_ratio = AspectRatio::try_new(width, height)
+        self.aspect_ratio = Some(
+             AspectRatio::try_new(width, height)
             .expect("Failed to update SubCameraView: width and height must be positive, non-zero values")
-            .ratio();
+            .ratio());
     }
 }
 
@@ -173,7 +175,7 @@ impl Default for SubCameraView {
             // offset: Vec2::new(0., 0.),
             // size: UVec2::new(1, 1),
             scale: 1.0,
-            aspect_ratio: 1.0,
+            aspect_ratio: None,
             offset: Vec2::ZERO,
         }
     }

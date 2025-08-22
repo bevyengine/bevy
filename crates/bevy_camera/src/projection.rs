@@ -366,8 +366,13 @@ impl CameraProjection for PerspectiveProjection {
         let width = right - left;
         let height = top - bottom;
 
-        // Use the sub view's aspect ratio instead of our own for just the width of the sub view rect
-        let sub_width = top * sub_view.aspect_ratio * 2.0;
+        // Use the sub view's aspect ratio instead of our own for just the width of the sub view rect.
+        // This width is what needs to match the width of the camera's viewport for the image to be correct,
+        // so we want to use the aspect ratio that the camera_system is keeping in sync with the viewport.
+        // That is the sub view's aspect ratio if it's set, otherwise the projection's aspect ratio.
+        // The rest of the calculations unconditionally use the projection's aspect ratio,
+        // to allow manually setting it separately from the viewport's aspect ratio.
+        let sub_width = top * sub_view.aspect_ratio.unwrap_or(self.aspect_ratio) * 2.0;
 
         // Calculate the new frustum parameters
         // These are the edges of the near plane rect of the sub view in world units

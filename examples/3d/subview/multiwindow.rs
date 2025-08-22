@@ -16,7 +16,6 @@ fn main() {
             ..default()
         }))
         .add_systems(Startup, setup)
-        .add_systems(Update, update_projections)
         .run();
 }
 
@@ -138,12 +137,4 @@ fn setup(
             ..default()
         },
     ));
-}
-
-fn update_projections(mut cameras: Query<(&Camera, &mut Projection)>) {
-    for (camera, mut projection) in cameras.iter_mut() {
-        if let Some(size) = camera.logical_viewport_size() {
-            projection.update(size.x, size.y);
-        }
-    }
 }
