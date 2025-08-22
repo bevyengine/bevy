@@ -980,13 +980,20 @@ fn trigger_untargeted_animation_events(
     }
 }
 
+/// Marker component for animations that should not use the default animation time.
+#[derive(Debug, Component, Reflect, Clone, Copy)]
+#[reflect(Component)]
+pub struct DontUseDefaultAnimationTime;
+
 /// A system that advances the time for all playing animations.
-pub fn advance_animations(
-    time: Res<Time>,
+pub fn advance_animations<T: Default, F: bevy_ecs::query::QueryFilter>(
+    time: Res<Time<T>>,
     animation_clips: Res<Assets<AnimationClip>>,
     animation_graphs: Res<Assets<AnimationGraph>>,
-    mut players: Query<(&mut AnimationPlayer, &AnimationGraphHandle)>,
-) {
+    mut players: Query<(&mut AnimationPlayer, &AnimationGraphHandle), F>,
+) where
+    Time<T>: Resource,
+{
     let delta_seconds = time.delta_secs();
     players
         .par_iter_mut()
@@ -1221,6 +1228,22 @@ pub fn animate_targets(
 }
 
 /// Adds animation support to an app
+pub fn specify_animation_system<T: Default, F: bevy_ecs::query::QueryFilter + 'static>(
+    app: &mut App,
+) where
+    Time<T>: Resource,
+{
+    app.add_systems(
+        PostUpdate,
+        (advance_transitions::<T, F>, advance_animations::<T, F>)
+            .before(animate_targets)
+            .chain()
+            .in_set(AnimationSystems)
+            .before(TransformSystems::Propagate),
+    );
+}
+
+/// Adds animation support to an app
 #[derive(Default)]
 pub struct AnimationPlugin;
 
@@ -1236,8 +1259,6 @@ impl Plugin for AnimationPlugin {
                 PostUpdate,
                 (
                     graph::thread_animation_graphs.before(AssetEventSystems),
-                    advance_transitions,
-                    advance_animations,
                     // TODO: `animate_targets` can animate anything, so
                     // ambiguity testing currently considers it ambiguous with
                     // every other system in `PostUpdate`. We may want to move
@@ -1254,6 +1275,7 @@ impl Plugin for AnimationPlugin {
                     .in_set(AnimationSystems)
                     .before(TransformSystems::Propagate),
             );
+        specify_animation_system::<(), Without<DontUseDefaultAnimationTime>>(app);
     }
 }
 
