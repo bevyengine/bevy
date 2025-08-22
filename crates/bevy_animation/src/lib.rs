@@ -211,7 +211,7 @@ impl Hash for AnimationTargetId {
 /// Note that each entity can only be animated by one animation player at a
 /// time. However, you can change [`AnimationTarget`]'s `player` property at
 /// runtime to change which player is responsible for animating the entity.
-#[derive(Clone, Copy, Component, Reflect)]
+#[derive(Clone, Copy, Component, Reflect, Debug)]
 #[reflect(Component, Clone)]
 pub struct AnimationPlayerTarget(#[entities] pub Entity);
 
