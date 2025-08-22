@@ -202,7 +202,6 @@ impl<T: NoUninit> RawBufferVec<T> {
             return Err(WriteBufferRangeError::NoValuesToUpload);
         }
         if range.end > self.item_size * self.capacity {
-            // TODO error trying to copy outside of capacity
             return Err(WriteBufferRangeError::RangeBiggerThanBuffer);
         }
         if let Some(buffer) = &self.buffer {
