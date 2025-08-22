@@ -84,11 +84,11 @@ fn setup(
         .observe(
             |trigger: On<Pointer<Click>>, mut commands: Commands| match trigger.button {
                 PointerButton::Primary => {
-                    commands.entity(trigger.target()).insert(AnimationActive);
+                    commands.entity(trigger.entity()).insert(AnimationActive);
                 }
                 PointerButton::Secondary => {
                     commands
-                        .entity(trigger.target())
+                        .entity(trigger.entity())
                         .remove::<AnimationActive>();
                 }
                 _ => {}
