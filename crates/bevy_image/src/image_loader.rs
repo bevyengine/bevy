@@ -1,6 +1,9 @@
 use core::num::NonZero;
 
-use crate::image::{Image, ImageFormat, ImageType, TextureError};
+use crate::{
+    image::{Image, ImageFormat, ImageType, TextureError},
+    TextureReinterpretationError,
+};
 use bevy_asset::{io::Reader, AssetLoader, LoadContext, RenderAssetUsages};
 use thiserror::Error;
 
@@ -140,6 +143,9 @@ pub enum ImageLoaderError {
     /// An error occurred while trying to decode the image bytes.
     #[error("Could not load texture file: {0}")]
     FileTexture(#[from] FileTextureError),
+    /// An error occurred while trying to reinterpret the image (e.g. loading as a stacked 2d array).
+    #[error("Could not reinterpret image: {0}")]
+    ReinterpretationError(#[from] TextureReinterpretationError),
 }
 
 impl AssetLoader for ImageLoader {
@@ -189,7 +195,7 @@ impl AssetLoader for ImageLoader {
         })?;
 
         if let Some(layers) = settings.layers {
-            image.reinterpret_stacked_2d_as_array(layers.into());
+            image.reinterpret_stacked_2d_as_array(layers.into())?;
         }
 
         Ok(image)
