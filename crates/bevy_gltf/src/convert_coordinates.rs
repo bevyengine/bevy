@@ -31,26 +31,34 @@ impl ConvertCoordinates for [f32; 4] {
 }
 
 /// Options for converting scenes and assets from glTF's [standard coordinate system](https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html#coordinate-system-and-units)
-/// to Bevy's.
+/// (+Z forward) to Bevy's coordinate system (-Z forward).
 ///
 /// The exact coordinate system conversion is as follows:
 /// - glTF:
-///   - forward: Z
-///   - up: Y
+///   - forward: +Z
+///   - up: +Y
 ///   - right: -X
 /// - Bevy:
 ///   - forward: -Z
-///   - up: Y
-///   - right: X
+///   - up: +Y
+///   - right: +X
 ///
 /// Note that some glTF files may not follow the glTF standard.
+///
+/// If your glTF scene is +Z forward and you want it converted to match Bevy's
+/// `Transform::forward`, enable the `scenes` option. If you also want `Mesh`
+/// assets to be converted, enable the `meshes` option.
+///
+/// Cameras and lights in glTF files are an exception - they already use Bevy's
+/// coordinate system. This means cameras and lights will match
+/// `Transform::forward` even if conversion is disabled.
 #[derive(Copy, Clone, Default, Debug, Serialize, Deserialize)]
 pub struct GltfConvertCoordinates {
-    /// If true, convert scenes via the transform of the root entity.
+    /// If true, convert scenes via the transform of the scene entity.
     ///
-    /// The glTF loader works by creating an entity for each glTF scene, and an
-    /// entity for each glTF node within the scene. If a node doesn't have a
-    /// parent then its entity is parented to the scene entity.
+    /// The glTF loader creates an entity for each glTF scene. Entities are
+    /// then created for each node within the glTF scene. Nodes without a
+    /// parent in the glTF scene become children of the scene entity.
     ///
     /// This option only changes the transform of the scene entity. It does not
     /// directly change the transforms of node entities - it only changes them
