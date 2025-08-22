@@ -9,7 +9,7 @@ use std::{
 };
 
 #[cfg(feature = "bevy_animation")]
-use bevy_animation::{prelude::*, AnimationTargetId, AnimationTargetPlayer};
+use bevy_animation::{prelude::*, AnimationPlayerTarget, AnimationTargetId};
 use bevy_asset::{
     io::Reader, AssetLoadError, AssetLoader, Handle, LoadContext, ReadAssetBytesError,
     RenderAssetUsages,
@@ -1432,7 +1432,7 @@ fn load_node(
 
         node.insert((
             AnimationTargetId::from_names(animation_context.path.iter()),
-            AnimationTargetPlayer(animation_context.root),
+            AnimationPlayerTarget(animation_context.root),
         ));
     }
 

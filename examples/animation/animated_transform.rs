@@ -3,7 +3,7 @@
 use std::f32::consts::PI;
 
 use bevy::{
-    animation::{animated_field, AnimationTargetId, AnimationTargetPlayer},
+    animation::{animated_field, AnimationTargetId, AnimationPlayerTarget},
     prelude::*,
 };
 
@@ -155,7 +155,7 @@ fn setup(
         .entity(planet_entity)
         .insert((
             planet_animation_target_id,
-            AnimationTargetPlayer(planet_entity),
+            AnimationPlayerTarget(planet_entity),
         ))
         .with_children(|p| {
             // This entity is just used for animation, but doesn't display anything
@@ -164,7 +164,7 @@ fn setup(
                 Visibility::default(),
                 orbit_controller,
                 orbit_controller_animation_target_id,
-                AnimationTargetPlayer(planet_entity),
+                AnimationPlayerTarget(planet_entity),
             ))
             .with_children(|p| {
                 // The satellite, placed at a distance of the planet
@@ -173,7 +173,7 @@ fn setup(
                     MeshMaterial3d(materials.add(Color::srgb(0.3, 0.9, 0.3))),
                     Transform::from_xyz(1.5, 0.0, 0.0),
                     satellite_animation_target_id,
-                    AnimationTargetPlayer(planet_entity),
+                    AnimationPlayerTarget(planet_entity),
                     satellite,
                 ));
             });

@@ -3,7 +3,7 @@
 use std::f32::consts::FRAC_PI_2;
 
 use bevy::{
-    animation::{animated_field, AnimationTargetId, AnimationTargetPlayer},
+    animation::{animated_field, AnimationPlayerTarget, AnimationTargetId},
     color::palettes::css::{ORANGE, SILVER},
     math::vec3,
     prelude::*,
@@ -49,7 +49,7 @@ fn setup(
 
     commands
         .entity(cube_entity)
-        .insert((animation_target_id, AnimationTargetPlayer(cube_entity)));
+        .insert((animation_target_id, AnimationPlayerTarget(cube_entity)));
 
     // Some light to see something
     commands.spawn((

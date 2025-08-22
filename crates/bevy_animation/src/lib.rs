@@ -213,7 +213,7 @@ impl Hash for AnimationTargetId {
 /// runtime to change which player is responsible for animating the entity.
 #[derive(Clone, Copy, Component, Reflect)]
 #[reflect(Component, Clone)]
-pub struct AnimationTargetPlayer(#[entities] pub Entity);
+pub struct AnimationPlayerTarget(#[entities] pub Entity);
 
 impl AnimationClip {
     #[inline]
@@ -1019,7 +1019,7 @@ pub type AnimationEntityMut<'w, 's> = EntityMutExcept<
     's,
     (
         AnimationTargetId,
-        AnimationTargetPlayer,
+        AnimationPlayerTarget,
         AnimationPlayer,
         AnimationGraphHandle,
     ),
@@ -1036,14 +1036,14 @@ pub fn animate_targets(
     mut targets: Query<(
         Entity,
         &AnimationTargetId,
-        &AnimationTargetPlayer,
+        &AnimationPlayerTarget,
         AnimationEntityMut,
     )>,
     animation_evaluation_state: Local<ThreadLocal<RefCell<AnimationEvaluationState>>>,
 ) {
     // Evaluate all animation targets in parallel.
     targets.par_iter_mut().for_each(
-        |(entity, &target_id, &AnimationTargetPlayer(player_id), entity_mut)| {
+        |(entity, &target_id, &AnimationPlayerTarget(player_id), entity_mut)| {
             let (animation_player, animation_graph_id) =
                 if let Ok((player, graph_handle)) = players.get(player_id) {
                     (player, graph_handle.id())
