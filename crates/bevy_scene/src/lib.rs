@@ -133,7 +133,9 @@ mod tests {
     use bevy_ecs::{
         component::Component,
         entity::Entity,
+        entity_disabling::Internal,
         hierarchy::{ChildOf, Children},
+        prelude::Allow,
         reflect::{AppTypeRegistry, ReflectComponent},
         world::World,
     };
