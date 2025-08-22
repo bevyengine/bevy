@@ -34,10 +34,10 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryParIter<'w, 's, D, F> {
     /// Runs `func` on each query result in parallel.
     ///
     /// # Panics
-    /// If the [`ComputeTaskPool`] is not initialized. If using this from a query that is being
+    /// If the [`TaskPool`] is not initialized. If using this from a query that is being
     /// initialized and run from the ECS scheduler, this should never panic.
     ///
-    /// [`ComputeTaskPool`]: bevy_tasks::ComputeTaskPool
+    /// [`TaskPool`]: bevy_tasks::TaskPool
     #[inline]
     pub fn for_each<FN: Fn(QueryItem<'w, 's, D>) + Send + Sync + Clone>(self, func: FN) {
         self.for_each_init(|| {}, |_, item| func(item));
@@ -69,10 +69,10 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryParIter<'w, 's, D, F> {
     /// ```
     ///
     /// # Panics
-    /// If the [`ComputeTaskPool`] is not initialized. If using this from a query that is being
+    /// If the [`TaskPool`] is not initialized. If using this from a query that is being
     /// initialized and run from the ECS scheduler, this should never panic.
     ///
-    /// [`ComputeTaskPool`]: bevy_tasks::ComputeTaskPool
+    /// [`TaskPool`]: bevy_tasks::TaskPool
     #[inline]
     pub fn for_each_init<FN, INIT, T>(self, init: INIT, func: FN)
     where
@@ -101,7 +101,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryParIter<'w, 's, D, F> {
         }
         #[cfg(all(not(target_arch = "wasm32"), feature = "multi_threaded"))]
         {
-            let thread_count = bevy_tasks::ComputeTaskPool::get().thread_num();
+            let thread_count = bevy_tasks::TaskPool::get().thread_num();
             if thread_count <= 1 {
                 let init = init();
                 // SAFETY: See the safety comment above.
@@ -185,10 +185,10 @@ impl<'w, 's, D: ReadOnlyQueryData, F: QueryFilter, E: EntityEquivalent + Sync>
     /// Runs `func` on each query result in parallel.
     ///
     /// # Panics
-    /// If the [`ComputeTaskPool`] is not initialized. If using this from a query that is being
+    /// If the [`TaskPool`] is not initialized. If using this from a query that is being
     /// initialized and run from the ECS scheduler, this should never panic.
     ///
-    /// [`ComputeTaskPool`]: bevy_tasks::ComputeTaskPool
+    /// [`TaskPool`]: bevy_tasks::TaskPool
     #[inline]
     pub fn for_each<FN: Fn(QueryItem<'w, 's, D>) + Send + Sync + Clone>(self, func: FN) {
         self.for_each_init(|| {}, |_, item| func(item));
@@ -240,10 +240,10 @@ impl<'w, 's, D: ReadOnlyQueryData, F: QueryFilter, E: EntityEquivalent + Sync>
     /// ```
     ///
     /// # Panics
-    /// If the [`ComputeTaskPool`] is not initialized. If using this from a query that is being
+    /// If the [`TaskPool`] is not initialized. If using this from a query that is being
     /// initialized and run from the ECS scheduler, this should never panic.
     ///
-    /// [`ComputeTaskPool`]: bevy_tasks::ComputeTaskPool
+    /// [`TaskPool`]: bevy_tasks::TaskPool
     #[inline]
     pub fn for_each_init<FN, INIT, T>(self, init: INIT, func: FN)
     where
@@ -272,7 +272,7 @@ impl<'w, 's, D: ReadOnlyQueryData, F: QueryFilter, E: EntityEquivalent + Sync>
         }
         #[cfg(all(not(target_arch = "wasm32"), feature = "multi_threaded"))]
         {
-            let thread_count = bevy_tasks::ComputeTaskPool::get().thread_num();
+            let thread_count = bevy_tasks::TaskPool::get().thread_num();
             if thread_count <= 1 {
                 let init = init();
                 // SAFETY: See the safety comment above.
@@ -340,10 +340,10 @@ impl<'w, 's, D: QueryData, F: QueryFilter, E: EntityEquivalent + Sync>
     /// Runs `func` on each query result in parallel.
     ///
     /// # Panics
-    /// If the [`ComputeTaskPool`] is not initialized. If using this from a query that is being
+    /// If the [`TaskPool`] is not initialized. If using this from a query that is being
     /// initialized and run from the ECS scheduler, this should never panic.
     ///
-    /// [`ComputeTaskPool`]: bevy_tasks::ComputeTaskPool
+    /// [`TaskPool`]: bevy_tasks::TaskPool
     #[inline]
     pub fn for_each<FN: Fn(QueryItem<'w, 's, D>) + Send + Sync + Clone>(self, func: FN) {
         self.for_each_init(|| {}, |_, item| func(item));
@@ -395,10 +395,10 @@ impl<'w, 's, D: QueryData, F: QueryFilter, E: EntityEquivalent + Sync>
     /// ```
     ///
     /// # Panics
-    /// If the [`ComputeTaskPool`] is not initialized. If using this from a query that is being
+    /// If the [`TaskPool`] is not initialized. If using this from a query that is being
     /// initialized and run from the ECS scheduler, this should never panic.
     ///
-    /// [`ComputeTaskPool`]: bevy_tasks::ComputeTaskPool
+    /// [`TaskPool`]: bevy_tasks::TaskPool
     #[inline]
     pub fn for_each_init<FN, INIT, T>(self, init: INIT, func: FN)
     where
@@ -427,7 +427,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter, E: EntityEquivalent + Sync>
         }
         #[cfg(all(not(target_arch = "wasm32"), feature = "multi_threaded"))]
         {
-            let thread_count = bevy_tasks::ComputeTaskPool::get().thread_num();
+            let thread_count = bevy_tasks::TaskPool::get().thread_num();
             if thread_count <= 1 {
                 let init = init();
                 // SAFETY: See the safety comment above.

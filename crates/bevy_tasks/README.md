@@ -26,8 +26,8 @@ This currently applies to Wasm targets.)
 The determining factor for what kind of work should go in each pool is latency requirements:
 
 * For CPU-intensive work (tasks that generally spin until completion) we have a standard
-  [`ComputeTaskPool`] and an [`AsyncComputeTaskPool`]. Work that does not need to be completed to
-  present the next frame should go to the [`AsyncComputeTaskPool`].
+  [`TaskPool`] and an [`AsyncTaskPool`]. Work that does not need to be completed to
+  present the next frame should go to the [`AsyncTaskPool`].
 
 * For IO-intensive work (tasks that spend very little time in a "woken" state) we have an
   [`IoTaskPool`] whose tasks are expected to complete very quickly. Generally speaking, they should just

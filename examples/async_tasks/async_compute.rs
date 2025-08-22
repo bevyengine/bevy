@@ -1,10 +1,10 @@
-//! This example shows how to use the ECS and the [`AsyncComputeTaskPool`]
+//! This example shows how to use the ECS and the [`TaskPool`]
 //! to spawn, poll, and complete tasks across systems and system ticks.
 
 use bevy::{
     ecs::{system::SystemState, world::CommandQueue},
     prelude::*,
-    tasks::{block_on, futures_lite::future, AsyncComputeTaskPool, Task},
+    tasks::{block_on, futures_lite::future, TaskPool, Task},
 };
 use rand::Rng;
 use std::time::Duration;
@@ -50,15 +50,17 @@ struct ComputeTransform(Task<CommandQueue>);
 /// system, [`handle_tasks`], will poll the spawned tasks on subsequent
 /// frames/ticks, and use the results to spawn cubes
 fn spawn_tasks(mut commands: Commands) {
-    let thread_pool = AsyncComputeTaskPool::get();
+    let thread_pool = TaskPool::get();
     for x in 0..NUM_CUBES {
         for y in 0..NUM_CUBES {
             for z in 0..NUM_CUBES {
-                // Spawn new task on the AsyncComputeTaskPool; the task will be
+                // Spawn new task on the TaskPool; the task will be
                 // executed in the background, and the Task future returned by
                 // spawn() can be used to poll for the result
                 let entity = commands.spawn_empty().id();
-                let task = thread_pool.spawn(async move {
+                let task = thread_pool
+                    .with_priority(TaskPriority::BlockingCompute)
+                    .spawn(async move {
                     let duration = Duration::from_secs_f32(rand::rng().random_range(0.05..5.0));
 
                     // Pretend this is a time-intensive function. :)

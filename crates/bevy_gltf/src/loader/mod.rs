@@ -44,7 +44,7 @@ use bevy_platform::collections::{HashMap, HashSet};
 use bevy_render::render_resource::Face;
 use bevy_scene::Scene;
 #[cfg(not(target_arch = "wasm32"))]
-use bevy_tasks::IoTaskPool;
+use bevy_tasks::{TaskPool, TaskPriority};
 use bevy_transform::components::Transform;
 
 use gltf::{
@@ -620,24 +620,27 @@ impl GltfLoader {
             }
         } else {
             #[cfg(not(target_arch = "wasm32"))]
-            IoTaskPool::get()
+            TaskPool::get()
                 .scope(|scope| {
                     gltf.textures().for_each(|gltf_texture| {
                         let parent_path = load_context.path().parent().unwrap();
                         let linear_textures = &linear_textures;
                         let buffer_data = &buffer_data;
-                        scope.spawn(async move {
-                            load_image(
-                                gltf_texture,
-                                buffer_data,
-                                linear_textures,
-                                parent_path,
-                                loader.supported_compressed_formats,
-                                default_sampler,
-                                settings,
-                            )
-                            .await
-                        });
+                        scope
+                            .builder()
+                            .with_priority(TaskPriority::BlockingIO)
+                            .spawn(async move {
+                                load_image(
+                                    gltf_texture,
+                                    buffer_data,
+                                    linear_textures,
+                                    parent_path,
+                                    loader.supported_compressed_formats,
+                                    default_sampler,
+                                    settings,
+                                )
+                                .await
+                            });
                     });
                 })
                 .into_iter()

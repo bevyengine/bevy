@@ -17,7 +17,7 @@ use async_io::Async;
 use bevy_app::{App, Plugin, Startup};
 use bevy_ecs::resource::Resource;
 use bevy_ecs::system::Res;
-use bevy_tasks::{futures_lite::StreamExt, IoTaskPool};
+use bevy_tasks::{futures_lite::StreamExt, TaskPool};
 use core::{
     convert::Infallible,
     net::{IpAddr, Ipv4Addr},
@@ -201,7 +201,9 @@ fn start_http_server(
     remote_port: Res<HostPort>,
     headers: Res<HostHeaders>,
 ) {
-    IoTaskPool::get()
+    TaskPool::get()
+        .builder()
+        .with_priority(bevy_tasks::TaskPriority::AsyncIO)
         .spawn(server_main(
             address.0,
             remote_port.0,
@@ -236,7 +238,9 @@ async fn listen(
 
         let request_sender = request_sender.clone();
         let headers = headers.clone();
-        IoTaskPool::get()
+        TaskPool::get()
+            .builder()
+            .with_priority(bevy_tasks::TaskPriority::AsyncIO)
             .spawn(async move {
                 let _ = handle_client(client, request_sender, headers).await;
             })

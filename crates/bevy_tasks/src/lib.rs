@@ -92,7 +92,6 @@ cfg::bevy_executor! {
 pub use iter::ParallelIterator;
 pub use slice::{ParallelSlice, ParallelSliceMut};
 pub use task::Task;
-pub use usages::{AsyncComputeTaskPool, ComputeTaskPool, IoTaskPool};
 
 pub use futures_lite;
 pub use futures_lite::future::poll_once;
@@ -156,7 +155,6 @@ pub mod prelude {
         block_on,
         iter::ParallelIterator,
         slice::{ParallelSlice, ParallelSliceMut},
-        usages::{AsyncComputeTaskPool, ComputeTaskPool, IoTaskPool},
     };
 }
 
@@ -179,13 +177,14 @@ pub fn available_parallelism() -> usize {
     }}
 }
 
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash, PartialOrd, Ord)]
 #[repr(u8)]
 pub enum TaskPriority {
     BlockingIO,
     BlockingCompute,
     AsyncIO,
-    #[default] Compute,
+    #[default]
+    Compute,
     RunNow,
 }
 
@@ -204,29 +203,85 @@ pub(crate) struct Metadata {
     pub is_send: bool,
 }
 
-pub struct TaskBuilder<T> {
-    priority: TaskPriority,
-    marker_: PhantomData<*const T>
+pub struct TaskBuilder<'a, T> {
+    pub(crate) task_pool: &'a TaskPool,
+    pub(crate) priority: TaskPriority,
+    marker_: PhantomData<*const T>,
 }
 
-impl<T> TaskBuilder<T> {
+impl<'a, T> TaskBuilder<'a, T> {
+    pub(crate) fn new(task_pool: &'a TaskPool) -> Self {
+        Self {
+            task_pool,
+            priority: TaskPriority::default(),
+            marker_: PhantomData,
+        }
+    }
+
     pub fn with_priority(mut self, priority: TaskPriority) -> Self {
         self.priority = priority;
         self
     }
 
-    pub fn build_metadata(self) -> Metadata {
-        Metadata { 
-            priority: self.priority, 
+    pub(crate) fn build_metadata(self) -> Metadata {
+        Metadata {
+            priority: self.priority,
             is_send: false,
         }
     }
 }
 
-pub struct ScopeTaskBuilder<'a: 'scope, 'scope: 'env, 'env, T> {
-    scope: &'a Scope<'scope, 'env, T>,
+#[derive(Clone, Copy, Default, Debug)]
+pub enum ScopeTaskTarget {
+    #[default]
+    Any,
+    /// Spawns a scoped future onto the thread the scope is run on. The scope *must* outlive
+    /// the provided future. The results of the future will be returned as a part of
+    /// [`TaskPool::scope`]'s return value.  Users should generally prefer to use
+    /// [`Scope::spawn`] instead, unless the provided future needs to run on the scope's thread.
+    ///
+    /// For more information, see [`TaskPool::scope`].
+    Scope,
+
+    /// Spawns a scoped future onto the thread of the external thread executor.
+    /// This is typically the main thread. The scope *must* outlive
+    /// the provided future. The results of the future will be returned as a part of
+    /// [`TaskPool::scope`]'s return value.  Users should generally prefer to use
+    /// [`Scope::spawn`] instead, unless the provided future needs to run on the external thread.
+    ///
+    /// For more information, see [`TaskPool::scope`].
+    External,
 }
 
-impl<'a, 'scope, 'env> ScopeTaskBuilder<'a, 'scope, 'env, T> {
+pub struct ScopeTaskBuilder<'a, 'scope, 'env: 'scope, T> {
+    scope: &'a Scope<'scope, 'env, T>,
+    priority: TaskPriority,
+    target: ScopeTaskTarget,
+}
 
+impl<'a, 'scope, 'env, T> ScopeTaskBuilder<'a, 'scope, 'env, T> {
+    pub(crate) fn new(scope: &'a Scope<'scope, 'env, T>) -> Self {
+        Self {
+            scope,
+            priority: TaskPriority::default(),
+            target: ScopeTaskTarget::default(),
+        }
+    }
+
+    pub fn with_priority(mut self, priority: TaskPriority) -> Self {
+        self.priority = priority;
+        self
+    }
+
+    pub fn with_target(mut self, target: ScopeTaskTarget) -> Self {
+        self.target = target;
+        self
+    }
+
+    pub(crate) fn build_metadata(self) -> Metadata {
+        Metadata {
+            priority: self.priority,
+            is_send: false,
+        }
+    }
 }

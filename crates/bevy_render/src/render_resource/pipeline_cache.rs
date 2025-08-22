@@ -16,7 +16,7 @@ use bevy_shader::{
     CachedPipelineId, PipelineCacheError, Shader, ShaderCache, ShaderCacheSource, ShaderDefVal,
     ValidateShader,
 };
-use bevy_tasks::Task;
+use bevy_tasks::{Task, TaskPool, TaskPriority};
 use bevy_utils::default;
 use core::{future::Future, hash::Hash, mem};
 use std::sync::{Mutex, PoisonError};
@@ -807,7 +807,12 @@ fn create_pipeline_task(
     sync: bool,
 ) -> CachedPipelineState {
     if !sync {
-        return CachedPipelineState::Creating(bevy_tasks::AsyncComputeTaskPool::get().spawn(task));
+        return CachedPipelineState::Creating(
+            TaskPool::get()
+                .builder()
+                .with_priority(TaskPriority::BlockingCompute)
+                .spawn(task),
+        );
     }
 
     match bevy_tasks::block_on(task) {

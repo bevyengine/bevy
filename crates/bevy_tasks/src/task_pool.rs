@@ -1,8 +1,8 @@
 use alloc::{boxed::Box, format, string::String, vec::Vec};
-use core::{future::Future, marker::PhantomData, mem, panic::AssertUnwindSafe};
+use core::{future::Future, marker::PhantomData, mem, num::NonZeroUsize, panic::AssertUnwindSafe};
 use std::{sync::OnceLock, thread::{self, JoinHandle}};
 
-use crate::{bevy_executor::Executor, Metadata};
+use crate::{bevy_executor::Executor, Metadata, ScopeTaskBuilder, ScopeTaskTarget, TaskBuilder, TaskPriority};
 use async_task::FallibleTask;
 use bevy_platform::sync::Arc;
 use concurrent_queue::ConcurrentQueue;
@@ -40,6 +40,8 @@ pub struct TaskPoolBuilder {
 
     on_thread_spawn: Option<Arc<dyn Fn() + Send + Sync + 'static>>,
     on_thread_destroy: Option<Arc<dyn Fn() + Send + Sync + 'static>>,
+
+    priority_limits: [Option<NonZeroUsize>; TaskPriority::MAX],
 }
 
 impl TaskPoolBuilder {
@@ -58,6 +60,12 @@ impl TaskPoolBuilder {
     /// Override the stack size of the threads created for the pool
     pub fn stack_size(mut self, stack_size: usize) -> Self {
         self.stack_size = Some(stack_size);
+        self
+    }
+
+    /// Sets the limit of how many active threads for a given priority.
+    pub fn priority_limit(mut self, priority: TaskPriority, limit: Option<usize>) -> Self {
+        self.priority_limits[priority.to_index()] = limit.map(NonZeroUsize::new).flatten();
         self
     }
 
@@ -116,11 +124,12 @@ impl TaskPoolBuilder {
 
     /// Creates a new [`TaskPool`] based on the current options.
     pub fn build(self) -> TaskPool {
-        TaskPool::new_internal(self, Box::leak(Box::new(Executor::new())))
-    }
-
-    pub(crate) fn build_static(self, executor: &'static Executor) -> TaskPool {
-        TaskPool::new_internal(self, executor)
+        #[expect(
+            unsafe_code, 
+            reason = "Required for priority limit initialization to be both performant and safe."
+        )]
+        // SAFETY: The box is unique and is otherwise never going to be called from any other place.
+        unsafe { TaskPool::new_internal(self, Box::leak(Box::new(Executor::new()))) }
     }
 }
 
@@ -160,10 +169,27 @@ impl TaskPool {
     }
 
     pub fn get_or_init(f: impl FnOnce() -> TaskPoolBuilder) -> &'static TaskPool {
-        TASK_POOL.get_or_init(|| f().build_static(&EXECUTOR))
+        #[expect(
+            unsafe_code, 
+            reason = "Required for priority limit initialization to be both performant and safe."
+        )]
+        // SAFETY: TASK_POOL is never reset and the OnceLock ensures it's only ever initialized
+        // once.
+        TASK_POOL.get_or_init(|| unsafe { Self::new_internal(f(), &EXECUTOR) })
     }
 
-    fn new_internal(builder: TaskPoolBuilder, executor: &'static Executor) -> Self {
+    #[expect(
+        unsafe_code, 
+        reason = "Required for priority limit initialization to be both performant and safe."
+    )]
+    /// # Safety
+    /// This should only be called once over the lifetime of the application.
+    unsafe fn new_internal(builder: TaskPoolBuilder, executor: &'static Executor) -> Self {
+        // SAFETY: The caller is required to ensure that this is only called once per application
+        // and no threads accessing the Executor are started until later in this very function.
+        // Thus it's impossible for there to be any aliasing access done here.
+        unsafe { executor.set_priority_limits(builder.priority_limits.clone()); }
+
         let (shutdown_tx, shutdown_rx) = async_channel::unbounded::<()>();
 
         let num_threads = builder
@@ -393,6 +419,10 @@ impl TaskPool {
         }
     }
 
+    pub fn builder<T>(&self) -> TaskBuilder<'_, T> {
+        TaskBuilder::new(self)
+    }
+
     /// Spawns a static future onto the thread pool. The returned [`Task`] is a
     /// future that can be polled for the result. It can also be canceled and
     /// "detached", allowing the task to continue running even if dropped. In
@@ -401,11 +431,13 @@ impl TaskPool {
     ///
     /// If the provided future is non-`Send`, [`TaskPool::spawn_local`] should
     /// be used instead.
+    /// 
+    /// This is a shorthand for `self.builder().spawn(future)`.
     pub fn spawn<T>(&self, future: impl Future<Output = T> + Send + 'static) -> Task<T>
     where
         T: Send + 'static,
     {
-        Task::new(self.executor.spawn(future, Metadata::default()))
+        self.builder().spawn(future)
     }
 
     /// Spawns a static future on the thread-local async executor for the
@@ -419,11 +451,13 @@ impl TaskPool {
     ///
     /// Users should generally prefer to use [`TaskPool::spawn`] instead,
     /// unless the provided future is not `Send`.
+    /// 
+    /// This is a shorthand for `self.builder().spawn(future)`.
     pub fn spawn_local<T>(&self, future: impl Future<Output = T> + 'static) -> Task<T>
     where
         T: 'static,
     {
-        Task::new(self.executor.spawn_local(future, Metadata::default()))
+        self.builder().spawn_local(future)
     }
 
     pub(crate) fn try_tick_local() -> bool {
@@ -462,10 +496,10 @@ pub struct Scope<'scope, 'env: 'scope, T> {
 }
 
 impl<'scope, 'env, T: Send + 'scope> Scope<'scope, 'env, T> {
-    #[expect(
-        unsafe_code,
-        reason = "Executor::spawn otherwise requires 'static Futures"
-    )]
+    pub fn builder(&self) -> ScopeTaskBuilder<'_, 'scope, 'env, T> {
+        ScopeTaskBuilder::new(self)
+    }
+
     /// Spawns a scoped future onto the thread pool. The scope *must* outlive
     /// the provided future. The results of the future will be returned as a part of
     /// [`TaskPool::scope`]'s return value.
@@ -475,64 +509,7 @@ impl<'scope, 'env, T: Send + 'scope> Scope<'scope, 'env, T> {
     ///
     /// For more information, see [`TaskPool::scope`].
     pub fn spawn<Fut: Future<Output = T> + 'scope + Send>(&self, f: Fut) {
-        // SAFETY: The scope call that generated this `Scope` ensures that the created
-        // Task does not outlive 'scope.
-        let task = unsafe {
-            self.executor
-                .spawn_scoped(AssertUnwindSafe(f).catch_unwind(), Metadata::default())
-                .fallible()
-        };
-        let result = self.spawned.push(task);
-        debug_assert!(result.is_ok());
-    }
-
-    #[expect(
-        unsafe_code,
-        reason = "ThreadSpawner::spawn otherwise requires 'static Futures"
-    )]
-    /// Spawns a scoped future onto the thread the scope is run on. The scope *must* outlive
-    /// the provided future. The results of the future will be returned as a part of
-    /// [`TaskPool::scope`]'s return value.  Users should generally prefer to use
-    /// [`Scope::spawn`] instead, unless the provided future needs to run on the scope's thread.
-    ///
-    /// For more information, see [`TaskPool::scope`].
-    pub fn spawn_on_scope<Fut: Future<Output = T> + 'scope + Send>(&self, f: Fut) {
-        // SAFETY: The scope call that generated this `Scope` ensures that the created
-        // Task does not outlive 'scope.
-        let task = unsafe {
-            self.scope_spawner
-                .spawn_scoped(AssertUnwindSafe(f).catch_unwind())
-                .into_inner()
-                .fallible()
-        };
-        let result = self.spawned.push(task);
-        debug_assert!(result.is_ok());
-    }
-
-    #[expect(
-        unsafe_code,
-        reason = "ThreadSpawner::spawn otherwise requires 'static Futures"
-    )]
-    /// Spawns a scoped future onto the thread of the external thread executor.
-    /// This is typically the main thread. The scope *must* outlive
-    /// the provided future. The results of the future will be returned as a part of
-    /// [`TaskPool::scope`]'s return value.  Users should generally prefer to use
-    /// [`Scope::spawn`] instead, unless the provided future needs to run on the external thread.
-    ///
-    /// For more information, see [`TaskPool::scope`].
-    pub fn spawn_on_external<Fut: Future<Output = T> + 'scope + Send>(&self, f: Fut) {
-        // SAFETY: The scope call that generated this `Scope` ensures that the created
-        // Task does not outlive 'scope.
-        let task = unsafe {
-            self.external_spawner
-                .spawn_scoped(AssertUnwindSafe(f).catch_unwind())
-                .into_inner()
-                .fallible()
-        };
-        // ConcurrentQueue only errors when closed or full, but we never
-        // close and use an unbounded queue, so pushing should always succeed.
-        let result = self.spawned.push(task);
-        debug_assert!(result.is_ok());
+        self.builder().spawn(f);
     }
 }
 
@@ -546,6 +523,88 @@ where
                 task.cancel().await;
             }
         });
+    }
+}
+
+impl<'a, T> TaskBuilder<'a, T> {
+    /// Spawns a static future onto the thread pool. The returned [`Task`] is a
+    /// future that can be polled for the result. It can also be canceled and
+    /// "detached", allowing the task to continue running even if dropped. In
+    /// any case, the pool will execute the task even without polling by the
+    /// end-user.
+    ///
+    /// If the provided future is non-`Send`, [`TaskPool::spawn_local`] should
+    /// be used instead.
+    pub fn spawn(self, future: impl Future<Output = T> + Send + 'static) -> Task<T>
+    where
+        T: Send + 'static,
+    {
+        Task::new(self.task_pool.executor.spawn(future, self.build_metadata()))
+    }
+
+    /// Spawns a static future on the thread-local async executor for the
+    /// current thread. The task will run entirely on the thread the task was
+    /// spawned on.
+    ///
+    /// The returned [`Task`] is a future that can be polled for the
+    /// result. It can also be canceled and "detached", allowing the task to
+    /// continue running even if dropped. In any case, the pool will execute the
+    /// task even without polling by the end-user.
+    ///
+    /// Users should generally prefer to use [`TaskPool::spawn`] instead,
+    /// unless the provided future is not `Send`.
+    pub fn spawn_local(self, future: impl Future<Output = T> + 'static) -> Task<T>
+    where
+        T: 'static,
+    {
+        Task::new(self.task_pool.executor.spawn_local(future, self.build_metadata()))
+    }
+}
+
+impl<'a, 'scope, 'env, T: Send + 'scope> ScopeTaskBuilder<'a, 'scope, 'env, T> {
+    #[expect(
+        unsafe_code,
+        reason = "Executor::spawn and ThreadSpawner::spawn_scoped otherwise requires 'static Futures"
+    )]
+    /// Spawns a scoped future onto the thread pool. The scope *must* outlive
+    /// the provided future. The results of the future will be returned as a part of
+    /// [`TaskPool::scope`]'s return value.
+    ///
+    /// For futures that should run on the thread `scope` is called on [`Scope::spawn_on_scope`] should be used
+    /// instead.
+    ///
+    /// For more information, see [`TaskPool::scope`].
+    pub fn spawn<Fut: Future<Output = T> + 'scope + Send>(self, f: Fut) {
+        let task = match self.target {
+            // SAFETY: The scope call that generated this `Scope` ensures that the created
+            // Task does not outlive 'scope.
+            ScopeTaskTarget::Any => unsafe {
+                self.scope
+                    .executor
+                    .spawn_scoped(AssertUnwindSafe(f).catch_unwind(), Metadata::default())
+                    .fallible()
+            },
+            // SAFETY: The scope call that generated this `Scope` ensures that the created
+            // Task does not outlive 'scope.
+            ScopeTaskTarget::Scope => unsafe {
+                self.scope
+                    .scope_spawner
+                    .spawn_scoped(AssertUnwindSafe(f).catch_unwind())
+                    .into_inner()
+                    .fallible()
+            },
+            // SAFETY: The scope call that generated this `Scope` ensures that the created
+            // Task does not outlive 'scope.
+            ScopeTaskTarget::External => unsafe {
+                self.scope
+                    .external_spawner
+                    .spawn_scoped(AssertUnwindSafe(f).catch_unwind())
+                    .into_inner()
+                    .fallible()
+            },
+        };
+        let result = self.scope.spawned.push(task);
+        debug_assert!(result.is_ok());
     }
 }
 
@@ -601,7 +660,7 @@ mod tests {
                     start_counter.fetch_add(1, Ordering::Relaxed);
                     barrier.clone().wait();
                 })
-                .build_static(&EX);
+                .build();
             last_barrier.wait();
             assert_eq!(10, counter.load(Ordering::Relaxed));
         }
@@ -613,7 +672,7 @@ mod tests {
                 .on_thread_destroy(move || {
                     end_counter.fetch_sub(1, Ordering::Relaxed);
                 })
-                .build_static(&EX);
+                .build();
             assert_eq!(10, counter.load(Ordering::Relaxed));
         }
         assert_eq!(-10, counter.load(Ordering::Relaxed));
@@ -631,7 +690,7 @@ mod tests {
                 .on_thread_destroy(move || {
                     end_counter.fetch_sub(1, Ordering::Relaxed);
                 })
-                .build_static(&EX);
+                .build();
             last_barrier.wait();
             assert_eq!(-5, counter.load(Ordering::Relaxed));
         }
@@ -662,7 +721,10 @@ mod tests {
                     });
                 } else {
                     let count_clone = local_count.clone();
-                    scope.spawn_on_scope(async move {
+                    scope
+                        .builder()
+                        .with_target(ScopeTaskTarget::Scope)
+                        .spawn(async move {
                         if *foo != 42 {
                             panic!("not 42!?!?")
                         } else {
@@ -703,7 +765,9 @@ mod tests {
                     });
                     let spawner = thread::current().id();
                     let inner_count_clone = count_clone.clone();
-                    scope.spawn_on_scope(async move {
+                    scope.builder()
+                        .with_target(ScopeTaskTarget::Scope)
+                        .spawn(async move {
                         inner_count_clone.fetch_add(1, Ordering::Release);
                         if thread::current().id() != spawner {
                             // NOTE: This check is using an atomic rather than simply panicking the
@@ -778,7 +842,9 @@ mod tests {
                         inner_count_clone.fetch_add(1, Ordering::Release);
 
                         // spawning on the scope from another thread runs the futures on the scope's thread
-                        scope.spawn_on_scope(async move {
+                        scope.builder()
+                            .with_target(ScopeTaskTarget::Scope)
+                            .spawn(async move {
                             inner_count_clone.fetch_add(1, Ordering::Release);
                             if thread::current().id() != spawner {
                                 // NOTE: This check is using an atomic rather than simply panicking the

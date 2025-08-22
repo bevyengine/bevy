@@ -194,6 +194,18 @@ impl Executor {
         }
     }
 
+    /// # Safety
+    /// Must ensure that no other thread can call into the Executor from another
+    /// thread while this function is running.
+    pub unsafe fn set_priority_limits(&self, limits: [Option<NonZeroUsize>; TaskPriority::MAX]) {
+        for (i, limit) in limits.into_iter().enumerate() {
+            // SAFETY: The caller is required to ensure that no other thread can call into the Executor from another
+            // thread while this function is running.
+            unsafe { self.state.priority_limits[i].set_limit(limit) };
+            log::info!("Priority {} set to {:?}", i, limit);
+        }
+    }
+
     /// Spawns a 'static and Send task onto the executor.
     pub fn spawn<T: Send + 'static>(&'static self, future: impl Future<Output = T> + Send + 'static, metadata: Metadata) -> Task<T> {
         // SAFETY: Both `T` and `future` are 'static.
@@ -470,11 +482,11 @@ impl State {
                 free_ids: Vec::new(),
             }),
             priority_limits: [
-                CachePadded::new(AtomicSemaphore::new(None)),
-                CachePadded::new(AtomicSemaphore::new(None)),
-                CachePadded::new(AtomicSemaphore::new(None)),
-                CachePadded::new(AtomicSemaphore::new(None)),
-                CachePadded::new(AtomicSemaphore::new(None))
+                CachePadded::new(AtomicSemaphore::new()),
+                CachePadded::new(AtomicSemaphore::new()),
+                CachePadded::new(AtomicSemaphore::new()),
+                CachePadded::new(AtomicSemaphore::new()),
+                CachePadded::new(AtomicSemaphore::new())
             ],
         }
     }
@@ -893,25 +905,32 @@ fn flush_to_local(src: &ConcurrentQueue<Runnable>, dst: &mut LocalQueue) {
 
 struct AtomicSemaphore {
     available: AtomicUsize,
-    limit: Option<NonZeroUsize>,
+    limit: UnsafeCell<Option<NonZeroUsize>>,
 }
 
+// SAFETY: The safety invaraints on `set_limit` ensure no aliasing occurs.
+unsafe impl Send for AtomicSemaphore {}
+// SAFETY: The safety invaraints on `set_limit` ensure no aliasing occurs.
+unsafe impl Sync for AtomicSemaphore {}
+
 impl AtomicSemaphore {
-    pub const fn new(limit: Option<NonZeroUsize>) -> Self {
-        match limit {
-            Some(limit) => Self {
-                available: AtomicUsize::new(limit.get()),
-                limit: Some(limit),
-            },
-            None => Self {
-                available: AtomicUsize::new(0),
-                limit: None,
-            }
+    pub const fn new() -> Self {
+        Self {
+            available: AtomicUsize::new(0),
+            limit: UnsafeCell::new(None),
         }
     }
 
+    /// # Safety
+    /// Must not be called while another thread might call `acquire`.
+    pub unsafe fn set_limit(&self, limit: Option<NonZeroUsize>) {
+        unsafe { *self.limit.get() = limit; }
+        self.available.store(limit.map(NonZeroUsize::get).unwrap_or(0), Ordering::Relaxed);
+    }
+
     pub fn acquire<'a>(&'a self) -> Permit<'a> {
-        if self.limit.is_none() {
+        // SAFETY: `set_limit` is not reentrant, and is required to not be called while
+        if unsafe { &*self.limit.get() }.is_none() {
             return Permit::Unrestricted;
         }
         let mut current = self.available.load(Ordering::Acquire);

@@ -1345,7 +1345,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     /// #[derive(Component, PartialEq, Debug)]
     /// struct A(usize);
     ///
-    /// # bevy_tasks::ComputeTaskPool::get_or_init(|| bevy_tasks::TaskPoolBuilder::default());
+    /// # bevy_tasks::TaskPool::get_or_init(|| bevy_tasks::TaskPoolBuilder::default());
     ///
     /// let mut world = World::new();
     ///
@@ -1371,11 +1371,11 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     /// ```
     ///
     /// # Panics
-    /// The [`ComputeTaskPool`] is not initialized. If using this from a query that is being
+    /// The [`TaskPool`] is not initialized. If using this from a query that is being
     /// initialized and run from the ECS scheduler, this should never panic.
     ///
     /// [`par_iter`]: Self::par_iter
-    /// [`ComputeTaskPool`]: bevy_tasks::ComputeTaskPool
+    /// [`TaskPool`]: bevy_tasks::TaskPool
     #[inline]
     pub fn par_iter_mut<'w, 's>(&'s mut self, world: &'w mut World) -> QueryParIter<'w, 's, D, F> {
         self.query_mut(world).par_iter_inner()
@@ -1386,7 +1386,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     /// `iter()` method, but cannot be chained like a normal [`Iterator`].
     ///
     /// # Panics
-    /// The [`ComputeTaskPool`] is not initialized. If using this from a query that is being
+    /// The [`TaskPool`] is not initialized. If using this from a query that is being
     /// initialized and run from the ECS scheduler, this should never panic.
     ///
     /// # Safety
@@ -1396,7 +1396,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     /// This does not validate that `world.id()` matches `self.world_id`. Calling this on a `world`
     /// with a mismatched [`WorldId`] is unsound.
     ///
-    /// [`ComputeTaskPool`]: bevy_tasks::ComputeTaskPool
+    /// [`TaskPool`]: bevy_tasks::TaskPool
     #[cfg(all(not(target_arch = "wasm32"), feature = "multi_threaded"))]
     pub(crate) unsafe fn par_fold_init_unchecked_manual<'w, 's, T, FN, INIT>(
         &'s self,
@@ -1415,7 +1415,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         // QueryState::par_many_fold_init_unchecked_manual, QueryState::par_many_unique_fold_init_unchecked_manual
         use arrayvec::ArrayVec;
 
-        bevy_tasks::ComputeTaskPool::get().scope(|scope| {
+        bevy_tasks::TaskPool::get().scope(|scope| {
             // SAFETY: We only access table data that has been registered in `self.component_access`.
             let tables = unsafe { &world.storages().tables };
             let archetypes = world.archetypes();
@@ -1500,7 +1500,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     /// equivalent `iter_many_unique()` method, but cannot be chained like a normal [`Iterator`].
     ///
     /// # Panics
-    /// The [`ComputeTaskPool`] is not initialized. If using this from a query that is being
+    /// The [`TaskPool`] is not initialized. If using this from a query that is being
     /// initialized and run from the ECS scheduler, this should never panic.
     ///
     /// # Safety
@@ -1510,7 +1510,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
     /// This does not validate that `world.id()` matches `self.world_id`. Calling this on a `world`
     /// with a mismatched [`WorldId`] is unsound.
     ///
-    /// [`ComputeTaskPool`]: bevy_tasks::ComputeTaskPool
+    /// [`TaskPool`]: bevy_tasks::TaskPool
     #[cfg(all(not(target_arch = "wasm32"), feature = "multi_threaded"))]
     pub(crate) unsafe fn par_many_unique_fold_init_unchecked_manual<'w, 's, T, FN, INIT, E>(
         &'s self,
@@ -1530,7 +1530,7 @@ impl<D: QueryData, F: QueryFilter> QueryState<D, F> {
         // QueryIter, QueryIterationCursor, QueryManyIter, QueryCombinationIter,QueryState::par_fold_init_unchecked_manual
         // QueryState::par_many_fold_init_unchecked_manual, QueryState::par_many_unique_fold_init_unchecked_manual
 
-        bevy_tasks::ComputeTaskPool::get().scope(|scope| {
+        bevy_tasks::TaskPool::get().scope(|scope| {
             let chunks = entity_list.chunks_exact(batch_size as usize);
             let remainder = chunks.remainder();
 
@@ -1563,7 +1563,7 @@ impl<D: ReadOnlyQueryData, F: QueryFilter> QueryState<D, F> {
     /// `iter_many()` method, but cannot be chained like a normal [`Iterator`].
     ///
     /// # Panics
-    /// The [`ComputeTaskPool`] is not initialized. If using this from a query that is being
+    /// The [`TaskPool`] is not initialized. If using this from a query that is being
     /// initialized and run from the ECS scheduler, this should never panic.
     ///
     /// # Safety
@@ -1573,7 +1573,7 @@ impl<D: ReadOnlyQueryData, F: QueryFilter> QueryState<D, F> {
     /// This does not validate that `world.id()` matches `self.world_id`. Calling this on a `world`
     /// with a mismatched [`WorldId`] is unsound.
     ///
-    /// [`ComputeTaskPool`]: bevy_tasks::ComputeTaskPool
+    /// [`TaskPool`]: bevy_tasks::TaskPool
     #[cfg(all(not(target_arch = "wasm32"), feature = "multi_threaded"))]
     pub(crate) unsafe fn par_many_fold_init_unchecked_manual<'w, 's, T, FN, INIT, E>(
         &'s self,
@@ -1593,7 +1593,7 @@ impl<D: ReadOnlyQueryData, F: QueryFilter> QueryState<D, F> {
         // QueryIter, QueryIterationCursor, QueryManyIter, QueryCombinationIter, QueryState::par_fold_init_unchecked_manual
         // QueryState::par_many_fold_init_unchecked_manual, QueryState::par_many_unique_fold_init_unchecked_manual
 
-        bevy_tasks::ComputeTaskPool::get().scope(|scope| {
+        bevy_tasks::TaskPool::get().scope(|scope| {
             let chunks = entity_list.chunks_exact(batch_size as usize);
             let remainder = chunks.remainder();
 

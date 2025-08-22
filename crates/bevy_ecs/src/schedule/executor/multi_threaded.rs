@@ -1,6 +1,6 @@
 use alloc::{boxed::Box, vec::Vec};
 use bevy_platform::cell::SyncUnsafeCell;
-use bevy_tasks::{ComputeTaskPool, Scope, TaskPoolBuilder, ThreadSpawner};
+use bevy_tasks::{Scope, ScopeTaskTarget, TaskPool, TaskPoolBuilder, ThreadSpawner};
 use concurrent_queue::ConcurrentQueue;
 use core::{any::Any, panic::AssertUnwindSafe};
 use fixedbitset::FixedBitSet;
@@ -274,7 +274,7 @@ impl SystemExecutor for MultiThreadedExecutor {
 
         let environment = &Environment::new(self, schedule, world);
 
-        ComputeTaskPool::get_or_init(TaskPoolBuilder::default).scope_with_executor(
+        TaskPool::get_or_init(TaskPoolBuilder::default).scope_with_executor(
             thread_executor,
             |scope| {
                 let context = Context {
@@ -700,7 +700,11 @@ impl ExecutorState {
             context.scope.spawn(task);
         } else {
             self.local_thread_running = true;
-            context.scope.spawn_on_external(task);
+            context
+                .scope
+                .builder()
+                .with_target(ScopeTaskTarget::External)
+                .spawn(task);
         }
     }
 
@@ -724,7 +728,11 @@ impl ExecutorState {
                 context.system_completed(system_index, res, system);
             };
 
-            context.scope.spawn_on_scope(task);
+            context
+                .scope
+                .builder()
+                .with_target(ScopeTaskTarget::Scope)
+                .spawn(task);
         } else {
             let task = async move {
                 // SAFETY: `can_run` returned true for this system, which means
@@ -746,7 +754,11 @@ impl ExecutorState {
                 context.system_completed(system_index, res, system);
             };
 
-            context.scope.spawn_on_scope(task);
+            context
+                .scope
+                .builder()
+                .with_target(ScopeTaskTarget::Scope)
+                .spawn(task);
         }
 
         self.exclusive_running = true;
@@ -874,7 +886,7 @@ impl Default for MainThreadSpawner {
 impl MainThreadSpawner {
     /// Creates a new executor that can be used to run systems on the main thread.
     pub fn new() -> Self {
-        MainThreadSpawner(ComputeTaskPool::get().current_thread_spawner())
+        MainThreadSpawner(TaskPool::get().current_thread_spawner())
     }
 }
 

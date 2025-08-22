@@ -1982,13 +1982,13 @@ wasm = true
 
 # Async Tasks
 [[example]]
-name = "async_compute"
-path = "examples/async_tasks/async_compute.rs"
+name = "blocking_compute"
+path = "examples/async_tasks/blocking_compute.rs"
 doc-scrape-examples = true
 
-[package.metadata.example.async_compute]
-name = "Async Compute"
-description = "How to use `AsyncComputeTaskPool` to complete longer running tasks"
+[package.metadata.example.blocking_compute]
+name = "Blocking Compute"
+description = "How to use `TaskPool` to complete longer running tasks"
 category = "Async Tasks"
 wasm = false
 

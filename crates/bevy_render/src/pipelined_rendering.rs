@@ -6,7 +6,7 @@ use bevy_ecs::{
     schedule::MainThreadSpawner,
     world::{Mut, World},
 };
-use bevy_tasks::ComputeTaskPool;
+use bevy_tasks::TaskPool;
 
 use crate::RenderApp;
 
@@ -150,7 +150,7 @@ impl Plugin for PipelinedRenderingPlugin {
             #[cfg(feature = "trace")]
             let _span = tracing::info_span!("render thread").entered();
 
-            let compute_task_pool = ComputeTaskPool::get();
+            let compute_task_pool = TaskPool::get();
             loop {
                 // run a scope here to allow main world to use this thread while it's waiting for the render app
                 let sent_app = compute_task_pool
@@ -185,7 +185,7 @@ fn renderer_extract(app_world: &mut World, _world: &mut World) {
         world.resource_scope(|world, mut render_channels: Mut<RenderAppChannels>| {
             // we use a scope here to run any main thread tasks that the render world still needs to run
             // while we wait for the render world to be received.
-            if let Some(mut render_app) = ComputeTaskPool::get()
+            if let Some(mut render_app) = TaskPool::get()
                 .scope_with_executor(Some(main_thread_executor.0.clone()), |s| {
                     s.spawn(async { render_channels.recv().await });
                 })

@@ -353,7 +353,8 @@ impl Plugin for RenderPlugin {
 
                     // In wasm, spawn a task and detach it for execution
                     #[cfg(target_arch = "wasm32")]
-                    bevy_tasks::IoTaskPool::get()
+                    bevy_tasks::TaskPool::get()
+                        .with_priority(bevy_tasks::TaskPriority::BlockingIO)
                         .spawn_local(async_renderer)
                         .detach();
                     // Otherwise, just block for it to complete

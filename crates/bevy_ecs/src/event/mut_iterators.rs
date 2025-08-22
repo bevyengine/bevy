@@ -190,10 +190,10 @@ impl<'a, E: BufferedEvent> EventMutParIter<'a, E> {
     /// Unlike normal iteration, the event order is not guaranteed in any form.
     ///
     /// # Panics
-    /// If the [`ComputeTaskPool`] is not initialized. If using this from an event reader that is being
+    /// If the [`TaskPool`] is not initialized. If using this from an event reader that is being
     /// initialized and run from the ECS scheduler, this should never panic.
     ///
-    /// [`ComputeTaskPool`]: bevy_tasks::ComputeTaskPool
+    /// [`TaskPool`]: bevy_tasks::TaskPool
     pub fn for_each<FN: Fn(&'a mut E) + Send + Sync + Clone>(self, func: FN) {
         self.for_each_with_id(move |e, _| func(e));
     }
@@ -204,10 +204,10 @@ impl<'a, E: BufferedEvent> EventMutParIter<'a, E> {
     /// Note that the order of iteration is not guaranteed, but `EventId`s are ordered by send order.
     ///
     /// # Panics
-    /// If the [`ComputeTaskPool`] is not initialized. If using this from an event reader that is being
+    /// If the [`TaskPool`] is not initialized. If using this from an event reader that is being
     /// initialized and run from the ECS scheduler, this should never panic.
     ///
-    /// [`ComputeTaskPool`]: bevy_tasks::ComputeTaskPool
+    /// [`TaskPool`]: bevy_tasks::TaskPool
     #[cfg_attr(
         target_arch = "wasm32",
         expect(unused_mut, reason = "not mutated on this target")
@@ -223,7 +223,7 @@ impl<'a, E: BufferedEvent> EventMutParIter<'a, E> {
 
         #[cfg(not(target_arch = "wasm32"))]
         {
-            let pool = bevy_tasks::ComputeTaskPool::get();
+            let pool = bevy_tasks::TaskPool::get();
             let thread_count = pool.thread_num();
             if thread_count <= 1 {
                 return self.into_iter().for_each(|(e, i)| func(e, i));

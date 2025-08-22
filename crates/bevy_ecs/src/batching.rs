@@ -29,13 +29,13 @@ pub struct BatchingStrategy {
     ///
     /// Defaults to `[1, usize::MAX]`.
     pub batch_size_limits: Range<usize>,
-    /// The number of batches per thread in the [`ComputeTaskPool`].
+    /// The number of batches per thread in the [`TaskPool`].
     /// Increasing this value will decrease the batch size, which may
     /// increase the scheduling overhead for the iteration.
     ///
     /// Defaults to 1.
     ///
-    /// [`ComputeTaskPool`]: bevy_tasks::ComputeTaskPool
+    /// [`TaskPool`]: bevy_tasks::TaskPool
     pub batches_per_thread: usize,
 }
 
