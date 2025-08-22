@@ -5,7 +5,7 @@ pull_requests: [20394]
 
 Bevy 0.17 added an option for coordinate conversion of glTF files -
 `GltfPlugin::convert_coordinates` and `GltfLoaderSettings::convert_coordinates`.
-The goal was to ensure that objects facing forward in the glTF matched the 
+The goal was to ensure that objects facing forward in the glTF matched the
 direction of Bevy's `Transform::forward`.
 
 The conversion was disabled by default, so if you didn't enable the option then
@@ -80,4 +80,3 @@ let handle = asset_server.load_with_settings(
     },
 );
 ```
-
