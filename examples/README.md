@@ -152,6 +152,9 @@ Example | Description
 [Blend Modes](../examples/3d/blend_modes.rs) | Showcases different blend modes
 [Built-in postprocessing](../examples/3d/post_processing.rs) | Demonstrates the built-in postprocessing features
 [Camera sub view](../examples/3d/camera_sub_view.rs) | Demonstrates using different sub view effects on a camera
+[Camera sub view Magnifier](../examples/3d/subview/magnifier.rs) | Demonstrates magnifying part of the screen with CameraSubView
+[Camera sub view Multiwindow](../examples/3d/subview/multiwindow.rs) | Demonstrates splitting an image across multiple windows with CameraSubView
+[Camera sub view Zoom](../examples/3d/subview/zoom.rs) | Demonstrates zooming the whole screen with CameraSubView
 [Clearcoat](../examples/3d/clearcoat.rs) | Demonstrates the clearcoat PBR feature
 [Clustered Decal Maps](../examples/3d/clustered_decal_maps.rs) | Demonstrates normal and metallic-roughness maps of decals
 [Clustered Decals](../examples/3d/clustered_decals.rs) | Demonstrates clustered decals
