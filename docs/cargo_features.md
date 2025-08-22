@@ -13,9 +13,8 @@ The default feature set enables most of the expected features of a game engine, 
 |-|-|
 |android-game-activity|Android GameActivity support. Default, choose between this and `android-native-activity`.|
 |android_shared_stdcxx|Enable using a shared stdlib for cxx on Android|
-|animation|Enable animation support, and glTF animation loading|
 |async_executor|Uses `async-executor` as a task execution backend.|
-|bevy_animation|Provides animation functionality|
+|bevy_animation|Enable animation support, and glTF animation loading|
 |bevy_anti_aliasing|Provides various anti aliasing solutions|
 |bevy_asset|Provides asset functionality|
 |bevy_audio|Provides audio functionality|

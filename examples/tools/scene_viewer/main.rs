@@ -22,7 +22,7 @@ use bevy::{
 #[path = "../../helpers/camera_controller.rs"]
 mod camera_controller;
 
-#[cfg(feature = "animation")]
+#[cfg(feature = "bevy_animation")]
 mod animation_plugin;
 mod morph_viewer_plugin;
 mod scene_viewer_plugin;
@@ -111,7 +111,7 @@ fn main() {
         app.insert_resource(DefaultOpaqueRendererMethod::deferred());
     }
 
-    #[cfg(feature = "animation")]
+    #[cfg(feature = "bevy_animation")]
     app.add_plugins(animation_plugin::AnimationManipulationPlugin);
 
     app.run();

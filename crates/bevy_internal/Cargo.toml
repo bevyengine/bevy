@@ -202,8 +202,8 @@ webgpu = [
 bevy_ci_testing = ["bevy_dev_tools/bevy_ci_testing", "bevy_render?/ci_limits"]
 
 # Enable animation support, and glTF animation loading
-animation = [
-  "bevy_animation",
+bevy_animation = [
+  "dep:bevy_animation",
   "bevy_mesh",
   "bevy_color",
   "bevy_gltf?/bevy_animation",
