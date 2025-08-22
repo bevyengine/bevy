@@ -40,13 +40,13 @@ fn main() {
 fn text_color_on_hover<T: Debug + Clone + Reflect>(
     color: Color,
 ) -> impl FnMut(On<Pointer<T>>, Query<&mut TextColor>, Query<&Children>) {
-    move |mut trigger: On<Pointer<T>>,
+    move |mut event: On<Pointer<T>>,
           mut text_color: Query<&mut TextColor>,
           children: Query<&Children>| {
-        let Ok(children) = children.get(trigger.original_target()) else {
+        let Ok(children) = children.get(event.original_entity()) else {
             return;
         };
-        trigger.propagate(false);
+        event.propagate(false);
 
         // find the text among children and change its color
         for child in children.iter() {
@@ -69,7 +69,7 @@ fn setup(mut commands: Commands) {
 }
 
 fn on_trigger_close_menus(
-    _trigger: On<CloseContextMenus>,
+    _event: On<CloseContextMenus>,
     mut commands: Commands,
     menus: Query<Entity, With<ContextMenu>>,
 ) {
@@ -78,10 +78,10 @@ fn on_trigger_close_menus(
     }
 }
 
-fn on_trigger_menu(trigger: On<OpenContextMenu>, mut commands: Commands) {
+fn on_trigger_menu(event: On<OpenContextMenu>, mut commands: Commands) {
     commands.trigger(CloseContextMenus);
 
-    let pos = trigger.pos;
+    let pos = event.pos;
 
     debug!("open context menu at: {pos}");
 
@@ -108,11 +108,11 @@ fn on_trigger_menu(trigger: On<OpenContextMenu>, mut commands: Commands) {
             ],
         ))
         .observe(
-            |trigger: On<Pointer<Press>>,
+            |event: On<Pointer<Press>>,
              menu_items: Query<&ContextMenuItem>,
              mut clear_col: ResMut<ClearColor>,
              mut commands: Commands| {
-                let target = trigger.original_target();
+                let target = event.original_entity();
 
                 if let Ok(item) = menu_items.get(target) {
                     clear_col.0 = item.0.into();
@@ -181,15 +181,15 @@ fn background_and_button() -> impl Bundle {
                         TextShadow::default(),
                     )],
                 ))
-                .observe(|mut trigger: On<Pointer<Press>>, mut commands: Commands| {
+                .observe(|mut event: On<Pointer<Press>>, mut commands: Commands| {
                     // by default this event would bubble up further leading to the `CloseContextMenus`
                     // event being triggered and undoing the opening of one here right away.
-                    trigger.propagate(false);
+                    event.propagate(false);
 
-                    debug!("click: {}", trigger.pointer_location.position);
+                    debug!("click: {}", event.pointer_location.position);
 
                     commands.trigger(OpenContextMenu {
-                        pos: trigger.pointer_location.position,
+                        pos: event.pointer_location.position,
                     });
                 });
         })),

@@ -13,7 +13,11 @@ default = ["x11"]
 trace = []
 wayland = ["winit/wayland", "winit/wayland-csd-adwaita"]
 x11 = ["winit/x11"]
-accesskit_unix = ["accesskit_winit/accesskit_unix", "accesskit_winit/async-io"]
+accesskit_unix = [
+  "accesskit_winit/accesskit_unix",
+  "accesskit_winit/async-io",
+  "bevy_tasks/async-io",
+]
 
 serialize = [
   "bevy_input/serialize",

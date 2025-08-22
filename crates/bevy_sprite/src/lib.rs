@@ -6,17 +6,15 @@
     html_favicon_url = "https://bevy.org/assets/icon.png"
 )]
 
-//! Provides 2D sprite rendering functionality.
+//! Provides 2D sprite functionality.
 
 extern crate alloc;
 
-mod mesh2d;
 #[cfg(feature = "bevy_sprite_picking_backend")]
 mod picking_backend;
-mod render;
 mod sprite;
+mod text2d;
 mod texture_slice;
-mod tilemap_chunk;
 
 /// The sprite prelude.
 ///
@@ -30,37 +28,33 @@ pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
         sprite::{Sprite, SpriteImageMode},
+        text2d::{Text2d, Text2dReader, Text2dWriter},
         texture_slice::{BorderRect, SliceScaleMode, TextureSlice, TextureSlicer},
-        ColorMaterial, MeshMaterial2d, ScalingMode,
+        ScalingMode,
     };
 }
 
+use bevy_app::AnimationSystems;
+use bevy_asset::Assets;
 use bevy_camera::{
-    primitives::{Aabb, MeshAabb as _},
-    visibility::{NoFrustumCulling, VisibilitySystems},
+    primitives::{Aabb, MeshAabb},
+    visibility::NoFrustumCulling,
 };
-use bevy_shader::load_shader_library;
-pub use mesh2d::*;
+use bevy_camera::{visibility::VisibilitySystems, CameraUpdateSystems};
+use bevy_mesh::{Mesh, Mesh2d};
+use bevy_text::detect_text_needs_rerender;
+use bevy_text::Text2dUpdateSystems;
 #[cfg(feature = "bevy_sprite_picking_backend")]
 pub use picking_backend::*;
-pub use render::*;
 pub use sprite::*;
+pub use text2d::*;
 pub use texture_slice::*;
-pub use tilemap_chunk::*;
 
 use bevy_app::prelude::*;
-use bevy_asset::{embedded_asset, AssetEventSystems, Assets};
-use bevy_core_pipeline::core_2d::{AlphaMask2d, Opaque2d, Transparent2d};
 use bevy_ecs::prelude::*;
-use bevy_image::{prelude::*, TextureAtlasPlugin};
-use bevy_mesh::{Mesh, Mesh2d};
-use bevy_render::{
-    batching::sort_binned_render_phase, render_phase::AddRenderCommand,
-    render_resource::SpecializedRenderPipelines, ExtractSchedule, Render, RenderApp, RenderStartup,
-    RenderSystems,
-};
+use bevy_image::{Image, TextureAtlasLayout, TextureAtlasPlugin};
 
-/// Adds support for 2D sprite rendering.
+/// Adds support for 2D sprites.
 #[derive(Default)]
 pub struct SpritePlugin;
 
@@ -77,66 +71,34 @@ pub type SpriteSystem = SpriteSystems;
 
 impl Plugin for SpritePlugin {
     fn build(&self, app: &mut App) {
-        load_shader_library!(app, "render/sprite_view_bindings.wgsl");
-
-        embedded_asset!(app, "render/sprite.wgsl");
-
         if !app.is_plugin_added::<TextureAtlasPlugin>() {
             app.add_plugins(TextureAtlasPlugin);
         }
+        app.add_systems(
+            PostUpdate,
+            calculate_bounds_2d.in_set(VisibilitySystems::CalculateBounds),
+        );
 
-        app.add_plugins((
-            Mesh2dRenderPlugin,
-            ColorMaterialPlugin,
-            TilemapChunkPlugin,
-            TilemapChunkMaterialPlugin,
-        ))
-        .add_systems(
+        app.add_systems(
             PostUpdate,
             (
-                calculate_bounds_2d.in_set(VisibilitySystems::CalculateBounds),
-                (
-                    compute_slices_on_asset_event.before(AssetEventSystems),
-                    compute_slices_on_sprite_change,
-                )
-                    .in_set(SpriteSystems::ComputeSlices),
-            ),
+                detect_text_needs_rerender::<Text2d>,
+                update_text2d_layout
+                    // Potential conflict: `Assets<Image>`
+                    // In practice, they run independently since `bevy_render::camera_update_system`
+                    // will only ever observe its own render target, and `update_text2d_layout`
+                    // will never modify a pre-existing `Image` asset.
+                    .ambiguous_with(CameraUpdateSystems)
+                    .after(bevy_text::remove_dropped_font_atlas_sets),
+                calculate_bounds_text2d.in_set(VisibilitySystems::CalculateBounds),
+            )
+                .chain()
+                .in_set(Text2dUpdateSystems)
+                .after(AnimationSystems),
         );
 
         #[cfg(feature = "bevy_sprite_picking_backend")]
         app.add_plugins(SpritePickingPlugin);
-
-        if let Some(render_app) = app.get_sub_app_mut(RenderApp) {
-            render_app
-                .init_resource::<ImageBindGroups>()
-                .init_resource::<SpecializedRenderPipelines<SpritePipeline>>()
-                .init_resource::<SpriteMeta>()
-                .init_resource::<ExtractedSprites>()
-                .init_resource::<ExtractedSlices>()
-                .init_resource::<SpriteAssetEvents>()
-                .init_resource::<SpriteBatches>()
-                .add_render_command::<Transparent2d, DrawSprite>()
-                .add_systems(RenderStartup, init_sprite_pipeline)
-                .add_systems(
-                    ExtractSchedule,
-                    (
-                        extract_sprites.in_set(SpriteSystems::ExtractSprites),
-                        extract_sprite_events,
-                    ),
-                )
-                .add_systems(
-                    Render,
-                    (
-                        queue_sprites
-                            .in_set(RenderSystems::Queue)
-                            .ambiguous_with(queue_material2d_meshes::<ColorMaterial>),
-                        prepare_sprite_image_bind_groups.in_set(RenderSystems::PrepareBindGroups),
-                        prepare_sprite_view_bind_groups.in_set(RenderSystems::PrepareBindGroups),
-                        sort_binned_render_phase::<Opaque2d>.in_set(RenderSystems::PhaseSort),
-                        sort_binned_render_phase::<AlphaMask2d>.in_set(RenderSystems::PhaseSort),
-                    ),
-                );
-        };
     }
 }
 
@@ -191,11 +153,8 @@ pub fn calculate_bounds_2d(
 
 #[cfg(test)]
 mod test {
-
-    use bevy_math::{Rect, Vec2, Vec3A};
-    use bevy_utils::default;
-
     use super::*;
+    use bevy_math::{Rect, Vec2, Vec3A};
 
     #[test]
     fn calculate_bounds_2d_create_aabb_for_image_sprite_entity() {
@@ -258,7 +217,7 @@ mod test {
             .spawn(Sprite {
                 custom_size: Some(Vec2::ZERO),
                 image: image_handle,
-                ..default()
+                ..Sprite::default()
             })
             .id();
 
@@ -322,7 +281,7 @@ mod test {
                 Sprite {
                     rect: Some(Rect::new(0., 0., 0.5, 1.)),
                     image: image_handle,
-                    ..default()
+                    ..Sprite::default()
                 },
                 Anchor::TOP_RIGHT,
             ))

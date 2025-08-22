@@ -87,7 +87,7 @@ impl From<Handle<Image>> for ColorMaterial {
     }
 }
 
-// NOTE: These must match the bit flags in bevy_sprite/src/mesh2d/color_material.wgsl!
+// NOTE: These must match the bit flags in bevy_sprite_render/src/mesh2d/color_material.wgsl!
 bitflags::bitflags! {
     #[repr(transparent)]
     pub struct ColorMaterialFlags: u32 {

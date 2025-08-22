@@ -258,9 +258,8 @@ impl BlobArray {
         #[cfg(debug_assertions)]
         debug_assert_eq!(self.capacity, current_capacity.get());
         if !self.is_zst() {
-            // SAFETY: `new_capacity` can't overflow usize
-            let new_layout =
-                unsafe { array_layout_unchecked(&self.item_layout, new_capacity.get()) };
+            let new_layout = array_layout(&self.item_layout, new_capacity.get())
+                .expect("array layout should be valid");
             // SAFETY:
             // - ptr was be allocated via this allocator
             // - the layout used to previously allocate this array is equivalent to `array_layout(&self.item_layout, current_capacity.get())`

@@ -1,15 +1,14 @@
-use crate::pipeline::CosmicFontSystem;
-use crate::{
-    ComputedTextBlock, Font, FontAtlasSets, LineBreak, PositionedGlyph, SwashCache, TextBounds,
+use bevy_text::{
+    ComputedTextBlock, CosmicFontSystem, Font, FontAtlasSets, LineBreak, SwashCache, TextBounds,
     TextColor, TextError, TextFont, TextLayout, TextLayoutInfo, TextPipeline, TextReader, TextRoot,
     TextSpanAccess, TextWriter,
 };
+
+use crate::{Anchor, Sprite};
 use bevy_asset::Assets;
 use bevy_camera::primitives::Aabb;
-use bevy_camera::visibility::{
-    self, NoFrustumCulling, ViewVisibility, Visibility, VisibilityClass,
-};
-use bevy_color::{Color, LinearRgba};
+use bevy_camera::visibility::{self, NoFrustumCulling, Visibility, VisibilityClass};
+use bevy_color::Color;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::entity::EntityHashSet;
 use bevy_ecs::{
@@ -23,13 +22,7 @@ use bevy_ecs::{
 use bevy_image::prelude::*;
 use bevy_math::{Vec2, Vec3};
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
-use bevy_render::sync_world::TemporaryRenderEntity;
-use bevy_render::Extract;
-use bevy_sprite::{
-    Anchor, ExtractedSlice, ExtractedSlices, ExtractedSprite, ExtractedSprites, Sprite,
-};
 use bevy_transform::components::Transform;
-use bevy_transform::prelude::GlobalTransform;
 use bevy_window::{PrimaryWindow, Window};
 
 /// The top-level 2D text component.
@@ -38,7 +31,7 @@ use bevy_window::{PrimaryWindow, Window};
 /// [Example usage.](https://github.com/bevyengine/bevy/blob/latest/examples/2d/text2d.rs)
 ///
 /// The string in this component is the first 'text span' in a hierarchy of text spans that are collected into
-/// a [`ComputedTextBlock`]. See [`TextSpan`](crate::TextSpan) for the component used by children of entities with [`Text2d`].
+/// a [`ComputedTextBlock`]. See `TextSpan` for the component used by children of entities with [`Text2d`].
 ///
 /// With `Text2d` the `justify` field of [`TextLayout`] only affects the internal alignment of a block of text and not its
 /// relative position, which is controlled by the [`Anchor`] component.
@@ -50,7 +43,8 @@ use bevy_window::{PrimaryWindow, Window};
 /// # use bevy_color::Color;
 /// # use bevy_color::palettes::basic::BLUE;
 /// # use bevy_ecs::world::World;
-/// # use bevy_text::{Font, Justify, Text2d, TextLayout, TextFont, TextColor, TextSpan};
+/// # use bevy_text::{Font, Justify, TextLayout, TextFont, TextColor, TextSpan};
+/// # use bevy_sprite::Text2d;
 /// #
 /// # let font_handle: Handle<Font> = Default::default();
 /// # let mut world = World::default();
@@ -154,174 +148,6 @@ impl Default for Text2dShadow {
     }
 }
 
-/// This system extracts the sprites from the 2D text components and adds them to the
-/// "render world".
-pub fn extract_text2d_sprite(
-    mut commands: Commands,
-    mut extracted_sprites: ResMut<ExtractedSprites>,
-    mut extracted_slices: ResMut<ExtractedSlices>,
-    texture_atlases: Extract<Res<Assets<TextureAtlasLayout>>>,
-    windows: Extract<Query<&Window, With<PrimaryWindow>>>,
-    text2d_query: Extract<
-        Query<(
-            Entity,
-            &ViewVisibility,
-            &ComputedTextBlock,
-            &TextLayoutInfo,
-            &TextBounds,
-            &Anchor,
-            Option<&Text2dShadow>,
-            &GlobalTransform,
-        )>,
-    >,
-    text_colors: Extract<Query<&TextColor>>,
-) {
-    let mut start = extracted_slices.slices.len();
-    let mut end = start + 1;
-
-    // TODO: Support window-independent scaling: https://github.com/bevyengine/bevy/issues/5621
-    let scale_factor = windows
-        .single()
-        .map(|window| window.resolution.scale_factor())
-        .unwrap_or(1.0);
-    let scaling = GlobalTransform::from_scale(Vec2::splat(scale_factor.recip()).extend(1.));
-
-    for (
-        main_entity,
-        view_visibility,
-        computed_block,
-        text_layout_info,
-        text_bounds,
-        anchor,
-        maybe_shadow,
-        global_transform,
-    ) in text2d_query.iter()
-    {
-        if !view_visibility.get() {
-            continue;
-        }
-
-        let size = Vec2::new(
-            text_bounds.width.unwrap_or(text_layout_info.size.x),
-            text_bounds.height.unwrap_or(text_layout_info.size.y),
-        );
-
-        let top_left = (Anchor::TOP_LEFT.0 - anchor.as_vec()) * size;
-
-        if let Some(shadow) = maybe_shadow {
-            let shadow_transform = *global_transform
-                * GlobalTransform::from_translation((top_left + shadow.offset).extend(0.))
-                * scaling;
-            let color = shadow.color.into();
-
-            for (
-                i,
-                PositionedGlyph {
-                    position,
-                    atlas_info,
-                    ..
-                },
-            ) in text_layout_info.glyphs.iter().enumerate()
-            {
-                let rect = texture_atlases
-                    .get(atlas_info.texture_atlas)
-                    .unwrap()
-                    .textures[atlas_info.location.glyph_index]
-                    .as_rect();
-                extracted_slices.slices.push(ExtractedSlice {
-                    offset: Vec2::new(position.x, -position.y),
-                    rect,
-                    size: rect.size(),
-                });
-
-                if text_layout_info
-                    .glyphs
-                    .get(i + 1)
-                    .is_none_or(|info| info.atlas_info.texture != atlas_info.texture)
-                {
-                    let render_entity = commands.spawn(TemporaryRenderEntity).id();
-                    extracted_sprites.sprites.push(ExtractedSprite {
-                        main_entity,
-                        render_entity,
-                        transform: shadow_transform,
-                        color,
-                        image_handle_id: atlas_info.texture,
-                        flip_x: false,
-                        flip_y: false,
-                        kind: bevy_sprite::ExtractedSpriteKind::Slices {
-                            indices: start..end,
-                        },
-                    });
-                    start = end;
-                }
-
-                end += 1;
-            }
-        }
-
-        let transform =
-            *global_transform * GlobalTransform::from_translation(top_left.extend(0.)) * scaling;
-        let mut color = LinearRgba::WHITE;
-        let mut current_span = usize::MAX;
-
-        for (
-            i,
-            PositionedGlyph {
-                position,
-                atlas_info,
-                span_index,
-                ..
-            },
-        ) in text_layout_info.glyphs.iter().enumerate()
-        {
-            if *span_index != current_span {
-                color = text_colors
-                    .get(
-                        computed_block
-                            .entities()
-                            .get(*span_index)
-                            .map(|t| t.entity)
-                            .unwrap_or(Entity::PLACEHOLDER),
-                    )
-                    .map(|text_color| LinearRgba::from(text_color.0))
-                    .unwrap_or_default();
-                current_span = *span_index;
-            }
-            let rect = texture_atlases
-                .get(atlas_info.texture_atlas)
-                .unwrap()
-                .textures[atlas_info.location.glyph_index]
-                .as_rect();
-            extracted_slices.slices.push(ExtractedSlice {
-                offset: Vec2::new(position.x, -position.y),
-                rect,
-                size: rect.size(),
-            });
-
-            if text_layout_info.glyphs.get(i + 1).is_none_or(|info| {
-                info.span_index != current_span || info.atlas_info.texture != atlas_info.texture
-            }) {
-                let render_entity = commands.spawn(TemporaryRenderEntity).id();
-                extracted_sprites.sprites.push(ExtractedSprite {
-                    main_entity,
-                    render_entity,
-                    transform,
-                    color,
-                    image_handle_id: atlas_info.texture,
-                    flip_x: false,
-                    flip_y: false,
-                    kind: bevy_sprite::ExtractedSpriteKind::Slices {
-                        indices: start..end,
-                    },
-                });
-                start = end;
-            }
-
-            end += 1;
-        }
-    }
-}
-
 /// Updates the layout and size information whenever the text or style is changed.
 /// This information is computed by the [`TextPipeline`] on insertion, then stored.
 ///
@@ -373,11 +199,9 @@ pub fn update_text2d_layout(
                 width: if block.linebreak == LineBreak::NoWrap {
                     None
                 } else {
-                    bounds.width.map(|width| scale_value(width, scale_factor))
+                    bounds.width.map(|width| width * scale_factor)
                 },
-                height: bounds
-                    .height
-                    .map(|height| scale_value(height, scale_factor)),
+                height: bounds.height.map(|height| height * scale_factor),
             };
 
             let text_layout_info = text_layout_info.into_inner();
@@ -404,19 +228,11 @@ pub fn update_text2d_layout(
                     panic!("Fatal error when processing text: {e}.");
                 }
                 Ok(()) => {
-                    text_layout_info.size.x =
-                        scale_value(text_layout_info.size.x, inverse_scale_factor);
-                    text_layout_info.size.y =
-                        scale_value(text_layout_info.size.y, inverse_scale_factor);
+                    text_layout_info.size *= inverse_scale_factor;
                 }
             }
         }
     }
-}
-
-/// Scales `value` by `factor`.
-pub fn scale_value(value: f32, factor: f32) -> f32 {
-    value * factor
 }
 
 /// System calculating and inserting an [`Aabb`] component to entities with some
@@ -462,8 +278,7 @@ mod tests {
     use bevy_app::{App, Update};
     use bevy_asset::{load_internal_binary_asset, Handle};
     use bevy_ecs::schedule::IntoScheduleConfigs;
-
-    use crate::{detect_text_needs_rerender, TextIterScratch};
+    use bevy_text::{detect_text_needs_rerender, TextIterScratch};
 
     use super::*;
 
@@ -494,7 +309,7 @@ mod tests {
         load_internal_binary_asset!(
             app,
             Handle::default(),
-            "FiraMono-subset.ttf",
+            "../../bevy_text/src/FiraMono-subset.ttf",
             |bytes: &[u8], _path: String| { Font::try_from_bytes(bytes.to_vec()).unwrap() }
         );
 

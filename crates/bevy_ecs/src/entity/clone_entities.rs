@@ -8,7 +8,7 @@ use derive_more::derive::From;
 
 use crate::{
     archetype::Archetype,
-    bundle::{Bundle, BundleId, BundleRemover, InsertMode},
+    bundle::{Bundle, BundleRemover, InsertMode},
     change_detection::MaybeLocation,
     component::{Component, ComponentCloneBehavior, ComponentCloneFn, ComponentId, ComponentInfo},
     entity::{hash_map::EntityHashMap, Entities, Entity, EntityMapper},
@@ -917,7 +917,7 @@ impl<'w> EntityClonerBuilder<'w, OptOut> {
     }
 
     /// Extends the list of components that shouldn't be cloned.
-    /// Supports filtering by [`TypeId`], [`ComponentId`], [`BundleId`], and [`IntoIterator`] yielding one of these.
+    /// Supports filtering by [`TypeId`], [`ComponentId`], [`BundleId`](`crate::bundle::BundleId`), and [`IntoIterator`] yielding one of these.
     ///
     /// If component `A` is denied here and component `B` requires `A`, then `A`
     /// is denied as well. See [`Self::without_required_by_components`] to alter
@@ -985,7 +985,7 @@ impl<'w> EntityClonerBuilder<'w, OptIn> {
     }
 
     /// Extends the list of components to clone.
-    /// Supports filtering by [`TypeId`], [`ComponentId`], [`BundleId`], and [`IntoIterator`] yielding one of these.
+    /// Supports filtering by [`TypeId`], [`ComponentId`], [`BundleId`](`crate::bundle::BundleId`), and [`IntoIterator`] yielding one of these.
     ///
     /// If component `A` is allowed here and requires component `B`, then `B`
     /// is allowed as well. See [`Self::without_required_components`]
@@ -996,7 +996,7 @@ impl<'w> EntityClonerBuilder<'w, OptIn> {
     }
 
     /// Extends the list of components to clone if the target does not contain them.
-    /// Supports filtering by [`TypeId`], [`ComponentId`], [`BundleId`], and [`IntoIterator`] yielding one of these.
+    /// Supports filtering by [`TypeId`], [`ComponentId`], [`BundleId`](`crate::bundle::BundleId`), and [`IntoIterator`] yielding one of these.
     ///
     /// If component `A` is allowed here and requires component `B`, then `B`
     /// is allowed as well. See [`Self::without_required_components`]
@@ -1376,7 +1376,9 @@ impl Required {
 }
 
 mod private {
-    use super::*;
+    use crate::{bundle::BundleId, component::ComponentId};
+    use core::any::TypeId;
+    use derive_more::From;
 
     /// Marker trait to allow multiple blanket implementations for [`FilterableIds`].
     pub trait Marker {}
@@ -1387,7 +1389,7 @@ mod private {
     pub struct VectorType {}
     impl Marker for VectorType {}
 
-    /// Defines types of ids that [`EntityClonerBuilder`] can filter components by.
+    /// Defines types of ids that [`EntityClonerBuilder`](`super::EntityClonerBuilder`) can filter components by.
     #[derive(From)]
     pub enum FilterableId {
         Type(TypeId),
@@ -1405,7 +1407,7 @@ mod private {
         }
     }
 
-    /// A trait to allow [`EntityClonerBuilder`] filter by any supported id type and their iterators,
+    /// A trait to allow [`EntityClonerBuilder`](`super::EntityClonerBuilder`) filter by any supported id type and their iterators,
     /// reducing the number of method permutations required for all id types.
     ///
     /// The supported id types that can be used to filter components are defined by [`FilterableId`], which allows following types: [`TypeId`], [`ComponentId`] and [`BundleId`].

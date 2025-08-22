@@ -2,7 +2,6 @@ mod extensions;
 mod gltf_ext;
 
 use alloc::sync::Arc;
-use bevy_log::warn_once;
 use std::{
     io::Error,
     path::{Path, PathBuf},
@@ -148,20 +147,17 @@ pub struct GltfLoader {
     pub custom_vertex_attributes: HashMap<Box<str>, MeshVertexAttribute>,
     /// Arc to default [`ImageSamplerDescriptor`].
     pub default_sampler: Arc<Mutex<ImageSamplerDescriptor>>,
-    /// Whether to convert glTF coordinates to Bevy's coordinate system by default.
-    /// If set to `true`, the loader will convert the coordinate system of loaded glTF assets to Bevy's coordinate system
-    /// such that objects looking forward in glTF will also look forward in Bevy.
+    /// How to convert glTF coordinates on import. Assuming glTF cameras, glTF lights, and glTF meshes had global identity transforms,
+    /// their Bevy [`Transform::forward`](bevy_transform::components::Transform::forward) will be pointing in the following global directions:
+    /// - When set to `false`
+    ///   - glTF cameras and glTF lights: global -Z,
+    ///   - glTF models: global +Z.
+    /// - When set to `true`
+    ///   - glTF cameras and glTF lights: global +Z,
+    ///   - glTF models: global -Z.
     ///
-    /// The exact coordinate system conversion is as follows:
-    /// - glTF:
-    ///   - forward: Z
-    ///   - up: Y
-    ///   - right: -X
-    /// - Bevy:
-    ///   - forward: -Z
-    ///   - up: Y
-    ///   - right: X
-    pub default_convert_coordinates: bool,
+    /// The default is `false`.
+    pub default_use_model_forward_direction: bool,
 }
 
 /// Specifies optional settings for processing gltfs at load time. By default, all recognized contents of
@@ -203,23 +199,19 @@ pub struct GltfLoaderSettings {
     pub default_sampler: Option<ImageSamplerDescriptor>,
     /// If true, the loader will ignore sampler data from gltf and use the default sampler.
     pub override_sampler: bool,
-    /// Overrides the default glTF coordinate conversion setting.
+    /// _CAUTION: This is an experimental feature with [known issues](https://github.com/bevyengine/bevy/issues/20621). Behavior may change in future versions._
     ///
-    /// If set to `Some(true)`, the loader will convert the coordinate system of loaded glTF assets to Bevy's coordinate system
-    /// such that objects looking forward in glTF will also look forward in Bevy.
+    /// How to convert glTF coordinates on import. Assuming glTF cameras, glTF lights, and glTF meshes had global unit transforms,
+    /// their Bevy [`Transform::forward`](bevy_transform::components::Transform::forward) will be pointing in the following global directions:
+    /// - When set to `false`
+    ///   - glTF cameras and glTF lights: global -Z,
+    ///   - glTF models: global +Z.
+    /// - When set to `true`
+    ///   - glTF cameras and glTF lights: global +Z,
+    ///   - glTF models: global -Z.
     ///
-    /// The exact coordinate system conversion is as follows:
-    /// - glTF:
-    ///   - forward: Z
-    ///   - up: Y
-    ///   - right: -X
-    /// - Bevy:
-    ///   - forward: -Z
-    ///   - up: Y
-    ///   - right: X
-    ///
-    /// If `None`, uses the global default set by [`GltfPlugin::convert_coordinates`](crate::GltfPlugin::convert_coordinates).
-    pub convert_coordinates: Option<bool>,
+    /// If `None`, uses the global default set by [`GltfPlugin::use_model_forward_direction`](crate::GltfPlugin::use_model_forward_direction).
+    pub use_model_forward_direction: Option<bool>,
 }
 
 impl Default for GltfLoaderSettings {
@@ -232,7 +224,7 @@ impl Default for GltfLoaderSettings {
             include_source: false,
             default_sampler: None,
             override_sampler: false,
-            convert_coordinates: None,
+            use_model_forward_direction: None,
         }
     }
 }
@@ -272,20 +264,9 @@ impl GltfLoader {
             paths
         };
 
-        let convert_coordinates = match settings.convert_coordinates {
+        let convert_coordinates = match settings.use_model_forward_direction {
             Some(convert_coordinates) => convert_coordinates,
-            None => {
-                let convert_by_default = loader.default_convert_coordinates;
-                if !convert_by_default && !cfg!(feature = "gltf_convert_coordinates_default") {
-                    warn_once!(
-                    "Starting from Bevy 0.18, by default all imported glTF models will be rotated by 180 degrees around the Y axis to align with Bevy's coordinate system. \
-                    You are currently importing glTF files using the old behavior. Consider opting-in to the new import behavior by enabling the `gltf_convert_coordinates_default` feature. \
-                    If you encounter any issues please file a bug! \
-                    If you want to continue using the old behavior going forward (even when the default changes in 0.18), manually set the corresponding option in the `GltfPlugin` or `GltfLoaderSettings`. See the migration guide for more details."
-                );
-                }
-                convert_by_default
-            }
+            None => loader.default_use_model_forward_direction,
         };
 
         #[cfg(feature = "bevy_animation")]
@@ -733,7 +714,12 @@ impl GltfLoader {
                             primitive: primitive.index(),
                         };
                         let morph_target_image = MorphTargetImage::new(
-                            morph_target_reader.map(PrimitiveMorphAttributesIter),
+                            morph_target_reader.map(|i| PrimitiveMorphAttributesIter {
+                                convert_coordinates,
+                                positions: i.0,
+                                normals: i.1,
+                                tangents: i.2,
+                            }),
                             mesh.count_vertices(),
                             RenderAssetUsages::default(),
                         )?;
@@ -1560,10 +1546,19 @@ fn load_node(
                     // > the accessors of the original primitive.
                     mesh_entity.insert(MeshMorphWeights::new(weights).unwrap());
                 }
-                mesh_entity.insert(Aabb::from_min_max(
-                    Vec3::from_slice(&bounds.min),
-                    Vec3::from_slice(&bounds.max),
-                ));
+
+                let mut bounds_min = Vec3::from_slice(&bounds.min);
+                let mut bounds_max = Vec3::from_slice(&bounds.max);
+
+                if convert_coordinates {
+                    let converted_min = bounds_min.convert_coordinates();
+                    let converted_max = bounds_max.convert_coordinates();
+
+                    bounds_min = converted_min.min(converted_max);
+                    bounds_max = converted_min.max(converted_max);
+                }
+
+                mesh_entity.insert(Aabb::from_min_max(bounds_min, bounds_max));
 
                 if let Some(extras) = primitive.extras() {
                     mesh_entity.insert(GltfExtras {
@@ -1835,30 +1830,39 @@ impl ImageOrPath {
     }
 }
 
-struct PrimitiveMorphAttributesIter<'s>(
-    pub  (
-        Option<Iter<'s, [f32; 3]>>,
-        Option<Iter<'s, [f32; 3]>>,
-        Option<Iter<'s, [f32; 3]>>,
-    ),
-);
+struct PrimitiveMorphAttributesIter<'s> {
+    convert_coordinates: bool,
+    positions: Option<Iter<'s, [f32; 3]>>,
+    normals: Option<Iter<'s, [f32; 3]>>,
+    tangents: Option<Iter<'s, [f32; 3]>>,
+}
 
 impl<'s> Iterator for PrimitiveMorphAttributesIter<'s> {
     type Item = MorphAttributes;
 
     fn next(&mut self) -> Option<Self::Item> {
-        let position = self.0 .0.as_mut().and_then(Iterator::next);
-        let normal = self.0 .1.as_mut().and_then(Iterator::next);
-        let tangent = self.0 .2.as_mut().and_then(Iterator::next);
+        let position = self.positions.as_mut().and_then(Iterator::next);
+        let normal = self.normals.as_mut().and_then(Iterator::next);
+        let tangent = self.tangents.as_mut().and_then(Iterator::next);
         if position.is_none() && normal.is_none() && tangent.is_none() {
             return None;
         }
 
-        Some(MorphAttributes {
+        let mut attributes = MorphAttributes {
             position: position.map(Into::into).unwrap_or(Vec3::ZERO),
             normal: normal.map(Into::into).unwrap_or(Vec3::ZERO),
             tangent: tangent.map(Into::into).unwrap_or(Vec3::ZERO),
-        })
+        };
+
+        if self.convert_coordinates {
+            attributes = MorphAttributes {
+                position: attributes.position.convert_coordinates(),
+                normal: attributes.normal.convert_coordinates(),
+                tangent: attributes.tangent.convert_coordinates(),
+            }
+        }
+
+        Some(attributes)
     }
 }
 
