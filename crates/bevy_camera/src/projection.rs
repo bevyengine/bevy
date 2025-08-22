@@ -289,7 +289,7 @@ pub struct PerspectiveProjection {
     /// The aspect ratio (width divided by height) of the viewing frustum.
     ///
     /// Bevy's `camera_system` automatically updates this value when the aspect ratio
-    /// of the associated window changes.
+    /// of the associated window changes, unless the camera has a sub view set.
     ///
     /// Defaults to a value of `1.0`.
     pub aspect_ratio: f32,
@@ -357,19 +357,23 @@ impl CameraProjection for PerspectiveProjection {
         // let full_aspect = full_width / full_height;
 
         // Original frustum parameters
+        // These are the edges of the near plane rect of the full view in world units
         let top = self.near * ops::tan(0.5 * self.fov);
         let bottom = -top;
         let right = top * self.aspect_ratio;
         let left = -right;
 
-        // Calculate scaling factors
         let width = right - left;
         let height = top - bottom;
 
+        // Use the sub view's aspect ratio instead of our own for just the width of the sub view rect
+        let sub_width = top * sub_view.aspect_ratio * 2.0;
+
         // Calculate the new frustum parameters
+        // These are the edges of the near plane rect of the sub view in world units
         let top_prime = top - (height * offset_y);
         let bottom_prime = top - (height * (offset_y + scale));
-        let right_prime = left + (width * (offset_x + scale));
+        let right_prime = left + ((width * offset_x) + (sub_width * scale));
         let left_prime = left + (width * offset_x);
 
         // Compute the new projection matrix

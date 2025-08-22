@@ -8,7 +8,9 @@ use bevy_asset::Handle;
 use bevy_derive::Deref;
 use bevy_ecs::{component::Component, entity::Entity, reflect::ReflectComponent};
 use bevy_image::Image;
-use bevy_math::{ops, Dir3, FloatOrd, Mat4, Ray3d, Rect, URect, UVec2, Vec2, Vec3, Vec3A};
+use bevy_math::{
+    ops, AspectRatio, Dir3, FloatOrd, Mat4, Ray3d, Rect, URect, UVec2, Vec2, Vec3, Vec3A,
+};
 use bevy_reflect::prelude::*;
 use bevy_transform::components::{GlobalTransform, Transform};
 use bevy_window::{NormalizedWindowRef, WindowRef};
@@ -147,10 +149,21 @@ pub struct SubCameraView {
     // pub offset: Vec2,
     // /// Size of the sub camera
     // pub size: UVec2,
-    /// Scaling factor for the size of the sub view
+    /// Scaling factor for the size of the sub view. The height of the sub view will be scale * the height of the full view
     pub scale: f32,
+    /// Aspect ratio of the sub view. Automatically updated by Bevy's `camera_system`.
+    /// The width of the sub view will be aspect_ratio * the height of the sub view
+    pub aspect_ratio: f32,
     /// Percentage offset of the top-left corner of the sub view, from top-left at `0,0` to bottom-right at `1,1`
     pub offset: Vec2,
+}
+
+impl SubCameraView {
+    pub fn update_aspect_ratio(&mut self, width: f32, height: f32) {
+        self.aspect_ratio = AspectRatio::try_new(width, height)
+            .expect("Failed to update SubCameraView: width and height must be positive, non-zero values")
+            .ratio();
+    }
 }
 
 impl Default for SubCameraView {
@@ -160,6 +173,7 @@ impl Default for SubCameraView {
             // offset: Vec2::new(0., 0.),
             // size: UVec2::new(1, 1),
             scale: 1.0,
+            aspect_ratio: 1.0,
             offset: Vec2::ZERO,
         }
     }
@@ -191,7 +205,8 @@ impl Default for RenderTargetInfo {
 pub struct ComputedCameraValues {
     pub clip_from_view: Mat4,
     pub target_info: Option<RenderTargetInfo>,
-    // size of the `Viewport`
+    // These two values aren't actually "computed" like the above two are,
+    // but are cached here for more granular change detection in the `camera_system`.
     pub old_viewport_size: Option<UVec2>,
     pub old_sub_camera_view: Option<SubCameraView>,
 }
