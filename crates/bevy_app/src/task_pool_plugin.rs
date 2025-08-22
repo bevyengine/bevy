@@ -212,7 +212,7 @@ mod tests {
         app.add_plugins(TaskPoolPlugin::default());
 
         let (tx, rx) = crossbeam_channel::unbounded();
-        TaskPool::get()
+        TaskPool::get_or_init(Default::default)
             .spawn_local(async move {
                 tx.send(()).unwrap();
             })

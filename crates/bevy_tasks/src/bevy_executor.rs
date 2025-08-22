@@ -198,11 +198,16 @@ impl Executor {
     /// Must ensure that no other thread can call into the Executor from another
     /// thread while this function is running.
     pub unsafe fn set_priority_limits(&self, limits: [Option<NonZeroUsize>; TaskPriority::MAX]) {
-        for (i, limit) in limits.into_iter().enumerate() {
+        let executor_limits = self.state.priority_limits.iter();
+        for (i, (limit, executor_limit)) in limits.into_iter().zip(executor_limits).enumerate() {
             // SAFETY: The caller is required to ensure that no other thread can call into the Executor from another
             // thread while this function is running.
-            unsafe { self.state.priority_limits[i].set_limit(limit) };
-            log::info!("Priority {} set to {:?}", i, limit);
+            unsafe { executor_limit.set_limit(limit) };
+            if let Some(limit) = limit {
+                log::debug!("{:?} tasks now limited to {:?} simultaneous tasks.", TaskPriority::from_index(i).unwrap(), limit);
+            } else {
+                log::debug!("{:?} are now not limited.", TaskPriority::from_index(i).unwrap());
+            }
         }
     }
 
@@ -1094,7 +1099,7 @@ mod test {
         let s: String = "hello".into();
 
         // SAFETY: We make sure that the task does not outlive the borrow on `s`.
-        let task: Task<&str> = unsafe { EX.spawn_scoped(async { &*s }) };
+        let task: Task<&str, Metadata> = unsafe { EX.spawn_scoped(async { &*s }, Metadata::default()) };
         future::block_on(EX.run(async {
             for _ in 0..10 {
                 future::yield_now().await;
@@ -1144,25 +1149,25 @@ mod test {
 
     #[test]
     fn smoke() {
-        do_run(|ex| async move { ex.spawn(async {}).await });
+        do_run(|ex| async move { ex.spawn(async {}, Metadata::default()).await });
     }
 
     #[test]
     fn yield_now() {
-        do_run(|ex| async move { ex.spawn(future::yield_now()).await });
+        do_run(|ex| async move { ex.spawn(future::yield_now(), Metadata::default()).await });
     }
 
     #[test]
     fn timer() {
         do_run(|ex| async move {
-            ex.spawn(async_io::Timer::after(Duration::from_millis(5)))
+            ex.spawn(async_io::Timer::after(Duration::from_millis(5)), Metadata::default())
                 .await;
         });
     }
 
     #[test]
     fn test_panic_propagation() {
-        let task = EX.spawn(async { panic!("should be caught by the task") });
+        let task = EX.spawn(async { panic!("should be caught by the task") }, Metadata::default());
 
         // Running the executor should not panic.
         future::block_on(EX.run(async {

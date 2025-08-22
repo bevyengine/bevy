@@ -160,14 +160,22 @@ impl TaskPool {
         self.executor.current_thread_spawner()
     }
 
+    /// Attempts to get the global [`TaskPool`] instance, or returns `None` if it is not initialized.
     pub fn try_get() -> Option<&'static TaskPool> {
         TASK_POOL.get()
     }
 
+    /// Gets the global [`TaskPool`] instance.
+    /// 
+    /// # Panics
+    /// 
+    /// Panics if the global instance has not been initialized yet.
     pub fn get() -> &'static TaskPool {
-        Self::get_or_init(Default::default)
+        Self::try_get()
+            .expect("The TaskPool has not been initialized yet. Please call TaskPool::get_or_init beforehand.")
     }
 
+    /// Gets the global [`TaskPool`] instance, or initializes it with `f``.
     pub fn get_or_init(f: impl FnOnce() -> TaskPoolBuilder) -> &'static TaskPool {
         #[expect(
             unsafe_code, 
@@ -419,6 +427,20 @@ impl TaskPool {
         }
     }
 
+    /// Creates a builder for a new [`Task`] to schedule onto the [`TaskPool`].k
+    /// 
+    /// # Example
+    /// 
+    /// ```norun
+    /// # async fn my_cool_task() {}
+    /// # use bevy_tasks::{TaskPool, TaskPriority};
+    /// let task_pool = TaskPool::get()
+    /// let task = task_pool.builder()
+    ///     .with_priority(TaskPriority::BlockingIO)
+    ///     .spawn(async {
+    ///          my_cool_task
+    ///     });
+    /// ```
     pub fn builder<T>(&self) -> TaskBuilder<'_, T> {
         TaskBuilder::new(self)
     }
@@ -496,6 +518,9 @@ pub struct Scope<'scope, 'env: 'scope, T> {
 }
 
 impl<'scope, 'env, T: Send + 'scope> Scope<'scope, 'env, T> {
+    /// Creates a builder to spawn a scoped future to schedule onto the [`TaskPool`]. 
+    /// The scope *must* outlive the provided future. The results of the future will 
+    /// be returned as a part of [`TaskPool::scope`]'s return value.
     pub fn builder(&self) -> ScopeTaskBuilder<'_, 'scope, 'env, T> {
         ScopeTaskBuilder::new(self)
     }
@@ -504,10 +529,12 @@ impl<'scope, 'env, T: Send + 'scope> Scope<'scope, 'env, T> {
     /// the provided future. The results of the future will be returned as a part of
     /// [`TaskPool::scope`]'s return value.
     ///
-    /// For futures that should run on the thread `scope` is called on [`Scope::spawn_on_scope`] should be used
-    /// instead.
+    /// For futures that should run on the thread `scope` is called on [`Scope::builder`] should 
+    /// be used instead, with [`ScopeTaskBuilder::with_target``] to target specific thread.
     ///
     /// For more information, see [`TaskPool::scope`].
+    /// 
+    /// This is a shorthand for `scope.builder().spawn(f)`.
     pub fn spawn<Fut: Future<Output = T> + 'scope + Send>(&self, f: Fut) {
         self.builder().spawn(f);
     }
@@ -755,10 +782,9 @@ mod tests {
         for _ in 0..100 {
             let inner_barrier = barrier.clone();
             let count_clone = count.clone();
-            let inner_pool = pool.clone();
             let inner_thread_check_failed = thread_check_failed.clone();
             thread::spawn(move || {
-                inner_pool.scope(|scope| {
+                pool.scope(|scope| {
                     let inner_count_clone = count_clone.clone();
                     scope.spawn(async move {
                         inner_count_clone.fetch_add(1, Ordering::Release);
@@ -832,10 +858,9 @@ mod tests {
         for _ in 0..100 {
             let inner_barrier = barrier.clone();
             let count_clone = count.clone();
-            let inner_pool = pool.clone();
             let inner_thread_check_failed = thread_check_failed.clone();
             thread::spawn(move || {
-                inner_pool.scope(|scope| {
+                pool.scope(|scope| {
                     let spawner = thread::current().id();
                     let inner_count_clone = count_clone.clone();
                     scope.spawn(async move {

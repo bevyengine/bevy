@@ -184,6 +184,7 @@ fn setup_assets_programmatically(
         let animation_graph = animation_graph.clone();
 
         TaskPool::get()
+            .builder()
             .with_priority(TaskPriority::BlockingIO)
             .spawn(async move {
                 use std::io::Write;

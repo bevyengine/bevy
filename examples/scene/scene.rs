@@ -196,6 +196,7 @@ fn save_scene_system(world: &mut World) {
     // This can't work in Wasm as there is no filesystem access.
     #[cfg(not(target_arch = "wasm32"))]
     TaskPool::get()
+        .builder()
         .with_priority(TaskPriority::BlcokingIO)
         .spawn(async move {
             // Write the scene RON data to file

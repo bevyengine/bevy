@@ -155,6 +155,7 @@ pub mod prelude {
         block_on,
         iter::ParallelIterator,
         slice::{ParallelSlice, ParallelSliceMut},
+        TaskPool,
     };
 }
 
@@ -177,14 +178,33 @@ pub fn available_parallelism() -> usize {
     }}
 }
 
+/// The priority of a task scheduled onto the [`TaskPool`].
+///
+/// Using [`TaskPoolBuilder::priority_limit`], the `TaskPool` will limit how many tasks can
+/// execute in parallel. This is *not* a limit on the number of tasks that can be scheduled
+/// onto the task pool, but rather the number of them that can execute in parallel, and is
+/// used to avoid starving out higher priority groups of parallelism.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash, PartialOrd, Ord)]
 #[repr(u8)]
 pub enum TaskPriority {
+    /// Intended for blocking IO operations (e.g. `File::read`).
     BlockingIO,
+    /// Intended for blocking CPU-bound tasks (e.g. shader compilation, building terrain)
     BlockingCompute,
+    /// Intended for non-blocking async IO (e.g. HTTP servers/clients, network IO, io-uring file IO).
+    /// These jobs generally should do very little compute bound work and then yield immeidately upon
+    /// there being no more work to do.
     AsyncIO,
+    /// Intended for shortlived CPU-bound jobs. These jobs are expected to do a small amount of work
+    /// and quickly terminate. This is the default.
     #[default]
     Compute,
+    /// Intended for shortlived CPU-bound jobs with tight realtime requirements. These jobs are expected
+    /// to do a small amount of work and quickly terminate or yield.
+    ///
+    /// Unlike the other priorities, this group forces tasks to immediately schedule onto the thread
+    /// where the task is awoken, and will start as soon as the currently executing task terminates
+    /// or yields.
     RunNow,
 }
 
@@ -195,6 +215,18 @@ impl TaskPriority {
     fn to_index(self) -> usize {
         self as u8 as usize
     }
+
+    #[inline]
+    fn from_index(index: usize) -> Option<Self> {
+        Some(match index {
+            0 => Self::BlockingIO,
+            1 => Self::BlockingCompute,
+            2 => Self::AsyncIO,
+            3 => Self::Compute,
+            4 => Self::RunNow,
+            _ => return None,
+        })
+    }
 }
 
 #[derive(Debug, Default)]
@@ -203,6 +235,7 @@ pub(crate) struct Metadata {
     pub is_send: bool,
 }
 
+/// A builder for a [`Task`] to be scheduled onto a [`TaskPool`].
 pub struct TaskBuilder<'a, T> {
     pub(crate) task_pool: &'a TaskPool,
     pub(crate) priority: TaskPriority,
@@ -218,6 +251,7 @@ impl<'a, T> TaskBuilder<'a, T> {
         }
     }
 
+    /// Sets the priority of the spawned task. See [`TaskPriority`] for more details.
     pub fn with_priority(mut self, priority: TaskPriority) -> Self {
         self.priority = priority;
         self
@@ -231,28 +265,26 @@ impl<'a, T> TaskBuilder<'a, T> {
     }
 }
 
+/// Configuration for which thread to schedule a [`Task`] within a [`Scope`] onto.
 #[derive(Clone, Copy, Default, Debug)]
 pub enum ScopeTaskTarget {
+    /// Spawns the future onto any thread intthe [`TaskPool`].
     #[default]
     Any,
-    /// Spawns a scoped future onto the thread the scope is run on. The scope *must* outlive
-    /// the provided future. The results of the future will be returned as a part of
-    /// [`TaskPool::scope`]'s return value.  Users should generally prefer to use
-    /// [`Scope::spawn`] instead, unless the provided future needs to run on the scope's thread.
+
+    /// Spawns a scoped future onto the thread the scope is run on.
     ///
     /// For more information, see [`TaskPool::scope`].
     Scope,
 
     /// Spawns a scoped future onto the thread of the external thread executor.
-    /// This is typically the main thread. The scope *must* outlive
-    /// the provided future. The results of the future will be returned as a part of
-    /// [`TaskPool::scope`]'s return value.  Users should generally prefer to use
-    /// [`Scope::spawn`] instead, unless the provided future needs to run on the external thread.
+    /// This is typically the main thread.
     ///
     /// For more information, see [`TaskPool::scope`].
     External,
 }
 
+/// A builder for a [`Task`] within a [`Scope`].
 pub struct ScopeTaskBuilder<'a, 'scope, 'env: 'scope, T> {
     scope: &'a Scope<'scope, 'env, T>,
     priority: TaskPriority,
@@ -268,11 +300,14 @@ impl<'a, 'scope, 'env, T> ScopeTaskBuilder<'a, 'scope, 'env, T> {
         }
     }
 
+    /// Sets the priority of the spawned task. See [`TaskPriority`] for more details.
     pub fn with_priority(mut self, priority: TaskPriority) -> Self {
         self.priority = priority;
         self
     }
 
+    /// Sets the target for which thread to schedule the spawned task onto.
+    /// See [`ScopeTaskTarget`] for more details.
     pub fn with_target(mut self, target: ScopeTaskTarget) -> Self {
         self.target = target;
         self

@@ -4,7 +4,7 @@
 use bevy::{
     ecs::{system::SystemState, world::CommandQueue},
     prelude::*,
-    tasks::{block_on, futures_lite::future, TaskPool, Task},
+    tasks::{block_on, futures_lite::future, Task, TaskPool},
 };
 use rand::Rng;
 use std::time::Duration;
@@ -59,43 +59,46 @@ fn spawn_tasks(mut commands: Commands) {
                 // spawn() can be used to poll for the result
                 let entity = commands.spawn_empty().id();
                 let task = thread_pool
+                    .builder()
                     .with_priority(TaskPriority::BlockingCompute)
                     .spawn(async move {
-                    let duration = Duration::from_secs_f32(rand::rng().random_range(0.05..5.0));
+                        let duration = Duration::from_secs_f32(rand::rng().random_range(0.05..5.0));
 
-                    // Pretend this is a time-intensive function. :)
-                    async_std::task::sleep(duration).await;
+                        // Pretend this is a time-intensive function. :)
+                        async_std::task::sleep(duration).await;
 
-                    // Such hard work, all done!
-                    let transform = Transform::from_xyz(x as f32, y as f32, z as f32);
-                    let mut command_queue = CommandQueue::default();
+                        // Such hard work, all done!
+                        let transform = Transform::from_xyz(x as f32, y as f32, z as f32);
+                        let mut command_queue = CommandQueue::default();
 
-                    // we use a raw command queue to pass a FnOnce(&mut World) back to be
-                    // applied in a deferred manner.
-                    command_queue.push(move |world: &mut World| {
-                        let (box_mesh_handle, box_material_handle) = {
-                            let mut system_state = SystemState::<(
-                                Res<BoxMeshHandle>,
-                                Res<BoxMaterialHandle>,
-                            )>::new(world);
-                            let (box_mesh_handle, box_material_handle) =
-                                system_state.get_mut(world);
+                        // we use a raw command queue to pass a FnOnce(&mut World) back to be
+                        // applied in a deferred manner.
+                        command_queue.push(move |world: &mut World| {
+                            let (box_mesh_handle, box_material_handle) = {
+                                let mut system_state = SystemState::<(
+                                    Res<BoxMeshHandle>,
+                                    Res<BoxMaterialHandle>,
+                                )>::new(
+                                    world
+                                );
+                                let (box_mesh_handle, box_material_handle) =
+                                    system_state.get_mut(world);
 
-                            (box_mesh_handle.clone(), box_material_handle.clone())
-                        };
+                                (box_mesh_handle.clone(), box_material_handle.clone())
+                            };
 
-                        world
-                            .entity_mut(entity)
-                            // Add our new `Mesh3d` and `MeshMaterial3d` to our tagged entity
-                            .insert((
-                                Mesh3d(box_mesh_handle),
-                                MeshMaterial3d(box_material_handle),
-                                transform,
-                            ));
+                            world
+                                .entity_mut(entity)
+                                // Add our new `Mesh3d` and `MeshMaterial3d` to our tagged entity
+                                .insert((
+                                    Mesh3d(box_mesh_handle),
+                                    MeshMaterial3d(box_material_handle),
+                                    transform,
+                                ));
+                        });
+
+                        command_queue
                     });
-
-                    command_queue
-                });
 
                 // Add our new task as a component
                 commands.entity(entity).insert(ComputeTransform(task));
