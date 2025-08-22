@@ -381,10 +381,15 @@ pub fn camera_system(
                 && size.x != 0.0
                 && size.y != 0.0
             {
-                camera_projection.update(size.x, size.y);
-                camera.computed.clip_from_view = match &camera.sub_camera_view {
-                    Some(sub_view) => camera_projection.get_clip_from_view_for_sub(sub_view),
-                    None => camera_projection.get_clip_from_view(),
+                camera.computed.clip_from_view = match &mut camera.sub_camera_view {
+                    Some(sub_view) => {
+                        sub_view.update_aspect_ratio(size.x, size.y);
+                        camera_projection.get_clip_from_view_for_sub(sub_view)
+                    }
+                    None => {
+                        camera_projection.update(size.x, size.y);
+                        camera_projection.get_clip_from_view()
+                    }
                 }
             }
         }
