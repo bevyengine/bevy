@@ -355,7 +355,7 @@ mod tests {
     #[test]
     fn ray_mesh_intersection_simple() {
         let ray = Ray3d::new(Vec3::ZERO, Dir3::X);
-        let mesh_transform = GlobalTransform::IDENTITY.to_matrix();
+        let mesh_transform = GlobalTransform::IDENTITY.affine();
         let positions = &[V0, V1, V2];
         let vertex_normals = None;
         let indices: Option<&[u16]> = None;
@@ -377,7 +377,7 @@ mod tests {
     #[test]
     fn ray_mesh_intersection_indices() {
         let ray = Ray3d::new(Vec3::ZERO, Dir3::X);
-        let mesh_transform = GlobalTransform::IDENTITY.to_matrix();
+        let mesh_transform = GlobalTransform::IDENTITY.affine();
         let positions = &[V0, V1, V2];
         let vertex_normals = None;
         let indices: Option<&[u16]> = Some(&[0, 1, 2]);
@@ -399,7 +399,7 @@ mod tests {
     #[test]
     fn ray_mesh_intersection_indices_vertex_normals() {
         let ray = Ray3d::new(Vec3::ZERO, Dir3::X);
-        let mesh_transform = GlobalTransform::IDENTITY.to_matrix();
+        let mesh_transform = GlobalTransform::IDENTITY.affine();
         let positions = &[V0, V1, V2];
         let vertex_normals: Option<&[[f32; 3]]> =
             Some(&[[-1., 0., 0.], [-1., 0., 0.], [-1., 0., 0.]]);
@@ -422,7 +422,7 @@ mod tests {
     #[test]
     fn ray_mesh_intersection_vertex_normals() {
         let ray = Ray3d::new(Vec3::ZERO, Dir3::X);
-        let mesh_transform = GlobalTransform::IDENTITY.to_matrix();
+        let mesh_transform = GlobalTransform::IDENTITY.affine();
         let positions = &[V0, V1, V2];
         let vertex_normals: Option<&[[f32; 3]]> =
             Some(&[[-1., 0., 0.], [-1., 0., 0.], [-1., 0., 0.]]);
@@ -445,7 +445,7 @@ mod tests {
     #[test]
     fn ray_mesh_intersection_missing_vertex_normals() {
         let ray = Ray3d::new(Vec3::ZERO, Dir3::X);
-        let mesh_transform = GlobalTransform::IDENTITY.to_matrix();
+        let mesh_transform = GlobalTransform::IDENTITY.affine();
         let positions = &[V0, V1, V2];
         let vertex_normals: Option<&[[f32; 3]]> = Some(&[]);
         let indices: Option<&[u16]> = None;
@@ -467,7 +467,7 @@ mod tests {
     #[test]
     fn ray_mesh_intersection_indices_missing_vertex_normals() {
         let ray = Ray3d::new(Vec3::ZERO, Dir3::X);
-        let mesh_transform = GlobalTransform::IDENTITY.to_matrix();
+        let mesh_transform = GlobalTransform::IDENTITY.affine();
         let positions = &[V0, V1, V2];
         let vertex_normals: Option<&[[f32; 3]]> = Some(&[]);
         let indices: Option<&[u16]> = Some(&[0, 1, 2]);
@@ -489,7 +489,7 @@ mod tests {
     #[test]
     fn ray_mesh_intersection_not_enough_indices() {
         let ray = Ray3d::new(Vec3::ZERO, Dir3::X);
-        let mesh_transform = GlobalTransform::IDENTITY.to_matrix();
+        let mesh_transform = GlobalTransform::IDENTITY.affine();
         let positions = &[V0, V1, V2];
         let vertex_normals = None;
         let indices: Option<&[u16]> = Some(&[0]);
@@ -511,7 +511,7 @@ mod tests {
     #[test]
     fn ray_mesh_intersection_bad_indices() {
         let ray = Ray3d::new(Vec3::ZERO, Dir3::X);
-        let mesh_transform = GlobalTransform::IDENTITY.to_matrix();
+        let mesh_transform = GlobalTransform::IDENTITY.affine();
         let positions = &[V0, V1, V2];
         let vertex_normals = None;
         let indices: Option<&[u16]> = Some(&[0, 1, 3]);
