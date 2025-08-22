@@ -737,7 +737,7 @@ impl Camera {
             .project_point3a(ndc_point.into());
         let world_point = camera_transform.affine().transform_point3a(view_point);
 
-        (!world_point.is_nan()).then_some(world_point)
+        (!world_point.is_nan()).then_some(world_point.into())
     }
 
     /// Converts the depth in Normalized Device Coordinates
