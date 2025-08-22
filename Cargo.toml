@@ -2572,6 +2572,17 @@ category = "Games"
 wasm = true
 
 [[example]]
+name = "inventory"
+path = "examples/games/inventory.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.inventory]
+name = "Inventory Screen"
+description = "A simple inventory screen for a game"
+category = "Games"
+wasm = true
+
+[[example]]
 name = "loading_screen"
 path = "examples/games/loading_screen.rs"
 doc-scrape-examples = true
