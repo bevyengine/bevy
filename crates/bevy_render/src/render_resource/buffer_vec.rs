@@ -187,8 +187,8 @@ impl<T: NoUninit> RawBufferVec<T> {
     /// Queues writing of data from system RAM to VRAM using the [`RenderDevice`]
     /// and the provided [`RenderQueue`].
     ///
-    /// If the buffer is not initialized on the gpu or the range is bigger than the capacity it will
-    /// return an error. You'll need to either reserve a new buffer which will lose data on the gpu
+    /// If the buffer is not initialized on the GPU or the range is bigger than the capacity it will
+    /// return an error. You'll need to either reserve a new buffer which will lose data on the GPU
     /// or create a new buffer and copy the old data to it.
     ///
     /// This will only write the data contained in the given range. It is useful if you only want
@@ -424,8 +424,8 @@ where
     /// Queues writing of data from system RAM to VRAM using the [`RenderDevice`]
     /// and the provided [`RenderQueue`].
     ///
-    /// If the buffer is not initialized on the gpu or the range is bigger than the capacity it will
-    /// return an error. You'll need to either reserve a new buffer which will lose data on the gpu
+    /// If the buffer is not initialized on the GPU or the range is bigger than the capacity it will
+    /// return an error. You'll need to either reserve a new buffer which will lose data on the GPU
     /// or create a new buffer and copy the old data to it.
     ///
     /// This will only write the data contained in the given range. It is useful if you only want
