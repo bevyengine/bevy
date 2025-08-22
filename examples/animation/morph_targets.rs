@@ -56,14 +56,14 @@ fn setup(
 }
 
 fn play_animation_when_ready(
-    trigger: On<SceneInstanceReady>,
+    event: On<SceneInstanceReady>,
     mut commands: Commands,
     children: Query<&Children>,
     animations_to_play: Query<&AnimationToPlay>,
     mut players: Query<&mut AnimationPlayer>,
 ) {
-    if let Ok(animation_to_play) = animations_to_play.get(trigger.target()) {
-        for child in children.iter_descendants(trigger.target()) {
+    if let Ok(animation_to_play) = animations_to_play.get(event.entity()) {
+        for child in children.iter_descendants(event.entity()) {
             if let Ok(mut player) = players.get_mut(child) {
                 player.play(animation_to_play.index).repeat();
 

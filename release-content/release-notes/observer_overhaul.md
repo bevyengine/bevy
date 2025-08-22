@@ -10,7 +10,7 @@ In past releases, the observer API looked like this:
 
 ```rust
 app.add_observer(|trigger: Trigger<OnAdd, Player>| {
-    info!("Added player {}", trigger.target());
+    info!("Added player {}", trigger.entity());
 });
 ```
 
@@ -21,8 +21,8 @@ for a `Player`.
 such as `OnAdd` and `OnRemove`:
 
 ```rust
-app.add_observer(|trigger: On<Add, Player>| {
-    info!("Added player {}", trigger.target());
+app.add_observer(|event: On<Add, Player>| {
+    info!("Added player {}", event.entity());
 });
 ```
 
@@ -39,7 +39,7 @@ to disambiguate by using `ops::Add`, for example.
 allowing you to bubble events up your hierarchy to see if any of the parents care,
 then act on the entity that was actually picked in the first place.
 
-This was handy! We've enabled this functionality for all entity-events: simply call `On::original_target`.
+This was handy! We've enabled this functionality for all entity-events: simply call `On::original_entity`.
 
 ## Expose name of the Observer's system
 

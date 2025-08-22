@@ -9,7 +9,7 @@ license = "MIT OR Apache-2.0"
 keywords = ["bevy"]
 
 [features]
-bevy_sprite_picking_backend = ["bevy_picking", "bevy_window"]
+bevy_sprite_picking_backend = ["bevy_picking"]
 
 [dependencies]
 # bevy
@@ -24,7 +24,7 @@ bevy_math = { path = "../bevy_math", version = "0.17.0-dev" }
 bevy_picking = { path = "../bevy_picking", version = "0.17.0-dev", optional = true }
 bevy_reflect = { path = "../bevy_reflect", version = "0.17.0-dev" }
 bevy_transform = { path = "../bevy_transform", version = "0.17.0-dev" }
-bevy_window = { path = "../bevy_window", version = "0.17.0-dev", optional = true }
+bevy_window = { path = "../bevy_window", version = "0.17.0-dev" }
 bevy_derive = { path = "../bevy_derive", version = "0.17.0-dev" }
 bevy_text = { path = "../bevy_text", version = "0.17.0-dev" }
 
@@ -35,7 +35,6 @@ wgpu-types = { version = "26", default-features = false }
 
 [dev-dependencies]
 approx = "0.5.1"
-bevy_window = { path = "../bevy_window", version = "0.17.0-dev" }
 
 [lints]
 workspace = true

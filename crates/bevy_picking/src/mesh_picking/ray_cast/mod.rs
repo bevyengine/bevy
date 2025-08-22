@@ -27,7 +27,7 @@ use tracing::*;
 #[derive(Clone, Copy, Reflect)]
 #[reflect(Clone)]
 pub enum RayCastVisibility {
-    /// Completely ignore visibility checks. Hidden items can still be ray casted against.
+    /// Completely ignore visibility checks. Hidden items can still be ray cast against.
     Any,
     /// Only cast rays against entities that are visible in the hierarchy. See [`Visibility`](bevy_camera::visibility::Visibility).
     Visible,

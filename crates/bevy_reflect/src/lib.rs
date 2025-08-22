@@ -59,7 +59,7 @@
 //!   This means values implementing `PartialReflect` can be dynamically constructed and introspected.
 //! * The `Reflect` trait, however, ensures that the interface exposed by `PartialReflect`
 //!   on types which additionally implement `Reflect` mirrors the structure of a single Rust type.
-//! * This means `dyn Reflect` trait objects can be directly downcasted to concrete types,
+//! * This means `dyn Reflect` trait objects can be directly downcast to concrete types,
 //!   where `dyn PartialReflect` trait object cannot.
 //! * `Reflect`, since it provides a stronger type-correctness guarantee,
 //!   is the trait used to interact with [the type registry].
@@ -516,8 +516,8 @@
 //!
 //! | Default | Dependencies                      |
 //! | :-----: | :-------------------------------: |
-//! | ✅      | [`bevy_reflect_derive/auto_register_inventory`] |
-//! | ❌      | [`bevy_reflect_derive/auto_register_static`] |
+//! | ✅      | `bevy_reflect_derive/auto_register_inventory` |
+//! | ❌      | `bevy_reflect_derive/auto_register_static` |
 //!
 //! These features enable automatic registration of types that derive [`Reflect`].
 //!
@@ -739,6 +739,14 @@ pub mod __macro_exports {
     #[cfg(feature = "auto_register")]
     pub mod auto_register {
         pub use super::*;
+
+        #[cfg(all(
+            not(feature = "auto_register_inventory"),
+            not(feature = "auto_register_static")
+        ))]
+        compile_error!(
+            "Choosing a backend is required for automatic reflect registration. Please enable either the \"auto_register_inventory\" or the \"auto_register_static\" feature."
+        );
 
         /// inventory impl
         #[cfg(all(

@@ -12,7 +12,7 @@ use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 #[cfg(all(feature = "serialize", feature = "bevy_reflect"))]
 use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 
-/// A counterclockwise 2D rotation.
+/// A 2D rotation.
 ///
 /// # Example
 ///
@@ -21,7 +21,7 @@ use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 /// # use bevy_math::{Rot2, Vec2};
 /// use std::f32::consts::PI;
 ///
-/// // Create rotations from radians or degrees
+/// // Create rotations from counterclockwise angles in radians or degrees
 /// let rotation1 = Rot2::radians(PI / 2.0);
 /// let rotation2 = Rot2::degrees(45.0);
 ///
@@ -50,11 +50,11 @@ use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 )]
 #[doc(alias = "rotation", alias = "rotation2d", alias = "rotation_2d")]
 pub struct Rot2 {
-    /// The cosine of the rotation angle in radians.
+    /// The cosine of the rotation angle.
     ///
     /// This is the real part of the unit complex number representing the rotation.
     pub cos: f32,
-    /// The sine of the rotation angle in radians.
+    /// The sine of the rotation angle.
     ///
     /// This is the imaginary part of the unit complex number representing the rotation.
     pub sin: f32,
@@ -68,46 +68,60 @@ impl Default for Rot2 {
 
 impl Rot2 {
     /// No rotation.
+    /// Also equals a full turn that returns back to its original position.
+    ///  ```
+    /// # use approx::assert_relative_eq;
+    /// # use bevy_math::Rot2;
+    /// #[cfg(feature = "approx")]
+    /// assert_relative_eq!(Rot2::IDENTITY, Rot2::degrees(360.0), epsilon = 2e-7);
+    /// ```
     pub const IDENTITY: Self = Self { cos: 1.0, sin: 0.0 };
 
     /// A rotation of π radians.
+    /// Corresponds to a half-turn.
     pub const PI: Self = Self {
         cos: -1.0,
         sin: 0.0,
     };
 
     /// A counterclockwise rotation of π/2 radians.
+    /// Corresponds to a counterclockwise quarter-turn.
     pub const FRAC_PI_2: Self = Self { cos: 0.0, sin: 1.0 };
 
     /// A counterclockwise rotation of π/3 radians.
+    /// Corresponds to a counterclockwise turn by 60°.
     pub const FRAC_PI_3: Self = Self {
         cos: 0.5,
         sin: 0.866_025_4,
     };
 
     /// A counterclockwise rotation of π/4 radians.
+    /// Corresponds to a counterclockwise turn by 45°.
     pub const FRAC_PI_4: Self = Self {
         cos: core::f32::consts::FRAC_1_SQRT_2,
         sin: core::f32::consts::FRAC_1_SQRT_2,
     };
 
     /// A counterclockwise rotation of π/6 radians.
+    /// Corresponds to a counterclockwise turn by 30°.
     pub const FRAC_PI_6: Self = Self {
         cos: 0.866_025_4,
         sin: 0.5,
     };
 
     /// A counterclockwise rotation of π/8 radians.
+    /// Corresponds to a counterclockwise turn by 22.5°.
     pub const FRAC_PI_8: Self = Self {
         cos: 0.923_879_5,
         sin: 0.382_683_43,
     };
 
     /// Creates a [`Rot2`] from a counterclockwise angle in radians.
+    /// A negative argument corresponds to a clockwise rotation.
     ///
     /// # Note
     ///
-    /// The input rotation will always be clamped to the range `(-π, π]` by design.
+    /// Angles larger than or equal to 2π (in either direction) loop around to smaller rotations, since a full rotation returns an object to its starting orientation.
     ///
     /// # Example
     ///
@@ -124,6 +138,10 @@ impl Rot2 {
     /// let rot3 = Rot2::radians(PI);
     /// #[cfg(feature = "approx")]
     /// assert_relative_eq!(rot1 * rot1, rot3);
+    ///
+    /// // A rotation by 3π and 1π are the same
+    /// #[cfg(feature = "approx")]
+    /// assert_relative_eq!(Rot2::radians(3.0 * PI), Rot2::radians(PI));
     /// ```
     #[inline]
     pub fn radians(radians: f32) -> Self {
@@ -132,16 +150,17 @@ impl Rot2 {
     }
 
     /// Creates a [`Rot2`] from a counterclockwise angle in degrees.
+    /// A negative argument corresponds to a clockwise rotation.
     ///
     /// # Note
     ///
-    /// The input rotation will always be clamped to the range `(-180°, 180°]` by design.
+    /// Angles larger than or equal to 360° (in either direction) loop around to smaller rotations, since a full rotation returns an object to its starting orientation.
     ///
     /// # Example
     ///
     /// ```
     /// # use bevy_math::Rot2;
-    /// # use approx::assert_relative_eq;
+    /// # use approx::{assert_relative_eq, assert_abs_diff_eq};
     ///
     /// let rot1 = Rot2::degrees(270.0);
     /// let rot2 = Rot2::degrees(-90.0);
@@ -151,6 +170,10 @@ impl Rot2 {
     /// let rot3 = Rot2::degrees(180.0);
     /// #[cfg(feature = "approx")]
     /// assert_relative_eq!(rot1 * rot1, rot3);
+    ///
+    /// // A rotation by 365° and 5° are the same
+    /// #[cfg(feature = "approx")]
+    /// assert_abs_diff_eq!(Rot2::degrees(365.0), Rot2::degrees(5.0), epsilon = 2e-7);
     /// ```
     #[inline]
     pub fn degrees(degrees: f32) -> Self {
@@ -158,10 +181,11 @@ impl Rot2 {
     }
 
     /// Creates a [`Rot2`] from a counterclockwise fraction of a full turn of 360 degrees.
+    /// A negative argument corresponds to a clockwise rotation.
     ///
     /// # Note
     ///
-    /// The input rotation will always be clamped to the range `(-50%, 50%]` by design.
+    /// Angles larger than or equal to 1 turn (in either direction) loop around to smaller rotations, since a full rotation returns an object to its starting orientation.
     ///
     /// # Example
     ///
@@ -177,13 +201,17 @@ impl Rot2 {
     /// let rot3 = Rot2::turn_fraction(0.5);
     /// #[cfg(feature = "approx")]
     /// assert_relative_eq!(rot1 * rot1, rot3);
+    ///
+    /// // A rotation by 1.5 turns and 0.5 turns are the same
+    /// #[cfg(feature = "approx")]
+    /// assert_relative_eq!(Rot2::turn_fraction(1.5), Rot2::turn_fraction(0.5));
     /// ```
     #[inline]
     pub fn turn_fraction(fraction: f32) -> Self {
         Self::radians(TAU * fraction)
     }
 
-    /// Creates a [`Rot2`] from the sine and cosine of an angle in radians.
+    /// Creates a [`Rot2`] from the sine and cosine of an angle.
     ///
     /// The rotation is only valid if `sin * sin + cos * cos == 1.0`.
     ///
@@ -200,25 +228,25 @@ impl Rot2 {
         rotation
     }
 
-    /// Returns the rotation in radians in the `(-pi, pi]` range.
+    /// Returns a corresponding rotation angle in radians in the `(-pi, pi]` range.
     #[inline]
     pub fn as_radians(self) -> f32 {
         ops::atan2(self.sin, self.cos)
     }
 
-    /// Returns the rotation in degrees in the `(-180, 180]` range.
+    /// Returns a corresponding rotation angle in degrees in the `(-180, 180]` range.
     #[inline]
     pub fn as_degrees(self) -> f32 {
         self.as_radians().to_degrees()
     }
 
-    /// Returns the rotation as a fraction of a full 360 degree turn.
+    /// Returns a corresponding rotation angle as a fraction of a full 360 degree turn in the `(-0.5, 0.5]` range.
     #[inline]
     pub fn as_turn_fraction(self) -> f32 {
         self.as_radians() / TAU
     }
 
-    /// Returns the sine and cosine of the rotation angle in radians.
+    /// Returns the sine and cosine of the rotation angle.
     #[inline]
     pub const fn sin_cos(self) -> (f32, f32) {
         (self.sin, self.cos)
