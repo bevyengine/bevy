@@ -132,7 +132,7 @@ fn on_remove_mine(event: On<Remove, Mine>, query: Query<&Mine>, mut index: ResMu
 }
 
 fn explode_mine(event: On<Explode>, query: Query<&Mine>, mut commands: Commands) {
-    // If a triggered event is targeting a specific entity you can access it with `.target()`
+    // If a triggered event is targeting a specific entity you can access it with `.entity()`
     let id = event.entity();
     let Ok(mut entity) = commands.get_entity(id) else {
         return;
