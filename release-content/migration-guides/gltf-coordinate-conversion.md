@@ -80,3 +80,4 @@ let handle = asset_server.load_with_settings(
     },
 );
 ```
+
