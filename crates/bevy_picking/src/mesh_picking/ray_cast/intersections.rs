@@ -1,4 +1,4 @@
-use bevy_math::{bounding::Aabb3d, Dir3, Mat4, Ray3d, Vec2, Vec3, Vec3A};
+use bevy_math::{bounding::Aabb3d, Affine3A, Dir3, Ray3d, Vec2, Vec3, Vec3A};
 use bevy_mesh::{Indices, Mesh, PrimitiveTopology, VertexAttributeValues};
 use bevy_reflect::Reflect;
 
@@ -38,7 +38,7 @@ pub struct RayTriangleHit {
 /// Casts a ray on a mesh, and returns the intersection.
 pub(super) fn ray_intersection_over_mesh(
     mesh: &Mesh,
-    transform: &Mat4,
+    transform: &Affine3A,
     ray: Ray3d,
     cull: Backfaces,
 ) -> Option<RayMeshHit> {
@@ -74,7 +74,7 @@ pub(super) fn ray_intersection_over_mesh(
 /// Checks if a ray intersects a mesh, and returns the nearest intersection if one exists.
 pub fn ray_mesh_intersection<I>(
     ray: Ray3d,
-    mesh_transform: &Mat4,
+    mesh_transform: &Affine3A,
     positions: &[[f32; 3]],
     vertex_normals: Option<&[[f32; 3]]>,
     indices: Option<&[I]>,
@@ -285,7 +285,11 @@ fn ray_triangle_intersection(
 //       In our case, the ray is transformed to model space, which could involve scaling.
 /// Checks if the ray intersects with the AABB of a mesh, returning the distance to the point of intersection.
 /// The distance is zero if the ray starts inside the AABB.
-pub fn ray_aabb_intersection_3d(ray: Ray3d, aabb: &Aabb3d, model_to_world: &Mat4) -> Option<f32> {
+pub fn ray_aabb_intersection_3d(
+    ray: Ray3d,
+    aabb: &Aabb3d,
+    model_to_world: &Affine3A,
+) -> Option<f32> {
     // Transform the ray to model space
     let world_to_model = model_to_world.inverse();
     let ray_direction: Vec3A = world_to_model.transform_vector3a((*ray.direction).into());
