@@ -614,19 +614,23 @@ impl Camera {
         // Flip the Y co-ordinate origin from the top to the bottom.
         rect_relative.y = 1.0 - rect_relative.y;
 
-        let ndc = rect_relative * 2. - Vec2::ONE;
-        let ndc_to_world = camera_transform.to_matrix() * self.computed.clip_from_view.inverse();
-        let world_near_plane = ndc_to_world.project_point3(ndc.extend(1.));
-        // Using EPSILON because an ndc with Z = 0 returns NaNs.
-        let world_far_plane = ndc_to_world.project_point3(ndc.extend(f32::EPSILON));
+        let ndc_point_near = (rect_relative * 2. - Vec2::ONE).extend(1.0).into();
+        let view_point_near = self
+            .computed
+            .clip_from_view
+            .inverse()
+            .project_point3a(ndc_point_near);
+        let world_dir_near = camera_transform
+            .affine()
+            .transform_vector3a(view_point_near);
+        let origin: Vec3 = (world_dir_near + camera_transform.affine().translation).into();
+        if origin.is_nan() {
+            return Err(ViewportConversionError::InvalidData);
+        }
 
-        // The fallible direction constructor ensures that world_near_plane and world_far_plane aren't NaN.
-        Dir3::new(world_far_plane - world_near_plane)
+        Dir3::new(world_dir_near.into())
             .map_err(|_| ViewportConversionError::InvalidData)
-            .map(|direction| Ray3d {
-                origin: world_near_plane,
-                direction,
-            })
+            .map(|direction| Ray3d { origin, direction })
     }
 
     /// Returns a 2D world position computed from a position on this [`Camera`]'s viewport.
