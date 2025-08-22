@@ -192,7 +192,7 @@ pub enum TaskPriority {
     /// Intended for blocking CPU-bound tasks (e.g. shader compilation, building terrain)
     BlockingCompute,
     /// Intended for non-blocking async IO (e.g. HTTP servers/clients, network IO, io-uring file IO).
-    /// These jobs generally should do very little compute bound work and then yield immeidately upon
+    /// These jobs generally should do very little compute bound work and then yield immediately upon
     /// there being no more work to do.
     AsyncIO,
     /// Intended for shortlived CPU-bound jobs. These jobs are expected to do a small amount of work

@@ -167,6 +167,24 @@ impl TaskPool {
             .collect()
     }
 
+    /// Creates a builder for a new [`Task`] to schedule onto the [`TaskPool`].k
+    /// 
+    /// # Example
+    /// 
+    /// ```no_run
+    /// # async fn my_cool_task() {}
+    /// # use bevy_tasks::{TaskPool, TaskPriority};
+    /// let task_pool = TaskPool::get();
+    /// let task = task_pool.builder()
+    ///     .with_priority(TaskPriority::BlockingIO)
+    ///     .spawn(async {
+    ///          my_cool_task
+    ///     });
+    /// ```
+    pub fn builder<T>(&self) -> TaskBuilder<'_, T> {
+        TaskBuilder::new(self)
+    }
+
     /// Spawns a static future onto the thread pool. The returned Task is a future, which can be polled
     /// to retrieve the output of the original future. Dropping the task will attempt to cancel it.
     /// It can also be "detached", allowing it to continue running without having to be polled by the
@@ -174,6 +192,48 @@ impl TaskPool {
     ///
     /// If the provided future is non-`Send`, [`TaskPool::spawn_local`] should be used instead.
     pub fn spawn<T>(
+        &self,
+        future: impl Future<Output = T> + 'static + MaybeSend + MaybeSync,
+    ) -> Task<T>
+    where
+        T: 'static + MaybeSend + MaybeSync,
+    {
+        self.build().spawn(future)
+    }
+
+    /// Spawns a static future on the JS event loop. This is exactly the same as [`TaskPool::spawn`].
+    pub fn spawn_local<T>(
+        &self,
+        future: impl Future<Output = T> + 'static + MaybeSend + MaybeSync,
+    ) -> Task<T>
+    where
+        T: 'static + MaybeSend + MaybeSync,
+    {
+    }
+
+    crate::cfg::web! {
+        if {} else {
+            pub(crate) fn try_tick_local() -> bool {
+                crate::cfg::bevy_executor! {
+                    if {
+                        Executor::try_tick_local()
+                    } else {
+                        EXECUTOR.try_tick()
+                    }
+                }
+            }
+        }
+    }
+}
+
+impl<'a, T> TaskBuilder<'a, T> {
+    /// Spawns a static future onto the thread pool. The returned Task is a future, which can be polled
+    /// to retrieve the output of the original future. Dropping the task will attempt to cancel it.
+    /// It can also be "detached", allowing it to continue running without having to be polled by the
+    /// end-user.
+    ///
+    /// If the provided future is non-`Send`, [`TaskPool::spawn_local`] should be used instead.
+    pub fn spawn(
         &self,
         future: impl Future<Output = T> + 'static + MaybeSend + MaybeSync,
     ) -> Task<T>
@@ -204,21 +264,55 @@ impl TaskPool {
     {
         self.spawn(future)
     }
+}
 
-    crate::cfg::web! {
-        if {} else {
-            pub(crate) fn try_tick_local() -> bool {
-                crate::cfg::bevy_executor! {
-                    if {
-                        Executor::try_tick_local()
-                    } else {
-                        EXECUTOR.try_tick()
-                    }
-                }
-            }
-        }
+impl<'a, 'scope, 'env, T: Send + 'scope> ScopeTaskBuilder<'a, 'scope, 'env, T> {
+    #[expect(
+        unsafe_code,
+        reason = "Executor::spawn and ThreadSpawner::spawn_scoped otherwise requires 'static Futures"
+    )]
+    /// Spawns a scoped future onto the thread pool. The scope *must* outlive
+    /// the provided future. The results of the future will be returned as a part of
+    /// [`TaskPool::scope`]'s return value.
+    ///
+    /// For futures that should run on the thread `scope` is called on [`Scope::spawn_on_scope`] should be used
+    /// instead.
+    ///
+    /// For more information, see [`TaskPool::scope`].
+    pub fn spawn<Fut: Future<Output = T> + 'scope + Send>(self, f: Fut) {
+        let task = match self.target {
+            // SAFETY: The scope call that generated this `Scope` ensures that the created
+            // Task does not outlive 'scope.
+            ScopeTaskTarget::Any => unsafe {
+                self.scope
+                    .executor
+                    .spawn_scoped(AssertUnwindSafe(f).catch_unwind(), Metadata::default())
+                    .fallible()
+            },
+            // SAFETY: The scope call that generated this `Scope` ensures that the created
+            // Task does not outlive 'scope.
+            ScopeTaskTarget::Scope => unsafe {
+                self.scope
+                    .scope_spawner
+                    .spawn_scoped(AssertUnwindSafe(f).catch_unwind())
+                    .into_inner()
+                    .fallible()
+            },
+            // SAFETY: The scope call that generated this `Scope` ensures that the created
+            // Task does not outlive 'scope.
+            ScopeTaskTarget::External => unsafe {
+                self.scope
+                    .external_spawner
+                    .spawn_scoped(AssertUnwindSafe(f).catch_unwind())
+                    .into_inner()
+                    .fallible()
+            },
+        };
+        let result = self.scope.spawned.push(task);
+        debug_assert!(result.is_ok());
     }
 }
+
 
 /// A `TaskPool` scope for running one or more non-`'static` futures.
 ///

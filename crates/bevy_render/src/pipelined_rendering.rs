@@ -150,10 +150,10 @@ impl Plugin for PipelinedRenderingPlugin {
             #[cfg(feature = "trace")]
             let _span = tracing::info_span!("render thread").entered();
 
-            let compute_task_pool = TaskPool::get();
+            let task_pool = TaskPool::get();
             loop {
                 // run a scope here to allow main world to use this thread while it's waiting for the render app
-                let sent_app = compute_task_pool
+                let sent_app = task_pool
                     .scope(|s| {
                         s.spawn(async { app_to_render_receiver.recv().await });
                     })

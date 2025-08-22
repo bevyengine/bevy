@@ -21,7 +21,7 @@ cfg_if::cfg_if! {
     }
 }
 
-/// Setup of default task pools: [`AsyncTaskPool`], [`TaskPool`], [`IoTaskPool`].
+/// Setup of the default task pool: [`TaskPool`].
 #[derive(Default)]
 pub struct TaskPoolPlugin {
     /// Options for the [`TaskPool`](bevy_tasks::TaskPool) created at application start.

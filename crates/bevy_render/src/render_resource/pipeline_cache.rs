@@ -16,7 +16,7 @@ use bevy_shader::{
     CachedPipelineId, PipelineCacheError, Shader, ShaderCache, ShaderCacheSource, ShaderDefVal,
     ValidateShader,
 };
-use bevy_tasks::{Task, TaskPool, TaskPriority};
+use bevy_tasks::Task;
 use bevy_utils::default;
 use core::{future::Future, hash::Hash, mem};
 use std::sync::{Mutex, PoisonError};
@@ -806,6 +806,8 @@ fn create_pipeline_task(
     task: impl Future<Output = Result<Pipeline, PipelineCacheError>> + Send + 'static,
     sync: bool,
 ) -> CachedPipelineState {
+    use bevy_tasks::{TaskPool, TaskPriority};
+
     if !sync {
         return CachedPipelineState::Creating(
             TaskPool::get()

@@ -186,7 +186,7 @@ impl TaskPool {
         TASK_POOL.get_or_init(|| unsafe { Self::new_internal(f(), &EXECUTOR) })
     }
 
-    /// Create a TaskPool with the default configuration.
+    /// Create a `TaskPool` with the default configuration.
     pub fn new() -> Self {
         TaskPoolBuilder::new().build()
     }
@@ -436,10 +436,10 @@ impl TaskPool {
     /// 
     /// # Example
     /// 
-    /// ```norun
+    /// ```no_run
     /// # async fn my_cool_task() {}
     /// # use bevy_tasks::{TaskPool, TaskPriority};
-    /// let task_pool = TaskPool::get()
+    /// let task_pool = TaskPool::get();
     /// let task = task_pool.builder()
     ///     .with_priority(TaskPriority::BlockingIO)
     ///     .spawn(async {
@@ -648,7 +648,7 @@ mod tests {
 
     #[test]
     fn test_spawn() {
-        let pool = TaskPool::get();
+        let pool = TaskPool::get_or_init(TaskPoolBuilder::default);
 
         let foo = Box::new(42);
         let foo = &*foo;
@@ -731,7 +731,7 @@ mod tests {
 
     #[test]
     fn test_mixed_spawn_on_scope_and_spawn() {
-        let pool = TaskPool::get();
+        let pool = TaskPool::get_or_init(TaskPoolBuilder::default);
 
         let foo = Box::new(42);
         let foo = &*foo;
@@ -779,7 +779,7 @@ mod tests {
 
     #[test]
     fn test_thread_locality() {
-        let pool = TaskPool::get();
+        let pool = TaskPool::get_or_init(TaskPoolBuilder::default);
         let count = Arc::new(AtomicI32::new(0));
         let barrier = Arc::new(Barrier::new(101));
         let thread_check_failed = Arc::new(AtomicBool::new(false));
@@ -817,7 +817,7 @@ mod tests {
 
     #[test]
     fn test_nested_spawn() {
-        let pool = TaskPool::get();
+        let pool = TaskPool::get_or_init(TaskPoolBuilder::default);
 
         let foo = Box::new(42);
         let foo = &*foo;
@@ -855,7 +855,7 @@ mod tests {
 
     #[test]
     fn test_nested_locality() {
-        let pool = TaskPool::get();
+        let pool = TaskPool::get_or_init(TaskPoolBuilder::default);
         let count = Arc::new(AtomicI32::new(0));
         let barrier = Arc::new(Barrier::new(101));
         let thread_check_failed = Arc::new(AtomicBool::new(false));
@@ -895,7 +895,7 @@ mod tests {
     // This test will often freeze on other executors.
     #[test]
     fn test_nested_scopes() {
-        let pool = TaskPool::get();
+        let pool = TaskPool::get_or_init(TaskPoolBuilder::default);
         let count = Arc::new(AtomicI32::new(0));
 
         pool.scope(|scope| {

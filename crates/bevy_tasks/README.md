@@ -20,18 +20,18 @@ It is based on a fork of [`async-executor`][async-executor], a lightweight execu
 ## Usage
 
 In order to be able to optimize task execution in multi-threaded environments,
-bevy provides three different thread pools via which tasks of different kinds can be spawned.
+Bevy supports a thread pool via which tasks of different priorities can be spawned.
 (The same API is used in single-threaded environments, even if execution is limited to a single thread.
 This currently applies to Wasm targets.)
-The determining factor for what kind of work should go in each pool is latency requirements:
+The determining factor for how work is prioritized based on latency requirements:
 
 * For CPU-intensive work (tasks that generally spin until completion) we have a standard
-  [`TaskPool`] and an [`AsyncTaskPool`]. Work that does not need to be completed to
-  present the next frame should go to the [`AsyncTaskPool`].
+  `Compute` priority, the default. Work that does not need to be completed to present the 
+  next frame be set to the `BlockingCompute` priority.
 
 * For IO-intensive work (tasks that spend very little time in a "woken" state) we have an
-  [`IoTaskPool`] whose tasks are expected to complete very quickly. Generally speaking, they should just
-  await receiving data from somewhere (i.e. disk) and signal other systems when the data is ready
+  [`AsyncIO`] priority whose tasks are expected to complete very quickly. Generally speaking, they should just
+  await receiving data from somewhere (i.e. network) and signal other systems when the data is ready
   for consumption. (likely via channels)
 
 ## `no_std` Support
