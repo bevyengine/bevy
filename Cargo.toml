@@ -4387,40 +4387,18 @@ doc-scrape-examples = true
 
 [package.metadata.example.camera_sub_view]
 name = "Camera sub view"
-description = "Demonstrates using different sub view effects on a camera"
-category = "3D Rendering"
-wasm = true
-
-[[example]]
-name = "magnifier"
-path = "examples/3d/subview/magnifier.rs"
-doc-scrape-examples = true
-
-[package.metadata.example.magnifier]
-name = "Camera sub view Magnifier"
-description = "Demonstrates magnifying part of the screen with CameraSubView"
-category = "3D Rendering"
-wasm = true
-
-[[example]]
-name = "multiwindow"
-path = "examples/3d/subview/multiwindow.rs"
-doc-scrape-examples = true
-
-[package.metadata.example.multiwindow]
-name = "Camera sub view Multiwindow"
 description = "Demonstrates splitting an image across multiple windows with CameraSubView"
 category = "3D Rendering"
 wasm = true
 
 [[example]]
-name = "zoom"
-path = "examples/3d/subview/zoom.rs"
+name = "magnifier"
+path = "examples/usage/magnifier.rs"
 doc-scrape-examples = true
 
-[package.metadata.example.zoom]
-name = "Camera sub view Zoom"
-description = "Demonstrates zooming the whole screen with CameraSubView"
+[package.metadata.example.magnifier]
+name = "Magnifier"
+description = "Demonstrates magnifying part of the screen with CameraSubView"
 category = "3D Rendering"
 wasm = true
 
