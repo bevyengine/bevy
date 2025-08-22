@@ -172,6 +172,8 @@ fn update_sub_view(
     let sub_view = camera.sub_camera_view.get_or_insert_default();
     sub_view.scale = scale;
     sub_view.offset = offset;
+    // Set the sub view's aspect ratio to Some, so we can manually control the full projection's aspect ratio
+    sub_view.aspect_ratio.get_or_insert_default();
 }
 
 fn update_debug_text(

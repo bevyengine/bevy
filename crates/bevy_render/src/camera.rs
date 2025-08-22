@@ -383,7 +383,11 @@ pub fn camera_system(
             {
                 camera.computed.clip_from_view = match &mut camera.sub_camera_view {
                     Some(sub_view) => {
-                        sub_view.update_aspect_ratio(size.x, size.y);
+                        if sub_view.aspect_ratio.is_some() {
+                            sub_view.update_aspect_ratio(size.x, size.y);
+                        } else {
+                            camera_projection.update(size.x, size.y);
+                        }
                         camera_projection.get_clip_from_view_for_sub(sub_view)
                     }
                     None => {

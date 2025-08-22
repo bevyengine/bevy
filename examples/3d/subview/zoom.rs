@@ -1,8 +1,5 @@
 //! Demonstrates zooming the whole screen with SubCameraView
-use bevy::{
-    input::mouse::AccumulatedMouseScroll, prelude::*, render::camera::SubCameraView,
-    window::PrimaryWindow,
-};
+use bevy::{input::mouse::AccumulatedMouseScroll, prelude::*, window::PrimaryWindow};
 
 #[derive(Resource)]
 struct IsSubViewActive(bool);
@@ -83,12 +80,12 @@ fn toggle_sub_view(mut is_active: ResMut<IsSubViewActive>, inputs: Res<ButtonInp
 }
 
 fn update_sub_view(
-    camera: Single<(&mut Camera, &mut Projection, &mut Scale)>,
+    camera: Single<(&mut Camera, &mut Scale)>,
     window: Single<&Window, With<PrimaryWindow>>,
     is_active: Res<IsSubViewActive>,
     scroll: Res<AccumulatedMouseScroll>,
 ) {
-    let (mut camera, mut projection, mut scale) = camera.into_inner();
+    let (mut camera, mut scale) = camera.into_inner();
 
     if is_active.0 {
         // Each scroll delta changes the scale by 5%
@@ -103,10 +100,6 @@ fn update_sub_view(
             let sub_view = camera.sub_camera_view.get_or_insert_default();
             sub_view.scale = scale;
             sub_view.offset = offset;
-        }
-
-        if let Some(size) = camera.logical_viewport_size() {
-            projection.update(size.x, size.y);
         }
     } else {
         camera.sub_camera_view = None;
