@@ -725,13 +725,19 @@ impl Camera {
     /// # Panics
     ///
     /// Will panic if the projection matrix is invalid (has a determinant of 0) and `glam_assert` is enabled.
-    pub fn ndc_to_world(&self, camera_transform: &GlobalTransform, ndc: Vec3) -> Option<Vec3> {
-        // Build a transformation matrix to convert from NDC to world space using camera data
-        let ndc_to_world = camera_transform.to_matrix() * self.computed.clip_from_view.inverse();
+    pub fn ndc_to_world<V: Into<Vec3A> + From<Vec3A>>(
+        &self,
+        camera_transform: &GlobalTransform,
+        ndc_point: V,
+    ) -> Option<V> {
+        let view_point = self
+            .computed
+            .clip_from_view
+            .inverse()
+            .project_point3a(ndc_point.into());
+        let world_point = camera_transform.affine().transform_point3a(view_point);
 
-        let world_space_coords = ndc_to_world.project_point3(ndc);
-
-        (!world_space_coords.is_nan()).then_some(world_space_coords)
+        (!world_point.is_nan()).then_some(world_point)
     }
 
     /// Converts the depth in Normalized Device Coordinates
