@@ -65,7 +65,7 @@ fn create_array_texture(
 
     // Create a new array texture asset from the loaded texture.
     let array_layers = 4;
-    image.reinterpret_stacked_2d_as_array(array_layers);
+    image.reinterpret_stacked_2d_as_array(array_layers).unwrap();
 
     // Spawn some cubes using the array texture
     let mesh_handle = meshes.add(Cuboid::default());
