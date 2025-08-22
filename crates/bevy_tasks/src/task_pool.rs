@@ -65,7 +65,7 @@ impl TaskPoolBuilder {
 
     /// Sets the limit of how many active threads for a given priority.
     pub fn priority_limit(mut self, priority: TaskPriority, limit: Option<usize>) -> Self {
-        self.priority_limits[priority.to_index()] = limit.map(NonZeroUsize::new).flatten();
+        self.priority_limits[priority.to_index()] = limit.and_then(NonZeroUsize::new);
         self
     }
 
@@ -175,7 +175,7 @@ impl TaskPool {
             .expect("The TaskPool has not been initialized yet. Please call TaskPool::get_or_init beforehand.")
     }
 
-    /// Gets the global [`TaskPool`] instance, or initializes it with `f``.
+    /// Gets the global [`TaskPool`] instance, or initializes it with `f`.
     pub fn get_or_init(f: impl FnOnce() -> TaskPoolBuilder) -> &'static TaskPool {
         #[expect(
             unsafe_code, 
@@ -184,6 +184,11 @@ impl TaskPool {
         // SAFETY: TASK_POOL is never reset and the OnceLock ensures it's only ever initialized
         // once.
         TASK_POOL.get_or_init(|| unsafe { Self::new_internal(f(), &EXECUTOR) })
+    }
+
+    /// Create a TaskPool with the default configuration.
+    pub fn new() -> Self {
+        TaskPoolBuilder::new().build()
     }
 
     #[expect(
@@ -196,7 +201,7 @@ impl TaskPool {
         // SAFETY: The caller is required to ensure that this is only called once per application
         // and no threads accessing the Executor are started until later in this very function.
         // Thus it's impossible for there to be any aliasing access done here.
-        unsafe { executor.set_priority_limits(builder.priority_limits.clone()); }
+        unsafe { executor.set_priority_limits(builder.priority_limits); }
 
         let (shutdown_tx, shutdown_rx) = async_channel::unbounded::<()>();
 
@@ -530,7 +535,7 @@ impl<'scope, 'env, T: Send + 'scope> Scope<'scope, 'env, T> {
     /// [`TaskPool::scope`]'s return value.
     ///
     /// For futures that should run on the thread `scope` is called on [`Scope::builder`] should 
-    /// be used instead, with [`ScopeTaskBuilder::with_target``] to target specific thread.
+    /// be used instead, with [`ScopeTaskBuilder::with_target`] to target specific thread.
     ///
     /// For more information, see [`TaskPool::scope`].
     /// 

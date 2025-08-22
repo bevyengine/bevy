@@ -929,6 +929,7 @@ impl AtomicSemaphore {
     /// # Safety
     /// Must not be called while another thread might call `acquire`.
     pub unsafe fn set_limit(&self, limit: Option<NonZeroUsize>) {
+        // SAFETY: The caller must make sure that this does not alias.
         unsafe { *self.limit.get() = limit; }
         self.available.store(limit.map(NonZeroUsize::get).unwrap_or(0), Ordering::Relaxed);
     }
@@ -960,8 +961,8 @@ enum Permit<'a> {
 
 impl<'a> Drop for Permit<'a> {
     fn drop(&mut self) {
-        if let Permit::Held(sempahore) = self {
-            sempahore.available.fetch_add(1, Ordering::AcqRel);
+        if let Permit::Held(semaphore) = self {
+            semaphore.available.fetch_add(1, Ordering::AcqRel);
         }
     }
 }
