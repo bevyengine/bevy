@@ -17,7 +17,7 @@
 
 use bevy::{
     input::common_conditions::input_just_pressed, math::ops::powf, prelude::*,
-    sprite::MeshMaterial2d,
+    sprite_render::MeshMaterial2d,
 };
 
 // Before we implement the code, let's quickly introduce the underlying constants.

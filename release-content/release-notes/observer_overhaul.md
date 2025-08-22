@@ -1,7 +1,7 @@
 ---
 title: Observer Overhaul
-authors: ["@Jondolf", "@alice-i-cecile", "@hukasu", "oscar-benderstone", "Zeophlite"]
-pull_requests: [19596, 19663, 19611, 19935]
+authors: ["@Jondolf", "@alice-i-cecile", "@hukasu", "oscar-benderstone", "Zeophlite", "gwafotapa"]
+pull_requests: [19596, 19663, 19611, 19935, 20274]
 ---
 
 ## Rename `Trigger` to `On`
@@ -10,7 +10,7 @@ In past releases, the observer API looked like this:
 
 ```rust
 app.add_observer(|trigger: Trigger<OnAdd, Player>| {
-    info!("Added player {}", trigger.target());
+    info!("Added player {}", trigger.entity());
 });
 ```
 
@@ -21,8 +21,8 @@ for a `Player`.
 such as `OnAdd` and `OnRemove`:
 
 ```rust
-app.add_observer(|trigger: On<Add, Player>| {
-    info!("Added player {}", trigger.target());
+app.add_observer(|event: On<Add, Player>| {
+    info!("Added player {}", event.entity());
 });
 ```
 
@@ -39,7 +39,7 @@ to disambiguate by using `ops::Add`, for example.
 allowing you to bubble events up your hierarchy to see if any of the parents care,
 then act on the entity that was actually picked in the first place.
 
-This was handy! We've enabled this functionality for all entity-events: simply call `On::original_target`.
+This was handy! We've enabled this functionality for all entity-events: simply call `On::original_entity`.
 
 ## Expose name of the Observer's system
 
@@ -50,3 +50,7 @@ this opens up the possibility for the debug tools to show more meaningful names 
 
 Internally, each `Event` type would generate a `Component` type, allowing us to use the corresponding `ComponentId` to track the event.
 We have newtyped this to `EventKey` to help separate these concerns.
+
+## Watch multiple entities
+
+To watch multiple entities with the same observer you previously had to call `Observer::with_entity` or `Observer::watch_entity` for each entity. New methods `Observer::with_entities` and `Observer::watch_entities` have been added for your convenience.

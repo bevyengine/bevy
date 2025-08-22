@@ -1,6 +1,7 @@
 //! A module adding debug visualization of [`Aabb`]s.
 
 use bevy_app::{Plugin, PostUpdate};
+use bevy_camera::primitives::Aabb;
 use bevy_color::{Color, Oklcha};
 use bevy_ecs::{
     component::Component,
@@ -11,7 +12,6 @@ use bevy_ecs::{
     system::{Query, Res},
 };
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
-use bevy_render::primitives::Aabb;
 use bevy_transform::{
     components::{GlobalTransform, Transform},
     TransformSystems,
@@ -28,19 +28,17 @@ pub struct AabbGizmoPlugin;
 
 impl Plugin for AabbGizmoPlugin {
     fn build(&self, app: &mut bevy_app::App) {
-        app.register_type::<AabbGizmoConfigGroup>()
-            .init_gizmo_group::<AabbGizmoConfigGroup>()
-            .add_systems(
-                PostUpdate,
-                (
-                    draw_aabbs,
-                    draw_all_aabbs.run_if(|config: Res<GizmoConfigStore>| {
-                        config.config::<AabbGizmoConfigGroup>().1.draw_all
-                    }),
-                )
-                    .after(bevy_render::view::VisibilitySystems::CalculateBounds)
-                    .after(TransformSystems::Propagate),
-            );
+        app.init_gizmo_group::<AabbGizmoConfigGroup>().add_systems(
+            PostUpdate,
+            (
+                draw_aabbs,
+                draw_all_aabbs.run_if(|config: Res<GizmoConfigStore>| {
+                    config.config::<AabbGizmoConfigGroup>().1.draw_all
+                }),
+            )
+                .after(bevy_camera::visibility::VisibilitySystems::CalculateBounds)
+                .after(TransformSystems::Propagate),
+        );
     }
 }
 /// The [`GizmoConfigGroup`] used for debug visualizations of [`Aabb`] components on entities

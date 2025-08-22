@@ -1,5 +1,6 @@
 use bevy_ecs::{query::QueryItem, world::World};
 use bevy_render::{
+    diagnostic::RecordDiagnostics,
     extract_component::ComponentUniforms,
     globals::GlobalsBuffer,
     render_graph::{NodeRunError, RenderGraphContext, ViewNode},
@@ -59,6 +60,8 @@ impl ViewNode for MotionBlurNode {
             return Ok(());
         };
 
+        let diagnostics = render_context.diagnostic_recorder();
+
         let post_process = view_target.post_process_write();
 
         let layout = if msaa.samples() == 1 {
@@ -81,9 +84,10 @@ impl ViewNode for MotionBlurNode {
         );
 
         let mut render_pass = render_context.begin_tracked_render_pass(RenderPassDescriptor {
-            label: Some("motion_blur_pass"),
+            label: Some("motion_blur"),
             color_attachments: &[Some(RenderPassColorAttachment {
                 view: post_process.destination,
+                depth_slice: None,
                 resolve_target: None,
                 ops: Operations::default(),
             })],
@@ -91,10 +95,13 @@ impl ViewNode for MotionBlurNode {
             timestamp_writes: None,
             occlusion_query_set: None,
         });
+        let pass_span = diagnostics.pass_span(&mut render_pass, "motion_blur");
 
         render_pass.set_render_pipeline(pipeline);
         render_pass.set_bind_group(0, &bind_group, &[]);
         render_pass.draw(0..3, 0..1);
+
+        pass_span.end(&mut render_pass);
 
         Ok(())
     }

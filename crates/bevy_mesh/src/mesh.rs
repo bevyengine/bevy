@@ -110,6 +110,11 @@ pub const VERTEX_ATTRIBUTE_BUFFER_ID: u64 = 10;
 /// - Vertex winding order: by default, `StandardMaterial.cull_mode` is `Some(Face::Back)`,
 ///   which means that Bevy would *only* render the "front" of each triangle, which
 ///   is the side of the triangle from where the vertices appear in a *counter-clockwise* order.
+///
+/// ## Remote Inspection
+///
+/// To transmit a [`Mesh`] between two running Bevy apps, e.g. through BRP, use [`SerializedMesh`].
+/// This type is only meant for short-term transmission between same versions and should not be stored anywhere.
 #[derive(Asset, Debug, Clone, Reflect, PartialEq)]
 #[reflect(Clone)]
 pub struct Mesh {
@@ -601,7 +606,7 @@ impl Mesh {
             match topology {
                 PrimitiveTopology::TriangleList => {
                     // Early return if the index count doesn't match
-                    if indices.len() % 3 != 0 {
+                    if !indices.len().is_multiple_of(3) {
                         return Err(MeshWindingInvertError::AbruptIndicesEnd);
                     }
                     for chunk in indices.chunks_mut(3) {
@@ -615,7 +620,7 @@ impl Mesh {
                 }
                 PrimitiveTopology::LineList => {
                     // Early return if the index count doesn't match
-                    if indices.len() % 2 != 0 {
+                    if !indices.len().is_multiple_of(2) {
                         return Err(MeshWindingInvertError::AbruptIndicesEnd);
                     }
                     indices.reverse();

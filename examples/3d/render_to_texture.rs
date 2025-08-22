@@ -2,10 +2,7 @@
 
 use std::f32::consts::PI;
 
-use bevy::{
-    prelude::*,
-    render::{render_resource::TextureFormat, view::RenderLayers},
-};
+use bevy::{camera::visibility::RenderLayers, prelude::*, render::render_resource::TextureFormat};
 
 fn main() {
     App::new()

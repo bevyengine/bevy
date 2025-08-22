@@ -16,6 +16,8 @@ pub use default_plugins::*;
 
 #[cfg(feature = "bevy_window")]
 pub use bevy_a11y as a11y;
+#[cfg(target_os = "android")]
+pub use bevy_android as android;
 #[cfg(feature = "bevy_animation")]
 pub use bevy_animation as animation;
 #[cfg(feature = "bevy_anti_aliasing")]
@@ -70,10 +72,14 @@ pub use bevy_remote as remote;
 pub use bevy_render as render;
 #[cfg(feature = "bevy_scene")]
 pub use bevy_scene as scene;
+#[cfg(feature = "bevy_shader")]
+pub use bevy_shader as shader;
 #[cfg(feature = "bevy_solari")]
 pub use bevy_solari as solari;
 #[cfg(feature = "bevy_sprite")]
 pub use bevy_sprite as sprite;
+#[cfg(feature = "bevy_sprite_render")]
+pub use bevy_sprite_render as sprite_render;
 #[cfg(feature = "bevy_state")]
 pub use bevy_state as state;
 pub use bevy_tasks as tasks;
