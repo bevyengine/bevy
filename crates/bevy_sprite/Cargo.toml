@@ -10,7 +10,7 @@ keywords = ["bevy"]
 
 [features]
 bevy_sprite_picking_backend = ["bevy_picking", "bevy_window"]
-bevy_text = ["dep:bevy_text"]
+bevy_text = ["dep:bevy_text", "bevy_window"]
 
 [dependencies]
 # bevy
