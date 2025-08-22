@@ -11,7 +11,7 @@ keywords = ["bevy"]
 [features]
 webgl = []
 webgpu = []
-bevy_text = ["dep:bevy_text"]
+bevy_text = ["dep:bevy_text", "bevy_sprite/bevy_text"]
 
 [dependencies]
 # bevy
