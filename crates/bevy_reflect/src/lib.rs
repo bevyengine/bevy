@@ -1124,24 +1124,12 @@ mod tests {
             }
         }
 
-        #[expect(
-            dead_code,
-            reason = "This struct is used as a compilation test to test the derive macros, and as such is intentionally never constructed."
-        )]
         #[derive(Reflect)]
         struct Foo<A>(A);
 
-        #[expect(
-            dead_code,
-            reason = "This struct is used as a compilation test to test the derive macros, and as such is intentionally never constructed."
-        )]
         #[derive(Reflect)]
         struct Bar<A, B>(A, B);
 
-        #[expect(
-            dead_code,
-            reason = "This struct is used as a compilation test to test the derive macros, and as such is intentionally never constructed."
-        )]
         #[derive(Reflect)]
         struct Baz<A, B, C>(A, B, C);
     }
