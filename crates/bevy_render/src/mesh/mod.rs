@@ -7,8 +7,7 @@ use crate::{
 };
 use allocator::MeshAllocatorPlugin;
 use bevy_app::{App, Plugin, PostUpdate};
-use bevy_asset::{AssetApp, AssetEventSystems, AssetId, RenderAssetUsages};
-use bevy_camera::visibility::VisibilitySystems;
+use bevy_asset::{AssetApp, AssetId, RenderAssetUsages};
 use bevy_ecs::{
     prelude::*,
     system::{
@@ -28,13 +27,7 @@ impl Plugin for MeshPlugin {
         app.init_asset::<skinning::SkinnedMeshInverseBindposes>()
             // 'Mesh' must be prepared after 'Image' as meshes rely on the morph target image being ready
             .add_plugins(RenderAssetPlugin::<RenderMesh, GpuImage>::default())
-            .add_plugins(MeshAllocatorPlugin)
-            .add_systems(
-                PostUpdate,
-                mark_3d_meshes_as_changed_if_their_assets_changed
-                    .ambiguous_with(VisibilitySystems::CalculateBounds)
-                    .before(AssetEventSystems),
-            );
+            .add_plugins(MeshAllocatorPlugin);
 
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;

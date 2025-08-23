@@ -12,9 +12,9 @@ pub mod morph;
 pub mod primitives;
 pub mod skinning;
 mod vertex;
-use bevy_app::{App, Plugin};
-use bevy_asset::AssetApp;
-use bevy_ecs::schedule::SystemSet;
+use bevy_app::{App, Plugin, PostUpdate};
+use bevy_asset::{AssetApp, AssetEventSystems};
+use bevy_ecs::schedule::{IntoScheduleConfigs, SystemSet};
 use bitflags::bitflags;
 pub use components::*;
 pub use index::*;
@@ -50,7 +50,12 @@ pub struct MeshPlugin;
 
 impl Plugin for MeshPlugin {
     fn build(&self, app: &mut App) {
-        app.init_asset::<Mesh>().register_asset_reflect::<Mesh>();
+        app.init_asset::<Mesh>()
+            .register_asset_reflect::<Mesh>()
+            .add_systems(
+                PostUpdate,
+                mark_3d_meshes_as_changed_if_their_assets_changed.before(AssetEventSystems),
+            );
     }
 }
 
