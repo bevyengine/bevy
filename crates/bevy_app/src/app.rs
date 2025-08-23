@@ -260,6 +260,9 @@ impl App {
         let mut hokeypokey: Box<dyn Plugin> = Box::new(HokeyPokey);
         for i in 0..self.main().plugin_registry.len() {
             core::mem::swap(&mut self.main_mut().plugin_registry[i], &mut hokeypokey);
+            #[cfg(feature = "trace")]
+            let _plugin_finish_span =
+                info_span!("plugin finish", plugin = hokeypokey.name()).entered();
             hokeypokey.finish(self);
             core::mem::swap(&mut self.main_mut().plugin_registry[i], &mut hokeypokey);
         }
@@ -275,6 +278,9 @@ impl App {
         let mut hokeypokey: Box<dyn Plugin> = Box::new(HokeyPokey);
         for i in 0..self.main().plugin_registry.len() {
             core::mem::swap(&mut self.main_mut().plugin_registry[i], &mut hokeypokey);
+            #[cfg(feature = "trace")]
+            let _plugin_cleanup_span =
+                info_span!("plugin cleanup", plugin = hokeypokey.name()).entered();
             hokeypokey.cleanup(self);
             core::mem::swap(&mut self.main_mut().plugin_registry[i], &mut hokeypokey);
         }
@@ -480,6 +486,9 @@ impl App {
             .push(Box::new(PlaceholderPlugin));
 
         self.main_mut().plugin_build_depth += 1;
+
+        #[cfg(feature = "trace")]
+        let _plugin_finish_span = info_span!("plugin build", plugin = plugin.name()).entered();
 
         let f = AssertUnwindSafe(|| plugin.build(self));
 
