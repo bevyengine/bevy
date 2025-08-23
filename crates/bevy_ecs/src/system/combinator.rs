@@ -38,11 +38,11 @@ use super::{IntoSystem, ReadOnlySystem, RunSystemError, System};
 ///
 ///     fn combine<T>(
 ///         _input: Self::In,
-///         mut data: T,
+///         data: &mut T,
 ///         a: impl FnOnce(A::In, &mut T) -> Result<A::Out, RunSystemError>,
 ///         b: impl FnOnce(B::In, &mut T) -> Result<B::Out, RunSystemError>,
 ///     ) -> Result<Self::Out, RunSystemError> {
-///         Ok(a((), &mut data)? ^ b((), &mut data)?)
+///         Ok(a((), data)? ^ b((), data)?)
 ///     }
 /// }
 ///
@@ -102,7 +102,7 @@ pub trait Combine<A: System, B: System> {
     /// See the trait-level docs for [`Combine`] for an example implementation.
     fn combine<T>(
         input: <Self::In as SystemInput>::Inner<'_>,
-        shared: T,
+        data: &mut T,
         a: impl FnOnce(SystemIn<'_, A>, &mut T) -> Result<A::Out, RunSystemError>,
         b: impl FnOnce(SystemIn<'_, B>, &mut T) -> Result<B::Out, RunSystemError>,
     ) -> Result<Self::Out, RunSystemError>;
@@ -153,11 +153,11 @@ where
     unsafe fn run_unsafe(
         &mut self,
         input: SystemIn<'_, Self>,
-        world: UnsafeWorldCell,
+        mut world: UnsafeWorldCell,
     ) -> Result<Self::Out, RunSystemError> {
         Func::combine(
             input,
-            world,
+            &mut world,
             // SAFETY: The world accesses for both underlying systems have been registered,
             // so the caller will guarantee that no other systems will conflict with `a` or `b`.
             // If either system has `is_exclusive()`, then the combined system also has `is_exclusive`.
