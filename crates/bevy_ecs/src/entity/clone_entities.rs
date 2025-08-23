@@ -8,7 +8,7 @@ use derive_more::derive::From;
 
 use crate::{
     archetype::Archetype,
-    bundle::{Bundle, BundleRemover, InsertMode},
+    bundle::{BundleRemover, InsertMode, StaticBundle},
     change_detection::MaybeLocation,
     component::{Component, ComponentCloneBehavior, ComponentCloneFn, ComponentId, ComponentInfo},
     entity::{hash_map::EntityHashMap, Entities, Entity, EntityMapper},
@@ -911,7 +911,7 @@ impl<'w> EntityClonerBuilder<'w, OptOut> {
     /// If component `A` is denied here and component `B` requires `A`, then `A`
     /// is denied as well. See [`Self::without_required_by_components`] to alter
     /// this behavior.
-    pub fn deny<T: Bundle>(&mut self) -> &mut Self {
+    pub fn deny<T: StaticBundle>(&mut self) -> &mut Self {
         let bundle_id = self.world.register_bundle::<T>().id();
         self.deny_by_ids(bundle_id)
     }
@@ -968,7 +968,7 @@ impl<'w> EntityClonerBuilder<'w, OptIn> {
     /// If component `A` is allowed here and requires component `B`, then `B`
     /// is allowed as well. See [`Self::without_required_components`]
     /// to alter this behavior.
-    pub fn allow<T: Bundle>(&mut self) -> &mut Self {
+    pub fn allow<T: StaticBundle>(&mut self) -> &mut Self {
         let bundle_id = self.world.register_bundle::<T>().id();
         self.allow_by_ids(bundle_id)
     }
@@ -979,7 +979,7 @@ impl<'w> EntityClonerBuilder<'w, OptIn> {
     /// If component `A` is allowed here and requires component `B`, then `B`
     /// is allowed as well. See [`Self::without_required_components`]
     /// to alter this behavior.
-    pub fn allow_if_new<T: Bundle>(&mut self) -> &mut Self {
+    pub fn allow_if_new<T: StaticBundle>(&mut self) -> &mut Self {
         let bundle_id = self.world.register_bundle::<T>().id();
         self.allow_by_ids_if_new(bundle_id)
     }

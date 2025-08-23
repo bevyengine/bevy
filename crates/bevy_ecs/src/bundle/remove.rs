@@ -4,7 +4,7 @@ use core::ptr::NonNull;
 
 use crate::{
     archetype::{Archetype, ArchetypeCreated, ArchetypeId, Archetypes},
-    bundle::{Bundle, BundleId, BundleInfo},
+    bundle::{BundleId, BundleInfo, StaticBundle},
     change_detection::MaybeLocation,
     component::{ComponentId, Components, ComponentsRegistrator, StorageType},
     entity::{Entity, EntityLocation},
@@ -33,7 +33,7 @@ impl<'w> BundleRemover<'w> {
     /// # Safety
     /// Caller must ensure that `archetype_id` is valid
     #[inline]
-    pub(crate) unsafe fn new<T: Bundle>(
+    pub(crate) unsafe fn new<T: StaticBundle>(
         world: &'w mut World,
         archetype_id: ArchetypeId,
         require_all: bool,
@@ -43,7 +43,7 @@ impl<'w> BundleRemover<'w> {
             unsafe { ComponentsRegistrator::new(&mut world.components, &mut world.component_ids) };
         let bundle_id = world
             .bundles
-            .register_info::<T>(&mut registrator, &mut world.storages);
+            .register_static_info::<T>(&mut registrator, &mut world.storages);
         // SAFETY: we initialized this bundle_id in `init_info`, and caller ensures archetype is valid.
         unsafe { Self::new_with_id(world, archetype_id, bundle_id, require_all) }
     }
