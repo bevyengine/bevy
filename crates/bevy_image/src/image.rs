@@ -991,7 +991,12 @@ impl Image {
             | TextureUsages::COPY_DST
             | TextureUsages::RENDER_ATTACHMENT;
         // Fill with zeroes
-        let data = vec![0; format.pixel_size().unwrap_or(0) * size.volume()];
+        let data = vec![
+            0;
+            format.pixel_size().expect(
+                "Failed to create Image: can't get pixel size for this TextureFormat"
+            ) * size.volume()
+        ];
 
         Image {
             data: Some(data),
