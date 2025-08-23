@@ -134,13 +134,11 @@ mod distributed_storage;
 mod entity_cloning;
 mod runner;
 mod system_param;
-mod trigger_targets;
 
 pub use centralized_storage::*;
 pub use distributed_storage::*;
 pub use runner::*;
 pub use system_param::*;
-pub use trigger_targets::*;
 
 use crate::{
     change_detection::MaybeLocation,
@@ -192,8 +190,17 @@ impl World {
     /// those that don't will be consumed and will no longer be accessible.
     /// If you need to use the event after triggering it, use [`World::trigger_ref`] instead.
     #[track_caller]
-    pub fn trigger<'a, E: Event<Target<'a> = ()>>(&mut self, mut event: E) {
-        self.trigger_with_caller(&mut event, (), MaybeLocation::caller());
+    pub fn trigger<'a, E: Event<Trigger<'a>: Default>>(&mut self, mut event: E) {
+        self.trigger_with_ref_caller(
+            &mut event,
+            &mut <E::Trigger<'a> as Default>::default(),
+            MaybeLocation::caller(),
+        );
+    }
+
+    #[track_caller]
+    pub fn trigger_with<'a, E: Event>(&mut self, mut event: E, mut trigger: E::Trigger<'a>) {
+        self.trigger_with_ref_caller(&mut event, &mut trigger, MaybeLocation::caller());
     }
 
     /// Triggers the given [`Event`] as a mutable reference, which will run any [`Observer`]s watching for it.
@@ -201,48 +208,24 @@ impl World {
     /// Compared to [`World::trigger`], this method is most useful when it's necessary to check
     /// or use the event after it has been modified by observers.
     #[track_caller]
-    pub fn trigger_ref<'a, E: Event<Target<'a> = ()>>(&mut self, event: &mut E) {
-        self.trigger_with_caller(event, (), MaybeLocation::caller());
+    pub fn trigger_ref<'a, E: Event<Trigger<'a>: Default>>(&mut self, event: &mut E) {
+        self.trigger_with_ref_caller(
+            event,
+            &mut <E::Trigger<'a> as Default>::default(),
+            MaybeLocation::caller(),
+        );
     }
 
-    /// Triggers the given [`EntityEvent`] for the given `targets`, which will run any [`Observer`]s watching for it.
-    ///
-    /// While event types commonly implement [`Copy`],
-    /// those that don't will be consumed and will no longer be accessible.
-    /// If you need to use the event after triggering it, use [`World::trigger_targets_ref`] instead.
-    #[track_caller]
-    pub fn trigger_targets<'a, E: Event>(
-        &mut self,
-        mut event: E,
-        targets: impl EventTargets<E::Target<'a>>,
-    ) {
-        self.trigger_with_caller(&mut event, targets, MaybeLocation::caller());
-    }
-
-    /// Triggers the given [`Event`] as a mutable reference for the given `targets`,
-    /// which will run any [`Observer`]s watching for it.
-    ///
-    /// Compared to [`World::trigger_targets`], this method is most useful when it's necessary to check
-    /// or use the event after it has been modified by observers.
-    #[track_caller]
-    pub fn trigger_targets_ref<'a, E: Event>(
+    pub(crate) fn trigger_with_ref_caller<'a, E: Event>(
         &mut self,
         event: &mut E,
-        targets: impl EventTargets<E::Target<'a>>,
-    ) {
-        self.trigger_with_caller(event, targets, MaybeLocation::caller());
-    }
-
-    pub(crate) fn trigger_with_caller<'a, E: Event>(
-        &mut self,
-        event: &mut E,
-        targets: impl EventTargets<E::Target<'a>>,
+        trigger: &mut E::Trigger<'a>,
         caller: MaybeLocation,
     ) {
         let event_key = E::register_event_key(self);
         // SAFETY: event_key was just registered and matches `event`
         unsafe {
-            DeferredWorld::from(self).trigger_raw(event_key, event, targets, caller);
+            DeferredWorld::from(self).trigger_raw(event_key, event, trigger, caller);
         }
     }
 
@@ -384,7 +367,7 @@ mod tests {
     use crate::{
         change_detection::MaybeLocation,
         entity_disabling::Internal,
-        event::{EntityComponents, EntityComponentsTrigger, Event},
+        event::{EntityComponentsTrigger, Event, GlobalTrigger},
         hierarchy::ChildOf,
         observer::{Observer, Replace},
         prelude::*,
@@ -405,14 +388,11 @@ mod tests {
     struct EventA;
 
     #[derive(EntityEvent)]
-    struct EntityEventA;
+    struct EntityEventA(Entity);
 
-    struct EntityComponentsEvent;
-
-    impl Event for EntityComponentsEvent {
-        type Target<'a> = EntityComponents<'a>;
-        type Trigger = EntityComponentsTrigger;
-    }
+    #[derive(EntityEvent)]
+    #[entity_event(trigger = EntityComponentsTrigger<'a>)]
+    struct EntityComponentsEvent(Entity);
 
     #[derive(Event)]
     struct EventWithData {
@@ -421,6 +401,7 @@ mod tests {
 
     #[derive(EntityEvent)]
     struct EntityEventWithData {
+        entity: Entity,
         counter: usize,
     }
 
@@ -436,7 +417,7 @@ mod tests {
 
     #[derive(Component, EntityEvent)]
     #[entity_event(propagate, auto_propagate)]
-    struct EventPropagating;
+    struct EventPropagating(Entity);
 
     #[test]
     fn observer_order_spawn_despawn() {
@@ -527,22 +508,22 @@ mod tests {
         let mut world = World::new();
         world.init_resource::<Order>();
         world.add_observer(
-            |obs: On<Add, A>, mut res: ResMut<Order>, mut commands: Commands| {
+            |add: On<Add, A>, mut res: ResMut<Order>, mut commands: Commands| {
                 res.observed("add_a");
-                commands.entity(obs.entity()).insert(B);
+                commands.entity(add.entity).insert(B);
             },
         );
         world.add_observer(
-            |obs: On<Remove, A>, mut res: ResMut<Order>, mut commands: Commands| {
+            |remove: On<Remove, A>, mut res: ResMut<Order>, mut commands: Commands| {
                 res.observed("remove_a");
-                commands.entity(obs.entity()).remove::<B>();
+                commands.entity(remove.entity).remove::<B>();
             },
         );
 
         world.add_observer(
-            |obs: On<Add, B>, mut res: ResMut<Order>, mut commands: Commands| {
+            |add: On<Add, B>, mut res: ResMut<Order>, mut commands: Commands| {
                 res.observed("add_b");
-                commands.entity(obs.entity()).remove::<A>();
+                commands.entity(add.entity).remove::<A>();
             },
         );
         world.add_observer(|_: On<Remove, B>, mut res: ResMut<Order>| {
@@ -695,12 +676,12 @@ mod tests {
             .spawn_empty()
             .observe(|_: On<EntityEventA>, mut res: ResMut<Order>| res.observed("a_1"))
             .id();
-        world.add_observer(move |obs: On<EntityEventA>, mut res: ResMut<Order>| {
-            assert_eq!(obs.entity(), entity);
+        world.add_observer(move |event: On<EntityEventA>, mut res: ResMut<Order>| {
+            assert_eq!(event.entity(), entity);
             res.observed("a_2");
         });
 
-        world.trigger_targets(EntityEventA, entity);
+        world.trigger(EntityEventA(entity));
         assert_eq!(vec!["a_2", "a_1"], world.resource::<Order>().0);
     }
 
@@ -744,49 +725,37 @@ mod tests {
         );
 
         // trigger for an entity and a component
-        world.trigger_targets(
-            EntityComponentsEvent,
-            EntityComponents {
-                entity: entity_1,
-                components: &[component_a],
-            },
+        world.trigger_with(
+            EntityComponentsEvent(entity_1),
+            EntityComponentsTrigger(&[component_a]),
         );
         // only observer that doesn't trigger is the one only watching entity_2
         assert_eq!(1111101, world.resource::<R>().0);
         world.resource_mut::<R>().0 = 0;
 
         // trigger for both entities, but no components: trigger once per entity target
-        world.trigger_targets(
-            EntityComponentsEvent,
-            [
-                EntityComponents {
-                    entity: entity_1,
-                    components: &[],
-                },
-                EntityComponents {
-                    entity: entity_2,
-                    components: &[],
-                },
-            ],
+        world.trigger_with(
+            EntityComponentsEvent(entity_1),
+            EntityComponentsTrigger(&[]),
         );
+        world.trigger_with(
+            EntityComponentsEvent(entity_2),
+            EntityComponentsTrigger(&[]),
+        );
+
         // only the observer that doesn't require components triggers - once per entity
         assert_eq!(200, world.resource::<R>().0);
         world.resource_mut::<R>().0 = 0;
 
         // trigger for both entities and both components: trigger once per entity target
         // we only get 2222211 because a given observer can trigger only once per entity target
-        world.trigger_targets(
-            EntityComponentsEvent,
-            [
-                EntityComponents {
-                    entity: entity_1,
-                    components: &[component_a, component_b],
-                },
-                EntityComponents {
-                    entity: entity_2,
-                    components: &[component_a, component_b],
-                },
-            ],
+        world.trigger_with(
+            EntityComponentsEvent(entity_1),
+            EntityComponentsTrigger(&[component_a, component_b]),
+        );
+        world.trigger_with(
+            EntityComponentsEvent(entity_2),
+            EntityComponentsTrigger(&[component_a, component_b]),
         );
         assert_eq!(2222211, world.resource::<R>().0);
         world.resource_mut::<R>().0 = 0;
@@ -821,7 +790,7 @@ mod tests {
         // SAFETY: we registered `event_a` above and it matches the type of EventA
         let observe = unsafe {
             Observer::with_dynamic_runner(
-                |mut world, _observer, _trigger_context, _event, _target, _trigger| {
+                |mut world, _observer, _trigger_context, _event, _trigger| {
                     world.resource_mut::<Order>().observed("event_a");
                 },
             )
@@ -835,10 +804,10 @@ mod tests {
                 DeferredWorld::from(world).trigger_raw(
                     event_a,
                     &mut EventA,
-                    (),
+                    &mut GlobalTrigger,
                     MaybeLocation::caller(),
-                )
-            };
+                );
+            }
         });
         world.flush();
         assert_eq!(vec!["event_a"], world.resource::<Order>().0);
@@ -869,7 +838,7 @@ mod tests {
             },
         );
 
-        world.trigger_targets(EventPropagating, child);
+        world.trigger(EventPropagating(child));
 
         assert_eq!(vec!["child", "parent"], world.resource::<Order>().0);
     }
@@ -893,7 +862,8 @@ mod tests {
             })
             .id();
 
-        world.trigger_targets(EventPropagating, [child, child]);
+        world.trigger(EventPropagating(child));
+        world.trigger(EventPropagating(child));
 
         assert_eq!(
             vec!["child", "parent", "child", "parent"],
@@ -920,7 +890,9 @@ mod tests {
             })
             .id();
 
-        world.trigger_targets(EventPropagating, [child, parent]);
+        world.trigger(EventPropagating(child));
+        world.trigger(EventPropagating(parent));
+
         assert_eq!(
             vec!["child", "parent", "parent"],
             world.resource::<Order>().0
@@ -947,7 +919,7 @@ mod tests {
             })
             .id();
 
-        world.trigger_targets(EventPropagating, child);
+        world.trigger(EventPropagating(child));
 
         assert_eq!(vec!["child"], world.resource::<Order>().0);
     }
@@ -978,7 +950,8 @@ mod tests {
             })
             .id();
 
-        world.trigger_targets(EventPropagating, [child_a, child_b]);
+        world.trigger(EventPropagating(child_a));
+        world.trigger(EventPropagating(child_b));
 
         assert_eq!(
             vec!["child_a", "parent", "child_b", "parent"],
@@ -998,7 +971,7 @@ mod tests {
             })
             .id();
 
-        world.trigger_targets(EventPropagating, entity);
+        world.trigger(EventPropagating(entity));
         assert_eq!(vec!["event"], world.resource::<Order>().0);
     }
 
@@ -1036,7 +1009,8 @@ mod tests {
             })
             .id();
 
-        world.trigger_targets(EventPropagating, [child_a, child_b]);
+        world.trigger(EventPropagating(child_a));
+        world.trigger(EventPropagating(child_b));
 
         assert_eq!(
             vec!["child_a", "child_b", "parent_b"],
@@ -1057,7 +1031,7 @@ mod tests {
         let parent = world.spawn(ChildOf(grandparent)).id();
         let child = world.spawn(ChildOf(parent)).id();
 
-        world.trigger_targets(EventPropagating, child);
+        world.trigger(EventPropagating(child));
 
         assert_eq!(vec!["event", "event", "event"], world.resource::<Order>().0);
     }
@@ -1079,7 +1053,7 @@ mod tests {
         let parent = world.spawn(ChildOf(grandparent)).id();
         let child = world.spawn((A, ChildOf(parent))).id();
 
-        world.trigger_targets(EventPropagating, child);
+        world.trigger(EventPropagating(child));
 
         assert_eq!(vec!["event", "event"], world.resource::<Order>().0);
     }
@@ -1087,9 +1061,9 @@ mod tests {
     // Originally for https://github.com/bevyengine/bevy/issues/18452
     #[test]
     fn observer_modifies_relationship() {
-        fn on_add(event: On<Add, A>, mut commands: Commands) {
+        fn on_add(add: On<Add, A>, mut commands: Commands) {
             commands
-                .entity(event.entity())
+                .entity(add.entity)
                 .with_related_entities::<crate::hierarchy::ChildOf>(|rsc| {
                     rsc.spawn_empty();
                 });
@@ -1200,9 +1174,11 @@ mod tests {
         });
         world.spawn(observer.with_entities(entities.iter().copied().take(2)));
 
-        world.trigger_targets(EntityEventA, [entities[0], entities[1]]);
+        world.trigger(EntityEventA(entities[0]));
+        world.trigger(EntityEventA(entities[1]));
         assert_eq!(vec!["a", "a"], world.resource::<Order>().0);
-        world.trigger_targets(EntityEventA, [entities[2], entities[3]]);
+        world.trigger(EntityEventA(entities[2]));
+        world.trigger(EntityEventA(entities[3]));
         assert_eq!(vec!["a", "a"], world.resource::<Order>().0);
     }
 

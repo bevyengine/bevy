@@ -1,6 +1,7 @@
 //! Demonstrate how to use animation events.
 
 use bevy::{
+    animation::AnimationEvent,
     color::palettes::css::{ALICE_BLUE, BLACK, CRIMSON},
     core_pipeline::bloom::Bloom,
     prelude::*,
@@ -18,7 +19,7 @@ fn main() {
 #[derive(Component)]
 struct MessageText;
 
-#[derive(EntityEvent, Clone)]
+#[derive(AnimationEvent, Clone)]
 struct MessageEvent {
     value: String,
     color: Color,

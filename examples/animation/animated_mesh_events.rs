@@ -6,6 +6,7 @@ use bevy::{
     animation::AnimationTargetId, color::palettes::css::WHITE, light::CascadeShadowConfigBuilder,
     prelude::*,
 };
+use bevy_animation::AnimationEvent;
 use rand::{Rng, SeedableRng};
 use rand_chacha::ChaCha8Rng;
 
@@ -37,17 +38,20 @@ struct Animations {
     graph_handle: Handle<AnimationGraph>,
 }
 
-#[derive(EntityEvent, Reflect, Clone)]
+#[derive(AnimationEvent, Reflect, Clone)]
 struct OnStep;
 
 fn observe_on_step(
-    event: On<OnStep>,
+    on_step: On<OnStep>,
     particle: Res<ParticleAssets>,
     mut commands: Commands,
     transforms: Query<&GlobalTransform>,
     mut seeded_rng: ResMut<SeededRng>,
 ) {
-    let translation = transforms.get(event.entity()).unwrap().translation();
+    let translation = transforms
+        .get(on_step.trigger().animation_player)
+        .unwrap()
+        .translation();
     // Spawn a bunch of particles.
     for _ in 0..14 {
         let horizontal = seeded_rng.0.random::<Dir2>() * seeded_rng.0.random_range(8.0..12.0);

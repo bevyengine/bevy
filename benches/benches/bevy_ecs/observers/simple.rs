@@ -18,7 +18,9 @@ fn deterministic_rand() -> ChaCha8Rng {
 struct SimpleEvent;
 
 #[derive(Clone, EntityEvent)]
-struct SimpleEntityEvent;
+struct SimpleEntityEvent {
+    entity: Entity,
+}
 
 pub fn observe_simple(criterion: &mut Criterion) {
     let mut group = criterion.benchmark_group("observe");
@@ -43,7 +45,9 @@ pub fn observe_simple(criterion: &mut Criterion) {
         }
         entities.shuffle(&mut deterministic_rand());
         bencher.iter(|| {
-            send_base_event(&mut world, &entities);
+            for entity in entities {
+                world.trigger(SimpleEntityEvent { entity });
+            }
         });
     });
 
@@ -56,8 +60,4 @@ fn on_simple_event(event: On<SimpleEvent>) {
 
 fn on_simple_entity_event(event: On<SimpleEntityEvent>) {
     black_box(event);
-}
-
-fn send_base_event(world: &mut World, entities: impl EventTargets<Entity>) {
-    world.trigger_targets(SimpleEntityEvent, entities);
 }

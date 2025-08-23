@@ -113,13 +113,17 @@ impl Readback {
 /// requested buffer or texture.
 #[derive(EntityEvent, Deref, DerefMut, Reflect, Debug)]
 #[reflect(Debug)]
-pub struct ReadbackComplete(pub Vec<u8>);
+pub struct ReadbackComplete {
+    pub entity: Entity,
+    #[deref]
+    pub data: Vec<u8>,
+}
 
 impl ReadbackComplete {
     /// Convert the raw bytes of the event to a shader type.
     pub fn to_shader_type<T: ShaderType + ReadFrom + Default>(&self) -> T {
         let mut val = T::default();
-        let mut reader = Reader::new::<T>(&self.0, 0).expect("Failed to create Reader");
+        let mut reader = Reader::new::<T>(&self.data, 0).expect("Failed to create Reader");
         T::read_from(&mut val, &mut reader);
         val
     }
@@ -234,8 +238,8 @@ fn sync_readbacks(
     max_unused_frames: Res<GpuReadbackMaxUnusedFrames>,
 ) {
     readbacks.mapped.retain(|readback| {
-        if let Ok((entity, buffer, result)) = readback.rx.try_recv() {
-            main_world.trigger_targets(ReadbackComplete(result), entity);
+        if let Ok((entity, buffer, data)) = readback.rx.try_recv() {
+            main_world.trigger(ReadbackComplete { data, entity });
             buffer_pool.return_buffer(&buffer);
             false
         } else {

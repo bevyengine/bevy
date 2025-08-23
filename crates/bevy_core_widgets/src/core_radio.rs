@@ -1,15 +1,13 @@
 use accesskit::Role;
 use bevy_a11y::AccessibilityNode;
 use bevy_app::{App, Plugin};
-use bevy_ecs::hierarchy::{ChildOf, Children};
-use bevy_ecs::query::Has;
-use bevy_ecs::system::In;
 use bevy_ecs::{
     component::Component,
+    hierarchy::{ChildOf, Children},
     observer::On,
-    query::With,
+    query::{Has, With},
     reflect::ReflectComponent,
-    system::{Commands, Query},
+    system::{Commands, In, Query},
 };
 use bevy_input::keyboard::{KeyCode, KeyboardInput};
 use bevy_input::ButtonState;
@@ -61,7 +59,7 @@ fn radio_group_on_key_input(
     q_children: Query<&Children>,
     mut commands: Commands,
 ) {
-    if let Ok(CoreRadioGroup { on_change }) = q_group.get(ev.entity()) {
+    if let Ok(CoreRadioGroup { on_change }) = q_group.get(ev.focused_entity) {
         let event = &ev.event().input;
         if event.state == ButtonState::Pressed
             && !event.repeat
@@ -80,7 +78,7 @@ fn radio_group_on_key_input(
 
             // Find all radio descendants that are not disabled
             let radio_buttons = q_children
-                .iter_descendants(ev.entity())
+                .iter_descendants(ev.focused_entity)
                 .filter_map(|child_id| match q_radio.get(child_id) {
                     Ok((checked, false)) => Some((child_id, checked)),
                     Ok((_, true)) | Err(_) => None,
@@ -149,7 +147,7 @@ fn radio_group_on_button_click(
     q_children: Query<&Children>,
     mut commands: Commands,
 ) {
-    if let Ok(CoreRadioGroup { on_change }) = q_group.get(ev.entity()) {
+    if let Ok(CoreRadioGroup { on_change }) = q_group.get(ev.entity) {
         // Starting with the original target, search upward for a radio button.
         let radio_id = if q_radio.contains(ev.original_entity()) {
             ev.original_entity()
@@ -180,7 +178,7 @@ fn radio_group_on_button_click(
 
         // Gather all the enabled radio group descendants for exclusion.
         let radio_buttons = q_children
-            .iter_descendants(ev.entity())
+            .iter_descendants(ev.entity)
             .filter_map(|child_id| match q_radio.get(child_id) {
                 Ok((checked, false)) => Some((child_id, checked)),
                 Ok((_, true)) | Err(_) => None,

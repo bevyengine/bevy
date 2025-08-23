@@ -30,6 +30,7 @@ use bevy_ecs::{
 #[derive(Clone, Copy, Debug, Eq, PartialEq, EntityEvent, Reflect)]
 #[reflect(Debug, PartialEq, Clone)]
 pub struct SceneInstanceReady {
+    pub entity: Entity,
     /// Instance which has been spawned.
     pub instance_id: InstanceId,
 }
@@ -506,16 +507,18 @@ impl SceneSpawner {
         for (instance_id, parent) in self.instances_ready.drain(..) {
             if let Some(parent) = parent {
                 // Defer via commands otherwise SceneSpawner is not available in the observer.
-                world
-                    .commands()
-                    .trigger_targets(SceneInstanceReady { instance_id }, parent);
+                world.commands().trigger(SceneInstanceReady {
+                    instance_id,
+                    entity: parent,
+                });
             } else {
                 // Defer via commands otherwise SceneSpawner is not available in the observer.
                 // TODO: triggering this for PLACEHOLDER is suboptimal, but this scene system is on
                 // its way out, so lets avoid breaking people by making a second event.
-                world
-                    .commands()
-                    .trigger_targets(SceneInstanceReady { instance_id }, Entity::PLACEHOLDER);
+                world.commands().trigger(SceneInstanceReady {
+                    instance_id,
+                    entity: Entity::PLACEHOLDER,
+                });
             }
         }
     }

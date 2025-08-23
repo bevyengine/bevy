@@ -29,6 +29,7 @@ use bevy_app::{App, Plugin, Startup};
 use bevy_ecs::{
     component::Component,
     entity::Entity,
+    event::EntityEvent,
     hierarchy::{ChildOf, Children},
     observer::On,
     query::{With, Without},
@@ -322,14 +323,14 @@ pub(crate) fn acquire_focus(
     mut focus: ResMut<InputFocus>,
 ) {
     // If the entity has a TabIndex
-    if focusable.contains(ev.entity()) {
+    if focusable.contains(ev.focused_entity) {
         // Stop and focus it
         ev.propagate(false);
         // Don't mutate unless we need to, for change detection
-        if focus.0 != Some(ev.entity()) {
-            focus.0 = Some(ev.entity());
+        if focus.0 != Some(ev.focused_entity) {
+            focus.0 = Some(ev.focused_entity);
         }
-    } else if windows.contains(ev.entity()) {
+    } else if windows.contains(ev.focused_entity) {
         // Stop and clear focus
         ev.propagate(false);
         // Don't mutate unless we need to, for change detection
@@ -357,7 +358,7 @@ fn setup_tab_navigation(mut commands: Commands, window: Query<Entity, With<Prima
 }
 
 fn click_to_focus(
-    ev: On<Pointer<Press>>,
+    press: On<Pointer<Press>>,
     mut focus_visible: ResMut<InputFocusVisible>,
     windows: Query<Entity, With<PrimaryWindow>>,
     mut commands: Commands,
@@ -366,16 +367,17 @@ fn click_to_focus(
     // for every ancestor, but only for the original entity. Also, users may want to stop
     // propagation on the pointer event at some point along the bubbling chain, so we need our
     // own dedicated event whose propagation we can control.
-    if ev.entity() == ev.original_entity() {
+    if press.entity == press.original_entity() {
         // Clicking hides focus
         if focus_visible.0 {
             focus_visible.0 = false;
         }
         // Search for a focusable parent entity, defaulting to window if none.
         if let Ok(window) = windows.single() {
-            commands
-                .entity(ev.entity())
-                .trigger(AcquireFocus { window });
+            commands.trigger(AcquireFocus {
+                focused_entity: press.entity,
+                window,
+            });
         }
     }
 }

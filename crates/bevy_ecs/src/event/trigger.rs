@@ -1,39 +1,46 @@
 use crate::{
     component::ComponentId,
     entity::Entity,
-    event::Event,
+    event::{EntityEvent, Event},
     observer::{CachedObservers, TriggerContext},
     traversal::Traversal,
     world::DeferredWorld,
 };
-use bevy_ptr::{Ptr, PtrMut};
+use bevy_ptr::PtrMut;
 use core::marker::PhantomData;
 
-pub trait Trigger: Default {
-    type Target<'a>;
+pub trait Trigger<E: Event> {
     fn trigger(
         &mut self,
         world: DeferredWorld,
         observers: &CachedObservers,
-        event: PtrMut,
-        target: &Self::Target<'_>,
         trigger_context: &TriggerContext,
+        event: &mut E,
     );
 }
 
 #[derive(Default)]
 pub struct GlobalTrigger;
 
-impl Trigger for GlobalTrigger {
-    type Target<'a> = ();
-
+impl<E: Event> Trigger<E> for GlobalTrigger {
     fn trigger(
+        &mut self,
+        world: DeferredWorld,
+        observers: &CachedObservers,
+        trigger_context: &TriggerContext,
+        event: &mut E,
+    ) {
+        self.trigger_internal(world, observers, trigger_context, event.into());
+    }
+}
+
+impl GlobalTrigger {
+    fn trigger_internal(
         &mut self,
         mut world: DeferredWorld,
         observers: &CachedObservers,
-        mut event: PtrMut,
-        target: &Self::Target<'_>,
         trigger_context: &TriggerContext,
+        mut event: PtrMut,
     ) {
         // SAFETY: there are no outstanding world references
         unsafe {
@@ -45,7 +52,6 @@ impl Trigger for GlobalTrigger {
                 *observer,
                 trigger_context,
                 event.reborrow(),
-                target.into(),
                 self.into(),
             );
         }
@@ -55,35 +61,36 @@ impl Trigger for GlobalTrigger {
 #[derive(Default)]
 pub struct EntityTrigger;
 
-impl Trigger for EntityTrigger {
-    type Target<'a> = Entity;
+impl<E: EntityEvent> Trigger<E> for EntityTrigger {
     fn trigger(
         &mut self,
         world: DeferredWorld,
         observers: &CachedObservers,
-        event: PtrMut,
-        target: &Self::Target<'_>,
         trigger_context: &TriggerContext,
+        event: &mut E,
     ) {
-        trigger_entity_raw(
+        let entity = event.entity();
+        trigger_entity_internal(
             world,
             observers,
-            event,
-            target.into(),
-            target,
+            event.into(),
             self.into(),
+            entity,
             trigger_context,
         );
     }
 }
 
-fn trigger_entity_raw(
+/// Trigger observers listening for the given entity event.
+/// The `target_entity` should match the `EntityEvent::entity` on `event` for logical correctness.
+// Note: this is not an EntityTrigger method because we want to reuse this logic for the entity propagation trigger
+#[inline(never)]
+pub fn trigger_entity_internal(
     mut world: DeferredWorld,
     observers: &CachedObservers,
     mut event: PtrMut,
-    target: Ptr,
-    target_entity: &Entity,
     mut trigger: PtrMut,
+    target_entity: Entity,
     trigger_context: &TriggerContext,
 ) {
     // SAFETY: there are no outstanding world references
@@ -96,36 +103,30 @@ fn trigger_entity_raw(
             *observer,
             trigger_context,
             event.reborrow(),
-            target,
             trigger.reborrow(),
         );
     }
 
-    if let Some(map) = observers.entity_observers().get(target_entity) {
+    if let Some(map) = observers.entity_observers().get(&target_entity) {
         for (observer, runner) in map {
             (runner)(
                 world.reborrow(),
                 *observer,
                 trigger_context,
                 event.reborrow(),
-                target,
                 trigger.reborrow(),
             );
         }
     }
 }
 
-pub struct PropagateEntityTrigger<
-    const AUTO_PROPAGATE: bool,
-    E: for<'t> Event<Target<'t> = Entity>,
-    T: Traversal<E>,
-> {
+pub struct PropagateEntityTrigger<const AUTO_PROPAGATE: bool, E: EntityEvent, T: Traversal<E>> {
     pub original_entity: Entity,
     pub propagate: bool,
     _marker: PhantomData<(E, T)>,
 }
 
-impl<const AUTO_PROPAGATE: bool, E: for<'t> Event<Target<'t> = Entity>, T: Traversal<E>> Default
+impl<const AUTO_PROPAGATE: bool, E: EntityEvent, T: Traversal<E>> Default
     for PropagateEntityTrigger<AUTO_PROPAGATE, E, T>
 {
     fn default() -> Self {
@@ -137,53 +138,49 @@ impl<const AUTO_PROPAGATE: bool, E: for<'t> Event<Target<'t> = Entity>, T: Trave
     }
 }
 
-impl<const AUTO_PROPAGATE: bool, E: for<'t> Event<Target<'t> = Entity>, T: Traversal<E>> Trigger
+impl<const AUTO_PROPAGATE: bool, E: EntityEvent, T: Traversal<E>> Trigger<E>
     for PropagateEntityTrigger<AUTO_PROPAGATE, E, T>
 {
-    type Target<'a> = Entity;
-
     fn trigger(
         &mut self,
         mut world: DeferredWorld,
         observers: &CachedObservers,
-        mut event: PtrMut,
-        target: &Self::Target<'_>,
         trigger_context: &TriggerContext,
+        event: &mut E,
     ) {
-        self.original_entity = *target;
-        trigger_entity_raw(
+        let mut current_entity = event.entity();
+        self.original_entity = current_entity;
+        trigger_entity_internal(
             world.reborrow(),
             observers,
-            event.reborrow(),
-            target.into(),
-            target,
+            event.into(),
             self.into(),
+            current_entity,
             trigger_context,
         );
 
-        let mut current_target = *target;
         loop {
             if !self.propagate {
                 return;
             }
-            if let Ok(entity) = world.get_entity(current_target)
+            if let Ok(entity) = world.get_entity(current_entity)
                 && let Some(item) = entity.get_components::<T>()
                 && let Some(traverse_to) =
                     // TODO: Sort out the safety of this
-                    T::traverse(item, unsafe { event.reborrow().deref_mut() })
+                    T::traverse(item, event)
             {
-                current_target = traverse_to;
+                current_entity = traverse_to;
             } else {
                 break;
             }
 
-            trigger_entity_raw(
+            *event.entity_mut() = current_entity;
+            trigger_entity_internal(
                 world.reborrow(),
                 observers,
-                event.reborrow(),
-                (&current_target).into(),
-                &current_target,
+                event.into(),
                 self.into(),
+                current_entity,
                 trigger_context,
             );
         }
@@ -191,36 +188,42 @@ impl<const AUTO_PROPAGATE: bool, E: for<'t> Event<Target<'t> = Entity>, T: Trave
 }
 
 #[derive(Default)]
-pub struct EntityComponentsTrigger;
+pub struct EntityComponentsTrigger<'a>(pub &'a [ComponentId]);
 
-pub struct EntityComponents<'a> {
-    pub entity: Entity,
-    pub components: &'a [ComponentId],
+impl<'a, E: EntityEvent> Trigger<E> for EntityComponentsTrigger<'a> {
+    fn trigger(
+        &mut self,
+        world: DeferredWorld,
+        observers: &CachedObservers,
+        trigger_context: &TriggerContext,
+        event: &mut E,
+    ) {
+        let entity = event.entity();
+        self.trigger_internal(world, observers, event.into(), entity, trigger_context);
+    }
 }
 
-impl Trigger for EntityComponentsTrigger {
-    type Target<'a> = EntityComponents<'a>;
-
-    fn trigger(
+impl<'a> EntityComponentsTrigger<'a> {
+    #[inline(never)]
+    fn trigger_internal(
         &mut self,
         mut world: DeferredWorld,
         observers: &CachedObservers,
         mut event: PtrMut,
-        target: &Self::Target<'_>,
+        entity: Entity,
         trigger_context: &TriggerContext,
     ) {
-        trigger_entity_raw(
+        trigger_entity_internal(
             world.reborrow(),
             observers,
             event.reborrow(),
-            target.into(),
-            &target.entity,
             self.into(),
+            entity,
             trigger_context,
         );
 
         // Trigger observers listening to this trigger targeting a specific component
-        for id in target.components {
+        for id in self.0 {
             if let Some(component_observers) = observers.component_observers().get(id) {
                 for (observer, runner) in component_observers.global_observers() {
                     (runner)(
@@ -228,14 +231,13 @@ impl Trigger for EntityComponentsTrigger {
                         *observer,
                         trigger_context,
                         event.reborrow(),
-                        target.into(),
                         self.into(),
                     );
                 }
 
                 if let Some(map) = component_observers
                     .entity_component_observers()
-                    .get(&target.entity)
+                    .get(&entity)
                 {
                     for (observer, runner) in map {
                         (runner)(
@@ -243,28 +245,11 @@ impl Trigger for EntityComponentsTrigger {
                             *observer,
                             trigger_context,
                             event.reborrow(),
-                            target.into(),
                             self.into(),
                         );
                     }
                 }
             }
         }
-    }
-}
-
-pub trait EntityTarget {
-    fn entity(&self) -> Entity;
-}
-
-impl EntityTarget for Entity {
-    fn entity(&self) -> Entity {
-        *self
-    }
-}
-
-impl<'a> EntityTarget for EntityComponents<'a> {
-    fn entity(&self) -> Entity {
-        self.entity
     }
 }

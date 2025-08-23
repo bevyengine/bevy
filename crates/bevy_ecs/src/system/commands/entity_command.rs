@@ -253,20 +253,6 @@ pub fn observe<E: EntityEvent, B: Bundle, M>(
     }
 }
 
-/// An [`EntityCommand`] that sends an [`EntityEvent`] targeting an entity.
-///
-/// This will run any [`Observer`](crate::observer::Observer) of the given [`EntityEvent`] watching the entity.
-#[track_caller]
-pub fn trigger(mut event: impl EntityEvent) -> impl EntityCommand {
-    let caller = MaybeLocation::caller();
-    move |mut entity: EntityWorldMut| {
-        let id = entity.id();
-        entity.world_scope(|world| {
-            world.trigger_with_caller(&mut event, id, caller);
-        });
-    }
-}
-
 /// An [`EntityCommand`] that clones parts of an entity onto another entity,
 /// configured through [`EntityClonerBuilder`].
 ///

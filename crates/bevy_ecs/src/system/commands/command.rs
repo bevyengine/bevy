@@ -10,7 +10,6 @@ use crate::{
     entity::Entity,
     error::Result,
     event::{BufferedEvent, Event, Events},
-    observer::EventTargets,
     resource::Resource,
     schedule::ScheduleLabel,
     system::{IntoSystem, SystemId, SystemInput},
@@ -210,22 +209,26 @@ pub fn run_schedule(label: impl ScheduleLabel) -> impl Command<Result> {
 
 /// A [`Command`] that sends a global [`Event`] without any targets.
 #[track_caller]
-pub fn trigger<'a>(mut event: impl Event<Target<'a> = ()>) -> impl Command {
+pub fn trigger<'a, E: Event<Trigger<'a>: Default>>(mut event: E) -> impl Command {
     let caller = MaybeLocation::caller();
     move |world: &mut World| {
-        world.trigger_with_caller(&mut event, (), caller);
+        world.trigger_with_ref_caller(
+            &mut event,
+            &mut <E::Trigger<'_> as Default>::default(),
+            caller,
+        );
     }
 }
 
-/// A [`Command`] that sends an [`EntityEvent`] for the given targets.
+/// A [`Command`] that sends a global [`Event`] without any targets.
 #[track_caller]
-pub fn trigger_targets<'a, E: Event>(
+pub fn trigger_with<E: Event<Trigger<'static>: Send + Sync>>(
     mut event: E,
-    targets: impl EventTargets<E::Target<'a>> + 'static,
+    mut trigger: E::Trigger<'static>,
 ) -> impl Command {
     let caller = MaybeLocation::caller();
     move |world: &mut World| {
-        world.trigger_with_caller(&mut event, targets, caller);
+        world.trigger_with_ref_caller(&mut event, &mut trigger, caller);
     }
 }
 

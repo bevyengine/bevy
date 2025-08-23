@@ -8,10 +8,11 @@ use crate::{
     component::{ComponentId, Mutable},
     entity::Entity,
     event::{
-        BufferedEvent, EntityComponents, Event, EventId, EventKey, Events, Trigger, WriteBatchIds,
+        BufferedEvent, EntityComponentsTrigger, Event, EventId, EventKey, Events, Trigger,
+        WriteBatchIds,
     },
     lifecycle::{HookContext, Insert, Replace, INSERT, REPLACE},
-    observer::{EventTargets, TriggerContext},
+    observer::TriggerContext,
     prelude::{Component, QueryState},
     query::{QueryData, QueryFilter},
     relationship::RelationshipHookMode,
@@ -170,11 +171,8 @@ impl<'w> DeferredWorld<'w> {
             if archetype.has_replace_observer() {
                 self.trigger_raw(
                     REPLACE,
-                    &mut Replace,
-                    EntityComponents {
-                        entity,
-                        components: &[component_id],
-                    },
+                    &mut Replace { entity },
+                    &mut EntityComponentsTrigger(&[component_id]),
                     MaybeLocation::caller(),
                 );
             }
@@ -213,11 +211,8 @@ impl<'w> DeferredWorld<'w> {
             if archetype.has_insert_observer() {
                 self.trigger_raw(
                     INSERT,
-                    &mut Insert,
-                    EntityComponents {
-                        entity,
-                        components: &[component_id],
-                    },
+                    &mut Insert { entity },
+                    &mut EntityComponentsTrigger(&[component_id]),
                     MaybeLocation::caller(),
                 );
             }
@@ -794,7 +789,7 @@ impl<'w> DeferredWorld<'w> {
         &mut self,
         event_key: EventKey,
         event: &mut E,
-        targets: impl EventTargets<E::Target<'a>>,
+        trigger: &mut E::Trigger<'a>,
         caller: MaybeLocation,
     ) {
         // SAFETY: You cannot get a mutable reference to `observers` from `DeferredWorld`
@@ -808,10 +803,7 @@ impl<'w> DeferredWorld<'w> {
             (world.into_deferred(), observers)
         };
         let context = TriggerContext { event_key, caller };
-        for target in targets.targets() {
-            let mut trigger = <E::Trigger as Default>::default();
-            trigger.trigger(world.reborrow(), observers, event.into(), target, &context);
-        }
+        trigger.trigger(world.reborrow(), observers, &context, event);
     }
 
     /// Sends a global [`Event`] without any targets.
@@ -819,23 +811,8 @@ impl<'w> DeferredWorld<'w> {
     /// This will run any [`Observer`] of the given [`Event`] that isn't scoped to specific targets.
     ///
     /// [`Observer`]: crate::observer::Observer
-    pub fn trigger<'a>(&mut self, trigger: impl Event<Target<'a> = ()>) {
-        // TODO: can we just use trigger_raw here?
+    pub fn trigger<'a>(&mut self, trigger: impl Event<Trigger<'a>: Default>) {
         self.commands().trigger(trigger);
-    }
-
-    /// Sends an [`EntityEvent`] with the given `targets`
-    ///
-    /// This will run any [`Observer`] of the given [`EntityEvent`] watching those targets.
-    ///
-    /// [`Observer`]: crate::observer::Observer
-    pub fn trigger_targets<'a, E: Event>(
-        &mut self,
-        trigger: E,
-        targets: impl EventTargets<E::Target<'a>> + 'static,
-    ) {
-        // TODO: can we just use trigger_raw here?
-        self.commands().trigger_targets(trigger, targets);
     }
 
     /// Gets an [`UnsafeWorldCell`] containing the underlying world.

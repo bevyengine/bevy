@@ -143,6 +143,8 @@ pub struct InputFocusVisible(pub bool);
 #[entity_event(propagate = WindowTraversal, auto_propagate)]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Component, Clone))]
 pub struct FocusedInput<E: BufferedEvent + Clone> {
+    #[event_entity]
+    pub focused_entity: Entity,
     /// The underlying input event.
     pub input: E,
     /// The primary window entity.
@@ -154,6 +156,8 @@ pub struct FocusedInput<E: BufferedEvent + Clone> {
 #[derive(Clone, EntityEvent)]
 #[entity_event(propagate = WindowTraversal, auto_propagate)]
 pub struct AcquireFocus {
+    #[event_entity]
+    pub focused_entity: Entity,
     /// The primary window entity.
     window: Entity,
 }
@@ -265,38 +269,32 @@ pub fn dispatch_focused_input<E: BufferedEvent + Clone>(
             // Check if the focused entity is still alive
             if entities.contains(focused_entity) {
                 for ev in key_events.read() {
-                    commands.trigger_targets(
-                        FocusedInput {
-                            input: ev.clone(),
-                            window,
-                        },
+                    commands.trigger(FocusedInput {
                         focused_entity,
-                    );
+                        input: ev.clone(),
+                        window,
+                    });
                 }
             } else {
                 // If the focused entity no longer exists, clear focus and dispatch to window
                 focus.0 = None;
                 for ev in key_events.read() {
-                    commands.trigger_targets(
-                        FocusedInput {
-                            input: ev.clone(),
-                            window,
-                        },
+                    commands.trigger(FocusedInput {
+                        focused_entity: window,
+                        input: ev.clone(),
                         window,
-                    );
+                    });
                 }
             }
         } else {
             // If no element has input focus, then dispatch the input event to the primary window.
             // There should be only one primary window.
             for ev in key_events.read() {
-                commands.trigger_targets(
-                    FocusedInput {
-                        input: ev.clone(),
-                        window,
-                    },
+                commands.trigger(FocusedInput {
+                    focused_entity: window,
+                    input: ev.clone(),
                     window,
-                );
+                });
             }
         }
     }
@@ -422,7 +420,7 @@ mod tests {
         event: On<FocusedInput<KeyboardInput>>,
         mut query: Query<&mut GatherKeyboardEvents>,
     ) {
-        if let Ok(mut gather) = query.get_mut(event.entity()) {
+        if let Ok(mut gather) = query.get_mut(event.focused_entity) {
             if let Key::Character(c) = &event.input.logical_key {
                 gather.0.push_str(c.as_str());
             }

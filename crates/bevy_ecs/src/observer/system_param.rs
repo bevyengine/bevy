@@ -11,7 +11,7 @@ use bevy_ptr::Ptr;
 use crate::{
     bundle::Bundle,
     change_detection::MaybeLocation,
-    event::{EntityTarget, Event, PropagateEntityTrigger},
+    event::{Event, PropagateEntityTrigger},
     prelude::*,
     traversal::Traversal,
 };
@@ -31,10 +31,9 @@ use crate::{
 /// matching component in the bundle,
 /// [rather than requiring all of them to be present](https://github.com/bevyengine/bevy/issues/15325).
 pub struct On<'w, E: Event, B: Bundle = ()> {
-    event: &'w mut E,
     observer: Entity,
-    target: &'w E::Target<'w>,
-    trigger: &'w mut E::Trigger,
+    event: &'w mut E,
+    trigger: &'w mut E::Trigger<'w>,
     trigger_context: &'w TriggerContext,
     _marker: PhantomData<B>,
 }
@@ -48,14 +47,12 @@ impl<'w, E: Event, B: Bundle> On<'w, E, B> {
     pub fn new(
         event: &'w mut E,
         observer: Entity,
-        target: &'w E::Target<'w>,
-        trigger: &'w mut E::Trigger,
+        trigger: &'w mut E::Trigger<'w>,
         trigger_context: &'w TriggerContext,
     ) -> Self {
         Self {
             event,
             observer,
-            target,
             trigger,
             trigger_context,
             _marker: PhantomData,
@@ -83,13 +80,8 @@ impl<'w, E: Event, B: Bundle> On<'w, E, B> {
     }
 
     /// Returns the trigger context for this event.
-    pub fn trigger(&self) -> &E::Trigger {
+    pub fn trigger(&self) -> &E::Trigger<'w> {
         self.trigger
-    }
-
-    /// Returns the target for this event. For entity events, consider using [`On::entity`].
-    pub fn target(&self) -> &E::Target<'w> {
-        self.target
     }
 
     /// Returns the [`Entity`] that observed the triggered event.
@@ -122,22 +114,10 @@ impl<'w, E: Event, B: Bundle> On<'w, E, B> {
     }
 }
 
-impl<'w, E: for<'t> Event<Target<'t>: EntityTarget>, B: Bundle> On<'w, E, B> {
-    /// Returns the [`Entity`] that was targeted by the `event` that triggered this observer.
-    ///
-    /// Note that if event propagation is enabled, this may not be the same as the original target of the event,
-    /// which can be accessed via [`On::original_entity`].
-    ///
-    /// If the event was not targeted at a specific entity, this will return [`Entity::PLACEHOLDER`].
-    pub fn entity(&self) -> Entity {
-        self.target.entity()
-    }
-}
-
 impl<
         'w,
         const AUTO_PROPAGATE: bool,
-        E: for<'t> Event<Target<'t> = Entity, Trigger = PropagateEntityTrigger<AUTO_PROPAGATE, E, T>>,
+        E: EntityEvent + for<'t> Event<Trigger<'t> = PropagateEntityTrigger<AUTO_PROPAGATE, E, T>>,
         B: Bundle,
         T: Traversal<E>,
     > On<'w, E, B>
@@ -173,14 +153,11 @@ impl<
     }
 }
 
-impl<'w, E: for<'t> Event<Trigger: Debug, Target<'t>: Debug> + Debug, B: Bundle> Debug
-    for On<'w, E, B>
-{
+impl<'w, E: for<'t> Event<Trigger<'t>: Debug> + Debug, B: Bundle> Debug for On<'w, E, B> {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         f.debug_struct("On")
             .field("event", &self.event)
             .field("trigger", &self.trigger)
-            .field("target", &self.target)
             .field("_marker", &self._marker)
             .finish()
     }

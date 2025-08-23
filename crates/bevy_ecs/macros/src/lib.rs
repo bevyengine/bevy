@@ -566,7 +566,7 @@ pub fn derive_event(input: TokenStream) -> TokenStream {
 /// #[entity_event(auto_propagate)]
 /// struct MyEvent;
 /// ```
-#[proc_macro_derive(EntityEvent, attributes(entity_event))]
+#[proc_macro_derive(EntityEvent, attributes(entity_event, event_entity))]
 pub fn derive_entity_event(input: TokenStream) -> TokenStream {
     component::derive_entity_event(input)
 }

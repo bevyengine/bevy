@@ -39,9 +39,13 @@ use std::{
 use tracing::{error, info, warn};
 use wgpu::{CommandEncoder, Extent3d, TextureFormat};
 
-#[derive(EntityEvent, Deref, DerefMut, Reflect, Debug)]
+#[derive(EntityEvent, Reflect, Deref, DerefMut, Debug)]
 #[reflect(Debug)]
-pub struct ScreenshotCaptured(pub Image);
+pub struct ScreenshotCaptured {
+    pub entity: Entity,
+    #[deref]
+    pub image: Image,
+}
 
 /// A component that signals to the renderer to capture a screenshot this frame.
 ///
@@ -125,7 +129,7 @@ struct RenderScreenshotsSender(Sender<(Entity, Image)>);
 pub fn save_to_disk(path: impl AsRef<Path>) -> impl FnMut(On<ScreenshotCaptured>) {
     let path = path.as_ref().to_owned();
     move |event| {
-        let img = event.0.clone();
+        let img = event.image.clone();
         match img.try_into_dynamic() {
             Ok(dyn_img) => match image::ImageFormat::from_path(&path) {
                 Ok(format) => {
@@ -196,7 +200,7 @@ pub fn trigger_screenshots(
     let captured_screenshots = captured_screenshots.lock().unwrap();
     while let Ok((entity, image)) = captured_screenshots.try_recv() {
         commands.entity(entity).insert(Captured);
-        commands.trigger_targets(ScreenshotCaptured(image), entity);
+        commands.trigger(ScreenshotCaptured { image, entity });
     }
 }
 

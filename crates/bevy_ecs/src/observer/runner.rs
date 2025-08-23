@@ -11,27 +11,20 @@ use crate::{
     system::{ObserverSystem, RunSystemError},
     world::DeferredWorld,
 };
-use bevy_ptr::{Ptr, PtrMut};
+use bevy_ptr::PtrMut;
 
 /// Type for function that is run when an observer is triggered.
 ///
 /// Typically refers to the default runner that runs the system stored in the associated [`Observer`] component,
 /// but can be overridden for custom behavior.
-pub type ObserverRunner = fn(
-    DeferredWorld,
-    observer: Entity,
-    &TriggerContext,
-    event: PtrMut,
-    target: Ptr,
-    trigger: PtrMut,
-);
+pub type ObserverRunner =
+    fn(DeferredWorld, observer: Entity, &TriggerContext, event: PtrMut, trigger: PtrMut);
 
 pub(super) fn observer_system_runner<E: Event, B: Bundle, S: ObserverSystem<E, B>>(
     mut world: DeferredWorld,
     observer: Entity,
     trigger_context: &TriggerContext,
     event_ptr: PtrMut,
-    target_ptr: Ptr,
     trigger_ptr: PtrMut,
 ) {
     let world = world.as_unsafe_world_cell();
@@ -49,15 +42,12 @@ pub(super) fn observer_system_runner<E: Event, B: Bundle, S: ObserverSystem<E, B
     state.last_trigger_id = last_trigger;
 
     // SAFETY: Caller ensures `trigger_ptr` is castable to `&mut E::Trigger`
-    let trigger: &mut E::Trigger = unsafe { trigger_ptr.deref_mut() };
-    // SAFETY: Caller ensures `target_ptr` is castable to `&E::Target`
-    let target: &E::Target<'_> = unsafe { target_ptr.deref() };
+    let trigger: &mut E::Trigger<'_> = unsafe { trigger_ptr.deref_mut() };
 
     let on: On<E, B> = On::new(
         // SAFETY: Caller ensures `ptr` is castable to `&mut T`
         unsafe { event_ptr.deref_mut() },
         observer,
-        target,
         trigger,
         trigger_context,
     );

@@ -8,7 +8,7 @@ use crate::{
     change_detection::MaybeLocation,
     component::{ComponentId, Components, ComponentsRegistrator, StorageType},
     entity::{Entity, EntityLocation},
-    event::EntityComponents,
+    event::EntityComponentsTrigger,
     lifecycle::{Remove, Replace, REMOVE, REPLACE},
     observer::Observers,
     relationship::RelationshipHookMode,
@@ -154,11 +154,8 @@ impl<'w> BundleRemover<'w> {
                 let components = bundle_components_in_archetype().collect::<Vec<_>>();
                 deferred_world.trigger_raw(
                     REPLACE,
-                    &mut Replace,
-                    EntityComponents {
-                        entity,
-                        components: &components,
-                    },
+                    &mut Replace { entity },
+                    &mut EntityComponentsTrigger(&components),
                     caller,
                 );
             }
@@ -173,11 +170,8 @@ impl<'w> BundleRemover<'w> {
                 let components = bundle_components_in_archetype().collect::<Vec<_>>();
                 deferred_world.trigger_raw(
                     REMOVE,
-                    &mut Remove,
-                    EntityComponents {
-                        entity,
-                        components: &components,
-                    },
+                    &mut Remove { entity },
+                    &mut EntityComponentsTrigger(&components),
                     caller,
                 );
             }

@@ -13,7 +13,7 @@ use crate::{
         ContainsEntity, Entity, EntityCloner, EntityClonerBuilder, EntityEquivalent,
         EntityIdLocation, EntityLocation, OptIn, OptOut,
     },
-    event::{EntityComponents, EntityEvent, EntityTarget, Event},
+    event::{EntityComponentsTrigger, EntityEvent, Event},
     lifecycle::{Despawn, Remove, Replace, DESPAWN, REMOVE, REPLACE},
     observer::Observer,
     query::{Access, DebugCheckedUnwrap, ReadOnlyQueryData, ReleaseStateQueryData},
@@ -2025,6 +2025,28 @@ impl<'w> EntityWorldMut<'w> {
         )
     }
 
+    #[track_caller]
+    pub fn trigger<'a, E: Event<Trigger<'a>: Default>>(&mut self, mut event: E) {
+        self.world_scope(|world| {
+            world.trigger_with_ref_caller(
+                &mut event,
+                &mut <E::Trigger<'_> as Default>::default(),
+                MaybeLocation::caller(),
+            );
+        });
+    }
+
+    #[track_caller]
+    pub fn trigger_with<'a, E: Event<Trigger<'a>: Send + Sync>>(
+        &mut self,
+        mut event: E,
+        mut trigger: E::Trigger<'a>,
+    ) {
+        self.world_scope(|world| {
+            world.trigger_with_ref_caller(&mut event, &mut trigger, MaybeLocation::caller());
+        });
+    }
+
     /// Split into a new function so we can pass the calling location into the function when using
     /// as a command.
     #[inline]
@@ -2579,11 +2601,10 @@ impl<'w> EntityWorldMut<'w> {
             if archetype.has_despawn_observer() {
                 deferred_world.trigger_raw(
                     DESPAWN,
-                    &mut Despawn,
-                    EntityComponents {
+                    &mut Despawn {
                         entity: self.entity,
-                        components: archetype.components(),
                     },
+                    &mut EntityComponentsTrigger(archetype.components()),
                     caller,
                 );
             }
@@ -2596,11 +2617,10 @@ impl<'w> EntityWorldMut<'w> {
             if archetype.has_replace_observer() {
                 deferred_world.trigger_raw(
                     REPLACE,
-                    &mut Replace,
-                    EntityComponents {
+                    &mut Replace {
                         entity: self.entity,
-                        components: archetype.components(),
                     },
+                    &mut EntityComponentsTrigger(archetype.components()),
                     caller,
                 );
             }
@@ -2614,11 +2634,10 @@ impl<'w> EntityWorldMut<'w> {
             if archetype.has_remove_observer() {
                 deferred_world.trigger_raw(
                     REMOVE,
-                    &mut Remove,
-                    EntityComponents {
+                    &mut Remove {
                         entity: self.entity,
-                        components: archetype.components(),
                     },
+                    &mut EntityComponentsTrigger(archetype.components()),
                     caller,
                 );
             }
@@ -2840,19 +2859,6 @@ impl<'w> EntityWorldMut<'w> {
         }
     }
 
-    /// Triggers the given `event` for this entity, which will run any observers watching for it.
-    ///
-    /// # Panics
-    ///
-    /// If the entity has been despawned while this `EntityWorldMut` is still alive.
-    pub fn trigger(&mut self, event: impl EntityEvent) -> &mut Self {
-        self.assert_not_despawned();
-        self.world.trigger_targets(event, self.entity);
-        self.world.flush();
-        self.update_location();
-        self
-    }
-
     /// Creates an [`Observer`] listening for events of type `E` targeting this entity.
     /// In order to trigger the callback the entity must also match the query when the event is fired.
     ///
@@ -2862,14 +2868,14 @@ impl<'w> EntityWorldMut<'w> {
     ///
     /// Panics if the given system is an exclusive system.
     #[track_caller]
-    pub fn observe<'a, E: Event<Target<'a>: EntityTarget>, B: Bundle, M>(
+    pub fn observe<E: EntityEvent, B: Bundle, M>(
         &mut self,
         observer: impl IntoObserverSystem<E, B, M>,
     ) -> &mut Self {
         self.observe_with_caller(observer, MaybeLocation::caller())
     }
 
-    pub(crate) fn observe_with_caller<'a, E: Event<Target<'a>: EntityTarget>, B: Bundle, M>(
+    pub(crate) fn observe_with_caller<E: EntityEvent, B: Bundle, M>(
         &mut self,
         observer: impl IntoObserverSystem<E, B, M>,
         caller: MaybeLocation,
@@ -6084,7 +6090,7 @@ mod tests {
     }
 
     #[derive(EntityEvent)]
-    struct TestEvent;
+    struct TestEvent(Entity);
 
     #[test]
     fn adding_observer_updates_location() {
@@ -6100,7 +6106,9 @@ mod tests {
         world.flush();
 
         let mut a = world.entity_mut(entity);
-        a.trigger(TestEvent); // this adds command to change entity archetype
+        // SAFETY: this _intentionally_ doesn't update the location, to ensure that we're actually testing
+        // that observe() updates location
+        unsafe { a.world_mut().trigger(TestEvent(entity)) }
         a.observe(|_: On<TestEvent>| {}); // this flushes commands implicitly by spawning
         let location = a.location();
         assert_eq!(world.entities().get(entity), Some(location));
@@ -6110,8 +6118,8 @@ mod tests {
     #[should_panic]
     fn location_on_despawned_entity_panics() {
         let mut world = World::new();
-        world.add_observer(|event: On<Add, TestComponent>, mut commands: Commands| {
-            commands.entity(event.entity()).despawn();
+        world.add_observer(|add: On<Add, TestComponent>, mut commands: Commands| {
+            commands.entity(add.entity).despawn();
         });
         let entity = world.spawn_empty().id();
         let mut a = world.entity_mut(entity);
@@ -6140,8 +6148,8 @@ mod tests {
         let entity = world.spawn_empty().id();
         assert_eq!(world.resource::<TestFlush>().0, 1);
         world.commands().queue(count_flush);
+        world.flush_commands();
         let mut a = world.entity_mut(entity);
-        a.trigger(TestEvent);
         assert_eq!(a.world().resource::<TestFlush>().0, 2);
         a.insert(TestComponent(0));
         assert_eq!(a.world().resource::<TestFlush>().0, 3);

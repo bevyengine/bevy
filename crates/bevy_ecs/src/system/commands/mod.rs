@@ -21,7 +21,7 @@ use crate::{
     entity::{Entities, Entity, EntityClonerBuilder, EntityDoesNotExistError, OptIn, OptOut},
     error::{warn, BevyError, CommandWithEntity, ErrorContext, HandleError},
     event::{BufferedEvent, EntityEvent, Event},
-    observer::{EventTargets, Observer},
+    observer::Observer,
     resource::Resource,
     schedule::ScheduleLabel,
     system::{
@@ -1083,38 +1083,18 @@ impl<'w, 's> Commands<'w, 's> {
         self.queue(command::run_system_cached_with(system, input).handle_error_with(warn));
     }
 
-    /// Sends a global [`Event`] without any targets.
-    ///
-    /// This will run any [`Observer`] of the given [`Event`] that isn't scoped to specific targets.
-    ///
-    /// If the entity that this command targets does not exist when the command is applied,
-    /// the command will fail, possibly causing it to panic based on the default [error handler](crate::error) set.
-    ///
-    /// To queue this command with a specific handler, use [`EntityCommands::queue_handled`]
-    /// with [`entity_command::trigger(event)`](entity_command::trigger).
-    /// [`EntityCommands::queue_silenced`] may also be used to ignore the error completely.
     #[track_caller]
-    pub fn trigger<'a>(&mut self, event: impl Event<Target<'a> = ()>) {
+    pub fn trigger<'a>(&mut self, event: impl Event<Trigger<'a>: Default>) {
         self.queue(command::trigger(event));
     }
 
-    /// Sends an [`EntityEvent`] for the given targets.
-    ///
-    /// This will run any [`Observer`] of the given [`EntityEvent`] watching those targets.
-    ///
-    /// If the entity that this command targets does not exist when the command is applied,
-    /// the command will fail, possibly causing it to panic based on the default [error handler](crate::error) set.
-    ///
-    /// To queue this command with a specific handler, use [`EntityCommands::queue_handled`]
-    /// with [`entity_command::trigger(event)`](entity_command::trigger).
-    /// [`EntityCommands::queue_silenced`] may also be used to ignore the error completely.
     #[track_caller]
-    pub fn trigger_targets<'a, E: Event>(
+    pub fn trigger_with<E: Event<Trigger<'static>: Send + Sync>>(
         &mut self,
         event: E,
-        targets: impl EventTargets<E::Target<'a>> + 'static,
+        trigger: E::Trigger<'static>,
     ) {
-        self.queue(command::trigger_targets(event, targets));
+        self.queue(command::trigger_with(event, trigger));
     }
 
     /// Spawns an [`Observer`] and returns the [`EntityCommands`] associated
@@ -2005,18 +1985,10 @@ impl<'a> EntityCommands<'a> {
         &mut self.commands
     }
 
-    /// Sends an [`EntityEvent`] targeting the entity.
-    ///
-    /// This will run any [`Observer`] of the given [`EntityEvent`] watching this entity.
-    ///
-    /// If the entity that this command targets does not exist when the command is applied,
-    /// the command will fail, possibly causing it to panic based on the default error handler set.
-    /// To queue this command with a handler, use [`EntityCommands::queue_handled`]
-    /// with [`entity_command::trigger(event)`](entity_command::trigger).
-    /// [`EntityCommands::queue_silenced`] may also be used to ignore the error completely.
     #[track_caller]
-    pub fn trigger(&mut self, event: impl EntityEvent) -> &mut Self {
-        self.queue(entity_command::trigger(event))
+    pub fn trigger<'t>(&mut self, event: impl Event<Trigger<'t>: Default>) -> &mut Self {
+        self.commands_mut().queue(command::trigger(event));
+        self
     }
 
     /// Creates an [`Observer`] listening for events of type `E` targeting this entity.
