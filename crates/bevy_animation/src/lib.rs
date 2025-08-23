@@ -93,7 +93,7 @@ impl VariableCurve {
 /// apply.
 ///
 /// Because animation clips refer to targets by UUID, they can target any
-/// [`AnimationTarget`] with that ID.
+/// entity with that ID.
 #[derive(Asset, Reflect, Clone, Debug, Default)]
 #[reflect(Clone, Default)]
 pub struct AnimationClip {
@@ -202,8 +202,8 @@ impl Hash for AnimationTargetId {
 /// component as appropriate, as Bevy won't do this automatically.
 ///
 /// Note that each entity can only be animated by one animation player at a
-/// time. However, you can change [`AnimationPlayerTargets`]'s at runtime to
-/// change which player is responsible for animating the entity.
+/// time. However, you can change [`AnimationPlayerTarget`]s at runtime and
+/// link them to a different player.
 #[derive(Clone, Copy, Component, Reflect, Debug)]
 #[reflect(Component, Clone)]
 pub struct AnimationPlayerTarget(#[entities] pub Entity);
@@ -255,8 +255,8 @@ impl AnimationClip {
         self.duration = duration_sec;
     }
 
-    /// Adds an [`AnimationCurve`] to an [`AnimationTarget`] named by an
-    /// [`AnimationTargetId`].
+    /// Adds an [`AnimationCurve`] that can target an entity with the given
+    /// [`AnimationTargetId`] component.
     ///
     /// If the curve extends beyond the current duration of this clip, this
     /// method lengthens this clip to include the entire time span that the
@@ -311,7 +311,7 @@ impl AnimationClip {
             .push(variable_curve);
     }
 
-    /// Add an [`EntityEvent`] with no [`AnimationTarget`] to this [`AnimationClip`].
+    /// Add an [`EntityEvent`] with no [`AnimationTargetId`].
     ///
     /// The `event` will be cloned and triggered on the [`AnimationPlayer`] entity once the `time` (in seconds)
     /// is reached in the animation.
@@ -326,7 +326,7 @@ impl AnimationClip {
         );
     }
 
-    /// Add an [`EntityEvent`] to an [`AnimationTarget`] named by an [`AnimationTargetId`].
+    /// Add an [`EntityEvent`] with an [`AnimationTargetId`].
     ///
     /// The `event` will be cloned and triggered on the entity matching the target once the `time` (in seconds)
     /// is reached in the animation.
@@ -347,7 +347,7 @@ impl AnimationClip {
         );
     }
 
-    /// Add an event function with no [`AnimationTarget`] to this [`AnimationClip`].
+    /// Add an event function with no [`AnimationTargetId`] to this [`AnimationClip`].
     ///
     /// The `func` will trigger on the [`AnimationPlayer`] entity once the `time` (in seconds)
     /// is reached in the animation.
@@ -370,7 +370,7 @@ impl AnimationClip {
         self.add_event_internal(AnimationEventTarget::Root, time, func);
     }
 
-    /// Add an event function to an [`AnimationTarget`] named by an [`AnimationTargetId`].
+    /// Add an event function with an [`AnimationTargetId`].
     ///
     /// The `func` will trigger on the entity matching the target once the `time` (in seconds)
     /// is reached in the animation.
