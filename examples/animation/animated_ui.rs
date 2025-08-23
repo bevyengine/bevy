@@ -2,8 +2,8 @@
 
 use bevy::{
     animation::{
-        animated_field, AnimationEntityMut, AnimationEvaluationError, AnimationTargetId,
-        AnimationPlayerTarget,
+        animated_field, AnimationEntityMut, AnimationEvaluationError, AnimationPlayerTarget,
+        AnimationTargetId,
     },
     prelude::*,
 };

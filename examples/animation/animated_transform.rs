@@ -3,7 +3,7 @@
 use std::f32::consts::PI;
 
 use bevy::{
-    animation::{animated_field, AnimationTargetId, AnimationPlayerTarget},
+    animation::{animated_field, AnimationPlayerTarget, AnimationTargetId},
     prelude::*,
 };
 

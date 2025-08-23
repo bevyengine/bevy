@@ -1,7 +1,7 @@
 //! Demonstrates how to use masks to limit the scope of animations.
 
 use bevy::{
-    animation::{AnimationTargetId, AnimationPlayerTarget},
+    animation::{AnimationPlayerTarget, AnimationTargetId},
     color::palettes::css::{LIGHT_GRAY, WHITE},
     prelude::*,
 };
