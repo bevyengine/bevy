@@ -15,13 +15,12 @@
 
 use core::{
     future::{poll_fn, Future},
-    marker::PhantomData,
     task::{Context, Poll},
 };
 
 use async_task::{Runnable, Task};
 use atomic_waker::AtomicWaker;
-use bevy_platform::sync::{Arc, LazyLock};
+use bevy_platform::sync::LazyLock;
 use futures_lite::FutureExt;
 
 /// An async executor.
