@@ -4,9 +4,6 @@ use bevy::color::palettes::css::RED;
 use bevy::prelude::*;
 
 #[derive(Component)]
-struct DragNode;
-
-#[derive(Component)]
 struct ScrollableNode;
 
 #[derive(Component)]
