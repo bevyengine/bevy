@@ -26,13 +26,13 @@ use thiserror::Error;
     reflect(Serialize, Deserialize)
 )]
 pub struct Srgba {
-    /// The red channel. [0.0, 1.0]
+    /// The red channel. [0.0, 1.0], but larger values are allowed for HDR.
     pub red: f32,
-    /// The green channel. [0.0, 1.0]
+    /// The green channel. [0.0, 1.0], but larger values are allowed for HDR.
     pub green: f32,
-    /// The blue channel. [0.0, 1.0]
+    /// The blue channel. [0.0, 1.0], but larger values are allowed for HDR.
     pub blue: f32,
-    /// The alpha channel. [0.0, 1.0]
+    /// The alpha channel. [0.0, 1.0], but larger values are allowed for HDR.
     pub alpha: f32,
 }
 
@@ -80,10 +80,10 @@ impl Srgba {
     ///
     /// # Arguments
     ///
-    /// * `red` - Red channel. [0.0, 1.0]
-    /// * `green` - Green channel. [0.0, 1.0]
-    /// * `blue` - Blue channel. [0.0, 1.0]
-    /// * `alpha` - Alpha channel. [0.0, 1.0]
+    /// * `red` - Red channel. [0.0, 1.0], but larger values are allowed for HDR.
+    /// * `green` - Green channel. [0.0, 1.0], but larger values are allowed for HDR.
+    /// * `blue` - Blue channel. [0.0, 1.0], but larger values are allowed for HDR.
+    /// * `alpha` - Alpha channel. [0.0, 1.0], but larger values are allowed for HDR.
     pub const fn new(red: f32, green: f32, blue: f32, alpha: f32) -> Self {
         Self {
             red,
@@ -97,9 +97,9 @@ impl Srgba {
     ///
     /// # Arguments
     ///
-    /// * `red` - Red channel. [0.0, 1.0]
-    /// * `green` - Green channel. [0.0, 1.0]
-    /// * `blue` - Blue channel. [0.0, 1.0]
+    /// * `red` - Red channel. [0.0, 1.0], but larger values are allowed for HDR.
+    /// * `green` - Green channel. [0.0, 1.0], but larger values are allowed for HDR.
+    /// * `blue` - Blue channel. [0.0, 1.0], but larger values are allowed for HDR.
     pub const fn rgb(red: f32, green: f32, blue: f32) -> Self {
         Self {
             red,
