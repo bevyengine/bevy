@@ -286,11 +286,9 @@ bevy_text = ["bevy_internal/bevy_text", "bevy_asset"]
 # A custom ECS-driven UI framework
 bevy_ui = [
   "bevy_internal/bevy_ui",
-  "bevy_core_pipeline",
   "bevy_text",
   "bevy_sprite",
   "bevy_color",
-  "bevy_anti_aliasing",
 ]
 
 # Provides rendering functionality for bevy_ui
