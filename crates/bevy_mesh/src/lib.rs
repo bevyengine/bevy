@@ -12,6 +12,8 @@ pub mod morph;
 pub mod primitives;
 pub mod skinning;
 mod vertex;
+use bevy_app::{App, Plugin};
+use bevy_asset::AssetApp;
 use bevy_ecs::schedule::SystemSet;
 use bitflags::bitflags;
 pub use components::*;
@@ -40,6 +42,15 @@ bitflags! {
     #[derive(Clone, Debug)]
     pub struct BaseMeshPipelineKey: u64 {
         const MORPH_TARGETS = 1 << (u64::BITS - 1);
+    }
+}
+
+#[derive(Default)]
+pub struct MeshPlugin;
+
+impl Plugin for MeshPlugin {
+    fn build(&self, app: &mut App) {
+        app.init_asset::<Mesh>().register_asset_reflect::<Mesh>();
     }
 }
 
