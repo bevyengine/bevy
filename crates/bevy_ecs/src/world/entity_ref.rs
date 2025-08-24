@@ -5,10 +5,7 @@ use crate::{
         InsertMode,
     },
     change_detection::{MaybeLocation, MutUntyped},
-    component::{
-        Component, ComponentId, ComponentTicks, Components, ComponentsRegistrator, Mutable,
-        StorageType, Tick,
-    },
+    component::{Component, ComponentId, ComponentTicks, Components, Mutable, StorageType, Tick},
     entity::{
         ContainsEntity, Entity, EntityCloner, EntityClonerBuilder, EntityEquivalent,
         EntityIdLocation, EntityLocation, OptIn, OptOut,
@@ -2298,16 +2295,7 @@ impl<'w> EntityWorldMut<'w> {
         caller: MaybeLocation,
     ) -> &mut Self {
         let location = self.location();
-        let storages = &mut self.world.storages;
-        let bundles = &mut self.world.bundles;
-        // SAFETY: These come from the same world.
-        let mut registrator = unsafe {
-            ComponentsRegistrator::new(&mut self.world.components, &mut self.world.component_ids)
-        };
-
-        // SAFETY: `storages`, `bundles` and `registrator` come from the same world.
-        let bundle_id =
-            unsafe { bundles.register_contributed_bundle_info::<T>(&mut registrator, storages) };
+        let bundle_id = self.world.register_contributed_bundle_info::<T>();
 
         // SAFETY: We just created the bundle, and the archetype is valid, since we are in it.
         let Some(mut remover) = (unsafe {
@@ -2347,21 +2335,10 @@ impl<'w> EntityWorldMut<'w> {
     #[inline]
     pub(crate) fn retain_with_caller<T: Bundle>(&mut self, caller: MaybeLocation) -> &mut Self {
         let old_location = self.location();
+        let retained_bundle = self.world.register_bundle_info::<T>();
         let archetypes = &mut self.world.archetypes;
-        let storages = &mut self.world.storages;
-        // SAFETY: These come from the same world.
-        let mut registrator = unsafe {
-            ComponentsRegistrator::new(&mut self.world.components, &mut self.world.component_ids)
-        };
 
-        // SAFETY: `storages`, `bundles` and `registrator` come from the same world.
-        let retained_bundle = unsafe {
-            self.world
-                .bundles
-                .register_info::<T>(&mut registrator, storages)
-        };
-
-        // SAFETY: `retained_bundle` exists as we just initialized it.
+        // SAFETY: `retained_bundle` exists as we just registered it.
         let retained_bundle_info = unsafe { self.world.bundles.get_unchecked(retained_bundle) };
         let old_archetype = &mut archetypes[old_location.archetype_id];
 
@@ -2370,10 +2347,11 @@ impl<'w> EntityWorldMut<'w> {
             .components()
             .filter(|c| !retained_bundle_info.contributed_components().contains(c))
             .collect::<Vec<_>>();
-        let remove_bundle =
-            self.world
-                .bundles
-                .init_dynamic_info(&mut self.world.storages, &registrator, to_remove);
+        let remove_bundle = self.world.bundles.init_dynamic_info(
+            &mut self.world.storages,
+            &self.world.components,
+            to_remove,
+        );
 
         // SAFETY: We just created the bundle, and the archetype is valid, since we are in it.
         let Some(mut remover) = (unsafe {
