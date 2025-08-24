@@ -615,6 +615,9 @@ impl Camera {
         rect_relative.y = 1.0 - rect_relative.y;
 
         let ndc_point_near = (rect_relative * 2. - Vec2::ONE).extend(1.0).into();
+        // We multiply the point by `view_from_clip` and then `world_from_view` in sequence to avoid the precision loss
+        // (and performance penalty) incurred by pre-composing an affine transform with a projective transform.
+        // Additionally, we avoid adding and subtracting translation to the direction component to maintain precision.
         let view_point_near = self
             .computed
             .clip_from_view
