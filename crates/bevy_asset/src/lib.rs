@@ -517,6 +517,22 @@ impl VisitAssetDependencies for Vec<UntypedHandle> {
     }
 }
 
+impl<A: Asset> VisitAssetDependencies for HashSet<Handle<A>> {
+    fn visit_dependencies(&self, visit: &mut impl FnMut(UntypedAssetId)) {
+        for dependency in self {
+            visit(dependency.id().untyped());
+        }
+    }
+}
+
+impl VisitAssetDependencies for HashSet<UntypedHandle> {
+    fn visit_dependencies(&self, visit: &mut impl FnMut(UntypedAssetId)) {
+        for dependency in self {
+            visit(dependency.id());
+        }
+    }
+}
+
 /// Adds asset-related builder methods to [`App`].
 pub trait AssetApp {
     /// Registers the given `loader` in the [`App`]'s [`AssetServer`].
