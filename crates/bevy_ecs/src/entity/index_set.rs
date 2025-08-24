@@ -21,8 +21,10 @@ use indexmap::set::{self, IndexSet};
 use super::{Entity, EntityHash, EntitySetIterator};
 
 use bevy_platform::prelude::Box;
+use bevy_reflect::Reflect;
 
 /// An [`IndexSet`] pre-configured to use [`EntityHash`] hashing.
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
 #[cfg_attr(feature = "serialize", derive(serde::Deserialize, serde::Serialize))]
 #[derive(Debug, Clone, Default)]
 pub struct EntityIndexSet(pub(crate) IndexSet<Entity, EntityHash>);
