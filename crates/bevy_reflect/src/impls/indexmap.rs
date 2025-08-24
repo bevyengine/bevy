@@ -304,7 +304,7 @@ where
     }
 
     fn retain(&mut self, f: &mut dyn FnMut(&dyn PartialReflect) -> bool) {
-        self.retain(move |value| f(value))
+        self.retain(move |value| f(value));
     }
 
     fn insert_boxed(&mut self, value: Box<dyn PartialReflect>) -> bool {
