@@ -112,7 +112,6 @@ fn setup(mut commands: Commands, assets: Res<AssetServer>) {
                                     }
                                 },
                             )
-
                         .with_children(|parent| {
                             parent.spawn((
 
