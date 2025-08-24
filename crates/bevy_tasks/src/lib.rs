@@ -95,12 +95,6 @@ pub use usages::{AsyncComputeTaskPool, ComputeTaskPool, IoTaskPool};
 pub use futures_lite;
 pub use futures_lite::future::poll_once;
 
-cfg::web! {
-    if {} else {
-        pub use usages::tick_global_task_pools_on_main_thread;
-    }
-}
-
 cfg::multi_threaded! {
     if {
         mod task_pool;

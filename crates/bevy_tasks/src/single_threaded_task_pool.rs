@@ -186,7 +186,13 @@ impl TaskPool {
             _ => {
                 let task = EXECUTOR.spawn_local(future);
                 // Loop until all tasks are done
-                while Self::try_tick_local() {}
+                crate::cfg::bevy_executor! {
+                    if {
+                        while !Executor::try_tick_local() {}
+                    } else {
+                        while EXECUTOR.try_tick() {}
+                    }
+                }
 
                 Task::new(task)
             }
@@ -202,20 +208,6 @@ impl TaskPool {
         T: 'static + MaybeSend + MaybeSync,
     {
         self.spawn(future)
-    }
-
-    crate::cfg::web! {
-        if {} else {
-            pub(crate) fn try_tick_local() -> bool {
-                crate::cfg::bevy_executor! {
-                    if {
-                        Executor::try_tick_local()
-                    } else {
-                        EXECUTOR.try_tick()
-                    }
-                }
-            }
-        }
     }
 }
 
