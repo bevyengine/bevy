@@ -4,7 +4,9 @@ use crate::{
     ReflectRef, Set, SetInfo, TypeInfo, TypeParamInfo, TypePath, TypeRegistration,
 };
 use bevy_platform::prelude::{Box, Vec};
-use bevy_reflect::{DynamicMap, Map, MapInfo, MaybeTyped, ReflectFromReflect, ReflectKind, TypeRegistry, Typed};
+use bevy_reflect::{
+    DynamicMap, Map, MapInfo, MaybeTyped, ReflectFromReflect, ReflectKind, TypeRegistry, Typed,
+};
 use bevy_reflect_derive::impl_type_path;
 use core::{any::Any, hash::BuildHasher, hash::Hash};
 use indexmap::{IndexMap, IndexSet};
@@ -32,11 +34,14 @@ where
     }
 
     fn iter(&self) -> Box<dyn Iterator<Item = (&dyn PartialReflect, &dyn PartialReflect)> + '_> {
-        Box::new(self.iter().map(|(k, v)| (k as &dyn PartialReflect, v as &dyn PartialReflect)))
+        Box::new(
+            self.iter()
+                .map(|(k, v)| (k as &dyn PartialReflect, v as &dyn PartialReflect)),
+        )
     }
 
     fn drain(&mut self) -> Vec<(Box<dyn PartialReflect>, Box<dyn PartialReflect>)> {
-    self.drain(..)
+        self.drain(..)
             .map(|(key, value)| {
                 (
                     Box::new(key) as Box<dyn PartialReflect>,
@@ -47,7 +52,7 @@ where
     }
 
     fn retain(&mut self, f: &mut dyn FnMut(&dyn PartialReflect, &mut dyn PartialReflect) -> bool) {
-    self.retain(move |key, value| f(key, value));
+        self.retain(move |key, value| f(key, value));
     }
 
     fn to_dynamic_map(&self) -> DynamicMap {
@@ -56,11 +61,11 @@ where
         for (k, v) in self {
             let key = K::from_reflect(k).unwrap_or_else(|| {
                 panic!(
-                "Attempted to clone invalid key of type {}.",
-                k.reflect_type_path()
+                    "Attempted to clone invalid key of type {}.",
+                    k.reflect_type_path()
                 )
             });
-    dynamic_map.insert_boxed(Box::new(key), v.to_dynamic());
+            dynamic_map.insert_boxed(Box::new(key), v.to_dynamic());
         }
         dynamic_map
     }
@@ -78,8 +83,8 @@ where
         });
         let value = V::take_from_reflect(value).unwrap_or_else(|value| {
             panic!(
-            "Attempted to insert invalid value of type {}.",
-            value.reflect_type_path()
+                "Attempted to insert invalid value of type {}.",
+                value.reflect_type_path()
             )
         });
         self.insert(key, value)
@@ -174,7 +179,6 @@ where
     }
 }
 
-
 impl<K, V, S> Reflect for IndexMap<K, V, S>
 where
     K: FromReflect + MaybeTyped + TypePath + GetTypeRegistration + Eq + Hash,
@@ -211,7 +215,6 @@ where
     }
 }
 
-
 impl<K, V, S> Typed for IndexMap<K, V, S>
 where
     K: FromReflect + MaybeTyped + TypePath + GetTypeRegistration + Eq + Hash,
@@ -224,7 +227,7 @@ where
             TypeInfo::Map(
                 MapInfo::new::<Self, K, V>().with_generics(Generics::from_iter([
                     TypeParamInfo::new::<K>("K"),
-                    TypeParamInfo::new::<V>("V")
+                    TypeParamInfo::new::<V>("V"),
                 ])),
             )
         })
@@ -316,7 +319,8 @@ where
 
     fn remove(&mut self, value: &dyn PartialReflect) -> bool {
         let mut from_reflect = None;
-        value.try_downcast_ref::<T>()
+        value
+            .try_downcast_ref::<T>()
             .or_else(|| {
                 from_reflect = T::from_reflect(value);
                 from_reflect.as_ref()
@@ -326,7 +330,8 @@ where
 
     fn contains(&self, value: &dyn PartialReflect) -> bool {
         let mut from_reflect = None;
-        value.try_downcast_ref::<T>()
+        value
+            .try_downcast_ref::<T>()
             .or_else(|| {
                 from_reflect = T::from_reflect(value);
                 from_reflect.as_ref()
@@ -356,7 +361,7 @@ where
     fn as_partial_reflect_mut(&mut self) -> &mut dyn PartialReflect {
         self
     }
-    
+
     #[inline]
     fn try_into_reflect(self: Box<Self>) -> Result<Box<dyn Reflect>, Box<dyn PartialReflect>> {
         Ok(self)
@@ -451,9 +456,8 @@ where
         static CELL: GenericTypeInfoCell = GenericTypeInfoCell::new();
         CELL.get_or_insert::<Self, _>(|| {
             TypeInfo::Set(
-                SetInfo::new::<Self, T>().with_generics(Generics::from_iter([
-                    TypeParamInfo::new::<T>("T")
-                ])),
+                SetInfo::new::<Self, T>()
+                    .with_generics(Generics::from_iter([TypeParamInfo::new::<T>("T")])),
             )
         })
     }
