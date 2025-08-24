@@ -278,16 +278,11 @@ impl<'scope, 'env, T: Send + 'env> Scope<'scope, 'env, T> {
         };
 
         let mut tasks = self.tasks_ref.borrow_mut();
-        crate::cfg::bevy_executor! {
-            if {
-                #[expect(unsafe_code, reason = "Executor::spawn_local_scoped is unsafe")]
-                // SAFETY: The surrounding scope will not terminate until all local tasks are done
-                // ensuring that the borrowed variables do not outlive the detached task.
-                tasks.push(unsafe { self.executor_ref.spawn_local_scoped(f) });
-            } else {
-                tasks.push(self.executor_ref.spawn_local(f));
-            }
-        }
+
+        #[expect(unsafe_code, reason = "Executor::spawn_local_scoped is unsafe")]
+        // SAFETY: The surrounding scope will not terminate until all local tasks are done
+        // ensuring that the borrowed variables do not outlive the detached task.
+        tasks.push(unsafe { self.executor_ref.spawn_local_scoped(f) });
     }
 }
 

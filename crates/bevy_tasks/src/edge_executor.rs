@@ -105,6 +105,15 @@ impl<'a, const C: usize> Executor<'a, C> {
         unsafe { self.spawn_unchecked(fut) }
     }
 
+    pub unsafe fn spawn_local_scoped<F>(&self, fut: F) -> Task<F::Output>
+    where
+        F: Future + 'a,
+        F::Output: 'a,
+    {
+        // SAFETY: Original implementation missing safety documentation
+        unsafe { self.spawn_unchecked(fut) }
+    }
+
     /// Attempts to run a task if at least one is scheduled.
     ///
     /// Running a scheduled task means simply polling its future once.
