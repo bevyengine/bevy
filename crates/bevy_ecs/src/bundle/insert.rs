@@ -40,9 +40,13 @@ impl<'w> BundleInserter<'w> {
         // SAFETY: These come from the same world. `world.components_registrator` can't be used since we borrow other fields too.
         let mut registrator =
             unsafe { ComponentsRegistrator::new(&mut world.components, &mut world.component_ids) };
-        let bundle_id = world
-            .bundles
-            .register_info::<T>(&mut registrator, &mut world.storages);
+
+        // SAFETY: `registrator`, `world.bundles`, and `world.storages` all come from the same world
+        let bundle_id = unsafe {
+            world
+                .bundles
+                .register_info::<T>(&mut registrator, &mut world.storages)
+        };
         // SAFETY: We just ensured this bundle exists
         unsafe { Self::new_with_id(world, archetype_id, bundle_id, change_tick) }
     }
