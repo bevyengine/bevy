@@ -730,6 +730,8 @@ impl Camera {
         camera_transform: &GlobalTransform,
         ndc_point: V,
     ) -> Option<V> {
+        // We multiply the point by `view_from_clip` and then `world_from_view` in sequence to avoid the precision loss
+        // (and performance penalty) incurred by pre-composing an affine transform with a projective transform.
         let view_point = self
             .computed
             .clip_from_view
