@@ -255,6 +255,8 @@ impl App {
     /// Runs [`Plugin::finish`] for each plugin. This is usually called by the event loop once all
     /// plugins are ready, but can be useful for situations where you want to use [`App::update`].
     pub fn finish(&mut self) {
+        #[cfg(feature = "trace")]
+        let _finish_span = info_span!("plugin finish").entered();
         // plugins installed to main should see all sub-apps
         // do hokey pokey with a boxed zst plugin (doesn't allocate)
         let mut hokeypokey: Box<dyn Plugin> = Box::new(HokeyPokey);
@@ -273,6 +275,8 @@ impl App {
     /// Runs [`Plugin::cleanup`] for each plugin. This is usually called by the event loop after
     /// [`App::finish`], but can be useful for situations where you want to use [`App::update`].
     pub fn cleanup(&mut self) {
+        #[cfg(feature = "trace")]
+        let _cleanup_span = info_span!("plugin cleanup").entered();
         // plugins installed to main should see all sub-apps
         // do hokey pokey with a boxed zst plugin (doesn't allocate)
         let mut hokeypokey: Box<dyn Plugin> = Box::new(HokeyPokey);
