@@ -880,21 +880,21 @@ mod tests {
     fn observe_trigger(app: &mut App, scene_id: InstanceId, scene_entity: Option<Entity>) {
         // Add observer
         app.world_mut().add_observer(
-            move |trigger: On<SceneInstanceReady>,
+            move |event: On<SceneInstanceReady>,
                   scene_spawner: Res<SceneSpawner>,
                   mut trigger_count: ResMut<TriggerCount>| {
                 assert_eq!(
-                    trigger.event().instance_id,
+                    event.event().instance_id,
                     scene_id,
                     "`SceneInstanceReady` contains the wrong `InstanceId`"
                 );
                 assert_eq!(
-                    trigger.target(),
+                    event.entity(),
                     scene_entity.unwrap_or(Entity::PLACEHOLDER),
                     "`SceneInstanceReady` triggered on the wrong parent entity"
                 );
                 assert!(
-                    scene_spawner.instance_is_ready(trigger.event().instance_id),
+                    scene_spawner.instance_is_ready(event.event().instance_id),
                     "`InstanceId` is not ready"
                 );
                 trigger_count.0 += 1;

@@ -124,8 +124,8 @@ struct RenderScreenshotsSender(Sender<(Entity, Image)>);
 /// Saves the captured screenshot to disk at the provided path.
 pub fn save_to_disk(path: impl AsRef<Path>) -> impl FnMut(On<ScreenshotCaptured>) {
     let path = path.as_ref().to_owned();
-    move |trigger| {
-        let img = trigger.event().deref().clone();
+    move |event| {
+        let img = event.0.clone();
         match img.try_into_dynamic() {
             Ok(dyn_img) => match image::ImageFormat::from_path(&path) {
                 Ok(format) => {

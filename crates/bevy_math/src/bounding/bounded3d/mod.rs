@@ -136,7 +136,7 @@ impl BoundingVolume for Aabb3d {
 
     #[inline(always)]
     fn visible_area(&self) -> f32 {
-        let b = self.max - self.min;
+        let b = (self.max - self.min).max(Vec3A::ZERO);
         b.x * (b.y + b.z) + b.y * b.z
     }
 

@@ -42,14 +42,14 @@ fn checkbox_on_key_input(
     q_checkbox: Query<(&CoreCheckbox, Has<Checked>), Without<InteractionDisabled>>,
     mut commands: Commands,
 ) {
-    if let Ok((checkbox, is_checked)) = q_checkbox.get(ev.target()) {
+    if let Ok((checkbox, is_checked)) = q_checkbox.get(ev.entity()) {
         let event = &ev.event().input;
         if event.state == ButtonState::Pressed
             && !event.repeat
             && (event.key_code == KeyCode::Enter || event.key_code == KeyCode::Space)
         {
             ev.propagate(false);
-            set_checkbox_state(&mut commands, ev.target(), checkbox, !is_checked);
+            set_checkbox_state(&mut commands, ev.entity(), checkbox, !is_checked);
         }
     }
 }
@@ -61,11 +61,11 @@ fn checkbox_on_pointer_click(
     focus_visible: Option<ResMut<InputFocusVisible>>,
     mut commands: Commands,
 ) {
-    if let Ok((checkbox, is_checked, disabled)) = q_checkbox.get(ev.target()) {
+    if let Ok((checkbox, is_checked, disabled)) = q_checkbox.get(ev.entity()) {
         // Clicking on a button makes it the focused input,
         // and hides the focus ring if it was visible.
         if let Some(mut focus) = focus {
-            focus.0 = Some(ev.target());
+            focus.0 = Some(ev.entity());
         }
         if let Some(mut focus_visible) = focus_visible {
             focus_visible.0 = false;
@@ -73,7 +73,7 @@ fn checkbox_on_pointer_click(
 
         ev.propagate(false);
         if !disabled {
-            set_checkbox_state(&mut commands, ev.target(), checkbox, !is_checked);
+            set_checkbox_state(&mut commands, ev.entity(), checkbox, !is_checked);
         }
     }
 }
@@ -127,7 +127,7 @@ fn checkbox_on_set_checked(
     q_checkbox: Query<(&CoreCheckbox, Has<Checked>, Has<InteractionDisabled>)>,
     mut commands: Commands,
 ) {
-    if let Ok((checkbox, is_checked, disabled)) = q_checkbox.get(ev.target()) {
+    if let Ok((checkbox, is_checked, disabled)) = q_checkbox.get(ev.entity()) {
         ev.propagate(false);
         if disabled {
             return;
@@ -135,7 +135,7 @@ fn checkbox_on_set_checked(
 
         let will_be_checked = ev.event().0;
         if will_be_checked != is_checked {
-            set_checkbox_state(&mut commands, ev.target(), checkbox, will_be_checked);
+            set_checkbox_state(&mut commands, ev.entity(), checkbox, will_be_checked);
         }
     }
 }
@@ -145,13 +145,13 @@ fn checkbox_on_toggle_checked(
     q_checkbox: Query<(&CoreCheckbox, Has<Checked>, Has<InteractionDisabled>)>,
     mut commands: Commands,
 ) {
-    if let Ok((checkbox, is_checked, disabled)) = q_checkbox.get(ev.target()) {
+    if let Ok((checkbox, is_checked, disabled)) = q_checkbox.get(ev.entity()) {
         ev.propagate(false);
         if disabled {
             return;
         }
 
-        set_checkbox_state(&mut commands, ev.target(), checkbox, !is_checked);
+        set_checkbox_state(&mut commands, ev.entity(), checkbox, !is_checked);
     }
 }
 
