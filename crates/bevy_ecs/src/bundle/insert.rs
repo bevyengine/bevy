@@ -141,7 +141,9 @@ impl<'w> BundleInserter<'w> {
     }
 
     // A non-generic prelude to insert used to minimize duplicated monomorphized code.
-    // In combination with after_insert, this reduces compile time of bevy by 10%.
+    // In combination with after_insert, this can reduce compile time of bevy by 10%.
+    // We inline in release to avoid a minor perf loss.
+    #[cfg_attr(not(debug_assertions), inline(always))]
     unsafe fn before_insert<'a>(
         entity: Entity,
         location: EntityLocation,
@@ -385,7 +387,9 @@ impl<'w> BundleInserter<'w> {
     }
 
     // A non-generic postlude to insert used to minimize duplicated monomorphized code.
-    // In combination with before_insert, this reduces compile time of bevy by 10%.
+    // In combination with before_insert, this can reduce compile time of bevy by 10%.
+    // We inline in release to avoid a minor perf loss.
+    #[cfg_attr(not(debug_assertions), inline(always))]
     fn after_insert(
         entity: Entity,
         insert_mode: InsertMode,
