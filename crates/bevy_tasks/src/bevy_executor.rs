@@ -538,6 +538,13 @@ impl fmt::Debug for State {
     }
 }
 
+/// A sleeping ticker
+struct Sleeper {
+    id: usize,
+    thread_id: ThreadId,
+    waker: Waker,
+}
+
 /// A list of sleeping tickers.
 struct Sleepers {
     /// Number of sleeping tickers (both notified and unnotified).
@@ -546,7 +553,7 @@ struct Sleepers {
     /// IDs and wakers of sleeping unnotified tickers.
     ///
     /// A sleeping ticker is notified when its waker is missing from this list.
-    wakers: Vec<(usize, ThreadId, Waker)>,
+    wakers: Vec<Sleeper>,
 
     /// Reclaimed IDs.
     free_ids: Vec<usize>,
@@ -555,13 +562,13 @@ struct Sleepers {
 impl Sleepers {
     /// Inserts a new sleeping ticker.
     fn insert(&mut self, waker: &Waker) -> usize {
-        let id = match self.free_ids.pop() {
-            Some(id) => id,
-            None => self.count + 1,
-        };
+        let id = self.free_ids.pop().unwrap_or_else(|| self.count + 1);
         self.count += 1;
-        self.wakers
-            .push((id, std::thread::current().id(), waker.clone()));
+        self.wakers.push(Sleeper {
+            id,
+            thread_id: std::thread::current().id(),
+            waker: waker.clone()
+        });
         id
     }
 
@@ -570,14 +577,15 @@ impl Sleepers {
     /// Returns `true` if the ticker was notified.
     fn update(&mut self, id: usize, waker: &Waker) -> bool {
         for item in &mut self.wakers {
-            if item.0 == id {
-                item.2.clone_from(waker);
+            if item.id == id {
+                item.waker.clone_from(waker);
                 return false;
             }
         }
 
         self.wakers
-            .push((id, std::thread::current().id(), waker.clone()));
+            .push(Sleeper { id, thread_id: std::thread::current().id(), 
+                waker: waker.clone() });
         true
     }
 
@@ -589,7 +597,7 @@ impl Sleepers {
         self.free_ids.push(id);
 
         for i in (0..self.wakers.len()).rev() {
-            if self.wakers[i].0 == id {
+            if self.wakers[i].id == id {
                 self.wakers.remove(i);
                 return false;
             }
@@ -607,7 +615,7 @@ impl Sleepers {
     /// If a ticker was notified already or there are no tickers, `None` will be returned.
     fn notify(&mut self) -> Option<Waker> {
         if self.wakers.len() == self.count {
-            self.wakers.pop().map(|item| item.2)
+            self.wakers.pop().map(|item| item.waker)
         } else {
             None
         }
@@ -617,10 +625,10 @@ impl Sleepers {
     ///
     /// If a ticker was notified already or there are no tickers, `None` will be returned.
     fn notify_specific_thread(&mut self, thread_id: ThreadId) -> Option<Waker> {
-        for i in (0..self.wakers.len()).rev() {
-            if self.wakers[i].1 == thread_id {
-                let (_, _, waker) = self.wakers.remove(i);
-                return Some(waker);
+        for i in 0..self.wakers.len() {
+            if self.wakers[i].thread_id == thread_id {
+                let sleeper = self.wakers.remove(i);
+                return Some(sleeper.waker);
             }
         }
         None
