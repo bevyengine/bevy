@@ -133,6 +133,7 @@ default = [
   "animation",
   "bevy_asset",
   "bevy_audio",
+  "bevy_clipboard",
   "bevy_color",
   "bevy_core_pipeline",
   "bevy_core_widgets",
@@ -313,6 +314,9 @@ bevy_log = ["bevy_internal/bevy_log"]
 
 # Enable input focus subsystem
 bevy_input_focus = ["bevy_internal/bevy_input_focus"]
+
+# Clipboard access
+bevy_clipboard = ["bevy_internal/bevy_clipboard"]
 
 # Headless widget collection for Bevy UI.
 bevy_core_widgets = ["bevy_internal/bevy_core_widgets"]
@@ -3391,6 +3395,17 @@ doc-scrape-examples = true
 [package.metadata.example.button]
 name = "Button"
 description = "Illustrates creating and updating a button"
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
+name = "clipboard"
+path = "examples/ui/clipboard.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.clipboard]
+name = "Clipboard"
+description = "Demonstrates accessing the clipboard to retrieve and display text"
 category = "UI (User Interface)"
 wasm = true
 

@@ -401,6 +401,9 @@ async_executor = [
 # Note this is currently only applicable on `wasm32` architectures.
 web = ["bevy_app/web", "bevy_platform/web", "bevy_reflect/web"]
 
+# Clipboard support
+bevy_clipboard = ["dep:bevy_clipboard"]
+
 hotpatching = ["bevy_app/hotpatching", "bevy_ecs/hotpatching"]
 
 debug = ["bevy_utils/debug"]
@@ -488,6 +491,7 @@ bevy_window = { path = "../bevy_window", optional = true, version = "0.17.0-dev"
   "bevy_reflect",
 ] }
 bevy_winit = { path = "../bevy_winit", optional = true, version = "0.17.0-dev", default-features = false }
+bevy_clipboard = { path = "../bevy_clipboard", optional = true, version = "0.17.0-dev" }
 
 [target.'cfg(target_os = "android")'.dependencies]
 bevy_android = { path = "../bevy_android", version = "0.17.0-dev", default-features = false }
