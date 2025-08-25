@@ -388,26 +388,6 @@ impl FieldsInformation {
     }
 }
 
-#[derive(Clone, Debug, Deref)]
-/// Information about the attributes of a field.
-pub(crate) struct AttributesInformation(Arc<TypeIdMap<Box<dyn Reflect>>>);
-
-impl From<&CustomAttributes> for AttributesInformation {
-    fn from(attributes: &CustomAttributes) -> Self {
-        let map = attributes
-            .iter()
-            .flat_map(|(id, attr)| attr.reflect_clone().map(|attr| (*id, attr)))
-            .collect();
-        AttributesInformation(Arc::new(map))
-    }
-}
-
-impl AttributeInfoReflect for AttributesInformation {
-    fn try_get_attribute_by_id(&self, id: TypeId) -> Option<&dyn Reflect> {
-        self.get(&id).map(|s| &**s)
-    }
-}
-
 impl AttributeInfoReflect for CustomAttributes {
     fn try_get_attribute_by_id(&self, id: TypeId) -> Option<&dyn Reflect> {
         self.get_by_id(id)
