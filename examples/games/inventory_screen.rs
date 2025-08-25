@@ -65,12 +65,11 @@ fn item_drag_drop_observer(on_drag_drop: On<Pointer<DragDrop>>, mut commands: Co
         let target_inventory_slot = world.entity(target_item).get::<ChildOf>().unwrap().0;
 
         // Check the target slot is compatible with the dropped item
-        if let Some(slot_a) = world.entity(target_inventory_slot).get::<ItemSlot>() {
-            if let Some(slot_b) = world.entity(dropped_item).get::<ItemSlot>() {
-                if slot_a != slot_b {
-                    return;
-                }
-            }
+        if let Some(slot_a) = world.entity(target_inventory_slot).get::<ItemSlot>()
+            && let Some(slot_b) = world.entity(dropped_item).get::<ItemSlot>()
+            && slot_a != slot_b
+        {
+            return;
         }
 
         let source_inventory_slot = world.entity(dropped_item).get::<ChildOf>().unwrap().0;
