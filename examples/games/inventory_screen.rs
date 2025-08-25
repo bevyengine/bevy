@@ -52,7 +52,7 @@ fn item_node() -> impl Bundle {
 
 fn item_drag_drop_observer(on_drag_drop: On<Pointer<DragDrop>>, mut commands: Commands) {
     // The entity representing the item or empty space that was dropped onto
-    let target_slot = on_drag_drop.entity();
+    let target_item = on_drag_drop.entity();
     // The entity representing the item that was dropped
     let dropped_item = on_drag_drop.dropped;
 
@@ -62,10 +62,10 @@ fn item_drag_drop_observer(on_drag_drop: On<Pointer<DragDrop>>, mut commands: Co
             return;
         }
 
-        let parent_of_target = world.entity(target_slot).get::<ChildOf>().unwrap().0;
-        let parent_of_item = world.entity(dropped_item).get::<ChildOf>().unwrap().0;
+        let target_inventory_slot = world.entity(target_item).get::<ChildOf>().unwrap().0;
 
-        if let Some(slot_a) = world.entity(parent_of_target).get::<ItemSlot>() {
+        // Check the target slot is compatible with the dropped item
+        if let Some(slot_a) = world.entity(target_inventory_slot).get::<ItemSlot>() {
             if let Some(slot_b) = world.entity(dropped_item).get::<ItemSlot>() {
                 if slot_a != slot_b {
                     return;
@@ -73,12 +73,15 @@ fn item_drag_drop_observer(on_drag_drop: On<Pointer<DragDrop>>, mut commands: Co
             }
         }
 
+        let source_inventory_slot = world.entity(dropped_item).get::<ChildOf>().unwrap().0;
+
+        // Swap the contents of the two inventory slots
         world
-            .entity_mut(target_slot)
-            .insert(ChildOf(parent_of_item));
+            .entity_mut(target_item)
+            .insert(ChildOf(source_inventory_slot));
         world
             .entity_mut(dropped_item)
-            .insert(ChildOf(parent_of_target));
+            .insert(ChildOf(target_inventory_slot));
     });
 }
 
