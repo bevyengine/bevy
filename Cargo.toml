@@ -2565,9 +2565,9 @@ name = "inventory_screen"
 path = "examples/games/inventory_screen.rs"
 doc-scrape-examples = true
 
-[package.metadata.example.inventory]
+[package.metadata.example.inventory_screen]
 name = "Inventory Screen"
-description = "A simple inventory screen for a game"
+description = "A simple inventory screen with drag-and-droppable items."
 category = "Games"
 wasm = true
 

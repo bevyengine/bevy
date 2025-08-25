@@ -253,7 +253,6 @@ fn setup(mut commands: Commands, assets: Res<AssetServer>) {
                                 if let Some((item_image_path, slot)) = item_list.next() {
                                     item_node.insert((ItemNode, slot))
                                     .observe(|on_drag_start: On<Pointer<DragStart>>, mut query: Query<&mut GlobalZIndex>| {
-
                                         if let Ok(mut global_zindex) = query.get_mut(on_drag_start.entity()) {
                                             global_zindex.0 = 1;
                                         }
