@@ -1,5 +1,5 @@
 use bevy_ecs::prelude::*;
-use bevy_tasks::{ComputeTaskPool, TaskPool};
+use bevy_tasks::{ComputeTaskPool, TaskPoolBuilder};
 use rand::{prelude::SliceRandom, SeedableRng};
 use rand_chacha::ChaCha8Rng;
 
@@ -18,7 +18,7 @@ pub struct Benchmark<'w>(World, QueryState<(&'w mut TableData, &'w SparseData)>)
 impl<'w> Benchmark<'w> {
     pub fn new() -> Self {
         let mut world = World::new();
-        ComputeTaskPool::get_or_init(TaskPool::default);
+        ComputeTaskPool::get_or_init(TaskPoolBuilder::default);
 
         let mut v = vec![];
         for _ in 0..100000 {
