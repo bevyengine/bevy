@@ -60,6 +60,7 @@ git checkout v0.4.0
   - [Reflection](#reflection)
   - [Remote Protocol](#remote-protocol)
   - [Scene](#scene)
+  - [Shader](#shader)
   - [Shaders](#shaders)
   - [State](#state)
   - [Stress Tests](#stress-tests)
@@ -445,6 +446,12 @@ Example | Description
 Example | Description
 --- | ---
 [Scene](../examples/scene/scene.rs) | Demonstrates loading from and saving scenes to files
+
+### Shader
+
+Example | Description
+--- | ---
+[Fullscreen Material](../examples/shader/fullscreen_material.rs) | Demonstrates how to write a fullscreen material
 
 ### Shaders
 
