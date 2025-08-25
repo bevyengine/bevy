@@ -32,7 +32,7 @@ fn setup_scene(mut commands: Commands) {
     // Spawn a second window
     let secondary_window = commands
         .spawn(Window {
-            title: "Secondary window".to_owned(),
+            title: "Secondary Window".to_owned(),
             // Override the secondary window's scale factor and set it to double that of the primary window.
             // This means the second window's text will use glyphs drawn at twice the resolution of the primary window's text,
             // and they will be twice as big on screen.
@@ -70,7 +70,7 @@ fn setup_scene(mut commands: Commands) {
     // camera spawned here has an `IsDefaultUiCamera`), it queries for the
     // first camera targeting the primary window and uses that.
     commands.spawn(node.clone()).with_child((
-        Text::new("UI Text Primary window"),
+        Text::new("UI Text Primary Window"),
         text_font.clone(),
         TextShadow::default(),
     ));
@@ -78,14 +78,14 @@ fn setup_scene(mut commands: Commands) {
     commands
         .spawn((node, UiTargetCamera(secondary_window_camera)))
         .with_child((
-            Text::new("UI Text Secondary window"),
+            Text::new("UI Text Secondary Window"),
             text_font.clone(),
             TextShadow::default(),
         ));
 
     // `Text2d` belonging to render layer `0`.
     commands.spawn((
-        Text2d::new("Text2d Primary window"),
+        Text2d::new("Text2d Primary Window"),
         TextColor(YELLOW.into()),
         text_font.clone(),
         Text2dShadow::default(),
@@ -93,7 +93,7 @@ fn setup_scene(mut commands: Commands) {
 
     // `Text2d` belonging to render layer `1`.
     commands.spawn((
-        Text2d::new("Text2d Secondary window"),
+        Text2d::new("Text2d Secondary Window"),
         TextColor(YELLOW.into()),
         text_font.clone(),
         Text2dShadow::default(),
