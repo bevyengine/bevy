@@ -492,7 +492,7 @@ impl App {
         self.main_mut().plugin_build_depth += 1;
 
         #[cfg(feature = "trace")]
-        let _plugin_finish_span = info_span!("plugin build", plugin = plugin.name()).entered();
+        let _plugin_build_span = info_span!("plugin build", plugin = plugin.name()).entered();
 
         let f = AssertUnwindSafe(|| plugin.build(self));
 
