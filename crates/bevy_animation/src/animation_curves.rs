@@ -621,7 +621,7 @@ pub enum EvaluatorId<'a> {
 /// control over how animations are evaluated.
 ///
 /// You can implement this trait when the generic [`AnimatableCurveEvaluator`]
-/// isn't sufficiently-expressive for your needs. For example, [`MorphWeights`]
+/// isn't sufficiently-expressive for your needs. For example, `MorphWeights`
 /// implements this trait instead of using [`AnimatableCurveEvaluator`] because
 /// it needs to animate arbitrarily many weights at once, which can't be done
 /// with [`Animatable`] as that works on fixed-size values only.
