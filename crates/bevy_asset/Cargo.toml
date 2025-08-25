@@ -50,10 +50,6 @@ either = { version = "1.13", default-features = false }
 futures-io = { version = "0.3", default-features = false }
 futures-lite = { version = "2.0.1", default-features = false }
 blake3 = { version = "1.5", default-features = false }
-parking_lot = { version = "0.12", default-features = false, features = [
-  "arc_lock",
-  "send_guard",
-] }
 ron = { version = "0.10", default-features = false }
 serde = { version = "1", default-features = false, features = ["derive"] }
 thiserror = { version = "2", default-features = false }
