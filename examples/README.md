@@ -164,8 +164,10 @@ Example | Description
 [Lighting](../examples/3d/lighting.rs) | Illustrates various lighting options in a simple scene
 [Lightmaps](../examples/3d/lightmaps.rs) | Rendering a scene with baked lightmaps
 [Lines](../examples/3d/lines.rs) | Create a custom material to draw 3d lines
+[Load FBX](../examples/3d/load_fbx.rs) | Loads and renders an FBX file as a scene
 [Load glTF](../examples/3d/load_gltf.rs) | Loads and renders a glTF file as a scene
 [Load glTF extras](../examples/3d/load_gltf_extras.rs) | Loads and renders a glTF file as a scene, including the gltf extras
+[Load FBX](../examples/3d/load_fbx.rs) | Loads and renders an FBX file as a scene
 [Manual Material Implementation](../examples/3d/manual_material.rs) | Demonstrates how to implement a material manually using the mid-level render APIs
 [Mesh Ray Cast](../examples/3d/mesh_ray_cast.rs) | Demonstrates ray casting with the `MeshRayCast` system parameter
 [Meshlet](../examples/3d/meshlet.rs) | Meshlet rendering for dense high-poly scenes (experimental)
@@ -530,6 +532,7 @@ Example | Description
 
 Example | Description
 --- | ---
+[FBX Scene Viewer](../examples/tools/scene_viewer_fbx/main.rs) | A simple way to view FBX models with Bevy. Just run `cargo run --release --example scene_viewer_fbx --features=fbx /path/to/model.fbx`, replacing the path as appropriate. Provides enhanced controls for FBX-specific features like material inspection and texture debugging
 [Gamepad Viewer](../examples/tools/gamepad_viewer.rs) | Shows a visualization of gamepad buttons, sticks, and triggers
 [Scene Viewer](../examples/tools/scene_viewer/main.rs) | A simple way to view glTF models with Bevy. Just run `cargo run --release --example scene_viewer /path/to/model.gltf#Scene0`, replacing the path as appropriate. With no arguments it will load the FieldHelmet glTF model from the repository assets subdirectory
 
