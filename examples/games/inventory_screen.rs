@@ -32,6 +32,56 @@ enum ItemSlot {
 #[derive(Component)]
 struct ItemNode;
 
+fn item_node() -> impl Bundle {
+    (
+        Node {
+            width: Val::Px(TILE_SIZE),
+            height: Val::Px(TILE_SIZE),
+            align_items: AlignItems::Center,
+            justify_content: JustifyContent::Center,
+            ..Default::default()
+        },
+        ZIndex(1),
+        GlobalZIndex(0),
+        Pickable {
+            should_block_lower: false,
+            is_hoverable: true,
+        },
+    )
+}
+
+fn item_drag_drop_observer(on_drag_drop: On<Pointer<DragDrop>>, mut commands: Commands) {
+    // The entity representing the item or empty space that was dropped onto
+    let target_slot = on_drag_drop.entity();
+    // The entity representing the item that was dropped
+    let dropped_item = on_drag_drop.dropped;
+
+    commands.queue(move |world: &mut World| {
+        // Ignore the dropped entity if it isn't an item
+        if !world.entity(dropped_item).contains::<ItemNode>() {
+            return;
+        }
+
+        let parent_of_target = world.entity(target_slot).get::<ChildOf>().unwrap().0;
+        let parent_of_item = world.entity(dropped_item).get::<ChildOf>().unwrap().0;
+
+        if let Some(slot_a) = world.entity(parent_of_target).get::<ItemSlot>() {
+            if let Some(slot_b) = world.entity(dropped_item).get::<ItemSlot>() {
+                if slot_a != slot_b {
+                    return;
+                }
+            }
+        }
+
+        world
+            .entity_mut(target_slot)
+            .insert(ChildOf(parent_of_item));
+        world
+            .entity_mut(dropped_item)
+            .insert(ChildOf(parent_of_target));
+    });
+}
+
 fn setup(mut commands: Commands, assets: Res<AssetServer>) {
     let item_border_color = GRAY;
 
@@ -59,7 +109,7 @@ fn setup(mut commands: Commands, assets: Res<AssetServer>) {
         .with_children(|parent| {
             parent.spawn(Text::new("Inventory Screen"));
 
-            let left =parent
+            let left = parent
                 .spawn((
                     Node {
                         display: Display::Grid,
@@ -113,48 +163,9 @@ fn setup(mut commands: Commands, assets: Res<AssetServer>) {
                                 },
                             )
                         .with_children(|parent| {
-                            parent.spawn((
-
-                                Node {
-                                    width: Val::Px(TILE_SIZE),
-                                    height: Val::Px(TILE_SIZE),
-                                ..Default::default()
-                                },
-                                Pickable {
-                                    should_block_lower: false,
-                                    is_hoverable: true,
-                                },
-                                ItemNode,
-
-                            ))
-                            .observe(|on_drag_drop: On<Pointer<DragDrop>>, mut commands: Commands| {
-                                let target = on_drag_drop.entity();
-                                let dropped = on_drag_drop.dropped;
-
-                                commands.queue(move |world: &mut World| {
-                                    if !world.entity(dropped).contains::<ItemNode>() {
-                                        return;
-                                    }
-
-                                    let pa = world.entity(target).get::<ChildOf>().unwrap().0;
-                                    let pb = world.entity(dropped).get::<ChildOf>().unwrap().0;
-
-                                    if let Some(slot_a) = world.entity(pa).get::<ItemSlot>() {
-                                        if let Some(slot_b) = world.entity(dropped).get::<ItemSlot>() {
-                                            if slot_a != slot_b {
-                                                return;
-                                            }
-                                        }
-                                    }
-
-                                    world.entity_mut(target).insert(ChildOf( pb));
-                                    world.entity_mut(dropped).insert(ChildOf( pa));
-
-                                });
-
-                            });
-                    });
-                }
+                            parent.spawn(item_node()).observe(item_drag_drop_observer);
+                        });
+                    }
             }).id();
 
          let right = parent
@@ -233,47 +244,11 @@ fn setup(mut commands: Commands, assets: Res<AssetServer>) {
                                     is_hoverable: true,
                                 },
                             )).with_children(|parent| {
-                                let mut item_node = parent.spawn((
-                                    Node {
-                                        width: Val::Px(TILE_SIZE),
-                                        height: Val::Px(TILE_SIZE),
+                                let mut item_node = parent.spawn(
+                                    item_node()
+                                );
 
-                                        align_items: AlignItems::Center,
-                                        justify_content: JustifyContent::Center,
-                                        ..Default::default()
-                                    },
-                                    ZIndex(1),
-                                    GlobalZIndex(0),
-                                    Pickable {
-                                        should_block_lower: false,
-                                        is_hoverable: true,
-                                    },
-                                ));
-
-                                item_node.observe(|on_drag_drop: On<Pointer<DragDrop>>, mut commands: Commands| {
-                                let target = on_drag_drop.entity();
-                                let dropped = on_drag_drop.dropped;
-
-                                commands.queue(move |world: &mut World| {
-                                    if !world.entity(dropped).contains::<ItemNode>() {
-                                        return;
-                                    }
-
-                                    let pa = world.entity(target).get::<ChildOf>().unwrap().0;
-                                    let pb = world.entity(dropped).get::<ChildOf>().unwrap().0;
-
-                                    if let Some(slot_a) = world.entity(pa).get::<ItemSlot>() {
-                                        if let Some(slot_b) = world.entity(dropped).get::<ItemSlot>() {
-                                            if slot_a != slot_b {
-                                                return;
-                                            }
-                                        }
-                                    }
-
-                                    world.entity_mut(target).insert(ChildOf( pb));
-                                    world.entity_mut(dropped).insert(ChildOf( pa));
-                                });
-                            });
+                                item_node.observe(item_drag_drop_observer);
 
                         if let Some((item_image_path, slot)) = item_list.next() {
                             item_node.insert((ItemNode, slot))
