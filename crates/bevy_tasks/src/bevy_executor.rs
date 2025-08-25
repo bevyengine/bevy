@@ -1,3 +1,9 @@
+//! Fork of `async_executor`.
+//!
+//! It has been vendored along with its tests to update several outdated dependencies.
+//!
+//! [`async_executor`]: https://github.com/smol-rs/async-executor
+
 #![expect(
     unsafe_code,
     reason = "Executor code requires unsafe code for dealing with non-'static lifetimes"
