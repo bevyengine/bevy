@@ -14,7 +14,7 @@ use bevy::{
     render::render_resource::{Extent3d, TextureDimension, TextureFormat},
     sprite_render::AlphaMode2d,
     window::{PresentMode, WindowResolution},
-    winit::{UpdateMode, WinitSettings},
+    winit::WinitSettings,
 };
 use rand::{seq::IndexedRandom, Rng, SeedableRng};
 use rand_chacha::ChaCha8Rng;

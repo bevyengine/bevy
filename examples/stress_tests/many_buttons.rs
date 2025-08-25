@@ -7,7 +7,7 @@ use bevy::{
     prelude::*,
     text::TextColor,
     window::{PresentMode, WindowResolution},
-    winit::{UpdateMode, WinitSettings},
+    winit::WinitSettings,
 };
 
 const FONT_SIZE: f32 = 7.0;

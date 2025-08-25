@@ -12,7 +12,7 @@ use bevy::{
     prelude::*,
     render::{Render, RenderApp, RenderSystems},
     window::{PresentMode, WindowResolution},
-    winit::{UpdateMode, WinitSettings},
+    winit::WinitSettings,
 };
 use rand::{rng, Rng};
 

@@ -12,7 +12,7 @@ use bevy::{
     prelude::*,
     text::{LineBreak, TextBounds},
     window::{PresentMode, WindowResolution},
-    winit::{UpdateMode, WinitSettings},
+    winit::WinitSettings,
 };
 
 #[derive(FromArgs, Resource)]
