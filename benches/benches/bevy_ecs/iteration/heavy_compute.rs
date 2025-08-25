@@ -1,5 +1,5 @@
 use bevy_ecs::prelude::*;
-use bevy_tasks::{ComputeTaskPool, TaskPool};
+use bevy_tasks::{TaskPool, TaskPoolBuilder};
 use criterion::Criterion;
 use glam::*;
 
@@ -20,7 +20,7 @@ pub fn heavy_compute(c: &mut Criterion) {
     group.warm_up_time(core::time::Duration::from_millis(500));
     group.measurement_time(core::time::Duration::from_secs(4));
     group.bench_function("base", |b| {
-        ComputeTaskPool::get_or_init(TaskPool::default);
+        TaskPool::get_or_init(TaskPoolBuilder::default);
 
         let mut world = World::default();
 

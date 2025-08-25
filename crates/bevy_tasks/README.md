@@ -14,24 +14,24 @@ a single thread and having that thread await the completion of those tasks. This
 generating the tasks from a slice of data. This library is intended for games and makes no attempt to ensure fairness
 or ordering of spawned tasks.
 
-It is based on [`async-executor`][async-executor], a lightweight executor that allows the end user to manage their own threads.
-`async-executor` is based on async-task, a core piece of async-std.
+It is based on a fork of [`async-executor`][async-executor], a lightweight executor that allows the end user to manage their own threads.
+`async-executor` is based on [`async-task`][async-task], a core piece of [`smol`][smol].
 
 ## Usage
 
 In order to be able to optimize task execution in multi-threaded environments,
-bevy provides three different thread pools via which tasks of different kinds can be spawned.
+Bevy supports a thread pool via which tasks of different priorities can be spawned.
 (The same API is used in single-threaded environments, even if execution is limited to a single thread.
 This currently applies to Wasm targets.)
-The determining factor for what kind of work should go in each pool is latency requirements:
+The determining factor for how work is prioritized based on latency requirements:
 
 * For CPU-intensive work (tasks that generally spin until completion) we have a standard
-  [`ComputeTaskPool`] and an [`AsyncComputeTaskPool`]. Work that does not need to be completed to
-  present the next frame should go to the [`AsyncComputeTaskPool`].
+  `Compute` priority, the default. Work that does not need to be completed to present the 
+  next frame be set to the `BlockingCompute` priority.
 
 * For IO-intensive work (tasks that spend very little time in a "woken" state) we have an
-  [`IoTaskPool`] whose tasks are expected to complete very quickly. Generally speaking, they should just
-  await receiving data from somewhere (i.e. disk) and signal other systems when the data is ready
+  [`AsyncIO`] priority whose tasks are expected to complete very quickly. Generally speaking, they should just
+  await receiving data from somewhere (i.e. network) and signal other systems when the data is ready
   for consumption. (likely via channels)
 
 ## `no_std` Support
@@ -40,4 +40,6 @@ To enable `no_std` support in this crate, you will need to disable default featu
 
 [bevy]: https://bevy.org
 [rayon]: https://github.com/rayon-rs/rayon
-[async-executor]: https://github.com/stjepang/async-executor
+[async-executor]: https://github.com/smol-rs/async-executor
+[smol]: https://github.com/smol-rs/smol
+[async-task]: https://github.com/smol-rs/async-task

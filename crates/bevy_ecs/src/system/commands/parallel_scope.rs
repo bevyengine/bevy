@@ -29,7 +29,7 @@ struct ParallelCommandQueue {
 ///
 /// ```
 /// # use bevy_ecs::prelude::*;
-/// # use bevy_tasks::ComputeTaskPool;
+/// # use bevy_tasks::TaskPool;
 /// #
 /// # #[derive(Component)]
 /// # struct Velocity;

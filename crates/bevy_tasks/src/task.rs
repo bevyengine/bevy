@@ -7,6 +7,19 @@ use core::{
 
 use crate::cfg;
 
+crate::cfg::switch! {
+    crate::cfg::web => {
+        type TaskInner<T> = async_channel::Receiver<Result<T, Panic>>;
+    }
+    crate::cfg::bevy_executor =>  {
+        use crate::Metadata;
+        type TaskInner<T> = async_task::Task<T, Metadata>;
+    }
+    _ =>  {
+        type TaskInner<T> = async_task::Task<T>;
+    }
+}
+
 /// Wraps `async_executor::Task`, a spawned future.
 ///
 /// Tasks are also futures themselves and yield the output of the spawned future.
@@ -16,15 +29,7 @@ use crate::cfg;
 ///
 /// Tasks that panic get immediately canceled. Awaiting a canceled task also causes a panic.
 #[must_use = "Tasks are canceled when dropped, use `.detach()` to run them in the background."]
-pub struct Task<T>(
-    cfg::web! {
-        if {
-            async_channel::Receiver<Result<T, Panic>>
-        } else {
-            async_task::Task<T>
-        }
-    },
-);
+pub struct Task<T>(TaskInner<T>);
 
 // Custom constructors for web and non-web platforms
 cfg::web! {
@@ -38,7 +43,9 @@ cfg::web! {
                 spawn_local(async move {
                     // Catch any panics that occur when polling the future so they can
                     // be propagated back to the task handle.
-                    let value = CatchUnwind(AssertUnwindSafe(future)).await;
+                    let value = CatchUnwind {
+                        inner: AssertUnwindSafe(future)
+                    }.await;
                     let _ = sender.send(value);
                 });
                 Self(receiver)
@@ -47,8 +54,14 @@ cfg::web! {
     } else {
         impl<T> Task<T> {
             /// Creates a new task from a given `async_executor::Task`
-            pub(crate) fn new(task: async_task::Task<T>) -> Self {
+            #[inline]
+            pub(crate) fn new(task: TaskInner<T>) -> Self {
                 Self(task)
+            }
+
+            #[inline]
+            pub(crate) fn into_inner(self) -> TaskInner<T> {
+                self.0
             }
         }
     }
@@ -173,13 +186,17 @@ cfg::web! {
 
     type Panic = Box<dyn Any + Send + 'static>;
 
-    #[pin_project::pin_project]
-    struct CatchUnwind<F: UnwindSafe>(#[pin] F);
+    pin_project_lite::pin_project! {
+        struct CatchUnwind<F: UnwindSafe> {
+            #[pin]
+            inner: F
+        }
+    }
 
     impl<F: Future + UnwindSafe> Future for CatchUnwind<F> {
         type Output = Result<F::Output, Panic>;
         fn poll(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Self::Output> {
-            let f = AssertUnwindSafe(|| self.project().0.poll(cx));
+            let f = AssertUnwindSafe(|| self.project().inner.poll(cx));
 
             let result = cfg::std! {
                 if {

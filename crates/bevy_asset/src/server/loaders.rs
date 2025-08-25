@@ -5,7 +5,7 @@ use crate::{
 use alloc::{boxed::Box, sync::Arc, vec::Vec};
 use async_broadcast::RecvError;
 use bevy_platform::collections::HashMap;
-use bevy_tasks::IoTaskPool;
+use bevy_tasks::{TaskPool, TaskPriority};
 use bevy_utils::TypeIdMap;
 use core::any::TypeId;
 use thiserror::Error;
@@ -91,7 +91,9 @@ impl AssetLoaders {
             match maybe_loader {
                 MaybeAssetLoader::Ready(_) => unreachable!(),
                 MaybeAssetLoader::Pending { sender, .. } => {
-                    IoTaskPool::get()
+                    TaskPool::get()
+                        .builder()
+                        .with_priority(TaskPriority::BlockingIO)
                         .spawn(async move {
                             let _ = sender.broadcast(loader).await;
                         })

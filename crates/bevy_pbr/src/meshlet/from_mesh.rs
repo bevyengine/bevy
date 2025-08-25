@@ -10,7 +10,7 @@ use bevy_math::{
 use bevy_mesh::{Indices, Mesh};
 use bevy_platform::collections::HashMap;
 use bevy_render::render_resource::PrimitiveTopology;
-use bevy_tasks::{AsyncComputeTaskPool, ParallelSlice};
+use bevy_tasks::{ParallelSlice, TaskPool};
 use bitvec::{order::Lsb0, vec::BitVec, view::BitView};
 use core::{f32, ops::Range};
 use itertools::Itertools;
@@ -136,7 +136,7 @@ impl MeshletMesh {
                 position_only_vertex_count,
             );
 
-            let simplified = groups.par_chunk_map(AsyncComputeTaskPool::get(), 1, |_, groups| {
+            let simplified = groups.par_chunk_map(AsyncTaskPool::get(), 1, |_, groups| {
                 let mut group = groups[0].clone();
 
                 // If the group only has a single meshlet we can't simplify it

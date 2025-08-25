@@ -27,7 +27,7 @@ use alloc::{
 use atomicow::CowArc;
 use bevy_ecs::prelude::*;
 use bevy_platform::collections::HashSet;
-use bevy_tasks::IoTaskPool;
+use bevy_tasks::{TaskPool, TaskPriority};
 use core::{any::TypeId, future::Future, panic::AssertUnwindSafe, task::Poll};
 use crossbeam_channel::{Receiver, Sender};
 use either::Either;
@@ -524,15 +524,18 @@ impl AssetServer {
 
         let owned_handle = handle.clone();
         let server = self.clone();
-        let task = IoTaskPool::get().spawn(async move {
-            if let Err(err) = server
-                .load_internal(Some(owned_handle), path, false, None)
-                .await
-            {
-                error!("{}", err);
-            }
-            drop(guard);
-        });
+        let task = TaskPool::get()
+            .builder()
+            .with_priority(TaskPriority::BlockingIO)
+            .spawn(async move {
+                if let Err(err) = server
+                    .load_internal(Some(owned_handle), path, false, None)
+                    .await
+                {
+                    error!("{}", err);
+                }
+                drop(guard);
+            });
 
         #[cfg(not(any(target_arch = "wasm32", not(feature = "multi_threaded"))))]
         {
@@ -587,24 +590,29 @@ impl AssetServer {
         let id = handle.id().untyped();
 
         let server = self.clone();
-        let task = IoTaskPool::get().spawn(async move {
-            let path_clone = path.clone();
-            match server.load_untyped_async(path).await {
-                Ok(handle) => server.send_asset_event(InternalAssetEvent::Loaded {
-                    id,
-                    loaded_asset: LoadedAsset::new_with_dependencies(LoadedUntypedAsset { handle })
-                        .into(),
-                }),
-                Err(err) => {
-                    error!("{err}");
-                    server.send_asset_event(InternalAssetEvent::Failed {
+        let task = TaskPool::get()
+            .builder()
+            .with_priority(TaskPriority::BlockingIO)
+            .spawn(async move {
+                let path_clone = path.clone();
+                match server.load_untyped_async(path).await {
+                    Ok(handle) => server.send_asset_event(InternalAssetEvent::Loaded {
                         id,
-                        path: path_clone,
-                        error: err,
-                    });
+                        loaded_asset: LoadedAsset::new_with_dependencies(LoadedUntypedAsset {
+                            handle,
+                        })
+                        .into(),
+                    }),
+                    Err(err) => {
+                        error!("{err}");
+                        server.send_asset_event(InternalAssetEvent::Failed {
+                            id,
+                            path: path_clone,
+                            error: err,
+                        });
+                    }
                 }
-            }
-        });
+            });
 
         #[cfg(not(any(target_arch = "wasm32", not(feature = "multi_threaded"))))]
         infos.pending_tasks.insert(handle.id().untyped(), task);
@@ -827,7 +835,9 @@ impl AssetServer {
     pub fn reload<'a>(&self, path: impl Into<AssetPath<'a>>) {
         let server = self.clone();
         let path = path.into().into_owned();
-        IoTaskPool::get()
+        TaskPool::get()
+            .builder()
+            .with_priority(TaskPriority::BlockingIO)
             .spawn(async move {
                 let mut reloaded = false;
 
@@ -922,29 +932,32 @@ impl AssetServer {
 
         let event_sender = self.data.asset_event_sender.clone();
 
-        let task = IoTaskPool::get().spawn(async move {
-            match future.await {
-                Ok(asset) => {
-                    let loaded_asset = LoadedAsset::new_with_dependencies(asset).into();
-                    event_sender
-                        .send(InternalAssetEvent::Loaded { id, loaded_asset })
-                        .unwrap();
+        let task = TaskPool::get()
+            .builder()
+            .with_priority(TaskPriority::BlockingIO)
+            .spawn(async move {
+                match future.await {
+                    Ok(asset) => {
+                        let loaded_asset = LoadedAsset::new_with_dependencies(asset).into();
+                        event_sender
+                            .send(InternalAssetEvent::Loaded { id, loaded_asset })
+                            .unwrap();
+                    }
+                    Err(error) => {
+                        let error = AddAsyncError {
+                            error: Arc::new(error),
+                        };
+                        error!("{error}");
+                        event_sender
+                            .send(InternalAssetEvent::Failed {
+                                id,
+                                path: Default::default(),
+                                error: AssetLoadError::AddAsyncError(error),
+                            })
+                            .unwrap();
+                    }
                 }
-                Err(error) => {
-                    let error = AddAsyncError {
-                        error: Arc::new(error),
-                    };
-                    error!("{error}");
-                    event_sender
-                        .send(InternalAssetEvent::Failed {
-                            id,
-                            path: Default::default(),
-                            error: AssetLoadError::AddAsyncError(error),
-                        })
-                        .unwrap();
-                }
-            }
-        });
+            });
 
         #[cfg(not(any(target_arch = "wasm32", not(feature = "multi_threaded"))))]
         infos.pending_tasks.insert(id, task);
@@ -1025,7 +1038,9 @@ impl AssetServer {
 
         let path = path.into_owned();
         let server = self.clone();
-        IoTaskPool::get()
+        TaskPool::get()
+            .builder()
+            .with_priority(TaskPriority::BlockingIO)
             .spawn(async move {
                 let Ok(source) = server.get_source(path.source()) else {
                     error!(

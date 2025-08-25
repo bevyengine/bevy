@@ -9,20 +9,24 @@ license = "MIT OR Apache-2.0"
 keywords = ["bevy"]
 
 [features]
-default = ["async_executor", "futures-lite"]
+default = ["futures-lite"]
 
 # Enables multi-threading support.
 # Without this feature, all tasks will be run on a single thread.
-multi_threaded = [
-  "bevy_platform/std",
-  "dep:async-channel",
-  "dep:concurrent-queue",
-  "async_executor",
-]
+multi_threaded = ["bevy_platform/std", "dep:async-channel", "bevy_executor"]
 
-# Uses `async-executor` as a task execution backend.
+# Uses a Bevy-specific fork of `async-executor` as a task execution backend.
 # This backend is incompatible with `no_std` targets.
-async_executor = ["bevy_platform/std", "dep:async-executor", "futures-lite"]
+bevy_executor = [
+  "dep:fastrand",
+  "dep:slab",
+  "dep:thread_local",
+  "dep:crossbeam-utils",
+  "dep:pin-project-lite",
+  "futures-lite",
+  "async-task/std",
+  "concurrent-queue/std",
+]
 
 # Provide an implementation of `block_on` from  `futures-lite`.
 futures-lite = ["bevy_platform/std", "futures-lite/std"]
@@ -44,18 +48,20 @@ derive_more = { version = "2", default-features = false, features = [
   "deref",
   "deref_mut",
 ] }
-async-executor = { version = "1.11", optional = true }
+slab = { version = "0.4", optional = true }
+pin-project-lite = { version = "0.2", optional = true }
+thread_local = { version = "1.1", optional = true }
+fastrand = { version = "2.3", optional = true, default-features = false }
 async-channel = { version = "2.3.0", optional = true }
 async-io = { version = "2.0.0", optional = true }
-concurrent-queue = { version = "2.0.0", optional = true }
 atomic-waker = { version = "1", default-features = false }
-crossbeam-queue = { version = "0.3", default-features = false, features = [
-  "alloc",
-] }
+concurrent-queue = { version = "2.5", default-features = false }
+crossbeam-utils = { version = "0.8", default-features = false, optional = true }
+log = "0.4"
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
-pin-project = "1"
 async-channel = "2.3.0"
+pin-project-lite = "0.2"
 
 [target.'cfg(not(all(target_has_atomic = "8", target_has_atomic = "16", target_has_atomic = "32", target_has_atomic = "64", target_has_atomic = "ptr")))'.dependencies]
 async-task = { version = "4.4.0", default-features = false, features = [
@@ -73,6 +79,7 @@ futures-lite = { version = "2.0.1", default-features = false, features = [
   "std",
 ] }
 async-channel = "2.3.0"
+async-io = "2.0.0"
 
 [lints]
 workspace = true

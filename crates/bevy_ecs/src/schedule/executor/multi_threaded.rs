@@ -1,7 +1,6 @@
 use alloc::{boxed::Box, vec::Vec};
 use bevy_platform::cell::SyncUnsafeCell;
-use bevy_platform::sync::Arc;
-use bevy_tasks::{ComputeTaskPool, Scope, TaskPool, ThreadExecutor};
+use bevy_tasks::{Scope, ScopeTaskTarget, TaskPool, TaskPoolBuilder, ThreadSpawner};
 use concurrent_queue::ConcurrentQueue;
 use core::{any::Any, panic::AssertUnwindSafe};
 use fixedbitset::FixedBitSet;
@@ -270,14 +269,12 @@ impl SystemExecutor for MultiThreadedExecutor {
         }
 
         let thread_executor = world
-            .get_resource::<MainThreadExecutor>()
+            .get_resource::<MainThreadSpawner>()
             .map(|e| e.0.clone());
-        let thread_executor = thread_executor.as_deref();
 
         let environment = &Environment::new(self, schedule, world);
 
-        ComputeTaskPool::get_or_init(TaskPool::default).scope_with_executor(
-            false,
+        TaskPool::get_or_init(TaskPoolBuilder::default).scope_with_executor(
             thread_executor,
             |scope| {
                 let context = Context {
@@ -703,7 +700,11 @@ impl ExecutorState {
             context.scope.spawn(task);
         } else {
             self.local_thread_running = true;
-            context.scope.spawn_on_external(task);
+            context
+                .scope
+                .builder()
+                .with_target(ScopeTaskTarget::External)
+                .spawn(task);
         }
     }
 
@@ -727,7 +728,11 @@ impl ExecutorState {
                 context.system_completed(system_index, res, system);
             };
 
-            context.scope.spawn_on_scope(task);
+            context
+                .scope
+                .builder()
+                .with_target(ScopeTaskTarget::Scope)
+                .spawn(task);
         } else {
             let task = async move {
                 // SAFETY: `can_run` returned true for this system, which means
@@ -749,7 +754,11 @@ impl ExecutorState {
                 context.system_completed(system_index, res, system);
             };
 
-            context.scope.spawn_on_scope(task);
+            context
+                .scope
+                .builder()
+                .with_target(ScopeTaskTarget::Scope)
+                .spawn(task);
         }
 
         self.exclusive_running = true;
@@ -864,20 +873,20 @@ unsafe fn evaluate_and_fold_conditions(
         .fold(true, |acc, res| acc && res)
 }
 
-/// New-typed [`ThreadExecutor`] [`Resource`] that is used to run systems on the main thread
+/// New-typed [`ThreadSpawner`] [`Resource`] that is used to run systems on the main thread
 #[derive(Resource, Clone)]
-pub struct MainThreadExecutor(pub Arc<ThreadExecutor<'static>>);
+pub struct MainThreadSpawner(pub ThreadSpawner);
 
-impl Default for MainThreadExecutor {
+impl Default for MainThreadSpawner {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl MainThreadExecutor {
+impl MainThreadSpawner {
     /// Creates a new executor that can be used to run systems on the main thread.
     pub fn new() -> Self {
-        MainThreadExecutor(TaskPool::get_thread_executor())
+        MainThreadSpawner(TaskPool::get().current_thread_spawner())
     }
 }
 

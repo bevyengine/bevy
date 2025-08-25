@@ -3,10 +3,10 @@ use async_channel::{Receiver, Sender};
 use bevy_app::{App, AppExit, AppLabel, Plugin, SubApp};
 use bevy_ecs::{
     resource::Resource,
-    schedule::MainThreadExecutor,
+    schedule::MainThreadSpawner,
     world::{Mut, World},
 };
-use bevy_tasks::ComputeTaskPool;
+use bevy_tasks::TaskPool;
 
 use crate::RenderApp;
 
@@ -114,7 +114,7 @@ impl Plugin for PipelinedRenderingPlugin {
         if app.get_sub_app(RenderApp).is_none() {
             return;
         }
-        app.insert_resource(MainThreadExecutor::new());
+        app.insert_resource(MainThreadSpawner::new());
 
         let mut sub_app = SubApp::new();
         sub_app.set_extract(renderer_extract);
@@ -136,7 +136,7 @@ impl Plugin for PipelinedRenderingPlugin {
             .expect("Unable to get RenderApp. Another plugin may have removed the RenderApp before PipelinedRenderingPlugin");
 
         // clone main thread executor to render world
-        let executor = app.world().get_resource::<MainThreadExecutor>().unwrap();
+        let executor = app.world().get_resource::<MainThreadSpawner>().unwrap();
         render_app.world_mut().insert_resource(executor.clone());
 
         render_to_app_sender.send_blocking(render_app).unwrap();
@@ -150,10 +150,10 @@ impl Plugin for PipelinedRenderingPlugin {
             #[cfg(feature = "trace")]
             let _span = tracing::info_span!("render thread").entered();
 
-            let compute_task_pool = ComputeTaskPool::get();
+            let task_pool = TaskPool::get();
             loop {
                 // run a scope here to allow main world to use this thread while it's waiting for the render app
-                let sent_app = compute_task_pool
+                let sent_app = task_pool
                     .scope(|s| {
                         s.spawn(async { app_to_render_receiver.recv().await });
                     })
@@ -181,12 +181,12 @@ impl Plugin for PipelinedRenderingPlugin {
 // This function waits for the rendering world to be received,
 // runs extract, and then sends the rendering world back to the render thread.
 fn renderer_extract(app_world: &mut World, _world: &mut World) {
-    app_world.resource_scope(|world, main_thread_executor: Mut<MainThreadExecutor>| {
+    app_world.resource_scope(|world, main_thread_executor: Mut<MainThreadSpawner>| {
         world.resource_scope(|world, mut render_channels: Mut<RenderAppChannels>| {
             // we use a scope here to run any main thread tasks that the render world still needs to run
             // while we wait for the render world to be received.
-            if let Some(mut render_app) = ComputeTaskPool::get()
-                .scope_with_executor(true, Some(&*main_thread_executor.0), |s| {
+            if let Some(mut render_app) = TaskPool::get()
+                .scope_with_executor(Some(main_thread_executor.0.clone()), |s| {
                     s.spawn(async { render_channels.recv().await });
                 })
                 .pop()

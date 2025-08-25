@@ -9,7 +9,7 @@ use std::{
     },
 };
 
-use bevy::{gltf::Gltf, prelude::*, tasks::AsyncComputeTaskPool};
+use bevy::{gltf::Gltf, prelude::*, tasks::TaskPool};
 use event_listener::Event;
 use futures_lite::Future;
 
@@ -29,7 +29,7 @@ fn main() {
         // This approach polls a value in a system.
         .add_systems(Update, wait_on_load.run_if(assets_loaded))
         // This showcases how to wait for assets using async
-        // by spawning a `Future` in `AsyncComputeTaskPool`.
+        // by spawning a `Future` in `TaskPool`.
         .add_systems(
             Update,
             get_async_loading_state.run_if(in_state(LoadingState::Loading)),
@@ -158,7 +158,7 @@ fn setup_assets(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.insert_resource(AsyncLoadingState(loading_state.clone()));
 
     // await the `AssetBarrierFuture`.
-    AsyncComputeTaskPool::get()
+    TaskPool::get()
         .spawn(async move {
             future.await;
             // Notify via `AsyncLoadingState`
