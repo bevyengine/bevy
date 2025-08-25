@@ -2,6 +2,7 @@ use crate::{
     change_detection::MaybeLocation,
     component::{CheckChangeTicks, ComponentId, ComponentInfo, ComponentTicks, Tick, TickCells},
     entity::{Entity, EntityRow},
+    query::{DebugCheckedUnwrap, UnsafeVecExtensions},
     storage::{Column, TableRow},
 };
 use alloc::{boxed::Box, vec::Vec};
@@ -317,17 +318,21 @@ impl ComponentSparseSet {
         self.sparse.remove(entity.row()).map(|dense_index| {
             #[cfg(debug_assertions)]
             assert_eq!(entity, self.entities[dense_index.index()]);
-            self.entities.swap_remove(dense_index.index());
+            // SAFETY: If dense_index was in the sparse array, it must still be valid and within bounds
+            // in the entities Vec.
+            unsafe { self.entities.swap_remove_unchecked(dense_index.index()) };
             let is_last = dense_index.index() == self.dense.len() - 1;
             // SAFETY: dense_index was just removed from `sparse`, which ensures that it is valid
             let (value, _, _) = unsafe { self.dense.swap_remove_and_forget_unchecked(dense_index) };
             if !is_last {
-                let swapped_entity = self.entities[dense_index.index()];
+                // SAFETY: This index was just swapped to above, it must be valid.
+                let swapped_entity = unsafe { self.entities.get_unchecked(dense_index.index()) };
                 #[cfg(not(debug_assertions))]
-                let index = swapped_entity;
+                let index = *swapped_entity;
                 #[cfg(debug_assertions)]
                 let index = swapped_entity.row();
-                *self.sparse.get_mut(index).unwrap() = dense_index;
+                // SAFETY: if the sparse index points to something in the dense vec, it exists
+                unsafe { *self.sparse.get_mut(index).debug_checked_unwrap() = dense_index }
             }
             value
         })
@@ -340,19 +345,23 @@ impl ComponentSparseSet {
         if let Some(dense_index) = self.sparse.remove(entity.row()) {
             #[cfg(debug_assertions)]
             assert_eq!(entity, self.entities[dense_index.index()]);
-            self.entities.swap_remove(dense_index.index());
+            // SAFETY: If dense_index was in the sparse array, it must still be valid and within bounds
+            // in the entities Vec.
+            unsafe { self.entities.swap_remove_unchecked(dense_index.index()) };
             let is_last = dense_index.index() == self.dense.len() - 1;
             // SAFETY: if the sparse index points to something in the dense vec, it exists
             unsafe {
                 self.dense.swap_remove_unchecked(dense_index);
             }
             if !is_last {
-                let swapped_entity = self.entities[dense_index.index()];
+                // SAFETY: This index was just swapped to above, it must be valid.
+                let swapped_entity = unsafe { self.entities.get_unchecked(dense_index.index()) };
                 #[cfg(not(debug_assertions))]
-                let index = swapped_entity;
+                let index = *swapped_entity;
                 #[cfg(debug_assertions)]
                 let index = swapped_entity.row();
-                *self.sparse.get_mut(index).unwrap() = dense_index;
+                // SAFETY: if the sparse index points to something in the dense vec, it exists
+                unsafe { *self.sparse.get_mut(index).debug_checked_unwrap() = dense_index }
             }
             true
         } else {
@@ -532,11 +541,17 @@ impl<I: SparseSetIndex, V> SparseSet<I, V> {
         self.sparse.remove(index).map(|dense_index| {
             let index = dense_index.get();
             let is_last = index == self.dense.len() - 1;
-            let value = self.dense.swap_remove(index);
-            self.indices.swap_remove(index);
+            // SAFETY: If dense_index was in the sparse array, it must still be valid and within bounds
+            // in the dense Vec.
+            let value = unsafe { self.dense.swap_remove_unchecked(index) };
+            // SAFETY: If dense_index was in the sparse array, it must still be valid and within bounds
+            // in the indices Vec.
+            unsafe { self.indices.swap_remove_unchecked(index) };
             if !is_last {
-                let swapped_index = self.indices[index].clone();
-                *self.sparse.get_mut(swapped_index).unwrap() = dense_index;
+                // SAFETY: This index was just swapped to above, it must be valid.
+                let swapped_index = unsafe { self.indices.get_unchecked(index).clone() };
+                // SAFETY: The swapped index must be valid in the sparse array.
+                unsafe { *self.sparse.get_mut(swapped_index).debug_checked_unwrap() = dense_index };
             }
             value
         })
@@ -635,7 +650,12 @@ impl SparseSets {
             );
         }
 
-        self.sets.get_mut(component_info.id()).unwrap()
+        // SAFETY: If the set was not present before, it was just initialized above.
+        unsafe {
+            self.sets
+                .get_mut(component_info.id())
+                .debug_checked_unwrap()
+        }
     }
 
     /// Gets a mutable reference to the [`ComponentSparseSet`] of a [`ComponentId`]. This may be `None` if the component has never been spawned.

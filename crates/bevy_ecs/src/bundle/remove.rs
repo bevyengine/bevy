@@ -10,6 +10,7 @@ use crate::{
     entity::{Entity, EntityLocation},
     lifecycle::{REMOVE, REPLACE},
     observer::Observers,
+    query::DebugCheckedUnwrap,
     relationship::RelationshipHookMode,
     storage::{SparseSets, Storages, Table},
     world::{unsafe_world_cell::UnsafeWorldCell, World},
@@ -79,18 +80,26 @@ impl<'w> BundleRemover<'w> {
             return None;
         }
 
-        let (old_archetype, new_archetype) =
-            world.archetypes.get_2_mut(archetype_id, new_archetype_id);
-
-        let tables = if old_archetype.table_id() == new_archetype.table_id() {
-            None
-        } else {
-            let (old, new) = world
-                .storages
-                .tables
-                .get_2_mut(old_archetype.table_id(), new_archetype.table_id());
-            Some((old.into(), new.into()))
+        // SAFETY: The call to `remove_bundle_from_archetype` ensures that both archetypes are valid,
+        // and the check above ensures the two archetypes are not the same.
+        let (old_archetype, new_archetype) = unsafe {
+            world
+                .archetypes
+                .get_2_unchecked_mut(archetype_id, new_archetype_id)
         };
+
+        let tables = (old_archetype.table_id() != new_archetype.table_id()).then(|| {
+            // SAFETY: If there exist two archetypes, their tables must be valid, and the check above
+            // ensures they're not the same table.
+            let (old, new) = unsafe {
+                world
+                    .storages
+                    .tables
+                    .get_2_unchecked_mut(old_archetype.table_id(), new_archetype.table_id())
+            };
+
+            (old.into(), new.into())
+        });
 
         let remover = Self {
             bundle_info: bundle_info.into(),
@@ -207,8 +216,8 @@ impl<'w> BundleRemover<'w> {
                         .storages
                         .sparse_sets
                         .get_mut(component_id)
-                        // Set exists because the component existed on the entity
-                        .unwrap()
+                        // SAFETY: The set must exist because the component existed on the entity
+                        .debug_checked_unwrap()
                         // If it was already forgotten, it would not be in the set.
                         .remove(entity);
                 }
@@ -219,10 +228,13 @@ impl<'w> BundleRemover<'w> {
         let remove_result = self
             .old_archetype
             .as_mut()
-            .swap_remove(location.archetype_row);
+            .swap_remove_unchecked(location.archetype_row);
         // if an entity was moved into this entity's archetype row, update its archetype row
         if let Some(swapped_entity) = remove_result.swapped_entity {
-            let swapped_location = world.entities.get(swapped_entity).unwrap();
+            let swapped_location = world.entities.get(swapped_entity);
+            // SAFETY: The entity was just moved within a valid archetype. The swapped entity must
+            // be valid and alive.
+            let swapped_location = unsafe { swapped_location.debug_checked_unwrap() };
 
             world.entities.set(
                 swapped_entity.index(),
@@ -263,7 +275,10 @@ impl<'w> BundleRemover<'w> {
 
             // if an entity was moved into this entity's table row, update its table row
             if let Some(swapped_entity) = move_result.swapped_entity {
-                let swapped_location = world.entities.get(swapped_entity).unwrap();
+                let swapped_location = world.entities.get(swapped_entity);
+                // SAFETY: The entity was just moved within a valid archetype. The swapped entity must
+                // be valid and alive.
+                let swapped_location = unsafe { swapped_location.debug_checked_unwrap() };
 
                 world.entities.set(
                     swapped_entity.index(),
@@ -274,7 +289,9 @@ impl<'w> BundleRemover<'w> {
                         table_row: location.table_row,
                     }),
                 );
-                world.archetypes[swapped_location.archetype_id]
+                world
+                    .archetypes
+                    .get_unchecked_mut(swapped_location.archetype_id)
                     .set_entity_table_row(swapped_location.archetype_row, location.table_row);
             }
 
@@ -323,7 +340,8 @@ impl BundleInfo {
         // Check the archetype graph to see if the bundle has been
         // removed from this archetype in the past.
         let archetype_after_remove_result = {
-            let edges = archetypes[archetype_id].edges();
+            // SAFETY: Caller guarantees that `archetype_id` must be valid.
+            let edges = unsafe { archetypes.get(archetype_id).debug_checked_unwrap() }.edges();
             if intersection {
                 edges.get_archetype_after_bundle_remove(self.id())
             } else {
@@ -338,7 +356,8 @@ impl BundleInfo {
             let mut next_sparse_set_components;
             let next_table_id;
             {
-                let current_archetype = &mut archetypes[archetype_id];
+                // SAFETY: Caller guarantees that `archetype_id` must be valid.
+                let current_archetype = unsafe { archetypes.get_unchecked_mut(archetype_id) };
                 let mut removed_table_components = Vec::new();
                 let mut removed_sparse_set_components = Vec::new();
                 for component_id in self.iter_explicit_components() {
@@ -394,7 +413,8 @@ impl BundleInfo {
             );
             (Some(new_archetype_id), is_new_created)
         };
-        let current_archetype = &mut archetypes[archetype_id];
+        // SAFETY: Caller guarantees that `archetype_id` must be valid.
+        let current_archetype = unsafe { archetypes.get_unchecked_mut(archetype_id) };
         // Cache the result in an edge.
         if intersection {
             current_archetype
