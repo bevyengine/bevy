@@ -88,7 +88,7 @@ fn item_drag_drop_observer(on_drag_drop: On<Pointer<DragDrop>>, mut commands: Co
 fn setup(mut commands: Commands, assets: Res<AssetServer>) {
     let item_border_color: Color = GRAY.into();
     let panel_color: Color = MAROON.into();
-    let slot_color = panel_color.darker(0.1);
+    let slot_color = panel_color.darker(0.033);
 
     commands.spawn(Camera2d);
     commands
