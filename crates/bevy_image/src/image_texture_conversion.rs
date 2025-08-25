@@ -108,8 +108,9 @@ impl Image {
                 height = image.height();
                 format = TextureFormat::Rgba32Float;
 
-                let mut local_data =
-                    Vec::with_capacity(width as usize * height as usize * format.pixel_size());
+                let mut local_data = Vec::with_capacity(
+                    width as usize * height as usize * format.pixel_size().unwrap_or(0),
+                );
 
                 for pixel in image.into_raw().chunks_exact(3) {
                     // TODO: use the array_chunks method once stabilized
