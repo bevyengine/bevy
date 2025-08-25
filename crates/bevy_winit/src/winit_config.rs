@@ -48,7 +48,7 @@ impl WinitSettings {
         }
     }
 
-    /// Default settings for stress tests, the application will update as fast possible.
+    /// The application will update as fast possible.
     ///
     /// Uses [`Continuous`](UpdateMode::Continuous) regardless of whether windows have focus.
     pub fn continuous() -> Self {
