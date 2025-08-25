@@ -141,7 +141,7 @@ fn setup(mut commands: Commands, assets: Res<AssetServer>) {
                                     ..default()
                                 },
                                 BorderColor::all(item_border_color),
-                                BackgroundColor(Color::BLACK),
+                                BackgroundColor(MAROON.darker(0.2).into()),
                                 item_slot,
                                 children![(
                                     Node {
@@ -184,17 +184,14 @@ fn setup(mut commands: Commands, assets: Res<AssetServer>) {
             Pickable::IGNORE,
         )).with_children(|parent| {
             let mut item_list = [
-                ("textures/rpg/props/generic-rpg-barrel01.png", ItemSlot::Legs),
-                ("textures/rpg/props/generic-rpg-board01.png", ItemSlot::Legs),
-                ("textures/rpg/props/generic-rpg-crate01.png", ItemSlot::Body),
-                ("textures/rpg/props/generic-rpg-crate03.png", ItemSlot::Body),
-                ("textures/rpg/props/generic-rpg-flower01.png", ItemSlot::Head),
-                ("textures/rpg/props/generic-rpg-flower02.png", ItemSlot::Head),
-                ("textures/rpg/props/generic-rpg-flower03.png", ItemSlot::Head),
-                ("textures/rpg/props/generic-rpg-loot01.png", ItemSlot::Hand),
-                ("textures/rpg/props/generic-rpg-loot02.png", ItemSlot::Hand),
-                ("textures/rpg/props/generic-rpg-loot03.png", ItemSlot::Hand),
-                ("textures/rpg/props/generic-rpg-loot04.png", ItemSlot::Hand),
+                ("textures/inventory_screen/boots.png", ItemSlot::Legs),
+                ("textures/inventory_screen/armor.png", ItemSlot::Body),
+                ("textures/inventory_screen/helmet.png", ItemSlot::Head),
+                ("textures/inventory_screen/berries.png", ItemSlot::Hand),
+                ("textures/inventory_screen/mana-potion.png", ItemSlot::Hand),
+                ("textures/inventory_screen/health-potion.png", ItemSlot::Hand),
+                ("textures/inventory_screen/shield.png", ItemSlot::Hand),
+                ("textures/inventory_screen/sword.png", ItemSlot::Hand),
             ]
             .into_iter();
 
@@ -213,7 +210,7 @@ fn setup(mut commands: Commands, assets: Res<AssetServer>) {
                                 ..Default::default()
                             },
                             BorderColor::all(item_border_color),
-                            BackgroundColor(Color::BLACK),
+                            BackgroundColor(MAROON.darker(0.2).into()),
                         ))
                         .observe(
                             move |on_over: On<Pointer<Over>>,
@@ -267,11 +264,11 @@ fn setup(mut commands: Commands, assets: Res<AssetServer>) {
                                         }
                                     })
                                     .observe(move |on_drag_end: On<Pointer<DragEnd>>, mut query: Query<(&mut UiTransform, &mut GlobalZIndex)>| {
-
-                                    if let Ok((mut transform, mut global_zindex)) = query.get_mut(on_drag_end.entity()) {
-                                        transform.translation = Val2::ZERO;
-                                        global_zindex.0 = 0;
-                                    }});
+                                        if let Ok((mut transform, mut global_zindex)) = query.get_mut(on_drag_end.entity()) {
+                                            transform.translation = Val2::ZERO;
+                                            global_zindex.0 = 0;
+                                        }}
+                                    );
                                     item_node.with_child((
                                         ImageNode {
                                             image: assets.load(item_image_path),
