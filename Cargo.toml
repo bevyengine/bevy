@@ -73,8 +73,6 @@ allow_attributes = "warn"
 allow_attributes_without_reason = "warn"
 
 [workspace.lints.rust]
-# Strictly temporary until encase fixes dead code generation from ShaderType macros
-dead_code = "allow"
 missing_docs = "warn"
 unexpected_cfgs = { level = "warn", check-cfg = ['cfg(docsrs_dep)'] }
 unsafe_code = "deny"
@@ -120,8 +118,6 @@ allow_attributes = "warn"
 allow_attributes_without_reason = "warn"
 
 [lints.rust]
-# Strictly temporary until encase fixes dead code generation from ShaderType macros
-dead_code = "allow"
 missing_docs = "warn"
 unexpected_cfgs = { level = "warn", check-cfg = ['cfg(docsrs_dep)'] }
 unsafe_code = "deny"
@@ -281,17 +277,10 @@ bevy_sprite_render = [
 ]
 
 # Provides text functionality
-bevy_text = ["bevy_internal/bevy_text", "bevy_asset", "bevy_sprite"]
+bevy_text = ["bevy_internal/bevy_text", "bevy_asset"]
 
 # A custom ECS-driven UI framework
-bevy_ui = [
-  "bevy_internal/bevy_ui",
-  "bevy_core_pipeline",
-  "bevy_text",
-  "bevy_sprite",
-  "bevy_color",
-  "bevy_anti_aliasing",
-]
+bevy_ui = ["bevy_internal/bevy_ui", "bevy_text", "bevy_sprite", "bevy_color"]
 
 # Provides rendering functionality for bevy_ui
 bevy_ui_render = [
