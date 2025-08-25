@@ -58,7 +58,7 @@ impl Mine {
     }
 }
 
-#[derive(Event)]
+#[derive(BroadcastEvent)]
 struct ExplodeMines {
     pos: Vec2,
     radius: f32,

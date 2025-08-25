@@ -591,6 +591,7 @@ impl<I: SystemInput, O> core::fmt::Debug for RegisteredSystemError<I, O> {
 mod tests {
     use core::cell::Cell;
 
+    use bevy_ecs_macros::BroadcastEvent;
     use bevy_utils::default;
 
     use crate::{
@@ -966,7 +967,7 @@ mod tests {
 
     #[test]
     fn system_with_input_mut() {
-        #[derive(Event)]
+        #[derive(BroadcastEvent)]
         struct MyEvent {
             cancelled: bool,
         }

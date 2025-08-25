@@ -8,13 +8,13 @@ use bevy::{
 use std::fmt::Debug;
 
 /// event opening a new context menu at position `pos`
-#[derive(Event)]
+#[derive(BroadcastEvent)]
 struct OpenContextMenu {
     pos: Vec2,
 }
 
 /// event will be sent to close currently open context menus
-#[derive(Event)]
+#[derive(BroadcastEvent)]
 struct CloseContextMenus;
 
 /// marker component identifying root of a context menu

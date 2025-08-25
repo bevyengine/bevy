@@ -306,7 +306,7 @@ Observers are systems that listen for a "trigger" of a specific `Event`:
 ```rust
 use bevy_ecs::prelude::*;
 
-#[derive(Event)]
+#[derive(BroadcastEvent)]
 struct Speak {
     message: String
 }

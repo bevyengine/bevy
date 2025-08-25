@@ -20,7 +20,7 @@ use crate::{
     component::{Component, ComponentId, Mutable},
     entity::{Entities, Entity, EntityClonerBuilder, EntityDoesNotExistError, OptIn, OptOut},
     error::{warn, BevyError, CommandWithEntity, ErrorContext, HandleError},
-    event::{BufferedEvent, EntityEvent, Event},
+    event::{BroadcastEvent, BufferedEvent, EntityEvent, ObserverEvent},
     observer::{Observer, TriggerTargets},
     resource::Resource,
     schedule::ScheduleLabel,
@@ -1083,9 +1083,9 @@ impl<'w, 's> Commands<'w, 's> {
         self.queue(command::run_system_cached_with(system, input).handle_error_with(warn));
     }
 
-    /// Sends a global [`Event`] without any targets.
+    /// Sends a [`BroadcastEvent`].
     ///
-    /// This will run any [`Observer`] of the given [`Event`] that isn't scoped to specific targets.
+    /// This will run any [`Observer`] of the given [`BroadcastEvent`] that isn't scoped to specific targets.
     ///
     /// If the entity that this command targets does not exist when the command is applied,
     /// the command will fail, possibly causing it to panic based on the default [error handler](crate::error) set.
@@ -1094,7 +1094,7 @@ impl<'w, 's> Commands<'w, 's> {
     /// with [`entity_command::trigger(event)`](entity_command::trigger).
     /// [`EntityCommands::queue_silenced`] may also be used to ignore the error completely.
     #[track_caller]
-    pub fn trigger(&mut self, event: impl Event) {
+    pub fn trigger(&mut self, event: impl BroadcastEvent) {
         self.queue(command::trigger(event));
     }
 
@@ -1131,7 +1131,7 @@ impl<'w, 's> Commands<'w, 's> {
     /// Panics if the given system is an exclusive system.
     ///
     /// [`On`]: crate::observer::On
-    pub fn add_observer<E: Event, B: Bundle, M>(
+    pub fn add_observer<E: ObserverEvent, B: Bundle, M>(
         &mut self,
         observer: impl IntoObserverSystem<E, B, M>,
     ) -> EntityCommands<'_> {

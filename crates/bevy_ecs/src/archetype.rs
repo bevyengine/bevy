@@ -23,7 +23,7 @@ use crate::{
     bundle::BundleId,
     component::{ComponentId, Components, RequiredComponentConstructor, StorageType},
     entity::{Entity, EntityLocation},
-    event::Event,
+    event::BroadcastEvent,
     observer::Observers,
     storage::{ImmutableSparseSet, SparseArray, SparseSet, TableId, TableRow},
 };
@@ -35,7 +35,7 @@ use core::{
 };
 use nonmax::NonMaxU32;
 
-#[derive(Event)]
+#[derive(BroadcastEvent)]
 #[expect(dead_code, reason = "Prepare for the upcoming Query as Entities")]
 pub(crate) struct ArchetypeCreated(pub ArchetypeId);
 
