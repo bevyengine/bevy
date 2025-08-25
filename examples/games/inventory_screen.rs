@@ -135,7 +135,7 @@ fn setup(mut commands: Commands, assets: Res<AssetServer>) {
                                     justify_content: JustifyContent::Center,
                                     border: UiRect::all(Val::Px(1.)),
 
-                                    ..Default::default()
+                                    ..default()
                                 },
                                 BorderColor::all(item_border_color),
                                 BackgroundColor(Color::BLACK),
@@ -143,7 +143,7 @@ fn setup(mut commands: Commands, assets: Res<AssetServer>) {
                                 children![(
                                     Node {
                                         position_type: PositionType::Absolute,
-                                        ..Default::default()
+                                        ..default()
                                     },
                                     TextColor(DARK_GOLDENROD.into()),
                                     Text::new(label), TextFont::from_font_size(7.))],
@@ -180,7 +180,6 @@ fn setup(mut commands: Commands, assets: Res<AssetServer>) {
             },
             Pickable::IGNORE,
         )).with_children(|parent| {
-
             let mut item_list = [
                 ("textures/rpg/props/generic-rpg-barrel01.png", ItemSlot::Legs),
                 ("textures/rpg/props/generic-rpg-board01.png", ItemSlot::Legs),
@@ -250,43 +249,44 @@ fn setup(mut commands: Commands, assets: Res<AssetServer>) {
 
                                 item_node.observe(item_drag_drop_observer);
 
-                        if let Some((item_image_path, slot)) = item_list.next() {
-                            item_node.insert((ItemNode, slot))
-                            .observe(|on_drag_start: On<Pointer<DragStart>>, mut query: Query<&mut GlobalZIndex>| {
+                                if let Some((item_image_path, slot)) = item_list.next() {
+                                    item_node.insert((ItemNode, slot))
+                                    .observe(|on_drag_start: On<Pointer<DragStart>>, mut query: Query<&mut GlobalZIndex>| {
 
-                                if let Ok(mut global_zindex) = query.get_mut(on_drag_start.entity()) {
-                                    global_zindex.0 = 1;
-                                }
-                            })
-                            .observe(|on_drag: On<Pointer<Drag>>, mut query: Query<&mut UiTransform>, ui_scale: Res<UiScale>,| {
-                                if let Ok(mut transform) = query.get_mut(on_drag.entity()) {
-                                    let drag_distance = on_drag.distance / ui_scale.0;
-                                    transform.translation = Val2::px(drag_distance.x, drag_distance.y);
-                                }
-                            })
-                            .observe(move |on_drag_end: On<Pointer<DragEnd>>, mut query: Query<(&mut UiTransform, &mut GlobalZIndex)>| {
+                                        if let Ok(mut global_zindex) = query.get_mut(on_drag_start.entity()) {
+                                            global_zindex.0 = 1;
+                                        }
+                                    })
+                                    .observe(|on_drag: On<Pointer<Drag>>, mut query: Query<&mut UiTransform>, ui_scale: Res<UiScale>,| {
+                                        if let Ok(mut transform) = query.get_mut(on_drag.entity()) {
+                                            let drag_distance = on_drag.distance / ui_scale.0;
+                                            transform.translation = Val2::px(drag_distance.x, drag_distance.y);
+                                        }
+                                    })
+                                    .observe(move |on_drag_end: On<Pointer<DragEnd>>, mut query: Query<(&mut UiTransform, &mut GlobalZIndex)>| {
 
-                            if let Ok((mut transform, mut global_zindex)) = query.get_mut(on_drag_end.entity()) {
-                                transform.translation = Val2::ZERO;
-                                global_zindex.0 = 0;
-                            }});
-                            item_node.with_child((
-                                ImageNode {
-                                    image: assets.load(item_image_path),
-                                    image_mode: NodeImageMode::Auto,
-                                    ..Default::default()
-                                },
-                                Pickable::IGNORE,
-                            ));
-                        }
-                    });
-                });
+                                    if let Ok((mut transform, mut global_zindex)) = query.get_mut(on_drag_end.entity()) {
+                                        transform.translation = Val2::ZERO;
+                                        global_zindex.0 = 0;
+                                    }});
+                                    item_node.with_child((
+                                        ImageNode {
+                                            image: assets.load(item_image_path),
+                                            image_mode: NodeImageMode::Auto,
+                                            ..default()
+                                        },
+                                        Pickable::IGNORE,
+                                    ));
+                                }
+                            });
+                        });
+                }
             }
-        }
         }).id();
+
         parent.spawn(Node {
-                            column_gap: Val::Px(4. * GAP),
-                        ..Default::default()
+            column_gap: Val::Px(4. * GAP),
+            ..default()
         }).add_children(&[left, right]);
     });
 }
