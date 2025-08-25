@@ -3,7 +3,7 @@
 use std::f32::consts::PI;
 
 use bevy::{
-    animation::{animated_field, AnimationTarget, AnimationTargetId, DontUseDefaultAnimationTime},
+    animation::{animated_field, AnimationTarget, AnimationTargetId},
     prelude::*,
 };
 
@@ -16,9 +16,6 @@ fn main() {
             ..default()
         })
         .add_systems(Startup, setup)
-        .add_plugins(
-            bevy::animation::specify_animation_system::<Virtual, With<DontUseDefaultAnimationTime>>,
-        )
         .run();
 }
 
@@ -152,7 +149,6 @@ fn setup(
             planet,
             AnimationGraphHandle(graphs.add(graph)),
             player,
-            bevy::animation::DontUseDefaultAnimationTime,
         ))
         .id();
     commands
