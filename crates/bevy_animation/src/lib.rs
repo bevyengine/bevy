@@ -981,7 +981,7 @@ fn trigger_untargeted_animation_events(
 }
 
 /// Marker component for animations that should not use the default animation time.
-/// More details can be found in the [specify_animation_system] documentation.
+/// More details can be found in the [`specify_animation_system`] documentation.
 #[derive(Debug, Component, Reflect, Clone, Copy, Default)]
 #[reflect(Component)]
 pub struct DontUseDefaultAnimationTime;
