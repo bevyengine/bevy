@@ -21,10 +21,10 @@ struct AnimationInfo {
     node_index: AnimationNodeIndex,
 }
 
-/// Marks an entity as using virtual time for animation.
+/// Marks an entity as using fixed time for animation.
 #[derive(Component, Reflect)]
 #[require(DontUseDefaultAnimationTime)]
-pub struct UseVirtualTime;
+pub struct UseFixedTime;
 
 // The entry point.
 fn main() {
@@ -33,18 +33,19 @@ fn main() {
         // Note that we don't need any systems other than the setup system,
         // because Bevy automatically updates animations every frame.
         .add_systems(Startup, setup)
-        .add_plugins(bevy::animation::specify_animation_system::<Virtual, With<UseVirtualTime>>)
+        .add_plugins(bevy::animation::specify_animation_system::<Fixed, With<UseFixedTime>>)
         .run();
 }
 
 impl AnimationInfo {
     // Programmatically creates the UI animation.
     fn create(
+        name: String,
         animation_graphs: &mut Assets<AnimationGraph>,
         animation_clips: &mut Assets<AnimationClip>,
     ) -> AnimationInfo {
         // Create an ID that identifies the text node we're going to animate.
-        let animation_target_name = Name::new("Text");
+        let animation_target_name = Name::new(name);
         let animation_target_id = AnimationTargetId::from_name(&animation_target_name);
 
         // Allocate an animation clip.
@@ -106,109 +107,130 @@ impl AnimationInfo {
 
 // Creates all the entities in the scene.
 fn setup(
-    mut v_time: ResMut<Time<Virtual>>,
     mut commands: Commands,
     asset_server: Res<AssetServer>,
     mut animation_graphs: ResMut<Assets<AnimationGraph>>,
     mut animation_clips: ResMut<Assets<AnimationClip>>,
 ) {
-    v_time.set_relative_speed(2.0);
-    // Create the animation.
-    let AnimationInfo {
-        target_name: animation_target_name,
-        target_id: animation_target_id,
-        graph: animation_graph,
-        node_index: animation_node_index,
-    } = AnimationInfo::create(&mut animation_graphs, &mut animation_clips);
-
-    // Build an animation player that automatically plays the UI animation.
-    let mut animation_player = AnimationPlayer::default();
-    animation_player.play(animation_node_index).repeat();
-
     // Add a camera.
     commands.spawn(Camera2d);
+    {
+        // Create the animation.
+        let AnimationInfo {
+            target_name: animation_target_name,
+            target_id: animation_target_id,
+            graph: animation_graph,
+            node_index: animation_node_index,
+        } = AnimationInfo::create(
+            String::from("first_target"),
+            &mut animation_graphs,
+            &mut animation_clips,
+        );
 
-    // Build the UI. We have a parent node that covers the whole screen and
-    // contains the `AnimationPlayer`, as well as a child node that contains the
-    // text to be animated.
-    commands
-        .spawn((
-            // Cover the whole screen, and center contents.
-            Node {
-                position_type: PositionType::Absolute,
-                top: Val::Px(0.0),
-                left: Val::Px(0.0),
-                right: Val::Px(0.0),
-                bottom: Val::Px(0.0),
-                justify_content: JustifyContent::Center,
-                align_items: AlignItems::Center,
-                ..default()
-            },
-            animation_player.clone(),
-            UseVirtualTime,
-            AnimationGraphHandle(animation_graph.clone()),
-        ))
-        .with_children(|builder| {
-            // Build the text node.
-            let player = builder.target_entity();
-            builder
-                .spawn((
-                    Text::new("Bevy"),
-                    TextFont {
-                        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                        font_size: 24.0,
-                        ..default()
-                    },
-                    TextColor(Color::Srgba(Srgba::RED)),
-                    TextLayout::new_with_justify(Justify::Center),
-                ))
-                // Mark as an animation target.
-                .insert(AnimationTarget {
-                    id: animation_target_id,
-                    player,
-                })
-                .insert(animation_target_name.clone());
-        });
-    // Build the UI. We have a parent node that covers the whole screen and
-    // contains the `AnimationPlayer`, as well as a child node that contains the
-    // text to be animated.
-    commands
-        .spawn((
-            // Cover the whole screen, and center contents.
-            Node {
-                position_type: PositionType::Absolute,
-                top: Val::Px(150.0),
-                left: Val::Px(0.0),
-                right: Val::Px(0.0),
-                bottom: Val::Px(0.0),
-                justify_content: JustifyContent::Center,
-                align_items: AlignItems::Center,
-                ..default()
-            },
-            animation_player,
-            AnimationGraphHandle(animation_graph),
-        ))
-        .with_children(|builder| {
-            // Build the text node.
-            let player = builder.target_entity();
-            builder
-                .spawn((
-                    Text::new("Bevy"),
-                    TextFont {
-                        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                        font_size: 24.0,
-                        ..default()
-                    },
-                    TextColor(Color::Srgba(Srgba::RED)),
-                    TextLayout::new_with_justify(Justify::Center),
-                ))
-                // Mark as an animation target.
-                .insert(AnimationTarget {
-                    id: animation_target_id,
-                    player,
-                })
-                .insert(animation_target_name);
-        });
+        // Build an animation player that automatically plays the UI animation.
+        let mut animation_player = AnimationPlayer::default();
+        animation_player.play(animation_node_index).repeat();
+
+        // Build the UI. We have a parent node that covers the whole screen and
+        // contains the `AnimationPlayer`, as well as a child node that contains the
+        // text to be animated.
+        commands
+            .spawn((
+                // Cover the whole screen, and center contents.
+                Node {
+                    position_type: PositionType::Absolute,
+                    top: Val::Px(0.0),
+                    left: Val::Px(0.0),
+                    right: Val::Px(0.0),
+                    bottom: Val::Px(0.0),
+                    justify_content: JustifyContent::Center,
+                    align_items: AlignItems::Center,
+                    ..default()
+                },
+                animation_player.clone(),
+                UseFixedTime,
+                AnimationGraphHandle(animation_graph.clone()),
+            ))
+            .with_children(|builder| {
+                // Build the text node.
+                let player = builder.target_entity();
+                builder
+                    .spawn((
+                        Text::new("Bevy"),
+                        TextFont {
+                            font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                            font_size: 24.0,
+                            ..default()
+                        },
+                        TextColor(Color::Srgba(Srgba::RED)),
+                        TextLayout::new_with_justify(Justify::Center),
+                    ))
+                    // Mark as an animation target.
+                    .insert(AnimationTarget {
+                        id: animation_target_id,
+                        player,
+                    })
+                    .insert(animation_target_name.clone());
+            });
+    }
+    {
+        // Create the animation.
+        let AnimationInfo {
+            target_name: animation_target_name,
+            target_id: animation_target_id,
+            graph: animation_graph,
+            node_index: animation_node_index,
+        } = AnimationInfo::create(
+            String::from("second_target"),
+            &mut animation_graphs,
+            &mut animation_clips,
+        );
+
+        // Build an animation player that automatically plays the UI animation.
+        let mut animation_player = AnimationPlayer::default();
+        animation_player.play(animation_node_index).repeat();
+
+        // Build the UI. We have a parent node that covers the whole screen and
+        // contains the `AnimationPlayer`, as well as a child node that contains the
+        // text to be animated.
+        commands
+            .spawn((
+                // Cover the whole screen, and center contents.
+                Node {
+                    position_type: PositionType::Absolute,
+                    top: Val::Px(150.0),
+                    left: Val::Px(0.0),
+                    right: Val::Px(0.0),
+                    bottom: Val::Px(0.0),
+                    justify_content: JustifyContent::Center,
+                    align_items: AlignItems::Center,
+                    ..default()
+                },
+                animation_player,
+                AnimationGraphHandle(animation_graph),
+            ))
+            .with_children(|builder| {
+                // Build the text node.
+                let player = builder.target_entity();
+                builder
+                    .spawn((
+                        Text::new("Bevy"),
+                        TextFont {
+                            font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                            font_size: 24.0,
+                            ..default()
+                        },
+                        TextColor(Color::Srgba(Srgba::RED)),
+                        TextLayout::new_with_justify(Justify::Center),
+                    ))
+                    // Mark as an animation target.
+                    .insert(AnimationTarget {
+                        id: animation_target_id,
+                        player,
+                    })
+                    .insert(animation_target_name);
+            });
+    }
 }
 
 // A type that represents the color of the first text section.
