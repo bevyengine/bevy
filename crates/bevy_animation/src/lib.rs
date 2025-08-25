@@ -981,6 +981,7 @@ fn trigger_untargeted_animation_events(
 }
 
 /// Marker component for animations that should not use the default animation time.
+/// More details can be found in the [specify_animation_system](specify_animation_system) documentation.
 #[derive(Debug, Component, Reflect, Clone, Copy)]
 #[reflect(Component)]
 pub struct DontUseDefaultAnimationTime;
@@ -1227,7 +1228,9 @@ pub fn animate_targets(
         });
 }
 
-/// Adds animation support to an app
+/// Specifies query for animation systems.
+/// It allows to specify which Time resource to use based on the [`bevy_ecs::query::QueryFilter`].
+/// By default, there is added a one version with Time<()> and Without [`DontUseDefaultAnimationTime`] component.
 pub fn specify_animation_system<T: Default, F: bevy_ecs::query::QueryFilter + 'static>(
     app: &mut App,
 ) where
@@ -1274,8 +1277,8 @@ impl Plugin for AnimationPlugin {
                     .chain()
                     .in_set(AnimationSystems)
                     .before(TransformSystems::Propagate),
-            );
-        specify_animation_system::<(), Without<DontUseDefaultAnimationTime>>(app);
+            )
+            .add_plugins(specify_animation_system::<(), Without<DontUseDefaultAnimationTime>>);
     }
 }
 

@@ -3,18 +3,12 @@
 use std::f32::consts::PI;
 
 use bevy::{
-    animation::{animated_field, AnimationTarget, AnimationTargetId},
+    animation::{animated_field, AnimationTarget, AnimationTargetId, DontUseDefaultAnimationTime},
     prelude::*,
 };
 
-/// Marker component for entities that should use virtual time for animations.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Component, Reflect)]
-#[reflect(Component)]
-pub struct UseVirtualTime;
-
 fn main() {
     App::new()
-        .register_type::<UseVirtualTime>()
         .add_plugins(DefaultPlugins)
         .insert_resource(AmbientLight {
             color: Color::WHITE,
@@ -22,7 +16,9 @@ fn main() {
             ..default()
         })
         .add_systems(Startup, setup)
-        .add_plugins(bevy::animation::specify_animation_system::<Virtual, With<UseVirtualTime>>)
+        .add_plugins(
+            bevy::animation::specify_animation_system::<Virtual, With<DontUseDefaultAnimationTime>>,
+        )
         .run();
 }
 
@@ -156,7 +152,6 @@ fn setup(
             planet,
             AnimationGraphHandle(graphs.add(graph)),
             player,
-            UseVirtualTime,
             bevy::animation::DontUseDefaultAnimationTime,
         ))
         .id();
