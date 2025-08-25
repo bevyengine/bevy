@@ -48,13 +48,10 @@ impl SchemaTypesMetadata {
 
     /// Build reflect types list for a given type registration
     pub fn get_registered_reflect_types(&self, reg: &TypeRegistration) -> Vec<String> {
-        let mut result: Vec<String> = self
-            .type_data_map
+        self.type_data_map
             .iter()
             .filter_map(|(id, name)| reg.data_by_id(*id).and(Some(name.clone())))
-            .collect();
-        result.sort();
-        result
+            .collect()
     }
 
     /// Checks if slice contains string value that matches checked `TypeData`
