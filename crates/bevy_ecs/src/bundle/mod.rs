@@ -14,6 +14,7 @@ pub(crate) use insert::BundleInserter;
 pub(crate) use remove::BundleRemover;
 pub(crate) use spawner::BundleSpawner;
 
+use bevy_ptr::Unaligned;
 pub use info::*;
 
 /// Derive the [`Bundle`] trait
@@ -244,7 +245,10 @@ pub trait DynamicBundle {
     /// Calls `func` on each value, in the order of this bundle's [`Component`]s. This passes
     /// ownership of the component values to `func`.
     #[doc(hidden)]
-    fn get_components(self, func: &mut impl FnMut(StorageType, OwningPtr<'_>)) -> Self::Effect;
+    unsafe fn get_components(
+        ptr: *mut Self,
+        func: &mut impl FnMut(StorageType, OwningPtr<'_, Unaligned>),
+    ) -> Self::Effect;
 }
 
 /// An operation on an [`Entity`](crate::entity::Entity) that occurs _after_ inserting the

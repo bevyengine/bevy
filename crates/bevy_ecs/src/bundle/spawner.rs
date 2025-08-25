@@ -112,10 +112,11 @@ impl<'w> BundleSpawner<'w> {
                 entity,
                 table_row,
                 self.change_tick,
-                bundle,
+                &raw const bundle,
                 InsertMode::Replace,
                 caller,
             );
+            core::mem::forget(bundle);
             entities.set(entity.index(), Some(location));
             entities.mark_spawn_despawn(entity.index(), caller, self.change_tick);
             (location, after_effect)
