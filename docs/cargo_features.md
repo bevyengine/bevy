@@ -15,7 +15,6 @@ The default feature set enables most of the expected features of a game engine, 
 |android_shared_stdcxx|Enable using a shared stdlib for cxx on Android|
 |animation|Enable animation support, and glTF animation loading|
 |async_executor|Uses `async-executor` as a task execution backend.|
-|bevy_animation|Provides animation functionality|
 |bevy_anti_aliasing|Provides various anti aliasing solutions|
 |bevy_asset|Provides asset functionality|
 |bevy_audio|Provides audio functionality|
@@ -45,8 +44,8 @@ The default feature set enables most of the expected features of a game engine, 
 |custom_cursor|Enable winit custom cursor support|
 |debug|Enable collecting debug information about systems and components to help with diagnostics|
 |default_font|Include a default font, containing only ASCII characters, at the cost of a 20kB binary size increase|
+|default_no_render|All default features except for rendering|
 |hdr|HDR image format support|
-|ktx2|KTX2 compressed texture support|
 |multi_threaded|Enables multithreaded parallelism in the engine. Disabling it forces all engine tasks to run on a single thread.|
 |png|PNG image format support|
 |reflect_auto_register|Enable automatic reflect registration|
@@ -69,6 +68,7 @@ The default feature set enables most of the expected features of a game engine, 
 |asset_processor|Enables the built-in asset processor for processed assets.|
 |async-io|Use async-io's implementation of block_on instead of futures-lite's implementation. This is preferred if your application uses async-io.|
 |basis-universal|Basis Universal compressed texture support|
+|bevy_animation|Provides animation functionality|
 |bevy_ci_testing|Enable systems that allow for automated testing on CI|
 |bevy_debug_stepping|Enable stepping-based debugging of Bevy systems|
 |bevy_dev_tools|Provides a collection of developer tools|
@@ -100,6 +100,7 @@ The default feature set enables most of the expected features of a game engine, 
 |hotpatching|Enable hotpatching of Bevy systems|
 |ico|ICO image format support|
 |jpeg|JPEG image format support|
+|ktx2|KTX2 compressed texture support|
 |libm|Uses the `libm` maths library instead of the one provided in `std` and `core`.|
 |meshlet|Enables the meshlet renderer for dense high-poly scenes (experimental)|
 |meshlet_processor|Enables processing meshes into meshlet meshes for bevy_pbr|
