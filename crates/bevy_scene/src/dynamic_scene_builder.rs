@@ -283,7 +283,7 @@ impl<'w> DynamicSceneBuilder<'w> {
             };
 
             let original_entity = self.original_world.entity(entity);
-            for component_id in original_entity.archetype().components() {
+            for component_id in original_entity.archetype().iter_components() {
                 let mut extract_and_push = || {
                     let type_id = self
                         .original_world

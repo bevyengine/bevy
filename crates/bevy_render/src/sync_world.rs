@@ -1,10 +1,10 @@
 use bevy_app::Plugin;
 use bevy_derive::{Deref, DerefMut};
-use bevy_ecs::entity::EntityHash;
-use bevy_ecs::lifecycle::{Add, Remove};
 use bevy_ecs::{
     component::Component,
-    entity::{ContainsEntity, Entity, EntityEquivalent},
+    entity::{ContainsEntity, Entity, EntityEquivalent, EntityHash},
+    event::EntityEvent,
+    lifecycle::{Add, Remove},
     observer::On,
     query::With,
     reflect::ReflectComponent,
@@ -94,15 +94,15 @@ impl Plugin for SyncWorldPlugin {
     fn build(&self, app: &mut bevy_app::App) {
         app.init_resource::<PendingSyncEntity>();
         app.add_observer(
-            |event: On<Add, SyncToRenderWorld>, mut pending: ResMut<PendingSyncEntity>| {
-                pending.push(EntityRecord::Added(event.entity()));
+            |add: On<Add, SyncToRenderWorld>, mut pending: ResMut<PendingSyncEntity>| {
+                pending.push(EntityRecord::Added(add.entity));
             },
         );
         app.add_observer(
-            |event: On<Remove, SyncToRenderWorld>,
+            |remove: On<Remove, SyncToRenderWorld>,
              mut pending: ResMut<PendingSyncEntity>,
              query: Query<&RenderEntity>| {
-                if let Ok(e) = query.get(event.entity()) {
+                if let Ok(e) = query.get(remove.entity) {
                     pending.push(EntityRecord::Removed(*e));
                 };
             },
@@ -504,6 +504,7 @@ mod tests {
     use bevy_ecs::{
         component::Component,
         entity::Entity,
+        event::EntityEvent,
         lifecycle::{Add, Remove},
         observer::On,
         query::With,
@@ -526,15 +527,15 @@ mod tests {
         main_world.init_resource::<PendingSyncEntity>();
 
         main_world.add_observer(
-            |event: On<Add, SyncToRenderWorld>, mut pending: ResMut<PendingSyncEntity>| {
-                pending.push(EntityRecord::Added(event.entity()));
+            |add: On<Add, SyncToRenderWorld>, mut pending: ResMut<PendingSyncEntity>| {
+                pending.push(EntityRecord::Added(add.entity));
             },
         );
         main_world.add_observer(
-            |event: On<Remove, SyncToRenderWorld>,
+            |remove: On<Remove, SyncToRenderWorld>,
              mut pending: ResMut<PendingSyncEntity>,
              query: Query<&RenderEntity>| {
-                if let Ok(e) = query.get(event.entity()) {
+                if let Ok(e) = query.get(remove.entity) {
                     pending.push(EntityRecord::Removed(*e));
                 };
             },

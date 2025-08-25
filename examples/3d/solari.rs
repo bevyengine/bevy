@@ -110,7 +110,7 @@ fn setup(
 }
 
 fn add_raytracing_meshes_on_scene_load(
-    event: On<SceneInstanceReady>,
+    scene_ready: On<SceneInstanceReady>,
     children: Query<&Children>,
     mesh: Query<&Mesh3d>,
     mut meshes: ResMut<Assets<Mesh>>,
@@ -132,7 +132,7 @@ fn add_raytracing_meshes_on_scene_load(
     }
 
     // Add raytracing mesh handles
-    for descendant in children.iter_descendants(event.entity()) {
+    for descendant in children.iter_descendants(scene_ready.entity) {
         if let Ok(mesh) = mesh.get(descendant) {
             commands
                 .entity(descendant)

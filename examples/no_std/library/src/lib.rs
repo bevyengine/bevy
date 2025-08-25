@@ -106,7 +106,9 @@ struct DelayedComponentTimer(Timer);
 struct DelayedComponent<B: Bundle>(B);
 
 #[derive(EntityEvent)]
-struct Unwrap;
+struct Unwrap {
+    entity: Entity,
+}
 
 fn tick_timers(
     mut commands: Commands,
@@ -120,7 +122,7 @@ fn tick_timers(
             commands
                 .entity(entity)
                 .remove::<DelayedComponentTimer>()
-                .trigger(Unwrap);
+                .trigger(Unwrap { entity });
         }
     }
 }

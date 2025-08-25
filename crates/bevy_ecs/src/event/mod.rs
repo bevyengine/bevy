@@ -7,24 +7,21 @@ mod mut_iterators;
 mod mutator;
 mod reader;
 mod registry;
+mod trigger;
 mod update;
 mod writer;
 
-pub(crate) use base::EventInstance;
-pub use base::{BufferedEvent, EntityEvent, Event, EventId, EventKey};
+pub use base::*;
 pub use bevy_ecs_macros::{BufferedEvent, EntityEvent, Event};
-#[expect(deprecated, reason = "`SendBatchIds` was renamed to `WriteBatchIds`.")]
-pub use collections::{Events, SendBatchIds, WriteBatchIds};
-pub use event_cursor::EventCursor;
-#[cfg(feature = "multi_threaded")]
-pub use iterators::EventParIter;
-pub use iterators::{EventIterator, EventIteratorWithId};
-#[cfg(feature = "multi_threaded")]
-pub use mut_iterators::EventMutParIter;
-pub use mut_iterators::{EventMutIterator, EventMutIteratorWithId};
-pub use mutator::EventMutator;
-pub use reader::EventReader;
-pub use registry::{EventRegistry, ShouldUpdateEvents};
+pub use collections::*;
+pub use event_cursor::*;
+pub use iterators::*;
+pub use mut_iterators::*;
+pub use mutator::*;
+pub use reader::*;
+pub use registry::*;
+pub use trigger::*;
+
 #[expect(
     deprecated,
     reason = "`EventUpdates` was renamed to `EventUpdateSystems`."
@@ -34,6 +31,8 @@ pub use update::{
     EventUpdates,
 };
 pub use writer::EventWriter;
+
+pub(crate) use base::EventInstance;
 
 #[cfg(test)]
 mod tests {

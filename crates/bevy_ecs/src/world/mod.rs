@@ -17,14 +17,7 @@ pub use crate::{
     change_detection::{Mut, Ref, CHECK_TICK_THRESHOLD},
     world::command_queue::CommandQueue,
 };
-use crate::{
-    error::{DefaultErrorHandler, ErrorHandler},
-    event::BufferedEvent,
-    lifecycle::{ComponentHooks, ADD, DESPAWN, INSERT, REMOVE, REPLACE},
-    prelude::{Add, Despawn, Insert, Remove, Replace},
-};
 pub use bevy_ecs_macros::FromWorld;
-use bevy_utils::prelude::DebugName;
 pub use deferred_world::DeferredWorld;
 pub use entity_fetch::{EntityFetcher, WorldEntityFetch};
 pub use entity_ref::{
@@ -50,9 +43,11 @@ use crate::{
     },
     entity::{Entities, Entity, EntityDoesNotExistError},
     entity_disabling::DefaultQueryFilters,
-    event::{Event, EventId, Events, WriteBatchIds},
-    lifecycle::RemovedComponentEvents,
+    error::{DefaultErrorHandler, ErrorHandler},
+    event::{BufferedEvent, Event, EventId, Events, WriteBatchIds},
+    lifecycle::{ComponentHooks, RemovedComponentEvents, ADD, DESPAWN, INSERT, REMOVE, REPLACE},
     observer::Observers,
+    prelude::{Add, Despawn, Insert, Remove, Replace},
     query::{DebugCheckedUnwrap, QueryData, QueryFilter, QueryState},
     relationship::RelationshipHookMode,
     resource::Resource,
@@ -69,6 +64,7 @@ use crate::{
 use alloc::{boxed::Box, vec::Vec};
 use bevy_platform::sync::atomic::{AtomicU32, Ordering};
 use bevy_ptr::{OwningPtr, Ptr, UnsafeCellDeref};
+use bevy_utils::prelude::DebugName;
 use core::{any::TypeId, fmt};
 use log::warn;
 use unsafe_world_cell::{UnsafeEntityCell, UnsafeWorldCell};
@@ -888,7 +884,7 @@ impl World {
             .expect("ArchetypeId was retrieved from an EntityLocation and should correspond to an Archetype");
 
         Ok(archetype
-            .components()
+            .iter_components()
             .filter_map(|id| self.components().get_info(id)))
     }
 

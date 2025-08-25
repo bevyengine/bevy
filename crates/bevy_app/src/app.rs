@@ -11,7 +11,7 @@ pub use bevy_derive::AppLabel;
 use bevy_ecs::{
     component::RequiredComponentsError,
     error::{DefaultErrorHandler, ErrorHandler},
-    event::{event_update_system, EventCursor},
+    event::{event_update_system, Event, EventCursor},
     intern::Interned,
     prelude::*,
     schedule::{InternedSystemSet, ScheduleBuildSettings, ScheduleLabel},

@@ -6,6 +6,7 @@ use bevy_ecs::system::In;
 use bevy_ecs::{
     component::Component,
     entity::Entity,
+    event::EntityEvent,
     observer::On,
     query::With,
     system::{Commands, Query},
@@ -34,7 +35,7 @@ fn button_on_key_event(
     q_state: Query<(&CoreButton, Has<InteractionDisabled>)>,
     mut commands: Commands,
 ) {
-    if let Ok((bstate, disabled)) = q_state.get(event.entity())
+    if let Ok((bstate, disabled)) = q_state.get(event.focused_entity)
         && !disabled
     {
         let input_event = &event.input;
@@ -43,31 +44,31 @@ fn button_on_key_event(
             && (input_event.key_code == KeyCode::Enter || input_event.key_code == KeyCode::Space)
         {
             event.propagate(false);
-            commands.notify_with(&bstate.on_activate, Activate(event.entity()));
+            commands.notify_with(&bstate.on_activate, Activate(event.focused_entity));
         }
     }
 }
 
 fn button_on_pointer_click(
-    mut event: On<Pointer<Click>>,
+    mut click: On<Pointer<Click>>,
     mut q_state: Query<(&CoreButton, Has<Pressed>, Has<InteractionDisabled>)>,
     mut commands: Commands,
 ) {
-    if let Ok((bstate, pressed, disabled)) = q_state.get_mut(event.entity()) {
-        event.propagate(false);
+    if let Ok((bstate, pressed, disabled)) = q_state.get_mut(click.entity) {
+        click.propagate(false);
         if pressed && !disabled {
-            commands.notify_with(&bstate.on_activate, Activate(event.entity()));
+            commands.notify_with(&bstate.on_activate, Activate(click.entity));
         }
     }
 }
 
 fn button_on_pointer_down(
-    mut event: On<Pointer<Press>>,
+    mut press: On<Pointer<Press>>,
     mut q_state: Query<(Entity, Has<InteractionDisabled>, Has<Pressed>), With<CoreButton>>,
     mut commands: Commands,
 ) {
-    if let Ok((button, disabled, pressed)) = q_state.get_mut(event.entity()) {
-        event.propagate(false);
+    if let Ok((button, disabled, pressed)) = q_state.get_mut(press.entity) {
+        press.propagate(false);
         if !disabled && !pressed {
             commands.entity(button).insert(Pressed);
         }
@@ -75,12 +76,12 @@ fn button_on_pointer_down(
 }
 
 fn button_on_pointer_up(
-    mut event: On<Pointer<Release>>,
+    mut release: On<Pointer<Release>>,
     mut q_state: Query<(Entity, Has<InteractionDisabled>, Has<Pressed>), With<CoreButton>>,
     mut commands: Commands,
 ) {
-    if let Ok((button, disabled, pressed)) = q_state.get_mut(event.entity()) {
-        event.propagate(false);
+    if let Ok((button, disabled, pressed)) = q_state.get_mut(release.entity) {
+        release.propagate(false);
         if !disabled && pressed {
             commands.entity(button).remove::<Pressed>();
         }
@@ -88,12 +89,12 @@ fn button_on_pointer_up(
 }
 
 fn button_on_pointer_drag_end(
-    mut event: On<Pointer<DragEnd>>,
+    mut drag_end: On<Pointer<DragEnd>>,
     mut q_state: Query<(Entity, Has<InteractionDisabled>, Has<Pressed>), With<CoreButton>>,
     mut commands: Commands,
 ) {
-    if let Ok((button, disabled, pressed)) = q_state.get_mut(event.entity()) {
-        event.propagate(false);
+    if let Ok((button, disabled, pressed)) = q_state.get_mut(drag_end.entity) {
+        drag_end.propagate(false);
         if !disabled && pressed {
             commands.entity(button).remove::<Pressed>();
         }
@@ -101,12 +102,12 @@ fn button_on_pointer_drag_end(
 }
 
 fn button_on_pointer_cancel(
-    mut event: On<Pointer<Cancel>>,
+    mut cancel: On<Pointer<Cancel>>,
     mut q_state: Query<(Entity, Has<InteractionDisabled>, Has<Pressed>), With<CoreButton>>,
     mut commands: Commands,
 ) {
-    if let Ok((button, disabled, pressed)) = q_state.get_mut(event.entity()) {
-        event.propagate(false);
+    if let Ok((button, disabled, pressed)) = q_state.get_mut(cancel.entity) {
+        cancel.propagate(false);
         if !disabled && pressed {
             commands.entity(button).remove::<Pressed>();
         }

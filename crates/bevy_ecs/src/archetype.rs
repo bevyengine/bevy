@@ -524,12 +524,20 @@ impl Archetype {
             .map(|(id, _)| *id)
     }
 
+    /// Returns a slice of all of the components in the archetype.
+    ///
+    /// All of the IDs are unique.
+    #[inline]
+    pub fn components(&self) -> &[ComponentId] {
+        self.components.indices()
+    }
+
     /// Gets an iterator of all of the components in the archetype.
     ///
     /// All of the IDs are unique.
     #[inline]
-    pub fn components(&self) -> impl Iterator<Item = ComponentId> + Clone + '_ {
-        self.components.indices()
+    pub fn iter_components(&self) -> impl Iterator<Item = ComponentId> + Clone {
+        self.components.indices().iter().copied()
     }
 
     /// Returns the total number of components in the archetype
