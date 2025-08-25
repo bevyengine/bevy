@@ -12,7 +12,7 @@ use bevy::{
     prelude::*,
     text::{LineBreak, TextBounds},
     window::{PresentMode, WindowResolution},
-    winit::{UpdateMode, WinitSettings},
+    winit::WinitSettings,
 };
 
 #[derive(FromArgs, Resource)]
@@ -51,10 +51,7 @@ fn main() {
         FrameTimeDiagnosticsPlugin::default(),
         LogDiagnosticsPlugin::default(),
     ))
-    .insert_resource(WinitSettings {
-        focused_mode: UpdateMode::Continuous,
-        unfocused_mode: UpdateMode::Continuous,
-    })
+    .insert_resource(WinitSettings::continuous())
     .add_systems(Startup, setup);
 
     if args.recompute_text {

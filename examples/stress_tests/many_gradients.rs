@@ -14,6 +14,7 @@ use bevy::{
         RepeatedGridTrack,
     },
     window::{PresentMode, WindowResolution},
+    winit::WinitSettings,
 };
 
 const COLS: usize = 30;
@@ -69,6 +70,7 @@ fn main() {
             }),
         ))
         .insert_resource(args)
+        .insert_resource(WinitSettings::continuous())
         .add_systems(Startup, setup)
         .add_systems(Update, animate_gradients)
         .run();
