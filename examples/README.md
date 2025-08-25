@@ -296,6 +296,7 @@ Example | Description
 
 Example | Description
 --- | ---
+[Entity Inspector](../examples/inspector/entity_inspector_minimal.rs) | Remote entity inspector that connects to a running Bevy app
 [FPS overlay](../examples/dev_tools/fps_overlay.rs) | Demonstrates FPS overlay
 
 ### Diagnostics

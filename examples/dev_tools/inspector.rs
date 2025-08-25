@@ -1,27 +1,32 @@
-//! A Bevy app that you can connect to with the BRP and edit.
-//! Run this example with the `remote` feature enabled:
-//! ```bash
-//! cargo run --example server --features="bevy_remote"
-//! ```
+//! Showcase how to use the in-game inspector for debugging entities and components.
 
-use bevy::math::ops::cos;
 use bevy::{
-    input::common_conditions::input_just_pressed,
-    prelude::*,
-    remote::{http::RemoteHttpPlugin, RemotePlugin},
+    dev_tools::inspector::InspectorPlugin, input::common_conditions::input_just_pressed, math::ops::cos, prelude::*
 };
 use serde::{Deserialize, Serialize};
+// Example component for demonstration
+#[derive(Component)]
+struct Player {
+    speed: f32,
+    health: i32,
+}
+
+#[derive(Component)]
+struct Position {
+    x: f32,
+    y: f32,
+}
 
 fn main() {
     App::new()
-        .add_plugins(DefaultPlugins)
-        .add_plugins(RemotePlugin::default())
-        .add_plugins(RemoteHttpPlugin::default())
-        .register_type::<TestResource>()
-        .register_type::<Cube>()
+    .add_plugins(DefaultPlugins)
+        .add_plugins(InspectorPlugin::debug()) // Use debug preset with F11 key
         .add_systems(Startup, setup)
         .add_systems(Update, remove.run_if(input_just_pressed(KeyCode::Space)))
         .add_systems(Update, move_cube)
+        // New types must be registered in order to be usable with reflection.
+        .register_type::<Cube>()
+        .register_type::<TestResource>()
         .run();
 }
 
@@ -69,7 +74,6 @@ fn setup(
 
 /// An arbitrary resource that can be inspected and manipulated with remote methods.
 #[derive(Resource, Reflect, Serialize, Deserialize)]
-#[reflect(Resource, Serialize, Deserialize)]
 pub struct TestResource {
     /// An arbitrary field of the test resource.
     pub foo: Vec2,
@@ -89,5 +93,4 @@ fn remove(mut commands: Commands, cube_entity: Single<Entity, With<Cube>>) {
 }
 
 #[derive(Component, Reflect, Serialize, Deserialize)]
-#[reflect(Component, Serialize, Deserialize)]
 struct Cube(f32);
