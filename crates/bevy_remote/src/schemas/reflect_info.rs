@@ -5,7 +5,6 @@ use crate::schemas::json_schema::{
 };
 use crate::schemas::{CustomInternalSchemaData, SchemaTypesMetadata};
 use alloc::borrow::Cow;
-use alloc::sync::Arc;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::name::Name;
 use bevy_platform::collections::{HashMap, HashSet};
@@ -15,7 +14,7 @@ use bevy_reflect::{
     EnumInfo, GenericInfo, NamedField, Reflect, Type, TypeInfo, TypePathTable, TypeRegistration,
     TypeRegistry, UnnamedField, VariantInfo,
 };
-use bevy_utils::{default, TypeIdMap};
+use bevy_utils::default;
 use core::any::TypeId;
 use core::fmt;
 use core::fmt::{Display, Formatter};
