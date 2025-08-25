@@ -1,16 +1,15 @@
 ---
-title: Generated environment map for procedural atmosphere
+title: Generate environment maps from the procedural atmosphere
 authors: ["@mate-h"]
 pull_requests: [20529]
 ---
 
 (TODO: Embed screenshot of atmosphere-generated reflections)
 
-You can now have dynamic reflections and ambient light in your scene that match the procedural sky.
+As your procedural sky changes, the reflections and ambient light in your scene should automatically be updated to match.
+Now, they can be — no pre-baked environment maps needed.
 
-As the sky changes, reflections on shiny and rough materials update automatically to stay consistent — no pre-baked environment maps needed.
-
-To enable this for a camera, add the new component `AtmosphereEnvironmentMapLight` to the camera entity:
+To enable this, add the new component `AtmosphereEnvironmentMapLight` to the camera entity:
 
 ```rust
 commands.spawn((

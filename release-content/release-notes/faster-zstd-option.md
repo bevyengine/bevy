@@ -4,7 +4,8 @@ authors: ["@atlv24", "@brianreavis"]
 pull_requests: [19793]
 ---
 
-There is now an option to use the [zstd](https://crates.io/crates/zstd) c-bindings instead of [ruzstd](https://crates.io/crates/ruzstd).
+`zstd` is a fast, modern decompression standard, which can be used for everything from compressing patches to unzipping assets.
+Bevy now allows you to use the [zstd](https://crates.io/crates/zstd) c-bindings instead of [ruzstd](https://crates.io/crates/ruzstd).
 This is less safe and portable, but can be around 44% faster.
 
 The two features that control which one is used are `zstd_rust` and `zstd_c`.
