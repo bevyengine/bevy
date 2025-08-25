@@ -1,5 +1,6 @@
 use alloc::{string::String, vec::Vec, fmt};
-use core::{cell::{RefCell, Cell}, future::Future, marker::PhantomData, mem, task::{Poll, Context, Waker}, pin::Pin};
+use core::{cell::{RefCell, Cell}, future::Future, marker::PhantomData, mem};
+use crate::futures::now_or_never;
 
 use crate::{block_on, Task};
 
@@ -155,14 +156,11 @@ impl TaskPool {
             }
         }));
 
-        let mut context = Context::from_waker(Waker::noop());
         tasks
             .take()
             .into_iter()
-            .map(|mut task| match Pin::new(&mut task).poll(&mut context) {
-                Poll::Ready(result) => result,
-                Poll::Pending => unreachable!(),
-            })
+            .map(now_or_never)
+            .map(Option::unwrap)
             .collect()
     }
 
