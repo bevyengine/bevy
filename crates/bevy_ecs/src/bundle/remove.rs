@@ -6,7 +6,7 @@ use crate::{
     archetype::{Archetype, ArchetypeCreated, ArchetypeId, Archetypes},
     bundle::{Bundle, BundleId, BundleInfo},
     change_detection::MaybeLocation,
-    component::{ComponentId, Components, ComponentsRegistrator, StorageType},
+    component::{ComponentId, Components, StorageType},
     entity::{Entity, EntityLocation},
     lifecycle::{REMOVE, REPLACE},
     observer::Observers,
@@ -33,17 +33,14 @@ impl<'w> BundleRemover<'w> {
     /// # Safety
     /// Caller must ensure that `archetype_id` is valid
     #[inline]
+    #[deny(unsafe_op_in_unsafe_fn)]
     pub(crate) unsafe fn new<T: Bundle>(
         world: &'w mut World,
         archetype_id: ArchetypeId,
         require_all: bool,
     ) -> Option<Self> {
-        // SAFETY: These come from the same world. `world.components_registrator` can't be used since we borrow other fields too.
-        let mut registrator =
-            unsafe { ComponentsRegistrator::new(&mut world.components, &mut world.component_ids) };
-        let bundle_id = world
-            .bundles
-            .register_info::<T>(&mut registrator, &mut world.storages);
+        let bundle_id = world.register_bundle_info::<T>();
+
         // SAFETY: we initialized this bundle_id in `init_info`, and caller ensures archetype is valid.
         unsafe { Self::new_with_id(world, archetype_id, bundle_id, require_all) }
     }
