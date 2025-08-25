@@ -130,6 +130,17 @@ unused_qualifications = "warn"
 
 [features]
 default = [
+  "default_no_render",
+  "bevy_anti_aliasing",
+  "bevy_gizmos",
+  "bevy_gltf",
+  "bevy_pbr",
+  "bevy_sprite_render",
+  "bevy_ui_render",
+]
+
+# All default features except for rendering
+default_no_render = [
   "std",
   "async_executor",
   "android-game-activity",
@@ -138,27 +149,19 @@ default = [
   "bevy_asset",
   "bevy_audio",
   "bevy_color",
-  "bevy_core_pipeline",
   "bevy_core_widgets",
-  "bevy_anti_aliasing",
   "bevy_gilrs",
-  "bevy_gizmos",
-  "bevy_gltf",
   "bevy_input_focus",
   "bevy_log",
   "bevy_mesh_picking_backend",
-  "bevy_pbr",
   "bevy_picking",
-  "bevy_render",
   "bevy_scene",
   "bevy_sprite",
   "bevy_sprite_picking_backend",
-  "bevy_sprite_render",
   "bevy_state",
   "bevy_text",
   "bevy_ui",
   "bevy_ui_picking_backend",
-  "bevy_ui_render",
   "bevy_window",
   "bevy_winit",
   "custom_cursor",
