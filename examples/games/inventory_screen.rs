@@ -57,7 +57,7 @@ fn setup(mut commands: Commands, assets: Res<AssetServer>) {
             BackgroundColor(MAROON.into())
         ))
         .with_children(|parent| {
-            parent.spawn(Text::new("Inventory"));
+            parent.spawn(Text::new("Inventory Screen"));
 
             let left =parent
                 .spawn((
