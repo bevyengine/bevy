@@ -418,10 +418,6 @@ impl TaskPool {
     {
         Task::new(self.executor.spawn_local(future))
     }
-
-    pub(crate) fn try_tick_local() -> bool {
-        Executor::try_tick_local()
-    }
 }
 
 impl Default for TaskPool {

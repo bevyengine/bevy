@@ -589,9 +589,11 @@ impl Sleepers {
             }
         }
 
-        self.wakers
-            .push(Sleeper { id, thread_id: std::thread::current().id(), 
-                waker: waker.clone() });
+        self.wakers.push(Sleeper { 
+            id, 
+            thread_id: std::thread::current().id(), 
+            waker: waker.clone() 
+        });
         true
     }
 
