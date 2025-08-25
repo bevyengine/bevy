@@ -141,9 +141,9 @@ fn add_buttons(commands: &mut Commands, font: &Handle<Font>, color_grading: &Col
         .spawn(Node {
             flex_direction: FlexDirection::Column,
             position_type: PositionType::Absolute,
-            row_gap: Val::Px(6.0),
-            left: Val::Px(12.0),
-            bottom: Val::Px(12.0),
+            row_gap: px(6),
+            left: px(12),
+            bottom: px(12),
             ..default()
         })
         .with_children(|parent| {
@@ -172,7 +172,7 @@ fn add_buttons_for_global_controls(
     parent.spawn(Node::default()).with_children(|parent| {
         // Add some placeholder text to fill this column.
         parent.spawn(Node {
-            width: Val::Px(125.0),
+            width: px(125),
             ..default()
         });
 
@@ -210,7 +210,7 @@ fn add_buttons_for_section(
         .with_children(|parent| {
             // Spawn the label ("Highlights", etc.)
             add_text(parent, &section.to_string(), font, Color::WHITE).insert(Node {
-                width: Val::Px(125.0),
+                width: px(125),
                 ..default()
             });
 
@@ -244,12 +244,12 @@ fn add_button_for_value(
         .spawn((
             Button,
             Node {
-                border: UiRect::all(Val::Px(1.0)),
-                width: Val::Px(200.0),
+                border: UiRect::all(px(1)),
+                width: px(200),
                 justify_content: JustifyContent::Center,
                 align_items: AlignItems::Center,
-                padding: UiRect::axes(Val::Px(12.0), Val::Px(6.0)),
-                margin: UiRect::right(Val::Px(12.0)),
+                padding: UiRect::axes(px(12), px(6)),
+                margin: UiRect::right(px(12)),
                 ..default()
             },
             BorderColor::all(Color::WHITE),
@@ -305,8 +305,8 @@ fn add_help_text(
         },
         Node {
             position_type: PositionType::Absolute,
-            left: Val::Px(12.0),
-            top: Val::Px(12.0),
+            left: px(12),
+            top: px(12),
             ..default()
         },
         HelpText,

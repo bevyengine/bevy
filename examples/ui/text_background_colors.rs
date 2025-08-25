@@ -32,8 +32,8 @@ fn setup(mut commands: Commands) {
 
     commands
         .spawn(Node {
-            width: Val::Percent(100.),
-            height: Val::Percent(100.),
+            width: percent(100),
+            height: percent(100),
             justify_content: JustifyContent::Center,
             align_items: AlignItems::Center,
             ..Default::default()

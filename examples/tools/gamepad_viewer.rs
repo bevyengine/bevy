@@ -364,8 +364,8 @@ fn setup_connected(mut commands: Commands) {
         Text::new("Connected Gamepads:\n"),
         Node {
             position_type: PositionType::Absolute,
-            top: Val::Px(12.),
-            left: Val::Px(12.),
+            top: px(12),
+            left: px(12),
             ..default()
         },
         ConnectedGamepadsText,

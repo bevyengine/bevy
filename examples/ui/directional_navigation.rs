@@ -114,8 +114,8 @@ fn setup_ui(
     // Create a full-screen background node
     let root_node = commands
         .spawn(Node {
-            width: Val::Percent(100.0),
-            height: Val::Percent(100.0),
+            width: percent(100),
+            height: percent(100),
             ..default()
         })
         .id();
@@ -126,10 +126,10 @@ fn setup_ui(
             Text::new("Use arrow keys or D-pad to navigate. \
             Click the buttons, or press Enter / the South gamepad button to interact with the focused button."),
             Node {
-                width: Val::Px(300.0),
+                width: px(300),
                 justify_content: JustifyContent::Center,
                 align_items: AlignItems::Center,
-                margin: UiRect::all(Val::Px(12.0)),
+                margin: UiRect::all(px(12)),
                 ..default()
             },
         ))
@@ -140,8 +140,8 @@ fn setup_ui(
         .spawn(Node {
             display: Display::Grid,
             // Allow the grid to take up the full height and the rest of the width of the window
-            width: Val::Percent(100.),
-            height: Val::Percent(100.),
+            width: percent(100),
+            height: percent(100),
             // Set the number of rows and columns in the grid
             // allowing the grid to automatically size the cells
             grid_template_columns: RepeatedGridTrack::auto(N_COLS),
@@ -164,10 +164,10 @@ fn setup_ui(
                 .spawn((
                     Button,
                     Node {
-                        width: Val::Px(200.0),
-                        height: Val::Px(120.0),
+                        width: px(200),
+                        height: px(120),
                         // Add a border so we can show which element is focused
-                        border: UiRect::all(Val::Px(4.0)),
+                        border: UiRect::all(px(4)),
                         // Center the button's text label
                         justify_content: JustifyContent::Center,
                         align_items: AlignItems::Center,
@@ -177,7 +177,7 @@ fn setup_ui(
                         ..default()
                     },
                     ResetTimer::default(),
-                    BorderRadius::all(Val::Px(16.0)),
+                    BorderRadius::all(px(16)),
                     BackgroundColor::from(NORMAL_BUTTON),
                     Name::new(button_name.clone()),
                 ))

@@ -40,8 +40,8 @@ fn setup_scene(
             Text::new("Click Me to get a box\nDrag cubes to rotate\nPress F3 to cycle between picking debug levels"),
             Node {
                 position_type: PositionType::Absolute,
-                top: Val::Percent(12.0),
-                left: Val::Percent(12.0),
+                top: percent(12),
+                left: percent(12),
                 ..default()
             },
         ))

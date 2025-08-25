@@ -18,16 +18,16 @@ fn setup(mut commands: Commands) {
     commands
         .spawn(Node {
             display: Display::Grid,
-            width: Val::Percent(100.),
-            height: Val::Percent(100.),
+            width: percent(100),
+            height: percent(100),
 
             ..Default::default()
         })
         .with_children(|commands| {
             commands.spawn((
                 Node {
-                    width: Val::Percent(100.),
-                    height: Val::Percent(100.),
+                    width: percent(100),
+                    height: percent(100),
                     ..Default::default()
                 },
                 BackgroundColor(Color::BLACK),
@@ -56,8 +56,8 @@ fn setup(mut commands: Commands) {
                     }
                     .into(),
                     RadialGradient {
-                        position: UiPosition::TOP.at_x(Val::Percent(5.)),
-                        shape: RadialGradientShape::Circle(Val::Vh(30.)),
+                        position: UiPosition::TOP.at_x(percent(5)),
+                        shape: RadialGradientShape::Circle(vh(30)),
                         stops: vec![
                             ColorStop::auto(Color::WHITE),
                             ColorStop::auto(YELLOW),

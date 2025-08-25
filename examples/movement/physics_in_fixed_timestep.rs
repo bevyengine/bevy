@@ -229,8 +229,8 @@ fn spawn_text(mut commands: Commands) {
     commands.spawn((
         Node {
             position_type: PositionType::Absolute,
-            bottom: Val::Px(12.0),
-            left: Val::Px(12.0),
+            bottom: px(12),
+            left: px(12),
             flex_direction: FlexDirection::Column,
             ..default()
         },

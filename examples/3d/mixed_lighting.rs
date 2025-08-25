@@ -205,8 +205,8 @@ fn spawn_help_text(commands: &mut Commands, app_status: &AppStatus) {
         create_help_text(app_status),
         Node {
             position_type: PositionType::Absolute,
-            top: Val::Px(12.0),
-            left: Val::Px(12.0),
+            top: px(12),
+            left: px(12),
             ..default()
         },
         HelpText,

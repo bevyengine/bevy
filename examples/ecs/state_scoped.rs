@@ -42,8 +42,8 @@ fn on_a_enter(mut commands: Commands) {
         TextColor(Color::srgb(0.5, 0.5, 1.0)),
         Node {
             position_type: PositionType::Absolute,
-            top: Val::Px(0.0),
-            left: Val::Px(0.0),
+            top: px(0),
+            left: px(0),
             ..default()
         },
     ));
@@ -61,8 +61,8 @@ fn on_a_exit(mut commands: Commands) {
         TextColor(Color::srgb(0.5, 0.5, 1.0)),
         Node {
             position_type: PositionType::Absolute,
-            top: Val::Px(0.0),
-            left: Val::Px(500.0),
+            top: px(0),
+            left: px(500),
             ..default()
         },
     ));
@@ -80,8 +80,8 @@ fn on_b_enter(mut commands: Commands) {
         TextColor(Color::srgb(0.5, 0.5, 1.0)),
         Node {
             position_type: PositionType::Absolute,
-            top: Val::Px(50.0),
-            left: Val::Px(0.0),
+            top: px(50),
+            left: px(0),
             ..default()
         },
     ));
@@ -99,8 +99,8 @@ fn on_b_exit(mut commands: Commands) {
         TextColor(Color::srgb(0.5, 0.5, 1.0)),
         Node {
             position_type: PositionType::Absolute,
-            top: Val::Px(50.0),
-            left: Val::Px(500.0),
+            top: px(50),
+            left: px(500),
             ..default()
         },
     ));

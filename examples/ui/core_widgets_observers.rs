@@ -109,13 +109,13 @@ fn demo_root(
 ) -> impl Bundle {
     (
         Node {
-            width: Val::Percent(100.0),
-            height: Val::Percent(100.0),
+            width: percent(100),
+            height: percent(100),
             align_items: AlignItems::Center,
             justify_content: JustifyContent::Center,
             display: Display::Flex,
             flex_direction: FlexDirection::Column,
-            row_gap: Val::Px(10.0),
+            row_gap: px(10),
             ..default()
         },
         TabGroup::default(),
@@ -131,9 +131,9 @@ fn demo_root(
 fn button(asset_server: &AssetServer, on_click: Callback<In<Activate>>) -> impl Bundle {
     (
         Node {
-            width: Val::Px(150.0),
-            height: Val::Px(65.0),
-            border: UiRect::all(Val::Px(5.0)),
+            width: px(150),
+            height: px(65),
+            border: UiRect::all(px(5)),
             justify_content: JustifyContent::Center,
             align_items: AlignItems::Center,
             ..default()
@@ -364,9 +364,9 @@ fn slider(
             justify_content: JustifyContent::Center,
             align_items: AlignItems::Stretch,
             justify_items: JustifyItems::Center,
-            column_gap: Val::Px(4.0),
-            height: Val::Px(12.0),
-            width: Val::Percent(30.0),
+            column_gap: px(4),
+            height: px(12),
+            width: percent(30),
             ..default()
         },
         Name::new("Slider"),
@@ -383,11 +383,11 @@ fn slider(
             // Slider background rail
             Spawn((
                 Node {
-                    height: Val::Px(6.0),
+                    height: px(6),
                     ..default()
                 },
                 BackgroundColor(SLIDER_TRACK), // Border color for the checkbox
-                BorderRadius::all(Val::Px(3.0)),
+                BorderRadius::all(px(3)),
             )),
             // Invisible track to allow absolute placement of thumb entity. This is narrower than
             // the actual slider, which allows us to position the thumb entity using simple
@@ -396,11 +396,11 @@ fn slider(
                 Node {
                     display: Display::Flex,
                     position_type: PositionType::Absolute,
-                    left: Val::Px(0.0),
+                    left: px(0),
                     // Track is short by 12px to accommodate the thumb.
-                    right: Val::Px(12.0),
-                    top: Val::Px(0.0),
-                    bottom: Val::Px(0.0),
+                    right: px(12),
+                    top: px(0),
+                    bottom: px(0),
                     ..default()
                 },
                 children![(
@@ -409,10 +409,10 @@ fn slider(
                     CoreSliderThumb,
                     Node {
                         display: Display::Flex,
-                        width: Val::Px(12.0),
-                        height: Val::Px(12.0),
+                        width: px(12),
+                        height: px(12),
                         position_type: PositionType::Absolute,
-                        left: Val::Percent(0.0), // This will be updated by the slider's value
+                        left: percent(0), // This will be updated by the slider's value
                         ..default()
                     },
                     BorderRadius::MAX,
@@ -485,7 +485,7 @@ fn slider_on_change_value(
             if let Ok((mut thumb_node, is_thumb)) = thumbs.get_mut(child)
                 && is_thumb
             {
-                thumb_node.left = Val::Percent(range.thumb_position(value.0) * 100.0);
+                thumb_node.left = percent(range.thumb_position(value.0) * 100.0);
             }
         }
     }
@@ -502,7 +502,7 @@ fn slider_on_change_range(
             if let Ok((mut thumb_node, is_thumb)) = thumbs.get_mut(child)
                 && is_thumb
             {
-                thumb_node.left = Val::Percent(range.thumb_position(value.0) * 100.0);
+                thumb_node.left = percent(range.thumb_position(value.0) * 100.0);
             }
         }
     }
@@ -531,7 +531,7 @@ fn checkbox(
             justify_content: JustifyContent::FlexStart,
             align_items: AlignItems::Center,
             align_content: AlignContent::Center,
-            column_gap: Val::Px(4.0),
+            column_gap: px(4),
             ..default()
         },
         Name::new("Checkbox"),
@@ -544,23 +544,23 @@ fn checkbox(
                 // Checkbox outer
                 Node {
                     display: Display::Flex,
-                    width: Val::Px(16.0),
-                    height: Val::Px(16.0),
-                    border: UiRect::all(Val::Px(2.0)),
+                    width: px(16),
+                    height: px(16),
+                    border: UiRect::all(px(2)),
                     ..default()
                 },
                 BorderColor::all(CHECKBOX_OUTLINE), // Border color for the checkbox
-                BorderRadius::all(Val::Px(3.0)),
+                BorderRadius::all(px(3)),
                 children![
                     // Checkbox inner
                     (
                         Node {
                             display: Display::Flex,
-                            width: Val::Px(8.0),
-                            height: Val::Px(8.0),
+                            width: px(8),
+                            height: px(8),
                             position_type: PositionType::Absolute,
-                            left: Val::Px(2.0),
-                            top: Val::Px(2.0),
+                            left: px(2),
+                            top: px(2),
                             ..default()
                         },
                         BackgroundColor(Srgba::NONE.into()),
