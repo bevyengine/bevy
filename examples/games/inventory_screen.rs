@@ -86,7 +86,9 @@ fn item_drag_drop_observer(on_drag_drop: On<Pointer<DragDrop>>, mut commands: Co
 }
 
 fn setup(mut commands: Commands, assets: Res<AssetServer>) {
-    let item_border_color = GRAY;
+    let item_border_color: Color = GRAY.into();
+    let panel_color: Color = MAROON.into();
+    let slot_color = panel_color.darker(0.1);
 
     commands.spawn(Camera2d);
     commands
@@ -107,7 +109,7 @@ fn setup(mut commands: Commands, assets: Res<AssetServer>) {
                 color: Color::WHITE,
                 ..Default::default()
             },
-            BackgroundColor(MAROON.into())
+            BackgroundColor(panel_color)
         ))
         .with_children(|parent| {
             parent.spawn(Text::new("Inventory Screen"));
@@ -137,11 +139,10 @@ fn setup(mut commands: Commands, assets: Res<AssetServer>) {
                                     align_items: AlignItems::Center,
                                     justify_content: JustifyContent::Center,
                                     border: UiRect::all(Val::Px(1.)),
-
                                     ..default()
                                 },
                                 BorderColor::all(item_border_color),
-                                BackgroundColor(MAROON.darker(0.2).into()),
+                                BackgroundColor(slot_color),
                                 item_slot,
                                 children![(
                                     Node {
@@ -210,7 +211,7 @@ fn setup(mut commands: Commands, assets: Res<AssetServer>) {
                                 ..Default::default()
                             },
                             BorderColor::all(item_border_color),
-                            BackgroundColor(MAROON.darker(0.2).into()),
+                            BackgroundColor(slot_color),
                         ))
                         .observe(
                             move |on_over: On<Pointer<Over>>,
