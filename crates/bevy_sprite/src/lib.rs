@@ -86,11 +86,7 @@ impl Plugin for SpritePlugin {
             (
                 bevy_text::detect_text_needs_rerender::<Text2d>,
                 update_text2d_layout
-                    // Potential conflict: `Assets<Image>`
-                    // In practice, they run independently since `bevy_render::camera_update_system`
-                    // will only ever observe its own render target, and `update_text2d_layout`
-                    // will never modify a pre-existing `Image` asset.
-                    .ambiguous_with(bevy_camera::CameraUpdateSystems)
+                    .after(bevy_camera::CameraUpdateSystems)
                     .after(bevy_text::remove_dropped_font_atlas_sets),
                 calculate_bounds_text2d.in_set(VisibilitySystems::CalculateBounds),
             )
