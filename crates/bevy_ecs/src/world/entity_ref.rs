@@ -2347,7 +2347,10 @@ impl<'w> EntityWorldMut<'w> {
             .components()
             .filter(|c| !retained_bundle_info.contributed_components().contains(c))
             .collect::<Vec<_>>();
-        let remove_bundle = self.world.init_dynamic_bundle_info(to_remove);
+        let remove_bundle =
+            self.world
+                .bundles
+                .init_dynamic_info(&mut self.world.storages, &registrator, to_remove);
 
         // SAFETY: We just created the bundle, and the archetype is valid, since we are in it.
         let Some(mut remover) = (unsafe {

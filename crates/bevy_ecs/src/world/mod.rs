@@ -3102,21 +3102,11 @@ impl World {
     /// This function will panic if any of the provided component ids do not belong to a component known to this [`World`].
     #[inline]
     pub fn register_dynamic_bundle(&mut self, component_ids: &[ComponentId]) -> &BundleInfo {
-        let id = self.init_dynamic_bundle_info(component_ids);
-
+        let id =
+            self.bundles
+                .init_dynamic_info(&mut self.storages, &self.components, component_ids);
         // SAFETY: We just initialized the bundle so its id should definitely be valid.
         unsafe { self.bundles.get(id).debug_checked_unwrap() }
-    }
-
-    /// Initializes a new [`BundleInfo`] for a dynamic [`Bundle`].
-    ///
-    /// # Panics
-    ///
-    /// Panics if any of the provided [`ComponentId`]s do not exist in this
-    /// [`World`]'s components.
-    pub(crate) fn init_dynamic_bundle_info(&mut self, component_ids: &[ComponentId]) -> BundleId {
-        self.bundles
-            .init_dynamic_info(&mut self.storages, &self.components, component_ids)
     }
 
     /// Convenience method for accessing the world's default error handler,
