@@ -25,7 +25,7 @@ fn main() {
                 title: "Viewport Coordinates Debug".to_string(),
                 // This example relies on these specific viewport dimensions, so let's explicitly
                 // define them.
-                resolution: [1280., 720.].into(),
+                resolution: (1280, 720).into(),
                 resizable: false,
                 ..Default::default()
             }),

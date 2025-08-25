@@ -48,8 +48,8 @@ use bevy_color::{Color, LinearRgba};
 
 pub use atmosphere::*;
 use bevy_light::{
-    AmbientLight, DirectionalLight, LightPlugin, PointLight, ShadowFilteringMethod,
-    SimulationLightSystems, SpotLight,
+    AmbientLight, DirectionalLight, PointLight, ShadowFilteringMethod, SimulationLightSystems,
+    SpotLight,
 };
 use bevy_shader::{load_shader_library, ShaderRef};
 pub use cluster::*;
@@ -134,7 +134,6 @@ use bevy_image::{Image, ImageSampler};
 use bevy_render::{
     alpha::AlphaMode,
     camera::sort_cameras,
-    extract_component::ExtractComponentPlugin,
     extract_resource::ExtractResourcePlugin,
     render_graph::RenderGraph,
     render_resource::{
@@ -229,13 +228,11 @@ impl Plugin for PbrPlugin {
                     ..Default::default()
                 },
                 ScreenSpaceAmbientOcclusionPlugin,
-                ExtractResourcePlugin::<AmbientLight>::default(),
                 FogPlugin,
                 ExtractResourcePlugin::<DefaultOpaqueRendererMethod>::default(),
-                ExtractComponentPlugin::<ShadowFilteringMethod>::default(),
+                SyncComponentPlugin::<ShadowFilteringMethod>::default(),
                 LightmapPlugin,
                 LightProbePlugin,
-                LightPlugin,
                 GpuMeshPreprocessPlugin {
                     use_gpu_instance_buffer_builder: self.use_gpu_instance_buffer_builder,
                 },
@@ -248,7 +245,7 @@ impl Plugin for PbrPlugin {
                 SyncComponentPlugin::<DirectionalLight>::default(),
                 SyncComponentPlugin::<PointLight>::default(),
                 SyncComponentPlugin::<SpotLight>::default(),
-                ExtractComponentPlugin::<AmbientLight>::default(),
+                SyncComponentPlugin::<AmbientLight>::default(),
             ))
             .add_plugins(AtmospherePlugin)
             .configure_sets(
@@ -325,6 +322,9 @@ impl Plugin for PbrPlugin {
                 (
                     extract_clusters,
                     extract_lights,
+                    extract_ambient_light_resource,
+                    extract_ambient_light,
+                    extract_shadow_filtering_method,
                     late_sweep_material_instances,
                 ),
             )

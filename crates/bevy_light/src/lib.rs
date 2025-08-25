@@ -27,7 +27,10 @@ use cluster::{
 mod ambient_light;
 pub use ambient_light::AmbientLight;
 mod probe;
-pub use probe::{EnvironmentMapLight, GeneratedEnvironmentMapLight, IrradianceVolume, LightProbe};
+pub use probe::{
+    AtmosphereEnvironmentMapLight, EnvironmentMapLight, GeneratedEnvironmentMapLight,
+    IrradianceVolume, LightProbe,
+};
 mod volumetric;
 pub use volumetric::{FogVolume, VolumetricFog, VolumetricLight};
 pub mod cascade;
@@ -45,7 +48,7 @@ pub use spot_light::{
 mod directional_light;
 pub use directional_light::{
     update_directional_light_frusta, DirectionalLight, DirectionalLightShadowMap,
-    DirectionalLightTexture,
+    DirectionalLightTexture, SunDisk,
 };
 
 /// The light prelude.
@@ -124,6 +127,7 @@ pub mod light_consts {
     }
 }
 
+#[derive(Default)]
 pub struct LightPlugin;
 
 impl Plugin for LightPlugin {

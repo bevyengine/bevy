@@ -614,7 +614,7 @@ pub fn queue_ui_material_nodes<M: UiMaterial>(
             &ui_material_pipeline,
             UiMaterialKey {
                 hdr: view.hdr,
-                bind_group_data: material.key,
+                bind_group_data: material.key.clone(),
             },
         );
         if transparent_phase.items.capacity() < extracted_uinodes.uinodes.len() {

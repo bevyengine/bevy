@@ -47,7 +47,7 @@ impl PluginGroup for SolariPlugins {
 }
 
 impl SolariPlugins {
-    /// [`WgpuFeatures`] required for this plugin to function.
+    /// [`WgpuFeatures`] required for these plugins to function.
     pub fn required_wgpu_features() -> WgpuFeatures {
         WgpuFeatures::EXPERIMENTAL_RAY_TRACING_ACCELERATION_STRUCTURE
             | WgpuFeatures::EXPERIMENTAL_RAY_QUERY

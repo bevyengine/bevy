@@ -95,7 +95,7 @@ fn spawn_tasks(mut commands: Commands) {
                     command_queue
                 });
 
-                // Spawn new entity and add our new task as a component
+                // Add our new task as a component
                 commands.entity(entity).insert(ComputeTransform(task));
             }
         }

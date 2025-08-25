@@ -22,7 +22,7 @@ multi_threaded = [
 
 # Uses `async-executor` as a task execution backend.
 # This backend is incompatible with `no_std` targets.
-async_executor = ["bevy_platform/std", "dep:async-executor"]
+async_executor = ["bevy_platform/std", "dep:async-executor", "futures-lite"]
 
 # Provide an implementation of `block_on` from  `futures-lite`.
 futures-lite = ["bevy_platform/std", "futures-lite/std"]
