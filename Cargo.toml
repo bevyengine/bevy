@@ -2561,8 +2561,8 @@ category = "Games"
 wasm = true
 
 [[example]]
-name = "inventory"
-path = "examples/games/inventory.rs"
+name = "inventory_screen"
+path = "examples/games/inventory_screen.rs"
 doc-scrape-examples = true
 
 [package.metadata.example.inventory]

@@ -1,4 +1,4 @@
-//! Demonstrates a basic player inventory screen
+//! Demonstrates a basic player inventory screen with drag and droppable items
 
 use bevy::{
     color::palettes::css::{DARK_GOLDENROD, GRAY, MAROON},
