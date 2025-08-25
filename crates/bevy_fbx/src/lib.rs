@@ -16,16 +16,16 @@ use bevy_asset::{
 };
 use bevy_ecs::prelude::*;
 use bevy_mesh::skinning::SkinnedMeshInverseBindposes;
-use bevy_mesh::{Indices, Mesh, PrimitiveTopology, VertexAttributeValues};
-use bevy_pbr::{DirectionalLight, MeshMaterial3d, PointLight, SpotLight, StandardMaterial};
+use bevy_mesh::{Indices, Mesh,Mesh3d, PrimitiveTopology, VertexAttributeValues};
+use bevy_pbr::{MeshMaterial3d, StandardMaterial};
 
 use bevy_platform::collections::HashMap;
 use bevy_reflect::TypePath;
-use bevy_render::mesh::Mesh3d;
-use bevy_render::prelude::Visibility;
+use bevy_camera::visibility::Visibility;
 use bevy_render::render_resource::Face;
 use bevy_scene::Scene;
 use bevy_utils::default;
+use bevy_light::{DirectionalLight, SpotLight, PointLight};
 use serde::{Deserialize, Serialize};
 
 use bevy_animation::{

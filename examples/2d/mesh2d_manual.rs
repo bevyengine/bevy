@@ -6,13 +6,15 @@
 //! [`Material2d`]: bevy::sprite::Material2d
 
 use bevy::{
+    asset::RenderAssetUsages,
     color::palettes::basic::YELLOW,
     core_pipeline::core_2d::{Transparent2d, CORE_2D_DEPTH_FORMAT},
     math::{ops, FloatOrd},
+    mesh::{Indices, MeshVertexAttribute, VertexBufferLayout},
     prelude::*,
     render::{
-        mesh::{Indices, MeshVertexAttribute, RenderMesh},
-        render_asset::{RenderAssetUsages, RenderAssets},
+        mesh::RenderMesh,
+        render_asset::RenderAssets,
         render_phase::{
             AddRenderCommand, DrawFunctions, PhaseItemExtraIndex, SetItemPipeline,
             ViewSortedRenderPhases,
@@ -22,16 +24,16 @@ use bevy::{
             DepthStencilState, Face, FragmentState, MultisampleState, PipelineCache,
             PrimitiveState, PrimitiveTopology, RenderPipelineDescriptor, SpecializedRenderPipeline,
             SpecializedRenderPipelines, StencilFaceState, StencilState, TextureFormat,
-            VertexBufferLayout, VertexFormat, VertexState, VertexStepMode,
+            VertexFormat, VertexState, VertexStepMode,
         },
         sync_component::SyncComponentPlugin,
         sync_world::{MainEntityHashMap, RenderEntity},
         view::{ExtractedView, RenderVisibleEntities, ViewTarget},
-        Extract, Render, RenderApp, RenderSystems,
+        Extract, Render, RenderApp, RenderStartup, RenderSystems,
     },
-    sprite::{
-        extract_mesh2d, DrawMesh2d, Material2dBindGroupId, Mesh2dPipeline, Mesh2dPipelineKey,
-        Mesh2dTransforms, MeshFlags, RenderMesh2dInstance, SetMesh2dBindGroup,
+    sprite_render::{
+        extract_mesh2d, init_mesh_2d_pipeline, DrawMesh2d, Material2dBindGroupId, Mesh2dPipeline,
+        Mesh2dPipelineKey, Mesh2dTransforms, MeshFlags, RenderMesh2dInstance, SetMesh2dBindGroup,
         SetMesh2dViewBindGroup,
     },
 };
@@ -132,14 +134,16 @@ pub struct ColoredMesh2dPipeline {
     shader: Handle<Shader>,
 }
 
-impl FromWorld for ColoredMesh2dPipeline {
-    fn from_world(world: &mut World) -> Self {
-        Self {
-            mesh2d_pipeline: Mesh2dPipeline::from_world(world),
-            // Get the shader from the shader resource we inserted in the plugin.
-            shader: world.resource::<ColoredMesh2dShader>().0.clone(),
-        }
-    }
+fn init_colored_mesh_2d_pipeline(
+    mut commands: Commands,
+    mesh2d_pipeline: Res<Mesh2dPipeline>,
+    colored_mesh2d_shader: Res<ColoredMesh2dShader>,
+) {
+    commands.insert_resource(ColoredMesh2dPipeline {
+        mesh2d_pipeline: mesh2d_pipeline.clone(),
+        // Clone the shader from the shader resource we inserted in the plugin.
+        shader: colored_mesh2d_shader.0.clone(),
+    });
 }
 
 // We implement `SpecializedPipeline` to customize the default rendering from `Mesh2dPipeline`
@@ -237,7 +241,7 @@ type DrawColoredMesh2d = (
 // using `include_str!()`, or loaded like any other asset with `asset_server.load()`.
 const COLORED_MESH2D_SHADER: &str = r"
 // Import the standard 2d mesh uniforms and set their bind groups
-#import bevy_sprite::mesh2d_functions
+#import bevy_sprite_render::mesh2d_functions
 
 // The structure of the vertex buffer is as specified in `specialize()`
 struct Vertex {
@@ -308,6 +312,10 @@ impl Plugin for ColoredMesh2dPlugin {
             .init_resource::<SpecializedRenderPipelines<ColoredMesh2dPipeline>>()
             .init_resource::<RenderColoredMesh2dInstances>()
             .add_systems(
+                RenderStartup,
+                init_colored_mesh_2d_pipeline.after(init_mesh_2d_pipeline),
+            )
+            .add_systems(
                 ExtractSchedule,
                 extract_colored_mesh2d.after(extract_mesh2d),
             )
@@ -315,13 +323,6 @@ impl Plugin for ColoredMesh2dPlugin {
                 Render,
                 queue_colored_mesh2d.in_set(RenderSystems::QueueMeshes),
             );
-    }
-
-    fn finish(&self, app: &mut App) {
-        // Register our custom pipeline
-        app.get_sub_app_mut(RenderApp)
-            .unwrap()
-            .init_resource::<ColoredMesh2dPipeline>();
     }
 }
 

@@ -18,12 +18,16 @@ pub mod ui_texture_slice_pipeline;
 #[cfg(feature = "bevy_ui_debug")]
 mod debug_overlay;
 
+use bevy_camera::visibility::InheritedVisibility;
+use bevy_camera::{Camera, Camera2d, Camera3d};
 use bevy_reflect::prelude::ReflectDefault;
 use bevy_reflect::Reflect;
+use bevy_shader::load_shader_library;
+use bevy_sprite_render::SpriteAssetEvents;
 use bevy_ui::widget::{ImageNode, TextShadow, ViewportNode};
 use bevy_ui::{
-    BackgroundColor, BorderColor, CalculatedClip, ComputedNode, ComputedNodeTarget, Display, Node,
-    Outline, ResolvedBorderRadius, UiGlobalTransform,
+    BackgroundColor, BorderColor, CalculatedClip, ComputedNode, ComputedUiTargetCamera, Display,
+    Node, Outline, ResolvedBorderRadius, UiGlobalTransform,
 };
 
 use bevy_app::prelude::*;
@@ -31,35 +35,25 @@ use bevy_asset::{AssetEvent, AssetId, Assets};
 use bevy_color::{Alpha, ColorToComponents, LinearRgba};
 use bevy_core_pipeline::core_2d::graph::{Core2d, Node2d};
 use bevy_core_pipeline::core_3d::graph::{Core3d, Node3d};
-use bevy_core_pipeline::{core_2d::Camera2d, core_3d::Camera3d};
 use bevy_ecs::prelude::*;
 use bevy_ecs::system::SystemParam;
-use bevy_image::prelude::*;
+use bevy_image::{prelude::*, TRANSPARENT_IMAGE_HANDLE};
 use bevy_math::{Affine2, FloatOrd, Mat4, Rect, UVec4, Vec2};
-use bevy_render::render_graph::{NodeRunError, RenderGraphContext};
-use bevy_render::render_phase::ViewSortedRenderPhases;
-use bevy_render::renderer::RenderContext;
-use bevy_render::sync_world::MainEntity;
-use bevy_render::texture::TRANSPARENT_IMAGE_HANDLE;
-use bevy_render::view::{Hdr, InheritedVisibility, RetainedViewEntity};
 use bevy_render::{
-    camera::Camera,
     render_asset::RenderAssets,
-    render_graph::{Node as RenderGraphNode, RenderGraph},
-    render_phase::{sort_phase_system, AddRenderCommand, DrawFunctions},
+    render_graph::{Node as RenderGraphNode, NodeRunError, RenderGraph, RenderGraphContext},
+    render_phase::{
+        sort_phase_system, AddRenderCommand, DrawFunctions, PhaseItem, PhaseItemExtraIndex,
+        ViewSortedRenderPhases,
+    },
     render_resource::*,
-    renderer::{RenderDevice, RenderQueue},
-    view::{ExtractedView, ViewUniforms},
-    Extract, RenderApp, RenderSystems,
-};
-use bevy_render::{load_shader_library, RenderStartup};
-use bevy_render::{
-    render_phase::{PhaseItem, PhaseItemExtraIndex},
-    sync_world::{RenderEntity, TemporaryRenderEntity},
+    renderer::{RenderContext, RenderDevice, RenderQueue},
+    sync_world::{MainEntity, RenderEntity, TemporaryRenderEntity},
     texture::GpuImage,
-    ExtractSchedule, Render,
+    view::{ExtractedView, Hdr, RetainedViewEntity, ViewUniforms},
+    Extract, ExtractSchedule, Render, RenderApp, RenderStartup, RenderSystems,
 };
-use bevy_sprite::{BorderRect, SpriteAssetEvents};
+use bevy_sprite::BorderRect;
 #[cfg(feature = "bevy_ui_debug")]
 pub use debug_overlay::UiDebugOptions;
 use gradient::GradientPlugin;
@@ -147,7 +141,7 @@ pub enum RenderUiSystems {
 /// **Note:** This does not affect text anti-aliasing. For that, use the `font_smoothing` property of the [`TextFont`](bevy_text::TextFont) component.
 ///
 /// ```
-/// use bevy_core_pipeline::prelude::*;
+/// use bevy_camera::prelude::*;
 /// use bevy_ecs::prelude::*;
 /// use bevy_ui::prelude::*;
 /// use bevy_ui_render::prelude::*;
@@ -176,7 +170,7 @@ pub enum UiAntiAlias {
 /// Default is 4, values higher than ~10 offer diminishing returns.
 ///
 /// ```
-/// use bevy_core_pipeline::prelude::*;
+/// use bevy_camera::prelude::*;
 /// use bevy_ecs::prelude::*;
 /// use bevy_ui::prelude::*;
 /// use bevy_ui_render::prelude::*;
@@ -208,8 +202,6 @@ pub struct UiRenderPlugin;
 impl Plugin for UiRenderPlugin {
     fn build(&self, app: &mut App) {
         load_shader_library!(app, "ui.wgsl");
-        app.register_type::<BoxShadowSamples>()
-            .register_type::<UiAntiAlias>();
 
         #[cfg(feature = "bevy_ui_debug")]
         app.init_resource::<UiDebugOptions>();
@@ -269,25 +261,27 @@ impl Plugin for UiRenderPlugin {
             );
 
         // Render graph
-        let ui_graph_2d = get_ui_graph(render_app);
-        let ui_graph_3d = get_ui_graph(render_app);
-        let mut graph = render_app.world_mut().resource_mut::<RenderGraph>();
+        render_app
+            .world_mut()
+            .resource_scope(|world, mut graph: Mut<RenderGraph>| {
+                if let Some(graph_2d) = graph.get_sub_graph_mut(Core2d) {
+                    let ui_graph_2d = new_ui_graph(world);
+                    graph_2d.add_sub_graph(SubGraphUi, ui_graph_2d);
+                    graph_2d.add_node(NodeUi::UiPass, RunUiSubgraphOnUiViewNode);
+                    graph_2d.add_node_edge(Node2d::EndMainPass, NodeUi::UiPass);
+                    graph_2d.add_node_edge(Node2d::EndMainPassPostProcessing, NodeUi::UiPass);
+                    graph_2d.add_node_edge(NodeUi::UiPass, Node2d::Upscaling);
+                }
 
-        if let Some(graph_2d) = graph.get_sub_graph_mut(Core2d) {
-            graph_2d.add_sub_graph(SubGraphUi, ui_graph_2d);
-            graph_2d.add_node(NodeUi::UiPass, RunUiSubgraphOnUiViewNode);
-            graph_2d.add_node_edge(Node2d::EndMainPass, NodeUi::UiPass);
-            graph_2d.add_node_edge(Node2d::EndMainPassPostProcessing, NodeUi::UiPass);
-            graph_2d.add_node_edge(NodeUi::UiPass, Node2d::Upscaling);
-        }
-
-        if let Some(graph_3d) = graph.get_sub_graph_mut(Core3d) {
-            graph_3d.add_sub_graph(SubGraphUi, ui_graph_3d);
-            graph_3d.add_node(NodeUi::UiPass, RunUiSubgraphOnUiViewNode);
-            graph_3d.add_node_edge(Node3d::EndMainPass, NodeUi::UiPass);
-            graph_3d.add_node_edge(Node3d::EndMainPassPostProcessing, NodeUi::UiPass);
-            graph_3d.add_node_edge(NodeUi::UiPass, Node3d::Upscaling);
-        }
+                if let Some(graph_3d) = graph.get_sub_graph_mut(Core3d) {
+                    let ui_graph_3d = new_ui_graph(world);
+                    graph_3d.add_sub_graph(SubGraphUi, ui_graph_3d);
+                    graph_3d.add_node(NodeUi::UiPass, RunUiSubgraphOnUiViewNode);
+                    graph_3d.add_node_edge(Node3d::EndMainPass, NodeUi::UiPass);
+                    graph_3d.add_node_edge(Node3d::EndMainPassPostProcessing, NodeUi::UiPass);
+                    graph_3d.add_node_edge(NodeUi::UiPass, Node3d::Upscaling);
+                }
+            });
 
         app.add_plugins(UiTextureSlicerPlugin);
         app.add_plugins(GradientPlugin);
@@ -295,8 +289,8 @@ impl Plugin for UiRenderPlugin {
     }
 }
 
-fn get_ui_graph(render_app: &mut SubApp) -> RenderGraph {
-    let ui_pass_node = UiPassNode::new(render_app.world_mut());
+fn new_ui_graph(world: &mut World) -> RenderGraph {
+    let ui_pass_node = UiPassNode::new(world);
     let mut ui_graph = RenderGraph::default();
     ui_graph.add_node(NodeUi::UiPass, ui_pass_node);
     ui_graph
@@ -308,7 +302,9 @@ pub struct UiCameraMap<'w, 's> {
 }
 
 impl<'w, 's> UiCameraMap<'w, 's> {
-    /// Get the default camera and create the mapper
+    /// Creates a [`UiCameraMapper`] for performing repeated camera-to-render-entity lookups.
+    ///
+    /// The last successful mapping is cached to avoid redundant queries.
     pub fn get_mapper(&'w self) -> UiCameraMapper<'w, 's> {
         UiCameraMapper {
             mapping: &self.mapping,
@@ -318,16 +314,20 @@ impl<'w, 's> UiCameraMap<'w, 's> {
     }
 }
 
+/// Helper for mapping UI target camera entities to their corresponding render entities,
+/// with caching to avoid repeated lookups for the same camera.
 pub struct UiCameraMapper<'w, 's> {
     mapping: &'w Query<'w, 's, RenderEntity>,
+    /// Cached camera entity from the last successful `map` call.
     camera_entity: Entity,
+    /// Cached camera entity from the last successful `map` call.
     render_entity: Entity,
 }
 
 impl<'w, 's> UiCameraMapper<'w, 's> {
-    /// Returns the render entity corresponding to the given `UiTargetCamera` or the default camera if `None`.
-    pub fn map(&mut self, computed_target: &ComputedNodeTarget) -> Option<Entity> {
-        let camera_entity = computed_target.camera()?;
+    /// Returns the render entity corresponding to the given [`ComputedUiTargetCamera`]'s camera, or none if no corresponding entity was found.
+    pub fn map(&mut self, computed_target: &ComputedUiTargetCamera) -> Option<Entity> {
+        let camera_entity = computed_target.get()?;
         if self.camera_entity != camera_entity {
             let new_render_camera_entity = self.mapping.get(camera_entity).ok()?;
             self.render_entity = new_render_camera_entity;
@@ -337,6 +337,7 @@ impl<'w, 's> UiCameraMapper<'w, 's> {
         Some(self.render_entity)
     }
 
+    /// Returns the cached camera entity from the last successful `map` call.
     pub fn current_camera(&self) -> Entity {
         self.camera_entity
     }
@@ -437,7 +438,7 @@ pub fn extract_uinode_background_colors(
             &UiGlobalTransform,
             &InheritedVisibility,
             Option<&CalculatedClip>,
-            &ComputedNodeTarget,
+            &ComputedUiTargetCamera,
             &BackgroundColor,
         )>,
     >,
@@ -496,7 +497,7 @@ pub fn extract_uinode_images(
             &UiGlobalTransform,
             &InheritedVisibility,
             Option<&CalculatedClip>,
-            &ComputedNodeTarget,
+            &ComputedUiTargetCamera,
             &ImageNode,
         )>,
     >,
@@ -580,7 +581,7 @@ pub fn extract_uinode_borders(
             &UiGlobalTransform,
             &InheritedVisibility,
             Option<&CalculatedClip>,
-            &ComputedNodeTarget,
+            &ComputedUiTargetCamera,
             AnyOf<(&BorderColor, &Outline)>,
         )>,
     >,
@@ -610,64 +611,64 @@ pub fn extract_uinode_borders(
         };
 
         // Don't extract borders with zero width along all edges
-        if computed_node.border() != BorderRect::ZERO {
-            if let Some(border_color) = maybe_border_color {
-                let border_colors = [
-                    border_color.left.to_linear(),
-                    border_color.top.to_linear(),
-                    border_color.right.to_linear(),
-                    border_color.bottom.to_linear(),
-                ];
+        if computed_node.border() != BorderRect::ZERO
+            && let Some(border_color) = maybe_border_color
+        {
+            let border_colors = [
+                border_color.left.to_linear(),
+                border_color.top.to_linear(),
+                border_color.right.to_linear(),
+                border_color.bottom.to_linear(),
+            ];
 
-                const BORDER_FLAGS: [u32; 4] = [
-                    shader_flags::BORDER_LEFT,
-                    shader_flags::BORDER_TOP,
-                    shader_flags::BORDER_RIGHT,
-                    shader_flags::BORDER_BOTTOM,
-                ];
-                let mut completed_flags = 0;
+            const BORDER_FLAGS: [u32; 4] = [
+                shader_flags::BORDER_LEFT,
+                shader_flags::BORDER_TOP,
+                shader_flags::BORDER_RIGHT,
+                shader_flags::BORDER_BOTTOM,
+            ];
+            let mut completed_flags = 0;
 
-                for (i, &color) in border_colors.iter().enumerate() {
-                    if color.is_fully_transparent() {
-                        continue;
-                    }
-
-                    let mut border_flags = BORDER_FLAGS[i];
-
-                    if completed_flags & border_flags != 0 {
-                        continue;
-                    }
-
-                    for j in i + 1..4 {
-                        if color == border_colors[j] {
-                            border_flags |= BORDER_FLAGS[j];
-                        }
-                    }
-                    completed_flags |= border_flags;
-
-                    extracted_uinodes.uinodes.push(ExtractedUiNode {
-                        z_order: computed_node.stack_index as f32 + stack_z_offsets::BORDER,
-                        color,
-                        rect: Rect {
-                            max: computed_node.size(),
-                            ..Default::default()
-                        },
-                        image,
-                        clip: maybe_clip.map(|clip| clip.clip),
-                        extracted_camera_entity,
-                        item: ExtractedUiItem::Node {
-                            atlas_scaling: None,
-                            transform: transform.into(),
-                            flip_x: false,
-                            flip_y: false,
-                            border: computed_node.border(),
-                            border_radius: computed_node.border_radius(),
-                            node_type: NodeType::Border(border_flags),
-                        },
-                        main_entity: entity.into(),
-                        render_entity: commands.spawn(TemporaryRenderEntity).id(),
-                    });
+            for (i, &color) in border_colors.iter().enumerate() {
+                if color.is_fully_transparent() {
+                    continue;
                 }
+
+                let mut border_flags = BORDER_FLAGS[i];
+
+                if completed_flags & border_flags != 0 {
+                    continue;
+                }
+
+                for j in i + 1..4 {
+                    if color == border_colors[j] {
+                        border_flags |= BORDER_FLAGS[j];
+                    }
+                }
+                completed_flags |= border_flags;
+
+                extracted_uinodes.uinodes.push(ExtractedUiNode {
+                    z_order: computed_node.stack_index as f32 + stack_z_offsets::BORDER,
+                    color,
+                    rect: Rect {
+                        max: computed_node.size(),
+                        ..Default::default()
+                    },
+                    image,
+                    clip: maybe_clip.map(|clip| clip.clip),
+                    extracted_camera_entity,
+                    item: ExtractedUiItem::Node {
+                        atlas_scaling: None,
+                        transform: transform.into(),
+                        flip_x: false,
+                        flip_y: false,
+                        border: computed_node.border(),
+                        border_radius: computed_node.border_radius(),
+                        node_type: NodeType::Border(border_flags),
+                    },
+                    main_entity: entity.into(),
+                    render_entity: commands.spawn(TemporaryRenderEntity).id(),
+                });
             }
         }
 
@@ -842,7 +843,7 @@ pub fn extract_viewport_nodes(
             &UiGlobalTransform,
             &InheritedVisibility,
             Option<&CalculatedClip>,
-            &ComputedNodeTarget,
+            &ComputedUiTargetCamera,
             &ViewportNode,
         )>,
     >,
@@ -905,7 +906,7 @@ pub fn extract_text_sections(
             &UiGlobalTransform,
             &InheritedVisibility,
             Option<&CalculatedClip>,
-            &ComputedNodeTarget,
+            &ComputedUiTargetCamera,
             &ComputedTextBlock,
             &TextLayoutInfo,
         )>,
@@ -1000,7 +1001,7 @@ pub fn extract_text_shadows(
             Entity,
             &ComputedNode,
             &UiGlobalTransform,
-            &ComputedNodeTarget,
+            &ComputedUiTargetCamera,
             &InheritedVisibility,
             Option<&CalculatedClip>,
             &TextLayoutInfo,
@@ -1082,7 +1083,7 @@ pub fn extract_text_background_colors(
             &UiGlobalTransform,
             &InheritedVisibility,
             Option<&CalculatedClip>,
-            &ComputedNodeTarget,
+            &ComputedUiTargetCamera,
             &TextLayoutInfo,
         )>,
     >,
@@ -1365,9 +1366,11 @@ pub fn prepare_uinodes(
                     } else if batch_image_handle == AssetId::default()
                         && extracted_uinode.image != AssetId::default()
                     {
-                        if let Some(gpu_image) = gpu_images.get(extracted_uinode.image) {
+                        if let Some(ref mut existing_batch) = existing_batch
+                            && let Some(gpu_image) = gpu_images.get(extracted_uinode.image)
+                        {
                             batch_image_handle = extracted_uinode.image;
-                            existing_batch.as_mut().unwrap().1.image = extracted_uinode.image;
+                            existing_batch.1.image = extracted_uinode.image;
 
                             image_bind_groups
                                 .values

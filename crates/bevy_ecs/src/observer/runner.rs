@@ -41,7 +41,7 @@ pub(super) fn observer_system_runner<E: Event, B: Bundle, S: ObserverSystem<E, B
     }
     state.last_trigger_id = last_trigger;
 
-    let trigger: On<E, B> = On::new(
+    let on: On<E, B> = On::new(
         // SAFETY: Caller ensures `ptr` is castable to `&mut T`
         unsafe { ptr.deref_mut() },
         propagate,
@@ -63,15 +63,22 @@ pub(super) fn observer_system_runner<E: Event, B: Bundle, S: ObserverSystem<E, B
     //   and is never exclusive
     // - system is the same type erased system from above
     unsafe {
-        // Always refresh hotpatch pointers
-        // There's no guarantee that the `HotPatched` event would still be there once the observer is triggered.
         #[cfg(feature = "hotpatching")]
-        (*system).refresh_hotpatch();
+        if world
+            .get_resource_ref::<crate::HotPatchChanges>()
+            .map(|r| {
+                r.last_changed()
+                    .is_newer_than((*system).get_last_run(), world.change_tick())
+            })
+            .unwrap_or(true)
+        {
+            (*system).refresh_hotpatch();
+        };
 
         if let Err(RunSystemError::Failed(err)) = (*system)
             .validate_param_unsafe(world)
             .map_err(From::from)
-            .and_then(|()| (*system).run_unsafe(trigger, world))
+            .and_then(|()| (*system).run_unsafe(on, world))
         {
             let handler = state
                 .error_handler

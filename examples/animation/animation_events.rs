@@ -18,19 +18,19 @@ fn main() {
 #[derive(Component)]
 struct MessageText;
 
-#[derive(Event, EntityEvent, Clone)]
+#[derive(EntityEvent, Clone)]
 struct MessageEvent {
     value: String,
     color: Color,
 }
 
 fn edit_message(
-    trigger: On<MessageEvent>,
+    event: On<MessageEvent>,
     text: Single<(&mut Text2d, &mut TextColor), With<MessageText>>,
 ) {
     let (mut text, mut color) = text.into_inner();
-    text.0 = trigger.event().value.clone();
-    color.0 = trigger.event().color;
+    text.0 = event.value.clone();
+    color.0 = event.color;
 }
 
 fn setup(

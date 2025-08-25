@@ -7,9 +7,10 @@ use bevy_ecs::system::{Res, ResMut};
 use bevy_math::ops::log2;
 use bevy_reflect::TypePath;
 use bevy_render::{
-    render_resource::{AsBindGroup, Shader, ShaderRef, ShaderType},
+    render_resource::{AsBindGroup, ShaderType},
     storage::ShaderStorageBuffer,
 };
+use bevy_shader::{Shader, ShaderRef};
 use bevy_ui_render::prelude::{UiMaterial, UiMaterialPlugin};
 
 use crate::fps_overlay::FpsOverlayConfig;
@@ -109,6 +110,6 @@ fn update_frame_time_values(
     for (_, material) in frame_time_graph_materials.iter_mut() {
         let buffer = buffers.get_mut(&material.values).unwrap();
 
-        buffer.set_data(frame_times.clone().as_slice());
+        buffer.set_data(frame_times.clone());
     }
 }

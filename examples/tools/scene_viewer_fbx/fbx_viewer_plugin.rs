@@ -167,8 +167,7 @@ fn fbx_load_check(
                         },
                     );
 
-                    scene_handle.instance_id =
-                        Some(scene_spawner.spawn(scene_handle_ref.clone_weak()));
+                    scene_handle.instance_id = Some(scene_spawner.spawn(scene_handle_ref.clone()));
 
                     info!("Spawning FBX scene...");
                 } else {

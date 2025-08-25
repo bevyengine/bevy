@@ -10,13 +10,11 @@
 use argh::FromArgs;
 use bevy::{
     asset::UnapprovedPathMode,
+    camera::primitives::{Aabb, Sphere},
     core_pipeline::prepass::{DeferredPrepass, DepthPrepass},
     pbr::DefaultOpaqueRendererMethod,
     prelude::*,
-    render::{
-        experimental::occlusion_culling::OcclusionCulling,
-        primitives::{Aabb, Sphere},
-    },
+    render::experimental::occlusion_culling::OcclusionCulling,
 };
 
 #[path = "../../helpers/camera_controller.rs"]

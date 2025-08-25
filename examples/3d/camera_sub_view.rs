@@ -7,8 +7,8 @@
 //!   camera
 //! - Rapidly change the sub view offset to get a screen shake effect
 use bevy::{
+    camera::{ScalingMode, SubCameraView, Viewport},
     prelude::*,
-    render::camera::{ScalingMode, SubCameraView, Viewport},
 };
 
 fn main() {

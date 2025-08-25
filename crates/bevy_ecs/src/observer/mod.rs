@@ -25,7 +25,7 @@
 //! Observers can request other data from the world, such as via a [`Query`] or [`Res`].
 //! Commonly, you might want to verify that the entity that the observable event is targeting
 //! has a specific component, or meets some other condition. [`Query::get`] or [`Query::contains`]
-//! on the [`On::target`] entity is a good way to do this.
+//! on the [`On::entity`] entity is a good way to do this.
 //!
 //! [`Commands`] can also be used inside of observers.
 //! This can be particularly useful for triggering other observers!
@@ -182,7 +182,7 @@ impl World {
     pub fn add_observer<E: Event, B: Bundle, M>(
         &mut self,
         system: impl IntoObserverSystem<E, B, M>,
-    ) -> EntityWorldMut {
+    ) -> EntityWorldMut<'_> {
         self.spawn(Observer::new(system))
     }
 
@@ -379,7 +379,7 @@ impl World {
         };
         let descriptor = &observer_state.descriptor;
 
-        for &event_key in &descriptor.events {
+        for &event_key in &descriptor.event_keys {
             let cache = observers.get_observers_mut(event_key);
 
             if descriptor.components.is_empty() && descriptor.entities.is_empty() {
@@ -430,7 +430,7 @@ impl World {
         let archetypes = &mut self.archetypes;
         let observers = &mut self.observers;
 
-        for &event_key in &descriptor.events {
+        for &event_key in &descriptor.event_keys {
             let cache = observers.get_observers_mut(event_key);
             if descriptor.components.is_empty() && descriptor.entities.is_empty() {
                 cache.global_observers.remove(&entity);
@@ -500,9 +500,10 @@ mod tests {
     use bevy_platform::collections::HashMap;
     use bevy_ptr::OwningPtr;
 
-    use crate::component::ComponentId;
     use crate::{
         change_detection::MaybeLocation,
+        component::ComponentId,
+        entity_disabling::Internal,
         observer::{Observer, Replace},
         prelude::*,
         traversal::Traversal,
@@ -515,16 +516,13 @@ mod tests {
     struct B;
 
     #[derive(Component)]
-    struct C;
-
-    #[derive(Component)]
     #[component(storage = "SparseSet")]
     struct S;
 
-    #[derive(Event, EntityEvent)]
+    #[derive(EntityEvent)]
     struct EventA;
 
-    #[derive(Event, EntityEvent)]
+    #[derive(EntityEvent)]
     struct EventWithData {
         counter: usize,
     }
@@ -548,7 +546,7 @@ mod tests {
         }
     }
 
-    #[derive(Component, Event, EntityEvent)]
+    #[derive(Component, EntityEvent)]
     #[entity_event(traversal = &'static ChildOf, auto_propagate)]
     struct EventPropagating;
 
@@ -630,10 +628,6 @@ mod tests {
         });
         world.add_observer(|_: On<Remove, A>, mut res: ResMut<Order>| res.observed("remove"));
 
-        // TODO: ideally this flush is not necessary, but right now observe() returns WorldEntityMut
-        // and therefore does not automatically flush.
-        world.flush();
-
         let mut entity = world.entity_mut(entity);
         entity.insert(A);
         entity.flush();
@@ -647,20 +641,20 @@ mod tests {
         world.add_observer(
             |obs: On<Add, A>, mut res: ResMut<Order>, mut commands: Commands| {
                 res.observed("add_a");
-                commands.entity(obs.target()).insert(B);
+                commands.entity(obs.entity()).insert(B);
             },
         );
         world.add_observer(
             |obs: On<Remove, A>, mut res: ResMut<Order>, mut commands: Commands| {
                 res.observed("remove_a");
-                commands.entity(obs.target()).remove::<B>();
+                commands.entity(obs.entity()).remove::<B>();
             },
         );
 
         world.add_observer(
             |obs: On<Add, B>, mut res: ResMut<Order>, mut commands: Commands| {
                 res.observed("add_b");
-                commands.entity(obs.target()).remove::<A>();
+                commands.entity(obs.entity()).remove::<A>();
             },
         );
         world.add_observer(|_: On<Remove, B>, mut res: ResMut<Order>| {
@@ -681,12 +675,9 @@ mod tests {
     fn observer_trigger_ref() {
         let mut world = World::new();
 
-        world.add_observer(|mut trigger: On<EventWithData>| trigger.event_mut().counter += 1);
-        world.add_observer(|mut trigger: On<EventWithData>| trigger.event_mut().counter += 2);
-        world.add_observer(|mut trigger: On<EventWithData>| trigger.event_mut().counter += 4);
-        // This flush is required for the last observer to be called when triggering the event,
-        // due to `World::add_observer` returning `WorldEntityMut`.
-        world.flush();
+        world.add_observer(|mut event: On<EventWithData>| event.counter += 1);
+        world.add_observer(|mut event: On<EventWithData>| event.counter += 2);
+        world.add_observer(|mut event: On<EventWithData>| event.counter += 4);
 
         let mut event = EventWithData { counter: 0 };
         world.trigger_ref(&mut event);
@@ -697,18 +688,15 @@ mod tests {
     fn observer_trigger_targets_ref() {
         let mut world = World::new();
 
-        world.add_observer(|mut trigger: On<EventWithData, A>| {
-            trigger.event_mut().counter += 1;
+        world.add_observer(|mut event: On<EventWithData, A>| {
+            event.counter += 1;
         });
-        world.add_observer(|mut trigger: On<EventWithData, B>| {
-            trigger.event_mut().counter += 2;
+        world.add_observer(|mut event: On<EventWithData, B>| {
+            event.counter += 2;
         });
-        world.add_observer(|mut trigger: On<EventWithData, A>| {
-            trigger.event_mut().counter += 4;
+        world.add_observer(|mut event: On<EventWithData, A>| {
+            event.counter += 4;
         });
-        // This flush is required for the last observer to be called when triggering the event,
-        // due to `World::add_observer` returning `WorldEntityMut`.
-        world.flush();
 
         let mut event = EventWithData { counter: 0 };
         let component_a = world.register_component::<A>();
@@ -726,8 +714,15 @@ mod tests {
 
         world.spawn(A).flush();
         assert_eq!(vec!["add_2", "add_1"], world.resource::<Order>().0);
-        // Our A entity plus our two observers
-        assert_eq!(world.entity_count(), 3);
+        // we have one A entity and two observers
+        assert_eq!(world.query::<&A>().query(&world).count(), 1);
+        assert_eq!(
+            world
+                .query_filtered::<&Observer, Allow<Internal>>()
+                .query(&world)
+                .count(),
+            2
+        );
     }
 
     #[test]
@@ -741,7 +736,7 @@ mod tests {
                 Observer::new(|_: On<Add, A>, mut res: ResMut<Order>| {
                     res.observed("add/remove");
                 })
-                .with_event(on_remove)
+                .with_event_key(on_remove)
             },
         );
 
@@ -766,7 +761,6 @@ mod tests {
 
         let entity = world.spawn(A).id();
         world.entity_mut(entity).insert(B);
-        world.flush();
         assert_eq!(vec!["add_ab", "add_ab"], world.resource::<Order>().0);
     }
 
@@ -829,15 +823,11 @@ mod tests {
         };
         world.spawn_empty().observe(system);
         world.add_observer(move |obs: On<EventA>, mut res: ResMut<Order>| {
-            assert_eq!(obs.target(), Entity::PLACEHOLDER);
+            assert_eq!(obs.entity(), Entity::PLACEHOLDER);
             res.observed("event_a");
         });
 
-        // TODO: ideally this flush is not necessary, but right now observe() returns WorldEntityMut
-        // and therefore does not automatically flush.
-        world.flush();
         world.trigger(EventA);
-        world.flush();
         assert_eq!(vec!["event_a"], world.resource::<Order>().0);
     }
 
@@ -856,15 +846,11 @@ mod tests {
             .observe(|_: On<EventA>, mut res: ResMut<Order>| res.observed("a_1"))
             .id();
         world.add_observer(move |obs: On<EventA>, mut res: ResMut<Order>| {
-            assert_eq!(obs.target(), entity);
+            assert_eq!(obs.entity(), entity);
             res.observed("a_2");
         });
 
-        // TODO: ideally this flush is not necessary, but right now observe() returns WorldEntityMut
-        // and therefore does not automatically flush.
-        world.flush();
         world.trigger_targets(EventA, entity);
-        world.flush();
         assert_eq!(vec!["a_2", "a_1"], world.resource::<Order>().0);
     }
 
@@ -904,26 +890,20 @@ mod tests {
              mut res: ResMut<R>| res.0 += 1000000,
         );
 
-        // WorldEntityMut does not automatically flush.
-        world.flush();
-
         // trigger for an entity and a component
         world.trigger_targets(EventA, (entity_1, component_a));
-        world.flush();
         // only observer that doesn't trigger is the one only watching entity_2
         assert_eq!(1111101, world.resource::<R>().0);
         world.resource_mut::<R>().0 = 0;
 
         // trigger for both entities, but no components: trigger once per entity target
         world.trigger_targets(EventA, (entity_1, entity_2));
-        world.flush();
         // only the observer that doesn't require components triggers - once per entity
         assert_eq!(200, world.resource::<R>().0);
         world.resource_mut::<R>().0 = 0;
 
         // trigger for both components, but no entities: trigger once
         world.trigger_targets(EventA, (component_a, component_b));
-        world.flush();
         // all component observers trigger, entities are not observed
         assert_eq!(1111100, world.resource::<R>().0);
         world.resource_mut::<R>().0 = 0;
@@ -931,7 +911,6 @@ mod tests {
         // trigger for both entities and both components: trigger once per entity target
         // we only get 2222211 because a given observer can trigger only once per entity target
         world.trigger_targets(EventA, ((component_a, component_b), (entity_1, entity_2)));
-        world.flush();
         assert_eq!(2222211, world.resource::<R>().0);
         world.resource_mut::<R>().0 = 0;
 
@@ -940,7 +919,6 @@ mod tests {
             EventA,
             (component_a, component_b, (component_a, component_b)),
         );
-        world.flush();
         // the duplicate components in the tuple don't cause multiple triggers
         assert_eq!(1111100, world.resource::<R>().0);
         world.resource_mut::<R>().0 = 0;
@@ -955,7 +933,6 @@ mod tests {
                 ((component_a, component_b), (component_a, component_b)),
             ),
         );
-        world.flush();
         // the duplicate components in the tuple don't cause multiple triggers
         assert_eq!(1111100, world.resource::<R>().0);
         world.resource_mut::<R>().0 = 0;
@@ -975,7 +952,6 @@ mod tests {
                 ),
             ),
         );
-        world.flush();
         // the duplicate components in the tuple don't cause multiple triggers
         assert_eq!(1111100, world.resource::<R>().0);
         world.resource_mut::<R>().0 = 0;
@@ -1000,7 +976,6 @@ mod tests {
         let entity = entity.flush();
 
         world.trigger_targets(EventA, entity);
-        world.flush();
         assert_eq!(vec!["event_a"], world.resource::<Order>().0);
     }
 
@@ -1015,7 +990,7 @@ mod tests {
             Observer::with_dynamic_runner(|mut world, _trigger, _ptr, _propagate| {
                 world.resource_mut::<Order>().observed("event_a");
             })
-            .with_event(event_a)
+            .with_event_key(event_a)
         };
         world.spawn(observe);
 
@@ -1036,27 +1011,24 @@ mod tests {
         let child = world.spawn(ChildOf(parent)).id();
 
         world.entity_mut(parent).observe(
-            move |trigger: On<EventPropagating>, mut res: ResMut<Order>| {
+            move |event: On<EventPropagating>, mut res: ResMut<Order>| {
                 res.observed("parent");
 
-                assert_eq!(trigger.target(), parent);
-                assert_eq!(trigger.original_target(), child);
+                assert_eq!(event.entity(), parent);
+                assert_eq!(event.original_entity(), child);
             },
         );
 
         world.entity_mut(child).observe(
-            move |trigger: On<EventPropagating>, mut res: ResMut<Order>| {
+            move |event: On<EventPropagating>, mut res: ResMut<Order>| {
                 res.observed("child");
-                assert_eq!(trigger.target(), child);
-                assert_eq!(trigger.original_target(), child);
+                assert_eq!(event.entity(), child);
+                assert_eq!(event.original_entity(), child);
             },
         );
 
-        // TODO: ideally this flush is not necessary, but right now observe() returns EntityWorldMut
-        // and therefore does not automatically flush.
-        world.flush();
         world.trigger_targets(EventPropagating, child);
-        world.flush();
+
         assert_eq!(vec!["child", "parent"], world.resource::<Order>().0);
     }
 
@@ -1079,11 +1051,8 @@ mod tests {
             })
             .id();
 
-        // TODO: ideally this flush is not necessary, but right now observe() returns WorldEntityMut
-        // and therefore does not automatically flush.
-        world.flush();
         world.trigger_targets(EventPropagating, [child, child]);
-        world.flush();
+
         assert_eq!(
             vec!["child", "parent", "child", "parent"],
             world.resource::<Order>().0
@@ -1109,11 +1078,7 @@ mod tests {
             })
             .id();
 
-        // TODO: ideally this flush is not necessary, but right now observe() returns WorldEntityMut
-        // and therefore does not automatically flush.
-        world.flush();
         world.trigger_targets(EventPropagating, [child, parent]);
-        world.flush();
         assert_eq!(
             vec!["child", "parent", "parent"],
             world.resource::<Order>().0
@@ -1134,19 +1099,14 @@ mod tests {
 
         let child = world
             .spawn(ChildOf(parent))
-            .observe(
-                |mut trigger: On<EventPropagating>, mut res: ResMut<Order>| {
-                    res.observed("child");
-                    trigger.propagate(false);
-                },
-            )
+            .observe(|mut event: On<EventPropagating>, mut res: ResMut<Order>| {
+                res.observed("child");
+                event.propagate(false);
+            })
             .id();
 
-        // TODO: ideally this flush is not necessary, but right now observe() returns WorldEntityMut
-        // and therefore does not automatically flush.
-        world.flush();
         world.trigger_targets(EventPropagating, child);
-        world.flush();
+
         assert_eq!(vec!["child"], world.resource::<Order>().0);
     }
 
@@ -1176,11 +1136,8 @@ mod tests {
             })
             .id();
 
-        // TODO: ideally this flush is not necessary, but right now observe() returns WorldEntityMut
-        // and therefore does not automatically flush.
-        world.flush();
         world.trigger_targets(EventPropagating, [child_a, child_b]);
-        world.flush();
+
         assert_eq!(
             vec!["child_a", "parent", "child_b", "parent"],
             world.resource::<Order>().0
@@ -1199,11 +1156,7 @@ mod tests {
             })
             .id();
 
-        // TODO: ideally this flush is not necessary, but right now observe() returns WorldEntityMut
-        // and therefore does not automatically flush.
-        world.flush();
         world.trigger_targets(EventPropagating, entity);
-        world.flush();
         assert_eq!(vec!["event"], world.resource::<Order>().0);
     }
 
@@ -1221,12 +1174,10 @@ mod tests {
 
         let child_a = world
             .spawn(ChildOf(parent_a))
-            .observe(
-                |mut trigger: On<EventPropagating>, mut res: ResMut<Order>| {
-                    res.observed("child_a");
-                    trigger.propagate(false);
-                },
-            )
+            .observe(|mut event: On<EventPropagating>, mut res: ResMut<Order>| {
+                res.observed("child_a");
+                event.propagate(false);
+            })
             .id();
 
         let parent_b = world
@@ -1243,11 +1194,8 @@ mod tests {
             })
             .id();
 
-        // TODO: ideally this flush is not necessary, but right now observe() returns WorldEntityMut
-        // and therefore does not automatically flush.
-        world.flush();
         world.trigger_targets(EventPropagating, [child_a, child_b]);
-        world.flush();
+
         assert_eq!(
             vec!["child_a", "child_b", "parent_b"],
             world.resource::<Order>().0
@@ -1267,11 +1215,8 @@ mod tests {
         let parent = world.spawn(ChildOf(grandparent)).id();
         let child = world.spawn(ChildOf(parent)).id();
 
-        // TODO: ideally this flush is not necessary, but right now observe() returns WorldEntityMut
-        // and therefore does not automatically flush.
-        world.flush();
         world.trigger_targets(EventPropagating, child);
-        world.flush();
+
         assert_eq!(vec!["event", "event", "event"], world.resource::<Order>().0);
     }
 
@@ -1281,8 +1226,8 @@ mod tests {
         world.init_resource::<Order>();
 
         world.add_observer(
-            |trigger: On<EventPropagating>, query: Query<&A>, mut res: ResMut<Order>| {
-                if query.get(trigger.target()).is_ok() {
+            |event: On<EventPropagating>, query: Query<&A>, mut res: ResMut<Order>| {
+                if query.get(event.entity()).is_ok() {
                     res.observed("event");
                 }
             },
@@ -1292,20 +1237,17 @@ mod tests {
         let parent = world.spawn(ChildOf(grandparent)).id();
         let child = world.spawn((A, ChildOf(parent))).id();
 
-        // TODO: ideally this flush is not necessary, but right now observe() returns WorldEntityMut
-        // and therefore does not automatically flush.
-        world.flush();
         world.trigger_targets(EventPropagating, child);
-        world.flush();
+
         assert_eq!(vec!["event", "event"], world.resource::<Order>().0);
     }
 
     // Originally for https://github.com/bevyengine/bevy/issues/18452
     #[test]
     fn observer_modifies_relationship() {
-        fn on_add(trigger: On<Add, A>, mut commands: Commands) {
+        fn on_add(event: On<Add, A>, mut commands: Commands) {
             commands
-                .entity(trigger.target())
+                .entity(event.entity())
                 .with_related_entities::<crate::hierarchy::ChildOf>(|rsc| {
                     rsc.spawn_empty();
                 });
@@ -1314,7 +1256,6 @@ mod tests {
         let mut world = World::new();
         world.add_observer(on_add);
         world.spawn(A);
-        world.flush();
     }
 
     // Regression test for https://github.com/bevyengine/bevy/issues/14467
@@ -1367,9 +1308,7 @@ mod tests {
                 params.p1().insert_resource(ResA);
             },
         );
-        // TODO: ideally this flush is not necessary, but right now observe() returns WorldEntityMut
-        // and therefore does not automatically flush.
-        world.flush();
+
         world.trigger(EventA);
         world.flush();
 
@@ -1384,8 +1323,8 @@ mod tests {
 
         let caller = MaybeLocation::caller();
         let mut world = World::new();
-        world.add_observer(move |trigger: On<EventA>| {
-            assert_eq!(trigger.caller(), caller);
+        world.add_observer(move |event: On<EventA>| {
+            assert_eq!(event.caller(), caller);
         });
         world.trigger(EventA);
     }
@@ -1398,14 +1337,13 @@ mod tests {
 
         let caller = MaybeLocation::caller();
         let mut world = World::new();
-        world.add_observer(move |trigger: On<Add, Component>| {
-            assert_eq!(trigger.caller(), caller);
+        world.add_observer(move |event: On<Add, Component>| {
+            assert_eq!(event.caller(), caller);
         });
-        world.add_observer(move |trigger: On<Remove, Component>| {
-            assert_eq!(trigger.caller(), caller);
+        world.add_observer(move |event: On<Remove, Component>| {
+            assert_eq!(event.caller(), caller);
         });
         world.commands().spawn(Component).clear();
-        world.flush();
     }
 
     #[test]
@@ -1418,24 +1356,82 @@ mod tests {
         let a_id = world.register_component::<A>();
         let b_id = world.register_component::<B>();
 
-        world.add_observer(
-            |trigger: On<EventA, (A, B)>, mut counter: ResMut<Counter>| {
-                for &component in trigger.components() {
-                    *counter.0.entry(component).or_default() += 1;
-                }
-            },
-        );
-        world.flush();
+        world.add_observer(|event: On<EventA, (A, B)>, mut counter: ResMut<Counter>| {
+            for &component in event.components() {
+                *counter.0.entry(component).or_default() += 1;
+            }
+        });
 
         world.trigger_targets(EventA, [a_id, b_id]);
         world.trigger_targets(EventA, a_id);
         world.trigger_targets(EventA, b_id);
         world.trigger_targets(EventA, [a_id, b_id]);
         world.trigger_targets(EventA, a_id);
-        world.flush();
 
         let counter = world.resource::<Counter>();
         assert_eq!(4, *counter.0.get(&a_id).unwrap());
         assert_eq!(3, *counter.0.get(&b_id).unwrap());
+    }
+
+    #[test]
+    fn observer_watch_entities() {
+        let mut world = World::new();
+        world.init_resource::<Order>();
+        let entities = world
+            .spawn_batch(core::iter::repeat_n((), 4))
+            .collect::<Vec<_>>();
+        let observer = Observer::new(|_: On<EventA>, mut order: ResMut<Order>| {
+            order.observed("a");
+        });
+        world.spawn(observer.with_entities(entities.iter().copied().take(2)));
+
+        world.trigger_targets(EventA, [entities[0], entities[1]]);
+        assert_eq!(vec!["a", "a"], world.resource::<Order>().0);
+        world.trigger_targets(EventA, [entities[2], entities[3]]);
+        assert_eq!(vec!["a", "a"], world.resource::<Order>().0);
+    }
+
+    #[test]
+    fn unregister_global_observer() {
+        let mut world = World::new();
+        let mut observer = world.add_observer(|_: On<EventA>| {});
+        observer.remove::<Observer>();
+        let id = observer.id();
+        let event_key = EventA::event_key(&world).unwrap();
+        assert!(!world
+            .observers
+            .get_observers_mut(event_key)
+            .global_observers
+            .contains_key(&id));
+    }
+
+    #[test]
+    fn unregister_entity_observer() {
+        let mut world = World::new();
+        let entity = world.spawn_empty().id();
+        let observer = Observer::new(|_: On<EventA>| {}).with_entity(entity);
+        let mut observer = world.spawn(observer);
+        observer.remove::<Observer>();
+        let event_key = EventA::event_key(&world).unwrap();
+        assert!(!world
+            .observers
+            .get_observers_mut(event_key)
+            .entity_observers
+            .contains_key(&entity));
+    }
+
+    #[test]
+    fn unregister_component_observer() {
+        let mut world = World::new();
+        let a = world.register_component::<A>();
+        let observer = Observer::new(|_: On<EventA>| {}).with_component(a);
+        let mut observer = world.spawn(observer);
+        observer.remove::<Observer>();
+        let event_key = EventA::event_key(&world).unwrap();
+        assert!(!world
+            .observers
+            .get_observers_mut(event_key)
+            .get_component_observers()
+            .contains_key(&a));
     }
 }

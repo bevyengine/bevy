@@ -18,9 +18,9 @@ use derive_more::derive::From;
 /// # Example
 ///
 /// ```ignore
-/// # use bevy_sprite::{ColorMaterial, Mesh2d, MeshMaterial2d};
+/// # use bevy_sprite::{ColorMaterial, MeshMaterial2d};
 /// # use bevy_ecs::prelude::*;
-/// # use bevy_render::mesh::Mesh;
+/// # use bevy_mesh::{Mesh, Mesh2d};
 /// # use bevy_color::palettes::basic::RED;
 /// # use bevy_asset::Assets;
 /// # use bevy_math::primitives::Circle;
@@ -72,7 +72,7 @@ impl AsAssetId for Mesh2d {
 /// ```ignore
 /// # use bevy_pbr::{Material, MeshMaterial3d, StandardMaterial};
 /// # use bevy_ecs::prelude::*;
-/// # use bevy_render::mesh::{Mesh, Mesh3d};
+/// # use bevy_mesh::{Mesh, Mesh3d};
 /// # use bevy_color::palettes::basic::RED;
 /// # use bevy_asset::Assets;
 /// # use bevy_math::primitives::Capsule3d;

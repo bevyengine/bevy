@@ -1,6 +1,8 @@
 use crate::{
-    ui_transform::UiGlobalTransform, ComputedNode, ComputedNodeTarget, Node, OverrideClip, UiStack,
+    ui_transform::UiGlobalTransform, ComputedNode, ComputedUiTargetCamera, Node, OverrideClip,
+    UiStack,
 };
+use bevy_camera::{visibility::InheritedVisibility, Camera, NormalizedRenderTarget};
 use bevy_ecs::{
     change_detection::DetectChangesMut,
     entity::{ContainsEntity, Entity},
@@ -14,11 +16,6 @@ use bevy_input::{mouse::MouseButton, touch::Touches, ButtonInput};
 use bevy_math::Vec2;
 use bevy_platform::collections::HashMap;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
-use bevy_render::{
-    camera::{NormalizedRenderTarget, ToNormalizedRenderTarget as _},
-    prelude::Camera,
-    view::InheritedVisibility,
-};
 use bevy_window::{PrimaryWindow, Window};
 
 use smallvec::SmallVec;
@@ -143,7 +140,7 @@ pub struct NodeQuery {
     relative_cursor_position: Option<&'static mut RelativeCursorPosition>,
     focus_policy: Option<&'static FocusPolicy>,
     inherited_visibility: Option<&'static InheritedVisibility>,
-    target_camera: &'static ComputedNodeTarget,
+    target_camera: &'static ComputedUiTargetCamera,
 }
 
 /// The system that sets Interaction for all UI elements based on the mouse cursor activity
@@ -178,10 +175,10 @@ pub fn ui_focus_system(
         mouse_button_input.just_released(MouseButton::Left) || touches_input.any_just_released();
     if mouse_released {
         for node in &mut node_query {
-            if let Some(mut interaction) = node.interaction {
-                if *interaction == Interaction::Pressed {
-                    *interaction = Interaction::None;
-                }
+            if let Some(mut interaction) = node.interaction
+                && *interaction == Interaction::Pressed
+            {
+                *interaction = Interaction::None;
             }
         }
     }
@@ -238,7 +235,7 @@ pub fn ui_focus_system(
                 }
                 return None;
             }
-            let camera_entity = node.target_camera.camera()?;
+            let camera_entity = node.target_camera.get()?;
 
             let cursor_position = camera_cursor_positions.get(&camera_entity);
 
@@ -267,18 +264,19 @@ pub fn ui_focus_system(
             // Save the relative cursor position to the correct component
             if let Some(mut node_relative_cursor_position_component) = node.relative_cursor_position
             {
-                *node_relative_cursor_position_component = relative_cursor_position_component;
+                // Avoid triggering change detection when not necessary.
+                node_relative_cursor_position_component
+                    .set_if_neq(relative_cursor_position_component);
             }
 
             if contains_cursor {
                 Some(*entity)
             } else {
-                if let Some(mut interaction) = node.interaction {
-                    if *interaction == Interaction::Hovered
-                        || (normalized_cursor_position.is_none())
-                    {
-                        interaction.set_if_neq(Interaction::None);
-                    }
+                if let Some(mut interaction) = node.interaction
+                    && (*interaction == Interaction::Hovered
+                        || (normalized_cursor_position.is_none()))
+                {
+                    interaction.set_if_neq(Interaction::None);
                 }
                 None
             }
@@ -336,14 +334,13 @@ pub fn clip_check_recursive(
 ) -> bool {
     if let Ok(child_of) = child_of_query.get(entity) {
         let parent = child_of.0;
-        if let Ok((computed_node, transform, node)) = clipping_query.get(parent) {
-            if !computed_node
+        if let Ok((computed_node, transform, node)) = clipping_query.get(parent)
+            && !computed_node
                 .resolve_clip_rect(node.overflow, node.overflow_clip_margin)
                 .contains(transform.inverse().transform_point2(point))
-            {
-                // The point is clipped and should be ignored by picking
-                return false;
-            }
+        {
+            // The point is clipped and should be ignored by picking
+            return false;
         }
         return clip_check_recursive(point, parent, clipping_query, child_of_query);
     }

@@ -4,7 +4,10 @@
 //!
 //! See [`SolariPlugins`] for more info.
 //!
-//! ![`bevy_solari` logo](https://raw.githubusercontent.com/bevyengine/bevy/assets/branding/bevy_solari.svg)
+//! ![`bevy_solari` logo](https://raw.githubusercontent.com/bevyengine/bevy/refs/heads/main/assets/branding/bevy_solari.svg)
+
+extern crate alloc;
+
 pub mod pathtracer;
 pub mod realtime;
 pub mod scene;
@@ -26,11 +29,13 @@ use bevy_render::settings::WgpuFeatures;
 /// An experimental set of plugins for raytraced lighting.
 ///
 /// This plugin group provides:
-/// * [`SolariLightingPlugin`] - Raytraced direct and indirect lighting (indirect lighting not yet implemented).
+/// * [`SolariLightingPlugin`] - Raytraced direct and indirect lighting.
 /// * [`RaytracingScenePlugin`] - BLAS building, resource and lighting binding.
+///
+/// There's also:
 /// * [`pathtracer::PathtracingPlugin`] - A non-realtime pathtracer for validation purposes (not added by default).
 ///
-/// To get started, add `RaytracingMesh3d` and `MeshMaterial3d::<StandardMaterial>` to your entities.
+/// To get started, add this plugin to your app, and then add `RaytracingMesh3d` and `MeshMaterial3d::<StandardMaterial>` to your entities.
 pub struct SolariPlugins;
 
 impl PluginGroup for SolariPlugins {
@@ -42,7 +47,7 @@ impl PluginGroup for SolariPlugins {
 }
 
 impl SolariPlugins {
-    /// [`WgpuFeatures`] required for this plugin to function.
+    /// [`WgpuFeatures`] required for these plugins to function.
     pub fn required_wgpu_features() -> WgpuFeatures {
         WgpuFeatures::EXPERIMENTAL_RAY_TRACING_ACCELERATION_STRUCTURE
             | WgpuFeatures::EXPERIMENTAL_RAY_QUERY

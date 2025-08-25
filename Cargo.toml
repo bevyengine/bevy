@@ -28,6 +28,8 @@ members = [
   "examples/mobile",
   # Examples of using Bevy on no_std platforms.
   "examples/no_std/*",
+  # Examples of compiling Bevy with automatic reflect type registration for platforms without `inventory` support.
+  "examples/reflection/auto_register_static",
   # Benchmarks
   "benches",
   # Internal tools that are not published.
@@ -147,6 +149,7 @@ default = [
   "bevy_scene",
   "bevy_sprite",
   "bevy_sprite_picking_backend",
+  "bevy_sprite_render",
   "bevy_state",
   "bevy_text",
   "bevy_ui",
@@ -159,12 +162,14 @@ default = [
   "hdr",
   "multi_threaded",
   "png",
+  "reflect_auto_register",
   "smaa_luts",
   "sysinfo_plugin",
   "tonemapping_luts",
   "vorbis",
   "webgl2",
   "x11",
+  "wayland",
   "debug",
   "zstd_rust",
 ]
@@ -267,8 +272,12 @@ bevy_solari = [
 ]
 
 # Provides sprite functionality
-bevy_sprite = [
-  "bevy_internal/bevy_sprite",
+bevy_sprite = ["bevy_internal/bevy_sprite", "bevy_color"]
+
+# Provides sprite rendering functionality
+bevy_sprite_render = [
+  "bevy_internal/bevy_sprite_render",
+  "bevy_sprite",
   "bevy_render",
   "bevy_core_pipeline",
   "bevy_color",
@@ -276,20 +285,18 @@ bevy_sprite = [
 ]
 
 # Provides text functionality
-bevy_text = ["bevy_internal/bevy_text", "bevy_asset", "bevy_sprite"]
+bevy_text = ["bevy_internal/bevy_text", "bevy_asset"]
 
 # A custom ECS-driven UI framework
-bevy_ui = [
-  "bevy_internal/bevy_ui",
-  "bevy_core_pipeline",
-  "bevy_text",
-  "bevy_sprite",
-  "bevy_color",
-  "bevy_anti_aliasing",
-]
+bevy_ui = ["bevy_internal/bevy_ui", "bevy_text", "bevy_sprite", "bevy_color"]
 
 # Provides rendering functionality for bevy_ui
-bevy_ui_render = ["bevy_internal/bevy_ui_render", "bevy_render", "bevy_ui"]
+bevy_ui_render = [
+  "bevy_internal/bevy_ui_render",
+  "bevy_render",
+  "bevy_sprite_render",
+  "bevy_ui",
+]
 
 # Windowing layer
 bevy_window = ["bevy_internal/bevy_window"]
@@ -326,6 +333,9 @@ spirv_shader_passthrough = ["bevy_internal/spirv_shader_passthrough"]
 
 # Statically linked DXC shader compiler for DirectX 12
 statically-linked-dxc = ["bevy_internal/statically-linked-dxc"]
+
+# Forces the wgpu instance to be initialized using the raw Vulkan HAL, enabling additional configuration
+raw_vulkan_init = ["bevy_internal/raw_vulkan_init"]
 
 # Tracing support, saving a file in Chrome Tracing format
 trace_chrome = ["trace", "bevy_internal/trace_chrome"]
@@ -415,9 +425,6 @@ vorbis = ["bevy_internal/vorbis"]
 # WAV audio format support
 wav = ["bevy_internal/wav"]
 
-# MP3 audio format support (through minimp3)
-minimp3 = ["bevy_internal/minimp3"]
-
 # AAC audio format support (through symphonia)
 symphonia-aac = ["bevy_internal/symphonia-aac"]
 
@@ -474,6 +481,12 @@ tonemapping_luts = ["bevy_internal/tonemapping_luts", "ktx2", "bevy_image/zstd"]
 
 # Include SMAA Look Up Tables KTX2 Files
 smaa_luts = ["bevy_internal/smaa_luts"]
+
+# NVIDIA Deep Learning Super Sampling
+dlss = ["bevy_internal/dlss"]
+
+# Forcibly disable DLSS so that cargo build --all-features works without the DLSS SDK being installed. Not meant for users.
+force_disable_dlss = ["bevy_internal/force_disable_dlss"]
 
 # Enable AccessKit on Unix backends (currently only works with experimental screen readers and forks.)
 accesskit_unix = ["bevy_internal/accesskit_unix"]
@@ -558,6 +571,12 @@ reflect_functions = ["bevy_internal/reflect_functions"]
 # Enable documentation reflection
 reflect_documentation = ["bevy_internal/reflect_documentation"]
 
+# Enable automatic reflect registration
+reflect_auto_register = ["bevy_internal/reflect_auto_register"]
+
+# Enable automatic reflect registration without inventory. See `reflect::load_type_registrations` for more info.
+reflect_auto_register_static = ["bevy_internal/reflect_auto_register_static"]
+
 # Enable winit custom cursor support
 custom_cursor = ["bevy_internal/custom_cursor"]
 
@@ -582,13 +601,15 @@ web = ["bevy_internal/web"]
 # Enable hotpatching of Bevy systems
 hotpatching = ["bevy_internal/hotpatching"]
 
-# Enable converting glTF coordinates to Bevy's coordinate system by default. This will be Bevy's default behavior starting in 0.18.
-gltf_convert_coordinates_default = [
-  "bevy_internal/gltf_convert_coordinates_default",
-]
-
 # Enable collecting debug information about systems and components to help with diagnostics
 debug = ["bevy_internal/debug"]
+
+# Include spatio-temporal blue noise KTX2 file used by generated environment maps, Solari and atmosphere
+bluenoise_texture = [
+  "bevy_internal/bluenoise_texture",
+  "ktx2",
+  "bevy_image/zstd",
+]
 
 [dependencies]
 bevy_internal = { path = "crates/bevy_internal", version = "0.17.0-dev", default-features = false }
@@ -599,8 +620,8 @@ tracing = { version = "0.1", default-features = false, optional = true }
 bevy_dylib = { path = "crates/bevy_dylib", version = "0.17.0-dev", default-features = false, optional = true }
 
 [dev-dependencies]
-rand = "0.8.0"
-rand_chacha = "0.3.1"
+rand = "0.9.0"
+rand_chacha = "0.9.0"
 ron = "0.10"
 flate2 = "1.0"
 serde = { version = "1", features = ["derive"] }
@@ -621,20 +642,17 @@ crossbeam-channel = "0.5.0"
 argh = "0.1.12"
 thiserror = "2.0"
 event-listener = "5.3.0"
-hyper = { version = "1", features = ["server", "http1"] }
-http-body-util = "0.1"
 anyhow = "1"
-macro_rules_attribute = "0.2"
-accesskit = "0.19"
+accesskit = "0.21"
 nonmax = "0.5"
 
 [target.'cfg(not(target_family = "wasm"))'.dev-dependencies]
-smol = "2"
-smol-macros = "0.1"
-smol-hyper = "0.1"
 ureq = { version = "3.0.8", features = ["json"] }
 
 [target.'cfg(target_arch = "wasm32")'.dev-dependencies]
+getrandom = { version = "0.3", default-features = false, features = [
+  "wasm_js",
+] }
 wasm-bindgen = { version = "0.2" }
 web-sys = { version = "0.3", features = ["Window"] }
 
@@ -1020,7 +1038,7 @@ doc-scrape-examples = true
 
 [package.metadata.example.anti_aliasing]
 name = "Anti-aliasing"
-description = "Compares different anti-aliasing methods"
+description = "Compares different anti-aliasing techniques supported by Bevy"
 category = "3D Rendering"
 # TAA not supported by WebGL
 wasm = false
@@ -2795,6 +2813,17 @@ description = "Demonstrates how to create and use type data"
 category = "Reflection"
 wasm = false
 
+[[example]]
+name = "auto_register_static"
+path = "examples/reflection/auto_register_static/src/lib.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.auto_register_static]
+name = "Automatic types registration"
+description = "Demonstrates how to set up automatic reflect types registration for platforms without `inventory` support"
+category = "Reflection"
+wasm = false
+
 # Scene
 [[example]]
 name = "scene"
@@ -2817,28 +2846,6 @@ A shader in its most common usage is a small program that is run by the GPU per-
 
 There are also compute shaders which are used for more general processing leveraging the GPU's parallelism.
 """
-
-[[example]]
-name = "custom_vertex_attribute"
-path = "examples/shader/custom_vertex_attribute.rs"
-doc-scrape-examples = true
-
-[package.metadata.example.custom_vertex_attribute]
-name = "Custom Vertex Attribute"
-description = "A shader that reads a mesh's custom vertex attribute"
-category = "Shaders"
-wasm = true
-
-[[example]]
-name = "custom_post_processing"
-path = "examples/shader/custom_post_processing.rs"
-doc-scrape-examples = true
-
-[package.metadata.example.custom_post_processing]
-name = "Post Processing - Custom Render Pass"
-description = "A custom post processing effect, using a custom render pass that runs after the main pass"
-category = "Shaders"
-wasm = true
 
 [[example]]
 name = "shader_defs"
@@ -2931,29 +2938,6 @@ category = "Shaders"
 wasm = true
 
 [[example]]
-name = "custom_shader_instancing"
-path = "examples/shader/custom_shader_instancing.rs"
-doc-scrape-examples = true
-
-[package.metadata.example.custom_shader_instancing]
-name = "Instancing"
-description = "A shader that renders a mesh multiple times in one draw call using low level rendering api"
-category = "Shaders"
-wasm = true
-
-[[example]]
-name = "custom_render_phase"
-path = "examples/shader/custom_render_phase.rs"
-doc-scrape-examples = true
-
-[package.metadata.example.custom_render_phase]
-name = "Custom Render Phase"
-description = "Shows how to make a complete render phase"
-category = "Shaders"
-wasm = true
-
-
-[[example]]
 name = "automatic_instancing"
 path = "examples/shader/automatic_instancing.rs"
 doc-scrape-examples = true
@@ -3009,17 +2993,6 @@ category = "Shaders"
 wasm = true
 
 [[example]]
-name = "texture_binding_array"
-path = "examples/shader/texture_binding_array.rs"
-doc-scrape-examples = true
-
-[package.metadata.example.texture_binding_array]
-name = "Texture Binding Array (Bindless Textures)"
-description = "A shader that shows how to bind and sample multiple textures as a binding array (a.k.a. bindless textures)."
-category = "Shaders"
-wasm = false
-
-[[example]]
 name = "storage_buffer"
 path = "examples/shader/storage_buffer.rs"
 doc-scrape-examples = true
@@ -3030,9 +3003,74 @@ description = "A shader that shows how to bind a storage buffer using a custom m
 category = "Shaders"
 wasm = true
 
+# Shaders advanced
+[[package.metadata.example_category]]
+name = "Shaders - advanced"
+description = """
+These examples demonstrate how to use the lower level rendering apis exposed from bevy.
+
+These are generally simplified examples of bevy's own rendering infrastructure.
+"""
+
+[[example]]
+name = "custom_vertex_attribute"
+path = "examples/shader_advanced/custom_vertex_attribute.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.custom_vertex_attribute]
+name = "Custom Vertex Attribute"
+description = "A shader that reads a mesh's custom vertex attribute"
+category = "Shaders"
+wasm = true
+
+[[example]]
+name = "custom_post_processing"
+path = "examples/shader_advanced/custom_post_processing.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.custom_post_processing]
+name = "Post Processing - Custom Render Pass"
+description = "A custom post processing effect, using a custom render pass that runs after the main pass"
+category = "Shaders"
+wasm = true
+
+[[example]]
+name = "custom_shader_instancing"
+path = "examples/shader_advanced/custom_shader_instancing.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.custom_shader_instancing]
+name = "Instancing"
+description = "A shader that renders a mesh multiple times in one draw call using low level rendering api"
+category = "Shaders"
+wasm = true
+
+[[example]]
+name = "custom_render_phase"
+path = "examples/shader_advanced/custom_render_phase.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.custom_render_phase]
+name = "Custom Render Phase"
+description = "Shows how to make a complete render phase"
+category = "Shaders"
+wasm = true
+
+[[example]]
+name = "texture_binding_array"
+path = "examples/shader_advanced/texture_binding_array.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.texture_binding_array]
+name = "Texture Binding Array (Bindless Textures)"
+description = "A shader that shows how to bind and sample multiple textures as a binding array (a.k.a. bindless textures)."
+category = "Shaders"
+wasm = false
+
+
 [[example]]
 name = "specialized_mesh_pipeline"
-path = "examples/shader/specialized_mesh_pipeline.rs"
+path = "examples/shader_advanced/specialized_mesh_pipeline.rs"
 doc-scrape-examples = true
 
 [package.metadata.example.specialized_mesh_pipeline]
@@ -3084,6 +3122,17 @@ doc-scrape-examples = true
 [package.metadata.example.many_buttons]
 name = "Many Buttons"
 description = "Test rendering of many UI elements"
+category = "Stress Tests"
+wasm = true
+
+[[example]]
+name = "many_gradients"
+path = "examples/stress_tests/many_gradients.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.many_gradients]
+name = "Many Gradients"
+description = "Stress test for gradient rendering performance"
 category = "Stress Tests"
 wasm = true
 
@@ -3610,6 +3659,18 @@ category = "UI (User Interface)"
 wasm = true
 
 [[example]]
+name = "virtual_keyboard"
+path = "examples/ui/virtual_keyboard.rs"
+doc-scrape-examples = true
+required-features = ["experimental_bevy_feathers"]
+
+[package.metadata.example.virtual_keyboard]
+name = "Virtual Keyboard"
+description = "Example demonstrating a virtual keyboard widget"
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
 name = "ui_scaling"
 path = "examples/ui/ui_scaling.rs"
 doc-scrape-examples = true
@@ -3861,6 +3922,17 @@ hidden = true
 name = "Window Resizing"
 description = "Demonstrates resizing and responding to resizing a window"
 category = "Window"
+wasm = true
+
+[[example]]
+name = "drag_to_scroll"
+path = "examples/ui/drag_to_scroll.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.drag_to_scroll]
+name = "Drag to Scroll"
+description = "This example tests scale factor, dragging and scrolling"
+category = "UI (User Interface)"
 wasm = true
 
 [[example]]
@@ -4191,7 +4263,7 @@ wasm = false
 
 [[example]]
 name = "custom_phase_item"
-path = "examples/shader/custom_phase_item.rs"
+path = "examples/shader_advanced/custom_phase_item.rs"
 doc-scrape-examples = true
 
 [package.metadata.example.custom_phase_item]

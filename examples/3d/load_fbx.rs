@@ -5,7 +5,7 @@
 
 use bevy::{
     fbx::FbxAssetLabel,
-    pbr::{CascadeShadowConfigBuilder, DirectionalLightShadowMap},
+    light::{CascadeShadowConfigBuilder, DirectionalLightShadowMap},
     prelude::*,
 };
 use std::f32::consts::*;
