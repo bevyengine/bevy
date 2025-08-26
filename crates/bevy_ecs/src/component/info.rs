@@ -553,12 +553,6 @@ impl Components {
         self.components.get(id.0).is_some_and(Option::is_some)
     }
 
-    /// Type-erased equivalent of [`Components::valid_component_id()`].
-    #[inline]
-    pub fn get_valid_id(&self, type_id: TypeId) -> Option<ComponentId> {
-        self.indices.get(&type_id).copied()
-    }
-
     /// Returns the [`ComponentId`] of the given [`Component`] type `T` if it is fully registered.
     /// If you want to include queued registration, see [`Components::component_id()`].
     ///
@@ -581,14 +575,8 @@ impl Components {
     /// * [`Components::valid_resource_id()`]
     /// * [`World::component_id()`](crate::world::World::component_id)
     #[inline]
-    pub fn valid_component_id<T: Component>(&self) -> Option<ComponentId> {
-        self.get_valid_id(TypeId::of::<T>())
-    }
-
-    /// Type-erased equivalent of [`Components::valid_resource_id()`].
-    #[inline]
-    pub fn get_valid_resource_id(&self, type_id: TypeId) -> Option<ComponentId> {
-        self.resource_indices.get(&type_id).copied()
+    pub fn get_valid_id(&self, type_id: TypeId) -> Option<ComponentId> {
+        self.indices.get(&type_id).copied()
     }
 
     /// Returns the [`ComponentId`] of the given [`Resource`] type `T` if it is fully registered.
@@ -612,8 +600,8 @@ impl Components {
     /// * [`Components::valid_component_id()`]
     /// * [`Components::get_resource_id()`]
     #[inline]
-    pub fn valid_resource_id<T: Resource>(&self) -> Option<ComponentId> {
-        self.get_valid_resource_id(TypeId::of::<T>())
+    pub fn get_valid_resource_id(&self, type_id: TypeId) -> Option<ComponentId> {
+        self.resource_indices.get(&type_id).copied()
     }
 
     /// Returns the [`ComponentId`] of the given [`Component`] type `T`.

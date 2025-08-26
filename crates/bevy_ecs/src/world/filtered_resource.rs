@@ -5,8 +5,8 @@ use crate::{
     resource::Resource,
     world::{unsafe_world_cell::UnsafeWorldCell, World},
 };
-use core::any::TypeId;
 use bevy_ptr::{Ptr, UnsafeCellDeref};
+use core::any::TypeId;
 
 use super::error::ResourceFetchError;
 
@@ -158,7 +158,7 @@ impl<'w, 's> FilteredResources<'w, 's> {
         let component_id = self
             .world
             .components()
-            .valid_resource_id::<R>()
+            .get_valid_resource_id(TypeId::of::<R>())
             .ok_or(ResourceFetchError::NotRegistered)?;
         if !self.access.has_resource_read(component_id) {
             return Err(ResourceFetchError::NoResourceAccess(component_id));
@@ -475,7 +475,7 @@ impl<'w, 's> FilteredResourcesMut<'w, 's> {
         let component_id = self
             .world
             .components()
-            .valid_resource_id::<R>()
+            .get_valid_resource_id(TypeId::of::<R>())
             .ok_or(ResourceFetchError::NotRegistered)?;
         // SAFETY: THe caller ensures that there are no conflicting borrows.
         unsafe { self.get_mut_by_id_unchecked(component_id) }

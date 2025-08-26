@@ -6,9 +6,9 @@ use crate::{
     storage::{ComponentSparseSet, Table, TableRow},
     world::{unsafe_world_cell::UnsafeWorldCell, World},
 };
-use core::any::TypeId;
 use bevy_ptr::{ThinSlicePtr, UnsafeCellDeref};
 use bevy_utils::prelude::DebugName;
+use core::any::TypeId;
 use core::{cell::UnsafeCell, marker::PhantomData};
 use variadics_please::all_tuples;
 
