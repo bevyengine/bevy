@@ -81,7 +81,10 @@ trait VecExtensions<T> {
     /// Unlike [`swap_remove`], this does not panic if `index` is out of bounds.
     ///
     /// # Safety
-    /// `index < self.len() - 1` must be true.
+    ///
+    /// All of the following must be true:
+    /// - `self.len() > 1`
+    /// - `index < self.len() - 1`
     ///
     /// [`remove`]: alloc::vec::Vec::remove
     /// [`swap_remove`]: alloc::vec::Vec::swap_remove
@@ -89,14 +92,17 @@ trait VecExtensions<T> {
 }
 
 impl<T> VecExtensions<T> for Vec<T> {
+    #[inline]
     unsafe fn swap_remove_nonoverlapping_unchecked(&mut self, index: usize) -> T {
-        let value = core::ptr::read(self.as_mut_ptr().add(index));
+        // SAFETY: The caller must ensure that the element at `index` must be valid.
+        // This function, and then the caller takes ownership of the value, and it cannot be
+        // accessed due to the length being decremented immediately after this.
+        let value = unsafe { self.as_mut_ptr().add(index).read() };
         let len = self.len();
-        // We replace self[index] with the last element. Note that if the
-        // bounds check above succeeds there must be a last element (which
-        // can be self[index] itself).
         let base_ptr = self.as_mut_ptr();
-        core::ptr::copy_nonoverlapping(base_ptr.add(len - 1), base_ptr.add(index), 1);
+        // SAFETY: We replace self[index] with the last element. The caller must ensure that
+        // both the last element and `index` must be valid and cannot point to the same place.
+        unsafe { core::ptr::copy_nonoverlapping(base_ptr.add(len - 1), base_ptr.add(index), 1) };
         self.set_len(len - 1);
         value
     }

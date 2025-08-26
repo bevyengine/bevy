@@ -182,9 +182,7 @@ impl<const SEND: bool> ResourceData<SEND> {
             // SAFETY: The caller ensures that the provided value is valid for the underlying type and
             // is properly initialized. We've ensured that a value is already present and previously
             // initialized.
-            unsafe {
-                self.data.replace_unchecked(Self::ROW, value);
-            }
+            unsafe { self.data.replace_unchecked(Self::ROW, value) };
         } else {
             #[cfg(feature = "std")]
             if !SEND {
@@ -264,7 +262,13 @@ impl<const SEND: bool> ResourceData<SEND> {
         if !SEND {
             self.validate_access();
         }
-        // SAFETY: We've already validated that the row is present.
+
+        self.is_present = false;
+
+        // SAFETY:
+        // - There is always only one row in the `BlobArray` created during initialization.
+        // - This function has validated that the row is present with the check of `self.is_present`.
+        // - The caller is to take ownership of the value, returned as a `OwningPtr`.
         let res = unsafe { self.data.get_unchecked_mut(Self::ROW).promote() };
 
         let caller = self
@@ -272,8 +276,6 @@ impl<const SEND: bool> ResourceData<SEND> {
             .as_ref()
             // SAFETY: This function is being called through an exclusive mutable reference to Self
             .map(|changed_by| unsafe { *changed_by.deref_mut() });
-
-        self.is_present = false;
 
         // SAFETY: This function is being called through an exclusive mutable reference to Self, which
         // makes it sound to read these ticks.

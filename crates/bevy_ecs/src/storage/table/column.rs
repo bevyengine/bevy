@@ -138,6 +138,9 @@ impl ThinColumn {
     }
 
     /// Call [`realloc`](std::alloc::realloc) to expand / shrink the memory allocation for this [`ThinColumn`]
+    /// 
+    /// # Panics
+    /// If any of the internal reallocations causes an out-of-memory error. Thsi function will panic.
     ///
     /// # Safety
     /// - `current_capacity` must be the current capacity of this column (the capacity of `self.data`, `self.added_ticks`, `self.changed_tick`)
@@ -157,6 +160,9 @@ impl ThinColumn {
 
     /// Call [`alloc`](std::alloc::alloc) to allocate memory for this [`ThinColumn`]
     /// The caller should make sure their saved `capacity` value is updated to `new_capacity` after this operation.
+    /// 
+    /// # Panics
+    /// If any of the internal reallocations causes an out-of-memory error. Thsi function will panic.
     pub(crate) fn alloc(&mut self, new_capacity: NonZeroUsize) {
         self.data.alloc(new_capacity);
         self.added_ticks.alloc(new_capacity);

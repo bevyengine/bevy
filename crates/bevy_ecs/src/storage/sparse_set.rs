@@ -184,6 +184,9 @@ impl ComponentSparseSet {
             #[cfg(debug_assertions)]
             self.entities.push(entity);
 
+            // If any of the following operations panic due to an allocation error, the state
+            // of the `ComponentSparseSet` will be left in an invalid state and potentially cause UB.
+            // We create an AbortOnPanic guard to force panics to terminate the process if this occurs.
             let _guard = AbortOnPanic;
             if capacity != self.entities.capacity() {
                 // SAFETY: An entity was just pushed onto `entities`, its capacity cannot be zero.
