@@ -10,8 +10,11 @@ use bevy::{
         extract_resource::{ExtractResource, ExtractResourcePlugin},
         render_asset::RenderAssets,
         render_graph::{self, RenderGraph, RenderLabel},
-        render_resource::{binding_types::texture_storage_2d, *},
-        renderer::{RenderContext, RenderDevice},
+        render_resource::{
+            binding_types::{texture_storage_2d, uniform_buffer},
+            *,
+        },
+        renderer::{RenderContext, RenderDevice, RenderQueue},
         texture::GpuImage,
         Render, RenderApp, RenderStartup, RenderSystems,
     },
@@ -23,7 +26,7 @@ use std::borrow::Cow;
 const SHADER_ASSET_PATH: &str = "shaders/game_of_life.wgsl";
 
 const DISPLAY_FACTOR: u32 = 4;
-const SIZE: (u32, u32) = (1280 / DISPLAY_FACTOR, 720 / DISPLAY_FACTOR);
+const SIZE: UVec2 = UVec2::new(1280 / DISPLAY_FACTOR, 720 / DISPLAY_FACTOR);
 const WORKGROUP_SIZE: u32 = 8;
 
 fn main() {
@@ -33,11 +36,7 @@ fn main() {
             DefaultPlugins
                 .set(WindowPlugin {
                     primary_window: Some(Window {
-                        resolution: (
-                            (SIZE.0 * DISPLAY_FACTOR) as f32,
-                            (SIZE.1 * DISPLAY_FACTOR) as f32,
-                        )
-                            .into(),
+                        resolution: (SIZE * DISPLAY_FACTOR).into(),
                         // uncomment for unthrottled FPS
                         // present_mode: bevy::window::PresentMode::AutoNoVsync,
                         ..default()
@@ -53,7 +52,7 @@ fn main() {
 }
 
 fn setup(mut commands: Commands, mut images: ResMut<Assets<Image>>) {
-    let mut image = Image::new_target_texture(SIZE.0, SIZE.1, TextureFormat::R32Float);
+    let mut image = Image::new_target_texture(SIZE.x, SIZE.y, TextureFormat::Rgba32Float);
     image.asset_usage = RenderAssetUsages::RENDER_WORLD;
     image.texture_descriptor.usage =
         TextureUsages::COPY_DST | TextureUsages::STORAGE_BINDING | TextureUsages::TEXTURE_BINDING;
@@ -63,7 +62,7 @@ fn setup(mut commands: Commands, mut images: ResMut<Assets<Image>>) {
     commands.spawn((
         Sprite {
             image: image0.clone(),
-            custom_size: Some(Vec2::new(SIZE.0 as f32, SIZE.1 as f32)),
+            custom_size: Some(SIZE.as_vec2()),
             ..default()
         },
         Transform::from_scale(Vec3::splat(DISPLAY_FACTOR as f32)),
@@ -73,6 +72,10 @@ fn setup(mut commands: Commands, mut images: ResMut<Assets<Image>>) {
     commands.insert_resource(GameOfLifeImages {
         texture_a: image0,
         texture_b: image1,
+    });
+
+    commands.insert_resource(GameOfLifeUniforms {
+        alive_color: LinearRgba::RED,
     });
 }
 
@@ -94,7 +97,10 @@ impl Plugin for GameOfLifeComputePlugin {
     fn build(&self, app: &mut App) {
         // Extract the game of life image resource from the main world into the render world
         // for operation on by the compute shader and display on the sprite.
-        app.add_plugins(ExtractResourcePlugin::<GameOfLifeImages>::default());
+        app.add_plugins((
+            ExtractResourcePlugin::<GameOfLifeImages>::default(),
+            ExtractResourcePlugin::<GameOfLifeUniforms>::default(),
+        ));
         let render_app = app.sub_app_mut(RenderApp);
         render_app
             .add_systems(RenderStartup, init_game_of_life_pipeline)
@@ -115,6 +121,11 @@ struct GameOfLifeImages {
     texture_b: Handle<Image>,
 }
 
+#[derive(Resource, Clone, ExtractResource, ShaderType)]
+struct GameOfLifeUniforms {
+    alive_color: LinearRgba,
+}
+
 #[derive(Resource)]
 struct GameOfLifeImageBindGroups([BindGroup; 2]);
 
@@ -123,19 +134,35 @@ fn prepare_bind_group(
     pipeline: Res<GameOfLifePipeline>,
     gpu_images: Res<RenderAssets<GpuImage>>,
     game_of_life_images: Res<GameOfLifeImages>,
+    game_of_life_uniforms: Res<GameOfLifeUniforms>,
     render_device: Res<RenderDevice>,
+    queue: Res<RenderQueue>,
 ) {
     let view_a = gpu_images.get(&game_of_life_images.texture_a).unwrap();
     let view_b = gpu_images.get(&game_of_life_images.texture_b).unwrap();
+
+    // Uniform buffer is used here to demonstrate how to set up a uniform in a compute shader
+    // Alternatives such as storage buffers or push constants may be more suitable for your use case
+    let mut uniform_buffer = UniformBuffer::from(game_of_life_uniforms.into_inner());
+    uniform_buffer.write_buffer(&render_device, &queue);
+
     let bind_group_0 = render_device.create_bind_group(
         None,
         &pipeline.texture_bind_group_layout,
-        &BindGroupEntries::sequential((&view_a.texture_view, &view_b.texture_view)),
+        &BindGroupEntries::sequential((
+            &view_a.texture_view,
+            &view_b.texture_view,
+            &uniform_buffer,
+        )),
     );
     let bind_group_1 = render_device.create_bind_group(
         None,
         &pipeline.texture_bind_group_layout,
-        &BindGroupEntries::sequential((&view_b.texture_view, &view_a.texture_view)),
+        &BindGroupEntries::sequential((
+            &view_b.texture_view,
+            &view_a.texture_view,
+            &uniform_buffer,
+        )),
     );
     commands.insert_resource(GameOfLifeImageBindGroups([bind_group_0, bind_group_1]));
 }
@@ -158,8 +185,9 @@ fn init_game_of_life_pipeline(
         &BindGroupLayoutEntries::sequential(
             ShaderStages::COMPUTE,
             (
-                texture_storage_2d(TextureFormat::R32Float, StorageTextureAccess::ReadOnly),
-                texture_storage_2d(TextureFormat::R32Float, StorageTextureAccess::WriteOnly),
+                texture_storage_2d(TextureFormat::Rgba32Float, StorageTextureAccess::ReadOnly),
+                texture_storage_2d(TextureFormat::Rgba32Float, StorageTextureAccess::WriteOnly),
+                uniform_buffer::<GameOfLifeUniforms>(false),
             ),
         ),
     );
@@ -262,7 +290,7 @@ impl render_graph::Node for GameOfLifeNode {
                     .unwrap();
                 pass.set_bind_group(0, &bind_groups[0], &[]);
                 pass.set_pipeline(init_pipeline);
-                pass.dispatch_workgroups(SIZE.0 / WORKGROUP_SIZE, SIZE.1 / WORKGROUP_SIZE, 1);
+                pass.dispatch_workgroups(SIZE.x / WORKGROUP_SIZE, SIZE.y / WORKGROUP_SIZE, 1);
             }
             GameOfLifeState::Update(index) => {
                 let update_pipeline = pipeline_cache
@@ -270,7 +298,7 @@ impl render_graph::Node for GameOfLifeNode {
                     .unwrap();
                 pass.set_bind_group(0, &bind_groups[index], &[]);
                 pass.set_pipeline(update_pipeline);
-                pass.dispatch_workgroups(SIZE.0 / WORKGROUP_SIZE, SIZE.1 / WORKGROUP_SIZE, 1);
+                pass.dispatch_workgroups(SIZE.x / WORKGROUP_SIZE, SIZE.y / WORKGROUP_SIZE, 1);
             }
         }
 

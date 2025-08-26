@@ -13,6 +13,7 @@ use bevy::{
     asset::UnapprovedPathMode,
     camera::primitives::{Aabb, Sphere},
     core_pipeline::prepass::{DeferredPrepass, DepthPrepass},
+    gltf::GltfPlugin,
     pbr::DefaultOpaqueRendererMethod,
     prelude::*,
     render::experimental::occlusion_culling::OcclusionCulling,
@@ -51,6 +52,22 @@ struct Args {
     /// spawn a light even if the scene already has one
     #[argh(switch)]
     add_light: Option<bool>,
+    /// enable `GltfPlugin::use_model_forward_direction`
+    #[argh(switch)]
+    use_model_forward_direction: Option<bool>,
+}
+
+impl Args {
+    fn rotation(&self) -> Quat {
+        if self.use_model_forward_direction == Some(true) {
+            // If the scene is converted then rotate everything else to match. This
+            // makes comparisons easier - the scene will always face the same way
+            // relative to the camera.
+            Quat::from_xyzw(0.0, 1.0, 0.0, 0.0)
+        } else {
+            Quat::IDENTITY
+        }
+    }
 }
 
 fn main() {
@@ -75,6 +92,10 @@ fn main() {
                 file_path: std::env::var("CARGO_MANIFEST_DIR").unwrap_or_else(|_| ".".to_string()),
                 // Allow scenes to be loaded from anywhere on disk
                 unapproved_path_mode: UnapprovedPathMode::Allow,
+                ..default()
+            })
+            .set(GltfPlugin {
+                use_model_forward_direction: args.use_model_forward_direction.unwrap_or(false),
                 ..default()
             }),
         CameraControllerPlugin,
@@ -170,8 +191,10 @@ fn setup_scene_after_load(
         let mut camera = commands.spawn((
             Camera3d::default(),
             Projection::from(projection),
-            Transform::from_translation(Vec3::from(aabb.center) + size * Vec3::new(0.5, 0.25, 0.5))
-                .looking_at(Vec3::from(aabb.center), Vec3::Y),
+            Transform::from_translation(
+                Vec3::from(aabb.center) + size * (args.rotation() * Vec3::new(0.5, 0.25, 0.5)),
+            )
+            .looking_at(Vec3::from(aabb.center), Vec3::Y),
             Camera {
                 is_active: false,
                 ..default()
@@ -182,6 +205,7 @@ fn setup_scene_after_load(
                 specular_map: asset_server
                     .load("assets/environment_maps/pisa_specular_rgb9e5_zstd.ktx2"),
                 intensity: 150.0,
+                rotation: args.rotation(),
                 ..default()
             },
             camera_controller,
@@ -211,7 +235,8 @@ fn setup_scene_after_load(
             info!("Spawning a directional light");
             let mut light = commands.spawn((
                 DirectionalLight::default(),
-                Transform::from_xyz(1.0, 1.0, 0.0).looking_at(Vec3::ZERO, Vec3::Y),
+                Transform::from_translation(args.rotation() * Vec3::new(1.0, 1.0, 0.0))
+                    .looking_at(Vec3::ZERO, Vec3::Y),
             ));
             if args.occlusion_culling == Some(true) {
                 light.insert(OcclusionCulling);

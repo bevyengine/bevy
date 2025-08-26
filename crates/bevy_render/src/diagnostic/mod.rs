@@ -17,7 +17,7 @@ use self::internal::{
     sync_diagnostics, DiagnosticsRecorder, Pass, RenderDiagnosticsMutex, WriteTimestamp,
 };
 
-use super::{RenderDevice, RenderQueue};
+use crate::renderer::{RenderDevice, RenderQueue};
 
 /// Enables collecting render diagnostics, such as CPU/GPU elapsed time per render pass,
 /// as well as pipeline statistics (number of primitives, number of shader invocations, etc).

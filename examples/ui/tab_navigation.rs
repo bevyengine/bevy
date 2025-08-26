@@ -83,9 +83,9 @@ fn setup(mut commands: Commands) {
             ..default()
         })
         .observe(
-            |mut trigger: On<Pointer<Click>>, mut focus: ResMut<InputFocus>| {
+            |mut event: On<Pointer<Click>>, mut focus: ResMut<InputFocus>| {
                 focus.0 = None;
-                trigger.propagate(false);
+                event.propagate(false);
             },
         )
         .with_children(|parent| {
@@ -140,10 +140,10 @@ fn setup(mut commands: Commands) {
                                     )],
                                 ))
                                 .observe(
-                                    |mut trigger: On<Pointer<Click>>,
+                                    |mut event: On<Pointer<Click>>,
                                     mut focus: ResMut<InputFocus>| {
-                                        focus.0 = Some(trigger.target());
-                                        trigger.propagate(false);
+                                        focus.0 = Some(event.entity());
+                                        event.propagate(false);
                                     },
                                 );
                         }

@@ -158,7 +158,7 @@ fn update_checkbox_styles(
         };
         let (outline_bg, outline_border) = q_outline.get_mut(outline_ent).unwrap();
         let mark_color = q_mark.get_mut(mark_ent).unwrap();
-        set_checkbox_colors(
+        set_checkbox_styles(
             checkbox_ent,
             outline_ent,
             mark_ent,
@@ -213,7 +213,7 @@ fn update_checkbox_styles_remove(
                 };
                 let (outline_bg, outline_border) = q_outline.get_mut(outline_ent).unwrap();
                 let mark_color = q_mark.get_mut(mark_ent).unwrap();
-                set_checkbox_colors(
+                set_checkbox_styles(
                     checkbox_ent,
                     outline_ent,
                     mark_ent,
@@ -230,7 +230,7 @@ fn update_checkbox_styles_remove(
         });
 }
 
-fn set_checkbox_colors(
+fn set_checkbox_styles(
     checkbox_ent: Entity,
     outline_ent: Entity,
     mark_ent: Entity,
@@ -266,6 +266,11 @@ fn set_checkbox_colors(
         false => tokens::CHECKBOX_TEXT,
     };
 
+    let cursor_shape = match disabled {
+        true => bevy_window::SystemCursorIcon::NotAllowed,
+        false => bevy_window::SystemCursorIcon::Pointer,
+    };
+
     // Change outline background
     if outline_bg.0 != outline_bg_token {
         commands
@@ -299,6 +304,11 @@ fn set_checkbox_colors(
             .entity(checkbox_ent)
             .insert(ThemeFontColor(font_color_token));
     }
+
+    // Change cursor shape
+    commands
+        .entity(checkbox_ent)
+        .insert(EntityCursor::System(cursor_shape));
 }
 
 /// Plugin which registers the systems for updating the checkbox styles.

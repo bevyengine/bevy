@@ -5,7 +5,7 @@ use std::f32::consts::PI;
 use bevy::{
     camera::Exposure,
     core_pipeline::{bloom::Bloom, tonemapping::Tonemapping},
-    light::{light_consts::lux, CascadeShadowConfigBuilder},
+    light::{light_consts::lux, AtmosphereEnvironmentMapLight, CascadeShadowConfigBuilder},
     pbr::{Atmosphere, AtmosphereSettings},
     prelude::*,
 };
@@ -42,6 +42,8 @@ fn setup_camera_fog(mut commands: Commands) {
         Tonemapping::AcesFitted,
         // Bloom gives the sun a much more natural look.
         Bloom::NATURAL,
+        // Enables the atmosphere to drive reflections and ambient lighting (IBL) for this view
+        AtmosphereEnvironmentMapLight::default(),
     ));
 }
 

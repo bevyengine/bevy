@@ -51,12 +51,14 @@ impl EntityCursor {
     /// Compare the [`EntityCursor`] to a [`CursorIcon`] so that we can see whether or not
     /// the window cursor needs to be changed.
     pub fn eq_cursor_icon(&self, cursor_icon: &CursorIcon) -> bool {
-        match (self, cursor_icon) {
+        // If feature custom_cursor is not enabled in bevy_feathers, we can't know if it is or not
+        // in bevy_window. So we use the wrapper function `as_system` to let bevy_window check its own feature.
+        // Otherwise it is not possible to have a match that both covers all cases and doesn't have unreachable
+        // branches under all feature combinations.
+        match (self, cursor_icon, cursor_icon.as_system()) {
             #[cfg(feature = "custom_cursor")]
-            (EntityCursor::Custom(custom), CursorIcon::Custom(other)) => custom == other,
-            (EntityCursor::System(system), CursorIcon::System(cursor_icon)) => {
-                *system == *cursor_icon
-            }
+            (EntityCursor::Custom(custom), CursorIcon::Custom(other), _) => custom == other,
+            (EntityCursor::System(system), _, Some(cursor_icon)) => *system == *cursor_icon,
             _ => false,
         }
     }

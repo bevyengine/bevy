@@ -9,9 +9,9 @@ use bevy::{
     },
     input::keyboard::{Key, KeyboardInput},
     prelude::*,
-    sprite::{
-        Anchor, ExtractedSlice, ExtractedSlices, ExtractedSprite, ExtractedSpriteKind,
-        ExtractedSprites,
+    sprite::Anchor,
+    sprite_render::{
+        ExtractedSlice, ExtractedSlices, ExtractedSprite, ExtractedSpriteKind, ExtractedSprites,
     },
     text::{
         LineBreak, Motion, Placeholder, PlaceholderLayout, PositionedGlyph, TextBounds,

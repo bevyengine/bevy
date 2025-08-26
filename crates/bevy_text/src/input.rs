@@ -472,14 +472,8 @@ pub fn apply_text_edits(
     )>,
     mut clipboard: ResMut<Clipboard>,
 ) {
-    for (
-        entity,
-        mut buffer,
-        mut text_input_actions,
-        attribs,
-        maybe_filter,
-        maybe_value,
-    ) in text_input_query.iter_mut()
+    for (entity, mut buffer, mut text_input_actions, attribs, maybe_filter, maybe_value) in
+        text_input_query.iter_mut()
     {
         for edit in text_input_actions.queue.drain(..) {
             match edit {

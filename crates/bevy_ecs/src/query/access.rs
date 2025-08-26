@@ -263,10 +263,10 @@ impl Access {
     /// This is for components whose values are not accessed (and thus will never cause conflicts),
     /// but whose presence in an archetype may affect query results.
     ///
-    /// Currently, this is only used for [`Has<T>`] and [`Allows<T>`].
+    /// Currently, this is only used for [`Has<T>`] and [`Allow<T>`].
     ///
     /// [`Has<T>`]: crate::query::Has
-    /// [`Allows<T>`]: crate::query::filter::Allows
+    /// [`Allow<T>`]: crate::query::filter::Allow
     pub fn add_archetypal(&mut self, index: ComponentId) {
         self.archetypal.grow_and_insert(index.index());
     }

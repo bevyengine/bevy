@@ -232,7 +232,7 @@ pub fn update_point_light_frusta(
 
         for (view_rotation, frustum) in view_rotations.iter().zip(cubemap_frusta.iter_mut()) {
             let world_from_view = view_translation * *view_rotation;
-            let clip_from_world = clip_from_view * world_from_view.to_matrix().inverse();
+            let clip_from_world = clip_from_view * world_from_view.compute_affine().inverse();
 
             *frustum = Frustum::from_clip_from_world_custom_far(
                 &clip_from_world,
