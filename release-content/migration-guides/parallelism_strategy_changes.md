@@ -3,7 +3,9 @@ title: Changes to Bevy's system parallelism strategy
 pull_requests: [16885]
 ---
 
-The schedule will now prevent systems from running in parallel if there *could* be an archetype that they conflict on, even if there aren't actually any.  
+The schedule will now prevent systems from running in parallel if there *could* be an archetype that they conflict on, even if there aren't actually any.
+To expand on this, previously, the scheduler would look at the entities that exist to determine if there's any overlap.
+Now, it determines it solely on the basis of the function signatures of the systems that are run.
 This was done as a performance optimization: while in theory this throws away potential parallelism,
 in practice, tests on engine and user code found that scheduling overhead dominates parallelism gains with the current multithreaded executor.
 Swapping to this simpler, more conservative test allows us to speed up these checks and improve resource utilization.
