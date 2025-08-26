@@ -21,7 +21,9 @@ bevy_image = { path = "../bevy_image", version = "0.17.0-dev" }
 bevy_input = { path = "../bevy_input", version = "0.17.0-dev" }
 bevy_math = { path = "../bevy_math", version = "0.17.0-dev" }
 bevy_reflect = { path = "../bevy_reflect", version = "0.17.0-dev" }
-bevy_sprite = { path = "../bevy_sprite", version = "0.17.0-dev" }
+bevy_sprite = { path = "../bevy_sprite", version = "0.17.0-dev", features = [
+  "bevy_text",
+] }
 bevy_text = { path = "../bevy_text", version = "0.17.0-dev" }
 bevy_picking = { path = "../bevy_picking", version = "0.17.0-dev", optional = true }
 bevy_transform = { path = "../bevy_transform", version = "0.17.0-dev" }
