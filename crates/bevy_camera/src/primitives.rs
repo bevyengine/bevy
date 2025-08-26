@@ -294,6 +294,7 @@ impl Frustum {
                 row3 - row
             });
         }
+        half_spaces[5] = HalfSpace::new(Vec4::new(0.0, 0.0, 0.0, f32::MAX));
         Self { half_spaces }
     }
 
