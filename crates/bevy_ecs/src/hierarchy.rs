@@ -478,7 +478,7 @@ pub fn validate_parent_has_component<C: Component>(
 ///
 /// Any additional arguments will be interpreted as bundles to be spawned. Note that even single
 /// component bundles MUST be wrapped in parentheses. This is to prevent you from accidentally
-/// spawning many seperate single components instead of a single bundle.
+/// spawning many separate single components instead of a single bundle.
 ///
 /// Also see [`related`](crate::related) for a version of this that works with any [`RelationshipTarget`] type.
 ///
