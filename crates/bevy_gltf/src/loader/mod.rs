@@ -191,7 +191,9 @@ pub struct GltfLoaderSettings {
     pub load_cameras: bool,
     /// If true, the loader will spawn lights for gltf light nodes.
     pub load_lights: bool,
-    /// If true, the loader will load animations. Requires the `bevy_animation` feature.
+    /// If true, the loader will load `AnimationClip` assets, and also add
+    /// `AnimationTarget` and `AnimationPlayer` components to hierarchies
+    /// affected by animation. Requires the `bevy_animation` feature.
     pub load_animations: bool,
     /// If true, the loader will include the root of the gltf root node.
     pub include_source: bool,
