@@ -145,11 +145,12 @@ fn text_update_system(
     mut timer: Local<FpsUiTimer>,
     mut query: Query<&mut TextSpan, With<FpsText>>,
 ) {
+    // Returns early while the timer is running to prevent excessive text updates.
     timer.0.tick(time.delta());
     if !timer.0.just_finished() {
         return;
     }
-    
+
     for mut span in &mut query {
         if let Some(fps) = diagnostics.get(&FrameTimeDiagnosticsPlugin::FPS)
             && let Some(value) = fps.smoothed()
