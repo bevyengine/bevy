@@ -68,6 +68,10 @@ impl_sparse_array!(ImmutableSparseArray);
 impl<I: SparseSetIndex, V> SparseArray<I, V> {
     /// Inserts `value` at `index` in the array.
     ///
+    /// # Panics
+    /// - Panics if the insertion forces a reallocation, and any of the new capacity overflows `isize::MAX` bytes.
+    /// - Panics if the insertion forces a reallocation, and any of the new the reallocations causes an out-of-memory error.
+    ///
     /// If `index` is out-of-bounds, this will enlarge the buffer to accommodate it.
     #[inline]
     pub fn insert(&mut self, index: I, value: V) {
@@ -160,6 +164,10 @@ impl ComponentSparseSet {
 
     /// Inserts the `entity` key and component `value` pair into this sparse
     /// set.
+    ///
+    /// # Aborts
+    /// - Aborts the process if the insertion forces a reallocation, and any of the new capacity overflows `isize::MAX` bytes.
+    /// - Aborts the process if the insertion forces a reallocation, and any of the new the reallocations causes an out-of-memory error.
     ///
     /// # Safety
     /// The `value` pointer must point to a valid address that matches the [`Layout`](std::alloc::Layout)
@@ -549,6 +557,10 @@ impl<I, V> SparseSet<I, V> {
 
 impl<I: SparseSetIndex, V> SparseSet<I, V> {
     /// Creates a new [`SparseSet`] with a specified initial capacity.
+    ///
+    /// # Panics
+    /// - Panics if the new capacity of the allocation overflows `isize::MAX` bytes.
+    /// - Panics if the new allocation causes an out-of-memory error.
     pub fn with_capacity(capacity: usize) -> Self {
         Self {
             dense: Vec::with_capacity(capacity),
@@ -566,6 +578,10 @@ impl<I: SparseSetIndex, V> SparseSet<I, V> {
     /// Inserts `value` at `index`.
     ///
     /// If a value was already present at `index`, it will be overwritten.
+    ///
+    /// # Panics
+    /// - Panics if the insertion forces an reallocation and the new capacity overflows `isize::MAX` bytes.
+    /// - Panics if the insertion forces an reallocation and causes an out-of-memory error.
     pub fn insert(&mut self, index: I, value: V) {
         if let Some(dense_index) = self.sparse.get(index.clone()).cloned() {
             // SAFETY: dense indices stored in self.sparse always exist
@@ -582,6 +598,10 @@ impl<I: SparseSetIndex, V> SparseSet<I, V> {
 
     /// Returns a reference to the value for `index`, inserting one computed from `func`
     /// if not already present.
+    ///
+    /// # Panics
+    /// - Panics if the insertion forces an reallocation and the new capacity overflows `isize::MAX` bytes.
+    /// - Panics if the insertion forces an reallocation and causes an out-of-memory error.
     pub fn get_or_insert_with(&mut self, index: I, func: impl FnOnce() -> V) -> &mut V {
         if let Some(dense_index) = self.sparse.get(index.clone()).cloned() {
             // SAFETY: dense indices stored in self.sparse always exist
@@ -622,6 +642,9 @@ impl<I: SparseSetIndex, V> SparseSet<I, V> {
     }
 
     /// Clears all of the elements from the sparse set.
+    ///
+    /// # Panics
+    /// - Panics if any of the keys or values implements [`Drop`] and any of those panic.
     pub fn clear(&mut self) {
         self.dense.clear();
         self.indices.clear();
@@ -703,6 +726,10 @@ impl SparseSets {
 
     /// Gets a mutable reference of [`ComponentSparseSet`] of a [`ComponentInfo`].
     /// Create a new [`ComponentSparseSet`] if not exists.
+    ///
+    /// # Panics
+    /// - Panics if the insertion forces an reallocation and the new capacity overflows `isize::MAX` bytes.
+    /// - Panics if the insertion forces an reallocation and causes an out-of-memory error.
     pub(crate) fn get_or_insert(
         &mut self,
         component_info: &ComponentInfo,
@@ -723,6 +750,9 @@ impl SparseSets {
     }
 
     /// Clear entities stored in each [`ComponentSparseSet`]
+    ///
+    /// # Panics
+    /// - Panics if any of the components stored within implement [`Drop`] and any of them panic.
     pub(crate) fn clear_entities(&mut self) {
         for set in self.sets.values_mut() {
             set.clear();

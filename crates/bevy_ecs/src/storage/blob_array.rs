@@ -234,6 +234,10 @@ impl BlobArray {
 
     /// Allocate a block of memory for the array. This should be used to initialize the array, do not use this
     /// method if there are already elements stored in the array - use [`Self::realloc`] instead.
+    ///
+    /// # Panics
+    /// - Panics if the new capacity overflows `isize::MAX` bytes.
+    /// - Panics if the allocation causes an out-of-memory error.
     pub(super) fn alloc(&mut self, capacity: NonZeroUsize) {
         #[cfg(debug_assertions)]
         debug_assert_eq!(self.capacity, 0);
@@ -253,6 +257,10 @@ impl BlobArray {
     /// Reallocate memory for this array.
     /// For example, if the length (number of stored elements) reached the capacity (number of elements the current allocation can store),
     /// you might want to use this method to increase the allocation, so more data can be stored in the array.
+    ///
+    /// # Panics
+    /// - Panics if the new capacity overflows `isize::MAX` bytes.
+    /// - Panics if the allocation causes an out-of-memory error.
     ///
     /// # Safety
     /// - `current_capacity` is indeed the current capacity of this array.
