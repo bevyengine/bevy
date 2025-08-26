@@ -1,4 +1,4 @@
-use core::fmt;
+use core::{fmt, mem::ManuallyDrop};
 
 use bevy_utils::prelude::DebugName;
 
@@ -158,16 +158,23 @@ impl<C> Command<Result<(), EntityMutableFetchError>> for EntityCommandWrapper<C>
 where
     C: EntityCommand,
 {
-    fn apply(mut self, world: &mut World) -> Result<(), EntityMutableFetchError> {
-        // SAFETY: This is being called with a mutable borrow, which must be a valid, non-null pointer.
-        unsafe { Self::apply_raw(&mut self, world) }
+    fn apply(self, world: &mut World) -> Result<(), EntityMutableFetchError> {
+        let entity_mut = world.get_entity_mut(self.entity)?;
+        let mut value = ManuallyDrop::new(self);
+        let command_ptr = &raw mut value.command;
+        // SAFETY: command_ptr must be valid and non-null as this function is passed the command by value.
+        unsafe { C::apply_raw(command_ptr, entity_mut) };
+        Ok(())
     }
 
     unsafe fn apply_raw(ptr: *mut Self, world: &mut World) -> Result<(), EntityMutableFetchError> {
+        // SAFETY: `ptr` might be unaligned, but should still point to an otherwise valid instance of `Self`
         let entity = unsafe { (&raw const (*ptr).entity).read_unaligned() };
         let command_ptr = &raw mut (*ptr).command;
         let entity_mut = world.get_entity_mut(entity)?;
-        C::apply_raw(command_ptr, entity_mut);
+        // SAFETY: command_ptr must be valid and non-null as the caller of this function is required to
+        // point to a valid instance of `Self`.
+        unsafe { C::apply_raw(command_ptr, entity_mut) };
         Ok(())
     }
 }
@@ -179,7 +186,9 @@ where
 {
     fn apply(mut self, world: &mut World) -> Result<T, EntityCommandError<Err>> {
         // SAFETY: This is being called with a mutable borrow, which must be a valid, non-null pointer.
-        unsafe { Self::apply_raw(&mut self, world) }
+        let result = unsafe { Self::apply_raw(&mut self, world) };
+        core::mem::forget(self);
+        result
     }
 
     unsafe fn apply_raw(ptr: *mut Self, world: &mut World) -> Result<T, EntityCommandError<Err>> {

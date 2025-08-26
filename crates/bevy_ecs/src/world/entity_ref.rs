@@ -4679,7 +4679,7 @@ unsafe fn insert_dynamic_bundle<
     };
 
     // SAFETY: location matches current entity.
-    unsafe {
+    let result = unsafe {
         bundle_inserter
             .insert(
                 entity,
@@ -4690,7 +4690,9 @@ unsafe fn insert_dynamic_bundle<
                 relationship_hook_insert_mode,
             )
             .0
-    }
+    };
+    core::mem::forget(bundle);
+    result
 }
 
 /// Types that can be used to fetch components from an entity dynamically by

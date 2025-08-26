@@ -1,5 +1,6 @@
 use super::blob_vec::array_layout;
 use crate::storage::blob_vec::array_layout_unchecked;
+use alloc::alloc::dealloc;
 use alloc::alloc::handle_alloc_error;
 use bevy_ptr::{Aligned, IsAligned, OwningPtr, Ptr, PtrMut};
 use bevy_utils::OnDrop;
@@ -9,7 +10,6 @@ use core::{
     num::NonZeroUsize,
     ptr::{self, NonNull},
 };
-use alloc::alloc::dealloc;
 
 /// A flat, type-erased data storage type similar to a [`BlobVec`](super::blob_vec::BlobVec), but with the length and capacity cut out
 /// for performance reasons. This type is reliant on its owning type to store the capacity and length information.

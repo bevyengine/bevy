@@ -2336,6 +2336,7 @@ impl World {
                         RelationshipHookMode::Run,
                     )
                 };
+                core::mem::forget(first_bundle);
 
                 for (entity, bundle) in batch_iter {
                     if let Some(location) = cache.inserter.entities().get(entity) {
@@ -2364,6 +2365,7 @@ impl World {
                                 RelationshipHookMode::Run,
                             )
                         };
+                        core::mem::forget(bundle);
                     } else {
                         panic!("error[B0003]: Could not insert a bundle (of type `{}`) for entity {entity}, which {}. See: https://bevy.org/learn/errors/b0003", DebugName::type_name::<B>(), self.entities.entity_does_not_exist_error_details(entity));
                     }
@@ -2486,6 +2488,7 @@ impl World {
                             RelationshipHookMode::Run,
                         )
                     };
+                    core::mem::forget(first_bundle);
                     break Some(cache);
                 }
                 invalid_entities.push(first_entity);
@@ -2523,6 +2526,7 @@ impl World {
                             RelationshipHookMode::Run,
                         )
                     };
+                    core::mem::forget(bundle);
                 } else {
                     invalid_entities.push(entity);
                 }

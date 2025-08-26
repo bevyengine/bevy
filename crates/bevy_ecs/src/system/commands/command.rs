@@ -18,8 +18,8 @@ use crate::{
     system::{IntoSystem, SystemId, SystemInput},
     world::{FromWorld, SpawnBatchIter, World},
 };
-use core::ptr::NonNull;
 use bevy_ptr::Unaligned;
+use core::ptr::NonNull;
 
 /// A [`World`] mutation.
 ///
