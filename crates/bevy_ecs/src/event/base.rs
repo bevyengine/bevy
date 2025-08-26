@@ -53,8 +53,8 @@ use core::{
 /// #
 /// # let mut world = World::new();
 /// #
-/// world.add_observer(|trigger: On<Speak>| {
-///     println!("{}", trigger.message);
+/// world.add_observer(|event: On<Speak>| {
+///     println!("{}", event.message);
 /// });
 /// ```
 ///
@@ -70,8 +70,8 @@ use core::{
 /// #
 /// # let mut world = World::new();
 /// #
-/// # world.add_observer(|trigger: On<Speak>| {
-/// #     println!("{}", trigger.message);
+/// # world.add_observer(|event: On<Speak>| {
+/// #     println!("{}", event.message);
 /// # });
 /// #
 /// # world.flush();
@@ -187,10 +187,10 @@ pub trait Event: Send + Sync + 'static {
 /// // which can then handle the event with its own observer.
 /// let armor_piece = world
 ///     .spawn((ArmorPiece, Health(25.0), ChildOf(enemy)))
-///     .observe(|trigger: On<Damage>, mut query: Query<&mut Health>| {
-///         // Note: `On::target` only exists because this is an `EntityEvent`.
-///         let mut health = query.get_mut(trigger.target()).unwrap();
-///         health.0 -= trigger.amount;
+///     .observe(|event: On<Damage>, mut query: Query<&mut Health>| {
+///         // Note: `On::entity` only exists because this is an `EntityEvent`.
+///         let mut health = query.get_mut(event.entity()).unwrap();
+///         health.0 -= event.amount;
 ///     })
 ///     .id();
 /// ```
@@ -221,10 +221,10 @@ pub trait Event: Send + Sync + 'static {
 /// # let enemy = world.spawn((Enemy, Health(100.0))).id();
 /// # let armor_piece = world
 /// #     .spawn((ArmorPiece, Health(25.0), ChildOf(enemy)))
-/// #     .observe(|trigger: On<Damage>, mut query: Query<&mut Health>| {
-/// #         // Note: `On::target` only exists because this is an `EntityEvent`.
-/// #         let mut health = query.get_mut(trigger.target()).unwrap();
-/// #         health.0 -= trigger.amount;
+/// #     .observe(|event: On<Damage>, mut query: Query<&mut Health>| {
+/// #         // Note: `On::entity` only exists because this is an `EntityEvent`.
+/// #         let mut health = query.get_mut(event.entity()).unwrap();
+/// #         health.0 -= event.amount;
 /// #     })
 /// #     .id();
 /// #

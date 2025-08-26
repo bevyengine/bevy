@@ -154,7 +154,7 @@ fn recolor_on<E: EntityEvent + Debug + Clone + Reflect>(
     color: Color,
 ) -> impl Fn(On<E>, Query<&mut Sprite>) {
     move |ev, mut sprites| {
-        let Ok(mut sprite) = sprites.get_mut(ev.target()) else {
+        let Ok(mut sprite) = sprites.get_mut(ev.entity()) else {
             return;
         };
         sprite.color = color;

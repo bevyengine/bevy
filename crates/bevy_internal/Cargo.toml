@@ -66,12 +66,12 @@ statically-linked-dxc = ["bevy_render/statically-linked-dxc"]
 raw_vulkan_init = ["bevy_render/raw_vulkan_init"]
 
 # Include tonemapping LUT KTX2 files.
-tonemapping_luts = ["bevy_core_pipeline/tonemapping_luts"]
+tonemapping_luts = ["bevy_core_pipeline?/tonemapping_luts"]
 # Include Bluenoise texture for environment map generation.
 bluenoise_texture = ["bevy_pbr?/bluenoise_texture"]
 
 # Include SMAA LUT KTX2 Files
-smaa_luts = ["bevy_anti_aliasing/smaa_luts"]
+smaa_luts = ["bevy_anti_aliasing?/smaa_luts"]
 
 # NVIDIA Deep Learning Super Sampling
 dlss = ["bevy_anti_aliasing/dlss", "bevy_solari?/dlss"]
@@ -199,14 +199,18 @@ bevy_ci_testing = ["bevy_dev_tools/bevy_ci_testing", "bevy_render?/ci_limits"]
 # Enable animation support, and glTF animation loading
 animation = ["bevy_animation", "bevy_mesh", "bevy_gltf?/bevy_animation"]
 
-bevy_window = ["dep:bevy_window", "dep:bevy_a11y"]
-
 bevy_shader = ["dep:bevy_shader"]
 bevy_image = ["dep:bevy_image"]
 bevy_sprite = ["dep:bevy_sprite", "bevy_image"]
-bevy_text = ["dep:bevy_text", "bevy_image", "bevy_sprite"]
+bevy_text = [
+  "dep:bevy_text",
+  "bevy_image",
+  "bevy_sprite?/bevy_text",
+  "bevy_sprite_render?/bevy_text",
+]
 bevy_mesh = ["dep:bevy_mesh", "bevy_image"]
-bevy_camera = ["dep:bevy_camera", "bevy_mesh"]
+bevy_window = ["dep:bevy_window", "dep:bevy_a11y", "bevy_image"]
+bevy_camera = ["dep:bevy_camera", "bevy_mesh", "bevy_window"]
 bevy_light = ["dep:bevy_light", "bevy_camera"]
 bevy_render = [
   "dep:bevy_render",
@@ -227,6 +231,7 @@ bevy_pbr = [
 bevy_sprite_render = [
   "dep:bevy_sprite_render",
   "bevy_sprite",
+  "bevy_window",
   "bevy_core_pipeline",
   "bevy_gizmos?/bevy_sprite",
   "bevy_gizmos?/bevy_sprite_render",

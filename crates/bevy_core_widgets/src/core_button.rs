@@ -30,44 +30,44 @@ pub struct CoreButton {
 }
 
 fn button_on_key_event(
-    mut trigger: On<FocusedInput<KeyboardInput>>,
+    mut event: On<FocusedInput<KeyboardInput>>,
     q_state: Query<(&CoreButton, Has<InteractionDisabled>)>,
     mut commands: Commands,
 ) {
-    if let Ok((bstate, disabled)) = q_state.get(trigger.target())
+    if let Ok((bstate, disabled)) = q_state.get(event.entity())
         && !disabled
     {
-        let event = &trigger.event().input;
-        if !event.repeat
-            && event.state == ButtonState::Pressed
-            && (event.key_code == KeyCode::Enter || event.key_code == KeyCode::Space)
+        let input_event = &event.input;
+        if !input_event.repeat
+            && input_event.state == ButtonState::Pressed
+            && (input_event.key_code == KeyCode::Enter || input_event.key_code == KeyCode::Space)
         {
-            trigger.propagate(false);
-            commands.notify_with(&bstate.on_activate, Activate(trigger.target()));
+            event.propagate(false);
+            commands.notify_with(&bstate.on_activate, Activate(event.entity()));
         }
     }
 }
 
 fn button_on_pointer_click(
-    mut trigger: On<Pointer<Click>>,
+    mut event: On<Pointer<Click>>,
     mut q_state: Query<(&CoreButton, Has<Pressed>, Has<InteractionDisabled>)>,
     mut commands: Commands,
 ) {
-    if let Ok((bstate, pressed, disabled)) = q_state.get_mut(trigger.target()) {
-        trigger.propagate(false);
+    if let Ok((bstate, pressed, disabled)) = q_state.get_mut(event.entity()) {
+        event.propagate(false);
         if pressed && !disabled {
-            commands.notify_with(&bstate.on_activate, Activate(trigger.target()));
+            commands.notify_with(&bstate.on_activate, Activate(event.entity()));
         }
     }
 }
 
 fn button_on_pointer_down(
-    mut trigger: On<Pointer<Press>>,
+    mut event: On<Pointer<Press>>,
     mut q_state: Query<(Entity, Has<InteractionDisabled>, Has<Pressed>), With<CoreButton>>,
     mut commands: Commands,
 ) {
-    if let Ok((button, disabled, pressed)) = q_state.get_mut(trigger.target()) {
-        trigger.propagate(false);
+    if let Ok((button, disabled, pressed)) = q_state.get_mut(event.entity()) {
+        event.propagate(false);
         if !disabled && !pressed {
             commands.entity(button).insert(Pressed);
         }
@@ -75,12 +75,12 @@ fn button_on_pointer_down(
 }
 
 fn button_on_pointer_up(
-    mut trigger: On<Pointer<Release>>,
+    mut event: On<Pointer<Release>>,
     mut q_state: Query<(Entity, Has<InteractionDisabled>, Has<Pressed>), With<CoreButton>>,
     mut commands: Commands,
 ) {
-    if let Ok((button, disabled, pressed)) = q_state.get_mut(trigger.target()) {
-        trigger.propagate(false);
+    if let Ok((button, disabled, pressed)) = q_state.get_mut(event.entity()) {
+        event.propagate(false);
         if !disabled && pressed {
             commands.entity(button).remove::<Pressed>();
         }
@@ -88,12 +88,12 @@ fn button_on_pointer_up(
 }
 
 fn button_on_pointer_drag_end(
-    mut trigger: On<Pointer<DragEnd>>,
+    mut event: On<Pointer<DragEnd>>,
     mut q_state: Query<(Entity, Has<InteractionDisabled>, Has<Pressed>), With<CoreButton>>,
     mut commands: Commands,
 ) {
-    if let Ok((button, disabled, pressed)) = q_state.get_mut(trigger.target()) {
-        trigger.propagate(false);
+    if let Ok((button, disabled, pressed)) = q_state.get_mut(event.entity()) {
+        event.propagate(false);
         if !disabled && pressed {
             commands.entity(button).remove::<Pressed>();
         }
@@ -101,12 +101,12 @@ fn button_on_pointer_drag_end(
 }
 
 fn button_on_pointer_cancel(
-    mut trigger: On<Pointer<Cancel>>,
+    mut event: On<Pointer<Cancel>>,
     mut q_state: Query<(Entity, Has<InteractionDisabled>, Has<Pressed>), With<CoreButton>>,
     mut commands: Commands,
 ) {
-    if let Ok((button, disabled, pressed)) = q_state.get_mut(trigger.target()) {
-        trigger.propagate(false);
+    if let Ok((button, disabled, pressed)) = q_state.get_mut(event.entity()) {
+        event.propagate(false);
         if !disabled && pressed {
             commands.entity(button).remove::<Pressed>();
         }
