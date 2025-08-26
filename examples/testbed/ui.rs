@@ -665,14 +665,14 @@ mod linear_gradient {
                                             angle: LinearGradient::TO_RIGHT,
                                             stops: stops.clone(),
                                         }),
-                                        children![
-                                            (Node {
+                                        children![(
+                                            Node {
                                                 position_type: PositionType::Absolute,
                                                 ..default()
-                                            }),
-                                            (TextFont::from_font_size(10.)),
-                                            (bevy::ui::widget::Text(format!("{color_space:?}"))),
-                                        ]
+                                            },
+                                            TextFont::from_font_size(10.),
+                                            bevy::ui::widget::Text(format!("{color_space:?}"))
+                                        ),]
                                     )],
                                 ));
                             }
