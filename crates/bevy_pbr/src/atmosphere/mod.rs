@@ -225,6 +225,11 @@ pub struct Atmosphere {
     /// units: m
     pub top_radius: f32,
 
+    /// The origin of the view relative to the center of the planet.
+    ///
+    /// units: m
+    pub origin: Vec3,
+
     /// An approximation of the average albedo (or color, roughly) of the
     /// planet's surface. This is used when calculating multiscattering.
     ///
@@ -293,6 +298,7 @@ impl Atmosphere {
     pub const EARTH: Atmosphere = Atmosphere {
         bottom_radius: 6_360_000.0,
         top_radius: 6_460_000.0,
+        origin: Vec3::new(0.0, 6_360_000.0, 0.0),
         ground_albedo: Vec3::splat(0.3),
         rayleigh_density_exp_scale: 1.0 / 8_000.0,
         rayleigh_scattering: Vec3::new(5.802e-6, 13.558e-6, 33.100e-6),
@@ -396,6 +402,13 @@ pub struct AtmosphereSettings {
     /// A conversion factor between scene units and meters, used to
     /// ensure correctness at different length scales.
     pub scene_units_to_m: f32,
+
+    /// The number of points to sample for each fragment when the using
+    /// ray marching to render the sky
+    pub sky_max_samples: u32,
+
+    /// The rendering method to use for the atmosphere.
+    pub rendering_method: u32,
 }
 
 impl Default for AtmosphereSettings {
@@ -412,6 +425,8 @@ impl Default for AtmosphereSettings {
             aerial_view_lut_samples: 10,
             aerial_view_lut_max_distance: 3.2e4,
             scene_units_to_m: 1.0,
+            sky_max_samples: 16,
+            rendering_method: AtmosphereRenderingMethod::Default as u32,
         }
     }
 }
@@ -434,4 +449,16 @@ fn configure_camera_depth_usages(
     for mut camera in &mut cameras {
         camera.depth_texture_usages.0 |= TextureUsages::TEXTURE_BINDING.bits();
     }
+}
+
+/// The rendering method to use for the atmosphere.
+#[derive(Clone, Default, Reflect, Copy)]
+pub enum AtmosphereRenderingMethod {
+    /// Use the default rendering method which uses a 3D lookup texture
+    /// fitted to the view frustum.
+    #[default]
+    Default,
+    /// Use the raymarching rendering method which uses raymarching to
+    /// compute the atmosphere and supports volumetric shadows.
+    Raymarching,
 }

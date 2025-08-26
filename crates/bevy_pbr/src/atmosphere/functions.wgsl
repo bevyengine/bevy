@@ -41,6 +41,7 @@ const FRAC_2_PI: f32 = 0.15915494309;  // 1 / (2π)
 const FRAC_3_16_PI: f32 = 0.0596831036594607509; // 3 / (16π)
 const FRAC_4_PI: f32 = 0.07957747154594767; // 1 / (4π)
 const ROOT_2: f32 = 1.41421356; // √2
+const EPSILON: f32 = 1.0; // 1 meter
 
 // During raymarching, each segment is sampled at a single point. This constant determines
 // where in the segment that sample is taken (0.0 = start, 0.5 = middle, 1.0 = end).
@@ -242,7 +243,9 @@ fn sample_atmosphere(r: f32) -> AtmosphereSample {
 }
 
 /// evaluates L_scat, equation 3 in the paper, which gives the total single-order scattering towards the view at a single point
-fn sample_local_inscattering(local_atmosphere: AtmosphereSample, ray_dir: vec3<f32>, local_r: f32, local_up: vec3<f32>) -> vec3<f32> {
+fn sample_local_inscattering(local_atmosphere: AtmosphereSample, ray_dir: vec3<f32>, world_pos: vec3<f32>) -> vec3<f32> {
+    let local_r = length(world_pos);
+    let local_up = normalize(world_pos);
     var inscattering = vec3(0.0);
     for (var light_i: u32 = 0u; light_i < lights.n_directional_lights; light_i++) {
         let light = &lights.directional_lights[light_i];
@@ -275,8 +278,10 @@ fn sample_local_inscattering(local_atmosphere: AtmosphereSample, ray_dir: vec3<f
 }
 
 fn sample_sun_radiance(ray_dir_ws: vec3<f32>) -> vec3<f32> {
-    let r = view_radius();
-    let mu_view = ray_dir_ws.y;
+    let view_pos = get_view_position();
+    let r = length(view_pos);
+    let up = normalize(view_pos);
+    let mu_view = dot(ray_dir_ws, up);
     let shadow_factor = f32(!ray_intersects_ground(r, mu_view));
     var sun_radiance = vec3(0.0);
     for (var light_i: u32 = 0u; light_i < lights.n_directional_lights; light_i++) {
@@ -304,9 +309,18 @@ fn max_atmosphere_distance(r: f32, mu: f32) -> f32 {
     return mix(t_top, t_bottom, f32(hits));
 }
 
-/// Assuming y=0 is the planet ground, returns the view radius in meters
-fn view_radius() -> f32 {
-    return view.world_position.y * settings.scene_units_to_m + atmosphere.bottom_radius;
+/// Returns the observer's position in the atmosphere
+fn get_view_position() -> vec3<f32> {
+    // If the rendering method is using the LUTs, use only altitude in the y coordinate
+    if settings.rendering_method == 0u {
+        /// Assuming y=0 is the planet ground, returns the view radius or altitude from the ground in meters
+        let r = max(view.world_position.y * settings.scene_units_to_m, EPSILON) + atmosphere.origin.y;
+        return vec3<f32>(0.0, r, 0.0);
+    }
+    var world_pos = view.world_position * settings.scene_units_to_m;
+    // ensure a minimum altitude of EPSILON in the up direction
+    world_pos = max(world_pos, normalize(atmosphere.origin) * EPSILON);
+    return world_pos + atmosphere.origin;
 }
 
 // We assume the `up` vector at the view position is the y axis, since the world is locally flat/level.
@@ -377,4 +391,144 @@ fn zenith_azimuth_to_ray_dir(zenith: f32, azimuth: f32) -> vec3<f32> {
     let sin_azimuth = sin(azimuth);
     let cos_azimuth = cos(azimuth);
     return vec3(sin_azimuth * sin_zenith, mu, -cos_azimuth * sin_zenith);
+}
+
+fn ray_sphere_intersect(r: f32, mu: f32, sphere_radius: f32) -> vec2<f32> {
+    let discriminant = r * r * (mu * mu - 1.0) + sphere_radius * sphere_radius;
+    
+    // No intersection
+    if discriminant < 0.0 {
+        return vec2(-1.0);
+    }
+    
+    let q = -r * mu;
+    let sqrt_discriminant = sqrt(discriminant);
+    
+    // Return both intersection distances
+    return vec2(
+        q - sqrt_discriminant,
+        q + sqrt_discriminant
+    );
+}
+
+struct RaymarchSegment {
+    start: f32,
+    end: f32,
+}
+
+fn get_raymarch_segment(r: f32, mu: f32) -> RaymarchSegment {
+    // Get both intersection points with atmosphere
+    let atmosphere_intersections = ray_sphere_intersect(r, mu, atmosphere.top_radius);
+    let ground_intersections = ray_sphere_intersect(r, mu, atmosphere.bottom_radius);
+    
+    var segment: RaymarchSegment;
+    
+    if r < atmosphere.bottom_radius {
+        // Inside planet - start from bottom of atmosphere
+        segment.start = ground_intersections.y; // Use second intersection point with ground
+        segment.end = atmosphere_intersections.y;
+    } else if r < atmosphere.top_radius {
+        // Inside atmosphere
+        segment.start = 0.0;
+        segment.end = select(atmosphere_intersections.y, ground_intersections.x, ray_intersects_ground(r, mu));
+    } else {
+        // Outside atmosphere
+        if atmosphere_intersections.x < 0.0 {
+            // No intersection with atmosphere
+            return segment;
+        }
+        // Start at atmosphere entry, end at exit or ground
+        segment.start = atmosphere_intersections.x;
+        segment.end = select(atmosphere_intersections.y, ground_intersections.x, ray_intersects_ground(r, mu));
+    }
+
+    return segment;
+}
+
+struct RaymarchResult {
+    inscattering: vec3<f32>,
+    transmittance: vec3<f32>,
+}
+
+fn raymarch_atmosphere(
+    pos: vec3<f32>,
+    ray_dir: vec3<f32>,
+    t_max: f32,
+    max_samples: u32,
+    uv: vec2<f32>,
+    ground: bool
+) -> RaymarchResult {
+    let r = length(pos);
+    let up = normalize(pos);
+    let mu = dot(ray_dir, up);
+    
+    // Optimization: Reduce sample count at close proximity to the scene
+    let sample_count = mix(1.0, f32(max_samples), saturate(t_max * 0.01));
+    
+    let segment = get_raymarch_segment(r, mu);
+    let t_start = segment.start;
+    var t_end = segment.end;
+    
+    t_end = min(t_end, t_max);
+    let t_total = t_end - t_start;
+    
+    var result: RaymarchResult;
+    result.inscattering = vec3(0.0);
+    result.transmittance = vec3(1.0);
+    
+    // Skip if invalid segment
+    if t_total <= 0.0 {
+        return result;
+    }
+    
+    var prev_t = t_start;
+    var optical_depth = vec3(0.0);
+    for (var s = 0.0; s < sample_count; s += 1.0) {
+        // Linear distribution from atmosphere entry to exit/ground
+        let t_i = t_start + t_total * (s + MIDPOINT_RATIO) / sample_count;
+        let dt_i = (t_i - prev_t);
+        prev_t = t_i;
+
+        let sample_pos = pos + ray_dir * t_i;
+        let local_r = length(sample_pos);
+        let local_up = normalize(sample_pos);
+        let local_atmosphere = sample_atmosphere(local_r);
+
+        let sample_optical_depth = local_atmosphere.extinction * dt_i;
+        optical_depth += sample_optical_depth;
+        let sample_transmittance = exp(-sample_optical_depth);
+
+        let inscattering = sample_local_inscattering(
+            local_atmosphere,
+            ray_dir,
+            sample_pos
+        );
+
+        let s_int = (inscattering - inscattering * sample_transmittance) / local_atmosphere.extinction;
+        result.inscattering += result.transmittance * s_int;
+
+        result.transmittance *= sample_transmittance;
+        if all(result.transmittance < vec3(0.001)) {
+            break;
+        }
+    }
+
+    // include reflected luminance from planet ground 
+    if ground && ray_intersects_ground(r, mu) {
+        for (var light_i: u32 = 0u; light_i < lights.n_directional_lights; light_i++) {
+            let light = &lights.directional_lights[light_i];
+            let light_dir = (*light).direction_to_light;
+            let light_color = (*light).color.rgb;
+            let transmittance_to_ground = exp(-optical_depth);
+            let local_up = get_local_up(r, t_max, ray_dir);
+            let mu_light = dot(light_dir, local_up);
+            let transmittance_to_light = sample_transmittance_lut(0.0, mu_light);
+            let light_luminance = transmittance_to_light * max(mu_light, 0.0) * light_color;
+            // Normalized Lambert BRDF
+            let ground_luminance = transmittance_to_ground * atmosphere.ground_albedo / PI;
+            result.inscattering += ground_luminance * light_luminance;
+        }
+    }
+
+    return result;
 }
