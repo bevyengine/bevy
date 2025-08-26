@@ -35,6 +35,7 @@ fn specular_trace(@builtin(global_invocation_id) global_id: vec3<u32>) {
     var wi = next_bounce.wi;
     var ray_origin = surface.world_position;
 
+    var radiance = vec3(0.0);
     for (var bounce = 1u; bounce <= 2u; bounce += 1u) {
         // Trace ray
         let ray = trace_ray(ray_origin, wi, RAY_T_MIN, RAY_T_MAX, RAY_FLAG_NONE);
@@ -43,9 +44,9 @@ fn specular_trace(@builtin(global_invocation_id) global_id: vec3<u32>) {
 
         // Terminate in the world cache on the second bounce
         if bounce == 2u {
-            let radiance = query_world_cache(ray_hit.world_position, ray_hit.geometric_world_normal, view.world_position);
+            let world_cache_radiance = query_world_cache(ray_hit.world_position, ray_hit.geometric_world_normal, view.world_position);
             let diffuse_brdf = ray_hit.material.base_color / PI;
-            throughput *= radiance * diffuse_brdf;
+            radiance = world_cache_radiance * diffuse_brdf * throughput;
             break;
         }
 
@@ -58,7 +59,7 @@ fn specular_trace(@builtin(global_invocation_id) global_id: vec3<u32>) {
     }
 
     var pixel_color = textureLoad(view_output, global_id.xy);
-    pixel_color += vec4(throughput * view.exposure, 0.0);
+    pixel_color += vec4(radiance * view.exposure, 0.0);
     textureStore(view_output, global_id.xy, pixel_color);
 }
 
