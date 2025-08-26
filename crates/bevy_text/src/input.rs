@@ -1,4 +1,4 @@
-use std::time::Duration;
+use core::time::Duration;
 
 use crate::buffer_dimensions;
 use crate::load_font_to_fontdb;
@@ -251,7 +251,7 @@ impl Default for TextInputAttributes {
     }
 }
 
-/// If a text input entity has a `TextInputFilter` component, after each [TextEdit] is applied, the [TextInputBuffer]’s text is checked
+/// If a text input entity has a `TextInputFilter` component, after each [`TextEdit`] is applied, the [`TextInputBuffer`]’s text is checked
 /// against the filter, and if it fails, the `TextEdit` is rolled back.
 #[derive(Component)]
 pub enum TextInputFilter {
@@ -712,12 +712,12 @@ impl<'b> Iterator for ScrollingLayoutRunIter<'b> {
                 let glyph_height = layout_line.max_ascent + layout_line.max_descent;
                 let centering_offset = (line_height - glyph_height) / 2.0;
                 let line_bottom = line_top + centering_offset + layout_line.max_ascent;
-                if let Some(height) = self.buffer.size().1 {
-                    if height + line_height < line_bottom {
-                        // The line is below the target bound's bottom edge.
-                        // No more lines are visible, return `None` to end the iteration.
-                        return None;
-                    }
+                if let Some(height) = self.buffer.size().1
+                    && height + line_height < line_bottom
+                {
+                    // The line is below the target bound's bottom edge.
+                    // No more lines are visible, return `None` to end the iteration.
+                    return None;
                 }
                 self.line_top += line_height;
                 if line_bottom < 0.0 {
@@ -803,14 +803,14 @@ pub fn update_text_input_layouts(
                     ));
                 }
                 let result = ScrollingLayoutRunIter::new(buffer).try_for_each(|run| {
-                    if let Some(selection) = selection {
-                        if let Some((x0, w)) = run.highlight(selection.0, selection.1) {
-                            let y0 = run.line_top;
-                            let y1 = y0 + run.line_height;
-                            let x1 = x0 + w;
-                            let r = Rect::new(x0, y0, x1, y1);
-                            layout_info.selection_rects.push(r);
-                        }
+                    if let Some(selection) = selection
+                        && let Some((x0, w)) = run.highlight(selection.0, selection.1)
+                    {
+                        let y0 = run.line_top;
+                        let y1 = y0 + run.line_height;
+                        let x1 = x0 + w;
+                        let r = Rect::new(x0, y0, x1, y1);
+                        layout_info.selection_rects.push(r);
                     }
 
                     run.glyphs
@@ -933,7 +933,7 @@ pub enum InvalidTextEditError {
 }
 
 /// Apply a text input action to a text input
-fn apply_text_edit(
+pub fn apply_text_edit(
     mut editor: BorrowedWithFontSystem<'_, Editor<'static>>,
     maybe_filter: Option<&TextInputFilter>,
     max_chars: Option<usize>,
@@ -1053,7 +1053,7 @@ fn apply_text_edit(
             let cursor = editor.cursor();
             editor.set_selection(Selection::Normal(cursor));
             editor.action(Action::Motion(Motion::End));
-            editor.insert_string(&text, None);
+            editor.insert_string(text, None);
         }
         TextEdit::Submit => {}
     }

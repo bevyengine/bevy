@@ -1,4 +1,4 @@
-//! basic bevy_2d text input
+//! basic bevy 2d text input
 use std::any::TypeId;
 
 use bevy::{
@@ -9,6 +9,7 @@ use bevy::{
     },
     input::keyboard::{Key, KeyboardInput},
     prelude::*,
+    render::{sync_world::TemporaryRenderEntity, Extract, RenderApp},
     sprite::Anchor,
     sprite_render::{
         ExtractedSlice, ExtractedSlices, ExtractedSprite, ExtractedSpriteKind, ExtractedSprites,
@@ -20,7 +21,6 @@ use bevy::{
     },
     window::PrimaryWindow,
 };
-use bevy_render::{sync_world::TemporaryRenderEntity, Extract, RenderApp};
 
 #[derive(Component)]
 struct TextInputSize(Vec2);
@@ -83,14 +83,11 @@ fn setup(mut commands: Commands) {
         ))
         .observe(
             move |event: On<TextInputEvent>, mut query: Query<&mut Text2d>| {
-                match event.event() {
-                    TextInputEvent::Submission { text } => {
-                        if let Ok(mut target) = query.get_mut(submit_target) {
-                            target.0 = text.clone();
-                        }
-                    }
-                    _ => {}
-                };
+                if let TextInputEvent::Submission { text } = event.event()
+                    && let Ok(mut target) = query.get_mut(submit_target)
+                {
+                    target.0 = text.clone();
+                }
             },
         );
 }

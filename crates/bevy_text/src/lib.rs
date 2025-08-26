@@ -99,7 +99,10 @@ impl Plugin for TextPlugin {
             .init_resource::<TextIterScratch>()
             .add_systems(
                 PostUpdate,
-                remove_dropped_font_atlas_sets.before(AssetEventSystems),
+                remove_dropped_font_atlas_sets
+                    .before(AssetEventSystems)
+                    .ambiguous_with(update_placeholder_layouts)
+                    .ambiguous_with(update_text_input_layouts),
             )
             .add_systems(Last, trim_cosmic_cache);
 
