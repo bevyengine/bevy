@@ -2,15 +2,15 @@
 // https://d1qx31qr3h6wln.cloudfront.net/publications/ReSTIR%20GI.pdf
 
 #import bevy_core_pipeline::tonemapping::tonemapping_luminance as luminance
-#import bevy_pbr::pbr_deferred_types::unpack_24bit_normal
 #import bevy_pbr::prepass_bindings::PreviousViewUniforms
-#import bevy_pbr::rgb9e5::rgb9e5_to_vec3_
-#import bevy_pbr::utils::{rand_f, rand_range_u, octahedral_decode, sample_disk}
+#import bevy_pbr::utils::{rand_f, rand_range_u, sample_disk}
 #import bevy_render::maths::PI
 #import bevy_render::view::View
+#import bevy_solari::brdf::evaluate_brdf
 #import bevy_solari::presample_light_tiles::{ResolvedLightSamplePacked, unpack_resolved_light_sample}
 #import bevy_solari::sampling::{LightSample, calculate_resolved_light_contribution, resolve_and_calculate_light_contribution, resolve_light_sample, trace_light_visibility}
 #import bevy_solari::scene_bindings::{light_sources, previous_frame_light_id_translations, LIGHT_NOT_PRESENT_THIS_FRAME}
+#import bevy_solari::utils::{gpixel_resolve, pixel_dissimilar}
 
 @group(1) @binding(0) var view_output: texture_storage_2d<rgba16float, read_write>;
 @group(1) @binding(1) var<storage, read_write> light_tile_samples: array<LightSample>;
@@ -45,15 +45,12 @@ fn initial_and_temporal(@builtin(workgroup_id) workgroup_id: vec3<u32>, @builtin
         store_reservoir_b(global_id.xy, empty_reservoir());
         return;
     }
-    let gpixel = textureLoad(gbuffer, global_id.xy, 0);
-    let world_position = reconstruct_world_position(global_id.xy, depth);
-    let world_normal = octahedral_decode(unpack_24bit_normal(gpixel.a));
-    let base_color = pow(unpack4x8unorm(gpixel.r).rgb, vec3(2.2));
-    let diffuse_brdf = base_color / PI;
+    let surface = gpixel_resolve(textureLoad(gbuffer, global_id.xy, 0), depth, global_id.xy, view.main_pass_viewport.zw, view.world_from_clip);
 
-    let initial_reservoir = generate_initial_reservoir(world_position, world_normal, diffuse_brdf, workgroup_id.xy, &rng);
-    let temporal_reservoir = load_temporal_reservoir(global_id.xy, depth, world_position, world_normal);
-    let merge_result = merge_reservoirs(initial_reservoir, temporal_reservoir, world_position, world_normal, diffuse_brdf, &rng);
+    let diffuse_brdf = surface.material.base_color / PI;
+    let initial_reservoir = generate_initial_reservoir(surface.world_position, surface.world_normal, diffuse_brdf, workgroup_id.xy, &rng);
+    let temporal_reservoir = load_temporal_reservoir(global_id.xy, depth, surface.world_position, surface.world_normal);
+    let merge_result = merge_reservoirs(initial_reservoir, temporal_reservoir, surface.world_position, surface.world_normal, diffuse_brdf, &rng);
 
     store_reservoir_b(global_id.xy, merge_result.merged_reservoir);
 }
@@ -71,24 +68,23 @@ fn spatial_and_shade(@builtin(global_invocation_id) global_id: vec3<u32>) {
         textureStore(view_output, global_id.xy, vec4(vec3(0.0), 1.0));
         return;
     }
-    let gpixel = textureLoad(gbuffer, global_id.xy, 0);
-    let world_position = reconstruct_world_position(global_id.xy, depth);
-    let world_normal = octahedral_decode(unpack_24bit_normal(gpixel.a));
-    let base_color = pow(unpack4x8unorm(gpixel.r).rgb, vec3(2.2));
-    let diffuse_brdf = base_color / PI;
-    let emissive = rgb9e5_to_vec3_(gpixel.g);
+    let surface = gpixel_resolve(textureLoad(gbuffer, global_id.xy, 0), depth, global_id.xy, view.main_pass_viewport.zw, view.world_from_clip);
 
+    let diffuse_brdf = surface.material.base_color / PI;
     let input_reservoir = load_reservoir_b(global_id.xy);
-    let spatial_reservoir = load_spatial_reservoir(global_id.xy, depth, world_position, world_normal, &rng);
-    let merge_result = merge_reservoirs(input_reservoir, spatial_reservoir, world_position, world_normal, diffuse_brdf, &rng);
+    let spatial_reservoir = load_spatial_reservoir(global_id.xy, depth, surface.world_position, surface.world_normal, &rng);
+    let merge_result = merge_reservoirs(input_reservoir, spatial_reservoir, surface.world_position, surface.world_normal, diffuse_brdf, &rng);
     let combined_reservoir = merge_result.merged_reservoir;
 
     store_reservoir_a(global_id.xy, combined_reservoir);
 
+    let wo = normalize(view.world_position - surface.world_position);
+    let brdf = evaluate_brdf(surface.world_normal, wo, merge_result.wi, surface.material);
+
     var pixel_color = merge_result.selected_sample_radiance * combined_reservoir.unbiased_contribution_weight;
     pixel_color *= view.exposure;
-    pixel_color *= diffuse_brdf;
-    pixel_color += emissive;
+    pixel_color *= brdf;
+    pixel_color += surface.material.emissive;
     textureStore(view_output, global_id.xy, vec4(pixel_color, 1.0));
 }
 
@@ -148,10 +144,8 @@ fn load_temporal_reservoir(pixel_id: vec2<u32>, depth: f32, world_position: vec3
 
     // Check if the pixel features have changed heavily between the current and previous frame
     let temporal_depth = textureLoad(previous_depth_buffer, temporal_pixel_id, 0);
-    let temporal_gpixel = textureLoad(previous_gbuffer, temporal_pixel_id, 0);
-    let temporal_world_position = reconstruct_previous_world_position(temporal_pixel_id, temporal_depth);
-    let temporal_world_normal = octahedral_decode(unpack_24bit_normal(temporal_gpixel.a));
-    if pixel_dissimilar(depth, world_position, temporal_world_position, world_normal, temporal_world_normal) {
+    let temporal_surface = gpixel_resolve(textureLoad(previous_gbuffer, temporal_pixel_id, 0), temporal_depth, temporal_pixel_id, view.main_pass_viewport.zw, previous_view.world_from_clip);
+    if pixel_dissimilar(depth, world_position, temporal_surface.world_position, world_normal, temporal_surface.world_normal, view) {
         return empty_reservoir();
     }
 
@@ -175,10 +169,8 @@ fn load_spatial_reservoir(pixel_id: vec2<u32>, depth: f32, world_position: vec3<
     let spatial_pixel_id = get_neighbor_pixel_id(pixel_id, rng);
 
     let spatial_depth = textureLoad(depth_buffer, spatial_pixel_id, 0);
-    let spatial_gpixel = textureLoad(gbuffer, spatial_pixel_id, 0);
-    let spatial_world_position = reconstruct_world_position(spatial_pixel_id, spatial_depth);
-    let spatial_world_normal = octahedral_decode(unpack_24bit_normal(spatial_gpixel.a));
-    if pixel_dissimilar(depth, world_position, spatial_world_position, world_normal, spatial_world_normal) {
+    let spatial_surface = gpixel_resolve(textureLoad(gbuffer, spatial_pixel_id, 0), spatial_depth, spatial_pixel_id, view.main_pass_viewport.zw, view.world_from_clip);
+    if pixel_dissimilar(depth, world_position, spatial_surface.world_position, world_normal, spatial_surface.world_normal, view) {
         return empty_reservoir();
     }
 
@@ -196,40 +188,6 @@ fn get_neighbor_pixel_id(center_pixel_id: vec2<u32>, rng: ptr<function, u32>) ->
     var spatial_id = vec2<f32>(center_pixel_id) + sample_disk(SPATIAL_REUSE_RADIUS_PIXELS, rng);
     spatial_id = clamp(spatial_id, vec2(0.0), view.main_pass_viewport.zw - 1.0);
     return vec2<u32>(spatial_id);
-}
-
-fn reconstruct_world_position(pixel_id: vec2<u32>, depth: f32) -> vec3<f32> {
-    let uv = (vec2<f32>(pixel_id) + 0.5) / view.main_pass_viewport.zw;
-    let xy_ndc = (uv - vec2(0.5)) * vec2(2.0, -2.0);
-    let world_pos = view.world_from_clip * vec4(xy_ndc, depth, 1.0);
-    return world_pos.xyz / world_pos.w;
-}
-
-fn reconstruct_previous_world_position(pixel_id: vec2<u32>, depth: f32) -> vec3<f32> {
-    let uv = (vec2<f32>(pixel_id) + 0.5) / view.main_pass_viewport.zw;
-    let xy_ndc = (uv - vec2(0.5)) * vec2(2.0, -2.0);
-    let world_pos = previous_view.world_from_clip * vec4(xy_ndc, depth, 1.0);
-    return world_pos.xyz / world_pos.w;
-}
-
-// Reject if tangent plane difference difference more than 0.3% or angle between normals more than 25 degrees
-fn pixel_dissimilar(depth: f32, world_position: vec3<f32>, other_world_position: vec3<f32>, normal: vec3<f32>, other_normal: vec3<f32>) -> bool {
-    // https://developer.download.nvidia.com/video/gputechconf/gtc/2020/presentations/s22699-fast-denoising-with-self-stabilizing-recurrent-blurs.pdf#page=45
-    let tangent_plane_distance = abs(dot(normal, other_world_position - world_position));
-    let view_z = -depth_ndc_to_view_z(depth);
-
-    return tangent_plane_distance / view_z > 0.003 || dot(normal, other_normal) < 0.906;
-}
-
-fn depth_ndc_to_view_z(ndc_depth: f32) -> f32 {
-#ifdef VIEW_PROJECTION_PERSPECTIVE
-    return -view.clip_from_view[3][2]() / ndc_depth;
-#else ifdef VIEW_PROJECTION_ORTHOGRAPHIC
-    return -(view.clip_from_view[3][2] - ndc_depth) / view.clip_from_view[2][2];
-#else
-    let view_pos = view.view_from_clip * vec4(0.0, 0.0, ndc_depth, 1.0);
-    return view_pos.z / view_pos.w;
-#endif
 }
 
 struct Reservoir {
@@ -279,6 +237,7 @@ fn load_reservoir_b(pixel: vec2<u32>) -> Reservoir {
 struct ReservoirMergeResult {
     merged_reservoir: Reservoir,
     selected_sample_radiance: vec3<f32>,
+    wi: vec3<f32>,
 }
 
 fn merge_reservoirs(
@@ -289,15 +248,16 @@ fn merge_reservoirs(
     diffuse_brdf: vec3<f32>,
     rng: ptr<function, u32>,
 ) -> ReservoirMergeResult {
+    let canonical_contribution = reservoir_contribution(canonical_reservoir, world_position, world_normal, diffuse_brdf);
+    let other_contribution = reservoir_contribution(other_reservoir, world_position, world_normal, diffuse_brdf);
+
     let mis_weight_denominator = 1.0 / (canonical_reservoir.confidence_weight + other_reservoir.confidence_weight);
 
     let canonical_mis_weight = canonical_reservoir.confidence_weight * mis_weight_denominator;
-    let canonical_target_function = reservoir_target_function(canonical_reservoir, world_position, world_normal, diffuse_brdf);
-    let canonical_resampling_weight = canonical_mis_weight * (canonical_target_function.a * canonical_reservoir.unbiased_contribution_weight);
+    let canonical_resampling_weight = canonical_mis_weight * (canonical_contribution.target_function * canonical_reservoir.unbiased_contribution_weight);
 
     let other_mis_weight = other_reservoir.confidence_weight * mis_weight_denominator;
-    let other_target_function = reservoir_target_function(other_reservoir, world_position, world_normal, diffuse_brdf);
-    let other_resampling_weight = other_mis_weight * (other_target_function.a * other_reservoir.unbiased_contribution_weight);
+    let other_resampling_weight = other_mis_weight * (other_contribution.target_function * other_reservoir.unbiased_contribution_weight);
 
     let weight_sum = canonical_resampling_weight + other_resampling_weight;
 
@@ -307,24 +267,30 @@ fn merge_reservoirs(
     if rand_f(rng) < other_resampling_weight / weight_sum {
         combined_reservoir.sample = other_reservoir.sample;
 
-        let inverse_target_function = select(0.0, 1.0 / other_target_function.a, other_target_function.a > 0.0);
+        let inverse_target_function = select(0.0, 1.0 / other_contribution.target_function, other_contribution.target_function > 0.0);
         combined_reservoir.unbiased_contribution_weight = weight_sum * inverse_target_function;
 
-        return ReservoirMergeResult(combined_reservoir, other_target_function.rgb);
+        return ReservoirMergeResult(combined_reservoir, other_contribution.radiance, other_contribution.wi);
     } else {
         combined_reservoir.sample = canonical_reservoir.sample;
 
-        let inverse_target_function = select(0.0, 1.0 / canonical_target_function.a, canonical_target_function.a > 0.0);
+        let inverse_target_function = select(0.0, 1.0 / canonical_contribution.target_function, canonical_contribution.target_function > 0.0);
         combined_reservoir.unbiased_contribution_weight = weight_sum * inverse_target_function;
 
-        return ReservoirMergeResult(combined_reservoir, canonical_target_function.rgb);
+        return ReservoirMergeResult(combined_reservoir, canonical_contribution.radiance, canonical_contribution.wi);
     }
 }
 
+struct ReservoirContribution {
+    radiance: vec3<f32>,
+    target_function: f32,
+    wi: vec3<f32>,
+}
+
 // TODO: Have input take ResolvedLightSample instead of reservoir.light_sample
-fn reservoir_target_function(reservoir: Reservoir, world_position: vec3<f32>, world_normal: vec3<f32>, diffuse_brdf: vec3<f32>) -> vec4<f32> {
-    if !reservoir_valid(reservoir) { return vec4(0.0); }
-    let light_contribution = resolve_and_calculate_light_contribution(reservoir.sample, world_position, world_normal).radiance;
-    let target_function = luminance(light_contribution * diffuse_brdf);
-    return vec4(light_contribution, target_function);
+fn reservoir_contribution(reservoir: Reservoir, world_position: vec3<f32>, world_normal: vec3<f32>, diffuse_brdf: vec3<f32>) -> ReservoirContribution {
+    if !reservoir_valid(reservoir) { return ReservoirContribution(vec3(0.0), 0.0, vec3(0.0)); }
+    let light_contribution = resolve_and_calculate_light_contribution(reservoir.sample, world_position, world_normal);
+    let target_function = luminance(light_contribution.radiance * diffuse_brdf);
+    return ReservoirContribution(light_contribution.radiance, target_function, light_contribution.wi);
 }
