@@ -280,7 +280,7 @@ macro_rules! impl_ptr {
             /// Attempts to convert an unaligned pointer into an aligned version by asserting that
             /// the pointer is properly aligned.
             ///
-            /// Returns `None` if the underlying is not aligned to the provided `align` argument.`
+            /// Returns `None` if the underlying is not aligned to the provided `align` argument.
             ///
             /// # Panics
             /// This function will panic when `debug_assertions` is enabled if `align` is not a power of two.
