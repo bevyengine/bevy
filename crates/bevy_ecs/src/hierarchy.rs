@@ -495,7 +495,7 @@ pub fn validate_parent_has_component<C: Component>(
 ///         (Name::new("Child1")),
 ///         (
 ///             Name::new("Child2"),
-///             children![Name::new("Grandchild")]
+///             children![(Name::new("Grandchild"))]
 ///         )
 ///     ]
 /// ));
