@@ -614,19 +614,26 @@ impl Camera {
         // Flip the Y co-ordinate origin from the top to the bottom.
         rect_relative.y = 1.0 - rect_relative.y;
 
-        let ndc = rect_relative * 2. - Vec2::ONE;
-        let ndc_to_world = camera_transform.to_matrix() * self.computed.clip_from_view.inverse();
-        let world_near_plane = ndc_to_world.project_point3(ndc.extend(1.));
-        // Using EPSILON because an ndc with Z = 0 returns NaNs.
-        let world_far_plane = ndc_to_world.project_point3(ndc.extend(f32::EPSILON));
+        let ndc_point_near = (rect_relative * 2. - Vec2::ONE).extend(1.0).into();
+        // We multiply the point by `view_from_clip` and then `world_from_view` in sequence to avoid the precision loss
+        // (and performance penalty) incurred by pre-composing an affine transform with a projective transform.
+        // Additionally, we avoid adding and subtracting translation to the direction component to maintain precision.
+        let view_point_near = self
+            .computed
+            .clip_from_view
+            .inverse()
+            .project_point3a(ndc_point_near);
+        let world_dir_near = camera_transform
+            .affine()
+            .transform_vector3a(view_point_near);
+        let origin: Vec3 = (world_dir_near + camera_transform.affine().translation).into();
+        if origin.is_nan() {
+            return Err(ViewportConversionError::InvalidData);
+        }
 
-        // The fallible direction constructor ensures that world_near_plane and world_far_plane aren't NaN.
-        Dir3::new(world_far_plane - world_near_plane)
+        Dir3::new(world_dir_near.into())
             .map_err(|_| ViewportConversionError::InvalidData)
-            .map(|direction| Ray3d {
-                origin: world_near_plane,
-                direction,
-            })
+            .map(|direction| Ray3d { origin, direction })
     }
 
     /// Returns a 2D world position computed from a position on this [`Camera`]'s viewport.
@@ -725,13 +732,21 @@ impl Camera {
     /// # Panics
     ///
     /// Will panic if the projection matrix is invalid (has a determinant of 0) and `glam_assert` is enabled.
-    pub fn ndc_to_world(&self, camera_transform: &GlobalTransform, ndc: Vec3) -> Option<Vec3> {
-        // Build a transformation matrix to convert from NDC to world space using camera data
-        let ndc_to_world = camera_transform.to_matrix() * self.computed.clip_from_view.inverse();
+    pub fn ndc_to_world<V: Into<Vec3A> + From<Vec3A>>(
+        &self,
+        camera_transform: &GlobalTransform,
+        ndc_point: V,
+    ) -> Option<V> {
+        // We multiply the point by `view_from_clip` and then `world_from_view` in sequence to avoid the precision loss
+        // (and performance penalty) incurred by pre-composing an affine transform with a projective transform.
+        let view_point = self
+            .computed
+            .clip_from_view
+            .inverse()
+            .project_point3a(ndc_point.into());
+        let world_point = camera_transform.affine().transform_point3a(view_point);
 
-        let world_space_coords = ndc_to_world.project_point3(ndc);
-
-        (!world_space_coords.is_nan()).then_some(world_space_coords)
+        (!world_point.is_nan()).then_some(world_point.into())
     }
 
     /// Converts the depth in Normalized Device Coordinates

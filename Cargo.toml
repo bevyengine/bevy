@@ -878,6 +878,17 @@ category = "2D Rendering"
 wasm = true
 
 [[example]]
+name = "multi_window_text"
+path = "examples/window/multi_window_text.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.multi_window_text]
+name = "Multi-Window Text"
+description = "Renders text to multiple windows with different scale factors using both Text and Text2d"
+category = "2D Rendering"
+wasm = true
+
+[[example]]
 name = "texture_atlas"
 path = "examples/2d/texture_atlas.rs"
 doc-scrape-examples = true
@@ -3391,6 +3402,17 @@ doc-scrape-examples = true
 [package.metadata.example.button]
 name = "Button"
 description = "Illustrates creating and updating a button"
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
+name = "ui_drag_and_drop"
+path = "examples/ui/ui_drag_and_drop.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.ui_drag_and_drop]
+name = "UI Drag and Drop"
+description = "Demonstrates dragging and dropping UI nodes"
 category = "UI (User Interface)"
 wasm = true
 
