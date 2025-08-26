@@ -1,5 +1,5 @@
 ---
-title: Generate environment maps from the procedural atmosphere
+title: Generate environment maps from a procedural atmosphere
 authors: ["@mate-h"]
 pull_requests: [20529]
 ---
