@@ -21,6 +21,15 @@ fn main() {
 #[derive(Component)]
 struct FpsText;
 
+#[derive(Component)]
+struct FpsUiTimer(pub Timer);
+
+impl Default for FpsUiTimer {
+    fn default() -> Self {
+        FpsUiTimer(Timer::from_seconds(0.5, TimerMode::Repeating))
+    }
+}
+
 // Marker struct to help identify the color-changing Text component
 #[derive(Component)]
 struct AnimatedText;
@@ -132,8 +141,15 @@ fn text_color_system(time: Res<Time>, mut query: Query<&mut TextColor, With<Anim
 
 fn text_update_system(
     diagnostics: Res<DiagnosticsStore>,
+    time: Res<Time>,
+    mut timer: Local<FpsUiTimer>,
     mut query: Query<&mut TextSpan, With<FpsText>>,
 ) {
+    timer.0.tick(time.delta());
+    if !timer.0.just_finished() {
+        return;
+    }
+    
     for mut span in &mut query {
         if let Some(fps) = diagnostics.get(&FrameTimeDiagnosticsPlugin::FPS)
             && let Some(value) = fps.smoothed()
