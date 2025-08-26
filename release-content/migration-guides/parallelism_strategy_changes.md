@@ -25,4 +25,4 @@ fn enemy_system(query: Query<(&mut Transform, &Enemy), Without<Player>>) {}
 ```
 
 If you encounter a performance regression in your application due to this change, *please* open an issue.
-We would be very interested to understand your use case, see your benchmarking results and help you mitigate any issues.
+We would be very interested to understand your use case, see your benchmarking results, and help you mitigate any issues.
