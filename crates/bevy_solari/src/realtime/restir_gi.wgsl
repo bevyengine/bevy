@@ -5,7 +5,7 @@
 #import bevy_pbr::utils::{rand_f, sample_uniform_hemisphere, uniform_hemisphere_inverse_pdf, sample_disk}
 #import bevy_render::maths::PI
 #import bevy_render::view::View
-#import bevy_solari::brdf::{evaluate_diffuse_brdf, evaluate_specular_brdf}
+#import bevy_solari::brdf::evaluate_diffuse_brdf
 #import bevy_solari::gbuffer_utils::{gpixel_resolve, pixel_dissimilar}
 #import bevy_solari::sampling::{sample_random_light, trace_point_visibility}
 #import bevy_solari::scene_bindings::{trace_ray, resolve_ray_hit_full, RAY_T_MIN, RAY_T_MAX}
@@ -71,13 +71,7 @@ fn spatial_and_shade(@builtin(global_invocation_id) global_id: vec3<u32>) {
 
     gi_reservoirs_a[pixel_index] = combined_reservoir;
 
-    let wo = normalize(view.world_position - surface.world_position);
-    let wi = normalize(combined_reservoir.sample_point_world_position - surface.world_position);
-    var brdf = evaluate_diffuse_brdf(surface.material.base_color, surface.material.metallic);
-    if surface.material.metallic > 0.9999 && surface.material.perceptual_roughness > 0.04 {
-        brdf += evaluate_specular_brdf(surface.world_normal, wo, wi, surface.material.base_color, surface.material.metallic,
-            surface.material.reflectance, surface.material.perceptual_roughness, surface.material.roughness);
-    }
+    let brdf = evaluate_diffuse_brdf(surface.material.base_color, surface.material.metallic);
 
     var pixel_color = textureLoad(view_output, global_id.xy);
     pixel_color += vec4(merge_result.selected_sample_radiance * combined_reservoir.unbiased_contribution_weight * view.exposure * brdf, 0.0);
