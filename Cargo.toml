@@ -3406,6 +3406,17 @@ category = "UI (User Interface)"
 wasm = true
 
 [[example]]
+name = "ui_drag_and_drop"
+path = "examples/ui/ui_drag_and_drop.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.ui_drag_and_drop]
+name = "UI Drag and Drop"
+description = "Demonstrates dragging and dropping UI nodes"
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
 name = "display_and_visibility"
 path = "examples/ui/display_and_visibility.rs"
 doc-scrape-examples = true
