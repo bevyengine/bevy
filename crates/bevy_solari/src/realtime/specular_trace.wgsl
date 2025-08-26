@@ -5,7 +5,7 @@
 #import bevy_solari::gbuffer_utils::gpixel_resolve
 #import bevy_solari::sampling::{sample_ggx_vndf, ggx_vndf_pdf}
 #import bevy_solari::scene_bindings::{trace_ray, resolve_ray_hit_full, ResolvedMaterial, RAY_T_MIN, RAY_T_MAX}
-#import bevy_solari::world_cache::{query_world_cache, get_cell_size}
+#import bevy_solari::world_cache::query_world_cache
 
 @group(1) @binding(0) var view_output: texture_storage_2d<rgba16float, read_write>;
 @group(1) @binding(7) var gbuffer: texture_2d<u32>;
@@ -35,14 +35,14 @@ fn specular_trace(@builtin(global_invocation_id) global_id: vec3<u32>) {
     var wi = next_bounce.wi;
     var ray_origin = surface.world_position;
 
-    loop {
+    for (var bounce = 1u; bounce <= 2u; bounce += 1u) {
         // Trace ray
         let ray = trace_ray(ray_origin, wi, RAY_T_MIN, RAY_T_MAX, RAY_FLAG_NONE);
         if ray.kind == RAY_QUERY_INTERSECTION_NONE { break; }
         let ray_hit = resolve_ray_hit_full(ray);
 
-        // If cone spread larger than cache cell size, terminate in world cache
-        if true { // TODO
+        // Terminate in the world cache on the second bounce
+        if bounce == 2u {
             let radiance = query_world_cache(ray_hit.world_position, ray_hit.geometric_world_normal, view.world_position);
             let diffuse_brdf = ray_hit.material.base_color / PI;
             throughput *= radiance * diffuse_brdf;
