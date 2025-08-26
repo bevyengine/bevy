@@ -642,7 +642,6 @@ impl Components {
     /// # See also
     ///
     /// * [`ComponentIdFor`](super::ComponentIdFor)
-    /// * [`Components::get_id()`]
     /// * [`Components::resource_id()`]
     /// * [`World::component_id()`](crate::world::World::component_id)
     #[inline]
@@ -652,19 +651,6 @@ impl Components {
                 .read()
                 .unwrap_or_else(PoisonError::into_inner)
                 .components
-                .get(&type_id)
-                .map(|queued| queued.id)
-        })
-    }
-
-    /// Type-erased equivalent of [`Components::resource_id()`].
-    #[inline]
-    pub fn get_resource_id(&self, type_id: TypeId) -> Option<ComponentId> {
-        self.resource_indices.get(&type_id).copied().or_else(|| {
-            self.queued
-                .read()
-                .unwrap_or_else(PoisonError::into_inner)
-                .resources
                 .get(&type_id)
                 .map(|queued| queued.id)
         })
@@ -695,11 +681,17 @@ impl Components {
     ///
     /// # See also
     ///
-    /// * [`Components::component_id()`]
     /// * [`Components::get_resource_id()`]
     #[inline]
-    pub fn resource_id<T: Resource>(&self) -> Option<ComponentId> {
-        self.get_resource_id(TypeId::of::<T>())
+    pub fn get_resource_id(&self, type_id: TypeId) -> Option<ComponentId> {
+        self.resource_indices.get(&type_id).copied().or_else(|| {
+            self.queued
+                .read()
+                .unwrap_or_else(PoisonError::into_inner)
+                .resources
+                .get(&type_id)
+                .map(|queued| queued.id)
+        })
     }
 
     /// # Safety

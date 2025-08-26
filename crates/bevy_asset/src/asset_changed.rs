@@ -246,7 +246,7 @@ unsafe impl<A: AsAssetId> WorldQuery for AssetChanged<A> {
     }
 
     fn get_state(components: &Components) -> Option<Self::State> {
-        let resource_id = components.resource_id::<AssetChanges<A::Asset>>()?;
+        let resource_id = components.get_resource_id(TypeId::of::<AssetChanges<A::Asset>>())?;
         let asset_id = components.get_id(TypeId::of::<A>())?;
         Some(AssetChangedState {
             asset_id,
