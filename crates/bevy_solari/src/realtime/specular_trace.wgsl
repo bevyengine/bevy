@@ -45,8 +45,7 @@ fn specular_trace(@builtin(global_invocation_id) global_id: vec3<u32>) {
         if true { // TODO
             let radiance = query_world_cache(ray_hit.world_position, ray_hit.geometric_world_normal, view.world_position);
             let diffuse_brdf = ray_hit.material.base_color / PI;
-            let cos_theta = saturate(dot(normalize(ray_hit.world_position - ray_origin), ray_hit.world_normal));
-            throughput *= radiance * diffuse_brdf * cos_theta;
+            throughput *= radiance * diffuse_brdf;
             break;
         }
 
@@ -59,7 +58,7 @@ fn specular_trace(@builtin(global_invocation_id) global_id: vec3<u32>) {
     }
 
     var pixel_color = textureLoad(view_output, global_id.xy);
-    pixel_color = vec4(throughput * view.exposure, 0.0);
+    pixel_color += vec4(throughput * view.exposure, 0.0);
     textureStore(view_output, global_id.xy, pixel_color);
 }
 
