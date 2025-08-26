@@ -599,7 +599,7 @@ impl World {
     /// * [`Components::get_id()`]
     #[inline]
     pub fn component_id<T: Component>(&self) -> Option<ComponentId> {
-        self.components.component_id::<T>()
+        self.components.get_id(TypeId::of::<T>())
     }
 
     /// Registers a new [`Resource`] type and returns the [`ComponentId`] created for it.

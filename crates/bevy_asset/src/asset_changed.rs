@@ -13,6 +13,7 @@ use bevy_ecs::{
     storage::{Table, TableRow},
     world::unsafe_world_cell::UnsafeWorldCell,
 };
+use core::any::TypeId;
 use bevy_platform::collections::HashMap;
 use core::marker::PhantomData;
 use disqualified::ShortName;
@@ -246,7 +247,7 @@ unsafe impl<A: AsAssetId> WorldQuery for AssetChanged<A> {
 
     fn get_state(components: &Components) -> Option<Self::State> {
         let resource_id = components.resource_id::<AssetChanges<A::Asset>>()?;
-        let asset_id = components.component_id::<A>()?;
+        let asset_id = components.get_id(TypeId::of::<A>())?;
         Some(AssetChangedState {
             asset_id,
             resource_id,

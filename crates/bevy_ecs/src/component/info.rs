@@ -616,19 +616,6 @@ impl Components {
         self.get_valid_resource_id(TypeId::of::<T>())
     }
 
-    /// Type-erased equivalent of [`Components::component_id()`].
-    #[inline]
-    pub fn get_id(&self, type_id: TypeId) -> Option<ComponentId> {
-        self.indices.get(&type_id).copied().or_else(|| {
-            self.queued
-                .read()
-                .unwrap_or_else(PoisonError::into_inner)
-                .components
-                .get(&type_id)
-                .map(|queued| queued.id)
-        })
-    }
-
     /// Returns the [`ComponentId`] of the given [`Component`] type `T`.
     ///
     /// The returned `ComponentId` is specific to the `Components` instance
@@ -659,8 +646,15 @@ impl Components {
     /// * [`Components::resource_id()`]
     /// * [`World::component_id()`](crate::world::World::component_id)
     #[inline]
-    pub fn component_id<T: Component>(&self) -> Option<ComponentId> {
-        self.get_id(TypeId::of::<T>())
+    pub fn get_id(&self, type_id: TypeId) -> Option<ComponentId> {
+        self.indices.get(&type_id).copied().or_else(|| {
+            self.queued
+                .read()
+                .unwrap_or_else(PoisonError::into_inner)
+                .components
+                .get(&type_id)
+                .map(|queued| queued.id)
+        })
     }
 
     /// Type-erased equivalent of [`Components::resource_id()`].

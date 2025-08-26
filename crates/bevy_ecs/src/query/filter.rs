@@ -6,6 +6,7 @@ use crate::{
     storage::{ComponentSparseSet, Table, TableRow},
     world::{unsafe_world_cell::UnsafeWorldCell, World},
 };
+use core::any::TypeId;
 use bevy_ptr::{ThinSlicePtr, UnsafeCellDeref};
 use bevy_utils::prelude::DebugName;
 use core::{cell::UnsafeCell, marker::PhantomData};
@@ -189,7 +190,7 @@ unsafe impl<T: Component> WorldQuery for With<T> {
     }
 
     fn get_state(components: &Components) -> Option<Self::State> {
-        components.component_id::<T>()
+        components.get_id(TypeId::of::<T>())
     }
 
     fn matches_component_set(
@@ -290,7 +291,7 @@ unsafe impl<T: Component> WorldQuery for Without<T> {
     }
 
     fn get_state(components: &Components) -> Option<Self::State> {
-        components.component_id::<T>()
+        components.get_id(TypeId::of::<T>())
     }
 
     fn matches_component_set(
@@ -604,7 +605,7 @@ unsafe impl<T: Component> WorldQuery for Allow<T> {
     }
 
     fn get_state(components: &Components) -> Option<Self::State> {
-        components.component_id::<T>()
+        components.get_id(TypeId::of::<T>())
     }
 
     fn matches_component_set(_: &ComponentId, _: &impl Fn(ComponentId) -> bool) -> bool {
@@ -805,7 +806,7 @@ unsafe impl<T: Component> WorldQuery for Added<T> {
     }
 
     fn get_state(components: &Components) -> Option<ComponentId> {
-        components.component_id::<T>()
+        components.get_id(TypeId::of::<T>())
     }
 
     fn matches_component_set(
@@ -1032,7 +1033,7 @@ unsafe impl<T: Component> WorldQuery for Changed<T> {
     }
 
     fn get_state(components: &Components) -> Option<ComponentId> {
-        components.component_id::<T>()
+        components.get_id(TypeId::of::<T>())
     }
 
     fn matches_component_set(

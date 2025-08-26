@@ -176,12 +176,6 @@ impl<'w> ComponentsRegistrator<'w> {
     /// * [`ComponentsRegistrator::register_component_with_descriptor()`]
     #[inline]
     pub fn register_component<T: Component>(&mut self) -> ComponentId {
-        self.register_component_checked::<T>()
-    }
-
-    /// Same as [`Self::register_component_unchecked`] but keeps a checks for safety.
-    #[inline]
-    pub(super) fn register_component_checked<T: Component>(&mut self) -> ComponentId {
         let type_id = TypeId::of::<T>();
         if let Some(&id) = self.indices.get(&type_id) {
             enforce_no_required_components_recursion(self, &self.recursion_check_stack, id);
@@ -212,7 +206,8 @@ impl<'w> ComponentsRegistrator<'w> {
     /// # Safety
     ///
     /// Neither this component, nor its id may be registered or queued. This must be a new registration.
-    #[inline]
+    #[cold]
+    #[inline(never)]
     unsafe fn register_component_unchecked<T: Component>(&mut self, id: ComponentId) {
         // SAFETY: ensured by caller.
         unsafe {
@@ -493,10 +488,10 @@ impl<'w> ComponentsQueuedRegistrator<'w> {
     /// The [`TypeId`] must not already be registered as a component.
     unsafe fn register_arbitrary_component(
         &self,
-        type_id: TypeId,
         descriptor: ComponentDescriptor,
         func: impl FnOnce(&mut ComponentsRegistrator, ComponentId, ComponentDescriptor) + 'static,
     ) -> ComponentId {
+        let type_id = descriptor.type_id().debug_checked_unwrap();
         self.components
             .queued
             .write()
@@ -566,11 +561,11 @@ impl<'w> ComponentsQueuedRegistrator<'w> {
     /// See type level docs for details.
     #[inline]
     pub fn queue_register_component<T: Component>(&self) -> ComponentId {
-        self.component_id::<T>().unwrap_or_else(|| {
+        let type_id = TypeId::of::<T>();
+        self.get_id(type_id).unwrap_or_else(|| {
             // SAFETY: We just checked that this type was not already registered.
             unsafe {
                 self.register_arbitrary_component(
-                    TypeId::of::<T>(),
                     ComponentDescriptor::new::<T>(),
                     |registrator, id, _descriptor| {
                         // SAFETY: We just checked that this is not currently registered or queued, and if it was registered since, this would have been dropped from the queue.
