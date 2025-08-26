@@ -119,6 +119,7 @@ Example | Description
 [Mesh2d Alpha Mode](../examples/2d/mesh2d_alpha_mode.rs) | Used to test alpha modes with mesh2d
 [Mesh2d Repeated Texture](../examples/2d/mesh2d_repeated_texture.rs) | Showcase of using `uv_transform` on the `ColorMaterial` of a `Mesh2d`
 [Move Sprite](../examples/2d/move_sprite.rs) | Changes the transform of a sprite
+[Multi-Window Text](../examples/window/multi_window_text.rs) | Renders text to multiple windows with different scale factors using both Text and Text2d
 [Pixel Grid Snapping](../examples/2d/pixel_grid_snap.rs) | Shows how to create graphics that snap to the pixel grid by rendering to a texture in 2D
 [Sprite](../examples/2d/sprite.rs) | Renders a sprite
 [Sprite Animation](../examples/2d/sprite_animation.rs) | Animates a sprite in response to an event
@@ -576,6 +577,7 @@ Example | Description
 [Text Debug](../examples/ui/text_debug.rs) | An example for debugging text layout
 [Text Wrap Debug](../examples/ui/text_wrap_debug.rs) | Demonstrates text wrapping
 [Transparency UI](../examples/ui/transparency_ui.rs) | Demonstrates transparency for UI
+[UI Drag and Drop](../examples/ui/ui_drag_and_drop.rs) | Demonstrates dragging and dropping UI nodes
 [UI Material](../examples/ui/ui_material.rs) | Demonstrates creating and using custom Ui materials
 [UI Scaling](../examples/ui/ui_scaling.rs) | Illustrates how to scale the UI
 [UI Texture Atlas](../examples/ui/ui_texture_atlas.rs) | Illustrates how to use TextureAtlases in UI
