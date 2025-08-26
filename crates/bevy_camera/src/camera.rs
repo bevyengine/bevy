@@ -612,7 +612,7 @@ impl Camera {
             .ok_or(ViewportConversionError::NoViewportSize)?;
         let rect_relative = (viewport_position - target_rect.min) / target_rect.size();
         let mut ndc_xy = rect_relative * 2. - Vec2::ONE;
-        // Flip the Y co-ordinate origin from the top to the bottom.
+        // Flip the Y co-ordinate from the top to the bottom to enter NDC.
         ndc_xy.y = -ndc_xy.y;
 
         let ndc_point_near = ndc_xy.extend(1.0).into();
@@ -625,12 +625,12 @@ impl Camera {
         // Additionally, we avoid adding and subtracting translation to the direction component to maintain precision.
         let view_point_near = view_from_clip.project_point3a(ndc_point_near);
         let view_point_far = view_from_clip.project_point3a(ndc_point_far);
-        let world_point_near = world_from_view.transform_vector3a(view_point_near);
-        let world_point_far = world_from_view.transform_vector3a(view_point_far);
-        let origin = (world_point_near + camera_transform.translation_vec3a()).into();
+        let view_dir = view_point_far - view_point_near;
+        let origin = world_from_view.transform_point3a(view_point_near).into();
+        let direction = world_from_view.transform_vector3a(view_dir).into();
 
-        // The fallible direction constructor ensures that world_near_plane and world_far_plane aren't NaN.
-        Dir3::new((world_point_far - world_point_near).into())
+        // The fallible direction constructor ensures that direction isn't NaN.
+        Dir3::new(direction)
             .map_err(|_| ViewportConversionError::InvalidData)
             .map(|direction| Ray3d { origin, direction })
     }
