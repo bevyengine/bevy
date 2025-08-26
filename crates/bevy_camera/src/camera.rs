@@ -937,10 +937,7 @@ mod test {
             viewport.physical_size.x as f32,
             viewport.physical_size.y as f32,
         );
-        camera.computed.clip_from_view = match &camera.sub_camera_view {
-            Some(sub_view) => projection.get_clip_from_view_for_sub(sub_view),
-            None => projection.get_clip_from_view(),
-        };
+        camera.computed.clip_from_view = projection.get_clip_from_view();
         camera
     }
 
