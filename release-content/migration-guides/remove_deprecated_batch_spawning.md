@@ -14,6 +14,6 @@ They were deprecated in 0.16 for being unnecessary with the retained render worl
 
 Instead of these functions consider doing one of the following:
 
-Option A) Instead of despawing entities, insert the `Disabled` component, and instead of respawning them at particular ids, use `try_insert_batch` or `insert_batch` and remove `Disabled`.
+Option A) Instead of despawning entities, insert the `Disabled` component, and instead of respawning them at particular ids, use `try_insert_batch` or `insert_batch` and remove `Disabled`.
 
 Option B) Instead of giving special meaning to an entity id, simply use `spawn_batch` and ensure entity references are valid when despawning.

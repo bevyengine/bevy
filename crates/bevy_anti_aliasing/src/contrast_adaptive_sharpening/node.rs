@@ -3,6 +3,7 @@ use std::sync::Mutex;
 use crate::contrast_adaptive_sharpening::ViewCasPipeline;
 use bevy_ecs::prelude::*;
 use bevy_render::{
+    diagnostic::RecordDiagnostics,
     extract_component::{ComponentUniforms, DynamicUniformIndex},
     render_graph::{Node, NodeRunError, RenderGraphContext},
     render_resource::{
@@ -66,6 +67,8 @@ impl Node for CasNode {
             return Ok(());
         };
 
+        let diagnostics = render_context.diagnostic_recorder();
+
         let view_target = target.post_process_write();
         let source = view_target.source;
         let destination = view_target.destination;
@@ -98,6 +101,7 @@ impl Node for CasNode {
             label: Some("contrast_adaptive_sharpening"),
             color_attachments: &[Some(RenderPassColorAttachment {
                 view: destination,
+                depth_slice: None,
                 resolve_target: None,
                 ops: Operations::default(),
             })],
@@ -109,10 +113,13 @@ impl Node for CasNode {
         let mut render_pass = render_context
             .command_encoder()
             .begin_render_pass(&pass_descriptor);
+        let pass_span = diagnostics.time_span(&mut render_pass, "contrast_adaptive_sharpening");
 
         render_pass.set_pipeline(pipeline);
         render_pass.set_bind_group(0, bind_group, &[uniform_index.index()]);
         render_pass.draw(0..3, 0..1);
+
+        pass_span.end(&mut render_pass);
 
         Ok(())
     }

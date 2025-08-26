@@ -1,11 +1,9 @@
 use bevy_asset::Asset;
 use bevy_color::{Alpha, ColorToComponents};
 use bevy_math::{Affine2, Affine3, Mat2, Mat3, Vec2, Vec3, Vec4};
+use bevy_mesh::MeshVertexBufferLayoutRef;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
-use bevy_render::{
-    mesh::MeshVertexBufferLayoutRef, render_asset::RenderAssets, render_resource::*,
-    texture::GpuImage,
-};
+use bevy_render::{render_asset::RenderAssets, render_resource::*, texture::GpuImage};
 use bitflags::bitflags;
 
 use crate::{deferred::DEFAULT_PBR_DEFERRED_LIGHTING_PASS_ID, *};
@@ -13,8 +11,8 @@ use crate::{deferred::DEFAULT_PBR_DEFERRED_LIGHTING_PASS_ID, *};
 /// An enum to define which UV attribute to use for a texture.
 ///
 /// It is used for every texture in the [`StandardMaterial`].
-/// It only supports two UV attributes, [`bevy_render::mesh::Mesh::ATTRIBUTE_UV_0`] and
-/// [`bevy_render::mesh::Mesh::ATTRIBUTE_UV_1`].
+/// It only supports two UV attributes, [`bevy_mesh::Mesh::ATTRIBUTE_UV_0`] and
+/// [`bevy_mesh::Mesh::ATTRIBUTE_UV_1`].
 /// The default is [`UvChannel::Uv0`].
 #[derive(Reflect, Default, Debug, Clone, PartialEq, Eq)]
 #[reflect(Default, Debug, Clone, PartialEq)]
@@ -26,7 +24,7 @@ pub enum UvChannel {
 
 /// A material with "standard" properties used in PBR lighting.
 /// Standard property values with pictures here:
-/// <https://google.github.io/filament/Material%20Properties.pdf>.
+/// <https://google.github.io/filament/notes/material_properties.html>.
 ///
 /// May be created directly from a [`Color`] or an [`Image`].
 #[derive(Asset, AsBindGroup, Reflect, Debug, Clone)]
@@ -80,16 +78,25 @@ pub struct StandardMaterial {
     ///
     /// The default emissive color is [`LinearRgba::BLACK`], which doesn't add anything to the material color.
     ///
-    /// To increase emissive strength, channel values for `emissive`
+    /// Emissive strength is controlled by the value of the color channels,
+    /// while the hue is controlled by their relative values.
+    ///
+    /// As a result, channel values for `emissive`
     /// colors can exceed `1.0`. For instance, a `base_color` of
     /// `LinearRgba::rgb(1.0, 0.0, 0.0)` represents the brightest
     /// red for objects that reflect light, but an emissive color
     /// like `LinearRgba::rgb(1000.0, 0.0, 0.0)` can be used to create
     /// intensely bright red emissive effects.
     ///
+    /// This results in a final luminance value when multiplied
+    /// by the value of the greyscale emissive texture (which ranges from 0 for black to 1 for white).
+    /// Luminance is a measure of the amount of light emitted per unit area,
+    /// and can be thought of as the "brightness" of the effect.
+    /// In Bevy, we treat these luminance values as the physical units of cd/m², aka nits.
+    ///
     /// Increasing the emissive strength of the color will impact visual effects
     /// like bloom, but it's important to note that **an emissive material won't
-    /// light up surrounding areas like a light source**,
+    /// typically light up surrounding areas like a light source**,
     /// it just adds a value to the color seen on screen.
     pub emissive: LinearRgba,
 
@@ -215,7 +222,7 @@ pub struct StandardMaterial {
     ///
     /// - The material's [`StandardMaterial::base_color`] also modulates the transmitted light;
     /// - To receive transmitted shadows on the diffuse transmission lobe (i.e. the “backside”) of the material,
-    ///   use the [`TransmittedShadowReceiver`] component.
+    ///   use the [`TransmittedShadowReceiver`](bevy_light::TransmittedShadowReceiver) component.
     #[doc(alias = "translucency")]
     pub diffuse_transmission: f32,
 
@@ -249,10 +256,10 @@ pub struct StandardMaterial {
     /// Specular transmission is implemented as a relatively expensive screen-space effect that allows occluded objects to be seen through the material,
     /// with distortion and blur effects.
     ///
-    /// - [`Camera3d::screen_space_specular_transmission_steps`](bevy_core_pipeline::core_3d::Camera3d::screen_space_specular_transmission_steps) can be used to enable transmissive objects
+    /// - [`Camera3d::screen_space_specular_transmission_steps`](bevy_camera::Camera3d::screen_space_specular_transmission_steps) can be used to enable transmissive objects
     ///   to be seen through other transmissive objects, at the cost of additional draw calls and texture copies; (Use with caution!)
     ///   - If a simplified approximation of specular transmission using only environment map lighting is sufficient, consider setting
-    ///     [`Camera3d::screen_space_specular_transmission_steps`](bevy_core_pipeline::core_3d::Camera3d::screen_space_specular_transmission_steps) to `0`.
+    ///     [`Camera3d::screen_space_specular_transmission_steps`](bevy_camera::Camera3d::screen_space_specular_transmission_steps) to `0`.
     /// - If purely diffuse light transmission is needed, (i.e. “translucency”) consider using [`StandardMaterial::diffuse_transmission`] instead,
     ///   for a much less expensive effect.
     /// - Specular transmission is rendered before alpha blending, so any material with [`AlphaMode::Blend`], [`AlphaMode::Premultiplied`], [`AlphaMode::Add`] or [`AlphaMode::Multiply`]
@@ -384,8 +391,25 @@ pub struct StandardMaterial {
     /// If your material has a normal map, but still renders as a flat surface,
     /// make sure your meshes have their tangents set.
     ///
-    /// [`Mesh::generate_tangents`]: bevy_render::mesh::Mesh::generate_tangents
-    /// [`Mesh::with_generated_tangents`]: bevy_render::mesh::Mesh::with_generated_tangents
+    /// [`Mesh::generate_tangents`]: bevy_mesh::Mesh::generate_tangents
+    /// [`Mesh::with_generated_tangents`]: bevy_mesh::Mesh::with_generated_tangents
+    ///
+    /// # Usage
+    ///
+    /// ```
+    /// # use bevy_asset::{AssetServer, Handle};
+    /// # use bevy_ecs::change_detection::Res;
+    /// # use bevy_image::{Image, ImageLoaderSettings};
+    /// #
+    /// fn load_normal_map(asset_server: Res<AssetServer>) {
+    ///     let normal_handle: Handle<Image> = asset_server.load_with_settings(
+    ///         "textures/parallax_example/cube_normal.png",
+    ///         // The normal map texture is in linear color space. Lighting won't look correct
+    ///         // if `is_srgb` is `true`, which is the default.
+    ///         |settings: &mut ImageLoaderSettings| settings.is_srgb = false,
+    ///     );
+    /// }
+    /// ```
     #[texture(9)]
     #[sampler(10)]
     #[dependency]
@@ -629,7 +653,7 @@ pub struct StandardMaterial {
     ///
     /// Your 3D editing software should manage all of that.
     ///
-    /// [`Mesh`]: bevy_render::mesh::Mesh
+    /// [`Mesh`]: bevy_mesh::Mesh
     // TODO: include this in reflection somehow (maybe via remote types like serde https://serde.rs/remote-derive.html)
     #[reflect(ignore, clone)]
     pub cull_mode: Option<Face>,
@@ -1185,6 +1209,7 @@ impl AsBindGroupShaderType<StandardMaterialUniform> for StandardMaterial {
 
 bitflags! {
     /// The pipeline key for `StandardMaterial`, packed into 64 bits.
+    #[repr(C)]
     #[derive(Clone, Copy, PartialEq, Eq, Hash)]
     pub struct StandardMaterialKey: u64 {
         const CULL_FRONT               = 0x000001;
@@ -1404,7 +1429,7 @@ impl Material for StandardMaterial {
     }
 
     fn specialize(
-        _pipeline: &MaterialPipeline<Self>,
+        _pipeline: &MaterialPipeline,
         descriptor: &mut RenderPipelineDescriptor,
         _layout: &MeshVertexBufferLayoutRef,
         key: MaterialPipelineKey<Self>,

@@ -34,7 +34,7 @@ fn button_system(
         match *interaction {
             Interaction::Pressed => {
                 *color = PRESSED_BUTTON.into();
-                *border_color = BorderColor::all(RED.into());
+                *border_color = BorderColor::all(RED);
             }
             Interaction::Hovered => {
                 *color = HOVERED_BUTTON.into();
@@ -83,9 +83,9 @@ fn setup(mut commands: Commands) {
             ..default()
         })
         .observe(
-            |mut trigger: Trigger<Pointer<Click>>, mut focus: ResMut<InputFocus>| {
+            |mut event: On<Pointer<Click>>, mut focus: ResMut<InputFocus>| {
                 focus.0 = None;
-                trigger.propagate(false);
+                event.propagate(false);
             },
         )
         .with_children(|parent| {
@@ -131,7 +131,7 @@ fn setup(mut commands: Commands) {
                                     BackgroundColor(NORMAL_BUTTON),
                                     TabIndex(i),
                                     children![(
-                                        Text::new(format!("TabIndex {}", i)),
+                                        Text::new(format!("TabIndex {i}")),
                                         TextFont {
                                             font_size: 20.0,
                                             ..default()
@@ -140,10 +140,10 @@ fn setup(mut commands: Commands) {
                                     )],
                                 ))
                                 .observe(
-                                    |mut trigger: Trigger<Pointer<Click>>,
+                                    |mut event: On<Pointer<Click>>,
                                     mut focus: ResMut<InputFocus>| {
-                                        focus.0 = Some(trigger.target());
-                                        trigger.propagate(false);
+                                        focus.0 = Some(event.entity());
+                                        event.propagate(false);
                                     },
                                 );
                         }

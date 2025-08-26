@@ -4,17 +4,20 @@ mod related_methods;
 mod relationship_query;
 mod relationship_source_collection;
 
+use core::marker::PhantomData;
+
 use alloc::format;
 
+use bevy_utils::prelude::DebugName;
 pub use related_methods::*;
 pub use relationship_query::*;
 pub use relationship_source_collection::*;
 
 use crate::{
-    component::{Component, HookContext, Mutable},
-    entity::{ComponentCloneCtx, Entity, SourceComponent},
-    error::{ignore, CommandWithEntity, HandleError},
-    system::entity_command::{self},
+    component::{Component, ComponentCloneBehavior, Mutable},
+    entity::{ComponentCloneCtx, Entity},
+    error::CommandWithEntity,
+    lifecycle::HookContext,
     world::{DeferredWorld, EntityWorldMut},
 };
 use log::warn;
@@ -81,6 +84,20 @@ pub trait Relationship: Component + Sized {
     /// Creates this [`Relationship`] from the given `entity`.
     fn from(entity: Entity) -> Self;
 
+    /// Changes the current [`Entity`] ID of the entity containing the [`RelationshipTarget`] to another one.
+    ///
+    /// This is useful for updating the relationship without overwriting other fields stored in `Self`.
+    ///
+    /// # Warning
+    ///
+    /// This should generally not be called by user code, as modifying the related entity could invalidate the
+    /// relationship. If this method is used, then the hooks [`on_replace`](Relationship::on_replace) have to
+    /// run before and [`on_insert`](Relationship::on_insert) after it.
+    /// This happens automatically when this method is called with [`EntityWorldMut::modify_component`].
+    ///
+    /// Prefer to use regular means of insertions when possible.
+    fn set_risky(&mut self, entity: Entity);
+
     /// The `on_insert` component hook that maintains the [`Relationship`] / [`RelationshipTarget`] connection.
     fn on_insert(
         mut world: DeferredWorld,
@@ -105,28 +122,45 @@ pub trait Relationship: Component + Sized {
             warn!(
                 "{}The {}({target_entity:?}) relationship on entity {entity:?} points to itself. The invalid {} relationship has been removed.",
                 caller.map(|location|format!("{location}: ")).unwrap_or_default(),
-                core::any::type_name::<Self>(),
-                core::any::type_name::<Self>()
+                DebugName::type_name::<Self>(),
+                DebugName::type_name::<Self>()
             );
             world.commands().entity(entity).remove::<Self>();
             return;
         }
-        if let Ok(mut target_entity_mut) = world.get_entity_mut(target_entity) {
-            if let Some(mut relationship_target) =
-                target_entity_mut.get_mut::<Self::RelationshipTarget>()
-            {
-                relationship_target.collection_mut_risky().add(entity);
-            } else {
-                let mut target = <Self::RelationshipTarget as RelationshipTarget>::with_capacity(1);
-                target.collection_mut_risky().add(entity);
-                world.commands().entity(target_entity).insert(target);
-            }
+        // For one-to-one relationships, remove existing relationship before adding new one
+        let current_source_to_remove = world
+            .get_entity(target_entity)
+            .ok()
+            .and_then(|target_entity_ref| target_entity_ref.get::<Self::RelationshipTarget>())
+            .and_then(|relationship_target| {
+                relationship_target
+                    .collection()
+                    .source_to_remove_before_add()
+            });
+
+        if let Some(current_source) = current_source_to_remove {
+            world.commands().entity(current_source).try_remove::<Self>();
+        }
+
+        if let Ok(mut entity_commands) = world.commands().get_entity(target_entity) {
+            // Deferring is necessary for batch mode
+            entity_commands
+                .entry::<Self::RelationshipTarget>()
+                .and_modify(move |mut relationship_target| {
+                    relationship_target.collection_mut_risky().add(entity);
+                })
+                .or_insert_with(move || {
+                    let mut target = Self::RelationshipTarget::with_capacity(1);
+                    target.collection_mut_risky().add(entity);
+                    target
+                });
         } else {
             warn!(
                 "{}The {}({target_entity:?}) relationship on entity {entity:?} relates to an entity that does not exist. The invalid {} relationship has been removed.",
                 caller.map(|location|format!("{location}: ")).unwrap_or_default(),
-                core::any::type_name::<Self>(),
-                core::any::type_name::<Self>()
+                DebugName::type_name::<Self>(),
+                DebugName::type_name::<Self>()
             );
             world.commands().entity(entity).remove::<Self>();
         }
@@ -172,7 +206,7 @@ pub trait Relationship: Component + Sized {
 
                     world
                         .commands()
-                        .queue(command.with_entity(target_entity).handle_error_with(ignore));
+                        .queue_silenced(command.with_entity(target_entity));
                 }
             }
         }
@@ -223,50 +257,36 @@ pub trait RelationshipTarget: Component<Mutability = Mutable> + Sized {
 
     /// The `on_replace` component hook that maintains the [`Relationship`] / [`RelationshipTarget`] connection.
     // note: think of this as "on_drop"
-    fn on_replace(mut world: DeferredWorld, HookContext { entity, caller, .. }: HookContext) {
+    fn on_replace(
+        mut world: DeferredWorld,
+        HookContext {
+            entity,
+            relationship_hook_mode,
+            ..
+        }: HookContext,
+    ) {
+        match relationship_hook_mode {
+            RelationshipHookMode::Run => {}
+            // For RelationshipTarget we don't want to run this hook even if it isn't linked, but for Relationship we do.
+            RelationshipHookMode::Skip | RelationshipHookMode::RunIfNotLinked => return,
+        }
         let (entities, mut commands) = world.entities_and_commands();
         let relationship_target = entities.get(entity).unwrap().get::<Self>().unwrap();
         for source_entity in relationship_target.iter() {
-            if entities.get(source_entity).is_ok() {
-                commands.queue(
-                    entity_command::remove::<Self::Relationship>()
-                        .with_entity(source_entity)
-                        .handle_error_with(ignore),
-                );
-            } else {
-                warn!(
-                    "{}Tried to despawn non-existent entity {}",
-                    caller
-                        .map(|location| format!("{location}: "))
-                        .unwrap_or_default(),
-                    source_entity
-                );
-            }
+            commands
+                .entity(source_entity)
+                .try_remove::<Self::Relationship>();
         }
     }
 
     /// The `on_despawn` component hook that despawns entities stored in an entity's [`RelationshipTarget`] when
     /// that entity is despawned.
     // note: think of this as "on_drop"
-    fn on_despawn(mut world: DeferredWorld, HookContext { entity, caller, .. }: HookContext) {
+    fn on_despawn(mut world: DeferredWorld, HookContext { entity, .. }: HookContext) {
         let (entities, mut commands) = world.entities_and_commands();
         let relationship_target = entities.get(entity).unwrap().get::<Self>().unwrap();
         for source_entity in relationship_target.iter() {
-            if entities.get(source_entity).is_ok() {
-                commands.queue(
-                    entity_command::despawn()
-                        .with_entity(source_entity)
-                        .handle_error_with(ignore),
-                );
-            } else {
-                warn!(
-                    "{}Tried to despawn non-existent entity {}",
-                    caller
-                        .map(|location| format!("{location}: "))
-                        .unwrap_or_default(),
-                    source_entity
-                );
-            }
+            commands.entity(source_entity).try_despawn();
         }
     }
 
@@ -296,28 +316,38 @@ pub trait RelationshipTarget: Component<Mutability = Mutable> + Sized {
     }
 }
 
-/// The "clone behavior" for [`RelationshipTarget`]. This actually creates an empty
-/// [`RelationshipTarget`] instance with space reserved for the number of targets in the
-/// original instance. The [`RelationshipTarget`] will then be populated with the proper components
+/// The "clone behavior" for [`RelationshipTarget`]. The [`RelationshipTarget`] will be populated with the proper components
 /// when the corresponding [`Relationship`] sources of truth are inserted. Cloning the actual entities
 /// in the original [`RelationshipTarget`] would result in duplicates, so we don't do that!
 ///
 /// This will also queue up clones of the relationship sources if the [`EntityCloner`](crate::entity::EntityCloner) is configured
 /// to spawn recursively.
 pub fn clone_relationship_target<T: RelationshipTarget>(
-    source: &SourceComponent,
+    component: &T,
+    cloned: &mut T,
     context: &mut ComponentCloneCtx,
 ) {
-    if let Some(component) = source.read::<T>() {
-        let mut cloned = T::with_capacity(component.len());
-        if context.linked_cloning() && T::LINKED_SPAWN {
-            let collection = cloned.collection_mut_risky();
-            for entity in component.iter() {
-                collection.add(entity);
-                context.queue_entity_clone(entity);
-            }
+    if context.linked_cloning() && T::LINKED_SPAWN {
+        let collection = cloned.collection_mut_risky();
+        for entity in component.iter() {
+            collection.add(entity);
+            context.queue_entity_clone(entity);
         }
-        context.write_target_component(cloned);
+    } else if context.moving() {
+        let target = context.target();
+        let collection = cloned.collection_mut_risky();
+        for entity in component.iter() {
+            collection.add(entity);
+            context.queue_deferred(move |world, _mapper| {
+                // We don't want relationships hooks to run because we are manually constructing the collection here
+                _ = DeferredWorld::from(world)
+                    .modify_component_with_relationship_hook_mode::<T::Relationship, ()>(
+                        entity,
+                        RelationshipHookMode::Skip,
+                        |r| r.set_risky(target),
+                    );
+            });
+        }
     }
 }
 
@@ -332,8 +362,127 @@ pub enum RelationshipHookMode {
     Skip,
 }
 
+/// Wrapper for components clone specialization using autoderef.
+#[doc(hidden)]
+pub struct RelationshipCloneBehaviorSpecialization<T>(PhantomData<T>);
+
+impl<T> Default for RelationshipCloneBehaviorSpecialization<T> {
+    fn default() -> Self {
+        Self(PhantomData)
+    }
+}
+
+/// Base trait for relationship clone specialization using autoderef.
+#[doc(hidden)]
+pub trait RelationshipCloneBehaviorBase {
+    fn default_clone_behavior(&self) -> ComponentCloneBehavior;
+}
+
+impl<C> RelationshipCloneBehaviorBase for RelationshipCloneBehaviorSpecialization<C> {
+    fn default_clone_behavior(&self) -> ComponentCloneBehavior {
+        // Relationships currently must have `Clone`/`Reflect`-based handler for cloning/moving logic to properly work.
+        ComponentCloneBehavior::Ignore
+    }
+}
+
+/// Specialized trait for relationship clone specialization using autoderef.
+#[doc(hidden)]
+pub trait RelationshipCloneBehaviorViaReflect {
+    fn default_clone_behavior(&self) -> ComponentCloneBehavior;
+}
+
+#[cfg(feature = "bevy_reflect")]
+impl<C: Relationship + bevy_reflect::Reflect> RelationshipCloneBehaviorViaReflect
+    for &RelationshipCloneBehaviorSpecialization<C>
+{
+    fn default_clone_behavior(&self) -> ComponentCloneBehavior {
+        ComponentCloneBehavior::reflect()
+    }
+}
+
+/// Specialized trait for relationship clone specialization using autoderef.
+#[doc(hidden)]
+pub trait RelationshipCloneBehaviorViaClone {
+    fn default_clone_behavior(&self) -> ComponentCloneBehavior;
+}
+
+impl<C: Relationship + Clone> RelationshipCloneBehaviorViaClone
+    for &&RelationshipCloneBehaviorSpecialization<C>
+{
+    fn default_clone_behavior(&self) -> ComponentCloneBehavior {
+        ComponentCloneBehavior::clone::<C>()
+    }
+}
+
+/// Specialized trait for relationship target clone specialization using autoderef.
+#[doc(hidden)]
+pub trait RelationshipTargetCloneBehaviorViaReflect {
+    fn default_clone_behavior(&self) -> ComponentCloneBehavior;
+}
+
+#[cfg(feature = "bevy_reflect")]
+impl<C: RelationshipTarget + bevy_reflect::Reflect + bevy_reflect::TypePath>
+    RelationshipTargetCloneBehaviorViaReflect for &&&RelationshipCloneBehaviorSpecialization<C>
+{
+    fn default_clone_behavior(&self) -> ComponentCloneBehavior {
+        ComponentCloneBehavior::Custom(|source, context| {
+            if let Some(component) = source.read::<C>()
+                && let Ok(mut cloned) = component.reflect_clone_and_take::<C>()
+            {
+                cloned.collection_mut_risky().clear();
+                clone_relationship_target(component, &mut cloned, context);
+                context.write_target_component(cloned);
+            }
+        })
+    }
+}
+
+/// Specialized trait for relationship target clone specialization using autoderef.
+#[doc(hidden)]
+pub trait RelationshipTargetCloneBehaviorViaClone {
+    fn default_clone_behavior(&self) -> ComponentCloneBehavior;
+}
+
+impl<C: RelationshipTarget + Clone> RelationshipTargetCloneBehaviorViaClone
+    for &&&&RelationshipCloneBehaviorSpecialization<C>
+{
+    fn default_clone_behavior(&self) -> ComponentCloneBehavior {
+        ComponentCloneBehavior::Custom(|source, context| {
+            if let Some(component) = source.read::<C>() {
+                let mut cloned = component.clone();
+                cloned.collection_mut_risky().clear();
+                clone_relationship_target(component, &mut cloned, context);
+                context.write_target_component(cloned);
+            }
+        })
+    }
+}
+
+/// We know there's no additional data on Children, so this handler is an optimization to avoid cloning the entire Collection.
+#[doc(hidden)]
+pub trait RelationshipTargetCloneBehaviorHierarchy {
+    fn default_clone_behavior(&self) -> ComponentCloneBehavior;
+}
+
+impl RelationshipTargetCloneBehaviorHierarchy
+    for &&&&&RelationshipCloneBehaviorSpecialization<crate::hierarchy::Children>
+{
+    fn default_clone_behavior(&self) -> ComponentCloneBehavior {
+        ComponentCloneBehavior::Custom(|source, context| {
+            if let Some(component) = source.read::<crate::hierarchy::Children>() {
+                let mut cloned = crate::hierarchy::Children::with_capacity(component.len());
+                clone_relationship_target(component, &mut cloned, context);
+                context.write_target_component(cloned);
+            }
+        })
+    }
+}
+
 #[cfg(test)]
 mod tests {
+    use core::marker::PhantomData;
+
+    use crate::prelude::{ChildOf, Children};
     use crate::world::World;
     use crate::{component::Component, entity::Entity};
     use alloc::vec::Vec;
@@ -428,9 +577,20 @@ mod tests {
     }
 
     #[test]
-    fn parent_child_relationship_with_custom_relationship() {
-        use crate::prelude::ChildOf;
+    fn relationship_with_multiple_unnamed_non_target_fields_compiles() {
+        #[derive(Component)]
+        #[relationship(relationship_target=Target<T>)]
+        struct Source<T: Send + Sync + 'static>(#[relationship] Entity, PhantomData<T>);
 
+        #[derive(Component)]
+        #[relationship_target(relationship=Source<T>)]
+        struct Target<T: Send + Sync + 'static>(#[relationship] Vec<Entity>, PhantomData<T>);
+
+        // No assert necessary, looking to make sure compilation works with the macros
+    }
+
+    #[test]
+    fn parent_child_relationship_with_custom_relationship() {
         #[derive(Component)]
         #[relationship(relationship_target = RelTarget)]
         struct Rel(Entity);
@@ -484,5 +644,35 @@ mod tests {
 
         assert!(world.get_entity(child).is_err());
         assert!(!world.entity(parent).contains::<RelTarget>());
+    }
+
+    #[test]
+    fn spawn_batch_with_relationship() {
+        let mut world = World::new();
+        let parent = world.spawn_empty().id();
+        let children = world
+            .spawn_batch((0..10).map(|_| ChildOf(parent)))
+            .collect::<Vec<_>>();
+
+        for &child in &children {
+            assert!(world
+                .get::<ChildOf>(child)
+                .is_some_and(|child_of| child_of.parent() == parent));
+        }
+        assert!(world
+            .get::<Children>(parent)
+            .is_some_and(|children| children.len() == 10));
+    }
+
+    #[test]
+    fn insert_batch_with_relationship() {
+        let mut world = World::new();
+        let parent = world.spawn_empty().id();
+        let child = world.spawn_empty().id();
+        world.insert_batch([(child, ChildOf(parent))]);
+        world.flush();
+
+        assert!(world.get::<ChildOf>(child).is_some());
+        assert!(world.get::<Children>(parent).is_some());
     }
 }

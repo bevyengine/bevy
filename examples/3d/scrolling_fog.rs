@@ -11,13 +11,13 @@
 //! interactions change based on the density of the fog.
 
 use bevy::{
-    anti_aliasing::experimental::taa::{TemporalAntiAliasPlugin, TemporalAntiAliasing},
+    anti_aliasing::taa::TemporalAntiAliasing,
     core_pipeline::bloom::Bloom,
     image::{
         ImageAddressMode, ImageFilterMode, ImageLoaderSettings, ImageSampler,
         ImageSamplerDescriptor,
     },
-    pbr::{DirectionalLightShadowMap, FogVolume, VolumetricFog, VolumetricLight},
+    light::{DirectionalLightShadowMap, FogVolume, VolumetricFog, VolumetricLight},
     prelude::*,
 };
 
@@ -32,7 +32,6 @@ fn main() {
             ..default()
         }))
         .insert_resource(DirectionalLightShadowMap { size: 4096 })
-        .add_plugins(TemporalAntiAliasPlugin)
         .add_systems(Startup, setup)
         .add_systems(Update, scroll_fog)
         .run();

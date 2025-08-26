@@ -5,7 +5,7 @@
 //!
 //! While disabling entities *will* make them invisible,
 //! that's not its primary purpose!
-//! [`Visibility`](bevy::prelude::Visibility) should be used to hide entities;
+//! [`Visibility`] should be used to hide entities;
 //! disabled entities are skipped entirely, which can lead to subtle bugs.
 //!
 //! # Default query filters
@@ -36,11 +36,11 @@ fn main() {
 struct DisableOnClick;
 
 fn disable_entities_on_click(
-    trigger: Trigger<Pointer<Click>>,
+    event: On<Pointer<Click>>,
     valid_query: Query<&DisableOnClick>,
     mut commands: Commands,
 ) {
-    let clicked_entity = trigger.target();
+    let clicked_entity = event.entity();
     // Windows and text are entities and can be clicked!
     // We definitely don't want to disable the window itself,
     // because that would cause the app to close!
@@ -66,7 +66,7 @@ fn list_all_named_entities(
     // Query iteration order is not guaranteed, so we sort the names
     // to ensure the output is consistent.
     for name in query.iter().sort::<&Name>() {
-        text_string.push_str(&format!("{:?}\n", name));
+        text_string.push_str(&format!("{name:?}\n"));
     }
 
     if let Ok(mut text) = name_text_query.single_mut() {

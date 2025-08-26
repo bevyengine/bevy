@@ -21,28 +21,29 @@
 use std::f32::consts::PI;
 
 use bevy::{
+    camera::{Exposure, ScreenSpaceTransmissionQuality},
     color::palettes::css::*,
-    core_pipeline::{
-        bloom::Bloom, core_3d::ScreenSpaceTransmissionQuality, prepass::DepthPrepass,
-        tonemapping::Tonemapping,
-    },
+    core_pipeline::{bloom::Bloom, prepass::DepthPrepass, tonemapping::Tonemapping},
+    light::{NotShadowCaster, PointLightShadowMap, TransmittedShadowReceiver},
     math::ops,
-    pbr::{NotShadowCaster, PointLightShadowMap, TransmittedShadowReceiver},
     prelude::*,
     render::{
-        camera::{Exposure, TemporalJitter},
+        camera::TemporalJitter,
         view::{ColorGrading, ColorGradingGlobal, Hdr},
     },
 };
 
+// *Note:* TAA is not _required_ for specular transmission, but
+// it _greatly enhances_ the look of the resulting blur effects.
+// Sadly, it's not available under WebGL.
 #[cfg(any(feature = "webgpu", not(target_arch = "wasm32")))]
-use bevy::anti_aliasing::experimental::taa::{TemporalAntiAliasPlugin, TemporalAntiAliasing};
+use bevy::anti_aliasing::taa::TemporalAntiAliasing;
+
 use rand::random;
 
 fn main() {
-    let mut app = App::new();
-
-    app.add_plugins(DefaultPlugins)
+    App::new()
+        .add_plugins(DefaultPlugins)
         .insert_resource(ClearColor(Color::BLACK))
         .insert_resource(PointLightShadowMap { size: 2048 })
         .insert_resource(AmbientLight {
@@ -50,15 +51,8 @@ fn main() {
             ..default()
         })
         .add_systems(Startup, setup)
-        .add_systems(Update, (example_control_system, flicker_system));
-
-    // *Note:* TAA is not _required_ for specular transmission, but
-    // it _greatly enhances_ the look of the resulting blur effects.
-    // Sadly, it's not available under WebGL.
-    #[cfg(any(feature = "webgpu", not(target_arch = "wasm32")))]
-    app.add_plugins(TemporalAntiAliasPlugin);
-
-    app.run();
+        .add_systems(Update, (example_control_system, flicker_system))
+        .run();
 }
 
 /// set up a simple 3D scene

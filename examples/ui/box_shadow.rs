@@ -94,6 +94,7 @@ enum SettingType {
     Shape,
     Samples,
 }
+
 impl SettingType {
     fn label(&self) -> &str {
         match self {
@@ -171,7 +172,7 @@ fn setup(
 
             (
                 node,
-                BorderColor::all(WHITE.into()),
+                BorderColor::all(WHITE),
                 radius,
                 BackgroundColor(Color::srgb(0.21, 0.21, 0.21)),
                 BoxShadow(vec![ShadowStyle {
@@ -300,7 +301,7 @@ fn build_setting_row(
     let value_text = match setting_type {
         SettingType::Shape => SHAPES[value as usize % SHAPES.len()].0.to_string(),
         SettingType::Count => format!("{}", value as usize),
-        _ => format!("{:.1}", value),
+        _ => format!("{value:.1}"),
     };
 
     (

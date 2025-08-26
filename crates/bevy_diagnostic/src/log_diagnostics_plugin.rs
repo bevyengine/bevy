@@ -128,10 +128,10 @@ impl LogDiagnosticsPlugin {
     ) {
         if let Some(filter) = &state.filter {
             for path in filter.iter() {
-                if let Some(diagnostic) = diagnostics.get(path) {
-                    if diagnostic.is_enabled {
-                        callback(diagnostic);
-                    }
+                if let Some(diagnostic) = diagnostics.get(path)
+                    && diagnostic.is_enabled
+                {
+                    callback(diagnostic);
                 }
             }
         } else {
@@ -202,7 +202,7 @@ impl LogDiagnosticsPlugin {
     ) {
         if state.timer.tick(time.delta()).is_finished() {
             Self::for_each_diagnostic(&state, &diagnostics, |diagnostic| {
-                debug!("{:#?}\n", diagnostic);
+                debug!("{diagnostic:#?}\n");
             });
         }
     }

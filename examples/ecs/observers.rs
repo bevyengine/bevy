@@ -16,12 +16,10 @@ fn main() {
         // Observers are systems that run when an event is "triggered". This observer runs whenever
         // `ExplodeMines` is triggered.
         .add_observer(
-            |trigger: Trigger<ExplodeMines>,
+            |event: On<ExplodeMines>,
              mines: Query<&Mine>,
              index: Res<SpatialIndex>,
              mut commands: Commands| {
-                // You can access the trigger data via the `Observer`
-                let event = trigger.event();
                 // Access resources
                 for e in index.get_nearby(event.pos) {
                     // Run queries
@@ -52,10 +50,10 @@ impl Mine {
     fn random(rand: &mut ChaCha8Rng) -> Self {
         Mine {
             pos: Vec2::new(
-                (rand.r#gen::<f32>() - 0.5) * 1200.0,
-                (rand.r#gen::<f32>() - 0.5) * 600.0,
+                (rand.random::<f32>() - 0.5) * 1200.0,
+                (rand.random::<f32>() - 0.5) * 600.0,
             ),
-            size: 4.0 + rand.r#gen::<f32>() * 16.0,
+            size: 4.0 + rand.random::<f32>() * 16.0,
         }
     }
 }
@@ -66,7 +64,7 @@ struct ExplodeMines {
     radius: f32,
 }
 
-#[derive(Event)]
+#[derive(EntityEvent)]
 struct Explode;
 
 fn setup(mut commands: Commands) {
@@ -112,38 +110,30 @@ fn setup(mut commands: Commands) {
     commands.spawn(observer);
 }
 
-fn on_add_mine(
-    trigger: Trigger<OnAdd, Mine>,
-    query: Query<&Mine>,
-    mut index: ResMut<SpatialIndex>,
-) {
-    let mine = query.get(trigger.target()).unwrap();
+fn on_add_mine(event: On<Add, Mine>, query: Query<&Mine>, mut index: ResMut<SpatialIndex>) {
+    let mine = query.get(event.entity()).unwrap();
     let tile = (
         (mine.pos.x / CELL_SIZE).floor() as i32,
         (mine.pos.y / CELL_SIZE).floor() as i32,
     );
-    index.map.entry(tile).or_default().insert(trigger.target());
+    index.map.entry(tile).or_default().insert(event.entity());
 }
 
 // Remove despawned mines from our index
-fn on_remove_mine(
-    trigger: Trigger<OnRemove, Mine>,
-    query: Query<&Mine>,
-    mut index: ResMut<SpatialIndex>,
-) {
-    let mine = query.get(trigger.target()).unwrap();
+fn on_remove_mine(event: On<Remove, Mine>, query: Query<&Mine>, mut index: ResMut<SpatialIndex>) {
+    let mine = query.get(event.entity()).unwrap();
     let tile = (
         (mine.pos.x / CELL_SIZE).floor() as i32,
         (mine.pos.y / CELL_SIZE).floor() as i32,
     );
     index.map.entry(tile).and_modify(|set| {
-        set.remove(&trigger.target());
+        set.remove(&event.entity());
     });
 }
 
-fn explode_mine(trigger: Trigger<Explode>, query: Query<&Mine>, mut commands: Commands) {
-    // If a triggered event is targeting a specific entity you can access it with `.target()`
-    let id = trigger.target();
+fn explode_mine(event: On<Explode>, query: Query<&Mine>, mut commands: Commands) {
+    // If a triggered event is targeting a specific entity you can access it with `.entity()`
+    let id = event.entity();
     let Ok(mut entity) = commands.get_entity(id) else {
         return;
     };
@@ -184,10 +174,9 @@ fn handle_click(
         .cursor_position()
         .and_then(|cursor| camera.viewport_to_world(camera_transform, cursor).ok())
         .map(|ray| ray.origin.truncate())
+        && mouse_button_input.just_pressed(MouseButton::Left)
     {
-        if mouse_button_input.just_pressed(MouseButton::Left) {
-            commands.trigger(ExplodeMines { pos, radius: 1.0 });
-        }
+        commands.trigger(ExplodeMines { pos, radius: 1.0 });
     }
 }
 

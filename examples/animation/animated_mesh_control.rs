@@ -2,7 +2,7 @@
 
 use std::{f32::consts::PI, time::Duration};
 
-use bevy::{animation::RepeatAnimation, pbr::CascadeShadowConfigBuilder, prelude::*};
+use bevy::{animation::RepeatAnimation, light::CascadeShadowConfigBuilder, prelude::*};
 
 const FOX_PATH: &str = "models/animated/Fox.glb";
 

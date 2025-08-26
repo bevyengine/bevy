@@ -16,8 +16,8 @@ use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use cosmic_text::{Attrs, Buffer, Family, Metrics, Shaping, Wrap};
 
 use crate::{
-    error::TextError, ComputedTextBlock, Font, FontAtlasSets, FontSmoothing, JustifyText,
-    LineBreak, PositionedGlyph, TextBounds, TextEntity, TextFont, TextLayout,
+    error::TextError, ComputedTextBlock, Font, FontAtlasSets, FontSmoothing, Justify, LineBreak,
+    PositionedGlyph, TextBounds, TextEntity, TextFont, TextLayout,
 };
 
 /// A wrapper resource around a [`cosmic_text::FontSystem`]
@@ -64,7 +64,7 @@ pub struct FontFaceInfo {
     pub family_name: Arc<str>,
 }
 
-/// The `TextPipeline` is used to layout and render text blocks (see `Text`/[`Text2d`](crate::Text2d)).
+/// The `TextPipeline` is used to layout and render text blocks (see `Text`/`Text2d`).
 ///
 /// See the [crate-level documentation](crate) for more information.
 #[derive(Default, Resource)]
@@ -88,7 +88,7 @@ impl TextPipeline {
         fonts: &Assets<Font>,
         text_spans: impl Iterator<Item = (Entity, usize, &'a str, &'a TextFont, Color)>,
         linebreak: LineBreak,
-        justify: JustifyText,
+        justify: Justify,
         bounds: TextBounds,
         scale_factor: f64,
         computed: &mut ComputedTextBlock,
@@ -201,7 +201,7 @@ impl TextPipeline {
 
         // Workaround for alignment not working for unbounded text.
         // See https://github.com/pop-os/cosmic-text/issues/343
-        if bounds.width.is_none() && justify != JustifyText::Left {
+        if bounds.width.is_none() && justify != Justify::Left {
             let dimensions = buffer_dimensions(buffer);
             // `set_size` causes a re-layout to occur.
             buffer.set_size(font_system, Some(dimensions.x), bounds.height);
@@ -340,7 +340,7 @@ impl TextPipeline {
                             )
                         })?;
 
-                    let texture_atlas = texture_atlases.get(&atlas_info.texture_atlas).unwrap();
+                    let texture_atlas = texture_atlases.get(atlas_info.texture_atlas).unwrap();
                     let location = atlas_info.location;
                     let glyph_rect = texture_atlas.textures[location.glyph_index];
                     let left = location.offset.x as f32;
@@ -449,6 +449,8 @@ impl TextPipeline {
 #[derive(Component, Clone, Default, Debug, Reflect)]
 #[reflect(Component, Default, Debug, Clone)]
 pub struct TextLayoutInfo {
+    /// The target scale factor for this text layout
+    pub scale_factor: f32,
     /// Scaled and positioned glyphs in screenspace
     pub glyphs: Vec<PositionedGlyph>,
     /// Rects bounding the text block's text sections.

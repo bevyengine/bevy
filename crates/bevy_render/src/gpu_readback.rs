@@ -19,7 +19,7 @@ use bevy_ecs::schedule::IntoScheduleConfigs;
 use bevy_ecs::{
     change_detection::ResMut,
     entity::Entity,
-    event::Event,
+    event::EntityEvent,
     prelude::{Component, Resource, World},
     system::{Query, Res},
 };
@@ -77,7 +77,10 @@ impl Plugin for GpuReadbackPlugin {
 #[derive(Component, ExtractComponent, Clone, Debug)]
 pub enum Readback {
     Texture(Handle<Image>),
-    Buffer(Handle<ShaderStorageBuffer>),
+    Buffer {
+        buffer: Handle<ShaderStorageBuffer>,
+        start_offset_and_size: Option<(u64, u64)>,
+    },
 }
 
 impl Readback {
@@ -86,9 +89,21 @@ impl Readback {
         Self::Texture(image)
     }
 
-    /// Create a readback component for a buffer using the given handle.
+    /// Create a readback component for a full buffer using the given handle.
     pub fn buffer(buffer: Handle<ShaderStorageBuffer>) -> Self {
-        Self::Buffer(buffer)
+        Self::Buffer {
+            buffer,
+            start_offset_and_size: None,
+        }
+    }
+
+    /// Create a readback component for a buffer range using the given handle, a start offset in bytes
+    /// and a number of bytes to read.
+    pub fn buffer_range(buffer: Handle<ShaderStorageBuffer>, start_offset: u64, size: u64) -> Self {
+        Self::Buffer {
+            buffer,
+            start_offset_and_size: Some((start_offset, size)),
+        }
     }
 }
 
@@ -96,7 +111,7 @@ impl Readback {
 ///
 /// The event contains the data as a `Vec<u8>`, which can be interpreted as the raw bytes of the
 /// requested buffer or texture.
-#[derive(Event, Deref, DerefMut, Reflect, Debug)]
+#[derive(EntityEvent, Deref, DerefMut, Reflect, Debug)]
 #[reflect(Debug)]
 pub struct ReadbackComplete(pub Vec<u8>);
 
@@ -193,9 +208,8 @@ enum ReadbackSource {
         size: Extent3d,
     },
     Buffer {
-        src_start: u64,
-        dst_start: u64,
         buffer: Buffer,
+        start_offset_and_size: Option<(u64, u64)>,
     },
 }
 
@@ -243,14 +257,13 @@ fn prepare_buffers(
     for (entity, readback) in handles.iter() {
         match readback {
             Readback::Texture(image) => {
-                if let Some(gpu_image) = gpu_images.get(image) {
+                if let Some(gpu_image) = gpu_images.get(image)
+                    && let Ok(pixel_size) = gpu_image.texture_format.pixel_size()
+                {
                     let layout = layout_data(gpu_image.size, gpu_image.texture_format);
                     let buffer = buffer_pool.get(
                         &render_device,
-                        get_aligned_size(
-                            gpu_image.size,
-                            gpu_image.texture_format.pixel_size() as u32,
-                        ) as u64,
+                        get_aligned_size(gpu_image.size, pixel_size as u32) as u64,
                     );
                     let (tx, rx) = async_channel::bounded(1);
                     readbacks.requested.push(GpuReadback {
@@ -266,16 +279,30 @@ fn prepare_buffers(
                     });
                 }
             }
-            Readback::Buffer(buffer) => {
+            Readback::Buffer {
+                buffer,
+                start_offset_and_size,
+            } => {
                 if let Some(ssbo) = ssbos.get(buffer) {
-                    let size = ssbo.buffer.size();
+                    let full_size = ssbo.buffer.size();
+                    let size = start_offset_and_size
+                        .map(|(start, size)| {
+                            let end = start + size;
+                            if end > full_size {
+                                panic!(
+                                    "Tried to read past the end of the buffer (start: {start}, \
+                                    size: {size}, buffer size: {full_size})."
+                                );
+                            }
+                            size
+                        })
+                        .unwrap_or(full_size);
                     let buffer = buffer_pool.get(&render_device, size);
                     let (tx, rx) = async_channel::bounded(1);
                     readbacks.requested.push(GpuReadback {
                         entity: entity.id(),
                         src: ReadbackSource::Buffer {
-                            src_start: 0,
-                            dst_start: 0,
+                            start_offset_and_size: *start_offset_and_size,
                             buffer: ssbo.buffer.clone(),
                         },
                         buffer,
@@ -307,17 +334,11 @@ pub(crate) fn submit_readback_commands(world: &World, command_encoder: &mut Comm
                 );
             }
             ReadbackSource::Buffer {
-                src_start,
-                dst_start,
                 buffer,
+                start_offset_and_size,
             } => {
-                command_encoder.copy_buffer_to_buffer(
-                    buffer,
-                    *src_start,
-                    &readback.buffer,
-                    *dst_start,
-                    buffer.size(),
-                );
+                let (src_start, size) = start_offset_and_size.unwrap_or((0, buffer.size()));
+                command_encoder.copy_buffer_to_buffer(buffer, src_start, &readback.buffer, 0, size);
             }
         }
     }
@@ -362,15 +383,19 @@ pub(crate) const fn get_aligned_size(extent: Extent3d, pixel_size: u32) -> u32 {
 pub(crate) fn layout_data(extent: Extent3d, format: TextureFormat) -> TexelCopyBufferLayout {
     TexelCopyBufferLayout {
         bytes_per_row: if extent.height > 1 || extent.depth_or_array_layers > 1 {
-            // 1 = 1 row
-            Some(get_aligned_size(
-                Extent3d {
-                    width: extent.width,
-                    height: 1,
-                    depth_or_array_layers: 1,
-                },
-                format.pixel_size() as u32,
-            ))
+            if let Ok(pixel_size) = format.pixel_size() {
+                // 1 = 1 row
+                Some(get_aligned_size(
+                    Extent3d {
+                        width: extent.width,
+                        height: 1,
+                        depth_or_array_layers: 1,
+                    },
+                    pixel_size as u32,
+                ))
+            } else {
+                None
+            }
         } else {
             None
         },

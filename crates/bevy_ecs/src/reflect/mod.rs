@@ -18,6 +18,7 @@ mod from_world;
 mod map_entities;
 mod resource;
 
+use bevy_utils::prelude::DebugName;
 pub use bundle::{ReflectBundle, ReflectBundleFns};
 pub use component::{ReflectComponent, ReflectComponentFns};
 pub use entity_commands::ReflectCommandExt;
@@ -43,6 +44,18 @@ impl DerefMut for AppTypeRegistry {
     #[inline]
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.0
+    }
+}
+
+impl AppTypeRegistry {
+    /// Creates [`AppTypeRegistry`] and automatically registers all types deriving [`Reflect`].
+    ///
+    /// See [`TypeRegistry::register_derived_types`] for more details.
+    #[cfg(feature = "reflect_auto_register")]
+    pub fn new_with_derived_types() -> Self {
+        let app_registry = AppTypeRegistry::default();
+        app_registry.write().register_derived_types();
+        app_registry
     }
 }
 
@@ -136,7 +149,7 @@ pub fn from_reflect_with_fallback<T: Reflect + TypePath>(
             `Default` or `FromWorld` traits. Are you perhaps missing a `#[reflect(Default)]` \
             or `#[reflect(FromWorld)]`?",
             // FIXME: once we have unique reflect, use `TypePath`.
-            core::any::type_name::<T>(),
+            DebugName::type_name::<T>(),
         );
     };
 

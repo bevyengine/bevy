@@ -1,6 +1,10 @@
 use crate::material_bind_groups::{MaterialBindGroupIndex, MaterialBindGroupSlot};
-use allocator::MeshAllocator;
 use bevy_asset::{embedded_asset, load_embedded_asset, AssetId};
+use bevy_camera::{
+    primitives::Aabb,
+    visibility::{NoFrustumCulling, RenderLayers, ViewVisibility, VisibilityRange},
+    Camera, Camera3d, Projection,
+};
 use bevy_core_pipeline::{
     core_3d::{AlphaMask3d, Opaque3d, Transmissive3d, Transparent3d, CORE_3D_DEPTH_FORMAT},
     deferred::{AlphaMask3dDeferred, Opaque3dDeferred},
@@ -15,7 +19,15 @@ use bevy_ecs::{
     system::{lifetimeless::*, SystemParamItem, SystemState},
 };
 use bevy_image::{BevyDefault, ImageSampler, TextureFormatPixelInfo};
+use bevy_light::{
+    EnvironmentMapLight, IrradianceVolume, NotShadowCaster, NotShadowReceiver,
+    ShadowFilteringMethod, TransmittedShadowReceiver,
+};
 use bevy_math::{Affine3, Rect, UVec2, Vec3, Vec4};
+use bevy_mesh::{
+    skinning::SkinnedMesh, BaseMeshPipelineKey, Mesh, Mesh3d, MeshTag, MeshVertexBufferLayoutRef,
+    VertexAttributeDescriptor,
+};
 use bevy_platform::collections::{hash_map::Entry, HashMap};
 use bevy_render::{
     batching::{
@@ -26,9 +38,7 @@ use bevy_render::{
         },
         no_gpu_preprocessing, GetBatchData, GetFullBatchData, NoAutomaticBatching,
     },
-    camera::Camera,
-    mesh::{skinning::SkinnedMesh, *},
-    primitives::Aabb,
+    mesh::{allocator::MeshAllocator, RenderMesh, RenderMeshBufferInfo},
     render_asset::RenderAssets,
     render_phase::{
         BinnedRenderPhasePlugin, InputUniformIndex, PhaseItem, PhaseItemExtraIndex, RenderCommand,
@@ -39,11 +49,12 @@ use bevy_render::{
     sync_world::MainEntityHashSet,
     texture::{DefaultImageSampler, GpuImage},
     view::{
-        self, NoFrustumCulling, NoIndirectDrawing, RenderVisibilityRanges, RetainedViewEntity,
-        ViewTarget, ViewUniformOffset, ViewVisibility, VisibilityRange,
+        self, NoIndirectDrawing, RenderVisibilityRanges, RetainedViewEntity, ViewTarget,
+        ViewUniformOffset,
     },
     Extract,
 };
+use bevy_shader::{load_shader_library, Shader, ShaderDefVal, ShaderSettings};
 use bevy_transform::components::GlobalTransform;
 use bevy_utils::{default, Parallel, TypeIdMap};
 use core::any::TypeId;
@@ -52,8 +63,6 @@ use material_bind_groups::MaterialBindingId;
 use tracing::{error, warn};
 
 use self::irradiance_volume::IRRADIANCE_VOLUMES_ARE_USABLE;
-use crate::environment_map::EnvironmentMapLight;
-use crate::irradiance_volume::IrradianceVolume;
 use crate::{
     render::{
         morph::{
@@ -64,7 +73,6 @@ use crate::{
     },
     *,
 };
-use bevy_core_pipeline::core_3d::Camera3d;
 use bevy_core_pipeline::oit::OrderIndependentTransparencySettings;
 use bevy_core_pipeline::prepass::{DeferredPrepass, DepthPrepass, NormalPrepass};
 use bevy_core_pipeline::tonemapping::{DebandDither, Tonemapping};
@@ -75,6 +83,7 @@ use bevy_render::prelude::Msaa;
 use bevy_render::sync_world::{MainEntity, MainEntityHashMap};
 use bevy_render::view::ExtractedView;
 use bevy_render::RenderSystems::PrepareAssets;
+
 use bytemuck::{Pod, Zeroable};
 use nonmax::{NonMaxU16, NonMaxU32};
 use smallvec::{smallvec, SmallVec};
@@ -718,6 +727,8 @@ pub struct RenderMeshInstanceShared {
     pub lightmap_slab_index: Option<LightmapSlabIndex>,
     /// User supplied tag to identify this mesh instance.
     pub tag: u32,
+    /// Render layers that this mesh instance belongs to.
+    pub render_layers: Option<RenderLayers>,
 }
 
 /// Information that is gathered during the parallel portion of mesh extraction
@@ -809,6 +820,7 @@ impl RenderMeshInstanceShared {
         tag: Option<&MeshTag>,
         not_shadow_caster: bool,
         no_automatic_batching: bool,
+        render_layers: Option<&RenderLayers>,
     ) -> Self {
         Self::for_cpu_building(
             previous_transform,
@@ -817,6 +829,7 @@ impl RenderMeshInstanceShared {
             default(),
             not_shadow_caster,
             no_automatic_batching,
+            render_layers,
         )
     }
 
@@ -828,6 +841,7 @@ impl RenderMeshInstanceShared {
         material_bindings_index: MaterialBindingId,
         not_shadow_caster: bool,
         no_automatic_batching: bool,
+        render_layers: Option<&RenderLayers>,
     ) -> Self {
         let mut mesh_instance_flags = RenderMeshInstanceFlags::empty();
         mesh_instance_flags.set(RenderMeshInstanceFlags::SHADOW_CASTER, !not_shadow_caster);
@@ -846,6 +860,7 @@ impl RenderMeshInstanceShared {
             material_bindings_index,
             lightmap_slab_index: None,
             tag: tag.map_or(0, |i| **i),
+            render_layers: render_layers.cloned(),
         }
     }
 
@@ -901,7 +916,7 @@ impl RenderMeshInstances {
 
     /// Constructs [`RenderMeshQueueData`] for the given entity, if it has a
     /// mesh attached.
-    pub fn render_mesh_queue_data(&self, entity: MainEntity) -> Option<RenderMeshQueueData> {
+    pub fn render_mesh_queue_data(&self, entity: MainEntity) -> Option<RenderMeshQueueData<'_>> {
         match *self {
             RenderMeshInstances::CpuBuilding(ref instances) => {
                 instances.render_mesh_queue_data(entity)
@@ -932,7 +947,7 @@ impl RenderMeshInstancesCpu {
             .map(|render_mesh_instance| render_mesh_instance.mesh_asset_id)
     }
 
-    fn render_mesh_queue_data(&self, entity: MainEntity) -> Option<RenderMeshQueueData> {
+    fn render_mesh_queue_data(&self, entity: MainEntity) -> Option<RenderMeshQueueData<'_>> {
         self.get(&entity)
             .map(|render_mesh_instance| RenderMeshQueueData {
                 shared: &render_mesh_instance.shared,
@@ -956,7 +971,7 @@ impl RenderMeshInstancesGpu {
             .map(|render_mesh_instance| render_mesh_instance.mesh_asset_id)
     }
 
-    fn render_mesh_queue_data(&self, entity: MainEntity) -> Option<RenderMeshQueueData> {
+    fn render_mesh_queue_data(&self, entity: MainEntity) -> Option<RenderMeshQueueData<'_>> {
         self.get(&entity)
             .map(|render_mesh_instance| RenderMeshQueueData {
                 shared: &render_mesh_instance.shared,
@@ -1311,6 +1326,7 @@ pub fn extract_meshes_for_cpu_building(
             Has<NotShadowCaster>,
             Has<NoAutomaticBatching>,
             Has<VisibilityRange>,
+            Option<&RenderLayers>,
         )>,
     >,
 ) {
@@ -1330,6 +1346,7 @@ pub fn extract_meshes_for_cpu_building(
             not_shadow_caster,
             no_automatic_batching,
             visibility_range,
+            render_layers,
         )| {
             if !view_visibility.get() {
                 return;
@@ -1362,6 +1379,7 @@ pub fn extract_meshes_for_cpu_building(
                 material_bindings_index,
                 not_shadow_caster,
                 no_automatic_batching,
+                render_layers,
             );
 
             let world_from_local = transform.affine();
@@ -1415,6 +1433,7 @@ type GpuMeshExtractionQuery = (
     Has<NotShadowCaster>,
     Has<NoAutomaticBatching>,
     Has<VisibilityRange>,
+    Option<Read<RenderLayers>>,
 );
 
 /// Extracts meshes from the main world into the render world and queues
@@ -1450,8 +1469,6 @@ pub fn extract_meshes_for_gpu_building(
         >,
     >,
     all_meshes_query: Extract<Query<GpuMeshExtractionQuery>>,
-    mut removed_visibilities_query: Extract<RemovedComponents<ViewVisibility>>,
-    mut removed_global_transforms_query: Extract<RemovedComponents<GlobalTransform>>,
     mut removed_meshes_query: Extract<RemovedComponents<Mesh3d>>,
     gpu_culling_query: Extract<Query<(), (With<Camera>, Without<NoIndirectDrawing>)>>,
     meshes_to_reextract_next_frame: ResMut<MeshesToReextractNextFrame>,
@@ -1507,11 +1524,7 @@ pub fn extract_meshes_for_gpu_building(
     }
 
     // Also record info about each mesh that became invisible.
-    for entity in removed_visibilities_query
-        .read()
-        .chain(removed_global_transforms_query.read())
-        .chain(removed_meshes_query.read())
-    {
+    for entity in removed_meshes_query.read() {
         // Only queue a mesh for removal if we didn't pick it up above.
         // It's possible that a necessary component was removed and re-added in
         // the same frame.
@@ -1540,7 +1553,8 @@ fn extract_mesh_for_gpu_building(
         not_shadow_caster,
         no_automatic_batching,
         visibility_range,
-    ): <GpuMeshExtractionQuery as QueryData>::Item<'_>,
+        render_layers,
+    ): <GpuMeshExtractionQuery as QueryData>::Item<'_, '_>,
     render_visibility_ranges: &RenderVisibilityRanges,
     render_mesh_instances: &RenderMeshInstancesGpu,
     queue: &mut RenderMeshInstanceGpuQueue,
@@ -1570,6 +1584,7 @@ fn extract_mesh_for_gpu_building(
         tag,
         not_shadow_caster,
         no_automatic_batching,
+        render_layers,
     );
 
     let lightmap_uv_rect = pack_lightmap_uv_rect(lightmap.map(|lightmap| lightmap.uv_rect));
@@ -1807,17 +1822,18 @@ impl FromWorld for MeshPipeline {
                 }
             };
 
-            let format_size = image.texture_descriptor.format.pixel_size();
-            render_queue.write_texture(
-                texture.as_image_copy(),
-                image.data.as_ref().expect("Image was created without data"),
-                TexelCopyBufferLayout {
-                    offset: 0,
-                    bytes_per_row: Some(image.width() * format_size as u32),
-                    rows_per_image: None,
-                },
-                image.texture_descriptor.size,
-            );
+            if let Ok(format_size) = image.texture_descriptor.format.pixel_size() {
+                render_queue.write_texture(
+                    texture.as_image_copy(),
+                    image.data.as_ref().expect("Image was created without data"),
+                    TexelCopyBufferLayout {
+                        offset: 0,
+                        bytes_per_row: Some(image.width() * format_size as u32),
+                        rows_per_image: None,
+                    },
+                    image.texture_descriptor.size,
+                );
+            }
 
             let texture_view = texture.create_view(&TextureViewDescriptor::default());
             GpuImage {
@@ -1864,7 +1880,10 @@ impl MeshPipeline {
         }
     }
 
-    pub fn get_view_layout(&self, layout_key: MeshPipelineViewLayoutKey) -> &BindGroupLayout {
+    pub fn get_view_layout(
+        &self,
+        layout_key: MeshPipelineViewLayoutKey,
+    ) -> &MeshPipelineViewLayout {
         self.view_layouts.get_view_layout(layout_key)
     }
 }
@@ -2036,7 +2055,7 @@ impl GetFullBatchData for MeshPipeline {
 }
 
 bitflags::bitflags! {
-    #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+    #[derive(Default, Clone, Copy, Debug, PartialEq, Eq, Hash)]
     #[repr(transparent)]
     // NOTE: Apparently quadro drivers support up to 64x MSAA.
     /// MSAA uses the highest 3 bits for the MSAA log2(sample count) to support up to 128x MSAA.
@@ -2320,7 +2339,11 @@ impl SpecializedMeshPipeline for MeshPipeline {
             shader_defs.push("PBR_SPECULAR_TEXTURES_SUPPORTED".into());
         }
 
-        let mut bind_group_layout = vec![self.get_view_layout(key.into()).clone()];
+        let bind_group_layout = self.get_view_layout(key.into());
+        let mut bind_group_layout = vec![
+            bind_group_layout.main_layout.clone(),
+            bind_group_layout.binding_array_layout.clone(),
+        ];
 
         if key.msaa_samples() > 1 {
             shader_defs.push("MULTISAMPLED".into());
@@ -2550,6 +2573,9 @@ impl SpecializedMeshPipeline for MeshPipeline {
 
         if self.clustered_decals_are_usable {
             shader_defs.push("CLUSTERED_DECALS_ARE_USABLE".into());
+            if cfg!(feature = "pbr_light_textures") {
+                shader_defs.push("LIGHT_TEXTURES".into());
+            }
         }
 
         let format = if key.contains(MeshPipelineKey::HDR) {
@@ -2571,30 +2597,26 @@ impl SpecializedMeshPipeline for MeshPipeline {
         Ok(RenderPipelineDescriptor {
             vertex: VertexState {
                 shader: self.shader.clone(),
-                entry_point: "vertex".into(),
                 shader_defs: shader_defs.clone(),
                 buffers: vec![vertex_buffer_layout],
+                ..default()
             },
             fragment: Some(FragmentState {
                 shader: self.shader.clone(),
                 shader_defs,
-                entry_point: "fragment".into(),
                 targets: vec![Some(ColorTargetState {
                     format,
                     blend,
                     write_mask: ColorWrites::ALL,
                 })],
+                ..default()
             }),
             layout: bind_group_layout,
-            push_constant_ranges: vec![],
             primitive: PrimitiveState {
-                front_face: FrontFace::Ccw,
                 cull_mode: Some(Face::Back),
                 unclipped_depth: false,
-                polygon_mode: PolygonMode::Fill,
-                conservative: false,
                 topology: key.primitive_topology(),
-                strip_index_format: None,
+                ..default()
             },
             depth_stencil: Some(DepthStencilState {
                 format: CORE_3D_DEPTH_FORMAT,
@@ -2618,7 +2640,7 @@ impl SpecializedMeshPipeline for MeshPipeline {
                 alpha_to_coverage_enabled,
             },
             label: Some(label),
-            zero_initialize_workgroup_memory: false,
+            ..default()
         })
     }
 }
@@ -2710,27 +2732,26 @@ pub fn prepare_mesh_bind_groups(
     mut render_lightmaps: ResMut<RenderLightmaps>,
 ) {
     // CPU mesh preprocessing path.
-    if let Some(cpu_batched_instance_buffer) = cpu_batched_instance_buffer {
-        if let Some(instance_data_binding) = cpu_batched_instance_buffer
+    if let Some(cpu_batched_instance_buffer) = cpu_batched_instance_buffer
+        && let Some(instance_data_binding) = cpu_batched_instance_buffer
             .into_inner()
             .instance_data_binding()
-        {
-            // In this path, we only have a single set of bind groups for all phases.
-            let cpu_preprocessing_mesh_bind_groups = prepare_mesh_bind_groups_for_phase(
-                instance_data_binding,
-                &meshes,
-                &mesh_pipeline,
-                &render_device,
-                &skins_uniform,
-                &weights_uniform,
-                &mut render_lightmaps,
-            );
+    {
+        // In this path, we only have a single set of bind groups for all phases.
+        let cpu_preprocessing_mesh_bind_groups = prepare_mesh_bind_groups_for_phase(
+            instance_data_binding,
+            &meshes,
+            &mesh_pipeline,
+            &render_device,
+            &skins_uniform,
+            &weights_uniform,
+            &mut render_lightmaps,
+        );
 
-            commands.insert_resource(MeshBindGroups::CpuPreprocessing(
-                cpu_preprocessing_mesh_bind_groups,
-            ));
-            return;
-        }
+        commands.insert_resource(MeshBindGroups::CpuPreprocessing(
+            cpu_preprocessing_mesh_bind_groups,
+        ));
+        return;
     }
 
     // GPU mesh preprocessing path.
@@ -2874,7 +2895,7 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMeshViewBindGroup<I> 
             view_environment_map,
             mesh_view_bind_group,
             maybe_oit_layers_count_offset,
-        ): ROQueryItem<'w, Self::ViewQuery>,
+        ): ROQueryItem<'w, '_, Self::ViewQuery>,
         _entity: Option<()>,
         _: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
@@ -2890,7 +2911,47 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMeshViewBindGroup<I> 
         if let Some(layers_count_offset) = maybe_oit_layers_count_offset {
             offsets.push(layers_count_offset.offset);
         }
-        pass.set_bind_group(I, &mesh_view_bind_group.value, &offsets);
+        pass.set_bind_group(I, &mesh_view_bind_group.main, &offsets);
+
+        RenderCommandResult::Success
+    }
+}
+
+pub struct SetMeshViewBindingArrayBindGroup<const I: usize>;
+impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMeshViewBindingArrayBindGroup<I> {
+    type Param = ();
+    type ViewQuery = (Read<MeshViewBindGroup>,);
+    type ItemQuery = ();
+
+    #[inline]
+    fn render<'w>(
+        _item: &P,
+        (mesh_view_bind_group,): ROQueryItem<'w, '_, Self::ViewQuery>,
+        _entity: Option<()>,
+        _: SystemParamItem<'w, '_, Self::Param>,
+        pass: &mut TrackedRenderPass<'w>,
+    ) -> RenderCommandResult {
+        pass.set_bind_group(I, &mesh_view_bind_group.binding_array, &[]);
+
+        RenderCommandResult::Success
+    }
+}
+
+pub struct SetMeshViewEmptyBindGroup<const I: usize>;
+impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMeshViewEmptyBindGroup<I> {
+    type Param = ();
+    type ViewQuery = (Read<MeshViewBindGroup>,);
+    type ItemQuery = ();
+
+    #[inline]
+    fn render<'w>(
+        _item: &P,
+        (mesh_view_bind_group,): ROQueryItem<'w, '_, Self::ViewQuery>,
+        _entity: Option<()>,
+        _: SystemParamItem<'w, '_, Self::Param>,
+        pass: &mut TrackedRenderPass<'w>,
+    ) -> RenderCommandResult {
+        pass.set_bind_group(I, &mesh_view_bind_group.empty, &[]);
 
         RenderCommandResult::Success
     }
@@ -2974,17 +3035,17 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMeshBindGroup<I> {
             );
         };
 
-        let mut dynamic_offsets: [u32; 3] = Default::default();
+        let mut dynamic_offsets: [u32; 5] = Default::default();
         let mut offset_count = 0;
         if let PhaseItemExtraIndex::DynamicOffset(dynamic_offset) = item.extra_index() {
             dynamic_offsets[offset_count] = dynamic_offset;
             offset_count += 1;
         }
-        if let Some(current_skin_index) = current_skin_byte_offset {
-            if skins_use_uniform_buffers(&render_device) {
-                dynamic_offsets[offset_count] = current_skin_index.byte_offset;
-                offset_count += 1;
-            }
+        if let Some(current_skin_index) = current_skin_byte_offset
+            && skins_use_uniform_buffers(&render_device)
+        {
+            dynamic_offsets[offset_count] = current_skin_index.byte_offset;
+            offset_count += 1;
         }
         if let Some(current_morph_index) = current_morph_index {
             dynamic_offsets[offset_count] = current_morph_index.index;
@@ -2994,11 +3055,11 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetMeshBindGroup<I> {
         // Attach motion vectors if needed.
         if has_motion_vector_prepass {
             // Attach the previous skin index for motion vector computation.
-            if skins_use_uniform_buffers(&render_device) {
-                if let Some(current_skin_byte_offset) = current_skin_byte_offset {
-                    dynamic_offsets[offset_count] = current_skin_byte_offset.byte_offset;
-                    offset_count += 1;
-                }
+            if skins_use_uniform_buffers(&render_device)
+                && let Some(current_skin_byte_offset) = current_skin_byte_offset
+            {
+                dynamic_offsets[offset_count] = current_skin_byte_offset.byte_offset;
+                offset_count += 1;
             }
 
             // Attach the previous morph index for motion vector computation. If
@@ -3052,13 +3113,12 @@ impl<P: PhaseItem> RenderCommand<P> for DrawMesh {
         // If we're using GPU preprocessing, then we're dependent on that
         // compute shader having been run, which of course can only happen if
         // it's compiled. Otherwise, our mesh instance data won't be present.
-        if let Some(preprocess_pipelines) = preprocess_pipelines {
-            if !has_preprocess_bind_group
+        if let Some(preprocess_pipelines) = preprocess_pipelines
+            && (!has_preprocess_bind_group
                 || !preprocess_pipelines
-                    .pipelines_are_loaded(&pipeline_cache, &preprocessing_support)
-            {
-                return RenderCommandResult::Skip;
-            }
+                    .pipelines_are_loaded(&pipeline_cache, &preprocessing_support))
+        {
+            return RenderCommandResult::Skip;
         }
 
         let meshes = meshes.into_inner();
