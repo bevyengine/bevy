@@ -154,21 +154,19 @@ type AnimationEvents = HashMap<AnimationEventTarget, Vec<TimedAnimationEvent>>;
 /// animation curves.
 pub type AnimationCurves = HashMap<AnimationTargetId, Vec<VariableCurve>, NoOpHash>;
 
-/// A unique [UUID] for an animation target (e.g. bone in a skinned mesh).
+/// A component used to identify an animation target entity (e.g. a bone in a
+/// skinned mesh). The [`AnimationClip`] asset uses this to identify which
+/// curves in the clip will affect the target entity.
 ///
-/// XXX TODO
-/// The [`AnimationClip`] asset and the [`AnimationTarget`] component both use
-/// this to refer to targets (e.g. bones in a skinned mesh) to be animated.
-///
-/// When importing an armature or an animation clip, asset loaders typically use
-/// the full path name from the armature to the bone to generate these UUIDs.
-/// The ID is unique to the full path name and based only on the names. So, for
-/// example, any imported armature with a bone at the root named `Hips` will
-/// assign the same [`AnimationTargetId`] to its root bone. Likewise, any
-/// imported animation clip that animates a root bone named `Hips` will
-/// reference the same [`AnimationTargetId`]. Any animation is playable on any
-/// armature as long as the bone names match, which allows for easy animation
-/// retargeting.
+/// `AnimationTargetId` is implemented as a [UUID]. When importing an armature
+/// or an animation clip, asset loaders typically use the full path name from
+/// the armature to the bone to generate these UUIDs. The ID is unique to the
+/// full path name and based only on the names. So, for example, any imported
+/// armature with a bone at the root named `Hips` will assign the same
+/// [`AnimationTargetId`] to its root bone. Likewise, any imported animation
+/// clip that animates a root bone named `Hips` will reference the same
+/// [`AnimationTargetId`]. Any animation is playable on any armature as long as
+/// the bone names match, which allows for easy animation retargeting.
 ///
 /// Note that asset loaders generally use the *full* path name to generate the
 /// [`AnimationTargetId`]. Thus a bone named `Chest` directly connected to a
@@ -189,28 +187,23 @@ impl Hash for AnimationTargetId {
     }
 }
 
-/// XXX TODO
-/// An entity that can be animated by an [`AnimationPlayer`].
+/// A component that links an animated entity to an entity containing an
+/// [`AnimationPlayer`]. Typically used alongside the [`AnimationTargetId`]
+/// component - the linked `AnimationPlayer` plays [`AnimationClip`] assets, and
+/// the `AnimationTargetId` identifies which curves in the `AnimationClip` will
+/// affect the target entity.
 ///
-/// These are frequently referred to as *bones* or *joints*, because they often
-/// refer to individually-animatable parts of an armature.
-///
-/// Asset loaders for armatures are responsible for adding these as necessary.
-/// Typically, they're generated from hashed versions of the entire name path
-/// from the root of the armature to the bone. See the [`AnimationTargetId`]
-/// documentation for more details.
-///
-/// By convention, asset loaders add [`AnimationTarget`] components to the
+/// By convention, asset loaders add [`AnimationTargetId`] components to the
 /// descendants of an [`AnimationPlayer`], as well as to the [`AnimationPlayer`]
 /// entity itself, but Bevy doesn't require this in any way. So, for example,
 /// it's entirely possible for an [`AnimationPlayer`] to animate a target that
 /// it isn't an ancestor of. If you add a new bone to or delete a bone from an
-/// armature at runtime, you may want to update the [`AnimationTarget`]
+/// armature at runtime, you may want to update the [`AnimationTargetId`]
 /// component as appropriate, as Bevy won't do this automatically.
 ///
 /// Note that each entity can only be animated by one animation player at a
-/// time. However, you can change [`AnimationTarget`]'s `player` property at
-/// runtime to change which player is responsible for animating the entity.
+/// time. However, you can change [`AnimationPlayerTargets`]'s at runtime to
+/// change which player is responsible for animating the entity.
 #[derive(Clone, Copy, Component, Reflect, Debug)]
 #[reflect(Component, Clone)]
 pub struct AnimationPlayerTarget(#[entities] pub Entity);
