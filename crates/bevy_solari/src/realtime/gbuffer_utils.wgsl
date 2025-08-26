@@ -1,4 +1,4 @@
-#define_import_path bevy_solari::utils
+#define_import_path bevy_solari::gbuffer_utils
 
 #import bevy_pbr::pbr_deferred_types::unpack_24bit_normal
 #import bevy_pbr::rgb9e5::rgb9e5_to_vec3_

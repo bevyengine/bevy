@@ -6,9 +6,9 @@
 #import bevy_render::maths::PI
 #import bevy_render::view::View
 #import bevy_solari::brdf::{evaluate_diffuse_brdf, evaluate_specular_brdf}
+#import bevy_solari::gbuffer_utils::{gpixel_resolve, pixel_dissimilar}
 #import bevy_solari::sampling::{sample_random_light, trace_point_visibility}
 #import bevy_solari::scene_bindings::{trace_ray, resolve_ray_hit_full, RAY_T_MIN, RAY_T_MAX}
-#import bevy_solari::utils::{gpixel_resolve, pixel_dissimilar}
 #import bevy_solari::world_cache::query_world_cache
 
 @group(1) @binding(0) var view_output: texture_storage_2d<rgba16float, read_write>;
