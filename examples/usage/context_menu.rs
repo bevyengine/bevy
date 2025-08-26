@@ -100,11 +100,11 @@ fn on_trigger_menu(event: On<OpenContextMenu>, mut commands: Commands) {
             BorderRadius::all(Val::Px(4.)),
             BackgroundColor(Color::linear_rgb(0.1, 0.1, 0.1)),
             children![
-                context_item("fuchsia", basic::FUCHSIA),
-                context_item("gray", basic::GRAY),
-                context_item("maroon", basic::MAROON),
-                context_item("purple", basic::PURPLE),
-                context_item("teal", basic::TEAL),
+                (context_item("fuchsia", basic::FUCHSIA)),
+                (context_item("gray", basic::GRAY)),
+                (context_item("maroon", basic::MAROON)),
+                (context_item("purple", basic::PURPLE)),
+                (context_item("teal", basic::TEAL)),
             ],
         ))
         .observe(

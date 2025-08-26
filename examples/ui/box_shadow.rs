@@ -158,33 +158,35 @@ fn setup(
             },
             BackgroundColor(GRAY.into()),
         ))
-        .insert(children![{
-            let mut node = Node {
-                width: Val::Px(164.),
-                height: Val::Px(164.),
-                border: UiRect::all(Val::Px(1.)),
-                align_items: AlignItems::Center,
-                justify_content: JustifyContent::Center,
-                ..default()
-            };
-            let mut radius = BorderRadius::ZERO;
-            SHAPES[shape.index % SHAPES.len()].1(&mut node, &mut radius);
+        .insert(children![
+            ({
+                let mut node = Node {
+                    width: Val::Px(164.),
+                    height: Val::Px(164.),
+                    border: UiRect::all(Val::Px(1.)),
+                    align_items: AlignItems::Center,
+                    justify_content: JustifyContent::Center,
+                    ..default()
+                };
+                let mut radius = BorderRadius::ZERO;
+                SHAPES[shape.index % SHAPES.len()].1(&mut node, &mut radius);
 
-            (
-                node,
-                BorderColor::all(WHITE),
-                radius,
-                BackgroundColor(Color::srgb(0.21, 0.21, 0.21)),
-                BoxShadow(vec![ShadowStyle {
-                    color: Color::BLACK.with_alpha(0.8),
-                    x_offset: Val::Px(shadow.x_offset),
-                    y_offset: Val::Px(shadow.y_offset),
-                    spread_radius: Val::Px(shadow.spread),
-                    blur_radius: Val::Px(shadow.blur),
-                }]),
-                ShadowNode,
-            )
-        }]);
+                (
+                    node,
+                    BorderColor::all(WHITE),
+                    radius,
+                    BackgroundColor(Color::srgb(0.21, 0.21, 0.21)),
+                    BoxShadow(vec![ShadowStyle {
+                        color: Color::BLACK.with_alpha(0.8),
+                        x_offset: Val::Px(shadow.x_offset),
+                        y_offset: Val::Px(shadow.y_offset),
+                        spread_radius: Val::Px(shadow.spread),
+                        blur_radius: Val::Px(shadow.blur),
+                    }]),
+                    ShadowNode,
+                )
+            })
+        ]);
 
     // Settings Panel
     commands
@@ -204,56 +206,56 @@ fn setup(
             ZIndex(10),
         ))
         .insert(children![
-            build_setting_row(
+            (build_setting_row(
                 SettingType::Shape,
                 SettingsButton::ShapePrev,
                 SettingsButton::ShapeNext,
                 shape.index as f32,
                 &asset_server,
-            ),
-            build_setting_row(
+            )),
+            (build_setting_row(
                 SettingType::XOffset,
                 SettingsButton::XOffsetDec,
                 SettingsButton::XOffsetInc,
                 shadow.x_offset,
                 &asset_server,
-            ),
-            build_setting_row(
+            )),
+            (build_setting_row(
                 SettingType::YOffset,
                 SettingsButton::YOffsetDec,
                 SettingsButton::YOffsetInc,
                 shadow.y_offset,
                 &asset_server,
-            ),
-            build_setting_row(
+            )),
+            (build_setting_row(
                 SettingType::Blur,
                 SettingsButton::BlurDec,
                 SettingsButton::BlurInc,
                 shadow.blur,
                 &asset_server,
-            ),
-            build_setting_row(
+            )),
+            (build_setting_row(
                 SettingType::Spread,
                 SettingsButton::SpreadDec,
                 SettingsButton::SpreadInc,
                 shadow.spread,
                 &asset_server,
-            ),
-            build_setting_row(
+            )),
+            (build_setting_row(
                 SettingType::Count,
                 SettingsButton::CountDec,
                 SettingsButton::CountInc,
                 shadow.count as f32,
                 &asset_server,
-            ),
+            )),
             // Add BoxShadowSamples as a setting row
-            build_setting_row(
+            (build_setting_row(
                 SettingType::Samples,
                 SettingsButton::SamplesDec,
                 SettingsButton::SamplesInc,
                 shadow.samples as f32,
                 &asset_server,
-            ),
+            )),
             // Reset button
             (
                 Node {
@@ -365,17 +367,15 @@ fn build_setting_row(
                     ..default()
                 },
                 BorderRadius::all(Val::Px(6.)),
-                children![{
-                    (
-                        Text::new(value_text),
-                        TextFont {
-                            font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                            font_size: 16.0,
-                            ..default()
-                        },
-                        setting_type,
-                    )
-                }],
+                children![(
+                    Text::new(value_text),
+                    TextFont {
+                        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                        font_size: 16.0,
+                        ..default()
+                    },
+                    setting_type,
+                )],
             ),
             (
                 Button,

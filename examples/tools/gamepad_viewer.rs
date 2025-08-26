@@ -138,34 +138,34 @@ fn setup(mut commands: Commands, meshes: Res<ButtonMeshes>, materials: Res<Butto
         Transform::from_xyz(BUTTONS_X, BUTTONS_Y, 0.),
         Visibility::default(),
         children![
-            GamepadButtonBundle::new(
+            (GamepadButtonBundle::new(
                 GamepadButton::North,
                 meshes.circle.clone(),
                 materials.normal.clone(),
                 0.,
                 BUTTON_CLUSTER_RADIUS,
-            ),
-            GamepadButtonBundle::new(
+            )),
+            (GamepadButtonBundle::new(
                 GamepadButton::South,
                 meshes.circle.clone(),
                 materials.normal.clone(),
                 0.,
                 -BUTTON_CLUSTER_RADIUS,
-            ),
-            GamepadButtonBundle::new(
+            )),
+            (GamepadButtonBundle::new(
                 GamepadButton::West,
                 meshes.circle.clone(),
                 materials.normal.clone(),
                 -BUTTON_CLUSTER_RADIUS,
                 0.,
-            ),
-            GamepadButtonBundle::new(
+            )),
+            (GamepadButtonBundle::new(
                 GamepadButton::East,
                 meshes.circle.clone(),
                 materials.normal.clone(),
                 BUTTON_CLUSTER_RADIUS,
                 0.,
-            ),
+            )),
         ],
     ));
 
@@ -193,37 +193,37 @@ fn setup(mut commands: Commands, meshes: Res<ButtonMeshes>, materials: Res<Butto
         Transform::from_xyz(-BUTTONS_X, BUTTONS_Y, 0.),
         Visibility::default(),
         children![
-            GamepadButtonBundle::new(
+            (GamepadButtonBundle::new(
                 GamepadButton::DPadUp,
                 meshes.triangle.clone(),
                 materials.normal.clone(),
                 0.,
                 BUTTON_CLUSTER_RADIUS,
-            ),
-            GamepadButtonBundle::new(
+            )),
+            (GamepadButtonBundle::new(
                 GamepadButton::DPadDown,
                 meshes.triangle.clone(),
                 materials.normal.clone(),
                 0.,
                 -BUTTON_CLUSTER_RADIUS,
             )
-            .with_rotation(PI),
-            GamepadButtonBundle::new(
+            .with_rotation(PI)),
+            (GamepadButtonBundle::new(
                 GamepadButton::DPadLeft,
                 meshes.triangle.clone(),
                 materials.normal.clone(),
                 -BUTTON_CLUSTER_RADIUS,
                 0.,
             )
-            .with_rotation(PI / 2.),
-            GamepadButtonBundle::new(
+            .with_rotation(PI / 2.)),
+            (GamepadButtonBundle::new(
                 GamepadButton::DPadRight,
                 meshes.triangle.clone(),
                 materials.normal.clone(),
                 BUTTON_CLUSTER_RADIUS,
                 0.,
             )
-            .with_rotation(-PI / 2.),
+            .with_rotation(-PI / 2.)),
         ],
     ));
 
@@ -277,7 +277,7 @@ fn setup_sticks(
             Transform::from_xyz(x_pos, y_pos, 0.),
             Visibility::default(),
             children![
-                Sprite::from_color(DEAD_COLOR, Vec2::splat(STICK_BOUNDS_SIZE * 2.),),
+                (Sprite::from_color(DEAD_COLOR, Vec2::splat(STICK_BOUNDS_SIZE * 2.),)),
                 (
                     Sprite::from_color(LIVE_COLOR, Vec2::splat(live_size)),
                     Transform::from_xyz(live_mid, live_mid, 2.),
@@ -369,7 +369,7 @@ fn setup_connected(mut commands: Commands) {
             ..default()
         },
         ConnectedGamepadsText,
-        children![TextSpan::new("None")],
+        children![(TextSpan::new("None"))],
     ));
 }
 

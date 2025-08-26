@@ -476,7 +476,9 @@ pub fn validate_parent_has_component<C: Component>(
 /// Returns a [`SpawnRelatedBundle`] that will insert the [`Children`] component, spawn a [`SpawnableList`] of entities with given bundles that
 /// relate to the [`Children`] entity via the [`ChildOf`] component, and reserve space in the [`Children`] for each spawned entity.
 ///
-/// Any additional arguments will be interpreted as bundles to be spawned.
+/// Any additional arguments will be interpreted as bundles to be spawned. Note that even single
+/// component bundles MUST be wrapped in parentheses. This is to prevent you from accidentally
+/// spawning many seperate single components instead of a single bundle.
 ///
 /// Also see [`related`](crate::related) for a version of this that works with any [`RelationshipTarget`] type.
 ///
@@ -490,7 +492,7 @@ pub fn validate_parent_has_component<C: Component>(
 /// world.spawn((
 ///     Name::new("Root"),
 ///     children![
-///         Name::new("Child1"),
+///         (Name::new("Child1")),
 ///         (
 ///             Name::new("Child2"),
 ///             children![Name::new("Grandchild")]
@@ -504,10 +506,16 @@ pub fn validate_parent_has_component<C: Component>(
 /// [`SpawnableList`]: crate::spawn::SpawnableList
 #[macro_export]
 macro_rules! children {
-    [$($child:expr),*$(,)?] => {
-       $crate::hierarchy::Children::spawn($crate::recursive_spawn!($($child),*))
+    [$(($($child:expr),*$(,)?)),*$(,)?] => {
+       $crate::hierarchy::Children::spawn($crate::recursive_spawn!($(($($child),*)),*))
     };
 }
+
+//macro_rules! children {
+//    [$($child:expr),*$(,)?] => {
+//       $crate::hierarchy::Children::spawn($crate::recursive_spawn!($($child),*))
+//    };
+//}
 
 #[cfg(test)]
 mod tests {

@@ -666,12 +666,12 @@ mod linear_gradient {
                                             stops: stops.clone(),
                                         }),
                                         children![
-                                            Node {
+                                            (Node {
                                                 position_type: PositionType::Absolute,
                                                 ..default()
-                                            },
-                                            TextFont::from_font_size(10.),
-                                            bevy::ui::widget::Text(format!("{color_space:?}")),
+                                            }),
+                                            (TextFont::from_font_size(10.)),
+                                            (bevy::ui::widget::Text(format!("{color_space:?}"))),
                                         ]
                                     )],
                                 ));

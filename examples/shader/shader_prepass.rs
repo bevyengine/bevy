@@ -134,11 +134,11 @@ fn setup(
             ..default()
         },
         children![
-            TextSpan::new("Prepass Output: transparent\n"),
-            TextSpan::new("\n\n"),
-            TextSpan::new("Controls\n"),
-            TextSpan::new("---------------\n"),
-            TextSpan::new("Space - Change output\n"),
+            (TextSpan::new("Prepass Output: transparent\n")),
+            (TextSpan::new("\n\n")),
+            (TextSpan::new("Controls\n")),
+            (TextSpan::new("---------------\n")),
+            (TextSpan::new("Space - Change output\n")),
         ],
     ));
 }

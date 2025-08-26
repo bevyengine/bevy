@@ -172,11 +172,11 @@ fn demo_root(
         },
         TabGroup::default(),
         children![
-            button(asset_server, on_click),
-            slider(0.0, 100.0, 50.0, on_change_value),
-            checkbox(asset_server, "Checkbox", Callback::Ignore),
-            radio_group(asset_server, on_change_radio),
-            Text::new("Press 'D' to toggle widget disabled states"),
+            (button(asset_server, on_click)),
+            (slider(0.0, 100.0, 50.0, on_change_value)),
+            (checkbox(asset_server, "Checkbox", Callback::Ignore)),
+            (radio_group(asset_server, on_change_radio)),
+            (Text::new("Press 'D' to toggle widget disabled states")),
         ],
     )
 }

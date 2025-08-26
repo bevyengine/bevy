@@ -203,7 +203,7 @@ fn update_commands(
                     ..default()
                 },
                 children![
-                    Text::new("[Q] Toggle filtering:"),
+                    (Text::new("[Q] Toggle filtering:")),
                     (
                         Text::new(format!("{:?}", *status)),
                         TextColor(enabled_color(enabled))

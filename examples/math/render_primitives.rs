@@ -354,15 +354,15 @@ fn setup_text(mut commands: Commands, cameras: Query<(Entity, &Camera)>) {
             HeaderText,
             TextLayout::new_with_justify(Justify::Center),
             children![
-                TextSpan::new("Primitive: "),
-                TextSpan(format!("{text}", text = PrimitiveSelected::default())),
-                TextSpan::new("\n\n"),
-                TextSpan::new(
+                (TextSpan::new("Primitive: ")),
+                (TextSpan(format!("{text}", text = PrimitiveSelected::default()))),
+                (TextSpan::new("\n\n")),
+                (TextSpan::new(
                     "Press 'C' to switch between 2D and 3D mode\n\
                     Press 'Up' or 'Down' to switch to the next/previous primitive",
-                ),
-                TextSpan::new("\n\n"),
-                TextSpan::new("(If nothing is displayed, there's no rendering support yet)",),
+                )),
+                (TextSpan::new("\n\n")),
+                (TextSpan::new("(If nothing is displayed, there's no rendering support yet)",)),
             ]
         )],
     ));
