@@ -3,7 +3,6 @@
 use bevy::{
     color::palettes::css::{DARK_GOLDENROD, GRAY, MAROON},
     prelude::*,
-    winit::WinitSettings,
 };
 
 fn main() {
