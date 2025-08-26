@@ -1,6 +1,6 @@
 #import bevy_pbr::{
     atmosphere::{
-        functions::{direction_world_to_atmosphere, sample_sky_view_lut, view_radius},
+        functions::{direction_world_to_atmosphere, sample_sky_view_lut, get_view_position},
     },
     utils::sample_cube_dir
 }
@@ -22,7 +22,7 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
         (f32(global_id.y) + 0.5) / f32(dimensions.y)
     );
 
-    let r = view_radius();
+    let r = length(get_view_position());
 
     var ray_dir_ws = sample_cube_dir(uv, slice_index);
     
