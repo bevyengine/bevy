@@ -35,7 +35,6 @@ bevy_derive = { path = "../bevy_derive", version = "0.17.0-dev" }
 bevy_platform = { path = "../bevy_platform", version = "0.17.0-dev", default-features = false, features = [
   "std",
 ] }
-bevy_window = { path = "../bevy_window", version = "0.17.0-dev" }
 
 # other
 bytemuck = { version = "1", features = ["derive", "must_cast"] }

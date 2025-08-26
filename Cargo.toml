@@ -73,8 +73,6 @@ allow_attributes = "warn"
 allow_attributes_without_reason = "warn"
 
 [workspace.lints.rust]
-# Strictly temporary until encase fixes dead code generation from ShaderType macros
-dead_code = "allow"
 missing_docs = "warn"
 unexpected_cfgs = { level = "warn", check-cfg = ['cfg(docsrs_dep)'] }
 unsafe_code = "deny"
@@ -120,8 +118,6 @@ allow_attributes = "warn"
 allow_attributes_without_reason = "warn"
 
 [lints.rust]
-# Strictly temporary until encase fixes dead code generation from ShaderType macros
-dead_code = "allow"
 missing_docs = "warn"
 unexpected_cfgs = { level = "warn", check-cfg = ['cfg(docsrs_dep)'] }
 unsafe_code = "deny"
@@ -284,14 +280,7 @@ bevy_sprite_render = [
 bevy_text = ["bevy_internal/bevy_text", "bevy_asset"]
 
 # A custom ECS-driven UI framework
-bevy_ui = [
-  "bevy_internal/bevy_ui",
-  "bevy_core_pipeline",
-  "bevy_text",
-  "bevy_sprite",
-  "bevy_color",
-  "bevy_anti_aliasing",
-]
+bevy_ui = ["bevy_internal/bevy_ui", "bevy_text", "bevy_sprite", "bevy_color"]
 
 # Provides rendering functionality for bevy_ui
 bevy_ui_render = [
@@ -885,6 +874,17 @@ doc-scrape-examples = true
 [package.metadata.example.text2d]
 name = "Text 2D"
 description = "Generates text in 2D"
+category = "2D Rendering"
+wasm = true
+
+[[example]]
+name = "multi_window_text"
+path = "examples/window/multi_window_text.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.multi_window_text]
+name = "Multi-Window Text"
+description = "Renders text to multiple windows with different scale factors using both Text and Text2d"
 category = "2D Rendering"
 wasm = true
 
@@ -3413,6 +3413,17 @@ doc-scrape-examples = true
 [package.metadata.example.button]
 name = "Button"
 description = "Illustrates creating and updating a button"
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
+name = "ui_drag_and_drop"
+path = "examples/ui/ui_drag_and_drop.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.ui_drag_and_drop]
+name = "UI Drag and Drop"
+description = "Demonstrates dragging and dropping UI nodes"
 category = "UI (User Interface)"
 wasm = true
 
