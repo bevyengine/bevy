@@ -90,7 +90,7 @@ impl<T> ThinArrayPtr<T> {
     ///
     /// # Panics
     /// - Panics if the new capacity overflows `isize::MAX` bytes
-    /// - Panics if the allocation causes an out-of-memory error. Thsi function will panic.
+    /// - Panics if the allocation causes an out-of-memory error.
     ///
     /// # Safety
     /// - The current capacity is indeed greater than 0
