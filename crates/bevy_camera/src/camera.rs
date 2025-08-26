@@ -610,28 +610,27 @@ impl Camera {
         let target_rect = self
             .logical_viewport_rect()
             .ok_or(ViewportConversionError::NoViewportSize)?;
-        let mut rect_relative = (viewport_position - target_rect.min) / target_rect.size();
+        let rect_relative = (viewport_position - target_rect.min) / target_rect.size();
+        let mut ndc_xy = rect_relative * 2. - Vec2::ONE;
         // Flip the Y co-ordinate origin from the top to the bottom.
-        rect_relative.y = 1.0 - rect_relative.y;
+        ndc_xy.y = -ndc_xy.y;
 
-        let ndc_point_near = (rect_relative * 2. - Vec2::ONE).extend(1.0).into();
+        let ndc_point_near = ndc_xy.extend(1.0).into();
+        // Using EPSILON because an ndc with Z = 0 returns NaNs.
+        let ndc_point_far = ndc_xy.extend(f32::EPSILON).into();
+        let view_from_clip = self.computed.clip_from_view.inverse();
+        let world_from_view = camera_transform.affine();
         // We multiply the point by `view_from_clip` and then `world_from_view` in sequence to avoid the precision loss
         // (and performance penalty) incurred by pre-composing an affine transform with a projective transform.
         // Additionally, we avoid adding and subtracting translation to the direction component to maintain precision.
-        let view_point_near = self
-            .computed
-            .clip_from_view
-            .inverse()
-            .project_point3a(ndc_point_near);
-        let world_dir_near = camera_transform
-            .affine()
-            .transform_vector3a(view_point_near);
-        let origin: Vec3 = (world_dir_near + camera_transform.affine().translation).into();
-        if origin.is_nan() {
-            return Err(ViewportConversionError::InvalidData);
-        }
+        let view_point_near = view_from_clip.project_point3a(ndc_point_near);
+        let view_point_far = view_from_clip.project_point3a(ndc_point_far);
+        let world_point_near = world_from_view.transform_vector3a(view_point_near);
+        let world_point_far = world_from_view.transform_vector3a(view_point_far);
+        let origin = (world_point_near + camera_transform.translation_vec3a()).into();
 
-        Dir3::new(world_dir_near.into())
+        // The fallible direction constructor ensures that world_near_plane and world_far_plane aren't NaN.
+        Dir3::new((world_point_far - world_point_near).into())
             .map_err(|_| ViewportConversionError::InvalidData)
             .map(|direction| Ray3d { origin, direction })
     }
@@ -908,5 +907,91 @@ impl CameraMainTextureUsages {
     pub fn with(mut self, usages: TextureUsages) -> Self {
         self.0 |= usages;
         self
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use bevy_math::{Vec2, Vec3};
+    use bevy_transform::components::GlobalTransform;
+
+    use crate::{
+        Camera, OrthographicProjection, PerspectiveProjection, Projection, RenderTargetInfo,
+        Viewport,
+    };
+
+    fn make_camera(mut projection: Projection, physical_size: Vec2) -> Camera {
+        let viewport = Viewport {
+            physical_size: physical_size.as_uvec2(),
+            ..Default::default()
+        };
+        let mut camera = Camera::default();
+        camera.viewport = Some(viewport.clone());
+        camera.computed.target_info = Some(RenderTargetInfo {
+            physical_size: viewport.physical_size,
+            scale_factor: 1.0,
+        });
+        projection.update(
+            viewport.physical_size.x as f32,
+            viewport.physical_size.y as f32,
+        );
+        camera.computed.clip_from_view = match &camera.sub_camera_view {
+            Some(sub_view) => projection.get_clip_from_view_for_sub(sub_view),
+            None => projection.get_clip_from_view(),
+        };
+        camera
+    }
+
+    #[test]
+    fn viewport_to_world_orthographic_3d_returns_forward() {
+        let transform = GlobalTransform::default();
+        let size = Vec2::new(1600.0, 900.0);
+        let camera = make_camera(
+            Projection::Orthographic(OrthographicProjection::default_3d()),
+            size,
+        );
+        let ray = camera.viewport_to_world(&transform, Vec2::ZERO).unwrap();
+        assert_eq!(ray.direction, transform.forward());
+        assert!(ray
+            .origin
+            .abs_diff_eq(Vec3::new(-size.x * 0.5, size.y * 0.5, 0.0), 1e-4));
+        let ray = camera.viewport_to_world(&transform, size).unwrap();
+        assert_eq!(ray.direction, transform.forward());
+        assert!(ray
+            .origin
+            .abs_diff_eq(Vec3::new(size.x * 0.5, -size.y * 0.5, 0.0), 1e-4));
+    }
+
+    #[test]
+    fn viewport_to_world_orthographic_2d_returns_forward() {
+        let transform = GlobalTransform::default();
+        let size = Vec2::new(1600.0, 900.0);
+        let camera = make_camera(
+            Projection::Orthographic(OrthographicProjection::default_2d()),
+            size,
+        );
+        let ray = camera.viewport_to_world(&transform, Vec2::ZERO).unwrap();
+        assert_eq!(ray.direction, transform.forward());
+        assert!(ray
+            .origin
+            .abs_diff_eq(Vec3::new(-size.x * 0.5, size.y * 0.5, 1000.0), 1e-4));
+        let ray = camera.viewport_to_world(&transform, size).unwrap();
+        assert_eq!(ray.direction, transform.forward());
+        assert!(ray
+            .origin
+            .abs_diff_eq(Vec3::new(size.x * 0.5, -size.y * 0.5, 1000.0), 1e-4));
+    }
+
+    #[test]
+    fn viewport_to_world_perspective_center_returns_forward() {
+        let transform = GlobalTransform::default();
+        let size = Vec2::new(1600.0, 900.0);
+        let camera = make_camera(
+            Projection::Perspective(PerspectiveProjection::default()),
+            size,
+        );
+        let ray = camera.viewport_to_world(&transform, size * 0.5).unwrap();
+        assert_eq!(ray.direction, transform.forward());
+        assert_eq!(ray.origin, transform.forward() * 0.1);
     }
 }
