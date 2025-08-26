@@ -307,7 +307,7 @@ pub struct ExtractedView {
 impl ExtractedView {
     /// Creates a 3D rangefinder for a view
     pub fn rangefinder3d(&self) -> ViewRangefinder3d {
-        ViewRangefinder3d::from_world_from_view(&self.world_from_view.to_matrix())
+        ViewRangefinder3d::from_world_from_view(&self.world_from_view.affine())
     }
 }
 

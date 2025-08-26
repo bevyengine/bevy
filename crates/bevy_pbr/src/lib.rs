@@ -48,8 +48,8 @@ use bevy_color::{Color, LinearRgba};
 
 pub use atmosphere::*;
 use bevy_light::{
-    AmbientLight, DirectionalLight, LightPlugin, PointLight, ShadowFilteringMethod,
-    SimulationLightSystems, SpotLight,
+    AmbientLight, DirectionalLight, PointLight, ShadowFilteringMethod, SimulationLightSystems,
+    SpotLight,
 };
 use bevy_shader::{load_shader_library, ShaderRef};
 pub use cluster::*;
@@ -233,7 +233,6 @@ impl Plugin for PbrPlugin {
                 SyncComponentPlugin::<ShadowFilteringMethod>::default(),
                 LightmapPlugin,
                 LightProbePlugin,
-                LightPlugin,
                 GpuMeshPreprocessPlugin {
                     use_gpu_instance_buffer_builder: self.use_gpu_instance_buffer_builder,
                 },
