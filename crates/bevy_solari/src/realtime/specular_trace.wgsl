@@ -25,7 +25,7 @@ fn specular_trace(@builtin(global_invocation_id) global_id: vec3<u32>) {
         return;
     }
     let surface = gpixel_resolve(textureLoad(gbuffer, global_id.xy, 0), depth, global_id.xy, view.main_pass_viewport.zw, view.world_from_clip);
-    if surface.material.roughness > 0.04 { return; }
+    if surface.material.metallic > 0.9999 && surface.material.perceptual_roughness > 0.04 { return; }
 
     let TBN = orthonormalize(surface.world_normal);
     let T = TBN[0];
