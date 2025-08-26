@@ -925,8 +925,10 @@ mod test {
             physical_size: physical_size.as_uvec2(),
             ..Default::default()
         };
-        let mut camera = Camera::default();
-        camera.viewport = Some(viewport.clone());
+        let mut camera = Camera {
+            viewport: Some(viewport.clone()),
+            ..Default::default()
+        };
         camera.computed.target_info = Some(RenderTargetInfo {
             physical_size: viewport.physical_size,
             scale_factor: 1.0,
