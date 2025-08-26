@@ -22,7 +22,7 @@ fn main() {
 struct FpsText;
 
 #[derive(Component)]
-struct FpsUiTimer(pub Timer);
+struct FpsUiTimer(Timer);
 
 impl Default for FpsUiTimer {
     fn default() -> Self {
