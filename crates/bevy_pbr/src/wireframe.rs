@@ -45,7 +45,7 @@ use bevy_render::{
         SetItemPipeline, TrackedRenderPass, ViewBinnedRenderPhases,
     },
     render_resource::*,
-    renderer::RenderContext,
+    renderer::{RenderContext, RenderDevice},
     sync_world::{MainEntity, MainEntityHashMap},
     view::{
         ExtractedView, NoIndirectDrawing, RenderVisibilityRanges, RenderVisibleEntities,
@@ -55,7 +55,7 @@ use bevy_render::{
 };
 use bevy_shader::Shader;
 use core::{hash::Hash, ops::Range};
-use tracing::error;
+use tracing::{error, warn};
 
 /// A [`Plugin`] that draws wireframes.
 ///
@@ -108,10 +108,22 @@ impl Plugin for WireframePlugin {
                 .after(AssetEventSystems)
                 .run_if(resource_exists::<WireframeConfig>),
         );
+    }
 
+    fn finish(&self, app: &mut App) {
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
         };
+
+        let required_features = WgpuFeatures::POLYGON_MODE_LINE | WgpuFeatures::PUSH_CONSTANTS;
+        let render_device = render_app.world().resource::<RenderDevice>();
+        if !render_device.features().contains(required_features) {
+            warn!(
+                "WireframePlugin not loaded. GPU lacks support for required features: {:?}.",
+                required_features
+            );
+            return;
+        }
 
         render_app
             .init_resource::<WireframeEntitySpecializationTicks>()

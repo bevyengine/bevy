@@ -1,10 +1,10 @@
-use super::TextureSlice;
-use crate::{ExtractedSlice, Sprite, SpriteImageMode, TextureAtlasLayout};
+use crate::{ExtractedSlice, TextureAtlasLayout};
 use bevy_asset::{AssetEvent, Assets};
 use bevy_ecs::prelude::*;
 use bevy_image::Image;
 use bevy_math::{Rect, Vec2};
 use bevy_platform::collections::HashSet;
+use bevy_sprite::{Sprite, SpriteImageMode, TextureSlice};
 
 /// Component storing texture slices for tiled or sliced sprite entities
 ///

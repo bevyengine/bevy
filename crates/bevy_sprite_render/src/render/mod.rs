@@ -1,6 +1,6 @@
 use core::ops::Range;
 
-use crate::{Anchor, ComputedTextureSlices, ScalingMode, Sprite};
+use crate::ComputedTextureSlices;
 use bevy_asset::{load_embedded_asset, AssetEvent, AssetId, AssetServer, Assets, Handle};
 use bevy_camera::visibility::ViewVisibility;
 use bevy_color::{ColorToComponents, LinearRgba};
@@ -39,6 +39,7 @@ use bevy_render::{
     Extract,
 };
 use bevy_shader::{Shader, ShaderDefVal};
+use bevy_sprite::{Anchor, ScalingMode, Sprite};
 use bevy_transform::components::GlobalTransform;
 use bevy_utils::default;
 use bytemuck::{Pod, Zeroable};
@@ -92,17 +93,18 @@ pub fn init_sprite_pipeline(
             }
         };
 
-        let format_size = image.texture_descriptor.format.pixel_size();
-        render_queue.write_texture(
-            texture.as_image_copy(),
-            image.data.as_ref().expect("Image has no data"),
-            TexelCopyBufferLayout {
-                offset: 0,
-                bytes_per_row: Some(image.width() * format_size as u32),
-                rows_per_image: None,
-            },
-            image.texture_descriptor.size,
-        );
+        if let Ok(format_size) = image.texture_descriptor.format.pixel_size() {
+            render_queue.write_texture(
+                texture.as_image_copy(),
+                image.data.as_ref().expect("Image has no data"),
+                TexelCopyBufferLayout {
+                    offset: 0,
+                    bytes_per_row: Some(image.width() * format_size as u32),
+                    rows_per_image: None,
+                },
+                image.texture_descriptor.size,
+            );
+        }
         let texture_view = texture.create_view(&TextureViewDescriptor::default());
         GpuImage {
             texture,
@@ -856,7 +858,7 @@ pub fn prepare_sprite_image_bind_groups(
             // The sprite shader can then use the two least significant bits as the vertex index.
             // The rest of the properties to transform the vertex positions and UVs (which are
             // implicit) are baked into the instance transform, and UV offset and scale.
-            // See bevy_sprite/src/render/sprite.wgsl for the details.
+            // See bevy_sprite_render/src/render/sprite.wgsl for the details.
             sprite_meta.sprite_index_buffer.push(2);
             sprite_meta.sprite_index_buffer.push(0);
             sprite_meta.sprite_index_buffer.push(1);

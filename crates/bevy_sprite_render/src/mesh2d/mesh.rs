@@ -221,7 +221,7 @@ impl Mesh2dUniform {
     }
 }
 
-// NOTE: These must match the bit flags in bevy_sprite/src/mesh2d/mesh2d.wgsl!
+// NOTE: These must match the bit flags in bevy_sprite_render/src/mesh2d/mesh2d.wgsl!
 bitflags::bitflags! {
     #[repr(transparent)]
     pub struct MeshFlags: u32 {
@@ -328,17 +328,18 @@ pub fn init_mesh_2d_pipeline(
             }
         };
 
-        let format_size = image.texture_descriptor.format.pixel_size();
-        render_queue.write_texture(
-            texture.as_image_copy(),
-            image.data.as_ref().expect("Image has no data"),
-            TexelCopyBufferLayout {
-                offset: 0,
-                bytes_per_row: Some(image.width() * format_size as u32),
-                rows_per_image: None,
-            },
-            image.texture_descriptor.size,
-        );
+        if let Ok(format_size) = image.texture_descriptor.format.pixel_size() {
+            render_queue.write_texture(
+                texture.as_image_copy(),
+                image.data.as_ref().expect("Image has no data"),
+                TexelCopyBufferLayout {
+                    offset: 0,
+                    bytes_per_row: Some(image.width() * format_size as u32),
+                    rows_per_image: None,
+                },
+                image.texture_descriptor.size,
+            );
+        }
 
         let texture_view = texture.create_view(&TextureViewDescriptor::default());
         GpuImage {

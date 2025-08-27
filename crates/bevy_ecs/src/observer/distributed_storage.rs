@@ -52,8 +52,8 @@ use crate::prelude::ReflectComponent;
 ///     message: String,
 /// }
 ///
-/// world.add_observer(|trigger: On<Speak>| {
-///     println!("{}", trigger.event().message);
+/// world.add_observer(|event: On<Speak>| {
+///     println!("{}", event.message);
 /// });
 ///
 /// // Observers currently require a flush() to be registered. In the context of schedules,
@@ -73,8 +73,8 @@ use crate::prelude::ReflectComponent;
 /// # #[derive(Event)]
 /// # struct Speak;
 /// // These are functionally the same:
-/// world.add_observer(|trigger: On<Speak>| {});
-/// world.spawn(Observer::new(|trigger: On<Speak>| {}));
+/// world.add_observer(|event: On<Speak>| {});
+/// world.spawn(Observer::new(|event: On<Speak>| {}));
 /// ```
 ///
 /// Observers are systems. They can access arbitrary [`World`] data by adding [`SystemParam`]s:
@@ -86,7 +86,7 @@ use crate::prelude::ReflectComponent;
 /// # struct PrintNames;
 /// # #[derive(Component, Debug)]
 /// # struct Name;
-/// world.add_observer(|trigger: On<PrintNames>, names: Query<&Name>| {
+/// world.add_observer(|event: On<PrintNames>, names: Query<&Name>| {
 ///     for name in &names {
 ///         println!("{name:?}");
 ///     }
@@ -104,7 +104,7 @@ use crate::prelude::ReflectComponent;
 /// # struct SpawnThing;
 /// # #[derive(Component, Debug)]
 /// # struct Thing;
-/// world.add_observer(|trigger: On<SpawnThing>, mut commands: Commands| {
+/// world.add_observer(|event: On<SpawnThing>, mut commands: Commands| {
 ///     commands.spawn(Thing);
 /// });
 /// ```
@@ -118,7 +118,7 @@ use crate::prelude::ReflectComponent;
 /// # struct A;
 /// # #[derive(Event)]
 /// # struct B;
-/// world.add_observer(|trigger: On<A>, mut commands: Commands| {
+/// world.add_observer(|event: On<A>, mut commands: Commands| {
 ///     commands.trigger(B);
 /// });
 /// ```
@@ -137,9 +137,9 @@ use crate::prelude::ReflectComponent;
 /// #[derive(EntityEvent)]
 /// struct Explode;
 ///
-/// world.add_observer(|trigger: On<Explode>, mut commands: Commands| {
-///     println!("Entity {} goes BOOM!", trigger.target());
-///     commands.entity(trigger.target()).despawn();
+/// world.add_observer(|event: On<Explode>, mut commands: Commands| {
+///     println!("Entity {} goes BOOM!", event.entity());
+///     commands.entity(event.entity()).despawn();
 /// });
 ///
 /// world.flush();
@@ -170,12 +170,12 @@ use crate::prelude::ReflectComponent;
 /// # let e2 = world.spawn_empty().id();
 /// # #[derive(EntityEvent)]
 /// # struct Explode;
-/// world.entity_mut(e1).observe(|trigger: On<Explode>, mut commands: Commands| {
+/// world.entity_mut(e1).observe(|event: On<Explode>, mut commands: Commands| {
 ///     println!("Boom!");
-///     commands.entity(trigger.target()).despawn();
+///     commands.entity(event.entity()).despawn();
 /// });
 ///
-/// world.entity_mut(e2).observe(|trigger: On<Explode>, mut commands: Commands| {
+/// world.entity_mut(e2).observe(|event: On<Explode>, mut commands: Commands| {
 ///     println!("The explosion fizzles! This entity is immune!");
 /// });
 /// ```
@@ -192,7 +192,7 @@ use crate::prelude::ReflectComponent;
 /// # let entity = world.spawn_empty().id();
 /// # #[derive(EntityEvent)]
 /// # struct Explode;
-/// let mut observer = Observer::new(|trigger: On<Explode>| {});
+/// let mut observer = Observer::new(|event: On<Explode>| {});
 /// observer.watch_entity(entity);
 /// world.spawn(observer);
 /// ```

@@ -27,7 +27,7 @@ use tracing::*;
 #[derive(Clone, Copy, Reflect)]
 #[reflect(Clone)]
 pub enum RayCastVisibility {
-    /// Completely ignore visibility checks. Hidden items can still be ray casted against.
+    /// Completely ignore visibility checks. Hidden items can still be ray cast against.
     Any,
     /// Only cast rays against entities that are visible in the hierarchy. See [`Visibility`](bevy_camera::visibility::Visibility).
     Visible,
@@ -236,7 +236,7 @@ impl<'w, 's> MeshRayCast<'w, 's> {
                     && let Some(distance) = ray_aabb_intersection_3d(
                         ray,
                         &Aabb3d::new(aabb.center, aabb.half_extents),
-                        &transform.to_matrix(),
+                        &transform.affine(),
                     )
                 {
                     aabb_hits_tx.send((FloatOrd(distance), entity)).ok();
@@ -290,7 +290,7 @@ impl<'w, 's> MeshRayCast<'w, 's> {
 
                 // Perform the actual ray cast.
                 let _ray_cast_guard = ray_cast_guard.enter();
-                let transform = transform.to_matrix();
+                let transform = transform.affine();
                 let intersection = ray_intersection_over_mesh(mesh, &transform, ray, backfaces);
 
                 if let Some(intersection) = intersection {

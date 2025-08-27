@@ -10,7 +10,7 @@ keywords = ["bevy"]
 
 [features]
 default = ["http", "bevy_asset"]
-http = ["dep:async-io", "dep:smol-hyper"]
+http = ["dep:async-io", "dep:smol-hyper", "bevy_tasks/async-io"]
 bevy_asset = ["dep:bevy_asset"]
 
 [dependencies]
