@@ -260,6 +260,14 @@ impl Anchor {
     pub fn as_vec(&self) -> Vec2 {
         self.0
     }
+
+    pub fn reposition(&self, size: Vec2) -> (f32, f32, f32, f32) {
+        let x1 = (Anchor::TOP_LEFT.0.x - self.as_vec().x) * size.x;
+        let x2 = (Anchor::TOP_LEFT.0.x - self.as_vec().x + 1.) * size.x;
+        let y1 = (Anchor::TOP_LEFT.0.y - self.as_vec().y - 1.) * size.y;
+        let y2 = (Anchor::TOP_LEFT.0.y - self.as_vec().y) * size.y;
+        (x1, x2, y1, y2)
+    }
 }
 
 impl Default for Anchor {

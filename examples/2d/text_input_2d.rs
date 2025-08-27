@@ -112,10 +112,7 @@ fn update_targets(
             size: size.0 * scale_factor,
             scale_factor,
         }) {
-            let x1 = (Anchor::TOP_LEFT.0.x - anchor.as_vec().x) * size.0.x;
-            let x2 = (Anchor::TOP_LEFT.0.x - anchor.as_vec().x + 1.) * size.0.x;
-            let y1 = (Anchor::TOP_LEFT.0.y - anchor.as_vec().y - 1.) * size.0.y;
-            let y2 = (Anchor::TOP_LEFT.0.y - anchor.as_vec().y) * size.0.y;
+            let (x1, x2, y1, y2) = anchor.reposition(size.0);
             let new_aabb = Aabb::from_min_max(Vec3::new(x1, y1, 0.), Vec3::new(x2, y2, 0.));
 
             if let Some(mut aabb) = aabb {
