@@ -5,7 +5,7 @@ use crate::{
     storage::{blob_array::BlobArray, thin_array_ptr::ThinArrayPtr},
 };
 use alloc::vec::Vec;
-use bevy_ptr::{IsAligned, PtrMut};
+use bevy_ptr::PtrMut;
 use core::panic::Location;
 
 /// Very similar to a normal [`Column`], but with the capacities and lengths cut out for performance reasons.
@@ -141,10 +141,10 @@ impl ThinColumn {
     /// - `row.as_usize()` must be in bounds.
     /// - `comp_ptr` holds a component that matches the `component_id`
     #[inline]
-    pub(crate) unsafe fn initialize<A: IsAligned>(
+    pub(crate) unsafe fn initialize(
         &mut self,
         row: TableRow,
-        data: OwningPtr<'_, A>,
+        data: OwningPtr<'_>,
         tick: Tick,
         caller: MaybeLocation,
     ) {
@@ -163,10 +163,10 @@ impl ThinColumn {
     /// - `row.as_usize()` must be in bounds.
     /// - `data` holds a component that matches the `component_id`
     #[inline]
-    pub(crate) unsafe fn replace<A: IsAligned>(
+    pub(crate) unsafe fn replace(
         &mut self,
         row: TableRow,
-        data: OwningPtr<'_, A>,
+        data: OwningPtr<'_>,
         change_tick: Tick,
         caller: MaybeLocation,
     ) {
@@ -326,10 +326,6 @@ impl ThinColumn {
             .as_ref()
             .map(|changed_by| changed_by.as_slice(len))
     }
-
-    pub(crate) unsafe fn drop_for<A: IsAligned>(&self, value: OwningPtr<'_, A>) {
-        self.data.drop_for(value);
-    }
 }
 
 /// A type-erased contiguous container for data of a homogeneous type.
@@ -375,10 +371,10 @@ impl Column {
     /// # Safety
     /// Assumes data has already been allocated for the given row.
     #[inline]
-    pub(crate) unsafe fn replace<A: IsAligned>(
+    pub(crate) unsafe fn replace(
         &mut self,
         row: TableRow,
-        data: OwningPtr<'_, A>,
+        data: OwningPtr<'_>,
         change_tick: Tick,
         caller: MaybeLocation,
     ) {
@@ -453,9 +449,9 @@ impl Column {
     ///
     /// # Safety
     /// `ptr` must point to valid data of this column's component type
-    pub(crate) unsafe fn push<A: IsAligned>(
+    pub(crate) unsafe fn push(
         &mut self,
-        ptr: OwningPtr<'_, A>,
+        ptr: OwningPtr<'_>,
         ticks: ComponentTicks,
         caller: MaybeLocation,
     ) {
@@ -693,7 +689,10 @@ impl Column {
         })
     }
 
-    pub(crate) unsafe fn drop_for<A: IsAligned>(&self, value: OwningPtr<'_, A>) {
-        self.data.drop_for(value);
+    /// Returns the drop function for elements of the column,
+    /// or `None` if they don't need to be dropped.
+    #[inline]
+    pub fn get_drop(&self) -> Option<unsafe fn(OwningPtr<'_>)> {
+        self.data.get_drop()
     }
 }

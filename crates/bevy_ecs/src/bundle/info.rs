@@ -267,7 +267,9 @@ impl BundleInfo {
                             column.replace(table_row, component_ptr, change_tick, caller);
                         }
                         (ComponentStatus::Existing, InsertMode::Keep) => {
-                            column.drop_for(component_ptr);
+                            if let Some(drop_fn) = table.get_drop_for(component_id) {
+                                drop_fn(component_ptr);
+                            }
                         }
                     }
                 }
@@ -281,7 +283,9 @@ impl BundleInfo {
                             sparse_set.insert(entity, component_ptr, change_tick, caller);
                         }
                         (ComponentStatus::Existing, InsertMode::Keep) => {
-                            sparse_set.drop_for(component_ptr);
+                            if let Some(drop_fn) = sparse_set.get_drop() {
+                                drop_fn(component_ptr);
+                            }
                         }
                     }
                 }

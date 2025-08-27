@@ -5,7 +5,7 @@ use crate::{
     storage::{Column, TableRow},
 };
 use alloc::{boxed::Box, vec::Vec};
-use bevy_ptr::{IsAligned, OwningPtr, Ptr};
+use bevy_ptr::{OwningPtr, Ptr};
 use core::{cell::UnsafeCell, hash::Hash, marker::PhantomData, panic::Location};
 use nonmax::{NonMaxU32, NonMaxUsize};
 
@@ -161,10 +161,10 @@ impl ComponentSparseSet {
     /// # Safety
     /// The `value` pointer must point to a valid address that matches the [`Layout`](std::alloc::Layout)
     /// inside the [`ComponentInfo`] given when constructing this sparse set.
-    pub(crate) unsafe fn insert<A: IsAligned>(
+    pub(crate) unsafe fn insert(
         &mut self,
         entity: Entity,
-        value: OwningPtr<'_, A>,
+        value: OwningPtr<'_>,
         change_tick: Tick,
         caller: MaybeLocation,
     ) {
@@ -303,8 +303,11 @@ impl ComponentSparseSet {
         })
     }
 
-    pub(crate) unsafe fn drop_for<A: IsAligned>(&self, value: OwningPtr<'_, A>) {
-        self.dense.drop_for(value);
+    /// Returns the drop function for the component type stored in the sparse set,
+    /// or `None` if it doesn't need to be dropped.
+    #[inline]
+    pub fn get_drop(&self) -> Option<unsafe fn(OwningPtr<'_>)> {
+        self.dense.get_drop()
     }
 
     /// Removes the `entity` from this sparse set and returns a pointer to the associated value (if

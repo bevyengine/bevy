@@ -1,12 +1,7 @@
-use alloc::alloc::{dealloc, handle_alloc_error};
-use bevy_ptr::{Aligned, IsAligned, OwningPtr, Ptr, PtrMut};
+use alloc::alloc::handle_alloc_error;
+use bevy_ptr::{OwningPtr, Ptr, PtrMut};
 use bevy_utils::OnDrop;
-use core::{
-    alloc::Layout,
-    cell::UnsafeCell,
-    num::NonZero,
-    ptr::{self, NonNull},
-};
+use core::{alloc::Layout, cell::UnsafeCell, num::NonZero, ptr::NonNull};
 
 /// A flat, type-erased data storage type
 ///
@@ -183,14 +178,10 @@ impl BlobVec {
     /// - the memory in the [`BlobVec`] starting at index `index`, of a size matching this [`BlobVec`]'s
     ///   `item_layout`, must have been previously allocated.
     #[inline]
-    pub unsafe fn initialize_unchecked<A: IsAligned>(
-        &mut self,
-        index: usize,
-        value: OwningPtr<'_, A>,
-    ) {
+    pub unsafe fn initialize_unchecked(&mut self, index: usize, value: OwningPtr<'_>) {
         debug_assert!(index < self.len());
         let ptr = self.get_unchecked_mut(index);
-        ptr::copy_nonoverlapping::<u8>(value.as_ptr(), ptr.as_ptr(), self.item_layout.size());
+        core::ptr::copy_nonoverlapping::<u8>(value.as_ptr(), ptr.as_ptr(), self.item_layout.size());
     }
 
     /// Replaces the value at `index` with `value`. This function does not do any bounds checking.
@@ -202,11 +193,7 @@ impl BlobVec {
     ///   this [`BlobVec`]'s `item_layout`
     /// - the memory at `*value` must also be previously initialized with an item matching this
     ///   [`BlobVec`]'s `item_layout`
-    pub unsafe fn replace_unchecked<A: IsAligned>(
-        &mut self,
-        index: usize,
-        value: OwningPtr<'_, A>,
-    ) {
+    pub unsafe fn replace_unchecked(&mut self, index: usize, value: OwningPtr<'_>) {
         debug_assert!(index < self.len());
 
         // Pointer to the value in the vector that will get replaced.
@@ -233,10 +220,7 @@ impl BlobVec {
 
             // This closure will run in case `drop()` panics,
             // which ensures that `value` does not get forgotten.
-            // SAFETY:
-            // - The caller must ensure that the `value` must be valid but not necessarily aligned.
-            // - The caller must ensure `value` is not used after this function returns.
-            let on_unwind = OnDrop::new(|| unsafe { self.drop_for(value) });
+            let on_unwind = OnDrop::new(|| drop(value));
 
             drop(old_value);
 
@@ -256,7 +240,11 @@ impl BlobVec {
         // - `source` and `destination` were obtained from different memory locations,
         //   both of which we have exclusive access to, so they are guaranteed not to overlap.
         unsafe {
-            ptr::copy_nonoverlapping::<u8>(source, destination.as_ptr(), self.item_layout.size());
+            core::ptr::copy_nonoverlapping::<u8>(
+                source,
+                destination.as_ptr(),
+                self.item_layout.size(),
+            );
         }
     }
 
@@ -265,7 +253,7 @@ impl BlobVec {
     /// # Safety
     /// The `value` must match the [`layout`](`BlobVec::layout`) of the elements in the [`BlobVec`].
     #[inline]
-    pub unsafe fn push<A: IsAligned>(&mut self, value: OwningPtr<'_, A>) {
+    pub unsafe fn push(&mut self, value: OwningPtr<'_>) {
         self.reserve(1);
         let index = self.len;
         self.len += 1;
@@ -286,7 +274,7 @@ impl BlobVec {
         let new_len = self.len - 1;
         let size = self.item_layout.size();
         if index != new_len {
-            ptr::swap_nonoverlapping::<u8>(
+            core::ptr::swap_nonoverlapping::<u8>(
                 self.get_unchecked_mut(index).as_ptr(),
                 self.get_unchecked_mut(new_len).as_ptr(),
                 size,
@@ -378,6 +366,13 @@ impl BlobVec {
         unsafe { core::slice::from_raw_parts(self.data.as_ptr() as *const UnsafeCell<T>, self.len) }
     }
 
+    /// Returns the drop function for values stored in the vector,
+    /// or `None` if they don't need to be dropped.
+    #[inline]
+    pub fn get_drop(&self) -> Option<unsafe fn(OwningPtr<'_>)> {
+        self.drop
+    }
+
     /// Clears the vector, removing (and dropping) all values.
     ///
     /// Note that this method has no effect on the allocated capacity of the vector.
@@ -403,31 +398,6 @@ impl BlobVec {
             }
         }
     }
-
-    /// # Safety
-    /// - `value` must point to a valid instance of the type stored by this `BlobArray` but does not
-    ///   necessarily need to be aligned.
-    /// - `value` must not continue to be accessed in any form after this.
-    pub unsafe fn drop_for<A: IsAligned>(&self, value: OwningPtr<'_, A>) {
-        let value_ptr = value.as_ptr();
-        let Some(drop) = self.drop else { return };
-        // SAFETY:
-        // - The align in `Layout` must be a power of two.
-        // - The caller guarantees that `value` is valid for the type stored in this `BlobArray`.
-        //   and thus the align of `item_layout` must be valid
-        if let Some(aligned_value) = value.try_into_aligned(self.item_layout.align()) {
-            drop(aligned_value);
-        } else {
-            // Allocate scratch space
-            let scratch_ptr = alloc::alloc::alloc(self.item_layout);
-            let scratch = OwningPtr::<Aligned>::new(
-                NonNull::new(scratch_ptr).unwrap_or_else(|| handle_alloc_error(self.item_layout)),
-            );
-            ptr::copy_nonoverlapping::<u8>(value_ptr, scratch.as_ptr(), self.item_layout.size());
-            drop(scratch);
-            dealloc(scratch_ptr, self.item_layout);
-        }
-    }
 }
 
 impl Drop for BlobVec {
@@ -438,7 +408,7 @@ impl Drop for BlobVec {
         if array_layout.size() > 0 {
             // SAFETY: data ptr layout is correct, swap_scratch ptr layout is correct
             unsafe {
-                dealloc(self.get_ptr_mut().as_ptr(), array_layout);
+                alloc::alloc::dealloc(self.get_ptr_mut().as_ptr(), array_layout);
             }
         }
     }
