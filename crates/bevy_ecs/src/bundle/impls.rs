@@ -132,7 +132,7 @@ macro_rules! tuple_impl {
         )]
         $(#[$meta])*
         // SAFETY:
-        // Assuming each of the fields' types implement `DynamciBundle` correctly:
+        // Assuming each of the fields' types implement `DynamicBundle` correctly:
         // - Each of the implementations for each of the fields must move the components out of the `Bundle` exactly once between both
         //   `get_components` and `apply_effect`.
         // - If all of the individual tuple elements are `Effect: NoBundleEffect`, then the whole type's `Effect` will also be `NoBundleEffect`.
