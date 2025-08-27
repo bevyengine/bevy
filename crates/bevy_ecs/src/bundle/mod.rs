@@ -281,7 +281,7 @@ pub trait BundleEffect {
     fn apply(self, entity: &mut EntityWorldMut);
 
     /// # Safety
-    /// `this` must be a valid and well aligned pointer to `Self` and takes ownership of the
+    /// `this` must be a valid and aligned pointer to `Self` and takes ownership of the
     /// value pointed at by `this`.
     #[doc(hidden)]
     unsafe fn apply_raw(this: *mut Self, entity: &mut EntityWorldMut)

@@ -50,8 +50,10 @@ pub trait SpawnableList<R> {
     /// By default calls `self.spawn` with a raw pointer to `self`.
     /// Implementors may want to implement a custom version of this function to
     /// avoid copying large values onto the stack repeatedly.
+    ///
     /// # Safety
-    /// `this` must be a valid and well aligned pointer to `Self` and takes ownership of the
+    ///
+    /// `this` must be a valid and aligned pointer to `Self` and takes ownership of the
     /// value pointed at by `this`.
     #[doc(hidden)]
     unsafe fn spawn_raw(this: *mut Self, world: &mut World, entity: Entity)
