@@ -60,7 +60,7 @@ type ExtractFn = Box<dyn FnMut(&mut World, &mut World) + Send>;
 /// ```
 pub struct SubApp {
     /// The data of this application.
-    world: World,
+    world: Box<World>,
     /// List of plugins that have been added.
     pub(crate) plugin_registry: Vec<Box<dyn Plugin>>,
     /// The names of plugins that have been added to this app. (used to track duplicates and
@@ -84,7 +84,7 @@ impl Debug for SubApp {
 
 impl Default for SubApp {
     fn default() -> Self {
-        let mut world = World::new();
+        let mut world = Box::new(World::new());
         world.init_resource::<Schedules>();
         Self {
             world,
@@ -118,12 +118,12 @@ impl SubApp {
 
     /// Returns a reference to the [`World`].
     pub fn world(&self) -> &World {
-        &self.world
+        &*self.world
     }
 
     /// Returns a mutable reference to the [`World`].
     pub fn world_mut(&mut self) -> &mut World {
-        &mut self.world
+        &mut *self.world
     }
 
     /// Runs the default schedule.
@@ -151,7 +151,7 @@ impl SubApp {
     /// [`set_extract`](Self::set_extract) has not been called.
     pub fn extract(&mut self, world: &mut World) {
         if let Some(f) = self.extract.as_mut() {
-            f(world, &mut self.world);
+            f(world, &mut *self.world);
         }
     }
 
