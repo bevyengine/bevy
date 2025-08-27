@@ -289,13 +289,18 @@ impl<R: Relationship, L: SpawnableList<R>> DynamicBundle for SpawnRelatedBundle<
     unsafe fn get_components(
         ptr: *mut Self,
         func: &mut impl FnMut(crate::component::StorageType, bevy_ptr::OwningPtr<'_, Unaligned>),
-    ) -> Self::Effect {
+    ) {
         let effect = unsafe { ptr.read_unaligned() };
         let mut target =
             <R::RelationshipTarget as RelationshipTarget>::with_capacity(effect.list.size_hint());
         <R::RelationshipTarget as DynamicBundle>::get_components(&mut target, func);
         core::mem::forget(target);
-        effect
+        core::mem::forget(effect);
+    }
+
+    unsafe fn apply_effect(ptr: *mut Self, entity: &mut EntityWorldMut) {
+        let effect = unsafe { ptr.read_unaligned() };
+        effect.apply(entity);
     }
 }
 
@@ -319,13 +324,16 @@ impl<R: Relationship, B: Bundle> DynamicBundle for SpawnOneRelated<R, B> {
     type Effect = Self;
 
     unsafe fn get_components(
-        ptr: *mut Self,
+        _ptr: *mut Self,
         func: &mut impl FnMut(crate::component::StorageType, bevy_ptr::OwningPtr<'_, Unaligned>),
-    ) -> Self::Effect {
-        let effect = unsafe { ptr.read_unaligned() };
+    ) {
         let mut target = <R::RelationshipTarget as RelationshipTarget>::with_capacity(1);
         <R::RelationshipTarget as DynamicBundle>::get_components(&mut target, func);
-        effect
+    }
+
+    unsafe fn apply_effect(ptr: *mut Self, entity: &mut EntityWorldMut) {
+        let effect = unsafe { ptr.read_unaligned() };
+        effect.apply(entity);
     }
 }
 

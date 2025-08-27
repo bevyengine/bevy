@@ -248,7 +248,13 @@ pub trait DynamicBundle {
     unsafe fn get_components(
         ptr: *mut Self,
         func: &mut impl FnMut(StorageType, OwningPtr<'_, Unaligned>),
-    ) -> Self::Effect;
+    );
+
+    // SAFETY:
+    // Must be called only once.
+    // component being fetched.
+    #[doc(hidden)]
+    unsafe fn apply_effect(ptr: *mut Self, world: &mut EntityWorldMut);
 }
 
 /// An operation on an [`Entity`](crate::entity::Entity) that occurs _after_ inserting the

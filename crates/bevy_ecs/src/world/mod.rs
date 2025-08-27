@@ -39,8 +39,7 @@ pub use spawn_batch::*;
 use crate::{
     archetype::{ArchetypeId, Archetypes},
     bundle::{
-        Bundle, BundleEffect, BundleInfo, BundleInserter, BundleSpawner, Bundles, InsertMode,
-        NoBundleEffect,
+        Bundle, BundleInfo, BundleInserter, BundleSpawner, Bundles, InsertMode, NoBundleEffect,
     },
     change_detection::{MaybeLocation, MutUntyped, TicksMut},
     component::{
@@ -69,7 +68,7 @@ use crate::{
 use alloc::{boxed::Box, vec::Vec};
 use bevy_platform::sync::atomic::{AtomicU32, Ordering};
 use bevy_ptr::{IsAligned, OwningPtr, Ptr, UnsafeCellDeref};
-use core::{any::TypeId, fmt};
+use core::{any::TypeId, fmt, mem::ManuallyDrop};
 use log::warn;
 use unsafe_world_cell::{UnsafeEntityCell, UnsafeWorldCell};
 
@@ -1156,12 +1155,14 @@ impl World {
     /// ```
     #[track_caller]
     pub fn spawn<B: Bundle>(&mut self, bundle: B) -> EntityWorldMut<'_> {
-        self.spawn_with_caller(bundle, MaybeLocation::caller())
+        let bundle = ManuallyDrop::new(bundle);
+        let bundle_ptr = &raw const bundle;
+        self.spawn_with_caller(bundle_ptr.cast::<B>(), MaybeLocation::caller())
     }
 
     pub(crate) fn spawn_with_caller<B: Bundle>(
         &mut self,
-        bundle: B,
+        bundle: *const B,
         caller: MaybeLocation,
     ) -> EntityWorldMut<'_> {
         self.flush();
@@ -1169,8 +1170,7 @@ impl World {
         let entity = self.entities.alloc();
         let mut bundle_spawner = BundleSpawner::new::<B>(self, change_tick);
         // SAFETY: bundle's type matches `bundle_info`, entity is allocated but non-existent
-        let (entity_location, after_effect) =
-            unsafe { bundle_spawner.spawn_non_existent(entity, bundle, caller) };
+        let entity_location = unsafe { bundle_spawner.spawn_non_existent(entity, bundle, caller) };
 
         let mut entity_location = Some(entity_location);
 
@@ -1182,7 +1182,7 @@ impl World {
 
         // SAFETY: entity and location are valid, as they were just created above
         let mut entity = unsafe { EntityWorldMut::new(self, entity, entity_location) };
-        after_effect.apply(&mut entity);
+        unsafe { B::apply_effect(bundle.cast_mut(), &mut entity) };
         entity
     }
 

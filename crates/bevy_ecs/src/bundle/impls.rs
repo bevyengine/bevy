@@ -50,6 +50,9 @@ impl<C: Component> DynamicBundle for C {
         let ptr = OwningPtr::<Unaligned>::new(ptr);
         func(C::STORAGE_TYPE, ptr);
     }
+
+    #[inline]
+    unsafe fn apply_effect(_ptr: *mut Self, _func: &mut EntityWorldMut) {}
 }
 
 macro_rules! tuple_impl {
@@ -132,17 +135,23 @@ macro_rules! tuple_impl {
                 reason = "Zero-length tuples will generate a function body equivalent to `()`; however, this macro is meant for all applicable tuples, and as such it makes no sense to rewrite it just for that case."
             )]
             #[inline(always)]
-            unsafe fn get_components(ptr: *mut Self, func: &mut impl FnMut(StorageType, OwningPtr<'_, Unaligned>)) -> Self::Effect {
-                #[allow(
-                    non_snake_case,
-                    reason = "The names of these variables are provided by the caller, not by us."
-                )]
-                ($(
-                    {
-                        let field_ptr = &raw mut (*ptr).$index;
-                        $name::get_components(field_ptr, &mut *func)
-                    },
-                )*)
+            unsafe fn get_components(ptr: *mut Self, func: &mut impl FnMut(StorageType, OwningPtr<'_, Unaligned>)) {
+                $(
+                    let field_ptr = &raw mut (*ptr).$index;
+                    $name::get_components(field_ptr, &mut *func);
+                )*
+            }
+
+            #[allow(
+                clippy::unused_unit,
+                reason = "Zero-length tuples will generate a function body equivalent to `()`; however, this macro is meant for all applicable tuples, and as such it makes no sense to rewrite it just for that case."
+            )]
+            #[inline(always)]
+            unsafe fn apply_effect(ptr: *mut Self, entity: &mut EntityWorldMut) {
+                $(
+                    let field_ptr = &raw mut (*ptr).$index;
+                    $name::apply_effect(field_ptr, entity);
+                )*
             }
         }
     }

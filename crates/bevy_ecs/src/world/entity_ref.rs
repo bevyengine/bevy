@@ -1,8 +1,7 @@
 use crate::{
     archetype::Archetype,
     bundle::{
-        Bundle, BundleEffect, BundleFromComponents, BundleInserter, BundleRemover, DynamicBundle,
-        InsertMode,
+        Bundle, BundleFromComponents, BundleInserter, BundleRemover, DynamicBundle, InsertMode,
     },
     change_detection::{MaybeLocation, MutUntyped},
     component::{
@@ -31,7 +30,7 @@ use core::{
     cmp::Ordering,
     hash::{Hash, Hasher},
     marker::PhantomData,
-    mem::MaybeUninit,
+    mem::{ManuallyDrop, MaybeUninit},
 };
 use thiserror::Error;
 
@@ -2057,7 +2056,7 @@ impl<'w> EntityWorldMut<'w> {
         let mut bundle_inserter =
             BundleInserter::new::<T>(self.world, location.archetype_id, change_tick);
         // SAFETY: location matches current entity. `T` matches `bundle_info`
-        let (location, after_effect) = unsafe {
+        let location = unsafe {
             bundle_inserter.insert(
                 self.entity,
                 location,
@@ -2070,7 +2069,7 @@ impl<'w> EntityWorldMut<'w> {
         self.location = Some(location);
         self.world.flush();
         self.update_location();
-        after_effect.apply(self);
+        T::apply_effect(bundle, self);
         self
     }
 
@@ -2886,8 +2885,10 @@ impl<'w> EntityWorldMut<'w> {
         caller: MaybeLocation,
     ) -> &mut Self {
         self.assert_not_despawned();
+        let bundle = ManuallyDrop::new(Observer::new(observer).with_entity(self.entity));
+        let bundle_ptr = &raw const bundle;
         self.world
-            .spawn_with_caller(Observer::new(observer).with_entity(self.entity), caller);
+            .spawn_with_caller(bundle_ptr.cast::<Observer>(), caller);
         self.world.flush();
         self.update_location();
         self
@@ -4672,6 +4673,8 @@ unsafe fn insert_dynamic_bundle<
                 .components
                 .for_each(|(t, ptr)| func(t, ptr.to_unaligned()));
         }
+
+        unsafe fn apply_effect(_ptr: *mut Self, _entity: &mut EntityWorldMut) {}
     }
 
     let bundle = DynamicInsertBundle {
@@ -4680,16 +4683,14 @@ unsafe fn insert_dynamic_bundle<
 
     // SAFETY: location matches current entity.
     let result = unsafe {
-        bundle_inserter
-            .insert(
-                entity,
-                location,
-                &raw const bundle,
-                mode,
-                caller,
-                relationship_hook_insert_mode,
-            )
-            .0
+        bundle_inserter.insert(
+            entity,
+            location,
+            &raw const bundle,
+            mode,
+            caller,
+            relationship_hook_insert_mode,
+        )
     };
     core::mem::forget(bundle);
     result

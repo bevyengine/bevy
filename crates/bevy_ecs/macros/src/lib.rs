@@ -177,6 +177,14 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
                     <#active_field_types as #ecs_path::bundle::DynamicBundle>::get_components(field_ptr, &mut *func);
                 )*
             }
+
+            #[allow(unused_variables)]
+            #[inline]
+            unsafe fn apply_effect(
+                ptr: *mut Self,
+                func: &mut #ecs_path::world::EntityWorldMut<'_>,
+            ) {
+            }
         }
     };
 
