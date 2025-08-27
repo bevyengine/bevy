@@ -11,7 +11,7 @@ use crate::{
 use alloc::vec::Vec;
 use core::mem::ManuallyDrop;
 use core::{marker::PhantomData, mem::MaybeUninit};
-use variadics_please::all_tuples;
+use variadics_please::all_tuples_enumerated;
 
 /// A wrapper over a [`Bundle`] indicating that an entity should be spawned with that [`Bundle`].
 /// This is intended to be used for hierarchical spawning via traits like [`SpawnableList`] and [`SpawnRelated`].
@@ -78,7 +78,10 @@ impl<R: Relationship, B: Bundle<Effect: NoBundleEffect>> SpawnableList<R> for Ve
 
 impl<R: Relationship, B: Bundle> SpawnableList<R> for Spawn<B> {
     fn spawn(self, world: &mut World, entity: Entity) {
-        world.spawn((R::from(entity), self.0));
+        unsafe {
+            let mut this = ManuallyDrop::new(self);
+            <Self as SpawnableList<R>>::spawn_raw((&raw mut (*this)), world, entity);
+        }
     }
 
     fn size_hint(&self) -> usize {
@@ -261,7 +264,7 @@ impl<R: Relationship> SpawnableList<R> for WithOneRelated {
 }
 
 macro_rules! spawnable_list_impl {
-    ($($list: ident),*) => {
+    ($(($index:tt, $list: ident)),*) => {
         #[expect(
             clippy::allow_attributes,
             reason = "This is a tuple-related macro; as such, the lints below may not always apply."
@@ -276,6 +279,20 @@ macro_rules! spawnable_list_impl {
                 $($list.spawn(_world, _entity);)*
             }
 
+            unsafe fn spawn_raw(_this: *mut Self, _world: &mut World, _entity: Entity)
+            where
+                Self: Sized,
+            {
+                $(
+                #[allow(
+                    non_snake_case,
+                    reason = "The names of these variables are provided by the caller, not by us."
+                )]
+                let $list = &raw mut (*_this).$index;
+                SpawnableList::<R>::spawn_raw($list, _world, _entity);
+                )*
+            }
+
             fn size_hint(&self) -> usize {
                 #[allow(
                     non_snake_case,
@@ -288,7 +305,7 @@ macro_rules! spawnable_list_impl {
     }
 }
 
-all_tuples!(spawnable_list_impl, 0, 12, P);
+all_tuples_enumerated!(spawnable_list_impl, 0, 12, P);
 
 /// A [`Bundle`] that:
 /// 1. Contains a [`RelationshipTarget`] component (associated with the given [`Relationship`]). This reserves space for the [`SpawnableList`].
