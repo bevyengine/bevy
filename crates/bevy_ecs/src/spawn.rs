@@ -8,7 +8,6 @@ use crate::{
     world::{EntityWorldMut, World},
 };
 use alloc::vec::Vec;
-use bevy_ptr::Unaligned;
 use core::marker::PhantomData;
 use variadics_please::all_tuples;
 
@@ -288,10 +287,10 @@ impl<R: Relationship, L: SpawnableList<R>> DynamicBundle for SpawnRelatedBundle<
 
     unsafe fn get_components(
         ptr: *mut Self,
-        func: &mut impl FnMut(crate::component::StorageType, bevy_ptr::OwningPtr<'_, Unaligned>),
+        func: &mut impl FnMut(crate::component::StorageType, bevy_ptr::OwningPtr<'_>),
     ) {
         // SAFETY: The caller must ensure that the `ptr` must be valid but not necessarily aligned.
-        let effect = unsafe { ptr.read_unaligned() };
+        let effect = unsafe { ptr.read() };
         let mut target =
             <R::RelationshipTarget as RelationshipTarget>::with_capacity(effect.list.size_hint());
         <R::RelationshipTarget as DynamicBundle>::get_components(&mut target, func);
@@ -301,7 +300,7 @@ impl<R: Relationship, L: SpawnableList<R>> DynamicBundle for SpawnRelatedBundle<
 
     unsafe fn apply_effect(ptr: *mut Self, entity: &mut EntityWorldMut) {
         // SAFETY: The caller must ensure that the `ptr` must be valid but not necessarily aligned.
-        let effect = unsafe { ptr.read_unaligned() };
+        let effect = unsafe { ptr.read() };
         effect.apply(entity);
     }
 }
@@ -327,7 +326,7 @@ impl<R: Relationship, B: Bundle> DynamicBundle for SpawnOneRelated<R, B> {
 
     unsafe fn get_components(
         _ptr: *mut Self,
-        func: &mut impl FnMut(crate::component::StorageType, bevy_ptr::OwningPtr<'_, Unaligned>),
+        func: &mut impl FnMut(crate::component::StorageType, bevy_ptr::OwningPtr<'_>),
     ) {
         let mut target = <R::RelationshipTarget as RelationshipTarget>::with_capacity(1);
         <R::RelationshipTarget as DynamicBundle>::get_components(&mut target, func);
@@ -335,8 +334,8 @@ impl<R: Relationship, B: Bundle> DynamicBundle for SpawnOneRelated<R, B> {
     }
 
     unsafe fn apply_effect(ptr: *mut Self, entity: &mut EntityWorldMut) {
-        // SAFETY: The caller must ensure that the `ptr` must be valid but not necessarily aligned.
-        let effect = unsafe { ptr.read_unaligned() };
+        // SAFETY: The caller must ensure that the `ptr` must be valid and aligned.
+        let effect = unsafe { ptr.read() };
         effect.apply(entity);
     }
 }

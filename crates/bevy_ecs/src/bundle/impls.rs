@@ -1,6 +1,6 @@
 use core::any::TypeId;
 
-use bevy_ptr::{OwningPtr, Unaligned};
+use bevy_ptr::OwningPtr;
 use core::ptr::NonNull;
 use variadics_please::all_tuples;
 
@@ -44,10 +44,10 @@ impl<C: Component> DynamicBundle for C {
     #[inline]
     unsafe fn get_components(
         ptr: *mut Self,
-        func: &mut impl FnMut(StorageType, OwningPtr<'_, Unaligned>),
+        func: &mut impl FnMut(StorageType, OwningPtr<'_>),
     ) -> Self::Effect {
         let ptr = NonNull::new(ptr).debug_checked_unwrap().cast();
-        let ptr = OwningPtr::<Unaligned>::new(ptr);
+        let ptr = OwningPtr::new(ptr);
         func(C::STORAGE_TYPE, ptr);
     }
 
@@ -135,7 +135,7 @@ macro_rules! tuple_impl {
                 reason = "Zero-length tuples will generate a function body equivalent to `()`; however, this macro is meant for all applicable tuples, and as such it makes no sense to rewrite it just for that case."
             )]
             #[inline(always)]
-            unsafe fn get_components(ptr: *mut Self, func: &mut impl FnMut(StorageType, OwningPtr<'_, Unaligned>)) {
+            unsafe fn get_components(ptr: *mut Self, func: &mut impl FnMut(StorageType, OwningPtr<'_>)) {
                 $(
                     let field_ptr = &raw mut (*ptr).$index;
                     $name::get_components(field_ptr, &mut *func);

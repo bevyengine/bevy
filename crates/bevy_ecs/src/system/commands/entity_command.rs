@@ -81,24 +81,6 @@ use bevy_ptr::OwningPtr;
 pub trait EntityCommand<Out = ()>: Send + 'static {
     /// Executes this command for the given [`Entity`].
     fn apply(self, entity: EntityWorldMut) -> Out;
-
-    /// Executes this command for the given [`Entity`].
-    ///
-    /// Identical to [`EntityCommand::apply`], except it's only given a raw pointer to
-    /// a valid, but potentially unaligned, instance of `Self`.
-    ///
-    /// This function is responsible for dropping the value pointed to by `ptr`.
-    ///
-    /// Implementing this function is optional and strictly an optimization.
-    ///
-    /// # Safety
-    /// `ptr` must point to a valid, but potentially unaligned instance of `Self`.
-    unsafe fn apply_raw(ptr: *mut Self, entity: EntityWorldMut) -> Out {
-        // SAFETY: The caller must ensure that `ptr` is pointing to a valid instance of `Self`
-        // but does not necessarily need to be aligned.
-        let command = unsafe { ptr.read_unaligned() };
-        command.apply(entity)
-    }
 }
 
 /// An error that occurs when running an [`EntityCommand`] on a specific entity.
@@ -124,34 +106,9 @@ where
 /// An [`EntityCommand`] that adds the components in a [`Bundle`] to an entity.
 #[track_caller]
 pub fn insert(bundle: impl Bundle, mode: InsertMode) -> impl EntityCommand {
-    Insert {
-        bundle,
-        mode,
-        caller: MaybeLocation::caller(),
-    }
-}
-
-struct Insert<B> {
-    bundle: B,
-    mode: InsertMode,
-    caller: MaybeLocation,
-}
-
-impl<B: Bundle> EntityCommand for Insert<B> {
-    fn apply(mut self, entity: EntityWorldMut) {
-        // SAFETY: This is being called with a mutable borrow, which must be a valid, non-null pointer.
-        unsafe { Self::apply_raw(&mut self, entity) }
-    }
-
-    unsafe fn apply_raw(ptr: *mut Self, mut entity: EntityWorldMut) {
-        // SAFETY: The caller must ensure that `ptr` is pointing to a valid instance of `Self`
-        // but does not necessarily need to be aligned.
-        let mode = unsafe { (&raw const (*ptr).mode).read_unaligned() };
-        // SAFETY: The caller must ensure that `ptr` is pointing to a valid instance of `Self`
-        // but does not necessarily need to be aligned.
-        let caller = unsafe { (&raw const (*ptr).caller).read_unaligned() };
-        let bundle_ptr = &raw mut (*ptr).bundle;
-        entity.insert_raw_with_caller(bundle_ptr, mode, caller, RelationshipHookMode::Run);
+    let caller = MaybeLocation::caller();
+    move |mut entity: EntityWorldMut| {
+        entity.insert_with_caller(bundle, mode, caller, RelationshipHookMode::Run);
     }
 }
 

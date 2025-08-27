@@ -24,7 +24,7 @@ use crate::{
 };
 use alloc::vec::Vec;
 use bevy_platform::collections::{HashMap, HashSet};
-use bevy_ptr::{IsAligned, OwningPtr, Ptr, Unaligned};
+use bevy_ptr::{OwningPtr, Ptr};
 use core::{
     any::TypeId,
     cmp::Ordering,
@@ -2088,10 +2088,10 @@ impl<'w> EntityWorldMut<'w> {
     ///
     /// If the entity has been despawned while this `EntityWorldMut` is still alive.
     #[track_caller]
-    pub unsafe fn insert_by_id<A: IsAligned>(
+    pub unsafe fn insert_by_id(
         &mut self,
         component_id: ComponentId,
-        component: OwningPtr<'_, A>,
+        component: OwningPtr<'_>,
     ) -> &mut Self {
         self.insert_by_id_with_caller(
             component_id,
@@ -2107,10 +2107,10 @@ impl<'w> EntityWorldMut<'w> {
     /// - [`ComponentId`] must be from the same world as [`EntityWorldMut`]
     /// - [`OwningPtr`] must be a valid reference to the type represented by [`ComponentId`]
     #[inline]
-    pub(crate) unsafe fn insert_by_id_with_caller<A: IsAligned>(
+    pub(crate) unsafe fn insert_by_id_with_caller(
         &mut self,
         component_id: ComponentId,
-        component: OwningPtr<'_, A>,
+        component: OwningPtr<'_>,
         mode: InsertMode,
         caller: MaybeLocation,
         relationship_hook_insert_mode: RelationshipHookMode,
@@ -2159,7 +2159,7 @@ impl<'w> EntityWorldMut<'w> {
     ///
     /// If the entity has been despawned while this `EntityWorldMut` is still alive.
     #[track_caller]
-    pub unsafe fn insert_by_ids<'a, A: IsAligned, I: Iterator<Item = OwningPtr<'a, A>>>(
+    pub unsafe fn insert_by_ids<'a, I: Iterator<Item = OwningPtr<'a>>>(
         &mut self,
         component_ids: &[ComponentId],
         iter_components: I,
@@ -2168,11 +2168,7 @@ impl<'w> EntityWorldMut<'w> {
     }
 
     #[track_caller]
-    pub(crate) unsafe fn insert_by_ids_internal<
-        'a,
-        A: IsAligned,
-        I: Iterator<Item = OwningPtr<'a, A>>,
-    >(
+    pub(crate) unsafe fn insert_by_ids_internal<'a, I: Iterator<Item = OwningPtr<'a>>>(
         &mut self,
         component_ids: &[ComponentId],
         iter_components: I,
@@ -4642,8 +4638,7 @@ where
 /// - [`Entity`] must correspond to [`EntityLocation`]
 unsafe fn insert_dynamic_bundle<
     'a,
-    A: IsAligned,
-    I: Iterator<Item = OwningPtr<'a, A>>,
+    I: Iterator<Item = OwningPtr<'a>>,
     S: Iterator<Item = StorageType>,
 >(
     mut bundle_inserter: BundleInserter<'_>,
@@ -4655,28 +4650,22 @@ unsafe fn insert_dynamic_bundle<
     caller: MaybeLocation,
     relationship_hook_insert_mode: RelationshipHookMode,
 ) -> EntityLocation {
-    struct DynamicInsertBundle<
-        'a,
-        A: IsAligned,
-        I: Iterator<Item = (StorageType, OwningPtr<'a, A>)>,
-    > {
+    struct DynamicInsertBundle<'a, I: Iterator<Item = (StorageType, OwningPtr<'a>)>> {
         components: I,
     }
 
-    impl<'a, A: IsAligned, I: Iterator<Item = (StorageType, OwningPtr<'a, A>)>> DynamicBundle
-        for DynamicInsertBundle<'a, A, I>
+    impl<'a, I: Iterator<Item = (StorageType, OwningPtr<'a>)>> DynamicBundle
+        for DynamicInsertBundle<'a, I>
     {
         type Effect = ();
         unsafe fn get_components(
             ptr: *mut Self,
-            func: &mut impl FnMut(StorageType, OwningPtr<'_, Unaligned>),
+            func: &mut impl FnMut(StorageType, OwningPtr<'_>),
         ) {
             // SAFETY: The caller must ensure that `ptr` is pointing to a valid instance of `Self`
             // but does not necessarily need to be aligned.
-            let bundle = unsafe { ptr.read_unaligned() };
-            bundle
-                .components
-                .for_each(|(t, ptr)| func(t, ptr.to_unaligned()));
+            let bundle = unsafe { ptr.read() };
+            bundle.components.for_each(|(t, ptr)| func(t, ptr));
         }
 
         unsafe fn apply_effect(_ptr: *mut Self, _entity: &mut EntityWorldMut) {}

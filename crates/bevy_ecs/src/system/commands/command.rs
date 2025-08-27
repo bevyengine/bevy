@@ -16,11 +16,6 @@ use crate::{
     system::{IntoSystem, SystemId, SystemInput},
     world::{FromWorld, SpawnBatchIter, World},
 };
-<<<<<<< HEAD
-use bevy_ptr::Unaligned;
-use core::ptr::NonNull;
-=======
->>>>>>> parent of eb9ea33af (Introduce Command::apply_raw)
 
 /// A [`World`] mutation.
 ///
