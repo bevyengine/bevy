@@ -67,8 +67,8 @@ use crate::{
 };
 use alloc::{boxed::Box, vec::Vec};
 use bevy_platform::sync::atomic::{AtomicU32, Ordering};
-use bevy_ptr::{OwningPtr, Ptr, RemoteDropPtr, UnsafeCellDeref};
-use core::{any::TypeId, fmt, mem::ManuallyDrop, ptr::NonNull};
+use bevy_ptr::{OwningPtr, Ptr, UnsafeCellDeref};
+use core::{any::TypeId, fmt, mem::ManuallyDrop};
 use log::warn;
 use unsafe_world_cell::{UnsafeEntityCell, UnsafeWorldCell};
 
@@ -1155,7 +1155,7 @@ impl World {
     /// ```
     #[track_caller]
     pub fn spawn<B: Bundle>(&mut self, bundle: B) -> EntityWorldMut<'_> {
-        let mut bundle = ManuallyDrop::new(bundle);
+        let bundle = ManuallyDrop::new(bundle);
         let bundle_ptr = &raw const bundle;
         // SAFETY: The bundle was passed in by value, `bundle_ptr` thus must be valid.
         unsafe { self.spawn_with_caller(bundle_ptr.cast::<B>(), MaybeLocation::caller()) }
