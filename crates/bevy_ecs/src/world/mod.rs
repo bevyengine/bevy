@@ -2555,7 +2555,6 @@ impl World {
                             RelationshipHookMode::Run,
                         )
                     };
-                    core::mem::forget(bundle);
                 } else {
                     invalid_entities.push(entity);
                 }

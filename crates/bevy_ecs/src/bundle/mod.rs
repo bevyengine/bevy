@@ -233,6 +233,10 @@ pub unsafe trait BundleFromComponents {
         Self: Sized;
 }
 
+#[expect(
+    clippy::missing_safety_doc,
+    reason = "The safety docs for this type are private and will not show in the public docs."
+)]
 /// The parts from [`Bundle`] that don't require statically knowing the components of the bundle.
 //
 // # Safety

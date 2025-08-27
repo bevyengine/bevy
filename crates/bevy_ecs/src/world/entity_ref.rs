@@ -4691,7 +4691,7 @@ unsafe fn insert_dynamic_bundle<
 
     // SAFETY: location matches current entity.
     // `apply_effect` is empty and does not need to be called.
-    let result = unsafe {
+    unsafe {
         bundle_inserter.insert(
             entity,
             location,
@@ -4700,8 +4700,7 @@ unsafe fn insert_dynamic_bundle<
             caller,
             relationship_hook_insert_mode,
         )
-    };
-    result
+    }
 }
 
 /// Types that can be used to fetch components from an entity dynamically by
