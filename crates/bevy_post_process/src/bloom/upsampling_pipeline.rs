@@ -1,4 +1,4 @@
-use crate::FullscreenShader;
+use bevy_core_pipeline::FullscreenShader;
 
 use super::{
     downsampling_pipeline::BloomUniforms, Bloom, BloomCompositeMode, BLOOM_TEXTURE_FORMAT,

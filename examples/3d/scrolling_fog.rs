@@ -12,12 +12,12 @@
 
 use bevy::{
     anti_alias::taa::TemporalAntiAliasing,
-    core_pipeline::bloom::Bloom,
     image::{
         ImageAddressMode, ImageFilterMode, ImageLoaderSettings, ImageSampler,
         ImageSamplerDescriptor,
     },
     light::{DirectionalLightShadowMap, FogVolume, VolumetricFog, VolumetricLight},
+    post_process::bloom::Bloom,
     prelude::*,
 };
 
