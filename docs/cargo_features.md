@@ -15,6 +15,7 @@ The default feature set enables most of the expected features of a game engine, 
 |android_shared_stdcxx|Enable using a shared stdlib for cxx on Android|
 |animation|Enable animation support, and glTF animation loading|
 |async_executor|Uses `async-executor` as a task execution backend.|
+|bevy_animation|Provides animation functionality|
 |bevy_anti_aliasing|Provides various anti aliasing solutions|
 |bevy_asset|Provides asset functionality|
 |bevy_audio|Provides audio functionality|
@@ -74,7 +75,6 @@ The default feature set enables most of the expected features of a game engine, 
 |asset_processor|Enables the built-in asset processor for processed assets.|
 |async-io|Use async-io's implementation of block_on instead of futures-lite's implementation. This is preferred if your application uses async-io.|
 |basis-universal|Basis Universal compressed texture support|
-|bevy_animation|Provides animation functionality|
 |bevy_ci_testing|Enable systems that allow for automated testing on CI|
 |bevy_debug_stepping|Enable stepping-based debugging of Bevy systems|
 |bevy_dev_tools|Provides a collection of developer tools|

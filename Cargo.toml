@@ -144,6 +144,7 @@ default_no_render = [
   "android-game-activity",
   "android_shared_stdcxx",
   "animation",
+  "bevy_animation",
   "bevy_asset",
   "bevy_audio",
   "bevy_color",
