@@ -78,8 +78,9 @@ impl<R: Relationship, B: Bundle<Effect: NoBundleEffect>> SpawnableList<R> for Ve
 
 impl<R: Relationship, B: Bundle> SpawnableList<R> for Spawn<B> {
     fn spawn(self, world: &mut World, entity: Entity) {
+        let mut this = ManuallyDrop::new(self);
+        // SAFETY: `this` contains a valid `Self` we own.
         unsafe {
-            let mut this = ManuallyDrop::new(self);
             <Self as SpawnableList<R>>::spawn_raw((&raw mut (*this)), world, entity);
         }
     }
