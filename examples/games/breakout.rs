@@ -10,19 +10,9 @@ use bevy::{
 mod stepping;
 
 // These constants are defined in `Transform` units.
-// Using the default 2D camera they correspond 1:1 with screen pixels
-const WALL_THICKNESS: f32 = 10.0;
-// x coordinates
-const LEFT_WALL: f32 = -450.;
-const RIGHT_WALL: f32 = 450.;
-// y coordinates
-const BOTTOM_WALL: f32 = -300.;
-const TOP_WALL: f32 = 300.;
-
+// Using the default 2D camera they correspond 1:1 with screen pixels.
 const PADDLE_SIZE: Vec2 = Vec2::new(120.0, 20.0);
 const GAP_BETWEEN_PADDLE_AND_FLOOR: f32 = 60.0;
-const PADDLE_Y: f32 = BOTTOM_WALL + GAP_BETWEEN_PADDLE_AND_FLOOR;
-// Speeds are '`Transform` units per second'
 const PADDLE_SPEED: f32 = 500.0;
 // How close can the paddle get to the wall
 const PADDLE_PADDING: f32 = 10.0;
@@ -32,6 +22,14 @@ const BALL_STARTING_POSITION: Vec3 = Vec3::new(0.0, -50.0, 1.0);
 const BALL_DIAMETER: f32 = 30.;
 const BALL_SPEED: f32 = 400.0;
 const INITIAL_BALL_DIRECTION: Vec2 = Vec2::new(0.5, -0.5);
+
+const WALL_THICKNESS: f32 = 10.0;
+// x coordinates
+const LEFT_WALL: f32 = -450.;
+const RIGHT_WALL: f32 = 450.;
+// y coordinates
+const BOTTOM_WALL: f32 = -300.;
+const TOP_WALL: f32 = 300.;
 
 const BRICK_SIZE: Vec2 = Vec2::new(100., 30.);
 // These values are exact
@@ -58,26 +56,27 @@ fn main() {
         .add_plugins(
             stepping::SteppingPlugin::default()
                 .add_schedule(Update)
+                .add_schedule(FixedUpdate)
                 .at(Val::Percent(35.0), Val::Percent(50.0)),
         )
         .insert_resource(Score(0))
         .insert_resource(ClearColor(BACKGROUND_COLOR))
         .add_event::<CollisionEvent>()
         .add_systems(Startup, setup)
-        // Add our systems to the update schedule
+        // Add our gameplay simulation systems to the fixed timestep schedule
+        // which runs at 64 Hz by default
         .add_systems(
-            Update,
+            FixedUpdate,
             (
                 apply_velocity,
-                clamp_paddle,
                 move_paddle,
                 check_for_collisions,
                 play_collision_sound,
-                update_scoreboard,
             )
                 // `chain`ing systems together runs them in order
                 .chain(),
         )
+        .add_systems(Update, update_scoreboard)
         .run();
 }
 
@@ -190,16 +189,17 @@ fn setup(
     commands.insert_resource(CollisionSound(ball_collision_sound));
 
     // Paddle
+    let paddle_y = BOTTOM_WALL + GAP_BETWEEN_PADDLE_AND_FLOOR;
+
     commands.spawn((
         Sprite::from_color(PADDLE_COLOR, Vec2::ONE),
         Transform {
-            translation: Vec3::new(0.0, PADDLE_Y, 0.0),
+            translation: Vec3::new(0.0, paddle_y, 0.0),
             scale: PADDLE_SIZE.extend(1.0),
             ..default()
         },
         Paddle,
         Collider,
-        Velocity(Vec2 { x: 0., y: 0. }),
     ));
 
     // Ball
@@ -245,7 +245,7 @@ fn setup(
 
     // Bricks
     let total_width_of_bricks = (RIGHT_WALL - LEFT_WALL) - 2. * GAP_BETWEEN_BRICKS_AND_SIDES;
-    let bottom_edge_of_bricks = PADDLE_Y + GAP_BETWEEN_PADDLE_AND_BRICKS;
+    let bottom_edge_of_bricks = paddle_y + GAP_BETWEEN_PADDLE_AND_BRICKS;
     let total_height_of_bricks = TOP_WALL - bottom_edge_of_bricks - GAP_BETWEEN_BRICKS_AND_CEILING;
 
     assert!(total_width_of_bricks > 0.0);
@@ -295,20 +295,10 @@ fn setup(
     }
 }
 
-fn clamp_paddle(mut paddle_transform: Single<&mut Transform, With<Paddle>>) {
-    // Update the paddle position limiting it to the arena
-    let left_bound = LEFT_WALL + WALL_THICKNESS / 2.0 + PADDLE_SIZE.x / 2.0 + PADDLE_PADDING;
-    let right_bound = RIGHT_WALL - WALL_THICKNESS / 2.0 - PADDLE_SIZE.x / 2.0 - PADDLE_PADDING;
-
-    paddle_transform.translation.x = paddle_transform
-        .translation
-        .x
-        .clamp(left_bound, right_bound);
-}
-
 fn move_paddle(
     keyboard_input: Res<ButtonInput<KeyCode>>,
-    mut paddle_velocity: Single<&mut Velocity, With<Paddle>>,
+    mut paddle_transform: Single<&mut Transform, With<Paddle>>,
+    time: Res<Time>,
 ) {
     let mut direction = 0.0;
 
@@ -320,22 +310,22 @@ fn move_paddle(
         direction += 1.0;
     }
 
-    paddle_velocity.x = direction * PADDLE_SPEED;
+    // Calculate the new horizontal paddle position based on player input
+    let new_paddle_position =
+        paddle_transform.translation.x + direction * PADDLE_SPEED * time.delta_secs();
+
+    // Update the paddle position,
+    // making sure it doesn't cause the paddle to leave the arena
+    let left_bound = LEFT_WALL + WALL_THICKNESS / 2.0 + PADDLE_SIZE.x / 2.0 + PADDLE_PADDING;
+    let right_bound = RIGHT_WALL - WALL_THICKNESS / 2.0 - PADDLE_SIZE.x / 2.0 - PADDLE_PADDING;
+
+    paddle_transform.translation.x = new_paddle_position.clamp(left_bound, right_bound);
 }
 
 fn apply_velocity(mut query: Query<(&mut Transform, &Velocity)>, time: Res<Time>) {
     for (mut transform, velocity) in &mut query {
-        // Calculate position at 1.0 seconds
-        let new_position = Vec3 {
-            x: transform.translation.x + velocity.x,
-            y: transform.translation.y + velocity.y,
-            z: transform.translation.z,
-        };
-
-        // Interpolate the position from the time that has actually passed
-        transform
-            .translation
-            .interpolate_stable_assign(&new_position, time.delta_secs());
+        transform.translation.x += velocity.x * time.delta_secs();
+        transform.translation.y += velocity.y * time.delta_secs();
     }
 }
 
