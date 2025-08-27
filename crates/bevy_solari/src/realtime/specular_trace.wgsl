@@ -65,16 +65,18 @@ fn trace_glossy_path(initial_ray_origin: vec3<f32>, initial_wi: vec3<f32>, rng: 
 
     var radiance = vec3(0.0);
     var throughput = vec3(1.0);
-    for (var i = 0u; i < 3u; i += 1u) {
+    for (var i = 1u; i <= 3u; i += 1u) {
         // Trace ray
         let ray = trace_ray(ray_origin, wi, RAY_T_MIN, RAY_T_MAX, RAY_FLAG_NONE);
         if ray.kind == RAY_QUERY_INTERSECTION_NONE { break; }
         let ray_hit = resolve_ray_hit_full(ray);
 
-        // Terminate in the world cache after the first bounce, if it's traveled at least a cell's worth of distance
+        // Terminate in the world cache after the first bounce,
+        // if it's traveled at least a cell's worth of distance,
+        // or we're on the last bounce
         let cell_size = get_cell_size(ray_hit.world_position, view.world_position);
         let cell_face_diagonal = cell_size * sqrt(2.0);
-        if i != 0u && ray.t > cell_face_diagonal {
+        if i != 1u && (ray.t > cell_face_diagonal || i == 3u) {
             radiance = query_world_cache_with_cell_size(ray_hit.world_position, ray_hit.geometric_world_normal, cell_size);
             radiance *= ray_hit.material.base_color / PI; // TODO: Correct BRDF
             break;
