@@ -39,6 +39,10 @@ struct WorldCacheGeometryData {
 #ifndef WORLD_CACHE_NON_ATOMIC_LIFE_BUFFER
 fn query_world_cache(world_position: vec3<f32>, world_normal: vec3<f32>, view_position: vec3<f32>) -> vec3<f32> {
     let cell_size = get_cell_size(world_position, view_position);
+    return query_world_cache_with_cell_size(world_position, world_normal, cell_size);
+}
+
+fn query_world_cache_with_cell_size(world_position: vec3<f32>, world_normal: vec3<f32>, cell_size: f32) -> vec3<f32> {
     let world_position_quantized = bitcast<vec3<u32>>(quantize_position(world_position, cell_size));
     let world_normal_quantized = bitcast<vec3<u32>>(quantize_normal(world_normal));
     var key = compute_key(world_position_quantized, world_normal_quantized);

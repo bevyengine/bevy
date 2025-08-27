@@ -5,7 +5,7 @@
 #import bevy_solari::gbuffer_utils::gpixel_resolve
 #import bevy_solari::sampling::{sample_ggx_vndf, ggx_vndf_pdf}
 #import bevy_solari::scene_bindings::{trace_ray, resolve_ray_hit_full, ResolvedMaterial, RAY_T_MIN, RAY_T_MAX}
-#import bevy_solari::world_cache::query_world_cache
+#import bevy_solari::world_cache::{query_world_cache_with_cell_size, get_cell_size}
 
 @group(1) @binding(0) var view_output: texture_storage_2d<rgba16float, read_write>;
 @group(1) @binding(7) var gbuffer: texture_2d<u32>;
@@ -35,7 +35,7 @@ fn specular_trace(@builtin(global_invocation_id) global_id: vec3<u32>) {
 
     var radiance = vec3(0.0);
     var throughput = vec3(1.0);
-    for (var i = 1u; i <= 2u; i += 1u) {
+    for (var i = 1u; i <= 3u; i += 1u) {
         // Sample new direction
         let next_bounce = prepare_next_bounce(wo, TBN, material, f32(i != 1u), &rng);
 
@@ -46,9 +46,11 @@ fn specular_trace(@builtin(global_invocation_id) global_id: vec3<u32>) {
 
         throughput *= next_bounce.throughput;
 
-        // Terminate in the world cache after the first bounce
-        if i != 1u {
-            radiance = query_world_cache(ray_hit.world_position, ray_hit.geometric_world_normal, view.world_position);
+        // Terminate in the world cache after the first bounce, if it's traveled at least a cell's worth of distance
+        let cell_size = get_cell_size(ray_hit.world_position, view.world_position);
+        let cell_face_diagonal = cell_size * sqrt(2.0);
+        if i != 1u && ray.t > cell_face_diagonal {
+            radiance = query_world_cache_with_cell_size(ray_hit.world_position, ray_hit.geometric_world_normal, cell_size);
             break;
         }
 
