@@ -141,7 +141,7 @@ impl<T: ?Sized> ConstNonNull<T> {
 
 impl<T: ?Sized> Clone for ConstNonNull<T> {
     fn clone(&self) -> Self {
-        Self(self.0)
+        *self
     }
 }
 
