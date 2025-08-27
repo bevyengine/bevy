@@ -331,6 +331,7 @@ impl<R: Relationship, B: Bundle> DynamicBundle for SpawnOneRelated<R, B> {
     ) {
         let mut target = <R::RelationshipTarget as RelationshipTarget>::with_capacity(1);
         <R::RelationshipTarget as DynamicBundle>::get_components(&mut target, func);
+        core::mem::forget(target);
     }
 
     unsafe fn apply_effect(ptr: *mut Self, entity: &mut EntityWorldMut) {
