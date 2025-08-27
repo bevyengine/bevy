@@ -2,14 +2,15 @@
 //! for the best entry points into these APIs and examples of how to use them.
 
 use crate::{
-    bundle::{Bundle, BundleEffect, DynamicBundle, NoBundleEffect},
+    bundle::{Bundle, BundleEffect, DynamicBundle, InsertMode, NoBundleEffect},
+    change_detection::MaybeLocation,
     entity::Entity,
-    relationship::{RelatedSpawner, Relationship, RelationshipTarget},
+    relationship::{RelatedSpawner, Relationship, RelationshipHookMode, RelationshipTarget},
     world::{EntityWorldMut, World},
 };
 use alloc::vec::Vec;
-use core::marker::PhantomData;
 use core::mem::ManuallyDrop;
+use core::{marker::PhantomData, mem::MaybeUninit};
 use variadics_please::all_tuples;
 
 /// A wrapper over a [`Bundle`] indicating that an entity should be spawned with that [`Bundle`].
@@ -45,6 +46,23 @@ pub trait SpawnableList<R> {
     /// Returns a size hint, which is used to reserve space for this list in a [`RelationshipTarget`]. This should be
     /// less than or equal to the actual size of the list. When in doubt, just use 0.
     fn size_hint(&self) -> usize;
+
+    /// By default calls `self.spawn` with a raw pointer to `self`.
+    /// Implementors may want to implement a custom version of this function to
+    /// avoid copying large values onto the stack repeatedly.
+    /// # Safety
+    /// `this` must be a valid pointer to `Self` and takes ownership of the
+    /// value pointed at by `this`.
+    #[doc(hidden)]
+    unsafe fn spawn_raw(this: *mut Self, world: &mut World, entity: Entity)
+    where
+        Self: Sized,
+    {
+        // SAFETY: this function must be called with a pointer to a valid `Self`.
+        unsafe {
+            core::ptr::read(this).spawn(world, entity);
+        }
+    }
 }
 
 impl<R: Relationship, B: Bundle<Effect: NoBundleEffect>> SpawnableList<R> for Vec<B> {
@@ -65,6 +83,33 @@ impl<R: Relationship, B: Bundle> SpawnableList<R> for Spawn<B> {
 
     fn size_hint(&self) -> usize {
         1
+    }
+
+    unsafe fn spawn_raw(this: *mut Self, world: &mut World, entity: Entity) {
+        #[track_caller]
+        unsafe fn spawn_raw<B: Bundle, R: Relationship>(
+            this: *mut Spawn<B>,
+            world: &mut World,
+            entity: Entity,
+        ) {
+            let caller = MaybeLocation::caller();
+            let mut r = MaybeUninit::new(R::from(entity));
+            unsafe {
+                let mut entity = world.spawn_with_caller(r.as_mut_ptr(), caller);
+                let bundle = &raw mut (*this).0;
+                entity.insert_raw_with_caller(
+                    bundle,
+                    InsertMode::Replace,
+                    caller,
+                    RelationshipHookMode::Run,
+                );
+            }
+        }
+
+        // SAFETY: `this` points to a valid `Self` and we have ownership of it.
+        unsafe {
+            spawn_raw::<B, R>(this, world, entity);
+        }
     }
 }
 
@@ -262,6 +307,17 @@ impl<R: Relationship, L: SpawnableList<R>> BundleEffect for SpawnRelatedBundle<R
             self.list.spawn(world, id);
         });
     }
+
+    unsafe fn apply_raw(this: *mut Self, entity: &mut EntityWorldMut)
+    where
+        Self: Sized,
+    {
+        let id = entity.id();
+        // SAFETY: this function must be called with a pointer to a valid `Self`.
+        entity.world_scope(|world: &mut World| unsafe {
+            L::spawn_raw((&raw mut (*this).list), world, id);
+        });
+    }
 }
 
 // SAFETY: This internally relies on the RelationshipTarget's Bundle implementation, which is sound.
@@ -310,8 +366,7 @@ unsafe impl<R: Relationship, L: SpawnableList<R>> DynamicBundle for SpawnRelated
 
     unsafe fn apply_effect(ptr: *mut Self, entity: &mut EntityWorldMut) {
         // SAFETY: The caller must ensure that the `ptr` must be valid but not necessarily aligned.
-        let effect = unsafe { ptr.read() };
-        effect.apply(entity);
+        <Self as BundleEffect>::apply_raw(ptr, entity);
     }
 }
 

@@ -279,6 +279,22 @@ pub unsafe trait DynamicBundle {
 pub trait BundleEffect {
     /// Applies this effect to the given `entity`.
     fn apply(self, entity: &mut EntityWorldMut);
+
+    /// # Safety
+    /// `this` must be a valid pointer to `Self` and takes ownership of the
+    /// value pointed at by `this`.
+    #[doc(hidden)]
+    unsafe fn apply_raw(this: *mut Self, entity: &mut EntityWorldMut)
+    where
+        Self: Sized,
+    {
+        // Default to reading the pointer and calling the safe `apply` method.
+        // Implementers will want to override this to avoid copying big
+        // `BundleEffect`s onto the stack repeatedly.
+
+        // SAFETY: Caller ensures that `this` is a valid pointer to `Self`.
+        unsafe { core::ptr::read(this).apply(entity) }
+    }
 }
 
 /// A trait implemented for [`BundleEffect`] implementations that do nothing. This is used as a type constraint for
