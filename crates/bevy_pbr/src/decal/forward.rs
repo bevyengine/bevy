@@ -7,11 +7,11 @@ use bevy_asset::{Asset, Assets, Handle};
 use bevy_ecs::{
     component::Component, lifecycle::HookContext, resource::Resource, world::DeferredWorld,
 };
+use bevy_material::alpha::AlphaMode;
 use bevy_math::{prelude::Rectangle, Quat, Vec2, Vec3};
 use bevy_mesh::{Mesh, Mesh3d, MeshBuilder, MeshVertexBufferLayoutRef, Meshable};
 use bevy_reflect::{Reflect, TypePath};
 use bevy_render::{
-    alpha::AlphaMode,
     render_asset::RenderAssets,
     render_resource::{
         AsBindGroup, AsBindGroupShaderType, CompareFunction, RenderPipelineDescriptor, ShaderType,
