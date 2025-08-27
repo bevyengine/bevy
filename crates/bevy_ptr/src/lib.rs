@@ -92,6 +92,10 @@ impl<T: ?Sized> ConstNonNull<T> {
         unsafe { Self(NonNull::new_unchecked(ptr.cast_mut())) }
     }
 
+    pub fn as_ptr(self) -> *const T {
+        self.0.as_ptr().cast_const()
+    }
+
     /// Returns a shared reference to the value.
     ///
     /// # Safety
@@ -133,6 +137,14 @@ impl<T: ?Sized> ConstNonNull<T> {
         unsafe { self.0.as_ref() }
     }
 }
+
+impl<T: ?Sized> Clone for ConstNonNull<T> {
+    fn clone(&self) -> Self {
+        Self(self.0)
+    }
+}
+
+impl<T: ?Sized> Copy for ConstNonNull<T> {}
 
 impl<T: ?Sized> From<NonNull<T>> for ConstNonNull<T> {
     fn from(value: NonNull<T>) -> ConstNonNull<T> {
@@ -554,6 +566,39 @@ impl<'a, T> From<&'a [T]> for ThinSlicePtr<'a, T> {
             len: slice.len(),
             _marker: PhantomData,
         }
+    }
+}
+
+/// A newtype around [`NonNull`] that only allows conversion to read-only borrows or pointers.
+///
+/// This type can be thought of as the `*const T` to [`NonNull<T>`]'s `*mut T`.
+#[repr(transparent)]
+pub struct RemoteDropPtr<T: ?Sized>(ConstNonNull<T>);
+
+impl<T> RemoteDropPtr<T> {
+    /// Create a new [`RemoteDropPtr`].
+    ///
+    /// # Safety
+    /// - There must be no other existing borrows or aliasing pointers pointing at the same
+    ///   value.
+    /// - `ptr` must be aligned to `T`.
+    /// - The value pointed to by `ptr` must not be used in any way after the
+    ///   construction. Assume that value to have been moved.
+    pub unsafe fn new(ptr: NonNull<ManuallyDrop<T>>) -> Self {
+        Self(ConstNonNull::from(ptr.cast::<T>()))
+    }
+
+    /// Consumes the [`RemoteDropPtr`] as if it was moved.
+    /// This will not cause the underlying value to be dropped.
+    pub fn move_into(self) -> ConstNonNull<T> {
+        ManuallyDrop::new(self).0
+    }
+}
+
+impl<T: ?Sized> Drop for RemoteDropPtr<T> {
+    fn drop(&mut self) {
+        //  SAFETY: RemoteDropPtr is an owning pointer and thus cannot be aliased.
+        unsafe { ptr::drop_in_place(self.0.as_ptr().cast_mut()) };
     }
 }
 
