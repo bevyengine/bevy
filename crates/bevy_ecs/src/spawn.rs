@@ -290,7 +290,7 @@ unsafe impl<R: Relationship, L: SpawnableList<R>> DynamicBundle for SpawnRelated
     type Effect = Self;
 
     unsafe fn get_components(
-        ptr: *const Self,
+        ptr: *mut Self,
         func: &mut impl FnMut(crate::component::StorageType, bevy_ptr::OwningPtr<'_>),
     ) {
         // SAFETY:
@@ -300,15 +300,15 @@ unsafe impl<R: Relationship, L: SpawnableList<R>> DynamicBundle for SpawnRelated
         let effect = unsafe { &*ptr };
         let target =
             <R::RelationshipTarget as RelationshipTarget>::with_capacity(effect.list.size_hint());
-        let target = ManuallyDrop::new(target);
-        let target_ptr = &raw const target;
+        let mut target = ManuallyDrop::new(target);
+        let target_ptr = &raw mut target;
         <R::RelationshipTarget as DynamicBundle>::get_components(
             target_ptr.cast::<R::RelationshipTarget>(),
             func,
         );
     }
 
-    unsafe fn apply_effect(ptr: *const Self, entity: &mut EntityWorldMut) {
+    unsafe fn apply_effect(ptr: *mut Self, entity: &mut EntityWorldMut) {
         // SAFETY: The caller must ensure that the `ptr` must be valid but not necessarily aligned.
         let effect = unsafe { ptr.read() };
         effect.apply(entity);
@@ -338,19 +338,19 @@ unsafe impl<R: Relationship, B: Bundle> DynamicBundle for SpawnOneRelated<R, B> 
     type Effect = Self;
 
     unsafe fn get_components(
-        _ptr: *const Self,
+        _ptr: *mut Self,
         func: &mut impl FnMut(crate::component::StorageType, bevy_ptr::OwningPtr<'_>),
     ) {
         let target = <R::RelationshipTarget as RelationshipTarget>::with_capacity(1);
-        let target = ManuallyDrop::new(target);
-        let target_ptr = &raw const target;
+        let mut target = ManuallyDrop::new(target);
+        let target_ptr = &raw mut target;
         <R::RelationshipTarget as DynamicBundle>::get_components(
             target_ptr.cast::<R::RelationshipTarget>(),
             func,
         );
     }
 
-    unsafe fn apply_effect(ptr: *const Self, entity: &mut EntityWorldMut) {
+    unsafe fn apply_effect(ptr: *mut Self, entity: &mut EntityWorldMut) {
         // SAFETY: The caller must ensure that the `ptr` must be valid and aligned.
         let effect = unsafe { ptr.read() };
         effect.apply(entity);

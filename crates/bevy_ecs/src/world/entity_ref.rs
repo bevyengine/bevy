@@ -2035,8 +2035,8 @@ impl<'w> EntityWorldMut<'w> {
         caller: MaybeLocation,
         relationship_hook_mode: RelationshipHookMode,
     ) -> &mut Self {
-        let bundle = ManuallyDrop::new(bundle);
-        let bundle_ptr = &raw const bundle;
+        let mut bundle = ManuallyDrop::new(bundle);
+        let bundle_ptr = &raw mut bundle;
         // SAFETY: This is being called with a mutable borrow on the bundle, which should always be a valid
         // pointer.
         unsafe {
@@ -2055,7 +2055,7 @@ impl<'w> EntityWorldMut<'w> {
     #[inline]
     pub(crate) unsafe fn insert_raw_with_caller<T: Bundle>(
         &mut self,
-        bundle: *const T,
+        bundle: *mut T,
         mode: InsertMode,
         caller: MaybeLocation,
         relationship_hook_mode: RelationshipHookMode,
@@ -2891,8 +2891,8 @@ impl<'w> EntityWorldMut<'w> {
         caller: MaybeLocation,
     ) -> &mut Self {
         self.assert_not_despawned();
-        let bundle = ManuallyDrop::new(Observer::new(observer).with_entity(self.entity));
-        let bundle_ptr = &raw const bundle;
+        let mut bundle = ManuallyDrop::new(Observer::new(observer).with_entity(self.entity));
+        let bundle_ptr = &raw mut bundle;
         // SAFETY: The observer was just constructed above. `bundle_ptr` must be valid.
         unsafe {
             self.world
@@ -4672,7 +4672,7 @@ unsafe fn insert_dynamic_bundle<
     {
         type Effect = ();
         unsafe fn get_components(
-            ptr: *const Self,
+            ptr: *mut Self,
             func: &mut impl FnMut(StorageType, OwningPtr<'_>),
         ) {
             // SAFETY: The caller must ensure that `ptr` is pointing to a valid instance of `Self`
@@ -4681,13 +4681,13 @@ unsafe fn insert_dynamic_bundle<
             bundle.components.for_each(|(t, ptr)| func(t, ptr));
         }
 
-        unsafe fn apply_effect(_ptr: *const Self, _entity: &mut EntityWorldMut) {}
+        unsafe fn apply_effect(_ptr: *mut Self, _entity: &mut EntityWorldMut) {}
     }
 
-    let bundle = ManuallyDrop::new(DynamicInsertBundle {
+    let mut bundle = ManuallyDrop::new(DynamicInsertBundle {
         components: storage_types.zip(components),
     });
-    let bundle_ptr = &raw const bundle;
+    let bundle_ptr = &raw mut bundle;
 
     // SAFETY: location matches current entity.
     // `apply_effect` is empty and does not need to be called.

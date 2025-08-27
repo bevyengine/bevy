@@ -245,7 +245,7 @@ impl BundleInfo {
         entity: Entity,
         table_row: TableRow,
         change_tick: Tick,
-        bundle: *const T,
+        bundle: *mut T,
         insert_mode: InsertMode,
         caller: MaybeLocation,
     ) {

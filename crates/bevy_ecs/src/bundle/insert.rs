@@ -153,7 +153,7 @@ impl<'w> BundleInserter<'w> {
         &mut self,
         entity: Entity,
         location: EntityLocation,
-        bundle: *const T,
+        bundle: *mut T,
         insert_mode: InsertMode,
         caller: MaybeLocation,
         relationship_hook_mode: RelationshipHookMode,

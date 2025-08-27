@@ -46,16 +46,16 @@ unsafe impl<C: Component> DynamicBundle for C {
     type Effect = ();
     #[inline]
     unsafe fn get_components(
-        ptr: *const Self,
+        ptr: *mut Self,
         func: &mut impl FnMut(StorageType, OwningPtr<'_>),
     ) -> Self::Effect {
-        let ptr = NonNull::new(ptr.cast_mut()).debug_checked_unwrap().cast();
+        let ptr = NonNull::new(ptr).debug_checked_unwrap().cast::<u8>();
         let ptr = OwningPtr::new(ptr);
         func(C::STORAGE_TYPE, ptr);
     }
 
     #[inline]
-    unsafe fn apply_effect(_ptr: *const Self, _entity: &mut EntityWorldMut) {}
+    unsafe fn apply_effect(_ptr: *mut Self, _entity: &mut EntityWorldMut) {}
 }
 
 macro_rules! tuple_impl {
@@ -144,9 +144,16 @@ macro_rules! tuple_impl {
                 reason = "Zero-length tuples will generate a function body equivalent to `()`; however, this macro is meant for all applicable tuples, and as such it makes no sense to rewrite it just for that case."
             )]
             #[inline(always)]
-            unsafe fn get_components(ptr: *const Self, func: &mut impl FnMut(StorageType, OwningPtr<'_>)) {
+            unsafe fn get_components(ptr: *mut Self, func: &mut impl FnMut(StorageType, OwningPtr<'_>)) {
                 $(
-                    let field_ptr = &raw const (*ptr).$index;
+                    let field_ptr = &raw mut (*ptr).$index;
+                    // SAFETY:
+                    // - If `ptr` is aligned, then field_ptr is aligned properly
+                    // - If a field is `NoBundleEffect`, it's `apply_effect` is a no-op
+                    //   and cannot move any value out of an invalid instance after this call.
+                    // - If a field is `!NoBundleEffect`, it must be valid since a safe
+                    //   implementation of `DynamicBundle` only moves the value out only
+                    //   once between `get_components` and `apply_effect`.
                     $name::get_components(field_ptr, &mut *func);
                 )*
             }
@@ -156,9 +163,16 @@ macro_rules! tuple_impl {
                 reason = "Zero-length tuples will generate a function body equivalent to `()`; however, this macro is meant for all applicable tuples, and as such it makes no sense to rewrite it just for that case."
             )]
             #[inline(always)]
-            unsafe fn apply_effect(ptr: *const Self, entity: &mut EntityWorldMut) {
+            unsafe fn apply_effect(ptr: *mut Self, entity: &mut EntityWorldMut) {
                 $(
-                    let field_ptr = &raw const (*ptr).$index;
+                    let field_ptr = &raw mut (*ptr).$index;
+                    // SAFETY:
+                    // - If `ptr` is aligned, then field_ptr is aligned properly
+                    // - If a field is `NoBundleEffect`, it's `apply_effect` is a no-op
+                    //   and cannot move any value out of an invalid instance.
+                    // - If a field is `!NoBundleEffect`, it must be valid since a safe
+                    //   implementation of `DynamicBundle` only moves the value out only
+                    //   once between `get_components` and `apply_effect`.
                     $name::apply_effect(field_ptr, entity);
                 )*
             }

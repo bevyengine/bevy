@@ -93,7 +93,7 @@ impl<'w> BundleSpawner<'w> {
     pub unsafe fn spawn_non_existent<T: DynamicBundle>(
         &mut self,
         entity: Entity,
-        bundle: *const T,
+        bundle: *mut T,
         caller: MaybeLocation,
     ) -> EntityLocation {
         // SAFETY: We do not make any structural changes to the archetype graph through self.world so these pointers always remain valid
@@ -175,7 +175,7 @@ impl<'w> BundleSpawner<'w> {
     ///
     /// [`apply_effect`]: crate::bundle::DynamicBundle::apply_effect
     #[inline]
-    pub unsafe fn spawn<T: Bundle>(&mut self, bundle: *const T, caller: MaybeLocation) -> Entity {
+    pub unsafe fn spawn<T: Bundle>(&mut self, bundle: *mut T, caller: MaybeLocation) -> Entity {
         let entity = self.entities().alloc();
         // SAFETY: entity is allocated (but non-existent), `T` matches this BundleInfo's type
         unsafe { self.spawn_non_existent(entity, bundle, caller) };

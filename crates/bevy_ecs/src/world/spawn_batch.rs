@@ -72,8 +72,8 @@ where
     type Item = Entity;
 
     fn next(&mut self) -> Option<Entity> {
-        let bundle = ManuallyDrop::new(self.inner.next()?);
-        let bundle_ptr = &raw const bundle;
+        let mut bundle = ManuallyDrop::new(self.inner.next()?);
+        let bundle_ptr = &raw mut bundle;
         // SAFETY:
         // - bundle matches spawner type
         // - `I::Item`'s effect type implements `NoBundleEffect`, there is no need to call

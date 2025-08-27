@@ -173,11 +173,11 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
             #[allow(unused_variables)]
             #[inline]
             unsafe fn get_components(
-                ptr: *const Self,
+                ptr: *mut Self,
                 func: &mut impl FnMut(#ecs_path::component::StorageType, #ecs_path::ptr::OwningPtr<'_>)
             ) {
                 #(
-                    let field_ptr = &raw const (*ptr).#active_field_tokens;
+                    let field_ptr = &raw mut (*ptr).#active_field_tokens;
                     <#active_field_types as #ecs_path::bundle::DynamicBundle>::get_components(field_ptr, &mut *func);
                 )*
             }
@@ -185,7 +185,7 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
             #[allow(unused_variables)]
             #[inline]
             unsafe fn apply_effect(
-                ptr: *const Self,
+                ptr: *mut Self,
                 func: &mut #ecs_path::world::EntityWorldMut<'_>,
             ) {
             }

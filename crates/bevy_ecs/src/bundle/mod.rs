@@ -244,21 +244,23 @@ pub unsafe trait DynamicBundle {
     type Effect: BundleEffect;
 
     // SAFETY:
+    // - Must be called exactly once before `apply_effect`
     // - The `StorageType` argument passed into [`Bundle::get_components`] must be correct for the
     //   component being fetched.
-    // - Calls `func` on each value, in the order of this bundle's [`Component`]s. This passes
-    //   ownership of the component values to `func`.
-    // - `ptr` must point to a valid instance of `Self` and must be aligned.
+    // - Calls `func` on each component value in the bundle, in the order of this bundle's [`Component`]s.
+    //   This passes ownership of the component values to `func`.
+    // - `ptr` must point to an owned valid instance of `Self` and must be aligned.
     // - `apply_effect` must be called exactly once after this has been called if `Effect: !NoBundleEffect`
     #[doc(hidden)]
-    unsafe fn get_components(ptr: *const Self, func: &mut impl FnMut(StorageType, OwningPtr<'_>));
+    unsafe fn get_components(ptr: *mut Self, func: &mut impl FnMut(StorageType, OwningPtr<'_>));
 
     // SAFETY:
     // - Must be called exactly once after `get_components` has been called.
     // - `ptr` must point to the instance of `Self` that `get_components` was called on,
-    //   not all fields may be valid anymore. The pointer itself must be aligned.
+    //   all of fields that were moved out of in `get_components` will not be valid anymore. The pointer
+    //   itself must be aligned.
     #[doc(hidden)]
-    unsafe fn apply_effect(ptr: *const Self, entity: &mut EntityWorldMut);
+    unsafe fn apply_effect(ptr: *mut Self, entity: &mut EntityWorldMut);
 }
 
 /// An operation on an [`Entity`](crate::entity::Entity) that occurs _after_ inserting the

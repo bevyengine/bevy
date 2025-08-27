@@ -1155,8 +1155,8 @@ impl World {
     /// ```
     #[track_caller]
     pub fn spawn<B: Bundle>(&mut self, bundle: B) -> EntityWorldMut<'_> {
-        let bundle = ManuallyDrop::new(bundle);
-        let bundle_ptr = &raw const bundle;
+        let mut bundle = ManuallyDrop::new(bundle);
+        let bundle_ptr = &raw mut bundle;
         // SAFETY: The bundle was passed in by value, `bundle_ptr` thus must be valid.
         unsafe { self.spawn_with_caller(bundle_ptr.cast::<B>(), MaybeLocation::caller()) }
     }
@@ -1165,7 +1165,7 @@ impl World {
     /// - `bundle_ptr` thus must be pointing to a valid, but not necessarily aligned, instance of `B`
     pub(crate) unsafe fn spawn_with_caller<B: Bundle>(
         &mut self,
-        bundle: *const B,
+        bundle: *mut B,
         caller: MaybeLocation,
     ) -> EntityWorldMut<'_> {
         self.flush();
@@ -2320,8 +2320,8 @@ impl World {
         let mut batch_iter = batch.into_iter();
 
         if let Some((first_entity, first_bundle)) = batch_iter.next() {
-            let first_bundle = ManuallyDrop::new(first_bundle);
-            let first_bundle_ptr = &raw const first_bundle;
+            let mut first_bundle = ManuallyDrop::new(first_bundle);
+            let first_bundle_ptr = &raw mut first_bundle;
             let first_bundle_ptr = first_bundle_ptr.cast::<B>();
 
             if let Some(first_location) = self.entities().get(first_entity) {
@@ -2352,8 +2352,8 @@ impl World {
                 };
 
                 for (entity, bundle) in batch_iter {
-                    let bundle = ManuallyDrop::new(bundle);
-                    let bundle_ptr = &raw const bundle;
+                    let mut bundle = ManuallyDrop::new(bundle);
+                    let bundle_ptr = &raw mut bundle;
                     let bundle_ptr = bundle_ptr.cast::<B>();
 
                     if let Some(location) = cache.inserter.entities().get(entity) {
@@ -2482,8 +2482,8 @@ impl World {
         // if the first entity is invalid, whereas this method needs to keep going.
         let cache = loop {
             if let Some((first_entity, first_bundle)) = batch_iter.next() {
-                let first_bundle = ManuallyDrop::new(first_bundle);
-                let first_bundle_ptr = &raw const first_bundle;
+                let mut first_bundle = ManuallyDrop::new(first_bundle);
+                let first_bundle_ptr = &raw mut first_bundle;
                 let first_bundle_ptr = first_bundle_ptr.cast::<B>();
 
                 if let Some(first_location) = self.entities().get(first_entity) {
@@ -2523,8 +2523,8 @@ impl World {
 
         if let Some(mut cache) = cache {
             for (entity, bundle) in batch_iter {
-                let bundle = ManuallyDrop::new(bundle);
-                let bundle_ptr = &raw const bundle;
+                let mut bundle = ManuallyDrop::new(bundle);
+                let bundle_ptr = &raw mut bundle;
                 let bundle_ptr = bundle_ptr.cast::<B>();
 
                 if let Some(location) = cache.inserter.entities().get(entity) {
