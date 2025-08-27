@@ -154,9 +154,9 @@ type AnimationEvents = HashMap<AnimationEventTarget, Vec<TimedAnimationEvent>>;
 /// animation curves.
 pub type AnimationCurves = HashMap<AnimationTargetId, Vec<VariableCurve>, NoOpHash>;
 
-/// A component used to identify an animation target entity (e.g. a bone in a
-/// skinned mesh). The [`AnimationClip`] asset uses this to identify which
-/// curves in the clip will affect the target entity.
+/// A component that identifies which parts of an [`AnimationClip`] asset can
+/// be applied to an entity. Typically used alongside the
+/// [`AnimationPlayerTarget`] component.
 ///
 /// `AnimationTargetId` is implemented as a [UUID]. When importing an armature
 /// or an animation clip, asset loaders typically use the full path name from
