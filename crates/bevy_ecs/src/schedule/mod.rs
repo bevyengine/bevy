@@ -110,12 +110,12 @@ mod tests {
         #[cfg(not(miri))]
         fn parallel_execution() {
             use alloc::sync::Arc;
-            use bevy_tasks::{ComputeTaskPool, TaskPool};
+            use bevy_tasks::{TaskPool, TaskPoolBuilder};
             use std::sync::Barrier;
 
             let mut world = World::default();
             let mut schedule = Schedule::default();
-            let thread_count = ComputeTaskPool::get_or_init(TaskPool::default).thread_num();
+            let thread_count = TaskPool::get_or_init(TaskPoolBuilder::default).thread_num();
 
             let barrier = Arc::new(Barrier::new(thread_count));
 

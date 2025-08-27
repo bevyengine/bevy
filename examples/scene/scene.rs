@@ -20,11 +20,11 @@
 //! # Note on working with files
 //!
 //! The saving behavior uses the standard filesystem APIs, which are blocking, so it
-//! utilizes a thread pool (`IoTaskPool`) to avoid stalling the main thread. This
+//! utilizes a thread pool (`TaskPool`) to avoid stalling the main thread. This
 //! won't work on WASM because WASM typically doesn't have direct filesystem access.
 //!
 
-use bevy::{asset::LoadState, prelude::*, tasks::IoTaskPool};
+use bevy::{asset::LoadState, prelude::*, tasks::TaskPool};
 use core::time::Duration;
 use std::{fs::File, io::Write};
 
@@ -195,7 +195,9 @@ fn save_scene_system(world: &mut World) {
     //
     // This can't work in Wasm as there is no filesystem access.
     #[cfg(not(target_arch = "wasm32"))]
-    IoTaskPool::get()
+    TaskPool::get()
+        .builder()
+        .with_priority(TaskPriority::BlcokingIO)
         .spawn(async move {
             // Write the scene RON data to file
             File::create(format!("assets/{NEW_SCENE_FILE_PATH}"))

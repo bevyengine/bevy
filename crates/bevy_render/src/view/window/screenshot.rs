@@ -25,7 +25,7 @@ use bevy_image::{Image, TextureFormatPixelInfo, ToExtents};
 use bevy_platform::collections::HashSet;
 use bevy_reflect::Reflect;
 use bevy_shader::Shader;
-use bevy_tasks::AsyncComputeTaskPool;
+use bevy_tasks::{TaskPool, TaskPriority};
 use bevy_utils::default;
 use bevy_window::{PrimaryWindow, WindowRef};
 use core::ops::Deref;
@@ -680,6 +680,10 @@ pub(crate) fn collect_screenshots(world: &mut World) {
             }
         };
 
-        AsyncComputeTaskPool::get().spawn(finish).detach();
+        TaskPool::get()
+            .builder()
+            .with_priority(TaskPriority::BlockingCompute)
+            .spawn(finish)
+            .detach();
     }
 }

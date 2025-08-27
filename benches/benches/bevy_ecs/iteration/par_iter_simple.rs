@@ -1,5 +1,5 @@
 use bevy_ecs::prelude::*;
-use bevy_tasks::{ComputeTaskPool, TaskPool};
+use bevy_tasks::{TaskPool, TaskPoolBuilder};
 use glam::*;
 
 #[derive(Component, Copy, Clone)]
@@ -26,7 +26,7 @@ fn insert_if_bit_enabled<const B: u16>(entity: &mut EntityWorldMut, i: u16) {
 
 impl<'w> Benchmark<'w> {
     pub fn new(fragment: u16) -> Self {
-        ComputeTaskPool::get_or_init(TaskPool::default);
+        TaskPool::get_or_init(TaskPoolBuilder::default);
 
         let mut world = World::new();
 

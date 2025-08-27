@@ -27,7 +27,7 @@ fn spawn_system(mut commands: Commands, asset_server: Res<AssetServer>) {
 // Move sprites according to their velocity
 fn move_system(mut sprites: Query<(&mut Transform, &Velocity)>) {
     // Compute the new location of each sprite in parallel on the
-    // ComputeTaskPool
+    // TaskPool
     //
     // This example is only for demonstrative purposes. Using a
     // ParallelIterator for an inexpensive operation like addition on only 128

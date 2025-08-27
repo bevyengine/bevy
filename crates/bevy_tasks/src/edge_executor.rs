@@ -13,7 +13,6 @@
 
 // TODO: Create a more tailored replacement, possibly integrating [Fotre](https://github.com/NthTensor/Forte)
 
-use alloc::rc::Rc;
 use core::{
     future::{poll_fn, Future},
     marker::PhantomData,
@@ -49,12 +48,11 @@ use futures_lite::FutureExt;
 ///         drop(signal);
 ///     }));
 /// ```
-pub struct Executor<'a, const C: usize = 64> {
-    state: LazyLock<Arc<State<C>>>,
-    _invariant: PhantomData<core::cell::UnsafeCell<&'a ()>>,
+pub struct Executor<const C: usize = 64> {
+    state: LazyLock<State<C>>,
 }
 
-impl<'a, const C: usize> Executor<'a, C> {
+impl<const C: usize> Executor<C> {
     /// Creates a new executor.
     ///
     /// # Examples
@@ -66,8 +64,7 @@ impl<'a, const C: usize> Executor<'a, C> {
     /// ```
     pub const fn new() -> Self {
         Self {
-            state: LazyLock::new(|| Arc::new(State::new())),
-            _invariant: PhantomData,
+            state: LazyLock::new(|| State::new()),
         }
     }
 
@@ -88,10 +85,37 @@ impl<'a, const C: usize> Executor<'a, C> {
     /// Note that if the executor's queue size is equal to the number of currently
     /// spawned and running tasks, spawning this additional task might cause the executor to panic
     /// later, when the task is scheduled for polling.
-    pub fn spawn<F>(&self, fut: F) -> Task<F::Output>
+    pub fn spawn<F>(&'static self, fut: F) -> Task<F::Output>
+    where
+        F: Future + Send + 'static,
+        F::Output: Send + 'static,
+    {
+        // SAFETY: Original implementation missing safety documentation
+        unsafe { self.spawn_unchecked(fut) }
+    }
+
+    pub unsafe fn spawn_scoped<'a, F>(&'static self, fut: F) -> Task<F::Output>
     where
         F: Future + Send + 'a,
         F::Output: Send + 'a,
+    {
+        // SAFETY: Original implementation missing safety documentation
+        unsafe { self.spawn_unchecked(fut) }
+    }
+
+    pub fn spawn_local<F>(&'static self, fut: F) -> Task<F::Output>
+    where
+        F: Future + 'static,
+        F::Output: 'static,
+    {
+        // SAFETY: Original implementation missing safety documentation
+        unsafe { self.spawn_unchecked(fut) }
+    }
+
+    pub unsafe fn spawn_local_scoped<'a, F>(&'static self, fut: F) -> Task<F::Output>
+    where
+        F: Future + 'a,
+        F::Output: 'a,
     {
         // SAFETY: Original implementation missing safety documentation
         unsafe { self.spawn_unchecked(fut) }
@@ -160,9 +184,9 @@ impl<'a, const C: usize> Executor<'a, C> {
     ///
     /// assert_eq!(res, 6);
     /// ```
-    pub async fn run<F>(&self, fut: F) -> F::Output
+    pub async fn run<'a, F>(&'static self, fut: F) -> F::Output
     where
-        F: Future + Send + 'a,
+        F: Future + 'a,
     {
         // SAFETY: Original implementation missing safety documentation
         unsafe { self.run_unchecked(fut).await }
@@ -175,7 +199,7 @@ impl<'a, const C: usize> Executor<'a, C> {
 
     /// Polls the first task scheduled for execution by the executor.
     fn poll_runnable(&self, ctx: &Context<'_>) -> Poll<Runnable> {
-        self.state().waker.register(ctx.waker());
+        self.state.waker.register(ctx.waker());
 
         if let Some(runnable) = self.try_runnable() {
             Poll::Ready(runnable)
@@ -201,7 +225,7 @@ impl<'a, const C: usize> Executor<'a, C> {
             target_has_atomic = "ptr"
         ))]
         {
-            runnable = self.state().queue.pop();
+            runnable = self.state.queue.pop().ok();
         }
 
         #[cfg(not(all(
@@ -212,7 +236,7 @@ impl<'a, const C: usize> Executor<'a, C> {
             target_has_atomic = "ptr"
         )))]
         {
-            runnable = self.state().queue.dequeue();
+            runnable = self.state.queue.dequeue();
         }
 
         runnable
@@ -221,12 +245,12 @@ impl<'a, const C: usize> Executor<'a, C> {
     /// # Safety
     ///
     /// Original implementation missing safety documentation
-    unsafe fn spawn_unchecked<F>(&self, fut: F) -> Task<F::Output>
+    unsafe fn spawn_unchecked<F>(&'static self, fut: F) -> Task<F::Output>
     where
         F: Future,
     {
         let schedule = {
-            let state = self.state().clone();
+            let state = &self.state;
 
             move |runnable| {
                 #[cfg(all(
@@ -280,158 +304,18 @@ impl<'a, const C: usize> Executor<'a, C> {
 
         run_forever.or(fut).await
     }
-
-    /// Returns a reference to the inner state.
-    fn state(&self) -> &Arc<State<C>> {
-        &self.state
-    }
 }
 
-impl<'a, const C: usize> Default for Executor<'a, C> {
+impl<const C: usize> Default for Executor<C> {
     fn default() -> Self {
         Self::new()
     }
 }
 
 // SAFETY: Original implementation missing safety documentation
-unsafe impl<'a, const C: usize> Send for Executor<'a, C> {}
+unsafe impl<const C: usize> Send for Executor<C> {}
 // SAFETY: Original implementation missing safety documentation
-unsafe impl<'a, const C: usize> Sync for Executor<'a, C> {}
-
-/// A thread-local executor.
-///
-/// The executor can only be run on the thread that created it.
-///
-/// # Examples
-///
-/// ```ignore
-/// use edge_executor::{LocalExecutor, block_on};
-///
-/// let local_ex: LocalExecutor = Default::default();
-///
-/// block_on(local_ex.run(async {
-///     println!("Hello world!");
-/// }));
-/// ```
-pub struct LocalExecutor<'a, const C: usize = 64> {
-    executor: Executor<'a, C>,
-    _not_send: PhantomData<core::cell::UnsafeCell<&'a Rc<()>>>,
-}
-
-impl<'a, const C: usize> LocalExecutor<'a, C> {
-    /// Creates a single-threaded executor.
-    ///
-    /// # Examples
-    ///
-    /// ```ignore
-    /// use edge_executor::LocalExecutor;
-    ///
-    /// let local_ex: LocalExecutor = Default::default();
-    /// ```
-    pub const fn new() -> Self {
-        Self {
-            executor: Executor::<C>::new(),
-            _not_send: PhantomData,
-        }
-    }
-
-    /// Spawns a task onto the executor.
-    ///
-    /// # Examples
-    ///
-    /// ```ignore
-    /// use edge_executor::LocalExecutor;
-    ///
-    /// let local_ex: LocalExecutor = Default::default();
-    ///
-    /// let task = local_ex.spawn(async {
-    ///     println!("Hello world");
-    /// });
-    /// ```
-    ///
-    /// Note that if the executor's queue size is equal to the number of currently
-    /// spawned and running tasks, spawning this additional task might cause the executor to panic
-    /// later, when the task is scheduled for polling.
-    pub fn spawn<F>(&self, fut: F) -> Task<F::Output>
-    where
-        F: Future + 'a,
-        F::Output: 'a,
-    {
-        // SAFETY: Original implementation missing safety documentation
-        unsafe { self.executor.spawn_unchecked(fut) }
-    }
-
-    /// Attempts to run a task if at least one is scheduled.
-    ///
-    /// Running a scheduled task means simply polling its future once.
-    ///
-    /// # Examples
-    ///
-    /// ```ignore
-    /// use edge_executor::LocalExecutor;
-    ///
-    /// let local_ex: LocalExecutor = Default::default();
-    /// assert!(!local_ex.try_tick()); // no tasks to run
-    ///
-    /// let task = local_ex.spawn(async {
-    ///     println!("Hello world");
-    /// });
-    /// assert!(local_ex.try_tick()); // a task was found
-    /// ```    
-    pub fn try_tick(&self) -> bool {
-        self.executor.try_tick()
-    }
-
-    /// Runs a single task asynchronously.
-    ///
-    /// Running a task means simply polling its future once.
-    ///
-    /// If no tasks are scheduled when this method is called, it will wait until one is scheduled.
-    ///
-    /// # Examples
-    ///
-    /// ```ignore
-    /// use edge_executor::{LocalExecutor, block_on};
-    ///
-    /// let local_ex: LocalExecutor = Default::default();
-    ///
-    /// let task = local_ex.spawn(async {
-    ///     println!("Hello world");
-    /// });
-    /// block_on(local_ex.tick()); // runs the task
-    /// ```
-    pub async fn tick(&self) {
-        self.executor.tick().await;
-    }
-
-    /// Runs the executor asynchronously until the given future completes.
-    ///
-    /// # Examples
-    ///
-    /// ```ignore
-    /// use edge_executor::{LocalExecutor, block_on};
-    ///
-    /// let local_ex: LocalExecutor = Default::default();
-    ///
-    /// let task = local_ex.spawn(async { 1 + 2 });
-    /// let res = block_on(local_ex.run(async { task.await * 2 }));
-    ///
-    /// assert_eq!(res, 6);
-    /// ```
-    pub async fn run<F>(&self, fut: F) -> F::Output
-    where
-        F: Future,
-    {
-        // SAFETY: Original implementation missing safety documentation
-        unsafe { self.executor.run_unchecked(fut) }.await
-    }
-}
-
-impl<'a, const C: usize> Default for LocalExecutor<'a, C> {
-    fn default() -> Self {
-        Self::new()
-    }
-}
+unsafe impl<const C: usize> Sync for Executor<C> {}
 
 struct State<const C: usize> {
     #[cfg(all(
@@ -441,7 +325,7 @@ struct State<const C: usize> {
         target_has_atomic = "64",
         target_has_atomic = "ptr"
     ))]
-    queue: crossbeam_queue::ArrayQueue<Runnable>,
+    queue: concurrent_queue::ConcurrentQueue<Runnable>,
     #[cfg(not(all(
         target_has_atomic = "8",
         target_has_atomic = "16",
@@ -463,7 +347,7 @@ impl<const C: usize> State<C> {
                 target_has_atomic = "64",
                 target_has_atomic = "ptr"
             ))]
-            queue: crossbeam_queue::ArrayQueue::new(C),
+            queue: concurrent_queue::ConcurrentQueue::bounded(C),
             #[cfg(not(all(
                 target_has_atomic = "8",
                 target_has_atomic = "16",
@@ -474,46 +358,6 @@ impl<const C: usize> State<C> {
             queue: heapless::mpmc::MpMcQueue::new(),
             waker: AtomicWaker::new(),
         }
-    }
-}
-
-#[cfg(test)]
-mod different_executor_tests {
-    use core::cell::Cell;
-
-    use bevy_tasks::{block_on, futures_lite::{pending, poll_once}};
-    use futures_lite::pin;
-
-    use super::LocalExecutor;
-
-    #[test]
-    fn shared_queue_slot() {
-        block_on(async {
-            let was_polled = Cell::new(false);
-            let future = async {
-                was_polled.set(true);
-                pending::<()>().await;
-            };
-
-            let ex1: LocalExecutor = Default::default();
-            let ex2: LocalExecutor = Default::default();
-
-            // Start the futures for running forever.
-            let (run1, run2) = (ex1.run(pending::<()>()), ex2.run(pending::<()>()));
-            pin!(run1);
-            pin!(run2);
-            assert!(poll_once(run1.as_mut()).await.is_none());
-            assert!(poll_once(run2.as_mut()).await.is_none());
-
-            // Spawn the future on executor one and then poll executor two.
-            ex1.spawn(future).detach();
-            assert!(poll_once(run2).await.is_none());
-            assert!(!was_polled.get());
-
-            // Poll the first one.
-            assert!(poll_once(run1).await.is_none());
-            assert!(was_polled.get());
-        });
     }
 }
 
@@ -533,7 +377,7 @@ mod drop_tests {
     #[test]
     fn leaked_executor_leaks_everything() {
         static DROP: AtomicUsize = AtomicUsize::new(0);
-        static WAKER: LazyLock<Mutex<Option<Waker>>> = LazyLock::new(Default::default);
+        static WAKER: Mutex<Option<Waker>> = Mutex::new(None);
 
         let ex: Executor = Default::default();
 

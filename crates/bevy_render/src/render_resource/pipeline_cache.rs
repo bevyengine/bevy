@@ -806,8 +806,15 @@ fn create_pipeline_task(
     task: impl Future<Output = Result<Pipeline, PipelineCacheError>> + Send + 'static,
     sync: bool,
 ) -> CachedPipelineState {
+    use bevy_tasks::{TaskPool, TaskPriority};
+
     if !sync {
-        return CachedPipelineState::Creating(bevy_tasks::AsyncComputeTaskPool::get().spawn(task));
+        return CachedPipelineState::Creating(
+            TaskPool::get()
+                .builder()
+                .with_priority(TaskPriority::BlockingCompute)
+                .spawn(task),
+        );
     }
 
     match bevy_tasks::block_on(task) {

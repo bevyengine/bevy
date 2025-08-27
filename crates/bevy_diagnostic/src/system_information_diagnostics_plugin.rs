@@ -80,7 +80,7 @@ pub mod internal {
     use bevy_ecs::resource::Resource;
     use bevy_ecs::{prelude::ResMut, system::Local};
     use bevy_platform::time::Instant;
-    use bevy_tasks::{available_parallelism, block_on, poll_once, AsyncComputeTaskPool, Task};
+    use bevy_tasks::{available_parallelism, block_on, poll_once, Task, TaskPool, TaskPriority};
     use log::info;
     use std::sync::Mutex;
     use sysinfo::{CpuRefreshKind, MemoryRefreshKind, RefreshKind, System};
@@ -143,7 +143,7 @@ pub mod internal {
 
         let last_refresh = last_refresh.get_or_insert_with(Instant::now);
 
-        let thread_pool = AsyncComputeTaskPool::get();
+        let thread_pool = TaskPool::get();
 
         // Only queue a new system refresh task when necessary
         // Queuing earlier than that will not give new data
@@ -153,35 +153,38 @@ pub mod internal {
             && tasks.tasks.len() * 2 < available_parallelism()
         {
             let sys = Arc::clone(sysinfo);
-            let task = thread_pool.spawn(async move {
-                let mut sys = sys.lock().unwrap();
-                let pid = sysinfo::get_current_pid().expect("Failed to get current process ID");
-                sys.refresh_processes(sysinfo::ProcessesToUpdate::Some(&[pid]), true);
+            let task = thread_pool
+                .builder()
+                .with_priority(TaskPriority::BlockingCompute)
+                .spawn(async move {
+                    let mut sys = sys.lock().unwrap();
+                    let pid = sysinfo::get_current_pid().expect("Failed to get current process ID");
+                    sys.refresh_processes(sysinfo::ProcessesToUpdate::Some(&[pid]), true);
 
-                sys.refresh_cpu_specifics(CpuRefreshKind::nothing().with_cpu_usage());
-                sys.refresh_memory();
-                let system_cpu_usage = sys.global_cpu_usage().into();
-                let total_mem = sys.total_memory() as f64;
-                let used_mem = sys.used_memory() as f64;
-                let system_mem_usage = used_mem / total_mem * 100.0;
+                    sys.refresh_cpu_specifics(CpuRefreshKind::nothing().with_cpu_usage());
+                    sys.refresh_memory();
+                    let system_cpu_usage = sys.global_cpu_usage().into();
+                    let total_mem = sys.total_memory() as f64;
+                    let used_mem = sys.used_memory() as f64;
+                    let system_mem_usage = used_mem / total_mem * 100.0;
 
-                let process_mem_usage = sys
-                    .process(pid)
-                    .map(|p| p.memory() as f64 * BYTES_TO_GIB)
-                    .unwrap_or(0.0);
+                    let process_mem_usage = sys
+                        .process(pid)
+                        .map(|p| p.memory() as f64 * BYTES_TO_GIB)
+                        .unwrap_or(0.0);
 
-                let process_cpu_usage = sys
-                    .process(pid)
-                    .map(|p| p.cpu_usage() as f64 / sys.cpus().len() as f64)
-                    .unwrap_or(0.0);
+                    let process_cpu_usage = sys
+                        .process(pid)
+                        .map(|p| p.cpu_usage() as f64 / sys.cpus().len() as f64)
+                        .unwrap_or(0.0);
 
-                SysinfoRefreshData {
-                    system_cpu_usage,
-                    system_mem_usage,
-                    process_cpu_usage,
-                    process_mem_usage,
-                }
-            });
+                    SysinfoRefreshData {
+                        system_cpu_usage,
+                        system_mem_usage,
+                        process_cpu_usage,
+                        process_mem_usage,
+                    }
+                });
             tasks.tasks.push(task);
             *last_refresh = Instant::now();
         }

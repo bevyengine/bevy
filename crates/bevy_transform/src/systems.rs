@@ -252,7 +252,7 @@ mod parallel {
     // TODO: this implementation could be used in no_std if there are equivalents of these.
     use alloc::{sync::Arc, vec::Vec};
     use bevy_ecs::{entity::UniqueEntityIter, prelude::*, system::lifetimeless::Read};
-    use bevy_tasks::{ComputeTaskPool, TaskPool};
+    use bevy_tasks::{TaskPool, TaskPoolBuilder};
     use bevy_utils::Parallel;
     use core::sync::atomic::{AtomicI32, Ordering};
     use std::sync::{
@@ -320,7 +320,7 @@ mod parallel {
         }
 
         // Spawn workers on the task pool to recursively propagate the hierarchy in parallel.
-        let task_pool = ComputeTaskPool::get_or_init(TaskPool::default);
+        let task_pool = TaskPool::get_or_init(TaskPoolBuilder::default);
         task_pool.scope(|s| {
             (1..task_pool.thread_num()) // First worker is run locally instead of the task pool.
                 .for_each(|_| s.spawn(async { propagation_worker(&queue, &nodes) }));
@@ -559,13 +559,13 @@ mod test {
     use bevy_app::prelude::*;
     use bevy_ecs::{prelude::*, world::CommandQueue};
     use bevy_math::{vec3, Vec3};
-    use bevy_tasks::{ComputeTaskPool, TaskPool};
+    use bevy_tasks::{TaskPool, TaskPoolBuilder};
 
     use crate::systems::*;
 
     #[test]
     fn correct_parent_removed() {
-        ComputeTaskPool::get_or_init(TaskPool::default);
+        TaskPool::get_or_init(TaskPoolBuilder::default);
         let mut world = World::default();
         let offset_global_transform =
             |offset| GlobalTransform::from(Transform::from_xyz(offset, offset, offset));
@@ -626,7 +626,7 @@ mod test {
 
     #[test]
     fn did_propagate() {
-        ComputeTaskPool::get_or_init(TaskPool::default);
+        TaskPool::get_or_init(TaskPoolBuilder::default);
         let mut world = World::default();
 
         let mut schedule = Schedule::default();
@@ -702,7 +702,7 @@ mod test {
 
     #[test]
     fn correct_children() {
-        ComputeTaskPool::get_or_init(TaskPool::default);
+        TaskPool::get_or_init(TaskPoolBuilder::default);
         let mut world = World::default();
 
         let mut schedule = Schedule::default();
@@ -783,7 +783,7 @@ mod test {
     #[test]
     fn correct_transforms_when_no_children() {
         let mut app = App::new();
-        ComputeTaskPool::get_or_init(TaskPool::default);
+        TaskPool::get_or_init(TaskPoolBuilder::default);
 
         app.add_systems(
             Update,
@@ -834,7 +834,7 @@ mod test {
     #[test]
     #[should_panic]
     fn panic_when_hierarchy_cycle() {
-        ComputeTaskPool::get_or_init(TaskPool::default);
+        TaskPool::get_or_init(TaskPoolBuilder::default);
         // We cannot directly edit ChildOf and Children, so we use a temp world to break the
         // hierarchy's invariants.
         let mut temp = World::new();

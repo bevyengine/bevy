@@ -399,15 +399,6 @@ libm = [
   "bevy_window?/libm",
 ]
 
-# Uses `async-executor` as a task execution backend.
-# This backend is incompatible with `no_std` targets.
-async_executor = [
-  "std",
-  "bevy_tasks/async_executor",
-  "bevy_ecs/async_executor",
-  "bevy_transform/async_executor",
-]
-
 # Enables use of browser APIs.
 # Note this is currently only applicable on `wasm32` architectures.
 web = ["bevy_app/web", "bevy_platform/web", "bevy_reflect/web"]

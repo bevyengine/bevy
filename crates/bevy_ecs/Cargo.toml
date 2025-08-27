@@ -11,7 +11,7 @@ categories = ["game-engines", "data-structures"]
 rust-version = "1.86.0"
 
 [features]
-default = ["std", "bevy_reflect", "async_executor", "backtrace"]
+default = ["std", "bevy_reflect", "backtrace"]
 
 # Functionality
 
@@ -48,12 +48,6 @@ bevy_debug_stepping = []
 ## Provides more detailed tracking of the cause of various effects within the ECS.
 ## This will often provide more detailed error messages.
 track_location = []
-
-# Executor Backend
-
-## Uses `async-executor` as a task execution backend.
-## This backend is incompatible with `no_std` targets.
-async_executor = ["std", "bevy_tasks/async_executor"]
 
 # Platform Compatibility
 
