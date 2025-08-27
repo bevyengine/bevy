@@ -94,6 +94,7 @@ pub fn from_reflect_with_fallback<T: Reflect + TypePath>(
     world: &mut World,
     registry: &TypeRegistry,
 ) -> T {
+    #[inline(never)]
     fn type_erased(
         reflected: &dyn PartialReflect,
         world: &mut World,
