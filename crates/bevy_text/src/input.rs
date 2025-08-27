@@ -254,7 +254,7 @@ impl Default for TextInputAttributes {
 }
 
 /// If a text input entity has a `TextInputFilter` component, after each [`TextEdit`] is applied, the [`TextInputBuffer`]’s text is checked
-/// against the filter, and if it fails, the `TextEdit` is rolled back.
+/// against the filter, and if it fails, the `TextEdit` is immediately rolled back, and a [`TextInputEvent::InvalidEdit`] event is emitted.
 #[derive(Component)]
 pub enum TextInputFilter {
     /// Positive integer input
