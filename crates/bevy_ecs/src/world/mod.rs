@@ -1186,7 +1186,7 @@ impl World {
         // SAFETY: entity and location are valid, as they were just created above
         let mut entity = unsafe { EntityWorldMut::new(self, entity, entity_location) };
         // SAFETY:
-        // - This is called exactly once after `get_compoennts` has been called in `spawn_non_existent`.
+        // - This is called exactly once after `get_components` has been called in `spawn_non_existent`.
         // - The caller must ensure that `ptr` points to a valid instance of `B`.
         unsafe { B::apply_effect(bundle.cast_mut(), &mut entity) };
         entity
