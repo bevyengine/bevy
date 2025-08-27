@@ -281,7 +281,7 @@ pub trait BundleEffect {
     fn apply(self, entity: &mut EntityWorldMut);
 
     /// # Safety
-    /// `this` must be a valid pointer to `Self` and takes ownership of the
+    /// `this` must be a valid but not aligned pointer to `Self` and takes ownership of the
     /// value pointed at by `this`.
     #[doc(hidden)]
     unsafe fn apply_raw(this: *mut Self, entity: &mut EntityWorldMut)
@@ -293,7 +293,7 @@ pub trait BundleEffect {
         // `BundleEffect`s onto the stack repeatedly.
 
         // SAFETY: Caller ensures that `this` is a valid pointer to `Self`.
-        unsafe { core::ptr::read(this).apply(entity) }
+        unsafe { core::ptr::read_unaligned(this).apply(entity) }
     }
 }
 
