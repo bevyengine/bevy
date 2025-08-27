@@ -128,9 +128,11 @@ unused_qualifications = "warn"
 default = [
   "default_no_render",
   "bevy_anti_aliasing",
+  "bevy_core_pipeline",
   "bevy_gizmos",
   "bevy_gltf",
   "bevy_pbr",
+  "bevy_render",
   "bevy_sprite_render",
   "bevy_ui_render",
 ]

@@ -51,6 +51,7 @@ The default feature set enables most of the expected features of a game engine, 
 |default_font|Include a default font, containing only ASCII characters, at the cost of a 20kB binary size increase|
 |default_no_render|All default features except for rendering|
 |hdr|HDR image format support|
+|ktx2|KTX2 compressed texture support|
 |multi_threaded|Enables multithreaded parallelism in the engine. Disabling it forces all engine tasks to run on a single thread.|
 |png|PNG image format support|
 |reflect_auto_register|Enable automatic reflect registration|
@@ -104,7 +105,6 @@ The default feature set enables most of the expected features of a game engine, 
 |hotpatching|Enable hotpatching of Bevy systems|
 |ico|ICO image format support|
 |jpeg|JPEG image format support|
-|ktx2|KTX2 compressed texture support|
 |libm|Uses the `libm` maths library instead of the one provided in `std` and `core`.|
 |meshlet|Enables the meshlet renderer for dense high-poly scenes (experimental)|
 |meshlet_processor|Enables processing meshes into meshlet meshes for bevy_pbr|
