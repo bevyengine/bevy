@@ -229,6 +229,11 @@ bevy_window = ["dep:bevy_window", "dep:bevy_a11y", "bevy_image"]
 bevy_winit = ["dep:bevy_winit", "bevy_window"]
 bevy_camera = ["dep:bevy_camera", "bevy_mesh", "bevy_window"]
 bevy_scene = ["dep:bevy_scene", "bevy_asset"]
+bevy_material = [
+  "dep:bevy_material",
+  "bevy_image",
+  "bevy_shader",
+]
 bevy_light = ["dep:bevy_light", "bevy_camera", "bevy_gizmos?/bevy_light"]
 bevy_render = [
   "dep:bevy_render",
@@ -500,6 +505,7 @@ bevy_gltf = { path = "../bevy_gltf", optional = true, version = "0.18.0-dev" }
 bevy_feathers = { path = "../bevy_feathers", optional = true, version = "0.18.0-dev" }
 bevy_image = { path = "../bevy_image", optional = true, version = "0.18.0-dev" }
 bevy_shader = { path = "../bevy_shader", optional = true, version = "0.18.0-dev" }
+bevy_material = { path = "../bevy_material", optional = true, version = "0.18.0-dev" }
 bevy_mesh = { path = "../bevy_mesh", optional = true, version = "0.18.0-dev" }
 bevy_camera = { path = "../bevy_camera", optional = true, version = "0.18.0-dev" }
 bevy_light = { path = "../bevy_light", optional = true, version = "0.18.0-dev" }
