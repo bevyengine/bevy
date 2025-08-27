@@ -26,6 +26,7 @@ use alloc::vec::Vec;
 use bevy_platform::collections::{HashMap, HashSet};
 use bevy_ptr::{OwningPtr, Ptr};
 use core::{
+    iter::Zip,
     any::TypeId,
     cmp::Ordering,
     hash::{Hash, Hasher},
@@ -2029,15 +2030,16 @@ impl<'w> EntityWorldMut<'w> {
     #[inline]
     pub(crate) fn insert_with_caller<T: Bundle>(
         &mut self,
-        mut bundle: T,
+        bundle: T,
         mode: InsertMode,
         caller: MaybeLocation,
         relationship_hook_mode: RelationshipHookMode,
     ) -> &mut Self {
+        let bundle = ManuallyDrop::new(bundle);
+        let bundle_ptr = &raw const bundle;
         // SAFETY: This is being called with a mutable borrow on the bundle, which should always be a valid
         // pointer.
-        unsafe { self.insert_raw_with_caller(&mut bundle, mode, caller, relationship_hook_mode) };
-        core::mem::forget(bundle);
+        unsafe { self.insert_raw_with_caller(bundle_ptr.cast::<T>(), mode, caller, relationship_hook_mode) };
         self
     }
 
@@ -2046,7 +2048,7 @@ impl<'w> EntityWorldMut<'w> {
     #[inline]
     pub(crate) unsafe fn insert_raw_with_caller<T: Bundle>(
         &mut self,
-        bundle: *mut T,
+        bundle: *const T,
         mode: InsertMode,
         caller: MaybeLocation,
         relationship_hook_mode: RelationshipHookMode,
@@ -2060,7 +2062,7 @@ impl<'w> EntityWorldMut<'w> {
             bundle_inserter.insert(
                 self.entity,
                 location,
-                bundle.cast_const(),
+                bundle,
                 mode,
                 caller,
                 relationship_hook_mode,
@@ -4671,22 +4673,22 @@ unsafe fn insert_dynamic_bundle<
         unsafe fn apply_effect(_ptr: *const Self, _entity: &mut EntityWorldMut) {}
     }
 
-    let bundle = DynamicInsertBundle {
+    let bundle = ManuallyDrop::new(DynamicInsertBundle {
         components: storage_types.zip(components),
-    };
+    });
+    let bundle_ptr = &raw const bundle;
 
     // SAFETY: location matches current entity.
     let result = unsafe {
         bundle_inserter.insert(
             entity,
             location,
-            &raw const bundle,
+            bundle_ptr.cast::<DynamicInsertBundle<'a, Zip<S, I>>>(),
             mode,
             caller,
             relationship_hook_insert_mode,
         )
     };
-    core::mem::forget(bundle);
     result
 }
 

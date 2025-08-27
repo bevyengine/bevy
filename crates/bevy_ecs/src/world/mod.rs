@@ -67,8 +67,8 @@ use crate::{
 };
 use alloc::{boxed::Box, vec::Vec};
 use bevy_platform::sync::atomic::{AtomicU32, Ordering};
-use bevy_ptr::{OwningPtr, Ptr, UnsafeCellDeref};
-use core::{any::TypeId, fmt, mem::ManuallyDrop};
+use bevy_ptr::{OwningPtr, Ptr, UnsafeCellDeref, RemoteDropPtr};
+use core::{any::TypeId, fmt, mem::ManuallyDrop, ptr::NonNull};
 use log::warn;
 use unsafe_world_cell::{UnsafeEntityCell, UnsafeWorldCell};
 
@@ -1155,7 +1155,7 @@ impl World {
     /// ```
     #[track_caller]
     pub fn spawn<B: Bundle>(&mut self, bundle: B) -> EntityWorldMut<'_> {
-        let bundle = ManuallyDrop::new(bundle);
+        let mut bundle = ManuallyDrop::new(bundle);
         let bundle_ptr = &raw const bundle;
         // SAFETY: The bundle was passed in by value, `bundle_ptr` thus must be valid.
         unsafe { self.spawn_with_caller(bundle_ptr.cast::<B>(), MaybeLocation::caller()) }
@@ -1188,7 +1188,7 @@ impl World {
         // SAFETY:
         // - This is called exactly once after `get_components` has been called in `spawn_non_existent`.
         // - The caller must ensure that `ptr` points to a valid instance of `B`.
-        unsafe { B::apply_effect(bundle.cast_mut(), &mut entity) };
+        unsafe { B::apply_effect(bundle, &mut entity) };
         entity
     }
 
@@ -2318,6 +2318,10 @@ impl World {
         let mut batch_iter = batch.into_iter();
 
         if let Some((first_entity, first_bundle)) = batch_iter.next() {
+            let first_bundle = ManuallyDrop::new(first_bundle);
+            let first_bundle_ptr = &raw const first_bundle;
+            let first_bundle_ptr = first_bundle_ptr.cast::<B>();
+
             if let Some(first_location) = self.entities().get(first_entity) {
                 let mut cache = InserterArchetypeCache {
                     // SAFETY: we initialized this bundle_id in `register_info`
@@ -2333,18 +2337,21 @@ impl World {
                 };
                 // SAFETY: `entity` is valid, `location` matches entity, bundle matches inserter
                 unsafe {
-                    cache.inserter.insert(
+                    cache.inserter.insert::<B>(
                         first_entity,
                         first_location,
-                        &raw const first_bundle,
+                        first_bundle_ptr,
                         insert_mode,
                         caller,
                         RelationshipHookMode::Run,
                     )
                 };
-                core::mem::forget(first_bundle);
 
                 for (entity, bundle) in batch_iter {
+                    let bundle = ManuallyDrop::new(bundle);
+                    let bundle_ptr = &raw const bundle;
+                    let bundle_ptr = bundle_ptr.cast::<B>();
+
                     if let Some(location) = cache.inserter.entities().get(entity) {
                         if location.archetype_id != cache.archetype_id {
                             cache = InserterArchetypeCache {
@@ -2362,16 +2369,15 @@ impl World {
                         }
                         // SAFETY: `entity` is valid, `location` matches entity, bundle matches inserter
                         unsafe {
-                            cache.inserter.insert(
+                            cache.inserter.insert::<B>(
                                 entity,
                                 location,
-                                &raw const bundle,
+                                bundle_ptr,
                                 insert_mode,
                                 caller,
                                 RelationshipHookMode::Run,
                             )
                         };
-                        core::mem::forget(bundle);
                     } else {
                         panic!("error[B0003]: Could not insert a bundle (of type `{}`) for entity {entity}, which {}. See: https://bevy.org/learn/errors/b0003", DebugName::type_name::<B>(), self.entities.entity_does_not_exist_error_details(entity));
                     }
@@ -2470,6 +2476,10 @@ impl World {
         // if the first entity is invalid, whereas this method needs to keep going.
         let cache = loop {
             if let Some((first_entity, first_bundle)) = batch_iter.next() {
+                let first_bundle = ManuallyDrop::new(first_bundle);
+                let first_bundle_ptr = &raw const first_bundle;
+                let first_bundle_ptr = first_bundle_ptr.cast::<B>();
+
                 if let Some(first_location) = self.entities().get(first_entity) {
                     let mut cache = InserterArchetypeCache {
                         // SAFETY: we initialized this bundle_id in `register_info`
@@ -2485,16 +2495,15 @@ impl World {
                     };
                     // SAFETY: `entity` is valid, `location` matches entity, bundle matches inserter
                     unsafe {
-                        cache.inserter.insert(
+                        cache.inserter.insert::<B>(
                             first_entity,
                             first_location,
-                            &raw const first_bundle,
+                            first_bundle_ptr,
                             insert_mode,
                             caller,
                             RelationshipHookMode::Run,
                         )
                     };
-                    core::mem::forget(first_bundle);
                     break Some(cache);
                 }
                 invalid_entities.push(first_entity);
@@ -2506,6 +2515,10 @@ impl World {
 
         if let Some(mut cache) = cache {
             for (entity, bundle) in batch_iter {
+                let bundle = ManuallyDrop::new(bundle);
+                let bundle_ptr = &raw const bundle;
+                let bundle_ptr = bundle_ptr.cast::<B>();
+
                 if let Some(location) = cache.inserter.entities().get(entity) {
                     if location.archetype_id != cache.archetype_id {
                         cache = InserterArchetypeCache {
@@ -2523,10 +2536,10 @@ impl World {
                     }
                     // SAFETY: `entity` is valid, `location` matches entity, bundle matches inserter
                     unsafe {
-                        cache.inserter.insert(
+                        cache.inserter.insert::<B>(
                             entity,
                             location,
-                            &raw const bundle,
+                            bundle_ptr,
                             insert_mode,
                             caller,
                             RelationshipHookMode::Run,
