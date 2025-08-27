@@ -83,6 +83,11 @@ impl<'w> BundleSpawner<'w> {
 
     /// # Safety
     /// `entity` must be allocated (but non-existent), `T` must match this [`BundleInfo`]'s type
+    ///
+    /// [`apply_effect`] should be called exactly once on `bundle` after this function is
+    /// called, if `T::Effect: !NoBundleEffect.`
+    ///
+    /// [`apply_effect`]: crate::bundle::DynamicBundle::apply_effect
     #[inline]
     #[track_caller]
     pub unsafe fn spawn_non_existent<T: DynamicBundle>(
@@ -164,6 +169,11 @@ impl<'w> BundleSpawner<'w> {
 
     /// # Safety
     /// `T` must match this [`BundleInfo`]'s type
+    ///
+    /// [`apply_effect`] should be called exactly once on `bundle` after this function is
+    /// called, if `T::Effect: !NoBundleEffect.`
+    ///
+    /// [`apply_effect`]: crate::bundle::DynamicBundle::apply_effect
     #[inline]
     pub unsafe fn spawn<T: Bundle>(&mut self, bundle: *const T, caller: MaybeLocation) -> Entity {
         let entity = self.entities().alloc();

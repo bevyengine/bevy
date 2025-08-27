@@ -164,6 +164,8 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
 
     let dynamic_bundle_impl = quote! {
         #[allow(deprecated)]
+        // SAFETY: Assuming each of the fields implement `DynamciBundle` correctly, each of the implementations for each of
+        // the fields must move the components out of the `Bundle` exactly once between both `get_components` and `apply_effect`.
         unsafe impl #impl_generics #ecs_path::bundle::DynamicBundle for #struct_name #ty_generics #where_clause {
             type Effect = ();
             #[allow(unused_variables)]

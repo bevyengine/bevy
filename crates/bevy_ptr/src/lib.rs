@@ -92,6 +92,7 @@ impl<T: ?Sized> ConstNonNull<T> {
         unsafe { Self(NonNull::new_unchecked(ptr.cast_mut())) }
     }
 
+    /// Converts the [`ConstNonNull`] into a raw pointer.
     pub fn as_ptr(self) -> *const T {
         self.0.as_ptr().cast_const()
     }

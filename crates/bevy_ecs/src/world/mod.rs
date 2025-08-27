@@ -67,7 +67,7 @@ use crate::{
 };
 use alloc::{boxed::Box, vec::Vec};
 use bevy_platform::sync::atomic::{AtomicU32, Ordering};
-use bevy_ptr::{OwningPtr, Ptr, UnsafeCellDeref, RemoteDropPtr};
+use bevy_ptr::{OwningPtr, Ptr, RemoteDropPtr, UnsafeCellDeref};
 use core::{any::TypeId, fmt, mem::ManuallyDrop, ptr::NonNull};
 use log::warn;
 use unsafe_world_cell::{UnsafeEntityCell, UnsafeWorldCell};
@@ -1172,7 +1172,9 @@ impl World {
         let change_tick = self.change_tick();
         let entity = self.entities.alloc();
         let mut bundle_spawner = BundleSpawner::new::<B>(self, change_tick);
-        // SAFETY: bundle's type matches `bundle_info`, entity is allocated but non-existent
+        // SAFETY:
+        // - bundle's type matches `bundle_info`, entity is allocated but non-existent
+        // - `B::Effect` is unconstrained, and `B::apply_effect` is called exactly once on the bundle after this call.
         let entity_location = unsafe { bundle_spawner.spawn_non_existent(entity, bundle, caller) };
 
         let mut entity_location = Some(entity_location);
@@ -2335,7 +2337,9 @@ impl World {
                     },
                     archetype_id: first_location.archetype_id,
                 };
-                // SAFETY: `entity` is valid, `location` matches entity, bundle matches inserter
+                // SAFETY:
+                // - `entity` is valid, `location` matches entity, bundle matches inserter
+                // - The effect is `NoBundleEffect`, so calling `apply_effect` after this is a no-op.
                 unsafe {
                     cache.inserter.insert::<B>(
                         first_entity,
@@ -2367,7 +2371,9 @@ impl World {
                                 archetype_id: location.archetype_id,
                             }
                         }
-                        // SAFETY: `entity` is valid, `location` matches entity, bundle matches inserter
+                        // SAFETY:
+                        // - `entity` is valid, `location` matches entity, bundle matches inserter
+                        // - The effect is `NoBundleEffect`, so calling `apply_effect` after this is a no-op.
                         unsafe {
                             cache.inserter.insert::<B>(
                                 entity,
@@ -2493,7 +2499,9 @@ impl World {
                         },
                         archetype_id: first_location.archetype_id,
                     };
-                    // SAFETY: `entity` is valid, `location` matches entity, bundle matches inserter
+                    // SAFETY:
+                    // - `entity` is valid, `location` matches entity, bundle matches inserter
+                    // - The effect is `NoBundleEffect`, so calling `apply_effect` after this is a no-op.
                     unsafe {
                         cache.inserter.insert::<B>(
                             first_entity,
@@ -2534,7 +2542,9 @@ impl World {
                             archetype_id: location.archetype_id,
                         }
                     }
-                    // SAFETY: `entity` is valid, `location` matches entity, bundle matches inserter
+                    // SAFETY:
+                    // - `entity` is valid, `location` matches entity, bundle matches inserter
+                    // - The effect is `NoBundleEffect`, so calling `apply_effect` after this is a no-op.
                     unsafe {
                         cache.inserter.insert::<B>(
                             entity,

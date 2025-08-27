@@ -26,10 +26,10 @@ use alloc::vec::Vec;
 use bevy_platform::collections::{HashMap, HashSet};
 use bevy_ptr::{OwningPtr, Ptr};
 use core::{
-    iter::Zip,
     any::TypeId,
     cmp::Ordering,
     hash::{Hash, Hasher},
+    iter::Zip,
     marker::PhantomData,
     mem::{ManuallyDrop, MaybeUninit},
 };
@@ -2039,7 +2039,14 @@ impl<'w> EntityWorldMut<'w> {
         let bundle_ptr = &raw const bundle;
         // SAFETY: This is being called with a mutable borrow on the bundle, which should always be a valid
         // pointer.
-        unsafe { self.insert_raw_with_caller(bundle_ptr.cast::<T>(), mode, caller, relationship_hook_mode) };
+        unsafe {
+            self.insert_raw_with_caller(
+                bundle_ptr.cast::<T>(),
+                mode,
+                caller,
+                relationship_hook_mode,
+            )
+        };
         self
     }
 
@@ -2058,6 +2065,7 @@ impl<'w> EntityWorldMut<'w> {
         let mut bundle_inserter =
             BundleInserter::new::<T>(self.world, location.archetype_id, change_tick);
         // SAFETY: location matches current entity. `T` matches `bundle_info`
+        // `apply_effect` is called exactly once after this function.
         let location = unsafe {
             bundle_inserter.insert(
                 self.entity,
@@ -4656,6 +4664,7 @@ unsafe fn insert_dynamic_bundle<
         components: I,
     }
 
+    // SAFETY: The pointer only has its values moved out of in `get_components`.
     unsafe impl<'a, I: Iterator<Item = (StorageType, OwningPtr<'a>)>> DynamicBundle
         for DynamicInsertBundle<'a, I>
     {
@@ -4679,6 +4688,7 @@ unsafe fn insert_dynamic_bundle<
     let bundle_ptr = &raw const bundle;
 
     // SAFETY: location matches current entity.
+    // `apply_effect` is empty and does not need to be called.
     let result = unsafe {
         bundle_inserter.insert(
             entity,

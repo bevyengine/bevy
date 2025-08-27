@@ -7,9 +7,9 @@ use crate::{
     relationship::{RelatedSpawner, Relationship, RelationshipTarget},
     world::{EntityWorldMut, World},
 };
-use core::mem::ManuallyDrop;
 use alloc::vec::Vec;
 use core::marker::PhantomData;
+use core::mem::ManuallyDrop;
 use variadics_please::all_tuples;
 
 /// A wrapper over a [`Bundle`] indicating that an entity should be spawned with that [`Bundle`].
@@ -283,6 +283,7 @@ unsafe impl<R: Relationship, L: SpawnableList<R> + Send + Sync + 'static> Bundle
     }
 }
 
+// SAFETY: The pointer is only moved out of in `apply_effect`.
 unsafe impl<R: Relationship, L: SpawnableList<R>> DynamicBundle for SpawnRelatedBundle<R, L> {
     type Effect = Self;
 
@@ -290,13 +291,19 @@ unsafe impl<R: Relationship, L: SpawnableList<R>> DynamicBundle for SpawnRelated
         ptr: *const Self,
         func: &mut impl FnMut(crate::component::StorageType, bevy_ptr::OwningPtr<'_>),
     ) {
-        // SAFETY: The caller must ensure that the `ptr` must be valid but not necessarily aligned.
-        let effect = ManuallyDrop::new(unsafe { ptr.read() });
+        // SAFETY:
+        // - The caller must ensure that the `ptr` points at a valid non-null `SpawnRelatedBundle`,
+        // - The caller must ensure that the `ptr` owns the value it points at, and thus cannot alias.
+        // - The caller must ensure that the `ptr` is aligned.
+        let effect = unsafe { &*ptr };
         let target =
             <R::RelationshipTarget as RelationshipTarget>::with_capacity(effect.list.size_hint());
         let target = ManuallyDrop::new(target);
         let target_ptr = &raw const target;
-        <R::RelationshipTarget as DynamicBundle>::get_components(target_ptr.cast::<R::RelationshipTarget>(), func);
+        <R::RelationshipTarget as DynamicBundle>::get_components(
+            target_ptr.cast::<R::RelationshipTarget>(),
+            func,
+        );
     }
 
     unsafe fn apply_effect(ptr: *const Self, entity: &mut EntityWorldMut) {
@@ -322,6 +329,7 @@ impl<R: Relationship, B: Bundle> BundleEffect for SpawnOneRelated<R, B> {
     }
 }
 
+// SAFETY: The pointer is only moved out of in `apply_effect`.
 unsafe impl<R: Relationship, B: Bundle> DynamicBundle for SpawnOneRelated<R, B> {
     type Effect = Self;
 
@@ -332,7 +340,10 @@ unsafe impl<R: Relationship, B: Bundle> DynamicBundle for SpawnOneRelated<R, B> 
         let target = <R::RelationshipTarget as RelationshipTarget>::with_capacity(1);
         let target = ManuallyDrop::new(target);
         let target_ptr = &raw const target;
-        <R::RelationshipTarget as DynamicBundle>::get_components(target_ptr.cast::<R::RelationshipTarget>(), func);
+        <R::RelationshipTarget as DynamicBundle>::get_components(
+            target_ptr.cast::<R::RelationshipTarget>(),
+            func,
+        );
     }
 
     unsafe fn apply_effect(ptr: *const Self, entity: &mut EntityWorldMut) {

@@ -234,15 +234,22 @@ pub unsafe trait BundleFromComponents {
 }
 
 /// The parts from [`Bundle`] that don't require statically knowing the components of the bundle.
+//
+// # Safety
+// Each component can only be moved out of the `Bundle` exactly once between both implemenations of
+// `get_components` and `apply_effect`.
 pub unsafe trait DynamicBundle {
     /// An operation on the entity that happens _after_ inserting this bundle.
     type Effect: BundleEffect;
+
     // SAFETY:
     // The `StorageType` argument passed into [`Bundle::get_components`] must be correct for the
     // component being fetched.
     //
     /// Calls `func` on each value, in the order of this bundle's [`Component`]s. This passes
     /// ownership of the component values to `func`.
+    ///
+    /// `apply_effect` must be called exactly once after this has been called.
     #[doc(hidden)]
     unsafe fn get_components(ptr: *const Self, func: &mut impl FnMut(StorageType, OwningPtr<'_>));
 

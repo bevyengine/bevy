@@ -39,6 +39,7 @@ unsafe impl<C: Component> BundleFromComponents for C {
     }
 }
 
+// SAFETY: The pointer is only moved out of in `get_components`.
 unsafe impl<C: Component> DynamicBundle for C {
     type Effect = ();
     #[inline]
@@ -128,6 +129,8 @@ macro_rules! tuple_impl {
             reason = "Zero-length tuples won't use any of the parameters."
         )]
         $(#[$meta])*
+        // SAFETY: Assuming each of the fields implement `DynamciBundle` correctly, each of the implementations for each of
+        // the fields must move the components out of the `Bundle` exactly once between both `get_components` and `apply_effect`.
         unsafe impl<$($name: Bundle),*> DynamicBundle for ($($name,)*) {
             type Effect = ($($name::Effect,)*);
             #[allow(
