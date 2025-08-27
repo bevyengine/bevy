@@ -8,7 +8,7 @@ use core::{
     fmt::Debug,
     mem::{size_of, MaybeUninit},
     panic::AssertUnwindSafe,
-    ptr::{self, addr_of_mut, NonNull},
+    ptr::{addr_of_mut, NonNull},
 };
 use log::warn;
 
@@ -164,29 +164,20 @@ impl RawCommandQueue {
 
                 // SAFETY: According to the invariants of `CommandMeta.consume_command_and_get_size`,
                 // `command` must point to a value of type `C`.
-                let command: *mut C = command.as_ptr().cast();
+                let command: C = unsafe { command.read_unaligned() };
                 match world {
                     // Apply command to the provided world...
                     Some(mut world) => {
                         // SAFETY: Caller ensures pointer is not null
                         let world = unsafe { world.as_mut() };
-                        // SAFETY: According to the invariants of `CommandMeta.consume_command_and_get_size`,
-                        // `command` must point to a value of type `C`, and thus cannot be null. It is also OK for `command`
-                        // to be unaligned.
-                        C::apply_raw(command, world);
+                        command.apply(world);
                         // The command may have queued up world commands, which we flush here to ensure they are also picked up.
                         // If the current command queue already the World Command queue, this will still behave appropriately because the global cursor
                         // is still at the current `stop`, ensuring only the newly queued Commands will be applied.
                         world.flush();
                     }
                     // ...or discard it.
-                    None => {
-                        if command.is_aligned() {
-                            ptr::drop_in_place(command);
-                        } else {
-                            drop(command.read_unaligned());
-                        }
-                    }
+                    None => drop(command),
                 }
             },
         };

@@ -78,7 +78,7 @@ use bevy_ptr::OwningPtr;
 ///     assert_eq!(names, HashSet::from_iter(["Entity #0", "Entity #1"]));
 /// }
 /// ```
-pub trait EntityCommand<Out = ()>: Send + Sized + 'static {
+pub trait EntityCommand<Out = ()>: Send + 'static {
     /// Executes this command for the given [`Entity`].
     fn apply(self, entity: EntityWorldMut) -> Out;
 
