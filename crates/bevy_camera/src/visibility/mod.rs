@@ -23,7 +23,7 @@ use crate::{
     primitives::{Aabb, Frustum, MeshAabb, Sphere},
     Projection,
 };
-use bevy_mesh::{Mesh, Mesh2d, Mesh3d};
+use bevy_mesh::{mark_3d_meshes_as_changed_if_their_assets_changed, Mesh, Mesh2d, Mesh3d};
 
 #[derive(Component, Default)]
 pub struct NoCpuCulling;
@@ -346,7 +346,12 @@ impl Plugin for VisibilityPlugin {
             .register_required_components::<Mesh2d, VisibilityClass>()
             .configure_sets(
                 PostUpdate,
-                (CalculateBounds, UpdateFrusta, VisibilityPropagate)
+                (
+                    CalculateBounds
+                        .ambiguous_with(mark_3d_meshes_as_changed_if_their_assets_changed),
+                    UpdateFrusta,
+                    VisibilityPropagate,
+                )
                     .before(CheckVisibility)
                     .after(TransformSystems::Propagate),
             )

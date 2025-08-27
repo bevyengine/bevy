@@ -127,6 +127,7 @@ pub mod light_consts {
     }
 }
 
+#[derive(Default)]
 pub struct LightPlugin;
 
 impl Plugin for LightPlugin {
