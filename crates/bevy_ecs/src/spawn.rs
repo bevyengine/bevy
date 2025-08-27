@@ -282,11 +282,11 @@ unsafe impl<R: Relationship, L: SpawnableList<R> + Send + Sync + 'static> Bundle
     }
 }
 
-impl<R: Relationship, L: SpawnableList<R>> DynamicBundle for SpawnRelatedBundle<R, L> {
+unsafe impl<R: Relationship, L: SpawnableList<R>> DynamicBundle for SpawnRelatedBundle<R, L> {
     type Effect = Self;
 
     unsafe fn get_components(
-        ptr: *mut Self,
+        ptr: *const Self,
         func: &mut impl FnMut(crate::component::StorageType, bevy_ptr::OwningPtr<'_>),
     ) {
         // SAFETY: The caller must ensure that the `ptr` must be valid but not necessarily aligned.
@@ -298,7 +298,7 @@ impl<R: Relationship, L: SpawnableList<R>> DynamicBundle for SpawnRelatedBundle<
         core::mem::forget(effect);
     }
 
-    unsafe fn apply_effect(ptr: *mut Self, entity: &mut EntityWorldMut) {
+    unsafe fn apply_effect(ptr: *const Self, entity: &mut EntityWorldMut) {
         // SAFETY: The caller must ensure that the `ptr` must be valid but not necessarily aligned.
         let effect = unsafe { ptr.read() };
         effect.apply(entity);
@@ -321,11 +321,11 @@ impl<R: Relationship, B: Bundle> BundleEffect for SpawnOneRelated<R, B> {
     }
 }
 
-impl<R: Relationship, B: Bundle> DynamicBundle for SpawnOneRelated<R, B> {
+unsafe impl<R: Relationship, B: Bundle> DynamicBundle for SpawnOneRelated<R, B> {
     type Effect = Self;
 
     unsafe fn get_components(
-        _ptr: *mut Self,
+        _ptr: *const Self,
         func: &mut impl FnMut(crate::component::StorageType, bevy_ptr::OwningPtr<'_>),
     ) {
         let mut target = <R::RelationshipTarget as RelationshipTarget>::with_capacity(1);
@@ -333,7 +333,7 @@ impl<R: Relationship, B: Bundle> DynamicBundle for SpawnOneRelated<R, B> {
         core::mem::forget(target);
     }
 
-    unsafe fn apply_effect(ptr: *mut Self, entity: &mut EntityWorldMut) {
+    unsafe fn apply_effect(ptr: *const Self, entity: &mut EntityWorldMut) {
         // SAFETY: The caller must ensure that the `ptr` must be valid and aligned.
         let effect = unsafe { ptr.read() };
         effect.apply(entity);

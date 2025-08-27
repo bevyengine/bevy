@@ -204,7 +204,7 @@ impl<'w> BundleInserter<'w> {
                     entity,
                     location.table_row,
                     self.change_tick,
-                    bundle.cast_mut(),
+                    bundle,
                     insert_mode,
                     caller,
                 );
@@ -245,7 +245,7 @@ impl<'w> BundleInserter<'w> {
                     entity,
                     result.table_row,
                     self.change_tick,
-                    bundle.cast_mut(),
+                    bundle,
                     insert_mode,
                     caller,
                 );

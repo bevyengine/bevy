@@ -164,16 +164,16 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
 
     let dynamic_bundle_impl = quote! {
         #[allow(deprecated)]
-        impl #impl_generics #ecs_path::bundle::DynamicBundle for #struct_name #ty_generics #where_clause {
+        unsafe impl #impl_generics #ecs_path::bundle::DynamicBundle for #struct_name #ty_generics #where_clause {
             type Effect = ();
             #[allow(unused_variables)]
             #[inline]
             unsafe fn get_components(
-                ptr: *mut Self,
+                ptr: *const Self,
                 func: &mut impl FnMut(#ecs_path::component::StorageType, #ecs_path::ptr::OwningPtr<'_>)
             ) {
                 #(
-                    let field_ptr = &raw mut (*ptr).#active_field_tokens;
+                    let field_ptr = &raw (*ptr).#active_field_tokens;
                     <#active_field_types as #ecs_path::bundle::DynamicBundle>::get_components(field_ptr, &mut *func);
                 )*
             }
@@ -181,7 +181,7 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
             #[allow(unused_variables)]
             #[inline]
             unsafe fn apply_effect(
-                ptr: *mut Self,
+                ptr: *const Self,
                 func: &mut #ecs_path::world::EntityWorldMut<'_>,
             ) {
             }

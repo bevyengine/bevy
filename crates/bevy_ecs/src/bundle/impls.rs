@@ -39,20 +39,20 @@ unsafe impl<C: Component> BundleFromComponents for C {
     }
 }
 
-impl<C: Component> DynamicBundle for C {
+unsafe impl<C: Component> DynamicBundle for C {
     type Effect = ();
     #[inline]
     unsafe fn get_components(
-        ptr: *mut Self,
+        ptr: *const Self,
         func: &mut impl FnMut(StorageType, OwningPtr<'_>),
     ) -> Self::Effect {
-        let ptr = NonNull::new(ptr).debug_checked_unwrap().cast();
+        let ptr = NonNull::new(ptr.cast_mut()).debug_checked_unwrap().cast();
         let ptr = OwningPtr::new(ptr);
         func(C::STORAGE_TYPE, ptr);
     }
 
     #[inline]
-    unsafe fn apply_effect(_ptr: *mut Self, _func: &mut EntityWorldMut) {}
+    unsafe fn apply_effect(_ptr: *const Self, _entity: &mut EntityWorldMut) {}
 }
 
 macro_rules! tuple_impl {
@@ -128,16 +128,16 @@ macro_rules! tuple_impl {
             reason = "Zero-length tuples won't use any of the parameters."
         )]
         $(#[$meta])*
-        impl<$($name: Bundle),*> DynamicBundle for ($($name,)*) {
+        unsafe impl<$($name: Bundle),*> DynamicBundle for ($($name,)*) {
             type Effect = ($($name::Effect,)*);
             #[allow(
                 clippy::unused_unit,
                 reason = "Zero-length tuples will generate a function body equivalent to `()`; however, this macro is meant for all applicable tuples, and as such it makes no sense to rewrite it just for that case."
             )]
             #[inline(always)]
-            unsafe fn get_components(ptr: *mut Self, func: &mut impl FnMut(StorageType, OwningPtr<'_>)) {
+            unsafe fn get_components(ptr: *const Self, func: &mut impl FnMut(StorageType, OwningPtr<'_>)) {
                 $(
-                    let field_ptr = &raw mut (*ptr).$index;
+                    let field_ptr = &raw const (*ptr).$index;
                     $name::get_components(field_ptr, &mut *func);
                 )*
             }
@@ -147,9 +147,9 @@ macro_rules! tuple_impl {
                 reason = "Zero-length tuples will generate a function body equivalent to `()`; however, this macro is meant for all applicable tuples, and as such it makes no sense to rewrite it just for that case."
             )]
             #[inline(always)]
-            unsafe fn apply_effect(ptr: *mut Self, entity: &mut EntityWorldMut) {
+            unsafe fn apply_effect(ptr: *const Self, entity: &mut EntityWorldMut) {
                 $(
-                    let field_ptr = &raw mut (*ptr).$index;
+                    let field_ptr = &raw const (*ptr).$index;
                     $name::apply_effect(field_ptr, entity);
                 )*
             }

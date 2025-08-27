@@ -234,7 +234,7 @@ pub unsafe trait BundleFromComponents {
 }
 
 /// The parts from [`Bundle`] that don't require statically knowing the components of the bundle.
-pub trait DynamicBundle {
+pub unsafe trait DynamicBundle {
     /// An operation on the entity that happens _after_ inserting this bundle.
     type Effect: BundleEffect;
     // SAFETY:
@@ -244,13 +244,13 @@ pub trait DynamicBundle {
     /// Calls `func` on each value, in the order of this bundle's [`Component`]s. This passes
     /// ownership of the component values to `func`.
     #[doc(hidden)]
-    unsafe fn get_components(ptr: *mut Self, func: &mut impl FnMut(StorageType, OwningPtr<'_>));
+    unsafe fn get_components(ptr: *const Self, func: &mut impl FnMut(StorageType, OwningPtr<'_>));
 
     // SAFETY:
     // - Must be called exactly once after `get_components` has been called.
     // - `ptr` must point to a valid instance of `Self` but does not necessary need to be aligned.
     #[doc(hidden)]
-    unsafe fn apply_effect(ptr: *mut Self, world: &mut EntityWorldMut);
+    unsafe fn apply_effect(ptr: *const Self, entity: &mut EntityWorldMut);
 }
 
 /// An operation on an [`Entity`](crate::entity::Entity) that occurs _after_ inserting the

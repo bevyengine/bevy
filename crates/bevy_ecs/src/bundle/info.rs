@@ -247,7 +247,7 @@ impl BundleInfo {
         // NOTE: get_components calls this closure on each component in "bundle order".
         // bundle_info.component_ids are also in "bundle order"
         let mut bundle_component = 0;
-        T::get_components(bundle.cast_mut(), &mut |storage_type, component_ptr| {
+        T::get_components(bundle, &mut |storage_type, component_ptr| {
             let component_id = *self
                 .contributed_component_ids
                 .get_unchecked(bundle_component);

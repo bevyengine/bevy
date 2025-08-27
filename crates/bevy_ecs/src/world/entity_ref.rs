@@ -4654,12 +4654,12 @@ unsafe fn insert_dynamic_bundle<
         components: I,
     }
 
-    impl<'a, I: Iterator<Item = (StorageType, OwningPtr<'a>)>> DynamicBundle
+    unsafe impl<'a, I: Iterator<Item = (StorageType, OwningPtr<'a>)>> DynamicBundle
         for DynamicInsertBundle<'a, I>
     {
         type Effect = ();
         unsafe fn get_components(
-            ptr: *mut Self,
+            ptr: *const Self,
             func: &mut impl FnMut(StorageType, OwningPtr<'_>),
         ) {
             // SAFETY: The caller must ensure that `ptr` is pointing to a valid instance of `Self`
@@ -4668,7 +4668,7 @@ unsafe fn insert_dynamic_bundle<
             bundle.components.for_each(|(t, ptr)| func(t, ptr));
         }
 
-        unsafe fn apply_effect(_ptr: *mut Self, _entity: &mut EntityWorldMut) {}
+        unsafe fn apply_effect(_ptr: *const Self, _entity: &mut EntityWorldMut) {}
     }
 
     let bundle = DynamicInsertBundle {
