@@ -153,23 +153,27 @@ where
     unsafe fn run_unsafe(
         &mut self,
         input: SystemIn<'_, Self>,
-        mut world: UnsafeWorldCell,
+        world: UnsafeWorldCell,
     ) -> Result<Self::Out, RunSystemError> {
+        struct PrivateUnsafeWorldCell<'w>(UnsafeWorldCell<'w>);
+
         Func::combine(
             input,
-            &mut world,
+            &mut PrivateUnsafeWorldCell(world),
             // SAFETY: The world accesses for both underlying systems have been registered,
             // so the caller will guarantee that no other systems will conflict with `a` or `b`.
             // If either system has `is_exclusive()`, then the combined system also has `is_exclusive`.
-            // Since we require a `combine` to pass in a mutable reference to `world` they can never be
-            // called in parallel or re-entrantly, so their world accesses will not conflict with each other.
-            |input, &mut world| unsafe { self.a.run_unsafe(input, world) },
+            // Since we require a `combine` to pass in a mutable reference to `world` and that's a private type
+            // passed to a function as an unbound non-'static generic argument, they can never be called in parallel
+            // or re-entrantly because that would require forging another instance of `PrivateUnsafeWorldCell`.
+            // This means that the world accesses in the two closures will not conflict with each other.
+            |input, world| unsafe { self.a.run_unsafe(input, world.0) },
             // `Self::validate_param_unsafe` already validated the first system,
             // but we still need to validate the second system once the first one runs.
             // SAFETY: See the comment above.
-            |input, &mut world| unsafe {
-                self.b.validate_param_unsafe(world)?;
-                self.b.run_unsafe(input, world)
+            |input, world| unsafe {
+                self.b.validate_param_unsafe(world.0)?;
+                self.b.run_unsafe(input, world.0)
             },
         )
     }
