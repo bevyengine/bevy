@@ -143,10 +143,10 @@ pub(crate) struct ArchetypeAfterBundleInsert {
     /// The initial values are determined based on the provided constructor, falling back to the `Default` trait if none is given.
     pub required_components: Box<[RequiredComponentConstructor]>,
     /// The components added by this bundle. This includes any Required Components that are inserted when adding this bundle.
-    added: Box<[ComponentId]>,
+    pub(crate) added: Box<[ComponentId]>,
     /// The components that were explicitly contributed by this bundle, but already existed in the archetype. This _does not_ include any
     /// Required Components.
-    existing: Box<[ComponentId]>,
+    pub(crate) existing: Box<[ComponentId]>,
 }
 
 impl ArchetypeAfterBundleInsert {

@@ -111,10 +111,7 @@ pub trait Event: Send + Sync + Sized + 'static {
     ///
     /// This method should not be overridden by implementers,
     /// and should always correspond to the implementation of [`event_key`](Event::event_key).
-    fn register_event_key(world: &mut World) -> EventKey
-    where
-        Self: 'static,
-    {
+    fn register_event_key(world: &mut World) -> EventKey {
         EventKey(world.register_component::<EventWrapperComponent<Self>>())
     }
 

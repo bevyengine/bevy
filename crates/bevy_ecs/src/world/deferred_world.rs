@@ -811,8 +811,8 @@ impl<'w> DeferredWorld<'w> {
     /// This will run any [`Observer`] of the given [`Event`] that isn't scoped to specific targets.
     ///
     /// [`Observer`]: crate::observer::Observer
-    pub fn trigger<'a>(&mut self, trigger: impl Event<Trigger<'a>: Default>) {
-        self.commands().trigger(trigger);
+    pub fn trigger<'a>(&mut self, event: impl Event<Trigger<'a>: Default>) {
+        self.commands().trigger(event);
     }
 
     /// Gets an [`UnsafeWorldCell`] containing the underlying world.

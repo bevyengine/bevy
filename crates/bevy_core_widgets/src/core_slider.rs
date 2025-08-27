@@ -409,7 +409,7 @@ pub(crate) fn slider_on_drag_end(
 }
 
 fn slider_on_key_input(
-    mut event: On<FocusedInput<KeyboardInput>>,
+    mut focused_input: On<FocusedInput<KeyboardInput>>,
     q_slider: Query<(
         &CoreSlider,
         &SliderValue,
@@ -419,8 +419,8 @@ fn slider_on_key_input(
     )>,
     mut commands: Commands,
 ) {
-    if let Ok((slider, value, range, step, disabled)) = q_slider.get(event.focused_entity) {
-        let input_event = &event.input;
+    if let Ok((slider, value, range, step, disabled)) = q_slider.get(focused_input.focused_entity) {
+        let input_event = &focused_input.input;
         if !disabled && input_event.state == ButtonState::Pressed {
             let new_value = match input_event.key_code {
                 KeyCode::ArrowLeft => range.clamp(value.0 - step.0),
@@ -431,16 +431,16 @@ fn slider_on_key_input(
                     return;
                 }
             };
-            event.propagate(false);
+            focused_input.propagate(false);
             if matches!(slider.on_change, Callback::Ignore) {
                 commands
-                    .entity(event.focused_entity)
+                    .entity(focused_input.focused_entity)
                     .insert(SliderValue(new_value));
             } else {
                 commands.notify_with(
                     &slider.on_change,
                     ValueChange {
-                        source: event.focused_entity,
+                        source: focused_input.focused_entity,
                         value: new_value,
                     },
                 );
@@ -523,12 +523,12 @@ pub enum SliderValueChange {
 }
 
 fn slider_on_set_value(
-    event: On<SetSliderValue>,
+    set_slider_value: On<SetSliderValue>,
     q_slider: Query<(&CoreSlider, &SliderValue, &SliderRange, Option<&SliderStep>)>,
     mut commands: Commands,
 ) {
-    if let Ok((slider, value, range, step)) = q_slider.get(event.entity) {
-        let new_value = match event.change {
+    if let Ok((slider, value, range, step)) = q_slider.get(set_slider_value.entity) {
+        let new_value = match set_slider_value.change {
             SliderValueChange::Absolute(new_value) => range.clamp(new_value),
             SliderValueChange::Relative(delta) => range.clamp(value.0 + delta),
             SliderValueChange::RelativeStep(delta) => {
@@ -536,12 +536,14 @@ fn slider_on_set_value(
             }
         };
         if matches!(slider.on_change, Callback::Ignore) {
-            commands.entity(event.entity).insert(SliderValue(new_value));
+            commands
+                .entity(set_slider_value.entity)
+                .insert(SliderValue(new_value));
         } else {
             commands.notify_with(
                 &slider.on_change,
                 ValueChange {
-                    source: event.entity,
+                    source: set_slider_value.entity,
                     value: new_value,
                 },
             );

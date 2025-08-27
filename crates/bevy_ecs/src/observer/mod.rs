@@ -1222,7 +1222,7 @@ mod tests {
         assert!(!world
             .observers
             .get_observers_mut(event_key)
-            .get_component_observers()
+            .component_observers()
             .contains_key(&a));
     }
 }

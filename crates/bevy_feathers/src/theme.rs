@@ -101,7 +101,7 @@ pub(crate) fn update_theme(
 }
 
 pub(crate) fn on_changed_background(
-    ev: On<Insert, ThemeBackgroundColor>,
+    insert: On<Insert, ThemeBackgroundColor>,
     mut q_background: Query<
         (&mut BackgroundColor, &ThemeBackgroundColor),
         Changed<ThemeBackgroundColor>,
@@ -109,18 +109,18 @@ pub(crate) fn on_changed_background(
     theme: Res<UiTheme>,
 ) {
     // Update background colors where the design token has changed.
-    if let Ok((mut bg, theme_bg)) = q_background.get_mut(ev.entity) {
+    if let Ok((mut bg, theme_bg)) = q_background.get_mut(insert.entity) {
         bg.0 = theme.color(theme_bg.0);
     }
 }
 
 pub(crate) fn on_changed_border(
-    ev: On<Insert, ThemeBorderColor>,
+    insert: On<Insert, ThemeBorderColor>,
     mut q_border: Query<(&mut BorderColor, &ThemeBorderColor), Changed<ThemeBorderColor>>,
     theme: Res<UiTheme>,
 ) {
     // Update background colors where the design token has changed.
-    if let Ok((mut border, theme_border)) = q_border.get_mut(ev.entity) {
+    if let Ok((mut border, theme_border)) = q_border.get_mut(insert.entity) {
         border.set_all(theme.color(theme_border.0));
     }
 }
@@ -128,15 +128,15 @@ pub(crate) fn on_changed_border(
 /// An observer which looks for changes to the [`ThemeFontColor`] component on an entity, and
 /// propagates downward the text color to all participating text entities.
 pub(crate) fn on_changed_font_color(
-    ev: On<Insert, ThemeFontColor>,
+    insert: On<Insert, ThemeFontColor>,
     font_color: Query<&ThemeFontColor>,
     theme: Res<UiTheme>,
     mut commands: Commands,
 ) {
-    if let Ok(token) = font_color.get(ev.entity) {
+    if let Ok(token) = font_color.get(insert.entity) {
         let color = theme.color(token.0);
         commands
-            .entity(ev.entity)
+            .entity(insert.entity)
             .insert(Propagate(TextColor(color)));
     }
 }

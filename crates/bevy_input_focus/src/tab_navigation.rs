@@ -317,22 +317,22 @@ impl TabNavigation<'_, '_> {
 
 /// Observer which sets focus to the nearest ancestor that has tab index, using bubbling.
 pub(crate) fn acquire_focus(
-    mut ev: On<AcquireFocus>,
+    mut acquire_focus: On<AcquireFocus>,
     focusable: Query<(), With<TabIndex>>,
     windows: Query<(), With<Window>>,
     mut focus: ResMut<InputFocus>,
 ) {
     // If the entity has a TabIndex
-    if focusable.contains(ev.focused_entity) {
+    if focusable.contains(acquire_focus.focused_entity) {
         // Stop and focus it
-        ev.propagate(false);
+        acquire_focus.propagate(false);
         // Don't mutate unless we need to, for change detection
-        if focus.0 != Some(ev.focused_entity) {
-            focus.0 = Some(ev.focused_entity);
+        if focus.0 != Some(acquire_focus.focused_entity) {
+            focus.0 = Some(acquire_focus.focused_entity);
         }
-    } else if windows.contains(ev.focused_entity) {
+    } else if windows.contains(acquire_focus.focused_entity) {
         // Stop and clear focus
-        ev.propagate(false);
+        acquire_focus.propagate(false);
         // Don't mutate unless we need to, for change detection
         if focus.0.is_some() {
             focus.clear();
