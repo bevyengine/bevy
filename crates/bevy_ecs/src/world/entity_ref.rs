@@ -2887,8 +2887,11 @@ impl<'w> EntityWorldMut<'w> {
         self.assert_not_despawned();
         let bundle = ManuallyDrop::new(Observer::new(observer).with_entity(self.entity));
         let bundle_ptr = &raw const bundle;
-        self.world
-            .spawn_with_caller(bundle_ptr.cast::<Observer>(), caller);
+        // SAFETY: The observer was just constructed above. `bundle_ptr` must be valid.
+        unsafe {
+            self.world
+                .spawn_with_caller(bundle_ptr.cast::<Observer>(), caller)
+        };
         self.world.flush();
         self.update_location();
         self
@@ -4668,6 +4671,8 @@ unsafe fn insert_dynamic_bundle<
             ptr: *mut Self,
             func: &mut impl FnMut(StorageType, OwningPtr<'_, Unaligned>),
         ) {
+            // SAFETY: The caller must ensure that `ptr` is pointing to a valid instance of `Self`
+            // but does not necessarily need to be aligned.
             let bundle = unsafe { ptr.read_unaligned() };
             bundle
                 .components

@@ -233,6 +233,9 @@ impl BlobVec {
 
             // This closure will run in case `drop()` panics,
             // which ensures that `value` does not get forgotten.
+            // SAFETY:
+            // - The caller must ensure that the `value` must be valid but not necessarily aligned.
+            // - The caller must ensure `value` is not used after this function returns.
             let on_unwind = OnDrop::new(|| unsafe { self.drop_for(value) });
 
             drop(old_value);
@@ -401,6 +404,10 @@ impl BlobVec {
         }
     }
 
+    /// # Safety
+    /// - `value` must point to a valid instance of the type stored by this `BlobArray` but does not
+    ///   necessarily need to be aligned.
+    /// - `value` must not continue to be accessed in any form after this.
     pub unsafe fn drop_for<A: IsAligned>(&self, value: OwningPtr<'_, A>) {
         let value_ptr = value.as_ptr();
         let Some(drop) = self.drop else { return };

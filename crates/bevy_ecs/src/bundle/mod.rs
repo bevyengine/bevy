@@ -251,8 +251,8 @@ pub trait DynamicBundle {
     );
 
     // SAFETY:
-    // Must be called only once.
-    // component being fetched.
+    // - Must be called exactly once after `get_compoennts` has been called.
+    // - `ptr` must point to a valid instance of `Self` but does not necessary need to be aligned.
     #[doc(hidden)]
     unsafe fn apply_effect(ptr: *mut Self, world: &mut EntityWorldMut);
 }

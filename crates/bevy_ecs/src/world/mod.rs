@@ -1157,10 +1157,13 @@ impl World {
     pub fn spawn<B: Bundle>(&mut self, bundle: B) -> EntityWorldMut<'_> {
         let bundle = ManuallyDrop::new(bundle);
         let bundle_ptr = &raw const bundle;
-        self.spawn_with_caller(bundle_ptr.cast::<B>(), MaybeLocation::caller())
+        // SAFETY: The bundle was passed in by value, `bundle_ptr` thus must be valid.
+        unsafe { self.spawn_with_caller(bundle_ptr.cast::<B>(), MaybeLocation::caller()) }
     }
 
-    pub(crate) fn spawn_with_caller<B: Bundle>(
+    /// #  Safety
+    /// - `bundle_ptr` thus must be pointing to a valid, but not necessarily aligned, instance of `B`
+    pub(crate) unsafe fn spawn_with_caller<B: Bundle>(
         &mut self,
         bundle: *const B,
         caller: MaybeLocation,
@@ -1182,6 +1185,9 @@ impl World {
 
         // SAFETY: entity and location are valid, as they were just created above
         let mut entity = unsafe { EntityWorldMut::new(self, entity, entity_location) };
+        // SAFETY:
+        // - This is called exactly once after `get_compoennts` has been called in `spawn_non_existent`.
+        // - The caller must ensure that `ptr` points to a valid instance of `B`.
         unsafe { B::apply_effect(bundle.cast_mut(), &mut entity) };
         entity
     }

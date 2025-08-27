@@ -290,6 +290,7 @@ impl<R: Relationship, L: SpawnableList<R>> DynamicBundle for SpawnRelatedBundle<
         ptr: *mut Self,
         func: &mut impl FnMut(crate::component::StorageType, bevy_ptr::OwningPtr<'_, Unaligned>),
     ) {
+        // SAFETY: The caller must ensure that the `ptr` must be valid but not necessarily aligned.
         let effect = unsafe { ptr.read_unaligned() };
         let mut target =
             <R::RelationshipTarget as RelationshipTarget>::with_capacity(effect.list.size_hint());
@@ -299,6 +300,7 @@ impl<R: Relationship, L: SpawnableList<R>> DynamicBundle for SpawnRelatedBundle<
     }
 
     unsafe fn apply_effect(ptr: *mut Self, entity: &mut EntityWorldMut) {
+        // SAFETY: The caller must ensure that the `ptr` must be valid but not necessarily aligned.
         let effect = unsafe { ptr.read_unaligned() };
         effect.apply(entity);
     }
@@ -332,6 +334,7 @@ impl<R: Relationship, B: Bundle> DynamicBundle for SpawnOneRelated<R, B> {
     }
 
     unsafe fn apply_effect(ptr: *mut Self, entity: &mut EntityWorldMut) {
+        // SAFETY: The caller must ensure that the `ptr` must be valid but not necessarily aligned.
         let effect = unsafe { ptr.read_unaligned() };
         effect.apply(entity);
     }

@@ -602,6 +602,11 @@ impl Table {
     }
 
     /// Get the drop function for some component that is stored in this table.
+    ///
+    /// # Safety
+    /// - `value` must point to a valid instance of the type associated with `component_id` but
+    ///   does not necessarily need to be aligned.
+    /// - `value` must not continue to be accessed in any form after this.
     #[inline]
     pub unsafe fn drop_for<A: IsAligned>(
         &self,

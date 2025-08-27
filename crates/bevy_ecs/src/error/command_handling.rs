@@ -192,6 +192,7 @@ where
     }
 
     unsafe fn apply_raw(ptr: *mut Self, world: &mut World) -> Result<T, EntityCommandError<Err>> {
+        // SAFETY: `ptr` might be unaligned, but should still point to an otherwise valid instance of `Self`
         let entity = unsafe { (&raw const (*ptr).entity).read_unaligned() };
         let command_ptr = &raw mut (*ptr).command;
         let entity_mut = world.get_entity_mut(entity)?;

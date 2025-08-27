@@ -94,6 +94,8 @@ pub trait EntityCommand<Out = ()>: Send + Sized + 'static {
     /// # Safety
     /// `ptr` must point to a valid, but potentially unaligned instance of `Self`.
     unsafe fn apply_raw(ptr: *mut Self, entity: EntityWorldMut) -> Out {
+        // SAFETY: The caller must ensure that `ptr` is pointing to a valid instance of `Self`
+        // but does not necessarily need to be aligned.
         let command = unsafe { ptr.read_unaligned() };
         command.apply(entity)
     }
@@ -137,11 +139,16 @@ struct Insert<B> {
 
 impl<B: Bundle> EntityCommand for Insert<B> {
     fn apply(mut self, entity: EntityWorldMut) {
+        // SAFETY: This is being called with a mutable borrow, which must be a valid, non-null pointer.
         unsafe { Self::apply_raw(&mut self, entity) }
     }
 
     unsafe fn apply_raw(ptr: *mut Self, mut entity: EntityWorldMut) {
+        // SAFETY: The caller must ensure that `ptr` is pointing to a valid instance of `Self`
+        // but does not necessarily need to be aligned.
         let mode = unsafe { (&raw const (*ptr).mode).read_unaligned() };
+        // SAFETY: The caller must ensure that `ptr` is pointing to a valid instance of `Self`
+        // but does not necessarily need to be aligned.
         let caller = unsafe { (&raw const (*ptr).caller).read_unaligned() };
         let bundle_ptr = &raw mut (*ptr).bundle;
         entity.insert_raw_with_caller(bundle_ptr, mode, caller, RelationshipHookMode::Run);
