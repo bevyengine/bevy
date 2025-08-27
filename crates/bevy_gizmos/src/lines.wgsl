@@ -46,7 +46,7 @@ fn vertex(vertex: VertexInput) -> VertexOutput {
         vec2(0.5, 1.),
         vec2(0.5, 0.)
     );
-    let position = positions[vertex.index];
+    let position = vec3(0.0, positions[vertex.index]);
 
     let world_from_local = affine3_to_square(line_gizmo.world_from_local);
 
@@ -57,7 +57,7 @@ fn vertex(vertex: VertexInput) -> VertexOutput {
     // Manual near plane clipping to avoid errors when doing the perspective divide inside this shader.
     clip_a = clip_near_plane(clip_a, clip_b);
     clip_b = clip_near_plane(clip_b, clip_a);
-    let clip = mix(clip_a, clip_b, position.y);
+    let clip = mix(clip_a, clip_b, position.z);
 
     let resolution = view.viewport.zw;
     let screen_a = resolution * (0.5 * clip_a.xy / clip_a.w + 0.5);
@@ -66,7 +66,7 @@ fn vertex(vertex: VertexInput) -> VertexOutput {
     let y_basis = normalize(screen_b - screen_a);
     let x_basis = vec2(-y_basis.y, y_basis.x);
 
-    var color = mix(vertex.color_a, vertex.color_b, position.y);
+    var color = mix(vertex.color_a, vertex.color_b, position.z);
 
     var line_width = line_gizmo.line_width;
     var alpha = 1.;
@@ -88,7 +88,7 @@ fn vertex(vertex: VertexInput) -> VertexOutput {
     // Offset to compensate for moved clip positions. If removed dots on lines will slide when position a is ofscreen.
     let clipped_offset = length(position_a.xyz - vertex.position_a);
 
-    uv = (clipped_offset + position.y * world_distance) * resolution.y / near_clipping_plane_height / line_gizmo.line_width;
+    uv = (clipped_offset + position.z * world_distance) * resolution.y / near_clipping_plane_height / line_gizmo.line_width;
 #else
     // Get the distance of b to the camera along camera axes
     let camera_b = view.view_from_clip * clip_b;
@@ -102,7 +102,7 @@ fn vertex(vertex: VertexInput) -> VertexOutput {
     else {
         depth_adaptment = -camera_b.z;
     }
-    uv = position.y * depth_adaptment * length(screen_b - screen_a) / line_gizmo.line_width;
+    uv = position.z * depth_adaptment * length(screen_b - screen_a) / line_gizmo.line_width;
 #endif
 
     // Line thinness fade from https://acegikmo.com/shapes/docs/#anti-aliasing
@@ -111,8 +111,8 @@ fn vertex(vertex: VertexInput) -> VertexOutput {
         line_width = 1.;
     }
 
-    let x_offset = line_width * position.x * x_basis;
-    let screen = mix(screen_a, screen_b, position.y) + x_offset;
+    let x_offset = line_width * position.y * x_basis;
+    let screen = mix(screen_a, screen_b, position.z) + x_offset;
 
     var depth: f32;
     if line_gizmo.depth_bias >= 0. {
