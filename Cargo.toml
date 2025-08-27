@@ -147,6 +147,11 @@ default = [
   "bevy_picking",
   "bevy_render",
   "bevy_scene",
+  "bevy_image",
+  "bevy_mesh",
+  "bevy_camera",
+  "bevy_light",
+  "bevy_shader",
   "bevy_sprite",
   "bevy_sprite_picking_backend",
   "bevy_sprite_render",
@@ -160,6 +165,7 @@ default = [
   "custom_cursor",
   "default_font",
   "hdr",
+  "ktx2",
   "multi_threaded",
   "png",
   "reflect_auto_register",
@@ -178,22 +184,13 @@ default = [
 default_no_std = ["libm", "critical-section", "bevy_color", "bevy_state"]
 
 # Provides an implementation for picking meshes
-bevy_mesh_picking_backend = [
-  "bevy_picking",
-  "bevy_internal/bevy_mesh_picking_backend",
-]
+bevy_mesh_picking_backend = ["bevy_internal/bevy_mesh_picking_backend"]
 
 # Provides an implementation for picking sprites
-bevy_sprite_picking_backend = [
-  "bevy_picking",
-  "bevy_internal/bevy_sprite_picking_backend",
-]
+bevy_sprite_picking_backend = ["bevy_internal/bevy_sprite_picking_backend"]
 
 # Provides an implementation for picking UI
-bevy_ui_picking_backend = [
-  "bevy_picking",
-  "bevy_internal/bevy_ui_picking_backend",
-]
+bevy_ui_picking_backend = ["bevy_internal/bevy_ui_picking_backend"]
 
 # Provides a debug overlay for bevy UI
 bevy_ui_debug = ["bevy_internal/bevy_ui_debug"]
@@ -205,7 +202,7 @@ dynamic_linking = ["dep:bevy_dylib", "bevy_internal/dynamic_linking"]
 sysinfo_plugin = ["bevy_internal/sysinfo_plugin"]
 
 # Provides animation functionality
-bevy_animation = ["bevy_internal/bevy_animation", "bevy_color"]
+bevy_animation = ["bevy_internal/bevy_animation"]
 
 # Provides asset functionality
 bevy_asset = ["bevy_internal/bevy_asset"]
@@ -217,90 +214,70 @@ bevy_audio = ["bevy_internal/bevy_audio"]
 bevy_color = ["bevy_internal/bevy_color"]
 
 # Provides cameras and other basic render pipeline features
-bevy_core_pipeline = [
-  "bevy_internal/bevy_core_pipeline",
-  "bevy_asset",
-  "bevy_render",
-]
+bevy_core_pipeline = ["bevy_internal/bevy_core_pipeline"]
 
 # Provides various anti aliasing solutions
-bevy_anti_aliasing = [
-  "bevy_internal/bevy_anti_aliasing",
-  "bevy_asset",
-  "bevy_render",
-]
+bevy_anti_aliasing = ["bevy_internal/bevy_anti_aliasing"]
 
 # Adds gamepad support
 bevy_gilrs = ["bevy_internal/bevy_gilrs"]
 
 # [glTF](https://www.khronos.org/gltf/) support
-bevy_gltf = ["bevy_internal/bevy_gltf", "bevy_asset", "bevy_scene", "bevy_pbr"]
+bevy_gltf = ["bevy_internal/bevy_gltf"]
 
 # Adds PBR rendering
-bevy_pbr = [
-  "bevy_internal/bevy_pbr",
-  "bevy_asset",
-  "bevy_render",
-  "bevy_core_pipeline",
-  "bevy_anti_aliasing",
-]
+bevy_pbr = ["bevy_internal/bevy_pbr"]
 
 # Provides picking functionality
 bevy_picking = ["bevy_internal/bevy_picking"]
 
 # Provides rendering functionality
-bevy_render = ["bevy_internal/bevy_render", "bevy_color"]
+bevy_render = ["bevy_internal/bevy_render"]
 
 # Provides scene functionality
-bevy_scene = ["bevy_internal/bevy_scene", "bevy_asset"]
+bevy_scene = ["bevy_internal/bevy_scene"]
 
 # Provides raytraced lighting (experimental)
-bevy_solari = [
-  "bevy_internal/bevy_solari",
-  "bevy_asset",
-  "bevy_core_pipeline",
-  "bevy_pbr",
-  "bevy_render",
-]
+bevy_solari = ["bevy_internal/bevy_solari"]
 
 # Provides sprite functionality
-bevy_sprite = ["bevy_internal/bevy_sprite", "bevy_color"]
+bevy_sprite = ["bevy_internal/bevy_sprite"]
 
 # Provides sprite rendering functionality
-bevy_sprite_render = [
-  "bevy_internal/bevy_sprite_render",
-  "bevy_sprite",
-  "bevy_render",
-  "bevy_core_pipeline",
-  "bevy_color",
-  "bevy_anti_aliasing",
-]
+bevy_sprite_render = ["bevy_internal/bevy_sprite_render"]
 
 # Provides text functionality
-bevy_text = ["bevy_internal/bevy_text", "bevy_asset"]
+bevy_text = ["bevy_internal/bevy_text"]
 
 # A custom ECS-driven UI framework
-bevy_ui = ["bevy_internal/bevy_ui", "bevy_text", "bevy_sprite", "bevy_color"]
+bevy_ui = ["bevy_internal/bevy_ui"]
 
 # Provides rendering functionality for bevy_ui
-bevy_ui_render = [
-  "bevy_internal/bevy_ui_render",
-  "bevy_render",
-  "bevy_sprite_render",
-  "bevy_ui",
-]
+bevy_ui_render = ["bevy_internal/bevy_ui_render"]
 
 # Windowing layer
 bevy_window = ["bevy_internal/bevy_window"]
 
 # winit window and input backend
-bevy_winit = ["bevy_internal/bevy_winit", "bevy_window"]
+bevy_winit = ["bevy_internal/bevy_winit"]
 
 # Load and access image data. Usually added by an image format
 bevy_image = ["bevy_internal/bevy_image"]
 
+# Provides a mesh format and some primitive meshing routines.
+bevy_mesh = ["bevy_internal/bevy_mesh"]
+
+# Provides camera and visibility types, as well as culling primitives.
+bevy_camera = ["bevy_internal/bevy_camera"]
+
+# Provides light types such as point lights, directional lights, spotlights.
+bevy_light = ["bevy_internal/bevy_light"]
+
+# Provides shaders usable through asset handles.
+bevy_shader = ["bevy_internal/bevy_shader"]
+
 # Adds support for rendering gizmos
-bevy_gizmos = ["bevy_internal/bevy_gizmos", "bevy_color"]
+bevy_gizmos = ["bevy_internal/bevy_gizmos"]
 
 # Provides a collection of developer tools
 bevy_dev_tools = ["bevy_internal/bevy_dev_tools"]
@@ -336,11 +313,7 @@ trace_chrome = ["trace", "bevy_internal/trace_chrome"]
 trace_tracy = ["trace", "bevy_internal/trace_tracy"]
 
 # Tracing support, with memory profiling, exposing a port for Tracy
-trace_tracy_memory = [
-  "trace",
-  "bevy_internal/trace_tracy",
-  "bevy_internal/trace_tracy_memory",
-]
+trace_tracy_memory = ["bevy_internal/trace_tracy_memory"]
 
 # Tracing support
 trace = ["bevy_internal/trace", "dep:tracing"]
@@ -469,10 +442,13 @@ android_shared_stdcxx = ["bevy_internal/android_shared_stdcxx"]
 detailed_trace = ["bevy_internal/detailed_trace"]
 
 # Include tonemapping Look Up Tables KTX2 files. If everything is pink, you need to enable this feature or change the `Tonemapping` method for your `Camera2d` or `Camera3d`.
-tonemapping_luts = ["bevy_internal/tonemapping_luts", "ktx2", "bevy_image/zstd"]
+tonemapping_luts = ["bevy_internal/tonemapping_luts"]
 
 # Include SMAA Look Up Tables KTX2 Files
 smaa_luts = ["bevy_internal/smaa_luts"]
+
+# Include spatio-temporal blue noise KTX2 file used by generated environment maps, Solari and atmosphere
+bluenoise_texture = ["bevy_internal/bluenoise_texture"]
 
 # NVIDIA Deep Learning Super Sampling
 dlss = ["bevy_internal/dlss"]
@@ -596,13 +572,6 @@ hotpatching = ["bevy_internal/hotpatching"]
 # Enable collecting debug information about systems and components to help with diagnostics
 debug = ["bevy_internal/debug"]
 
-# Include spatio-temporal blue noise KTX2 file used by generated environment maps, Solari and atmosphere
-bluenoise_texture = [
-  "bevy_internal/bluenoise_texture",
-  "ktx2",
-  "bevy_image/zstd",
-]
-
 [dependencies]
 bevy_internal = { path = "crates/bevy_internal", version = "0.17.0-dev", default-features = false }
 tracing = { version = "0.1", default-features = false, optional = true }
@@ -619,8 +588,8 @@ flate2 = "1.0"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1.0.140"
 bytemuck = "1"
-bevy_render = { path = "crates/bevy_render", version = "0.17.0-dev", default-features = false }
 # The following explicit dependencies are needed for proc macros to work inside of examples as they are part of the bevy crate itself.
+bevy_render = { path = "crates/bevy_render", version = "0.17.0-dev", default-features = false }
 bevy_ecs = { path = "crates/bevy_ecs", version = "0.17.0-dev", default-features = false }
 bevy_state = { path = "crates/bevy_state", version = "0.17.0-dev", default-features = false }
 bevy_asset = { path = "crates/bevy_asset", version = "0.17.0-dev", default-features = false }
@@ -874,6 +843,17 @@ doc-scrape-examples = true
 [package.metadata.example.text2d]
 name = "Text 2D"
 description = "Generates text in 2D"
+category = "2D Rendering"
+wasm = true
+
+[[example]]
+name = "multi_window_text"
+path = "examples/window/multi_window_text.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.multi_window_text]
+name = "Multi-Window Text"
+description = "Renders text to multiple windows with different scale factors using both Text and Text2d"
 category = "2D Rendering"
 wasm = true
 
@@ -3391,6 +3371,17 @@ doc-scrape-examples = true
 [package.metadata.example.button]
 name = "Button"
 description = "Illustrates creating and updating a button"
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
+name = "ui_drag_and_drop"
+path = "examples/ui/ui_drag_and_drop.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.ui_drag_and_drop]
+name = "UI Drag and Drop"
+description = "Demonstrates dragging and dropping UI nodes"
 category = "UI (User Interface)"
 wasm = true
 
