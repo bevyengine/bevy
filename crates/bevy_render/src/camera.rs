@@ -60,7 +60,6 @@ impl Plugin for CameraPlugin {
             .add_plugins((
                 ExtractResourcePlugin::<ClearColor>::default(),
                 ExtractComponentPlugin::<CameraMainTextureUsages>::default(),
-                bevy_camera::CameraPlugin,
             ))
             .add_systems(PostStartup, camera_system.in_set(CameraUpdateSystems))
             .add_systems(

@@ -12,6 +12,7 @@ extern crate alloc;
 
 mod mesh2d;
 mod render;
+#[cfg(feature = "bevy_text")]
 mod text2d;
 mod texture_slice;
 mod tilemap_chunk;
@@ -43,11 +44,12 @@ use bevy_render::{
 };
 use bevy_sprite::Sprite;
 
+#[cfg(feature = "bevy_text")]
 use crate::text2d::extract_text2d_sprite;
 
 /// Adds support for 2D sprite rendering.
 #[derive(Default)]
-pub struct SpriteRenderingPlugin;
+pub struct SpriteRenderPlugin;
 
 /// System set for sprite rendering.
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
@@ -60,7 +62,7 @@ pub enum SpriteSystems {
 #[deprecated(since = "0.17.0", note = "Renamed to `SpriteSystems`.")]
 pub type SpriteSystem = SpriteSystems;
 
-impl Plugin for SpriteRenderingPlugin {
+impl Plugin for SpriteRenderPlugin {
     fn build(&self, app: &mut App) {
         load_shader_library!(app, "render/sprite_view_bindings.wgsl");
 
@@ -103,6 +105,7 @@ impl Plugin for SpriteRenderingPlugin {
                     (
                         extract_sprites.in_set(SpriteSystems::ExtractSprites),
                         extract_sprite_events,
+                        #[cfg(feature = "bevy_text")]
                         extract_text2d_sprite.after(SpriteSystems::ExtractSprites),
                     ),
                 )
