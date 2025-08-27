@@ -143,7 +143,7 @@ where
     C: LightProbeComponent,
 {
     // The transform from world space to light probe space.
-    light_from_world: Mat4,
+    light_from_world: Affine3A,
 
     // The transform from light probe space to world space.
     world_from_light: Affine3A,
@@ -543,7 +543,7 @@ where
     ) -> Option<LightProbeInfo<C>> {
         environment_map.id(image_assets).map(|id| LightProbeInfo {
             world_from_light: light_probe_transform.affine(),
-            light_from_world: light_probe_transform.to_matrix().inverse(),
+            light_from_world: light_probe_transform.affine().inverse(),
             asset_id: id,
             intensity: environment_map.intensity(),
             affects_lightmapped_mesh_diffuse: environment_map.affects_lightmapped_mesh_diffuse(),
@@ -633,7 +633,7 @@ where
             // Transpose the inverse transform to compress the structure on the
             // GPU (from 4 `Vec4`s to 3 `Vec4`s). The shader will transpose it
             // to recover the original inverse transform.
-            let light_from_world_transposed = light_probe.light_from_world.transpose();
+            let light_from_world_transposed = Mat4::from(light_probe.light_from_world).transpose();
 
             // Write in the light probe data.
             self.render_light_probes.push(RenderLightProbe {
