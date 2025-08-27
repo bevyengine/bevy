@@ -108,10 +108,7 @@ mod shapes {
 }
 
 mod bloom {
-    use bevy::{
-        core_pipeline::{bloom::Bloom, tonemapping::Tonemapping},
-        prelude::*,
-    };
+    use bevy::{core_pipeline::tonemapping::Tonemapping, post_process::bloom::Bloom, prelude::*};
 
     pub fn setup(
         mut commands: Commands,

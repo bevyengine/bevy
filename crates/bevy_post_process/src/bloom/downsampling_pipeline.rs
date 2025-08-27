@@ -1,4 +1,4 @@
-use crate::FullscreenShader;
+use bevy_core_pipeline::FullscreenShader;
 
 use super::{Bloom, BLOOM_TEXTURE_FORMAT};
 use bevy_asset::{load_embedded_asset, AssetServer, Handle};

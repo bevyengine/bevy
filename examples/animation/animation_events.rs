@@ -2,7 +2,7 @@
 
 use bevy::{
     color::palettes::css::{ALICE_BLUE, BLACK, CRIMSON},
-    core_pipeline::bloom::Bloom,
+    post_process::bloom::Bloom,
     prelude::*,
 };
 

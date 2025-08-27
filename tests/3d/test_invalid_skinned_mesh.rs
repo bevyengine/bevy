@@ -3,12 +3,12 @@
 use bevy::{
     asset::RenderAssetUsages,
     camera::ScalingMode,
-    core_pipeline::motion_blur::MotionBlur,
     math::ops,
     mesh::{
         skinning::{SkinnedMesh, SkinnedMeshInverseBindposes},
         Indices, PrimitiveTopology, VertexAttributeValues,
     },
+    post_process::motion_blur::MotionBlur,
     prelude::*,
 };
 use core::f32::consts::TAU;

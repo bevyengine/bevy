@@ -44,7 +44,7 @@ use bevy_render::{
 use bevy_shader::{load_shader_library, Shader};
 use bevy_utils::prelude::default;
 
-use crate::{
+use bevy_core_pipeline::{
     core_2d::graph::{Core2d, Node2d},
     core_3d::graph::{Core3d, Node3d},
     FullscreenShader,

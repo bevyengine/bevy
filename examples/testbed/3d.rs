@@ -151,10 +151,7 @@ mod light {
 }
 
 mod bloom {
-    use bevy::{
-        core_pipeline::{bloom::Bloom, tonemapping::Tonemapping},
-        prelude::*,
-    };
+    use bevy::{core_pipeline::tonemapping::Tonemapping, post_process::bloom::Bloom, prelude::*};
 
     const CURRENT_SCENE: super::Scene = super::Scene::Bloom;
 
