@@ -895,6 +895,7 @@ pub(crate) fn react_to_scale_factor_change(
     window_backend_scale_factor_changed: &mut EventWriter<WindowBackendScaleFactorChanged>,
     window_scale_factor_changed: &mut EventWriter<WindowScaleFactorChanged>,
 ) {
+    let prior_factor = window.resolution.scale_factor();
     window.resolution.set_scale_factor(scale_factor as f32);
 
     window_backend_scale_factor_changed.write(WindowBackendScaleFactorChanged {
@@ -902,7 +903,6 @@ pub(crate) fn react_to_scale_factor_change(
         scale_factor,
     });
 
-    let prior_factor = window.resolution.scale_factor();
     let scale_factor_override = window.resolution.scale_factor_override();
 
     if scale_factor_override.is_none() && !relative_eq!(scale_factor as f32, prior_factor) {

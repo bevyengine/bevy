@@ -286,13 +286,13 @@ mod animation {
     }
 
     fn pause_animation_frame(
-        trigger: On<SceneInstanceReady>,
+        event: On<SceneInstanceReady>,
         children: Query<&Children>,
         mut commands: Commands,
         animation: Res<Animation>,
         mut players: Query<(Entity, &mut AnimationPlayer)>,
     ) {
-        for child in children.iter_descendants(trigger.target()) {
+        for child in children.iter_descendants(event.entity()) {
             if let Ok((entity, mut player)) = players.get_mut(child) {
                 let mut transitions = AnimationTransitions::new();
                 transitions
@@ -407,13 +407,13 @@ mod gltf_coordinate_conversion {
     }
 
     pub fn show_aabbs(
-        trigger: On<SceneInstanceReady>,
+        event: On<SceneInstanceReady>,
         mut commands: Commands,
         children: Query<&Children>,
         meshes: Query<(), With<Mesh3d>>,
     ) {
         for child in children
-            .iter_descendants(trigger.target())
+            .iter_descendants(event.entity())
             .filter(|&e| meshes.contains(e))
         {
             commands.entity(child).insert(ShowAabbGizmo {
