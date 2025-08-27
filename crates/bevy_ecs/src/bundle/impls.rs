@@ -39,7 +39,9 @@ unsafe impl<C: Component> BundleFromComponents for C {
     }
 }
 
-// SAFETY: The pointer is only moved out of in `get_components`.
+// SAFETY: 
+// - The pointer is only moved out of in `get_components`.
+// - `Effect = () : NoBundleEffect` so `apply_effect` is a no-op.
 unsafe impl<C: Component> DynamicBundle for C {
     type Effect = ();
     #[inline]
@@ -129,8 +131,11 @@ macro_rules! tuple_impl {
             reason = "Zero-length tuples won't use any of the parameters."
         )]
         $(#[$meta])*
-        // SAFETY: Assuming each of the fields implement `DynamciBundle` correctly, each of the implementations for each of
-        // the fields must move the components out of the `Bundle` exactly once between both `get_components` and `apply_effect`.
+        // SAFETY: 
+        // - Assuming each of the fields implement `DynamciBundle` correctly, each of the implementations for each of
+        //   the fields must move the components out of the `Bundle` exactly once between both `get_components` and `apply_effect`.
+        // - If all of the individual tuple elements are `Effect: NoBundleEffect`, then the whole type's `Effect` will also be `NoBundleEffect`.
+        //   Assuming all of the implementations of each of the members is correct, the implementation of `apply_effect will be a no-op.
         unsafe impl<$($name: Bundle),*> DynamicBundle for ($($name,)*) {
             type Effect = ($($name::Effect,)*);
             #[allow(
