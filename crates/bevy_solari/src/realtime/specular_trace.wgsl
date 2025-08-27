@@ -1,7 +1,7 @@
 #import bevy_pbr::pbr_functions::calculate_tbn_mikktspace
 #import bevy_render::maths::{orthonormalize, PI}
 #import bevy_render::view::View
-#import bevy_solari::brdf::{evaluate_brdf, evaluate_specular_brdf}
+#import bevy_solari::brdf::evaluate_brdf_with_weights
 #import bevy_solari::gbuffer_utils::gpixel_resolve
 #import bevy_solari::sampling::{sample_ggx_vndf, ggx_vndf_pdf}
 #import bevy_solari::scene_bindings::{trace_ray, resolve_ray_hit_full, ResolvedMaterial, RAY_T_MIN, RAY_T_MAX}
@@ -37,7 +37,7 @@ fn specular_trace(@builtin(global_invocation_id) global_id: vec3<u32>) {
     var throughput = vec3(1.0);
     for (var i = 1u; i <= 2u; i += 1u) {
         // Sample new direction
-        let next_bounce = prepare_next_bounce(wo, TBN, material, i != 1u, &rng);
+        let next_bounce = prepare_next_bounce(wo, TBN, material, f32(i != 1u), &rng);
 
         // Trace ray
         let ray = trace_ray(ray_origin, next_bounce.wi, RAY_T_MIN, RAY_T_MAX, RAY_FLAG_NONE);
@@ -69,7 +69,7 @@ struct NextBounce {
     throughput: vec3<f32>,
 }
 
-fn prepare_next_bounce(wo: vec3<f32>, TBN: mat3x3<f32>, material: ResolvedMaterial, full_brdf: bool, rng: ptr<function, u32>) -> NextBounce {
+fn prepare_next_bounce(wo: vec3<f32>, TBN: mat3x3<f32>, material: ResolvedMaterial, diffuse_weight: f32, rng: ptr<function, u32>) -> NextBounce {
     let T = TBN[0];
     let B = TBN[1];
     let N = TBN[2];
@@ -80,15 +80,9 @@ fn prepare_next_bounce(wo: vec3<f32>, TBN: mat3x3<f32>, material: ResolvedMateri
     let wi_tangent = sample_ggx_vndf(wo_tangent, material.roughness, rng);
     let wi = wi_tangent.x * T + wi_tangent.y * B + wi_tangent.z * N;
 
-    var brdf: vec3<f32>;
-    if full_brdf {
-        brdf = evaluate_brdf(N, wo, wi, material);
-    } else {
-        brdf = evaluate_specular_brdf(N, wo, wi, material.base_color, material.metallic, material.reflectance, material.perceptual_roughness, material.roughness);
-    }
-
     // Update throughput for next bounce
     let pdf = ggx_vndf_pdf(wo_tangent, wi_tangent, material.roughness);
+    let brdf = evaluate_brdf_with_weights(N, wo, wi, material, diffuse_weight, 1.0);
     let cos_theta = dot(wi, N);
     let throughput = (brdf * cos_theta) / pdf;
 

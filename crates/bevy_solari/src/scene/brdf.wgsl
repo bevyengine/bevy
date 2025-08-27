@@ -11,6 +11,17 @@ fn evaluate_brdf(
     wi: vec3<f32>,
     material: ResolvedMaterial,
 ) -> vec3<f32> {
+    return evaluate_brdf_with_weights(world_normal, wo, wi, material, 1.0, 1.0);
+}
+
+fn evaluate_brdf_with_weights(
+    world_normal: vec3<f32>,
+    wo: vec3<f32>,
+    wi: vec3<f32>,
+    material: ResolvedMaterial,
+    diffuse_weight: f32,
+    specular_weight: f32,
+) -> vec3<f32> {
     let diffuse_brdf = evaluate_diffuse_brdf(material.base_color, material.metallic);
     let specular_brdf = evaluate_specular_brdf(
         world_normal,
@@ -22,7 +33,7 @@ fn evaluate_brdf(
         material.perceptual_roughness,
         material.roughness,
     );
-    return diffuse_brdf + specular_brdf;
+    return (diffuse_brdf * diffuse_weight) + (specular_brdf * specular_weight);
 }
 
 fn evaluate_diffuse_brdf(base_color: vec3<f32>, metallic: f32) -> vec3<f32> {
