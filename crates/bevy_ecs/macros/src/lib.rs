@@ -164,7 +164,7 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
 
     let dynamic_bundle_impl = quote! {
         #[allow(deprecated)]
-        // SAFETY: 
+        // SAFETY:
         // - Assuming each of the fields implement `DynamciBundle` correctly, each of the implementations for each of
         //   the fields must move the components out of the `Bundle` exactly once between both `get_components` and `apply_effect`.
         // - `Effect = () : NoBundleEffect` so `apply_effect` is a no-op.
@@ -177,7 +177,7 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
                 func: &mut impl FnMut(#ecs_path::component::StorageType, #ecs_path::ptr::OwningPtr<'_>)
             ) {
                 #(
-                    let field_ptr = &raw (*ptr).#active_field_tokens;
+                    let field_ptr = &raw const (*ptr).#active_field_tokens;
                     <#active_field_types as #ecs_path::bundle::DynamicBundle>::get_components(field_ptr, &mut *func);
                 )*
             }

@@ -236,7 +236,7 @@ pub unsafe trait BundleFromComponents {
 /// The parts from [`Bundle`] that don't require statically knowing the components of the bundle.
 //
 // # Safety
-// - Each component can only be moved out of the `Bundle` exactly once between both implemenations of
+// - Each component can only be moved out of the `Bundle` exactly once between both implementations of
 //   `get_components` and `apply_effect`.
 // - If `Effect: NoBundleEffect`, `apply_effect` must be a no-op.
 pub unsafe trait DynamicBundle {

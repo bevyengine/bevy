@@ -4664,7 +4664,7 @@ unsafe fn insert_dynamic_bundle<
         components: I,
     }
 
-    // SAFETY: 
+    // SAFETY:
     // - The pointer only has its values moved out of in `get_components`.
     // - `Effect = () : NoBundleEffect` so `apply_effect` is a no-op.
     unsafe impl<'a, I: Iterator<Item = (StorageType, OwningPtr<'a>)>> DynamicBundle

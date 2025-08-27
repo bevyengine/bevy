@@ -283,7 +283,7 @@ unsafe impl<R: Relationship, L: SpawnableList<R> + Send + Sync + 'static> Bundle
     }
 }
 
-// SAFETY: 
+// SAFETY:
 // -  The pointer is only moved out of in `apply_effect`.
 // - `Effect = Self : !NoBundleEffect` so `apply_effect` does not need to be a no-op.
 unsafe impl<R: Relationship, L: SpawnableList<R>> DynamicBundle for SpawnRelatedBundle<R, L> {
