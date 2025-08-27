@@ -26,7 +26,7 @@ fn specular_trace(@builtin(global_invocation_id) global_id: vec3<u32>) {
         return;
     }
     let surface = gpixel_resolve(textureLoad(gbuffer, global_id.xy, 0), depth, global_id.xy, view.main_pass_viewport.zw, view.world_from_clip);
-    // if surface.material.roughness > 0.04 { return; } // TODO
+    // if surface.material.roughness > 0.04 { return; } // TODO: If high roughness, reuse GI ray instead of tracing a new ray, and then use MIS
 
     var wo = normalize(view.world_position - surface.world_position);
     var TBN = orthonormalize(surface.world_normal);
