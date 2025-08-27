@@ -206,7 +206,7 @@ impl Default for TextCursorBlinkInterval {
 /// On changes, the text input systems will automatically update the buffer, layout and fonts as required.
 #[derive(Component, Debug, PartialEq)]
 pub struct TextInputAttributes {
-    /// The text input's font, also used for any [`Placeholder`] text or password mask.
+    /// The text input's font, which also applies to any [`Placeholder`] text or password mask.
     /// A text input's glyphs must all be from the same font.
     pub font: Handle<Font>,
     /// The size of the font.
@@ -231,7 +231,9 @@ pub struct TextInputAttributes {
     /// * Only restricts the maximum number of visible lines, places no constraint on the text buffer's length.
     /// * Supports fractional values, `visible_lines: Some(2.5)` will display two and a half lines of text.
     pub visible_lines: Option<f32>,
-    /// Clear on submit (Triggered when [`apply_text_edits`] receives a [`TextEdit::Submit`] edit for an entity).
+    /// Clears the inputted text when it is submitted.
+    ///
+    /// This is triggered when [`apply_text_edits`] receives a [`TextEdit::Submit`] edit for an entity.
     pub clear_on_submit: bool,
 }
 
@@ -1090,7 +1092,7 @@ pub fn apply_text_edit(
 #[derive(EntityEvent, Clone, Debug, Component)]
 #[entity_event(traversal = &'static ChildOf, auto_propagate)]
 pub enum TextInputEvent {
-    /// The text input received an invalid `TextEdit` that failed to be applied
+    /// The text input received an invalid [`TextEdit`] that failed to be applied
     InvalidEdit(InvalidTextEditError, TextEdit),
     /// Text from the input was submitted
     Submission {
