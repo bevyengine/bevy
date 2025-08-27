@@ -51,7 +51,7 @@ pub trait SpawnableList<R> {
     /// Implementors may want to implement a custom version of this function to
     /// avoid copying large values onto the stack repeatedly.
     /// # Safety
-    /// `this` must be a valid but not aligned pointer to `Self` and takes ownership of the
+    /// `this` must be a valid and well aligned pointer to `Self` and takes ownership of the
     /// value pointed at by `this`.
     #[doc(hidden)]
     unsafe fn spawn_raw(this: *mut Self, world: &mut World, entity: Entity)
@@ -60,7 +60,7 @@ pub trait SpawnableList<R> {
     {
         // SAFETY: this function must be called with a pointer to a valid `Self`.
         unsafe {
-            core::ptr::read_unaligned(this).spawn(world, entity);
+            core::ptr::read(this).spawn(world, entity);
         }
     }
 }
