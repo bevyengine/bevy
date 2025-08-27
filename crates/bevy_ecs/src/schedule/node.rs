@@ -643,7 +643,7 @@ impl SystemSets {
 
     /// Returns a reference to the system set with the given key, if it exists.
     pub fn get(&self, key: SystemSetKey) -> Option<InternedSystemSet> {
-        self.sets.get(key).map(|set| *set)
+        self.sets.get(key).copied()
     }
 
     /// Returns the key for the given system set, inserting it into this
