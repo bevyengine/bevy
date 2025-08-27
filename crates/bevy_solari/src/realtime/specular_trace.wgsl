@@ -28,41 +28,41 @@ fn specular_trace(@builtin(global_invocation_id) global_id: vec3<u32>) {
     let surface = gpixel_resolve(textureLoad(gbuffer, global_id.xy, 0), depth, global_id.xy, view.main_pass_viewport.zw, view.world_from_clip);
     // if surface.material.roughness > 0.04 { return; } // TODO
 
-    let wo = normalize(view.world_position - surface.world_position);
-    let TBN = orthonormalize(surface.world_normal);
-    let next_bounce = prepare_next_bounce(wo, TBN, surface.material, &rng);
-    var throughput = next_bounce.throughput;
-    var wi = next_bounce.wi;
+    var wo = normalize(view.world_position - surface.world_position);
+    var TBN = orthonormalize(surface.world_normal);
+    var material = surface.material;
     var ray_origin = surface.world_position;
 
     var radiance = vec3(0.0);
-    for (var bounce = 1u; bounce <= 2u; bounce += 1u) {
+    var throughput = vec3(1.0);
+    for (var i = 1u; i <= 2u; i += 1u) {
+        // Sample new direction
+        let next_bounce = prepare_next_bounce(wo, TBN, material, &rng);
+
         // Trace ray
-        let ray = trace_ray(ray_origin, wi, RAY_T_MIN, RAY_T_MAX, RAY_FLAG_NONE);
+        let ray = trace_ray(ray_origin, next_bounce.wi, RAY_T_MIN, RAY_T_MAX, RAY_FLAG_NONE);
         if ray.kind == RAY_QUERY_INTERSECTION_NONE { break; }
         let ray_hit = resolve_ray_hit_full(ray);
 
-        // Terminate in the world cache on the second bounce
-        if bounce == 2u {
-            let world_cache_radiance = query_world_cache(ray_hit.world_position, ray_hit.geometric_world_normal, view.world_position);
-            let diffuse_brdf = ray_hit.material.base_color / PI;
-            radiance = world_cache_radiance * diffuse_brdf * throughput;
+        throughput *= next_bounce.throughput;
+
+        // Terminate in the world cache after the first bounce
+        if i != 1u {
+            radiance = query_world_cache(ray_hit.world_position, ray_hit.geometric_world_normal, view.world_position);
             break;
         }
 
         // Prepare next bounce
-        let TBN = calculate_tbn_mikktspace(ray_hit.world_normal, ray_hit.world_tangent);
-        let next_bounce = prepare_next_bounce(-wi, TBN, surface.material, &rng);
-        throughput *= next_bounce.throughput;
-        wi = next_bounce.wi;
+        wo = -next_bounce.wi;
+        TBN = calculate_tbn_mikktspace(ray_hit.world_normal, ray_hit.world_tangent);
+        material = ray_hit.material;
         ray_origin = ray_hit.world_position;
     }
 
     var pixel_color = textureLoad(view_output, global_id.xy);
-    pixel_color += vec4(radiance * view.exposure, 0.0);
+    pixel_color += vec4(radiance * throughput * view.exposure, 0.0);
     textureStore(view_output, global_id.xy, pixel_color);
 }
-
 
 struct NextBounce {
     wi: vec3<f32>,
