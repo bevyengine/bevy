@@ -1973,7 +1973,7 @@ impl<'w> EntityWorldMut<'w> {
         let mut bundle = MaybeUninit::new(bundle);
         // SAFETY:
         // - This is being called with an owned bundle, which should always be a non-null,
-        //   aligned pointer to a valid initialzed instance of `T`.
+        //   aligned pointer to a valid initialized instance of `T`.
         // - `bundle` is not used or dropped after this function call. `MaybeUninit` does not
         //   drop the value inside unless manually invoked.
         unsafe {
@@ -2009,7 +2009,7 @@ impl<'w> EntityWorldMut<'w> {
         let mut bundle = MaybeUninit::new(bundle);
         // SAFETY:
         // - This is being called with an owned bundle, which should always be a non-null,
-        //   aligned pointer to a valid initialzed instance of `T`.
+        //   aligned pointer to a valid initialized instance of `T`.
         // - `bundle` is not used or dropped after this function call. `MaybeUninit` does not
         //   drop the value inside unless manually invoked.
         unsafe {
@@ -2035,7 +2035,7 @@ impl<'w> EntityWorldMut<'w> {
         let mut bundle = MaybeUninit::new(bundle);
         // SAFETY:
         // - This is being called with an owned bundle, which should always be a non-null,
-        //   aligned pointer to a valid initialzed instance of `T`.
+        //   aligned pointer to a valid initialized instance of `T`.
         // - `bundle` is not used or dropped after this function call. `MaybeUninit` does not
         //   drop the value inside unless manually invoked.
         unsafe {
@@ -2051,7 +2051,7 @@ impl<'w> EntityWorldMut<'w> {
     /// Adds a [`Bundle`] of components to the entity.
     ///
     /// # Safety
-    ///  - `bundle` msut point to a valid instance of `T` and must be aligned.
+    ///  - `bundle` must point to a valid instance of `T` and must be aligned.
     ///  - The value `bundle` points to will moved out of and should not be accessed or
     ///    dropped afterwards.
     #[inline]
@@ -2088,7 +2088,7 @@ impl<'w> EntityWorldMut<'w> {
         self.location = Some(location);
         self.world.flush();
         self.update_location();
-        // SAFETY: 
+        // SAFETY:
         // - This is called exactly once after the `BundleInsert::insert` call before returning to safe code.
         // - `bundle` points to the same `B` that `BundleInsert::insert` was called on. The pointer has not moved
         //   and thus still should be aligned.
@@ -2907,7 +2907,7 @@ impl<'w> EntityWorldMut<'w> {
         let mut bundle = MaybeUninit::new(Observer::new(observer).with_entity(self.entity));
         // SAFETY:
         // - `bundle` was passed in by value thus bundle`'s pointer thus must be valid, aligned,
-        //    and initalized.
+        //    and initialized.
         // - `bundle` is not accessed or dropped after this function call returns. `MaybeUninit`
         //   must manually invoke dropping the wrapped value.
         unsafe { self.world.spawn_with_caller(bundle.as_mut_ptr(), caller) };

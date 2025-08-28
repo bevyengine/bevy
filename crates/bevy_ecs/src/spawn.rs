@@ -100,8 +100,8 @@ impl<R: Relationship, B: Bundle> SpawnableList<R> for Spawn<B> {
         ) {
             let caller = MaybeLocation::caller();
             let mut r = MaybeUninit::new(R::from(entity));
-            
-            // SAFETY: 
+
+            // SAFETY:
             // - `r` is initialized and a valid bundle
             // - the caller ensures `this` is a valid pointer, so `this.0` must be a valid bundle as well
             unsafe {
@@ -385,7 +385,7 @@ unsafe impl<R: Relationship, L: SpawnableList<R>> DynamicBundle for SpawnRelated
         // - The caller must ensure that this is called exactly once before `apply_effect`.
         // - Assuming `DynamicBundle` is implemented correctly for `R::Relationship` target, `func` should be
         //   called exactly once for each component being fetched with the correct `StorageType`
-        // - `target` was just initialized and thus must point to an owned valid instance of `R::Relationshp`
+        // - `target` was just initialized and thus must point to an owned valid instance of `R::Relationship`
         //   the pointer it creates must be aligned.
         // - `Effect: !NoBundleEffect`, which means the caller is responsible for calling this type's `apply_effect`
         //   at least once before returning to safe code.
@@ -437,7 +437,7 @@ unsafe impl<R: Relationship, B: Bundle> DynamicBundle for SpawnOneRelated<R, B> 
         // - The caller must ensure that this is called exactly once before `apply_effect`.
         // - Assuming `DynamicBundle` is implemented correctly for `R::Relationship` target, `func` should be
         //   called exactly once for each component being fetched with the correct `StorageType`
-        // - `target` was just initialized and thus must point to an owned valid instance of `R::Relationshp`
+        // - `target` was just initialized and thus must point to an owned valid instance of `R::Relationship`
         //   the pointer it creates must be aligned.
         // - `Effect: !NoBundleEffect`, which means the caller is responsible for calling this type's `apply_effect`
         //   at least once before returning to safe code.

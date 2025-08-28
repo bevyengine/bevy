@@ -14,8 +14,8 @@ pub(crate) use insert::BundleInserter;
 pub(crate) use remove::BundleRemover;
 pub(crate) use spawner::BundleSpawner;
 
-pub use info::*;
 use core::mem::MaybeUninit;
+pub use info::*;
 
 /// Derive the [`Bundle`] trait
 ///

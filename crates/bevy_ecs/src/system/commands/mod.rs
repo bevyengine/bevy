@@ -399,7 +399,7 @@ impl<'w, 's> Commands<'w, 's> {
             let mut bundle = MaybeUninit::new(bundle);
             // SAFETY:
             // - This is being called with an owned bundle, which should always be a non-null,
-            //   aligned pointer to a valid initalized instance of `T`.
+            //   aligned pointer to a valid initialized instance of `T`.
             // - `bundle` is not used or dropped after this function call. `MaybeUninit` does not
             //   drop the value inside unless manually invoked.
             unsafe {

@@ -1158,7 +1158,7 @@ impl World {
         let mut bundle = MaybeUninit::new(bundle);
         // SAFETY:
         // - `bundle` was passed in by value thus bundle`'s pointer thus must be valid, aligned,
-        //    and initalized.
+        //    and initialized.
         // - `bundle` is not accessed or dropped after this function call returns. `MaybeUninit`
         //   must manually invoke dropping the wrapped value.
         unsafe { self.spawn_with_caller(bundle.as_mut_ptr(), MaybeLocation::caller()) }

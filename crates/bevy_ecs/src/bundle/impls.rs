@@ -1,8 +1,8 @@
 use core::any::TypeId;
 
 use bevy_ptr::OwningPtr;
-use core::ptr::NonNull;
 use core::mem::MaybeUninit;
+use core::ptr::NonNull;
 use variadics_please::{all_tuples, all_tuples_enumerated};
 
 use crate::{
@@ -57,7 +57,7 @@ unsafe impl<C: Component> DynamicBundle for C {
         // - The `A` type parameter is [`Aligned`] and the caller must ensure that `ptr` is aligned.
         // - `ptr` must has the correct provenance to allow read and writes of the pointee type: the caller
         //   must sure that it is owned.
-        // - The lifetime of the produced `OwningPtr` is valid for the rest of this fucntion call and does not
+        // - The lifetime of the produced `OwningPtr` is valid for the rest of this function call and does not
         //   alias, assuming that `func` is sound.
         let ptr = unsafe { OwningPtr::new(ptr) };
         func(C::STORAGE_TYPE, ptr);
