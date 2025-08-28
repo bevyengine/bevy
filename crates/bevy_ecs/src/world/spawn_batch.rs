@@ -5,7 +5,7 @@ use crate::{
     world::World,
 };
 use core::iter::FusedIterator;
-use core::mem::ManuallyDrop;
+use core::mem::MaybeUninit;
 
 /// An iterator that spawns a series of entities and returns the [ID](Entity) of
 /// each spawned entity.
@@ -72,18 +72,15 @@ where
     type Item = Entity;
 
     fn next(&mut self) -> Option<Entity> {
-        let mut bundle = ManuallyDrop::new(self.inner.next()?);
-        let bundle_ptr = &raw mut bundle;
+        let mut bundle = MaybeUninit::new(self.inner.next()?);
         // SAFETY:
-        // - bundle matches spawner type
-        // - `I::Item`'s effect type implements `NoBundleEffect`, there is no need to call
-        //   `apply_effect`.
-        unsafe {
-            Some(
-                self.spawner
-                    .spawn(bundle_ptr.cast::<I::Item>(), self.caller),
-            )
-        }
+        // - The spawner matches `I::Item`'s type.
+        // - `bundle` is be non-null, aligned, and point to a valid instance of `T` as it's fetched from the iterator
+        //   above.
+        // - `I::Item::Effect: NoBundleEffect`, thus [`apply_effect`] does not need to be called.
+        // - `bundle` is not be accessed or dropped after this function call. `MaybeUninit` requires manually invoking
+        //   dropping the value.
+        unsafe { Some(self.spawner.spawn::<I::Item>(bundle.as_mut_ptr(), self.caller)) }
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {

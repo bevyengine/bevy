@@ -9,8 +9,8 @@ use crate::{
     world::{EntityWorldMut, World},
 };
 use alloc::vec::Vec;
-use core::mem::ManuallyDrop;
-use core::{marker::PhantomData, mem::MaybeUninit};
+use core::marker::PhantomData;
+use core::mem::MaybeUninit;
 use variadics_please::all_tuples_enumerated;
 
 /// A wrapper over a [`Bundle`] indicating that an entity should be spawned with that [`Bundle`].
@@ -380,12 +380,8 @@ unsafe impl<R: Relationship, L: SpawnableList<R>> DynamicBundle for SpawnRelated
         let effect = unsafe { &*ptr };
         let target =
             <R::RelationshipTarget as RelationshipTarget>::with_capacity(effect.list.size_hint());
-        let mut target = ManuallyDrop::new(target);
-        let target_ptr = &raw mut target;
-        <R::RelationshipTarget as DynamicBundle>::get_components(
-            target_ptr.cast::<R::RelationshipTarget>(),
-            func,
-        );
+        let mut target = MaybeUninit::new(target);
+        <R::RelationshipTarget as DynamicBundle>::get_components(target.as_mut_ptr(), func);
     }
 
     unsafe fn apply_effect(ptr: *mut Self, entity: &mut EntityWorldMut) {
@@ -421,12 +417,8 @@ unsafe impl<R: Relationship, B: Bundle> DynamicBundle for SpawnOneRelated<R, B> 
         func: &mut impl FnMut(crate::component::StorageType, bevy_ptr::OwningPtr<'_>),
     ) {
         let target = <R::RelationshipTarget as RelationshipTarget>::with_capacity(1);
-        let mut target = ManuallyDrop::new(target);
-        let target_ptr = &raw mut target;
-        <R::RelationshipTarget as DynamicBundle>::get_components(
-            target_ptr.cast::<R::RelationshipTarget>(),
-            func,
-        );
+        let mut target = MaybeUninit::new(target);
+        <R::RelationshipTarget as DynamicBundle>::get_components(target.as_mut_ptr(), func);
     }
 
     unsafe fn apply_effect(ptr: *mut Self, entity: &mut EntityWorldMut) {

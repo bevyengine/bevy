@@ -141,11 +141,14 @@ impl<'w> BundleInserter<'w> {
     }
 
     /// # Safety
-    /// `entity` must currently exist in the source archetype for this inserter. `location`
-    /// must be `entity`'s location in the archetype. `T` must match this [`BundleInfo`]'s type
-    ///
-    /// [`apply_effect`] should be called exactly once on `bundle` after this function is
-    /// called, if `T::Effect: !NoBundleEffect.`
+    /// - `entity` must currently exist in the source archetype for this inserter.
+    /// - `location` must be `entity`'s location in the archetype.
+    /// - `T` must match this [`BundleInserter`] type used to create
+    /// - `bundle` must be non-null, aligned, and point at a valid instance of `T`.
+    /// - If `T::Effect: !NoBundleEffect.`, then [`apply_effect`] must be called exactly once on
+    ///   `bundle` after this function before returning to safe code.
+    /// - The value pointed to by `bundle` must not be accessed for anything other than [`apply_effect`]
+    ///   or dropped.
     ///
     /// [`apply_effect`]: crate::bundle::DynamicBundle::apply_effect
     #[inline]

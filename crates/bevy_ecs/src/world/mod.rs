@@ -68,7 +68,7 @@ use crate::{
 use alloc::{boxed::Box, vec::Vec};
 use bevy_platform::sync::atomic::{AtomicU32, Ordering};
 use bevy_ptr::{OwningPtr, Ptr, UnsafeCellDeref};
-use core::{any::TypeId, fmt, mem::ManuallyDrop};
+use core::{any::TypeId, fmt, mem::MaybeUninit};
 use log::warn;
 use unsafe_world_cell::{UnsafeEntityCell, UnsafeWorldCell};
 
@@ -1155,14 +1155,18 @@ impl World {
     /// ```
     #[track_caller]
     pub fn spawn<B: Bundle>(&mut self, bundle: B) -> EntityWorldMut<'_> {
-        let mut bundle = ManuallyDrop::new(bundle);
-        let bundle_ptr = &raw mut bundle;
-        // SAFETY: The bundle was passed in by value, `bundle_ptr` thus must be valid.
-        unsafe { self.spawn_with_caller(bundle_ptr.cast::<B>(), MaybeLocation::caller()) }
+        let mut bundle = MaybeUninit::new(bundle);
+        // SAFETY: 
+        // - `bundle` was passed in by value thus bundle`'s pointer thus must be valid, aligned,
+        //    and initalized.
+        // - `bundle` is not accessed or dropped after this function call returns. `MaybeUninit`
+        //   must manually invoke dropping the wrapped value.
+        unsafe { self.spawn_with_caller(bundle.as_mut_ptr(), MaybeLocation::caller()) }
     }
 
     /// #  Safety
-    /// - `bundle_ptr` thus must be pointing to a valid, but not necessarily aligned, instance of `B`
+    /// - `bundle_ptr` thus must be aligned, non-null, and pointing to a valid instance of `B`.
+    /// - `bundle` must not be accessed or dropped after this function call returns.
     pub(crate) unsafe fn spawn_with_caller<B: Bundle>(
         &mut self,
         bundle: *mut B,
@@ -1173,9 +1177,13 @@ impl World {
         let entity = self.entities.alloc();
         let mut bundle_spawner = BundleSpawner::new::<B>(self, change_tick);
         // SAFETY:
-        // - bundle's type matches `bundle_info`, entity is allocated but non-existent
+        // - `B` matches `bundle_spawner`'s type , 
+        // -  `entity` is allocated but non-existent
         // - `B::Effect` is unconstrained, and `B::apply_effect` is called exactly once on the bundle after this call.
-        let entity_location = unsafe { bundle_spawner.spawn_non_existent(entity, bundle, caller) };
+        // - The caller must ensure that `bundle` must be non-null, aligned, and point to a valid instance of `B`.
+        // - The caller must ensure that the value pointed to by `bundle` must not be accessed for anything. The value
+        //   is otherwise only used to call `apply_effect` within this function.
+        let entity_location = unsafe { bundle_spawner.spawn_non_existent::<B>(entity, bundle, caller) };
 
         let mut entity_location = Some(entity_location);
 
@@ -2320,9 +2328,7 @@ impl World {
         let mut batch_iter = batch.into_iter();
 
         if let Some((first_entity, first_bundle)) = batch_iter.next() {
-            let mut first_bundle = ManuallyDrop::new(first_bundle);
-            let first_bundle_ptr = &raw mut first_bundle;
-            let first_bundle_ptr = first_bundle_ptr.cast::<B>();
+            let mut first_bundle = MaybeUninit::new(first_bundle);
 
             if let Some(first_location) = self.entities().get(first_entity) {
                 let mut cache = InserterArchetypeCache {
@@ -2339,12 +2345,16 @@ impl World {
                 };
                 // SAFETY:
                 // - `entity` is valid, `location` matches entity, bundle matches inserter
+                // - `first_bundle` was fetched above, is owned, and is valid, the pointer created must
+                //   be aligned.
                 // - The effect is `NoBundleEffect`, so calling `apply_effect` after this is a no-op.
+                // - `first_bundle` is not be accessed or dropped after this. `MaybeUninit` requires manually
+                //   invoking drop on the wrapped value.
                 unsafe {
                     cache.inserter.insert::<B>(
                         first_entity,
                         first_location,
-                        first_bundle_ptr,
+                        first_bundle.as_mut_ptr(),
                         insert_mode,
                         caller,
                         RelationshipHookMode::Run,
@@ -2352,9 +2362,7 @@ impl World {
                 };
 
                 for (entity, bundle) in batch_iter {
-                    let mut bundle = ManuallyDrop::new(bundle);
-                    let bundle_ptr = &raw mut bundle;
-                    let bundle_ptr = bundle_ptr.cast::<B>();
+                    let mut bundle = MaybeUninit::new(bundle);
 
                     if let Some(location) = cache.inserter.entities().get(entity) {
                         if location.archetype_id != cache.archetype_id {
@@ -2373,12 +2381,16 @@ impl World {
                         }
                         // SAFETY:
                         // - `entity` is valid, `location` matches entity, bundle matches inserter
+                        // - `bundle` was fetched above, is owned, and is valid, the pointer created must
+                        //   be aligned.
                         // - The effect is `NoBundleEffect`, so calling `apply_effect` after this is a no-op.
+                        // - `bundle` is not be accessed or dropped after this. `MaybeUninit` requires manually
+                        //   invoking drop on the wrapped value.
                         unsafe {
                             cache.inserter.insert::<B>(
                                 entity,
                                 location,
-                                bundle_ptr,
+                                bundle.as_mut_ptr(),
                                 insert_mode,
                                 caller,
                                 RelationshipHookMode::Run,
@@ -2482,9 +2494,7 @@ impl World {
         // if the first entity is invalid, whereas this method needs to keep going.
         let cache = loop {
             if let Some((first_entity, first_bundle)) = batch_iter.next() {
-                let mut first_bundle = ManuallyDrop::new(first_bundle);
-                let first_bundle_ptr = &raw mut first_bundle;
-                let first_bundle_ptr = first_bundle_ptr.cast::<B>();
+                let mut first_bundle = MaybeUninit::new(first_bundle);
 
                 if let Some(first_location) = self.entities().get(first_entity) {
                     let mut cache = InserterArchetypeCache {
@@ -2501,12 +2511,16 @@ impl World {
                     };
                     // SAFETY:
                     // - `entity` is valid, `location` matches entity, bundle matches inserter
+                    // - `first_bundle` was fetched above, is owned, and is valid, the pointer created must
+                    //   be aligned.
                     // - The effect is `NoBundleEffect`, so calling `apply_effect` after this is a no-op.
+                    // - `first_bundle` is not be accessed or dropped after this. `MaybeUninit` requires manually
+                    //   invoking drop on the wrapped value.
                     unsafe {
                         cache.inserter.insert::<B>(
                             first_entity,
                             first_location,
-                            first_bundle_ptr,
+                            first_bundle.as_mut_ptr(),
                             insert_mode,
                             caller,
                             RelationshipHookMode::Run,
@@ -2523,9 +2537,7 @@ impl World {
 
         if let Some(mut cache) = cache {
             for (entity, bundle) in batch_iter {
-                let mut bundle = ManuallyDrop::new(bundle);
-                let bundle_ptr = &raw mut bundle;
-                let bundle_ptr = bundle_ptr.cast::<B>();
+                let mut bundle = MaybeUninit::new(bundle);
 
                 if let Some(location) = cache.inserter.entities().get(entity) {
                     if location.archetype_id != cache.archetype_id {
@@ -2544,12 +2556,16 @@ impl World {
                     }
                     // SAFETY:
                     // - `entity` is valid, `location` matches entity, bundle matches inserter
+                    // - `bundle` was fetched above, is owned, and is valid, the pointer created must
+                    //   be aligned.
                     // - The effect is `NoBundleEffect`, so calling `apply_effect` after this is a no-op.
+                    // - `bundle` is not be accessed or dropped after this. `MaybeUninit` requires manually
+                    //   invoking drop on the wrapped value.
                     unsafe {
                         cache.inserter.insert::<B>(
                             entity,
                             location,
-                            bundle_ptr,
+                            bundle.as_mut_ptr(),
                             insert_mode,
                             caller,
                             RelationshipHookMode::Run,

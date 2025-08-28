@@ -82,10 +82,13 @@ impl<'w> BundleSpawner<'w> {
     }
 
     /// # Safety
-    /// `entity` must be allocated (but non-existent), `T` must match this [`BundleInfo`]'s type
-    ///
-    /// [`apply_effect`] should be called exactly once on `bundle` after this function is
-    /// called, if `T::Effect: !NoBundleEffect.`
+    /// - `entity` must be allocated (but non-existent),
+    /// - `T` must match this [`BundleSpawner`]'s type
+    /// - `bundle` must be non-null, aligned, and point to a valid instance of `T`.
+    /// - If `T::Effect: !NoBundleEffect.`, then [`apply_effect`] must  be called exactly once on `bundle`
+    ///   after this function returns before returning to safe code.
+    /// - The value pointed to by `bundle` must not be accessed for anything other than [`apply_effect`]
+    ///   or dropped.
     ///
     /// [`apply_effect`]: crate::bundle::DynamicBundle::apply_effect
     #[inline]
@@ -168,17 +171,26 @@ impl<'w> BundleSpawner<'w> {
     }
 
     /// # Safety
-    /// `T` must match this [`BundleInfo`]'s type
-    ///
-    /// [`apply_effect`] should be called exactly once on `bundle` after this function is
-    /// called, if `T::Effect: !NoBundleEffect.`
+    /// - `T` must match this [`BundleSpawner`]'s type
+    /// - `bundle` must be non-null, aligned, and point to a valid instance of `T`.
+    /// - If `T::Effect: !NoBundleEffect.`, then [`apply_effect`] must  be called exactly once on `bundle`
+    ///   after this function returns before returning to safe code.
+    /// - The value pointed to by `bundle` must not be accessed for anything other than [`apply_effect`]
+    ///   or dropped.
     ///
     /// [`apply_effect`]: crate::bundle::DynamicBundle::apply_effect
     #[inline]
     pub unsafe fn spawn<T: Bundle>(&mut self, bundle: *mut T, caller: MaybeLocation) -> Entity {
         let entity = self.entities().alloc();
-        // SAFETY: entity is allocated (but non-existent), `T` matches this BundleInfo's type
-        unsafe { self.spawn_non_existent(entity, bundle, caller) };
+        // SAFETY: 
+        // - `entity` is allocated above
+        // - The caller ensures that `T` matches this `BundleSpawner`'s type.
+        // - The caller ensures that `bundle` must be non-null, aligned, and point to a valid instance of `T`.
+        // - The caller ensures that if `T::Effect: !NoBundleEffect.`, then [`apply_effect`] must  be called exactly once on `bundle`
+        //   after this function returns before returning to safe code.
+        // - The caller ensures that the value pointed to by `bundle` must not be accessed for anything other than [`apply_effect`]
+        //   or dropped.
+        unsafe { self.spawn_non_existent::<T>(entity, bundle, caller) };
         entity
     }
 

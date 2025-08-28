@@ -29,9 +29,8 @@ use core::{
     any::TypeId,
     cmp::Ordering,
     hash::{Hash, Hasher},
-    iter::Zip,
     marker::PhantomData,
-    mem::{ManuallyDrop, MaybeUninit},
+    mem::MaybeUninit,
 };
 use thiserror::Error;
 
@@ -2067,10 +2066,17 @@ impl<'w> EntityWorldMut<'w> {
         let change_tick = self.world.change_tick();
         let mut bundle_inserter =
             BundleInserter::new::<T>(self.world, location.archetype_id, change_tick);
-        // SAFETY: location matches current entity. `T` matches `bundle_info`
-        // `apply_effect` is called exactly once after this function.
+        // SAFETY:
+        // - `location` matches current entity and thus must currently exist in the source
+        //   archetype for this inserter and its location within the archetype.
+        // - `T` matches the type used to create the `BundleInserter`.
+        // - `apply_effect` is called exactly once after this function.
+        // - The caller must ensure that `bundle` is aligned and points to a valid instance of `T`.
+        // - The value pointed at by `bundle` is not accessed for anything other than `apply_effect`
+        //   and the caller ensures that the value is not accessed or dropped after this function
+        //   returns.
         let location = unsafe {
-            bundle_inserter.insert(
+            bundle_inserter.insert::<T>(
                 self.entity,
                 location,
                 bundle,
@@ -2894,13 +2900,13 @@ impl<'w> EntityWorldMut<'w> {
         caller: MaybeLocation,
     ) -> &mut Self {
         self.assert_not_despawned();
-        let mut bundle = ManuallyDrop::new(Observer::new(observer).with_entity(self.entity));
-        let bundle_ptr = &raw mut bundle;
-        // SAFETY: The observer was just constructed above. `bundle_ptr` must be valid.
-        unsafe {
-            self.world
-                .spawn_with_caller(bundle_ptr.cast::<Observer>(), caller)
-        };
+        let mut bundle = MaybeUninit::new(Observer::new(observer).with_entity(self.entity));
+        // SAFETY:
+        // - `bundle` was passed in by value thus bundle`'s pointer thus must be valid, aligned,
+        //    and initalized.
+        // - `bundle` is not accessed or dropped after this function call returns. `MaybeUninit`
+        //   must manually invoke dropping the wrapped value.
+        unsafe { self.world.spawn_with_caller(bundle.as_mut_ptr(), caller) };
         self.world.flush();
         self.update_location();
         self
@@ -4687,18 +4693,23 @@ unsafe fn insert_dynamic_bundle<
         unsafe fn apply_effect(_ptr: *mut Self, _entity: &mut EntityWorldMut) {}
     }
 
-    let mut bundle = ManuallyDrop::new(DynamicInsertBundle {
+    let mut bundle = MaybeUninit::new(DynamicInsertBundle {
         components: storage_types.zip(components),
     });
-    let bundle_ptr = &raw mut bundle;
 
-    // SAFETY: location matches current entity.
-    // `apply_effect` is empty and does not need to be called.
+    // SAFETY:
+    // - `location` matches `entity`.  and thus must currently exist in the source
+    //   archetype for this inserter and its location within the archetype.
+    // - The caller must ensure that the iterators and storage types match up with the `BundleInserter`
+    // - `DynamicInsertBundle::Effect: NoBundleEffect` and thus `apply_effect` does not need to be called.
+    // - `bundle` was just constructed above and thus is valid, the created pointer is aligned.
+    // - `bundle` is not used or dropped after this point. `MaybeUninit` requires manually invoking drop on
+    //   a wrapped value.
     unsafe {
         bundle_inserter.insert(
             entity,
             location,
-            bundle_ptr.cast::<DynamicInsertBundle<'a, Zip<S, I>>>(),
+            bundle.as_mut_ptr(),
             mode,
             caller,
             relationship_hook_insert_mode,
