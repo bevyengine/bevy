@@ -8,27 +8,27 @@ A long-standing feature request from our users is support for text input. Whethe
 
 Features:
 
-* Placeholder text for empty inputs
+* Placeholder text for empty inputs.
 * Password mode.
 * Filters applied at edit.
 * Autopropagated events emitted on submission, invalid edits and text changes.
 * Input method agnostic, users queue `TextEdit`s to make changes to the text input's buffer.
-* Max character limit
+* Max character limit.
 * Responsive height sizing.
 * Vertical and horizontal scrolling
 * Fixes the line cropping while vertical scrolling bug in cosmic-text.
 * Text selection.
 * Cut, copy and paste.
-* Numeric input modes.
-* Single line modes.
+* Numeric input mode.
+* Single line mode.
 * Support for the common navigation actions like home, end, page down, page up, next word, end of paragraph, etc.
 * Backspace.
 * Overwrite mode.
 * Click to place cursor.
 * Drag to select.
 * Double click to select a word.
-* Triple click to set select a line.
-* Indent and unident.
+* Triple click to select a line.
+* Indent and unindent.
 * A `TextInputValue` component that contains a copy of the buffer's text and is automatically synchronized on edits. On insertion the `TextInputValue`s contents replace the current text in the `TextInputBuffer`.
 * Support for bidirectional text, including RTL scripts such as Arabic and Hebrew.
 
