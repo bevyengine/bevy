@@ -156,7 +156,7 @@ pub type AnimationCurves = HashMap<AnimationTargetId, Vec<VariableCurve>, NoOpHa
 
 /// A component that identifies which parts of an [`AnimationClip`] asset can
 /// be applied to an entity. Typically used alongside the
-/// [`AnimationPlayerTarget`] component.
+/// [`AnimatedBy`] component.
 ///
 /// `AnimationTargetId` is implemented as a [UUID]. When importing an armature
 /// or an animation clip, asset loaders typically use the full path name from
@@ -202,11 +202,11 @@ impl Hash for AnimationTargetId {
 /// component as appropriate, as Bevy won't do this automatically.
 ///
 /// Note that each entity can only be animated by one animation player at a
-/// time. However, you can change [`AnimationPlayerTarget`]s at runtime and
+/// time. However, you can change [`AnimatedBy`] components at runtime and
 /// link them to a different player.
 #[derive(Clone, Copy, Component, Reflect, Debug)]
 #[reflect(Component, Clone)]
-pub struct AnimationPlayerTarget(#[entities] pub Entity);
+pub struct AnimatedBy(#[entities] pub Entity);
 
 impl AnimationClip {
     #[inline]
@@ -1012,7 +1012,7 @@ pub type AnimationEntityMut<'w, 's> = EntityMutExcept<
     's,
     (
         AnimationTargetId,
-        AnimationPlayerTarget,
+        AnimatedBy,
         AnimationPlayer,
         AnimationGraphHandle,
     ),
@@ -1026,17 +1026,13 @@ pub fn animate_targets(
     graphs: Res<Assets<AnimationGraph>>,
     threaded_animation_graphs: Res<ThreadedAnimationGraphs>,
     players: Query<(&AnimationPlayer, &AnimationGraphHandle)>,
-    mut targets: Query<(
-        Entity,
-        &AnimationTargetId,
-        &AnimationPlayerTarget,
-        AnimationEntityMut,
-    )>,
+    mut targets: Query<(Entity, &AnimationTargetId, &AnimatedBy, AnimationEntityMut)>,
     animation_evaluation_state: Local<ThreadLocal<RefCell<AnimationEvaluationState>>>,
 ) {
     // Evaluate all animation targets in parallel.
-    targets.par_iter_mut().for_each(
-        |(entity, &target_id, &AnimationPlayerTarget(player_id), entity_mut)| {
+    targets
+        .par_iter_mut()
+        .for_each(|(entity, &target_id, &AnimatedBy(player_id), entity_mut)| {
             let (animation_player, animation_graph_id) =
                 if let Ok((player, graph_handle)) = players.get(player_id) {
                     (player, graph_handle.id())
@@ -1212,8 +1208,7 @@ pub fn animate_targets(
             if let Err(err) = evaluation_state.commit_all(entity_mut) {
                 warn!("Animation application failed: {:?}", err);
             }
-        },
-    );
+        });
 }
 
 /// Adds animation support to an app

@@ -1,7 +1,7 @@
 //! Demonstrates how to use masks to limit the scope of animations.
 
 use bevy::{
-    animation::{AnimationPlayerTarget, AnimationTargetId},
+    animation::{AnimatedBy, AnimationTargetId},
     color::palettes::css::{LIGHT_GRAY, WHITE},
     prelude::*,
 };
@@ -404,7 +404,7 @@ fn setup_animation_graph_once_loaded(
                 commands
                     .entity(target_entity)
                     .remove::<AnimationTargetId>()
-                    .remove::<AnimationPlayerTarget>();
+                    .remove::<AnimatedBy>();
             }
         }
 
