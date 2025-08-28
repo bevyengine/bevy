@@ -1,4 +1,4 @@
-//! This crate provides the tools for positioning and rendering text in Bevy.
+//! This crate provides the tools for positioning, rendering and editing text in Bevy.
 //!
 //! # `Font`
 //!
@@ -28,6 +28,10 @@
 //!    retrieving glyphs from the cache, or rasterizing to a [`FontAtlas`] if necessary.
 //! 3. [`PositionedGlyph`]s are stored in a [`TextLayoutInfo`],
 //!    which contains all the information that downstream systems need for rendering.
+//!
+//! ## Text editing
+//!
+//! See the [`input`] module for more details on text editing support.
 
 extern crate alloc;
 

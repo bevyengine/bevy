@@ -1,3 +1,39 @@
+//! This module provides text editing functionality, by wrapping the functionality of the
+//! [`cosmic_text`] crate.
+//!
+//! The primary entry point into the text editing functionality is the [`TextInputBuffer`] component,
+//! which includes a [`cosmic_text::Editor`], and adds the associated "required components" needed
+//! to construct functioning text input fields.
+//!
+//! ## How this works
+//!
+//! Text editing functionality is included as part of [`TextPlugin`](crate::TextPlugin),
+//! and the systems which perform the work are grouped under the [`TextInputSystems`] system set.
+//!  
+//! The [`TextInputBuffer`] comes with the following required components that act as machinery to convert user inputs into text:
+//!
+//! * [`TextInputValue`] - Contains the current text in the text input buffer.
+//!    * Automatically synchronized with the buffer by [`apply_text_edits`] after any edits are applied.
+//! * [`TextEdits`] - Text input commands queue, used to queue up text edit and navigation actions.\
+//!    * Contains a queue of [`TextEdit`] actions that are applied to the buffer.
+//!    * These are applied by the [`apply_text_edits` system.
+//! * [`TextInputTarget`] - Details of the render target the text input will be rendered to, such as size and scale factor.
+//!
+//! ## Configuring text input
+//!
+//! Several components are used to configure the text input, and belong on the [`TextInputBuffer`] entity:
+//!
+//! * [`TextInputAttributes`] - Common text input properties set by the user, such as font, font size, line height, justification, maximum characters etc.
+//! * [`TextInputFilter`] - Optional component that can be added to restrict the text input to certain formats, such as integers, decimals, hexadecimal etc.
+//! * [`PasswordMask`] - Optional component that can be added to hide the text input buffer contents by replacing the characters with a mask character.
+//!
+//! ## Copy-paste and clipboard support
+//!
+//! The clipboard support provided by this module is very basic, and only works within the `bevy` app,
+//! storing a simple [`String`].
+//!
+//! It can be accessed via the [`Clipboard`] resource.
+
 use core::time::Duration;
 
 use alloc::collections::VecDeque;
@@ -37,6 +73,9 @@ use crate::{
 pub struct TextInputSystems;
 
 /// Basic clipboard implementation that only works within the bevy app.
+///
+/// This is written to in the [`apply_text_edits`] system when
+/// [`TextEdit::Copy`], [`TextEdit::Cut`] or [`TextEdit::Paste`] edits are applied.
 #[derive(Resource, Default)]
 pub struct Clipboard(pub String);
 
