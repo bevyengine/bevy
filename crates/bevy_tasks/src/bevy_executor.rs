@@ -212,13 +212,14 @@ impl<'a> Executor<'a> {
 
     /// Spawns a task onto the executor.
     pub fn spawn<T: Send + 'a>(&self, future: impl Future<Output = T> + Send + 'a) -> Task<T> {
-        let mut active = self.state().active();
+        let state = self.state();
+        let mut active = state.active();
 
         // Remove the task from the set of active tasks when the future finishes.
         let entry = active.vacant_entry();
         let index = entry.key();
-        let state = self.state_as_arc();
-        let future = AsyncCallOnDrop::new(future, move || drop(state.active().try_remove(index)));
+        let state_arc = self.state_as_arc();
+        let future = AsyncCallOnDrop::new(future, move || drop(state_arc.active().try_remove(index)));
 
         // Create the task and register it in the set of active tasks.
         //
@@ -241,7 +242,9 @@ impl<'a> Executor<'a> {
         };
         entry.insert(runnable.waker());
 
-        runnable.schedule();
+        // Runnable::schedule has a extra extraneous Waker clone/drop if the schedule captures
+        // variables, so directly schedule here instead.
+        Self::schedule_runnable(&state, runnable);
         task
     }
 
@@ -263,7 +266,7 @@ impl<'a> Executor<'a> {
         //
         // SAFETY: There are no instances where the value is accessed mutably
         // from multiple locations simultaneously.
-        let (runnable, task) = unsafe {
+        unsafe {
             try_with_local_queue(|tls| {
                 let entry = tls.local_active.vacant_entry();
                 let index = entry.key();
@@ -304,12 +307,13 @@ impl<'a> Executor<'a> {
 
                 mem::forget(_panic_guard);
 
-                (runnable, task)
-            }).unwrap()
-        };
+                // Runnable::schedule has a extra extraneous Waker clone/drop if the schedule captures
+                // variables, so directly schedule here instead.
+                Self::schedule_runnable_local(&self.state(), tls, runnable);
 
-        runnable.schedule();
-        task
+                task
+            }).unwrap()
+        }
     }
 
     pub fn current_thread_spawner(&self) -> ThreadSpawner<'a> {
@@ -358,27 +362,7 @@ impl<'a> Executor<'a> {
         let state = self.state_as_arc();
 
         move |runnable| {
-            // Attempt to push onto the local queue first in dedicated executor threads,
-            // because we know that this thread is awake and always processing new tasks.
-            let runnable = if let Some(local_state) = THREAD_LOCAL_STATE.get() {
-                if core::ptr::eq(local_state.executor.load(Ordering::Relaxed), Arc::as_ptr(&state)) {
-                    match local_state.stealable_queue.push(runnable) {
-                        Ok(()) => {
-                            state.notify_specific_thread(std::thread::current().id(), true);
-                            return;
-                        }
-                        Err(r) => r.into_inner(),
-                    }
-                } else {
-                    runnable
-                }
-            } else {
-                runnable
-            };
-            // Otherwise push onto the global queue instead.
-            let result = state.queue.push(runnable);
-            debug_assert!(result.is_ok());
-            state.notify();
+            Self::schedule_runnable(&state, runnable);
         }
     }
 
@@ -389,10 +373,45 @@ impl<'a> Executor<'a> {
             // SAFETY: This value is in thread local storage and thus can only be accessed
             // from one thread. There are no instances where the value is accessed mutably
             // from multiple locations simultaneously.
-            if unsafe { try_with_local_queue(|tls| tls.local_queue.push_back(runnable)) }.is_ok() {
-                state.notify_specific_thread(std::thread::current().id(), false);
+            unsafe  {
+                // If this returns Err, the thread's destructor has been called and thus it's meaningless
+                // to push onto the queue.
+                let _ = try_with_local_queue(|tls| {
+                    Self::schedule_runnable_local(&state, tls, runnable);
+                });
             }
         }
+    }
+
+    #[inline]
+    fn schedule_runnable(state: &State, runnable: Runnable) {
+        // Attempt to push onto the local queue first in dedicated executor threads,
+        // because we know that this thread is awake and always processing new tasks.
+        let runnable = if let Some(local_state) = THREAD_LOCAL_STATE.get() {
+            if core::ptr::eq(local_state.executor.load(Ordering::Relaxed), state) {
+                match local_state.stealable_queue.push(runnable) {
+                    Ok(()) => {
+                        state.notify_specific_thread(std::thread::current().id(), true);
+                        return;
+                    }
+                    Err(r) => r.into_inner(),
+                }
+            } else {
+                runnable
+            }
+        } else {
+            runnable
+        };
+        // Otherwise push onto the global queue instead.
+        let result = state.queue.push(runnable);
+        debug_assert!(result.is_ok());
+        state.notify();
+    }
+
+    #[inline]
+    fn schedule_runnable_local(state: &State, tls: &mut LocalQueue, runnable: Runnable) {
+        tls.local_queue.push_back(runnable);
+        state.notify_specific_thread(std::thread::current().id(), false);
     }
 
     /// Returns a pointer to the inner state.
