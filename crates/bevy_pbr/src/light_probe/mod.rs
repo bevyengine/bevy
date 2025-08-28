@@ -145,6 +145,9 @@ where
     // The transform from world space to light probe space.
     light_from_world: Affine3A,
 
+    // The transpose of the inverse of [`light_from_world`].
+    light_from_world_transposed: Mat4,
+
     // The transform from light probe space to world space.
     world_from_light: Affine3A,
 
@@ -544,6 +547,8 @@ where
         environment_map.id(image_assets).map(|id| LightProbeInfo {
             world_from_light: light_probe_transform.affine(),
             light_from_world: light_probe_transform.affine().inverse(),
+            light_from_world_transposed: Mat4::from(light_probe_transform.affine().inverse())
+                .transpose(),
             asset_id: id,
             intensity: environment_map.intensity(),
             affects_lightmapped_mesh_diffuse: environment_map.affects_lightmapped_mesh_diffuse(),
@@ -630,17 +635,15 @@ where
             // Determine the index of the cubemap in the binding array.
             let cubemap_index = self.get_or_insert_cubemap(&light_probe.asset_id);
 
-            // Transpose the inverse transform to compress the structure on the
-            // GPU (from 4 `Vec4`s to 3 `Vec4`s). The shader will transpose it
-            // to recover the original inverse transform.
-            let light_from_world_transposed = Mat4::from(light_probe.light_from_world).transpose();
-
             // Write in the light probe data.
+            // Using the transpose of the inverse transform to compress the structure 
+            // on the GPU (from 4 `Vec4`s to 3 `Vec4`s). The shader will transpose it
+            // to recover the original inverse transform.
             self.render_light_probes.push(RenderLightProbe {
                 light_from_world_transposed: [
-                    light_from_world_transposed.x_axis,
-                    light_from_world_transposed.y_axis,
-                    light_from_world_transposed.z_axis,
+                    light_probe.light_from_world_transposed.x_axis,
+                    light_probe.light_from_world_transposed.y_axis,
+                    light_probe.light_from_world_transposed.z_axis,
                 ],
                 texture_index: cubemap_index as i32,
                 intensity: light_probe.intensity,
@@ -658,6 +661,7 @@ where
     fn clone(&self) -> Self {
         Self {
             light_from_world: self.light_from_world,
+            light_from_world_transposed: self.light_from_world_transposed,
             world_from_light: self.world_from_light,
             intensity: self.intensity,
             affects_lightmapped_mesh_diffuse: self.affects_lightmapped_mesh_diffuse,
