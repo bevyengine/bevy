@@ -35,7 +35,7 @@ impl Clips {
 /// the common case).
 fn assign_clips(
     mut players: Query<&mut AnimationPlayer>,
-    targets: Query<(Entity, &AnimationTargetId)>,
+    targets: Query<(&AnimationTargetId, Entity)>,
     children: Query<&ChildOf>,
     scene_handle: Res<SceneHandle>,
     clips: Res<Assets<AnimationClip>>,
@@ -64,10 +64,7 @@ fn assign_clips(
     info!("Animation names: {names:?}");
 
     // Map animation target IDs to entities.
-    let animation_target_id_to_entity: HashMap<_, _> = targets
-        .iter()
-        .map(|(entity, target)| (target, entity))
-        .collect();
+    let animation_target_id_to_entity: HashMap<_, _> = targets.iter().collect();
 
     // Build up a list of all animation clips that belong to each player. A clip
     // is considered to belong to an animation player if all targets of the clip
