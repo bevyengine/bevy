@@ -390,7 +390,7 @@ impl AssetProcessor {
                     Err(err) => {
                         match err {
                             AssetReaderError::NotFound(_) => {
-                                // if the path is not found a processed version does not exist
+                                // if the path is not found, a processed version does not exist
                             }
                             AssetReaderError::Io(err) => {
                                 error!(
@@ -457,7 +457,7 @@ impl AssetProcessor {
                 }
             }
             Err(err) => match err {
-                AssetReaderError::NotFound(_) => {
+                AssetReaderError::NotFound(_err) => {
                     // The processed folder does not exist. No need to update anything
                 }
                 AssetReaderError::HttpError(status) => {
