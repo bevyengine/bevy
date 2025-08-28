@@ -162,13 +162,13 @@ pub fn component_clone_via_reflect(source: &SourceComponent, ctx: &mut Component
             // - component is a valid value represented by component_id
             unsafe {
                 use alloc::boxed::Box;
-                use bevy_ptr::{Aligned, OwningPtr};
+                use bevy_ptr::OwningPtr;
 
                 let raw_component_ptr =
                     core::ptr::NonNull::new_unchecked(Box::into_raw(component).cast::<u8>());
                 world
                     .entity_mut(target)
-                    .insert_by_id(component_id, OwningPtr::<Aligned>::new(raw_component_ptr));
+                    .insert_by_id(component_id, OwningPtr::new(raw_component_ptr));
 
                 if component_layout.size() > 0 {
                     // Ensure we don't attempt to deallocate zero-sized components

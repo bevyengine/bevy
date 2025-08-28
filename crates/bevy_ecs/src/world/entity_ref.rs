@@ -1971,12 +1971,20 @@ impl<'w> EntityWorldMut<'w> {
     /// If the entity has been despawned while this `EntityWorldMut` is still alive.
     #[track_caller]
     pub fn insert<T: Bundle>(&mut self, bundle: T) -> &mut Self {
-        self.insert_with_caller(
-            bundle,
-            InsertMode::Replace,
-            MaybeLocation::caller(),
-            RelationshipHookMode::Run,
-        )
+        let mut bundle = MaybeUninit::new(bundle);
+        // SAFETY:
+        // - This is being called with an owned bundle, which should always be a non-null,
+        //   aligned pointer to a valid initialzed instance of `T`.
+        // - `bundle` is not used or dropped after this function call. `MaybeUninit` does not
+        //   drop the value inside unless manually invoked.
+        unsafe {
+            self.insert_raw_with_caller(
+                bundle.as_mut_ptr(),
+                InsertMode::Replace,
+                MaybeLocation::caller(),
+                RelationshipHookMode::Run,
+            )
+        }
     }
 
     /// Adds a [`Bundle`] of components to the entity.
@@ -1999,12 +2007,20 @@ impl<'w> EntityWorldMut<'w> {
         bundle: T,
         relationship_hook_mode: RelationshipHookMode,
     ) -> &mut Self {
-        self.insert_with_caller(
-            bundle,
-            InsertMode::Replace,
-            MaybeLocation::caller(),
-            relationship_hook_mode,
-        )
+        let mut bundle = MaybeUninit::new(bundle);
+        // SAFETY:
+        // - This is being called with an owned bundle, which should always be a non-null,
+        //   aligned pointer to a valid initialzed instance of `T`.
+        // - `bundle` is not used or dropped after this function call. `MaybeUninit` does not
+        //   drop the value inside unless manually invoked.
+        unsafe {
+            self.insert_raw_with_caller(
+                bundle.as_mut_ptr(),
+                InsertMode::Replace,
+                MaybeLocation::caller(),
+                relationship_hook_mode,
+            )
+        }
     }
 
     /// Adds a [`Bundle`] of components to the entity without overwriting.
@@ -2017,45 +2033,28 @@ impl<'w> EntityWorldMut<'w> {
     /// If the entity has been despawned while this `EntityWorldMut` is still alive.
     #[track_caller]
     pub fn insert_if_new<T: Bundle>(&mut self, bundle: T) -> &mut Self {
-        self.insert_with_caller(
-            bundle,
-            InsertMode::Keep,
-            MaybeLocation::caller(),
-            RelationshipHookMode::Run,
-        )
-    }
-
-    /// Split into a new function so we can pass the calling location into the function when using
-    /// as a command.
-    #[inline]
-    pub(crate) fn insert_with_caller<T: Bundle>(
-        &mut self,
-        bundle: T,
-        mode: InsertMode,
-        caller: MaybeLocation,
-        relationship_hook_mode: RelationshipHookMode,
-    ) -> &mut Self {
-        let mut bundle = ManuallyDrop::new(bundle);
-        let bundle_ptr = &raw mut bundle;
-        // SAFETY: This is being called with a mutable borrow on the bundle, which should always be a valid
-        // pointer.
+        let mut bundle = MaybeUninit::new(bundle);
+        // SAFETY:
+        // - This is being called with an owned bundle, which should always be a non-null,
+        //   aligned pointer to a valid initialzed instance of `T`.
+        // - `bundle` is not used or dropped after this function call. `MaybeUninit` does not
+        //   drop the value inside unless manually invoked.
         unsafe {
             self.insert_raw_with_caller(
-                bundle_ptr.cast::<T>(),
-                mode,
-                caller,
-                relationship_hook_mode,
+                bundle.as_mut_ptr(),
+                InsertMode::Keep,
+                MaybeLocation::caller(),
+                RelationshipHookMode::Run,
             )
-        };
-        self
+        }
     }
 
-    /// Split into a new function so we can pass the calling location into the function when using
-    /// as a command.
+    /// Adds a [`Bundle`] of components to the entity.
     ///
     /// # Safety
-    ///
-    /// `bundle` must point to a valid `T` which this function takes ownership of.
+    ///  - `bundle` msut point to a valid instance of `T` and must be aligned.
+    ///  - The value `bundle` points to will moved out of and should not be accessed or
+    ///    dropped afterwards.
     #[inline]
     pub(crate) unsafe fn insert_raw_with_caller<T: Bundle>(
         &mut self,

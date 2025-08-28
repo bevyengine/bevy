@@ -11,7 +11,7 @@ pub use entity_command::EntityCommand;
 pub use parallel_scope::*;
 
 use alloc::boxed::Box;
-use core::marker::PhantomData;
+use core::{marker::PhantomData, mem::MaybeUninit};
 
 use crate::{
     self as bevy_ecs,
@@ -396,12 +396,20 @@ impl<'w, 's> Commands<'w, 's> {
                 }
             });
 
-            entity.insert_with_caller(
-                bundle,
-                InsertMode::Replace,
-                caller,
-                crate::relationship::RelationshipHookMode::Run,
-            );
+            let mut bundle = MaybeUninit::new(bundle);
+            // SAFETY:
+            // - This is being called with an owned bundle, which should always be a non-null,
+            //   aligned pointer to a valid initalized instance of `T`.
+            // - `bundle` is not used or dropped after this function call. `MaybeUninit` does not
+            //   drop the value inside unless manually invoked.
+            unsafe {
+                entity.insert_raw_with_caller(
+                    bundle.as_mut_ptr(),
+                    InsertMode::Replace,
+                    caller,
+                    crate::relationship::RelationshipHookMode::Run,
+                );
+            }
         });
         // entity_command::insert(bundle, InsertMode::Replace)
         entity_commands
