@@ -1156,7 +1156,7 @@ impl World {
     #[track_caller]
     pub fn spawn<B: Bundle>(&mut self, bundle: B) -> EntityWorldMut<'_> {
         let mut bundle = MaybeUninit::new(bundle);
-        // SAFETY: 
+        // SAFETY:
         // - `bundle` was passed in by value thus bundle`'s pointer thus must be valid, aligned,
         //    and initalized.
         // - `bundle` is not accessed or dropped after this function call returns. `MaybeUninit`
@@ -1177,13 +1177,14 @@ impl World {
         let entity = self.entities.alloc();
         let mut bundle_spawner = BundleSpawner::new::<B>(self, change_tick);
         // SAFETY:
-        // - `B` matches `bundle_spawner`'s type , 
+        // - `B` matches `bundle_spawner`'s type ,
         // -  `entity` is allocated but non-existent
         // - `B::Effect` is unconstrained, and `B::apply_effect` is called exactly once on the bundle after this call.
         // - The caller must ensure that `bundle` must be non-null, aligned, and point to a valid instance of `B`.
         // - The caller must ensure that the value pointed to by `bundle` must not be accessed for anything. The value
         //   is otherwise only used to call `apply_effect` within this function.
-        let entity_location = unsafe { bundle_spawner.spawn_non_existent::<B>(entity, bundle, caller) };
+        let entity_location =
+            unsafe { bundle_spawner.spawn_non_existent::<B>(entity, bundle, caller) };
 
         let mut entity_location = Some(entity_location);
 

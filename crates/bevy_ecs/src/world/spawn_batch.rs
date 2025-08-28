@@ -80,7 +80,12 @@ where
         // - `I::Item::Effect: NoBundleEffect`, thus [`apply_effect`] does not need to be called.
         // - `bundle` is not be accessed or dropped after this function call. `MaybeUninit` requires manually invoking
         //   dropping the value.
-        unsafe { Some(self.spawner.spawn::<I::Item>(bundle.as_mut_ptr(), self.caller)) }
+        unsafe {
+            Some(
+                self.spawner
+                    .spawn::<I::Item>(bundle.as_mut_ptr(), self.caller),
+            )
+        }
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {

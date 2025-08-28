@@ -182,7 +182,7 @@ impl<'w> BundleSpawner<'w> {
     #[inline]
     pub unsafe fn spawn<T: Bundle>(&mut self, bundle: *mut T, caller: MaybeLocation) -> Entity {
         let entity = self.entities().alloc();
-        // SAFETY: 
+        // SAFETY:
         // - `entity` is allocated above
         // - The caller ensures that `T` matches this `BundleSpawner`'s type.
         // - The caller ensures that `bundle` must be non-null, aligned, and point to a valid instance of `T`.
