@@ -42,7 +42,7 @@ impl GlobalTrigger {
         trigger_context: &TriggerContext,
         mut event: PtrMut,
     ) {
-        // SAFETY: there are no outstanding world references
+        // SAFETY: `observers` is the only active reference to something in `world`
         unsafe {
             world.as_unsafe_world_cell().increment_trigger_id();
         }
@@ -165,9 +165,7 @@ impl<const AUTO_PROPAGATE: bool, E: EntityEvent, T: Traversal<E>> Trigger<E>
             }
             if let Ok(entity) = world.get_entity(current_entity)
                 && let Some(item) = entity.get_components::<T>()
-                && let Some(traverse_to) =
-                    // TODO: Sort out the safety of this
-                    T::traverse(item, event)
+                && let Some(traverse_to) = T::traverse(item, event)
             {
                 current_entity = traverse_to;
             } else {
