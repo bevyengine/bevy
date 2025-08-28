@@ -26,11 +26,12 @@
 //! * [`TextInputAttributes`] - Common text input properties set by the user, such as font, font size, line height, justification, maximum characters etc.
 //! * [`TextInputFilter`] - Optional component that can be added to restrict the text input to certain formats, such as integers, decimals, hexadecimal etc.
 //! * [`PasswordMask`] - Optional component that can be added to hide the text input buffer contents by replacing the characters with a mask character.
+//! * [`Placeholder`] - Optional component that can be added to display placeholder text when the input buffer is empty.
 //!
 //! The [`TextInputBuffer`] component itself also has two fields that can be configured:
 //!
-//! - [`TextInputBuffer::space_advance`] - Space advance width for the current font, used to determine the width of the cursor when it is at the end of a line or when the buffer is empty.
-//! - [`TextInputBuffer::cursor_blink_timer`] - Controls cursor blinking.
+//! * [`TextInputBuffer::space_advance`] - Space advance width for the current font, used to determine the width of the cursor when it is at the end of a line or when the buffer is empty.
+//! * [`TextInputBuffer::cursor_blink_timer`] - Controls cursor blinking.
 //!
 //! ## Copy-paste and clipboard support
 //!
@@ -1124,8 +1125,12 @@ pub enum TextInputEvent {
     TextChanged,
 }
 
-/// Placeholder text displayed when the input is empty (including whitespace).
-/// Optional component.
+/// Placeholder text displayed when the input is empty.
+///
+/// Text inputs that contain only whitespace (i.e spaces or tabs) are not empty.
+///
+/// This is an optional component, intended to work with [`TextInputTarget`].
+/// The font and other properties are controlled with [`TextInputAttributes`].
 #[derive(Default, Component, Clone, Debug, Reflect, Deref, DerefMut)]
 #[reflect(Component, Default, Debug)]
 #[require(PlaceholderLayout)]
