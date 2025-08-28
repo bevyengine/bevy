@@ -35,7 +35,6 @@ use bevy_transform::{components::Transform, prelude::GlobalTransform};
 use tracing::error;
 
 use core::{hash::Hash, ops::Deref};
-use std::sync::atomic::{AtomicUsize, Ordering};
 
 use crate::{
     generate::EnvironmentMapGenerationPlugin, light_probe::environment_map::EnvironmentMapIds,
