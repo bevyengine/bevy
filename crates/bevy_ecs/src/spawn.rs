@@ -393,8 +393,12 @@ unsafe impl<R: Relationship, L: SpawnableList<R>> DynamicBundle for SpawnRelated
     }
 
     unsafe fn apply_effect(ptr: *mut Self, entity: &mut EntityWorldMut) {
-        // SAFETY: The caller must ensure that the `ptr` must be valid but not necessarily aligned.
-        <Self as BundleEffect>::apply_raw(ptr, entity);
+        // SAFETY:
+        // - The caller must ensure that the `ptr` points at a valid non-null `SpawnRelatedBundle`,
+        // - The caller must ensure that the `ptr` owns the value it points at.
+        // - The caller must ensure that the `ptr` is aligned.
+        let effect = unsafe { ptr.read() };
+        effect.apply(entity);
     }
 }
 

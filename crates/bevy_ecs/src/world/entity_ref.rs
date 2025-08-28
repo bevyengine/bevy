@@ -4684,8 +4684,8 @@ unsafe fn insert_dynamic_bundle<
             ptr: *mut Self,
             func: &mut impl FnMut(StorageType, OwningPtr<'_>),
         ) {
-            // SAFETY: The caller must ensure that `ptr` is pointing to a valid instance of `Self`
-            // but does not necessarily need to be aligned.
+            // SAFETY: The caller must ensure that `ptr` is pointing to a valid instance of `Self`,
+            // the pointer is not null, and is aligned.
             let bundle = unsafe { ptr.read() };
             bundle.components.for_each(|(t, ptr)| func(t, ptr));
         }
