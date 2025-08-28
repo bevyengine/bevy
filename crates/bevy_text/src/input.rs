@@ -49,17 +49,16 @@
 use core::time::Duration;
 
 use alloc::collections::VecDeque;
-use bevy_asset::{Assets, Handle};
+use bevy_asset::{AssetEvent, Assets, Handle};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     change_detection::{DetectChanges, DetectChangesMut},
     component::Component,
     entity::Entity,
-    event::EntityEvent,
+    event::{EntityEvent, EventReader},
     hierarchy::ChildOf,
     lifecycle::HookContext,
     prelude::ReflectComponent,
-    query::{Changed, Or},
     resource::Resource,
     schedule::SystemSet,
     system::{Commands, Query, Res, ResMut},
@@ -76,8 +75,8 @@ use cosmic_text::{
 
 use crate::{
     buffer_dimensions, load_font_to_fontdb, CosmicFontSystem, Font, FontAtlasSets, FontSmoothing,
-    Justify, LineBreak, LineHeight, PositionedGlyph, TextBounds, TextError, TextFont,
-    TextLayoutInfo, TextPipeline,
+    Justify, LineBreak, LineHeight, PositionedGlyph, TextBounds, TextError, TextLayoutInfo,
+    TextPipeline,
 };
 
 /// Systems handling text input update and layout
@@ -573,6 +572,7 @@ pub fn update_text_input_buffers(
     mut font_system: ResMut<CosmicFontSystem>,
     mut text_pipeline: ResMut<TextPipeline>,
     fonts: Res<Assets<Font>>,
+    mut font_events: EventReader<AssetEvent<Font>>,
 ) {
     let font_system = &mut font_system.0;
     let font_id_map = &mut text_pipeline.map_handle_to_font_id;
@@ -592,7 +592,15 @@ pub fn update_text_input_buffers(
         }
 
         let _ = editor.with_buffer_mut(|buffer| {
-            if target.is_changed() || attributes.is_changed() {
+            if target.is_changed()
+                || attributes.is_changed()
+                || font_events.read().any(|event| match event {
+                    AssetEvent::Added { id } | AssetEvent::Modified { id } => {
+                        *id == attributes.font.id()
+                    }
+                    _ => false,
+                })
+            {
                 let line_height = attributes.line_height.eval(attributes.font_size);
                 let metrics =
                     Metrics::new(attributes.font_size, line_height).scale(target.scale_factor);
@@ -1197,23 +1205,27 @@ pub fn update_placeholder_layouts(
     mut text_pipeline: ResMut<TextPipeline>,
     mut swash_cache: ResMut<crate::pipeline::SwashCache>,
     mut font_atlas_sets: ResMut<FontAtlasSets>,
-    mut text_query: Query<
-        (
-            &Placeholder,
-            &TextInputAttributes,
-            &TextInputTarget,
-            &TextFont,
-            &mut PlaceholderLayout,
-        ),
-        Or<(
-            Changed<Placeholder>,
-            Changed<TextInputAttributes>,
-            Changed<TextFont>,
-            Changed<TextInputTarget>,
-        )>,
-    >,
+    mut text_query: Query<(
+        Ref<Placeholder>,
+        Ref<TextInputAttributes>,
+        Ref<TextInputTarget>,
+        &mut PlaceholderLayout,
+    )>,
+    mut font_events: EventReader<AssetEvent<Font>>,
 ) {
-    for (placeholder, style, target, text_font, mut prompt_layout) in text_query.iter_mut() {
+    for (placeholder, attributes, target, mut prompt_layout) in text_query.iter_mut() {
+        if !(placeholder.is_changed()
+            || attributes.is_changed()
+            || target.is_changed()
+            || font_events.read().any(|event| match event {
+                AssetEvent::Added { id } | AssetEvent::Modified { id } => {
+                    *id == attributes.font.id()
+                }
+                _ => false,
+            }))
+        {
+            continue;
+        }
         let PlaceholderLayout { buffer, layout } = prompt_layout.as_mut();
 
         layout.clear();
@@ -1222,13 +1234,13 @@ pub fn update_placeholder_layouts(
             continue;
         }
 
-        if !fonts.contains(text_font.font.id()) {
+        if !fonts.contains(attributes.font.id()) {
             continue;
         }
 
-        let line_height = text_font.line_height.eval(text_font.font_size);
+        let line_height = attributes.line_height.eval(attributes.font_size);
 
-        let metrics = Metrics::new(text_font.font_size, line_height).scale(target.scale_factor);
+        let metrics = Metrics::new(attributes.font_size, line_height).scale(target.scale_factor);
 
         if metrics.font_size <= 0. || metrics.line_height <= 0. {
             continue;
@@ -1236,7 +1248,7 @@ pub fn update_placeholder_layouts(
 
         let bounds: TextBounds = target.size.into();
         let face_info = load_font_to_fontdb(
-            text_font.font.clone(),
+            attributes.font.clone(),
             font_system.as_mut(),
             &mut text_pipeline.map_handle_to_font_id,
             &fonts,
@@ -1244,7 +1256,7 @@ pub fn update_placeholder_layouts(
 
         buffer.set_size(font_system.as_mut(), bounds.width, bounds.height);
 
-        buffer.set_wrap(&mut font_system, style.line_break.into());
+        buffer.set_wrap(&mut font_system, attributes.line_break.into());
 
         let attrs = cosmic_text::Attrs::new()
             .metadata(0)
@@ -1261,7 +1273,7 @@ pub fn update_placeholder_layouts(
             cosmic_text::Shaping::Advanced,
         );
 
-        let align = Some(style.justify.into());
+        let align = Some(attributes.justify.into());
         for buffer_line in buffer.lines.iter_mut() {
             buffer_line.set_align(align);
         }
@@ -1276,8 +1288,8 @@ pub fn update_placeholder_layouts(
                 .try_for_each(|(layout_glyph, line_y, line_i)| {
                     let mut temp_glyph;
                     let span_index = layout_glyph.metadata;
-                    let font_id = text_font.font.id();
-                    let font_smoothing = text_font.font_smoothing;
+                    let font_id = attributes.font.id();
+                    let font_smoothing = attributes.font_smoothing;
 
                     let layout_glyph = if font_smoothing == FontSmoothing::None {
                         // If font smoothing is disabled, round the glyph positions and sizes,

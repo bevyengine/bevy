@@ -35,7 +35,7 @@ fn main() {
         .add_systems(Startup, setup)
         .add_systems(
             PostUpdate,
-            (update_text_input_attributes, update_inputs, update_targets).before(TextInputSystems),
+            (update_inputs, update_targets).before(TextInputSystems),
         );
     app.sub_app_mut(RenderApp)
         .add_systems(ExtractSchedule, extract_text_input);
@@ -70,7 +70,6 @@ fn setup(mut commands: Commands) {
             },
             TextInputAttributes::default(),
             Overwrite::default(),
-            TextFont::default(),
             TextInputSize(Vec2::new(500., 250.)),
             Transform::from_translation(Vec3::new(0., 150., 0.)),
             Placeholder::new("type here.."),
@@ -118,24 +117,6 @@ fn update_targets(
                 commands.entity(entity).try_insert(new_aabb);
             }
         }
-    }
-}
-
-fn update_text_input_attributes(
-    mut text_input_node_query: Query<(&TextFont, &mut TextInputAttributes)>,
-) {
-    for (font, mut attributes) in text_input_node_query.iter_mut() {
-        attributes.set_if_neq(TextInputAttributes {
-            font: font.font.clone(),
-            font_size: font.font_size,
-            font_smoothing: font.font_smoothing,
-            justify: Justify::Left,
-            line_break: LineBreak::AnyCharacter,
-            line_height: font.line_height,
-            max_chars: None,
-            clear_on_submit: true,
-            visible_lines: None,
-        });
     }
 }
 
