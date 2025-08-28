@@ -228,7 +228,7 @@ pub struct CoreSliderDragState {
 }
 
 pub(crate) fn slider_on_pointer_down(
-    mut trigger: On<Pointer<Press>>,
+    mut event: On<Pointer<Press>>,
     q_slider: Query<(
         &CoreSlider,
         &SliderValue,
@@ -245,9 +245,9 @@ pub(crate) fn slider_on_pointer_down(
     mut commands: Commands,
     ui_scale: Res<UiScale>,
 ) {
-    if q_thumb.contains(trigger.target()) {
+    if q_thumb.contains(event.entity()) {
         // Thumb click, stop propagation to prevent track click.
-        trigger.propagate(false);
+        event.propagate(false);
     } else if let Ok((
         slider,
         value,
@@ -258,10 +258,10 @@ pub(crate) fn slider_on_pointer_down(
         node_target,
         transform,
         disabled,
-    )) = q_slider.get(trigger.target())
+    )) = q_slider.get(event.entity())
     {
         // Track click
-        trigger.propagate(false);
+        event.propagate(false);
 
         if disabled {
             return;
@@ -269,13 +269,13 @@ pub(crate) fn slider_on_pointer_down(
 
         // Find thumb size by searching descendants for the first entity with CoreSliderThumb
         let thumb_size = q_children
-            .iter_descendants(trigger.target())
+            .iter_descendants(event.entity())
             .find_map(|child_id| q_thumb.get(child_id).ok().map(|thumb| thumb.size().x))
             .unwrap_or(0.0);
 
         // Detect track click.
         let local_pos = transform.try_inverse().unwrap().transform_point2(
-            trigger.event().pointer_location.position * node_target.scale_factor() / ui_scale.0,
+            event.pointer_location.position * node_target.scale_factor() / ui_scale.0,
         );
         let track_width = node.size().x - thumb_size;
         // Avoid division by zero
@@ -304,13 +304,13 @@ pub(crate) fn slider_on_pointer_down(
 
         if matches!(slider.on_change, Callback::Ignore) {
             commands
-                .entity(trigger.target())
+                .entity(event.entity())
                 .insert(SliderValue(new_value));
         } else {
             commands.notify_with(
                 &slider.on_change,
                 ValueChange {
-                    source: trigger.target(),
+                    source: event.entity(),
                     value: new_value,
                 },
             );
@@ -319,7 +319,7 @@ pub(crate) fn slider_on_pointer_down(
 }
 
 pub(crate) fn slider_on_drag_start(
-    mut trigger: On<Pointer<DragStart>>,
+    mut event: On<Pointer<DragStart>>,
     mut q_slider: Query<
         (
             &SliderValue,
@@ -329,8 +329,8 @@ pub(crate) fn slider_on_drag_start(
         With<CoreSlider>,
     >,
 ) {
-    if let Ok((value, mut drag, disabled)) = q_slider.get_mut(trigger.target()) {
-        trigger.propagate(false);
+    if let Ok((value, mut drag, disabled)) = q_slider.get_mut(event.entity()) {
+        event.propagate(false);
         if !disabled {
             drag.dragging = true;
             drag.offset = value.0;
@@ -339,7 +339,7 @@ pub(crate) fn slider_on_drag_start(
 }
 
 pub(crate) fn slider_on_drag(
-    mut trigger: On<Pointer<Drag>>,
+    mut event: On<Pointer<Drag>>,
     mut q_slider: Query<(
         &ComputedNode,
         &CoreSlider,
@@ -355,16 +355,16 @@ pub(crate) fn slider_on_drag(
     ui_scale: Res<UiScale>,
 ) {
     if let Ok((node, slider, range, precision, transform, drag, disabled)) =
-        q_slider.get_mut(trigger.target())
+        q_slider.get_mut(event.entity())
     {
-        trigger.propagate(false);
+        event.propagate(false);
         if drag.dragging && !disabled {
-            let mut distance = trigger.event().distance / ui_scale.0;
+            let mut distance = event.distance / ui_scale.0;
             distance.y *= -1.;
             let distance = transform.transform_vector2(distance);
             // Find thumb size by searching descendants for the first entity with CoreSliderThumb
             let thumb_size = q_children
-                .iter_descendants(trigger.target())
+                .iter_descendants(event.entity())
                 .find_map(|child_id| q_thumb.get(child_id).ok().map(|thumb| thumb.size().x))
                 .unwrap_or(0.0);
             let slider_width = ((node.size().x - thumb_size) * node.inverse_scale_factor).max(1.0);
@@ -382,13 +382,13 @@ pub(crate) fn slider_on_drag(
 
             if matches!(slider.on_change, Callback::Ignore) {
                 commands
-                    .entity(trigger.target())
+                    .entity(event.entity())
                     .insert(SliderValue(rounded_value));
             } else {
                 commands.notify_with(
                     &slider.on_change,
                     ValueChange {
-                        source: trigger.target(),
+                        source: event.entity(),
                         value: rounded_value,
                     },
                 );
@@ -398,11 +398,11 @@ pub(crate) fn slider_on_drag(
 }
 
 pub(crate) fn slider_on_drag_end(
-    mut trigger: On<Pointer<DragEnd>>,
+    mut event: On<Pointer<DragEnd>>,
     mut q_slider: Query<(&CoreSlider, &mut CoreSliderDragState)>,
 ) {
-    if let Ok((_slider, mut drag)) = q_slider.get_mut(trigger.target()) {
-        trigger.propagate(false);
+    if let Ok((_slider, mut drag)) = q_slider.get_mut(event.entity()) {
+        event.propagate(false);
         if drag.dragging {
             drag.dragging = false;
         }
@@ -410,7 +410,7 @@ pub(crate) fn slider_on_drag_end(
 }
 
 fn slider_on_key_input(
-    mut trigger: On<FocusedInput<KeyboardInput>>,
+    mut event: On<FocusedInput<KeyboardInput>>,
     q_slider: Query<(
         &CoreSlider,
         &SliderValue,
@@ -420,10 +420,10 @@ fn slider_on_key_input(
     )>,
     mut commands: Commands,
 ) {
-    if let Ok((slider, value, range, step, disabled)) = q_slider.get(trigger.target()) {
-        let event = &trigger.event().input;
-        if !disabled && event.state == ButtonState::Pressed {
-            let new_value = match event.key_code {
+    if let Ok((slider, value, range, step, disabled)) = q_slider.get(event.entity()) {
+        let input_event = &event.input;
+        if !disabled && input_event.state == ButtonState::Pressed {
+            let new_value = match input_event.key_code {
                 KeyCode::ArrowLeft => range.clamp(value.0 - step.0),
                 KeyCode::ArrowRight => range.clamp(value.0 + step.0),
                 KeyCode::Home => range.start(),
@@ -432,16 +432,16 @@ fn slider_on_key_input(
                     return;
                 }
             };
-            trigger.propagate(false);
+            event.propagate(false);
             if matches!(slider.on_change, Callback::Ignore) {
                 commands
-                    .entity(trigger.target())
+                    .entity(event.entity())
                     .insert(SliderValue(new_value));
             } else {
                 commands.notify_with(
                     &slider.on_change,
                     ValueChange {
-                        source: trigger.target(),
+                        source: event.entity(),
                         value: new_value,
                     },
                 );
@@ -450,23 +450,23 @@ fn slider_on_key_input(
     }
 }
 
-pub(crate) fn slider_on_insert(trigger: On<Insert, CoreSlider>, mut world: DeferredWorld) {
-    let mut entity = world.entity_mut(trigger.target());
+pub(crate) fn slider_on_insert(event: On<Insert, CoreSlider>, mut world: DeferredWorld) {
+    let mut entity = world.entity_mut(event.entity());
     if let Some(mut accessibility) = entity.get_mut::<AccessibilityNode>() {
         accessibility.set_orientation(Orientation::Horizontal);
     }
 }
 
-pub(crate) fn slider_on_insert_value(trigger: On<Insert, SliderValue>, mut world: DeferredWorld) {
-    let mut entity = world.entity_mut(trigger.target());
+pub(crate) fn slider_on_insert_value(event: On<Insert, SliderValue>, mut world: DeferredWorld) {
+    let mut entity = world.entity_mut(event.entity());
     let value = entity.get::<SliderValue>().unwrap().0;
     if let Some(mut accessibility) = entity.get_mut::<AccessibilityNode>() {
         accessibility.set_numeric_value(value.into());
     }
 }
 
-pub(crate) fn slider_on_insert_range(trigger: On<Insert, SliderRange>, mut world: DeferredWorld) {
-    let mut entity = world.entity_mut(trigger.target());
+pub(crate) fn slider_on_insert_range(event: On<Insert, SliderRange>, mut world: DeferredWorld) {
+    let mut entity = world.entity_mut(event.entity());
     let range = *entity.get::<SliderRange>().unwrap();
     if let Some(mut accessibility) = entity.get_mut::<AccessibilityNode>() {
         accessibility.set_min_numeric_value(range.start().into());
@@ -474,8 +474,8 @@ pub(crate) fn slider_on_insert_range(trigger: On<Insert, SliderRange>, mut world
     }
 }
 
-pub(crate) fn slider_on_insert_step(trigger: On<Insert, SliderStep>, mut world: DeferredWorld) {
-    let mut entity = world.entity_mut(trigger.target());
+pub(crate) fn slider_on_insert_step(event: On<Insert, SliderStep>, mut world: DeferredWorld) {
+    let mut entity = world.entity_mut(event.entity());
     let step = entity.get::<SliderStep>().unwrap().0;
     if let Some(mut accessibility) = entity.get_mut::<AccessibilityNode>() {
         accessibility.set_numeric_value_step(step.into());
@@ -518,13 +518,13 @@ pub enum SetSliderValue {
 }
 
 fn slider_on_set_value(
-    mut trigger: On<SetSliderValue>,
+    mut event: On<SetSliderValue>,
     q_slider: Query<(&CoreSlider, &SliderValue, &SliderRange, Option<&SliderStep>)>,
     mut commands: Commands,
 ) {
-    if let Ok((slider, value, range, step)) = q_slider.get(trigger.target()) {
-        trigger.propagate(false);
-        let new_value = match trigger.event() {
+    if let Ok((slider, value, range, step)) = q_slider.get(event.entity()) {
+        event.propagate(false);
+        let new_value = match event.event() {
             SetSliderValue::Absolute(new_value) => range.clamp(*new_value),
             SetSliderValue::Relative(delta) => range.clamp(value.0 + *delta),
             SetSliderValue::RelativeStep(delta) => {
@@ -533,13 +533,13 @@ fn slider_on_set_value(
         };
         if matches!(slider.on_change, Callback::Ignore) {
             commands
-                .entity(trigger.target())
+                .entity(event.entity())
                 .insert(SliderValue(new_value));
         } else {
             commands.notify_with(
                 &slider.on_change,
                 ValueChange {
-                    source: trigger.target(),
+                    source: event.entity(),
                     value: new_value,
                 },
             );

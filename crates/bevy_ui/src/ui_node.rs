@@ -2252,6 +2252,11 @@ pub struct CalculatedClip {
 #[derive(Component)]
 pub struct OverrideClip;
 
+#[expect(
+    rustdoc::redundant_explicit_links,
+    reason = "To go around the `<code>` limitations, we put the link twice so we're \
+sure it's recognized as a markdown link."
+)]
 /// Indicates that this [`Node`] entity's front-to-back ordering is not controlled solely
 /// by its location in the UI hierarchy. A node with a higher z-index will appear on top
 /// of sibling nodes with a lower z-index.
@@ -2260,7 +2265,8 @@ pub struct OverrideClip;
 /// appear in the UI hierarchy. In such a case, the last node to be added to its parent
 /// will appear in front of its siblings.
 ///
-/// Nodes without this component will be treated as if they had a value of [`ZIndex(0)`].
+/// Nodes without this component will be treated as if they had a value of
+/// <code>[ZIndex][ZIndex]\(0\)</code>.
 ///
 /// Use [`GlobalZIndex`] if you need to order separate UI hierarchies or nodes that are
 /// not siblings in a given UI hierarchy.

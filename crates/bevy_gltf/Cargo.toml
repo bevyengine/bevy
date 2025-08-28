@@ -22,7 +22,6 @@ bevy_animation = { path = "../bevy_animation", version = "0.17.0-dev", optional 
 bevy_app = { path = "../bevy_app", version = "0.17.0-dev" }
 bevy_asset = { path = "../bevy_asset", version = "0.17.0-dev" }
 bevy_color = { path = "../bevy_color", version = "0.17.0-dev" }
-bevy_core_pipeline = { path = "../bevy_core_pipeline", version = "0.17.0-dev" }
 bevy_ecs = { path = "../bevy_ecs", version = "0.17.0-dev" }
 bevy_image = { path = "../bevy_image", version = "0.17.0-dev" }
 bevy_light = { path = "../bevy_light", version = "0.17.0-dev" }
