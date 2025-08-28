@@ -21,10 +21,10 @@ use bevy_image::{Image, TextureAtlasLayout};
 use bevy_math::{IVec2, Rect, UVec2, Vec2};
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_time::Time;
+pub use cosmic_text::Motion;
 use cosmic_text::{
     Action, BorrowedWithFontSystem, Buffer, BufferLine, Edit, Editor, Metrics, Selection,
 };
-pub use cosmic_text::Motion;
 
 use crate::{
     buffer_dimensions, load_font_to_fontdb, CosmicFontSystem, Font, FontAtlasSets, FontSmoothing,
