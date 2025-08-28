@@ -1569,6 +1569,10 @@ pub enum ScheduleCleanupPolicy {
     /// the systems. i.e. if you remove `system_b`, but there is a chain between system_a, system_b, and system_c.
     /// system_a and system_c will no longer be properly ordered.
     RemoveOnlySystems,
+    /// attempt to fix the transitive dependencies and link before and after edges together. Add dependencies between
+    /// the existing before and after dependendencies. For every after dependency add a new edge to a before dependency
+    // TODO: Would you ever not want to do this? My feeling is no. Might be better to have 2 functions that just do this.
+    FixTransitiveDependencies,
 }
 
 // methods for reporting errors
