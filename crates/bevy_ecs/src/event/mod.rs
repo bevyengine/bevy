@@ -1,38 +1,172 @@
 //! Event handling types.
-mod base;
-mod collections;
-mod event_cursor;
-mod iterators;
-mod mut_iterators;
-mod mutator;
-mod reader;
-mod registry;
+mod buffered_event;
 mod trigger;
-mod update;
-mod writer;
 
-pub use base::*;
 pub use bevy_ecs_macros::{BufferedEvent, EntityEvent, Event};
-pub use collections::*;
-pub use event_cursor::*;
-pub use iterators::*;
-pub use mut_iterators::*;
-pub use mutator::*;
-pub use reader::*;
-pub use registry::*;
+pub use buffered_event::*;
 pub use trigger::*;
 
-#[expect(
-    deprecated,
-    reason = "`EventUpdates` was renamed to `EventUpdateSystems`."
-)]
-pub use update::{
-    event_update_condition, event_update_system, signal_event_update_system, EventUpdateSystems,
-    EventUpdates,
+use crate::{
+    component::{Component, ComponentId},
+    entity::Entity,
+    world::World,
 };
-pub use writer::EventWriter;
+use core::marker::PhantomData;
 
-pub(crate) use base::EventInstance;
+/// Something that "happens" and can be processed by app logic.
+///
+/// Events can be triggered on a [`World`] using a method like [`trigger`](World::trigger),
+/// causing any global [`Observer`] watching that event to run. This allows for push-based
+/// event handling where observers are immediately notified of events as they happen.
+///
+/// Additional event handling behavior can be enabled by implementing the [`EntityEvent`]
+/// and [`BufferedEvent`] traits:
+///
+/// - [`EntityEvent`]s support targeting specific entities, triggering any observers watching those targets.
+///   They are useful for entity-specific event handlers and can even be propagated from one entity to another.
+/// - [`BufferedEvent`]s support a pull-based event handling system where events are written using an [`EventWriter`]
+///   and read later using an [`EventReader`]. This is an alternative to observers that allows efficient batch processing
+///   of events at fixed points in a schedule.
+///
+/// Events must be thread-safe.
+///
+/// # Usage
+///
+/// The [`Event`] trait can be derived:
+///
+/// ```
+/// # use bevy_ecs::prelude::*;
+/// #
+/// #[derive(Event)]
+/// struct Speak {
+///     message: String,
+/// }
+/// ```
+///
+/// An [`Observer`] can then be added to listen for this event type:
+///
+/// ```
+/// # use bevy_ecs::prelude::*;
+/// #
+/// # #[derive(Event)]
+/// # struct Speak {
+/// #     message: String,
+/// # }
+/// #
+/// # let mut world = World::new();
+/// #
+/// world.add_observer(|event: On<Speak>| {
+///     println!("{}", event.message);
+/// });
+/// ```
+///
+/// The event can be triggered on the [`World`] using the [`trigger`](World::trigger) method:
+///
+/// ```
+/// # use bevy_ecs::prelude::*;
+/// #
+/// # #[derive(Event)]
+/// # struct Speak {
+/// #     message: String,
+/// # }
+/// #
+/// # let mut world = World::new();
+/// #
+/// # world.add_observer(|event: On<Speak>| {
+/// #     println!("{}", event.message);
+/// # });
+/// #
+/// # world.flush();
+/// #
+/// world.trigger(Speak {
+///     message: "Hello!".to_string(),
+/// });
+/// ```
+///
+/// For events that additionally need entity targeting or buffering, consider also deriving
+/// [`EntityEvent`] or [`BufferedEvent`], respectively.
+///
+/// [`World`]: crate::world::World
+/// [`Observer`]: crate::observer::Observer
+/// [`EventReader`]: super::EventReader
+/// [`EventWriter`]: super::EventWriter
+#[diagnostic::on_unimplemented(
+    message = "`{Self}` is not an `Event`",
+    label = "invalid `Event`",
+    note = "consider annotating `{Self}` with `#[derive(Event)]`"
+)]
+pub trait Event: Send + Sync + Sized + 'static {
+    type Trigger<'a>: Trigger<Self>;
+
+    /// Generates the [`EventKey`] for this event type.
+    ///
+    /// If this type has already been registered,
+    /// this will return the existing [`EventKey`].
+    ///
+    /// This is used by various dynamically typed observer APIs,
+    /// such as [`World::trigger_targets_dynamic`].
+    ///
+    /// # Warning
+    ///
+    /// This method should not be overridden by implementers,
+    /// and should always correspond to the implementation of [`event_key`](Event::event_key).
+    fn register_event_key(world: &mut World) -> EventKey {
+        EventKey(world.register_component::<EventWrapperComponent<Self>>())
+    }
+
+    /// Fetches the [`EventKey`] for this event type,
+    /// if it has already been generated.
+    ///
+    /// This is used by various dynamically typed observer APIs,
+    /// such as [`World::trigger_targets_dynamic`].
+    ///
+    /// # Warning
+    ///
+    /// This method should not be overridden by implementers,
+    /// and should always correspond to the implementation of
+    /// [`register_event_key`](Event::register_event_key).
+    fn event_key(world: &World) -> Option<EventKey> {
+        world
+            .component_id::<EventWrapperComponent<Self>>()
+            .map(EventKey)
+    }
+}
+
+pub trait EntityEvent: Event {
+    fn entity(&self) -> Entity;
+    fn entity_mut(&mut self) -> &mut Entity;
+}
+
+/// An internal type that implements [`Component`] for a given [`Event`] type.
+///
+/// This exists so we can easily get access to a unique [`ComponentId`] for each [`Event`] type,
+/// without requiring that [`Event`] types implement [`Component`] directly.
+/// [`ComponentId`] is used internally as a unique identifier for events because they are:
+///
+/// - Unique to each event type.
+/// - Can be quickly generated and looked up.
+/// - Are compatible with dynamic event types, which aren't backed by a Rust type.
+///
+/// This type is an implementation detail and should never be made public.
+// TODO: refactor events to store their metadata on distinct entities, rather than using `ComponentId`
+#[derive(Component)]
+struct EventWrapperComponent<E: Event>(PhantomData<E>);
+
+/// A unique identifier for an [`Event`], used by [observers].
+///
+/// You can look up the key for your event by calling the [`Event::event_key`] method.
+///
+/// [observers]: crate::observer
+#[derive(Debug, Copy, Clone, Hash, Ord, PartialOrd, Eq, PartialEq)]
+pub struct EventKey(pub(crate) ComponentId);
+
+impl EventKey {
+    /// Returns the internal [`ComponentId`].
+    #[inline]
+    pub(crate) fn component_id(&self) -> ComponentId {
+        self.0
+    }
+}
 
 #[cfg(test)]
 mod tests {
