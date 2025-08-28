@@ -100,6 +100,10 @@ impl<R: Relationship, B: Bundle> SpawnableList<R> for Spawn<B> {
         ) {
             let caller = MaybeLocation::caller();
             let mut r = MaybeUninit::new(R::from(entity));
+            
+            // SAFETY: 
+            // - `r` is initialized and a valid bundle
+            // - the caller ensures `this` is a valid pointer, so `this.0` must be a valid bundle as well
             unsafe {
                 let mut entity = world.spawn_with_caller(r.as_mut_ptr(), caller);
                 let bundle = &raw mut (*this).0;

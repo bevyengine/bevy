@@ -2052,6 +2052,10 @@ impl<'w> EntityWorldMut<'w> {
 
     /// Split into a new function so we can pass the calling location into the function when using
     /// as a command.
+    ///
+    /// # Safety
+    ///
+    /// `bundle` must point to a valid `T` which this function takes ownership of.
     #[inline]
     pub(crate) unsafe fn insert_raw_with_caller<T: Bundle>(
         &mut self,
