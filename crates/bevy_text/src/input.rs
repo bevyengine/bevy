@@ -19,6 +19,12 @@
 //!    * These are applied by the [`apply_text_edits` system.
 //! * [`TextInputTarget`] - Details of the render target the text input will be rendered to, such as size and scale factor.
 //!
+//!
+//! Layouting is done in:
+//!
+//! * [`update_text_input_layouts`] - Updates the `TextLayoutInfo` for each text input for rendering.
+//! * [`update_placeholder_layouts`] - Updates the `TextLayoutInfo` for each [`Placeholder`] for rendering.
+//!
 //! ## Configuring text input
 //!
 //! Several components are used to configure the text input, and belong on the [`TextInputBuffer`] entity:
@@ -337,9 +343,11 @@ impl TextInputFilter {
 /// Add this component to hide the text input buffer contents
 /// by replacing the characters with `mask_char`.
 ///
-/// It is strongly recommended to only use a `PasswordMask` with fixed-width fonts.
+/// It is strongly recommended to only use a [`PasswordMask` with fixed-width fonts.
 /// With variable width fonts mouse picking and horizontal scrolling
 /// may not work correctly.
+///
+/// This is updated in [`update_password_masks`].
 #[derive(Component)]
 pub struct PasswordMask {
     /// If true the password will not be hidden
@@ -1143,7 +1151,9 @@ impl Placeholder {
     }
 }
 
-/// Layout for the [`Placeholder`] text
+/// Layout for the [`Placeholder`] text.
+///
+/// This is laid out in [`update_placeholder_layouts`].
 #[derive(Component)]
 pub struct PlaceholderLayout {
     /// A [`Placeholder`] text's cosmic-text buffer (not an Editor as it isn't editable).
