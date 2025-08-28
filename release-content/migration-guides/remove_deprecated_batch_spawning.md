@@ -10,8 +10,7 @@ The following deprecated functions have been removed:
 - `World::insert_or_spawn_batch_with_caller`
 
 These functions, when used incorrectly, could cause major performance problems and generally violated the privacy of the ECS internals in ways
-that the Bevy maintainers were not prepared to support long-term
-.
+that the Bevy maintainers were not prepared to support long-term.
 They were deprecated in 0.16 due to their potential for misuse, as the retained render world removed Bevy's own uses of these methods.
 
 Instead of allocating entities with specific identifiers, consider one of the following:

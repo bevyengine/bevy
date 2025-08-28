@@ -1,5 +1,5 @@
 ---
-title: Observers and One-Shot Systems are now marked as `Internal`
+title: Observers and one-shot systems are now marked as `Internal`
 pull_requests: [20204]
 ---
 
