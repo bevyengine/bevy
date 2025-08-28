@@ -68,10 +68,7 @@ fn setup(mut commands: Commands) {
                 cursor_blink_timer: Some(0.),
                 ..Default::default()
             },
-            TextLayoutInfo::default(),
-            TextEdits::default(),
             TextInputAttributes::default(),
-            TextInputTarget::default(),
             Overwrite::default(),
             TextFont::default(),
             TextInputSize(Vec2::new(500., 250.)),
