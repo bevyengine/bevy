@@ -401,9 +401,9 @@ fn setup_animation_graph_once_loaded(
         // ugly.
         for (target_entity, target) in &targets {
             if !all_animation_target_ids.contains(target) {
-                commands.entity(target_entity).remove::<AnimationTargetId>();
                 commands
                     .entity(target_entity)
+                    .remove::<AnimationTargetId>()
                     .remove::<AnimationPlayerTarget>();
             }
         }
