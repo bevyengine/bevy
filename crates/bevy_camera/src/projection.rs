@@ -372,7 +372,9 @@ impl CameraProjection for PerspectiveProjection {
         // That is the sub view's aspect ratio if it's set, otherwise the projection's aspect ratio.
         // The rest of the calculations unconditionally use the projection's aspect ratio,
         // to allow manually setting it separately from the viewport's aspect ratio.
-        let sub_width = top * sub_view.aspect_ratio.unwrap_or(self.aspect_ratio) * 2.0;
+        let sub_width = sub_view
+            .aspect_ratio
+            .map_or(width, |aspect_ratio| height * aspect_ratio);
 
         // Calculate the new frustum parameters
         // These are the edges of the near plane rect of the sub view in world units
@@ -690,10 +692,14 @@ impl CameraProjection for OrthographicProjection {
         // let scale_w = (right - left) / full_width;
         // let scale_h = (top - bottom) / full_height;
 
+        let sub_width = sub_view
+            .aspect_ratio
+            .map_or(ortho_width, |aspect_ratio| ortho_height * aspect_ratio);
+
         // Calculate the new orthographic bounds
         let top_prime = top - (ortho_height * offset_y);
         let bottom_prime = top - (ortho_height * (offset_y + scale));
-        let right_prime = left + (ortho_width * (offset_x + scale));
+        let right_prime = left + ((ortho_width * offset_x) + (sub_width * scale));
         let left_prime = left + (ortho_width * offset_x);
 
         Mat4::orthographic_rh(
