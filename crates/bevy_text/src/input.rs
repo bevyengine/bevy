@@ -27,6 +27,11 @@
 //! * [`TextInputFilter`] - Optional component that can be added to restrict the text input to certain formats, such as integers, decimals, hexadecimal etc.
 //! * [`PasswordMask`] - Optional component that can be added to hide the text input buffer contents by replacing the characters with a mask character.
 //!
+//! The [`TextInputBuffer`] component itself also has two fields that can be configured:
+//!
+//! - [`TextInputBuffer::space_advance`] - Space advance width for the current font, used to determine the width of the cursor when it is at the end of a line or when the buffer is empty.
+//! - [`TextInputBuffer::cursor_blink_timer`] - Controls cursor blinking.
+//!
 //! ## Copy-paste and clipboard support
 //!
 //! The clipboard support provided by this module is very basic, and only works within the `bevy` app,
