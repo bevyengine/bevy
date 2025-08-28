@@ -1617,8 +1617,8 @@ impl AssetServer {
         let reader = source.reader();
         match reader.read_meta_bytes(path.path()).await {
             Ok(_) => return Err(WriteDefaultMetaError::MetaAlreadyExists),
-            Err(AssetReaderError::NotAllowed(_)) | Err(AssetReaderError::NotFound(_)) => {
-                // The meta file couldn't be found or wasn't allowed so just fall through.
+            Err(AssetReaderError::NotFound(_)) => {
+                // The meta file couldn't be found so just fall through.
             }
             Err(AssetReaderError::Io(err)) => {
                 return Err(WriteDefaultMetaError::IoErrorFromExistingMetaCheck(err))
