@@ -187,10 +187,11 @@ impl Schedules {
         schedule: impl ScheduleLabel,
         set: impl IntoSystemSet<M>,
         world: &mut World,
+        policy: ScheduleCleanupPolicy,
     ) -> Result<usize, ScheduleError> {
         self.get_mut(schedule)
             .ok_or(ScheduleError::ScheduleNotFound)?
-            .remove_systems_in_set(set, world, ScheduleCleanupPolicy::RemoveSetAndSystems)
+            .remove_systems_in_set(set, world, policy)
     }
 
     /// Configures a collection of system sets in the provided schedule, adding any sets that do not exist.
@@ -988,6 +989,27 @@ impl ScheduleGraph {
         let keys = self.systems_in_set(interned)?;
 
         self.changed = true;
+
+        match policy {
+            ScheduleCleanupPolicy::RemoveSetAndSystems => {
+                self.remove_systems_by_keys(keys);
+
+                let Some(set_key) = self.system_sets.get_key(interned) else {
+                    return Ok(keys.len());
+                };
+                self.remove_set_by_key(set_key);
+
+                Ok(keys.len())
+            }
+            ScheduleCleanupPolicy::RemoveOnlySystems => {
+                self.remove_systems_by_keys(keys);
+
+                Ok(keys.len())
+            }
+        }
+    }
+
+    fn remove_systems_by_keys(&mut self, keys: Vec<SystemKey>) {
         for &key in &keys {
             self.systems.remove(key);
 
@@ -996,18 +1018,15 @@ impl ScheduleGraph {
             self.ambiguous_with.remove_node(key.into());
             self.ambiguous_with_all.remove(&NodeId::from(key));
         }
+    }
 
-        let Some(set_key) = self.system_sets.get_key(interned) else {
-            return Ok(keys.len());
-        };
+    fn remove_set_by_key(&mut self, key: SystemSetKey) {
         self.system_sets.remove(set_key);
         self.set_systems.remove(&set_key);
         self.hierarchy.graph.remove_node(set_key.into());
         self.dependency.graph.remove_node(set_key.into());
         self.ambiguous_with.remove_node(set_key.into());
         self.ambiguous_with_all.remove(&NodeId::from(set_key));
-
-        Ok(keys.len())
     }
 
     /// Update the internal graphs (hierarchy, dependency, ambiguity) by adding a single [`GraphInfo`]
