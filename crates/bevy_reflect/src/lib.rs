@@ -3502,8 +3502,7 @@ bevy_reflect::tests::Test {
         let deserialized = reflect_deserializer.deserialize(&mut deserializer).unwrap();
         let point = <Point as FromReflect>::from_reflect(&*deserialized).unwrap();
         assert_eq!(point, Point(external_crate::Vector2([1, 2])));
-     }      
-
+    }
 
     #[cfg(feature = "auto_register")]
     mod auto_register_reflect {
