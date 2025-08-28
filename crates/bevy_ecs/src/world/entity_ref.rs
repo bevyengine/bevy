@@ -2088,7 +2088,11 @@ impl<'w> EntityWorldMut<'w> {
         self.location = Some(location);
         self.world.flush();
         self.update_location();
-        T::apply_effect(bundle, self);
+        // SAFETY: 
+        // - This is called exactly once after the `BundleInsert::insert` call before returning to safe code.
+        // - `bundle` points to the same `B` that `BundleInsert::insert` was called on. The pointer has not moved
+        //   and thus still should be aligned.
+        unsafe { T::apply_effect(bundle.cast::<MaybeUninit<T>>(), self) };
         self
     }
 
@@ -4690,7 +4694,7 @@ unsafe fn insert_dynamic_bundle<
             bundle.components.for_each(|(t, ptr)| func(t, ptr));
         }
 
-        unsafe fn apply_effect(_ptr: *mut Self, _entity: &mut EntityWorldMut) {}
+        unsafe fn apply_effect(_ptr: *mut MaybeUninit<Self>, _entity: &mut EntityWorldMut) {}
     }
 
     let mut bundle = MaybeUninit::new(DynamicInsertBundle {

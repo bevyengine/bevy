@@ -80,10 +80,10 @@ impl<R: Relationship, B: Bundle<Effect: NoBundleEffect>> SpawnableList<R> for Ve
 
 impl<R: Relationship, B: Bundle> SpawnableList<R> for Spawn<B> {
     fn spawn(self, world: &mut World, entity: Entity) {
-        let mut this = ManuallyDrop::new(self);
+        let mut this = MaybeUninit::new(self);
         // SAFETY: `this` contains a valid `Self` we own.
         unsafe {
-            <Self as SpawnableList<R>>::spawn_raw((&raw mut (*this)), world, entity);
+            <Self as SpawnableList<R>>::spawn_raw(this.as_mut_ptr(), world, entity);
         }
     }
 
@@ -392,12 +392,15 @@ unsafe impl<R: Relationship, L: SpawnableList<R>> DynamicBundle for SpawnRelated
         <R::RelationshipTarget as DynamicBundle>::get_components(target.as_mut_ptr(), func);
     }
 
-    unsafe fn apply_effect(ptr: *mut Self, entity: &mut EntityWorldMut) {
+    unsafe fn apply_effect(ptr: *mut MaybeUninit<Self>, entity: &mut EntityWorldMut) {
         // SAFETY:
         // - The caller must ensure that the `ptr` points at a valid non-null `SpawnRelatedBundle`,
         // - The caller must ensure that the `ptr` owns the value it points at.
         // - The caller must ensure that the `ptr` is aligned.
         let effect = unsafe { ptr.read() };
+        // SAFETY: The value was not moved out in `get_components`, only borrowed, and thus should still
+        // be valid and initialized.
+        let effect = unsafe { effect.assume_init() };
         effect.apply(entity);
     }
 }
@@ -441,9 +444,12 @@ unsafe impl<R: Relationship, B: Bundle> DynamicBundle for SpawnOneRelated<R, B> 
         <R::RelationshipTarget as DynamicBundle>::get_components(target.as_mut_ptr(), func);
     }
 
-    unsafe fn apply_effect(ptr: *mut Self, entity: &mut EntityWorldMut) {
+    unsafe fn apply_effect(ptr: *mut MaybeUninit<Self>, entity: &mut EntityWorldMut) {
         // SAFETY: The caller must ensure that the `ptr` must be valid and aligned.
         let effect = unsafe { ptr.read() };
+        // SAFETY: The value was not moved out in `get_components`, only borrowed, and thus should still
+        // be valid and initialized.
+        let effect = unsafe { effect.assume_init() };
         effect.apply(entity);
     }
 }

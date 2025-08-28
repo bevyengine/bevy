@@ -15,6 +15,7 @@ pub(crate) use remove::BundleRemover;
 pub(crate) use spawner::BundleSpawner;
 
 pub use info::*;
+use core::mem::MaybeUninit;
 
 /// Derive the [`Bundle`] trait
 ///
@@ -243,7 +244,7 @@ pub unsafe trait BundleFromComponents {
 // - Each component can only be moved out of the `Bundle` exactly once between both implementations of
 //   `get_components` and `apply_effect`.
 // - If `Effect: NoBundleEffect`, `apply_effect` must be a no-op.
-pub unsafe trait DynamicBundle {
+pub unsafe trait DynamicBundle: Sized {
     /// An operation on the entity that happens _after_ inserting this bundle.
     type Effect: BundleEffect;
 
@@ -264,7 +265,7 @@ pub unsafe trait DynamicBundle {
     //   all of fields that were moved out of in `get_components` will not be valid anymore. The pointer
     //   itself must be aligned.
     #[doc(hidden)]
-    unsafe fn apply_effect(ptr: *mut Self, entity: &mut EntityWorldMut);
+    unsafe fn apply_effect(ptr: *mut MaybeUninit<Self>, entity: &mut EntityWorldMut);
 }
 
 /// An operation on an [`Entity`](crate::entity::Entity) that occurs _after_ inserting the

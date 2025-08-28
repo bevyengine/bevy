@@ -2,6 +2,7 @@ use core::any::TypeId;
 
 use bevy_ptr::OwningPtr;
 use core::ptr::NonNull;
+use core::mem::MaybeUninit;
 use variadics_please::{all_tuples, all_tuples_enumerated};
 
 use crate::{
@@ -63,7 +64,7 @@ unsafe impl<C: Component> DynamicBundle for C {
     }
 
     #[inline]
-    unsafe fn apply_effect(_ptr: *mut Self, _entity: &mut EntityWorldMut) {}
+    unsafe fn apply_effect(_ptr: *mut MaybeUninit<Self>, _entity: &mut EntityWorldMut) {}
 }
 
 macro_rules! tuple_impl {
@@ -171,9 +172,11 @@ macro_rules! tuple_impl {
                 reason = "Zero-length tuples will generate a function body equivalent to `()`; however, this macro is meant for all applicable tuples, and as such it makes no sense to rewrite it just for that case."
             )]
             #[inline(always)]
-            unsafe fn apply_effect(ptr: *mut Self, entity: &mut EntityWorldMut) {
+            unsafe fn apply_effect(ptr: *mut core::mem::MaybeUninit<Self>, entity: &mut EntityWorldMut) {
                 $(
-                    let field_ptr = &raw mut (*ptr).$index;
+                    let field_ptr = ptr
+                        .byte_add(core::mem::offset_of!(Self, $index))
+                        .cast::<core::mem::MaybeUninit<$name>>();
                     // SAFETY:
                     // - If `ptr` is aligned, then field_ptr is aligned properly
                     // - If a field is `NoBundleEffect`, it's `apply_effect` is a no-op

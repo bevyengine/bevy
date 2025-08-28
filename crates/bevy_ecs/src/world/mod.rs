@@ -1199,7 +1199,8 @@ impl World {
         // SAFETY:
         // - This is called exactly once after `get_components` has been called in `spawn_non_existent`.
         // - The caller must ensure that `ptr` points to a valid instance of `B`.
-        unsafe { B::apply_effect(bundle, &mut entity) };
+        // - `B` and `MaybeUnnit<B>` have the same memory layout.
+        unsafe { B::apply_effect(bundle.cast::<MaybeUninit<B>>(), &mut entity) };
         entity
     }
 

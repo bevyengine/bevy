@@ -185,7 +185,7 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
             #[allow(unused_variables)]
             #[inline]
             unsafe fn apply_effect(
-                ptr: *mut Self,
+                ptr: *mut core::mem::MaybeUninit<Self>,
                 func: &mut #ecs_path::world::EntityWorldMut<'_>,
             ) {
             }
