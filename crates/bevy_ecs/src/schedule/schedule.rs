@@ -190,7 +190,7 @@ impl Schedules {
     ) -> Result<usize, ScheduleError> {
         self.get_mut(schedule)
             .ok_or(ScheduleError::ScheduleNotFound)?
-            .remove_systems_in_set(set, world)
+            .remove_systems_in_set(set, world, ScheduleCleanupPolicy::RemoveSetAndSystems)
     }
 
     /// Configures a collection of system sets in the provided schedule, adding any sets that do not exist.
@@ -419,11 +419,12 @@ impl Schedule {
         &mut self,
         set: impl IntoSystemSet<M>,
         world: &mut World,
+        policy: ScheduleCleanupPolicy,
     ) -> Result<usize, ScheduleError> {
         if self.graph.changed {
             self.initialize(world)?;
         }
-        self.graph.remove_systems_in_set(set)
+        self.graph.remove_systems_in_set(set, policy)
     }
 
     /// Suppress warnings and errors that would result from systems in these sets having ambiguities
@@ -980,6 +981,7 @@ impl ScheduleGraph {
     pub fn remove_systems_in_set<M>(
         &mut self,
         system_set: impl IntoSystemSet<M>,
+        policy: ScheduleCleanupPolicy,
     ) -> Result<usize, ScheduleError> {
         let set = system_set.into_system_set();
         let interned = set.intern();
@@ -1534,6 +1536,20 @@ pub enum ReportCycles {
     Hierarchy,
     /// When the graph is no longer a DAG
     Dependency,
+}
+
+/// Policy to use when removing systems.
+#[derive(Default)]
+pub enum ScheduleCleanupPolicy {
+    /// Remove the set and any systems in the set. Note that this will break any transient dependencies on
+    /// that set or systmes. This does not remove sets that might sub sets of the set.
+    #[default]
+    RemoveSetAndSystems,
+    /// Remove only the systems in the set. This is useful if you want to keep the run conditions and dependencies
+    /// on the set and add new systems to the set. Note that this will break any transient dependencies on
+    /// the systems. i.e. if you remove `system_b`, but there is a chain between system_a, system_b, and system_c.
+    /// system_a and system_c will no longer be properly ordered.
+    RemoveOnlySystems,
 }
 
 // methods for reporting errors
@@ -2758,7 +2774,11 @@ mod tests {
         schedule.add_systems(system);
         let mut world = World::default();
 
-        let remove_count = schedule.remove_systems_in_set(system, &mut world);
+        let remove_count = schedule.remove_systems_in_set(
+            system,
+            &mut world,
+            ScheduleCleanupPolicy::RemoveSetAndSystems,
+        );
         assert_eq!(remove_count.unwrap(), 1);
 
         // schedule has changed, so we check initializing again
@@ -2774,7 +2794,11 @@ mod tests {
         schedule.add_systems((system, system));
         let mut world = World::default();
 
-        let remove_count = schedule.remove_systems_in_set(system, &mut world);
+        let remove_count = schedule.remove_systems_in_set(
+            system,
+            &mut world,
+            ScheduleCleanupPolicy::RemoveSetAndSystems,
+        );
         assert_eq!(remove_count.unwrap(), 2);
 
         // schedule has changed, so we check initializing again
@@ -2791,7 +2815,11 @@ mod tests {
         schedule.add_systems((system_1, system_2).chain());
         let mut world = World::default();
 
-        let remove_count = schedule.remove_systems_in_set(system_1, &mut world);
+        let remove_count = schedule.remove_systems_in_set(
+            system_1,
+            &mut world,
+            ScheduleCleanupPolicy::RemoveSetAndSystems,
+        );
         assert_eq!(remove_count.unwrap(), 1);
 
         // schedule has changed, so we check initializing again
