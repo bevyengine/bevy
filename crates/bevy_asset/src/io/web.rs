@@ -12,22 +12,38 @@ use tracing::warn;
 ///
 /// NOTE: Make sure to add this plugin *before* `AssetPlugin` to properly register http asset sources.
 ///
+/// WARNING: be careful about where your URLs are coming from! URLs can potentially be exploited by an
+/// attacker to trigger vulnerabilities in our asset loaders, or DOS by downloading enormous files. We
+/// are not aware of any such vulnerabilities at the moment, just be careful!
+///
 /// Any asset path that begins with `http` (when the `http` feature is enabled) or `https` (when the
 /// `https` feature is enabled) will be loaded from the web via `fetch` (wasm) or `ureq` (native).
 ///
 /// Example usage:
 ///
 /// ```rust
+/// # use bevy_app::{App, Startup};
 /// # use bevy_ecs::prelude::{Commands, Res};
+/// # use bevy_asset::web::{WebAssetPlugin, AssetServer};
+/// # struct DefaultPlugins;
+/// # impl DefaultPlugins { fn set(plugin: WebAssetPlugin) -> WebAssetPlugin { plugin } }
 /// # use bevy_asset::web::AssetServer;
 /// # #[derive(Asset, TypePath, Default)]
 /// # struct Image;
 /// # #[derive(Component)]
 /// # struct Sprite;
 /// # impl Sprite { fn from_image(_: Handle<Image>) -> Self { Sprite } }
-/// fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
-///     commands.spawn(Sprite::from_image(asset_server.load("https://example.com/favicon.png")));
-/// }
+/// # fn main() {
+/// App::new()
+///     .add_plugins(DefaultPlugins.set(WebAssetPlugin {
+///         silence_startup_warning: true,
+///     }))
+/// #   .add_systems(Startup, setup).run();
+/// # }
+/// // ...
+/// # fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
+/// commands.spawn(Sprite::from_image(asset_server.load("https://example.com/favicon.png")));
+/// # }
 /// ```
 ///
 /// By default, `ureq`'s HTTP compression is disabled. To enable gzip and brotli decompression, add
@@ -39,10 +55,17 @@ use tracing::warn;
 /// ureq = { version = "3", default-features = false, features = ["gzip", "brotli"] }
 /// ```
 #[derive(Default)]
-pub struct WebAssetPlugin;
+pub struct WebAssetPlugin {
+    pub silence_startup_warning: bool,
+}
 
 impl Plugin for WebAssetPlugin {
     fn build(&self, app: &mut App) {
+        if !self.silence_startup_warning {
+            warn!("WebAssetPlugin is potentially insecure! Make sure to verify asset URLs are safe to load before loading them.\
+            If you promise you know what you're doing, you can silence this warning by setting silence_startup_warning: true\
+            in the WebAssetPlugin construction.");
+        }
         if app.is_plugin_added::<AssetPlugin>() {
             warn!("WebAssetPlugin must be added before AssetPlugin for it to work!");
         }

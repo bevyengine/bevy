@@ -98,8 +98,8 @@ The default feature set enables most of the expected features of a game engine, 
 |gif|GIF image format support|
 |glam_assert|Enable assertions to check the validity of parameters passed to glam|
 |hotpatching|Enable hotpatching of Bevy systems|
-|http|Enables downloading assets from HTTP sources|
-|https|Enables downloading assets from HTTPS sources|
+|http|Enables downloading assets from HTTP sources. Warning: there are security implications. Read the docs on WebAssetPlugin.|
+|https|Enables downloading assets from HTTPS sources. Warning: there are security implications. Read the docs on WebAssetPlugin.|
 |ico|ICO image format support|
 |jpeg|JPEG image format support|
 |libm|Uses the `libm` maths library instead of the one provided in `std` and `core`.|

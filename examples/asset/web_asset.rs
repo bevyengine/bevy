@@ -3,11 +3,13 @@
 //! Run with the feature `https`, and optionally `web_asset_cache`
 //! for a simple caching mechanism that never invalidates.
 //!
-use bevy::prelude::*;
+use bevy::{asset::io::web::WebAssetPlugin, prelude::*};
 
 fn main() {
     App::new()
-        .add_plugins(DefaultPlugins)
+        .add_plugins(DefaultPlugins.set(WebAssetPlugin {
+            silence_startup_warning: true,
+        }))
         .add_systems(Startup, setup)
         .run();
 }

@@ -550,10 +550,10 @@ file_watcher = ["bevy_internal/file_watcher"]
 # Enables watching in memory asset providers for Bevy Asset hot-reloading
 embedded_watcher = ["bevy_internal/embedded_watcher"]
 
-# Enables downloading assets from HTTP sources
+# Enables downloading assets from HTTP sources. Warning: there are security implications. Read the docs on WebAssetPlugin.
 http = ["bevy_internal/http"]
 
-# Enables downloading assets from HTTPS sources
+# Enables downloading assets from HTTPS sources. Warning: there are security implications. Read the docs on WebAssetPlugin.
 https = ["bevy_internal/https"]
 
 # Enable caching downloaded assets on the filesystem. NOTE: this cache currently never invalidates entries!
