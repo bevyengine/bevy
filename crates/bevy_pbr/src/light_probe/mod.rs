@@ -61,8 +61,6 @@ const STANDARD_MATERIAL_FRAGMENT_SHADER_MIN_TEXTURE_BINDINGS: usize = 16;
 /// cubemaps applied to all objects that a view renders.
 pub struct LightProbePlugin;
 
-static count: AtomicUsize = AtomicUsize::new(0);
-
 /// A GPU type that stores information about a light probe.
 #[derive(Clone, Copy, ShaderType, Default)]
 struct RenderLightProbe {
