@@ -255,11 +255,16 @@ impl App {
     /// Runs [`Plugin::finish`] for each plugin. This is usually called by the event loop once all
     /// plugins are ready, but can be useful for situations where you want to use [`App::update`].
     pub fn finish(&mut self) {
+        #[cfg(feature = "trace")]
+        let _finish_span = info_span!("plugin finish").entered();
         // plugins installed to main should see all sub-apps
         // do hokey pokey with a boxed zst plugin (doesn't allocate)
         let mut hokeypokey: Box<dyn Plugin> = Box::new(HokeyPokey);
         for i in 0..self.main().plugin_registry.len() {
             core::mem::swap(&mut self.main_mut().plugin_registry[i], &mut hokeypokey);
+            #[cfg(feature = "trace")]
+            let _plugin_finish_span =
+                info_span!("plugin finish", plugin = hokeypokey.name()).entered();
             hokeypokey.finish(self);
             core::mem::swap(&mut self.main_mut().plugin_registry[i], &mut hokeypokey);
         }
@@ -270,11 +275,16 @@ impl App {
     /// Runs [`Plugin::cleanup`] for each plugin. This is usually called by the event loop after
     /// [`App::finish`], but can be useful for situations where you want to use [`App::update`].
     pub fn cleanup(&mut self) {
+        #[cfg(feature = "trace")]
+        let _cleanup_span = info_span!("plugin cleanup").entered();
         // plugins installed to main should see all sub-apps
         // do hokey pokey with a boxed zst plugin (doesn't allocate)
         let mut hokeypokey: Box<dyn Plugin> = Box::new(HokeyPokey);
         for i in 0..self.main().plugin_registry.len() {
             core::mem::swap(&mut self.main_mut().plugin_registry[i], &mut hokeypokey);
+            #[cfg(feature = "trace")]
+            let _plugin_cleanup_span =
+                info_span!("plugin cleanup", plugin = hokeypokey.name()).entered();
             hokeypokey.cleanup(self);
             core::mem::swap(&mut self.main_mut().plugin_registry[i], &mut hokeypokey);
         }
@@ -480,6 +490,9 @@ impl App {
             .push(Box::new(PlaceholderPlugin));
 
         self.main_mut().plugin_build_depth += 1;
+
+        #[cfg(feature = "trace")]
+        let _plugin_build_span = info_span!("plugin build", plugin = plugin.name()).entered();
 
         let f = AssertUnwindSafe(|| plugin.build(self));
 
@@ -1684,9 +1697,17 @@ mod tests {
             b: u32,
         }
 
+        #[expect(
+            dead_code,
+            reason = "This struct is used as a compilation test to test the derive macros, and as such is intentionally never constructed."
+        )]
         #[derive(AppLabel, Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
         struct EmptyTupleLabel();
 
+        #[expect(
+            dead_code,
+            reason = "This struct is used as a compilation test to test the derive macros, and as such is intentionally never constructed."
+        )]
         #[derive(AppLabel, Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
         struct EmptyStructLabel {}
 

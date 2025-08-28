@@ -367,7 +367,7 @@ fn prepare_screenshot_state(
     let texture_view = texture.create_view(&Default::default());
     let buffer = render_device.create_buffer(&wgpu::BufferDescriptor {
         label: Some("screenshot-transfer-buffer"),
-        size: gpu_readback::get_aligned_size(size, format.pixel_size() as u32) as u64,
+        size: gpu_readback::get_aligned_size(size, format.pixel_size().unwrap_or(0) as u32) as u64,
         usage: BufferUsages::MAP_READ | BufferUsages::COPY_DST,
         mapped_at_creation: false,
     });
@@ -627,7 +627,9 @@ pub(crate) fn collect_screenshots(world: &mut World) {
         let width = prepared.size.width;
         let height = prepared.size.height;
         let texture_format = prepared.texture.format();
-        let pixel_size = texture_format.pixel_size();
+        let Ok(pixel_size) = texture_format.pixel_size() else {
+            continue;
+        };
         let buffer = prepared.buffer.clone();
 
         let finish = async move {
