@@ -35,6 +35,7 @@ use bevy_transform::{components::Transform, prelude::GlobalTransform};
 use tracing::error;
 
 use core::{hash::Hash, ops::Deref};
+use std::sync::atomic::{AtomicUsize, Ordering};
 
 use crate::{
     generate::EnvironmentMapGenerationPlugin, light_probe::environment_map::EnvironmentMapIds,
@@ -60,6 +61,8 @@ const STANDARD_MATERIAL_FRAGMENT_SHADER_MIN_TEXTURE_BINDINGS: usize = 16;
 /// This also adds support for view environment maps: diffuse and specular
 /// cubemaps applied to all objects that a view renders.
 pub struct LightProbePlugin;
+
+static count: AtomicUsize = AtomicUsize::new(0);
 
 /// A GPU type that stores information about a light probe.
 #[derive(Clone, Copy, ShaderType, Default)]
@@ -143,10 +146,10 @@ where
     C: LightProbeComponent,
 {
     // The transform from world space to light probe space.
-    light_from_world: Affine3A,
-
-    // The transpose of the inverse of [`light_from_world`].
-    light_from_world_transposed: Mat4,
+    // Stored as the transpose of the inverse transform to compress the structure
+    // on the GPU (from 4 `Vec4`s to 3 `Vec4`s). The shader will transpose it
+    // to recover the original inverse transform.
+    light_from_world: [Vec4; 3],
 
     // The transform from light probe space to world space.
     world_from_light: Affine3A,
@@ -363,7 +366,6 @@ fn gather_light_probes<C>(
             .iter()
             .filter_map(|query_row| LightProbeInfo::new(query_row, &image_assets)),
     );
-
     // Build up the light probes uniform and the key table.
     for (view_entity, view_transform, view_frustum, view_component) in view_query.iter() {
         // Cull light probes outside the view frustum.
@@ -544,11 +546,15 @@ where
         (light_probe_transform, environment_map): (&GlobalTransform, &C),
         image_assets: &RenderAssets<GpuImage>,
     ) -> Option<LightProbeInfo<C>> {
+        let light_from_world_transposed =
+            Mat4::from(light_probe_transform.affine().inverse()).transpose();
         environment_map.id(image_assets).map(|id| LightProbeInfo {
             world_from_light: light_probe_transform.affine(),
-            light_from_world: light_probe_transform.affine().inverse(),
-            light_from_world_transposed: Mat4::from(light_probe_transform.affine().inverse())
-                .transpose(),
+            light_from_world: [
+                light_from_world_transposed.x_axis,
+                light_from_world_transposed.y_axis,
+                light_from_world_transposed.z_axis,
+            ],
             asset_id: id,
             intensity: environment_map.intensity(),
             affects_lightmapped_mesh_diffuse: environment_map.affects_lightmapped_mesh_diffuse(),
@@ -636,15 +642,8 @@ where
             let cubemap_index = self.get_or_insert_cubemap(&light_probe.asset_id);
 
             // Write in the light probe data.
-            // Using the transpose of the inverse transform to compress the structure
-            // on the GPU (from 4 `Vec4`s to 3 `Vec4`s). The shader will transpose it
-            // to recover the original inverse transform.
             self.render_light_probes.push(RenderLightProbe {
-                light_from_world_transposed: [
-                    light_probe.light_from_world_transposed.x_axis,
-                    light_probe.light_from_world_transposed.y_axis,
-                    light_probe.light_from_world_transposed.z_axis,
-                ],
+                light_from_world_transposed: light_probe.light_from_world,
                 texture_index: cubemap_index as i32,
                 intensity: light_probe.intensity,
                 affects_lightmapped_mesh_diffuse: light_probe.affects_lightmapped_mesh_diffuse
@@ -661,7 +660,6 @@ where
     fn clone(&self) -> Self {
         Self {
             light_from_world: self.light_from_world,
-            light_from_world_transposed: self.light_from_world_transposed,
             world_from_light: self.world_from_light,
             intensity: self.intensity,
             affects_lightmapped_mesh_diffuse: self.affects_lightmapped_mesh_diffuse,
