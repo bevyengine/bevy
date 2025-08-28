@@ -381,6 +381,14 @@ unsafe impl<R: Relationship, L: SpawnableList<R>> DynamicBundle for SpawnRelated
         let target =
             <R::RelationshipTarget as RelationshipTarget>::with_capacity(effect.list.size_hint());
         let mut target = MaybeUninit::new(target);
+        // SAFETY:
+        // - The caller must ensure that this is called exactly once before `apply_effect`.
+        // - Assuming `DynamicBundle` is implemented correctly for `R::Relationship` target, `func` should be
+        //   called exactly once for each component being fetched with the correct `StorageType`
+        // - `target` was just initialized and thus must point to an owned valid instance of `R::Relationshp` 
+        //   the pointer it creates must be aligned.
+        // - `Effect: !NoBundleEffect`, which means the caller is responsible for calling this type's `apply_effect`
+        //   at least once before returning to safe code.
         <R::RelationshipTarget as DynamicBundle>::get_components(target.as_mut_ptr(), func);
     }
 
@@ -418,6 +426,14 @@ unsafe impl<R: Relationship, B: Bundle> DynamicBundle for SpawnOneRelated<R, B> 
     ) {
         let target = <R::RelationshipTarget as RelationshipTarget>::with_capacity(1);
         let mut target = MaybeUninit::new(target);
+        // SAFETY:
+        // - The caller must ensure that this is called exactly once before `apply_effect`.
+        // - Assuming `DynamicBundle` is implemented correctly for `R::Relationship` target, `func` should be
+        //   called exactly once for each component being fetched with the correct `StorageType`
+        // - `target` was just initialized and thus must point to an owned valid instance of `R::Relationshp` 
+        //   the pointer it creates must be aligned.
+        // - `Effect: !NoBundleEffect`, which means the caller is responsible for calling this type's `apply_effect`
+        //   at least once before returning to safe code.
         <R::RelationshipTarget as DynamicBundle>::get_components(target.as_mut_ptr(), func);
     }
 

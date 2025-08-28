@@ -49,8 +49,16 @@ unsafe impl<C: Component> DynamicBundle for C {
         ptr: *mut Self,
         func: &mut impl FnMut(StorageType, OwningPtr<'_>),
     ) -> Self::Effect {
-        let ptr = NonNull::new(ptr).debug_checked_unwrap().cast::<u8>();
-        let ptr = OwningPtr::new(ptr);
+        // SAFETY: The caller must ensure that `ptr` is not null.
+        let ptr = unsafe { NonNull::new(ptr).debug_checked_unwrap().cast::<u8>() };
+        // SAFETY:
+        // - The caller must ensure that `ptr` must point to valid value of type `C`.
+        // - The `A` type parameter is [`Aligned`] and the caller must ensure that `ptr` is aligned.
+        // - `ptr` must has the correct provenance to allow read and writes of the pointee type: the caller
+        //   must sure that it is owned.
+        // - The lifetime of the produced `OwningPtr` is valid for the rest of this fucntion call and does not
+        //   alias, assuming that `func` is sound.
+        let ptr = unsafe { OwningPtr::new(ptr) };
         func(C::STORAGE_TYPE, ptr);
     }
 
