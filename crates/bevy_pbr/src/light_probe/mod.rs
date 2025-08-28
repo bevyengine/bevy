@@ -636,7 +636,7 @@ where
             let cubemap_index = self.get_or_insert_cubemap(&light_probe.asset_id);
 
             // Write in the light probe data.
-            // Using the transpose of the inverse transform to compress the structure 
+            // Using the transpose of the inverse transform to compress the structure
             // on the GPU (from 4 `Vec4`s to 3 `Vec4`s). The shader will transpose it
             // to recover the original inverse transform.
             self.render_light_probes.push(RenderLightProbe {
