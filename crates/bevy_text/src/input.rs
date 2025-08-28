@@ -1,61 +1,37 @@
 use core::time::Duration;
 
-use crate::buffer_dimensions;
-use crate::load_font_to_fontdb;
-use crate::CosmicFontSystem;
-use crate::Font;
-use crate::FontAtlasSets;
-use crate::FontSmoothing;
-use crate::Justify;
-use crate::LineBreak;
-use crate::LineHeight;
-use crate::PositionedGlyph;
-use crate::TextBounds;
-use crate::TextError;
-use crate::TextFont;
-use crate::TextLayoutInfo;
-use crate::TextPipeline;
 use alloc::collections::VecDeque;
-use bevy_asset::Assets;
-use bevy_asset::Handle;
-use bevy_derive::Deref;
-use bevy_derive::DerefMut;
-use bevy_ecs::change_detection::DetectChanges;
-use bevy_ecs::change_detection::DetectChangesMut;
-use bevy_ecs::component::Component;
-use bevy_ecs::entity::Entity;
-use bevy_ecs::event::EntityEvent;
-use bevy_ecs::hierarchy::ChildOf;
-use bevy_ecs::lifecycle::HookContext;
-use bevy_ecs::prelude::ReflectComponent;
-use bevy_ecs::query::Changed;
-use bevy_ecs::query::Or;
-use bevy_ecs::resource::Resource;
-use bevy_ecs::schedule::SystemSet;
-use bevy_ecs::system::Commands;
-use bevy_ecs::system::Query;
-use bevy_ecs::system::Res;
-use bevy_ecs::system::ResMut;
-use bevy_ecs::world::DeferredWorld;
-use bevy_ecs::world::Ref;
-use bevy_image::Image;
-use bevy_image::TextureAtlasLayout;
-use bevy_math::IVec2;
-use bevy_math::Rect;
-use bevy_math::UVec2;
-use bevy_math::Vec2;
-use bevy_reflect::prelude::ReflectDefault;
-use bevy_reflect::Reflect;
+use bevy_asset::{Assets, Handle};
+use bevy_derive::{Deref, DerefMut};
+use bevy_ecs::{
+    change_detection::{DetectChanges, DetectChangesMut},
+    component::Component,
+    entity::Entity,
+    event::EntityEvent,
+    hierarchy::ChildOf,
+    lifecycle::HookContext,
+    prelude::ReflectComponent,
+    query::{Changed, Or},
+    resource::Resource,
+    schedule::SystemSet,
+    system::{Commands, Query, Res, ResMut},
+    world::{DeferredWorld, Ref},
+};
+use bevy_image::{Image, TextureAtlasLayout};
+use bevy_math::{IVec2, Rect, UVec2, Vec2};
+use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_time::Time;
-use cosmic_text::Action;
-use cosmic_text::BorrowedWithFontSystem;
-use cosmic_text::Buffer;
-use cosmic_text::BufferLine;
-use cosmic_text::Edit;
-use cosmic_text::Editor;
-use cosmic_text::Metrics;
+use cosmic_text::{
+    Action, BorrowedWithFontSystem, Buffer, BufferLine, Edit, Editor, Metrics, Selection,
+};
 pub use cosmic_text::Motion;
-use cosmic_text::Selection;
+
+use crate::{
+    buffer_dimensions, load_font_to_fontdb, CosmicFontSystem, Font, FontAtlasSets, FontSmoothing,
+    Justify, LineBreak, LineHeight, PositionedGlyph, TextBounds, TextError, TextFont,
+    TextLayoutInfo, TextPipeline,
+};
+
 /// Systems handling text input update and layout
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
 pub struct TextInputSystems;

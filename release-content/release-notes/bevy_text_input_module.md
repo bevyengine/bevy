@@ -1,6 +1,6 @@
 ---
 title: `bevy_text::input` module
-authors: ["@Ickshonpe"]
+authors: ["@Ickshonpe", "@Zeophlite"]
 pull_requests: [20366, 20763]
 ---
 

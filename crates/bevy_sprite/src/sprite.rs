@@ -261,6 +261,7 @@ impl Anchor {
         self.0
     }
 
+    /// Determine the min and max coordinates of a box at the anchor
     pub fn reposition(&self, size: Vec2) -> (f32, f32, f32, f32) {
         let x1 = (Anchor::TOP_LEFT.0.x - self.as_vec().x) * size.x;
         let x2 = (Anchor::TOP_LEFT.0.x - self.as_vec().x + 1.) * size.x;
