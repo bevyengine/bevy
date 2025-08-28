@@ -153,10 +153,7 @@ fn setup(
         .id();
     commands
         .entity(planet_entity)
-        .insert((
-            planet_animation_target_id,
-            AnimatedBy(planet_entity),
-        ))
+        .insert((planet_animation_target_id, AnimatedBy(planet_entity)))
         .with_children(|p| {
             // This entity is just used for animation, but doesn't display anything
             p.spawn((
