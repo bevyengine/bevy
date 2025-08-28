@@ -4,5 +4,5 @@ authors: ["@hukasu"]
 pull_requests: [19323]
 ---
 
-Make `LogDiagnosticsState`'s filter container and argument of
-`LogDiagnosticPlugin::filtered` into `HashSet`.
+`LogDiagnosticsState`'s filter container and the argument of
+`LogDiagnosticPlugin::filtered` is now a `HashSet` rather than a `Vec`.
