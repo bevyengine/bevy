@@ -16,12 +16,11 @@ Features:
 * Max character limit.
 * Responsive height sizing.
 * Vertical and horizontal scrolling
-* Fixes the line cropping while vertical scrolling bug in cosmic-text.
 * Text selection.
 * Cut, copy and paste.
 * Numeric input mode.
-* Single line mode.
-* Support for the common navigation actions like home, end, page down, page up, next word, end of paragraph, etc.
+* Multi-line text input with an optional single line mode.
+* Support for the common navigation actions like arrow key navigation, home, end, page down, page up, next word, end of paragraph, etc.
 * Backspace.
 * Overwrite mode.
 * Click to place cursor.
