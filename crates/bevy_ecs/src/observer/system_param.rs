@@ -190,7 +190,7 @@ pub struct TriggerContext {
 impl TriggerContext {
     pub fn new<E: Event>(world: &mut World, caller: MaybeLocation) -> Self {
         Self {
-            event_key: E::register_event_key(world),
+            event_key: world.register_event_key::<E>(),
             caller,
         }
     }

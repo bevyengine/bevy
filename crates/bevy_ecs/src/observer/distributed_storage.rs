@@ -436,7 +436,7 @@ fn hook_on_add<E: Event, B: Bundle, S: ObserverSystem<E, B>>(
     HookContext { entity, .. }: HookContext,
 ) {
     world.commands().queue(move |world: &mut World| {
-        let event_key = E::register_event_key(world);
+        let event_key = world.register_event_key::<E>();
         let mut components = alloc::vec![];
         B::component_ids(&mut world.components_registrator(), &mut |id| {
             components.push(id);

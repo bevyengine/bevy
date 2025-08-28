@@ -222,7 +222,7 @@ impl World {
         trigger: &mut E::Trigger<'a>,
         caller: MaybeLocation,
     ) {
-        let event_key = E::register_event_key(self);
+        let event_key = self.register_event_key::<E>();
         // SAFETY: event_key was just registered and matches `event`
         unsafe {
             DeferredWorld::from(self).trigger_raw(event_key, event, trigger, caller);
@@ -578,7 +578,7 @@ mod tests {
     fn observer_multiple_events() {
         let mut world = World::new();
         world.init_resource::<Order>();
-        let on_remove = Remove::register_event_key(&mut world);
+        let on_remove = world.register_event_key::<Remove>();
         world.spawn(
             // SAFETY: Add and Remove are both unit types, so this is safe
             unsafe {
@@ -785,7 +785,7 @@ mod tests {
     fn observer_dynamic_trigger() {
         let mut world = World::new();
         world.init_resource::<Order>();
-        let event_a = EventA::register_event_key(&mut world);
+        let event_a = world.register_event_key::<EventA>();
 
         // SAFETY: we registered `event_a` above and it matches the type of EventA
         let observe = unsafe {
@@ -1188,7 +1188,7 @@ mod tests {
         let mut observer = world.add_observer(|_: On<EventA>| {});
         observer.remove::<Observer>();
         let id = observer.id();
-        let event_key = EventA::event_key(&world).unwrap();
+        let event_key = world.event_key::<EventA>().unwrap();
         assert!(!world
             .observers
             .get_observers_mut(event_key)
@@ -1203,7 +1203,7 @@ mod tests {
         let observer = Observer::new(|_: On<EventA>| {}).with_entity(entity);
         let mut observer = world.spawn(observer);
         observer.remove::<Observer>();
-        let event_key = EventA::event_key(&world).unwrap();
+        let event_key = world.event_key::<EventA>().unwrap();
         assert!(!world
             .observers
             .get_observers_mut(event_key)
@@ -1218,7 +1218,7 @@ mod tests {
         let observer = Observer::new(|_: On<EventA>| {}).with_component(a);
         let mut observer = world.spawn(observer);
         observer.remove::<Observer>();
-        let event_key = EventA::event_key(&world).unwrap();
+        let event_key = world.event_key::<EventA>().unwrap();
         assert!(!world
             .observers
             .get_observers_mut(event_key)

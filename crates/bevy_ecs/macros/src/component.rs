@@ -13,6 +13,7 @@ use syn::{
     LitStr, Member, Path, Result, Token, Type, Visibility,
 };
 
+pub const EVENT: &str = "event";
 pub const ENTITY_EVENT: &str = "entity_event";
 pub const PROPAGATE: &str = "propagate";
 // TODO: `traversal` is deprecated. Remove this (and related code) after the next release.
@@ -21,26 +22,47 @@ pub const AUTO_PROPAGATE: &str = "auto_propagate";
 pub const TRIGGER: &str = "trigger";
 
 pub fn derive_event(input: TokenStream) -> TokenStream {
-    let mut ast = parse_macro_input!(input as DeriveInput);
+    let ast = parse_macro_input!(input as DeriveInput);
     let bevy_ecs_path: Path = crate::bevy_ecs_path();
 
-    ast.generics
-        .make_where_clause()
-        .predicates
-        .push(parse_quote! { Self: Send + Sync + 'static });
+    let mut processed_attrs = Vec::new();
+    let mut trigger: Option<Type> = None;
+
+    for attr in ast.attrs.iter().filter(|attr| attr.path().is_ident(EVENT)) {
+        if let Err(e) = attr.parse_nested_meta(|meta| match meta.path.get_ident() {
+            Some(ident) if processed_attrs.iter().any(|i| ident == i) => {
+                Err(meta.error(format!("duplicate attribute: {ident}")))
+            }
+            Some(ident) if ident == TRIGGER => {
+                trigger = Some(meta.value()?.parse()?);
+                processed_attrs.push(TRIGGER);
+                Ok(())
+            }
+            Some(ident) => Err(meta.error(format!("unsupported attribute: {ident}"))),
+            None => Err(meta.error("expected identifier")),
+        }) {
+            return e.to_compile_error().into();
+        }
+    }
+
+    let trigger = if let Some(trigger) = trigger {
+        quote! {#trigger}
+    } else {
+        quote! {#bevy_ecs_path::event::GlobalTrigger}
+    };
 
     let struct_name = &ast.ident;
     let (impl_generics, type_generics, where_clause) = &ast.generics.split_for_impl();
 
     TokenStream::from(quote! {
         impl #impl_generics #bevy_ecs_path::event::Event for #struct_name #type_generics #where_clause {
-            type Trigger<'a> = #bevy_ecs_path::event::GlobalTrigger;
+            type Trigger<'a> = #trigger;
         }
     })
 }
 
 pub fn derive_entity_event(input: TokenStream) -> TokenStream {
-    let mut ast = parse_macro_input!(input as DeriveInput);
+    let ast = parse_macro_input!(input as DeriveInput);
     let mut auto_propagate = false;
     let mut propagate = false;
     let mut traversal: Option<Type> = None;
@@ -48,11 +70,6 @@ pub fn derive_entity_event(input: TokenStream) -> TokenStream {
     let bevy_ecs_path: Path = crate::bevy_ecs_path();
 
     let mut processed_attrs = Vec::new();
-
-    ast.generics
-        .make_where_clause()
-        .predicates
-        .push(parse_quote! { Self: Send + Sync + 'static });
 
     for attr in ast
         .attrs
@@ -84,6 +101,7 @@ pub fn derive_entity_event(input: TokenStream) -> TokenStream {
             }
             Some(ident) if ident == TRIGGER => {
                 trigger = Some(meta.value()?.parse()?);
+                processed_attrs.push(TRIGGER);
                 Ok(())
             }
             Some(ident) => Err(meta.error(format!("unsupported attribute: {ident}"))),
@@ -137,7 +155,7 @@ pub fn derive_entity_event(input: TokenStream) -> TokenStream {
     })
 }
 
-/// Returns the field with the `#[entity]` attribute, the only field if unnamed,
+/// Returns the field with the `#[event_entity]` attribute, the only field if unnamed,
 /// or the field with the name "entity".
 fn get_entity_event_field(ast: &DeriveInput) -> Result<Member> {
     let Data::Struct(DataStruct { fields, .. }) = &ast.data else {

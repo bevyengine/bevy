@@ -13,26 +13,13 @@ use crate::{
 };
 use core::marker::PhantomData;
 
-/// Something that "happens" and can be processed by app logic.
+/// An [`Event`] is something that "happens" at given point.
 ///
-/// Events can be triggered on a [`World`] using a method like [`trigger`](World::trigger),
-/// causing any global [`Observer`] watching that event to run. This allows for push-based
-/// event handling where observers are immediately notified of events as they happen.
+/// To make an [`Event`] "happen", you "trigger" it on a [`World`] using [`World::trigger`] or via a [`Command`](crate::system::Command)
+/// using [`Commands::trigger`](crate::system::Commands::trigger). This causes any [`Observer`] watching for that [`Event`] to run
+/// _immediately_, as part of the [`World::trigger`] call.
 ///
-/// Additional event handling behavior can be enabled by implementing the [`EntityEvent`]
-/// and [`BufferedEvent`] traits:
-///
-/// - [`EntityEvent`]s support targeting specific entities, triggering any observers watching those targets.
-///   They are useful for entity-specific event handlers and can even be propagated from one entity to another.
-/// - [`BufferedEvent`]s support a pull-based event handling system where events are written using an [`EventWriter`]
-///   and read later using an [`EventReader`]. This is an alternative to observers that allows efficient batch processing
-///   of events at fixed points in a schedule.
-///
-/// Events must be thread-safe.
-///
-/// # Usage
-///
-/// The [`Event`] trait can be derived:
+/// The [`Event`] trait should generally be derived:
 ///
 /// ```
 /// # use bevy_ecs::prelude::*;
@@ -43,7 +30,7 @@ use core::marker::PhantomData;
 /// }
 /// ```
 ///
-/// An [`Observer`] can then be added to listen for this event type:
+/// An [`Observer`] can then be added to watch for this event type:
 ///
 /// ```
 /// # use bevy_ecs::prelude::*;
@@ -55,8 +42,8 @@ use core::marker::PhantomData;
 /// #
 /// # let mut world = World::new();
 /// #
-/// world.add_observer(|event: On<Speak>| {
-///     println!("{}", event.message);
+/// world.add_observer(|speak: On<Speak>| {
+///     println!("{}", speak.message);
 /// });
 /// ```
 ///
@@ -72,8 +59,8 @@ use core::marker::PhantomData;
 /// #
 /// # let mut world = World::new();
 /// #
-/// # world.add_observer(|event: On<Speak>| {
-/// #     println!("{}", event.message);
+/// # world.add_observer(|speak: On<Speak>| {
+/// #     println!("{}", speak.message);
 /// # });
 /// #
 /// # world.flush();
@@ -83,35 +70,38 @@ use core::marker::PhantomData;
 /// });
 /// ```
 ///
-/// For events that additionally need entity targeting or buffering, consider also deriving
-/// [`EntityEvent`] or [`BufferedEvent`], respectively.
+/// # Triggers
 ///
-/// [`World`]: crate::world::World
-/// [`Observer`]: crate::observer::Observer
-/// [`EventReader`]: super::EventReader
-/// [`EventWriter`]: super::EventWriter
+/// Every [`Event`] has an associated [`Trigger`] implementation (via [`Event::Trigger`]), which defines which observers will run,
+/// what data will be passed to them, and the order they will be run in. Unless you are an internals developer or you have very specific
+/// needs, you don't need to worry too much about [`Trigger`]. When you derive [`Event`] (or a more specific event trait like [`EntityEvent`]),
+/// a [`Trigger`] will be provided for you.
+///
+/// The [`Event`] derive defaults [`Event::Trigger`] to [`GlobalTrigger`], which will run all observers that watch for the [`Event`].
+///
+/// # Entity Events
+///
+/// For events that "target" a specific [`Entity`], see [`EntityEvent`].
 #[diagnostic::on_unimplemented(
     message = "`{Self}` is not an `Event`",
     label = "invalid `Event`",
     note = "consider annotating `{Self}` with `#[derive(Event)]`"
 )]
 pub trait Event: Send + Sync + Sized + 'static {
+    /// Defines which observers will run, what data will be passed to them, and the order they will be run in. See [`Trigger`] for more info.
     type Trigger<'a>: Trigger<Self>;
+}
 
+impl World {
     /// Generates the [`EventKey`] for this event type.
     ///
     /// If this type has already been registered,
     /// this will return the existing [`EventKey`].
     ///
     /// This is used by various dynamically typed observer APIs,
-    /// such as [`World::trigger_targets_dynamic`].
-    ///
-    /// # Warning
-    ///
-    /// This method should not be overridden by implementers,
-    /// and should always correspond to the implementation of [`event_key`](Event::event_key).
-    fn register_event_key(world: &mut World) -> EventKey {
-        EventKey(world.register_component::<EventWrapperComponent<Self>>())
+    /// such as [`DeferredWorld::trigger_raw`](crate::world::DeferredWorld::trigger_raw).
+    pub(crate) fn register_event_key<E: Event>(&mut self) -> EventKey {
+        EventKey(self.register_component::<EventWrapperComponent<E>>())
     }
 
     /// Fetches the [`EventKey`] for this event type,
@@ -119,15 +109,8 @@ pub trait Event: Send + Sync + Sized + 'static {
     ///
     /// This is used by various dynamically typed observer APIs,
     /// such as [`World::trigger_targets_dynamic`].
-    ///
-    /// # Warning
-    ///
-    /// This method should not be overridden by implementers,
-    /// and should always correspond to the implementation of
-    /// [`register_event_key`](Event::register_event_key).
-    fn event_key(world: &World) -> Option<EventKey> {
-        world
-            .component_id::<EventWrapperComponent<Self>>()
+    pub(crate) fn event_key<E: Event>(&self) -> Option<EventKey> {
+        self.component_id::<EventWrapperComponent<E>>()
             .map(EventKey)
     }
 }
