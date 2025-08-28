@@ -242,9 +242,9 @@ impl<'a> Executor<'a> {
         };
         entry.insert(runnable.waker());
 
-        // Runnable::schedule has a extra extraneous Waker clone/drop if the schedule captures
+        // `Runnable::schedule ` has a extra extraneous Waker clone/drop if the schedule captures
         // variables, so directly schedule here instead.
-        Self::schedule_runnable(&state, runnable);
+        Self::schedule_runnable(state, runnable);
         task
     }
 
@@ -255,6 +255,10 @@ impl<'a> Executor<'a> {
     }
 
     /// Spawns a non-'static and non-Send task onto the executor.
+    /// 
+    /// # Panics
+    ///  - This function will panic if any of the internal allocations causes an OOM (out of memory) error.
+    ///  - This function will panic if the current thread's destructor has already been called.
     ///
     /// # Safety
     /// The caller must ensure that the returned Task does not outlive 'a.
@@ -309,7 +313,7 @@ impl<'a> Executor<'a> {
 
                 // Runnable::schedule has a extra extraneous Waker clone/drop if the schedule captures
                 // variables, so directly schedule here instead.
-                Self::schedule_runnable_local(&self.state(), tls, runnable);
+                Self::schedule_runnable_local(self.state(), tls, runnable);
 
                 task
             }).unwrap()
