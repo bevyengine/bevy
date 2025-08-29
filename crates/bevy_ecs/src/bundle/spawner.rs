@@ -49,6 +49,7 @@ impl<'w> BundleSpawner<'w> {
         let bundle_info = world.bundles.get_unchecked(bundle_id);
         let (new_archetype_id, is_new_created) = bundle_info.insert_bundle_into_archetype(
             &mut world.archetypes,
+            &mut world.edges,
             &mut world.storages,
             &world.components,
             &world.observers,

@@ -37,7 +37,7 @@ pub use identifier::WorldId;
 pub use spawn_batch::*;
 
 use crate::{
-    archetype::{ArchetypeId, Archetypes},
+    archetype::{ArchetypeId, Archetypes, Edges},
     bundle::{
         Bundle, BundleEffect, BundleInfo, BundleInserter, BundleSpawner, Bundles, InsertMode,
         NoBundleEffect,
@@ -97,6 +97,7 @@ pub struct World {
     pub(crate) components: Components,
     pub(crate) component_ids: ComponentIds,
     pub(crate) archetypes: Archetypes,
+    pub(crate) edges: Edges,
     pub(crate) storages: Storages,
     pub(crate) bundles: Bundles,
     pub(crate) observers: Observers,
@@ -115,6 +116,7 @@ impl Default for World {
             entities: Entities::new(),
             components: Default::default(),
             archetypes: Archetypes::new(),
+            edges: Default::default(),
             storages: Default::default(),
             bundles: Default::default(),
             observers: Observers::default(),
@@ -220,6 +222,13 @@ impl World {
     #[inline]
     pub fn archetypes(&self) -> &Archetypes {
         &self.archetypes
+    }
+
+    /// Fetches an immutable reference to the [`Edges`], a cache of
+    /// archetypal relationships.
+    #[inline]
+    pub fn edges(&self) -> &Edges {
+        &self.edges
     }
 
     /// Retrieves this world's [`Components`] collection.
