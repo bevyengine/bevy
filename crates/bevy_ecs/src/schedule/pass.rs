@@ -25,7 +25,7 @@ pub trait ScheduleBuildPass: Send + Sync + Debug + 'static {
         _world: &mut World,
         _graph: &mut ScheduleGraph,
     ) -> impl Iterator<Item = SystemKey> {
-        std::iter::empty()
+        core::iter::empty()
     }
 
     /// Called while flattening the dependency graph. For each `set`, this method is called
@@ -39,7 +39,7 @@ pub trait ScheduleBuildPass: Send + Sync + Debug + 'static {
         _graph: &mut ScheduleGraph,
         _dependency_flattening: &DiGraph<NodeId>,
     ) -> impl Iterator<Item = (NodeId, NodeId)> {
-        std::iter::empty()
+        core::iter::empty()
     }
 
     /// The implementation will be able to modify the `ScheduleGraph` here.

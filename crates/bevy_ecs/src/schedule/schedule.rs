@@ -1088,7 +1088,7 @@ impl ScheduleGraph {
                 }
             }
 
-            let mut passes = std::mem::take(&mut self.passes);
+            let mut passes = core::mem::take(&mut self.passes);
             for pass in passes.values_mut() {
                 pass.map_set_to_systems(set_key, &mut systems, world, self);
             }
