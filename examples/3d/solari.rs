@@ -68,7 +68,7 @@ fn setup(
             SceneRoot(
                 asset_server.load(
                     GltfAssetLabel::Scene(0)
-                        .from_asset("https://github.com/bevyengine/bevy_asset_files/raw/refs/heads/main/pica_pica/mini_diorama_01.glb")
+                        .from_asset("https://github.com/bevyengine/bevy_asset_files/raw/2a5950295a8b6d9d051d59c0df69e87abcda58c3/pica_pica/mini_diorama_01.glb")
                 ),
             ),
             Transform::from_scale(Vec3::splat(10.0)),
