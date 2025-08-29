@@ -86,8 +86,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands
         .spawn((
             Node {
-                width: Val::Percent(100.),
-                height: Val::Percent(100.),
+                width: percent(100),
+                height: percent(100),
                 flex_direction: FlexDirection::Column,
                 align_items: AlignItems::Center,
                 justify_content: JustifyContent::SpaceEvenly,
@@ -101,22 +101,22 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 text_font.clone(),
                 TextLayout::new_with_justify(Justify::Center),
                 Node {
-                    margin: UiRect::bottom(Val::Px(10.)),
+                    margin: UiRect::bottom(px(10)),
                     ..Default::default()
                 },
             ));
 
             parent
                 .spawn(Node {
-                    width: Val::Percent(100.),
+                    width: percent(100),
                     ..default()
                 })
                 .with_children(|parent| {
                     let mut target_ids = vec![];
                     parent
                         .spawn(Node {
-                            width: Val::Percent(50.),
-                            height: Val::Px(520.),
+                            width: percent(50),
+                            height: px(520),
                             justify_content: JustifyContent::Center,
                             ..default()
                         })
@@ -126,7 +126,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 
                     parent
                         .spawn(Node {
-                            width: Val::Percent(50.),
+                            width: percent(50),
                             justify_content: JustifyContent::Center,
                             ..default()
                         })
@@ -140,7 +140,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     flex_direction: FlexDirection::Row,
                     align_items: AlignItems::Start,
                     justify_content: JustifyContent::Start,
-                    column_gap: Val::Px(10.),
+                    column_gap: px(10),
                     ..default()
                 })
                 .with_children(|builder| {
@@ -171,7 +171,7 @@ fn spawn_left_panel(builder: &mut ChildSpawnerCommands, palette: &[Color; 4]) ->
     builder
         .spawn((
             Node {
-                padding: UiRect::all(Val::Px(10.)),
+                padding: UiRect::all(px(10)),
                 ..default()
             },
             BackgroundColor(Color::WHITE),
@@ -189,22 +189,22 @@ fn spawn_left_panel(builder: &mut ChildSpawnerCommands, palette: &[Color; 4]) ->
                             },
                             BackgroundColor(palette[0]),
                             Outline {
-                                width: Val::Px(4.),
+                                width: px(4),
                                 color: DARK_CYAN.into(),
-                                offset: Val::Px(10.),
+                                offset: px(10),
                             },
                         ))
                         .with_children(|parent| {
                             parent.spawn(Node {
-                                width: Val::Px(100.),
-                                height: Val::Px(500.),
+                                width: px(100),
+                                height: px(500),
                                 ..default()
                             });
 
                             let id = parent
                                 .spawn((
                                     Node {
-                                        height: Val::Px(400.),
+                                        height: px(400),
                                         align_items: AlignItems::FlexEnd,
                                         justify_content: JustifyContent::FlexEnd,
                                         ..default()
@@ -213,15 +213,15 @@ fn spawn_left_panel(builder: &mut ChildSpawnerCommands, palette: &[Color; 4]) ->
                                 ))
                                 .with_children(|parent| {
                                     parent.spawn(Node {
-                                        width: Val::Px(100.),
-                                        height: Val::Px(400.),
+                                        width: px(100),
+                                        height: px(400),
                                         ..default()
                                     });
 
                                     let id = parent
                                         .spawn((
                                             Node {
-                                                height: Val::Px(300.),
+                                                height: px(300),
                                                 align_items: AlignItems::FlexEnd,
                                                 justify_content: JustifyContent::FlexEnd,
                                                 ..default()
@@ -230,16 +230,16 @@ fn spawn_left_panel(builder: &mut ChildSpawnerCommands, palette: &[Color; 4]) ->
                                         ))
                                         .with_children(|parent| {
                                             parent.spawn(Node {
-                                                width: Val::Px(100.),
-                                                height: Val::Px(300.),
+                                                width: px(100),
+                                                height: px(300),
                                                 ..default()
                                             });
 
                                             let id = parent
                                                 .spawn((
                                                     Node {
-                                                        width: Val::Px(200.),
-                                                        height: Val::Px(200.),
+                                                        width: px(200),
+                                                        height: px(200),
                                                         ..default()
                                                     },
                                                     BackgroundColor(palette[3]),
@@ -273,7 +273,7 @@ fn spawn_right_panel(
     parent
         .spawn((
             Node {
-                padding: UiRect::all(Val::Px(10.)),
+                padding: UiRect::all(px(10)),
                 ..default()
             },
             BackgroundColor(Color::WHITE),
@@ -282,23 +282,23 @@ fn spawn_right_panel(
             parent
                 .spawn((
                     Node {
-                        width: Val::Px(500.),
-                        height: Val::Px(500.),
+                        width: px(500),
+                        height: px(500),
                         flex_direction: FlexDirection::Column,
                         align_items: AlignItems::FlexEnd,
                         justify_content: JustifyContent::SpaceBetween,
                         padding: UiRect {
-                            left: Val::Px(5.),
-                            top: Val::Px(5.),
+                            left: px(5),
+                            top: px(5),
                             ..default()
                         },
                         ..default()
                     },
                     BackgroundColor(palette[0]),
                     Outline {
-                        width: Val::Px(4.),
+                        width: px(4),
                         color: DARK_CYAN.into(),
-                        offset: Val::Px(10.),
+                        offset: px(10),
                     },
                 ))
                 .with_children(|parent| {
@@ -307,14 +307,14 @@ fn spawn_right_panel(
                     parent
                         .spawn((
                             Node {
-                                width: Val::Px(400.),
-                                height: Val::Px(400.),
+                                width: px(400),
+                                height: px(400),
                                 flex_direction: FlexDirection::Column,
                                 align_items: AlignItems::FlexEnd,
                                 justify_content: JustifyContent::SpaceBetween,
                                 padding: UiRect {
-                                    left: Val::Px(5.),
-                                    top: Val::Px(5.),
+                                    left: px(5),
+                                    top: px(5),
                                     ..default()
                                 },
                                 ..default()
@@ -327,14 +327,14 @@ fn spawn_right_panel(
                             parent
                                 .spawn((
                                     Node {
-                                        width: Val::Px(300.),
-                                        height: Val::Px(300.),
+                                        width: px(300),
+                                        height: px(300),
                                         flex_direction: FlexDirection::Column,
                                         align_items: AlignItems::FlexEnd,
                                         justify_content: JustifyContent::SpaceBetween,
                                         padding: UiRect {
-                                            left: Val::Px(5.),
-                                            top: Val::Px(5.),
+                                            left: px(5),
+                                            top: px(5),
                                             ..default()
                                         },
                                         ..default()
@@ -347,14 +347,14 @@ fn spawn_right_panel(
                                     parent
                                         .spawn((
                                             Node {
-                                                width: Val::Px(200.),
-                                                height: Val::Px(200.),
+                                                width: px(200),
+                                                height: px(200),
                                                 align_items: AlignItems::FlexStart,
                                                 justify_content: JustifyContent::SpaceBetween,
                                                 flex_direction: FlexDirection::Column,
                                                 padding: UiRect {
-                                                    left: Val::Px(5.),
-                                                    top: Val::Px(5.),
+                                                    left: px(5),
+                                                    top: px(5),
                                                     ..default()
                                                 },
                                                 ..default()
@@ -365,8 +365,8 @@ fn spawn_right_panel(
                                             spawn_buttons(parent, target_ids.pop().unwrap());
 
                                             parent.spawn(Node {
-                                                width: Val::Px(100.),
-                                                height: Val::Px(100.),
+                                                width: px(100),
+                                                height: px(100),
                                                 ..default()
                                             });
                                         });
@@ -386,7 +386,7 @@ where
             Button,
             Node {
                 align_self: AlignSelf::FlexStart,
-                padding: UiRect::axes(Val::Px(5.), Val::Px(1.)),
+                padding: UiRect::axes(px(5), px(1)),
                 ..default()
             },
             BackgroundColor(Color::BLACK.with_alpha(0.5)),
