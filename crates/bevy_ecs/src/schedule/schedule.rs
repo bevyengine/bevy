@@ -1008,8 +1008,11 @@ impl ScheduleGraph {
 
         // map all system sets to their systems
         // go in reverse topological order (bottom-up) for efficiency
-        let (set_systems, set_system_bitsets) =
-            self.map_sets_to_systems(&self.hierarchy.topsort, &self.hierarchy.graph);
+        let set_systems = self.map_sets_to_systems(world);
+        let set_system_bitsets = set_systems
+            .iter()
+            .map(|(key, systems)| (*key, systems.iter().copied().collect()))
+            .collect();
         self.check_order_but_intersect(&dep_results.connected, &set_system_bitsets)?;
 
         // check that there are no edges to system-type sets that have multiple instances
@@ -1062,45 +1065,38 @@ impl ScheduleGraph {
     /// Return a map from system set `NodeId` to a list of system `NodeId`s that are included in the set.
     /// Also return a map from system set `NodeId` to a `FixedBitSet` of system `NodeId`s that are included in the set,
     /// where the bitset order is the same as `self.systems`
-    fn map_sets_to_systems(
-        &self,
-        hierarchy_topsort: &[NodeId],
-        hierarchy_graph: &DiGraph<NodeId>,
-    ) -> (
-        HashMap<SystemSetKey, Vec<SystemKey>>,
-        HashMap<SystemSetKey, HashSet<SystemKey>>,
-    ) {
+    fn map_sets_to_systems(&mut self, world: &mut World) -> HashMap<SystemSetKey, Vec<SystemKey>> {
         let mut set_systems: HashMap<SystemSetKey, Vec<SystemKey>> =
             HashMap::with_capacity_and_hasher(self.system_sets.len(), Default::default());
-        let mut set_system_sets: HashMap<SystemSetKey, HashSet<SystemKey>> =
-            HashMap::with_capacity_and_hasher(self.system_sets.len(), Default::default());
-        for &id in hierarchy_topsort.iter().rev() {
+        let toposort = self.hierarchy.topsort.clone();
+        for &id in toposort.iter().rev() {
             let NodeId::Set(set_key) = id else {
                 continue;
             };
 
             let mut systems = Vec::new();
-            let mut system_set = HashSet::with_capacity(self.systems.len());
 
-            for child in hierarchy_graph.neighbors_directed(id, Outgoing) {
+            for child in self.hierarchy.graph.neighbors_directed(id, Outgoing) {
                 match child {
                     NodeId::System(key) => {
                         systems.push(key);
-                        system_set.insert(key);
                     }
                     NodeId::Set(key) => {
                         let child_systems = set_systems.get(&key).unwrap();
-                        let child_system_set = set_system_sets.get(&key).unwrap();
                         systems.extend_from_slice(child_systems);
-                        system_set.extend(child_system_set.iter());
                     }
                 }
             }
 
+            let mut passes = std::mem::take(&mut self.passes);
+            for pass in passes.values_mut() {
+                pass.map_set_to_systems(set_key, &mut systems, world, self);
+            }
+            self.passes = passes;
             set_systems.insert(set_key, systems);
-            set_system_sets.insert(set_key, system_set);
         }
-        (set_systems, set_system_sets)
+
+        set_systems
     }
 
     fn get_dependency_flattened(
