@@ -1,7 +1,7 @@
 use core::hint::black_box;
 
 use bevy_ecs::{
-    bundle::{Bundle, NoBundleEffect},
+    bundle::{Bundle, NoBundleEffect, StaticBundle},
     component::Component,
     entity::Entity,
     system::{Query, SystemState},
@@ -38,7 +38,7 @@ fn setup<T: Component + Default>(entity_count: u32) -> (World, Vec<Entity>) {
     black_box((world, entities))
 }
 
-fn setup_wide<T: Bundle<Effect: NoBundleEffect> + Default>(
+fn setup_wide<T: Bundle<Effect: NoBundleEffect> + StaticBundle + Default>(
     entity_count: u32,
 ) -> (World, Vec<Entity>) {
     let mut world = World::default();

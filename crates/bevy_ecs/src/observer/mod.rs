@@ -143,6 +143,7 @@ pub use system_param::*;
 pub use trigger_targets::*;
 
 use crate::{
+    bundle::StaticBundle,
     change_detection::MaybeLocation,
     component::ComponentId,
     prelude::*,
@@ -179,7 +180,7 @@ impl World {
     /// # Panics
     ///
     /// Panics if the given system is an exclusive system.
-    pub fn add_observer<E: Event, B: Bundle, M>(
+    pub fn add_observer<E: Event, B: StaticBundle, M>(
         &mut self,
         system: impl IntoObserverSystem<E, B, M>,
     ) -> EntityWorldMut<'_> {

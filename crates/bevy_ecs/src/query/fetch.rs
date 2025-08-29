@@ -1,6 +1,6 @@
 use crate::{
     archetype::{Archetype, Archetypes},
-    bundle::Bundle,
+    bundle::StaticBundle,
     change_detection::{MaybeLocation, Ticks, TicksMut},
     component::{Component, ComponentId, Components, Mutable, StorageType, Tick},
     entity::{Entities, Entity, EntityLocation},
@@ -1155,7 +1155,7 @@ unsafe impl<'a, 'b> QueryData for FilteredEntityMut<'a, 'b> {
 /// are rejected.
 unsafe impl<'a, 'b, B> WorldQuery for EntityRefExcept<'a, 'b, B>
 where
-    B: Bundle,
+    B: StaticBundle,
 {
     type Fetch<'w> = EntityFetch<'w>;
     type State = Access;
@@ -1233,7 +1233,7 @@ where
 /// SAFETY: `Self` is the same as `Self::ReadOnly`.
 unsafe impl<'a, 'b, B> QueryData for EntityRefExcept<'a, 'b, B>
 where
-    B: Bundle,
+    B: StaticBundle,
 {
     const IS_READ_ONLY: bool = true;
     type ReadOnly = Self;
@@ -1261,14 +1261,14 @@ where
 
 /// SAFETY: `EntityRefExcept` enforces read-only access to its contained
 /// components.
-unsafe impl<B> ReadOnlyQueryData for EntityRefExcept<'_, '_, B> where B: Bundle {}
+unsafe impl<B> ReadOnlyQueryData for EntityRefExcept<'_, '_, B> where B: StaticBundle {}
 
 /// SAFETY: `EntityMutExcept` guards access to all components in the bundle `B`
 /// and populates `Access` values so that queries that conflict with this access
 /// are rejected.
 unsafe impl<'a, 'b, B> WorldQuery for EntityMutExcept<'a, 'b, B>
 where
-    B: Bundle,
+    B: StaticBundle,
 {
     type Fetch<'w> = EntityFetch<'w>;
     type State = Access;
@@ -1347,7 +1347,7 @@ where
 /// `EntityMutExcept` provides.
 unsafe impl<'a, 'b, B> QueryData for EntityMutExcept<'a, 'b, B>
 where
-    B: Bundle,
+    B: StaticBundle,
 {
     const IS_READ_ONLY: bool = false;
     type ReadOnly = EntityRefExcept<'a, 'b, B>;

@@ -4,7 +4,7 @@ use bevy_ptr::ConstNonNull;
 
 use crate::{
     archetype::{Archetype, ArchetypeCreated, ArchetypeId, SpawnBundleStatus},
-    bundle::{Bundle, BundleId, BundleInfo, DynamicBundle, InsertMode},
+    bundle::{Bundle, BundleId, BundleInfo, DynamicBundle, InsertMode, StaticBundle},
     change_detection::MaybeLocation,
     component::{ComponentsRegistrator, Tick},
     entity::{Entities, Entity, EntityLocation},
@@ -25,13 +25,25 @@ pub(crate) struct BundleSpawner<'w> {
 
 impl<'w> BundleSpawner<'w> {
     #[inline]
-    pub fn new<T: Bundle>(world: &'w mut World, change_tick: Tick) -> Self {
+    pub fn new<T: Bundle>(bundle: &T, world: &'w mut World, change_tick: Tick) -> Self {
         // SAFETY: These come from the same world. `world.components_registrator` can't be used since we borrow other fields too.
         let mut registrator =
             unsafe { ComponentsRegistrator::new(&mut world.components, &mut world.component_ids) };
         let bundle_id = world
             .bundles
-            .register_info::<T>(&mut registrator, &mut world.storages);
+            .register_info(bundle, &mut registrator, &mut world.storages);
+        // SAFETY: we initialized this bundle_id in `init_info`
+        unsafe { Self::new_with_id(world, bundle_id, change_tick) }
+    }
+
+    #[inline]
+    pub fn new_static<T: StaticBundle>(world: &'w mut World, change_tick: Tick) -> Self {
+        // SAFETY: These come from the same world. `world.components_registrator` can't be used since we borrow other fields too.
+        let mut registrator =
+            unsafe { ComponentsRegistrator::new(&mut world.components, &mut world.component_ids) };
+        let bundle_id = world
+            .bundles
+            .register_static_info::<T>(&mut registrator, &mut world.storages);
         // SAFETY: we initialized this bundle_id in `init_info`
         unsafe { Self::new_with_id(world, bundle_id, change_tick) }
     }
