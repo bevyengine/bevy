@@ -16,7 +16,7 @@ use syn::{
 pub const EVENT: &str = "event";
 pub const ENTITY_EVENT: &str = "entity_event";
 pub const PROPAGATE: &str = "propagate";
-// TODO: `traversal` is deprecated. Remove this (and related code) after the next release.
+#[deprecated(since = "0.17.0", note = "This has been renamed to `propagate`.")]
 pub const TRAVERSAL: &str = "traversal";
 pub const AUTO_PROPAGATE: &str = "auto_propagate";
 pub const TRIGGER: &str = "trigger";
