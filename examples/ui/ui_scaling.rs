@@ -67,8 +67,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             parent.spawn((
                 ImageNode::new(asset_server.load("branding/icon.png")),
                 Node {
-                    width: Val::Px(30.0),
-                    height: Val::Px(30.0),
+                    height: Val::Percent(50.0),
+                    max_width: Val::Px(50.0),
                     ..default()
                 },
             ));
