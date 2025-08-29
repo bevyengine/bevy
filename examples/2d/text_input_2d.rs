@@ -89,6 +89,7 @@ fn setup(mut commands: Commands) {
         );
 }
 
+// Here we set the text rendering target's size to match based on the window's scale factor
 fn update_targets(
     mut commands: Commands,
     windows: Query<&Window, With<PrimaryWindow>>,
@@ -121,6 +122,7 @@ fn update_targets(
     }
 }
 
+// This example demonstrates how to convert keyboard input to text edits that get resolved
 fn update_inputs(
     mut keyboard_events: EventReader<KeyboardInput>,
     mut query: Query<(&mut TextEdits, &mut Overwrite)>,

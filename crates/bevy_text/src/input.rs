@@ -1142,7 +1142,7 @@ pub enum TextInputEvent {
     TextChanged,
 }
 
-/// Optional component to control cursor blink behaviour
+/// Optional component to control cursor blink behavior
 #[derive(Default, Component, Clone, Debug, Reflect, Deref, DerefMut)]
 #[reflect(Component, Default, Debug)]
 pub struct CursorBlink {
