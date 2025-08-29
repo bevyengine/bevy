@@ -563,9 +563,11 @@ impl<A: Asset> Assets<A> {
             // handle being dropped and this system running; only try dropping
             // if that isn't the case.
             if !assets.get_handle_provider().is_live(id.internal()) {
-                if drop_event.asset_server_managed {
-                    let untyped_id = id.untyped();
-
+                // the server should only decide whether to skip dropping the
+                // asset if it manages the asset: this is the case if the asset
+                // has an info entry with the server.
+                let untyped_id = id.untyped();
+                if infos.contains_key(untyped_id) {
                     if !infos.process_handle_drop(untyped_id) {
                         // the asset doesn't exist
                         continue;
