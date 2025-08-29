@@ -2,7 +2,8 @@ use crate::{
     meta::MetaTransform, Asset, AssetId, AssetIndexAllocator, AssetPath, InternalAssetId,
     UntypedAssetId,
 };
-use alloc::sync::Arc;
+use alloc::sync::{Arc, Weak};
+use bevy_platform::collections::HashMap;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect, TypePath};
 use core::{
     any::TypeId,
@@ -11,6 +12,7 @@ use core::{
 };
 use crossbeam_channel::{Receiver, Sender};
 use disqualified::ShortName;
+use parking_lot::Mutex;
 use thiserror::Error;
 use uuid::Uuid;
 
@@ -22,6 +24,7 @@ pub struct AssetHandleProvider {
     pub(crate) drop_sender: Sender<DropEvent>,
     pub(crate) drop_receiver: Receiver<DropEvent>,
     pub(crate) type_id: TypeId,
+    pub(crate) id_to_handle: Arc<Mutex<HashMap<InternalAssetId, Weak<StrongHandle>>>>,
 }
 
 #[derive(Debug)]
@@ -38,6 +41,7 @@ impl AssetHandleProvider {
             allocator,
             drop_sender,
             drop_receiver,
+            id_to_handle: Arc::new(Mutex::new(HashMap::default())),
         }
     }
 
@@ -48,6 +52,16 @@ impl AssetHandleProvider {
         UntypedHandle::Strong(self.get_handle(InternalAssetId::Index(index), false, None, None))
     }
 
+    pub(crate) fn try_get_handle(&self, id: InternalAssetId) -> Option<Arc<StrongHandle>> {
+        let id_to_handle = self.id_to_handle.lock();
+        id_to_handle.get(&id).and_then(|weak| weak.upgrade())
+    }
+
+    /// Creates a new handle for the given `id`. If a handle was previously
+    /// created for the same `id`, and that handle is still live, the same
+    /// handle is returned again. If a previously created handle has since gone
+    /// stale (i.e. all strong references to it have been dropped), a new handle
+    /// is created replacing the old handle.
     pub(crate) fn get_handle(
         &self,
         id: InternalAssetId,
@@ -55,13 +69,23 @@ impl AssetHandleProvider {
         path: Option<AssetPath<'static>>,
         meta_transform: Option<MetaTransform>,
     ) -> Arc<StrongHandle> {
-        Arc::new(StrongHandle {
+        let mut id_to_handle = self.id_to_handle.lock();
+
+        if let Some(strong) = id_to_handle.get(&id).and_then(|weak| weak.upgrade()) {
+            return strong;
+        }
+
+        let strong = Arc::new(StrongHandle {
             id: id.untyped(self.type_id),
             drop_sender: self.drop_sender.clone(),
             meta_transform,
             path,
             asset_server_managed,
-        })
+        });
+
+        _ = id_to_handle.insert(id, Arc::downgrade(&strong));
+
+        strong
     }
 
     pub(crate) fn reserve_handle_internal(
@@ -77,6 +101,14 @@ impl AssetHandleProvider {
             path,
             meta_transform,
         )
+    }
+
+    pub(crate) fn is_live(&self, id: InternalAssetId) -> bool {
+        let id_to_handle = self.id_to_handle.lock();
+        id_to_handle
+            .get(&id)
+            .map(|weak| weak.strong_count() > 0)
+            .unwrap_or(false)
     }
 }
 

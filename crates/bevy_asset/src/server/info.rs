@@ -1,15 +1,10 @@
 use crate::{
     meta::{AssetHash, MetaTransform},
     Asset, AssetHandleProvider, AssetLoadError, AssetPath, DependencyLoadState, ErasedLoadedAsset,
-    Handle, InternalAssetEvent, LoadState, RecursiveDependencyLoadState, StrongHandle,
-    UntypedAssetId, UntypedHandle,
+    Handle, InternalAssetEvent, LoadState, RecursiveDependencyLoadState, UntypedAssetId,
+    UntypedHandle,
 };
-use alloc::{
-    borrow::ToOwned,
-    boxed::Box,
-    sync::{Arc, Weak},
-    vec::Vec,
-};
+use alloc::{borrow::ToOwned, boxed::Box, sync::Arc, vec::Vec};
 use bevy_ecs::world::World;
 use bevy_platform::collections::{hash_map::Entry, HashMap, HashSet};
 use bevy_tasks::Task;
@@ -22,7 +17,7 @@ use tracing::warn;
 
 #[derive(Debug)]
 pub(crate) struct AssetInfo {
-    weak_handle: Weak<StrongHandle>,
+    pub(crate) type_id: TypeId,
     pub(crate) path: Option<AssetPath<'static>>,
     pub(crate) load_state: LoadState,
     pub(crate) dep_load_state: DependencyLoadState,
@@ -40,17 +35,14 @@ pub(crate) struct AssetInfo {
     ///
     /// [`LoadedAsset`]: crate::loader::LoadedAsset
     loader_dependencies: HashMap<AssetPath<'static>, AssetHash>,
-    /// The number of handle drops to skip for this asset.
-    /// See usage (and comments) in `get_or_create_path_handle` for context.
-    handle_drops_to_skip: usize,
     /// List of tasks waiting for this asset to complete loading
     pub(crate) waiting_tasks: Vec<Waker>,
 }
 
 impl AssetInfo {
-    fn new(weak_handle: Weak<StrongHandle>, path: Option<AssetPath<'static>>) -> Self {
+    fn new(type_id: TypeId, path: Option<AssetPath<'static>>) -> Self {
         Self {
-            weak_handle,
+            type_id,
             path,
             load_state: LoadState::NotLoaded,
             dep_load_state: DependencyLoadState::NotLoaded,
@@ -62,7 +54,6 @@ impl AssetInfo {
             loader_dependencies: HashMap::default(),
             dependents_waiting_on_load: HashSet::default(),
             dependents_waiting_on_recursive_dep_load: HashSet::default(),
-            handle_drops_to_skip: 0,
             waiting_tasks: Vec::new(),
         }
     }
@@ -142,7 +133,7 @@ impl AssetInfos {
         }
 
         let handle = provider.reserve_handle_internal(true, path.clone(), meta_transform);
-        let mut info = AssetInfo::new(Arc::downgrade(&handle), path);
+        let mut info = AssetInfo::new(type_id, path);
         if loading {
             info.load_state = LoadState::Loading;
             info.dep_load_state = DependencyLoadState::Loading;
@@ -231,29 +222,17 @@ impl AssetInfos {
                     should_load = true;
                 }
 
-                if let Some(strong_handle) = info.weak_handle.upgrade() {
-                    // If we can upgrade the handle, there is at least one live handle right now,
-                    // The asset load has already kicked off (and maybe completed), so we can just
-                    // return a strong handle
-                    Ok((UntypedHandle::Strong(strong_handle), should_load))
-                } else {
-                    // Asset meta exists, but all live handles were dropped. This means the `track_assets` system
-                    // hasn't been run yet to remove the current asset
-                    // (note that this is guaranteed to be transactional with the `track_assets` system because
-                    // because it locks the AssetInfos collection)
+                let provider = self
+                    .handle_providers
+                    .get(&type_id)
+                    .ok_or(MissingHandleProviderError(type_id))?;
 
-                    // We must create a new strong handle for the existing id and ensure that the drop of the old
-                    // strong handle doesn't remove the asset from the Assets collection
-                    info.handle_drops_to_skip += 1;
-                    let provider = self
-                        .handle_providers
-                        .get(&type_id)
-                        .ok_or(MissingHandleProviderError(type_id))?;
-                    let handle =
-                        provider.get_handle(id.internal(), true, Some(path), meta_transform);
-                    info.weak_handle = Arc::downgrade(&handle);
-                    Ok((UntypedHandle::Strong(handle), should_load))
-                }
+                // Get the handle of this asset.
+                // If the asset's last remaining handle was just dropped but the
+                // `track_assets` system hasn't run yet, we can resurrect the
+                // asset before it gets unloaded.
+                let handle = provider.get_handle(id.internal(), true, Some(path), meta_transform);
+                Ok((UntypedHandle::Strong(handle), should_load))
             }
             // The entry does not exist, so this is a "fresh" asset load. We must create a new handle
             Entry::Vacant(entry) => {
@@ -339,15 +318,22 @@ impl AssetInfos {
 
     pub(crate) fn get_id_handle(&self, id: UntypedAssetId) -> Option<UntypedHandle> {
         let info = self.infos.get(&id)?;
-        let strong_handle = info.weak_handle.upgrade()?;
+        let handle_provider = self.handle_providers.get(&info.type_id)?;
+        let strong_handle = handle_provider.try_get_handle(id.internal())?;
         Some(UntypedHandle::Strong(strong_handle))
     }
 
     /// Returns `true` if the asset this path points to is still alive
     pub(crate) fn is_path_alive<'a>(&self, path: impl Into<AssetPath<'a>>) -> bool {
         self.get_path_ids(&path.into())
-            .filter_map(|id| self.infos.get(&id))
-            .any(|info| info.weak_handle.strong_count() > 0)
+            .filter_map(|id| self.infos.get(&id).zip(Some(id)))
+            .any(|(info, id)| {
+                let provider = self
+                    .handle_providers
+                    .get(&info.type_id)
+                    .expect("Handle provider should exist if there is an asset info");
+                provider.is_live(id.internal())
+            })
     }
 
     /// Returns `true` if the asset at this path should be reloaded
@@ -678,16 +664,11 @@ impl AssetInfos {
         watching_for_changes: bool,
         id: UntypedAssetId,
     ) -> bool {
-        let Entry::Occupied(mut entry) = infos.entry(id) else {
+        let Entry::Occupied(entry) = infos.entry(id) else {
             // Either the asset was already dropped, it doesn't exist, or it isn't managed by the asset server
             // None of these cases should result in a removal from the Assets collection
             return false;
         };
-
-        if entry.get_mut().handle_drops_to_skip > 0 {
-            entry.get_mut().handle_drops_to_skip -= 1;
-            return false;
-        }
 
         pending_tasks.remove(&id);
 
