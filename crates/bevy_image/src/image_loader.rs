@@ -101,7 +101,7 @@ pub enum ImageFormatSetting {
 pub struct ImageLoaderSettings {
     /// How to determine the image's container format.
     pub format: ImageFormatSetting,
-    /// Forcibly use a specific [`TextureFormat`].
+    /// Forcibly use a specific [`wgpu_types::TextureFormat`].
     /// Useful to control how data is handled when used
     /// in a shader.
     /// Ex: data that would be `R16Uint` that needs to
