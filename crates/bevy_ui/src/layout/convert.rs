@@ -14,36 +14,38 @@ impl Val {
         self,
         context: &LayoutContext,
     ) -> taffy::style::LengthPercentageAuto {
+        use taffy::style::LengthPercentageAuto;
+
         match self {
-            Val::Auto => taffy::style::LengthPercentageAuto::Auto,
-            Val::Percent(value) => taffy::style::LengthPercentageAuto::Percent(value / 100.),
-            Val::Px(value) => {
-                taffy::style::LengthPercentageAuto::Length(context.scale_factor * value)
+            Val::Auto => LengthPercentageAuto::auto(),
+            Val::Percent(value) => LengthPercentageAuto::percent(value / 100.),
+            Val::Px(value) => LengthPercentageAuto::length(context.scale_factor * value),
+            Val::VMin(value) => {
+                LengthPercentageAuto::length(context.physical_size.min_element() * value / 100.)
             }
-            Val::VMin(value) => taffy::style::LengthPercentageAuto::Length(
-                context.physical_size.min_element() * value / 100.,
-            ),
-            Val::VMax(value) => taffy::style::LengthPercentageAuto::Length(
-                context.physical_size.max_element() * value / 100.,
-            ),
-            Val::Vw(value) => {
-                taffy::style::LengthPercentageAuto::Length(context.physical_size.x * value / 100.)
+            Val::VMax(value) => {
+                LengthPercentageAuto::length(context.physical_size.max_element() * value / 100.)
             }
-            Val::Vh(value) => {
-                taffy::style::LengthPercentageAuto::Length(context.physical_size.y * value / 100.)
-            }
+            Val::Vw(value) => LengthPercentageAuto::length(context.physical_size.x * value / 100.),
+            Val::Vh(value) => LengthPercentageAuto::length(context.physical_size.y * value / 100.),
         }
     }
 
     fn into_length_percentage(self, context: &LayoutContext) -> taffy::style::LengthPercentage {
-        match self.into_length_percentage_auto(context) {
-            taffy::style::LengthPercentageAuto::Auto => taffy::style::LengthPercentage::Length(0.0),
-            taffy::style::LengthPercentageAuto::Percent(value) => {
-                taffy::style::LengthPercentage::Percent(value)
+        use taffy::style::LengthPercentage;
+
+        match self {
+            Val::Auto => LengthPercentage::length(0.0),
+            Val::Percent(value) => LengthPercentage::percent(value / 100.),
+            Val::Px(value) => LengthPercentage::length(context.scale_factor * value),
+            Val::VMin(value) => {
+                LengthPercentage::length(context.physical_size.min_element() * value / 100.)
             }
-            taffy::style::LengthPercentageAuto::Length(value) => {
-                taffy::style::LengthPercentage::Length(value)
+            Val::VMax(value) => {
+                LengthPercentage::length(context.physical_size.max_element() * value / 100.)
             }
+            Val::Vw(value) => LengthPercentage::length(context.physical_size.x * value / 100.),
+            Val::Vh(value) => LengthPercentage::length(context.physical_size.y * value / 100.),
         }
     }
 
@@ -68,6 +70,7 @@ pub fn from_node(node: &Node, context: &LayoutContext, ignore_border: bool) -> t
         display: node.display.into(),
         box_sizing: node.box_sizing.into(),
         item_is_table: false,
+        item_is_replaced: false,
         text_align: taffy::TextAlign::Auto,
         overflow: taffy::Point {
             x: node.overflow.x.into(),
@@ -335,25 +338,29 @@ impl From<GridPlacement> for taffy::geometry::Line<taffy::style::GridPlacement> 
 impl MinTrackSizingFunction {
     fn into_taffy(self, context: &LayoutContext) -> taffy::style::MinTrackSizingFunction {
         match self {
-            MinTrackSizingFunction::Px(val) => taffy::style::MinTrackSizingFunction::Fixed(
+            MinTrackSizingFunction::Px(val) => taffy::style::MinTrackSizingFunction::from(
                 Val::Px(val).into_length_percentage(context),
             ),
-            MinTrackSizingFunction::Percent(val) => taffy::style::MinTrackSizingFunction::Fixed(
+            MinTrackSizingFunction::Percent(val) => taffy::style::MinTrackSizingFunction::from(
                 Val::Percent(val).into_length_percentage(context),
             ),
-            MinTrackSizingFunction::Auto => taffy::style::MinTrackSizingFunction::Auto,
-            MinTrackSizingFunction::MinContent => taffy::style::MinTrackSizingFunction::MinContent,
-            MinTrackSizingFunction::MaxContent => taffy::style::MinTrackSizingFunction::MaxContent,
-            MinTrackSizingFunction::VMin(val) => taffy::style::MinTrackSizingFunction::Fixed(
+            MinTrackSizingFunction::Auto => taffy::style::MinTrackSizingFunction::auto(),
+            MinTrackSizingFunction::MinContent => {
+                taffy::style::MinTrackSizingFunction::min_content()
+            }
+            MinTrackSizingFunction::MaxContent => {
+                taffy::style::MinTrackSizingFunction::max_content()
+            }
+            MinTrackSizingFunction::VMin(val) => taffy::style::MinTrackSizingFunction::from(
                 Val::VMin(val).into_length_percentage(context),
             ),
-            MinTrackSizingFunction::VMax(val) => taffy::style::MinTrackSizingFunction::Fixed(
+            MinTrackSizingFunction::VMax(val) => taffy::style::MinTrackSizingFunction::from(
                 Val::VMax(val).into_length_percentage(context),
             ),
-            MinTrackSizingFunction::Vh(val) => taffy::style::MinTrackSizingFunction::Fixed(
+            MinTrackSizingFunction::Vh(val) => taffy::style::MinTrackSizingFunction::from(
                 Val::Vh(val).into_length_percentage(context),
             ),
-            MinTrackSizingFunction::Vw(val) => taffy::style::MinTrackSizingFunction::Fixed(
+            MinTrackSizingFunction::Vw(val) => taffy::style::MinTrackSizingFunction::from(
                 Val::Vw(val).into_length_percentage(context),
             ),
         }
@@ -363,38 +370,38 @@ impl MinTrackSizingFunction {
 impl MaxTrackSizingFunction {
     fn into_taffy(self, context: &LayoutContext) -> taffy::style::MaxTrackSizingFunction {
         match self {
-            MaxTrackSizingFunction::Px(val) => taffy::style::MaxTrackSizingFunction::Fixed(
+            MaxTrackSizingFunction::Px(val) => taffy::style::MaxTrackSizingFunction::from(
                 Val::Px(val).into_length_percentage(context),
             ),
-            MaxTrackSizingFunction::Percent(val) => taffy::style::MaxTrackSizingFunction::Fixed(
+            MaxTrackSizingFunction::Percent(val) => taffy::style::MaxTrackSizingFunction::from(
                 Val::Percent(val).into_length_percentage(context),
             ),
-            MaxTrackSizingFunction::Auto => taffy::style::MaxTrackSizingFunction::Auto,
-            MaxTrackSizingFunction::MinContent => taffy::style::MaxTrackSizingFunction::MinContent,
-            MaxTrackSizingFunction::MaxContent => taffy::style::MaxTrackSizingFunction::MaxContent,
+            MaxTrackSizingFunction::Auto => taffy::style::MaxTrackSizingFunction::auto(),
+            MaxTrackSizingFunction::MinContent => {
+                taffy::style::MaxTrackSizingFunction::min_content()
+            }
+            MaxTrackSizingFunction::MaxContent => {
+                taffy::style::MaxTrackSizingFunction::max_content()
+            }
             MaxTrackSizingFunction::FitContentPx(val) => {
-                taffy::style::MaxTrackSizingFunction::FitContent(
-                    Val::Px(val).into_length_percentage(context),
-                )
+                taffy::style::MaxTrackSizingFunction::fit_content_px(val)
             }
             MaxTrackSizingFunction::FitContentPercent(val) => {
-                taffy::style::MaxTrackSizingFunction::FitContent(
-                    Val::Percent(val).into_length_percentage(context),
-                )
+                taffy::style::MaxTrackSizingFunction::fit_content_percent(val)
             }
             MaxTrackSizingFunction::Fraction(fraction) => {
-                taffy::style::MaxTrackSizingFunction::Fraction(fraction)
+                taffy::style::MaxTrackSizingFunction::fr(fraction)
             }
-            MaxTrackSizingFunction::VMin(val) => taffy::style::MaxTrackSizingFunction::Fixed(
+            MaxTrackSizingFunction::VMin(val) => taffy::style::MaxTrackSizingFunction::from(
                 Val::VMin(val).into_length_percentage(context),
             ),
-            MaxTrackSizingFunction::VMax(val) => taffy::style::MaxTrackSizingFunction::Fixed(
+            MaxTrackSizingFunction::VMax(val) => taffy::style::MaxTrackSizingFunction::from(
                 Val::VMax(val).into_length_percentage(context),
             ),
-            MaxTrackSizingFunction::Vh(val) => taffy::style::MaxTrackSizingFunction::Fixed(
+            MaxTrackSizingFunction::Vh(val) => taffy::style::MaxTrackSizingFunction::from(
                 Val::Vh(val).into_length_percentage(context),
             ),
-            MaxTrackSizingFunction::Vw(val) => taffy::style::MaxTrackSizingFunction::Fixed(
+            MaxTrackSizingFunction::Vw(val) => taffy::style::MaxTrackSizingFunction::from(
                 Val::Vw(val).into_length_percentage(context),
             ),
         }
@@ -537,15 +544,15 @@ mod tests {
         );
         assert_eq!(
             taffy_style.inset.right,
-            taffy::style::LengthPercentageAuto::Percent(0.5)
+            taffy::style::LengthPercentageAuto::percent(0.5)
         );
         assert_eq!(
             taffy_style.inset.top,
-            taffy::style::LengthPercentageAuto::Length(12.)
+            taffy::style::LengthPercentageAuto::length(12.)
         );
         assert_eq!(
             taffy_style.inset.bottom,
-            taffy::style::LengthPercentageAuto::Auto
+            taffy::style::LengthPercentageAuto::auto()
         );
         assert_eq!(
             taffy_style.flex_direction,
@@ -576,23 +583,23 @@ mod tests {
         );
         assert_eq!(
             taffy_style.margin.right,
-            taffy::style::LengthPercentageAuto::Length(10.)
+            taffy::style::LengthPercentageAuto::length(10.)
         );
         assert_eq!(
             taffy_style.margin.top,
-            taffy::style::LengthPercentageAuto::Percent(0.15)
+            taffy::style::LengthPercentageAuto::percent(0.15)
         );
         assert_eq!(
             taffy_style.margin.bottom,
-            taffy::style::LengthPercentageAuto::Auto
+            taffy::style::LengthPercentageAuto::auto()
         );
         assert_eq!(
             taffy_style.padding.left,
-            taffy::style::LengthPercentage::Percent(0.13)
+            taffy::style::LengthPercentage::percent(0.13)
         );
         assert_eq!(
             taffy_style.padding.right,
-            taffy::style::LengthPercentage::Length(21.)
+            taffy::style::LengthPercentage::length(21.)
         );
         assert_eq!(
             taffy_style.padding.top,
@@ -604,7 +611,7 @@ mod tests {
         );
         assert_eq!(
             taffy_style.border.left,
-            taffy::style::LengthPercentage::Length(14.)
+            taffy::style::LengthPercentage::length(14.)
         );
         assert_eq!(
             taffy_style.border.right,
@@ -613,16 +620,16 @@ mod tests {
         assert_eq!(taffy_style.border.top, taffy::style::LengthPercentage::ZERO);
         assert_eq!(
             taffy_style.border.bottom,
-            taffy::style::LengthPercentage::Percent(0.31)
+            taffy::style::LengthPercentage::percent(0.31)
         );
         assert_eq!(taffy_style.flex_grow, 1.);
         assert_eq!(taffy_style.flex_shrink, 0.);
         assert_eq!(taffy_style.flex_basis, taffy::style::Dimension::ZERO);
         assert_eq!(taffy_style.size.width, taffy::style::Dimension::ZERO);
-        assert_eq!(taffy_style.size.height, taffy::style::Dimension::Auto);
+        assert_eq!(taffy_style.size.height, taffy::style::Dimension::auto());
         assert_eq!(taffy_style.min_size.width, taffy::style::Dimension::ZERO);
         assert_eq!(taffy_style.min_size.height, taffy::style::Dimension::ZERO);
-        assert_eq!(taffy_style.max_size.width, taffy::style::Dimension::Auto);
+        assert_eq!(taffy_style.max_size.width, taffy::style::Dimension::auto());
         assert_eq!(taffy_style.max_size.height, taffy::style::Dimension::ZERO);
         assert_eq!(taffy_style.aspect_ratio, None);
         assert_eq!(taffy_style.scrollbar_width, 7.);
@@ -643,8 +650,8 @@ mod tests {
         assert_eq!(
             taffy_style.grid_auto_rows,
             vec![
-                sh::fit_content(taffy::style::LengthPercentage::Length(10.0)),
-                sh::fit_content(taffy::style::LengthPercentage::Percent(0.25)),
+                sh::fit_content(taffy::style::LengthPercentage::length(10.0)),
+                sh::fit_content(taffy::style::LengthPercentage::percent(0.25)),
                 sh::minmax(sh::length(0.0), sh::fr(2.0)),
             ]
         );
@@ -667,19 +674,20 @@ mod tests {
         use taffy::style::LengthPercentage;
         let context = LayoutContext::new(2.0, Vec2::new(800., 600.));
         let cases = [
-            (Val::Auto, LengthPercentage::Length(0.)),
-            (Val::Percent(1.), LengthPercentage::Percent(0.01)),
-            (Val::Px(1.), LengthPercentage::Length(2.)),
-            (Val::Vw(1.), LengthPercentage::Length(8.)),
-            (Val::Vh(1.), LengthPercentage::Length(6.)),
-            (Val::VMin(2.), LengthPercentage::Length(12.)),
-            (Val::VMax(2.), LengthPercentage::Length(16.)),
+            (Val::Auto, LengthPercentage::length(0.)),
+            (Val::Percent(1.), LengthPercentage::percent(0.01)),
+            (Val::Px(1.), LengthPercentage::length(2.)),
+            (Val::Vw(1.), LengthPercentage::length(8.)),
+            (Val::Vh(1.), LengthPercentage::length(6.)),
+            (Val::VMin(2.), LengthPercentage::length(12.)),
+            (Val::VMax(2.), LengthPercentage::length(16.)),
         ];
         for (val, length) in cases {
             assert!(match (val.into_length_percentage(&context), length) {
-                (LengthPercentage::Length(a), LengthPercentage::Length(b))
-                | (LengthPercentage::Percent(a), LengthPercentage::Percent(b)) =>
-                    (a - b).abs() < 0.0001,
+                // FIXME: Fix this match arm to work as before
+                // (LengthPercentage::Length(a), LengthPercentage::Length(b))
+                // | (LengthPercentage::Percent(a), LengthPercentage::Percent(b)) =>
+                //     (a - b).abs() < 0.0001,
                 _ => false,
             });
         }
