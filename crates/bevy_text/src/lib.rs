@@ -31,7 +31,7 @@
 //!
 //! ## Text editing
 //!
-//! See the [`input`] module for more details on text editing support.
+//! See the input module for more details on text editing support.
 
 extern crate alloc;
 
@@ -123,6 +123,7 @@ impl Plugin for TextPlugin {
                 )
                     .chain()
                     .in_set(TextInputSystems)
+                    .before(AssetEventSystems)
                     .ambiguous_with(Text2dUpdateSystems),
             );
 
