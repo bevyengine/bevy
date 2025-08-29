@@ -5,6 +5,7 @@ use crate::{
     world::World,
 };
 use core::iter::FusedIterator;
+use core::mem::ManuallyDrop;
 
 /// An iterator that spawns a series of entities and returns the [ID](Entity) of
 /// each spawned entity.
@@ -71,9 +72,15 @@ where
     type Item = Entity;
 
     fn next(&mut self) -> Option<Entity> {
-        let bundle = self.inner.next()?;
+        let bundle = ManuallyDrop::new(self.inner.next()?);
+        let bundle_ptr = &raw const bundle;
         // SAFETY: bundle matches spawner type
-        unsafe { Some(self.spawner.spawn(bundle, self.caller).0) }
+        unsafe {
+            Some(
+                self.spawner
+                    .spawn(bundle_ptr.cast::<I::Item>(), self.caller),
+            )
+        }
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
