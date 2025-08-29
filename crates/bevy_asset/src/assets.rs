@@ -289,9 +289,6 @@ pub struct Assets<A: Asset> {
     hash_map: HashMap<Uuid, A>,
     handle_provider: AssetHandleProvider,
     queued_events: Vec<AssetEvent<A>>,
-    /// Assets managed by the `Assets` struct with live strong `Handle`s
-    /// originating from `get_strong_handle`.
-    duplicate_handles: HashMap<AssetId<A>, u16>,
 }
 
 impl<A: Asset> Default for Assets<A> {
@@ -304,7 +301,6 @@ impl<A: Asset> Default for Assets<A> {
             handle_provider,
             hash_map: Default::default(),
             queued_events: Default::default(),
-            duplicate_handles: Default::default(),
         }
     }
 }
@@ -409,13 +405,12 @@ impl<A: Asset> Assets<A> {
     /// Upgrade an `AssetId` into a strong `Handle` that will prevent asset drop.
     ///
     /// Returns `None` if the provided `id` is not part of this `Assets` collection.
-    /// For example, it may have been dropped earlier.
+    /// For example, it may have been dropped earlier, or not yet be loaded.
     #[inline]
     pub fn get_strong_handle(&mut self, id: AssetId<A>) -> Option<Handle<A>> {
         if !self.contains(id) {
             return None;
         }
-        *self.duplicate_handles.entry(id).or_insert(0) += 1;
         let index = match id {
             AssetId::Index { index, .. } => index.into(),
             AssetId::Uuid { uuid } => uuid.into(),
@@ -479,7 +474,6 @@ impl<A: Asset> Assets<A> {
     /// This is the same as [`Assets::remove`] except it doesn't emit [`AssetEvent::Removed`].
     pub fn remove_untracked(&mut self, id: impl Into<AssetId<A>>) -> Option<A> {
         let id: AssetId<A> = id.into();
-        self.duplicate_handles.remove(&id);
         match id {
             AssetId::Index { index, .. } => self.dense_storage.remove_still_alive(index),
             AssetId::Uuid { uuid } => self.hash_map.remove(&uuid),
@@ -488,17 +482,6 @@ impl<A: Asset> Assets<A> {
 
     /// Removes the [`Asset`] with the given `id`.
     pub(crate) fn remove_dropped(&mut self, id: AssetId<A>) {
-        match self.duplicate_handles.get_mut(&id) {
-            None => {}
-            Some(0) => {
-                self.duplicate_handles.remove(&id);
-            }
-            Some(value) => {
-                *value -= 1;
-                return;
-            }
-        }
-
         let existed = match id {
             AssetId::Index { index, .. } => self.dense_storage.remove_dropped(index).is_some(),
             AssetId::Uuid { uuid } => self.hash_map.remove(&uuid).is_some(),
@@ -576,17 +559,21 @@ impl<A: Asset> Assets<A> {
         while let Ok(drop_event) = assets.handle_provider.drop_receiver.try_recv() {
             let id = drop_event.id.typed();
 
-            if drop_event.asset_server_managed {
-                let untyped_id = id.untyped();
+            // a new handle might have been created in between the original
+            // handle being dropped and this system running; only try dropping
+            // if that isn't the case.
+            if !assets.get_handle_provider().is_live(id.internal()) {
+                if drop_event.asset_server_managed {
+                    let untyped_id = id.untyped();
 
-                // the process_handle_drop call checks whether new handles have been created since the drop event was fired, before removing the asset
-                if !infos.process_handle_drop(untyped_id) {
-                    // a new handle has been created, or the asset doesn't exist
-                    continue;
+                    if !infos.process_handle_drop(untyped_id) {
+                        // the asset doesn't exist
+                        continue;
+                    }
                 }
-            }
 
-            assets.remove_dropped(id);
+                assets.remove_dropped(id);
+            }
         }
     }
 
