@@ -1,10 +1,8 @@
 //! Illustrates bloom post-processing in 2d.
 
 use bevy::{
-    core_pipeline::{
-        bloom::{Bloom, BloomCompositeMode},
-        tonemapping::{DebandDither, Tonemapping},
-    },
+    core_pipeline::tonemapping::{DebandDither, Tonemapping},
+    post_process::bloom::{Bloom, BloomCompositeMode},
     prelude::*,
 };
 

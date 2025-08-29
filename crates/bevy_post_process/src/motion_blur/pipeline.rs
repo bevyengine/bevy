@@ -1,5 +1,5 @@
-use crate::FullscreenShader;
 use bevy_asset::{load_embedded_asset, AssetServer, Handle};
+use bevy_core_pipeline::FullscreenShader;
 use bevy_ecs::{
     component::Component,
     entity::Entity,

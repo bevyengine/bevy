@@ -1,11 +1,9 @@
 //! Illustrates bloom post-processing using HDR and emissive materials.
 
 use bevy::{
-    core_pipeline::{
-        bloom::{Bloom, BloomCompositeMode},
-        tonemapping::Tonemapping,
-    },
+    core_pipeline::tonemapping::Tonemapping,
     math::ops,
+    post_process::bloom::{Bloom, BloomCompositeMode},
     prelude::*,
 };
 use std::{

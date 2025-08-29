@@ -11,13 +11,13 @@
 
 use bevy::{
     camera::PhysicalCameraParameters,
-    core_pipeline::{
-        bloom::Bloom,
-        dof::{self, DepthOfField, DepthOfFieldMode},
-        tonemapping::Tonemapping,
-    },
+    core_pipeline::tonemapping::Tonemapping,
     gltf::GltfMeshName,
     pbr::Lightmap,
+    post_process::{
+        bloom::Bloom,
+        dof::{self, DepthOfField, DepthOfFieldMode},
+    },
     prelude::*,
 };
 

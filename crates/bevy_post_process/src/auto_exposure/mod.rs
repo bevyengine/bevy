@@ -24,12 +24,10 @@ use node::AutoExposureNode;
 use pipeline::{AutoExposurePass, AutoExposurePipeline, ViewAutoExposurePipeline};
 pub use settings::AutoExposure;
 
-use crate::{
-    auto_exposure::{
-        compensation_curve::GpuAutoExposureCompensationCurve, pipeline::init_auto_exposure_pipeline,
-    },
-    core_3d::graph::{Core3d, Node3d},
+use crate::auto_exposure::{
+    compensation_curve::GpuAutoExposureCompensationCurve, pipeline::init_auto_exposure_pipeline,
 };
+use bevy_core_pipeline::core_3d::graph::{Core3d, Node3d};
 
 /// Plugin for the auto exposure feature.
 ///

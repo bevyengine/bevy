@@ -23,9 +23,10 @@ use std::f32::consts::PI;
 use bevy::{
     camera::{Exposure, ScreenSpaceTransmissionQuality},
     color::palettes::css::*,
-    core_pipeline::{bloom::Bloom, prepass::DepthPrepass, tonemapping::Tonemapping},
+    core_pipeline::{prepass::DepthPrepass, tonemapping::Tonemapping},
     light::{NotShadowCaster, PointLightShadowMap, TransmittedShadowReceiver},
     math::ops,
+    post_process::bloom::Bloom,
     prelude::*,
     render::{
         camera::TemporalJitter,

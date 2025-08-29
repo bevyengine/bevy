@@ -9,7 +9,7 @@
 //! | `A`                  | Move left     |
 //! | `D`                  | Move right    |
 
-use bevy::{core_pipeline::bloom::Bloom, prelude::*};
+use bevy::{post_process::bloom::Bloom, prelude::*};
 
 /// Player movement speed factor.
 const PLAYER_SPEED: f32 = 100.;

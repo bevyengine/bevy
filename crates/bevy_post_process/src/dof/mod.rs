@@ -63,7 +63,7 @@ use bevy_utils::{default, once};
 use smallvec::SmallVec;
 use tracing::{info, warn};
 
-use crate::{
+use bevy_core_pipeline::{
     core_3d::{
         graph::{Core3d, Node3d},
         DEPTH_TEXTURE_SAMPLING_SUPPORTED,

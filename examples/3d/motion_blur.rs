@@ -2,9 +2,9 @@
 //! camera using the [`MotionBlur`] component.z
 
 use bevy::{
-    core_pipeline::motion_blur::MotionBlur,
     image::{ImageAddressMode, ImageFilterMode, ImageSampler, ImageSamplerDescriptor},
     math::ops,
+    post_process::motion_blur::MotionBlur,
     prelude::*,
 };
 

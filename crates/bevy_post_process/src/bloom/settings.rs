@@ -23,7 +23,7 @@ use bevy_render::{extract_component::ExtractComponent, view::Hdr};
 /// Often used in conjunction with `bevy_pbr::StandardMaterial::emissive` for 3d meshes.
 ///
 /// Bloom is best used alongside a tonemapping function that desaturates bright colors,
-/// such as [`crate::tonemapping::Tonemapping::TonyMcMapface`].
+/// such as [`bevy_core_pipeline::tonemapping::Tonemapping::TonyMcMapface`].
 ///
 /// Bevy's implementation uses a parametric curve to blend between a set of
 /// blurred (lower frequency) images generated from the camera's view.
