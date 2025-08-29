@@ -5,7 +5,7 @@ use core::ptr::NonNull;
 use crate::{
     archetype::{
         Archetype, ArchetypeAfterBundleInsert, ArchetypeCreated, ArchetypeId, Archetypes,
-        ComponentStatus,
+        ComponentStatus, Edges,
     },
     bundle::{ArchetypeMoveType, Bundle, BundleId, BundleInfo, DynamicBundle, InsertMode},
     change_detection::MaybeLocation,
@@ -63,6 +63,7 @@ impl<'w> BundleInserter<'w> {
         let bundle_id = bundle_info.id();
         let (new_archetype_id, is_new_created) = bundle_info.insert_bundle_into_archetype(
             &mut world.archetypes,
+            &mut world.edges,
             &mut world.storages,
             &world.components,
             &world.observers,
@@ -73,9 +74,9 @@ impl<'w> BundleInserter<'w> {
             let archetype = &mut world.archetypes[archetype_id];
             // SAFETY: The edge is assured to be initialized when we called insert_bundle_into_archetype
             let archetype_after_insert = unsafe {
-                archetype
-                    .edges()
-                    .get_archetype_after_bundle_insert_internal(bundle_id)
+                world
+                    .edges
+                    .get_archetype_after_bundle_insert_internal(archetype_id, bundle_id)
                     .debug_checked_unwrap()
             };
             let table_id = archetype.table_id();
@@ -94,9 +95,9 @@ impl<'w> BundleInserter<'w> {
                 world.archetypes.get_2_mut(archetype_id, new_archetype_id);
             // SAFETY: The edge is assured to be initialized when we called insert_bundle_into_archetype
             let archetype_after_insert = unsafe {
-                archetype
-                    .edges()
-                    .get_archetype_after_bundle_insert_internal(bundle_id)
+                world
+                    .edges
+                    .get_archetype_after_bundle_insert_internal(archetype_id, bundle_id)
                     .debug_checked_unwrap()
             };
             let table_id = archetype.table_id();
@@ -420,14 +421,14 @@ impl BundleInfo {
     pub(crate) unsafe fn insert_bundle_into_archetype(
         &self,
         archetypes: &mut Archetypes,
+        edges: &mut Edges,
         storages: &mut Storages,
         components: &Components,
         observers: &Observers,
         archetype_id: ArchetypeId,
     ) -> (ArchetypeId, bool) {
-        if let Some(archetype_after_insert_id) = archetypes[archetype_id]
-            .edges()
-            .get_archetype_after_bundle_insert(self.id)
+        if let Some(archetype_after_insert_id) =
+            edges.get_archetype_after_bundle_insert(archetype_id, self.id)
         {
             return (archetype_after_insert_id, false);
         }
@@ -473,9 +474,9 @@ impl BundleInfo {
         }
 
         if new_table_components.is_empty() && new_sparse_set_components.is_empty() {
-            let edges = current_archetype.edges_mut();
             // The archetype does not change when we insert this bundle.
             edges.cache_archetype_after_bundle_insert(
+                archetype_id,
                 self.id,
                 archetype_id,
                 bundle_status,
@@ -528,16 +529,15 @@ impl BundleInfo {
             );
 
             // Add an edge from the old archetype to the new archetype.
-            archetypes[archetype_id]
-                .edges_mut()
-                .cache_archetype_after_bundle_insert(
-                    self.id,
-                    new_archetype_id,
-                    bundle_status,
-                    added_required_components,
-                    added,
-                    existing,
-                );
+            edges.cache_archetype_after_bundle_insert(
+                archetype_id,
+                self.id,
+                new_archetype_id,
+                bundle_status,
+                added_required_components,
+                added,
+                existing,
+            );
             (new_archetype_id, is_new_created)
         }
     }
