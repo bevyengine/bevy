@@ -418,7 +418,14 @@ impl Bundles {
     /// Registers a new [`BundleInfo`] for a statically known type.
     ///
     /// Also registers all the components in the bundle.
-    pub(crate) fn register_info<T: Bundle>(
+    ///
+    /// # Safety
+    ///
+    /// `components` and `storages` must be from the same [`World`] as `self`.
+    ///
+    /// [`World`]: crate::world::World
+    #[deny(unsafe_op_in_unsafe_fn)]
+    pub(crate) unsafe fn register_info<T: Bundle>(
         &mut self,
         components: &mut ComponentsRegistrator,
         storages: &mut Storages,
@@ -442,7 +449,14 @@ impl Bundles {
     /// Registers a new [`BundleInfo`], which contains both explicit and required components for a statically known type.
     ///
     /// Also registers all the components in the bundle.
-    pub(crate) fn register_contributed_bundle_info<T: Bundle>(
+    ///
+    /// # Safety
+    ///
+    /// `components` and `storages` must be from the same [`World`] as `self`.
+    ///
+    /// [`World`]: crate::world::World
+    #[deny(unsafe_op_in_unsafe_fn)]
+    pub(crate) unsafe fn register_contributed_bundle_info<T: Bundle>(
         &mut self,
         components: &mut ComponentsRegistrator,
         storages: &mut Storages,
@@ -450,7 +464,10 @@ impl Bundles {
         if let Some(id) = self.contributed_bundle_ids.get(&TypeId::of::<T>()).cloned() {
             id
         } else {
-            let explicit_bundle_id = self.register_info::<T>(components, storages);
+            // SAFETY: as per the guarantees of this function, components and
+            // storages are from the same world as self
+            let explicit_bundle_id = unsafe { self.register_info::<T>(components, storages) };
+
             // SAFETY: reading from `explicit_bundle_id` and creating new bundle in same time. Its valid because bundle hashmap allow this
             let id = unsafe {
                 let (ptr, len) = {

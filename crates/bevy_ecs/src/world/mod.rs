@@ -2305,9 +2305,12 @@ impl World {
         // SAFETY: These come from the same world. `Self.components_registrator` can't be used since we borrow other fields too.
         let mut registrator =
             unsafe { ComponentsRegistrator::new(&mut self.components, &mut self.component_ids) };
-        let bundle_id = self
-            .bundles
-            .register_info::<B>(&mut registrator, &mut self.storages);
+
+        // SAFETY: `registrator`, `self.bundles`, and `self.storages` all come from this world.
+        let bundle_id = unsafe {
+            self.bundles
+                .register_info::<B>(&mut registrator, &mut self.storages)
+        };
 
         let mut batch_iter = batch.into_iter();
 
@@ -2450,9 +2453,12 @@ impl World {
         // SAFETY: These come from the same world. `Self.components_registrator` can't be used since we borrow other fields too.
         let mut registrator =
             unsafe { ComponentsRegistrator::new(&mut self.components, &mut self.component_ids) };
-        let bundle_id = self
-            .bundles
-            .register_info::<B>(&mut registrator, &mut self.storages);
+
+        // SAFETY: `registrator`, `self.bundles`, and `self.storages` all come from this world.
+        let bundle_id = unsafe {
+            self.bundles
+                .register_info::<B>(&mut registrator, &mut self.storages)
+        };
 
         let mut invalid_entities = Vec::<Entity>::new();
         let mut batch_iter = batch.into_iter();
@@ -3072,9 +3078,13 @@ impl World {
         // SAFETY: These come from the same world. `Self.components_registrator` can't be used since we borrow other fields too.
         let mut registrator =
             unsafe { ComponentsRegistrator::new(&mut self.components, &mut self.component_ids) };
-        let id = self
-            .bundles
-            .register_info::<B>(&mut registrator, &mut self.storages);
+
+        // SAFETY: `registrator`, `self.storages` and `self.bundles` all come from this world.
+        let id = unsafe {
+            self.bundles
+                .register_info::<B>(&mut registrator, &mut self.storages)
+        };
+
         // SAFETY: We just initialized the bundle so its id should definitely be valid.
         unsafe { self.bundles.get(id).debug_checked_unwrap() }
     }
