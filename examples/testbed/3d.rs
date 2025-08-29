@@ -354,7 +354,10 @@ mod gizmos {
 
 mod gltf_coordinate_conversion {
     use bevy::{
-        color::palettes::basic::*, gltf::GltfLoaderSettings, prelude::*, scene::SceneInstanceReady,
+        color::palettes::basic::*,
+        gltf::{convert_coordinates::GltfConvertCoordinates, GltfLoaderSettings},
+        prelude::*,
+        scene::SceneInstanceReady,
     };
 
     const CURRENT_SCENE: super::Scene = super::Scene::GltfCoordinateConversion;
@@ -398,7 +401,10 @@ mod gltf_coordinate_conversion {
                 SceneRoot(asset_server.load_with_settings(
                     GltfAssetLabel::Scene(0).from_asset("models/Faces/faces.glb"),
                     |s: &mut GltfLoaderSettings| {
-                        s.use_model_forward_direction = Some(true);
+                        s.convert_coordinates = Some(GltfConvertCoordinates {
+                            scenes: true,
+                            meshes: true,
+                        });
                     },
                 )),
                 DespawnOnExitState(CURRENT_SCENE),
