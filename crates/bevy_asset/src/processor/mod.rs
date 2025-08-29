@@ -163,6 +163,7 @@ impl AssetProcessor {
         self.data.sources.get(id.into())
     }
 
+    /// TODO
     #[inline]
     pub fn sources(&self) -> &AssetSources {
         &self.data.sources
@@ -1171,16 +1172,22 @@ impl<T: Process> Process for InstrumentedAssetProcessor<T> {
 /// The (successful) result of processing an asset
 #[derive(Debug, Clone)]
 pub enum ProcessResult {
+    /// TODO
     Processed(ProcessedInfo),
+    /// TODO
     SkippedNotChanged,
+    /// TODO
     Ignored,
 }
 
 /// The final status of processing an asset
 #[derive(Debug, PartialEq, Eq, Copy, Clone)]
 pub enum ProcessStatus {
+    /// TODO
     Processed,
+    /// TODO
     Failed,
+    /// TODO
     NonExistent,
 }
 
@@ -1467,10 +1474,13 @@ pub enum ProcessorState {
 /// An error that occurs when initializing the [`AssetProcessor`].
 #[derive(Error, Debug)]
 pub enum InitializeError {
+    /// TODO
     #[error(transparent)]
     FailedToReadSourcePaths(AssetReaderError),
+    /// TODO
     #[error(transparent)]
     FailedToReadDestinationPaths(AssetReaderError),
+    /// TODO
     #[error("Failed to validate asset log: {0}")]
     ValidateLogError(#[from] ValidateLogError),
 }
