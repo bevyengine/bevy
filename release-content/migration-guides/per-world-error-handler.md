@@ -1,5 +1,5 @@
 ---
-title: Global default error handler
+title: Changes to the default error handler mechanism
 pull_requests: [18810]
 ---
 
