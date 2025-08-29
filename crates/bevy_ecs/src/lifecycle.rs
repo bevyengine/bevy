@@ -362,7 +362,7 @@ pub struct Insert {
 #[cfg_attr(feature = "bevy_reflect", reflect(Debug))]
 #[doc(alias = "OnReplace")]
 pub struct Replace {
-    /// The entity this component was replaced in.
+    /// The entity that held this component before it was replaced.
     pub entity: Entity,
 }
 
@@ -379,7 +379,7 @@ pub struct Remove {
     pub entity: Entity,
 }
 
-/// Trigger emitted for each component on an entity when it is despawned.
+/// [`EntityEvent`] emitted for each component on an entity when it is despawned.
 /// See [`crate::lifecycle::ComponentHooks::on_despawn`] for more information.
 #[derive(Debug, Clone, EntityEvent)]
 #[entity_event(trigger = EntityComponentsTrigger<'a>)]
@@ -387,7 +387,7 @@ pub struct Remove {
 #[cfg_attr(feature = "bevy_reflect", reflect(Debug))]
 #[doc(alias = "OnDespawn")]
 pub struct Despawn {
-    /// The entity this component was despawned with.
+    /// The entity that held this component before it was despawned.
     pub entity: Entity,
 }
 

@@ -13,7 +13,7 @@ use crate::{
 };
 use core::marker::PhantomData;
 
-/// An [`Event`] is something that "happens" at given point.
+/// An [`Event`] is something that "happens" at a given moment.
 ///
 /// To make an [`Event`] "happen", you "trigger" it on a [`World`] using [`World::trigger`] or via a [`Command`](crate::system::Command)
 /// using [`Commands::trigger`](crate::system::Commands::trigger). This causes any [`Observer`](crate::observer::Observer) watching for that
@@ -229,6 +229,17 @@ pub trait Event: Send + Sync + Sized + 'static {
 ///     entity: Entity,
 /// }
 /// ```
+///
+/// ## Naming and Usage Conventions
+///
+/// In most cases, it is recommended to use a named struct field for the "event target" entity, and to use
+/// a name that is descriptive as possible, as this makes events easier to understand and read.
+///
+/// For events with only one [`Entity`] field, `entity` is often a reasonable name. But if there are multiple
+/// [`Entity`] fields, it is often a good idea to use a more descriptive name.
+///
+/// It is also generally recommended to _consume_ "event target" entities directly via their named field, as this
+/// can make the context clearer, allows for more specific documentation hints in IDEs, and it generally reads better.
 ///
 /// ## Manually spawning [`EntityEvent`] observers
 ///
