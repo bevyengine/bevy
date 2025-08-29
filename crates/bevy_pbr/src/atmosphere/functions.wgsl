@@ -41,6 +41,7 @@ const FRAC_2_PI: f32 = 0.15915494309;  // 1 / (2π)
 const FRAC_3_16_PI: f32 = 0.0596831036594607509; // 3 / (16π)
 const FRAC_4_PI: f32 = 0.07957747154594767; // 1 / (4π)
 const ROOT_2: f32 = 1.41421356; // √2
+const EPSILON: f32 = 1.0; // 1 meter
 
 // During raymarching, each segment is sampled at a single point. This constant determines
 // where in the segment that sample is taken (0.0 = start, 0.5 = middle, 1.0 = end).
@@ -306,7 +307,7 @@ fn max_atmosphere_distance(r: f32, mu: f32) -> f32 {
 
 /// Assuming y=0 is the planet ground, returns the view radius in meters
 fn view_radius() -> f32 {
-    return view.world_position.y * settings.scene_units_to_m + atmosphere.bottom_radius;
+    return max(view.world_position.y * settings.scene_units_to_m, EPSILON) + atmosphere.bottom_radius;
 }
 
 // We assume the `up` vector at the view position is the y axis, since the world is locally flat/level.
