@@ -819,36 +819,43 @@ fn derive_relationship(
     };
     let field = relationship_field(fields, "Relationship", struct_token.span())?;
 
+    let collection = &field.ty;
     let relationship_member = field.ident.clone().map_or(Member::from(0), Member::Named);
+
     let members = fields
         .members()
         .filter(|member| member != &relationship_member);
 
+    let relationship_target = &relationship.relationship_target;
     let struct_name = &ast.ident;
     let (impl_generics, type_generics, where_clause) = &ast.generics.split_for_impl();
-
-    let relationship_target = &relationship.relationship_target;
 
     Ok(Some(quote! {
         impl #impl_generics #bevy_ecs_path::relationship::Relationship for #struct_name #type_generics #where_clause {
             type RelationshipTarget = #relationship_target;
+            type Collection = #collection;
 
             #[inline(always)]
-            fn get(&self) -> #bevy_ecs_path::entity::Entity {
-                self.#relationship_member
+            fn get(&self) -> &Self::Collection {
+                &self.#relationship_member
+            }
+
+            #[inline(always)]
+            fn get_mut_risky(&mut self) -> &mut Self::Collection {
+                &mut self.#relationship_member
             }
 
             #[inline]
             fn from(entity: #bevy_ecs_path::entity::Entity) -> Self {
                 Self {
                     #(#members: core::default::Default::default(),)*
-                    #relationship_member: entity
+                    #relationship_member: <Self::Collection as #bevy_ecs_path::relationship::RelationshipCollection>::from(entity)
                 }
             }
 
             #[inline]
-            fn set_risky(&mut self, entity: Entity) {
-                self.#relationship_member = entity;
+            fn set_risky(&mut self, entity: #bevy_ecs_path::entity::Entity) {
+                self.#relationship_member = <Self::Collection as #bevy_ecs_path::relationship::RelationshipCollection>::from(entity);
             }
         }
     }))
