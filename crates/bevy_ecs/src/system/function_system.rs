@@ -43,10 +43,12 @@ impl SystemMeta {
     pub(crate) fn new<T>() -> Self {
         let name = DebugName::type_name::<T>();
         Self {
+            // These spans are initialized during plugin build, so we set the parent to `None` to prevent
+            // them from being children of the span that is measuring the plugin build time.
             #[cfg(feature = "trace")]
-            system_span: info_span!("system", name = name.clone().as_string()),
+            system_span: info_span!(parent: None, "system", name = name.clone().as_string()),
             #[cfg(feature = "trace")]
-            commands_span: info_span!("system_commands", name = name.clone().as_string()),
+            commands_span: info_span!(parent: None, "system_commands", name = name.clone().as_string()),
             name,
             flags: SystemStateFlags::empty(),
             last_run: Tick::new(0),
@@ -68,8 +70,8 @@ impl SystemMeta {
         #[cfg(feature = "trace")]
         {
             let name = new_name.as_ref();
-            self.system_span = info_span!("system", name = name);
-            self.commands_span = info_span!("system_commands", name = name);
+            self.system_span = info_span!(parent: None, "system", name = name);
+            self.commands_span = info_span!(parent: None, "system_commands", name = name);
         }
         self.name = new_name.into();
     }

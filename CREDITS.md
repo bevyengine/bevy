@@ -30,7 +30,6 @@
 * `MorphStressTest.gltf`, [MorphStressTest] ([CC-BY 4.0] by Analytical Graphics, Inc, Model and textures by Ed Mackey)
 * Mysterious acoustic guitar music sample from [florianreichelt](https://freesound.org/people/florianreichelt/sounds/412429/) (CC0 license)
 * Epic orchestra music sample, modified to loop, from [Migfus20](https://freesound.org/people/Migfus20/sounds/560449/) ([CC BY 4.0 DEED](https://creativecommons.org/licenses/by/4.0/))
-* [PICA PICA Assets](https://github.com/SEED-EA/pica-pica-assets) by SEED-EA ([CC BY-NC 4.0](https://creativecommons.org/licenses/by-nc/4.0/))
 
 [MorphStressTest]: https://github.com/KhronosGroup/glTF-Sample-Models/tree/master/2.0/MorphStressTest
 [fox]: https://github.com/KhronosGroup/glTF-Sample-Assets/tree/main/Models/Fox

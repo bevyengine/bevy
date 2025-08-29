@@ -23,7 +23,7 @@ trace = [
 ]
 trace_chrome = ["bevy_log/tracing-chrome"]
 trace_tracy = ["bevy_render?/tracing-tracy", "bevy_log/tracing-tracy"]
-trace_tracy_memory = ["bevy_log/trace_tracy_memory"]
+trace_tracy_memory = ["bevy_log/trace_tracy_memory", "trace", "trace_tracy"]
 detailed_trace = ["bevy_ecs/detailed_trace", "bevy_render?/detailed_trace"]
 
 sysinfo_plugin = ["bevy_diagnostic/sysinfo_plugin"]
@@ -66,12 +66,17 @@ statically-linked-dxc = ["bevy_render/statically-linked-dxc"]
 raw_vulkan_init = ["bevy_render/raw_vulkan_init"]
 
 # Include tonemapping LUT KTX2 files.
-tonemapping_luts = ["bevy_core_pipeline/tonemapping_luts"]
-# Include Bluenoise texture for environment map generation.
-bluenoise_texture = ["bevy_pbr?/bluenoise_texture"]
+tonemapping_luts = [
+  "bevy_core_pipeline?/tonemapping_luts",
+  "ktx2",
+  "bevy_image/zstd",
+]
 
 # Include SMAA LUT KTX2 Files
-smaa_luts = ["bevy_anti_aliasing/smaa_luts"]
+smaa_luts = ["bevy_anti_aliasing?/smaa_luts", "ktx2", "bevy_image/zstd"]
+
+# Include Bluenoise texture for environment map generation.
+bluenoise_texture = ["bevy_pbr?/bluenoise_texture", "ktx2", "bevy_image/zstd"]
 
 # NVIDIA Deep Learning Super Sampling
 dlss = ["bevy_anti_aliasing/dlss", "bevy_solari?/dlss"]
@@ -197,44 +202,55 @@ webgpu = [
 bevy_ci_testing = ["bevy_dev_tools/bevy_ci_testing", "bevy_render?/ci_limits"]
 
 # Enable animation support, and glTF animation loading
-animation = ["bevy_animation", "bevy_mesh", "bevy_gltf?/bevy_animation"]
-
-bevy_window = ["dep:bevy_window", "dep:bevy_a11y"]
+animation = [
+  "bevy_animation",
+  "bevy_mesh",
+  "bevy_color",
+  "bevy_gltf?/bevy_animation",
+]
 
 bevy_shader = ["dep:bevy_shader"]
-bevy_image = ["dep:bevy_image"]
-bevy_sprite = ["dep:bevy_sprite", "bevy_image"]
-bevy_text = ["dep:bevy_text", "bevy_image", "bevy_sprite"]
+bevy_image = ["dep:bevy_image", "bevy_color", "bevy_asset"]
+bevy_sprite = ["dep:bevy_sprite", "bevy_camera", "bevy_gizmos?/bevy_sprite"]
+bevy_text = [
+  "dep:bevy_text",
+  "bevy_image",
+  "bevy_sprite?/bevy_text",
+  "bevy_sprite_render?/bevy_text",
+]
+bevy_ui = ["dep:bevy_ui", "bevy_text", "bevy_sprite"]
 bevy_mesh = ["dep:bevy_mesh", "bevy_image"]
-bevy_camera = ["dep:bevy_camera", "bevy_mesh"]
+bevy_window = ["dep:bevy_window", "dep:bevy_a11y", "bevy_image"]
+bevy_winit = ["dep:bevy_winit", "bevy_window"]
+bevy_camera = ["dep:bevy_camera", "bevy_mesh", "bevy_window"]
+bevy_scene = ["dep:bevy_scene", "bevy_asset"]
 bevy_light = ["dep:bevy_light", "bevy_camera"]
 bevy_render = [
   "dep:bevy_render",
-  "bevy_gizmos?/bevy_render",
   "bevy_camera",
   "bevy_shader",
   "bevy_color/wgpu-types",
   "bevy_color/encase",
+  "bevy_gizmos?/bevy_render",
 ]
 bevy_core_pipeline = ["dep:bevy_core_pipeline", "bevy_render"]
 bevy_anti_aliasing = ["dep:bevy_anti_aliasing", "bevy_core_pipeline"]
 bevy_pbr = [
   "dep:bevy_pbr",
-  "bevy_gizmos?/bevy_pbr",
   "bevy_light",
   "bevy_core_pipeline",
+  "bevy_gizmos?/bevy_pbr",
 ]
 bevy_sprite_render = [
   "dep:bevy_sprite_render",
   "bevy_sprite",
   "bevy_core_pipeline",
-  "bevy_gizmos?/bevy_sprite",
   "bevy_gizmos?/bevy_sprite_render",
 ]
-bevy_ui = ["dep:bevy_ui", "bevy_camera"]
-bevy_ui_render = ["dep:bevy_ui_render"]
+bevy_ui_render = ["dep:bevy_ui_render", "bevy_sprite_render", "bevy_ui"]
+bevy_solari = ["dep:bevy_solari", "bevy_pbr"]
 bevy_gizmos = ["dep:bevy_gizmos", "bevy_camera"]
-bevy_gltf = ["dep:bevy_gltf", "bevy_pbr"]
+bevy_gltf = ["dep:bevy_gltf", "bevy_scene", "bevy_pbr"]
 
 # Used to disable code that is unsupported when Bevy is dynamically linked
 dynamic_linking = ["bevy_diagnostic/dynamic_linking"]
@@ -253,6 +269,15 @@ glam_assert = ["bevy_math/glam_assert"]
 debug_glam_assert = ["bevy_math/debug_glam_assert"]
 
 default_font = ["bevy_text?/default_font"]
+
+# Enables downloading assets from HTTP sources
+http = ["bevy_asset?/http"]
+
+# Enables downloading assets from HTTPS sources
+https = ["bevy_asset?/https"]
+
+# Enable caching downloaded assets on the filesystem. NOTE: this cache currently never invalidates entries!
+web_asset_cache = ["bevy_asset?/web_asset_cache"]
 
 # Enables the built-in asset processor for processed assets.
 asset_processor = ["bevy_asset?/asset_processor"]

@@ -68,7 +68,7 @@ fn setup(
             SceneRoot(
                 asset_server.load(
                     GltfAssetLabel::Scene(0)
-                        .from_asset("models/PicaPica/pica_pica_-_mini_diorama_01.glb"),
+                        .from_asset("https://github.com/bevyengine/bevy_asset_files/raw/2a5950295a8b6d9d051d59c0df69e87abcda58c3/pica_pica/mini_diorama_01.glb")
                 ),
             ),
             Transform::from_scale(Vec3::splat(10.0)),
@@ -78,7 +78,7 @@ fn setup(
     commands
         .spawn((
             SceneRoot(asset_server.load(
-                GltfAssetLabel::Scene(0).from_asset("models/PicaPica/pica_pica_-_robot_01.glb"),
+                GltfAssetLabel::Scene(0).from_asset("https://github.com/bevyengine/bevy_asset_files/raw/2a5950295a8b6d9d051d59c0df69e87abcda58c3/pica_pica/robot_01.glb")
             )),
             Transform::from_scale(Vec3::splat(2.0))
                 .with_translation(Vec3::new(-2.0, 0.05, -2.1))
