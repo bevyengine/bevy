@@ -25,7 +25,7 @@ fn compact_world_cache_single_block(
     @builtin(local_invocation_index) t: u32,
 ) {
     if t == 0u { w1[0u] = 0u; } else { w1[t] = u32(world_cache_life[cell_id.x - 1u] != 0u); }; workgroupBarrier();
-    if t < 1u { w2  [t] = w1[t]; } else { w2[t] = w1[t] + w1[t - 1u]; } workgroupBarrier();
+    if t < 1u { w2[t] = w1[t]; } else { w2[t] = w1[t] + w1[t - 1u]; } workgroupBarrier();
     if t < 2u { w1[t] = w2[t]; } else { w1[t] = w2[t] + w2[t - 2u]; } workgroupBarrier();
     if t < 4u { w2[t] = w1[t]; } else { w2[t] = w1[t] + w1[t - 4u]; } workgroupBarrier();
     if t < 8u { w1[t] = w2[t]; } else { w1[t] = w2[t] + w2[t - 8u]; } workgroupBarrier();
