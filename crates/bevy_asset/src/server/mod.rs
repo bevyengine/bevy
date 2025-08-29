@@ -39,6 +39,8 @@ use std::path::{Path, PathBuf};
 use thiserror::Error;
 use tracing::{error, info};
 
+pub use info::AssetServerStats;
+
 /// Loads and tracks the state of [`Asset`] values from a configured [`AssetReader`](crate::io::AssetReader).
 /// This can be used to kick off new asset loads and retrieve their current load states.
 ///
@@ -515,9 +517,11 @@ impl AssetServer {
         &self,
         handle: UntypedHandle,
         path: AssetPath<'static>,
-        infos: RwLockWriteGuard<AssetInfos>,
+        mut infos: RwLockWriteGuard<AssetInfos>,
         guard: G,
     ) {
+        let load_tracker = infos.stats.start_tracking_load(self.clone());
+
         // drop the lock on `AssetInfos` before spawning a task that may block on it in single-threaded
         #[cfg(any(target_arch = "wasm32", not(feature = "multi_threaded")))]
         drop(infos);
@@ -531,6 +535,9 @@ impl AssetServer {
             {
                 error!("{}", err);
             }
+            // Drop the load tracker after the load finishes (and ensure the load_tracker is moved
+            // into the task).
+            drop(load_tracker);
             drop(guard);
         });
 
@@ -552,6 +559,11 @@ impl AssetServer {
         &self,
         path: impl Into<AssetPath<'a>>,
     ) -> Result<UntypedHandle, AssetLoadError> {
+        // Start tracking the load. Note 1: this will also count loads that fail immediately (e.g.,
+        // there is no relevant loader). Note 2: This will only start counting the load after
+        // polling this for the first time.
+        let _load_tracker = self.start_tracking_load_stats();
+
         let path: AssetPath = path.into();
         self.load_internal(None, path, false, None)
             .await
@@ -577,14 +589,16 @@ impl AssetServer {
             meta_transform,
         );
 
-        // drop the lock on `AssetInfos` before spawning a task that may block on it in single-threaded
-        #[cfg(any(target_arch = "wasm32", not(feature = "multi_threaded")))]
-        drop(infos);
-
         if !should_load {
             return handle;
         }
         let id = handle.id().untyped();
+
+        let load_tracker = infos.stats.start_tracking_load(self.clone());
+
+        // drop the lock on `AssetInfos` before spawning a task that may block on it in single-threaded
+        #[cfg(any(target_arch = "wasm32", not(feature = "multi_threaded")))]
+        drop(infos);
 
         let server = self.clone();
         let task = IoTaskPool::get().spawn(async move {
@@ -603,7 +617,10 @@ impl AssetServer {
                         error: err,
                     });
                 }
-            }
+            };
+            // Drop the load tracker after the load finishes (and ensure the load_tracker is moved
+            // into the task).
+            drop(load_tracker);
         });
 
         #[cfg(not(any(target_arch = "wasm32", not(feature = "multi_threaded"))))]
@@ -840,6 +857,8 @@ impl AssetServer {
                     .collect::<Vec<_>>();
 
                 for result in requests {
+                    // Track each of these reloads as its own load.
+                    let _load_tracker = server.start_tracking_load_stats();
                     match result.await {
                         Ok(_) => reloaded = true,
                         Err(err) => error!("{}", err),
@@ -848,12 +867,25 @@ impl AssetServer {
 
                 if !reloaded
                     && server.data.infos.read().should_reload(&path)
-                    && let Err(err) = server.load_internal(None, path, true, None).await
+                    && let Err(err) = {
+                        let _load_tracker = server.start_tracking_load_stats();
+                        server.load_internal(None, path, true, None).await
+                    }
                 {
                     error!("{}", err);
                 }
             })
             .detach();
+    }
+
+    /// Starts tracking a load and provides a "token" that will automatically mark the load as
+    /// finished on drop.
+    ///
+    /// Dropping the token will lock `self`, so ensure no guards are held on `self` before dropping
+    /// the token.
+    pub(crate) fn start_tracking_load_stats(&self) -> impl Drop + Send + Sync + 'static + use<> {
+        let this = self.clone();
+        self.data.infos.write().stats.start_tracking_load(this)
     }
 
     /// Queues a new asset to be tracked by the [`AssetServer`] and returns a [`Handle`] to it. This can be used to track
@@ -1023,6 +1055,8 @@ impl AssetServer {
             Ok(())
         }
 
+        let load_tracker = self.start_tracking_load_stats();
+
         let path = path.into_owned();
         let server = self.clone();
         IoTaskPool::get()
@@ -1063,6 +1097,9 @@ impl AssetServer {
                         server.send_asset_event(InternalAssetEvent::Failed { id, error: err, path });
                     },
                 }
+                // Drop the load tracker after the load finishes (and ensure the load_tracker is
+                // moved into the task).
+                drop(load_tracker);
             })
             .detach();
     }
@@ -1634,6 +1671,11 @@ impl AssetServer {
             .await?;
 
         Ok(())
+    }
+
+    /// Gets the current stats of the asset server.
+    pub fn stats(&self) -> AssetServerStats {
+        self.data.infos.read().stats.clone()
     }
 }
 
