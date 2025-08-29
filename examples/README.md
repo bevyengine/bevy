@@ -217,6 +217,7 @@ Example | Description
 [Animation Events](../examples/animation/animation_events.rs) | Demonstrate how to use animation events
 [Animation Graph](../examples/animation/animation_graph.rs) | Blends multiple animations together with a graph
 [Animation Masks](../examples/animation/animation_masks.rs) | Demonstrates animation masks
+[Animation with different Time resources](../examples/animation/animated_multiple_time_res.rs) | Plays an animations where each of them is using a different Time resource
 [Color animation](../examples/animation/color_animation.rs) | Demonstrates how to animate colors using mixing and splines in different color spaces
 [Custom Skinned Mesh](../examples/animation/custom_skinned_mesh.rs) | Skinned mesh example with mesh and joints data defined in code
 [Eased Motion](../examples/animation/eased_motion.rs) | Demonstrates the application of easing curves to animate an object
