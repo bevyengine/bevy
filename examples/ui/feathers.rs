@@ -159,7 +159,7 @@ fn demo_root(commands: &mut Commands) -> impl Bundle {
                         ..default()
                     },
                     children![
-                        button(
+                        (button(
                             ButtonProps {
                                 on_click: Callback::System(commands.register_system(
                                     |_: In<Activate>| {
@@ -170,8 +170,8 @@ fn demo_root(commands: &mut Commands) -> impl Bundle {
                             },
                             (),
                             Spawn((Text::new("Normal"), ThemedText))
-                        ),
-                        button(
+                        )),
+                        (button(
                             ButtonProps {
                                 on_click: Callback::System(commands.register_system(
                                     |_: In<Activate>| {
@@ -182,8 +182,8 @@ fn demo_root(commands: &mut Commands) -> impl Bundle {
                             },
                             InteractionDisabled,
                             Spawn((Text::new("Disabled"), ThemedText))
-                        ),
-                        button(
+                        )),
+                        (button(
                             ButtonProps {
                                 on_click: Callback::System(commands.register_system(
                                     |_: In<Activate>| {
@@ -195,7 +195,7 @@ fn demo_root(commands: &mut Commands) -> impl Bundle {
                             },
                             (),
                             Spawn((Text::new("Primary"), ThemedText))
-                        ),
+                        )),
                     ]
                 ),
                 (
@@ -208,7 +208,7 @@ fn demo_root(commands: &mut Commands) -> impl Bundle {
                         ..default()
                     },
                     children![
-                        button(
+                        (button(
                             ButtonProps {
                                 on_click: Callback::System(commands.register_system(
                                     |_: In<Activate>| {
@@ -220,8 +220,8 @@ fn demo_root(commands: &mut Commands) -> impl Bundle {
                             },
                             (),
                             Spawn((Text::new("Left"), ThemedText))
-                        ),
-                        button(
+                        )),
+                        (button(
                             ButtonProps {
                                 on_click: Callback::System(commands.register_system(
                                     |_: In<Activate>| {
@@ -233,8 +233,8 @@ fn demo_root(commands: &mut Commands) -> impl Bundle {
                             },
                             (),
                             Spawn((Text::new("Center"), ThemedText))
-                        ),
-                        button(
+                        )),
+                        (button(
                             ButtonProps {
                                 on_click: Callback::System(commands.register_system(
                                     |_: In<Activate>| {
@@ -246,10 +246,10 @@ fn demo_root(commands: &mut Commands) -> impl Bundle {
                             },
                             (),
                             Spawn((Text::new("Right"), ThemedText))
-                        ),
+                        )),
                     ]
                 ),
-                button(
+                (button(
                     ButtonProps {
                         on_click: Callback::System(commands.register_system(|_: In<Activate>| {
                             info!("Wide button clicked!");
@@ -258,28 +258,28 @@ fn demo_root(commands: &mut Commands) -> impl Bundle {
                     },
                     (),
                     Spawn((Text::new("Button"), ThemedText))
-                ),
-                checkbox(
+                )),
+                (checkbox(
                     CheckboxProps {
                         on_change: Callback::Ignore,
                     },
                     Checked,
                     Spawn((Text::new("Checkbox"), ThemedText))
-                ),
-                checkbox(
+                )),
+                (checkbox(
                     CheckboxProps {
                         on_change: Callback::Ignore,
                     },
                     InteractionDisabled,
                     Spawn((Text::new("Disabled"), ThemedText))
-                ),
-                checkbox(
+                )),
+                (checkbox(
                     CheckboxProps {
                         on_change: Callback::Ignore,
                     },
                     (InteractionDisabled, Checked),
                     Spawn((Text::new("Disabled+Checked"), ThemedText))
-                ),
+                )),
                 (
                     Node {
                         display: Display::Flex,
@@ -291,13 +291,13 @@ fn demo_root(commands: &mut Commands) -> impl Bundle {
                         on_change: Callback::System(radio_exclusion),
                     },
                     children![
-                        radio(Checked, Spawn((Text::new("One"), ThemedText))),
-                        radio((), Spawn((Text::new("Two"), ThemedText))),
-                        radio((), Spawn((Text::new("Three"), ThemedText))),
-                        radio(
+                        (radio(Checked, Spawn((Text::new("One"), ThemedText)))),
+                        (radio((), Spawn((Text::new("Two"), ThemedText)))),
+                        (radio((), Spawn((Text::new("Three"), ThemedText)))),
+                        (radio(
                             InteractionDisabled,
                             Spawn((Text::new("Disabled"), ThemedText))
-                        ),
+                        )),
                     ]
                 ),
                 (
@@ -310,34 +310,34 @@ fn demo_root(commands: &mut Commands) -> impl Bundle {
                         ..default()
                     },
                     children![
-                        toggle_switch(
+                        (toggle_switch(
                             ToggleSwitchProps {
                                 on_change: Callback::Ignore,
                             },
                             (),
-                        ),
-                        toggle_switch(
+                        )),
+                        (toggle_switch(
                             ToggleSwitchProps {
                                 on_change: Callback::Ignore,
                             },
                             InteractionDisabled,
-                        ),
-                        toggle_switch(
+                        )),
+                        (toggle_switch(
                             ToggleSwitchProps {
                                 on_change: Callback::Ignore,
                             },
                             (InteractionDisabled, Checked),
-                        ),
+                        )),
                     ]
                 ),
-                slider(
+                (slider(
                     SliderProps {
                         max: 100.0,
                         value: 20.0,
                         ..default()
                     },
                     (SliderStep(10.), SliderPrecision(2)),
-                ),
+                )),
                 (
                     Node {
                         display: Display::Flex,
@@ -345,40 +345,40 @@ fn demo_root(commands: &mut Commands) -> impl Bundle {
                         justify_content: JustifyContent::SpaceBetween,
                         ..default()
                     },
-                    children![Text("Srgba".to_owned()), color_swatch(SwatchType::Rgb),]
+                    children![(Text("Srgba".to_owned())), (color_swatch(SwatchType::Rgb))]
                 ),
-                color_slider(
+                (color_slider(
                     ColorSliderProps {
                         value: 0.5,
                         on_change: Callback::System(change_red),
                         channel: ColorChannel::Red
                     },
                     ()
-                ),
-                color_slider(
+                )),
+                (color_slider(
                     ColorSliderProps {
                         value: 0.5,
                         on_change: Callback::System(change_green),
                         channel: ColorChannel::Green
                     },
                     ()
-                ),
-                color_slider(
+                )),
+                (color_slider(
                     ColorSliderProps {
                         value: 0.5,
                         on_change: Callback::System(change_blue),
                         channel: ColorChannel::Blue
                     },
                     ()
-                ),
-                color_slider(
+                )),
+                (color_slider(
                     ColorSliderProps {
                         value: 0.5,
                         on_change: Callback::System(change_alpha),
                         channel: ColorChannel::Alpha
                     },
                     ()
-                ),
+                )),
                 (
                     Node {
                         display: Display::Flex,
@@ -386,32 +386,32 @@ fn demo_root(commands: &mut Commands) -> impl Bundle {
                         justify_content: JustifyContent::SpaceBetween,
                         ..default()
                     },
-                    children![Text("Hsl".to_owned()), color_swatch(SwatchType::Hsl),]
+                    children![(Text("Hsl".to_owned())), (color_swatch(SwatchType::Hsl))]
                 ),
-                color_slider(
+                (color_slider(
                     ColorSliderProps {
                         value: 0.5,
                         on_change: Callback::System(change_hue),
                         channel: ColorChannel::HslHue
                     },
                     ()
-                ),
-                color_slider(
+                )),
+                (color_slider(
                     ColorSliderProps {
                         value: 0.5,
                         on_change: Callback::System(change_saturation),
                         channel: ColorChannel::HslSaturation
                     },
                     ()
-                ),
-                color_slider(
+                )),
+                (color_slider(
                     ColorSliderProps {
                         value: 0.5,
                         on_change: Callback::System(change_lightness),
                         channel: ColorChannel::HslLightness
                     },
                     ()
-                )
+                ))
             ]
         ),],
     )

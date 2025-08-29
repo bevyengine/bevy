@@ -157,7 +157,7 @@ fn print_logs(
                         TextSpan::new(format!("{:5} ", event.level)),
                         TextColor(level_color(&event.level)),
                     ),
-                    TextSpan::new(&event.message),
+                    (TextSpan::new(&event.message)),
                 ],
             ));
         }

@@ -194,9 +194,9 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     ..default()
                 },
                 children![
-                    vertically_scrolling_list(asset_server.load("fonts/FiraSans-Bold.ttf")),
-                    bidirectional_scrolling_list(asset_server.load("fonts/FiraSans-Bold.ttf")),
-                    nested_scrolling_list(asset_server.load("fonts/FiraSans-Bold.ttf")),
+                    (vertically_scrolling_list(asset_server.load("fonts/FiraSans-Bold.ttf"))),
+                    (bidirectional_scrolling_list(asset_server.load("fonts/FiraSans-Bold.ttf"))),
+                    (nested_scrolling_list(asset_server.load("fonts/FiraSans-Bold.ttf"))),
                 ],
             ));
         });

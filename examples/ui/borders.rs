@@ -235,10 +235,10 @@ fn setup(mut commands: Commands) {
         },
         BackgroundColor(Color::srgb(0.25, 0.25, 0.25)),
         children![
-            label("Borders"),
-            borders_examples,
-            label("Borders Rounded"),
-            borders_examples_rounded
+            (label("Borders")),
+            (borders_examples),
+            (label("Borders Rounded")),
+            (borders_examples_rounded)
         ],
     ));
 }

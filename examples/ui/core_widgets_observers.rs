@@ -120,10 +120,10 @@ fn demo_root(
         },
         TabGroup::default(),
         children![
-            button(asset_server, Callback::System(on_click)),
-            slider(0.0, 100.0, 50.0, Callback::System(on_change_value)),
-            checkbox(asset_server, "Checkbox", Callback::Ignore),
-            Text::new("Press 'D' to toggle widget disabled states"),
+            (button(asset_server, Callback::System(on_click))),
+            (slider(0.0, 100.0, 50.0, Callback::System(on_change_value))),
+            (checkbox(asset_server, "Checkbox", Callback::Ignore)),
+            (Text::new("Press 'D' to toggle widget disabled states")),
         ],
     )
 }
