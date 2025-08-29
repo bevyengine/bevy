@@ -69,7 +69,7 @@ impl<E: EntityEvent> Trigger<E> for EntityTrigger {
         trigger_context: &TriggerContext,
         event: &mut E,
     ) {
-        let entity = event.entity();
+        let entity = event.event_target();
         trigger_entity_internal(
             world,
             observers,
@@ -121,7 +121,7 @@ pub fn trigger_entity_internal(
 }
 
 pub struct PropagateEntityTrigger<const AUTO_PROPAGATE: bool, E: EntityEvent, T: Traversal<E>> {
-    pub original_entity: Entity,
+    pub original_event_target: Entity,
     pub propagate: bool,
     _marker: PhantomData<(E, T)>,
 }
@@ -131,7 +131,7 @@ impl<const AUTO_PROPAGATE: bool, E: EntityEvent, T: Traversal<E>> Default
 {
     fn default() -> Self {
         Self {
-            original_entity: Entity::PLACEHOLDER,
+            original_event_target: Entity::PLACEHOLDER,
             propagate: AUTO_PROPAGATE,
             _marker: Default::default(),
         }
@@ -148,8 +148,8 @@ impl<const AUTO_PROPAGATE: bool, E: EntityEvent, T: Traversal<E>> Trigger<E>
         trigger_context: &TriggerContext,
         event: &mut E,
     ) {
-        let mut current_entity = event.entity();
-        self.original_entity = current_entity;
+        let mut current_entity = event.event_target();
+        self.original_event_target = current_entity;
         trigger_entity_internal(
             world.reborrow(),
             observers,
@@ -172,7 +172,7 @@ impl<const AUTO_PROPAGATE: bool, E: EntityEvent, T: Traversal<E>> Trigger<E>
                 break;
             }
 
-            *event.entity_mut() = current_entity;
+            *event.event_target_mut() = current_entity;
             trigger_entity_internal(
                 world.reborrow(),
                 observers,
@@ -196,7 +196,7 @@ impl<'a, E: EntityEvent> Trigger<E> for EntityComponentsTrigger<'a> {
         trigger_context: &TriggerContext,
         event: &mut E,
     ) {
-        let entity = event.entity();
+        let entity = event.event_target();
         self.trigger_internal(world, observers, event.into(), entity, trigger_context);
     }
 }

@@ -1083,11 +1083,18 @@ impl<'w, 's> Commands<'w, 's> {
         self.queue(command::run_system_cached_with(system, input).handle_error_with(warn));
     }
 
+    /// Triggers the given [`Event`], which will run any [`Observer`]s watching for it.
+    ///
+    /// [`Observer`]: crate::observer::Observer
     #[track_caller]
     pub fn trigger<'a>(&mut self, event: impl Event<Trigger<'a>: Default>) {
         self.queue(command::trigger(event));
     }
 
+    /// Triggers the given [`Event`] using the given [`Trigger`], which will run any [`Observer`]s watching for it.
+    ///
+    /// [`Trigger`]: crate::event::Trigger
+    /// [`Observer`]: crate::observer::Observer
     #[track_caller]
     pub fn trigger_with<E: Event<Trigger<'static>: Send + Sync>>(
         &mut self,
@@ -1991,7 +1998,8 @@ impl<'a> EntityCommands<'a> {
         self
     }
 
-    /// Creates an [`Observer`] listening for events of type `E` targeting this entity.
+    /// Creates an [`Observer`] watching for an [`EntityEvent`] of type `E` whose [`EntityEvent::event_target`]
+    /// targets this entity.
     pub fn observe<E: EntityEvent, B: Bundle, M>(
         &mut self,
         observer: impl IntoObserverSystem<E, B, M>,

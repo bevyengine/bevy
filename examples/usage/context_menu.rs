@@ -43,7 +43,7 @@ fn text_color_on_hover<T: Debug + Clone + Reflect>(
     move |mut event: On<Pointer<T>>,
           mut text_color: Query<&mut TextColor>,
           children: Query<&Children>| {
-        let Ok(children) = children.get(event.original_entity()) else {
+        let Ok(children) = children.get(event.original_event_target()) else {
             return;
         };
         event.propagate(false);
@@ -112,7 +112,7 @@ fn on_trigger_menu(event: On<OpenContextMenu>, mut commands: Commands) {
              menu_items: Query<&ContextMenuItem>,
              mut clear_col: ResMut<ClearColor>,
              mut commands: Commands| {
-                let target = event.original_entity();
+                let target = event.original_event_target();
 
                 if let Ok(item) = menu_items.get(target) {
                     clear_col.0 = item.0.into();

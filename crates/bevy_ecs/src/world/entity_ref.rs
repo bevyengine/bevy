@@ -2025,10 +2025,13 @@ impl<'w> EntityWorldMut<'w> {
         )
     }
 
+    /// Triggers the given [`Event`], which will run any [`Observer`]s watching for it.
+    ///
+    /// [`Observer`]: crate::observer::Observer
     #[track_caller]
     pub fn trigger<'a, E: Event<Trigger<'a>: Default>>(&mut self, mut event: E) {
         self.world_scope(|world| {
-            world.trigger_with_ref_caller(
+            world.trigger_ref_with_caller(
                 &mut event,
                 &mut <E::Trigger<'_> as Default>::default(),
                 MaybeLocation::caller(),
@@ -2036,6 +2039,10 @@ impl<'w> EntityWorldMut<'w> {
         });
     }
 
+    /// Triggers the given [`Event`] using the given [`Trigger`], which will run any [`Observer`]s watching for it.
+    ///
+    /// [`Trigger`]: crate::event::Trigger
+    /// [`Observer`]: crate::observer::Observer
     #[track_caller]
     pub fn trigger_with<'a, E: Event<Trigger<'a>: Send + Sync>>(
         &mut self,
@@ -2043,7 +2050,7 @@ impl<'w> EntityWorldMut<'w> {
         mut trigger: E::Trigger<'a>,
     ) {
         self.world_scope(|world| {
-            world.trigger_with_ref_caller(&mut event, &mut trigger, MaybeLocation::caller());
+            world.trigger_ref_with_caller(&mut event, &mut trigger, MaybeLocation::caller());
         });
     }
 
@@ -2859,8 +2866,8 @@ impl<'w> EntityWorldMut<'w> {
         }
     }
 
-    /// Creates an [`Observer`] listening for events of type `E` targeting this entity.
-    /// In order to trigger the callback the entity must also match the query when the event is fired.
+    /// Creates an [`Observer`] watching for an [`EntityEvent`] of type `E` whose [`EntityEvent::event_target`]
+    /// targets this entity.
     ///
     /// # Panics
     ///
@@ -6098,7 +6105,9 @@ mod tests {
         let entity = world
             .spawn_empty()
             .observe(|event: On<TestEvent>, mut commands: Commands| {
-                commands.entity(event.entity()).insert(TestComponent(0));
+                commands
+                    .entity(event.event_target())
+                    .insert(TestComponent(0));
             })
             .id();
 

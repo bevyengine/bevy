@@ -207,12 +207,14 @@ pub fn run_schedule(label: impl ScheduleLabel) -> impl Command<Result> {
     }
 }
 
-/// A [`Command`] that sends a global [`Event`] without any targets.
+/// Triggers the given [`Event`], which will run any [`Observer`]s watching for it.
+///
+/// [`Observer`]: crate::observer::Observer
 #[track_caller]
 pub fn trigger<'a, E: Event<Trigger<'a>: Default>>(mut event: E) -> impl Command {
     let caller = MaybeLocation::caller();
     move |world: &mut World| {
-        world.trigger_with_ref_caller(
+        world.trigger_ref_with_caller(
             &mut event,
             &mut <E::Trigger<'_> as Default>::default(),
             caller,
@@ -220,7 +222,10 @@ pub fn trigger<'a, E: Event<Trigger<'a>: Default>>(mut event: E) -> impl Command
     }
 }
 
-/// A [`Command`] that sends a global [`Event`] without any targets.
+/// Triggers the given [`Event`] using the given [`Trigger`], which will run any [`Observer`]s watching for it.
+///
+/// [`Trigger`]: crate::event::Trigger
+/// [`Observer`]: crate::observer::Observer
 #[track_caller]
 pub fn trigger_with<E: Event<Trigger<'static>: Send + Sync>>(
     mut event: E,
@@ -228,7 +233,7 @@ pub fn trigger_with<E: Event<Trigger<'static>: Send + Sync>>(
 ) -> impl Command {
     let caller = MaybeLocation::caller();
     move |world: &mut World| {
-        world.trigger_with_ref_caller(&mut event, &mut trigger, caller);
+        world.trigger_ref_with_caller(&mut event, &mut trigger, caller);
     }
 }
 

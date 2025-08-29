@@ -120,7 +120,7 @@ pub fn derive_entity_event(input: TokenStream) -> TokenStream {
         .into();
     }
 
-    let entity_field = match get_entity_event_field(&ast) {
+    let entity_field = match get_event_target_field(&ast) {
         Ok(value) => value,
         Err(err) => return err.into_compile_error().into(),
     };
@@ -143,11 +143,11 @@ pub fn derive_entity_event(input: TokenStream) -> TokenStream {
         }
 
         impl #impl_generics #bevy_ecs_path::event::EntityEvent for #struct_name #type_generics #where_clause {
-            fn entity(&self) -> #bevy_ecs_path::entity::Entity {
+            fn event_target(&self) -> #bevy_ecs_path::entity::Entity {
                 self.#entity_field
             }
 
-            fn entity_mut(&mut self) -> &mut #bevy_ecs_path::entity::Entity {
+            fn event_target_mut(&mut self) -> &mut #bevy_ecs_path::entity::Entity {
                 &mut self.#entity_field
             }
         }
@@ -155,9 +155,9 @@ pub fn derive_entity_event(input: TokenStream) -> TokenStream {
     })
 }
 
-/// Returns the field with the `#[event_entity]` attribute, the only field if unnamed,
+/// Returns the field with the `#[event_target]` attribute, the only field if unnamed,
 /// or the field with the name "entity".
-fn get_entity_event_field(ast: &DeriveInput) -> Result<Member> {
+fn get_event_target_field(ast: &DeriveInput) -> Result<Member> {
     let Data::Struct(DataStruct { fields, .. }) = &ast.data else {
         return Err(syn::Error::new(
             ast.span(),
@@ -169,21 +169,21 @@ fn get_entity_event_field(ast: &DeriveInput) -> Result<Member> {
             if field.ident.as_ref().is_some_and(|i| i == "entity") || field
                 .attrs
                 .iter()
-                .any(|attr| attr.path().is_ident(EVENT_ENTITY)) {
+                .any(|attr| attr.path().is_ident(EVENT_TARGET)) {
                     Some(Member::Named(field.ident.clone()?))
                 } else {
                     None
                 }
         }).ok_or(syn::Error::new(
             fields.span(),
-            "EntityEvent derive expected a field name 'entity' or a field annotated with #[event_entity]."
+            "EntityEvent derive expected a field name 'entity' or a field annotated with #[event_target]."
         )),
         Fields::Unnamed(fields) if fields.unnamed.len() == 1 => Ok(Member::Unnamed(Index::from(0))),
         Fields::Unnamed(fields) => fields.unnamed.iter().enumerate().find_map(|(index, field)| {
                 if field
                     .attrs
                     .iter()
-                    .any(|attr| attr.path().is_ident(EVENT_ENTITY)) {
+                    .any(|attr| attr.path().is_ident(EVENT_TARGET)) {
                         Some(Member::Unnamed(Index::from(index)))
                     } else {
                         None
@@ -191,7 +191,7 @@ fn get_entity_event_field(ast: &DeriveInput) -> Result<Member> {
             })
             .ok_or(syn::Error::new(
                 fields.span(),
-                "EntityEvent derive expected unnamed structs with one field or with a field annotated with #[event_entity].",
+                "EntityEvent derive expected unnamed structs with one field or with a field annotated with #[event_target].",
             )),
         Fields::Unit => Err(syn::Error::new(
             fields.span(),
@@ -536,7 +536,7 @@ pub const STORAGE: &str = "storage";
 pub const REQUIRE: &str = "require";
 pub const RELATIONSHIP: &str = "relationship";
 pub const RELATIONSHIP_TARGET: &str = "relationship_target";
-pub const EVENT_ENTITY: &str = "event_entity";
+pub const EVENT_TARGET: &str = "event_target";
 
 pub const ON_ADD: &str = "on_add";
 pub const ON_INSERT: &str = "on_insert";

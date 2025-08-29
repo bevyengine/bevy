@@ -2,7 +2,6 @@
 use bevy_a11y::AccessibilityNode;
 use bevy_ecs::{
     component::Component,
-    event::EntityEvent,
     lifecycle::{Add, Remove},
     observer::On,
     world::DeferredWorld,

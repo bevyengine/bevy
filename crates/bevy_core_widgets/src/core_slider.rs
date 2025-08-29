@@ -488,27 +488,34 @@ pub(crate) fn slider_on_insert_step(insert: On<Insert, SliderStep>, mut world: D
 /// # Example:
 ///
 /// ```
-/// use bevy_ecs::system::Commands;
-/// use bevy_core_widgets::{CoreSlider, SliderRange, SliderValue, SetSliderValue};
-///
+/// # use bevy_ecs::system::Commands;
+/// # use bevy_core_widgets::{CoreSlider, SliderRange, SliderValue, SetSliderValue, SliderValueChange};
 /// fn setup(mut commands: Commands) {
 ///     // Create a slider
-///     let slider = commands.spawn((
+///     let entity = commands.spawn((
 ///         CoreSlider::default(),
 ///         SliderValue(0.5),
 ///         SliderRange::new(0.0, 1.0),
 ///     )).id();
 ///
 ///     // Set to an absolute value
-///     commands.trigger_targets(SetSliderValue::Absolute(0.75), slider);
+///     commands.trigger(SetSliderValue {
+///         entity,
+///         change: SliderValueChange::Absolute(0.75),
+///     });
 ///
 ///     // Adjust relatively
-///     commands.trigger_targets(SetSliderValue::Relative(-0.25), slider);
+///     commands.trigger(SetSliderValue {
+///         entity,
+///         change: SliderValueChange::Relative(-0.25),
+///     });
 /// }
 /// ```
 #[derive(EntityEvent, Clone)]
 pub struct SetSliderValue {
+    /// The slider entity to change.
     pub entity: Entity,
+    /// The change to apply to the slider entity.
     pub change: SliderValueChange,
 }
 

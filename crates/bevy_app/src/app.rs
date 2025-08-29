@@ -1339,7 +1339,9 @@ impl App {
     /// # };
     /// #
     /// # #[derive(EntityEvent)]
-    /// # struct Invite;
+    /// # struct Invite {
+    /// #    entity: Entity,
+    /// # }
     /// #
     /// # #[derive(Component)]
     /// # struct Friend;
@@ -1347,8 +1349,8 @@ impl App {
     ///
     /// app.add_observer(|event: On<Party>, friends: Query<Entity, With<Friend>>, mut commands: Commands| {
     ///     if event.friends_allowed {
-    ///         for friend in friends.iter() {
-    ///             commands.trigger_targets(Invite, friend);
+    ///         for entity in friends.iter() {
+    ///             commands.trigger(Invite { entity } );
     ///         }
     ///     }
     /// });

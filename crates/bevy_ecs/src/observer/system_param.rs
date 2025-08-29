@@ -1,13 +1,5 @@
 //! System parameters for working with observers.
 
-use core::{
-    fmt::Debug,
-    marker::PhantomData,
-    ops::{Deref, DerefMut},
-};
-
-use bevy_ptr::Ptr;
-
 use crate::{
     bundle::Bundle,
     change_detection::MaybeLocation,
@@ -15,10 +7,16 @@ use crate::{
     prelude::*,
     traversal::Traversal,
 };
+use bevy_ptr::Ptr;
+use core::{
+    fmt::Debug,
+    marker::PhantomData,
+    ops::{Deref, DerefMut},
+};
 
 /// Type containing triggered [`Event`] information for a given run of an [`Observer`]. This contains the
-/// [`Event`] data itself. If it was triggered for a specific [`Entity`], it includes that as well. It also
-/// contains event propagation information. See [`On::propagate`] for more information.
+/// [`Event`] data itself. It also provides access to the [`Trigger`](crate::event::Trigger), which for things like
+/// [`EntityEvent`] with a [`PropagateEntityTrigger`], includes control over event propagation.
 ///
 /// The generic `B: Bundle` is used to modify the further specialize the events that this observer is interested in.
 /// The entity involved *does not* have to have these components, but the observer will only be
@@ -43,7 +41,7 @@ pub struct On<'w, E: Event, B: Bundle = ()> {
 pub type Trigger<'w, E, B = ()> = On<'w, E, B>;
 
 impl<'w, E: Event, B: Bundle> On<'w, E, B> {
-    /// Creates a new instance of [`On`] for the given event and observer information.
+    /// Creates a new instance of [`On`] for the given triggered event.
     pub fn new(
         event: &'w mut E,
         observer: Entity,
@@ -79,12 +77,17 @@ impl<'w, E: Event, B: Bundle> On<'w, E, B> {
         Ptr::from(&self.event)
     }
 
-    /// Returns the trigger context for this event.
+    /// Returns the [`Trigger`](crate::event::Trigger) context for this event.
     pub fn trigger(&self) -> &E::Trigger<'w> {
         self.trigger
     }
 
-    /// Returns the [`Entity`] that observed the triggered event.
+    /// Returns the mutable [`Trigger`](crate::event::Trigger) context for this event.
+    pub fn trigger_mut(&mut self) -> &mut E::Trigger<'w> {
+        self.trigger
+    }
+
+    /// Returns the [`Entity`] of the [`Observer`] of the triggered event.
     /// This allows you to despawn the observer, ceasing observation.
     ///
     /// # Examples
@@ -93,22 +96,24 @@ impl<'w, E: Event, B: Bundle> On<'w, E, B> {
     /// # use bevy_ecs::prelude::*;
     ///
     /// #[derive(EntityEvent)]  
-    /// struct AssertEvent;  
+    /// struct AssertEvent {
+    ///     entity: Entity,
+    /// }
     ///
     /// fn assert_observer(event: On<AssertEvent>) {  
-    ///     assert_eq!(event.observer(), event.entity());  
+    ///     assert_eq!(event.observer(), event.entity);  
     /// }  
     ///
     /// let mut world = World::new();  
-    /// let observer = world.spawn(Observer::new(assert_observer)).id();  
+    /// let entity = world.spawn(Observer::new(assert_observer)).id();  
     ///
-    /// world.trigger_targets(AssertEvent, observer);  
+    /// world.trigger(AssertEvent { entity });  
     /// ```
     pub fn observer(&self) -> Entity {
         self.observer
     }
 
-    /// Returns the source code location that triggered this observer.
+    /// Returns the source code location that triggered this observer, if the `track_location` cargo feature is enabled.
     pub fn caller(&self) -> MaybeLocation {
         self.trigger_context.caller
     }
@@ -122,21 +127,19 @@ impl<
         T: Traversal<E>,
     > On<'w, E, B>
 {
-    /// Returns the original [`Entity`] that the `event` was targeted at when it was first triggered.
-    ///
-    /// If event propagation is not enabled, this will always return the same value as [`On::entity`].
-    pub fn original_entity(&self) -> Entity {
-        self.trigger.original_entity
+    /// Returns the original [`Entity`] that this [`EntityEvent`] targeted via [`EntityEvent::event_target`] when it was _first_ triggered,
+    /// prior to any propagation logic.
+    pub fn original_event_target(&self) -> Entity {
+        self.trigger.original_event_target
     }
 
     /// Enables or disables event propagation, allowing the same event to trigger observers on a chain of different entities.
     ///
-    /// The path an event will propagate along is specified by its associated [`Traversal`] component. By default, events
-    /// use `()` which ends the path immediately and prevents propagation.
+    /// The path an [`EntityEvent`] will propagate along is specified by the [`Traversal`] component defined in [`PropagateEntityTrigger`].
     ///
-    /// To enable propagation, you must:
-    /// + Set [`EntityEvent::Traversal`] to the component you want to propagate along.
-    /// + Either call `propagate(true)` in the first observer or set [`EntityEvent::AUTO_PROPAGATE`] to `true`.
+    /// [`EntityEvent`] does not propagate by default. To enable propagation, you must:
+    /// + Enable propagation in [`EntityEvent`] using `#[entity_event(propagate)]`. See [`EntityEvent`] for details.
+    /// + Either call `propagate(true)` in the first observer or in the [`EntityEvent`] derive add `#[entity_event(auto_propagate)]`.
     ///
     /// You can prevent an event from propagating further using `propagate(false)`.
     ///
@@ -182,16 +185,7 @@ impl<'w, E: Event, B: Bundle> DerefMut for On<'w, E, B> {
 /// This information is exposed via methods on [`On`].
 pub struct TriggerContext {
     /// The [`EventKey`] the trigger targeted.
-    pub(crate) event_key: EventKey,
+    pub event_key: EventKey,
     /// The location of the source code that triggered the observer.
-    pub(crate) caller: MaybeLocation,
-}
-
-impl TriggerContext {
-    pub fn new<E: Event>(world: &mut World, caller: MaybeLocation) -> Self {
-        Self {
-            event_key: world.register_event_key::<E>(),
-            caller,
-        }
-    }
+    pub caller: MaybeLocation,
 }

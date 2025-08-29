@@ -90,17 +90,19 @@ fn checkbox_on_pointer_click(
 ///
 /// fn setup(mut commands: Commands) {
 ///     // Create a checkbox
-///     let checkbox = commands.spawn((
+///     let entity = commands.spawn((
 ///         CoreCheckbox::default(),
 ///     )).id();
 ///
 ///     // Set to checked
-///     commands.trigger_targets(SetChecked(true), checkbox);
+///     commands.trigger(SetChecked { entity, checked: true});
 /// }
 /// ```
 #[derive(EntityEvent)]
 pub struct SetChecked {
+    /// The [`CoreCheckbox`] entity to set the "checked" state on.
     pub entity: Entity,
+    /// Sets the `checked` state to `true` or `false`.
     pub checked: bool,
 }
 
@@ -115,12 +117,12 @@ pub struct SetChecked {
 ///
 /// fn setup(mut commands: Commands) {
 ///     // Create a checkbox
-///     let checkbox = commands.spawn((
+///     let entity = commands.spawn((
 ///         CoreCheckbox::default(),
 ///     )).id();
 ///
 ///     // Set to checked
-///     commands.trigger_targets(ToggleChecked, checkbox);
+///     commands.trigger(ToggleChecked { entity });
 /// }
 /// ```
 #[derive(EntityEvent)]

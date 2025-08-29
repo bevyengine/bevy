@@ -56,7 +56,7 @@ fn setup(mut commands: Commands) {
                 (&ComputedNode, &mut ScrollStart),
                 With<ScrollableNode>,
             >| {
-                if drag_start.entity != drag_start.original_entity() {
+                if drag_start.entity != drag_start.original_event_target() {
                     return;
                 }
                 if let Ok((computed_node, mut start)) = scroll_position_query.single_mut() {

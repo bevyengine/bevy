@@ -87,7 +87,7 @@ use core::{
 ///     }
 /// }
 /// ```
-///
+/// [`Event`]: crate::event::Event
 /// [`World`]: crate::world::World
 /// [`Observer`]: crate::observer::Observer
 /// [`Events<E>`]: super::Events

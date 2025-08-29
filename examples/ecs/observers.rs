@@ -1,4 +1,4 @@
-//! Demonstrates how to observe life-cycle triggers as well as define custom ones.
+//! Demonstrates how to observe events: both component lifecycle events and custom events.
 
 use bevy::{
     platform::collections::{HashMap, HashSet},
@@ -58,12 +58,16 @@ impl Mine {
     }
 }
 
+/// This is a normal [`Event`]. Any observer that watches for it will run when it is triggered.
 #[derive(Event)]
 struct ExplodeMines {
     pos: Vec2,
     radius: f32,
 }
 
+/// An [`EntityEvent`] is a specialized type of [`Event`] that can target a specific entity. In addition to
+/// running normal "top level" observers when it is triggered (which target _any_ entity that Explodes), it will
+/// also run any observers that target the _specific_ entity for that event.
 #[derive(EntityEvent)]
 struct Explode {
     entity: Entity,
@@ -134,7 +138,7 @@ fn on_remove_mine(remove: On<Remove, Mine>, query: Query<&Mine>, mut index: ResM
 }
 
 fn explode_mine(explode: On<Explode>, query: Query<&Mine>, mut commands: Commands) {
-    // If a triggered event is targeting a specific entity you can access it with `.target()`
+    // Explode is an EntityEvent. `explode.entity` is the entity that Explode was triggered for.
     let Ok(mut entity) = commands.get_entity(explode.entity) else {
         return;
     };

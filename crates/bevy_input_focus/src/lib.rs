@@ -143,7 +143,7 @@ pub struct InputFocusVisible(pub bool);
 #[entity_event(propagate = WindowTraversal, auto_propagate)]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Component, Clone))]
 pub struct FocusedInput<E: BufferedEvent + Clone> {
-    #[event_entity]
+    #[event_target]
     pub focused_entity: Entity,
     /// The underlying input event.
     pub input: E,
@@ -156,7 +156,7 @@ pub struct FocusedInput<E: BufferedEvent + Clone> {
 #[derive(Clone, EntityEvent)]
 #[entity_event(propagate = WindowTraversal, auto_propagate)]
 pub struct AcquireFocus {
-    #[event_entity]
+    #[event_target]
     pub focused_entity: Entity,
     /// The primary window entity.
     window: Entity,

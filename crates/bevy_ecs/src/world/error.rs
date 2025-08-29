@@ -92,13 +92,13 @@ mod tests {
         struct FollowupEvent(Entity);
 
         fn despawn(kill: On<Kill>, mut commands: Commands) {
-            commands.entity(kill.entity()).despawn();
+            commands.entity(kill.event_target()).despawn();
         }
 
         fn followup(kill: On<Kill>, mut commands: Commands) {
             // When using a simple .trigger() here, this panics because the entity has already been despawned.
             // Instead, we need to use `.queue_handled` or `.queue_silenced` to avoid the panic.
-            commands.queue_silenced(trigger(FollowupEvent(kill.entity())));
+            commands.queue_silenced(trigger(FollowupEvent(kill.event_target())));
         }
 
         let mut world = World::new();

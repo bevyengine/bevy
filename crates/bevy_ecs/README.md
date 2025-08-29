@@ -301,7 +301,7 @@ fn reader(mut reader: EventReader<Message>) {
 
 ### Observers
 
-Observers are systems that listen for a "trigger" of a specific `Event`:
+Observers are systems that watch for a "trigger" of a specific `Event`:
 
 ```rust
 use bevy_ecs::prelude::*;
@@ -316,8 +316,6 @@ let mut world = World::new();
 world.add_observer(|event: On<Speak>| {
     println!("{}", event.message);
 });
-
-world.flush();
 
 world.trigger(Speak {
     message: "Hello!".to_string(),
@@ -334,19 +332,19 @@ If the event is an `EntityEvent`, it can also be triggered to target specific en
 use bevy_ecs::prelude::*;
 
 #[derive(EntityEvent)]
-struct Explode;
+struct Explode {
+    entity: Entity,
+}
 
 let mut world = World::new();
 let entity = world.spawn_empty().id();
 
-world.add_observer(|event: On<Explode>, mut commands: Commands| {
-    println!("Entity {} goes BOOM!", event.entity());
-    commands.entity(event.entity()).despawn();
+world.add_observer(|explode: On<Explode>, mut commands: Commands| {
+    println!("Entity {} goes BOOM!", explode.entity);
+    commands.entity(explode.entity).despawn();
 });
 
-world.flush();
-
-world.trigger_targets(Explode, entity);
+world.trigger(Explode { entity });
 ```
 
 [bevy]: https://bevy.org/

@@ -149,12 +149,12 @@ fn radio_group_on_button_click(
 ) {
     if let Ok(CoreRadioGroup { on_change }) = q_group.get(ev.entity) {
         // Starting with the original target, search upward for a radio button.
-        let radio_id = if q_radio.contains(ev.original_entity()) {
-            ev.original_entity()
+        let radio_id = if q_radio.contains(ev.original_event_target()) {
+            ev.original_event_target()
         } else {
             // Search ancestors for the first radio button
             let mut found_radio = None;
-            for ancestor in q_parents.iter_ancestors(ev.original_entity()) {
+            for ancestor in q_parents.iter_ancestors(ev.original_event_target()) {
                 if q_group.contains(ancestor) {
                     // We reached a radio group before finding a radio button, bail out
                     return;

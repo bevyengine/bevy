@@ -164,7 +164,7 @@ fn update_material_on<E: EntityEvent>(
     // versions of this observer, each triggered by a different event and with a different hardcoded
     // material. Instead, the event type is a generic, and the material is passed in.
     move |event, mut query| {
-        if let Ok(mut material) = query.get_mut(event.entity()) {
+        if let Ok(mut material) = query.get_mut(event.event_target()) {
             material.0 = new_material.clone();
         }
     }

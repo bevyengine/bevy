@@ -334,6 +334,7 @@ pub const DESPAWN: EventKey = EventKey(ComponentId::new(4));
 #[cfg_attr(feature = "bevy_reflect", reflect(Debug))]
 #[doc(alias = "OnAdd")]
 pub struct Add {
+    /// The entity this component was added to.
     pub entity: Entity,
 }
 
@@ -346,6 +347,7 @@ pub struct Add {
 #[cfg_attr(feature = "bevy_reflect", reflect(Debug))]
 #[doc(alias = "OnInsert")]
 pub struct Insert {
+    /// The entity this component was inserted into.
     pub entity: Entity,
 }
 
@@ -360,6 +362,7 @@ pub struct Insert {
 #[cfg_attr(feature = "bevy_reflect", reflect(Debug))]
 #[doc(alias = "OnReplace")]
 pub struct Replace {
+    /// The entity this component was replaced in.
     pub entity: Entity,
 }
 
@@ -372,6 +375,7 @@ pub struct Replace {
 #[cfg_attr(feature = "bevy_reflect", reflect(Debug))]
 #[doc(alias = "OnRemove")]
 pub struct Remove {
+    /// The entity this component was removed from.
     pub entity: Entity,
 }
 
@@ -383,6 +387,7 @@ pub struct Remove {
 #[cfg_attr(feature = "bevy_reflect", reflect(Debug))]
 #[doc(alias = "OnDespawn")]
 pub struct Despawn {
+    /// The entity this component was despawned with.
     pub entity: Entity,
 }
 

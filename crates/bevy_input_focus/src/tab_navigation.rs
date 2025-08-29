@@ -29,7 +29,6 @@ use bevy_app::{App, Plugin, Startup};
 use bevy_ecs::{
     component::Component,
     entity::Entity,
-    event::EntityEvent,
     hierarchy::{ChildOf, Children},
     observer::On,
     query::{With, Without},
@@ -367,7 +366,7 @@ fn click_to_focus(
     // for every ancestor, but only for the original entity. Also, users may want to stop
     // propagation on the pointer event at some point along the bubbling chain, so we need our
     // own dedicated event whose propagation we can control.
-    if press.entity == press.original_entity() {
+    if press.entity == press.original_event_target() {
         // Clicking hides focus
         if focus_visible.0 {
             focus_visible.0 = false;

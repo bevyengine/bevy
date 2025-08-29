@@ -6,7 +6,6 @@ use bevy_ecs::system::In;
 use bevy_ecs::{
     component::Component,
     entity::Entity,
-    event::EntityEvent,
     observer::On,
     query::With,
     system::{Commands, Query},

@@ -16,8 +16,8 @@ use core::marker::PhantomData;
 /// An [`Event`] is something that "happens" at given point.
 ///
 /// To make an [`Event`] "happen", you "trigger" it on a [`World`] using [`World::trigger`] or via a [`Command`](crate::system::Command)
-/// using [`Commands::trigger`](crate::system::Commands::trigger). This causes any [`Observer`] watching for that [`Event`] to run
-/// _immediately_, as part of the [`World::trigger`] call.
+/// using [`Commands::trigger`](crate::system::Commands::trigger). This causes any [`Observer`](crate::observer::Observer) watching for that
+/// [`Event`] to run _immediately_, as part of the [`World::trigger`] call.
 ///
 /// The [`Event`] trait should generally be derived:
 ///
@@ -30,7 +30,7 @@ use core::marker::PhantomData;
 /// }
 /// ```
 ///
-/// An [`Observer`] can then be added to watch for this event type:
+/// An [`Observer`](crate::observer::Observer) can then be added to watch for this event type:
 ///
 /// ```
 /// # use bevy_ecs::prelude::*;
@@ -92,6 +92,178 @@ pub trait Event: Send + Sync + Sized + 'static {
     type Trigger<'a>: Trigger<Self>;
 }
 
+/// An [`EntityEvent`] is an [`Event`] that is triggered for a specific [`EntityEvent::event_target`] entity:
+///
+/// ```
+/// # use bevy_ecs::prelude::*;
+/// # let mut world = World::default();
+/// # let entity = world.spawn_empty().id();
+/// #[derive(EntityEvent)]
+/// struct Explode {
+///     entity: Entity,
+/// }
+///
+/// world.add_observer(|event: On<Explode>, mut commands: Commands| {
+///     println!("Entity {} goes BOOM!", event.entity);
+///     commands.entity(event.entity).despawn();
+/// });
+///
+/// world.trigger(Explode { entity });
+/// ```
+///
+/// [`EntityEvent`] will set [`EntityEvent::event_target`] automatically for named structs with an `entity` field name (as seen above). It also works for tuple structs
+/// whose only field is [`Entity`]:
+///
+/// ```
+/// # use bevy_ecs::prelude::*;
+/// #[derive(EntityEvent)]
+/// struct Explode(Entity);
+/// ```
+///
+/// The [`EntityEvent::event_target`] can also be manually set using the `#[event_target]` field attribute:
+///
+/// ```
+/// # use bevy_ecs::prelude::*;
+/// #[derive(EntityEvent)]
+/// struct Explode {
+///     #[event_target]
+///     exploded_entity: Entity,
+/// }
+/// ```
+///
+/// ```
+/// # use bevy_ecs::prelude::*;
+/// #[derive(EntityEvent)]
+/// struct Explode(#[event_target] Entity);
+/// ```
+///
+/// ## Trigger Behavior
+///
+/// When derived, [`EntityEvent`] defaults to setting [`Event::Trigger`] to [`EntityTrigger`], which will run all normal "untargeted"
+/// observers added via [`World::add_observer`], just like a default [`Event`] would (see the example above).
+///
+/// However it will _also_ run all observers that watch _specific_ entities, which enables you to assign entity-specific logic:
+///
+/// ```
+/// # use bevy_ecs::prelude::*;
+/// # #[derive(Component, Debug)]
+/// # struct Name(String);
+/// # let mut world = World::default();
+/// # let e1 = world.spawn_empty().id();
+/// # let e2 = world.spawn_empty().id();
+/// # #[derive(EntityEvent)]
+/// # struct Explode {
+/// #    entity: Entity,
+/// # }
+/// world.entity_mut(e1).observe(|event: On<Explode>, mut commands: Commands| {
+///     println!("Boom!");
+///     commands.entity(event.entity).despawn();
+/// });
+///
+/// world.entity_mut(e2).observe(|event: On<Explode>, mut commands: Commands| {
+///     println!("The explosion fizzles! This entity is immune!");
+/// });
+/// ```
+///
+/// ## [`EntityEvent`] Propagation
+///
+/// When deriving [`EntityEvent`], you can enable "event propagation" (also known as "event bubbling") by
+/// specifying the `#[entity_event(propagate)]` attribute:
+///
+/// ```
+/// # use bevy_ecs::prelude::*;
+/// #[derive(EntityEvent)]
+/// #[entity_event(propagate)]
+/// struct Click {
+///     entity: Entity,
+/// }
+/// ```
+///
+/// This will default to using the [`ChildOf`](crate::hierarchy::ChildOf) component to propagate the [`Event`] "up"
+/// the hierarchy (from child to parent).
+///
+/// You can also specify your own [`Traversal`](crate::traversal::Traversal) implementation. A common pattern is to use
+/// [`Relationship`](crate::relationship::Relationship) components, which will follow the relationships to their root
+/// (just be sure to avoid cycles ... these aren't detected for performance reasons):
+///
+/// ```
+/// # use bevy_ecs::prelude::*;
+/// #[derive(Component)]
+/// #[relationship(relationship_target = ClickableBy)]
+/// struct Clickable(Entity);
+
+/// #[derive(Component)]
+/// #[relationship_target(relationship = Clickable)]
+/// struct ClickableBy(Vec<Entity>);
+///
+/// #[derive(EntityEvent)]
+/// #[entity_event(propagate = &'static Clickable)]
+/// struct Click {
+///     entity: Entity,
+/// }
+/// ```
+///
+/// By default, propagation requires observers to opt-in:
+///
+/// ```
+/// # use bevy_ecs::prelude::*;
+/// #[derive(EntityEvent)]
+/// #[entity_event(propagate)]
+/// struct Click {
+///     entity: Entity,
+/// }
+///
+/// # let mut world = World::default();
+/// world.add_observer(|mut click: On<Click>| {
+///   // this will propagate the event up to the parent, using `ChildOf`
+///   click.propagate(true);
+/// });
+/// ```
+///
+/// But you can enable auto propagation using the `#[entity_event(auto_propagate)]` attribute:
+/// ```
+/// # use bevy_ecs::prelude::*;
+/// #[derive(EntityEvent)]
+/// #[entity_event(propagate, auto_propagate)]
+/// struct Click {
+///     entity: Entity,
+/// }
+/// ```
+///
+/// ## Manually spawning [`EntityEvent`] observers
+///
+/// The examples above that call [`EntityWorldMut::observe`] to add entity-specific observer logic are
+/// just shorthand for spawning an [`Observer`] directly and manually watching the entity:
+///
+/// ```
+/// # use bevy_ecs::prelude::*;
+/// # let mut world = World::default();
+/// # let entity = world.spawn_empty().id();
+/// # #[derive(EntityEvent)]
+/// # struct Explode(Entity);
+/// let mut observer = Observer::new(|event: On<Explode>| {});
+/// observer.watch_entity(entity);
+/// world.spawn(observer);
+/// ```
+///
+/// Note that the [`Observer`] component is not added to the entity it is observing. Observers should always be their own entities, as there
+/// can be multiple observers of the same entity!
+///
+/// You can call [`Observer::watch_entity`] more than once or [`Observer::watch_entities`] to watch multiple entities with the same [`Observer`].
+///
+/// [`EntityWorldMut::observe`]: crate::world::EntityWorldMut::observe
+/// [`Observer`]: crate::observer::Observer
+/// [`Observer::watch_entity`]: crate::observer::Observer::watch_entity
+/// [`Observer::watch_entities`]: crate::observer::Observer::watch_entities
+pub trait EntityEvent: Event {
+    /// The [`Entity`] "target" of this [`EntityEvent`]. When triggered, this will run observers that watch for this specific entity.
+    fn event_target(&self) -> Entity;
+    /// Returns a mutable reference to the [`Entity`] "target" of this [`EntityEvent`]. When triggered, this will run observers that watch for this specific entity.
+    ///
+    /// Note: In general, this should not be mutated from within an [`Observer`](crate::observer::Observer).
+    fn event_target_mut(&mut self) -> &mut Entity;
+}
+
 impl World {
     /// Generates the [`EventKey`] for this event type.
     ///
@@ -100,7 +272,7 @@ impl World {
     ///
     /// This is used by various dynamically typed observer APIs,
     /// such as [`DeferredWorld::trigger_raw`](crate::world::DeferredWorld::trigger_raw).
-    pub(crate) fn register_event_key<E: Event>(&mut self) -> EventKey {
+    pub fn register_event_key<E: Event>(&mut self) -> EventKey {
         EventKey(self.register_component::<EventWrapperComponent<E>>())
     }
 
@@ -108,16 +280,11 @@ impl World {
     /// if it has already been generated.
     ///
     /// This is used by various dynamically typed observer APIs,
-    /// such as [`World::trigger_targets_dynamic`].
-    pub(crate) fn event_key<E: Event>(&self) -> Option<EventKey> {
+    /// such as [`DeferredWorld::trigger_raw`](crate::world::DeferredWorld::trigger_raw).
+    pub fn event_key<E: Event>(&self) -> Option<EventKey> {
         self.component_id::<EventWrapperComponent<E>>()
             .map(EventKey)
     }
-}
-
-pub trait EntityEvent: Event {
-    fn entity(&self) -> Entity;
-    fn entity_mut(&mut self) -> &mut Entity;
 }
 
 /// An internal type that implements [`Component`] for a given [`Event`] type.
