@@ -15,9 +15,9 @@ use bevy::{
         ExtractedSlice, ExtractedSlices, ExtractedSprite, ExtractedSpriteKind, ExtractedSprites,
     },
     text::{
-        LineBreak, Motion, Placeholder, PlaceholderLayout, PositionedGlyph, TextBounds,
-        TextCursorBlinkInterval, TextEdit, TextEdits, TextInputAttributes, TextInputBuffer,
-        TextInputEvent, TextInputSystems, TextInputTarget, TextLayoutInfo,
+        CursorBlink, LineBreak, Motion, Placeholder, PlaceholderLayout, PositionedGlyph,
+        TextBounds, TextCursorBlinkInterval, TextEdit, TextEdits, TextInputBuffer, TextInputEvent,
+        TextInputSystems, TextInputTarget, TextLayoutInfo,
     },
     window::PrimaryWindow,
 };
@@ -65,16 +65,17 @@ fn setup(mut commands: Commands) {
     commands
         .spawn((
             TextInputBuffer {
-                cursor_blink_timer: Some(0.),
                 ..Default::default()
             },
-            TextInputAttributes::default(),
+            CursorBlink {
+                cursor_blink_timer: 0.,
+            },
             Overwrite::default(),
             TextInputSize(Vec2::new(500., 250.)),
-            Transform::from_translation(Vec3::new(0., 150., 0.)),
+            Transform::from_translation(Vec3::new(0., 150., 0.)), // This is in UI coordinates
             Placeholder::new("type here.."),
             Visibility::default(),
-            VisibilityClass([TypeId::of::<Sprite>()].into()),
+            VisibilityClass([TypeId::of::<Sprite>()].into()), // Text input is rendered as sprites
             Anchor::CENTER,
         ))
         .observe(
@@ -271,6 +272,7 @@ fn update_inputs(
     }
 }
 
+/// Each text fragment is extracted as a sprite for rendering
 fn extract_text_input(
     mut commands: Commands,
     mut extracted_sprites: ResMut<ExtractedSprites>,
@@ -283,6 +285,7 @@ fn extract_text_input(
             &TextInputBuffer,
             &TextLayoutInfo,
             Option<&PlaceholderLayout>,
+            Option<&CursorBlink>,
             &TextInputTarget,
             &Overwrite,
             &ViewVisibility,
@@ -299,6 +302,7 @@ fn extract_text_input(
         buffer,
         text_layout,
         maybe_placeholder_layout,
+        maybe_cursor_blink,
         target,
         overwrite,
         view_visibility,
@@ -340,9 +344,8 @@ fn extract_text_input(
             },
         });
 
-        let blink = buffer
-            .cursor_blink_timer
-            .is_none_or(|t| cursor_blink_interval.0.as_secs_f32() < t);
+        let blink = maybe_cursor_blink
+            .is_none_or(|t| cursor_blink_interval.0.as_secs_f32() < t.cursor_blink_timer);
 
         let transform = transform
             * GlobalTransform::from_translation(

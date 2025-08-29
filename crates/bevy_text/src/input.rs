@@ -33,11 +33,7 @@
 //! * [`TextInputFilter`] - Optional component that can be added to restrict the text input to certain formats, such as integers, decimals, hexadecimal etc.
 //! * [`PasswordMask`] - Optional component that can be added to hide the text input buffer contents by replacing the characters with a mask character.
 //! * [`Placeholder`] - Optional component that can be added to display placeholder text when the input buffer is empty.
-//!
-//! The [`TextInputBuffer`] component itself also has two fields that can be configured:
-//!
-//! * [`TextInputBuffer::space_advance`] - Space advance width for the current font, used to determine the width of the cursor when it is at the end of a line or when the buffer is empty.
-//! * [`TextInputBuffer::cursor_blink_timer`] - Controls cursor blinking.
+//! * [`CursorBlink`] - Optional component that controls cursor blinking.
 //!
 //! ## Copy-paste and clipboard support
 //!
@@ -118,11 +114,6 @@ pub struct TextInputBuffer {
     /// Space advance width for the current font, used to determine the width of the cursor when it is at the end of a line
     /// or when the buffer is empty.
     pub space_advance: f32,
-    /// Controls cursor blinking.
-    /// If the value is none or greater than the `blink_interval` in `TextCursorStyle` then the cursor
-    /// is not displayed.
-    /// The timer is reset when a `TextEdit` is applied.
-    pub cursor_blink_timer: Option<f32>,
 }
 
 impl Default for TextInputBuffer {
@@ -130,7 +121,6 @@ impl Default for TextInputBuffer {
         Self {
             editor: Editor::new(Buffer::new_empty(Metrics::new(20.0, 20.0))),
             space_advance: 20.,
-            cursor_blink_timer: None,
         }
     }
 }
@@ -566,6 +556,7 @@ pub fn update_text_input_buffers(
         Ref<TextInputTarget>,
         &TextEdits,
         Ref<TextInputAttributes>,
+        Option<&mut CursorBlink>,
     )>,
     time: Res<Time>,
     cursor_blink_interval: Res<TextCursorBlinkInterval>,
@@ -576,16 +567,18 @@ pub fn update_text_input_buffers(
 ) {
     let font_system = &mut font_system.0;
     let font_id_map = &mut text_pipeline.map_handle_to_font_id;
-    for (mut input_buffer, target, edits, attributes) in text_input_query.iter_mut() {
+    for (mut input_buffer, target, edits, attributes, maybe_cursor_blink) in
+        text_input_query.iter_mut()
+    {
         let TextInputBuffer {
             editor,
             space_advance,
-            cursor_blink_timer,
         } = input_buffer.as_mut();
 
-        if let Some(timer) = cursor_blink_timer {
-            *timer = if edits.queue.is_empty() {
-                (*timer + time.delta_secs()).rem_euclid(cursor_blink_interval.0.as_secs_f32() * 2.)
+        if let Some(mut cursor_blink) = maybe_cursor_blink {
+            cursor_blink.cursor_blink_timer = if edits.queue.is_empty() {
+                (cursor_blink.cursor_blink_timer + time.delta_secs())
+                    .rem_euclid(cursor_blink_interval.0.as_secs_f32() * 2.)
             } else {
                 0.
             };
@@ -1147,6 +1140,17 @@ pub enum TextInputEvent {
     /// The contents of the text input changed due to a [`TextEdit`].
     /// Only dispatched if a text input entity has a [`TextInputValue`] component.
     TextChanged,
+}
+
+/// Optional component to control cursor blink behaviour
+#[derive(Default, Component, Clone, Debug, Reflect, Deref, DerefMut)]
+#[reflect(Component, Default, Debug)]
+pub struct CursorBlink {
+    /// Controls cursor blinking.
+    /// If the value is greater than the `blink_interval` in `TextCursorStyle` then the cursor
+    /// is not displayed.
+    /// The timer is reset when a `TextEdit` is applied.
+    pub cursor_blink_timer: f32,
 }
 
 /// Placeholder text displayed when the input is empty.
