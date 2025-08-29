@@ -164,15 +164,30 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
 
     let dynamic_bundle_impl = quote! {
         #[allow(deprecated)]
-        impl #impl_generics #ecs_path::bundle::DynamicBundle for #struct_name #ty_generics #where_clause {
+        // SAFETY:
+        // - Assuming each of the fields implement `DynamicBundle` correctly, each of the implementations for each of
+        //   the fields must move the components out of the `Bundle` exactly once between both `get_components` and `apply_effect`.
+        // - `Effect = () : NoBundleEffect` so `apply_effect` is a no-op.
+        unsafe impl #impl_generics #ecs_path::bundle::DynamicBundle for #struct_name #ty_generics #where_clause {
             type Effect = ();
             #[allow(unused_variables)]
             #[inline]
-            fn get_components(
-                self,
+            unsafe fn get_components(
+                ptr: *mut Self,
                 func: &mut impl FnMut(#ecs_path::component::StorageType, #ecs_path::ptr::OwningPtr<'_>)
             ) {
-                #(<#active_field_types as #ecs_path::bundle::DynamicBundle>::get_components(self.#active_field_tokens, &mut *func);)*
+                #(
+                    let field_ptr = &raw mut (*ptr).#active_field_tokens;
+                    <#active_field_types as #ecs_path::bundle::DynamicBundle>::get_components(field_ptr, &mut *func);
+                )*
+            }
+
+            #[allow(unused_variables)]
+            #[inline]
+            unsafe fn apply_effect(
+                ptr: *mut core::mem::MaybeUninit<Self>,
+                func: &mut #ecs_path::world::EntityWorldMut<'_>,
+            ) {
             }
         }
     };
