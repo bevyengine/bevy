@@ -515,6 +515,15 @@ file_watcher = ["bevy_internal/file_watcher"]
 # Enables watching in memory asset providers for Bevy Asset hot-reloading
 embedded_watcher = ["bevy_internal/embedded_watcher"]
 
+# Enables downloading assets from HTTP sources. Warning: there are security implications. Read the docs on WebAssetPlugin.
+http = ["bevy_internal/http"]
+
+# Enables downloading assets from HTTPS sources. Warning: there are security implications. Read the docs on WebAssetPlugin.
+https = ["bevy_internal/https"]
+
+# Enable caching downloaded assets on the filesystem. NOTE: this cache currently never invalidates entries!
+web_asset_cache = ["bevy_internal/web_asset_cache"]
+
 # Enable stepping-based debugging of Bevy systems
 bevy_debug_stepping = [
   "bevy_internal/bevy_debug_stepping",
@@ -1922,11 +1931,23 @@ path = "examples/asset/extra_source.rs"
 doc-scrape-examples = true
 
 [package.metadata.example.extra_asset_source]
-name = "Extra asset source"
+name = "Extra Asset Source"
 description = "Load an asset from a non-standard asset source"
 category = "Assets"
 # Uses non-standard asset path
 wasm = false
+
+[[example]]
+name = "web_asset"
+path = "examples/asset/web_asset.rs"
+doc-scrape-examples = true
+required-features = ["https"]
+
+[package.metadata.example.web_asset]
+name = "Web Asset"
+description = "Load an asset from the web"
+category = "Assets"
+wasm = true
 
 [[example]]
 name = "hot_asset_reloading"
