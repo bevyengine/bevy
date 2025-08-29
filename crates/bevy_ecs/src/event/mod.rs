@@ -271,7 +271,8 @@ pub trait EntityEvent: Event {
     fn event_target(&self) -> Entity;
     /// Returns a mutable reference to the [`Entity`] "target" of this [`EntityEvent`]. When triggered, this will run observers that watch for this specific entity.
     ///
-    /// Note: In general, this should not be mutated from within an [`Observer`](crate::observer::Observer).
+    /// Note: In general, this should not be mutated from within an [`Observer`](crate::observer::Observer), as this will not "retarget"
+    /// the event in any of Bevy's built-in [`Trigger`] implementations.
     fn event_target_mut(&mut self) -> &mut Entity;
 }
 
