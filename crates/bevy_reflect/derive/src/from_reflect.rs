@@ -28,38 +28,34 @@ pub(crate) fn impl_opaque(meta: &ReflectMeta) -> proc_macro2::TokenStream {
     let (impl_generics, ty_generics, where_clause) = type_path.generics().split_for_impl();
     let where_from_reflect_clause = WhereClauseOptions::new(meta).extend_where_clause(where_clause);
 
-    let from_reflect_body = match meta.remote_ty() {
+    let exact_match = match meta.remote_ty() {
         Some(remote) => {
             let remote_ty = remote.type_path();
-            quote! {
-                #FQOption::Some(<Self as #bevy_reflect_path::ReflectRemote>::into_wrapper(
-                    #FQClone::clone(
-                        <dyn #bevy_reflect_path::PartialReflect>::try_downcast_ref::<#remote_ty>(reflect)?
-                    )
-                ))
-            }
-        }
-        None => {
-            let exact_match = quote! {
-                if let #FQOption::Some(value) = <dyn #bevy_reflect_path::PartialReflect>::try_downcast_ref::<#type_path #ty_generics>(reflect) {
-                    return #FQOption::Some(#FQClone::clone(value))
-                }
-            };
-
-            let conversions = get_conversions(meta);
 
             quote! {
-                #exact_match
-                #conversions
-                #FQOption::None
+                if let #FQOption::Some(value) =
+                    <dyn #bevy_reflect_path::PartialReflect>::try_downcast_ref::<#remote_ty>(reflect) {
+                        return #FQOption::Some(
+                            <Self as #bevy_reflect_path::ReflectRemote>::into_wrapper(#FQClone::clone(value))
+                        );
+                    }
             }
         }
+        None => quote! {
+            if let #FQOption::Some(value) = <dyn #bevy_reflect_path::PartialReflect>::try_downcast_ref::<#type_path #ty_generics>(reflect) {
+                return #FQOption::Some(#FQClone::clone(value))
+            }
+        },
     };
+
+    let conversions = get_conversions(meta);
 
     quote! {
         impl #impl_generics #bevy_reflect_path::FromReflect for #type_path #ty_generics #where_from_reflect_clause  {
             fn from_reflect(reflect: &dyn #bevy_reflect_path::PartialReflect) -> #FQOption<Self> {
-                #from_reflect_body
+                #exact_match
+                #conversions
+                #FQOption::None
             }
         }
     }
@@ -404,17 +400,24 @@ fn get_conversions(meta: &ReflectMeta) -> proc_macro2::TokenStream {
         proc_macro2::TokenStream::new(),
         |mut token_stream, conversion| {
             let path = &conversion.path;
-            let conversion = match &conversion.func {
-                Some(func) => quote! {
-                    if let #FQOption::Some(value) =
-                    <#path as #bevy_reflect_path::FromReflect>::from_reflect(reflect) {
-                        return #FQOption::Some((#func)(value).into())
+            let func = conversion.func.as_ref().map(|func| quote! { (#func) });
+            let conversion = match meta.remote_ty() {
+                Some(remote) => {
+                    let remote_ty = remote.type_path();
+
+                    quote! {
+                        if let #FQOption::Some(value) =
+                            <dyn #bevy_reflect_path::PartialReflect>::try_downcast_ref::<#remote_ty>(reflect) {
+                                return #FQOption::Some(
+                                    <Self as #bevy_reflect_path::ReflectRemote>::into_wrapper(#FQClone::clone(#func(value).into()))
+                                );
+                            }
                     }
-                },
+                }
                 None => quote! {
                     if let #FQOption::Some(value) =
                     <#path as #bevy_reflect_path::FromReflect>::from_reflect(reflect) {
-                        return #FQOption::Some(value.into())
+                        return #FQOption::Some(#func(value).into())
                     }
                 },
             };
