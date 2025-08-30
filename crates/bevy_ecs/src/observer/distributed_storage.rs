@@ -134,9 +134,9 @@ use crate::prelude::ReflectComponent;
 /// There are some built-in specialized [`Event`] types with custom [`Trigger`] logic:
 ///
 /// - [`EntityEvent`] / [`EntityTrigger`](crate::event::EntityTrigger): An [`Event`] that targets a _specific_ entity. This also has opt-in support for
-///     "event bubbling" behavior. See [`EntityEvent`] for details.
+///   "event bubbling" behavior. See [`EntityEvent`] for details.
 /// - [`EntityComponentsTrigger`](crate::event::EntityComponentsTrigger): An [`Event`] that targets an entity _and_ one or more components on that entity.
-///     This is used for [component lifecycle events](crate::lifecycle).
+///   This is used for [component lifecycle events](crate::lifecycle).
 ///
 /// You can also define your own!
 ///
@@ -203,7 +203,6 @@ use crate::prelude::ReflectComponent;
 ///
 /// [`SystemParam`]: crate::system::SystemParam
 /// [`Trigger`]: crate::event::Trigger
-
 pub struct Observer {
     hook_on_add: ComponentHook,
     pub(crate) error_handler: Option<ErrorHandler>,

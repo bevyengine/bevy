@@ -3,7 +3,7 @@ use core::hint::black_box;
 use bevy_ecs::{
     entity::Entity,
     event::{EntityEvent, Event},
-    observer::{EventTargets, On},
+    observer::On,
     world::World,
 };
 
@@ -45,7 +45,7 @@ pub fn observe_simple(criterion: &mut Criterion) {
         }
         entities.shuffle(&mut deterministic_rand());
         bencher.iter(|| {
-            for entity in entities {
+            for entity in entities.iter().copied() {
                 world.trigger(SimpleEntityEvent { entity });
             }
         });

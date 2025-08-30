@@ -503,7 +503,6 @@ mod tests {
     use bevy_ecs::{
         component::Component,
         entity::Entity,
-        event::EntityEvent,
         lifecycle::{Add, Remove},
         observer::On,
         query::With,

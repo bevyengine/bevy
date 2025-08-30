@@ -191,7 +191,7 @@ pub trait Event: Send + Sync + Sized + 'static {
 /// #[derive(Component)]
 /// #[relationship(relationship_target = ClickableBy)]
 /// struct Clickable(Entity);
-
+///
 /// #[derive(Component)]
 /// #[relationship_target(relationship = Clickable)]
 /// struct ClickableBy(Vec<Entity>);
@@ -229,7 +229,7 @@ pub trait Event: Send + Sync + Sized + 'static {
 ///     entity: Entity,
 /// }
 /// ```
-
+///
 /// You can also _stop_ propagation like this:
 /// ```
 /// # use bevy_ecs::prelude::*;

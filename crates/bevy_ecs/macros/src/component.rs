@@ -86,7 +86,7 @@ pub fn derive_entity_event(input: TokenStream) -> TokenStream {
                 processed_attrs.push(AUTO_PROPAGATE);
                 Ok(())
             }
-            #[allow(deprecated)]
+            #[expect(deprecated, reason = "we want to continue supporting this for a release")]
             Some(ident) if ident == TRAVERSAL => {
                 Err(meta.error(
                     "`traversal` has been renamed to `propagate`, use that instead. If you were writing `traversal = &'static ChildOf`, you can now just write `propagate`, which defaults to the `ChildOf` traversal."

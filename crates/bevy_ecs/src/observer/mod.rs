@@ -283,12 +283,6 @@ mod tests {
         counter: usize,
     }
 
-    #[derive(EntityEvent)]
-    struct EntityEventWithData {
-        entity: Entity,
-        counter: usize,
-    }
-
     #[derive(Resource, Default)]
     struct Order(Vec<&'static str>);
 

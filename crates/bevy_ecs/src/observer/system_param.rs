@@ -164,7 +164,7 @@ impl<'w, E: EntityEvent + for<'t> Event<Trigger<'t> = EntityComponentsTrigger<'t
 {
     /// A list of all components that were triggered for this [`EntityEvent`].
     pub fn triggered_components(&self) -> &[ComponentId] {
-        &self.trigger.0
+        self.trigger.0
     }
 }
 

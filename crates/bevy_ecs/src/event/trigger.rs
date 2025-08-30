@@ -78,7 +78,7 @@ impl GlobalTrigger {
 
 /// An [`EntityEvent`] [`Trigger`] that does two things:
 /// - Runs all "global" [`Observer`] (ex: registered via [`World::add_observer`](crate::world::World::add_observer))
-/// that matches the given [`Event`]. This is the same behavior as [`GlobalTrigger`].
+///   that matches the given [`Event`]. This is the same behavior as [`GlobalTrigger`].
 /// - Runs every "entity scoped" [`Observer`] that watches the given [`EntityEvent::event_target`] entity.
 ///
 /// The [`EntityEvent`] derive defaults to using this [`Trigger`], and it is usable for any [`EntityEvent`] type.

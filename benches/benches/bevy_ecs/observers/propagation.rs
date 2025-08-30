@@ -68,7 +68,7 @@ struct TestEvent<const N: usize> {
 }
 
 fn send_events<const N: usize, const N_EVENTS: usize>(world: &mut World, leaves: &[Entity]) {
-    let target = *leaves.iter().choose(&mut rand::rng()).unwrap();
+    let entity = *leaves.iter().choose(&mut rand::rng()).unwrap();
 
     (0..N_EVENTS).for_each(|_| {
         world.trigger(TestEvent::<N> { entity });
