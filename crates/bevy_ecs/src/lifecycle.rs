@@ -43,7 +43,7 @@
 //!
 //! Despite the absence of generics, each lifecycle event is associated with a specific component.
 //! When defining a component hook for a [`Component`] type, that component is used.
-//! When listening to lifecycle events for observers, the `B: Bundle` generic is used.
+//! When observers watch lifecycle events, the `B: Bundle` generic is used.
 //!
 //! Each of these lifecycle events also corresponds to a fixed [`ComponentId`],
 //! which are assigned during [`World`] initialization.

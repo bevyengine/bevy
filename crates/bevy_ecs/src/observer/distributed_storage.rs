@@ -72,7 +72,7 @@ use crate::prelude::ReflectComponent;
 /// world.spawn(Observer::new(|event: On<Speak>| {}));
 /// ```
 ///
-/// Observers are a specialized [`System`] called called an [`ObserverSystem`]. The first parameter must be [`On`], which provides access
+/// Observers are a specialized [`System`] called an [`ObserverSystem`]. The first parameter must be [`On`], which provides access
 /// to the [`Event`], the [`Trigger`], and some additional execution context.
 ///
 /// Because they are systems, they can access arbitrary [`World`] data by adding [`SystemParam`]s:
@@ -123,7 +123,7 @@ use crate::prelude::ReflectComponent;
 /// recursively evaluated until there are no commands left, meaning nested triggers all
 /// evaluate at the same time!
 ///
-/// ## Event [`Trigger`] Behavior
+/// ## Event [`Trigger`] behavior
 ///
 /// Each [`Event`] defines a [`Trigger`] behavior, which determines _which_ observers will run for the given [`Event`] and _how_ they will be run.
 ///
@@ -140,7 +140,7 @@ use crate::prelude::ReflectComponent;
 ///
 /// You can also define your own!
 ///
-/// ## Observer Execution Timing
+/// ## Observer execution timing
 ///
 /// Observers triggered via [`World::trigger`] are evaluated immediately, as are all commands they queue up.
 ///
@@ -174,10 +174,10 @@ use crate::prelude::ReflectComponent;
 /// If an [`EntityEvent`] [`Observer`] targets specific entities, and all of those entities are despawned, the [`Observer`] entity will also be despawned.
 /// This protects against observer "garbage" building up over time.
 ///
-/// ## Component Lifecycle events: Observers vs Hooks
+/// ## Component lifecycle events: Observers vs Hooks
 ///
 /// It is important to note that observers, just like [hooks](crate::lifecycle::ComponentHooks),
-/// can listen to and respond to [lifecycle](crate::lifecycle) events.
+/// can watch for and respond to [lifecycle](crate::lifecycle) events.
 /// Unlike hooks, observers are not treated as an "innate" part of component behavior:
 /// they can be added or removed at runtime, and multiple observers
 /// can be registered for the same lifecycle event for the same component.
@@ -190,12 +190,12 @@ use crate::prelude::ReflectComponent;
 /// This allows hooks to act as constructors and destructors for components,
 /// as they always have the first and final say in the component's lifecycle.
 ///
-/// ## Observer Re-targeting
+/// ## Observer re-targeting
 ///
 /// Currently, [observers cannot be retargeted after spawning](https://github.com/bevyengine/bevy/issues/19587):
 /// despawn and respawn an observer as a workaround.
 ///
-/// ## Internal observer Cache
+/// ## Internal observer cache
 ///
 /// For more efficient observer triggering, Observers make use of the internal [`CachedObservers`](crate::observer::CachedObservers) storage.
 /// In general, this is an implementation detail developers don't need to worry about, but it can be used when implementing custom [`Trigger`](crate::event::Trigger)

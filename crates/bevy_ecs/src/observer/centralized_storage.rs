@@ -18,20 +18,20 @@ use crate::{
 
 /// An internal lookup table tracking all of the observers in the world.
 ///
-/// Stores a cache mapping trigger ids to the registered observers.
+/// Stores a cache mapping event ids to their registered observers.
 /// Some observer kinds (like [lifecycle](crate::lifecycle) observers) have a dedicated field,
 /// saving lookups for the most common triggers.
 ///
 /// This can be accessed via [`World::observers`].
 #[derive(Default, Debug)]
 pub struct Observers {
-    // Cached ECS observers to save a lookup most common triggers.
+    // Cached ECS observers to save a lookup for high-traffic built-in event types.
     add: CachedObservers,
     insert: CachedObservers,
     replace: CachedObservers,
     remove: CachedObservers,
     despawn: CachedObservers,
-    // Map from trigger type to set of observers listening to that trigger
+    // Map from event type to set of observers watching for that event
     cache: HashMap<EventKey, CachedObservers>,
 }
 
@@ -111,28 +111,28 @@ impl Observers {
 /// This is stored inside of [`Observers`], specialized for each kind of observer.
 #[derive(Default, Debug)]
 pub struct CachedObservers {
-    // Observers listening for any time this event is fired, regardless of target
-    // This will also respond to events targeting specific components or entities
+    /// Observers watching for any time this event is triggered, regardless of target.
+    /// These will also respond to events targeting specific components or entities
     pub(super) global_observers: ObserverMap,
-    // Observers listening for this trigger fired at a specific component
+    /// Observers watching for triggers of events for a specific component
     pub(super) component_observers: HashMap<ComponentId, CachedComponentObservers>,
-    // Observers listening for this trigger fired at a specific entity
+    /// Observers watching for triggers of events for a specific entity
     pub(super) entity_observers: EntityHashMap<ObserverMap>,
 }
 
 impl CachedObservers {
-    /// Returns the observers listening for this trigger, regardless of target.
-    /// These observers will also respond to events targeting specific components or entities.
+    /// Observers watching for any time this event is triggered, regardless of target.
+    /// These will also respond to events targeting specific components or entities
     pub fn global_observers(&self) -> &ObserverMap {
         &self.global_observers
     }
 
-    /// Returns the observers listening for this trigger targeting components.
+    /// Returns observers watching for triggers of events for a specific component.
     pub fn component_observers(&self) -> &HashMap<ComponentId, CachedComponentObservers> {
         &self.component_observers
     }
 
-    /// Returns the observers listening for this trigger targeting entities.
+    /// Returns observers watching for triggers of events for a specific entity.
     pub fn entity_observers(&self) -> &EntityHashMap<ObserverMap> {
         &self.entity_observers
     }
@@ -146,20 +146,19 @@ pub type ObserverMap = EntityHashMap<ObserverRunner>;
 /// This is stored inside of [`CachedObservers`].
 #[derive(Default, Debug)]
 pub struct CachedComponentObservers {
-    // Observers listening to events targeting this component, but not a specific entity
+    // Observers watching for events targeting this component, but not a specific entity
     pub(super) global_observers: ObserverMap,
-    // Observers listening to events targeting this component on a specific entity
+    // Observers wathing for events targeting this component on a specific entity
     pub(super) entity_component_observers: EntityHashMap<ObserverMap>,
 }
 
 impl CachedComponentObservers {
-    /// Returns the observers listening for this trigger, regardless of target.
-    /// These observers will also respond to events targeting specific entities.
+    /// Returns observers watching for events targeting this component, but not a specific entity
     pub fn global_observers(&self) -> &ObserverMap {
         &self.global_observers
     }
 
-    /// Returns the observers listening for this trigger targeting this component on a specific entity.
+    /// Returns observers wathing for events targeting this component on a specific entity
     pub fn entity_component_observers(&self) -> &EntityHashMap<ObserverMap> {
         &self.entity_component_observers
     }

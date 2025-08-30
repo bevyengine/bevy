@@ -519,6 +519,7 @@ pub struct SetSliderValue {
     pub change: SliderValueChange,
 }
 
+/// The type of slider value change to apply in [`SetSliderValue`].
 #[derive(Clone)]
 pub enum SliderValueChange {
     /// Set the slider value to a specific value.

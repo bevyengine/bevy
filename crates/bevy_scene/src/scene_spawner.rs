@@ -30,6 +30,7 @@ use bevy_ecs::{
 #[derive(Clone, Copy, Debug, Eq, PartialEq, EntityEvent, Reflect)]
 #[reflect(Debug, PartialEq, Clone)]
 pub struct SceneInstanceReady {
+    /// The entity whose scene instance is ready.
     pub entity: Entity,
     /// Instance which has been spawned.
     pub instance_id: InstanceId,

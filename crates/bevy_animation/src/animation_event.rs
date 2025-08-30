@@ -7,13 +7,20 @@ use bevy_ecs::{
     world::DeferredWorld,
 };
 
+/// An [`Event`] that an [`AnimationPlayer`](crate::AnimationPlayer) can trigger when playing an [`AnimationClip`](crate::AnimationClip).
+/// See [`AnimationClip::add_event`](crate::AnimationClip::add_event).
+///
+/// This trait can be derived.
 pub trait AnimationEvent: Clone + for<'a> Event<Trigger<'a> = AnimationEventTrigger> {}
 
+/// The [`Trigger`] implemention for [`AnimationEvent`]. This passes in the [`AnimationPlayer`](crate::AnimationPlayer)
+/// context, and uses that to run any observers that target that entity.
 pub struct AnimationEventTrigger {
+    /// The [`AnimationPlayer`](crate::AnimationPlayer) where this [`AnimationEvent`] occurred.
     pub animation_player: Entity,
 }
 
-impl<E: Event> Trigger<E> for AnimationEventTrigger {
+impl<E: AnimationEvent> Trigger<E> for AnimationEventTrigger {
     fn trigger(
         &mut self,
         world: DeferredWorld,

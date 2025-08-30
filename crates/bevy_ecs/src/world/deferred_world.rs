@@ -785,7 +785,7 @@ impl<'w> DeferredWorld<'w> {
     /// # Safety
     /// Caller must ensure `E` is accessible as the type represented by `event_key`
     #[inline]
-    pub(crate) unsafe fn trigger_raw<'a, E: Event>(
+    pub unsafe fn trigger_raw<'a, E: Event>(
         &mut self,
         event_key: EventKey,
         event: &mut E,

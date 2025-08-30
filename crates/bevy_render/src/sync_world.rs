@@ -3,7 +3,6 @@ use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     component::Component,
     entity::{ContainsEntity, Entity, EntityEquivalent, EntityHash},
-    event::EntityEvent,
     lifecycle::{Add, Remove},
     observer::On,
     query::With,

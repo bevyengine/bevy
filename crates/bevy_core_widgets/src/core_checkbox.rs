@@ -127,6 +127,7 @@ pub struct SetChecked {
 /// ```
 #[derive(EntityEvent)]
 pub struct ToggleChecked {
+    /// The [`Entity`] of the toggled [`CoreCheckbox`]
     pub entity: Entity,
 }
 

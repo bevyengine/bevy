@@ -3,7 +3,8 @@
 use crate::{
     bundle::Bundle,
     change_detection::MaybeLocation,
-    event::{Event, PropagateEntityTrigger},
+    component::ComponentId,
+    event::{EntityComponentsTrigger, Event, PropagateEntityTrigger},
     prelude::*,
     traversal::Traversal,
 };
@@ -141,7 +142,9 @@ impl<
     /// + Enable propagation in [`EntityEvent`] using `#[entity_event(propagate)]`. See [`EntityEvent`] for details.
     /// + Either call `propagate(true)` in the first observer or in the [`EntityEvent`] derive add `#[entity_event(auto_propagate)]`.
     ///
-    /// You can prevent an event from propagating further using `propagate(false)`.
+    /// You can prevent an event from propagating further using `propagate(false)`. This will prevent the event from triggering on the next
+    /// [`Entity`] in the [`Traversal`], but note that all remaining observers for the _current_ entity will still run.
+    ///
     ///
     /// [`Traversal`]: crate::traversal::Traversal
     pub fn propagate(&mut self, should_propagate: bool) {
@@ -153,6 +156,15 @@ impl<
     /// [`propagate`]: On::propagate
     pub fn get_propagate(&self) -> bool {
         self.trigger.propagate
+    }
+}
+
+impl<'w, E: EntityEvent + for<'t> Event<Trigger<'t> = EntityComponentsTrigger<'t>>, B: Bundle>
+    On<'w, E, B>
+{
+    /// A list of all components that were triggered for this [`EntityEvent`].
+    pub fn triggered_components(&self) -> &[ComponentId] {
+        &self.trigger.0
     }
 }
 

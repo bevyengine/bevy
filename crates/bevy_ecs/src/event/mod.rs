@@ -229,6 +229,23 @@ pub trait Event: Send + Sync + Sized + 'static {
 ///     entity: Entity,
 /// }
 /// ```
+
+/// You can also _stop_ propagation like this:
+/// ```
+/// # use bevy_ecs::prelude::*;
+/// # #[derive(EntityEvent)]
+/// # #[entity_event(propagate)]
+/// # struct Click {
+/// #    entity: Entity,
+/// # }
+/// # fn is_finished_propagating() -> bool { true }
+/// # let mut world = World::default();
+/// world.add_observer(|mut click: On<Click>| {
+///   if is_finished_propagating() {
+///     click.propagate(false);
+///   }
+/// });
+/// ```
 ///
 /// ## Naming and Usage Conventions
 ///
@@ -316,7 +333,7 @@ struct EventWrapperComponent<E: Event>(PhantomData<E>);
 
 /// A unique identifier for an [`Event`], used by [observers].
 ///
-/// You can look up the key for your event by calling the [`Event::event_key`] method.
+/// You can look up the key for your event by calling the [`World::event_key`] method.
 ///
 /// [observers]: crate::observer
 #[derive(Debug, Copy, Clone, Hash, Ord, PartialOrd, Eq, PartialEq)]
