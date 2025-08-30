@@ -1,6 +1,11 @@
-use crate::image::{Image, ImageFormat, ImageType, TextureError};
+use crate::{
+    image::{Image, ImageFormat, ImageType, TextureError},
+    ImageTextureViewDimension, TextureReinterpretationError,
+};
 use bevy_asset::{io::Reader, AssetLoader, LoadContext, RenderAssetUsages};
+use bevy_utils::default;
 use thiserror::Error;
+use wgpu_types::TextureViewDescriptor;
 
 use super::{CompressedImageFormats, ImageSampler};
 use serde::{Deserialize, Serialize};
@@ -111,6 +116,8 @@ pub struct ImageLoaderSettings {
     /// Where the asset will be used - see the docs on
     /// [`RenderAssetUsages`] for details.
     pub asset_usage: RenderAssetUsages,
+    /// Dimension of this image's texture view.
+    pub view_dimension: ImageTextureViewDimension,
 }
 
 impl Default for ImageLoaderSettings {
@@ -120,6 +127,7 @@ impl Default for ImageLoaderSettings {
             is_srgb: true,
             sampler: ImageSampler::Default,
             asset_usage: RenderAssetUsages::default(),
+            view_dimension: ImageTextureViewDimension::default(),
         }
     }
 }
@@ -134,6 +142,9 @@ pub enum ImageLoaderError {
     /// An error occurred while trying to decode the image bytes.
     #[error("Could not load texture file: {0}")]
     FileTexture(#[from] FileTextureError),
+    /// An error occurred while trying to reinterpret the image (e.g. loading as a stacked 2d array).
+    #[error("Could not reinterpret image: {0}")]
+    ReinterpretationError(#[from] TextureReinterpretationError),
 }
 
 impl AssetLoader for ImageLoader {
@@ -168,7 +179,7 @@ impl AssetLoader for ImageLoader {
                 )?)
             }
         };
-        Ok(Image::from_buffer(
+        let mut image = Image::from_buffer(
             &bytes,
             image_type,
             self.supported_compressed_formats,
@@ -179,7 +190,33 @@ impl AssetLoader for ImageLoader {
         .map_err(|err| FileTextureError {
             error: err,
             path: format!("{}", load_context.path().display()),
-        })?)
+        })?;
+
+        // TODO: Let use handle this instead based on what their asset actually supports?
+        let image_view_dimension = image
+            .texture_view_descriptor
+            .clone()
+            .and_then(|texture_view_descriptor| texture_view_descriptor.dimension);
+        let new_image_view_dimension = Some(settings.view_dimension.clone().into());
+        if image_view_dimension != new_image_view_dimension {
+            match settings.view_dimension {
+                ImageTextureViewDimension::D2Array(layers)
+                | ImageTextureViewDimension::CubeArray(layers) => {
+                    image.reinterpret_stacked_2d_as_array(layers)?;
+                }
+                ImageTextureViewDimension::Cube => {
+                    image.reinterpret_stacked_2d_as_array(image.height() / image.width())?;
+                }
+                _ => {}
+            }
+
+            image.texture_view_descriptor = Some(TextureViewDescriptor {
+                dimension: Some(settings.view_dimension.clone().into()),
+                ..default()
+            });
+        }
+
+        Ok(image)
     }
 
     fn extensions(&self) -> &[&str] {

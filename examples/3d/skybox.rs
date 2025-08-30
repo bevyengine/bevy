@@ -4,16 +4,10 @@
 mod camera_controller;
 
 use bevy::{
-    anti_aliasing::taa::TemporalAntiAliasing,
-    core_pipeline::Skybox,
-    image::CompressedImageFormats,
-    pbr::ScreenSpaceAmbientOcclusion,
-    prelude::*,
-    render::{
-        render_resource::{TextureViewDescriptor, TextureViewDimension},
-        renderer::RenderDevice,
-    },
+    anti_aliasing::taa::TemporalAntiAliasing, core_pipeline::Skybox, image::CompressedImageFormats,
+    pbr::ScreenSpaceAmbientOcclusion, prelude::*, render::renderer::RenderDevice,
 };
+use bevy_image::{ImageLoaderSettings, ImageTextureViewDimension};
 use camera_controller::{CameraController, CameraControllerPlugin};
 use std::f32::consts::PI;
 
@@ -41,22 +35,8 @@ fn main() {
         .add_plugins(DefaultPlugins)
         .add_plugins(CameraControllerPlugin)
         .add_systems(Startup, setup)
-        .add_systems(
-            Update,
-            (
-                cycle_cubemap_asset,
-                asset_loaded.after(cycle_cubemap_asset),
-                animate_light_direction,
-            ),
-        )
+        .add_systems(Update, (cycle_cubemap_asset, animate_light_direction))
         .run();
-}
-
-#[derive(Resource)]
-struct Cubemap {
-    is_loaded: bool,
-    index: usize,
-    image_handle: Handle<Image>,
 }
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
@@ -69,7 +49,11 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         Transform::from_xyz(0.0, 2.0, 0.0).with_rotation(Quat::from_rotation_x(-PI / 4.)),
     ));
 
-    let skybox_handle = asset_server.load(CUBEMAPS[0].0);
+    let skybox_handle =
+        asset_server.load_with_settings(CUBEMAPS[0].0, |settings: &mut ImageLoaderSettings| {
+            settings.view_dimension = ImageTextureViewDimension::Cube;
+        });
+
     // camera
     commands.spawn((
         Camera3d::default(),
@@ -93,12 +77,6 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         brightness: 1.0,
         ..default()
     });
-
-    commands.insert_resource(Cubemap {
-        is_loaded: false,
-        index: 0,
-        image_handle: skybox_handle,
-    });
 }
 
 const CUBEMAP_SWAP_DELAY: f32 = 3.0;
@@ -106,9 +84,10 @@ const CUBEMAP_SWAP_DELAY: f32 = 3.0;
 fn cycle_cubemap_asset(
     time: Res<Time>,
     mut next_swap: Local<f32>,
-    mut cubemap: ResMut<Cubemap>,
+    mut index: Local<usize>,
     asset_server: Res<AssetServer>,
     render_device: Res<RenderDevice>,
+    mut skyboxes: Query<&mut Skybox>,
 ) {
     let now = time.elapsed_secs();
     if *next_swap == 0.0 {
@@ -122,7 +101,7 @@ fn cycle_cubemap_asset(
     let supported_compressed_formats =
         CompressedImageFormats::from_features(render_device.features());
 
-    let mut new_index = cubemap.index;
+    let mut new_index = *index;
     for _ in 0..CUBEMAPS.len() {
         new_index = (new_index + 1) % CUBEMAPS.len();
         if supported_compressed_formats.contains(CUBEMAPS[new_index].1) {
@@ -136,41 +115,19 @@ fn cycle_cubemap_asset(
 
     // Skip swapping to the same texture. Useful for when ktx2, zstd, or compressed texture support
     // is missing
-    if new_index == cubemap.index {
+    if new_index == *index {
         return;
     }
 
-    cubemap.index = new_index;
-    cubemap.image_handle = asset_server.load(CUBEMAPS[cubemap.index].0);
-    cubemap.is_loaded = false;
-}
+    *index = new_index;
 
-fn asset_loaded(
-    asset_server: Res<AssetServer>,
-    mut images: ResMut<Assets<Image>>,
-    mut cubemap: ResMut<Cubemap>,
-    mut skyboxes: Query<&mut Skybox>,
-) {
-    if !cubemap.is_loaded && asset_server.load_state(&cubemap.image_handle).is_loaded() {
-        info!("Swapping to {}...", CUBEMAPS[cubemap.index].0);
-        let image = images.get_mut(&cubemap.image_handle).unwrap();
-        // NOTE: PNGs do not have any metadata that could indicate they contain a cubemap texture,
-        // so they appear as one texture. The following code reconfigures the texture as necessary.
-        if image.texture_descriptor.array_layer_count() == 1 {
-            image
-                .reinterpret_stacked_2d_as_array(image.height() / image.width())
-                .unwrap();
-            image.texture_view_descriptor = Some(TextureViewDescriptor {
-                dimension: Some(TextureViewDimension::Cube),
-                ..default()
-            });
-        }
-
-        for mut skybox in &mut skyboxes {
-            skybox.image = cubemap.image_handle.clone();
-        }
-
-        cubemap.is_loaded = true;
+    for mut skybox in &mut skyboxes {
+        skybox.image = asset_server.load_with_settings(
+            CUBEMAPS[*index].0,
+            |settings: &mut ImageLoaderSettings| {
+                settings.view_dimension = ImageTextureViewDimension::Cube;
+            },
+        );
     }
 }
 

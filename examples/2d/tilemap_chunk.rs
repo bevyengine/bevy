@@ -4,6 +4,7 @@ use bevy::{
     prelude::*,
     sprite_render::{TileData, TilemapChunk, TilemapChunkTileData},
 };
+use bevy_image::ImageLoaderSettings;
 use rand::{Rng, SeedableRng};
 use rand_chacha::ChaCha8Rng;
 
@@ -11,7 +12,7 @@ fn main() {
     App::new()
         .add_plugins(DefaultPlugins.set(ImagePlugin::default_nearest()))
         .add_systems(Startup, setup)
-        .add_systems(Update, (update_tileset_image, update_tilemap))
+        .add_systems(Update, update_tilemap)
         .run();
 }
 
@@ -43,7 +44,12 @@ fn setup(mut commands: Commands, assets: Res<AssetServer>) {
         TilemapChunk {
             chunk_size,
             tile_display_size,
-            tileset: assets.load("textures/array_texture.png"),
+            tileset: assets.load_with_settings(
+                "textures/array_texture.png",
+                |settings: &mut ImageLoaderSettings| {
+                    settings.view_dimension = bevy_image::ImageTextureViewDimension::D2Array(4);
+                },
+            ),
             ..default()
         },
         TilemapChunkTileData(tile_data),
@@ -53,20 +59,6 @@ fn setup(mut commands: Commands, assets: Res<AssetServer>) {
     commands.spawn(Camera2d);
 
     commands.insert_resource(SeededRng(rng));
-}
-
-fn update_tileset_image(
-    chunk_query: Single<&TilemapChunk>,
-    mut events: EventReader<AssetEvent<Image>>,
-    mut images: ResMut<Assets<Image>>,
-) {
-    let chunk = *chunk_query;
-    for event in events.read() {
-        if event.is_loaded_with_dependencies(chunk.tileset.id()) {
-            let image = images.get_mut(&chunk.tileset).unwrap();
-            image.reinterpret_stacked_2d_as_array(4).unwrap();
-        }
-    }
 }
 
 fn update_tilemap(

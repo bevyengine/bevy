@@ -22,7 +22,7 @@ use thiserror::Error;
 use wgpu_types::{
     AddressMode, CompareFunction, Extent3d, Features, FilterMode, SamplerBorderColor,
     SamplerDescriptor, TextureDataOrder, TextureDescriptor, TextureDimension, TextureFormat,
-    TextureUsages, TextureViewDescriptor,
+    TextureUsages, TextureViewDescriptor, TextureViewDimension,
 };
 
 /// Trait used to provide default values for Bevy-external types that
@@ -713,6 +713,39 @@ impl ImageSamplerDescriptor {
             compare: self.compare.map(Into::into),
             anisotropy_clamp: self.anisotropy_clamp,
             border_color: self.border_color.map(Into::into),
+        }
+    }
+}
+
+/// Dimensions of a particular texture view.
+///
+/// This type mirrors [`TextureViewDimension`].
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+pub enum ImageTextureViewDimension {
+    /// A one dimensional texture. `texture_1d` in WGSL and `texture1D` in GLSL.
+    D1,
+    /// A two dimensional texture. `texture_2d` in WGSL and `texture2D` in GLSL.
+    #[default]
+    D2,
+    /// A two dimensional array texture. `texture_2d_array` in WGSL and `texture2DArray` in GLSL.
+    D2Array(u32),
+    /// A cubemap texture. `texture_cube` in WGSL and `textureCube` in GLSL.
+    Cube,
+    /// A cubemap array texture. `texture_cube_array` in WGSL and `textureCubeArray` in GLSL.
+    CubeArray(u32),
+    /// A three dimensional texture. `texture_3d` in WGSL and `texture3D` in GLSL.
+    D3,
+}
+
+impl From<ImageTextureViewDimension> for TextureViewDimension {
+    fn from(value: ImageTextureViewDimension) -> Self {
+        match value {
+            ImageTextureViewDimension::D1 => TextureViewDimension::D1,
+            ImageTextureViewDimension::D2 => TextureViewDimension::D2,
+            ImageTextureViewDimension::D2Array(_) => TextureViewDimension::D2Array,
+            ImageTextureViewDimension::Cube => TextureViewDimension::Cube,
+            ImageTextureViewDimension::CubeArray(_) => TextureViewDimension::CubeArray,
+            ImageTextureViewDimension::D3 => TextureViewDimension::D3,
         }
     }
 }
