@@ -1,4 +1,9 @@
-use crate::image::{Image, ImageFormat, ImageType, TextureError};
+use core::num::NonZero;
+
+use crate::{
+    image::{Image, ImageFormat, ImageType, TextureError},
+    TextureReinterpretationError,
+};
 use bevy_asset::{io::Reader, AssetLoader, LoadContext, RenderAssetUsages};
 use thiserror::Error;
 
@@ -111,6 +116,9 @@ pub struct ImageLoaderSettings {
     /// Where the asset will be used - see the docs on
     /// [`RenderAssetUsages`] for details.
     pub asset_usage: RenderAssetUsages,
+    /// If the image should be loaded as a stacked 2d array
+    /// image with the given number of layers
+    pub layers: Option<NonZero<u32>>,
 }
 
 impl Default for ImageLoaderSettings {
@@ -120,6 +128,7 @@ impl Default for ImageLoaderSettings {
             is_srgb: true,
             sampler: ImageSampler::Default,
             asset_usage: RenderAssetUsages::default(),
+            layers: Default::default(),
         }
     }
 }
@@ -134,6 +143,9 @@ pub enum ImageLoaderError {
     /// An error occurred while trying to decode the image bytes.
     #[error("Could not load texture file: {0}")]
     FileTexture(#[from] FileTextureError),
+    /// An error occurred while trying to reinterpret the image (e.g. loading as a stacked 2d array).
+    #[error("Could not reinterpret image: {0}")]
+    ReinterpretationError(#[from] TextureReinterpretationError),
 }
 
 impl AssetLoader for ImageLoader {
@@ -168,7 +180,8 @@ impl AssetLoader for ImageLoader {
                 )?)
             }
         };
-        Ok(Image::from_buffer(
+
+        let mut image = Image::from_buffer(
             &bytes,
             image_type,
             self.supported_compressed_formats,
@@ -179,7 +192,13 @@ impl AssetLoader for ImageLoader {
         .map_err(|err| FileTextureError {
             error: err,
             path: format!("{}", load_context.path().display()),
-        })?)
+        })?;
+
+        if let Some(layers) = settings.layers {
+            image.reinterpret_stacked_2d_as_array(layers.into())?;
+        }
+
+        Ok(image)
     }
 
     fn extensions(&self) -> &[&str] {
