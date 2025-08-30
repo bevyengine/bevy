@@ -1,6 +1,6 @@
 ---
 title: "OpenGL ES `wgpu` backend is no longer supported by default"
-pull_requests: []
+pull_requests: [ 20793 ]
 ---
 
 The `gles` backend for `wgpu` is no longer included as a default feature of `bevy_render`. OpenGL support is still 
