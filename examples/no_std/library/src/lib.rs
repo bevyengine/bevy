@@ -119,10 +119,8 @@ fn tick_timers(
         timer.tick(time.delta());
 
         if timer.just_finished() {
-            commands
-                .entity(entity)
-                .remove::<DelayedComponentTimer>()
-                .trigger(Unwrap { entity });
+            commands.entity(entity).remove::<DelayedComponentTimer>();
+            commands.trigger(Unwrap { entity });
         }
     }
 }

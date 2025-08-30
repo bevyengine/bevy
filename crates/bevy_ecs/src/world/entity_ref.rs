@@ -13,7 +13,7 @@ use crate::{
         ContainsEntity, Entity, EntityCloner, EntityClonerBuilder, EntityEquivalent,
         EntityIdLocation, EntityLocation, OptIn, OptOut,
     },
-    event::{EntityComponentsTrigger, EntityEvent, Event},
+    event::{EntityComponentsTrigger, EntityEvent},
     lifecycle::{Despawn, Remove, Replace, DESPAWN, REMOVE, REPLACE},
     observer::Observer,
     query::{Access, DebugCheckedUnwrap, ReadOnlyQueryData, ReleaseStateQueryData},
@@ -2023,35 +2023,6 @@ impl<'w> EntityWorldMut<'w> {
             MaybeLocation::caller(),
             RelationshipHookMode::Run,
         )
-    }
-
-    /// Triggers the given [`Event`], which will run any [`Observer`]s watching for it.
-    ///
-    /// [`Observer`]: crate::observer::Observer
-    #[track_caller]
-    pub fn trigger<'a, E: Event<Trigger<'a>: Default>>(&mut self, mut event: E) {
-        self.world_scope(|world| {
-            world.trigger_ref_with_caller(
-                &mut event,
-                &mut <E::Trigger<'_> as Default>::default(),
-                MaybeLocation::caller(),
-            );
-        });
-    }
-
-    /// Triggers the given [`Event`] using the given [`Trigger`], which will run any [`Observer`]s watching for it.
-    ///
-    /// [`Trigger`]: crate::event::Trigger
-    /// [`Observer`]: crate::observer::Observer
-    #[track_caller]
-    pub fn trigger_with<'a, E: Event<Trigger<'a>: Send + Sync>>(
-        &mut self,
-        mut event: E,
-        mut trigger: E::Trigger<'a>,
-    ) {
-        self.world_scope(|world| {
-            world.trigger_ref_with_caller(&mut event, &mut trigger, MaybeLocation::caller());
-        });
     }
 
     /// Split into a new function so we can pass the calling location into the function when using

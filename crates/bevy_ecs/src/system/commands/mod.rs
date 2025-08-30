@@ -1992,15 +1992,6 @@ impl<'a> EntityCommands<'a> {
         &mut self.commands
     }
 
-    /// Triggers the given [`Event`], which will run any [`Observer`]s watching for it.
-    ///
-    /// [`Observer`]: crate::observer::Observer
-    #[track_caller]
-    pub fn trigger<'t>(&mut self, event: impl Event<Trigger<'t>: Default>) -> &mut Self {
-        self.commands_mut().queue(command::trigger(event));
-        self
-    }
-
     /// Creates an [`Observer`] watching for an [`EntityEvent`] of type `E` whose [`EntityEvent::event_target`]
     /// targets this entity.
     pub fn observe<E: EntityEvent, B: Bundle, M>(
