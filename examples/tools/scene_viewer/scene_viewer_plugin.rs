@@ -32,7 +32,7 @@ impl SceneHandle {
     }
 }
 
-#[cfg(not(feature = "animation"))]
+#[cfg(not(feature = "bevy_animation"))]
 const INSTRUCTIONS: &str = r#"
 Scene Controls:
     L           - animate light direction
@@ -42,7 +42,7 @@ Scene Controls:
     compile with "--features animation" for animation controls.
 "#;
 
-#[cfg(feature = "animation")]
+#[cfg(feature = "bevy_animation")]
 const INSTRUCTIONS: &str = "
 Scene Controls:
     L           - animate light direction
