@@ -11,7 +11,6 @@ use bevy::{
 };
 use std::time::Duration;
 
-
 fn main() {
     App::new()
         .add_plugins((DefaultPlugins, FrameTimeDiagnosticsPlugin::default()))
