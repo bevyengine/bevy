@@ -18,11 +18,6 @@ const ASSET_URL: &str =
     "https://raw.githubusercontent.com/atlv24/assets/69bb39164fd35aadf863f6009520d4981eafcea0/bunny.meshlet_mesh";
 
 fn main() -> ExitCode {
-    if !Path::new("./assets/external/models/bunny.meshlet_mesh").exists() {
-        eprintln!("ERROR: Asset at path <bevy>/assets/external/models/bunny.meshlet_mesh is missing. Please download it from {ASSET_URL}");
-        return ExitCode::FAILURE;
-    }
-
     App::new()
         .insert_resource(DirectionalLightShadowMap { size: 4096 })
         .add_plugins((
@@ -78,7 +73,7 @@ fn setup(
     // that has been converted to a [`bevy_pbr::meshlet::MeshletMesh`]
     // using [`bevy_pbr::meshlet::MeshletMesh::from_mesh`], which is
     // a function only available when the `meshlet_processor` cargo feature is enabled.
-    let meshlet_mesh_handle = asset_server.load("external/models/bunny.meshlet_mesh");
+    let meshlet_mesh_handle = asset_server.load(ASSET_URL);
     let debug_material = debug_materials.add(MeshletDebugMaterial::default());
 
     for x in -2..=2 {
