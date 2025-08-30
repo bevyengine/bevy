@@ -194,29 +194,21 @@ impl AssetLoader for ImageLoader {
         })?;
 
         if let Some(view_dimension) = &settings.view_dimension {
-            // TODO: Let use handle this instead based on what their asset actually supports?
-            let image_view_dimension = image
-                .texture_view_descriptor
-                .clone()
-                .and_then(|texture_view_descriptor| texture_view_descriptor.dimension);
-            let new_image_view_dimension = Some(view_dimension.clone().into());
-            if image_view_dimension != new_image_view_dimension {
-                match view_dimension {
-                    ImageTextureViewDimension::D2Array(layers)
-                    | ImageTextureViewDimension::CubeArray(layers) => {
-                        image.reinterpret_stacked_2d_as_array(*layers)?;
-                    }
-                    ImageTextureViewDimension::Cube => {
-                        image.reinterpret_stacked_2d_as_array(image.height() / image.width())?;
-                    }
-                    _ => {}
+            match view_dimension {
+                ImageTextureViewDimension::D2Array(layers)
+                | ImageTextureViewDimension::CubeArray(layers) => {
+                    image.reinterpret_stacked_2d_as_array(*layers)?;
                 }
-
-                image.texture_view_descriptor = Some(TextureViewDescriptor {
-                    dimension: new_image_view_dimension,
-                    ..default()
-                });
+                ImageTextureViewDimension::Cube => {
+                    image.reinterpret_stacked_2d_as_array(image.height() / image.width())?;
+                }
+                _ => {}
             }
+
+            image.texture_view_descriptor = Some(TextureViewDescriptor {
+                dimension: Some(view_dimension.clone().into()),
+                ..default()
+            });
         }
 
         Ok(image)

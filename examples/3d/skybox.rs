@@ -11,22 +11,32 @@ use bevy_image::{ImageLoaderSettings, ImageTextureViewDimension};
 use camera_controller::{CameraController, CameraControllerPlugin};
 use std::f32::consts::PI;
 
-const CUBEMAPS: &[(&str, CompressedImageFormats)] = &[
+const CUBEMAPS: &[(
+    &str,
+    CompressedImageFormats,
+    Option<ImageTextureViewDimension>,
+)] = &[
     (
         "textures/Ryfjallet_cubemap.png",
         CompressedImageFormats::NONE,
+        // NOTE: PNGs do not have any metadata that could indicate they contain a cubemap texture,
+        // so they appear as one texture. This is passed to ImageLoaderSettings to reconfigure the texture as necessary during load.
+        Some(ImageTextureViewDimension::Cube),
     ),
     (
         "textures/Ryfjallet_cubemap_astc4x4.ktx2",
         CompressedImageFormats::ASTC_LDR,
+        None,
     ),
     (
         "textures/Ryfjallet_cubemap_bc7.ktx2",
         CompressedImageFormats::BC,
+        None,
     ),
     (
         "textures/Ryfjallet_cubemap_etc2.ktx2",
         CompressedImageFormats::ETC2,
+        None,
     ),
 ];
 
@@ -122,10 +132,11 @@ fn cycle_cubemap_asset(
     *index = new_index;
 
     for mut skybox in &mut skyboxes {
+        let view_dimension = &CUBEMAPS[*index].2;
         skybox.image = asset_server.load_with_settings(
             CUBEMAPS[*index].0,
             |settings: &mut ImageLoaderSettings| {
-                settings.view_dimension = Some(ImageTextureViewDimension::Cube);
+                settings.view_dimension = view_dimension.clone();
             },
         );
     }
