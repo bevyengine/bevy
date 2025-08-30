@@ -149,24 +149,23 @@ impl<'w> EntityWorldMut<'w> {
             return self;
         }
 
+        let id = self.id();
         let Some(existing_relations) = self.get_mut::<R::RelationshipTarget>() else {
             return self.add_related::<R>(related);
         };
 
-        // We replace the component here with a dummy value so we can modify it without taking it (this would create archetype move).
+        // We replace the component here with a dummy value so we can modify it without taking it (this would create archetype move). We need a non empty dummy value. Otherwise breaking the relationship between the target and a replaced entity would trigger Remove and Despawn hooks/events of the target.
         // SAFETY: We eventually return the correctly initialized collection into the target.
+        let mut dummy = Collection::<R>::with_capacity(1);
+        dummy.add(id);
         let mut relations = mem::replace(
             existing_relations.into_inner(),
-            <R as Relationship>::RelationshipTarget::from_collection_risky(
-                Collection::<R>::with_capacity(0),
-            ),
+            <R as Relationship>::RelationshipTarget::from_collection_risky(dummy),
         );
 
         let collection = relations.collection_mut_risky();
-
         let mut potential_relations = EntityHashSet::from_iter(related.iter().copied());
 
-        let id = self.id();
         self.world_scope(|world| {
             for related in collection.iter() {
                 if !potential_relations.remove(related) {
@@ -185,10 +184,15 @@ impl<'w> EntityWorldMut<'w> {
             }
         });
 
-        // SAFETY: The entities we're inserting will be the entities that were either already there or entities that we've just inserted.
+        // SAFETY: Making good on our promise by replacing the dummy value with the correctly initialized collection.
         collection.clear();
         collection.extend_from_iter(related.iter().copied());
-        self.insert(relations);
+        _ = mem::replace(
+            self.get_mut::<R::RelationshipTarget>()
+                .unwrap()
+                .into_inner(),
+            relations,
+        );
 
         self
     }
