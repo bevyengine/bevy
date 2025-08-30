@@ -40,18 +40,17 @@ struct Animations {
 }
 
 #[derive(AnimationEvent, Reflect, Clone)]
-struct OnStep;
+struct Step;
 
 fn observe_on_step(
-    on_step: On<OnStep>,
+    step: On<Step>,
     particle: Res<ParticleAssets>,
     mut commands: Commands,
     transforms: Query<&GlobalTransform>,
     mut seeded_rng: ResMut<SeededRng>,
-) {
+) -> Result {
     let translation = transforms
-        .get(on_step.trigger().animation_player)
-        .unwrap()
+        .get(step.trigger().animation_player)?
         .translation();
     // Spawn a bunch of particles.
     for _ in 0..14 {
@@ -77,6 +76,7 @@ fn observe_on_step(
             },
         ));
     }
+    Ok(())
 }
 
 fn setup(
@@ -169,10 +169,10 @@ fn setup_scene_once_loaded(
         // You can determine the time an event should trigger if you know witch frame it occurs and
         // the frame rate of the animation. Let's say we want to trigger an event at frame 15,
         // and the animation has a frame rate of 24 fps, then time = 15 / 24 = 0.625.
-        running_animation.add_event_to_target(feet.front_left, 0.625, OnStep);
-        running_animation.add_event_to_target(feet.front_right, 0.5, OnStep);
-        running_animation.add_event_to_target(feet.back_left, 0.0, OnStep);
-        running_animation.add_event_to_target(feet.back_right, 0.125, OnStep);
+        running_animation.add_event_to_target(feet.front_left, 0.625, Step);
+        running_animation.add_event_to_target(feet.front_right, 0.5, Step);
+        running_animation.add_event_to_target(feet.back_left, 0.0, Step);
+        running_animation.add_event_to_target(feet.back_right, 0.125, Step);
 
         // Start the animation
 

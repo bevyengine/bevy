@@ -18,8 +18,8 @@ use core::marker::PhantomData;
 ///
 /// Bevy comes with a number of built-in [`Trigger`] implementations (see their documentation for more info):
 /// - [`GlobalTrigger`]: The [`Event`] derive defaults to using this
-/// - [`EntityTrigger`]: The [`EntityEvent`](crate::event::EntityEvent) derive defaults to using this
-/// - [`PropagateEntityTrigger`]: The [`EntityEvent`](crate::event::EntityEvent) derive uses this when propagation is enabled.
+/// - [`EntityTrigger`]: The [`EntityEvent`] derive defaults to using this
+/// - [`PropagateEntityTrigger`]: The [`EntityEvent`] derive uses this when propagation is enabled.
 /// - [`EntityComponentsTrigger`]: Used by Bevy's [component lifecycle events](crate::lifecycle).
 pub trait Trigger<E: Event> {
     /// Trigger the given `event`, running every [`Observer`](crate::observer::Observer) that matches the `event`, as defined by this
