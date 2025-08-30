@@ -1,5 +1,5 @@
 ---
-title: OverflowClipBox's default is now Paddingbox
+title: "`OverflowClipBox`'s default is now `PaddingBox`"
 pull_requests: [18935]
 ---
 

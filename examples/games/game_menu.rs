@@ -77,8 +77,8 @@ mod splash {
             Node {
                 align_items: AlignItems::Center,
                 justify_content: JustifyContent::Center,
-                width: Val::Percent(100.0),
-                height: Val::Percent(100.0),
+                width: percent(100),
+                height: percent(100),
                 ..default()
             },
             OnSplashScreen,
@@ -86,7 +86,7 @@ mod splash {
                 ImageNode::new(icon),
                 Node {
                     // This will set the logo to be 200px wide, and auto adjust its height
-                    width: Val::Px(200.0),
+                    width: px(200),
                     ..default()
                 },
             )],
@@ -137,8 +137,8 @@ mod game {
     ) {
         commands.spawn((
             Node {
-                width: Val::Percent(100.0),
-                height: Val::Percent(100.0),
+                width: percent(100),
+                height: percent(100),
                 // center children
                 align_items: AlignItems::Center,
                 justify_content: JustifyContent::Center,
@@ -165,14 +165,14 @@ mod game {
                         },
                         TextColor(TEXT_COLOR),
                         Node {
-                            margin: UiRect::all(Val::Px(50.0)),
+                            margin: UiRect::all(px(50)),
                             ..default()
                         },
                     ),
                     (
                         Text::default(),
                         Node {
-                            margin: UiRect::all(Val::Px(50.0)),
+                            margin: UiRect::all(px(50)),
                             ..default()
                         },
                         children![
@@ -372,19 +372,19 @@ mod menu {
     fn main_menu_setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         // Common style for all buttons on the screen
         let button_node = Node {
-            width: Val::Px(300.0),
-            height: Val::Px(65.0),
-            margin: UiRect::all(Val::Px(20.0)),
+            width: px(300),
+            height: px(65),
+            margin: UiRect::all(px(20)),
             justify_content: JustifyContent::Center,
             align_items: AlignItems::Center,
             ..default()
         };
         let button_icon_node = Node {
-            width: Val::Px(30.0),
+            width: px(30),
             // This takes the icons out of the flexbox flow, to be positioned exactly
             position_type: PositionType::Absolute,
             // The icon will be close to the left border of the button
-            left: Val::Px(10.0),
+            left: px(10),
             ..default()
         };
         let button_text_font = TextFont {
@@ -398,8 +398,8 @@ mod menu {
 
         commands.spawn((
             Node {
-                width: Val::Percent(100.0),
-                height: Val::Percent(100.0),
+                width: percent(100),
+                height: percent(100),
                 align_items: AlignItems::Center,
                 justify_content: JustifyContent::Center,
                 ..default()
@@ -422,7 +422,7 @@ mod menu {
                         },
                         TextColor(TEXT_COLOR),
                         Node {
-                            margin: UiRect::all(Val::Px(50.0)),
+                            margin: UiRect::all(px(50)),
                             ..default()
                         },
                     ),
@@ -475,9 +475,9 @@ mod menu {
 
     fn settings_menu_setup(mut commands: Commands) {
         let button_node = Node {
-            width: Val::Px(200.0),
-            height: Val::Px(65.0),
-            margin: UiRect::all(Val::Px(20.0)),
+            width: px(200),
+            height: px(65),
+            margin: UiRect::all(px(20)),
             justify_content: JustifyContent::Center,
             align_items: AlignItems::Center,
             ..default()
@@ -493,8 +493,8 @@ mod menu {
 
         commands.spawn((
             Node {
-                width: Val::Percent(100.0),
-                height: Val::Percent(100.0),
+                width: percent(100),
+                height: percent(100),
                 align_items: AlignItems::Center,
                 justify_content: JustifyContent::Center,
                 ..default()
@@ -531,9 +531,9 @@ mod menu {
     fn display_settings_menu_setup(mut commands: Commands, display_quality: Res<DisplayQuality>) {
         fn button_node() -> Node {
             Node {
-                width: Val::Px(200.0),
-                height: Val::Px(65.0),
-                margin: UiRect::all(Val::Px(20.0)),
+                width: px(200),
+                height: px(65),
+                margin: UiRect::all(px(20)),
                 justify_content: JustifyContent::Center,
                 align_items: AlignItems::Center,
                 ..default()
@@ -552,8 +552,8 @@ mod menu {
         let display_quality = *display_quality;
         commands.spawn((
             Node {
-                width: Val::Percent(100.0),
-                height: Val::Percent(100.0),
+                width: percent(100),
+                height: percent(100),
                 align_items: AlignItems::Center,
                 justify_content: JustifyContent::Center,
                 ..default()
@@ -587,8 +587,8 @@ mod menu {
                                     let mut entity = parent.spawn((
                                         Button,
                                         Node {
-                                            width: Val::Px(150.0),
-                                            height: Val::Px(65.0),
+                                            width: px(150),
+                                            height: px(65),
                                             ..button_node()
                                         },
                                         BackgroundColor(NORMAL_BUTTON),
@@ -620,9 +620,9 @@ mod menu {
 
     fn sound_settings_menu_setup(mut commands: Commands, volume: Res<Volume>) {
         let button_node = Node {
-            width: Val::Px(200.0),
-            height: Val::Px(65.0),
-            margin: UiRect::all(Val::Px(20.0)),
+            width: px(200),
+            height: px(65),
+            margin: UiRect::all(px(20)),
             justify_content: JustifyContent::Center,
             align_items: AlignItems::Center,
             ..default()
@@ -639,8 +639,8 @@ mod menu {
         let button_node_clone = button_node.clone();
         commands.spawn((
             Node {
-                width: Val::Percent(100.0),
-                height: Val::Percent(100.0),
+                width: percent(100),
+                height: percent(100),
                 align_items: AlignItems::Center,
                 justify_content: JustifyContent::Center,
                 ..default()
@@ -667,8 +667,8 @@ mod menu {
                                     let mut entity = parent.spawn((
                                         Button,
                                         Node {
-                                            width: Val::Px(30.0),
-                                            height: Val::Px(65.0),
+                                            width: px(30),
+                                            height: px(65),
                                             ..button_node_clone.clone()
                                         },
                                         BackgroundColor(NORMAL_BUTTON),
