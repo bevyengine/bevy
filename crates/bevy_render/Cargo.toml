@@ -40,6 +40,7 @@ tracing-tracy = ["dep:tracy-client"]
 ci_limits = []
 webgl = ["wgpu/webgl"]
 webgpu = ["wgpu/webgpu"]
+vulkan-portability = ["wgpu/vulkan-portability"]
 detailed_trace = []
 ## Adds serialization support through `serde`.
 serialize = ["bevy_mesh/serialize"]
