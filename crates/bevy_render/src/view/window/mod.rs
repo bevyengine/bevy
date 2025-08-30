@@ -208,7 +208,7 @@ impl WindowSurfaces {
 ///   output during renderer initialization.
 ///   Another alternative is to try to use [`ANGLE`](https://github.com/gfx-rs/wgpu#angle) and
 ///   [`Backends::GL`](crate::settings::Backends::GL) with the `gles` feature enabled if your
-///    GPU/drivers support `OpenGL 4.3` / `OpenGL ES 3.0` or later.
+///   GPU/drivers support `OpenGL 4.3` / `OpenGL ES 3.0` or later.
 pub fn prepare_windows(
     mut windows: ResMut<ExtractedWindows>,
     mut window_surfaces: ResMut<WindowSurfaces>,
