@@ -154,7 +154,7 @@ impl<'w> EntityWorldMut<'w> {
             return self.add_related::<R>(related);
         };
 
-        // We replace the component here with a dummy value so we can modify it without taking it (this would create archetype move). We need a non empty dummy value. Otherwise breaking the relationship between the target and a replaced entity would trigger Remove of the target.
+        // We replace the component here with a dummy value so we can modify it without taking it (this would create archetype move). We need a non empty dummy value. Otherwise breaking the relationship between the target and a replaced entity could trigger Remove of the target.
         // SAFETY: We eventually return the correctly initialized collection into the target.
         let mut dummy = Collection::<R>::with_capacity(1);
         dummy.add(id);
