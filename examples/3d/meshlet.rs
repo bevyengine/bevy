@@ -12,12 +12,12 @@ use bevy::{
     render::render_resource::AsBindGroup,
 };
 use camera_controller::{CameraController, CameraControllerPlugin};
-use std::{f32::consts::PI, path::Path, process::ExitCode};
+use std::f32::consts::PI;
 
 const ASSET_URL: &str =
     "https://raw.githubusercontent.com/atlv24/assets/69bb39164fd35aadf863f6009520d4981eafcea0/bunny.meshlet_mesh";
 
-fn main() -> ExitCode {
+fn main() {
     App::new()
         .insert_resource(DirectionalLightShadowMap { size: 4096 })
         .add_plugins((
@@ -30,8 +30,6 @@ fn main() -> ExitCode {
         ))
         .add_systems(Startup, setup)
         .run();
-
-    ExitCode::SUCCESS
 }
 
 fn setup(
