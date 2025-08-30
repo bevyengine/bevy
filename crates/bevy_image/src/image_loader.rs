@@ -195,12 +195,16 @@ impl AssetLoader for ImageLoader {
 
         if let Some(view_dimension) = &settings.view_dimension {
             match view_dimension {
-                ImageTextureViewDimension::D2Array(layers)
-                | ImageTextureViewDimension::CubeArray(layers) => {
+                ImageTextureViewDimension::D2Array(layers) => {
                     image.reinterpret_stacked_2d_as_array(*layers)?;
                 }
                 ImageTextureViewDimension::Cube => {
                     image.reinterpret_stacked_2d_as_array(image.height() / image.width())?;
+                }
+                ImageTextureViewDimension::CubeArray(layers) => {
+                    image.reinterpret_stacked_2d_as_array(
+                        image.height() / image.width() * *layers,
+                    )?;
                 }
                 _ => {}
             }
