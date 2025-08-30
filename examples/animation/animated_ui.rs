@@ -2,8 +2,7 @@
 
 use bevy::{
     animation::{
-        animated_field, AnimationEntityMut, AnimationEvaluationError, AnimationTarget,
-        AnimationTargetId,
+        animated_field, AnimatedBy, AnimationEntityMut, AnimationEvaluationError, AnimationTargetId,
     },
     prelude::*,
 };
@@ -154,10 +153,7 @@ fn setup(
                     TextLayout::new_with_justify(Justify::Center),
                 ))
                 // Mark as an animation target.
-                .insert(AnimationTarget {
-                    id: animation_target_id,
-                    player,
-                })
+                .insert((animation_target_id, AnimatedBy(player)))
                 .insert(animation_target_name);
         });
 }
