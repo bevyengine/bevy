@@ -502,7 +502,6 @@ impl AtmosphereTransforms {
 #[derive(ShaderType)]
 pub struct AtmosphereTransform {
     world_from_atmosphere: Mat4,
-    atmosphere_from_world: Mat4,
 }
 
 #[derive(Component)]
@@ -546,13 +545,11 @@ pub(super) fn prepare_atmosphere_transforms(
         let world_from_atmosphere =
             Affine3A::from_cols(atmo_x, atmo_y, atmo_z, world_from_view.translation);
 
-        let atmosphere_from_world = Mat4::from(world_from_atmosphere.inverse());
         let world_from_atmosphere = Mat4::from(world_from_atmosphere);
 
         commands.entity(entity).insert(AtmosphereTransformsOffset {
             index: writer.write(&AtmosphereTransform {
                 world_from_atmosphere,
-                atmosphere_from_world,
             }),
         });
     }

@@ -43,5 +43,4 @@ struct AtmosphereSettings {
 // so the horizon stays a horizontal line in our luts
 struct AtmosphereTransforms {
     world_from_atmosphere: mat4x4<f32>,
-    atmosphere_from_world: mat4x4<f32>,
 }
