@@ -22,7 +22,7 @@ use thiserror::Error;
 use wgpu_types::{
     AddressMode, CompareFunction, Extent3d, Features, FilterMode, SamplerBorderColor,
     SamplerDescriptor, TextureDataOrder, TextureDescriptor, TextureDimension, TextureFormat,
-    TextureUsages, TextureViewDescriptor,
+    TextureUsages, TextureViewDescriptor, TextureViewDimension,
 };
 
 /// Trait used to provide default values for Bevy-external types that
@@ -717,6 +717,38 @@ impl ImageSamplerDescriptor {
     }
 }
 
+/// Dimensions of a particular texture view.
+///
+/// This type mirrors [`TextureViewDimension`].
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub enum ImageTextureViewDimension {
+    /// A one dimensional texture. `texture_1d` in WGSL and `texture1D` in GLSL.
+    D1,
+    /// A two dimensional texture. `texture_2d` in WGSL and `texture2D` in GLSL.
+    D2,
+    /// A two dimensional array texture. `texture_2d_array` in WGSL and `texture2DArray` in GLSL.
+    D2Array(u32),
+    /// A cubemap texture. `texture_cube` in WGSL and `textureCube` in GLSL.
+    Cube,
+    /// A cubemap array texture. `texture_cube_array` in WGSL and `textureCubeArray` in GLSL.
+    CubeArray(u32),
+    /// A three dimensional texture. `texture_3d` in WGSL and `texture3D` in GLSL.
+    D3,
+}
+
+impl From<ImageTextureViewDimension> for TextureViewDimension {
+    fn from(value: ImageTextureViewDimension) -> Self {
+        match value {
+            ImageTextureViewDimension::D1 => TextureViewDimension::D1,
+            ImageTextureViewDimension::D2 => TextureViewDimension::D2,
+            ImageTextureViewDimension::D2Array(_) => TextureViewDimension::D2Array,
+            ImageTextureViewDimension::Cube => TextureViewDimension::Cube,
+            ImageTextureViewDimension::CubeArray(_) => TextureViewDimension::CubeArray,
+            ImageTextureViewDimension::D3 => TextureViewDimension::D3,
+        }
+    }
+}
+
 impl From<ImageAddressMode> for AddressMode {
     fn from(value: ImageAddressMode) -> Self {
         match value {
@@ -1063,21 +1095,20 @@ impl Image {
         }
     }
 
-    /// Changes the `size`, asserting that the total number of data elements (pixels) remains the
-    /// same.
-    ///
-    /// # Panics
-    /// Panics if the `new_size` does not have the same volume as to old one.
-    pub fn reinterpret_size(&mut self, new_size: Extent3d) {
-        assert_eq!(
-            new_size.volume(),
-            self.texture_descriptor.size.volume(),
-            "Incompatible sizes: old = {:?} new = {:?}",
-            self.texture_descriptor.size,
-            new_size
-        );
+    /// Changes the `size` if the total number of data elements (pixels) remains the same.
+    pub fn reinterpret_size(
+        &mut self,
+        new_size: Extent3d,
+    ) -> Result<(), TextureReinterpretationError> {
+        if new_size.volume() != self.texture_descriptor.size.volume() {
+            return Err(TextureReinterpretationError::IncompatibleSizes {
+                old: self.texture_descriptor.size,
+                new: new_size,
+            });
+        }
 
         self.texture_descriptor.size = new_size;
+        Ok(())
     }
 
     /// Resizes the image to the new size, keeping the pixel data intact, anchored at the top-left.
@@ -1128,21 +1159,31 @@ impl Image {
     /// Takes a 2D image containing vertically stacked images of the same size, and reinterprets
     /// it as a 2D array texture, where each of the stacked images becomes one layer of the
     /// array. This is primarily for use with the `texture2DArray` shader uniform type.
-    ///
-    /// # Panics
-    /// Panics if the texture is not 2D, has more than one layers or is not evenly dividable into
-    /// the `layers`.
-    pub fn reinterpret_stacked_2d_as_array(&mut self, layers: u32) {
+    pub fn reinterpret_stacked_2d_as_array(
+        &mut self,
+        layers: u32,
+    ) -> Result<(), TextureReinterpretationError> {
         // Must be a stacked image, and the height must be divisible by layers.
-        assert_eq!(self.texture_descriptor.dimension, TextureDimension::D2);
-        assert_eq!(self.texture_descriptor.size.depth_or_array_layers, 1);
-        assert_eq!(self.height() % layers, 0);
+        if self.texture_descriptor.dimension != TextureDimension::D2 {
+            return Err(TextureReinterpretationError::WrongDimension);
+        }
+        if self.texture_descriptor.size.depth_or_array_layers != 1 {
+            return Err(TextureReinterpretationError::InvalidLayerCount);
+        }
+        if self.height() % layers != 0 {
+            return Err(TextureReinterpretationError::HeightNotDivisibleByLayers {
+                height: self.height(),
+                layers,
+            });
+        }
 
         self.reinterpret_size(Extent3d {
             width: self.width(),
             height: self.height() / layers,
             depth_or_array_layers: layers,
-        });
+        })?;
+
+        Ok(())
     }
 
     /// Convert a texture from a format to another. Only a few formats are
@@ -1739,6 +1780,19 @@ pub enum TranscodeFormat {
     Rg8UnormSrgb,
     /// Has to be transcoded from `Rgb8` to `Rgba8` for use with `wgpu`.
     Rgb8,
+}
+
+/// An error that occurs when reinterpreting the image.
+#[derive(Error, Debug)]
+pub enum TextureReinterpretationError {
+    #[error("incompatible sizes: old = {old:?} new = {new:?}")]
+    IncompatibleSizes { old: Extent3d, new: Extent3d },
+    #[error("must be a 2d image")]
+    WrongDimension,
+    #[error("must not already be a layered image")]
+    InvalidLayerCount,
+    #[error("can not evenly divide height = {height} by layers = {layers}")]
+    HeightNotDivisibleByLayers { height: u32, layers: u32 },
 }
 
 /// An error that occurs when accessing specific pixels in a texture.
