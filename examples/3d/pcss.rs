@@ -4,17 +4,18 @@ use std::f32::consts::PI;
 
 use bevy::{
     anti_aliasing::taa::TemporalAntiAliasing,
+    camera::{
+        primitives::{CubemapFrusta, Frustum},
+        visibility::{CubemapVisibleEntities, VisibleMeshEntities},
+    },
     core_pipeline::{
         prepass::{DepthPrepass, MotionVectorPrepass},
         Skybox,
     },
+    light::ShadowFilteringMethod,
     math::vec3,
-    pbr::{CubemapVisibleEntities, ShadowFilteringMethod, VisibleMeshEntities},
     prelude::*,
-    render::{
-        camera::TemporalJitter,
-        primitives::{CubemapFrusta, Frustum},
-    },
+    render::camera::TemporalJitter,
 };
 
 use crate::widgets::{RadioButton, RadioButtonText, WidgetClickEvent, WidgetClickSender};

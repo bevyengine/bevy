@@ -1,15 +1,18 @@
+use crate::ImageLoader;
+
 #[cfg(feature = "basis-universal")]
 use super::basis::*;
 #[cfg(feature = "dds")]
 use super::dds::*;
 #[cfg(feature = "ktx2")]
 use super::ktx2::*;
+use bevy_app::{App, Plugin};
 #[cfg(not(feature = "bevy_reflect"))]
 use bevy_reflect::TypePath;
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 
-use bevy_asset::{Asset, RenderAssetUsages};
+use bevy_asset::{uuid_handle, Asset, AssetApp, Assets, Handle, RenderAssetUsages};
 use bevy_color::{Color, ColorToComponents, Gray, LinearRgba, Srgba, Xyza};
 use bevy_ecs::resource::Resource;
 use bevy_math::{AspectRatio, UVec2, UVec3, Vec2};
@@ -32,6 +35,84 @@ pub trait BevyDefault {
 impl BevyDefault for TextureFormat {
     fn bevy_default() -> Self {
         TextureFormat::Rgba8UnormSrgb
+    }
+}
+
+/// A handle to a 1 x 1 transparent white image.
+///
+/// Like [`Handle<Image>::default`], this is a handle to a fallback image asset.
+/// While that handle points to an opaque white 1 x 1 image, this handle points to a transparent 1 x 1 white image.
+// Number randomly selected by fair WolframAlpha query. Totally arbitrary.
+pub const TRANSPARENT_IMAGE_HANDLE: Handle<Image> =
+    uuid_handle!("d18ad97e-a322-4981-9505-44c59a4b5e46");
+
+/// Adds the [`Image`] as an asset and makes sure that they are extracted and prepared for the GPU.
+pub struct ImagePlugin {
+    /// The default image sampler to use when [`ImageSampler`] is set to `Default`.
+    pub default_sampler: ImageSamplerDescriptor,
+}
+
+impl Default for ImagePlugin {
+    fn default() -> Self {
+        ImagePlugin::default_linear()
+    }
+}
+
+impl ImagePlugin {
+    /// Creates image settings with linear sampling by default.
+    pub fn default_linear() -> ImagePlugin {
+        ImagePlugin {
+            default_sampler: ImageSamplerDescriptor::linear(),
+        }
+    }
+
+    /// Creates image settings with nearest sampling by default.
+    pub fn default_nearest() -> ImagePlugin {
+        ImagePlugin {
+            default_sampler: ImageSamplerDescriptor::nearest(),
+        }
+    }
+}
+
+impl Plugin for ImagePlugin {
+    fn build(&self, app: &mut App) {
+        #[cfg(feature = "exr")]
+        app.init_asset_loader::<crate::ExrTextureLoader>();
+
+        #[cfg(feature = "hdr")]
+        app.init_asset_loader::<crate::HdrTextureLoader>();
+
+        app.init_asset::<Image>();
+        #[cfg(feature = "bevy_reflect")]
+        app.register_asset_reflect::<Image>();
+
+        let mut image_assets = app.world_mut().resource_mut::<Assets<Image>>();
+
+        image_assets
+            .insert(&Handle::default(), Image::default())
+            .unwrap();
+        image_assets
+            .insert(&TRANSPARENT_IMAGE_HANDLE, Image::transparent())
+            .unwrap();
+
+        #[cfg(feature = "compressed_image_saver")]
+        if let Some(processor) = app
+            .world()
+            .get_resource::<bevy_asset::processor::AssetProcessor>()
+        {
+            processor.register_processor::<bevy_asset::processor::LoadTransformAndSave<
+                ImageLoader,
+                bevy_asset::transformer::IdentityAssetTransformer<Image>,
+                crate::CompressedImageSaver,
+            >>(crate::CompressedImageSaver.into());
+            processor.set_default_processor::<bevy_asset::processor::LoadTransformAndSave<
+                ImageLoader,
+                bevy_asset::transformer::IdentityAssetTransformer<Image>,
+                crate::CompressedImageSaver,
+            >>("png");
+        }
+
+        app.preregister_asset_loader::<ImageLoader>(ImageLoader::SUPPORTED_FILE_EXTENSIONS);
     }
 }
 
@@ -359,7 +440,13 @@ impl ToExtents for UVec3 {
     }
 }
 
-#[derive(Asset, Debug, Clone)]
+/// An image, optimized for usage in rendering.
+///
+/// ## Remote Inspection
+///
+/// To transmit an [`Image`] between two running Bevy apps, e.g. through BRP, use [`SerializedImage`](crate::SerializedImage).
+/// This type is only meant for short-term transmission between same versions and should not be stored anywhere.
+#[derive(Asset, Debug, Clone, PartialEq)]
 #[cfg_attr(
     feature = "bevy_reflect",
     derive(Reflect),
@@ -377,9 +464,23 @@ pub struct Image {
     /// Use [`TextureDataOrder::default()`] for all other cases.
     pub data_order: TextureDataOrder,
     // TODO: this nesting makes accessing Image metadata verbose. Either flatten out descriptor or add accessors.
+    /// Describes the data layout of the GPU texture.\
+    /// For example, whether a texture contains 1D/2D/3D data, and what the format of the texture data is.
+    ///
+    /// ## Field Usage Notes
+    /// - [`TextureDescriptor::label`] is used for caching purposes when not using `Asset<Image>`.\
+    ///   If you use assets, the label is purely a debugging aid.
+    /// - [`TextureDescriptor::view_formats`] is currently unused by Bevy.
     pub texture_descriptor: TextureDescriptor<Option<&'static str>, &'static [TextureFormat]>,
     /// The [`ImageSampler`] to use during rendering.
     pub sampler: ImageSampler,
+    /// Describes how the GPU texture should be interpreted.\
+    /// For example, 2D image data could be read as plain 2D, an array texture of layers of 2D with the same dimensions (and the number of layers in that case),
+    /// a cube map, an array of cube maps, etc.
+    ///
+    /// ## Field Usage Notes
+    /// - [`TextureViewDescriptor::label`] is used for caching purposes when not using `Asset<Image>`.\
+    ///   If you use assets, the label is purely a debugging aid.
     pub texture_view_descriptor: Option<TextureViewDescriptor<Option<&'static str>>>,
     pub asset_usage: RenderAssetUsages,
     /// Whether this image should be copied on the GPU when resized.
@@ -731,7 +832,14 @@ impl Default for Image {
     /// default is a 1x1x1 all '1.0' texture
     fn default() -> Self {
         let mut image = Image::default_uninit();
-        image.data = Some(vec![255; image.texture_descriptor.format.pixel_size()]);
+        image.data = Some(vec![
+            255;
+            image
+                .texture_descriptor
+                .format
+                .pixel_size()
+                .unwrap_or(0)
+        ]);
         image
     }
 }
@@ -749,11 +857,13 @@ impl Image {
         format: TextureFormat,
         asset_usage: RenderAssetUsages,
     ) -> Self {
-        debug_assert_eq!(
-            size.volume() * format.pixel_size(),
-            data.len(),
-            "Pixel data, size and format have to match",
-        );
+        if let Ok(pixel_size) = format.pixel_size() {
+            debug_assert_eq!(
+                size.volume() * pixel_size,
+                data.len(),
+                "Pixel data, size and format have to match",
+            );
+        }
         let mut image = Image::new_uninit(size, dimension, format, asset_usage);
         image.data = Some(data);
         image
@@ -796,7 +906,9 @@ impl Image {
         // when constructing a transparent color from bytes.
         // If this changes, this function will need to be updated.
         let format = TextureFormat::bevy_default();
-        debug_assert!(format.pixel_size() == 4);
+        if let Ok(pixel_size) = format.pixel_size() {
+            debug_assert!(pixel_size == 4);
+        }
         let data = vec![255, 255, 255, 0];
         Image::new(
             Extent3d::default(),
@@ -828,19 +940,25 @@ impl Image {
         format: TextureFormat,
         asset_usage: RenderAssetUsages,
     ) -> Self {
-        let byte_len = format.pixel_size() * size.volume();
-        debug_assert_eq!(
-            pixel.len() % format.pixel_size(),
-            0,
-            "Must not have incomplete pixel data (pixel size is {}B).",
-            format.pixel_size(),
-        );
-        debug_assert!(
-            pixel.len() <= byte_len,
-            "Fill data must fit within pixel buffer (expected {byte_len}B).",
-        );
-        let data = pixel.iter().copied().cycle().take(byte_len).collect();
-        Image::new(size, dimension, data, format, asset_usage)
+        let mut image = Image::new_uninit(size, dimension, format, asset_usage);
+        if let Ok(pixel_size) = image.texture_descriptor.format.pixel_size()
+            && pixel_size > 0
+        {
+            let byte_len = pixel_size * size.volume();
+            debug_assert_eq!(
+                pixel.len() % pixel_size,
+                0,
+                "Must not have incomplete pixel data (pixel size is {}B).",
+                pixel_size,
+            );
+            debug_assert!(
+                pixel.len() <= byte_len,
+                "Fill data must fit within pixel buffer (expected {byte_len}B).",
+            );
+            let data = pixel.iter().copied().cycle().take(byte_len).collect();
+            image.data = Some(data);
+        }
+        image
     }
 
     /// Create a new zero-filled image with a given size, which can be rendered to.
@@ -873,7 +991,12 @@ impl Image {
             | TextureUsages::COPY_DST
             | TextureUsages::RENDER_ATTACHMENT;
         // Fill with zeroes
-        let data = vec![0; format.pixel_size() * size.volume()];
+        let data = vec![
+            0;
+            format.pixel_size().expect(
+                "Failed to create Image: can't get pixel size for this TextureFormat"
+            ) * size.volume()
+        ];
 
         Image {
             data: Some(data),
@@ -933,11 +1056,10 @@ impl Image {
     /// If you need to keep pixel data intact, use [`Image::resize_in_place`].
     pub fn resize(&mut self, size: Extent3d) {
         self.texture_descriptor.size = size;
-        if let Some(ref mut data) = self.data {
-            data.resize(
-                size.volume() * self.texture_descriptor.format.pixel_size(),
-                0,
-            );
+        if let Some(ref mut data) = self.data
+            && let Ok(pixel_size) = self.texture_descriptor.format.pixel_size()
+        {
+            data.resize(size.volume() * pixel_size, 0);
         }
     }
 
@@ -963,43 +1085,44 @@ impl Image {
     ///
     /// For faster resizing when keeping pixel data intact is not important, use [`Image::resize`].
     pub fn resize_in_place(&mut self, new_size: Extent3d) {
-        let old_size = self.texture_descriptor.size;
-        let pixel_size = self.texture_descriptor.format.pixel_size();
-        let byte_len = self.texture_descriptor.format.pixel_size() * new_size.volume();
-        self.texture_descriptor.size = new_size;
+        if let Ok(pixel_size) = self.texture_descriptor.format.pixel_size() {
+            let old_size = self.texture_descriptor.size;
+            let byte_len = pixel_size * new_size.volume();
+            self.texture_descriptor.size = new_size;
 
-        let Some(ref mut data) = self.data else {
-            self.copy_on_resize = true;
-            return;
-        };
+            let Some(ref mut data) = self.data else {
+                self.copy_on_resize = true;
+                return;
+            };
 
-        let mut new: Vec<u8> = vec![0; byte_len];
+            let mut new: Vec<u8> = vec![0; byte_len];
 
-        let copy_width = old_size.width.min(new_size.width) as usize;
-        let copy_height = old_size.height.min(new_size.height) as usize;
-        let copy_depth = old_size
-            .depth_or_array_layers
-            .min(new_size.depth_or_array_layers) as usize;
+            let copy_width = old_size.width.min(new_size.width) as usize;
+            let copy_height = old_size.height.min(new_size.height) as usize;
+            let copy_depth = old_size
+                .depth_or_array_layers
+                .min(new_size.depth_or_array_layers) as usize;
 
-        let old_row_stride = old_size.width as usize * pixel_size;
-        let old_layer_stride = old_size.height as usize * old_row_stride;
+            let old_row_stride = old_size.width as usize * pixel_size;
+            let old_layer_stride = old_size.height as usize * old_row_stride;
 
-        let new_row_stride = new_size.width as usize * pixel_size;
-        let new_layer_stride = new_size.height as usize * new_row_stride;
+            let new_row_stride = new_size.width as usize * pixel_size;
+            let new_layer_stride = new_size.height as usize * new_row_stride;
 
-        for z in 0..copy_depth {
-            for y in 0..copy_height {
-                let old_offset = z * old_layer_stride + y * old_row_stride;
-                let new_offset = z * new_layer_stride + y * new_row_stride;
+            for z in 0..copy_depth {
+                for y in 0..copy_height {
+                    let old_offset = z * old_layer_stride + y * old_row_stride;
+                    let new_offset = z * new_layer_stride + y * new_row_stride;
 
-                let old_range = (old_offset)..(old_offset + copy_width * pixel_size);
-                let new_range = (new_offset)..(new_offset + copy_width * pixel_size);
+                    let old_range = (old_offset)..(old_offset + copy_width * pixel_size);
+                    let new_range = (new_offset)..(new_offset + copy_width * pixel_size);
 
-                new[new_range].copy_from_slice(&data[old_range]);
+                    new[new_range].copy_from_slice(&data[old_range]);
+                }
             }
-        }
 
-        self.data = Some(new);
+            self.data = Some(new);
+        }
     }
 
     /// Takes a 2D image containing vertically stacked images of the same size, and reinterprets
@@ -1131,7 +1254,7 @@ impl Image {
         let height = self.texture_descriptor.size.height;
         let depth = self.texture_descriptor.size.depth_or_array_layers;
 
-        let pixel_size = self.texture_descriptor.format.pixel_size();
+        let pixel_size = self.texture_descriptor.format.pixel_size().ok()?;
         let pixel_offset = match self.texture_descriptor.dimension {
             TextureDimension::D3 | TextureDimension::D2 => {
                 if coords.x >= width || coords.y >= height || coords.z >= depth {
@@ -1153,7 +1276,7 @@ impl Image {
     /// Get a reference to the data bytes where a specific pixel's value is stored
     #[inline(always)]
     pub fn pixel_bytes(&self, coords: UVec3) -> Option<&[u8]> {
-        let len = self.texture_descriptor.format.pixel_size();
+        let len = self.texture_descriptor.format.pixel_size().ok()?;
         let data = self.data.as_ref()?;
         self.pixel_data_offset(coords)
             .map(|start| &data[start..(start + len)])
@@ -1162,7 +1285,7 @@ impl Image {
     /// Get a mutable reference to the data bytes where a specific pixel's value is stored
     #[inline(always)]
     pub fn pixel_bytes_mut(&mut self, coords: UVec3) -> Option<&mut [u8]> {
-        let len = self.texture_descriptor.format.pixel_size();
+        let len = self.texture_descriptor.format.pixel_size().ok()?;
         let offset = self.pixel_data_offset(coords);
         let data = self.data.as_mut()?;
         offset.map(|start| &mut data[start..(start + len)])
@@ -1702,15 +1825,16 @@ impl Volume for Extent3d {
 /// Extends the wgpu [`TextureFormat`] with information about the pixel.
 pub trait TextureFormatPixelInfo {
     /// Returns the size of a pixel in bytes of the format.
-    fn pixel_size(&self) -> usize;
+    /// error with `TextureAccessError::UnsupportedTextureFormat` if the format is compressed.
+    fn pixel_size(&self) -> Result<usize, TextureAccessError>;
 }
 
 impl TextureFormatPixelInfo for TextureFormat {
-    fn pixel_size(&self) -> usize {
+    fn pixel_size(&self) -> Result<usize, TextureAccessError> {
         let info = self;
         match info.block_dimensions() {
-            (1, 1) => info.block_copy_size(None).unwrap() as usize,
-            _ => panic!("Using pixel_size for compressed textures is invalid"),
+            (1, 1) => Ok(info.block_copy_size(None).unwrap() as usize),
+            _ => Err(TextureAccessError::UnsupportedTextureFormat(*self)),
         }
     }
 }

@@ -18,7 +18,7 @@ fn main() {
             primary_window: Some(Window {
                 title: "Many Debug Lines".to_string(),
                 present_mode: PresentMode::AutoNoVsync,
-                resolution: WindowResolution::new(1920.0, 1080.0).with_scale_factor_override(1.0),
+                resolution: WindowResolution::new(1920, 1080).with_scale_factor_override(1.0),
                 ..default()
             }),
             ..default()
@@ -92,8 +92,8 @@ fn setup(mut commands: Commands) {
         Text::default(),
         Node {
             position_type: PositionType::Absolute,
-            top: Val::Px(12.0),
-            left: Val::Px(12.0),
+            top: px(12),
+            left: px(12),
             ..default()
         },
     ));

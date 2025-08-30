@@ -1,6 +1,7 @@
 //! Manages mesh vertex and index buffers.
 
 use alloc::vec::Vec;
+use bevy_mesh::Indices;
 use core::{
     fmt::{self, Display, Formatter},
     ops::Range,
@@ -26,7 +27,7 @@ use wgpu::{
 };
 
 use crate::{
-    mesh::{Indices, Mesh, MeshVertexBufferLayouts, RenderMesh},
+    mesh::{Mesh, MeshVertexBufferLayouts, RenderMesh},
     render_asset::{prepare_assets, ExtractedAssets},
     render_resource::Buffer,
     renderer::{RenderAdapter, RenderDevice, RenderQueue},
@@ -43,7 +44,7 @@ pub struct MeshAllocatorPlugin;
 /// rebinding. This resource manages these buffers.
 ///
 /// Within each slab, or hardware buffer, the underlying allocation algorithm is
-/// [`offset-allocator`], a Rust port of Sebastian Aaltonen's hard-real-time C++
+/// [`offset_allocator`], a Rust port of Sebastian Aaltonen's hard-real-time C++
 /// `OffsetAllocator`. Slabs start small and then grow as their contents fill
 /// up, up to a maximum size limit. To reduce fragmentation, vertex and index
 /// buffers that are too large bypass this system and receive their own buffers.
@@ -384,7 +385,7 @@ impl MeshAllocator {
     /// the mesh with the given ID.
     ///
     /// If the mesh wasn't allocated, returns None.
-    pub fn mesh_vertex_slice(&self, mesh_id: &AssetId<Mesh>) -> Option<MeshBufferSlice> {
+    pub fn mesh_vertex_slice(&self, mesh_id: &AssetId<Mesh>) -> Option<MeshBufferSlice<'_>> {
         self.mesh_slice_in_slab(mesh_id, *self.mesh_id_to_vertex_slab.get(mesh_id)?)
     }
 
@@ -392,7 +393,7 @@ impl MeshAllocator {
     /// the mesh with the given ID.
     ///
     /// If the mesh has no index data or wasn't allocated, returns None.
-    pub fn mesh_index_slice(&self, mesh_id: &AssetId<Mesh>) -> Option<MeshBufferSlice> {
+    pub fn mesh_index_slice(&self, mesh_id: &AssetId<Mesh>) -> Option<MeshBufferSlice<'_>> {
         self.mesh_slice_in_slab(mesh_id, *self.mesh_id_to_index_slab.get(mesh_id)?)
     }
 
@@ -415,7 +416,7 @@ impl MeshAllocator {
         &self,
         mesh_id: &AssetId<Mesh>,
         slab_id: SlabId,
-    ) -> Option<MeshBufferSlice> {
+    ) -> Option<MeshBufferSlice<'_>> {
         match self.slabs.get(&slab_id)? {
             Slab::General(general_slab) => {
                 let slab_allocation = general_slab.resident_allocations.get(mesh_id)?;

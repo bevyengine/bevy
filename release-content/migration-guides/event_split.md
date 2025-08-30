@@ -1,5 +1,5 @@
 ---
-title: Event Split
+title: "`Event` trait split"
 pull_requests: [19647]
 ---
 

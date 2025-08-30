@@ -4,13 +4,14 @@ use std::f32::consts::{FRAC_PI_2, FRAC_PI_3, FRAC_PI_4, PI};
 use std::fmt::{self, Formatter};
 
 use bevy::{
+    camera::primitives::CubemapLayout,
     color::palettes::css::{SILVER, YELLOW},
     input::mouse::AccumulatedMouseMotion,
-    pbr::{decal, DirectionalLightTexture, NotShadowCaster, PointLightTexture, SpotLightTexture},
+    light::{DirectionalLightTexture, NotShadowCaster, PointLightTexture, SpotLightTexture},
+    pbr::decal,
     prelude::*,
     render::renderer::{RenderAdapter, RenderDevice},
-    window::SystemCursorIcon,
-    winit::cursor::CursorIcon,
+    window::{CursorIcon, SystemCursorIcon},
 };
 use light_consts::lux::{AMBIENT_DAYLIGHT, CLEAR_SUNRISE};
 use ops::{acos, cos, sin};
@@ -276,7 +277,7 @@ fn spawn_light_textures(
                 },
                 PointLightTexture {
                     image: asset_server.load("lightmaps/faces_pointlight_texture_blurred.png"),
-                    cubemap_layout: decal::clustered::CubemapLayout::CrossVertical,
+                    cubemap_layout: CubemapLayout::CrossVertical,
                 },
             ));
         });
@@ -307,9 +308,9 @@ fn spawn_buttons(commands: &mut Commands) {
         .spawn(Node {
             flex_direction: FlexDirection::Row,
             position_type: PositionType::Absolute,
-            right: Val::Px(10.0),
-            bottom: Val::Px(10.0),
-            column_gap: Val::Px(6.0),
+            right: px(10),
+            bottom: px(10),
+            column_gap: px(6),
             ..default()
         })
         .with_children(|parent| {
@@ -356,8 +357,8 @@ fn spawn_help_text(commands: &mut Commands, app_status: &AppStatus) {
         Text::new(create_help_string(app_status)),
         Node {
             position_type: PositionType::Absolute,
-            top: Val::Px(12.0),
-            left: Val::Px(12.0),
+            top: px(12),
+            left: px(12),
             ..default()
         },
         HelpText,
@@ -366,17 +367,17 @@ fn spawn_help_text(commands: &mut Commands, app_status: &AppStatus) {
 
 /// Draws the outlines that show the bounds of the spotlight.
 fn draw_gizmos(mut gizmos: Gizmos, spotlight: Query<(&GlobalTransform, &SpotLight, &Visibility)>) {
-    if let Ok((global_transform, spotlight, visibility)) = spotlight.single() {
-        if visibility != Visibility::Hidden {
-            gizmos.primitive_3d(
-                &Cone::new(7.0 * spotlight.outer_angle, 7.0),
-                Isometry3d {
-                    rotation: global_transform.rotation() * Quat::from_rotation_x(FRAC_PI_2),
-                    translation: global_transform.translation_vec3a() * 0.5,
-                },
-                YELLOW,
-            );
-        }
+    if let Ok((global_transform, spotlight, visibility)) = spotlight.single()
+        && visibility != Visibility::Hidden
+    {
+        gizmos.primitive_3d(
+            &Cone::new(7.0 * spotlight.outer_angle, 7.0),
+            Isometry3d {
+                rotation: global_transform.rotation() * Quat::from_rotation_x(FRAC_PI_2),
+                translation: global_transform.translation_vec3a() * 0.5,
+            },
+            YELLOW,
+        );
     }
 }
 

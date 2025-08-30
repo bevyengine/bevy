@@ -3,12 +3,12 @@
 use std::f32::consts::PI;
 
 use bevy::{
+    camera::visibility::VisibilityRange,
     core_pipeline::prepass::{DepthPrepass, NormalPrepass},
     input::mouse::MouseWheel,
+    light::{light_consts::lux::FULL_DAYLIGHT, CascadeShadowConfigBuilder},
     math::vec3,
-    pbr::{light_consts::lux::FULL_DAYLIGHT, CascadeShadowConfigBuilder},
     prelude::*,
-    render::view::VisibilityRange,
 };
 
 // Where the camera is focused.
@@ -161,8 +161,8 @@ fn setup(
         app_status.create_text(),
         Node {
             position_type: PositionType::Absolute,
-            bottom: Val::Px(12.0),
-            left: Val::Px(12.0),
+            bottom: px(12),
+            left: px(12),
             ..default()
         },
     ));

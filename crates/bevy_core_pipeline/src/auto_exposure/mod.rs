@@ -46,14 +46,13 @@ impl Plugin for AutoExposurePlugin {
         embedded_asset!(app, "auto_exposure.wgsl");
 
         app.add_plugins(RenderAssetPlugin::<GpuAutoExposureCompensationCurve>::default())
-            .register_type::<AutoExposureCompensationCurve>()
             .init_asset::<AutoExposureCompensationCurve>()
             .register_asset_reflect::<AutoExposureCompensationCurve>();
         app.world_mut()
             .resource_mut::<Assets<AutoExposureCompensationCurve>>()
-            .insert(&Handle::default(), AutoExposureCompensationCurve::default());
+            .insert(&Handle::default(), AutoExposureCompensationCurve::default())
+            .unwrap();
 
-        app.register_type::<AutoExposure>();
         app.add_plugins(ExtractComponentPlugin::<AutoExposure>::default());
 
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {

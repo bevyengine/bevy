@@ -3,7 +3,7 @@
 #[path = "../helpers/camera_controller.rs"]
 mod camera_controller;
 
-use bevy::{pbr::ShadowFilteringMethod, prelude::*};
+use bevy::{light::ShadowFilteringMethod, prelude::*};
 use camera_controller::{CameraController, CameraControllerPlugin};
 
 fn main() {
@@ -96,7 +96,7 @@ fn setup(
         .spawn((
             Node {
                 position_type: PositionType::Absolute,
-                padding: UiRect::all(Val::Px(5.0)),
+                padding: UiRect::all(px(5)),
                 ..default()
             },
             BackgroundColor(Color::BLACK.with_alpha(0.75)),
@@ -152,7 +152,7 @@ fn toggle_light(
         for mut light in &mut point_lights {
             light.intensity = if light.intensity == 0.0 {
                 *writer.text(*example_text, 4) = "PointLight".to_string();
-                100000000.0
+                light_consts::lumens::VERY_LARGE_CINEMA_LIGHT
             } else {
                 0.0
             };
@@ -160,7 +160,7 @@ fn toggle_light(
         for mut light in &mut directional_lights {
             light.illuminance = if light.illuminance == 0.0 {
                 *writer.text(*example_text, 4) = "DirectionalLight".to_string();
-                100000.0
+                light_consts::lux::AMBIENT_DAYLIGHT
             } else {
                 0.0
             };

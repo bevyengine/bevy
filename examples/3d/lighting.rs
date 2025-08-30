@@ -4,10 +4,10 @@
 use std::f32::consts::PI;
 
 use bevy::{
+    camera::{Exposure, PhysicalCameraParameters},
     color::palettes::css::*,
-    pbr::CascadeShadowConfigBuilder,
+    light::CascadeShadowConfigBuilder,
     prelude::*,
-    render::camera::{Exposure, PhysicalCameraParameters},
 };
 
 fn main() {
@@ -215,8 +215,8 @@ fn setup(
         Text::default(),
         Node {
             position_type: PositionType::Absolute,
-            top: Val::Px(12.0),
-            left: Val::Px(12.0),
+            top: px(12),
+            left: px(12),
             ..default()
         },
         children![

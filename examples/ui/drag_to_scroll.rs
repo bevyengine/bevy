@@ -4,9 +4,6 @@ use bevy::color::palettes::css::RED;
 use bevy::prelude::*;
 
 #[derive(Component)]
-struct DragNode;
-
-#[derive(Component)]
 struct ScrollableNode;
 
 #[derive(Component)]
@@ -32,8 +29,8 @@ fn setup(mut commands: Commands) {
     commands
         .spawn((
             Node {
-                width: Val::Percent(100.),
-                height: Val::Percent(100.),
+                width: percent(100),
+                height: percent(100),
                 overflow: Overflow::scroll(),
                 ..Default::default()
             },
@@ -63,7 +60,7 @@ fn setup(mut commands: Commands) {
                 &mut ScrollStart),
                 With<ScrollableNode>,
             >| {
-                if on.target() != on.original_target() {
+                if on.entity() != on.original_entity() {
                     return;
                 }
                 if let Ok((computed_node, mut start)) = scroll_position_query.single_mut() {
@@ -104,12 +101,12 @@ fn setup(mut commands: Commands) {
                                 BackgroundColor(tile_color),
                             ))
                             .observe(|on_enter: On<Pointer<Over>>, mut query: Query<&mut BackgroundColor>, | {
-                                if let Ok(mut background_color) = query.get_mut(on_enter.target()) {
+                                if let Ok(mut background_color) = query.get_mut(on_enter.entity()) {
                                     background_color.0 = RED.into();
                                 }
                             })
                             .observe(|on_enter: On<Pointer<Out>>, mut query: Query<(&mut BackgroundColor, &TileColor)>,| {
-                                if let Ok((mut background_color, tile_color)) = query.get_mut(on_enter.target()) {
+                                if let Ok((mut background_color, tile_color)) = query.get_mut(on_enter.entity()) {
                                     background_color.0 = tile_color.0;
                                 }
                             });

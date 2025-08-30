@@ -117,8 +117,8 @@ fn setup(
             ..default()
         },
         Node {
-            width: Val::Percent(100.0),
-            height: Val::Percent(100.0),
+            width: percent(100),
+            height: percent(100),
             ..default()
         },
     ));
@@ -128,8 +128,8 @@ fn setup(
     commands.spawn((Text::new("Left / Right - Rotate Camera\nC - Toggle Compensation Curve\nM - Toggle Metering Mask\nV - Visualize Metering Mask"),
             text_font.clone(), Node {
             position_type: PositionType::Absolute,
-            top: Val::Px(12.0),
-            left: Val::Px(12.0),
+            top: px(12),
+            left: px(12),
             ..default()
         })
     );
@@ -139,8 +139,8 @@ fn setup(
         text_font,
         Node {
             position_type: PositionType::Absolute,
-            top: Val::Px(12.0),
-            right: Val::Px(12.0),
+            top: px(12),
+            right: px(12),
             ..default()
         },
         ExampleDisplay,

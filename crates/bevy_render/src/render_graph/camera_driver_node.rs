@@ -1,10 +1,10 @@
 use crate::{
-    camera::{ExtractedCamera, NormalizedRenderTarget, SortedCameras},
+    camera::{ExtractedCamera, SortedCameras},
     render_graph::{Node, NodeRunError, RenderGraphContext},
     renderer::RenderContext,
     view::ExtractedWindows,
 };
-use bevy_camera::ClearColor;
+use bevy_camera::{ClearColor, NormalizedRenderTarget};
 use bevy_ecs::{entity::ContainsEntity, prelude::QueryState, world::World};
 use bevy_platform::collections::HashSet;
 use wgpu::{LoadOp, Operations, RenderPassColorAttachment, RenderPassDescriptor, StoreOp};
@@ -63,7 +63,7 @@ impl Node for CameraDriverNode {
         // wgpu (and some backends) require doing work for swap chains if you call `get_current_texture()` and `present()`
         // This ensures that Bevy doesn't crash, even when there are no cameras (and therefore no work submitted).
         for (id, window) in world.resource::<ExtractedWindows>().iter() {
-            if camera_windows.contains(id) {
+            if camera_windows.contains(id) && render_context.has_commands() {
                 continue;
             }
 
@@ -77,6 +77,7 @@ impl Node for CameraDriverNode {
                 label: Some("no_camera_clear_pass"),
                 color_attachments: &[Some(RenderPassColorAttachment {
                     view: swap_chain_texture,
+                    depth_slice: None,
                     resolve_target: None,
                     ops: Operations {
                         load: LoadOp::Clear(clear_color_global.to_linear().into()),

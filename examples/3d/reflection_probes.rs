@@ -28,6 +28,8 @@ static START_ROTATION_HELP_TEXT: &str = "Press Enter to start rotation";
 
 static REFLECTION_MODE_HELP_TEXT: &str = "Press Space to switch reflection mode";
 
+const ENV_MAP_INTENSITY: f32 = 5000.0;
+
 // The mode the application is in.
 #[derive(Resource)]
 struct AppStatus {
@@ -154,7 +156,7 @@ fn spawn_reflection_probe(commands: &mut Commands, cubemaps: &Cubemaps) {
         EnvironmentMapLight {
             diffuse_map: cubemaps.diffuse_environment_map.clone(),
             specular_map: cubemaps.specular_reflection_probe.clone(),
-            intensity: 5000.0,
+            intensity: ENV_MAP_INTENSITY,
             ..default()
         },
         // 2.0 because the sphere's radius is 1.0 and we want to fully enclose it.
@@ -169,8 +171,8 @@ fn spawn_text(commands: &mut Commands, app_status: &AppStatus) {
         app_status.create_text(),
         Node {
             position_type: PositionType::Absolute,
-            bottom: Val::Px(12.0),
-            left: Val::Px(12.0),
+            bottom: px(12),
+            left: px(12),
             ..default()
         },
     ));
@@ -190,7 +192,7 @@ fn add_environment_map_to_camera(
             .insert(create_camera_environment_map_light(&cubemaps))
             .insert(Skybox {
                 image: cubemaps.specular_environment_map.clone(),
-                brightness: 5000.0,
+                brightness: ENV_MAP_INTENSITY,
                 ..default()
             });
     }
@@ -253,9 +255,7 @@ fn change_reflection_type(
                     .entity(camera)
                     .insert(GeneratedEnvironmentMapLight {
                         environment_map: cubemaps.specular_environment_map.clone(),
-                        // compensate for the energy loss of the reverse tonemapping
-                        // during filtering by using a higher intensity
-                        intensity: 5000.0,
+                        intensity: ENV_MAP_INTENSITY,
                         ..default()
                     });
             }
@@ -328,7 +328,7 @@ fn create_camera_environment_map_light(cubemaps: &Cubemaps) -> EnvironmentMapLig
     EnvironmentMapLight {
         diffuse_map: cubemaps.diffuse_environment_map.clone(),
         specular_map: cubemaps.specular_environment_map.clone(),
-        intensity: 5000.0,
+        intensity: ENV_MAP_INTENSITY,
         ..default()
     }
 }
@@ -367,14 +367,13 @@ impl FromWorld for Cubemaps {
 }
 
 fn setup_environment_map_usage(cubemaps: Res<Cubemaps>, mut images: ResMut<Assets<Image>>) {
-    if let Some(image) = images.get_mut(&cubemaps.specular_environment_map) {
-        if !image
+    if let Some(image) = images.get_mut(&cubemaps.specular_environment_map)
+        && !image
             .texture_descriptor
             .usage
             .contains(TextureUsages::COPY_SRC)
-        {
-            image.texture_descriptor.usage |= TextureUsages::COPY_SRC;
-        }
+    {
+        image.texture_descriptor.usage |= TextureUsages::COPY_SRC;
     }
 }
 

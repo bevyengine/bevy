@@ -221,11 +221,6 @@ impl Plugin for InputDispatchPlugin {
                 )
                     .in_set(InputFocusSystems::Dispatch),
             );
-
-        #[cfg(feature = "bevy_reflect")]
-        app.register_type::<AutoFocus>()
-            .register_type::<InputFocus>()
-            .register_type::<InputFocusVisible>();
     }
 }
 
@@ -424,11 +419,11 @@ mod tests {
     struct GatherKeyboardEvents(String);
 
     fn gather_keyboard_events(
-        trigger: On<FocusedInput<KeyboardInput>>,
+        event: On<FocusedInput<KeyboardInput>>,
         mut query: Query<&mut GatherKeyboardEvents>,
     ) {
-        if let Ok(mut gather) = query.get_mut(trigger.target()) {
-            if let Key::Character(c) = &trigger.input.logical_key {
+        if let Ok(mut gather) = query.get_mut(event.entity()) {
+            if let Key::Character(c) = &event.input.logical_key {
                 gather.0.push_str(c.as_str());
             }
         }
