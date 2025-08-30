@@ -66,17 +66,17 @@ fn main() {
         // Add our gameplay simulation systems to the fixed timestep schedule
         // which runs at 64 Hz by default
         .add_systems(
-            FixedUpdate,
+            Update,
             (
                 apply_velocity,
                 move_paddle,
                 check_for_collisions,
                 play_collision_sound,
+                update_scoreboard,
             )
                 // `chain`ing systems together runs them in order
                 .chain(),
         )
-        .add_systems(Update, update_scoreboard)
         .run();
 }
 
