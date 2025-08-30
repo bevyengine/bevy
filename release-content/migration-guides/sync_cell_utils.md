@@ -1,5 +1,5 @@
 ---
-title: SyncCell and SyncUnsafeCell moved to bevy_platform
+title: "`SyncCell` and `SyncUnsafeCell` moved to bevy_platform"
 pull_requests: [19305]
 ---
 

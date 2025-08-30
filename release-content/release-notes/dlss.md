@@ -12,7 +12,7 @@ Additionally, we've open sourced <https://github.com/bevyengine/dlss_wgpu> as a 
 
 Compared to Bevy's built-in TAA, DLSS:
 
-* Is much higher quality
+* Produces higher quality and more stable images
 * Supports upscaling in addition to anti-aliasing, leading to much cheaper render times, particularly when used with GPU-heavy features like Bevy Solari
 * Requires a NVIDIA RTX GPU
 * Requires running via the Vulkan backend on Windows/Linux (no macOS, web, or mobile support)

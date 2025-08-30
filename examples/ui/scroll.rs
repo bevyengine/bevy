@@ -117,8 +117,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     // root node
     commands
         .spawn(Node {
-            width: Val::Percent(100.0),
-            height: Val::Percent(100.0),
+            width: percent(100),
+            height: percent(100),
             justify_content: JustifyContent::SpaceBetween,
             flex_direction: FlexDirection::Column,
             ..default()
@@ -127,7 +127,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             // horizontal scroll example
             parent
                 .spawn(Node {
-                    width: Val::Percent(100.),
+                    width: percent(100),
                     flex_direction: FlexDirection::Column,
                     ..default()
                 })
@@ -147,8 +147,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     parent
                         .spawn((
                             Node {
-                                width: Val::Percent(80.),
-                                margin: UiRect::all(Val::Px(10.)),
+                                width: percent(80),
+                                margin: UiRect::all(px(10)),
                                 flex_direction: FlexDirection::Row,
                                 overflow: Overflow::scroll_x(), // n.b.
                                 ..default()
@@ -167,7 +167,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                         Label,
                                         AccessibilityNode(Accessible::new(Role::ListItem)),
                                         Node {
-                                            min_width: Val::Px(200.),
+                                            min_width: px(200),
                                             align_content: AlignContent::Center,
                                             ..default()
                                         },
@@ -186,8 +186,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             // container for all other examples
             parent.spawn((
                 Node {
-                    width: Val::Percent(100.),
-                    height: Val::Percent(100.),
+                    width: percent(100),
+                    height: percent(100),
                     flex_direction: FlexDirection::Row,
                     justify_content: JustifyContent::SpaceBetween,
                     ..default()
@@ -207,7 +207,7 @@ fn vertically_scrolling_list(font_handle: Handle<Font>) -> impl Bundle {
             flex_direction: FlexDirection::Column,
             justify_content: JustifyContent::Center,
             align_items: AlignItems::Center,
-            width: Val::Px(200.),
+            width: px(200),
             ..default()
         },
         children![
@@ -226,7 +226,7 @@ fn vertically_scrolling_list(font_handle: Handle<Font>) -> impl Bundle {
                 Node {
                     flex_direction: FlexDirection::Column,
                     align_self: AlignSelf::Stretch,
-                    height: Val::Percent(50.),
+                    height: percent(50),
                     overflow: Overflow::scroll_y(), // n.b.
                     ..default()
                 },
@@ -234,8 +234,8 @@ fn vertically_scrolling_list(font_handle: Handle<Font>) -> impl Bundle {
                 Children::spawn(SpawnIter((0..25).map(move |i| {
                     (
                         Node {
-                            min_height: Val::Px(LINE_HEIGHT),
-                            max_height: Val::Px(LINE_HEIGHT),
+                            min_height: px(LINE_HEIGHT),
+                            max_height: px(LINE_HEIGHT),
                             ..default()
                         },
                         children![(
@@ -260,7 +260,7 @@ fn bidirectional_scrolling_list(font_handle: Handle<Font>) -> impl Bundle {
             flex_direction: FlexDirection::Column,
             justify_content: JustifyContent::Center,
             align_items: AlignItems::Center,
-            width: Val::Px(200.),
+            width: px(200),
             ..default()
         },
         children![
@@ -277,7 +277,7 @@ fn bidirectional_scrolling_list(font_handle: Handle<Font>) -> impl Bundle {
                 Node {
                     flex_direction: FlexDirection::Column,
                     align_self: AlignSelf::Stretch,
-                    height: Val::Percent(50.),
+                    height: percent(50),
                     overflow: Overflow::scroll(), // n.b.
                     ..default()
                 },
@@ -315,7 +315,7 @@ fn nested_scrolling_list(font_handle: Handle<Font>) -> impl Bundle {
             flex_direction: FlexDirection::Column,
             justify_content: JustifyContent::Center,
             align_items: AlignItems::Center,
-            width: Val::Px(200.),
+            width: px(200),
             ..default()
         },
         children![
@@ -332,10 +332,10 @@ fn nested_scrolling_list(font_handle: Handle<Font>) -> impl Bundle {
             (
                 // Outer, bi-directional scrolling container
                 Node {
-                    column_gap: Val::Px(20.),
+                    column_gap: px(20),
                     flex_direction: FlexDirection::Row,
                     align_self: AlignSelf::Stretch,
-                    height: Val::Percent(50.),
+                    height: percent(50),
                     overflow: Overflow::scroll(),
                     ..default()
                 },
@@ -346,7 +346,7 @@ fn nested_scrolling_list(font_handle: Handle<Font>) -> impl Bundle {
                         Node {
                             flex_direction: FlexDirection::Column,
                             align_self: AlignSelf::Stretch,
-                            height: Val::Percent(200. / 5. * (oi as f32 + 1.)),
+                            height: percent(200. / 5. * (oi as f32 + 1.)),
                             overflow: Overflow::scroll_y(),
                             ..default()
                         },

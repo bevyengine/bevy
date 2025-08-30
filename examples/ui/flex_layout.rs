@@ -25,8 +25,8 @@ fn spawn_layout(mut commands: Commands, asset_server: Res<AssetServer>) {
         .spawn((
             Node {
                 // fill the entire window
-                width: Val::Percent(100.),
-                height: Val::Percent(100.),
+                width: percent(100),
+                height: percent(100),
                 flex_direction: FlexDirection::Column,
                 align_items: AlignItems::Center,
                 padding: UiRect::all(MARGIN),
@@ -61,8 +61,8 @@ fn spawn_layout(mut commands: Commands, asset_server: Res<AssetServer>) {
 
             builder
                 .spawn(Node {
-                    width: Val::Percent(100.),
-                    height: Val::Percent(100.),
+                    width: percent(100),
+                    height: percent(100),
                     flex_direction: FlexDirection::Column,
                     row_gap: MARGIN,
                     ..default()
@@ -87,8 +87,8 @@ fn spawn_layout(mut commands: Commands, asset_server: Res<AssetServer>) {
                     for align_items in alignments {
                         builder
                             .spawn(Node {
-                                width: Val::Percent(100.),
-                                height: Val::Percent(100.),
+                                width: percent(100),
+                                height: percent(100),
                                 flex_direction: FlexDirection::Row,
                                 column_gap: MARGIN,
                                 ..Default::default()
@@ -120,8 +120,8 @@ fn spawn_child_node(
                 flex_direction: FlexDirection::Column,
                 align_items,
                 justify_content,
-                width: Val::Percent(100.),
-                height: Val::Percent(100.),
+                width: percent(100),
+                height: percent(100),
                 ..default()
             },
             BackgroundColor(Color::srgb(0.25, 0.25, 0.25)),
@@ -137,7 +137,7 @@ fn spawn_child_node(
                     builder,
                     font.clone(),
                     color,
-                    UiRect::top(Val::Px(top_margin)),
+                    UiRect::top(px(top_margin)),
                     &text,
                 );
             }
@@ -155,7 +155,7 @@ fn spawn_nested_text_bundle(
         .spawn((
             Node {
                 margin,
-                padding: UiRect::axes(Val::Px(5.), Val::Px(1.)),
+                padding: UiRect::axes(px(5), px(1)),
                 ..default()
             },
             BackgroundColor(background_color),
