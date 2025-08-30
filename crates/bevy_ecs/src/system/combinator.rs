@@ -36,12 +36,13 @@ use super::{IntoSystem, ReadOnlySystem, RunSystemError, System};
 ///     type In = ();
 ///     type Out = bool;
 ///
-///     fn combine(
+///     fn combine<T>(
 ///         _input: Self::In,
-///         a: impl FnOnce(A::In) -> Result<A::Out, RunSystemError>,
-///         b: impl FnOnce(B::In) -> Result<B::Out, RunSystemError>,
+///         data: &mut T,
+///         a: impl FnOnce(A::In, &mut T) -> Result<A::Out, RunSystemError>,
+///         b: impl FnOnce(B::In, &mut T) -> Result<B::Out, RunSystemError>,
 ///     ) -> Result<Self::Out, RunSystemError> {
-///         Ok(a(())? ^ b(())?)
+///         Ok(a((), data)? ^ b((), data)?)
 ///     }
 /// }
 ///
@@ -99,10 +100,11 @@ pub trait Combine<A: System, B: System> {
     /// the two composite systems are invoked and their outputs are combined.
     ///
     /// See the trait-level docs for [`Combine`] for an example implementation.
-    fn combine(
+    fn combine<T>(
         input: <Self::In as SystemInput>::Inner<'_>,
-        a: impl FnOnce(SystemIn<'_, A>) -> Result<A::Out, RunSystemError>,
-        b: impl FnOnce(SystemIn<'_, B>) -> Result<B::Out, RunSystemError>,
+        data: &mut T,
+        a: impl FnOnce(SystemIn<'_, A>, &mut T) -> Result<A::Out, RunSystemError>,
+        b: impl FnOnce(SystemIn<'_, B>, &mut T) -> Result<B::Out, RunSystemError>,
     ) -> Result<Self::Out, RunSystemError>;
 }
 
@@ -153,20 +155,25 @@ where
         input: SystemIn<'_, Self>,
         world: UnsafeWorldCell,
     ) -> Result<Self::Out, RunSystemError> {
+        struct PrivateUnsafeWorldCell<'w>(UnsafeWorldCell<'w>);
+
         Func::combine(
             input,
+            &mut PrivateUnsafeWorldCell(world),
             // SAFETY: The world accesses for both underlying systems have been registered,
             // so the caller will guarantee that no other systems will conflict with `a` or `b`.
             // If either system has `is_exclusive()`, then the combined system also has `is_exclusive`.
-            // Since these closures are `!Send + !Sync + !'static`, they can never be called
-            // in parallel, so their world accesses will not conflict with each other.
-            |input| unsafe { self.a.run_unsafe(input, world) },
+            // Since we require a `combine` to pass in a mutable reference to `world` and that's a private type
+            // passed to a function as an unbound non-'static generic argument, they can never be called in parallel
+            // or re-entrantly because that would require forging another instance of `PrivateUnsafeWorldCell`.
+            // This means that the world accesses in the two closures will not conflict with each other.
+            |input, world| unsafe { self.a.run_unsafe(input, world.0) },
             // `Self::validate_param_unsafe` already validated the first system,
             // but we still need to validate the second system once the first one runs.
             // SAFETY: See the comment above.
-            |input| unsafe {
-                self.b.validate_param_unsafe(world)?;
-                self.b.run_unsafe(input, world)
+            |input, world| unsafe {
+                self.b.validate_param_unsafe(world.0)?;
+                self.b.run_unsafe(input, world.0)
             },
         )
     }
