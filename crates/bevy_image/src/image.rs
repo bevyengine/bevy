@@ -1064,6 +1064,7 @@ impl Image {
     }
 
     /// Changes the `size` if the total number of data elements (pixels) remains the same.
+    /// If not, returns [`TextureReinterpretationError::IncompatibleSizes`].
     pub fn reinterpret_size(
         &mut self,
         new_size: Extent3d,
