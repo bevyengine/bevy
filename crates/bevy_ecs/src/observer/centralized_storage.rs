@@ -148,7 +148,7 @@ pub type ObserverMap = EntityHashMap<ObserverRunner>;
 pub struct CachedComponentObservers {
     // Observers watching for events targeting this component, but not a specific entity
     pub(super) global_observers: ObserverMap,
-    // Observers wathing for events targeting this component on a specific entity
+    // Observers watching for events targeting this component on a specific entity
     pub(super) entity_component_observers: EntityHashMap<ObserverMap>,
 }
 
@@ -158,7 +158,7 @@ impl CachedComponentObservers {
         &self.global_observers
     }
 
-    /// Returns observers wathing for events targeting this component on a specific entity
+    /// Returns observers watching for events targeting this component on a specific entity
     pub fn entity_component_observers(&self) -> &EntityHashMap<ObserverMap> {
         &self.entity_component_observers
     }
