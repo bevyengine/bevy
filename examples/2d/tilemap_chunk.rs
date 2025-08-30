@@ -1,10 +1,10 @@
 //! Shows a tilemap chunk rendered with a single draw call.
 
 use bevy::{
+    image::{ImageLoaderSettings, ImageTextureViewDimension},
     prelude::*,
     sprite_render::{TileData, TilemapChunk, TilemapChunkTileData},
 };
-use bevy_image::{ImageLoaderSettings, ImageTextureViewDimension};
 use rand::{Rng, SeedableRng};
 use rand_chacha::ChaCha8Rng;
 

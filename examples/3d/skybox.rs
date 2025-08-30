@@ -4,10 +4,13 @@
 mod camera_controller;
 
 use bevy::{
-    anti_aliasing::taa::TemporalAntiAliasing, core_pipeline::Skybox, image::CompressedImageFormats,
-    pbr::ScreenSpaceAmbientOcclusion, prelude::*, render::renderer::RenderDevice,
+    anti_aliasing::taa::TemporalAntiAliasing,
+    core_pipeline::Skybox,
+    image::{CompressedImageFormats, ImageLoaderSettings, ImageTextureViewDimension},
+    pbr::ScreenSpaceAmbientOcclusion,
+    prelude::*,
+    render::renderer::RenderDevice,
 };
-use bevy_image::{ImageLoaderSettings, ImageTextureViewDimension};
 use camera_controller::{CameraController, CameraControllerPlugin};
 use std::f32::consts::PI;
 
