@@ -129,10 +129,10 @@ fn setup(mut commands: Commands) {
 
     commands.spawn((
         Node {
-            width: Val::Vw(100.0),
-            height: Val::Vh(100.0),
+            width: vw(100),
+            height: vh(100),
             flex_direction: FlexDirection::Column,
-            padding: UiRect::all(Val::Px(12.)),
+            padding: UiRect::all(px(12)),
             ..default()
         },
         LogViewerRoot,

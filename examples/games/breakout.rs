@@ -57,7 +57,7 @@ fn main() {
             stepping::SteppingPlugin::default()
                 .add_schedule(Update)
                 .add_schedule(FixedUpdate)
-                .at(Val::Percent(35.0), Val::Percent(50.0)),
+                .at(percent(35), percent(50)),
         )
         .insert_resource(Score(0))
         .insert_resource(ClearColor(BACKGROUND_COLOR))

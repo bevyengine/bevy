@@ -263,9 +263,9 @@ fn spawn_buttons(commands: &mut Commands) {
         .spawn(Node {
             flex_direction: FlexDirection::Row,
             position_type: PositionType::Absolute,
-            right: Val::Px(10.0),
-            bottom: Val::Px(10.0),
-            column_gap: Val::Px(6.0),
+            right: px(10),
+            bottom: px(10),
+            column_gap: px(6),
             ..default()
         })
         .with_children(|parent| {
@@ -304,8 +304,8 @@ fn spawn_help_text(commands: &mut Commands, app_status: &AppStatus) {
         Text::new(create_help_string(app_status)),
         Node {
             position_type: PositionType::Absolute,
-            top: Val::Px(12.0),
-            left: Val::Px(12.0),
+            top: px(12),
+            left: px(12),
             ..default()
         },
         HelpText,
