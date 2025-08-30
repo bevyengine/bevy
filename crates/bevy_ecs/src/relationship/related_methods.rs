@@ -139,6 +139,8 @@ impl<'w> EntityWorldMut<'w> {
     }
 
     /// Replaces all the related entities with a new set of entities.
+    ///
+    /// The [`RelationshipTarget`] component is not replaced but mutated, meaning lifecycle events do not fire but change detection types will pick it up.
     pub fn replace_related<R: Relationship>(&mut self, related: &[Entity]) -> &mut Self {
         type Collection<R> =
             <<R as Relationship>::RelationshipTarget as RelationshipTarget>::Collection;
@@ -199,7 +201,7 @@ impl<'w> EntityWorldMut<'w> {
 
     /// Replaces all the related entities with a new set of entities.
     ///
-    /// This is a more efficient of [`Self::replace_related`] which doesn't allocate.
+    /// This is a more efficient version of [`Self::replace_related`] which doesn't allocate.
     /// The passed in arguments must adhere to these invariants:
     /// - `entities_to_unrelate`: A slice of entities to remove from the relationship source.
     ///   Entities need not be related to this entity, but must not appear in `entities_to_relate`
@@ -493,12 +495,12 @@ impl<'a> EntityCommands<'a> {
     ///
     /// # Warning
     ///
-    /// Failing to maintain the functions invariants may lead to erratic engine behavior including random crashes.
+    /// Failing to maintain the function's invariants may lead to erratic engine behavior including random crashes.
     /// Refer to [`EntityWorldMut::replace_related_with_difference`] for a list of these invariants.
     ///
     /// # Panics
     ///
-    /// Panics when debug assertions are enable, an invariant is are broken and the command is executed.
+    /// Panics when debug assertions are enabled, an invariant is broken and the command is executed.
     pub fn replace_related_with_difference<R: Relationship>(
         &mut self,
         entities_to_unrelate: &[Entity],
