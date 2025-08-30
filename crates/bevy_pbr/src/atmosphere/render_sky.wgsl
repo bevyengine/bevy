@@ -34,9 +34,9 @@ struct RenderSkyOutput {
 fn main(in: FullscreenVertexOutput) -> RenderSkyOutput {
     let depth = textureLoad(depth_texture, vec2<i32>(in.position.xy), 0);
 
-    let world_pos = get_view_position();
-    let r = length(world_pos);
     let ray_dir_ws = uv_to_ray_direction(in.uv).xyz;
+    let world_pos = get_view_position(ray_dir_ws);
+    let r = length(world_pos);
     let up = normalize(world_pos);
     let mu = dot(ray_dir_ws, up);
     let max_samples = settings.sky_max_samples;
@@ -48,9 +48,9 @@ fn main(in: FullscreenVertexOutput) -> RenderSkyOutput {
     let sun_radiance = sample_sun_radiance(ray_dir_ws.xyz);
 
     if depth == 0.0 {
-        let ray_dir_as = direction_world_to_atmosphere(ray_dir_ws.xyz);
+        let ray_dir_as = direction_world_to_atmosphere(ray_dir_ws, up);
         transmittance = sample_transmittance_lut(r, mu);
-        inscattering += sample_sky_view_lut(r, ray_dir_as);
+        inscattering = sample_sky_view_lut(r, ray_dir_as);
         if should_raymarch {
             let t_max = max_atmosphere_distance(r, mu);
             let result = raymarch_atmosphere(world_pos, ray_dir_ws, t_max, max_samples, in.uv, true);

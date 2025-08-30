@@ -7,9 +7,6 @@ struct Atmosphere {
     // Radius at which we consider the atmosphere to 'end' for out calculations (from center of planet)
     top_radius: f32, // units: m
 
-    // The origin of the view relative to the center of the planet.
-    origin: vec3<f32>, // units: m
-
     ground_albedo: vec3<f32>,
 
     rayleigh_density_exp_scale: f32,

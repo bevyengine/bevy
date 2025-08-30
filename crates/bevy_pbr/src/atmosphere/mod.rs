@@ -225,11 +225,6 @@ pub struct Atmosphere {
     /// units: m
     pub top_radius: f32,
 
-    /// The origin of the view relative to the center of the planet.
-    ///
-    /// units: m
-    pub origin: Vec3,
-
     /// An approximation of the average albedo (or color, roughly) of the
     /// planet's surface. This is used when calculating multiscattering.
     ///
@@ -298,7 +293,6 @@ impl Atmosphere {
     pub const EARTH: Atmosphere = Atmosphere {
         bottom_radius: 6_360_000.0,
         top_radius: 6_460_000.0,
-        origin: Vec3::new(0.0, 6_360_000.0, 0.0),
         ground_albedo: Vec3::splat(0.3),
         rayleigh_density_exp_scale: 1.0 / 8_000.0,
         rayleigh_scattering: Vec3::new(5.802e-6, 13.558e-6, 33.100e-6),

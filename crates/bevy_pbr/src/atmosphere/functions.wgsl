@@ -147,7 +147,7 @@ fn sample_multiscattering_lut(r: f32, mu: f32) -> vec3<f32> {
 fn sample_sky_view_lut(r: f32, ray_dir_as: vec3<f32>) -> vec3<f32> {
     let mu = ray_dir_as.y;
     let azimuth = fast_atan2(ray_dir_as.x, -ray_dir_as.z);
-    let uv = sky_view_lut_r_mu_azimuth_to_uv(r, mu, azimuth);
+    let uv = sky_view_lut_r_mu_azimuth_to_uv(r + EPSILON, mu, azimuth);
     return textureSampleLevel(sky_view_lut, sky_view_lut_sampler, uv, 0.0).rgb;
 }
 
@@ -278,7 +278,7 @@ fn sample_local_inscattering(local_atmosphere: AtmosphereSample, ray_dir: vec3<f
 }
 
 fn sample_sun_radiance(ray_dir_ws: vec3<f32>) -> vec3<f32> {
-    let view_pos = get_view_position();
+    let view_pos = get_view_position(ray_dir_ws);
     let r = length(view_pos);
     let up = normalize(view_pos);
     let mu_view = dot(ray_dir_ws, up);
@@ -310,17 +310,18 @@ fn max_atmosphere_distance(r: f32, mu: f32) -> f32 {
 }
 
 /// Returns the observer's position in the atmosphere
-fn get_view_position() -> vec3<f32> {
-    // If the rendering method is using the LUTs, use only altitude in the y coordinate
-    if settings.rendering_method == 0u {
-        /// Assuming y=0 is the planet ground, returns the view radius or altitude from the ground in meters
-        let r = max(view.world_position.y * settings.scene_units_to_m, EPSILON) + atmosphere.origin.y;
-        return vec3<f32>(0.0, r, 0.0);
+fn get_view_position(ray_dir: vec3<f32>) -> vec3<f32> {
+    var world_pos = view.world_position * settings.scene_units_to_m + vec3(0.0, atmosphere.bottom_radius, 0.0);
+    
+    // move the world position forward to the first intersection with the ground
+    let r = length(world_pos);
+    let mu = dot(ray_dir, normalize(world_pos));
+    let intersection = ray_sphere_intersect(r, mu, atmosphere.bottom_radius);
+    if length(world_pos) < atmosphere.bottom_radius {
+        world_pos = world_pos + ray_dir * intersection.y;
     }
-    var world_pos = view.world_position * settings.scene_units_to_m;
-    // ensure a minimum altitude of EPSILON in the up direction
-    world_pos = max(world_pos, normalize(atmosphere.origin) * EPSILON);
-    return world_pos + atmosphere.origin;
+
+    return world_pos;
 }
 
 // We assume the `up` vector at the view position is the y axis, since the world is locally flat/level.
@@ -347,9 +348,16 @@ fn ndc_to_uv(ndc: vec2<f32>) -> vec2<f32> {
 }
 
 /// Converts a direction in world space to atmosphere space
-fn direction_world_to_atmosphere(dir_ws: vec3<f32>) -> vec3<f32> {
-    let dir_as = atmosphere_transforms.atmosphere_from_world * vec4(dir_ws, 0.0);
-    return dir_as.xyz;
+fn direction_world_to_atmosphere(dir_ws: vec3<f32>, up: vec3<f32>) -> vec3<f32> {
+    // Camera forward in world space (+Z in view-to-world transform here)
+    let forward_ws = normalize((view.world_from_view * vec4(0.0, 0.0, 1.0, 0.0)).xyz);
+    let tangent_z = normalize(forward_ws - up * dot(forward_ws, up));
+    let tangent_x = normalize(cross(up, tangent_z));
+    return vec3(
+        dot(dir_ws, tangent_x),
+        dot(dir_ws, up),
+        dot(dir_ws, tangent_z),
+    );
 }
 
 /// Converts a direction in atmosphere space to world space
@@ -520,8 +528,7 @@ fn raymarch_atmosphere(
             let light_dir = (*light).direction_to_light;
             let light_color = (*light).color.rgb;
             let transmittance_to_ground = exp(-optical_depth);
-            let local_up = get_local_up(r, t_max, ray_dir);
-            let mu_light = dot(light_dir, local_up);
+            let mu_light = dot(light_dir, up);
             let transmittance_to_light = sample_transmittance_lut(0.0, mu_light);
             let light_luminance = transmittance_to_light * max(mu_light, 0.0) * light_color;
             // Normalized Lambert BRDF
