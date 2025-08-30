@@ -119,8 +119,11 @@ pub struct TextInputBuffer {
 impl Default for TextInputBuffer {
     fn default() -> Self {
         Self {
-            editor: Editor::new(Buffer::new_empty(Metrics::new(20.0, 20.0))),
-            space_advance: 20.,
+            editor: Editor::new(Buffer::new_empty(Metrics::new(
+                DEFAULT_FONT_SIZE,
+                DEFAULT_LINE_HEIGHT,
+            ))),
+            space_advance: DEFAULT_SPACE_ADVANCE,
         }
     }
 }
@@ -253,12 +256,18 @@ pub struct TextInputAttributes {
     pub clear_on_submit: bool,
 }
 
+// These defaults
+const DEFAULT_FONT_SIZE: f32 = 20.;
+const DEFAULT_LINE_HEIGHT_FACTOR: f32 = 1.2; // `1.2` corresponds to `normal` in https://developer.mozilla.org/en-US/docs/Web/CSS/line-height
+const DEFAULT_LINE_HEIGHT: f32 = DEFAULT_FONT_SIZE * DEFAULT_LINE_HEIGHT_FACTOR;
+const DEFAULT_SPACE_ADVANCE: f32 = 20.;
+
 impl Default for TextInputAttributes {
     fn default() -> Self {
         Self {
             font: Default::default(),
-            font_size: 20.,
-            line_height: LineHeight::RelativeToFont(1.2),
+            font_size: DEFAULT_FONT_SIZE,
+            line_height: LineHeight::RelativeToFont(DEFAULT_LINE_HEIGHT_FACTOR),
             font_smoothing: Default::default(),
             justify: Default::default(),
             line_break: Default::default(),
@@ -352,7 +361,10 @@ impl Default for PasswordMask {
         Self {
             show_password: false,
             mask_char: '*',
-            editor: Editor::new(Buffer::new_empty(Metrics::new(20.0, 20.0))),
+            editor: Editor::new(Buffer::new_empty(Metrics::new(
+                DEFAULT_FONT_SIZE,
+                DEFAULT_LINE_HEIGHT,
+            ))),
         }
     }
 }
@@ -385,7 +397,8 @@ pub enum TextEdit {
     Copy,
     /// Copy the selected text into the clipboard, then delete the selected text. Does nothing if no text is selected.
     Cut,
-    /// Insert the contents of the clipboard at the current cursor position. Does nothing if the clipboard is empty.
+    /// Insert the contents of the clipboard at the current cursor position, or replaces the current selection.
+    /// Does nothing if the clipboard is empty.
     Paste,
     /// Move the cursor with some motion.
     Motion {
@@ -1194,7 +1207,7 @@ impl PlaceholderLayout {
 impl Default for PlaceholderLayout {
     fn default() -> Self {
         Self {
-            buffer: Buffer::new_empty(Metrics::new(20.0, 20.0)),
+            buffer: Buffer::new_empty(Metrics::new(DEFAULT_FONT_SIZE, DEFAULT_LINE_HEIGHT)),
             layout: Default::default(),
         }
     }
