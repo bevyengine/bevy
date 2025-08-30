@@ -6,29 +6,23 @@
 use bevy::{
     color::palettes::css::GOLD,
     diagnostic::{DiagnosticsStore, FrameTimeDiagnosticsPlugin},
+    time::common_conditions::on_timer,
     prelude::*,
 };
+use std::time::Duration;
+
 
 fn main() {
     App::new()
         .add_plugins((DefaultPlugins, FrameTimeDiagnosticsPlugin::default()))
         .add_systems(Startup, setup)
-        .add_systems(Update, (text_update_system, text_color_system))
+        .add_systems(Update, (text_color_system, text_update_system.run_if(on_timer(Duration::from_secs_f32(0.5)))))
         .run();
 }
 
 // Marker struct to help identify the FPS UI component, since there may be many Text components
 #[derive(Component)]
 struct FpsText;
-
-#[derive(Component)]
-struct FpsUiTimer(Timer);
-
-impl Default for FpsUiTimer {
-    fn default() -> Self {
-        FpsUiTimer(Timer::from_seconds(0.5, TimerMode::Repeating))
-    }
-}
 
 // Marker struct to help identify the color-changing Text component
 #[derive(Component)]
@@ -141,16 +135,8 @@ fn text_color_system(time: Res<Time>, mut query: Query<&mut TextColor, With<Anim
 
 fn text_update_system(
     diagnostics: Res<DiagnosticsStore>,
-    time: Res<Time>,
-    mut timer: Local<FpsUiTimer>,
     mut query: Query<&mut TextSpan, With<FpsText>>,
 ) {
-    // Returns early while the timer is running to prevent excessive text updates.
-    timer.0.tick(time.delta());
-    if !timer.0.just_finished() {
-        return;
-    }
-
     for mut span in &mut query {
         if let Some(fps) = diagnostics.get(&FrameTimeDiagnosticsPlugin::FPS)
             && let Some(value) = fps.smoothed()
