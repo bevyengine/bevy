@@ -1172,7 +1172,7 @@ impl Image {
             return Err(TextureReinterpretationError::InvalidLayerCount);
         }
         if self.height() % layers != 0 {
-            return Err(TextureReinterpretationError::HeightNotDivisableByLayers {
+            return Err(TextureReinterpretationError::HeightNotDivisibleByLayers {
                 height: self.height(),
                 layers,
             });
@@ -1793,7 +1793,7 @@ pub enum TextureReinterpretationError {
     #[error("must not already be a layered image")]
     InvalidLayerCount,
     #[error("can not evenly divide height = {height} by layers = {layers}")]
-    HeightNotDivisableByLayers { height: u32, layers: u32 },
+    HeightNotDivisibleByLayers { height: u32, layers: u32 },
 }
 
 /// An error that occurs when accessing specific pixels in a texture.
