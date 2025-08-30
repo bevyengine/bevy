@@ -64,7 +64,9 @@ fn update_tileset_image(
     for event in events.read() {
         if event.is_loaded_with_dependencies(chunk.tileset.id()) {
             let image = images.get_mut(&chunk.tileset).unwrap();
-            image.reinterpret_stacked_2d_as_array(4).unwrap();
+            image
+                .reinterpret_stacked_2d_as_array(4)
+                .expect("asset should be 2d texture with height evenly divisible by 4");
         }
     }
 }

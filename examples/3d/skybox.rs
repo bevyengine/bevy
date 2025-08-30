@@ -159,7 +159,7 @@ fn asset_loaded(
         if image.texture_descriptor.array_layer_count() == 1 {
             image
                 .reinterpret_stacked_2d_as_array(image.height() / image.width())
-                .unwrap();
+                .expect("asset should be 2d texture and height will always be evenly divisible with the given layers");
             image.texture_view_descriptor = Some(TextureViewDescriptor {
                 dimension: Some(TextureViewDimension::Cube),
                 ..default()
