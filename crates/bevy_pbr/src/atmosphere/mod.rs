@@ -445,14 +445,21 @@ fn configure_camera_depth_usages(
     }
 }
 
-/// The rendering method to use for the atmosphere.
+/// Selects how the atmosphere is rendered. Choose based on performance needs,
+/// scene scale, and how accurate you need shadows and long-distance lighting to be.
 #[derive(Clone, Default, Reflect, Copy)]
 pub enum AtmosphereRenderingMethod {
-    /// Use the default rendering method which uses a 3D lookup texture
-    /// fitted to the view frustum.
+    /// High-performance approximation for most scenes that are inside of the atmosphere.
+    /// Uses a set of lookup textures to accelerate rendering performance.
+    /// Slightly less accurate for very long-distance/space views (lighting precision
+    /// tapers as the camera moves far from the scene origin) and for sharp volumetric
+    /// (cloud/fog) shadows.
     #[default]
     Default,
-    /// Use the raymarching rendering method which uses raymarching to
-    /// compute the atmosphere and supports volumetric shadows.
+    /// Slower, more accurate rendering method for any type of scene.
+    /// Computes the atmosphere by raymarching and produces sharp volumetric
+    /// (cloud/fog) shadows.
+    /// Best for cinematic shots, planets seen from orbit, and scenes requiring
+    /// accurate long-distance lighting.
     Raymarching,
 }
