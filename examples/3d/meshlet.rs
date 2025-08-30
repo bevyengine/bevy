@@ -15,7 +15,7 @@ use camera_controller::{CameraController, CameraControllerPlugin};
 use std::f32::consts::PI;
 
 const ASSET_URL: &str =
-    "https://raw.githubusercontent.com/atlv24/assets/69bb39164fd35aadf863f6009520d4981eafcea0/bunny.meshlet_mesh";
+    "https://github.com/bevyengine/bevy_asset_files/raw/9bf88c42b9d06a3634eed633d90ce5fab02c31da/meshlet/bunny.meshlet_mesh";
 
 fn main() {
     App::new()
