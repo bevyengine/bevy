@@ -14,6 +14,7 @@ pub mod core_3d;
 pub mod deferred;
 pub mod dof;
 pub mod experimental;
+pub mod fullscreen_material;
 pub mod motion_blur;
 pub mod msaa_writeback;
 pub mod oit;
