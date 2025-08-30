@@ -250,10 +250,6 @@ pub struct TextInputAttributes {
     /// * Only restricts the maximum number of visible lines, places no constraint on the text buffer's length.
     /// * Supports fractional values, `visible_lines: Some(2.5)` will display two and a half lines of text.
     pub visible_lines: Option<f32>,
-    /// Clears the inputted text when it is submitted.
-    ///
-    /// This is triggered when [`apply_text_edits`] receives a [`TextEdit::Submit`] edit for an entity.
-    pub clear_on_submit: bool,
 }
 
 // These defaults
@@ -273,7 +269,6 @@ impl Default for TextInputAttributes {
             line_break: Default::default(),
             max_chars: None,
             visible_lines: None,
-            clear_on_submit: false,
         }
     }
 }
@@ -451,8 +446,6 @@ pub enum TextEdit {
     Clear,
     /// Set the contents of the text input buffer. The existing contents are discarded.
     SetText(String),
-    /// Submit the contents of the text input buffer
-    Submit,
 }
 
 impl TextEdit {
@@ -517,36 +510,14 @@ pub fn apply_text_edits(
         text_input_query.iter_mut()
     {
         for edit in text_input_actions.queue.drain(..) {
-            match edit {
-                TextEdit::Submit => {
-                    commands.trigger_targets(
-                        TextInputEvent::Submission {
-                            text: buffer.get_text(),
-                        },
-                        entity,
-                    );
-
-                    if attribs.clear_on_submit {
-                        let _ = apply_text_edit(
-                            buffer.editor.borrow_with(&mut font_system),
-                            maybe_filter,
-                            attribs.max_chars,
-                            &mut clipboard,
-                            &TextEdit::Clear,
-                        );
-                    }
-                }
-                edit => {
-                    if let Err(error) = apply_text_edit(
-                        buffer.editor.borrow_with(&mut font_system),
-                        maybe_filter,
-                        attribs.max_chars,
-                        &mut clipboard,
-                        &edit,
-                    ) {
-                        commands.trigger_targets(TextInputEvent::InvalidEdit(error, edit), entity);
-                    }
-                }
+            if let Err(error) = apply_text_edit(
+                buffer.editor.borrow_with(&mut font_system),
+                maybe_filter,
+                attribs.max_chars,
+                &mut clipboard,
+                &edit,
+            ) {
+                commands.trigger_targets(TextInputEvent::InvalidEdit(error, edit), entity);
             }
         }
 
@@ -1108,7 +1079,6 @@ pub fn apply_text_edit(
             editor.action(Action::Motion(Motion::End));
             editor.insert_string(text, None);
         }
-        TextEdit::Submit => {}
     }
 
     let Some(mut change) = editor.finish_change() else {
@@ -1145,11 +1115,6 @@ pub fn apply_text_edit(
 pub enum TextInputEvent {
     /// The text input received an invalid [`TextEdit`] that failed to be applied
     InvalidEdit(InvalidTextEditError, TextEdit),
-    /// Text from the input was submitted
-    Submission {
-        /// The submitted text
-        text: String,
-    },
     /// The contents of the text input changed due to a [`TextEdit`].
     /// Only dispatched if a text input entity has a [`TextInputValue`] component.
     TextChanged,

@@ -16,7 +16,7 @@ use bevy::{
     },
     text::{
         CursorBlink, LineBreak, Motion, Placeholder, PlaceholderLayout, PositionedGlyph,
-        TextBounds, TextCursorBlinkInterval, TextEdit, TextEdits, TextInputBuffer, TextInputEvent,
+        TextBounds, TextCursorBlinkInterval, TextEdit, TextEdits, TextInputBuffer,
         TextInputSystems, TextInputTarget, TextLayoutInfo,
     },
     window::PrimaryWindow,
@@ -36,7 +36,9 @@ fn main() {
         .add_systems(
             PostUpdate,
             (update_inputs, update_targets).before(TextInputSystems),
-        );
+        )
+        .add_event::<TextSubmission>()
+        .add_systems(Update, handle_submissions);
     app.sub_app_mut(RenderApp)
         .add_systems(ExtractSchedule, extract_text_input);
 
@@ -46,47 +48,35 @@ fn main() {
 fn setup(mut commands: Commands) {
     commands.spawn(Camera2d);
 
-    let submit_target = commands
-        .spawn((
-            Text2d::new("submit with SHIFT + ENTER"),
-            Anchor::TOP_CENTER,
-            TextBounds {
-                width: Some(500.),
-                height: None,
-            },
-            TextLayout {
-                linebreak: LineBreak::AnyCharacter,
-                justify: Justify::Left,
-            },
-            Transform::from_translation(Vec3::new(0., -25., 0.)),
-        ))
-        .id();
+    commands.spawn((
+        Text2d::new("submit with SHIFT + ENTER"),
+        Anchor::TOP_CENTER,
+        TextBounds {
+            width: Some(500.),
+            height: None,
+        },
+        TextLayout {
+            linebreak: LineBreak::AnyCharacter,
+            justify: Justify::Left,
+        },
+        Transform::from_translation(Vec3::new(0., -25., 0.)),
+    ));
 
-    commands
-        .spawn((
-            TextInputBuffer {
-                ..Default::default()
-            },
-            CursorBlink {
-                cursor_blink_timer: 0.,
-            },
-            Overwrite::default(),
-            TextInputSize(Vec2::new(500., 250.)),
-            Transform::from_translation(Vec3::new(0., 150., 0.)), // This is in UI coordinates
-            Placeholder::new("type here.."),
-            Visibility::default(),
-            VisibilityClass([TypeId::of::<Sprite>()].into()), // Text input is rendered as sprites
-            Anchor::CENTER,
-        ))
-        .observe(
-            move |event: On<TextInputEvent>, mut query: Query<&mut Text2d>| {
-                if let TextInputEvent::Submission { text } = event.event()
-                    && let Ok(mut target) = query.get_mut(submit_target)
-                {
-                    target.0 = text.clone();
-                }
-            },
-        );
+    commands.spawn((
+        TextInputBuffer {
+            ..Default::default()
+        },
+        CursorBlink {
+            cursor_blink_timer: 0.,
+        },
+        Overwrite::default(),
+        TextInputSize(Vec2::new(500., 250.)),
+        Transform::from_translation(Vec3::new(0., 150., 0.)), // This is in UI coordinates
+        Placeholder::new("type here.."),
+        Visibility::default(),
+        VisibilityClass([TypeId::of::<Sprite>()].into()), // Text input is rendered as sprites
+        Anchor::CENTER,
+    ));
 }
 
 // Here we set the text rendering target's size to match based on the window's scale factor
@@ -122,11 +112,15 @@ fn update_targets(
     }
 }
 
+#[derive(BufferedEvent, Clone, Debug, Component)]
+struct TextSubmission;
+
 // This example demonstrates how to convert keyboard input to text edits that get resolved
 fn update_inputs(
     mut keyboard_events: EventReader<KeyboardInput>,
     mut query: Query<(&mut TextEdits, &mut Overwrite)>,
     keyboard_state: Res<ButtonInput<Key>>,
+    mut submit_events: EventWriter<TextSubmission>,
 ) {
     for key_input in keyboard_events.read() {
         if !key_input.state.is_pressed() {
@@ -215,7 +209,7 @@ fn update_inputs(
                     }
                     Key::Enter => {
                         if is_shift_pressed {
-                            actions.queue(TextEdit::Submit);
+                            submit_events.write(TextSubmission);
                         } else {
                             actions.queue(TextEdit::NewLine);
                         }
@@ -271,6 +265,19 @@ fn update_inputs(
                 }
             }
         }
+    }
+}
+
+fn handle_submissions(
+    mut submit_events: EventReader<TextSubmission>,
+    text_query: Single<&mut Text2d>,
+    buffer_query: Single<&TextInputBuffer>,
+) {
+    let mut text = text_query.into_inner();
+    let buffer = *buffer_query;
+
+    for _ in submit_events.read() {
+        text.0 = buffer.get_text().clone();
     }
 }
 
