@@ -660,7 +660,7 @@ impl<'w, R: Relationship> RelatedSpawnerCommands<'w, R> {
 mod tests {
     use super::*;
     use crate::{
-        prelude::{Add, ChildOf, Children, Component, On, Remove},
+        prelude::{ChildOf, Children, Component, Insert, On, Replace},
         spawn::SpawnRelated,
     };
 
@@ -931,12 +931,27 @@ mod tests {
     }
 
     #[test]
-    fn replace_related_only_runs_necessary_hooks() {
+    fn replace_related_runs_no_lifecycle_events_of_target() {
         let mut world = World::new();
         let parent = world.spawn(Children::spawn_one(())).id();
         let replacement = world.spawn_empty().id();
-        world.add_observer(|_: On<Remove, Children>| panic!("Children removed"));
-        world.add_observer(|_: On<Add, Children>| panic!("Children added"));
+        world.add_observer(|_: On<Insert, Children>| panic!("Children inserted"));
+        world.add_observer(|_: On<Replace, Children>| panic!("Children replaced"));
         world.entity_mut(parent).replace_children(&[replacement]);
+    }
+
+    #[test]
+    fn replace_related_with_difference_runs_no_lifecycle_events_of_target() {
+        let mut world = World::new();
+        let replaced = world.spawn_empty().id();
+        let replacement = world.spawn_empty().id();
+        let parent = world.spawn_empty().add_child(replaced).id();
+        world.add_observer(|_: On<Insert, Children>| panic!("Children inserted"));
+        world.add_observer(|_: On<Replace, Children>| panic!("Children replaced"));
+        world.entity_mut(parent).replace_children_with_difference(
+            &[replaced],
+            &[replacement],
+            &[replacement],
+        );
     }
 }
