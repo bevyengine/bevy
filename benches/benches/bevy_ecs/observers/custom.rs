@@ -15,38 +15,33 @@ fn deterministic_rand() -> ChaCha8Rng {
 }
 
 #[derive(Clone, Event)]
-struct SimpleEvent;
+struct A;
 
-#[derive(Clone, EntityEvent)]
-struct SimpleEntityEvent {
-    entity: Entity,
-}
-
-pub fn observe_simple(criterion: &mut Criterion) {
+pub fn observer_custom(criterion: &mut Criterion) {
     let mut group = criterion.benchmark_group("observe");
     group.warm_up_time(core::time::Duration::from_millis(500));
     group.measurement_time(core::time::Duration::from_secs(4));
 
-    group.bench_function("trigger_simple", |bencher| {
+    group.bench_function("observer_custom", |bencher| {
         let mut world = World::new();
-        world.add_observer(on_simple_event);
+        world.add_observer(on_a);
         bencher.iter(|| {
             for _ in 0..10000 {
-                world.trigger(SimpleEvent);
+                world.trigger(A);
             }
         });
     });
 
-    group.bench_function("trigger_targets_simple/10000_entity", |bencher| {
+    group.bench_function("observer_custom/10000_entity", |bencher| {
         let mut world = World::new();
         let mut entities = vec![];
         for _ in 0..10000 {
-            entities.push(world.spawn_empty().observe(on_simple_entity_event).id());
+            entities.push(world.spawn_empty().observe(on_b).id());
         }
         entities.shuffle(&mut deterministic_rand());
         bencher.iter(|| {
             for entity in entities.iter().copied() {
-                world.trigger(SimpleEntityEvent { entity });
+                world.trigger(B { entity });
             }
         });
     });
@@ -54,10 +49,15 @@ pub fn observe_simple(criterion: &mut Criterion) {
     group.finish();
 }
 
-fn on_simple_event(event: On<SimpleEvent>) {
+fn on_a(event: On<A>) {
     black_box(event);
 }
 
-fn on_simple_entity_event(event: On<SimpleEntityEvent>) {
+#[derive(Clone, EntityEvent)]
+struct B {
+    entity: Entity,
+}
+
+fn on_b(event: On<B>) {
     black_box(event);
 }
