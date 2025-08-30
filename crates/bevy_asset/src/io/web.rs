@@ -3,7 +3,6 @@ use crate::io::{AssetSource, PathStream};
 use crate::{AssetApp, AssetPlugin};
 use alloc::{borrow::ToOwned, boxed::Box};
 use bevy_app::{App, Plugin};
-use bevy_tasks::ConditionalSendFuture;
 use blocking::unblock;
 use std::path::{Path, PathBuf};
 use tracing::warn;
@@ -124,9 +123,8 @@ async fn get<'a>(path: PathBuf) -> Result<Box<dyn Reader>, AssetReaderError> {
 #[cfg(not(target_arch = "wasm32"))]
 async fn get(path: PathBuf) -> Result<Box<dyn Reader>, AssetReaderError> {
     use crate::io::VecReader;
-    use alloc::{boxed::Box, vec::Vec};
     use bevy_platform::sync::LazyLock;
-    use std::io::{self, BufReader, Read};
+    use std::io;
 
     let str_path = path.to_str().ok_or_else(|| {
         AssetReaderError::Io(
@@ -134,47 +132,88 @@ async fn get(path: PathBuf) -> Result<Box<dyn Reader>, AssetReaderError> {
         )
     })?;
 
-    #[cfg(all(not(target_arch = "wasm32"), feature = "web_asset_cache"))]
-    if let Some(data) = web_asset_cache::try_load_from_cache(str_path).await? {
-        return Ok(Box::new(VecReader::new(data)));
-    }
-    use ureq::Agent;
+    // When the "web_asset_cache" feature is enabled, use http-cache's ureq integration.
+    #[cfg(feature = "web_asset_cache")]
+    {
+        use http_cache_ureq::{CACacheManager, CachedAgent};
 
-    static AGENT: LazyLock<Agent> = LazyLock::new(|| Agent::config_builder().build().new_agent());
+        static CACHED_AGENT: LazyLock<CachedAgent<CACacheManager>> = LazyLock::new(|| {
+            let cache_path = PathBuf::from(".web-asset-cache");
+            let manager = CACacheManager::new(cache_path, true);
+            CachedAgent::builder()
+                .cache_manager(manager)
+                .build()
+                .expect("failed to build http-cache ureq CachedAgent")
+        });
 
-    let uri = str_path.to_owned();
-    // Use [`unblock`] to run the http request on a separately spawned thread as to not block bevy's
-    // async executor.
-    let response = unblock(|| AGENT.get(uri).call()).await;
+        let uri = str_path.to_owned();
+        // Use [`unblock`] to run the http request on a separately spawned thread as to not block bevy's
+        // async executor.
+        let result = unblock(move || CACHED_AGENT.get(&uri).call()).await.await;
 
-    match response {
-        Ok(mut response) => {
-            let mut reader = BufReader::new(response.body_mut().with_config().reader());
+        match result {
+            Ok(response) => {
+                let status = response.status();
+                if status == 404 {
+                    return Err(AssetReaderError::NotFound(path));
+                }
+                if status >= 400 {
+                    return Err(AssetReaderError::HttpError(status));
+                }
 
-            let mut buffer = Vec::new();
-            reader.read_to_end(&mut buffer)?;
-
-            #[cfg(all(not(target_arch = "wasm32"), feature = "web_asset_cache"))]
-            web_asset_cache::save_to_cache(str_path, &buffer).await?;
-
-            Ok(Box::new(VecReader::new(buffer)))
-        }
-        // ureq considers all >=400 status codes as errors
-        Err(ureq::Error::StatusCode(code)) => {
-            if code == 404 {
-                Err(AssetReaderError::NotFound(path))
-            } else {
-                Err(AssetReaderError::HttpError(code))
+                Ok(Box::new(VecReader::new(response.into_bytes())))
             }
+            Err(err) => Err(AssetReaderError::Io(
+                io::Error::other(std::format!(
+                    "unexpected error while loading asset {}: {}",
+                    path.display(),
+                    err
+                ))
+                .into(),
+            )),
         }
-        Err(err) => Err(AssetReaderError::Io(
-            io::Error::other(std::format!(
-                "unexpected error while loading asset {}: {}",
-                path.display(),
-                err
-            ))
-            .into(),
-        )),
+    }
+
+    // Without "web_asset_cache", fall back to plain ureq.
+    #[cfg(not(feature = "web_asset_cache"))]
+    {
+        use alloc::{boxed::Box, vec::Vec};
+        use std::io::{self, BufReader, Read};
+        use ureq::Agent;
+
+        static AGENT: LazyLock<Agent> =
+            LazyLock::new(|| Agent::config_builder().build().new_agent());
+
+        let uri = str_path.to_owned();
+        // Use [`unblock`] to run the http request on a separately spawned thread as to not block bevy's
+        // async executor.
+        let response = unblock(|| AGENT.get(uri).call()).await;
+
+        match response {
+            Ok(mut response) => {
+                let mut reader = BufReader::new(response.body_mut().with_config().reader());
+                let mut buffer = Vec::new();
+                reader.read_to_end(&mut buffer)?;
+
+                Ok(Box::new(VecReader::new(buffer)))
+            }
+            // ureq considers all >=400 status codes as errors
+            Err(ureq::Error::StatusCode(code)) => {
+                if code == 404 {
+                    Err(AssetReaderError::NotFound(path))
+                } else {
+                    Err(AssetReaderError::HttpError(code))
+                }
+            }
+            Err(err) => Err(AssetReaderError::Io(
+                io::Error::other(std::format!(
+                    "unexpected error while loading asset {}: {}",
+                    path.display(),
+                    err
+                ))
+                .into(),
+            )),
+        }
     }
 }
 
@@ -182,7 +221,8 @@ impl AssetReader for WebAssetReader {
     fn read<'a>(
         &'a self,
         path: &'a Path,
-    ) -> impl ConditionalSendFuture<Output = Result<Box<dyn Reader>, AssetReaderError>> {
+    ) -> impl bevy_tasks::ConditionalSendFuture<Output = Result<Box<dyn Reader>, AssetReaderError>>
+    {
         get(self.make_uri(path))
     }
 
@@ -200,56 +240,6 @@ impl AssetReader for WebAssetReader {
         path: &'a Path,
     ) -> Result<Box<PathStream>, AssetReaderError> {
         Err(AssetReaderError::NotFound(self.make_uri(path)))
-    }
-}
-
-/// A naive implementation of a cache for assets downloaded from the web that never invalidates.
-/// `ureq` currently does not support caching, so this is a simple workaround.
-/// It should eventually be replaced by `http-cache` or similar, see [tracking issue](https://github.com/06chaynes/http-cache/issues/91)
-#[cfg(all(not(target_arch = "wasm32"), feature = "web_asset_cache"))]
-mod web_asset_cache {
-    use alloc::string::String;
-    use alloc::vec::Vec;
-    use core::hash::{Hash, Hasher};
-    use futures_lite::AsyncWriteExt;
-    use std::collections::hash_map::DefaultHasher;
-    use std::io;
-    use std::path::PathBuf;
-
-    use crate::io::Reader;
-
-    const CACHE_DIR: &str = ".web-asset-cache";
-
-    fn url_to_hash(url: &str) -> String {
-        let mut hasher = DefaultHasher::new();
-        url.hash(&mut hasher);
-        std::format!("{:x}", hasher.finish())
-    }
-
-    pub async fn try_load_from_cache(url: &str) -> Result<Option<Vec<u8>>, io::Error> {
-        let filename = url_to_hash(url);
-        let cache_path = PathBuf::from(CACHE_DIR).join(&filename);
-
-        if cache_path.exists() {
-            let mut file = async_fs::File::open(&cache_path).await?;
-            let mut buffer = Vec::new();
-            file.read_to_end(&mut buffer).await?;
-            Ok(Some(buffer))
-        } else {
-            Ok(None)
-        }
-    }
-
-    pub async fn save_to_cache(url: &str, data: &[u8]) -> Result<(), io::Error> {
-        let filename = url_to_hash(url);
-        let cache_path = PathBuf::from(CACHE_DIR).join(&filename);
-
-        async_fs::create_dir_all(CACHE_DIR).await.ok();
-
-        let mut cache_file = async_fs::File::create(&cache_path).await?;
-        cache_file.write_all(data).await?;
-
-        Ok(())
     }
 }
 
