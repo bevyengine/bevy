@@ -1,8 +1,9 @@
 use core::hint::black_box;
 
 use bevy_ecs::{
-    event::EntityEvent,
-    observer::{On, TriggerTargets},
+    entity::Entity,
+    event::{EntityEvent, Event},
+    observer::On,
     world::World,
 };
 
@@ -13,8 +14,13 @@ fn deterministic_rand() -> ChaCha8Rng {
     ChaCha8Rng::seed_from_u64(42)
 }
 
+#[derive(Clone, Event)]
+struct SimpleEvent;
+
 #[derive(Clone, EntityEvent)]
-struct EventBase;
+struct SimpleEntityEvent {
+    entity: Entity,
+}
 
 pub fn observe_simple(criterion: &mut Criterion) {
     let mut group = criterion.benchmark_group("observe");
@@ -23,10 +29,10 @@ pub fn observe_simple(criterion: &mut Criterion) {
 
     group.bench_function("trigger_simple", |bencher| {
         let mut world = World::new();
-        world.add_observer(empty_listener_base);
+        world.add_observer(on_simple_event);
         bencher.iter(|| {
             for _ in 0..10000 {
-                world.trigger(EventBase);
+                world.trigger(SimpleEvent);
             }
         });
     });
@@ -35,21 +41,23 @@ pub fn observe_simple(criterion: &mut Criterion) {
         let mut world = World::new();
         let mut entities = vec![];
         for _ in 0..10000 {
-            entities.push(world.spawn_empty().observe(empty_listener_base).id());
+            entities.push(world.spawn_empty().observe(on_simple_entity_event).id());
         }
         entities.shuffle(&mut deterministic_rand());
         bencher.iter(|| {
-            send_base_event(&mut world, &entities);
+            for entity in entities.iter().copied() {
+                world.trigger(SimpleEntityEvent { entity });
+            }
         });
     });
 
     group.finish();
 }
 
-fn empty_listener_base(event: On<EventBase>) {
+fn on_simple_event(event: On<SimpleEvent>) {
     black_box(event);
 }
 
-fn send_base_event(world: &mut World, entities: impl TriggerTargets) {
-    world.trigger_targets(EventBase, entities);
+fn on_simple_entity_event(event: On<SimpleEntityEvent>) {
+    black_box(event);
 }

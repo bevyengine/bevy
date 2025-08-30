@@ -79,28 +79,26 @@ pub enum ResourceFetchError {
 mod tests {
     use crate::{
         prelude::*,
-        system::{entity_command::trigger, RunSystemOnce},
+        system::{command::trigger, RunSystemOnce},
     };
 
     // Inspired by https://github.com/bevyengine/bevy/issues/19623
     #[test]
     fn fixing_panicking_entity_commands() {
         #[derive(EntityEvent)]
-        struct Kill;
+        struct Kill(Entity);
 
         #[derive(EntityEvent)]
-        struct FollowupEvent;
+        struct FollowupEvent(Entity);
 
-        fn despawn(event: On<Kill>, mut commands: Commands) {
-            commands.entity(event.entity()).despawn();
+        fn despawn(kill: On<Kill>, mut commands: Commands) {
+            commands.entity(kill.event_target()).despawn();
         }
 
-        fn followup(on: On<Kill>, mut commands: Commands) {
+        fn followup(kill: On<Kill>, mut commands: Commands) {
             // When using a simple .trigger() here, this panics because the entity has already been despawned.
             // Instead, we need to use `.queue_handled` or `.queue_silenced` to avoid the panic.
-            commands
-                .entity(on.entity())
-                .queue_silenced(trigger(FollowupEvent));
+            commands.queue_silenced(trigger(FollowupEvent(kill.event_target())));
         }
 
         let mut world = World::new();
@@ -115,7 +113,7 @@ mod tests {
         // Trigger a kill event on the entity
         fn kill_everything(mut commands: Commands, query: Query<Entity>) {
             for id in query.iter() {
-                commands.entity(id).trigger(Kill);
+                commands.trigger(Kill(id));
             }
         }
         world.run_system_once(kill_everything).unwrap();

@@ -43,7 +43,7 @@
 //!
 //! Despite the absence of generics, each lifecycle event is associated with a specific component.
 //! When defining a component hook for a [`Component`] type, that component is used.
-//! When listening to lifecycle events for observers, the `B: Bundle` generic is used.
+//! When observers watch lifecycle events, the `B: Bundle` generic is used.
 //!
 //! Each of these lifecycle events also corresponds to a fixed [`ComponentId`],
 //! which are assigned during [`World`] initialization.
@@ -54,8 +54,8 @@ use crate::{
     component::{Component, ComponentId, ComponentIdFor, Tick},
     entity::Entity,
     event::{
-        BufferedEvent, EntityEvent, EventCursor, EventId, EventIterator, EventIteratorWithId,
-        EventKey, Events,
+        BufferedEvent, EntityComponentsTrigger, EntityEvent, EventCursor, EventId, EventIterator,
+        EventIteratorWithId, EventKey, Events,
     },
     query::FilteredAccessSet,
     relationship::RelationshipHookMode,
@@ -328,48 +328,68 @@ pub const DESPAWN: EventKey = EventKey(ComponentId::new(4));
 /// Trigger emitted when a component is inserted onto an entity that does not already have that
 /// component. Runs before `Insert`.
 /// See [`crate::lifecycle::ComponentHooks::on_add`] for more information.
-#[derive(EntityEvent, Debug, Clone)]
+#[derive(Debug, Clone, EntityEvent)]
+#[entity_event(trigger = EntityComponentsTrigger<'a>)]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
 #[cfg_attr(feature = "bevy_reflect", reflect(Debug))]
 #[doc(alias = "OnAdd")]
-pub struct Add;
+pub struct Add {
+    /// The entity this component was added to.
+    pub entity: Entity,
+}
 
 /// Trigger emitted when a component is inserted, regardless of whether or not the entity already
 /// had that component. Runs after `Add`, if it ran.
 /// See [`crate::lifecycle::ComponentHooks::on_insert`] for more information.
-#[derive(EntityEvent, Debug, Clone)]
+#[derive(Debug, Clone, EntityEvent)]
+#[entity_event(trigger = EntityComponentsTrigger<'a>)]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
 #[cfg_attr(feature = "bevy_reflect", reflect(Debug))]
 #[doc(alias = "OnInsert")]
-pub struct Insert;
+pub struct Insert {
+    /// The entity this component was inserted into.
+    pub entity: Entity,
+}
 
 /// Trigger emitted when a component is removed from an entity, regardless
 /// of whether or not it is later replaced.
 ///
 /// Runs before the value is replaced, so you can still access the original component data.
 /// See [`crate::lifecycle::ComponentHooks::on_replace`] for more information.
-#[derive(EntityEvent, Debug, Clone)]
+#[derive(Debug, Clone, EntityEvent)]
+#[entity_event(trigger = EntityComponentsTrigger<'a>)]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
 #[cfg_attr(feature = "bevy_reflect", reflect(Debug))]
 #[doc(alias = "OnReplace")]
-pub struct Replace;
+pub struct Replace {
+    /// The entity that held this component before it was replaced.
+    pub entity: Entity,
+}
 
 /// Trigger emitted when a component is removed from an entity, and runs before the component is
 /// removed, so you can still access the component data.
 /// See [`crate::lifecycle::ComponentHooks::on_remove`] for more information.
-#[derive(EntityEvent, Debug, Clone)]
+#[derive(Debug, Clone, EntityEvent)]
+#[entity_event(trigger = EntityComponentsTrigger<'a>)]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
 #[cfg_attr(feature = "bevy_reflect", reflect(Debug))]
 #[doc(alias = "OnRemove")]
-pub struct Remove;
+pub struct Remove {
+    /// The entity this component was removed from.
+    pub entity: Entity,
+}
 
-/// Trigger emitted for each component on an entity when it is despawned.
+/// [`EntityEvent`] emitted for each component on an entity when it is despawned.
 /// See [`crate::lifecycle::ComponentHooks::on_despawn`] for more information.
-#[derive(EntityEvent, Debug, Clone)]
+#[derive(Debug, Clone, EntityEvent)]
+#[entity_event(trigger = EntityComponentsTrigger<'a>)]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
 #[cfg_attr(feature = "bevy_reflect", reflect(Debug))]
 #[doc(alias = "OnDespawn")]
-pub struct Despawn;
+pub struct Despawn {
+    /// The entity that held this component before it was despawned.
+    pub entity: Entity,
+}
 
 /// Deprecated in favor of [`Add`].
 #[deprecated(since = "0.17.0", note = "Renamed to `Add`.")]
