@@ -29,7 +29,7 @@ fn setup(
     let array_texture = asset_server.load_with_settings(
         "textures/array_texture.png",
         |settings: &mut ImageLoaderSettings| {
-            settings.view_dimension = ImageTextureViewDimension::D2Array(4);
+            settings.view_dimension = Some(ImageTextureViewDimension::D2Array(4));
         },
     );
 

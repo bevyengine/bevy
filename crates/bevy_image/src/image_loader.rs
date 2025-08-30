@@ -117,7 +117,8 @@ pub struct ImageLoaderSettings {
     /// [`RenderAssetUsages`] for details.
     pub asset_usage: RenderAssetUsages,
     /// Dimension of this image's texture view.
-    pub view_dimension: ImageTextureViewDimension,
+    /// None, lets the loader decide what the dimensions are from the image (if supported).
+    pub view_dimension: Option<ImageTextureViewDimension>,
 }
 
 impl Default for ImageLoaderSettings {
@@ -127,7 +128,7 @@ impl Default for ImageLoaderSettings {
             is_srgb: true,
             sampler: ImageSampler::Default,
             asset_usage: RenderAssetUsages::default(),
-            view_dimension: ImageTextureViewDimension::default(),
+            view_dimension: None,
         }
     }
 }
@@ -192,28 +193,30 @@ impl AssetLoader for ImageLoader {
             path: format!("{}", load_context.path().display()),
         })?;
 
-        // TODO: Let use handle this instead based on what their asset actually supports?
-        let image_view_dimension = image
-            .texture_view_descriptor
-            .clone()
-            .and_then(|texture_view_descriptor| texture_view_descriptor.dimension);
-        let new_image_view_dimension = Some(settings.view_dimension.clone().into());
-        if image_view_dimension != new_image_view_dimension {
-            match settings.view_dimension {
-                ImageTextureViewDimension::D2Array(layers)
-                | ImageTextureViewDimension::CubeArray(layers) => {
-                    image.reinterpret_stacked_2d_as_array(layers)?;
+        if let Some(view_dimension) = &settings.view_dimension {
+            // TODO: Let use handle this instead based on what their asset actually supports?
+            let image_view_dimension = image
+                .texture_view_descriptor
+                .clone()
+                .and_then(|texture_view_descriptor| texture_view_descriptor.dimension);
+            let new_image_view_dimension = Some(view_dimension.clone().into());
+            if image_view_dimension != new_image_view_dimension {
+                match view_dimension {
+                    ImageTextureViewDimension::D2Array(layers)
+                    | ImageTextureViewDimension::CubeArray(layers) => {
+                        image.reinterpret_stacked_2d_as_array(*layers)?;
+                    }
+                    ImageTextureViewDimension::Cube => {
+                        image.reinterpret_stacked_2d_as_array(image.height() / image.width())?;
+                    }
+                    _ => {}
                 }
-                ImageTextureViewDimension::Cube => {
-                    image.reinterpret_stacked_2d_as_array(image.height() / image.width())?;
-                }
-                _ => {}
-            }
 
-            image.texture_view_descriptor = Some(TextureViewDescriptor {
-                dimension: Some(settings.view_dimension.clone().into()),
-                ..default()
-            });
+                image.texture_view_descriptor = Some(TextureViewDescriptor {
+                    dimension: new_image_view_dimension,
+                    ..default()
+                });
+            }
         }
 
         Ok(image)

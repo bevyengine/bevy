@@ -51,7 +51,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 
     let skybox_handle =
         asset_server.load_with_settings(CUBEMAPS[0].0, |settings: &mut ImageLoaderSettings| {
-            settings.view_dimension = ImageTextureViewDimension::Cube;
+            settings.view_dimension = Some(ImageTextureViewDimension::Cube);
         });
 
     // camera
@@ -125,7 +125,7 @@ fn cycle_cubemap_asset(
         skybox.image = asset_server.load_with_settings(
             CUBEMAPS[*index].0,
             |settings: &mut ImageLoaderSettings| {
-                settings.view_dimension = ImageTextureViewDimension::Cube;
+                settings.view_dimension = Some(ImageTextureViewDimension::Cube);
             },
         );
     }

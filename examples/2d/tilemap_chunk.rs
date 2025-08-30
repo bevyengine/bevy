@@ -4,7 +4,7 @@ use bevy::{
     prelude::*,
     sprite_render::{TileData, TilemapChunk, TilemapChunkTileData},
 };
-use bevy_image::ImageLoaderSettings;
+use bevy_image::{ImageLoaderSettings, ImageTextureViewDimension};
 use rand::{Rng, SeedableRng};
 use rand_chacha::ChaCha8Rng;
 
@@ -47,7 +47,7 @@ fn setup(mut commands: Commands, assets: Res<AssetServer>) {
             tileset: assets.load_with_settings(
                 "textures/array_texture.png",
                 |settings: &mut ImageLoaderSettings| {
-                    settings.view_dimension = bevy_image::ImageTextureViewDimension::D2Array(4);
+                    settings.view_dimension = Some(ImageTextureViewDimension::D2Array(4));
                 },
             ),
             ..default()
