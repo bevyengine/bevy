@@ -655,7 +655,10 @@ impl<'w, R: Relationship> RelatedSpawnerCommands<'w, R> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::prelude::{ChildOf, Children, Component};
+    use crate::{
+        prelude::{Add, ChildOf, Children, Component, On, Remove},
+        spawn::SpawnRelated,
+    };
 
     #[derive(Component, Clone, Copy)]
     struct TestComponent;
@@ -921,5 +924,15 @@ mod tests {
         world.entity_mut(parent).despawn_related::<Children>();
 
         assert!(world.get::<ObserverResult>(result_entity).unwrap().success);
+    }
+
+    #[test]
+    fn replace_related_only_runs_necessary_hooks() {
+        let mut world = World::new();
+        let parent = world.spawn(Children::spawn_one(())).id();
+        let replacement = world.spawn_empty().id();
+        world.add_observer(|_: On<Remove, Children>| panic!("Children removed"));
+        world.add_observer(|_: On<Add, Children>| panic!("Children added"));
+        world.entity_mut(parent).replace_children(&[replacement]);
     }
 }
