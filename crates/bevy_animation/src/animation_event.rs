@@ -13,7 +13,7 @@ use bevy_ecs::{
 /// This trait can be derived.
 pub trait AnimationEvent: Clone + for<'a> Event<Trigger<'a> = AnimationEventTrigger> {}
 
-/// The [`Trigger`] implemention for [`AnimationEvent`]. This passes in the [`AnimationPlayer`](crate::AnimationPlayer)
+/// The [`Trigger`] implementation for [`AnimationEvent`]. This passes in the [`AnimationPlayer`](crate::AnimationPlayer)
 /// context, and uses that to run any observers that target that entity.
 pub struct AnimationEventTrigger {
     /// The [`AnimationPlayer`](crate::AnimationPlayer) where this [`AnimationEvent`] occurred.

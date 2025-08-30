@@ -3,10 +3,11 @@
 use std::{f32::consts::PI, time::Duration};
 
 use bevy::{
-    animation::AnimationTargetId, color::palettes::css::WHITE, light::CascadeShadowConfigBuilder,
+    animation::{AnimationEvent, AnimationTargetId},
+    color::palettes::css::WHITE,
+    light::CascadeShadowConfigBuilder,
     prelude::*,
 };
-use bevy_animation::AnimationEvent;
 use rand::{Rng, SeedableRng};
 use rand_chacha::ChaCha8Rng;
 
