@@ -720,12 +720,11 @@ impl ImageSamplerDescriptor {
 /// Dimensions of a particular texture view.
 ///
 /// This type mirrors [`TextureViewDimension`].
-#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub enum ImageTextureViewDimension {
     /// A one dimensional texture. `texture_1d` in WGSL and `texture1D` in GLSL.
     D1,
     /// A two dimensional texture. `texture_2d` in WGSL and `texture2D` in GLSL.
-    #[default]
     D2,
     /// A two dimensional array texture. `texture_2d_array` in WGSL and `texture2DArray` in GLSL.
     D2Array(u32),
