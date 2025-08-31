@@ -5,7 +5,7 @@
     utils::sample_cube_dir
 }
 
-@group(0) @binding(13) var output: texture_storage_2d_array<rgba16float, write>;
+@group(0) @binding(16) var output: texture_storage_2d_array<rgba16float, write>;
 
 @compute @workgroup_size(8, 8, 1)
 fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
