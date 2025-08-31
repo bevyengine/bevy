@@ -41,6 +41,7 @@ ci_limits = []
 webgl = ["wgpu/webgl"]
 webgpu = ["wgpu/webgpu"]
 vulkan-portability = ["wgpu/vulkan-portability"]
+gles = ["wgpu/gles"]
 detailed_trace = []
 ## Adds serialization support through `serde`.
 serialize = ["bevy_mesh/serialize"]
@@ -87,7 +88,6 @@ wgpu = { version = "26", default-features = false, features = [
   "dx12",
   "metal",
   "vulkan",
-  "gles",
   "naga-ir",
   "fragile-send-sync-non-atomic-wasm",
 ] }
