@@ -411,13 +411,16 @@ impl<A: Asset> Assets<A> {
         if !self.contains(id) {
             return None;
         }
-        let index = match id {
-            AssetId::Index { index, .. } => index.into(),
-            AssetId::Uuid { uuid } => uuid.into(),
-        };
-        Some(Handle::Strong(
-            self.handle_provider.get_handle(index, false, None, None),
-        ))
+
+        match id {
+            AssetId::Index { index, .. } => Some(Handle::Strong(self.handle_provider.get_handle(
+                index.into(),
+                false,
+                None,
+                None,
+            ))),
+            AssetId::Uuid { uuid } => Some(Handle::Uuid(uuid, PhantomData)),
+        }
     }
 
     /// Retrieves a reference to the [`Asset`] with the given `id`, if it exists.
