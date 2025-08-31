@@ -9,10 +9,12 @@ pull_requests: [20766]
 Bevy's atmosphere now supports a raymarched rendering path that unlocks accurate views from above the atmosphere. This is ideal for cinematic shots, planets seen from space, and scenes that need sharp shadows through the volume of the atmosphere.
 
 ### What changed
+
 - Added `AtmosphereRenderingMethod::Raymarching`, alongside the existing default method.
 - Added support for views from above the atmosphere.
 
 ### When to choose which
+
 - Default
   - Fastest, approximate lighting, inaccurate for long distance views
   - Ground level and broad outdoor scenes
@@ -26,6 +28,7 @@ Bevy's atmosphere now supports a raymarched rendering path that unlocks accurate
   - Sharp, per‑pixel shadows through the atmosphere
 
 ### How to use it
+
 Switch the rendering method on the camera’s `AtmosphereSettings`:
 
 ```rust
