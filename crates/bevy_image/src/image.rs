@@ -1751,7 +1751,7 @@ pub enum TranscodeFormat {
     Rgb8,
 }
 
-/// An error that occurs when reinterpreting the image.
+/// An error that occurs when reinterpreting an image.
 #[derive(Error, Debug)]
 pub enum TextureReinterpretationError {
     #[error("incompatible sizes: old = {old:?} new = {new:?}")]
