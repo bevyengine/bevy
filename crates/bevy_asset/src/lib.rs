@@ -1613,6 +1613,48 @@ mod tests {
     }
 
     #[test]
+    fn uuid_asset_strong_handle() {
+        let dir = Dir::default();
+        let dep_path = "dep.cool.ron";
+
+        dir.insert_asset_text(Path::new(dep_path), SIMPLE_TEXT);
+
+        let (mut app, gate_opener) = test_app(dir);
+        app.init_asset::<CoolText>()
+            .init_asset::<SubText>()
+            .init_resource::<StoredEvents>()
+            .register_asset_loader(CoolTextLoader)
+            .add_systems(Update, store_asset_events);
+
+        gate_opener.open(dep_path);
+
+        const HANDLE: Handle<CoolText> =
+            crate::uuid_handle!("ce63ee34-86b4-11f0-b522-525400724c91");
+        {
+            let mut texts = app.world_mut().resource_mut::<Assets<CoolText>>();
+            texts.insert(&HANDLE, CoolText::default()).unwrap();
+        }
+        app.update();
+
+        let id = {
+            let mut texts = app.world_mut().resource_mut::<Assets<CoolText>>();
+            let handle = texts.get_strong_handle(HANDLE.id()).unwrap();
+            {
+                let text = app.world().resource::<Assets<CoolText>>().get(&handle);
+                assert!(text.is_some());
+            }
+            handle.id()
+        };
+
+        // handle is dropped
+        app.update();
+        assert!(
+            app.world().resource::<Assets<CoolText>>().get(id).is_some(),
+            "asset has a uuid handle, so it should not have been dropped last update"
+        );
+    }
+
+    #[test]
     fn manual_asset_management() {
         let dir = Dir::default();
         let dep_path = "dep.cool.ron";
