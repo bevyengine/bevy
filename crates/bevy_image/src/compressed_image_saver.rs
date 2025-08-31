@@ -69,6 +69,7 @@ impl AssetSaver for CompressedImageSaver {
             is_srgb,
             sampler: image.sampler.clone(),
             asset_usage: image.asset_usage,
+            texture_format: None,
         })
     }
 }
