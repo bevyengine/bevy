@@ -706,27 +706,13 @@ pub(crate) struct AtmosphereData {
     pub settings: AtmosphereSettings,
 }
 
-impl FromWorld for AtmosphereBuffer {
-    fn from_world(world: &mut World) -> Self {
-        let data = world
-            .query_filtered::<(&Atmosphere, &AtmosphereSettings), With<Camera3d>>()
-            .iter(world)
-            .next()
-            .map_or_else(
-                || AtmosphereData {
-                    atmosphere: Atmosphere::default(),
-                    settings: AtmosphereSettings::default(),
-                },
-                |(atmosphere, settings)| AtmosphereData {
-                    atmosphere: atmosphere.clone(),
-                    settings: settings.clone(),
-                },
-            );
-
-        Self {
-            buffer: StorageBuffer::from(data),
-        }
-    }
+pub fn init_atmosphere_buffer(mut commands: Commands) {
+    commands.insert_resource(AtmosphereBuffer {
+        buffer: StorageBuffer::from(AtmosphereData {
+            atmosphere: Atmosphere::default(),
+            settings: AtmosphereSettings::default(),
+        }),
+    });
 }
 
 #[derive(Resource)]
@@ -734,7 +720,7 @@ pub struct AtmosphereBuffer {
     pub(crate) buffer: StorageBuffer<AtmosphereData>,
 }
 
-pub(crate) fn prepare_atmosphere_buffer(
+pub(crate) fn write_atmosphere_buffer(
     device: Res<RenderDevice>,
     queue: Res<RenderQueue>,
     atmosphere_entity: Query<(&Atmosphere, &AtmosphereSettings), With<Camera3d>>,

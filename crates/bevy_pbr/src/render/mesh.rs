@@ -1,6 +1,6 @@
 use crate::{
     material_bind_groups::{MaterialBindGroupIndex, MaterialBindGroupSlot},
-    resources::prepare_atmosphere_buffer,
+    resources::write_atmosphere_buffer,
 };
 use bevy_asset::{embedded_asset, load_embedded_asset, AssetId};
 use bevy_camera::{
@@ -198,7 +198,7 @@ impl Plugin for MeshRenderPlugin {
                         prepare_mesh_view_bind_groups
                             .in_set(RenderSystems::PrepareBindGroups)
                             .after(prepare_oit_buffers)
-                            .after(prepare_atmosphere_buffer),
+                            .after(write_atmosphere_buffer),
                         no_gpu_preprocessing::clear_batched_cpu_instance_buffers::<MeshPipeline>
                             .in_set(RenderSystems::Cleanup)
                             .after(RenderSystems::Render),
