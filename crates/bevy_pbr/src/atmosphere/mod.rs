@@ -76,6 +76,8 @@ use resources::{
 };
 use tracing::warn;
 
+use crate::resources::{prepare_atmosphere_buffer, AtmosphereBuffer};
+
 use self::{
     node::{AtmosphereLutsNode, AtmosphereNode, RenderSkyNode},
     resources::{
@@ -142,6 +144,7 @@ impl Plugin for AtmospherePlugin {
             .init_resource::<AtmosphereSamplers>()
             .init_resource::<AtmosphereLutPipelines>()
             .init_resource::<AtmosphereTransforms>()
+            .init_resource::<AtmosphereBuffer>()
             .init_resource::<SpecializedRenderPipelines<RenderSkyBindGroupLayouts>>()
             .add_systems(
                 RenderStartup,
@@ -159,6 +162,9 @@ impl Plugin for AtmospherePlugin {
                     prepare_atmosphere_probe_bind_groups.in_set(RenderSystems::PrepareBindGroups),
                     prepare_atmosphere_transforms.in_set(RenderSystems::PrepareResources),
                     prepare_atmosphere_bind_groups.in_set(RenderSystems::PrepareBindGroups),
+                    prepare_atmosphere_buffer
+                        .in_set(RenderSystems::PrepareResources)
+                        .before(RenderSystems::PrepareBindGroups),
                 ),
             )
             .add_render_graph_node::<ViewNodeRunner<AtmosphereLutsNode>>(

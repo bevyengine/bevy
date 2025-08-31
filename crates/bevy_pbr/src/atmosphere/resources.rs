@@ -698,3 +698,55 @@ pub(super) fn prepare_atmosphere_bind_groups(
         });
     }
 }
+
+#[derive(ShaderType)]
+#[repr(C)]
+pub(crate) struct AtmosphereData {
+    pub atmosphere: Atmosphere,
+    pub settings: AtmosphereSettings,
+}
+
+impl FromWorld for AtmosphereBuffer {
+    fn from_world(world: &mut World) -> Self {
+        let data = world
+            .query_filtered::<(&Atmosphere, &AtmosphereSettings), With<Camera3d>>()
+            .iter(world)
+            .next()
+            .map_or_else(
+                || AtmosphereData {
+                    atmosphere: Atmosphere::default(),
+                    settings: AtmosphereSettings::default(),
+                },
+                |(atmosphere, settings)| AtmosphereData {
+                    atmosphere: atmosphere.clone(),
+                    settings: settings.clone(),
+                },
+            );
+
+        Self {
+            buffer: StorageBuffer::from(data),
+        }
+    }
+}
+
+#[derive(Resource)]
+pub struct AtmosphereBuffer {
+    pub(crate) buffer: StorageBuffer<AtmosphereData>,
+}
+
+pub(crate) fn prepare_atmosphere_buffer(
+    device: Res<RenderDevice>,
+    queue: Res<RenderQueue>,
+    atmosphere_entity: Query<(&Atmosphere, &AtmosphereSettings), With<Camera3d>>,
+    mut atmosphere_buffer: ResMut<AtmosphereBuffer>,
+) {
+    let Ok((atmosphere, settings)) = atmosphere_entity.single() else {
+        return;
+    };
+
+    atmosphere_buffer.buffer.set(AtmosphereData {
+        atmosphere: atmosphere.clone(),
+        settings: settings.clone(),
+    });
+    atmosphere_buffer.buffer.write_buffer(&device, &queue);
+}
