@@ -429,6 +429,7 @@ pub fn prepare_ssr_pipelines(
             With<ScreenSpaceReflectionsUniform>,
             With<DepthPrepass>,
             With<DeferredPrepass>,
+            With<Atmosphere>,
         ),
     >,
 ) {
@@ -466,6 +467,13 @@ pub fn prepare_ssr_pipelines(
                 has_environment_maps,
                 has_atmosphere,
             },
+        );
+
+        #[cfg(debug_assertions)]
+        info!(
+            target: "bevy_pbr::ssr",
+            "ssr mesh_view_layout label = {}",
+            mesh_pipeline_view_key.label()
         );
 
         // Note which pipeline ID was used.

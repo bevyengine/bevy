@@ -181,6 +181,12 @@ fn setup_terrain_scene(
     }
     .build();
 
+    // Fog volume
+    commands.spawn((
+        FogVolume::default(),
+        Transform::from_scale(Vec3::splat(35.0)),
+    ));
+
     // Sun
     commands.spawn((
         DirectionalLight {
