@@ -3,9 +3,13 @@
 use std::f32::consts::PI;
 
 use bevy::{
+    anti_aliasing::fxaa::Fxaa,
     camera::Exposure,
     core_pipeline::tonemapping::Tonemapping,
-    light::{light_consts::lux, AtmosphereEnvironmentMapLight, CascadeShadowConfigBuilder},
+    light::{
+        light_consts::lux, AtmosphereEnvironmentMapLight, CascadeShadowConfigBuilder, FogVolume,
+        VolumetricFog, VolumetricLight,
+    },
     pbr::{Atmosphere, AtmosphereSettings},
     post_process::bloom::Bloom,
     prelude::*,
@@ -14,38 +18,48 @@ use bevy::{
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
+        .insert_resource(DefaultOpaqueRendererMethod::deferred())
         .add_systems(Startup, (setup_camera_fog, setup_terrain_scene))
         .add_systems(Update, dynamic_scene)
         .run();
 }
 
 fn setup_camera_fog(mut commands: Commands) {
-    commands.spawn((
-        Camera3d::default(),
-        Transform::from_xyz(-1.2, 0.15, 0.0).looking_at(Vec3::Y * 0.1, Vec3::Y),
-        // This is the component that enables atmospheric scattering for a camera
-        Atmosphere::EARTH,
-        // The scene is in units of 10km, so we need to scale up the
-        // aerial view lut distance and set the scene scale accordingly.
-        // Most usages of this feature will not need to adjust this.
-        AtmosphereSettings {
-            aerial_view_lut_max_distance: 3.2e5,
-            scene_units_to_m: 1e+4,
-            ..Default::default()
-        },
-        // The directional light illuminance used in this scene
-        // (the one recommended for use with this feature) is
-        // quite bright, so raising the exposure compensation helps
-        // bring the scene to a nicer brightness range.
-        Exposure::SUNLIGHT,
-        // Tonemapper chosen just because it looked good with the scene, any
-        // tonemapper would be fine :)
-        Tonemapping::AcesFitted,
-        // Bloom gives the sun a much more natural look.
-        Bloom::NATURAL,
-        // Enables the atmosphere to drive reflections and ambient lighting (IBL) for this view
-        AtmosphereEnvironmentMapLight::default(),
-    ));
+    commands
+        .spawn((
+            Camera3d::default(),
+            Transform::from_xyz(-1.2, 0.15, 0.0).looking_at(Vec3::Y * 0.1, Vec3::Y),
+            // This is the component that enables atmospheric scattering for a camera
+            Atmosphere::EARTH,
+            // The scene is in units of 10km, so we need to scale up the
+            // aerial view lut distance and set the scene scale accordingly.
+            // Most usages of this feature will not need to adjust this.
+            AtmosphereSettings {
+                aerial_view_lut_max_distance: 3.2e5,
+                scene_units_to_m: 1e+4,
+                ..Default::default()
+            },
+            // The directional light illuminance used in this scene
+            // (the one recommended for use with this feature) is
+            // quite bright, so raising the exposure compensation helps
+            // bring the scene to a nicer brightness range.
+            Exposure { ev100: 13.0 },
+            // Tonemapper chosen just because it looked good with the scene, any
+            // tonemapper would be fine :)
+            Tonemapping::AcesFitted,
+            // Bloom gives the sun a much more natural look.
+            Bloom::NATURAL,
+            // Enables the atmosphere to drive reflections and ambient lighting (IBL) for this view
+            AtmosphereEnvironmentMapLight::default(),
+            // Volumetric fog
+            VolumetricFog {
+                ambient_intensity: 0.0,
+                ..default()
+            },
+        ))
+        .insert(Msaa::Off)
+        .insert(Fxaa::default())
+        .insert(ScreenSpaceReflections::default());
 }
 
 #[derive(Component)]
@@ -65,6 +79,12 @@ fn setup_terrain_scene(
     }
     .build();
 
+    // Fog volume
+    commands.spawn((
+        FogVolume::default(),
+        Transform::from_scale(Vec3::splat(35.0)),
+    ));
+
     // Sun
     commands.spawn((
         DirectionalLight {
@@ -77,6 +97,7 @@ fn setup_terrain_scene(
             illuminance: lux::RAW_SUNLIGHT,
             ..default()
         },
+        VolumetricLight,
         Transform::from_xyz(1.0, -0.4, 0.0).looking_at(Vec3::ZERO, Vec3::Y),
         cascade_shadow_config,
     ));

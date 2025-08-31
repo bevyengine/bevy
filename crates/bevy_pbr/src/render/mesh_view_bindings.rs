@@ -56,7 +56,10 @@ use crate::{
 use bevy_render::render_resource::binding_types::texture_cube;
 
 #[cfg(debug_assertions)]
-use {crate::MESH_PIPELINE_VIEW_LAYOUT_SAFE_MAX_TEXTURES, bevy_utils::once, tracing::warn};
+use {
+    crate::MESH_PIPELINE_VIEW_LAYOUT_SAFE_MAX_TEXTURES, bevy_utils::once, tracing::info,
+    tracing::warn,
+};
 
 #[derive(Clone)]
 pub struct MeshPipelineViewLayout {
@@ -658,6 +661,13 @@ pub fn prepare_mesh_view_bind_groups(
             if has_atmosphere {
                 layout_key |= MeshPipelineViewLayoutKey::ATMOSPHERE;
             }
+
+            #[cfg(debug_assertions)]
+            info!(
+                target: "bevy_pbr::render::mesh_view_bindings",
+                "mesh_view_layout label = {}",
+                layout_key.label()
+            );
 
             let layout = mesh_pipeline.get_view_layout(layout_key);
 

@@ -47,9 +47,10 @@ use bevy_utils::{once, prelude::default};
 use tracing::info;
 
 use crate::{
-    binding_arrays_are_usable, graph::NodePbr, MeshPipelineViewLayoutKey, MeshPipelineViewLayouts,
-    MeshViewBindGroup, RenderViewLightProbes, ViewEnvironmentMapUniformOffset,
-    ViewFogUniformOffset, ViewLightProbesUniformOffset, ViewLightsUniformOffset,
+    binding_arrays_are_usable, graph::NodePbr, Atmosphere, MeshPipelineViewLayoutKey,
+    MeshPipelineViewLayouts, MeshViewBindGroup, RenderViewLightProbes,
+    ViewEnvironmentMapUniformOffset, ViewFogUniformOffset, ViewLightProbesUniformOffset,
+    ViewLightsUniformOffset,
 };
 
 /// Enables screen-space reflections for a camera.
@@ -177,6 +178,7 @@ pub struct ScreenSpaceReflectionsPipelineKey {
     mesh_pipeline_view_key: MeshPipelineViewLayoutKey,
     is_hdr: bool,
     has_environment_maps: bool,
+    has_atmosphere: bool,
 }
 
 impl Plugin for ScreenSpaceReflectionsPlugin {
@@ -420,11 +422,13 @@ pub fn prepare_ssr_pipelines(
             Has<RenderViewLightProbes<EnvironmentMapLight>>,
             Has<NormalPrepass>,
             Has<MotionVectorPrepass>,
+            Has<Atmosphere>,
         ),
         (
             With<ScreenSpaceReflectionsUniform>,
             With<DepthPrepass>,
             With<DeferredPrepass>,
+            With<Atmosphere>,
         ),
     >,
 ) {
@@ -434,6 +438,7 @@ pub fn prepare_ssr_pipelines(
         has_environment_maps,
         has_normal_prepass,
         has_motion_vector_prepass,
+        has_atmosphere,
     ) in &views
     {
         // SSR is only supported in the deferred pipeline, which has no MSAA
@@ -449,6 +454,7 @@ pub fn prepare_ssr_pipelines(
             MeshPipelineViewLayoutKey::MOTION_VECTOR_PREPASS,
             has_motion_vector_prepass,
         );
+        mesh_pipeline_view_key.set(MeshPipelineViewLayoutKey::ATMOSPHERE, has_atmosphere);
 
         // Build the pipeline.
         let pipeline_id = pipelines.specialize(
@@ -458,7 +464,15 @@ pub fn prepare_ssr_pipelines(
                 mesh_pipeline_view_key,
                 is_hdr: extracted_view.hdr,
                 has_environment_maps,
+                has_atmosphere,
             },
+        );
+
+        #[cfg(debug_assertions)]
+        info!(
+            target: "bevy_pbr::ssr",
+            "ssr mesh_view_layout label = {}",
+            mesh_pipeline_view_key.label()
         );
 
         // Note which pipeline ID was used.
@@ -539,6 +553,10 @@ impl SpecializedRenderPipeline for ScreenSpaceReflectionsPipeline {
 
         if self.binding_arrays_are_usable {
             shader_defs.push("MULTIPLE_LIGHT_PROBES_IN_ARRAY".into());
+        }
+
+        if key.has_atmosphere {
+            shader_defs.push("ATMOSPHERE".into());
         }
 
         RenderPipelineDescriptor {
