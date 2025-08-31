@@ -28,8 +28,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 
     commands
         .spawn(Node {
-            width: Val::Percent(100.),
-            height: Val::Percent(100.0),
+            width: percent(100),
+            height: percent(100),
             align_items: AlignItems::Center,
             justify_content: JustifyContent::Center,
             flex_direction: FlexDirection::Column,
@@ -39,12 +39,12 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             parent
                 .spawn((
                     Node {
-                        width: Val::Px(250.),
-                        height: Val::Px(250.),
-                        margin: UiRect::bottom(Val::Px(15.)),
+                        width: px(250),
+                        height: px(250),
+                        margin: UiRect::bottom(px(15)),
                         ..default()
                     },
-                    BackgroundColor(Color::srgb(235., 35., 12.)),
+                    BackgroundColor(Color::srgb(0.92, 0.14, 0.05)),
                 ))
                 .insert(RelativeCursorPosition::default());
 

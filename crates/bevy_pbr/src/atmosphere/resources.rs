@@ -11,7 +11,7 @@ use bevy_ecs::{
     world::{FromWorld, World},
 };
 use bevy_image::ToExtents;
-use bevy_math::{Mat4, Vec3};
+use bevy_math::{Affine3A, Mat4, Vec3A};
 use bevy_render::{
     extract_component::ComponentUniforms,
     render_resource::{binding_types::*, *},
@@ -530,23 +530,20 @@ pub(super) fn prepare_atmosphere_transforms(
     };
 
     for (entity, view) in &views {
-        let world_from_view = view.world_from_view.to_matrix();
-        let camera_z = world_from_view.z_axis.truncate();
-        let camera_y = world_from_view.y_axis.truncate();
+        let world_from_view = view.world_from_view.affine();
+        let camera_z = world_from_view.matrix3.z_axis;
+        let camera_y = world_from_view.matrix3.y_axis;
         let atmo_z = camera_z
             .with_y(0.0)
             .try_normalize()
             .unwrap_or_else(|| camera_y.with_y(0.0).normalize());
-        let atmo_y = Vec3::Y;
+        let atmo_y = Vec3A::Y;
         let atmo_x = atmo_y.cross(atmo_z).normalize();
-        let world_from_atmosphere = Mat4::from_cols(
-            atmo_x.extend(0.0),
-            atmo_y.extend(0.0),
-            atmo_z.extend(0.0),
-            world_from_view.w_axis,
-        );
+        let world_from_atmosphere =
+            Affine3A::from_cols(atmo_x, atmo_y, atmo_z, world_from_view.translation);
 
-        let atmosphere_from_world = world_from_atmosphere.inverse();
+        let atmosphere_from_world = Mat4::from(world_from_atmosphere.inverse());
+        let world_from_atmosphere = Mat4::from(world_from_atmosphere);
 
         commands.entity(entity).insert(AtmosphereTransformsOffset {
             index: writer.write(&AtmosphereTransform {

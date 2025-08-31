@@ -4,9 +4,6 @@ use bevy::color::palettes::css::RED;
 use bevy::prelude::*;
 
 #[derive(Component)]
-struct DragNode;
-
-#[derive(Component)]
 struct ScrollableNode;
 
 #[derive(Component)]
@@ -32,8 +29,8 @@ fn setup(mut commands: Commands) {
     commands
         .spawn((
             Node {
-                width: Val::Percent(100.),
-                height: Val::Percent(100.),
+                width: percent(100),
+                height: percent(100),
                 overflow: Overflow::scroll(),
                 ..Default::default()
             },

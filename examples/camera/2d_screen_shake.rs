@@ -213,8 +213,8 @@ fn setup_instructions(mut commands: Commands) {
         Text::new("Press space repeatedly to trigger a progressively stronger screen shake"),
         Node {
             position_type: PositionType::Absolute,
-            bottom: Val::Px(12.0),
-            left: Val::Px(12.0),
+            bottom: px(12),
+            left: px(12),
             ..default()
         },
     ));

@@ -36,12 +36,12 @@ fn setup_view_root(mut commands: Commands) {
             display: Display::Flex,
             flex_direction: FlexDirection::Column,
             position_type: PositionType::Absolute,
-            left: Val::Px(0.),
-            top: Val::Px(0.),
-            right: Val::Px(0.),
-            bottom: Val::Px(0.),
-            padding: UiRect::all(Val::Px(3.)),
-            row_gap: Val::Px(6.),
+            left: px(0),
+            top: px(0),
+            right: px(0),
+            bottom: px(0),
+            padding: UiRect::all(px(3)),
+            row_gap: px(6),
             ..Default::default()
         },
         BackgroundColor(Color::srgb(0.1, 0.1, 0.1)),
@@ -64,12 +64,12 @@ fn scroll_area_demo() -> impl Bundle {
         // Frame element which contains the scroll area and scrollbars.
         Node {
             display: Display::Grid,
-            width: Val::Px(200.0),
-            height: Val::Px(150.0),
+            width: px(200),
+            height: px(150),
             grid_template_columns: vec![RepeatedGridTrack::flex(1, 1.), RepeatedGridTrack::auto(1)],
             grid_template_rows: vec![RepeatedGridTrack::flex(1, 1.), RepeatedGridTrack::auto(1)],
-            row_gap: Val::Px(2.0),
-            column_gap: Val::Px(2.0),
+            row_gap: px(2),
+            column_gap: px(2),
             ..default()
         },
         Children::spawn((SpawnWith(|parent: &mut RelatedSpawner<ChildOf>| {
@@ -81,7 +81,7 @@ fn scroll_area_demo() -> impl Bundle {
                     Node {
                         display: Display::Flex,
                         flex_direction: FlexDirection::Column,
-                        padding: UiRect::all(Val::Px(4.0)),
+                        padding: UiRect::all(px(4)),
                         overflow: Overflow::scroll(),
                         ..default()
                     },
@@ -108,7 +108,7 @@ fn scroll_area_demo() -> impl Bundle {
             // Vertical scrollbar
             parent.spawn((
                 Node {
-                    min_width: Val::Px(8.0),
+                    min_width: px(8),
                     grid_row: GridPlacement::start(1),
                     grid_column: GridPlacement::start(2),
                     ..default()
@@ -125,7 +125,7 @@ fn scroll_area_demo() -> impl Bundle {
                     },
                     Hovered::default(),
                     BackgroundColor(colors::GRAY2.into()),
-                    BorderRadius::all(Val::Px(4.0)),
+                    BorderRadius::all(px(4)),
                     CoreScrollbarThumb,
                 ))),
             ));
@@ -133,7 +133,7 @@ fn scroll_area_demo() -> impl Bundle {
             // Horizontal scrollbar
             parent.spawn((
                 Node {
-                    min_height: Val::Px(8.0),
+                    min_height: px(8),
                     grid_row: GridPlacement::start(2),
                     grid_column: GridPlacement::start(1),
                     ..default()
@@ -150,7 +150,7 @@ fn scroll_area_demo() -> impl Bundle {
                     },
                     Hovered::default(),
                     BackgroundColor(colors::GRAY2.into()),
-                    BorderRadius::all(Val::Px(4.0)),
+                    BorderRadius::all(px(4)),
                     CoreScrollbarThumb,
                 ))),
             ));

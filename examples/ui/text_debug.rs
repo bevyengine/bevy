@@ -37,8 +37,8 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
 
     let root_uinode = commands
         .spawn(Node {
-            width: Val::Percent(100.),
-            height: Val::Percent(100.),
+            width: percent(100),
+            height: percent(100),
             justify_content: JustifyContent::SpaceBetween,
             ..default()
         })
@@ -50,7 +50,7 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
             justify_content: JustifyContent::SpaceBetween,
             align_items: AlignItems::Start,
             flex_grow: 1.,
-            margin: UiRect::axes(Val::Px(15.), Val::Px(5.)),
+            margin: UiRect::axes(px(15), px(5)),
             ..default()
         }).with_children(|builder| {
         builder.spawn((
@@ -74,7 +74,7 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
             TextColor(YELLOW.into()),
             TextLayout::new_with_justify(Justify::Right),
             Node {
-                max_width: Val::Px(300.),
+                max_width: px(300),
                 ..default()
             },
             BackgroundColor(background_color)
@@ -88,7 +88,7 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
                 ..default()
             },
             Node {
-                max_width: Val::Px(300.),
+                max_width: px(300),
                 ..default()
             },
             BackgroundColor(background_color)
@@ -102,7 +102,7 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
             justify_content: JustifyContent::SpaceBetween,
             align_items: AlignItems::End,
             flex_grow: 1.,
-            margin: UiRect::axes(Val::Px(15.), Val::Px(5.)),
+            margin: UiRect::axes(px(15), px(5)),
             ..default()
         })
         .with_children(|builder| {
@@ -116,7 +116,7 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
                 TextColor(Color::srgb(0.8, 0.2, 0.7)),
                 TextLayout::new_with_justify(Justify::Center),
                 Node {
-                    max_width: Val::Px(400.),
+                    max_width: px(400),
                     ..default()
                 },
                 BackgroundColor(background_color),
@@ -132,7 +132,7 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
                 TextColor(YELLOW.into()),
                 TextLayout::new_with_justify(Justify::Left),
                 Node {
-                    max_width: Val::Px(300.),
+                    max_width: px(300),
                     ..default()
                 },
                 BackgroundColor(background_color),
@@ -148,7 +148,7 @@ fn infotext_system(mut commands: Commands, asset_server: Res<AssetServer>) {
                 TextLayout::new_with_justify(Justify::Justified),
                 TextColor(GREEN_YELLOW.into()),
                 Node {
-                    max_width: Val::Px(300.),
+                    max_width: px(300),
                     ..default()
                 },
                 BackgroundColor(background_color),

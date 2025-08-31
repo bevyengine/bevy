@@ -6312,9 +6312,6 @@ mod tests {
         #[derive(Component, Clone, PartialEq, Debug)]
         struct C(u32);
 
-        #[derive(Component, Clone, PartialEq, Debug, Default)]
-        struct D;
-
         let mut world = World::new();
         let entity_a = world.spawn((A, B, C(5))).id();
         let entity_b = world.spawn((A, C(4))).id();
