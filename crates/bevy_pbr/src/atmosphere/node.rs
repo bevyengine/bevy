@@ -8,8 +8,9 @@ use bevy_render::{
     renderer::RenderContext,
     view::{ViewTarget, ViewUniformOffset},
 };
+use tracing::warn;
 
-use crate::ViewLightsUniformOffset;
+use crate::{resources::GpuAtmosphere, ViewLightsUniformOffset};
 
 use super::{
     resources::{
@@ -33,7 +34,7 @@ impl ViewNode for AtmosphereLutsNode {
     type ViewQuery = (
         Read<GpuAtmosphereSettings>,
         Read<AtmosphereBindGroups>,
-        Read<DynamicUniformIndex<Atmosphere>>,
+        Read<DynamicUniformIndex<GpuAtmosphere>>,
         Read<DynamicUniformIndex<GpuAtmosphereSettings>>,
         Read<AtmosphereTransformsOffset>,
         Read<ViewUniformOffset>,
@@ -167,7 +168,7 @@ impl ViewNode for RenderSkyNode {
     type ViewQuery = (
         Read<AtmosphereBindGroups>,
         Read<ViewTarget>,
-        Read<DynamicUniformIndex<Atmosphere>>,
+        Read<DynamicUniformIndex<GpuAtmosphere>>,
         Read<DynamicUniformIndex<GpuAtmosphereSettings>>,
         Read<AtmosphereTransformsOffset>,
         Read<ViewUniformOffset>,
