@@ -181,14 +181,14 @@ fn setup(mut commands: Commands, assets: Res<AssetServer>) {
             Pickable::IGNORE,
         )).with_children(|parent| {
             let mut item_list = [
-                ("textures/inventory_screen/boots.png", ItemSlot::Legs),
-                ("textures/inventory_screen/armor.png", ItemSlot::Body),
-                ("textures/inventory_screen/helmet.png", ItemSlot::Head),
-                ("textures/inventory_screen/berries.png", ItemSlot::Hand),
-                ("textures/inventory_screen/mana-potion.png", ItemSlot::Hand),
-                ("textures/inventory_screen/health-potion.png", ItemSlot::Hand),
-                ("textures/inventory_screen/shield.png", ItemSlot::Hand),
-                ("textures/inventory_screen/sword.png", ItemSlot::Hand),
+                ("textures/rpg/props/boots.png", ItemSlot::Legs),
+                ("textures/rpg/props/armor.png", ItemSlot::Body),
+                ("textures/rpg/props/helmet.png", ItemSlot::Head),
+                ("textures/rpg/props/generic-rpg-loot01.png", ItemSlot::Hand),
+                ("textures/rpg/props/generic-rpg-loot02.png", ItemSlot::Hand),
+                ("textures/rpg/props/generic-rpg-loot03.png", ItemSlot::Hand),
+                ("textures/rpg/props/generic-rpg-loot04.png", ItemSlot::Hand),
+                ("textures/rpg/props/generic-rpg-loot05.png", ItemSlot::Hand),
             ]
             .into_iter();
 
