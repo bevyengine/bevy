@@ -20,7 +20,7 @@ bevy_platform = { path = "../bevy_platform", version = "0.17.0-dev" }
 bevy_ecs = { path = "../bevy_ecs", version = "0.17.0-dev" }
 
 # other
-tracing-subscriber = { version = "0.3.1", features = [
+tracing-subscriber = { version = "0.3.20", features = [
   "registry",
   "env-filter",
 ] }
