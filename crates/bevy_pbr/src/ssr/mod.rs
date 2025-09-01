@@ -468,13 +468,6 @@ pub fn prepare_ssr_pipelines(
             },
         );
 
-        #[cfg(debug_assertions)]
-        info!(
-            target: "bevy_pbr::ssr",
-            "ssr mesh_view_layout label = {}",
-            mesh_pipeline_view_key.label()
-        );
-
         // Note which pipeline ID was used.
         commands
             .entity(entity)
