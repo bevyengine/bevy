@@ -160,9 +160,10 @@ where
             // If either system has `is_exclusive()`, then the combined system also has `is_exclusive`.
             // Since these closures are `!Send + !Sync + !'static`, they can never be called
             // in parallel, so their world accesses will not conflict with each other.
-            |input| unsafe { self.a.run_unsafe(input, world) },
-            // `Self::validate_param_unsafe` already validated the first system,
-            // but we still need to validate the second system once the first one runs.
+            |input| unsafe {
+                self.a.validate_param_unsafe(world)?;
+                self.a.run_unsafe(input, world)
+            },
             // SAFETY: See the comment above.
             |input| unsafe {
                 self.b.validate_param_unsafe(world)?;
@@ -193,14 +194,12 @@ where
     #[inline]
     unsafe fn validate_param_unsafe(
         &mut self,
-        world: UnsafeWorldCell,
+        _world: UnsafeWorldCell,
     ) -> Result<(), SystemParamValidationError> {
-        // We only validate parameters for the first system,
-        // since it may make changes to the world that affect
-        // whether the second system has valid parameters.
-        // The second system will be validated in `Self::run_unsafe`.
-        // SAFETY: Delegate to other `System` implementations.
-        unsafe { self.a.validate_param_unsafe(world) }
+        // Both systems are validated in `Self::run_unsafe`, so that we get the
+        // chance to run the second system even if the first one fails to
+        // validate.
+        Ok(())
     }
 
     fn initialize(&mut self, world: &mut World) -> FilteredAccessSet {
