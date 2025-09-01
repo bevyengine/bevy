@@ -528,7 +528,7 @@ pub fn check_visibility(
         Entity,
         &InheritedVisibility,
         &mut ViewVisibility,
-        &VisibilityClass,
+        Option<&VisibilityClass>,
         Option<&RenderLayers>,
         Option<&Aabb>,
         &GlobalTransform,
@@ -613,8 +613,10 @@ pub fn check_visibility(
 
                 // Add the entity to the queue for all visibility classes the
                 // entity is in.
-                for visibility_class_id in visibility_class.iter() {
-                    queue.entry(*visibility_class_id).or_default().push(entity);
+                if let Some(visibility_class) = visibility_class {
+                    for visibility_class_id in visibility_class.iter() {
+                        queue.entry(*visibility_class_id).or_default().push(entity);
+                    }
                 }
             },
         );
