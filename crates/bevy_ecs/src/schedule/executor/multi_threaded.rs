@@ -1,6 +1,6 @@
 use alloc::{boxed::Box, vec::Vec};
 use bevy_platform::cell::SyncUnsafeCell;
-use bevy_tasks::{ComputeTaskPool, Scope, TaskPool, ThreadSpawner};
+use bevy_tasks::{ComputeTaskPool, LocalTaskSpawner, Scope, TaskPool};
 use concurrent_queue::ConcurrentQueue;
 use core::{any::Any, panic::AssertUnwindSafe};
 use fixedbitset::FixedBitSet;
@@ -269,7 +269,7 @@ impl SystemExecutor for MultiThreadedExecutor {
         }
 
         let thread_executor = world
-            .get_resource::<MainThreadSpawner>()
+            .get_resource::<MainThreadTaskSpawner>()
             .map(|e| e.0.clone());
 
         let environment = &Environment::new(self, schedule, world);
@@ -861,20 +861,20 @@ unsafe fn evaluate_and_fold_conditions(
         .fold(true, |acc, res| acc && res)
 }
 
-/// New-typed [`ThreadSpawner`] [`Resource`] that is used to run systems on the main thread
+/// New-typed [`LocalTaskSpawner`] [`Resource`] that is used to run systems on the main thread
 #[derive(Resource, Clone)]
-pub struct MainThreadSpawner(pub ThreadSpawner<'static>);
+pub struct MainThreadTaskSpawner(pub LocalTaskSpawner<'static>);
 
-impl Default for MainThreadSpawner {
+impl Default for MainThreadTaskSpawner {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl MainThreadSpawner {
+impl MainThreadTaskSpawner {
     /// Creates a new executor that can be used to run systems on the main thread.
     pub fn new() -> Self {
-        MainThreadSpawner(ComputeTaskPool::get().current_thread_spawner())
+        MainThreadTaskSpawner(ComputeTaskPool::get().current_thread_spawner())
     }
 }
 

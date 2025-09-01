@@ -108,14 +108,14 @@ impl Default for ThreadLocalState {
 ///
 /// [`TaskPool::current_thread_spawner`]: crate::TaskPool::current_thread_spawner
 #[derive(Clone, Debug)]
-pub struct ThreadSpawner<'a> {
+pub struct LocalTaskSpawner<'a> {
     thread_id: ThreadId,
     target_queue: &'static ConcurrentQueue<Runnable>,
     state: Arc<State>,
     _marker: PhantomData<&'a ()>,
 }
 
-impl<'a> ThreadSpawner<'a> {
+impl<'a> LocalTaskSpawner<'a> {
     /// Spawns a task onto the specific target thread.
     pub fn spawn<T: Send + 'static>(
         &self,
@@ -320,8 +320,8 @@ impl<'a> Executor<'a> {
         }
     }
 
-    pub fn current_thread_spawner(&self) -> ThreadSpawner<'a> {
-        ThreadSpawner {
+    pub fn current_thread_spawner(&self) -> LocalTaskSpawner<'a> {
+        LocalTaskSpawner {
             thread_id: std::thread::current().id(),
             target_queue: &THREAD_LOCAL_STATE.get_or_default().thread_locked_queue,
             state: self.state_as_arc(),

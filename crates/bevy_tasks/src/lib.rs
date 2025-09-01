@@ -99,11 +99,11 @@ cfg::multi_threaded! {
     if {
         mod task_pool;
 
-        pub use task_pool::{Scope, TaskPool, TaskPoolBuilder, ThreadSpawner};
+        pub use task_pool::{Scope, TaskPool, TaskPoolBuilder, LocalTaskSpawner};
     } else {
         mod single_threaded_task_pool;
 
-        pub use single_threaded_task_pool::{Scope, TaskPool, TaskPoolBuilder, ThreadSpawner};
+        pub use single_threaded_task_pool::{Scope, TaskPool, TaskPoolBuilder, LocalTaskSpawner};
     }
 }
 

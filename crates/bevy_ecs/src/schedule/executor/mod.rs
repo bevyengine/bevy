@@ -11,7 +11,7 @@ use core::any::TypeId;
 pub use self::{simple::SimpleExecutor, single_threaded::SingleThreadedExecutor};
 
 #[cfg(feature = "std")]
-pub use self::multi_threaded::{MainThreadSpawner, MultiThreadedExecutor};
+pub use self::multi_threaded::{MainThreadTaskSpawner, MultiThreadedExecutor};
 
 use fixedbitset::FixedBitSet;
 
