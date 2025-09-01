@@ -96,7 +96,7 @@ jobs:
       - name: Setup partition list
         id: list
         run: |
-          count=50
+          count=20
           t="["
           for i in `seq 1 $((count-1))`
           do
