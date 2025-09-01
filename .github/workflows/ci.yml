@@ -88,12 +88,13 @@ jobs:
         # See tools/ci/src/main.rs for the commands this runs
         run: cargo run -p ci -- lints
 
-  miri-partitions:
+  miri-setup-partitions:
     runs-on: ubuntu-latest
     outputs:
-      partitions: ${{ steps.env.outputs.partitions }}
+      partitions: ${{ steps.list.outputs.partitions }}
     steps:
-      - id: env
+      - name: Setup partition list
+        id: list
         run: |
           count=50
           t="["
@@ -103,11 +104,11 @@ jobs:
           done
           echo "partitions=$t$count]" >> $GITHUB_OUTPUT
 
-  miri:
-    needs: [miri-partitions]
+  miri-run-partitions:
+    needs: [miri-setup-partitions]
     strategy:
       matrix:
-        partition: ${{ fromJSON(needs.miri-partitions.outputs.partitions) }}
+        partition: ${{ fromJSON(needs.miri-setup-partitions.outputs.partitions) }}
     runs-on: macos-latest
     timeout-minutes: 60
     steps:
@@ -144,6 +145,13 @@ jobs:
           # -Zmiri-disable-isolation is needed because our executor uses `fastrand` which accesses system time.
           # -Zmiri-ignore-leaks is necessary because a bunch of tests don't join all threads before finishing.
           MIRIFLAGS: -Zmiri-ignore-leaks -Zmiri-disable-isolation
+
+  miri:
+    runs-on: ubuntu-latest
+    needs: [miri-run-partitions]
+    if: always()
+    steps:
+      - run: ${{ !contains(needs.*.result, 'failure') }}
 
   check-compiles:
     runs-on: ubuntu-latest
