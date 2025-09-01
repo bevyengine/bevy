@@ -550,6 +550,13 @@ impl SpecializedRenderPipeline for VolumetricFogPipeline {
         }
 
         if key
+            .mesh_pipeline_view_key
+            .contains(MeshPipelineViewLayoutKey::ATMOSPHERE)
+        {
+            shader_defs.push("ATMOSPHERE".into());
+        }
+
+        if key
             .flags
             .contains(VolumetricFogPipelineKeyFlags::DENSITY_TEXTURE)
         {

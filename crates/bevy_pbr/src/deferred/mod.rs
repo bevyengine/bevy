@@ -327,6 +327,9 @@ impl SpecializedRenderPipeline for DeferredLightingLayout {
         if key.contains(MeshPipelineKey::DISTANCE_FOG) {
             shader_defs.push("DISTANCE_FOG".into());
         }
+        if key.contains(MeshPipelineKey::ATMOSPHERE) {
+            shader_defs.push("ATMOSPHERE".into());
+        }
 
         // Always true, since we're in the deferred lighting pipeline
         shader_defs.push("DEFERRED_PREPASS".into());
