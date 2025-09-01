@@ -99,8 +99,15 @@ pub enum ImageFormatSetting {
 /// Settings for loading an [`Image`] using an [`ImageLoader`].
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ImageLoaderSettings {
-    /// How to determine the image's format.
+    /// How to determine the image's container format.
     pub format: ImageFormatSetting,
+    /// Forcibly use a specific [`wgpu_types::TextureFormat`].
+    /// Useful to control how data is handled when used
+    /// in a shader.
+    /// Ex: data that would be `R16Uint` that needs to
+    /// be sampled as a float using `R16Snorm`.
+    #[serde(skip)]
+    pub texture_format: Option<wgpu_types::TextureFormat>,
     /// Specifies whether image data is linear
     /// or in sRGB space when this is not determined by
     /// the image format.
@@ -117,6 +124,7 @@ impl Default for ImageLoaderSettings {
     fn default() -> Self {
         Self {
             format: ImageFormatSetting::default(),
+            texture_format: None,
             is_srgb: true,
             sampler: ImageSampler::Default,
             asset_usage: RenderAssetUsages::default(),
@@ -176,6 +184,12 @@ impl AssetLoader for ImageLoader {
             settings.sampler.clone(),
             settings.asset_usage,
         )
+        .map(|mut image| {
+            if let Some(format) = settings.texture_format {
+                image.texture_descriptor.format = format;
+            }
+            image
+        })
         .map_err(|err| FileTextureError {
             error: err,
             path: format!("{}", load_context.path().display()),

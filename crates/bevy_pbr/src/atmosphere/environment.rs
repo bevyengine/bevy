@@ -58,7 +58,7 @@ pub struct AtmosphereProbeLayouts {
 }
 
 #[derive(Resource)]
-pub struct AtmosphereProbePipelines {
+pub struct AtmosphereProbePipeline {
     pub environment: CachedComputePipelineId,
 }
 
@@ -165,7 +165,7 @@ pub(super) fn prepare_probe_textures(
     }
 }
 
-pub fn queue_atmosphere_probe_pipelines(
+pub fn init_atmosphere_probe_pipeline(
     pipeline_cache: Res<PipelineCache>,
     layouts: Res<AtmosphereProbeLayouts>,
     asset_server: Res<AssetServer>,
@@ -177,7 +177,7 @@ pub fn queue_atmosphere_probe_pipelines(
         shader: load_embedded_asset!(asset_server.as_ref(), "environment.wgsl"),
         ..default()
     });
-    commands.insert_resource(AtmosphereProbePipelines { environment });
+    commands.insert_resource(AtmosphereProbePipeline { environment });
 }
 
 // Ensure power-of-two dimensions to avoid edge update issues on cubemap faces
@@ -279,7 +279,7 @@ impl Node for EnvironmentNode {
         world: &World,
     ) -> Result<(), NodeRunError> {
         let pipeline_cache = world.resource::<PipelineCache>();
-        let pipelines = world.resource::<AtmosphereProbePipelines>();
+        let pipelines = world.resource::<AtmosphereProbePipeline>();
         let view_entity = graph.view_entity();
 
         let Some(environment_pipeline) = pipeline_cache.get_compute_pipeline(pipelines.environment)
