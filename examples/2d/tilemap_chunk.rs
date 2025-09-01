@@ -62,7 +62,7 @@ fn update_tileset_image(
 ) {
     let chunk = *chunk_query;
     for event in events.read() {
-        if event.is_loaded_with_dependencies(chunk.tileset.id()) {
+        if event.is_loaded_with_dependencies_and_id(chunk.tileset.id()) {
             let image = images.get_mut(&chunk.tileset).unwrap();
             image.reinterpret_stacked_2d_as_array(4);
         }

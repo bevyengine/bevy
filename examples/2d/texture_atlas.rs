@@ -41,7 +41,7 @@ fn check_textures(
 ) {
     // Advance the `AppState` once all sprite handles have been loaded by the `AssetServer`
     for event in events.read() {
-        if event.is_loaded_with_dependencies(&rpg_sprite_folder.0) {
+        if event.is_loaded_with_dependencies_and_id(&rpg_sprite_folder.0) {
             next_state.set(AppState::Finished);
         }
     }

@@ -61,28 +61,54 @@ pub enum AssetEvent<A: Asset> {
 }
 
 impl<A: Asset> AssetEvent<A> {
-    /// Returns `true` if this event is [`AssetEvent::LoadedWithDependencies`] and matches the given `id`.
-    pub fn is_loaded_with_dependencies(&self, asset_id: impl Into<AssetId<A>>) -> bool {
+    /// Returns `true` if this event is [`AssetEvent::LoadedWithDependencies`].
+    pub fn is_loaded_with_dependencies(&self) -> bool {
+        matches!(self, AssetEvent::LoadedWithDependencies { .. })
+    }
+
+    /// Returns `true` if this event is [`AssetEvent::LoadedWithDependencies`] and matches the
+    /// given `id`.
+    pub fn is_loaded_with_dependencies_and_id(&self, asset_id: impl Into<AssetId<A>>) -> bool {
         matches!(self, AssetEvent::LoadedWithDependencies { id } if *id == asset_id.into())
     }
 
+    /// Returns `true` if this event is [`AssetEvent::Added`].
+    pub fn is_added(&self) -> bool {
+        matches!(self, AssetEvent::Added { .. })
+    }
+
     /// Returns `true` if this event is [`AssetEvent::Added`] and matches the given `id`.
-    pub fn is_added(&self, asset_id: impl Into<AssetId<A>>) -> bool {
+    pub fn is_added_with_id(&self, asset_id: impl Into<AssetId<A>>) -> bool {
         matches!(self, AssetEvent::Added { id } if *id == asset_id.into())
     }
 
+    /// Returns `true` if this event is [`AssetEvent::Modified`].
+    pub fn is_modified(&self) -> bool {
+        matches!(self, AssetEvent::Modified { .. })
+    }
+
     /// Returns `true` if this event is [`AssetEvent::Modified`] and matches the given `id`.
-    pub fn is_modified(&self, asset_id: impl Into<AssetId<A>>) -> bool {
+    pub fn is_modified_and_id(&self, asset_id: impl Into<AssetId<A>>) -> bool {
         matches!(self, AssetEvent::Modified { id } if *id == asset_id.into())
     }
 
+    /// Returns `true` if this event is [`AssetEvent::Removed`].
+    pub fn is_removed(&self) -> bool {
+        matches!(self, AssetEvent::Removed { .. })
+    }
+
     /// Returns `true` if this event is [`AssetEvent::Removed`] and matches the given `id`.
-    pub fn is_removed(&self, asset_id: impl Into<AssetId<A>>) -> bool {
+    pub fn is_removed_and_id(&self, asset_id: impl Into<AssetId<A>>) -> bool {
         matches!(self, AssetEvent::Removed { id } if *id == asset_id.into())
     }
 
+    /// Returns `true` if this event is [`AssetEvent::Unused`].
+    pub fn is_unused(&self) -> bool {
+        matches!(self, AssetEvent::Unused { .. })
+    }
+
     /// Returns `true` if this event is [`AssetEvent::Unused`] and matches the given `id`.
-    pub fn is_unused(&self, asset_id: impl Into<AssetId<A>>) -> bool {
+    pub fn is_unused_and_id(&self, asset_id: impl Into<AssetId<A>>) -> bool {
         matches!(self, AssetEvent::Unused { id } if *id == asset_id.into())
     }
 }
