@@ -7,5 +7,3 @@ The UI renderer now extracts text colors per glyph and transforms per text secti
 `color: LinearRgba` and `translation: Vec2` have been added to `ExtractedGlyph`.
 The `transform` field has moved from `ExtractedGlyph` and `ExtractedUiNode` to `ExtractedUiItem`.
 The `rect` field has moved from `ExtractedUiNode` to `ExtractedUiItem`.
-
-
