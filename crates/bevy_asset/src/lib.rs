@@ -676,7 +676,8 @@ mod tests {
         },
         loader::{AssetLoader, LoadContext},
         Asset, AssetApp, AssetEvent, AssetId, AssetLoadError, AssetLoadFailedEvent, AssetPath,
-        AssetPlugin, AssetServer, Assets, InvalidGenerationError, LoadState, UnapprovedPathMode,
+        AssetPlugin, AssetServer, AssetServerStats, Assets, InvalidGenerationError, LoadState,
+        UnapprovedPathMode,
     };
     use alloc::{
         boxed::Box,
@@ -881,6 +882,10 @@ mod tests {
         world.resource::<Assets<A>>().get(id)
     }
 
+    fn get_stats(world: &World) -> AssetServerStats {
+        world.resource::<AssetServer>().stats()
+    }
+
     #[derive(Resource, Default)]
     struct StoredEvents(Vec<AssetEvent<CoolText>>);
 
@@ -956,6 +961,10 @@ mod tests {
         let asset_server = app.world().resource::<AssetServer>().clone();
         let handle: Handle<CoolText> = asset_server.load(a_path);
         let a_id = handle.id();
+        let stats = get_stats(app.world());
+        assert_eq!(stats.started_load_tasks, 1);
+        assert_eq!(stats.finished_load_tasks, 0);
+
         app.update();
         {
             let a_text = get::<CoolText>(app.world(), a_id);
@@ -995,6 +1004,9 @@ mod tests {
             assert!(c_rec_deps.is_loading());
             Some(())
         });
+        let stats = get_stats(app.world());
+        assert_eq!(stats.started_load_tasks, 3);
+        assert_eq!(stats.finished_load_tasks, 1);
 
         // Allow "b" to load ... wait for it to finish loading and validate results
         // "c" should not be loaded yet
@@ -1025,6 +1037,9 @@ mod tests {
             assert!(c_rec_deps.is_loading());
             Some(())
         });
+        let stats = get_stats(app.world());
+        assert_eq!(stats.started_load_tasks, 3);
+        assert_eq!(stats.finished_load_tasks, 2);
 
         // Allow "c" to load ... wait for it to finish loading and validate results
         // all "a" dependencies should be loaded now
@@ -1094,9 +1109,16 @@ mod tests {
             world.insert_resource(IdResults { b_id, c_id, d_id });
             Some(())
         });
+        let stats = get_stats(app.world());
+        assert_eq!(stats.started_load_tasks, 6);
+        assert_eq!(stats.finished_load_tasks, 5);
 
         gate_opener.open(d_path);
         run_app_until(&mut app, |world| {
+            if get_stats(world).finished_load_tasks < 6 {
+                // Keep going until everything loads.
+                return None;
+            }
             let a_text = get::<CoolText>(world, a_id)?;
             let (_a_load, _a_deps, a_rec_deps) = asset_server.get_load_states(a_id).unwrap();
             let c_id = a_text.dependencies[1].id();
@@ -1125,6 +1147,10 @@ mod tests {
             );
             Some(())
         });
+
+        let stats = get_stats(app.world());
+        assert_eq!(stats.started_load_tasks, 6);
+        assert_eq!(stats.finished_load_tasks, 6);
 
         {
             let mut texts = app.world_mut().resource_mut::<Assets<CoolText>>();
@@ -1251,6 +1277,10 @@ mod tests {
         let asset_server = app.world().resource::<AssetServer>().clone();
         let handle: Handle<CoolText> = asset_server.load(a_path);
         let a_id = handle.id();
+
+        let stats = get_stats(app.world());
+        assert_eq!(stats.started_load_tasks, 1);
+        assert_eq!(stats.finished_load_tasks, 0);
         {
             let other_handle: Handle<CoolText> = asset_server.load(a_path);
             assert_eq!(
@@ -1262,6 +1292,11 @@ mod tests {
                 handle.id(),
                 "handle ids from consecutive load calls should be equal"
             );
+
+            // Only one load still!
+            let stats = get_stats(app.world());
+            assert_eq!(stats.started_load_tasks, 1);
+            assert_eq!(stats.finished_load_tasks, 0);
         }
 
         gate_opener.open(a_path);
@@ -1270,6 +1305,11 @@ mod tests {
         gate_opener.open(d_path);
 
         run_app_until(&mut app, |world| {
+            if get_stats(world).finished_load_tasks < 4 {
+                // Keep going until everything loads.
+                return None;
+            }
+
             let a_text = get::<CoolText>(world, a_id)?;
             let (a_load, a_deps, a_rec_deps) = asset_server.get_load_states(a_id).unwrap();
 
@@ -1322,6 +1362,10 @@ mod tests {
 
             Some(())
         });
+
+        let stats = get_stats(app.world());
+        assert_eq!(stats.started_load_tasks, 4);
+        assert_eq!(stats.finished_load_tasks, 4);
     }
 
     #[test]
@@ -1368,6 +1412,10 @@ mod tests {
         let handle: Handle<CoolText> = asset_server.load(a_path);
         let a_id = handle.id();
 
+        let stats = get_stats(app.world());
+        assert_eq!(stats.started_load_tasks, 1);
+        assert_eq!(stats.finished_load_tasks, 0);
+
         gate_opener.open(a_path);
         run_app_until(&mut app, |world| {
             let _a_text = get::<CoolText>(world, a_id)?;
@@ -1377,6 +1425,10 @@ mod tests {
             assert!(a_rec_deps.is_loading());
             Some(())
         });
+
+        let stats = get_stats(app.world());
+        assert_eq!(stats.started_load_tasks, 3);
+        assert_eq!(stats.finished_load_tasks, 1);
 
         gate_opener.open(b_path);
         run_app_until(&mut app, |world| {
@@ -1396,8 +1448,16 @@ mod tests {
             Some(())
         });
 
+        let stats = get_stats(app.world());
+        assert_eq!(stats.started_load_tasks, 3);
+        assert_eq!(stats.finished_load_tasks, 2);
+
         gate_opener.open(c_path);
         run_app_until(&mut app, |world| {
+            if get_stats(world).finished_load_tasks < 3 {
+                // Keep going until everything loads.
+                return None;
+            }
             let a_text = get::<CoolText>(world, a_id)?;
             let c_id = a_text.dependencies[1].id();
             // wait until c loads
@@ -1415,6 +1475,10 @@ mod tests {
             );
             Some(())
         });
+
+        let stats = get_stats(app.world());
+        assert_eq!(stats.started_load_tasks, 3);
+        assert_eq!(stats.finished_load_tasks, 3);
     }
 
     const SIMPLE_TEXT: &str = r#"
@@ -1513,9 +1577,20 @@ mod tests {
             AssetEvent::Unused { id },
             AssetEvent::Removed { id },
         ];
+
+        // No loads have occurred yet.
+        let stats = get_stats(app.world());
+        assert_eq!(stats.started_load_tasks, 0);
+        assert_eq!(stats.finished_load_tasks, 0);
+
         assert_eq!(events, expected_events);
 
         let dep_handle = app.world().resource::<AssetServer>().load(dep_path);
+
+        let stats = get_stats(app.world());
+        assert_eq!(stats.started_load_tasks, 1);
+        assert_eq!(stats.finished_load_tasks, 0);
+
         let a = CoolText {
             text: "a".to_string(),
             embedded: empty,
@@ -1524,6 +1599,12 @@ mod tests {
             sub_texts: Vec::new(),
         };
         let a_handle = app.world().resource::<AssetServer>().load_asset(a);
+
+        // load_asset does not count as a load.
+        let stats = get_stats(app.world());
+        assert_eq!(stats.started_load_tasks, 1);
+        assert_eq!(stats.finished_load_tasks, 0);
+
         app.update();
         // TODO: ideally it doesn't take two updates for the added event to emit
         app.update();
@@ -1548,6 +1629,11 @@ mod tests {
             assert_eq!(events, expected_events);
             break;
         }
+
+        let stats = get_stats(app.world());
+        assert_eq!(stats.started_load_tasks, 1);
+        assert_eq!(stats.finished_load_tasks, 1);
+
         app.update();
         let events = core::mem::take(&mut app.world_mut().resource_mut::<StoredEvents>().0);
         let expected_events = vec![AssetEvent::Added {
@@ -1598,6 +1684,14 @@ mod tests {
             .register_asset_loader(CoolTextLoader);
         let asset_server = app.world().resource::<AssetServer>().clone();
         let handle: Handle<LoadedFolder> = asset_server.load_folder("text");
+
+        // The folder started loading. The task will also try to start loading the first asset in
+        // the folder. With the multi_threaded feature this check is racing with the first load, so
+        // allow 1 or 2 load tasks to start.
+        let stats = get_stats(app.world());
+        assert!(1 <= stats.started_load_tasks && stats.started_load_tasks <= 2);
+        assert_eq!(stats.finished_load_tasks, 0);
+
         gate_opener.open(a_path);
         gate_opener.open(b_path);
         gate_opener.open(c_path);
@@ -1644,6 +1738,9 @@ mod tests {
             }
             None
         });
+        let stats = get_stats(app.world());
+        assert_eq!(stats.started_load_tasks, 4);
+        assert_eq!(stats.finished_load_tasks, 4);
     }
 
     /// Tests that `AssetLoadFailedEvent<A>` events are emitted and can be used to retry failed assets.
