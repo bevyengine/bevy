@@ -114,13 +114,13 @@ impl<A: Asset> AssetEvent<A> {
 
     /// Returns the [`AssetId`] of the event.
     pub fn id(&self) -> &AssetId<A> {
-        match self {
-            Self::LoadedWithDependencies { id } => id,
-            Self::Added { id } => id,
-            Self::Modified { id } => id,
-            Self::Removed { id } => id,
-            Self::Unused { id } => id,
-        }
+        let (Self::LoadedWithDependencies { id }
+        | Self::Added { id }
+        | Self::Modified { id }
+        | Self::Removed { id }
+        | Self::Unused { id }) = self;
+
+        id
     }
 }
 
