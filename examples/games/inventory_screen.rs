@@ -95,7 +95,7 @@ fn setup(mut commands: Commands, assets: Res<AssetServer>) {
                 flex_direction: FlexDirection::Column,
                 justify_content: JustifyContent::Center,
                 align_items: AlignItems::Center,
-                padding: UiRect::all(Val::Px(2. * GAP)),
+                padding: Val::Px(2. * GAP).into(),
                 row_gap: Val::Px(3. * GAP),
                 ..Default::default()
             },
@@ -110,7 +110,7 @@ fn setup(mut commands: Commands, assets: Res<AssetServer>) {
         .with_children(|parent| {
             parent.spawn(Text::new("Inventory Screen"));
 
-            let left = parent
+            let equipment_panel = parent
                 .spawn((
                     Node {
                         display: Display::Grid,
@@ -168,7 +168,7 @@ fn setup(mut commands: Commands, assets: Res<AssetServer>) {
                     }
             }).id();
 
-         let right = parent
+         let inventory_panel = parent
                 .spawn((
         Node {
                 display: Display::Grid,
@@ -199,7 +199,7 @@ fn setup(mut commands: Commands, assets: Res<AssetServer>) {
                             Node {
                                 width: Val::Px(TILE_SIZE),
                                 height: Val::Px(TILE_SIZE),
-                                border: UiRect::all(Val::Px(1.)),
+                                border: Val::Px(1.).into(),
                                 grid_row: GridPlacement::start(row),
                                 grid_column: GridPlacement::start(column),
                                 align_items: AlignItems::Center,
@@ -283,6 +283,6 @@ fn setup(mut commands: Commands, assets: Res<AssetServer>) {
         parent.spawn(Node {
             column_gap: Val::Px(4. * GAP),
             ..default()
-        }).add_children(&[left, right]);
+        }).add_children(&[equipment_panel, inventory_panel]);
     });
 }
