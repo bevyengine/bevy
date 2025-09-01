@@ -831,52 +831,50 @@ impl Runner<'_> {
                 }
 
                 crate::cfg::multi_threaded! {
-                    if {
-                        // Try the local queue.
-                        if let Ok(r) = self.local_state.stealable_queue.pop() {
-                            return Some(r);
-                        }
+                    // Try the local queue.
+                    if let Ok(r) = self.local_state.stealable_queue.pop() {
+                        return Some(r);
+                    }
 
-                        // Try stealing from the global queue.
-                        if let Ok(r) = self.state.queue.pop() {
-                            steal(&self.state.queue, &self.local_state.stealable_queue);
-                            return Some(r);
-                        }
+                    // Try stealing from the global queue.
+                    if let Ok(r) = self.state.queue.pop() {
+                        steal(&self.state.queue, &self.local_state.stealable_queue);
+                        return Some(r);
+                    }
 
-                        // Try stealing from other runners.
-                        if let Ok(stealer_queues) = self.state.stealer_queues.try_read() {
-                            // Pick a random starting point in the iterator list and rotate the list.
-                            let n = stealer_queues.len();
-                            let start = _rng.usize(..n);
-                            let iter = stealer_queues
-                                .iter()
-                                .chain(stealer_queues.iter())
-                                .skip(start)
-                                .take(n);
+                    // Try stealing from other runners.
+                    if let Ok(stealer_queues) = self.state.stealer_queues.try_read() {
+                        // Pick a random starting point in the iterator list and rotate the list.
+                        let n = stealer_queues.len();
+                        let start = _rng.usize(..n);
+                        let iter = stealer_queues
+                            .iter()
+                            .chain(stealer_queues.iter())
+                            .skip(start)
+                            .take(n);
 
-                            // Remove this runner's local queue.
-                            let iter =
-                                iter.filter(|local| !core::ptr::eq(**local, &self.local_state.stealable_queue));
+                        // Remove this runner's local queue.
+                        let iter =
+                            iter.filter(|local| !core::ptr::eq(**local, &self.local_state.stealable_queue));
 
-                            // Try stealing from each local queue in the list.
-                            for local in iter {
-                                steal(*local, &self.local_state.stealable_queue);
-                                if let Ok(r) = self.local_state.stealable_queue.pop() {
-                                    return Some(r);
-                                }
+                        // Try stealing from each local queue in the list.
+                        for local in iter {
+                            steal(*local, &self.local_state.stealable_queue);
+                            if let Ok(r) = self.local_state.stealable_queue.pop() {
+                                return Some(r);
                             }
                         }
+                    }
 
-                        if let Ok(r) = self.local_state.thread_locked_queue.pop() {
-                            // Do not steal from this queue. If other threads steal
-                            // from this current thread, the task will be moved.
-                            //
-                            // Instead, flush all queued tasks into the local queue to
-                            // minimize the effort required to scan for these tasks.
-                            flush_to_local(&self.local_state.thread_locked_queue, tls);
-                            return Some(r);
-                        }
-                    } else {}
+                    if let Ok(r) = self.local_state.thread_locked_queue.pop() {
+                        // Do not steal from this queue. If other threads steal
+                        // from this current thread, the task will be moved.
+                        //
+                        // Instead, flush all queued tasks into the local queue to
+                        // minimize the effort required to scan for these tasks.
+                        flush_to_local(&self.local_state.thread_locked_queue, tls);
+                        return Some(r);
+                    }
                 }
 
                 None
