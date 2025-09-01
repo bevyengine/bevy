@@ -115,7 +115,9 @@ jobs:
           toolchain: ${{ env.NIGHTLY_TOOLCHAIN }}
           components: miri
       - name: Install cargo-nextest
-        run: curl -LsSf https://get.nexte.st/0.9/linux | tar zxf - -C ${CARGO_HOME:-~/.cargo}/bin
+        run: |
+          curl -LsSf https://get.nexte.st/0.9/linux | tar zxf - -C ${CARGO_HOME:-~/.cargo}/bin
+          chmod 755 ${CARGO_HOME:-~/.cargo}/bin/cargo-nextest
       - name: CI job
         # To run the tests one item at a time for troubleshooting, use
         # cargo --quiet test --lib -- --list | sed 's/: test$//' | MIRIFLAGS="-Zmiri-disable-isolation -Zmiri-disable-weak-memory-emulation" xargs -n1 cargo miri test -p bevy_ecs --lib -- --exact
