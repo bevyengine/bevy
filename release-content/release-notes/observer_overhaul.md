@@ -4,6 +4,8 @@ authors: ["@Jondolf", "@alice-i-cecile", "@hukasu", "oscar-benderstone", "Zeophl
 pull_requests: [19596, 19663, 19611, 19935, 20274]
 ---
 
+TODO: merge with Event split release notes
+
 ## Rename `Trigger` to `On`
 
 In past releases, the observer API looked like this:

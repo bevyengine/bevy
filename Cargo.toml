@@ -515,6 +515,15 @@ file_watcher = ["bevy_internal/file_watcher"]
 # Enables watching in memory asset providers for Bevy Asset hot-reloading
 embedded_watcher = ["bevy_internal/embedded_watcher"]
 
+# Enables downloading assets from HTTP sources. Warning: there are security implications. Read the docs on WebAssetPlugin.
+http = ["bevy_internal/http"]
+
+# Enables downloading assets from HTTPS sources. Warning: there are security implications. Read the docs on WebAssetPlugin.
+https = ["bevy_internal/https"]
+
+# Enable caching downloaded assets on the filesystem. NOTE: this cache currently never invalidates entries!
+web_asset_cache = ["bevy_internal/web_asset_cache"]
+
 # Enable stepping-based debugging of Bevy systems
 bevy_debug_stepping = [
   "bevy_internal/bevy_debug_stepping",
@@ -598,7 +607,7 @@ bevy_image = { path = "crates/bevy_image", version = "0.17.0-dev", default-featu
 bevy_gizmos = { path = "crates/bevy_gizmos", version = "0.17.0-dev", default-features = false }
 # Needed to poll Task examples
 futures-lite = "2.0.1"
-async-std = "1.13"
+futures-timer = { version = "3", features = ["wasm-bindgen", "gloo-timers"] }
 crossbeam-channel = "0.5.0"
 argh = "0.1.12"
 thiserror = "2.0"
@@ -1456,7 +1465,7 @@ wasm = false
 name = "meshlet"
 path = "examples/3d/meshlet.rs"
 doc-scrape-examples = true
-required-features = ["meshlet"]
+required-features = ["meshlet", "https"]
 
 [package.metadata.example.meshlet]
 name = "Meshlet"
@@ -1464,19 +1473,6 @@ description = "Meshlet rendering for dense high-poly scenes (experimental)"
 category = "3D Rendering"
 # Requires compute shaders and WGPU extensions, not supported by WebGL nor WebGPU.
 wasm = false
-setup = [
-  [
-    "mkdir",
-    "-p",
-    "assets/external/models",
-  ],
-  [
-    "curl",
-    "-o",
-    "assets/external/models/bunny.meshlet_mesh",
-    "https://raw.githubusercontent.com/JMS55/bevy_meshlet_asset/7a7c14138021f63904b584d5f7b73b695c7f4bbf/bunny.meshlet_mesh",
-  ],
-]
 
 [[example]]
 name = "mesh_ray_cast"
@@ -1911,11 +1907,23 @@ path = "examples/asset/extra_source.rs"
 doc-scrape-examples = true
 
 [package.metadata.example.extra_asset_source]
-name = "Extra asset source"
+name = "Extra Asset Source"
 description = "Load an asset from a non-standard asset source"
 category = "Assets"
 # Uses non-standard asset path
 wasm = false
+
+[[example]]
+name = "web_asset"
+path = "examples/asset/web_asset.rs"
+doc-scrape-examples = true
+required-features = ["https"]
+
+[package.metadata.example.web_asset]
+name = "Web Asset"
+description = "Load an asset from the web"
+category = "Assets"
+wasm = true
 
 [[example]]
 name = "hot_asset_reloading"

@@ -102,6 +102,8 @@ The default feature set enables most of the expected features of a game engine, 
 |gif|GIF image format support|
 |glam_assert|Enable assertions to check the validity of parameters passed to glam|
 |hotpatching|Enable hotpatching of Bevy systems|
+|http|Enables downloading assets from HTTP sources. Warning: there are security implications. Read the docs on WebAssetPlugin.|
+|https|Enables downloading assets from HTTPS sources. Warning: there are security implications. Read the docs on WebAssetPlugin.|
 |ico|ICO image format support|
 |jpeg|JPEG image format support|
 |libm|Uses the `libm` maths library instead of the one provided in `std` and `core`.|
@@ -141,6 +143,7 @@ The default feature set enables most of the expected features of a game engine, 
 |track_location|Enables source location tracking for change detection and spawning/despawning, which can assist with debugging|
 |wav|WAV audio format support|
 |web|Enables use of browser APIs. Note this is currently only applicable on `wasm32` architectures.|
+|web_asset_cache|Enable caching downloaded assets on the filesystem. NOTE: this cache currently never invalidates entries!|
 |webgpu|Enable support for WebGPU in Wasm. When enabled, this feature will override the `webgl2` feature and you won't be able to run Wasm builds with WebGL2, only with WebGPU.|
 |webp|WebP image format support|
 |zlib|For KTX2 supercompression|

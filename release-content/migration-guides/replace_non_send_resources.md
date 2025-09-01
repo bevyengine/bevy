@@ -1,11 +1,17 @@
 ---
-title: Replace `Gilrs`, `AccessKitAdapters`, and `WinitWindows` resources
+title: Replace `Gilrs`, `AccessKitAdapters`, and `WinitWindows` non-send resources
 pull_requests: [18386, 17730, 19575]
 ---
 
-## NonSend Resources Replaced
+We are [working](https://discord.com/channels/691052431525675048/1332109626962874468) to move `!Send` data out of the ECS, in order to simplify internal implementation,
+reduce the risk of soundness problems and unblock features such as resources-as-entities and improved scheduling.
 
-As an effort to remove `!Send` resources in Bevy, we replaced the following resources:
+For now, the API for user-provided `NonSend` types is unchanged, but we are considering forcing
+all users to migrate to a solution similar to the one discussed below.
+
+## First-party `NonSend` Resources Replaced
+
+Internally, we have replaced the following resources:
 
 * `Gilrs` - _For wasm32 only, other platforms are unchanged -_ Replaced with `bevy_gilrs::GILRS`
 * `WinitWindows` - Replaced with `bevy_winit::WINIT_WINDOWS`
@@ -43,7 +49,9 @@ If a borrow is attempted while the data is borrowed elsewhere, the method will p
 
 ## NonSend Systems
 
-Previously, the use of a `!Send` resource in a system would force the system to execute on the main thread. Since `!Send` resources are removed in Bevy, we needed to create a new way to prevent systems from running on non-main threads. To do this, you can now use `bevy_ecs::system::NonSendMarker` as a system parameter:
+The use of a `NonSend` or `NonSendMut` resource in a system would force the system to execute on the main thread.
+However, when using the new `thread_local` pattern, we still need to prevent systems from running on non-main threads.
+To do this, you can now use `bevy_ecs::system::NonSendMarker` as a system parameter:
 
 ```rust
 use bevy_ecs::system::NonSendMarker;

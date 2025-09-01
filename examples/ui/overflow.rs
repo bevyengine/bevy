@@ -22,8 +22,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands
         .spawn((
             Node {
-                width: Val::Percent(100.),
-                height: Val::Percent(100.),
+                width: percent(100),
+                height: percent(100),
                 align_items: AlignItems::Center,
                 justify_content: JustifyContent::Center,
                 ..Default::default()
@@ -41,7 +41,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     .spawn(Node {
                         flex_direction: FlexDirection::Column,
                         align_items: AlignItems::Center,
-                        margin: UiRect::horizontal(Val::Px(25.)),
+                        margin: UiRect::horizontal(px(25)),
                         ..Default::default()
                     })
                     .with_children(|parent| {
@@ -49,8 +49,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         parent
                             .spawn((
                                 Node {
-                                    padding: UiRect::all(Val::Px(10.)),
-                                    margin: UiRect::bottom(Val::Px(25.)),
+                                    padding: UiRect::all(px(10)),
+                                    margin: UiRect::bottom(px(25)),
                                     ..Default::default()
                                 },
                                 BackgroundColor(Color::srgb(0.25, 0.25, 0.25)),
@@ -61,14 +61,14 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                         parent
                             .spawn((
                                 Node {
-                                    width: Val::Px(100.),
-                                    height: Val::Px(100.),
+                                    width: px(100),
+                                    height: px(100),
                                     padding: UiRect {
-                                        left: Val::Px(25.),
-                                        top: Val::Px(25.),
+                                        left: px(25),
+                                        top: px(25),
                                         ..Default::default()
                                     },
-                                    border: UiRect::all(Val::Px(5.)),
+                                    border: UiRect::all(px(5)),
                                     overflow,
                                     ..default()
                                 },
@@ -79,14 +79,14 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                 parent.spawn((
                                     ImageNode::new(image.clone()),
                                     Node {
-                                        min_width: Val::Px(100.),
-                                        min_height: Val::Px(100.),
+                                        min_width: px(100),
+                                        min_height: px(100),
                                         ..default()
                                     },
                                     Interaction::default(),
                                     Outline {
-                                        width: Val::Px(2.),
-                                        offset: Val::Px(2.),
+                                        width: px(2),
+                                        offset: px(2),
                                         color: Color::NONE,
                                     },
                                 ));
