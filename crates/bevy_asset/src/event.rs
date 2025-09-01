@@ -111,6 +111,17 @@ impl<A: Asset> AssetEvent<A> {
     pub fn is_unused_and_id(&self, asset_id: impl Into<AssetId<A>>) -> bool {
         matches!(self, AssetEvent::Unused { id } if *id == asset_id.into())
     }
+
+    /// Returns the [`AssetId`] of the event.
+    pub fn id(&self) -> &AssetId<A> {
+        match self {
+            Self::LoadedWithDependencies { id } => id,
+            Self::Added { id } => id,
+            Self::Modified { id } => id,
+            Self::Removed { id } => id,
+            Self::Unused { id } => id,
+        }
+    }
 }
 
 impl<A: Asset> Clone for AssetEvent<A> {
