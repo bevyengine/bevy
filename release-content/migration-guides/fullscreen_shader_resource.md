@@ -1,5 +1,5 @@
 ---
-title: `FULLSCREEN_SHADER_HANDLE` replaced with `FullscreenShader`
+title: "`FULLSCREEN_SHADER_HANDLE` replaced with `FullscreenShader`"
 pull_requests: [19426]
 ---
 

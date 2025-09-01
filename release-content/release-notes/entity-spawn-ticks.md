@@ -6,7 +6,7 @@ pull_requests: [19047, 19350]
 
 Keeping track which entities have been spawned since the last time a system ran could only be done indirectly by inserting marker components and do your logic on entities that match an `Added<MyMarker>` filter or in `MyMarker`'s `on_add` hook.
 
-This has the issue however that not every add reacts on a spawn but also on insertions at existing entities. Sometimes you cannot even add your marker because the spawn call is hidden in some non-public API.
+This has the issue however: add events react to component insertions on existing entities too. Sometimes you cannot even add your marker because the spawn call is hidden in some non-public API.
 
 The new `SpawnDetails` query data and `Spawned` query filter enable you to find recently spawned entities without any marker components.
 

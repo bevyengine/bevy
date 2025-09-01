@@ -43,12 +43,13 @@ pub fn ktx2_buffer_to_image(
     let depth = depth.max(1);
 
     // Handle supercompression
-    let mut levels = Vec::new();
+    let mut levels: Vec<Vec<u8>>;
     if let Some(supercompression_scheme) = supercompression_scheme {
-        for (level_index, level) in ktx2.levels().enumerate() {
-            match supercompression_scheme {
-                #[cfg(feature = "flate2")]
-                SupercompressionScheme::ZLIB => {
+        match supercompression_scheme {
+            #[cfg(feature = "flate2")]
+            SupercompressionScheme::ZLIB => {
+                levels = Vec::with_capacity(ktx2.levels().len());
+                for (level_index, level) in ktx2.levels().enumerate() {
                     let mut decoder = flate2::bufread::ZlibDecoder::new(level.data);
                     let mut decompressed = Vec::new();
                     decoder.read_to_end(&mut decompressed).map_err(|err| {
@@ -58,8 +59,11 @@ pub fn ktx2_buffer_to_image(
                     })?;
                     levels.push(decompressed);
                 }
-                #[cfg(all(feature = "zstd_rust", not(feature = "zstd_c")))]
-                SupercompressionScheme::Zstandard => {
+            }
+            #[cfg(all(feature = "zstd_rust", not(feature = "zstd_c")))]
+            SupercompressionScheme::Zstandard => {
+                levels = Vec::with_capacity(ktx2.levels().len());
+                for (level_index, level) in ktx2.levels().enumerate() {
                     let mut cursor = std::io::Cursor::new(level.data);
                     let mut decoder = ruzstd::decoding::StreamingDecoder::new(&mut cursor)
                         .map_err(|err| TextureError::SuperDecompressionError(err.to_string()))?;
@@ -71,19 +75,22 @@ pub fn ktx2_buffer_to_image(
                     })?;
                     levels.push(decompressed);
                 }
-                #[cfg(feature = "zstd_c")]
-                SupercompressionScheme::Zstandard => {
+            }
+            #[cfg(feature = "zstd_c")]
+            SupercompressionScheme::Zstandard => {
+                levels = Vec::with_capacity(ktx2.levels().len());
+                for (level_index, level) in ktx2.levels().enumerate() {
                     levels.push(zstd::decode_all(level.data).map_err(|err| {
                         TextureError::SuperDecompressionError(format!(
                             "Failed to decompress {supercompression_scheme:?} for mip {level_index}: {err:?}",
                         ))
                     })?);
                 }
-                _ => {
-                    return Err(TextureError::SuperDecompressionError(format!(
-                        "Unsupported supercompression scheme: {supercompression_scheme:?}",
-                    )));
-                }
+            }
+            _ => {
+                return Err(TextureError::SuperDecompressionError(format!(
+                    "Unsupported supercompression scheme: {supercompression_scheme:?}",
+                )));
             }
         }
     } else {

@@ -36,12 +36,12 @@
 
 
 // CONSTANTS
-
 const FRAC_PI: f32 = 0.3183098862; // 1 / π
 const FRAC_2_PI: f32 = 0.15915494309;  // 1 / (2π)
 const FRAC_3_16_PI: f32 = 0.0596831036594607509; // 3 / (16π)
 const FRAC_4_PI: f32 = 0.07957747154594767; // 1 / (4π)
 const ROOT_2: f32 = 1.41421356; // √2
+const EPSILON: f32 = 1.0; // 1 meter
 
 // During raymarching, each segment is sampled at a single point. This constant determines
 // where in the segment that sample is taken (0.0 = start, 0.5 = middle, 1.0 = end).
@@ -272,10 +272,8 @@ fn sample_local_inscattering(local_atmosphere: AtmosphereSample, ray_dir: vec3<f
 
         inscattering += (*light).color.rgb * (scattering_factor + multiscattering_factor);
     }
-    return inscattering * view.exposure;
+    return inscattering;
 }
-
-const SUN_ANGULAR_SIZE: f32 = 0.0174533; // angular diameter of sun in radians
 
 fn sample_sun_radiance(ray_dir_ws: vec3<f32>) -> vec3<f32> {
     let r = view_radius();
@@ -285,11 +283,15 @@ fn sample_sun_radiance(ray_dir_ws: vec3<f32>) -> vec3<f32> {
     for (var light_i: u32 = 0u; light_i < lights.n_directional_lights; light_i++) {
         let light = &lights.directional_lights[light_i];
         let neg_LdotV = dot((*light).direction_to_light, ray_dir_ws);
-        let angle_to_sun = fast_acos(neg_LdotV);
-        let pixel_size = fwidth(angle_to_sun);
-        let factor = smoothstep(0.0, -pixel_size * ROOT_2, angle_to_sun - SUN_ANGULAR_SIZE * 0.5);
-        let sun_solid_angle = (SUN_ANGULAR_SIZE * SUN_ANGULAR_SIZE) * 4.0 * FRAC_PI;
-        sun_radiance += ((*light).color.rgb / sun_solid_angle) * factor * shadow_factor;
+        let angle_to_sun = fast_acos(clamp(neg_LdotV, -1.0, 1.0));
+        let w = max(0.5 * fwidth(angle_to_sun), 1e-6);
+        let sun_angular_size = (*light).sun_disk_angular_size;
+        let sun_intensity = (*light).sun_disk_intensity;
+        if sun_angular_size > 0.0 && sun_intensity > 0.0 {
+            let factor = 1 - smoothstep(sun_angular_size * 0.5 - w, sun_angular_size * 0.5 + w, angle_to_sun);
+            let sun_solid_angle = (sun_angular_size * sun_angular_size) * 0.25 * PI;
+            sun_radiance += ((*light).color.rgb / sun_solid_angle) * sun_intensity * factor * shadow_factor;
+        }
     }
     return sun_radiance;
 }
@@ -305,7 +307,7 @@ fn max_atmosphere_distance(r: f32, mu: f32) -> f32 {
 
 /// Assuming y=0 is the planet ground, returns the view radius in meters
 fn view_radius() -> f32 {
-    return view.world_position.y * settings.scene_units_to_m + atmosphere.bottom_radius;
+    return max(view.world_position.y * settings.scene_units_to_m, EPSILON) + atmosphere.bottom_radius;
 }
 
 // We assume the `up` vector at the view position is the y axis, since the world is locally flat/level.

@@ -13,13 +13,13 @@
 use crate::{Anchor, Sprite};
 use bevy_app::prelude::*;
 use bevy_asset::prelude::*;
+use bevy_camera::{visibility::ViewVisibility, Camera, Projection};
 use bevy_color::Alpha;
 use bevy_ecs::prelude::*;
 use bevy_image::prelude::*;
 use bevy_math::{prelude::*, FloatExt};
 use bevy_picking::backend::prelude::*;
 use bevy_reflect::prelude::*;
-use bevy_render::prelude::*;
 use bevy_transform::prelude::*;
 use bevy_window::PrimaryWindow;
 
@@ -76,9 +76,6 @@ pub struct SpritePickingPlugin;
 impl Plugin for SpritePickingPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<SpritePickingSettings>()
-            .register_type::<SpritePickingCamera>()
-            .register_type::<SpritePickingMode>()
-            .register_type::<SpritePickingSettings>()
             .add_systems(PreUpdate, sprite_picking.in_set(PickingSystems::Backend));
     }
 }
@@ -146,11 +143,11 @@ fn sprite_picking(
         };
 
         let viewport_pos = location.position;
-        if let Some(viewport) = camera.logical_viewport_rect() {
-            if !viewport.contains(viewport_pos) {
-                // The pointer is outside the viewport, skip it
-                continue;
-            }
+        if let Some(viewport) = camera.logical_viewport_rect()
+            && !viewport.contains(viewport_pos)
+        {
+            // The pointer is outside the viewport, skip it
+            continue;
         }
 
         let Ok(cursor_ray_world) = camera.viewport_to_world(cam_transform, viewport_pos) else {

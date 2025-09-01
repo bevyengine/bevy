@@ -1,9 +1,9 @@
 //! Light probes for baked global illumination.
 
-use bevy_app::{App, Plugin, Update};
-use bevy_asset::{embedded_asset, AssetId};
-use bevy_core_pipeline::core_3d::{
-    graph::{Core3d, Node3d},
+use bevy_app::{App, Plugin};
+use bevy_asset::AssetId;
+use bevy_camera::{
+    primitives::{Aabb, Frustum},
     Camera3d,
 };
 use bevy_derive::{Deref, DerefMut};
@@ -16,41 +16,29 @@ use bevy_ecs::{
     system::{Commands, Local, Query, Res, ResMut},
 };
 use bevy_image::Image;
-use bevy_light::{EnvironmentMapLight, GeneratedEnvironmentMapLight, LightProbe};
+use bevy_light::{EnvironmentMapLight, IrradianceVolume, LightProbe};
 use bevy_math::{Affine3A, FloatOrd, Mat4, Vec3A, Vec4};
 use bevy_platform::collections::HashMap;
 use bevy_render::{
     extract_instances::ExtractInstancesPlugin,
-    load_shader_library,
-    primitives::{Aabb, Frustum},
     render_asset::RenderAssets,
-    render_graph::RenderGraphExt,
     render_resource::{DynamicUniformBuffer, Sampler, ShaderType, TextureView},
-    renderer::{RenderAdapter, RenderDevice, RenderQueue},
+    renderer::{RenderAdapter, RenderAdapterInfo, RenderDevice, RenderQueue},
     settings::WgpuFeatures,
-    sync_component::SyncComponentPlugin,
     sync_world::RenderEntity,
     texture::{FallbackImage, GpuImage},
     view::ExtractedView,
-    Extract, ExtractSchedule, Render, RenderApp, RenderStartup, RenderSystems,
+    Extract, ExtractSchedule, Render, RenderApp, RenderSystems, WgpuWrapper,
 };
+use bevy_shader::load_shader_library;
 use bevy_transform::{components::Transform, prelude::GlobalTransform};
 use tracing::error;
 
 use core::{hash::Hash, ops::Deref};
 
 use crate::{
-    generate::{
-        extract_generated_environment_map_entities, generate_environment_map_light,
-        initialize_generated_environment_map_resources,
-        prepare_generated_environment_map_bind_groups,
-        prepare_generated_environment_map_intermediate_textures, DownsamplingNode, FilteringNode,
-        GeneratorNode,
-    },
-    light_probe::environment_map::EnvironmentMapIds,
+    generate::EnvironmentMapGenerationPlugin, light_probe::environment_map::EnvironmentMapIds,
 };
-
-use self::irradiance_volume::IrradianceVolume;
 
 pub mod environment_map;
 pub mod generate;
@@ -155,7 +143,7 @@ where
     C: LightProbeComponent,
 {
     // The transform from world space to light probe space.
-    light_from_world: Mat4,
+    light_from_world: Affine3A,
 
     // The transform from light probe space to world space.
     world_from_light: Affine3A,
@@ -303,13 +291,10 @@ impl Plugin for LightProbePlugin {
         load_shader_library!(app, "environment_map.wgsl");
         load_shader_library!(app, "irradiance_volume.wgsl");
 
-        embedded_asset!(app, "environment_filter.wgsl");
-        embedded_asset!(app, "downsample.wgsl");
-        embedded_asset!(app, "copy.wgsl");
-
-        app.add_plugins(ExtractInstancesPlugin::<EnvironmentMapIds>::new())
-            .add_plugins(SyncComponentPlugin::<GeneratedEnvironmentMapLight>::default())
-            .add_systems(Update, generate_environment_map_light);
+        app.add_plugins((
+            EnvironmentMapGenerationPlugin,
+            ExtractInstancesPlugin::<EnvironmentMapIds>::new(),
+        ));
 
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
@@ -318,41 +303,13 @@ impl Plugin for LightProbePlugin {
         render_app
             .init_resource::<LightProbesBuffer>()
             .init_resource::<EnvironmentMapUniformBuffer>()
-            .add_render_graph_node::<DownsamplingNode>(Core3d, GeneratorNode::Downsampling)
-            .add_render_graph_node::<FilteringNode>(Core3d, GeneratorNode::Filtering)
-            .add_render_graph_edges(
-                Core3d,
-                (
-                    Node3d::EndPrepasses,
-                    GeneratorNode::Downsampling,
-                    GeneratorNode::Filtering,
-                    Node3d::StartMainPass,
-                ),
-            )
             .add_systems(ExtractSchedule, gather_environment_map_uniform)
             .add_systems(ExtractSchedule, gather_light_probes::<EnvironmentMapLight>)
             .add_systems(ExtractSchedule, gather_light_probes::<IrradianceVolume>)
             .add_systems(
-                ExtractSchedule,
-                extract_generated_environment_map_entities.after(generate_environment_map_light),
-            )
-            .add_systems(
                 Render,
-                prepare_generated_environment_map_bind_groups
-                    .in_set(RenderSystems::PrepareBindGroups),
-            )
-            .add_systems(
-                Render,
-                (
-                    upload_light_probes,
-                    prepare_environment_uniform_buffer,
-                    prepare_generated_environment_map_intermediate_textures,
-                )
+                (upload_light_probes, prepare_environment_uniform_buffer)
                     .in_set(RenderSystems::PrepareResources),
-            )
-            .add_systems(
-                RenderStartup,
-                initialize_generated_environment_map_resources,
             );
     }
 }
@@ -586,7 +543,7 @@ where
     ) -> Option<LightProbeInfo<C>> {
         environment_map.id(image_assets).map(|id| LightProbeInfo {
             world_from_light: light_probe_transform.affine(),
-            light_from_world: light_probe_transform.to_matrix().inverse(),
+            light_from_world: light_probe_transform.affine().inverse(),
             asset_id: id,
             intensity: environment_map.intensity(),
             affects_lightmapped_mesh_diffuse: environment_map.affects_lightmapped_mesh_diffuse(),
@@ -676,7 +633,7 @@ where
             // Transpose the inverse transform to compress the structure on the
             // GPU (from 4 `Vec4`s to 3 `Vec4`s). The shader will transpose it
             // to recover the original inverse transform.
-            let light_from_world_transposed = light_probe.light_from_world.transpose();
+            let light_from_world_transposed = Mat4::from(light_probe.light_from_world).transpose();
 
             // Write in the light probe data.
             self.render_light_probes.push(RenderLightProbe {
@@ -761,8 +718,10 @@ pub(crate) fn binding_arrays_are_usable(
     render_device: &RenderDevice,
     render_adapter: &RenderAdapter,
 ) -> bool {
+    let adapter_info = RenderAdapterInfo(WgpuWrapper::new(render_adapter.get_info()));
+
     !cfg!(feature = "shader_format_glsl")
-        && bevy_render::get_adreno_model(render_adapter).is_none_or(|model| model > 610)
+        && bevy_render::get_adreno_model(&adapter_info).is_none_or(|model| model > 610)
         && render_device.limits().max_storage_textures_per_shader_stage
             >= (STANDARD_MATERIAL_FRAGMENT_SHADER_MIN_TEXTURE_BINDINGS + MAX_VIEW_LIGHT_PROBES)
                 as u32

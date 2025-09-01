@@ -6,17 +6,15 @@ use std::fmt::{self, Formatter};
 use bevy::{
     color::palettes::css::{LIME, ORANGE_RED, SILVER},
     input::mouse::AccumulatedMouseMotion,
-    pbr::{
-        decal::{self, clustered::ClusteredDecal},
-        ExtendedMaterial, MaterialExtension,
-    },
+    light::ClusteredDecal,
+    pbr::{decal, ExtendedMaterial, MaterialExtension},
     prelude::*,
     render::{
-        render_resource::{AsBindGroup, ShaderRef},
+        render_resource::AsBindGroup,
         renderer::{RenderAdapter, RenderDevice},
     },
-    window::SystemCursorIcon,
-    winit::cursor::CursorIcon,
+    shader::ShaderRef,
+    window::{CursorIcon, SystemCursorIcon},
 };
 use ops::{acos, cos, sin};
 use widgets::{
@@ -265,9 +263,9 @@ fn spawn_buttons(commands: &mut Commands) {
         .spawn(Node {
             flex_direction: FlexDirection::Row,
             position_type: PositionType::Absolute,
-            right: Val::Px(10.0),
-            bottom: Val::Px(10.0),
-            column_gap: Val::Px(6.0),
+            right: px(10),
+            bottom: px(10),
+            column_gap: px(6),
             ..default()
         })
         .with_children(|parent| {
@@ -306,8 +304,8 @@ fn spawn_help_text(commands: &mut Commands, app_status: &AppStatus) {
         Text::new(create_help_string(app_status)),
         Node {
             position_type: PositionType::Absolute,
-            top: Val::Px(12.0),
-            left: Val::Px(12.0),
+            top: px(12),
+            left: px(12),
             ..default()
         },
         HelpText,

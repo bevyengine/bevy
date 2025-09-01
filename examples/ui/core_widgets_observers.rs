@@ -109,13 +109,13 @@ fn demo_root(
 ) -> impl Bundle {
     (
         Node {
-            width: Val::Percent(100.0),
-            height: Val::Percent(100.0),
+            width: percent(100),
+            height: percent(100),
             align_items: AlignItems::Center,
             justify_content: JustifyContent::Center,
             display: Display::Flex,
             flex_direction: FlexDirection::Column,
-            row_gap: Val::Px(10.0),
+            row_gap: px(10),
             ..default()
         },
         TabGroup::default(),
@@ -131,9 +131,9 @@ fn demo_root(
 fn button(asset_server: &AssetServer, on_click: Callback<In<Activate>>) -> impl Bundle {
     (
         Node {
-            width: Val::Px(150.0),
-            height: Val::Px(65.0),
-            border: UiRect::all(Val::Px(5.0)),
+            width: px(150),
+            height: px(65),
+            border: UiRect::all(px(5)),
             justify_content: JustifyContent::Center,
             align_items: AlignItems::Center,
             ..default()
@@ -161,7 +161,7 @@ fn button(asset_server: &AssetServer, on_click: Callback<In<Activate>>) -> impl 
 }
 
 fn button_on_add_pressed(
-    trigger: On<Add, Pressed>,
+    event: On<Add, Pressed>,
     mut buttons: Query<
         (
             &Hovered,
@@ -175,7 +175,7 @@ fn button_on_add_pressed(
     mut text_query: Query<&mut Text>,
 ) {
     if let Ok((hovered, disabled, mut color, mut border_color, children)) =
-        buttons.get_mut(trigger.target())
+        buttons.get_mut(event.entity())
     {
         let mut text = text_query.get_mut(children[0]).unwrap();
         set_button_style(
@@ -190,7 +190,7 @@ fn button_on_add_pressed(
 }
 
 fn button_on_remove_pressed(
-    trigger: On<Remove, Pressed>,
+    event: On<Remove, Pressed>,
     mut buttons: Query<
         (
             &Hovered,
@@ -204,7 +204,7 @@ fn button_on_remove_pressed(
     mut text_query: Query<&mut Text>,
 ) {
     if let Ok((hovered, disabled, mut color, mut border_color, children)) =
-        buttons.get_mut(trigger.target())
+        buttons.get_mut(event.entity())
     {
         let mut text = text_query.get_mut(children[0]).unwrap();
         set_button_style(
@@ -219,7 +219,7 @@ fn button_on_remove_pressed(
 }
 
 fn button_on_add_disabled(
-    trigger: On<Add, InteractionDisabled>,
+    event: On<Add, InteractionDisabled>,
     mut buttons: Query<
         (
             Has<Pressed>,
@@ -233,7 +233,7 @@ fn button_on_add_disabled(
     mut text_query: Query<&mut Text>,
 ) {
     if let Ok((pressed, hovered, mut color, mut border_color, children)) =
-        buttons.get_mut(trigger.target())
+        buttons.get_mut(event.entity())
     {
         let mut text = text_query.get_mut(children[0]).unwrap();
         set_button_style(
@@ -248,7 +248,7 @@ fn button_on_add_disabled(
 }
 
 fn button_on_remove_disabled(
-    trigger: On<Remove, InteractionDisabled>,
+    event: On<Remove, InteractionDisabled>,
     mut buttons: Query<
         (
             Has<Pressed>,
@@ -262,7 +262,7 @@ fn button_on_remove_disabled(
     mut text_query: Query<&mut Text>,
 ) {
     if let Ok((pressed, hovered, mut color, mut border_color, children)) =
-        buttons.get_mut(trigger.target())
+        buttons.get_mut(event.entity())
     {
         let mut text = text_query.get_mut(children[0]).unwrap();
         set_button_style(
@@ -277,7 +277,7 @@ fn button_on_remove_disabled(
 }
 
 fn button_on_change_hover(
-    trigger: On<Insert, Hovered>,
+    event: On<Insert, Hovered>,
     mut buttons: Query<
         (
             Has<Pressed>,
@@ -292,7 +292,7 @@ fn button_on_change_hover(
     mut text_query: Query<&mut Text>,
 ) {
     if let Ok((pressed, hovered, disabled, mut color, mut border_color, children)) =
-        buttons.get_mut(trigger.target())
+        buttons.get_mut(event.entity())
     {
         if children.is_empty() {
             return;
@@ -364,9 +364,9 @@ fn slider(
             justify_content: JustifyContent::Center,
             align_items: AlignItems::Stretch,
             justify_items: JustifyItems::Center,
-            column_gap: Val::Px(4.0),
-            height: Val::Px(12.0),
-            width: Val::Percent(30.0),
+            column_gap: px(4),
+            height: px(12),
+            width: percent(30),
             ..default()
         },
         Name::new("Slider"),
@@ -383,11 +383,11 @@ fn slider(
             // Slider background rail
             Spawn((
                 Node {
-                    height: Val::Px(6.0),
+                    height: px(6),
                     ..default()
                 },
                 BackgroundColor(SLIDER_TRACK), // Border color for the checkbox
-                BorderRadius::all(Val::Px(3.0)),
+                BorderRadius::all(px(3)),
             )),
             // Invisible track to allow absolute placement of thumb entity. This is narrower than
             // the actual slider, which allows us to position the thumb entity using simple
@@ -396,11 +396,11 @@ fn slider(
                 Node {
                     display: Display::Flex,
                     position_type: PositionType::Absolute,
-                    left: Val::Px(0.0),
+                    left: px(0),
                     // Track is short by 12px to accommodate the thumb.
-                    right: Val::Px(12.0),
-                    top: Val::Px(0.0),
-                    bottom: Val::Px(0.0),
+                    right: px(12),
+                    top: px(0),
+                    bottom: px(0),
                     ..default()
                 },
                 children![(
@@ -409,10 +409,10 @@ fn slider(
                     CoreSliderThumb,
                     Node {
                         display: Display::Flex,
-                        width: Val::Px(12.0),
-                        height: Val::Px(12.0),
+                        width: px(12),
+                        height: px(12),
                         position_type: PositionType::Absolute,
-                        left: Val::Percent(0.0), // This will be updated by the slider's value
+                        left: percent(0), // This will be updated by the slider's value
                         ..default()
                     },
                     BorderRadius::MAX,
@@ -424,85 +424,85 @@ fn slider(
 }
 
 fn slider_on_add_disabled(
-    trigger: On<Add, InteractionDisabled>,
+    event: On<Add, InteractionDisabled>,
     sliders: Query<(Entity, &Hovered), With<DemoSlider>>,
     children: Query<&Children>,
     mut thumbs: Query<(&mut BackgroundColor, Has<DemoSliderThumb>), Without<DemoSlider>>,
 ) {
-    if let Ok((slider_ent, hovered)) = sliders.get(trigger.target()) {
+    if let Ok((slider_ent, hovered)) = sliders.get(event.entity()) {
         for child in children.iter_descendants(slider_ent) {
-            if let Ok((mut thumb_bg, is_thumb)) = thumbs.get_mut(child) {
-                if is_thumb {
-                    thumb_bg.0 = thumb_color(true, hovered.0);
-                }
+            if let Ok((mut thumb_bg, is_thumb)) = thumbs.get_mut(child)
+                && is_thumb
+            {
+                thumb_bg.0 = thumb_color(true, hovered.0);
             }
         }
     }
 }
 
 fn slider_on_remove_disabled(
-    trigger: On<Remove, InteractionDisabled>,
+    event: On<Remove, InteractionDisabled>,
     sliders: Query<(Entity, &Hovered), With<DemoSlider>>,
     children: Query<&Children>,
     mut thumbs: Query<(&mut BackgroundColor, Has<DemoSliderThumb>), Without<DemoSlider>>,
 ) {
-    if let Ok((slider_ent, hovered)) = sliders.get(trigger.target()) {
+    if let Ok((slider_ent, hovered)) = sliders.get(event.entity()) {
         for child in children.iter_descendants(slider_ent) {
-            if let Ok((mut thumb_bg, is_thumb)) = thumbs.get_mut(child) {
-                if is_thumb {
-                    thumb_bg.0 = thumb_color(false, hovered.0);
-                }
+            if let Ok((mut thumb_bg, is_thumb)) = thumbs.get_mut(child)
+                && is_thumb
+            {
+                thumb_bg.0 = thumb_color(false, hovered.0);
             }
         }
     }
 }
 
 fn slider_on_change_hover(
-    trigger: On<Insert, Hovered>,
+    event: On<Insert, Hovered>,
     sliders: Query<(Entity, &Hovered, Has<InteractionDisabled>), With<DemoSlider>>,
     children: Query<&Children>,
     mut thumbs: Query<(&mut BackgroundColor, Has<DemoSliderThumb>), Without<DemoSlider>>,
 ) {
-    if let Ok((slider_ent, hovered, disabled)) = sliders.get(trigger.target()) {
+    if let Ok((slider_ent, hovered, disabled)) = sliders.get(event.entity()) {
         for child in children.iter_descendants(slider_ent) {
-            if let Ok((mut thumb_bg, is_thumb)) = thumbs.get_mut(child) {
-                if is_thumb {
-                    thumb_bg.0 = thumb_color(disabled, hovered.0);
-                }
+            if let Ok((mut thumb_bg, is_thumb)) = thumbs.get_mut(child)
+                && is_thumb
+            {
+                thumb_bg.0 = thumb_color(disabled, hovered.0);
             }
         }
     }
 }
 
 fn slider_on_change_value(
-    trigger: On<Insert, SliderValue>,
+    event: On<Insert, SliderValue>,
     sliders: Query<(Entity, &SliderValue, &SliderRange), With<DemoSlider>>,
     children: Query<&Children>,
     mut thumbs: Query<(&mut Node, Has<DemoSliderThumb>), Without<DemoSlider>>,
 ) {
-    if let Ok((slider_ent, value, range)) = sliders.get(trigger.target()) {
+    if let Ok((slider_ent, value, range)) = sliders.get(event.entity()) {
         for child in children.iter_descendants(slider_ent) {
-            if let Ok((mut thumb_node, is_thumb)) = thumbs.get_mut(child) {
-                if is_thumb {
-                    thumb_node.left = Val::Percent(range.thumb_position(value.0) * 100.0);
-                }
+            if let Ok((mut thumb_node, is_thumb)) = thumbs.get_mut(child)
+                && is_thumb
+            {
+                thumb_node.left = percent(range.thumb_position(value.0) * 100.0);
             }
         }
     }
 }
 
 fn slider_on_change_range(
-    trigger: On<Insert, SliderRange>,
+    event: On<Insert, SliderRange>,
     sliders: Query<(Entity, &SliderValue, &SliderRange), With<DemoSlider>>,
     children: Query<&Children>,
     mut thumbs: Query<(&mut Node, Has<DemoSliderThumb>), Without<DemoSlider>>,
 ) {
-    if let Ok((slider_ent, value, range)) = sliders.get(trigger.target()) {
+    if let Ok((slider_ent, value, range)) = sliders.get(event.entity()) {
         for child in children.iter_descendants(slider_ent) {
-            if let Ok((mut thumb_node, is_thumb)) = thumbs.get_mut(child) {
-                if is_thumb {
-                    thumb_node.left = Val::Percent(range.thumb_position(value.0) * 100.0);
-                }
+            if let Ok((mut thumb_node, is_thumb)) = thumbs.get_mut(child)
+                && is_thumb
+            {
+                thumb_node.left = percent(range.thumb_position(value.0) * 100.0);
             }
         }
     }
@@ -531,7 +531,7 @@ fn checkbox(
             justify_content: JustifyContent::FlexStart,
             align_items: AlignItems::Center,
             align_content: AlignContent::Center,
-            column_gap: Val::Px(4.0),
+            column_gap: px(4),
             ..default()
         },
         Name::new("Checkbox"),
@@ -544,23 +544,23 @@ fn checkbox(
                 // Checkbox outer
                 Node {
                     display: Display::Flex,
-                    width: Val::Px(16.0),
-                    height: Val::Px(16.0),
-                    border: UiRect::all(Val::Px(2.0)),
+                    width: px(16),
+                    height: px(16),
+                    border: UiRect::all(px(2)),
                     ..default()
                 },
                 BorderColor::all(CHECKBOX_OUTLINE), // Border color for the checkbox
-                BorderRadius::all(Val::Px(3.0)),
+                BorderRadius::all(px(3)),
                 children![
                     // Checkbox inner
                     (
                         Node {
                             display: Display::Flex,
-                            width: Val::Px(8.0),
-                            height: Val::Px(8.0),
+                            width: px(8),
+                            height: px(8),
                             position_type: PositionType::Absolute,
-                            left: Val::Px(2.0),
-                            top: Val::Px(2.0),
+                            left: px(2),
+                            top: px(2),
                             ..default()
                         },
                         BackgroundColor(Srgba::NONE.into()),
@@ -580,23 +580,23 @@ fn checkbox(
 }
 
 fn checkbox_on_add_disabled(
-    trigger: On<Add, InteractionDisabled>,
+    event: On<Add, InteractionDisabled>,
     checkboxes: Query<(&Hovered, Has<Checked>, &Children), With<DemoCheckbox>>,
     mut borders: Query<(&mut BorderColor, &mut Children), Without<DemoCheckbox>>,
     mut marks: Query<&mut BackgroundColor, (Without<DemoCheckbox>, Without<Children>)>,
 ) {
-    if let Ok((hovered, checked, children)) = checkboxes.get(trigger.target()) {
+    if let Ok((hovered, checked, children)) = checkboxes.get(event.entity()) {
         set_checkbox_style(children, &mut borders, &mut marks, true, hovered.0, checked);
     }
 }
 
 fn checkbox_on_remove_disabled(
-    trigger: On<Remove, InteractionDisabled>,
+    event: On<Remove, InteractionDisabled>,
     checkboxes: Query<(&Hovered, Has<Checked>, &Children), With<DemoCheckbox>>,
     mut borders: Query<(&mut BorderColor, &mut Children), Without<DemoCheckbox>>,
     mut marks: Query<&mut BackgroundColor, (Without<DemoCheckbox>, Without<Children>)>,
 ) {
-    if let Ok((hovered, checked, children)) = checkboxes.get(trigger.target()) {
+    if let Ok((hovered, checked, children)) = checkboxes.get(event.entity()) {
         set_checkbox_style(
             children,
             &mut borders,
@@ -609,7 +609,7 @@ fn checkbox_on_remove_disabled(
 }
 
 fn checkbox_on_change_hover(
-    trigger: On<Insert, Hovered>,
+    event: On<Insert, Hovered>,
     checkboxes: Query<
         (&Hovered, Has<InteractionDisabled>, Has<Checked>, &Children),
         With<DemoCheckbox>,
@@ -617,7 +617,7 @@ fn checkbox_on_change_hover(
     mut borders: Query<(&mut BorderColor, &mut Children), Without<DemoCheckbox>>,
     mut marks: Query<&mut BackgroundColor, (Without<DemoCheckbox>, Without<Children>)>,
 ) {
-    if let Ok((hovered, disabled, checked, children)) = checkboxes.get(trigger.target()) {
+    if let Ok((hovered, disabled, checked, children)) = checkboxes.get(event.entity()) {
         set_checkbox_style(
             children,
             &mut borders,
@@ -630,7 +630,7 @@ fn checkbox_on_change_hover(
 }
 
 fn checkbox_on_add_checked(
-    trigger: On<Add, Checked>,
+    event: On<Add, Checked>,
     checkboxes: Query<
         (&Hovered, Has<InteractionDisabled>, Has<Checked>, &Children),
         With<DemoCheckbox>,
@@ -638,7 +638,7 @@ fn checkbox_on_add_checked(
     mut borders: Query<(&mut BorderColor, &mut Children), Without<DemoCheckbox>>,
     mut marks: Query<&mut BackgroundColor, (Without<DemoCheckbox>, Without<Children>)>,
 ) {
-    if let Ok((hovered, disabled, checked, children)) = checkboxes.get(trigger.target()) {
+    if let Ok((hovered, disabled, checked, children)) = checkboxes.get(event.entity()) {
         set_checkbox_style(
             children,
             &mut borders,
@@ -651,12 +651,12 @@ fn checkbox_on_add_checked(
 }
 
 fn checkbox_on_remove_checked(
-    trigger: On<Remove, Checked>,
+    event: On<Remove, Checked>,
     checkboxes: Query<(&Hovered, Has<InteractionDisabled>, &Children), With<DemoCheckbox>>,
     mut borders: Query<(&mut BorderColor, &mut Children), Without<DemoCheckbox>>,
     mut marks: Query<&mut BackgroundColor, (Without<DemoCheckbox>, Without<Children>)>,
 ) {
-    if let Ok((hovered, disabled, children)) = checkboxes.get(trigger.target()) {
+    if let Ok((hovered, disabled, children)) = checkboxes.get(event.entity()) {
         set_checkbox_style(
             children,
             &mut borders,
