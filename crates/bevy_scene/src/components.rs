@@ -21,7 +21,7 @@ impl AsAssetId for SceneRoot {
     type Asset = Scene;
 
     fn as_asset_id(&self) -> AssetId<Self::Asset> {
-        self.0.id()
+        self.id()
     }
 }
 
@@ -37,6 +37,6 @@ impl AsAssetId for DynamicSceneRoot {
     type Asset = DynamicScene;
 
     fn as_asset_id(&self) -> AssetId<Self::Asset> {
-        self.0.id()
+        self.id()
     }
 }
