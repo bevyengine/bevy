@@ -230,11 +230,10 @@ fn resize_image(
     images: Res<Assets<Image>>,
     mut image_events: EventReader<AssetEvent<Image>>,
 ) {
-    for event in image_events.read() {
-        let (AssetEvent::Added { id } | AssetEvent::Modified { id }) = event else {
-            continue;
-        };
-
+    for event in image_events
+        .read()
+        .filter(|event| event.is_added() || event.is_modified())
+    {
         for (mat_h, mesh_h) in &image_mesh {
             let Some(mat) = materials.get(mat_h) else {
                 continue;
@@ -244,11 +243,11 @@ fn resize_image(
                 continue;
             };
 
-            if *id != base_color_texture.id() {
+            if *event.id() != base_color_texture.id() {
                 continue;
             };
 
-            let Some(image_changed) = images.get(*id) else {
+            let Some(image_changed) = images.get(*event.id()) else {
                 continue;
             };
 
