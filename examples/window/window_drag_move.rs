@@ -60,30 +60,30 @@ fn setup(mut commands: Commands) {
     commands.spawn(Camera3d::default());
 
     // UI
-    commands
-        .spawn((
-            Node {
-                position_type: PositionType::Absolute,
-                padding: UiRect::all(px(5)),
-                ..default()
-            },
-            BackgroundColor(Color::BLACK.with_alpha(0.75)),
-            GlobalZIndex(i32::MAX),
-        ))
-        .with_children(|p| {
-            p.spawn(Text::default()).with_children(|p| {
-                p.spawn(TextSpan::new(
+    commands.spawn((
+        Node {
+            position_type: PositionType::Absolute,
+            padding: UiRect::all(px(5)),
+            ..default()
+        },
+        BackgroundColor(Color::BLACK.with_alpha(0.75)),
+        GlobalZIndex(i32::MAX),
+        children![(
+            Text::default(),
+            children![
+                TextSpan::new(
                     "Demonstrate drag move and drag resize without window decorations.\n\n",
-                ));
-                p.spawn(TextSpan::new("Controls:\n"));
-                p.spawn(TextSpan::new("A - change left click action ["));
-                p.spawn(TextSpan::new("Move"));
-                p.spawn(TextSpan::new("]\n"));
-                p.spawn(TextSpan::new("S / D - change resize direction ["));
-                p.spawn(TextSpan::new("NorthWest"));
-                p.spawn(TextSpan::new("]\n"));
-            });
-        });
+                ),
+                TextSpan::new("Controls:\n"),
+                TextSpan::new("A - change left click action ["),
+                TextSpan::new("Move"),
+                TextSpan::new("]\n"),
+                TextSpan::new("S / D - change resize direction ["),
+                TextSpan::new("NorthWest"),
+                TextSpan::new("]\n"),
+            ]
+        )],
+    ));
 }
 
 fn handle_input(
