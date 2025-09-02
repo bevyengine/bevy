@@ -189,12 +189,7 @@ impl<'w> EntityWorldMut<'w> {
         // SAFETY: Making good on our promise by replacing the dummy value with the correctly initialized collection.
         collection.clear();
         collection.extend_from_iter(related.iter().copied());
-        _ = mem::replace(
-            self.get_mut::<R::RelationshipTarget>()
-                .unwrap()
-                .into_inner(),
-            relations,
-        );
+        *self.get_mut::<R::RelationshipTarget>().unwrap() = relations;
 
         self
     }
