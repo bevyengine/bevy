@@ -1,22 +1,16 @@
 //! multiple text inputs example
 
-use bevy::color::palettes::css::NAVY;
-use bevy::color::palettes::css::YELLOW;
-use bevy::core_widgets::Activate;
-use bevy::core_widgets::Callback;
-use bevy::core_widgets::CoreButton;
-use bevy::core_widgets::CoreWidgetsPlugins;
+use bevy::color::palettes::css::{NAVY, YELLOW};
+use bevy::core_widgets::{Activate, Callback, CoreButton, CoreWidgetsPlugins};
 use bevy::ecs::relationship::RelatedSpawner;
-use bevy::input_focus::tab_navigation::TabIndex;
-use bevy::input_focus::tab_navigation::TabNavigationPlugin;
-use bevy::input_focus::InputDispatchPlugin;
+use bevy::input_focus::{
+    tab_navigation::{TabIndex, TabNavigationPlugin},
+    InputDispatchPlugin,
+};
 use bevy::picking::hover::Hovered;
 use bevy::prelude::*;
-use bevy::text::PasswordMask;
-use bevy::text::Placeholder;
-use bevy::text::TextInputValue;
-use bevy::ui::widget::TextField;
-use bevy::ui::widget::TextInputPlugin;
+use bevy::text::{PasswordMask, Placeholder, TextInputValue};
+use bevy::ui::widget::{TextField, TextInputPlugin};
 
 const MAX_PASSWORD_LENGTH: usize = 10;
 
@@ -132,12 +126,12 @@ fn update_char_count(
     value_query: Query<&TextInputValue, Changed<TextInputValue>>,
     mut text_query: Query<&mut Text, With<CharCountNode>>,
 ) {
-    if let Ok(value) = value_query.single() {
-        if let Ok(mut text) = text_query.single_mut() {
-            text.0 = format!(
-                "{} characters left.",
-                MAX_PASSWORD_LENGTH - value.get().chars().count()
-            );
-        }
+    if let Ok(value) = value_query.single()
+        && let Ok(mut text) = text_query.single_mut()
+    {
+        text.0 = format!(
+            "{} characters left.",
+            MAX_PASSWORD_LENGTH - value.get().chars().count()
+        );
     }
 }

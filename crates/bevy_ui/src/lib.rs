@@ -262,6 +262,8 @@ fn build_text_interop(app: &mut App) {
                 .ambiguous_with(bevy_sprite::calculate_bounds_text2d)
                 .ambiguous_with(bevy_text::update_password_masks)
                 .ambiguous_with(bevy_text::update_placeholder_layouts)
+                .ambiguous_with(bevy_text::update_text_input_buffers)
+                .ambiguous_with(bevy_text::apply_text_edits)
                 .ambiguous_with(bevy_text::update_text_input_layouts),
         ),
     );

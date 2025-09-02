@@ -1,26 +1,13 @@
 //! multiple text inputs example
 
-use bevy::color::palettes::css::NAVY;
-use bevy::color::palettes::css::YELLOW;
-use bevy::core_widgets::Activate;
-use bevy::core_widgets::Callback;
-use bevy::core_widgets::CoreButton;
-use bevy::core_widgets::CoreWidgetsPlugins;
+use bevy::color::palettes::css::{NAVY, YELLOW};
+use bevy::core_widgets::{Activate, Callback, CoreButton, CoreWidgetsPlugins};
 use bevy::ecs::relationship::RelatedSpawnerCommands;
-use bevy::input_focus::tab_navigation::*;
-use bevy::input_focus::InputDispatchPlugin;
-use bevy::input_focus::InputFocus;
+use bevy::input_focus::{tab_navigation::*, InputDispatchPlugin, InputFocus};
 use bevy::picking::hover::Hovered;
 use bevy::prelude::*;
-// use bevy::text::Clipboard;
-use bevy::text::PasswordMask;
-use bevy::text::Placeholder;
-use bevy::text::TextInputEvent;
-use bevy::text::TextInputFilter;
-use bevy::text::TextInputValue;
-use bevy::ui::widget::TextField;
-use bevy::ui::widget::TextInputPlugin;
-use bevy::ui::widget::TextSubmission;
+use bevy::text::{PasswordMask, Placeholder, TextInputEvent, TextInputFilter, TextInputValue};
+use bevy::ui::widget::{TextField, TextInputPlugin, TextSubmission};
 
 fn main() {
     App::new()
@@ -167,7 +154,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                             PlaybackSettings::DESPAWN,
                         ));
                     }
-                    TextInputEvent::TextChanged { .. } => {
+                    TextInputEvent::TextChanged => {
                         commands.spawn((
                             AudioPlayer::new(sounds.pressed.clone()),
                             PlaybackSettings::DESPAWN,
@@ -364,11 +351,11 @@ fn update_clipboard_display(
             let mut x = clipboard.fetch_text();
             loop {
                 let f = x.poll_result();
-                if let Some(k) = f {
-                    if k.is_ok() {
-                        text.0 = k.ok().unwrap().clone();
-                        break;
-                    }
+                if let Some(k) = f
+                    && k.is_ok()
+                {
+                    text.0 = k.ok().unwrap().clone();
+                    break;
                 }
             }
         }

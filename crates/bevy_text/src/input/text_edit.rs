@@ -236,10 +236,10 @@ pub fn apply_text_edit(
 
     match edit {
         TextEdit::Copy => {
-            if let Some(text) = editor.copy_selection() {
-                if let Some(clipboard) = clipboard {
-                    let _ = clipboard.set_text(text);
-                }
+            if let Some(text) = editor.copy_selection()
+                && let Some(clipboard) = clipboard
+            {
+                let _ = clipboard.set_text(text);
             }
         }
         TextEdit::Cut => {

@@ -126,18 +126,18 @@ fn paste_text_system(
     >,
     mut text_query: Query<(&mut Text, &mut TextColor), With<PasteTarget>>,
 ) {
-    if let Some(contents) = paste.as_mut() {
-        if let Some(contents) = contents.poll_result() {
-            let (message, color) = match contents {
-                Ok(text) => (text, Color::WHITE),
-                Err(error) => (format!("{error:?}"), RED.into()),
-            };
-            for (mut text, mut text_color) in text_query.iter_mut() {
-                text.0 = message.clone();
-                text_color.0 = color;
-            }
-            *paste = None;
+    if let Some(contents) = paste.as_mut()
+        && let Some(contents) = contents.poll_result()
+    {
+        let (message, color) = match contents {
+            Ok(text) => (text, Color::WHITE),
+            Err(error) => (format!("{error:?}"), RED.into()),
+        };
+        for (mut text, mut text_color) in text_query.iter_mut() {
+            text.0 = message.clone();
+            text_color.0 = color;
         }
+        *paste = None;
     }
     for (interaction, mut color, mut border_color, button_action) in &mut interaction_query {
         match *interaction {

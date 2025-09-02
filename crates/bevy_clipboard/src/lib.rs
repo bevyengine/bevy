@@ -152,7 +152,7 @@ impl Clipboard {
             use wasm_bindgen_futures::JsFuture;
 
             let clipboard = web_sys::window()
-                .and_then(|w| w.navigator().clipboard())
+                .and_then(|w| Some(w.navigator().clipboard()))
                 .ok_or(ClipboardError::ClipboardNotSupported)?;
 
             let result = JsFuture::from(clipboard.read_text()).await;

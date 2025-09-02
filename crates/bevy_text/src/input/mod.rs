@@ -37,10 +37,7 @@
 //!
 //! ## Copy-paste and clipboard support
 //!
-//! The clipboard support provided by this module is very basic, and only works within the `bevy` app,
-//! storing a simple [`String`].
-//!
-//! It can be accessed via the [`Clipboard`] resource.
+//! This module integrates clipboard support from [`bevy_clipboard`].
 
 use bevy_ecs::schedule::SystemSet;
 pub use cosmic_text::Motion;

@@ -40,7 +40,7 @@ pub struct TextEntity {
 #[derive(Component, Debug, Clone, Reflect)]
 #[reflect(Component, Debug, Default, Clone)]
 pub struct ComputedTextBlock {
-    /// Buffer for managing text layout and creating [`TextLayoutInfo`](crate::pipeline::TextLayoutInfo).
+    /// Buffer for managing text layout and creating [`crate::pipeline::TextLayoutInfo`].
     ///
     /// This is private because buffer contents are always refreshed from ECS state when writing glyphs to
     /// `TextLayoutInfo`. If you want to control the buffer contents manually or use the `cosmic-text`
