@@ -40,7 +40,7 @@ fn setup(mut commands: Commands) {
     for (i, color) in [RED, GREEN, BLUE].into_iter().enumerate() {
         let camera_entity = commands
             .spawn((
-                // Ordering behaviour is the same using `Camera3d`.
+                // Ordering behavior is the same using `Camera3d`.
                 Camera2d,
                 Camera {
                     // The viewport will be cleared according to the `ClearColorConfig` of the camera with the lowest order, skipping cameras set to `ClearColorConfig::NONE`.
@@ -68,8 +68,8 @@ fn setup(mut commands: Commands) {
                     justify_self: JustifySelf::Center,
                     justify_content: JustifyContent::Center,
                     align_items: AlignItems::Center,
-                    left: px(0.5 * BOX_SIZE * (i as f32 - 1.)),
-                    top: px(0.5 * BOX_SIZE * (i as f32 - 1.)),
+                    left: px(0.67 * BOX_SIZE * (i as f32 - 1.)),
+                    top: px(0.67 * BOX_SIZE * (i as f32 - 1.)),
                     width: px(BOX_SIZE),
                     height: px(BOX_SIZE),
                     border: px(0.1 * BOX_SIZE).into(),
