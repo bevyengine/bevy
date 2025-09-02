@@ -27,6 +27,7 @@ use bevy::{
     },
     ecs::{query::QueryItem, system::lifetimeless::Read},
     image::{ImageCompareFunction, ImageSampler, ImageSamplerDescriptor},
+    math::ops::{acos, atan2, sin_cos},
     prelude::*,
     render::{
         camera::ExtractedCamera,
@@ -458,17 +459,17 @@ impl SphericalCoordinates {
         let radius = p.length();
         SphericalCoordinates {
             radius,
-            inclination: (p.y / radius).acos(),
-            azimuth: f32::atan2(p.z, p.x),
+            inclination: acos(p.y / radius),
+            azimuth: atan2(p.z, p.x),
         }
     }
 
     /// [Converts] from spherical coordinates to Cartesian coordinates.
     ///
     /// [Converts]: https://en.wikipedia.org/wiki/Spherical_coordinate_system#Cartesian_coordinates
-    fn to_cartesian(&self) -> Vec3 {
-        let (sin_inclination, cos_inclination) = self.inclination.sin_cos();
-        let (sin_azimuth, cos_azimuth) = self.azimuth.sin_cos();
+    fn to_cartesian(self) -> Vec3 {
+        let (sin_inclination, cos_inclination) = sin_cos(self.inclination);
+        let (sin_azimuth, cos_azimuth) = sin_cos(self.azimuth);
         self.radius
             * vec3(
                 sin_inclination * cos_azimuth,
