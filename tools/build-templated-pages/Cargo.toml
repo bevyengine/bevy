@@ -12,7 +12,7 @@ toml_edit = { version = "0.23.2", default-features = false, features = [
 tera = "1.15"
 serde = { version = "1.0", features = ["derive"] }
 bitflags = "2.3"
-hashbrown = { version = "0.15", features = ["serde"] }
+hashbrown = { version = "0.16.0", features = ["serde"] }
 
 [lints]
 workspace = true

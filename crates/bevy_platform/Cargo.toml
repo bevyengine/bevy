@@ -66,8 +66,8 @@ spin = { version = "0.10.0", default-features = false, features = [
   "lazy",
   "barrier",
 ] }
-foldhash = { version = "0.1.3", default-features = false }
-hashbrown = { version = "0.15.1", features = [
+foldhash = { version = "0.2.0", default-features = false }
+hashbrown = { version = "0.16.0", features = [
   "equivalent",
   "raw-entry",
 ], optional = true, default-features = false }
