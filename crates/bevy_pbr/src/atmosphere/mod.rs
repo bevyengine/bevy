@@ -66,9 +66,9 @@ use bevy_render::{
 use bevy_core_pipeline::core_3d::graph::Core3d;
 use bevy_shader::load_shader_library;
 use environment::{
-    init_atmosphere_probe_layout, prepare_atmosphere_probe_bind_groups,
-    prepare_atmosphere_probe_components, prepare_probe_textures, queue_atmosphere_probe_pipelines,
-    AtmosphereEnvironmentMap, EnvironmentNode,
+    init_atmosphere_probe_layout, init_atmosphere_probe_pipeline,
+    prepare_atmosphere_probe_bind_groups, prepare_atmosphere_probe_components,
+    prepare_probe_textures, AtmosphereEnvironmentMap, EnvironmentNode,
 };
 use resources::{
     prepare_atmosphere_transforms, queue_render_sky_pipelines, AtmosphereTransforms,
@@ -143,7 +143,10 @@ impl Plugin for AtmospherePlugin {
             .init_resource::<AtmosphereLutPipelines>()
             .init_resource::<AtmosphereTransforms>()
             .init_resource::<SpecializedRenderPipelines<RenderSkyBindGroupLayouts>>()
-            .add_systems(RenderStartup, init_atmosphere_probe_layout)
+            .add_systems(
+                RenderStartup,
+                (init_atmosphere_probe_layout, init_atmosphere_probe_pipeline).chain(),
+            )
             .add_systems(
                 Render,
                 (
@@ -154,9 +157,6 @@ impl Plugin for AtmospherePlugin {
                         .in_set(RenderSystems::PrepareResources)
                         .after(prepare_atmosphere_textures),
                     prepare_atmosphere_probe_bind_groups.in_set(RenderSystems::PrepareBindGroups),
-                    queue_atmosphere_probe_pipelines
-                        .in_set(RenderSystems::Queue)
-                        .after(init_atmosphere_probe_layout),
                     prepare_atmosphere_transforms.in_set(RenderSystems::PrepareResources),
                     prepare_atmosphere_bind_groups.in_set(RenderSystems::PrepareBindGroups),
                 ),

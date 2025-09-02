@@ -335,12 +335,6 @@ fn main() {
                     .chain(required_features.iter().cloned())
                     .collect::<Vec<_>>();
 
-                for command in &to_run.setup {
-                    let exe = &command[0];
-                    let args = &command[1..];
-                    cmd!(sh, "{exe} {args...}").run().unwrap();
-                }
-
                 let _ = cmd!(
                     sh,
                     "cargo build --profile {profile} --example {example} {local_extra_parameters...}"
@@ -841,23 +835,6 @@ fn parse_examples() -> Vec<Example> {
                             .collect()
                     })
                     .unwrap_or_default(),
-                setup: metadata
-                    .get("setup")
-                    .map(|setup| {
-                        setup
-                            .as_array()
-                            .unwrap()
-                            .into_iter()
-                            .map(|v| {
-                                v.as_array()
-                                    .unwrap()
-                                    .into_iter()
-                                    .map(|v| v.as_str().unwrap().to_string())
-                                    .collect()
-                            })
-                            .collect()
-                    })
-                    .unwrap_or_default(),
                 example_type: match val.get("crate-type") {
                     Some(crate_type) => {
                         match crate_type
@@ -901,8 +878,6 @@ struct Example {
     /// Does this example work in Wasm?
     // TODO: be able to differentiate between WebGL2, WebGPU, both, or neither (for examples that could run on Wasm without a renderer)
     wasm: bool,
-    /// List of commands to run before the example. Can be used for example to specify data to download
-    setup: Vec<Vec<String>>,
     /// Type of example
     example_type: ExampleType,
 }
