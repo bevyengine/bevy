@@ -2530,6 +2530,7 @@ macro_rules! impl_tuple_query_data {
             }
         }
 
+        $(#[$meta])*
         /// SAFETY: each item in the tuple is read only
         unsafe impl<$($name: ReadOnlyQueryData),*> ReadOnlyQueryData for ($($name,)*) {}
 
@@ -2541,6 +2542,7 @@ macro_rules! impl_tuple_query_data {
             clippy::unused_unit,
             reason = "Zero-length tuples will generate some function bodies equivalent to `()`; however, this macro is meant for all applicable tuples, and as such it makes no sense to rewrite it just for that case."
         )]
+        $(#[$meta])*
         impl<$($name: ReleaseStateQueryData),*> ReleaseStateQueryData for ($($name,)*) {
             fn release_state<'w>(($($item,)*): Self::Item<'w, '_>) -> Self::Item<'w, 'static> {
                 ($($name::release_state($item),)*)
