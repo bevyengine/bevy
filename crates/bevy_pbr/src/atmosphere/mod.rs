@@ -450,7 +450,7 @@ fn configure_camera_depth_usages(
 #[derive(Clone, Default, Reflect, Copy)]
 pub enum AtmosphereRenderingMethod {
     /// High-performance approximation for most scenes that are inside of the atmosphere.
-    /// Uses a set of lookup textures to accelerate rendering performance.
+    /// Uses a set of lookup textures to approximate scattering integration.
     /// Slightly less accurate for very long-distance/space views (lighting precision
     /// tapers as the camera moves far from the scene origin) and for sharp volumetric
     /// (cloud/fog) shadows.
