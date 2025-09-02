@@ -30,9 +30,13 @@ impl<'w> BundleSpawner<'w> {
         // SAFETY: These come from the same world. `world.components_registrator` can't be used since we borrow other fields too.
         let mut registrator =
             unsafe { ComponentsRegistrator::new(&mut world.components, &mut world.component_ids) };
-        let bundle_id = world
-            .bundles
-            .register_info::<T>(&mut registrator, &mut world.storages);
+
+        // SAFETY: `registrator`, `world.bundles`, and `world.storages` all come from the same world.
+        let bundle_id = unsafe {
+            world
+                .bundles
+                .register_info::<T>(&mut registrator, &mut world.storages)
+        };
         let value_components = FragmentingValuesBorrowed::from_bundle(&mut registrator, bundle);
         // SAFETY: we initialized this bundle_id in `init_info`
         unsafe { Self::new_with_id(world, bundle_id, change_tick, &value_components) }
@@ -47,9 +51,13 @@ impl<'w> BundleSpawner<'w> {
         // SAFETY: These come from the same world. `world.components_registrator` can't be used since we borrow other fields too.
         let mut registrator =
             unsafe { ComponentsRegistrator::new(&mut world.components, &mut world.component_ids) };
-        let bundle_id = world
-            .bundles
-            .register_info::<T>(&mut registrator, &mut world.storages);
+
+        // SAFETY: `registrator`, `world.bundles`, and `world.storages` all come from the same world.
+        let bundle_id = unsafe {
+            world
+                .bundles
+                .register_info::<T>(&mut registrator, &mut world.storages)
+        };
         let value_components = [].into_iter().collect();
         // SAFETY: we initialized this bundle_id in `init_info`
         unsafe { Self::new_with_id(world, bundle_id, change_tick, &value_components) }
@@ -129,7 +137,7 @@ impl<'w> BundleSpawner<'w> {
                 table,
                 sparse_sets,
                 &SpawnBundleStatus,
-                bundle_info.required_components.iter(),
+                bundle_info.required_component_constructors.iter(),
                 entity,
                 table_row,
                 self.change_tick,

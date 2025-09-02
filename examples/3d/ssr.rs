@@ -17,9 +17,10 @@ use bevy::{
     },
     prelude::*,
     render::{
-        render_resource::{AsBindGroup, ShaderRef, ShaderType},
+        render_resource::{AsBindGroup, ShaderType},
         view::Hdr,
     },
+    shader::ShaderRef,
 };
 
 /// This example uses a shader source file from the assets subdirectory
@@ -254,8 +255,8 @@ fn spawn_text(commands: &mut Commands, app_settings: &AppSettings) {
         create_text(app_settings),
         Node {
             position_type: PositionType::Absolute,
-            bottom: Val::Px(12.0),
-            left: Val::Px(12.0),
+            bottom: px(12),
+            left: px(12),
             ..default()
         },
     ));

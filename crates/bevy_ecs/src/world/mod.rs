@@ -217,14 +217,6 @@ impl World {
         &mut self.entities
     }
 
-    /// Retrieves the number of [`Entities`] in the world.
-    ///
-    /// This is helpful as a diagnostic, but it can also be used effectively in tests.
-    #[inline]
-    pub fn entity_count(&self) -> u32 {
-        self.entities.len()
-    }
-
     /// Retrieves this world's [`Archetypes`] collection.
     #[inline]
     pub fn archetypes(&self) -> &Archetypes {
@@ -241,14 +233,14 @@ impl World {
     /// **NOTE:** [`ComponentsQueuedRegistrator`] is easily misused.
     /// See its docs for important notes on when and how it should be used.
     #[inline]
-    pub fn components_queue(&self) -> ComponentsQueuedRegistrator {
+    pub fn components_queue(&self) -> ComponentsQueuedRegistrator<'_> {
         // SAFETY: These are from the same world.
         unsafe { ComponentsQueuedRegistrator::new(&self.components, &self.component_ids) }
     }
 
     /// Prepares a [`ComponentsRegistrator`] for the world.
     #[inline]
-    pub fn components_registrator(&mut self) -> ComponentsRegistrator {
+    pub fn components_registrator(&mut self) -> ComponentsRegistrator<'_> {
         // SAFETY: These are from the same world.
         unsafe { ComponentsRegistrator::new(&mut self.components, &mut self.component_ids) }
     }
@@ -280,7 +272,7 @@ impl World {
     /// Creates a new [`Commands`] instance that writes to the world's command queue
     /// Use [`World::flush`] to apply all queued commands
     #[inline]
-    pub fn commands(&mut self) -> Commands {
+    pub fn commands(&mut self) -> Commands<'_, '_> {
         // SAFETY: command_queue is stored on world and always valid while the world exists
         unsafe { Commands::new_raw_from_entities(self.command_queue.clone(), &self.entities) }
     }
@@ -978,6 +970,7 @@ impl World {
     /// Returns an [`Entity`] iterator of current entities.
     ///
     /// This is useful in contexts where you only have read-only access to the [`World`].
+    #[deprecated(since = "0.17.0", note = "use world.query::<EntityRef>()` instead")]
     #[inline]
     pub fn iter_entities(&self) -> impl Iterator<Item = EntityRef<'_>> + '_ {
         self.archetypes.iter().flat_map(|archetype| {
@@ -999,6 +992,7 @@ impl World {
     }
 
     /// Returns a mutable iterator over all entities in the `World`.
+    #[deprecated(since = "0.17.0", note = "use world.query::<EntityMut>()` instead")]
     pub fn iter_entities_mut(&mut self) -> impl Iterator<Item = EntityMut<'_>> + '_ {
         let last_change_tick = self.last_change_tick;
         let change_tick = self.change_tick();
@@ -1054,7 +1048,7 @@ impl World {
     /// # assert_eq!(world.get::<TargetedBy>(e1).unwrap().0, eid);
     /// # assert_eq!(world.get::<TargetedBy>(e2).unwrap().0, eid);
     /// ```
-    pub fn entities_and_commands(&mut self) -> (EntityFetcher, Commands) {
+    pub fn entities_and_commands(&mut self) -> (EntityFetcher<'_>, Commands<'_, '_>) {
         let cell = self.as_unsafe_world_cell();
         // SAFETY: `&mut self` gives mutable access to the entire world, and prevents simultaneous access.
         let fetcher = unsafe { EntityFetcher::new(cell) };
@@ -1094,7 +1088,7 @@ impl World {
     /// assert_eq!(position.x, 0.0);
     /// ```
     #[track_caller]
-    pub fn spawn_empty(&mut self) -> EntityWorldMut {
+    pub fn spawn_empty(&mut self) -> EntityWorldMut<'_> {
         self.flush();
         let entity = self.entities.alloc();
         // SAFETY: entity was just allocated
@@ -1162,7 +1156,7 @@ impl World {
     /// assert_eq!(position.x, 2.0);
     /// ```
     #[track_caller]
-    pub fn spawn<B: Bundle>(&mut self, bundle: B) -> EntityWorldMut {
+    pub fn spawn<B: Bundle>(&mut self, bundle: B) -> EntityWorldMut<'_> {
         self.spawn_with_caller(bundle, MaybeLocation::caller())
     }
 
@@ -1170,7 +1164,7 @@ impl World {
         &mut self,
         bundle: B,
         caller: MaybeLocation,
-    ) -> EntityWorldMut {
+    ) -> EntityWorldMut<'_> {
         self.flush();
         let change_tick = self.change_tick();
         let entity = self.entities.alloc();
@@ -1199,7 +1193,7 @@ impl World {
         &mut self,
         entity: Entity,
         caller: MaybeLocation,
-    ) -> EntityWorldMut {
+    ) -> EntityWorldMut<'_> {
         let archetype = self.archetypes.empty_mut();
         // PERF: consider avoiding allocating entities in the empty archetype unless needed
         let table_row = self.storages.tables[archetype.table_id()].allocate(entity);
@@ -1286,7 +1280,7 @@ impl World {
     pub fn get_mut<T: Component<Mutability = Mutable>>(
         &mut self,
         entity: Entity,
-    ) -> Option<Mut<T>> {
+    ) -> Option<Mut<'_, T>> {
         self.get_entity_mut(entity).ok()?.into_mut()
     }
 
@@ -1987,7 +1981,7 @@ impl World {
     /// use [`get_resource_or_insert_with`](World::get_resource_or_insert_with).
     #[inline]
     #[track_caller]
-    pub fn resource_ref<R: Resource>(&self) -> Ref<R> {
+    pub fn resource_ref<R: Resource>(&self) -> Ref<'_, R> {
         match self.get_resource_ref() {
             Some(x) => x,
             None => panic!(
@@ -2035,7 +2029,7 @@ impl World {
 
     /// Gets a reference including change detection to the resource of the given type if it exists.
     #[inline]
-    pub fn get_resource_ref<R: Resource>(&self) -> Option<Ref<R>> {
+    pub fn get_resource_ref<R: Resource>(&self) -> Option<Ref<'_, R>> {
         // SAFETY:
         // - `as_unsafe_world_cell_readonly` gives permission to access everything immutably
         // - `&self` ensures nothing in world is borrowed mutably
@@ -2312,9 +2306,12 @@ impl World {
         // SAFETY: These come from the same world. `Self.components_registrator` can't be used since we borrow other fields too.
         let mut registrator =
             unsafe { ComponentsRegistrator::new(&mut self.components, &mut self.component_ids) };
-        let bundle_id = self
-            .bundles
-            .register_info::<B>(&mut registrator, &mut self.storages);
+
+        // SAFETY: `registrator`, `self.bundles`, and `self.storages` all come from this world.
+        let bundle_id = unsafe {
+            self.bundles
+                .register_info::<B>(&mut registrator, &mut self.storages)
+        };
 
         let mut batch_iter = batch.into_iter();
 
@@ -2469,9 +2466,12 @@ impl World {
         // SAFETY: These come from the same world. `Self.components_registrator` can't be used since we borrow other fields too.
         let mut registrator =
             unsafe { ComponentsRegistrator::new(&mut self.components, &mut self.component_ids) };
-        let bundle_id = self
-            .bundles
-            .register_info::<B>(&mut registrator, &mut self.storages);
+
+        // SAFETY: `registrator`, `self.bundles`, and `self.storages` all come from this world.
+        let bundle_id = unsafe {
+            self.bundles
+                .register_info::<B>(&mut registrator, &mut self.storages)
+        };
 
         let mut invalid_entities = Vec::<Entity>::new();
         let mut batch_iter = batch.into_iter();
@@ -3101,9 +3101,13 @@ impl World {
         // SAFETY: These come from the same world. `Self.components_registrator` can't be used since we borrow other fields too.
         let mut registrator =
             unsafe { ComponentsRegistrator::new(&mut self.components, &mut self.component_ids) };
-        let id = self
-            .bundles
-            .register_info::<B>(&mut registrator, &mut self.storages);
+
+        // SAFETY: `registrator`, `self.storages` and `self.bundles` all come from this world.
+        let id = unsafe {
+            self.bundles
+                .register_info::<B>(&mut registrator, &mut self.storages)
+        };
+
         // SAFETY: We just initialized the bundle so its id should definitely be valid.
         unsafe { self.bundles.get(id).debug_checked_unwrap() }
     }
@@ -4132,6 +4136,7 @@ mod tests {
 
         let iterate_and_count_entities = |world: &World, entity_counters: &mut HashMap<_, _>| {
             entity_counters.clear();
+            #[expect(deprecated, reason = "remove this test in in 0.17.0")]
             for entity in world.iter_entities() {
                 let counter = entity_counters.entry(entity.id()).or_insert(0);
                 *counter += 1;
@@ -4209,6 +4214,7 @@ mod tests {
         let b1 = world.spawn(B(1)).id();
         let b2 = world.spawn(B(2)).id();
 
+        #[expect(deprecated, reason = "remove this test in 0.17.0")]
         for mut entity in world.iter_entities_mut() {
             if let Some(mut a) = entity.get_mut::<A>() {
                 a.0 -= 1;
@@ -4219,6 +4225,7 @@ mod tests {
         assert_eq!(world.entity(b1).get(), Some(&B(1)));
         assert_eq!(world.entity(b2).get(), Some(&B(2)));
 
+        #[expect(deprecated, reason = "remove this test in in 0.17.0")]
         for mut entity in world.iter_entities_mut() {
             if let Some(mut b) = entity.get_mut::<B>() {
                 b.0 *= 2;
@@ -4229,6 +4236,7 @@ mod tests {
         assert_eq!(world.entity(b1).get(), Some(&B(2)));
         assert_eq!(world.entity(b2).get(), Some(&B(4)));
 
+        #[expect(deprecated, reason = "remove this test in in 0.17.0")]
         let mut entities = world.iter_entities_mut().collect::<Vec<_>>();
         entities.sort_by_key(|e| e.get::<A>().map(|a| a.0).or(e.get::<B>().map(|b| b.0)));
         let (a, b) = entities.split_at_mut(2);

@@ -16,16 +16,19 @@ use crate::{
 
 use bevy_app::{App, Plugin, PostStartup, PostUpdate};
 use bevy_asset::{AssetEvent, AssetEventSystems, AssetId, Assets};
-pub use bevy_camera::*;
 use bevy_camera::{
     primitives::Frustum,
-    visibility::{RenderLayers, VisibleEntities},
+    visibility::{self, RenderLayers, VisibleEntities},
+    Camera, Camera2d, Camera3d, CameraMainTextureUsages, CameraOutputMode, CameraUpdateSystems,
+    ClearColor, ClearColorConfig, Exposure, ManualTextureViewHandle, NormalizedRenderTarget,
+    Projection, RenderTargetInfo, Viewport,
 };
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     change_detection::DetectChanges,
     component::Component,
     entity::{ContainsEntity, Entity},
+    error::BevyError,
     event::EventReader,
     lifecycle::HookContext,
     prelude::With,
@@ -41,11 +44,7 @@ use bevy_math::{vec2, Mat4, URect, UVec2, UVec4, Vec2};
 use bevy_platform::collections::{HashMap, HashSet};
 use bevy_reflect::prelude::*;
 use bevy_transform::components::GlobalTransform;
-use bevy_window::{
-    NormalizedWindowRef, PrimaryWindow, Window, WindowCreated, WindowResized,
-    WindowScaleFactorChanged,
-};
-use derive_more::derive::From;
+use bevy_window::{PrimaryWindow, Window, WindowCreated, WindowResized, WindowScaleFactorChanged};
 use tracing::warn;
 use wgpu::TextureFormat;
 
@@ -54,17 +53,13 @@ pub struct CameraPlugin;
 
 impl Plugin for CameraPlugin {
     fn build(&self, app: &mut App) {
-        app.register_type::<CameraRenderGraph>()
-            .register_type::<TemporalJitter>()
-            .register_type::<MipBias>()
-            .register_required_components::<Camera, Msaa>()
+        app.register_required_components::<Camera, Msaa>()
             .register_required_components::<Camera, SyncToRenderWorld>()
             .register_required_components::<Camera3d, ColorGrading>()
             .register_required_components::<Camera3d, Exposure>()
             .add_plugins((
                 ExtractResourcePlugin::<ClearColor>::default(),
                 ExtractComponentPlugin::<CameraMainTextureUsages>::default(),
-                bevy_camera::CameraPlugin,
             ))
             .add_systems(PostStartup, camera_system.in_set(CameraUpdateSystems))
             .add_systems(
@@ -151,40 +146,39 @@ impl CameraRenderGraph {
     }
 }
 
-pub trait ToNormalizedRenderTarget {
-    /// Normalize the render target down to a more concrete value, mostly used for equality comparisons.
-    fn normalize(&self, primary_window: Option<Entity>) -> Option<NormalizedRenderTarget>;
+pub trait NormalizedRenderTargetExt {
+    fn get_texture_view<'a>(
+        &self,
+        windows: &'a ExtractedWindows,
+        images: &'a RenderAssets<GpuImage>,
+        manual_texture_views: &'a ManualTextureViews,
+    ) -> Option<&'a TextureView>;
+
+    /// Retrieves the [`TextureFormat`] of this render target, if it exists.
+    fn get_texture_format<'a>(
+        &self,
+        windows: &'a ExtractedWindows,
+        images: &'a RenderAssets<GpuImage>,
+        manual_texture_views: &'a ManualTextureViews,
+    ) -> Option<TextureFormat>;
+
+    fn get_render_target_info<'a>(
+        &self,
+        resolutions: impl IntoIterator<Item = (Entity, &'a Window)>,
+        images: &Assets<Image>,
+        manual_texture_views: &ManualTextureViews,
+    ) -> Result<RenderTargetInfo, MissingRenderTargetInfoError>;
+
+    // Check if this render target is contained in the given changed windows or images.
+    fn is_changed(
+        &self,
+        changed_window_ids: &HashSet<Entity>,
+        changed_image_handles: &HashSet<&AssetId<Image>>,
+    ) -> bool;
 }
 
-impl ToNormalizedRenderTarget for RenderTarget {
-    fn normalize(&self, primary_window: Option<Entity>) -> Option<NormalizedRenderTarget> {
-        match self {
-            RenderTarget::Window(window_ref) => window_ref
-                .normalize(primary_window)
-                .map(NormalizedRenderTarget::Window),
-            RenderTarget::Image(handle) => Some(NormalizedRenderTarget::Image(handle.clone())),
-            RenderTarget::TextureView(id) => Some(NormalizedRenderTarget::TextureView(*id)),
-        }
-    }
-}
-
-/// Normalized version of the render target.
-///
-/// Once we have this we shouldn't need to resolve it down anymore.
-#[derive(Debug, Clone, Reflect, PartialEq, Eq, Hash, PartialOrd, Ord, From)]
-#[reflect(Clone, PartialEq, Hash)]
-pub enum NormalizedRenderTarget {
-    /// Window to which the camera's view is rendered.
-    Window(NormalizedWindowRef),
-    /// Image to which the camera's view is rendered.
-    Image(ImageRenderTarget),
-    /// Texture View to which the camera's view is rendered.
-    /// Useful when the texture view needs to be created outside of Bevy, for example OpenXR.
-    TextureView(ManualTextureViewHandle),
-}
-
-impl NormalizedRenderTarget {
-    pub fn get_texture_view<'a>(
+impl NormalizedRenderTargetExt for NormalizedRenderTarget {
+    fn get_texture_view<'a>(
         &self,
         windows: &'a ExtractedWindows,
         images: &'a RenderAssets<GpuImage>,
@@ -204,7 +198,7 @@ impl NormalizedRenderTarget {
     }
 
     /// Retrieves the [`TextureFormat`] of this render target, if it exists.
-    pub fn get_texture_format<'a>(
+    fn get_texture_format<'a>(
         &self,
         windows: &'a ExtractedWindows,
         images: &'a RenderAssets<GpuImage>,
@@ -223,12 +217,12 @@ impl NormalizedRenderTarget {
         }
     }
 
-    pub fn get_render_target_info<'a>(
+    fn get_render_target_info<'a>(
         &self,
         resolutions: impl IntoIterator<Item = (Entity, &'a Window)>,
         images: &Assets<Image>,
         manual_texture_views: &ManualTextureViews,
-    ) -> Option<RenderTargetInfo> {
+    ) -> Result<RenderTargetInfo, MissingRenderTargetInfoError> {
         match self {
             NormalizedRenderTarget::Window(window_ref) => resolutions
                 .into_iter()
@@ -236,20 +230,26 @@ impl NormalizedRenderTarget {
                 .map(|(_, window)| RenderTargetInfo {
                     physical_size: window.physical_size(),
                     scale_factor: window.resolution.scale_factor(),
+                })
+                .ok_or(MissingRenderTargetInfoError::Window {
+                    window: window_ref.entity(),
                 }),
-            NormalizedRenderTarget::Image(image_target) => {
-                let image = images.get(&image_target.handle)?;
-                Some(RenderTargetInfo {
+            NormalizedRenderTarget::Image(image_target) => images
+                .get(&image_target.handle)
+                .map(|image| RenderTargetInfo {
                     physical_size: image.size(),
                     scale_factor: image_target.scale_factor.0,
                 })
-            }
-            NormalizedRenderTarget::TextureView(id) => {
-                manual_texture_views.get(id).map(|tex| RenderTargetInfo {
+                .ok_or(MissingRenderTargetInfoError::Image {
+                    image: image_target.handle.id(),
+                }),
+            NormalizedRenderTarget::TextureView(id) => manual_texture_views
+                .get(id)
+                .map(|tex| RenderTargetInfo {
                     physical_size: tex.size,
                     scale_factor: 1.0,
                 })
-            }
+                .ok_or(MissingRenderTargetInfoError::TextureView { texture_view: *id }),
         }
     }
 
@@ -271,6 +271,18 @@ impl NormalizedRenderTarget {
     }
 }
 
+#[derive(Debug, thiserror::Error)]
+pub enum MissingRenderTargetInfoError {
+    #[error("RenderTarget::Window missing ({window:?}): Make sure the provided entity has a Window component.")]
+    Window { window: Entity },
+    #[error("RenderTarget::Image missing ({image:?}): Make sure the Image's usages include RenderAssetUsages::MAIN_WORLD.")]
+    Image { image: AssetId<Image> },
+    #[error("RenderTarget::TextureView missing ({texture_view:?}): make sure the texture view handle was not removed.")]
+    TextureView {
+        texture_view: ManualTextureViewHandle,
+    },
+}
+
 /// System in charge of updating a [`Camera`] when its window or projection changes.
 ///
 /// The system detects window creation, resize, and scale factor change events to update the camera
@@ -281,8 +293,8 @@ impl NormalizedRenderTarget {
 /// [`Res<Assets<Image>>`](Assets<Image>) -- For cameras that render to an image, this resource is used to
 /// inspect information about the render target. This system will not access any other image assets.
 ///
-/// [`OrthographicProjection`]: crate::camera::OrthographicProjection
-/// [`PerspectiveProjection`]: crate::camera::PerspectiveProjection
+/// [`OrthographicProjection`]: bevy_camera::OrthographicProjection
+/// [`PerspectiveProjection`]: bevy_camera::PerspectiveProjection
 pub fn camera_system(
     mut window_resized_events: EventReader<WindowResized>,
     mut window_created_events: EventReader<WindowCreated>,
@@ -293,7 +305,7 @@ pub fn camera_system(
     images: Res<Assets<Image>>,
     manual_texture_views: Res<ManualTextureViews>,
     mut cameras: Query<(&mut Camera, &mut Projection)>,
-) {
+) -> Result<(), BevyError> {
     let primary_window = primary_window.iter().next();
 
     let mut changed_window_ids = <HashSet<_>>::default();
@@ -319,64 +331,52 @@ pub fn camera_system(
             .as_ref()
             .map(|viewport| viewport.physical_size);
 
-        if let Some(normalized_target) = &camera.target.normalize(primary_window) {
-            if normalized_target.is_changed(&changed_window_ids, &changed_image_handles)
+        if let Some(normalized_target) = &camera.target.normalize(primary_window)
+            && (normalized_target.is_changed(&changed_window_ids, &changed_image_handles)
                 || camera.is_added()
                 || camera_projection.is_changed()
                 || camera.computed.old_viewport_size != viewport_size
-                || camera.computed.old_sub_camera_view != camera.sub_camera_view
+                || camera.computed.old_sub_camera_view != camera.sub_camera_view)
+        {
+            let new_computed_target_info = normalized_target.get_render_target_info(
+                windows,
+                &images,
+                &manual_texture_views,
+            )?;
+            // Check for the scale factor changing, and resize the viewport if needed.
+            // This can happen when the window is moved between monitors with different DPIs.
+            // Without this, the viewport will take a smaller portion of the window moved to
+            // a higher DPI monitor.
+            if normalized_target.is_changed(&scale_factor_changed_window_ids, &HashSet::default())
+                && let Some(old_scale_factor) = camera
+                    .computed
+                    .target_info
+                    .as_ref()
+                    .map(|info| info.scale_factor)
             {
-                let new_computed_target_info = normalized_target.get_render_target_info(
-                    windows,
-                    &images,
-                    &manual_texture_views,
-                );
-                // Check for the scale factor changing, and resize the viewport if needed.
-                // This can happen when the window is moved between monitors with different DPIs.
-                // Without this, the viewport will take a smaller portion of the window moved to
-                // a higher DPI monitor.
-                if normalized_target
-                    .is_changed(&scale_factor_changed_window_ids, &HashSet::default())
-                {
-                    if let (Some(new_scale_factor), Some(old_scale_factor)) = (
-                        new_computed_target_info
-                            .as_ref()
-                            .map(|info| info.scale_factor),
-                        camera
-                            .computed
-                            .target_info
-                            .as_ref()
-                            .map(|info| info.scale_factor),
-                    ) {
-                        let resize_factor = new_scale_factor / old_scale_factor;
-                        if let Some(ref mut viewport) = camera.viewport {
-                            let resize = |vec: UVec2| (vec.as_vec2() * resize_factor).as_uvec2();
-                            viewport.physical_position = resize(viewport.physical_position);
-                            viewport.physical_size = resize(viewport.physical_size);
-                            viewport_size = Some(viewport.physical_size);
-                        }
-                    }
+                let resize_factor = new_computed_target_info.scale_factor / old_scale_factor;
+                if let Some(ref mut viewport) = camera.viewport {
+                    let resize = |vec: UVec2| (vec.as_vec2() * resize_factor).as_uvec2();
+                    viewport.physical_position = resize(viewport.physical_position);
+                    viewport.physical_size = resize(viewport.physical_size);
+                    viewport_size = Some(viewport.physical_size);
                 }
-                // This check is needed because when changing WindowMode to Fullscreen, the viewport may have invalid
-                // arguments due to a sudden change on the window size to a lower value.
-                // If the size of the window is lower, the viewport will match that lower value.
-                if let Some(viewport) = &mut camera.viewport {
-                    let target_info = &new_computed_target_info;
-                    if let Some(target) = target_info {
-                        viewport.clamp_to_size(target.physical_size);
-                    }
-                }
-                camera.computed.target_info = new_computed_target_info;
-                if let Some(size) = camera.logical_viewport_size() {
-                    if size.x != 0.0 && size.y != 0.0 {
-                        camera_projection.update(size.x, size.y);
-                        camera.computed.clip_from_view = match &camera.sub_camera_view {
-                            Some(sub_view) => {
-                                camera_projection.get_clip_from_view_for_sub(sub_view)
-                            }
-                            None => camera_projection.get_clip_from_view(),
-                        }
-                    }
+            }
+            // This check is needed because when changing WindowMode to Fullscreen, the viewport may have invalid
+            // arguments due to a sudden change on the window size to a lower value.
+            // If the size of the window is lower, the viewport will match that lower value.
+            if let Some(viewport) = &mut camera.viewport {
+                viewport.clamp_to_size(new_computed_target_info.physical_size);
+            }
+            camera.computed.target_info = Some(new_computed_target_info);
+            if let Some(size) = camera.logical_viewport_size()
+                && size.x != 0.0
+                && size.y != 0.0
+            {
+                camera_projection.update(size.x, size.y);
+                camera.computed.clip_from_view = match &camera.sub_camera_view {
+                    Some(sub_view) => camera_projection.get_clip_from_view_for_sub(sub_view),
+                    None => camera_projection.get_clip_from_view(),
                 }
             }
         }
@@ -389,6 +389,7 @@ pub fn camera_system(
             camera.computed.old_sub_camera_view = camera.sub_camera_view;
         }
     }
+    Ok(())
 }
 
 #[derive(Component, Debug)]
@@ -619,10 +620,10 @@ pub fn sort_cameras(
     let mut target_counts = <HashMap<_, _>>::default();
     for sorted_camera in &mut sorted_cameras.0 {
         let new_order_target = (sorted_camera.order, sorted_camera.target.clone());
-        if let Some(previous_order_target) = previous_order_target {
-            if previous_order_target == new_order_target {
-                ambiguities.insert(new_order_target.clone());
-            }
+        if let Some(previous_order_target) = previous_order_target
+            && previous_order_target == new_order_target
+        {
+            ambiguities.insert(new_order_target.clone());
         }
         if let Some(target) = &sorted_camera.target {
             let count = target_counts
@@ -653,7 +654,7 @@ pub fn sort_cameras(
 ///
 /// Do not use with [`OrthographicProjection`].
 ///
-/// [`OrthographicProjection`]: crate::camera::OrthographicProjection
+/// [`OrthographicProjection`]: bevy_camera::OrthographicProjection
 #[derive(Component, Clone, Default, Reflect)]
 #[reflect(Default, Component, Clone)]
 pub struct TemporalJitter {

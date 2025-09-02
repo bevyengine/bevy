@@ -36,10 +36,6 @@ pub struct DirectionalNavigationPlugin;
 impl Plugin for DirectionalNavigationPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<DirectionalNavigationMap>();
-
-        #[cfg(feature = "bevy_reflect")]
-        app.register_type::<NavNeighbors>()
-            .register_type::<DirectionalNavigationMap>();
     }
 }
 

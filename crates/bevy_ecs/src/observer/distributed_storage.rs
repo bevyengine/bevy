@@ -13,8 +13,8 @@ use core::any::Any;
 
 use crate::{
     component::{
-        ComponentCloneBehavior, ComponentId, ComponentsRegistrator, Mutable, NoKey,
-        RequiredComponents, StorageType,
+        ComponentCloneBehavior, ComponentId, Mutable, NoKey, RequiredComponentsRegistrator,
+        StorageType,
     },
     entity::Entity,
     entity_disabling::Internal,
@@ -53,8 +53,8 @@ use crate::prelude::ReflectComponent;
 ///     message: String,
 /// }
 ///
-/// world.add_observer(|trigger: On<Speak>| {
-///     println!("{}", trigger.event().message);
+/// world.add_observer(|event: On<Speak>| {
+///     println!("{}", event.message);
 /// });
 ///
 /// // Observers currently require a flush() to be registered. In the context of schedules,
@@ -74,8 +74,8 @@ use crate::prelude::ReflectComponent;
 /// # #[derive(Event)]
 /// # struct Speak;
 /// // These are functionally the same:
-/// world.add_observer(|trigger: On<Speak>| {});
-/// world.spawn(Observer::new(|trigger: On<Speak>| {}));
+/// world.add_observer(|event: On<Speak>| {});
+/// world.spawn(Observer::new(|event: On<Speak>| {}));
 /// ```
 ///
 /// Observers are systems. They can access arbitrary [`World`] data by adding [`SystemParam`]s:
@@ -87,7 +87,7 @@ use crate::prelude::ReflectComponent;
 /// # struct PrintNames;
 /// # #[derive(Component, Debug)]
 /// # struct Name;
-/// world.add_observer(|trigger: On<PrintNames>, names: Query<&Name>| {
+/// world.add_observer(|event: On<PrintNames>, names: Query<&Name>| {
 ///     for name in &names {
 ///         println!("{name:?}");
 ///     }
@@ -105,7 +105,7 @@ use crate::prelude::ReflectComponent;
 /// # struct SpawnThing;
 /// # #[derive(Component, Debug)]
 /// # struct Thing;
-/// world.add_observer(|trigger: On<SpawnThing>, mut commands: Commands| {
+/// world.add_observer(|event: On<SpawnThing>, mut commands: Commands| {
 ///     commands.spawn(Thing);
 /// });
 /// ```
@@ -119,7 +119,7 @@ use crate::prelude::ReflectComponent;
 /// # struct A;
 /// # #[derive(Event)]
 /// # struct B;
-/// world.add_observer(|trigger: On<A>, mut commands: Commands| {
+/// world.add_observer(|event: On<A>, mut commands: Commands| {
 ///     commands.trigger(B);
 /// });
 /// ```
@@ -138,9 +138,9 @@ use crate::prelude::ReflectComponent;
 /// #[derive(EntityEvent)]
 /// struct Explode;
 ///
-/// world.add_observer(|trigger: On<Explode>, mut commands: Commands| {
-///     println!("Entity {} goes BOOM!", trigger.target());
-///     commands.entity(trigger.target()).despawn();
+/// world.add_observer(|event: On<Explode>, mut commands: Commands| {
+///     println!("Entity {} goes BOOM!", event.entity());
+///     commands.entity(event.entity()).despawn();
 /// });
 ///
 /// world.flush();
@@ -171,12 +171,12 @@ use crate::prelude::ReflectComponent;
 /// # let e2 = world.spawn_empty().id();
 /// # #[derive(EntityEvent)]
 /// # struct Explode;
-/// world.entity_mut(e1).observe(|trigger: On<Explode>, mut commands: Commands| {
+/// world.entity_mut(e1).observe(|event: On<Explode>, mut commands: Commands| {
 ///     println!("Boom!");
-///     commands.entity(trigger.target()).despawn();
+///     commands.entity(event.entity()).despawn();
 /// });
 ///
-/// world.entity_mut(e2).observe(|trigger: On<Explode>, mut commands: Commands| {
+/// world.entity_mut(e2).observe(|event: On<Explode>, mut commands: Commands| {
 ///     println!("The explosion fizzles! This entity is immune!");
 /// });
 /// ```
@@ -193,15 +193,14 @@ use crate::prelude::ReflectComponent;
 /// # let entity = world.spawn_empty().id();
 /// # #[derive(EntityEvent)]
 /// # struct Explode;
-/// let mut observer = Observer::new(|trigger: On<Explode>| {});
+/// let mut observer = Observer::new(|event: On<Explode>| {});
 /// observer.watch_entity(entity);
 /// world.spawn(observer);
 /// ```
 ///
 /// Note that the [`Observer`] component is not added to the entity it is observing. Observers should always be their own entities!
 ///
-/// You can call [`Observer::watch_entity`] more than once, which allows you to watch multiple entities with the same [`Observer`].
-/// serves as the "source of truth" of the observer.
+/// You can call [`Observer::watch_entity`] more than once or [`Observer::watch_entities`] to watch multiple entities with the same [`Observer`].
 ///
 /// [`SystemParam`]: crate::system::SystemParam
 pub struct Observer {
@@ -269,28 +268,44 @@ impl Observer {
         }
     }
 
-    /// Observe the given `entity`. This will cause the [`Observer`] to run whenever the [`Event`] is triggered
-    /// for the `entity`.
+    /// Observes the given `entity` (in addition to any entity already being observed).
+    /// This will cause the [`Observer`] to run whenever the [`Event`] is triggered for the `entity`.
+    /// Note that if this is called _after_ an [`Observer`] is spawned, it will produce no effects.
     pub fn with_entity(mut self, entity: Entity) -> Self {
-        self.descriptor.entities.push(entity);
+        self.watch_entity(entity);
         self
     }
 
-    /// Observe the given `entity`. This will cause the [`Observer`] to run whenever the [`Event`] is triggered
-    /// for the `entity`.
+    /// Observes the given `entities` (in addition to any entity already being observed).
+    /// This will cause the [`Observer`] to run whenever the [`Event`] is triggered for any of these `entities`.
+    /// Note that if this is called _after_ an [`Observer`] is spawned, it will produce no effects.
+    pub fn with_entities<I: IntoIterator<Item = Entity>>(mut self, entities: I) -> Self {
+        self.watch_entities(entities);
+        self
+    }
+
+    /// Observes the given `entity` (in addition to any entity already being observed).
+    /// This will cause the [`Observer`] to run whenever the [`Event`] is triggered for the `entity`.
     /// Note that if this is called _after_ an [`Observer`] is spawned, it will produce no effects.
     pub fn watch_entity(&mut self, entity: Entity) {
         self.descriptor.entities.push(entity);
     }
 
-    /// Observe the given `component`. This will cause the [`Observer`] to run whenever the [`Event`] is triggered
+    /// Observes the given `entity` (in addition to any entity already being observed).
+    /// This will cause the [`Observer`] to run whenever the [`Event`] is triggered for any of these `entities`.
+    /// Note that if this is called _after_ an [`Observer`] is spawned, it will produce no effects.
+    pub fn watch_entities<I: IntoIterator<Item = Entity>>(&mut self, entities: I) {
+        self.descriptor.entities.extend(entities);
+    }
+
+    /// Observes the given `component`. This will cause the [`Observer`] to run whenever the [`Event`] is triggered
     /// with the given component target.
     pub fn with_component(mut self, component: ComponentId) -> Self {
         self.descriptor.components.push(component);
         self
     }
 
-    /// Observe the given `event_key`. This will cause the [`Observer`] to run whenever an event with the given [`EventKey`]
+    /// Observes the given `event_key`. This will cause the [`Observer`] to run whenever an event with the given [`EventKey`]
     /// is triggered.
     /// # Safety
     /// The type of the `event_key` [`EventKey`] _must_ match the actual value
@@ -300,7 +315,7 @@ impl Observer {
         self
     }
 
-    /// Set the error handler to use for this observer.
+    /// Sets the error handler to use for this observer.
     ///
     /// See the [`error` module-level documentation](crate::error) for more information.
     pub fn with_error_handler(mut self, error_handler: fn(BevyError, ErrorContext)) -> Self {
@@ -350,17 +365,9 @@ impl Component for Observer {
 
     fn register_required_components(
         _component_id: ComponentId,
-        components: &mut ComponentsRegistrator,
-        required_components: &mut RequiredComponents,
-        inheritance_depth: u16,
-        recursion_check_stack: &mut Vec<ComponentId>,
+        required_components: &mut RequiredComponentsRegistrator,
     ) {
-        components.register_required_components_manual::<Self, Internal>(
-            required_components,
-            Internal::default,
-            inheritance_depth,
-            recursion_check_stack,
-        );
+        required_components.register_required(Internal::default);
     }
 }
 

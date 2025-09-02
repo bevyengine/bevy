@@ -3,10 +3,10 @@
 use bevy::{
     input::mouse::{AccumulatedMouseMotion, MouseButtonInput},
     math::prelude::*,
+    mesh::SphereKind,
     prelude::*,
-    render::mesh::SphereKind,
 };
-use rand::{distributions::Distribution, SeedableRng};
+use rand::{distr::Distribution, SeedableRng};
 use rand_chacha::ChaCha8Rng;
 
 fn main() {
@@ -120,8 +120,8 @@ fn setup(
         ),
         Node {
             position_type: PositionType::Absolute,
-            top: Val::Px(12.0),
-            left: Val::Px(12.0),
+            top: px(12),
+            left: px(12),
             ..default()
         },
     ));

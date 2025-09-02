@@ -10,6 +10,7 @@
 //! [a blog post on depth of field in Unity]: https://catlikecoding.com/unity/tutorials/advanced-rendering/depth-of-field/
 
 use bevy::{
+    camera::PhysicalCameraParameters,
     core_pipeline::{
         bloom::Bloom,
         dof::{self, DepthOfField, DepthOfFieldMode},
@@ -18,7 +19,6 @@ use bevy::{
     gltf::GltfMeshName,
     pbr::Lightmap,
     prelude::*,
-    render::camera::PhysicalCameraParameters,
 };
 
 /// The increments in which the user can adjust the focal distance, in meters
@@ -93,8 +93,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, app_settings: R
         create_text(&app_settings),
         Node {
             position_type: PositionType::Absolute,
-            bottom: Val::Px(12.0),
-            left: Val::Px(12.0),
+            bottom: px(12),
+            left: px(12),
             ..default()
         },
     ));

@@ -1,13 +1,13 @@
 //! This example demonstrates how to use the `Camera::viewport_to_world_2d` method with a dynamic viewport and camera.
 
 use bevy::{
+    camera::Viewport,
     color::palettes::{
         basic::WHITE,
         css::{GREEN, RED},
     },
     math::ops::powf,
     prelude::*,
-    render::camera::Viewport,
 };
 
 fn main() {
@@ -150,8 +150,8 @@ fn setup(
         ),
         Node {
             position_type: PositionType::Absolute,
-            top: Val::Px(12.0),
-            left: Val::Px(12.0),
+            top: px(12),
+            left: px(12),
             ..default()
         },
     ));

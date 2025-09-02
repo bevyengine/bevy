@@ -353,7 +353,7 @@ impl<T> WideCubicKeyframeCurve<T> {
         let values: Vec<T> = values.into_iter().collect();
         let divisor = times.len() * 3;
 
-        if values.len() % divisor != 0 {
+        if !values.len().is_multiple_of(divisor) {
             return Err(WideKeyframeCurveError::LengthMismatch {
                 values_given: values.len(),
                 divisor,

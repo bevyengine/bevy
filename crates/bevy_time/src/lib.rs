@@ -76,8 +76,7 @@ impl Plugin for TimePlugin {
             app.register_type::<Time>()
                 .register_type::<Time<Real>>()
                 .register_type::<Time<Virtual>>()
-                .register_type::<Time<Fixed>>()
-                .register_type::<Timer>();
+                .register_type::<Time<Fixed>>();
         }
 
         app.add_systems(

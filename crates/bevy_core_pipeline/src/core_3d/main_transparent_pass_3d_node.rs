@@ -1,7 +1,8 @@
 use crate::core_3d::Transparent3d;
+use bevy_camera::{MainPassResolutionOverride, Viewport};
 use bevy_ecs::{prelude::*, query::QueryItem};
 use bevy_render::{
-    camera::{ExtractedCamera, MainPassResolutionOverride},
+    camera::ExtractedCamera,
     diagnostic::RecordDiagnostics,
     render_graph::{NodeRunError, RenderGraphContext, ViewNode},
     render_phase::ViewSortedRenderPhases,
@@ -69,8 +70,10 @@ impl ViewNode for MainTransparentPass3dNode {
 
             let pass_span = diagnostics.pass_span(&mut render_pass, "main_transparent_pass_3d");
 
-            if let Some(viewport) = camera.viewport.as_ref() {
-                render_pass.set_camera_viewport(&viewport.with_override(resolution_override));
+            if let Some(viewport) =
+                Viewport::from_viewport_and_override(camera.viewport.as_ref(), resolution_override)
+            {
+                render_pass.set_camera_viewport(&viewport);
             }
 
             if let Err(err) = transparent_phase.render(&mut render_pass, world, view_entity) {

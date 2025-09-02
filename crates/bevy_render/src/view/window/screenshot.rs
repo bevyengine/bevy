@@ -1,9 +1,7 @@
 use super::ExtractedWindows;
 use crate::{
-    camera::{NormalizedRenderTarget, ToNormalizedRenderTarget as _},
     gpu_readback,
-    prelude::Shader,
-    render_asset::{RenderAssetUsages, RenderAssets},
+    render_asset::RenderAssets,
     render_resource::{
         binding_types::texture_2d, BindGroup, BindGroupEntries, BindGroupLayout,
         BindGroupLayoutEntries, Buffer, BufferUsages, CachedRenderPipelineId, FragmentState,
@@ -17,8 +15,8 @@ use crate::{
 };
 use alloc::{borrow::Cow, sync::Arc};
 use bevy_app::{First, Plugin, Update};
-use bevy_asset::{embedded_asset, load_embedded_asset, AssetServer, Handle};
-use bevy_camera::{ManualTextureViewHandle, RenderTarget};
+use bevy_asset::{embedded_asset, load_embedded_asset, AssetServer, Handle, RenderAssetUsages};
+use bevy_camera::{ManualTextureViewHandle, NormalizedRenderTarget, RenderTarget};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     entity::EntityHashMap, event::event_update_system, prelude::*, system::SystemState,
@@ -26,6 +24,7 @@ use bevy_ecs::{
 use bevy_image::{Image, TextureFormatPixelInfo, ToExtents};
 use bevy_platform::collections::HashSet;
 use bevy_reflect::Reflect;
+use bevy_shader::Shader;
 use bevy_tasks::AsyncComputeTaskPool;
 use bevy_utils::default;
 use bevy_window::{PrimaryWindow, WindowRef};
@@ -125,8 +124,8 @@ struct RenderScreenshotsSender(Sender<(Entity, Image)>);
 /// Saves the captured screenshot to disk at the provided path.
 pub fn save_to_disk(path: impl AsRef<Path>) -> impl FnMut(On<ScreenshotCaptured>) {
     let path = path.as_ref().to_owned();
-    move |trigger| {
-        let img = trigger.event().deref().clone();
+    move |event| {
+        let img = event.0.clone();
         match img.try_into_dynamic() {
             Ok(dyn_img) => match image::ImageFormat::from_path(&path) {
                 Ok(format) => {
@@ -364,7 +363,7 @@ fn prepare_screenshot_state(
     let texture_view = texture.create_view(&Default::default());
     let buffer = render_device.create_buffer(&wgpu::BufferDescriptor {
         label: Some("screenshot-transfer-buffer"),
-        size: gpu_readback::get_aligned_size(size, format.pixel_size() as u32) as u64,
+        size: gpu_readback::get_aligned_size(size, format.pixel_size().unwrap_or(0) as u32) as u64,
         usage: BufferUsages::MAP_READ | BufferUsages::COPY_DST,
         mapped_at_creation: false,
     });
@@ -401,9 +400,7 @@ impl Plugin for ScreenshotPlugin {
                     .after(event_update_system)
                     .before(ApplyDeferred),
             )
-            .add_systems(Update, trigger_screenshots)
-            .register_type::<Screenshot>()
-            .register_type::<ScreenshotCaptured>();
+            .add_systems(Update, trigger_screenshots);
 
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
@@ -595,6 +592,7 @@ fn render_screenshot(
                 label: Some("screenshot_to_screen_pass"),
                 color_attachments: &[Some(wgpu::RenderPassColorAttachment {
                     view: texture_view,
+                    depth_slice: None,
                     resolve_target: None,
                     ops: wgpu::Operations {
                         load: wgpu::LoadOp::Load,
@@ -625,7 +623,9 @@ pub(crate) fn collect_screenshots(world: &mut World) {
         let width = prepared.size.width;
         let height = prepared.size.height;
         let texture_format = prepared.texture.format();
-        let pixel_size = texture_format.pixel_size();
+        let Ok(pixel_size) = texture_format.pixel_size() else {
+            continue;
+        };
         let buffer = prepared.buffer.clone();
 
         let finish = async move {

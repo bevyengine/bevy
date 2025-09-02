@@ -1,13 +1,13 @@
-use super::ShaderDefVal;
-use crate::mesh::VertexBufferLayout;
+use super::empty_bind_group_layout;
 use crate::WgpuWrapper;
-use crate::{
-    define_atomic_id,
-    render_resource::{BindGroupLayout, Shader},
-};
+use crate::{define_atomic_id, render_resource::BindGroupLayout};
 use alloc::borrow::Cow;
 use bevy_asset::Handle;
+use bevy_mesh::VertexBufferLayout;
+use bevy_shader::{Shader, ShaderDefVal};
+use core::iter;
 use core::ops::Deref;
+use thiserror::Error;
 use wgpu::{
     ColorTargetState, DepthStencilState, MultisampleState, PrimitiveState, PushConstantRange,
 };
@@ -112,6 +112,20 @@ pub struct RenderPipelineDescriptor {
     pub zero_initialize_workgroup_memory: bool,
 }
 
+#[derive(Copy, Clone, Debug, Error)]
+#[error("RenderPipelineDescriptor has no FragmentState configured")]
+pub struct NoFragmentStateError;
+
+impl RenderPipelineDescriptor {
+    pub fn fragment_mut(&mut self) -> Result<&mut FragmentState, NoFragmentStateError> {
+        self.fragment.as_mut().ok_or(NoFragmentStateError)
+    }
+
+    pub fn set_layout(&mut self, index: usize, layout: BindGroupLayout) {
+        filling_set_at(&mut self.layout, index, empty_bind_group_layout(), layout);
+    }
+}
+
 #[derive(Clone, Debug, Eq, PartialEq, Default)]
 pub struct VertexState {
     /// The compiled shader module for this stage.
@@ -137,6 +151,12 @@ pub struct FragmentState {
     pub targets: Vec<Option<ColorTargetState>>,
 }
 
+impl FragmentState {
+    pub fn set_target(&mut self, index: usize, target: ColorTargetState) {
+        filling_set_at(&mut self.targets, index, None, Some(target));
+    }
+}
+
 /// Describes a compute pipeline.
 #[derive(Clone, Debug, PartialEq, Eq, Default)]
 pub struct ComputePipelineDescriptor {
@@ -152,4 +172,12 @@ pub struct ComputePipelineDescriptor {
     /// Whether to zero-initialize workgroup memory by default. If you're not sure, set this to true.
     /// If this is false, reading from workgroup variables before writing to them will result in garbage values.
     pub zero_initialize_workgroup_memory: bool,
+}
+
+// utility function to set a value at the specified index, extending with
+// a filler value if the index is out of bounds.
+fn filling_set_at<T: Clone>(vec: &mut Vec<T>, index: usize, filler: T, value: T) {
+    let num_to_fill = (index + 1).saturating_sub(vec.len());
+    vec.extend(iter::repeat_n(filler, num_to_fill));
+    vec[index] = value;
 }

@@ -291,7 +291,9 @@ impl<'w> EntityRef<'w> {
     pub fn get_components<Q: ReadOnlyQueryData + ReleaseStateQueryData>(
         &self,
     ) -> Option<Q::Item<'w, 'static>> {
-        // SAFETY: We have read-only access to all components of this entity.
+        // SAFETY:
+        // - We have read-only access to all components of this entity.
+        // - The query is read-only, and read-only references cannot have conflicts.
         unsafe { self.cell.get_components::<Q>() }
     }
 
@@ -560,6 +562,78 @@ impl<'w> EntityMut<'w> {
         &self,
     ) -> Option<Q::Item<'_, 'static>> {
         self.as_readonly().get_components::<Q>()
+    }
+
+    /// Returns components for the current entity that match the query `Q`,
+    /// or `None` if the entity does not have the components required by the query `Q`.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// #
+    /// #[derive(Component)]
+    /// struct X(usize);
+    /// #[derive(Component)]
+    /// struct Y(usize);
+    ///
+    /// # let mut world = World::default();
+    /// let mut entity = world.spawn((X(0), Y(0))).into_mutable();
+    /// // Get mutable access to two components at once
+    /// // SAFETY: X and Y are different components
+    /// let (mut x, mut y) =
+    ///     unsafe { entity.get_components_mut_unchecked::<(&mut X, &mut Y)>() }.unwrap();
+    /// *x = X(1);
+    /// *y = Y(1);
+    /// // This would trigger undefined behavior, as the `&mut X`s would alias:
+    /// // entity.get_components_mut_unchecked::<(&mut X, &mut X)>();
+    /// ```
+    ///
+    /// # Safety
+    /// It is the caller's responsibility to ensure that
+    /// the `QueryData` does not provide aliasing mutable references to the same component.
+    pub unsafe fn get_components_mut_unchecked<Q: ReleaseStateQueryData>(
+        &mut self,
+    ) -> Option<Q::Item<'_, 'static>> {
+        // SAFETY: Caller the `QueryData` does not provide aliasing mutable references to the same component
+        unsafe { self.reborrow().into_components_mut_unchecked::<Q>() }
+    }
+
+    /// Consumes self and returns components for the current entity that match the query `Q` for the world lifetime `'w`,
+    /// or `None` if the entity does not have the components required by the query `Q`.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// #
+    /// #[derive(Component)]
+    /// struct X(usize);
+    /// #[derive(Component)]
+    /// struct Y(usize);
+    ///
+    /// # let mut world = World::default();
+    /// let mut entity = world.spawn((X(0), Y(0))).into_mutable();
+    /// // Get mutable access to two components at once
+    /// // SAFETY: X and Y are different components
+    /// let (mut x, mut y) =
+    ///     unsafe { entity.into_components_mut_unchecked::<(&mut X, &mut Y)>() }.unwrap();
+    /// *x = X(1);
+    /// *y = Y(1);
+    /// // This would trigger undefined behavior, as the `&mut X`s would alias:
+    /// // entity.into_components_mut_unchecked::<(&mut X, &mut X)>();
+    /// ```
+    ///
+    /// # Safety
+    /// It is the caller's responsibility to ensure that
+    /// the `QueryData` does not provide aliasing mutable references to the same component.
+    pub unsafe fn into_components_mut_unchecked<Q: ReleaseStateQueryData>(
+        self,
+    ) -> Option<Q::Item<'w, 'static>> {
+        // SAFETY:
+        // - We have mutable access to all components of this entity.
+        // - Caller asserts the `QueryData` does not provide aliasing mutable references to the same component
+        unsafe { self.cell.get_components::<Q>() }
     }
 
     /// Consumes `self` and gets access to the component of type `T` with the
@@ -1331,6 +1405,76 @@ impl<'w> EntityWorldMut<'w> {
         &self,
     ) -> Option<Q::Item<'_, 'static>> {
         self.as_readonly().get_components::<Q>()
+    }
+
+    /// Returns components for the current entity that match the query `Q`,
+    /// or `None` if the entity does not have the components required by the query `Q`.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// #
+    /// #[derive(Component)]
+    /// struct X(usize);
+    /// #[derive(Component)]
+    /// struct Y(usize);
+    ///
+    /// # let mut world = World::default();
+    /// let mut entity = world.spawn((X(0), Y(0)));
+    /// // Get mutable access to two components at once
+    /// // SAFETY: X and Y are different components
+    /// let (mut x, mut y) =
+    ///     unsafe { entity.get_components_mut_unchecked::<(&mut X, &mut Y)>() }.unwrap();
+    /// *x = X(1);
+    /// *y = Y(1);
+    /// // This would trigger undefined behavior, as the `&mut X`s would alias:
+    /// // entity.get_components_mut_unchecked::<(&mut X, &mut X)>();
+    /// ```
+    ///
+    /// # Safety
+    /// It is the caller's responsibility to ensure that
+    /// the `QueryData` does not provide aliasing mutable references to the same component.
+    pub unsafe fn get_components_mut_unchecked<Q: ReleaseStateQueryData>(
+        &mut self,
+    ) -> Option<Q::Item<'_, 'static>> {
+        // SAFETY: Caller the `QueryData` does not provide aliasing mutable references to the same component
+        unsafe { self.as_mutable().into_components_mut_unchecked::<Q>() }
+    }
+
+    /// Consumes self and returns components for the current entity that match the query `Q` for the world lifetime `'w`,
+    /// or `None` if the entity does not have the components required by the query `Q`.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    /// #
+    /// #[derive(Component)]
+    /// struct X(usize);
+    /// #[derive(Component)]
+    /// struct Y(usize);
+    ///
+    /// # let mut world = World::default();
+    /// let mut entity = world.spawn((X(0), Y(0)));
+    /// // Get mutable access to two components at once
+    /// // SAFETY: X and Y are different components
+    /// let (mut x, mut y) =
+    ///     unsafe { entity.into_components_mut_unchecked::<(&mut X, &mut Y)>() }.unwrap();
+    /// *x = X(1);
+    /// *y = Y(1);
+    /// // This would trigger undefined behavior, as the `&mut X`s would alias:
+    /// // entity.into_components_mut_unchecked::<(&mut X, &mut X)>();
+    /// ```
+    ///
+    /// # Safety
+    /// It is the caller's responsibility to ensure that
+    /// the `QueryData` does not provide aliasing mutable references to the same component.
+    pub unsafe fn into_components_mut_unchecked<Q: ReleaseStateQueryData>(
+        self,
+    ) -> Option<Q::Item<'w, 'static>> {
+        // SAFETY: Caller the `QueryData` does not provide aliasing mutable references to the same component
+        unsafe { self.into_mutable().into_components_mut_unchecked::<Q>() }
     }
 
     /// Consumes `self` and gets access to the component of type `T` with
@@ -2211,7 +2355,10 @@ impl<'w> EntityWorldMut<'w> {
         let mut registrator = unsafe {
             ComponentsRegistrator::new(&mut self.world.components, &mut self.world.component_ids)
         };
-        let bundle_id = bundles.register_contributed_bundle_info::<T>(&mut registrator, storages);
+
+        // SAFETY: `storages`, `bundles` and `registrator` come from the same world.
+        let bundle_id =
+            unsafe { bundles.register_contributed_bundle_info::<T>(&mut registrator, storages) };
 
         // SAFETY: We just created the bundle, and the archetype is valid, since we are in it.
         let Some(mut remover) = (unsafe {
@@ -2258,10 +2405,13 @@ impl<'w> EntityWorldMut<'w> {
             ComponentsRegistrator::new(&mut self.world.components, &mut self.world.component_ids)
         };
 
-        let retained_bundle = self
-            .world
-            .bundles
-            .register_info::<T>(&mut registrator, storages);
+        // SAFETY: `storages`, `bundles` and `registrator` come from the same world.
+        let retained_bundle = unsafe {
+            self.world
+                .bundles
+                .register_info::<T>(&mut registrator, storages)
+        };
+
         // SAFETY: `retained_bundle` exists as we just initialized it.
         let retained_bundle_info = unsafe { self.world.bundles.get_unchecked(retained_bundle) };
         let old_archetype = &mut archetypes[old_location.archetype_id];
@@ -3423,7 +3573,7 @@ impl<'w, 'a, T: Component> VacantComponentEntry<'w, 'a, T> {
 #[derive(Clone, Copy)]
 pub struct FilteredEntityRef<'w, 's> {
     entity: UnsafeEntityCell<'w>,
-    access: &'s Access<ComponentId>,
+    access: &'s Access,
 }
 
 impl<'w, 's> FilteredEntityRef<'w, 's> {
@@ -3433,10 +3583,7 @@ impl<'w, 's> FilteredEntityRef<'w, 's> {
     ///   component can exist at the same time as the returned [`FilteredEntityMut`]
     /// - If `access` takes any access for a component `entity` must have that component.
     #[inline]
-    pub(crate) unsafe fn new(
-        entity: UnsafeEntityCell<'w>,
-        access: &'s Access<ComponentId>,
-    ) -> Self {
+    pub(crate) unsafe fn new(entity: UnsafeEntityCell<'w>, access: &'s Access) -> Self {
         Self { entity, access }
     }
 
@@ -3461,7 +3608,7 @@ impl<'w, 's> FilteredEntityRef<'w, 's> {
 
     /// Returns a reference to the underlying [`Access`].
     #[inline]
-    pub fn access(&self) -> &Access<ComponentId> {
+    pub fn access(&self) -> &Access {
         self.access
     }
 
@@ -3741,7 +3888,7 @@ unsafe impl EntityEquivalent for FilteredEntityRef<'_, '_> {}
 /// ```
 pub struct FilteredEntityMut<'w, 's> {
     entity: UnsafeEntityCell<'w>,
-    access: &'s Access<ComponentId>,
+    access: &'s Access,
 }
 
 impl<'w, 's> FilteredEntityMut<'w, 's> {
@@ -3753,10 +3900,7 @@ impl<'w, 's> FilteredEntityMut<'w, 's> {
     ///   may exist at the same time as the returned [`FilteredEntityMut`]
     /// - If `access` takes any access for a component `entity` must have that component.
     #[inline]
-    pub(crate) unsafe fn new(
-        entity: UnsafeEntityCell<'w>,
-        access: &'s Access<ComponentId>,
-    ) -> Self {
+    pub(crate) unsafe fn new(entity: UnsafeEntityCell<'w>, access: &'s Access) -> Self {
         Self { entity, access }
     }
 
@@ -3794,7 +3938,7 @@ impl<'w, 's> FilteredEntityMut<'w, 's> {
 
     /// Returns a reference to the underlying [`Access`].
     #[inline]
-    pub fn access(&self) -> &Access<ComponentId> {
+    pub fn access(&self) -> &Access {
         self.access
     }
 
@@ -4069,7 +4213,7 @@ where
     B: Bundle,
 {
     entity: UnsafeEntityCell<'w>,
-    access: &'s Access<ComponentId>,
+    access: &'s Access,
     phantom: PhantomData<B>,
 }
 
@@ -4079,10 +4223,7 @@ where
 {
     /// # Safety
     /// Other users of `UnsafeEntityCell` must only have mutable access to the components in `B`.
-    pub(crate) unsafe fn new(
-        entity: UnsafeEntityCell<'w>,
-        access: &'s Access<ComponentId>,
-    ) -> Self {
+    pub(crate) unsafe fn new(entity: UnsafeEntityCell<'w>, access: &'s Access) -> Self {
         Self {
             entity,
             access,
@@ -4307,7 +4448,7 @@ where
     B: Bundle,
 {
     entity: UnsafeEntityCell<'w>,
-    access: &'s Access<ComponentId>,
+    access: &'s Access,
     phantom: PhantomData<B>,
 }
 
@@ -4317,10 +4458,7 @@ where
 {
     /// # Safety
     /// Other users of `UnsafeEntityCell` must not have access to any components not in `B`.
-    pub(crate) unsafe fn new(
-        entity: UnsafeEntityCell<'w>,
-        access: &'s Access<ComponentId>,
-    ) -> Self {
+    pub(crate) unsafe fn new(entity: UnsafeEntityCell<'w>, access: &'s Access) -> Self {
         Self {
             entity,
             access,
@@ -6008,8 +6146,8 @@ mod tests {
         let mut world = World::new();
         let entity = world
             .spawn_empty()
-            .observe(|trigger: On<TestEvent>, mut commands: Commands| {
-                commands.entity(trigger.target()).insert(TestComponent(0));
+            .observe(|event: On<TestEvent>, mut commands: Commands| {
+                commands.entity(event.entity()).insert(TestComponent(0));
             })
             .id();
 
@@ -6027,8 +6165,8 @@ mod tests {
     #[should_panic]
     fn location_on_despawned_entity_panics() {
         let mut world = World::new();
-        world.add_observer(|trigger: On<Add, TestComponent>, mut commands: Commands| {
-            commands.entity(trigger.target()).despawn();
+        world.add_observer(|event: On<Add, TestComponent>, mut commands: Commands| {
+            commands.entity(event.entity()).despawn();
         });
         let entity = world.spawn_empty().id();
         let mut a = world.entity_mut(entity);
@@ -6117,19 +6255,19 @@ mod tests {
             .push("OrdA hook on_remove");
     }
 
-    fn ord_a_observer_on_add(_trigger: On<Add, OrdA>, mut res: ResMut<TestVec>) {
+    fn ord_a_observer_on_add(_event: On<Add, OrdA>, mut res: ResMut<TestVec>) {
         res.0.push("OrdA observer on_add");
     }
 
-    fn ord_a_observer_on_insert(_trigger: On<Insert, OrdA>, mut res: ResMut<TestVec>) {
+    fn ord_a_observer_on_insert(_event: On<Insert, OrdA>, mut res: ResMut<TestVec>) {
         res.0.push("OrdA observer on_insert");
     }
 
-    fn ord_a_observer_on_replace(_trigger: On<Replace, OrdA>, mut res: ResMut<TestVec>) {
+    fn ord_a_observer_on_replace(_event: On<Replace, OrdA>, mut res: ResMut<TestVec>) {
         res.0.push("OrdA observer on_replace");
     }
 
-    fn ord_a_observer_on_remove(_trigger: On<Remove, OrdA>, mut res: ResMut<TestVec>) {
+    fn ord_a_observer_on_remove(_event: On<Remove, OrdA>, mut res: ResMut<TestVec>) {
         res.0.push("OrdA observer on_remove");
     }
 
@@ -6168,19 +6306,19 @@ mod tests {
             .push("OrdB hook on_remove");
     }
 
-    fn ord_b_observer_on_add(_trigger: On<Add, OrdB>, mut res: ResMut<TestVec>) {
+    fn ord_b_observer_on_add(_event: On<Add, OrdB>, mut res: ResMut<TestVec>) {
         res.0.push("OrdB observer on_add");
     }
 
-    fn ord_b_observer_on_insert(_trigger: On<Insert, OrdB>, mut res: ResMut<TestVec>) {
+    fn ord_b_observer_on_insert(_event: On<Insert, OrdB>, mut res: ResMut<TestVec>) {
         res.0.push("OrdB observer on_insert");
     }
 
-    fn ord_b_observer_on_replace(_trigger: On<Replace, OrdB>, mut res: ResMut<TestVec>) {
+    fn ord_b_observer_on_replace(_event: On<Replace, OrdB>, mut res: ResMut<TestVec>) {
         res.0.push("OrdB observer on_replace");
     }
 
-    fn ord_b_observer_on_remove(_trigger: On<Remove, OrdB>, mut res: ResMut<TestVec>) {
+    fn ord_b_observer_on_remove(_event: On<Remove, OrdB>, mut res: ResMut<TestVec>) {
         res.0.push("OrdB observer on_remove");
     }
 
@@ -6230,9 +6368,6 @@ mod tests {
 
         #[derive(Component, Clone, PartialEq, Debug)]
         struct C(u32);
-
-        #[derive(Component, Clone, PartialEq, Debug, Default)]
-        struct D;
 
         let mut world = World::new();
         let entity_a = world.spawn((A, B, C(5))).id();

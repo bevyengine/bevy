@@ -3,7 +3,7 @@ use crate::{
     RenderSystems, Res,
 };
 use bevy_app::{App, Plugin, SubApp};
-pub use bevy_asset::RenderAssetUsages;
+use bevy_asset::RenderAssetUsages;
 use bevy_asset::{Asset, AssetEvent, AssetId, Assets, UntypedAssetId};
 use bevy_ecs::{
     prelude::{Commands, EventReader, IntoScheduleConfigs, ResMut, Resource},

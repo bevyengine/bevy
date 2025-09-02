@@ -43,9 +43,13 @@ impl<'w> BundleInserter<'w> {
         // SAFETY: These come from the same world. `world.components_registrator` can't be used since we borrow other fields too.
         let mut registrator =
             unsafe { ComponentsRegistrator::new(&mut world.components, &mut world.component_ids) };
-        let bundle_id = world
-            .bundles
-            .register_info::<T>(&mut registrator, &mut world.storages);
+
+        // SAFETY: `registrator`, `world.bundles`, and `world.storages` all come from the same world
+        let bundle_id = unsafe {
+            world
+                .bundles
+                .register_info::<T>(&mut registrator, &mut world.storages)
+        };
         // SAFETY: We just ensured this bundle exists
         unsafe {
             Self::new_with_id(
@@ -452,7 +456,7 @@ impl BundleInfo {
 
         let mut new_table_components = Vec::new();
         let mut new_sparse_set_components = Vec::new();
-        let mut bundle_status = Vec::with_capacity(self.explicit_components_len);
+        let mut bundle_status = Vec::with_capacity(self.explicit_components_len());
         let mut added_required_components = Vec::new();
         let mut added = Vec::new();
         let mut existing = Vec::new();
@@ -478,7 +482,7 @@ impl BundleInfo {
 
         for (index, component_id) in self.iter_required_components().enumerate() {
             if !current_archetype.contains(component_id) {
-                added_required_components.push(self.required_components[index].clone());
+                added_required_components.push(self.required_component_constructors[index].clone());
                 added.push(component_id);
                 // SAFETY: component_id exists
                 let component_info = unsafe { components.get_info_unchecked(component_id) };

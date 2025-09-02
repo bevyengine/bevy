@@ -95,7 +95,7 @@ use bevy_reflect::TypePath;
     feature = "bevy_render",
     any(feature = "bevy_pbr", feature = "bevy_sprite")
 ))]
-use crate::config::GizmoMeshConfig;
+use {crate::config::GizmoMeshConfig, bevy_mesh::VertexBufferLayout};
 
 use crate::{config::ErasedGizmoConfigGroup, gizmos::GizmoBuffer};
 
@@ -133,7 +133,7 @@ use {
     feature = "bevy_render",
     any(feature = "bevy_pbr", feature = "bevy_sprite"),
 ))]
-use bevy_render::render_resource::{VertexAttribute, VertexBufferLayout, VertexStepMode};
+use bevy_render::render_resource::{VertexAttribute, VertexStepMode};
 use bevy_time::Fixed;
 use bevy_utils::TypeIdMap;
 #[cfg(feature = "bevy_render")]
@@ -159,9 +159,7 @@ impl Plugin for GizmoPlugin {
             embedded_asset!(app, "line_joints.wgsl");
         }
 
-        app.register_type::<GizmoConfig>()
-            .register_type::<GizmoConfigStore>()
-            .init_asset::<GizmoAsset>()
+        app.init_asset::<GizmoAsset>()
             .init_resource::<GizmoHandles>()
             // We insert the Resource GizmoConfigStore into the world implicitly here if it does not exist.
             .init_gizmo_group::<DefaultGizmoConfigGroup>();

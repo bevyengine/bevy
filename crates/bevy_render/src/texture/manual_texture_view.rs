@@ -8,7 +8,7 @@ use wgpu::TextureFormat;
 
 use crate::render_resource::TextureView;
 
-/// A manually managed [`TextureView`] for use as a [`crate::camera::RenderTarget`].
+/// A manually managed [`TextureView`] for use as a [`bevy_camera::RenderTarget`].
 #[derive(Debug, Clone, Component)]
 pub struct ManualTextureView {
     pub texture_view: TextureView,
@@ -26,7 +26,7 @@ impl ManualTextureView {
     }
 }
 
-/// Stores manually managed [`ManualTextureView`]s for use as a [`crate::camera::RenderTarget`].
+/// Stores manually managed [`ManualTextureView`]s for use as a [`bevy_camera::RenderTarget`].
 #[derive(Default, Clone, Resource, ExtractResource)]
 pub struct ManualTextureViews(HashMap<ManualTextureViewHandle, ManualTextureView>);
 

@@ -20,7 +20,7 @@
 
 Bevy has built-in [tracing](https://github.com/tokio-rs/tracing) spans to make it cheap and easy to profile Bevy ECS systems, render logic, engine internals, and user app code. Enable the `trace` cargo feature to enable Bevy's built-in spans.
 
-If you also want to include `wgpu` tracing spans when profiling, they are emitted at the `tracing` `info` level so you will need to make sure they are not filtered out by the `LogSettings` resource's `filter` member which defaults to `wgpu=error`. You can do this by setting the `RUST_LOG=info` environment variable when running your application.
+Your tracing level needs to be at least `info` for this to work, so make sure that you don't set the `max_level(_release)_[warn/error]` features of the `tracing` crate nor filter it out using `LogPlugin`'s `filter` member. Note that `wgpu` and `naga` spans are filtered out by default. If you want to include them, you can either change your `LogPlugin`'s `filter` member or override it by setting the `RUST_LOG=info` environment variable when running your application.
 
 You also need to select a `tracing` backend using one of the cargo features described in the below sections.
 
@@ -72,7 +72,7 @@ To determine which Tracy version to install
 1. Run `cargo tree --features bevy/trace_tracy | grep tracy` in your Bevy workspace root to see which tracy dep versions are used
 2. Cross reference the tracy dep versions with the [Version Support Table](https://github.com/nagisa/rust_tracy_client?tab=readme-ov-file#version-support-table)
 
-It has a command line capture tool that can record the execution of graphical applications, saving it as a profile file. Tracy has a GUI to inspect these profile files. The GUI app also supports live capture, showing you in real time the trace of your app. The version of tracy must be matched to the version of tracing-tracy used in bevy. A compatibility table can be found on [crates.io](https://crates.io/crates/tracing-tracy) and the version used can be found [here](https://github.com/bevyengine/bevy/blob/latest/crates/bevy_log/Cargo.toml).
+It has a command line capture tool that can record the execution of graphical applications, saving it as a profile file. Tracy has a GUI to inspect these profile files. The GUI app also supports live capture, showing you in real time the trace of your app.
 
 On macOS, Tracy can be installed through Homebrew by running `brew install tracy`, and the GUI client can be launched by running `tracy`. Note that `brew` does not always have the latest version of Tracy available, in which cases you may be required to build from source.
 

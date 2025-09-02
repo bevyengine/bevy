@@ -36,7 +36,7 @@
 //!
 //! ## Default query filters
 //!
-//! In Bevy, entity disabling is implemented through the construction of a global "default query filter".
+//! In Bevy, entity disabling is implemented through the construction of a global "default query filter" resource.
 //! Queries which do not explicitly mention the disabled component will not include entities with that component.
 //! If an entity has multiple disabling components, it will only be included in queries that mention all of them.
 //!
@@ -44,11 +44,37 @@
 //! even if they have a `Position` component,
 //! but `Query<&Position, With<Disabled>>` or `Query<(&Position, Has<Disabled>)>` will see them.
 //!
-//! The [`Allows`](crate::query::Allows) query filter is designed to be used with default query filters,
+//! The [`Allow`](crate::query::Allow) query filter is designed to be used with default query filters,
 //! and ensures that the query will include entities both with and without the specified disabling component.
 //!
 //! Entities with disabling components are still present in the [`World`] and can be accessed directly,
 //! using methods on [`World`] or [`Commands`](crate::prelude::Commands).
+//!
+//! As default query filters are implemented through a resource,
+//! it's possible to temporarily ignore any default filters by using [`World::resource_scope`](crate::prelude::World).
+//!
+//! ```
+//! use bevy_ecs::prelude::*;
+//! use bevy_ecs::entity_disabling::{DefaultQueryFilters, Disabled};
+//!
+//! let mut world = World::default();
+//!
+//! #[derive(Component)]
+//! struct CustomDisabled;
+//!
+//! world.register_disabling_component::<CustomDisabled>();
+//!
+//! world.spawn(Disabled);
+//! world.spawn(CustomDisabled);
+//!
+//! // resource_scope removes DefaultQueryFilters temporarily before re-inserting into the world.
+//! world.resource_scope(|world: &mut World, _: Mut<DefaultQueryFilters>| {
+//!     // within this scope, we can query like no components are disabled.
+//!     assert_eq!(world.query::<&Disabled>().query(&world).count(), 1);
+//!     assert_eq!(world.query::<&CustomDisabled>().query(&world).count(), 1);
+//!     assert_eq!(world.query::<()>().query(&world).count(), world.entities().len() as usize);
+//! })
+//! ```
 //!
 //! ### Warnings
 //!
@@ -135,9 +161,9 @@ pub struct Internal;
 /// To be more precise, this checks if the query's [`FilteredAccess`] contains the component,
 /// and if it does not, adds a [`Without`](crate::prelude::Without) filter for that component to the query.
 ///
-/// [`Allows`](crate::query::Allows) and [`Has`](crate::prelude::Has) can be used to include entities
+/// [`Allow`](crate::query::Allow) and [`Has`](crate::prelude::Has) can be used to include entities
 /// with and without the disabling component.
-/// [`Allows`](crate::query::Allows) is a [`QueryFilter`](crate::query::QueryFilter) and will simply change
+/// [`Allow`](crate::query::Allow) is a [`QueryFilter`](crate::query::QueryFilter) and will simply change
 /// the list of shown entities, while [`Has`](crate::prelude::Has) is a [`QueryData`](crate::query::QueryData)
 /// and will allow you to see if each entity has the disabling component or not.
 ///
@@ -215,7 +241,7 @@ impl DefaultQueryFilters {
     }
 
     /// Modifies the provided [`FilteredAccess`] to include the filters from this [`DefaultQueryFilters`].
-    pub(super) fn modify_access(&self, component_access: &mut FilteredAccess<ComponentId>) {
+    pub(super) fn modify_access(&self, component_access: &mut FilteredAccess) {
         for component_id in self.disabling_ids() {
             if !component_access.contains(component_id) {
                 component_access.and_without(component_id);
@@ -237,8 +263,10 @@ mod tests {
 
     use super::*;
     use crate::{
+        observer::Observer,
         prelude::{Add, EntityMut, EntityRef, On, World},
         query::{Has, With},
+        system::SystemIdMarker,
     };
     use alloc::{vec, vec::Vec};
 
@@ -248,7 +276,7 @@ mod tests {
         filters.register_disabling_component(ComponentId::new(1));
 
         // A component access with an unrelated component
-        let mut component_access = FilteredAccess::<ComponentId>::default();
+        let mut component_access = FilteredAccess::default();
         component_access
             .access_mut()
             .add_component_read(ComponentId::new(2));
@@ -355,7 +383,7 @@ mod tests {
         world.register_system(|| {});
         let mut query = world.query::<()>();
         assert_eq!(query.iter(&world).count(), 0);
-        let mut query = world.query_filtered::<(), With<Internal>>();
+        let mut query = world.query_filtered::<&SystemIdMarker, With<Internal>>();
         assert_eq!(query.iter(&world).count(), 1);
 
         #[derive(Component)]
@@ -363,7 +391,7 @@ mod tests {
         world.add_observer(|_: On<Add, A>| {});
         let mut query = world.query::<()>();
         assert_eq!(query.iter(&world).count(), 0);
-        let mut query = world.query_filtered::<(), With<Internal>>();
-        assert_eq!(query.iter(&world).count(), 2);
+        let mut query = world.query_filtered::<&Observer, With<Internal>>();
+        assert_eq!(query.iter(&world).count(), 1);
     }
 }
