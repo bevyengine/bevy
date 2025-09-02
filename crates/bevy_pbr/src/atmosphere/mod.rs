@@ -55,7 +55,6 @@ use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_render::{
     extract_component::UniformComponentPlugin,
     render_resource::{DownlevelFlags, ShaderType, SpecializedRenderPipelines},
-    sync_world::MainEntity,
     view::Hdr,
     RenderStartup,
 };
@@ -124,7 +123,7 @@ impl Plugin for AtmospherePlugin {
             .resource_mut::<Assets<ScatteringMedium>>()
             .add(ScatteringMedium::earth_atmosphere());
         world.insert_resource(EarthAtmosphere(Atmosphere {
-            bottom_radius: 6_460_000.0,
+            bottom_radius: 6_360_000.0,
             top_radius: 6_460_000.0,
             ground_albedo: Vec3::splat(0.3),
             medium: earth_atmosphere,

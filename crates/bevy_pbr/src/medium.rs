@@ -10,7 +10,7 @@ use bevy_ecs::{
 };
 use bevy_math::{
     curve::{EaseFunction, EasingCurve, Interval},
-    ops, Curve, FloatPow, U8Vec3, Vec3, VectorSpace,
+    ops, Curve, FloatPow, U8Vec3, Vec3, Vec4, VectorSpace,
 };
 use bevy_reflect::TypePath;
 use bevy_render::{
@@ -143,18 +143,14 @@ impl ScatteringMedium {
                 ScatteringTerm {
                     absorption: Vec3::ZERO,
                     scattering: Vec3::new(5.802e-6, 13.558e-6, 33.100e-6),
-                    // falloff: Falloff::Exponential { scale: 12.5 }, //TODO: check if matches reference
-                    falloff: Falloff::Linear,
+                    falloff: Falloff::Exponential { scale: 12.5 }, //TODO: check if matches reference
                     phase: PhaseFunction::Rayleigh,
-                    // phase: PhaseFunction::Isotropic,
                 },
                 ScatteringTerm {
                     absorption: Vec3::splat(3.996e-6),
                     scattering: Vec3::splat(0.444e-6),
-                    // falloff: Falloff::Exponential { scale: 83.5 }, //TODO: check if matches reference
-                    falloff: Falloff::Linear,
+                    falloff: Falloff::Exponential { scale: 83.5 }, //TODO: check if matches reference
                     phase: PhaseFunction::Mie { bias: 0.8 },
-                    // phase: PhaseFunction::Isotropic,
                 },
                 ScatteringTerm {
                     absorption: Vec3::new(0.650e-6, 1.881e-6, 0.085e-6),
@@ -264,10 +260,8 @@ pub struct GpuScatteringMedium {
     pub terms: SmallVec<[ScatteringTerm; 1]>,
     pub falloff_resolution: u32,
     pub phase_resolution: u32,
-    pub density_max: Vec3,
     pub density_lut: Texture,
     pub density_lut_view: TextureView,
-    pub scattering_max: Vec3,
     pub scattering_lut: Texture,
     pub scattering_lut_view: TextureView,
 }
@@ -283,55 +277,33 @@ impl RenderAsset for GpuScatteringMedium {
         (render_device, render_queue): &mut SystemParamItem<Self::Param>,
         _previous_asset: Option<&Self>,
     ) -> Result<Self, PrepareAssetError<Self::SourceAsset>> {
-        let mut density: Vec<Vec3> = Vec::with_capacity(source_asset.falloff_resolution as usize);
-        let mut density_lut_data: Vec<u8> =
-            Vec::with_capacity(2 * source_asset.falloff_resolution as usize * size_of::<u32>());
-
-        let mut density_max = Vec3::ZERO;
+        let mut density: Vec<Vec4> =
+            Vec::with_capacity(2 * source_asset.falloff_resolution as usize);
 
         density.extend((0..source_asset.falloff_resolution).map(|i| {
             let falloff = (i as f32 + 0.5) / source_asset.falloff_resolution as f32;
 
-            let absorption = source_asset
+            source_asset
                 .terms
                 .iter()
-                .map(|term| term.absorption * term.falloff.sample(falloff))
-                .sum();
-
-            density_max = density_max.max(absorption);
-            absorption
+                .map(|term| term.absorption.extend(0.0) * term.falloff.sample(falloff))
+                .sum::<Vec4>()
         }));
 
         density.extend((0..source_asset.falloff_resolution).map(|i| {
             let falloff = (i as f32 + 0.5) / source_asset.falloff_resolution as f32;
 
-            let scattering = source_asset
+            source_asset
                 .terms
                 .iter()
-                .map(|term| term.scattering * term.falloff.sample(falloff))
-                .sum();
-
-            density_max = density_max.max(scattering);
-            scattering
+                .map(|term| term.scattering.extend(0.0) * term.falloff.sample(falloff))
+                .sum::<Vec4>()
         }));
 
-        density_lut_data.extend(density.iter().flat_map(|absorption| {
-            (*absorption * 255.0 / density_max)
-                .as_u8vec3()
-                .extend(0)
-                .to_array()
-        }));
-
-        let mut scattering: Vec<Vec3> = Vec::with_capacity(
+        let mut scattering: Vec<Vec4> = Vec::with_capacity(
             source_asset.falloff_resolution as usize * source_asset.phase_resolution as usize,
         );
-        let mut scattering_lut_data: Vec<u8> = Vec::with_capacity(
-            source_asset.falloff_resolution as usize
-                * source_asset.phase_resolution as usize
-                * size_of::<u32>(),
-        );
 
-        let mut scattering_max = Vec3::ZERO;
         scattering.extend(
             (0..source_asset.falloff_resolution * source_asset.phase_resolution).map(|raw_i| {
                 let i = raw_i % source_asset.phase_resolution;
@@ -340,27 +312,17 @@ impl RenderAsset for GpuScatteringMedium {
                 let phase = (j as f32 + 0.5) / source_asset.phase_resolution as f32;
                 let neg_l_dot_v = phase * 2.0 - 1.0;
 
-                let scattering = source_asset
+                source_asset
                     .terms
                     .iter()
                     .map(|term| {
-                        term.scattering
+                        term.scattering.extend(0.0)
                             * term.falloff.sample(falloff)
                             * term.phase.sample(neg_l_dot_v)
                     })
-                    .sum();
-
-                scattering_max = scattering_max.max(scattering);
-                scattering
+                    .sum::<Vec4>()
             }),
         );
-
-        scattering_lut_data.extend(scattering.iter().flat_map(|scattering| {
-            (*scattering * 255.0 / scattering_max)
-                .as_u8vec3()
-                .extend(0)
-                .to_array()
-        }));
 
         let density_lut = render_device.create_texture_with_data(
             render_queue,
@@ -379,12 +341,12 @@ impl RenderAsset for GpuScatteringMedium {
                 mip_level_count: 1,
                 sample_count: 1,
                 dimension: TextureDimension::D2,
-                format: TextureFormat::Rgba8Unorm,
+                format: TextureFormat::Rgba32Float,
                 usage: TextureUsages::TEXTURE_BINDING,
                 view_formats: &[],
             },
             TextureDataOrder::LayerMajor,
-            density_lut_data.as_slice(),
+            bytemuck::cast_slice(density.as_slice()),
         );
 
         let density_lut_view = density_lut.create_view(&TextureViewDescriptor {
@@ -414,12 +376,12 @@ impl RenderAsset for GpuScatteringMedium {
                 mip_level_count: 1,
                 sample_count: 1,
                 dimension: TextureDimension::D2,
-                format: TextureFormat::Rgba8Unorm,
+                format: TextureFormat::Rgba32Float,
                 usage: TextureUsages::TEXTURE_BINDING,
                 view_formats: &[],
             },
             TextureDataOrder::LayerMajor,
-            scattering_lut_data.as_slice(),
+            bytemuck::cast_slice(scattering.as_slice()),
         );
 
         let scattering_lut_view = scattering_lut.create_view(&TextureViewDescriptor {
@@ -436,10 +398,8 @@ impl RenderAsset for GpuScatteringMedium {
             terms: source_asset.terms,
             falloff_resolution: source_asset.falloff_resolution,
             phase_resolution: source_asset.phase_resolution,
-            density_max,
             density_lut,
             density_lut_view,
-            scattering_max,
             scattering_lut,
             scattering_lut_view,
         })

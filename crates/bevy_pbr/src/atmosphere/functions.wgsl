@@ -182,15 +182,15 @@ fn sample_aerial_view_lut(uv: vec2<f32>, t: f32) -> vec3<f32> {
 // ATMOSPHERE SAMPLING
 
 fn sample_density_lut(r: f32, component: f32) -> vec3<f32> {
-    let normed_altitude = clamp((r - atmosphere.bottom_radius) / (atmosphere.top_radius - atmosphere.bottom_radius), 0.0, 1.0);
+    let normed_altitude = saturate((r - atmosphere.bottom_radius) / (atmosphere.top_radius - atmosphere.bottom_radius));
     let uv = vec2(1.0 - normed_altitude, component);
-    return atmosphere.density_max * textureSampleLevel(medium_density_lut, medium_sampler, uv, 0.0).xyz; 
+    return textureSampleLevel(medium_density_lut, medium_sampler, uv, 0.0).xyz; 
 }
 
 fn sample_scattering_lut(r: f32, neg_LdotV: f32) -> vec3<f32> {
-    let normed_altitude = clamp((r - atmosphere.bottom_radius) / (atmosphere.top_radius - atmosphere.bottom_radius), 0.0, 1.0);
+    let normed_altitude = saturate((r - atmosphere.bottom_radius) / (atmosphere.top_radius - atmosphere.bottom_radius));
     let uv = vec2(1.0 - normed_altitude, neg_LdotV * 0.5 + 0.5);
-    return atmosphere.scattering_max * textureSampleLevel(medium_scattering_lut, medium_sampler, uv, 0.0).xyz; 
+    return textureSampleLevel(medium_scattering_lut, medium_sampler, uv, 0.0).xyz; 
 }
 
 /// evaluates L_scat, equation 3 in the paper, which gives the total single-order scattering towards the view at a single point

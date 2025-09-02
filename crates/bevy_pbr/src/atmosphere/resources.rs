@@ -526,9 +526,7 @@ struct ScatteringMediumMissingError(AssetId<ScatteringMedium>);
 pub struct GpuAtmosphere {
     pub ground_albedo: Vec3,
     pub bottom_radius: f32,
-    pub density_max: Vec3,
     pub top_radius: f32,
-    pub scattering_max: Vec3,
 }
 
 pub fn prepare_atmosphere_uniforms(
@@ -543,9 +541,7 @@ pub fn prepare_atmosphere_uniforms(
         commands.entity(entity).insert(GpuAtmosphere {
             ground_albedo: atmosphere.ground_albedo,
             bottom_radius: atmosphere.bottom_radius,
-            density_max: gpu_medium.density_max,
             top_radius: atmosphere.top_radius,
-            scattering_max: gpu_medium.scattering_max,
         });
     }
     Ok(())

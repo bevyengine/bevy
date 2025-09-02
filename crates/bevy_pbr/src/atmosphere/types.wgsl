@@ -4,10 +4,8 @@ struct Atmosphere {
     ground_albedo: vec3<f32>,
     // Radius of the planet
     bottom_radius: f32, // units: m
-    density_max: vec3<f32>,
     // Radius at which we consider the atmosphere to 'end' for out calculations (from center of planet)
     top_radius: f32, // units: m
-    scattering_max: vec3<f32>,
 }
 
 struct AtmosphereSettings {
