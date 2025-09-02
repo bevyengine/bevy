@@ -1,7 +1,7 @@
 use bevy_ecs::component::Component;
 
-/// If a text input entity has a `TextInputFilter` component, after each [`TextEdit`] is applied, the [`TextInputBuffer`]’s text is checked
-/// against the filter, and if it fails, the `TextEdit` is immediately rolled back, and a [`TextInputEvent::InvalidEdit`] event is emitted.
+/// If a text input entity has a `TextInputFilter` component, after each [`crate::TextEdit`] is applied, the [`crate::TextInputBuffer`]’s text is checked
+/// against the filter, and if it fails, the `TextEdit` is immediately rolled back, and a [`crate::TextInputEvent::InvalidEdit`] event is emitted.
 #[derive(Component)]
 pub enum TextInputFilter {
     /// Positive integer input
