@@ -29,8 +29,6 @@ use bevy_render::{
 use bevy_utils::default;
 use tracing::warn;
 
-use super::Atmosphere;
-
 // Render world representation of an environment map light for the atmosphere
 #[derive(Component, ExtractComponent, Clone)]
 pub struct AtmosphereEnvironmentMap {

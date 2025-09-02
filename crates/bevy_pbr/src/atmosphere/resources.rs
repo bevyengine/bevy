@@ -532,12 +532,8 @@ pub struct GpuAtmosphere {
 pub fn prepare_atmosphere_uniforms(
     mut commands: Commands,
     atmospheres: Query<(Entity, &ExtractedAtmosphere)>,
-    gpu_media: Res<RenderAssets<GpuScatteringMedium>>,
 ) -> Result<(), BevyError> {
     for (entity, atmosphere) in atmospheres {
-        let gpu_medium = gpu_media
-            .get(atmosphere.medium)
-            .ok_or(ScatteringMediumMissingError(atmosphere.medium))?;
         commands.entity(entity).insert(GpuAtmosphere {
             ground_albedo: atmosphere.ground_albedo,
             bottom_radius: atmosphere.bottom_radius,
