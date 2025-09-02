@@ -1,4 +1,5 @@
 use alloc::collections::VecDeque;
+use bevy_clipboard::{Clipboard, ClipboardRead};
 use bevy_ecs::{
     component::Component,
     entity::Entity,
@@ -11,8 +12,8 @@ pub use cosmic_text::Motion;
 use cosmic_text::{Action, BorrowedWithFontSystem, Edit, Editor, Selection};
 
 use crate::{
-    get_cosmic_text_buffer_contents, Clipboard, CosmicFontSystem, TextInputAttributes,
-    TextInputBuffer, TextInputFilter, TextInputValue,
+    get_cosmic_text_buffer_contents, CosmicFontSystem, TextInputAttributes, TextInputBuffer,
+    TextInputFilter, TextInputValue,
 };
 
 /// Text input commands queue
@@ -46,6 +47,8 @@ pub enum TextEdit {
     /// Insert the contents of the clipboard at the current cursor position, or replaces the current selection.
     /// Does nothing if the clipboard is empty.
     Paste,
+    /// Will attempt a read from the clipboard, and then enqueue a `Paste`
+    PasteDeferred(ClipboardRead),
     /// Move the cursor with some motion.
     Motion {
         /// The motion to perform.
@@ -155,20 +158,50 @@ pub fn apply_text_edits(
         Option<&TextInputFilter>,
         Option<&mut TextInputValue>,
     )>,
-    mut clipboard: ResMut<Clipboard>,
+    mut clipboard: Option<ResMut<Clipboard>>,
 ) {
     for (entity, mut buffer, mut text_input_actions, attribs, maybe_filter, maybe_value) in
         text_input_query.iter_mut()
     {
-        for edit in text_input_actions.queue.drain(..) {
-            if let Err(error) = apply_text_edit(
-                buffer.editor.borrow_with(&mut font_system),
-                maybe_filter,
-                attribs.max_chars,
-                &mut clipboard,
-                &edit,
-            ) {
-                commands.trigger_targets(TextInputEvent::InvalidEdit(error, edit), entity);
+        // Most actions will be handled in `apply_text_edit` , however allow for some special casing
+        while let Some(action) = text_input_actions.queue.pop_front() {
+            match action {
+                TextEdit::Paste => {
+                    if let Some(clipboard) = clipboard.as_mut() {
+                        text_input_actions
+                            .queue
+                            .push_front(TextEdit::PasteDeferred(clipboard.fetch_text()));
+                    }
+                }
+                TextEdit::PasteDeferred(mut clipboard_read) => {
+                    if let Some(text) = clipboard_read.poll_result() {
+                        if let Ok(text) = text {
+                            let _ = apply_text_edit(
+                                buffer.editor.borrow_with(&mut font_system),
+                                maybe_filter,
+                                attribs.max_chars,
+                                clipboard.as_mut(),
+                                &TextEdit::InsertString(text),
+                            );
+                        }
+                    } else {
+                        text_input_actions
+                            .queue
+                            .push_front(TextEdit::PasteDeferred(clipboard_read));
+                    }
+                }
+                action => {
+                    if let Err(error) = apply_text_edit(
+                        buffer.editor.borrow_with(&mut font_system),
+                        maybe_filter,
+                        attribs.max_chars,
+                        clipboard.as_mut(),
+                        &action,
+                    ) {
+                        commands
+                            .trigger_targets(TextInputEvent::InvalidEdit(error, action), entity);
+                    }
+                }
             }
         }
 
@@ -196,7 +229,7 @@ pub fn apply_text_edit(
     mut editor: BorrowedWithFontSystem<'_, Editor<'static>>,
     maybe_filter: Option<&TextInputFilter>,
     max_chars: Option<usize>,
-    clipboard_contents: &mut ResMut<Clipboard>,
+    clipboard: Option<&mut ResMut<Clipboard>>,
     edit: &TextEdit,
 ) -> Result<(), InvalidTextEditError> {
     editor.start_change();
@@ -204,23 +237,24 @@ pub fn apply_text_edit(
     match edit {
         TextEdit::Copy => {
             if let Some(text) = editor.copy_selection() {
-                clipboard_contents.0 = text;
+                if let Some(clipboard) = clipboard {
+                    let _ = clipboard.set_text(text);
+                }
             }
         }
         TextEdit::Cut => {
             if let Some(text) = editor.copy_selection() {
-                clipboard_contents.0 = text;
+                if let Some(clipboard) = clipboard {
+                    let _ = clipboard.set_text(text);
+                }
                 editor.delete_selection();
             }
         }
-        TextEdit::Paste => {
-            editor.insert_string(&clipboard_contents.0, None);
-        }
-        &TextEdit::Motion {
+        TextEdit::Motion {
             motion,
             with_select,
         } => {
-            apply_motion(&mut editor, with_select, motion);
+            apply_motion(&mut editor, *with_select, *motion);
         }
         TextEdit::Insert(ch) => {
             editor.action(Action::Insert(*ch));
@@ -282,8 +316,8 @@ pub fn apply_text_edit(
                 y: point.y,
             });
         }
-        &TextEdit::Scroll { lines } => {
-            editor.action(Action::Scroll { lines });
+        TextEdit::Scroll { lines } => {
+            editor.action(Action::Scroll { lines: *lines });
         }
         TextEdit::SelectAll => {
             editor.action(Action::Motion(Motion::BufferStart));
@@ -314,6 +348,7 @@ pub fn apply_text_edit(
             editor.action(Action::Motion(Motion::End));
             editor.insert_string(text, None);
         }
+        _ => {}
     }
 
     let Some(mut change) = editor.finish_change() else {

@@ -34,6 +34,7 @@ mod layout;
 mod stack;
 mod ui_node;
 
+use bevy_text::TextInputSystems;
 pub use focus::*;
 pub use geometry::*;
 pub use gradients::*;
@@ -183,6 +184,7 @@ impl Plugin for UiPlugin {
             .ambiguous_with(bevy_text::update_password_masks)
             .ambiguous_with(bevy_text::update_placeholder_layouts)
             .ambiguous_with(bevy_text::update_text_input_layouts)
+            .before(TextInputSystems)
             .before(TransformSystems::Propagate);
 
         let ui_layout_system_config = ui_layout_system_config

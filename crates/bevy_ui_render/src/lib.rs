@@ -24,7 +24,9 @@ use bevy_reflect::prelude::ReflectDefault;
 use bevy_reflect::Reflect;
 use bevy_shader::load_shader_library;
 use bevy_sprite_render::SpriteAssetEvents;
-use bevy_ui::widget::{ImageNode, TextShadow, ViewportNode};
+use bevy_ui::widget::{
+    GlobalTextInputState, ImageNode, TextCursorBlinkTimer, TextInputStyle, TextShadow, ViewportNode,
+};
 use bevy_ui::{
     BackgroundColor, BorderColor, CalculatedClip, ComputedNode, ComputedUiTargetCamera, Display,
     Node, Outline, ResolvedBorderRadius, UiGlobalTransform,
@@ -60,7 +62,8 @@ use gradient::GradientPlugin;
 
 use bevy_platform::collections::{HashMap, HashSet};
 use bevy_text::{
-    ComputedTextBlock, PositionedGlyph, TextBackgroundColor, TextColor, TextLayoutInfo,
+    ComputedTextBlock, PlaceholderLayout, PositionedGlyph, TextBackgroundColor, TextColor,
+    TextInputBuffer, TextLayoutInfo,
 };
 use bevy_transform::components::GlobalTransform;
 use box_shadow::BoxShadowPlugin;
@@ -247,6 +250,7 @@ impl Plugin for UiRenderPlugin {
                     extract_text_background_colors.in_set(RenderUiSystems::ExtractTextBackgrounds),
                     extract_text_shadows.in_set(RenderUiSystems::ExtractTextShadows),
                     extract_text_sections.in_set(RenderUiSystems::ExtractText),
+                    extract_text_input_nodes.in_set(RenderUiSystems::ExtractText),
                     #[cfg(feature = "bevy_ui_debug")]
                     debug_overlay::extract_debug_overlay.in_set(RenderUiSystems::ExtractDebug),
                 ),
@@ -975,6 +979,7 @@ pub fn extract_text_sections(
                 .as_rect();
             extracted_uinodes.glyphs.push(ExtractedGlyph {
                 color,
+                //transform: transform * Affine2::from_translation(*position),
                 translation: *position,
                 rect,
             });
@@ -999,6 +1004,196 @@ pub fn extract_text_sections(
 
             end += 1;
         }
+    }
+}
+
+pub fn extract_text_input_nodes(
+    mut commands: Commands,
+    mut extracted_uinodes: ResMut<ExtractedUiNodes>,
+    texture_atlases: Extract<Res<Assets<TextureAtlasLayout>>>,
+    uinode_query: Extract<
+        Query<(
+            Entity,
+            &ComputedNode,
+            &UiGlobalTransform,
+            &InheritedVisibility,
+            Option<&CalculatedClip>,
+            &ComputedUiTargetCamera,
+            &TextLayoutInfo,
+            &TextInputStyle,
+            &TextCursorBlinkTimer,
+            &TextInputBuffer,
+            Option<&PlaceholderLayout>,
+        )>,
+    >,
+    modifiers: Extract<Option<Res<GlobalTextInputState>>>,
+    camera_map: Extract<UiCameraMap>,
+) {
+    let mut start = extracted_uinodes.glyphs.len();
+    let mut end = start + 1;
+
+    let mut camera_mapper = camera_map.get_mapper();
+    for (
+        entity,
+        uinode,
+        global_transform,
+        inherited_visibility,
+        clip,
+        camera,
+        layout_info,
+        input_style,
+        blink_timer,
+        buffer,
+        maybe_prompt_layout,
+    ) in &uinode_query
+    {
+        // Skip if not visible or if size is set to zero (e.g. when a parent is set to `Display::None`)
+        if !inherited_visibility.get() || uinode.is_empty() {
+            continue;
+        }
+
+        let Some(extracted_camera_entity) = camera_mapper.map(camera) else {
+            continue;
+        };
+
+        let transform: Affine2 = global_transform.into();
+        let scale = Vec2::new(
+            transform.matrix2.x_axis.length(),
+            transform.matrix2.y_axis.length(),
+        );
+
+        let node_rect = Rect::from_center_size(transform.translation, uinode.size() * scale);
+
+        let clip = Some(
+            clip.map(|clip| clip.clip.intersect(node_rect))
+                .unwrap_or(node_rect),
+        );
+
+        let (layout, color) =
+            if let Some(prompt_layout) = maybe_prompt_layout.filter(|_| buffer.is_empty()) {
+                (prompt_layout.layout(), input_style.prompt_color)
+            } else {
+                (layout_info, input_style.text_color)
+            };
+
+        let transform = transform * Affine2::from_translation(-0.5 * uinode.size() - layout.scroll);
+        let color = color.to_linear();
+
+        let blink = blink_timer
+            .0
+            .is_none_or(|t| input_style.cursor_blink_interval.as_secs_f32() < t);
+
+        for (i, rect) in layout.selection_rects.iter().enumerate() {
+            let size = if (1..layout.selection_rects.len()).contains(&i) {
+                rect.size() + Vec2::Y
+            } else {
+                rect.size()
+            } + 2. * Vec2::X;
+            extracted_uinodes.uinodes.push(ExtractedUiNode {
+                z_order: uinode.stack_index as f32 + stack_z_offsets::TEXT - 0.002,
+                image: AssetId::default(),
+                clip,
+                extracted_camera_entity,
+                transform: transform * Affine2::from_translation(rect.center()),
+                item: ExtractedUiItem::Node {
+                    rect: Rect {
+                        min: Vec2::ZERO,
+                        max: size,
+                    },
+                    color: LinearRgba::from(input_style.selection_color),
+                    atlas_scaling: None,
+                    flip_x: false,
+                    flip_y: false,
+                    border_radius: ResolvedBorderRadius::ZERO,
+                    border: BorderRect::ZERO,
+                    node_type: NodeType::Rect,
+                },
+                main_entity: entity.into(),
+                render_entity: commands.spawn(TemporaryRenderEntity).id(),
+            });
+        }
+
+        for (
+            i,
+            PositionedGlyph {
+                position,
+                atlas_info,
+                ..
+            },
+        ) in layout.glyphs.iter().enumerate()
+        {
+            let rect = texture_atlases
+                .get(atlas_info.texture_atlas)
+                .unwrap()
+                .textures[atlas_info.location.glyph_index]
+                .as_rect();
+            extracted_uinodes.glyphs.push(ExtractedGlyph {
+                color,
+                translation: *position,
+                rect,
+            });
+
+            if layout.glyphs.get(i + 1).is_none_or(|info| {
+                info.atlas_info.texture != atlas_info.texture
+                    || layout.cursor_index.is_some_and(|j| j == i + 1)
+            }) {
+                extracted_uinodes.uinodes.push(ExtractedUiNode {
+                    render_entity: commands.spawn(TemporaryRenderEntity).id(),
+                    z_order: uinode.stack_index as f32 + stack_z_offsets::TEXT,
+                    transform,
+                    image: atlas_info.texture,
+                    clip,
+                    extracted_camera_entity,
+                    item: ExtractedUiItem::Glyphs { range: start..end },
+                    main_entity: entity.into(),
+                });
+                start = end;
+            }
+            end += 1;
+        }
+
+        if blink {
+            continue;
+        }
+
+        let Some((position, layout_cursor_size, _affinity)) = layout_info.cursor else {
+            continue;
+        };
+
+        let (w, cursor_z_offset) = if modifiers
+            .as_ref()
+            .is_some_and(|modifiers| modifiers.overwrite)
+        {
+            (layout_cursor_size.x, -0.001)
+        } else {
+            (input_style.cursor_size.x * buffer.space_advance, 0.)
+        };
+
+        let cursor_size = Vec2::new(w, input_style.cursor_size.y * layout_cursor_size.y).ceil();
+        let cursor_position = position - 0.5 * (layout_cursor_size.x - cursor_size.x) * Vec2::X;
+
+        extracted_uinodes.uinodes.push(ExtractedUiNode {
+            render_entity: commands.spawn(TemporaryRenderEntity).id(),
+            z_order: uinode.stack_index as f32 + stack_z_offsets::TEXT + cursor_z_offset,
+            clip,
+            image: AssetId::default(),
+            transform: transform * Affine2::from_translation(cursor_position),
+            extracted_camera_entity,
+            item: ExtractedUiItem::Node {
+                color: input_style.cursor_color.into(),
+                rect: Rect {
+                    min: Vec2::ZERO,
+                    max: cursor_size,
+                },
+                atlas_scaling: None,
+                flip_x: false,
+                flip_y: false,
+                border: uinode.border(),
+                border_radius: uinode.border_radius(),
+                node_type: NodeType::Rect,
+            },
+            main_entity: entity.into(),
+        });
     }
 }
 
@@ -1058,6 +1253,7 @@ pub fn extract_text_shadows(
                 .as_rect();
             extracted_uinodes.glyphs.push(ExtractedGlyph {
                 color: shadow.color.into(),
+                //transform: node_transform * Affine2::from_translation(*position),
                 translation: *position,
                 rect,
             });

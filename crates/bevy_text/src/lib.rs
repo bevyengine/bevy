@@ -110,22 +110,20 @@ impl Plugin for TextPlugin {
             )
             .add_systems(Last, trim_cosmic_cache);
 
-        app.init_resource::<Clipboard>()
-            .init_resource::<TextCursorBlinkInterval>()
-            .add_systems(
-                PostUpdate,
-                (
-                    update_text_input_buffers,
-                    apply_text_edits,
-                    update_password_masks,
-                    update_text_input_layouts,
-                    update_placeholder_layouts,
-                )
-                    .chain()
-                    .in_set(TextInputSystems)
-                    .before(AssetEventSystems)
-                    .ambiguous_with(Text2dUpdateSystems),
-            );
+        app.init_resource::<TextCursorBlinkInterval>().add_systems(
+            PostUpdate,
+            (
+                update_text_input_buffers,
+                apply_text_edits,
+                update_password_masks,
+                update_text_input_layouts,
+                update_placeholder_layouts,
+            )
+                .chain()
+                .in_set(TextInputSystems)
+                .before(AssetEventSystems)
+                .ambiguous_with(Text2dUpdateSystems),
+        );
 
         #[cfg(feature = "default_font")]
         {
