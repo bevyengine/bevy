@@ -1,6 +1,6 @@
 #define_import_path bevy_pbr::atmosphere::functions
 
-#import bevy_render::maths::{PI, HALF_PI, PI_2, fast_acos, fast_acos_4, fast_atan2}
+#import bevy_render::maths::{PI, HALF_PI, PI_2, fast_acos, fast_acos_4, fast_atan2, ray_sphere_intersect}
 
 #import bevy_pbr::atmosphere::{
     types::Atmosphere,
@@ -147,6 +147,7 @@ fn sample_multiscattering_lut(r: f32, mu: f32) -> vec3<f32> {
 fn sample_sky_view_lut(r: f32, ray_dir_as: vec3<f32>) -> vec3<f32> {
     let mu = ray_dir_as.y;
     let azimuth = fast_atan2(ray_dir_as.x, -ray_dir_as.z);
+    // add EPSILON to prevent division by zero and black pixels
     let uv = sky_view_lut_r_mu_azimuth_to_uv(r + EPSILON, mu, azimuth);
     return textureSampleLevel(sky_view_lut, sky_view_lut_sampler, uv, 0.0).rgb;
 }
@@ -349,10 +350,10 @@ fn ndc_to_uv(ndc: vec2<f32>) -> vec2<f32> {
 
 /// Converts a direction in world space to atmosphere space
 fn direction_world_to_atmosphere(dir_ws: vec3<f32>, up: vec3<f32>) -> vec3<f32> {
-    // Camera forward in world space (+Z in view-to-world transform here)
-    let forward_ws = normalize((view.world_from_view * vec4(0.0, 0.0, 1.0, 0.0)).xyz);
-    let tangent_z = normalize(forward_ws - up * dot(forward_ws, up));
-    let tangent_x = normalize(cross(up, tangent_z));
+    // Camera forward in world space (-Z in view to world transform)
+    let forward_ws = normalize((view.world_from_view * vec4(0.0, 0.0, -1.0, 0.0)).xyz);
+    let tangent_z = up * dot(forward_ws, up) - forward_ws;
+    let tangent_x = cross(up, tangent_z);
     return vec3(
         dot(dir_ws, tangent_x),
         dot(dir_ws, up),
@@ -367,8 +368,8 @@ fn direction_atmosphere_to_world(dir_as: vec3<f32>) -> vec3<f32> {
 }
 
 // Modified from skybox.wgsl. For this pass we don't need to apply a separate sky transform or consider camera viewport.
-// w component is the cosine of the view direction with the view forward vector, to correct step distance at the edges of the viewport
-fn uv_to_ray_direction(uv: vec2<f32>) -> vec4<f32> {
+// Returns a normalized ray direction in world space.
+fn uv_to_ray_direction(uv: vec2<f32>) -> vec3<f32> {
     // Using world positions of the fragment and camera to calculate a ray direction
     // breaks down at large translations. This code only needs to know the ray direction.
     // The ray direction is along the direction from the camera to the fragment position.
@@ -390,7 +391,7 @@ fn uv_to_ray_direction(uv: vec2<f32>) -> vec4<f32> {
     // the translations from the view matrix.
     let ray_direction = (view.world_from_view * vec4(view_ray_direction, 0.0)).xyz;
 
-    return vec4(normalize(ray_direction), -view_ray_direction.z);
+    return normalize(ray_direction);
 }
 
 fn zenith_azimuth_to_ray_dir(zenith: f32, azimuth: f32) -> vec3<f32> {
@@ -399,24 +400,6 @@ fn zenith_azimuth_to_ray_dir(zenith: f32, azimuth: f32) -> vec3<f32> {
     let sin_azimuth = sin(azimuth);
     let cos_azimuth = cos(azimuth);
     return vec3(sin_azimuth * sin_zenith, mu, -cos_azimuth * sin_zenith);
-}
-
-fn ray_sphere_intersect(r: f32, mu: f32, sphere_radius: f32) -> vec2<f32> {
-    let discriminant = r * r * (mu * mu - 1.0) + sphere_radius * sphere_radius;
-    
-    // No intersection
-    if discriminant < 0.0 {
-        return vec2(-1.0);
-    }
-    
-    let q = -r * mu;
-    let sqrt_discriminant = sqrt(discriminant);
-    
-    // Return both intersection distances
-    return vec2(
-        q - sqrt_discriminant,
-        q + sqrt_discriminant
-    );
 }
 
 struct RaymarchSegment {

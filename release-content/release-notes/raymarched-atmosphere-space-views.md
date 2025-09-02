@@ -33,7 +33,7 @@ Switch the rendering method on the camera’s `AtmosphereSettings`:
 
 ```rust
 use bevy::prelude::*;
-use bevy::pbr::atmosphere::{Atmosphere, AtmosphereSettings, AtmosphereRenderingMethod};
+use bevy::pbr::atmosphere::{Atmosphere, AtmosphereSettings, AtmosphereMode};
 
 fn setup(mut commands: Commands) {
     commands.spawn((
@@ -41,7 +41,7 @@ fn setup(mut commands: Commands) {
         Atmosphere::default(),
         AtmosphereSettings { 
           sky_max_samples: 16,
-          rendering_method: AtmosphereRenderingMethod::Raymarching as u32, 
+          rendering_method: AtmosphereMode::Raymarched, 
           ..Default::default() 
         }
     ));

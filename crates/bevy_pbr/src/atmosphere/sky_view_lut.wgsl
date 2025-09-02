@@ -26,8 +26,9 @@
 fn main(@builtin(global_invocation_id) idx: vec3<u32>) {
     let uv = vec2<f32>(idx.xy) / vec2<f32>(settings.sky_view_lut_size);
 
-    let ray_dir_ws_cam = uv_to_ray_direction(uv).xyz;
+    let ray_dir_ws_cam = uv_to_ray_direction(uv);
     let cam_pos = get_view_position(ray_dir_ws_cam);
+    // add EPSILON to prevent division by zero and black pixels
     let r = length(cam_pos) + EPSILON;
     var zenith_azimuth = sky_view_lut_uv_to_zenith_azimuth(r, uv);
 

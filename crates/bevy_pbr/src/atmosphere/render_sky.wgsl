@@ -34,7 +34,7 @@ struct RenderSkyOutput {
 fn main(in: FullscreenVertexOutput) -> RenderSkyOutput {
     let depth = textureLoad(depth_texture, vec2<i32>(in.position.xy), 0);
 
-    let ray_dir_ws = uv_to_ray_direction(in.uv).xyz;
+    let ray_dir_ws = uv_to_ray_direction(in.uv);
     let world_pos = get_view_position(ray_dir_ws);
     let r = length(world_pos);
     let up = normalize(world_pos);
@@ -45,7 +45,7 @@ fn main(in: FullscreenVertexOutput) -> RenderSkyOutput {
     var transmittance: vec3<f32>;
     var inscattering: vec3<f32>;
 
-    let sun_radiance = sample_sun_radiance(ray_dir_ws.xyz);
+    let sun_radiance = sample_sun_radiance(ray_dir_ws);
 
     if depth == 0.0 {
         let ray_dir_as = direction_world_to_atmosphere(ray_dir_ws, up);
