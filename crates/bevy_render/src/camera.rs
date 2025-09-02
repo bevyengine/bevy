@@ -320,7 +320,7 @@ pub fn camera_system(
     let changed_image_handles: HashSet<&AssetId<Image>> = image_asset_events
         .read()
         .filter(|event| event.is_modified() || event.is_added())
-        .map(|event| event.id())
+        .map(AssetEvent::id)
         .collect();
 
     for (mut camera, mut camera_projection) in &mut cameras {
