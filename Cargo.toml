@@ -4669,11 +4669,11 @@ hidden = true
 
 [[example]]
 name = "render_depth_to_texture"
-path = "examples/3d/render_depth_to_texture.rs"
+path = "examples/shader_advanced/render_depth_to_texture.rs"
 doc-scrape-examples = true
 
 [package.metadata.example.render_depth_to_texture]
 name = "Render Depth to Texture"
 description = "Demonstrates how to use depth-only cameras"
-category = "3D Rendering"
+category = "Shaders"
 wasm = true
