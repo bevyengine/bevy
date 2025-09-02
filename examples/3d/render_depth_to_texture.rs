@@ -184,11 +184,12 @@ fn spawn_rotating_cube(
         unlit: false,
         ..default()
     });
-    commands
-        .spawn(Mesh3d(cube_handle.clone()))
-        .insert(MeshMaterial3d(rotating_cube_material_handle))
-        .insert(Transform::IDENTITY)
-        .insert(RotatingCube);
+    commands.spawn((
+        Mesh3d(cube_handle.clone()),
+        MeshMaterial3d(rotating_cube_material_handle),
+        Transform::IDENTITY,
+        RotatingCube,
+    ));
 }
 
 // Spawns the plane that shows the depth texture.
@@ -202,25 +203,24 @@ fn spawn_plane(
     let show_depth_texture_material = show_depth_texture_materials.add(ShowDepthTextureMaterial {
         depth_texture: Some(demo_depth_texture.0.clone()),
     });
-    commands
-        .spawn(Mesh3d(plane_handle))
-        .insert(MeshMaterial3d(show_depth_texture_material))
-        .insert(Transform::from_xyz(10.0, 4.0, 0.0).with_scale(Vec3::splat(2.5)));
+    commands.spawn((
+        Mesh3d(plane_handle),
+        MeshMaterial3d(show_depth_texture_material),
+        Transform::from_xyz(10.0, 4.0, 0.0).with_scale(Vec3::splat(2.5)),
+    ));
 }
 
 /// Spawns a light.
 fn spawn_light(commands: &mut Commands) {
-    commands
-        .spawn(PointLight::default())
-        .insert(Transform::from_xyz(5.0, 6.0, 7.0));
+    commands.spawn((PointLight::default(), Transform::from_xyz(5.0, 6.0, 7.0)));
 }
 
 /// Spawns the depth-only camera.
 fn spawn_depth_only_camera(commands: &mut Commands) {
-    commands
-        .spawn(Camera3d::default())
-        .insert(Transform::from_xyz(-4.0, -5.0, 5.0).looking_at(Vec3::ZERO, Vec3::Y))
-        .insert(Camera {
+    commands.spawn((
+        Camera3d::default(),
+        Transform::from_xyz(-4.0, -5.0, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
+        Camera {
             // We specify no color render target, for maximum efficiency.
             target: RenderTarget::None {
                 // When specifying no render target, we must manually specify
@@ -232,36 +232,39 @@ fn spawn_depth_only_camera(commands: &mut Commands) {
             // rendering from the main camera.
             order: -1,
             ..Camera::default()
-        })
+        },
         // We need to disable multisampling or the depth texture will be
         // multisampled, which adds complexity we don't care about for this
         // demo.
-        .insert(Msaa::Off)
+        Msaa::Off,
         // Cameras with no render target render *nothing* by default. To get
         // them to render something, we must add a prepass that specifies what
         // we want to render: in this case, depth.
-        .insert(DepthPrepass);
+        DepthPrepass,
+    ));
 }
 
 /// Spawns the main camera that renders to the window.
 fn spawn_main_camera(commands: &mut Commands) {
-    commands
-        .spawn(Camera3d::default())
-        .insert(Transform::from_xyz(5.0, 2.0, 30.0).looking_at(vec3(5.0, 2.0, 0.0), Vec3::Y))
+    commands.spawn((
+        Camera3d::default(),
+        Transform::from_xyz(5.0, 2.0, 30.0).looking_at(vec3(5.0, 2.0, 0.0), Vec3::Y),
         // Disable antialiasing just for simplicity's sake.
-        .insert(Msaa::Off);
+        Msaa::Off,
+    ));
 }
 
 /// Spawns the instructional text at the top of the screen.
 fn spawn_instructions(commands: &mut Commands) {
-    commands
-        .spawn(Text::new("Use WASD to move the secondary camera"))
-        .insert(Node {
+    commands.spawn((
+        Text::new("Use WASD to move the secondary camera"),
+        Node {
             position_type: PositionType::Absolute,
             top: Val::Px(12.0),
             left: Val::Px(12.0),
             ..Node::default()
-        });
+        },
+    ));
 }
 
 /// Spins the cube a bit every frame.
