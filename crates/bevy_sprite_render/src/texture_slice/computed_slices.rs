@@ -117,7 +117,7 @@ pub(crate) fn compute_slices_on_asset_event(
     let added_handles: HashSet<_> = events
         .read()
         .filter(|e| e.is_added() || e.is_modified())
-        .map(|e| e.id())
+        .map(AssetEvent::id)
         .collect();
     if added_handles.is_empty() {
         return;
