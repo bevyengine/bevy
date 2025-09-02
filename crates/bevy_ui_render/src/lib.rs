@@ -973,7 +973,7 @@ pub fn extract_text_sections(
                     .get(
                         computed_block
                             .entities()
-                            .get(*span_index)
+                            .get(*span_index + 1)
                             .map(|t| t.entity)
                             .unwrap_or(Entity::PLACEHOLDER),
                     )
