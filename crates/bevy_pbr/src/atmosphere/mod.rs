@@ -502,7 +502,7 @@ pub enum AtmosphereMode {
     #[default]
     LookupTexture = 0,
     /// Slower, more accurate rendering method for any type of scene.
-    /// Computes the atmosphere by raymarching and produces sharp volumetric
+    /// Integrates the scattering numerically with raymarching and produces sharp volumetric
     /// (cloud/fog) shadows.
     /// Best for cinematic shots, planets seen from orbit, and scenes requiring
     /// accurate long-distance lighting.

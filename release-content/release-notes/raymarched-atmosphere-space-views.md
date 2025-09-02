@@ -10,17 +10,17 @@ Bevy's atmosphere now supports a raymarched rendering path that unlocks accurate
 
 ### What changed
 
-- Added `AtmosphereRenderingMethod::Raymarching`, alongside the existing default method.
+- Added `AtmosphereMode::Raymarched`, as an alternative to the existing lookup texture method.
 - Added support for views from above the atmosphere.
 
 ### When to choose which
 
-- Default
+- LookupTexture
   - Fastest, approximate lighting, inaccurate for long distance views
   - Ground level and broad outdoor scenes
   - Most cameras and typical view distances
   - Softer shadows through the atmosphere
-- Raymarching
+- Raymarched
   - Slightly slower, more accurate lighting
   - Views from above the atmosphere or far from the scene
   - Cinematic shots that demand stable lighting over a large range of scales

@@ -315,7 +315,8 @@ fn get_view_position() -> vec3<f32> {
     
     // If the camera is underground, clamp it to the ground surface along the local up.
     let r = length(world_pos);
-    // add EPSILON to prevent division by zero and black pixels
+    // Nudge r above ground to avoid sqrt cancellation, zero-length segments where 
+    // r is equal to bottom_radius, which show up as black pixels
     let min_radius = atmosphere.bottom_radius + EPSILON;
     if r < min_radius {
         let up = normalize(world_pos);
@@ -351,8 +352,8 @@ fn ndc_to_uv(ndc: vec2<f32>) -> vec2<f32> {
 /// Converts a direction in world space to atmosphere space
 fn direction_world_to_atmosphere(dir_ws: vec3<f32>, up: vec3<f32>) -> vec3<f32> {
     // Camera forward in world space (-Z in view to world transform)
-    let forward_ws = normalize((view.world_from_view * vec4(0.0, 0.0, -1.0, 0.0)).xyz);
-    let tangent_z = up * dot(forward_ws, up) - forward_ws;
+    let forward_ws = (view.world_from_view * vec4(0.0, 0.0, -1.0, 0.0)).xyz;
+    let tangent_z = normalize(up * dot(forward_ws, up) - forward_ws);
     let tangent_x = cross(up, tangent_z);
     return vec3(
         dot(dir_ws, tangent_x),
