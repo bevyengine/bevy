@@ -88,7 +88,7 @@ impl<A: Asset> AssetEvent<A> {
     }
 
     /// Returns `true` if this event is [`AssetEvent::Modified`] and matches the given `id`.
-    pub fn is_modified_and_id(&self, asset_id: impl Into<AssetId<A>>) -> bool {
+    pub fn is_modified_with_id(&self, asset_id: impl Into<AssetId<A>>) -> bool {
         matches!(self, AssetEvent::Modified { id } if *id == asset_id.into())
     }
 
@@ -98,7 +98,7 @@ impl<A: Asset> AssetEvent<A> {
     }
 
     /// Returns `true` if this event is [`AssetEvent::Removed`] and matches the given `id`.
-    pub fn is_removed_and_id(&self, asset_id: impl Into<AssetId<A>>) -> bool {
+    pub fn is_removed_with_id(&self, asset_id: impl Into<AssetId<A>>) -> bool {
         matches!(self, AssetEvent::Removed { id } if *id == asset_id.into())
     }
 
@@ -108,7 +108,7 @@ impl<A: Asset> AssetEvent<A> {
     }
 
     /// Returns `true` if this event is [`AssetEvent::Unused`] and matches the given `id`.
-    pub fn is_unused_and_id(&self, asset_id: impl Into<AssetId<A>>) -> bool {
+    pub fn is_unused_with_id(&self, asset_id: impl Into<AssetId<A>>) -> bool {
         matches!(self, AssetEvent::Unused { id } if *id == asset_id.into())
     }
 
