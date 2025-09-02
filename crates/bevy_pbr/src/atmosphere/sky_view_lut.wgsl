@@ -5,7 +5,7 @@
         bindings::{atmosphere, view, settings},
         functions::{
             sample_atmosphere, AtmosphereSample,
-            sample_local_inscattering, get_view_position, uv_to_ray_direction,
+            sample_local_inscattering, get_view_position,
             max_atmosphere_distance, direction_atmosphere_to_world,
             sky_view_lut_uv_to_zenith_azimuth, zenith_azimuth_to_ray_dir,
             MIDPOINT_RATIO, raymarch_atmosphere, EPSILON
@@ -26,10 +26,8 @@
 fn main(@builtin(global_invocation_id) idx: vec3<u32>) {
     let uv = vec2<f32>(idx.xy) / vec2<f32>(settings.sky_view_lut_size);
 
-    let ray_dir_ws_cam = uv_to_ray_direction(uv);
-    let cam_pos = get_view_position(ray_dir_ws_cam);
-    // add EPSILON to prevent division by zero and black pixels
-    let r = length(cam_pos) + EPSILON;
+    let cam_pos = get_view_position();
+    let r = length(cam_pos);
     var zenith_azimuth = sky_view_lut_uv_to_zenith_azimuth(r, uv);
 
     let ray_dir_as = zenith_azimuth_to_ray_dir(zenith_azimuth.x, zenith_azimuth.y);

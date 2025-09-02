@@ -27,7 +27,7 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
     // invert the z direction to account for cubemaps being lefthanded
     ray_dir_ws.z = -ray_dir_ws.z;
 
-    let world_pos = get_view_position(ray_dir_ws);
+    let world_pos = get_view_position();
     let r = length(world_pos);
     let up = normalize(world_pos);
 

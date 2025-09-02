@@ -22,7 +22,7 @@ fn main(@builtin(global_invocation_id) idx: vec3<u32>) {
 
     let uv = (vec2<f32>(idx.xy) + 0.5) / vec2<f32>(settings.aerial_view_lut_size.xy);
     let ray_dir = uv_to_ray_direction(uv);
-    let world_pos = get_view_position(ray_dir);
+    let world_pos = get_view_position();
     
     let r = length(world_pos);
     let t_max = settings.aerial_view_lut_max_distance;

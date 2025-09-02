@@ -147,8 +147,7 @@ fn sample_multiscattering_lut(r: f32, mu: f32) -> vec3<f32> {
 fn sample_sky_view_lut(r: f32, ray_dir_as: vec3<f32>) -> vec3<f32> {
     let mu = ray_dir_as.y;
     let azimuth = fast_atan2(ray_dir_as.x, -ray_dir_as.z);
-    // add EPSILON to prevent division by zero and black pixels
-    let uv = sky_view_lut_r_mu_azimuth_to_uv(r + EPSILON, mu, azimuth);
+    let uv = sky_view_lut_r_mu_azimuth_to_uv(r, mu, azimuth);
     return textureSampleLevel(sky_view_lut, sky_view_lut_sampler, uv, 0.0).rgb;
 }
 
@@ -279,7 +278,7 @@ fn sample_local_inscattering(local_atmosphere: AtmosphereSample, ray_dir: vec3<f
 }
 
 fn sample_sun_radiance(ray_dir_ws: vec3<f32>) -> vec3<f32> {
-    let view_pos = get_view_position(ray_dir_ws);
+    let view_pos = get_view_position();
     let r = length(view_pos);
     let up = normalize(view_pos);
     let mu_view = dot(ray_dir_ws, up);
@@ -311,15 +310,16 @@ fn max_atmosphere_distance(r: f32, mu: f32) -> f32 {
 }
 
 /// Returns the observer's position in the atmosphere
-fn get_view_position(ray_dir: vec3<f32>) -> vec3<f32> {
+fn get_view_position() -> vec3<f32> {
     var world_pos = view.world_position * settings.scene_units_to_m + vec3(0.0, atmosphere.bottom_radius, 0.0);
     
-    // move the world position forward to the first intersection with the ground
+    // If the camera is underground, clamp it to the ground surface along the local up.
     let r = length(world_pos);
-    let mu = dot(ray_dir, normalize(world_pos));
-    let intersection = ray_sphere_intersect(r, mu, atmosphere.bottom_radius);
-    if length(world_pos) < atmosphere.bottom_radius {
-        world_pos = world_pos + ray_dir * intersection.y;
+    // add EPSILON to prevent division by zero and black pixels
+    let min_radius = atmosphere.bottom_radius + EPSILON;
+    if r < min_radius {
+        let up = normalize(world_pos);
+        world_pos = up * min_radius;
     }
 
     return world_pos;
@@ -511,7 +511,10 @@ fn raymarch_atmosphere(
             let light_dir = (*light).direction_to_light;
             let light_color = (*light).color.rgb;
             let transmittance_to_ground = exp(-optical_depth);
-            let mu_light = dot(light_dir, up);
+            // position on the sphere and get the sphere normal (up)
+            let sphere_point = pos + ray_dir * t_end;
+            let sphere_normal = normalize(sphere_point);
+            let mu_light = dot(light_dir, sphere_normal);
             let transmittance_to_light = sample_transmittance_lut(0.0, mu_light);
             let light_luminance = transmittance_to_light * max(mu_light, 0.0) * light_color;
             // Normalized Lambert BRDF

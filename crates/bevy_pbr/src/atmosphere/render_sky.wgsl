@@ -35,7 +35,7 @@ fn main(in: FullscreenVertexOutput) -> RenderSkyOutput {
     let depth = textureLoad(depth_texture, vec2<i32>(in.position.xy), 0);
 
     let ray_dir_ws = uv_to_ray_direction(in.uv);
-    let world_pos = get_view_position(ray_dir_ws);
+    let world_pos = get_view_position();
     let r = length(world_pos);
     let up = normalize(world_pos);
     let mu = dot(ray_dir_ws, up);
