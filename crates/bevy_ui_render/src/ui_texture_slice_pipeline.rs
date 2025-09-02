@@ -371,16 +371,12 @@ pub fn prepare_ui_slices(
     mut previous_len: Local<usize>,
 ) {
     // If an image has changed, the GpuImage has (probably) changed
-    for event in &events.images {
-        match event {
-            AssetEvent::Added { .. } |
-            AssetEvent::Unused { .. } |
-            // Images don't have dependencies
-            AssetEvent::LoadedWithDependencies { .. } => {}
-            AssetEvent::Modified { id } | AssetEvent::Removed { id } => {
-                image_bind_groups.values.remove(id);
-            }
-        };
+    for event in events
+        .images
+        .iter()
+        .filter(|event| event.is_modified() || event.is_removed())
+    {
+        image_bind_groups.values.remove(event.id());
     }
 
     if let Some(view_binding) = view_uniforms.uniforms.binding() {

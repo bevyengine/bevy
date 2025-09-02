@@ -563,21 +563,18 @@ pub fn scene_spawner_system(world: &mut World) {
             .scene_asset_event_reader
             .read(scene_asset_events)
         {
-            match event {
-                AssetEvent::Added { id } => {
-                    scene_spawner.debounced_scene_asset_events.insert(*id, 0);
-                }
-                AssetEvent::Modified { id } => {
-                    if scene_spawner
-                        .debounced_scene_asset_events
-                        .insert(*id, 0)
-                        .is_none()
-                        && scene_spawner.spawned_scenes.contains_key(id)
-                    {
-                        updated_spawned_scenes.push(*id);
-                    }
-                }
-                _ => {}
+            if event.is_added() {
+                scene_spawner
+                    .debounced_scene_asset_events
+                    .insert(*event.id(), 0);
+            } else if event.is_modified()
+                && scene_spawner
+                    .debounced_scene_asset_events
+                    .insert(*event.id(), 0)
+                    .is_none()
+                && scene_spawner.spawned_scenes.contains_key(event.id())
+            {
+                updated_spawned_scenes.push(*event.id());
             }
         }
         let mut updated_spawned_dynamic_scenes = Vec::new();

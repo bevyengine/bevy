@@ -116,10 +116,8 @@ pub(crate) fn compute_slices_on_asset_event(
     // We store the asset ids of added/modified image assets
     let added_handles: HashSet<_> = events
         .read()
-        .filter_map(|e| match e {
-            AssetEvent::Added { id } | AssetEvent::Modified { id } => Some(*id),
-            _ => None,
-        })
+        .filter(|e| e.is_added() || e.is_modified())
+        .map(|e| e.id())
         .collect();
     if added_handles.is_empty() {
         return;

@@ -225,10 +225,11 @@ pub fn extract_meshlet_mesh_entities(
     instance_manager.reset(render_entities);
 
     // Free GPU buffer space for any modified or dropped MeshletMesh assets
-    for asset_event in asset_events.read() {
-        if let AssetEvent::Unused { id } | AssetEvent::Modified { id } = asset_event {
-            meshlet_mesh_manager.remove(id);
-        }
+    for asset_event in asset_events
+        .read()
+        .filter(|event| event.is_unused() || event.is_modified())
+    {
+        meshlet_mesh_manager.remove(asset_event.id());
     }
 
     // Iterate over every instance

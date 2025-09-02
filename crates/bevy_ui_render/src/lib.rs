@@ -31,7 +31,7 @@ use bevy_ui::{
 };
 
 use bevy_app::prelude::*;
-use bevy_asset::{AssetEvent, AssetId, Assets};
+use bevy_asset::{AssetId, Assets};
 use bevy_color::{Alpha, ColorToComponents, LinearRgba};
 use bevy_core_pipeline::core_2d::graph::{Core2d, Node2d};
 use bevy_core_pipeline::core_3d::graph::{Core3d, Node3d};
@@ -1288,16 +1288,12 @@ pub fn prepare_uinodes(
     mut previous_len: Local<usize>,
 ) {
     // If an image has changed, the GpuImage has (probably) changed
-    for event in &events.images {
-        match event {
-            AssetEvent::Added { .. } |
-            AssetEvent::Unused { .. } |
-            // Images don't have dependencies
-            AssetEvent::LoadedWithDependencies { .. } => {}
-            AssetEvent::Modified { id } | AssetEvent::Removed { id } => {
-                image_bind_groups.values.remove(id);
-            }
-        };
+    for event in events
+        .images
+        .iter()
+        .filter(|event| event.is_modified() || event.is_removed())
+    {
+        image_bind_groups.values.remove(event.id());
     }
 
     if let Some(view_binding) = view_uniforms.uniforms.binding() {

@@ -907,38 +907,34 @@ pub(crate) fn thread_animation_graphs(
     mut animation_graph_asset_events: EventReader<AssetEvent<AnimationGraph>>,
 ) {
     for animation_graph_asset_event in animation_graph_asset_events.read() {
-        match *animation_graph_asset_event {
-            AssetEvent::Added { id }
-            | AssetEvent::Modified { id }
-            | AssetEvent::LoadedWithDependencies { id } => {
-                // Fetch the animation graph.
-                let Some(animation_graph) = animation_graphs.get(id) else {
-                    continue;
-                };
+        if animation_graph_asset_event.is_added()
+            || animation_graph_asset_event.is_modified()
+            || animation_graph_asset_event.is_loaded_with_dependencies()
+        {
+            let Some(animation_graph) = animation_graphs.get(*animation_graph_asset_event.id())
+            else {
+                continue;
+            };
 
-                // Reuse the allocation if possible.
-                let mut threaded_animation_graph =
-                    threaded_animation_graphs.0.remove(&id).unwrap_or_default();
-                threaded_animation_graph.clear();
+            // Reuse the allocation if possible.
+            let mut threaded_animation_graph = threaded_animation_graphs
+                .0
+                .remove(animation_graph_asset_event.id())
+                .unwrap_or_default();
+            threaded_animation_graph.clear();
 
-                // Recursively thread the graph in postorder.
-                threaded_animation_graph.init(animation_graph);
-                threaded_animation_graph.build_from(
-                    &animation_graph.graph,
-                    animation_graph.root,
-                    0,
-                );
+            // Recursively thread the graph in postorder.
+            threaded_animation_graph.init(animation_graph);
+            threaded_animation_graph.build_from(&animation_graph.graph, animation_graph.root, 0);
 
-                // Write in the threaded graph.
-                threaded_animation_graphs
-                    .0
-                    .insert(id, threaded_animation_graph);
-            }
-
-            AssetEvent::Removed { id } => {
-                threaded_animation_graphs.0.remove(&id);
-            }
-            AssetEvent::Unused { .. } => {}
+            // Write in the threaded graph.
+            threaded_animation_graphs
+                .0
+                .insert(*animation_graph_asset_event.id(), threaded_animation_graph);
+        } else if animation_graph_asset_event.is_removed() {
+            threaded_animation_graphs
+                .0
+                .remove(animation_graph_asset_event.id());
         }
     }
 }

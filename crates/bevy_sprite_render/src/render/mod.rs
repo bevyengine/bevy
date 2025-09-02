@@ -643,15 +643,12 @@ pub fn prepare_sprite_image_bind_groups(
     mut batches: ResMut<SpriteBatches>,
 ) {
     // If an image has changed, the GpuImage has (probably) changed
-    for event in &events.images {
-        match event {
-            AssetEvent::Added { .. } |
-            // Images don't have dependencies
-            AssetEvent::LoadedWithDependencies { .. } => {}
-            AssetEvent::Unused { id } | AssetEvent::Modified { id } | AssetEvent::Removed { id } => {
-                image_bind_groups.values.remove(id);
-            }
-        };
+    for event in events
+        .images
+        .iter()
+        .filter(|event| event.is_unused() || event.is_modified() || event.is_removed())
+    {
+        image_bind_groups.values.remove(event.id());
     }
 
     batches.clear();
