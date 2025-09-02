@@ -5,6 +5,7 @@
 use bevy::prelude::*;
 
 const TEXT_COLOR: Color = Color::srgb(0.9, 0.9, 0.9);
+const VOLUME_MAX: u32 = 9;
 
 // Enum that will be used as a global state for the game
 #[derive(Clone, Copy, Default, Eq, PartialEq, Debug, Hash, States)]
@@ -27,6 +28,9 @@ enum DisplayQuality {
 #[derive(Resource, Debug, Component, PartialEq, Eq, Clone, Copy)]
 struct Volume(u32);
 
+#[derive(Resource, Deref)]
+struct MenuMusic(Handle<AudioSource>);
+
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
@@ -36,13 +40,20 @@ fn main() {
         // Declare the game state, whose starting value is determined by the `Default` trait
         .init_state::<GameState>()
         .add_systems(Startup, setup)
+        .add_systems(
+            Update,
+            translate_discreet_volume_to_global_volume.run_if(resource_changed::<Volume>),
+        )
         // Adds the plugins for each state
         .add_plugins((splash::splash_plugin, menu::menu_plugin, game::game_plugin))
         .run();
 }
 
-fn setup(mut commands: Commands) {
+fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn(Camera2d);
+    // Sound
+    let music = asset_server.load("sounds/Windless Slopes.ogg");
+    commands.insert_resource(MenuMusic(music));
 }
 
 mod splash {
@@ -113,14 +124,19 @@ mod game {
         prelude::*,
     };
 
+    use crate::{play_music, stop_music};
+
     use super::{despawn_screen, DisplayQuality, GameState, Volume, TEXT_COLOR};
 
     // This plugin will contain the game. In this case, it's just be a screen that will
     // display the current settings for 5 seconds before returning to the menu
     pub fn game_plugin(app: &mut App) {
-        app.add_systems(OnEnter(GameState::Game), game_setup)
+        app.add_systems(OnEnter(GameState::Game), (game_setup, play_music))
             .add_systems(Update, game.run_if(in_state(GameState::Game)))
-            .add_systems(OnExit(GameState::Game), despawn_screen::<OnGameScreen>);
+            .add_systems(
+                OnExit(GameState::Game),
+                (despawn_screen::<OnGameScreen>, stop_music),
+            );
     }
 
     // Tag component used to tag entities added on the game screen
@@ -229,6 +245,8 @@ mod menu {
         prelude::*,
     };
 
+    use crate::{play_music, stop_music, VOLUME_MAX};
+
     use super::{despawn_screen, DisplayQuality, GameState, Volume, TEXT_COLOR};
 
     // This plugin manages the menu, with 5 different screens:
@@ -265,14 +283,17 @@ mod menu {
                 despawn_screen::<OnDisplaySettingsMenuScreen>,
             )
             // Systems to handle the sound settings screen
-            .add_systems(OnEnter(MenuState::SettingsSound), sound_settings_menu_setup)
+            .add_systems(
+                OnEnter(MenuState::SettingsSound),
+                (sound_settings_menu_setup, play_music),
+            )
             .add_systems(
                 Update,
                 setting_button::<Volume>.run_if(in_state(MenuState::SettingsSound)),
             )
             .add_systems(
                 OnExit(MenuState::SettingsSound),
-                despawn_screen::<OnSoundSettingsMenuScreen>,
+                (despawn_screen::<OnSoundSettingsMenuScreen>, stop_music),
             )
             // Common systems to all screens that handles buttons behavior
             .add_systems(
@@ -663,7 +684,7 @@ mod menu {
                         Children::spawn((
                             Spawn((Text::new("Volume"), button_text_style.clone())),
                             SpawnWith(move |parent: &mut ChildSpawner| {
-                                for volume_setting in [0, 1, 2, 3, 4, 5, 6, 7, 8, 9] {
+                                for volume_setting in 0..VOLUME_MAX {
                                     let mut entity = parent.spawn((
                                         Button,
                                         Node {
@@ -734,4 +755,26 @@ fn despawn_screen<T: Component>(to_despawn: Query<Entity, With<T>>, mut commands
     for entity in &to_despawn {
         commands.entity(entity).despawn();
     }
+}
+
+fn stop_music(playing_sounds_query: Query<AnyOf<(&AudioSink, &SpatialAudioSink)>>) {
+    for (audio_sink, spatial_audio_sink) in &playing_sounds_query {
+        if let Some(audio_sink) = audio_sink {
+            audio_sink.stop();
+        }
+        if let Some(spatial_audio_sink) = spatial_audio_sink {
+            spatial_audio_sink.stop();
+        }
+    }
+}
+
+fn play_music(mut commands: Commands, music: Res<MenuMusic>) {
+    commands.spawn((AudioPlayer(music.clone()), PlaybackSettings::DESPAWN));
+}
+
+fn translate_discreet_volume_to_global_volume(
+    volume: Res<Volume>,
+    mut global_volume: ResMut<GlobalVolume>,
+) {
+    global_volume.volume = bevy::audio::Volume::Linear(volume.0 as f32 / VOLUME_MAX as f32);
 }
