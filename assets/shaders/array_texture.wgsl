@@ -7,8 +7,8 @@
 }
 #import bevy_core_pipeline::tonemapping::tone_mapping
 
-@group(3) @binding(0) var my_array_texture: texture_2d_array<f32>;
-@group(3) @binding(1) var my_array_texture_sampler: sampler;
+@group(#{MATERIAL_BIND_GROUP}) @binding(0) var my_array_texture: texture_2d_array<f32>;
+@group(#{MATERIAL_BIND_GROUP}) @binding(1) var my_array_texture_sampler: sampler;
 
 @fragment
 fn fragment(

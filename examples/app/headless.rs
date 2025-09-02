@@ -50,7 +50,7 @@ fn hello_world_system() {
 }
 
 fn counter(mut state: Local<CounterState>) {
-    if state.count % 60 == 0 {
+    if state.count.is_multiple_of(60) {
         println!("{}", state.count);
     }
     state.count += 1;

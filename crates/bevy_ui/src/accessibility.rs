@@ -16,7 +16,7 @@ use bevy_ecs::{
 };
 
 use accesskit::{Node, Rect, Role};
-use bevy_render::camera::CameraUpdateSystems;
+use bevy_camera::CameraUpdateSystems;
 
 fn calc_label(
     text_reader: &mut TextUiReader,

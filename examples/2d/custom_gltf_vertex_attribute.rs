@@ -2,13 +2,12 @@
 
 use bevy::{
     gltf::GltfPlugin,
+    mesh::{MeshVertexAttribute, MeshVertexBufferLayoutRef},
     prelude::*,
     reflect::TypePath,
-    render::{
-        mesh::{MeshVertexAttribute, MeshVertexBufferLayoutRef},
-        render_resource::*,
-    },
-    sprite::{Material2d, Material2dKey, Material2dPlugin},
+    render::render_resource::*,
+    shader::ShaderRef,
+    sprite_render::{Material2d, Material2dKey, Material2dPlugin},
 };
 
 /// This example uses a shader source file from the assets subdirectory

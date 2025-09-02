@@ -913,7 +913,7 @@ pub const unsafe fn from_raw_parts_mut<'a, T: EntityEquivalent>(
 ///
 /// # Safety
 ///
-/// All elements in each of the casted slices must be unique.
+/// All elements in each of the cast slices must be unique.
 pub unsafe fn cast_slice_of_unique_entity_slice<'a, 'b, T: EntityEquivalent + 'a>(
     slice: &'b [&'a [T]],
 ) -> &'b [&'a UniqueEntityEquivalentSlice<T>] {
@@ -925,7 +925,7 @@ pub unsafe fn cast_slice_of_unique_entity_slice<'a, 'b, T: EntityEquivalent + 'a
 ///
 /// # Safety
 ///
-/// All elements in each of the casted slices must be unique.
+/// All elements in each of the cast slices must be unique.
 pub unsafe fn cast_slice_of_unique_entity_slice_mut<'a, 'b, T: EntityEquivalent + 'a>(
     slice: &'b mut [&'a [T]],
 ) -> &'b mut [&'a UniqueEntityEquivalentSlice<T>] {
@@ -937,7 +937,7 @@ pub unsafe fn cast_slice_of_unique_entity_slice_mut<'a, 'b, T: EntityEquivalent 
 ///
 /// # Safety
 ///
-/// All elements in each of the casted slices must be unique.
+/// All elements in each of the cast slices must be unique.
 pub unsafe fn cast_slice_of_mut_unique_entity_slice_mut<'a, 'b, T: EntityEquivalent + 'a>(
     slice: &'b mut [&'a mut [T]],
 ) -> &'b mut [&'a mut UniqueEntityEquivalentSlice<T>] {

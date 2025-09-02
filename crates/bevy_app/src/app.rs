@@ -106,13 +106,11 @@ impl Default for App {
 
         #[cfg(feature = "bevy_reflect")]
         {
-            use bevy_ecs::observer::ObservedBy;
-
+            #[cfg(not(feature = "reflect_auto_register"))]
             app.init_resource::<AppTypeRegistry>();
-            app.register_type::<Name>();
-            app.register_type::<ChildOf>();
-            app.register_type::<Children>();
-            app.register_type::<ObservedBy>();
+
+            #[cfg(feature = "reflect_auto_register")]
+            app.insert_resource(AppTypeRegistry::new_with_derived_types());
         }
 
         #[cfg(feature = "reflect_functions")]
@@ -257,28 +255,40 @@ impl App {
     /// Runs [`Plugin::finish`] for each plugin. This is usually called by the event loop once all
     /// plugins are ready, but can be useful for situations where you want to use [`App::update`].
     pub fn finish(&mut self) {
+        #[cfg(feature = "trace")]
+        let _finish_span = info_span!("plugin finish").entered();
         // plugins installed to main should see all sub-apps
-        let plugins = core::mem::take(&mut self.main_mut().plugin_registry);
-        for plugin in &plugins {
-            plugin.finish(self);
+        // do hokey pokey with a boxed zst plugin (doesn't allocate)
+        let mut hokeypokey: Box<dyn Plugin> = Box::new(HokeyPokey);
+        for i in 0..self.main().plugin_registry.len() {
+            core::mem::swap(&mut self.main_mut().plugin_registry[i], &mut hokeypokey);
+            #[cfg(feature = "trace")]
+            let _plugin_finish_span =
+                info_span!("plugin finish", plugin = hokeypokey.name()).entered();
+            hokeypokey.finish(self);
+            core::mem::swap(&mut self.main_mut().plugin_registry[i], &mut hokeypokey);
         }
-        let main = self.main_mut();
-        main.plugin_registry = plugins;
-        main.plugins_state = PluginsState::Finished;
+        self.main_mut().plugins_state = PluginsState::Finished;
         self.sub_apps.iter_mut().skip(1).for_each(SubApp::finish);
     }
 
     /// Runs [`Plugin::cleanup`] for each plugin. This is usually called by the event loop after
     /// [`App::finish`], but can be useful for situations where you want to use [`App::update`].
     pub fn cleanup(&mut self) {
+        #[cfg(feature = "trace")]
+        let _cleanup_span = info_span!("plugin cleanup").entered();
         // plugins installed to main should see all sub-apps
-        let plugins = core::mem::take(&mut self.main_mut().plugin_registry);
-        for plugin in &plugins {
-            plugin.cleanup(self);
+        // do hokey pokey with a boxed zst plugin (doesn't allocate)
+        let mut hokeypokey: Box<dyn Plugin> = Box::new(HokeyPokey);
+        for i in 0..self.main().plugin_registry.len() {
+            core::mem::swap(&mut self.main_mut().plugin_registry[i], &mut hokeypokey);
+            #[cfg(feature = "trace")]
+            let _plugin_cleanup_span =
+                info_span!("plugin cleanup", plugin = hokeypokey.name()).entered();
+            hokeypokey.cleanup(self);
+            core::mem::swap(&mut self.main_mut().plugin_registry[i], &mut hokeypokey);
         }
-        let main = self.main_mut();
-        main.plugin_registry = plugins;
-        main.plugins_state = PluginsState::Cleaned;
+        self.main_mut().plugins_state = PluginsState::Cleaned;
         self.sub_apps.iter_mut().skip(1).for_each(SubApp::cleanup);
     }
 
@@ -480,6 +490,9 @@ impl App {
             .push(Box::new(PlaceholderPlugin));
 
         self.main_mut().plugin_build_depth += 1;
+
+        #[cfg(feature = "trace")]
+        let _plugin_build_span = info_span!("plugin build", plugin = plugin.name()).entered();
 
         let f = AssertUnwindSafe(|| plugin.build(self));
 
@@ -1332,8 +1345,8 @@ impl App {
     /// # struct Friend;
     /// #
     ///
-    /// app.add_observer(|trigger: On<Party>, friends: Query<Entity, With<Friend>>, mut commands: Commands| {
-    ///     if trigger.event().friends_allowed {
+    /// app.add_observer(|event: On<Party>, friends: Query<Entity, With<Friend>>, mut commands: Commands| {
+    ///     if event.friends_allowed {
     ///         for friend in friends.iter() {
     ///             commands.trigger_targets(Invite, friend);
     ///         }
@@ -1390,6 +1403,12 @@ impl App {
         }
         self
     }
+}
+
+// Used for doing hokey pokey in finish and cleanup
+pub(crate) struct HokeyPokey;
+impl Plugin for HokeyPokey {
+    fn build(&self, _: &mut App) {}
 }
 
 type RunnerFn = Box<dyn FnOnce(App) -> AppExit>;
@@ -1528,6 +1547,38 @@ mod tests {
         }
     }
 
+    struct PluginF;
+
+    impl Plugin for PluginF {
+        fn build(&self, _app: &mut App) {}
+
+        fn finish(&self, app: &mut App) {
+            // Ensure other plugins are available during finish
+            assert_eq!(
+                app.is_plugin_added::<PluginA>(),
+                !app.get_added_plugins::<PluginA>().is_empty(),
+            );
+        }
+
+        fn cleanup(&self, app: &mut App) {
+            // Ensure other plugins are available during finish
+            assert_eq!(
+                app.is_plugin_added::<PluginA>(),
+                !app.get_added_plugins::<PluginA>().is_empty(),
+            );
+        }
+    }
+
+    struct PluginG;
+
+    impl Plugin for PluginG {
+        fn build(&self, _app: &mut App) {}
+
+        fn finish(&self, app: &mut App) {
+            app.add_plugins(PluginB);
+        }
+    }
+
     #[test]
     fn can_add_two_plugins() {
         App::new().add_plugins((PluginA, PluginB));
@@ -1598,6 +1649,39 @@ mod tests {
     }
 
     #[test]
+    fn test_get_added_plugins_works_during_finish_and_cleanup() {
+        let mut app = App::new();
+        app.add_plugins(PluginA);
+        app.add_plugins(PluginF);
+        app.finish();
+    }
+
+    #[test]
+    fn test_adding_plugin_works_during_finish() {
+        let mut app = App::new();
+        app.add_plugins(PluginA);
+        app.add_plugins(PluginG);
+        app.finish();
+        assert_eq!(
+            app.main().plugin_registry[0].name(),
+            "bevy_app::main_schedule::MainSchedulePlugin"
+        );
+        assert_eq!(
+            app.main().plugin_registry[1].name(),
+            "bevy_app::app::tests::PluginA"
+        );
+        assert_eq!(
+            app.main().plugin_registry[2].name(),
+            "bevy_app::app::tests::PluginG"
+        );
+        // PluginG adds PluginB during finish
+        assert_eq!(
+            app.main().plugin_registry[3].name(),
+            "bevy_app::app::tests::PluginB"
+        );
+    }
+
+    #[test]
     fn test_derive_app_label() {
         use super::AppLabel;
 
@@ -1613,9 +1697,17 @@ mod tests {
             b: u32,
         }
 
+        #[expect(
+            dead_code,
+            reason = "This struct is used as a compilation test to test the derive macros, and as such is intentionally never constructed."
+        )]
         #[derive(AppLabel, Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
         struct EmptyTupleLabel();
 
+        #[expect(
+            dead_code,
+            reason = "This struct is used as a compilation test to test the derive macros, and as such is intentionally never constructed."
+        )]
         #[derive(AppLabel, Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
         struct EmptyStructLabel {}
 

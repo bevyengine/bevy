@@ -22,10 +22,10 @@ use crate::{
     PickingSystems,
 };
 use bevy_app::prelude::*;
+use bevy_camera::{visibility::RenderLayers, Camera};
 use bevy_ecs::prelude::*;
 use bevy_reflect::prelude::*;
-use bevy_render::{prelude::*, view::RenderLayers};
-use ray_cast::{MeshRayCast, MeshRayCastSettings, RayCastVisibility, SimplifiedMesh};
+use ray_cast::{MeshRayCast, MeshRayCastSettings, RayCastVisibility};
 
 /// An optional component that marks cameras that should be used in the [`MeshPickingPlugin`].
 ///
@@ -45,8 +45,8 @@ pub struct MeshPickingSettings {
     /// should be used by the mesh picking backend at runtime.
     pub require_markers: bool,
 
-    /// Determines how mesh picking should consider [`Visibility`]. When set to [`RayCastVisibility::Any`],
-    /// ray casts can be performed against both visible and hidden entities.
+    /// Determines how mesh picking should consider [`Visibility`](bevy_camera::visibility::Visibility).
+    /// When set to [`RayCastVisibility::Any`], ray casts can be performed against both visible and hidden entities.
     ///
     /// Defaults to [`RayCastVisibility::VisibleInView`], only performing picking against visible entities
     /// that are in the view of a camera.
@@ -69,8 +69,6 @@ pub struct MeshPickingPlugin;
 impl Plugin for MeshPickingPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<MeshPickingSettings>()
-            .register_type::<MeshPickingSettings>()
-            .register_type::<SimplifiedMesh>()
             .add_systems(PreUpdate, update_hits.in_set(PickingSystems::Backend));
     }
 }

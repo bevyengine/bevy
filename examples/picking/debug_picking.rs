@@ -40,21 +40,21 @@ fn setup_scene(
             Text::new("Click Me to get a box\nDrag cubes to rotate\nPress F3 to cycle between picking debug levels"),
             Node {
                 position_type: PositionType::Absolute,
-                top: Val::Percent(12.0),
-                left: Val::Percent(12.0),
+                top: percent(12),
+                left: percent(12),
                 ..default()
             },
         ))
         .observe(on_click_spawn_cube)
         .observe(
             |out: On<Pointer<Out>>, mut texts: Query<&mut TextColor>| {
-                let mut text_color = texts.get_mut(out.target()).unwrap();
+                let mut text_color = texts.get_mut(out.entity()).unwrap();
                 text_color.0 = Color::WHITE;
             },
         )
         .observe(
             |over: On<Pointer<Over>>, mut texts: Query<&mut TextColor>| {
-                let mut color = texts.get_mut(over.target()).unwrap();
+                let mut color = texts.get_mut(over.entity()).unwrap();
                 color.0 = bevy::color::palettes::tailwind::CYAN_400.into();
             },
         );
@@ -102,7 +102,7 @@ fn on_click_spawn_cube(
 }
 
 fn on_drag_rotate(drag: On<Pointer<Drag>>, mut transforms: Query<&mut Transform>) {
-    if let Ok(mut transform) = transforms.get_mut(drag.target()) {
+    if let Ok(mut transform) = transforms.get_mut(drag.entity()) {
         transform.rotate_y(drag.delta.x * 0.02);
         transform.rotate_x(drag.delta.y * 0.02);
     }

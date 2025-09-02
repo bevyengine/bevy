@@ -41,16 +41,16 @@ fn remove_component(
     query: Query<Entity, With<MyComponent>>,
 ) {
     // After two seconds have passed the `Component` is removed.
-    if time.elapsed_secs() > 2.0 {
-        if let Some(entity) = query.iter().next() {
-            commands.entity(entity).remove::<MyComponent>();
-        }
+    if time.elapsed_secs() > 2.0
+        && let Some(entity) = query.iter().next()
+    {
+        commands.entity(entity).remove::<MyComponent>();
     }
 }
 
-fn react_on_removal(trigger: On<Remove, MyComponent>, mut query: Query<&mut Sprite>) {
-    // The `Remove` trigger was automatically called on the `Entity` that had its `MyComponent` removed.
-    let entity = trigger.target();
+fn react_on_removal(event: On<Remove, MyComponent>, mut query: Query<&mut Sprite>) {
+    // The `Remove` event was automatically triggered for the `Entity` that had its `MyComponent` removed.
+    let entity = event.entity();
     if let Ok(mut sprite) = query.get_mut(entity) {
         sprite.color = Color::srgb(0.5, 1., 1.);
     }

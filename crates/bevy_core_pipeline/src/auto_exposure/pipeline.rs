@@ -10,6 +10,7 @@ use bevy_render::{
     renderer::RenderDevice,
     view::ViewUniform,
 };
+use bevy_shader::Shader;
 use bevy_utils::default;
 use core::num::NonZero;
 

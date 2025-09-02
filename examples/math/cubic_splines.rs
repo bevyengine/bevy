@@ -80,10 +80,10 @@ fn setup(mut commands: Commands) {
     commands
         .spawn(Node {
             position_type: PositionType::Absolute,
-            top: Val::Px(12.0),
-            left: Val::Px(12.0),
+            top: px(12),
+            left: px(12),
             flex_direction: FlexDirection::Column,
-            row_gap: Val::Px(20.0),
+            row_gap: px(20),
             ..default()
         })
         .with_children(|parent| {

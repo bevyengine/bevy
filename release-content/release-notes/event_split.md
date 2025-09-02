@@ -46,8 +46,8 @@ struct Speak {
 You can then `trigger` the event, and use a global observer for reacting to it.
 
 ```rust
-app.add_observer(|trigger: On<Speak>| {
-    println!("{}", trigger.message);
+app.add_observer(|event: On<Speak>| {
+    println!("{}", event.message);
 });
 
 // ...
@@ -81,10 +81,10 @@ let enemy = commands.spawn((Enemy, Health(100.0))).id();
 // which can then handle the event with its own observer.
 let armor_piece = commands
     .spawn((ArmorPiece, Health(25.0), ChildOf(enemy)))
-    .observe(|trigger: On<Damage>, mut query: Query<&mut Health>| {
-        // Note: `On::target` only exists because this is an `EntityEvent`.
-        let mut health = query.get(trigger.target()).unwrap();
-        health.0 -= trigger.amount();
+    .observe(|event: On<Damage>, mut query: Query<&mut Health>| {
+        // Note: `On::entity` only exists because this is an `EntityEvent`.
+        let mut health = query.get(event.entity()).unwrap();
+        health.0 -= event.amount();
     })
     .id();
 
