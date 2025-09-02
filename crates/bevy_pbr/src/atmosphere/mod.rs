@@ -42,9 +42,7 @@ use bevy_asset::{embedded_asset, AssetId, Assets, Handle};
 use bevy_camera::Camera3d;
 use bevy_core_pipeline::core_3d::graph::Node3d;
 use bevy_ecs::{
-    archetype::Archetype,
-    component::{Component, Components},
-    entity::Entity,
+    component::Component,
     query::{Changed, QueryItem, With},
     resource::Resource,
     schedule::IntoScheduleConfigs,
@@ -77,7 +75,7 @@ use resources::{
     prepare_atmosphere_transforms, queue_render_sky_pipelines, AtmosphereTransforms,
     RenderSkyBindGroupLayouts,
 };
-use tracing::{debug, warn};
+use tracing::warn;
 
 use crate::{
     resources::{prepare_atmosphere_uniforms, GpuAtmosphere},

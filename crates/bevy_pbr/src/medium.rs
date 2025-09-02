@@ -1,17 +1,13 @@
+use alloc::{borrow::Cow, sync::Arc};
 use core::f32::{self, consts::PI};
-use std::{borrow::Cow, fs::canonicalize, mem, sync::Arc};
 
 use bevy_app::{App, Plugin};
-use bevy_asset::{Asset, AssetApp, AssetId, Assets, Handle};
-use bevy_color::{Color, LinearRgba};
+use bevy_asset::{Asset, AssetApp, AssetId};
 use bevy_ecs::{
     resource::Resource,
     system::{Commands, Res, SystemParamItem},
 };
-use bevy_math::{
-    curve::{EaseFunction, EasingCurve, Interval},
-    ops, Curve, FloatPow, U8Vec3, Vec3, Vec4, VectorSpace,
-};
+use bevy_math::{ops, Curve, FloatPow, Vec3, Vec4};
 use bevy_reflect::TypePath;
 use bevy_render::{
     render_asset::{PrepareAssetError, RenderAsset, RenderAssetPlugin},
@@ -23,7 +19,7 @@ use bevy_render::{
     renderer::{RenderDevice, RenderQueue},
     RenderApp, RenderStartup,
 };
-use smallvec::{smallvec_inline, SmallVec};
+use smallvec::SmallVec;
 
 #[doc(hidden)]
 pub struct ScatteringMediumPlugin;
@@ -143,13 +139,13 @@ impl ScatteringMedium {
                 ScatteringTerm {
                     absorption: Vec3::ZERO,
                     scattering: Vec3::new(5.802e-6, 13.558e-6, 33.100e-6),
-                    falloff: Falloff::Exponential { scale: 12.5 }, //TODO: check if matches reference
+                    falloff: Falloff::Exponential { scale: 12.5 },
                     phase: PhaseFunction::Rayleigh,
                 },
                 ScatteringTerm {
                     absorption: Vec3::splat(3.996e-6),
                     scattering: Vec3::splat(0.444e-6),
-                    falloff: Falloff::Exponential { scale: 83.5 }, //TODO: check if matches reference
+                    falloff: Falloff::Exponential { scale: 83.5 },
                     phase: PhaseFunction::Mie { bias: 0.8 },
                 },
                 ScatteringTerm {

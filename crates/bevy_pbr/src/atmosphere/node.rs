@@ -8,7 +8,6 @@ use bevy_render::{
     renderer::RenderContext,
     view::{ViewTarget, ViewUniformOffset},
 };
-use tracing::warn;
 
 use crate::{resources::GpuAtmosphere, ViewLightsUniformOffset};
 
@@ -17,7 +16,7 @@ use super::{
         AtmosphereBindGroups, AtmosphereLutPipelines, AtmosphereTransformsOffset,
         RenderSkyPipelineId,
     },
-    Atmosphere, GpuAtmosphereSettings,
+    GpuAtmosphereSettings,
 };
 
 #[derive(PartialEq, Eq, Debug, Copy, Clone, Hash, RenderLabel)]
