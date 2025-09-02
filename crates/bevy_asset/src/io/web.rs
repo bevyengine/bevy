@@ -138,9 +138,19 @@ async fn get(path: PathBuf) -> Result<Box<dyn Reader>, AssetReaderError> {
     if let Some(data) = web_asset_cache::try_load_from_cache(str_path).await? {
         return Ok(Box::new(VecReader::new(data)));
     }
+    use ureq::tls::{RootCerts, TlsConfig};
     use ureq::Agent;
 
-    static AGENT: LazyLock<Agent> = LazyLock::new(|| Agent::config_builder().build().new_agent());
+    static AGENT: LazyLock<Agent> = LazyLock::new(|| {
+        Agent::config_builder()
+            .tls_config(
+                TlsConfig::builder()
+                    .root_certs(RootCerts::PlatformVerifier)
+                    .build(),
+            )
+            .build()
+            .new_agent()
+    });
 
     let uri = str_path.to_owned();
     // Use [`unblock`] to run the http request on a separately spawned thread as to not block bevy's
