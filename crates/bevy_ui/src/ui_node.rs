@@ -26,6 +26,7 @@ use tracing::warn;
 #[derive(Component, Debug, Copy, Clone, PartialEq, Reflect)]
 #[reflect(Component, Default, Debug, Clone)]
 pub struct ComputedNode {
+    pub layer_index: u32,
     /// The order of the node in the UI layout.
     /// Nodes with a higher stack index are drawn on top of and receive interactions before nodes with lower stack indices.
     ///
@@ -106,6 +107,14 @@ impl ComputedNode {
     #[inline]
     pub const fn is_empty(&self) -> bool {
         self.size.x <= 0. || self.size.y <= 0.
+    }
+
+    /// The order of the node in the UI layout.
+    /// Nodes with a higher stack index are drawn on top of and receive interactions before nodes with lower stack indices.
+    ///
+    /// Automatically calculated by [`super::layout::ui_layout_system`].
+    pub const fn layer_index(&self) -> u32 {
+        self.layer_index
     }
 
     /// The order of the node in the UI layout.
@@ -307,6 +316,7 @@ impl ComputedNode {
 
 impl ComputedNode {
     pub const DEFAULT: Self = Self {
+        layer_index: 0,
         stack_index: 0,
         size: Vec2::ZERO,
         content_size: Vec2::ZERO,

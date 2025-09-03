@@ -104,6 +104,7 @@ pub fn ui_stack_system(
     root_nodes.sort_by_key(|(_, z)| *z);
 
     let mut stack_index = 0;
+    let mut layer_index = 0;
 
     for (root_entity, (global_zindex, local_zindex)) in root_nodes.drain(..) {
         let mut nodes = vec![];
@@ -116,7 +117,9 @@ pub fn ui_stack_system(
         );
         for entity in nodes.iter() {
             if let Ok(mut node) = update_query.get_mut(*entity) {
-                node.bypass_change_detection().stack_index = stack_index;
+                let node = node.bypass_change_detection();
+                node.layer_index = layer_index;
+                node.stack_index = stack_index;
                 stack_index += 1;
             }
         }
@@ -125,6 +128,8 @@ pub fn ui_stack_system(
             local_zindex,
             nodes,
         });
+
+        layer_index += 1;
     }
 }
 
