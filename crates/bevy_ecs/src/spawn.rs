@@ -215,11 +215,12 @@ impl<R: Relationship> SpawnableList<R> for WithOneRelated {
 }
 
 macro_rules! spawnable_list_impl {
-    ($($list: ident),*) => {
+    ($(#[$meta:meta])* $($list: ident),*) => {
         #[expect(
             clippy::allow_attributes,
             reason = "This is a tuple-related macro; as such, the lints below may not always apply."
         )]
+        $(#[$meta])*
         impl<R: Relationship, $($list: SpawnableList<R>),*> SpawnableList<R> for ($($list,)*) {
             fn spawn(self, _world: &mut World, _entity: Entity) {
                 #[allow(
@@ -242,7 +243,13 @@ macro_rules! spawnable_list_impl {
     }
 }
 
-all_tuples!(spawnable_list_impl, 0, 12, P);
+all_tuples!(
+    #[doc(fake_variadic)]
+    spawnable_list_impl,
+    0,
+    12,
+    P
+);
 
 /// A [`Bundle`] that:
 /// 1. Contains a [`RelationshipTarget`] component (associated with the given [`Relationship`]). This reserves space for the [`SpawnableList`].
