@@ -6,8 +6,8 @@
         functions::{
             sample_transmittance_lut, sample_atmosphere, rayleigh, henyey_greenstein,
             sample_multiscattering_lut, AtmosphereSample, sample_local_inscattering,
-            get_local_r, get_local_up, view_radius, uv_to_ndc, max_atmosphere_distance,
-            uv_to_ray_direction, MIDPOINT_RATIO
+            uv_to_ndc, max_atmosphere_distance, uv_to_ray_direction, 
+            MIDPOINT_RATIO, get_view_position
         },
     }
 }
@@ -22,8 +22,9 @@ fn main(@builtin(global_invocation_id) idx: vec3<u32>) {
 
     let uv = (vec2<f32>(idx.xy) + 0.5) / vec2<f32>(settings.aerial_view_lut_size.xy);
     let ray_dir = uv_to_ray_direction(uv);
-    let r = view_radius();
-    let mu = ray_dir.y;
+    let world_pos = get_view_position();
+    
+    let r = length(world_pos);
     let t_max = settings.aerial_view_lut_max_distance;
 
     var prev_t = 0.0;
@@ -36,15 +37,16 @@ fn main(@builtin(global_invocation_id) idx: vec3<u32>) {
             let dt = (t_i - prev_t);
             prev_t = t_i;
 
-            let local_r = get_local_r(r, mu, t_i);
-            let local_up = get_local_up(r, t_i, ray_dir.xyz);
+            let sample_pos = world_pos + ray_dir * t_i;
+            let local_r = length(sample_pos);
+            let local_up = normalize(sample_pos);
 
             let local_atmosphere = sample_atmosphere(local_r);
             let sample_optical_depth = local_atmosphere.extinction * dt;
             let sample_transmittance = exp(-sample_optical_depth);
 
             // evaluate one segment of the integral
-            var inscattering = sample_local_inscattering(local_atmosphere, ray_dir.xyz, local_r, local_up);
+            var inscattering = sample_local_inscattering(local_atmosphere, ray_dir, sample_pos);
 
             // Analytical integration of the single scattering term in the radiance transfer equation
             let s_int = (inscattering - inscattering * sample_transmittance) / local_atmosphere.extinction;
