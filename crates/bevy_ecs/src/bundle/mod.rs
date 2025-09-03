@@ -14,6 +14,7 @@ pub(crate) use insert::BundleInserter;
 pub(crate) use remove::BundleRemover;
 pub(crate) use spawner::BundleSpawner;
 
+use core::mem::MaybeUninit;
 pub use info::*;
 
 /// Derive the [`Bundle`] trait
@@ -233,18 +234,38 @@ pub unsafe trait BundleFromComponents {
         Self: Sized;
 }
 
+#[expect(
+    clippy::missing_safety_doc,
+    reason = "The safety docs for this type are private and will not show in the public docs."
+)]
 /// The parts from [`Bundle`] that don't require statically knowing the components of the bundle.
-pub trait DynamicBundle {
+//
+// # Safety
+// - Each component can only be moved out of the `Bundle` exactly once between both implementations of
+//   `get_components` and `apply_effect`.
+// - If `Effect: NoBundleEffect`, `apply_effect` must be a no-op.
+pub unsafe trait DynamicBundle: Sized {
     /// An operation on the entity that happens _after_ inserting this bundle.
     type Effect: BundleEffect;
+
     // SAFETY:
-    // The `StorageType` argument passed into [`Bundle::get_components`] must be correct for the
-    // component being fetched.
-    //
-    /// Calls `func` on each value, in the order of this bundle's [`Component`]s. This passes
-    /// ownership of the component values to `func`.
+    // - Must be called exactly once before `apply_effect`
+    // - The `StorageType` argument passed into [`Bundle::get_components`] must be correct for the
+    //   component being fetched.
+    // - Calls `func` on each component value in the bundle, in the order of this bundle's [`Component`]s.
+    //   This passes ownership of the component values to `func`.
+    // - `ptr` must point to an owned valid instance of `Self` and must be aligned.
+    // - `apply_effect` must be called exactly once after this has been called if `Effect: !NoBundleEffect`
     #[doc(hidden)]
-    fn get_components(self, func: &mut impl FnMut(StorageType, OwningPtr<'_>)) -> Self::Effect;
+    unsafe fn get_components(ptr: *mut Self, func: &mut impl FnMut(StorageType, OwningPtr<'_>));
+
+    // SAFETY:
+    // - Must be called exactly once after `get_components` has been called.
+    // - `ptr` must point to the instance of `Self` that `get_components` was called on,
+    //   all of fields that were moved out of in `get_components` will not be valid anymore. The pointer
+    //   itself must be aligned.
+    #[doc(hidden)]
+    unsafe fn apply_effect(ptr: *mut MaybeUninit<Self>, entity: &mut EntityWorldMut);
 }
 
 /// An operation on an [`Entity`](crate::entity::Entity) that occurs _after_ inserting the
@@ -259,6 +280,22 @@ pub trait DynamicBundle {
 pub trait BundleEffect {
     /// Applies this effect to the given `entity`.
     fn apply(self, entity: &mut EntityWorldMut);
+
+    /// # Safety
+    /// `this` must be a valid and aligned pointer to `Self` and takes ownership of the
+    /// value pointed at by `this`.
+    #[doc(hidden)]
+    unsafe fn apply_raw(this: *mut Self, entity: &mut EntityWorldMut)
+    where
+        Self: Sized,
+    {
+        // Default to reading the pointer and calling the safe `apply` method.
+        // Implementers will want to override this to avoid copying big
+        // `BundleEffect`s onto the stack repeatedly.
+
+        // SAFETY: Caller ensures that `this` is a valid pointer to `Self`.
+        unsafe { core::ptr::read(this).apply(entity) }
+    }
 }
 
 /// A trait implemented for [`BundleEffect`] implementations that do nothing. This is used as a type constraint for

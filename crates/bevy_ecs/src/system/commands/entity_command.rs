@@ -4,6 +4,8 @@
 //! It also contains functions that return closures for use with
 //! [`EntityCommands`](crate::system::EntityCommands).
 
+use core::mem::MaybeUninit;
+
 use alloc::vec::Vec;
 use log::info;
 
@@ -107,8 +109,21 @@ where
 #[track_caller]
 pub fn insert(bundle: impl Bundle, mode: InsertMode) -> impl EntityCommand {
     let caller = MaybeLocation::caller();
+    let mut bundle = MaybeUninit::new(bundle);
     move |mut entity: EntityWorldMut| {
-        entity.insert_with_caller(bundle, mode, caller, RelationshipHookMode::Run);
+        // SAFETY:
+        // - This is being called with an owned bundle, which should always be a non-null,
+        //   aligned pointer to a valid initialized instance of `T`.
+        // - `bundle` is not used or dropped after this function call. `MaybeUninit` does not
+        //   drop the value inside unless manually invoked.
+        unsafe {
+            entity.insert_raw_with_caller(
+                bundle.as_mut_ptr(),
+                mode,
+                caller,
+                RelationshipHookMode::Run,
+            );
+        }
     }
 }
 
@@ -152,8 +167,20 @@ pub fn insert_from_world<T: Component + FromWorld>(mode: InsertMode) -> impl Ent
     let caller = MaybeLocation::caller();
     move |mut entity: EntityWorldMut| {
         if !(mode == InsertMode::Keep && entity.contains::<T>()) {
-            let value = entity.world_scope(|world| T::from_world(world));
-            entity.insert_with_caller(value, mode, caller, RelationshipHookMode::Run);
+            let mut value = MaybeUninit::new(entity.world_scope(|world| T::from_world(world)));
+            // SAFETY:
+            // - This is being called with an owned value, which should always be a non-null,
+            //   aligned pointer to a valid initialized instance of `T`.
+            // - `value` is not used or dropped after this function call. `MaybeUninit` does not
+            //   drop the value inside unless manually invoked.
+            unsafe {
+                entity.insert_raw_with_caller(
+                    value.as_mut_ptr(),
+                    mode,
+                    caller,
+                    RelationshipHookMode::Run,
+                )
+            };
         }
     }
 }
@@ -172,8 +199,20 @@ where
     let caller = MaybeLocation::caller();
     move |mut entity: EntityWorldMut| {
         if !(mode == InsertMode::Keep && entity.contains::<T>()) {
-            let value = component_fn();
-            entity.insert_with_caller(value, mode, caller, RelationshipHookMode::Run);
+            let mut value = MaybeUninit::new(component_fn());
+            // SAFETY:
+            // - This is being called with an owned value, which should always be a non-null,
+            //   aligned pointer to a valid initialized instance of `T`.
+            // - `value` is not used or dropped after this function call. `MaybeUninit` does not
+            //   drop the value inside unless manually invoked.
+            unsafe {
+                entity.insert_raw_with_caller(
+                    value.as_mut_ptr(),
+                    mode,
+                    caller,
+                    RelationshipHookMode::Run,
+                )
+            };
         }
     }
 }

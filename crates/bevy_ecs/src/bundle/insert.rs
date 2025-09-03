@@ -145,18 +145,26 @@ impl<'w> BundleInserter<'w> {
     }
 
     /// # Safety
-    /// `entity` must currently exist in the source archetype for this inserter. `location`
-    /// must be `entity`'s location in the archetype. `T` must match this [`BundleInfo`]'s type
+    /// - `entity` must currently exist in the source archetype for this inserter.
+    /// - `location` must be `entity`'s location in the archetype.
+    /// - `T` must match this [`BundleInserter`] type used to create
+    /// - `bundle` must be non-null, aligned, and point at a valid instance of `T`.
+    /// - If `T::Effect: !NoBundleEffect.`, then [`apply_effect`] must be called exactly once on
+    ///   `bundle` after this function before returning to safe code.
+    /// - The value pointed to by `bundle` must not be accessed for anything other than [`apply_effect`]
+    ///   or dropped.
+    ///
+    /// [`apply_effect`]: crate::bundle::DynamicBundle::apply_effect
     #[inline]
     pub(crate) unsafe fn insert<T: DynamicBundle>(
         &mut self,
         entity: Entity,
         location: EntityLocation,
-        bundle: T,
+        bundle: *mut T,
         insert_mode: InsertMode,
         caller: MaybeLocation,
         relationship_hook_mode: RelationshipHookMode,
-    ) -> (EntityLocation, T::Effect) {
+    ) -> EntityLocation {
         let bundle_info = self.bundle_info.as_ref();
         let archetype_after_insert = self.archetype_after_insert.as_ref();
         let archetype = self.archetype.as_ref();
@@ -192,7 +200,7 @@ impl<'w> BundleInserter<'w> {
         // so this reference can only be promoted from shared to &mut down here, after they have been ran
         let archetype = self.archetype.as_mut();
 
-        let (new_archetype, new_location, after_effect) = match &mut self.archetype_move_type {
+        let (new_archetype, new_location) = match &mut self.archetype_move_type {
             ArchetypeMoveType::SameArchetype => {
                 // SAFETY: Mutable references do not alias and will be dropped after this block
                 let sparse_sets = {
@@ -200,7 +208,7 @@ impl<'w> BundleInserter<'w> {
                     &mut world.storages.sparse_sets
                 };
 
-                let after_effect = bundle_info.write_components(
+                bundle_info.write_components(
                     table,
                     sparse_sets,
                     archetype_after_insert,
@@ -213,7 +221,7 @@ impl<'w> BundleInserter<'w> {
                     caller,
                 );
 
-                (archetype, location, after_effect)
+                (archetype, location)
             }
             ArchetypeMoveType::NewArchetypeSameTable { new_archetype } => {
                 let new_archetype = new_archetype.as_mut();
@@ -241,7 +249,7 @@ impl<'w> BundleInserter<'w> {
                 }
                 let new_location = new_archetype.allocate(entity, result.table_row);
                 entities.set(entity.index(), Some(new_location));
-                let after_effect = bundle_info.write_components(
+                bundle_info.write_components(
                     table,
                     sparse_sets,
                     archetype_after_insert,
@@ -254,7 +262,7 @@ impl<'w> BundleInserter<'w> {
                     caller,
                 );
 
-                (new_archetype, new_location, after_effect)
+                (new_archetype, new_location)
             }
             ArchetypeMoveType::NewArchetypeNewTable {
                 new_archetype,
@@ -323,7 +331,7 @@ impl<'w> BundleInserter<'w> {
                     }
                 }
 
-                let after_effect = bundle_info.write_components(
+                bundle_info.write_components(
                     new_table,
                     sparse_sets,
                     archetype_after_insert,
@@ -336,7 +344,7 @@ impl<'w> BundleInserter<'w> {
                     caller,
                 );
 
-                (new_archetype, new_location, after_effect)
+                (new_archetype, new_location)
             }
         };
 
@@ -402,7 +410,7 @@ impl<'w> BundleInserter<'w> {
             }
         }
 
-        (new_location, after_effect)
+        new_location
     }
 
     #[inline]

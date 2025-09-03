@@ -1,11 +1,14 @@
 use core::any::TypeId;
 
 use bevy_ptr::OwningPtr;
-use variadics_please::all_tuples;
+use core::mem::MaybeUninit;
+use core::ptr::NonNull;
+use variadics_please::{all_tuples, all_tuples_enumerated};
 
 use crate::{
     bundle::{Bundle, BundleEffect, BundleFromComponents, DynamicBundle, NoBundleEffect},
     component::{Component, ComponentId, Components, ComponentsRegistrator, StorageType},
+    query::DebugCheckedUnwrap,
     world::EntityWorldMut,
 };
 
@@ -37,16 +40,35 @@ unsafe impl<C: Component> BundleFromComponents for C {
     }
 }
 
-impl<C: Component> DynamicBundle for C {
+// SAFETY:
+// - The pointer is only moved out of in `get_components`.
+// - `Effect = () : NoBundleEffect` so `apply_effect` is a no-op.
+unsafe impl<C: Component> DynamicBundle for C {
     type Effect = ();
     #[inline]
-    fn get_components(self, func: &mut impl FnMut(StorageType, OwningPtr<'_>)) -> Self::Effect {
-        OwningPtr::make(self, |ptr| func(C::STORAGE_TYPE, ptr));
+    unsafe fn get_components(
+        ptr: *mut Self,
+        func: &mut impl FnMut(StorageType, OwningPtr<'_>),
+    ) -> Self::Effect {
+        // SAFETY: The caller must ensure that `ptr` is not null.
+        let ptr = unsafe { NonNull::new(ptr).debug_checked_unwrap().cast::<u8>() };
+        // SAFETY:
+        // - The caller must ensure that `ptr` must point to valid value of type `C`.
+        // - The `A` type parameter is [`Aligned`] and the caller must ensure that `ptr` is aligned.
+        // - `ptr` must has the correct provenance to allow read and writes of the pointee type: the caller
+        //   must sure that it is owned.
+        // - The lifetime of the produced `OwningPtr` is valid for the rest of this function call and does not
+        //   alias, assuming that `func` is sound.
+        let ptr = unsafe { OwningPtr::new(ptr) };
+        func(C::STORAGE_TYPE, ptr);
     }
+
+    #[inline]
+    unsafe fn apply_effect(_ptr: *mut MaybeUninit<Self>, _entity: &mut EntityWorldMut) {}
 }
 
 macro_rules! tuple_impl {
-    ($(#[$meta:meta])* $($name: ident),*) => {
+    ($(#[$meta:meta])* $(($index:tt, $name: ident)),*) => {
         #[expect(
             clippy::allow_attributes,
             reason = "This is a tuple-related macro; as such, the lints below may not always apply."
@@ -118,28 +140,58 @@ macro_rules! tuple_impl {
             reason = "Zero-length tuples won't use any of the parameters."
         )]
         $(#[$meta])*
-        impl<$($name: Bundle),*> DynamicBundle for ($($name,)*) {
+        // SAFETY:
+        // Assuming each of the fields' types implement `DynamicBundle` correctly:
+        // - Each of the implementations for each of the fields must move the components out of the `Bundle` exactly once between both
+        //   `get_components` and `apply_effect`.
+        // - If all of the individual tuple elements are `Effect: NoBundleEffect`, then the whole type's `Effect` will also be `NoBundleEffect`.
+        //   then the implementation of `apply_effect` must also be a no-op.
+        unsafe impl<$($name: Bundle),*> DynamicBundle for ($($name,)*) {
             type Effect = ($($name::Effect,)*);
             #[allow(
                 clippy::unused_unit,
                 reason = "Zero-length tuples will generate a function body equivalent to `()`; however, this macro is meant for all applicable tuples, and as such it makes no sense to rewrite it just for that case."
             )]
             #[inline(always)]
-            fn get_components(self, func: &mut impl FnMut(StorageType, OwningPtr<'_>)) -> Self::Effect {
-                #[allow(
-                    non_snake_case,
-                    reason = "The names of these variables are provided by the caller, not by us."
-                )]
-                let ($(mut $name,)*) = self;
-                ($(
-                    $name.get_components(&mut *func),
-                )*)
+            unsafe fn get_components(ptr: *mut Self, func: &mut impl FnMut(StorageType, OwningPtr<'_>)) {
+                $(
+                    let field_ptr = &raw mut (*ptr).$index;
+                    // SAFETY:
+                    // - If `ptr` is aligned, then field_ptr is aligned properly
+                    // - If a field is `NoBundleEffect`, it's `apply_effect` is a no-op
+                    //   and cannot move any value out of an invalid instance after this call.
+                    // - If a field is `!NoBundleEffect`, it must be valid since a safe
+                    //   implementation of `DynamicBundle` only moves the value out only
+                    //   once between `get_components` and `apply_effect`.
+                    $name::get_components(field_ptr, &mut *func);
+                )*
+            }
+
+            #[allow(
+                clippy::unused_unit,
+                reason = "Zero-length tuples will generate a function body equivalent to `()`; however, this macro is meant for all applicable tuples, and as such it makes no sense to rewrite it just for that case."
+            )]
+            #[inline(always)]
+            unsafe fn apply_effect(ptr: *mut core::mem::MaybeUninit<Self>, entity: &mut EntityWorldMut) {
+                $(
+                    let field_ptr = ptr
+                        .byte_add(core::mem::offset_of!(Self, $index))
+                        .cast::<core::mem::MaybeUninit<$name>>();
+                    // SAFETY:
+                    // - If `ptr` is aligned, then field_ptr is aligned properly
+                    // - If a field is `NoBundleEffect`, it's `apply_effect` is a no-op
+                    //   and cannot move any value out of an invalid instance.
+                    // - If a field is `!NoBundleEffect`, it must be valid since a safe
+                    //   implementation of `DynamicBundle` only moves the value out only
+                    //   once between `get_components` and `apply_effect`.
+                    $name::apply_effect(field_ptr, entity);
+                )*
             }
         }
     }
 }
 
-all_tuples!(
+all_tuples_enumerated!(
     #[doc(fake_variadic)]
     tuple_impl,
     0,

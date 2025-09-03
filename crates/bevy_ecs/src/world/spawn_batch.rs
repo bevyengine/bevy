@@ -5,6 +5,7 @@ use crate::{
     world::World,
 };
 use core::iter::FusedIterator;
+use core::mem::MaybeUninit;
 
 /// An iterator that spawns a series of entities and returns the [ID](Entity) of
 /// each spawned entity.
@@ -13,7 +14,7 @@ use core::iter::FusedIterator;
 pub struct SpawnBatchIter<'w, I>
 where
     I: Iterator,
-    I::Item: Bundle,
+    I::Item: Bundle<Effect: NoBundleEffect>,
 {
     inner: I,
     spawner: BundleSpawner<'w>,
@@ -52,7 +53,7 @@ where
 impl<I> Drop for SpawnBatchIter<'_, I>
 where
     I: Iterator,
-    I::Item: Bundle,
+    I::Item: Bundle<Effect: NoBundleEffect>,
 {
     fn drop(&mut self) {
         // Iterate through self in order to spawn remaining bundles.
@@ -66,14 +67,25 @@ where
 impl<I> Iterator for SpawnBatchIter<'_, I>
 where
     I: Iterator,
-    I::Item: Bundle,
+    I::Item: Bundle<Effect: NoBundleEffect>,
 {
     type Item = Entity;
 
     fn next(&mut self) -> Option<Entity> {
-        let bundle = self.inner.next()?;
-        // SAFETY: bundle matches spawner type
-        unsafe { Some(self.spawner.spawn(bundle, self.caller).0) }
+        let mut bundle = MaybeUninit::new(self.inner.next()?);
+        // SAFETY:
+        // - The spawner matches `I::Item`'s type.
+        // - `bundle` is be non-null, aligned, and point to a valid instance of `T` as it's fetched from the iterator
+        //   above.
+        // - `I::Item::Effect: NoBundleEffect`, thus [`apply_effect`] does not need to be called.
+        // - `bundle` is not be accessed or dropped after this function call. `MaybeUninit` requires manually invoking
+        //   dropping the value.
+        unsafe {
+            Some(
+                self.spawner
+                    .spawn::<I::Item>(bundle.as_mut_ptr(), self.caller),
+            )
+        }
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {
@@ -84,7 +96,7 @@ where
 impl<I, T> ExactSizeIterator for SpawnBatchIter<'_, I>
 where
     I: ExactSizeIterator<Item = T>,
-    T: Bundle,
+    T: Bundle<Effect: NoBundleEffect>,
 {
     fn len(&self) -> usize {
         self.inner.len()
@@ -94,7 +106,7 @@ where
 impl<I, T> FusedIterator for SpawnBatchIter<'_, I>
 where
     I: FusedIterator<Item = T>,
-    T: Bundle,
+    T: Bundle<Effect: NoBundleEffect>,
 {
 }
 
@@ -102,6 +114,6 @@ where
 unsafe impl<I: Iterator, T> EntitySetIterator for SpawnBatchIter<'_, I>
 where
     I: FusedIterator<Item = T>,
-    T: Bundle,
+    T: Bundle<Effect: NoBundleEffect>,
 {
 }
