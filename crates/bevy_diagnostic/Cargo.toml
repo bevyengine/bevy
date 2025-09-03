@@ -61,6 +61,7 @@ bevy_platform = { path = "../bevy_platform", version = "0.17.0-dev", default-fea
 
 # other
 const-fnv1a-hash = "1.1.0"
+crossbeam-channel = "0.5.0"
 serde = { version = "1.0", default-features = false, features = [
   "alloc",
 ], optional = true }

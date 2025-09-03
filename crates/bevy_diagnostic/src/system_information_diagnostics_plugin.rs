@@ -74,13 +74,16 @@ pub mod internal {
         format,
         string::{String, ToString},
         sync::Arc,
-        vec::Vec,
     };
     use bevy_app::{App, First, Startup, Update};
-    use bevy_ecs::resource::Resource;
-    use bevy_ecs::{prelude::ResMut, system::Local};
+    use bevy_ecs::{prelude::ResMut, resource::Resource};
     use bevy_platform::time::Instant;
-    use bevy_tasks::{available_parallelism, block_on, poll_once, AsyncComputeTaskPool, Task};
+    use bevy_tasks::AsyncComputeTaskPool;
+    use core::{
+        pin::Pin,
+        task::{Context, Poll},
+    };
+    use crossbeam_channel::{Receiver, Sender};
     use log::info;
     use std::sync::Mutex;
     use sysinfo::{CpuRefreshKind, MemoryRefreshKind, RefreshKind, System};
@@ -93,9 +96,9 @@ pub mod internal {
 
     pub(super) fn setup_plugin(app: &mut App) {
         app.add_systems(Startup, setup_system)
-            .add_systems(First, launch_diagnostic_tasks)
+            .add_systems(First, launch_diagnostic_job)
             .add_systems(Update, read_diagnostic_tasks)
-            .init_resource::<SysinfoTasks>();
+            .init_resource::<DiagnosticJobData>();
     }
 
     fn setup_system(mut diagnostics: ResMut<DiagnosticsStore>) {
@@ -121,76 +124,90 @@ pub mod internal {
         process_mem_usage: f64,
     }
 
-    #[derive(Resource, Default)]
-    struct SysinfoTasks {
-        tasks: Vec<Task<SysinfoRefreshData>>,
+    struct DiagnosticJob {
+        last_refresh: Option<Instant>,
+        data_rx: Sender<SysinfoRefreshData>,
+        sysinfo: Arc<Mutex<System>>,
     }
 
-    fn launch_diagnostic_tasks(
-        mut tasks: ResMut<SysinfoTasks>,
-        // TODO: Consider a fair mutex
-        mut sysinfo: Local<Option<Arc<Mutex<System>>>>,
-        // TODO: FromWorld for Instant?
-        mut last_refresh: Local<Option<Instant>>,
-    ) {
-        let sysinfo = sysinfo.get_or_insert_with(|| {
-            Arc::new(Mutex::new(System::new_with_specifics(
-                RefreshKind::nothing()
-                    .with_cpu(CpuRefreshKind::nothing().with_cpu_usage())
-                    .with_memory(MemoryRefreshKind::everything()),
-            )))
-        });
+    #[derive(Default, Resource)]
+    struct DiagnosticJobData {
+        data_rx: Option<Receiver<SysinfoRefreshData>>,
+    }
 
-        let last_refresh = last_refresh.get_or_insert_with(Instant::now);
+    impl Future for DiagnosticJob {
+        type Output = ();
 
-        let thread_pool = AsyncComputeTaskPool::get();
+        fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+            cx.waker().wake_by_ref();
 
-        // Only queue a new system refresh task when necessary
-        // Queuing earlier than that will not give new data
-        if last_refresh.elapsed() > sysinfo::MINIMUM_CPU_UPDATE_INTERVAL
-            // These tasks don't yield and will take up all of the task pool's
-            // threads if we don't limit their amount.
-            && tasks.tasks.len() * 2 < available_parallelism()
-        {
-            let sys = Arc::clone(sysinfo);
-            let task = thread_pool.spawn(async move {
-                let mut sys = sys.lock().unwrap();
-                let pid = sysinfo::get_current_pid().expect("Failed to get current process ID");
-                sys.refresh_processes(sysinfo::ProcessesToUpdate::Some(&[pid]), true);
+            let run_diagnostic = self
+                .last_refresh
+                .map(|last_refresh| last_refresh.elapsed() > sysinfo::MINIMUM_CPU_UPDATE_INTERVAL)
+                .unwrap_or(true);
 
-                sys.refresh_cpu_specifics(CpuRefreshKind::nothing().with_cpu_usage());
-                sys.refresh_memory();
-                let system_cpu_usage = sys.global_cpu_usage().into();
-                let total_mem = sys.total_memory() as f64;
-                let used_mem = sys.used_memory() as f64;
-                let system_mem_usage = used_mem / total_mem * 100.0;
-
-                let process_mem_usage = sys
-                    .process(pid)
-                    .map(|p| p.memory() as f64 * BYTES_TO_GIB)
-                    .unwrap_or(0.0);
-
-                let process_cpu_usage = sys
-                    .process(pid)
-                    .map(|p| p.cpu_usage() as f64 / sys.cpus().len() as f64)
-                    .unwrap_or(0.0);
-
-                SysinfoRefreshData {
-                    system_cpu_usage,
-                    system_mem_usage,
-                    process_cpu_usage,
-                    process_mem_usage,
+            if run_diagnostic {
+                {
+                    let mut sys = self.sysinfo.lock().unwrap();
+                    let data = get_diagnostic_data(&mut sys);
+                    _ = self.data_rx.send(data);
                 }
-            });
-            tasks.tasks.push(task);
-            *last_refresh = Instant::now();
+                self.get_mut().last_refresh = Some(Instant::now());
+            }
+
+            Poll::Pending
         }
     }
 
-    fn read_diagnostic_tasks(mut diagnostics: Diagnostics, mut tasks: ResMut<SysinfoTasks>) {
-        tasks.tasks.retain_mut(|task| {
-            let Some(data) = block_on(poll_once(task)) else {
-                return true;
+    fn launch_diagnostic_job(mut data: ResMut<DiagnosticJobData>) {
+        let (tx, rx) = crossbeam_channel::bounded(1);
+        data.data_rx = Some(rx);
+        AsyncComputeTaskPool::get()
+            .spawn(DiagnosticJob {
+                last_refresh: None,
+                data_rx: tx,
+                sysinfo: Arc::new(Mutex::new(System::new_with_specifics(
+                    RefreshKind::nothing()
+                        .with_cpu(CpuRefreshKind::nothing().with_cpu_usage())
+                        .with_memory(MemoryRefreshKind::everything()),
+                ))),
+            })
+            .detach();
+    }
+
+    fn get_diagnostic_data(sys: &mut System) -> SysinfoRefreshData {
+        let pid = sysinfo::get_current_pid().expect("Failed to get current process ID");
+
+        sys.refresh_processes(sysinfo::ProcessesToUpdate::Some(&[pid]), true);
+        sys.refresh_cpu_specifics(CpuRefreshKind::nothing().with_cpu_usage());
+        sys.refresh_memory();
+
+        let system_cpu_usage = sys.global_cpu_usage().into();
+
+        let system_mem_usage = sys.used_memory() as f64 / sys.total_memory() as f64 * 100.0;
+
+        let process_mem_usage = sys
+            .process(pid)
+            .map(|p| p.memory() as f64 * BYTES_TO_GIB)
+            .unwrap_or(0.0);
+
+        let process_cpu_usage = sys
+            .process(pid)
+            .map(|p| p.cpu_usage() as f64 / sys.cpus().len() as f64)
+            .unwrap_or(0.0);
+
+        SysinfoRefreshData {
+            system_cpu_usage,
+            system_mem_usage,
+            process_cpu_usage,
+            process_mem_usage,
+        }
+    }
+
+    fn read_diagnostic_tasks(mut diagnostics: Diagnostics, mut data: ResMut<DiagnosticJobData>) {
+        if let Some(data_rx) = data.data_rx.as_mut() {
+            let Ok(data) = data_rx.try_recv() else {
+                return;
             };
 
             diagnostics.add_measurement(
@@ -209,8 +226,7 @@ pub mod internal {
                 &SystemInformationDiagnosticsPlugin::PROCESS_MEM_USAGE,
                 || data.process_mem_usage,
             );
-            false
-        });
+        }
     }
 
     impl Default for SystemInfo {
