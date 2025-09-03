@@ -130,17 +130,17 @@ impl ImageNode {
     }
 }
 
+impl From<Handle<Image>> for ImageNode {
+    fn from(texture: Handle<Image>) -> Self {
+        Self::new(texture)
+    }
+}
+
 impl AsAssetId for ImageNode {
     type Asset = Image;
 
     fn as_asset_id(&self) -> AssetId<Self::Asset> {
         self.image.id()
-    }
-}
-
-impl From<Handle<Image>> for ImageNode {
-    fn from(texture: Handle<Image>) -> Self {
-        Self::new(texture)
     }
 }
 
