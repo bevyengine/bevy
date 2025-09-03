@@ -4,15 +4,12 @@ use bevy::{
     image::{ImageLoaderSettings, ImageSampler},
     prelude::*,
     ui::widget::NodeImageMode,
-    winit::WinitSettings,
 };
 
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .insert_resource(UiScale(2.))
-        // Only run the app when there is user input. This will significantly reduce CPU/GPU use for UI-only apps.
-        .insert_resource(WinitSettings::desktop_app())
         .add_systems(Startup, setup)
         .run();
 }

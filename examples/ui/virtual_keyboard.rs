@@ -9,7 +9,6 @@ use bevy::{
     },
     input_focus::{tab_navigation::TabNavigationPlugin, InputDispatchPlugin},
     prelude::*,
-    winit::WinitSettings,
 };
 
 fn main() {
@@ -22,8 +21,6 @@ fn main() {
             FeathersPlugin,
         ))
         .insert_resource(UiTheme(create_dark_theme()))
-        // Only run the app when there is user input. This will significantly reduce CPU/GPU use.
-        .insert_resource(WinitSettings::desktop_app())
         .add_systems(Startup, setup)
         .run();
 }

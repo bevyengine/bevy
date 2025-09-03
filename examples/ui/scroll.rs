@@ -7,13 +7,11 @@ use bevy::{
     input::mouse::{MouseScrollUnit, MouseWheel},
     picking::hover::HoverMap,
     prelude::*,
-    winit::WinitSettings,
 };
 
 fn main() {
     let mut app = App::new();
     app.add_plugins(DefaultPlugins)
-        .insert_resource(WinitSettings::desktop_app())
         .add_systems(Startup, setup)
         .add_systems(Update, send_scroll_events)
         .add_observer(on_scroll_handler);

@@ -1,6 +1,6 @@
 //! This example illustrates how to use `TextureAtlases` within ui
 
-use bevy::{color::palettes::css::*, prelude::*, winit::WinitSettings};
+use bevy::{color::palettes::css::*, prelude::*};
 
 fn main() {
     App::new()
@@ -10,8 +10,6 @@ fn main() {
             // by linear filtering.
             ImagePlugin::default_nearest(),
         ))
-        // Only run the app when there is user input. This will significantly reduce CPU/GPU use.
-        .insert_resource(WinitSettings::desktop_app())
         .add_systems(Startup, setup)
         .add_systems(Update, increment_atlas_index)
         .run();

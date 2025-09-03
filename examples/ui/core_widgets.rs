@@ -14,7 +14,6 @@ use bevy::{
     picking::hover::Hovered,
     prelude::*,
     ui::{Checked, InteractionDisabled, Pressed},
-    winit::WinitSettings,
 };
 
 fn main() {
@@ -25,8 +24,6 @@ fn main() {
             InputDispatchPlugin,
             TabNavigationPlugin,
         ))
-        // Only run the app when there is user input. This will significantly reduce CPU/GPU use.
-        .insert_resource(WinitSettings::desktop_app())
         .insert_resource(DemoWidgetStates {
             slider_value: 50.0,
             slider_click: TrackClick::Snap,

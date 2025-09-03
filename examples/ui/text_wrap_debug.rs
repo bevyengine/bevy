@@ -1,7 +1,7 @@
 //! This example demonstrates text wrapping and use of the `LineBreakOn` property.
 
 use argh::FromArgs;
-use bevy::{prelude::*, text::LineBreak, window::WindowResolution, winit::WinitSettings};
+use bevy::{prelude::*, text::LineBreak, window::WindowResolution};
 
 #[derive(FromArgs, Resource)]
 /// `text_wrap_debug` demonstrates text wrapping and use of the `LineBreakOn` property
@@ -36,7 +36,6 @@ fn main() {
             primary_window: Some(window),
             ..Default::default()
         }))
-        .insert_resource(WinitSettings::desktop_app())
         .insert_resource(UiScale(args.ui_scale))
         .add_systems(Startup, spawn)
         .run();
