@@ -1,5 +1,5 @@
 use crate::{ComputedUiRenderTargetInfo, ContentSize, Measure, MeasureArgs, Node, NodeMeasure};
-use bevy_asset::{Assets, Handle};
+use bevy_asset::{AsAssetId, AssetId, Assets, Handle};
 use bevy_color::Color;
 use bevy_ecs::prelude::*;
 use bevy_image::{prelude::*, TRANSPARENT_IMAGE_HANDLE};
@@ -133,6 +133,14 @@ impl ImageNode {
 impl From<Handle<Image>> for ImageNode {
     fn from(texture: Handle<Image>) -> Self {
         Self::new(texture)
+    }
+}
+
+impl AsAssetId for ImageNode {
+    type Asset = Image;
+
+    fn as_asset_id(&self) -> AssetId<Self::Asset> {
+        self.image.id()
     }
 }
 

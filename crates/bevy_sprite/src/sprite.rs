@@ -1,4 +1,4 @@
-use bevy_asset::{Assets, Handle};
+use bevy_asset::{AsAssetId, AssetId, Assets, Handle};
 use bevy_camera::visibility::{self, Visibility, VisibilityClass};
 use bevy_color::Color;
 use bevy_derive::{Deref, DerefMut};
@@ -149,6 +149,14 @@ impl Sprite {
 impl From<Handle<Image>> for Sprite {
     fn from(image: Handle<Image>) -> Self {
         Self::from_image(image)
+    }
+}
+
+impl AsAssetId for Sprite {
+    type Asset = Image;
+
+    fn as_asset_id(&self) -> AssetId<Self::Asset> {
+        self.image.id()
     }
 }
 
