@@ -158,57 +158,64 @@ pub fn ui_picking(
     // prepare an iterator that contains all the nodes that have the cursor in their rect,
     // from the top node to the bottom one. this will also reset the interaction to `None`
     // for all nodes encountered that are no longer hovered.
-    for node_entity in ui_stack
-        // reverse the iterator to traverse the tree from closest nodes to furthest
-        .iter_rev()
-    {
-        let Ok(node) = node_query.get(node_entity) else {
+    // Reverse the iterator to traverse the tree from closest layers to furthest
+    for layer in ui_stack.layers.iter().rev() {
+        let Ok(layer_root) = node_query.get(layer.nodes[0]) else {
             continue;
         };
 
-        if settings.require_markers && node.pickable.is_none() {
-            continue;
-        }
-
-        // Nodes that are not rendered should not be interactable
-        if node
-            .inherited_visibility
-            .map(|inherited_visibility| inherited_visibility.get())
-            != Some(true)
-        {
-            continue;
-        }
-        let Some(camera_entity) = node.target_camera.get() else {
+        let Some(camera_entity) = layer_root.target_camera.get() else {
             continue;
         };
-
-        // Nodes with Display::None have a (0., 0.) logical rect and can be ignored
-        if node.node.size() == Vec2::ZERO {
-            continue;
-        }
 
         let pointers_on_this_cam = pointer_pos_by_camera.get(&camera_entity);
 
-        // Find the normalized cursor position relative to the node.
-        // (±0., 0.) is the center with the corners at points (±0.5, ±0.5).
-        // Coordinates are relative to the entire node, not just the visible region.
-        for (pointer_id, cursor_position) in pointers_on_this_cam.iter().flat_map(|h| h.iter()) {
-            if node.node.contains_point(*node.transform, *cursor_position)
-                && clip_check_recursive(
-                    *cursor_position,
-                    node_entity,
-                    &clipping_query,
-                    &child_of_query,
-                )
+        // Reverse the iterator to traverse the tree from closest nodes to furthest
+        for node_entity in layer.nodes.iter().rev().cloned() {
+            let Ok(node) = node_query.get(node_entity) else {
+                continue;
+            };
+
+            if settings.require_markers && node.pickable.is_none() {
+                continue;
+            }
+
+            // Nodes that are not rendered should not be interactable
+            if node
+                .inherited_visibility
+                .map(|inherited_visibility| inherited_visibility.get())
+                != Some(true)
             {
-                hit_nodes
-                    .entry((camera_entity, *pointer_id))
-                    .or_default()
-                    .push((
+                continue;
+            }
+
+            // Nodes with Display::None have a (0., 0.) logical rect and can be ignored
+            if node.node.size() == Vec2::ZERO {
+                continue;
+            }
+
+            // Find the normalized cursor position relative to the node.
+            // (±0., 0.) is the center with the corners at points (±0.5, ±0.5).
+            // Coordinates are relative to the entire node, not just the visible region.
+            for (pointer_id, cursor_position) in pointers_on_this_cam.iter().flat_map(|h| h.iter())
+            {
+                if node.node.contains_point(*node.transform, *cursor_position)
+                    && clip_check_recursive(
+                        *cursor_position,
                         node_entity,
-                        node.transform.inverse().transform_point2(*cursor_position)
-                            / node.node.size(),
-                    ));
+                        &clipping_query,
+                        &child_of_query,
+                    )
+                {
+                    hit_nodes
+                        .entry((camera_entity, *pointer_id))
+                        .or_default()
+                        .push((
+                            node_entity,
+                            node.transform.inverse().transform_point2(*cursor_position)
+                                / node.node.size(),
+                        ));
+                }
             }
         }
     }
