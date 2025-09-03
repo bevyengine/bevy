@@ -1912,6 +1912,8 @@ mod tests {
             embedded: TestAsset,
             #[dependency]
             set_handles: HashSet<Handle<TestAsset>>,
+            #[dependency]
+            untyped_set_handles: HashSet<UntypedHandle>,
         },
         StructStyle(#[dependency] TestAsset),
         Empty,
@@ -1933,6 +1935,8 @@ mod tests {
         untyped_array_handles: [UntypedHandle; 5],
         #[dependency]
         set_handles: HashSet<Handle<TestAsset>>,
+        #[dependency]
+        untyped_set_handles: HashSet<UntypedHandle>,
     }
 
     #[expect(
