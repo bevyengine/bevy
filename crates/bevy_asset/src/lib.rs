@@ -517,6 +517,22 @@ impl VisitAssetDependencies for Vec<UntypedHandle> {
     }
 }
 
+impl<A: Asset> VisitAssetDependencies for HashSet<Handle<A>> {
+    fn visit_dependencies(&self, visit: &mut impl FnMut(UntypedAssetId)) {
+        for dependency in self {
+            visit(dependency.id().untyped());
+        }
+    }
+}
+
+impl VisitAssetDependencies for HashSet<UntypedHandle> {
+    fn visit_dependencies(&self, visit: &mut impl FnMut(UntypedAssetId)) {
+        for dependency in self {
+            visit(dependency.id());
+        }
+    }
+}
+
 /// Adds asset-related builder methods to [`App`].
 pub trait AssetApp {
     /// Registers the given `loader` in the [`App`]'s [`AssetServer`].
@@ -709,7 +725,7 @@ mod tests {
         prelude::*,
         schedule::{LogLevel, ScheduleBuildSettings},
     };
-    use bevy_platform::collections::HashMap;
+    use bevy_platform::collections::{HashMap, HashSet};
     use bevy_reflect::TypePath;
     use core::time::Duration;
     use serde::{Deserialize, Serialize};
@@ -1894,6 +1910,10 @@ mod tests {
             vec_handles: Vec<Handle<TestAsset>>,
             #[dependency]
             embedded: TestAsset,
+            #[dependency]
+            set_handles: HashSet<Handle<TestAsset>>,
+            #[dependency]
+            untyped_set_handles: HashSet<UntypedHandle>,
         },
         StructStyle(#[dependency] TestAsset),
         Empty,
@@ -1913,6 +1933,10 @@ mod tests {
         array_handles: [Handle<TestAsset>; 5],
         #[dependency]
         untyped_array_handles: [UntypedHandle; 5],
+        #[dependency]
+        set_handles: HashSet<Handle<TestAsset>>,
+        #[dependency]
+        untyped_set_handles: HashSet<UntypedHandle>,
     }
 
     #[expect(
