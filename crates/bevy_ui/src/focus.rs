@@ -216,12 +216,10 @@ pub fn ui_focus_system(
     // from the top node to the bottom one. this will also reset the interaction to `None`
     // for all nodes encountered that are no longer hovered.
     let mut hovered_nodes = ui_stack
-        .uinodes
-        .iter()
         // reverse the iterator to traverse the tree from closest nodes to furthest
-        .rev()
+        .iter_rev()
         .filter_map(|entity| {
-            let Ok(node) = node_query.get_mut(*entity) else {
+            let Ok(node) = node_query.get_mut(entity) else {
                 return None;
             };
 
@@ -241,7 +239,7 @@ pub fn ui_focus_system(
 
             let contains_cursor = cursor_position.is_some_and(|point| {
                 node.node.contains_point(*node.transform, *point)
-                    && clip_check_recursive(*point, *entity, &clipping_query, &child_of_query)
+                    && clip_check_recursive(*point, entity, &clipping_query, &child_of_query)
             });
 
             // The mouse position relative to the node
@@ -270,7 +268,7 @@ pub fn ui_focus_system(
             }
 
             if contains_cursor {
-                Some(*entity)
+                Some(entity)
             } else {
                 if let Some(mut interaction) = node.interaction
                     && (*interaction == Interaction::Hovered

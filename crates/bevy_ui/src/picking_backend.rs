@@ -159,12 +159,10 @@ pub fn ui_picking(
     // from the top node to the bottom one. this will also reset the interaction to `None`
     // for all nodes encountered that are no longer hovered.
     for node_entity in ui_stack
-        .uinodes
-        .iter()
         // reverse the iterator to traverse the tree from closest nodes to furthest
-        .rev()
+        .iter_rev()
     {
-        let Ok(node) = node_query.get(*node_entity) else {
+        let Ok(node) = node_query.get(node_entity) else {
             continue;
         };
 
@@ -198,7 +196,7 @@ pub fn ui_picking(
             if node.node.contains_point(*node.transform, *cursor_position)
                 && clip_check_recursive(
                     *cursor_position,
-                    *node_entity,
+                    node_entity,
                     &clipping_query,
                     &child_of_query,
                 )
@@ -207,7 +205,7 @@ pub fn ui_picking(
                     .entry((camera_entity, *pointer_id))
                     .or_default()
                     .push((
-                        *node_entity,
+                        node_entity,
                         node.transform.inverse().transform_point2(*cursor_position)
                             / node.node.size(),
                     ));
