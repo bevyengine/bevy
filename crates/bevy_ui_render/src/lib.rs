@@ -945,6 +945,8 @@ pub fn extract_text_sections(
 
         let mut color = text_color.0.to_linear();
 
+        let mut current_span_index = 0;
+
         for (
             i,
             PositionedGlyph {
@@ -955,6 +957,17 @@ pub fn extract_text_sections(
             },
         ) in text_layout_info.glyphs.iter().enumerate()
         {
+            if current_span_index != *span_index
+                && let Some(span_entity) =
+                    computed_block.entities().get(*span_index).map(|t| t.entity)
+            {
+                color = text_styles
+                    .get(span_entity)
+                    .map(|text_color| LinearRgba::from(text_color.0))
+                    .unwrap_or_default();
+                current_span_index = *span_index;
+            }
+
             let rect = texture_atlases
                 .get(atlas_info.texture_atlas)
                 .unwrap()
@@ -966,19 +979,11 @@ pub fn extract_text_sections(
                 rect,
             });
 
-            if text_layout_info.glyphs.get(i + 1).is_none_or(|info| {
-                info.span_index != *span_index || info.atlas_info.texture != atlas_info.texture
-            }) {
-                color = text_styles
-                    .get(
-                        computed_block
-                            .entities()
-                            .get(*span_index + 1)
-                            .map(|t| t.entity)
-                            .unwrap_or(Entity::PLACEHOLDER),
-                    )
-                    .map(|text_color| LinearRgba::from(text_color.0))
-                    .unwrap_or_default();
+            if text_layout_info
+                .glyphs
+                .get(i + 1)
+                .is_none_or(|info| info.atlas_info.texture != atlas_info.texture)
+            {
                 extracted_uinodes.uinodes.push(ExtractedUiNode {
                     z_order: uinode.stack_index as f32 + stack_z_offsets::TEXT,
                     render_entity: commands.spawn(TemporaryRenderEntity).id(),
