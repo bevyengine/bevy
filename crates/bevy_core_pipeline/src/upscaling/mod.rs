@@ -40,6 +40,7 @@ fn prepare_view_upscaling_pipelines(
     mut pipelines: ResMut<SpecializedRenderPipelines<BlitPipeline>>,
     blit_pipeline: Res<BlitPipeline>,
     view_targets: Query<(Entity, &ViewTarget, Option<&ExtractedCamera>)>,
+    persistent_pipeline_cache: Option<Res<PersistentPipelineCache>>,
 ) {
     let mut output_textures = <HashSet<_>>::default();
     for (entity, view_target, camera) in view_targets.iter() {
@@ -79,7 +80,7 @@ fn prepare_view_upscaling_pipelines(
         let pipeline = pipelines.specialize(&pipeline_cache, &blit_pipeline, key);
 
         // Ensure the pipeline is loaded before continuing the frame to prevent frames without any GPU work submitted
-        pipeline_cache.block_on_render_pipeline(pipeline);
+        pipeline_cache.block_on_render_pipeline(pipeline, persistent_pipeline_cache.as_deref());
 
         commands
             .entity(entity)
