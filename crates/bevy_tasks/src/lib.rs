@@ -132,8 +132,7 @@ cfg::switch! {
             let mut future = core::pin::pin!(future);
 
             // We don't care about the waker as we're just going to poll as fast as possible.
-            let waker = futures::noop_waker();
-            let cx = &mut Context::from_waker(&waker);
+            let cx = &mut Context::from_waker(core::task::Waker::noop());
 
             // Keep polling until the future is ready.
             loop {

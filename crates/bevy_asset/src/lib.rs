@@ -485,6 +485,22 @@ impl VisitAssetDependencies for Option<UntypedHandle> {
     }
 }
 
+impl<A: Asset, const N: usize> VisitAssetDependencies for [Handle<A>; N] {
+    fn visit_dependencies(&self, visit: &mut impl FnMut(UntypedAssetId)) {
+        for dependency in self {
+            visit(dependency.id().untyped());
+        }
+    }
+}
+
+impl<const N: usize> VisitAssetDependencies for [UntypedHandle; N] {
+    fn visit_dependencies(&self, visit: &mut impl FnMut(UntypedAssetId)) {
+        for dependency in self {
+            visit(dependency.id());
+        }
+    }
+}
+
 impl<A: Asset> VisitAssetDependencies for Vec<Handle<A>> {
     fn visit_dependencies(&self, visit: &mut impl FnMut(UntypedAssetId)) {
         for dependency in self {
@@ -677,6 +693,7 @@ mod tests {
         loader::{AssetLoader, LoadContext},
         Asset, AssetApp, AssetEvent, AssetId, AssetLoadError, AssetLoadFailedEvent, AssetPath,
         AssetPlugin, AssetServer, Assets, InvalidGenerationError, LoadState, UnapprovedPathMode,
+        UntypedHandle,
     };
     use alloc::{
         boxed::Box,
@@ -1892,6 +1909,10 @@ mod tests {
         handle: Handle<TestAsset>,
         #[dependency]
         embedded: TestAsset,
+        #[dependency]
+        array_handles: [Handle<TestAsset>; 5],
+        #[dependency]
+        untyped_array_handles: [UntypedHandle; 5],
     }
 
     #[expect(

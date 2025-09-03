@@ -67,8 +67,8 @@ fn setup(
     commands.spawn(Camera2d);
     commands
         .spawn(Node {
-            width: Val::Percent(100.0),
-            height: Val::Percent(100.0),
+            width: percent(100),
+            height: percent(100),
             align_items: AlignItems::Center,
             justify_content: JustifyContent::Center,
             ..default()
@@ -91,13 +91,13 @@ fn setup(
                         )
                         .with_mode(NodeImageMode::Sliced(slicer.clone())),
                         Node {
-                            width: Val::Px(w),
-                            height: Val::Px(h),
+                            width: px(w),
+                            height: px(h),
                             // horizontally center child text
                             justify_content: JustifyContent::Center,
                             // vertically center child text
                             align_items: AlignItems::Center,
-                            margin: UiRect::all(Val::Px(20.0)),
+                            margin: UiRect::all(px(20)),
                             ..default()
                         },
                     ))

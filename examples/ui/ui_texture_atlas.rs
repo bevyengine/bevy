@@ -34,12 +34,12 @@ fn setup(
     // root node
     commands
         .spawn(Node {
-            width: Val::Percent(100.0),
-            height: Val::Percent(100.0),
+            width: percent(100),
+            height: percent(100),
             flex_direction: FlexDirection::Column,
             justify_content: JustifyContent::Center,
             align_items: AlignItems::Center,
-            row_gap: Val::Px(text_font.font_size * 2.),
+            row_gap: px(text_font.font_size * 2.),
             ..default()
         })
         .with_children(|parent| {
@@ -49,12 +49,12 @@ fn setup(
                     TextureAtlas::from(texture_atlas_handle),
                 ),
                 Node {
-                    width: Val::Px(256.),
-                    height: Val::Px(256.),
+                    width: px(256),
+                    height: px(256),
                     ..default()
                 },
                 BackgroundColor(ANTIQUE_WHITE.into()),
-                Outline::new(Val::Px(8.0), Val::ZERO, CRIMSON.into()),
+                Outline::new(px(8), Val::ZERO, CRIMSON.into()),
             ));
             parent
                 .spawn((Text::new("press "), text_font.clone()))

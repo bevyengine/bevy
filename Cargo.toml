@@ -1465,7 +1465,7 @@ wasm = false
 name = "meshlet"
 path = "examples/3d/meshlet.rs"
 doc-scrape-examples = true
-required-features = ["meshlet"]
+required-features = ["meshlet", "https"]
 
 [package.metadata.example.meshlet]
 name = "Meshlet"
@@ -1473,19 +1473,6 @@ description = "Meshlet rendering for dense high-poly scenes (experimental)"
 category = "3D Rendering"
 # Requires compute shaders and WGPU extensions, not supported by WebGL nor WebGPU.
 wasm = false
-setup = [
-  [
-    "mkdir",
-    "-p",
-    "assets/external/models",
-  ],
-  [
-    "curl",
-    "-o",
-    "assets/external/models/bunny.meshlet_mesh",
-    "https://raw.githubusercontent.com/JMS55/bevy_meshlet_asset/7a7c14138021f63904b584d5f7b73b695c7f4bbf/bunny.meshlet_mesh",
-  ],
-]
 
 [[example]]
 name = "mesh_ray_cast"
@@ -3714,6 +3701,17 @@ doc-scrape-examples = true
 [package.metadata.example.ui_transform]
 name = "UI Transform"
 description = "An example demonstrating how to translate, rotate and scale UI elements."
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
+name = "ui_target_camera"
+path = "examples/ui/ui_target_camera.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.ui_target_camera]
+name = "UI Target Camera"
+description = "Demonstrates how to use `UiTargetCamera` and camera ordering."
 category = "UI (User Interface)"
 wasm = true
 
