@@ -147,6 +147,7 @@ pub struct NodeQuery {
 ///
 /// Entities with a hidden [`InheritedVisibility`] are always treated as released.
 pub fn ui_focus_system(
+    mut hovered_nodes: Local<Vec<Entity>>,
     mut state: Local<State>,
     camera_query: Query<(Entity, &Camera)>,
     primary_window: Query<Entity, With<PrimaryWindow>>,
@@ -215,15 +216,29 @@ pub fn ui_focus_system(
     // prepare an iterator that contains all the nodes that have the cursor in their rect,
     // from the top node to the bottom one. this will also reset the interaction to `None`
     // for all nodes encountered that are no longer hovered.
-    let mut hovered_nodes = ui_stack
-        // reverse the iterator to traverse the tree from closest nodes to furthest
-        .iter_rev()
-        .filter_map(|entity| {
+
+    hovered_nodes.clear();
+    // reverse the iterator to traverse the tree from closest layers to furthest
+    for layer in ui_stack.layers.iter().rev() {
+        let Ok(root_node) = node_query.get_mut(layer.nodes[0]) else {
+            continue;
+        };
+
+        let Some(camera_entity) = root_node.target_camera.get() else {
+            continue;
+        };
+
+        let cursor_position = camera_cursor_positions.get(&camera_entity);
+
+        for entity in layer.nodes.iter().rev().cloned() {
             let Ok(node) = node_query.get_mut(entity) else {
-                return None;
+                continue;
             };
 
-            let inherited_visibility = node.inherited_visibility?;
+            let Some(inherited_visibility) = node.inherited_visibility else {
+                continue;
+            };
+
             // Nodes that are not rendered should not be interactable
             if !inherited_visibility.get() {
                 // Reset their interaction to None to avoid strange stuck state
@@ -231,11 +246,8 @@ pub fn ui_focus_system(
                     // We cannot simply set the interaction to None, as that will trigger change detection repeatedly
                     interaction.set_if_neq(Interaction::None);
                 }
-                return None;
+                continue;
             }
-            let camera_entity = node.target_camera.get()?;
-
-            let cursor_position = camera_cursor_positions.get(&camera_entity);
 
             let contains_cursor = cursor_position.is_some_and(|point| {
                 node.node.contains_point(*node.transform, *point)
@@ -268,7 +280,7 @@ pub fn ui_focus_system(
             }
 
             if contains_cursor {
-                Some(entity)
+                hovered_nodes.push(entity);
             } else {
                 if let Some(mut interaction) = node.interaction
                     && (*interaction == Interaction::Hovered
@@ -276,15 +288,14 @@ pub fn ui_focus_system(
                 {
                     interaction.set_if_neq(Interaction::None);
                 }
-                None
+                continue;
             }
-        })
-        .collect::<Vec<Entity>>()
-        .into_iter();
+        }
+    }
 
     // set Pressed or Hovered on top nodes. as soon as a node with a `Block` focus policy is detected,
     // the iteration will stop on it because it "captures" the interaction.
-    let mut iter = node_query.iter_many_mut(hovered_nodes.by_ref());
+    let mut iter = node_query.iter_many_mut(hovered_nodes.iter());
     while let Some(node) = iter.fetch_next() {
         if let Some(mut interaction) = node.interaction {
             if mouse_clicked {
@@ -311,7 +322,7 @@ pub fn ui_focus_system(
     }
     // reset `Interaction` for the remaining lower nodes to `None`. those are the nodes that remain in
     // `moused_over_nodes` after the previous loop is exited.
-    let mut iter = node_query.iter_many_mut(hovered_nodes);
+    let mut iter = node_query.iter_many_mut(hovered_nodes.iter());
     while let Some(node) = iter.fetch_next() {
         if let Some(mut interaction) = node.interaction {
             // don't reset pressed nodes because they're handled separately
