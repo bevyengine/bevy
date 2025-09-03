@@ -23,6 +23,7 @@ use bevy::{
     },
     prelude::*,
     ui::{Checked, InteractionDisabled},
+    window::PresentMode,
     winit::WinitSettings,
 };
 
@@ -42,7 +43,14 @@ enum SwatchType {
 fn main() {
     App::new()
         .add_plugins((
-            DefaultPlugins,
+            DefaultPlugins.set(WindowPlugin {
+                primary_window: Some(Window {
+                    // Disable VSync to make the UI respond to fast input (like mouse movement) properly
+                    present_mode: PresentMode::AutoNoVsync,
+                    ..default()
+                }),
+                ..default()
+            }),
             CoreWidgetsPlugins,
             InputDispatchPlugin,
             TabNavigationPlugin,
