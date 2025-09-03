@@ -3705,6 +3705,17 @@ category = "UI (User Interface)"
 wasm = true
 
 [[example]]
+name = "ui_target_camera"
+path = "examples/ui/ui_target_camera.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.ui_target_camera]
+name = "UI Target Camera"
+description = "Demonstrates how to use `UiTargetCamera` and camera ordering."
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
 name = "viewport_debug"
 path = "examples/ui/viewport_debug.rs"
 doc-scrape-examples = true

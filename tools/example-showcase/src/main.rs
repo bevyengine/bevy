@@ -486,7 +486,8 @@ fn main() {
             content_folder,
             api,
         } => {
-            let examples_to_run = parse_examples();
+            let mut examples_to_run = parse_examples();
+            examples_to_run.sort_by_key(|e| format!("{}-{}", e.category, e.name));
 
             let root_path = Path::new(&content_folder);
 
