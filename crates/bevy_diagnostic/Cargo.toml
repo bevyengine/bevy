@@ -33,6 +33,7 @@ sysinfo_plugin = ["sysinfo"]
 ## on `no_std` targets, but provides access to certain additional features on
 ## supported platforms.
 std = [
+  "crossbeam-channel/std",
   "serde?/std",
   "bevy_ecs/std",
   "bevy_app/std",
@@ -61,7 +62,7 @@ bevy_platform = { path = "../bevy_platform", version = "0.17.0-dev", default-fea
 
 # other
 const-fnv1a-hash = "1.1.0"
-crossbeam-channel = "0.5.0"
+crossbeam-channel = { version = "0.5.0", default-features = false }
 serde = { version = "1.0", default-features = false, features = [
   "alloc",
 ], optional = true }
