@@ -46,11 +46,13 @@ use core::hash::Hash;
 ///
 /// # struct AppMock;
 /// # impl AppMock {
+/// #     fn init_state<S>(&mut self) {}
 /// #     fn add_systems<S, M>(&mut self, schedule: S, systems: impl IntoScheduleConfigs<ScheduleSystem, M>) {}
 /// # }
 /// # struct Update;
 /// # let mut app = AppMock;
 ///
+/// app.init_state::<GameState>();
 /// app.add_systems(Update, handle_escape_pressed.run_if(in_state(GameState::MainMenu)));
 /// app.add_systems(OnEnter(GameState::SettingsMenu), open_settings_menu);
 /// ```
