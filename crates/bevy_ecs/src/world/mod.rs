@@ -993,11 +993,11 @@ impl World {
     /// let grandchild = world.spawn((ChildOf(child), Name::new("Grandchild"))).id();
     ///
     /// assert_eq!(
-    ///     world.get_entity_from_path(None, &vec![Name::new("Root"), Name::new("Child"), Name::new("Grandchild")]),
+    ///     world.get_entity_from_path(None, &[Name::new("Root"), Name::new("Child"), Name::new("Grandchild")]),
     ///     Some(grandchild)
     /// );
     /// assert_eq!(
-    ///     world.get_entity_from_path(Some(child), &vec![Name::new("Grandchild")]),
+    ///     world.get_entity_from_path(Some(child), &[Name::new("Grandchild")]),
     ///     Some(grandchild)
     /// );
     /// ```
@@ -4499,7 +4499,7 @@ mod tests {
         assert_eq!(
             world.get_entity_from_path(
                 None,
-                &vec![Name::new("1"), Name::new("1_1"), Name::new("1_1_1")]
+                &[Name::new("1"), Name::new("1_1"), Name::new("1_1_1")]
             ),
             Some(grandchild1_1_1)
         );
@@ -4508,7 +4508,7 @@ mod tests {
             Some(vec![Name::new("1_1"), Name::new("1_1_1")])
         );
         assert_eq!(
-            world.get_entity_from_path(Some(root1), &vec![Name::new("1_1"), Name::new("1_1_1")]),
+            world.get_entity_from_path(Some(root1), &[Name::new("1_1"), Name::new("1_1_1")]),
             Some(grandchild1_1_1)
         );
         assert_eq!(
@@ -4516,7 +4516,7 @@ mod tests {
             Some(vec![Name::new("2"), Name::new("2_1")])
         );
         assert_eq!(
-            world.get_entity_from_path(None, &vec![Name::new("2"), Name::new("2_1")]),
+            world.get_entity_from_path(None, &[Name::new("2"), Name::new("2_1")]),
             Some(child2_1)
         );
         assert_eq!(
@@ -4524,7 +4524,7 @@ mod tests {
             Some(vec![Name::new("2_2")])
         );
         assert_eq!(
-            world.get_entity_from_path(Some(root2), &vec![Name::new("2_2")]),
+            world.get_entity_from_path(Some(root2), &[Name::new("2_2")]),
             Some(child2_2)
         );
         assert_eq!(
@@ -4532,7 +4532,7 @@ mod tests {
             None
         );
         assert_eq!(
-            world.get_entity_from_path(Some(root1), &vec![Name::new("2_2")]),
+            world.get_entity_from_path(Some(root1), &[Name::new("2_2")]),
             None
         );
         assert_eq!(
@@ -4540,7 +4540,7 @@ mod tests {
             None
         );
         assert_eq!(
-            world.get_entity_from_path(Some(root1), &vec![Name::new("arbitrary")]),
+            world.get_entity_from_path(Some(root1), &[Name::new("arbitrary")]),
             None
         );
 
@@ -4553,7 +4553,7 @@ mod tests {
         assert_eq!(
             world.get_entity_from_path(
                 None,
-                &vec![Name::new("1"), Name::new("1_1"), Name::new("1_1_1")]
+                &[Name::new("1"), Name::new("1_1"), Name::new("1_1_1")]
             ),
             None
         );
@@ -4562,7 +4562,7 @@ mod tests {
             Some(vec![Name::new("1_1_1")])
         );
         assert_eq!(
-            world.get_entity_from_path(Some(child1_1), &vec![Name::new("1_1_1")]),
+            world.get_entity_from_path(Some(child1_1), &[Name::new("1_1_1")]),
             Some(grandchild1_1_1)
         );
         world.despawn(child1_1_duplicate);
@@ -4576,7 +4576,7 @@ mod tests {
         assert_eq!(
             world.get_entity_from_path(
                 None,
-                &vec![Name::new("1"), Name::new("1_1"), Name::new("1_1_1")]
+                &[Name::new("1"), Name::new("1_1"), Name::new("1_1_1")]
             ),
             None
         );
@@ -4585,7 +4585,7 @@ mod tests {
             Some(vec![Name::new("1_1"), Name::new("1_1_1")])
         );
         assert_eq!(
-            world.get_entity_from_path(Some(root1), &vec![Name::new("1_1"), Name::new("1_1_1")]),
+            world.get_entity_from_path(Some(root1), &[Name::new("1_1"), Name::new("1_1_1")]),
             Some(grandchild1_1_1)
         );
         assert_eq!(
@@ -4593,7 +4593,7 @@ mod tests {
             Some(vec![Name::new("2"), Name::new("2_1")])
         );
         assert_eq!(
-            world.get_entity_from_path(None, &vec![Name::new("2"), Name::new("2_1")]),
+            world.get_entity_from_path(None, &[Name::new("2"), Name::new("2_1")]),
             Some(child2_1)
         );
 
@@ -4601,7 +4601,7 @@ mod tests {
         world.entity_mut(child2_1).remove::<Name>();
         assert_eq!(world.get_path_from_entity::<Name>(None, child2_1), None);
         assert_eq!(
-            world.get_entity_from_path(None, &vec![Name::new("2"), Name::new("2_1")]),
+            world.get_entity_from_path(None, &[Name::new("2"), Name::new("2_1")]),
             None
         );
         assert_eq!(
@@ -4609,7 +4609,7 @@ mod tests {
             Some(vec![Name::new("2_1_1")])
         );
         assert_eq!(
-            world.get_entity_from_path(Some(child2_1), &vec![Name::new("2_1_1")]),
+            world.get_entity_from_path(Some(child2_1), &[Name::new("2_1_1")]),
             Some(grandchild2_1_1)
         );
         assert_eq!(
@@ -4617,7 +4617,7 @@ mod tests {
             Some(vec![Name::new("2")])
         );
         assert_eq!(
-            world.get_entity_from_path(None, &vec![Name::new("2")]),
+            world.get_entity_from_path(None, &[Name::new("2")]),
             Some(root2)
         );
     }
