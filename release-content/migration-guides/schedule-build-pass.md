@@ -9,7 +9,7 @@ The schedule build pass API was improved to provide more context and flexabiliti
 
 - Breaking Change: The ScheduleBuildPass trait methods (`collapse_set` and `build`) have been updated with new parameters `(&mut World, &mut ScheduleGraph)` to provide more context.
 
-- New Feature: A new method, map_set_to_systems, has been added to the ScheduleBuildPass trait, allowing passes to dynamically add systems to a set.
+- New Feature: A new method, `map_set_to_systems`, has been added to the ScheduleBuildPass trait, allowing passes to dynamically add systems to a set.
 
 
 # Migration Steps
