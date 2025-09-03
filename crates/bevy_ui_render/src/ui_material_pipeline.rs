@@ -623,6 +623,7 @@ pub fn queue_ui_material_nodes<M: UiMaterial>(
             );
         }
         transparent_phase.add(TransparentUi {
+            layer_index: 0,
             draw_function,
             pipeline,
             entity: (extracted_uinode.render_entity, extracted_uinode.main_entity),

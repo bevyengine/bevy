@@ -343,6 +343,7 @@ pub fn queue_shadows(
         );
 
         transparent_phase.add(TransparentUi {
+            layer_index: 0,
             draw_function,
             pipeline,
             entity: (entity, extracted_shadow.main_entity),

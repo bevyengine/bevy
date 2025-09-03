@@ -214,8 +214,8 @@ impl Plugin for UiRenderPlugin {
             .init_resource::<SpecializedRenderPipelines<UiPipeline>>()
             .init_resource::<ImageNodeBindGroups>()
             .init_resource::<UiMeta>()
-            .init_resource::<ExtractedUiNodes>()
-            .allow_ambiguous_resource::<ExtractedUiNodes>()
+            .init_resource::<ExtractedUiLayers>()
+            .allow_ambiguous_resource::<ExtractedUiLayers>()
             .init_resource::<DrawFunctions<TransparentUi>>()
             .init_resource::<ViewSortedRenderPhases<TransparentUi>>()
             .add_render_command::<TransparentUi, DrawUi>()
@@ -392,15 +392,26 @@ pub struct ExtractedGlyph {
 }
 
 #[derive(Resource, Default)]
+pub struct ExtractedUiLayers {
+    pub glyphs: Vec<ExtractedGlyph>,
+    pub layers: Vec<ExtractedUiNodes>,
+}
+
+impl ExtractedUiLayers {
+    pub fn clear(&mut self) {
+        self.glyphs.clear();
+        self.layers.clear();
+    }
+}
+
+#[derive(Default)]
 pub struct ExtractedUiNodes {
     pub uinodes: Vec<ExtractedUiNode>,
-    pub glyphs: Vec<ExtractedGlyph>,
 }
 
 impl ExtractedUiNodes {
     pub fn clear(&mut self) {
         self.uinodes.clear();
-        self.glyphs.clear();
     }
 }
 
@@ -431,7 +442,7 @@ impl RenderGraphNode for RunUiSubgraphOnUiViewNode {
 
 pub fn extract_uinode_background_colors(
     mut commands: Commands,
-    mut extracted_uinodes: ResMut<ExtractedUiNodes>,
+    mut extracted_uinodes: ResMut<ExtractedUiLayers>,
     uinode_query: Extract<
         Query<(
             Entity,
@@ -462,34 +473,36 @@ pub fn extract_uinode_background_colors(
             continue;
         };
 
-        extracted_uinodes.uinodes.push(ExtractedUiNode {
-            render_entity: commands.spawn(TemporaryRenderEntity).id(),
-            z_order: uinode.stack_index as f32 + stack_z_offsets::BACKGROUND_COLOR,
-            clip: clip.map(|clip| clip.clip),
-            image: AssetId::default(),
-            extracted_camera_entity,
-            transform: transform.into(),
-            item: ExtractedUiItem::Node {
-                color: background_color.0.into(),
-                rect: Rect {
-                    min: Vec2::ZERO,
-                    max: uinode.size,
+        extracted_uinodes.layers[uinode.layer_index as usize]
+            .uinodes
+            .push(ExtractedUiNode {
+                render_entity: commands.spawn(TemporaryRenderEntity).id(),
+                z_order: uinode.stack_index as f32 + stack_z_offsets::BACKGROUND_COLOR,
+                clip: clip.map(|clip| clip.clip),
+                image: AssetId::default(),
+                extracted_camera_entity,
+                transform: transform.into(),
+                item: ExtractedUiItem::Node {
+                    color: background_color.0.into(),
+                    rect: Rect {
+                        min: Vec2::ZERO,
+                        max: uinode.size,
+                    },
+                    atlas_scaling: None,
+                    flip_x: false,
+                    flip_y: false,
+                    border: uinode.border(),
+                    border_radius: uinode.border_radius(),
+                    node_type: NodeType::Rect,
                 },
-                atlas_scaling: None,
-                flip_x: false,
-                flip_y: false,
-                border: uinode.border(),
-                border_radius: uinode.border_radius(),
-                node_type: NodeType::Rect,
-            },
-            main_entity: entity.into(),
-        });
+                main_entity: entity.into(),
+            });
     }
 }
 
 pub fn extract_uinode_images(
     mut commands: Commands,
-    mut extracted_uinodes: ResMut<ExtractedUiNodes>,
+    mut extracted_uinodes: ResMut<ExtractedUiLayers>,
     texture_atlases: Extract<Res<Assets<TextureAtlasLayout>>>,
     uinode_query: Extract<
         Query<(
@@ -549,31 +562,33 @@ pub fn extract_uinode_images(
             None
         };
 
-        extracted_uinodes.uinodes.push(ExtractedUiNode {
-            z_order: uinode.stack_index as f32 + stack_z_offsets::IMAGE,
-            render_entity: commands.spawn(TemporaryRenderEntity).id(),
-            clip: clip.map(|clip| clip.clip),
-            image: image.image.id(),
-            extracted_camera_entity,
-            transform: transform.into(),
-            item: ExtractedUiItem::Node {
-                color: image.color.into(),
-                rect,
-                atlas_scaling,
-                flip_x: image.flip_x,
-                flip_y: image.flip_y,
-                border: uinode.border,
-                border_radius: uinode.border_radius,
-                node_type: NodeType::Rect,
-            },
-            main_entity: entity.into(),
-        });
+        extracted_uinodes.layers[uinode.layer_index as usize]
+            .uinodes
+            .push(ExtractedUiNode {
+                z_order: uinode.stack_index as f32 + stack_z_offsets::IMAGE,
+                render_entity: commands.spawn(TemporaryRenderEntity).id(),
+                clip: clip.map(|clip| clip.clip),
+                image: image.image.id(),
+                extracted_camera_entity,
+                transform: transform.into(),
+                item: ExtractedUiItem::Node {
+                    color: image.color.into(),
+                    rect,
+                    atlas_scaling,
+                    flip_x: image.flip_x,
+                    flip_y: image.flip_y,
+                    border: uinode.border,
+                    border_radius: uinode.border_radius,
+                    node_type: NodeType::Rect,
+                },
+                main_entity: entity.into(),
+            });
     }
 }
 
 pub fn extract_uinode_borders(
     mut commands: Commands,
-    mut extracted_uinodes: ResMut<ExtractedUiNodes>,
+    mut extracted_uinodes: ResMut<ExtractedUiLayers>,
     uinode_query: Extract<
         Query<(
             Entity,
@@ -648,28 +663,30 @@ pub fn extract_uinode_borders(
                 }
                 completed_flags |= border_flags;
 
-                extracted_uinodes.uinodes.push(ExtractedUiNode {
-                    z_order: computed_node.stack_index as f32 + stack_z_offsets::BORDER,
-                    image,
-                    clip: maybe_clip.map(|clip| clip.clip),
-                    extracted_camera_entity,
-                    transform: transform.into(),
-                    item: ExtractedUiItem::Node {
-                        color,
-                        rect: Rect {
-                            max: computed_node.size(),
-                            ..Default::default()
+                extracted_uinodes.layers[computed_node.layer_index as usize]
+                    .uinodes
+                    .push(ExtractedUiNode {
+                        z_order: computed_node.stack_index as f32 + stack_z_offsets::BORDER,
+                        image,
+                        clip: maybe_clip.map(|clip| clip.clip),
+                        extracted_camera_entity,
+                        transform: transform.into(),
+                        item: ExtractedUiItem::Node {
+                            color,
+                            rect: Rect {
+                                max: computed_node.size(),
+                                ..Default::default()
+                            },
+                            atlas_scaling: None,
+                            flip_x: false,
+                            flip_y: false,
+                            border: computed_node.border(),
+                            border_radius: computed_node.border_radius(),
+                            node_type: NodeType::Border(border_flags),
                         },
-                        atlas_scaling: None,
-                        flip_x: false,
-                        flip_y: false,
-                        border: computed_node.border(),
-                        border_radius: computed_node.border_radius(),
-                        node_type: NodeType::Border(border_flags),
-                    },
-                    main_entity: entity.into(),
-                    render_entity: commands.spawn(TemporaryRenderEntity).id(),
-                });
+                        main_entity: entity.into(),
+                        render_entity: commands.spawn(TemporaryRenderEntity).id(),
+                    });
             }
         }
 
@@ -680,28 +697,30 @@ pub fn extract_uinode_borders(
         if let Some(outline) = maybe_outline.filter(|outline| !outline.color.is_fully_transparent())
         {
             let outline_size = computed_node.outlined_node_size();
-            extracted_uinodes.uinodes.push(ExtractedUiNode {
-                z_order: computed_node.stack_index as f32 + stack_z_offsets::BORDER,
-                render_entity: commands.spawn(TemporaryRenderEntity).id(),
-                image,
-                clip: maybe_clip.map(|clip| clip.clip),
-                extracted_camera_entity,
-                transform: transform.into(),
-                item: ExtractedUiItem::Node {
-                    color: outline.color.into(),
-                    rect: Rect {
-                        max: outline_size,
-                        ..Default::default()
+            extracted_uinodes.layers[computed_node.layer_index as usize]
+                .uinodes
+                .push(ExtractedUiNode {
+                    z_order: computed_node.stack_index as f32 + stack_z_offsets::BORDER,
+                    render_entity: commands.spawn(TemporaryRenderEntity).id(),
+                    image,
+                    clip: maybe_clip.map(|clip| clip.clip),
+                    extracted_camera_entity,
+                    transform: transform.into(),
+                    item: ExtractedUiItem::Node {
+                        color: outline.color.into(),
+                        rect: Rect {
+                            max: outline_size,
+                            ..Default::default()
+                        },
+                        atlas_scaling: None,
+                        flip_x: false,
+                        flip_y: false,
+                        border: BorderRect::all(computed_node.outline_width()),
+                        border_radius: computed_node.outline_radius(),
+                        node_type: NodeType::Border(shader_flags::BORDER_ALL),
                     },
-                    atlas_scaling: None,
-                    flip_x: false,
-                    flip_y: false,
-                    border: BorderRect::all(computed_node.outline_width()),
-                    border_radius: computed_node.outline_radius(),
-                    node_type: NodeType::Border(shader_flags::BORDER_ALL),
-                },
-                main_entity: entity.into(),
-            });
+                    main_entity: entity.into(),
+                });
         }
     }
 }
@@ -835,7 +854,7 @@ pub fn extract_ui_camera_view(
 
 pub fn extract_viewport_nodes(
     mut commands: Commands,
-    mut extracted_uinodes: ResMut<ExtractedUiNodes>,
+    mut extracted_uinodes: ResMut<ExtractedUiLayers>,
     camera_query: Extract<Query<&Camera>>,
     uinode_query: Extract<
         Query<(
@@ -871,34 +890,36 @@ pub fn extract_viewport_nodes(
             continue;
         };
 
-        extracted_uinodes.uinodes.push(ExtractedUiNode {
-            z_order: uinode.stack_index as f32 + stack_z_offsets::IMAGE,
-            render_entity: commands.spawn(TemporaryRenderEntity).id(),
-            clip: clip.map(|clip| clip.clip),
-            image: image.id(),
-            extracted_camera_entity,
-            transform: transform.into(),
-            item: ExtractedUiItem::Node {
-                color: LinearRgba::WHITE,
-                rect: Rect {
-                    min: Vec2::ZERO,
-                    max: uinode.size,
+        extracted_uinodes.layers[uinode.layer_index as usize]
+            .uinodes
+            .push(ExtractedUiNode {
+                z_order: uinode.stack_index as f32 + stack_z_offsets::IMAGE,
+                render_entity: commands.spawn(TemporaryRenderEntity).id(),
+                clip: clip.map(|clip| clip.clip),
+                image: image.id(),
+                extracted_camera_entity,
+                transform: transform.into(),
+                item: ExtractedUiItem::Node {
+                    color: LinearRgba::WHITE,
+                    rect: Rect {
+                        min: Vec2::ZERO,
+                        max: uinode.size,
+                    },
+                    atlas_scaling: None,
+                    flip_x: false,
+                    flip_y: false,
+                    border: uinode.border(),
+                    border_radius: uinode.border_radius(),
+                    node_type: NodeType::Rect,
                 },
-                atlas_scaling: None,
-                flip_x: false,
-                flip_y: false,
-                border: uinode.border(),
-                border_radius: uinode.border_radius(),
-                node_type: NodeType::Rect,
-            },
-            main_entity: entity.into(),
-        });
+                main_entity: entity.into(),
+            });
     }
 }
 
 pub fn extract_text_sections(
     mut commands: Commands,
-    mut extracted_uinodes: ResMut<ExtractedUiNodes>,
+    mut extracted_uinodes: ResMut<ExtractedUiLayers>,
     texture_atlases: Extract<Res<Assets<TextureAtlasLayout>>>,
     uinode_query: Extract<
         Query<(
@@ -979,16 +1000,18 @@ pub fn extract_text_sections(
                     )
                     .map(|text_color| LinearRgba::from(text_color.0))
                     .unwrap_or_default();
-                extracted_uinodes.uinodes.push(ExtractedUiNode {
-                    z_order: uinode.stack_index as f32 + stack_z_offsets::TEXT,
-                    render_entity: commands.spawn(TemporaryRenderEntity).id(),
-                    image: atlas_info.texture,
-                    clip: clip.map(|clip| clip.clip),
-                    extracted_camera_entity,
-                    item: ExtractedUiItem::Glyphs { range: start..end },
-                    main_entity: entity.into(),
-                    transform,
-                });
+                extracted_uinodes.layers[uinode.layer_index as usize]
+                    .uinodes
+                    .push(ExtractedUiNode {
+                        z_order: uinode.stack_index as f32 + stack_z_offsets::TEXT,
+                        render_entity: commands.spawn(TemporaryRenderEntity).id(),
+                        image: atlas_info.texture,
+                        clip: clip.map(|clip| clip.clip),
+                        extracted_camera_entity,
+                        item: ExtractedUiItem::Glyphs { range: start..end },
+                        main_entity: entity.into(),
+                        transform,
+                    });
                 start = end;
             }
 
@@ -999,7 +1022,7 @@ pub fn extract_text_sections(
 
 pub fn extract_text_shadows(
     mut commands: Commands,
-    mut extracted_uinodes: ResMut<ExtractedUiNodes>,
+    mut extracted_uinodes: ResMut<ExtractedUiLayers>,
     texture_atlases: Extract<Res<Assets<TextureAtlasLayout>>>,
     uinode_query: Extract<
         Query<(
@@ -1060,16 +1083,18 @@ pub fn extract_text_shadows(
             if text_layout_info.glyphs.get(i + 1).is_none_or(|info| {
                 info.span_index != *span_index || info.atlas_info.texture != atlas_info.texture
             }) {
-                extracted_uinodes.uinodes.push(ExtractedUiNode {
-                    transform: node_transform,
-                    z_order: uinode.stack_index as f32 + stack_z_offsets::TEXT,
-                    render_entity: commands.spawn(TemporaryRenderEntity).id(),
-                    image: atlas_info.texture,
-                    clip: clip.map(|clip| clip.clip),
-                    extracted_camera_entity,
-                    item: ExtractedUiItem::Glyphs { range: start..end },
-                    main_entity: entity.into(),
-                });
+                extracted_uinodes.layers[uinode.layer_index as usize]
+                    .uinodes
+                    .push(ExtractedUiNode {
+                        transform: node_transform,
+                        z_order: uinode.stack_index as f32 + stack_z_offsets::TEXT,
+                        render_entity: commands.spawn(TemporaryRenderEntity).id(),
+                        image: atlas_info.texture,
+                        clip: clip.map(|clip| clip.clip),
+                        extracted_camera_entity,
+                        item: ExtractedUiItem::Glyphs { range: start..end },
+                        main_entity: entity.into(),
+                    });
                 start = end;
             }
 
@@ -1080,7 +1105,7 @@ pub fn extract_text_shadows(
 
 pub fn extract_text_background_colors(
     mut commands: Commands,
-    mut extracted_uinodes: ResMut<ExtractedUiNodes>,
+    mut extracted_uinodes: ResMut<ExtractedUiLayers>,
     uinode_query: Extract<
         Query<(
             Entity,
@@ -1116,28 +1141,30 @@ pub fn extract_text_background_colors(
                 continue;
             };
 
-            extracted_uinodes.uinodes.push(ExtractedUiNode {
-                z_order: uinode.stack_index as f32 + stack_z_offsets::TEXT,
-                render_entity: commands.spawn(TemporaryRenderEntity).id(),
-                clip: clip.map(|clip| clip.clip),
-                image: AssetId::default(),
-                extracted_camera_entity,
-                transform: transform * Affine2::from_translation(rect.center()),
-                item: ExtractedUiItem::Node {
-                    color: text_background_color.0.to_linear(),
-                    rect: Rect {
-                        min: Vec2::ZERO,
-                        max: rect.size(),
+            extracted_uinodes.layers[uinode.layer_index as usize]
+                .uinodes
+                .push(ExtractedUiNode {
+                    z_order: uinode.stack_index as f32 + stack_z_offsets::TEXT,
+                    render_entity: commands.spawn(TemporaryRenderEntity).id(),
+                    clip: clip.map(|clip| clip.clip),
+                    image: AssetId::default(),
+                    extracted_camera_entity,
+                    transform: transform * Affine2::from_translation(rect.center()),
+                    item: ExtractedUiItem::Node {
+                        color: text_background_color.0.to_linear(),
+                        rect: Rect {
+                            min: Vec2::ZERO,
+                            max: rect.size(),
+                        },
+                        atlas_scaling: None,
+                        flip_x: false,
+                        flip_y: false,
+                        border: uinode.border(),
+                        border_radius: uinode.border_radius(),
+                        node_type: NodeType::Rect,
                     },
-                    atlas_scaling: None,
-                    flip_x: false,
-                    flip_y: false,
-                    border: uinode.border(),
-                    border_radius: uinode.border_radius(),
-                    node_type: NodeType::Rect,
-                },
-                main_entity: entity.into(),
-            });
+                    main_entity: entity.into(),
+                });
         }
     }
 }
@@ -1215,7 +1242,7 @@ pub mod shader_flags {
 }
 
 pub fn queue_uinodes(
-    extracted_uinodes: Res<ExtractedUiNodes>,
+    extracted_uinodes: Res<ExtractedUiLayers>,
     ui_pipeline: Res<UiPipeline>,
     mut pipelines: ResMut<SpecializedRenderPipelines<UiPipeline>>,
     mut transparent_render_phases: ResMut<ViewSortedRenderPhases<TransparentUi>>,
@@ -1228,7 +1255,11 @@ pub fn queue_uinodes(
     let mut current_camera_entity = Entity::PLACEHOLDER;
     let mut current_phase = None;
 
-    for (index, extracted_uinode) in extracted_uinodes.uinodes.iter().enumerate() {
+    for (layer_index, layer) in extracted_uinodes.layers.iter().enumerate() {
+        let Some(extracted_uinode) = layer.uinodes.get(0) else {
+            continue;
+        };
+
         if current_camera_entity != extracted_uinode.extracted_camera_entity {
             current_phase = render_views
                 .get(extracted_uinode.extracted_camera_entity)
@@ -1250,26 +1281,29 @@ pub fn queue_uinodes(
             continue;
         };
 
-        let pipeline = pipelines.specialize(
-            &pipeline_cache,
-            &ui_pipeline,
-            UiPipelineKey {
-                hdr: view.hdr,
-                anti_alias: matches!(ui_anti_alias, None | Some(UiAntiAlias::On)),
-            },
-        );
+        for (index, extracted_uinode) in layer.uinodes.iter().enumerate() {
+            let pipeline = pipelines.specialize(
+                &pipeline_cache,
+                &ui_pipeline,
+                UiPipelineKey {
+                    hdr: view.hdr,
+                    anti_alias: matches!(ui_anti_alias, None | Some(UiAntiAlias::On)),
+                },
+            );
 
-        transparent_phase.add(TransparentUi {
-            draw_function,
-            pipeline,
-            entity: (extracted_uinode.render_entity, extracted_uinode.main_entity),
-            sort_key: FloatOrd(extracted_uinode.z_order),
-            index,
-            // batch_range will be calculated in prepare_uinodes
-            batch_range: 0..0,
-            extra_index: PhaseItemExtraIndex::None,
-            indexed: true,
-        });
+            transparent_phase.add(TransparentUi {
+                layer_index,
+                draw_function,
+                pipeline,
+                entity: (extracted_uinode.render_entity, extracted_uinode.main_entity),
+                sort_key: FloatOrd(extracted_uinode.z_order),
+                index,
+                // batch_range will be calculated in prepare_uinodes
+                batch_range: 0..0,
+                extra_index: PhaseItemExtraIndex::None,
+                indexed: true,
+            });
+        }
     }
 }
 
@@ -1283,7 +1317,7 @@ pub fn prepare_uinodes(
     render_device: Res<RenderDevice>,
     render_queue: Res<RenderQueue>,
     mut ui_meta: ResMut<UiMeta>,
-    mut extracted_uinodes: ResMut<ExtractedUiNodes>,
+    mut extracted_uinodes: ResMut<ExtractedUiLayers>,
     view_uniforms: Res<ViewUniforms>,
     ui_pipeline: Res<UiPipeline>,
     mut image_bind_groups: ResMut<ImageNodeBindGroups>,
@@ -1326,7 +1360,8 @@ pub fn prepare_uinodes(
 
             for item_index in 0..ui_phase.items.len() {
                 let item = &mut ui_phase.items[item_index];
-                if let Some(extracted_uinode) = extracted_uinodes
+
+                if let Some(extracted_uinode) = extracted_uinodes.layers[item.layer_index]
                     .uinodes
                     .get(item.index)
                     .filter(|n| item.entity() == n.render_entity)

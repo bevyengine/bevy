@@ -114,6 +114,7 @@ impl Node for UiPassNode {
 }
 
 pub struct TransparentUi {
+    pub layer_index: usize,
     pub sort_key: FloatOrd,
     pub entity: (Entity, MainEntity),
     pub pipeline: CachedRenderPipelineId,
