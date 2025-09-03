@@ -2269,7 +2269,7 @@ impl<'w, 's, D: QueryData, F: QueryFilter, const K: usize> QueryCombinationIter<
         let ptr = values.as_mut_ptr().cast::<D::Item<'w, 's>>();
         for (offset, cursor) in self.cursors.iter_mut().enumerate() {
             ptr.add(offset)
-                .write(cursor.peek_last(self.query_state).unwrap());
+                .write(cursor.peek_last(self.query_state).debug_checked_unwrap());
         }
 
         Some(values.assume_init())
@@ -2491,10 +2491,21 @@ impl<'w, 's, D: QueryData, F: QueryFilter> QueryIterationCursor<'w, 's, D, F> {
         let ids = self.storage_id_iter.clone();
         let remaining_matched: u32 = if self.is_dense {
             // SAFETY: The if check ensures that storage_id_iter stores TableIds
-            unsafe { ids.map(|id| tables[id.table_id].entity_count()).sum() }
+            unsafe {
+                ids.map(|id| {
+                    tables
+                        .get(id.table_id)
+                        .debug_checked_unwrap()
+                        .entity_count()
+                })
+                .sum()
+            }
         } else {
             // SAFETY: The if check ensures that storage_id_iter stores ArchetypeIds
-            unsafe { ids.map(|id| archetypes[id.archetype_id].len()).sum() }
+            unsafe {
+                ids.map(|id| archetypes.get(id.archetype_id).debug_checked_unwrap().len())
+                    .sum()
+            }
         };
         remaining_matched + self.current_len - self.current_row
     }
