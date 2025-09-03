@@ -347,8 +347,6 @@ pub struct ExtractedUiNode {
     pub z_order: f32,
     pub image: AssetId<Image>,
     pub clip: Option<Rect>,
-    /// Render world entity of the extracted camera corresponding to this node's target camera.
-    pub extracted_camera_entity: Entity,
     pub item: ExtractedUiItem,
     pub main_entity: MainEntity,
     pub render_entity: Entity,
@@ -393,6 +391,7 @@ pub struct ExtractedGlyph {
 
 #[derive(Resource, Default)]
 pub struct ExtractedUiLayers {
+    pub extracted_cameras: Vec<Option<Entity>>,
     pub glyphs: Vec<ExtractedGlyph>,
     pub layers: Vec<ExtractedUiNodes>,
 }
@@ -450,17 +449,11 @@ pub fn extract_uinode_background_colors(
             &UiGlobalTransform,
             &InheritedVisibility,
             Option<&CalculatedClip>,
-            &ComputedUiTargetCamera,
             &BackgroundColor,
         )>,
     >,
-    camera_map: Extract<UiCameraMap>,
 ) {
-    let mut camera_mapper = camera_map.get_mapper();
-
-    for (entity, uinode, transform, inherited_visibility, clip, camera, background_color) in
-        &uinode_query
-    {
+    for (entity, uinode, transform, inherited_visibility, clip, background_color) in &uinode_query {
         // Skip invisible backgrounds
         if !inherited_visibility.get()
             || background_color.0.is_fully_transparent()
@@ -469,10 +462,6 @@ pub fn extract_uinode_background_colors(
             continue;
         }
 
-        let Some(extracted_camera_entity) = camera_mapper.map(camera) else {
-            continue;
-        };
-
         extracted_uinodes.layers[uinode.layer_index as usize]
             .uinodes
             .push(ExtractedUiNode {
@@ -480,7 +469,6 @@ pub fn extract_uinode_background_colors(
                 z_order: uinode.stack_index as f32 + stack_z_offsets::BACKGROUND_COLOR,
                 clip: clip.map(|clip| clip.clip),
                 image: AssetId::default(),
-                extracted_camera_entity,
                 transform: transform.into(),
                 item: ExtractedUiItem::Node {
                     color: background_color.0.into(),
@@ -511,14 +499,11 @@ pub fn extract_uinode_images(
             &UiGlobalTransform,
             &InheritedVisibility,
             Option<&CalculatedClip>,
-            &ComputedUiTargetCamera,
             &ImageNode,
         )>,
     >,
-    camera_map: Extract<UiCameraMap>,
 ) {
-    let mut camera_mapper = camera_map.get_mapper();
-    for (entity, uinode, transform, inherited_visibility, clip, camera, image) in &uinode_query {
+    for (entity, uinode, transform, inherited_visibility, clip, image) in &uinode_query {
         // Skip invisible images
         if !inherited_visibility.get()
             || image.color.is_fully_transparent()
@@ -528,10 +513,6 @@ pub fn extract_uinode_images(
         {
             continue;
         }
-
-        let Some(extracted_camera_entity) = camera_mapper.map(camera) else {
-            continue;
-        };
 
         let atlas_rect = image
             .texture_atlas
@@ -569,7 +550,6 @@ pub fn extract_uinode_images(
                 render_entity: commands.spawn(TemporaryRenderEntity).id(),
                 clip: clip.map(|clip| clip.clip),
                 image: image.image.id(),
-                extracted_camera_entity,
                 transform: transform.into(),
                 item: ExtractedUiItem::Node {
                     color: image.color.into(),
@@ -597,14 +577,11 @@ pub fn extract_uinode_borders(
             &UiGlobalTransform,
             &InheritedVisibility,
             Option<&CalculatedClip>,
-            &ComputedUiTargetCamera,
             AnyOf<(&BorderColor, &Outline)>,
         )>,
     >,
-    camera_map: Extract<UiCameraMap>,
 ) {
     let image = AssetId::<Image>::default();
-    let mut camera_mapper = camera_map.get_mapper();
 
     for (
         entity,
@@ -613,7 +590,6 @@ pub fn extract_uinode_borders(
         transform,
         inherited_visibility,
         maybe_clip,
-        camera,
         (maybe_border_color, maybe_outline),
     ) in &uinode_query
     {
@@ -621,10 +597,6 @@ pub fn extract_uinode_borders(
         if !inherited_visibility.get() || node.display == Display::None {
             continue;
         }
-
-        let Some(extracted_camera_entity) = camera_mapper.map(camera) else {
-            continue;
-        };
 
         // Don't extract borders with zero width along all edges
         if computed_node.border() != BorderRect::ZERO
@@ -669,7 +641,6 @@ pub fn extract_uinode_borders(
                         z_order: computed_node.stack_index as f32 + stack_z_offsets::BORDER,
                         image,
                         clip: maybe_clip.map(|clip| clip.clip),
-                        extracted_camera_entity,
                         transform: transform.into(),
                         item: ExtractedUiItem::Node {
                             color,
@@ -704,7 +675,6 @@ pub fn extract_uinode_borders(
                     render_entity: commands.spawn(TemporaryRenderEntity).id(),
                     image,
                     clip: maybe_clip.map(|clip| clip.clip),
-                    extracted_camera_entity,
                     transform: transform.into(),
                     item: ExtractedUiItem::Node {
                         color: outline.color.into(),
@@ -782,9 +752,11 @@ pub fn extract_ui_camera_view(
     ui_stack: Extract<Res<bevy_ui::UiStack>>,
     mut extracted_layers: ResMut<ExtractedUiLayers>,
     mut live_entities: Local<HashSet<RetainedViewEntity>>,
+    root_nodes_query: Extract<Query<&ComputedUiTargetCamera>>,
 ) {
     live_entities.clear();
     extracted_layers.glyphs.clear();
+    extracted_layers.extracted_cameras.clear();
 
     if extracted_layers.layers.len() < ui_stack.layers.len() {
         let d = ui_stack.layers.len() - extracted_layers.layers.len();
@@ -863,6 +835,23 @@ pub fn extract_ui_camera_view(
         }
     }
 
+    for (_, layer) in ui_stack.layers.iter().enumerate() {
+        let mut target_camera = None;
+        if let Some(node) = layer.nodes.get(0) {
+            if let Ok(camera_target) = root_nodes_query.get(*node) {
+                if let Some(camera_entity) = camera_target.get() {
+                    if let Ok((_, render_entity, camera, ..)) = query.get(camera_entity) {
+                        // ignore inactive cameras
+                        if camera.is_active {
+                            target_camera = Some(render_entity);
+                        }
+                    }
+                }
+            }
+        }
+        extracted_layers.extracted_cameras.push(target_camera);
+    }
+
     transparent_render_phases.retain(|entity, _| live_entities.contains(entity));
 }
 
@@ -877,24 +866,15 @@ pub fn extract_viewport_nodes(
             &UiGlobalTransform,
             &InheritedVisibility,
             Option<&CalculatedClip>,
-            &ComputedUiTargetCamera,
             &ViewportNode,
         )>,
     >,
-    camera_map: Extract<UiCameraMap>,
 ) {
-    let mut camera_mapper = camera_map.get_mapper();
-    for (entity, uinode, transform, inherited_visibility, clip, camera, viewport_node) in
-        &uinode_query
-    {
+    for (entity, uinode, transform, inherited_visibility, clip, viewport_node) in &uinode_query {
         // Skip invisible images
         if !inherited_visibility.get() || uinode.is_empty() {
             continue;
         }
-
-        let Some(extracted_camera_entity) = camera_mapper.map(camera) else {
-            continue;
-        };
 
         let Some(image) = camera_query
             .get(viewport_node.camera)
@@ -911,7 +891,6 @@ pub fn extract_viewport_nodes(
                 render_entity: commands.spawn(TemporaryRenderEntity).id(),
                 clip: clip.map(|clip| clip.clip),
                 image: image.id(),
-                extracted_camera_entity,
                 transform: transform.into(),
                 item: ExtractedUiItem::Node {
                     color: LinearRgba::WHITE,
@@ -942,26 +921,22 @@ pub fn extract_text_sections(
             &UiGlobalTransform,
             &InheritedVisibility,
             Option<&CalculatedClip>,
-            &ComputedUiTargetCamera,
             &ComputedTextBlock,
             &TextColor,
             &TextLayoutInfo,
         )>,
     >,
     text_styles: Extract<Query<&TextColor>>,
-    camera_map: Extract<UiCameraMap>,
 ) {
     let mut start = extracted_uinodes.glyphs.len();
     let mut end = start + 1;
 
-    let mut camera_mapper = camera_map.get_mapper();
     for (
         entity,
         uinode,
         transform,
         inherited_visibility,
         clip,
-        camera,
         computed_block,
         text_color,
         text_layout_info,
@@ -971,10 +946,6 @@ pub fn extract_text_sections(
         if !inherited_visibility.get() || uinode.is_empty() {
             continue;
         }
-
-        let Some(extracted_camera_entity) = camera_mapper.map(camera) else {
-            continue;
-        };
 
         let transform = Affine2::from(*transform) * Affine2::from_translation(-0.5 * uinode.size());
 
@@ -1021,7 +992,6 @@ pub fn extract_text_sections(
                         render_entity: commands.spawn(TemporaryRenderEntity).id(),
                         image: atlas_info.texture,
                         clip: clip.map(|clip| clip.clip),
-                        extracted_camera_entity,
                         item: ExtractedUiItem::Glyphs { range: start..end },
                         main_entity: entity.into(),
                         transform,
@@ -1043,30 +1013,23 @@ pub fn extract_text_shadows(
             Entity,
             &ComputedNode,
             &UiGlobalTransform,
-            &ComputedUiTargetCamera,
             &InheritedVisibility,
             Option<&CalculatedClip>,
             &TextLayoutInfo,
             &TextShadow,
         )>,
     >,
-    camera_map: Extract<UiCameraMap>,
 ) {
     let mut start = extracted_uinodes.glyphs.len();
     let mut end = start + 1;
 
-    let mut camera_mapper = camera_map.get_mapper();
-    for (entity, uinode, transform, target, inherited_visibility, clip, text_layout_info, shadow) in
+    for (entity, uinode, transform, inherited_visibility, clip, text_layout_info, shadow) in
         &uinode_query
     {
         // Skip if not visible or if size is set to zero (e.g. when a parent is set to `Display::None`)
         if !inherited_visibility.get() || uinode.is_empty() {
             continue;
         }
-
-        let Some(extracted_camera_entity) = camera_mapper.map(target) else {
-            continue;
-        };
 
         let node_transform = Affine2::from(*transform)
             * Affine2::from_translation(
@@ -1105,7 +1068,6 @@ pub fn extract_text_shadows(
                         render_entity: commands.spawn(TemporaryRenderEntity).id(),
                         image: atlas_info.texture,
                         clip: clip.map(|clip| clip.clip),
-                        extracted_camera_entity,
                         item: ExtractedUiItem::Glyphs { range: start..end },
                         main_entity: entity.into(),
                     });
@@ -1127,25 +1089,18 @@ pub fn extract_text_background_colors(
             &UiGlobalTransform,
             &InheritedVisibility,
             Option<&CalculatedClip>,
-            &ComputedUiTargetCamera,
             &TextLayoutInfo,
         )>,
     >,
     text_background_colors_query: Extract<Query<&TextBackgroundColor>>,
-    camera_map: Extract<UiCameraMap>,
 ) {
-    let mut camera_mapper = camera_map.get_mapper();
-    for (entity, uinode, global_transform, inherited_visibility, clip, camera, text_layout_info) in
+    for (entity, uinode, global_transform, inherited_visibility, clip, text_layout_info) in
         &uinode_query
     {
         // Skip if not visible or if size is set to zero (e.g. when a parent is set to `Display::None`)
         if !inherited_visibility.get() || uinode.is_empty() {
             continue;
         }
-
-        let Some(extracted_camera_entity) = camera_mapper.map(camera) else {
-            continue;
-        };
 
         let transform =
             Affine2::from(global_transform) * Affine2::from_translation(-0.5 * uinode.size());
@@ -1162,7 +1117,6 @@ pub fn extract_text_background_colors(
                     render_entity: commands.spawn(TemporaryRenderEntity).id(),
                     clip: clip.map(|clip| clip.clip),
                     image: AssetId::default(),
-                    extracted_camera_entity,
                     transform: transform * Affine2::from_translation(rect.center()),
                     item: ExtractedUiItem::Node {
                         color: text_background_color.0.to_linear(),
@@ -1270,15 +1224,13 @@ pub fn queue_uinodes(
     let mut current_phase = None;
 
     for (layer_index, layer) in extracted_uinodes.layers.iter().enumerate() {
-        let Some(extracted_uinode) = layer.uinodes.get(0) else {
+        let Some(extracted_camera_entity) = extracted_uinodes.extracted_cameras[layer_index] else {
             continue;
         };
 
-        if current_camera_entity != extracted_uinode.extracted_camera_entity {
-            current_phase = render_views
-                .get(extracted_uinode.extracted_camera_entity)
-                .ok()
-                .and_then(|(default_camera_view, ui_anti_alias)| {
+        if current_camera_entity != extracted_camera_entity {
+            current_phase = render_views.get(extracted_camera_entity).ok().and_then(
+                |(default_camera_view, ui_anti_alias)| {
                     camera_views
                         .get(default_camera_view.0)
                         .ok()
@@ -1287,8 +1239,9 @@ pub fn queue_uinodes(
                                 .get_mut(&view.retained_view_entity)
                                 .map(|transparent_phase| (view, ui_anti_alias, transparent_phase))
                         })
-                });
-            current_camera_entity = extracted_uinode.extracted_camera_entity;
+                },
+            );
+            current_camera_entity = extracted_camera_entity;
         }
 
         let Some((view, ui_anti_alias, transparent_phase)) = current_phase.as_mut() else {

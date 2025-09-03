@@ -408,7 +408,6 @@ pub fn extract_gradients(
                                 },
                             image: AssetId::default(),
                             clip: clip.map(|clip| clip.clip),
-                            extracted_camera_entity,
                             transform: transform.into(),
                             item: ExtractedUiItem::Node {
                                 color: color.into(),
