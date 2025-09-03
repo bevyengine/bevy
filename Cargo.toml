@@ -4677,3 +4677,14 @@ description = "Gallery of Feathers Widgets"
 category = "UI (User Interface)"
 wasm = true
 hidden = true
+
+[[example]]
+name = "render_depth_to_texture"
+path = "examples/shader_advanced/render_depth_to_texture.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.render_depth_to_texture]
+name = "Render Depth to Texture"
+description = "Demonstrates how to use depth-only cameras"
+category = "Shaders"
+wasm = true
