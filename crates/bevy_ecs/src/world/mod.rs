@@ -21,7 +21,8 @@ use crate::{
     error::{DefaultErrorHandler, ErrorHandler},
     event::BufferedEvent,
     lifecycle::{ComponentHooks, ADD, DESPAWN, INSERT, REMOVE, REPLACE},
-    prelude::{Add, Despawn, Insert, Remove, Replace},
+    prelude::{Add, ChildOf, Children, Despawn, Insert, Remove, Replace},
+    query::Without,
 };
 pub use bevy_ecs_macros::FromWorld;
 use bevy_utils::prelude::DebugName;
@@ -964,6 +965,148 @@ impl World {
         // SAFETY: `&mut self` gives mutable access to the entire world,
         // and prevents any other access to the world.
         unsafe { entities.fetch_mut(cell) }
+    }
+
+    /// Returns the [`Entity`] specified by a given path relative to a root.
+    /// If no root entity is given, the path is treated as absolute, starting
+    /// with the world root elements.
+    ///
+    /// The path consists of [`Component`]s that indicate some sort of naming.
+    /// Normally, the [`Name`](crate::name::Name)-component is used for that.
+    ///
+    /// The relative/absolute path has to be continuous among all participating
+    /// entities, except the root, if specified.
+    /// An empty path is invalid. Also every component that is referenced in the
+    /// path has to be unique among all its sibling's components to use this method.
+    ///
+    /// Note: This method uses a world query to get the world root entities, if no root is given.
+    /// It also iterates over all children found. This leads to a complexity growing with the
+    /// amount of all the children (and possibly entities without a parent) along the path.
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    ///
+    /// let mut world = World::new();
+    ///
+    /// let root = world.spawn(Name::new("Root")).id();
+    /// let child = world.spawn((ChildOf(root), Name::new("Child"))).id();
+    /// let grandchild = world.spawn((ChildOf(child), Name::new("Grandchild"))).id();
+    ///
+    /// assert_eq!(
+    ///     world.get_entity_from_path(None, &vec![Name::new("Root"), Name::new("Child"), Name::new("Grandchild")]),
+    ///     Some(grandchild)
+    /// );
+    /// assert_eq!(
+    ///     world.get_entity_from_path(Some(child), &vec![Name::new("Grandchild")]),
+    ///     Some(grandchild)
+    /// );
+    /// ```
+    pub fn get_entity_from_path<C: Component + PartialEq>(
+        &self,
+        root: Option<Entity>,
+        path: &[C],
+    ) -> Option<Entity> {
+        let mut current_parent = root;
+
+        if path.is_empty() {
+            return None;
+        }
+
+        for current_path_component in path.iter() {
+            let children: Vec<Entity>;
+            if let Some(parent) = current_parent {
+                children = self.get::<Children>(parent)?.iter().copied().collect();
+            } else {
+                let mut root_query = self.try_query_filtered::<Entity, Without<ChildOf>>()?;
+                children = root_query.iter(self).collect();
+            }
+
+            let matching: Vec<&Entity> = children
+                .iter()
+                .filter(|child| {
+                    if let Some(child_component) = self.get::<C>(**child) {
+                        return *child_component == *current_path_component;
+                    }
+                    false
+                })
+                .collect();
+
+            if matching.len() != 1 {
+                return None;
+            }
+            current_parent = Some(*matching[0]);
+        }
+
+        current_parent
+    }
+
+    /// Returns the path of an [`Entity`] relative to a root. If no root is
+    /// specified, the absolute path is returned, starting with the world
+    /// root elements.
+    ///
+    /// The path consists of [`Component`]s that indicate some sort of naming.
+    /// Normally, the [`Name`](crate::name::Name)-component is used for that.
+    ///
+    /// The relative/absolute path has to be continuous among all participating
+    /// entities, except the root, if specified.
+    /// `root` and `entity` being identical is invalid. This method allows
+    /// siblings with identical components, in contrast to [`get_entity_from_path`](World::get_entity_from_path).
+    /// It is recommended to avoid this to have a consistent environment for
+    /// the two methods.
+    ///
+    /// ```
+    /// # use bevy_ecs::prelude::*;
+    ///
+    /// let mut world = World::new();
+    ///
+    /// let root = world.spawn(Name::new("Root")).id();
+    /// let child = world.spawn((ChildOf(root), Name::new("Child"))).id();
+    /// let grandchild = world.spawn((ChildOf(child), Name::new("Grandchild"))).id();
+    ///
+    /// assert_eq!(
+    ///     world.get_path_from_entity(None, grandchild),
+    ///     Some(vec![Name::new("Root"), Name::new("Child"), Name::new("Grandchild")])
+    /// );
+    /// assert_eq!(
+    ///     world.get_path_from_entity(Some(child), grandchild),
+    ///     Some(vec![Name::new("Grandchild")])
+    /// );
+    /// ```
+    pub fn get_path_from_entity<C: Component + Clone + PartialEq>(
+        &self,
+        root: Option<Entity>,
+        entity: Entity,
+    ) -> Option<Vec<C>> {
+        let mut current_child = entity;
+        let mut path = Vec::new();
+
+        let own_marker = self.get::<C>(entity)?;
+        path.push(own_marker.clone());
+
+        while let Some(parent) = self.get::<ChildOf>(current_child) {
+            let parent_entity = parent.parent();
+            if let Some(root) = root {
+                if parent.parent() == root {
+                    return Some(path);
+                }
+            }
+            let parent_component = self.get::<C>(parent_entity)?;
+            path.insert(0, parent_component.clone());
+            current_child = parent_entity;
+        }
+
+        if path.is_empty() {
+            return None;
+        }
+
+        // There is no root -> path -> entity relationship if the root was not reached.
+        if let Some(root) = root {
+            if root != current_child {
+                return None;
+            }
+        }
+
+        Some(path)
     }
 
     /// Returns an [`Entity`] iterator of current entities.
@@ -4330,6 +4473,153 @@ mod tests {
                 .get_entity_mut(&EntityHashSet::from_iter([e1, e2]))
                 .map(|_| {}),
             Err(EntityMutableFetchError::EntityDoesNotExist(e)) if e.entity == e1));
+    }
+
+    #[test]
+    fn entity_path_usage() {
+        use crate::{hierarchy::ChildOf, name::Name};
+
+        let mut world = World::new();
+
+        let root1 = world.spawn(Name::new("1")).id();
+        let child1_1 = world.spawn((ChildOf(root1), Name::new("1_1"))).id();
+        let grandchild1_1_1 = world.spawn((ChildOf(child1_1), Name::new("1_1_1"))).id();
+        let _child1_2 = world.spawn((ChildOf(root1), Name::new("1_2"))).id();
+
+        let root2 = world.spawn(Name::new("2")).id();
+        let child2_1 = world.spawn((ChildOf(root2), Name::new("2_1"))).id();
+        let grandchild2_1_1 = world.spawn((ChildOf(child2_1), Name::new("2_1_1"))).id();
+        let child2_2 = world.spawn((ChildOf(root2), Name::new("2_2"))).id();
+
+        // All entities contain a `Name`-component.
+        assert_eq!(
+            world.get_path_from_entity(None, grandchild1_1_1),
+            Some(vec![Name::new("1"), Name::new("1_1"), Name::new("1_1_1")])
+        );
+        assert_eq!(
+            world.get_entity_from_path(
+                None,
+                &vec![Name::new("1"), Name::new("1_1"), Name::new("1_1_1")]
+            ),
+            Some(grandchild1_1_1)
+        );
+        assert_eq!(
+            world.get_path_from_entity(Some(root1), grandchild1_1_1),
+            Some(vec![Name::new("1_1"), Name::new("1_1_1")])
+        );
+        assert_eq!(
+            world.get_entity_from_path(Some(root1), &vec![Name::new("1_1"), Name::new("1_1_1")]),
+            Some(grandchild1_1_1)
+        );
+        assert_eq!(
+            world.get_path_from_entity(None, child2_1),
+            Some(vec![Name::new("2"), Name::new("2_1")])
+        );
+        assert_eq!(
+            world.get_entity_from_path(None, &vec![Name::new("2"), Name::new("2_1")]),
+            Some(child2_1)
+        );
+        assert_eq!(
+            world.get_path_from_entity(Some(root2), child2_2),
+            Some(vec![Name::new("2_2")])
+        );
+        assert_eq!(
+            world.get_entity_from_path(Some(root2), &vec![Name::new("2_2")]),
+            Some(child2_2)
+        );
+        assert_eq!(
+            world.get_path_from_entity::<Name>(Some(root1), child2_2),
+            None
+        );
+        assert_eq!(
+            world.get_entity_from_path(Some(root1), &vec![Name::new("2_2")]),
+            None
+        );
+        assert_eq!(
+            world.get_path_from_entity::<Name>(Some(root1), child2_2),
+            None
+        );
+        assert_eq!(
+            world.get_entity_from_path(Some(root1), &vec![Name::new("arbitrary")]),
+            None
+        );
+
+        // Create a child with the name of a sibling.
+        let child1_1_duplicate = world.spawn((ChildOf(root1), Name::new("1_1"))).id();
+        assert_eq!(
+            world.get_path_from_entity(None, grandchild1_1_1),
+            Some(vec![Name::new("1"), Name::new("1_1"), Name::new("1_1_1")])
+        );
+        assert_eq!(
+            world.get_entity_from_path(
+                None,
+                &vec![Name::new("1"), Name::new("1_1"), Name::new("1_1_1")]
+            ),
+            None
+        );
+        assert_eq!(
+            world.get_path_from_entity(Some(child1_1), grandchild1_1_1),
+            Some(vec![Name::new("1_1_1")])
+        );
+        assert_eq!(
+            world.get_entity_from_path(Some(child1_1), &vec![Name::new("1_1_1")]),
+            Some(grandchild1_1_1)
+        );
+        world.despawn(child1_1_duplicate);
+
+        // Remove `Name` from a root.
+        world.entity_mut(root1).remove::<Name>();
+        assert_eq!(
+            world.get_path_from_entity::<Name>(None, grandchild1_1_1),
+            None
+        );
+        assert_eq!(
+            world.get_entity_from_path(
+                None,
+                &vec![Name::new("1"), Name::new("1_1"), Name::new("1_1_1")]
+            ),
+            None
+        );
+        assert_eq!(
+            world.get_path_from_entity(Some(root1), grandchild1_1_1),
+            Some(vec![Name::new("1_1"), Name::new("1_1_1")])
+        );
+        assert_eq!(
+            world.get_entity_from_path(Some(root1), &vec![Name::new("1_1"), Name::new("1_1_1")]),
+            Some(grandchild1_1_1)
+        );
+        assert_eq!(
+            world.get_path_from_entity(None, child2_1),
+            Some(vec![Name::new("2"), Name::new("2_1")])
+        );
+        assert_eq!(
+            world.get_entity_from_path(None, &vec![Name::new("2"), Name::new("2_1")]),
+            Some(child2_1)
+        );
+
+        // Also remove `Name` from a child.
+        world.entity_mut(child2_1).remove::<Name>();
+        assert_eq!(world.get_path_from_entity::<Name>(None, child2_1), None);
+        assert_eq!(
+            world.get_entity_from_path(None, &vec![Name::new("2"), Name::new("2_1")]),
+            None
+        );
+        assert_eq!(
+            world.get_path_from_entity(Some(child2_1), grandchild2_1_1),
+            Some(vec![Name::new("2_1_1")])
+        );
+        assert_eq!(
+            world.get_entity_from_path(Some(child2_1), &vec![Name::new("2_1_1")]),
+            Some(grandchild2_1_1)
+        );
+        assert_eq!(
+            world.get_path_from_entity(None, root2),
+            Some(vec![Name::new("2")])
+        );
+        assert_eq!(
+            world.get_entity_from_path(None, &vec![Name::new("2")]),
+            Some(root2)
+        );
     }
 
     #[test]
