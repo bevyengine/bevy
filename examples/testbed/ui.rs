@@ -144,9 +144,50 @@ mod text {
             },
             DespawnOnExitState(super::Scene::Text),
             children![
+                (
+                    TextSpan::new("white "),
+                    TextFont {
+                        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                        ..default()
+                    }
+                ),
+                (TextSpan::new("red "), TextColor(RED.into()),),
+                (TextSpan::new("green "), TextColor(GREEN.into()),),
+                (TextSpan::new("blue "), TextColor(BLUE.into()),),
+                (
+                    TextSpan::new("black"),
+                    TextColor(Color::BLACK),
+                    TextFont {
+                        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                        ..default()
+                    },
+                    TextBackgroundColor(Color::WHITE)
+                ),
+            ],
+        ));
+
+        commands.spawn((
+            Node {
+                left: px(100.),
+                top: px(350.),
+                ..Default::default()
+            },
+            Text::new(""),
+            TextFont {
+                font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                ..default()
+            },
+            DespawnOnExitState(super::Scene::Text),
+            children![
                 (TextSpan::new(""), TextColor(YELLOW.into()),),
                 TextSpan::new(""),
-                TextSpan::new("white "),
+                (
+                    TextSpan::new("white "),
+                    TextFont {
+                        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                        ..default()
+                    }
+                ),
                 TextSpan::new(""),
                 (TextSpan::new("red "), TextColor(RED.into()),),
                 TextSpan::new(""),
