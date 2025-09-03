@@ -779,9 +779,23 @@ pub fn extract_ui_camera_view(
             Or<(With<Camera2d>, With<Camera3d>)>,
         >,
     >,
+    ui_stack: Extract<Res<bevy_ui::UiStack>>,
+    mut extracted_layers: ResMut<ExtractedUiLayers>,
     mut live_entities: Local<HashSet<RetainedViewEntity>>,
 ) {
     live_entities.clear();
+    extracted_layers.glyphs.clear();
+
+    if extracted_layers.layers.len() < ui_stack.layers.len() {
+        let d = ui_stack.layers.len() - extracted_layers.layers.len();
+        extracted_layers
+            .layers
+            .extend(core::iter::repeat_with(ExtractedUiNodes::default).take(d));
+    }
+
+    for layer in extracted_layers.layers.iter_mut() {
+        layer.uinodes.clear();
+    }
 
     for (main_entity, render_entity, camera, hdr, ui_anti_alias, shadow_samples) in &query {
         // ignore inactive cameras
