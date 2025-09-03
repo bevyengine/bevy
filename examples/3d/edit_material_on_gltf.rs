@@ -74,7 +74,7 @@ fn change_material(
                 info!("editing LeatherPartsMat to use ColorOverride tint");
                 // Get the `ColorOverride` of the entity, if it does not have a color override, skip
                 let Ok(color_override) = color_override.get(event.entity()) else {
-                    return;
+                    continue;
                 };
                 // Create a copy of the material and override base color
                 // If you intend on creating multiple models with the same tint, it
