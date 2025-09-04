@@ -8,7 +8,7 @@ The observer "trigger" API has changed a bit to improve clarity and type-safety.
 ```rust
 // Old
 commands.add_observer(|trigger: Trigger<OnAdd, Player>| {
-    info!("Spawned player {}", trigger.entity());
+    info!("Spawned player {}", trigger.target());
 });
 
 // New
@@ -47,7 +47,7 @@ world.trigger(Explode { entity });
 Triggering an entity event for multiple entities now requires multiple calls to `trigger`:
 
 ```rust
-// OLd
+// Old
 world.trigger_targets(Explode, [e1, e2]);
 
 // New - Variant 1
