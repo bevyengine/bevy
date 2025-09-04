@@ -1091,6 +1091,16 @@ impl<'w, 's> Commands<'w, 's> {
         self.queue(command::trigger(event));
     }
 
+    /// A deprecated alias for [`trigger`](Self::trigger) to ease migration.
+    ///
+    /// Instead of specifying the trigger target separately,
+    /// information about the target of the event is embedded in the data held by
+    /// the event type itself.
+    #[deprecated(since = "0.17.0", note = "Use `Commands::trigger` instead.")]
+    pub fn trigger_targets<'a>(&mut self, event: impl Event<Trigger<'a>: Default>) {
+        self.trigger(event)
+    }
+
     /// Triggers the given [`Event`] using the given [`Trigger`], which will run any [`Observer`]s watching for it.
     ///
     /// [`Trigger`]: crate::event::Trigger
