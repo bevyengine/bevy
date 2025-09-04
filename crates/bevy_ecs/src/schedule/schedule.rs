@@ -978,6 +978,42 @@ impl ScheduleGraph {
             .ok_or(ScheduleError::SetNotFound)
     }
 
+    fn add_edges_for_transitive_dependencies(&mut self, node: NodeId) {
+        let in_nodes: Vec<_> = self
+            .hierarchy
+            .graph
+            .neighbors_directed(node, Incoming)
+            .collect();
+        let out_nodes: Vec<_> = self
+            .hierarchy
+            .graph
+            .neighbors_directed(node, Outgoing)
+            .collect();
+
+        for &in_node in &in_nodes {
+            for &out_node in &out_nodes {
+                self.hierarchy.graph.add_edge(in_node, out_node);
+            }
+        }
+
+        let in_nodes: Vec<_> = self
+            .dependency
+            .graph
+            .neighbors_directed(node, Incoming)
+            .collect();
+        let out_nodes: Vec<_> = self
+            .dependency
+            .graph
+            .neighbors_directed(node, Outgoing)
+            .collect();
+
+        for &in_node in &in_nodes {
+            for &out_node in &out_nodes {
+                self.dependency.graph.add_edge(in_node, out_node);
+            }
+        }
+    }
+
     /// Remove all systems in a set and any dependencies on those systems and set.
     pub fn remove_systems_in_set<M>(
         &mut self,
@@ -991,26 +1027,51 @@ impl ScheduleGraph {
         self.changed = true;
 
         match policy {
-            ScheduleCleanupPolicy::RemoveSetAndSystems => {
-                self.remove_systems_by_keys(keys);
-
+            ScheduleCleanupPolicy::SetAndSystems => {
                 let Some(set_key) = self.system_sets.get_key(interned) else {
-                    return Ok(keys.len());
+                    return Err(ScheduleError::SetNotFound);
                 };
+
+                self.remove_systems_by_keys(&keys);
                 self.remove_set_by_key(set_key);
 
                 Ok(keys.len())
             }
-            ScheduleCleanupPolicy::RemoveOnlySystems => {
-                self.remove_systems_by_keys(keys);
+            ScheduleCleanupPolicy::OnlySystems => {
+                self.remove_systems_by_keys(&keys);
+
+                Ok(keys.len())
+            }
+            ScheduleCleanupPolicy::FixSetAndSystems => {
+                let Some(set_key) = self.system_sets.get_key(interned) else {
+                    return Err(ScheduleError::SetNotFound);
+                };
+
+                for &key in &keys {
+                    self.add_edges_for_transitive_dependencies(key.into());
+                }
+
+                self.add_edges_for_transitive_dependencies(set_key.into());
+
+                self.remove_systems_by_keys(&keys);
+                self.remove_set_by_key(set_key);
+
+                Ok(keys.len())
+            }
+            ScheduleCleanupPolicy::FixOnlySystems => {
+                for &key in &keys {
+                    self.add_edges_for_transitive_dependencies(key.into());
+                }
+
+                self.remove_systems_by_keys(&keys);
 
                 Ok(keys.len())
             }
         }
     }
 
-    fn remove_systems_by_keys(&mut self, keys: Vec<SystemKey>) {
-        for &key in &keys {
+    fn remove_systems_by_keys(&mut self, keys: &Vec<SystemKey>) {
+        for &key in keys {
             self.systems.remove(key);
 
             self.hierarchy.graph.remove_node(key.into());
@@ -1021,12 +1082,12 @@ impl ScheduleGraph {
     }
 
     fn remove_set_by_key(&mut self, key: SystemSetKey) {
-        self.system_sets.remove(set_key);
-        self.set_systems.remove(&set_key);
-        self.hierarchy.graph.remove_node(set_key.into());
-        self.dependency.graph.remove_node(set_key.into());
-        self.ambiguous_with.remove_node(set_key.into());
-        self.ambiguous_with_all.remove(&NodeId::from(set_key));
+        self.system_sets.remove(key);
+        self.set_systems.remove(&key);
+        self.hierarchy.graph.remove_node(key.into());
+        self.dependency.graph.remove_node(key.into());
+        self.ambiguous_with.remove_node(key.into());
+        self.ambiguous_with_all.remove(&NodeId::from(key));
     }
 
     /// Update the internal graphs (hierarchy, dependency, ambiguity) by adding a single [`GraphInfo`]
@@ -1563,16 +1624,18 @@ pub enum ScheduleCleanupPolicy {
     /// Remove the set and any systems in the set. Note that this will break any transient dependencies on
     /// that set or systmes. This does not remove sets that might sub sets of the set.
     #[default]
-    RemoveSetAndSystems,
+    SetAndSystems,
     /// Remove only the systems in the set. This is useful if you want to keep the run conditions and dependencies
     /// on the set and add new systems to the set. Note that this will break any transient dependencies on
     /// the systems. i.e. if you remove `system_b`, but there is a chain between system_a, system_b, and system_c.
     /// system_a and system_c will no longer be properly ordered.
-    RemoveOnlySystems,
+    OnlySystems,
     /// attempt to fix the transitive dependencies and link before and after edges together. Add dependencies between
     /// the existing before and after dependendencies. For every after dependency add a new edge to a before dependency
-    // TODO: Would you ever not want to do this? My feeling is no. Might be better to have 2 functions that just do this.
-    FixTransitiveDependencies,
+    FixSetAndSystems,
+    /// attempt to fix the transitive dependencies and link before and after edges together. Add dependencies between
+    /// the existing before and after dependendencies. For every after dependency add a new edge to a before dependency
+    FixOnlySystems,
 }
 
 // methods for reporting errors
@@ -1924,7 +1987,8 @@ mod tests {
         error::{ignore, panic, DefaultErrorHandler, Result},
         prelude::{ApplyDeferred, IntoSystemSet, Res, Resource},
         schedule::{
-            tests::ResMut, IntoScheduleConfigs, Schedule, ScheduleBuildSettings, SystemSet,
+            tests::ResMut, IntoScheduleConfigs, Schedule, ScheduleBuildSettings,
+            ScheduleCleanupPolicy, SystemSet,
         },
         system::Commands,
         world::World,
@@ -2800,7 +2864,7 @@ mod tests {
         let remove_count = schedule.remove_systems_in_set(
             system,
             &mut world,
-            ScheduleCleanupPolicy::RemoveSetAndSystems,
+            ScheduleCleanupPolicy::SetAndSystems,
         );
         assert_eq!(remove_count.unwrap(), 1);
 
@@ -2820,7 +2884,7 @@ mod tests {
         let remove_count = schedule.remove_systems_in_set(
             system,
             &mut world,
-            ScheduleCleanupPolicy::RemoveSetAndSystems,
+            ScheduleCleanupPolicy::SetAndSystems,
         );
         assert_eq!(remove_count.unwrap(), 2);
 
@@ -2841,7 +2905,7 @@ mod tests {
         let remove_count = schedule.remove_systems_in_set(
             system_1,
             &mut world,
-            ScheduleCleanupPolicy::RemoveSetAndSystems,
+            ScheduleCleanupPolicy::SetAndSystems,
         );
         assert_eq!(remove_count.unwrap(), 1);
 
@@ -2849,4 +2913,7 @@ mod tests {
         schedule.initialize(&mut world).unwrap();
         assert_eq!(schedule.graph().systems.len(), 1);
     }
+
+    #[test]
+    fn remove_a_system_and_reuse_set() {}
 }
