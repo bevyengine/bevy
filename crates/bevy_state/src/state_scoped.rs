@@ -14,31 +14,6 @@ use log::warn;
 
 use crate::state::{StateTransition, StateTransitionEvent, StateTransitionSystems, States};
 
-pub fn enable_state_scoped_entities<S: States>(app: &mut App) {
-    if !app
-        .world()
-        .contains_resource::<Events<StateTransitionEvent<S>>>()
-    {
-        let name = core::any::type_name::<S>();
-        warn!("State scoped entities are enabled for state `{name}`, but the state isn't installed in the app!");
-    }
-
-    // Note: We work with `StateTransition` in set
-    // `StateTransitionSystems::ExitSchedules` rather than `OnExit`, because
-    // `OnExit` only runs for one specific variant of the state.
-    app.add_systems(
-        StateTransition,
-        despawn_entities_on_exit_state::<S>.in_set(StateTransitionSystems::ExitSchedules),
-    )
-    // Note: We work with `StateTransition` in set
-    // `StateTransitionSystems::EnterSchedules` rather than `OnEnter`, because
-    // `OnEnter` only runs for one specific variant of the state.
-    .add_systems(
-        StateTransition,
-        despawn_entities_on_enter_state::<S>.in_set(StateTransitionSystems::EnterSchedules),
-    );
-}
-
 /// Entities marked with this component will be removed
 /// when the world's state of the matching type no longer matches the supplied value.
 ///
@@ -184,4 +159,30 @@ pub fn despawn_entities_on_enter_state<S: States>(
             commands.entity(entity).despawn();
         }
     }
+}
+
+#[doc(hidden)]
+pub fn enable_state_scoped_entities<S: States>(app: &mut App) {
+    if !app
+        .world()
+        .contains_resource::<Events<StateTransitionEvent<S>>>()
+    {
+        let name = core::any::type_name::<S>();
+        warn!("State scoped entities are enabled for state `{name}`, but the state isn't installed in the app!");
+    }
+
+    // Note: We work with `StateTransition` in set
+    // `StateTransitionSystems::ExitSchedules` rather than `OnExit`, because
+    // `OnExit` only runs for one specific variant of the state.
+    app.add_systems(
+        StateTransition,
+        despawn_entities_on_exit_state::<S>.in_set(StateTransitionSystems::ExitSchedules),
+    )
+    // Note: We work with `StateTransition` in set
+    // `StateTransitionSystems::EnterSchedules` rather than `OnEnter`, because
+    // `OnEnter` only runs for one specific variant of the state.
+    .add_systems(
+        StateTransition,
+        despawn_entities_on_enter_state::<S>.in_set(StateTransitionSystems::EnterSchedules),
+    );
 }
