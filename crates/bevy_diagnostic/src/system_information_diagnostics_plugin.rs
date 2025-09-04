@@ -72,7 +72,7 @@ pub struct SystemInfo {
 pub mod internal {
     use core::{
         pin::Pin,
-        task::{Context, Poll, Waker},
+        task::{Context, Poll},
     };
     use std::sync::{
         mpsc::{self, Receiver, Sender},
@@ -83,6 +83,7 @@ pub mod internal {
         format,
         string::{String, ToString},
     };
+    use atomic_waker::AtomicWaker;
     use bevy_app::{App, First, Startup, Update};
     use bevy_ecs::resource::Resource;
     use bevy_ecs::{prelude::ResMut, system::Commands};
@@ -170,14 +171,14 @@ pub mod internal {
     #[derive(Resource)]
     struct SysinfoTask {
         receiver: Mutex<Receiver<SysinfoRefreshData>>,
-        waker: Arc<Mutex<Option<Waker>>>,
+        waker: Arc<AtomicWaker>,
     }
 
     struct DiagnosticTask {
         system: System,
         last_refresh: Instant,
         sender: Sender<SysinfoRefreshData>,
-        waker: Arc<Mutex<Option<Waker>>>,
+        waker: Arc<AtomicWaker>,
     }
 
     impl DiagnosticTask {
@@ -193,18 +194,13 @@ pub mod internal {
                 waker: Arc::default(),
             }
         }
-
-        fn update_waker(&mut self, cx: &mut Context<'_>) {
-            let mut waker = self.waker.lock().unwrap();
-            *waker = Some(cx.waker().clone());
-        }
     }
 
     impl Future for DiagnosticTask {
         type Output = ();
 
         fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-            self.update_waker(cx);
+            self.waker.register(cx.waker());
 
             if self.last_refresh.elapsed() > sysinfo::MINIMUM_CPU_UPDATE_INTERVAL {
                 self.last_refresh = Instant::now();
@@ -218,9 +214,8 @@ pub mod internal {
     }
 
     fn wake_diagnostic_task(task: ResMut<SysinfoTask>) {
-        let mut waker = task.waker.lock().unwrap();
-        if let Some(waker) = waker.take() {
-            waker.wake_by_ref();
+        if let Some(waker) = task.waker.take() {
+            waker.wake();
         }
     }
 
