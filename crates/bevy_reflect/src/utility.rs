@@ -303,6 +303,6 @@ impl<T: TypedProperty> Default for GenericTypeCell<T> {
 ///
 /// [`Reflect::reflect_hash`]: crate::Reflect
 #[inline]
-pub fn reflect_hasher() -> DefaultHasher {
+pub fn reflect_hasher() -> DefaultHasher<'static> {
     FixedHasher.build_hasher()
 }

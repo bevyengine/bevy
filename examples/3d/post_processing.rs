@@ -124,8 +124,8 @@ fn spawn_text(commands: &mut Commands, app_settings: &AppSettings) {
         create_help_text(app_settings),
         Node {
             position_type: PositionType::Absolute,
-            bottom: Val::Px(12.0),
-            left: Val::Px(12.0),
+            bottom: px(12),
+            left: px(12),
             ..default()
         },
     ));

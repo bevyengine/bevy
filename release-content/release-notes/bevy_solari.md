@@ -1,14 +1,14 @@
 ---
 title: Initial raytraced lighting progress (bevy_solari)
 authors: ["@JMS55", "@SparkyPotato"]
-pull_requests: [19058, 19620, 19790, 20020, 20113, 20156, 20213, 20242, 20259, 20406, 20457, 20580, 20596, 20622, 20659]
+pull_requests: [19058, 19620, 19790, 20020, 20113, 20156, 20213, 20242, 20259, 20406, 20457, 20580, 20596, 20622, 20658, 20659]
 ---
 
 ## Overview
 
 (TODO: Embed solari example screenshot here)
 
-In Bevy 0.17, we've made the first steps towards realtime raytraced lighting in the form of the new bevy_solari crate.
+With the new `bevy_solari` crate, we're making our first steps towards realtime raytraced lighting.
 
 For some background, lighting in video games can be split into two parts: direct and indirect lighting.
 
@@ -37,7 +37,7 @@ A non-realtime "reference" mode that uses pathtracing: `cargo run --release --ex
 
 A realtime mode that uses a combination of techniques, and currently supports only diffuse materials: `cargo run --release --example solari --features bevy_solari`.
 
-Additionally, if you have a NVIDIA GPU, you can enable DLSS Ray Reconstruction with the realtime mode for a combination of denoising (Bevy Solari does not otherwise come with a denoiser), lower rendering times, and anti aliasing: `cargo run --release --example solari --features bevy_solari,dlss`.
+Additionally, if you have a NVIDIA GPU, you can enable DLSS Ray Reconstruction with the realtime mode for a combination of denoising (Bevy Solari does not currently come with any alternate denoisers), lower rendering times, and anti-aliasing: `cargo run --release --example solari --features bevy_solari,dlss`.
 
 ## How it works
 

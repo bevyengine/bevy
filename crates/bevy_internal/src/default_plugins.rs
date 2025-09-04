@@ -21,6 +21,10 @@ plugin_group! {
         #[cfg(feature = "std")]
         #[custom(cfg(any(all(unix, not(target_os = "horizon")), windows)))]
         bevy_app:::TerminalCtrlCHandlerPlugin,
+        // NOTE: Load this before AssetPlugin to properly register http asset sources.
+        #[cfg(feature = "bevy_asset")]
+        #[custom(cfg(any(feature = "http", feature = "https")))]
+        bevy_asset::io::web:::WebAssetPlugin,
         #[cfg(feature = "bevy_asset")]
         bevy_asset:::AssetPlugin,
         #[cfg(feature = "bevy_scene")]
@@ -51,7 +55,7 @@ plugin_group! {
         #[cfg(feature = "bevy_sprite")]
         bevy_sprite:::SpritePlugin,
         #[cfg(feature = "bevy_sprite_render")]
-        bevy_sprite_render:::SpriteRenderingPlugin,
+        bevy_sprite_render:::SpriteRenderPlugin,
         #[cfg(feature = "bevy_text")]
         bevy_text:::TextPlugin,
         #[cfg(feature = "bevy_ui")]
