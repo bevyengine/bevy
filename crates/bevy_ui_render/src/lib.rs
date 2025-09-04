@@ -831,17 +831,13 @@ pub fn extract_ui_camera_view(
         .map(|layer_range| &ui_stack.uinodes[layer_range.clone()])
     {
         let mut target_camera = None;
-        if let Some(node) = layer.get(0) {
-            if let Ok(camera_target) = root_nodes_query.get(*node) {
-                if let Some(camera_entity) = camera_target.get() {
-                    if let Ok((_, render_entity, camera, ..)) = query.get(camera_entity) {
-                        // ignore inactive cameras
-                        if camera.is_active {
-                            target_camera = Some(render_entity);
-                        }
-                    }
-                }
-            }
+        if let Some(node) = layer.get(0)
+            && let Ok(camera_target) = root_nodes_query.get(*node)
+            && let Some(camera_entity) = camera_target.get()
+            && let Ok((_, render_entity, camera, ..)) = query.get(camera_entity)
+            && camera.is_active
+        {
+            target_camera = Some(render_entity);
         }
         extracted_layers.extracted_cameras.push(target_camera);
     }
