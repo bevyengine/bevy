@@ -14,7 +14,7 @@ In **Bevy 0.17** we have sorted out these issues ... without fundamentally chang
 
 ## The Rearchitecture
 
-The `Event` trait has been reframed / refocused to increase flexibilty, make the API more static, and remove specialized cruft:
+The `Event` trait has been reframed / refocused to increase flexibility, make the API more static, and remove specialized cruft:
 
 ```rust
 // Old: Bevy 0.16
@@ -32,7 +32,7 @@ trait Event {
 }
 ```
 
-Every [`Event`] now has an associated [`Trigger`] implemenation. The [`Trigger`] trait defines the behavior of `world.trigger()` for that event. [`Trigger`] defines which observers will run, the order they will run in, and the data that is passed to them.
+Every [`Event`] now has an associated [`Trigger`] implementation. The [`Trigger`] trait defines the behavior of `world.trigger()` for that event. [`Trigger`] defines which observers will run, the order they will run in, and the data that is passed to them.
 
 By representing this in the type system, we can constrain behaviors and data to _specific_ types of events statically, making it impossible to "misuse" an [`Event`].
 All of Bevy's existing "flavors" of events have been ported to the new [`Event`] / [`Trigger`] system.
