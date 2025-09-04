@@ -1,12 +1,12 @@
 //! This module contains the systems that update the stored UI nodes stack
 
-use bevy_ecs::prelude::*;
-use bevy_platform::collections::HashSet;
-
 use crate::{
     experimental::{UiChildren, UiRootNodes},
     ComputedNode, GlobalZIndex, ZIndex,
 };
+use bevy_ecs::prelude::*;
+use bevy_platform::collections::HashSet;
+use core::ops::Range;
 
 /// The current UI stack, which contains all UI nodes ordered by their depth (back-to-front).
 ///
@@ -14,7 +14,8 @@ use crate::{
 /// while the last entry is the first node to receive interactions.
 #[derive(Debug, Resource, Default)]
 pub struct UiStack {
-    pub layers: Vec<core::ops::Range<usize>>,
+    /// List of UI stack layers
+    pub layers: Vec<Range<usize>>,
     /// List of UI nodes ordered from back-to-front
     pub uinodes: Vec<Entity>,
 }
