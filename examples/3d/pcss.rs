@@ -3,7 +3,7 @@
 use std::f32::consts::PI;
 
 use bevy::{
-    anti_aliasing::taa::TemporalAntiAliasing,
+    anti_alias::taa::TemporalAntiAliasing,
     camera::{
         primitives::{CubemapFrusta, Frustum},
         visibility::{CubemapVisibleEntities, VisibleMeshEntities},

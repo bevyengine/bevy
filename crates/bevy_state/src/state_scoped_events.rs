@@ -130,8 +130,8 @@ fn clear_events_on_state_transition<E: BufferedEvent, S: States>(
 pub trait StateScopedEventsAppExt {
     /// Clears an [`BufferedEvent`] when exiting the specified `state`.
     ///
-    /// Note that event cleanup is ambiguously ordered relative to  
-    /// [`DespawnOnExitState`](crate::prelude::DespawnOnExitState) entity cleanup,
+    /// Note that event cleanup is ambiguously ordered relative to
+    /// [`DespawnOnExit`](crate::prelude::DespawnOnExit) entity cleanup,
     /// and the [`OnExit`] schedule for the target state.
     /// All of these (state scoped entities and events cleanup, and `OnExit`)
     /// occur within schedule [`StateTransition`](crate::prelude::StateTransition)
@@ -141,7 +141,7 @@ pub trait StateScopedEventsAppExt {
     /// Clears an [`BufferedEvent`] when entering the specified `state`.
     ///
     /// Note that event cleanup is ambiguously ordered relative to
-    /// [`DespawnOnEnterState`](crate::prelude::DespawnOnEnterState) entity cleanup,
+    /// [`DespawnOnEnter`](crate::prelude::DespawnOnEnter) entity cleanup,
     /// and the [`OnEnter`] schedule for the target state.
     /// All of these (state scoped entities and events cleanup, and `OnEnter`)
     /// occur within schedule [`StateTransition`](crate::prelude::StateTransition)
