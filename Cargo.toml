@@ -130,7 +130,7 @@ default = [
   "async_executor",
   "android-game-activity",
   "android_shared_stdcxx",
-  "animation",
+  "bevy_animation",
   "bevy_asset",
   "bevy_audio",
   "bevy_color",
@@ -201,7 +201,7 @@ dynamic_linking = ["dep:bevy_dylib", "bevy_internal/dynamic_linking"]
 # Enables system information diagnostic plugin
 sysinfo_plugin = ["bevy_internal/sysinfo_plugin"]
 
-# Provides animation functionality
+# Enable animation support, and glTF animation loading
 bevy_animation = ["bevy_internal/bevy_animation"]
 
 # Provides asset functionality
@@ -431,9 +431,6 @@ android-game-activity = ["bevy_internal/android-game-activity"]
 
 # Enable systems that allow for automated testing on CI
 bevy_ci_testing = ["bevy_internal/bevy_ci_testing"]
-
-# Enable animation support, and glTF animation loading
-animation = ["bevy_internal/animation", "bevy_animation"]
 
 # Enable using a shared stdlib for cxx on Android
 android_shared_stdcxx = ["bevy_internal/android_shared_stdcxx"]
