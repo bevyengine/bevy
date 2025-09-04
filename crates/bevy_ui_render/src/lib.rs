@@ -843,7 +843,6 @@ pub fn extract_ui_camera_view(
                 }
             }
         }
-        println!("target_camera: {:?}", target_camera);
         extracted_layers.extracted_cameras.push(target_camera);
     }
 
