@@ -16,8 +16,6 @@ use crate::state::{StateTransition, StateTransitionEvent, StateTransitionSystems
 /// Entities marked with this component will be removed
 /// when the world's state of the matching type no longer matches the supplied value.
 ///
-/// If you need to disable this behavior, add the attribute `#[states(scoped_entities = false)]` when deriving [`States`].
-///
 /// ```
 /// use bevy_state::prelude::*;
 /// use bevy_ecs::prelude::*;
@@ -94,9 +92,6 @@ pub fn despawn_entities_on_exit_state<S: States>(
 /// Entities marked with this component will be despawned
 /// upon entering the given state.
 ///
-/// To enable this feature remember to configure your application
-/// with [`enable_state_scoped_entities`](crate::app::AppExtStates::enable_state_scoped_entities) on your state(s) of choice.
-///
 /// ```
 /// use bevy_state::prelude::*;
 /// use bevy_ecs::{prelude::*, system::ScheduleSystem};
@@ -135,7 +130,7 @@ pub fn despawn_entities_on_exit_state<S: States>(
 pub struct DespawnOnEnterState<S: States>(pub S);
 
 /// Despawns entities marked with [`DespawnOnEnterState<S>`] when their state
-/// matches the world state.
+/// no longer matches the world state.
 pub fn despawn_entities_on_enter_state<S: States>(
     mut commands: Commands,
     mut transitions: EventReader<StateTransitionEvent<S>>,
@@ -160,6 +155,9 @@ pub fn despawn_entities_on_enter_state<S: States>(
     }
 }
 
+/// Sets up state-scoped entities by adding the [`despawn_entities_on_exit_state`] and [`despawn_entities_on_enter_state`] systems. 
+/// 
+/// Runs automatically when a State is installed using [`AppExtStates`](crate::app::AppExtStates).
 #[doc(hidden)]
 pub fn setup_state_scoped_entities<S: States>(app: &mut SubApp) {
     // Note: We work with `StateTransition` in set
