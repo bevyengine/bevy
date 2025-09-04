@@ -71,7 +71,7 @@ struct DefaultChromaticAberrationLut(Handle<Image>);
 /// effects.
 ///
 /// Currently, this only consists of chromatic aberration.
-pub struct PostProcessingPlugin;
+pub struct EffectStackPlugin;
 
 /// Adds colored fringes to the edges of objects in the scene.
 ///
@@ -183,7 +183,7 @@ pub struct PostProcessingUniformBufferOffsets {
 #[derive(Default)]
 pub struct PostProcessingNode;
 
-impl Plugin for PostProcessingPlugin {
+impl Plugin for EffectStackPlugin {
     fn build(&self, app: &mut App) {
         load_shader_library!(app, "chromatic_aberration.wgsl");
 

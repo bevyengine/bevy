@@ -9,13 +9,13 @@
 pub mod auto_exposure;
 pub mod bloom;
 pub mod dof;
+pub mod effect_stack;
 pub mod motion_blur;
 pub mod msaa_writeback;
-pub mod post_process;
 
 use crate::{
-    bloom::BloomPlugin, dof::DepthOfFieldPlugin, motion_blur::MotionBlurPlugin,
-    msaa_writeback::MsaaWritebackPlugin, post_process::PostProcessingPlugin,
+    bloom::BloomPlugin, dof::DepthOfFieldPlugin, effect_stack::EffectStackPlugin,
+    motion_blur::MotionBlurPlugin, msaa_writeback::MsaaWritebackPlugin,
 };
 use bevy_app::{App, Plugin};
 
@@ -29,7 +29,7 @@ impl Plugin for PostProcessPlugin {
             BloomPlugin,
             MotionBlurPlugin,
             DepthOfFieldPlugin,
-            PostProcessingPlugin,
+            EffectStackPlugin,
         ));
     }
 }

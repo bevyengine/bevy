@@ -5,7 +5,7 @@
 use std::f32::consts::PI;
 
 use bevy::{
-    light::CascadeShadowConfigBuilder, post_process::post_process::ChromaticAberration, prelude::*,
+    light::CascadeShadowConfigBuilder, post_process::effect_stack::ChromaticAberration, prelude::*,
     render::view::Hdr,
 };
 
