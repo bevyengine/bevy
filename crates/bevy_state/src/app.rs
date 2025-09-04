@@ -1,14 +1,14 @@
 use bevy_app::{App, MainScheduleOrder, Plugin, PreStartup, PreUpdate, SubApp};
-use bevy_ecs::{event::Events, schedule::IntoScheduleConfigs, world::FromWorld};
+use bevy_ecs::{event::Events, world::FromWorld};
 use bevy_utils::once;
 use log::warn;
 
 use crate::{
     state::{
         setup_state_transitions_in_world, ComputedStates, FreelyMutableState, NextState, State,
-        StateTransition, StateTransitionEvent, StateTransitionSystems, States, SubStates,
+        StateTransition, StateTransitionEvent, States, SubStates,
     },
-    state_scoped::{despawn_entities_on_enter_state, despawn_entities_on_exit_state},
+    state_scoped::enable_state_scoped_entities,
 };
 
 #[cfg(feature = "bevy_reflect")]
@@ -57,15 +57,6 @@ pub trait AppExtStates {
     /// This method is idempotent: it has no effect when called again using the same generic type.
     fn add_sub_state<S: SubStates>(&mut self) -> &mut Self;
 
-    /// Enable state-scoped entity clearing for state `S`.
-    ///
-    /// This is enabled by default. If you don't want this behavior, add the `#[states(scoped_entities = false)]`
-    /// attribute when deriving the [`States`] trait.
-    ///
-    /// For more information refer to [`crate::state_scoped`].
-    #[doc(hidden)]
-    fn enable_state_scoped_entities<S: States>(&mut self) -> &mut Self;
-
     #[cfg(feature = "bevy_reflect")]
     /// Registers the state type `T` using [`App::register_type`],
     /// and adds [`ReflectState`](crate::reflect::ReflectState) type data to `T` in the type registry.
@@ -112,7 +103,7 @@ impl AppExtStates for SubApp {
                 entered: Some(state),
             });
             if S::SCOPED_ENTITIES_ENABLED {
-                self.enable_state_scoped_entities::<S>();
+                self.add_plugins(enable_state_scoped_entities::<S>);
             }
         } else {
             let name = core::any::type_name::<S>();
@@ -137,7 +128,7 @@ impl AppExtStates for SubApp {
                 entered: Some(state),
             });
             if S::SCOPED_ENTITIES_ENABLED {
-                self.enable_state_scoped_entities::<S>();
+                self.add_plugins(enable_state_scoped_entities::<S>);
             }
         } else {
             // Overwrite previous state and initial event
@@ -174,7 +165,7 @@ impl AppExtStates for SubApp {
                 entered: state,
             });
             if S::SCOPED_ENTITIES_ENABLED {
-                self.enable_state_scoped_entities::<S>();
+                self.add_plugins(enable_state_scoped_entities::<S>);
             }
         } else {
             let name = core::any::type_name::<S>();
@@ -205,7 +196,7 @@ impl AppExtStates for SubApp {
                 entered: state,
             });
             if S::SCOPED_ENTITIES_ENABLED {
-                self.enable_state_scoped_entities::<S>();
+                self.add_plugins(enable_state_scoped_entities::<S>);
             }
         } else {
             let name = core::any::type_name::<S>();
@@ -213,32 +204,6 @@ impl AppExtStates for SubApp {
         }
 
         self
-    }
-
-    #[doc(hidden)]
-    fn enable_state_scoped_entities<S: States>(&mut self) -> &mut Self {
-        if !self
-            .world()
-            .contains_resource::<Events<StateTransitionEvent<S>>>()
-        {
-            let name = core::any::type_name::<S>();
-            warn!("State scoped entities are enabled for state `{name}`, but the state isn't installed in the app!");
-        }
-
-        // Note: We work with `StateTransition` in set
-        // `StateTransitionSystems::ExitSchedules` rather than `OnExit`, because
-        // `OnExit` only runs for one specific variant of the state.
-        self.add_systems(
-            StateTransition,
-            despawn_entities_on_exit_state::<S>.in_set(StateTransitionSystems::ExitSchedules),
-        )
-        // Note: We work with `StateTransition` in set
-        // `StateTransitionSystems::EnterSchedules` rather than `OnEnter`, because
-        // `OnEnter` only runs for one specific variant of the state.
-        .add_systems(
-            StateTransition,
-            despawn_entities_on_enter_state::<S>.in_set(StateTransitionSystems::EnterSchedules),
-        )
     }
 
     #[cfg(feature = "bevy_reflect")]
@@ -284,12 +249,6 @@ impl AppExtStates for App {
 
     fn add_sub_state<S: SubStates>(&mut self) -> &mut Self {
         self.main_mut().add_sub_state::<S>();
-        self
-    }
-
-    #[doc(hidden)]
-    fn enable_state_scoped_entities<S: States>(&mut self) -> &mut Self {
-        self.main_mut().enable_state_scoped_entities::<S>();
         self
     }
 
