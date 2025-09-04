@@ -196,7 +196,7 @@ fn get_event_target_field(ast: &DeriveInput) -> Result<Member> {
             )),
         Fields::Unit => Err(syn::Error::new(
             fields.span(),
-            "EntityEvent derive does not work on unit structs. Your type must have a field to store the `Entity` target, such as `Message(Entity)` or `Message { entity: Entity }`.",
+            "EntityEvent derive does not work on unit structs. Your type must have a field to store the `Entity` target, such as `Attack(Entity)` or `Attack { entity: Entity }`.",
         )),
     }
 }
