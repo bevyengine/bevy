@@ -378,7 +378,7 @@ pub enum ExtractedUiItem {
     },
     /// A contiguous sequence of text glyphs from the same section
     Glyphs {
-        /// Indices into [`ExtractedUiNodes::glyphs`]
+        /// Indices into [`ExtractedUiLayers::glyphs`]
         range: Range<usize>,
     },
 }
