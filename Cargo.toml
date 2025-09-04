@@ -1351,7 +1351,7 @@ wasm = true
 name = "solari"
 path = "examples/3d/solari.rs"
 doc-scrape-examples = true
-required-features = ["bevy_solari"]
+required-features = ["bevy_solari", "https"]
 
 [package.metadata.example.solari]
 name = "Solari"
@@ -3716,6 +3716,17 @@ category = "UI (User Interface)"
 wasm = true
 
 [[example]]
+name = "ui_target_camera"
+path = "examples/ui/ui_target_camera.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.ui_target_camera]
+name = "UI Target Camera"
+description = "Demonstrates how to use `UiTargetCamera` and camera ordering."
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
 name = "viewport_debug"
 path = "examples/ui/viewport_debug.rs"
 doc-scrape-examples = true
@@ -4677,3 +4688,14 @@ description = "Gallery of Feathers Widgets"
 category = "UI (User Interface)"
 wasm = true
 hidden = true
+
+[[example]]
+name = "render_depth_to_texture"
+path = "examples/shader_advanced/render_depth_to_texture.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.render_depth_to_texture]
+name = "Render Depth to Texture"
+description = "Demonstrates how to use depth-only cameras"
+category = "Shaders"
+wasm = true
