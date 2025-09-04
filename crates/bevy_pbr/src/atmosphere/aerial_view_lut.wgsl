@@ -7,7 +7,7 @@
             sample_transmittance_lut, sample_density_lut, rayleigh, henyey_greenstein,
             sample_multiscattering_lut, AtmosphereSample, sample_local_inscattering,
             uv_to_ndc, max_atmosphere_distance, uv_to_ray_direction, 
-            MIDPOINT_RATIO, get_view_position
+            MIDPOINT_RATIO, get_view_position, MIN_EXTINCTION
         },
     }
 }
@@ -52,7 +52,7 @@ fn main(@builtin(global_invocation_id) idx: vec3<u32>) {
             var inscattering = sample_local_inscattering(scattering, ray_dir.xyz, sample_pos);
 
             // Analytical integration of the single scattering term in the radiance transfer equation
-            let s_int = (inscattering - inscattering * sample_transmittance) / extinction;
+            let s_int = (inscattering - inscattering * sample_transmittance) / max(extinction, MIN_EXTINCTION);
             total_inscattering += throughput * s_int;
 
             throughput *= sample_transmittance;
