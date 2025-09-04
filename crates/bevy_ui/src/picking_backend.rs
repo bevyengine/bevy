@@ -159,8 +159,13 @@ pub fn ui_picking(
     // from the top node to the bottom one. this will also reset the interaction to `None`
     // for all nodes encountered that are no longer hovered.
     // Reverse the iterator to traverse the tree from closest layers to furthest
-    for layer in ui_stack.layers.iter().rev() {
-        let Ok(layer_root) = node_query.get(layer.nodes[0]) else {
+    for layer in ui_stack
+        .layers
+        .iter()
+        .rev()
+        .map(|layer_range| &ui_stack.uinodes[layer_range.clone()])
+    {
+        let Ok(layer_root) = node_query.get(layer[0]) else {
             continue;
         };
 
@@ -171,7 +176,7 @@ pub fn ui_picking(
         let pointers_on_this_cam = pointer_pos_by_camera.get(&camera_entity);
 
         // Reverse the iterator to traverse the tree from closest nodes to furthest
-        for node_entity in layer.nodes.iter().rev().cloned() {
+        for node_entity in layer.iter().rev().cloned() {
             let Ok(node) = node_query.get(node_entity) else {
                 continue;
             };

@@ -835,9 +835,13 @@ pub fn extract_ui_camera_view(
         }
     }
 
-    for (_, layer) in ui_stack.layers.iter().enumerate() {
+    for layer in ui_stack
+        .layers
+        .iter()
+        .map(|layer_range| &ui_stack.uinodes[layer_range.clone()])
+    {
         let mut target_camera = None;
-        if let Some(node) = layer.nodes.get(0) {
+        if let Some(node) = layer.get(0) {
             if let Ok(camera_target) = root_nodes_query.get(*node) {
                 if let Some(camera_entity) = camera_target.get() {
                     if let Ok((_, render_entity, camera, ..)) = query.get(camera_entity) {

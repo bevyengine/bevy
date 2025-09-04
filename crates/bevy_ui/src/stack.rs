@@ -82,10 +82,7 @@ pub fn ui_stack_system(
 
     root_nodes.sort_by_key(|(_, z)| *z);
 
-    let mut stack_index = 0;
-    let mut layer_index = 0;
-
-    for (root_entity, (global_zindex, local_zindex)) in root_nodes.drain(..) {
+    for (root_entity, (_global_zindex, _local_zindex)) in root_nodes.drain(..) {
         let start = ui_stack.uinodes.len();
         update_uistack_recursive(
             &mut cache,
@@ -94,12 +91,18 @@ pub fn ui_stack_system(
             &zindex_query,
             &mut ui_stack.uinodes,
         );
-        ui_stack.layers.push(start..ui_stack.uinodes.len() + 1);
+        let end = ui_stack.uinodes.len();
+        ui_stack.layers.push(start..end);
     }
 
-    for (i, entity) in ui_stack.uinodes.iter().enumerate() {
-        if let Ok(mut node) = update_query.get_mut(*entity) {
-            node.bypass_change_detection().stack_index = i as u32;
+    let mut stack_index = 0;
+    for (layer_index, layer_range) in ui_stack.layers.iter().enumerate() {
+        for entity in ui_stack.uinodes[layer_range.clone()].iter() {
+            if let Ok(mut node) = update_query.get_mut(*entity) {
+                node.bypass_change_detection().stack_index = stack_index;
+                node.bypass_change_detection().layer_index = layer_index as u32;
+                stack_index += 1;
+            }
         }
     }
 }
@@ -238,8 +241,9 @@ mod tests {
         let mut query = world.query::<&Label>();
         let ui_stack = world.resource::<UiStack>();
         let actual_result = ui_stack
+            .uinodes
             .iter()
-            .map(|entity| query.get(&world, entity).unwrap().clone())
+            .map(|entity| query.get(&world, *entity).unwrap().clone())
             .collect::<Vec<_>>();
         let expected_result = vec![
             (Label("1-2-1")), // GlobalZIndex(-3)
@@ -293,8 +297,9 @@ mod tests {
         let mut query = world.query::<&Label>();
         let ui_stack = world.resource::<UiStack>();
         let actual_result = ui_stack
+            .uinodes
             .iter()
-            .map(|entity| query.get(&world, entity).unwrap().clone())
+            .map(|entity| query.get(&world, *entity).unwrap().clone())
             .collect::<Vec<_>>();
 
         let expected_result = vec![

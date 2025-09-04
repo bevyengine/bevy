@@ -219,8 +219,13 @@ pub fn ui_focus_system(
 
     hovered_nodes.clear();
     // reverse the iterator to traverse the tree from closest layers to furthest
-    for layer in ui_stack.layers.iter().rev() {
-        let Ok(root_node) = node_query.get_mut(layer.nodes[0]) else {
+    for layer in ui_stack
+        .layers
+        .iter()
+        .rev()
+        .map(|range| &ui_stack.uinodes[range.clone()])
+    {
+        let Ok(root_node) = node_query.get_mut(layer[0]) else {
             continue;
         };
 
@@ -230,7 +235,7 @@ pub fn ui_focus_system(
 
         let cursor_position = camera_cursor_positions.get(&camera_entity);
 
-        for entity in layer.nodes.iter().rev().cloned() {
+        for entity in layer.iter().rev().cloned() {
             let Ok(node) = node_query.get_mut(entity) else {
                 continue;
             };
