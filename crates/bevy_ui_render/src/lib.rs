@@ -396,13 +396,6 @@ pub struct ExtractedUiLayers {
     pub layers: Vec<ExtractedUiNodes>,
 }
 
-impl ExtractedUiLayers {
-    pub fn clear(&mut self) {
-        self.glyphs.clear();
-        self.layers.clear();
-    }
-}
-
 #[derive(Default)]
 pub struct ExtractedUiNodes {
     pub uinodes: Vec<ExtractedUiNode>,
@@ -1226,7 +1219,6 @@ pub fn queue_uinodes(
     let draw_function = draw_functions.read().id::<DrawUi>();
     let mut current_camera_entity = Entity::PLACEHOLDER;
     let mut current_phase = None;
-
     for (layer_index, layer) in extracted_uinodes.layers.iter().enumerate() {
         let Some(extracted_camera_entity) = extracted_uinodes.extracted_cameras[layer_index] else {
             continue;
@@ -1288,7 +1280,7 @@ pub fn prepare_uinodes(
     render_device: Res<RenderDevice>,
     render_queue: Res<RenderQueue>,
     mut ui_meta: ResMut<UiMeta>,
-    mut extracted_uinodes: ResMut<ExtractedUiLayers>,
+    extracted_uinodes: Res<ExtractedUiLayers>,
     view_uniforms: Res<ViewUniforms>,
     ui_pipeline: Res<UiPipeline>,
     mut image_bind_groups: ResMut<ImageNodeBindGroups>,
@@ -1673,5 +1665,4 @@ pub fn prepare_uinodes(
         *previous_len = batches.len();
         commands.try_insert_batch(batches);
     }
-    extracted_uinodes.clear();
 }
