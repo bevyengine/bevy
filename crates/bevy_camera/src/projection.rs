@@ -238,6 +238,8 @@ impl Projection {
         })
     }
 
+    /// Check if the projection is perspective.
+    /// For [`CustomProjection`], this checks if the projection matrix's w-axis's w is 0.0.
     pub fn is_perspective(&self) -> bool {
         match self {
             Projection::Perspective(_) => true,
