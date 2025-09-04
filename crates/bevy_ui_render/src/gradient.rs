@@ -635,7 +635,7 @@ pub fn queue_gradient(
             ),
             batch_range: 0..0,
             extra_index: PhaseItemExtraIndex::None,
-            index,
+            index: index as u32,
             indexed: true,
         });
     }
@@ -726,7 +726,7 @@ pub fn prepare_gradient(
                 let item = &mut ui_phase.items[item_index];
                 if let Some(gradient) = extracted_gradients
                     .items
-                    .get(item.index)
+                    .get(item.index as usize)
                     .filter(|n| item.entity() == n.render_entity)
                 {
                     *item.batch_range_mut() = item_index as u32..item_index as u32 + 1;

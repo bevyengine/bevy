@@ -351,7 +351,7 @@ pub fn queue_shadows(
 
             batch_range: 0..0,
             extra_index: PhaseItemExtraIndex::None,
-            index,
+            index: index as u32,
             indexed: true,
         });
     }
@@ -388,7 +388,7 @@ pub fn prepare_shadows(
                 let item = &mut ui_phase.items[item_index];
                 if let Some(box_shadow) = extracted_shadows
                     .box_shadows
-                    .get(item.index)
+                    .get(item.index as usize)
                     .filter(|n| item.entity() == n.render_entity)
                 {
                     let rect_size = box_shadow.bounds;

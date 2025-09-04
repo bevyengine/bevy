@@ -413,7 +413,7 @@ pub fn prepare_uimaterial_nodes<M: UiMaterial>(
                 let item = &mut ui_phase.items[item_index];
                 if let Some(extracted_uinode) = extracted_uinodes
                     .uinodes
-                    .get(item.index)
+                    .get(item.index as usize)
                     .filter(|n| item.entity() == n.render_entity)
                 {
                     let mut existing_batch = batches
@@ -630,7 +630,7 @@ pub fn queue_ui_material_nodes<M: UiMaterial>(
             sort_key: FloatOrd(extracted_uinode.stack_index as f32 + stack_z_offsets::MATERIAL),
             batch_range: 0..0,
             extra_index: PhaseItemExtraIndex::None,
-            index,
+            index: index as u32,
             indexed: false,
         });
     }

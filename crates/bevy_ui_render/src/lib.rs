@@ -1263,12 +1263,12 @@ pub fn queue_uinodes(
             );
 
             transparent_phase.add(TransparentUi {
-                layer_index,
+                layer_index: layer_index as u32,
                 draw_function,
                 pipeline,
                 entity: (extracted_uinode.render_entity, extracted_uinode.main_entity),
                 sort_key: FloatOrd(extracted_uinode.z_order),
-                index,
+                index: index as u32,
                 // batch_range will be calculated in prepare_uinodes
                 batch_range: 0..0,
                 extra_index: PhaseItemExtraIndex::None,
@@ -1332,9 +1332,9 @@ pub fn prepare_uinodes(
             for item_index in 0..ui_phase.items.len() {
                 let item = &mut ui_phase.items[item_index];
 
-                if let Some(extracted_uinode) = extracted_uinodes.layers[item.layer_index]
+                if let Some(extracted_uinode) = extracted_uinodes.layers[item.layer_index as usize]
                     .uinodes
-                    .get(item.index)
+                    .get(item.index as usize)
                     .filter(|n| item.entity() == n.render_entity)
                 {
                     let mut existing_batch = batches.last_mut();

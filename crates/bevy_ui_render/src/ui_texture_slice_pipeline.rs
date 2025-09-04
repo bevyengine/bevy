@@ -351,7 +351,7 @@ pub fn queue_ui_slices(
             sort_key: FloatOrd(extracted_slicer.stack_index as f32 + stack_z_offsets::IMAGE),
             batch_range: 0..0,
             extra_index: PhaseItemExtraIndex::None,
-            index,
+            index: index as u32,
             indexed: true,
         });
     }
@@ -408,7 +408,7 @@ pub fn prepare_ui_slices(
                 let item = &mut ui_phase.items[item_index];
                 if let Some(texture_slices) = extracted_slices
                     .slices
-                    .get(item.index)
+                    .get(item.index as usize)
                     .filter(|n| item.entity() == n.render_entity)
                 {
                     let mut existing_batch = batches.last_mut();
