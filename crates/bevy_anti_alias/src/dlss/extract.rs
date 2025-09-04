@@ -15,11 +15,10 @@ pub fn extract_dlss<F: DlssFeature>(
         .query_filtered::<(RenderEntity, &Camera, &Projection, Option<&mut Dlss<F>>), With<Hdr>>();
 
     for (entity, camera, camera_projection, mut dlss) in cameras_3d.iter_mut(&mut main_world) {
-        let has_perspective_projection = matches!(camera_projection, Projection::Perspective(_));
         let mut entity_commands = commands
             .get_entity(entity)
             .expect("Camera entity wasn't synced.");
-        if dlss.is_some() && camera.is_active && has_perspective_projection {
+        if dlss.is_some() && camera.is_active && camera_projection.is_perspective() {
             entity_commands.insert(dlss.as_deref().unwrap().clone());
             dlss.as_mut().unwrap().reset = false;
         } else if cleanup_query.get(entity) == Ok(true) {

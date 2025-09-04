@@ -237,6 +237,14 @@ impl Projection {
             dyn_projection: Box::new(projection),
         })
     }
+
+    pub fn is_perspective(&self) -> bool {
+        match self {
+            Projection::Perspective(_) => true,
+            Projection::Orthographic(_) => false,
+            Projection::Custom(projection) => projection.get_clip_from_view().w_axis.w == 0.0,
+        }
+    }
 }
 
 impl Deref for Projection {
