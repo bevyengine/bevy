@@ -8,12 +8,12 @@ use super::IntoSystem;
 
 /// Implemented for [`System`]s that have [`On`] as the first argument.
 pub trait ObserverSystem<E: Event, B: Bundle, Out = ()>:
-    System<In = On<'static, E, B>, Out = Out> + Send + 'static
+    System<In = On<'static, 'static, E, B>, Out = Out> + Send + 'static
 {
 }
 
 impl<E: Event, B: Bundle, Out, T> ObserverSystem<E, B, Out> for T where
-    T: System<In = On<'static, E, B>, Out = Out> + Send + 'static
+    T: System<In = On<'static, 'static, E, B>, Out = Out> + Send + 'static
 {
 }
 
@@ -39,7 +39,7 @@ pub trait IntoObserverSystem<E: Event, B: Bundle, M, Out = ()>: Send + 'static {
 
 impl<E: Event, B, M, Out, S> IntoObserverSystem<E, B, M, Out> for S
 where
-    S: IntoSystem<On<'static, E, B>, Out, M> + Send + 'static,
+    S: IntoSystem<On<'static, 'static, E, B>, Out, M> + Send + 'static,
     S::System: ObserverSystem<E, B, Out>,
     E: 'static,
     B: Bundle,

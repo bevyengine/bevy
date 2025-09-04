@@ -41,7 +41,7 @@ pub(super) fn observer_system_runner<E: Event, B: Bundle, S: ObserverSystem<E, B
     }
     state.last_trigger_id = last_trigger;
 
-    // SAFETY: Caller ensures `trigger_ptr` is castable to `&mut E::Trigger`
+    // SAFETY: Caller ensures `trigger_ptr` is castable to `&mut E::Trigger<'_>`
     let trigger: &mut E::Trigger<'_> = unsafe { trigger_ptr.deref_mut() };
 
     let on: On<E, B> = On::new(

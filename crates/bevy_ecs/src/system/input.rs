@@ -222,9 +222,9 @@ impl<'i, T: ?Sized> DerefMut for InMut<'i, T> {
 /// Used for [`ObserverSystem`]s.
 ///
 /// [`ObserverSystem`]: crate::system::ObserverSystem
-impl<E: Event, B: Bundle> SystemInput for On<'_, E, B> {
-    type Param<'i> = On<'i, E, B>;
-    type Inner<'i> = On<'i, E, B>;
+impl<E: Event, B: Bundle> SystemInput for On<'_, '_, E, B> {
+    type Param<'i> = On<'i, 'i, E, B>;
+    type Inner<'i> = On<'i, 'i, E, B>;
 
     fn wrap(this: Self::Inner<'_>) -> Self::Param<'_> {
         this
