@@ -3520,6 +3520,17 @@ category = "UI (User Interface)"
 wasm = true
 
 [[example]]
+name = "text_box"
+path = "examples/ui/text_box.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.text_box]
+name = "Text Box"
+description = "Example demonstrating a text input box"
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
 name = "text_field"
 path = "examples/ui/text_field.rs"
 doc-scrape-examples = true
