@@ -50,21 +50,15 @@ pub use cosmic_text::Motion;
 pub struct TextInputSystems;
 
 mod buffer;
-mod clipboard;
 mod cursor_blink;
-mod filtering;
 mod layout;
-mod masking;
 mod placeholder;
 mod target;
 mod text_edit;
 
 pub use buffer::*;
-pub use clipboard::*;
 pub use cursor_blink::*;
-pub use filtering::*;
 pub use layout::*;
-pub use masking::*;
 pub use placeholder::*;
 pub use target::*;
 pub use text_edit::*;

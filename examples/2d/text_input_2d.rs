@@ -140,18 +140,6 @@ fn update_inputs(
                         if let Some(char) = str.chars().next() {
                             // convert to lowercase so that the commands work with capslock on
                             match (char.to_ascii_lowercase(), is_shift_pressed) {
-                                ('c', false) => {
-                                    // copy
-                                    actions.queue(TextEdit::Copy);
-                                }
-                                ('x', false) => {
-                                    // cut
-                                    actions.queue(TextEdit::Cut);
-                                }
-                                ('v', false) => {
-                                    // paste
-                                    actions.queue(TextEdit::Paste);
-                                }
                                 ('a', false) => {
                                     // select all
                                     actions.queue(TextEdit::SelectAll);
@@ -217,11 +205,7 @@ fn update_inputs(
                         actions.queue(TextEdit::Backspace);
                     }
                     Key::Delete => {
-                        if is_shift_pressed {
-                            actions.queue(TextEdit::Cut);
-                        } else {
-                            actions.queue(TextEdit::Delete);
-                        }
+                        actions.queue(TextEdit::Delete);
                     }
                     Key::PageUp => {
                         actions.queue(TextEdit::motion(Motion::PageUp, is_shift_pressed));

@@ -1,15 +1,12 @@
 use bevy_asset::Assets;
-use bevy_ecs::{
-    change_detection::{DetectChanges, DetectChangesMut},
-    system::{Query, ResMut},
-};
+use bevy_ecs::system::{Query, ResMut};
 use bevy_image::{Image, TextureAtlasLayout};
 use bevy_math::{IVec2, Rect, UVec2, Vec2};
 use cosmic_text::{Buffer, Edit};
 
 use crate::{
-    buffer_dimensions, CosmicFontSystem, FontAtlasSets, FontSmoothing, PasswordMask,
-    PositionedGlyph, TextError, TextInputAttributes, TextInputBuffer, TextLayoutInfo,
+    buffer_dimensions, CosmicFontSystem, FontAtlasSets, FontSmoothing, PositionedGlyph, TextError,
+    TextInputAttributes, TextInputBuffer, TextLayoutInfo,
 };
 
 /// Based on `LayoutRunIter` from cosmic-text but fixes a bug where the
@@ -103,32 +100,18 @@ pub fn update_text_input_layouts(
         &mut TextLayoutInfo,
         &mut TextInputBuffer,
         &TextInputAttributes,
-        Option<&mut PasswordMask>,
     )>,
     mut font_system: ResMut<CosmicFontSystem>,
     mut swash_cache: ResMut<crate::pipeline::SwashCache>,
     mut font_atlas_sets: ResMut<FontAtlasSets>,
 ) {
     let font_system = &mut font_system.0;
-    for (mut layout_info, mut buffer, attributes, mut maybe_password_mask) in text_query.iter_mut()
-    {
+    for (mut layout_info, mut buffer, attributes) in text_query.iter_mut() {
         // Force a redraw when a password is revealed or hidden
-        let force_redraw = maybe_password_mask
-            .as_mut()
-            .map(|mask| mask.is_changed() && mask.show_password)
-            .unwrap_or(false);
+        let force_redraw: bool = false;
 
         let space_advance = buffer.space_advance;
-        let editor = if let Some(password_mask) = maybe_password_mask
-            .as_mut()
-            .filter(|mask| !mask.show_password)
-        {
-            // The underlying buffer is hidden, so set redraw to false to avoid unnecessary reupdates.
-            buffer.editor.set_redraw(false);
-            &mut password_mask.bypass_change_detection().editor
-        } else {
-            &mut buffer.editor
-        };
+        let editor = &mut buffer.editor;
         editor.shape_as_needed(font_system, false);
 
         if editor.redraw() || force_redraw {

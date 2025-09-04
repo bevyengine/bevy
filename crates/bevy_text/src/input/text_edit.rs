@@ -11,8 +11,8 @@ pub use cosmic_text::Motion;
 use cosmic_text::{Action, BorrowedWithFontSystem, Edit, Editor, Selection};
 
 use crate::{
-    get_cosmic_text_buffer_contents, Clipboard, CosmicFontSystem, TextInputAttributes,
-    TextInputBuffer, TextInputFilter, TextInputValue,
+    get_cosmic_text_buffer_contents, CosmicFontSystem, TextInputAttributes, TextInputBuffer,
+    TextInputValue,
 };
 
 /// Text input commands queue
@@ -39,13 +39,6 @@ impl TextEdits {
 /// by handling input events and mapping them to edits.
 #[derive(Debug, Clone)]
 pub enum TextEdit {
-    /// Copy the selected text into the clipboard. Does nothing if no text is selected.
-    Copy,
-    /// Copy the selected text into the clipboard, then delete the selected text. Does nothing if no text is selected.
-    Cut,
-    /// Insert the contents of the clipboard at the current cursor position, or replaces the current selection.
-    /// Does nothing if the clipboard is empty.
-    Paste,
     /// Move the cursor with some motion.
     Motion {
         /// The motion to perform.
@@ -152,20 +145,16 @@ pub fn apply_text_edits(
         &mut TextInputBuffer,
         &mut TextEdits,
         &TextInputAttributes,
-        Option<&TextInputFilter>,
         Option<&mut TextInputValue>,
     )>,
-    mut clipboard: ResMut<Clipboard>,
 ) {
-    for (entity, mut buffer, mut text_input_actions, attribs, maybe_filter, maybe_value) in
+    for (entity, mut buffer, mut text_input_actions, attribs, maybe_value) in
         text_input_query.iter_mut()
     {
         for edit in text_input_actions.queue.drain(..) {
             if let Err(error) = apply_text_edit(
                 buffer.editor.borrow_with(&mut font_system),
-                maybe_filter,
                 attribs.max_chars,
-                &mut clipboard,
                 &edit,
             ) {
                 commands.trigger_targets(TextInputEvent::InvalidEdit(error, edit), entity);
@@ -194,28 +183,12 @@ pub enum InvalidTextEditError {
 /// Apply a text input action to a text input
 pub fn apply_text_edit(
     mut editor: BorrowedWithFontSystem<'_, Editor<'static>>,
-    maybe_filter: Option<&TextInputFilter>,
     max_chars: Option<usize>,
-    clipboard_contents: &mut ResMut<Clipboard>,
     edit: &TextEdit,
 ) -> Result<(), InvalidTextEditError> {
     editor.start_change();
 
     match edit {
-        TextEdit::Copy => {
-            if let Some(text) = editor.copy_selection() {
-                clipboard_contents.0 = text;
-            }
-        }
-        TextEdit::Cut => {
-            if let Some(text) = editor.copy_selection() {
-                clipboard_contents.0 = text;
-                editor.delete_selection();
-            }
-        }
-        TextEdit::Paste => {
-            editor.insert_string(&clipboard_contents.0, None);
-        }
         &TextEdit::Motion {
             motion,
             with_select,
@@ -324,13 +297,8 @@ pub fn apply_text_edit(
         return Ok(());
     }
 
-    if maybe_filter.is_some() || max_chars.is_some() {
+    if max_chars.is_some() {
         let text = editor.with_buffer(get_cosmic_text_buffer_contents);
-        if maybe_filter.is_some_and(|filter| !filter.is_match(&text)) {
-            change.reverse();
-            editor.apply_change(&change);
-            return Err(InvalidTextEditError::Filtered);
-        }
         if max_chars.is_some_and(|max_chars| max_chars < text.chars().count()) {
             change.reverse();
             editor.apply_change(&change);
