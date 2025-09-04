@@ -52,11 +52,17 @@ fn apply_state_transition<S: FreelyMutableState>(
     current_state: Option<ResMut<State<S>>>,
     next_state: Option<ResMut<NextState<S>>>,
 ) {
-    let Some(next_state) = take_next_state(next_state) else {
+    let Some((next_state, same_state_enforced)) = take_next_state(next_state) else {
         return;
     };
     let Some(current_state) = current_state else {
         return;
     };
-    internal_apply_state_transition(event, commands, Some(current_state), Some(next_state));
+    internal_apply_state_transition(
+        event,
+        commands,
+        Some(current_state),
+        Some(next_state),
+        same_state_enforced,
+    );
 }

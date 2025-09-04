@@ -13,6 +13,13 @@ pub fn log_transitions<S: States>(mut transitions: EventReader<StateTransitionEv
         return;
     };
     let name = core::any::type_name::<S>();
-    let StateTransitionEvent { exited, entered } = transition;
-    info!("{} transition: {:?} => {:?}", name, exited, entered);
+    let StateTransitionEvent {
+        exited,
+        entered,
+        same_state_enforced,
+    } = transition;
+    info!(
+        "{} transition: {:?} => {:?} | same state enforced: {:?}",
+        name, exited, entered, same_state_enforced
+    );
 }
