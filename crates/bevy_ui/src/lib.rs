@@ -180,6 +180,7 @@ impl Plugin for UiPlugin {
 
         let ui_layout_system_config = ui_layout_system
             .in_set(UiSystems::Layout)
+            .ambiguous_with(bevy_text::update_password_masks)
             .ambiguous_with(bevy_text::update_placeholder_layouts)
             .ambiguous_with(bevy_text::update_text_input_layouts)
             .before(TransformSystems::Propagate);
@@ -237,6 +238,7 @@ fn build_text_interop(app: &mut App) {
             )
                 .chain()
                 .in_set(UiSystems::Content)
+                .ambiguous_with(bevy_text::update_password_masks)
                 .ambiguous_with(bevy_text::update_placeholder_layouts)
                 .ambiguous_with(bevy_text::update_text_input_layouts)
                 // Text and Text2d are independent.
@@ -256,6 +258,7 @@ fn build_text_interop(app: &mut App) {
                 .ambiguous_with(bevy_text::detect_text_needs_rerender::<bevy_sprite::Text2d>)
                 .ambiguous_with(bevy_sprite::update_text2d_layout)
                 .ambiguous_with(bevy_sprite::calculate_bounds_text2d)
+                .ambiguous_with(bevy_text::update_password_masks)
                 .ambiguous_with(bevy_text::update_placeholder_layouts)
                 .ambiguous_with(bevy_text::update_text_input_layouts),
         ),
