@@ -8,7 +8,7 @@ use crate::{
         setup_state_transitions_in_world, ComputedStates, FreelyMutableState, NextState, State,
         StateTransition, StateTransitionEvent, States, SubStates,
     },
-    state_scoped::enable_state_scoped_entities,
+    state_scoped::setup_state_scoped_entities,
 };
 
 #[cfg(feature = "bevy_reflect")]
@@ -102,9 +102,7 @@ impl AppExtStates for SubApp {
                 exited: None,
                 entered: Some(state),
             });
-            if S::SCOPED_ENTITIES_ENABLED {
-                self.add_plugins(enable_state_scoped_entities::<S>);
-            }
+            setup_state_scoped_entities::<S>(self);
         } else {
             let name = core::any::type_name::<S>();
             warn!("State {name} is already initialized.");
@@ -127,9 +125,7 @@ impl AppExtStates for SubApp {
                 exited: None,
                 entered: Some(state),
             });
-            if S::SCOPED_ENTITIES_ENABLED {
-                self.add_plugins(enable_state_scoped_entities::<S>);
-            }
+            setup_state_scoped_entities::<S>(self);
         } else {
             // Overwrite previous state and initial event
             self.insert_resource::<State<S>>(State::new(state.clone()));
@@ -164,9 +160,7 @@ impl AppExtStates for SubApp {
                 exited: None,
                 entered: state,
             });
-            if S::SCOPED_ENTITIES_ENABLED {
-                self.add_plugins(enable_state_scoped_entities::<S>);
-            }
+            setup_state_scoped_entities::<S>(self);
         } else {
             let name = core::any::type_name::<S>();
             warn!("Computed state {name} is already initialized.");
@@ -195,9 +189,7 @@ impl AppExtStates for SubApp {
                 exited: None,
                 entered: state,
             });
-            if S::SCOPED_ENTITIES_ENABLED {
-                self.add_plugins(enable_state_scoped_entities::<S>);
-            }
+            setup_state_scoped_entities::<S>(self);
         } else {
             let name = core::any::type_name::<S>();
             warn!("Sub state {name} is already initialized.");

@@ -91,8 +91,6 @@ pub trait ComputedStates: 'static + Send + Sync + Clone + PartialEq + Eq + Hash 
 
 impl<S: ComputedStates> States for S {
     const DEPENDENCY_DEPTH: usize = S::SourceStates::SET_DEPENDENCY_DEPTH + 1;
-
-    const SCOPED_ENTITIES_ENABLED: bool = true;
 }
 
 #[cfg(test)]

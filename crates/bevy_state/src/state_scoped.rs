@@ -1,16 +1,15 @@
-use bevy_app::App;
+use bevy_app::SubApp;
 #[cfg(feature = "bevy_reflect")]
 use bevy_ecs::reflect::ReflectComponent;
 use bevy_ecs::{
     component::Component,
     entity::Entity,
-    event::{EventReader, Events},
+    event::EventReader,
     schedule::IntoScheduleConfigs,
     system::{Commands, Query},
 };
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::prelude::*;
-use log::warn;
 
 use crate::state::{StateTransition, StateTransitionEvent, StateTransitionSystems, States};
 
@@ -162,15 +161,7 @@ pub fn despawn_entities_on_enter_state<S: States>(
 }
 
 #[doc(hidden)]
-pub fn enable_state_scoped_entities<S: States>(app: &mut App) {
-    if !app
-        .world()
-        .contains_resource::<Events<StateTransitionEvent<S>>>()
-    {
-        let name = core::any::type_name::<S>();
-        warn!("State scoped entities are enabled for state `{name}`, but the state isn't installed in the app!");
-    }
-
+pub fn setup_state_scoped_entities<S: States>(app: &mut SubApp) {
     // Note: We work with `StateTransition` in set
     // `StateTransitionSystems::ExitSchedules` rather than `OnExit`, because
     // `OnExit` only runs for one specific variant of the state.
