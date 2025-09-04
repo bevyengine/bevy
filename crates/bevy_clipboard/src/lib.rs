@@ -56,30 +56,28 @@ impl ClipboardRead {
     }
 }
 
-/// Basic clipboard implementation that only works within the bevy app.
-#[derive(Resource, Default)]
-pub struct ClipboardBasic(pub String);
-// TODO: remove ClipboardNotSupported , write into ClipboardBasic instead
-
 /// Resource providing access to the clipboard
-#[cfg(unix)]
 #[derive(Resource)]
-pub struct Clipboard(Option<arboard::Clipboard>);
+pub struct Clipboard {
+    /// Use arboard to access host clipboard
+    #[cfg(unix)]
+    host_clipboard: Option<arboard::Clipboard>,
 
-#[cfg(unix)]
+    /// Fallback basic clipboard implementation that only works within the bevy app.
+    local_clipboard: Option<String>,
+}
+
 impl Default for Clipboard {
     fn default() -> Self {
-        {
-            Self(arboard::Clipboard::new().ok())
+        Clipboard {
+            #[cfg(unix)]
+            host_clipboard: arboard::Clipboard::new().ok(),
+            local_clipboard: None,
         }
     }
 }
 
-/// Resource providing access to the clipboard
-#[cfg(not(unix))]
-#[derive(Resource, Default)]
-pub struct Clipboard;
-
+// TODO: not entirely consistent with `local_clipboard` usage, fix this
 impl Clipboard {
     /// Fetches UTF-8 text from the clipboard and returns it via a `ClipboardRead`.
     ///
@@ -87,10 +85,12 @@ impl Clipboard {
     pub fn fetch_text(&mut self) -> ClipboardRead {
         #[cfg(unix)]
         {
-            ClipboardRead::Ready(if let Some(clipboard) = self.0.as_mut() {
+            ClipboardRead::Ready(if let Some(clipboard) = self.host_clipboard.as_mut() {
                 clipboard.get_text().map_err(ClipboardError::from)
             } else {
-                Err(ClipboardError::ClipboardNotSupported)
+                self.local_clipboard
+                    .clone()
+                    .ok_or(ClipboardError::ContentNotAvailable)
             })
         }
 
@@ -118,13 +118,21 @@ impl Clipboard {
                 });
                 ClipboardRead::Pending(shared_clone)
             } else {
-                ClipboardRead::Ready(Err(ClipboardError::ClipboardNotSupported))
+                ClipboardRead::Ready(
+                    self.local_clipboard
+                        .clone()
+                        .ok_or(ClipboardError::ContentNotAvailable),
+                )
             }
         }
 
         #[cfg(not(any(unix, windows, target_arch = "wasm32")))]
         {
-            ClipboardRead::Ready(Err(ClipboardError::ClipboardNotSupported))
+            ClipboardRead::Ready(
+                self.local_clipboard
+                    .clone()
+                    .ok_or(ClipboardError::ContentNotAvailable),
+            )
         }
     }
 
@@ -132,10 +140,12 @@ impl Clipboard {
     pub async fn fetch_text_async(&mut self) -> Result<String, ClipboardError> {
         #[cfg(unix)]
         {
-            if let Some(clipboard) = self.0.as_mut() {
+            if let Some(clipboard) = self.host_clipboard.as_mut() {
                 clipboard.get_text().map_err(ClipboardError::from)
             } else {
-                Err(ClipboardError::ClipboardNotSupported)
+                self.local_clipboard
+                    .clone()
+                    .ok_or(ClipboardError::ContentNotAvailable)
             }
         }
 
@@ -164,7 +174,9 @@ impl Clipboard {
 
         #[cfg(not(any(unix, windows, target_arch = "wasm32")))]
         {
-            Err(ClipboardError::ClipboardNotSupported)
+            self.local_clipboard
+                .clone()
+                .ok_or(ClipboardError::ContentNotAvailable)
         }
     }
 
@@ -179,10 +191,13 @@ impl Clipboard {
     ) -> Result<(), ClipboardError> {
         #[cfg(unix)]
         {
-            if let Some(clipboard) = self.0.as_mut() {
+            if let Some(clipboard) = self.host_clipboard.as_mut() {
                 clipboard.set_text(text).map_err(ClipboardError::from)
             } else {
-                Err(ClipboardError::ClipboardNotSupported)
+                let k: alloc::borrow::Cow<'a, str> = text.into();
+                let j: String = k.into();
+                self.local_clipboard = Some(j);
+                Ok(())
             }
         }
 
@@ -202,13 +217,19 @@ impl Clipboard {
                 });
                 Ok(())
             } else {
-                Err(ClipboardError::ClipboardNotSupported)
+                let k: alloc::borrow::Cow<'a, str> = text.into();
+                let j: String = k.into();
+                self.local_clipboard = Some(j);
+                Ok(())
             }
         }
 
         #[cfg(not(any(unix, windows, target_arch = "wasm32")))]
         {
-            Err(ClipboardError::ClipboardNotSupported)
+            let k: alloc::borrow::Cow<'a, str> = text.into();
+            let j: String = k.into();
+            self.local_clipboard = Some(j);
+            Ok(())
         }
     }
 }
@@ -219,9 +240,6 @@ impl Clipboard {
 pub enum ClipboardError {
     /// Clipboard contents were unavailable or not in the expected format.
     ContentNotAvailable,
-
-    /// No suitable clipboard backend was available
-    ClipboardNotSupported,
 
     /// Clipboard access is temporarily locked by another process or thread.
     ClipboardOccupied,
@@ -244,7 +262,6 @@ impl From<arboard::Error> for ClipboardError {
     fn from(value: arboard::Error) -> Self {
         match value {
             arboard::Error::ContentNotAvailable => ClipboardError::ContentNotAvailable,
-            arboard::Error::ClipboardNotSupported => ClipboardError::ClipboardNotSupported,
             arboard::Error::ClipboardOccupied => ClipboardError::ClipboardOccupied,
             arboard::Error::ConversionFailure => ClipboardError::ConversionFailure,
             arboard::Error::Unknown { description } => ClipboardError::Unknown { description },
