@@ -1,6 +1,6 @@
 use crate::{
     resources::{
-        AtmosphereSamplers, AtmosphereTextures, AtmosphereTransform, AtmosphereTransforms,
+        AtmosphereSampler, AtmosphereTextures, AtmosphereTransform, AtmosphereTransforms,
         AtmosphereTransformsOffset, GpuAtmosphere,
     },
     ExtractedAtmosphere, GpuAtmosphereSettings, GpuLights, LightMeta, ViewLightsUniformOffset,
@@ -66,26 +66,21 @@ pub fn init_atmosphere_probe_layout(mut commands: Commands) {
         &BindGroupLayoutEntries::with_indices(
             ShaderStages::COMPUTE,
             (
+                // uniforms
                 (0, uniform_buffer::<GpuAtmosphere>(true)),
                 (1, uniform_buffer::<GpuAtmosphereSettings>(true)),
                 (2, uniform_buffer::<AtmosphereTransform>(true)),
                 (3, uniform_buffer::<ViewUniform>(true)),
                 (4, uniform_buffer::<GpuLights>(true)),
-                //transmittance lut and sampler
-                (8, texture_2d(TextureSampleType::default())),
-                (9, sampler(SamplerBindingType::Filtering)),
-                //multiscattering lut and sampler
-                (10, texture_2d(TextureSampleType::default())),
-                (11, sampler(SamplerBindingType::Filtering)),
-                //sky view lut and sampler
-                (12, texture_2d(TextureSampleType::default())),
-                (13, sampler(SamplerBindingType::Filtering)),
-                //aerial view lut ans sampler
-                (14, texture_3d(TextureSampleType::default())),
-                (15, sampler(SamplerBindingType::Filtering)),
+                // atmosphere luts and sampler
+                (8, texture_2d(TextureSampleType::default())),  // transmittance
+                (9, texture_2d(TextureSampleType::default())),  // multiscattering
+                (10, texture_2d(TextureSampleType::default())), // sky view
+                (11, texture_3d(TextureSampleType::default())), // aerial view
+                (12, sampler(SamplerBindingType::Filtering)),
                 // output 2D array texture
                 (
-                    16,
+                    13,
                     texture_storage_2d_array(
                         TextureFormat::Rgba16Float,
                         StorageTextureAccess::WriteOnly,
@@ -102,7 +97,7 @@ pub(super) fn prepare_atmosphere_probe_bind_groups(
     probes: Query<(Entity, &AtmosphereProbeTextures), With<AtmosphereEnvironmentMap>>,
     render_device: Res<RenderDevice>,
     layouts: Res<AtmosphereProbeLayouts>,
-    samplers: Res<AtmosphereSamplers>,
+    atmosphere_sampler: Res<AtmosphereSampler>,
     view_uniforms: Res<ViewUniforms>,
     lights_uniforms: Res<LightMeta>,
     atmosphere_transforms: Res<AtmosphereTransforms>,
@@ -116,20 +111,20 @@ pub(super) fn prepare_atmosphere_probe_bind_groups(
             "environment_bind_group",
             &pipeline_cache.get_bind_group_layout(&layouts.environment),
             &BindGroupEntries::with_indices((
+                // uniforms
                 (0, atmosphere_uniforms.binding().unwrap()),
                 (1, settings_uniforms.binding().unwrap()),
                 (2, atmosphere_transforms.uniforms().binding().unwrap()),
                 (3, view_uniforms.uniforms.binding().unwrap()),
                 (4, lights_uniforms.view_gpu_lights.binding().unwrap()),
+                // atmosphere luts and sampler
                 (8, &textures.transmittance_lut.default_view),
-                (9, &samplers.transmittance_lut),
-                (10, &textures.multiscattering_lut.default_view),
-                (11, &samplers.multiscattering_lut),
-                (12, &textures.sky_view_lut.default_view),
-                (13, &samplers.sky_view_lut),
-                (14, &textures.aerial_view_lut.default_view),
-                (15, &samplers.aerial_view_lut),
-                (16, &textures.environment),
+                (9, &textures.multiscattering_lut.default_view),
+                (10, &textures.sky_view_lut.default_view),
+                (11, &textures.aerial_view_lut.default_view),
+                (12, &**atmosphere_sampler),
+                // output 2D array texture
+                (13, &textures.environment),
             )),
         );
 
