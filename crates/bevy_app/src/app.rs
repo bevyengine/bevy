@@ -1401,7 +1401,9 @@ impl Plugin for HokeyPokey {
 type RunnerFn = Box<dyn FnOnce(App) -> AppExit>;
 
 fn run_once(mut app: App) -> AppExit {
-    while app.plugins_state() == PluginsState::Adding {}
+    while app.plugins_state() == PluginsState::Adding {
+        core::hint::spin_loop();
+    }
     app.finish();
     app.cleanup();
 

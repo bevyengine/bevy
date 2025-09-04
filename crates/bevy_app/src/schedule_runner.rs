@@ -76,7 +76,9 @@ impl Plugin for ScheduleRunnerPlugin {
         app.set_runner(move |mut app: App| {
             let plugins_state = app.plugins_state();
             if plugins_state != PluginsState::Cleaned {
-                while app.plugins_state() == PluginsState::Adding {}
+                while app.plugins_state() == PluginsState::Adding {
+                    core::hint::spin_loop();
+                }
                 app.finish();
                 app.cleanup();
             }
