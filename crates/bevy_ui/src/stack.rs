@@ -100,8 +100,9 @@ pub fn ui_stack_system(
     for (layer_index, layer_range) in ui_stack.layers.iter().enumerate() {
         for entity in ui_stack.uinodes[layer_range.clone()].iter() {
             if let Ok(mut node) = update_query.get_mut(*entity) {
-                node.bypass_change_detection().stack_index = stack_index;
-                node.bypass_change_detection().layer_index = layer_index as u32;
+                let node = node.bypass_change_detection();
+                node.stack_index = stack_index;
+                node.layer_index = layer_index as u32;
                 stack_index += 1;
             }
         }
