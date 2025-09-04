@@ -417,7 +417,7 @@ impl Archetype {
                 },
             );
             // NOTE: the `table_components` are sorted AND they were inserted in the `Table` in the same
-            // sorted order, so the index of the `Column` in the `Table` is the same as the index of the
+            // sorted order, so the index of the `ThinColumn` in the `Table` is the same as the index of the
             // component in the `table_components` vector
             component_index
                 .entry(component_id)
