@@ -1098,7 +1098,7 @@ impl<'w, 's> Commands<'w, 's> {
     /// the event type itself.
     #[deprecated(since = "0.17.0", note = "Use `Commands::trigger` instead.")]
     pub fn trigger_targets<'a>(&mut self, event: impl Event<Trigger<'a>: Default>) {
-        self.trigger(event)
+        self.trigger(event);
     }
 
     /// Triggers the given [`Event`] using the given [`Trigger`], which will run any [`Observer`]s watching for it.
