@@ -168,68 +168,65 @@ fn setup_ui(mut commands: Commands) {
     ));
 
     // Add the buttons that allow the user to toggle mask groups on and off.
-    commands
-        .spawn(Node {
+    commands.spawn((
+        Node {
             flex_direction: FlexDirection::Column,
             position_type: PositionType::Absolute,
             row_gap: px(6),
             left: px(12),
             bottom: px(12),
             ..default()
-        })
-        .with_children(|parent| {
-            let row_node = Node {
-                flex_direction: FlexDirection::Row,
-                column_gap: px(6),
-                ..default()
-            };
-
-            add_mask_group_control(parent, "Head", auto(), MASK_GROUP_HEAD);
-
-            parent.spawn(row_node.clone()).with_children(|parent| {
-                add_mask_group_control(
-                    parent,
-                    "Left Front Leg",
-                    px(MASK_GROUP_BUTTON_WIDTH),
-                    MASK_GROUP_LEFT_FRONT_LEG,
-                );
-                add_mask_group_control(
-                    parent,
-                    "Right Front Leg",
-                    px(MASK_GROUP_BUTTON_WIDTH),
-                    MASK_GROUP_RIGHT_FRONT_LEG,
-                );
-            });
-
-            parent.spawn(row_node).with_children(|parent| {
-                add_mask_group_control(
-                    parent,
-                    "Left Hind Leg",
-                    px(MASK_GROUP_BUTTON_WIDTH),
-                    MASK_GROUP_LEFT_HIND_LEG,
-                );
-                add_mask_group_control(
-                    parent,
-                    "Right Hind Leg",
-                    px(MASK_GROUP_BUTTON_WIDTH),
-                    MASK_GROUP_RIGHT_HIND_LEG,
-                );
-            });
-
-            add_mask_group_control(parent, "Tail", auto(), MASK_GROUP_TAIL);
-        });
+        },
+        children![
+            new_mask_group_control("Head", auto(), MASK_GROUP_HEAD),
+            (
+                Node {
+                    flex_direction: FlexDirection::Row,
+                    column_gap: px(6),
+                    ..default()
+                },
+                children![
+                    new_mask_group_control(
+                        "Left Front Leg",
+                        px(MASK_GROUP_BUTTON_WIDTH),
+                        MASK_GROUP_LEFT_FRONT_LEG,
+                    ),
+                    new_mask_group_control(
+                        "Right Front Leg",
+                        px(MASK_GROUP_BUTTON_WIDTH),
+                        MASK_GROUP_RIGHT_FRONT_LEG,
+                    )
+                ],
+            ),
+            (
+                Node {
+                    flex_direction: FlexDirection::Row,
+                    column_gap: px(6),
+                    ..default()
+                },
+                children![
+                    new_mask_group_control(
+                        "Left Hind Leg",
+                        px(MASK_GROUP_BUTTON_WIDTH),
+                        MASK_GROUP_LEFT_HIND_LEG,
+                    ),
+                    new_mask_group_control(
+                        "Right Hind Leg",
+                        px(MASK_GROUP_BUTTON_WIDTH),
+                        MASK_GROUP_RIGHT_HIND_LEG,
+                    )
+                ]
+            ),
+            new_mask_group_control("Tail", auto(), MASK_GROUP_TAIL),
+        ],
+    ));
 }
 
 // Adds a button that allows the user to toggle a mask group on and off.
 //
 // The button will automatically become a child of the parent that owns the
 // given `ChildSpawnerCommands`.
-fn add_mask_group_control(
-    parent: &mut ChildSpawnerCommands,
-    label: &str,
-    width: Val,
-    mask_group_id: u32,
-) {
+fn new_mask_group_control(label: &str, width: Val, mask_group_id: u32) -> impl Bundle {
     let button_text_style = (
         TextFont {
             font_size: 14.0,
@@ -243,69 +240,65 @@ fn add_mask_group_control(
         TextColor(Color::Srgba(LIGHT_GRAY)),
     );
 
-    parent
-        .spawn((
-            Node {
-                border: UiRect::all(px(1)),
-                width,
-                flex_direction: FlexDirection::Column,
-                justify_content: JustifyContent::Center,
-                align_items: AlignItems::Center,
-                padding: UiRect::ZERO,
-                margin: UiRect::ZERO,
-                ..default()
-            },
-            BorderColor::all(Color::WHITE),
-            BorderRadius::all(px(3)),
-            BackgroundColor(Color::BLACK),
-        ))
-        .with_children(|builder| {
-            builder
-                .spawn((
-                    Node {
-                        border: UiRect::ZERO,
-                        width: percent(100),
-                        justify_content: JustifyContent::Center,
-                        align_items: AlignItems::Center,
-                        padding: UiRect::ZERO,
-                        margin: UiRect::ZERO,
-                        ..default()
-                    },
-                    BackgroundColor(Color::BLACK),
-                ))
-                .with_child((
+    (
+        Node {
+            border: UiRect::all(px(1)),
+            width,
+            flex_direction: FlexDirection::Column,
+            justify_content: JustifyContent::Center,
+            align_items: AlignItems::Center,
+            padding: UiRect::ZERO,
+            margin: UiRect::ZERO,
+            ..default()
+        },
+        BorderColor::all(Color::WHITE),
+        BorderRadius::all(px(3)),
+        BackgroundColor(Color::BLACK),
+        children![
+            (
+                Node {
+                    border: UiRect::ZERO,
+                    width: percent(100),
+                    justify_content: JustifyContent::Center,
+                    align_items: AlignItems::Center,
+                    padding: UiRect::ZERO,
+                    margin: UiRect::ZERO,
+                    ..default()
+                },
+                BackgroundColor(Color::BLACK),
+                Children::spawn_one((
                     Text::new(label),
                     label_text_style.clone(),
                     Node {
                         margin: UiRect::vertical(px(3)),
                         ..default()
                     },
-                ));
-
-            builder
-                .spawn((
-                    Node {
-                        width: percent(100),
-                        flex_direction: FlexDirection::Row,
-                        justify_content: JustifyContent::Center,
-                        align_items: AlignItems::Center,
-                        border: UiRect::top(px(1)),
-                        ..default()
-                    },
-                    BorderColor::all(Color::WHITE),
                 ))
-                .with_children(|builder| {
-                    for (index, label) in [
+            ),
+            (
+                Node {
+                    width: percent(100),
+                    flex_direction: FlexDirection::Row,
+                    justify_content: JustifyContent::Center,
+                    align_items: AlignItems::Center,
+                    border: UiRect::top(px(1)),
+                    ..default()
+                },
+                BorderColor::all(Color::WHITE),
+                Children::spawn(SpawnIter(
+                    [
                         AnimationLabel::Run,
                         AnimationLabel::Walk,
                         AnimationLabel::Idle,
                         AnimationLabel::Off,
                     ]
-                    .iter()
+                    .into_iter()
                     .enumerate()
-                    {
-                        builder
-                            .spawn((
+                    .map({
+                        let button_text_style = button_text_style.clone();
+                        let selected_button_text_style = selected_button_text_style.clone();
+                        move |(index, label)| {
+                            (
                                 Button,
                                 BackgroundColor(if index > 0 {
                                     Color::BLACK
@@ -324,26 +317,29 @@ fn add_mask_group_control(
                                 BorderColor::all(Color::WHITE),
                                 AnimationControl {
                                     group_id: mask_group_id,
-                                    label: *label,
+                                    label,
                                 },
-                            ))
-                            .with_child((
-                                Text(format!("{label:?}")),
-                                if index > 0 {
-                                    button_text_style.clone()
-                                } else {
-                                    selected_button_text_style.clone()
-                                },
-                                TextLayout::new_with_justify(Justify::Center),
-                                Node {
-                                    flex_grow: 1.0,
-                                    margin: UiRect::vertical(px(3)),
-                                    ..default()
-                                },
-                            ));
-                    }
-                });
-        });
+                                Children::spawn_one((
+                                    Text(format!("{label:?}")),
+                                    if index > 0 {
+                                        button_text_style.clone()
+                                    } else {
+                                        selected_button_text_style.clone()
+                                    },
+                                    TextLayout::new_with_justify(Justify::Center),
+                                    Node {
+                                        flex_grow: 1.0,
+                                        margin: UiRect::vertical(px(3)),
+                                        ..default()
+                                    },
+                                )),
+                            )
+                        }
+                    })
+                ))
+            )
+        ],
+    )
 }
 
 // Builds up the animation graph, including the mask groups, and adds it to the
