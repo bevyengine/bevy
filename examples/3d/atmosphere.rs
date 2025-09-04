@@ -15,7 +15,10 @@ use bevy::{
         light_consts::lux, AtmosphereEnvironmentMapLight, CascadeShadowConfigBuilder, FogVolume,
         VolumetricFog, VolumetricLight,
     },
-    pbr::{Atmosphere, AtmosphereSettings},
+    pbr::{
+        Atmosphere, AtmosphereMode, AtmosphereSettings, DefaultOpaqueRendererMethod,
+        ScreenSpaceReflections,
+    },
     post_process::bloom::Bloom,
     prelude::*,
 };
@@ -23,7 +26,6 @@ use bevy::{
 #[derive(Resource, Default)]
 struct GameState {
     paused: bool,
-    atmosphere_mode: u32,
 }
 
 fn main() {
@@ -46,7 +48,6 @@ fn main() {
 
 fn print_controls() {
     println!("Atmosphere Example Controls:");
-    println!("    Spacebar   - Cycle through atmosphere modes");
     println!("    1          - Switch to default rendering method");
     println!("    2          - Switch to raymarched rendering method");
     println!("    Enter      - Pause/Resume sun motion");
@@ -56,11 +57,24 @@ fn print_controls() {
 fn atmosphere_controls(
     keyboard_input: Res<ButtonInput<KeyCode>>,
     mut atmosphere_settings: Query<&mut AtmosphereSettings>,
-    mut atmosphere: Query<&mut Atmosphere>,
     mut game_state: ResMut<GameState>,
     mut camera_exposure: Query<&mut Exposure, With<Camera3d>>,
     time: Res<Time>,
 ) {
+    if keyboard_input.just_pressed(KeyCode::Digit1) {
+        for mut settings in &mut atmosphere_settings {
+            settings.rendering_method = AtmosphereMode::LookupTexture;
+            println!("Switched to default rendering method");
+        }
+    }
+
+    if keyboard_input.just_pressed(KeyCode::Digit2) {
+        for mut settings in &mut atmosphere_settings {
+            settings.rendering_method = AtmosphereMode::Raymarched;
+            println!("Switched to raymarched rendering method");
+        }
+    }
+
     if keyboard_input.just_pressed(KeyCode::Enter) {
         game_state.paused = !game_state.paused;
     }
@@ -83,14 +97,14 @@ fn setup_camera_fog(mut commands: Commands) {
         Camera3d::default(),
         Transform::from_xyz(-1.2, 0.15, 0.0).looking_at(Vec3::Y * 0.1, Vec3::Y),
         // This is the component that enables atmospheric scattering for a camera
-        Atmosphere::EARTH.with_mie_density_multiplier(1.0),
+        Atmosphere::EARTH,
         // Can be adjusted to change the scene scale and rendering quality
         AtmosphereSettings::default(),
         // The directional light illuminance used in this scene
         // (the one recommended for use with this feature) is
         // quite bright, so raising the exposure compensation helps
         // bring the scene to a nicer brightness range.
-        Exposure { ev100: 12.0 },
+        Exposure { ev100: 13.0 },
         // Tonemapper chosen just because it looked good with the scene, any
         // tonemapper would be fine :)
         Tonemapping::AcesFitted,

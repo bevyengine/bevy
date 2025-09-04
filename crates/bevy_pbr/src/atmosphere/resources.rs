@@ -703,14 +703,14 @@ pub(super) fn prepare_atmosphere_bind_groups(
 #[repr(C)]
 pub(crate) struct AtmosphereData {
     pub atmosphere: Atmosphere,
-    pub settings: AtmosphereSettings,
+    pub settings: GpuAtmosphereSettings,
 }
 
 pub fn init_atmosphere_buffer(mut commands: Commands) {
     commands.insert_resource(AtmosphereBuffer {
         buffer: StorageBuffer::from(AtmosphereData {
             atmosphere: Atmosphere::default(),
-            settings: AtmosphereSettings::default(),
+            settings: GpuAtmosphereSettings::default(),
         }),
     });
 }
@@ -723,7 +723,7 @@ pub struct AtmosphereBuffer {
 pub(crate) fn write_atmosphere_buffer(
     device: Res<RenderDevice>,
     queue: Res<RenderQueue>,
-    atmosphere_entity: Query<(&Atmosphere, &AtmosphereSettings), With<Camera3d>>,
+    atmosphere_entity: Query<(&Atmosphere, &GpuAtmosphereSettings), With<Camera3d>>,
     mut atmosphere_buffer: ResMut<AtmosphereBuffer>,
 ) {
     let Ok((atmosphere, settings)) = atmosphere_entity.single() else {
