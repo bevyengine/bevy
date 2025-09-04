@@ -103,10 +103,10 @@ impl Plugin for AtmospherePlugin {
 
         app.add_plugins((
             ExtractComponentPlugin::<Atmosphere>::default(),
-            ExtractComponentPlugin::<AtmosphereSettings>::default(),
+            ExtractComponentPlugin::<GpuAtmosphereSettings>::default(),
             ExtractComponentPlugin::<AtmosphereEnvironmentMap>::default(),
             UniformComponentPlugin::<Atmosphere>::default(),
-            UniformComponentPlugin::<AtmosphereSettings>::default(),
+            UniformComponentPlugin::<GpuAtmosphereSettings>::default(),
         ))
         .add_systems(Update, prepare_atmosphere_probe_components);
     }
@@ -350,7 +350,7 @@ impl ExtractComponent for Atmosphere {
 /// The aerial-view lut is a 3d LUT fit to the view frustum, which stores the luminance
 /// scattered towards the camera at each point (RGB channels), alongside the average
 /// transmittance to that point (A channel).
-#[derive(Clone, Component, Reflect, ShaderType)]
+#[derive(Clone, Component, Reflect)]
 #[reflect(Clone, Default)]
 pub struct AtmosphereSettings {
     /// The size of the transmittance LUT
@@ -396,6 +396,13 @@ pub struct AtmosphereSettings {
     /// A conversion factor between scene units and meters, used to
     /// ensure correctness at different length scales.
     pub scene_units_to_m: f32,
+
+    /// The number of points to sample for each fragment when the using
+    /// ray marching to render the sky
+    pub sky_max_samples: u32,
+
+    /// The rendering method to use for the atmosphere.
+    pub rendering_method: AtmosphereMode,
 }
 
 impl Default for AtmosphereSettings {
@@ -412,19 +419,65 @@ impl Default for AtmosphereSettings {
             aerial_view_lut_samples: 10,
             aerial_view_lut_max_distance: 3.2e4,
             scene_units_to_m: 1.0,
+            sky_max_samples: 16,
+            rendering_method: AtmosphereMode::LookupTexture,
         }
     }
 }
 
-impl ExtractComponent for AtmosphereSettings {
+#[derive(Clone, Component, Reflect, ShaderType)]
+#[reflect(Default)]
+pub struct GpuAtmosphereSettings {
+    pub transmittance_lut_size: UVec2,
+    pub multiscattering_lut_size: UVec2,
+    pub sky_view_lut_size: UVec2,
+    pub aerial_view_lut_size: UVec3,
+    pub transmittance_lut_samples: u32,
+    pub multiscattering_lut_dirs: u32,
+    pub multiscattering_lut_samples: u32,
+    pub sky_view_lut_samples: u32,
+    pub aerial_view_lut_samples: u32,
+    pub aerial_view_lut_max_distance: f32,
+    pub scene_units_to_m: f32,
+    pub sky_max_samples: u32,
+    pub rendering_method: u32,
+}
+
+impl Default for GpuAtmosphereSettings {
+    fn default() -> Self {
+        AtmosphereSettings::default().into()
+    }
+}
+
+impl From<AtmosphereSettings> for GpuAtmosphereSettings {
+    fn from(s: AtmosphereSettings) -> Self {
+        Self {
+            transmittance_lut_size: s.transmittance_lut_size,
+            multiscattering_lut_size: s.multiscattering_lut_size,
+            sky_view_lut_size: s.sky_view_lut_size,
+            aerial_view_lut_size: s.aerial_view_lut_size,
+            transmittance_lut_samples: s.transmittance_lut_samples,
+            multiscattering_lut_dirs: s.multiscattering_lut_dirs,
+            multiscattering_lut_samples: s.multiscattering_lut_samples,
+            sky_view_lut_samples: s.sky_view_lut_samples,
+            aerial_view_lut_samples: s.aerial_view_lut_samples,
+            aerial_view_lut_max_distance: s.aerial_view_lut_max_distance,
+            scene_units_to_m: s.scene_units_to_m,
+            sky_max_samples: s.sky_max_samples,
+            rendering_method: s.rendering_method as u32,
+        }
+    }
+}
+
+impl ExtractComponent for GpuAtmosphereSettings {
     type QueryData = Read<AtmosphereSettings>;
 
     type QueryFilter = (With<Camera3d>, With<Atmosphere>);
 
-    type Out = AtmosphereSettings;
+    type Out = GpuAtmosphereSettings;
 
     fn extract_component(item: QueryItem<'_, '_, Self::QueryData>) -> Option<Self::Out> {
-        Some(item.clone())
+        Some(item.clone().into())
     }
 }
 
@@ -434,4 +487,24 @@ fn configure_camera_depth_usages(
     for mut camera in &mut cameras {
         camera.depth_texture_usages.0 |= TextureUsages::TEXTURE_BINDING.bits();
     }
+}
+
+/// Selects how the atmosphere is rendered. Choose based on scene scale and
+/// volumetric shadow quality, and based on performance needs.
+#[repr(u32)]
+#[derive(Clone, Default, Reflect, Copy)]
+pub enum AtmosphereMode {
+    /// High-performance solution tailored to scenes that are mostly inside of the atmosphere.
+    /// Uses a set of lookup textures to approximate scattering integration.
+    /// Slightly less accurate for very long-distance/space views (lighting precision
+    /// tapers as the camera moves far from the scene origin) and for sharp volumetric
+    /// (cloud/fog) shadows.
+    #[default]
+    LookupTexture = 0,
+    /// Slower, more accurate rendering method for any type of scene.
+    /// Integrates the scattering numerically with raymarching and produces sharp volumetric
+    /// (cloud/fog) shadows.
+    /// Best for cinematic shots, planets seen from orbit, and scenes requiring
+    /// accurate long-distance lighting.
+    Raymarched = 1,
 }

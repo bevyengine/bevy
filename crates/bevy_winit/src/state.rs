@@ -873,7 +873,7 @@ pub fn winit_runner<T: BufferedEvent>(mut app: App, event_loop: EventLoop<T>) ->
 
 pub(crate) fn react_to_resize(
     window_entity: Entity,
-    window: &mut Mut<'_, Window>,
+    window: &mut Window,
     size: PhysicalSize<u32>,
     window_resized: &mut EventWriter<WindowResized>,
 ) {
@@ -890,7 +890,7 @@ pub(crate) fn react_to_resize(
 
 pub(crate) fn react_to_scale_factor_change(
     window_entity: Entity,
-    window: &mut Mut<'_, Window>,
+    window: &mut Window,
     scale_factor: f64,
     window_backend_scale_factor_changed: &mut EventWriter<WindowBackendScaleFactorChanged>,
     window_scale_factor_changed: &mut EventWriter<WindowScaleFactorChanged>,
@@ -910,5 +910,112 @@ pub(crate) fn react_to_scale_factor_change(
             window: window_entity,
             scale_factor,
         });
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use bevy_app::Update;
+
+    use super::*;
+
+    #[test]
+    fn test_react_to_scale_factor_change_with_changed_scale_factor() {
+        let (mut app, window_entity) = setup_react_to_scale_factor_change_test_app(1.0, 2.0);
+        app.update();
+
+        let window = app.world().get::<Window>(window_entity);
+        assert_eq!(window.unwrap().resolution.scale_factor(), 2.0);
+
+        let window_backend_scale_factor_changed_events = app
+            .world()
+            .resource::<Events<WindowBackendScaleFactorChanged>>();
+        assert_eq!(window_backend_scale_factor_changed_events.len(), 1);
+
+        let mut window_backend_scale_factor_changed_events_iter =
+            window_backend_scale_factor_changed_events.iter_current_update_events();
+        assert_eq!(
+            window_backend_scale_factor_changed_events_iter.next(),
+            Some(&WindowBackendScaleFactorChanged {
+                window: window_entity,
+                scale_factor: 2.0,
+            })
+        );
+        assert_eq!(window_backend_scale_factor_changed_events_iter.next(), None);
+
+        let window_scale_factor_changed_events =
+            app.world().resource::<Events<WindowScaleFactorChanged>>();
+        assert_eq!(window_scale_factor_changed_events.len(), 1);
+
+        let mut window_scale_factor_changed_events_iter =
+            window_scale_factor_changed_events.iter_current_update_events();
+        assert_eq!(
+            window_scale_factor_changed_events_iter.next(),
+            Some(&WindowScaleFactorChanged {
+                window: window_entity,
+                scale_factor: 2.0,
+            })
+        );
+        assert_eq!(window_scale_factor_changed_events_iter.next(), None);
+    }
+
+    #[test]
+    fn test_react_to_scale_factor_change_with_same_scale_factor() {
+        let (mut app, window_entity) = setup_react_to_scale_factor_change_test_app(1.0, 1.0);
+        app.update();
+
+        let window = app.world().get::<Window>(window_entity);
+        assert_eq!(window.unwrap().resolution.scale_factor(), 1.0);
+
+        let window_backend_scale_factor_changed_events = app
+            .world()
+            .resource::<Events<WindowBackendScaleFactorChanged>>();
+        assert_eq!(window_backend_scale_factor_changed_events.len(), 1);
+
+        let mut window_backend_scale_factor_changed_events_iter =
+            window_backend_scale_factor_changed_events.iter_current_update_events();
+        assert_eq!(
+            window_backend_scale_factor_changed_events_iter.next(),
+            Some(&WindowBackendScaleFactorChanged {
+                window: window_entity,
+                scale_factor: 1.0,
+            })
+        );
+        assert_eq!(window_backend_scale_factor_changed_events_iter.next(), None);
+
+        let window_scale_factor_changed_events =
+            app.world().resource::<Events<WindowScaleFactorChanged>>();
+        assert!(window_scale_factor_changed_events.is_empty());
+    }
+
+    fn setup_react_to_scale_factor_change_test_app(
+        initial_scale_factor: f32,
+        changed_scale_factor: f64,
+    ) -> (App, Entity) {
+        let mut app = App::new();
+        app.add_event::<WindowBackendScaleFactorChanged>();
+        app.add_event::<WindowScaleFactorChanged>();
+        app.add_systems(
+            Update,
+            move |mut window: Single<(Entity, &mut Window)>,
+             mut window_backend_scale_factor_changed: EventWriter<
+                WindowBackendScaleFactorChanged,
+            >,
+             mut window_scale_factor_changed: EventWriter<WindowScaleFactorChanged>| {
+                react_to_scale_factor_change(
+                    window.0,
+                    &mut window.1,
+                    changed_scale_factor,
+                    &mut window_backend_scale_factor_changed,
+                    &mut window_scale_factor_changed,
+                );
+            },
+        );
+
+        let mut window = Window::default();
+        window.resolution.set_scale_factor(initial_scale_factor);
+        let window_entity = app.world_mut().spawn(window).id();
+
+        (app, window_entity)
     }
 }
