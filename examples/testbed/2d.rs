@@ -169,7 +169,7 @@ mod text {
             );
         }
 
-        let sans_serif = TextFont::from_font(asset_server.load("fonts/FiraSans-Bold.ttf"));
+        let sans_serif = TextFont::from(asset_server.load("fonts/FiraSans-Bold.ttf"));
 
         const NUM_ITERATIONS: usize = 10;
         for i in 0..NUM_ITERATIONS {
