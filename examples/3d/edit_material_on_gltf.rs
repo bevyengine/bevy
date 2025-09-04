@@ -1,17 +1,8 @@
 //! Showcases how to change the material of a `Scene` spawned from a Gltf
 
 use bevy::{
-    app::{App, PluginGroup, Startup},
-    asset::{AssetServer, Assets},
-    audio::AudioPlugin,
-    color::{palettes, Color},
-    gltf::GltfAssetLabel,
-    light::DirectionalLight,
-    math::{Dir3, Vec3},
-    pbr::{MeshMaterial3d, StandardMaterial},
-    prelude::{Camera3d, Children, Commands, Component, On, Query, Res, ResMut, Transform},
-    scene::{SceneInstanceReady, SceneRoot},
-    DefaultPlugins,
+    audio::AudioPlugin, color::palettes, gltf::GltfMaterialName, prelude::*,
+    scene::SceneInstanceReady,
 };
 
 fn main() {
@@ -62,33 +53,44 @@ fn change_material(
     mut commands: Commands,
     children: Query<&Children>,
     color_override: Query<&ColorOverride>,
-    mesh_materials: Query<&MeshMaterial3d<StandardMaterial>>,
+    mesh_materials: Query<(&MeshMaterial3d<StandardMaterial>, &GltfMaterialName)>,
     mut asset_materials: ResMut<Assets<StandardMaterial>>,
 ) {
-    // Get the `ColorOverride` of the entity, if it does not have a color override, skip
-    let Ok(color_override) = color_override.get(event.entity()) else {
-        return;
-    };
-
+    info!("processing Scene Entity: {}", event.entity());
     // Iterate over all children recursively
-    for descendants in children.iter_descendants(event.entity()) {
+    for descendant in children.iter_descendants(event.entity()) {
+        // Get the material id and name which were created from the glTF file information
+        let Ok((id, material_name)) = mesh_materials.get(descendant) else {
+            continue;
+        };
         // Get the material of the descendant
-        if let Some(material) = mesh_materials
-            .get(descendants)
-            .ok()
-            .and_then(|id| asset_materials.get_mut(id.id()))
-        {
-            // Create a copy of the material and override base color
-            // If you intend on creating multiple models with the same tint, it
-            // is best to cache the handle somewhere, as having multiple materials
-            // that are identical is expensive
-            let mut new_material = material.clone();
-            new_material.base_color = color_override.0;
+        let Some(material) = asset_materials.get_mut(id.id()) else {
+            continue;
+        };
 
-            // Override `MeshMaterial3d` with new material
-            commands
-                .entity(descendants)
-                .insert(MeshMaterial3d(asset_materials.add(new_material)));
+        // match on the material name, modifying the materials as necessary
+        match material_name.0.as_str() {
+            "LeatherPartsMat" => {
+                info!("editing LeatherPartsMat to use ColorOverride tint");
+                // Get the `ColorOverride` of the entity, if it does not have a color override, skip
+                let Ok(color_override) = color_override.get(event.entity()) else {
+                    continue;
+                };
+                // Create a copy of the material and override base color
+                // If you intend on creating multiple models with the same tint, it
+                // is best to cache the handle somewhere, as having multiple materials
+                // that are identical is expensive
+                let mut new_material = material.clone();
+                new_material.base_color = color_override.0;
+
+                // Override `MeshMaterial3d` with new material
+                commands
+                    .entity(descendant)
+                    .insert(MeshMaterial3d(asset_materials.add(new_material)));
+            }
+            name => {
+                info!("not replacing: {name}");
+            }
         }
     }
 }

@@ -48,9 +48,9 @@ pub fn main_ui_node() -> Node {
     Node {
         flex_direction: FlexDirection::Column,
         position_type: PositionType::Absolute,
-        row_gap: Val::Px(6.0),
-        left: Val::Px(10.0),
-        bottom: Val::Px(10.0),
+        row_gap: px(6),
+        left: px(10),
+        bottom: px(10),
         ..default()
     }
 }
@@ -80,7 +80,7 @@ pub fn spawn_option_button<T>(
         .spawn((
             Button,
             Node {
-                border: BUTTON_BORDER.with_left(if is_first { Val::Px(1.0) } else { Val::Px(0.0) }),
+                border: BUTTON_BORDER.with_left(if is_first { px(1) } else { px(0) }),
                 justify_content: JustifyContent::Center,
                 align_items: AlignItems::Center,
                 padding: BUTTON_PADDING,
@@ -91,12 +91,12 @@ pub fn spawn_option_button<T>(
                 .with_left(if is_first {
                     BUTTON_BORDER_RADIUS_SIZE
                 } else {
-                    Val::Px(0.0)
+                    px(0)
                 })
                 .with_right(if is_last {
                     BUTTON_BORDER_RADIUS_SIZE
                 } else {
-                    Val::Px(0.0)
+                    px(0)
                 }),
             BackgroundColor(bg_color),
         ))
@@ -129,7 +129,7 @@ pub fn spawn_option_buttons<T>(
         })
         .with_children(|parent| {
             spawn_ui_text(parent, title, Color::BLACK).insert(Node {
-                width: Val::Px(125.0),
+                width: px(125),
                 ..default()
             });
 

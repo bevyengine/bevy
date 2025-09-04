@@ -6,7 +6,6 @@ use bevy_camera::visibility::ViewVisibility;
 use bevy_color::LinearRgba;
 use bevy_ecs::{
     entity::Entity,
-    prelude::With,
     system::{Commands, Query, Res, ResMut},
 };
 use bevy_image::prelude::*;
@@ -18,7 +17,6 @@ use bevy_text::{
     ComputedTextBlock, PositionedGlyph, TextBackgroundColor, TextBounds, TextColor, TextLayoutInfo,
 };
 use bevy_transform::prelude::GlobalTransform;
-use bevy_window::{PrimaryWindow, Window};
 
 /// This system extracts the sprites from the 2D text components and adds them to the
 /// "render world".
@@ -27,7 +25,6 @@ pub fn extract_text2d_sprite(
     mut extracted_sprites: ResMut<ExtractedSprites>,
     mut extracted_slices: ResMut<ExtractedSlices>,
     texture_atlases: Extract<Res<Assets<TextureAtlasLayout>>>,
-    windows: Extract<Query<&Window, With<PrimaryWindow>>>,
     text2d_query: Extract<
         Query<(
             Entity,
@@ -46,13 +43,6 @@ pub fn extract_text2d_sprite(
     let mut start = extracted_slices.slices.len();
     let mut end = start + 1;
 
-    // TODO: Support window-independent scaling: https://github.com/bevyengine/bevy/issues/5621
-    let scale_factor = windows
-        .single()
-        .map(|window| window.resolution.scale_factor())
-        .unwrap_or(1.0);
-    let scaling = GlobalTransform::from_scale(Vec2::splat(scale_factor.recip()).extend(1.));
-
     for (
         main_entity,
         view_visibility,
@@ -64,6 +54,9 @@ pub fn extract_text2d_sprite(
         global_transform,
     ) in text2d_query.iter()
     {
+        let scaling = GlobalTransform::from_scale(
+            Vec2::splat(text_layout_info.scale_factor.recip()).extend(1.),
+        );
         if !view_visibility.get() {
             continue;
         }
