@@ -14,31 +14,9 @@ use crate::{
 /// while the last entry is the first node to receive interactions.
 #[derive(Debug, Resource, Default)]
 pub struct UiStack {
-    /// List of UI stack layers ordered from back-to-front
-    pub layers: Vec<UiStackLayer>,
-}
-
-#[derive(Debug)]
-pub struct UiStackLayer {
-    pub global_zindex: i32,
-    pub local_zindex: i32,
+    pub layers: Vec<core::ops::Range<usize>>,
     /// List of UI nodes ordered from back-to-front
-    pub nodes: Vec<Entity>,
-}
-
-impl UiStack {
-    pub fn iter(&self) -> impl Iterator<Item = Entity> {
-        self.layers
-            .iter()
-            .flat_map(|layer| layer.nodes.iter().cloned())
-    }
-
-    pub fn iter_rev(&self) -> impl Iterator<Item = Entity> {
-        self.layers
-            .iter()
-            .rev()
-            .flat_map(|layer| layer.nodes.iter().rev().cloned())
-    }
+    pub uinodes: Vec<Entity>,
 }
 
 #[derive(Default)]
@@ -74,6 +52,7 @@ pub fn ui_stack_system(
     mut update_query: Query<&mut ComputedNode>,
 ) {
     ui_stack.layers.clear();
+    ui_stack.uinodes.clear();
     visited_root_nodes.clear();
 
     for (id, maybe_global_zindex, maybe_zindex) in root_node_query.iter_many(ui_root_nodes.iter()) {
@@ -107,29 +86,21 @@ pub fn ui_stack_system(
     let mut layer_index = 0;
 
     for (root_entity, (global_zindex, local_zindex)) in root_nodes.drain(..) {
-        let mut nodes = vec![];
+        let start = ui_stack.uinodes.len();
         update_uistack_recursive(
             &mut cache,
             root_entity,
             &ui_children,
             &zindex_query,
-            &mut nodes,
+            &mut ui_stack.uinodes,
         );
-        for entity in nodes.iter() {
-            if let Ok(mut node) = update_query.get_mut(*entity) {
-                let node = node.bypass_change_detection();
-                node.layer_index = layer_index;
-                node.stack_index = stack_index;
-                stack_index += 1;
-            }
-        }
-        ui_stack.layers.push(UiStackLayer {
-            global_zindex,
-            local_zindex,
-            nodes,
-        });
+        ui_stack.layers.push(start..ui_stack.uinodes.len() + 1);
+    }
 
-        layer_index += 1;
+    for (i, entity) in ui_stack.uinodes.iter().enumerate() {
+        if let Ok(mut node) = update_query.get_mut(*entity) {
+            node.bypass_change_detection().stack_index = i as u32;
+        }
     }
 }
 
