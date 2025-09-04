@@ -3,8 +3,7 @@
 use crate::{
     bundle::Bundle,
     change_detection::MaybeLocation,
-    component::ComponentId,
-    event::{EntityComponentsTrigger, Event, PropagateEntityTrigger},
+    event::{Event, PropagateEntityTrigger},
     prelude::*,
     traversal::Traversal,
 };
@@ -156,15 +155,6 @@ impl<
     /// [`propagate`]: On::propagate
     pub fn get_propagate(&self) -> bool {
         self.trigger.propagate
-    }
-}
-
-impl<'w, E: EntityEvent + for<'t> Event<Trigger<'t> = EntityComponentsTrigger<'t>>, B: Bundle>
-    On<'w, E, B>
-{
-    /// A list of all components that were triggered for this [`EntityEvent`].
-    pub fn triggered_components(&self) -> &[ComponentId] {
-        self.trigger.0
     }
 }
 

@@ -172,7 +172,9 @@ impl<'w> DeferredWorld<'w> {
                 self.trigger_raw(
                     REPLACE,
                     &mut Replace { entity },
-                    &mut EntityComponentsTrigger(&[component_id]),
+                    &mut EntityComponentsTrigger {
+                        components: &[component_id],
+                    },
                     MaybeLocation::caller(),
                 );
             }
@@ -212,7 +214,9 @@ impl<'w> DeferredWorld<'w> {
                 self.trigger_raw(
                     INSERT,
                     &mut Insert { entity },
-                    &mut EntityComponentsTrigger(&[component_id]),
+                    &mut EntityComponentsTrigger {
+                        components: &[component_id],
+                    },
                     MaybeLocation::caller(),
                 );
             }

@@ -155,7 +155,9 @@ impl<'w> BundleRemover<'w> {
                 deferred_world.trigger_raw(
                     REPLACE,
                     &mut Replace { entity },
-                    &mut EntityComponentsTrigger(&components),
+                    &mut EntityComponentsTrigger {
+                        components: &components,
+                    },
                     caller,
                 );
             }
@@ -171,7 +173,9 @@ impl<'w> BundleRemover<'w> {
                 deferred_world.trigger_raw(
                     REMOVE,
                     &mut Remove { entity },
-                    &mut EntityComponentsTrigger(&components),
+                    &mut EntityComponentsTrigger {
+                        components: &components,
+                    },
                     caller,
                 );
             }

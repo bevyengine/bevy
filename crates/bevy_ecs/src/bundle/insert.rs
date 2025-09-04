@@ -169,7 +169,9 @@ impl<'w> BundleInserter<'w> {
                     deferred_world.trigger_raw(
                         REPLACE,
                         &mut Replace { entity },
-                        &mut EntityComponentsTrigger(&archetype_after_insert.existing),
+                        &mut EntityComponentsTrigger {
+                            components: &archetype_after_insert.existing,
+                        },
                         caller,
                     );
                 }
@@ -354,7 +356,9 @@ impl<'w> BundleInserter<'w> {
                 deferred_world.trigger_raw(
                     ADD,
                     &mut Add { entity },
-                    &mut EntityComponentsTrigger(&archetype_after_insert.added),
+                    &mut EntityComponentsTrigger {
+                        components: &archetype_after_insert.added,
+                    },
                     caller,
                 );
             }
@@ -374,9 +378,11 @@ impl<'w> BundleInserter<'w> {
                             &mut Insert { entity },
                             // PERF: this is not a regression from what we were doing before, but ideally we don't
                             // need to collect here
-                            &mut EntityComponentsTrigger(
-                                &archetype_after_insert.iter_inserted().collect::<Vec<_>>(),
-                            ),
+                            &mut EntityComponentsTrigger {
+                                components: &archetype_after_insert
+                                    .iter_inserted()
+                                    .collect::<Vec<_>>(),
+                            },
                             caller,
                         );
                     }
@@ -395,7 +401,9 @@ impl<'w> BundleInserter<'w> {
                         deferred_world.trigger_raw(
                             INSERT,
                             &mut Insert { entity },
-                            &mut EntityComponentsTrigger(&archetype_after_insert.added),
+                            &mut EntityComponentsTrigger {
+                                components: &archetype_after_insert.added,
+                            },
                             caller,
                         );
                     }

@@ -605,7 +605,9 @@ mod tests {
         // trigger for an entity and a component
         world.trigger_with(
             EntityComponentsEvent(entity_1),
-            EntityComponentsTrigger(&[component_a]),
+            EntityComponentsTrigger {
+                components: &[component_a],
+            },
         );
         // only observer that doesn't trigger is the one only watching entity_2
         assert_eq!(1111101, world.resource::<R>().0);
@@ -614,11 +616,11 @@ mod tests {
         // trigger for both entities, but no components: trigger once per entity target
         world.trigger_with(
             EntityComponentsEvent(entity_1),
-            EntityComponentsTrigger(&[]),
+            EntityComponentsTrigger { components: &[] },
         );
         world.trigger_with(
             EntityComponentsEvent(entity_2),
-            EntityComponentsTrigger(&[]),
+            EntityComponentsTrigger { components: &[] },
         );
 
         // only the observer that doesn't require components triggers - once per entity
@@ -629,11 +631,15 @@ mod tests {
         // we only get 2222211 because a given observer can trigger only once per entity target
         world.trigger_with(
             EntityComponentsEvent(entity_1),
-            EntityComponentsTrigger(&[component_a, component_b]),
+            EntityComponentsTrigger {
+                components: &[component_a, component_b],
+            },
         );
         world.trigger_with(
             EntityComponentsEvent(entity_2),
-            EntityComponentsTrigger(&[component_a, component_b]),
+            EntityComponentsTrigger {
+                components: &[component_a, component_b],
+            },
         );
         assert_eq!(2222211, world.resource::<R>().0);
         world.resource_mut::<R>().0 = 0;

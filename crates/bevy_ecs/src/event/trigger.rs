@@ -230,7 +230,12 @@ impl<const AUTO_PROPAGATE: bool, E: EntityEvent, T: Traversal<E>> Trigger<E>
 ///
 /// This is used by Bevy's built-in [lifecycle events](crate::lifecycle).
 #[derive(Default)]
-pub struct EntityComponentsTrigger<'a>(pub &'a [ComponentId]);
+pub struct EntityComponentsTrigger<'a> {
+    /// All of the components whose observers were triggered together for the target entity. For example,
+    /// if components `A` and `B` are added together, producing the [`Add`](crate::lifecycle::Add) event, this will
+    /// contain the [`ComponentId`] for both `A` and `B`.
+    pub components: &'a [ComponentId],
+}
 
 impl<'a, E: EntityEvent> Trigger<E> for EntityComponentsTrigger<'a> {
     fn trigger(
@@ -265,7 +270,7 @@ impl<'a> EntityComponentsTrigger<'a> {
         );
 
         // Trigger observers watching for a specific component
-        for id in self.0 {
+        for id in self.components {
             if let Some(component_observers) = observers.component_observers().get(id) {
                 for (observer, runner) in component_observers.global_observers() {
                     (runner)(

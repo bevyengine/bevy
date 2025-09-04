@@ -139,7 +139,9 @@ impl<'w> BundleSpawner<'w> {
                 deferred_world.trigger_raw(
                     ADD,
                     &mut Add { entity },
-                    &mut EntityComponentsTrigger(bundle_info.contributed_components()),
+                    &mut EntityComponentsTrigger {
+                        components: bundle_info.contributed_components(),
+                    },
                     caller,
                 );
             }
@@ -154,7 +156,9 @@ impl<'w> BundleSpawner<'w> {
                 deferred_world.trigger_raw(
                     INSERT,
                     &mut Insert { entity },
-                    &mut EntityComponentsTrigger(bundle_info.contributed_components()),
+                    &mut EntityComponentsTrigger {
+                        components: bundle_info.contributed_components(),
+                    },
                     caller,
                 );
             }

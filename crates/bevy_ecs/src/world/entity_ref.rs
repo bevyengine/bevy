@@ -2582,7 +2582,9 @@ impl<'w> EntityWorldMut<'w> {
                     &mut Despawn {
                         entity: self.entity,
                     },
-                    &mut EntityComponentsTrigger(archetype.components()),
+                    &mut EntityComponentsTrigger {
+                        components: archetype.components(),
+                    },
                     caller,
                 );
             }
@@ -2598,7 +2600,9 @@ impl<'w> EntityWorldMut<'w> {
                     &mut Replace {
                         entity: self.entity,
                     },
-                    &mut EntityComponentsTrigger(archetype.components()),
+                    &mut EntityComponentsTrigger {
+                        components: archetype.components(),
+                    },
                     caller,
                 );
             }
@@ -2615,7 +2619,9 @@ impl<'w> EntityWorldMut<'w> {
                     &mut Remove {
                         entity: self.entity,
                     },
-                    &mut EntityComponentsTrigger(archetype.components()),
+                    &mut EntityComponentsTrigger {
+                        components: archetype.components(),
+                    },
                     caller,
                 );
             }
