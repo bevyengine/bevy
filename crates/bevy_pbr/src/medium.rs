@@ -102,6 +102,8 @@ pub struct ScatteringMedium {
 }
 
 impl ScatteringMedium {
+    // Returns a scattering medium with a default label and the
+    // specified scattering terms.
     pub fn new(
         falloff_resolution: u32,
         phase_resolution: u32,
@@ -115,6 +117,7 @@ impl ScatteringMedium {
         }
     }
 
+    // Consumes and returns this scattering medium with a new label.
     pub fn with_label(self, label: impl Into<Cow<'static, str>>) -> Self {
         Self {
             label: Some(label.into()),
@@ -122,6 +125,8 @@ impl ScatteringMedium {
         }
     }
 
+    // Consumes and returns this scattering medium with each scattering terms'
+    // densities multiplied by `multiplier`.
     pub fn with_density_multiplier(mut self, multiplier: f32) -> Self {
         self.terms.iter_mut().for_each(|term| {
             term.absorption *= multiplier;
@@ -131,6 +136,7 @@ impl ScatteringMedium {
         self
     }
 
+    /// Returns a scattering medium representing an earthlike atmosphere.
     pub fn earth_atmosphere() -> Self {
         Self::new(
             256,
@@ -211,6 +217,12 @@ impl Falloff {
     }
 }
 
+// TODO: make more clear how phase functions really represent the scattering characteristics of
+// their media, and the link to whether it should be wavelength-dependent or not.
+
+/// Describes how likely a medium is to scatter light in a given direction.
+///
+///
 #[derive(Clone)]
 pub enum PhaseFunction {
     Isotropic,
@@ -219,7 +231,20 @@ pub enum PhaseFunction {
         /// domain: [-1, 1]
         bias: f32,
     },
-    /// A phase function defined by a custom curve.
+    /// A phase function defined by a custom curve, where the input
+    /// is the cosine of the angle between the incoming light ray
+    /// and the scattered light ray, and the output is the fraction
+    /// of the incoming light scattered in that direction.
+    ///
+    /// Note: it's important for photorealism that the phase function
+    /// be *energy conserving*, meaning that in total no more light can
+    /// be scattered than actually entered the medium. For this to be
+    /// the case, the integral of the phase function over its domain must
+    /// be equal to 1/2π.
+    ///
+    ///   1
+    /// ∫   p(x) dx = 1/2π
+    ///  -1
     ///
     /// domain: [-1, 1]
     /// range: [0, 1]
@@ -227,6 +252,7 @@ pub enum PhaseFunction {
 }
 
 impl PhaseFunction {
+    /// A phase function defined by a custom curve.
     pub fn from_curve(curve: impl Curve<f32> + Send + Sync + 'static) -> Self {
         Self::Curve(Arc::new(curve))
     }
@@ -252,6 +278,7 @@ impl Default for PhaseFunction {
     }
 }
 
+/// The GPU representation of a `ScatteringMedium`.
 pub struct GpuScatteringMedium {
     pub terms: SmallVec<[ScatteringTerm; 1]>,
     pub falloff_resolution: u32,
@@ -402,6 +429,9 @@ impl RenderAsset for GpuScatteringMedium {
     }
 }
 
+/// The default sampler for all scattering media LUTs.
+///
+/// Just a bilinear clamp-to-edge sampler, nothing fancy.
 #[derive(Resource)]
 pub struct ScatteringMediumSampler(Sampler);
 
