@@ -4,8 +4,8 @@ use bevy_ecs::{
     event::EventRegistry,
     prelude::*,
     schedule::{
-        InternedScheduleLabel, InternedSystemSet, ScheduleBuildSettings, ScheduleError,
-        ScheduleLabel,
+        InternedScheduleLabel, InternedSystemSet, ScheduleBuildSettings, ScheduleCleanupPolicy,
+        ScheduleError, ScheduleLabel,
     },
     system::{ScheduleSystem, SystemId, SystemInput},
 };
@@ -227,9 +227,10 @@ impl SubApp {
         &mut self,
         schedule: impl ScheduleLabel,
         set: impl IntoSystemSet<M>,
+        policy: ScheduleCleanupPolicy,
     ) -> Result<usize, ScheduleError> {
         self.world.schedule_scope(schedule, |world, schedule| {
-            schedule.remove_systems_in_set(set, world)
+            schedule.remove_systems_in_set(set, world, policy)
         })
     }
 

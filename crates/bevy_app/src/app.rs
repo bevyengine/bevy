@@ -14,7 +14,10 @@ use bevy_ecs::{
     event::{event_update_system, EventCursor},
     intern::Interned,
     prelude::*,
-    schedule::{InternedSystemSet, ScheduleBuildSettings, ScheduleError, ScheduleLabel},
+    schedule::{
+        InternedSystemSet, ScheduleBuildSettings, ScheduleCleanupPolicy, ScheduleError,
+        ScheduleLabel,
+    },
     system::{IntoObserverSystem, ScheduleSystem, SystemId, SystemInput},
 };
 use bevy_platform::collections::HashMap;
@@ -339,8 +342,9 @@ impl App {
         &mut self,
         schedule: impl ScheduleLabel,
         set: impl IntoSystemSet<M>,
+        policy: ScheduleCleanupPolicy,
     ) -> Result<usize, ScheduleError> {
-        self.main_mut().remove_systems_in_set(schedule, set)
+        self.main_mut().remove_systems_in_set(schedule, set, policy)
     }
 
     /// Registers a system and returns a [`SystemId`] so it can later be called by [`World::run_system`].

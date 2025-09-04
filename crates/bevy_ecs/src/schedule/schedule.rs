@@ -2915,5 +2915,52 @@ mod tests {
     }
 
     #[test]
-    fn remove_a_system_and_reuse_set() {}
+    fn remove_a_system_and_still_ordered() {
+        #[derive(Resource)]
+        struct A;
+
+        fn system_1(_: ResMut<A>) {}
+        fn system_2() {}
+        fn system_3(_: ResMut<A>) {}
+
+        let mut schedule = Schedule::default();
+        schedule.add_systems((system_1, system_2, system_3).chain());
+        let mut world = World::new();
+
+        let _ = schedule.remove_systems_in_set(
+            system_2,
+            &mut world,
+            ScheduleCleanupPolicy::FixSetAndSystems,
+        );
+
+        let result = schedule.initialize(&mut world);
+        assert!(result.is_ok());
+        let conflicts = schedule.graph().conflicting_systems();
+        assert!(conflicts.is_empty());
+    }
+
+    #[test]
+    fn remove_a_set_and_still_ordered() {
+        #[derive(Resource)]
+        struct A;
+
+        #[derive(SystemSet, Hash, PartialEq, Eq, Clone, Debug)]
+        struct B;
+
+        fn system_1(_: ResMut<A>) {}
+        fn system_2() {}
+        fn system_3(_: ResMut<A>) {}
+
+        let mut schedule = Schedule::default();
+        schedule.add_systems((system_1.before(B), system_2, system_3.after(B)));
+        let mut world = World::new();
+
+        let _ =
+            schedule.remove_systems_in_set(B, &mut world, ScheduleCleanupPolicy::FixSetAndSystems);
+
+        let result = schedule.initialize(&mut world);
+        assert!(result.is_ok());
+        let conflicts = schedule.graph().conflicting_systems();
+        assert!(conflicts.is_empty());
+    }
 }
