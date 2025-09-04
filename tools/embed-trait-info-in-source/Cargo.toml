@@ -1,0 +1,8 @@
+[package]
+name = "embed-trait-info-in-source"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+rustdoc-types = "0.35"
+serde_json = "1"
