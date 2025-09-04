@@ -19,7 +19,7 @@ use camera_controller::{CameraController, CameraControllerPlugin};
 use std::f32::consts::PI;
 
 #[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))]
-use bevy::anti_aliasing::dlss::{
+use bevy::anti_alias::dlss::{
     Dlss, DlssProjectId, DlssRayReconstructionFeature, DlssRayReconstructionSupported,
 };
 

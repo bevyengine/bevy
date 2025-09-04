@@ -19,8 +19,8 @@ pub mod smaa;
 pub mod taa;
 
 #[derive(Default)]
-pub struct AntiAliasingPlugin;
-impl Plugin for AntiAliasingPlugin {
+pub struct AntiAliasPlugin;
+impl Plugin for AntiAliasPlugin {
     fn build(&self, app: &mut bevy_app::App) {
         app.add_plugins((
             FxaaPlugin,
