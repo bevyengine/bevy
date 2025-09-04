@@ -7,14 +7,11 @@ use bevy::{
         InputDispatchPlugin, InputFocus,
     },
     prelude::*,
-    winit::WinitSettings,
 };
 
 fn main() {
     App::new()
         .add_plugins((DefaultPlugins, InputDispatchPlugin, TabNavigationPlugin))
-        // Only run the app when there is user input. This will significantly reduce CPU/GPU use.
-        .insert_resource(WinitSettings::desktop_app())
         .add_systems(Startup, setup)
         .add_systems(Update, (button_system, focus_system))
         .run();

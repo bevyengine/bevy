@@ -89,7 +89,7 @@ mod image {
 }
 
 mod text {
-    use bevy::prelude::*;
+    use bevy::{color::palettes::css::*, prelude::*};
 
     pub fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         commands.spawn((Camera2d, DespawnOnExitState(super::Scene::Text)));
@@ -101,6 +101,113 @@ mod text {
                 ..default()
             },
             DespawnOnExitState(super::Scene::Text),
+        ));
+
+        commands.spawn((
+            Node {
+                left: px(100.),
+                top: px(250.),
+                ..Default::default()
+            },
+            Text::new("white "),
+            TextFont {
+                font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                ..default()
+            },
+            DespawnOnExitState(super::Scene::Text),
+            children![
+                (TextSpan::new("red "), TextColor(RED.into()),),
+                (TextSpan::new("green "), TextColor(GREEN.into()),),
+                (TextSpan::new("blue "), TextColor(BLUE.into()),),
+                (
+                    TextSpan::new("black"),
+                    TextColor(Color::BLACK),
+                    TextFont {
+                        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                        ..default()
+                    },
+                    TextBackgroundColor(Color::WHITE)
+                ),
+            ],
+        ));
+
+        commands.spawn((
+            Node {
+                left: px(100.),
+                top: px(300.),
+                ..Default::default()
+            },
+            Text::new(""),
+            TextFont {
+                font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                ..default()
+            },
+            DespawnOnExitState(super::Scene::Text),
+            children![
+                (
+                    TextSpan::new("white "),
+                    TextFont {
+                        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                        ..default()
+                    }
+                ),
+                (TextSpan::new("red "), TextColor(RED.into()),),
+                (TextSpan::new("green "), TextColor(GREEN.into()),),
+                (TextSpan::new("blue "), TextColor(BLUE.into()),),
+                (
+                    TextSpan::new("black"),
+                    TextColor(Color::BLACK),
+                    TextFont {
+                        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                        ..default()
+                    },
+                    TextBackgroundColor(Color::WHITE)
+                ),
+            ],
+        ));
+
+        commands.spawn((
+            Node {
+                left: px(100.),
+                top: px(350.),
+                ..Default::default()
+            },
+            Text::new(""),
+            TextFont {
+                font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                ..default()
+            },
+            DespawnOnExitState(super::Scene::Text),
+            children![
+                (TextSpan::new(""), TextColor(YELLOW.into()),),
+                TextSpan::new(""),
+                (
+                    TextSpan::new("white "),
+                    TextFont {
+                        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                        ..default()
+                    }
+                ),
+                TextSpan::new(""),
+                (TextSpan::new("red "), TextColor(RED.into()),),
+                TextSpan::new(""),
+                TextSpan::new(""),
+                (TextSpan::new("green "), TextColor(GREEN.into()),),
+                (TextSpan::new(""), TextColor(YELLOW.into()),),
+                (TextSpan::new("blue "), TextColor(BLUE.into()),),
+                TextSpan::new(""),
+                (TextSpan::new(""), TextColor(YELLOW.into()),),
+                (
+                    TextSpan::new("black"),
+                    TextColor(Color::BLACK),
+                    TextFont {
+                        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                        ..default()
+                    },
+                    TextBackgroundColor(Color::WHITE)
+                ),
+                TextSpan::new(""),
+            ],
         ));
     }
 }

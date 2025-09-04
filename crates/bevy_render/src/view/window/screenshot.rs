@@ -340,6 +340,9 @@ fn prepare_screenshots(
                     OutputColorAttachment::new(texture_view.clone(), format.add_srgb_suffix()),
                 );
             }
+            NormalizedRenderTarget::None { .. } => {
+                // Nothing to screenshot!
+            }
         }
     }
 }
@@ -561,6 +564,9 @@ pub(crate) fn submit_screenshot_commands(world: &World, encoder: &mut CommandEnc
                     texture_format,
                     texture_view,
                 );
+            }
+            NormalizedRenderTarget::None { .. } => {
+                // Nothing to screenshot!
             }
         };
     }

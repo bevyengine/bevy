@@ -2304,7 +2304,10 @@ impl<'w> EntityWorldMut<'w> {
         let mut registrator = unsafe {
             ComponentsRegistrator::new(&mut self.world.components, &mut self.world.component_ids)
         };
-        let bundle_id = bundles.register_contributed_bundle_info::<T>(&mut registrator, storages);
+
+        // SAFETY: `storages`, `bundles` and `registrator` come from the same world.
+        let bundle_id =
+            unsafe { bundles.register_contributed_bundle_info::<T>(&mut registrator, storages) };
 
         // SAFETY: We just created the bundle, and the archetype is valid, since we are in it.
         let Some(mut remover) = (unsafe {
@@ -2351,10 +2354,13 @@ impl<'w> EntityWorldMut<'w> {
             ComponentsRegistrator::new(&mut self.world.components, &mut self.world.component_ids)
         };
 
-        let retained_bundle = self
-            .world
-            .bundles
-            .register_info::<T>(&mut registrator, storages);
+        // SAFETY: `storages`, `bundles` and `registrator` come from the same world.
+        let retained_bundle = unsafe {
+            self.world
+                .bundles
+                .register_info::<T>(&mut registrator, storages)
+        };
+
         // SAFETY: `retained_bundle` exists as we just initialized it.
         let retained_bundle_info = unsafe { self.world.bundles.get_unchecked(retained_bundle) };
         let old_archetype = &mut archetypes[old_location.archetype_id];
