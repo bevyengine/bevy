@@ -91,7 +91,7 @@ mod light {
                 perceptual_roughness: 1.0,
                 ..default()
             })),
-            DespawnOnExitState(CURRENT_SCENE),
+            DespawnOnExit(CURRENT_SCENE),
         ));
 
         commands.spawn((
@@ -101,7 +101,7 @@ mod light {
                 ..default()
             })),
             Transform::from_xyz(0.0, 1.0, 0.0),
-            DespawnOnExitState(CURRENT_SCENE),
+            DespawnOnExit(CURRENT_SCENE),
         ));
 
         commands.spawn((
@@ -112,7 +112,7 @@ mod light {
                 ..default()
             },
             Transform::from_xyz(1.0, 2.0, 0.0),
-            DespawnOnExitState(CURRENT_SCENE),
+            DespawnOnExit(CURRENT_SCENE),
         ));
 
         commands.spawn((
@@ -125,7 +125,7 @@ mod light {
                 ..default()
             },
             Transform::from_xyz(-1.0, 2.0, 0.0).looking_at(Vec3::new(-1.0, 0.0, 0.0), Vec3::Z),
-            DespawnOnExitState(CURRENT_SCENE),
+            DespawnOnExit(CURRENT_SCENE),
         ));
 
         commands.spawn((
@@ -139,13 +139,13 @@ mod light {
                 rotation: Quat::from_rotation_x(-PI / 4.),
                 ..default()
             },
-            DespawnOnExitState(CURRENT_SCENE),
+            DespawnOnExit(CURRENT_SCENE),
         ));
 
         commands.spawn((
             Camera3d::default(),
             Transform::from_xyz(-2.0, 2.5, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
-            DespawnOnExitState(CURRENT_SCENE),
+            DespawnOnExit(CURRENT_SCENE),
         ));
     }
 }
@@ -168,7 +168,7 @@ mod bloom {
             Tonemapping::TonyMcMapface,
             Transform::from_xyz(-2.0, 2.5, 5.0).looking_at(Vec3::ZERO, Vec3::Y),
             Bloom::NATURAL,
-            DespawnOnExitState(CURRENT_SCENE),
+            DespawnOnExit(CURRENT_SCENE),
         ));
 
         let material_emissive1 = materials.add(StandardMaterial {
@@ -193,7 +193,7 @@ mod bloom {
                 Mesh3d(mesh.clone()),
                 MeshMaterial3d(material),
                 Transform::from_xyz(z as f32 * 2.0, 0.0, 0.0),
-                DespawnOnExitState(CURRENT_SCENE),
+                DespawnOnExit(CURRENT_SCENE),
             ));
         }
     }
@@ -214,7 +214,7 @@ mod gltf {
                 intensity: 250.0,
                 ..default()
             },
-            DespawnOnExitState(CURRENT_SCENE),
+            DespawnOnExit(CURRENT_SCENE),
         ));
 
         commands.spawn((
@@ -222,13 +222,13 @@ mod gltf {
                 shadows_enabled: true,
                 ..default()
             },
-            DespawnOnExitState(CURRENT_SCENE),
+            DespawnOnExit(CURRENT_SCENE),
         ));
         commands.spawn((
             SceneRoot(asset_server.load(
                 GltfAssetLabel::Scene(0).from_asset("models/FlightHelmet/FlightHelmet.gltf"),
             )),
-            DespawnOnExitState(CURRENT_SCENE),
+            DespawnOnExit(CURRENT_SCENE),
         ));
     }
 }
@@ -265,7 +265,7 @@ mod animation {
         commands.spawn((
             Camera3d::default(),
             Transform::from_xyz(100.0, 100.0, 150.0).looking_at(Vec3::new(0.0, 20.0, 0.0), Vec3::Y),
-            DespawnOnExitState(CURRENT_SCENE),
+            DespawnOnExit(CURRENT_SCENE),
         ));
 
         commands.spawn((
@@ -274,13 +274,13 @@ mod animation {
                 shadows_enabled: true,
                 ..default()
             },
-            DespawnOnExitState(CURRENT_SCENE),
+            DespawnOnExit(CURRENT_SCENE),
         ));
 
         commands
             .spawn((
                 SceneRoot(asset_server.load(GltfAssetLabel::Scene(0).from_asset(FOX_PATH))),
-                DespawnOnExitState(CURRENT_SCENE),
+                DespawnOnExit(CURRENT_SCENE),
             ))
             .observe(pause_animation_frame);
     }
@@ -316,7 +316,7 @@ mod gizmos {
         commands.spawn((
             Camera3d::default(),
             Transform::from_xyz(-1.0, 2.5, 6.5).looking_at(Vec3::ZERO, Vec3::Y),
-            DespawnOnExitState(super::Scene::Gizmos),
+            DespawnOnExit(super::Scene::Gizmos),
         ));
     }
 
@@ -363,7 +363,7 @@ mod gltf_coordinate_conversion {
         commands.spawn((
             Camera3d::default(),
             Transform::from_xyz(-4.0, 4.0, -5.0).looking_at(Vec3::ZERO, Vec3::Y),
-            DespawnOnExitState(CURRENT_SCENE),
+            DespawnOnExit(CURRENT_SCENE),
         ));
 
         commands.spawn((
@@ -372,7 +372,7 @@ mod gltf_coordinate_conversion {
                 ..default()
             },
             Transform::IDENTITY.looking_to(Dir3::Z, Dir3::Y),
-            DespawnOnExitState(CURRENT_SCENE),
+            DespawnOnExit(CURRENT_SCENE),
         ));
 
         commands.spawn((
@@ -381,7 +381,7 @@ mod gltf_coordinate_conversion {
                 ..default()
             },
             Transform::IDENTITY.looking_to(Dir3::X, Dir3::Y),
-            DespawnOnExitState(CURRENT_SCENE),
+            DespawnOnExit(CURRENT_SCENE),
         ));
 
         commands.spawn((
@@ -390,7 +390,7 @@ mod gltf_coordinate_conversion {
                 ..default()
             },
             Transform::IDENTITY.looking_to(Dir3::NEG_Y, Dir3::X),
-            DespawnOnExitState(CURRENT_SCENE),
+            DespawnOnExit(CURRENT_SCENE),
         ));
 
         commands
@@ -401,7 +401,7 @@ mod gltf_coordinate_conversion {
                         s.use_model_forward_direction = Some(true);
                     },
                 )),
-                DespawnOnExitState(CURRENT_SCENE),
+                DespawnOnExit(CURRENT_SCENE),
             ))
             .observe(show_aabbs);
     }

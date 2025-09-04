@@ -69,8 +69,8 @@ pub trait States: 'static + Send + Sync + Clone + PartialEq + Eq + Hash + Debug 
 
     /// Should [state scoping](crate::state_scoped) be enabled for this state?
     /// If set to `true`, the
-    /// [`DespawnOnEnterState`](crate::state_scoped::DespawnOnEnterState) and
-    /// [`DespawnOnExitState`](crate::state_scoped::DespawnOnEnterState)
+    /// [`DespawnOnEnter`](crate::state_scoped::DespawnOnEnter) and
+    /// [`DespawnOnExit`](crate::state_scoped::DespawnOnExit)
     /// components are used to remove entities when entering or exiting the
     /// state.
     const SCOPED_ENTITIES_ENABLED: bool = false;
