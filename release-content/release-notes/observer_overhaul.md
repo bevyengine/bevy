@@ -231,7 +231,6 @@ In **Bevy 0.17**, [`Event`] is now _exclusively_ the name/trait for the concept 
 
 It is still possible to support both contexts by implementing _both traits_, but we expect that to be significantly less common than just choosing one.
 
-
 [`Event`]: https://dev-docs.bevy.org/bevy/ecs/event/trait.Event.html
 [`Trigger`]: `https://dev-docs.bevy.org/bevy/ecs/event/trait.Trigger.html`
 [`GlobalTrigger`]: `https://dev-docs.bevy.org/bevy/ecs/event/type.GlobalTrigger.html`
