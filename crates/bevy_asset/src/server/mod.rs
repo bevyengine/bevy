@@ -1906,7 +1906,7 @@ pub enum AssetLoadError {
         actual_asset_name: &'static str,
         loader_name: &'static str,
     },
-    #[error("Could not find an asset loader matching: Loader Name: {loader_name:?}; Asset Type: {loader_name:?}; Extension: {extension:?}; Path: {asset_path:?};")]
+    #[error("Could not find an asset loader matching: Loader Name: {loader_name:?}; Asset Type: {asset_type_id:?}; Extension: {extension:?}; Path: {asset_path:?};")]
     MissingAssetLoader {
         loader_name: Option<String>,
         asset_type_id: Option<TypeId>,
