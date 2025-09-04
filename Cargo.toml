@@ -136,7 +136,7 @@ default = [
   "bevy_color",
   "bevy_core_pipeline",
   "bevy_core_widgets",
-  "bevy_anti_aliasing",
+  "bevy_anti_alias",
   "bevy_gilrs",
   "bevy_gizmos",
   "bevy_gltf",
@@ -217,7 +217,7 @@ bevy_color = ["bevy_internal/bevy_color"]
 bevy_core_pipeline = ["bevy_internal/bevy_core_pipeline"]
 
 # Provides various anti aliasing solutions
-bevy_anti_aliasing = ["bevy_internal/bevy_anti_aliasing"]
+bevy_anti_alias = ["bevy_internal/bevy_anti_alias"]
 
 # Adds gamepad support
 bevy_gilrs = ["bevy_internal/bevy_gilrs"]
