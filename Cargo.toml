@@ -3520,6 +3520,17 @@ category = "UI (User Interface)"
 wasm = true
 
 [[example]]
+name = "text_field"
+path = "examples/ui/text_field.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.text_field]
+name = "Single Line Text Input"
+description = "Example demonstrating a single line text input"
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
 name = "text_background_colors"
 path = "examples/ui/text_background_colors.rs"
 doc-scrape-examples = true
