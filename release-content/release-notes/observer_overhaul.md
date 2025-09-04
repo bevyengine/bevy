@@ -10,7 +10,7 @@ Bevy's Observer API landed a few releases ago, and it has quickly become one of 
 2. **The API was not "static" enough**: This relates to (1). Because a given [`Event`] type could be used by and produced for _any context_, we had to provide access to _every possible API_ for _every event type_. It should not be possible to trigger an "entity event" without an entity! An Observer of an event that was not designed to have a target entity should not have an `entity()` field! Every [`Event`] impl had to define an "entity propagation traversal", even it was not designed to propagate (and even if it didn't target entities at all!). Events should be self documenting, impossible to produce or consume in the wrong context, and should only encode the information that is necessary for that event.
 3. **The API did too much work**: Because events could be produced and used in any context, this meant that they all branched through code for every possible context. This incurred unnecessary overhead. It also resulted in lots of unnecessary codegen!
 
-In **Bevy 0.17** we have sorted out these issues ... without fundamentally changing the shape of the API. Migrations should generally be very straightforward.
+In **Bevy 0.17** we have sorted out these issues without fundamentally changing the shape of the API. Migrations should generally be very straightforward.
 
 ## The Rearchitecture
 
@@ -37,7 +37,7 @@ Every [`Event`] now has an associated [`Trigger`] implementation. The [`Trigger`
 By representing this in the type system, we can constrain behaviors and data to _specific_ types of events statically, making it impossible to "misuse" an [`Event`].
 All of Bevy's existing "flavors" of events have been ported to the new [`Event`] / [`Trigger`] system.
 
-## Event: global by default
+## `Event`: global by default
 
 At a glance, the default [`Event`] derive and usage hasn't changed much. Just some shorter / clearer naming. The old API looked like this:
 
@@ -68,7 +68,7 @@ world.add_observer(|game_over: On<GameOver>| {
 
 Internally things are a bit different though! The [`Event`] derive defaults to being "untargeted" / "global", by setting the `Event::Trigger` to [`GlobalTrigger`]. When it is triggered, only "untargeted" top-level observers will run, and there is _no way_ to trigger it in a different context (ex: events with a [`GlobalTrigger`] cannot target entities!).
 
-## EntityEvent
+## `EntityEvent`: a dedicated trait for entity-targeting events
 
 In previous versions of Bevy, _any_ event could optionally be triggered for an entity. It looked like this:
 

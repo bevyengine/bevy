@@ -19,7 +19,7 @@ use core::marker::PhantomData;
 /// using [`Commands::trigger`](crate::system::Commands::trigger). This causes any [`Observer`](crate::observer::Observer) watching for that
 /// [`Event`] to run _immediately_, as part of the [`World::trigger`] call.
 ///
-/// The [`Event`] trait should generally be derived:
+/// First, we create an [`Event`] type, typically by deriving the trait.
 ///
 /// ```
 /// # use bevy_ecs::prelude::*;
@@ -30,7 +30,7 @@ use core::marker::PhantomData;
 /// }
 /// ```
 ///
-/// An [`Observer`](crate::observer::Observer) can then be added to watch for this event type:
+/// Then, we add an [`Observer`](crate::observer::Observer) to watch for this event type:
 ///
 /// ```
 /// # use bevy_ecs::prelude::*;
@@ -47,7 +47,7 @@ use core::marker::PhantomData;
 /// });
 /// ```
 ///
-/// The event can be triggered on the [`World`] using the [`trigger`](World::trigger) method:
+/// Finally, we trigger the event by calling [`World::trigger`](World::trigger):
 ///
 /// ```
 /// # use bevy_ecs::prelude::*;
@@ -72,7 +72,7 @@ use core::marker::PhantomData;
 ///
 /// # Triggers
 ///
-/// Every [`Event`] has an associated [`Trigger`] implementation (via [`Event::Trigger`]), which defines which observers will run,
+/// Every [`Event`] has an associated [`Trigger`] implementation (set via [`Event::Trigger`]), which defines which observers will run,
 /// what data will be passed to them, and the order they will be run in. Unless you are an internals developer or you have very specific
 /// needs, you don't need to worry too much about [`Trigger`]. When you derive [`Event`] (or a more specific event trait like [`EntityEvent`]),
 /// a [`Trigger`] will be provided for you.
