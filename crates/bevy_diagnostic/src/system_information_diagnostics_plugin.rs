@@ -76,7 +76,7 @@ pub mod internal {
     };
     use std::sync::{
         mpsc::{self, Receiver, Sender},
-        Arc, Mutex,
+        Arc,
     };
 
     use alloc::{
@@ -87,7 +87,7 @@ pub mod internal {
     use bevy_app::{App, First, Startup, Update};
     use bevy_ecs::resource::Resource;
     use bevy_ecs::{prelude::ResMut, system::Commands};
-    use bevy_platform::time::Instant;
+    use bevy_platform::{cell::SyncCell, time::Instant};
     use bevy_tasks::AsyncComputeTaskPool;
     use log::info;
     use sysinfo::{CpuRefreshKind, MemoryRefreshKind, RefreshKind, System};
@@ -110,7 +110,7 @@ pub mod internal {
         let waker = Arc::clone(&diagnostic_task.waker);
         AsyncComputeTaskPool::get().spawn(diagnostic_task).detach();
         commands.insert_resource(SysinfoTask {
-            receiver: Mutex::new(rx),
+            receiver: SyncCell::new(rx),
             waker,
         });
 
@@ -170,7 +170,7 @@ pub mod internal {
 
     #[derive(Resource)]
     struct SysinfoTask {
-        receiver: Mutex<Receiver<SysinfoRefreshData>>,
+        receiver: SyncCell<Receiver<SysinfoRefreshData>>,
         waker: Arc<AtomicWaker>,
     }
 
@@ -219,9 +219,8 @@ pub mod internal {
         }
     }
 
-    fn read_diagnostic_task(mut diagnostics: Diagnostics, task: ResMut<SysinfoTask>) {
-        let receiver = task.receiver.lock().unwrap();
-        while let Ok(data) = receiver.try_recv() {
+    fn read_diagnostic_task(mut diagnostics: Diagnostics, mut task: ResMut<SysinfoTask>) {
+        while let Ok(data) = task.receiver.get().try_recv() {
             diagnostics.add_measurement(
                 &SystemInformationDiagnosticsPlugin::SYSTEM_CPU_USAGE,
                 || data.system_cpu_usage,
