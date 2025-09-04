@@ -14,6 +14,7 @@ use wgpu::{BindingResource, BufferUsages};
 
 /// Trait for types able to go in a [`GpuArrayBuffer`].
 pub trait GpuArrayBufferable: ShaderType + ShaderSize + WriteInto + Clone {}
+
 impl<T: ShaderType + ShaderSize + WriteInto + Clone> GpuArrayBufferable for T {}
 
 /// Stores an array of elements to be transferred to the GPU and made accessible to shaders as a read-only array.
@@ -88,7 +89,7 @@ impl<T: GpuArrayBufferable> GpuArrayBuffer<T> {
         }
     }
 
-    pub fn binding(&self) -> Option<BindingResource> {
+    pub fn binding(&self) -> Option<BindingResource<'_>> {
         match self {
             GpuArrayBuffer::Uniform(buffer) => buffer.binding(),
             GpuArrayBuffer::Storage(buffer) => buffer.binding(),

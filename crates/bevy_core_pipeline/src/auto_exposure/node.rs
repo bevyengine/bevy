@@ -10,6 +10,7 @@ use bevy_ecs::{
     world::{FromWorld, World},
 };
 use bevy_render::{
+    diagnostic::RecordDiagnostics,
     globals::GlobalsBuffer,
     render_asset::RenderAssets,
     render_graph::*,
@@ -98,6 +99,8 @@ impl Node for AutoExposureNode {
             return Ok(());
         };
 
+        let diagnostics = render_context.diagnostic_recorder();
+
         let compute_bind_group = render_context.render_device().create_bind_group(
             None,
             &pipeline.histogram_layout,
@@ -122,9 +125,10 @@ impl Node for AutoExposureNode {
             render_context
                 .command_encoder()
                 .begin_compute_pass(&ComputePassDescriptor {
-                    label: Some("auto_exposure_pass"),
+                    label: Some("auto_exposure"),
                     timestamp_writes: None,
                 });
+        let pass_span = diagnostics.time_span(&mut compute_pass, "auto_exposure");
 
         compute_pass.set_bind_group(0, &compute_bind_group, &[view_uniform_offset.offset]);
         compute_pass.set_pipeline(histogram_pipeline);
@@ -135,6 +139,8 @@ impl Node for AutoExposureNode {
         );
         compute_pass.set_pipeline(average_pipeline);
         compute_pass.dispatch_workgroups(1, 1, 1);
+
+        pass_span.end(&mut compute_pass);
 
         Ok(())
     }

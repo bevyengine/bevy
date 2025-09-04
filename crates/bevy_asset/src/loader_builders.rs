@@ -314,7 +314,7 @@ impl NestedLoader<'_, '_, StaticTyped, Deferred> {
         } else {
             self.load_context
                 .asset_server
-                .get_or_create_path_handle(path, None)
+                .get_or_create_path_handle(path, self.meta_transform)
         };
         self.load_context.dependencies.insert(handle.id().untyped());
         handle

@@ -1,6 +1,6 @@
 use crate::{
     change_detection::MaybeLocation,
-    component::{ComponentId, ComponentInfo, ComponentTicks, Tick, TickCells},
+    component::{CheckChangeTicks, ComponentId, ComponentInfo, ComponentTicks, Tick, TickCells},
     entity::{Entity, EntityRow},
     storage::{Column, TableRow},
 };
@@ -360,8 +360,8 @@ impl ComponentSparseSet {
         }
     }
 
-    pub(crate) fn check_change_ticks(&mut self, change_tick: Tick) {
-        self.dense.check_change_ticks(change_tick);
+    pub(crate) fn check_change_ticks(&mut self, check: CheckChangeTicks) {
+        self.dense.check_change_ticks(check);
     }
 }
 
@@ -650,9 +650,9 @@ impl SparseSets {
         }
     }
 
-    pub(crate) fn check_change_ticks(&mut self, change_tick: Tick) {
+    pub(crate) fn check_change_ticks(&mut self, check: CheckChangeTicks) {
         for set in self.sets.values_mut() {
-            set.check_change_ticks(change_tick);
+            set.check_change_ticks(check);
         }
     }
 }

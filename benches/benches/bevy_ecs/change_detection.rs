@@ -49,6 +49,7 @@ impl BenchModify for Table {
         black_box(self.0)
     }
 }
+
 impl BenchModify for Sparse {
     fn bench_modify(&mut self) -> f32 {
         self.0 += 1f32;

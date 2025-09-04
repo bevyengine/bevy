@@ -3,6 +3,7 @@
 extern crate alloc;
 extern crate core;
 
+mod components;
 mod conversions;
 mod index;
 mod mesh;
@@ -11,13 +12,27 @@ pub mod morph;
 pub mod primitives;
 pub mod skinning;
 mod vertex;
+use bevy_app::{App, Plugin, PostUpdate};
+use bevy_asset::{AssetApp, AssetEventSystems};
+use bevy_ecs::schedule::{IntoScheduleConfigs, SystemSet};
 use bitflags::bitflags;
+pub use components::*;
 pub use index::*;
 pub use mesh::*;
 pub use mikktspace::*;
 pub use primitives::*;
 pub use vertex::*;
 pub use wgpu_types::VertexFormat;
+
+/// The mesh prelude.
+///
+/// This includes the most common types in this crate, re-exported for your convenience.
+pub mod prelude {
+    #[doc(hidden)]
+    pub use crate::{
+        morph::MorphWeights, primitives::MeshBuilder, primitives::Meshable, Mesh, Mesh2d, Mesh3d,
+    };
+}
 
 bitflags! {
     /// Our base mesh pipeline key bits start from the highest bit and go
@@ -27,6 +42,20 @@ bitflags! {
     #[derive(Clone, Debug)]
     pub struct BaseMeshPipelineKey: u64 {
         const MORPH_TARGETS = 1 << (u64::BITS - 1);
+    }
+}
+
+#[derive(Default)]
+pub struct MeshPlugin;
+
+impl Plugin for MeshPlugin {
+    fn build(&self, app: &mut App) {
+        app.init_asset::<Mesh>()
+            .register_asset_reflect::<Mesh>()
+            .add_systems(
+                PostUpdate,
+                mark_3d_meshes_as_changed_if_their_assets_changed.before(AssetEventSystems),
+            );
     }
 }
 
@@ -55,3 +84,7 @@ impl BaseMeshPipelineKey {
         }
     }
 }
+
+/// `bevy_render::mesh::inherit_weights` runs in this `SystemSet`
+#[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
+pub struct InheritWeightSystems;

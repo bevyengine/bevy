@@ -4,10 +4,12 @@ use bevy::{math::VectorSpace, prelude::*};
 
 // We define this trait so we can reuse the same code for multiple color types that may be implemented using curves.
 trait CurveColor: VectorSpace<Scalar = f32> + Into<Color> + Send + Sync + 'static {}
+
 impl<T: VectorSpace<Scalar = f32> + Into<Color> + Send + Sync + 'static> CurveColor for T {}
 
 // We define this trait so we can reuse the same code for multiple color types that may be implemented using mixing.
 trait MixedColor: Mix + Into<Color> + Send + Sync + 'static {}
+
 impl<T: Mix + Into<Color> + Send + Sync + 'static> MixedColor for T {}
 
 #[derive(Debug, Component)]

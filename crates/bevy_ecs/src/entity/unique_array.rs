@@ -154,6 +154,7 @@ impl<T: EntityEquivalent, const N: usize> DerefMut for UniqueEntityEquivalentArr
         unsafe { UniqueEntityEquivalentSlice::from_slice_unchecked_mut(&mut self.0) }
     }
 }
+
 impl<T: EntityEquivalent> Default for UniqueEntityEquivalentArray<T, 0> {
     fn default() -> Self {
         Self(Default::default())
@@ -527,6 +528,7 @@ impl<T: PartialEq<U>, U: EntityEquivalent, const N: usize>
         self.eq(&other.0)
     }
 }
+
 impl<T: PartialEq<U>, U: EntityEquivalent, const N: usize>
     PartialEq<&UniqueEntityEquivalentArray<U, N>> for VecDeque<T>
 {
@@ -550,6 +552,7 @@ impl<T: PartialEq<U>, U: EntityEquivalent, const N: usize>
         self.eq(&other.0)
     }
 }
+
 impl<T: PartialEq<U>, U: EntityEquivalent, const N: usize>
     PartialEq<UniqueEntityEquivalentArray<U, N>> for VecDeque<T>
 {

@@ -264,7 +264,7 @@ pub struct AssetPlugin {
 /// [`AssetSource`](io::AssetSource). Subfolders within these folders are also valid.
 ///
 /// It is strongly discouraged to use [`Allow`](UnapprovedPathMode::Allow) if your
-/// app will include scripts or modding support, as it could allow allow arbitrary file
+/// app will include scripts or modding support, as it could allow arbitrary file
 /// access for malicious code.
 ///
 /// See [`AssetPath::is_unapproved`](crate::AssetPath::is_unapproved)
@@ -272,10 +272,10 @@ pub struct AssetPlugin {
 pub enum UnapprovedPathMode {
     /// Unapproved asset loading is allowed. This is strongly discouraged.
     Allow,
-    /// Fails to load any asset that is is unapproved, unless an override method is used, like
+    /// Fails to load any asset that is unapproved, unless an override method is used, like
     /// [`AssetServer::load_override`].
     Deny,
-    /// Fails to load any asset that is is unapproved.
+    /// Fails to load any asset that is unapproved.
     #[default]
     Forbid,
 }
@@ -422,8 +422,7 @@ impl Plugin for AssetPlugin {
             // and as a result has ambiguous system ordering with all other systems in `PreUpdate`.
             // This is virtually never a real problem: asset loading is async and so anything that interacts directly with it
             // needs to be robust to stochastic delays anyways.
-            .add_systems(PreUpdate, handle_internal_asset_events.ambiguous_with_all())
-            .register_type::<AssetPath>();
+            .add_systems(PreUpdate, handle_internal_asset_events.ambiguous_with_all());
     }
 }
 
@@ -486,6 +485,22 @@ impl VisitAssetDependencies for Option<UntypedHandle> {
     }
 }
 
+impl<A: Asset, const N: usize> VisitAssetDependencies for [Handle<A>; N] {
+    fn visit_dependencies(&self, visit: &mut impl FnMut(UntypedAssetId)) {
+        for dependency in self {
+            visit(dependency.id().untyped());
+        }
+    }
+}
+
+impl<const N: usize> VisitAssetDependencies for [UntypedHandle; N] {
+    fn visit_dependencies(&self, visit: &mut impl FnMut(UntypedAssetId)) {
+        for dependency in self {
+            visit(dependency.id());
+        }
+    }
+}
+
 impl<A: Asset> VisitAssetDependencies for Vec<Handle<A>> {
     fn visit_dependencies(&self, visit: &mut impl FnMut(UntypedAssetId)) {
         for dependency in self {
@@ -495,6 +510,22 @@ impl<A: Asset> VisitAssetDependencies for Vec<Handle<A>> {
 }
 
 impl VisitAssetDependencies for Vec<UntypedHandle> {
+    fn visit_dependencies(&self, visit: &mut impl FnMut(UntypedAssetId)) {
+        for dependency in self {
+            visit(dependency.id());
+        }
+    }
+}
+
+impl<A: Asset> VisitAssetDependencies for HashSet<Handle<A>> {
+    fn visit_dependencies(&self, visit: &mut impl FnMut(UntypedAssetId)) {
+        for dependency in self {
+            visit(dependency.id().untyped());
+        }
+    }
+}
+
+impl VisitAssetDependencies for HashSet<UntypedHandle> {
     fn visit_dependencies(&self, visit: &mut impl FnMut(UntypedAssetId)) {
         for dependency in self {
             visit(dependency.id());
@@ -561,7 +592,7 @@ impl AssetApp for App {
         id: impl Into<AssetSourceId<'static>>,
         source: AssetSourceBuilder,
     ) -> &mut Self {
-        let id = AssetSourceId::from_static(id);
+        let id = id.into();
         if self.world().get_resource::<AssetServer>().is_some() {
             error!("{} must be registered before `AssetPlugin` (typically added as part of `DefaultPlugins`)", id);
         }
@@ -677,7 +708,8 @@ mod tests {
         },
         loader::{AssetLoader, LoadContext},
         Asset, AssetApp, AssetEvent, AssetId, AssetLoadError, AssetLoadFailedEvent, AssetPath,
-        AssetPlugin, AssetServer, Assets, LoadState, UnapprovedPathMode,
+        AssetPlugin, AssetServer, Assets, InvalidGenerationError, LoadState, UnapprovedPathMode,
+        UntypedHandle,
     };
     use alloc::{
         boxed::Box,
@@ -693,7 +725,7 @@ mod tests {
         prelude::*,
         schedule::{LogLevel, ScheduleBuildSettings},
     };
-    use bevy_platform::collections::HashMap;
+    use bevy_platform::collections::{HashMap, HashSet};
     use bevy_reflect::TypePath;
     use core::time::Duration;
     use serde::{Deserialize, Serialize};
@@ -894,10 +926,6 @@ mod tests {
 
     #[test]
     fn load_dependencies() {
-        // The particular usage of GatedReader in this test will cause deadlocking if running single-threaded
-        #[cfg(not(feature = "multi_threaded"))]
-        panic!("This test requires the \"multi_threaded\" feature, otherwise it will deadlock.\ncargo test --package bevy_asset --features multi_threaded");
-
         let dir = Dir::default();
 
         let a_path = "a.cool.ron";
@@ -1202,10 +1230,6 @@ mod tests {
 
     #[test]
     fn failure_load_states() {
-        // The particular usage of GatedReader in this test will cause deadlocking if running single-threaded
-        #[cfg(not(feature = "multi_threaded"))]
-        panic!("This test requires the \"multi_threaded\" feature, otherwise it will deadlock.\ncargo test --package bevy_asset --features multi_threaded");
-
         let dir = Dir::default();
 
         let a_path = "a.cool.ron";
@@ -1335,10 +1359,6 @@ mod tests {
 
     #[test]
     fn dependency_load_states() {
-        // The particular usage of GatedReader in this test will cause deadlocking if running single-threaded
-        #[cfg(not(feature = "multi_threaded"))]
-        panic!("This test requires the \"multi_threaded\" feature, otherwise it will deadlock.\ncargo test --package bevy_asset --features multi_threaded");
-
         let a_path = "a.cool.ron";
         let a_ron = r#"
 (
@@ -1474,10 +1494,6 @@ mod tests {
 
     #[test]
     fn manual_asset_management() {
-        // The particular usage of GatedReader in this test will cause deadlocking if running single-threaded
-        #[cfg(not(feature = "multi_threaded"))]
-        panic!("This test requires the \"multi_threaded\" feature, otherwise it will deadlock.\ncargo test --package bevy_asset --features multi_threaded");
-
         let dir = Dir::default();
         let dep_path = "dep.cool.ron";
 
@@ -1575,10 +1591,6 @@ mod tests {
 
     #[test]
     fn load_folder() {
-        // The particular usage of GatedReader in this test will cause deadlocking if running single-threaded
-        #[cfg(not(feature = "multi_threaded"))]
-        panic!("This test requires the \"multi_threaded\" feature, otherwise it will deadlock.\ncargo test --package bevy_asset --features multi_threaded");
-
         let dir = Dir::default();
 
         let a_path = "text/a.cool.ron";
@@ -1630,37 +1642,37 @@ mod tests {
             let loaded_folders = world.resource::<Assets<LoadedFolder>>();
             let cool_texts = world.resource::<Assets<CoolText>>();
             for event in reader.read(events) {
-                if let AssetEvent::LoadedWithDependencies { id } = event {
-                    if *id == handle.id() {
-                        let loaded_folder = loaded_folders.get(&handle).unwrap();
-                        let a_handle: Handle<CoolText> =
-                            asset_server.get_handle("text/a.cool.ron").unwrap();
-                        let c_handle: Handle<CoolText> =
-                            asset_server.get_handle("text/c.cool.ron").unwrap();
+                if let AssetEvent::LoadedWithDependencies { id } = event
+                    && *id == handle.id()
+                {
+                    let loaded_folder = loaded_folders.get(&handle).unwrap();
+                    let a_handle: Handle<CoolText> =
+                        asset_server.get_handle("text/a.cool.ron").unwrap();
+                    let c_handle: Handle<CoolText> =
+                        asset_server.get_handle("text/c.cool.ron").unwrap();
 
-                        let mut found_a = false;
-                        let mut found_c = false;
-                        for asset_handle in &loaded_folder.handles {
-                            if asset_handle.id() == a_handle.id().untyped() {
-                                found_a = true;
-                            } else if asset_handle.id() == c_handle.id().untyped() {
-                                found_c = true;
-                            }
+                    let mut found_a = false;
+                    let mut found_c = false;
+                    for asset_handle in &loaded_folder.handles {
+                        if asset_handle.id() == a_handle.id().untyped() {
+                            found_a = true;
+                        } else if asset_handle.id() == c_handle.id().untyped() {
+                            found_c = true;
                         }
-                        assert!(found_a);
-                        assert!(found_c);
-                        assert_eq!(loaded_folder.handles.len(), 2);
-
-                        let a_text = cool_texts.get(&a_handle).unwrap();
-                        let b_text = cool_texts.get(&a_text.dependencies[0]).unwrap();
-                        let c_text = cool_texts.get(&c_handle).unwrap();
-
-                        assert_eq!("a", a_text.text);
-                        assert_eq!("b", b_text.text);
-                        assert_eq!("c", c_text.text);
-
-                        return Some(());
                     }
+                    assert!(found_a);
+                    assert!(found_c);
+                    assert_eq!(loaded_folder.handles.len(), 2);
+
+                    let a_text = cool_texts.get(&a_handle).unwrap();
+                    let b_text = cool_texts.get(&a_text.dependencies[0]).unwrap();
+                    let c_text = cool_texts.get(&c_handle).unwrap();
+
+                    assert_eq!("a", a_text.text);
+                    assert_eq!("b", b_text.text);
+                    assert_eq!("c", c_text.text);
+
+                    return Some(());
                 }
             }
             None
@@ -1898,19 +1910,39 @@ mod tests {
             vec_handles: Vec<Handle<TestAsset>>,
             #[dependency]
             embedded: TestAsset,
+            #[dependency]
+            set_handles: HashSet<Handle<TestAsset>>,
+            #[dependency]
+            untyped_set_handles: HashSet<UntypedHandle>,
         },
         StructStyle(#[dependency] TestAsset),
         Empty,
     }
 
+    #[expect(
+        dead_code,
+        reason = "This struct is used as a compilation test to test the derive macros, and as such is intentionally never constructed."
+    )]
     #[derive(Asset, TypePath)]
     pub struct StructTestAsset {
         #[dependency]
         handle: Handle<TestAsset>,
         #[dependency]
         embedded: TestAsset,
+        #[dependency]
+        array_handles: [Handle<TestAsset>; 5],
+        #[dependency]
+        untyped_array_handles: [UntypedHandle; 5],
+        #[dependency]
+        set_handles: HashSet<Handle<TestAsset>>,
+        #[dependency]
+        untyped_set_handles: HashSet<UntypedHandle>,
     }
 
+    #[expect(
+        dead_code,
+        reason = "This struct is used as a compilation test to test the derive macros, and as such is intentionally never constructed."
+    )]
     #[derive(Asset, TypePath)]
     pub struct TupleTestAsset(#[dependency] Handle<TestAsset>);
 
@@ -1999,5 +2031,35 @@ mod tests {
         app.add_systems(Update, (uses_assets, load_a_asset));
 
         app.world_mut().run_schedule(Update);
+    }
+
+    #[test]
+    fn insert_dropped_handle_returns_error() {
+        let mut app = App::new();
+
+        app.add_plugins((TaskPoolPlugin::default(), AssetPlugin::default()))
+            .init_asset::<TestAsset>();
+
+        let handle = app.world().resource::<Assets<TestAsset>>().reserve_handle();
+        // We still have the asset ID, but we've dropped the handle so the asset is no longer live.
+        let asset_id = handle.id();
+        drop(handle);
+
+        // Allow `Assets` to detect the dropped handle.
+        app.world_mut()
+            .run_system_cached(Assets::<TestAsset>::track_assets)
+            .unwrap();
+
+        let AssetId::Index { index, .. } = asset_id else {
+            unreachable!("Reserving a handle always produces an index");
+        };
+
+        // Try to insert an asset into the dropped handle's spot. This should not panic.
+        assert_eq!(
+            app.world_mut()
+                .resource_mut::<Assets<TestAsset>>()
+                .insert(asset_id, TestAsset),
+            Err(InvalidGenerationError::Removed { index })
+        );
     }
 }

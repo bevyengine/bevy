@@ -14,6 +14,7 @@ use bevy_app::prelude::*;
 pub mod ci_testing;
 
 pub mod fps_overlay;
+pub mod frame_time_graph;
 
 pub mod picking_debug;
 

@@ -141,7 +141,7 @@ pub struct NameOrEntity {
     pub entity: Entity,
 }
 
-impl<'a> core::fmt::Display for NameOrEntityItem<'a> {
+impl<'w, 's> core::fmt::Display for NameOrEntityItem<'w, 's> {
     #[inline(always)]
     fn fmt(&self, f: &mut core::fmt::Formatter) -> core::fmt::Result {
         match self.name {
@@ -159,6 +159,7 @@ impl From<&str> for Name {
         Name::new(name.to_owned())
     }
 }
+
 impl From<String> for Name {
     #[inline(always)]
     fn from(name: String) -> Self {
@@ -174,12 +175,14 @@ impl AsRef<str> for Name {
         &self.name
     }
 }
+
 impl From<&Name> for String {
     #[inline(always)]
     fn from(val: &Name) -> String {
         val.as_str().to_owned()
     }
 }
+
 impl From<Name> for String {
     #[inline(always)]
     fn from(val: Name) -> String {
@@ -274,9 +277,9 @@ mod tests {
         let e2 = world.spawn(name.clone()).id();
         let mut query = world.query::<NameOrEntity>();
         let d1 = query.get(&world, e1).unwrap();
-        let d2 = query.get(&world, e2).unwrap();
         // NameOrEntity Display for entities without a Name should be {index}v{generation}
         assert_eq!(d1.to_string(), "0v0");
+        let d2 = query.get(&world, e2).unwrap();
         // NameOrEntity Display for entities with a Name should be the Name
         assert_eq!(d2.to_string(), "MyName");
     }

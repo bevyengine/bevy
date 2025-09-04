@@ -69,16 +69,16 @@ pub trait RelationshipSourceCollection {
         self.len() == 0
     }
 
+    /// For one-to-one relationships, returns the entity that should be removed before adding a new one.
+    /// Returns `None` for one-to-many relationships or when no entity needs to be removed.
+    fn source_to_remove_before_add(&self) -> Option<Entity> {
+        None
+    }
+
     /// Add multiple entities to collection at once.
     ///
     /// May be faster than repeatedly calling [`Self::add`].
-    fn extend_from_iter(&mut self, entities: impl IntoIterator<Item = Entity>) {
-        // The method name shouldn't conflict with `Extend::extend` as it's in the rust prelude and
-        // would always conflict with it.
-        for entity in entities {
-            self.add(entity);
-        }
-    }
+    fn extend_from_iter(&mut self, entities: impl IntoIterator<Item = Entity>);
 }
 
 /// This trait signals that a [`RelationshipSourceCollection`] is ordered.
@@ -86,13 +86,13 @@ pub trait OrderedRelationshipSourceCollection: RelationshipSourceCollection {
     /// Inserts the entity at a specific index.
     /// If the index is too large, the entity will be added to the end of the collection.
     fn insert(&mut self, index: usize, entity: Entity);
-    /// Removes the entity at the specified idnex if it exists.
+    /// Removes the entity at the specified index if it exists.
     fn remove_at(&mut self, index: usize) -> Option<Entity>;
     /// Inserts the entity at a specific index.
     /// This will never reorder other entities.
     /// If the index is too large, the entity will be added to the end of the collection.
     fn insert_stable(&mut self, index: usize, entity: Entity);
-    /// Removes the entity at the specified idnex if it exists.
+    /// Removes the entity at the specified index if it exists.
     /// This will never reorder other entities.
     fn remove_at_stable(&mut self, index: usize) -> Option<Entity>;
     /// Sorts the source collection.
@@ -345,14 +345,7 @@ impl RelationshipSourceCollection for Entity {
     }
 
     fn add(&mut self, entity: Entity) -> bool {
-        assert_eq!(
-            *self,
-            Entity::PLACEHOLDER,
-            "Entity {entity} attempted to target an entity with a one-to-one relationship, but it is already targeted by {}. You must remove the original relationship first.",
-            *self
-        );
         *self = entity;
-
         true
     }
 
@@ -389,13 +382,15 @@ impl RelationshipSourceCollection for Entity {
 
     fn extend_from_iter(&mut self, entities: impl IntoIterator<Item = Entity>) {
         for entity in entities {
-            assert_eq!(
-                *self,
-                Entity::PLACEHOLDER,
-                "Entity {entity} attempted to target an entity with a one-to-one relationship, but it is already targeted by {}. You must remove the original relationship first.",
-                *self
-            );
             *self = entity;
+        }
+    }
+
+    fn source_to_remove_before_add(&self) -> Option<Entity> {
+        if *self != Entity::PLACEHOLDER {
+            Some(*self)
+        } else {
+            None
         }
     }
 }
@@ -581,6 +576,10 @@ impl RelationshipSourceCollection for BTreeSet<Entity> {
     fn shrink_to_fit(&mut self) {
         // BTreeSet doesn't have a capacity
     }
+
+    fn extend_from_iter(&mut self, entities: impl IntoIterator<Item = Entity>) {
+        self.extend(entities);
+    }
 }
 
 #[cfg(test)]
@@ -687,40 +686,43 @@ mod tests {
 
     #[test]
     fn entity_index_map() {
-        #[derive(Component)]
-        #[relationship(relationship_target = RelTarget)]
-        struct Rel(Entity);
+        for add_before in [false, true] {
+            #[derive(Component)]
+            #[relationship(relationship_target = RelTarget)]
+            struct Rel(Entity);
 
-        #[derive(Component)]
-        #[relationship_target(relationship = Rel, linked_spawn)]
-        struct RelTarget(EntityHashSet);
+            #[derive(Component)]
+            #[relationship_target(relationship = Rel, linked_spawn)]
+            struct RelTarget(Vec<Entity>);
 
-        let mut world = World::new();
-        let a = world.spawn_empty().id();
-        let b = world.spawn_empty().id();
-        let c = world.spawn_empty().id();
+            let mut world = World::new();
+            if add_before {
+                let _ = world.spawn_empty().id();
+            }
+            let a = world.spawn_empty().id();
+            let b = world.spawn_empty().id();
+            let c = world.spawn_empty().id();
+            let d = world.spawn_empty().id();
 
-        let d = world.spawn_empty().id();
+            world.entity_mut(a).add_related::<Rel>(&[b, c, d]);
 
-        world.entity_mut(a).add_related::<Rel>(&[b, c, d]);
+            let rel_target = world.get::<RelTarget>(a).unwrap();
+            let collection = rel_target.collection();
 
-        let rel_target = world.get::<RelTarget>(a).unwrap();
-        let collection = rel_target.collection();
+            // Insertions should maintain ordering
+            assert!(collection.iter().eq([b, c, d]));
 
-        // Insertions should maintain ordering
-        assert!(collection.iter().eq(&[d, c, b]));
+            world.entity_mut(c).despawn();
 
-        world.entity_mut(c).despawn();
+            let rel_target = world.get::<RelTarget>(a).unwrap();
+            let collection = rel_target.collection();
 
-        let rel_target = world.get::<RelTarget>(a).unwrap();
-        let collection = rel_target.collection();
-
-        // Removals should maintain ordering
-        assert!(collection.iter().eq(&[d, b]));
+            // Removals should maintain ordering
+            assert!(collection.iter().eq([b, d]));
+        }
     }
 
     #[test]
-    #[should_panic]
     fn one_to_one_relationship_shared_target() {
         #[derive(Component)]
         #[relationship(relationship_target = Below)]
@@ -736,6 +738,22 @@ mod tests {
 
         world.entity_mut(a).insert(Above(c));
         world.entity_mut(b).insert(Above(c));
+
+        // The original relationship (a -> c) should be removed and the new relationship (b -> c) should be established
+        assert!(
+            world.get::<Above>(a).is_none(),
+            "Original relationship should be removed"
+        );
+        assert_eq!(
+            world.get::<Above>(b).unwrap().0,
+            c,
+            "New relationship should be established"
+        );
+        assert_eq!(
+            world.get::<Below>(c).unwrap().0,
+            b,
+            "Target should point to new source"
+        );
     }
 
     #[test]

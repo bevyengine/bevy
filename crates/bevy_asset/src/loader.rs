@@ -276,7 +276,11 @@ impl_downcast!(AssetContainer);
 
 impl<A: Asset> AssetContainer for A {
     fn insert(self: Box<Self>, id: UntypedAssetId, world: &mut World) {
-        world.resource_mut::<Assets<A>>().insert(id.typed(), *self);
+        // We only ever call this if we know the asset is still alive, so it is fine to unwrap here.
+        world
+            .resource_mut::<Assets<A>>()
+            .insert(id.typed(), *self)
+            .expect("the AssetId is still valid");
     }
 
     fn asset_type_name(&self) -> &'static str {
@@ -344,7 +348,7 @@ impl<'a> LoadContext<'a> {
 
     /// Begins a new labeled asset load. Use the returned [`LoadContext`] to load
     /// dependencies for the new asset and call [`LoadContext::finish`] to finalize the asset load.
-    /// When finished, make sure you call [`LoadContext::add_labeled_asset`] to add the results back to the parent
+    /// When finished, make sure you call [`LoadContext::add_loaded_labeled_asset`] to add the results back to the parent
     /// context.
     /// Prefer [`LoadContext::labeled_asset_scope`] when possible, which will automatically add
     /// the labeled [`LoadContext`] back to the parent context.
@@ -360,7 +364,7 @@ impl<'a> LoadContext<'a> {
     /// # let load_context: LoadContext = panic!();
     /// let mut handles = Vec::new();
     /// for i in 0..2 {
-    ///     let mut labeled = load_context.begin_labeled_asset();
+    ///     let labeled = load_context.begin_labeled_asset();
     ///     handles.push(std::thread::spawn(move || {
     ///         (i.to_string(), labeled.finish(Image::default()))
     ///     }));
@@ -371,7 +375,7 @@ impl<'a> LoadContext<'a> {
     ///     load_context.add_loaded_labeled_asset(label, loaded_asset);
     /// }
     /// ```
-    pub fn begin_labeled_asset(&self) -> LoadContext {
+    pub fn begin_labeled_asset(&self) -> LoadContext<'_> {
         LoadContext::new(
             self.asset_server,
             self.asset_path.clone(),
@@ -385,7 +389,7 @@ impl<'a> LoadContext<'a> {
     /// [`LoadedAsset`], which is registered under the `label` label.
     ///
     /// This exists to remove the need to manually call [`LoadContext::begin_labeled_asset`] and then manually register the
-    /// result with [`LoadContext::add_labeled_asset`].
+    /// result with [`LoadContext::add_loaded_labeled_asset`].
     ///
     /// See [`AssetPath`] for more on labeled assets.
     pub fn labeled_asset_scope<A: Asset, E>(

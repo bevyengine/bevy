@@ -53,6 +53,7 @@ impl Default for CurrentMethod {
         CurrentMethod(ParallaxMappingMethod::Relief { max_steps: 4 })
     }
 }
+
 impl fmt::Display for CurrentMethod {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self.0 {
@@ -63,6 +64,7 @@ impl fmt::Display for CurrentMethod {
         }
     }
 }
+
 impl CurrentMethod {
     fn next_method(&mut self) {
         use ParallaxMappingMethod::*;
@@ -300,8 +302,8 @@ fn setup(
             Text::default(),
             Node {
                 position_type: PositionType::Absolute,
-                top: Val::Px(12.0),
-                left: Val::Px(12.0),
+                top: px(12),
+                left: px(12),
                 ..default()
             },
         ))

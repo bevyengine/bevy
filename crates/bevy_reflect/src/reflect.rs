@@ -21,32 +21,47 @@ pub enum ApplyError {
     #[error("attempted to apply `{from_kind}` to `{to_kind}`")]
     /// Attempted to apply the wrong [kind](ReflectKind) to a type, e.g. a struct to an enum.
     MismatchedKinds {
+        /// Kind of the value we attempted to apply.
         from_kind: ReflectKind,
+        /// Kind of the type we attempted to apply the value to.
         to_kind: ReflectKind,
     },
 
     #[error("enum variant `{variant_name}` doesn't have a field named `{field_name}`")]
     /// Enum variant that we tried to apply to was missing a field.
     MissingEnumField {
+        /// Name of the enum variant.
         variant_name: Box<str>,
+        /// Name of the missing field.
         field_name: Box<str>,
     },
 
     #[error("`{from_type}` is not `{to_type}`")]
     /// Tried to apply incompatible types.
     MismatchedTypes {
+        /// Type of the value we attempted to apply.
         from_type: Box<str>,
+        /// Type we attempted to apply the value to.
         to_type: Box<str>,
     },
 
     #[error("attempted to apply type with {from_size} size to a type with {to_size} size")]
-    /// Attempted to apply to types with mismatched sizes, e.g. a [u8; 4] to [u8; 3].
-    DifferentSize { from_size: usize, to_size: usize },
+    /// Attempted to apply an [array-like] type to another of different size, e.g. a [u8; 4] to [u8; 3].
+    ///
+    /// [array-like]: crate::Array
+    DifferentSize {
+        /// Size of the value we attempted to apply, in elements.
+        from_size: usize,
+        /// Size of the type we attempted to apply the value to, in elements.
+        to_size: usize,
+    },
 
     #[error("variant with name `{variant_name}` does not exist on enum `{enum_name}`")]
     /// The enum we tried to apply to didn't contain a variant with the give name.
     UnknownVariant {
+        /// Name of the enum.
         enum_name: Box<str>,
+        /// Name of the missing variant.
         variant_name: Box<str>,
     },
 }
@@ -152,10 +167,10 @@ where
     ///   and excess elements in `value` are appended to `self`.
     /// - If `Self` is a [`Map`], then for each key in `value`, the associated
     ///   value is applied to the value associated with the same key in `self`.
-    ///   Keys which are not present in `self` are inserted.
+    ///   Keys which are not present in `self` are inserted, and keys from `self` which are not present in `value` are removed.
     /// - If `Self` is a [`Set`], then each element of `value` is applied to the corresponding
     ///   element of `Self`. If an element of `value` does not exist in `Self` then it is
-    ///   cloned and inserted.
+    ///   cloned and inserted. If an element from `self` is not present in `value` then it is removed.
     /// - If `Self` is none of these, then `value` is downcast to `Self`, cloned, and
     ///   assigned to `self`.
     ///
@@ -211,12 +226,12 @@ where
     /// Returns an immutable enumeration of "kinds" of type.
     ///
     /// See [`ReflectRef`].
-    fn reflect_ref(&self) -> ReflectRef;
+    fn reflect_ref(&self) -> ReflectRef<'_>;
 
     /// Returns a mutable enumeration of "kinds" of type.
     ///
     /// See [`ReflectMut`].
-    fn reflect_mut(&mut self) -> ReflectMut;
+    fn reflect_mut(&mut self) -> ReflectMut<'_>;
 
     /// Returns an owned enumeration of "kinds" of type.
     ///
@@ -296,6 +311,24 @@ where
         Err(ReflectCloneError::NotImplemented {
             type_path: Cow::Owned(self.reflect_type_path().to_string()),
         })
+    }
+
+    /// For a type implementing [`PartialReflect`], combines `reflect_clone` and
+    /// `take` in a useful fashion, automatically constructing an appropriate
+    /// [`ReflectCloneError`] if the downcast fails.
+    ///
+    /// This is an associated function, rather than a method, because methods
+    /// with generic types prevent dyn-compatibility.
+    fn reflect_clone_and_take<T: 'static>(&self) -> Result<T, ReflectCloneError>
+    where
+        Self: TypePath + Sized,
+    {
+        self.reflect_clone()?
+            .take()
+            .map_err(|_| ReflectCloneError::FailedDowncast {
+                expected: Cow::Borrowed(<Self as TypePath>::type_path()),
+                received: Cow::Owned(self.reflect_type_path().to_string()),
+            })
     }
 
     /// Returns a hash of the value (which includes the type).
@@ -513,9 +546,9 @@ impl dyn Reflect {
     /// otherwise.
     ///
     /// The underlying value is the concrete type that is stored in this `dyn` object;
-    /// it can be downcasted to. In the case that this underlying value "represents"
+    /// it can be downcast to. In the case that this underlying value "represents"
     /// a different type, like the Dynamic\*\*\* types do, you can call `represents`
-    /// to determine what type they represent. Represented types cannot be downcasted
+    /// to determine what type they represent. Represented types cannot be downcast
     /// to, but you can use [`FromReflect`] to create a value of the represented type from them.
     ///
     /// For remote types, `T` should be the type itself rather than the wrapper type.

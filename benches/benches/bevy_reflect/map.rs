@@ -142,7 +142,7 @@ fn concrete_map_apply(criterion: &mut Criterion) {
 
 fn u64_to_n_byte_key(k: u64, n: usize) -> String {
     let mut key = String::with_capacity(n);
-    write!(&mut key, "{}", k).unwrap();
+    write!(&mut key, "{k}").unwrap();
 
     // Pad key to n bytes.
     key.extend(iter::repeat_n('\0', n - key.len()));

@@ -21,16 +21,14 @@
 use std::f32::consts::PI;
 
 use bevy::{
+    camera::{Exposure, ScreenSpaceTransmissionQuality},
     color::palettes::css::*,
-    core_pipeline::{
-        bloom::Bloom, core_3d::ScreenSpaceTransmissionQuality, prepass::DepthPrepass,
-        tonemapping::Tonemapping,
-    },
+    core_pipeline::{bloom::Bloom, prepass::DepthPrepass, tonemapping::Tonemapping},
+    light::{NotShadowCaster, PointLightShadowMap, TransmittedShadowReceiver},
     math::ops,
-    pbr::{NotShadowCaster, PointLightShadowMap, TransmittedShadowReceiver},
     prelude::*,
     render::{
-        camera::{Exposure, TemporalJitter},
+        camera::TemporalJitter,
         view::{ColorGrading, ColorGradingGlobal, Hdr},
     },
 };
@@ -327,8 +325,8 @@ fn setup(
         Text::default(),
         Node {
             position_type: PositionType::Absolute,
-            top: Val::Px(12.0),
-            left: Val::Px(12.0),
+            top: px(12),
+            left: px(12),
             ..default()
         },
         ExampleDisplay,

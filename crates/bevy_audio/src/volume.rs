@@ -344,17 +344,11 @@ mod tests {
 
                 assert!(
                     db_delta.abs() < 1e-2,
-                    "Expected ~{}dB, got {}dB (delta {})",
-                    db,
-                    db_test,
-                    db_delta
+                    "Expected ~{db}dB, got {db_test}dB (delta {db_delta})",
                 );
                 assert!(
                     linear_relative_delta.abs() < 1e-3,
-                    "Expected ~{}, got {} (relative delta {})",
-                    linear,
-                    linear_test,
-                    linear_relative_delta
+                    "Expected ~{linear}, got {linear_test} (relative delta {linear_relative_delta})",
                 );
             }
         }
@@ -474,15 +468,11 @@ mod tests {
         match (a, b) {
             (Decibels(a), Decibels(b)) | (Linear(a), Linear(b)) => assert!(
                 (a - b).abs() < EPSILON,
-                "Expected {:?} to be approximately equal to {:?}",
-                a,
-                b
+                "Expected {a:?} to be approximately equal to {b:?}",
             ),
             (a, b) => assert!(
                 (a.to_decibels() - b.to_decibels()).abs() < EPSILON,
-                "Expected {:?} to be approximately equal to {:?}",
-                a,
-                b
+                "Expected {a:?} to be approximately equal to {b:?}",
             ),
         }
     }

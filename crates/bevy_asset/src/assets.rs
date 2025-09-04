@@ -155,13 +155,13 @@ impl<A: Asset> DenseAssetStorage<A> {
                 *value = Some(asset);
                 Ok(exists)
             } else {
-                Err(InvalidGenerationError {
+                Err(InvalidGenerationError::Occupied {
                     index,
                     current_generation: *generation,
                 })
             }
         } else {
-            unreachable!("entries should always be valid after a flush");
+            Err(InvalidGenerationError::Removed { index })
         }
     }
 
@@ -321,30 +321,43 @@ impl<A: Asset> Assets<A> {
         self.handle_provider.reserve_handle().typed::<A>()
     }
 
-    /// Inserts the given `asset`, identified by the given `id`. If an asset already exists for `id`, it will be replaced.
-    pub fn insert(&mut self, id: impl Into<AssetId<A>>, asset: A) {
+    /// Inserts the given `asset`, identified by the given `id`. If an asset already exists for
+    /// `id`, it will be replaced.
+    ///
+    /// Note: This will never return an error for UUID asset IDs.
+    pub fn insert(
+        &mut self,
+        id: impl Into<AssetId<A>>,
+        asset: A,
+    ) -> Result<(), InvalidGenerationError> {
         match id.into() {
-            AssetId::Index { index, .. } => {
-                self.insert_with_index(index, asset).unwrap();
-            }
+            AssetId::Index { index, .. } => self.insert_with_index(index, asset).map(|_| ()),
             AssetId::Uuid { uuid } => {
                 self.insert_with_uuid(uuid, asset);
+                Ok(())
             }
         }
     }
 
-    /// Retrieves an [`Asset`] stored for the given `id` if it exists. If it does not exist, it will be inserted using `insert_fn`.
+    /// Retrieves an [`Asset`] stored for the given `id` if it exists. If it does not exist, it will
+    /// be inserted using `insert_fn`.
+    ///
+    /// Note: This will never return an error for UUID asset IDs.
     // PERF: Optimize this or remove it
     pub fn get_or_insert_with(
         &mut self,
         id: impl Into<AssetId<A>>,
         insert_fn: impl FnOnce() -> A,
-    ) -> &mut A {
+    ) -> Result<&mut A, InvalidGenerationError> {
         let id: AssetId<A> = id.into();
         if self.get(id).is_none() {
-            self.insert(id, insert_fn());
+            self.insert(id, insert_fn())?;
         }
-        self.get_mut(id).unwrap()
+        // This should be impossible since either, `self.get` was Some, in which case this succeeds,
+        // or `self.get` was None and we inserted it (and bailed out if there was an error).
+        Ok(self
+            .get_mut(id)
+            .expect("the Asset was none even though we checked or inserted"))
     }
 
     /// Returns `true` if the `id` exists in this collection. Otherwise it returns `false`.
@@ -652,11 +665,15 @@ impl<'a, A: Asset> Iterator for AssetsMutIterator<'a, A> {
 }
 
 /// An error returned when an [`AssetIndex`] has an invalid generation.
-#[derive(Error, Debug)]
-#[error("AssetIndex {index:?} has an invalid generation. The current generation is: '{current_generation}'.")]
-pub struct InvalidGenerationError {
-    index: AssetIndex,
-    current_generation: u32,
+#[derive(Error, Debug, PartialEq, Eq)]
+pub enum InvalidGenerationError {
+    #[error("AssetIndex {index:?} has an invalid generation. The current generation is: '{current_generation}'.")]
+    Occupied {
+        index: AssetIndex,
+        current_generation: u32,
+    },
+    #[error("AssetIndex {index:?} has been removed")]
+    Removed { index: AssetIndex },
 }
 
 #[cfg(test)]

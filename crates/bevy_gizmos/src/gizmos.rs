@@ -10,6 +10,7 @@ use core::{
 use bevy_color::{Color, LinearRgba};
 use bevy_ecs::{
     component::Tick,
+    query::FilteredAccessSet,
     resource::Resource,
     system::{
         Deferred, ReadOnlySystemParam, Res, SystemBuffer, SystemMeta, SystemParam,
@@ -199,10 +200,24 @@ where
     type State = GizmosFetchState<Config, Clear>;
     type Item<'w, 's> = Gizmos<'w, 's, Config, Clear>;
 
-    fn init_state(world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
+    fn init_state(world: &mut World) -> Self::State {
         GizmosFetchState {
-            state: GizmosState::<Config, Clear>::init_state(world, system_meta),
+            state: GizmosState::<Config, Clear>::init_state(world),
         }
+    }
+
+    fn init_access(
+        state: &Self::State,
+        system_meta: &mut SystemMeta,
+        component_access_set: &mut FilteredAccessSet,
+        world: &mut World,
+    ) {
+        GizmosState::<Config, Clear>::init_access(
+            &state.state,
+            system_meta,
+            component_access_set,
+            world,
+        );
     }
 
     fn apply(state: &mut Self::State, system_meta: &SystemMeta, world: &mut World) {
@@ -340,7 +355,7 @@ where
     }
 
     /// Read-only view into the buffers data.
-    pub fn buffer(&self) -> GizmoBufferView {
+    pub fn buffer(&self) -> GizmoBufferView<'_> {
         let GizmoBuffer {
             list_positions,
             list_colors,

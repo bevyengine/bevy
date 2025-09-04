@@ -165,7 +165,7 @@ mod text {
                 &mut commands,
                 300. * Vec3::X + y * Vec3::Y,
                 justify,
-                Some(TextBounds::new(150., 55.)),
+                Some(TextBounds::new(150., 60.)),
             );
         }
 
@@ -221,6 +221,9 @@ mod text {
                 Transform::from_translation(dest + Vec3::Z),
                 anchor,
                 DespawnOnExitState(super::Scene::Text),
+                ShowAabbGizmo {
+                    color: Some(palettes::tailwind::AMBER_400.into()),
+                },
                 children![
                     (
                         TextSpan::new(format!("{}, {}\n", anchor.x, anchor.y)),
@@ -288,9 +291,35 @@ mod gizmos {
     }
 
     pub fn draw_gizmos(mut gizmos: Gizmos) {
-        gizmos.rect_2d(Isometry2d::IDENTITY, Vec2::new(200.0, 200.0), RED);
+        gizmos.rect_2d(
+            Isometry2d::from_translation(Vec2::new(-200.0, 0.0)),
+            Vec2::new(200.0, 200.0),
+            RED,
+        );
         gizmos
-            .circle_2d(Isometry2d::IDENTITY, 200.0, GREEN)
+            .circle_2d(
+                Isometry2d::from_translation(Vec2::new(-200.0, 0.0)),
+                200.0,
+                GREEN,
+            )
             .resolution(64);
+
+        // 2d grids with all variations of outer edges on or off
+        for i in 0..4 {
+            let x = 200.0 * (1.0 + (i % 2) as f32);
+            let y = 150.0 * (0.5 - (i / 2) as f32);
+            let mut grid = gizmos.grid(
+                Vec3::new(x, y, 0.0),
+                UVec2::new(5, 4),
+                Vec2::splat(30.),
+                Color::WHITE,
+            );
+            if i & 1 > 0 {
+                grid = grid.outer_edges_x();
+            }
+            if i & 2 > 0 {
+                grid.outer_edges_y();
+            }
+        }
     }
 }

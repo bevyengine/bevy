@@ -40,6 +40,9 @@ use serde::{Serialize, Serializer};
 /// [`ReflectSerializer`]: crate::serde::ReflectSerializer
 /// [via the registry]: TypeRegistry::register_type_data
 pub trait SerializeWithRegistry {
+    /// Serialize this value using the given [Serializer] and [`TypeRegistry`].
+    ///
+    /// [`Serializer`]: ::serde::Serializer
     fn serialize<S>(&self, serializer: S, registry: &TypeRegistry) -> Result<S::Ok, S::Error>
     where
         S: Serializer;

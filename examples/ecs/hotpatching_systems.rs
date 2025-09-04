@@ -40,7 +40,7 @@ fn update_text(mut text: Single<&mut Text>) {
 }
 
 fn on_click(
-    _click: Trigger<Pointer<Click>>,
+    _click: On<Pointer<Click>>,
     mut color: Single<&mut TextColor>,
     task_sender: Res<TaskSender>,
 ) {
@@ -60,8 +60,8 @@ fn setup(mut commands: Commands) {
     commands
         .spawn((
             Node {
-                width: Val::Percent(100.0),
-                height: Val::Percent(100.0),
+                width: percent(100),
+                height: percent(100),
                 align_items: AlignItems::Center,
                 justify_content: JustifyContent::Center,
                 flex_direction: FlexDirection::Column,

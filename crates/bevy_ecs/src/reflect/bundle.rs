@@ -5,6 +5,7 @@
 //!
 //! Same as [`super::component`], but for bundles.
 use alloc::boxed::Box;
+use bevy_utils::prelude::DebugName;
 use core::any::{Any, TypeId};
 
 use crate::{
@@ -172,7 +173,7 @@ impl<B: Bundle + Reflect + TypePath + BundleFromComponents> FromType<B> for Refl
                         _ => panic!(
                             "expected bundle `{}` to be named struct or tuple",
                             // FIXME: once we have unique reflect, use `TypePath`.
-                            core::any::type_name::<B>(),
+                            DebugName::type_name::<B>(),
                         ),
                     }
                 }
@@ -215,7 +216,7 @@ impl<B: Bundle + Reflect + TypePath + BundleFromComponents> FromType<B> for Refl
                         _ => panic!(
                             "expected bundle `{}` to be a named struct or tuple",
                             // FIXME: once we have unique reflect, use `TypePath`.
-                            core::any::type_name::<B>(),
+                            DebugName::type_name::<B>(),
                         ),
                     }
                 }

@@ -2,12 +2,12 @@
 //!
 //! See [`OrderIndependentTransparencyPlugin`] for the trade-offs of using OIT.
 //!
-//! [`OrderIndependentTransparencyPlugin`]: bevy::render::pipeline::OrderIndependentTransparencyPlugin
+//! [`OrderIndependentTransparencyPlugin`]: bevy::core_pipeline::oit::OrderIndependentTransparencyPlugin
 use bevy::{
+    camera::visibility::RenderLayers,
     color::palettes::css::{BLUE, GREEN, RED},
     core_pipeline::oit::OrderIndependentTransparencySettings,
     prelude::*,
-    render::view::RenderLayers,
 };
 
 fn main() {
@@ -51,8 +51,8 @@ fn setup(
             Text::default(),
             Node {
                 position_type: PositionType::Absolute,
-                top: Val::Px(12.0),
-                left: Val::Px(12.0),
+                top: px(12),
+                left: px(12),
                 ..default()
             },
             RenderLayers::layer(1),

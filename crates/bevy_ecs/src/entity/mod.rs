@@ -76,7 +76,7 @@ pub use unique_vec::{UniqueEntityEquivalentVec, UniqueEntityVec};
 use crate::{
     archetype::{ArchetypeId, ArchetypeRow},
     change_detection::MaybeLocation,
-    component::Tick,
+    component::{CheckChangeTicks, Tick},
     storage::{SparseSetIndex, TableId, TableRow},
 };
 use alloc::vec::Vec;
@@ -615,42 +615,16 @@ impl<'de> Deserialize<'de> for Entity {
     }
 }
 
-/// Outputs the full entity identifier, including the index, generation, and the raw bits.
+/// Outputs the short entity identifier, including the index and generation.
 ///
-/// This takes the format: `{index}v{generation}#{bits}`.
+/// This takes the format: `{index}v{generation}`.
 ///
 /// For [`Entity::PLACEHOLDER`], this outputs `PLACEHOLDER`.
 ///
-/// # Usage
-///
-/// Prefer to use this format for debugging and logging purposes. Because the output contains
-/// the raw bits, it is easy to check it against serialized scene data.
-///
-/// Example serialized scene data:
-/// ```text
-/// (
-///   ...
-///   entities: {
-///     4294967297: (  <--- Raw Bits
-///       components: {
-///         ...
-///       ),
-///   ...
-/// )
-/// ```
+/// For a unique [`u64`] representation, use [`Entity::to_bits`].
 impl fmt::Debug for Entity {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        if self == &Self::PLACEHOLDER {
-            write!(f, "PLACEHOLDER")
-        } else {
-            write!(
-                f,
-                "{}v{}#{}",
-                self.index(),
-                self.generation(),
-                self.to_bits()
-            )
-        }
+        fmt::Display::fmt(self, f)
     }
 }
 
@@ -718,6 +692,7 @@ impl<'a> Iterator for ReserveEntitiesIterator<'a> {
 }
 
 impl<'a> ExactSizeIterator for ReserveEntitiesIterator<'a> {}
+
 impl<'a> core::iter::FusedIterator for ReserveEntitiesIterator<'a> {}
 
 // SAFETY: Newly reserved entity values are unique.
@@ -799,7 +774,7 @@ impl Entities {
         clippy::unnecessary_fallible_conversions,
         reason = "`IdCursor::try_from` may fail on 32-bit platforms."
     )]
-    pub fn reserve_entities(&self, count: u32) -> ReserveEntitiesIterator {
+    pub fn reserve_entities(&self, count: u32) -> ReserveEntitiesIterator<'_> {
         // Use one atomic subtract to grab a range of new IDs. The range might be
         // entirely nonnegative, meaning all IDs come from the freelist, or entirely
         // negative, meaning they are all new IDs to allocate, or a mix of both.
@@ -1216,9 +1191,9 @@ impl Entities {
     }
 
     #[inline]
-    pub(crate) fn check_change_ticks(&mut self, change_tick: Tick) {
+    pub(crate) fn check_change_ticks(&mut self, check: CheckChangeTicks) {
         for meta in &mut self.meta {
-            meta.spawned_or_despawned.at.check_tick(change_tick);
+            meta.spawned_or_despawned.at.check_tick(check);
         }
     }
 
@@ -1644,7 +1619,7 @@ mod tests {
     fn entity_debug() {
         let entity = Entity::from_raw(EntityRow::new(NonMaxU32::new(42).unwrap()));
         let string = format!("{entity:?}");
-        assert_eq!(string, "42v0#4294967253");
+        assert_eq!(string, "42v0");
 
         let entity = Entity::PLACEHOLDER;
         let string = format!("{entity:?}");
