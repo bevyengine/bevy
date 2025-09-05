@@ -257,43 +257,38 @@ fn spawn_buttons(commands: &mut Commands) {
 
     // Spawn the drag buttons that allow the user to control the scale and roll
     // of the selected object.
-    commands
-        .spawn(Node {
+    commands.spawn((
+        Node {
             flex_direction: FlexDirection::Row,
             position_type: PositionType::Absolute,
             right: px(10),
             bottom: px(10),
             column_gap: px(6),
             ..default()
-        })
-        .with_children(|parent| {
-            spawn_drag_button(parent, "Scale").insert(DragMode::Scale);
-            spawn_drag_button(parent, "Roll").insert(DragMode::Roll);
-        });
+        },
+        children![
+            (drag_button("Scale"), DragMode::Scale),
+            (drag_button("Roll"), DragMode::Roll),
+        ],
+    ));
 }
 
 /// Spawns a button that the user can drag to change a parameter.
-fn spawn_drag_button<'a>(
-    commands: &'a mut ChildSpawnerCommands,
-    label: &str,
-) -> EntityCommands<'a> {
-    let mut kid = commands.spawn(Node {
-        border: BUTTON_BORDER,
-        justify_content: JustifyContent::Center,
-        align_items: AlignItems::Center,
-        padding: BUTTON_PADDING,
-        ..default()
-    });
-    kid.insert((
+fn drag_button<'a>(label: &str) -> impl Bundle {
+    (
+        Node {
+            border: BUTTON_BORDER,
+            justify_content: JustifyContent::Center,
+            align_items: AlignItems::Center,
+            padding: BUTTON_PADDING,
+            ..default()
+        },
         Button,
         BackgroundColor(Color::BLACK),
         BorderRadius::all(BUTTON_BORDER_RADIUS_SIZE),
         BUTTON_BORDER_COLOR,
-    ))
-    .with_children(|parent| {
-        widgets::spawn_ui_text(parent, label, Color::WHITE);
-    });
-    kid
+        children![widgets::ui_text(label, Color::WHITE)],
+    )
 }
 
 /// Spawns the help text at the top of the screen.
