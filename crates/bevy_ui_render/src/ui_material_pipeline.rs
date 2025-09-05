@@ -145,7 +145,7 @@ where
 
         let mut descriptor = RenderPipelineDescriptor {
             vertex: VertexState {
-                shader: key.clone().vertex_shader,
+                shader: key.vertex_shader.clone(),
                 shader_defs: shader_defs.clone(),
                 buffers: vec![vertex_layout],
                 ..default()
