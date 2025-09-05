@@ -15,8 +15,6 @@ use bevy_input::{
 use bevy_log::{trace, warn};
 use bevy_math::{ivec2, DVec2, Vec2};
 use bevy_platform::time::Instant;
-#[cfg(not(target_arch = "wasm32"))]
-use bevy_tasks::tick_global_task_pools_on_main_thread;
 use core::marker::PhantomData;
 #[cfg(target_arch = "wasm32")]
 use winit::platform::web::EventLoopExtWebSys;
@@ -153,10 +151,7 @@ impl<T: BufferedEvent> ApplicationHandler<T> for WinitAppRunnerState<T> {
         let _span = tracing::info_span!("winit event_handler").entered();
 
         if self.app.plugins_state() != PluginsState::Cleaned {
-            if self.app.plugins_state() != PluginsState::Ready {
-                #[cfg(not(target_arch = "wasm32"))]
-                tick_global_task_pools_on_main_thread();
-            } else {
+            if self.app.plugins_state() == PluginsState::Ready {
                 self.app.finish();
                 self.app.cleanup();
             }

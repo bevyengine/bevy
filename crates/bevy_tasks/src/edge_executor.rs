@@ -1,8 +1,7 @@
-//! Alternative to `async_executor` based on [`edge_executor`] by Ivan Markov.
+//! Alternative to `bevy_executor` based on [`edge_executor`] by Ivan Markov.
 //!
 //! It has been vendored along with its tests to update several outdated dependencies.
 //!
-//! [`async_executor`]: https://github.com/smol-rs/async-executor
 //! [`edge_executor`]: https://github.com/ivmarkov/edge-executor
 
 #![expect(unsafe_code, reason = "original implementation relies on unsafe")]
@@ -13,7 +12,6 @@
 
 // TODO: Create a more tailored replacement, possibly integrating [Fotre](https://github.com/NthTensor/Forte)
 
-use alloc::rc::Rc;
 use core::{
     future::{poll_fn, Future},
     marker::PhantomData,
@@ -97,6 +95,24 @@ impl<'a, const C: usize> Executor<'a, C> {
         unsafe { self.spawn_unchecked(fut) }
     }
 
+    pub fn spawn_local<F>(&self, fut: F) -> Task<F::Output>
+    where
+        F: Future + 'a,
+        F::Output: 'a,
+    {
+        // SAFETY: Original implementation missing safety documentation
+        unsafe { self.spawn_unchecked(fut) }
+    }
+
+    pub unsafe fn spawn_local_scoped<F>(&self, fut: F) -> Task<F::Output>
+    where
+        F: Future + 'a,
+        F::Output: 'a,
+    {
+        // SAFETY: Original implementation missing safety documentation
+        unsafe { self.spawn_unchecked(fut) }
+    }
+
     /// Attempts to run a task if at least one is scheduled.
     ///
     /// Running a scheduled task means simply polling its future once.
@@ -162,7 +178,7 @@ impl<'a, const C: usize> Executor<'a, C> {
     /// ```
     pub async fn run<F>(&self, fut: F) -> F::Output
     where
-        F: Future + Send + 'a,
+        F: Future + 'a,
     {
         // SAFETY: Original implementation missing safety documentation
         unsafe { self.run_unchecked(fut).await }
@@ -201,7 +217,7 @@ impl<'a, const C: usize> Executor<'a, C> {
             target_has_atomic = "ptr"
         ))]
         {
-            runnable = self.state().queue.pop();
+            runnable = self.state().queue.pop().ok();
         }
 
         #[cfg(not(all(
@@ -298,141 +314,6 @@ unsafe impl<'a, const C: usize> Send for Executor<'a, C> {}
 // SAFETY: Original implementation missing safety documentation
 unsafe impl<'a, const C: usize> Sync for Executor<'a, C> {}
 
-/// A thread-local executor.
-///
-/// The executor can only be run on the thread that created it.
-///
-/// # Examples
-///
-/// ```ignore
-/// use edge_executor::{LocalExecutor, block_on};
-///
-/// let local_ex: LocalExecutor = Default::default();
-///
-/// block_on(local_ex.run(async {
-///     println!("Hello world!");
-/// }));
-/// ```
-pub struct LocalExecutor<'a, const C: usize = 64> {
-    executor: Executor<'a, C>,
-    _not_send: PhantomData<core::cell::UnsafeCell<&'a Rc<()>>>,
-}
-
-impl<'a, const C: usize> LocalExecutor<'a, C> {
-    /// Creates a single-threaded executor.
-    ///
-    /// # Examples
-    ///
-    /// ```ignore
-    /// use edge_executor::LocalExecutor;
-    ///
-    /// let local_ex: LocalExecutor = Default::default();
-    /// ```
-    pub const fn new() -> Self {
-        Self {
-            executor: Executor::<C>::new(),
-            _not_send: PhantomData,
-        }
-    }
-
-    /// Spawns a task onto the executor.
-    ///
-    /// # Examples
-    ///
-    /// ```ignore
-    /// use edge_executor::LocalExecutor;
-    ///
-    /// let local_ex: LocalExecutor = Default::default();
-    ///
-    /// let task = local_ex.spawn(async {
-    ///     println!("Hello world");
-    /// });
-    /// ```
-    ///
-    /// Note that if the executor's queue size is equal to the number of currently
-    /// spawned and running tasks, spawning this additional task might cause the executor to panic
-    /// later, when the task is scheduled for polling.
-    pub fn spawn<F>(&self, fut: F) -> Task<F::Output>
-    where
-        F: Future + 'a,
-        F::Output: 'a,
-    {
-        // SAFETY: Original implementation missing safety documentation
-        unsafe { self.executor.spawn_unchecked(fut) }
-    }
-
-    /// Attempts to run a task if at least one is scheduled.
-    ///
-    /// Running a scheduled task means simply polling its future once.
-    ///
-    /// # Examples
-    ///
-    /// ```ignore
-    /// use edge_executor::LocalExecutor;
-    ///
-    /// let local_ex: LocalExecutor = Default::default();
-    /// assert!(!local_ex.try_tick()); // no tasks to run
-    ///
-    /// let task = local_ex.spawn(async {
-    ///     println!("Hello world");
-    /// });
-    /// assert!(local_ex.try_tick()); // a task was found
-    /// ```    
-    pub fn try_tick(&self) -> bool {
-        self.executor.try_tick()
-    }
-
-    /// Runs a single task asynchronously.
-    ///
-    /// Running a task means simply polling its future once.
-    ///
-    /// If no tasks are scheduled when this method is called, it will wait until one is scheduled.
-    ///
-    /// # Examples
-    ///
-    /// ```ignore
-    /// use edge_executor::{LocalExecutor, block_on};
-    ///
-    /// let local_ex: LocalExecutor = Default::default();
-    ///
-    /// let task = local_ex.spawn(async {
-    ///     println!("Hello world");
-    /// });
-    /// block_on(local_ex.tick()); // runs the task
-    /// ```
-    pub async fn tick(&self) {
-        self.executor.tick().await;
-    }
-
-    /// Runs the executor asynchronously until the given future completes.
-    ///
-    /// # Examples
-    ///
-    /// ```ignore
-    /// use edge_executor::{LocalExecutor, block_on};
-    ///
-    /// let local_ex: LocalExecutor = Default::default();
-    ///
-    /// let task = local_ex.spawn(async { 1 + 2 });
-    /// let res = block_on(local_ex.run(async { task.await * 2 }));
-    ///
-    /// assert_eq!(res, 6);
-    /// ```
-    pub async fn run<F>(&self, fut: F) -> F::Output
-    where
-        F: Future,
-    {
-        // SAFETY: Original implementation missing safety documentation
-        unsafe { self.executor.run_unchecked(fut) }.await
-    }
-}
-
-impl<'a, const C: usize> Default for LocalExecutor<'a, C> {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
 struct State<const C: usize> {
     #[cfg(all(
         target_has_atomic = "8",
@@ -441,7 +322,7 @@ struct State<const C: usize> {
         target_has_atomic = "64",
         target_has_atomic = "ptr"
     ))]
-    queue: crossbeam_queue::ArrayQueue<Runnable>,
+    queue: concurrent_queue::ConcurrentQueue<Runnable>,
     #[cfg(not(all(
         target_has_atomic = "8",
         target_has_atomic = "16",
@@ -463,7 +344,7 @@ impl<const C: usize> State<C> {
                 target_has_atomic = "64",
                 target_has_atomic = "ptr"
             ))]
-            queue: crossbeam_queue::ArrayQueue::new(C),
+            queue: concurrent_queue::ConcurrentQueue::bounded(C),
             #[cfg(not(all(
                 target_has_atomic = "8",
                 target_has_atomic = "16",
