@@ -30,17 +30,8 @@
 //! Several components are used to configure the text input, and belong on the [`TextInputBuffer`] entity:
 //!
 //! * [`TextInputAttributes`] - Common text input properties set by the user, such as font, font size, line height, justification, maximum characters etc.
-//! * [`TextInputFilter`] - Optional component that can be added to restrict the text input to certain formats, such as integers, decimals, hexadecimal etc.
-//! * [`PasswordMask`] - Optional component that can be added to hide the text input buffer contents by replacing the characters with a mask character.
 //! * [`Placeholder`] - Optional component that can be added to display placeholder text when the input buffer is empty.
 //! * [`CursorBlink`] - Optional component that controls cursor blinking.
-//!
-//! ## Copy-paste and clipboard support
-//!
-//! The clipboard support provided by this module is very basic, and only works within the `bevy` app,
-//! storing a simple [`String`].
-//!
-//! It can be accessed via the [`Clipboard`] resource.
 
 use bevy_ecs::schedule::SystemSet;
 pub use cosmic_text::Motion;

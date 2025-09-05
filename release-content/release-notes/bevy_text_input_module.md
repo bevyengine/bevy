@@ -9,17 +9,10 @@ A long-standing feature request from our users is support for text input. Whethe
 Features:
 
 * Placeholder text for empty inputs.
-* Password mode.
-* Filters applied at edit.
-* Autopropagated events emitted on submission, invalid edits and text changes.
+* Autopropagated events emitted on invalid edits and text changes.
 * Input method agnostic, users queue `TextEdit`s to make changes to the text input's buffer.
 * Max character limit.
-* Responsive height sizing.
-* Vertical and horizontal scrolling
 * Text selection.
-* Cut, copy and paste.
-* Numeric input mode.
-* Multi-line text input with an optional single line mode.
 * Support for the common navigation actions like arrow key navigation, home, end, page down, page up, next word, end of paragraph, etc.
 * Backspace.
 * Overwrite mode.

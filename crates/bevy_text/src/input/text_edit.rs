@@ -174,8 +174,6 @@ pub fn apply_text_edits(
 /// Error emitted by [`apply_text_edit`] when it fails to apply a [`TextEdit`].
 #[derive(Debug, Clone)]
 pub enum InvalidTextEditError {
-    /// Applying the edit would cause the text to fail its [`TextInputFilter`].
-    Filtered,
     /// Applying the edit would cause the text to be longer than its maximum character limit.
     Overflowed,
 }
