@@ -132,6 +132,30 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         Text2dShadow::default(),
     ));
 
+    let make_child = move |(text_anchor, color): (Anchor, Color)| {
+        (
+            Text2d::new(" Anchor".to_string()),
+            slightly_smaller_text_font.clone(),
+            text_anchor,
+            TextBackgroundColor(Color::WHITE.darker(0.8)),
+            Transform::from_translation(-1. * Vec3::Z),
+            children![
+                (
+                    TextSpan("::".to_string()),
+                    slightly_smaller_text_font.clone(),
+                    TextColor(LIGHT_GREY.into()),
+                    TextBackgroundColor(DARK_BLUE.into()),
+                ),
+                (
+                    TextSpan(format!("{text_anchor:?} ")),
+                    slightly_smaller_text_font.clone(),
+                    TextColor(color),
+                    TextBackgroundColor(color.darker(0.3)),
+                )
+            ],
+        )
+    };
+
     commands.spawn((
         Sprite {
             color: Color::Srgba(LIGHT_CYAN),
@@ -139,38 +163,12 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             ..Default::default()
         },
         Transform::from_translation(250. * Vec3::Y),
-        Children::spawn(SpawnIter(
-            [
-                (Anchor::TOP_LEFT, Color::Srgba(LIGHT_SALMON)),
-                (Anchor::TOP_RIGHT, Color::Srgba(LIGHT_GREEN)),
-                (Anchor::BOTTOM_RIGHT, Color::Srgba(LIGHT_BLUE)),
-                (Anchor::BOTTOM_LEFT, Color::Srgba(LIGHT_YELLOW)),
-            ]
-            .into_iter()
-            .map(move |(text_anchor, color)| {
-                (
-                    Text2d::new(" Anchor".to_string()),
-                    slightly_smaller_text_font.clone(),
-                    text_anchor,
-                    TextBackgroundColor(Color::WHITE.darker(0.8)),
-                    Transform::from_translation(-1. * Vec3::Z),
-                    children![
-                        (
-                            TextSpan("::".to_string()),
-                            slightly_smaller_text_font.clone(),
-                            TextColor(LIGHT_GREY.into()),
-                            TextBackgroundColor(DARK_BLUE.into()),
-                        ),
-                        (
-                            TextSpan(format!("{text_anchor:?} ")),
-                            slightly_smaller_text_font.clone(),
-                            TextColor(color),
-                            TextBackgroundColor(color.darker(0.3)),
-                        )
-                    ],
-                )
-            }),
-        )),
+        children![
+            make_child((Anchor::TOP_LEFT, Color::Srgba(LIGHT_SALMON))),
+            make_child((Anchor::TOP_RIGHT, Color::Srgba(LIGHT_GREEN))),
+            make_child((Anchor::BOTTOM_RIGHT, Color::Srgba(LIGHT_BLUE))),
+            make_child((Anchor::BOTTOM_LEFT, Color::Srgba(LIGHT_YELLOW))),
+        ],
     ));
 }
 
