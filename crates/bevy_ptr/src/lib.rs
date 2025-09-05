@@ -644,6 +644,12 @@ impl<T> Debug for MovingPtr<'_, T, Unaligned> {
 impl<'a, T, A: IsAligned> From<MovingPtr<'a, T, A>> for OwningPtr<'a, A> {
     #[inline]
     fn from(value: MovingPtr<'a, T, A>) -> Self {
+        // SAFETY:
+        // - `value.0` must always point to valid value of type `T`.
+        // - The type parameter `A` is mirrored from input to output, keeping the same alignment guarantees.
+        // - `value.0` by construction must have correct provenance to allow read and writes of type `T`.
+        // - The lifetime `'a` is mirrored from input to output, keeping the same lifetime guarantees.
+        // - `OwningPtr` maintains the same aliasing invariants as `MovingPtr`.
         let ptr = unsafe { OwningPtr::new(value.0.cast::<u8>()) };
         mem::forget(value);
         ptr
