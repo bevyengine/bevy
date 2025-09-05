@@ -1,5 +1,5 @@
 //! Demonstrates volumetric fog and lighting (light shafts or god rays).
-//! Note: This example only runs on WebGPU
+//! Note: On Wasm, this example only runs on WebGPU
 
 use bevy::{
     color::palettes::css::RED,

@@ -1,5 +1,5 @@
 //! Decal rendering.
-//! Note: This example only runs on WebGPU
+//! Note: On Wasm, this example only runs on WebGPU
 
 #[path = "../helpers/camera_controller.rs"]
 mod camera_controller;
