@@ -96,15 +96,9 @@ pub fn ui_stack_system(
         ui_stack.partition.push(start..end);
     }
 
-    let mut stack_index = 0;
-    for (stack_partition_index, stack_range) in ui_stack.partition.iter().enumerate() {
-        for entity in ui_stack.uinodes[stack_range.clone()].iter() {
-            if let Ok(mut node) = update_query.get_mut(*entity) {
-                let node = node.bypass_change_detection();
-                node.stack_index = stack_index;
-                node.stack_partition_index = stack_partition_index as u32;
-                stack_index += 1;
-            }
+    for (i, entity) in ui_stack.uinodes.iter().enumerate() {
+        if let Ok(mut node) = update_query.get_mut(*entity) {
+            node.bypass_change_detection().stack_index = i as u32;
         }
     }
 }

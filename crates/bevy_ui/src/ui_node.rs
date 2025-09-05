@@ -26,11 +26,6 @@ use tracing::warn;
 #[derive(Component, Debug, Copy, Clone, PartialEq, Reflect)]
 #[reflect(Component, Default, Debug, Clone)]
 pub struct ComputedNode {
-    /// Identifies which slice in the [`UiStack`] partition that this node belongs to.
-    ///
-    /// Nodes with the same `stack_partition_index` share the same camera target.
-    /// Automatically calculated in [`super::UiSystems::Stack`].
-    pub stack_partition_index: u32,
     /// The order of the node in the UI layout.
     /// Nodes with a higher stack index are drawn on top of and receive interactions before nodes with lower stack indices.
     ///
@@ -111,14 +106,6 @@ impl ComputedNode {
     #[inline]
     pub const fn is_empty(&self) -> bool {
         self.size.x <= 0. || self.size.y <= 0.
-    }
-
-    /// The ind
-    /// Nodes with a higher stack index are drawn on top of and receive interactions before nodes with lower stack indices.
-    ///
-    /// Automatically calculated by [`super::ui_stack_system`].
-    pub const fn stack_parition_index(&self) -> u32 {
-        self.stack_partition_index
     }
 
     /// The order of the node in the UI layout.
@@ -320,7 +307,6 @@ impl ComputedNode {
 
 impl ComputedNode {
     pub const DEFAULT: Self = Self {
-        stack_partition_index: 0,
         stack_index: 0,
         size: Vec2::ZERO,
         content_size: Vec2::ZERO,

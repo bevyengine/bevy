@@ -343,7 +343,6 @@ pub fn queue_shadows(
         );
 
         transparent_phase.add(TransparentUi {
-            partition_index: 0,
             draw_function,
             pipeline,
             entity: (entity, extracted_shadow.main_entity),
@@ -351,7 +350,7 @@ pub fn queue_shadows(
 
             batch_range: 0..0,
             extra_index: PhaseItemExtraIndex::None,
-            index: index as u32,
+            index,
             indexed: true,
         });
     }
@@ -388,7 +387,7 @@ pub fn prepare_shadows(
                 let item = &mut ui_phase.items[item_index];
                 if let Some(box_shadow) = extracted_shadows
                     .box_shadows
-                    .get(item.index as usize)
+                    .get(item.index)
                     .filter(|n| item.entity() == n.render_entity)
                 {
                     let rect_size = box_shadow.bounds;

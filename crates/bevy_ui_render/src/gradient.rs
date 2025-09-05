@@ -398,33 +398,32 @@ pub fn extract_gradients(
                 }
                 if let Some(color) = gradient.get_single() {
                     // With a single color stop there's no gradient, fill the node with the color
-                    extracted_uinodes.uinodes[uinode.stack_partition_index as usize].push(
-                        ExtractedUiNode {
-                            z_order: uinode.stack_index as f32
-                                + match node_type {
-                                    NodeType::Rect => stack_z_offsets::GRADIENT,
-                                    NodeType::Border(_) => stack_z_offsets::BORDER_GRADIENT,
-                                },
-                            image: AssetId::default(),
-                            clip: clip.map(|clip| clip.clip),
-                            transform: transform.into(),
-                            item: ExtractedUiItem::Node {
-                                color: color.into(),
-                                rect: Rect {
-                                    min: Vec2::ZERO,
-                                    max: uinode.size,
-                                },
-                                atlas_scaling: None,
-                                flip_x: false,
-                                flip_y: false,
-                                border_radius: uinode.border_radius,
-                                border: uinode.border,
-                                node_type,
+                    extracted_uinodes.uinodes.push(ExtractedUiNode {
+                        z_order: uinode.stack_index as f32
+                            + match node_type {
+                                NodeType::Rect => stack_z_offsets::GRADIENT,
+                                NodeType::Border(_) => stack_z_offsets::BORDER_GRADIENT,
                             },
-                            main_entity: entity.into(),
-                            render_entity: commands.spawn(TemporaryRenderEntity).id(),
+                        image: AssetId::default(),
+                        clip: clip.map(|clip| clip.clip),
+                        extracted_camera_entity,
+                        transform: transform.into(),
+                        item: ExtractedUiItem::Node {
+                            color: color.into(),
+                            rect: Rect {
+                                min: Vec2::ZERO,
+                                max: uinode.size,
+                            },
+                            atlas_scaling: None,
+                            flip_x: false,
+                            flip_y: false,
+                            border_radius: uinode.border_radius,
+                            border: uinode.border,
+                            node_type,
                         },
-                    );
+                        main_entity: entity.into(),
+                        render_entity: commands.spawn(TemporaryRenderEntity).id(),
+                    });
                     continue;
                 }
                 match gradient {
@@ -622,7 +621,6 @@ pub fn queue_gradient(
         );
 
         transparent_phase.add(TransparentUi {
-            partition_index: 0,
             draw_function,
             pipeline,
             entity: (gradient.render_entity, gradient.main_entity),
@@ -635,7 +633,7 @@ pub fn queue_gradient(
             ),
             batch_range: 0..0,
             extra_index: PhaseItemExtraIndex::None,
-            index: index as u32,
+            index,
             indexed: true,
         });
     }
@@ -726,7 +724,7 @@ pub fn prepare_gradient(
                 let item = &mut ui_phase.items[item_index];
                 if let Some(gradient) = extracted_gradients
                     .items
-                    .get(item.index as usize)
+                    .get(item.index)
                     .filter(|n| item.entity() == n.render_entity)
                 {
                     *item.batch_range_mut() = item_index as u32..item_index as u32 + 1;

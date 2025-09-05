@@ -413,7 +413,7 @@ pub fn prepare_uimaterial_nodes<M: UiMaterial>(
                 let item = &mut ui_phase.items[item_index];
                 if let Some(extracted_uinode) = extracted_uinodes
                     .uinodes
-                    .get(item.index as usize)
+                    .get(item.index)
                     .filter(|n| item.entity() == n.render_entity)
                 {
                     let mut existing_batch = batches
@@ -623,14 +623,13 @@ pub fn queue_ui_material_nodes<M: UiMaterial>(
             );
         }
         transparent_phase.add(TransparentUi {
-            partition_index: 0,
             draw_function,
             pipeline,
             entity: (extracted_uinode.render_entity, extracted_uinode.main_entity),
             sort_key: FloatOrd(extracted_uinode.stack_index as f32 + stack_z_offsets::MATERIAL),
             batch_range: 0..0,
             extra_index: PhaseItemExtraIndex::None,
-            index: index as u32,
+            index,
             indexed: false,
         });
     }
