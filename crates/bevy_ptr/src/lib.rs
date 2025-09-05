@@ -587,7 +587,7 @@ impl<'a, T, A: IsAligned> MovingPtr<'_, T, A> {
     ///
     /// # Safety
     ///  - `U` must be the correct type for the field at `byte_offset` within `self`.
-    ///  - `self` should not be accesesed or dropped as if it were a complete value.
+    ///  - `self` should not be accessed or dropped as if it were a complete value.
     ///    Other fields that have not been moved out of may still be accessed or dropped separately.
     ///  - This function cannot alias the field with any other access, including other calls to [`move_field`]
     ///    for the same field, without first calling [`forget`] on it first.
