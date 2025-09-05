@@ -1,6 +1,6 @@
 ---
 title: State scoped entities are now always enabled implicitly
-pull_requests: [19354]
+pull_requests: [19354, 20883]
 ---
 
 State scoped entities is now always enabled by default, and as a consequence, `app.enable_state_scoped_entities::<State>()` is no longer needed.
