@@ -43,6 +43,7 @@ const FRAC_3_16_PI: f32 = 0.0596831036594607509; // 3 / (16π)
 const FRAC_4_PI: f32 = 0.07957747154594767; // 1 / (4π)
 const ROOT_2: f32 = 1.41421356; // √2
 const EPSILON: f32 = 1.0; // 1 meter
+const MIN_EXTINCTION: vec3<f32> = vec3(1e-12);
 
 // During raymarching, each segment is sampled at a single point. This constant determines
 // where in the segment that sample is taken (0.0 = start, 0.5 = middle, 1.0 = end).
@@ -445,7 +446,7 @@ fn raymarch_atmosphere(
             sample_pos
         );
 
-        let s_int = (inscattering - inscattering * sample_transmittance) / extinction;
+        let s_int = (inscattering - inscattering * sample_transmittance) / max(extinction, MIN_EXTINCTION);
         result.inscattering += result.transmittance * s_int;
 
         result.transmittance *= sample_transmittance;
