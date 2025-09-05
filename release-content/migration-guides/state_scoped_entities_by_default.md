@@ -1,5 +1,5 @@
 ---
-title: State scoped entities are now always enabled implicitly
+title: State-scoped entities are now always enabled implicitly
 pull_requests: [19354, 20883]
 ---
 
