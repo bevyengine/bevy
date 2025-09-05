@@ -88,7 +88,7 @@ mod internal {
     use bevy_ecs::resource::Resource;
     use bevy_ecs::{prelude::ResMut, system::Commands};
     use bevy_platform::{cell::SyncCell, time::Instant};
-    use bevy_tasks::AsyncComputeTaskPool;
+    use bevy_tasks::{AsyncComputeTaskPool, Task};
     use log::info;
     use sysinfo::{CpuRefreshKind, MemoryRefreshKind, RefreshKind, System};
 
@@ -108,8 +108,9 @@ mod internal {
         let (tx, rx) = mpsc::channel();
         let diagnostic_task = DiagnosticTask::new(tx);
         let waker = Arc::clone(&diagnostic_task.waker);
-        AsyncComputeTaskPool::get().spawn(diagnostic_task).detach();
+        let task = AsyncComputeTaskPool::get().spawn(diagnostic_task);
         commands.insert_resource(SysinfoTask {
+            _task: task,
             receiver: SyncCell::new(rx),
             waker,
         });
@@ -170,6 +171,7 @@ mod internal {
 
     #[derive(Resource)]
     struct SysinfoTask {
+        _task: Task<()>,
         receiver: SyncCell<Receiver<SysinfoRefreshData>>,
         waker: Arc<AtomicWaker>,
     }
