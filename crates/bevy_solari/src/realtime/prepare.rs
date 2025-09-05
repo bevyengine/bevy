@@ -1,6 +1,6 @@
 use super::SolariLighting;
 #[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))]
-use bevy_anti_aliasing::dlss::{
+use bevy_anti_alias::dlss::{
     Dlss, DlssRayReconstructionFeature, ViewDlssRayReconstructionTextures,
 };
 use bevy_camera::MainPassResolutionOverride;
