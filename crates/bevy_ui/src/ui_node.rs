@@ -29,7 +29,7 @@ pub struct ComputedNode {
     /// The order of the node in the UI layout.
     /// Nodes with a higher stack index are drawn on top of and receive interactions before nodes with lower stack indices.
     ///
-    /// Automatically calculated by [`super::stack::ui_stack_system`].
+    /// Automatically calculated in [`super::UiSystems::Stack`].
     pub stack_index: u32,
     /// The size of the node as width and height in physical pixels.
     ///
@@ -111,7 +111,7 @@ impl ComputedNode {
     /// The order of the node in the UI layout.
     /// Nodes with a higher stack index are drawn on top of and receive interactions before nodes with lower stack indices.
     ///
-    /// Automatically calculated by [`super::stack::ui_stack_system`].
+    /// Automatically calculated in [`super::UiSystems::Stack`].
     pub const fn stack_index(&self) -> u32 {
         self.stack_index
     }
