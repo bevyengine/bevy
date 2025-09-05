@@ -129,7 +129,7 @@ pub fn despawn_entities_on_exit_state<S: States>(
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Component))]
 pub struct DespawnOnEnter<S: States>(pub S);
 
-/// Despawns entities marked with [`DespawnOnEnterState<S>`] when their state
+/// Despawns entities marked with [`DespawnOnEnter<S>`] when their state
 /// no longer matches the world state.
 pub fn despawn_entities_on_enter_state<S: States>(
     mut commands: Commands,
