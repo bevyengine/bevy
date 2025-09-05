@@ -303,7 +303,7 @@ pub struct OwningPtr<'a, A: IsAligned = Aligned>(NonNull<u8>, PhantomData<(&'a m
 /// the memory pointed to by this pointer as it may be pointing to an element in a `Vec` or
 /// to a local in a function etc.
 ///
-/// This type tries to act "borrow-like" like which means that:
+/// This type tries to act "borrow-like" which means that:
 /// - Pointer should be considered exclusive and mutable. It cannot be cloned as this would lead
 ///   to aliased mutability and potentially use after free bugs.
 /// - It must always points to a valid value of whatever the pointee type is.
