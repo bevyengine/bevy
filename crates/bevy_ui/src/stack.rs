@@ -14,7 +14,7 @@ use core::ops::Range;
 /// while the last entry is the first node to receive interactions.
 #[derive(Debug, Resource, Default)]
 pub struct UiStack {
-    /// Partition of the `uinodes` list into disjoint slices of nodes that all belong to the same camera target.
+    /// Partition of the `uinodes` list into disjoint slices of nodes that all share the same camera target.
     pub partition: Vec<Range<usize>>,
     /// List of UI nodes ordered from back-to-front
     pub uinodes: Vec<Entity>,
