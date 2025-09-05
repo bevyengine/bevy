@@ -14,7 +14,7 @@ trace = [
   "bevy_app/trace",
   "bevy_asset?/trace",
   "bevy_core_pipeline?/trace",
-  "bevy_anti_aliasing?/trace",
+  "bevy_anti_alias?/trace",
   "bevy_ecs/trace",
   "bevy_log/trace",
   "bevy_pbr?/trace",
@@ -73,17 +73,17 @@ tonemapping_luts = [
 ]
 
 # Include SMAA LUT KTX2 Files
-smaa_luts = ["bevy_anti_aliasing?/smaa_luts", "ktx2", "bevy_image/zstd"]
+smaa_luts = ["bevy_anti_alias?/smaa_luts", "ktx2", "bevy_image/zstd"]
 
 # Include Bluenoise texture for environment map generation.
 bluenoise_texture = ["bevy_pbr?/bluenoise_texture", "ktx2", "bevy_image/zstd"]
 
 # NVIDIA Deep Learning Super Sampling
-dlss = ["bevy_anti_aliasing/dlss", "bevy_solari?/dlss"]
+dlss = ["bevy_anti_alias/dlss", "bevy_solari?/dlss"]
 
 # Forcibly disable DLSS so that cargo build --all-features works without the DLSS SDK being installed. Not meant for users.
 force_disable_dlss = [
-  "bevy_anti_aliasing?/force_disable_dlss",
+  "bevy_anti_alias?/force_disable_dlss",
   "bevy_solari?/force_disable_dlss",
 ]
 
@@ -182,7 +182,7 @@ pbr_specular_textures = [
 # Optimise for WebGL2
 webgl = [
   "bevy_core_pipeline?/webgl",
-  "bevy_anti_aliasing?/webgl",
+  "bevy_anti_alias?/webgl",
   "bevy_pbr?/webgl",
   "bevy_render?/webgl",
   "bevy_gizmos?/webgl",
@@ -191,7 +191,7 @@ webgl = [
 
 webgpu = [
   "bevy_core_pipeline?/webgpu",
-  "bevy_anti_aliasing?/webgpu",
+  "bevy_anti_alias?/webgpu",
   "bevy_pbr?/webgpu",
   "bevy_render?/webgpu",
   "bevy_gizmos?/webgpu",
@@ -234,7 +234,7 @@ bevy_render = [
   "bevy_gizmos?/bevy_render",
 ]
 bevy_core_pipeline = ["dep:bevy_core_pipeline", "bevy_render"]
-bevy_anti_aliasing = ["dep:bevy_anti_aliasing", "bevy_core_pipeline"]
+bevy_anti_alias = ["dep:bevy_anti_alias", "bevy_core_pipeline"]
 bevy_pbr = [
   "dep:bevy_pbr",
   "bevy_light",
@@ -475,7 +475,7 @@ bevy_color = { path = "../bevy_color", optional = true, version = "0.17.0-dev", 
 ] }
 bevy_core_pipeline = { path = "../bevy_core_pipeline", optional = true, version = "0.17.0-dev" }
 bevy_core_widgets = { path = "../bevy_core_widgets", optional = true, version = "0.17.0-dev" }
-bevy_anti_aliasing = { path = "../bevy_anti_aliasing", optional = true, version = "0.17.0-dev" }
+bevy_anti_alias = { path = "../bevy_anti_alias", optional = true, version = "0.17.0-dev" }
 bevy_dev_tools = { path = "../bevy_dev_tools", optional = true, version = "0.17.0-dev" }
 bevy_gilrs = { path = "../bevy_gilrs", optional = true, version = "0.17.0-dev" }
 bevy_gizmos = { path = "../bevy_gizmos", optional = true, version = "0.17.0-dev", default-features = false }
