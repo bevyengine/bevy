@@ -64,7 +64,7 @@ impl<S: States> Default for StateScopedEvents<S> {
     }
 }
 
-fn clear_events_on_exit_state<S: States>(
+fn clear_events_on_exit<S: States>(
     mut c: Commands,
     mut transitions: EventReader<StateTransitionEvent<S>>,
 ) {
@@ -85,7 +85,7 @@ fn clear_events_on_exit_state<S: States>(
     });
 }
 
-fn clear_events_on_enter_state<S: States>(
+fn clear_events_on_enter<S: States>(
     mut c: Commands,
     mut transitions: EventReader<StateTransitionEvent<S>>,
 ) {
@@ -119,10 +119,8 @@ fn clear_events_on_state_transition<E: BufferedEvent, S: States>(
         .resource_mut::<StateScopedEvents<S>>()
         .add_event::<E>(state.clone(), transition_type);
     match transition_type {
-        TransitionType::OnExit => app.add_systems(OnExit(state), clear_events_on_exit_state::<S>),
-        TransitionType::OnEnter => {
-            app.add_systems(OnEnter(state), clear_events_on_enter_state::<S>)
-        }
+        TransitionType::OnExit => app.add_systems(OnExit(state), clear_events_on_exit::<S>),
+        TransitionType::OnEnter => app.add_systems(OnEnter(state), clear_events_on_enter::<S>),
     };
 }
 
@@ -136,7 +134,7 @@ pub trait StateScopedEventsAppExt {
     /// All of these (state scoped entities and events cleanup, and `OnExit`)
     /// occur within schedule [`StateTransition`](crate::prelude::StateTransition)
     /// and system set `StateTransitionSystems::ExitSchedules`.
-    fn clear_events_on_exit_state<E: BufferedEvent>(&mut self, state: impl States) -> &mut Self;
+    fn clear_events_on_exit<E: BufferedEvent>(&mut self, state: impl States) -> &mut Self;
 
     /// Clears an [`BufferedEvent`] when entering the specified `state`.
     ///
@@ -146,11 +144,11 @@ pub trait StateScopedEventsAppExt {
     /// All of these (state scoped entities and events cleanup, and `OnEnter`)
     /// occur within schedule [`StateTransition`](crate::prelude::StateTransition)
     /// and system set `StateTransitionSystems::EnterSchedules`.
-    fn clear_events_on_enter_state<E: BufferedEvent>(&mut self, state: impl States) -> &mut Self;
+    fn clear_events_on_enter<E: BufferedEvent>(&mut self, state: impl States) -> &mut Self;
 }
 
 impl StateScopedEventsAppExt for App {
-    fn clear_events_on_exit_state<E: BufferedEvent>(&mut self, state: impl States) -> &mut Self {
+    fn clear_events_on_exit<E: BufferedEvent>(&mut self, state: impl States) -> &mut Self {
         clear_events_on_state_transition(
             self.main_mut(),
             PhantomData::<E>,
@@ -160,7 +158,7 @@ impl StateScopedEventsAppExt for App {
         self
     }
 
-    fn clear_events_on_enter_state<E: BufferedEvent>(&mut self, state: impl States) -> &mut Self {
+    fn clear_events_on_enter<E: BufferedEvent>(&mut self, state: impl States) -> &mut Self {
         clear_events_on_state_transition(
             self.main_mut(),
             PhantomData::<E>,
@@ -172,12 +170,12 @@ impl StateScopedEventsAppExt for App {
 }
 
 impl StateScopedEventsAppExt for SubApp {
-    fn clear_events_on_exit_state<E: BufferedEvent>(&mut self, state: impl States) -> &mut Self {
+    fn clear_events_on_exit<E: BufferedEvent>(&mut self, state: impl States) -> &mut Self {
         clear_events_on_state_transition(self, PhantomData::<E>, state, TransitionType::OnExit);
         self
     }
 
-    fn clear_events_on_enter_state<E: BufferedEvent>(&mut self, state: impl States) -> &mut Self {
+    fn clear_events_on_enter<E: BufferedEvent>(&mut self, state: impl States) -> &mut Self {
         clear_events_on_state_transition(self, PhantomData::<E>, state, TransitionType::OnEnter);
         self
     }
@@ -211,7 +209,7 @@ mod tests {
 
         app.add_event::<StandardEvent>();
         app.add_event::<StateScopedEvent>()
-            .clear_events_on_exit_state::<StateScopedEvent>(TestState::A);
+            .clear_events_on_exit::<StateScopedEvent>(TestState::A);
 
         app.world_mut().write_event(StandardEvent).unwrap();
         app.world_mut().write_event(StateScopedEvent).unwrap();
@@ -241,7 +239,7 @@ mod tests {
 
         app.add_event::<StandardEvent>();
         app.add_event::<StateScopedEvent>()
-            .clear_events_on_enter_state::<StateScopedEvent>(TestState::B);
+            .clear_events_on_enter::<StateScopedEvent>(TestState::B);
 
         app.world_mut().write_event(StandardEvent).unwrap();
         app.world_mut().write_event(StateScopedEvent).unwrap();

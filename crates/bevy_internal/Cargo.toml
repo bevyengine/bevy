@@ -235,6 +235,7 @@ bevy_render = [
 ]
 bevy_core_pipeline = ["dep:bevy_core_pipeline", "bevy_render"]
 bevy_anti_alias = ["dep:bevy_anti_alias", "bevy_core_pipeline"]
+bevy_post_process = ["dep:bevy_post_process", "bevy_core_pipeline"]
 bevy_pbr = [
   "dep:bevy_pbr",
   "bevy_light",
@@ -474,6 +475,7 @@ bevy_color = { path = "../bevy_color", optional = true, version = "0.17.0-dev", 
   "bevy_reflect",
 ] }
 bevy_core_pipeline = { path = "../bevy_core_pipeline", optional = true, version = "0.17.0-dev" }
+bevy_post_process = { path = "../bevy_post_process", optional = true, version = "0.17.0-dev" }
 bevy_core_widgets = { path = "../bevy_core_widgets", optional = true, version = "0.17.0-dev" }
 bevy_anti_alias = { path = "../bevy_anti_alias", optional = true, version = "0.17.0-dev" }
 bevy_dev_tools = { path = "../bevy_dev_tools", optional = true, version = "0.17.0-dev" }

@@ -45,6 +45,7 @@ use tracing::warn;
 /// Plugin for temporal anti-aliasing.
 ///
 /// See [`TemporalAntiAliasing`] for more details.
+#[derive(Default)]
 pub struct TemporalAntiAliasPlugin;
 
 impl Plugin for TemporalAntiAliasPlugin {
@@ -351,13 +352,12 @@ fn extract_taa_settings(mut commands: Commands, mut main_world: ResMut<MainWorld
     )>();
 
     for (entity, camera, camera_projection, taa_settings) in cameras_3d.iter_mut(&mut main_world) {
-        let has_perspective_projection = matches!(camera_projection, Projection::Perspective(_));
         let mut entity_commands = commands
             .get_entity(entity)
             .expect("Camera entity wasn't synced.");
         if let Some(mut taa_settings) = taa_settings
             && camera.is_active
-            && has_perspective_projection
+            && camera_projection.is_perspective()
         {
             entity_commands.insert(taa_settings.clone());
             taa_settings.reset = false;
