@@ -6422,11 +6422,11 @@ mod tests {
             world.despawn(entity);
             (MaybeLocation::caller(), world.change_tick())
         }
-        let (despawner, despawn_tick) = caller_despawn(&mut world, entity);
+        let (_despawner, despawn_tick) = caller_despawn(&mut world, entity);
 
         assert_eq!((spawner, spawn_tick), *TRACKED.get().unwrap());
         assert_eq!(
-            despawner,
+            spawner,
             world
                 .entities()
                 .entity_get_spawned_or_despawned_by(entity)

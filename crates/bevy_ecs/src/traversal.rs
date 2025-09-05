@@ -42,8 +42,8 @@ impl<D> Traversal<D> for () {
 /// Traversing in a loop could result in infinite loops for relationship graphs with loops.
 ///
 /// [event propagation]: crate::observer::On::propagate
-impl<R: Relationship, D> Traversal<D> for &R {
+impl<R: Relationship<Collection = Entity>, D> Traversal<D> for &R {
     fn traverse(item: Self::Item<'_, '_>, _data: &D) -> Option<Entity> {
-        Some(item.get())
+        Some(*item.get())
     }
 }
