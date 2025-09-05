@@ -98,6 +98,7 @@ impl ExtractComponent for ContrastAdaptiveSharpening {
 }
 
 /// Adds Support for Contrast Adaptive Sharpening (CAS).
+#[derive(Default)]
 pub struct CasPlugin;
 
 impl Plugin for CasPlugin {

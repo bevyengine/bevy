@@ -44,7 +44,7 @@ use bevy_render::{
 use bevy_shader::{load_shader_library, Shader};
 use bevy_utils::prelude::default;
 
-use crate::{
+use bevy_core_pipeline::{
     core_2d::graph::{Core2d, Node2d},
     core_3d::graph::{Core3d, Node3d},
     FullscreenShader,
@@ -71,7 +71,8 @@ struct DefaultChromaticAberrationLut(Handle<Image>);
 /// effects.
 ///
 /// Currently, this only consists of chromatic aberration.
-pub struct PostProcessingPlugin;
+#[derive(Default)]
+pub struct EffectStackPlugin;
 
 /// Adds colored fringes to the edges of objects in the scene.
 ///
@@ -183,7 +184,7 @@ pub struct PostProcessingUniformBufferOffsets {
 #[derive(Default)]
 pub struct PostProcessingNode;
 
-impl Plugin for PostProcessingPlugin {
+impl Plugin for EffectStackPlugin {
     fn build(&self, app: &mut App) {
         load_shader_library!(app, "chromatic_aberration.wgsl");
 
