@@ -16,11 +16,15 @@ use core::{
     ptr::{self, NonNull},
 };
 
-/// Used as a type argument to [`Ptr`], [`PtrMut`] and [`OwningPtr`] to specify that the pointer is aligned.
+/// Used as a type argument to [`Ptr`], [`PtrMut`] and [`OwningPtr`] to specify that the pointer is [aligned].
+///
+/// [aligned]: https://doc.rust-lang.org/std/ptr/index.html#alignment
 #[derive(Debug, Copy, Clone)]
 pub struct Aligned;
 
-/// Used as a type argument to [`Ptr`], [`PtrMut`] and [`OwningPtr`] to specify that the pointer is not aligned.
+/// Used as a type argument to [`Ptr`], [`PtrMut`] and [`OwningPtr`] to specify that the pointer is not [aligned].
+///
+/// [aligned]: https://doc.rust-lang.org/std/ptr/index.html#alignment
 #[derive(Debug, Copy, Clone)]
 pub struct Unaligned;
 
@@ -32,7 +36,9 @@ pub trait IsAligned: sealed::Sealed {
     /// # Safety
     ///  - `ptr` must be valid for reads.
     ///  - `ptr` must point to a valid instance of type `T`
-    ///  - If this type is [`Aligned`], then `ptr` must be properly aligned for type `T`.
+    ///  - If this type is [`Aligned`], then `ptr` must be [properly aligned] for type `T`.
+    ///
+    /// [properly aligned]: https://doc.rust-lang.org/std/ptr/index.html#alignment
     #[doc(hidden)]
     unsafe fn read_ptr<T>(ptr: *const T) -> T;
 
@@ -44,10 +50,12 @@ pub trait IsAligned: sealed::Sealed {
     /// # Safety
     ///  - `ptr` must be valid for reads and writes.
     ///  - `ptr` must point to a valid instance of type `T`
-    ///  - If this type is [`Aligned`], then `ptr` must be properly aligned for type `T`.
+    ///  - If this type is [`Aligned`], then `ptr` must be [properly aligned] for type `T`.
     ///  - The value pointed to by `ptr` must be valid for dropping.
     ///  - While `drop_in_place` is executing, the only way to access parts of `ptr` is through
     ///    the `&mut Self` supplied to it's `Drop::drop` impl.
+    ///
+    /// [properly aligned]: https://doc.rust-lang.org/std/ptr/index.html#alignment
     #[doc(hidden)]
     unsafe fn drop_in_place<T>(ptr: *mut T);
 }
@@ -194,7 +202,7 @@ impl<T: ?Sized> ConstNonNull<T> {
     ///
     /// When calling this method, you have to ensure that all of the following is true:
     ///
-    /// * The pointer must be properly aligned.
+    /// * The pointer must be [properly aligned].
     ///
     /// * It must be "dereferenceable" in the sense defined in [the module documentation].
     ///
@@ -222,6 +230,7 @@ impl<T: ?Sized> ConstNonNull<T> {
     /// ```
     ///
     /// [the module documentation]: core::ptr#safety
+    /// [properly aligned]: https://doc.rust-lang.org/std/ptr/index.html#alignment
     #[inline]
     pub unsafe fn as_ref<'a>(&self) -> &'a T {
         // SAFETY: This function's safety invariants are identical to `NonNull::as_ref`
@@ -254,10 +263,12 @@ impl<'a, T: ?Sized> From<&'a mut T> for ConstNonNull<T> {
 /// - It should be considered immutable: its target must not be changed while this pointer is alive.
 /// - It must always points to a valid value of whatever the pointee type is.
 /// - The lifetime `'a` accurately represents how long the pointer is valid for.
-/// - If `A` is [`Aligned`], the pointer must always be properly aligned for the unknown pointee type.
+/// - If `A` is [`Aligned`], the pointer must always be [properly aligned] for the unknown pointee type.
 ///
 /// It may be helpful to think of this type as similar to `&'a dyn Any` but without
 /// the metadata and able to point to data that does not correspond to a Rust type.
+///
+/// [properly aligned]: https://doc.rust-lang.org/std/ptr/index.html#alignment
 #[derive(Copy, Clone)]
 #[repr(transparent)]
 pub struct Ptr<'a, A: IsAligned = Aligned>(NonNull<u8>, PhantomData<(&'a u8, A)>);
@@ -269,10 +280,12 @@ pub struct Ptr<'a, A: IsAligned = Aligned>(NonNull<u8>, PhantomData<(&'a u8, A)>
 ///   aliased mutability.
 /// - It must always points to a valid value of whatever the pointee type is.
 /// - The lifetime `'a` accurately represents how long the pointer is valid for.
-/// - If `A` is [`Aligned`], the pointer must always be properly aligned for the unknown pointee type.
+/// - If `A` is [`Aligned`], the pointer must always be [properly aligned] for the unknown pointee type.
 ///
 /// It may be helpful to think of this type as similar to `&'a mut dyn Any` but without
 /// the metadata and able to point to data that does not correspond to a Rust type.
+///
+/// [properly aligned]: https://doc.rust-lang.org/std/ptr/index.html#alignment
 #[repr(transparent)]
 pub struct PtrMut<'a, A: IsAligned = Aligned>(NonNull<u8>, PhantomData<(&'a mut u8, A)>);
 
@@ -288,10 +301,12 @@ pub struct PtrMut<'a, A: IsAligned = Aligned>(NonNull<u8>, PhantomData<(&'a mut 
 ///   to aliased mutability and potentially use after free bugs.
 /// - It must always points to a valid value of whatever the pointee type is.
 /// - The lifetime `'a` accurately represents how long the pointer is valid for.
-/// - If `A` is [`Aligned`], the pointer must always be properly aligned for the unknown pointee type.
+/// - If `A` is [`Aligned`], the pointer must always be [properly aligned] for the unknown pointee type.
 ///
 /// It may be helpful to think of this type as similar to `&'a mut ManuallyDrop<dyn Any>` but
 /// without the metadata and able to point to data that does not correspond to a Rust type.
+///
+/// [properly aligned]: https://doc.rust-lang.org/std/ptr/index.html#alignment
 #[repr(transparent)]
 pub struct OwningPtr<'a, A: IsAligned = Aligned>(NonNull<u8>, PhantomData<(&'a mut u8, A)>);
 
@@ -309,7 +324,9 @@ pub struct OwningPtr<'a, A: IsAligned = Aligned>(NonNull<u8>, PhantomData<(&'a m
 /// - It must always points to a valid value of whatever the pointee type is.
 /// - The lifetime `'a` accurately represents how long the pointer is valid for.
 /// - It does not support pointer arithmetic in any way.
-/// - If `A` is [`Aligned`], the pointer must always be properly aligned for the type `T`.
+/// - If `A` is [`Aligned`], the pointer must always be [properly aligned] for the type `T`.
+///
+/// [properly aligned]: https://doc.rust-lang.org/std/ptr/index.html#alignment
 #[repr(transparent)]
 pub struct MovingPtr<'a, T, A: IsAligned = Aligned>(NonNull<T>, PhantomData<(&'a mut T, A)>);
 
@@ -430,10 +447,12 @@ impl<'a, T, A: IsAligned> MovingPtr<'_, T, A> {
     ///
     /// # Safety
     /// - `inner` must point to valid value of `T`.
-    /// - If the `A` type parameter is [`Aligned`] then `inner` must be sufficiently aligned for `T`.
+    /// - If the `A` type parameter is [`Aligned`] then `inner` must be be [properly aligned] for `T`.
     /// - `inner` must have correct provenance to allow read and writes of the pointee type.
     /// - The lifetime `'a` must be constrained such that this [`MovingPtr`] will stay valid and nothing
     ///   else can read or mutate the pointee while this [`MovingPtr`] is live.
+    ///
+    /// [properly aligned]: https://doc.rust-lang.org/std/ptr/index.html#alignment
     #[inline]
     pub unsafe fn new(inner: NonNull<T>) -> Self {
         Self(inner, PhantomData)
@@ -522,7 +541,9 @@ impl<'a, T, A: IsAligned> MovingPtr<'_, T, A> {
     ///
     /// # Safety
     ///  - `dst` must be valid for writes.
-    ///  - If the `A` type parameter is [`Aligned`] then `dst` must be properly aligned for `T`.
+    ///  - If the `A` type parameter is [`Aligned`] then `dst` must be [properly aligned] for `T`.
+    ///
+    /// [properly aligned]: https://doc.rust-lang.org/std/ptr/index.html#alignment
     #[inline]
     pub unsafe fn write_to(self, dst: *mut T) {
         let src = self.0.as_ptr();
@@ -684,10 +705,12 @@ impl<'a, A: IsAligned> Ptr<'a, A> {
     ///
     /// # Safety
     /// - `inner` must point to valid value of whatever the pointee type is.
-    /// - If the `A` type parameter is [`Aligned`] then `inner` must be sufficiently aligned for the pointee type.
+    /// - If the `A` type parameter is [`Aligned`] then `inner` must be be [properly aligned]for the pointee type.
     /// - `inner` must have correct provenance to allow reads of the pointee type.
     /// - The lifetime `'a` must be constrained such that this [`Ptr`] will stay valid and nothing
     ///   can mutate the pointee while this [`Ptr`] is live except through an [`UnsafeCell`].
+    ///
+    /// [properly aligned]: https://doc.rust-lang.org/std/ptr/index.html#alignment
     #[inline]
     pub unsafe fn new(inner: NonNull<u8>) -> Self {
         Self(inner, PhantomData)
@@ -708,8 +731,10 @@ impl<'a, A: IsAligned> Ptr<'a, A> {
     ///
     /// # Safety
     /// - `T` must be the erased pointee type for this [`Ptr`].
-    /// - If the type parameter `A` is [`Unaligned`] then this pointer must be sufficiently aligned
+    /// - If the type parameter `A` is [`Unaligned`] then this pointer must be be [properly aligned]
     ///   for the pointee type `T`.
+    ///
+    /// [properly aligned]: https://doc.rust-lang.org/std/ptr/index.html#alignment
     #[inline]
     pub unsafe fn deref<T>(self) -> &'a T {
         let ptr = self.as_ptr().cast::<T>().debug_ensure_aligned();
@@ -741,10 +766,12 @@ impl<'a, A: IsAligned> PtrMut<'a, A> {
     ///
     /// # Safety
     /// - `inner` must point to valid value of whatever the pointee type is.
-    /// - If the `A` type parameter is [`Aligned`] then `inner` must be sufficiently aligned for the pointee type.
+    /// - If the `A` type parameter is [`Aligned`] then `inner` must be be [properly aligned] for the pointee type.
     /// - `inner` must have correct provenance to allow read and writes of the pointee type.
     /// - The lifetime `'a` must be constrained such that this [`PtrMut`] will stay valid and nothing
     ///   else can read or mutate the pointee while this [`PtrMut`] is live.
+    ///
+    /// [properly aligned]: https://doc.rust-lang.org/std/ptr/index.html#alignment
     #[inline]
     pub unsafe fn new(inner: NonNull<u8>) -> Self {
         Self(inner, PhantomData)
@@ -763,8 +790,10 @@ impl<'a, A: IsAligned> PtrMut<'a, A> {
     ///
     /// # Safety
     /// - `T` must be the erased pointee type for this [`PtrMut`].
-    /// - If the type parameter `A` is [`Unaligned`] then this pointer must be sufficiently aligned
+    /// - If the type parameter `A` is [`Unaligned`] then this pointer must be be [properly aligned]
     ///   for the pointee type `T`.
+    ///
+    /// [properly aligned]: https://doc.rust-lang.org/std/ptr/index.html#alignment
     #[inline]
     pub unsafe fn deref_mut<T>(self) -> &'a mut T {
         let ptr = self.as_ptr().cast::<T>().debug_ensure_aligned();
@@ -832,10 +861,12 @@ impl<'a, A: IsAligned> OwningPtr<'a, A> {
     ///
     /// # Safety
     /// - `inner` must point to valid value of whatever the pointee type is.
-    /// - If the `A` type parameter is [`Aligned`] then `inner` must be sufficiently aligned for the pointee type.
+    /// - If the `A` type parameter is [`Aligned`] then `inner` must be [properly aligned] for the pointee type.
     /// - `inner` must have correct provenance to allow read and writes of the pointee type.
     /// - The lifetime `'a` must be constrained such that this [`OwningPtr`] will stay valid and nothing
     ///   else can read or mutate the pointee while this [`OwningPtr`] is live.
+    ///
+    /// [properly aligned]: https://doc.rust-lang.org/std/ptr/index.html#alignment
     #[inline]
     pub unsafe fn new(inner: NonNull<u8>) -> Self {
         Self(inner, PhantomData)
@@ -845,8 +876,10 @@ impl<'a, A: IsAligned> OwningPtr<'a, A> {
     ///
     /// # Safety
     /// - `T` must be the erased pointee type for this [`OwningPtr`].
-    /// - If the type parameter `A` is [`Unaligned`] then this pointer must be sufficiently aligned
+    /// - If the type parameter `A` is [`Unaligned`] then this pointer must be be [properly aligned]
     ///   for the pointee type `T`.
+    ///
+    /// [properly aligned]: https://doc.rust-lang.org/std/ptr/index.html#alignment
     #[inline]
     pub unsafe fn read<T>(self) -> T {
         let ptr = self.as_ptr().cast::<T>().debug_ensure_aligned();
@@ -858,8 +891,10 @@ impl<'a, A: IsAligned> OwningPtr<'a, A> {
     ///
     /// # Safety
     /// - `T` must be the erased pointee type for this [`OwningPtr`].
-    /// - If the type parameter `A` is [`Unaligned`] then this pointer must be sufficiently aligned
+    /// - If the type parameter `A` is [`Unaligned`] then this pointer must be be [properly aligned]
     ///   for the pointee type `T`.
+    ///
+    /// [properly aligned]: https://doc.rust-lang.org/std/ptr/index.html#alignment
     #[inline]
     pub unsafe fn drop_as<T>(self) {
         let ptr = self.as_ptr().cast::<T>().debug_ensure_aligned();
