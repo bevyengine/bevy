@@ -72,15 +72,12 @@ use environment::{
     prepare_probe_textures, AtmosphereEnvironmentMap, EnvironmentNode,
 };
 use resources::{
-    prepare_atmosphere_transforms, queue_render_sky_pipelines, AtmosphereTransforms,
-    RenderSkyBindGroupLayouts,
+    prepare_atmosphere_transforms, prepare_atmosphere_uniforms, queue_render_sky_pipelines,
+    AtmosphereTransforms, GpuAtmosphere, RenderSkyBindGroupLayouts,
 };
 use tracing::warn;
 
-use crate::{
-    resources::{prepare_atmosphere_uniforms, GpuAtmosphere},
-    ScatteringMedium,
-};
+use crate::medium::ScatteringMedium;
 
 use self::{
     node::{AtmosphereLutsNode, AtmosphereNode, RenderSkyNode},
@@ -219,26 +216,7 @@ impl EarthAtmosphere {
     }
 }
 
-/// This component describes the atmosphere of a planet, and when added to a camera
-/// will enable atmospheric scattering for that camera. This is only compatible with
-/// HDR cameras.
-///
-/// Most atmospheric particles scatter and absorb light in two main ways:
-///
-/// Rayleigh scattering occurs among very small particles, like individual gas
-/// molecules. It's wavelength dependent, and causes colors to separate out as
-/// light travels through the atmosphere. These particles *don't* absorb light.
-///
-/// Mie scattering occurs among slightly larger particles, like dust and sea spray.
-/// These particles *do* absorb light, but Mie scattering and absorption is
-/// *wavelength independent*.
-///
-/// Ozone acts differently from the other two, and is special-cased because
-/// it's very important to the look of Earth's atmosphere. It's wavelength
-/// dependent, but only *absorbs* light. Also, while the density of particles
-/// participating in Rayleigh and Mie scattering falls off roughly exponentially
-/// from the planet's surface, ozone only exists in a band centered at a fairly
-/// high altitude.
+/// Enables atmospheric scattering for an HDR camera.
 #[derive(Clone, Component)]
 #[require(AtmosphereSettings, Hdr)]
 pub struct Atmosphere {
@@ -259,7 +237,7 @@ pub struct Atmosphere {
     /// units: N/A
     pub ground_albedo: Vec3,
 
-    /// A handle to a `ScatteringMedium`, which describes the substance
+    /// A handle to a [`ScatteringMedium`], which describes the substance
     /// of the atmosphere and how it scatters light.
     pub medium: Handle<ScatteringMedium>,
 }

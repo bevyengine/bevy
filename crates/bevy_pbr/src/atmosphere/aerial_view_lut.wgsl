@@ -49,7 +49,7 @@ fn main(@builtin(global_invocation_id) idx: vec3<u32>) {
             let sample_transmittance = exp(-sample_optical_depth);
 
             // evaluate one segment of the integral
-            var inscattering = sample_local_inscattering(scattering, ray_dir.xyz, sample_pos);
+            var inscattering = sample_local_inscattering(scattering, ray_dir, sample_pos);
 
             // Analytical integration of the single scattering term in the radiance transfer equation
             let s_int = (inscattering - inscattering * sample_transmittance) / max(extinction, MIN_EXTINCTION);

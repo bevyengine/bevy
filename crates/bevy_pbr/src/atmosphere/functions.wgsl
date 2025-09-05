@@ -182,15 +182,21 @@ fn sample_aerial_view_lut(uv: vec2<f32>, t: f32) -> vec3<f32> {
 
 // ATMOSPHERE SAMPLING
 
+// samples from the atmosphere density LUT.
+//
+// calling with `component = 0.0` will return the atmosphere's absorption density,
+// while calling with `component = 1.0` will return the atmosphere's scattering density.
 fn sample_density_lut(r: f32, component: f32) -> vec3<f32> {
-    let normed_altitude = saturate((r - atmosphere.bottom_radius) / (atmosphere.top_radius - atmosphere.bottom_radius));
-    let uv = vec2(1.0 - normed_altitude, component);
+    // sampler clamps to [0, 1] anyways, no need to clamp the altitude
+    let normalized_altitude = (r - atmosphere.bottom_radius) / (atmosphere.top_radius - atmosphere.bottom_radius);
+    let uv = vec2(1.0 - normalized_altitude, component);
     return textureSampleLevel(medium_density_lut, medium_sampler, uv, 0.0).xyz; 
 }
 
+// samples from the atmosphere scattering LUT. `neg_LdotV` is the ()
 fn sample_scattering_lut(r: f32, neg_LdotV: f32) -> vec3<f32> {
-    let normed_altitude = saturate((r - atmosphere.bottom_radius) / (atmosphere.top_radius - atmosphere.bottom_radius));
-    let uv = vec2(1.0 - normed_altitude, neg_LdotV * 0.5 + 0.5);
+    let normalized_altitude = (r - atmosphere.bottom_radius) / (atmosphere.top_radius - atmosphere.bottom_radius);
+    let uv = vec2(1.0 - normalized_altitude, neg_LdotV * 0.5 + 0.5);
     return textureSampleLevel(medium_scattering_lut, medium_sampler, uv, 0.0).xyz; 
 }
 

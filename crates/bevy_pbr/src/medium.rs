@@ -35,69 +35,42 @@ impl Plugin for ScatteringMediumPlugin {
     }
 }
 
-// DOCS INSPO:
-// /// The rate of falloff of rayleigh particulate with respect to altitude:
-// /// optical density = exp(-rayleigh_density_exp_scale * altitude in meters).
-// ///
-// /// THIS VALUE MUST BE POSITIVE
-// ///
-// /// units: N/A
-// pub rayleigh_density_exp_scale: f32,
-//
-// /// The scattering optical density of rayleigh particulate, or how
-// /// much light it scatters per meter
-// ///
-// /// units: m^-1
-// pub rayleigh_scattering: Vec3,
-//
-// /// The rate of falloff of mie particulate with respect to altitude:
-// /// optical density = exp(-mie_density_exp_scale * altitude in meters)
-// ///
-// /// THIS VALUE MUST BE POSITIVE
-// ///
-// /// units: N/A
-// pub mie_density_exp_scale: f32,
-//
-// /// The scattering optical density of mie particulate, or how much light
-// /// it scatters per meter.
-// ///
-// /// units: m^-1
-// pub mie_scattering: f32,
-//
-// /// The absorbing optical density of mie particulate, or how much light
-// /// it absorbs per meter.
-// ///
-// /// units: m^-1
-// pub mie_absorption: f32,
-//
-// /// The "asymmetry" of mie scattering, or how much light tends to scatter
-// /// forwards, rather than backwards or to the side.
-// ///
-// /// domain: (-1, 1)
-// /// units: N/A
-// pub mie_asymmetry: f32, //the "asymmetry" value of the phase function, unitless. Domain: (-1, 1)
-//
-// /// The altitude at which the ozone layer is centered.
-// ///
-// /// units: m
-// pub ozone_layer_altitude: f32,
-//
-// /// The width of the ozone layer
-// ///
-// /// units: m
-// pub ozone_layer_width: f32,
-//
-// /// The optical density of ozone, or how much of each wavelength of
-// /// light it absorbs per meter.
-// ///
-// /// units: m^-1
-// pub ozone_absorption: Vec3,
-
+/// An asset that defines how a material scatters light.
+///
+/// In order to calculate how light passes through a medium,
+/// you need three pieces of information:
+/// - how much light the medium *absorbs* per unit length
+/// - how much light the medium *scatters* per unit length
+/// - what *directions* the medium is likely to scatter light in.
+///
+/// The first two are fairly simple, and are sometimes referred to together
+/// (accurately enough) as the medium's [optical density].
+///
+/// The last, defined by a [phase function], is the most important in creating
+/// the look of a medium. Our brains are very good at noticing (if unconsciously)
+/// that a dust storm scatters light differently than a rain cloud, for example.
+/// See the docs on [`PhaseFunction`] for more info.
+///
+/// ## Technical Details
+///
+/// A [`ScatteringMedium`] is represented on the GPU by a set of two LUTs, which
+/// are re-created every time the asset is modified. See the docs on [`GpuScatteringMedium`] for more info.
+///
+/// [optical density]: https://en.wikipedia.org/wiki/Optical_Density
+/// [phase function]: https://www.pbr-book.org/4ed/Volume_Scattering/Phase_Functions
 #[derive(TypePath, Asset, Clone)]
 pub struct ScatteringMedium {
+    /// An optional label for the medium, used when creating the LUTs on the GPU.
     pub label: Option<Cow<'static, str>>,
+    /// The resolution at which to sample the falloff distribution of each
+    /// scattering term. Custom or more detailed distributions may benefit
+    /// from a higher value, at the cost of more memory use.
     pub falloff_resolution: u32,
+    /// The resolution at which to sample the phase function of each scattering
+    /// term. Custom or more detailed phase functions may benefit from a higher
+    /// value, at the cost of more memory use.
     pub phase_resolution: u32,
+    /// The list of [`ScatteringTerm`]s that compose this [`ScatteringMedium`]
     pub terms: SmallVec<[ScatteringTerm; 1]>,
 }
 
@@ -221,8 +194,6 @@ impl Falloff {
 // their media, and the link to whether it should be wavelength-dependent or not.
 
 /// Describes how likely a medium is to scatter light in a given direction.
-///
-///
 #[derive(Clone)]
 pub enum PhaseFunction {
     Isotropic,
@@ -278,14 +249,31 @@ impl Default for PhaseFunction {
     }
 }
 
-/// The GPU representation of a `ScatteringMedium`.
+/// The GPU representation of a [`ScatteringMedium`].
 pub struct GpuScatteringMedium {
+    /// The terms of the scattering medium.
     pub terms: SmallVec<[ScatteringTerm; 1]>,
+    /// The resolution at which to sample the falloff distribution of each
+    /// scattering term.
     pub falloff_resolution: u32,
+    /// The resolution at which to sample the phase function of each
+    /// scattering term.
     pub phase_resolution: u32,
+    /// The `density_lut`, a 2D `falloff_resolution x 2` LUT which contains the
+    /// medium's optical density with respect to the atmosphere's "falloff parameter",
+    /// a linear value which is 1.0 at the planet's surface and 0.0 at the edge of
+    /// space. The first and second rows correspond to absorption density and
+    /// scattering density respectively.
     pub density_lut: Texture,
+    /// The default [`TextureView`] of the `density_lut`
     pub density_lut_view: TextureView,
+    /// The `scattering_lut`, a 2D `falloff_resolution x phase_resolution` LUT which
+    /// contains the medium's scattering density multiplied by the phase function, with
+    /// the U axis corresponding to the falloff parameter and the V axis corresponding
+    /// to `neg_LdotV * 0.5 + 0.5`, where `neg_LdotV` is the dot product of the light
+    /// direction and the incoming view vector.
     pub scattering_lut: Texture,
+    /// The default [`TextureView`] of the `scattering_lut`
     pub scattering_lut_view: TextureView,
 }
 
