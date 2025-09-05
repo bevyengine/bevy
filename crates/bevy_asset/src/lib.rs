@@ -1508,23 +1508,20 @@ mod tests {
 
         gated.open("dep.cool.ron");
 
+        let server = app.world().resource::<AssetServer>().clone();
+
         let id = {
-            let handle = {
-                let server = app.world().resource::<AssetServer>();
+            let handle = server.load("dep.cool.ron");
 
-                server.load("dep.cool.ron")
-            };
+            let a_id = handle.id();
+            run_app_until(&mut app, |world| {
+                _ = get::<CoolText>(world, a_id)?;
+                let (load, _, _) = server.get_load_states(a_id).unwrap();
+                assert!(load.is_loaded());
+                Some(())
+            });
 
-            app.update();
-
-            {
-                let text = app.world().resource::<Assets<CoolText>>().get(&handle);
-                assert!(text.is_some());
-
-                let server = app.world().resource::<AssetServer>();
-                assert!(server.is_loaded(handle.id()));
-            }
-            handle.id()
+            a_id
         };
 
         // handle is dropped, then immediately re-acquired
@@ -1540,7 +1537,6 @@ mod tests {
                 let text = app.world().resource::<Assets<CoolText>>().get(&handle);
                 assert!(text.is_some());
 
-                let server = app.world().resource::<AssetServer>();
                 assert!(server.is_loaded(handle.id()));
             }
         }
@@ -1552,7 +1548,6 @@ mod tests {
             "asset handles were dropped, so it should have been dropped last update"
         );
 
-        let server = app.world().resource::<AssetServer>();
         assert!(!server.is_loaded(id));
     }
 
@@ -1570,14 +1565,17 @@ mod tests {
 
         gated.open("dep.cool.ron");
 
+        let server = app.world().resource::<AssetServer>().clone();
         {
-            let handle = {
-                let server = app.world().resource::<AssetServer>();
+            let handle = server.load("dep.cool.ron");
 
-                server.load("dep.cool.ron")
-            };
-
-            app.update();
+            let a_id = handle.id();
+            run_app_until(&mut app, |world| {
+                _ = get::<CoolText>(world, a_id)?;
+                let (load, _, _) = server.get_load_states(a_id).unwrap();
+                assert!(load.is_loaded());
+                Some(())
+            });
 
             let handle = {
                 let mut texts = app.world_mut().resource_mut::<Assets<CoolText>>();
@@ -1589,8 +1587,6 @@ mod tests {
             app.update();
 
             {
-                let server = app.world().resource::<AssetServer>();
-
                 let handle2 = server.load::<CoolText>("dep.cool.ron");
                 assert!(
                     handle.id() == handle2.id(),
@@ -1605,7 +1601,7 @@ mod tests {
                         );
                     }
                     (a, b) => {
-                        std::eprintln!("expected strong handles, got {a:?} and {b:?}");
+                        panic!("expected strong handles, got {a:?} and {b:?}");
                     }
                 }
             }

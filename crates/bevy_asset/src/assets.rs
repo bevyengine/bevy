@@ -570,11 +570,9 @@ impl<A: Asset> Assets<A> {
                 // asset if it manages the asset: this is the case if the asset
                 // has an info entry with the server.
                 let untyped_id = id.untyped();
-                if infos.contains_key(untyped_id) {
-                    if !infos.process_handle_drop(untyped_id) {
-                        // the asset doesn't exist
-                        continue;
-                    }
+                if infos.contains_key(untyped_id) && !infos.process_handle_drop(untyped_id) {
+                    // the asset doesn't exist
+                    continue;
                 }
 
                 assets.remove_dropped(id);

@@ -54,7 +54,7 @@ impl AssetHandleProvider {
 
     pub(crate) fn try_get_handle(&self, id: InternalAssetId) -> Option<Arc<StrongHandle>> {
         let id_to_handle = self.id_to_handle.lock();
-        id_to_handle.get(&id).and_then(|weak| weak.upgrade())
+        id_to_handle.get(&id).and_then(Weak::upgrade)
     }
 
     /// Creates a new handle for the given `id`. If a handle was previously
@@ -71,7 +71,7 @@ impl AssetHandleProvider {
     ) -> Arc<StrongHandle> {
         let mut id_to_handle = self.id_to_handle.lock();
 
-        if let Some(strong) = id_to_handle.get(&id).and_then(|weak| weak.upgrade()) {
+        if let Some(strong) = id_to_handle.get(&id).and_then(Weak::upgrade) {
             return strong;
         }
 
