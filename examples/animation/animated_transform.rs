@@ -156,7 +156,7 @@ fn setup(
             id: planet_animation_target_id,
             player: planet_entity,
         },
-        Children::spawn_one((
+        children![(
             Transform::default(),
             Visibility::default(),
             orbit_controller,
@@ -164,7 +164,7 @@ fn setup(
                 id: orbit_controller_animation_target_id,
                 player: planet_entity,
             },
-            Children::spawn_one((
+            children![(
                 Mesh3d(meshes.add(Cuboid::new(0.5, 0.5, 0.5))),
                 MeshMaterial3d(materials.add(Color::srgb(0.3, 0.9, 0.3))),
                 Transform::from_xyz(1.5, 0.0, 0.0),
@@ -173,7 +173,7 @@ fn setup(
                     player: planet_entity,
                 },
                 satellite,
-            )),
-        )),
+            )],
+        )],
     ));
 }
