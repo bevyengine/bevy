@@ -578,7 +578,7 @@ impl<'a, T, A: IsAligned> MovingPtr<'_, T, A> {
 
     /// Creates a [`MovingPtr`] for a specific field within `self`.
     ///
-    /// This function is expliciitly made for deconstructive moves.
+    /// This function is explicitly made for deconstructive moves.
     ///
     /// The correct `byte_offset` for a field can be obtained via [`core::mem::offset_of`].
     ///
