@@ -1,5 +1,5 @@
 [package]
-name = "bevy_anti_aliasing"
+name = "bevy_anti_alias"
 version = "0.17.0-dev"
 edition = "2024"
 description = "Provides various anti aliasing implementations for Bevy Engine"

@@ -68,7 +68,7 @@ mod shapes {
         mut meshes: ResMut<Assets<Mesh>>,
         mut materials: ResMut<Assets<ColorMaterial>>,
     ) {
-        commands.spawn((Camera2d, DespawnOnExitState(super::Scene::Shapes)));
+        commands.spawn((Camera2d, DespawnOnExit(super::Scene::Shapes)));
 
         let shapes = [
             meshes.add(Circle::new(50.0)),
@@ -101,7 +101,7 @@ mod shapes {
                     0.0,
                     0.0,
                 ),
-                DespawnOnExitState(super::Scene::Shapes),
+                DespawnOnExit(super::Scene::Shapes),
             ));
         }
     }
@@ -122,21 +122,21 @@ mod bloom {
             Camera2d,
             Tonemapping::TonyMcMapface,
             Bloom::default(),
-            DespawnOnExitState(super::Scene::Bloom),
+            DespawnOnExit(super::Scene::Bloom),
         ));
 
         commands.spawn((
             Mesh2d(meshes.add(Circle::new(100.))),
             MeshMaterial2d(materials.add(Color::srgb(7.5, 0.0, 7.5))),
             Transform::from_translation(Vec3::new(-200., 0., 0.)),
-            DespawnOnExitState(super::Scene::Bloom),
+            DespawnOnExit(super::Scene::Bloom),
         ));
 
         commands.spawn((
             Mesh2d(meshes.add(RegularPolygon::new(100., 6))),
             MeshMaterial2d(materials.add(Color::srgb(6.25, 9.4, 9.1))),
             Transform::from_translation(Vec3::new(200., 0., 0.)),
-            DespawnOnExitState(super::Scene::Bloom),
+            DespawnOnExit(super::Scene::Bloom),
         ));
     }
 }
@@ -148,7 +148,7 @@ mod text {
     use bevy::text::TextBounds;
 
     pub fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
-        commands.spawn((Camera2d, DespawnOnExitState(super::Scene::Text)));
+        commands.spawn((Camera2d, DespawnOnExit(super::Scene::Text)));
 
         for (i, justify) in [
             Justify::Left,
@@ -169,7 +169,7 @@ mod text {
             );
         }
 
-        let sans_serif = TextFont::from_font(asset_server.load("fonts/FiraSans-Bold.ttf"));
+        let sans_serif = TextFont::from(asset_server.load("fonts/FiraSans-Bold.ttf"));
 
         const NUM_ITERATIONS: usize = 10;
         for i in 0..NUM_ITERATIONS {
@@ -182,14 +182,14 @@ mod text {
                     .with_scale(1.0 + Vec2::splat(fraction).extend(1.))
                     .with_rotation(Quat::from_rotation_z(fraction * core::f32::consts::PI)),
                 TextColor(Color::hsla(fraction * 360.0, 0.8, 0.8, 0.8)),
-                DespawnOnExitState(super::Scene::Text),
+                DespawnOnExit(super::Scene::Text),
             ));
         }
 
         commands.spawn((
             Text2d::new("This text is invisible."),
             Visibility::Hidden,
-            DespawnOnExitState(super::Scene::Text),
+            DespawnOnExit(super::Scene::Text),
         ));
     }
 
@@ -206,7 +206,7 @@ mod text {
                 ..Default::default()
             },
             Transform::from_translation(dest),
-            DespawnOnExitState(super::Scene::Text),
+            DespawnOnExit(super::Scene::Text),
         ));
 
         for anchor in [
@@ -220,7 +220,7 @@ mod text {
                 TextLayout::new_with_justify(justify),
                 Transform::from_translation(dest + Vec3::Z),
                 anchor,
-                DespawnOnExitState(super::Scene::Text),
+                DespawnOnExit(super::Scene::Text),
                 ShowAabbGizmo {
                     color: Some(palettes::tailwind::AMBER_400.into()),
                 },
@@ -248,7 +248,7 @@ mod text {
                     },
                     Transform::from_translation(dest - Vec3::Z),
                     anchor,
-                    DespawnOnExitState(super::Scene::Text),
+                    DespawnOnExit(super::Scene::Text),
                 ));
             }
         }
@@ -261,7 +261,7 @@ mod sprite {
     use bevy::sprite::Anchor;
 
     pub fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
-        commands.spawn((Camera2d, DespawnOnExitState(super::Scene::Sprite)));
+        commands.spawn((Camera2d, DespawnOnExit(super::Scene::Sprite)));
         for (anchor, flip_x, flip_y, color) in [
             (Anchor::BOTTOM_LEFT, false, false, Color::WHITE),
             (Anchor::BOTTOM_RIGHT, true, false, RED.into()),
@@ -277,7 +277,7 @@ mod sprite {
                     ..default()
                 },
                 anchor,
-                DespawnOnExitState(super::Scene::Sprite),
+                DespawnOnExit(super::Scene::Sprite),
             ));
         }
     }
@@ -287,7 +287,7 @@ mod gizmos {
     use bevy::{color::palettes::css::*, prelude::*};
 
     pub fn setup(mut commands: Commands) {
-        commands.spawn((Camera2d, DespawnOnExitState(super::Scene::Gizmos)));
+        commands.spawn((Camera2d, DespawnOnExit(super::Scene::Gizmos)));
     }
 
     pub fn draw_gizmos(mut gizmos: Gizmos) {
