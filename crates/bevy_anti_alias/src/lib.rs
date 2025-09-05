@@ -5,7 +5,7 @@
     html_favicon_url = "https://bevy.org/assets/icon.png"
 )]
 
-use bevy_app::Plugin;
+use bevy_app::{plugin_group, Plugin};
 use contrast_adaptive_sharpening::CasPlugin;
 use fxaa::FxaaPlugin;
 use smaa::SmaaPlugin;
@@ -18,19 +18,27 @@ pub mod fxaa;
 pub mod smaa;
 pub mod taa;
 
+// TODO: remove this plugin once we can order plugin groups correctly in DefaultPlugins
 /// Adds fxaa, smaa, taa, contrast aware sharpening, and optional dlss support.
 #[derive(Default)]
 pub struct AntiAliasPlugin;
 
 impl Plugin for AntiAliasPlugin {
     fn build(&self, app: &mut bevy_app::App) {
-        app.add_plugins((
-            FxaaPlugin,
-            SmaaPlugin,
-            TemporalAntiAliasPlugin,
-            CasPlugin,
-            #[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))]
-            dlss::DlssPlugin,
-        ));
+        app.add_plugins(AntiAliasPlugins);
+    }
+}
+
+plugin_group! {
+    /// Adds fxaa, smaa, taa, contrast aware sharpening, and optional dlss support.
+    #[derive(Default)]
+    pub struct AntiAliasPlugins {
+        :FxaaPlugin,
+        :SmaaPlugin,
+        :TemporalAntiAliasPlugin,
+        :CasPlugin,
+        #[cfg(feature = "dlss")]
+        #[custom(cfg(not(feature = "force_disable_dlss")))]
+        dlss:::DlssPlugin,
     }
 }
