@@ -9,7 +9,6 @@
 
 use core::{
     cell::UnsafeCell,
-    f128::consts::PHI,
     fmt::{self, Debug, Formatter, Pointer},
     marker::PhantomData,
     mem::{self, ManuallyDrop, MaybeUninit},
@@ -450,6 +449,7 @@ impl<'a, T> MovingPtr<'a, T, Aligned> {
     /// - `value` must store a properly initialized value of type `T`.
     /// - Once the returned [`MovingPtr`] has been used, `value` must be treated as
     ///   it were uninitialized unless it was explicitly leaked via [`core::mem::forget`].
+    #[inline]
     pub unsafe fn from_value(value: &'a mut MaybeUninit<T>) -> Self {
         // SAFETY:
         // - MaybeUninit<T> has the same memory layout as T
