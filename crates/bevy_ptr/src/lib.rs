@@ -11,7 +11,7 @@ use core::{
     cell::UnsafeCell,
     fmt::{self, Debug, Formatter, Pointer},
     marker::PhantomData,
-    mem::ManuallyDrop,
+    mem::{self, ManuallyDrop, MaybeUninit},
     num::NonZeroUsize,
     ptr::{self, NonNull},
 };
@@ -26,11 +26,20 @@ pub struct Unaligned;
 
 /// Trait that is only implemented for [`Aligned`] and [`Unaligned`] to work around the lack of ability
 /// to have const generics of an enum.
-pub trait IsAligned: sealed::Sealed {}
+pub trait IsAligned: sealed::Sealed {
+    #[doc(hidden)]
+    const IS_ALIGNED: bool;
+}
 
-impl IsAligned for Aligned {}
+impl IsAligned for Aligned {
+    #[doc(hidden)]
+    const IS_ALIGNED: bool = true;
+}
 
-impl IsAligned for Unaligned {}
+impl IsAligned for Unaligned {
+    #[doc(hidden)]
+    const IS_ALIGNED: bool = false;
+}
 
 mod sealed {
     pub trait Sealed {}
@@ -151,6 +160,7 @@ impl<'a, T: ?Sized> From<&'a mut T> for ConstNonNull<T> {
         ConstNonNull(NonNull::from(value))
     }
 }
+
 /// Type-erased borrow of some unknown type chosen when constructing this type.
 ///
 /// This type tries to act "borrow-like" which means that:
@@ -197,6 +207,23 @@ pub struct PtrMut<'a, A: IsAligned = Aligned>(NonNull<u8>, PhantomData<(&'a mut 
 /// without the metadata and able to point to data that does not correspond to a Rust type.
 #[repr(transparent)]
 pub struct OwningPtr<'a, A: IsAligned = Aligned>(NonNull<u8>, PhantomData<(&'a mut u8, A)>);
+
+/// A Box-like pointer for moving a value to a new memory location without needing to pass by
+/// value.
+///
+/// Conceptually represents ownership of whatever data is being pointed to and will call its
+/// `Drop` impl upon being dropped. This pointer is _not_ responsible for freeing
+/// the memory pointed to by this pointer as it may be pointing to an element in a `Vec` or
+/// to a local in a function etc.
+///
+/// This type tries to act "borrow-like" like which means that:
+/// - Pointer should be considered exclusive and mutable. It cannot be cloned as this would lead
+///   to aliased mutability and potentially use after free bugs.
+/// - It must always points to a valid value of whatever the pointee type is.
+/// - The lifetime `'a` accurately represents how long the pointer is valid for.
+/// - It does not support pointer arithmetic in any way.
+/// - Must be sufficiently aligned for the pointee type.
+pub struct MovingPtr<'a, T, A: IsAligned = Aligned>(NonNull<T>, PhantomData<(&'a mut T, A)>);
 
 macro_rules! impl_ptr {
     ($ptr:ident) => {
@@ -272,6 +299,7 @@ macro_rules! impl_ptr {
                 write!(f, "{}<Aligned>({:?})", stringify!($ptr), self.0)
             }
         }
+
         impl Debug for $ptr<'_, Unaligned> {
             #[inline]
             fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
@@ -284,6 +312,183 @@ macro_rules! impl_ptr {
 impl_ptr!(Ptr);
 impl_ptr!(PtrMut);
 impl_ptr!(OwningPtr);
+
+impl<'a, T> MovingPtr<'a, T, Aligned> {
+    /// Removes the alignment requirement of this pointer
+    pub fn to_unaligned(self) -> MovingPtr<'a, T, Unaligned> {
+        let value = MovingPtr(self.0, PhantomData);
+        mem::forget(self);
+        value
+    }
+}
+
+impl<'a, T, A: IsAligned> MovingPtr<'_, T, A> {
+    /// Creates a new instance from a raw pointer.
+    ///
+    /// # Safety
+    /// - `inner` must point to valid value of `T`.
+    /// - If the `A` type parameter is [`Aligned`] then `inner` must be sufficiently aligned for `T`.
+    /// - `inner` must have correct provenance to allow read and writes of the pointee type.
+    /// - The lifetime `'a` must be constrained such that this [`MovingPtr`] will stay valid and nothing
+    ///   else can read or mutate the pointee while this [`MovingPtr`] is live.
+    #[inline]
+    pub unsafe fn new(inner: NonNull<T>) -> Self {
+        Self(inner, PhantomData)
+    }
+
+    /// This exists mostly to reduce compile times;
+    /// code is only duplicated per type, rather than per function called.
+    fn make_internal(temp: &mut ManuallyDrop<T>) -> MovingPtr<'_, T> {
+        MovingPtr(NonNull::from(temp).cast::<T>(), PhantomData)
+    }
+
+    /// Consumes a value and creates an [`MovingPtr`] to it while ensuring a double drop does not happen.
+    #[inline]
+    pub fn make<F: FnOnce(MovingPtr<'_, T>) -> R, R>(val: T, f: F) -> R {
+        let mut val = ManuallyDrop::new(val);
+        // SAFETY: The value behind the pointer will not get dropped or observed later,
+        // so it's safe to promote it to an owning pointer.
+        f(Self::make_internal(&mut val))
+    }
+
+    /// Partially moves out some fields inside of `self`.
+    ///
+    /// The partially returned value is returned back pointing to `MaybeUninit<T>`.
+    ///
+    /// # Safety
+    /// The fields moved out of in `f` must not be accessed or dropped after this function returns.
+    #[inline]
+    pub unsafe fn partial_move(
+        ptr: MovingPtr<'a, T, A>,
+        f: impl FnOnce(MovingPtr<'a, T, A>) -> MovingPtr<'a, T, A>,
+    ) -> MovingPtr<'a, MaybeUninit<T>, A> {
+        let value = f(ptr);
+        let partial = MovingPtr(value.0.cast::<MaybeUninit<T>>(), PhantomData);
+        mem::forget(value);
+        partial
+    }
+
+    /// Reads the value pointed to by this pointer.
+    #[inline]
+    pub fn read(self) -> T {
+        let value = if const { A::IS_ALIGNED } {
+            unsafe { self.0.as_ptr().read() }
+        } else {
+            unsafe { self.0.as_ptr().read_unaligned() }
+        };
+        mem::forget(self);
+        value
+    }
+
+    /// Writes the value pointed to by this pointer to a provided location.
+    ///
+    /// This does *not* drop the value stored at `dst` and it's the caller's responsibility
+    /// to ensure that it's properly dropped.
+    ///
+    /// # Safety
+    ///  - `dst` must be valid for writes.
+    ///  - If the `A` type parameter is [`Aligned`] then `dst` must be properly aligned for `T`.
+    #[inline]
+    pub unsafe fn write_to(self, dst: *mut T) {
+        let src = self.0.as_ptr();
+        mem::forget(self);
+        if const { A::IS_ALIGNED } {
+            // SAFETY:
+            //  - `src` must be valid for reads as this pointer is considered to own the value it points to.
+            //  - The caller is required to ensure that `dst` must be valid for writes.
+            //  - `A::IS_ALIGNED` so `src` must be aligned to `T`.
+            //  - `A::IS_ALIGNED` so the caller must ensure that `dst` must be aligned to `T`.
+            //  - As this pointer is considered to own the value it points to, and both must be aligned,
+            //    so both regions of memory cannot overlap.
+            unsafe {
+                ptr::copy_nonoverlapping(src, dst, 1);
+            }
+        } else {
+            // SAFETY:
+            //  - `src` must be valid for reads as this pointer is considered to own the value it points to.
+            //  - The caller is required to ensure that `dst` must be valid for writes.
+            //  - As `!A::IS_ALIGNED`, a bytewise copy is performed, which is guaranteed to be aligned,
+            //    even if `src` and `dst` are not aligned for `T`.
+            unsafe {
+                ptr::copy::<u8>(src.cast::<u8>(), dst.cast::<u8>(), size_of::<T>());
+            }
+        };
+    }
+
+    /// Creates a [`MovingPtr`] for a specific field within `self`.
+    ///
+    /// The correct byte_offset for a field can be obtained via [`core::mem::offset_of`].
+    ///
+    /// # Safety
+    ///  - `U` must be the correct type for the field at `byte_offset` within `self`.
+    ///  - `self` should not be accesesed or dropped as if it were a complete value.
+    ///    Other fields that have not been moved out of may still be accessed or dropped separately.
+    #[inline]
+    pub unsafe fn move_field<U>(&self, byte_offset: usize) -> MovingPtr<'a, U, A> {
+        MovingPtr(
+            unsafe { self.0.byte_add(byte_offset) }.cast::<U>(),
+            PhantomData,
+        )
+    }
+}
+
+impl<'a, T, A: IsAligned> MovingPtr<'a, MaybeUninit<T>, A> {
+    /// Creates a [`MovingPtr`] pointing to a valid instance of `T`.
+    ///
+    /// See also: [`MaybeUninit::assume_init`].
+    ///
+    /// # Safety
+    /// It's up to the caller to ensure that the value pointed to by `self`
+    /// is really in an initialized state. Calling this when the content is not yet
+    /// fully initialized causes immediate undefined behavior.
+    #[inline]
+    pub unsafe fn assume_init(self) -> MovingPtr<'a, T, A> {
+        let value = MovingPtr(self.0.cast::<T>(), PhantomData);
+        mem::forget(self);
+        value
+    }
+}
+
+impl<T, A: IsAligned> Pointer for MovingPtr<'_, T, A> {
+    #[inline]
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        Pointer::fmt(&self.0, f)
+    }
+}
+
+impl<T> Debug for MovingPtr<'_, T, Aligned> {
+    #[inline]
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(f, "{}<Aligned>({:?})", stringify!($ptr), self.0)
+    }
+}
+
+impl<T> Debug for MovingPtr<'_, T, Unaligned> {
+    #[inline]
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(f, "{}<Unaligned>({:?})", stringify!($ptr), self.0)
+    }
+}
+
+impl<'a, T, A: IsAligned> From<MovingPtr<'a, T, A>> for OwningPtr<'a, A> {
+    fn from(value: MovingPtr<'a, T, A>) -> Self {
+        let ptr = unsafe { OwningPtr::new(value.0.cast::<u8>()) };
+        mem::forget(value);
+        ptr
+    }
+}
+
+impl<T, A: IsAligned> Drop for MovingPtr<'_, T, A> {
+    fn drop(&mut self) {
+        if const { A::IS_ALIGNED } {
+            // SAFETY: If `A::IS_ALIGNED` the value pointed to by this pointer
+            // must be aligned.
+            unsafe { ptr::drop_in_place(self.0.as_ptr()) };
+        } else {
+            drop(unsafe { self.0.as_ptr().read_unaligned() });
+        }
+    }
+}
 
 impl<'a, A: IsAligned> Ptr<'a, A> {
     /// Creates a new instance from a raw pointer.
