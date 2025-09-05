@@ -9,6 +9,7 @@
 
 use core::{
     cell::UnsafeCell,
+    f128::consts::PHI,
     fmt::{self, Debug, Formatter, Pointer},
     marker::PhantomData,
     mem::{self, ManuallyDrop, MaybeUninit},
@@ -429,6 +430,7 @@ impl<'a, T> MovingPtr<'a, T, Aligned> {
     /// This exists mostly to reduce compile times;
     /// code is only duplicated per type, rather than per function called.
     fn make_internal(temp: &mut ManuallyDrop<T>) -> MovingPtr<'_, T> {
+        // SAFETY: ManuallyDrop<T> has the same memory layout as T
         MovingPtr(NonNull::from(temp).cast::<T>(), PhantomData)
     }
 
@@ -439,6 +441,19 @@ impl<'a, T> MovingPtr<'a, T, Aligned> {
         // SAFETY: The value behind the pointer will not get dropped or observed later,
         // so it's safe to promote it to an owning pointer.
         f(Self::make_internal(&mut val))
+    }
+
+    /// Creates a [`MovingPtr`] from a provided value of type `T`.
+    ///
+    /// # Safety
+    /// - `value` must store a properly initialized value of type `T`.
+    /// - Once the returned [`MovingPtr`] has been used, `value` must be treated as
+    ///   it were uninitialized unless it was explicitly leaked via [`core::mem::forget`].
+    pub unsafe fn from_value(value: &'a mut MaybeUninit<T>) -> Self {
+        // SAFETY:
+        // - MaybeUninit<T> has the same memory layout as T
+        // - The caller guarantees that `value` must point to a valid instance of type `T`.
+        MovingPtr(NonNull::from(value).cast::<T>(), PhantomData)
     }
 }
 
