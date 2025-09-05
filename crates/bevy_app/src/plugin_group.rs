@@ -559,7 +559,7 @@ mod tests {
     use core::{any::TypeId, fmt::Debug};
 
     use super::PluginGroupBuilder;
-    use crate::{App, NoopPluginGroup, Plugin};
+    use crate::{App, NoopPluginGroup, Plugin, PluginGroup};
 
     struct PluginA;
     impl Plugin for PluginA {
@@ -872,5 +872,28 @@ mod tests {
                 TypeId::of::<PluginC>(),
             ]
         );
+    }
+
+    plugin_group! {
+        #[derive(Default)]
+        struct PluginGroupA {
+        }
+    }
+    plugin_group! {
+        #[derive(Default)]
+        struct PluginGroupB {
+        }
+    }
+    plugin_group! {
+        struct PluginGroupC {
+            #[plugin_group]
+            :PluginGroupA,
+            #[plugin_group]
+            :PluginGroupB,
+        }
+    }
+    #[test]
+    fn construct_nested_plugin_groups() {
+        PluginGroupC {}.build();
     }
 }
