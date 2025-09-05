@@ -71,6 +71,7 @@ struct DefaultChromaticAberrationLut(Handle<Image>);
 /// effects.
 ///
 /// Currently, this only consists of chromatic aberration.
+#[derive(Default)]
 pub struct EffectStackPlugin;
 
 /// Adds colored fringes to the edges of objects in the scene.

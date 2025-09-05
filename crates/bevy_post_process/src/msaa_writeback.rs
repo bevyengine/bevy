@@ -18,6 +18,7 @@ use bevy_render::{
 
 /// This enables "msaa writeback" support for the `core_2d` and `core_3d` pipelines, which can be enabled on cameras
 /// using [`bevy_camera::Camera::msaa_writeback`]. See the docs on that field for more information.
+#[derive(Default)]
 pub struct MsaaWritebackPlugin;
 
 impl Plugin for MsaaWritebackPlugin {

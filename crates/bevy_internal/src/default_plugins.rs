@@ -50,10 +50,10 @@ plugin_group! {
         bevy_render::pipelined_rendering:::PipelinedRenderingPlugin,
         #[cfg(feature = "bevy_core_pipeline")]
         bevy_core_pipeline:::CorePipelinePlugin,
-        #[cfg(feature = "bevy_anti_alias")]
-        bevy_anti_alias:::AntiAliasPlugin,
         #[cfg(feature = "bevy_post_process")]
         bevy_post_process:::PostProcessPlugin,
+        #[cfg(feature = "bevy_anti_alias")]
+        bevy_anti_alias:::AntiAliasPlugin,
         #[cfg(feature = "bevy_sprite")]
         bevy_sprite:::SpritePlugin,
         #[cfg(feature = "bevy_sprite_render")]

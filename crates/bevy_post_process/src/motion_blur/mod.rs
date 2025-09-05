@@ -128,6 +128,7 @@ pub struct MotionBlurUniform {
 }
 
 /// Adds support for per-object motion blur to the app. See [`MotionBlur`] for details.
+#[derive(Default)]
 pub struct MotionBlurPlugin;
 impl Plugin for MotionBlurPlugin {
     fn build(&self, app: &mut App) {

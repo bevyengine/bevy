@@ -43,6 +43,7 @@ use upsampling_pipeline::{
 
 const BLOOM_TEXTURE_FORMAT: TextureFormat = TextureFormat::Rg11b10Ufloat;
 
+#[derive(Default)]
 pub struct BloomPlugin;
 
 impl Plugin for BloomPlugin {

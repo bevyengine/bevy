@@ -72,6 +72,7 @@ use bevy_core_pipeline::{
 };
 
 /// A plugin that adds support for the depth of field effect to Bevy.
+#[derive(Default)]
 pub struct DepthOfFieldPlugin;
 
 /// A component that enables a [depth of field] postprocessing effect when attached to a [`Camera3d`],
