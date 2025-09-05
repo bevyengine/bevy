@@ -240,6 +240,45 @@ fn new_mask_group_control(label: &str, width: Val, mask_group_id: u32) -> impl B
         TextColor(Color::Srgba(LIGHT_GRAY)),
     );
 
+    let make_animation_label = {
+        let button_text_style = button_text_style.clone();
+        let selected_button_text_style = selected_button_text_style.clone();
+        move |first: bool, label: AnimationLabel| {
+            (
+                Button,
+                BackgroundColor(if !first { Color::BLACK } else { Color::WHITE }),
+                Node {
+                    flex_grow: 1.0,
+                    border: if !first {
+                        UiRect::left(px(1))
+                    } else {
+                        UiRect::ZERO
+                    },
+                    ..default()
+                },
+                BorderColor::all(Color::WHITE),
+                AnimationControl {
+                    group_id: mask_group_id,
+                    label,
+                },
+                children![(
+                    Text(format!("{label:?}")),
+                    if !first {
+                        button_text_style.clone()
+                    } else {
+                        selected_button_text_style.clone()
+                    },
+                    TextLayout::new_with_justify(Justify::Center),
+                    Node {
+                        flex_grow: 1.0,
+                        margin: UiRect::vertical(px(3)),
+                        ..default()
+                    },
+                )],
+            )
+        }
+    };
+
     (
         Node {
             border: UiRect::all(px(1)),
@@ -285,58 +324,12 @@ fn new_mask_group_control(label: &str, width: Val, mask_group_id: u32) -> impl B
                     ..default()
                 },
                 BorderColor::all(Color::WHITE),
-                Children::spawn(SpawnIter(
-                    [
-                        AnimationLabel::Run,
-                        AnimationLabel::Walk,
-                        AnimationLabel::Idle,
-                        AnimationLabel::Off,
-                    ]
-                    .into_iter()
-                    .enumerate()
-                    .map({
-                        let button_text_style = button_text_style.clone();
-                        let selected_button_text_style = selected_button_text_style.clone();
-                        move |(index, label)| {
-                            (
-                                Button,
-                                BackgroundColor(if index > 0 {
-                                    Color::BLACK
-                                } else {
-                                    Color::WHITE
-                                }),
-                                Node {
-                                    flex_grow: 1.0,
-                                    border: if index > 0 {
-                                        UiRect::left(px(1))
-                                    } else {
-                                        UiRect::ZERO
-                                    },
-                                    ..default()
-                                },
-                                BorderColor::all(Color::WHITE),
-                                AnimationControl {
-                                    group_id: mask_group_id,
-                                    label,
-                                },
-                                children![(
-                                    Text(format!("{label:?}")),
-                                    if index > 0 {
-                                        button_text_style.clone()
-                                    } else {
-                                        selected_button_text_style.clone()
-                                    },
-                                    TextLayout::new_with_justify(Justify::Center),
-                                    Node {
-                                        flex_grow: 1.0,
-                                        margin: UiRect::vertical(px(3)),
-                                        ..default()
-                                    },
-                                )],
-                            )
-                        }
-                    })
-                ))
+                children![
+                    make_animation_label(true, AnimationLabel::Run),
+                    make_animation_label(false, AnimationLabel::Walk),
+                    make_animation_label(false, AnimationLabel::Idle),
+                    make_animation_label(false, AnimationLabel::Off),
+                ]
             )
         ],
     )
