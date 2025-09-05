@@ -18,8 +18,10 @@ pub mod fxaa;
 pub mod smaa;
 pub mod taa;
 
+/// Adds fxaa, smaa, taa, contrast aware sharpening, and optional dlss support.
 #[derive(Default)]
 pub struct AntiAliasPlugin;
+
 impl Plugin for AntiAliasPlugin {
     fn build(&self, app: &mut bevy_app::App) {
         app.add_plugins((

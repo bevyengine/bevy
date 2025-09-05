@@ -19,6 +19,7 @@ use crate::{
 };
 use bevy_app::{App, Plugin};
 
+/// Adds bloom, motion blur, depth of field, and chromatic aberration support.
 #[derive(Default)]
 pub struct PostProcessPlugin;
 
