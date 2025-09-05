@@ -266,14 +266,14 @@ fn new_mask_group_control(label: &str, width: Val, mask_group_id: u32) -> impl B
                     ..default()
                 },
                 BackgroundColor(Color::BLACK),
-                Children::spawn_one((
+                children![(
                     Text::new(label),
                     label_text_style.clone(),
                     Node {
                         margin: UiRect::vertical(px(3)),
                         ..default()
                     },
-                ))
+                )]
             ),
             (
                 Node {
@@ -319,7 +319,7 @@ fn new_mask_group_control(label: &str, width: Val, mask_group_id: u32) -> impl B
                                     group_id: mask_group_id,
                                     label,
                                 },
-                                Children::spawn_one((
+                                children![(
                                     Text(format!("{label:?}")),
                                     if index > 0 {
                                         button_text_style.clone()
@@ -332,7 +332,7 @@ fn new_mask_group_control(label: &str, width: Val, mask_group_id: u32) -> impl B
                                         margin: UiRect::vertical(px(3)),
                                         ..default()
                                     },
-                                )),
+                                )],
                             )
                         }
                     })
