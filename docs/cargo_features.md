@@ -16,7 +16,7 @@ The default feature set enables most of the expected features of a game engine, 
 |animation|Enable animation support, and glTF animation loading|
 |async_executor|Uses `async-executor` as a task execution backend.|
 |bevy_animation|Provides animation functionality|
-|bevy_anti_aliasing|Provides various anti aliasing solutions|
+|bevy_anti_alias|Provides various anti aliasing solutions|
 |bevy_asset|Provides asset functionality|
 |bevy_audio|Provides audio functionality|
 |bevy_camera|Provides camera and visibility types, as well as culling primitives.|
@@ -34,6 +34,7 @@ The default feature set enables most of the expected features of a game engine, 
 |bevy_mesh_picking_backend|Provides an implementation for picking meshes|
 |bevy_pbr|Adds PBR rendering|
 |bevy_picking|Provides picking functionality|
+|bevy_post_process|Provides post process effects such as depth of field, bloom, chromatic aberration.|
 |bevy_render|Provides rendering functionality|
 |bevy_scene|Provides scene functionality|
 |bevy_shader|Provides shaders usable through asset handles.|
