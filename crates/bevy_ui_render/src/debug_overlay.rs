@@ -5,6 +5,7 @@ use super::NodeType;
 use super::UiCameraMap;
 use crate::shader_flags;
 use bevy_asset::AssetId;
+use bevy_camera::visibility::InheritedVisibility;
 use bevy_color::Hsla;
 use bevy_ecs::entity::Entity;
 use bevy_ecs::resource::Resource;
@@ -15,13 +16,12 @@ use bevy_ecs::system::ResMut;
 use bevy_math::Rect;
 use bevy_math::Vec2;
 use bevy_render::sync_world::TemporaryRenderEntity;
-use bevy_render::view::InheritedVisibility;
 use bevy_render::Extract;
 use bevy_sprite::BorderRect;
 use bevy_ui::ui_transform::UiGlobalTransform;
 use bevy_ui::CalculatedClip;
 use bevy_ui::ComputedNode;
-use bevy_ui::ComputedNodeTarget;
+use bevy_ui::ComputedUiTargetCamera;
 use bevy_ui::UiStack;
 
 /// Configuration for the UI debug overlay
@@ -65,7 +65,7 @@ pub fn extract_debug_overlay(
             &UiGlobalTransform,
             &InheritedVisibility,
             Option<&CalculatedClip>,
-            &ComputedNodeTarget,
+            &ComputedUiTargetCamera,
         )>,
     >,
     ui_stack: Extract<Res<UiStack>>,
@@ -91,19 +91,19 @@ pub fn extract_debug_overlay(
             render_entity: commands.spawn(TemporaryRenderEntity).id(),
             // Add a large number to the UI node's stack index so that the overlay is always drawn on top
             z_order: (ui_stack.uinodes.len() as u32 + uinode.stack_index()) as f32,
-            color: Hsla::sequential_dispersed(entity.index()).into(),
-            rect: Rect {
-                min: Vec2::ZERO,
-                max: uinode.size,
-            },
             clip: maybe_clip
                 .filter(|_| !debug_options.show_clipped)
                 .map(|clip| clip.clip),
             image: AssetId::default(),
             extracted_camera_entity,
+            transform: transform.into(),
             item: ExtractedUiItem::Node {
+                color: Hsla::sequential_dispersed(entity.index()).into(),
+                rect: Rect {
+                    min: Vec2::ZERO,
+                    max: uinode.size,
+                },
                 atlas_scaling: None,
-                transform: transform.into(),
                 flip_x: false,
                 flip_y: false,
                 border: BorderRect::all(debug_options.line_width / uinode.inverse_scale_factor()),

@@ -2,22 +2,19 @@ use super::{
     instance_manager::InstanceManager, pipelines::MeshletPipelines,
     resource_manager::ResourceManager,
 };
-use crate::{irradiance_volume::IrradianceVolume, *};
+use crate::*;
+use bevy_camera::{Camera3d, Projection};
 use bevy_core_pipeline::{
-    core_3d::Camera3d,
     prepass::{DeferredPrepass, DepthPrepass, MotionVectorPrepass, NormalPrepass},
     tonemapping::{DebandDither, Tonemapping},
 };
 use bevy_derive::{Deref, DerefMut};
-use bevy_light::EnvironmentMapLight;
+use bevy_light::{EnvironmentMapLight, IrradianceVolume, ShadowFilteringMethod};
+use bevy_mesh::VertexBufferLayout;
+use bevy_mesh::{Mesh, MeshVertexBufferLayout, MeshVertexBufferLayoutRef, MeshVertexBufferLayouts};
 use bevy_platform::collections::{HashMap, HashSet};
 use bevy_render::erased_render_asset::ErasedRenderAssets;
-use bevy_render::{
-    camera::TemporalJitter,
-    mesh::{Mesh, MeshVertexBufferLayout, MeshVertexBufferLayoutRef, MeshVertexBufferLayouts},
-    render_resource::*,
-    view::ExtractedView,
-};
+use bevy_render::{camera::TemporalJitter, render_resource::*, view::ExtractedView};
 use bevy_utils::default;
 use core::any::{Any, TypeId};
 

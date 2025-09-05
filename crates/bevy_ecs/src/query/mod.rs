@@ -851,10 +851,7 @@ mod tests {
         ) {
         }
 
-        fn update_component_access(
-            &component_id: &Self::State,
-            access: &mut FilteredAccess<ComponentId>,
-        ) {
+        fn update_component_access(&component_id: &Self::State, access: &mut FilteredAccess) {
             assert!(
                 !access.access().has_resource_write(component_id),
                 "ReadsRData conflicts with a previous access in this query. Shared access cannot coincide with exclusive access."

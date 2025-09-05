@@ -1,7 +1,7 @@
 use super::{instance_manager::InstanceManager, meshlet_mesh_manager::MeshletMeshManager};
 use crate::ShadowView;
+use bevy_camera::{visibility::RenderLayers, Camera3d};
 use bevy_core_pipeline::{
-    core_3d::Camera3d,
     experimental::mip_generation::{self, ViewDepthPyramid},
     prepass::{PreviousViewData, PreviousViewUniforms},
 };
@@ -18,7 +18,7 @@ use bevy_render::{
     render_resource::*,
     renderer::{RenderDevice, RenderQueue},
     texture::{CachedTexture, TextureCache},
-    view::{ExtractedView, RenderLayers, ViewUniform, ViewUniforms},
+    view::{ExtractedView, ViewUniform, ViewUniforms},
 };
 use binding_types::*;
 use core::iter;

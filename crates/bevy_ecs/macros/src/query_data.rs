@@ -281,8 +281,8 @@ pub fn derive_query_data_impl(input: TokenStream) -> TokenStream {
 
                     fn provide_extra_access(
                         state: &mut Self::State,
-                        access: &mut #path::query::Access<#path::component::ComponentId>,
-                        available_access: &#path::query::Access<#path::component::ComponentId>,
+                        access: &mut #path::query::Access,
+                        available_access: &#path::query::Access,
                     ) {
                         #(<#field_types>::provide_extra_access(&mut state.#named_field_idents, access, available_access);)*
                     }
@@ -339,8 +339,8 @@ pub fn derive_query_data_impl(input: TokenStream) -> TokenStream {
 
                 fn provide_extra_access(
                     state: &mut Self::State,
-                    access: &mut #path::query::Access<#path::component::ComponentId>,
-                    available_access: &#path::query::Access<#path::component::ComponentId>,
+                    access: &mut #path::query::Access,
+                    available_access: &#path::query::Access,
                 ) {
                     #(<#field_types>::provide_extra_access(&mut state.#named_field_idents, access, available_access);)*
                 }

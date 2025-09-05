@@ -21,13 +21,16 @@ use core::ops::DerefMut;
 pub mod cluster;
 pub use cluster::ClusteredDecal;
 use cluster::{
-    add_clusters, assign::assign_objects_to_clusters, ClusterConfig,
-    GlobalVisibleClusterableObjects, VisibleClusterableObjects,
+    add_clusters, assign::assign_objects_to_clusters, GlobalVisibleClusterableObjects,
+    VisibleClusterableObjects,
 };
 mod ambient_light;
 pub use ambient_light::AmbientLight;
 mod probe;
-pub use probe::{EnvironmentMapLight, GeneratedEnvironmentMapLight, IrradianceVolume, LightProbe};
+pub use probe::{
+    AtmosphereEnvironmentMapLight, EnvironmentMapLight, GeneratedEnvironmentMapLight,
+    IrradianceVolume, LightProbe,
+};
 mod volumetric;
 pub use volumetric::{FogVolume, VolumetricFog, VolumetricLight};
 pub mod cascade;
@@ -45,8 +48,21 @@ pub use spot_light::{
 mod directional_light;
 pub use directional_light::{
     update_directional_light_frusta, DirectionalLight, DirectionalLightShadowMap,
-    DirectionalLightTexture,
+    DirectionalLightTexture, SunDisk,
 };
+
+/// The light prelude.
+///
+/// This includes the most common types in this crate, re-exported for your convenience.
+pub mod prelude {
+    #[doc(hidden)]
+    pub use crate::{
+        light_consts, AmbientLight, DirectionalLight, EnvironmentMapLight,
+        GeneratedEnvironmentMapLight, LightProbe, PointLight, SpotLight,
+    };
+}
+
+use crate::directional_light::validate_shadow_map_size;
 
 /// Constants for operating with the light units: lumens, and lux.
 pub mod light_consts {
@@ -65,6 +81,10 @@ pub mod light_consts {
         pub const LUMENS_PER_LED_WATTS: f32 = 90.0;
         pub const LUMENS_PER_INCANDESCENT_WATTS: f32 = 13.8;
         pub const LUMENS_PER_HALOGEN_WATTS: f32 = 19.8;
+        /// 1,000,000 lumens is a very large "cinema light" capable of registering brightly at Bevy's
+        /// default "very overcast day" exposure level. For "indoor lighting" with a lower exposure,
+        /// this would be way too bright.
+        pub const VERY_LARGE_CINEMA_LIGHT: f32 = 1_000_000.0;
     }
 
     /// Predefined for lux values in several locations.
@@ -107,28 +127,12 @@ pub mod light_consts {
     }
 }
 
+#[derive(Default)]
 pub struct LightPlugin;
 
 impl Plugin for LightPlugin {
     fn build(&self, app: &mut App) {
-        app.register_type::<AmbientLight>()
-            .register_type::<CascadeShadowConfig>()
-            .register_type::<Cascades>()
-            .register_type::<DirectionalLight>()
-            .register_type::<DirectionalLightShadowMap>()
-            .register_type::<NotShadowCaster>()
-            .register_type::<NotShadowReceiver>()
-            .register_type::<PointLight>()
-            .register_type::<LightProbe>()
-            .register_type::<EnvironmentMapLight>()
-            .register_type::<IrradianceVolume>()
-            .register_type::<VolumetricFog>()
-            .register_type::<VolumetricLight>()
-            .register_type::<PointLightShadowMap>()
-            .register_type::<SpotLight>()
-            .register_type::<ShadowFilteringMethod>()
-            .register_type::<ClusterConfig>()
-            .init_resource::<GlobalVisibleClusterableObjects>()
+        app.init_resource::<GlobalVisibleClusterableObjects>()
             .init_resource::<AmbientLight>()
             .init_resource::<DirectionalLightShadowMap>()
             .init_resource::<PointLightShadowMap>()
@@ -145,6 +149,7 @@ impl Plugin for LightPlugin {
             .add_systems(
                 PostUpdate,
                 (
+                    validate_shadow_map_size.before(build_directional_light_cascades),
                     add_clusters
                         .in_set(SimulationLightSystems::AddClusters)
                         .after(CameraUpdateSystems),

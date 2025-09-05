@@ -5,7 +5,7 @@ use bevy::ecs::{error::warn, world::DeferredWorld};
 use bevy::math::sampling::UniformMeshSampler;
 use bevy::prelude::*;
 
-use rand::distributions::Distribution;
+use rand::distr::Distribution;
 use rand::SeedableRng;
 use rand_chacha::ChaCha8Rng;
 
@@ -15,7 +15,7 @@ fn main() {
     //
     // We can change this by setting a custom error handler, which applies to the entire app
     // (you can also set it for specific `World`s).
-    // Here we it using one of the built-in error handlers.
+    // Here we are using one of the built-in error handlers.
     // Bevy provides built-in handlers for `panic`, `error`, `warn`, `info`,
     // `debug`, `trace` and `ignore`.
     app.set_error_handler(warn);
@@ -123,12 +123,12 @@ fn setup(
 
 // Observer systems can also return a `Result`.
 fn fallible_observer(
-    trigger: On<Pointer<Move>>,
+    event: On<Pointer<Move>>,
     mut world: DeferredWorld,
     mut step: Local<f32>,
 ) -> Result {
     let mut transform = world
-        .get_mut::<Transform>(trigger.target())
+        .get_mut::<Transform>(event.entity())
         .ok_or("No transform found.")?;
 
     *step = if transform.translation.x > 3. {

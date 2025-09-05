@@ -24,6 +24,9 @@ bevy_reflect = [
 ## Adds serialization support through `serde`.
 serialize = ["serde", "bevy_ecs/serialize", "bevy_input/serialize"]
 
+# Enable custom cursor support
+custom_cursor = ["bevy_image", "bevy_asset"]
+
 # Platform Compatibility
 
 ## Allows access to the `std` crate. Enabling this feature will prevent compilation
@@ -49,10 +52,14 @@ bevy_app = { path = "../bevy_app", version = "0.17.0-dev", default-features = fa
 bevy_ecs = { path = "../bevy_ecs", version = "0.17.0-dev", default-features = false }
 bevy_input = { path = "../bevy_input", version = "0.17.0-dev", default-features = false }
 bevy_math = { path = "../bevy_math", version = "0.17.0-dev", default-features = false }
+bevy_platform = { path = "../bevy_platform", version = "0.17.0-dev", default-features = false }
+
+# bevy optional
+bevy_asset = { path = "../bevy_asset", version = "0.17.0-dev", default-features = false, optional = true }
+bevy_image = { path = "../bevy_image", version = "0.17.0-dev", optional = true }
 bevy_reflect = { path = "../bevy_reflect", version = "0.17.0-dev", default-features = false, features = [
   "glam",
 ], optional = true }
-bevy_platform = { path = "../bevy_platform", version = "0.17.0-dev", default-features = false }
 
 # other
 serde = { version = "1.0", features = [
@@ -63,9 +70,6 @@ raw-window-handle = { version = "0.6", features = [
   "alloc",
 ], default-features = false }
 log = { version = "0.4", default-features = false }
-
-[target.'cfg(target_os = "android")'.dependencies]
-android-activity = "0.6"
 
 [lints]
 workspace = true

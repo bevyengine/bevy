@@ -325,7 +325,7 @@ impl AssetServer {
         self.load_with_meta_transform(path, None, (), false)
     }
 
-    /// Same as [`load`](AssetServer::load), but you can load assets from unaproved paths
+    /// Same as [`load`](AssetServer::load), but you can load assets from unapproved paths
     /// if [`AssetPlugin::unapproved_path_mode`](super::AssetPlugin::unapproved_path_mode)
     /// is [`Deny`](UnapprovedPathMode::Deny).
     ///
@@ -358,7 +358,7 @@ impl AssetServer {
         self.load_with_meta_transform(path, None, guard, false)
     }
 
-    /// Same as [`load`](AssetServer::load_acquire), but you can load assets from unaproved paths
+    /// Same as [`load`](AssetServer::load_acquire), but you can load assets from unapproved paths
     /// if [`AssetPlugin::unapproved_path_mode`](super::AssetPlugin::unapproved_path_mode)
     /// is [`Deny`](UnapprovedPathMode::Deny).
     ///
@@ -388,7 +388,7 @@ impl AssetServer {
         )
     }
 
-    /// Same as [`load`](AssetServer::load_with_settings), but you can load assets from unaproved paths
+    /// Same as [`load`](AssetServer::load_with_settings), but you can load assets from unapproved paths
     /// if [`AssetPlugin::unapproved_path_mode`](super::AssetPlugin::unapproved_path_mode)
     /// is [`Deny`](UnapprovedPathMode::Deny).
     ///
@@ -430,7 +430,7 @@ impl AssetServer {
         )
     }
 
-    /// Same as [`load`](AssetServer::load_acquire_with_settings), but you can load assets from unaproved paths
+    /// Same as [`load`](AssetServer::load_acquire_with_settings), but you can load assets from unapproved paths
     /// if [`AssetPlugin::unapproved_path_mode`](super::AssetPlugin::unapproved_path_mode)
     /// is [`Deny`](UnapprovedPathMode::Deny).
     ///
@@ -846,10 +846,11 @@ impl AssetServer {
                     }
                 }
 
-                if !reloaded && server.data.infos.read().should_reload(&path) {
-                    if let Err(err) = server.load_internal(None, path, true, None).await {
-                        error!("{}", err);
-                    }
+                if !reloaded
+                    && server.data.infos.read().should_reload(&path)
+                    && let Err(err) = server.load_internal(None, path, true, None).await
+                {
+                    error!("{}", err);
                 }
             })
             .detach();
@@ -1272,7 +1273,7 @@ impl AssetServer {
     }
 
     /// Returns the path for the given `id`, if it has one.
-    pub fn get_path(&self, id: impl Into<UntypedAssetId>) -> Option<AssetPath> {
+    pub fn get_path(&self, id: impl Into<UntypedAssetId>) -> Option<AssetPath<'_>> {
         let infos = self.data.infos.read();
         let info = infos.get(id.into())?;
         Some(info.path.as_ref()?.clone())
@@ -1905,7 +1906,7 @@ pub enum AssetLoadError {
         actual_asset_name: &'static str,
         loader_name: &'static str,
     },
-    #[error("Could not find an asset loader matching: Loader Name: {loader_name:?}; Asset Type: {loader_name:?}; Extension: {extension:?}; Path: {asset_path:?};")]
+    #[error("Could not find an asset loader matching: Loader Name: {loader_name:?}; Asset Type: {asset_type_id:?}; Extension: {extension:?}; Path: {asset_path:?};")]
     MissingAssetLoader {
         loader_name: Option<String>,
         asset_type_id: Option<TypeId>,

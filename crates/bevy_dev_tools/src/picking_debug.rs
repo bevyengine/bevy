@@ -1,6 +1,8 @@
 //! Text and on-screen debugging tools
 
 use bevy_app::prelude::*;
+use bevy_camera::visibility::Visibility;
+use bevy_camera::Camera;
 use bevy_color::prelude::*;
 use bevy_ecs::prelude::*;
 use bevy_picking::backend::HitData;
@@ -9,7 +11,6 @@ use bevy_picking::pointer::{Location, PointerId, PointerInput, PointerLocation, 
 use bevy_picking::prelude::*;
 use bevy_picking::PickingSystems;
 use bevy_reflect::prelude::*;
-use bevy_render::prelude::*;
 use bevy_text::prelude::*;
 use bevy_ui::prelude::*;
 use core::cmp::Ordering;

@@ -313,8 +313,8 @@ struct Speak {
 
 let mut world = World::new();
 
-world.add_observer(|trigger: On<Speak>| {
-    println!("{}", trigger.message);
+world.add_observer(|event: On<Speak>| {
+    println!("{}", event.message);
 });
 
 world.flush();
@@ -339,9 +339,9 @@ struct Explode;
 let mut world = World::new();
 let entity = world.spawn_empty().id();
 
-world.add_observer(|trigger: On<Explode>, mut commands: Commands| {
-    println!("Entity {} goes BOOM!", trigger.target());
-    commands.entity(trigger.target()).despawn();
+world.add_observer(|event: On<Explode>, mut commands: Commands| {
+    println!("Entity {} goes BOOM!", event.entity());
+    commands.entity(event.entity()).despawn();
 });
 
 world.flush();

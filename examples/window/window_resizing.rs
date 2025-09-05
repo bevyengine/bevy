@@ -36,7 +36,7 @@ fn setup_ui(mut commands: Commands) {
     // Node that fills entire background
     commands
         .spawn(Node {
-            width: Val::Percent(100.),
+            width: percent(100),
             ..default()
         })
         // Text where we display current resolution

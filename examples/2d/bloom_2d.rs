@@ -1,10 +1,8 @@
 //! Illustrates bloom post-processing in 2d.
 
 use bevy::{
-    core_pipeline::{
-        bloom::{Bloom, BloomCompositeMode},
-        tonemapping::{DebandDither, Tonemapping},
-    },
+    core_pipeline::tonemapping::{DebandDither, Tonemapping},
+    post_process::bloom::{Bloom, BloomCompositeMode},
     prelude::*,
 };
 
@@ -62,8 +60,8 @@ fn setup(
         Text::default(),
         Node {
             position_type: PositionType::Absolute,
-            top: Val::Px(12.0),
-            left: Val::Px(12.0),
+            top: px(12),
+            left: px(12),
             ..default()
         },
     ));

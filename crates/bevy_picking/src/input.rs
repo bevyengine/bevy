@@ -12,6 +12,7 @@
 //! you need to be sure that you also write a [`PointerInput`] event stream.
 
 use bevy_app::prelude::*;
+use bevy_camera::RenderTarget;
 use bevy_ecs::prelude::*;
 use bevy_input::{
     mouse::MouseWheel,
@@ -22,7 +23,6 @@ use bevy_input::{
 use bevy_math::Vec2;
 use bevy_platform::collections::{HashMap, HashSet};
 use bevy_reflect::prelude::*;
-use bevy_render::camera::{RenderTarget, ToNormalizedRenderTarget as _};
 use bevy_window::{PrimaryWindow, WindowEvent, WindowRef};
 use tracing::debug;
 
@@ -95,7 +95,6 @@ pub struct PointerInputPlugin;
 impl Plugin for PointerInputPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<PointerInputSettings>()
-            .register_type::<PointerInputSettings>()
             .add_systems(Startup, spawn_mouse_pointer)
             .add_systems(
                 First,

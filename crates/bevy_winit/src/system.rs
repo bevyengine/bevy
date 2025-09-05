@@ -349,11 +349,10 @@ pub(crate) fn changed_windows(
                     WindowMode::Windowed => Some(None),
                 };
 
-                if let Some(new_mode) = new_mode {
-                    if winit_window.fullscreen() != new_mode {
+                if let Some(new_mode) = new_mode
+                    && winit_window.fullscreen() != new_mode {
                         winit_window.set_fullscreen(new_mode);
                     }
-                }
             }
 
             if window.resolution != cache.resolution {
@@ -394,22 +393,20 @@ pub(crate) fn changed_windows(
                     }
                 }
 
-                if physical_size != cached_physical_size {
-                    if let Some(new_physical_size) = winit_window.request_inner_size(physical_size) {
+                if physical_size != cached_physical_size
+                    && let Some(new_physical_size) = winit_window.request_inner_size(physical_size) {
                         react_to_resize(entity, &mut window, new_physical_size, &mut window_resized);
                     }
-                }
             }
 
-            if window.physical_cursor_position() != cache.physical_cursor_position() {
-                if let Some(physical_position) = window.physical_cursor_position() {
+            if window.physical_cursor_position() != cache.physical_cursor_position()
+                && let Some(physical_position) = window.physical_cursor_position() {
                     let position = PhysicalPosition::new(physical_position.x, physical_position.y);
 
                     if let Err(err) = winit_window.set_cursor_position(position) {
                         error!("could not set cursor position: {}", err);
                     }
                 }
-            }
 
             if window.decorations != cache.decorations
                 && window.decorations != winit_window.is_decorated()
@@ -444,8 +441,8 @@ pub(crate) fn changed_windows(
                 }
             }
 
-            if window.position != cache.position {
-                if let Some(position) = crate::winit_window_position(
+            if window.position != cache.position
+                && let Some(position) = crate::winit_window_position(
                     &window.position,
                     &window.resolution,
                     &monitors,
@@ -461,7 +458,6 @@ pub(crate) fn changed_windows(
                         winit_window.set_outer_position(position);
                     }
                 }
-            }
 
             if let Some(maximized) = window.internal.take_maximize_request() {
                 winit_window.set_maximized(maximized);
@@ -471,19 +467,17 @@ pub(crate) fn changed_windows(
                 winit_window.set_minimized(minimized);
             }
 
-            if window.internal.take_move_request() {
-                if let Err(e) = winit_window.drag_window() {
+            if window.internal.take_move_request()
+                && let Err(e) = winit_window.drag_window() {
                     warn!("Winit returned an error while attempting to drag the window: {e}");
                 }
-            }
 
-            if let Some(resize_direction) = window.internal.take_resize_request() {
-                if let Err(e) =
+            if let Some(resize_direction) = window.internal.take_resize_request()
+                && let Err(e) =
                     winit_window.drag_resize_window(convert_resize_direction(resize_direction))
                 {
                     warn!("Winit returned an error while attempting to drag resize the window: {e}");
                 }
-            }
 
             if window.focused != cache.focused && window.focused {
                 winit_window.focus_window();

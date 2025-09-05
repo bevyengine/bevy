@@ -56,7 +56,7 @@ impl DynamicScene {
         DynamicSceneBuilder::from_world(world)
             .extract_entities(
                 // we do this instead of a query, in order to completely sidestep default query filters.
-                // while we could use `Allows<_>`, this wouldn't account for custom disabled components
+                // while we could use `Allow<_>`, this wouldn't account for custom disabled components
                 world
                     .archetypes()
                     .iter()
@@ -122,7 +122,10 @@ impl DynamicScene {
                     #[expect(unsafe_code, reason = "this is faster")]
                     let component_info =
                         unsafe { world.components().get_info_unchecked(component_id) };
-                    if *component_info.clone_behavior() == ComponentCloneBehavior::Ignore {
+                    if matches!(
+                        *component_info.clone_behavior(),
+                        ComponentCloneBehavior::Ignore
+                    ) {
                         continue;
                     }
                 }

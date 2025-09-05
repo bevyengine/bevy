@@ -17,26 +17,19 @@ extern crate std;
 
 extern crate alloc;
 
-use alloc::sync::Arc;
-
-use bevy_platform::sync::Mutex;
-
+mod cursor;
 mod event;
 mod monitor;
 mod raw_handle;
 mod system;
-mod system_cursor;
 mod window;
 
 pub use crate::raw_handle::*;
 
-#[cfg(target_os = "android")]
-pub use android_activity;
-
+pub use cursor::*;
 pub use event::*;
 pub use monitor::*;
 pub use system::*;
-pub use system_cursor::*;
 pub use window::*;
 
 /// The windowing prelude.
@@ -51,7 +44,9 @@ pub mod prelude {
     };
 }
 
+use alloc::sync::Arc;
 use bevy_app::prelude::*;
+use bevy_platform::sync::Mutex;
 
 impl Default for WindowPlugin {
     fn default() -> Self {
@@ -154,34 +149,6 @@ impl Plugin for WindowPlugin {
             // Need to run before `exit_on_*` systems
             app.add_systems(Update, close_when_requested);
         }
-
-        // Register event types
-        #[cfg(feature = "bevy_reflect")]
-        app.register_type::<WindowEvent>()
-            .register_type::<WindowResized>()
-            .register_type::<RequestRedraw>()
-            .register_type::<WindowCreated>()
-            .register_type::<WindowCloseRequested>()
-            .register_type::<WindowClosing>()
-            .register_type::<WindowClosed>()
-            .register_type::<CursorMoved>()
-            .register_type::<CursorEntered>()
-            .register_type::<CursorLeft>()
-            .register_type::<WindowFocused>()
-            .register_type::<WindowOccluded>()
-            .register_type::<WindowScaleFactorChanged>()
-            .register_type::<WindowBackendScaleFactorChanged>()
-            .register_type::<FileDragAndDrop>()
-            .register_type::<WindowMoved>()
-            .register_type::<WindowThemeChanged>()
-            .register_type::<AppLifecycle>()
-            .register_type::<Monitor>();
-
-        // Register window descriptor and related types
-        #[cfg(feature = "bevy_reflect")]
-        app.register_type::<Window>()
-            .register_type::<PrimaryWindow>()
-            .register_type::<CursorOptions>();
     }
 }
 
@@ -204,9 +171,3 @@ pub enum ExitCondition {
     /// surprise your users.
     DontExit,
 }
-
-/// [`AndroidApp`] provides an interface to query the application state as well as monitor events
-/// (for example lifecycle and input events).
-#[cfg(target_os = "android")]
-pub static ANDROID_APP: std::sync::OnceLock<android_activity::AndroidApp> =
-    std::sync::OnceLock::new();

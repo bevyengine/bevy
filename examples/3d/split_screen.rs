@@ -3,7 +3,7 @@
 use std::f32::consts::PI;
 
 use bevy::{
-    pbr::CascadeShadowConfigBuilder, prelude::*, render::camera::Viewport, window::WindowResized,
+    camera::Viewport, light::CascadeShadowConfigBuilder, prelude::*, window::WindowResized,
 };
 
 fn main() {
@@ -86,8 +86,8 @@ fn setup(
             .spawn((
                 UiTargetCamera(camera),
                 Node {
-                    width: Val::Percent(100.),
-                    height: Val::Percent(100.),
+                    width: percent(100),
+                    height: percent(100),
                     ..default()
                 },
             ))
@@ -96,8 +96,8 @@ fn setup(
                     Text::new(*camera_name),
                     Node {
                         position_type: PositionType::Absolute,
-                        top: Val::Px(12.),
-                        left: Val::Px(12.),
+                        top: px(12),
+                        left: px(12),
                         ..default()
                     },
                 ));
@@ -109,13 +109,13 @@ fn setup(
         parent
             .spawn(Node {
                 position_type: PositionType::Absolute,
-                width: Val::Percent(100.),
-                height: Val::Percent(100.),
+                width: percent(100),
+                height: percent(100),
                 display: Display::Flex,
                 flex_direction: FlexDirection::Row,
                 justify_content: JustifyContent::SpaceBetween,
                 align_items: AlignItems::Center,
-                padding: UiRect::all(Val::Px(20.)),
+                padding: UiRect::all(px(20)),
                 ..default()
             })
             .with_children(|parent| {
@@ -130,9 +130,9 @@ fn setup(
                 RotateCamera(direction),
                 Button,
                 Node {
-                    width: Val::Px(40.),
-                    height: Val::Px(40.),
-                    border: UiRect::all(Val::Px(2.)),
+                    width: px(40),
+                    height: px(40),
+                    border: UiRect::all(px(2)),
                     justify_content: JustifyContent::Center,
                     align_items: AlignItems::Center,
                     ..default()
@@ -183,7 +183,7 @@ fn set_camera_viewports(
 
 fn button_system(
     interaction_query: Query<
-        (&Interaction, &ComputedNodeTarget, &RotateCamera),
+        (&Interaction, &ComputedUiTargetCamera, &RotateCamera),
         (Changed<Interaction>, With<Button>),
     >,
     mut camera_query: Query<&mut Transform, With<Camera>>,
@@ -193,7 +193,7 @@ fn button_system(
             // Since TargetCamera propagates to the children, we can use it to find
             // which side of the screen the button is on.
             if let Some(mut camera_transform) = computed_target
-                .camera()
+                .get()
                 .and_then(|camera| camera_query.get_mut(camera).ok())
             {
                 let angle = match direction {

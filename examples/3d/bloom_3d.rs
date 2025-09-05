@@ -1,11 +1,9 @@
 //! Illustrates bloom post-processing using HDR and emissive materials.
 
 use bevy::{
-    core_pipeline::{
-        bloom::{Bloom, BloomCompositeMode},
-        tonemapping::Tonemapping,
-    },
+    core_pipeline::tonemapping::Tonemapping,
     math::ops,
+    post_process::bloom::{Bloom, BloomCompositeMode},
     prelude::*,
 };
 use std::{
@@ -87,8 +85,8 @@ fn setup_scene(
         Text::default(),
         Node {
             position_type: PositionType::Absolute,
-            bottom: Val::Px(12.0),
-            left: Val::Px(12.0),
+            bottom: px(12),
+            left: px(12),
             ..default()
         },
     ));

@@ -149,12 +149,11 @@ impl Diagnostic {
         }
 
         if self.max_history_length > 1 {
-            if self.history.len() >= self.max_history_length {
-                if let Some(removed_diagnostic) = self.history.pop_front() {
-                    if !removed_diagnostic.value.is_nan() {
-                        self.sum -= removed_diagnostic.value;
-                    }
-                }
+            if self.history.len() >= self.max_history_length
+                && let Some(removed_diagnostic) = self.history.pop_front()
+                && !removed_diagnostic.value.is_nan()
+            {
+                self.sum -= removed_diagnostic.value;
             }
 
             if measurement.value.is_finite() {
@@ -273,13 +272,9 @@ impl Diagnostic {
             return None;
         }
 
-        if let Some(newest) = self.history.back() {
-            if let Some(oldest) = self.history.front() {
-                return Some(newest.time.duration_since(oldest.time));
-            }
-        }
-
-        None
+        let newest = self.history.back()?;
+        let oldest = self.history.front()?;
+        Some(newest.time.duration_since(oldest.time))
     }
 
     /// Return the maximum number of elements for this diagnostic.

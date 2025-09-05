@@ -66,7 +66,7 @@ pub fn event_propagation(criterion: &mut Criterion) {
 struct TestEvent<const N: usize> {}
 
 fn send_events<const N: usize, const N_EVENTS: usize>(world: &mut World, leaves: &[Entity]) {
-    let target = leaves.iter().choose(&mut rand::thread_rng()).unwrap();
+    let target = leaves.iter().choose(&mut rand::rng()).unwrap();
 
     (0..N_EVENTS).for_each(|_| {
         world.trigger_targets(TestEvent::<N> {}, *target);
@@ -107,12 +107,12 @@ fn add_listeners_to_hierarchy<const DENSITY: usize, const N: usize>(
     }
     let mut rng = deterministic_rand();
     for e in nodes.iter() {
-        if rng.gen_bool(DENSITY as f64 / 100.0) {
+        if rng.random_bool(DENSITY as f64 / 100.0) {
             world.entity_mut(*e).observe(empty_listener::<N>);
         }
     }
 }
 
-fn empty_listener<const N: usize>(trigger: On<TestEvent<N>>) {
-    black_box(trigger);
+fn empty_listener<const N: usize>(event: On<TestEvent<N>>) {
+    black_box(event);
 }

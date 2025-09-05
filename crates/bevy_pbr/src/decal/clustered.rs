@@ -18,34 +18,32 @@ use core::{num::NonZero, ops::Deref};
 
 use bevy_app::{App, Plugin};
 use bevy_asset::AssetId;
+use bevy_camera::visibility::ViewVisibility;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     entity::{Entity, EntityHashMap},
     query::With,
     resource::Resource,
     schedule::IntoScheduleConfigs as _,
-    system::{Query, Res, ResMut},
+    system::{Commands, Local, Query, Res, ResMut},
 };
 use bevy_image::Image;
-pub use bevy_light::cluster::ClusteredDecal;
-use bevy_light::{DirectionalLightTexture, PointLightTexture, SpotLightTexture};
+use bevy_light::{ClusteredDecal, DirectionalLightTexture, PointLightTexture, SpotLightTexture};
 use bevy_math::Mat4;
 use bevy_platform::collections::HashMap;
-pub use bevy_render::primitives::CubemapLayout;
 use bevy_render::{
-    extract_component::ExtractComponentPlugin,
-    load_shader_library,
     render_asset::RenderAssets,
     render_resource::{
         binding_types, BindGroupLayoutEntryBuilder, Buffer, BufferUsages, RawBufferVec, Sampler,
         SamplerBindingType, ShaderType, TextureSampleType, TextureView,
     },
     renderer::{RenderAdapter, RenderDevice, RenderQueue},
+    sync_component::SyncComponentPlugin,
     sync_world::RenderEntity,
     texture::{FallbackImage, GpuImage},
-    view::ViewVisibility,
     Extract, ExtractSchedule, Render, RenderApp, RenderSystems,
 };
+use bevy_shader::load_shader_library;
 use bevy_transform::components::GlobalTransform;
 use bytemuck::{Pod, Zeroable};
 
@@ -144,8 +142,7 @@ impl Plugin for ClusteredDecalPlugin {
     fn build(&self, app: &mut App) {
         load_shader_library!(app, "clustered.wgsl");
 
-        app.add_plugins(ExtractComponentPlugin::<ClusteredDecal>::default())
-            .register_type::<ClusteredDecal>();
+        app.add_plugins(SyncComponentPlugin::<ClusteredDecal>::default());
 
         let Some(render_app) = app.get_sub_app_mut(RenderApp) else {
             return;
@@ -154,7 +151,7 @@ impl Plugin for ClusteredDecalPlugin {
         render_app
             .init_resource::<DecalsBuffer>()
             .init_resource::<RenderClusteredDecals>()
-            .add_systems(ExtractSchedule, extract_decals)
+            .add_systems(ExtractSchedule, (extract_decals, extract_clustered_decal))
             .add_systems(
                 Render,
                 prepare_decals
@@ -166,6 +163,21 @@ impl Plugin for ClusteredDecalPlugin {
                 upload_decals.in_set(RenderSystems::PrepareResources),
             );
     }
+}
+
+// This is needed because of the orphan rule not allowing implementing
+// foreign trait ExtractComponent on foreign type ClusteredDecal
+fn extract_clustered_decal(
+    mut commands: Commands,
+    mut previous_len: Local<usize>,
+    query: Extract<Query<(RenderEntity, &ClusteredDecal)>>,
+) {
+    let mut values = Vec::with_capacity(*previous_len);
+    for (entity, query_item) in &query {
+        values.push((entity, query_item.clone()));
+    }
+    *previous_len = values.len();
+    commands.try_insert_batch(values);
 }
 
 /// The GPU data structure that stores information about each decal.

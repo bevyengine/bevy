@@ -3,7 +3,7 @@
 
 use std::f32::consts::PI;
 
-use bevy::{gltf::GltfMaterialName, prelude::*, render::mesh::VertexAttributeValues};
+use bevy::{gltf::GltfMaterialName, mesh::VertexAttributeValues, prelude::*};
 
 fn main() {
     App::new()
@@ -34,18 +34,17 @@ fn find_top_material_and_mesh(
                 }
             }
 
-            if let Some(mesh) = meshes.get_mut(mesh_handle) {
-                if let Some(VertexAttributeValues::Float32x3(positions)) =
+            if let Some(mesh) = meshes.get_mut(mesh_handle)
+                && let Some(VertexAttributeValues::Float32x3(positions)) =
                     mesh.attribute_mut(Mesh::ATTRIBUTE_POSITION)
-                {
-                    for position in positions {
-                        *position = (
-                            position[0],
-                            1.5 + 0.5 * ops::sin(time.elapsed_secs() / 2.0),
-                            position[2],
-                        )
-                            .into();
-                    }
+            {
+                for position in positions {
+                    *position = (
+                        position[0],
+                        1.5 + 0.5 * ops::sin(time.elapsed_secs() / 2.0),
+                        position[2],
+                    )
+                        .into();
                 }
             }
         }

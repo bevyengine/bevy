@@ -1,5 +1,5 @@
 use crate::{
-    component::{CheckChangeTicks, ComponentId, Tick},
+    component::{CheckChangeTicks, Tick},
     error::{BevyError, Result},
     never::Never,
     prelude::FromWorld,
@@ -43,10 +43,12 @@ impl SystemMeta {
     pub(crate) fn new<T>() -> Self {
         let name = DebugName::type_name::<T>();
         Self {
+            // These spans are initialized during plugin build, so we set the parent to `None` to prevent
+            // them from being children of the span that is measuring the plugin build time.
             #[cfg(feature = "trace")]
-            system_span: info_span!("system", name = name.clone().as_string()),
+            system_span: info_span!(parent: None, "system", name = name.clone().as_string()),
             #[cfg(feature = "trace")]
-            commands_span: info_span!("system_commands", name = name.clone().as_string()),
+            commands_span: info_span!(parent: None, "system_commands", name = name.clone().as_string()),
             name,
             flags: SystemStateFlags::empty(),
             last_run: Tick::new(0),
@@ -68,8 +70,8 @@ impl SystemMeta {
         #[cfg(feature = "trace")]
         {
             let name = new_name.as_ref();
-            self.system_span = info_span!("system", name = name);
-            self.commands_span = info_span!("system_commands", name = name);
+            self.system_span = info_span!(parent: None, "system", name = name);
+            self.commands_span = info_span!(parent: None, "system_commands", name = name);
         }
         self.name = new_name.into();
     }
@@ -193,6 +195,22 @@ impl SystemMeta {
 ///         println!("Hello World!");
 ///     }
 /// });
+/// ```
+/// Exclusive System:
+/// ```
+/// # use bevy_ecs::prelude::*;
+/// # use bevy_ecs::system::SystemState;
+/// #
+/// # #[derive(BufferedEvent)]
+/// # struct MyEvent;
+/// #
+/// fn exclusive_system(world: &mut World, system_state: &mut SystemState<EventReader<MyEvent>>) {
+///     let mut event_reader = system_state.get_mut(world);
+///
+///     for events in event_reader.read() {
+///         println!("Hello World!");
+///     }
+/// }
 /// ```
 pub struct SystemState<Param: SystemParam + 'static> {
     meta: SystemMeta,
@@ -733,7 +751,7 @@ where
     }
 
     #[inline]
-    fn initialize(&mut self, world: &mut World) -> FilteredAccessSet<ComponentId> {
+    fn initialize(&mut self, world: &mut World) -> FilteredAccessSet {
         if let Some(state) = &self.state {
             assert_eq!(
                 state.world_id,

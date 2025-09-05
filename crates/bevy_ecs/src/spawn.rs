@@ -153,11 +153,18 @@ impl<R: Relationship, F: FnOnce(&mut RelatedSpawner<R>) + Send + Sync + 'static>
 ///     Children::spawn((
 ///         Spawn(Name::new("Child1")),
 ///         // This adds the already existing entities as children of Root.
-///         WithRelated([child2, child3].into_iter()),
+///         WithRelated::new([child2, child3]),
 ///     )),
 /// ));
 /// ```
 pub struct WithRelated<I>(pub I);
+
+impl<I> WithRelated<I> {
+    /// Creates a new [`WithRelated`] from a collection of entities.
+    pub fn new(iter: impl IntoIterator<IntoIter = I>) -> Self {
+        Self(iter.into_iter())
+    }
+}
 
 impl<R: Relationship, I: Iterator<Item = Entity>> SpawnableList<R> for WithRelated<I> {
     fn spawn(self, world: &mut World, entity: Entity) {
@@ -208,11 +215,12 @@ impl<R: Relationship> SpawnableList<R> for WithOneRelated {
 }
 
 macro_rules! spawnable_list_impl {
-    ($($list: ident),*) => {
+    ($(#[$meta:meta])* $($list: ident),*) => {
         #[expect(
             clippy::allow_attributes,
             reason = "This is a tuple-related macro; as such, the lints below may not always apply."
         )]
+        $(#[$meta])*
         impl<R: Relationship, $($list: SpawnableList<R>),*> SpawnableList<R> for ($($list,)*) {
             fn spawn(self, _world: &mut World, _entity: Entity) {
                 #[allow(
@@ -235,7 +243,13 @@ macro_rules! spawnable_list_impl {
     }
 }
 
-all_tuples!(spawnable_list_impl, 0, 12, P);
+all_tuples!(
+    #[doc(fake_variadic)]
+    spawnable_list_impl,
+    0,
+    12,
+    P
+);
 
 /// A [`Bundle`] that:
 /// 1. Contains a [`RelationshipTarget`] component (associated with the given [`Relationship`]). This reserves space for the [`SpawnableList`].
@@ -653,7 +667,7 @@ mod tests {
         let parent = world
             .spawn((
                 Name::new("Parent"),
-                Children::spawn(WithRelated([child1, child2].into_iter())),
+                Children::spawn(WithRelated::new([child1, child2])),
             ))
             .id();
 

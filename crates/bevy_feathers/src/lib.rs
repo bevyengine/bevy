@@ -18,17 +18,17 @@
 //! Please report issues, submit fixes and propose changes.
 //! Thanks for stress-testing; let's build something better together.
 
-use bevy_app::{HierarchyPropagatePlugin, Plugin, PostUpdate};
+use bevy_app::{HierarchyPropagatePlugin, Plugin, PostUpdate, PropagateSet};
 use bevy_asset::embedded_asset;
-use bevy_ecs::query::With;
+use bevy_ecs::{query::With, schedule::IntoScheduleConfigs};
 use bevy_text::{TextColor, TextFont};
+use bevy_ui::UiSystems;
 use bevy_ui_render::UiMaterialPlugin;
-use bevy_winit::cursor::CursorIcon;
 
 use crate::{
     alpha_pattern::{AlphaPatternMaterial, AlphaPatternResource},
     controls::ControlsPlugin,
-    cursor::{CursorIconPlugin, DefaultCursorIcon},
+    cursor::{CursorIconPlugin, DefaultCursor, EntityCursor},
     theme::{ThemedText, UiTheme},
 };
 
@@ -64,12 +64,19 @@ impl Plugin for FeathersPlugin {
         app.add_plugins((
             ControlsPlugin,
             CursorIconPlugin,
-            HierarchyPropagatePlugin::<TextColor, With<ThemedText>>::default(),
-            HierarchyPropagatePlugin::<TextFont, With<ThemedText>>::default(),
+            HierarchyPropagatePlugin::<TextColor, With<ThemedText>>::new(PostUpdate),
+            HierarchyPropagatePlugin::<TextFont, With<ThemedText>>::new(PostUpdate),
             UiMaterialPlugin::<AlphaPatternMaterial>::default(),
         ));
 
-        app.insert_resource(DefaultCursorIcon(CursorIcon::System(
+        // This needs to run in UiSystems::Propagate so the fonts are up-to-date for `measure_text_system`
+        // and `detect_text_needs_rerender` in UiSystems::Content
+        app.configure_sets(
+            PostUpdate,
+            PropagateSet::<TextFont>::default().in_set(UiSystems::Propagate),
+        );
+
+        app.insert_resource(DefaultCursor(EntityCursor::System(
             bevy_window::SystemCursorIcon::Default,
         )));
 

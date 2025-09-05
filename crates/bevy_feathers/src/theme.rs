@@ -7,16 +7,19 @@ use bevy_ecs::{
     lifecycle::Insert,
     observer::On,
     query::Changed,
+    reflect::{ReflectComponent, ReflectResource},
     resource::Resource,
     system::{Commands, Query, Res},
 };
 use bevy_log::warn_once;
 use bevy_platform::collections::HashMap;
+use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_text::TextColor;
 use bevy_ui::{BackgroundColor, BorderColor};
 
 /// A collection of properties that make up a theme.
-#[derive(Default, Clone)]
+#[derive(Default, Clone, Reflect, Debug)]
+#[reflect(Default, Debug)]
 pub struct ThemeProps {
     /// Map of design tokens to colors.
     pub color: HashMap<String, Color>,
@@ -24,7 +27,8 @@ pub struct ThemeProps {
 }
 
 /// The currently selected user interface theme. Overwriting this resource changes the theme.
-#[derive(Resource, Default)]
+#[derive(Resource, Default, Reflect, Debug)]
+#[reflect(Resource, Default, Debug)]
 pub struct UiTheme(pub ThemeProps);
 
 impl UiTheme {
@@ -52,6 +56,8 @@ impl UiTheme {
 #[derive(Component, Clone, Copy)]
 #[require(BackgroundColor)]
 #[component(immutable)]
+#[derive(Reflect)]
+#[reflect(Component, Clone)]
 pub struct ThemeBackgroundColor(pub &'static str);
 
 /// Component which causes the border color of an entity to be set based on a theme color.
@@ -59,16 +65,21 @@ pub struct ThemeBackgroundColor(pub &'static str);
 #[derive(Component, Clone, Copy)]
 #[require(BorderColor)]
 #[component(immutable)]
+#[derive(Reflect)]
+#[reflect(Component, Clone)]
 pub struct ThemeBorderColor(pub &'static str);
 
 /// Component which causes the inherited text color of an entity to be set based on a theme color.
 #[derive(Component, Clone, Copy)]
 #[component(immutable)]
+#[derive(Reflect)]
+#[reflect(Component, Clone)]
 pub struct ThemeFontColor(pub &'static str);
 
 /// A marker component that is used to indicate that the text entity wants to opt-in to using
 /// inherited text styles.
-#[derive(Component)]
+#[derive(Component, Reflect)]
+#[reflect(Component)]
 pub struct ThemedText;
 
 pub(crate) fn update_theme(
@@ -98,7 +109,7 @@ pub(crate) fn on_changed_background(
     theme: Res<UiTheme>,
 ) {
     // Update background colors where the design token has changed.
-    if let Ok((mut bg, theme_bg)) = q_background.get_mut(ev.target()) {
+    if let Ok((mut bg, theme_bg)) = q_background.get_mut(ev.entity()) {
         bg.0 = theme.color(theme_bg.0);
     }
 }
@@ -109,7 +120,7 @@ pub(crate) fn on_changed_border(
     theme: Res<UiTheme>,
 ) {
     // Update background colors where the design token has changed.
-    if let Ok((mut border, theme_border)) = q_border.get_mut(ev.target()) {
+    if let Ok((mut border, theme_border)) = q_border.get_mut(ev.entity()) {
         border.set_all(theme.color(theme_border.0));
     }
 }
@@ -122,10 +133,10 @@ pub(crate) fn on_changed_font_color(
     theme: Res<UiTheme>,
     mut commands: Commands,
 ) {
-    if let Ok(token) = font_color.get(ev.target()) {
+    if let Ok(token) = font_color.get(ev.entity()) {
         let color = theme.color(token.0);
         commands
-            .entity(ev.target())
+            .entity(ev.entity())
             .insert(Propagate(TextColor(color)));
     }
 }

@@ -73,15 +73,15 @@ impl FilesystemEventHandler for EmbeddedEventHandler {
 
     fn handle(&mut self, absolute_paths: &[PathBuf], event: AssetSourceEvent) {
         if self.last_event.as_ref() != Some(&event) {
-            if let AssetSourceEvent::ModifiedAsset(path) = &event {
-                if let Ok(file) = File::open(&absolute_paths[0]) {
-                    let mut reader = BufReader::new(file);
-                    let mut buffer = Vec::new();
+            if let AssetSourceEvent::ModifiedAsset(path) = &event
+                && let Ok(file) = File::open(&absolute_paths[0])
+            {
+                let mut reader = BufReader::new(file);
+                let mut buffer = Vec::new();
 
-                    // Read file into vector.
-                    if reader.read_to_end(&mut buffer).is_ok() {
-                        self.dir.insert_asset(path, buffer);
-                    }
+                // Read file into vector.
+                if reader.read_to_end(&mut buffer).is_ok() {
+                    self.dir.insert_asset(path, buffer);
                 }
             }
             self.last_event = Some(event.clone());

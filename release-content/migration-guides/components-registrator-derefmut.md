@@ -1,5 +1,5 @@
 ---
-title: ComponentsRegistrator no longer implements DerefMut
+title: "`ComponentsRegistrator` no longer implements `DerefMut`"
 pull_requests: [14791, 15458, 15269]
 ---
 

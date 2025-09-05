@@ -632,7 +632,7 @@ unsafe impl<'a> SystemParam for &'a RemovedComponentEvents {
     fn init_access(
         _state: &Self::State,
         _system_meta: &mut SystemMeta,
-        _component_access_set: &mut FilteredAccessSet<ComponentId>,
+        _component_access_set: &mut FilteredAccessSet,
         _world: &mut World,
     ) {
     }

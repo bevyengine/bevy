@@ -44,7 +44,7 @@
 //! even if they have a `Position` component,
 //! but `Query<&Position, With<Disabled>>` or `Query<(&Position, Has<Disabled>)>` will see them.
 //!
-//! The [`Allows`](crate::query::Allows) query filter is designed to be used with default query filters,
+//! The [`Allow`](crate::query::Allow) query filter is designed to be used with default query filters,
 //! and ensures that the query will include entities both with and without the specified disabling component.
 //!
 //! Entities with disabling components are still present in the [`World`] and can be accessed directly,
@@ -161,9 +161,9 @@ pub struct Internal;
 /// To be more precise, this checks if the query's [`FilteredAccess`] contains the component,
 /// and if it does not, adds a [`Without`](crate::prelude::Without) filter for that component to the query.
 ///
-/// [`Allows`](crate::query::Allows) and [`Has`](crate::prelude::Has) can be used to include entities
+/// [`Allow`](crate::query::Allow) and [`Has`](crate::prelude::Has) can be used to include entities
 /// with and without the disabling component.
-/// [`Allows`](crate::query::Allows) is a [`QueryFilter`](crate::query::QueryFilter) and will simply change
+/// [`Allow`](crate::query::Allow) is a [`QueryFilter`](crate::query::QueryFilter) and will simply change
 /// the list of shown entities, while [`Has`](crate::prelude::Has) is a [`QueryData`](crate::query::QueryData)
 /// and will allow you to see if each entity has the disabling component or not.
 ///
@@ -241,7 +241,7 @@ impl DefaultQueryFilters {
     }
 
     /// Modifies the provided [`FilteredAccess`] to include the filters from this [`DefaultQueryFilters`].
-    pub(super) fn modify_access(&self, component_access: &mut FilteredAccess<ComponentId>) {
+    pub(super) fn modify_access(&self, component_access: &mut FilteredAccess) {
         for component_id in self.disabling_ids() {
             if !component_access.contains(component_id) {
                 component_access.and_without(component_id);
@@ -276,7 +276,7 @@ mod tests {
         filters.register_disabling_component(ComponentId::new(1));
 
         // A component access with an unrelated component
-        let mut component_access = FilteredAccess::<ComponentId>::default();
+        let mut component_access = FilteredAccess::default();
         component_access
             .access_mut()
             .add_component_read(ComponentId::new(2));

@@ -226,12 +226,12 @@ where
     /// Returns an immutable enumeration of "kinds" of type.
     ///
     /// See [`ReflectRef`].
-    fn reflect_ref(&self) -> ReflectRef;
+    fn reflect_ref(&self) -> ReflectRef<'_>;
 
     /// Returns a mutable enumeration of "kinds" of type.
     ///
     /// See [`ReflectMut`].
-    fn reflect_mut(&mut self) -> ReflectMut;
+    fn reflect_mut(&mut self) -> ReflectMut<'_>;
 
     /// Returns an owned enumeration of "kinds" of type.
     ///
@@ -546,9 +546,9 @@ impl dyn Reflect {
     /// otherwise.
     ///
     /// The underlying value is the concrete type that is stored in this `dyn` object;
-    /// it can be downcasted to. In the case that this underlying value "represents"
+    /// it can be downcast to. In the case that this underlying value "represents"
     /// a different type, like the Dynamic\*\*\* types do, you can call `represents`
-    /// to determine what type they represent. Represented types cannot be downcasted
+    /// to determine what type they represent. Represented types cannot be downcast
     /// to, but you can use [`FromReflect`] to create a value of the represented type from them.
     ///
     /// For remote types, `T` should be the type itself rather than the wrapper type.

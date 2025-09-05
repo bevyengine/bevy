@@ -23,10 +23,6 @@ use core::{f32::consts::TAU, hash::Hash, num::NonZeroU32, ops::Deref};
 const MAX_MESH_SLAB_COUNT: NonZeroU32 = NonZeroU32::new(500).unwrap();
 const MAX_TEXTURE_COUNT: NonZeroU32 = NonZeroU32::new(5_000).unwrap();
 
-/// Average angular diameter of the sun as seen from earth.
-/// <https://en.wikipedia.org/wiki/Angular_diameter#Use_in_astronomy>
-const SUN_ANGULAR_DIAMETER_RADIANS: f32 = 0.00930842;
-
 const TEXTURE_MAP_NONE: u32 = u32::MAX;
 const LIGHT_NOT_PRESENT_THIS_FRAME: u32 = u32::MAX;
 
@@ -71,14 +67,14 @@ pub fn prepare_raytracing_scene_bindings(
     let mut textures = CachedBindingArray::new();
     let mut samplers = Vec::new();
     let mut materials = StorageBufferList::<GpuMaterial>::default();
-    let mut tlas = TlasPackage::new(render_device.wgpu_device().create_tlas(
-        &CreateTlasDescriptor {
+    let mut tlas = render_device
+        .wgpu_device()
+        .create_tlas(&CreateTlasDescriptor {
             label: Some("tlas"),
             flags: AccelerationStructureFlags::PREFER_FAST_TRACE,
             update_mode: AccelerationStructureUpdateMode::Build,
             max_instances: instances_query.iter().len() as u32,
-        },
-    ));
+        });
     let mut transforms = StorageBufferList::<Mat4>::default();
     let mut geometry_ids = StorageBufferList::<GpuInstanceGeometryIds>::default();
     let mut material_ids = StorageBufferList::<u32>::default();
@@ -115,13 +111,23 @@ pub fn prepare_raytracing_scene_bindings(
         let Some(emissive_texture_id) = process_texture(&material.emissive_texture) else {
             continue;
         };
+        let Some(metallic_roughness_texture_id) =
+            process_texture(&material.metallic_roughness_texture)
+        else {
+            continue;
+        };
 
         materials.get_mut().push(GpuMaterial {
-            base_color: material.base_color.to_linear(),
-            emissive: material.emissive,
-            base_color_texture_id,
             normal_map_texture_id,
+            base_color_texture_id,
             emissive_texture_id,
+            metallic_roughness_texture_id,
+
+            base_color: LinearRgba::from(material.base_color).to_vec3(),
+            perceptual_roughness: material.perceptual_roughness,
+            emissive: material.emissive.to_vec3(),
+            metallic: material.metallic,
+            reflectance: LinearRgba::from(material.specular_tint).to_vec3() * material.reflectance,
             _padding: Default::default(),
         });
 
@@ -180,11 +186,12 @@ pub fn prepare_raytracing_scene_bindings(
             vertex_buffer_offset: vertex_slice.range.start,
             index_buffer_id,
             index_buffer_offset: index_slice.range.start,
+            triangle_count: (index_slice.range.len() / 3) as u32,
         });
 
         material_ids.get_mut().push(material_id);
 
-        if material.emissive != LinearRgba::BLACK {
+        if material.emissive != Vec3::ZERO {
             light_sources
                 .get_mut()
                 .push(GpuLightSource::new_emissive_mesh_light(
@@ -342,16 +349,22 @@ struct GpuInstanceGeometryIds {
     vertex_buffer_offset: u32,
     index_buffer_id: u32,
     index_buffer_offset: u32,
+    triangle_count: u32,
 }
 
 #[derive(ShaderType)]
 struct GpuMaterial {
-    base_color: LinearRgba,
-    emissive: LinearRgba,
-    base_color_texture_id: u32,
     normal_map_texture_id: u32,
+    base_color_texture_id: u32,
     emissive_texture_id: u32,
-    _padding: u32,
+    metallic_roughness_texture_id: u32,
+
+    base_color: Vec3,
+    perceptual_roughness: f32,
+    emissive: Vec3,
+    metallic: f32,
+    reflectance: Vec3,
+    _padding: f32,
 }
 
 #[derive(ShaderType)]
@@ -363,7 +376,7 @@ struct GpuLightSource {
 impl GpuLightSource {
     fn new_emissive_mesh_light(instance_id: u32, triangle_count: u32) -> GpuLightSource {
         if triangle_count > u16::MAX as u32 {
-            panic!("Too triangles in an emissive mesh, maximum is 65535.");
+            panic!("Too many triangles ({triangle_count}) in an emissive mesh, maximum is 65535.");
         }
 
         Self {
@@ -390,7 +403,7 @@ struct GpuDirectionalLight {
 
 impl GpuDirectionalLight {
     fn new(directional_light: &ExtractedDirectionalLight) -> Self {
-        let cos_theta_max = cos(SUN_ANGULAR_DIAMETER_RADIANS / 2.0);
+        let cos_theta_max = cos(directional_light.sun_disk_angular_size / 2.0);
         let solid_angle = TAU * (1.0 - cos_theta_max);
         let luminance =
             (directional_light.color.to_vec3() * directional_light.illuminance) / solid_angle;
