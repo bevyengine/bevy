@@ -69,7 +69,7 @@ pub struct SystemInfo {
     not(feature = "dynamic_linking"),
     feature = "std",
 ))]
-pub mod internal {
+mod internal {
     use core::{
         pin::Pin,
         task::{Context, Poll},
@@ -214,9 +214,7 @@ pub mod internal {
     }
 
     fn wake_diagnostic_task(task: ResMut<SysinfoTask>) {
-        if let Some(waker) = task.waker.take() {
-            waker.wake();
-        }
+        task.waker.wake();
     }
 
     fn read_diagnostic_task(mut diagnostics: Diagnostics, mut task: ResMut<SysinfoTask>) {
@@ -279,7 +277,7 @@ pub mod internal {
     not(feature = "dynamic_linking"),
     feature = "std",
 )))]
-pub mod internal {
+mod internal {
     use alloc::string::ToString;
     use bevy_app::{App, Startup};
 
