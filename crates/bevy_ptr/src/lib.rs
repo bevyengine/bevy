@@ -16,13 +16,14 @@ use core::{
     ptr::{self, NonNull},
 };
 
-/// Used as a type argument to [`Ptr`], [`PtrMut`] and [`OwningPtr`] to specify that the pointer is [aligned].
+/// Used as a type argument to [`Ptr`], [`PtrMut`], [`OwningPtr`], and [`MovingPtr`] to specify that the pointer is guaranteed
+/// to be [aligned].
 ///
 /// [aligned]: https://doc.rust-lang.org/std/ptr/index.html#alignment
 #[derive(Debug, Copy, Clone)]
 pub struct Aligned;
 
-/// Used as a type argument to [`Ptr`], [`PtrMut`] and [`OwningPtr`] to specify that the pointer is not [aligned].
+/// Used as a type argument to [`Ptr`], [`PtrMut`], [`OwningPtr`], and [`MovingPtr`] to specify that the pointer may not [aligned].
 ///
 /// [aligned]: https://doc.rust-lang.org/std/ptr/index.html#alignment
 #[derive(Debug, Copy, Clone)]
@@ -289,7 +290,7 @@ pub struct Ptr<'a, A: IsAligned = Aligned>(NonNull<u8>, PhantomData<(&'a u8, A)>
 #[repr(transparent)]
 pub struct PtrMut<'a, A: IsAligned = Aligned>(NonNull<u8>, PhantomData<(&'a mut u8, A)>);
 
-/// Type-erased Box-like pointer to some unknown type chosen when constructing this type.
+/// Type-erased [`Box`]-like pointer to some unknown type chosen when constructing this type.
 ///
 /// Conceptually represents ownership of whatever data is being pointed to and so is
 /// responsible for calling its `Drop` impl. This pointer is _not_ responsible for freeing
@@ -307,6 +308,7 @@ pub struct PtrMut<'a, A: IsAligned = Aligned>(NonNull<u8>, PhantomData<(&'a mut 
 /// without the metadata and able to point to data that does not correspond to a Rust type.
 ///
 /// [properly aligned]: https://doc.rust-lang.org/std/ptr/index.html#alignment
+/// [`Box`]: https://doc.rust-lang.org/std/boxed/struct.Box.html
 #[repr(transparent)]
 pub struct OwningPtr<'a, A: IsAligned = Aligned>(NonNull<u8>, PhantomData<(&'a mut u8, A)>);
 
@@ -327,7 +329,7 @@ pub struct OwningPtr<'a, A: IsAligned = Aligned>(NonNull<u8>, PhantomData<(&'a m
 /// - If `A` is [`Aligned`], the pointer must always be [properly aligned] for the type `T`.
 ///
 /// [properly aligned]: https://doc.rust-lang.org/std/ptr/index.html#alignment
-/// [`Box`]: alloc::boxed::Box
+/// [`Box`]: https://doc.rust-lang.org/std/boxed/struct.Box.html
 #[repr(transparent)]
 pub struct MovingPtr<'a, T, A: IsAligned = Aligned>(NonNull<T>, PhantomData<(&'a mut T, A)>);
 
