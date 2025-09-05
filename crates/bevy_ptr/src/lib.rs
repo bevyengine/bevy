@@ -27,18 +27,105 @@ pub struct Unaligned;
 /// Trait that is only implemented for [`Aligned`] and [`Unaligned`] to work around the lack of ability
 /// to have const generics of an enum.
 pub trait IsAligned: sealed::Sealed {
+    /// Reads the value pointed to by `ptr`.
+    ///
+    /// # Safety
+    ///  - `ptr` must be valid for reads.
+    ///  - `ptr` must point to a valid instance of type `T`
+    ///  - If this type is [`Aligned`], then `ptr` must be properly aligned for type `T`.
     #[doc(hidden)]
-    const IS_ALIGNED: bool;
+    unsafe fn read_ptr<T>(ptr: *const T) -> T;
+
+    #[doc(hidden)]
+    unsafe fn copy_nonoverlapping<T>(src: *const T, dst: *mut T, size: usize);
+
+    /// Reads the value pointed to by `ptr`.
+    ///
+    /// # Safety
+    ///  - `ptr` must be valid for reads and writes.
+    ///  - `ptr` must point to a valid instance of type `T`
+    ///  - If this type is [`Aligned`], then `ptr` must be properly aligned for type `T`.
+    ///  - The value pointed to by `ptr` must be valid for dropping.
+    ///  - While `drop_in_place` is executing, the only way to access parts of `ptr` is through
+    ///    the `&mut Self` supplied to it's `Drop::drop` impl.
+    #[doc(hidden)]
+    unsafe fn drop_in_place<T>(ptr: *mut T);
 }
 
 impl IsAligned for Aligned {
-    #[doc(hidden)]
-    const IS_ALIGNED: bool = true;
+    #[inline]
+    unsafe fn read_ptr<T>(ptr: *const T) -> T {
+        // SAFETY:
+        //  - The caller is required to ensure that `src` must be valid for reads.
+        //  - The caller is required to ensure that `src` points to a valid instance of type `T`.
+        //  - This type is `Aligned` so the caller must ensure that `src` is properly aligned for type `T`.
+        unsafe { ptr.read() }
+    }
+
+    #[inline]
+    unsafe fn copy_nonoverlapping<T>(src: *const T, dst: *mut T, count: usize) {
+        // SAFETY:
+        //  - The caller is required to ensure that `src` must be valid for reads.
+        //  - The caller is required to ensure that `dst` must be valid for writes.
+        //  - The caller is required to ensure that `src` and `dst` are aligned.
+        //  - The caller is required to ensure that the memory region covered by `src`
+        //    and `dst`, fitting up to `count` elements do not overlap.
+        unsafe {
+            ptr::copy_nonoverlapping(src, dst, count);
+        }
+    }
+
+    #[inline]
+    unsafe fn drop_in_place<T>(ptr: *mut T) {
+        // SAFETY:
+        //  - The caller is required to ensure that `ptr` must be valid for reads and writes.
+        //  - The caller is required to ensure that `ptr` points to a valid instance of type `T`.
+        //  - This type is `Aligned` so the caller must ensure that `ptr` is properly aligned for type `T`.
+        //  - The caller is required to ensure that `ptr` points must be valid for dropping.
+        //  - The caller is required to ensure that the value `ptr` points must not be used after this function
+        //    call.
+        unsafe { ptr::drop_in_place(ptr) };
+    }
 }
 
 impl IsAligned for Unaligned {
-    #[doc(hidden)]
-    const IS_ALIGNED: bool = false;
+    #[inline]
+    unsafe fn read_ptr<T>(ptr: *const T) -> T {
+        // SAFETY:
+        //  - The caller is required to ensure that `src` must be valid for reads.
+        //  - The caller is required to ensure that `src` points to a valid instance of type `T`.
+        unsafe { ptr.read_unaligned() }
+    }
+
+    #[inline]
+    unsafe fn copy_nonoverlapping<T>(src: *const T, dst: *mut T, count: usize) {
+        // SAFETY:
+        //  - The caller is required to ensure that `src` must be valid for reads.
+        //  - The caller is required to ensure that `dst` must be valid for writes.
+        //  - This is doing a byte-wise copy. `src` and `dst` are always guaranteed to be
+        //    aligned.
+        //  - The caller is required to ensure that the memory region covered by `src`
+        //    and `dst`, fitting up to `count` elements do not overlap.
+        unsafe {
+            ptr::copy_nonoverlapping::<u8>(
+                src.cast::<u8>(),
+                dst.cast::<u8>(),
+                count * size_of::<T>(),
+            );
+        }
+    }
+
+    #[inline]
+    unsafe fn drop_in_place<T>(ptr: *mut T) {
+        // SAFETY:
+        //  - The caller is required to ensure that `ptr` must be valid for reads and writes.
+        //  - The caller is required to ensure that `ptr` points to a valid instance of type `T`.
+        //  - This type is not `Aligned` so the caller does not need to ensure that `ptr` is properly aligned for type `T`.
+        //  - The caller is required to ensure that `ptr` points must be valid for dropping.
+        //  - The caller is required to ensure that the value `ptr` points must not be used after this function
+        //    call.
+        unsafe { drop(ptr.read_unaligned()) }
+    }
 }
 
 mod sealed {
@@ -223,6 +310,10 @@ pub struct OwningPtr<'a, A: IsAligned = Aligned>(NonNull<u8>, PhantomData<(&'a m
 /// - The lifetime `'a` accurately represents how long the pointer is valid for.
 /// - It does not support pointer arithmetic in any way.
 /// - Must be sufficiently aligned for the pointee type.
+///
+/// If the generic type parameter `A` is [`Aligned`] (the default), then all instances of the type
+/// must be properly aligned for type `T`.
+#[repr(transparent)]
 pub struct MovingPtr<'a, T, A: IsAligned = Aligned>(NonNull<T>, PhantomData<(&'a mut T, A)>);
 
 macro_rules! impl_ptr {
@@ -320,6 +411,21 @@ impl<'a, T> MovingPtr<'a, T, Aligned> {
         mem::forget(self);
         value
     }
+
+    /// This exists mostly to reduce compile times;
+    /// code is only duplicated per type, rather than per function called.
+    fn make_internal(temp: &mut ManuallyDrop<T>) -> MovingPtr<'_, T> {
+        MovingPtr(NonNull::from(temp).cast::<T>(), PhantomData)
+    }
+
+    /// Consumes a value and creates an [`MovingPtr`] to it while ensuring a double drop does not happen.
+    #[inline]
+    pub fn make<F: FnOnce(MovingPtr<'_, T>) -> R, R>(val: T, f: F) -> R {
+        let mut val = ManuallyDrop::new(val);
+        // SAFETY: The value behind the pointer will not get dropped or observed later,
+        // so it's safe to promote it to an owning pointer.
+        f(Self::make_internal(&mut val))
+    }
 }
 
 impl<'a, T, A: IsAligned> MovingPtr<'_, T, A> {
@@ -336,46 +442,78 @@ impl<'a, T, A: IsAligned> MovingPtr<'_, T, A> {
         Self(inner, PhantomData)
     }
 
-    /// This exists mostly to reduce compile times;
-    /// code is only duplicated per type, rather than per function called.
-    fn make_internal(temp: &mut ManuallyDrop<T>) -> MovingPtr<'_, T> {
-        MovingPtr(NonNull::from(temp).cast::<T>(), PhantomData)
-    }
-
-    /// Consumes a value and creates an [`MovingPtr`] to it while ensuring a double drop does not happen.
-    #[inline]
-    pub fn make<F: FnOnce(MovingPtr<'_, T>) -> R, R>(val: T, f: F) -> R {
-        let mut val = ManuallyDrop::new(val);
-        // SAFETY: The value behind the pointer will not get dropped or observed later,
-        // so it's safe to promote it to an owning pointer.
-        f(Self::make_internal(&mut val))
-    }
-
     /// Partially moves out some fields inside of `self`.
     ///
     /// The partially returned value is returned back pointing to `MaybeUninit<T>`.
     ///
     /// # Safety
-    /// The fields moved out of in `f` must not be accessed or dropped after this function returns.
+    ///  - The call into `f` must not complete having dropped the provided pointer.
+    ///  - The fields moved out of in `f` must not be accessed or dropped after this function returns.
+    ///
+    /// As a result, it is strongly recommended to call [`forget`] on the provided pointer once the
+    /// partial deconstruction has completed.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use core::mem::{offset_of, MaybeUninit};
+    /// use bevy_ptr::MovingPtr;
+    /// # use bevy_ptr::Unaligned;
+    /// # struct FieldAType(usize);
+    /// # struct FieldBType(usize);
+    /// # struct FieldCType(usize);
+    /// # fn insert<T>(_ptr: MovingPtr<'_, T, Unaligned>) {}
+    ///
+    /// struct Parent {
+    ///   field_a: FieldAType,
+    ///   field_b: FieldBType,
+    ///   field_c: FieldCType,
+    /// }
+    ///
+    /// # let parent = Parent {
+    /// #   field_a: FieldAType(0),
+    /// #   field_b: FieldBType(0),
+    /// #   field_c: FieldCType(0),
+    /// # };
+    ///
+    /// MovingPtr::make(parent, |parent_ptr| unsafe {
+    ///    // SAFETY:
+    ///    // - It is impossible for the provided closure to drop the provided pointer as `move_field` cannot panic.
+    ///    // - `field_a` and `field_b` are moved out of but never accessed after this.
+    ///    let partial_parent = MovingPtr::partial_move(parent_ptr, |parent_ptr| {
+    ///       let field_a = parent_ptr.move_field::<FieldAType>(offset_of!(Parent, field_a));
+    ///       let field_b = parent_ptr.move_field::<FieldBType>(offset_of!(Parent, field_b));
+    ///       // Each call to insert may panic! Ensure that `parent_ptr` cannot be dropped before
+    ///       // calling them!
+    ///       core::mem::forget(parent_ptr);
+    ///       insert(field_a);
+    ///       insert(field_b);
+    ///    });
+    ///
+    ///    // Move the rest of fields out of the parent.
+    ///    // SAFETY: The fields were not moved out of in the above `partial_move` and thus must still be valid.
+    ///    let field_c = partial_parent.move_field::<MaybeUninit<FieldCType>>(offset_of!(Parent, field_c));
+    ///    insert(unsafe { field_c.assume_init() });
+    /// });
+    /// ```
     #[inline]
     pub unsafe fn partial_move(
         ptr: MovingPtr<'a, T, A>,
-        f: impl FnOnce(MovingPtr<'a, T, A>) -> MovingPtr<'a, T, A>,
+        f: impl FnOnce(MovingPtr<'a, T, A>),
     ) -> MovingPtr<'a, MaybeUninit<T>, A> {
-        let value = f(ptr);
-        let partial = MovingPtr(value.0.cast::<MaybeUninit<T>>(), PhantomData);
-        mem::forget(value);
-        partial
+        let partial_ptr = ptr.0;
+        f(ptr);
+        MovingPtr(partial_ptr.cast::<MaybeUninit<T>>(), PhantomData)
     }
 
     /// Reads the value pointed to by this pointer.
     #[inline]
     pub fn read(self) -> T {
-        let value = if const { A::IS_ALIGNED } {
-            unsafe { self.0.as_ptr().read() }
-        } else {
-            unsafe { self.0.as_ptr().read_unaligned() }
-        };
+        // SAFETY:
+        //  - `self.0` must be valid for reads as this type owns the value it points to.
+        //  - `self.0` must always point to a valid instance of type `T`
+        //  - If `A` is [`Aligned`], then `ptr` must be properly aligned for type `T`.
+        let value = unsafe { A::read_ptr(self.0.as_ptr()) };
         mem::forget(self);
         value
     }
@@ -392,40 +530,73 @@ impl<'a, T, A: IsAligned> MovingPtr<'_, T, A> {
     pub unsafe fn write_to(self, dst: *mut T) {
         let src = self.0.as_ptr();
         mem::forget(self);
-        if const { A::IS_ALIGNED } {
-            // SAFETY:
-            //  - `src` must be valid for reads as this pointer is considered to own the value it points to.
-            //  - The caller is required to ensure that `dst` must be valid for writes.
-            //  - `A::IS_ALIGNED` so `src` must be aligned to `T`.
-            //  - `A::IS_ALIGNED` so the caller must ensure that `dst` must be aligned to `T`.
-            //  - As this pointer is considered to own the value it points to, and both must be aligned,
-            //    so both regions of memory cannot overlap.
-            unsafe {
-                ptr::copy_nonoverlapping(src, dst, 1);
-            }
-        } else {
-            // SAFETY:
-            //  - `src` must be valid for reads as this pointer is considered to own the value it points to.
-            //  - The caller is required to ensure that `dst` must be valid for writes.
-            //  - As `!A::IS_ALIGNED`, a bytewise copy is performed, which is guaranteed to be aligned,
-            //    even if `src` and `dst` are not aligned for `T`.
-            unsafe {
-                ptr::copy::<u8>(src.cast::<u8>(), dst.cast::<u8>(), size_of::<T>());
-            }
-        };
+        // SAFETY:
+        //  - `src` must be valid for reads as this pointer is considered to own the value it points to.
+        //  - The caller is required to ensure that `dst` must be valid for writes.
+        //  - As `A` is `Aligned`, the caller is required to ensure that `dst` is aligned and `src` must
+        //    be aligned by the type's invariants.
+        unsafe { A::copy_nonoverlapping(src, dst, 1) };
     }
 
     /// Creates a [`MovingPtr`] for a specific field within `self`.
     ///
-    /// The correct byte_offset for a field can be obtained via [`core::mem::offset_of`].
+    /// This function is expliciitly made for deconstructive moves.
+    ///
+    /// The correct `byte_offset` for a field can be obtained via [`core::mem::offset_of`].
+    ///
+    /// The returned value will always be considered unaligned as `repr(packed)` types may result in
+    /// unaligned fields. The pointer is convertible back into an aligned one using the [`TryFrom`] impl.
     ///
     /// # Safety
     ///  - `U` must be the correct type for the field at `byte_offset` within `self`.
     ///  - `self` should not be accesesed or dropped as if it were a complete value.
     ///    Other fields that have not been moved out of may still be accessed or dropped separately.
+    ///  - This function cannot alias the field with any other access, including other calls to [`move_field`]
+    ///    for the same field, without first calling [`forget`] on it first.
+    ///
+    /// A result of the above invariants means that any operation that could cause `self` to be dropped while
+    /// the pointers to the fields are held will result in undefined behavior. This requires exctra caution
+    /// around code that may panic. See the example below for an example of how to safely use this function.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use core::mem::offset_of;
+    /// use bevy_ptr::MovingPtr;
+    /// # use bevy_ptr::Unaligned;
+    /// # struct FieldAType(usize);
+    /// # struct FieldBType(usize);
+    /// # struct FieldCType(usize);
+    /// # fn insert<T>(_ptr: MovingPtr<'_, T, Unaligned>) {}
+    ///
+    /// struct Parent {
+    ///   field_a: FieldAType,
+    ///   field_b: FieldBType,
+    ///   field_c: FieldCType,
+    /// }
+    ///
+    /// # let parent = Parent {
+    /// #   field_a: FieldAType(0),
+    /// #   field_b: FieldBType(0),
+    /// #   field_c: FieldCType(0),
+    /// # };
+    ///
+    /// MovingPtr::make(parent, |parent_ptr| unsafe {
+    ///    let field_a = parent_ptr.move_field::<FieldAType>(offset_of!(Parent, field_a));
+    ///    let field_b = parent_ptr.move_field::<FieldBType>(offset_of!(Parent, field_b));
+    ///    let field_c = parent_ptr.move_field::<FieldCType>(offset_of!(Parent, field_c));
+    ///    // Each call to insert may panic! Ensure that `parent_ptr` cannot be dropped before
+    ///    // calling them!
+    ///    core::mem::forget(parent_ptr);
+    ///    insert(field_a);
+    ///    insert(field_b);
+    ///    insert(field_c);
+    /// });
+    /// ```
     #[inline]
-    pub unsafe fn move_field<U>(&self, byte_offset: usize) -> MovingPtr<'a, U, A> {
+    pub unsafe fn move_field<U>(&self, byte_offset: usize) -> MovingPtr<'a, U, Unaligned> {
         MovingPtr(
+            // SAFETY: The caller must ensure that `U` is the correct type for the field at `byte_offset`.
             unsafe { self.0.byte_add(byte_offset) }.cast::<U>(),
             PhantomData,
         )
@@ -471,6 +642,7 @@ impl<T> Debug for MovingPtr<'_, T, Unaligned> {
 }
 
 impl<'a, T, A: IsAligned> From<MovingPtr<'a, T, A>> for OwningPtr<'a, A> {
+    #[inline]
     fn from(value: MovingPtr<'a, T, A>) -> Self {
         let ptr = unsafe { OwningPtr::new(value.0.cast::<u8>()) };
         mem::forget(value);
@@ -478,15 +650,29 @@ impl<'a, T, A: IsAligned> From<MovingPtr<'a, T, A>> for OwningPtr<'a, A> {
     }
 }
 
+impl<'a, T> TryFrom<MovingPtr<'a, T, Unaligned>> for MovingPtr<'a, T, Aligned> {
+    type Error = Unaligned;
+    #[inline]
+    fn try_from(value: MovingPtr<'a, T, Unaligned>) -> Result<Self, Self::Error> {
+        let ptr = value.0;
+        mem::forget(value);
+        if ptr.as_ptr().is_aligned() {
+            Ok(MovingPtr(ptr, PhantomData))
+        } else {
+            Err(Unaligned)
+        }
+    }
+}
+
 impl<T, A: IsAligned> Drop for MovingPtr<'_, T, A> {
     fn drop(&mut self) {
-        if const { A::IS_ALIGNED } {
-            // SAFETY: If `A::IS_ALIGNED` the value pointed to by this pointer
-            // must be aligned.
-            unsafe { ptr::drop_in_place(self.0.as_ptr()) };
-        } else {
-            drop(unsafe { self.0.as_ptr().read_unaligned() });
-        }
+        // SAFETY:
+        //  - `self.0` must be valid for reads and writes as this pointer type owns the value it points to.
+        //  - `self.0` must always point to a valid instance of type `T`
+        //  - If `A` is `Aligned`, then `ptr` must be properly aligned for type `T` by construction.
+        //  - `self.0` owns the value it points to so it must always be valid for dropping until this pointer is dropped.
+        //  - This type owns the value it points to, so it's required to not mutably alias value that it points to.
+        unsafe { A::drop_in_place(self.0.as_ptr()) };
     }
 }
 
