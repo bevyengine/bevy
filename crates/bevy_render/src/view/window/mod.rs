@@ -1,4 +1,4 @@
-use crate::WgpuWrapper;
+use crate::renderer::WgpuWrapper;
 use crate::{
     render_resource::{SurfaceTexture, TextureView},
     renderer::{RenderAdapter, RenderDevice, RenderInstance},
