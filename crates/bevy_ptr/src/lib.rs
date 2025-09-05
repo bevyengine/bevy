@@ -576,6 +576,26 @@ impl<'a, T, A: IsAligned> MovingPtr<'_, T, A> {
         unsafe { A::copy_nonoverlapping(src, dst, 1) };
     }
 
+    /// Writes the value pointed to by this pointer into `dst`.
+    ///
+    /// The value previously stored at `dst` will be dropped.
+    #[inline]
+    pub fn assign_to(self, dst: &mut T) {
+        // SAFETY:
+        // - `dst` is a mutable borrow, it must point to a valid instance of `T`.
+        // - `dst` is a mutable borrow, it must point to value that is valid for dropping.
+        // - `dst` is a mutable borrow, it must not alias any other access.
+        unsafe {
+            ptr::drop_in_place(dst);
+        }
+        // SAFETY:
+        // - `dst` is a mutable borrow, it must be valid for writes.
+        // - `dst` is a mutable borrow, it must always be aligned.
+        unsafe {
+            self.write_to(dst);
+        }
+    }
+
     /// Creates a [`MovingPtr`] for a specific field within `self`.
     ///
     /// This function is explicitly made for deconstructive moves.
