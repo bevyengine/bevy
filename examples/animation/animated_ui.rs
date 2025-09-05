@@ -140,7 +140,7 @@ fn setup(
     ));
 
     let player = entity.id();
-    entity.insert(Children::spawn_one((
+    entity.insert(children![(
         Text::new("Bevy"),
         TextFont {
             font: asset_server.load("fonts/FiraSans-Bold.ttf"),
@@ -154,7 +154,7 @@ fn setup(
             player,
         },
         animation_target_name,
-    )));
+    )]);
 }
 
 // A type that represents the color of the first text section.
