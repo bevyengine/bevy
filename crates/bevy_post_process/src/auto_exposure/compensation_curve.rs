@@ -86,7 +86,7 @@ impl AutoExposureCompensationCurve {
     /// # use bevy_asset::prelude::*;
     /// # use bevy_math::vec2;
     /// # use bevy_math::cubic_splines::*;
-    /// # use bevy_core_pipeline::auto_exposure::AutoExposureCompensationCurve;
+    /// # use bevy_post_process::auto_exposure::AutoExposureCompensationCurve;
     /// # let mut compensation_curves = Assets::<AutoExposureCompensationCurve>::default();
     /// let curve: Handle<AutoExposureCompensationCurve> = compensation_curves.add(
     ///     AutoExposureCompensationCurve::from_curve(LinearSpline::new([

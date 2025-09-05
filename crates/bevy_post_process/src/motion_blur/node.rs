@@ -12,7 +12,7 @@ use bevy_render::{
     view::{Msaa, ViewTarget},
 };
 
-use crate::prepass::ViewPrepassTextures;
+use bevy_core_pipeline::prepass::ViewPrepassTextures;
 
 use super::{
     pipeline::{MotionBlurPipeline, MotionBlurPipelineId},

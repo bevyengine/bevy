@@ -3,9 +3,10 @@
 
 use bevy::{
     color::palettes::css::RED,
-    core_pipeline::{bloom::Bloom, tonemapping::Tonemapping, Skybox},
+    core_pipeline::{tonemapping::Tonemapping, Skybox},
     light::{FogVolume, VolumetricFog, VolumetricLight},
     math::vec3,
+    post_process::bloom::Bloom,
     prelude::*,
 };
 
