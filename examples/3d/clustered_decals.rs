@@ -243,19 +243,17 @@ fn spawn_decals(commands: &mut Commands, asset_server: &AssetServer) {
 fn spawn_buttons(commands: &mut Commands) {
     // Spawn the radio buttons that allow the user to select an object to
     // control.
-    commands
-        .spawn(widgets::main_ui_node())
-        .with_children(|parent| {
-            widgets::spawn_option_buttons(
-                parent,
-                "Drag to Move",
-                &[
-                    (Selection::Camera, "Camera"),
-                    (Selection::DecalA, "Decal A"),
-                    (Selection::DecalB, "Decal B"),
-                ],
-            );
-        });
+    commands.spawn((
+        widgets::main_ui_node(),
+        children![widgets::option_buttons(
+            "Drag to Move",
+            &[
+                (Selection::Camera, "Camera"),
+                (Selection::DecalA, "Decal A"),
+                (Selection::DecalB, "Decal B"),
+            ],
+        )],
+    ));
 
     // Spawn the drag buttons that allow the user to control the scale and roll
     // of the selected object.
