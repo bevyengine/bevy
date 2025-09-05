@@ -698,15 +698,14 @@ impl<'a, T, A: IsAligned> From<MovingPtr<'a, T, A>> for OwningPtr<'a, A> {
 }
 
 impl<'a, T> TryFrom<MovingPtr<'a, T, Unaligned>> for MovingPtr<'a, T, Aligned> {
-    type Error = Unaligned;
+    type Error = MovingPtr<'a, T, Unaligned>;
     #[inline]
     fn try_from(value: MovingPtr<'a, T, Unaligned>) -> Result<Self, Self::Error> {
         let ptr = value.0;
-        mem::forget(value);
         if ptr.as_ptr().is_aligned() {
             Ok(MovingPtr(ptr, PhantomData))
         } else {
-            Err(Unaligned)
+            Err(value)
         }
     }
 }
