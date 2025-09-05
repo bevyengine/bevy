@@ -151,7 +151,7 @@ where
                 ..default()
             },
             fragment: Some(FragmentState {
-                shader: key.clone().fragment_shader,
+                shader: key.fragment_shader.clone(),
                 shader_defs,
                 targets: vec![Some(ColorTargetState {
                     format: if key.hdr {
