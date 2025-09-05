@@ -344,7 +344,7 @@ pub fn queue_ui_slices(
         );
 
         transparent_phase.add(TransparentUi {
-            layer_index: 0,
+            partition_index: 0,
             draw_function,
             pipeline,
             entity: (extracted_slicer.render_entity, extracted_slicer.main_entity),

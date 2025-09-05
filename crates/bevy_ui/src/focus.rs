@@ -218,7 +218,7 @@ pub fn ui_focus_system(
     // for all nodes encountered that are no longer hovered.
 
     hovered_nodes.clear();
-    // reverse the iterator to traverse the tree from closest layers to furthest
+    // reverse the iterator to traverse the tree from closest slice to furthest
     for layer in ui_stack
         .partition
         .iter()

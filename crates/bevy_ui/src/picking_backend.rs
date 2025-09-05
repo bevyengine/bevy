@@ -158,7 +158,7 @@ pub fn ui_picking(
     // prepare an iterator that contains all the nodes that have the cursor in their rect,
     // from the top node to the bottom one. this will also reset the interaction to `None`
     // for all nodes encountered that are no longer hovered.
-    // Reverse the iterator to traverse the tree from closest layers to furthest
+    // Reverse the iterator to traverse the tree from closest slice to furthest
     for layer in ui_stack
         .partition
         .iter()
