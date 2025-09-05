@@ -208,11 +208,11 @@ pub struct PtrMut<'a, A: IsAligned = Aligned>(NonNull<u8>, PhantomData<(&'a mut 
 #[repr(transparent)]
 pub struct OwningPtr<'a, A: IsAligned = Aligned>(NonNull<u8>, PhantomData<(&'a mut u8, A)>);
 
-/// A Box-like pointer for moving a value to a new memory location without needing to pass by
+/// A [`Box`]-like pointer for moving a value to a new memory location without needing to pass by
 /// value.
 ///
 /// Conceptually represents ownership of whatever data is being pointed to and will call its
-/// `Drop` impl upon being dropped. This pointer is _not_ responsible for freeing
+/// [`Drop`] impl upon being dropped. This pointer is _not_ responsible for freeing
 /// the memory pointed to by this pointer as it may be pointing to an element in a `Vec` or
 /// to a local in a function etc.
 ///
