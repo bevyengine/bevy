@@ -80,6 +80,7 @@ use bevy_shader::{Shader, ShaderDefVal};
 use bevy_utils::prelude::default;
 
 /// Adds support for subpixel morphological antialiasing, or SMAA.
+#[derive(Default)]
 pub struct SmaaPlugin;
 
 /// A component for enabling Subpixel Morphological Anti-Aliasing (SMAA)

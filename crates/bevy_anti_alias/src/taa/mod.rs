@@ -45,6 +45,7 @@ use tracing::warn;
 /// Plugin for temporal anti-aliasing.
 ///
 /// See [`TemporalAntiAliasing`] for more details.
+#[derive(Default)]
 pub struct TemporalAntiAliasPlugin;
 
 impl Plugin for TemporalAntiAliasPlugin {
