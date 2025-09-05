@@ -265,7 +265,6 @@ jobs:
         run: cargo check --target wasm32-unknown-unknown
 
   build-wasm-atomics:
-    if: ${{ false }} # Disabled temporarily due to https://github.com/rust-lang/rust/issues/145101
     runs-on: ubuntu-latest
     timeout-minutes: 30
     needs: build
