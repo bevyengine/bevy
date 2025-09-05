@@ -83,8 +83,7 @@ fn parse_sources_attr(ast: &DeriveInput) -> Result<Source> {
 
 pub fn derive_substates(input: TokenStream) -> TokenStream {
     let ast = parse_macro_input!(input as DeriveInput);
-    let sources =
-        parse_sources_attr(&ast).expect("Failed to parse substate sources");
+    let sources = parse_sources_attr(&ast).expect("Failed to parse substate sources");
 
     let generics = ast.generics;
     let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();

@@ -155,8 +155,8 @@ pub fn despawn_entities_on_enter_state<S: States>(
     }
 }
 
-/// Sets up state-scoped entities by adding the [`despawn_entities_on_exit_state`] and [`despawn_entities_on_enter_state`] systems. 
-/// 
+/// Sets up state-scoped entities by adding the [`despawn_entities_on_exit_state`] and [`despawn_entities_on_enter_state`] systems.
+///
 /// Runs automatically when a State is installed using [`AppExtStates`](crate::app::AppExtStates).
 #[doc(hidden)]
 pub fn setup_state_scoped_entities<S: States>(app: &mut SubApp) {
