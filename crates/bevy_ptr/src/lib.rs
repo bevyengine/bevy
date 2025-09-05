@@ -328,6 +328,7 @@ pub struct OwningPtr<'a, A: IsAligned = Aligned>(NonNull<u8>, PhantomData<(&'a m
 /// - If `A` is [`Aligned`], the pointer must always be [properly aligned] for the type `T`.
 ///
 /// [properly aligned]: https://doc.rust-lang.org/std/ptr/index.html#alignment
+/// [`Box`]: alloc::boxed::Box
 #[repr(transparent)]
 pub struct MovingPtr<'a, T, A: IsAligned = Aligned>(NonNull<T>, PhantomData<(&'a mut T, A)>);
 
@@ -527,6 +528,8 @@ impl<'a, T, A: IsAligned> MovingPtr<'_, T, A> {
     ///    insert(unsafe { field_c.assume_init() });
     /// });
     /// ```
+    ///
+    /// [`forget`]: core::mem::forget
     #[inline]
     pub unsafe fn partial_move(
         ptr: MovingPtr<'a, T, A>,
@@ -626,6 +629,9 @@ impl<'a, T, A: IsAligned> MovingPtr<'_, T, A> {
     ///    insert(field_c);
     /// });
     /// ```
+    ///
+    /// [`forget`]: core::mem::forget
+    /// [`move_field`]: Self::move_field
     #[inline]
     pub unsafe fn move_field<U>(&self, byte_offset: usize) -> MovingPtr<'a, U, Unaligned> {
         MovingPtr(
