@@ -11,7 +11,7 @@ where entities/events are removed when **entering** a state.
 This is now possible with the new `DespawnOnEnter` component and `clear_events_on_enter` method.
 
 To support this addition, the previous method and component have been renamed.
-Also, `clear_event_on_exit_state` no longer adds the event automatically, so you must call `App::add_event` manually.
+Also, `clear_event_on_exit` (previously `clear_event_on_exit_state`) no longer adds the event automatically, so you must call `App::add_event` manually.
 
 | Before                        | After                                      |
 |-------------------------------|--------------------------------------------|
