@@ -4,7 +4,6 @@ use bevy::{
     color::palettes::css::{DARK_CYAN, DARK_GRAY, YELLOW},
     ecs::{component::Mutable, hierarchy::ChildSpawnerCommands},
     prelude::*,
-    winit::WinitSettings,
 };
 
 const PALETTE: [&str; 4] = ["27496D", "466B7A", "669DB3", "ADCBE3"];
@@ -13,8 +12,6 @@ const HIDDEN_COLOR: Color = Color::srgb(1.0, 0.7, 0.7);
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        // Only run the app when there is user input. This will significantly reduce CPU/GPU use.
-        .insert_resource(WinitSettings::desktop_app())
         .add_systems(Startup, setup)
         .add_systems(
             Update,
