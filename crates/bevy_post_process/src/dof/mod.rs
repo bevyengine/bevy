@@ -63,7 +63,7 @@ use bevy_utils::{default, once};
 use smallvec::SmallVec;
 use tracing::{info, warn};
 
-use crate::{
+use bevy_core_pipeline::{
     core_3d::{
         graph::{Core3d, Node3d},
         DEPTH_TEXTURE_SAMPLING_SUPPORTED,
@@ -72,6 +72,7 @@ use crate::{
 };
 
 /// A plugin that adds support for the depth of field effect to Bevy.
+#[derive(Default)]
 pub struct DepthOfFieldPlugin;
 
 /// A component that enables a [depth of field] postprocessing effect when attached to a [`Camera3d`],

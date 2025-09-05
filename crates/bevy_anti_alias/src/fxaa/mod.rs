@@ -82,6 +82,7 @@ impl Default for Fxaa {
 }
 
 /// Adds support for Fast Approximate Anti-Aliasing (FXAA)
+#[derive(Default)]
 pub struct FxaaPlugin;
 impl Plugin for FxaaPlugin {
     fn build(&self, app: &mut App) {
