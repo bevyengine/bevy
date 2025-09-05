@@ -561,16 +561,19 @@ mod tests {
     use super::PluginGroupBuilder;
     use crate::{App, NoopPluginGroup, Plugin, PluginGroup};
 
+    #[derive(Default)]
     struct PluginA;
     impl Plugin for PluginA {
         fn build(&self, _: &mut App) {}
     }
 
+    #[derive(Default)]
     struct PluginB;
     impl Plugin for PluginB {
         fn build(&self, _: &mut App) {}
     }
 
+    #[derive(Default)]
     struct PluginC;
     impl Plugin for PluginC {
         fn build(&self, _: &mut App) {}
@@ -877,15 +880,18 @@ mod tests {
     plugin_group! {
         #[derive(Default)]
         struct PluginGroupA {
+            :PluginA
         }
     }
     plugin_group! {
         #[derive(Default)]
         struct PluginGroupB {
+            :PluginB
         }
     }
     plugin_group! {
         struct PluginGroupC {
+            :PluginC
             #[plugin_group]
             :PluginGroupA,
             #[plugin_group]
