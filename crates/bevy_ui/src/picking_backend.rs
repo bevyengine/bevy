@@ -159,24 +159,26 @@ pub fn ui_picking(
     // from the top node to the bottom one. this will also reset the interaction to `None`
     // for all nodes encountered that are no longer hovered.
     // Reverse the iterator to traverse the tree from closest slice to furthest
-    for layer in ui_stack
+    for uinodes in ui_stack
         .partition
         .iter()
         .rev()
-        .map(|layer_range| &ui_stack.uinodes[layer_range.clone()])
+        .map(|range| &ui_stack.uinodes[range.clone()])
     {
-        let Ok(layer_root) = node_query.get(layer[0]) else {
+        // Retrieve the first node and resolve its camera target.
+        // Only need to do this once per slice, as all the nodes in the same slice share the same camera.
+        let Ok(uinode) = node_query.get(uinodes[0]) else {
             continue;
         };
 
-        let Some(camera_entity) = layer_root.target_camera.get() else {
+        let Some(camera_entity) = uinode.target_camera.get() else {
             continue;
         };
 
         let pointers_on_this_cam = pointer_pos_by_camera.get(&camera_entity);
 
         // Reverse the iterator to traverse the tree from closest nodes to furthest
-        for node_entity in layer.iter().rev().cloned() {
+        for node_entity in uinodes.iter().rev().cloned() {
             let Ok(node) = node_query.get(node_entity) else {
                 continue;
             };
