@@ -909,6 +909,15 @@ impl<'a, A: IsAligned> OwningPtr<'a, A> {
         unsafe { ptr.read() }
     }
 
+    /// Casts to a concrete type as a [`MovingPtr`].
+    ///
+    /// # Safety
+    /// - `T` must be the erased pointee type for this [`OwningPtr`].
+    #[inline]
+    pub unsafe fn cast<T>(self) -> MovingPtr<'a, T, A> {
+        MovingPtr(self.0.cast::<T>(), PhantomData)
+    }
+
     /// Consumes the [`OwningPtr`] to drop the underlying data of type `T`.
     ///
     /// # Safety
