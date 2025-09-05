@@ -14,8 +14,8 @@ use core::ops::Range;
 /// while the last entry is the first node to receive interactions.
 #[derive(Debug, Resource, Default)]
 pub struct UiStack {
-    /// List of UI stack layers
-    pub layers: Vec<Range<usize>>,
+    /// Partition of the `uinodes` list into disjoint slices of nodes that all belong to the same camera target.
+    pub partition: Vec<Range<usize>>,
     /// List of UI nodes ordered from back-to-front
     pub uinodes: Vec<Entity>,
 }
@@ -52,7 +52,7 @@ pub fn ui_stack_system(
     zindex_query: Query<Option<&ZIndex>, (With<ComputedNode>, Without<GlobalZIndex>)>,
     mut update_query: Query<&mut ComputedNode>,
 ) {
-    ui_stack.layers.clear();
+    ui_stack.partition.clear();
     ui_stack.uinodes.clear();
     visited_root_nodes.clear();
 
@@ -83,7 +83,7 @@ pub fn ui_stack_system(
 
     root_nodes.sort_by_key(|(_, z)| *z);
 
-    for (root_entity, (_global_zindex, _local_zindex)) in root_nodes.drain(..) {
+    for (root_entity, _) in root_nodes.drain(..) {
         let start = ui_stack.uinodes.len();
         update_uistack_recursive(
             &mut cache,
@@ -93,16 +93,16 @@ pub fn ui_stack_system(
             &mut ui_stack.uinodes,
         );
         let end = ui_stack.uinodes.len();
-        ui_stack.layers.push(start..end);
+        ui_stack.partition.push(start..end);
     }
 
     let mut stack_index = 0;
-    for (layer_index, layer_range) in ui_stack.layers.iter().enumerate() {
-        for entity in ui_stack.uinodes[layer_range.clone()].iter() {
+    for (stack_partition_index, stack_range) in ui_stack.partition.iter().enumerate() {
+        for entity in ui_stack.uinodes[stack_range.clone()].iter() {
             if let Ok(mut node) = update_query.get_mut(*entity) {
                 let node = node.bypass_change_detection();
                 node.stack_index = stack_index;
-                node.layer_index = layer_index as u32;
+                node.stack_partition_index = stack_partition_index as u32;
                 stack_index += 1;
             }
         }

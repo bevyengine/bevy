@@ -455,7 +455,7 @@ pub fn extract_uinode_background_colors(
             continue;
         }
 
-        extracted_uinodes.layers[uinode.layer_index as usize]
+        extracted_uinodes.layers[uinode.stack_partition_index as usize]
             .uinodes
             .push(ExtractedUiNode {
                 render_entity: commands.spawn(TemporaryRenderEntity).id(),
@@ -536,7 +536,7 @@ pub fn extract_uinode_images(
             None
         };
 
-        extracted_uinodes.layers[uinode.layer_index as usize]
+        extracted_uinodes.layers[uinode.stack_partition_index as usize]
             .uinodes
             .push(ExtractedUiNode {
                 z_order: uinode.stack_index as f32 + stack_z_offsets::IMAGE,
@@ -628,7 +628,7 @@ pub fn extract_uinode_borders(
                 }
                 completed_flags |= border_flags;
 
-                extracted_uinodes.layers[computed_node.layer_index as usize]
+                extracted_uinodes.layers[computed_node.stack_partition_index as usize]
                     .uinodes
                     .push(ExtractedUiNode {
                         z_order: computed_node.stack_index as f32 + stack_z_offsets::BORDER,
@@ -661,7 +661,7 @@ pub fn extract_uinode_borders(
         if let Some(outline) = maybe_outline.filter(|outline| !outline.color.is_fully_transparent())
         {
             let outline_size = computed_node.outlined_node_size();
-            extracted_uinodes.layers[computed_node.layer_index as usize]
+            extracted_uinodes.layers[computed_node.stack_partition_index as usize]
                 .uinodes
                 .push(ExtractedUiNode {
                     z_order: computed_node.stack_index as f32 + stack_z_offsets::BORDER,
@@ -753,7 +753,7 @@ pub fn extract_ui_camera_view(
 
     extracted_layers
         .layers
-        .resize_with(ui_stack.layers.len(), ExtractedUiNodes::default);
+        .resize_with(ui_stack.partition.len(), ExtractedUiNodes::default);
 
     for layer in extracted_layers.layers.iter_mut() {
         layer.uinodes.clear();
@@ -826,7 +826,7 @@ pub fn extract_ui_camera_view(
     }
 
     for layer_root in ui_stack
-        .layers
+        .partition
         .iter()
         .map(|layer_range| ui_stack.uinodes[layer_range.start])
     {
@@ -873,7 +873,7 @@ pub fn extract_viewport_nodes(
             continue;
         };
 
-        extracted_uinodes.layers[uinode.layer_index as usize]
+        extracted_uinodes.layers[uinode.stack_partition_index as usize]
             .uinodes
             .push(ExtractedUiNode {
                 z_order: uinode.stack_index as f32 + stack_z_offsets::IMAGE,
@@ -937,7 +937,7 @@ pub fn extract_text_sections(
         }
 
         let ExtractedUiLayers { glyphs, layers, .. } = extracted_ui_layers.as_mut();
-        let extracted_uinodes = &mut layers[uinode.layer_index as usize];
+        let extracted_uinodes = &mut layers[uinode.stack_partition_index as usize];
 
         let transform = Affine2::from(*transform) * Affine2::from_translation(-0.5 * uinode.size());
 
@@ -1055,7 +1055,7 @@ pub fn extract_text_shadows(
             if text_layout_info.glyphs.get(i + 1).is_none_or(|info| {
                 info.span_index != *span_index || info.atlas_info.texture != atlas_info.texture
             }) {
-                extracted_uinodes.layers[uinode.layer_index as usize]
+                extracted_uinodes.layers[uinode.stack_partition_index as usize]
                     .uinodes
                     .push(ExtractedUiNode {
                         transform: node_transform,
@@ -1105,7 +1105,7 @@ pub fn extract_text_background_colors(
                 continue;
             };
 
-            extracted_uinodes.layers[uinode.layer_index as usize]
+            extracted_uinodes.layers[uinode.stack_partition_index as usize]
                 .uinodes
                 .push(ExtractedUiNode {
                     z_order: uinode.stack_index as f32 + stack_z_offsets::TEXT,

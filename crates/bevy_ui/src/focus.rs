@@ -220,7 +220,7 @@ pub fn ui_focus_system(
     hovered_nodes.clear();
     // reverse the iterator to traverse the tree from closest layers to furthest
     for layer in ui_stack
-        .layers
+        .partition
         .iter()
         .rev()
         .map(|range| &ui_stack.uinodes[range.clone()])

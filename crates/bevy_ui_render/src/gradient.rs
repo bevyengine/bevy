@@ -398,7 +398,7 @@ pub fn extract_gradients(
                 }
                 if let Some(color) = gradient.get_single() {
                     // With a single color stop there's no gradient, fill the node with the color
-                    extracted_uinodes.layers[uinode.layer_index as usize]
+                    extracted_uinodes.layers[uinode.stack_partition_index as usize]
                         .uinodes
                         .push(ExtractedUiNode {
                             z_order: uinode.stack_index as f32

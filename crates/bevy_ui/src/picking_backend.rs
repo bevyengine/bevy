@@ -160,7 +160,7 @@ pub fn ui_picking(
     // for all nodes encountered that are no longer hovered.
     // Reverse the iterator to traverse the tree from closest layers to furthest
     for layer in ui_stack
-        .layers
+        .partition
         .iter()
         .rev()
         .map(|layer_range| &ui_stack.uinodes[layer_range.clone()])
