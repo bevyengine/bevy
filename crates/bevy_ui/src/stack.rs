@@ -268,6 +268,27 @@ mod tests {
             (Label("0")), // GlobalZIndex(2)
         ];
         assert_eq!(actual_result, expected_result);
+
+        // Test partitioning
+        let last_part = ui_stack.partition.last().unwrap();
+        assert_eq!(last_part.len(), 1);
+        let last_entity = ui_stack.uinodes[last_part.start];
+        assert_eq!(*query.get(&world, last_entity).unwrap(), Label("0"));
+
+        let actual_result = ui_stack.uinodes[ui_stack.partition[4].clone()]
+            .iter()
+            .map(|entity| query.get(&world, *entity).unwrap().clone())
+            .collect::<Vec<_>>();
+        let expected_result = vec![
+            (Label("1")), // ZIndex(1)
+            (Label("1-0")),
+            (Label("1-0-2")), // ZIndex(-1)
+            (Label("1-0-0")),
+            (Label("1-0-1")),
+            (Label("1-1")),
+            (Label("1-3")),
+        ];
+        assert_eq!(actual_result, expected_result);
     }
 
     #[test]
@@ -317,5 +338,10 @@ mod tests {
         ];
 
         assert_eq!(actual_result, expected_result);
+
+        assert_eq!(ui_stack.partition.len(), expected_result.len());
+        for (i, part) in ui_stack.partition.iter().enumerate() {
+            assert_eq!(*part, i..i + 1);
+        }
     }
 }
