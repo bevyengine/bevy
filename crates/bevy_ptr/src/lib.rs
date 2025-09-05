@@ -46,7 +46,7 @@ pub trait IsAligned: sealed::Sealed {
     #[doc(hidden)]
     unsafe fn copy_nonoverlapping<T>(src: *const T, dst: *mut T, size: usize);
 
-    /// Reads the value pointed to by `ptr`.
+    /// Executes the destructor (if any) of the value pointed to by `ptr`.
     ///
     /// # Safety
     ///  - `ptr` must be valid for reads and writes.
