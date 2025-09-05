@@ -26,7 +26,7 @@
 //! set the `uv_rect` field on [`Lightmap`] appropriately.
 //!
 //! [The Lightmapper]: https://github.com/Naxela/The_Lightmapper
-//! [`Mesh3d`]: bevy_render::mesh::Mesh3d
+//! [`Mesh3d`]: bevy_mesh::Mesh3d
 //! [`MeshMaterial3d<StandardMaterial>`]: crate::StandardMaterial
 //! [`StandardMaterial`]: crate::StandardMaterial
 //! [`bevy-baked-gi`]: https://github.com/pcwalton/bevy-baked-gi
@@ -79,9 +79,9 @@ pub struct LightmapPlugin;
 /// A component that applies baked indirect diffuse global illumination from a
 /// lightmap.
 ///
-/// When assigned to an entity that contains a [`Mesh3d`](bevy_render::mesh::Mesh3d) and a
+/// When assigned to an entity that contains a [`Mesh3d`](bevy_mesh::Mesh3d) and a
 /// [`MeshMaterial3d<StandardMaterial>`](crate::StandardMaterial), if the mesh
-/// has a second UV layer ([`ATTRIBUTE_UV_1`](bevy_render::mesh::Mesh::ATTRIBUTE_UV_1)),
+/// has a second UV layer ([`ATTRIBUTE_UV_1`](bevy_mesh::Mesh::ATTRIBUTE_UV_1)),
 /// then the lightmap will render using those UVs.
 #[derive(Component, Clone, Reflect)]
 #[reflect(Component, Default, Clone)]

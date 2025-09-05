@@ -1,5 +1,5 @@
 use crate::define_atomic_id;
-use crate::WgpuWrapper;
+use crate::renderer::WgpuWrapper;
 use core::ops::{Bound, Deref, RangeBounds};
 
 define_atomic_id!(BufferId);

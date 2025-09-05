@@ -33,7 +33,7 @@ pub mod graph {
 use core::ops::Range;
 
 use bevy_asset::UntypedAssetId;
-pub use bevy_camera::Camera2d;
+use bevy_camera::{Camera, Camera2d};
 use bevy_image::ToExtents;
 use bevy_platform::collections::{HashMap, HashSet};
 use bevy_render::{
@@ -53,7 +53,7 @@ use bevy_app::{App, Plugin};
 use bevy_ecs::prelude::*;
 use bevy_math::FloatOrd;
 use bevy_render::{
-    camera::{Camera, ExtractedCamera},
+    camera::ExtractedCamera,
     extract_component::ExtractComponentPlugin,
     render_graph::{EmptyNode, RenderGraphExt, ViewNodeRunner},
     render_phase::{

@@ -18,6 +18,8 @@ pub struct VolumetricLight;
 /// When placed on a [`bevy_camera::Camera3d`], enables
 /// volumetric fog and volumetric lighting, also known as light shafts or god
 /// rays.
+///
+/// Requires using WebGPU on Wasm builds.
 #[derive(Clone, Copy, Component, Debug, Reflect)]
 #[reflect(Component, Default, Debug, Clone)]
 pub struct VolumetricFog {

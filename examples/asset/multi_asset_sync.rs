@@ -175,8 +175,8 @@ fn setup_ui(mut commands: Commands) {
         Text::new("Loading...".to_owned()),
         Node {
             position_type: PositionType::Absolute,
-            left: Val::Px(12.0),
-            top: Val::Px(12.0),
+            left: px(12),
+            top: px(12),
             ..default()
         },
     ));

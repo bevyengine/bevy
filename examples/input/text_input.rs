@@ -38,8 +38,8 @@ fn setup_scene(mut commands: Commands, asset_server: Res<AssetServer>) {
         Text::default(),
         Node {
             position_type: PositionType::Absolute,
-            top: Val::Px(12.0),
-            left: Val::Px(12.0),
+            top: px(12),
+            left: px(12),
             ..default()
         },
         children![

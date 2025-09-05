@@ -1,5 +1,5 @@
 ---
-title: `VectorSpace` implementations
+title: "`VectorSpace` implementations"
 pull_requests: [19194]
 ---
 

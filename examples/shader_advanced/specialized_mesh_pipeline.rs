@@ -7,6 +7,7 @@
 //! [`SpecializedMeshPipeline`] let's you customize the entire pipeline used when rendering a mesh.
 
 use bevy::{
+    asset::RenderAssetUsages,
     camera::visibility::{self, VisibilityClass},
     core_pipeline::core_3d::{Opaque3d, Opaque3dBatchSetKey, Opaque3dBinKey, CORE_3D_DEPTH_FORMAT},
     ecs::component::Tick,
@@ -21,7 +22,7 @@ use bevy::{
         batching::gpu_preprocessing::GpuPreprocessingSupport,
         extract_component::{ExtractComponent, ExtractComponentPlugin},
         mesh::{allocator::MeshAllocator, RenderMesh},
-        render_asset::{RenderAssetUsages, RenderAssets},
+        render_asset::RenderAssets,
         render_phase::{
             AddRenderCommand, BinnedRenderPhaseType, DrawFunctions, SetItemPipeline,
             ViewBinnedRenderPhases,

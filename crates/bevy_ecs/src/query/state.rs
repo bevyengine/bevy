@@ -2186,8 +2186,8 @@ mod tests {
         let mut query = QueryState::<Has<C>>::new(&mut world);
         assert_eq!(3, query.iter(&world).count());
 
-        // Allows should bypass the filter entirely
-        let mut query = QueryState::<(), Allows<C>>::new(&mut world);
+        // Allow should bypass the filter entirely
+        let mut query = QueryState::<(), Allow<C>>::new(&mut world);
         assert_eq!(3, query.iter(&world).count());
 
         // Other filters should still be respected

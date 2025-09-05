@@ -41,7 +41,7 @@ pub(super) fn observer_system_runner<E: Event, B: Bundle, S: ObserverSystem<E, B
     }
     state.last_trigger_id = last_trigger;
 
-    let trigger: On<E, B> = On::new(
+    let on: On<E, B> = On::new(
         // SAFETY: Caller ensures `ptr` is castable to `&mut T`
         unsafe { ptr.deref_mut() },
         propagate,
@@ -78,7 +78,7 @@ pub(super) fn observer_system_runner<E: Event, B: Bundle, S: ObserverSystem<E, B
         if let Err(RunSystemError::Failed(err)) = (*system)
             .validate_param_unsafe(world)
             .map_err(From::from)
-            .and_then(|()| (*system).run_unsafe(trigger, world))
+            .and_then(|()| (*system).run_unsafe(on, world))
         {
             let handler = state
                 .error_handler

@@ -1,5 +1,5 @@
 ---
-title: `Assets::insert` and `Assets::get_or_insert_with` now return `Result`.
+title: "`Assets::insert` and `Assets::get_or_insert_with` now return `Result`"
 pull_requests: [20439]
 ---
 

@@ -43,7 +43,7 @@ fn main() {
         DefaultPlugins.set(WindowPlugin {
             primary_window: Some(Window {
                 present_mode: PresentMode::AutoNoVsync,
-                resolution: WindowResolution::new(1920.0, 1080.0).with_scale_factor_override(1.0),
+                resolution: WindowResolution::new(1920, 1080).with_scale_factor_override(1.0),
                 ..default()
             }),
             ..default()
@@ -81,7 +81,7 @@ fn setup(mut commands: Commands, args: Res<Args>) {
     if !args.no_ui {
         commands
             .spawn(Node {
-                width: Val::Percent(100.),
+                width: percent(100),
                 align_items: AlignItems::Center,
                 justify_content: JustifyContent::Center,
                 ..default()
@@ -89,7 +89,7 @@ fn setup(mut commands: Commands, args: Res<Args>) {
             .with_children(|commands| {
                 commands
                     .spawn(Node {
-                        width: Val::Px(1000.),
+                        width: px(1000),
                         ..Default::default()
                     })
                     .with_child((Text(text_string.clone()), text_font.clone(), text_block));

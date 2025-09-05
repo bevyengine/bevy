@@ -23,7 +23,7 @@ use bevy_render::{
     extract_instances::ExtractInstancesPlugin,
     render_asset::RenderAssets,
     render_resource::{DynamicUniformBuffer, Sampler, ShaderType, TextureView},
-    renderer::{RenderAdapter, RenderDevice, RenderQueue},
+    renderer::{RenderAdapter, RenderAdapterInfo, RenderDevice, RenderQueue, WgpuWrapper},
     settings::WgpuFeatures,
     sync_world::RenderEntity,
     texture::{FallbackImage, GpuImage},
@@ -143,7 +143,7 @@ where
     C: LightProbeComponent,
 {
     // The transform from world space to light probe space.
-    light_from_world: Mat4,
+    light_from_world: Affine3A,
 
     // The transform from light probe space to world space.
     world_from_light: Affine3A,
@@ -543,7 +543,7 @@ where
     ) -> Option<LightProbeInfo<C>> {
         environment_map.id(image_assets).map(|id| LightProbeInfo {
             world_from_light: light_probe_transform.affine(),
-            light_from_world: light_probe_transform.to_matrix().inverse(),
+            light_from_world: light_probe_transform.affine().inverse(),
             asset_id: id,
             intensity: environment_map.intensity(),
             affects_lightmapped_mesh_diffuse: environment_map.affects_lightmapped_mesh_diffuse(),
@@ -633,7 +633,7 @@ where
             // Transpose the inverse transform to compress the structure on the
             // GPU (from 4 `Vec4`s to 3 `Vec4`s). The shader will transpose it
             // to recover the original inverse transform.
-            let light_from_world_transposed = light_probe.light_from_world.transpose();
+            let light_from_world_transposed = Mat4::from(light_probe.light_from_world).transpose();
 
             // Write in the light probe data.
             self.render_light_probes.push(RenderLightProbe {
@@ -718,8 +718,10 @@ pub(crate) fn binding_arrays_are_usable(
     render_device: &RenderDevice,
     render_adapter: &RenderAdapter,
 ) -> bool {
+    let adapter_info = RenderAdapterInfo(WgpuWrapper::new(render_adapter.get_info()));
+
     !cfg!(feature = "shader_format_glsl")
-        && bevy_render::get_adreno_model(render_adapter).is_none_or(|model| model > 610)
+        && bevy_render::get_adreno_model(&adapter_info).is_none_or(|model| model > 610)
         && render_device.limits().max_storage_textures_per_shader_stage
             >= (STANDARD_MATERIAL_FRAGMENT_SHADER_MIN_TEXTURE_BINDINGS + MAX_VIEW_LIGHT_PROBES)
                 as u32

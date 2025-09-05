@@ -15,9 +15,9 @@ const FONT_SIZE: f32 = 7.0;
 #[derive(FromArgs, Resource)]
 /// `many_buttons` general UI benchmark that stress tests layouting, text, interaction and rendering
 struct Args {
-    /// whether to add text to each button
+    /// whether to add labels to each button
     #[argh(switch)]
-    no_text: bool,
+    text: bool,
 
     /// whether to add borders to each button
     #[argh(switch)]
@@ -27,7 +27,7 @@ struct Args {
     #[argh(switch)]
     relayout: bool,
 
-    /// whether to recompute all text each frame
+    /// whether to recompute all text each frame (if text enabled)
     #[argh(switch)]
     recompute_text: bool,
 
@@ -35,7 +35,7 @@ struct Args {
     #[argh(option, default = "110")]
     buttons: usize,
 
-    /// give every nth button an image
+    /// change the button icon every nth button, if `0` no icons are added.
     #[argh(option, default = "4")]
     image_freq: usize,
 
@@ -76,7 +76,7 @@ fn main() {
         DefaultPlugins.set(WindowPlugin {
             primary_window: Some(Window {
                 present_mode: PresentMode::AutoNoVsync,
-                resolution: WindowResolution::new(1920.0, 1080.0).with_scale_factor_override(1.0),
+                resolution: WindowResolution::new(1920, 1080).with_scale_factor_override(1.0),
                 ..default()
             }),
             ..default()
@@ -153,8 +153,11 @@ fn button_system(
 }
 
 fn setup_flex(mut commands: Commands, asset_server: Res<AssetServer>, args: Res<Args>) {
-    let image = if 0 < args.image_freq {
-        Some(asset_server.load("branding/icon.png"))
+    let images = if 0 < args.image_freq {
+        Some(vec![
+            asset_server.load("branding/icon.png"),
+            asset_server.load("textures/Game Icons/wrench.png"),
+        ])
     } else {
         None
     };
@@ -163,7 +166,7 @@ fn setup_flex(mut commands: Commands, asset_server: Res<AssetServer>, args: Res<
     let border = if args.no_borders {
         UiRect::ZERO
     } else {
-        UiRect::all(Val::VMin(0.05 * 90. / buttons_f))
+        UiRect::all(vmin(0.05 * 90. / buttons_f))
     };
 
     let as_rainbow = |i: usize| Color::hsl((i as f32 / buttons_f) * 360.0, 0.9, 0.8);
@@ -177,8 +180,8 @@ fn setup_flex(mut commands: Commands, asset_server: Res<AssetServer>, args: Res<
             flex_direction: FlexDirection::Column,
             justify_content: JustifyContent::Center,
             align_items: AlignItems::Center,
-            width: Val::Percent(100.),
-            height: Val::Percent(100.),
+            width: percent(100),
+            height: percent(100),
             ..default()
         })
         .with_children(|commands| {
@@ -193,13 +196,12 @@ fn setup_flex(mut commands: Commands, asset_server: Res<AssetServer>, args: Res<
                             buttons_f,
                             column,
                             row,
-                            !args.no_text,
+                            args.text,
                             border,
                             border_color,
-                            image
-                                .as_ref()
-                                .filter(|_| (column + row) % args.image_freq == 0)
-                                .cloned(),
+                            images.as_ref().map(|images| {
+                                images[((column + row) / args.image_freq) % images.len()].clone()
+                            }),
                         );
                     }
                 });
@@ -208,8 +210,11 @@ fn setup_flex(mut commands: Commands, asset_server: Res<AssetServer>, args: Res<
 }
 
 fn setup_grid(mut commands: Commands, asset_server: Res<AssetServer>, args: Res<Args>) {
-    let image = if 0 < args.image_freq {
-        Some(asset_server.load("branding/icon.png"))
+    let images = if 0 < args.image_freq {
+        Some(vec![
+            asset_server.load("branding/icon.png"),
+            asset_server.load("textures/Game Icons/wrench.png"),
+        ])
     } else {
         None
     };
@@ -218,7 +223,7 @@ fn setup_grid(mut commands: Commands, asset_server: Res<AssetServer>, args: Res<
     let border = if args.no_borders {
         UiRect::ZERO
     } else {
-        UiRect::all(Val::VMin(0.05 * 90. / buttons_f))
+        UiRect::all(vmin(0.05 * 90. / buttons_f))
     };
 
     let as_rainbow = |i: usize| Color::hsl((i as f32 / buttons_f) * 360.0, 0.9, 0.8);
@@ -229,8 +234,8 @@ fn setup_grid(mut commands: Commands, asset_server: Res<AssetServer>, args: Res<
             } else {
                 Display::Grid
             },
-            width: Val::Percent(100.),
-            height: Val::Percent(100.0),
+            width: percent(100),
+            height: percent(100),
             grid_template_columns: RepeatedGridTrack::flex(args.buttons as u16, 1.0),
             grid_template_rows: RepeatedGridTrack::flex(args.buttons as u16, 1.0),
             ..default()
@@ -246,13 +251,12 @@ fn setup_grid(mut commands: Commands, asset_server: Res<AssetServer>, args: Res<
                         buttons_f,
                         column,
                         row,
-                        !args.no_text,
+                        args.text,
                         border,
                         border_color,
-                        image
-                            .as_ref()
-                            .filter(|_| (column + row) % args.image_freq == 0)
-                            .cloned(),
+                        images.as_ref().map(|images| {
+                            images[((column + row) / args.image_freq) % images.len()].clone()
+                        }),
                     );
                 }
             }
@@ -270,8 +274,8 @@ fn spawn_button(
     border_color: BorderColor,
     image: Option<Handle<Image>>,
 ) {
-    let width = Val::Vw(90.0 / buttons);
-    let height = Val::Vh(90.0 / buttons);
+    let width = vw(90.0 / buttons);
+    let height = vh(90.0 / buttons);
     let margin = UiRect::axes(width * 0.05, height * 0.05);
     let mut builder = commands.spawn((
         Button,
@@ -322,8 +326,11 @@ fn despawn_ui(mut commands: Commands, root_node: Single<Entity, (With<Node>, Wit
 }
 
 fn setup_many_cameras(mut commands: Commands, asset_server: Res<AssetServer>, args: Res<Args>) {
-    let image = if 0 < args.image_freq {
-        Some(asset_server.load("branding/icon.png"))
+    let images = if 0 < args.image_freq {
+        Some(vec![
+            asset_server.load("branding/icon.png"),
+            asset_server.load("textures/Game Icons/wrench.png"),
+        ])
     } else {
         None
     };
@@ -332,7 +339,7 @@ fn setup_many_cameras(mut commands: Commands, asset_server: Res<AssetServer>, ar
     let border = if args.no_borders {
         UiRect::ZERO
     } else {
-        UiRect::all(Val::VMin(0.05 * 90. / buttons_f))
+        UiRect::all(vmin(0.05 * 90. / buttons_f))
     };
 
     let as_rainbow = |i: usize| Color::hsl((i as f32 / buttons_f) * 360.0, 0.9, 0.8);
@@ -360,8 +367,8 @@ fn setup_many_cameras(mut commands: Commands, asset_server: Res<AssetServer>, ar
                         flex_direction: FlexDirection::Column,
                         justify_content: JustifyContent::Center,
                         align_items: AlignItems::Center,
-                        width: Val::Percent(100.),
-                        height: Val::Percent(100.),
+                        width: percent(100),
+                        height: percent(100),
                         ..default()
                     },
                     UiTargetCamera(camera),
@@ -370,8 +377,8 @@ fn setup_many_cameras(mut commands: Commands, asset_server: Res<AssetServer>, ar
                     commands
                         .spawn(Node {
                             position_type: PositionType::Absolute,
-                            top: Val::Vh(column as f32 * 100. / buttons_f),
-                            left: Val::Vw(row as f32 * 100. / buttons_f),
+                            top: vh(column as f32 * 100. / buttons_f),
+                            left: vw(row as f32 * 100. / buttons_f),
                             ..Default::default()
                         })
                         .with_children(|commands| {
@@ -381,13 +388,13 @@ fn setup_many_cameras(mut commands: Commands, asset_server: Res<AssetServer>, ar
                                 buttons_f,
                                 column,
                                 row,
-                                !args.no_text,
+                                args.text,
                                 border,
                                 border_color,
-                                image
-                                    .as_ref()
-                                    .filter(|_| (column + row) % args.image_freq == 0)
-                                    .cloned(),
+                                images.as_ref().map(|images| {
+                                    images[((column + row) / args.image_freq) % images.len()]
+                                        .clone()
+                                }),
                             );
                         });
                 });

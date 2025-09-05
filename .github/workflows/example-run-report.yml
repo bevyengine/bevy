@@ -86,7 +86,7 @@ jobs:
     needs: [make-macos-screenshots-available, compare-macos-screenshots]
     if: ${{ always() && needs.compare-macos-screenshots.result == 'failure' }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: "Check if PR already has label"
         id: check-label
         env:

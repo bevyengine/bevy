@@ -1,5 +1,5 @@
 ---
-title: `SceneSpawner` methods have been renamed and replaced.
+title: "`SceneSpawner` methods have been renamed and replaced"
 pull_requests: [18358]
 ---
 

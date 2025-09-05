@@ -6,14 +6,14 @@
 //! for light beams from directional lights to shine through, creating what is
 //! known as *light shafts* or *god rays*.
 //!
-//! To add volumetric fog to a scene, add [`crate::VolumetricFog`] to the
-//! camera, and add [`crate::VolumetricLight`] to directional lights that you wish to
-//! be volumetric. [`crate::VolumetricFog`] feature numerous settings that
+//! To add volumetric fog to a scene, add [`bevy_light::VolumetricFog`] to the
+//! camera, and add [`bevy_light::VolumetricLight`] to directional lights that you wish to
+//! be volumetric. [`bevy_light::VolumetricFog`] feature numerous settings that
 //! allow you to define the accuracy of the simulation, as well as the look of
 //! the fog. Currently, only interaction with directional lights that have
 //! shadow maps is supported. Note that the overhead of the effect scales
 //! directly with the number of directional lights in use, so apply
-//! [`crate::VolumetricLight`] sparingly for the best results.
+//! [`bevy_light::VolumetricLight`] sparingly for the best results.
 //!
 //! The overall algorithm, which is implemented as a postprocessing effect, is a
 //! combination of the techniques described in [Scratchapixel] and [this blog

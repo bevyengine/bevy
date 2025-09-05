@@ -77,16 +77,16 @@ fn attack_armor(entities: Query<Entity, With<Armor>>, mut commands: Commands) {
     }
 }
 
-fn attack_hits(trigger: On<Attack>, name: Query<&Name>) {
-    if let Ok(name) = name.get(trigger.target()) {
+fn attack_hits(event: On<Attack>, name: Query<&Name>) {
+    if let Ok(name) = name.get(event.entity()) {
         info!("Attack hit {}", name);
     }
 }
 
 /// A callback placed on [`Armor`], checking if it absorbed all the [`Attack`] damage.
-fn block_attack(mut trigger: On<Attack>, armor: Query<(&Armor, &Name)>) {
-    let (armor, name) = armor.get(trigger.target()).unwrap();
-    let attack = trigger.event_mut();
+fn block_attack(mut event: On<Attack>, armor: Query<(&Armor, &Name)>) {
+    let (armor, name) = armor.get(event.entity()).unwrap();
+    let attack = event.event_mut();
     let damage = attack.damage.saturating_sub(**armor);
     if damage > 0 {
         info!("🩸 {} damage passed through {}", damage, name);
@@ -96,7 +96,7 @@ fn block_attack(mut trigger: On<Attack>, armor: Query<(&Armor, &Name)>) {
     } else {
         info!("🛡️  {} damage blocked by {}", attack.damage, name);
         // Armor stopped the attack, the event stops here.
-        trigger.propagate(false);
+        event.propagate(false);
         info!("(propagation halted early)\n");
     }
 }
@@ -104,20 +104,20 @@ fn block_attack(mut trigger: On<Attack>, armor: Query<(&Armor, &Name)>) {
 /// A callback on the armor wearer, triggered when a piece of armor is not able to block an attack,
 /// or the wearer is attacked directly.
 fn take_damage(
-    trigger: On<Attack>,
+    event: On<Attack>,
     mut hp: Query<(&mut HitPoints, &Name)>,
     mut commands: Commands,
     mut app_exit: EventWriter<AppExit>,
 ) {
-    let attack = trigger.event();
-    let (mut hp, name) = hp.get_mut(trigger.target()).unwrap();
+    let attack = event.event();
+    let (mut hp, name) = hp.get_mut(event.entity()).unwrap();
     **hp = hp.saturating_sub(attack.damage);
 
     if **hp > 0 {
         info!("{} has {:.1} HP", name, hp.0);
     } else {
         warn!("💀 {} has died a gruesome death", name);
-        commands.entity(trigger.target()).despawn();
+        commands.entity(event.entity()).despawn();
         app_exit.write(AppExit::Success);
     }
 

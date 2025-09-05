@@ -1,14 +1,16 @@
 #define_import_path bevy_solari::world_cache
 
-/// Controls how response the world cache is to changes in lighting
-const WORLD_CACHE_MAX_TEMPORAL_SAMPLES: f32 = 30.0;
+/// How responsive the world cache is to changes in lighting (higher is less responsive, lower is more responsive)
+const WORLD_CACHE_MAX_TEMPORAL_SAMPLES: f32 = 10.0;
 /// Maximum amount of frames a cell can live for without being queried
 const WORLD_CACHE_CELL_LIFETIME: u32 = 30u;
 /// Maximum amount of attempts to find a cache entry after a hash collision
 const WORLD_CACHE_MAX_SEARCH_STEPS: u32 = 3u;
 
-/// Controls the base size of each cache cell
-const WORLD_CACHE_POSITION_BASE_CELL_SIZE: f32 = 0.4;
+/// The size of a cache cell at the lowest LOD in meters
+const WORLD_CACHE_POSITION_BASE_CELL_SIZE: f32 = 0.25;
+/// How fast the world cache transitions between LODs as a function of distance to the camera
+const WORLD_CACHE_POSITION_LOD_SCALE: f32 = 30.0;
 
 /// Marker value for an empty cell
 const WORLD_CACHE_EMPTY_CELL: u32 = 0u;
@@ -36,9 +38,9 @@ struct WorldCacheGeometryData {
 
 #ifndef WORLD_CACHE_NON_ATOMIC_LIFE_BUFFER
 fn query_world_cache(world_position: vec3<f32>, world_normal: vec3<f32>, view_position: vec3<f32>) -> vec3<f32> {
-    let world_position_quantized = bitcast<vec3<u32>>(quantize_position(world_position, view_position));
+    let cell_size = get_cell_size(world_position, view_position);
+    let world_position_quantized = bitcast<vec3<u32>>(quantize_position(world_position, cell_size));
     let world_normal_quantized = bitcast<vec3<u32>>(quantize_normal(world_normal));
-
     var key = compute_key(world_position_quantized, world_normal_quantized);
     let checksum = compute_checksum(world_position_quantized, world_normal_quantized);
 
@@ -64,12 +66,13 @@ fn query_world_cache(world_position: vec3<f32>, world_normal: vec3<f32>, view_po
 }
 #endif
 
-fn quantize_position(world_position: vec3<f32>, view_position: vec3<f32>) -> vec3<f32> {
-    let base_size = WORLD_CACHE_POSITION_BASE_CELL_SIZE;
-    let d = distance(view_position, world_position);
-    let step = max((d * base_size) / 7.0, base_size);
-    let quantization_factor = exp2(floor(log2(step)));
+fn get_cell_size(world_position: vec3<f32>, view_position: vec3<f32>) -> f32 {
+    let camera_distance = distance(view_position, world_position) / WORLD_CACHE_POSITION_LOD_SCALE;
+    let lod = exp2(floor(log2(1.0 + camera_distance)));
+    return WORLD_CACHE_POSITION_BASE_CELL_SIZE * lod;
+}
 
+fn quantize_position(world_position: vec3<f32>, quantization_factor: f32) -> vec3<f32> {
     return floor(world_position / quantization_factor + 0.0001);
 }
 

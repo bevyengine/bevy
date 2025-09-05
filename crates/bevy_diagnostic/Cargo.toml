@@ -69,14 +69,14 @@ log = { version = "0.4", default-features = false }
 # macOS
 [target.'cfg(all(target_os="macos"))'.dependencies]
 # Some features of sysinfo are not supported by apple. This will disable those features on apple devices
-sysinfo = { version = "0.36.0", optional = true, default-features = false, features = [
+sysinfo = { version = "0.37.0", optional = true, default-features = false, features = [
   "apple-app-store",
   "system",
 ] }
 
 # Only include when on linux/windows/android/freebsd
 [target.'cfg(any(target_os = "linux", target_os = "windows", target_os = "android", target_os = "freebsd"))'.dependencies]
-sysinfo = { version = "0.36.0", optional = true, default-features = false, features = [
+sysinfo = { version = "0.37.0", optional = true, default-features = false, features = [
   "system",
 ] }
 

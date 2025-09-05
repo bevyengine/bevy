@@ -135,7 +135,7 @@ fn update_radio_styles(
         };
         let outline_border = q_outline.get_mut(outline_ent).unwrap();
         let mark_color = q_mark.get_mut(mark_ent).unwrap();
-        set_radio_colors(
+        set_radio_styles(
             radio_ent,
             outline_ent,
             mark_ent,
@@ -187,7 +187,7 @@ fn update_radio_styles_remove(
                 };
                 let outline_border = q_outline.get_mut(outline_ent).unwrap();
                 let mark_color = q_mark.get_mut(mark_ent).unwrap();
-                set_radio_colors(
+                set_radio_styles(
                     radio_ent,
                     outline_ent,
                     mark_ent,
@@ -203,7 +203,7 @@ fn update_radio_styles_remove(
         });
 }
 
-fn set_radio_colors(
+fn set_radio_styles(
     radio_ent: Entity,
     outline_ent: Entity,
     mark_ent: Entity,
@@ -229,6 +229,11 @@ fn set_radio_colors(
     let font_color_token = match disabled {
         true => tokens::RADIO_TEXT_DISABLED,
         false => tokens::RADIO_TEXT,
+    };
+
+    let cursor_shape = match disabled {
+        true => bevy_window::SystemCursorIcon::NotAllowed,
+        false => bevy_window::SystemCursorIcon::Pointer,
     };
 
     // Change outline border
@@ -257,6 +262,11 @@ fn set_radio_colors(
             .entity(radio_ent)
             .insert(ThemeFontColor(font_color_token));
     }
+
+    // Change cursor shape
+    commands
+        .entity(radio_ent)
+        .insert(EntityCursor::System(cursor_shape));
 }
 
 /// Plugin which registers the systems for updating the radio styles.

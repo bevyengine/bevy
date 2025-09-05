@@ -27,14 +27,6 @@ impl Plugin for CameraProjectionPlugin {
     }
 }
 
-/// Label for `camera_system<T>`, shared across all `T`.
-#[derive(SystemSet, Clone, Eq, PartialEq, Hash, Debug)]
-pub struct CameraUpdateSystems;
-
-/// Deprecated alias for [`CameraUpdateSystems`].
-#[deprecated(since = "0.17.0", note = "Renamed to `CameraUpdateSystems`.")]
-pub type CameraUpdateSystem = CameraUpdateSystems;
-
 /// Describes a type that can generate a projection matrix, allowing it to be added to a
 /// [`Camera`]'s [`Projection`] component.
 ///
@@ -76,7 +68,7 @@ pub trait CameraProjection {
     /// This code is called by [`update_frusta`](crate::visibility::update_frusta) system
     /// for each camera to update its frustum.
     fn compute_frustum(&self, camera_transform: &GlobalTransform) -> Frustum {
-        let clip_from_world = self.get_clip_from_view() * camera_transform.to_matrix().inverse();
+        let clip_from_world = self.get_clip_from_view() * camera_transform.affine().inverse();
         Frustum::from_clip_from_world_custom_far(
             &clip_from_world,
             &camera_transform.translation(),
@@ -244,6 +236,16 @@ impl Projection {
         Projection::Custom(CustomProjection {
             dyn_projection: Box::new(projection),
         })
+    }
+
+    /// Check if the projection is perspective.
+    /// For [`CustomProjection`], this checks if the projection matrix's w-axis's w is 0.0.
+    pub fn is_perspective(&self) -> bool {
+        match self {
+            Projection::Perspective(_) => true,
+            Projection::Orthographic(_) => false,
+            Projection::Custom(projection) => projection.get_clip_from_view().w_axis.w == 0.0,
+        }
     }
 }
 

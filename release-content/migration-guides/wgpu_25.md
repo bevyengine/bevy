@@ -1,5 +1,5 @@
 ---
-title: `wgpu` 25
+title: "`wgpu` 25"
 pull_requests: [ 19563 ]
 ---
 

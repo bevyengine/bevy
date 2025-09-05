@@ -17,6 +17,7 @@ bevy_render = ["dep:bevy_render", "bevy_core_pipeline"]
 # Bevy
 bevy_pbr = { path = "../bevy_pbr", version = "0.17.0-dev", optional = true }
 bevy_sprite = { path = "../bevy_sprite", version = "0.17.0-dev", optional = true }
+bevy_sprite_render = { path = "../bevy_sprite_render", version = "0.17.0-dev", optional = true }
 bevy_app = { path = "../bevy_app", version = "0.17.0-dev" }
 bevy_camera = { path = "../bevy_camera", version = "0.17.0-dev" }
 bevy_light = { path = "../bevy_light", version = "0.17.0-dev" }

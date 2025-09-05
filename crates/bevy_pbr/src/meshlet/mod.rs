@@ -256,7 +256,7 @@ fn check_meshlet_features(render_device: Res<RenderDevice>) {
     }
 }
 
-/// The meshlet mesh equivalent of [`bevy_render::mesh::Mesh3d`].
+/// The meshlet mesh equivalent of [`bevy_mesh::Mesh3d`].
 #[derive(Component, Clone, Debug, Default, Deref, DerefMut, Reflect, PartialEq, Eq, From)]
 #[reflect(Component, Default, Clone, PartialEq)]
 #[require(Transform, PreviousGlobalTransform, Visibility, VisibilityClass)]

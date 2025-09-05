@@ -61,7 +61,7 @@ fn radio_group_on_key_input(
     q_children: Query<&Children>,
     mut commands: Commands,
 ) {
-    if let Ok(CoreRadioGroup { on_change }) = q_group.get(ev.target()) {
+    if let Ok(CoreRadioGroup { on_change }) = q_group.get(ev.entity()) {
         let event = &ev.event().input;
         if event.state == ButtonState::Pressed
             && !event.repeat
@@ -80,7 +80,7 @@ fn radio_group_on_key_input(
 
             // Find all radio descendants that are not disabled
             let radio_buttons = q_children
-                .iter_descendants(ev.target())
+                .iter_descendants(ev.entity())
                 .filter_map(|child_id| match q_radio.get(child_id) {
                     Ok((checked, false)) => Some((child_id, checked)),
                     Ok((_, true)) | Err(_) => None,
@@ -149,14 +149,14 @@ fn radio_group_on_button_click(
     q_children: Query<&Children>,
     mut commands: Commands,
 ) {
-    if let Ok(CoreRadioGroup { on_change }) = q_group.get(ev.target()) {
+    if let Ok(CoreRadioGroup { on_change }) = q_group.get(ev.entity()) {
         // Starting with the original target, search upward for a radio button.
-        let radio_id = if q_radio.contains(ev.original_target()) {
-            ev.original_target()
+        let radio_id = if q_radio.contains(ev.original_entity()) {
+            ev.original_entity()
         } else {
             // Search ancestors for the first radio button
             let mut found_radio = None;
-            for ancestor in q_parents.iter_ancestors(ev.original_target()) {
+            for ancestor in q_parents.iter_ancestors(ev.original_entity()) {
                 if q_group.contains(ancestor) {
                     // We reached a radio group before finding a radio button, bail out
                     return;
@@ -180,7 +180,7 @@ fn radio_group_on_button_click(
 
         // Gather all the enabled radio group descendants for exclusion.
         let radio_buttons = q_children
-            .iter_descendants(ev.target())
+            .iter_descendants(ev.entity())
             .filter_map(|child_id| match q_radio.get(child_id) {
                 Ok((checked, false)) => Some((child_id, checked)),
                 Ok((_, true)) | Err(_) => None,

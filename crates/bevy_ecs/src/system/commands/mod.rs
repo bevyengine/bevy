@@ -1086,6 +1086,13 @@ impl<'w, 's> Commands<'w, 's> {
     /// Sends a global [`Event`] without any targets.
     ///
     /// This will run any [`Observer`] of the given [`Event`] that isn't scoped to specific targets.
+    ///
+    /// If the entity that this command targets does not exist when the command is applied,
+    /// the command will fail, possibly causing it to panic based on the default [error handler](crate::error) set.
+    ///
+    /// To queue this command with a specific handler, use [`EntityCommands::queue_handled`]
+    /// with [`entity_command::trigger(event)`](entity_command::trigger).
+    /// [`EntityCommands::queue_silenced`] may also be used to ignore the error completely.
     #[track_caller]
     pub fn trigger(&mut self, event: impl Event) {
         self.queue(command::trigger(event));
@@ -1094,6 +1101,13 @@ impl<'w, 's> Commands<'w, 's> {
     /// Sends an [`EntityEvent`] for the given targets.
     ///
     /// This will run any [`Observer`] of the given [`EntityEvent`] watching those targets.
+    ///
+    /// If the entity that this command targets does not exist when the command is applied,
+    /// the command will fail, possibly causing it to panic based on the default [error handler](crate::error) set.
+    ///
+    /// To queue this command with a specific handler, use [`EntityCommands::queue_handled`]
+    /// with [`entity_command::trigger(event)`](entity_command::trigger).
+    /// [`EntityCommands::queue_silenced`] may also be used to ignore the error completely.
     #[track_caller]
     pub fn trigger_targets(
         &mut self,
@@ -1994,6 +2008,12 @@ impl<'a> EntityCommands<'a> {
     /// Sends an [`EntityEvent`] targeting the entity.
     ///
     /// This will run any [`Observer`] of the given [`EntityEvent`] watching this entity.
+    ///
+    /// If the entity that this command targets does not exist when the command is applied,
+    /// the command will fail, possibly causing it to panic based on the default error handler set.
+    /// To queue this command with a handler, use [`EntityCommands::queue_handled`]
+    /// with [`entity_command::trigger(event)`](entity_command::trigger).
+    /// [`EntityCommands::queue_silenced`] may also be used to ignore the error completely.
     #[track_caller]
     pub fn trigger(&mut self, event: impl EntityEvent) -> &mut Self {
         self.queue(entity_command::trigger(event))

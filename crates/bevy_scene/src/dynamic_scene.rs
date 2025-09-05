@@ -56,7 +56,7 @@ impl DynamicScene {
         DynamicSceneBuilder::from_world(world)
             .extract_entities(
                 // we do this instead of a query, in order to completely sidestep default query filters.
-                // while we could use `Allows<_>`, this wouldn't account for custom disabled components
+                // while we could use `Allow<_>`, this wouldn't account for custom disabled components
                 world
                     .archetypes()
                     .iter()

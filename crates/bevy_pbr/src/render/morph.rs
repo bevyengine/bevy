@@ -75,7 +75,7 @@ pub fn prepare_morphs(
 }
 
 const fn can_align(step: usize, target: usize) -> bool {
-    step % target == 0 || target % step == 0
+    step.is_multiple_of(target) || target.is_multiple_of(step)
 }
 
 const WGPU_MIN_ALIGN: usize = 256;

@@ -97,7 +97,7 @@ impl MorphTargetImage {
     }
 }
 
-/// Controls the [morph targets] for all child `Mesh3d` entities. In most cases, [`MorphWeights`] should be considered
+/// Controls the [morph targets] for all child [`Mesh3d`](crate::Mesh3d) entities. In most cases, [`MorphWeights`] should be considered
 /// the "source of truth" when writing morph targets for meshes. However you can choose to write child [`MeshMorphWeights`]
 /// if your situation requires more granularity. Just note that if you set [`MorphWeights`], it will overwrite child
 /// [`MeshMorphWeights`] values.
@@ -105,9 +105,9 @@ impl MorphTargetImage {
 /// This exists because Bevy's [`Mesh`] corresponds to a _single_ surface / material, whereas morph targets
 /// as defined in the GLTF spec exist on "multi-primitive meshes" (where each primitive is its own surface with its own material).
 /// Therefore in Bevy [`MorphWeights`] an a parent entity are the "canonical weights" from a GLTF perspective, which then
-/// synchronized to child `Mesh3d` / [`MeshMorphWeights`] (which correspond to "primitives" / "surfaces" from a GLTF perspective).
+/// synchronized to child [`Mesh3d`](crate::Mesh3d) / [`MeshMorphWeights`] (which correspond to "primitives" / "surfaces" from a GLTF perspective).
 ///
-/// Add this to the parent of one or more [`Entities`](`Entity`) with a `Mesh3d` with a [`MeshMorphWeights`].
+/// Add this to the parent of one or more [`Entities`](`Entity`) with a [`Mesh3d`](crate::Mesh3d) with a [`MeshMorphWeights`].
 ///
 /// [morph targets]: https://en.wikipedia.org/wiki/Morph_target_animation
 #[derive(Reflect, Default, Debug, Clone, Component)]
@@ -132,7 +132,7 @@ impl MorphWeights {
             first_mesh,
         })
     }
-    /// The first child `Mesh3d` primitive controlled by these weights.
+    /// The first child [`Mesh3d`](crate::Mesh3d) primitive controlled by these weights.
     /// This can be used to look up metadata information such as [`Mesh::morph_target_names`].
     pub fn first_mesh(&self) -> Option<&Handle<Mesh>> {
         self.first_mesh.as_ref()
@@ -152,7 +152,7 @@ impl MorphWeights {
 ///
 /// See [`MorphWeights`] for more details on Bevy's morph target implementation.
 ///
-/// Add this to an [`Entity`] with a `Mesh3d` with a [`MorphAttributes`] set
+/// Add this to an [`Entity`] with a [`Mesh3d`](crate::Mesh3d) with a [`MorphAttributes`] set
 /// to control individual weights of each morph target.
 ///
 /// [morph targets]: https://en.wikipedia.org/wiki/Morph_target_animation

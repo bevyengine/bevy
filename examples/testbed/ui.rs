@@ -80,19 +80,19 @@ mod image {
     use bevy::prelude::*;
 
     pub fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
-        commands.spawn((Camera2d, DespawnOnExitState(super::Scene::Image)));
+        commands.spawn((Camera2d, DespawnOnExit(super::Scene::Image)));
         commands.spawn((
             ImageNode::new(asset_server.load("branding/bevy_logo_dark.png")),
-            DespawnOnExitState(super::Scene::Image),
+            DespawnOnExit(super::Scene::Image),
         ));
     }
 }
 
 mod text {
-    use bevy::prelude::*;
+    use bevy::{color::palettes::css::*, prelude::*};
 
     pub fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
-        commands.spawn((Camera2d, DespawnOnExitState(super::Scene::Text)));
+        commands.spawn((Camera2d, DespawnOnExit(super::Scene::Text)));
         commands.spawn((
             Text::new("Hello World."),
             TextFont {
@@ -100,7 +100,114 @@ mod text {
                 font_size: 200.,
                 ..default()
             },
-            DespawnOnExitState(super::Scene::Text),
+            DespawnOnExit(super::Scene::Text),
+        ));
+
+        commands.spawn((
+            Node {
+                left: px(100.),
+                top: px(250.),
+                ..Default::default()
+            },
+            Text::new("white "),
+            TextFont {
+                font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                ..default()
+            },
+            DespawnOnExit(super::Scene::Text),
+            children![
+                (TextSpan::new("red "), TextColor(RED.into()),),
+                (TextSpan::new("green "), TextColor(GREEN.into()),),
+                (TextSpan::new("blue "), TextColor(BLUE.into()),),
+                (
+                    TextSpan::new("black"),
+                    TextColor(Color::BLACK),
+                    TextFont {
+                        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                        ..default()
+                    },
+                    TextBackgroundColor(Color::WHITE)
+                ),
+            ],
+        ));
+
+        commands.spawn((
+            Node {
+                left: px(100.),
+                top: px(300.),
+                ..Default::default()
+            },
+            Text::new(""),
+            TextFont {
+                font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                ..default()
+            },
+            DespawnOnExit(super::Scene::Text),
+            children![
+                (
+                    TextSpan::new("white "),
+                    TextFont {
+                        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                        ..default()
+                    }
+                ),
+                (TextSpan::new("red "), TextColor(RED.into()),),
+                (TextSpan::new("green "), TextColor(GREEN.into()),),
+                (TextSpan::new("blue "), TextColor(BLUE.into()),),
+                (
+                    TextSpan::new("black"),
+                    TextColor(Color::BLACK),
+                    TextFont {
+                        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                        ..default()
+                    },
+                    TextBackgroundColor(Color::WHITE)
+                ),
+            ],
+        ));
+
+        commands.spawn((
+            Node {
+                left: px(100.),
+                top: px(350.),
+                ..Default::default()
+            },
+            Text::new(""),
+            TextFont {
+                font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                ..default()
+            },
+            DespawnOnExit(super::Scene::Text),
+            children![
+                (TextSpan::new(""), TextColor(YELLOW.into()),),
+                TextSpan::new(""),
+                (
+                    TextSpan::new("white "),
+                    TextFont {
+                        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                        ..default()
+                    }
+                ),
+                TextSpan::new(""),
+                (TextSpan::new("red "), TextColor(RED.into()),),
+                TextSpan::new(""),
+                TextSpan::new(""),
+                (TextSpan::new("green "), TextColor(GREEN.into()),),
+                (TextSpan::new(""), TextColor(YELLOW.into()),),
+                (TextSpan::new("blue "), TextColor(BLUE.into()),),
+                TextSpan::new(""),
+                (TextSpan::new(""), TextColor(YELLOW.into()),),
+                (
+                    TextSpan::new("black"),
+                    TextColor(Color::BLACK),
+                    TextFont {
+                        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                        ..default()
+                    },
+                    TextBackgroundColor(Color::WHITE)
+                ),
+                TextSpan::new(""),
+            ],
         ));
     }
 }
@@ -109,13 +216,13 @@ mod grid {
     use bevy::{color::palettes::css::*, prelude::*};
 
     pub fn setup(mut commands: Commands) {
-        commands.spawn((Camera2d, DespawnOnExitState(super::Scene::Grid)));
+        commands.spawn((Camera2d, DespawnOnExit(super::Scene::Grid)));
         // Top-level grid (app frame)
         commands.spawn((
             Node {
                 display: Display::Grid,
-                width: Val::Percent(100.0),
-                height: Val::Percent(100.0),
+                width: percent(100),
+                height: percent(100),
                 grid_template_columns: vec![GridTrack::min_content(), GridTrack::flex(1.0)],
                 grid_template_rows: vec![
                     GridTrack::auto(),
@@ -125,14 +232,14 @@ mod grid {
                 ..default()
             },
             BackgroundColor(Color::WHITE),
-            DespawnOnExitState(super::Scene::Grid),
+            DespawnOnExit(super::Scene::Grid),
             children![
                 // Header
                 (
                     Node {
                         display: Display::Grid,
                         grid_column: GridPlacement::span(2),
-                        padding: UiRect::all(Val::Px(40.0)),
+                        padding: UiRect::all(px(40)),
                         ..default()
                     },
                     BackgroundColor(RED.into()),
@@ -140,13 +247,13 @@ mod grid {
                 // Main content grid (auto placed in row 2, column 1)
                 (
                     Node {
-                        height: Val::Percent(100.0),
+                        height: percent(100),
                         aspect_ratio: Some(1.0),
                         display: Display::Grid,
                         grid_template_columns: RepeatedGridTrack::flex(3, 1.0),
                         grid_template_rows: RepeatedGridTrack::flex(2, 1.0),
-                        row_gap: Val::Px(12.0),
-                        column_gap: Val::Px(12.0),
+                        row_gap: px(12),
+                        column_gap: px(12),
                         ..default()
                     },
                     BackgroundColor(Color::srgb(0.25, 0.25, 0.25)),
@@ -169,54 +276,54 @@ mod borders {
     use bevy::{color::palettes::css::*, prelude::*};
 
     pub fn setup(mut commands: Commands) {
-        commands.spawn((Camera2d, DespawnOnExitState(super::Scene::Borders)));
+        commands.spawn((Camera2d, DespawnOnExit(super::Scene::Borders)));
         let root = commands
             .spawn((
                 Node {
                     flex_wrap: FlexWrap::Wrap,
                     ..default()
                 },
-                DespawnOnExitState(super::Scene::Borders),
+                DespawnOnExit(super::Scene::Borders),
             ))
             .id();
 
         // all the different combinations of border edges
         let borders = [
             UiRect::default(),
-            UiRect::all(Val::Px(20.)),
-            UiRect::left(Val::Px(20.)),
-            UiRect::vertical(Val::Px(20.)),
+            UiRect::all(px(20)),
+            UiRect::left(px(20)),
+            UiRect::vertical(px(20)),
             UiRect {
-                left: Val::Px(40.),
-                top: Val::Px(20.),
+                left: px(40),
+                top: px(20),
                 ..Default::default()
             },
             UiRect {
-                right: Val::Px(20.),
-                bottom: Val::Px(30.),
+                right: px(20),
+                bottom: px(30),
                 ..Default::default()
             },
             UiRect {
-                right: Val::Px(20.),
-                top: Val::Px(40.),
-                bottom: Val::Px(20.),
+                right: px(20),
+                top: px(40),
+                bottom: px(20),
                 ..Default::default()
             },
             UiRect {
-                left: Val::Px(20.),
-                top: Val::Px(20.),
-                bottom: Val::Px(20.),
+                left: px(20),
+                top: px(20),
+                bottom: px(20),
                 ..Default::default()
             },
             UiRect {
-                left: Val::Px(20.),
-                right: Val::Px(20.),
-                bottom: Val::Px(40.),
+                left: px(20),
+                right: px(20),
+                bottom: px(40),
                 ..Default::default()
             },
         ];
 
-        let non_zero = |x, y| x != Val::Px(0.) && y != Val::Px(0.);
+        let non_zero = |x, y| x != px(0) && y != px(0);
         let border_size = |x, y| if non_zero(x, y) { f32::MAX } else { 0. };
 
         for border in borders {
@@ -224,10 +331,10 @@ mod borders {
                 let border_node = commands
                     .spawn((
                         Node {
-                            width: Val::Px(100.),
-                            height: Val::Px(100.),
+                            width: px(100),
+                            height: px(100),
                             border,
-                            margin: UiRect::all(Val::Px(30.)),
+                            margin: UiRect::all(px(30)),
                             align_items: AlignItems::Center,
                             justify_content: JustifyContent::Center,
                             ..default()
@@ -235,8 +342,8 @@ mod borders {
                         BackgroundColor(MAROON.into()),
                         BorderColor::all(RED),
                         Outline {
-                            width: Val::Px(10.),
-                            offset: Val::Px(10.),
+                            width: px(10),
+                            offset: px(10),
                             color: Color::WHITE,
                         },
                     ))
@@ -262,20 +369,20 @@ mod box_shadow {
     use bevy::{color::palettes::css::*, prelude::*};
 
     pub fn setup(mut commands: Commands) {
-        commands.spawn((Camera2d, DespawnOnExitState(super::Scene::BoxShadow)));
+        commands.spawn((Camera2d, DespawnOnExit(super::Scene::BoxShadow)));
 
         commands
             .spawn((
                 Node {
-                    width: Val::Percent(100.0),
-                    height: Val::Percent(100.0),
-                    padding: UiRect::all(Val::Px(30.)),
-                    column_gap: Val::Px(200.),
+                    width: percent(100),
+                    height: percent(100),
+                    padding: UiRect::all(px(30)),
+                    column_gap: px(200),
                     flex_wrap: FlexWrap::Wrap,
                     ..default()
                 },
                 BackgroundColor(GREEN.into()),
-                DespawnOnExitState(super::Scene::BoxShadow),
+                DespawnOnExit(super::Scene::BoxShadow),
             ))
             .with_children(|commands| {
                 let example_nodes = [
@@ -284,7 +391,7 @@ mod box_shadow {
                         Vec2::ZERO,
                         10.,
                         0.,
-                        BorderRadius::bottom_right(Val::Px(10.)),
+                        BorderRadius::bottom_right(px(10)),
                     ),
                     (Vec2::new(200., 50.), Vec2::ZERO, 10., 0., BorderRadius::MAX),
                     (
@@ -299,7 +406,7 @@ mod box_shadow {
                         Vec2::splat(20.),
                         10.,
                         10.,
-                        BorderRadius::bottom_right(Val::Px(10.)),
+                        BorderRadius::bottom_right(px(10)),
                     ),
                     (
                         Vec2::splat(100.),
@@ -320,9 +427,9 @@ mod box_shadow {
                 for (size, offset, spread, blur, border_radius) in example_nodes {
                     commands.spawn((
                         Node {
-                            width: Val::Px(size.x),
-                            height: Val::Px(size.y),
-                            border: UiRect::all(Val::Px(2.)),
+                            width: px(size.x),
+                            height: px(size.y),
+                            border: UiRect::all(px(2)),
                             ..default()
                         },
                         BorderColor::all(WHITE),
@@ -330,10 +437,10 @@ mod box_shadow {
                         BackgroundColor(BLUE.into()),
                         BoxShadow::new(
                             Color::BLACK.with_alpha(0.9),
-                            Val::Percent(offset.x),
-                            Val::Percent(offset.y),
-                            Val::Percent(spread),
-                            Val::Px(blur),
+                            percent(offset.x),
+                            percent(offset.y),
+                            percent(spread),
+                            px(blur),
                         ),
                     ));
                 }
@@ -345,19 +452,19 @@ mod text_wrap {
     use bevy::prelude::*;
 
     pub fn setup(mut commands: Commands) {
-        commands.spawn((Camera2d, DespawnOnExitState(super::Scene::TextWrap)));
+        commands.spawn((Camera2d, DespawnOnExit(super::Scene::TextWrap)));
 
         let root = commands
             .spawn((
                 Node {
                     flex_direction: FlexDirection::Column,
-                    width: Val::Px(200.),
-                    height: Val::Percent(100.),
+                    width: px(200),
+                    height: percent(100),
                     overflow: Overflow::clip_x(),
                     ..default()
                 },
                 BackgroundColor(Color::BLACK),
-                DespawnOnExitState(super::Scene::TextWrap),
+                DespawnOnExit(super::Scene::TextWrap),
             ))
             .id();
 
@@ -387,20 +494,20 @@ mod overflow {
     use bevy::{color::palettes::css::*, prelude::*};
 
     pub fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
-        commands.spawn((Camera2d, DespawnOnExitState(super::Scene::Overflow)));
+        commands.spawn((Camera2d, DespawnOnExit(super::Scene::Overflow)));
         let image = asset_server.load("branding/icon.png");
 
         commands
             .spawn((
                 Node {
-                    width: Val::Percent(100.),
-                    height: Val::Percent(100.),
+                    width: percent(100),
+                    height: percent(100),
                     align_items: AlignItems::Center,
                     justify_content: JustifyContent::SpaceAround,
                     ..Default::default()
                 },
                 BackgroundColor(BLUE.into()),
-                DespawnOnExitState(super::Scene::Overflow),
+                DespawnOnExit(super::Scene::Overflow),
             ))
             .with_children(|parent| {
                 for overflow in [
@@ -412,14 +519,14 @@ mod overflow {
                     parent
                         .spawn((
                             Node {
-                                width: Val::Px(100.),
-                                height: Val::Px(100.),
+                                width: px(100),
+                                height: px(100),
                                 padding: UiRect {
-                                    left: Val::Px(25.),
-                                    top: Val::Px(25.),
+                                    left: px(25),
+                                    top: px(25),
                                     ..Default::default()
                                 },
-                                border: UiRect::all(Val::Px(5.)),
+                                border: UiRect::all(px(5)),
                                 overflow,
                                 ..default()
                             },
@@ -430,14 +537,14 @@ mod overflow {
                             parent.spawn((
                                 ImageNode::new(image.clone()),
                                 Node {
-                                    min_width: Val::Px(100.),
-                                    min_height: Val::Px(100.),
+                                    min_width: px(100),
+                                    min_height: px(100),
                                     ..default()
                                 },
                                 Interaction::default(),
                                 Outline {
-                                    width: Val::Px(2.),
-                                    offset: Val::Px(2.),
+                                    width: px(2),
+                                    offset: px(2),
                                     color: Color::NONE,
                                 },
                             ));
@@ -451,7 +558,7 @@ mod slice {
     use bevy::prelude::*;
 
     pub fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
-        commands.spawn((Camera2d, DespawnOnExitState(super::Scene::Slice)));
+        commands.spawn((Camera2d, DespawnOnExit(super::Scene::Slice)));
         let image = asset_server.load("textures/fantasy_ui_borders/numbered_slices.png");
 
         let slicer = TextureSlicer {
@@ -463,13 +570,13 @@ mod slice {
         commands
             .spawn((
                 Node {
-                    width: Val::Percent(100.0),
-                    height: Val::Percent(100.0),
+                    width: percent(100),
+                    height: percent(100),
                     align_items: AlignItems::Center,
                     justify_content: JustifyContent::SpaceAround,
                     ..default()
                 },
-                DespawnOnExitState(super::Scene::Slice),
+                DespawnOnExit(super::Scene::Slice),
             ))
             .with_children(|parent| {
                 for [w, h] in [[150.0, 150.0], [300.0, 150.0], [150.0, 300.0]] {
@@ -481,8 +588,8 @@ mod slice {
                             ..default()
                         },
                         Node {
-                            width: Val::Px(w),
-                            height: Val::Px(h),
+                            width: px(w),
+                            height: px(h),
                             ..default()
                         },
                     ));
@@ -501,8 +608,8 @@ mod slice {
                         ..Default::default()
                     },
                     Node {
-                        width: Val::Px(100.),
-                        height: Val::Px(100.),
+                        width: px(100),
+                        height: px(100),
                         ..default()
                     },
                     BackgroundColor(bevy::color::palettes::css::NAVY.into()),
@@ -515,19 +622,19 @@ mod layout_rounding {
     use bevy::{color::palettes::css::*, prelude::*};
 
     pub fn setup(mut commands: Commands) {
-        commands.spawn((Camera2d, DespawnOnExitState(super::Scene::LayoutRounding)));
+        commands.spawn((Camera2d, DespawnOnExit(super::Scene::LayoutRounding)));
 
         commands
             .spawn((
                 Node {
                     display: Display::Grid,
-                    width: Val::Percent(100.),
-                    height: Val::Percent(100.),
+                    width: percent(100),
+                    height: percent(100),
                     grid_template_rows: vec![RepeatedGridTrack::fr(10, 1.)],
                     ..Default::default()
                 },
                 BackgroundColor(Color::WHITE),
-                DespawnOnExitState(super::Scene::LayoutRounding),
+                DespawnOnExit(super::Scene::LayoutRounding),
             ))
             .with_children(|commands| {
                 for i in 2..12 {
@@ -541,7 +648,7 @@ mod layout_rounding {
                             for _ in 0..i {
                                 commands.spawn((
                                     Node {
-                                        border: UiRect::all(Val::Px(5.)),
+                                        border: UiRect::all(px(5)),
                                         ..Default::default()
                                     },
                                     BackgroundColor(MAROON.into()),
@@ -562,7 +669,7 @@ mod linear_gradient {
     use bevy::color::palettes::css::YELLOW;
     use bevy::color::Color;
     use bevy::ecs::prelude::*;
-    use bevy::state::state_scoped::DespawnOnExitState;
+    use bevy::state::state_scoped::DespawnOnExit;
     use bevy::text::TextFont;
     use bevy::ui::AlignItems;
     use bevy::ui::BackgroundGradient;
@@ -573,31 +680,30 @@ mod linear_gradient {
     use bevy::ui::LinearGradient;
     use bevy::ui::Node;
     use bevy::ui::PositionType;
-    use bevy::ui::Val;
     use bevy::utils::default;
 
     pub fn setup(mut commands: Commands) {
-        commands.spawn((Camera2d, DespawnOnExitState(super::Scene::LinearGradient)));
+        commands.spawn((Camera2d, DespawnOnExit(super::Scene::LinearGradient)));
         commands
             .spawn((
                 Node {
                     flex_direction: bevy::ui::FlexDirection::Column,
-                    width: Val::Percent(100.),
-                    height: Val::Percent(100.),
+                    width: bevy::ui::percent(100),
+                    height: bevy::ui::percent(100),
                     justify_content: JustifyContent::Center,
                     align_items: AlignItems::Center,
-                    row_gap: Val::Px(5.),
+                    row_gap: bevy::ui::px(5),
                     ..default()
                 },
-                DespawnOnExitState(super::Scene::LinearGradient),
+                DespawnOnExit(super::Scene::LinearGradient),
             ))
             .with_children(|commands| {
                 let mut i = 0;
                 commands
                     .spawn(Node {
                         display: bevy::ui::Display::Grid,
-                        row_gap: Val::Px(4.),
-                        column_gap: Val::Px(4.),
+                        row_gap: bevy::ui::px(4),
+                        column_gap: bevy::ui::px(4),
                         ..Default::default()
                     })
                     .with_children(|commands| {
@@ -655,8 +761,8 @@ mod linear_gradient {
                                     },
                                     children![(
                                         Node {
-                                            height: Val::Px(30.),
-                                            width: Val::Px(300.),
+                                            height: bevy::ui::px(30),
+                                            width: bevy::ui::px(300),
                                             justify_content: JustifyContent::Center,
                                             ..Default::default()
                                         },
@@ -693,18 +799,18 @@ mod radial_gradient {
 
     pub fn setup(mut commands: Commands) {
         let color_stops = vec![
-            ColorStop::new(Color::BLACK, Val::Px(5.)),
-            ColorStop::new(Color::WHITE, Val::Px(5.)),
-            ColorStop::new(Color::WHITE, Val::Percent(100.)),
+            ColorStop::new(Color::BLACK, px(5)),
+            ColorStop::new(Color::WHITE, px(5)),
+            ColorStop::new(Color::WHITE, percent(100)),
             ColorStop::auto(RED),
         ];
 
-        commands.spawn((Camera2d, DespawnOnExitState(super::Scene::RadialGradient)));
+        commands.spawn((Camera2d, DespawnOnExit(super::Scene::RadialGradient)));
         commands
             .spawn((
                 Node {
-                    width: Val::Percent(100.),
-                    height: Val::Percent(100.),
+                    width: percent(100),
+                    height: percent(100),
                     display: Display::Grid,
                     align_items: AlignItems::Start,
                     grid_template_columns: vec![RepeatedGridTrack::px(
@@ -712,21 +818,18 @@ mod radial_gradient {
                         CELL_SIZE,
                     )],
                     grid_auto_flow: GridAutoFlow::Row,
-                    row_gap: Val::Px(GAP),
-                    column_gap: Val::Px(GAP),
-                    padding: UiRect::all(Val::Px(GAP)),
+                    row_gap: px(GAP),
+                    column_gap: px(GAP),
+                    padding: UiRect::all(px(GAP)),
                     ..default()
                 },
-                DespawnOnExitState(super::Scene::RadialGradient),
+                DespawnOnExit(super::Scene::RadialGradient),
             ))
             .with_children(|commands| {
                 for (shape, shape_label) in [
                     (RadialGradientShape::ClosestSide, "ClosestSide"),
                     (RadialGradientShape::FarthestSide, "FarthestSide"),
-                    (
-                        RadialGradientShape::Circle(Val::Percent(55.)),
-                        "Circle(55%)",
-                    ),
+                    (RadialGradientShape::Circle(percent(55)), "Circle(55%)"),
                     (RadialGradientShape::FarthestCorner, "FarthestCorner"),
                 ] {
                     for (position, position_label) in [
@@ -746,14 +849,14 @@ mod radial_gradient {
                                     BackgroundColor(GRAY_700.into()),
                                     Node {
                                         display: Display::Grid,
-                                        width: Val::Px(CELL_SIZE),
+                                        width: px(CELL_SIZE),
                                         ..Default::default()
                                     },
                                 ))
                                 .with_children(|commands| {
                                     commands.spawn((
                                         Node {
-                                            margin: UiRect::all(Val::Px(2.0)),
+                                            margin: UiRect::all(px(2)),
                                             ..default()
                                         },
                                         Text(format!("{shape_label}\n{position_label}")),
@@ -761,8 +864,8 @@ mod radial_gradient {
                                     ));
                                     commands.spawn((
                                         Node {
-                                            width: Val::Px(w),
-                                            height: Val::Px(h),
+                                            width: px(w),
+                                            height: px(h),
                                             ..default()
                                         },
                                         BackgroundGradient::from(RadialGradient {

@@ -76,9 +76,9 @@ To draw a window with standard functionality enabled, use:
 use bevy::prelude::*;
 
 fn main() {
-  App::new()
-    .add_plugins(DefaultPlugins)
-    .run();
+    App::new()
+        .add_plugins(DefaultPlugins)
+        .run();
 }
 ```
 

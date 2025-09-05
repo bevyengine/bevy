@@ -11,7 +11,7 @@
 //! # use bevy_picking::prelude::*;
 //! # let mut world = World::default();
 //! world.spawn_empty()
-//!     .observe(|trigger: On<Pointer<Over>>| {
+//!     .observe(|event: On<Pointer<Over>>| {
 //!         println!("I am being hovered over");
 //!     });
 //! ```
@@ -141,7 +141,7 @@ pub struct Cancel {
     pub hit: HitData,
 }
 
-/// Fires when a pointer crosses into the bounds of the `target` entity.
+/// Fires when a pointer crosses into the bounds of the [target entity](On::entity).
 #[derive(Clone, PartialEq, Debug, Reflect)]
 #[reflect(Clone, PartialEq)]
 pub struct Over {
@@ -149,7 +149,7 @@ pub struct Over {
     pub hit: HitData,
 }
 
-/// Fires when a pointer crosses out of the bounds of the `target` entity.
+/// Fires when a pointer crosses out of the bounds of the [target entity](On::entity).
 #[derive(Clone, PartialEq, Debug, Reflect)]
 #[reflect(Clone, PartialEq)]
 pub struct Out {
@@ -157,7 +157,7 @@ pub struct Out {
     pub hit: HitData,
 }
 
-/// Fires when a pointer button is pressed over the `target` entity.
+/// Fires when a pointer button is pressed over the [target entity](On::entity).
 #[derive(Clone, PartialEq, Debug, Reflect)]
 #[reflect(Clone, PartialEq)]
 pub struct Press {
@@ -167,7 +167,7 @@ pub struct Press {
     pub hit: HitData,
 }
 
-/// Fires when a pointer button is released over the `target` entity.
+/// Fires when a pointer button is released over the [target entity](On::entity).
 #[derive(Clone, PartialEq, Debug, Reflect)]
 #[reflect(Clone, PartialEq)]
 pub struct Release {
@@ -178,7 +178,7 @@ pub struct Release {
 }
 
 /// Fires when a pointer sends a pointer pressed event followed by a pointer released event, with the same
-/// `target` entity for both events.
+/// [target entity](On::entity) for both events.
 #[derive(Clone, PartialEq, Debug, Reflect)]
 #[reflect(Clone, PartialEq)]
 pub struct Click {
@@ -190,7 +190,7 @@ pub struct Click {
     pub duration: Duration,
 }
 
-/// Fires while a pointer is moving over the `target` entity.
+/// Fires while a pointer is moving over the [target entity](On::entity).
 #[derive(Clone, PartialEq, Debug, Reflect)]
 #[reflect(Clone, PartialEq)]
 pub struct Move {
@@ -205,7 +205,7 @@ pub struct Move {
     pub delta: Vec2,
 }
 
-/// Fires when the `target` entity receives a pointer pressed event followed by a pointer move event.
+/// Fires when the [target entity](On::entity) receives a pointer pressed event followed by a pointer move event.
 #[derive(Clone, PartialEq, Debug, Reflect)]
 #[reflect(Clone, PartialEq)]
 pub struct DragStart {
@@ -215,7 +215,7 @@ pub struct DragStart {
     pub hit: HitData,
 }
 
-/// Fires while the `target` entity is being dragged.
+/// Fires while the [target entity](On::entity) is being dragged.
 #[derive(Clone, PartialEq, Debug, Reflect)]
 #[reflect(Clone, PartialEq)]
 pub struct Drag {
@@ -237,7 +237,7 @@ pub struct Drag {
     pub delta: Vec2,
 }
 
-/// Fires when a pointer is dragging the `target` entity and a pointer released event is received.
+/// Fires when a pointer is dragging the [target entity](On::entity) and a pointer released event is received.
 #[derive(Clone, PartialEq, Debug, Reflect)]
 #[reflect(Clone, PartialEq)]
 pub struct DragEnd {
@@ -252,49 +252,49 @@ pub struct DragEnd {
     pub distance: Vec2,
 }
 
-/// Fires when a pointer dragging the `dragged` entity enters the `target` entity.
+/// Fires when a pointer dragging the `dragged` entity enters the [target entity](On::entity).
 #[derive(Clone, PartialEq, Debug, Reflect)]
 #[reflect(Clone, PartialEq)]
 pub struct DragEnter {
     /// Pointer button pressed to enter drag.
     pub button: PointerButton,
-    /// The entity that was being dragged when the pointer entered the `target` entity.
+    /// The entity that was being dragged when the pointer entered the [target entity](On::entity).
     pub dragged: Entity,
     /// Information about the picking intersection.
     pub hit: HitData,
 }
 
-/// Fires while the `dragged` entity is being dragged over the `target` entity.
+/// Fires while the `dragged` entity is being dragged over the [target entity](On::entity).
 #[derive(Clone, PartialEq, Debug, Reflect)]
 #[reflect(Clone, PartialEq)]
 pub struct DragOver {
     /// Pointer button pressed while dragging over.
     pub button: PointerButton,
-    /// The entity that was being dragged when the pointer was over the `target` entity.
+    /// The entity that was being dragged when the pointer was over the [target entity](On::entity).
     pub dragged: Entity,
     /// Information about the picking intersection.
     pub hit: HitData,
 }
 
-/// Fires when a pointer dragging the `dragged` entity leaves the `target` entity.
+/// Fires when a pointer dragging the `dragged` entity leaves the [target entity](On::entity).
 #[derive(Clone, PartialEq, Debug, Reflect)]
 #[reflect(Clone, PartialEq)]
 pub struct DragLeave {
     /// Pointer button pressed while leaving drag.
     pub button: PointerButton,
-    /// The entity that was being dragged when the pointer left the `target` entity.
+    /// The entity that was being dragged when the pointer left the [target entity](On::entity).
     pub dragged: Entity,
     /// Information about the latest prior picking intersection.
     pub hit: HitData,
 }
 
-/// Fires when a pointer drops the `dropped` entity onto the `target` entity.
+/// Fires when a pointer drops the `dropped` entity onto the [target entity](On::entity).
 #[derive(Clone, PartialEq, Debug, Reflect)]
 #[reflect(Clone, PartialEq)]
 pub struct DragDrop {
     /// Pointer button released to drop.
     pub button: PointerButton,
-    /// The entity that was dropped onto the `target` entity.
+    /// The entity that was dropped onto the [target entity](On::entity).
     pub dropped: Entity,
     /// Information about the picking intersection.
     pub hit: HitData,
@@ -322,7 +322,7 @@ pub struct DragEntry {
     pub latest_pos: Vec2,
 }
 
-/// Fires while a pointer is scrolling over the `target` entity.
+/// Fires while a pointer is scrolling over the [target entity](On::entity).
 #[derive(Clone, PartialEq, Debug, Reflect)]
 #[reflect(Clone, PartialEq)]
 pub struct Scroll {
