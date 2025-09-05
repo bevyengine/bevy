@@ -7,7 +7,7 @@ use bevy_render::{
     extract_component::ExtractComponent,
     render_resource::{AsBindGroup, RenderPipelineDescriptor},
 };
-use bevy_shader::ShaderRef;
+use bevy_shader::{Shader, ShaderRef};
 use derive_more::derive::From;
 
 /// Materials are used alongside [`UiMaterialPlugin`](crate::UiMaterialPlugin) and [`MaterialNode`]
@@ -54,7 +54,7 @@ use derive_more::derive::From;
 /// // All functions on `UiMaterial` have default impls. You only need to implement the
 /// // functions that are relevant for your material.
 /// impl UiMaterial for CustomMaterial {
-///     fn fragment_shader() -> ShaderRef {
+///     fn fragment_shader(&self) -> ShaderRef {
 ///         "shaders/custom_material.wgsl".into()
 ///     }
 /// }
@@ -99,16 +99,16 @@ use derive_more::derive::From;
 ///
 /// }
 /// ```
-pub trait UiMaterial: AsBindGroup + Asset + Clone + Sized {
+pub trait UiMaterial: AsBindGroup + Asset + Clone + Sized + 'static {
     /// Returns this materials vertex shader. If [`ShaderRef::Default`] is returned, the default UI
     /// vertex shader will be used.
-    fn vertex_shader() -> ShaderRef {
+    fn vertex_shader(&self) -> ShaderRef {
         ShaderRef::Default
     }
 
     /// Returns this materials fragment shader. If [`ShaderRef::Default`] is returned, the default
     /// UI fragment shader will be used.
-    fn fragment_shader() -> ShaderRef {
+    fn fragment_shader(&self) -> ShaderRef {
         ShaderRef::Default
     }
 
@@ -122,6 +122,8 @@ pub trait UiMaterial: AsBindGroup + Asset + Clone + Sized {
 
 pub struct UiMaterialKey<M: UiMaterial> {
     pub hdr: bool,
+    pub vertex_shader: Handle<Shader>,
+    pub fragment_shader: Handle<Shader>,
     pub bind_group_data: M::Data,
 }
 
@@ -132,7 +134,10 @@ where
     M::Data: PartialEq,
 {
     fn eq(&self, other: &Self) -> bool {
-        self.hdr == other.hdr && self.bind_group_data == other.bind_group_data
+        self.hdr == other.hdr
+            && self.vertex_shader == other.vertex_shader
+            && self.fragment_shader == other.fragment_shader
+            && self.bind_group_data == other.bind_group_data
     }
 }
 
@@ -143,6 +148,8 @@ where
     fn clone(&self) -> Self {
         Self {
             hdr: self.hdr,
+            vertex_shader: self.vertex_shader.clone(),
+            fragment_shader: self.fragment_shader.clone(),
             bind_group_data: self.bind_group_data.clone(),
         }
     }
@@ -154,6 +161,8 @@ where
 {
     fn hash<H: core::hash::Hasher>(&self, state: &mut H) {
         self.hdr.hash(state);
+        self.vertex_shader.hash(state);
+        self.fragment_shader.hash(state);
         self.bind_group_data.hash(state);
     }
 }
