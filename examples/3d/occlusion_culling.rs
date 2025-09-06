@@ -10,7 +10,6 @@ use std::{
     f32::consts::PI,
     fmt::Write as _,
     result::Result,
-    sync::{Arc, Mutex},
 };
 
 use bevy::{
@@ -24,6 +23,7 @@ use bevy::{
     },
     pbr::PbrPlugin,
     prelude::*,
+    platform::{Arc, Mutex},
     render::{
         batching::gpu_preprocessing::{
             GpuPreprocessingSupport, IndirectParametersBuffers, IndirectParametersIndexed,
