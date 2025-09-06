@@ -1,7 +1,6 @@
-use std::sync::Mutex;
-
 use crate::fxaa::{CameraFxaaPipeline, Fxaa, FxaaPipeline};
 use bevy_ecs::{prelude::*, query::QueryItem};
+use bevy_platform::sync::Mutex;
 use bevy_render::{
     diagnostic::RecordDiagnostics,
     render_graph::{NodeRunError, RenderGraphContext, ViewNode},
@@ -48,7 +47,7 @@ impl ViewNode for FxaaNode {
         let post_process = target.post_process_write();
         let source = post_process.source;
         let destination = post_process.destination;
-        let mut cached_bind_group = self.cached_texture_bind_group.lock().unwrap();
+        let mut cached_bind_group = self.cached_texture_bind_group.lock();
         let bind_group = match &mut *cached_bind_group {
             Some((id, bind_group)) if source.id() == *id => bind_group,
             cached_bind_group => {

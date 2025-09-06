@@ -98,6 +98,7 @@ use bevy_ecs::{
     schedule::{ScheduleBuildSettings, ScheduleLabel},
 };
 use bevy_image::{CompressedImageFormatSupport, CompressedImageFormats};
+use bevy_platform::sync::Mutex;
 use bevy_shader::{load_shader_library, Shader, ShaderLoader};
 use bevy_utils::prelude::default;
 use bevy_window::{PrimaryWindow, RawHandleWrapperHolder};
@@ -110,7 +111,6 @@ use render_asset::{
     RenderAssetBytesPerFrame, RenderAssetBytesPerFrameLimiter,
 };
 use settings::RenderResources;
-use std::sync::Mutex;
 use sync_world::{despawn_temporary_render_entities, entity_sync_system, SyncWorldPlugin};
 pub use wgpu_wrapper::WgpuWrapper;
 
@@ -346,7 +346,7 @@ impl Plugin for RenderPlugin {
                         )
                         .await;
 
-                        *future_render_resources_wrapper.lock().unwrap() = Some(render_resources);
+                        *future_render_resources_wrapper.lock() = Some(render_resources);
                     };
 
                     // In wasm, spawn a task and detach it for execution
@@ -411,7 +411,7 @@ impl Plugin for RenderPlugin {
         if let Some(future_render_resources) =
             app.world_mut().remove_resource::<FutureRenderResources>()
         {
-            let render_resources = future_render_resources.0.lock().unwrap().take().unwrap();
+            let render_resources = future_render_resources.0.lock().take().unwrap();
             let RenderResources(device, queue, adapter_info, render_adapter, instance, ..) =
                 render_resources;
 

@@ -814,12 +814,12 @@ pub mod __macro_exports {
 
             /// Adds adds a new registration function for [`TypeRegistry`]
             pub fn push_registration_fn(registration_fn: fn(&mut TypeRegistry)) {
-                REGISTRATION_FNS.lock().unwrap().push(registration_fn);
+                REGISTRATION_FNS.lock().push(registration_fn);
             }
 
             /// Registers all collected types.
             pub fn register_types(registry: &mut TypeRegistry) {
-                for func in REGISTRATION_FNS.lock().unwrap().iter() {
+                for func in REGISTRATION_FNS.lock().iter() {
                     (func)(registry);
                 }
             }

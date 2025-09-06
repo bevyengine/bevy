@@ -79,10 +79,9 @@ pub mod internal {
     use bevy_app::{App, First, Startup, Update};
     use bevy_ecs::resource::Resource;
     use bevy_ecs::{prelude::ResMut, system::Local};
-    use bevy_platform::time::Instant;
+    use bevy_platform::{sync::Mutex, time::Instant};
     use bevy_tasks::{available_parallelism, block_on, poll_once, AsyncComputeTaskPool, Task};
     use log::info;
-    use std::sync::Mutex;
     use sysinfo::{CpuRefreshKind, MemoryRefreshKind, RefreshKind, System};
 
     use crate::{Diagnostic, Diagnostics, DiagnosticsStore};
@@ -154,7 +153,7 @@ pub mod internal {
         {
             let sys = Arc::clone(sysinfo);
             let task = thread_pool.spawn(async move {
-                let mut sys = sys.lock().unwrap();
+                let mut sys = sys.lock();
                 let pid = sysinfo::get_current_pid().expect("Failed to get current process ID");
                 sys.refresh_processes(sysinfo::ProcessesToUpdate::Some(&[pid]), true);
 

@@ -523,7 +523,7 @@ mod drop_tests {
     use core::mem;
     use core::sync::atomic::{AtomicUsize, Ordering};
     use core::task::{Poll, Waker};
-    use std::sync::Mutex;
+    use bevy_platform::sync::Mutex;
 
     use bevy_platform::sync::LazyLock;
     use futures_lite::future;
@@ -543,14 +543,14 @@ mod drop_tests {
             });
 
             future::poll_fn(|cx| {
-                *WAKER.lock().unwrap() = Some(cx.waker().clone());
+                *WAKER.lock() = Some(cx.waker().clone());
                 Poll::Pending::<()>
             })
             .await;
         });
 
         future::block_on(ex.tick());
-        assert!(WAKER.lock().unwrap().is_some());
+        assert!(WAKER.lock().is_some());
         assert_eq!(DROP.load(Ordering::SeqCst), 0);
 
         mem::forget(ex);

@@ -2,8 +2,8 @@
 
 use alloc::{collections::VecDeque, sync::Arc};
 use bevy_input_focus::InputFocus;
+use bevy_platform::sync::Mutex;
 use core::cell::RefCell;
-use std::sync::Mutex;
 use winit::event_loop::ActiveEventLoop;
 
 use accesskit::{
@@ -96,7 +96,7 @@ struct WinitActivationHandler(Arc<Mutex<AccessKitState>>);
 
 impl ActivationHandler for WinitActivationHandler {
     fn request_initial_tree(&mut self) -> Option<TreeUpdate> {
-        Some(self.0.lock().unwrap().build_initial_tree())
+        Some(self.0.lock().build_initial_tree())
     }
 }
 
@@ -111,8 +111,7 @@ struct WinitActionHandler(Arc<Mutex<WinitActionRequestHandler>>);
 
 impl ActionHandler for WinitActionHandler {
     fn do_action(&mut self, request: ActionRequest) {
-        let mut requests = self.0.lock().unwrap();
-        requests.push_back(request);
+        self.0.lock().push_back(request);
     }
 }
 
@@ -175,8 +174,7 @@ fn poll_receivers(
     mut actions: EventWriter<ActionRequestWrapper>,
 ) {
     for (_id, handler) in handlers.iter() {
-        let mut handler = handler.lock().unwrap();
-        while let Some(event) = handler.pop_front() {
+        while let Some(event) = handler.lock().pop_front() {
             actions.write(ActionRequestWrapper(event));
         }
     }

@@ -856,7 +856,7 @@ mod tests {
         }
         async fn read<'a>(&'a self, path: &'a Path) -> Result<impl Reader + 'a, AssetReaderError> {
             let attempt_number = {
-                let mut attempt_counters = self.attempt_counters.lock().unwrap();
+                let mut attempt_counters = self.attempt_counters.lock();
                 if let Some(existing) = attempt_counters.get_mut(path) {
                     *existing += 1;
                     *existing

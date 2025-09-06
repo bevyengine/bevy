@@ -1,7 +1,6 @@
-use std::sync::Mutex;
-
 use crate::contrast_adaptive_sharpening::ViewCasPipeline;
 use bevy_ecs::prelude::*;
+use bevy_platform::sync::Mutex;
 use bevy_render::{
     diagnostic::RecordDiagnostics,
     extract_component::{ComponentUniforms, DynamicUniformIndex},
@@ -73,7 +72,7 @@ impl Node for CasNode {
         let source = view_target.source;
         let destination = view_target.destination;
 
-        let mut cached_bind_group = self.cached_bind_group.lock().unwrap();
+        let mut cached_bind_group = self.cached_bind_group.lock();
         let bind_group = match &mut *cached_bind_group {
             Some((buffer_id, texture_id, bind_group))
                 if source.id() == *texture_id && uniforms_id == *buffer_id =>

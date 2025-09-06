@@ -1,13 +1,12 @@
 use alloc::{boxed::Box, vec::Vec};
 use bevy_platform::cell::SyncUnsafeCell;
-use bevy_platform::sync::Arc;
+use bevy_platform::sync::{Arc, Mutex, MutexGuard};
 use bevy_tasks::{ComputeTaskPool, Scope, TaskPool, ThreadExecutor};
 use concurrent_queue::ConcurrentQueue;
 use core::{any::Any, panic::AssertUnwindSafe};
 use fixedbitset::FixedBitSet;
 #[cfg(feature = "std")]
 use std::eprintln;
-use std::sync::{Mutex, MutexGuard};
 
 #[cfg(feature = "trace")]
 use tracing::{info_span, Span};
@@ -154,7 +153,7 @@ impl SystemExecutor for MultiThreadedExecutor {
     }
 
     fn init(&mut self, schedule: &SystemSchedule) {
-        let state = self.state.get_mut().unwrap();
+        let state = self.state.get_mut();
         // pre-allocate space
         let sys_count = schedule.system_ids.len();
         let set_count = schedule.set_ids.len();
@@ -242,7 +241,7 @@ impl SystemExecutor for MultiThreadedExecutor {
         _skip_systems: Option<&FixedBitSet>,
         error_handler: ErrorHandler,
     ) {
-        let state = self.state.get_mut().unwrap();
+        let state = self.state.get_mut();
         // reset counts
         if schedule.systems.is_empty() {
             return;
@@ -295,21 +294,19 @@ impl SystemExecutor for MultiThreadedExecutor {
         // End the borrows of self and world in environment by copying out the reference to systems.
         let systems = environment.systems;
 
-        let state = self.state.get_mut().unwrap();
+        let state = self.state.get_mut();
         if self.apply_final_deferred {
             // Do one final apply buffers after all systems have completed
             // Commands should be applied while on the scope's thread, not the executor's thread
             let res = apply_deferred(&state.unapplied_systems, systems, world);
             if let Err(payload) = res {
-                let panic_payload = self.panic_payload.get_mut().unwrap();
-                *panic_payload = Some(payload);
+                *self.panic_payload.get_mut() = Some(payload);
             }
             state.unapplied_systems.clear();
         }
 
         // check to see if there was a panic
-        let payload = self.panic_payload.get_mut().unwrap();
-        if let Some(payload) = payload.take() {
+        if let Some(payload) = self.panic_payload.get_mut().take() {
             std::panic::resume_unwind(payload);
         }
 
@@ -346,7 +343,7 @@ impl<'scope, 'env: 'scope, 'sys> Context<'scope, 'env, 'sys> {
             }
             // set the payload to propagate the error
             {
-                let mut panic_payload = self.environment.executor.panic_payload.lock().unwrap();
+                let mut panic_payload = self.environment.executor.panic_payload.lock();
                 *panic_payload = Some(payload);
             }
         }

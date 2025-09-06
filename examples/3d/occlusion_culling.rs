@@ -148,8 +148,7 @@ fn init_saved_indirect_parameters(
     gpu_preprocessing_support: Res<GpuPreprocessingSupport>,
     saved_indirect_parameters: Res<SavedIndirectParameters>,
 ) {
-    let mut saved_indirect_parameters = saved_indirect_parameters.0.lock().unwrap();
-    *saved_indirect_parameters = Some(SavedIndirectParametersData {
+    *saved_indirect_parameters.0.lock() = Some(SavedIndirectParametersData {
         data: vec![],
         count: 0,
         occlusion_culling_supported: gpu_preprocessing_support.is_culling_supported(),
@@ -545,7 +544,7 @@ fn update_status_text(
         occlusion_culling_supported,
         occlusion_culling_introspection_supported,
     ): (u32, bool, bool) = {
-        let saved_indirect_parameters = saved_indirect_parameters.lock().unwrap();
+        let saved_indirect_parameters = saved_indirect_parameters.lock();
         let Some(saved_indirect_parameters) = saved_indirect_parameters.as_ref() else {
             // Bail out early if the resource isn't initialized yet.
             return;

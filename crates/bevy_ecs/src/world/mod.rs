@@ -3691,14 +3691,17 @@ mod tests {
         vec::Vec,
     };
     use bevy_ecs_macros::Component;
-    use bevy_platform::collections::{HashMap, HashSet};
+    use bevy_platform::{
+        collections::{HashMap, HashSet},
+        sync::Mutex,
+    };
     use bevy_utils::prelude::DebugName;
     use core::{
         any::TypeId,
         panic,
         sync::atomic::{AtomicBool, AtomicU32, Ordering},
     };
-    use std::{println, sync::Mutex};
+    use std::println;
 
     type ID = u8;
 
@@ -3724,7 +3727,7 @@ mod tests {
             id: u8,
         ) -> Self {
             println!("creating component with id {id}");
-            drop_log.lock().unwrap().push(DropLogItem::Create(id));
+            drop_log.lock().push(DropLogItem::Create(id));
 
             Self {
                 drop_log: Arc::clone(drop_log),
@@ -3740,7 +3743,7 @@ mod tests {
             println!("dropping component with id {}", self.id);
 
             {
-                let mut drop_log = self.drop_log.lock().unwrap();
+                let mut drop_log = self.drop_log.lock();
                 drop_log.push(DropLogItem::Drop(self.id));
                 // Don't keep the mutex while panicking, or we'll poison it.
                 drop(drop_log);
@@ -3773,7 +3776,7 @@ mod tests {
         }
 
         pub fn finish(self, panic_res: std::thread::Result<()>) -> Vec<DropLogItem> {
-            let drop_log = self.drop_log.lock().unwrap();
+            let drop_log = self.drop_log.lock();
             let expected_panic_flag = self.expected_panic_flag.load(Ordering::SeqCst);
 
             if !expected_panic_flag {
