@@ -79,7 +79,7 @@ fn setup_common(
             font_size: 36.,
             ..default()
         },
-        DespawnOnExitState(stage),
+        DespawnOnExit(stage),
     ));
 }
 
@@ -104,7 +104,7 @@ fn setup_with_children(
         .spawn((
             Sprite::from_image(texture.clone()),
             Transform::from_scale(Vec3::splat(0.75)),
-            DespawnOnExitState(Scene::WithChildren),
+            DespawnOnExit(Scene::WithChildren),
         ))
         // With that entity as a parent, run a lambda that spawns its children
         .with_children(|parent| {
@@ -158,7 +158,7 @@ fn setup_children_spawn(
     commands.spawn((
         Sprite::from_image(texture.clone()),
         Transform::from_scale(Vec3::splat(0.75)),
-        DespawnOnExitState(Scene::ChildrenSpawn),
+        DespawnOnExit(Scene::ChildrenSpawn),
         Children::spawn((
             Spawn((
                 Transform::from_xyz(250.0, 0.0, 0.0).with_scale(Vec3::splat(0.75)),
@@ -200,7 +200,7 @@ fn spawn_children_macro(
     commands.spawn((
         Sprite::from_image(texture.clone()),
         Transform::from_scale(Vec3::splat(0.75)),
-        DespawnOnExitState(Scene::ChildrenMacro),
+        DespawnOnExit(Scene::ChildrenMacro),
         children![
             (
                 Transform::from_xyz(250.0, 0.0, 0.0).with_scale(Vec3::splat(0.75)),
@@ -253,7 +253,7 @@ fn setup_children_iter(
     commands.spawn((
         Sprite::from_image(texture.clone()),
         Transform::from_scale(Vec3::splat(0.75)),
-        DespawnOnExitState(Scene::ChildrenIter),
+        DespawnOnExit(Scene::ChildrenIter),
         Children::spawn(SpawnIter(child_components.into_iter().map(
             move |(transform, color)| {
                 (
@@ -289,7 +289,7 @@ fn setup_children_related(
     commands.spawn((
         Sprite::from_image(texture.clone()),
         Transform::from_scale(Vec3::splat(0.75)),
-        DespawnOnExitState(Scene::Related),
+        DespawnOnExit(Scene::Related),
         // the `related!` macro will spawn entities according to the `Children: RelationshipTarget` trait, but other types implementing `RelationshipTarget` can be used as well.
         related!(Children[
             (
