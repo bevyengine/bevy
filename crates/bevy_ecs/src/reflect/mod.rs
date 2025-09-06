@@ -6,6 +6,8 @@ use crate::{resource::Resource, world::World};
 use bevy_reflect::{
     std_traits::ReflectDefault, PartialReflect, Reflect, ReflectFromReflect, TypePath, TypeRegistry,
 };
+#[cfg(feature = "reflect_functions")]
+use bevy_reflect::func::FunctionRegistry;
 
 mod bundle;
 mod component;
@@ -55,23 +57,15 @@ impl AppTypeRegistry {
 /// [`FunctionRegistry`]: bevy_reflect::func::FunctionRegistry
 #[cfg(feature = "reflect_functions")]
 #[derive(Resource, Clone, Default)]
-pub struct AppFunctionRegistry(pub bevy_reflect::func::FunctionRegistryArc);
+pub struct AppFunctionRegistry(Arc<RwLock<FunctionRegistry>>);
 
 #[cfg(feature = "reflect_functions")]
 impl Deref for AppFunctionRegistry {
-    type Target = bevy_reflect::func::FunctionRegistryArc;
+    type Target = RwLock<FunctionRegistry>;
 
     #[inline]
     fn deref(&self) -> &Self::Target {
         &self.0
-    }
-}
-
-#[cfg(feature = "reflect_functions")]
-impl DerefMut for AppFunctionRegistry {
-    #[inline]
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.0
     }
 }
 
