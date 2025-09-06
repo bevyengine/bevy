@@ -2,7 +2,7 @@
 //!
 //! Unlike other examples, which demonstrate an application, this demonstrates a plugin library.
 
-use bevy::{ecs::system::EntityCommands, prelude::*};
+use bevy::prelude::*;
 
 /// An event that's sent whenever the user changes one of the settings by
 /// clicking a radio button.
@@ -150,20 +150,8 @@ where
     )
 }
 
-/// Spawns text for the UI.
-///
-/// Returns the `EntityCommands`, which allow further customization of the text
-/// style.
-pub fn spawn_ui_text<'a>(
-    parent: &'a mut ChildSpawnerCommands,
-    label: &str,
-    color: Color,
-) -> EntityCommands<'a> {
-    parent.spawn(ui_text(label, color))
-}
-
 /// Creates a text bundle for the UI.
-pub fn ui_text<'a>(label: &str, color: Color) -> (Text, TextFont, TextColor) {
+pub fn ui_text(label: &str, color: Color) -> (Text, TextFont, TextColor) {
     (
         Text::new(label),
         TextFont {
