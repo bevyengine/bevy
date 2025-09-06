@@ -3,11 +3,11 @@
 use core::{any::TypeId, ops::Deref};
 
 use crate::{resource::Resource, world::World};
+#[cfg(feature = "reflect_functions")]
+use bevy_reflect::func::FunctionRegistry;
 use bevy_reflect::{
     std_traits::ReflectDefault, PartialReflect, Reflect, ReflectFromReflect, TypePath, TypeRegistry,
 };
-#[cfg(feature = "reflect_functions")]
-use bevy_reflect::func::FunctionRegistry;
 
 mod bundle;
 mod component;
