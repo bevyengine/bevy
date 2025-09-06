@@ -8,9 +8,9 @@ use bevy_ecs::{
     world::World,
 };
 use bevy_platform::sync::RwLock;
-use derive_more::Deref;
 use bevy_utils::TypeIdMap;
 use core::{any::TypeId, fmt::Debug, hash::Hash};
+use derive_more::Deref;
 use thiserror::Error;
 use variadics_please::all_tuples;
 

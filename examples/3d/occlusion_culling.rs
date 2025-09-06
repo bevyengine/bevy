@@ -5,12 +5,7 @@
 //! cubes. The demo displays the number of cubes that were actually rendered, so
 //! the effects of occlusion culling can be seen.
 
-use std::{
-    any::TypeId,
-    f32::consts::PI,
-    fmt::Write as _,
-    result::Result,
-};
+use std::{any::TypeId, f32::consts::PI, fmt::Write as _, result::Result};
 
 use bevy::{
     color::palettes::css::{SILVER, WHITE},
@@ -22,8 +17,8 @@ use bevy::{
         prepass::DepthPrepass,
     },
     pbr::PbrPlugin,
-    prelude::*,
     platform::{Arc, Mutex},
+    prelude::*,
     render::{
         batching::gpu_preprocessing::{
             GpuPreprocessingSupport, IndirectParametersBuffers, IndirectParametersIndexed,
