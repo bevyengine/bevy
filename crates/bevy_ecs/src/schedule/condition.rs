@@ -1311,6 +1311,10 @@ where
 #[cfg(test)]
 mod tests {
     use super::{common_conditions::*, SystemCondition};
+    use crate::error::{BevyError, DefaultErrorHandler, ErrorContext};
+    use crate::event::BufferedEvent;
+    use crate::query::With;
+    use crate::system::{IntoSystem, Res, System};
     use crate::{
         change_detection::ResMut,
         component::Component,
@@ -1320,7 +1324,7 @@ mod tests {
         system::Local,
         world::World,
     };
-    use bevy_ecs_macros::Resource;
+    use bevy_ecs_macros::{Resource, SystemSet};
 
     #[derive(Resource, Default)]
     struct Counter(usize);
@@ -1456,5 +1460,38 @@ mod tests {
                 .distributive_run_if(any_match_filter::<With<TestComponent>>)
                 .distributive_run_if(not(run_once)),
         );
+    }
+
+    #[test]
+    fn run_if_error_contains_system() {
+        let mut world = World::new();
+        world.insert_resource(DefaultErrorHandler(my_error_handler));
+
+        #[derive(Resource)]
+        struct MyResource;
+
+        fn condition(_res: Res<MyResource>) -> bool {
+            true
+        }
+
+        fn my_error_handler(_: BevyError, ctx: ErrorContext) {
+            let test = IntoSystem::into_system(test_system);
+            assert!(
+                matches!(ctx, ErrorContext::RunCondition { system, .. } if system == test.name())
+            );
+        }
+
+        let mut schedule = Schedule::default();
+        schedule.add_systems(test_system.run_if(condition));
+        schedule.run(&mut world);
+
+        #[derive(SystemSet, Debug, Hash, PartialEq, Eq, Clone)]
+        struct Set;
+
+        let mut schedule = Schedule::default();
+        schedule
+            .add_systems((test_system,).in_set(Set))
+            .configure_sets(Set.run_if(condition));
+        schedule.run(&mut world);
     }
 }

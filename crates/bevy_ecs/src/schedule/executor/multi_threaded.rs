@@ -601,6 +601,7 @@ impl ExecutorState {
                     &mut conditions.set_conditions[set_idx],
                     world,
                     error_handler,
+                    system,
                 )
             };
 
@@ -622,6 +623,7 @@ impl ExecutorState {
                 &mut conditions.system_conditions[system_index],
                 world,
                 error_handler,
+                system,
             )
         };
 
@@ -826,6 +828,7 @@ unsafe fn evaluate_and_fold_conditions(
     conditions: &mut [ConditionWithAccess],
     world: UnsafeWorldCell,
     error_handler: ErrorHandler,
+    for_system: &ScheduleSystem,
 ) -> bool {
     #[expect(
         clippy::unnecessary_fold,
@@ -855,6 +858,7 @@ unsafe fn evaluate_and_fold_conditions(
                             ErrorContext::RunCondition {
                                 name: condition.name(),
                                 last_run: condition.get_last_run(),
+                                system: for_system.name(),
                             },
                         );
                     };

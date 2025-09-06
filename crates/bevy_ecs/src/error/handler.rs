@@ -20,6 +20,8 @@ pub enum ErrorContext {
         name: DebugName,
         /// The last tick that the run condition was evaluated.
         last_run: Tick,
+        /// The system this run condition is attached to.
+        system: DebugName,
     },
     /// The error occurred in a command.
     Command {
@@ -45,8 +47,8 @@ impl Display for ErrorContext {
             Self::Observer { name, .. } => {
                 write!(f, "Observer `{name}` failed")
             }
-            Self::RunCondition { name, .. } => {
-                write!(f, "Run condition `{name}` failed")
+            Self::RunCondition { name, system, .. } => {
+                write!(f, "Run condition `{name}` failed for system `{system}`")
             }
         }
     }
