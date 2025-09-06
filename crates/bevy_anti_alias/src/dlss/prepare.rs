@@ -9,6 +9,7 @@ use bevy_ecs::{
     system::{Commands, Query, Res},
 };
 use bevy_math::Vec4Swizzles;
+use bevy_platform::sync::{Arc, Mutex};
 use bevy_render::{
     camera::{MipBias, TemporalJitter},
     render_resource::TextureUsages,
@@ -16,7 +17,6 @@ use bevy_render::{
     view::ExtractedView,
 };
 use dlss_wgpu::{DlssFeatureFlags, DlssPerfQualityMode};
-use std::sync::{Arc, Mutex};
 
 #[derive(Component)]
 pub struct DlssRenderContext<F: DlssFeature> {
@@ -76,12 +76,11 @@ pub fn prepare_dlss<F: DlssFeature>(
 
         match dlss_context.as_deref_mut() {
             Some(dlss_context)
-                if upscaled_resolution
-                    == F::upscaled_resolution(&dlss_context.context.lock().unwrap())
+                if upscaled_resolution == F::upscaled_resolution(&dlss_context.context.lock())
                     && dlss.perf_quality_mode == dlss_context.perf_quality_mode
                     && dlss_feature_flags == dlss_context.feature_flags =>
             {
-                let dlss_context = dlss_context.context.lock().unwrap();
+                let dlss_context = dlss_context.context.lock();
                 let render_resolution = F::render_resolution(&dlss_context);
                 temporal_jitter.offset =
                     F::suggested_jitter(&dlss_context, frame_count.0, render_resolution);

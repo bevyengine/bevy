@@ -1,5 +1,4 @@
 use alloc::{boxed::Box, vec::Vec};
-use bevy_platform::sync::PoisonError;
 use bevy_utils::TypeIdMap;
 use core::any::Any;
 use core::{any::TypeId, fmt::Debug, ops::Deref};
@@ -125,11 +124,7 @@ impl<'w> ComponentsRegistrator<'w> {
 
         // components
         while let Some(registrator) = {
-            let queued = self
-                .components
-                .queued
-                .get_mut()
-                .unwrap_or_else(PoisonError::into_inner);
+            let queued = self.components.queued.get_mut();
             queued.components.keys().next().copied().map(|type_id| {
                 // SAFETY: the id just came from a valid iterator.
                 unsafe { queued.components.remove(&type_id).debug_checked_unwrap() }
@@ -140,11 +135,7 @@ impl<'w> ComponentsRegistrator<'w> {
 
         // resources
         while let Some(registrator) = {
-            let queued = self
-                .components
-                .queued
-                .get_mut()
-                .unwrap_or_else(PoisonError::into_inner);
+            let queued = self.components.queued.get_mut();
             queued.resources.keys().next().copied().map(|type_id| {
                 // SAFETY: the id just came from a valid iterator.
                 unsafe { queued.resources.remove(&type_id).debug_checked_unwrap() }
@@ -154,11 +145,7 @@ impl<'w> ComponentsRegistrator<'w> {
         }
 
         // dynamic
-        let queued = &mut self
-            .components
-            .queued
-            .get_mut()
-            .unwrap_or_else(PoisonError::into_inner);
+        let queued = &mut self.components.queued.get_mut();
         if !queued.dynamic_registrations.is_empty() {
             for registrator in core::mem::take(&mut queued.dynamic_registrations) {
                 registrator.register(self);
@@ -188,14 +175,7 @@ impl<'w> ComponentsRegistrator<'w> {
             return id;
         }
 
-        if let Some(registrator) = self
-            .components
-            .queued
-            .get_mut()
-            .unwrap_or_else(PoisonError::into_inner)
-            .components
-            .remove(&type_id)
-        {
+        if let Some(registrator) = self.components.queued.get_mut().components.remove(&type_id) {
             // If we are trying to register something that has already been queued, we respect the queue.
             // Just like if we are trying to register something that already is, we respect the first registration.
             return registrator.register(self);
@@ -325,14 +305,7 @@ impl<'w> ComponentsRegistrator<'w> {
             return *id;
         }
 
-        if let Some(registrator) = self
-            .components
-            .queued
-            .get_mut()
-            .unwrap_or_else(PoisonError::into_inner)
-            .resources
-            .remove(&type_id)
-        {
+        if let Some(registrator) = self.components.queued.get_mut().resources.remove(&type_id) {
             // If we are trying to register something that has already been queued, we respect the queue.
             // Just like if we are trying to register something that already is, we respect the first registration.
             return registrator.register(self);
@@ -500,7 +473,6 @@ impl<'w> ComponentsQueuedRegistrator<'w> {
         self.components
             .queued
             .write()
-            .unwrap_or_else(PoisonError::into_inner)
             .components
             .entry(type_id)
             .or_insert_with(|| {
@@ -525,7 +497,6 @@ impl<'w> ComponentsQueuedRegistrator<'w> {
         self.components
             .queued
             .write()
-            .unwrap_or_else(PoisonError::into_inner)
             .resources
             .entry(type_id)
             .or_insert_with(|| {
@@ -542,15 +513,10 @@ impl<'w> ComponentsQueuedRegistrator<'w> {
         func: impl FnOnce(&mut ComponentsRegistrator, ComponentId, ComponentDescriptor) + 'static,
     ) -> ComponentId {
         let id = self.ids.next();
-        self.components
-            .queued
-            .write()
-            .unwrap_or_else(PoisonError::into_inner)
-            .dynamic_registrations
-            .push(
-                // SAFETY: The id was just generated.
-                unsafe { QueuedRegistration::new(id, descriptor, func) },
-            );
+        self.components.queued.write().dynamic_registrations.push(
+            // SAFETY: The id was just generated.
+            unsafe { QueuedRegistration::new(id, descriptor, func) },
+        );
         id
     }
 

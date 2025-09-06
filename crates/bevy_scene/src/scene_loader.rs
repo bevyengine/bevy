@@ -3,7 +3,6 @@ use bevy_ecs::{
     reflect::AppTypeRegistry,
     world::{FromWorld, World},
 };
-use bevy_reflect::TypeRegistryArc;
 use thiserror::Error;
 
 #[cfg(feature = "serialize")]
@@ -22,14 +21,14 @@ pub struct SceneLoader {
         not(feature = "serialize"),
         expect(dead_code, reason = "only used with `serialize` feature")
     )]
-    type_registry: TypeRegistryArc,
+    type_registry: AppTypeRegistry,
 }
 
 impl FromWorld for SceneLoader {
     fn from_world(world: &mut World) -> Self {
         let type_registry = world.resource::<AppTypeRegistry>();
         SceneLoader {
-            type_registry: type_registry.0.clone(),
+            type_registry: (*type_registry).clone(),
         }
     }
 }

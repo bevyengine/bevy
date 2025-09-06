@@ -169,14 +169,13 @@ mod tests {
         world::{EntityMut, EntityRef, Mut, World},
     };
     use alloc::{string::String, sync::Arc, vec, vec::Vec};
-    use bevy_platform::collections::HashSet;
+    use bevy_platform::{collections::HashSet, sync::Mutex};
     use bevy_tasks::{ComputeTaskPool, TaskPool};
     use core::{
         any::TypeId,
         marker::PhantomData,
         sync::atomic::{AtomicUsize, Ordering},
     };
-    use std::sync::Mutex;
 
     #[derive(Component, Resource, Debug, PartialEq, Eq, Hash, Clone, Copy)]
     struct A(usize);
@@ -507,12 +506,12 @@ mod tests {
             .query::<(Entity, &A)>()
             .par_iter(&world)
             .for_each(|(e, &A(i))| {
-                results.lock().unwrap().push((e, i));
+                results.lock().push((e, i));
             });
-        results.lock().unwrap().sort();
+        results.lock().sort();
         let mut expected = [(e1, 1), (e2, 2), (e3, 3), (e4, 4), (e5, 5)];
         expected.sort();
-        assert_eq!(&*results.lock().unwrap(), &expected);
+        assert_eq!(&*results.lock(), &expected);
     }
 
     #[test]
@@ -528,11 +527,11 @@ mod tests {
         world
             .query::<(Entity, &SparseStored)>()
             .par_iter(&world)
-            .for_each(|(e, &SparseStored(i))| results.lock().unwrap().push((e, i)));
-        results.lock().unwrap().sort();
+            .for_each(|(e, &SparseStored(i))| results.lock().push((e, i)));
+        results.lock().sort();
         let mut expected = [(e1, 1), (e2, 2), (e3, 3), (e4, 4), (e5, 5)];
         expected.sort();
-        assert_eq!(&*results.lock().unwrap(), &expected);
+        assert_eq!(&*results.lock(), &expected);
     }
 
     #[test]
