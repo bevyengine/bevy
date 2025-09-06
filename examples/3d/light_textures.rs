@@ -283,19 +283,18 @@ fn spawn_light_textures(
 fn spawn_buttons(commands: &mut Commands) {
     // Spawn the radio buttons that allow the user to select an object to
     // control.
-    commands
-        .spawn((widgets::main_ui_node(),))
-        .with_children(|parent| {
-            widgets::option_buttons(
-                "Drag to Move",
-                &[
-                    (Selection::Camera, "Camera"),
-                    (Selection::SpotLight, "Spotlight"),
-                    (Selection::PointLight, "Point Light"),
-                    (Selection::DirectionalLight, "Directional Light"),
-                ],
-            );
-        });
+    commands.spawn((
+        widgets::main_ui_node(),
+        children![widgets::option_buttons(
+            "Drag to Move",
+            &[
+                (Selection::Camera, "Camera"),
+                (Selection::SpotLight, "Spotlight"),
+                (Selection::PointLight, "Point Light"),
+                (Selection::DirectionalLight, "Directional Light"),
+            ],
+        )],
+    ));
 
     // Spawn the drag buttons that allow the user to control the scale and roll
     // of the selected object.
