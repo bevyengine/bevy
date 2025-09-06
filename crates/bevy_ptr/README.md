@@ -112,6 +112,6 @@ They allow working with heterogenous type erased storage (i.e. ECS tables, typem
 translates back to safe borrows. These types also support optional alignment requirements at a type level, and will verify it on dereference in debug builds.
 
 `MovingPtr<'a, T>` is like a lifetimed-`Box<T>` or a typed `OwningPtr<'a>` made for cheaply moving potentially large values around in memory.
-It's a pointer that owns the value it points to but does not own the allocation. If dropped, it will drop the value it points to if it's dropped, just as
+It's a pointer that owns the value it points to but does not own the allocation. If dropped, it will drop the value it points to, just as
 if you dropped a value of the inner type but won't deallocate the allocation where the value lived in. It provides a number of methods for moving the value
 into another location in memory, including options for partial or deconstructive moves.
