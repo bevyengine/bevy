@@ -9,12 +9,12 @@ use bevy_ecs::resource::Resource;
 /// Any system diagnostics gathered by this plugin may not be current when you access them.
 ///
 /// Supported targets:
-/// * linux,
-/// * windows,
-/// * android,
+/// * linux
+/// * windows
+/// * android
 /// * macOS
 ///
-/// NOT supported when using the `bevy/dynamic` feature even when using previously mentioned targets
+/// NOT supported when using the `bevy/dynamic` feature even when using previously mentioned targets.
 ///
 /// # See also
 ///
@@ -98,6 +98,13 @@ mod internal {
 
     const BYTES_TO_GIB: f64 = 1.0 / 1024.0 / 1024.0 / 1024.0;
 
+    /// Sets up the system information diagnostics plugin.
+    ///
+    /// The plugin spawns a single background task in the async task pool that always reschedules.
+    /// The [`wake_diagnostic_task`] system wakes this task once per frame during the [`First`]
+    /// schedule. If enough time has passed since the last refresh, it sends [`SysinfoRefreshData`]
+    /// through a channel. The [`read_diagnostic_task`] system receives this data during the
+    /// [`Update`] schedule and adds it as diagnostic measurements.
     pub(super) fn setup_plugin(app: &mut App) {
         app.add_systems(Startup, setup_system)
             .add_systems(First, wake_diagnostic_task)
@@ -191,6 +198,7 @@ mod internal {
                         .with_cpu(CpuRefreshKind::nothing().with_cpu_usage())
                         .with_memory(MemoryRefreshKind::everything()),
                 ),
+                // Avoids initial delay on first refresh
                 last_refresh: Instant::now() - sysinfo::MINIMUM_CPU_UPDATE_INTERVAL,
                 sender,
                 waker: Arc::default(),
@@ -211,6 +219,7 @@ mod internal {
                 self.sender.send(sysinfo_refresh_data).unwrap();
             }
 
+            // Always reschedules
             Poll::Pending
         }
     }
