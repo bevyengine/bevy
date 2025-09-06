@@ -17,7 +17,7 @@ use bevy::{
         prepass::DepthPrepass,
     },
     pbr::PbrPlugin,
-    platform::{Arc, Mutex},
+    platform::sync::{Arc, Mutex},
     prelude::*,
     render::{
         batching::gpu_preprocessing::{
@@ -595,7 +595,6 @@ fn readback_indirect_parameters(
     // If culling isn't supported on this platform, bail.
     if !saved_indirect_parameters
         .lock()
-        .unwrap()
         .as_ref()
         .unwrap()
         .occlusion_culling_supported
@@ -617,7 +616,6 @@ fn readback_indirect_parameters(
     readback_buffer::<IndirectParametersIndexed>(data_buffer, move |indirect_parameters| {
         saved_indirect_parameters_0
             .lock()
-            .unwrap()
             .as_mut()
             .unwrap()
             .data = indirect_parameters.to_vec();
@@ -625,7 +623,6 @@ fn readback_indirect_parameters(
     readback_buffer::<u32>(batch_sets_buffer, move |indirect_parameters_count| {
         saved_indirect_parameters_1
             .lock()
-            .unwrap()
             .as_mut()
             .unwrap()
             .count = indirect_parameters_count[0];

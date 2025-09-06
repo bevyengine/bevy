@@ -111,9 +111,12 @@ impl<P: PhaseItem> DrawFunctionsInternal<P> {
     }
 }
 
-/// Stores all draw functions for the [`PhaseItem`] type hidden behind a reader-writer lock.
+/// Stores all draw functions for the [`PhaseItem`] type behind a reader-writer lock.
 ///
-/// To access them the [`DrawFunctions::read`] and [`DrawFunctions::write`] methods are used.
+/// This type dereferences to a [`RwLock`]. To access the draw functions, the `read` and
+/// `write` methods are used to obtain a lock on the internal state.
+///
+/// [`RwLock`]: bevy_platform::sync::RwLock
 #[derive(Resource, Deref)]
 pub struct DrawFunctions<P: PhaseItem> {
     internal: RwLock<DrawFunctionsInternal<P>>,
