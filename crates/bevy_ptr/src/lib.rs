@@ -1208,6 +1208,8 @@ impl<T: Sized> DebugEnsureAligned for *mut T {
 /// assert_eq!(target_b.0, 22);
 /// assert_eq!(target_c.0, 33);
 /// ```
+///
+/// [`assign_to`]: MovingPtr::assign_to
 #[macro_export]
 macro_rules! deconstruct_moving_ptr {
     ($ptr:ident, $self_type:tt {$($field_name:tt: $field_type:tt => $field_block:block,)*}) => {
