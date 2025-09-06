@@ -206,10 +206,7 @@ pub async fn initialize_renderer(
     );
 
     let surface = primary_window.and_then(|wrapper| {
-        let maybe_handle = wrapper
-            .0
-            .lock()
-            .expect("Couldn't get the window handle in time for renderer initialization");
+        let maybe_handle = wrapper.0.lock();
         if let Some(wrapper) = maybe_handle.as_ref() {
             // SAFETY: Plugins should be set up on the main thread.
             let handle = unsafe { wrapper.get_handle() };

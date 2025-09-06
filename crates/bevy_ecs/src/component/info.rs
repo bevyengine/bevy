@@ -1,5 +1,5 @@
 use alloc::{borrow::Cow, vec::Vec};
-use bevy_platform::{hash::FixedHasher, sync::PoisonError};
+use bevy_platform::hash::FixedHasher;
 use bevy_ptr::OwningPtr;
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::Reflect;
@@ -392,7 +392,7 @@ impl Components {
     /// Returns the number of components registered with this instance.
     #[inline]
     pub fn num_queued(&self) -> usize {
-        let queued = self.queued.read().unwrap_or_else(PoisonError::into_inner);
+        let queued = self.queued.read();
         queued.components.len() + queued.dynamic_registrations.len() + queued.resources.len()
     }
 
@@ -405,10 +405,7 @@ impl Components {
     /// A faster version of [`Self::num_queued`].
     #[inline]
     pub fn num_queued_mut(&mut self) -> usize {
-        let queued = self
-            .queued
-            .get_mut()
-            .unwrap_or_else(PoisonError::into_inner);
+        let queued = self.queued.get_mut();
         queued.components.len() + queued.dynamic_registrations.len() + queued.resources.len()
     }
 
@@ -451,7 +448,7 @@ impl Components {
             .get(id.0)
             .and_then(|info| info.as_ref().map(|info| Cow::Borrowed(&info.descriptor)))
             .or_else(|| {
-                let queued = self.queued.read().unwrap_or_else(PoisonError::into_inner);
+                let queued = self.queued.read();
                 // first check components, then resources, then dynamic
                 queued
                     .components
@@ -473,7 +470,7 @@ impl Components {
             .get(id.0)
             .and_then(|info| info.as_ref().map(|info| info.descriptor.name()))
             .or_else(|| {
-                let queued = self.queued.read().unwrap_or_else(PoisonError::into_inner);
+                let queued = self.queued.read();
                 // first check components, then resources, then dynamic
                 queued
                     .components
@@ -622,7 +619,6 @@ impl Components {
         self.indices.get(&type_id).copied().or_else(|| {
             self.queued
                 .read()
-                .unwrap_or_else(PoisonError::into_inner)
                 .components
                 .get(&type_id)
                 .map(|queued| queued.id)
@@ -669,7 +665,6 @@ impl Components {
         self.resource_indices.get(&type_id).copied().or_else(|| {
             self.queued
                 .read()
-                .unwrap_or_else(PoisonError::into_inner)
                 .resources
                 .get(&type_id)
                 .map(|queued| queued.id)

@@ -7,9 +7,9 @@ use bevy_ecs::{
     system::{ReadOnlySystemParam, SystemParam, SystemParamItem, SystemState},
     world::World,
 };
+use bevy_platform::sync::{RwLock, RwLockReadGuard, RwLockWriteGuard};
 use bevy_utils::TypeIdMap;
 use core::{any::TypeId, fmt::Debug, hash::Hash};
-use std::sync::{PoisonError, RwLock, RwLockReadGuard, RwLockWriteGuard};
 use thiserror::Error;
 use variadics_please::all_tuples;
 
@@ -132,14 +132,12 @@ impl<P: PhaseItem> Default for DrawFunctions<P> {
 impl<P: PhaseItem> DrawFunctions<P> {
     /// Accesses the draw functions in read mode.
     pub fn read(&self) -> RwLockReadGuard<'_, DrawFunctionsInternal<P>> {
-        self.internal.read().unwrap_or_else(PoisonError::into_inner)
+        self.internal.read()
     }
 
     /// Accesses the draw functions in write mode.
     pub fn write(&self) -> RwLockWriteGuard<'_, DrawFunctionsInternal<P>> {
-        self.internal
-            .write()
-            .unwrap_or_else(PoisonError::into_inner)
+        self.internal.write()
     }
 }
 
