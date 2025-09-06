@@ -1211,12 +1211,10 @@ impl<T: Sized> DebugEnsureAligned for *mut T {
 #[macro_export]
 macro_rules! deconstruct_moving_ptr {
     ($ptr:ident, $self_type:tt {$($field_name:tt: $field_type:tt => $field_block:block,)*}) => {
-        unsafe {
-            $(let $field_name = $ptr.move_field::<$field_type>(core::mem::offset_of!($self_type, $field_name));)*
-            // Each field block may panic! Ensure that `parent_ptr` cannot be dropped before
-            // calling them!
-            core::mem::forget($ptr);
-            $($field_block)*
-        }
+        $(let $field_name = $ptr.move_field::<$field_type>(core::mem::offset_of!($self_type, $field_name));)*
+        // Each field block may panic! Ensure that `parent_ptr` cannot be dropped before
+        // calling them!
+        core::mem::forget($ptr);
+        $($field_block)*
     };
 }
