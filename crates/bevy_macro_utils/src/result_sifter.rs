@@ -1,6 +1,6 @@
 /// Helper struct used to process an iterator of `Result<Vec<T>, syn::Error>`,
 /// combining errors into one along the way.
-pub(crate) struct ResultSifter<T> {
+pub struct ResultSifter<T> {
     items: Vec<T>,
     errors: Option<syn::Error>,
 }
