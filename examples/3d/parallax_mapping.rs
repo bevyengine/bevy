@@ -220,11 +220,10 @@ fn setup(
         CameraController,
     ));
 
-    // light
-
     // represent the light source as a sphere
     let mesh = meshes.add(Sphere::new(0.05).mesh().ico(3).unwrap());
 
+    // light
     commands.spawn((
         PointLight {
             shadows_enabled: true,
