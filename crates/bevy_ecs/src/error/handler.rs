@@ -22,7 +22,7 @@ pub enum ErrorContext {
         last_run: Tick,
         /// The system this run condition is attached to.
         system: DebugName,
-        /// `true` if this run contition was on a set.
+        /// `true` if this run condition was on a set.
         on_set: bool,
     },
     /// The error occurred in a command.
