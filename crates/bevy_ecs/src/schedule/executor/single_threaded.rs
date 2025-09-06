@@ -92,6 +92,7 @@ impl SystemExecutor for SingleThreadedExecutor {
                     world,
                     error_handler,
                     system,
+                    true,
                 );
 
                 if !set_conditions_met {
@@ -109,6 +110,7 @@ impl SystemExecutor for SingleThreadedExecutor {
                 world,
                 error_handler,
                 system,
+                false,
             );
 
             should_run &= system_conditions_met;
@@ -204,6 +206,7 @@ fn evaluate_and_fold_conditions(
     world: &mut World,
     error_handler: ErrorHandler,
     for_system: &ScheduleSystem,
+    on_set: bool,
 ) -> bool {
     #[cfg(feature = "hotpatching")]
     let hotpatch_tick = world
@@ -231,6 +234,7 @@ fn evaluate_and_fold_conditions(
                                 name: condition.name(),
                                 last_run: condition.get_last_run(),
                                 system: for_system.name(),
+                                on_set,
                             },
                         );
                     };

@@ -602,6 +602,7 @@ impl ExecutorState {
                     world,
                     error_handler,
                     system,
+                    true,
                 )
             };
 
@@ -624,6 +625,7 @@ impl ExecutorState {
                 world,
                 error_handler,
                 system,
+                false,
             )
         };
 
@@ -829,6 +831,7 @@ unsafe fn evaluate_and_fold_conditions(
     world: UnsafeWorldCell,
     error_handler: ErrorHandler,
     for_system: &ScheduleSystem,
+    on_set: bool,
 ) -> bool {
     #[expect(
         clippy::unnecessary_fold,
@@ -859,6 +862,7 @@ unsafe fn evaluate_and_fold_conditions(
                                 name: condition.name(),
                                 last_run: condition.get_last_run(),
                                 system: for_system.name(),
+                                on_set,
                             },
                         );
                     };

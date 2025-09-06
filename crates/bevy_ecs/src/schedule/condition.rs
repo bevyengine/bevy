@@ -1475,14 +1475,18 @@ mod tests {
         }
 
         fn my_error_handler(_: BevyError, ctx: ErrorContext) {
-            let test = IntoSystem::into_system(test_system);
+            let a = IntoSystem::into_system(system_a);
+            let b = IntoSystem::into_system(system_b);
             assert!(
-                matches!(ctx, ErrorContext::RunCondition { system, .. } if system == test.name())
+                matches!(ctx, ErrorContext::RunCondition { system, on_set, .. } if (on_set && system == b.name()) || (!on_set && system == a.name()))
             );
         }
 
+        fn system_a() {}
+        fn system_b() {}
+
         let mut schedule = Schedule::default();
-        schedule.add_systems(test_system.run_if(condition));
+        schedule.add_systems(system_a.run_if(condition));
         schedule.run(&mut world);
 
         #[derive(SystemSet, Debug, Hash, PartialEq, Eq, Clone)]
@@ -1490,7 +1494,7 @@ mod tests {
 
         let mut schedule = Schedule::default();
         schedule
-            .add_systems((test_system,).in_set(Set))
+            .add_systems((system_b,).in_set(Set))
             .configure_sets(Set.run_if(condition));
         schedule.run(&mut world);
     }
