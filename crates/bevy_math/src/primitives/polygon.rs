@@ -174,7 +174,7 @@ struct SweepLine<'a> {
 }
 #[cfg(feature = "alloc")]
 impl<'a> SweepLine<'a> {
-    fn new(vertices: &'a [Vec2]) -> Self {
+    const fn new(vertices: &'a [Vec2]) -> Self {
         Self {
             vertices,
             tree: BTreeMap::new(),
@@ -271,7 +271,7 @@ impl<'a> SweepLine<'a> {
     )
 )]
 #[inline(always)]
-fn point_side(p1: Vec2, p2: Vec2, q: Vec2) -> f32 {
+const fn point_side(p1: Vec2, p2: Vec2, q: Vec2) -> f32 {
     (p2.x - p1.x) * (q.y - p1.y) - (q.x - p1.x) * (p2.y - p1.y)
 }
 

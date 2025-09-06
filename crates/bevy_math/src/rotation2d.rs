@@ -336,13 +336,13 @@ impl Rot2 {
 
     /// Returns `true` if the rotation is neither infinite nor NaN.
     #[inline]
-    pub fn is_finite(self) -> bool {
+    pub const fn is_finite(self) -> bool {
         self.sin.is_finite() && self.cos.is_finite()
     }
 
     /// Returns `true` if the rotation is NaN.
     #[inline]
-    pub fn is_nan(self) -> bool {
+    pub const fn is_nan(self) -> bool {
         self.sin.is_nan() || self.cos.is_nan()
     }
 
