@@ -6,7 +6,6 @@ use std::{
 };
 
 use bevy::{
-    ecs::system::EntityCommands,
     light::CascadeShadowConfigBuilder,
     prelude::*,
     render::view::{ColorGrading, ColorGradingGlobal, ColorGradingSection, Hdr},
