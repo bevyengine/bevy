@@ -25,7 +25,7 @@ use crate::{
     entity::{Entity, EntityLocation},
     event::Event,
     observer::Observers,
-    storage::{ImmutableSparseSet, SparseArray, SparseSet, TableId, TableRow},
+    storage::{ImmutableSparseSet, SparseSet, TableId, TableRow},
 };
 use alloc::{boxed::Box, vec::Vec};
 use bevy_platform::collections::{hash_map::Entry, HashMap};
@@ -193,6 +193,12 @@ impl BundleComponentStatus for SpawnBundleStatus {
     }
 }
 
+#[derive(Debug, Hash, PartialEq, Eq)]
+struct ArchetypeMove {
+    source: ArchetypeId,
+    bundle_id: BundleId,
+}
+
 /// Archetypes and bundles form a graph. Adding or removing a bundle moves
 /// an [`Entity`] to a new [`Archetype`].
 ///
@@ -209,9 +215,9 @@ impl BundleComponentStatus for SpawnBundleStatus {
 /// [`World`]: crate::world::World
 #[derive(Default)]
 pub struct Edges {
-    insert_bundle: SparseArray<BundleId, ArchetypeAfterBundleInsert>,
-    remove_bundle: SparseArray<BundleId, Option<ArchetypeId>>,
-    take_bundle: SparseArray<BundleId, Option<ArchetypeId>>,
+    insert_bundle: HashMap<ArchetypeMove, ArchetypeAfterBundleInsert>,
+    remove_bundle: HashMap<ArchetypeMove, Option<ArchetypeId>>,
+    take_bundle: HashMap<ArchetypeMove, Option<ArchetypeId>>,
 }
 
 impl Edges {
@@ -221,8 +227,12 @@ impl Edges {
     /// If this returns `None`, it means there has not been a transition from
     /// the source archetype via the provided bundle.
     #[inline]
-    pub fn get_archetype_after_bundle_insert(&self, bundle_id: BundleId) -> Option<ArchetypeId> {
-        self.get_archetype_after_bundle_insert_internal(bundle_id)
+    pub fn get_archetype_after_bundle_insert(
+        &self,
+        source: ArchetypeId,
+        bundle_id: BundleId,
+    ) -> Option<ArchetypeId> {
+        self.get_archetype_after_bundle_insert_internal(source, bundle_id)
             .map(|bundle| bundle.archetype_id)
     }
 
@@ -231,15 +241,17 @@ impl Edges {
     #[inline]
     pub(crate) fn get_archetype_after_bundle_insert_internal(
         &self,
+        source: ArchetypeId,
         bundle_id: BundleId,
     ) -> Option<&ArchetypeAfterBundleInsert> {
-        self.insert_bundle.get(bundle_id)
+        self.insert_bundle.get(&ArchetypeMove { source, bundle_id })
     }
 
     /// Caches the target archetype when inserting a bundle into the source archetype.
     #[inline]
     pub(crate) fn cache_archetype_after_bundle_insert(
         &mut self,
+        source: ArchetypeId,
         bundle_id: BundleId,
         archetype_id: ArchetypeId,
         bundle_status: impl Into<Box<[ComponentStatus]>>,
@@ -248,7 +260,7 @@ impl Edges {
         existing: impl Into<Box<[ComponentId]>>,
     ) {
         self.insert_bundle.insert(
-            bundle_id,
+            ArchetypeMove { source, bundle_id },
             ArchetypeAfterBundleInsert {
                 archetype_id,
                 bundle_status: bundle_status.into(),
@@ -270,19 +282,24 @@ impl Edges {
     #[inline]
     pub fn get_archetype_after_bundle_remove(
         &self,
+        source: ArchetypeId,
         bundle_id: BundleId,
     ) -> Option<Option<ArchetypeId>> {
-        self.remove_bundle.get(bundle_id).cloned()
+        self.remove_bundle
+            .get(&ArchetypeMove { source, bundle_id })
+            .cloned()
     }
 
     /// Caches the target archetype when removing a bundle from the source archetype.
     #[inline]
     pub(crate) fn cache_archetype_after_bundle_remove(
         &mut self,
+        source: ArchetypeId,
         bundle_id: BundleId,
         archetype_id: Option<ArchetypeId>,
     ) {
-        self.remove_bundle.insert(bundle_id, archetype_id);
+        self.remove_bundle
+            .insert(ArchetypeMove { source, bundle_id }, archetype_id);
     }
 
     /// Checks the cache for the target archetype when taking a bundle from the
@@ -299,9 +316,12 @@ impl Edges {
     #[inline]
     pub fn get_archetype_after_bundle_take(
         &self,
+        source: ArchetypeId,
         bundle_id: BundleId,
     ) -> Option<Option<ArchetypeId>> {
-        self.take_bundle.get(bundle_id).cloned()
+        self.take_bundle
+            .get(&ArchetypeMove { source, bundle_id })
+            .cloned()
     }
 
     /// Caches the target archetype when taking a bundle from the source archetype.
@@ -311,10 +331,12 @@ impl Edges {
     #[inline]
     pub(crate) fn cache_archetype_after_bundle_take(
         &mut self,
+        source: ArchetypeId,
         bundle_id: BundleId,
         archetype_id: Option<ArchetypeId>,
     ) {
-        self.take_bundle.insert(bundle_id, archetype_id);
+        self.take_bundle
+            .insert(ArchetypeMove { source, bundle_id }, archetype_id);
     }
 }
 
@@ -384,7 +406,6 @@ bitflags::bitflags! {
 pub struct Archetype {
     id: ArchetypeId,
     table_id: TableId,
-    edges: Edges,
     entities: Vec<ArchetypeEntity>,
     components: ImmutableSparseSet<ComponentId, ArchetypeComponentInfo>,
     pub(crate) flags: ArchetypeFlags,
@@ -446,7 +467,6 @@ impl Archetype {
             table_id,
             entities: Vec::new(),
             components: archetype_components.into_immutable(),
-            edges: Default::default(),
             flags,
         }
     }
@@ -536,20 +556,6 @@ impl Archetype {
     #[inline]
     pub fn component_count(&self) -> usize {
         self.components.len()
-    }
-
-    /// Fetches an immutable reference to the archetype's [`Edges`], a cache of
-    /// archetypal relationships.
-    #[inline]
-    pub fn edges(&self) -> &Edges {
-        &self.edges
-    }
-
-    /// Fetches a mutable reference to the archetype's [`Edges`], a cache of
-    /// archetypal relationships.
-    #[inline]
-    pub(crate) fn edges_mut(&mut self) -> &mut Edges {
-        &mut self.edges
     }
 
     /// Fetches the row in the [`Table`] where the components for the entity at `index`
