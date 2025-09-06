@@ -80,10 +80,10 @@ mod image {
     use bevy::prelude::*;
 
     pub fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
-        commands.spawn((Camera2d, DespawnOnExitState(super::Scene::Image)));
+        commands.spawn((Camera2d, DespawnOnExit(super::Scene::Image)));
         commands.spawn((
             ImageNode::new(asset_server.load("branding/bevy_logo_dark.png")),
-            DespawnOnExitState(super::Scene::Image),
+            DespawnOnExit(super::Scene::Image),
         ));
     }
 }
@@ -92,7 +92,7 @@ mod text {
     use bevy::{color::palettes::css::*, prelude::*};
 
     pub fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
-        commands.spawn((Camera2d, DespawnOnExitState(super::Scene::Text)));
+        commands.spawn((Camera2d, DespawnOnExit(super::Scene::Text)));
         commands.spawn((
             Text::new("Hello World."),
             TextFont {
@@ -100,7 +100,7 @@ mod text {
                 font_size: 200.,
                 ..default()
             },
-            DespawnOnExitState(super::Scene::Text),
+            DespawnOnExit(super::Scene::Text),
         ));
 
         commands.spawn((
@@ -114,7 +114,7 @@ mod text {
                 font: asset_server.load("fonts/FiraSans-Bold.ttf"),
                 ..default()
             },
-            DespawnOnExitState(super::Scene::Text),
+            DespawnOnExit(super::Scene::Text),
             children![
                 (TextSpan::new("red "), TextColor(RED.into()),),
                 (TextSpan::new("green "), TextColor(GREEN.into()),),
@@ -130,6 +130,85 @@ mod text {
                 ),
             ],
         ));
+
+        commands.spawn((
+            Node {
+                left: px(100.),
+                top: px(300.),
+                ..Default::default()
+            },
+            Text::new(""),
+            TextFont {
+                font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                ..default()
+            },
+            DespawnOnExit(super::Scene::Text),
+            children![
+                (
+                    TextSpan::new("white "),
+                    TextFont {
+                        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                        ..default()
+                    }
+                ),
+                (TextSpan::new("red "), TextColor(RED.into()),),
+                (TextSpan::new("green "), TextColor(GREEN.into()),),
+                (TextSpan::new("blue "), TextColor(BLUE.into()),),
+                (
+                    TextSpan::new("black"),
+                    TextColor(Color::BLACK),
+                    TextFont {
+                        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                        ..default()
+                    },
+                    TextBackgroundColor(Color::WHITE)
+                ),
+            ],
+        ));
+
+        commands.spawn((
+            Node {
+                left: px(100.),
+                top: px(350.),
+                ..Default::default()
+            },
+            Text::new(""),
+            TextFont {
+                font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                ..default()
+            },
+            DespawnOnExit(super::Scene::Text),
+            children![
+                (TextSpan::new(""), TextColor(YELLOW.into()),),
+                TextSpan::new(""),
+                (
+                    TextSpan::new("white "),
+                    TextFont {
+                        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                        ..default()
+                    }
+                ),
+                TextSpan::new(""),
+                (TextSpan::new("red "), TextColor(RED.into()),),
+                TextSpan::new(""),
+                TextSpan::new(""),
+                (TextSpan::new("green "), TextColor(GREEN.into()),),
+                (TextSpan::new(""), TextColor(YELLOW.into()),),
+                (TextSpan::new("blue "), TextColor(BLUE.into()),),
+                TextSpan::new(""),
+                (TextSpan::new(""), TextColor(YELLOW.into()),),
+                (
+                    TextSpan::new("black"),
+                    TextColor(Color::BLACK),
+                    TextFont {
+                        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+                        ..default()
+                    },
+                    TextBackgroundColor(Color::WHITE)
+                ),
+                TextSpan::new(""),
+            ],
+        ));
     }
 }
 
@@ -137,7 +216,7 @@ mod grid {
     use bevy::{color::palettes::css::*, prelude::*};
 
     pub fn setup(mut commands: Commands) {
-        commands.spawn((Camera2d, DespawnOnExitState(super::Scene::Grid)));
+        commands.spawn((Camera2d, DespawnOnExit(super::Scene::Grid)));
         // Top-level grid (app frame)
         commands.spawn((
             Node {
@@ -153,7 +232,7 @@ mod grid {
                 ..default()
             },
             BackgroundColor(Color::WHITE),
-            DespawnOnExitState(super::Scene::Grid),
+            DespawnOnExit(super::Scene::Grid),
             children![
                 // Header
                 (
@@ -197,14 +276,14 @@ mod borders {
     use bevy::{color::palettes::css::*, prelude::*};
 
     pub fn setup(mut commands: Commands) {
-        commands.spawn((Camera2d, DespawnOnExitState(super::Scene::Borders)));
+        commands.spawn((Camera2d, DespawnOnExit(super::Scene::Borders)));
         let root = commands
             .spawn((
                 Node {
                     flex_wrap: FlexWrap::Wrap,
                     ..default()
                 },
-                DespawnOnExitState(super::Scene::Borders),
+                DespawnOnExit(super::Scene::Borders),
             ))
             .id();
 
@@ -290,7 +369,7 @@ mod box_shadow {
     use bevy::{color::palettes::css::*, prelude::*};
 
     pub fn setup(mut commands: Commands) {
-        commands.spawn((Camera2d, DespawnOnExitState(super::Scene::BoxShadow)));
+        commands.spawn((Camera2d, DespawnOnExit(super::Scene::BoxShadow)));
 
         commands
             .spawn((
@@ -303,7 +382,7 @@ mod box_shadow {
                     ..default()
                 },
                 BackgroundColor(GREEN.into()),
-                DespawnOnExitState(super::Scene::BoxShadow),
+                DespawnOnExit(super::Scene::BoxShadow),
             ))
             .with_children(|commands| {
                 let example_nodes = [
@@ -373,7 +452,7 @@ mod text_wrap {
     use bevy::prelude::*;
 
     pub fn setup(mut commands: Commands) {
-        commands.spawn((Camera2d, DespawnOnExitState(super::Scene::TextWrap)));
+        commands.spawn((Camera2d, DespawnOnExit(super::Scene::TextWrap)));
 
         let root = commands
             .spawn((
@@ -385,7 +464,7 @@ mod text_wrap {
                     ..default()
                 },
                 BackgroundColor(Color::BLACK),
-                DespawnOnExitState(super::Scene::TextWrap),
+                DespawnOnExit(super::Scene::TextWrap),
             ))
             .id();
 
@@ -415,7 +494,7 @@ mod overflow {
     use bevy::{color::palettes::css::*, prelude::*};
 
     pub fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
-        commands.spawn((Camera2d, DespawnOnExitState(super::Scene::Overflow)));
+        commands.spawn((Camera2d, DespawnOnExit(super::Scene::Overflow)));
         let image = asset_server.load("branding/icon.png");
 
         commands
@@ -428,7 +507,7 @@ mod overflow {
                     ..Default::default()
                 },
                 BackgroundColor(BLUE.into()),
-                DespawnOnExitState(super::Scene::Overflow),
+                DespawnOnExit(super::Scene::Overflow),
             ))
             .with_children(|parent| {
                 for overflow in [
@@ -479,7 +558,7 @@ mod slice {
     use bevy::prelude::*;
 
     pub fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
-        commands.spawn((Camera2d, DespawnOnExitState(super::Scene::Slice)));
+        commands.spawn((Camera2d, DespawnOnExit(super::Scene::Slice)));
         let image = asset_server.load("textures/fantasy_ui_borders/numbered_slices.png");
 
         let slicer = TextureSlicer {
@@ -497,7 +576,7 @@ mod slice {
                     justify_content: JustifyContent::SpaceAround,
                     ..default()
                 },
-                DespawnOnExitState(super::Scene::Slice),
+                DespawnOnExit(super::Scene::Slice),
             ))
             .with_children(|parent| {
                 for [w, h] in [[150.0, 150.0], [300.0, 150.0], [150.0, 300.0]] {
@@ -543,7 +622,7 @@ mod layout_rounding {
     use bevy::{color::palettes::css::*, prelude::*};
 
     pub fn setup(mut commands: Commands) {
-        commands.spawn((Camera2d, DespawnOnExitState(super::Scene::LayoutRounding)));
+        commands.spawn((Camera2d, DespawnOnExit(super::Scene::LayoutRounding)));
 
         commands
             .spawn((
@@ -555,7 +634,7 @@ mod layout_rounding {
                     ..Default::default()
                 },
                 BackgroundColor(Color::WHITE),
-                DespawnOnExitState(super::Scene::LayoutRounding),
+                DespawnOnExit(super::Scene::LayoutRounding),
             ))
             .with_children(|commands| {
                 for i in 2..12 {
@@ -590,7 +669,7 @@ mod linear_gradient {
     use bevy::color::palettes::css::YELLOW;
     use bevy::color::Color;
     use bevy::ecs::prelude::*;
-    use bevy::state::state_scoped::DespawnOnExitState;
+    use bevy::state::state_scoped::DespawnOnExit;
     use bevy::text::TextFont;
     use bevy::ui::AlignItems;
     use bevy::ui::BackgroundGradient;
@@ -604,7 +683,7 @@ mod linear_gradient {
     use bevy::utils::default;
 
     pub fn setup(mut commands: Commands) {
-        commands.spawn((Camera2d, DespawnOnExitState(super::Scene::LinearGradient)));
+        commands.spawn((Camera2d, DespawnOnExit(super::Scene::LinearGradient)));
         commands
             .spawn((
                 Node {
@@ -616,7 +695,7 @@ mod linear_gradient {
                     row_gap: bevy::ui::px(5),
                     ..default()
                 },
-                DespawnOnExitState(super::Scene::LinearGradient),
+                DespawnOnExit(super::Scene::LinearGradient),
             ))
             .with_children(|commands| {
                 let mut i = 0;
@@ -726,7 +805,7 @@ mod radial_gradient {
             ColorStop::auto(RED),
         ];
 
-        commands.spawn((Camera2d, DespawnOnExitState(super::Scene::RadialGradient)));
+        commands.spawn((Camera2d, DespawnOnExit(super::Scene::RadialGradient)));
         commands
             .spawn((
                 Node {
@@ -744,7 +823,7 @@ mod radial_gradient {
                     padding: UiRect::all(px(GAP)),
                     ..default()
                 },
-                DespawnOnExitState(super::Scene::RadialGradient),
+                DespawnOnExit(super::Scene::RadialGradient),
             ))
             .with_children(|commands| {
                 for (shape, shape_label) in [
