@@ -322,7 +322,7 @@ fn spawn_buttons(commands: &mut Commands) {
 }
 
 /// Spawns a button that the user can drag to change a parameter.
-fn drag_button<'a>(label: &str) -> impl Bundle {
+fn drag_button(label: &str) -> impl Bundle {
     (
         Node {
             border: BUTTON_BORDER,
