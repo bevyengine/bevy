@@ -111,7 +111,7 @@ impl ComputedNode {
     /// The order of the node in the UI layout.
     /// Nodes with a higher stack index are drawn on top of and receive interactions before nodes with lower stack indices.
     ///
-    /// Automatically calculated by [`super::layout::ui_layout_system`].
+    /// Automatically calculated in [`UiSystems::Stack`](super::UiSystems::Stack).
     pub const fn stack_index(&self) -> u32 {
         self.stack_index
     }
