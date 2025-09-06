@@ -29,7 +29,7 @@ mod std_ops {
     /// Raises a number to a floating point power.
     ///
     /// Precision is specified when the `libm` feature is enabled.
-    #[inline(always)]
+    #[inline]
     pub fn powf(x: f32, y: f32) -> f32 {
         f32::powf(x, y)
     }
@@ -37,7 +37,7 @@ mod std_ops {
     /// Returns `e^(self)`, (the exponential function).
     ///
     /// Precision is specified when the `libm` feature is enabled.
-    #[inline(always)]
+    #[inline]
     pub fn exp(x: f32) -> f32 {
         f32::exp(x)
     }
@@ -45,7 +45,7 @@ mod std_ops {
     /// Returns `2^(self)`.
     ///
     /// Precision is specified when the `libm` feature is enabled.
-    #[inline(always)]
+    #[inline]
     pub fn exp2(x: f32) -> f32 {
         f32::exp2(x)
     }
@@ -53,7 +53,7 @@ mod std_ops {
     /// Returns the natural logarithm of the number.
     ///
     /// Precision is specified when the `libm` feature is enabled.
-    #[inline(always)]
+    #[inline]
     pub fn ln(x: f32) -> f32 {
         f32::ln(x)
     }
@@ -61,7 +61,7 @@ mod std_ops {
     /// Returns the base 2 logarithm of the number.
     ///
     /// Precision is specified when the `libm` feature is enabled.
-    #[inline(always)]
+    #[inline]
     pub fn log2(x: f32) -> f32 {
         f32::log2(x)
     }
@@ -69,7 +69,7 @@ mod std_ops {
     /// Returns the base 10 logarithm of the number.
     ///
     /// Precision is specified when the `libm` feature is enabled.
-    #[inline(always)]
+    #[inline]
     pub fn log10(x: f32) -> f32 {
         f32::log10(x)
     }
@@ -77,7 +77,7 @@ mod std_ops {
     /// Returns the cube root of a number.
     ///
     /// Precision is specified when the `libm` feature is enabled.
-    #[inline(always)]
+    #[inline]
     pub fn cbrt(x: f32) -> f32 {
         f32::cbrt(x)
     }
@@ -86,7 +86,7 @@ mod std_ops {
     /// Equivalently, compute the length of the hypotenuse of a right-angle triangle with other sides having length `x.abs()` and `y.abs()`.
     ///
     /// Precision is specified when the `libm` feature is enabled.
-    #[inline(always)]
+    #[inline]
     pub fn hypot(x: f32, y: f32) -> f32 {
         f32::hypot(x, y)
     }
@@ -94,7 +94,7 @@ mod std_ops {
     /// Computes the sine of a number (in radians).
     ///
     /// Precision is specified when the `libm` feature is enabled.
-    #[inline(always)]
+    #[inline]
     pub fn sin(x: f32) -> f32 {
         f32::sin(x)
     }
@@ -102,7 +102,7 @@ mod std_ops {
     /// Computes the cosine of a number (in radians).
     ///
     /// Precision is specified when the `libm` feature is enabled.
-    #[inline(always)]
+    #[inline]
     pub fn cos(x: f32) -> f32 {
         f32::cos(x)
     }
@@ -110,7 +110,7 @@ mod std_ops {
     /// Computes the tangent of a number (in radians).
     ///
     /// Precision is specified when the `libm` feature is enabled.
-    #[inline(always)]
+    #[inline]
     pub fn tan(x: f32) -> f32 {
         f32::tan(x)
     }
@@ -120,7 +120,7 @@ mod std_ops {
     /// [-1, 1].
     ///
     /// Precision is specified when the `libm` feature is enabled.
-    #[inline(always)]
+    #[inline]
     pub fn asin(x: f32) -> f32 {
         f32::asin(x)
     }
@@ -130,7 +130,7 @@ mod std_ops {
     /// [-1, 1].
     ///
     /// Precision is specified when the `libm` feature is enabled.
-    #[inline(always)]
+    #[inline]
     pub fn acos(x: f32) -> f32 {
         f32::acos(x)
     }
@@ -139,7 +139,7 @@ mod std_ops {
     /// range [-pi/2, pi/2];
     ///
     /// Precision is specified when the `libm` feature is enabled.
-    #[inline(always)]
+    #[inline]
     pub fn atan(x: f32) -> f32 {
         f32::atan(x)
     }
@@ -152,7 +152,7 @@ mod std_ops {
     /// * `y < 0`: `arctan(y/x) - pi` -> `(-pi, -pi/2)`
     ///
     /// Precision is specified when the `libm` feature is enabled.
-    #[inline(always)]
+    #[inline]
     pub fn atan2(y: f32, x: f32) -> f32 {
         f32::atan2(y, x)
     }
@@ -161,7 +161,7 @@ mod std_ops {
     /// `(sin(x), cos(x))`.
     ///
     /// Precision is specified when the `libm` feature is enabled.
-    #[inline(always)]
+    #[inline]
     pub fn sin_cos(x: f32) -> (f32, f32) {
         f32::sin_cos(x)
     }
@@ -170,7 +170,7 @@ mod std_ops {
     /// number is close to zero.
     ///
     /// Precision is specified when the `libm` feature is enabled.
-    #[inline(always)]
+    #[inline]
     pub fn exp_m1(x: f32) -> f32 {
         f32::exp_m1(x)
     }
@@ -179,7 +179,7 @@ mod std_ops {
     /// the operations were performed separately.
     ///
     /// Precision is specified when the `libm` feature is enabled.
-    #[inline(always)]
+    #[inline]
     pub fn ln_1p(x: f32) -> f32 {
         f32::ln_1p(x)
     }
@@ -187,7 +187,7 @@ mod std_ops {
     /// Hyperbolic sine function.
     ///
     /// Precision is specified when the `libm` feature is enabled.
-    #[inline(always)]
+    #[inline]
     pub fn sinh(x: f32) -> f32 {
         f32::sinh(x)
     }
@@ -195,7 +195,7 @@ mod std_ops {
     /// Hyperbolic cosine function.
     ///
     /// Precision is specified when the `libm` feature is enabled.
-    #[inline(always)]
+    #[inline]
     pub fn cosh(x: f32) -> f32 {
         f32::cosh(x)
     }
@@ -203,7 +203,7 @@ mod std_ops {
     /// Hyperbolic tangent function.
     ///
     /// Precision is specified when the `libm` feature is enabled.
-    #[inline(always)]
+    #[inline]
     pub fn tanh(x: f32) -> f32 {
         f32::tanh(x)
     }
@@ -211,7 +211,7 @@ mod std_ops {
     /// Inverse hyperbolic sine function.
     ///
     /// Precision is specified when the `libm` feature is enabled.
-    #[inline(always)]
+    #[inline]
     pub fn asinh(x: f32) -> f32 {
         f32::asinh(x)
     }
@@ -219,7 +219,7 @@ mod std_ops {
     /// Inverse hyperbolic cosine function.
     ///
     /// Precision is specified when the `libm` feature is enabled.
-    #[inline(always)]
+    #[inline]
     pub fn acosh(x: f32) -> f32 {
         f32::acosh(x)
     }
@@ -227,7 +227,7 @@ mod std_ops {
     /// Inverse hyperbolic tangent function.
     ///
     /// Precision is specified when the `libm` feature is enabled.
-    #[inline(always)]
+    #[inline]
     pub fn atanh(x: f32) -> f32 {
         f32::atanh(x)
     }
@@ -239,7 +239,7 @@ mod libm_ops {
     /// Raises a number to a floating point power.
     ///
     /// Precision is specified when the `libm` feature is enabled.
-    #[inline(always)]
+    #[inline]
     pub fn powf(x: f32, y: f32) -> f32 {
         libm::powf(x, y)
     }
@@ -247,7 +247,7 @@ mod libm_ops {
     /// Returns `e^(self)`, (the exponential function).
     ///
     /// Precision is specified when the `libm` feature is enabled.
-    #[inline(always)]
+    #[inline]
     pub fn exp(x: f32) -> f32 {
         libm::expf(x)
     }
@@ -255,7 +255,7 @@ mod libm_ops {
     /// Returns `2^(self)`.
     ///
     /// Precision is specified when the `libm` feature is enabled.
-    #[inline(always)]
+    #[inline]
     pub fn exp2(x: f32) -> f32 {
         libm::exp2f(x)
     }
@@ -263,7 +263,7 @@ mod libm_ops {
     /// Returns the natural logarithm of the number.
     ///
     /// Precision is specified when the `libm` feature is enabled.
-    #[inline(always)]
+    #[inline]
     pub fn ln(x: f32) -> f32 {
         // This isn't documented in `libm` but this is actually the base e logarithm.
         libm::logf(x)
@@ -272,7 +272,7 @@ mod libm_ops {
     /// Returns the base 2 logarithm of the number.
     ///
     /// Precision is specified when the `libm` feature is enabled.
-    #[inline(always)]
+    #[inline]
     pub fn log2(x: f32) -> f32 {
         libm::log2f(x)
     }
@@ -280,7 +280,7 @@ mod libm_ops {
     /// Returns the base 10 logarithm of the number.
     ///
     /// Precision is specified when the `libm` feature is enabled.
-    #[inline(always)]
+    #[inline]
     pub fn log10(x: f32) -> f32 {
         libm::log10f(x)
     }
@@ -288,7 +288,7 @@ mod libm_ops {
     /// Returns the cube root of a number.
     ///
     /// Precision is specified when the `libm` feature is enabled.
-    #[inline(always)]
+    #[inline]
     pub fn cbrt(x: f32) -> f32 {
         libm::cbrtf(x)
     }
@@ -298,7 +298,7 @@ mod libm_ops {
     /// Equivalently, compute the length of the hypotenuse of a right-angle triangle with other sides having length `x.abs()` and `y.abs()`.
     ///
     /// Precision is specified when the `libm` feature is enabled.
-    #[inline(always)]
+    #[inline]
     pub fn hypot(x: f32, y: f32) -> f32 {
         libm::hypotf(x, y)
     }
@@ -306,7 +306,7 @@ mod libm_ops {
     /// Computes the sine of a number (in radians).
     ///
     /// Precision is specified when the `libm` feature is enabled.
-    #[inline(always)]
+    #[inline]
     pub fn sin(x: f32) -> f32 {
         libm::sinf(x)
     }
@@ -314,7 +314,7 @@ mod libm_ops {
     /// Computes the cosine of a number (in radians).
     ///
     /// Precision is specified when the `libm` feature is enabled.
-    #[inline(always)]
+    #[inline]
     pub fn cos(x: f32) -> f32 {
         libm::cosf(x)
     }
@@ -322,7 +322,7 @@ mod libm_ops {
     /// Computes the tangent of a number (in radians).
     ///
     /// Precision is specified when the `libm` feature is enabled.
-    #[inline(always)]
+    #[inline]
     pub fn tan(x: f32) -> f32 {
         libm::tanf(x)
     }
@@ -332,7 +332,7 @@ mod libm_ops {
     /// [-1, 1].
     ///
     /// Precision is specified when the `libm` feature is enabled.
-    #[inline(always)]
+    #[inline]
     pub fn asin(x: f32) -> f32 {
         libm::asinf(x)
     }
@@ -345,7 +345,7 @@ mod libm_ops {
     /// [-1, 1].
     ///
     /// Precision is specified when the `libm` feature is enabled.
-    #[inline(always)]
+    #[inline]
     pub fn acos(x: f32) -> f32 {
         libm::acosf(x)
     }
@@ -354,7 +354,7 @@ mod libm_ops {
     /// range [-pi/2, pi/2];
     ///
     /// Precision is specified when the `libm` feature is enabled.
-    #[inline(always)]
+    #[inline]
     pub fn atan(x: f32) -> f32 {
         libm::atanf(x)
     }
@@ -367,7 +367,7 @@ mod libm_ops {
     /// * `y < 0`: `arctan(y/x) - pi` -> `(-pi, -pi/2)`
     ///
     /// Precision is specified when the `libm` feature is enabled.
-    #[inline(always)]
+    #[inline]
     pub fn atan2(y: f32, x: f32) -> f32 {
         libm::atan2f(y, x)
     }
@@ -376,7 +376,7 @@ mod libm_ops {
     /// `(sin(x), cos(x))`.
     ///
     /// Precision is specified when the `libm` feature is enabled.
-    #[inline(always)]
+    #[inline]
     pub fn sin_cos(x: f32) -> (f32, f32) {
         libm::sincosf(x)
     }
@@ -385,7 +385,7 @@ mod libm_ops {
     /// number is close to zero.
     ///
     /// Precision is specified when the `libm` feature is enabled.
-    #[inline(always)]
+    #[inline]
     pub fn exp_m1(x: f32) -> f32 {
         libm::expm1f(x)
     }
@@ -394,7 +394,7 @@ mod libm_ops {
     /// the operations were performed separately.
     ///
     /// Precision is specified when the `libm` feature is enabled.
-    #[inline(always)]
+    #[inline]
     pub fn ln_1p(x: f32) -> f32 {
         libm::log1pf(x)
     }
@@ -402,7 +402,7 @@ mod libm_ops {
     /// Hyperbolic sine function.
     ///
     /// Precision is specified when the `libm` feature is enabled.
-    #[inline(always)]
+    #[inline]
     pub fn sinh(x: f32) -> f32 {
         libm::sinhf(x)
     }
@@ -410,7 +410,7 @@ mod libm_ops {
     /// Hyperbolic cosine function.
     ///
     /// Precision is specified when the `libm` feature is enabled.
-    #[inline(always)]
+    #[inline]
     pub fn cosh(x: f32) -> f32 {
         libm::coshf(x)
     }
@@ -418,7 +418,7 @@ mod libm_ops {
     /// Hyperbolic tangent function.
     ///
     /// Precision is specified when the `libm` feature is enabled.
-    #[inline(always)]
+    #[inline]
     pub fn tanh(x: f32) -> f32 {
         libm::tanhf(x)
     }
@@ -426,7 +426,7 @@ mod libm_ops {
     /// Inverse hyperbolic sine function.
     ///
     /// Precision is specified when the `libm` feature is enabled.
-    #[inline(always)]
+    #[inline]
     pub fn asinh(x: f32) -> f32 {
         libm::asinhf(x)
     }
@@ -434,7 +434,7 @@ mod libm_ops {
     /// Inverse hyperbolic cosine function.
     ///
     /// Precision is specified when the `libm` feature is enabled.
-    #[inline(always)]
+    #[inline]
     pub fn acosh(x: f32) -> f32 {
         libm::acoshf(x)
     }
@@ -442,7 +442,7 @@ mod libm_ops {
     /// Inverse hyperbolic tangent function.
     ///
     /// Precision is specified when the `libm` feature is enabled.
-    #[inline(always)]
+    #[inline]
     pub fn atanh(x: f32) -> f32 {
         libm::atanhf(x)
     }
@@ -458,7 +458,7 @@ mod libm_ops_for_no_std {
     /// Calculates the least nonnegative remainder of `self (mod rhs)`.
     ///
     /// Precision is specified when the `libm` feature is enabled.
-    #[inline(always)]
+    #[inline]
     pub fn rem_euclid(x: f32, y: f32) -> f32 {
         let result = libm::remainderf(x, y);
 
@@ -473,7 +473,7 @@ mod libm_ops_for_no_std {
     /// Computes the absolute value of x.
     ///
     /// Precision is specified when the `libm` feature is enabled.
-    #[inline(always)]
+    #[inline]
     pub fn abs(x: f32) -> f32 {
         libm::fabsf(x)
     }
@@ -481,7 +481,7 @@ mod libm_ops_for_no_std {
     /// Returns the square root of a number.
     ///
     /// Precision is specified when the `libm` feature is enabled.
-    #[inline(always)]
+    #[inline]
     pub fn sqrt(x: f32) -> f32 {
         libm::sqrtf(x)
     }
@@ -489,7 +489,7 @@ mod libm_ops_for_no_std {
     /// Returns a number composed of the magnitude of `x` and the sign of `y`.
     ///
     /// Precision is specified when the `libm` feature is enabled.
-    #[inline(always)]
+    #[inline]
     pub fn copysign(x: f32, y: f32) -> f32 {
         libm::copysignf(x, y)
     }
@@ -497,7 +497,7 @@ mod libm_ops_for_no_std {
     /// Returns the nearest integer to `x`. If a value is half-way between two integers, round away from `0.0`.
     ///
     /// Precision is specified when the `libm` feature is enabled.
-    #[inline(always)]
+    #[inline]
     pub fn round(x: f32) -> f32 {
         libm::roundf(x)
     }
@@ -505,7 +505,7 @@ mod libm_ops_for_no_std {
     /// Returns the largest integer less than or equal to `x`.
     ///
     /// Precision is specified when the `libm` feature is enabled.
-    #[inline(always)]
+    #[inline]
     pub fn floor(x: f32) -> f32 {
         libm::floorf(x)
     }
@@ -513,7 +513,7 @@ mod libm_ops_for_no_std {
     /// Returns the smallest integer greater than or equal to `x`.
     ///
     /// Precision is specified when the `libm` feature is enabled.
-    #[inline(always)]
+    #[inline]
     pub fn ceil(x: f32) -> f32 {
         libm::ceilf(x)
     }
@@ -521,7 +521,7 @@ mod libm_ops_for_no_std {
     /// Returns the fractional part of `x`.
     ///
     /// This function always returns the precise result.
-    #[inline(always)]
+    #[inline]
     pub fn fract(x: f32) -> f32 {
         libm::modff(x).0
     }
@@ -541,7 +541,7 @@ mod std_ops_for_no_std {
     /// Calculates the least nonnegative remainder of `x (mod y)`.
     ///
     /// The result of this operation is guaranteed to be the rounded infinite-precision result.
-    #[inline(always)]
+    #[inline]
     pub fn rem_euclid(x: f32, y: f32) -> f32 {
         f32::rem_euclid(x, y)
     }
@@ -549,7 +549,7 @@ mod std_ops_for_no_std {
     /// Computes the absolute value of x.
     ///
     /// This function always returns the precise result.
-    #[inline(always)]
+    #[inline]
     pub fn abs(x: f32) -> f32 {
         f32::abs(x)
     }
@@ -558,7 +558,7 @@ mod std_ops_for_no_std {
     ///
     /// The result of this operation is guaranteed to be the rounded infinite-precision result.
     /// It is specified by IEEE 754 as `squareRoot` and guaranteed not to change.
-    #[inline(always)]
+    #[inline]
     pub fn sqrt(x: f32) -> f32 {
         f32::sqrt(x)
     }
@@ -568,7 +568,7 @@ mod std_ops_for_no_std {
     /// Equal to `x` if the sign of `x` and `y` are the same, otherwise equal to `-x`. If `x` is a
     /// `NaN`, then a `NaN` with the sign bit of `y` is returned. Note, however, that conserving the
     /// sign bit on `NaN` across arithmetical operations is not generally guaranteed.
-    #[inline(always)]
+    #[inline]
     pub fn copysign(x: f32, y: f32) -> f32 {
         f32::copysign(x, y)
     }
@@ -576,7 +576,7 @@ mod std_ops_for_no_std {
     /// Returns the nearest integer to `x`. If a value is half-way between two integers, round away from `0.0`.
     ///
     /// This function always returns the precise result.
-    #[inline(always)]
+    #[inline]
     pub fn round(x: f32) -> f32 {
         f32::round(x)
     }
@@ -584,7 +584,7 @@ mod std_ops_for_no_std {
     /// Returns the largest integer less than or equal to `x`.
     ///
     /// This function always returns the precise result.
-    #[inline(always)]
+    #[inline]
     pub fn floor(x: f32) -> f32 {
         f32::floor(x)
     }
@@ -592,7 +592,7 @@ mod std_ops_for_no_std {
     /// Returns the smallest integer greater than or equal to `x`.
     ///
     /// This function always returns the precise result.
-    #[inline(always)]
+    #[inline]
     pub fn ceil(x: f32) -> f32 {
         f32::ceil(x)
     }
@@ -600,7 +600,7 @@ mod std_ops_for_no_std {
     /// Returns the fractional part of `x`.
     ///
     /// This function always returns the precise result.
-    #[inline(always)]
+    #[inline]
     pub fn fract(x: f32) -> f32 {
         f32::fract(x)
     }
