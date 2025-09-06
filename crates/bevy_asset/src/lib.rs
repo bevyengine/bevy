@@ -267,6 +267,8 @@ pub struct AssetPlugin {
 /// app will include scripts or modding support, as it could allow arbitrary file
 /// access for malicious code.
 ///
+/// The default value is [`Forbid`](UnapprovedPathMode::Forbid).
+///
 /// See [`AssetPath::is_unapproved`](crate::AssetPath::is_unapproved)
 #[derive(Clone, Default)]
 pub enum UnapprovedPathMode {
