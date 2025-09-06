@@ -174,7 +174,8 @@ fn poll_receivers(
     mut actions: EventWriter<ActionRequestWrapper>,
 ) {
     for (_id, handler) in handlers.iter() {
-        while let Some(event) = handler.lock().pop_front() {
+        let mut handler = handler.lock();
+        while let Some(event) = handler.pop_front() {
             actions.write(ActionRequestWrapper(event));
         }
     }
