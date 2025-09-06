@@ -83,17 +83,17 @@ fn update_bloom_settings(
     match bloom {
         Some(mut bloom) => {
             text.0 = "Bloom (Toggle: Space)\n".to_string();
-            text.push_str(&format!("(Q/A) Intensity: {}\n", bloom.intensity));
+            text.push_str(&format!("(Q/A) Intensity: {:.2}\n", bloom.intensity));
             text.push_str(&format!(
-                "(W/S) Low-frequency boost: {}\n",
+                "(W/S) Low-frequency boost: {:.2}\n",
                 bloom.low_frequency_boost
             ));
             text.push_str(&format!(
-                "(E/D) Low-frequency boost curvature: {}\n",
+                "(E/D) Low-frequency boost curvature: {:.2}\n",
                 bloom.low_frequency_boost_curvature
             ));
             text.push_str(&format!(
-                "(R/F) High-pass frequency: {}\n",
+                "(R/F) High-pass frequency: {:.2}\n",
                 bloom.high_pass_frequency
             ));
             text.push_str(&format!(
@@ -103,12 +103,12 @@ fn update_bloom_settings(
                     BloomCompositeMode::Additive => "Additive",
                 }
             ));
-            text.push_str(&format!("(Y/H) Threshold: {}\n", bloom.prefilter.threshold));
+            text.push_str(&format!("(Y/H) Threshold: {:.2}\n", bloom.prefilter.threshold));
             text.push_str(&format!(
-                "(U/J) Threshold softness: {}\n",
+                "(U/J) Threshold softness: {:.2}\n",
                 bloom.prefilter.threshold_softness
             ));
-            text.push_str(&format!("(I/K) Horizontal Scale: {}\n", bloom.scale.x));
+            text.push_str(&format!("(I/K) Horizontal Scale: {:.2}\n", bloom.scale.x));
 
             if keycode.just_pressed(KeyCode::Space) {
                 commands.entity(camera_entity).remove::<Bloom>();
