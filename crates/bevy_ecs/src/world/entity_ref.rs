@@ -14,6 +14,7 @@ use crate::{
         EntityIdLocation, EntityLocation, OptIn, OptOut,
     },
     event::EntityEvent,
+    fragmenting_value::{DynamicFragmentingValue, FragmentingValuesBorrowed},
     lifecycle::{DESPAWN, REMOVE, REPLACE},
     observer::Observer,
     query::{Access, DebugCheckedUnwrap, ReadOnlyQueryData, ReleaseStateQueryData},
@@ -2037,8 +2038,14 @@ impl<'w> EntityWorldMut<'w> {
     ) -> &mut Self {
         let location = self.location();
         let change_tick = self.world.change_tick();
-        let mut bundle_inserter =
-            BundleInserter::new::<T>(self.world, location.archetype_id, change_tick);
+        let mut registrator = self.world.components_registrator();
+        let value_components = FragmentingValuesBorrowed::from_bundle(&mut registrator, &bundle);
+        let mut bundle_inserter = BundleInserter::new::<T>(
+            self.world,
+            location.archetype_id,
+            change_tick,
+            &value_components,
+        );
         // SAFETY: location matches current entity. `T` matches `bundle_info`
         let (location, after_effect) = unsafe {
             bundle_inserter.insert(
@@ -2107,9 +2114,21 @@ impl<'w> EntityWorldMut<'w> {
             component_id,
         );
         let storage_type = self.world.bundles.get_storage_unchecked(bundle_id);
+        let mut dynamic_value_component = DynamicFragmentingValue::default();
+        let value_components = FragmentingValuesBorrowed::from_iter(
+            dynamic_value_component
+                .from_component(&self.world.components, component_id, component.as_ref())
+                .iter()
+                .map(|v| (component_id, *v)),
+        );
 
-        let bundle_inserter =
-            BundleInserter::new_with_id(self.world, location.archetype_id, bundle_id, change_tick);
+        let bundle_inserter = BundleInserter::new_with_id(
+            self.world,
+            location.archetype_id,
+            bundle_id,
+            change_tick,
+            &value_components,
+        );
 
         self.location = Some(insert_dynamic_bundle(
             bundle_inserter,
@@ -2167,14 +2186,46 @@ impl<'w> EntityWorldMut<'w> {
         );
         let mut storage_types =
             core::mem::take(self.world.bundles.get_storages_unchecked(bundle_id));
-        let bundle_inserter =
-            BundleInserter::new_with_id(self.world, location.archetype_id, bundle_id, change_tick);
+        let mut components: Vec<_> = iter_components.collect();
+        let mut dynamic_value_components: Vec<_> = component_ids
+            .iter()
+            .zip(components.iter())
+            .filter_map(|(id, value)| {
+                self.world
+                    .components()
+                    .get_info(*id)?
+                    .value_component_vtable()
+                    .map(|_| (*id, value.as_ref(), DynamicFragmentingValue::default()))
+            })
+            .collect();
+        let value_components = dynamic_value_components
+            .iter_mut()
+            .map(|(id, value, dynamic_value)|
+                 // SAFETY:
+                 // - `id` and `value` match
+                 // - component is always fragmenting since we filtered it beforehand.
+                unsafe {
+                (
+                    *id,
+                    dynamic_value
+                        .from_component(self.world.components(), *id, *value)
+                        .debug_checked_unwrap(),
+                )
+            })
+            .collect();
+        let bundle_inserter = BundleInserter::new_with_id(
+            self.world,
+            location.archetype_id,
+            bundle_id,
+            change_tick,
+            &value_components,
+        );
 
         self.location = Some(insert_dynamic_bundle(
             bundle_inserter,
             self.entity,
             location,
-            iter_components,
+            components.iter_mut().map(|ptr| ptr.as_mut().promote()),
             (*storage_types).iter().cloned(),
             InsertMode::Replace,
             MaybeLocation::caller(),
