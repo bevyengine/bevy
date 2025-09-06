@@ -3,7 +3,7 @@
 use std::{f32::consts::PI, fmt::Write};
 
 use bevy::{
-    anti_aliasing::{
+    anti_alias::{
         contrast_adaptive_sharpening::ContrastAdaptiveSharpening,
         fxaa::{Fxaa, Sensitivity},
         smaa::{Smaa, SmaaPreset},
@@ -22,7 +22,7 @@ use bevy::{
 };
 
 #[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))]
-use bevy::anti_aliasing::dlss::{
+use bevy::anti_alias::dlss::{
     Dlss, DlssPerfQualityMode, DlssProjectId, DlssSuperResolutionSupported,
 };
 

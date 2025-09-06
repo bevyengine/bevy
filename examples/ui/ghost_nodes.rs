@@ -9,12 +9,11 @@
 //!
 //! In order to use [`GhostNode`]s you must enable the `ghost_nodes` feature flag.
 
-use bevy::{prelude::*, ui::experimental::GhostNode, winit::WinitSettings};
+use bevy::{prelude::*, ui::experimental::GhostNode};
 
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .insert_resource(WinitSettings::desktop_app())
         .add_systems(Startup, setup)
         .add_systems(Update, button_system)
         .run();
