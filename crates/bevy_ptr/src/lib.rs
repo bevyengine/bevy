@@ -1166,7 +1166,7 @@ impl<T: Sized> DebugEnsureAligned for *mut T {
 /// This macro generates unsafe code and must be set up correctly to avoid undefined behavior.
 ///  - The provided type must match the type of the value pointed to by the [`MovingPtr`].
 ///  - The type and name of the fields must match the type's definition. For tuples and tuple structs,
-///    this would be the tuple indicies.
+///    this would be the tuple indices.
 ///
 /// # Example
 ///
