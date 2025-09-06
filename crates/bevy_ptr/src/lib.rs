@@ -43,10 +43,21 @@ pub trait IsAligned: sealed::Sealed {
     #[doc(hidden)]
     unsafe fn read_ptr<T>(ptr: *const T) -> T;
 
+    /// Copies `count * size_of::<T>()` bytes from `src` to `dst`. The source
+    /// and destination must *not* overlap.
+    ///
+    /// # Safety
+    ///  - `src` must be valid for reads of `count * size_of::<T>()` bytes.
+    ///  - `dst` must be valid for writes of `count * size_of::<T>()` bytes.
+    ///  - The region of memory beginning at `src` with a size of `count *
+    ///    size_of::<T>()` bytes must *not* overlap with the region of memory
+    ///    beginning at `dst` with the same size.
+    ///  - If this type is [`Aligned`], then both `src` and `dst` must properly
+    ///    be aligned for values of type `T`.
     #[doc(hidden)]
     unsafe fn copy_nonoverlapping<T>(src: *const T, dst: *mut T, size: usize);
 
-    /// Executes the destructor (if any) of the value pointed to by `ptr`.
+    /// Reads the value pointed to by `ptr`.
     ///
     /// # Safety
     ///  - `ptr` must be valid for reads and writes.
@@ -262,7 +273,7 @@ impl<'a, T: ?Sized> From<&'a mut T> for ConstNonNull<T> {
 ///
 /// This type tries to act "borrow-like" which means that:
 /// - It should be considered immutable: its target must not be changed while this pointer is alive.
-/// - It must always points to a valid value of whatever the pointee type is.
+/// - It must always point to a valid value of whatever the pointee type is.
 /// - The lifetime `'a` accurately represents how long the pointer is valid for.
 /// - If `A` is [`Aligned`], the pointer must always be [properly aligned] for the unknown pointee type.
 ///
@@ -279,7 +290,7 @@ pub struct Ptr<'a, A: IsAligned = Aligned>(NonNull<u8>, PhantomData<(&'a u8, A)>
 /// This type tries to act "borrow-like" which means that:
 /// - Pointer is considered exclusive and mutable. It cannot be cloned as this would lead to
 ///   aliased mutability.
-/// - It must always points to a valid value of whatever the pointee type is.
+/// - It must always point to a valid value of whatever the pointee type is.
 /// - The lifetime `'a` accurately represents how long the pointer is valid for.
 /// - If `A` is [`Aligned`], the pointer must always be [properly aligned] for the unknown pointee type.
 ///
@@ -297,10 +308,10 @@ pub struct PtrMut<'a, A: IsAligned = Aligned>(NonNull<u8>, PhantomData<(&'a mut 
 /// the memory pointed to by this pointer as it may be pointing to an element in a `Vec` or
 /// to a local in a function etc.
 ///
-/// This type tries to act "borrow-like" like which means that:
+/// This type tries to act "borrow-like" which means that:
 /// - Pointer should be considered exclusive and mutable. It cannot be cloned as this would lead
 ///   to aliased mutability and potentially use after free bugs.
-/// - It must always points to a valid value of whatever the pointee type is.
+/// - It must always point to a valid value of whatever the pointee type is.
 /// - The lifetime `'a` accurately represents how long the pointer is valid for.
 /// - If `A` is [`Aligned`], the pointer must always be [properly aligned] for the unknown pointee type.
 ///
@@ -320,13 +331,16 @@ pub struct OwningPtr<'a, A: IsAligned = Aligned>(NonNull<u8>, PhantomData<(&'a m
 /// the memory pointed to by this pointer as it may be pointing to an element in a `Vec` or
 /// to a local in a function etc.
 ///
-/// This type tries to act "borrow-like" like which means that:
+/// This type tries to act "borrow-like" which means that:
 /// - Pointer should be considered exclusive and mutable. It cannot be cloned as this would lead
 ///   to aliased mutability and potentially use after free bugs.
-/// - It must always points to a valid value of whatever the pointee type is.
+/// - It must always point to a valid value of whatever the pointee type is.
 /// - The lifetime `'a` accurately represents how long the pointer is valid for.
 /// - It does not support pointer arithmetic in any way.
 /// - If `A` is [`Aligned`], the pointer must always be [properly aligned] for the type `T`.
+///
+/// A value can be deconstructed into its fields via [`deconstruct_moving_ptr`], see it's documentation
+/// for an example on how to use it.
 ///
 /// [properly aligned]: https://doc.rust-lang.org/std/ptr/index.html#alignment
 /// [`Box`]: https://doc.rust-lang.org/std/boxed/struct.Box.html
@@ -421,17 +435,15 @@ impl_ptr!(Ptr);
 impl_ptr!(PtrMut);
 impl_ptr!(OwningPtr);
 
-impl<'a, T> MovingPtr<'a, T, Aligned> {
-    /// Removes the alignment requirement of this pointer
-    pub fn to_unaligned(self) -> MovingPtr<'a, T, Unaligned> {
-        let value = MovingPtr(self.0, PhantomData);
-        mem::forget(self);
-        value
-    }
-
+impl<T> MovingPtr<'_, T, Aligned> {
     /// This exists mostly to reduce compile times;
     /// code is only duplicated per type, rather than per function called.
-    fn make_internal(temp: &mut ManuallyDrop<T>) -> MovingPtr<'_, T> {
+    ///
+    /// # Safety
+    /// - `value` must store a properly initialized value of type `T`.
+    /// - Once the returned [`MovingPtr`] has been used, `value` must be treated as
+    ///   it were uninitialized unless it was explicitly leaked via [`core::mem::forget`].
+    unsafe fn make_internal(temp: &mut MaybeUninit<T>) -> MovingPtr<'_, T> {
         // SAFETY: ManuallyDrop<T> has the same memory layout as T
         MovingPtr(NonNull::from(temp).cast::<T>(), PhantomData)
     }
@@ -439,10 +451,19 @@ impl<'a, T> MovingPtr<'a, T, Aligned> {
     /// Consumes a value and creates an [`MovingPtr`] to it while ensuring a double drop does not happen.
     #[inline]
     pub fn make<F: FnOnce(MovingPtr<'_, T>) -> R, R>(val: T, f: F) -> R {
-        let mut val = ManuallyDrop::new(val);
-        // SAFETY: The value behind the pointer will not get dropped or observed later,
-        // so it's safe to promote it to an owning pointer.
-        f(Self::make_internal(&mut val))
+        let mut val = MaybeUninit::new(val);
+        // SAFETY: The value behind the pointer will not get dropped or observed later.
+        f(unsafe { Self::make_internal(&mut val) })
+    }
+}
+
+impl<'a, T> MovingPtr<'a, T, Aligned> {
+    /// Removes the alignment requirement of this pointer
+    #[inline]
+    pub fn to_unaligned(self) -> MovingPtr<'a, T, Unaligned> {
+        let value = MovingPtr(self.0, PhantomData);
+        mem::forget(self);
+        value
     }
 
     /// Creates a [`MovingPtr`] from a provided value of type `T`.
@@ -515,19 +536,16 @@ impl<'a, T, A: IsAligned> MovingPtr<'_, T, A> {
     ///    // - It is impossible for the provided closure to drop the provided pointer as `move_field` cannot panic.
     ///    // - `field_a` and `field_b` are moved out of but never accessed after this.
     ///    let partial_parent = MovingPtr::partial_move(parent_ptr, |parent_ptr| {
-    ///       let field_a = parent_ptr.move_field::<FieldAType>(offset_of!(Parent, field_a));
-    ///       let field_b = parent_ptr.move_field::<FieldBType>(offset_of!(Parent, field_b));
-    ///       // Each call to insert may panic! Ensure that `parent_ptr` cannot be dropped before
-    ///       // calling them!
-    ///       core::mem::forget(parent_ptr);
-    ///       insert(field_a);
-    ///       insert(field_b);
+    ///       bevy_ptr::deconstruct_moving_ptr!(parent_ptr, Parent {
+    ///         field_a: FieldAType => { insert(field_a) },
+    ///         field_b: FieldBType => { insert(field_b) },
+    ///       });
     ///    });
     ///
     ///    // Move the rest of fields out of the parent.
-    ///    // SAFETY: The fields were not moved out of in the above `partial_move` and thus must still be valid.
-    ///    let field_c = partial_parent.move_field::<MaybeUninit<FieldCType>>(offset_of!(Parent, field_c));
-    ///    insert(unsafe { field_c.assume_init() });
+    ///    bevy_ptr::deconstruct_moving_ptr!(partial_parent, Parent {
+    ///       field_c: FieldBType => { insert(field_c) },
+    ///    });
     /// });
     /// ```
     ///
@@ -596,7 +614,8 @@ impl<'a, T, A: IsAligned> MovingPtr<'_, T, A> {
         }
     }
 
-    /// Creates a [`MovingPtr`] for a specific field within `self`.
+    /// Creates a [`MovingPtr`] for a specific field within `self`. This is a building block for
+    /// [`deconstruct_moving_ptr`] and should generally not be accessed directly.
     ///
     /// This function is explicitly made for deconstructive moves.
     ///
@@ -655,6 +674,7 @@ impl<'a, T, A: IsAligned> MovingPtr<'_, T, A> {
     /// [`forget`]: core::mem::forget
     /// [`move_field`]: Self::move_field
     #[inline]
+    #[doc(hidden)]
     pub unsafe fn move_field<U>(&self, byte_offset: usize) -> MovingPtr<'a, U, Unaligned> {
         MovingPtr(
             // SAFETY: The caller must ensure that `U` is the correct type for the field at `byte_offset`.
@@ -1131,4 +1151,72 @@ impl<T: Sized> DebugEnsureAligned for *mut T {
     fn debug_ensure_aligned(self) -> Self {
         self
     }
+}
+
+/// Deconstructs a [`MovingPtr`] into its individual fields.
+///
+/// This consumes the [`MovingPtr`] and hands out [`MovingPtr`] wrappers around
+/// pointers to each of its fields. The value will *not* be dropped.
+///
+/// The field move expressions will be executed in the order they're provided to the macro.
+/// In the example below, the call to [`assign_to`] for `field_a` will always run before the
+/// calls for `field_b` and `field_c`.
+///
+/// # Safety
+/// This macro generates unsafe code and must be set up correctly to avoid undefined behavior.
+///  - The provided type must match the type of the value pointed to by the [`MovingPtr`].
+///  - The type and name of the fields must match the type's definition. For tuples and tuple structs,
+///    this would be the tuple indicies.
+///
+/// # Example
+///
+/// ```
+/// use core::mem::{offset_of, MaybeUninit};
+/// use bevy_ptr::MovingPtr;
+/// # use bevy_ptr::Unaligned;
+/// # struct FieldAType(usize);
+/// # struct FieldBType(usize);
+/// # struct FieldCType(usize);
+///
+/// pub struct Parent {
+///   pub field_a: FieldAType,
+///   pub field_b: FieldBType,
+///   pub field_c: FieldCType,
+/// }
+///
+/// let parent = Parent {
+///   field_a: FieldAType(11),
+///   field_b: FieldBType(22),
+///   field_c: FieldCType(33),
+/// };
+///
+/// let mut target_a = FieldAType(101);
+/// let mut target_b = FieldBType(102);
+/// let mut target_c = FieldCType(103);
+///
+/// MovingPtr::make(parent, |parent_ptr| unsafe {
+///   bevy_ptr::deconstruct_moving_ptr!(parent_ptr, Parent {
+///      // The field name and type must match the name used in the type definition.
+///      // Each one will be a `MovingPtr` of the supplied type
+///      field_a: FieldAType => { field_a.assign_to(&mut target_a) },
+///      field_b: FieldBType => { field_b.assign_to(&mut target_b) },
+///      field_c: FieldCType => { field_c.assign_to(&mut target_c) },
+///   });
+/// });
+///
+/// assert_eq!(target_a.0, 11);
+/// assert_eq!(target_b.0, 22);
+/// assert_eq!(target_c.0, 33);
+/// ```
+#[macro_export]
+macro_rules! deconstruct_moving_ptr {
+    ($ptr:ident, $self_type:tt {$($field_name:tt: $field_type:tt => $field_block:block,)*}) => {
+        unsafe {
+            $(let $field_name = $ptr.move_field::<$field_type>(core::mem::offset_of!($self_type, $field_name));)*
+            // Each field block may panic! Ensure that `parent_ptr` cannot be dropped before
+            // calling them!
+            core::mem::forget($ptr);
+            $($field_block)*
+        }
+    };
 }
