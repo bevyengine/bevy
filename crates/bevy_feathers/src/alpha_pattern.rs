@@ -18,7 +18,7 @@ use bevy_ui_render::ui_material::{MaterialNode, UiMaterial};
 pub(crate) struct AlphaPatternMaterial {}
 
 impl UiMaterial for AlphaPatternMaterial {
-    fn fragment_shader() -> ShaderRef {
+    fn fragment_shader(&self) -> ShaderRef {
         "embedded://bevy_feathers/assets/shaders/alpha_pattern.wgsl".into()
     }
 }
