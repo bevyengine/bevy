@@ -151,7 +151,7 @@ where
 }
 
 /// Creates a text bundle for the UI.
-pub fn ui_text(label: &str, color: Color) -> (Text, TextFont, TextColor) {
+pub fn ui_text(label: &str, color: Color) -> impl Bundle + use<> {
     (
         Text::new(label),
         TextFont {

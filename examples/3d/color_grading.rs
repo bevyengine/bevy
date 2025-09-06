@@ -306,7 +306,7 @@ fn add_help_text(
 }
 
 /// Adds some text to the scene.
-fn text(label: &str, font: &Handle<Font>, color: Color) -> (Text, TextFont, TextColor) {
+fn text(label: &str, font: &Handle<Font>, color: Color) -> impl Bundle + use<> {
     (
         Text::new(label),
         TextFont {
