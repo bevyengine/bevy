@@ -183,20 +183,18 @@ fn spawn_scene(commands: &mut Commands, asset_server: &AssetServer) {
 
 /// Spawns the buttons that allow the user to change the lighting mode.
 fn spawn_buttons(commands: &mut Commands) {
-    commands
-        .spawn(widgets::main_ui_node())
-        .with_children(|parent| {
-            widgets::spawn_option_buttons(
-                parent,
-                "Lighting",
-                &[
-                    (LightingMode::Baked, "Baked"),
-                    (LightingMode::MixedDirect, "Mixed (Direct)"),
-                    (LightingMode::MixedIndirect, "Mixed (Indirect)"),
-                    (LightingMode::RealTime, "Real-Time"),
-                ],
-            );
-        });
+    commands.spawn((
+        widgets::main_ui_node(),
+        children![widgets::option_buttons(
+            "Lighting",
+            &[
+                (LightingMode::Baked, "Baked"),
+                (LightingMode::MixedDirect, "Mixed (Direct)"),
+                (LightingMode::MixedIndirect, "Mixed (Indirect)"),
+                (LightingMode::RealTime, "Real-Time"),
+            ],
+        )],
+    ));
 }
 
 /// Spawns the help text at the top of the window.

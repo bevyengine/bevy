@@ -45,21 +45,24 @@ fn setup(
     let sphere_handle = meshes.add(Sphere::new(sphere_radius));
 
     let light_transform = Transform::from_xyz(5.0, 5.0, 0.0).looking_at(Vec3::ZERO, Vec3::Y);
-    commands
-        .spawn((light_transform, Visibility::default(), Lights))
-        .with_children(|builder| {
-            builder.spawn(PointLight {
+    commands.spawn((
+        light_transform,
+        Visibility::default(),
+        Lights,
+        children![
+            (PointLight {
                 intensity: 0.0,
                 range: spawn_plane_depth,
                 color: Color::WHITE,
                 shadows_enabled: true,
                 ..default()
-            });
-            builder.spawn(DirectionalLight {
+            }),
+            (DirectionalLight {
                 shadows_enabled: true,
                 ..default()
-            });
-        });
+            })
+        ],
+    ));
 
     // camera
     commands.spawn((
@@ -92,53 +95,47 @@ fn setup(
         MeshMaterial3d(white_handle),
     ));
 
-    commands
-        .spawn((
-            Node {
-                position_type: PositionType::Absolute,
-                padding: UiRect::all(px(5)),
-                ..default()
-            },
-            BackgroundColor(Color::BLACK.with_alpha(0.75)),
-            GlobalZIndex(i32::MAX),
-        ))
-        .with_children(|p| {
-            p.spawn(Text::default()).with_children(|p| {
-                p.spawn(TextSpan::new("Controls:\n"));
-                p.spawn(TextSpan::new("R / Z - reset biases to default / zero\n"));
-                p.spawn(TextSpan::new(
-                    "L     - switch between directional and point lights [",
-                ));
-                p.spawn(TextSpan::new("DirectionalLight"));
-                p.spawn(TextSpan::new("]\n"));
-                p.spawn(TextSpan::new(
-                    "F     - switch directional light filter methods [",
-                ));
-                p.spawn(TextSpan::new("Hardware2x2"));
-                p.spawn(TextSpan::new("]\n"));
-                p.spawn(TextSpan::new("1/2   - change point light depth bias ["));
-                p.spawn(TextSpan::new("0.00"));
-                p.spawn(TextSpan::new("]\n"));
-                p.spawn(TextSpan::new("3/4   - change point light normal bias ["));
-                p.spawn(TextSpan::new("0.0"));
-                p.spawn(TextSpan::new("]\n"));
-                p.spawn(TextSpan::new("5/6   - change direction light depth bias ["));
-                p.spawn(TextSpan::new("0.00"));
-                p.spawn(TextSpan::new("]\n"));
-                p.spawn(TextSpan::new(
-                    "7/8   - change direction light normal bias [",
-                ));
-                p.spawn(TextSpan::new("0.0"));
-                p.spawn(TextSpan::new("]\n"));
-                p.spawn(TextSpan::new(
+    commands.spawn((
+        Node {
+            position_type: PositionType::Absolute,
+            padding: UiRect::all(px(5)),
+            ..default()
+        },
+        BackgroundColor(Color::BLACK.with_alpha(0.75)),
+        GlobalZIndex(i32::MAX),
+        children![(
+            Text::default(),
+            children![
+                (TextSpan::new("Controls:\n")),
+                (TextSpan::new("R / Z - reset biases to default / zero\n")),
+                (TextSpan::new("L     - switch between directional and point lights [",)),
+                (TextSpan::new("DirectionalLight")),
+                (TextSpan::new("]\n")),
+                (TextSpan::new("F     - switch directional light filter methods [",)),
+                (TextSpan::new("Hardware2x2")),
+                (TextSpan::new("]\n")),
+                (TextSpan::new("1/2   - change point light depth bias [")),
+                (TextSpan::new("0.00")),
+                (TextSpan::new("]\n")),
+                (TextSpan::new("3/4   - change point light normal bias [")),
+                (TextSpan::new("0.0")),
+                (TextSpan::new("]\n")),
+                (TextSpan::new("5/6   - change direction light depth bias [")),
+                (TextSpan::new("0.00")),
+                (TextSpan::new("]\n")),
+                (TextSpan::new("7/8   - change direction light normal bias [",)),
+                (TextSpan::new("0.0")),
+                (TextSpan::new("]\n")),
+                (TextSpan::new(
                     "left/right/up/down/pgup/pgdown - adjust light position (looking at 0,0,0) [",
-                ));
-                p.spawn(TextSpan(format!("{:.1},", light_transform.translation.x)));
-                p.spawn(TextSpan(format!(" {:.1},", light_transform.translation.y)));
-                p.spawn(TextSpan(format!(" {:.1}", light_transform.translation.z)));
-                p.spawn(TextSpan::new("]\n"));
-            });
-        });
+                )),
+                (TextSpan(format!("{:.1},", light_transform.translation.x))),
+                (TextSpan(format!(" {:.1},", light_transform.translation.y))),
+                (TextSpan(format!(" {:.1}", light_transform.translation.z))),
+                (TextSpan::new("]\n")),
+            ]
+        )],
+    ));
 }
 
 fn toggle_light(
