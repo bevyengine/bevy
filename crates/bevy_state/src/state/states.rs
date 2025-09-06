@@ -66,12 +66,4 @@ pub trait States: 'static + Send + Sync + Clone + PartialEq + Eq + Hash + Debug 
     /// Used to help order transitions and de-duplicate [`ComputedStates`](crate::state::ComputedStates), as well as prevent cyclical
     /// `ComputedState` dependencies.
     const DEPENDENCY_DEPTH: usize = 1;
-
-    /// Should [state scoping](crate::state_scoped) be enabled for this state?
-    /// If set to `true`, the
-    /// [`DespawnOnEnter`](crate::state_scoped::DespawnOnEnter) and
-    /// [`DespawnOnExit`](crate::state_scoped::DespawnOnExit)
-    /// components are used to remove entities when entering or exiting the
-    /// state.
-    const SCOPED_ENTITIES_ENABLED: bool = false;
 }
