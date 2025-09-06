@@ -64,6 +64,8 @@ fn setup(
     commands.spawn((
         Camera3d::default(),
         Camera {
+            // render before the "main pass" camera
+            order: -1,
             target: image_handle.clone().into(),
             clear_color: Color::WHITE.into(),
             ..default()
