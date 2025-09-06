@@ -103,7 +103,7 @@ impl UiTransform {
     };
 
     /// Creates a UI transform representing a rotation.
-    pub fn from_rotation(rotation: Rot2) -> Self {
+    pub const fn from_rotation(rotation: Rot2) -> Self {
         Self {
             rotation,
             ..Self::IDENTITY
@@ -111,7 +111,7 @@ impl UiTransform {
     }
 
     /// Creates a UI transform representing a responsive translation.
-    pub fn from_translation(translation: Val2) -> Self {
+    pub const fn from_translation(translation: Val2) -> Self {
         Self {
             translation,
             ..Self::IDENTITY
@@ -119,7 +119,7 @@ impl UiTransform {
     }
 
     /// Creates a UI transform representing a scaling.
-    pub fn from_scale(scale: Vec2) -> Self {
+    pub const fn from_scale(scale: Vec2) -> Self {
         Self {
             scale,
             ..Self::IDENTITY

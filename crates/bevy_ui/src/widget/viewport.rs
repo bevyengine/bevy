@@ -55,7 +55,8 @@ pub struct ViewportNode {
 
 impl ViewportNode {
     /// Creates a new [`ViewportNode`] with a given `camera`.
-    pub fn new(camera: Entity) -> Self {
+    #[inline]
+    pub const fn new(camera: Entity) -> Self {
         Self { camera }
     }
 }

@@ -163,7 +163,8 @@ pub struct TextMeasure {
 
 impl TextMeasure {
     /// Checks if the cosmic text buffer is needed for measuring the text.
-    pub fn needs_buffer(height: Option<f32>, available_width: AvailableSpace) -> bool {
+    #[inline]
+    pub const fn needs_buffer(height: Option<f32>, available_width: AvailableSpace) -> bool {
         height.is_none() && matches!(available_width, AvailableSpace::Definite(_))
     }
 }
