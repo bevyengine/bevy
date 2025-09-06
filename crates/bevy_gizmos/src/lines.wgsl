@@ -136,8 +136,9 @@ fn vertex(vertex: VertexInput) -> VertexOutput {
 }
 
 fn clip_near_plane(a: vec4<f32>, b: vec4<f32>) -> vec4<f32> {
-    // Move a if a is behind the near plane and b is in front. 
-    if a.z > a.w && b.z <= b.w {
+    // Move a if a is behind the near plane and b is in front.
+    // equivalent to `a.z / a.w > 1.0 && b.z / b.w <= 1.0` but avoids divs
+    if a.z * sign(a.w) > abs(a.w) && b.z * sign(b.w) <= abs(b.w) {
         // Interpolate a towards b until it's at the near plane.
         let distance_a = a.z - a.w;
         let distance_b = b.z - b.w;
