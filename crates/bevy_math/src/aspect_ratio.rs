@@ -88,7 +88,7 @@ impl TryFrom<Vec2> for AspectRatio {
     }
 }
 
-/// An Error type for when [`super::AspectRatio`] is provided invalid width or height values
+/// An Error type for when [`AspectRatio`](`super::AspectRatio`) is provided invalid width or height values
 #[derive(Error, Debug, PartialEq, Eq, Clone, Copy)]
 pub enum AspectRatioError {
     /// Error due to width or height having zero as a value.
