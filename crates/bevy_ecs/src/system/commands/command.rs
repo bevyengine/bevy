@@ -4,6 +4,8 @@
 //! It also contains functions that return closures for use with
 //! [`Commands`](crate::system::Commands).
 
+use bevy_ptr::OwningPtr;
+
 use crate::{
     bundle::{Bundle, InsertMode, NoBundleEffect},
     change_detection::MaybeLocation,
@@ -16,6 +18,8 @@ use crate::{
     system::{IntoSystem, SystemId, SystemInput},
     world::{FromWorld, SpawnBatchIter, World},
 };
+use bevy_ptr::Unaligned;
+use core::ptr::NonNull;
 
 /// A [`World`] mutation.
 ///
@@ -45,13 +49,31 @@ use crate::{
 ///     commands.queue(AddToCounter(42));
 /// }
 /// ```
-pub trait Command<Out = ()>: Send + 'static {
+pub trait Command<Out = ()>: Send + Sized + 'static {
     /// Applies this command, causing it to mutate the provided `world`.
     ///
     /// This method is used to define what a command "does" when it is ultimately applied.
     /// Because this method takes `self`, you can store data or settings on the type that implements this trait.
     /// This data is set by the system or other source of the command, and then ultimately read in this method.
     fn apply(self, world: &mut World) -> Out;
+
+    /// Applies this command, causing it to mutate the provided `world`.
+    ///
+    /// Identical to `Command::apply`, except it's only given a raw pointer to
+    /// a valid, but potentially unaligned, instance of `Self`.
+    ///
+    /// This function is responsible for dropping the value pointed to by `ptr`.
+    ///
+    /// Implementing this function is optional and strictly an optimization.
+    ///
+    /// # Safety
+    /// `ptr` must point to a valid, but potentially unaligned instance of `Self`.
+    unsafe fn apply_raw(ptr: *mut Self, world: &mut World) -> Out {
+        // SAFETY: The safety invariants on this function require `ptr` to point to a valid
+        // but potentially unaligned instance of `Self`.
+        let command = unsafe { ptr.read_unaligned() };
+        command.apply(world)
+    }
 }
 
 impl<F, Out> Command<Out> for F
@@ -109,9 +131,33 @@ pub fn init_resource<R: Resource + FromWorld>() -> impl Command {
 /// A [`Command`] that inserts a [`Resource`] into the world.
 #[track_caller]
 pub fn insert_resource<R: Resource>(resource: R) -> impl Command {
-    let caller = MaybeLocation::caller();
-    move |world: &mut World| {
-        world.insert_resource_with_caller(resource, caller);
+    InsertResource {
+        resource,
+        caller: MaybeLocation::caller(),
+    }
+}
+
+struct InsertResource<T: Resource> {
+    resource: T,
+    caller: MaybeLocation,
+}
+
+impl<T: Resource> Command for InsertResource<T> {
+    fn apply(mut self, world: &mut World) {
+        // SAFETY: This is being called with a mutable borrow, which must be a valid pointer.
+        unsafe { Self::apply_raw(&mut self, world) }
+    }
+
+    unsafe fn apply_raw(ptr: *mut Self, world: &mut World) {
+        let id = world.components_registrator().register_resource::<T>();
+        // SAFETY: The caller must ensure that `ptr` is a valid instance of `Self`, so getting the
+        // pointer to the provided resource should be valid and non-null.
+        let value_ptr = unsafe { NonNull::new_unchecked(&raw mut (*ptr).resource).cast::<u8>() };
+        // SAFETY: The caller must ensure that `ptr` is a valid instance of `Self`, so getting the
+        // pointer to the provided caller location should be valid.
+        let caller = unsafe { (&raw const (*ptr).caller).read_unaligned() };
+        // SAFETY: The Component ID was just registered above. It has to be valid for `T`.
+        unsafe { world.insert_resource_by_id(id, OwningPtr::<Unaligned>::new(value_ptr), caller) }
     }
 }
 

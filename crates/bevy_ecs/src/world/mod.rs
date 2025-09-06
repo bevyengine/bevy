@@ -39,8 +39,7 @@ pub use spawn_batch::*;
 use crate::{
     archetype::{ArchetypeId, Archetypes},
     bundle::{
-        Bundle, BundleEffect, BundleInfo, BundleInserter, BundleSpawner, Bundles, InsertMode,
-        NoBundleEffect,
+        Bundle, BundleInfo, BundleInserter, BundleSpawner, Bundles, InsertMode, NoBundleEffect,
     },
     change_detection::{MaybeLocation, MutUntyped, TicksMut},
     component::{
@@ -68,8 +67,8 @@ use crate::{
 };
 use alloc::{boxed::Box, vec::Vec};
 use bevy_platform::sync::atomic::{AtomicU32, Ordering};
-use bevy_ptr::{OwningPtr, Ptr, UnsafeCellDeref};
-use core::{any::TypeId, fmt};
+use bevy_ptr::{IsAligned, OwningPtr, Ptr, UnsafeCellDeref};
+use core::{any::TypeId, fmt, mem::ManuallyDrop};
 use log::warn;
 use unsafe_world_cell::{UnsafeEntityCell, UnsafeWorldCell};
 
@@ -1156,12 +1155,17 @@ impl World {
     /// ```
     #[track_caller]
     pub fn spawn<B: Bundle>(&mut self, bundle: B) -> EntityWorldMut<'_> {
-        self.spawn_with_caller(bundle, MaybeLocation::caller())
+        let bundle = ManuallyDrop::new(bundle);
+        let bundle_ptr = &raw const bundle;
+        // SAFETY: The bundle was passed in by value, `bundle_ptr` thus must be valid.
+        unsafe { self.spawn_with_caller(bundle_ptr.cast::<B>(), MaybeLocation::caller()) }
     }
 
-    pub(crate) fn spawn_with_caller<B: Bundle>(
+    /// #  Safety
+    /// - `bundle_ptr` thus must be pointing to a valid, but not necessarily aligned, instance of `B`
+    pub(crate) unsafe fn spawn_with_caller<B: Bundle>(
         &mut self,
-        bundle: B,
+        bundle: *const B,
         caller: MaybeLocation,
     ) -> EntityWorldMut<'_> {
         self.flush();
@@ -1169,8 +1173,7 @@ impl World {
         let entity = self.entities.alloc();
         let mut bundle_spawner = BundleSpawner::new::<B>(self, change_tick);
         // SAFETY: bundle's type matches `bundle_info`, entity is allocated but non-existent
-        let (entity_location, after_effect) =
-            unsafe { bundle_spawner.spawn_non_existent(entity, bundle, caller) };
+        let entity_location = unsafe { bundle_spawner.spawn_non_existent(entity, bundle, caller) };
 
         let mut entity_location = Some(entity_location);
 
@@ -1182,7 +1185,10 @@ impl World {
 
         // SAFETY: entity and location are valid, as they were just created above
         let mut entity = unsafe { EntityWorldMut::new(self, entity, entity_location) };
-        after_effect.apply(&mut entity);
+        // SAFETY:
+        // - This is called exactly once after `get_components` has been called in `spawn_non_existent`.
+        // - The caller must ensure that `ptr` points to a valid instance of `B`.
+        unsafe { B::apply_effect(bundle.cast_mut(), &mut entity) };
         entity
     }
 
@@ -2333,12 +2339,13 @@ impl World {
                     cache.inserter.insert(
                         first_entity,
                         first_location,
-                        first_bundle,
+                        &raw const first_bundle,
                         insert_mode,
                         caller,
                         RelationshipHookMode::Run,
                     )
                 };
+                core::mem::forget(first_bundle);
 
                 for (entity, bundle) in batch_iter {
                     if let Some(location) = cache.inserter.entities().get(entity) {
@@ -2361,12 +2368,13 @@ impl World {
                             cache.inserter.insert(
                                 entity,
                                 location,
-                                bundle,
+                                &raw const bundle,
                                 insert_mode,
                                 caller,
                                 RelationshipHookMode::Run,
                             )
                         };
+                        core::mem::forget(bundle);
                     } else {
                         panic!("error[B0003]: Could not insert a bundle (of type `{}`) for entity {entity}, which {}. See: https://bevy.org/learn/errors/b0003", DebugName::type_name::<B>(), self.entities.entity_does_not_exist_error_details(entity));
                     }
@@ -2486,12 +2494,13 @@ impl World {
                         cache.inserter.insert(
                             first_entity,
                             first_location,
-                            first_bundle,
+                            &raw const first_bundle,
                             insert_mode,
                             caller,
                             RelationshipHookMode::Run,
                         )
                     };
+                    core::mem::forget(first_bundle);
                     break Some(cache);
                 }
                 invalid_entities.push(first_entity);
@@ -2523,12 +2532,13 @@ impl World {
                         cache.inserter.insert(
                             entity,
                             location,
-                            bundle,
+                            &raw const bundle,
                             insert_mode,
                             caller,
                             RelationshipHookMode::Run,
                         )
                     };
+                    core::mem::forget(bundle);
                 } else {
                     invalid_entities.push(entity);
                 }
@@ -2703,10 +2713,10 @@ impl World {
     /// The value referenced by `value` must be valid for the given [`ComponentId`] of this world.
     #[inline]
     #[track_caller]
-    pub unsafe fn insert_resource_by_id(
+    pub unsafe fn insert_resource_by_id<A: IsAligned>(
         &mut self,
         component_id: ComponentId,
-        value: OwningPtr<'_>,
+        value: OwningPtr<'_, A>,
         caller: MaybeLocation,
     ) {
         let change_tick = self.change_tick();
@@ -2732,10 +2742,10 @@ impl World {
     /// The value referenced by `value` must be valid for the given [`ComponentId`] of this world.
     #[inline]
     #[track_caller]
-    pub unsafe fn insert_non_send_by_id(
+    pub unsafe fn insert_non_send_by_id<A: IsAligned>(
         &mut self,
         component_id: ComponentId,
-        value: OwningPtr<'_>,
+        value: OwningPtr<'_, A>,
         caller: MaybeLocation,
     ) {
         let change_tick = self.change_tick();

@@ -92,12 +92,12 @@ impl<'w> BundleSpawner<'w> {
     pub unsafe fn spawn_non_existent<T: DynamicBundle>(
         &mut self,
         entity: Entity,
-        bundle: T,
+        bundle: *const T,
         caller: MaybeLocation,
-    ) -> (EntityLocation, T::Effect) {
+    ) -> EntityLocation {
         // SAFETY: We do not make any structural changes to the archetype graph through self.world so these pointers always remain valid
         let bundle_info = self.bundle_info.as_ref();
-        let (location, after_effect) = {
+        let location = {
             let table = self.table.as_mut();
             let archetype = self.archetype.as_mut();
 
@@ -108,7 +108,7 @@ impl<'w> BundleSpawner<'w> {
             };
             let table_row = table.allocate(entity);
             let location = archetype.allocate(entity, table_row);
-            let after_effect = bundle_info.write_components(
+            bundle_info.write_components(
                 table,
                 sparse_sets,
                 &SpawnBundleStatus,
@@ -122,7 +122,7 @@ impl<'w> BundleSpawner<'w> {
             );
             entities.set(entity.index(), Some(location));
             entities.mark_spawn_despawn(entity.index(), caller, self.change_tick);
-            (location, after_effect)
+            location
         };
 
         // SAFETY: We have no outstanding mutable references to world as they were dropped
@@ -163,21 +163,17 @@ impl<'w> BundleSpawner<'w> {
             }
         };
 
-        (location, after_effect)
+        location
     }
 
     /// # Safety
     /// `T` must match this [`BundleInfo`]'s type
     #[inline]
-    pub unsafe fn spawn<T: Bundle>(
-        &mut self,
-        bundle: T,
-        caller: MaybeLocation,
-    ) -> (Entity, T::Effect) {
+    pub unsafe fn spawn<T: Bundle>(&mut self, bundle: *const T, caller: MaybeLocation) -> Entity {
         let entity = self.entities().alloc();
         // SAFETY: entity is allocated (but non-existent), `T` matches this BundleInfo's type
-        let (_, after_effect) = unsafe { self.spawn_non_existent(entity, bundle, caller) };
-        (entity, after_effect)
+        unsafe { self.spawn_non_existent(entity, bundle, caller) };
+        entity
     }
 
     #[inline]

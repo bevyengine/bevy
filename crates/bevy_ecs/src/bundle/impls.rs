@@ -1,11 +1,13 @@
 use core::any::TypeId;
 
-use bevy_ptr::OwningPtr;
+use bevy_ptr::{OwningPtr, Unaligned};
+use core::ptr::NonNull;
 use variadics_please::all_tuples;
 
 use crate::{
     bundle::{Bundle, BundleEffect, BundleFromComponents, DynamicBundle, NoBundleEffect},
     component::{Component, ComponentId, Components, ComponentsRegistrator, StorageType},
+    query::DebugCheckedUnwrap,
     world::EntityWorldMut,
 };
 
@@ -40,13 +42,21 @@ unsafe impl<C: Component> BundleFromComponents for C {
 impl<C: Component> DynamicBundle for C {
     type Effect = ();
     #[inline]
-    fn get_components(self, func: &mut impl FnMut(StorageType, OwningPtr<'_>)) -> Self::Effect {
-        OwningPtr::make(self, |ptr| func(C::STORAGE_TYPE, ptr));
+    unsafe fn get_components(
+        ptr: *mut Self,
+        func: &mut impl FnMut(StorageType, OwningPtr<'_, Unaligned>),
+    ) -> Self::Effect {
+        let ptr = NonNull::new(ptr).debug_checked_unwrap().cast();
+        let ptr = OwningPtr::<Unaligned>::new(ptr);
+        func(C::STORAGE_TYPE, ptr);
     }
+
+    #[inline]
+    unsafe fn apply_effect(_ptr: *mut Self, _func: &mut EntityWorldMut) {}
 }
 
 macro_rules! tuple_impl {
-    ($(#[$meta:meta])* $($name: ident),*) => {
+    ($(#[$meta:meta])* $(($name: ident, $index: tt)),*) => {
         #[expect(
             clippy::allow_attributes,
             reason = "This is a tuple-related macro; as such, the lints below may not always apply."
@@ -125,27 +135,161 @@ macro_rules! tuple_impl {
                 reason = "Zero-length tuples will generate a function body equivalent to `()`; however, this macro is meant for all applicable tuples, and as such it makes no sense to rewrite it just for that case."
             )]
             #[inline(always)]
-            fn get_components(self, func: &mut impl FnMut(StorageType, OwningPtr<'_>)) -> Self::Effect {
-                #[allow(
-                    non_snake_case,
-                    reason = "The names of these variables are provided by the caller, not by us."
-                )]
-                let ($(mut $name,)*) = self;
-                ($(
-                    $name.get_components(&mut *func),
-                )*)
+            unsafe fn get_components(ptr: *mut Self, func: &mut impl FnMut(StorageType, OwningPtr<'_, Unaligned>)) {
+                $(
+                    let field_ptr = &raw mut (*ptr).$index;
+                    $name::get_components(field_ptr, &mut *func);
+                )*
+            }
+
+            #[allow(
+                clippy::unused_unit,
+                reason = "Zero-length tuples will generate a function body equivalent to `()`; however, this macro is meant for all applicable tuples, and as such it makes no sense to rewrite it just for that case."
+            )]
+            #[inline(always)]
+            unsafe fn apply_effect(ptr: *mut Self, entity: &mut EntityWorldMut) {
+                $(
+                    let field_ptr = &raw mut (*ptr).$index;
+                    $name::apply_effect(field_ptr, entity);
+                )*
             }
         }
     }
 }
 
-all_tuples!(
-    #[doc(fake_variadic)]
-    tuple_impl,
-    0,
-    15,
-    B
+// #[doc(fake_variadic)]
+tuple_impl!();
+tuple_impl!((B0, 0));
+tuple_impl!((B0, 0), (B1, 1));
+tuple_impl!((B0, 0), (B1, 1), (B2, 2));
+tuple_impl!((B0, 0), (B1, 1), (B2, 2), (B3, 3));
+tuple_impl!((B0, 0), (B1, 1), (B2, 2), (B3, 3), (B4, 4));
+tuple_impl!((B0, 0), (B1, 1), (B2, 2), (B3, 3), (B4, 4), (B5, 5));
+tuple_impl!(
+    (B0, 0),
+    (B1, 1),
+    (B2, 2),
+    (B3, 3),
+    (B4, 4),
+    (B5, 5),
+    (B6, 6)
 );
+tuple_impl!(
+    (B0, 0),
+    (B1, 1),
+    (B2, 2),
+    (B3, 3),
+    (B4, 4),
+    (B5, 5),
+    (B6, 6),
+    (B7, 7)
+);
+tuple_impl!(
+    (B0, 0),
+    (B1, 1),
+    (B2, 2),
+    (B3, 3),
+    (B4, 4),
+    (B5, 5),
+    (B6, 6),
+    (B7, 7),
+    (B8, 8)
+);
+tuple_impl!(
+    (B0, 0),
+    (B1, 1),
+    (B2, 2),
+    (B3, 3),
+    (B4, 4),
+    (B5, 5),
+    (B6, 6),
+    (B7, 7),
+    (B8, 8),
+    (B9, 9)
+);
+tuple_impl!(
+    (B0, 0),
+    (B1, 1),
+    (B2, 2),
+    (B3, 3),
+    (B4, 4),
+    (B5, 5),
+    (B6, 6),
+    (B7, 7),
+    (B8, 8),
+    (B9, 9),
+    (B10, 10)
+);
+tuple_impl!(
+    (B0, 0),
+    (B1, 1),
+    (B2, 2),
+    (B3, 3),
+    (B4, 4),
+    (B5, 5),
+    (B6, 6),
+    (B7, 7),
+    (B8, 8),
+    (B9, 9),
+    (B10, 10),
+    (B11, 11)
+);
+tuple_impl!(
+    (B0, 0),
+    (B1, 1),
+    (B2, 2),
+    (B3, 3),
+    (B4, 4),
+    (B5, 5),
+    (B6, 6),
+    (B7, 7),
+    (B8, 8),
+    (B9, 9),
+    (B10, 10),
+    (B11, 11),
+    (B12, 12)
+);
+tuple_impl!(
+    (B0, 0),
+    (B1, 1),
+    (B2, 2),
+    (B3, 3),
+    (B4, 4),
+    (B5, 5),
+    (B6, 6),
+    (B7, 7),
+    (B8, 8),
+    (B9, 9),
+    (B10, 10),
+    (B11, 11),
+    (B12, 12),
+    (B13, 13)
+);
+tuple_impl!(
+    (B0, 0),
+    (B1, 1),
+    (B2, 2),
+    (B3, 3),
+    (B4, 4),
+    (B5, 5),
+    (B6, 6),
+    (B7, 7),
+    (B8, 8),
+    (B9, 9),
+    (B10, 10),
+    (B11, 11),
+    (B12, 12),
+    (B13, 13),
+    (B14, 14)
+);
+
+// all_tuples!(
+//     tuple_impl,
+//     0,
+//     15,
+//     B,
+//     INDEX
+// );
 
 macro_rules! after_effect_impl {
     ($(#[$meta:meta])* $($after_effect: ident),*) => {

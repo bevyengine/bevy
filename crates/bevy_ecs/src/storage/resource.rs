@@ -3,7 +3,7 @@ use crate::{
     component::{CheckChangeTicks, ComponentId, ComponentTicks, Components, Tick, TickCells},
     storage::{blob_vec::BlobVec, SparseSet},
 };
-use bevy_ptr::{OwningPtr, Ptr, UnsafeCellDeref};
+use bevy_ptr::{IsAligned, OwningPtr, Ptr, UnsafeCellDeref};
 use bevy_utils::prelude::DebugName;
 use core::{cell::UnsafeCell, mem::ManuallyDrop, panic::Location};
 
@@ -170,9 +170,9 @@ impl<const SEND: bool> ResourceData<SEND> {
     /// # Safety
     /// - `value` must be valid for the underlying type for the resource.
     #[inline]
-    pub(crate) unsafe fn insert(
+    pub(crate) unsafe fn insert<A: IsAligned>(
         &mut self,
-        value: OwningPtr<'_>,
+        value: OwningPtr<'_, A>,
         change_tick: Tick,
         caller: MaybeLocation,
     ) {
@@ -210,9 +210,9 @@ impl<const SEND: bool> ResourceData<SEND> {
     /// # Safety
     /// - `value` must be valid for the underlying type for the resource.
     #[inline]
-    pub(crate) unsafe fn insert_with_ticks(
+    pub(crate) unsafe fn insert_with_ticks<A: IsAligned>(
         &mut self,
-        value: OwningPtr<'_>,
+        value: OwningPtr<'_, A>,
         change_ticks: ComponentTicks,
         caller: MaybeLocation,
     ) {

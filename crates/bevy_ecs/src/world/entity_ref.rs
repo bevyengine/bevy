@@ -1,8 +1,7 @@
 use crate::{
     archetype::Archetype,
     bundle::{
-        Bundle, BundleEffect, BundleFromComponents, BundleInserter, BundleRemover, DynamicBundle,
-        InsertMode,
+        Bundle, BundleFromComponents, BundleInserter, BundleRemover, DynamicBundle, InsertMode,
     },
     change_detection::{MaybeLocation, MutUntyped},
     component::{
@@ -25,13 +24,13 @@ use crate::{
 };
 use alloc::vec::Vec;
 use bevy_platform::collections::{HashMap, HashSet};
-use bevy_ptr::{OwningPtr, Ptr};
+use bevy_ptr::{IsAligned, OwningPtr, Ptr, Unaligned};
 use core::{
     any::TypeId,
     cmp::Ordering,
     hash::{Hash, Hasher},
     marker::PhantomData,
-    mem::MaybeUninit,
+    mem::{ManuallyDrop, MaybeUninit},
 };
 use thiserror::Error;
 
@@ -2030,7 +2029,24 @@ impl<'w> EntityWorldMut<'w> {
     #[inline]
     pub(crate) fn insert_with_caller<T: Bundle>(
         &mut self,
-        bundle: T,
+        mut bundle: T,
+        mode: InsertMode,
+        caller: MaybeLocation,
+        relationship_hook_mode: RelationshipHookMode,
+    ) -> &mut Self {
+        // SAFETY: This is being called with a mutable borrow on the bundle, which should always be a valid
+        // pointer.
+        unsafe { self.insert_raw_with_caller(&mut bundle, mode, caller, relationship_hook_mode) };
+        core::mem::forget(bundle);
+        self
+    }
+
+    /// Split into a new function so we can pass the calling location into the function when using
+    /// as a command.
+    #[inline]
+    pub(crate) unsafe fn insert_raw_with_caller<T: Bundle>(
+        &mut self,
+        bundle: *mut T,
         mode: InsertMode,
         caller: MaybeLocation,
         relationship_hook_mode: RelationshipHookMode,
@@ -2040,11 +2056,11 @@ impl<'w> EntityWorldMut<'w> {
         let mut bundle_inserter =
             BundleInserter::new::<T>(self.world, location.archetype_id, change_tick);
         // SAFETY: location matches current entity. `T` matches `bundle_info`
-        let (location, after_effect) = unsafe {
+        let location = unsafe {
             bundle_inserter.insert(
                 self.entity,
                 location,
-                bundle,
+                bundle.cast_const(),
                 mode,
                 caller,
                 relationship_hook_mode,
@@ -2053,7 +2069,7 @@ impl<'w> EntityWorldMut<'w> {
         self.location = Some(location);
         self.world.flush();
         self.update_location();
-        after_effect.apply(self);
+        T::apply_effect(bundle, self);
         self
     }
 
@@ -2072,10 +2088,10 @@ impl<'w> EntityWorldMut<'w> {
     ///
     /// If the entity has been despawned while this `EntityWorldMut` is still alive.
     #[track_caller]
-    pub unsafe fn insert_by_id(
+    pub unsafe fn insert_by_id<A: IsAligned>(
         &mut self,
         component_id: ComponentId,
-        component: OwningPtr<'_>,
+        component: OwningPtr<'_, A>,
     ) -> &mut Self {
         self.insert_by_id_with_caller(
             component_id,
@@ -2091,10 +2107,10 @@ impl<'w> EntityWorldMut<'w> {
     /// - [`ComponentId`] must be from the same world as [`EntityWorldMut`]
     /// - [`OwningPtr`] must be a valid reference to the type represented by [`ComponentId`]
     #[inline]
-    pub(crate) unsafe fn insert_by_id_with_caller(
+    pub(crate) unsafe fn insert_by_id_with_caller<A: IsAligned>(
         &mut self,
         component_id: ComponentId,
-        component: OwningPtr<'_>,
+        component: OwningPtr<'_, A>,
         mode: InsertMode,
         caller: MaybeLocation,
         relationship_hook_insert_mode: RelationshipHookMode,
@@ -2143,7 +2159,7 @@ impl<'w> EntityWorldMut<'w> {
     ///
     /// If the entity has been despawned while this `EntityWorldMut` is still alive.
     #[track_caller]
-    pub unsafe fn insert_by_ids<'a, I: Iterator<Item = OwningPtr<'a>>>(
+    pub unsafe fn insert_by_ids<'a, A: IsAligned, I: Iterator<Item = OwningPtr<'a, A>>>(
         &mut self,
         component_ids: &[ComponentId],
         iter_components: I,
@@ -2152,7 +2168,11 @@ impl<'w> EntityWorldMut<'w> {
     }
 
     #[track_caller]
-    pub(crate) unsafe fn insert_by_ids_internal<'a, I: Iterator<Item = OwningPtr<'a>>>(
+    pub(crate) unsafe fn insert_by_ids_internal<
+        'a,
+        A: IsAligned,
+        I: Iterator<Item = OwningPtr<'a, A>>,
+    >(
         &mut self,
         component_ids: &[ComponentId],
         iter_components: I,
@@ -2871,8 +2891,13 @@ impl<'w> EntityWorldMut<'w> {
         caller: MaybeLocation,
     ) -> &mut Self {
         self.assert_not_despawned();
-        self.world
-            .spawn_with_caller(Observer::new(observer).with_entity(self.entity), caller);
+        let bundle = ManuallyDrop::new(Observer::new(observer).with_entity(self.entity));
+        let bundle_ptr = &raw const bundle;
+        // SAFETY: The observer was just constructed above. `bundle_ptr` must be valid.
+        unsafe {
+            self.world
+                .spawn_with_caller(bundle_ptr.cast::<Observer>(), caller)
+        };
         self.world.flush();
         self.update_location();
         self
@@ -4623,7 +4648,8 @@ where
 /// - [`Entity`] must correspond to [`EntityLocation`]
 unsafe fn insert_dynamic_bundle<
     'a,
-    I: Iterator<Item = OwningPtr<'a>>,
+    A: IsAligned,
+    I: Iterator<Item = OwningPtr<'a, A>>,
     S: Iterator<Item = StorageType>,
 >(
     mut bundle_inserter: BundleInserter<'_>,
@@ -4635,17 +4661,31 @@ unsafe fn insert_dynamic_bundle<
     caller: MaybeLocation,
     relationship_hook_insert_mode: RelationshipHookMode,
 ) -> EntityLocation {
-    struct DynamicInsertBundle<'a, I: Iterator<Item = (StorageType, OwningPtr<'a>)>> {
+    struct DynamicInsertBundle<
+        'a,
+        A: IsAligned,
+        I: Iterator<Item = (StorageType, OwningPtr<'a, A>)>,
+    > {
         components: I,
     }
 
-    impl<'a, I: Iterator<Item = (StorageType, OwningPtr<'a>)>> DynamicBundle
-        for DynamicInsertBundle<'a, I>
+    impl<'a, A: IsAligned, I: Iterator<Item = (StorageType, OwningPtr<'a, A>)>> DynamicBundle
+        for DynamicInsertBundle<'a, A, I>
     {
         type Effect = ();
-        fn get_components(self, func: &mut impl FnMut(StorageType, OwningPtr<'_>)) {
-            self.components.for_each(|(t, ptr)| func(t, ptr));
+        unsafe fn get_components(
+            ptr: *mut Self,
+            func: &mut impl FnMut(StorageType, OwningPtr<'_, Unaligned>),
+        ) {
+            // SAFETY: The caller must ensure that `ptr` is pointing to a valid instance of `Self`
+            // but does not necessarily need to be aligned.
+            let bundle = unsafe { ptr.read_unaligned() };
+            bundle
+                .components
+                .for_each(|(t, ptr)| func(t, ptr.to_unaligned()));
         }
+
+        unsafe fn apply_effect(_ptr: *mut Self, _entity: &mut EntityWorldMut) {}
     }
 
     let bundle = DynamicInsertBundle {
@@ -4653,18 +4693,18 @@ unsafe fn insert_dynamic_bundle<
     };
 
     // SAFETY: location matches current entity.
-    unsafe {
-        bundle_inserter
-            .insert(
-                entity,
-                location,
-                bundle,
-                mode,
-                caller,
-                relationship_hook_insert_mode,
-            )
-            .0
-    }
+    let result = unsafe {
+        bundle_inserter.insert(
+            entity,
+            location,
+            &raw const bundle,
+            mode,
+            caller,
+            relationship_hook_insert_mode,
+        )
+    };
+    core::mem::forget(bundle);
+    result
 }
 
 /// Types that can be used to fetch components from an entity dynamically by
