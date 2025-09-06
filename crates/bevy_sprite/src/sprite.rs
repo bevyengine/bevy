@@ -1,10 +1,13 @@
 use bevy_asset::{AsAssetId, AssetId, Assets, Handle};
-use bevy_camera::visibility::{self, Visibility, VisibilityClass};
+use bevy_camera::{
+    primitives::Aabb,
+    visibility::{self, Visibility, VisibilityClass},
+};
 use bevy_color::Color;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{component::Component, reflect::ReflectComponent};
 use bevy_image::{Image, TextureAtlas, TextureAtlasLayout};
-use bevy_math::{Rect, UVec2, Vec2};
+use bevy_math::{Rect, UVec2, Vec2, Vec3};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_transform::components::Transform;
 
@@ -267,6 +270,16 @@ impl Anchor {
 
     pub fn as_vec(&self) -> Vec2 {
         self.0
+    }
+
+    /// Determine the bounds at the anchor
+    pub fn calculate_bounds(&self, size: Vec2) -> Aabb {
+        let x1 = (Anchor::TOP_LEFT.0.x - self.as_vec().x) * size.x;
+        let x2 = (Anchor::TOP_LEFT.0.x - self.as_vec().x + 1.) * size.x;
+        let y1 = (Anchor::TOP_LEFT.0.y - self.as_vec().y - 1.) * size.y;
+        let y2 = (Anchor::TOP_LEFT.0.y - self.as_vec().y) * size.y;
+
+        Aabb::from_min_max(Vec3::new(x1, y1, 0.), Vec3::new(x2, y2, 0.))
     }
 }
 
