@@ -87,7 +87,9 @@ use core::any::TypeId;
     Anchor,
     Visibility,
     VisibilityClass,
-    Transform
+    Transform,
+    ComputedTextBlock,
+    TextLayoutInfo
 )]
 #[component(on_add = visibility::add_visibility_class::<Sprite>)]
 pub struct Text2d(pub String);

@@ -20,6 +20,7 @@ The default feature set enables most of the expected features of a game engine, 
 |bevy_asset|Provides asset functionality|
 |bevy_audio|Provides audio functionality|
 |bevy_camera|Provides camera and visibility types, as well as culling primitives.|
+|bevy_clipboard|Clipboard access|
 |bevy_color|Provides shared color types and operations|
 |bevy_core_pipeline|Provides cameras and other basic render pipeline features|
 |bevy_core_widgets|Headless widget collection for Bevy UI.|
