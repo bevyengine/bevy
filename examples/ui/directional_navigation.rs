@@ -67,10 +67,10 @@ const FOCUSED_BORDER: Srgba = bevy::color::palettes::tailwind::BLUE_50;
 // In a real project, each button would also have its own unique behavior,
 // to capture the actual intent of the user
 fn universal_button_click_behavior(
-    mut event: On<Pointer<Click>>,
+    mut click: On<Pointer<Click>>,
     mut button_query: Query<(&mut BackgroundColor, &mut ResetTimer)>,
 ) {
-    let button_entity = event.entity();
+    let button_entity = click.entity;
     if let Ok((mut color, mut reset_timer)) = button_query.get_mut(button_entity) {
         // This would be a great place to play a little sound effect too!
         color.0 = PRESSED_BUTTON.into();
@@ -78,7 +78,7 @@ fn universal_button_click_behavior(
 
         // Picking events propagate up the hierarchy,
         // so we need to stop the propagation here now that we've handled it
-        event.propagate(false);
+        click.propagate(false);
     }
 }
 
@@ -380,31 +380,29 @@ fn interact_with_focused_button(
         .contains(&DirectionalNavigationAction::Select)
         && let Some(focused_entity) = input_focus.0
     {
-        commands.trigger_targets(
-            Pointer::<Click> {
-                // We're pretending that we're a mouse
-                pointer_id: PointerId::Mouse,
-                // This field isn't used, so we're just setting it to a placeholder value
-                pointer_location: Location {
-                    target: NormalizedRenderTarget::Image(bevy::camera::ImageRenderTarget {
-                        handle: Handle::default(),
-                        scale_factor: FloatOrd(1.0),
-                    }),
-                    position: Vec2::ZERO,
-                },
-                event: Click {
-                    button: PointerButton::Primary,
-                    // This field isn't used, so we're just setting it to a placeholder value
-                    hit: HitData {
-                        camera: Entity::PLACEHOLDER,
-                        depth: 0.0,
-                        position: None,
-                        normal: None,
-                    },
-                    duration: Duration::from_secs_f32(0.1),
-                },
+        commands.trigger(Pointer::<Click> {
+            entity: focused_entity,
+            // We're pretending that we're a mouse
+            pointer_id: PointerId::Mouse,
+            // This field isn't used, so we're just setting it to a placeholder value
+            pointer_location: Location {
+                target: NormalizedRenderTarget::Image(bevy::camera::ImageRenderTarget {
+                    handle: Handle::default(),
+                    scale_factor: FloatOrd(1.0),
+                }),
+                position: Vec2::ZERO,
             },
-            focused_entity,
-        );
+            event: Click {
+                button: PointerButton::Primary,
+                // This field isn't used, so we're just setting it to a placeholder value
+                hit: HitData {
+                    camera: Entity::PLACEHOLDER,
+                    depth: 0.0,
+                    position: None,
+                    normal: None,
+                },
+                duration: Duration::from_secs_f32(0.1),
+            },
+        });
     }
 }

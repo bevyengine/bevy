@@ -1116,14 +1116,14 @@ impl CloneByFilter for OptOut {
     ) {
         match self.insert_mode {
             InsertMode::Replace => {
-                for component in source_archetype.components() {
+                for component in source_archetype.iter_components() {
                     if !self.deny.contains(&component) {
                         clone_component(component);
                     }
                 }
             }
             InsertMode::Keep => {
-                for component in source_archetype.components() {
+                for component in source_archetype.iter_components() {
                     if !target_archetype.contains(component) && !self.deny.contains(&component) {
                         clone_component(component);
                     }

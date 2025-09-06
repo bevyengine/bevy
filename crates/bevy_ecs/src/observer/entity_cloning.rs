@@ -72,7 +72,11 @@ fn component_clone_observed_by(_source: &SourceComponent, ctx: &mut ComponentClo
 #[cfg(test)]
 mod tests {
     use crate::{
-        entity::EntityCloner, event::EntityEvent, observer::On, resource::Resource, system::ResMut,
+        entity::{Entity, EntityCloner},
+        event::EntityEvent,
+        observer::On,
+        resource::Resource,
+        system::ResMut,
         world::World,
     };
 
@@ -80,7 +84,7 @@ mod tests {
     struct Num(usize);
 
     #[derive(EntityEvent)]
-    struct E;
+    struct E(Entity);
 
     #[test]
     fn clone_entity_with_observer() {
@@ -93,14 +97,15 @@ mod tests {
             .id();
         world.flush();
 
-        world.trigger_targets(E, e);
+        world.trigger(E(e));
 
         let e_clone = world.spawn_empty().id();
         EntityCloner::build_opt_out(&mut world)
             .add_observers(true)
             .clone_entity(e, e_clone);
 
-        world.trigger_targets(E, [e, e_clone]);
+        world.trigger(E(e));
+        world.trigger(E(e_clone));
 
         assert_eq!(world.resource::<Num>().0, 3);
     }

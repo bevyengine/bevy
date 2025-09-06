@@ -45,18 +45,18 @@ impl InheritableFont {
 /// An observer which looks for changes to the `InheritableFont` component on an entity, and
 /// propagates downward the font to all participating text entities.
 pub(crate) fn on_changed_font(
-    ev: On<Insert, InheritableFont>,
+    insert: On<Insert, InheritableFont>,
     font_style: Query<&InheritableFont>,
     assets: Res<AssetServer>,
     mut commands: Commands,
 ) {
-    if let Ok(style) = font_style.get(ev.entity())
+    if let Ok(style) = font_style.get(insert.entity)
         && let Some(font) = match style.font {
             HandleOrPath::Handle(ref h) => Some(h.clone()),
             HandleOrPath::Path(ref p) => Some(assets.load::<Font>(p)),
         }
     {
-        commands.entity(ev.entity()).insert(Propagate(TextFont {
+        commands.entity(insert.entity).insert(Propagate(TextFont {
             font,
             font_size: style.font_size,
             ..Default::default()

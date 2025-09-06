@@ -137,10 +137,10 @@ fn setup(mut commands: Commands) {
                                     )],
                                 ))
                                 .observe(
-                                    |mut event: On<Pointer<Click>>,
+                                    |mut click: On<Pointer<Click>>,
                                     mut focus: ResMut<InputFocus>| {
-                                        focus.0 = Some(event.entity());
-                                        event.propagate(false);
+                                        focus.0 = Some(click.entity);
+                                        click.propagate(false);
                                     },
                                 );
                         }

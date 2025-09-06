@@ -1,8 +1,9 @@
 use core::hint::black_box;
 
 use bevy_ecs::{
-    event::EntityEvent,
-    observer::{On, TriggerTargets},
+    entity::Entity,
+    event::{EntityEvent, Event},
+    observer::On,
     world::World,
 };
 
@@ -13,43 +14,50 @@ fn deterministic_rand() -> ChaCha8Rng {
     ChaCha8Rng::seed_from_u64(42)
 }
 
-#[derive(Clone, EntityEvent)]
-struct EventBase;
+#[derive(Clone, Event)]
+struct A;
 
-pub fn observe_simple(criterion: &mut Criterion) {
+pub fn observer_custom(criterion: &mut Criterion) {
     let mut group = criterion.benchmark_group("observe");
     group.warm_up_time(core::time::Duration::from_millis(500));
     group.measurement_time(core::time::Duration::from_secs(4));
 
-    group.bench_function("trigger_simple", |bencher| {
+    group.bench_function("observer_custom", |bencher| {
         let mut world = World::new();
-        world.add_observer(empty_listener_base);
+        world.add_observer(on_a);
         bencher.iter(|| {
             for _ in 0..10000 {
-                world.trigger(EventBase);
+                world.trigger(A);
             }
         });
     });
 
-    group.bench_function("trigger_targets_simple/10000_entity", |bencher| {
+    group.bench_function("observer_custom/10000_entity", |bencher| {
         let mut world = World::new();
         let mut entities = vec![];
         for _ in 0..10000 {
-            entities.push(world.spawn_empty().observe(empty_listener_base).id());
+            entities.push(world.spawn_empty().observe(on_b).id());
         }
         entities.shuffle(&mut deterministic_rand());
         bencher.iter(|| {
-            send_base_event(&mut world, &entities);
+            for entity in entities.iter().copied() {
+                world.trigger(B { entity });
+            }
         });
     });
 
     group.finish();
 }
 
-fn empty_listener_base(event: On<EventBase>) {
+fn on_a(event: On<A>) {
     black_box(event);
 }
 
-fn send_base_event(world: &mut World, entities: impl TriggerTargets) {
-    world.trigger_targets(EventBase, entities);
+#[derive(Clone, EntityEvent)]
+struct B {
+    entity: Entity,
+}
+
+fn on_b(event: On<B>) {
+    black_box(event);
 }
