@@ -170,7 +170,7 @@ pub enum NodeImageMode {
 impl NodeImageMode {
     /// Returns true if this mode uses slices internally ([`NodeImageMode::Sliced`] or [`NodeImageMode::Tiled`])
     #[inline]
-    pub fn uses_slices(&self) -> bool {
+    pub const fn uses_slices(&self) -> bool {
         matches!(
             self,
             NodeImageMode::Sliced(..) | NodeImageMode::Tiled { .. }
@@ -192,7 +192,8 @@ pub struct ImageNodeSize {
 
 impl ImageNodeSize {
     /// The size of the image's texture
-    pub fn size(&self) -> UVec2 {
+    #[inline]
+    pub const fn size(&self) -> UVec2 {
         self.size
     }
 }
