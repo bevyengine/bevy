@@ -82,6 +82,7 @@ impl Plugin for ScheduleRunnerPlugin {
                 }
                 app.finish();
                 app.cleanup();
+                app.startup();
             }
 
             match run_mode {
