@@ -103,7 +103,10 @@ fn update_bloom_settings(
                     BloomCompositeMode::Additive => "Additive",
                 }
             ));
-            text.push_str(&format!("(Y/H) Threshold: {:.2}\n", bloom.prefilter.threshold));
+            text.push_str(&format!(
+                "(Y/H) Threshold: {:.2}\n",
+                bloom.prefilter.threshold
+            ));
             text.push_str(&format!(
                 "(U/J) Threshold softness: {:.2}\n",
                 bloom.prefilter.threshold_softness
