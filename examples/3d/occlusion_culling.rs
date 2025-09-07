@@ -614,18 +614,10 @@ fn readback_indirect_parameters(
     let saved_indirect_parameters_0 = (**saved_indirect_parameters).clone();
     let saved_indirect_parameters_1 = (**saved_indirect_parameters).clone();
     readback_buffer::<IndirectParametersIndexed>(data_buffer, move |indirect_parameters| {
-        saved_indirect_parameters_0
-            .lock()
-            .as_mut()
-            .unwrap()
-            .data = indirect_parameters.to_vec();
+        saved_indirect_parameters_0.lock().as_mut().unwrap().data = indirect_parameters.to_vec();
     });
     readback_buffer::<u32>(batch_sets_buffer, move |indirect_parameters_count| {
-        saved_indirect_parameters_1
-            .lock()
-            .as_mut()
-            .unwrap()
-            .count = indirect_parameters_count[0];
+        saved_indirect_parameters_1.lock().as_mut().unwrap().count = indirect_parameters_count[0];
     });
 }
 
