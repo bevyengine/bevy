@@ -2494,14 +2494,17 @@ impl SpecializedMeshPipeline for MeshPipeline {
                 shader_defs.push("TONEMAP_METHOD_REINHARD_LUMINANCE".into());
             } else if method == MeshPipelineKey::TONEMAP_METHOD_ACES_FITTED {
                 shader_defs.push("TONEMAP_METHOD_ACES_FITTED".into());
-            } else if method == MeshPipelineKey::TONEMAP_METHOD_AGX {
-                shader_defs.push("TONEMAP_METHOD_AGX".into());
             } else if method == MeshPipelineKey::TONEMAP_METHOD_SOMEWHAT_BORING_DISPLAY_TRANSFORM {
                 shader_defs.push("TONEMAP_METHOD_SOMEWHAT_BORING_DISPLAY_TRANSFORM".into());
-            } else if method == MeshPipelineKey::TONEMAP_METHOD_BLENDER_FILMIC {
-                shader_defs.push("TONEMAP_METHOD_BLENDER_FILMIC".into());
-            } else if method == MeshPipelineKey::TONEMAP_METHOD_TONY_MC_MAPFACE {
-                shader_defs.push("TONEMAP_METHOD_TONY_MC_MAPFACE".into());
+            } else {
+                #[cfg(feature = "tonemapping_luts")]
+                if method == MeshPipelineKey::TONEMAP_METHOD_AGX {
+                    shader_defs.push("TONEMAP_METHOD_AGX".into());
+                } else if method == MeshPipelineKey::TONEMAP_METHOD_BLENDER_FILMIC {
+                    shader_defs.push("TONEMAP_METHOD_BLENDER_FILMIC".into());
+                } else if method == MeshPipelineKey::TONEMAP_METHOD_TONY_MC_MAPFACE {
+                    shader_defs.push("TONEMAP_METHOD_TONY_MC_MAPFACE".into());
+                }
             }
 
             // Debanding is tied to tonemapping in the shader, cannot run without it.
