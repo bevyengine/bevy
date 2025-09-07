@@ -21,8 +21,8 @@ use bevy_picking::PickingSystems;
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_ui::{
     widget::Text, AlignItems, BackgroundGradient, ColorStop, Display, FlexDirection, Gradient,
-    InteractionDisabled, InterpolationColorSpace, JustifyContent, LinearGradient, Node, UiRect,
-    Val,
+    InteractionDisabled, InterpolationColorSpace, JustifyContent, LinearGradient, Node,
+    PositionType, UiRect, Val,
 };
 
 use crate::{
@@ -111,6 +111,7 @@ pub fn slider<B: Bundle>(props: SliderProps, overrides: B) -> impl Bundle {
             // Text container
             Node {
                 display: Display::Flex,
+                position_type: PositionType::Absolute,
                 flex_direction: FlexDirection::Row,
                 align_items: AlignItems::Center,
                 justify_content: JustifyContent::Center,
