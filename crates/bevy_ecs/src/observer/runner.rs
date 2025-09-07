@@ -47,7 +47,7 @@ pub(super) fn observer_system_runner<E: Event, B: Bundle, S: ObserverSystem<E, B
     let trigger: &mut E::Trigger<'_> = unsafe { trigger_ptr.deref_mut() };
 
     let on: On<E, B> = On::new(
-        // SAFETY: Caller ensures `ptr` is castable to `&mut T`
+        // SAFETY: Caller ensures `ptr` is castable to `&mut E`
         unsafe { event_ptr.deref_mut() },
         observer,
         trigger,
