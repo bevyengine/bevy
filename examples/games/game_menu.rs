@@ -71,7 +71,7 @@ mod splash {
         let icon = asset_server.load("branding/icon.png");
         // Display the logo
         commands.spawn((
-            // When exiting the state, despawn everything that was spawned for this screen
+            // This entity will be despawned when exiting the state.
             DespawnOnExit(GameState::Splash),
             Node {
                 align_items: AlignItems::Center,
