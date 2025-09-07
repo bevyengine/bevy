@@ -28,7 +28,7 @@ fn main() {
     App::new()
         .add_plugins((
             DefaultPlugins
-            .set(WindowPlugin {
+                .set(WindowPlugin {
                     primary_window: Some(Window {
                         title: "Bevy 3D Shapes Example".into(),
                         ..default()
