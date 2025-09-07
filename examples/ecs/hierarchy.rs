@@ -12,20 +12,19 @@ fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .add_systems(Startup, setup)
-        .init_state::<Scene>()
+        .init_state::<Showcase>()
         .insert_resource(Delta(Duration::ZERO))
-        .add_systems(OnEnter(Scene::WithChildren), setup_with_children)
-        .add_systems(OnEnter(Scene::ChildrenSpawn), setup_children_spawn)
-        .add_systems(OnEnter(Scene::ChildrenMacro), spawn_children_macro)
-        .add_systems(OnEnter(Scene::ChildrenIter), setup_children_iter)
-        .add_systems(OnEnter(Scene::Related), setup_children_related)
+        .add_systems(OnEnter(Showcase::WithChildren), setup_with_children)
+        .add_systems(OnEnter(Showcase::ChildrenSpawn), setup_children_spawn)
+        .add_systems(OnEnter(Showcase::ChildrenMacro), spawn_children_macro)
+        .add_systems(OnEnter(Showcase::ChildrenIter), setup_children_iter)
+        .add_systems(OnEnter(Showcase::Related), setup_children_related)
         .add_systems(Update, (rotate, switch_scene))
         .run();
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash, States, Default)]
-#[states(scoped_entities)]
-enum Scene {
+enum Showcase {
     #[default]
     WithChildren,
     ChildrenSpawn,
@@ -34,22 +33,22 @@ enum Scene {
     Related,
 }
 
-impl Scene {
+impl Showcase {
     fn next(&self) -> Self {
         match self {
-            Scene::WithChildren => Scene::ChildrenSpawn,
-            Scene::ChildrenSpawn => Scene::ChildrenMacro,
-            Scene::ChildrenMacro => Scene::ChildrenIter,
-            Scene::ChildrenIter => Scene::Related,
-            Scene::Related => Scene::WithChildren,
+            Showcase::WithChildren => Showcase::ChildrenSpawn,
+            Showcase::ChildrenSpawn => Showcase::ChildrenMacro,
+            Showcase::ChildrenMacro => Showcase::ChildrenIter,
+            Showcase::ChildrenIter => Showcase::Related,
+            Showcase::Related => Showcase::WithChildren,
         }
     }
 }
 
 fn switch_scene(
     keyboard: Res<ButtonInput<KeyCode>>,
-    scene: Res<State<Scene>>,
-    mut next_scene: ResMut<NextState<Scene>>,
+    scene: Res<State<Showcase>>,
+    mut next_scene: ResMut<NextState<Showcase>>,
 ) {
     if keyboard.just_pressed(KeyCode::Space) {
         info!("Switching scene");
@@ -69,7 +68,7 @@ fn setup_common(
     time: &Res<Time>,
     delta: &mut ResMut<Delta>,
     title: &str,
-    stage: Scene,
+    stage: Showcase,
 ) {
     delta.0 = time.elapsed();
     commands.spawn((
@@ -96,7 +95,7 @@ fn setup_with_children(
         &time,
         &mut delta,
         "with_children()\nPress Space to continue",
-        Scene::WithChildren,
+        Showcase::WithChildren,
     );
 
     // Spawn a root entity with no parent
@@ -104,7 +103,7 @@ fn setup_with_children(
         .spawn((
             Sprite::from_image(texture.clone()),
             Transform::from_scale(Vec3::splat(0.75)),
-            DespawnOnExit(Scene::WithChildren),
+            DespawnOnExit(Showcase::WithChildren),
         ))
         // With that entity as a parent, run a lambda that spawns its children
         .with_children(|parent| {
@@ -151,14 +150,14 @@ fn setup_children_spawn(
         &time,
         &mut delta,
         "Children::spawn() \nPress Space to continue",
-        Scene::ChildrenSpawn,
+        Showcase::ChildrenSpawn,
     );
 
     // Children can also be spawned using the `Children` component as part of the parent's bundle.
     commands.spawn((
         Sprite::from_image(texture.clone()),
         Transform::from_scale(Vec3::splat(0.75)),
-        DespawnOnExit(Scene::ChildrenSpawn),
+        DespawnOnExit(Showcase::ChildrenSpawn),
         Children::spawn((
             Spawn((
                 Transform::from_xyz(250.0, 0.0, 0.0).with_scale(Vec3::splat(0.75)),
@@ -193,14 +192,14 @@ fn spawn_children_macro(
         &time,
         &mut delta,
         "children!() \nPress Space to continue",
-        Scene::ChildrenMacro,
+        Showcase::ChildrenMacro,
     );
 
     // The `children!` macro provides a convenient way to define children inline with their parent.
     commands.spawn((
         Sprite::from_image(texture.clone()),
         Transform::from_scale(Vec3::splat(0.75)),
-        DespawnOnExit(Scene::ChildrenMacro),
+        DespawnOnExit(Showcase::ChildrenMacro),
         children![
             (
                 Transform::from_xyz(250.0, 0.0, 0.0).with_scale(Vec3::splat(0.75)),
@@ -235,7 +234,7 @@ fn setup_children_iter(
         &time,
         &mut delta,
         "SpawnIter() \nPress Space to continue",
-        Scene::ChildrenIter,
+        Showcase::ChildrenIter,
     );
 
     // You can also spawn children from an iterator yielding bundles.
@@ -253,7 +252,7 @@ fn setup_children_iter(
     commands.spawn((
         Sprite::from_image(texture.clone()),
         Transform::from_scale(Vec3::splat(0.75)),
-        DespawnOnExit(Scene::ChildrenIter),
+        DespawnOnExit(Showcase::ChildrenIter),
         Children::spawn(SpawnIter(child_components.into_iter().map(
             move |(transform, color)| {
                 (
@@ -282,14 +281,14 @@ fn setup_children_related(
         &time,
         &mut delta,
         "related!() \nPress Space to continue",
-        Scene::Related,
+        Showcase::Related,
     );
 
     // You can also spawn entities with relationships other than parent/child.
     commands.spawn((
         Sprite::from_image(texture.clone()),
         Transform::from_scale(Vec3::splat(0.75)),
-        DespawnOnExit(Scene::Related),
+        DespawnOnExit(Showcase::Related),
         // the `related!` macro will spawn entities according to the `Children: RelationshipTarget` trait, but other types implementing `RelationshipTarget` can be used as well.
         related!(Children[
             (
