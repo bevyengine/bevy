@@ -40,8 +40,12 @@ pub unsafe trait Trigger<E: Event> {
     // does not outlive the `PtrMut` that was passed to the observer runner function.
     // Failing to do so could lead to use-after-free bugs.
     //
-    // To avoid this, we require that the caller of this function (i.e. the code that triggers the event)
-    // ensures that TODO.
+    // This problem leaks into `Trigger::trigger` because the `observer_system_runner` function
+    // must be called from within `Trigger::trigger`.
+    //
+    // We cannot simply ensure that the lifetimes are the same, because the generic associated type
+    // in `Event::Trigger<'a>` cannot require that the lifetime `'a` is the same as the lifetime
+    // TODO.
     //
     // This is complex, and ways to simplify this would be welcome in the future!
     // The safety requirements of this method were prompted by this comment thread:
@@ -90,13 +94,16 @@ impl GlobalTrigger {
             world.as_unsafe_world_cell().increment_trigger_id();
         }
         for (observer, runner) in observers.global_observers() {
-            (runner)(
-                world.reborrow(),
-                *observer,
-                trigger_context,
-                event.reborrow(),
-                self.into(),
-            );
+            // SAFETY: TODO!
+            unsafe {
+                (runner)(
+                    world.reborrow(),
+                    *observer,
+                    trigger_context,
+                    event.reborrow(),
+                    self.into(),
+                );
+            }
         }
     }
 }
@@ -150,17 +157,8 @@ pub fn trigger_entity_internal(
         world.as_unsafe_world_cell().increment_trigger_id();
     }
     for (observer, runner) in observers.global_observers() {
-        (runner)(
-            world.reborrow(),
-            *observer,
-            trigger_context,
-            event.reborrow(),
-            trigger.reborrow(),
-        );
-    }
-
-    if let Some(map) = observers.entity_observers().get(&target_entity) {
-        for (observer, runner) in map {
+        // SAFETY: TODO!
+        unsafe {
             (runner)(
                 world.reborrow(),
                 *observer,
@@ -168,6 +166,21 @@ pub fn trigger_entity_internal(
                 event.reborrow(),
                 trigger.reborrow(),
             );
+        }
+    }
+
+    if let Some(map) = observers.entity_observers().get(&target_entity) {
+        for (observer, runner) in map {
+            // SAFETY: TODO!
+            unsafe {
+                (runner)(
+                    world.reborrow(),
+                    *observer,
+                    trigger_context,
+                    event.reborrow(),
+                    trigger.reborrow(),
+                );
+            }
         }
     }
 }
@@ -301,20 +314,8 @@ impl<'a> EntityComponentsTrigger<'a> {
         for id in self.components {
             if let Some(component_observers) = observers.component_observers().get(id) {
                 for (observer, runner) in component_observers.global_observers() {
-                    (runner)(
-                        world.reborrow(),
-                        *observer,
-                        trigger_context,
-                        event.reborrow(),
-                        self.into(),
-                    );
-                }
-
-                if let Some(map) = component_observers
-                    .entity_component_observers()
-                    .get(&entity)
-                {
-                    for (observer, runner) in map {
+                    // SAFETY: TODO!
+                    unsafe {
                         (runner)(
                             world.reborrow(),
                             *observer,
@@ -322,6 +323,24 @@ impl<'a> EntityComponentsTrigger<'a> {
                             event.reborrow(),
                             self.into(),
                         );
+                    }
+                }
+
+                if let Some(map) = component_observers
+                    .entity_component_observers()
+                    .get(&entity)
+                {
+                    for (observer, runner) in map {
+                        // SAFETY: TODO!
+                        unsafe {
+                            (runner)(
+                                world.reborrow(),
+                                *observer,
+                                trigger_context,
+                                event.reborrow(),
+                                self.into(),
+                            );
+                        }
                     }
                 }
             }

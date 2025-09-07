@@ -18,9 +18,11 @@ use bevy_ptr::PtrMut;
 /// Typically refers to the default runner that runs the system stored in the associated [`Observer`] component,
 /// but can be overridden for custom behavior.
 pub type ObserverRunner =
-    fn(DeferredWorld, observer: Entity, &TriggerContext, event: PtrMut, trigger: PtrMut);
+    unsafe fn(DeferredWorld, observer: Entity, &TriggerContext, event: PtrMut, trigger: PtrMut);
 
-pub(super) fn observer_system_runner<E: Event, B: Bundle, S: ObserverSystem<E, B>>(
+// SAFETY: TODO!
+// See the safety discussion on `Trigger::trigger` for more details.
+pub(super) unsafe fn observer_system_runner<E: Event, B: Bundle, S: ObserverSystem<E, B>>(
     mut world: DeferredWorld,
     observer: Entity,
     trigger_context: &TriggerContext,
