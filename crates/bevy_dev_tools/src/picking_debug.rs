@@ -2,7 +2,7 @@
 
 use bevy_app::prelude::*;
 use bevy_camera::visibility::Visibility;
-use bevy_camera::Camera;
+use bevy_camera::{Camera, RenderTarget};
 use bevy_color::prelude::*;
 use bevy_ecs::prelude::*;
 use bevy_picking::backend::HitData;
@@ -243,7 +243,7 @@ pub fn update_debug_data(
 /// Draw text on each cursor with debug info
 pub fn debug_draw(
     mut commands: Commands,
-    camera_query: Query<(Entity, &Camera)>,
+    camera_query: Query<(Entity, &Camera, &RenderTarget)>,
     primary_window: Query<Entity, With<bevy_window::PrimaryWindow>>,
     pointers: Query<(Entity, &PointerId, &PointerDebug)>,
     scale: Res<UiScale>,
@@ -254,9 +254,8 @@ pub fn debug_draw(
         };
         let text = format!("{id:?}\n{debug}");
 
-        for (camera, _) in camera_query.iter().filter(|(_, camera)| {
-            camera
-                .target
+        for (camera, _, _) in camera_query.iter().filter(|(_, _, render_target)| {
+            render_target
                 .normalize(primary_window.single().ok())
                 .is_some_and(|target| target == pointer_location.target)
         }) {
@@ -264,7 +263,7 @@ pub fn debug_draw(
             if let Some(viewport) = camera_query
                 .get(camera)
                 .ok()
-                .and_then(|(_, camera)| camera.logical_viewport_rect())
+                .and_then(|(_, camera, _)| camera.logical_viewport_rect())
             {
                 pointer_pos -= viewport.min;
             }

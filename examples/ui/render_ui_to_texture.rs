@@ -67,9 +67,9 @@ fn setup(
             Camera {
                 // render before the "main pass" camera
                 order: -1,
-                target: RenderTarget::Image(image_handle.clone().into()),
                 ..default()
             },
+            RenderTarget::Image(image_handle.clone().into()),
         ))
         .id();
 
@@ -176,7 +176,7 @@ fn drive_diegetic_pointer(
     mut raycast: MeshRayCast,
     rays: Res<RayMap>,
     cubes: Query<&Mesh3d, With<Cube>>,
-    ui_camera: Query<&Camera, With<Camera2d>>,
+    ui_camera: Query<&RenderTarget, With<Camera2d>>,
     primary_window: Query<Entity, With<PrimaryWindow>>,
     windows: Query<(Entity, &Window)>,
     images: Res<Assets<Image>>,
@@ -188,7 +188,6 @@ fn drive_diegetic_pointer(
     // from 0 to 1, to pixel coordinates.
     let target = ui_camera
         .single()?
-        .target
         .normalize(primary_window.single().ok())
         .unwrap();
     let target_info = target

@@ -1,7 +1,7 @@
 use bevy_asset::Assets;
-use bevy_camera::Camera;
 #[cfg(feature = "bevy_ui_picking_backend")]
 use bevy_camera::NormalizedRenderTarget;
+use bevy_camera::{Camera, RenderTarget};
 use bevy_ecs::{
     component::Component,
     entity::Entity,
@@ -75,7 +75,7 @@ pub fn viewport_picking(
         &ComputedNode,
         &GlobalTransform,
     )>,
-    camera_query: Query<&Camera>,
+    camera_query: Query<(&Camera, &RenderTarget)>,
     hover_map: Res<HoverMap>,
     pointer_state: Res<PointerState>,
     mut pointer_inputs: EventReader<PointerInput>,
@@ -115,7 +115,7 @@ pub fn viewport_picking(
             viewport_pointer_location.location = None;
             continue;
         };
-        let Ok(camera) = camera_query.get(viewport.camera) else {
+        let Ok((camera, render_target)) = camera_query.get(viewport.camera) else {
             continue;
         };
         let Some(cam_viewport_size) = camera.logical_viewport_size() else {
@@ -131,7 +131,7 @@ pub fn viewport_picking(
         let top_left = node_rect.min * computed_node.inverse_scale_factor();
         let logical_size = computed_node.size() * computed_node.inverse_scale_factor();
 
-        let Some(target) = camera.target.as_image() else {
+        let Some(target) = render_target.as_image() else {
             continue;
         };
 
@@ -163,14 +163,14 @@ pub fn update_viewport_render_target_size(
         (&ViewportNode, &ComputedNode),
         Or<(Changed<ComputedNode>, Changed<ViewportNode>)>,
     >,
-    camera_query: Query<&Camera>,
+    camera_query: Query<&RenderTarget>,
     mut images: ResMut<Assets<Image>>,
 ) {
     for (viewport, computed_node) in &viewport_query {
-        let camera = camera_query.get(viewport.camera).unwrap();
+        let render_target = camera_query.get(viewport.camera).unwrap();
         let size = computed_node.size();
 
-        let Some(image_handle) = camera.target.as_image() else {
+        let Some(image_handle) = render_target.as_image() else {
             continue;
         };
         let size = size.as_uvec2().max(UVec2::ONE).to_extents();

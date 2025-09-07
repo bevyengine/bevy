@@ -26,7 +26,7 @@
 
 use crate::{clip_check_recursive, prelude::*, ui_transform::UiGlobalTransform, UiStack};
 use bevy_app::prelude::*;
-use bevy_camera::{visibility::InheritedVisibility, Camera};
+use bevy_camera::{visibility::InheritedVisibility, Camera, RenderTarget};
 use bevy_ecs::{prelude::*, query::QueryData};
 use bevy_math::Vec2;
 use bevy_platform::collections::HashMap;
@@ -101,7 +101,7 @@ pub struct NodeQuery {
 /// we need for determining picking.
 pub fn ui_picking(
     pointers: Query<(&PointerId, &PointerLocation)>,
-    camera_query: Query<(Entity, &Camera, Has<UiPickingCamera>)>,
+    camera_query: Query<(Entity, &Camera, &RenderTarget, Has<UiPickingCamera>)>,
     primary_window: Query<Entity, With<PrimaryWindow>>,
     settings: Res<UiPickingSettings>,
     ui_stack: Res<UiStack>,
@@ -122,18 +122,18 @@ pub fn ui_picking(
         // cameras. We want to ensure we return all cameras with a matching target.
         for camera in camera_query
             .iter()
-            .filter(|(_, _, cam_can_pick)| !settings.require_markers || *cam_can_pick)
-            .map(|(entity, camera, _)| {
+            .filter(|(_, _, _, cam_can_pick)| !settings.require_markers || *cam_can_pick)
+            .map(|(entity, _, render_target, _)| {
                 (
                     entity,
-                    camera.target.normalize(primary_window.single().ok()),
+                    render_target.normalize(primary_window.single().ok()),
                 )
             })
             .filter_map(|(entity, target)| Some(entity).zip(target))
             .filter(|(_entity, target)| target == &pointer_location.target)
             .map(|(cam_entity, _target)| cam_entity)
         {
-            let Ok((_, camera_data, _)) = camera_query.get(camera) else {
+            let Ok((_, camera_data, _, _)) = camera_query.get(camera) else {
                 continue;
             };
             let mut pointer_pos =
@@ -248,7 +248,7 @@ pub fn ui_picking(
 
         let order = camera_query
             .get(*camera)
-            .map(|(_, cam, _)| cam.order)
+            .map(|(_, cam, _, _)| cam.order)
             .unwrap_or_default() as f32
             + 0.5; // bevy ui can run on any camera, it's a special case
 

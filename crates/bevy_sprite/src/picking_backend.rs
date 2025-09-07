@@ -13,7 +13,7 @@
 use crate::{Anchor, Sprite};
 use bevy_app::prelude::*;
 use bevy_asset::prelude::*;
-use bevy_camera::{visibility::ViewVisibility, Camera, Projection};
+use bevy_camera::{visibility::ViewVisibility, Camera, Projection, RenderTarget};
 use bevy_color::Alpha;
 use bevy_ecs::prelude::*;
 use bevy_image::prelude::*;
@@ -85,6 +85,7 @@ fn sprite_picking(
     cameras: Query<(
         Entity,
         &Camera,
+        &RenderTarget,
         &GlobalTransform,
         &Projection,
         Has<SpritePickingCamera>,
@@ -125,16 +126,15 @@ fn sprite_picking(
         pointer_location.location().map(|loc| (pointer, loc))
     }) {
         let mut blocked = false;
-        let Some((cam_entity, camera, cam_transform, Projection::Orthographic(cam_ortho), _)) =
+        let Some((cam_entity, camera, _, cam_transform, Projection::Orthographic(cam_ortho), _)) =
             cameras
                 .iter()
-                .filter(|(_, camera, _, _, cam_can_pick)| {
+                .filter(|(_, camera, _, _, _, cam_can_pick)| {
                     let marker_requirement = !settings.require_markers || *cam_can_pick;
                     camera.is_active && marker_requirement
                 })
-                .find(|(_, camera, _, _, _)| {
-                    camera
-                        .target
+                .find(|(_, _, render_target, _, _, _)| {
+                    render_target
                         .normalize(primary_window)
                         .is_some_and(|x| x == location.target)
                 })
