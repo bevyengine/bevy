@@ -9,7 +9,13 @@ const GLTF_PATH: &str = "models/animated/MorphStressTest.gltf";
 
 fn main() {
     App::new()
-        .add_plugins(DefaultPlugins)
+        .add_plugins(DefaultPlugins.set(WindowPlugin {
+            primary_window: Some(Window {
+                title: "Bevy Morph Targets Example".into(),
+                ..default()
+            }),
+            ..default()
+        }))
         .insert_resource(AmbientLight {
             brightness: 150.0,
             ..default()

@@ -7,7 +7,13 @@ use bevy::{math::ops, mesh::skinning::SkinnedMesh, prelude::*};
 
 fn main() {
     App::new()
-        .add_plugins(DefaultPlugins)
+        .add_plugins(DefaultPlugins.set(WindowPlugin {
+            primary_window: Some(Window {
+                title: "Bevy Gltf Skinned Mesh Example".into(),
+                ..default()
+            }),
+            ..default()
+        }))
         .insert_resource(AmbientLight {
             brightness: 750.0,
             ..default()

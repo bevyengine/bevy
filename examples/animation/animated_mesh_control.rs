@@ -13,7 +13,13 @@ fn main() {
             brightness: 2000.,
             ..default()
         })
-        .add_plugins(DefaultPlugins)
+        .add_plugins(DefaultPlugins.set(WindowPlugin {
+            primary_window: Some(Window {
+                title: "Bevy Animated Mesh Control Example".into(),
+                ..default()
+            }),
+            ..default()
+        }))
         .add_systems(Startup, setup)
         .add_systems(Update, setup_scene_once_loaded)
         .add_systems(Update, keyboard_control)

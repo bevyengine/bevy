@@ -14,7 +14,13 @@ fn main() {
             brightness: 2000.,
             ..default()
         })
-        .add_plugins(DefaultPlugins)
+        .add_plugins(DefaultPlugins.set(WindowPlugin {
+            primary_window: Some(Window {
+                title: "Bevy Animated Mesh Example".into(),
+                ..default()
+            }),
+            ..default()
+        }))
         .add_systems(Startup, setup_mesh_and_animation)
         .add_systems(Startup, setup_camera_and_environment)
         .run();

@@ -9,7 +9,13 @@ use bevy::{
 
 fn main() {
     App::new()
-        .add_plugins(DefaultPlugins)
+        .add_plugins(DefaultPlugins.set(WindowPlugin {
+            primary_window: Some(Window {
+                title: "Bevy Animated Transform Example".into(),
+                ..default()
+            }),
+            ..default()
+        }))
         .insert_resource(AmbientLight {
             color: Color::WHITE,
             brightness: 150.0,

@@ -24,7 +24,13 @@ struct AnimationInfo {
 // The entry point.
 fn main() {
     App::new()
-        .add_plugins(DefaultPlugins)
+        .add_plugins(DefaultPlugins.set(WindowPlugin {
+            primary_window: Some(Window {
+                title: "Bevy Animated Ui Example".into(),
+                ..default()
+            }),
+            ..default()
+        }))
         // Note that we don't need any systems other than the setup system,
         // because Bevy automatically updates animations every frame.
         .add_systems(Startup, setup)

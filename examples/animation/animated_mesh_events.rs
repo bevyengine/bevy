@@ -18,7 +18,13 @@ fn main() {
             brightness: 2000.,
             ..default()
         })
-        .add_plugins(DefaultPlugins)
+        .add_plugins(DefaultPlugins.set(WindowPlugin {
+            primary_window: Some(Window {
+                title: "Bevy Animated Mesh Events Example".into(),
+                ..default()
+            }),
+            ..default()
+        }))
         .init_resource::<ParticleAssets>()
         .init_resource::<FoxFeetTargets>()
         .add_systems(Startup, setup)

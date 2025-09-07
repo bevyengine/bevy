@@ -17,7 +17,13 @@ use rand_chacha::ChaCha8Rng;
 
 fn main() {
     App::new()
-        .add_plugins(DefaultPlugins)
+        .add_plugins(DefaultPlugins.set(WindowPlugin {
+            primary_window: Some(Window {
+                title: "Bevy Custom Skinned Mesh Example".into(),
+                ..default()
+            }),
+            ..default()
+        }))
         .insert_resource(AmbientLight {
             brightness: 3000.0,
             ..default()
