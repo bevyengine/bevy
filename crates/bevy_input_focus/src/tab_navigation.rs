@@ -203,7 +203,9 @@ impl TabNavigation<'_, '_> {
 
         match navigation_result {
             Ok(entity) => {
-                if let Some(previous_focus) = focus.0 && tabgroup.is_none() {
+                if let Some(previous_focus) = focus.0
+                    && tabgroup.is_none()
+                {
                     Err(TabNavigationError::NoTabGroupForCurrentFocus {
                         previous_focus,
                         new_focus: entity,

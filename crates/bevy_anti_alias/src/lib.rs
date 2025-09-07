@@ -4,11 +4,6 @@
     html_logo_url = "https://bevy.org/assets/icon.png",
     html_favicon_url = "https://bevy.org/assets/icon.png"
 )]
-// FIXME: Address the unwraps used in this crate. See https://github.com/bevyengine/bevy/issues/12660.
-#![expect(
-    clippy::unwrap_used,
-    reason = "Temporary hold until all unwraps in this crate can be addressed."
-)]
 
 use bevy_app::Plugin;
 use contrast_adaptive_sharpening::CasPlugin;

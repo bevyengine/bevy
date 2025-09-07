@@ -1,4 +1,4 @@
-use std::sync::Mutex;
+use std::sync::{Mutex, PoisonError};
 
 use crate::contrast_adaptive_sharpening::ViewCasPipeline;
 use bevy_ecs::prelude::*;
@@ -6,6 +6,7 @@ use bevy_render::{
     diagnostic::RecordDiagnostics,
     extract_component::{ComponentUniforms, DynamicUniformIndex},
     render_graph::{Node, NodeRunError, RenderGraphContext},
+    render_phase::DrawError,
     render_resource::{
         BindGroup, BindGroupEntries, BufferId, Operations, PipelineCache,
         RenderPassColorAttachment, RenderPassDescriptor, TextureViewId,
@@ -58,7 +59,12 @@ impl Node for CasNode {
             return Ok(());
         };
 
-        let uniforms_id = uniforms.buffer().unwrap().id();
+        let uniforms_id = uniforms
+            .buffer()
+            .ok_or(NodeRunError::DrawError(
+                DrawError::ViewUniformsBufferNotFound,
+            ))?
+            .id();
         let Some(uniforms) = uniforms.binding() else {
             return Ok(());
         };
@@ -73,7 +79,10 @@ impl Node for CasNode {
         let source = view_target.source;
         let destination = view_target.destination;
 
-        let mut cached_bind_group = self.cached_bind_group.lock().unwrap();
+        let mut cached_bind_group = self
+            .cached_bind_group
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner);
         let bind_group = match &mut *cached_bind_group {
             Some((buffer_id, texture_id, bind_group))
                 if source.id() == *texture_id && uniforms_id == *buffer_id =>
