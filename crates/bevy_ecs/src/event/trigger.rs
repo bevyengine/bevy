@@ -28,8 +28,26 @@ pub unsafe trait Trigger<E: Event> {
     /// [`Trigger`] and the state stored on `self`.
     ///
     /// SAFETY: TODO!
+    // To understand why this must be unsafe, we must think carefully about the lifetimes involved.
+    //
+    // The core challenge is that the lifetime of the `&mut E::Trigger<'_>` that we want to create
+    // within our `observer_system_runner` may not be the same as the lifetime provided by Event::Trigger<'a>.
+    //
+    // If the lifetimes are the same, then we can safely create a `&mut E::Trigger<'_>` from the `PtrMut`
+    // passed to the observer runner function, and pass that to the observer system inside of 'On'.
+    //
+    // If the lifetimes are not the same, then we must be careful to ensure that the `&mut E::Trigger<'_>` we create
+    // does not outlive the `PtrMut` that was passed to the observer runner function.
+    // Failing to do so could lead to use-after-free bugs.
+    //
+    // To avoid this, we require that the caller of this function (i.e. the code that triggers the event)
+    // ensures that TODO.
+    //
+    // This is complex, and ways to simplify this would be welcome in the future!
     // The safety requirements of this method were prompted by this comment thread:
     // https://github.com/bevyengine/bevy/pull/20731#discussion_r2311907935
+    //
+    // which also discusses some alternative designs that were considered.
     unsafe fn trigger(
         &mut self,
         world: DeferredWorld,
