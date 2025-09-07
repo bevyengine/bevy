@@ -333,13 +333,13 @@ fn rotate(
         }
 
         // To demonstrate removing children, we'll remove a child after a couple of seconds.
-        let elapsed = time.elapsed() - delta.0;
-        if elapsed.as_secs_f32() >= 2.0 && children.len() == 2 {
+        let elapsed = time.elapsed_secs() - delta.0.as_secs_f32();
+        if elapsed >= 2.0 && children.len() == 2 {
             let child = children.last().unwrap();
             commands.entity(*child).despawn();
         }
 
-        if elapsed.as_secs_f32() >= 4.0 {
+        if elapsed >= 4.0 {
             // This will remove the entity from its parent's list of children, as well as despawn
             // any children the entity has.
             commands.entity(parent).despawn();
