@@ -142,7 +142,7 @@ impl Default for AppSettings {
 /// Creates help text at the bottom of the screen.
 fn create_help_text(app_settings: &AppSettings) -> Text {
     format!(
-        "Chromatic aberration intensity: {} (Press Left or Right to change)",
+        "Chromatic aberration intensity: {:.2} (Press Left or Right to change)",
         app_settings.chromatic_aberration_intensity
     )
     .into()

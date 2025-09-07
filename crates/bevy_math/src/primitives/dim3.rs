@@ -50,7 +50,7 @@ impl Sphere {
 
     /// Get the diameter of the sphere
     #[inline(always)]
-    pub fn diameter(&self) -> f32 {
+    pub const fn diameter(&self) -> f32 {
         2.0 * self.radius
     }
 
@@ -430,13 +430,13 @@ impl Segment3d {
 
     /// Get the position of the first endpoint of the line segment.
     #[inline(always)]
-    pub fn point1(&self) -> Vec3 {
+    pub const fn point1(&self) -> Vec3 {
         self.vertices[0]
     }
 
     /// Get the position of the second endpoint of the line segment.
     #[inline(always)]
-    pub fn point2(&self) -> Vec3 {
+    pub const fn point2(&self) -> Vec3 {
         self.vertices[1]
     }
 
@@ -696,15 +696,15 @@ impl Default for Cuboid {
 impl Cuboid {
     /// Create a new `Cuboid` from a full x, y, and z length
     #[inline(always)]
-    pub fn new(x_length: f32, y_length: f32, z_length: f32) -> Self {
+    pub const fn new(x_length: f32, y_length: f32, z_length: f32) -> Self {
         Self::from_size(Vec3::new(x_length, y_length, z_length))
     }
 
     /// Create a new `Cuboid` from a given full size
     #[inline(always)]
-    pub fn from_size(size: Vec3) -> Self {
+    pub const fn from_size(size: Vec3) -> Self {
         Self {
-            half_size: size / 2.0,
+            half_size: Vec3::new(size.x / 2.0, size.y / 2.0, size.z / 2.0),
         }
     }
 
@@ -719,7 +719,7 @@ impl Cuboid {
     /// Create a `Cuboid` from a single length.
     /// The resulting `Cuboid` will be the same size in every direction.
     #[inline(always)]
-    pub fn from_length(length: f32) -> Self {
+    pub const fn from_length(length: f32) -> Self {
         Self {
             half_size: Vec3::splat(length / 2.0),
         }
@@ -792,7 +792,7 @@ impl Default for Cylinder {
 impl Cylinder {
     /// Create a new `Cylinder` from a radius and full height
     #[inline(always)]
-    pub fn new(radius: f32, height: f32) -> Self {
+    pub const fn new(radius: f32, height: f32) -> Self {
         Self {
             radius,
             half_height: height / 2.0,
@@ -801,7 +801,7 @@ impl Cylinder {
 
     /// Get the base of the cylinder as a [`Circle`]
     #[inline(always)]
-    pub fn base(&self) -> Circle {
+    pub const fn base(&self) -> Circle {
         Circle {
             radius: self.radius,
         }
@@ -811,7 +811,7 @@ impl Cylinder {
     /// also known as the lateral area
     #[inline(always)]
     #[doc(alias = "side_area")]
-    pub fn lateral_area(&self) -> f32 {
+    pub const fn lateral_area(&self) -> f32 {
         4.0 * PI * self.radius * self.half_height
     }
 
@@ -871,7 +871,7 @@ impl Default for Capsule3d {
 
 impl Capsule3d {
     /// Create a new `Capsule3d` from a radius and length
-    pub fn new(radius: f32, length: f32) -> Self {
+    pub const fn new(radius: f32, length: f32) -> Self {
         Self {
             radius,
             half_length: length / 2.0,
@@ -881,7 +881,7 @@ impl Capsule3d {
     /// Get the part connecting the hemispherical ends
     /// of the capsule as a [`Cylinder`]
     #[inline(always)]
-    pub fn to_cylinder(&self) -> Cylinder {
+    pub const fn to_cylinder(&self) -> Cylinder {
         Cylinder {
             radius: self.radius,
             half_height: self.half_length,
@@ -941,12 +941,12 @@ impl Default for Cone {
 
 impl Cone {
     /// Create a new [`Cone`] from a radius and height.
-    pub fn new(radius: f32, height: f32) -> Self {
+    pub const fn new(radius: f32, height: f32) -> Self {
         Self { radius, height }
     }
     /// Get the base of the cone as a [`Circle`]
     #[inline(always)]
-    pub fn base(&self) -> Circle {
+    pub const fn base(&self) -> Circle {
         Circle {
             radius: self.radius,
         }
@@ -1087,7 +1087,7 @@ impl Torus {
     /// The inner radius is the radius of the hole, and the outer radius
     /// is the radius of the entire object
     #[inline(always)]
-    pub fn new(inner_radius: f32, outer_radius: f32) -> Self {
+    pub const fn new(inner_radius: f32, outer_radius: f32) -> Self {
         let minor_radius = (outer_radius - inner_radius) / 2.0;
         let major_radius = outer_radius - minor_radius;
 
@@ -1101,7 +1101,7 @@ impl Torus {
     /// For a ring torus, this corresponds to the radius of the hole,
     /// or `major_radius - minor_radius`
     #[inline(always)]
-    pub fn inner_radius(&self) -> f32 {
+    pub const fn inner_radius(&self) -> f32 {
         self.major_radius - self.minor_radius
     }
 
@@ -1109,7 +1109,7 @@ impl Torus {
     /// This corresponds to the overall radius of the entire object,
     /// or `major_radius + minor_radius`
     #[inline(always)]
-    pub fn outer_radius(&self) -> f32 {
+    pub const fn outer_radius(&self) -> f32 {
         self.major_radius + self.minor_radius
     }
 
@@ -1191,7 +1191,7 @@ impl Default for Triangle3d {
 impl Triangle3d {
     /// Create a new [`Triangle3d`] from points `a`, `b`, and `c`.
     #[inline(always)]
-    pub fn new(a: Vec3, b: Vec3, c: Vec3) -> Self {
+    pub const fn new(a: Vec3, b: Vec3, c: Vec3) -> Self {
         Self {
             vertices: [a, b, c],
         }
@@ -1388,7 +1388,7 @@ impl Default for Tetrahedron {
 impl Tetrahedron {
     /// Create a new [`Tetrahedron`] from points `a`, `b`, `c` and `d`.
     #[inline(always)]
-    pub fn new(a: Vec3, b: Vec3, c: Vec3, d: Vec3) -> Self {
+    pub const fn new(a: Vec3, b: Vec3, c: Vec3, d: Vec3) -> Self {
         Self {
             vertices: [a, b, c, d],
         }
