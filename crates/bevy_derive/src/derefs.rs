@@ -1,6 +1,6 @@
 use proc_macro::{Span, TokenStream};
 use quote::quote;
-use syn::{parse_macro_input, Data, DataStruct, DeriveInput, Field, Index, Member, Type};
+use syn::{parse_macro_input, Data, DeriveInput, Field, Index, Member, Type};
 
 const DEREF: &str = "Deref";
 const DEREF_MUT: &str = "DerefMut";
@@ -62,15 +62,20 @@ fn get_deref_field(ast: &DeriveInput, is_mut: bool) -> syn::Result<(Member, &Typ
     };
 
     if data_struct.fields.len() <= 1 {
-        if let Some(field) = data_struct.fields.iter().next() {
-            let member = to_member(field, 0);
-            return Ok((member, &field.ty));
-        } else {
-            return Err(syn::Error::new(
-                Span::call_site().into(),
-                format!("{deref_kind} cannot be derived on field-less structs"),
-            ));
-        }
+        return data_struct
+            .fields
+            .iter()
+            .next()
+            .map(|field| {
+                let member = to_member(field, 0);
+                (member, &field.ty)
+            })
+            .ok_or_else(|| {
+                syn::Error::new(
+                    Span::call_site().into(),
+                    format!("{deref_kind} cannot be derived on field-less structs"),
+                )
+            });
     }
 
     let mut selected_field: Option<(Member, &Type)> = None;
