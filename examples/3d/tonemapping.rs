@@ -1,5 +1,7 @@
 //! This examples compares Tonemapping options
 
+#[cfg(feature = "tonemapping_luts")]
+use bevy::render::view::ColorGradingSection;
 use bevy::{
     asset::UnapprovedPathMode,
     core_pipeline::tonemapping::Tonemapping,
@@ -9,7 +11,7 @@ use bevy::{
     reflect::TypePath,
     render::{
         render_resource::AsBindGroup,
-        view::{ColorGrading, ColorGradingGlobal, ColorGradingSection, Hdr},
+        view::{ColorGrading, ColorGradingGlobal, Hdr},
     },
     shader::ShaderRef,
 };
