@@ -1128,6 +1128,10 @@ impl Image {
     /// Takes a 2D image containing vertically stacked images of the same size, and reinterprets
     /// it as a 2D array texture, where each of the stacked images becomes one layer of the
     /// array. This is primarily for use with the `texture2DArray` shader uniform type.
+    ///
+    /// # Errors
+    /// Returns [`TextureReinterpretationError`] if the texture is not 2D, has more than one layers
+    /// or is not evenly dividable into the `layers`.
     pub fn reinterpret_stacked_2d_as_array(
         &mut self,
         layers: u32,
