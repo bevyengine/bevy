@@ -1,4 +1,4 @@
-//! Provides `LockResult`, `PoisonError`, `TryLockError`, `TryLockResult`
+//! Provides `TryLockError`, `TryLockResult`
 
 use core::{error::Error, fmt};
 

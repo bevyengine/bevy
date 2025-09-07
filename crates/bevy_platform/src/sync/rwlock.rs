@@ -141,7 +141,7 @@ mod implementation {
 
 #[cfg(not(feature = "std"))]
 mod implementation {
-    use crate::sync::{LockResult, TryLockError, TryLockResult};
+    use crate::sync::{TryLockError, TryLockResult};
     use core::fmt;
 
     pub use spin::rwlock::{RwLockReadGuard, RwLockWriteGuard};
