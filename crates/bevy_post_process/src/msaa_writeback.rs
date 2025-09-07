@@ -89,7 +89,10 @@ impl ViewNode for MsaaWritebackNode {
             // We will indirectly write the results to the "destination" using
             // the MSAA resolve step.
             color_attachments: &[Some(RenderPassColorAttachment {
-                // If MSAA is enabled, then the sampled texture will always exist
+                #[expect(
+                    clippy::unwrap_used,
+                    reason = "If MSAA is enabled, then the sampled texture will always exist"
+                )]
                 view: target.sampled_main_texture_view().unwrap(),
                 depth_slice: None,
                 resolve_target: Some(post_process.destination),

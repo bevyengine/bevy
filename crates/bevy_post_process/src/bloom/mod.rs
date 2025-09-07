@@ -423,6 +423,10 @@ fn prepare_bloom_bind_groups(
 ) {
     let sampler = &downsampling_pipeline.sampler;
 
+    let Some(uniforms_binding) = uniforms.binding() else {
+        return;
+    };
+
     for (entity, bloom_texture) in &views {
         let bind_group_count = bloom_texture.mip_count as usize - 1;
 
@@ -434,7 +438,7 @@ fn prepare_bloom_bind_groups(
                 &BindGroupEntries::sequential((
                     &bloom_texture.view(mip - 1),
                     sampler,
-                    uniforms.binding().unwrap(),
+                    uniforms_binding.clone(),
                 )),
             ));
         }
@@ -447,7 +451,7 @@ fn prepare_bloom_bind_groups(
                 &BindGroupEntries::sequential((
                     &bloom_texture.view(mip),
                     sampler,
-                    uniforms.binding().unwrap(),
+                    uniforms_binding.clone(),
                 )),
             ));
         }
