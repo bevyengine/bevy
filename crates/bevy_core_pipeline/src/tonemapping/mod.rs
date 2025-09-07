@@ -109,6 +109,15 @@ pub struct TonemappingPipeline {
 }
 
 /// Optionally enables a tonemapping shader that attempts to map linear input stimulus into a perceptually uniform image for a given [`Camera`] entity.
+///
+#[cfg_attr(
+    feature = "tonemapping_luts",
+    doc = "The default tonemapping is [`TonyMcMapface`](Tonemapping::TonyMcMapface)."
+)]
+#[cfg_attr(
+    not(feature = "tonemapping_luts"),
+    doc = "The default tonemapping is [`None`](Tonemapping::None)."
+)]
 #[derive(
     Component, Debug, Hash, Clone, Copy, Reflect, Default, ExtractComponent, PartialEq, Eq,
 )]
@@ -116,6 +125,8 @@ pub struct TonemappingPipeline {
 #[reflect(Component, Debug, Hash, Default, PartialEq)]
 pub enum Tonemapping {
     /// Bypass tonemapping.
+    ///
+    /// Default when `tonemapping_luts` is disabled.
     #[cfg_attr(not(feature = "tonemapping_luts"), default)]
     None,
     /// Suffers from lots hue shifting, brights don't desaturate naturally.
@@ -152,6 +163,8 @@ pub enum Tonemapping {
     /// Brightness-equivalent luminance of the input stimulus is compressed. The non-linearity resembles Reinhard.
     /// Color hues are preserved during compression, except for a deliberate [Bezold–Brücke shift](https://en.wikipedia.org/wiki/Bezold%E2%80%93Br%C3%BCcke_shift).
     /// To avoid posterization, selective desaturation is employed, with care to avoid the [Abney effect](https://en.wikipedia.org/wiki/Abney_effect).
+    ///
+    /// Default when `tonemapping_luts` is enabled.
     #[cfg_attr(feature = "tonemapping_luts", default)]
     #[cfg(feature = "tonemapping_luts")]
     TonyMcMapface,
