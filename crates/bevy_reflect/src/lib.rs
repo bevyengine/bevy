@@ -1069,6 +1069,10 @@ mod tests {
         expected = "the dynamic type `bevy_reflect::DynamicStruct` does not support hashing"
     )]
     fn reflect_map_no_hash_dynamic() {
+        #[expect(
+            dead_code,
+            reason = "This struct is used as a compilation test to test the derive macros, and as such is intentionally never constructed."
+        )]
         #[derive(Reflect, Hash)]
         #[reflect(Hash)]
         struct Foo {
@@ -1126,12 +1130,24 @@ mod tests {
             }
         }
 
+        #[expect(
+            dead_code,
+            reason = "This struct is used as a compilation test to test the derive macros, and as such is intentionally never constructed."
+        )]
         #[derive(Reflect)]
         struct Foo<A>(A);
 
+        #[expect(
+            dead_code,
+            reason = "This struct is used as a compilation test to test the derive macros, and as such is intentionally never constructed."
+        )]
         #[derive(Reflect)]
         struct Bar<A, B>(A, B);
 
+        #[expect(
+            dead_code,
+            reason = "This struct is used as a compilation test to test the derive macros, and as such is intentionally never constructed."
+        )]
         #[derive(Reflect)]
         struct Baz<A, B, C>(A, B, C);
     }
@@ -2751,6 +2767,10 @@ bevy_reflect::tests::Test {
         #[reflect(where U: core::ops::Add<T>)]
         struct Foo<T, U>(T, U);
 
+        #[expect(
+            dead_code,
+            reason = "This struct is used as a compilation test to test the derive macros, and as such is intentionally never constructed."
+        )]
         #[derive(Reflect)]
         struct Baz {
             a: Foo<i32, i32>,
@@ -3184,6 +3204,10 @@ bevy_reflect::tests::Test {
             pub mod external_crate {
                 use alloc::string::String;
 
+                #[expect(
+                    dead_code,
+                    reason = "This struct is used as a compilation test to test the derive macros, and as such is intentionally never constructed."
+                )]
                 pub struct TheirType {
                     pub value: String,
                 }
@@ -3195,6 +3219,10 @@ bevy_reflect::tests::Test {
             }
         }
 
+        #[expect(
+            dead_code,
+            reason = "This struct is used as a compilation test to test the derive macros, and as such is intentionally never constructed."
+        )]
         #[derive(Reflect)]
         struct ContainerStruct {
             #[reflect(remote = wrapper::MyType)]
