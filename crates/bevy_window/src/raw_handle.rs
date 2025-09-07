@@ -39,6 +39,10 @@ impl<W: 'static> Deref for WindowWrapper<W> {
     type Target = W;
 
     fn deref(&self) -> &Self::Target {
+        #[expect(
+            clippy::unwrap_used,
+            reason = "This can only ever be W and thus cannot fail"
+        )]
         self.reference.downcast_ref::<W>().unwrap()
     }
 }
