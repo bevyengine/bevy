@@ -282,12 +282,13 @@ impl SubApp {
     ) -> &mut Self {
         let label = label.intern();
         let mut schedules = self.world.resource_mut::<Schedules>();
-        if !schedules.contains(label) {
-            schedules.insert(Schedule::new(label));
+        if let Some(schedule) = schedules.get_mut(label) {
+            f(schedule);
+        } else {
+            let mut schedule = Schedule::new(label);
+            f(&mut schedule);
+            schedules.insert(schedule);
         }
-
-        let schedule = schedules.get_mut(label).unwrap();
-        f(schedule);
 
         self
     }

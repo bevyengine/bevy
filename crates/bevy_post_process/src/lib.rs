@@ -5,6 +5,11 @@
     html_logo_url = "https://bevy.org/assets/icon.png",
     html_favicon_url = "https://bevy.org/assets/icon.png"
 )]
+// FIXME: Address the unwraps used in this crate. See https://github.com/bevyengine/bevy/issues/12660.
+#![expect(
+    clippy::unwrap_used,
+    reason = "Temporary hold until all unwraps in this crate can be addressed."
+)]
 
 pub mod auto_exposure;
 pub mod bloom;

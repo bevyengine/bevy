@@ -43,6 +43,10 @@ impl BevyManifest {
         let mut manifests = MANIFESTS.write();
         manifests.insert(key, manifest);
 
+        #[expect(
+            clippy::unwrap_used,
+            reason = "The manifest should have been populated in the `read_manifest` call above."
+        )]
         RwLockReadGuard::map(RwLockWriteGuard::downgrade(manifests), |manifests| {
             manifests.get(&manifest_path).unwrap()
         })
@@ -127,6 +131,6 @@ impl BevyManifest {
     ///
     /// [`try_parse_str`]: Self::try_parse_str
     pub fn parse_str<T: syn::parse::Parse>(path: &str) -> T {
-        Self::try_parse_str(path).unwrap()
+        Self::try_parse_str(path).expect("invalid parse")
     }
 }

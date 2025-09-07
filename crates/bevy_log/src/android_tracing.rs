@@ -28,12 +28,13 @@ impl Visit for StringRecorder {
         } else {
             if self.1 {
                 // following args
-                write!(self.0, " ").unwrap();
+                // writing can never fail
+                write!(self.0, " ").ok();
             } else {
                 // first arg
                 self.1 = true;
             }
-            write!(self.0, "{} = {:?};", field.name(), value).unwrap();
+            write!(self.0, "{} = {:?};", field.name(), value).ok();
         }
     }
 }
@@ -71,9 +72,9 @@ impl<S: Subscriber + for<'a> LookupSpan<'a>> Layer<S> for AndroidLayer {
                 .as_bytes()
                 .into_iter()
                 .copied()
-                .filter(|byte| *byte != 0)
+                .flat_map(NonZeroU8::new)
                 .collect();
-            CString::new(bytes).unwrap()
+            CString::from(bytes)
         }
 
         let mut recorder = StringRecorder::new();

@@ -1,3 +1,9 @@
+// FIXME: Address the unwraps used in this crate. See https://github.com/bevyengine/bevy/issues/12660.
+#![expect(
+    clippy::unwrap_used,
+    reason = "Temporary hold until all unwraps in this crate can be addressed."
+)]
+
 //! # Useful Environment Variables
 //!
 //! Both `bevy_render` and `wgpu` have a number of environment variable options for changing the runtime behavior

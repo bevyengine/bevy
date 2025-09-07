@@ -86,11 +86,13 @@ fn handle_rumble_request(
     rumble: GamepadRumbleRequest,
     current_time: Duration,
 ) -> Result<(), RumbleError> {
-    let gamepad = rumble.gamepad();
+    let gamepad_id = gamepads
+        .get_gamepad_id(rumble.gamepad())
+        .ok_or(RumbleError::GamepadNotFound)?;
 
     let (gamepad_id, _) = gilrs
         .gamepads()
-        .find(|(pad_id, _)| *pad_id == gamepads.get_gamepad_id(gamepad).unwrap())
+        .find(|(pad_id, _)| *pad_id == gamepad_id)
         .ok_or(RumbleError::GamepadNotFound)?;
 
     match rumble {

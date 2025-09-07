@@ -368,7 +368,9 @@ impl PluginGroupBuilder {
         for plugin_id in order {
             self.upsert_plugin_entry_state(
                 plugin_id,
-                plugins.remove(&plugin_id).unwrap(),
+                plugins
+                    .remove(&plugin_id)
+                    .expect("order contains plugins that don't exist"),
                 self.order.len(),
             );
 

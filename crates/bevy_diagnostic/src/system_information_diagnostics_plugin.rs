@@ -82,7 +82,7 @@ pub mod internal {
     use bevy_platform::time::Instant;
     use bevy_tasks::{available_parallelism, block_on, poll_once, AsyncComputeTaskPool, Task};
     use log::info;
-    use std::sync::Mutex;
+    use std::sync::{Mutex, PoisonError};
     use sysinfo::{CpuRefreshKind, MemoryRefreshKind, RefreshKind, System};
 
     use crate::{Diagnostic, Diagnostics, DiagnosticsStore};
@@ -154,7 +154,7 @@ pub mod internal {
         {
             let sys = Arc::clone(sysinfo);
             let task = thread_pool.spawn(async move {
-                let mut sys = sys.lock().unwrap();
+                let mut sys = sys.lock().unwrap_or_else(PoisonError::into_inner);
                 let pid = sysinfo::get_current_pid().expect("Failed to get current process ID");
                 sys.refresh_processes(sysinfo::ProcessesToUpdate::Some(&[pid]), true);
 

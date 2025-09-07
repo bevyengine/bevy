@@ -4,6 +4,11 @@
     html_favicon_url = "https://bevy.org/assets/icon.png"
 )]
 #![no_std]
+// FIXME: Address the unwraps used in this crate. See https://github.com/bevyengine/bevy/issues/12660.
+#![expect(
+    clippy::unwrap_used,
+    reason = "Temporary hold until all unwraps in this crate can be addressed."
+)]
 
 //! `bevy_window` provides a platform-agnostic interface for windowing in Bevy.
 //!

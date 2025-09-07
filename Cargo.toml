@@ -57,6 +57,7 @@ too_many_arguments = "allow"
 nonstandard_macro_braces = "warn"
 print_stdout = "warn"
 print_stderr = "warn"
+unwrap_used = "warn"
 
 ptr_as_ptr = "warn"
 ptr_cast_constness = "warn"

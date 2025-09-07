@@ -55,11 +55,7 @@ pub use tracing_subscriber;
 use bevy_app::{App, Plugin};
 use tracing_log::LogTracer;
 use tracing_subscriber::{
-    filter::{FromEnvError, ParseError},
-    layer::Layered,
-    prelude::*,
-    registry::Registry,
-    EnvFilter, Layer,
+    filter::ParseError, layer::Layered, prelude::*, registry::Registry, EnvFilter, Layer,
 };
 #[cfg(feature = "tracing-chrome")]
 use {
@@ -307,19 +303,17 @@ impl Plugin for LogPlugin {
         let subscriber = subscriber.with((self.custom_layer)(app));
 
         let default_filter = { format!("{},{}", self.level, self.filter) };
-        let filter_layer = EnvFilter::try_from_default_env()
-            .or_else(|from_env_error| {
-                _ = from_env_error
-                    .source()
-                    .and_then(|source| source.downcast_ref::<ParseError>())
-                    .map(|parse_err| {
-                        // we cannot use the `error!` macro here because the logger is not ready yet.
-                        eprintln!("LogPlugin failed to parse filter from env: {parse_err}");
-                    });
+        let filter_layer = EnvFilter::try_from_default_env().unwrap_or_else(|from_env_error| {
+            _ = from_env_error
+                .source()
+                .and_then(|source| source.downcast_ref::<ParseError>())
+                .map(|parse_err| {
+                    // we cannot use the `error!` macro here because the logger is not ready yet.
+                    eprintln!("LogPlugin failed to parse filter from env: {parse_err}");
+                });
 
-                Ok::<EnvFilter, FromEnvError>(EnvFilter::builder().parse_lossy(&default_filter))
-            })
-            .unwrap();
+            EnvFilter::builder().parse_lossy(&default_filter)
+        });
         let subscriber = subscriber.with(filter_layer);
 
         #[cfg(feature = "trace")]

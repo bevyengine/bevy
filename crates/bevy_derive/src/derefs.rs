@@ -1,6 +1,6 @@
 use proc_macro::{Span, TokenStream};
 use quote::quote;
-use syn::{parse_macro_input, Data, DeriveInput, Field, Index, Member, Type};
+use syn::{parse_macro_input, Data, DataStruct, DeriveInput, Field, Index, Member, Type};
 
 const DEREF: &str = "Deref";
 const DEREF_MUT: &str = "DerefMut";
@@ -54,53 +54,53 @@ fn get_deref_field(ast: &DeriveInput, is_mut: bool) -> syn::Result<(Member, &Typ
     let deref_kind = if is_mut { DEREF_MUT } else { DEREF };
     let deref_attr_str = format!("`#[{DEREF_ATTR}]`");
 
-    match &ast.data {
-        Data::Struct(data_struct) if data_struct.fields.is_empty() => Err(syn::Error::new(
-            Span::call_site().into(),
-            format!("{deref_kind} cannot be derived on field-less structs"),
-        )),
-        Data::Struct(data_struct) if data_struct.fields.len() == 1 => {
-            let field = data_struct.fields.iter().next().unwrap();
-            let member = to_member(field, 0);
-            Ok((member, &field.ty))
-        }
-        Data::Struct(data_struct) => {
-            let mut selected_field: Option<(Member, &Type)> = None;
-            for (index, field) in data_struct.fields.iter().enumerate() {
-                for attr in &field.attrs {
-                    if !attr.meta.path().is_ident(DEREF_ATTR) {
-                        continue;
-                    }
-
-                    attr.meta.require_path_only()?;
-
-                    if selected_field.is_some() {
-                        return Err(syn::Error::new_spanned(
-                            attr,
-                            format!(
-                                "{deref_attr_str} attribute can only be used on a single field"
-                            ),
-                        ));
-                    }
-
-                    let member = to_member(field, index);
-                    selected_field = Some((member, &field.ty));
-                }
-            }
-
-            if let Some(selected_field) = selected_field {
-                Ok(selected_field)
-            } else {
-                Err(syn::Error::new(
-                    Span::call_site().into(),
-                    format!("deriving {deref_kind} on multi-field structs requires one field to have the {deref_attr_str} attribute"),
-                ))
-            }
-        }
-        _ => Err(syn::Error::new(
+    let Data::Struct(data_struct) = &ast.data else {
+        return Err(syn::Error::new(
             Span::call_site().into(),
             format!("{deref_kind} can only be derived on structs"),
-        )),
+        ));
+    };
+
+    if data_struct.fields.len() <= 1 {
+        if let Some(field) = data_struct.fields.iter().next() {
+            let member = to_member(field, 0);
+            return Ok((member, &field.ty));
+        } else {
+            return Err(syn::Error::new(
+                Span::call_site().into(),
+                format!("{deref_kind} cannot be derived on field-less structs"),
+            ));
+        }
+    }
+
+    let mut selected_field: Option<(Member, &Type)> = None;
+    for (index, field) in data_struct.fields.iter().enumerate() {
+        for attr in &field.attrs {
+            if !attr.meta.path().is_ident(DEREF_ATTR) {
+                continue;
+            }
+
+            attr.meta.require_path_only()?;
+
+            if selected_field.is_some() {
+                return Err(syn::Error::new_spanned(
+                    attr,
+                    format!("{deref_attr_str} attribute can only be used on a single field"),
+                ));
+            }
+
+            let member = to_member(field, index);
+            selected_field = Some((member, &field.ty));
+        }
+    }
+
+    if let Some(selected_field) = selected_field {
+        Ok(selected_field)
+    } else {
+        Err(syn::Error::new(
+            Span::call_site().into(),
+            format!("deriving {deref_kind} on multi-field structs requires one field to have the {deref_attr_str} attribute"),
+        ))
     }
 }
 
