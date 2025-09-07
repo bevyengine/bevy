@@ -6,8 +6,7 @@
 
 use std::{f32::consts::*, time::Duration};
 
-use bevy::{color::palettes::css::*, prelude::*};
-use bevy_ecs::relationship::RelatedSpawner;
+use bevy::{color::palettes::css::*, ecs::relationship::RelatedSpawner, prelude::*};
 
 fn main() {
     App::new()
