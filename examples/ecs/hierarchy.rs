@@ -74,11 +74,7 @@ fn setup_common(
     delta.0 = time.elapsed();
     commands.spawn((
         Text::new(title),
-        TextFont {
-            font: Default::default(),
-            font_size: 36.,
-            ..default()
-        },
+        TextFont::from_font_size(36.),
         DespawnOnExit(stage),
     ));
 }
