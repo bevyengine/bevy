@@ -247,8 +247,8 @@ fn load_loading_screen(mut commands: Commands) {
     commands
         .spawn((
             Node {
-                height: Val::Percent(100.0),
-                width: Val::Percent(100.0),
+                height: percent(100),
+                width: percent(100),
                 justify_content: JustifyContent::Center,
                 align_items: AlignItems::Center,
                 ..default()

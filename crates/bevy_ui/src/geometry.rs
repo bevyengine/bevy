@@ -282,6 +282,30 @@ impl Val {
     }
 }
 
+/// All the types that should be able to be used in the [`Val`] enum should implement this trait.
+///
+/// Instead of just implementing `Into<Val>` a custom trait is added.
+/// This is done in order to prevent having to define a default unit, which could lead to confusion especially for newcomers.
+pub trait ValNum {
+    /// Called by the [`Val`] helper functions to convert the implementing type to an `f32` that can
+    /// be used by [`Val`].
+    fn val_num_f32(self) -> f32;
+}
+
+macro_rules! impl_to_val_num {
+    ($($impl_type:ty),*$(,)?) => {
+        $(
+            impl ValNum for $impl_type {
+                fn val_num_f32(self) -> f32 {
+                    self as f32
+                }
+            }
+        )*
+    };
+}
+
+impl_to_val_num!(f32, f64, i8, i16, i32, i64, u8, u16, u32, u64, usize, isize);
+
 /// Returns a [`Val::Auto`] where the value is automatically determined
 /// based on the context and other [`Node`](crate::Node) properties.
 pub const fn auto() -> Val {
@@ -289,8 +313,8 @@ pub const fn auto() -> Val {
 }
 
 /// Returns a [`Val::Px`] representing a value in logical pixels.
-pub const fn px(value: f32) -> Val {
-    Val::Px(value)
+pub fn px<T: ValNum>(value: T) -> Val {
+    Val::Px(value.val_num_f32())
 }
 
 /// Returns a [`Val::Percent`] representing a percentage of the parent node's length
@@ -306,28 +330,28 @@ pub const fn px(value: f32) -> Val {
 ///   - `height` is relative to the parent's height.
 /// * For `margin`, `padding`, and `border` values: the percentage is relative to the parent's width.
 /// * For positions, `left` and `right` are relative to the parent's width, while `bottom` and `top` are relative to the parent's height.
-pub const fn percent(value: f32) -> Val {
-    Val::Percent(value)
+pub fn percent<T: ValNum>(value: T) -> Val {
+    Val::Percent(value.val_num_f32())
 }
 
 /// Returns a [`Val::Vw`] representing a percentage of the viewport width.
-pub const fn vw(value: f32) -> Val {
-    Val::Vw(value)
+pub fn vw<T: ValNum>(value: T) -> Val {
+    Val::Vw(value.val_num_f32())
 }
 
 /// Returns a [`Val::Vh`] representing a percentage of the viewport height.
-pub const fn vh(value: f32) -> Val {
-    Val::Vh(value)
+pub fn vh<T: ValNum>(value: T) -> Val {
+    Val::Vh(value.val_num_f32())
 }
 
 /// Returns a [`Val::VMin`] representing a percentage of the viewport's smaller dimension.
-pub const fn vmin(value: f32) -> Val {
-    Val::VMin(value)
+pub fn vmin<T: ValNum>(value: T) -> Val {
+    Val::VMin(value.val_num_f32())
 }
 
 /// Returns a [`Val::VMax`] representing a percentage of the viewport's larger dimension.
-pub const fn vmax(value: f32) -> Val {
-    Val::VMax(value)
+pub fn vmax<T: ValNum>(value: T) -> Val {
+    Val::VMax(value.val_num_f32())
 }
 
 /// A type which is commonly used to define margins, paddings and borders.

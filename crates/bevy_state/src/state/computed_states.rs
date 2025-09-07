@@ -99,7 +99,7 @@ impl<S: ComputedStates> States for S {
 mod tests {
     use crate::{
         app::{AppExtStates, StatesPlugin},
-        prelude::DespawnOnEnterState,
+        prelude::DespawnOnEnter,
         state::{ComputedStates, StateTransition},
     };
     use bevy_app::App;
@@ -132,7 +132,7 @@ mod tests {
 
         let world = app.world_mut();
 
-        world.spawn((DespawnOnEnterState(TestComputedState), TestComponent));
+        world.spawn((DespawnOnEnter(TestComputedState), TestComponent));
 
         assert!(world.query::<&TestComponent>().single(world).is_ok());
         world.run_schedule(StateTransition);

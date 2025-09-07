@@ -46,11 +46,13 @@ use core::hash::Hash;
 ///
 /// # struct AppMock;
 /// # impl AppMock {
+/// #     fn init_state<S>(&mut self) {}
 /// #     fn add_systems<S, M>(&mut self, schedule: S, systems: impl IntoScheduleConfigs<ScheduleSystem, M>) {}
 /// # }
 /// # struct Update;
 /// # let mut app = AppMock;
 ///
+/// app.init_state::<GameState>();
 /// app.add_systems(Update, handle_escape_pressed.run_if(in_state(GameState::MainMenu)));
 /// app.add_systems(OnEnter(GameState::SettingsMenu), open_settings_menu);
 /// ```
@@ -67,8 +69,8 @@ pub trait States: 'static + Send + Sync + Clone + PartialEq + Eq + Hash + Debug 
 
     /// Should [state scoping](crate::state_scoped) be enabled for this state?
     /// If set to `true`, the
-    /// [`DespawnOnEnterState`](crate::state_scoped::DespawnOnEnterState) and
-    /// [`DespawnOnExitState`](crate::state_scoped::DespawnOnEnterState)
+    /// [`DespawnOnEnter`](crate::state_scoped::DespawnOnEnter) and
+    /// [`DespawnOnExit`](crate::state_scoped::DespawnOnExit)
     /// components are used to remove entities when entering or exiting the
     /// state.
     const SCOPED_ENTITIES_ENABLED: bool = false;

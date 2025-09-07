@@ -65,6 +65,8 @@ fn setup(
         .spawn((
             Camera2d,
             Camera {
+                // render before the "main pass" camera
+                order: -1,
                 target: RenderTarget::Image(image_handle.clone().into()),
                 ..default()
             },
@@ -75,8 +77,8 @@ fn setup(
         .spawn((
             Node {
                 // Cover the whole image
-                width: Val::Percent(100.),
-                height: Val::Percent(100.),
+                width: percent(100),
+                height: percent(100),
                 flex_direction: FlexDirection::Column,
                 justify_content: JustifyContent::Center,
                 align_items: AlignItems::Center,

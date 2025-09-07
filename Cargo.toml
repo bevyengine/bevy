@@ -135,8 +135,9 @@ default = [
   "bevy_audio",
   "bevy_color",
   "bevy_core_pipeline",
+  "bevy_post_process",
   "bevy_core_widgets",
-  "bevy_anti_aliasing",
+  "bevy_anti_alias",
   "bevy_gilrs",
   "bevy_gizmos",
   "bevy_gltf",
@@ -216,8 +217,11 @@ bevy_color = ["bevy_internal/bevy_color"]
 # Provides cameras and other basic render pipeline features
 bevy_core_pipeline = ["bevy_internal/bevy_core_pipeline"]
 
+# Provides post process effects such as depth of field, bloom, chromatic aberration.
+bevy_post_process = ["bevy_internal/bevy_post_process"]
+
 # Provides various anti aliasing solutions
-bevy_anti_aliasing = ["bevy_internal/bevy_anti_aliasing"]
+bevy_anti_alias = ["bevy_internal/bevy_anti_alias"]
 
 # Adds gamepad support
 bevy_gilrs = ["bevy_internal/bevy_gilrs"]
@@ -515,6 +519,15 @@ file_watcher = ["bevy_internal/file_watcher"]
 # Enables watching in memory asset providers for Bevy Asset hot-reloading
 embedded_watcher = ["bevy_internal/embedded_watcher"]
 
+# Enables downloading assets from HTTP sources. Warning: there are security implications. Read the docs on WebAssetPlugin.
+http = ["bevy_internal/http"]
+
+# Enables downloading assets from HTTPS sources. Warning: there are security implications. Read the docs on WebAssetPlugin.
+https = ["bevy_internal/https"]
+
+# Enable caching downloaded assets on the filesystem. NOTE: this cache currently never invalidates entries!
+web_asset_cache = ["bevy_internal/web_asset_cache"]
+
 # Enable stepping-based debugging of Bevy systems
 bevy_debug_stepping = [
   "bevy_internal/bevy_debug_stepping",
@@ -598,7 +611,7 @@ bevy_image = { path = "crates/bevy_image", version = "0.17.0-dev", default-featu
 bevy_gizmos = { path = "crates/bevy_gizmos", version = "0.17.0-dev", default-features = false }
 # Needed to poll Task examples
 futures-lite = "2.0.1"
-async-std = "1.13"
+futures-timer = { version = "3", features = ["wasm-bindgen", "gloo-timers"] }
 crossbeam-channel = "0.5.0"
 argh = "0.1.12"
 thiserror = "2.0"
@@ -1331,7 +1344,7 @@ wasm = true
 name = "solari"
 path = "examples/3d/solari.rs"
 doc-scrape-examples = true
-required-features = ["bevy_solari"]
+required-features = ["bevy_solari", "https"]
 
 [package.metadata.example.solari]
 name = "Solari"
@@ -1456,7 +1469,7 @@ wasm = false
 name = "meshlet"
 path = "examples/3d/meshlet.rs"
 doc-scrape-examples = true
-required-features = ["meshlet"]
+required-features = ["meshlet", "https"]
 
 [package.metadata.example.meshlet]
 name = "Meshlet"
@@ -1464,19 +1477,6 @@ description = "Meshlet rendering for dense high-poly scenes (experimental)"
 category = "3D Rendering"
 # Requires compute shaders and WGPU extensions, not supported by WebGL nor WebGPU.
 wasm = false
-setup = [
-  [
-    "mkdir",
-    "-p",
-    "assets/external/models",
-  ],
-  [
-    "curl",
-    "-o",
-    "assets/external/models/bunny.meshlet_mesh",
-    "https://raw.githubusercontent.com/JMS55/bevy_meshlet_asset/7a7c14138021f63904b584d5f7b73b695c7f4bbf/bunny.meshlet_mesh",
-  ],
-]
 
 [[example]]
 name = "mesh_ray_cast"
@@ -1911,11 +1911,23 @@ path = "examples/asset/extra_source.rs"
 doc-scrape-examples = true
 
 [package.metadata.example.extra_asset_source]
-name = "Extra asset source"
+name = "Extra Asset Source"
 description = "Load an asset from a non-standard asset source"
 category = "Assets"
 # Uses non-standard asset path
 wasm = false
+
+[[example]]
+name = "web_asset"
+path = "examples/asset/web_asset.rs"
+doc-scrape-examples = true
+required-features = ["https"]
+
+[package.metadata.example.web_asset]
+name = "Web Asset"
+description = "Load an asset from the web"
+category = "Assets"
+wasm = true
 
 [[example]]
 name = "hot_asset_reloading"
@@ -3697,6 +3709,17 @@ category = "UI (User Interface)"
 wasm = true
 
 [[example]]
+name = "ui_target_camera"
+path = "examples/ui/ui_target_camera.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.ui_target_camera]
+name = "UI Target Camera"
+description = "Demonstrates how to use `UiTargetCamera` and camera ordering."
+category = "UI (User Interface)"
+wasm = true
+
+[[example]]
 name = "viewport_debug"
 path = "examples/ui/viewport_debug.rs"
 doc-scrape-examples = true
@@ -3852,6 +3875,15 @@ path = "tests/window/minimizing.rs"
 doc-scrape-examples = true
 
 [package.metadata.example.minimizing]
+hidden = true
+
+[[example]]
+name = "desktop_request_redraw"
+path = "tests/window/desktop_request_redraw.rs"
+doc-scrape-examples = true
+required-features = ["bevy_dev_tools"]
+
+[package.metadata.example.desktop_request_redraw]
 hidden = true
 
 [[example]]
@@ -4658,3 +4690,14 @@ description = "Gallery of Feathers Widgets"
 category = "UI (User Interface)"
 wasm = true
 hidden = true
+
+[[example]]
+name = "render_depth_to_texture"
+path = "examples/shader_advanced/render_depth_to_texture.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.render_depth_to_texture]
+name = "Render Depth to Texture"
+description = "Demonstrates how to use depth-only cameras"
+category = "Shaders"
+wasm = true

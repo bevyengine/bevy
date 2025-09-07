@@ -44,8 +44,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         // Set the style of the Node itself.
         Node {
             position_type: PositionType::Absolute,
-            bottom: Val::Px(5.0),
-            right: Val::Px(5.0),
+            bottom: px(5),
+            right: px(5),
             ..default()
         },
         AnimatedText,
@@ -95,8 +95,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         Text::new("From an &str into a Text with the default font!"),
         Node {
             position_type: PositionType::Absolute,
-            bottom: Val::Px(5.0),
-            left: Val::Px(15.0),
+            bottom: px(5),
+            left: px(15),
             ..default()
         },
     ));
@@ -110,8 +110,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         },
         Node {
             position_type: PositionType::Absolute,
-            bottom: Val::Px(5.0),
-            left: Val::Px(15.0),
+            bottom: px(5),
+            left: px(15),
             ..default()
         },
     ));

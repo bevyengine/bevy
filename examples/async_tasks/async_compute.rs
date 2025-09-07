@@ -6,6 +6,7 @@ use bevy::{
     prelude::*,
     tasks::{block_on, futures_lite::future, AsyncComputeTaskPool, Task},
 };
+use futures_timer::Delay;
 use rand::Rng;
 use std::time::Duration;
 
@@ -62,7 +63,7 @@ fn spawn_tasks(mut commands: Commands) {
                     let duration = Duration::from_secs_f32(rand::rng().random_range(0.05..5.0));
 
                     // Pretend this is a time-intensive function. :)
-                    async_std::task::sleep(duration).await;
+                    Delay::new(duration).await;
 
                     // Such hard work, all done!
                     let transform = Transform::from_xyz(x as f32, y as f32, z as f32);

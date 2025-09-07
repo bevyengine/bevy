@@ -14,6 +14,9 @@ keywords = ["bevy"]
 file_watcher = ["notify-debouncer-full", "watch", "multi_threaded"]
 embedded_watcher = ["file_watcher"]
 multi_threaded = ["bevy_tasks/multi_threaded"]
+http = ["blocking", "ureq"]
+https = ["blocking", "ureq", "ureq/rustls"]
+web_asset_cache = []
 asset_processor = []
 watch = []
 trace = []
@@ -87,6 +90,9 @@ bevy_reflect = { path = "../bevy_reflect", version = "0.17.0-dev", default-featu
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 notify-debouncer-full = { version = "0.5.0", default-features = false, optional = true }
+# updating ureq: while ureq is semver stable, it depends on rustls which is not, meaning unlikely but possible breaking changes on minor releases. https://github.com/bevyengine/bevy/pull/16366#issuecomment-2572890794
+ureq = { version = "3", optional = true, default-features = false }
+blocking = { version = "1.6", optional = true }
 
 [dev-dependencies]
 async-channel = "2"
