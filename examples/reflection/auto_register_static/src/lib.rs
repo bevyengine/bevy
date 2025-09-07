@@ -14,6 +14,10 @@ mod private {
         use bevy::prelude::*;
 
         // Works with private types too!
+        #[expect(
+            dead_code,
+            reason = "This private struct demonstrates the use of a derive macro only, and as such is intentionally never constructed."
+        )]
         #[derive(Reflect)]
         struct PrivateStruct {
             a: i32,

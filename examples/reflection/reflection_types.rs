@@ -140,4 +140,8 @@ fn setup() {
     let mut value: A = value.take::<A>().unwrap();
     value.y.apply(&dynamic_list);
     assert_eq!(value.y, vec![3u32, 4u32, 5u32]);
+
+    // reference types defined above that are only used to demonstrate reflect
+    // derive functionality:
+    _ = || -> (A, B, C, D, E, F) { unreachable!() };
 }
