@@ -8,7 +8,7 @@ fn main() {
         .insert_resource(DirectionalLightShadowMap { size: 4096 })
         .add_plugins(DefaultPlugins.set(WindowPlugin {
             primary_window: Some(Window {
-                title: "Bevy Update glTF Sence Example".into(),
+                title: "Bevy Update glTF Scene Example".into(),
                 ..default()
             }),
             ..default()
