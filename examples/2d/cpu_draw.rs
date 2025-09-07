@@ -17,7 +17,13 @@ const IMAGE_HEIGHT: u32 = 256;
 
 fn main() {
     App::new()
-        .add_plugins(DefaultPlugins)
+        .add_plugins(DefaultPlugins.set(WindowPlugin {
+            primary_window: Some(Window {
+                title: "Bevy Cpu Draw Example".into(),
+                ..default()
+            }),
+            ..default()
+        }))
         // In this example, we will use a fixed timestep to draw a pattern on the screen
         // one pixel at a time, so the pattern will gradually emerge over time, and
         // the speed at which it appears is not tied to the framerate.

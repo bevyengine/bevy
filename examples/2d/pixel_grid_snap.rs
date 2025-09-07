@@ -26,7 +26,17 @@ const HIGH_RES_LAYERS: RenderLayers = RenderLayers::layer(1);
 
 fn main() {
     App::new()
-        .add_plugins(DefaultPlugins.set(ImagePlugin::default_nearest()))
+        .add_plugins(
+            DefaultPlugins
+                .set(WindowPlugin {
+                    primary_window: Some(Window {
+                        title: "Bevy Pixel Grid Snap Example".into(),
+                        ..default()
+                    }),
+                    ..default()
+                })
+                .set(ImagePlugin::default_nearest()),
+        )
         .add_systems(Startup, (setup_camera, setup_sprite, setup_mesh))
         .add_systems(Update, (rotate, fit_canvas))
         .run();

@@ -8,7 +8,17 @@ use bevy::{input::common_conditions::input_just_pressed, prelude::*};
 
 fn main() {
     App::new()
-        .add_plugins(DefaultPlugins.set(ImagePlugin::default_nearest())) // prevents blurry sprites
+        .add_plugins(
+            DefaultPlugins
+                .set(WindowPlugin {
+                    primary_window: Some(Window {
+                        title: "Bevy Sprite Animation Example".into(),
+                        ..default()
+                    }),
+                    ..default()
+                })
+                .set(ImagePlugin::default_nearest()),
+        ) // prevents blurry sprites
         .add_systems(Startup, setup)
         .add_systems(Update, execute_animations)
         .add_systems(

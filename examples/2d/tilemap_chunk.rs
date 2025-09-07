@@ -9,7 +9,17 @@ use rand_chacha::ChaCha8Rng;
 
 fn main() {
     App::new()
-        .add_plugins(DefaultPlugins.set(ImagePlugin::default_nearest()))
+        .add_plugins(
+            DefaultPlugins
+                .set(WindowPlugin {
+                    primary_window: Some(Window {
+                        title: "Bevy Tilemap Chunk Example".into(),
+                        ..default()
+                    }),
+                    ..default()
+                })
+                .set(ImagePlugin::default_nearest()),
+        )
         .add_systems(Startup, setup)
         .add_systems(Update, (update_tileset_image, update_tilemap))
         .run();

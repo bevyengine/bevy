@@ -12,7 +12,13 @@ use bevy::{
 
 fn main() {
     App::new()
-        .add_plugins(DefaultPlugins)
+        .add_plugins(DefaultPlugins.set(WindowPlugin {
+            primary_window: Some(Window {
+                title: "Bevy 2D Viewport to World Example".into(),
+                ..default()
+            }),
+            ..default()
+        }))
         .add_systems(Startup, setup)
         .add_systems(FixedUpdate, controls)
         .add_systems(PostUpdate, draw_cursor.after(TransformSystems::Propagate))

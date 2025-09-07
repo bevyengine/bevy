@@ -29,14 +29,19 @@ fn main() {
             ..default()
         })
         .add_plugins((
-            DefaultPlugins.set(
-                GltfPlugin::default()
-                    // Map a custom glTF attribute name to a `MeshVertexAttribute`.
-                    // The glTF file used here has an attribute name with *two*
-                    // underscores: __BARYCENTRIC
-                    // One is stripped to do the comparison here.
-                    .add_custom_vertex_attribute("_BARYCENTRIC", ATTRIBUTE_BARYCENTRIC),
-            ),
+            DefaultPlugins.set(WindowPlugin {
+                primary_window: Some(Window {
+                    title: "Bevy Custom glTF Vertex Attribute Example".into(),
+                    ..default()
+                }),
+                ..default()
+            }),
+            GltfPlugin::default()
+                // Map a custom glTF attribute name to a `MeshVertexAttribute`.
+                // The glTF file used here has an attribute name with *two*
+                // underscores: __BARYCENTRIC
+                // One is stripped to do the comparison here.
+                .add_custom_vertex_attribute("_BARYCENTRIC", ATTRIBUTE_BARYCENTRIC),
             Material2dPlugin::<CustomMaterial>::default(),
         ))
         .add_systems(Startup, setup)

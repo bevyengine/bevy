@@ -17,7 +17,17 @@ const LABEL_OFFSET: f32 = (RECTANGLE_SIDE / 2.) + 25.;
 
 fn main() {
     App::new()
-        .add_plugins(DefaultPlugins.build().disable::<AudioPlugin>())
+        .add_plugins(
+            DefaultPlugins
+                .set(WindowPlugin {
+                    primary_window: Some(Window {
+                        title: "Bevy Mesh2D Repeated Texture Example".into(),
+                        ..default()
+                    }),
+                    ..default()
+                })
+                .disable::<AudioPlugin>(),
+        )
         .add_systems(Startup, setup)
         .run();
 }

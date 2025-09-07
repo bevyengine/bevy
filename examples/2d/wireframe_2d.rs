@@ -24,14 +24,22 @@ use bevy::{
 fn main() {
     App::new()
         .add_plugins((
-            DefaultPlugins.set(RenderPlugin {
-                render_creation: RenderCreation::Automatic(WgpuSettings {
-                    // WARN this is a native only feature. It will not work with webgl or webgpu
-                    features: WgpuFeatures::POLYGON_MODE_LINE,
+            DefaultPlugins
+                .set(WindowPlugin {
+                    primary_window: Some(Window {
+                        title: "Bevy Wireframe 2D Example".into(),
+                        ..default()
+                    }),
+                    ..default()
+                })
+                .set(RenderPlugin {
+                    render_creation: RenderCreation::Automatic(WgpuSettings {
+                        // WARN this is a native only feature. It will not work with webgl or webgpu
+                        features: WgpuFeatures::POLYGON_MODE_LINE,
+                        ..default()
+                    }),
                     ..default()
                 }),
-                ..default()
-            }),
             // You need to add this plugin to enable wireframe rendering
             Wireframe2dPlugin::default(),
         ))

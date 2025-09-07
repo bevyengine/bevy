@@ -4,7 +4,13 @@ use bevy::prelude::*;
 
 fn main() {
     App::new()
-        .add_plugins(DefaultPlugins)
+        .add_plugins(DefaultPlugins.set(WindowPlugin {
+            primary_window: Some(Window {
+                title: "Bevy Sprite Scale Example".into(),
+                ..default()
+            }),
+            ..default()
+        }))
         .add_systems(Startup, (setup_sprites, setup_texture_atlas, setup_camera))
         .add_systems(Update, animate_sprite)
         .run();

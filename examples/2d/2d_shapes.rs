@@ -20,7 +20,13 @@ use bevy::sprite_render::{Wireframe2dConfig, Wireframe2dPlugin};
 fn main() {
     let mut app = App::new();
     app.add_plugins((
-        DefaultPlugins,
+        DefaultPlugins.set(WindowPlugin {
+            primary_window: Some(Window {
+                title: "Bevy 2D Shapes Example".into(),
+                ..default()
+            }),
+            ..default()
+        }),
         #[cfg(not(target_arch = "wasm32"))]
         Wireframe2dPlugin::default(),
     ))

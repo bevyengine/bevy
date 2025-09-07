@@ -6,7 +6,13 @@ const BOUNDS: Vec2 = Vec2::new(1200.0, 640.0);
 
 fn main() {
     App::new()
-        .add_plugins(DefaultPlugins)
+        .add_plugins(DefaultPlugins.set(WindowPlugin {
+            primary_window: Some(Window {
+                title: "Bevy Rotation Example".into(),
+                ..default()
+            }),
+            ..default()
+        }))
         .insert_resource(Time::<Fixed>::from_hz(60.0))
         .add_systems(Startup, setup)
         .add_systems(

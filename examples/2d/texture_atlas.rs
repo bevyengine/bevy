@@ -11,7 +11,17 @@ use bevy::{asset::LoadedFolder, image::ImageSampler, prelude::*};
 
 fn main() {
     App::new()
-        .add_plugins(DefaultPlugins.set(ImagePlugin::default_nearest())) // fallback to nearest sampling
+        .add_plugins(
+            DefaultPlugins
+                .set(WindowPlugin {
+                    primary_window: Some(Window {
+                        title: "Bevy Texture Atlas Example".into(),
+                        ..default()
+                    }),
+                    ..default()
+                })
+                .set(ImagePlugin::default_nearest()),
+        ) // fallback to nearest sampling
         .init_state::<AppState>()
         .add_systems(OnEnter(AppState::Setup), load_textures)
         .add_systems(Update, check_textures.run_if(in_state(AppState::Setup)))

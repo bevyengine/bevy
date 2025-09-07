@@ -41,7 +41,16 @@ use std::f32::consts::PI;
 
 fn main() {
     App::new()
-        .add_plugins((DefaultPlugins, ColoredMesh2dPlugin))
+        .add_plugins((
+            DefaultPlugins.set(WindowPlugin {
+                primary_window: Some(Window {
+                    title: "Bevy Mesh2D Manual Example".into(),
+                    ..default()
+                }),
+                ..default()
+            }),
+            ColoredMesh2dPlugin,
+        ))
         .add_systems(Startup, star)
         .run();
 }
