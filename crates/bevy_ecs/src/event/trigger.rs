@@ -21,10 +21,16 @@ use core::marker::PhantomData;
 /// - [`EntityTrigger`]: The [`EntityEvent`] derive defaults to using this
 /// - [`PropagateEntityTrigger`]: The [`EntityEvent`] derive uses this when propagation is enabled.
 /// - [`EntityComponentsTrigger`]: Used by Bevy's [component lifecycle events](crate::lifecycle).
-pub trait Trigger<E: Event> {
+///
+/// SAFETY: TODO!
+pub unsafe trait Trigger<E: Event> {
     /// Trigger the given `event`, running every [`Observer`](crate::observer::Observer) that matches the `event`, as defined by this
     /// [`Trigger`] and the state stored on `self`.
-    fn trigger(
+    ///
+    /// SAFETY: TODO!
+    // The safety requirements of this method were prompted by this comment thread:
+    // https://github.com/bevyengine/bevy/pull/20731#discussion_r2311907935
+    unsafe fn trigger(
         &mut self,
         world: DeferredWorld,
         observers: &CachedObservers,
@@ -40,8 +46,9 @@ pub trait Trigger<E: Event> {
 #[derive(Default)]
 pub struct GlobalTrigger;
 
-impl<E: Event> Trigger<E> for GlobalTrigger {
-    fn trigger(
+unsafe impl<E: Event> Trigger<E> for GlobalTrigger {
+    /// SAFETY: TODO!
+    unsafe fn trigger(
         &mut self,
         world: DeferredWorld,
         observers: &CachedObservers,
@@ -87,8 +94,9 @@ impl GlobalTrigger {
 #[derive(Default)]
 pub struct EntityTrigger;
 
-impl<E: EntityEvent> Trigger<E> for EntityTrigger {
-    fn trigger(
+unsafe impl<E: EntityEvent> Trigger<E> for EntityTrigger {
+    /// SAFETY: TODO!
+    unsafe fn trigger(
         &mut self,
         world: DeferredWorld,
         observers: &CachedObservers,
@@ -177,10 +185,11 @@ impl<const AUTO_PROPAGATE: bool, E: EntityEvent, T: Traversal<E>> Default
     }
 }
 
-impl<const AUTO_PROPAGATE: bool, E: EntityEvent, T: Traversal<E>> Trigger<E>
+unsafe impl<const AUTO_PROPAGATE: bool, E: EntityEvent, T: Traversal<E>> Trigger<E>
     for PropagateEntityTrigger<AUTO_PROPAGATE, E, T>
 {
-    fn trigger(
+    /// SAFETY: TODO!
+    unsafe fn trigger(
         &mut self,
         mut world: DeferredWorld,
         observers: &CachedObservers,
@@ -237,8 +246,9 @@ pub struct EntityComponentsTrigger<'a> {
     pub components: &'a [ComponentId],
 }
 
-impl<'a, E: EntityEvent> Trigger<E> for EntityComponentsTrigger<'a> {
-    fn trigger(
+unsafe impl<'a, E: EntityEvent> Trigger<E> for EntityComponentsTrigger<'a> {
+    /// SAFETY: TODO!
+    unsafe fn trigger(
         &mut self,
         world: DeferredWorld,
         observers: &CachedObservers,

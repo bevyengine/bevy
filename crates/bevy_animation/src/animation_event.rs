@@ -20,8 +20,13 @@ pub struct AnimationEventTrigger {
     pub animation_player: Entity,
 }
 
-impl<E: AnimationEvent> Trigger<E> for AnimationEventTrigger {
-    fn trigger(
+#[expect(
+    unsafe_code,
+    reason = "We must implement this trait to define a custom Trigger, which is required to be unsafe due to safety considerations within bevy_ecs."
+)]
+unsafe impl<E: AnimationEvent> Trigger<E> for AnimationEventTrigger {
+    /// SAFETY: TODO!
+    unsafe fn trigger(
         &mut self,
         world: DeferredWorld,
         observers: &CachedObservers,
