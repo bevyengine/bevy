@@ -68,6 +68,7 @@ raw_vulkan_init = ["bevy_render/raw_vulkan_init"]
 # Include tonemapping LUT KTX2 files.
 tonemapping_luts = [
   "bevy_core_pipeline?/tonemapping_luts",
+  "bevy_pbr?/tonemapping_luts",
   "ktx2",
   "bevy_image/zstd",
 ]

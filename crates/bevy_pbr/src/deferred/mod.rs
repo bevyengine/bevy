@@ -503,11 +503,14 @@ pub fn prepare_deferred_lighting_pipelines(
                         MeshPipelineKey::TONEMAP_METHOD_REINHARD_LUMINANCE
                     }
                     Tonemapping::AcesFitted => MeshPipelineKey::TONEMAP_METHOD_ACES_FITTED,
+                    #[cfg(feature = "tonemapping_luts")]
                     Tonemapping::AgX => MeshPipelineKey::TONEMAP_METHOD_AGX,
                     Tonemapping::SomewhatBoringDisplayTransform => {
                         MeshPipelineKey::TONEMAP_METHOD_SOMEWHAT_BORING_DISPLAY_TRANSFORM
                     }
+                    #[cfg(feature = "tonemapping_luts")]
                     Tonemapping::TonyMcMapface => MeshPipelineKey::TONEMAP_METHOD_TONY_MC_MAPFACE,
+                    #[cfg(feature = "tonemapping_luts")]
                     Tonemapping::BlenderFilmic => MeshPipelineKey::TONEMAP_METHOD_BLENDER_FILMIC,
                 };
             }
