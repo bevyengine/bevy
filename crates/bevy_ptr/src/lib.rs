@@ -55,7 +55,7 @@ pub trait IsAligned: sealed::Sealed {
     ///  - If this type is [`Aligned`], then both `src` and `dst` must properly
     ///    be aligned for values of type `T`.
     #[doc(hidden)]
-    unsafe fn copy_nonoverlapping<T>(src: *const T, dst: *mut T, size: usize);
+    unsafe fn copy_nonoverlapping<T>(src: *const T, dst: *mut T, count: usize);
 
     /// Reads the value pointed to by `ptr`.
     ///
