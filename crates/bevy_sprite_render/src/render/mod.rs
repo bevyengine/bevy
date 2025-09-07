@@ -545,11 +545,14 @@ pub fn queue_sprites(
                         SpritePipelineKey::TONEMAP_METHOD_REINHARD_LUMINANCE
                     }
                     Tonemapping::AcesFitted => SpritePipelineKey::TONEMAP_METHOD_ACES_FITTED,
+                    #[cfg(feature = "tonemapping_luts")]
                     Tonemapping::AgX => SpritePipelineKey::TONEMAP_METHOD_AGX,
                     Tonemapping::SomewhatBoringDisplayTransform => {
                         SpritePipelineKey::TONEMAP_METHOD_SOMEWHAT_BORING_DISPLAY_TRANSFORM
                     }
+                    #[cfg(feature = "tonemapping_luts")]
                     Tonemapping::TonyMcMapface => SpritePipelineKey::TONEMAP_METHOD_TONY_MC_MAPFACE,
+                    #[cfg(feature = "tonemapping_luts")]
                     Tonemapping::BlenderFilmic => SpritePipelineKey::TONEMAP_METHOD_BLENDER_FILMIC,
                 };
             }

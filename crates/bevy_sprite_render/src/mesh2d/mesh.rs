@@ -488,9 +488,12 @@ bitflags::bitflags! {
         const TONEMAP_METHOD_REINHARD           = 1 << Self::TONEMAP_METHOD_SHIFT_BITS;
         const TONEMAP_METHOD_REINHARD_LUMINANCE = 2 << Self::TONEMAP_METHOD_SHIFT_BITS;
         const TONEMAP_METHOD_ACES_FITTED        = 3 << Self::TONEMAP_METHOD_SHIFT_BITS;
+        #[cfg(feature = "tonemapping_luts")]
         const TONEMAP_METHOD_AGX                = 4 << Self::TONEMAP_METHOD_SHIFT_BITS;
         const TONEMAP_METHOD_SOMEWHAT_BORING_DISPLAY_TRANSFORM = 5 << Self::TONEMAP_METHOD_SHIFT_BITS;
+        #[cfg(feature = "tonemapping_luts")]
         const TONEMAP_METHOD_TONY_MC_MAPFACE    = 6 << Self::TONEMAP_METHOD_SHIFT_BITS;
+        #[cfg(feature = "tonemapping_luts")]
         const TONEMAP_METHOD_BLENDER_FILMIC     = 7 << Self::TONEMAP_METHOD_SHIFT_BITS;
     }
 }
@@ -605,15 +608,18 @@ impl SpecializedMeshPipeline for Mesh2dPipeline {
                 Mesh2dPipelineKey::TONEMAP_METHOD_ACES_FITTED => {
                     shader_defs.push("TONEMAP_METHOD_ACES_FITTED".into());
                 }
+                #[cfg(feature = "tonemapping_luts")]
                 Mesh2dPipelineKey::TONEMAP_METHOD_AGX => {
                     shader_defs.push("TONEMAP_METHOD_AGX".into());
                 }
                 Mesh2dPipelineKey::TONEMAP_METHOD_SOMEWHAT_BORING_DISPLAY_TRANSFORM => {
                     shader_defs.push("TONEMAP_METHOD_SOMEWHAT_BORING_DISPLAY_TRANSFORM".into());
                 }
+                #[cfg(feature = "tonemapping_luts")]
                 Mesh2dPipelineKey::TONEMAP_METHOD_BLENDER_FILMIC => {
                     shader_defs.push("TONEMAP_METHOD_BLENDER_FILMIC".into());
                 }
+                #[cfg(feature = "tonemapping_luts")]
                 Mesh2dPipelineKey::TONEMAP_METHOD_TONY_MC_MAPFACE => {
                     shader_defs.push("TONEMAP_METHOD_TONY_MC_MAPFACE".into());
                 }

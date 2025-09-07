@@ -69,6 +69,7 @@ raw_vulkan_init = ["bevy_render/raw_vulkan_init"]
 tonemapping_luts = [
   "bevy_core_pipeline?/tonemapping_luts",
   "bevy_pbr?/tonemapping_luts",
+  "bevy_sprite_render?/tonemapping_luts",
   "ktx2",
   "bevy_image/zstd",
 ]
