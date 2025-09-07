@@ -787,7 +787,9 @@ impl<'w> DeferredWorld<'w> {
     /// Triggers all `event` observers for the given `targets`
     ///
     /// # Safety
+    ///
     /// Caller must ensure `E` is accessible as the type represented by `event_key`
+    /// TODO: capture safety requirements of `E::Trigger::trigger`
     #[inline]
     pub unsafe fn trigger_raw<'a, E: Event>(
         &mut self,
@@ -807,7 +809,11 @@ impl<'w> DeferredWorld<'w> {
             (world.into_deferred(), observers)
         };
         let context = TriggerContext { event_key, caller };
-        trigger.trigger(world.reborrow(), observers, &context, event);
+
+        // SAFETY: TODO!
+        unsafe {
+            trigger.trigger(world.reborrow(), observers, &context, event);
+        }
     }
 
     /// Sends a global [`Event`] without any targets.
