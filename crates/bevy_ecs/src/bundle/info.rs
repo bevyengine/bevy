@@ -237,13 +237,14 @@ impl BundleInfo {
         sparse_sets: &mut SparseSets,
         bundle_component_status: &S,
         required_components: impl Iterator<Item = &'a RequiredComponentConstructor>,
+        required_component_ids: impl Iterator<Item = &'a ComponentId>,
         entity: Entity,
         table_row: TableRow,
         change_tick: Tick,
         bundle: T,
         insert_mode: InsertMode,
         caller: MaybeLocation,
-    ) -> T::Effect {
+    ) -> (T::Effect, Vec<ComponentId>) {
         // NOTE: get_components calls this closure on each component in "bundle order".
         // bundle_info.component_ids are also in "bundle order"
         let mut bundle_component = 0;
@@ -293,18 +294,26 @@ impl BundleInfo {
             bundle_component += 1;
         });
 
-        for required_component in required_components {
-            required_component.initialize(
+        let mut failed_components = Vec::new();
+        for (required_component, &id) in required_components.zip(required_component_ids) {
+            match required_component.initialize(
                 table,
                 sparse_sets,
                 change_tick,
                 table_row,
                 entity,
                 caller,
-            );
+            ) {
+                Ok(_) => {}
+                Err(_payload) => {
+                    #[cfg(feature = "trace")]
+                    tracing::error!("panic while initializing required component");
+                    failed_components.push(id);
+                }
+            }
         }
 
-        after_effect
+        (after_effect, failed_components)
     }
 
     /// Internal method to initialize a required component from an [`OwningPtr`]. This should ultimately be called
