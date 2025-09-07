@@ -301,14 +301,17 @@ fn toggle_tonemapping_method(
         **tonemapping = Tonemapping::ReinhardLuminance;
     } else if keys.just_pressed(KeyCode::Digit4) {
         **tonemapping = Tonemapping::AcesFitted;
-    } else if keys.just_pressed(KeyCode::Digit5) {
-        **tonemapping = Tonemapping::AgX;
     } else if keys.just_pressed(KeyCode::Digit6) {
         **tonemapping = Tonemapping::SomewhatBoringDisplayTransform;
-    } else if keys.just_pressed(KeyCode::Digit7) {
-        **tonemapping = Tonemapping::TonyMcMapface;
-    } else if keys.just_pressed(KeyCode::Digit8) {
-        **tonemapping = Tonemapping::BlenderFilmic;
+    } else {
+        #[cfg(feature = "tonemapping_luts")]
+        if keys.just_pressed(KeyCode::Digit5) {
+            **tonemapping = Tonemapping::AgX;
+        } else if keys.just_pressed(KeyCode::Digit7) {
+            **tonemapping = Tonemapping::TonyMcMapface;
+        } else if keys.just_pressed(KeyCode::Digit8) {
+            **tonemapping = Tonemapping::BlenderFilmic;
+        }
     }
 
     **color_grading = (*per_method_settings
@@ -464,6 +467,7 @@ fn update_ui(
             ""
         }
     ));
+    #[cfg(feature = "tonemapping_luts")]
     text.push_str(&format!(
         "(5) {} AgX\n",
         if tonemapping == Tonemapping::AgX {
@@ -480,6 +484,7 @@ fn update_ui(
             ""
         }
     ));
+    #[cfg(feature = "tonemapping_luts")]
     text.push_str(&format!(
         "(7) {} TonyMcMapface\n",
         if tonemapping == Tonemapping::TonyMcMapface {
@@ -488,6 +493,7 @@ fn update_ui(
             ""
         }
     ));
+    #[cfg(feature = "tonemapping_luts")]
     text.push_str(&format!(
         "(8) {} Blender Filmic\n",
         if tonemapping == Tonemapping::BlenderFilmic {
@@ -558,6 +564,7 @@ impl PerMethodSettings {
                 },
                 ..default()
             },
+            #[cfg(feature = "tonemapping_luts")]
             Tonemapping::AgX => ColorGrading::with_identical_sections(
                 ColorGradingGlobal {
                     exposure: -0.2,
@@ -583,9 +590,12 @@ impl Default for PerMethodSettings {
             Tonemapping::Reinhard,
             Tonemapping::ReinhardLuminance,
             Tonemapping::AcesFitted,
+            #[cfg(feature = "tonemapping_luts")]
             Tonemapping::AgX,
             Tonemapping::SomewhatBoringDisplayTransform,
+            #[cfg(feature = "tonemapping_luts")]
             Tonemapping::TonyMcMapface,
+            #[cfg(feature = "tonemapping_luts")]
             Tonemapping::BlenderFilmic,
         ] {
             settings.insert(
