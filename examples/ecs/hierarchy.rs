@@ -7,6 +7,7 @@
 use std::{f32::consts::*, time::Duration};
 
 use bevy::{color::palettes::css::*, prelude::*};
+use bevy_ecs::relationship::RelatedSpawner;
 
 fn main() {
     App::new()
@@ -167,14 +168,18 @@ fn setup_children_spawn(
                     ..default()
                 },
             )),
-            Spawn((
-                Transform::from_xyz(0.0, 250.0, 0.0).with_scale(Vec3::splat(0.75)),
-                Sprite {
-                    image: texture,
-                    color: LIME.into(),
-                    ..default()
-                },
-            )),
+            // since they have to be explicitly created, `Children::spawn` can
+            // mix implementers of `SpawnableList` while `children!` cannot.
+            SpawnWith(|spawner: &mut RelatedSpawner<'_, ChildOf>| {
+                spawner.spawn((
+                    Transform::from_xyz(0.0, 250.0, 0.0).with_scale(Vec3::splat(0.75)),
+                    Sprite {
+                        image: texture,
+                        color: LIME.into(),
+                        ..default()
+                    },
+                ));
+            }),
         )),
     ));
 }
