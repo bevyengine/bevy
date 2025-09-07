@@ -28,6 +28,8 @@ use core::{
 /// Providing multiple components in this bundle will cause this event to be triggered by any
 /// matching component in the bundle,
 /// [rather than requiring all of them to be present](https://github.com/bevyengine/bevy/issues/15325).
+// SAFETY: this type must never expose anything with the 'w lifetime other than `E::trigger<'w>`
+// See the safety discussion on `Trigger::trigger` for more details.
 pub struct On<'w, 't, E: Event, B: Bundle = ()> {
     observer: Entity,
     event: &'w mut E,
