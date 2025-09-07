@@ -7,7 +7,17 @@ use bevy::{
 
 fn main() {
     App::new()
-        .add_plugins(DefaultPlugins.build().disable::<AudioPlugin>())
+        .add_plugins(
+            DefaultPlugins
+                .set(WindowPlugin {
+                    primary_window: Some(Window {
+                        title: "Bevy Edit Material on glTF Example".into(),
+                        ..default()
+                    }),
+                    ..default()
+                })
+                .disable::<AudioPlugin>(),
+        )
         .add_systems(Startup, setup_scene)
         .add_observer(change_material)
         .run();

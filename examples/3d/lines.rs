@@ -17,7 +17,16 @@ const SHADER_ASSET_PATH: &str = "shaders/line_material.wgsl";
 
 fn main() {
     App::new()
-        .add_plugins((DefaultPlugins, MaterialPlugin::<LineMaterial>::default()))
+        .add_plugins((
+            DefaultPlugins.set(WindowPlugin {
+                primary_window: Some(Window {
+                    title: "Bevy Lines Example".into(),
+                    ..default()
+                }),
+                ..default()
+            }),
+            MaterialPlugin::<LineMaterial>::default(),
+        ))
         .add_systems(Startup, setup)
         .run();
 }

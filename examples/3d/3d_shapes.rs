@@ -27,7 +27,15 @@ use bevy::{
 fn main() {
     App::new()
         .add_plugins((
-            DefaultPlugins.set(ImagePlugin::default_nearest()),
+            DefaultPlugins
+            .set(WindowPlugin {
+                    primary_window: Some(Window {
+                        title: "Bevy 3D Shapes Example".into(),
+                        ..default()
+                    }),
+                    ..default()
+                })
+                .set(ImagePlugin::default_nearest()),
             #[cfg(not(target_arch = "wasm32"))]
             WireframePlugin::default(),
         ))

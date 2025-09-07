@@ -50,7 +50,13 @@ struct ExampleSphere;
 pub fn main() {
     App::new()
         .init_resource::<LightMode>()
-        .add_plugins(DefaultPlugins)
+        .add_plugins(DefaultPlugins.set(WindowPlugin {
+            primary_window: Some(Window {
+                title: "Bevy Clearcoat Example".into(),
+                ..default()
+            }),
+            ..default()
+        }))
         .add_systems(Startup, setup)
         .add_systems(Update, animate_light)
         .add_systems(Update, animate_spheres)

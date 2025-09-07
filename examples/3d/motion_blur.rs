@@ -11,10 +11,16 @@ use bevy::{
 fn main() {
     let mut app = App::new();
 
-    app.add_plugins(DefaultPlugins)
-        .add_systems(Startup, (setup_camera, setup_scene, setup_ui))
-        .add_systems(Update, (keyboard_inputs, move_cars, move_camera).chain())
-        .run();
+    app.add_plugins(DefaultPlugins.set(WindowPlugin {
+        primary_window: Some(Window {
+            title: "Bevy Motion Blur Example".into(),
+            ..default()
+        }),
+        ..default()
+    }))
+    .add_systems(Startup, (setup_camera, setup_scene, setup_ui))
+    .add_systems(Update, (keyboard_inputs, move_cars, move_camera).chain())
+    .run();
 }
 
 fn setup_camera(mut commands: Commands) {

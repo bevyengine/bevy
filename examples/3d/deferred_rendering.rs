@@ -18,7 +18,13 @@ fn main() {
     App::new()
         .insert_resource(DefaultOpaqueRendererMethod::deferred())
         .insert_resource(DirectionalLightShadowMap { size: 4096 })
-        .add_plugins(DefaultPlugins)
+        .add_plugins(DefaultPlugins.set(WindowPlugin {
+            primary_window: Some(Window {
+                title: "Bevy Deferred Rendering Example".into(),
+                ..default()
+            }),
+            ..default()
+        }))
         .insert_resource(Pause(true))
         .add_systems(Startup, (setup, setup_parallax))
         .add_systems(Update, (animate_light_direction, switch_mode, spin))

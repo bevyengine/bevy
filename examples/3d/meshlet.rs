@@ -21,7 +21,13 @@ fn main() {
     App::new()
         .insert_resource(DirectionalLightShadowMap { size: 4096 })
         .add_plugins((
-            DefaultPlugins,
+            DefaultPlugins.set(WindowPlugin {
+                primary_window: Some(Window {
+                    title: "Bevy Meshlet Example".into(),
+                    ..default()
+                }),
+                ..default()
+            }),
             MeshletPlugin {
                 cluster_buffer_slots: 1 << 14,
             },

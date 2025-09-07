@@ -34,9 +34,15 @@ fn main() {
         "5417916c-0291-4e3f-8f65-326c1858ab96" // Don't copy paste this - generate your own UUID!
     )));
 
-    app.add_plugins(DefaultPlugins)
-        .add_systems(Startup, setup)
-        .add_systems(Update, (modify_aa, modify_sharpening, update_ui));
+    app.add_plugins(DefaultPlugins.set(WindowPlugin {
+        primary_window: Some(Window {
+            title: "Bevy Anti Aliasing Example".into(),
+            ..default()
+        }),
+        ..default()
+    }))
+    .add_systems(Startup, setup)
+    .add_systems(Update, (modify_aa, modify_sharpening, update_ui));
 
     app.run();
 }

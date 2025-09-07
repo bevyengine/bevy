@@ -69,7 +69,13 @@ struct Cubemaps {
 fn main() {
     // Create the app.
     App::new()
-        .add_plugins(DefaultPlugins)
+        .add_plugins(DefaultPlugins.set(WindowPlugin {
+            primary_window: Some(Window {
+                title: "Bevy Reflection Probes Example".into(),
+                ..default()
+            }),
+            ..default()
+        }))
         .init_resource::<AppStatus>()
         .init_resource::<Cubemaps>()
         .add_systems(Startup, setup)

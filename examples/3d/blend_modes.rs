@@ -16,9 +16,15 @@ use rand::random;
 fn main() {
     let mut app = App::new();
 
-    app.add_plugins(DefaultPlugins)
-        .add_systems(Startup, setup)
-        .add_systems(Update, example_control_system);
+    app.add_plugins(DefaultPlugins.set(WindowPlugin {
+        primary_window: Some(Window {
+            title: "Bevy Blend Modes Example".into(),
+            ..default()
+        }),
+        ..default()
+    }))
+    .add_systems(Startup, setup)
+    .add_systems(Update, example_control_system);
 
     app.run();
 }

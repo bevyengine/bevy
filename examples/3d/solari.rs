@@ -41,9 +41,19 @@ fn main() {
         "5417916c-0291-4e3f-8f65-326c1858ab96" // Don't copy paste this - generate your own UUID!
     )));
 
-    app.add_plugins((DefaultPlugins, SolariPlugins, CameraControllerPlugin))
-        .insert_resource(args)
-        .add_systems(Startup, setup);
+    app.add_plugins((
+        DefaultPlugins.set(WindowPlugin {
+            primary_window: Some(Window {
+                title: "Bevy Solari Example".into(),
+                ..default()
+            }),
+            ..default()
+        }),
+        SolariPlugins,
+        CameraControllerPlugin,
+    ))
+    .insert_resource(args)
+    .add_systems(Startup, setup);
 
     if args.pathtracer == Some(true) {
         app.add_plugins(PathtracingPlugin);

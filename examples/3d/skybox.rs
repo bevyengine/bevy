@@ -38,7 +38,13 @@ const CUBEMAPS: &[(&str, CompressedImageFormats)] = &[
 
 fn main() {
     App::new()
-        .add_plugins(DefaultPlugins)
+        .add_plugins(DefaultPlugins.set(WindowPlugin {
+            primary_window: Some(Window {
+                title: "Bevy Skybox Example".into(),
+                ..default()
+            }),
+            ..default()
+        }))
         .add_plugins(CameraControllerPlugin)
         .add_systems(Startup, setup)
         .add_systems(

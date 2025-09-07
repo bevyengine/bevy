@@ -30,7 +30,13 @@ use bevy::{
 fn main() {
     App::new()
         .insert_resource(AmbientLight::NONE)
-        .add_plugins(DefaultPlugins)
+        .add_plugins(DefaultPlugins.set(WindowPlugin {
+            primary_window: Some(Window {
+                title: "Bevy Fog Example".into(),
+                ..default()
+            }),
+            ..default()
+        }))
         .add_systems(
             Startup,
             (setup_camera_fog, setup_pyramid_scene, setup_instructions),

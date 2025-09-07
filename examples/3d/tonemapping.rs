@@ -21,12 +21,20 @@ const SHADER_ASSET_PATH: &str = "shaders/tonemapping_test_patterns.wgsl";
 fn main() {
     App::new()
         .add_plugins((
-            DefaultPlugins.set(AssetPlugin {
-                // We enable loading assets from arbitrary filesystem paths as this example allows
-                // drag and dropping a local image for color grading
-                unapproved_path_mode: UnapprovedPathMode::Allow,
-                ..default()
-            }),
+            DefaultPlugins
+                .set(WindowPlugin {
+                    primary_window: Some(Window {
+                        title: "Bevy Tonemapping Example".into(),
+                        ..default()
+                    }),
+                    ..default()
+                })
+                .set(AssetPlugin {
+                    // We enable loading assets from arbitrary filesystem paths as this example allows
+                    // drag and dropping a local image for color grading
+                    unapproved_path_mode: UnapprovedPathMode::Allow,
+                    ..default()
+                }),
             MaterialPlugin::<ColorGradientMaterial>::default(),
         ))
         .insert_resource(CameraTransform(

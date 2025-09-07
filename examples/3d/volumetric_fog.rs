@@ -40,7 +40,13 @@ struct MoveBackAndForthHorizontally {
 
 fn main() {
     App::new()
-        .add_plugins(DefaultPlugins)
+        .add_plugins(DefaultPlugins.set(WindowPlugin {
+            primary_window: Some(Window {
+                title: "Bevy Volumetric Fog Example".into(),
+                ..default()
+            }),
+            ..default()
+        }))
         .insert_resource(ClearColor(Color::Srgba(Srgba {
             red: 0.02,
             green: 0.02,

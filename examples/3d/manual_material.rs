@@ -39,7 +39,16 @@ const SHADER_ASSET_PATH: &str = "shaders/manual_material.wgsl";
 
 fn main() {
     App::new()
-        .add_plugins((DefaultPlugins, ImageMaterialPlugin))
+        .add_plugins((
+            DefaultPlugins.set(WindowPlugin {
+                primary_window: Some(Window {
+                    title: "Bevy Manual Material Example".into(),
+                    ..default()
+                }),
+                ..default()
+            }),
+            ImageMaterialPlugin,
+        ))
         .add_systems(Startup, setup)
         .run();
 }

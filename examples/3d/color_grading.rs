@@ -99,7 +99,13 @@ struct HelpText;
 
 fn main() {
     App::new()
-        .add_plugins(DefaultPlugins)
+        .add_plugins(DefaultPlugins.set(WindowPlugin {
+            primary_window: Some(Window {
+                title: "Bevy Color Grading Example".into(),
+                ..default()
+            }),
+            ..default()
+        }))
         .init_resource::<SelectedColorGradingOption>()
         .add_systems(Startup, setup)
         .add_systems(

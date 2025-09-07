@@ -16,7 +16,16 @@ use rand_chacha::ChaCha8Rng;
 
 fn main() {
     App::new()
-        .add_plugins((DefaultPlugins, CameraControllerPlugin))
+        .add_plugins((
+            DefaultPlugins.set(WindowPlugin {
+                primary_window: Some(Window {
+                    title: "Bevy Decal Example".into(),
+                    ..default()
+                }),
+                ..default()
+            }),
+            CameraControllerPlugin,
+        ))
         .add_systems(Startup, setup)
         .run();
 }

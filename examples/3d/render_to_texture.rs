@@ -6,7 +6,13 @@ use bevy::{camera::visibility::RenderLayers, prelude::*, render::render_resource
 
 fn main() {
     App::new()
-        .add_plugins(DefaultPlugins)
+        .add_plugins(DefaultPlugins.set(WindowPlugin {
+            primary_window: Some(Window {
+                title: "Bevy Render to Texture Example".into(),
+                ..default()
+            }),
+            ..default()
+        }))
         .add_systems(Startup, setup)
         .add_systems(Update, (cube_rotator_system, rotator_system))
         .run();
