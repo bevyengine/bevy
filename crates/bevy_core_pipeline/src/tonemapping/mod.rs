@@ -110,14 +110,7 @@ pub struct TonemappingPipeline {
 
 /// Optionally enables a tonemapping shader that attempts to map linear input stimulus into a perceptually uniform image for a given [`Camera`] entity.
 ///
-#[cfg_attr(
-    feature = "tonemapping_luts",
-    doc = "The default tonemapping is [`TonyMcMapface`](Tonemapping::TonyMcMapface)."
-)]
-#[cfg_attr(
-    not(feature = "tonemapping_luts"),
-    doc = "The default tonemapping is [`None`](Tonemapping::None)."
-)]
+/// The default when `tonemapping_luts` is enabled is `TonyMcMapface`, otherwise it is `None`.
 #[derive(
     Component, Debug, Hash, Clone, Copy, Reflect, Default, ExtractComponent, PartialEq, Eq,
 )]
