@@ -435,28 +435,6 @@ impl_ptr!(Ptr);
 impl_ptr!(PtrMut);
 impl_ptr!(OwningPtr);
 
-impl<T> MovingPtr<'_, T, Aligned> {
-    /// This exists mostly to reduce compile times;
-    /// code is only duplicated per type, rather than per function called.
-    ///
-    /// # Safety
-    /// - `value` must store a properly initialized value of type `T`.
-    /// - Once the returned [`MovingPtr`] has been used, `value` must be treated as
-    ///   it were uninitialized unless it was explicitly leaked via [`core::mem::forget`].
-    unsafe fn make_internal(temp: &mut MaybeUninit<T>) -> MovingPtr<'_, T> {
-        // SAFETY: ManuallyDrop<T> has the same memory layout as T
-        MovingPtr(NonNull::from(temp).cast::<T>(), PhantomData)
-    }
-
-    /// Consumes a value and creates an [`MovingPtr`] to it while ensuring a double drop does not happen.
-    #[inline]
-    pub fn make<F: FnOnce(MovingPtr<'_, T>) -> R, R>(val: T, f: F) -> R {
-        let mut val = MaybeUninit::new(val);
-        // SAFETY: The value behind the pointer will not get dropped or observed later.
-        f(unsafe { Self::make_internal(&mut val) })
-    }
-}
-
 impl<'a, T> MovingPtr<'a, T, Aligned> {
     /// Removes the alignment requirement of this pointer
     #[inline]
@@ -464,6 +442,14 @@ impl<'a, T> MovingPtr<'a, T, Aligned> {
         let value = MovingPtr(self.0, PhantomData);
         mem::forget(self);
         value
+    }
+
+    /// Consumes a value and creates an [`MovingPtr`] to it while ensuring a double drop does not happen.
+    #[inline]
+    pub fn make<F: FnOnce(MovingPtr<'_, T>) -> R, R>(val: T, f: F) -> R {
+        let mut val = MaybeUninit::new(val);
+        // SAFETY: The value behind the pointer will not get dropped or observed later.
+        f(unsafe { MovingPtr::from_value(&mut val) })
     }
 
     /// Creates a [`MovingPtr`] from a provided value of type `T`.
