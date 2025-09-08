@@ -28,7 +28,6 @@ pub(crate) struct BundleInserter<'w> {
     archetype: NonNull<Archetype>,
     archetype_move_type: ArchetypeMoveType,
     change_tick: Tick,
-    maybe_remove_archetype: Option<NonNull<Archetype>>,
 }
 
 impl<'w> BundleInserter<'w> {
@@ -93,7 +92,6 @@ impl<'w> BundleInserter<'w> {
                 archetype_move_type: ArchetypeMoveType::SameArchetype,
                 change_tick,
                 world: world.as_unsafe_world_cell(),
-                maybe_remove_archetype: None,
             }
         } else {
             let (archetype, new_archetype) =
@@ -119,7 +117,6 @@ impl<'w> BundleInserter<'w> {
                     },
                     change_tick,
                     world: world.as_unsafe_world_cell(),
-                    maybe_remove_archetype: None,
                 }
             } else {
                 let (table, new_table) = world.storages.tables.get_2_mut(table_id, new_table_id);
@@ -134,7 +131,6 @@ impl<'w> BundleInserter<'w> {
                     },
                     change_tick,
                     world: world.as_unsafe_world_cell(),
-                    maybe_remove_archetype: None,
                 }
             }
         };
@@ -452,7 +448,13 @@ impl<'w> BundleInserter<'w> {
         let (after_effect, failed_components) = after_effect;
 
         let (new_archetype, new_location) = if !failed_components.is_empty() {
-            // some components panicked during creation: move the entity to an archetype without those components
+            // some components panicked during creation: move the entity to an
+            // archetype without those components. We recheck the archetype here
+            // even if we might have already created it on a previous call to
+            // `insert`. It's possible to cache the archetype and check it
+            // without invalidating our pointers by hashing the components, and it might well make sense to do that because component constructors are unlikely to panic spuriously[^1].
+            // [^1]: This was revealed to me in a dream.
+
             let archetype_id = new_archetype.id();
             let table_id = new_archetype.table_id();
 
@@ -498,6 +500,8 @@ impl<'w> BundleInserter<'w> {
                     .tables
                     .get_2_mut(new_location.table_id, remove_table_id);
 
+                // The missing component rows will be components that failed to
+                // insert during `write_components` and thus musn't be dropped.
                 move_archetype_new_table(
                     entities,
                     archetypes_ptr,
@@ -511,22 +515,26 @@ impl<'w> BundleInserter<'w> {
                 )
             };
 
+            let remove_archetype_id = remove_archetype.id();
+
             // SAFETY: We have exclusive world access for 'w
             // - bundle_id was previously guaranteed to exist
-            // - `remove_archetype` will not be invalidated by `new_with_id`
-            *self = unsafe {
-                Self {
-                    maybe_remove_archetype: Some(remove_archetype.into()),
-                    ..Self::new_with_id(
-                        &mut *self.world.world_mut(),
-                        original_archetype_id,
-                        original_bundle_id,
-                        self.change_tick,
-                    )
-                }
-            };
+            // - `remove_archetype` will be invalidated by `new_with_id`
+            unsafe {
+                *self = Self::new_with_id(
+                    &mut *self.world.world_mut(),
+                    original_archetype_id,
+                    original_bundle_id,
+                    self.change_tick,
+                );
 
-            (&*remove_archetype, location)
+                // we need to reborrow here because the borrow to archetypes for
+                // the call to `get_2_mut` in `new_with_id` invalidates the
+                // previous reference
+                let remove_archetype = &mut self.world.world_mut().archetypes[remove_archetype_id];
+
+                (&*remove_archetype, location)
+            }
         } else {
             (&*new_archetype, new_location)
         };
