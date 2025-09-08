@@ -1232,7 +1232,7 @@ pub fn animate_targets(
 ///
 /// This system allows users to specify which [`Time`] resource to use to animate entities that match the supplied [`QueryFilter`](bevy_ecs::query::QueryFilter).
 /// That can be especially useful when you want to use a custom time resource for subset of animations.
-/// By default, there is added a one version with Time<()> and Without [`DontUseDefaultAnimationTime`] component.
+/// By default, one version is added using [`Time<()>`] and a [`Without`] [`DontUseDefaultAnimationTime`] filter.
 pub fn specify_animation_system<T: Default, F: bevy_ecs::query::QueryFilter + 'static>(
     app: &mut App,
 ) where
