@@ -161,15 +161,15 @@ pub struct JsonSchemaBevyType {
     #[reflect(ignore)]
     pub rust_fields_info: HashMap<Cow<'static, str>, Box<JsonSchemaBevyType>>,
     /// The type keyword is fundamental to JSON Schema. It specifies the data type for a schema.
-    #[serde(skip_serializing_if = "Option::is_none", default)]
+    #[serde(skip_serializing_if = "TypeSpecification::not_specified", default)]
     #[serde(rename = "type")]
-    pub schema_type: Option<SchemaTypeVariant>,
+    pub schema_type: TypeSpecification,
     /// The behavior of this keyword depends on the presence and annotation results of "properties"
     /// and "patternProperties" within the same schema object.
     /// Validation with "additionalProperties" applies only to the child
     /// values of instance names that do not appear in the annotation results of either "properties" or "patternProperties".
     #[serde(skip_serializing_if = "Option::is_none", default)]
-    pub additional_properties: Option<JsonSchemaVariant>,
+    pub additional_properties: Option<SchemaPropertyValue>,
     /// This keyword restricts object instances to only define properties whose names match the given schema.
     #[serde(skip_serializing_if = "Option::is_none", default)]
     #[reflect(ignore)]
@@ -182,7 +182,7 @@ pub struct JsonSchemaBevyType {
     /// within this keyword's value, the child instance for that name successfully validates
     /// against the corresponding schema.
     #[serde(skip_serializing_if = "HashMap::is_empty", default)]
-    pub properties: HashMap<Cow<'static, str>, JsonSchemaVariant>,
+    pub properties: HashMap<Cow<'static, str>, SchemaPropertyValue>,
     /// An object instance is valid against this keyword if every item in the array is the name of a property in the instance.
     #[serde(skip_serializing_if = "Vec::is_empty", default)]
     pub required: Vec<Cow<'static, str>>,
@@ -197,7 +197,7 @@ pub struct JsonSchemaBevyType {
     /// index of the instance, such as is produced by the "items" keyword.
     /// This annotation affects the behavior of "items" and "unevaluatedItems".
     #[serde(skip_serializing_if = "Vec::is_empty", default)]
-    pub prefix_items: Vec<JsonSchemaVariant>,
+    pub prefix_items: Vec<SchemaPropertyValue>,
     /// This keyword applies its subschema to all instance elements at indexes greater
     /// than the length of the "prefixItems" array in the same schema object,
     /// as reported by the annotation result of that "prefixItems" keyword.
@@ -208,7 +208,7 @@ pub struct JsonSchemaBevyType {
     /// it produces an annotation result of boolean true, indicating that all remaining
     /// array elements have been evaluated against this keyword's subschema.
     #[serde(skip_serializing_if = "Option::is_none", default)]
-    pub items: Option<JsonSchemaVariant>,
+    pub items: Option<SchemaPropertyValue>,
     /// The value of this keyword MUST be a non-negative integer.
     /// An array instance is valid against "minItems" if its size is greater than,
     /// or equal to, the value of this keyword.
@@ -269,7 +269,7 @@ pub struct JsonSchemaBevyType {
 /// including boolean values, constant values, and complex schema objects.
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Reflect)]
 #[serde(untagged)]
-pub enum JsonSchemaVariant {
+pub enum SchemaPropertyValue {
     /// A simple boolean value used in schema definitions.
     ///
     /// This is commonly used for properties like `additionalProperties` where
@@ -282,9 +282,9 @@ pub enum JsonSchemaVariant {
     Schema(#[reflect(ignore)] Box<JsonSchemaBevyType>),
 }
 
-impl From<JsonSchemaBevyType> for JsonSchemaVariant {
+impl From<JsonSchemaBevyType> for SchemaPropertyValue {
     fn from(value: JsonSchemaBevyType) -> Self {
-        JsonSchemaVariant::Schema(Box::new(value))
+        SchemaPropertyValue::Schema(Box::new(value))
     }
 }
 
@@ -351,9 +351,17 @@ impl SchemaKind {
 ///
 /// In JSON Schema, the `type` keyword can either specify a single type
 /// or an array of types to allow multiple valid types for a property.
-#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Reflect, Eq, PartialOrd, Ord)]
+#[derive(
+    Debug, Serialize, Deserialize, Clone, PartialEq, Reflect, Eq, PartialOrd, Ord, Default,
+)]
 #[serde(untagged)]
-pub enum SchemaTypeVariant {
+pub enum TypeSpecification {
+    #[default]
+    /// No type specified.
+    /// Typical use case would be that a property can accept multiple types,
+    /// such as allowing both "string" and "number" for the same field.
+    /// In Rust it most often means it is a Option, Result or Enum type.
+    NotSpecified,
     /// A single schema type (e.g., "string", "number", "object").
     /// This is the most common case where a property has exactly one valid type.
     Single(SchemaType),
@@ -364,10 +372,15 @@ pub enum SchemaTypeVariant {
     Multiple(Vec<SchemaType>),
 }
 
-impl SchemaTypeVariant {
+impl TypeSpecification {
+    /// Checks if the variant is not specified.
+    pub fn not_specified(&self) -> bool {
+        matches!(self, Self::NotSpecified)
+    }
     /// Adds a new type to the variant.
     pub fn with(self, new: SchemaType) -> Self {
         match self {
+            Self::NotSpecified => Self::Single(new),
             Self::Single(t) => match t.eq(&new) {
                 true => Self::Single(t),
                 false => Self::Multiple(vec![t, new]),
@@ -423,14 +436,19 @@ impl From<TypeId> for SchemaType {
     }
 }
 
-impl From<SchemaType> for SchemaTypeVariant {
+impl From<SchemaType> for TypeSpecification {
     fn from(value: SchemaType) -> Self {
-        SchemaTypeVariant::Single(value)
+        TypeSpecification::Single(value)
     }
 }
-impl From<SchemaType> for Option<SchemaTypeVariant> {
-    fn from(value: SchemaType) -> Self {
-        Some(SchemaTypeVariant::Single(value))
+
+impl From<&[SchemaType]> for TypeSpecification {
+    fn from(types: &[SchemaType]) -> Self {
+        match types.len() {
+            0 => Self::NotSpecified,
+            1 => Self::Single(types[0]),
+            _ => Self::Multiple(types.to_vec()),
+        }
     }
 }
 

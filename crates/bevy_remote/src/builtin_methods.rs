@@ -27,7 +27,7 @@ use serde_json::{Map, Value};
 use crate::{
     error_codes,
     schemas::{
-        json_schema::{JsonSchemaBevyType, JsonSchemaVariant, SchemaMarker},
+        json_schema::{JsonSchemaBevyType, SchemaMarker, SchemaPropertyValue},
         open_rpc::OpenRpcDocument,
         reflect_info::{TypeDefinitionBuilder, TypeReferencePath},
     },
@@ -1474,8 +1474,8 @@ fn build_registry_json_schema(
                         .into(),
                     )]
                     .into(),
-                    schema_type: Some(crate::schemas::json_schema::SchemaType::Object.into()),
-                    additional_properties: Some(JsonSchemaVariant::BoolValue(false)),
+                    schema_type: crate::schemas::json_schema::SchemaType::Object.into(),
+                    additional_properties: Some(SchemaPropertyValue::BoolValue(false)),
                     description: schema.description.clone(),
                     reflect_type_data: schema.reflect_type_data.clone(),
                     ..Default::default()
