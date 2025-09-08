@@ -92,13 +92,6 @@ impl<R: Relationship, B: Bundle> SpawnableList<R> for Spawn<B> {
             entity: Entity,
         ) {
             let caller = MaybeLocation::caller();
-            let r = R::from(entity);
-
-            move_as_ptr!(r);
-
-            // SAFETY:
-            // - `r` is never accessed or dropped after this call.
-            let mut entity = unsafe { world.spawn_with_caller(r, caller) };
 
             // SAFETY:
             //  - `Spawn<B>` has one field at index 0 and it's of type `B`.
@@ -112,6 +105,10 @@ impl<R: Relationship, B: Bundle> SpawnableList<R> for Spawn<B> {
 
             // `this` has been moved out of, it should not be dropped.
             mem::forget(this);
+
+            let r = R::from(entity);
+            move_as_ptr!(r);
+            let mut entity = world.spawn_with_caller(r, caller);
 
             entity.insert_with_caller(
                 bundle,

@@ -2041,19 +2041,14 @@ impl<'w> EntityWorldMut<'w> {
         let mut bundle_inserter =
             BundleInserter::new::<T>(self.world, location.archetype_id, change_tick);
         // SAFETY:
-        // - Between `BundleInserter::insert` and `B::apply_effect`, each field of `B` will be moved exactly once into
-        //   ECS storage. This means that the bundle must be entirely moved in `insert` and `B::apply_effect` must be a no-op,
-        //   or forgotten inside `insert` and thus f valid to be moved the rest out in `B::apply_effect`.
-        // - The above also means that the fields moved out of in `insert` will not be accessed in `B::apply_effect`.
+        // - `location` matches current entity and thus must currently exist in the source
+        //   archetype for this inserter and its location within the archetype.
+        // - `T` matches the type used to create the `BundleInserter`.
+        // - `apply_effect` is called exactly once after this function.
+        // - The value pointed at by `bundle` is not accessed for anything other than `apply_effect`
+        //   and the caller ensures that the value is not accessed or dropped after this function
+        //   returns.
         let (bundle, location) = bundle.partial_move(|bundle| unsafe {
-            // SAFETY:
-            // - `location` matches current entity and thus must currently exist in the source
-            //   archetype for this inserter and its location within the archetype.
-            // - `T` matches the type used to create the `BundleInserter`.
-            // - `apply_effect` is called exactly once after this function.
-            // - The value pointed at by `bundle` is not accessed for anything other than `apply_effect`
-            //   and the caller ensures that the value is not accessed or dropped after this function
-            //   returns.
             bundle_inserter.insert::<T>(
                 self.entity,
                 location,
@@ -2889,9 +2884,7 @@ impl<'w> EntityWorldMut<'w> {
         self.assert_not_despawned();
         let bundle = Observer::new(observer).with_entity(self.entity);
         move_as_ptr!(bundle);
-        // SAFETY:
-        // - `bundle` is not accessed or dropped after this function call returns.
-        unsafe { self.world.spawn_with_caller(bundle, caller) };
+        self.world.spawn_with_caller(bundle, caller);
         self.world.flush();
         self.update_location();
         self

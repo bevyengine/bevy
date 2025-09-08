@@ -482,14 +482,10 @@ impl<'a, T, A: IsAligned> MovingPtr<'_, T, A> {
 
     /// Partially moves out some fields inside of `self`.
     ///
-    /// The partially returned value is returned back pointing to `MaybeUninit<T>`.
+    /// The partially returned value is returned back pointing to [`MaybeUninit<T>`].
     ///
-    /// # Safety
-    ///  - The call into `f` must not complete having dropped the provided pointer.
-    ///  - The fields moved out of in `f` must not be accessed or dropped after this function returns.
-    ///
-    /// As a result, it is strongly recommended to call [`forget`] on the provided pointer once the
-    /// partial deconstruction has completed.
+    /// While calling this function is safe, care must be taken with the returned `MovingPtr` as it
+    /// points to a value that may no longer be completely valid.
     ///
     /// # Example
     ///
@@ -517,17 +513,16 @@ impl<'a, T, A: IsAligned> MovingPtr<'_, T, A> {
     /// // Converts `parent` into a `MovingPtr`
     /// move_as_ptr!(parent);
     ///
-    /// unsafe {
-    ///    // SAFETY:
-    ///    // - It is impossible for the provided closure to drop the provided pointer as `move_field` cannot panic.
-    ///    // - `field_a` and `field_b` are moved out of but never accessed after this.
-    ///    let (partial_parent, ()) = MovingPtr::partial_move(parent, |parent_ptr| {
-    ///       bevy_ptr::deconstruct_moving_ptr!(parent_ptr, Parent {
-    ///         field_a: FieldAType => { insert(field_a) },
-    ///         field_b: FieldBType => { insert(field_b) },
-    ///       });
-    ///    });
+    /// // SAFETY:
+    /// // - `field_a` and `field_b` are moved out of but never accessed after this.
+    /// let (partial_parent, ()) = MovingPtr::partial_move(parent, |parent_ptr| {
+    ///   bevy_ptr::deconstruct_moving_ptr!(parent_ptr, Parent {
+    ///     field_a: FieldAType => { insert(field_a) },
+    ///     field_b: FieldBType => { insert(field_b) },
+    ///   });
+    /// });
     ///
+    /// unsafe {
     ///    // Move the rest of fields out of the parent.
     ///    bevy_ptr::deconstruct_moving_ptr!(partial_parent, Parent {
     ///       field_c: FieldBType => { insert(field_c) },
@@ -537,7 +532,7 @@ impl<'a, T, A: IsAligned> MovingPtr<'_, T, A> {
     ///
     /// [`forget`]: core::mem::forget
     #[inline]
-    pub unsafe fn partial_move<R>(
+    pub fn partial_move<R>(
         self,
         f: impl FnOnce(MovingPtr<'_, T, A>) -> R,
     ) -> (MovingPtr<'a, MaybeUninit<T>, A>, R) {
@@ -603,8 +598,7 @@ impl<'a, T, A: IsAligned> MovingPtr<'_, T, A> {
         }
     }
 
-    /// Creates a [`MovingPtr`] for a specific field within `self`. This is a building block for
-    /// [`deconstruct_moving_ptr`] and should generally not be accessed directly.
+    /// Creates a [`MovingPtr`] for a specific field within `self`.
     ///
     /// This function is explicitly made for deconstructive moves.
     ///
@@ -666,7 +660,6 @@ impl<'a, T, A: IsAligned> MovingPtr<'_, T, A> {
     /// [`forget`]: core::mem::forget
     /// [`move_field`]: Self::move_field
     #[inline]
-    #[doc(hidden)]
     pub unsafe fn move_field<U>(&self, byte_offset: usize) -> MovingPtr<'a, U, Unaligned> {
         MovingPtr(
             // SAFETY: The caller must ensure that `U` is the correct type for the field at `byte_offset`.

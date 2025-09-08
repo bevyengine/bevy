@@ -1157,14 +1157,10 @@ impl World {
     #[track_caller]
     pub fn spawn<B: Bundle>(&mut self, bundle: B) -> EntityWorldMut<'_> {
         move_as_ptr!(bundle);
-        // SAFETY:
-        // - `bundle` is not accessed or dropped after this function call returns.
-        unsafe { self.spawn_with_caller(bundle, MaybeLocation::caller()) }
+        self.spawn_with_caller(bundle, MaybeLocation::caller())
     }
 
-    /// #  Safety
-    /// - `bundle` must not be accessed or dropped after this function call returns.
-    pub(crate) unsafe fn spawn_with_caller<B: Bundle>(
+    pub(crate) fn spawn_with_caller<B: Bundle>(
         &mut self,
         bundle: MovingPtr<'_, B>,
         caller: MaybeLocation,
