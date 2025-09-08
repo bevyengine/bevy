@@ -169,7 +169,10 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
         #[doc(hidden)]
         #[expect(dead_code, reason = "This is a static assertion.")]
         impl #impl_generics #struct_name #ty_generics #where_clause {
-            // Ensure that the type can be destructured and does not implement `Drop`.
+            // Types that implement `Drop` cannot have their fields moved out. The implementation in
+            // `get_componments` avoids this with pointers, so there needs to be a static assertion
+            // that this is a sound thing to do. See https://doc.rust-lang.org/error_codes/E0509.html
+            // for more information.
             fn check_no_bundle_drop(self) {
                 #( let _ = self.#active_field_tokens; )*
             }
