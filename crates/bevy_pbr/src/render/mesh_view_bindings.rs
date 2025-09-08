@@ -1,12 +1,13 @@
 use alloc::sync::Arc;
+#[cfg(feature = "tonemapping_luts")]
+use bevy_core_pipeline::tonemapping::TonemappingLuts;
 use bevy_core_pipeline::{
     core_3d::ViewTransmissionTexture,
     oit::{resolve::is_oit_supported, OitBuffers, OrderIndependentTransparencySettings},
     prepass::ViewPrepassTextures,
-    tonemapping::{
-        get_lut_bind_group_layout_entries, get_lut_bindings, Tonemapping, TonemappingLuts,
-    },
+    tonemapping::{get_lut_bind_group_layout_entries, get_lut_bindings, Tonemapping},
 };
+
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     component::Component,
@@ -566,7 +567,7 @@ pub fn prepare_mesh_view_bind_groups(
         Res<FallbackImageZero>,
     ),
     globals_buffer: Res<GlobalsBuffer>,
-    tonemapping_luts: Res<TonemappingLuts>,
+    #[cfg(feature = "tonemapping_luts")] tonemapping_luts: Res<TonemappingLuts>,
     light_probes_buffer: Res<LightProbesBuffer>,
     visibility_ranges: Res<RenderVisibilityRanges>,
     ssr_buffer: Res<ScreenSpaceReflectionsBuffer>,
@@ -653,8 +654,13 @@ pub fn prepare_mesh_view_bind_groups(
 
             entries = entries.extend_with_indices(((17, environment_map_binding.clone()),));
 
-            let lut_bindings =
-                get_lut_bindings(&images, &tonemapping_luts, tonemapping, &fallback_image);
+            let lut_bindings = get_lut_bindings(
+                &images,
+                #[cfg(feature = "tonemapping_luts")]
+                &tonemapping_luts,
+                tonemapping,
+                &fallback_image,
+            );
             entries = entries.extend_with_indices(((18, lut_bindings.0), (19, lut_bindings.1)));
 
             // When using WebGL, we can't have a depth texture with multisampling
