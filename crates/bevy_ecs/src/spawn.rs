@@ -53,13 +53,8 @@ pub trait SpawnableList<R> {
     /// By default calls `self.spawn` with a raw pointer to `self`.
     /// Implementors may want to implement a custom version of this function to
     /// avoid copying large values onto the stack repeatedly.
-    ///
-    /// # Safety
-    ///
-    /// `this` must be a valid and aligned pointer to `Self` and takes ownership of the
-    /// value pointed at by `this`.
     #[doc(hidden)]
-    unsafe fn spawn_raw(this: MovingPtr<'_, Self>, world: &mut World, entity: Entity)
+    fn spawn_raw(this: MovingPtr<'_, Self>, world: &mut World, entity: Entity)
     where
         Self: Sized,
     {
@@ -81,19 +76,21 @@ impl<R: Relationship, B: Bundle<Effect: NoBundleEffect>> SpawnableList<R> for Ve
 impl<R: Relationship, B: Bundle> SpawnableList<R> for Spawn<B> {
     fn spawn(self, world: &mut World, entity: Entity) {
         let mut this = MaybeUninit::new(self);
-        // SAFETY: `this` contains a valid `Self` we own.
-        unsafe {
-            <Self as SpawnableList<R>>::spawn_raw(MovingPtr::from_value(&mut this), world, entity);
-        }
+        // SAFETY:
+        // - `bundle` is initialized to a valid in the statement above.
+        // - This variable shadows the instance of value above, ensuring it's never used after
+        //   the `MovingPtr` is used.
+        let this = unsafe { MovingPtr::from_value(&mut this) };
+        <Self as SpawnableList<R>>::spawn_raw(this, world, entity);
     }
 
     fn size_hint(&self) -> usize {
         1
     }
 
-    unsafe fn spawn_raw(this: MovingPtr<'_, Self>, world: &mut World, entity: Entity) {
+    fn spawn_raw(this: MovingPtr<'_, Self>, world: &mut World, entity: Entity) {
         #[track_caller]
-        unsafe fn spawn_raw<B: Bundle, R: Relationship>(
+        fn spawn_raw<B: Bundle, R: Relationship>(
             this: MovingPtr<'_, Spawn<B>>,
             world: &mut World,
             entity: Entity,
@@ -102,10 +99,18 @@ impl<R: Relationship, B: Bundle> SpawnableList<R> for Spawn<B> {
             let mut r = MaybeUninit::new(R::from(entity));
 
             // SAFETY:
-            // - `r` is initialized and a valid bundle
-            // - the caller ensures `this` is a valid pointer, so `this.0` must be a valid bundle as well
+            // - `r` is initialized to a valid in the statement above.
+            // - This variable shadows the instance of value above, ensuring it's never used after
+            //   the `MovingPtr` is used.
+            let r = unsafe { MovingPtr::from_value(&mut r) };
+
+            // SAFETY:
+            // - `r` is never accessed or dropped after this call.
+            let mut entity = unsafe { world.spawn_with_caller(r, caller) };
+
+            // SAFETY:
+            // - `this` is never accesssed or dropped after tihs call.
             unsafe {
-                let mut entity = world.spawn_with_caller(MovingPtr::from_value(&mut r), caller);
                 entity.insert_raw_with_caller(
                     this.move_field::<B>(offset_of!(Spawn<B>, 0))
                         .try_into()
@@ -117,10 +122,7 @@ impl<R: Relationship, B: Bundle> SpawnableList<R> for Spawn<B> {
             }
         }
 
-        // SAFETY: `this` points to a valid `Self` and we have ownership of it.
-        unsafe {
-            spawn_raw::<B, R>(this, world, entity);
-        }
+        spawn_raw::<B, R>(this, world, entity);
     }
 }
 
@@ -280,13 +282,20 @@ macro_rules! spawnable_list_impl {
                 $($alias.spawn(_world, _entity);)*
             }
 
-            unsafe fn spawn_raw(_this: MovingPtr<'_, Self>, _world: &mut World, _entity: Entity)
+            #[allow(unused_unsafe, reason = "The empty tuple will leave the unsafe blocks unused.")]
+            fn spawn_raw(_this: MovingPtr<'_, Self>, _world: &mut World, _entity: Entity)
             where
                 Self: Sized,
             {
-                $( let $alias = _this.move_field::<$list>(core::mem::offset_of!(Self, $index)); )*
-                core::mem::forget(_this);
-                $( SpawnableList::<R>::spawn_raw($alias.try_into().debug_checked_unwrap(), _world, _entity); )*
+                // SAFETY:
+                //  - The indicies and types match the type definition and thus must point to the right fields.
+                //  - Rust tuples can never be `repr(packed)` so if `_this` is properly aligned, then all of the individual field
+                //    pointers must also be properly aligned.
+                unsafe {
+                    $( let $alias = _this.move_field::<$list>(core::mem::offset_of!(Self, $index)); )*
+                    core::mem::forget(_this);
+                    $( SpawnableList::<R>::spawn_raw($alias.try_into().debug_checked_unwrap(), _world, _entity); )*
+                }
             }
 
             fn size_hint(&self) -> usize {
@@ -324,12 +333,14 @@ impl<R: Relationship, L: SpawnableList<R>> BundleEffect for SpawnRelatedBundle<R
         });
     }
 
-    unsafe fn apply_raw(this: MovingPtr<'_, Self>, entity: &mut EntityWorldMut)
+    fn apply_raw(this: MovingPtr<'_, Self>, entity: &mut EntityWorldMut)
     where
         Self: Sized,
     {
         let id = entity.id();
-        // SAFETY: this function must be called with a pointer to a valid `Self`.
+        // SAFETY:
+        //  - `this` points to an instance of type `Self`
+        //  - The field names and types match with the type definiton.
         entity.world_scope(|world: &mut World| unsafe {
             bevy_ptr::deconstruct_moving_ptr!(this, Self {
                 list: L => { L::spawn_raw(list.try_into().debug_checked_unwrap(), world, id) },

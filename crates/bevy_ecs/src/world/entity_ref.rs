@@ -1973,7 +1973,7 @@ impl<'w> EntityWorldMut<'w> {
         let mut bundle = MaybeUninit::new(bundle);
         // SAFETY:
         // - `bundle` is initialized to a valid in the statement above.
-        // - This variable shadows the instace of value above, ensuring it's never used after
+        // - This variable shadows the instance of value above, ensuring it's never used after
         //   the `MovingPtr` is used.
         let bundle = unsafe { MovingPtr::from_value(&mut bundle) };
         // SAFETY:
@@ -2012,7 +2012,7 @@ impl<'w> EntityWorldMut<'w> {
         let mut bundle = MaybeUninit::new(bundle);
         // SAFETY:
         // - `bundle` is initialized to a valid in the statement above.
-        // - This variable shadows the instace of value above, ensuring it's never used after
+        // - This variable shadows the instance of value above, ensuring it's never used after
         //   the `MovingPtr` is used.
         let bundle = unsafe { MovingPtr::from_value(&mut bundle) };
         // SAFETY:
@@ -2041,7 +2041,7 @@ impl<'w> EntityWorldMut<'w> {
         let mut bundle = MaybeUninit::new(bundle);
         // SAFETY:
         // - `bundle` is initialized to a valid in the statement above.
-        // - This variable shadows the instace of value above, ensuring it's never used after
+        // - This variable shadows the instance of value above, ensuring it's never used after
         //   the `MovingPtr` is used.
         let bundle = unsafe { MovingPtr::from_value(&mut bundle) };
         // SAFETY:
@@ -2075,14 +2075,19 @@ impl<'w> EntityWorldMut<'w> {
         let mut bundle_inserter =
             BundleInserter::new::<T>(self.world, location.archetype_id, change_tick);
         // SAFETY:
-        // - `location` matches current entity and thus must currently exist in the source
-        //   archetype for this inserter and its location within the archetype.
-        // - `T` matches the type used to create the `BundleInserter`.
-        // - `apply_effect` is called exactly once after this function.
-        // - The value pointed at by `bundle` is not accessed for anything other than `apply_effect`
-        //   and the caller ensures that the value is not accessed or dropped after this function
-        //   returns.
+        // - Between `BundleInserter::insert` and `B::apply_effect`, each field of `B` will be moved exactly once into
+        //   ECS storage. This means that the bundle must be entirely moved in `insert` and `B::apply_effect` must be a no-op,
+        //   or forgotten inside `insert` and thus f valid to be moved the rest out in `B::apply_effect`.
+        // - The above also means that the fields moved out of in `insert` will not be accessed in `B::apply_effect`.
         let (bundle, location) = bundle.partial_move(|bundle| unsafe {
+            // SAFETY:
+            // - `location` matches current entity and thus must currently exist in the source
+            //   archetype for this inserter and its location within the archetype.
+            // - `T` matches the type used to create the `BundleInserter`.
+            // - `apply_effect` is called exactly once after this function.
+            // - The value pointed at by `bundle` is not accessed for anything other than `apply_effect`
+            //   and the caller ensures that the value is not accessed or dropped after this function
+            //   returns.
             bundle_inserter.insert::<T>(
                 self.entity,
                 location,
@@ -2920,7 +2925,7 @@ impl<'w> EntityWorldMut<'w> {
         let mut bundle = MaybeUninit::new(Observer::new(observer).with_entity(self.entity));
         // SAFETY:
         // - `bundle` is initialized to a valid in the statement above.
-        // - This variable shadows the instace of value above, ensuring it's never used after
+        // - This variable shadows the instance of value above, ensuring it's never used after
         //   the `MovingPtr` is used.
         let bundle = unsafe { MovingPtr::from_value(&mut bundle) };
         // SAFETY:
@@ -4721,7 +4726,7 @@ unsafe fn insert_dynamic_bundle<
 
     // SAFETY:
     // - `bundle` is initialized to a valid in the statement above.
-    // - This variable shadows the instace of value above, ensuring it's never used after
+    // - This variable shadows the instance of value above, ensuring it's never used after
     //   the `MovingPtr` is used.
     let bundle = unsafe { MovingPtr::from_value(&mut bundle) };
 
@@ -4730,7 +4735,6 @@ unsafe fn insert_dynamic_bundle<
     //   archetype for this inserter and its location within the archetype.
     // - The caller must ensure that the iterators and storage types match up with the `BundleInserter`
     // - `DynamicInsertBundle::Effect: NoBundleEffect` and thus `apply_effect` does not need to be called.
-    // - `bundle` was just constructed above and thus is valid, the created pointer is aligned.
     // - `bundle` is not used or dropped after this point. `MaybeUninit` requires manually invoking drop on
     //   a wrapped value.
     unsafe {

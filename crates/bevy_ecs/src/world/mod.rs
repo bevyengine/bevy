@@ -1159,7 +1159,7 @@ impl World {
         let mut bundle = MaybeUninit::new(bundle);
         // SAFETY:
         // - `bundle` is initialized to a valid in the statement above.
-        // - This variable shadows the instace of value above, ensuring it's never used after
+        // - This variable shadows the instance of value above, ensuring it's never used after
         //   the `MovingPtr` is used.
         let bundle = unsafe { MovingPtr::from_value(&mut bundle) };
         // SAFETY:
@@ -1184,7 +1184,6 @@ impl World {
             // - `B` matches `bundle_spawner`'s type ,
             // -  `entity` is allocated but non-existent
             // - `B::Effect` is unconstrained, and `B::apply_effect` is called exactly once on the bundle after this call.
-            // - The caller must ensure that `bundle` must be non-null, aligned, and point to a valid instance of `B`.
             // - The caller must ensure that the value pointed to by `bundle` must not be accessed for anything. The value
             //   is otherwise only used to call `apply_effect` within this function.
             unsafe { bundle_spawner.spawn_non_existent::<B>(entity, bundle, caller) }
@@ -2353,7 +2352,7 @@ impl World {
                 let mut first_bundle = MaybeUninit::new(first_bundle);
                 // SAFETY:
                 // - `first_bundle` is initialized to a valid in the statement above.
-                // - This variable shadows the instace of value above, ensuring it's never used after
+                // - This variable shadows the instance of value above, ensuring it's never used after
                 //   the `MovingPtr` is used.
                 let first_bundle = unsafe { MovingPtr::from_value(&mut first_bundle) };
                 // SAFETY:
@@ -2392,7 +2391,7 @@ impl World {
                         let mut bundle = MaybeUninit::new(bundle);
                         // SAFETY:
                         // - `bundle` is initialized to a valid in the statement above.
-                        // - This variable shadows the instace of value above, ensuring it's never used after
+                        // - This variable shadows the instance of value above, ensuring it's never used after
                         //   the `MovingPtr` is used.
                         let bundle = unsafe { MovingPtr::from_value(&mut bundle) };
                         // SAFETY:
@@ -2528,7 +2527,7 @@ impl World {
                     let mut first_bundle = MaybeUninit::new(first_bundle);
                     // SAFETY:
                     // - `bundle` is initialized to a valid in the statement above.
-                    // - This variable shadows the instace of value above, ensuring it's never used after
+                    // - This variable shadows the instance of value above, ensuring it's never used after
                     //   the `MovingPtr` is used.
                     let first_bundle = unsafe { MovingPtr::from_value(&mut first_bundle) };
                     // SAFETY:
@@ -2575,13 +2574,11 @@ impl World {
                     let mut bundle = MaybeUninit::new(bundle);
                     // SAFETY:
                     // - `bundle` is initialized to a valid in the statement above.
-                    // - This variable shadows the instace of value above, ensuring it's never used after
+                    // - This variable shadows the instance of value above, ensuring it's never used after
                     //   the `MovingPtr` is used.
                     let bundle = unsafe { MovingPtr::from_value(&mut bundle) };
                     // SAFETY:
                     // - `entity` is valid, `location` matches entity, bundle matches inserter
-                    // - `bundle` was fetched above, is owned, and is valid, the pointer created must
-                    //   be aligned.
                     // - The effect is `NoBundleEffect`, so calling `apply_effect` after this is a no-op.
                     // - `bundle` is not be accessed or dropped after this. `MaybeUninit` requires manually
                     //   invoking drop on the wrapped value.

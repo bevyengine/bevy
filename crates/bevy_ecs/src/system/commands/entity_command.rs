@@ -113,7 +113,7 @@ pub fn insert(bundle: impl Bundle, mode: InsertMode) -> impl EntityCommand {
         let mut bundle = MaybeUninit::new(bundle);
         // SAFETY:
         // - `bundle` is initialized to a valid in the statement above.
-        // - This variable shadows the instace of value above, ensuring it's never used after
+        // - This variable shadows the instance of value above, ensuring it's never used after
         //   the `MovingPtr` is used.
         let bundle = unsafe { MovingPtr::from_value(&mut bundle) };
         // SAFETY:
@@ -168,7 +168,7 @@ pub fn insert_from_world<T: Component + FromWorld>(mode: InsertMode) -> impl Ent
             let mut value = MaybeUninit::new(entity.world_scope(|world| T::from_world(world)));
             // SAFETY:
             // - `value` is initialized to a valid in the statement above.
-            // - This variable shadows the instace of value above, ensuring it's never used after
+            // - This variable shadows the instance of value above, ensuring it's never used after
             //   the `MovingPtr` is used.
             let value = unsafe { MovingPtr::from_value(&mut value) };
             // SAFETY:
@@ -198,7 +198,7 @@ where
             let mut bundle = MaybeUninit::new(component_fn());
             // SAFETY:
             // - `bundle` is initialized to a valid in the statement above.
-            // - This variable shadows the instace of value above, ensuring it's never used after
+            // - This variable shadows the instance of value above, ensuring it's never used after
             //   the `MovingPtr` is used.
             let bundle = unsafe { MovingPtr::from_value(&mut bundle) };
             // SAFETY:

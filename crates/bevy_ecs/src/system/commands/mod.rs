@@ -400,7 +400,7 @@ impl<'w, 's> Commands<'w, 's> {
             let mut bundle = MaybeUninit::new(bundle);
             // SAFETY:
             // - `bundle` is initialized to a valid in the statement above.
-            // - This variable shadows the instace of value above, ensuring it's never used after
+            // - This variable shadows the instance of value above, ensuring it's never used after
             //   the `MovingPtr` is used.
             let bundle = unsafe { MovingPtr::from_value(&mut bundle) };
             // SAFETY:

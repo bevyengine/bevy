@@ -255,7 +255,6 @@ pub unsafe trait DynamicBundle: Sized {
     //   component being fetched.
     // - Calls `func` on each component value in the bundle, in the order of this bundle's [`Component`]s.
     //   This passes ownership of the component values to `func`.
-    // - `ptr` must point to an owned valid instance of `Self` and must be aligned.
     // - `apply_effect` must be called exactly once after this has been called if `Effect: !NoBundleEffect`
     #[doc(hidden)]
     unsafe fn get_components(
@@ -285,11 +284,8 @@ pub trait BundleEffect {
     /// Applies this effect to the given `entity`.
     fn apply(self, entity: &mut EntityWorldMut);
 
-    /// # Safety
-    /// `this` must be a valid and aligned pointer to `Self` and takes ownership of the
-    /// value pointed at by `this`.
     #[doc(hidden)]
-    unsafe fn apply_raw(this: MovingPtr<'_, Self>, entity: &mut EntityWorldMut)
+    fn apply_raw(this: MovingPtr<'_, Self>, entity: &mut EntityWorldMut)
     where
         Self: Sized,
     {
