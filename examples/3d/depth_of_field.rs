@@ -11,13 +11,13 @@
 
 use bevy::{
     camera::PhysicalCameraParameters,
-    core_pipeline::{
-        bloom::Bloom,
-        dof::{self, DepthOfField, DepthOfFieldMode},
-        tonemapping::Tonemapping,
-    },
+    core_pipeline::tonemapping::Tonemapping,
     gltf::GltfMeshName,
     pbr::Lightmap,
+    post_process::{
+        bloom::Bloom,
+        dof::{self, DepthOfField, DepthOfFieldMode},
+    },
     prelude::*,
 };
 
@@ -242,10 +242,10 @@ impl AppSettings {
         let fov = PerspectiveProjection::default().fov;
 
         format!(
-            "Focal distance: {} m (Press Up/Down to change)
-Aperture F-stops: f/{} (Press Left/Right to change)
-Sensor height: {}mm
-Focal length: {}mm
+            "Focal distance: {:.2} m (Press Up/Down to change)
+Aperture F-stops: f/{:.2} (Press Left/Right to change)
+Sensor height: {:.2}mm
+Focal length: {:.2}mm
 Mode: {} (Press Space to change)",
             self.focal_distance,
             self.aperture_f_stops,

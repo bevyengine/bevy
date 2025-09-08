@@ -65,6 +65,8 @@ fn setup(
         .spawn((
             Camera2d,
             Camera {
+                // render before the "main pass" camera
+                order: -1,
                 target: RenderTarget::Image(image_handle.clone().into()),
                 ..default()
             },
