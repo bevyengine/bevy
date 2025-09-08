@@ -5,12 +5,11 @@ use bevy_render::RenderStartup;
 use bevy_shader::{load_shader_library, Shader, ShaderDefVal, ShaderSettings};
 
 use crate::{tonemapping_pipeline_key, Material2dBindGroupId};
+#[cfg(feature = "tonemapping_luts")]
+use bevy_core_pipeline::tonemapping::TonemappingLuts;
 use bevy_core_pipeline::{
     core_2d::{AlphaMask2d, Opaque2d, Transparent2d, CORE_2D_DEPTH_FORMAT},
-    tonemapping::{
-        get_lut_bind_group_layout_entries, get_lut_bindings, DebandDither, Tonemapping,
-        TonemappingLuts,
-    },
+    tonemapping::{get_lut_bind_group_layout_entries, get_lut_bindings, DebandDither, Tonemapping},
 };
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::component::Tick;
@@ -741,7 +740,7 @@ pub fn prepare_mesh2d_view_bind_groups(
     view_uniforms: Res<ViewUniforms>,
     views: Query<(Entity, &Tonemapping), (With<ExtractedView>, With<Camera2d>)>,
     globals_buffer: Res<GlobalsBuffer>,
-    tonemapping_luts: Res<TonemappingLuts>,
+    #[cfg(feature = "tonemapping_luts")] tonemapping_luts: Res<TonemappingLuts>,
     images: Res<RenderAssets<GpuImage>>,
     fallback_image: Res<FallbackImage>,
 ) {
@@ -753,8 +752,13 @@ pub fn prepare_mesh2d_view_bind_groups(
     };
 
     for (entity, tonemapping) in &views {
-        let lut_bindings =
-            get_lut_bindings(&images, &tonemapping_luts, tonemapping, &fallback_image);
+        let lut_bindings = get_lut_bindings(
+            &images,
+            #[cfg(feature = "tonemapping_luts")]
+            &tonemapping_luts,
+            tonemapping,
+            &fallback_image,
+        );
         let view_bind_group = render_device.create_bind_group(
             "mesh2d_view_bind_group",
             &mesh2d_pipeline.view_layout,

@@ -4,12 +4,11 @@ use crate::ComputedTextureSlices;
 use bevy_asset::{load_embedded_asset, AssetEvent, AssetId, AssetServer, Assets, Handle};
 use bevy_camera::visibility::ViewVisibility;
 use bevy_color::{ColorToComponents, LinearRgba};
+#[cfg(feature = "tonemapping_luts")]
+use bevy_core_pipeline::tonemapping::TonemappingLuts;
 use bevy_core_pipeline::{
     core_2d::{Transparent2d, CORE_2D_DEPTH_FORMAT},
-    tonemapping::{
-        get_lut_bind_group_layout_entries, get_lut_bindings, DebandDither, Tonemapping,
-        TonemappingLuts,
-    },
+    tonemapping::{get_lut_bind_group_layout_entries, get_lut_bindings, DebandDither, Tonemapping},
 };
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
@@ -609,7 +608,7 @@ pub fn prepare_sprite_view_bind_groups(
     sprite_pipeline: Res<SpritePipeline>,
     view_uniforms: Res<ViewUniforms>,
     views: Query<(Entity, &Tonemapping), With<ExtractedView>>,
-    tonemapping_luts: Res<TonemappingLuts>,
+    #[cfg(feature = "tonemapping_luts")] tonemapping_luts: Res<TonemappingLuts>,
     images: Res<RenderAssets<GpuImage>>,
     fallback_image: Res<FallbackImage>,
 ) {
@@ -618,8 +617,13 @@ pub fn prepare_sprite_view_bind_groups(
     };
 
     for (entity, tonemapping) in &views {
-        let lut_bindings =
-            get_lut_bindings(&images, &tonemapping_luts, tonemapping, &fallback_image);
+        let lut_bindings = get_lut_bindings(
+            &images,
+            #[cfg(feature = "tonemapping_luts")]
+            &tonemapping_luts,
+            tonemapping,
+            &fallback_image,
+        );
         let view_bind_group = render_device.create_bind_group(
             "mesh2d_view_bind_group",
             &sprite_pipeline.view_layout,
