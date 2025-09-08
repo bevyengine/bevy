@@ -516,7 +516,6 @@ use bevy_platform::collections::HashMap;
 use bevy_utils::prelude::default;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use std::sync::RwLock;
 
 pub mod builtin_methods;
 #[cfg(feature = "http")]
