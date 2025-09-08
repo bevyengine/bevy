@@ -1173,6 +1173,11 @@ impl World {
         let change_tick = self.change_tick();
         let entity = self.entities.alloc();
         let mut bundle_spawner = BundleSpawner::new::<B>(self, change_tick);
+        // SAFETY:
+        // - Between `BundleSpawner::spawn_non_existent` and `B::apply_effect`, each field of `B` will be moved exactly once into
+        //   ECS storage. This means that the bundle must be entirely moved in `spawn_non_existent` and `B::apply_effect` must be a no-op,
+        //   or forgotten inside `spawn_non_existent` and thus f valid to be moved the rest out in `B::apply_effect`.
+        // - The above also means that the fields moved out of in `spawn_non_existent` will not be accessed in `B::apply_effect`.
         let (bundle, entity_location) = bundle.partial_move(|bundle| {
             // SAFETY:
             // - `B` matches `bundle_spawner`'s type ,
