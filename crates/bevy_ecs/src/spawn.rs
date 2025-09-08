@@ -113,7 +113,7 @@ impl<R: Relationship, B: Bundle> SpawnableList<R> for Spawn<B> {
             mem::forget(this);
 
             // SAFETY:
-            // - `bundle` is never accesssd or dropped after this call.
+            // - `bundle` is never accessed or dropped after this call.
             unsafe {
                 entity.insert_raw_with_caller(
                     bundle,
