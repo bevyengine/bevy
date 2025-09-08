@@ -399,13 +399,16 @@ impl<'w, 's> Commands<'w, 's> {
 
             let mut bundle = MaybeUninit::new(bundle);
             // SAFETY:
-            // - This is being called with an owned bundle, which should always be a non-null,
-            //   aligned pointer to a valid initialized instance of `T`.
+            // - `bundle` is initialized to a valid in the statement above.
+            // - This variable shadows the instace of value above, ensuring it's never used after
+            //   the `MovingPtr` is used.
+            let bundle = unsafe { MovingPtr::from_value(&mut bundle) };
+            // SAFETY:
             // - `bundle` is not used or dropped after this function call. `MaybeUninit` does not
             //   drop the value inside unless manually invoked.
             unsafe {
                 entity.insert_raw_with_caller(
-                    MovingPtr::from_value(&mut bundle),
+                    bundle,
                     InsertMode::Replace,
                     caller,
                     crate::relationship::RelationshipHookMode::Run,

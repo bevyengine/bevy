@@ -88,7 +88,6 @@ impl<'w> BundleSpawner<'w> {
     /// # Safety
     /// - `entity` must be allocated (but non-existent),
     /// - `T` must match this [`BundleSpawner`]'s type
-    /// - `bundle` must be non-null, aligned, and point to a valid instance of `T`.
     /// - If `T::Effect: !NoBundleEffect.`, then [`apply_effect`] must  be called exactly once on `bundle`
     ///   after this function returns before returning to safe code.
     /// - The value pointed to by `bundle` must not be accessed for anything other than [`apply_effect`]
@@ -176,7 +175,6 @@ impl<'w> BundleSpawner<'w> {
 
     /// # Safety
     /// - `T` must match this [`BundleSpawner`]'s type
-    /// - `bundle` must be non-null, aligned, and point to a valid instance of `T`.
     /// - If `T::Effect: !NoBundleEffect.`, then [`apply_effect`] must  be called exactly once on `bundle`
     ///   after this function returns before returning to safe code.
     /// - The value pointed to by `bundle` must not be accessed for anything other than [`apply_effect`]
@@ -193,7 +191,6 @@ impl<'w> BundleSpawner<'w> {
         // SAFETY:
         // - `entity` is allocated above
         // - The caller ensures that `T` matches this `BundleSpawner`'s type.
-        // - The caller ensures that `bundle` must be non-null, aligned, and point to a valid instance of `T`.
         // - The caller ensures that if `T::Effect: !NoBundleEffect.`, then [`apply_effect`] must  be called exactly once on `bundle`
         //   after this function returns before returning to safe code.
         // - The caller ensures that the value pointed to by `bundle` must not be accessed for anything other than [`apply_effect`]

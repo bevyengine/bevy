@@ -112,17 +112,15 @@ pub fn insert(bundle: impl Bundle, mode: InsertMode) -> impl EntityCommand {
     move |mut entity: EntityWorldMut| {
         let mut bundle = MaybeUninit::new(bundle);
         // SAFETY:
-        // - This is being called with an owned bundle, which should always be a non-null,
-        //   aligned pointer to a valid initialized instance of `T`.
+        // - `bundle` is initialized to a valid in the statement above.
+        // - This variable shadows the instace of value above, ensuring it's never used after
+        //   the `MovingPtr` is used.
+        let bundle = unsafe { MovingPtr::from_value(&mut bundle) };
+        // SAFETY:
         // - `bundle` is not used or dropped after this function call. `MaybeUninit` does not
         //   drop the value inside unless manually invoked.
         unsafe {
-            entity.insert_raw_with_caller(
-                MovingPtr::from_value(&mut bundle),
-                mode,
-                caller,
-                RelationshipHookMode::Run,
-            );
+            entity.insert_raw_with_caller(bundle, mode, caller, RelationshipHookMode::Run);
         }
     }
 }
@@ -169,17 +167,15 @@ pub fn insert_from_world<T: Component + FromWorld>(mode: InsertMode) -> impl Ent
         if !(mode == InsertMode::Keep && entity.contains::<T>()) {
             let mut value = MaybeUninit::new(entity.world_scope(|world| T::from_world(world)));
             // SAFETY:
-            // - This is being called with an owned value, which should always be a non-null,
-            //   aligned pointer to a valid initialized instance of `T`.
+            // - `value` is initialized to a valid in the statement above.
+            // - This variable shadows the instace of value above, ensuring it's never used after
+            //   the `MovingPtr` is used.
+            let value = unsafe { MovingPtr::from_value(&mut value) };
+            // SAFETY:
             // - `value` is not used or dropped after this function call. `MaybeUninit` does not
             //   drop the value inside unless manually invoked.
             unsafe {
-                entity.insert_raw_with_caller(
-                    MovingPtr::from_value(&mut value),
-                    mode,
-                    caller,
-                    RelationshipHookMode::Run,
-                )
+                entity.insert_raw_with_caller(value, mode, caller, RelationshipHookMode::Run)
             };
         }
     }
@@ -199,19 +195,17 @@ where
     let caller = MaybeLocation::caller();
     move |mut entity: EntityWorldMut| {
         if !(mode == InsertMode::Keep && entity.contains::<T>()) {
-            let mut value = MaybeUninit::new(component_fn());
+            let mut bundle = MaybeUninit::new(component_fn());
             // SAFETY:
-            // - This is being called with an owned value, which should always be a non-null,
-            //   aligned pointer to a valid initialized instance of `T`.
+            // - `bundle` is initialized to a valid in the statement above.
+            // - This variable shadows the instace of value above, ensuring it's never used after
+            //   the `MovingPtr` is used.
+            let bundle = unsafe { MovingPtr::from_value(&mut bundle) };
+            // SAFETY:
             // - `value` is not used or dropped after this function call. `MaybeUninit` does not
             //   drop the value inside unless manually invoked.
             unsafe {
-                entity.insert_raw_with_caller(
-                    MovingPtr::from_value(&mut value),
-                    mode,
-                    caller,
-                    RelationshipHookMode::Run,
-                )
+                entity.insert_raw_with_caller(bundle, mode, caller, RelationshipHookMode::Run)
             };
         }
     }

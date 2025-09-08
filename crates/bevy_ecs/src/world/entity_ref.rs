@@ -1972,13 +1972,16 @@ impl<'w> EntityWorldMut<'w> {
     pub fn insert<T: Bundle>(&mut self, bundle: T) -> &mut Self {
         let mut bundle = MaybeUninit::new(bundle);
         // SAFETY:
-        // - This is being called with an owned bundle, which should always be a non-null,
-        //   aligned pointer to a valid initialized instance of `T`.
+        // - `bundle` is initialized to a valid in the statement above.
+        // - This variable shadows the instace of value above, ensuring it's never used after
+        //   the `MovingPtr` is used.
+        let bundle = unsafe { MovingPtr::from_value(&mut bundle) };
+        // SAFETY:
         // - `bundle` is not used or dropped after this function call. `MaybeUninit` does not
         //   drop the value inside unless manually invoked.
         unsafe {
             self.insert_raw_with_caller(
-                MovingPtr::from_value(&mut bundle),
+                bundle,
                 InsertMode::Replace,
                 MaybeLocation::caller(),
                 RelationshipHookMode::Run,
@@ -2008,13 +2011,16 @@ impl<'w> EntityWorldMut<'w> {
     ) -> &mut Self {
         let mut bundle = MaybeUninit::new(bundle);
         // SAFETY:
-        // - This is being called with an owned bundle, which should always be a non-null,
-        //   aligned pointer to a valid initialized instance of `T`.
+        // - `bundle` is initialized to a valid in the statement above.
+        // - This variable shadows the instace of value above, ensuring it's never used after
+        //   the `MovingPtr` is used.
+        let bundle = unsafe { MovingPtr::from_value(&mut bundle) };
+        // SAFETY:
         // - `bundle` is not used or dropped after this function call. `MaybeUninit` does not
         //   drop the value inside unless manually invoked.
         unsafe {
             self.insert_raw_with_caller(
-                MovingPtr::from_value(&mut bundle),
+                bundle,
                 InsertMode::Replace,
                 MaybeLocation::caller(),
                 relationship_hook_mode,
@@ -2034,13 +2040,16 @@ impl<'w> EntityWorldMut<'w> {
     pub fn insert_if_new<T: Bundle>(&mut self, bundle: T) -> &mut Self {
         let mut bundle = MaybeUninit::new(bundle);
         // SAFETY:
-        // - This is being called with an owned bundle, which should always be a non-null,
-        //   aligned pointer to a valid initialized instance of `T`.
+        // - `bundle` is initialized to a valid in the statement above.
+        // - This variable shadows the instace of value above, ensuring it's never used after
+        //   the `MovingPtr` is used.
+        let bundle = unsafe { MovingPtr::from_value(&mut bundle) };
+        // SAFETY:
         // - `bundle` is not used or dropped after this function call. `MaybeUninit` does not
         //   drop the value inside unless manually invoked.
         unsafe {
             self.insert_raw_with_caller(
-                MovingPtr::from_value(&mut bundle),
+                bundle,
                 InsertMode::Keep,
                 MaybeLocation::caller(),
                 RelationshipHookMode::Run,
@@ -2051,7 +2060,6 @@ impl<'w> EntityWorldMut<'w> {
     /// Adds a [`Bundle`] of components to the entity.
     ///
     /// # Safety
-    ///  - `bundle` must point to a valid instance of `T` and must be aligned.
     ///  - The value `bundle` points to will moved out of and should not be accessed or
     ///    dropped afterwards.
     #[inline]
@@ -2071,7 +2079,6 @@ impl<'w> EntityWorldMut<'w> {
         //   archetype for this inserter and its location within the archetype.
         // - `T` matches the type used to create the `BundleInserter`.
         // - `apply_effect` is called exactly once after this function.
-        // - The caller must ensure that `bundle` is aligned and points to a valid instance of `T`.
         // - The value pointed at by `bundle` is not accessed for anything other than `apply_effect`
         //   and the caller ensures that the value is not accessed or dropped after this function
         //   returns.
@@ -2912,14 +2919,14 @@ impl<'w> EntityWorldMut<'w> {
         self.assert_not_despawned();
         let mut bundle = MaybeUninit::new(Observer::new(observer).with_entity(self.entity));
         // SAFETY:
-        // - `bundle` was passed in by value thus bundle`'s pointer thus must be valid, aligned,
-        //    and initialized.
+        // - `bundle` is initialized to a valid in the statement above.
+        // - This variable shadows the instace of value above, ensuring it's never used after
+        //   the `MovingPtr` is used.
+        let bundle = unsafe { MovingPtr::from_value(&mut bundle) };
+        // SAFETY:
         // - `bundle` is not accessed or dropped after this function call returns. `MaybeUninit`
         //   must manually invoke dropping the wrapped value.
-        unsafe {
-            self.world
-                .spawn_with_caller(MovingPtr::from_value(&mut bundle), caller)
-        };
+        unsafe { self.world.spawn_with_caller(bundle, caller) };
         self.world.flush();
         self.update_location();
         self
@@ -4713,6 +4720,12 @@ unsafe fn insert_dynamic_bundle<
     });
 
     // SAFETY:
+    // - `bundle` is initialized to a valid in the statement above.
+    // - This variable shadows the instace of value above, ensuring it's never used after
+    //   the `MovingPtr` is used.
+    let bundle = unsafe { MovingPtr::from_value(&mut bundle) };
+
+    // SAFETY:
     // - `location` matches `entity`.  and thus must currently exist in the source
     //   archetype for this inserter and its location within the archetype.
     // - The caller must ensure that the iterators and storage types match up with the `BundleInserter`
@@ -4724,7 +4737,7 @@ unsafe fn insert_dynamic_bundle<
         bundle_inserter.insert(
             entity,
             location,
-            MovingPtr::from_value(&mut bundle),
+            bundle,
             mode,
             caller,
             relationship_hook_insert_mode,

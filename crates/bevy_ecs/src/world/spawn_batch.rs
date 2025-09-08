@@ -76,18 +76,16 @@ where
     fn next(&mut self) -> Option<Entity> {
         let mut bundle = MaybeUninit::new(self.inner.next()?);
         // SAFETY:
+        // - `bundle` is initialized to a valid in the statement above.
+        // - This variable shadows the instace of value above, ensuring it's never used after
+        //   the `MovingPtr` is used.
+        let bundle = unsafe { MovingPtr::from_value(&mut bundle) };
+        // SAFETY:
         // - The spawner matches `I::Item`'s type.
-        // - `bundle` is be non-null, aligned, and point to a valid instance of `T` as it's fetched from the iterator
-        //   above.
         // - `I::Item::Effect: NoBundleEffect`, thus [`apply_effect`] does not need to be called.
         // - `bundle` is not be accessed or dropped after this function call. `MaybeUninit` requires manually invoking
         //   dropping the value.
-        unsafe {
-            Some(
-                self.spawner
-                    .spawn::<I::Item>(MovingPtr::from_value(&mut bundle), self.caller),
-            )
-        }
+        unsafe { Some(self.spawner.spawn::<I::Item>(bundle, self.caller)) }
     }
 
     fn size_hint(&self) -> (usize, Option<usize>) {

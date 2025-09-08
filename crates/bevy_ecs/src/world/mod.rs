@@ -1158,17 +1158,17 @@ impl World {
     pub fn spawn<B: Bundle>(&mut self, bundle: B) -> EntityWorldMut<'_> {
         let mut bundle = MaybeUninit::new(bundle);
         // SAFETY:
-        // - `bundle` was passed in by value thus bundle`'s pointer thus must be valid, aligned,
-        //    and initialized.
+        // - `bundle` is initialized to a valid in the statement above.
+        // - This variable shadows the instace of value above, ensuring it's never used after
+        //   the `MovingPtr` is used.
+        let bundle = unsafe { MovingPtr::from_value(&mut bundle) };
+        // SAFETY:
         // - `bundle` is not accessed or dropped after this function call returns. `MaybeUninit`
         //   must manually invoke dropping the wrapped value.
-        unsafe {
-            self.spawn_with_caller(MovingPtr::from_value(&mut bundle), MaybeLocation::caller())
-        }
+        unsafe { self.spawn_with_caller(bundle, MaybeLocation::caller()) }
     }
 
     /// #  Safety
-    /// - `bundle_ptr` thus must be aligned, non-null, and pointing to a valid instance of `B`.
     /// - `bundle` must not be accessed or dropped after this function call returns.
     pub(crate) unsafe fn spawn_with_caller<B: Bundle>(
         &mut self,
@@ -2338,7 +2338,6 @@ impl World {
 
         if let Some((first_entity, first_bundle)) = batch_iter.next() {
             if let Some(first_location) = self.entities().get(first_entity) {
-                let mut first_bundle = MaybeUninit::new(first_bundle);
                 let mut cache = InserterArchetypeCache {
                     // SAFETY: we initialized this bundle_id in `register_info`
                     inserter: unsafe {
@@ -2351,10 +2350,14 @@ impl World {
                     },
                     archetype_id: first_location.archetype_id,
                 };
+                let mut first_bundle = MaybeUninit::new(first_bundle);
+                // SAFETY:
+                // - `first_bundle` is initialized to a valid in the statement above.
+                // - This variable shadows the instace of value above, ensuring it's never used after
+                //   the `MovingPtr` is used.
+                let first_bundle = unsafe { MovingPtr::from_value(&mut first_bundle) };
                 // SAFETY:
                 // - `entity` is valid, `location` matches entity, bundle matches inserter
-                // - `first_bundle` was fetched above, is owned, and is valid, the pointer created must
-                //   be aligned.
                 // - The effect is `NoBundleEffect`, so calling `apply_effect` after this is a no-op.
                 // - `first_bundle` is not be accessed or dropped after this. `MaybeUninit` requires manually
                 //   invoking drop on the wrapped value.
@@ -2362,7 +2365,7 @@ impl World {
                     cache.inserter.insert::<B>(
                         first_entity,
                         first_location,
-                        MovingPtr::from_value(&mut first_bundle),
+                        first_bundle,
                         insert_mode,
                         caller,
                         RelationshipHookMode::Run,
@@ -2371,8 +2374,6 @@ impl World {
 
                 for (entity, bundle) in batch_iter {
                     if let Some(location) = cache.inserter.entities().get(entity) {
-                        let mut bundle = MaybeUninit::new(bundle);
-
                         if location.archetype_id != cache.archetype_id {
                             cache = InserterArchetypeCache {
                                 // SAFETY: we initialized this bundle_id in `register_info`
@@ -2387,10 +2388,15 @@ impl World {
                                 archetype_id: location.archetype_id,
                             }
                         }
+
+                        let mut bundle = MaybeUninit::new(bundle);
+                        // SAFETY:
+                        // - `bundle` is initialized to a valid in the statement above.
+                        // - This variable shadows the instace of value above, ensuring it's never used after
+                        //   the `MovingPtr` is used.
+                        let bundle = unsafe { MovingPtr::from_value(&mut bundle) };
                         // SAFETY:
                         // - `entity` is valid, `location` matches entity, bundle matches inserter
-                        // - `bundle` was fetched above, is owned, and is valid, the pointer created must
-                        //   be aligned.
                         // - The effect is `NoBundleEffect`, so calling `apply_effect` after this is a no-op.
                         // - `bundle` is not be accessed or dropped after this. `MaybeUninit` requires manually
                         //   invoking drop on the wrapped value.
@@ -2398,7 +2404,7 @@ impl World {
                             cache.inserter.insert::<B>(
                                 entity,
                                 location,
-                                MovingPtr::from_value(&mut bundle),
+                                bundle,
                                 insert_mode,
                                 caller,
                                 RelationshipHookMode::Run,
@@ -2505,8 +2511,6 @@ impl World {
         // if the first entity is invalid, whereas this method needs to keep going.
         let cache = loop {
             if let Some((first_entity, first_bundle)) = batch_iter.next() {
-                let mut first_bundle = MaybeUninit::new(first_bundle);
-
                 if let Some(first_location) = self.entities().get(first_entity) {
                     let mut cache = InserterArchetypeCache {
                         // SAFETY: we initialized this bundle_id in `register_info`
@@ -2520,10 +2524,15 @@ impl World {
                         },
                         archetype_id: first_location.archetype_id,
                     };
+
+                    let mut first_bundle = MaybeUninit::new(first_bundle);
+                    // SAFETY:
+                    // - `bundle` is initialized to a valid in the statement above.
+                    // - This variable shadows the instace of value above, ensuring it's never used after
+                    //   the `MovingPtr` is used.
+                    let first_bundle = unsafe { MovingPtr::from_value(&mut first_bundle) };
                     // SAFETY:
                     // - `entity` is valid, `location` matches entity, bundle matches inserter
-                    // - `first_bundle` was fetched above, is owned, and is valid, the pointer created must
-                    //   be aligned.
                     // - The effect is `NoBundleEffect`, so calling `apply_effect` after this is a no-op.
                     // - `first_bundle` is not be accessed or dropped after this. `MaybeUninit` requires manually
                     //   invoking drop on the wrapped value.
@@ -2531,7 +2540,7 @@ impl World {
                         cache.inserter.insert::<B>(
                             first_entity,
                             first_location,
-                            MovingPtr::from_value(&mut first_bundle),
+                            first_bundle,
                             insert_mode,
                             caller,
                             RelationshipHookMode::Run,
@@ -2548,8 +2557,6 @@ impl World {
 
         if let Some(mut cache) = cache {
             for (entity, bundle) in batch_iter {
-                let mut bundle = MaybeUninit::new(bundle);
-
                 if let Some(location) = cache.inserter.entities().get(entity) {
                     if location.archetype_id != cache.archetype_id {
                         cache = InserterArchetypeCache {
@@ -2565,6 +2572,12 @@ impl World {
                             archetype_id: location.archetype_id,
                         }
                     }
+                    let mut bundle = MaybeUninit::new(bundle);
+                    // SAFETY:
+                    // - `bundle` is initialized to a valid in the statement above.
+                    // - This variable shadows the instace of value above, ensuring it's never used after
+                    //   the `MovingPtr` is used.
+                    let bundle = unsafe { MovingPtr::from_value(&mut bundle) };
                     // SAFETY:
                     // - `entity` is valid, `location` matches entity, bundle matches inserter
                     // - `bundle` was fetched above, is owned, and is valid, the pointer created must
@@ -2576,7 +2589,7 @@ impl World {
                         cache.inserter.insert::<B>(
                             entity,
                             location,
-                            MovingPtr::from_value(&mut bundle),
+                            bundle,
                             insert_mode,
                             caller,
                             RelationshipHookMode::Run,
