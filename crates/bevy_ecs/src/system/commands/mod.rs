@@ -399,8 +399,7 @@ impl<'w, 's> Commands<'w, 's> {
 
             move_as_ptr!(bundle);
             // SAFETY:
-            // - `bundle` is not used or dropped after this function call. `MaybeUninit` does not
-            //   drop the value inside unless manually invoked.
+            // - `bundle` is not used or dropped after this function call.
             unsafe {
                 entity.insert_raw_with_caller(
                     bundle,

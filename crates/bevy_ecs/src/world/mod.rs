@@ -1158,8 +1158,7 @@ impl World {
     pub fn spawn<B: Bundle>(&mut self, bundle: B) -> EntityWorldMut<'_> {
         move_as_ptr!(bundle);
         // SAFETY:
-        // - `bundle` is not accessed or dropped after this function call returns. `MaybeUninit`
-        //   must manually invoke dropping the wrapped value.
+        // - `bundle` is not accessed or dropped after this function call returns.
         unsafe { self.spawn_with_caller(bundle, MaybeLocation::caller()) }
     }
 
@@ -2349,8 +2348,7 @@ impl World {
                 // SAFETY:
                 // - `entity` is valid, `location` matches entity, bundle matches inserter
                 // - The effect is `NoBundleEffect`, so calling `apply_effect` after this is a no-op.
-                // - `first_bundle` is not be accessed or dropped after this. `MaybeUninit` requires manually
-                //   invoking drop on the wrapped value.
+                // - `first_bundle` is not be accessed or dropped after this.
                 unsafe {
                     cache.inserter.insert::<B>(
                         first_entity,
@@ -2383,8 +2381,7 @@ impl World {
                         // SAFETY:
                         // - `entity` is valid, `location` matches entity, bundle matches inserter
                         // - The effect is `NoBundleEffect`, so calling `apply_effect` after this is a no-op.
-                        // - `bundle` is not be accessed or dropped after this. `MaybeUninit` requires manually
-                        //   invoking drop on the wrapped value.
+                        // - `bundle` is not be accessed or dropped after this.
                         unsafe {
                             cache.inserter.insert::<B>(
                                 entity,
@@ -2514,8 +2511,7 @@ impl World {
                     // SAFETY:
                     // - `entity` is valid, `location` matches entity, bundle matches inserter
                     // - The effect is `NoBundleEffect`, so calling `apply_effect` after this is a no-op.
-                    // - `first_bundle` is not be accessed or dropped after this. `MaybeUninit` requires manually
-                    //   invoking drop on the wrapped value.
+                    // - `first_bundle` is not be accessed or dropped after this.
                     unsafe {
                         cache.inserter.insert::<B>(
                             first_entity,
@@ -2557,8 +2553,7 @@ impl World {
                     // SAFETY:
                     // - `entity` is valid, `location` matches entity, bundle matches inserter
                     // - The effect is `NoBundleEffect`, so calling `apply_effect` after this is a no-op.
-                    // - `bundle` is not be accessed or dropped after this. `MaybeUninit` requires manually
-                    //   invoking drop on the wrapped value.
+                    // - `bundle` is not be accessed or dropped after this.
                     unsafe {
                         cache.inserter.insert::<B>(
                             entity,

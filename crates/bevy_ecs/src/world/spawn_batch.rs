@@ -78,8 +78,7 @@ where
         // SAFETY:
         // - The spawner matches `I::Item`'s type.
         // - `I::Item::Effect: NoBundleEffect`, thus [`apply_effect`] does not need to be called.
-        // - `bundle` is not be accessed or dropped after this function call. `MaybeUninit` requires manually invoking
-        //   dropping the value.
+        // - `bundle` is not be accessed or dropped after this function call.
         unsafe { Some(self.spawner.spawn::<I::Item>(bundle, self.caller)) }
     }
 

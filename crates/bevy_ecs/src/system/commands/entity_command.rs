@@ -110,8 +110,7 @@ pub fn insert(bundle: impl Bundle, mode: InsertMode) -> impl EntityCommand {
     move |mut entity: EntityWorldMut| {
         move_as_ptr!(bundle);
         // SAFETY:
-        // - `bundle` is not used or dropped after this function call. `MaybeUninit` does not
-        //   drop the value inside unless manually invoked.
+        // - `bundle` is not used or dropped after this function call.
         unsafe {
             entity.insert_raw_with_caller(bundle, mode, caller, RelationshipHookMode::Run);
         }
@@ -161,8 +160,7 @@ pub fn insert_from_world<T: Component + FromWorld>(mode: InsertMode) -> impl Ent
             let value = entity.world_scope(|world| T::from_world(world));
             move_as_ptr!(value);
             // SAFETY:
-            // - `value` is not used or dropped after this function call. `MaybeUninit` does not
-            //   drop the value inside unless manually invoked.
+            // - `value` is not used or dropped after this function call.
             unsafe {
                 entity.insert_raw_with_caller(value, mode, caller, RelationshipHookMode::Run)
             };
@@ -187,8 +185,7 @@ where
             let bundle = component_fn();
             move_as_ptr!(bundle);
             // SAFETY:
-            // - `value` is not used or dropped after this function call. `MaybeUninit` does not
-            //   drop the value inside unless manually invoked.
+            // - `value` is not used or dropped after this function call.
             unsafe {
                 entity.insert_raw_with_caller(bundle, mode, caller, RelationshipHookMode::Run)
             };

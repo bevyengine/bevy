@@ -1972,8 +1972,7 @@ impl<'w> EntityWorldMut<'w> {
     pub fn insert<T: Bundle>(&mut self, bundle: T) -> &mut Self {
         move_as_ptr!(bundle);
         // SAFETY:
-        // - `bundle` is not used or dropped after this function call. `MaybeUninit` does not
-        //   drop the value inside unless manually invoked.
+        // - `bundle` is not used or dropped after this function call.
         unsafe {
             self.insert_raw_with_caller(
                 bundle,
@@ -2006,8 +2005,7 @@ impl<'w> EntityWorldMut<'w> {
     ) -> &mut Self {
         move_as_ptr!(bundle);
         // SAFETY:
-        // - `bundle` is not used or dropped after this function call. `MaybeUninit` does not
-        //   drop the value inside unless manually invoked.
+        // - `bundle` is not used or dropped after this function call.
         unsafe {
             self.insert_raw_with_caller(
                 bundle,
@@ -2030,8 +2028,7 @@ impl<'w> EntityWorldMut<'w> {
     pub fn insert_if_new<T: Bundle>(&mut self, bundle: T) -> &mut Self {
         move_as_ptr!(bundle);
         // SAFETY:
-        // - `bundle` is not used or dropped after this function call. `MaybeUninit` does not
-        //   drop the value inside unless manually invoked.
+        // - `bundle` is not used or dropped after this function call.
         unsafe {
             self.insert_raw_with_caller(
                 bundle,
@@ -2909,8 +2906,7 @@ impl<'w> EntityWorldMut<'w> {
         let bundle = Observer::new(observer).with_entity(self.entity);
         move_as_ptr!(bundle);
         // SAFETY:
-        // - `bundle` is not accessed or dropped after this function call returns. `MaybeUninit`
-        //   must manually invoke dropping the wrapped value.
+        // - `bundle` is not accessed or dropped after this function call returns.
         unsafe { self.world.spawn_with_caller(bundle, caller) };
         self.world.flush();
         self.update_location();
