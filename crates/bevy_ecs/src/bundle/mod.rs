@@ -265,8 +265,7 @@ pub unsafe trait DynamicBundle: Sized {
     // SAFETY:
     // - Must be called exactly once after `get_components` has been called.
     // - `ptr` must point to the instance of `Self` that `get_components` was called on,
-    //   all of fields that were moved out of in `get_components` will not be valid anymore. The pointer
-    //   itself must be aligned.
+    //   all of fields that were moved out of in `get_components` will not be valid anymore.
     #[doc(hidden)]
     unsafe fn apply_effect(ptr: MovingPtr<'_, MaybeUninit<Self>>, entity: &mut EntityWorldMut);
 }

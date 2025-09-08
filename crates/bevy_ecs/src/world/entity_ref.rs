@@ -2102,8 +2102,7 @@ impl<'w> EntityWorldMut<'w> {
         self.update_location();
         // SAFETY:
         // - This is called exactly once after the `BundleInsert::insert` call before returning to safe code.
-        // - `bundle` points to the same `B` that `BundleInsert::insert` was called on. The pointer has not moved
-        //   and thus still should be aligned.
+        // - `bundle` points to the same `B` that `BundleInsert::insert` was called on.
         unsafe { T::apply_effect(bundle, self) };
         self
     }
