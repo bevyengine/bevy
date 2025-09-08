@@ -247,7 +247,7 @@ pub unsafe trait BundleFromComponents {
 // - If `Effect: NoBundleEffect`, `apply_effect` must be a no-op.
 pub unsafe trait DynamicBundle: Sized {
     /// An operation on the entity that happens _after_ inserting this bundle.
-    type Effect: BundleEffect;
+    type Effect;
 
     // SAFETY:
     // - Must be called exactly once before `apply_effect`
@@ -270,32 +270,6 @@ pub unsafe trait DynamicBundle: Sized {
     unsafe fn apply_effect(ptr: MovingPtr<'_, MaybeUninit<Self>>, entity: &mut EntityWorldMut);
 }
 
-/// An operation on an [`Entity`](crate::entity::Entity) that occurs _after_ inserting the
-/// [`Bundle`] that defined this bundle effect.
-/// The order of operations is:
-///
-/// 1. The [`Bundle`] is inserted on the entity
-/// 2. Relevant Hooks are run for the insert, then Observers
-/// 3. The [`BundleEffect`] is run.
-///
-/// See [`DynamicBundle::Effect`].
-pub trait BundleEffect {
-    /// Applies this effect to the given `entity`.
-    fn apply(self, entity: &mut EntityWorldMut);
-
-    #[doc(hidden)]
-    fn apply_raw(this: MovingPtr<'_, Self>, entity: &mut EntityWorldMut)
-    where
-        Self: Sized,
-    {
-        // Default to reading the pointer and calling the safe `apply` method.
-        // Implementers will want to override this to avoid copying big
-        // `BundleEffect`s onto the stack repeatedly.
-
-        this.read().apply(entity);
-    }
-}
-
-/// A trait implemented for [`BundleEffect`] implementations that do nothing. This is used as a type constraint for
+/// A trait implemented for [`DynamicBundle::Effect`] implementations that do nothing. This is used as a type constraint for
 /// [`Bundle`] APIs that do not / cannot run [`DynamicBundle::Effect`], such as "batch spawn" APIs.
 pub trait NoBundleEffect {}

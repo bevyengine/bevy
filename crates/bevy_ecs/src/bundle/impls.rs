@@ -5,7 +5,7 @@ use core::mem::MaybeUninit;
 use variadics_please::{all_tuples, all_tuples_enumerated};
 
 use crate::{
-    bundle::{Bundle, BundleEffect, BundleFromComponents, DynamicBundle, NoBundleEffect},
+    bundle::{Bundle, BundleFromComponents, DynamicBundle, NoBundleEffect},
     component::{Component, ComponentId, Components, ComponentsRegistrator, StorageType},
     query::DebugCheckedUnwrap,
     world::EntityWorldMut,
@@ -173,6 +173,9 @@ macro_rules! tuple_impl {
                 $( $name::apply_effect($alias.try_into().debug_checked_unwrap(), entity); )*
             }
         }
+
+        $(#[$meta])*
+        impl<$($name: NoBundleEffect),*> NoBundleEffect for ($($name,)*) {}
     }
 }
 
@@ -183,39 +186,4 @@ all_tuples_enumerated!(
     15,
     B,
     field_
-);
-
-macro_rules! after_effect_impl {
-    ($(#[$meta:meta])* $($after_effect: ident),*) => {
-        #[expect(
-            clippy::allow_attributes,
-            reason = "This is a tuple-related macro; as such, the lints below may not always apply."
-        )]
-        $(#[$meta])*
-        impl<$($after_effect: BundleEffect),*> BundleEffect for ($($after_effect,)*) {
-            #[allow(
-                clippy::unused_unit,
-                reason = "Zero-length tuples will generate a function body equivalent to `()`; however, this macro is meant for all applicable tuples, and as such it makes no sense to rewrite it just for that case.")
-            ]
-            fn apply(self, _entity: &mut EntityWorldMut) {
-                #[allow(
-                    non_snake_case,
-                    reason = "The names of these variables are provided by the caller, not by us."
-                )]
-                let ($($after_effect,)*) = self;
-                $($after_effect.apply(_entity);)*
-            }
-        }
-
-        $(#[$meta])*
-        impl<$($after_effect: NoBundleEffect),*> NoBundleEffect for ($($after_effect,)*) { }
-    }
-}
-
-all_tuples!(
-    #[doc(fake_variadic)]
-    after_effect_impl,
-    0,
-    15,
-    P
 );

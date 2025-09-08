@@ -2,7 +2,7 @@
 //! for the best entry points into these APIs and examples of how to use them.
 
 use crate::{
-    bundle::{Bundle, BundleEffect, DynamicBundle, InsertMode, NoBundleEffect},
+    bundle::{Bundle, DynamicBundle, InsertMode, NoBundleEffect},
     change_detection::MaybeLocation,
     entity::Entity,
     query::DebugCheckedUnwrap,
@@ -325,30 +325,6 @@ pub struct SpawnRelatedBundle<R: Relationship, L: SpawnableList<R>> {
     marker: PhantomData<R>,
 }
 
-impl<R: Relationship, L: SpawnableList<R>> BundleEffect for SpawnRelatedBundle<R, L> {
-    fn apply(self, entity: &mut EntityWorldMut) {
-        let id = entity.id();
-        entity.world_scope(|world: &mut World| {
-            self.list.spawn(world, id);
-        });
-    }
-
-    fn apply_raw(this: MovingPtr<'_, Self>, entity: &mut EntityWorldMut)
-    where
-        Self: Sized,
-    {
-        let id = entity.id();
-        // SAFETY:
-        //  - `this` points to an instance of type `Self`
-        //  - The field names and types match with the type definiton.
-        entity.world_scope(|world: &mut World| unsafe {
-            bevy_ptr::deconstruct_moving_ptr!(this, Self {
-                list: L => { L::spawn_raw(list.try_into().debug_checked_unwrap(), world, id) },
-            });
-        });
-    }
-}
-
 // SAFETY: This internally relies on the RelationshipTarget's Bundle implementation, which is sound.
 unsafe impl<R: Relationship, L: SpawnableList<R> + Send + Sync + 'static> Bundle
     for SpawnRelatedBundle<R, L>
@@ -399,7 +375,16 @@ unsafe impl<R: Relationship, L: SpawnableList<R>> DynamicBundle for SpawnRelated
         // SAFETY: The value was not moved out in `get_components`, only borrowed, and thus should still
         // be valid and initialized.
         let effect = unsafe { ptr.assume_init() };
-        effect.read().apply(entity);
+        let id = entity.id();
+
+        // SAFETY:
+        //  - `ptr` points to an instance of type `Self`
+        //  - The field names and types match with the type definiton.
+        entity.world_scope(|world: &mut World| unsafe {
+            bevy_ptr::deconstruct_moving_ptr!(effect, Self {
+                list: L => { L::spawn_raw(list.try_into().debug_checked_unwrap(), world, id) },
+            });
+        });
     }
 }
 
@@ -411,12 +396,6 @@ unsafe impl<R: Relationship, L: SpawnableList<R>> DynamicBundle for SpawnRelated
 pub struct SpawnOneRelated<R: Relationship, B: Bundle> {
     bundle: B,
     marker: PhantomData<R>,
-}
-
-impl<R: Relationship, B: Bundle> BundleEffect for SpawnOneRelated<R, B> {
-    fn apply(self, entity: &mut EntityWorldMut) {
-        entity.with_related::<R>(self.bundle);
-    }
 }
 
 // SAFETY:
@@ -449,7 +428,8 @@ unsafe impl<R: Relationship, B: Bundle> DynamicBundle for SpawnOneRelated<R, B> 
         // SAFETY: The value was not moved out in `get_components`, only borrowed, and thus should still
         // be valid and initialized.
         let effect = unsafe { ptr.assume_init() };
-        effect.read().apply(entity);
+        let effect = effect.read();
+        entity.with_related::<R>(effect.bundle);
     }
 }
 
