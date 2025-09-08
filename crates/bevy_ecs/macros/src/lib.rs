@@ -5,6 +5,8 @@
 extern crate proc_macro;
 
 mod component;
+mod event;
+mod message;
 mod query_data;
 mod query_filter;
 mod world_query;
@@ -429,8 +431,8 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
 
     TokenStream::from(quote! {
         // We define the FetchState struct in an anonymous scope to avoid polluting the user namespace.
-        // The struct can still be accessed via SystemParam::State, e.g. EventReaderState can be accessed via
-        // <EventReader<'static, 'static, T> as SystemParam>::State
+        // The struct can still be accessed via SystemParam::State, e.g. MessageReaderState can be accessed via
+        // <MessageReader<'static, 'static, T> as SystemParam>::State
         const _: () = {
             // Allows rebinding the lifetimes of each field type.
             type #fields_alias <'w, 's, #punctuated_generics_no_bounds> = (#(#tuple_types,)*);
@@ -550,7 +552,7 @@ pub(crate) fn bevy_ecs_path() -> syn::Path {
 /// Implement the `Event` trait.
 #[proc_macro_derive(Event, attributes(event))]
 pub fn derive_event(input: TokenStream) -> TokenStream {
-    component::derive_event(input)
+    event::derive_event(input)
 }
 
 /// Cheat sheet for derive syntax,
@@ -568,13 +570,13 @@ pub fn derive_event(input: TokenStream) -> TokenStream {
 /// ```
 #[proc_macro_derive(EntityEvent, attributes(entity_event, event_target))]
 pub fn derive_entity_event(input: TokenStream) -> TokenStream {
-    component::derive_entity_event(input)
+    event::derive_entity_event(input)
 }
 
-/// Implement the `BufferedEvent` trait.
-#[proc_macro_derive(BufferedEvent)]
-pub fn derive_buffered_event(input: TokenStream) -> TokenStream {
-    component::derive_buffered_event(input)
+/// Implement the `Message` trait.
+#[proc_macro_derive(Message)]
+pub fn derive_message(input: TokenStream) -> TokenStream {
+    message::derive_message(input)
 }
 
 /// Implement the `Resource` trait.

@@ -3,7 +3,7 @@
 use crate::{
     bundle::Bundle,
     change_detection::MaybeLocation,
-    event::{Event, PropagateEntityTrigger},
+    event::{Event, EventKey, PropagateEntityTrigger},
     prelude::*,
     traversal::Traversal,
 };
@@ -38,7 +38,7 @@ pub struct On<'w, 't, E: Event, B: Bundle = ()> {
     // SAFETY WARNING: never expose this 'w lifetime
     trigger: &'w mut E::Trigger<'t>,
     // SAFETY WARNING: never expose this 'w lifetime
-    pub(crate) trigger_context: &'w TriggerContext,
+    trigger_context: &'w TriggerContext,
     _marker: PhantomData<B>,
 }
 

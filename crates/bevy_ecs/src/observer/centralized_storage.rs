@@ -12,8 +12,8 @@
 use bevy_platform::collections::HashMap;
 
 use crate::{
-    archetype::ArchetypeFlags, component::ComponentId, entity::EntityHashMap,
-    observer::ObserverRunner, prelude::*,
+    archetype::ArchetypeFlags, component::ComponentId, entity::EntityHashMap, event::EventKey,
+    observer::ObserverRunner,
 };
 
 /// An internal lookup table tracking all of the observers in the world.

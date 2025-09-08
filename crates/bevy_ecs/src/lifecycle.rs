@@ -53,9 +53,9 @@ use crate::{
     change_detection::MaybeLocation,
     component::{Component, ComponentId, ComponentIdFor, Tick},
     entity::Entity,
-    event::{
-        BufferedEvent, EntityComponentsTrigger, EntityEvent, EventCursor, EventId, EventIterator,
-        EventIteratorWithId, EventKey, Events,
+    event::{EntityComponentsTrigger, EntityEvent, EventKey},
+    message::{
+        Message, MessageCursor, MessageId, MessageIterator, MessageIteratorWithId, Messages,
     },
     query::FilteredAccessSet,
     relationship::RelationshipHookMode,
@@ -413,19 +413,19 @@ pub type OnDespawn = Despawn;
 
 /// Wrapper around [`Entity`] for [`RemovedComponents`].
 /// Internally, `RemovedComponents` uses these as an `Events<RemovedComponentEntity>`.
-#[derive(BufferedEvent, Debug, Clone, Into)]
+#[derive(Message, Debug, Clone, Into)]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
 #[cfg_attr(feature = "bevy_reflect", reflect(Debug, Clone))]
 pub struct RemovedComponentEntity(Entity);
 
-/// Wrapper around a [`EventCursor<RemovedComponentEntity>`] so that we
+/// Wrapper around a [`MessageCursor<RemovedComponentEntity>`] so that we
 /// can differentiate events between components.
 #[derive(Debug)]
 pub struct RemovedComponentReader<T>
 where
     T: Component,
 {
-    reader: EventCursor<RemovedComponentEntity>,
+    reader: MessageCursor<RemovedComponentEntity>,
     marker: PhantomData<T>,
 }
 
@@ -439,7 +439,7 @@ impl<T: Component> Default for RemovedComponentReader<T> {
 }
 
 impl<T: Component> Deref for RemovedComponentReader<T> {
-    type Target = EventCursor<RemovedComponentEntity>;
+    type Target = MessageCursor<RemovedComponentEntity>;
     fn deref(&self) -> &Self::Target {
         &self.reader
     }
@@ -454,7 +454,7 @@ impl<T: Component> DerefMut for RemovedComponentReader<T> {
 /// Stores the [`RemovedComponents`] event buffers for all types of component in a given [`World`].
 #[derive(Default, Debug)]
 pub struct RemovedComponentEvents {
-    event_sets: SparseSet<ComponentId, Events<RemovedComponentEntity>>,
+    event_sets: SparseSet<ComponentId, Messages<RemovedComponentEntity>>,
 }
 
 impl RemovedComponentEvents {
@@ -472,7 +472,7 @@ impl RemovedComponentEvents {
     }
 
     /// Returns an iterator over components and their entity events.
-    pub fn iter(&self) -> impl Iterator<Item = (&ComponentId, &Events<RemovedComponentEntity>)> {
+    pub fn iter(&self) -> impl Iterator<Item = (&ComponentId, &Messages<RemovedComponentEntity>)> {
         self.event_sets.iter()
     }
 
@@ -480,7 +480,7 @@ impl RemovedComponentEvents {
     pub fn get(
         &self,
         component_id: impl Into<ComponentId>,
-    ) -> Option<&Events<RemovedComponentEntity>> {
+    ) -> Option<&Messages<RemovedComponentEntity>> {
         self.event_sets.get(component_id.into())
     }
 
@@ -501,7 +501,7 @@ impl RemovedComponentEvents {
 /// A [`SystemParam`] that yields entities that had their `T` [`Component`]
 /// removed or have been despawned with it.
 ///
-/// This acts effectively the same as an [`EventReader`](crate::event::EventReader).
+/// This acts effectively the same as a [`MessageReader`](crate::message::MessageReader).
 ///
 /// Unlike hooks or observers (see the [lifecycle](crate) module docs),
 /// this does not allow you to see which data existed before removal.
@@ -541,7 +541,7 @@ pub struct RemovedComponents<'w, 's, T: Component> {
 ///
 /// See [`RemovedComponents`].
 pub type RemovedIter<'a> = iter::Map<
-    iter::Flatten<option::IntoIter<iter::Cloned<EventIterator<'a, RemovedComponentEntity>>>>,
+    iter::Flatten<option::IntoIter<iter::Cloned<MessageIterator<'a, RemovedComponentEntity>>>>,
     fn(RemovedComponentEntity) -> Entity,
 >;
 
@@ -549,46 +549,46 @@ pub type RemovedIter<'a> = iter::Map<
 ///
 /// See [`RemovedComponents`].
 pub type RemovedIterWithId<'a> = iter::Map<
-    iter::Flatten<option::IntoIter<EventIteratorWithId<'a, RemovedComponentEntity>>>,
+    iter::Flatten<option::IntoIter<MessageIteratorWithId<'a, RemovedComponentEntity>>>,
     fn(
-        (&RemovedComponentEntity, EventId<RemovedComponentEntity>),
-    ) -> (Entity, EventId<RemovedComponentEntity>),
+        (&RemovedComponentEntity, MessageId<RemovedComponentEntity>),
+    ) -> (Entity, MessageId<RemovedComponentEntity>),
 >;
 
 fn map_id_events(
-    (entity, id): (&RemovedComponentEntity, EventId<RemovedComponentEntity>),
-) -> (Entity, EventId<RemovedComponentEntity>) {
+    (entity, id): (&RemovedComponentEntity, MessageId<RemovedComponentEntity>),
+) -> (Entity, MessageId<RemovedComponentEntity>) {
     (entity.clone().into(), id)
 }
 
 // For all practical purposes, the api surface of `RemovedComponents<T>`
-// should be similar to `EventReader<T>` to reduce confusion.
+// should be similar to `MessageReader<T>` to reduce confusion.
 impl<'w, 's, T: Component> RemovedComponents<'w, 's, T> {
-    /// Fetch underlying [`EventCursor`].
-    pub fn reader(&self) -> &EventCursor<RemovedComponentEntity> {
+    /// Fetch underlying [`MessageCursor`].
+    pub fn reader(&self) -> &MessageCursor<RemovedComponentEntity> {
         &self.reader
     }
 
-    /// Fetch underlying [`EventCursor`] mutably.
-    pub fn reader_mut(&mut self) -> &mut EventCursor<RemovedComponentEntity> {
+    /// Fetch underlying [`MessageCursor`] mutably.
+    pub fn reader_mut(&mut self) -> &mut MessageCursor<RemovedComponentEntity> {
         &mut self.reader
     }
 
-    /// Fetch underlying [`Events`].
-    pub fn events(&self) -> Option<&Events<RemovedComponentEntity>> {
+    /// Fetch underlying [`Messages`].
+    pub fn events(&self) -> Option<&Messages<RemovedComponentEntity>> {
         self.event_sets.get(self.component_id.get())
     }
 
-    /// Destructures to get a mutable reference to the `EventCursor`
-    /// and a reference to `Events`.
+    /// Destructures to get a mutable reference to the `MessageCursor`
+    /// and a reference to `Messages`.
     ///
     /// This is necessary since Rust can't detect destructuring through methods and most
-    /// usecases of the reader uses the `Events` as well.
+    /// usecases of the reader uses the `Messages` as well.
     pub fn reader_mut_with_events(
         &mut self,
     ) -> Option<(
         &mut RemovedComponentReader<T>,
-        &Events<RemovedComponentEntity>,
+        &Messages<RemovedComponentEntity>,
     )> {
         self.event_sets
             .get(self.component_id.get())

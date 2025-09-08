@@ -29,8 +29,8 @@ use bevy_ecs::{
     component::Component,
     entity::{ContainsEntity, Entity},
     error::BevyError,
-    event::EventReader,
     lifecycle::HookContext,
+    message::MessageReader,
     prelude::With,
     query::{Has, QueryItem},
     reflect::ReflectComponent,
@@ -303,10 +303,10 @@ pub enum MissingRenderTargetInfoError {
 /// [`OrthographicProjection`]: bevy_camera::OrthographicProjection
 /// [`PerspectiveProjection`]: bevy_camera::PerspectiveProjection
 pub fn camera_system(
-    mut window_resized_events: EventReader<WindowResized>,
-    mut window_created_events: EventReader<WindowCreated>,
-    mut window_scale_factor_changed_events: EventReader<WindowScaleFactorChanged>,
-    mut image_asset_events: EventReader<AssetEvent<Image>>,
+    mut window_resized_reader: MessageReader<WindowResized>,
+    mut window_created_reader: MessageReader<WindowCreated>,
+    mut window_scale_factor_changed_reader: MessageReader<WindowScaleFactorChanged>,
+    mut image_asset_event_reader: MessageReader<AssetEvent<Image>>,
     primary_window: Query<Entity, With<PrimaryWindow>>,
     windows: Query<(Entity, &Window)>,
     images: Res<Assets<Image>>,
@@ -316,15 +316,15 @@ pub fn camera_system(
     let primary_window = primary_window.iter().next();
 
     let mut changed_window_ids = <HashSet<_>>::default();
-    changed_window_ids.extend(window_created_events.read().map(|event| event.window));
-    changed_window_ids.extend(window_resized_events.read().map(|event| event.window));
-    let scale_factor_changed_window_ids: HashSet<_> = window_scale_factor_changed_events
+    changed_window_ids.extend(window_created_reader.read().map(|event| event.window));
+    changed_window_ids.extend(window_resized_reader.read().map(|event| event.window));
+    let scale_factor_changed_window_ids: HashSet<_> = window_scale_factor_changed_reader
         .read()
         .map(|event| event.window)
         .collect();
     changed_window_ids.extend(scale_factor_changed_window_ids.clone());
 
-    let changed_image_handles: HashSet<&AssetId<Image>> = image_asset_events
+    let changed_image_handles: HashSet<&AssetId<Image>> = image_asset_event_reader
         .read()
         .filter_map(|event| match event {
             AssetEvent::Modified { id } | AssetEvent::Added { id } => Some(id),

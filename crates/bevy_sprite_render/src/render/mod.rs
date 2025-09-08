@@ -359,7 +359,7 @@ pub struct SpriteAssetEvents {
 
 pub fn extract_sprite_events(
     mut events: ResMut<SpriteAssetEvents>,
-    mut image_events: Extract<EventReader<AssetEvent<Image>>>,
+    mut image_events: Extract<MessageReader<AssetEvent<Image>>>,
 ) {
     let SpriteAssetEvents { ref mut images } = *events;
     images.clear();
