@@ -86,15 +86,9 @@ mod internal {
     use atomic_waker::AtomicWaker;
     use bevy_app::{App, First, Startup, Update};
     use bevy_ecs::resource::Resource;
-<<<<<<< HEAD
-    use bevy_ecs::{prelude::ResMut, system::Local};
-    use bevy_platform::{sync::Mutex, time::Instant};
-    use bevy_tasks::{available_parallelism, block_on, poll_once, AsyncComputeTaskPool, Task};
-=======
     use bevy_ecs::{prelude::ResMut, system::Commands};
     use bevy_platform::{cell::SyncCell, time::Instant};
     use bevy_tasks::{AsyncComputeTaskPool, Task};
->>>>>>> main
     use log::info;
     use sysinfo::{CpuRefreshKind, MemoryRefreshKind, RefreshKind, System};
 
@@ -189,51 +183,6 @@ mod internal {
         waker: Arc<AtomicWaker>,
     }
 
-<<<<<<< HEAD
-        let last_refresh = last_refresh.get_or_insert_with(Instant::now);
-
-        let thread_pool = AsyncComputeTaskPool::get();
-
-        // Only queue a new system refresh task when necessary
-        // Queuing earlier than that will not give new data
-        if last_refresh.elapsed() > sysinfo::MINIMUM_CPU_UPDATE_INTERVAL
-            // These tasks don't yield and will take up all of the task pool's
-            // threads if we don't limit their amount.
-            && tasks.tasks.len() * 2 < available_parallelism()
-        {
-            let sys = Arc::clone(sysinfo);
-            let task = thread_pool.spawn(async move {
-                let mut sys = sys.lock();
-                let pid = sysinfo::get_current_pid().expect("Failed to get current process ID");
-                sys.refresh_processes(sysinfo::ProcessesToUpdate::Some(&[pid]), true);
-
-                sys.refresh_cpu_specifics(CpuRefreshKind::nothing().with_cpu_usage());
-                sys.refresh_memory();
-                let system_cpu_usage = sys.global_cpu_usage().into();
-                let total_mem = sys.total_memory() as f64;
-                let used_mem = sys.used_memory() as f64;
-                let system_mem_usage = used_mem / total_mem * 100.0;
-
-                let process_mem_usage = sys
-                    .process(pid)
-                    .map(|p| p.memory() as f64 * BYTES_TO_GIB)
-                    .unwrap_or(0.0);
-
-                let process_cpu_usage = sys
-                    .process(pid)
-                    .map(|p| p.cpu_usage() as f64 / sys.cpus().len() as f64)
-                    .unwrap_or(0.0);
-
-                SysinfoRefreshData {
-                    system_cpu_usage,
-                    system_mem_usage,
-                    process_cpu_usage,
-                    process_mem_usage,
-                }
-            });
-            tasks.tasks.push(task);
-            *last_refresh = Instant::now();
-=======
     struct DiagnosticTask {
         system: System,
         last_refresh: Instant,
@@ -254,7 +203,6 @@ mod internal {
                 sender,
                 waker: Arc::default(),
             }
->>>>>>> main
         }
     }
 
