@@ -1386,7 +1386,7 @@ pub(crate) trait TypeDefinitionBuilder {
         match &info.fields_type {
             FieldType::Named => {
                 schema.additional_properties = Some(SchemaPropertyValue::BoolValue(false));
-                schema.schema_type = TypeSpecification::Single(SchemaType::Object);
+                schema.schema_type = SchemaType::Object.into();
                 let schema_fields: Vec<(Cow<'static, str>, JsonSchemaBevyType)> = info
                     .fields
                     .iter()
@@ -1402,10 +1402,22 @@ pub(crate) trait TypeDefinitionBuilder {
                     .into_iter()
                     .map(|(name, schema)| (name.clone(), schema.into()))
                     .collect();
+
+                let type_registry = self.get_type_registry();
+
                 schema.required = info
                     .fields
                     .iter()
-                    .map(|field| field.name.clone().unwrap_or_default())
+                    .filter_map(|field| {
+                        if type_registry
+                            .get(field.type_id)
+                            .is_some_and(|s| s.try_get_optional().is_some())
+                        {
+                            None
+                        } else {
+                            field.name.clone()
+                        }
+                    })
                     .collect();
             }
             FieldType::Unnamed if info.fields.len() == 1 => {

@@ -521,13 +521,59 @@ mod tests {
 
         let _ = schema.properties.get("a").expect("Missing `a` field");
         let _ = schema.properties.get("b").expect("Missing `b` field");
+        assert_eq!(schema.required.len(), 1, "One field should be required");
+        assert_eq!(schema.required[0], "a", "`a` should be required field.");
+    }
+
+    #[test]
+    fn reflect_export_struct_with_field_without_default() {
+        #[derive(Reflect, Resource, Deserialize, Serialize)]
+        #[reflect(Resource, Serialize, Deserialize)]
+        struct TestString(pub String);
+        #[derive(Reflect, Resource, Deserialize, Serialize)]
+        #[reflect(Resource, Serialize, Default, Deserialize)]
+        struct Foo {
+            a: f32,
+            #[reflect(@10..=15i16)]
+            b: Option<i16>,
+            last_field: TestString,
+        }
+        impl Default for Foo {
+            fn default() -> Self {
+                Self {
+                    a: 0.0,
+                    b: None,
+                    last_field: TestString("".to_string()),
+                }
+            }
+        }
+        let schema = export_type::<Foo>();
+
         assert!(
-            schema.required.contains(&Cow::Borrowed("a")),
-            "Field a should be required"
+            !schema
+                .reflect_type_data
+                .contains(&Cow::Borrowed("Component")),
+            "Should not be a component"
         );
         assert!(
-            schema.required.contains(&Cow::Borrowed("b")),
-            "Field b should be required"
+            schema
+                .reflect_type_data
+                .contains(&Cow::Borrowed("Resource")),
+            "Should be a resource"
+        );
+
+        let _ = schema.properties.get("a").expect("Missing `a` field");
+        let _ = schema.properties.get("b").expect("Missing `b` field");
+        assert_eq!(schema.required.len(), 2, "Two fields should be required");
+        assert_eq!(
+            schema.required.iter().any(|field| field == "last_field"),
+            true,
+            "`last_field` should be required field."
+        );
+        assert_eq!(
+            schema.required.iter().any(|field| field == "a"),
+            true,
+            "`a` should be required field."
         );
     }
 
