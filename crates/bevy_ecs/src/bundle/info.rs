@@ -76,6 +76,8 @@ pub struct BundleInfo {
 
     /// The list of constructors for all required components indirectly contributed by this bundle.
     pub(super) required_component_constructors: Box<[RequiredComponentConstructor]>,
+    /// The list of IDs for all required components indirectly contributed by this bundle.
+    pub(super) required_component_ids: Box<[ComponentId]>,
 }
 
 impl BundleInfo {
@@ -133,6 +135,7 @@ impl BundleInfo {
             storages.prepare_component(info);
         }
 
+        let mut required_component_ids = Vec::new();
         let required_components = depth_first_components
             .into_iter()
             .filter(|&(required_id, _)| !explicit_component_ids.contains(&required_id))
@@ -140,6 +143,7 @@ impl BundleInfo {
                 // SAFETY: These ids came out of the passed `components`, so they must be valid.
                 storages.prepare_component(unsafe { components.get_info_unchecked(required_id) });
                 component_ids.push(required_id);
+                required_component_ids.push(required_id);
             })
             .map(|(_, required_component)| required_component.constructor)
             .collect::<Box<_>>();
@@ -152,6 +156,7 @@ impl BundleInfo {
             id,
             contributed_component_ids: component_ids.into(),
             required_component_constructors: required_components,
+            required_component_ids: required_component_ids.into(),
         }
     }
 
@@ -587,6 +592,10 @@ impl Bundles {
 
 /// Asserts that all components are part of [`Components`]
 /// and initializes a [`BundleInfo`].
+///
+/// # Panics
+///
+/// Panics if any of the provided [`ComponentId`]s do not exist in `components`.
 fn initialize_dynamic_bundle(
     bundle_infos: &mut Vec<BundleInfo>,
     storages: &mut Storages,
