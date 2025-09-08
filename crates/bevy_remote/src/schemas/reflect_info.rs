@@ -2330,7 +2330,6 @@ pub(super) mod tests {
                 false,
             )
             .expect("");
-        eprintln!("{}", serde_json::to_string_pretty(&schema).expect("s"));
         validate::<Option<(i8, Option<i16>)>>(schema, &[None], &[], &[]);
     }
 
