@@ -122,7 +122,7 @@ pub fn derive_resource(input: TokenStream) -> TokenStream {
 
     resource_impl_token_stream
         .into_iter()
-        .chain(component_derive_token_stream.into_iter())
+        .chain(component_derive_token_stream)
         .collect()
 }
 

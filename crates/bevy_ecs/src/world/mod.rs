@@ -70,7 +70,7 @@ use crate::{
 };
 use alloc::{boxed::Box, vec::Vec};
 use bevy_platform::sync::atomic::{AtomicU32, Ordering};
-use bevy_ptr::{OwningPtr, Ptr, UnsafeCellDeref};
+use bevy_ptr::{OwningPtr, Ptr};
 use core::{any::TypeId, fmt};
 use log::warn;
 use unsafe_world_cell::{UnsafeEntityCell, UnsafeWorldCell};
@@ -1828,7 +1828,7 @@ impl World {
         let value = entity_ref.take::<R>()?;
         entity_ref.despawn();
         self.components.resource_entities.remove(&component_id);
-        return Some(value);
+        Some(value)
     }
 
     /// Removes a `!Send` resource from the world and returns it, if present.
@@ -1870,7 +1870,7 @@ impl World {
         {
             return entity_ref.contains_id(component_id);
         }
-        return false;
+        false
     }
 
     /// Returns `true` if a resource of type `R` exists. Otherwise returns `false`.
@@ -2097,7 +2097,7 @@ impl World {
             }
         }
         // SAFETY: If it didn't exist, we've just created the resource.
-        return unsafe { self.get_resource_mut::<R>().debug_checked_unwrap() };
+        unsafe { self.get_resource_mut::<R>().debug_checked_unwrap() }
     }
 
     /// Gets a mutable reference to the resource of type `T` if it exists,
@@ -2141,7 +2141,7 @@ impl World {
             self.insert_resource_with_caller(value, caller);
         }
         // SAFETY: The resouce either exists or we've just created it.
-        return unsafe { self.get_resource_mut::<R>().debug_checked_unwrap() };
+        unsafe { self.get_resource_mut::<R>().debug_checked_unwrap() }
     }
 
     /// Gets an immutable reference to the non-send resource of the given type, if it exists.
@@ -2596,8 +2596,11 @@ impl World {
             changed_by: caller.as_mut(),
         };
 
-        let result = f(unsafe { entity_mut.world_mut() }, value_mut);
-        assert!(!unsafe { entity_mut.world_mut() }.contains_resource::<R>(),
+        // SAFETY: We 'assume' that the function doesn't move the resource entity around.
+        let world = unsafe { entity_mut.world_mut() };
+
+        let result = f(world, value_mut);
+        assert!(!world.contains_resource::<R>(),
             "Resource `{}` was inserted during a call to World::resource_scope.\n\
             This is not allowed as the original resource is reinserted to the world after the closure is invoked.",
             DebugName::type_name::<R>());
@@ -3014,8 +3017,10 @@ impl World {
     /// Runs both [`clear_entities`](Self::clear_entities) and [`clear_resources`](Self::clear_resources),
     /// invalidating all [`Entity`] and resource fetches such as [`Res`](crate::system::Res), [`ResMut`](crate::system::ResMut)
     pub fn clear_all(&mut self) {
-        self.clear_entities();
-        self.clear_resources();
+        self.storages.tables.clear();
+        self.storages.sparse_sets.clear_entities();
+        self.archetypes.clear_entities();
+        self.entities.clear();
     }
 
     /// Despawns all entities in this [`World`].
@@ -3023,13 +3028,13 @@ impl World {
         self.resource_scope::<DefaultQueryFilters, ()>(|world: &mut World, _| {
             let to_remove: Vec<Entity> = world
                 .query_filtered::<Entity, Without<Internal>>()
-                .query(&world)
+                .query(world)
                 .into_iter()
                 .collect();
             for entity in to_remove {
                 world.despawn(entity);
             }
-        })
+        });
     }
 
     /// Clears all resources in this [`World`].
@@ -3236,6 +3241,7 @@ impl World {
         })
     }
 
+    /*
     /// Mutably iterates over all resources in the world.
     ///
     /// The returned iterator provides lifetimed, but type-unsafe pointers. Actually reading from or writing
@@ -3301,7 +3307,6 @@ impl World {
     /// # assert_eq!(world.resource::<A>().0, 2);
     /// # assert_eq!(world.resource::<B>().0, 3);
     /// ```
-    /*
     #[inline]
     pub fn iter_resources_mut(&mut self) -> impl Iterator<Item = (&ComponentInfo, MutUntyped<'_>)> {
         self.storages

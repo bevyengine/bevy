@@ -17,7 +17,7 @@ use crate::{
     world::RawCommandQueue,
 };
 use bevy_platform::sync::atomic::Ordering;
-use bevy_ptr::{OwningPtr, Ptr, UnsafeCellDeref};
+use bevy_ptr::{Ptr, UnsafeCellDeref};
 use core::{any::TypeId, cell::UnsafeCell, fmt::Debug, marker::PhantomData, panic::Location, ptr};
 use thiserror::Error;
 
@@ -545,7 +545,7 @@ impl<'w> UnsafeWorldCell<'w> {
         let entity_cell = self.get_entity(*entity).ok()?;
         // SAFETY: we only access data that the caller has ensured is unaliased and `self`
         //  has permission to access.
-        return entity_cell.get_mut_by_id(component_id).ok();
+        entity_cell.get_mut_by_id(component_id).ok()
     }
 
     /// Gets a mutable reference to the non-send resource of the given type if it exists
