@@ -30,7 +30,7 @@ jobs:
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
-      - uses: actions/github-script@v7
+      - uses: actions/github-script@v8
         if: steps.get_changes.outputs.found_changes == '0'
         with:
           script: |
@@ -60,7 +60,7 @@ jobs:
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
-      - uses: actions/github-script@v7
+      - uses: actions/github-script@v8
         if: steps.get_changes.outputs.found_changes == '0'
         with:
           script: |

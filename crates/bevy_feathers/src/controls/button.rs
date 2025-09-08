@@ -29,7 +29,7 @@ use crate::{
 
 /// Color variants for buttons. This also functions as a component used by the dynamic styling
 /// system to identify which entities are buttons.
-#[derive(Component, Default, Clone, Reflect)]
+#[derive(Component, Default, Clone, Reflect, Debug, PartialEq, Eq)]
 #[reflect(Component, Clone, Default)]
 pub enum ButtonVariant {
     /// The standard button appearance
@@ -101,7 +101,12 @@ fn update_button_styles(
             &ThemeBackgroundColor,
             &ThemeFontColor,
         ),
-        Or<(Changed<Hovered>, Added<Pressed>, Added<InteractionDisabled>)>,
+        Or<(
+            Changed<Hovered>,
+            Changed<ButtonVariant>,
+            Added<Pressed>,
+            Added<InteractionDisabled>,
+        )>,
     >,
     mut commands: Commands,
 ) {

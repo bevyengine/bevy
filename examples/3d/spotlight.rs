@@ -89,31 +89,30 @@ fn setup(
             let x = x as f32 - 2.0;
             let z = z as f32 - 2.0;
             // red spot_light
-            commands
-                .spawn((
-                    SpotLight {
-                        intensity: 40_000.0, // lumens
-                        color: Color::WHITE,
-                        shadows_enabled: true,
-                        inner_angle: PI / 4.0 * 0.85,
-                        outer_angle: PI / 4.0,
-                        ..default()
-                    },
-                    Transform::from_xyz(1.0 + x, 2.0, z)
-                        .looking_at(Vec3::new(1.0 + x, 0.0, z), Vec3::X),
-                ))
-                .with_children(|builder| {
-                    builder.spawn((
+            commands.spawn((
+                SpotLight {
+                    intensity: 40_000.0, // lumens
+                    color: Color::WHITE,
+                    shadows_enabled: true,
+                    inner_angle: PI / 4.0 * 0.85,
+                    outer_angle: PI / 4.0,
+                    ..default()
+                },
+                Transform::from_xyz(1.0 + x, 2.0, z)
+                    .looking_at(Vec3::new(1.0 + x, 0.0, z), Vec3::X),
+                children![
+                    (
                         Mesh3d(sphere_mesh.clone()),
                         MeshMaterial3d(red_emissive.clone()),
-                    ));
-                    builder.spawn((
+                    ),
+                    (
                         Mesh3d(sphere_mesh_direction.clone()),
                         MeshMaterial3d(maroon_emissive.clone()),
                         Transform::from_translation(Vec3::Z * -0.1),
                         NotShadowCaster,
-                    ));
-                });
+                    )
+                ],
+            ));
         }
     }
 

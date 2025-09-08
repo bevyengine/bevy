@@ -185,23 +185,22 @@ pub(crate) mod test_setup {
             Transform::from_xyz(-2.0, 2.0, 2.0).looking_at(Vec3::ZERO, Vec3::Y),
         ));
         event.write(RequestRedraw);
-        commands
-            .spawn((
-                Text::default(),
-                Node {
-                    align_self: AlignSelf::FlexStart,
-                    position_type: PositionType::Absolute,
-                    top: px(12),
-                    left: px(12),
-                    ..default()
-                },
-                ModeText,
-            ))
-            .with_children(|p| {
-                p.spawn(TextSpan::new("Press space bar to cycle modes\n"));
-                p.spawn((TextSpan::default(), TextColor(LIME.into())));
-                p.spawn((TextSpan::new("\nFrame: "), TextColor(YELLOW.into())));
-                p.spawn((TextSpan::new(""), TextColor(YELLOW.into())));
-            });
+        commands.spawn((
+            Text::default(),
+            Node {
+                align_self: AlignSelf::FlexStart,
+                position_type: PositionType::Absolute,
+                top: px(12),
+                left: px(12),
+                ..default()
+            },
+            ModeText,
+            children![
+                TextSpan::new("Press space bar to cycle modes\n"),
+                (TextSpan::default(), TextColor(LIME.into())),
+                (TextSpan::new("\nFrame: "), TextColor(YELLOW.into())),
+                (TextSpan::new(""), TextColor(YELLOW.into())),
+            ],
+        ));
     }
 }
