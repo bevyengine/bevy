@@ -2,9 +2,11 @@ mod graph_runner;
 #[cfg(feature = "raw_vulkan_init")]
 pub mod raw_vulkan_init;
 mod render_device;
+mod wgpu_wrapper;
 
 pub use graph_runner::*;
 pub use render_device::*;
+pub use wgpu_wrapper::WgpuWrapper;
 
 use crate::{
     diagnostic::{internal::DiagnosticsRecorder, RecordDiagnostics},
@@ -13,7 +15,6 @@ use crate::{
     render_resource::RenderPassDescriptor,
     settings::{RenderResources, WgpuSettings, WgpuSettingsPriority},
     view::{ExtractedWindows, ViewTarget},
-    WgpuWrapper,
 };
 use alloc::sync::Arc;
 use bevy_derive::{Deref, DerefMut};

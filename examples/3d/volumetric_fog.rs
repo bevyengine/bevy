@@ -1,10 +1,12 @@
 //! Demonstrates volumetric fog and lighting (light shafts or god rays).
+//! Note: On Wasm, this example only runs on WebGPU
 
 use bevy::{
     color::palettes::css::RED,
-    core_pipeline::{bloom::Bloom, tonemapping::Tonemapping, Skybox},
+    core_pipeline::{tonemapping::Tonemapping, Skybox},
     light::{FogVolume, VolumetricFog, VolumetricLight},
     math::vec3,
+    post_process::bloom::Bloom,
     prelude::*,
 };
 

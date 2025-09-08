@@ -3,7 +3,7 @@
 use std::ops::Range;
 
 use bevy::{
-    anti_aliasing::fxaa::Fxaa,
+    anti_alias::fxaa::Fxaa,
     color::palettes::css::{BLACK, WHITE},
     core_pipeline::Skybox,
     image::{

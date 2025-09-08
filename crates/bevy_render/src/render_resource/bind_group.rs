@@ -1,9 +1,8 @@
-use crate::WgpuWrapper;
 use crate::{
     define_atomic_id,
     render_asset::RenderAssets,
     render_resource::{BindGroupLayout, Buffer, Sampler, TextureView},
-    renderer::RenderDevice,
+    renderer::{RenderDevice, WgpuWrapper},
     texture::GpuImage,
 };
 use bevy_derive::{Deref, DerefMut};
