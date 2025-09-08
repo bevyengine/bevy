@@ -522,7 +522,7 @@ impl<'a, T, A: IsAligned> MovingPtr<'_, T, A> {
     ///    // SAFETY:
     ///    // - It is impossible for the provided closure to drop the provided pointer as `move_field` cannot panic.
     ///    // - `field_a` and `field_b` are moved out of but never accessed after this.
-    ///    let partial_parent = MovingPtr::partial_move(parent_ptr, |parent_ptr| {
+    ///    let (partial_parent, ()) = MovingPtr::partial_move(parent_ptr, |parent_ptr| {
     ///       bevy_ptr::deconstruct_moving_ptr!(parent_ptr, Parent {
     ///         field_a: FieldAType => { insert(field_a) },
     ///         field_b: FieldBType => { insert(field_b) },
@@ -544,7 +544,10 @@ impl<'a, T, A: IsAligned> MovingPtr<'_, T, A> {
     ) -> (MovingPtr<'a, MaybeUninit<T>, A>, R) {
         let partial_ptr = self.0;
         let ret = f(self);
-        (MovingPtr(partial_ptr.cast::<MaybeUninit<T>>(), PhantomData), ret)
+        (
+            MovingPtr(partial_ptr.cast::<MaybeUninit<T>>(), PhantomData),
+            ret,
+        )
     }
 
     /// Reads the value pointed to by this pointer.
