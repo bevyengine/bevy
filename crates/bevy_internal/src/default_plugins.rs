@@ -123,7 +123,7 @@ impl Plugin for IgnoreAmbiguitiesPlugin {
                 bevy_app::PostUpdate,
                 bevy_animation::advance_animations::<
                     (),
-                    bevy_ecs::query::Without<bevy_animation::DontUseDefaultAnimationTime>,
+                    bevy_ecs::query::Without<bevy_animation::ExplicitAnimationTime>,
                 >,
                 bevy_ui::ui_layout_system,
             );

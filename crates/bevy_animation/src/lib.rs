@@ -981,10 +981,10 @@ fn trigger_untargeted_animation_events(
 }
 
 /// Marker component for animations that should not use the default animation time.
-/// For more details, see the [`specify_animation_system`] documentation.
+/// For more details, see the [`TimeDependentAnimationPlugin`] documentation.
 #[derive(Debug, Component, Reflect, Clone, Copy, Default)]
 #[reflect(Component)]
-pub struct DontUseDefaultAnimationTime;
+pub struct ExplicitAnimationTime;
 
 /// A system that advances the time for all playing animations.
 pub fn advance_animations<T: Default, F: bevy_ecs::query::QueryFilter>(
@@ -1227,25 +1227,46 @@ pub fn animate_targets(
             }
         });
 }
-
-/// Specifies the query used for animation systems.
+/// A plugin that provides animation systems with custom time resources and query filters.
 ///
-/// This system allows users to specify which [`Time`] resource to use to animate entities that match the supplied [`QueryFilter`](bevy_ecs::query::QueryFilter).
-/// That can be especially useful when you want to use a custom time resource for subset of animations.
-/// By default, one version is added using [`Time<()>`] and a [`Without`] [`DontUseDefaultAnimationTime`] filter.
-pub fn specify_animation_system<T: Default, F: bevy_ecs::query::QueryFilter + 'static>(
-    app: &mut App,
-) where
+/// This plugin allows you to specify which [`Time`] resource to use and which entities
+/// to include/exclude from animation updates using [`bevy_ecs::query::QueryFilter`]. This is
+/// particularly useful when you want different animations to run on different time scales
+/// or exclude certain entities from the default animation pipeline.
+///
+/// By default, one version is added using [`Time<()>`] and a [`Without`] [`ExplicitAnimationTime`] filter.
+pub struct TimeDependentAnimationPlugin<T, F> {
+    _marker: core::marker::PhantomData<T>,
+    _marker2: core::marker::PhantomData<F>,
+}
+impl<T: Default + Send + Sync, F: bevy_ecs::query::QueryFilter + Send + Sync + 'static> Default
+    for TimeDependentAnimationPlugin<T, F>
+where
     Time<T>: Resource,
 {
-    app.add_systems(
-        PostUpdate,
-        (advance_transitions::<T, F>, advance_animations::<T, F>)
-            .before(animate_targets)
-            .chain()
-            .in_set(AnimationSystems)
-            .before(TransformSystems::Propagate),
-    );
+    fn default() -> Self {
+        Self {
+            _marker: core::marker::PhantomData,
+            _marker2: core::marker::PhantomData,
+        }
+    }
+}
+
+impl<T: Default + Send + Sync, F: bevy_ecs::query::QueryFilter + Send + Sync + 'static> Plugin
+    for TimeDependentAnimationPlugin<T, F>
+where
+    Time<T>: Resource,
+{
+    fn build(&self, app: &mut App) {
+        app.add_systems(
+            PostUpdate,
+            (advance_transitions::<T, F>, advance_animations::<T, F>)
+                .before(animate_targets)
+                .chain()
+                .in_set(AnimationSystems)
+                .before(TransformSystems::Propagate),
+        );
+    }
 }
 
 /// Adds animation support to an app
@@ -1280,7 +1301,10 @@ impl Plugin for AnimationPlugin {
                     .in_set(AnimationSystems)
                     .before(TransformSystems::Propagate),
             )
-            .add_plugins(specify_animation_system::<(), Without<DontUseDefaultAnimationTime>>);
+            .add_plugins(TimeDependentAnimationPlugin::<
+                (),
+                Without<ExplicitAnimationTime>,
+            >::default());
     }
 }
 

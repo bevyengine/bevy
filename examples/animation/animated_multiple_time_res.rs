@@ -3,7 +3,7 @@
 use bevy::{
     animation::{
         animated_field, AnimationEntityMut, AnimationEvaluationError, AnimationTarget,
-        AnimationTargetId, DontUseDefaultAnimationTime,
+        AnimationTargetId, ExplicitAnimationTime,
     },
     prelude::*,
 };
@@ -23,7 +23,7 @@ struct AnimationInfo {
 
 /// Marks an entity as using fixed time for animation.
 #[derive(Component, Reflect)]
-#[require(DontUseDefaultAnimationTime)]
+#[require(ExplicitAnimationTime)]
 pub struct UseFixedTime;
 
 // The entry point.
@@ -33,7 +33,10 @@ fn main() {
         // Note that we don't need any systems other than the setup system,
         // because Bevy automatically updates animations every frame.
         .add_systems(Startup, setup)
-        .add_plugins(bevy::animation::specify_animation_system::<Fixed, With<UseFixedTime>>)
+        .add_plugins(bevy::animation::TimeDependentAnimationPlugin::<
+            Fixed,
+            With<UseFixedTime>,
+        >::default())
         .run();
 }
 
