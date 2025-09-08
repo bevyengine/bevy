@@ -786,15 +786,10 @@ impl From<&JsonSchemaBevyType> for MinMaxValues {
 impl MinMaxValues {
     /// Combines two [`MinMaxValues`] instances.
     pub fn with(self, other: MinMaxValues) -> MinMaxValues {
-        let min = match (self.min, other.min) {
-            (_, Some(other_min)) => Some(other_min),
-            (min, _) => min,
-        };
-        let max = match (self.max, other.max) {
-            (_, Some(other_max)) => Some(other_max),
-            (max, _) => max,
-        };
-        MinMaxValues { min, max }
+        MinMaxValues {
+            min: other.min.or(self.min),
+            max: other.max.or(self.max),
+        }
     }
 
     /// Checks if a given value falls within the defined range constraints.
