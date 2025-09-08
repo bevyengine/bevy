@@ -1,14 +1,16 @@
 use bevy_app::prelude::*;
 use bevy_asset::{
-    embedded_asset, load_embedded_asset, AssetServer, Assets, Handle, RenderAssetUsages,
+    embedded_asset, load_embedded_asset, uuid_handle, AssetServer, Assets, Handle,
+    RenderAssetUsages,
 };
 use bevy_camera::Camera;
 use bevy_ecs::prelude::*;
 use bevy_image::{CompressedImageFormats, Image, ImageSampler, ImageType};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
+#[cfg(feature = "tonemapping_luts")]
+use bevy_render::extract_resource::{ExtractResource, ExtractResourcePlugin};
 use bevy_render::{
     extract_component::{ExtractComponent, ExtractComponentPlugin},
-    extract_resource::{ExtractResource, ExtractResourcePlugin},
     render_asset::RenderAssets,
     render_resource::{
         binding_types::{sampler, texture_2d, texture_3d, uniform_buffer},
@@ -21,6 +23,7 @@ use bevy_render::{
 };
 use bevy_shader::{load_shader_library, Shader, ShaderDefVal};
 use bitflags::bitflags;
+use tracing::error;
 
 mod node;
 
@@ -29,8 +32,12 @@ pub use node::TonemappingNode;
 
 use crate::FullscreenShader;
 
-/// 3D LUT (look up table) textures used for tonemapping
+/// 1x1 image used for the Tonemapping methods that do not use LUTs
+const PLACEHOLDER_LUTS_IMAGE: Handle<Image> = uuid_handle!("39bd4241-aa05-401a-b5ad-4dd963254fff");
+
+/// 3D LUT (look up table) textures used for tonemapping.
 #[derive(Resource, Clone, ExtractResource)]
+#[cfg(feature = "tonemapping_luts")]
 pub struct TonemappingLuts {
     pub blender_filmic: Handle<Image>,
     pub agx: Handle<Image>,
@@ -46,40 +53,33 @@ impl Plugin for TonemappingPlugin {
 
         embedded_asset!(app, "tonemapping.wgsl");
 
+        #[cfg(feature = "tonemapping_luts")]
         if !app.world().is_resource_added::<TonemappingLuts>() {
             let mut images = app.world_mut().resource_mut::<Assets<Image>>();
-
-            #[cfg(feature = "tonemapping_luts")]
-            let tonemapping_luts = {
-                TonemappingLuts {
-                    blender_filmic: images.add(setup_tonemapping_lut_image(
-                        include_bytes!("luts/Blender_-11_12.ktx2"),
-                        ImageType::Extension("ktx2"),
-                    )),
-                    agx: images.add(setup_tonemapping_lut_image(
-                        include_bytes!("luts/AgX-default_contrast.ktx2"),
-                        ImageType::Extension("ktx2"),
-                    )),
-                    tony_mc_mapface: images.add(setup_tonemapping_lut_image(
-                        include_bytes!("luts/tony_mc_mapface.ktx2"),
-                        ImageType::Extension("ktx2"),
-                    )),
-                }
-            };
-
-            #[cfg(not(feature = "tonemapping_luts"))]
-            let tonemapping_luts = {
-                let placeholder = images.add(lut_placeholder());
-                TonemappingLuts {
-                    blender_filmic: placeholder.clone(),
-                    agx: placeholder.clone(),
-                    tony_mc_mapface: placeholder,
-                }
+            let tonemapping_luts = TonemappingLuts {
+                blender_filmic: images.add(setup_tonemapping_lut_image(
+                    include_bytes!("luts/Blender_-11_12.ktx2"),
+                    ImageType::Extension("ktx2"),
+                )),
+                agx: images.add(setup_tonemapping_lut_image(
+                    include_bytes!("luts/AgX-default_contrast.ktx2"),
+                    ImageType::Extension("ktx2"),
+                )),
+                tony_mc_mapface: images.add(setup_tonemapping_lut_image(
+                    include_bytes!("luts/tony_mc_mapface.ktx2"),
+                    ImageType::Extension("ktx2"),
+                )),
             };
 
             app.insert_resource(tonemapping_luts);
         }
 
+        let mut images = app.world_mut().resource_mut::<Assets<Image>>();
+        if let Err(err) = images.insert(PLACEHOLDER_LUTS_IMAGE.id(), lut_placeholder()) {
+            error!("Failed to create Placeholder LUTs due to '{err}'.");
+        }
+
+        #[cfg(feature = "tonemapping_luts")]
         app.add_plugins(ExtractResourcePlugin::<TonemappingLuts>::default());
 
         app.add_plugins((
@@ -370,7 +370,7 @@ pub enum DebandDither {
 
 pub fn get_lut_bindings<'a>(
     images: &'a RenderAssets<GpuImage>,
-    tonemapping_luts: &'a TonemappingLuts,
+    #[cfg(feature = "tonemapping_luts")] tonemapping_luts: &'a TonemappingLuts,
     tonemapping: &Tonemapping,
     fallback_image: &'a FallbackImage,
 ) -> (&'a TextureView, &'a Sampler) {
@@ -380,7 +380,7 @@ pub fn get_lut_bindings<'a>(
         | Tonemapping::Reinhard
         | Tonemapping::ReinhardLuminance
         | Tonemapping::AcesFitted
-        | Tonemapping::SomewhatBoringDisplayTransform => &tonemapping_luts.agx,
+        | Tonemapping::SomewhatBoringDisplayTransform => &PLACEHOLDER_LUTS_IMAGE,
         #[cfg(feature = "tonemapping_luts")]
         Tonemapping::AgX => &tonemapping_luts.agx,
         #[cfg(feature = "tonemapping_luts")]
