@@ -18,10 +18,11 @@ pub use crate::{
     world::command_queue::CommandQueue,
 };
 use crate::{
+    entity_disabling::Internal,
     error::{DefaultErrorHandler, ErrorHandler},
     event::BufferedEvent,
     lifecycle::{ComponentHooks, ADD, DESPAWN, INSERT, REMOVE, REPLACE},
-    prelude::{Add, Despawn, Insert, Remove, Replace},
+    prelude::{Add, Despawn, Insert, Remove, Replace, Without},
     resource::{ResourceEntity, TypeErasedResource},
 };
 pub use bevy_ecs_macros::FromWorld;
@@ -1734,6 +1735,7 @@ impl World {
         caller: MaybeLocation,
     ) {
         let component_id = self.components_registrator().register_resource::<R>();
+
         if !self
             .components
             .resource_entities
@@ -1745,6 +1747,20 @@ impl World {
             self.components
                 .resource_entities
                 .insert(component_id, entity);
+        } else {
+            let entity = self
+                .components
+                .resource_entities
+                .get(&component_id)
+                .unwrap();
+            if let Ok(mut entity_mut) = self.get_entity_mut(*entity) {
+                entity_mut.insert_with_caller(
+                    value,
+                    InsertMode::Replace,
+                    caller,
+                    RelationshipHookMode::Run,
+                );
+            }
         }
     }
 
@@ -3004,10 +3020,16 @@ impl World {
 
     /// Despawns all entities in this [`World`].
     pub fn clear_entities(&mut self) {
-        self.storages.tables.clear();
-        self.storages.sparse_sets.clear_entities();
-        self.archetypes.clear_entities();
-        self.entities.clear();
+        self.resource_scope::<DefaultQueryFilters, ()>(|world: &mut World, _| {
+            let to_remove: Vec<Entity> = world
+                .query_filtered::<Entity, Without<Internal>>()
+                .query(&world)
+                .into_iter()
+                .collect();
+            for entity in to_remove {
+                world.despawn(entity);
+            }
+        })
     }
 
     /// Clears all resources in this [`World`].

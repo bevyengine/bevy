@@ -1383,7 +1383,7 @@ impl FilteredAccessSet {
     /// Adds a read access to a resource to the set.
     pub fn add_unfiltered_resource_read(&mut self, index: ComponentId) {
         let mut filter = FilteredAccess::default();
-        filter.add_component_read(index);
+        filter.add_resource_read(index);
         self.add(filter);
     }
 
