@@ -10,7 +10,7 @@ use crate::{
     world::{EntityWorldMut, World},
 };
 use alloc::vec::Vec;
-use bevy_ptr::MovingPtr;
+use bevy_ptr::{move_as_ptr, MovingPtr};
 use core::mem;
 use core::mem::MaybeUninit;
 use core::{marker::PhantomData, mem::offset_of};
@@ -75,12 +75,8 @@ impl<R: Relationship, B: Bundle<Effect: NoBundleEffect>> SpawnableList<R> for Ve
 
 impl<R: Relationship, B: Bundle> SpawnableList<R> for Spawn<B> {
     fn spawn(self, world: &mut World, entity: Entity) {
-        let mut this = MaybeUninit::new(self);
-        // SAFETY:
-        // - `bundle` is initialized to a valid in the statement above.
-        // - This variable shadows the instance of value above, ensuring it's never used after
-        //   the `MovingPtr` is used.
-        let this = unsafe { MovingPtr::from_value(&mut this) };
+        let this = self;
+        move_as_ptr!(this);
         <Self as SpawnableList<R>>::spawn_raw(this, world, entity);
     }
 
@@ -96,13 +92,9 @@ impl<R: Relationship, B: Bundle> SpawnableList<R> for Spawn<B> {
             entity: Entity,
         ) {
             let caller = MaybeLocation::caller();
-            let mut r = MaybeUninit::new(R::from(entity));
+            let r = R::from(entity);
 
-            // SAFETY:
-            // - `r` is initialized to a valid in the statement above.
-            // - This variable shadows the instance of value above, ensuring it's never used after
-            //   the `MovingPtr` is used.
-            let r = unsafe { MovingPtr::from_value(&mut r) };
+            move_as_ptr!(r);
 
             // SAFETY:
             // - `r` is never accessed or dropped after this call.
@@ -360,17 +352,14 @@ unsafe impl<R: Relationship, L: SpawnableList<R>> DynamicBundle for SpawnRelated
     ) {
         let target =
             <R::RelationshipTarget as RelationshipTarget>::with_capacity(ptr.list.size_hint());
-        let mut target = MaybeUninit::new(target);
+        move_as_ptr!(target);
         // SAFETY:
         // - The caller must ensure that this is called exactly once before `apply_effect`.
         // - Assuming `DynamicBundle` is implemented correctly for `R::Relationship` target, `func` should be
         //   called exactly once for each component being fetched with the correct `StorageType`
         // - `Effect: !NoBundleEffect`, which means the caller is responsible for calling this type's `apply_effect`
         //   at least once before returning to safe code.
-        <R::RelationshipTarget as DynamicBundle>::get_components(
-            MovingPtr::from_value(&mut target),
-            func,
-        );
+        <R::RelationshipTarget as DynamicBundle>::get_components(target, func);
         // Forget the pointer so that the value is available in `apply_effect`.
         mem::forget(ptr);
     }
@@ -413,17 +402,14 @@ unsafe impl<R: Relationship, B: Bundle> DynamicBundle for SpawnOneRelated<R, B> 
         func: &mut impl FnMut(crate::component::StorageType, bevy_ptr::OwningPtr<'_>),
     ) {
         let target = <R::RelationshipTarget as RelationshipTarget>::with_capacity(1);
-        let mut target = MaybeUninit::new(target);
+        move_as_ptr!(target);
         // SAFETY:
         // - The caller must ensure that this is called exactly once before `apply_effect`.
         // - Assuming `DynamicBundle` is implemented correctly for `R::Relationship` target, `func` should be
         //   called exactly once for each component being fetched with the correct `StorageType`
         // - `Effect: !NoBundleEffect`, which means the caller is responsible for calling this type's `apply_effect`
         //   at least once before returning to safe code.
-        <R::RelationshipTarget as DynamicBundle>::get_components(
-            MovingPtr::from_value(&mut target),
-            func,
-        );
+        <R::RelationshipTarget as DynamicBundle>::get_components(target, func);
         // Forget the pointer so that the value is available in `apply_effect`.
         mem::forget(ptr);
     }

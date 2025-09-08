@@ -1,4 +1,4 @@
-use bevy_ptr::MovingPtr;
+use bevy_ptr::move_as_ptr;
 
 use crate::{
     bundle::{Bundle, BundleSpawner, NoBundleEffect},
@@ -7,7 +7,6 @@ use crate::{
     world::World,
 };
 use core::iter::FusedIterator;
-use core::mem::MaybeUninit;
 
 /// An iterator that spawns a series of entities and returns the [ID](Entity) of
 /// each spawned entity.
@@ -74,12 +73,8 @@ where
     type Item = Entity;
 
     fn next(&mut self) -> Option<Entity> {
-        let mut bundle = MaybeUninit::new(self.inner.next()?);
-        // SAFETY:
-        // - `bundle` is initialized to a valid in the statement above.
-        // - This variable shadows the instance of value above, ensuring it's never used after
-        //   the `MovingPtr` is used.
-        let bundle = unsafe { MovingPtr::from_value(&mut bundle) };
+        let bundle = self.inner.next()?;
+        move_as_ptr!(bundle);
         // SAFETY:
         // - The spawner matches `I::Item`'s type.
         // - `I::Item::Effect: NoBundleEffect`, thus [`apply_effect`] does not need to be called.

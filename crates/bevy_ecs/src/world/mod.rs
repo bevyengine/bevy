@@ -24,7 +24,7 @@ use crate::{
     prelude::{Add, Despawn, Insert, Remove, Replace},
 };
 pub use bevy_ecs_macros::FromWorld;
-use bevy_ptr::MovingPtr;
+use bevy_ptr::{move_as_ptr, MovingPtr};
 use bevy_utils::prelude::DebugName;
 pub use deferred_world::DeferredWorld;
 pub use entity_fetch::{EntityFetcher, WorldEntityFetch};
@@ -69,7 +69,7 @@ use crate::{
 use alloc::{boxed::Box, vec::Vec};
 use bevy_platform::sync::atomic::{AtomicU32, Ordering};
 use bevy_ptr::{OwningPtr, Ptr, UnsafeCellDeref};
-use core::{any::TypeId, fmt, mem::MaybeUninit};
+use core::{any::TypeId, fmt};
 use log::warn;
 use unsafe_world_cell::{UnsafeEntityCell, UnsafeWorldCell};
 
@@ -1156,12 +1156,7 @@ impl World {
     /// ```
     #[track_caller]
     pub fn spawn<B: Bundle>(&mut self, bundle: B) -> EntityWorldMut<'_> {
-        let mut bundle = MaybeUninit::new(bundle);
-        // SAFETY:
-        // - `bundle` is initialized to a valid in the statement above.
-        // - This variable shadows the instance of value above, ensuring it's never used after
-        //   the `MovingPtr` is used.
-        let bundle = unsafe { MovingPtr::from_value(&mut bundle) };
+        move_as_ptr!(bundle);
         // SAFETY:
         // - `bundle` is not accessed or dropped after this function call returns. `MaybeUninit`
         //   must manually invoke dropping the wrapped value.
@@ -2349,12 +2344,8 @@ impl World {
                     },
                     archetype_id: first_location.archetype_id,
                 };
-                let mut first_bundle = MaybeUninit::new(first_bundle);
-                // SAFETY:
-                // - `first_bundle` is initialized to a valid in the statement above.
-                // - This variable shadows the instance of value above, ensuring it's never used after
-                //   the `MovingPtr` is used.
-                let first_bundle = unsafe { MovingPtr::from_value(&mut first_bundle) };
+
+                move_as_ptr!(first_bundle);
                 // SAFETY:
                 // - `entity` is valid, `location` matches entity, bundle matches inserter
                 // - The effect is `NoBundleEffect`, so calling `apply_effect` after this is a no-op.
@@ -2388,12 +2379,7 @@ impl World {
                             }
                         }
 
-                        let mut bundle = MaybeUninit::new(bundle);
-                        // SAFETY:
-                        // - `bundle` is initialized to a valid in the statement above.
-                        // - This variable shadows the instance of value above, ensuring it's never used after
-                        //   the `MovingPtr` is used.
-                        let bundle = unsafe { MovingPtr::from_value(&mut bundle) };
+                        move_as_ptr!(bundle);
                         // SAFETY:
                         // - `entity` is valid, `location` matches entity, bundle matches inserter
                         // - The effect is `NoBundleEffect`, so calling `apply_effect` after this is a no-op.
@@ -2524,12 +2510,7 @@ impl World {
                         archetype_id: first_location.archetype_id,
                     };
 
-                    let mut first_bundle = MaybeUninit::new(first_bundle);
-                    // SAFETY:
-                    // - `bundle` is initialized to a valid in the statement above.
-                    // - This variable shadows the instance of value above, ensuring it's never used after
-                    //   the `MovingPtr` is used.
-                    let first_bundle = unsafe { MovingPtr::from_value(&mut first_bundle) };
+                    move_as_ptr!(first_bundle);
                     // SAFETY:
                     // - `entity` is valid, `location` matches entity, bundle matches inserter
                     // - The effect is `NoBundleEffect`, so calling `apply_effect` after this is a no-op.
@@ -2571,12 +2552,8 @@ impl World {
                             archetype_id: location.archetype_id,
                         }
                     }
-                    let mut bundle = MaybeUninit::new(bundle);
-                    // SAFETY:
-                    // - `bundle` is initialized to a valid in the statement above.
-                    // - This variable shadows the instance of value above, ensuring it's never used after
-                    //   the `MovingPtr` is used.
-                    let bundle = unsafe { MovingPtr::from_value(&mut bundle) };
+
+                    move_as_ptr!(bundle);
                     // SAFETY:
                     // - `entity` is valid, `location` matches entity, bundle matches inserter
                     // - The effect is `NoBundleEffect`, so calling `apply_effect` after this is a no-op.

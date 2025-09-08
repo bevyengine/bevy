@@ -24,7 +24,7 @@ use crate::{
 };
 use alloc::vec::Vec;
 use bevy_platform::collections::{HashMap, HashSet};
-use bevy_ptr::{MovingPtr, OwningPtr, Ptr};
+use bevy_ptr::{move_as_ptr, MovingPtr, OwningPtr, Ptr};
 use core::{
     any::TypeId,
     cmp::Ordering,
@@ -1970,12 +1970,7 @@ impl<'w> EntityWorldMut<'w> {
     /// If the entity has been despawned while this `EntityWorldMut` is still alive.
     #[track_caller]
     pub fn insert<T: Bundle>(&mut self, bundle: T) -> &mut Self {
-        let mut bundle = MaybeUninit::new(bundle);
-        // SAFETY:
-        // - `bundle` is initialized to a valid in the statement above.
-        // - This variable shadows the instance of value above, ensuring it's never used after
-        //   the `MovingPtr` is used.
-        let bundle = unsafe { MovingPtr::from_value(&mut bundle) };
+        move_as_ptr!(bundle);
         // SAFETY:
         // - `bundle` is not used or dropped after this function call. `MaybeUninit` does not
         //   drop the value inside unless manually invoked.
@@ -2009,12 +2004,7 @@ impl<'w> EntityWorldMut<'w> {
         bundle: T,
         relationship_hook_mode: RelationshipHookMode,
     ) -> &mut Self {
-        let mut bundle = MaybeUninit::new(bundle);
-        // SAFETY:
-        // - `bundle` is initialized to a valid in the statement above.
-        // - This variable shadows the instance of value above, ensuring it's never used after
-        //   the `MovingPtr` is used.
-        let bundle = unsafe { MovingPtr::from_value(&mut bundle) };
+        move_as_ptr!(bundle);
         // SAFETY:
         // - `bundle` is not used or dropped after this function call. `MaybeUninit` does not
         //   drop the value inside unless manually invoked.
@@ -2038,12 +2028,7 @@ impl<'w> EntityWorldMut<'w> {
     /// If the entity has been despawned while this `EntityWorldMut` is still alive.
     #[track_caller]
     pub fn insert_if_new<T: Bundle>(&mut self, bundle: T) -> &mut Self {
-        let mut bundle = MaybeUninit::new(bundle);
-        // SAFETY:
-        // - `bundle` is initialized to a valid in the statement above.
-        // - This variable shadows the instance of value above, ensuring it's never used after
-        //   the `MovingPtr` is used.
-        let bundle = unsafe { MovingPtr::from_value(&mut bundle) };
+        move_as_ptr!(bundle);
         // SAFETY:
         // - `bundle` is not used or dropped after this function call. `MaybeUninit` does not
         //   drop the value inside unless manually invoked.
@@ -2921,12 +2906,8 @@ impl<'w> EntityWorldMut<'w> {
         caller: MaybeLocation,
     ) -> &mut Self {
         self.assert_not_despawned();
-        let mut bundle = MaybeUninit::new(Observer::new(observer).with_entity(self.entity));
-        // SAFETY:
-        // - `bundle` is initialized to a valid in the statement above.
-        // - This variable shadows the instance of value above, ensuring it's never used after
-        //   the `MovingPtr` is used.
-        let bundle = unsafe { MovingPtr::from_value(&mut bundle) };
+        let bundle = Observer::new(observer).with_entity(self.entity);
+        move_as_ptr!(bundle);
         // SAFETY:
         // - `bundle` is not accessed or dropped after this function call returns. `MaybeUninit`
         //   must manually invoke dropping the wrapped value.
@@ -4719,23 +4700,18 @@ unsafe fn insert_dynamic_bundle<
         }
     }
 
-    let mut bundle = MaybeUninit::new(DynamicInsertBundle {
+    let bundle = DynamicInsertBundle {
         components: storage_types.zip(components),
-    });
+    };
 
-    // SAFETY:
-    // - `bundle` is initialized to a valid in the statement above.
-    // - This variable shadows the instance of value above, ensuring it's never used after
-    //   the `MovingPtr` is used.
-    let bundle = unsafe { MovingPtr::from_value(&mut bundle) };
+    move_as_ptr!(bundle);
 
     // SAFETY:
     // - `location` matches `entity`.  and thus must currently exist in the source
     //   archetype for this inserter and its location within the archetype.
     // - The caller must ensure that the iterators and storage types match up with the `BundleInserter`
     // - `DynamicInsertBundle::Effect: NoBundleEffect` and thus `apply_effect` does not need to be called.
-    // - `bundle` is not used or dropped after this point. `MaybeUninit` requires manually invoking drop on
-    //   a wrapped value.
+    // - `bundle` is not used or dropped after this point.
     unsafe {
         bundle_inserter.insert(
             entity,

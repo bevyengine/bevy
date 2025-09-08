@@ -4,7 +4,7 @@ pub mod entity_command;
 #[cfg(feature = "std")]
 mod parallel_scope;
 
-use bevy_ptr::MovingPtr;
+use bevy_ptr::move_as_ptr;
 pub use command::Command;
 pub use entity_command::EntityCommand;
 
@@ -12,7 +12,7 @@ pub use entity_command::EntityCommand;
 pub use parallel_scope::*;
 
 use alloc::boxed::Box;
-use core::{marker::PhantomData, mem::MaybeUninit};
+use core::marker::PhantomData;
 
 use crate::{
     self as bevy_ecs,
@@ -397,12 +397,7 @@ impl<'w, 's> Commands<'w, 's> {
                 }
             });
 
-            let mut bundle = MaybeUninit::new(bundle);
-            // SAFETY:
-            // - `bundle` is initialized to a valid in the statement above.
-            // - This variable shadows the instance of value above, ensuring it's never used after
-            //   the `MovingPtr` is used.
-            let bundle = unsafe { MovingPtr::from_value(&mut bundle) };
+            move_as_ptr!(bundle);
             // SAFETY:
             // - `bundle` is not used or dropped after this function call. `MaybeUninit` does not
             //   drop the value inside unless manually invoked.

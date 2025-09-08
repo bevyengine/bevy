@@ -445,15 +445,9 @@ impl<'a, T> MovingPtr<'a, T, Aligned> {
         value
     }
 
-    /// Consumes a value and creates an [`MovingPtr`] to it while ensuring a double drop does not happen.
-    #[inline]
-    pub fn make<F: FnOnce(MovingPtr<'_, T>) -> R, R>(val: T, f: F) -> R {
-        let mut val = MaybeUninit::new(val);
-        // SAFETY: The value behind the pointer will not get dropped or observed later.
-        f(unsafe { MovingPtr::from_value(&mut val) })
-    }
-
     /// Creates a [`MovingPtr`] from a provided value of type `T`.
+    ///
+    /// For a safer alternative, it is strongly advised to use [`move_as_ptr`] where possible.
     ///
     /// # Safety
     /// - `value` must store a properly initialized value of type `T`.
@@ -470,6 +464,8 @@ impl<'a, T> MovingPtr<'a, T, Aligned> {
 
 impl<'a, T, A: IsAligned> MovingPtr<'_, T, A> {
     /// Creates a new instance from a raw pointer.
+    ///
+    /// For a safer alternative, it is strongly advised to use [`move_as_ptr`] where possible.
     ///
     /// # Safety
     /// - `inner` must point to valid value of `T`.
@@ -499,7 +495,7 @@ impl<'a, T, A: IsAligned> MovingPtr<'_, T, A> {
     ///
     /// ```
     /// use core::mem::{offset_of, MaybeUninit};
-    /// use bevy_ptr::MovingPtr;
+    /// use bevy_ptr::{MovingPtr, move_as_ptr};
     /// # use bevy_ptr::Unaligned;
     /// # struct FieldAType(usize);
     /// # struct FieldBType(usize);
@@ -518,11 +514,14 @@ impl<'a, T, A: IsAligned> MovingPtr<'_, T, A> {
     /// #   field_c: FieldCType(0),
     /// # };
     ///
-    /// MovingPtr::make(parent, |parent_ptr| unsafe {
+    /// // Converts `parent` into a `MovingPtr`
+    /// move_as_ptr!(parent);
+    ///
+    /// unsafe {
     ///    // SAFETY:
     ///    // - It is impossible for the provided closure to drop the provided pointer as `move_field` cannot panic.
     ///    // - `field_a` and `field_b` are moved out of but never accessed after this.
-    ///    let (partial_parent, ()) = MovingPtr::partial_move(parent_ptr, |parent_ptr| {
+    ///    let (partial_parent, ()) = MovingPtr::partial_move(parent, |parent_ptr| {
     ///       bevy_ptr::deconstruct_moving_ptr!(parent_ptr, Parent {
     ///         field_a: FieldAType => { insert(field_a) },
     ///         field_b: FieldBType => { insert(field_b) },
@@ -533,7 +532,7 @@ impl<'a, T, A: IsAligned> MovingPtr<'_, T, A> {
     ///    bevy_ptr::deconstruct_moving_ptr!(partial_parent, Parent {
     ///       field_c: FieldBType => { insert(field_c) },
     ///    });
-    /// });
+    /// }
     /// ```
     ///
     /// [`forget`]: core::mem::forget
@@ -629,7 +628,7 @@ impl<'a, T, A: IsAligned> MovingPtr<'_, T, A> {
     ///
     /// ```
     /// use core::mem::offset_of;
-    /// use bevy_ptr::MovingPtr;
+    /// use bevy_ptr::{MovingPtr, move_as_ptr};
     /// # use bevy_ptr::Unaligned;
     /// # struct FieldAType(usize);
     /// # struct FieldBType(usize);
@@ -642,23 +641,26 @@ impl<'a, T, A: IsAligned> MovingPtr<'_, T, A> {
     ///   field_c: FieldCType,
     /// }
     ///
-    /// # let parent = Parent {
-    /// #   field_a: FieldAType(0),
-    /// #   field_b: FieldBType(0),
-    /// #   field_c: FieldCType(0),
-    /// # };
+    /// let parent = Parent {
+    ///    field_a: FieldAType(0),
+    ///    field_b: FieldBType(0),
+    ///    field_c: FieldCType(0),
+    /// };
     ///
-    /// MovingPtr::make(parent, |parent_ptr| unsafe {
-    ///    let field_a = parent_ptr.move_field::<FieldAType>(offset_of!(Parent, field_a));
-    ///    let field_b = parent_ptr.move_field::<FieldBType>(offset_of!(Parent, field_b));
-    ///    let field_c = parent_ptr.move_field::<FieldCType>(offset_of!(Parent, field_c));
+    /// // Converts `parent` into a `MovingPtr`.
+    /// move_as_ptr!(parent);
+    ///
+    /// unsafe {
+    ///    let field_a = parent.move_field::<FieldAType>(offset_of!(Parent, field_a));
+    ///    let field_b = parent.move_field::<FieldBType>(offset_of!(Parent, field_b));
+    ///    let field_c = parent.move_field::<FieldCType>(offset_of!(Parent, field_c));
     ///    // Each call to insert may panic! Ensure that `parent_ptr` cannot be dropped before
     ///    // calling them!
-    ///    core::mem::forget(parent_ptr);
+    ///    core::mem::forget(parent);
     ///    insert(field_a);
     ///    insert(field_b);
     ///    insert(field_c);
-    /// });
+    /// }
     /// ```
     ///
     /// [`forget`]: core::mem::forget
@@ -1163,6 +1165,22 @@ impl<T: Sized> DebugEnsureAligned for *mut T {
     }
 }
 
+/// Safely converts a owned value into a [`MovingPtr`] while minimizing the number of stack copies.
+///
+/// This cannot be used as expression and must be used as a statement. Internally this macro works via variable shadowing.
+#[macro_export]
+macro_rules! move_as_ptr {
+    ($value: ident) => {
+        let mut $value = core::mem::MaybeUninit::new($value);
+        // SAFETY:
+        // - This macro shadows a MaybeUninit value that took ownership of the original value.
+        //   it is impossible to refer to the original value, preventing further access after
+        //   the `MovingPtr` has been used. `MaybeUninit` also prevents the compiler from
+        //   dropping the original value.
+        let $value = unsafe { bevy_ptr::MovingPtr::from_value(&mut $value) };
+    };
+}
+
 /// Deconstructs a [`MovingPtr`] into its individual fields.
 ///
 /// This consumes the [`MovingPtr`] and hands out [`MovingPtr`] wrappers around
@@ -1182,7 +1200,7 @@ impl<T: Sized> DebugEnsureAligned for *mut T {
 ///
 /// ```
 /// use core::mem::{offset_of, MaybeUninit};
-/// use bevy_ptr::MovingPtr;
+/// use bevy_ptr::{MovingPtr, move_as_ptr};
 /// # use bevy_ptr::Unaligned;
 /// # struct FieldAType(usize);
 /// # struct FieldBType(usize);
@@ -1204,15 +1222,18 @@ impl<T: Sized> DebugEnsureAligned for *mut T {
 /// let mut target_b = FieldBType(102);
 /// let mut target_c = FieldCType(103);
 ///
-/// MovingPtr::make(parent, |parent_ptr| unsafe {
-///   bevy_ptr::deconstruct_moving_ptr!(parent_ptr, Parent {
+/// // Converts `parent` into a `MovingPtr`
+/// move_as_ptr!(parent);
+///
+/// unsafe {
+///   bevy_ptr::deconstruct_moving_ptr!(parent, Parent {
 ///      // The field name and type must match the name used in the type definition.
 ///      // Each one will be a `MovingPtr` of the supplied type
 ///      field_a: FieldAType => { field_a.assign_to(&mut target_a) },
 ///      field_b: FieldBType => { field_b.assign_to(&mut target_b) },
 ///      field_c: FieldCType => { field_c.assign_to(&mut target_c) },
 ///   });
-/// });
+/// }
 ///
 /// assert_eq!(target_a.0, 11);
 /// assert_eq!(target_b.0, 22);

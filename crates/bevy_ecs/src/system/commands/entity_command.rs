@@ -4,8 +4,6 @@
 //! It also contains functions that return closures for use with
 //! [`EntityCommands`](crate::system::EntityCommands).
 
-use core::mem::MaybeUninit;
-
 use alloc::vec::Vec;
 use log::info;
 
@@ -19,7 +17,7 @@ use crate::{
     system::IntoObserverSystem,
     world::{error::EntityMutableFetchError, EntityWorldMut, FromWorld},
 };
-use bevy_ptr::{MovingPtr, OwningPtr};
+use bevy_ptr::{move_as_ptr, OwningPtr};
 
 /// A command which gets executed for a given [`Entity`].
 ///
@@ -110,12 +108,7 @@ where
 pub fn insert(bundle: impl Bundle, mode: InsertMode) -> impl EntityCommand {
     let caller = MaybeLocation::caller();
     move |mut entity: EntityWorldMut| {
-        let mut bundle = MaybeUninit::new(bundle);
-        // SAFETY:
-        // - `bundle` is initialized to a valid in the statement above.
-        // - This variable shadows the instance of value above, ensuring it's never used after
-        //   the `MovingPtr` is used.
-        let bundle = unsafe { MovingPtr::from_value(&mut bundle) };
+        move_as_ptr!(bundle);
         // SAFETY:
         // - `bundle` is not used or dropped after this function call. `MaybeUninit` does not
         //   drop the value inside unless manually invoked.
@@ -165,12 +158,8 @@ pub fn insert_from_world<T: Component + FromWorld>(mode: InsertMode) -> impl Ent
     let caller = MaybeLocation::caller();
     move |mut entity: EntityWorldMut| {
         if !(mode == InsertMode::Keep && entity.contains::<T>()) {
-            let mut value = MaybeUninit::new(entity.world_scope(|world| T::from_world(world)));
-            // SAFETY:
-            // - `value` is initialized to a valid in the statement above.
-            // - This variable shadows the instance of value above, ensuring it's never used after
-            //   the `MovingPtr` is used.
-            let value = unsafe { MovingPtr::from_value(&mut value) };
+            let value = entity.world_scope(|world| T::from_world(world));
+            move_as_ptr!(value);
             // SAFETY:
             // - `value` is not used or dropped after this function call. `MaybeUninit` does not
             //   drop the value inside unless manually invoked.
@@ -195,12 +184,8 @@ where
     let caller = MaybeLocation::caller();
     move |mut entity: EntityWorldMut| {
         if !(mode == InsertMode::Keep && entity.contains::<T>()) {
-            let mut bundle = MaybeUninit::new(component_fn());
-            // SAFETY:
-            // - `bundle` is initialized to a valid in the statement above.
-            // - This variable shadows the instance of value above, ensuring it's never used after
-            //   the `MovingPtr` is used.
-            let bundle = unsafe { MovingPtr::from_value(&mut bundle) };
+            let bundle = component_fn();
+            move_as_ptr!(bundle);
             // SAFETY:
             // - `value` is not used or dropped after this function call. `MaybeUninit` does not
             //   drop the value inside unless manually invoked.

@@ -195,7 +195,7 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
                 #(
                     <#active_field_types as #ecs_path::bundle::DynamicBundle>::get_components(
                         #active_field_alias.try_into().debug_checked_unwrap(),
-                        &mut *func
+                        func
                     );
                 )*
             }
