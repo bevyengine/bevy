@@ -1,5 +1,5 @@
 use super::empty_bind_group_layout;
-use crate::WgpuWrapper;
+use crate::renderer::WgpuWrapper;
 use crate::{define_atomic_id, render_resource::BindGroupLayout};
 use alloc::borrow::Cow;
 use bevy_asset::Handle;

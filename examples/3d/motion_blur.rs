@@ -2,9 +2,9 @@
 //! camera using the [`MotionBlur`] component.z
 
 use bevy::{
-    core_pipeline::motion_blur::MotionBlur,
     image::{ImageAddressMode, ImageFilterMode, ImageSampler, ImageSamplerDescriptor},
     math::ops,
+    post_process::motion_blur::MotionBlur,
     prelude::*,
 };
 
@@ -136,6 +136,17 @@ fn spawn_cars(
         matl(Color::linear_rgb(1.0, 0.5, 0.0)),
     ];
 
+    let make_wheel = |x: f32, z: f32| {
+        (
+            Mesh3d(cylinder.clone()),
+            MeshMaterial3d(wheel_matl.clone()),
+            Transform::from_xyz(0.14 * x, -0.045, 0.15 * z)
+                .with_scale(Vec3::new(0.15, 0.04, 0.15))
+                .with_rotation(Quat::from_rotation_z(std::f32::consts::FRAC_PI_2)),
+            Rotates,
+        )
+    };
+
     for i in 0..N_CARS {
         let color = colors[i % colors.len()].clone();
         commands
@@ -144,29 +155,19 @@ fn spawn_cars(
                 MeshMaterial3d(color.clone()),
                 Transform::from_scale(Vec3::splat(0.5)),
                 Moves(i as f32 * 2.0),
+                children![
+                    (
+                        Mesh3d(box_mesh.clone()),
+                        MeshMaterial3d(color),
+                        Transform::from_xyz(0.0, 0.08, 0.03).with_scale(Vec3::new(1.0, 1.0, 0.5)),
+                    ),
+                    make_wheel(1.0, 1.0),
+                    make_wheel(1.0, -1.0),
+                    make_wheel(-1.0, 1.0),
+                    make_wheel(-1.0, -1.0)
+                ],
             ))
-            .insert_if(CameraTracked, || i == 0)
-            .with_children(|parent| {
-                parent.spawn((
-                    Mesh3d(box_mesh.clone()),
-                    MeshMaterial3d(color),
-                    Transform::from_xyz(0.0, 0.08, 0.03).with_scale(Vec3::new(1.0, 1.0, 0.5)),
-                ));
-                let mut spawn_wheel = |x: f32, z: f32| {
-                    parent.spawn((
-                        Mesh3d(cylinder.clone()),
-                        MeshMaterial3d(wheel_matl.clone()),
-                        Transform::from_xyz(0.14 * x, -0.045, 0.15 * z)
-                            .with_scale(Vec3::new(0.15, 0.04, 0.15))
-                            .with_rotation(Quat::from_rotation_z(std::f32::consts::FRAC_PI_2)),
-                        Rotates,
-                    ));
-                };
-                spawn_wheel(1.0, 1.0);
-                spawn_wheel(1.0, -1.0);
-                spawn_wheel(-1.0, 1.0);
-                spawn_wheel(-1.0, -1.0);
-            });
+            .insert_if(CameraTracked, || i == 0);
     }
 }
 
@@ -234,23 +235,22 @@ fn spawn_trees(
 }
 
 fn setup_ui(mut commands: Commands) {
-    commands
-        .spawn((
-            Text::default(),
-            Node {
-                position_type: PositionType::Absolute,
-                top: px(12),
-                left: px(12),
-                ..default()
-            },
-        ))
-        .with_children(|p| {
-            p.spawn(TextSpan::default());
-            p.spawn(TextSpan::default());
-            p.spawn(TextSpan::new("1/2: -/+ shutter angle (blur amount)\n"));
-            p.spawn(TextSpan::new("3/4: -/+ sample count (blur quality)\n"));
-            p.spawn(TextSpan::new("Spacebar: cycle camera\n"));
-        });
+    commands.spawn((
+        Text::default(),
+        Node {
+            position_type: PositionType::Absolute,
+            top: px(12),
+            left: px(12),
+            ..default()
+        },
+        children![
+            TextSpan::default(),
+            TextSpan::default(),
+            TextSpan::new("1/2: -/+ shutter angle (blur amount)\n"),
+            TextSpan::new("3/4: -/+ sample count (blur quality)\n"),
+            TextSpan::new("Spacebar: cycle camera\n"),
+        ],
+    ));
 }
 
 fn keyboard_inputs(

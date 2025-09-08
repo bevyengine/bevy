@@ -135,8 +135,9 @@ default = [
   "bevy_audio",
   "bevy_color",
   "bevy_core_pipeline",
+  "bevy_post_process",
   "bevy_core_widgets",
-  "bevy_anti_aliasing",
+  "bevy_anti_alias",
   "bevy_gilrs",
   "bevy_gizmos",
   "bevy_gltf",
@@ -216,8 +217,11 @@ bevy_color = ["bevy_internal/bevy_color"]
 # Provides cameras and other basic render pipeline features
 bevy_core_pipeline = ["bevy_internal/bevy_core_pipeline"]
 
+# Provides post process effects such as depth of field, bloom, chromatic aberration.
+bevy_post_process = ["bevy_internal/bevy_post_process"]
+
 # Provides various anti aliasing solutions
-bevy_anti_aliasing = ["bevy_internal/bevy_anti_aliasing"]
+bevy_anti_alias = ["bevy_internal/bevy_anti_alias"]
 
 # Adds gamepad support
 bevy_gilrs = ["bevy_internal/bevy_gilrs"]
@@ -1340,7 +1344,7 @@ wasm = true
 name = "solari"
 path = "examples/3d/solari.rs"
 doc-scrape-examples = true
-required-features = ["bevy_solari"]
+required-features = ["bevy_solari", "https"]
 
 [package.metadata.example.solari]
 name = "Solari"
@@ -3874,6 +3878,15 @@ doc-scrape-examples = true
 hidden = true
 
 [[example]]
+name = "desktop_request_redraw"
+path = "tests/window/desktop_request_redraw.rs"
+doc-scrape-examples = true
+required-features = ["bevy_dev_tools"]
+
+[package.metadata.example.desktop_request_redraw]
+hidden = true
+
+[[example]]
 name = "window_resizing"
 path = "examples/window/window_resizing.rs"
 doc-scrape-examples = true
@@ -4677,3 +4690,14 @@ description = "Gallery of Feathers Widgets"
 category = "UI (User Interface)"
 wasm = true
 hidden = true
+
+[[example]]
+name = "render_depth_to_texture"
+path = "examples/shader_advanced/render_depth_to_texture.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.render_depth_to_texture]
+name = "Render Depth to Texture"
+description = "Demonstrates how to use depth-only cameras"
+category = "Shaders"
+wasm = true

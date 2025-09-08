@@ -197,7 +197,7 @@ mod ui {
 
     pub fn setup_paused_screen(mut commands: Commands) {
         commands.spawn((
-            DespawnOnExitState(IsPaused::Paused),
+            DespawnOnExit(IsPaused::Paused),
             Node {
                 // center button
                 width: percent(100),

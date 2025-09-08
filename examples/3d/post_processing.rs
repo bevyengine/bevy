@@ -5,8 +5,8 @@
 use std::f32::consts::PI;
 
 use bevy::{
-    core_pipeline::post_process::ChromaticAberration, light::CascadeShadowConfigBuilder,
-    prelude::*, render::view::Hdr,
+    light::CascadeShadowConfigBuilder, post_process::effect_stack::ChromaticAberration, prelude::*,
+    render::view::Hdr,
 };
 
 /// The number of units per frame to add to or subtract from intensity when the
@@ -142,7 +142,7 @@ impl Default for AppSettings {
 /// Creates help text at the bottom of the screen.
 fn create_help_text(app_settings: &AppSettings) -> Text {
     format!(
-        "Chromatic aberration intensity: {} (Press Left or Right to change)",
+        "Chromatic aberration intensity: {:.2} (Press Left or Right to change)",
         app_settings.chromatic_aberration_intensity
     )
     .into()

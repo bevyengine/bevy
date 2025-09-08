@@ -3,7 +3,7 @@ use crate::{
         AtmosphereSamplers, AtmosphereTextures, AtmosphereTransform, AtmosphereTransforms,
         AtmosphereTransformsOffset,
     },
-    AtmosphereSettings, GpuLights, LightMeta, ViewLightsUniformOffset,
+    GpuAtmosphereSettings, GpuLights, LightMeta, ViewLightsUniformOffset,
 };
 use bevy_asset::{load_embedded_asset, AssetServer, Assets, Handle, RenderAssetUsages};
 use bevy_ecs::{
@@ -69,7 +69,7 @@ pub fn init_atmosphere_probe_layout(mut commands: Commands, render_device: Res<R
             ShaderStages::COMPUTE,
             (
                 uniform_buffer::<Atmosphere>(true),
-                uniform_buffer::<AtmosphereSettings>(true),
+                uniform_buffer::<GpuAtmosphereSettings>(true),
                 uniform_buffer::<AtmosphereTransform>(true),
                 uniform_buffer::<ViewUniform>(true),
                 uniform_buffer::<GpuLights>(true),
@@ -102,7 +102,7 @@ pub(super) fn prepare_atmosphere_probe_bind_groups(
     lights_uniforms: Res<LightMeta>,
     atmosphere_transforms: Res<AtmosphereTransforms>,
     atmosphere_uniforms: Res<ComponentUniforms<Atmosphere>>,
-    settings_uniforms: Res<ComponentUniforms<AtmosphereSettings>>,
+    settings_uniforms: Res<ComponentUniforms<GpuAtmosphereSettings>>,
     mut commands: Commands,
 ) {
     for (entity, textures) in &probes {
@@ -246,7 +246,7 @@ pub fn prepare_atmosphere_probe_components(
 pub(super) struct EnvironmentNode {
     main_view_query: QueryState<(
         Read<DynamicUniformIndex<Atmosphere>>,
-        Read<DynamicUniformIndex<AtmosphereSettings>>,
+        Read<DynamicUniformIndex<GpuAtmosphereSettings>>,
         Read<AtmosphereTransformsOffset>,
         Read<ViewUniformOffset>,
         Read<ViewLightsUniformOffset>,
