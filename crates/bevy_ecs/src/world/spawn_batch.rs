@@ -1,3 +1,5 @@
+use bevy_ptr::MovingPtr;
+
 use crate::{
     bundle::{Bundle, BundleSpawner, NoBundleEffect},
     change_detection::MaybeLocation,
@@ -83,7 +85,7 @@ where
         unsafe {
             Some(
                 self.spawner
-                    .spawn::<I::Item>(bundle.as_mut_ptr(), self.caller),
+                    .spawn::<I::Item>(MovingPtr::from_value(&mut bundle), self.caller),
             )
         }
     }

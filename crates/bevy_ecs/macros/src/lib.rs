@@ -115,6 +115,7 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
 
     let mut active_field_types = Vec::new();
     let mut active_field_tokens = Vec::new();
+    let mut active_field_alias: Vec<proc_macro2::TokenStream> = Vec::new();
     let mut inactive_field_tokens = Vec::new();
     for (((i, field_type), field_kind), field) in field_type
         .iter()
@@ -122,6 +123,7 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
         .zip(field_kind.iter())
         .zip(field.iter())
     {
+        let field_alias = format_ident!("field_{}", i).to_token_stream();
         let field_tokens = match field {
             Some(field) => field.to_token_stream(),
             None => Index::from(i).to_token_stream(),
@@ -129,6 +131,7 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
         match field_kind {
             BundleFieldKind::Component => {
                 active_field_types.push(field_type);
+                active_field_alias.push(field_alias);
                 active_field_tokens.push(field_tokens);
             }
 
@@ -163,7 +166,15 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
     };
 
     let dynamic_bundle_impl = quote! {
-        #[allow(deprecated)]
+        #[doc(hidden)]
+        #[expect(dead_code, reason = "This is a static assertion.")]
+        impl #impl_generics #struct_name #ty_generics #where_clause {
+            // Ensure that the type can be destructured and does not implement `Drop`.
+            fn check_no_bundle_drop(self) {
+                #( let _ = self.#active_field_tokens; )*
+            }
+        }
+
         // SAFETY:
         // - Assuming each of the fields implement `DynamicBundle` correctly, each of the implementations for each of
         //   the fields must move the components out of the `Bundle` exactly once between both `get_components` and `apply_effect`.
@@ -173,19 +184,26 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
             #[allow(unused_variables)]
             #[inline]
             unsafe fn get_components(
-                ptr: *mut Self,
+                ptr: #ecs_path::ptr::MovingPtr<'_, Self>,
                 func: &mut impl FnMut(#ecs_path::component::StorageType, #ecs_path::ptr::OwningPtr<'_>)
             ) {
+
+                use #ecs_path::__macro_exports::DebugCheckedUnwrap;
+
+                #( let #active_field_alias = ptr.move_field::<#active_field_types>(core::mem::offset_of!(Self, #active_field_tokens)); )*
+                core::mem::forget(ptr);
                 #(
-                    let field_ptr = &raw mut (*ptr).#active_field_tokens;
-                    <#active_field_types as #ecs_path::bundle::DynamicBundle>::get_components(field_ptr, &mut *func);
+                    <#active_field_types as #ecs_path::bundle::DynamicBundle>::get_components(
+                        #active_field_alias.try_into().debug_checked_unwrap(),
+                        &mut *func
+                    );
                 )*
             }
 
             #[allow(unused_variables)]
             #[inline]
             unsafe fn apply_effect(
-                ptr: *mut core::mem::MaybeUninit<Self>,
+                ptr: #ecs_path::ptr::MovingPtr<'_, core::mem::MaybeUninit<Self>>,
                 func: &mut #ecs_path::world::EntityWorldMut<'_>,
             ) {
             }

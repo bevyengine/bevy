@@ -5,12 +5,15 @@ use crate::{
     bundle::{Bundle, BundleEffect, DynamicBundle, InsertMode, NoBundleEffect},
     change_detection::MaybeLocation,
     entity::Entity,
+    query::DebugCheckedUnwrap,
     relationship::{RelatedSpawner, Relationship, RelationshipHookMode, RelationshipTarget},
     world::{EntityWorldMut, World},
 };
 use alloc::vec::Vec;
-use core::marker::PhantomData;
+use bevy_ptr::MovingPtr;
+use core::mem;
 use core::mem::MaybeUninit;
+use core::{marker::PhantomData, mem::offset_of};
 use variadics_please::all_tuples_enumerated;
 
 /// A wrapper over a [`Bundle`] indicating that an entity should be spawned with that [`Bundle`].
@@ -56,14 +59,11 @@ pub trait SpawnableList<R> {
     /// `this` must be a valid and aligned pointer to `Self` and takes ownership of the
     /// value pointed at by `this`.
     #[doc(hidden)]
-    unsafe fn spawn_raw(this: *mut Self, world: &mut World, entity: Entity)
+    unsafe fn spawn_raw(this: MovingPtr<'_, Self>, world: &mut World, entity: Entity)
     where
         Self: Sized,
     {
-        // SAFETY: this function must be called with a pointer to a valid `Self`.
-        unsafe {
-            core::ptr::read(this).spawn(world, entity);
-        }
+        this.read().spawn(world, entity);
     }
 }
 
@@ -83,7 +83,7 @@ impl<R: Relationship, B: Bundle> SpawnableList<R> for Spawn<B> {
         let mut this = MaybeUninit::new(self);
         // SAFETY: `this` contains a valid `Self` we own.
         unsafe {
-            <Self as SpawnableList<R>>::spawn_raw(this.as_mut_ptr(), world, entity);
+            <Self as SpawnableList<R>>::spawn_raw(MovingPtr::from_value(&mut this), world, entity);
         }
     }
 
@@ -91,10 +91,10 @@ impl<R: Relationship, B: Bundle> SpawnableList<R> for Spawn<B> {
         1
     }
 
-    unsafe fn spawn_raw(this: *mut Self, world: &mut World, entity: Entity) {
+    unsafe fn spawn_raw(this: MovingPtr<'_, Self>, world: &mut World, entity: Entity) {
         #[track_caller]
         unsafe fn spawn_raw<B: Bundle, R: Relationship>(
-            this: *mut Spawn<B>,
+            this: MovingPtr<'_, Spawn<B>>,
             world: &mut World,
             entity: Entity,
         ) {
@@ -105,10 +105,11 @@ impl<R: Relationship, B: Bundle> SpawnableList<R> for Spawn<B> {
             // - `r` is initialized and a valid bundle
             // - the caller ensures `this` is a valid pointer, so `this.0` must be a valid bundle as well
             unsafe {
-                let mut entity = world.spawn_with_caller(r.as_mut_ptr(), caller);
-                let bundle = &raw mut (*this).0;
+                let mut entity = world.spawn_with_caller(MovingPtr::from_value(&mut r), caller);
                 entity.insert_raw_with_caller(
-                    bundle,
+                    this.move_field::<B>(offset_of!(Spawn<B>, 0))
+                        .try_into()
+                        .debug_checked_unwrap(),
                     InsertMode::Replace,
                     caller,
                     RelationshipHookMode::Run,
@@ -271,43 +272,26 @@ impl<R: Relationship> SpawnableList<R> for WithOneRelated {
 }
 
 macro_rules! spawnable_list_impl {
-    ($(#[$meta:meta])* $(($index:tt, $list: ident)),*) => {
-        #[expect(
-            clippy::allow_attributes,
-            reason = "This is a tuple-related macro; as such, the lints below may not always apply."
-        )]
+    ($(#[$meta:meta])* $(($index:tt, $list: ident, $alias: ident)),*) => {
         $(#[$meta])*
         impl<R: Relationship, $($list: SpawnableList<R>),*> SpawnableList<R> for ($($list,)*) {
             fn spawn(self, _world: &mut World, _entity: Entity) {
-                #[allow(
-                    non_snake_case,
-                    reason = "The names of these variables are provided by the caller, not by us."
-                )]
-                let ($($list,)*) = self;
-                $($list.spawn(_world, _entity);)*
+                let ($($alias,)*) = self;
+                $($alias.spawn(_world, _entity);)*
             }
 
-            unsafe fn spawn_raw(_this: *mut Self, _world: &mut World, _entity: Entity)
+            unsafe fn spawn_raw(_this: MovingPtr<'_, Self>, _world: &mut World, _entity: Entity)
             where
                 Self: Sized,
             {
-                $(
-                #[allow(
-                    non_snake_case,
-                    reason = "The names of these variables are provided by the caller, not by us."
-                )]
-                let $list = &raw mut (*_this).$index;
-                SpawnableList::<R>::spawn_raw($list, _world, _entity);
-                )*
+                $( let $alias = _this.move_field::<$list>(core::mem::offset_of!(Self, $index)); )*
+                core::mem::forget(_this);
+                $( SpawnableList::<R>::spawn_raw($alias.try_into().debug_checked_unwrap(), _world, _entity); )*
             }
 
             fn size_hint(&self) -> usize {
-                #[allow(
-                    non_snake_case,
-                    reason = "The names of these variables are provided by the caller, not by us."
-                )]
-                let ($($list,)*) = self;
-                0 $(+ $list.size_hint())*
+                let ($($alias,)*) = self;
+                0 $(+ $alias.size_hint())*
             }
        }
     }
@@ -315,10 +299,11 @@ macro_rules! spawnable_list_impl {
 
 all_tuples_enumerated!(
     #[doc(fake_variadic)]
-    spawnable_list_impl, 
-    0, 
-    12, 
-    P
+    spawnable_list_impl,
+    0,
+    12,
+    P,
+    field_
 );
 
 /// A [`Bundle`] that:
@@ -339,14 +324,16 @@ impl<R: Relationship, L: SpawnableList<R>> BundleEffect for SpawnRelatedBundle<R
         });
     }
 
-    unsafe fn apply_raw(this: *mut Self, entity: &mut EntityWorldMut)
+    unsafe fn apply_raw(this: MovingPtr<'_, Self>, entity: &mut EntityWorldMut)
     where
         Self: Sized,
     {
         let id = entity.id();
         // SAFETY: this function must be called with a pointer to a valid `Self`.
         entity.world_scope(|world: &mut World| unsafe {
-            L::spawn_raw((&raw mut (*this).list), world, id);
+            bevy_ptr::deconstruct_moving_ptr!(this, Self {
+                list: L => { L::spawn_raw(list.try_into().debug_checked_unwrap(), world, id) },
+            });
         });
     }
 }
@@ -377,16 +364,11 @@ unsafe impl<R: Relationship, L: SpawnableList<R>> DynamicBundle for SpawnRelated
     type Effect = Self;
 
     unsafe fn get_components(
-        ptr: *mut Self,
+        ptr: MovingPtr<'_, Self>,
         func: &mut impl FnMut(crate::component::StorageType, bevy_ptr::OwningPtr<'_>),
     ) {
-        // SAFETY:
-        // - The caller must ensure that the `ptr` points at a valid non-null `SpawnRelatedBundle`,
-        // - The caller must ensure that the `ptr` owns the value it points at, and thus cannot alias.
-        // - The caller must ensure that the `ptr` is aligned.
-        let effect = unsafe { &*ptr };
         let target =
-            <R::RelationshipTarget as RelationshipTarget>::with_capacity(effect.list.size_hint());
+            <R::RelationshipTarget as RelationshipTarget>::with_capacity(ptr.list.size_hint());
         let mut target = MaybeUninit::new(target);
         // SAFETY:
         // - The caller must ensure that this is called exactly once before `apply_effect`.
@@ -396,19 +378,19 @@ unsafe impl<R: Relationship, L: SpawnableList<R>> DynamicBundle for SpawnRelated
         //   the pointer it creates must be aligned.
         // - `Effect: !NoBundleEffect`, which means the caller is responsible for calling this type's `apply_effect`
         //   at least once before returning to safe code.
-        <R::RelationshipTarget as DynamicBundle>::get_components(target.as_mut_ptr(), func);
+        <R::RelationshipTarget as DynamicBundle>::get_components(
+            MovingPtr::from_value(&mut target),
+            func,
+        );
+        // Forget the pointer so that the value is available in `apply_effect`.
+        mem::forget(ptr);
     }
 
-    unsafe fn apply_effect(ptr: *mut MaybeUninit<Self>, entity: &mut EntityWorldMut) {
-        // SAFETY:
-        // - The caller must ensure that the `ptr` points at a valid non-null `SpawnRelatedBundle`,
-        // - The caller must ensure that the `ptr` owns the value it points at.
-        // - The caller must ensure that the `ptr` is aligned.
-        let effect = unsafe { ptr.read() };
+    unsafe fn apply_effect(ptr: MovingPtr<'_, MaybeUninit<Self>>, entity: &mut EntityWorldMut) {
         // SAFETY: The value was not moved out in `get_components`, only borrowed, and thus should still
         // be valid and initialized.
-        let effect = unsafe { effect.assume_init() };
-        effect.apply(entity);
+        let effect = unsafe { ptr.assume_init() };
+        effect.read().apply(entity);
     }
 }
 
@@ -435,7 +417,7 @@ unsafe impl<R: Relationship, B: Bundle> DynamicBundle for SpawnOneRelated<R, B> 
     type Effect = Self;
 
     unsafe fn get_components(
-        _ptr: *mut Self,
+        ptr: MovingPtr<'_, Self>,
         func: &mut impl FnMut(crate::component::StorageType, bevy_ptr::OwningPtr<'_>),
     ) {
         let target = <R::RelationshipTarget as RelationshipTarget>::with_capacity(1);
@@ -448,16 +430,19 @@ unsafe impl<R: Relationship, B: Bundle> DynamicBundle for SpawnOneRelated<R, B> 
         //   the pointer it creates must be aligned.
         // - `Effect: !NoBundleEffect`, which means the caller is responsible for calling this type's `apply_effect`
         //   at least once before returning to safe code.
-        <R::RelationshipTarget as DynamicBundle>::get_components(target.as_mut_ptr(), func);
+        <R::RelationshipTarget as DynamicBundle>::get_components(
+            MovingPtr::from_value(&mut target),
+            func,
+        );
+        // Forget the pointer so that the value is available in `apply_effect`.
+        mem::forget(ptr);
     }
 
-    unsafe fn apply_effect(ptr: *mut MaybeUninit<Self>, entity: &mut EntityWorldMut) {
-        // SAFETY: The caller must ensure that the `ptr` must be valid and aligned.
-        let effect = unsafe { ptr.read() };
+    unsafe fn apply_effect(ptr: MovingPtr<'_, MaybeUninit<Self>>, entity: &mut EntityWorldMut) {
         // SAFETY: The value was not moved out in `get_components`, only borrowed, and thus should still
         // be valid and initialized.
-        let effect = unsafe { effect.assume_init() };
-        effect.apply(entity);
+        let effect = unsafe { ptr.assume_init() };
+        effect.read().apply(entity);
     }
 }
 

@@ -1,5 +1,5 @@
 use alloc::vec::Vec;
-use bevy_ptr::ConstNonNull;
+use bevy_ptr::{ConstNonNull, MovingPtr};
 use core::ptr::NonNull;
 
 use crate::{
@@ -160,7 +160,7 @@ impl<'w> BundleInserter<'w> {
         &mut self,
         entity: Entity,
         location: EntityLocation,
-        bundle: *mut T,
+        bundle: MovingPtr<'_, T>,
         insert_mode: InsertMode,
         caller: MaybeLocation,
         relationship_hook_mode: RelationshipHookMode,

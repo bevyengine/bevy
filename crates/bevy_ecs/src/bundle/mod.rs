@@ -14,6 +14,7 @@ pub(crate) use insert::BundleInserter;
 pub(crate) use remove::BundleRemover;
 pub(crate) use spawner::BundleSpawner;
 
+use bevy_ptr::MovingPtr;
 use core::mem::MaybeUninit;
 pub use info::*;
 
@@ -257,7 +258,10 @@ pub unsafe trait DynamicBundle: Sized {
     // - `ptr` must point to an owned valid instance of `Self` and must be aligned.
     // - `apply_effect` must be called exactly once after this has been called if `Effect: !NoBundleEffect`
     #[doc(hidden)]
-    unsafe fn get_components(ptr: *mut Self, func: &mut impl FnMut(StorageType, OwningPtr<'_>));
+    unsafe fn get_components(
+        ptr: MovingPtr<'_, Self>,
+        func: &mut impl FnMut(StorageType, OwningPtr<'_>),
+    );
 
     // SAFETY:
     // - Must be called exactly once after `get_components` has been called.
@@ -265,7 +269,7 @@ pub unsafe trait DynamicBundle: Sized {
     //   all of fields that were moved out of in `get_components` will not be valid anymore. The pointer
     //   itself must be aligned.
     #[doc(hidden)]
-    unsafe fn apply_effect(ptr: *mut MaybeUninit<Self>, entity: &mut EntityWorldMut);
+    unsafe fn apply_effect(ptr: MovingPtr<'_, MaybeUninit<Self>>, entity: &mut EntityWorldMut);
 }
 
 /// An operation on an [`Entity`](crate::entity::Entity) that occurs _after_ inserting the
@@ -285,7 +289,7 @@ pub trait BundleEffect {
     /// `this` must be a valid and aligned pointer to `Self` and takes ownership of the
     /// value pointed at by `this`.
     #[doc(hidden)]
-    unsafe fn apply_raw(this: *mut Self, entity: &mut EntityWorldMut)
+    unsafe fn apply_raw(this: MovingPtr<'_, Self>, entity: &mut EntityWorldMut)
     where
         Self: Sized,
     {
@@ -293,8 +297,7 @@ pub trait BundleEffect {
         // Implementers will want to override this to avoid copying big
         // `BundleEffect`s onto the stack repeatedly.
 
-        // SAFETY: Caller ensures that `this` is a valid pointer to `Self`.
-        unsafe { core::ptr::read(this).apply(entity) }
+        this.read().apply(entity);
     }
 }
 

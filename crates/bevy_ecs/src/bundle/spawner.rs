@@ -1,6 +1,6 @@
 use core::ptr::NonNull;
 
-use bevy_ptr::ConstNonNull;
+use bevy_ptr::{ConstNonNull, MovingPtr};
 
 use crate::{
     archetype::{Archetype, ArchetypeCreated, ArchetypeId, SpawnBundleStatus},
@@ -100,7 +100,7 @@ impl<'w> BundleSpawner<'w> {
     pub unsafe fn spawn_non_existent<T: DynamicBundle>(
         &mut self,
         entity: Entity,
-        bundle: *mut T,
+        bundle: MovingPtr<'_, T>,
         caller: MaybeLocation,
     ) -> EntityLocation {
         // SAFETY: We do not make any structural changes to the archetype graph through self.world so these pointers always remain valid
@@ -184,7 +184,11 @@ impl<'w> BundleSpawner<'w> {
     ///
     /// [`apply_effect`]: crate::bundle::DynamicBundle::apply_effect
     #[inline]
-    pub unsafe fn spawn<T: Bundle>(&mut self, bundle: *mut T, caller: MaybeLocation) -> Entity {
+    pub unsafe fn spawn<T: Bundle>(
+        &mut self,
+        bundle: MovingPtr<'_, T>,
+        caller: MaybeLocation,
+    ) -> Entity {
         let entity = self.entities().alloc();
         // SAFETY:
         // - `entity` is allocated above

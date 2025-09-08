@@ -3,7 +3,7 @@ use bevy_platform::{
     collections::{HashMap, HashSet},
     hash::FixedHasher,
 };
-use bevy_ptr::OwningPtr;
+use bevy_ptr::{MovingPtr, OwningPtr};
 use bevy_utils::TypeIdMap;
 use core::{any::TypeId, ptr::NonNull};
 use indexmap::{IndexMap, IndexSet};
@@ -245,7 +245,7 @@ impl BundleInfo {
         entity: Entity,
         table_row: TableRow,
         change_tick: Tick,
-        bundle: *mut T,
+        bundle: MovingPtr<'_, T>,
         insert_mode: InsertMode,
         caller: MaybeLocation,
     ) {

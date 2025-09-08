@@ -4,6 +4,7 @@ pub mod entity_command;
 #[cfg(feature = "std")]
 mod parallel_scope;
 
+use bevy_ptr::MovingPtr;
 pub use command::Command;
 pub use entity_command::EntityCommand;
 
@@ -404,7 +405,7 @@ impl<'w, 's> Commands<'w, 's> {
             //   drop the value inside unless manually invoked.
             unsafe {
                 entity.insert_raw_with_caller(
-                    bundle.as_mut_ptr(),
+                    MovingPtr::from_value(&mut bundle),
                     InsertMode::Replace,
                     caller,
                     crate::relationship::RelationshipHookMode::Run,

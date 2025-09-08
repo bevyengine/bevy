@@ -19,7 +19,7 @@ use crate::{
     system::IntoObserverSystem,
     world::{error::EntityMutableFetchError, EntityWorldMut, FromWorld},
 };
-use bevy_ptr::OwningPtr;
+use bevy_ptr::{MovingPtr, OwningPtr};
 
 /// A command which gets executed for a given [`Entity`].
 ///
@@ -109,8 +109,8 @@ where
 #[track_caller]
 pub fn insert(bundle: impl Bundle, mode: InsertMode) -> impl EntityCommand {
     let caller = MaybeLocation::caller();
-    let mut bundle = MaybeUninit::new(bundle);
     move |mut entity: EntityWorldMut| {
+        let mut bundle = MaybeUninit::new(bundle);
         // SAFETY:
         // - This is being called with an owned bundle, which should always be a non-null,
         //   aligned pointer to a valid initialized instance of `T`.
@@ -118,7 +118,7 @@ pub fn insert(bundle: impl Bundle, mode: InsertMode) -> impl EntityCommand {
         //   drop the value inside unless manually invoked.
         unsafe {
             entity.insert_raw_with_caller(
-                bundle.as_mut_ptr(),
+                MovingPtr::from_value(&mut bundle),
                 mode,
                 caller,
                 RelationshipHookMode::Run,
@@ -175,7 +175,7 @@ pub fn insert_from_world<T: Component + FromWorld>(mode: InsertMode) -> impl Ent
             //   drop the value inside unless manually invoked.
             unsafe {
                 entity.insert_raw_with_caller(
-                    value.as_mut_ptr(),
+                    MovingPtr::from_value(&mut value),
                     mode,
                     caller,
                     RelationshipHookMode::Run,
@@ -207,7 +207,7 @@ where
             //   drop the value inside unless manually invoked.
             unsafe {
                 entity.insert_raw_with_caller(
-                    value.as_mut_ptr(),
+                    MovingPtr::from_value(&mut value),
                     mode,
                     caller,
                     RelationshipHookMode::Run,

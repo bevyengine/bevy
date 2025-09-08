@@ -133,6 +133,7 @@ pub mod __macro_exports {
     // Cannot directly use `alloc::vec::Vec` in macros, as a crate may not have
     // included `extern crate alloc;`. This re-export ensures we have access
     // to `Vec` in `no_std` and `std` contexts.
+    pub use crate::query::DebugCheckedUnwrap;
     pub use alloc::vec::Vec;
 }
 

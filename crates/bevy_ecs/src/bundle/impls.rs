@@ -1,8 +1,7 @@
 use core::any::TypeId;
 
-use bevy_ptr::OwningPtr;
+use bevy_ptr::{MovingPtr, OwningPtr};
 use core::mem::MaybeUninit;
-use core::ptr::NonNull;
 use variadics_please::{all_tuples, all_tuples_enumerated};
 
 use crate::{
@@ -47,28 +46,18 @@ unsafe impl<C: Component> DynamicBundle for C {
     type Effect = ();
     #[inline]
     unsafe fn get_components(
-        ptr: *mut Self,
+        ptr: MovingPtr<'_, Self>,
         func: &mut impl FnMut(StorageType, OwningPtr<'_>),
     ) -> Self::Effect {
-        // SAFETY: The caller must ensure that `ptr` is not null.
-        let ptr = unsafe { NonNull::new(ptr).debug_checked_unwrap().cast::<u8>() };
-        // SAFETY:
-        // - The caller must ensure that `ptr` must point to valid value of type `C`.
-        // - The `A` type parameter is [`Aligned`] and the caller must ensure that `ptr` is aligned.
-        // - `ptr` must has the correct provenance to allow read and writes of the pointee type: the caller
-        //   must sure that it is owned.
-        // - The lifetime of the produced `OwningPtr` is valid for the rest of this function call and does not
-        //   alias, assuming that `func` is sound.
-        let ptr = unsafe { OwningPtr::new(ptr) };
-        func(C::STORAGE_TYPE, ptr);
+        func(C::STORAGE_TYPE, OwningPtr::from(ptr));
     }
 
     #[inline]
-    unsafe fn apply_effect(_ptr: *mut MaybeUninit<Self>, _entity: &mut EntityWorldMut) {}
+    unsafe fn apply_effect(_ptr: MovingPtr<'_, MaybeUninit<Self>>, _entity: &mut EntityWorldMut) {}
 }
 
 macro_rules! tuple_impl {
-    ($(#[$meta:meta])* $(($index:tt, $name: ident)),*) => {
+    ($(#[$meta:meta])* $(($index:tt, $name: ident, $alias: ident)),*) => {
         #[expect(
             clippy::allow_attributes,
             reason = "This is a tuple-related macro; as such, the lints below may not always apply."
@@ -153,18 +142,17 @@ macro_rules! tuple_impl {
                 reason = "Zero-length tuples will generate a function body equivalent to `()`; however, this macro is meant for all applicable tuples, and as such it makes no sense to rewrite it just for that case."
             )]
             #[inline(always)]
-            unsafe fn get_components(ptr: *mut Self, func: &mut impl FnMut(StorageType, OwningPtr<'_>)) {
-                $(
-                    let field_ptr = &raw mut (*ptr).$index;
-                    // SAFETY:
-                    // - If `ptr` is aligned, then field_ptr is aligned properly
-                    // - If a field is `NoBundleEffect`, it's `apply_effect` is a no-op
-                    //   and cannot move any value out of an invalid instance after this call.
-                    // - If a field is `!NoBundleEffect`, it must be valid since a safe
-                    //   implementation of `DynamicBundle` only moves the value out only
-                    //   once between `get_components` and `apply_effect`.
-                    $name::get_components(field_ptr, &mut *func);
-                )*
+            unsafe fn get_components(ptr: MovingPtr<'_, Self>, func: &mut impl FnMut(StorageType, OwningPtr<'_>)) {
+                // SAFETY:
+                // - If `ptr` is aligned, then field_ptr is aligned properly
+                // - If a field is `NoBundleEffect`, it's `apply_effect` is a no-op
+                //   and cannot move any value out of an invalid instance after this call.
+                // - If a field is `!NoBundleEffect`, it must be valid since a safe
+                //   implementation of `DynamicBundle` only moves the value out only
+                //   once between `get_components` and `apply_effect`.
+                $( let $alias = ptr.move_field::<$name>(core::mem::offset_of!(Self, $index)); )*
+                core::mem::forget(ptr);
+                $( $name::get_components($alias.try_into().debug_checked_unwrap(), func); )*
             }
 
             #[allow(
@@ -172,20 +160,17 @@ macro_rules! tuple_impl {
                 reason = "Zero-length tuples will generate a function body equivalent to `()`; however, this macro is meant for all applicable tuples, and as such it makes no sense to rewrite it just for that case."
             )]
             #[inline(always)]
-            unsafe fn apply_effect(ptr: *mut core::mem::MaybeUninit<Self>, entity: &mut EntityWorldMut) {
-                $(
-                    let field_ptr = ptr
-                        .byte_add(core::mem::offset_of!(Self, $index))
-                        .cast::<core::mem::MaybeUninit<$name>>();
-                    // SAFETY:
-                    // - If `ptr` is aligned, then field_ptr is aligned properly
-                    // - If a field is `NoBundleEffect`, it's `apply_effect` is a no-op
-                    //   and cannot move any value out of an invalid instance.
-                    // - If a field is `!NoBundleEffect`, it must be valid since a safe
-                    //   implementation of `DynamicBundle` only moves the value out only
-                    //   once between `get_components` and `apply_effect`.
-                    $name::apply_effect(field_ptr, entity);
-                )*
+            unsafe fn apply_effect(ptr: MovingPtr<'_, MaybeUninit<Self>>, entity: &mut EntityWorldMut) {
+                // SAFETY:
+                // - If `ptr` is aligned, then field_ptr is aligned properly
+                // - If a field is `NoBundleEffect`, it's `apply_effect` is a no-op
+                //   and cannot move any value out of an invalid instance.
+                // - If a field is `!NoBundleEffect`, it must be valid since a safe
+                //   implementation of `DynamicBundle` only moves the value out only
+                //   once between `get_components` and `apply_effect`.
+                $( let $alias = ptr.move_field::<MaybeUninit<$name>>(core::mem::offset_of!(Self, $index));)*
+                core::mem::forget(ptr);
+                $( $name::apply_effect($alias.try_into().debug_checked_unwrap(), entity); )*
             }
         }
     }
@@ -196,7 +181,8 @@ all_tuples_enumerated!(
     tuple_impl,
     0,
     15,
-    B
+    B,
+    field_
 );
 
 macro_rules! after_effect_impl {

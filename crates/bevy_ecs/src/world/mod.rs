@@ -24,6 +24,7 @@ use crate::{
     prelude::{Add, Despawn, Insert, Remove, Replace},
 };
 pub use bevy_ecs_macros::FromWorld;
+use bevy_ptr::MovingPtr;
 use bevy_utils::prelude::DebugName;
 pub use deferred_world::DeferredWorld;
 pub use entity_fetch::{EntityFetcher, WorldEntityFetch};
@@ -1161,7 +1162,9 @@ impl World {
         //    and initialized.
         // - `bundle` is not accessed or dropped after this function call returns. `MaybeUninit`
         //   must manually invoke dropping the wrapped value.
-        unsafe { self.spawn_with_caller(bundle.as_mut_ptr(), MaybeLocation::caller()) }
+        unsafe {
+            self.spawn_with_caller(MovingPtr::from_value(&mut bundle), MaybeLocation::caller())
+        }
     }
 
     /// #  Safety
@@ -1169,22 +1172,23 @@ impl World {
     /// - `bundle` must not be accessed or dropped after this function call returns.
     pub(crate) unsafe fn spawn_with_caller<B: Bundle>(
         &mut self,
-        bundle: *mut B,
+        bundle: MovingPtr<'_, B>,
         caller: MaybeLocation,
     ) -> EntityWorldMut<'_> {
         self.flush();
         let change_tick = self.change_tick();
         let entity = self.entities.alloc();
         let mut bundle_spawner = BundleSpawner::new::<B>(self, change_tick);
-        // SAFETY:
-        // - `B` matches `bundle_spawner`'s type ,
-        // -  `entity` is allocated but non-existent
-        // - `B::Effect` is unconstrained, and `B::apply_effect` is called exactly once on the bundle after this call.
-        // - The caller must ensure that `bundle` must be non-null, aligned, and point to a valid instance of `B`.
-        // - The caller must ensure that the value pointed to by `bundle` must not be accessed for anything. The value
-        //   is otherwise only used to call `apply_effect` within this function.
-        let entity_location =
-            unsafe { bundle_spawner.spawn_non_existent::<B>(entity, bundle, caller) };
+        let (bundle, entity_location) = bundle.partial_move(|bundle| {
+            // SAFETY:
+            // - `B` matches `bundle_spawner`'s type ,
+            // -  `entity` is allocated but non-existent
+            // - `B::Effect` is unconstrained, and `B::apply_effect` is called exactly once on the bundle after this call.
+            // - The caller must ensure that `bundle` must be non-null, aligned, and point to a valid instance of `B`.
+            // - The caller must ensure that the value pointed to by `bundle` must not be accessed for anything. The value
+            //   is otherwise only used to call `apply_effect` within this function.
+            unsafe { bundle_spawner.spawn_non_existent::<B>(entity, bundle, caller) }
+        });
 
         let mut entity_location = Some(entity_location);
 
@@ -1200,7 +1204,7 @@ impl World {
         // - This is called exactly once after `get_components` has been called in `spawn_non_existent`.
         // - The caller must ensure that `ptr` points to a valid instance of `B`.
         // - `B` and `MaybeUnnit<B>` have the same memory layout.
-        unsafe { B::apply_effect(bundle.cast::<MaybeUninit<B>>(), &mut entity) };
+        unsafe { B::apply_effect(bundle, &mut entity) };
         entity
     }
 
@@ -2333,9 +2337,8 @@ impl World {
         let mut batch_iter = batch.into_iter();
 
         if let Some((first_entity, first_bundle)) = batch_iter.next() {
-            let mut first_bundle = MaybeUninit::new(first_bundle);
-
             if let Some(first_location) = self.entities().get(first_entity) {
+                let mut first_bundle = MaybeUninit::new(first_bundle);
                 let mut cache = InserterArchetypeCache {
                     // SAFETY: we initialized this bundle_id in `register_info`
                     inserter: unsafe {
@@ -2359,7 +2362,7 @@ impl World {
                     cache.inserter.insert::<B>(
                         first_entity,
                         first_location,
-                        first_bundle.as_mut_ptr(),
+                        MovingPtr::from_value(&mut first_bundle),
                         insert_mode,
                         caller,
                         RelationshipHookMode::Run,
@@ -2367,9 +2370,9 @@ impl World {
                 };
 
                 for (entity, bundle) in batch_iter {
-                    let mut bundle = MaybeUninit::new(bundle);
-
                     if let Some(location) = cache.inserter.entities().get(entity) {
+                        let mut bundle = MaybeUninit::new(bundle);
+
                         if location.archetype_id != cache.archetype_id {
                             cache = InserterArchetypeCache {
                                 // SAFETY: we initialized this bundle_id in `register_info`
@@ -2395,7 +2398,7 @@ impl World {
                             cache.inserter.insert::<B>(
                                 entity,
                                 location,
-                                bundle.as_mut_ptr(),
+                                MovingPtr::from_value(&mut bundle),
                                 insert_mode,
                                 caller,
                                 RelationshipHookMode::Run,
@@ -2528,7 +2531,7 @@ impl World {
                         cache.inserter.insert::<B>(
                             first_entity,
                             first_location,
-                            first_bundle.as_mut_ptr(),
+                            MovingPtr::from_value(&mut first_bundle),
                             insert_mode,
                             caller,
                             RelationshipHookMode::Run,
@@ -2573,7 +2576,7 @@ impl World {
                         cache.inserter.insert::<B>(
                             entity,
                             location,
-                            bundle.as_mut_ptr(),
+                            MovingPtr::from_value(&mut bundle),
                             insert_mode,
                             caller,
                             RelationshipHookMode::Run,

@@ -24,7 +24,7 @@ use crate::{
 };
 use alloc::vec::Vec;
 use bevy_platform::collections::{HashMap, HashSet};
-use bevy_ptr::{OwningPtr, Ptr};
+use bevy_ptr::{MovingPtr, OwningPtr, Ptr};
 use core::{
     any::TypeId,
     cmp::Ordering,
@@ -1978,7 +1978,7 @@ impl<'w> EntityWorldMut<'w> {
         //   drop the value inside unless manually invoked.
         unsafe {
             self.insert_raw_with_caller(
-                bundle.as_mut_ptr(),
+                MovingPtr::from_value(&mut bundle),
                 InsertMode::Replace,
                 MaybeLocation::caller(),
                 RelationshipHookMode::Run,
@@ -2014,7 +2014,7 @@ impl<'w> EntityWorldMut<'w> {
         //   drop the value inside unless manually invoked.
         unsafe {
             self.insert_raw_with_caller(
-                bundle.as_mut_ptr(),
+                MovingPtr::from_value(&mut bundle),
                 InsertMode::Replace,
                 MaybeLocation::caller(),
                 relationship_hook_mode,
@@ -2040,7 +2040,7 @@ impl<'w> EntityWorldMut<'w> {
         //   drop the value inside unless manually invoked.
         unsafe {
             self.insert_raw_with_caller(
-                bundle.as_mut_ptr(),
+                MovingPtr::from_value(&mut bundle),
                 InsertMode::Keep,
                 MaybeLocation::caller(),
                 RelationshipHookMode::Run,
@@ -2057,7 +2057,7 @@ impl<'w> EntityWorldMut<'w> {
     #[inline]
     pub(crate) unsafe fn insert_raw_with_caller<T: Bundle>(
         &mut self,
-        bundle: *mut T,
+        bundle: MovingPtr<'_, T>,
         mode: InsertMode,
         caller: MaybeLocation,
         relationship_hook_mode: RelationshipHookMode,
@@ -2075,7 +2075,7 @@ impl<'w> EntityWorldMut<'w> {
         // - The value pointed at by `bundle` is not accessed for anything other than `apply_effect`
         //   and the caller ensures that the value is not accessed or dropped after this function
         //   returns.
-        let location = unsafe {
+        let (bundle, location) = bundle.partial_move(|bundle| unsafe {
             bundle_inserter.insert::<T>(
                 self.entity,
                 location,
@@ -2084,7 +2084,7 @@ impl<'w> EntityWorldMut<'w> {
                 caller,
                 relationship_hook_mode,
             )
-        };
+        });
         self.location = Some(location);
         self.world.flush();
         self.update_location();
@@ -2092,7 +2092,7 @@ impl<'w> EntityWorldMut<'w> {
         // - This is called exactly once after the `BundleInsert::insert` call before returning to safe code.
         // - `bundle` points to the same `B` that `BundleInsert::insert` was called on. The pointer has not moved
         //   and thus still should be aligned.
-        unsafe { T::apply_effect(bundle.cast::<MaybeUninit<T>>(), self) };
+        unsafe { T::apply_effect(bundle, self) };
         self
     }
 
@@ -2916,7 +2916,10 @@ impl<'w> EntityWorldMut<'w> {
         //    and initialized.
         // - `bundle` is not accessed or dropped after this function call returns. `MaybeUninit`
         //   must manually invoke dropping the wrapped value.
-        unsafe { self.world.spawn_with_caller(bundle.as_mut_ptr(), caller) };
+        unsafe {
+            self.world
+                .spawn_with_caller(MovingPtr::from_value(&mut bundle), caller)
+        };
         self.world.flush();
         self.update_location();
         self
@@ -4691,16 +4694,18 @@ unsafe fn insert_dynamic_bundle<
     {
         type Effect = ();
         unsafe fn get_components(
-            ptr: *mut Self,
+            ptr: MovingPtr<'_, Self>,
             func: &mut impl FnMut(StorageType, OwningPtr<'_>),
         ) {
-            // SAFETY: The caller must ensure that `ptr` is pointing to a valid instance of `Self`,
-            // the pointer is not null, and is aligned.
-            let bundle = unsafe { ptr.read() };
+            let bundle = ptr.read();
             bundle.components.for_each(|(t, ptr)| func(t, ptr));
         }
 
-        unsafe fn apply_effect(_ptr: *mut MaybeUninit<Self>, _entity: &mut EntityWorldMut) {}
+        unsafe fn apply_effect(
+            _ptr: MovingPtr<'_, MaybeUninit<Self>>,
+            _entity: &mut EntityWorldMut,
+        ) {
+        }
     }
 
     let mut bundle = MaybeUninit::new(DynamicInsertBundle {
@@ -4719,7 +4724,7 @@ unsafe fn insert_dynamic_bundle<
         bundle_inserter.insert(
             entity,
             location,
-            bundle.as_mut_ptr(),
+            MovingPtr::from_value(&mut bundle),
             mode,
             caller,
             relationship_hook_insert_mode,

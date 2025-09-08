@@ -7,12 +7,15 @@
     html_favicon_url = "https://bevy.org/assets/icon.png"
 )]
 
+extern crate std;
+
 use core::{
     cell::UnsafeCell,
     fmt::{self, Debug, Formatter, Pointer},
     marker::PhantomData,
     mem::{self, ManuallyDrop, MaybeUninit},
     num::NonZeroUsize,
+    ops::{Deref, DerefMut},
     ptr::{self, NonNull},
 };
 
@@ -550,13 +553,13 @@ impl<'a, T, A: IsAligned> MovingPtr<'_, T, A> {
     ///
     /// [`forget`]: core::mem::forget
     #[inline]
-    pub unsafe fn partial_move(
-        ptr: MovingPtr<'a, T, A>,
-        f: impl FnOnce(MovingPtr<'a, T, A>),
-    ) -> MovingPtr<'a, MaybeUninit<T>, A> {
-        let partial_ptr = ptr.0;
-        f(ptr);
-        MovingPtr(partial_ptr.cast::<MaybeUninit<T>>(), PhantomData)
+    pub unsafe fn partial_move<R>(
+        self,
+        f: impl FnOnce(MovingPtr<'_, T, A>) -> R,
+    ) -> (MovingPtr<'a, MaybeUninit<T>, A>, R) {
+        let partial_ptr = self.0;
+        let ret = f(self);
+        (MovingPtr(partial_ptr.cast::<MaybeUninit<T>>(), PhantomData), ret)
     }
 
     /// Reads the value pointed to by this pointer.
@@ -742,10 +745,30 @@ impl<'a, T> TryFrom<MovingPtr<'a, T, Unaligned>> for MovingPtr<'a, T, Aligned> {
     fn try_from(value: MovingPtr<'a, T, Unaligned>) -> Result<Self, Self::Error> {
         let ptr = value.0;
         if ptr.as_ptr().is_aligned() {
+            mem::forget(value);
             Ok(MovingPtr(ptr, PhantomData))
         } else {
             Err(value)
         }
+    }
+}
+
+impl<T> Deref for MovingPtr<'_, T, Aligned> {
+    type Target = T;
+    #[inline]
+    fn deref(&self) -> &Self::Target {
+        let ptr = self.0.as_ptr().debug_ensure_aligned();
+        // SAFETY: This type owns the value it points to and the generic type parameter is `A` so this pointer must be aligned.
+        unsafe { &*ptr }
+    }
+}
+
+impl<T> DerefMut for MovingPtr<'_, T, Aligned> {
+    #[inline]
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        let ptr = self.0.as_ptr().debug_ensure_aligned();
+        // SAFETY: This type owns the value it points to and the generic type parameter is `A` so this pointer must be aligned.
+        unsafe { &mut *ptr }
     }
 }
 
