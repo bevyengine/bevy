@@ -7,8 +7,6 @@
     html_favicon_url = "https://bevy.org/assets/icon.png"
 )]
 
-extern crate std;
-
 use core::{
     cell::UnsafeCell,
     fmt::{self, Debug, Formatter, Pointer},
@@ -211,11 +209,6 @@ impl<T: ?Sized> ConstNonNull<T> {
         unsafe { Self(NonNull::new_unchecked(ptr.cast_mut())) }
     }
 
-    /// Converts the [`ConstNonNull`] into a raw pointer.
-    pub fn as_ptr(self) -> *const T {
-        self.0.as_ptr().cast_const()
-    }
-
     /// Returns a shared reference to the value.
     ///
     /// # Safety
@@ -258,14 +251,6 @@ impl<T: ?Sized> ConstNonNull<T> {
         unsafe { self.0.as_ref() }
     }
 }
-
-impl<T: ?Sized> Clone for ConstNonNull<T> {
-    fn clone(&self) -> Self {
-        *self
-    }
-}
-
-impl<T: ?Sized> Copy for ConstNonNull<T> {}
 
 impl<T: ?Sized> From<NonNull<T>> for ConstNonNull<T> {
     fn from(value: NonNull<T>) -> ConstNonNull<T> {
