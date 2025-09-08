@@ -182,7 +182,7 @@ mod internal {
         receiver: SyncCell<Receiver<SysinfoRefreshData>>,
         waker: Arc<AtomicWaker>,
     }
-  
+
     struct DiagnosticTask {
         system: System,
         last_refresh: Instant,
