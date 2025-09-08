@@ -135,8 +135,9 @@ default = [
   "bevy_audio",
   "bevy_color",
   "bevy_core_pipeline",
+  "bevy_post_process",
   "bevy_core_widgets",
-  "bevy_anti_aliasing",
+  "bevy_anti_alias",
   "bevy_gilrs",
   "bevy_gizmos",
   "bevy_gltf",
@@ -216,8 +217,11 @@ bevy_color = ["bevy_internal/bevy_color"]
 # Provides cameras and other basic render pipeline features
 bevy_core_pipeline = ["bevy_internal/bevy_core_pipeline"]
 
+# Provides post process effects such as depth of field, bloom, chromatic aberration.
+bevy_post_process = ["bevy_internal/bevy_post_process"]
+
 # Provides various anti aliasing solutions
-bevy_anti_aliasing = ["bevy_internal/bevy_anti_aliasing"]
+bevy_anti_alias = ["bevy_internal/bevy_anti_alias"]
 
 # Adds gamepad support
 bevy_gilrs = ["bevy_internal/bevy_gilrs"]
@@ -3871,6 +3875,15 @@ path = "tests/window/minimizing.rs"
 doc-scrape-examples = true
 
 [package.metadata.example.minimizing]
+hidden = true
+
+[[example]]
+name = "desktop_request_redraw"
+path = "tests/window/desktop_request_redraw.rs"
+doc-scrape-examples = true
+required-features = ["bevy_dev_tools"]
+
+[package.metadata.example.desktop_request_redraw]
 hidden = true
 
 [[example]]
