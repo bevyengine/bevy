@@ -321,7 +321,7 @@ impl<'w> ComponentsRegistrator<'w> {
         type_id: TypeId,
         descriptor: impl FnOnce() -> ComponentDescriptor,
     ) -> ComponentId {
-        if let Some(id) = self.resource_indices.get(&type_id) {
+        if let Some(id) = self.indices.get(&type_id) {
             return *id;
         }
 

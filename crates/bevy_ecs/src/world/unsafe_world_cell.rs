@@ -17,7 +17,7 @@ use crate::{
     world::RawCommandQueue,
 };
 use bevy_platform::sync::atomic::Ordering;
-use bevy_ptr::{Ptr, UnsafeCellDeref};
+use bevy_ptr::{OwningPtr, Ptr, UnsafeCellDeref};
 use core::{any::TypeId, cell::UnsafeCell, fmt::Debug, marker::PhantomData, panic::Location, ptr};
 use thiserror::Error;
 
@@ -455,12 +455,11 @@ impl<'w> UnsafeWorldCell<'w> {
     /// - no mutable reference to the resource exists at the same time
     #[inline]
     pub unsafe fn get_resource_by_id(self, component_id: ComponentId) -> Option<Ptr<'w>> {
+        let entity = self.components().resource_entities.get(&component_id)?;
+        let entity_cell = self.get_entity(*entity).ok()?;
         // SAFETY: caller ensures that `self` has permission to access `R`
         //  caller ensures that no mutable reference exists to `R`
-        unsafe { self.storages() }
-            .resources
-            .get(component_id)?
-            .get_data()
+        entity_cell.get_by_id(component_id)
     }
 
     /// Gets a reference to the non-send resource of the given type if it exists
@@ -542,31 +541,11 @@ impl<'w> UnsafeWorldCell<'w> {
         component_id: ComponentId,
     ) -> Option<MutUntyped<'w>> {
         self.assert_allows_mutable_access();
+        let entity = self.components().resource_entities.get(&component_id)?;
+        let entity_cell = self.get_entity(*entity).ok()?;
         // SAFETY: we only access data that the caller has ensured is unaliased and `self`
         //  has permission to access.
-        let (ptr, ticks, caller) = unsafe { self.storages() }
-            .resources
-            .get(component_id)?
-            .get_with_ticks()?;
-
-        // SAFETY:
-        // - index is in-bounds because the column is initialized and non-empty
-        // - the caller promises that no other reference to the ticks of the same row can exist at the same time
-        let ticks = unsafe {
-            TicksMut::from_tick_cells(ticks, self.last_change_tick(), self.change_tick())
-        };
-
-        Some(MutUntyped {
-            // SAFETY:
-            // - caller ensures that `self` has permission to access the resource
-            // - caller ensures that the resource is unaliased
-            value: unsafe { ptr.assert_unique() },
-            ticks,
-            // SAFETY:
-            // - caller ensures that `self` has permission to access the resource
-            // - caller ensures that the resource is unaliased
-            changed_by: unsafe { caller.map(|caller| caller.deref_mut()) },
-        })
+        return entity_cell.get_mut_by_id(component_id).ok();
     }
 
     /// Gets a mutable reference to the non-send resource of the given type if it exists
@@ -646,14 +625,15 @@ impl<'w> UnsafeWorldCell<'w> {
         TickCells<'w>,
         MaybeLocation<&'w UnsafeCell<&'static Location<'static>>>,
     )> {
+        let entity = self.components().resource_entities.get(&component_id)?;
+        let storage_type = self.components().get_info(component_id)?.storage_type();
+        let location = self.get_entity(*entity).ok()?.location();
         // SAFETY:
         // - caller ensures there is no `&mut World`
         // - caller ensures there are no mutable borrows of this resource
         // - caller ensures that we have permission to access this resource
-        unsafe { self.storages() }
-            .resources
-            .get(component_id)?
-            .get_with_ticks()
+        // - storage_type and location are valid
+        get_component_and_ticks(self, component_id, storage_type, *entity, location)
     }
 
     // Shorthand helper function for getting the data and change ticks for a resource.
