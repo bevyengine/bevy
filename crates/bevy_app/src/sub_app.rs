@@ -457,6 +457,10 @@ impl SubApp {
 
     /// See [`App::register_function`].
     #[cfg(feature = "reflect_functions")]
+    #[expect(
+        clippy::unwrap_used,
+        reason = "no way to return a function, and the Debug feature here is useful"
+    )]
     pub fn register_function<F, Marker>(&mut self, function: F) -> &mut Self
     where
         F: bevy_reflect::func::IntoFunction<'static, Marker> + 'static,
@@ -468,6 +472,10 @@ impl SubApp {
 
     /// See [`App::register_function_with_name`].
     #[cfg(feature = "reflect_functions")]
+    #[expect(
+        clippy::unwrap_used,
+        reason = "no way to return a function, and the Debug feature here is useful"
+    )]
     pub fn register_function_with_name<F, Marker>(
         &mut self,
         name: impl Into<alloc::borrow::Cow<'static, str>>,

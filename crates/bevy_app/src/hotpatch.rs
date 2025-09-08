@@ -23,7 +23,7 @@ pub struct HotPatchPlugin;
 
 impl Plugin for HotPatchPlugin {
     fn build(&self, app: &mut crate::App) {
-        let (sender, receiver) = crossbeam_channel::unbounded::<HotPatched>();
+        let (sender, receiver) = crossbeam_channel::bounded::<HotPatched>(1);
 
         // Connects to the dioxus CLI that will handle rebuilds
         // This will open a connection to the dioxus CLI to receive updated jump tables
@@ -31,7 +31,8 @@ impl Plugin for HotPatchPlugin {
         #[cfg(not(target_family = "wasm"))]
         connect_subsecond();
         subsecond::register_handler(Arc::new(move || {
-            sender.send(HotPatched);
+            // If the channel is full or closed, ignore the error.
+            let _ = sender.try_send(HotPatched);
         }));
 
         // Adds a system that will read the channel for new `HotPatched` messages, send the event, and update change detection.
