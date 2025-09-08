@@ -565,14 +565,12 @@ mod tests {
         let _ = schema.properties.get("a").expect("Missing `a` field");
         let _ = schema.properties.get("b").expect("Missing `b` field");
         assert_eq!(schema.required.len(), 2, "Two fields should be required");
-        assert_eq!(
+        assert!(
             schema.required.iter().any(|field| field == "last_field"),
-            true,
             "`last_field` should be required field."
         );
-        assert_eq!(
+        assert!(
             schema.required.iter().any(|field| field == "a"),
-            true,
             "`a` should be required field."
         );
     }
