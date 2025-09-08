@@ -109,7 +109,7 @@ impl<R: Relationship, B: Bundle> SpawnableList<R> for Spawn<B> {
             let mut entity = unsafe { world.spawn_with_caller(r, caller) };
 
             // SAFETY:
-            // - `this` is never accesssed or dropped after tihs call.
+            // - `this` is never accesssd or dropped after this call.
             unsafe {
                 entity.insert_raw_with_caller(
                     this.move_field::<B>(offset_of!(Spawn<B>, 0))
@@ -282,13 +282,17 @@ macro_rules! spawnable_list_impl {
                 $($alias.spawn(_world, _entity);)*
             }
 
+            #[expect(
+                clippy::allow_attributes,
+                reason = "This is a tuple-related macro; as such, the lints below may not always apply."
+            )]
             #[allow(unused_unsafe, reason = "The empty tuple will leave the unsafe blocks unused.")]
             fn spawn_raw(_this: MovingPtr<'_, Self>, _world: &mut World, _entity: Entity)
             where
                 Self: Sized,
             {
                 // SAFETY:
-                //  - The indicies and types match the type definition and thus must point to the right fields.
+                //  - The indices and types match the type definition and thus must point to the right fields.
                 //  - Rust tuples can never be `repr(packed)` so if `_this` is properly aligned, then all of the individual field
                 //    pointers must also be properly aligned.
                 unsafe {
@@ -379,7 +383,7 @@ unsafe impl<R: Relationship, L: SpawnableList<R>> DynamicBundle for SpawnRelated
 
         // SAFETY:
         //  - `ptr` points to an instance of type `Self`
-        //  - The field names and types match with the type definiton.
+        //  - The field names and types match with the type definition.
         entity.world_scope(|world: &mut World| unsafe {
             bevy_ptr::deconstruct_moving_ptr!(effect, Self {
                 list: L => { L::spawn_raw(list.try_into().debug_checked_unwrap(), world, id) },

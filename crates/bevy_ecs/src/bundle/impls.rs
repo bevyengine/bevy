@@ -2,7 +2,7 @@ use core::any::TypeId;
 
 use bevy_ptr::{MovingPtr, OwningPtr};
 use core::mem::MaybeUninit;
-use variadics_please::{all_tuples, all_tuples_enumerated};
+use variadics_please::all_tuples_enumerated;
 
 use crate::{
     bundle::{Bundle, BundleFromComponents, DynamicBundle, NoBundleEffect},
