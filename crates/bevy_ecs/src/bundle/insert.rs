@@ -494,13 +494,17 @@ impl<'w> BundleInserter<'w> {
             let (_row, location) = if table_id == remove_table_id {
                 move_archetype(entities, archetype, entity, new_location, remove_archetype)
             } else {
+                let (old_table, new_table) = storages
+                    .tables
+                    .get_2_mut(new_location.table_id, remove_table_id);
+
                 move_archetype_new_table(
                     entities,
                     archetypes_ptr,
                     archetype,
-                    table,
+                    old_table,
                     remove_archetype,
-                    &mut storages.tables[remove_table_id],
+                    new_table,
                     entity,
                     new_location,
                     Table::move_to_and_forget_missing_unchecked,
