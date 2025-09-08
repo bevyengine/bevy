@@ -283,7 +283,7 @@ pub type PickSet = PickingSystems;
 /// and the [`InteractionPlugin`], this is probably the plugin that will be most used.
 ///
 /// Note: for any of these plugins to work, they require a picking backend to be active,
-/// The picking backend is responsible to turn an input, into a [`crate::backend::PointerHits`]
+/// The picking backend is responsible to turn an input, into a [`PointerHits`](`crate::backend::PointerHits`)
 /// that [`PickingPlugin`] and [`InteractionPlugin`] will refine into [`bevy_ecs::observer::On`]s.
 #[derive(Default)]
 pub struct DefaultPickingPlugins;
