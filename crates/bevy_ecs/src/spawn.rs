@@ -101,12 +101,22 @@ impl<R: Relationship, B: Bundle> SpawnableList<R> for Spawn<B> {
             let mut entity = unsafe { world.spawn_with_caller(r, caller) };
 
             // SAFETY:
-            // - `this` is never accesssd or dropped after this call.
+            //  - `Spawn<B>` has one field at index 0 and it's of type `B`.
+            //  - if `this` is aligned, then its inner bundle must be as well.
+            let bundle = unsafe {
+                this.move_field::<B>(offset_of!(Spawn<B>, 0))
+                    .try_into()
+                    .debug_checked_unwrap()
+            };
+
+            // `this` has been moved out of, it should not be dropped.
+            mem::forget(this);
+
+            // SAFETY:
+            // - `bundle` is never accesssd or dropped after this call.
             unsafe {
                 entity.insert_raw_with_caller(
-                    this.move_field::<B>(offset_of!(Spawn<B>, 0))
-                        .try_into()
-                        .debug_checked_unwrap(),
+                    bundle,
                     InsertMode::Replace,
                     caller,
                     RelationshipHookMode::Run,
