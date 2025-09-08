@@ -1971,16 +1971,12 @@ impl<'w> EntityWorldMut<'w> {
     #[track_caller]
     pub fn insert<T: Bundle>(&mut self, bundle: T) -> &mut Self {
         move_as_ptr!(bundle);
-        // SAFETY:
-        // - `bundle` is not used or dropped after this function call.
-        unsafe {
-            self.insert_raw_with_caller(
-                bundle,
-                InsertMode::Replace,
-                MaybeLocation::caller(),
-                RelationshipHookMode::Run,
-            )
-        }
+        self.insert_with_caller(
+            bundle,
+            InsertMode::Replace,
+            MaybeLocation::caller(),
+            RelationshipHookMode::Run,
+        )
     }
 
     /// Adds a [`Bundle`] of components to the entity.
@@ -2004,16 +2000,12 @@ impl<'w> EntityWorldMut<'w> {
         relationship_hook_mode: RelationshipHookMode,
     ) -> &mut Self {
         move_as_ptr!(bundle);
-        // SAFETY:
-        // - `bundle` is not used or dropped after this function call.
-        unsafe {
-            self.insert_raw_with_caller(
-                bundle,
-                InsertMode::Replace,
-                MaybeLocation::caller(),
-                relationship_hook_mode,
-            )
-        }
+        self.insert_with_caller(
+            bundle,
+            InsertMode::Replace,
+            MaybeLocation::caller(),
+            relationship_hook_mode,
+        )
     }
 
     /// Adds a [`Bundle`] of components to the entity without overwriting.
@@ -2027,25 +2019,17 @@ impl<'w> EntityWorldMut<'w> {
     #[track_caller]
     pub fn insert_if_new<T: Bundle>(&mut self, bundle: T) -> &mut Self {
         move_as_ptr!(bundle);
-        // SAFETY:
-        // - `bundle` is not used or dropped after this function call.
-        unsafe {
-            self.insert_raw_with_caller(
-                bundle,
-                InsertMode::Keep,
-                MaybeLocation::caller(),
-                RelationshipHookMode::Run,
-            )
-        }
+        self.insert_with_caller(
+            bundle,
+            InsertMode::Keep,
+            MaybeLocation::caller(),
+            RelationshipHookMode::Run,
+        )
     }
 
     /// Adds a [`Bundle`] of components to the entity.
-    ///
-    /// # Safety
-    ///  - The value `bundle` points to will moved out of and should not be accessed or
-    ///    dropped afterwards.
     #[inline]
-    pub(crate) unsafe fn insert_raw_with_caller<T: Bundle>(
+    pub(crate) fn insert_with_caller<T: Bundle>(
         &mut self,
         bundle: MovingPtr<'_, T>,
         mode: InsertMode,

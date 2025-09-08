@@ -398,16 +398,12 @@ impl<'w, 's> Commands<'w, 's> {
             });
 
             move_as_ptr!(bundle);
-            // SAFETY:
-            // - `bundle` is not used or dropped after this function call.
-            unsafe {
-                entity.insert_raw_with_caller(
-                    bundle,
-                    InsertMode::Replace,
-                    caller,
-                    crate::relationship::RelationshipHookMode::Run,
-                );
-            }
+            entity.insert_with_caller(
+                bundle,
+                InsertMode::Replace,
+                caller,
+                crate::relationship::RelationshipHookMode::Run,
+            );
         });
         // entity_command::insert(bundle, InsertMode::Replace)
         entity_commands

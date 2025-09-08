@@ -103,6 +103,7 @@ impl<R: Relationship, B: Bundle> SpawnableList<R> for Spawn<B> {
             // SAFETY:
             //  - `Spawn<B>` has one field at index 0 and it's of type `B`.
             //  - if `this` is aligned, then its inner bundle must be as well.
+            //  - `this` is forgotten and thus not accessed or dropped after this call.
             let bundle = unsafe {
                 this.move_field::<B>(offset_of!(Spawn<B>, 0))
                     .try_into()
@@ -112,16 +113,12 @@ impl<R: Relationship, B: Bundle> SpawnableList<R> for Spawn<B> {
             // `this` has been moved out of, it should not be dropped.
             mem::forget(this);
 
-            // SAFETY:
-            // - `bundle` is never accessed or dropped after this call.
-            unsafe {
-                entity.insert_raw_with_caller(
-                    bundle,
-                    InsertMode::Replace,
-                    caller,
-                    RelationshipHookMode::Run,
-                );
-            }
+            entity.insert_with_caller(
+                bundle,
+                InsertMode::Replace,
+                caller,
+                RelationshipHookMode::Run,
+            );
         }
 
         spawn_raw::<B, R>(this, world, entity);

@@ -109,11 +109,7 @@ pub fn insert(bundle: impl Bundle, mode: InsertMode) -> impl EntityCommand {
     let caller = MaybeLocation::caller();
     move |mut entity: EntityWorldMut| {
         move_as_ptr!(bundle);
-        // SAFETY:
-        // - `bundle` is not used or dropped after this function call.
-        unsafe {
-            entity.insert_raw_with_caller(bundle, mode, caller, RelationshipHookMode::Run);
-        }
+        entity.insert_with_caller(bundle, mode, caller, RelationshipHookMode::Run);
     }
 }
 
@@ -159,11 +155,7 @@ pub fn insert_from_world<T: Component + FromWorld>(mode: InsertMode) -> impl Ent
         if !(mode == InsertMode::Keep && entity.contains::<T>()) {
             let value = entity.world_scope(|world| T::from_world(world));
             move_as_ptr!(value);
-            // SAFETY:
-            // - `value` is not used or dropped after this function call.
-            unsafe {
-                entity.insert_raw_with_caller(value, mode, caller, RelationshipHookMode::Run)
-            };
+            entity.insert_with_caller(value, mode, caller, RelationshipHookMode::Run);
         }
     }
 }
@@ -184,11 +176,7 @@ where
         if !(mode == InsertMode::Keep && entity.contains::<T>()) {
             let bundle = component_fn();
             move_as_ptr!(bundle);
-            // SAFETY:
-            // - `value` is not used or dropped after this function call.
-            unsafe {
-                entity.insert_raw_with_caller(bundle, mode, caller, RelationshipHookMode::Run)
-            };
+            entity.insert_with_caller(bundle, mode, caller, RelationshipHookMode::Run);
         }
     }
 }
