@@ -1228,7 +1228,7 @@ pub fn animate_targets(
         });
 }
 
-/// Specifies query for animation systems.
+/// Specifies the query used for animation systems.
 /// It allows to specify which Time resource to use based on the [`bevy_ecs::query::QueryFilter`].
 /// That can be especially useful when you want to use a custom time resource for subset of animations.
 /// By default, there is added a one version with Time<()> and Without [`DontUseDefaultAnimationTime`] component.
