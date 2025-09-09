@@ -3,8 +3,7 @@ use bevy_ecs::prelude::*;
 #[derive(Component, Debug)]
 pub struct A(usize);
 
-// this should fail since the function is required to have the signature
-// (DeferredWorld, HookContext) -> ()
+// this should fail since destructuring T: Drop cannot be split.
 #[derive(Bundle, Debug)]
 //~^ E0509
 pub struct DropBundle {
