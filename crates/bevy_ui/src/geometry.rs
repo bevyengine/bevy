@@ -215,7 +215,7 @@ impl Val {
     /// ```
     /// # use bevy_ui::{UiRect, Val};
     /// #
-    /// let ui_rect = Val::Px(1.).right();
+    /// let ui_rect = Val::Px(1.).top();
     ///
     /// assert_eq!(ui_rect.left, Val::ZERO);
     /// assert_eq!(ui_rect.right, Val::ZERO);
