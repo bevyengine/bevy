@@ -917,28 +917,30 @@ impl AssetServer {
 
         let id = handle.id();
 
-        let event_sender = self.data.asset_event_sender.clone();
+        let server = self.data.clone();
 
         let task = IoTaskPool::get().spawn(async move {
             match future.await {
                 Ok(asset) => {
                     let loaded_asset = LoadedAsset::new_with_dependencies(asset).into();
-                    event_sender
-                        .send(InternalAssetEvent::Loaded { id, loaded_asset })
-                        .unwrap();
+                    server
+                        .asset_event_queue
+                        .push(InternalAssetEvent::Loaded { id, loaded_asset })
+                        .unwrap_or_else(|_| panic!("internal asset event queue full"));
                 }
                 Err(error) => {
                     let error = AddAsyncError {
                         error: Arc::new(error),
                     };
                     error!("{error}");
-                    event_sender
-                        .send(InternalAssetEvent::Failed {
+                    server
+                        .asset_event_queue
+                        .push(InternalAssetEvent::Failed {
                             id,
                             path: Default::default(),
                             error: AssetLoadError::AddAsyncError(error),
                         })
-                        .unwrap();
+                        .unwrap_or_else(|_| panic!("internal asset event queue full"));
                 }
             }
         });

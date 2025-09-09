@@ -10,7 +10,6 @@ use core::{
     hash::{Hash, Hasher},
     marker::PhantomData,
 };
-use crossbeam_channel::{Receiver, Sender};
 use disqualified::ShortName;
 use thiserror::Error;
 use uuid::Uuid;

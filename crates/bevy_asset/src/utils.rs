@@ -60,7 +60,7 @@ impl<T> Clone for EventSender<T> {
 pub(crate) struct EventReceiver<T>(Arc<ConcurrentQueue<T>>);
 
 impl<T: Send> EventReceiver<T> {
-    pub fn try_iter(&self) -> concurrent_queue::TryIter<T> {
+    pub fn try_iter(&self) -> concurrent_queue::TryIter<'_, T> {
         self.0.try_iter()
     }
 }

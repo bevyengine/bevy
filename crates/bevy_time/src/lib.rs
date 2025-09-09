@@ -138,7 +138,7 @@ pub fn time_system(
     #[cfg(feature = "std")] mut has_received_time: Local<bool>,
 ) {
     #[cfg(feature = "std")]
-    let sent_time = match time_recv.map(|res| res.0.try_recv()) {
+    let sent_time = match time_event_queue.map(|res| res.0.pop()) {
         // TODO: Figure out how to handle this when using pipelined rendering.
         Some(Ok(new_time)) => {
             *has_received_time = true;
