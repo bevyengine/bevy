@@ -102,8 +102,8 @@ impl Plugin for VolumetricFogPlugin {
             )
             .add_render_graph_edges(
                 Core3d,
-                // Volumetric fog is a postprocessing effect. Run it after the
-                // main pass but before bloom.
+                // Volumetric fog should run after the main pass but before bloom, so
+                // we order if at the start of post processing.
                 (
                     Node3d::EndMainPass,
                     NodePbr::VolumetricFog,
