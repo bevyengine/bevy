@@ -1946,15 +1946,27 @@ mod tests {
     #[derive(Bundle)]
     struct Simple(ComponentA);
 
+    #[expect(
+        dead_code,
+        reason = "This struct is used as a compilation test to test the derive macros, and as such is intentionally never constructed."
+    )]
     #[derive(Bundle)]
     struct Tuple(Simple, ComponentB);
 
+    #[expect(
+        dead_code,
+        reason = "This struct is used as a compilation test to test the derive macros, and as such is intentionally never constructed."
+    )]
     #[derive(Bundle)]
     struct Record {
         field0: Simple,
         field1: ComponentB,
     }
 
+    #[expect(
+        dead_code,
+        reason = "This struct is used as a compilation test to test the derive macros, and as such is intentionally never constructed."
+    )]
     #[derive(Component)]
     struct MyEntities {
         #[entities]
@@ -1963,10 +1975,6 @@ mod tests {
         another_one: Entity,
         #[entities]
         maybe_entity: Option<Entity>,
-        #[expect(
-            dead_code,
-            reason = "This struct is used as a compilation test to test the derive macros, and as such this field is intentionally never used."
-        )]
         something_else: String,
     }
 
@@ -1981,22 +1989,42 @@ mod tests {
     fn clone_entities() {
         use crate::entity::{ComponentCloneCtx, SourceComponent};
 
+        #[expect(
+            dead_code,
+            reason = "This struct is used as a compilation test to test the derive macros, and as such this field is intentionally never used."
+        )]
         #[derive(Component)]
         #[component(clone_behavior = Ignore)]
         struct IgnoreClone;
 
+        #[expect(
+            dead_code,
+            reason = "This struct is used as a compilation test to test the derive macros, and as such this field is intentionally never used."
+        )]
         #[derive(Component)]
         #[component(clone_behavior = Default)]
         struct DefaultClone;
 
+        #[expect(
+            dead_code,
+            reason = "This struct is used as a compilation test to test the derive macros, and as such this field is intentionally never used."
+        )]
         #[derive(Component)]
         #[component(clone_behavior = Custom(custom_clone))]
         struct CustomClone;
 
+        #[expect(
+            dead_code,
+            reason = "This struct is used as a compilation test to test the derive macros, and as such this field is intentionally never used."
+        )]
         #[derive(Component, Clone)]
         #[component(clone_behavior = clone::<Self>())]
         struct CloneFunction;
 
+        #[expect(
+            dead_code,
+            reason = "This struct is used as a compilation test to test the derive macros, and as such this field is intentionally never used."
+        )]
         fn custom_clone(_source: &SourceComponent, _ctx: &mut ComponentCloneCtx) {}
     }
 

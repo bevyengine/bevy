@@ -23,7 +23,6 @@ use bevy::{
     },
     prelude::*,
     ui::{Checked, InteractionDisabled},
-    winit::WinitSettings,
 };
 
 /// A struct to hold the state of various widgets shown in the demo.
@@ -53,8 +52,6 @@ fn main() {
             rgb_color: palettes::tailwind::EMERALD_800.with_alpha(0.7),
             hsl_color: palettes::tailwind::AMBER_800.into(),
         })
-        // Only run the app when there is user input. This will significantly reduce CPU/GPU use.
-        .insert_resource(WinitSettings::desktop_app())
         .add_systems(Startup, setup)
         .add_systems(Update, update_colors)
         .run();
@@ -125,13 +122,13 @@ fn demo_root(commands: &mut Commands) -> impl Bundle {
 
     (
         Node {
-            width: Val::Percent(100.0),
-            height: Val::Percent(100.0),
+            width: percent(100),
+            height: percent(100),
             align_items: AlignItems::Start,
             justify_content: JustifyContent::Start,
             display: Display::Flex,
             flex_direction: FlexDirection::Column,
-            row_gap: Val::Px(10.0),
+            row_gap: px(10),
             ..default()
         },
         TabGroup::default(),
@@ -142,10 +139,10 @@ fn demo_root(commands: &mut Commands) -> impl Bundle {
                 flex_direction: FlexDirection::Column,
                 align_items: AlignItems::Stretch,
                 justify_content: JustifyContent::Start,
-                padding: UiRect::all(Val::Px(8.0)),
-                row_gap: Val::Px(8.0),
-                width: Val::Percent(30.),
-                min_width: Val::Px(200.),
+                padding: UiRect::all(px(8)),
+                row_gap: px(8),
+                width: percent(30),
+                min_width: px(200),
                 ..default()
             },
             children![
@@ -155,7 +152,7 @@ fn demo_root(commands: &mut Commands) -> impl Bundle {
                         flex_direction: FlexDirection::Row,
                         align_items: AlignItems::Center,
                         justify_content: JustifyContent::Start,
-                        column_gap: Val::Px(8.0),
+                        column_gap: px(8),
                         ..default()
                     },
                     children![
@@ -204,7 +201,7 @@ fn demo_root(commands: &mut Commands) -> impl Bundle {
                         flex_direction: FlexDirection::Row,
                         align_items: AlignItems::Center,
                         justify_content: JustifyContent::Start,
-                        column_gap: Val::Px(1.0),
+                        column_gap: px(1),
                         ..default()
                     },
                     children![
@@ -284,7 +281,7 @@ fn demo_root(commands: &mut Commands) -> impl Bundle {
                     Node {
                         display: Display::Flex,
                         flex_direction: FlexDirection::Column,
-                        row_gap: Val::Px(4.0),
+                        row_gap: px(4),
                         ..default()
                     },
                     CoreRadioGroup {
@@ -306,7 +303,7 @@ fn demo_root(commands: &mut Commands) -> impl Bundle {
                         flex_direction: FlexDirection::Row,
                         align_items: AlignItems::Center,
                         justify_content: JustifyContent::Start,
-                        column_gap: Val::Px(8.0),
+                        column_gap: px(8),
                         ..default()
                     },
                     children![

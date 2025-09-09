@@ -50,13 +50,13 @@ pub(crate) fn on_changed_font(
     assets: Res<AssetServer>,
     mut commands: Commands,
 ) {
-    if let Ok(style) = font_style.get(ev.target())
+    if let Ok(style) = font_style.get(ev.entity())
         && let Some(font) = match style.font {
             HandleOrPath::Handle(ref h) => Some(h.clone()),
             HandleOrPath::Path(ref p) => Some(assets.load::<Font>(p)),
         }
     {
-        commands.entity(ev.target()).insert(Propagate(TextFont {
+        commands.entity(ev.entity()).insert(Propagate(TextFont {
             font,
             font_size: style.font_size,
             ..Default::default()

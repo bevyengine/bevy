@@ -82,67 +82,64 @@ fn setup(
             .id();
 
         // Set up UI
-        commands
-            .spawn((
-                UiTargetCamera(camera),
-                Node {
-                    width: Val::Percent(100.),
-                    height: Val::Percent(100.),
-                    ..default()
-                },
-            ))
-            .with_children(|parent| {
-                parent.spawn((
+        commands.spawn((
+            UiTargetCamera(camera),
+            Node {
+                width: percent(100),
+                height: percent(100),
+                ..default()
+            },
+            children![
+                (
                     Text::new(*camera_name),
                     Node {
                         position_type: PositionType::Absolute,
-                        top: Val::Px(12.),
-                        left: Val::Px(12.),
+                        top: px(12),
+                        left: px(12),
                         ..default()
                     },
-                ));
-                buttons_panel(parent);
-            });
+                ),
+                buttons_panel(),
+            ],
+        ));
     }
 
-    fn buttons_panel(parent: &mut ChildSpawnerCommands) {
-        parent
-            .spawn(Node {
+    fn buttons_panel() -> impl Bundle {
+        (
+            Node {
                 position_type: PositionType::Absolute,
-                width: Val::Percent(100.),
-                height: Val::Percent(100.),
+                width: percent(100),
+                height: percent(100),
                 display: Display::Flex,
                 flex_direction: FlexDirection::Row,
                 justify_content: JustifyContent::SpaceBetween,
                 align_items: AlignItems::Center,
-                padding: UiRect::all(Val::Px(20.)),
+                padding: UiRect::all(px(20)),
                 ..default()
-            })
-            .with_children(|parent| {
-                rotate_button(parent, "<", Direction::Left);
-                rotate_button(parent, ">", Direction::Right);
-            });
+            },
+            children![
+                rotate_button("<", Direction::Left),
+                rotate_button(">", Direction::Right),
+            ],
+        )
     }
 
-    fn rotate_button(parent: &mut ChildSpawnerCommands, caption: &str, direction: Direction) {
-        parent
-            .spawn((
-                RotateCamera(direction),
-                Button,
-                Node {
-                    width: Val::Px(40.),
-                    height: Val::Px(40.),
-                    border: UiRect::all(Val::Px(2.)),
-                    justify_content: JustifyContent::Center,
-                    align_items: AlignItems::Center,
-                    ..default()
-                },
-                BorderColor::all(Color::WHITE),
-                BackgroundColor(Color::srgb(0.25, 0.25, 0.25)),
-            ))
-            .with_children(|parent| {
-                parent.spawn(Text::new(caption));
-            });
+    fn rotate_button(caption: &str, direction: Direction) -> impl Bundle {
+        (
+            RotateCamera(direction),
+            Button,
+            Node {
+                width: px(40),
+                height: px(40),
+                border: UiRect::all(px(2)),
+                justify_content: JustifyContent::Center,
+                align_items: AlignItems::Center,
+                ..default()
+            },
+            BorderColor::all(Color::WHITE),
+            BackgroundColor(Color::srgb(0.25, 0.25, 0.25)),
+            children![Text::new(caption)],
+        )
     }
 }
 

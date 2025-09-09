@@ -3,7 +3,7 @@
 use std::{f32::consts::PI, fmt::Write};
 
 use bevy::{
-    anti_aliasing::{
+    anti_alias::{
         contrast_adaptive_sharpening::ContrastAdaptiveSharpening,
         fxaa::{Fxaa, Sensitivity},
         smaa::{Smaa, SmaaPreset},
@@ -22,7 +22,7 @@ use bevy::{
 };
 
 #[cfg(all(feature = "dlss", not(feature = "force_disable_dlss")))]
-use bevy::anti_aliasing::dlss::{
+use bevy::anti_alias::dlss::{
     Dlss, DlssPerfQualityMode, DlssProjectId, DlssSuperResolutionSupported,
 };
 
@@ -456,8 +456,8 @@ fn setup(
         Text::default(),
         Node {
             position_type: PositionType::Absolute,
-            top: Val::Px(12.0),
-            left: Val::Px(12.0),
+            top: px(12),
+            left: px(12),
             ..default()
         },
     ));

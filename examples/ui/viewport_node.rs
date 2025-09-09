@@ -74,11 +74,11 @@ fn test(
         .spawn((
             Node {
                 position_type: PositionType::Absolute,
-                top: Val::Px(50.0),
-                left: Val::Px(50.0),
-                width: Val::Px(200.0),
-                height: Val::Px(200.0),
-                border: UiRect::all(Val::Px(5.0)),
+                top: px(50),
+                left: px(50),
+                width: px(200),
+                height: px(200),
+                border: UiRect::all(px(5)),
                 ..default()
             },
             BorderColor::all(Color::WHITE),
@@ -89,18 +89,18 @@ fn test(
 
 fn on_drag_viewport(drag: On<Pointer<Drag>>, mut node_query: Query<&mut Node>) {
     if matches!(drag.button, PointerButton::Secondary) {
-        let mut node = node_query.get_mut(drag.target()).unwrap();
+        let mut node = node_query.get_mut(drag.entity()).unwrap();
 
         if let (Val::Px(top), Val::Px(left)) = (node.top, node.left) {
-            node.left = Val::Px(left + drag.delta.x);
-            node.top = Val::Px(top + drag.delta.y);
+            node.left = px(left + drag.delta.x);
+            node.top = px(top + drag.delta.y);
         };
     }
 }
 
 fn on_drag_cuboid(drag: On<Pointer<Drag>>, mut transform_query: Query<&mut Transform>) {
     if matches!(drag.button, PointerButton::Primary) {
-        let mut transform = transform_query.get_mut(drag.target()).unwrap();
+        let mut transform = transform_query.get_mut(drag.entity()).unwrap();
         transform.rotate_y(drag.delta.x * 0.02);
         transform.rotate_x(drag.delta.y * 0.02);
     }

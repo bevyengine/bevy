@@ -405,6 +405,9 @@ impl SubApp {
         let mut hokeypokey: Box<dyn Plugin> = Box::new(crate::HokeyPokey);
         for i in 0..self.plugin_registry.len() {
             core::mem::swap(&mut self.plugin_registry[i], &mut hokeypokey);
+            #[cfg(feature = "trace")]
+            let _plugin_finish_span =
+                info_span!("plugin finish", plugin = hokeypokey.name()).entered();
             self.run_as_app(|app| {
                 hokeypokey.finish(app);
             });
@@ -419,6 +422,9 @@ impl SubApp {
         let mut hokeypokey: Box<dyn Plugin> = Box::new(crate::HokeyPokey);
         for i in 0..self.plugin_registry.len() {
             core::mem::swap(&mut self.plugin_registry[i], &mut hokeypokey);
+            #[cfg(feature = "trace")]
+            let _plugin_cleanup_span =
+                info_span!("plugin cleanup", plugin = hokeypokey.name()).entered();
             self.run_as_app(|app| {
                 hokeypokey.cleanup(app);
             });

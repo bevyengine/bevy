@@ -48,8 +48,8 @@ struct Move;
 
 impl UpdateTransform for Move {
     fn update(&self, t: f32, transform: &mut UiTransform) {
-        transform.translation.x = Val::Percent(ops::sin(t * TAU - FRAC_PI_2) * 50.);
-        transform.translation.y = Val::Percent(-ops::cos(t * TAU - FRAC_PI_2) * 50.);
+        transform.translation.x = percent(ops::sin(t * TAU - FRAC_PI_2) * 50.);
+        transform.translation.y = percent(-ops::cos(t * TAU - FRAC_PI_2) * 50.);
     }
 }
 
@@ -89,8 +89,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
             text_font.clone(),
             Node {
                 position_type: PositionType::Absolute,
-                top: Val::Px(12.0),
-                left: Val::Px(12.0),
+                top: px(12),
+                left: px(12),
                 ..default()
             },
             Instructions,
@@ -104,8 +104,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
 
     commands
         .spawn(Node {
-            width: Val::Percent(100.),
-            height: Val::Percent(100.),
+            width: percent(100),
+            height: percent(100),
             justify_content: JustifyContent::Center,
             align_items: AlignItems::Center,
             ..default()
@@ -116,8 +116,8 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                     display: Display::Grid,
                     grid_template_columns: RepeatedGridTrack::px(3, CONTAINER_SIZE),
                     grid_template_rows: RepeatedGridTrack::px(2, CONTAINER_SIZE),
-                    row_gap: Val::Px(80.),
-                    column_gap: Val::Px(80.),
+                    row_gap: px(80),
+                    column_gap: px(80),
                     ..default()
                 })
                 .with_children(|parent| {
@@ -141,10 +141,10 @@ fn spawn_image(
         parent.spawn((
             ImageNode::new(asset_server.load("branding/bevy_logo_dark_big.png")),
             Node {
-                height: Val::Px(100.),
+                height: px(100),
                 position_type: PositionType::Absolute,
-                top: Val::Px(-50.),
-                left: Val::Px(-200.),
+                top: px(-50),
+                left: px(-200),
                 ..default()
             },
         ));
@@ -176,8 +176,8 @@ fn spawn_container(
     parent
         .spawn((
             Node {
-                width: Val::Percent(100.),
-                height: Val::Percent(100.),
+                width: percent(100),
+                height: percent(100),
                 align_items: AlignItems::Center,
                 justify_content: JustifyContent::Center,
                 overflow: Overflow::clip(),
@@ -263,12 +263,12 @@ fn next_container_size(mut containers: Query<(&mut Node, &mut Container)>) {
         container.0 = (container.0 + 1) % 3;
 
         node.width = match container.0 {
-            2 => Val::Percent(30.),
-            _ => Val::Percent(100.),
+            2 => percent(30),
+            _ => percent(100),
         };
         node.height = match container.0 {
-            1 => Val::Percent(30.),
-            _ => Val::Percent(100.),
+            1 => percent(30),
+            _ => percent(100),
         };
     }
 }

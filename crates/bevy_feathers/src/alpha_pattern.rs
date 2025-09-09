@@ -47,7 +47,7 @@ fn on_add_alpha_pattern(
     mut q_material_node: Query<&mut MaterialNode<AlphaPatternMaterial>>,
     r_material: Res<AlphaPatternResource>,
 ) {
-    if let Ok(mut material) = q_material_node.get_mut(ev.target()) {
+    if let Ok(mut material) = q_material_node.get_mut(ev.entity()) {
         material.0 = r_material.0.clone();
     }
 }

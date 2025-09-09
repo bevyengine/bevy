@@ -14,7 +14,6 @@
 //!
 //! ## Implementation Notes
 //!
-//! - `bevy_ui` can only render to the primary window
 //! - `bevy_ui` can render on any camera with a flag, it is special, and is not tied to a particular
 //!   camera.
 //! - To correctly sort picks, the order of `bevy_ui` is set to be the camera order plus 0.5.
@@ -110,7 +109,7 @@ pub fn ui_picking(
     clipping_query: Query<(&ComputedNode, &UiGlobalTransform, &Node)>,
     child_of_query: Query<&ChildOf, Without<OverrideClip>>,
 ) {
-    // For each camera, the pointer and its position
+    // Map from each camera to its active pointers and their positions in viewport space
     let mut pointer_pos_by_camera = HashMap::<Entity, HashMap<PointerId, Vec2>>::default();
 
     for (pointer_id, pointer_location) in

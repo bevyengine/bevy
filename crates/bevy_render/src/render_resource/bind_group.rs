@@ -1,9 +1,8 @@
-use crate::WgpuWrapper;
 use crate::{
     define_atomic_id,
     render_asset::RenderAssets,
     render_resource::{BindGroupLayout, Buffer, Sampler, TextureView},
-    renderer::RenderDevice,
+    renderer::{RenderDevice, WgpuWrapper},
     texture::GpuImage,
 };
 use bevy_derive::{Deref, DerefMut};
@@ -697,6 +696,10 @@ mod test {
 
     #[test]
     fn texture_visibility() {
+        #[expect(
+            dead_code,
+            reason = "This is a derive macro compilation test. It will not be constructed."
+        )]
         #[derive(AsBindGroup)]
         pub struct TextureVisibilityTest {
             #[texture(0, visibility(all))]

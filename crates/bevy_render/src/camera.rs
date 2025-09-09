@@ -40,7 +40,7 @@ use bevy_ecs::{
     world::DeferredWorld,
 };
 use bevy_image::Image;
-use bevy_math::{vec2, Mat4, URect, UVec2, UVec4, Vec2};
+use bevy_math::{uvec2, vec2, Mat4, URect, UVec2, UVec4, Vec2};
 use bevy_platform::collections::{HashMap, HashSet};
 use bevy_reflect::prelude::*;
 use bevy_transform::components::GlobalTransform;
@@ -60,7 +60,6 @@ impl Plugin for CameraPlugin {
             .add_plugins((
                 ExtractResourcePlugin::<ClearColor>::default(),
                 ExtractComponentPlugin::<CameraMainTextureUsages>::default(),
-                bevy_camera::CameraPlugin,
             ))
             .add_systems(PostStartup, camera_system.in_set(CameraUpdateSystems))
             .add_systems(
@@ -195,6 +194,7 @@ impl NormalizedRenderTargetExt for NormalizedRenderTarget {
             NormalizedRenderTarget::TextureView(id) => {
                 manual_texture_views.get(id).map(|tex| &tex.texture_view)
             }
+            NormalizedRenderTarget::None { .. } => None,
         }
     }
 
@@ -215,6 +215,7 @@ impl NormalizedRenderTargetExt for NormalizedRenderTarget {
             NormalizedRenderTarget::TextureView(id) => {
                 manual_texture_views.get(id).map(|tex| tex.format)
             }
+            NormalizedRenderTarget::None { .. } => None,
         }
     }
 
@@ -251,6 +252,10 @@ impl NormalizedRenderTargetExt for NormalizedRenderTarget {
                     scale_factor: 1.0,
                 })
                 .ok_or(MissingRenderTargetInfoError::TextureView { texture_view: *id }),
+            NormalizedRenderTarget::None { width, height } => Ok(RenderTargetInfo {
+                physical_size: uvec2(*width, *height),
+                scale_factor: 1.0,
+            }),
         }
     }
 
@@ -268,6 +273,7 @@ impl NormalizedRenderTargetExt for NormalizedRenderTarget {
                 changed_image_handles.contains(&image_target.handle.id())
             }
             NormalizedRenderTarget::TextureView(_) => true,
+            NormalizedRenderTarget::None { .. } => false,
         }
     }
 }

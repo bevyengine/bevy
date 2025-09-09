@@ -497,7 +497,7 @@ fn update(
                     // If the image became wider when copying from the texture to the buffer,
                     // then the data is reduced to its original size when copying from the buffer to the image.
                     let row_bytes = img_bytes.width() as usize
-                        * img_bytes.texture_descriptor.format.pixel_size();
+                        * img_bytes.texture_descriptor.format.pixel_size().unwrap();
                     let aligned_row_bytes = RenderDevice::align_copy_bytes_per_row(row_bytes);
                     if row_bytes == aligned_row_bytes {
                         img_bytes.data.as_mut().unwrap().clone_from(&image_data);

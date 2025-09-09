@@ -2304,7 +2304,10 @@ impl<'w> EntityWorldMut<'w> {
         let mut registrator = unsafe {
             ComponentsRegistrator::new(&mut self.world.components, &mut self.world.component_ids)
         };
-        let bundle_id = bundles.register_contributed_bundle_info::<T>(&mut registrator, storages);
+
+        // SAFETY: `storages`, `bundles` and `registrator` come from the same world.
+        let bundle_id =
+            unsafe { bundles.register_contributed_bundle_info::<T>(&mut registrator, storages) };
 
         // SAFETY: We just created the bundle, and the archetype is valid, since we are in it.
         let Some(mut remover) = (unsafe {
@@ -2351,10 +2354,13 @@ impl<'w> EntityWorldMut<'w> {
             ComponentsRegistrator::new(&mut self.world.components, &mut self.world.component_ids)
         };
 
-        let retained_bundle = self
-            .world
-            .bundles
-            .register_info::<T>(&mut registrator, storages);
+        // SAFETY: `storages`, `bundles` and `registrator` come from the same world.
+        let retained_bundle = unsafe {
+            self.world
+                .bundles
+                .register_info::<T>(&mut registrator, storages)
+        };
+
         // SAFETY: `retained_bundle` exists as we just initialized it.
         let retained_bundle_info = unsafe { self.world.bundles.get_unchecked(retained_bundle) };
         let old_archetype = &mut archetypes[old_location.archetype_id];
@@ -6089,8 +6095,8 @@ mod tests {
         let mut world = World::new();
         let entity = world
             .spawn_empty()
-            .observe(|trigger: On<TestEvent>, mut commands: Commands| {
-                commands.entity(trigger.target()).insert(TestComponent(0));
+            .observe(|event: On<TestEvent>, mut commands: Commands| {
+                commands.entity(event.entity()).insert(TestComponent(0));
             })
             .id();
 
@@ -6108,8 +6114,8 @@ mod tests {
     #[should_panic]
     fn location_on_despawned_entity_panics() {
         let mut world = World::new();
-        world.add_observer(|trigger: On<Add, TestComponent>, mut commands: Commands| {
-            commands.entity(trigger.target()).despawn();
+        world.add_observer(|event: On<Add, TestComponent>, mut commands: Commands| {
+            commands.entity(event.entity()).despawn();
         });
         let entity = world.spawn_empty().id();
         let mut a = world.entity_mut(entity);
@@ -6198,19 +6204,19 @@ mod tests {
             .push("OrdA hook on_remove");
     }
 
-    fn ord_a_observer_on_add(_trigger: On<Add, OrdA>, mut res: ResMut<TestVec>) {
+    fn ord_a_observer_on_add(_event: On<Add, OrdA>, mut res: ResMut<TestVec>) {
         res.0.push("OrdA observer on_add");
     }
 
-    fn ord_a_observer_on_insert(_trigger: On<Insert, OrdA>, mut res: ResMut<TestVec>) {
+    fn ord_a_observer_on_insert(_event: On<Insert, OrdA>, mut res: ResMut<TestVec>) {
         res.0.push("OrdA observer on_insert");
     }
 
-    fn ord_a_observer_on_replace(_trigger: On<Replace, OrdA>, mut res: ResMut<TestVec>) {
+    fn ord_a_observer_on_replace(_event: On<Replace, OrdA>, mut res: ResMut<TestVec>) {
         res.0.push("OrdA observer on_replace");
     }
 
-    fn ord_a_observer_on_remove(_trigger: On<Remove, OrdA>, mut res: ResMut<TestVec>) {
+    fn ord_a_observer_on_remove(_event: On<Remove, OrdA>, mut res: ResMut<TestVec>) {
         res.0.push("OrdA observer on_remove");
     }
 
@@ -6249,19 +6255,19 @@ mod tests {
             .push("OrdB hook on_remove");
     }
 
-    fn ord_b_observer_on_add(_trigger: On<Add, OrdB>, mut res: ResMut<TestVec>) {
+    fn ord_b_observer_on_add(_event: On<Add, OrdB>, mut res: ResMut<TestVec>) {
         res.0.push("OrdB observer on_add");
     }
 
-    fn ord_b_observer_on_insert(_trigger: On<Insert, OrdB>, mut res: ResMut<TestVec>) {
+    fn ord_b_observer_on_insert(_event: On<Insert, OrdB>, mut res: ResMut<TestVec>) {
         res.0.push("OrdB observer on_insert");
     }
 
-    fn ord_b_observer_on_replace(_trigger: On<Replace, OrdB>, mut res: ResMut<TestVec>) {
+    fn ord_b_observer_on_replace(_event: On<Replace, OrdB>, mut res: ResMut<TestVec>) {
         res.0.push("OrdB observer on_replace");
     }
 
-    fn ord_b_observer_on_remove(_trigger: On<Remove, OrdB>, mut res: ResMut<TestVec>) {
+    fn ord_b_observer_on_remove(_event: On<Remove, OrdB>, mut res: ResMut<TestVec>) {
         res.0.push("OrdB observer on_remove");
     }
 
@@ -6311,9 +6317,6 @@ mod tests {
 
         #[derive(Component, Clone, PartialEq, Debug)]
         struct C(u32);
-
-        #[derive(Component, Clone, PartialEq, Debug, Default)]
-        struct D;
 
         let mut world = World::new();
         let entity_a = world.spawn((A, B, C(5))).id();

@@ -109,7 +109,7 @@ pub(crate) fn on_changed_background(
     theme: Res<UiTheme>,
 ) {
     // Update background colors where the design token has changed.
-    if let Ok((mut bg, theme_bg)) = q_background.get_mut(ev.target()) {
+    if let Ok((mut bg, theme_bg)) = q_background.get_mut(ev.entity()) {
         bg.0 = theme.color(theme_bg.0);
     }
 }
@@ -120,7 +120,7 @@ pub(crate) fn on_changed_border(
     theme: Res<UiTheme>,
 ) {
     // Update background colors where the design token has changed.
-    if let Ok((mut border, theme_border)) = q_border.get_mut(ev.target()) {
+    if let Ok((mut border, theme_border)) = q_border.get_mut(ev.entity()) {
         border.set_all(theme.color(theme_border.0));
     }
 }
@@ -133,10 +133,10 @@ pub(crate) fn on_changed_font_color(
     theme: Res<UiTheme>,
     mut commands: Commands,
 ) {
-    if let Ok(token) = font_color.get(ev.target()) {
+    if let Ok(token) = font_color.get(ev.entity()) {
         let color = theme.color(token.0);
         commands
-            .entity(ev.target())
+            .entity(ev.entity())
             .insert(Propagate(TextColor(color)));
     }
 }

@@ -1,5 +1,5 @@
 ---
-title: Remove Bundle::register_required_components
+title: Remove `Bundle::register_required_components`
 pull_requests: [19967]
 ---
 

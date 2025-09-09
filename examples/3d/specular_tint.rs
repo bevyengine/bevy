@@ -123,8 +123,8 @@ fn setup(
     commands.spawn((
         Node {
             position_type: PositionType::Absolute,
-            bottom: Val::Px(12.0),
-            left: Val::Px(12.0),
+            bottom: px(12),
+            left: px(12),
             ..default()
         },
         app_status.create_text(),

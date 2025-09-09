@@ -426,7 +426,7 @@ impl<'a> BundleScratch<'a> {
         relationship_hook_insert_mode: RelationshipHookMode,
     ) {
         // SAFETY:
-        // - All `component_ids` are from the same world as `target` entity
+        // - All `component_ids` are from the same world as `entity`
         // - All `component_data_ptrs` are valid types represented by `component_ids`
         unsafe {
             world.entity_mut(entity).insert_by_ids_internal(
