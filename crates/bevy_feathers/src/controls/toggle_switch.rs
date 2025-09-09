@@ -113,7 +113,9 @@ fn update_switch_styles(
             continue;
         };
         // Safety: since we just checked the query, should always work.
-        let (ref mut slide_style, slide_color) = q_slide.get_mut(slide_ent).unwrap();
+        let Ok((ref mut slide_style, slide_color)) = q_slide.get_mut(slide_ent) else {
+            continue;
+        };
         set_switch_styles(
             switch_ent,
             slide_ent,
@@ -161,7 +163,9 @@ fn update_switch_styles_remove(
                     return;
                 };
                 // Safety: since we just checked the query, should always work.
-                let (ref mut slide_style, slide_color) = q_slide.get_mut(slide_ent).unwrap();
+                let Ok((ref mut slide_style, slide_color)) = q_slide.get_mut(slide_ent) else {
+                    return;
+                };
                 set_switch_styles(
                     switch_ent,
                     slide_ent,
