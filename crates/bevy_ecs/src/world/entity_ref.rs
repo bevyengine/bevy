@@ -2583,6 +2583,7 @@ impl<'w> EntityWorldMut<'w> {
         // SAFETY: All components in the archetype exist in world
         unsafe {
             if archetype.has_despawn_observer() {
+                // SAFETY: the DESPAWN event_key corresponds to the Despawn event's type
                 deferred_world.trigger_raw(
                     DESPAWN,
                     &mut Despawn {
@@ -2601,6 +2602,7 @@ impl<'w> EntityWorldMut<'w> {
                 caller,
             );
             if archetype.has_replace_observer() {
+                // SAFETY: the REPLACE event_key corresponds to the Replace event's type
                 deferred_world.trigger_raw(
                     REPLACE,
                     &mut Replace {
@@ -2620,6 +2622,7 @@ impl<'w> EntityWorldMut<'w> {
                 RelationshipHookMode::Run,
             );
             if archetype.has_remove_observer() {
+                // SAFETY: the REMOVE event_key corresponds to the Remove event's type
                 deferred_world.trigger_raw(
                     REMOVE,
                     &mut Remove {

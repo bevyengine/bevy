@@ -169,6 +169,7 @@ impl<'w> DeferredWorld<'w> {
                 relationship_hook_mode,
             );
             if archetype.has_replace_observer() {
+                // SAFETY: the REPLACE event_key corresponds to the Replace event's type
                 self.trigger_raw(
                     REPLACE,
                     &mut Replace { entity },
@@ -211,6 +212,7 @@ impl<'w> DeferredWorld<'w> {
                 relationship_hook_mode,
             );
             if archetype.has_insert_observer() {
+                // SAFETY: the INSERT event_key corresponds to the Insert event's type
                 self.trigger_raw(
                     INSERT,
                     &mut Insert { entity },

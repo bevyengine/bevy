@@ -29,7 +29,9 @@ pub type ObserverRunner =
 /// - `trigger_ptr` must match the [`Event::Trigger`] type for `E`.
 /// - `trigger_context`'s [`TriggerContext::event_key`] must match the `E` event type.
 ///
-/// See the safety discussion on [`Trigger`] for more details.
+// NOTE: The way `Trigger` and `On` interact in this implementation is _subtle_ and _easily invalidated_
+// from a soundness perspective. Please read and understand the safety comments before making any changes,
+// either here or in `On`.
 pub(super) unsafe fn observer_system_runner<E: Event, B: Bundle, S: ObserverSystem<E, B>>(
     mut world: DeferredWorld,
     observer: Entity,
@@ -52,8 +54,12 @@ pub(super) unsafe fn observer_system_runner<E: Event, B: Bundle, S: ObserverSyst
     state.last_trigger_id = last_trigger;
 
     // SAFETY: Caller ensures `trigger_ptr` is castable to `&mut E::Trigger<'_>`
-    // This is enforced by the safety requirements of `Trigger::trigger`
-    // See the safety discussion on `Trigger::trigger` for more details.
+    // The soundness story here is complicated: This casts to &'a mut E::Trigger<'a> which notably
+    // casts the _arbitrary lifetimes_ of the passed in `trigger_ptr` (&'w E::Trigger<'t>, which are
+    // 'w and 't on On<'w, 't>) as the _same_ lifetime 'a, which is _local to this function call_.
+    // This becomes On<'a, 'a> in practice. This is why `On<'w, 't>` has the strict constraint that
+    // the 'w lifetime can never be exposed. To do so would make it possible to introduce use-after-free bugs.
+    // See this thread for more details: <https://github.com/bevyengine/bevy/pull/20731#discussion_r2311907935>
     let trigger: &mut E::Trigger<'_> = unsafe { trigger_ptr.deref_mut() };
 
     let on: On<E, B> = On::new(

@@ -33,31 +33,6 @@ use core::marker::PhantomData;
 ///   [`Trigger`] type. This would result in an unsound cast of [`GlobalTrigger`] reference.
 ///   This is not expressed as an explicit type constraint,, as the `for<'a> Event::Trigger<'a>` lifetime can mismatch explicit lifetimes in
 ///   some impls.
-/// - Read, understand, and abide by the lifetime constraints defined in the section below:
-///
-/// To understand why this must be unsafe, we must think carefully about the lifetimes involved.
-///
-/// The core challenge is that the lifetime of the `&mut E::Trigger<'_>` that we want to create
-/// within the [`ObserverRunner`] (which calls the [`Observer`](crate::observer::Observer)) may not be the same as the lifetime provided
-/// by [`Event::Trigger<'a>`].
-///
-/// If the lifetimes are the same, then we can safely create a `&mut E::Trigger<'_>` from the [`PtrMut`]
-/// passed to the observer runner function, and pass that to the observer system inside of ['On'](crate::observer::On).
-///
-/// If the lifetimes are not the same, then we must be careful to ensure that the `&mut E::Trigger<'_>` we create
-/// does not outlive the [`PtrMut`] that was passed to the observer runner function.
-/// Failing to do so could lead to use-after-free bugs.
-///
-/// This problem leaks into [`Trigger::trigger`] because the [`ObserverRunner`] function
-/// is called from within [`Trigger::trigger`], for most real-world [`Trigger`] implementations.
-///
-/// This is complex, and ways to simplify this would be welcome in the future!
-/// The safety requirements of this trait were prompted by this comment thread:
-/// <https://github.com/bevyengine/bevy/pull/20731#discussion_r2311907935>
-///
-/// which also discusses some alternative designs that were considered.
-///
-/// [`ObserverRunner`]: crate::observer::ObserverRunner
 pub unsafe trait Trigger<E: Event> {
     /// Trigger the given `event`, running every [`Observer`](crate::observer::Observer) that matches the `event`, as defined by this
     /// [`Trigger`] and the state stored on `self`.
@@ -96,7 +71,14 @@ unsafe impl<E: for<'a> Event<Trigger<'a> = Self>> Trigger<E> for GlobalTrigger {
         trigger_context: &TriggerContext,
         event: &mut E,
     ) {
-        self.trigger_internal(world, observers, trigger_context, event.into());
+        // SAFETY:
+        // - The caller of `trigger` ensures that `observers` come from the `world`
+        // - The passed in event ptr comes from `event`, which is E: Event
+        // - E: Event::Trigger is constrained to GlobalTrigger
+        // - The caller of `trigger` ensures that `TriggerContext::event_key` matches `event`
+        unsafe {
+            self.trigger_internal(world, observers, trigger_context, event.into());
+        }
     }
 }
 
@@ -106,7 +88,6 @@ impl GlobalTrigger {
     /// - `event` must point to an [`Event`]
     /// -  The `event` [`Event::Trigger`] must be [`GlobalTrigger`]
     /// - `trigger_context`'s [`TriggerContext::event_key`] must correspond to the `event` type.
-    /// - Read, understand, and abide by the [`Trigger`] safety documentation
     unsafe fn trigger_internal(
         &mut self,
         mut world: DeferredWorld,
@@ -166,7 +147,6 @@ unsafe impl<E: EntityEvent + for<'a> Event<Trigger<'a> = Self>> Trigger<E> for E
         // - the passed in event pointer comes from `event`, which is an `Event`
         // - `trigger` is a matching trigger type, as it comes from `self`, which is the Trigger for `E`
         // - `trigger_context`'s event_key matches `E`, enforced by the call to `trigger`
-        // - this abides by the nuances defined in the `Trigger` safety docs
         unsafe {
             trigger_entity_internal(
                 world,
@@ -209,7 +189,6 @@ pub unsafe fn trigger_entity_internal(
         // - the passed in event pointer is an `Event`, enforced by the call to `trigger_entity_internal`
         // - `trigger` is a matching trigger type, enforced by the call to `trigger_entity_internal`
         // - `trigger_context`'s event_key matches `E`, enforced by the call to `trigger_entity_internal`
-        // - this abides by the nuances defined in the `Trigger` safety docs
         unsafe {
             (runner)(
                 world.reborrow(),
@@ -228,7 +207,6 @@ pub unsafe fn trigger_entity_internal(
             // - the passed in event pointer is an `Event`, enforced by the call to `trigger_entity_internal`
             // - `trigger` is a matching trigger type, enforced by the call to `trigger_entity_internal`
             // - `trigger_context`'s event_key matches `E`, enforced by the call to `trigger_entity_internal`
-            // - this abides by the nuances defined in the `Trigger` safety docs
             unsafe {
                 (runner)(
                     world.reborrow(),
@@ -275,7 +253,6 @@ impl<const AUTO_PROPAGATE: bool, E: EntityEvent, T: Traversal<E>> Default
 
 // SAFETY:
 // - `E`'s [`Event::Trigger`] is constrained to [`PropagateEntityTrigger<E>`]
-// - The implementation abides by the other safety constraints defined in [`Trigger`]
 unsafe impl<
         const AUTO_PROPAGATE: bool,
         E: EntityEvent + for<'a> Event<Trigger<'a> = Self>,
@@ -296,7 +273,6 @@ unsafe impl<
         // - the passed in event pointer comes from `event`, which is an `Event`
         // - `trigger` is a matching trigger type, as it comes from `self`, which is the Trigger for `E`
         // - `trigger_context`'s event_key matches `E`, enforced by the call to `trigger`
-        // - this abides by the nuances defined in the `Trigger` safety docs
         unsafe {
             trigger_entity_internal(
                 world.reborrow(),
@@ -327,7 +303,6 @@ unsafe impl<
             // - the passed in event pointer comes from `event`, which is an `Event`
             // - `trigger` is a matching trigger type, as it comes from `self`, which is the Trigger for `E`
             // - `trigger_context`'s event_key matches `E`, enforced by the call to `trigger`
-            // - this abides by the nuances defined in the `Trigger` safety docs
             unsafe {
                 trigger_entity_internal(
                     world.reborrow(),
@@ -357,7 +332,6 @@ pub struct EntityComponentsTrigger<'a> {
 
 // SAFETY:
 // - `E`'s [`Event::Trigger`] is constrained to [`EntityComponentsTrigger`]
-// - The implementation abides by the other safety constraints defined in [`Trigger`]
 unsafe impl<'a, E: EntityEvent + Event<Trigger<'a> = EntityComponentsTrigger<'a>>> Trigger<E>
     for EntityComponentsTrigger<'a>
 {
@@ -373,7 +347,6 @@ unsafe impl<'a, E: EntityEvent + Event<Trigger<'a> = EntityComponentsTrigger<'a>
         // - `observers` come from `world` and match the event type `E`, enforced by the call to `trigger`
         // - the passed in event pointer comes from `event`, which is an `Event`
         // - `trigger_context`'s event_key matches `E`, enforced by the call to `trigger`
-        // - this abides by the nuances defined in the `Trigger` safety docs
         unsafe {
             self.trigger_internal(world, observers, event.into(), entity, trigger_context);
         }
@@ -385,7 +358,6 @@ impl<'a> EntityComponentsTrigger<'a> {
     /// - `observers` must come from the `world` [`DeferredWorld`]
     /// - `event` must point to an [`Event`] whose [`Event::Trigger`] is [`EntityComponentsTrigger`]
     /// - `trigger_context`'s [`TriggerContext::event_key`] must correspond to the `event` type.
-    /// - Read, understand, and abide by the [`Trigger`] safety documentation
     #[inline(never)]
     unsafe fn trigger_internal(
         &mut self,
@@ -400,7 +372,6 @@ impl<'a> EntityComponentsTrigger<'a> {
         // - the passed in event pointer comes from `event`, which is an `Event`
         // - `trigger` is a matching trigger type, as it comes from `self`, which is the Trigger for `E`
         // - `trigger_context`'s event_key matches `E`, enforced by the call to `trigger`
-        // - this abides by the nuances defined in the `Trigger` safety docs
         unsafe {
             trigger_entity_internal(
                 world.reborrow(),
@@ -421,7 +392,6 @@ impl<'a> EntityComponentsTrigger<'a> {
                     // - the passed in event pointer is an `Event`, enforced by the call to `trigger_internal`
                     // - `trigger` is a matching trigger type, enforced by the call to `trigger_internal`
                     // - `trigger_context`'s event_key matches `E`, enforced by the call to `trigger_internal`
-                    // - this abides by the nuances defined in the `Trigger` safety docs
                     unsafe {
                         (runner)(
                             world.reborrow(),
@@ -443,7 +413,6 @@ impl<'a> EntityComponentsTrigger<'a> {
                         // - the passed in event pointer is an `Event`, enforced by the call to `trigger_internal`
                         // - `trigger` is a matching trigger type, enforced by the call to `trigger_internal`
                         // - `trigger_context`'s event_key matches `E`, enforced by the call to `trigger_internal`
-                        // - this abides by the nuances defined in the `Trigger` safety docs
                         unsafe {
                             (runner)(
                                 world.reborrow(),

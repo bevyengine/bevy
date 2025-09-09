@@ -140,6 +140,7 @@ impl<'w> BundleSpawner<'w> {
                 caller,
             );
             if archetype.has_add_observer() {
+                // SAFETY: the ADD event_key corresponds to the Add event's type
                 deferred_world.trigger_raw(
                     ADD,
                     &mut Add { entity },
@@ -157,6 +158,7 @@ impl<'w> BundleSpawner<'w> {
                 RelationshipHookMode::Run,
             );
             if archetype.has_insert_observer() {
+                // SAFETY: the INSERT event_key corresponds to the Insert event's type
                 deferred_world.trigger_raw(
                     INSERT,
                     &mut Insert { entity },

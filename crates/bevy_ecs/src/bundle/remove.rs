@@ -157,6 +157,7 @@ impl<'w> BundleRemover<'w> {
             };
             if self.old_archetype.as_ref().has_replace_observer() {
                 let components = bundle_components_in_archetype().collect::<Vec<_>>();
+                // SAFETY: the REPLACE event_key corresponds to the Replace event's type
                 deferred_world.trigger_raw(
                     REPLACE,
                     &mut Replace { entity },
@@ -175,6 +176,7 @@ impl<'w> BundleRemover<'w> {
             );
             if self.old_archetype.as_ref().has_remove_observer() {
                 let components = bundle_components_in_archetype().collect::<Vec<_>>();
+                // SAFETY: the REMOVE event_key corresponds to the Remove event's type
                 deferred_world.trigger_raw(
                     REMOVE,
                     &mut Remove { entity },
