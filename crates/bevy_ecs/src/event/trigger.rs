@@ -86,7 +86,7 @@ pub unsafe trait Trigger<E: Event> {
 pub struct GlobalTrigger;
 
 // SAFETY:
-// - `E`'s [`Event::Trigger`] is contrained to [`GlobalTrigger`]
+// - `E`'s [`Event::Trigger`] is constrained to [`GlobalTrigger`]
 // - The implementation abides by the other safety constraints defined in [`Trigger`]
 unsafe impl<E: for<'a> Event<Trigger<'a> = Self>> Trigger<E> for GlobalTrigger {
     unsafe fn trigger(
@@ -150,7 +150,7 @@ impl GlobalTrigger {
 pub struct EntityTrigger;
 
 // SAFETY:
-// - `E`'s [`Event::Trigger`] is contrained to [`EntityTrigger`]
+// - `E`'s [`Event::Trigger`] is constrained to [`EntityTrigger`]
 // - The implementation abides by the other safety constraints defined in [`Trigger`]
 unsafe impl<E: EntityEvent + for<'a> Event<Trigger<'a> = Self>> Trigger<E> for EntityTrigger {
     unsafe fn trigger(
@@ -274,7 +274,7 @@ impl<const AUTO_PROPAGATE: bool, E: EntityEvent, T: Traversal<E>> Default
 }
 
 // SAFETY:
-// - `E`'s [`Event::Trigger`] is contrained to [`PropagateEntityTrigger<E>`]
+// - `E`'s [`Event::Trigger`] is constrained to [`PropagateEntityTrigger<E>`]
 // - The implementation abides by the other safety constraints defined in [`Trigger`]
 unsafe impl<
         const AUTO_PROPAGATE: bool,
@@ -356,7 +356,7 @@ pub struct EntityComponentsTrigger<'a> {
 }
 
 // SAFETY:
-// - `E`'s [`Event::Trigger`] is contrained to [`EntityComponentsTrigger`]
+// - `E`'s [`Event::Trigger`] is constrained to [`EntityComponentsTrigger`]
 // - The implementation abides by the other safety constraints defined in [`Trigger`]
 unsafe impl<'a, E: EntityEvent + Event<Trigger<'a> = EntityComponentsTrigger<'a>>> Trigger<E>
     for EntityComponentsTrigger<'a>

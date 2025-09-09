@@ -25,7 +25,7 @@ pub struct AnimationEventTrigger {
     reason = "We must implement this trait to define a custom Trigger, which is required to be unsafe due to safety considerations within bevy_ecs."
 )]
 // SAFETY:
-// - `E`'s [`Event::Trigger`] is contrained to [`AnimationEventTrigger`]
+// - `E`'s [`Event::Trigger`] is constrained to [`AnimationEventTrigger`]
 // - The implementation abides by the other safety constraints defined in [`Trigger`]
 unsafe impl<E: AnimationEvent + for<'a> Event<Trigger<'a> = AnimationEventTrigger>> Trigger<E>
     for AnimationEventTrigger
