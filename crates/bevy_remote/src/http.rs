@@ -451,10 +451,7 @@ impl Body for BrpHttpBody {
     ) -> Poll<Option<Result<Frame<Self::Data>, Self::Error>>> {
         match &mut *self.get_mut() {
             BrpHttpBody::Complete(body) =>
-            {
-                #[expect(clippy::unwrap_used, reason = "this poll is infallible")]
-                Body::poll_frame(Pin::new(body), cx).map(|poll| poll.map(|res| Ok(res.unwrap())))
-            }
+                Body::poll_frame(Pin::new(body), cx).map(|poll| poll.map(|res| Ok(res.unwrap()))),
             BrpHttpBody::Stream(body) => Body::poll_frame(Pin::new(body), cx),
         }
     }
