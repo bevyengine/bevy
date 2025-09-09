@@ -39,3 +39,5 @@ They have now been given a new home in `bevy_anti_alias` and `bevy_post_process`
 If you were importing FxaaPlugin, SmaaPlugin, TemporalAntiAliasPlugin, or CasPlugin from `bevy_core_pipeline` or `bevy::core_pipeline`, you must now import them from `bevy_anti_alias` or `bevy::anti_alias`.
 
 If you were importing Bloom, AutoExposure, ChromaticAberration, DepthOfField, or MotionBlur from `bevy_core_pipeline` or `bevy::core_pipeline`, you must now import them from `bevy_post_process` or `bevy::post_process`.
+
+Additionally, you may now order rendering passes against the new `StartMainPassPostProcessing` node.
