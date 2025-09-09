@@ -787,9 +787,7 @@ impl<'w> DeferredWorld<'w> {
     /// Triggers all `event` observers for the given `targets`
     ///
     /// # Safety
-    ///
-    /// Caller must ensure `E` is accessible as the type represented by `event_key`
-    /// TODO: capture safety requirements of `E::Trigger::trigger`
+    /// - Caller must ensure `E` is accessible as the type represented by `event_key`
     #[inline]
     pub unsafe fn trigger_raw<'a, E: Event>(
         &mut self,
@@ -810,7 +808,10 @@ impl<'w> DeferredWorld<'w> {
         };
         let context = TriggerContext { event_key, caller };
 
-        // SAFETY: TODO!
+        // SAFETY:
+        // - `observers` comes from `world`, and corresponds to the `event_key`, as it was looked up above
+        // - trigger_context contains the correct event_key for `event`, as enforced by the call to `trigger_raw`
+        // - This method is being called for an `event` whose `Event::Trigger` matches, as the input trigger is E::Trigger.
         unsafe {
             trigger.trigger(world.reborrow(), observers, &context, event);
         }

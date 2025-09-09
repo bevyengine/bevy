@@ -28,12 +28,16 @@ use core::{
 /// Providing multiple components in this bundle will cause this event to be triggered by any
 /// matching component in the bundle,
 /// [rather than requiring all of them to be present](https://github.com/bevyengine/bevy/issues/15325).
-// SAFETY: this type must never expose anything with the 'w lifetime other than `E::trigger<'w>`
-// See the safety discussion on `Trigger::trigger` for more details.
+// SAFETY WARNING!
+// this type must _never_ expose anything with the 'w lifetime
+// See the safety discussion on `Trigger` for more details.
 pub struct On<'w, 't, E: Event, B: Bundle = ()> {
     observer: Entity,
+    // SAFETY WARNING: never expose this 'w lifetime
     event: &'w mut E,
+    // SAFETY WARNING: never expose this 'w lifetime
     trigger: &'w mut E::Trigger<'t>,
+    // SAFETY WARNING: never expose this 'w lifetime
     pub(crate) trigger_context: &'w TriggerContext,
     _marker: PhantomData<B>,
 }

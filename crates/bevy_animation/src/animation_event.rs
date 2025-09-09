@@ -24,8 +24,12 @@ pub struct AnimationEventTrigger {
     unsafe_code,
     reason = "We must implement this trait to define a custom Trigger, which is required to be unsafe due to safety considerations within bevy_ecs."
 )]
-unsafe impl<E: AnimationEvent> Trigger<E> for AnimationEventTrigger {
-    /// SAFETY: TODO!
+// SAFETY:
+// - `E`'s [`Event::Trigger`] is contrained to [`AnimationEventTrigger`]
+// - The implementation abides by the other safety constraints defined in [`Trigger`]
+unsafe impl<E: AnimationEvent + for<'a> Event<Trigger<'a> = AnimationEventTrigger>> Trigger<E>
+    for AnimationEventTrigger
+{
     unsafe fn trigger(
         &mut self,
         world: DeferredWorld,
@@ -34,13 +38,21 @@ unsafe impl<E: AnimationEvent> Trigger<E> for AnimationEventTrigger {
         event: &mut E,
     ) {
         let animation_player = self.animation_player;
-        trigger_entity_internal(
-            world,
-            observers,
-            event.into(),
-            self.into(),
-            animation_player,
-            trigger_context,
-        );
+        // SAFETY:
+        // - `observers` come from `world` and match the event type `E`, enforced by the call to `trigger`
+        // - the passed in event pointer comes from `event`, which is an `Event`
+        // - `trigger` is a matching trigger type, as it comes from `self`, which is the Trigger for `E`
+        // - `trigger_context`'s event_key matches `E`, enforced by the call to `trigger`
+        // - this abides by the nuances defined in the `Trigger` safety docs
+        unsafe {
+            trigger_entity_internal(
+                world,
+                observers,
+                event.into(),
+                self.into(),
+                animation_player,
+                trigger_context,
+            );
+        }
     }
 }
