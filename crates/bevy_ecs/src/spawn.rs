@@ -42,29 +42,19 @@ pub struct Spawn<B: Bundle>(pub B);
 
 /// A spawn-able list of changes to a given [`World`] and relative to a given [`Entity`]. This is generally used
 /// for spawning "related" entities, such as children.
-pub trait SpawnableList<R> {
+pub trait SpawnableList<R>: Sized {
     /// Spawn this list of changes in a given [`World`] and relative to a given [`Entity`]. This is generally used
     /// for spawning "related" entities, such as children.
-    fn spawn(self, world: &mut World, entity: Entity);
+    fn spawn(this: MovingPtr<'_, Self>, world: &mut World, entity: Entity);
+
     /// Returns a size hint, which is used to reserve space for this list in a [`RelationshipTarget`]. This should be
     /// less than or equal to the actual size of the list. When in doubt, just use 0.
     fn size_hint(&self) -> usize;
-
-    /// By default calls `self.spawn` with a raw pointer to `self`.
-    /// Implementors may want to implement a custom version of this function to
-    /// avoid copying large values onto the stack repeatedly.
-    #[doc(hidden)]
-    fn spawn_raw(this: MovingPtr<'_, Self>, world: &mut World, entity: Entity)
-    where
-        Self: Sized,
-    {
-        this.read().spawn(world, entity);
-    }
 }
 
 impl<R: Relationship, B: Bundle<Effect: NoBundleEffect>> SpawnableList<R> for Vec<B> {
-    fn spawn(self, world: &mut World, entity: Entity) {
-        let mapped_bundles = self.into_iter().map(|b| (R::from(entity), b));
+    fn spawn(ptr: MovingPtr<'_, Self>, world: &mut World, entity: Entity) {
+        let mapped_bundles = ptr.read().into_iter().map(|b| (R::from(entity), b));
         world.spawn_batch(mapped_bundles);
     }
 
@@ -74,19 +64,9 @@ impl<R: Relationship, B: Bundle<Effect: NoBundleEffect>> SpawnableList<R> for Ve
 }
 
 impl<R: Relationship, B: Bundle> SpawnableList<R> for Spawn<B> {
-    fn spawn(self, world: &mut World, entity: Entity) {
-        let this = self;
-        move_as_ptr!(this);
-        <Self as SpawnableList<R>>::spawn_raw(this, world, entity);
-    }
-
-    fn size_hint(&self) -> usize {
-        1
-    }
-
-    fn spawn_raw(this: MovingPtr<'_, Self>, world: &mut World, entity: Entity) {
+    fn spawn(this: MovingPtr<'_, Self>, world: &mut World, entity: Entity) {
         #[track_caller]
-        fn spawn_raw<B: Bundle, R: Relationship>(
+        fn spawn<B: Bundle, R: Relationship>(
             this: MovingPtr<'_, Spawn<B>>,
             world: &mut World,
             entity: Entity,
@@ -118,7 +98,11 @@ impl<R: Relationship, B: Bundle> SpawnableList<R> for Spawn<B> {
             );
         }
 
-        spawn_raw::<B, R>(this, world, entity);
+        spawn::<B, R>(this, world, entity);
+    }
+
+    fn size_hint(&self) -> usize {
+        1
     }
 }
 
@@ -143,8 +127,8 @@ pub struct SpawnIter<I>(pub I);
 impl<R: Relationship, I: Iterator<Item = B> + Send + Sync + 'static, B: Bundle> SpawnableList<R>
     for SpawnIter<I>
 {
-    fn spawn(self, world: &mut World, entity: Entity) {
-        for bundle in self.0 {
+    fn spawn(this: MovingPtr<'_, Self>, world: &mut World, entity: Entity) {
+        for bundle in this.read().0 {
             world.spawn((R::from(entity), bundle));
         }
     }
@@ -179,8 +163,10 @@ pub struct SpawnWith<F>(pub F);
 impl<R: Relationship, F: FnOnce(&mut RelatedSpawner<R>) + Send + Sync + 'static> SpawnableList<R>
     for SpawnWith<F>
 {
-    fn spawn(self, world: &mut World, entity: Entity) {
-        world.entity_mut(entity).with_related_entities(self.0);
+    fn spawn(this: MovingPtr<'_, Self>, world: &mut World, entity: Entity) {
+        world
+            .entity_mut(entity)
+            .with_related_entities(this.read().0);
     }
 
     fn size_hint(&self) -> usize {
@@ -222,10 +208,9 @@ impl<I> WithRelated<I> {
 }
 
 impl<R: Relationship, I: Iterator<Item = Entity>> SpawnableList<R> for WithRelated<I> {
-    fn spawn(self, world: &mut World, entity: Entity) {
-        world
-            .entity_mut(entity)
-            .add_related::<R>(&self.0.collect::<Vec<_>>());
+    fn spawn(this: MovingPtr<'_, Self>, world: &mut World, entity: Entity) {
+        let related = this.read().0.collect::<Vec<_>>();
+        world.entity_mut(entity).add_related::<R>(&related);
     }
 
     fn size_hint(&self) -> usize {
@@ -260,8 +245,8 @@ impl<R: Relationship, I: Iterator<Item = Entity>> SpawnableList<R> for WithRelat
 pub struct WithOneRelated(pub Entity);
 
 impl<R: Relationship> SpawnableList<R> for WithOneRelated {
-    fn spawn(self, world: &mut World, entity: Entity) {
-        world.entity_mut(entity).add_one_related::<R>(self.0);
+    fn spawn(this: MovingPtr<'_, Self>, world: &mut World, entity: Entity) {
+        world.entity_mut(entity).add_one_related::<R>(this.read().0);
     }
 
     fn size_hint(&self) -> usize {
@@ -273,17 +258,12 @@ macro_rules! spawnable_list_impl {
     ($(#[$meta:meta])* $(($index:tt, $list: ident, $alias: ident)),*) => {
         $(#[$meta])*
         impl<R: Relationship, $($list: SpawnableList<R>),*> SpawnableList<R> for ($($list,)*) {
-            fn spawn(self, _world: &mut World, _entity: Entity) {
-                let ($($alias,)*) = self;
-                $($alias.spawn(_world, _entity);)*
-            }
-
             #[expect(
                 clippy::allow_attributes,
                 reason = "This is a tuple-related macro; as such, the lints below may not always apply."
             )]
             #[allow(unused_unsafe, reason = "The empty tuple will leave the unsafe blocks unused.")]
-            fn spawn_raw(_this: MovingPtr<'_, Self>, _world: &mut World, _entity: Entity)
+            fn spawn(_this: MovingPtr<'_, Self>, _world: &mut World, _entity: Entity)
             where
                 Self: Sized,
             {
@@ -294,7 +274,7 @@ macro_rules! spawnable_list_impl {
                 unsafe {
                     $( let $alias = _this.move_field::<$list>(core::mem::offset_of!(Self, $index)); )*
                     core::mem::forget(_this);
-                    $( SpawnableList::<R>::spawn_raw($alias.try_into().debug_checked_unwrap(), _world, _entity); )*
+                    $( SpawnableList::<R>::spawn($alias.try_into().debug_checked_unwrap(), _world, _entity); )*
                 }
             }
 
@@ -379,7 +359,7 @@ unsafe impl<R: Relationship, L: SpawnableList<R>> DynamicBundle for SpawnRelated
         //  - The field names and types match with the type definition.
         entity.world_scope(|world: &mut World| unsafe {
             bevy_ptr::deconstruct_moving_ptr!(effect, Self {
-                list: L => { L::spawn_raw(list.try_into().debug_checked_unwrap(), world, id) },
+                list: L => { L::spawn(list.try_into().debug_checked_unwrap(), world, id) },
             });
         });
     }

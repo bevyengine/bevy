@@ -235,16 +235,12 @@ pub unsafe trait BundleFromComponents {
         Self: Sized;
 }
 
-#[expect(
-    clippy::missing_safety_doc,
-    reason = "The safety docs for this type are private and will not show in the public docs."
-)]
 /// The parts from [`Bundle`] that don't require statically knowing the components of the bundle.
-//
-// # Safety
-// - Each component can only be moved out of the `Bundle` exactly once between both implementations of
-//   `get_components` and `apply_effect`.
-// - If `Effect: NoBundleEffect`, `apply_effect` must be a no-op.
+///
+/// # Safety
+/// - Each component can only be moved out of the `Bundle` exactly once between both implementations of
+///   `get_components` and `apply_effect`.
+/// - If `Effect: NoBundleEffect`, `apply_effect` must be a no-op.
 pub unsafe trait DynamicBundle: Sized {
     /// An operation on the entity that happens _after_ inserting this bundle.
     type Effect;
