@@ -18,6 +18,7 @@ use crate::{
         Component, ComponentCloneBehavior, ComponentMutability, QueuedComponents,
         RequiredComponents, StorageType,
     },
+    fragmenting_value::FragmentingValueVtable,
     lifecycle::ComponentHooks,
     query::DebugCheckedUnwrap as _,
     resource::Resource,
@@ -140,6 +141,13 @@ impl ComponentInfo {
     pub fn required_components(&self) -> &RequiredComponents {
         &self.required_components
     }
+
+    /// Returns this component's [`FragmentingValueVtable`], which is used to fragment by component value.
+    ///
+    /// Will return `None` if this component isn't fragmenting by value.
+    pub fn value_component_vtable(&self) -> Option<&FragmentingValueVtable> {
+        self.descriptor.fragmenting_value_vtable.as_ref()
+    }
 }
 
 /// A value which uniquely identifies the type of a [`Component`] or [`Resource`] within a
@@ -219,6 +227,7 @@ pub struct ComponentDescriptor {
     drop: Option<for<'a> unsafe fn(OwningPtr<'a>)>,
     mutable: bool,
     clone_behavior: ComponentCloneBehavior,
+    fragmenting_value_vtable: Option<FragmentingValueVtable>,
 }
 
 // We need to ignore the `drop` field in our `Debug` impl
@@ -232,6 +241,7 @@ impl Debug for ComponentDescriptor {
             .field("layout", &self.layout)
             .field("mutable", &self.mutable)
             .field("clone_behavior", &self.clone_behavior)
+            .field("fragmenting_value_vtable", &self.fragmenting_value_vtable)
             .finish()
     }
 }
@@ -258,6 +268,7 @@ impl ComponentDescriptor {
             drop: needs_drop::<T>().then_some(Self::drop_ptr::<T> as _),
             mutable: T::Mutability::MUTABLE,
             clone_behavior: T::clone_behavior(),
+            fragmenting_value_vtable: FragmentingValueVtable::from_component::<T>(),
         }
     }
 
@@ -266,6 +277,10 @@ impl ComponentDescriptor {
     /// # Safety
     /// - the `drop` fn must be usable on a pointer with a value of the layout `layout`
     /// - the component type must be safe to access from any thread (Send + Sync in rust terms)
+    /// - if `fragmenting_value_vtable` is not `None`, it must be usable on a pointer with a value of the layout `layout`
+    ///
+    /// # Panics
+    /// This will panic if `fragmenting_value_vtable` is not `None` and `mutable` is `true`. Fragmenting value components must be immutable.
     pub unsafe fn new_with_layout(
         name: impl Into<Cow<'static, str>>,
         storage_type: StorageType,
@@ -273,7 +288,11 @@ impl ComponentDescriptor {
         drop: Option<for<'a> unsafe fn(OwningPtr<'a>)>,
         mutable: bool,
         clone_behavior: ComponentCloneBehavior,
+        fragmenting_value_vtable: Option<FragmentingValueVtable>,
     ) -> Self {
+        if fragmenting_value_vtable.is_some() && mutable {
+            panic!("Fragmenting value components must be immutable");
+        }
         Self {
             name: name.into().into(),
             storage_type,
@@ -283,6 +302,7 @@ impl ComponentDescriptor {
             drop,
             mutable,
             clone_behavior,
+            fragmenting_value_vtable,
         }
     }
 
@@ -301,6 +321,7 @@ impl ComponentDescriptor {
             drop: needs_drop::<T>().then_some(Self::drop_ptr::<T> as _),
             mutable: true,
             clone_behavior: ComponentCloneBehavior::Default,
+            fragmenting_value_vtable: None,
         }
     }
 
@@ -314,6 +335,7 @@ impl ComponentDescriptor {
             drop: needs_drop::<T>().then_some(Self::drop_ptr::<T> as _),
             mutable: true,
             clone_behavior: ComponentCloneBehavior::Default,
+            fragmenting_value_vtable: None,
         }
     }
 

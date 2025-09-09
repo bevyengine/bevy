@@ -8,6 +8,7 @@ use crate::{
     change_detection::MaybeLocation,
     component::{ComponentsRegistrator, Tick},
     entity::{Entities, Entity, EntityLocation},
+    fragmenting_value::FragmentingValuesBorrowed,
     lifecycle::{ADD, INSERT},
     relationship::RelationshipHookMode,
     storage::Table,
@@ -25,7 +26,7 @@ pub(crate) struct BundleSpawner<'w> {
 
 impl<'w> BundleSpawner<'w> {
     #[inline]
-    pub fn new<T: Bundle>(world: &'w mut World, change_tick: Tick) -> Self {
+    pub fn new<T: Bundle>(world: &'w mut World, change_tick: Tick, bundle: &T) -> Self {
         // SAFETY: These come from the same world. `world.components_registrator` can't be used since we borrow other fields too.
         let mut registrator =
             unsafe { ComponentsRegistrator::new(&mut world.components, &mut world.component_ids) };
@@ -36,8 +37,30 @@ impl<'w> BundleSpawner<'w> {
                 .bundles
                 .register_info::<T>(&mut registrator, &mut world.storages)
         };
+        let value_components = FragmentingValuesBorrowed::from_bundle(&mut registrator, bundle);
         // SAFETY: we initialized this bundle_id in `init_info`
-        unsafe { Self::new_with_id(world, bundle_id, change_tick) }
+        unsafe { Self::new_with_id(world, bundle_id, change_tick, &value_components) }
+    }
+
+    /// Same as [`BundleSpawner::new`] but doesn't require to pass [`Bundle`] by value and ignores [`FragmentingValue`] components.
+    /// This should be used only if it is known that `T` doesn't have fragmenting value components.
+    ///
+    /// [`FragmentingValue`]: crate::fragmenting_value::FragmentingValue
+    #[inline]
+    pub(crate) fn new_uniform<T: Bundle>(world: &'w mut World, change_tick: Tick) -> Self {
+        // SAFETY: These come from the same world. `world.components_registrator` can't be used since we borrow other fields too.
+        let mut registrator =
+            unsafe { ComponentsRegistrator::new(&mut world.components, &mut world.component_ids) };
+
+        // SAFETY: `registrator`, `world.bundles`, and `world.storages` all come from the same world.
+        let bundle_id = unsafe {
+            world
+                .bundles
+                .register_info::<T>(&mut registrator, &mut world.storages)
+        };
+        let value_components = [].into_iter().collect();
+        // SAFETY: we initialized this bundle_id in `init_info`
+        unsafe { Self::new_with_id(world, bundle_id, change_tick, &value_components) }
     }
 
     /// Creates a new [`BundleSpawner`].
@@ -49,6 +72,7 @@ impl<'w> BundleSpawner<'w> {
         world: &'w mut World,
         bundle_id: BundleId,
         change_tick: Tick,
+        value_components: &FragmentingValuesBorrowed,
     ) -> Self {
         let bundle_info = world.bundles.get_unchecked(bundle_id);
         let (new_archetype_id, is_new_created) = bundle_info.insert_bundle_into_archetype(
@@ -57,6 +81,7 @@ impl<'w> BundleSpawner<'w> {
             &world.components,
             &world.observers,
             ArchetypeId::EMPTY,
+            value_components,
         );
 
         let archetype = &mut world.archetypes[new_archetype_id];
