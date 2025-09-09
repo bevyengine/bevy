@@ -786,11 +786,7 @@ unsafe impl<'a, T: Resource> SystemParam for Res<'a, T> {
         world: UnsafeWorldCell,
     ) -> Result<(), SystemParamValidationError> {
         // SAFETY: Read-only access to resource metadata.
-        if unsafe { world.storages() }
-            .resources
-            .get(component_id)
-            .is_some_and(ResourceData::is_present)
-        {
+        if world.world().contains_resource_by_id(component_id) {
             Ok(())
         } else {
             Err(SystemParamValidationError::invalid::<Self>(
@@ -865,11 +861,7 @@ unsafe impl<'a, T: Resource> SystemParam for ResMut<'a, T> {
         world: UnsafeWorldCell,
     ) -> Result<(), SystemParamValidationError> {
         // SAFETY: Read-only access to resource metadata.
-        if unsafe { world.storages() }
-            .resources
-            .get(component_id)
-            .is_some_and(ResourceData::is_present)
-        {
+        if world.world().contains_resource_by_id(component_id) {
             Ok(())
         } else {
             Err(SystemParamValidationError::invalid::<Self>(

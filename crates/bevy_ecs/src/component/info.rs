@@ -1,5 +1,5 @@
 use alloc::{borrow::Cow, vec::Vec};
-use bevy_platform::{hash::FixedHasher, sync::PoisonError};
+use bevy_platform::{collections::HashMap, hash::FixedHasher, sync::PoisonError};
 use bevy_ptr::OwningPtr;
 #[cfg(feature = "bevy_reflect")]
 use bevy_reflect::Reflect;
@@ -19,6 +19,7 @@ use crate::{
         RequiredComponents, StorageType,
     },
     lifecycle::ComponentHooks,
+    prelude::Entity,
     query::DebugCheckedUnwrap as _,
     resource::Resource,
     storage::SparseSetIndex,
@@ -348,7 +349,9 @@ impl ComponentDescriptor {
 pub struct Components {
     pub(super) components: Vec<Option<ComponentInfo>>,
     pub(super) indices: TypeIdMap<ComponentId>,
-    pub(super) resource_indices: TypeIdMap<ComponentId>,
+    /// A lookup for the entities on which resources are stored.
+    /// It uses `ComponentId`s instead of `TypeId`s for untyped APIs
+    pub(crate) resource_entities: HashMap<ComponentId, Entity>,
     // This is kept internal and local to verify that no deadlocks can occor.
     pub(super) queued: bevy_platform::sync::RwLock<QueuedComponents>,
 }
@@ -588,7 +591,7 @@ impl Components {
     /// Type-erased equivalent of [`Components::valid_resource_id()`].
     #[inline]
     pub fn get_valid_resource_id(&self, type_id: TypeId) -> Option<ComponentId> {
-        self.resource_indices.get(&type_id).copied()
+        self.indices.get(&type_id).copied()
     }
 
     /// Returns the [`ComponentId`] of the given [`Resource`] type `T` if it is fully registered.
@@ -666,7 +669,7 @@ impl Components {
     /// Type-erased equivalent of [`Components::resource_id()`].
     #[inline]
     pub fn get_resource_id(&self, type_id: TypeId) -> Option<ComponentId> {
-        self.resource_indices.get(&type_id).copied().or_else(|| {
+        self.indices.get(&type_id).copied().or_else(|| {
             self.queued
                 .read()
                 .unwrap_or_else(PoisonError::into_inner)
@@ -724,7 +727,7 @@ impl Components {
         unsafe {
             self.register_component_inner(component_id, descriptor);
         }
-        let prev = self.resource_indices.insert(type_id, component_id);
+        let prev = self.indices.insert(type_id, component_id);
         debug_assert!(prev.is_none());
     }
 
