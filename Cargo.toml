@@ -2720,6 +2720,17 @@ category = "Reflection"
 wasm = false
 
 [[example]]
+name = "serialization"
+path = "examples/reflection/serialization.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.serialization]
+name = "Serialization"
+description = "Demonstrates serialization and deserialization using reflection without serde's Serialize/Deserialize traits"
+category = "Reflection"
+wasm = false
+
+[[example]]
 name = "custom_attributes"
 path = "examples/reflection/custom_attributes.rs"
 doc-scrape-examples = true
