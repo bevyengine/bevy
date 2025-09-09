@@ -450,8 +450,9 @@ impl Body for BrpHttpBody {
         cx: &mut Context<'_>,
     ) -> Poll<Option<Result<Frame<Self::Data>, Self::Error>>> {
         match &mut *self.get_mut() {
-            BrpHttpBody::Complete(body) =>
-                Body::poll_frame(Pin::new(body), cx).map(|poll| poll.map(|res| Ok(res.unwrap()))),
+            BrpHttpBody::Complete(body) => {
+                Body::poll_frame(Pin::new(body), cx).map(|poll| poll.map(|res| Ok(res.unwrap())))
+            }
             BrpHttpBody::Stream(body) => Body::poll_frame(Pin::new(body), cx),
         }
     }
