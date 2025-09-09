@@ -13,15 +13,16 @@ pub mod unsafe_world_cell;
 #[cfg(feature = "bevy_reflect")]
 pub mod reflect;
 
-pub use crate::{
-    change_detection::{Mut, Ref, CHECK_TICK_THRESHOLD},
-    world::command_queue::CommandQueue,
-};
 use crate::{
+    bundle::BundleId,
     error::{DefaultErrorHandler, ErrorHandler},
     event::BufferedEvent,
     lifecycle::{ComponentHooks, ADD, DESPAWN, INSERT, REMOVE, REPLACE},
     prelude::{Add, Despawn, Insert, Remove, Replace},
+};
+pub use crate::{
+    change_detection::{Mut, Ref, CHECK_TICK_THRESHOLD},
+    world::command_queue::CommandQueue,
 };
 pub use bevy_ecs_macros::FromWorld;
 use bevy_utils::prelude::DebugName;
@@ -2302,15 +2303,7 @@ impl World {
 
         self.flush();
         let change_tick = self.change_tick();
-        // SAFETY: These come from the same world. `Self.components_registrator` can't be used since we borrow other fields too.
-        let mut registrator =
-            unsafe { ComponentsRegistrator::new(&mut self.components, &mut self.component_ids) };
-
-        // SAFETY: `registrator`, `self.bundles`, and `self.storages` all come from this world.
-        let bundle_id = unsafe {
-            self.bundles
-                .register_info::<B>(&mut registrator, &mut self.storages)
-        };
+        let bundle_id = self.register_bundle_info::<B>();
 
         let mut batch_iter = batch.into_iter();
 
@@ -2450,15 +2443,7 @@ impl World {
 
         self.flush();
         let change_tick = self.change_tick();
-        // SAFETY: These come from the same world. `Self.components_registrator` can't be used since we borrow other fields too.
-        let mut registrator =
-            unsafe { ComponentsRegistrator::new(&mut self.components, &mut self.component_ids) };
-
-        // SAFETY: `registrator`, `self.bundles`, and `self.storages` all come from this world.
-        let bundle_id = unsafe {
-            self.bundles
-                .register_info::<B>(&mut registrator, &mut self.storages)
-        };
+        let bundle_id = self.register_bundle_info::<B>();
 
         let mut invalid_entities = Vec::<Entity>::new();
         let mut batch_iter = batch.into_iter();
@@ -2470,7 +2455,7 @@ impl World {
             if let Some((first_entity, first_bundle)) = batch_iter.next() {
                 if let Some(first_location) = self.entities().get(first_entity) {
                     let mut cache = InserterArchetypeCache {
-                        // SAFETY: we initialized this bundle_id in `register_info`
+                        // SAFETY: we initialized this bundle_id in `register_bundle_info`
                         inserter: unsafe {
                             BundleInserter::new_with_id(
                                 self,
@@ -3075,18 +3060,34 @@ impl World {
     /// component in the bundle.
     #[inline]
     pub fn register_bundle<B: Bundle>(&mut self) -> &BundleInfo {
+        let id = self.register_bundle_info::<B>();
+
+        // SAFETY: We just initialized the bundle so its id should definitely be valid.
+        unsafe { self.bundles.get(id).debug_checked_unwrap() }
+    }
+
+    pub(crate) fn register_bundle_info<B: Bundle>(&mut self) -> BundleId {
         // SAFETY: These come from the same world. `Self.components_registrator` can't be used since we borrow other fields too.
         let mut registrator =
             unsafe { ComponentsRegistrator::new(&mut self.components, &mut self.component_ids) };
 
         // SAFETY: `registrator`, `self.storages` and `self.bundles` all come from this world.
-        let id = unsafe {
+        unsafe {
             self.bundles
                 .register_info::<B>(&mut registrator, &mut self.storages)
-        };
+        }
+    }
 
-        // SAFETY: We just initialized the bundle so its id should definitely be valid.
-        unsafe { self.bundles.get(id).debug_checked_unwrap() }
+    pub(crate) fn register_contributed_bundle_info<B: Bundle>(&mut self) -> BundleId {
+        // SAFETY: These come from the same world. `Self.components_registrator` can't be used since we borrow other fields too.
+        let mut registrator =
+            unsafe { ComponentsRegistrator::new(&mut self.components, &mut self.component_ids) };
+
+        // SAFETY: `registrator`, `self.bundles` and `self.storages` are all from this world.
+        unsafe {
+            self.bundles
+                .register_contributed_bundle_info::<B>(&mut registrator, &mut self.storages)
+        }
     }
 
     /// Registers the given [`ComponentId`]s as a dynamic bundle and returns both the required component ids and the bundle id.
