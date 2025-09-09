@@ -19,7 +19,6 @@ use bevy_ecs::resource::Resource;
 use bevy_ecs::system::Res;
 use bevy_tasks::{futures_lite::StreamExt, IoTaskPool};
 use core::{
-    convert::Infallible,
     net::{IpAddr, Ipv4Addr},
     pin::Pin,
     task::{Context, Poll},
@@ -444,14 +443,18 @@ enum BrpHttpBody {
 
 impl Body for BrpHttpBody {
     type Data = Bytes;
-    type Error = Infallible;
+    type Error = serde_json::Error;
 
     fn poll_frame(
         self: Pin<&mut Self>,
         cx: &mut Context<'_>,
     ) -> Poll<Option<Result<Frame<Self::Data>, Self::Error>>> {
         match &mut *self.get_mut() {
-            BrpHttpBody::Complete(body) => Body::poll_frame(Pin::new(body), cx),
+            BrpHttpBody::Complete(body) =>
+            {
+                #[expect(clippy::unwrap_used, reason = "this poll is infallible")]
+                Body::poll_frame(Pin::new(body), cx).map(|poll| poll.map(|res| Ok(res.unwrap())))
+            }
             BrpHttpBody::Stream(body) => Body::poll_frame(Pin::new(body), cx),
         }
     }
