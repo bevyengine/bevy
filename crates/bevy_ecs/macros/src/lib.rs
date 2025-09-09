@@ -192,7 +192,7 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
             ) {
                 use #ecs_path::__macro_exports::DebugCheckedUnwrap;
 
-                #( let #active_field_alias = ptr.move_field::<#active_field_types>(core::mem::offset_of!(Self, #active_field_tokens)); )*
+                #( let #active_field_alias = ptr.move_field(|ptr| &raw mut (*ptr).#active_field_tokens); )*
                 core::mem::forget(ptr);
                 #(
                     <#active_field_types as #ecs_path::bundle::DynamicBundle>::get_components(

@@ -144,14 +144,16 @@ macro_rules! tuple_impl {
             #[inline(always)]
             unsafe fn get_components(ptr: MovingPtr<'_, Self>, func: &mut impl FnMut(StorageType, OwningPtr<'_>)) {
                 // SAFETY:
-                // - If `ptr` is aligned, then field_ptr is aligned properly
+                // - All of the `move_field` calls all fetch distinct and valid fields within `Self`.
                 // - If a field is `NoBundleEffect`, it's `apply_effect` is a no-op
                 //   and cannot move any value out of an invalid instance after this call.
                 // - If a field is `!NoBundleEffect`, it must be valid since a safe
                 //   implementation of `DynamicBundle` only moves the value out only
                 //   once between `get_components` and `apply_effect`.
-                $( let $alias = ptr.move_field::<$name>(core::mem::offset_of!(Self, $index)); )*
+                $( let $alias = ptr.move_field(|ptr| &raw mut (*ptr).$index); )*
                 core::mem::forget(ptr);
+                // SAFETY:
+                // - If `ptr` is aligned, then field_ptr is aligned properly. Rust tuples cannot be `repr(packed)`.
                 $( $name::get_components($alias.try_into().debug_checked_unwrap(), func); )*
             }
 
@@ -162,14 +164,16 @@ macro_rules! tuple_impl {
             #[inline(always)]
             unsafe fn apply_effect(ptr: MovingPtr<'_, MaybeUninit<Self>>, entity: &mut EntityWorldMut) {
                 // SAFETY:
-                // - If `ptr` is aligned, then field_ptr is aligned properly
+                // - All of the `move_field` calls all fetch distinct and valid fields within `Self`.
                 // - If a field is `NoBundleEffect`, it's `apply_effect` is a no-op
                 //   and cannot move any value out of an invalid instance.
                 // - If a field is `!NoBundleEffect`, it must be valid since a safe
                 //   implementation of `DynamicBundle` only moves the value out only
                 //   once between `get_components` and `apply_effect`.
-                $( let $alias = ptr.move_field::<MaybeUninit<$name>>(core::mem::offset_of!(Self, $index));)*
+                $( let $alias = ptr.move_field(|ptr| (&raw mut (*ptr.cast::<Self>()).$index).cast::<MaybeUninit<$name>>());)*
                 core::mem::forget(ptr);
+                // SAFETY:
+                // - If `ptr` is aligned, then field_ptr is aligned properly. Rust tuples cannot be `repr(packed)`.
                 $( $name::apply_effect($alias.try_into().debug_checked_unwrap(), entity); )*
             }
         }

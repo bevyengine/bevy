@@ -608,8 +608,8 @@ impl<'a, T, A: IsAligned> MovingPtr<'_, T, A> {
     /// unaligned fields. The pointer is convertible back into an aligned one using the [`TryFrom`] impl.
     ///
     /// # Safety
-    ///  - `U` must be the correct type for the field at `byte_offset` within `self`.
-    ///  - `self` should not be accessed or dropped as if it were a complete value.
+    ///  - `f` must return a non-null pointer to a valid field inside `T`
+    ///  - `self` should not be accessed or dropped as if it were a complete value after this function returns.
     ///    Other fields that have not been moved out of may still be accessed or dropped separately.
     ///  - This function cannot alias the field with any other access, including other calls to [`move_field`]
     ///    for the same field, without first calling [`forget`] on it first.
@@ -645,9 +645,9 @@ impl<'a, T, A: IsAligned> MovingPtr<'_, T, A> {
     /// move_as_ptr!(parent);
     ///
     /// unsafe {
-    ///    let field_a = parent.move_field::<FieldAType>(offset_of!(Parent, field_a));
-    ///    let field_b = parent.move_field::<FieldBType>(offset_of!(Parent, field_b));
-    ///    let field_c = parent.move_field::<FieldCType>(offset_of!(Parent, field_c));
+    ///    let field_a = parent.move_field(|ptr| &raw mut (*ptr).field_a);
+    ///    let field_b = parent.move_field(|ptr| &raw mut (*ptr).field_b);
+    ///    let field_c = parent.move_field(|ptr| &raw mut (*ptr).field_c);
     ///    // Each call to insert may panic! Ensure that `parent_ptr` cannot be dropped before
     ///    // calling them!
     ///    core::mem::forget(parent);
@@ -659,11 +659,14 @@ impl<'a, T, A: IsAligned> MovingPtr<'_, T, A> {
     ///
     /// [`forget`]: core::mem::forget
     /// [`move_field`]: Self::move_field
-    #[inline]
-    pub unsafe fn move_field<U>(&self, byte_offset: usize) -> MovingPtr<'a, U, Unaligned> {
+    #[inline(always)]
+    pub unsafe fn move_field<U>(
+        &self,
+        f: impl Fn(*mut T) -> *mut U,
+    ) -> MovingPtr<'a, U, Unaligned> {
         MovingPtr(
             // SAFETY: The caller must ensure that `U` is the correct type for the field at `byte_offset`.
-            unsafe { self.0.byte_add(byte_offset) }.cast::<U>(),
+            unsafe { NonNull::new_unchecked(f(self.0.as_ptr())) },
             PhantomData,
         )
     }
@@ -1237,7 +1240,7 @@ macro_rules! move_as_ptr {
 #[macro_export]
 macro_rules! deconstruct_moving_ptr {
     ($ptr:ident, $self_type:tt {$($field_name:tt: $field_type:tt => $field_block:block,)*}) => {
-        $(let $field_name = $ptr.move_field::<$field_type>(core::mem::offset_of!($self_type, $field_name));)*
+        $(let $field_name = $ptr.move_field(|f| &raw mut (*f.cast::<$self_type>()).$field_name);)*
         // Each field block may panic! Ensure that `parent_ptr` cannot be dropped before
         // calling them!
         core::mem::forget($ptr);

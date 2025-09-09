@@ -1176,7 +1176,7 @@ impl World {
         // - The above also means that the fields moved out of in `spawn_non_existent` will not be accessed in `B::apply_effect`.
         let (bundle, entity_location) = bundle.partial_move(|bundle| {
             // SAFETY:
-            // - `B` matches `bundle_spawner`'s type ,
+            // - `B` matches `bundle_spawner`'s type
             // -  `entity` is allocated but non-existent
             // - `B::Effect` is unconstrained, and `B::apply_effect` is called exactly once on the bundle after this call.
             // - The caller must ensure that the value pointed to by `bundle` must not be accessed for anything. The value

@@ -11,9 +11,7 @@ use crate::{
 };
 use alloc::vec::Vec;
 use bevy_ptr::{move_as_ptr, MovingPtr};
-use core::mem;
-use core::mem::MaybeUninit;
-use core::{marker::PhantomData, mem::offset_of};
+use core::{mem::{self, MaybeUninit}, marker::PhantomData};
 use variadics_please::all_tuples_enumerated;
 
 /// A wrapper over a [`Bundle`] indicating that an entity should be spawned with that [`Bundle`].
@@ -74,11 +72,11 @@ impl<R: Relationship, B: Bundle> SpawnableList<R> for Spawn<B> {
             let caller = MaybeLocation::caller();
 
             // SAFETY:
-            //  - `Spawn<B>` has one field at index 0 and it's of type `B`.
+            //  - `Spawn<B>` has one field at index 0.
             //  - if `this` is aligned, then its inner bundle must be as well.
             //  - `this` is forgotten and thus not accessed or dropped after this call.
             let bundle = unsafe {
-                this.move_field::<B>(offset_of!(Spawn<B>, 0))
+                this.move_field(|ptr| &raw mut (*ptr).0)
                     .try_into()
                     .debug_checked_unwrap()
             };
@@ -272,7 +270,7 @@ macro_rules! spawnable_list_impl {
                 //  - Rust tuples can never be `repr(packed)` so if `_this` is properly aligned, then all of the individual field
                 //    pointers must also be properly aligned.
                 unsafe {
-                    $( let $alias = _this.move_field::<$list>(core::mem::offset_of!(Self, $index)); )*
+                    $( let $alias = _this.move_field(|ptr| &raw mut (*ptr).$index); )*
                     core::mem::forget(_this);
                     $( SpawnableList::<R>::spawn($alias.try_into().debug_checked_unwrap(), _world, _entity); )*
                 }
