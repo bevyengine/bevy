@@ -272,7 +272,7 @@ impl Val {
     /// ```
     /// # use bevy_ui::{UiRect, Val};
     /// #
-    /// let ui_rect = Val::Px(1.).all();
+    /// let ui_rect = Val::Px(1.).horizontal();
     ///
     /// assert_eq!(ui_rect.left, Val::Px(1.));
     /// assert_eq!(ui_rect.right, Val::Px(1.));
@@ -291,12 +291,12 @@ impl Val {
     /// ```
     /// # use bevy_ui::{UiRect, Val};
     /// #
-    /// let ui_rect = Val::Px(1.).all();
+    /// let ui_rect = Val::Px(1.).vertical();
     ///
     /// assert_eq!(ui_rect.left, Val::ZERO);
     /// assert_eq!(ui_rect.right, Val::ZERO);
-    /// assert_eq!(ui_rect.top, Val::px(1.));
-    /// assert_eq!(ui_rect.bottom, Val::px(1.));
+    /// assert_eq!(ui_rect.top, Val::Px(1.));
+    /// assert_eq!(ui_rect.bottom, Val::Px(1.));
     /// ```
     pub fn vertical(self) -> UiRect {
         UiRect::vertical(self)
