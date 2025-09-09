@@ -1,0 +1,18 @@
+use bevy_ecs::prelude::*;
+
+#[derive(Component, Debug)]
+pub struct A(usize);
+
+// this should fail since the function is required to have the signature
+// (DeferredWorld, HookContext) -> ()
+#[derive(Bundle, Debug)]
+//~^ E0509
+pub struct DropBundle {
+    component_a: A,
+}
+
+impl Drop for DropBundle {
+    fn drop(&mut self) {
+        // Just need the impl
+    }
+}

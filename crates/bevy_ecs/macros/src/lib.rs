@@ -174,7 +174,7 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
             // that this is a sound thing to do. See https://doc.rust-lang.org/error_codes/E0509.html
             // for more information.
             fn check_no_bundle_drop(self) {
-                #( let _ = self.#active_field_tokens; )*
+                #( core::hint::black_box(self.#active_field_tokens); )*
             }
         }
 
@@ -190,7 +190,6 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
                 ptr: #ecs_path::ptr::MovingPtr<'_, Self>,
                 func: &mut impl FnMut(#ecs_path::component::StorageType, #ecs_path::ptr::OwningPtr<'_>)
             ) {
-
                 use #ecs_path::__macro_exports::DebugCheckedUnwrap;
 
                 #( let #active_field_alias = ptr.move_field::<#active_field_types>(core::mem::offset_of!(Self, #active_field_tokens)); )*
