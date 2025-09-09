@@ -40,8 +40,8 @@ fn send_scroll_events(
         }
 
         for pointer_map in hover_map.values() {
-            for entity in pointer_map.keys() {
-                commands.trigger_targets(Scroll { delta }, *entity);
+            for entity in pointer_map.keys().copied() {
+                commands.trigger(Scroll { entity, delta });
             }
         }
     }
@@ -49,25 +49,24 @@ fn send_scroll_events(
 
 /// UI scrolling event.
 #[derive(EntityEvent, Debug)]
-#[entity_event(auto_propagate, traversal = &'static ChildOf)]
+#[entity_event(propagate, auto_propagate)]
 struct Scroll {
+    entity: Entity,
     /// Scroll delta in logical coordinates.
     delta: Vec2,
 }
 
 fn on_scroll_handler(
-    mut event: On<Scroll>,
+    mut scroll: On<Scroll>,
     mut query: Query<(&mut ScrollPosition, &Node, &ComputedNode)>,
 ) {
-    let target = event.entity();
-    let delta = &mut event.delta;
-
-    let Ok((mut scroll_position, node, computed)) = query.get_mut(target) else {
+    let Ok((mut scroll_position, node, computed)) = query.get_mut(scroll.entity) else {
         return;
     };
 
     let max_offset = (computed.content_size() - computed.size()) * computed.inverse_scale_factor();
 
+    let delta = &mut scroll.delta;
     if node.overflow.x == OverflowAxis::Scroll && delta.x != 0. {
         // Is this node already scrolled all the way in the direction of the scroll?
         let max = if delta.x > 0. {
@@ -100,7 +99,7 @@ fn on_scroll_handler(
 
     // Stop propagating when the delta is fully consumed.
     if *delta == Vec2::ZERO {
-        event.propagate(false);
+        scroll.propagate(false);
     }
 }
 
@@ -172,9 +171,9 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                         },
                                     ))
                                     .observe(
-                                        |event: On<Pointer<Press>>, mut commands: Commands| {
-                                            if event.event().button == PointerButton::Primary {
-                                                commands.entity(event.entity()).despawn();
+                                        |press: On<Pointer<Press>>, mut commands: Commands| {
+                                            if press.event().button == PointerButton::Primary {
+                                                commands.entity(press.entity).despawn();
                                             }
                                         },
                                     );

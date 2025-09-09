@@ -8,7 +8,8 @@ use crate::{
     change_detection::MaybeLocation,
     component::{ComponentId, Components, StorageType},
     entity::{Entity, EntityLocation},
-    lifecycle::{REMOVE, REPLACE},
+    event::EntityComponentsTrigger,
+    lifecycle::{Remove, Replace, REMOVE, REPLACE},
     observer::Observers,
     relationship::RelationshipHookMode,
     storage::{SparseSets, Storages, Table},
@@ -147,10 +148,14 @@ impl<'w> BundleRemover<'w> {
                     .filter(|component_id| self.old_archetype.as_ref().contains(*component_id))
             };
             if self.old_archetype.as_ref().has_replace_observer() {
-                deferred_world.trigger_observers(
+                let components = bundle_components_in_archetype().collect::<Vec<_>>();
+                // SAFETY: the REPLACE event_key corresponds to the Replace event's type
+                deferred_world.trigger_raw(
                     REPLACE,
-                    Some(entity),
-                    bundle_components_in_archetype(),
+                    &mut Replace { entity },
+                    &mut EntityComponentsTrigger {
+                        components: &components,
+                    },
                     caller,
                 );
             }
@@ -162,10 +167,14 @@ impl<'w> BundleRemover<'w> {
                 self.relationship_hook_mode,
             );
             if self.old_archetype.as_ref().has_remove_observer() {
-                deferred_world.trigger_observers(
+                let components = bundle_components_in_archetype().collect::<Vec<_>>();
+                // SAFETY: the REMOVE event_key corresponds to the Remove event's type
+                deferred_world.trigger_raw(
                     REMOVE,
-                    Some(entity),
-                    bundle_components_in_archetype(),
+                    &mut Remove { entity },
+                    &mut EntityComponentsTrigger {
+                        components: &components,
+                    },
                     caller,
                 );
             }

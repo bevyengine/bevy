@@ -53,15 +53,15 @@
 //!     commands.spawn(Transform::default())
 //!         // Spawn your entity here, e.g. a `Mesh3d`.
 //!         // When dragged, mutate the `Transform` component on the dragged target entity:
-//!         .observe(|event: On<Pointer<Drag>>, mut transforms: Query<&mut Transform>| {
-//!             let mut transform = transforms.get_mut(event.entity()).unwrap();
-//!             transform.rotate_local_y(event.delta.x / 50.0);
+//!         .observe(|drag: On<Pointer<Drag>>, mut transforms: Query<&mut Transform>| {
+//!             let mut transform = transforms.get_mut(drag.entity).unwrap();
+//!             transform.rotate_local_y(drag.delta.x / 50.0);
 //!         })
-//!         .observe(|event: On<Pointer<Click>>, mut commands: Commands| {
-//!             println!("Entity {} goes BOOM!", event.entity());
-//!             commands.entity(event.entity()).despawn();
+//!         .observe(|click: On<Pointer<Click>>, mut commands: Commands| {
+//!             println!("Entity {} goes BOOM!", click.entity);
+//!             commands.entity(click.entity).despawn();
 //!         })
-//!         .observe(|event: On<Pointer<Over>>, mut events: EventWriter<Greeting>| {
+//!         .observe(|over: On<Pointer<Over>>, mut events: EventWriter<Greeting>| {
 //!             events.write(Greeting);
 //!         });
 //! }

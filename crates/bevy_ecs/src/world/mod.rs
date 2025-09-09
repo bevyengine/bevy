@@ -4,28 +4,20 @@ pub(crate) mod command_queue;
 mod deferred_world;
 mod entity_fetch;
 mod entity_ref;
-pub mod error;
 mod filtered_resource;
 mod identifier;
 mod spawn_batch;
-pub mod unsafe_world_cell;
 
+pub mod error;
 #[cfg(feature = "bevy_reflect")]
 pub mod reflect;
+pub mod unsafe_world_cell;
 
-use crate::{
-    bundle::BundleId,
-    error::{DefaultErrorHandler, ErrorHandler},
-    event::BufferedEvent,
-    lifecycle::{ComponentHooks, ADD, DESPAWN, INSERT, REMOVE, REPLACE},
-    prelude::{Add, Despawn, Insert, Remove, Replace},
-};
 pub use crate::{
     change_detection::{Mut, Ref, CHECK_TICK_THRESHOLD},
     world::command_queue::CommandQueue,
 };
 pub use bevy_ecs_macros::FromWorld;
-use bevy_utils::prelude::DebugName;
 pub use deferred_world::DeferredWorld;
 pub use entity_fetch::{EntityFetcher, WorldEntityFetch};
 pub use entity_ref::{
@@ -40,8 +32,8 @@ pub use spawn_batch::*;
 use crate::{
     archetype::{ArchetypeId, Archetypes},
     bundle::{
-        Bundle, BundleEffect, BundleInfo, BundleInserter, BundleSpawner, Bundles, InsertMode,
-        NoBundleEffect,
+        Bundle, BundleEffect, BundleId, BundleInfo, BundleInserter, BundleSpawner, Bundles,
+        InsertMode, NoBundleEffect,
     },
     change_detection::{MaybeLocation, MutUntyped, TicksMut},
     component::{
@@ -51,9 +43,11 @@ use crate::{
     },
     entity::{Entities, Entity, EntityDoesNotExistError},
     entity_disabling::DefaultQueryFilters,
-    event::{Event, EventId, Events, WriteBatchIds},
-    lifecycle::RemovedComponentEvents,
+    error::{DefaultErrorHandler, ErrorHandler},
+    event::{BufferedEvent, EventId, Events, WriteBatchIds},
+    lifecycle::{ComponentHooks, RemovedComponentEvents, ADD, DESPAWN, INSERT, REMOVE, REPLACE},
     observer::Observers,
+    prelude::{Add, Despawn, Insert, Remove, Replace},
     query::{DebugCheckedUnwrap, QueryData, QueryFilter, QueryState},
     relationship::RelationshipHookMode,
     resource::Resource,
@@ -70,6 +64,7 @@ use crate::{
 use alloc::{boxed::Box, vec::Vec};
 use bevy_platform::sync::atomic::{AtomicU32, Ordering};
 use bevy_ptr::{OwningPtr, Ptr, UnsafeCellDeref};
+use bevy_utils::prelude::DebugName;
 use core::{any::TypeId, fmt};
 use log::warn;
 use unsafe_world_cell::{UnsafeEntityCell, UnsafeWorldCell};
@@ -153,19 +148,19 @@ impl World {
     #[inline]
     fn bootstrap(&mut self) {
         // The order that we register these events is vital to ensure that the constants are correct!
-        let on_add = Add::register_event_key(self);
+        let on_add = self.register_event_key::<Add>();
         assert_eq!(ADD, on_add);
 
-        let on_insert = Insert::register_event_key(self);
+        let on_insert = self.register_event_key::<Insert>();
         assert_eq!(INSERT, on_insert);
 
-        let on_replace = Replace::register_event_key(self);
+        let on_replace = self.register_event_key::<Replace>();
         assert_eq!(REPLACE, on_replace);
 
-        let on_remove = Remove::register_event_key(self);
+        let on_remove = self.register_event_key::<Remove>();
         assert_eq!(REMOVE, on_remove);
 
-        let on_despawn = Despawn::register_event_key(self);
+        let on_despawn = self.register_event_key::<Despawn>();
         assert_eq!(DESPAWN, on_despawn);
 
         // This sets up `Disabled` as a disabling component, via the FromWorld impl
@@ -889,7 +884,7 @@ impl World {
             .expect("ArchetypeId was retrieved from an EntityLocation and should correspond to an Archetype");
 
         Ok(archetype
-            .components()
+            .iter_components()
             .filter_map(|id| self.components().get_info(id)))
     }
 

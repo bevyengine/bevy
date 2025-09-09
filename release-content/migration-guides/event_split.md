@@ -1,14 +1,6 @@
 ---
-title: "`Event` trait split"
+title: "`Event` trait split / Rename"
 pull_requests: [19647]
 ---
 
-The `Event` trait was previously used for all types of events: "observer events" with and without targets,
-and "buffered events" using `EventReader` and `EventWriter`.
-
-Buffered events and targeted events have now been split into dedicated `BufferedEvent` and `EntityEvent` traits.
-An event with just the `Event` trait implemented only supports non-targeted APIs such as global observers and the `trigger` method.
-
-If an event is used with `trigger_targets` or an entity observer, make sure you have derived `EntityEvent` for it.
-
-If an event is used with `EventReader` or `EventWriter`, make sure you have derived `BufferedEvent` for it.
+"Buffered events" (things sent/read using `EventWriter` / `EventReader`) are now no longer referred to as "events", in the interest of conceptual clarity and learn-ability (see the release notes for rationale). "Event" as a concept (and the `Event` trait) are now used solely for "observable events". "Buffered events" are now known as "messages" and use the `Message` trait. `EventWriter`, `EventReader`, and `Events<E>`, are now known as `MessageWriter`, `MessageReader`, and `Messages<M>`. Types can be _both_ "messages" and "events" by deriving both `Message` and `Event`, but we expect most types to only be used in one context or the other.
