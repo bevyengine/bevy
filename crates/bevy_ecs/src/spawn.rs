@@ -11,7 +11,10 @@ use crate::{
 };
 use alloc::vec::Vec;
 use bevy_ptr::{move_as_ptr, MovingPtr};
-use core::{mem::{self, MaybeUninit}, marker::PhantomData};
+use core::{
+    marker::PhantomData,
+    mem::{self, MaybeUninit},
+};
 use variadics_please::all_tuples_enumerated;
 
 /// A wrapper over a [`Bundle`] indicating that an entity should be spawned with that [`Bundle`].
