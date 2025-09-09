@@ -515,7 +515,7 @@ impl<'a, T, A: IsAligned> MovingPtr<'_, T, A> {
     ///
     /// // SAFETY:
     /// // - `field_a` and `field_b` are moved out of but never accessed after this.
-    /// let (partial_parent, ()) = MovingPtr::partial_move(parent, |parent_ptr| {
+    /// let (partial_parent, ()) = MovingPtr::partial_move(parent, |parent_ptr| unsafe {
     ///   bevy_ptr::deconstruct_moving_ptr!(parent_ptr, Parent {
     ///     field_a: FieldAType => { insert(field_a) },
     ///     field_b: FieldBType => { insert(field_b) },
