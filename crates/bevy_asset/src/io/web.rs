@@ -104,7 +104,7 @@ impl WebAssetReader {
         PathBuf::from(prefix).join(path)
     }
 
-    /// See [`crate::io::get_meta_path`]
+    /// See [`io::get_meta_path`](`crate::io::get_meta_path`)
     fn make_meta_uri(&self, path: &Path) -> PathBuf {
         let meta_path = crate::io::get_meta_path(path);
         self.make_uri(&meta_path)
