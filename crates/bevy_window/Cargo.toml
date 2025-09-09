@@ -1,37 +1,79 @@
 [package]
 name = "bevy_window"
-version = "0.14.0-dev"
-edition = "2021"
+version = "0.17.0-dev"
+edition = "2024"
 description = "Provides windowing functionality for Bevy Engine"
-homepage = "https://bevyengine.org"
+homepage = "https://bevy.org"
 repository = "https://github.com/bevyengine/bevy"
 license = "MIT OR Apache-2.0"
 keywords = ["bevy"]
 
 [features]
-default = []
-serialize = ["serde", "smol_str/serde"]
+default = ["std", "bevy_reflect"]
+
+# Functionality
+
+## Adds runtime reflection support using `bevy_reflect`.
+bevy_reflect = [
+  "dep:bevy_reflect",
+  "bevy_app/bevy_reflect",
+  "bevy_ecs/bevy_reflect",
+  "bevy_input/bevy_reflect",
+]
+
+## Adds serialization support through `serde`.
+serialize = ["serde", "bevy_ecs/serialize", "bevy_input/serialize"]
+
+# Enable custom cursor support
+custom_cursor = ["bevy_image", "bevy_asset"]
+
+# Platform Compatibility
+
+## Allows access to the `std` crate. Enabling this feature will prevent compilation
+## on `no_std` targets, but provides access to certain additional features on
+## supported platforms.
+std = [
+  "bevy_app/std",
+  "bevy_ecs/std",
+  "bevy_input/std",
+  "bevy_math/std",
+  "bevy_reflect?/std",
+  "serde?/std",
+  "raw-window-handle/std",
+  "bevy_platform/std",
+]
+
+## Uses the `libm` maths library instead of the one provided in `std` and `core`.
+libm = ["bevy_math/libm"]
 
 [dependencies]
 # bevy
-bevy_a11y = { path = "../bevy_a11y", version = "0.14.0-dev" }
-bevy_app = { path = "../bevy_app", version = "0.14.0-dev" }
-bevy_ecs = { path = "../bevy_ecs", version = "0.14.0-dev" }
-bevy_math = { path = "../bevy_math", version = "0.14.0-dev" }
-bevy_reflect = { path = "../bevy_reflect", version = "0.14.0-dev", features = [
+bevy_app = { path = "../bevy_app", version = "0.17.0-dev", default-features = false }
+bevy_ecs = { path = "../bevy_ecs", version = "0.17.0-dev", default-features = false }
+bevy_input = { path = "../bevy_input", version = "0.17.0-dev", default-features = false }
+bevy_math = { path = "../bevy_math", version = "0.17.0-dev", default-features = false }
+bevy_platform = { path = "../bevy_platform", version = "0.17.0-dev", default-features = false }
+
+# bevy optional
+bevy_asset = { path = "../bevy_asset", version = "0.17.0-dev", default-features = false, optional = true }
+bevy_image = { path = "../bevy_image", version = "0.17.0-dev", optional = true }
+bevy_reflect = { path = "../bevy_reflect", version = "0.17.0-dev", default-features = false, features = [
   "glam",
-  "smol_str",
-] }
-bevy_utils = { path = "../bevy_utils", version = "0.14.0-dev" }
+], optional = true }
 
 # other
-serde = { version = "1.0", features = ["derive"], optional = true }
-raw-window-handle = "0.6"
-smol_str = "0.2"
+serde = { version = "1.0", features = [
+  "alloc",
+  "derive",
+], default-features = false, optional = true }
+raw-window-handle = { version = "0.6", features = [
+  "alloc",
+], default-features = false }
+log = { version = "0.4", default-features = false }
 
 [lints]
 workspace = true
 
 [package.metadata.docs.rs]
-rustdoc-args = ["-Zunstable-options", "--cfg", "docsrs"]
+rustdoc-args = ["-Zunstable-options", "--generate-link-to-definition"]
 all-features = true

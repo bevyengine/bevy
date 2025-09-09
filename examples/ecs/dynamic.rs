@@ -1,19 +1,23 @@
-#![allow(unsafe_code)]
+#![expect(
+    unsafe_code,
+    reason = "Unsafe code is needed to work with dynamic components"
+)]
 
 //! This example show how you can create components dynamically, spawn entities with those components
 //! as well as query for entities with those components.
 
-use std::{alloc::Layout, io::Write, ptr::NonNull};
+use std::{alloc::Layout, collections::HashMap, io::Write, ptr::NonNull};
 
-use bevy::prelude::*;
 use bevy::{
     ecs::{
-        component::{ComponentDescriptor, ComponentId, ComponentInfo, StorageType},
-        query::QueryData,
+        component::{
+            ComponentCloneBehavior, ComponentDescriptor, ComponentId, ComponentInfo, StorageType,
+        },
+        query::{ComponentAccessKind, QueryData},
         world::FilteredEntityMut,
     },
+    prelude::*,
     ptr::{Aligned, OwningPtr},
-    utils::HashMap,
 };
 
 const PROMPT: &str = "
@@ -41,7 +45,7 @@ query, q  Query for entities
 
     Accesses: 'A' with, '&A' read, '&mut A' write
     Operators: '||' or, ',' and, '?' optional
-    
+
     e.g. &A || &B, &mut C, D, ?E";
 
 fn main() {
@@ -50,7 +54,7 @@ fn main() {
     let mut component_names = HashMap::<String, ComponentId>::new();
     let mut component_info = HashMap::<ComponentId, ComponentInfo>::new();
 
-    println!("{}", PROMPT);
+    println!("{PROMPT}");
     loop {
         print!("\n> ");
         let _ = std::io::stdout().flush();
@@ -64,10 +68,10 @@ fn main() {
 
         let Some((first, rest)) = line.trim().split_once(|c: char| c.is_whitespace()) else {
             match &line.chars().next() {
-                Some('c') => println!("{}", COMPONENT_PROMPT),
-                Some('s') => println!("{}", ENTITY_PROMPT),
-                Some('q') => println!("{}", QUERY_PROMPT),
-                _ => println!("{}", PROMPT),
+                Some('c') => println!("{COMPONENT_PROMPT}"),
+                Some('s') => println!("{ENTITY_PROMPT}"),
+                Some('q') => println!("{QUERY_PROMPT}"),
+                _ => println!("{PROMPT}"),
             }
             continue;
         };
@@ -79,18 +83,20 @@ fn main() {
                     let Some(name) = component.next() else {
                         return;
                     };
-                    let size = match component.next().map(|s| s.parse::<usize>()) {
+                    let size = match component.next().map(str::parse) {
                         Some(Ok(size)) => size,
                         _ => 0,
                     };
                     // Register our new component to the world with a layout specified by it's size
                     // SAFETY: [u64] is Send + Sync
-                    let id = world.init_component_with_descriptor(unsafe {
+                    let id = world.register_component_with_descriptor(unsafe {
                         ComponentDescriptor::new_with_layout(
                             name.to_string(),
                             StorageType::Table,
                             Layout::array::<u64>(size).unwrap(),
                             None,
+                            true,
+                            ComponentCloneBehavior::Default,
                         )
                     });
                     let Some(info) = world.components().get_info(id) else {
@@ -98,7 +104,7 @@ fn main() {
                     };
                     component_names.insert(name.to_string(), id);
                     component_info.insert(id, info.clone());
-                    println!("Component {} created with id: {:?}", name, id.index());
+                    println!("Component {} created with id: {}", name, id.index());
                 });
             }
             "s" => {
@@ -112,13 +118,13 @@ fn main() {
 
                     // Get the id for the component with the given name
                     let Some(&id) = component_names.get(name) else {
-                        println!("Component {} does not exist", name);
+                        println!("Component {name} does not exist");
                         return;
                     };
 
                     // Calculate the length for the array based on the layout created for this component id
                     let info = world.components().get_info(id).unwrap();
-                    let len = info.layout().size() / std::mem::size_of::<u64>();
+                    let len = info.layout().size() / size_of::<u64>();
                     let mut values: Vec<u64> = component
                         .take(len)
                         .filter_map(|value| value.parse::<u64>().ok())
@@ -142,20 +148,22 @@ fn main() {
                     entity.insert_by_ids(&to_insert_ids, to_insert_ptr.into_iter());
                 }
 
-                println!("Entity spawned with id: {:?}", entity.id());
+                println!("Entity spawned with id: {}", entity.id());
             }
             "q" => {
                 let mut builder = QueryBuilder::<FilteredEntityMut>::new(&mut world);
                 parse_query(rest, &mut builder, &component_names);
                 let mut query = builder.build();
-
                 query.iter_mut(&mut world).for_each(|filtered_entity| {
                     let terms = filtered_entity
-                        .components()
-                        .map(|id| {
+                        .access()
+                        .try_iter_component_access()
+                        .unwrap()
+                        .map(|component_access| {
+                            let id = *component_access.index();
                             let ptr = filtered_entity.get_by_id(id).unwrap();
                             let info = component_info.get(&id).unwrap();
-                            let len = info.layout().size() / std::mem::size_of::<u64>();
+                            let len = info.layout().size() / size_of::<u64>();
 
                             // SAFETY:
                             // - All components are created with layout [u64]
@@ -168,7 +176,7 @@ fn main() {
                             };
 
                             // If we have write access, increment each value once
-                            if filtered_entity.access().has_write(id) {
+                            if matches!(component_access, ComponentAccessKind::Exclusive(_)) {
                                 data.iter_mut().for_each(|data| {
                                     *data += 1;
                                 });
@@ -179,7 +187,7 @@ fn main() {
                         .collect::<Vec<_>>()
                         .join(", ");
 
-                    println!("{:?}: {}", filtered_entity.id(), terms);
+                    println!("{}: {}", filtered_entity.id(), terms);
                 });
             }
             _ => continue,
@@ -189,7 +197,7 @@ fn main() {
 
 // Constructs `OwningPtr` for each item in `components`
 // By sharing the lifetime of `components` with the resulting ptrs we ensure we don't drop the data before use
-fn to_owning_ptrs(components: &mut [Vec<u64>]) -> Vec<OwningPtr<Aligned>> {
+fn to_owning_ptrs(components: &mut [Vec<u64>]) -> Vec<OwningPtr<'_, Aligned>> {
     components
         .iter_mut()
         .map(|data| {
@@ -223,11 +231,11 @@ fn parse_term<Q: QueryData>(
             let mut parts = str.split_whitespace();
             let first = parts.next().unwrap();
             if first == "&mut" {
-                if let Some(str) = parts.next() {
-                    if let Some(&id) = components.get(str) {
-                        builder.mut_id(id);
-                        matched = true;
-                    }
+                if let Some(str) = parts.next()
+                    && let Some(&id) = components.get(str)
+                {
+                    builder.mut_id(id);
+                    matched = true;
                 };
             } else if let Some(&id) = components.get(&first[1..]) {
                 builder.ref_id(id);
@@ -245,7 +253,7 @@ fn parse_term<Q: QueryData>(
     };
 
     if !matched {
-        println!("Unable to find component: {}", str);
+        println!("Unable to find component: {str}");
     }
 }
 

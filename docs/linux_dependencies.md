@@ -91,10 +91,10 @@ Set the `PKG_CONFIG_PATH` env var to `/usr/lib/<target>/pkgconfig/`. For example
 export PKG_CONFIG_PATH="/usr/lib/x86_64-linux-gnu/pkgconfig/"
 ```
 
-## Arch / Manjaro
+## [Arch](https://archlinux.org/) / [Manjaro](https://manjaro.org/)
 
 ```bash
-sudo pacman -S libx11 pkgconf alsa-lib
+sudo pacman -S libx11 pkgconf alsa-lib libxcursor libxrandr libxi
 ```
 
 Install `pipewire-alsa` or `pulseaudio-alsa` depending on the sound server you are using.
@@ -102,13 +102,87 @@ Install `pipewire-alsa` or `pulseaudio-alsa` depending on the sound server you a
 Depending on your graphics card, you may have to install one of the following:
 `vulkan-radeon`, `vulkan-intel`, or `mesa-vulkan-drivers`
 
-## Void
+## [Void](https://voidlinux.org/)
 
 ```bash
 sudo xbps-install -S pkgconf alsa-lib-devel libX11-devel eudev-libudev-devel
 ```
 
 ## [Nix](https://nixos.org)
+
+### flake.nix
+
+Add a `flake.nix` file to the root of your GitHub repository containing:
+
+```nix
+{
+  description = "bevy flake";
+
+  inputs = {
+    nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
+    rust-overlay.url = "github:oxalica/rust-overlay";
+    flake-utils.url = "github:numtide/flake-utils";
+  };
+
+  outputs =
+    {
+      nixpkgs,
+      rust-overlay,
+      flake-utils,
+      ...
+    }:
+    flake-utils.lib.eachDefaultSystem (
+      system:
+      let
+        overlays = [ (import rust-overlay) ];
+        pkgs = import nixpkgs {
+          inherit system overlays;
+        };
+      in
+      {
+        devShells.default =
+          with pkgs;
+          mkShell {
+            buildInputs =
+              [
+                # Rust dependencies
+                (rust-bin.stable.latest.default.override { extensions = [ "rust-src" ]; })
+                pkg-config
+              ]
+              ++ lib.optionals (lib.strings.hasInfix "linux" system) [
+                # for Linux
+                # Audio (Linux only)
+                alsa-lib
+                # Cross Platform 3D Graphics API
+                vulkan-loader
+                # For debugging around vulkan
+                vulkan-tools
+                # Other dependencies
+                libudev-zero
+                xorg.libX11
+                xorg.libXcursor
+                xorg.libXi
+                xorg.libXrandr
+                libxkbcommon
+              ];
+            RUST_SRC_PATH = "${pkgs.rust.packages.stable.rustPlatform.rustLibSrc}";
+            LD_LIBRARY_PATH = lib.makeLibraryPath [
+              vulkan-loader
+              xorg.libX11
+              xorg.libXi
+              xorg.libXcursor
+              libxkbcommon
+            ];
+          };
+      }
+    );
+}
+```
+
+> [!TIP]
+> We have confirmed that this flake.nix can be used successfully on NixOS and MacOS with Rust's edition set to 2021.
+
+### shell.nix
 
 Add a `shell.nix` file to the root of the project containing:
 
@@ -122,7 +196,7 @@ mkShell rec {
     pkg-config
   ];
   buildInputs = [
-    udev alsa-lib vulkan-loader
+    udev alsa-lib-with-plugins vulkan-loader
     xorg.libX11 xorg.libXcursor xorg.libXi xorg.libXrandr # To use the x11 feature
     libxkbcommon wayland # To use the wayland feature
   ];
@@ -134,17 +208,25 @@ And enter it by just running `nix-shell`.
 You should be able compile Bevy programs using `cargo run` within this nix-shell.
 You can do this in one line with `nix-shell --run "cargo run"`.
 
+If running nix on a non NixOS system (such as ubuntu, arch etc.), [NixGL](https://github.com/nix-community/nixGL) is additionally required,
+to link graphics drivers into the context of software installed by nix:
+
+1. Install a system specific nixGL wrapper ([docs](https://github.com/nix-community/nixGL)).
+   - If you're running a nvidia GPU choose `nixVulkanNvidia`.
+   - Otherwise, choose another wrapper appropriate for your system.
+2. Run `nixVulkanNvidia-xxx.xxx.xx cargo run` to compile a bevy program, where `xxx-xxx-xx` denotes the graphics driver version `nixVulkanNvidia` was compiled with.
+
 This is also possible with [Nix flakes](https://nixos.org/manual/nix/unstable/command-ref/new-cli/nix3-flake.html).
 Instead of creating `shell.nix`, you just need to add the derivation (`mkShell`)
-to your `devShells` in `flake.nix`. Run `nix develop` to enter the shell and
-`nix develop -c cargo run` to run the program. See
+to your `devShells` in `flake.nix`. Run `nix develop` to enter the shell or
+`nix develop -c cargo run` to just run the program. See
 [Nix's documentation](https://nixos.org/manual/nix/unstable/command-ref/new-cli/nix3-develop.html)
 for more information about `devShells`.
 
 Note that this template does not add Rust to the environment because there are many ways to do it.
 For example, to use stable Rust from nixpkgs, you can add `cargo` and `rustc` to `nativeBuildInputs`.
 
-[Here](https://github.com/NixOS/nixpkgs/blob/master/pkgs/games/jumpy/default.nix)
+[Here](https://github.com/NixOS/nixpkgs/blob/master/pkgs/by-name/ju/jumpy/package.nix)
 is an example of packaging a Bevy program in nix.
 
 ## [OpenSUSE](https://www.opensuse.org/)
@@ -153,7 +235,7 @@ is an example of packaging a Bevy program in nix.
    sudo zypper install libudev-devel gcc-c++ alsa-lib-devel
 ```
 
-## Gentoo
+## [Gentoo](https://www.gentoo.org/)
 
 ```bash
    sudo emerge --ask libX11 pkgconf alsa-lib
@@ -205,3 +287,11 @@ sudo eopkg it wayland-devel libxkbcommon-devel
 ```
 
 Compiling with clang is also possible - replace the `g++` package with `llvm-clang`
+
+## [FreeBSD](https://www.freebsd.org/)
+
+It is necessary to have the hgame module loaded in order to satisfy gli-rs. It will still throw an error, but the program should run successfully. You can make sure the kernel module is loaded on start up by adding the following line to /boot/loader.conf:
+
+```sh
+hgame_load="YES"
+```

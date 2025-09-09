@@ -1,14 +1,11 @@
-use std::hash::{BuildHasher, Hasher};
+use core::hash::{BuildHasher, Hasher};
 
 #[cfg(feature = "bevy_reflect")]
-use bevy_reflect::Reflect;
-use bevy_utils::hashbrown;
-
-use super::Entity;
+use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 
 /// A [`BuildHasher`] that results in a [`EntityHasher`].
-#[derive(Default, Clone)]
-#[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
+#[derive(Debug, Default, Clone)]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Default, Clone))]
 pub struct EntityHash;
 
 impl BuildHasher for EntityHash {
@@ -20,7 +17,7 @@ impl BuildHasher for EntityHash {
 }
 
 /// A very fast hash that is only designed to work on generational indices
-/// like [`Entity`]. It will panic if attempting to hash a type containing
+/// like [`Entity`](super::Entity). It will panic if attempting to hash a type containing
 /// non-u64 fields.
 ///
 /// This is heavily optimized for typical cases, where you have mostly live
@@ -28,7 +25,8 @@ impl BuildHasher for EntityHash {
 ///
 /// If you have an unusual case -- say all your indices are multiples of 256
 /// or most of the entities are dead generations -- then you might want also to
-/// try [`AHasher`](bevy_utils::AHasher) for a slower hash computation but fewer lookup conflicts.
+/// try [`DefaultHasher`](bevy_platform::hash::DefaultHasher) for a slower hash
+/// computation but fewer lookup conflicts.
 #[derive(Debug, Default)]
 pub struct EntityHasher {
     hash: u64,
@@ -76,22 +74,4 @@ impl Hasher for EntityHasher {
         // This is `(MAGIC * index + generation) << 32 + index`, in a single instruction.
         self.hash = bits.wrapping_mul(UPPER_PHI);
     }
-}
-
-/// A [`HashMap`](hashbrown::HashMap) pre-configured to use [`EntityHash`] hashing.
-pub type EntityHashMap<V> = hashbrown::HashMap<Entity, V, EntityHash>;
-
-/// A [`HashSet`](hashbrown::HashSet) pre-configured to use [`EntityHash`] hashing.
-pub type EntityHashSet = hashbrown::HashSet<Entity, EntityHash>;
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use static_assertions::assert_impl_all;
-
-    // Check that the HashMaps are Clone if the key/values are Clone
-    assert_impl_all!(EntityHashMap::<usize>: Clone);
-    // EntityHashMap should implement Reflect
-    #[cfg(feature = "bevy_reflect")]
-    assert_impl_all!(EntityHashMap::<i32>: Reflect);
 }

@@ -12,7 +12,7 @@
 # repository before you can use this action.
 #
 # This action will only install dependencies when the current operating system is Linux. It will do
-# nothing on any other OS (MacOS, Windows).
+# nothing on any other OS (macOS, Windows).
 
 name: Install Linux dependencies
 description: Installs the dependencies necessary to build Bevy on Linux.
@@ -20,19 +20,19 @@ inputs:
   alsa:
     description: Install alsa (libasound2-dev)
     required: false
-    default: true
+    default: "true"
   udev:
     description: Install udev (libudev-dev)
     required: false
-    default: true
+    default: "true"
   wayland:
     description: Install Wayland (libwayland-dev)
     required: false
-    default: false
+    default: "true"
   xkb:
     description: Install xkb (libxkbcommon-dev)
     required: false
-    default: false
+    default: "false"
 runs:
   using: composite
   steps:

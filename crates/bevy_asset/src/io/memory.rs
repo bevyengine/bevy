@@ -1,15 +1,13 @@
 use crate::io::{AssetReader, AssetReaderError, PathStream, Reader};
-use bevy_utils::HashMap;
-use futures_io::{AsyncRead, AsyncSeek};
+use alloc::{borrow::ToOwned, boxed::Box, sync::Arc, vec::Vec};
+use bevy_platform::collections::HashMap;
+use core::{pin::Pin, task::Poll};
+use futures_io::AsyncRead;
 use futures_lite::{ready, Stream};
 use parking_lot::RwLock;
-use std::io::SeekFrom;
-use std::{
-    path::{Path, PathBuf},
-    pin::Pin,
-    sync::Arc,
-    task::Poll,
-};
+use std::path::{Path, PathBuf};
+
+use super::AsyncSeekForward;
 
 #[derive(Default, Debug)]
 struct DirInternal {
@@ -53,6 +51,16 @@ impl Dir {
                 path: path.to_owned(),
             },
         );
+    }
+
+    /// Removes the stored asset at `path` and returns the `Data` stored if found and otherwise `None`.
+    pub fn remove_asset(&self, path: &Path) -> Option<Data> {
+        let mut dir = self.clone();
+        if let Some(parent) = path.parent() {
+            dir = self.get_or_insert_dir(parent);
+        }
+        let key: Box<str> = path.file_name().unwrap().to_string_lossy().into();
+        dir.0.write().assets.remove(&key)
     }
 
     pub fn insert_meta(&self, path: &Path, value: impl Into<Value>) {
@@ -142,7 +150,7 @@ impl Stream for DirStream {
 
     fn poll_next(
         self: Pin<&mut Self>,
-        _cx: &mut std::task::Context<'_>,
+        _cx: &mut core::task::Context<'_>,
     ) -> Poll<Option<Self::Item>> {
         let this = self.get_mut();
         let dir = this.dir.0.read();
@@ -223,7 +231,7 @@ struct DataReader {
 impl AsyncRead for DataReader {
     fn poll_read(
         mut self: Pin<&mut Self>,
-        cx: &mut std::task::Context<'_>,
+        cx: &mut core::task::Context<'_>,
         buf: &mut [u8],
     ) -> Poll<futures_io::Result<usize>> {
         if self.bytes_read >= self.data.value().len() {
@@ -237,37 +245,20 @@ impl AsyncRead for DataReader {
     }
 }
 
-impl AsyncSeek for DataReader {
-    fn poll_seek(
+impl AsyncSeekForward for DataReader {
+    fn poll_seek_forward(
         mut self: Pin<&mut Self>,
-        _cx: &mut std::task::Context<'_>,
-        pos: SeekFrom,
+        _cx: &mut core::task::Context<'_>,
+        offset: u64,
     ) -> Poll<std::io::Result<u64>> {
-        let result = match pos {
-            SeekFrom::Start(offset) => offset.try_into(),
-            SeekFrom::End(offset) => self
-                .data
-                .value()
-                .len()
-                .try_into()
-                .map(|len: i64| len - offset),
-            SeekFrom::Current(offset) => self
-                .bytes_read
-                .try_into()
-                .map(|bytes_read: i64| bytes_read + offset),
-        };
+        let result = self
+            .bytes_read
+            .try_into()
+            .map(|bytes_read: u64| bytes_read + offset);
 
         if let Ok(new_pos) = result {
-            if new_pos < 0 {
-                Poll::Ready(Err(std::io::Error::new(
-                    std::io::ErrorKind::InvalidInput,
-                    "seek position is out of range",
-                )))
-            } else {
-                self.bytes_read = new_pos as _;
-
-                Poll::Ready(Ok(new_pos as _))
-            }
+            self.bytes_read = new_pos as _;
+            Poll::Ready(Ok(new_pos as _))
         } else {
             Poll::Ready(Err(std::io::Error::new(
                 std::io::ErrorKind::InvalidInput,
@@ -277,29 +268,41 @@ impl AsyncSeek for DataReader {
     }
 }
 
+impl Reader for DataReader {
+    fn read_to_end<'a>(
+        &'a mut self,
+        buf: &'a mut Vec<u8>,
+    ) -> stackfuture::StackFuture<'a, std::io::Result<usize>, { super::STACK_FUTURE_SIZE }> {
+        stackfuture::StackFuture::from(async {
+            if self.bytes_read >= self.data.value().len() {
+                Ok(0)
+            } else {
+                buf.extend_from_slice(&self.data.value()[self.bytes_read..]);
+                let n = self.data.value().len() - self.bytes_read;
+                self.bytes_read = self.data.value().len();
+                Ok(n)
+            }
+        })
+    }
+}
+
 impl AssetReader for MemoryAssetReader {
-    async fn read<'a>(&'a self, path: &'a Path) -> Result<Box<Reader<'a>>, AssetReaderError> {
+    async fn read<'a>(&'a self, path: &'a Path) -> Result<impl Reader + 'a, AssetReaderError> {
         self.root
             .get_asset(path)
-            .map(|data| {
-                let reader: Box<Reader> = Box::new(DataReader {
-                    data,
-                    bytes_read: 0,
-                });
-                reader
+            .map(|data| DataReader {
+                data,
+                bytes_read: 0,
             })
             .ok_or_else(|| AssetReaderError::NotFound(path.to_path_buf()))
     }
 
-    async fn read_meta<'a>(&'a self, path: &'a Path) -> Result<Box<Reader<'a>>, AssetReaderError> {
+    async fn read_meta<'a>(&'a self, path: &'a Path) -> Result<impl Reader + 'a, AssetReaderError> {
         self.root
             .get_metadata(path)
-            .map(|data| {
-                let reader: Box<Reader> = Box::new(DataReader {
-                    data,
-                    bytes_read: 0,
-                });
-                reader
+            .map(|data| DataReader {
+                data,
+                bytes_read: 0,
             })
             .ok_or_else(|| AssetReaderError::NotFound(path.to_path_buf()))
     }

@@ -18,23 +18,23 @@ fn frame_update(mut last_time: Local<f32>, time: Res<Time>) {
     // Default `Time` is `Time<Virtual>` here
     info!(
         "time since last frame_update: {}",
-        time.elapsed_seconds() - *last_time
+        time.elapsed_secs() - *last_time
     );
-    *last_time = time.elapsed_seconds();
+    *last_time = time.elapsed_secs();
 }
 
 fn fixed_update(mut last_time: Local<f32>, time: Res<Time>, fixed_time: Res<Time<Fixed>>) {
     // Default `Time`is `Time<Fixed>` here
     info!(
         "time since last fixed_update: {}\n",
-        time.elapsed_seconds() - *last_time
+        time.elapsed_secs() - *last_time
     );
 
-    info!("fixed timestep: {}\n", time.delta_seconds());
+    info!("fixed timestep: {}\n", time.delta_secs());
     // If we want to see the overstep, we need to access `Time<Fixed>` specifically
     info!(
         "time accrued toward next fixed_update: {}\n",
         fixed_time.overstep().as_secs_f32()
     );
-    *last_time = time.elapsed_seconds();
+    *last_time = time.elapsed_secs();
 }

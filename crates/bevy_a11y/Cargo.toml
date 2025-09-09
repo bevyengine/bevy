@@ -1,24 +1,59 @@
 [package]
 name = "bevy_a11y"
-version = "0.14.0-dev"
-edition = "2021"
+version = "0.17.0-dev"
+edition = "2024"
 description = "Provides accessibility support for Bevy Engine"
-homepage = "https://bevyengine.org"
+homepage = "https://bevy.org"
 repository = "https://github.com/bevyengine/bevy"
 license = "MIT OR Apache-2.0"
 keywords = ["bevy", "accessibility", "a11y"]
 
+[features]
+default = ["std", "bevy_reflect", "bevy_ecs/async_executor"]
+
+# Functionality
+
+## Adds runtime reflection support using `bevy_reflect`.
+bevy_reflect = [
+  "dep:bevy_reflect",
+  "bevy_app/bevy_reflect",
+  "bevy_ecs/bevy_reflect",
+]
+
+## Adds serialization support through `serde`.
+serialize = ["dep:serde", "bevy_ecs/serialize", "accesskit/serde"]
+
+# Platform Compatibility
+
+## Allows access to the `std` crate. Enabling this feature will prevent compilation
+## on `no_std` targets, but provides access to certain additional features on
+## supported platforms.
+std = ["bevy_app/std", "bevy_ecs/std", "bevy_reflect/std"]
+
+## `critical-section` provides the building blocks for synchronization primitives
+## on all platforms, including `no_std`.
+critical-section = [
+  "bevy_app/critical-section",
+  "bevy_ecs/critical-section",
+  "bevy_reflect?/critical-section",
+]
+
 [dependencies]
 # bevy
-bevy_app = { path = "../bevy_app", version = "0.14.0-dev" }
-bevy_derive = { path = "../bevy_derive", version = "0.14.0-dev" }
-bevy_ecs = { path = "../bevy_ecs", version = "0.14.0-dev" }
+bevy_app = { path = "../bevy_app", version = "0.17.0-dev", default-features = false }
+bevy_derive = { path = "../bevy_derive", version = "0.17.0-dev" }
+bevy_ecs = { path = "../bevy_ecs", version = "0.17.0-dev", default-features = false }
+bevy_reflect = { path = "../bevy_reflect", version = "0.17.0-dev", default-features = false, optional = true }
 
-accesskit = "0.12"
+# other
+accesskit = { version = "0.21", default-features = false }
+serde = { version = "1", default-features = false, features = [
+  "alloc",
+], optional = true }
 
 [lints]
 workspace = true
 
 [package.metadata.docs.rs]
-rustdoc-args = ["-Zunstable-options", "--cfg", "docsrs"]
+rustdoc-args = ["-Zunstable-options", "--generate-link-to-definition"]
 all-features = true

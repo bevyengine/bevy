@@ -4,10 +4,7 @@ use proc_macro2::{Ident, Span};
 use quote::{format_ident, quote};
 use syn::{parse_macro_input, parse_quote, Data, DataStruct, DeriveInput, Index};
 
-use crate::{
-    bevy_ecs_path,
-    world_query::{item_struct, world_query_impl},
-};
+use crate::{bevy_ecs_path, world_query::world_query_impl};
 
 mod field_attr_keywords {
     syn::custom_keyword!(ignore);
@@ -32,8 +29,6 @@ pub fn derive_query_filter_impl(input: TokenStream) -> TokenStream {
         user_generics_with_world.split_for_impl();
 
     let struct_name = ast.ident;
-
-    let item_struct_name = Ident::new(&format!("{struct_name}Item"), Span::call_site());
 
     let fetch_struct_name = Ident::new(&format!("{struct_name}Fetch"), Span::call_site());
     let fetch_struct_name = ensure_no_collision(fetch_struct_name, tokens.clone());
@@ -81,35 +76,14 @@ pub fn derive_query_filter_impl(input: TokenStream) -> TokenStream {
         field_types.push(quote!(#field_ty));
     }
 
-    let derive_macro_call = quote!();
-
-    let item_struct = item_struct(
-        &path,
-        fields,
-        &derive_macro_call,
-        &struct_name,
-        &visibility,
-        &item_struct_name,
-        &field_types,
-        &user_impl_generics_with_world,
-        &field_attrs,
-        &field_visibilities,
-        &field_idents,
-        &user_ty_generics,
-        &user_ty_generics_with_world,
-        user_where_clauses_with_world,
-    );
-
     let world_query_impl = world_query_impl(
         &path,
         &struct_name,
         &visibility,
-        &item_struct_name,
         &fetch_struct_name,
         &field_types,
         &user_impl_generics,
         &user_impl_generics_with_world,
-        &field_idents,
         &user_ty_generics,
         &user_ty_generics_with_world,
         &named_field_idents,
@@ -120,18 +94,20 @@ pub fn derive_query_filter_impl(input: TokenStream) -> TokenStream {
     );
 
     let filter_impl = quote! {
-        impl #user_impl_generics #path::query::QueryFilter
+        // SAFETY: This only performs access that subqueries perform, and they impl `QueryFilter` and so perform no mutable access.
+        unsafe impl #user_impl_generics #path::query::QueryFilter
         for #struct_name #user_ty_generics #user_where_clauses {
             const IS_ARCHETYPAL: bool = true #(&& <#field_types>::IS_ARCHETYPAL)*;
 
             #[allow(unused_variables)]
             #[inline(always)]
             unsafe fn filter_fetch<'__w>(
+                _state: &Self::State,
                 _fetch: &mut <Self as #path::query::WorldQuery>::Fetch<'__w>,
                 _entity: #path::entity::Entity,
                 _table_row: #path::storage::TableRow,
             ) -> bool {
-                true #(&& <#field_types>::filter_fetch(&mut _fetch.#named_field_idents, _entity, _table_row))*
+                true #(&& <#field_types>::filter_fetch(&_state.#named_field_idents, &mut _fetch.#named_field_idents, _entity, _table_row))*
             }
         }
     };
@@ -141,13 +117,15 @@ pub fn derive_query_filter_impl(input: TokenStream) -> TokenStream {
     };
 
     TokenStream::from(quote! {
-        #item_struct
-
         const _: () = {
             #[doc(hidden)]
-            #[doc = "Automatically generated internal [`WorldQuery`] state type for [`"]
-            #[doc = stringify!(#struct_name)]
-            #[doc = "`], used for caching."]
+            #[doc = concat!(
+                "Automatically generated internal [`WorldQuery`](",
+                stringify!(#path),
+                "::query::WorldQuery) state type for [`",
+                stringify!(#struct_name),
+                "`], used for caching."
+            )]
             #[automatically_derived]
             #visibility struct #state_struct_name #user_impl_generics #user_where_clauses {
                 #(#named_field_idents: <#field_types as #path::query::WorldQuery>::State,)*

@@ -1,4 +1,7 @@
+//! Module containing the [`ReflectDefault`] type.
+
 use crate::{FromType, Reflect};
+use alloc::boxed::Box;
 
 /// A struct used to provide the default value of a type.
 ///
@@ -9,6 +12,7 @@ pub struct ReflectDefault {
 }
 
 impl ReflectDefault {
+    /// Returns the default value for a type.
     pub fn default(&self) -> Box<dyn Reflect> {
         (self.default)()
     }

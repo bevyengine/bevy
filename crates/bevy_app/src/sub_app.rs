@@ -1,25 +1,18 @@
-use crate::{App, InternedAppLabel, Plugin, Plugins, PluginsState, StateTransition};
+use crate::{App, AppLabel, InternedAppLabel, Plugin, Plugins, PluginsState};
+use alloc::{boxed::Box, string::String, vec::Vec};
 use bevy_ecs::{
     event::EventRegistry,
     prelude::*,
-    schedule::{
-        common_conditions::run_once as run_once_condition, run_enter_schedule,
-        InternedScheduleLabel, ScheduleBuildSettings, ScheduleLabel,
-    },
-    system::SystemId,
+    schedule::{InternedScheduleLabel, InternedSystemSet, ScheduleBuildSettings, ScheduleLabel},
+    system::{ScheduleSystem, SystemId, SystemInput},
 };
+use bevy_platform::collections::{HashMap, HashSet};
+use core::fmt::Debug;
+
 #[cfg(feature = "trace")]
-use bevy_utils::tracing::info_span;
-use bevy_utils::{default, HashMap, HashSet};
-use std::fmt::Debug;
+use tracing::info_span;
 
-type ExtractFn = Box<dyn Fn(&mut World, &mut World) + Send>;
-
-#[derive(Default)]
-pub(crate) struct PluginStore {
-    pub(crate) registry: Vec<Box<dyn Plugin>>,
-    pub(crate) names: HashSet<String>,
-}
+type ExtractFn = Box<dyn FnMut(&mut World, &mut World) + Send>;
 
 /// A secondary application with its own [`World`]. These can run independently of each other.
 ///
@@ -45,6 +38,7 @@ pub(crate) struct PluginStore {
 ///
 /// // Create a sub-app with the same resource and a single schedule.
 /// let mut sub_app = SubApp::new();
+/// sub_app.update_schedule = Some(Main.intern());
 /// sub_app.insert_resource(Val(100));
 ///
 /// // Setup an extract function to copy the resource's value in the main world.
@@ -67,8 +61,11 @@ pub(crate) struct PluginStore {
 pub struct SubApp {
     /// The data of this application.
     world: World,
-    /// Metadata for installed plugins.
-    pub(crate) plugins: PluginStore,
+    /// List of plugins that have been added.
+    pub(crate) plugin_registry: Vec<Box<dyn Plugin>>,
+    /// The names of plugins that have been added to this app. (used to track duplicates and
+    /// already-registered plugins)
+    pub(crate) plugin_names: HashSet<String>,
     /// Panics if an update is attempted while plugins are building.
     pub(crate) plugin_build_depth: usize,
     pub(crate) plugins_state: PluginsState,
@@ -80,7 +77,7 @@ pub struct SubApp {
 }
 
 impl Debug for SubApp {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         write!(f, "SubApp")
     }
 }
@@ -91,7 +88,8 @@ impl Default for SubApp {
         world.init_resource::<Schedules>();
         Self {
             world,
-            plugins: default(),
+            plugin_registry: Vec::default(),
+            plugin_names: HashSet::default(),
             plugin_build_depth: 0,
             plugins_state: PluginsState::Adding,
             update_schedule: None,
@@ -113,9 +111,9 @@ impl SubApp {
         F: FnOnce(&mut App),
     {
         let mut app = App::empty();
-        std::mem::swap(self, &mut app.sub_apps.main);
+        core::mem::swap(self, &mut app.sub_apps.main);
         f(&mut app);
-        std::mem::swap(self, &mut app.sub_apps.main);
+        core::mem::swap(self, &mut app.sub_apps.main);
     }
 
     /// Returns a reference to the [`World`].
@@ -129,7 +127,9 @@ impl SubApp {
     }
 
     /// Runs the default schedule.
-    pub fn update(&mut self) {
+    ///
+    /// Does not clear internal trackers used for change detection.
+    pub fn run_default_schedule(&mut self) {
         if self.is_building_plugins() {
             panic!("SubApp::update() was called while a plugin was building.");
         }
@@ -137,6 +137,11 @@ impl SubApp {
         if let Some(label) = self.update_schedule {
             self.world.run_schedule(label);
         }
+    }
+
+    /// Runs the default schedule and updates internal component trackers.
+    pub fn update(&mut self) {
+        self.run_default_schedule();
         self.world.clear_trackers();
     }
 
@@ -155,10 +160,39 @@ impl SubApp {
     /// The first argument is the `World` to extract data from, the second argument is the app `World`.
     pub fn set_extract<F>(&mut self, extract: F) -> &mut Self
     where
-        F: Fn(&mut World, &mut World) + Send + 'static,
+        F: FnMut(&mut World, &mut World) + Send + 'static,
     {
         self.extract = Some(Box::new(extract));
         self
+    }
+
+    /// Take the function that will be called by [`extract`](Self::extract) out of the app, if any was set,
+    /// and replace it with `None`.
+    ///
+    /// If you use Bevy, `bevy_render` will set a default extract function used to extract data from
+    /// the main world into the render world as part of the Extract phase. In that case, you cannot replace
+    /// it with your own function. Instead, take the Bevy default function with this, and install your own
+    /// instead which calls the Bevy default.
+    ///
+    /// ```
+    /// # use bevy_app::SubApp;
+    /// # let mut app = SubApp::new();
+    /// let mut default_fn = app.take_extract();
+    /// app.set_extract(move |main, render| {
+    ///     // Do pre-extract custom logic
+    ///     // [...]
+    ///
+    ///     // Call Bevy's default, which executes the Extract phase
+    ///     if let Some(f) = default_fn.as_mut() {
+    ///         f(main, render);
+    ///     }
+    ///
+    ///     // Do post-extract custom logic
+    ///     // [...]
+    /// });
+    /// ```
+    pub fn take_extract(&mut self) -> Option<ExtractFn> {
+        self.extract.take()
     }
 
     /// See [`App::insert_resource`].
@@ -177,45 +211,35 @@ impl SubApp {
     pub fn add_systems<M>(
         &mut self,
         schedule: impl ScheduleLabel,
-        systems: impl IntoSystemConfigs<M>,
+        systems: impl IntoScheduleConfigs<ScheduleSystem, M>,
     ) -> &mut Self {
-        let label = schedule.intern();
         let mut schedules = self.world.resource_mut::<Schedules>();
-        if let Some(schedule) = schedules.get_mut(label) {
-            schedule.add_systems(systems);
-        } else {
-            let mut new_schedule = Schedule::new(label);
-            new_schedule.add_systems(systems);
-            schedules.insert(new_schedule);
-        }
+        schedules.add_systems(schedule, systems);
 
         self
     }
 
     /// See [`App::register_system`].
-    pub fn register_system<I: 'static, O: 'static, M, S: IntoSystem<I, O, M> + 'static>(
+    pub fn register_system<I, O, M>(
         &mut self,
-        system: S,
-    ) -> SystemId<I, O> {
+        system: impl IntoSystem<I, O, M> + 'static,
+    ) -> SystemId<I, O>
+    where
+        I: SystemInput + 'static,
+        O: 'static,
+    {
         self.world.register_system(system)
     }
 
     /// See [`App::configure_sets`].
     #[track_caller]
-    pub fn configure_sets(
+    pub fn configure_sets<M>(
         &mut self,
         schedule: impl ScheduleLabel,
-        sets: impl IntoSystemSetConfigs,
+        sets: impl IntoScheduleConfigs<InternedSystemSet, M>,
     ) -> &mut Self {
-        let label = schedule.intern();
         let mut schedules = self.world.resource_mut::<Schedules>();
-        if let Some(schedule) = schedules.get_mut(label) {
-            schedule.configure_sets(sets);
-        } else {
-            let mut new_schedule = Schedule::new(label);
-            new_schedule.configure_sets(sets);
-            schedules.insert(new_schedule);
-        }
+        schedules.configure_sets(schedule, sets);
         self
     }
 
@@ -306,53 +330,7 @@ impl SubApp {
         let schedule = schedule.intern();
         let mut schedules = self.world.resource_mut::<Schedules>();
 
-        if let Some(schedule) = schedules.get_mut(schedule) {
-            let schedule: &mut Schedule = schedule;
-            schedule.ignore_ambiguity(a, b);
-        } else {
-            let mut new_schedule = Schedule::new(schedule);
-            new_schedule.ignore_ambiguity(a, b);
-            schedules.insert(new_schedule);
-        }
-
-        self
-    }
-
-    /// See [`App::init_state`].
-    pub fn init_state<S: States + FromWorld>(&mut self) -> &mut Self {
-        if !self.world.contains_resource::<State<S>>() {
-            self.init_resource::<State<S>>()
-                .init_resource::<NextState<S>>()
-                .add_event::<StateTransitionEvent<S>>()
-                .add_systems(
-                    StateTransition,
-                    (
-                        run_enter_schedule::<S>.run_if(run_once_condition()),
-                        apply_state_transition::<S>,
-                    )
-                        .chain(),
-                );
-        }
-
-        // The OnEnter, OnExit, and OnTransition schedules are lazily initialized
-        // (i.e. when the first system is added to them), so World::try_run_schedule
-        // is used to fail gracefully if they aren't present.
-        self
-    }
-
-    /// See [`App::insert_state`].
-    pub fn insert_state<S: States>(&mut self, state: S) -> &mut Self {
-        self.insert_resource(State::new(state))
-            .init_resource::<NextState<S>>()
-            .add_event::<StateTransitionEvent<S>>()
-            .add_systems(
-                StateTransition,
-                (
-                    run_enter_schedule::<S>.run_if(run_once_condition()),
-                    apply_state_transition::<S>,
-                )
-                    .chain(),
-            );
+        schedules.ignore_ambiguity(schedule, a, b);
 
         self
     }
@@ -360,7 +338,7 @@ impl SubApp {
     /// See [`App::add_event`].
     pub fn add_event<T>(&mut self) -> &mut Self
     where
-        T: Event,
+        T: BufferedEvent,
     {
         if !self.world.contains_resource::<Events<T>>() {
             EventRegistry::register_event::<T>(self.world_mut());
@@ -380,10 +358,7 @@ impl SubApp {
     where
         T: Plugin,
     {
-        self.plugins
-            .registry
-            .iter()
-            .any(|p| p.downcast_ref::<T>().is_some())
+        self.plugin_names.contains(core::any::type_name::<T>())
     }
 
     /// See [`App::get_added_plugins`].
@@ -391,8 +366,7 @@ impl SubApp {
     where
         T: Plugin,
     {
-        self.plugins
-            .registry
+        self.plugin_registry
             .iter()
             .filter_map(|p| p.downcast_ref())
             .collect()
@@ -409,16 +383,16 @@ impl SubApp {
         match self.plugins_state {
             PluginsState::Adding => {
                 let mut state = PluginsState::Ready;
-                let plugins = std::mem::take(&mut self.plugins);
+                let plugins = core::mem::take(&mut self.plugin_registry);
                 self.run_as_app(|app| {
-                    for plugin in &plugins.registry {
+                    for plugin in &plugins {
                         if !plugin.ready(app) {
                             state = PluginsState::Adding;
                             return;
                         }
                     }
                 });
-                self.plugins = plugins;
+                self.plugin_registry = plugins;
                 state
             }
             state => state,
@@ -427,25 +401,35 @@ impl SubApp {
 
     /// Runs [`Plugin::finish`] for each plugin.
     pub fn finish(&mut self) {
-        let plugins = std::mem::take(&mut self.plugins);
-        self.run_as_app(|app| {
-            for plugin in &plugins.registry {
-                plugin.finish(app);
-            }
-        });
-        self.plugins = plugins;
+        // do hokey pokey with a boxed zst plugin (doesn't allocate)
+        let mut hokeypokey: Box<dyn Plugin> = Box::new(crate::HokeyPokey);
+        for i in 0..self.plugin_registry.len() {
+            core::mem::swap(&mut self.plugin_registry[i], &mut hokeypokey);
+            #[cfg(feature = "trace")]
+            let _plugin_finish_span =
+                info_span!("plugin finish", plugin = hokeypokey.name()).entered();
+            self.run_as_app(|app| {
+                hokeypokey.finish(app);
+            });
+            core::mem::swap(&mut self.plugin_registry[i], &mut hokeypokey);
+        }
         self.plugins_state = PluginsState::Finished;
     }
 
     /// Runs [`Plugin::cleanup`] for each plugin.
     pub fn cleanup(&mut self) {
-        let plugins = std::mem::take(&mut self.plugins);
-        self.run_as_app(|app| {
-            for plugin in &plugins.registry {
-                plugin.cleanup(app);
-            }
-        });
-        self.plugins = plugins;
+        // do hokey pokey with a boxed zst plugin (doesn't allocate)
+        let mut hokeypokey: Box<dyn Plugin> = Box::new(crate::HokeyPokey);
+        for i in 0..self.plugin_registry.len() {
+            core::mem::swap(&mut self.plugin_registry[i], &mut hokeypokey);
+            #[cfg(feature = "trace")]
+            let _plugin_cleanup_span =
+                info_span!("plugin cleanup", plugin = hokeypokey.name()).entered();
+            self.run_as_app(|app| {
+                hokeypokey.cleanup(app);
+            });
+            core::mem::swap(&mut self.plugin_registry[i], &mut hokeypokey);
+        }
         self.plugins_state = PluginsState::Cleaned;
     }
 
@@ -469,6 +453,32 @@ impl SubApp {
         registry.write().register_type_data::<T, D>();
         self
     }
+
+    /// See [`App::register_function`].
+    #[cfg(feature = "reflect_functions")]
+    pub fn register_function<F, Marker>(&mut self, function: F) -> &mut Self
+    where
+        F: bevy_reflect::func::IntoFunction<'static, Marker> + 'static,
+    {
+        let registry = self.world.resource_mut::<AppFunctionRegistry>();
+        registry.write().register(function).unwrap();
+        self
+    }
+
+    /// See [`App::register_function_with_name`].
+    #[cfg(feature = "reflect_functions")]
+    pub fn register_function_with_name<F, Marker>(
+        &mut self,
+        name: impl Into<alloc::borrow::Cow<'static, str>>,
+        function: F,
+    ) -> &mut Self
+    where
+        F: bevy_reflect::func::IntoFunction<'static, Marker> + 'static,
+    {
+        let registry = self.world.resource_mut::<AppFunctionRegistry>();
+        registry.write().register_with_name(name, function).unwrap();
+        self
+    }
 }
 
 /// The collection of sub-apps that belong to an [`App`].
@@ -489,7 +499,7 @@ impl SubApps {
         {
             #[cfg(feature = "trace")]
             let _bevy_frame_update_span = info_span!("main app").entered();
-            self.main.update();
+            self.main.run_default_schedule();
         }
         for (_label, sub_app) in self.sub_apps.iter_mut() {
             #[cfg(feature = "trace")]
@@ -503,11 +513,19 @@ impl SubApps {
 
     /// Returns an iterator over the sub-apps (starting with the main one).
     pub fn iter(&self) -> impl Iterator<Item = &SubApp> + '_ {
-        std::iter::once(&self.main).chain(self.sub_apps.values())
+        core::iter::once(&self.main).chain(self.sub_apps.values())
     }
 
     /// Returns a mutable iterator over the sub-apps (starting with the main one).
     pub fn iter_mut(&mut self) -> impl Iterator<Item = &mut SubApp> + '_ {
-        std::iter::once(&mut self.main).chain(self.sub_apps.values_mut())
+        core::iter::once(&mut self.main).chain(self.sub_apps.values_mut())
+    }
+
+    /// Extract data from the main world into the [`SubApp`] with the given label and perform an update if it exists.
+    pub fn update_subapp_by_label(&mut self, label: impl AppLabel) {
+        if let Some(sub_app) = self.sub_apps.get_mut(&label.intern()) {
+            sub_app.extract(&mut self.main.world);
+            sub_app.update();
+        }
     }
 }

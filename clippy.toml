@@ -1,7 +1,7 @@
 doc-valid-idents = [
   "GilRs",
   "glTF",
-  "MacOS",
+  "macOS",
   "NVidia",
   "OpenXR",
   "sRGB",
@@ -10,3 +10,38 @@ doc-valid-idents = [
   "WebGPU",
   "..",
 ]
+
+check-private-items = true
+
+disallowed-methods = [
+  { path = "f32::powi", reason = "use bevy_math::ops::FloatPow::squared, bevy_math::ops::FloatPow::cubed, or bevy_math::ops::powf instead for libm determinism" },
+  { path = "f32::log", reason = "use bevy_math::ops::ln, bevy_math::ops::log2, or bevy_math::ops::log10 instead for libm determinism" },
+  { path = "f32::abs_sub", reason = "deprecated and deeply confusing method" },
+  { path = "f32::powf", reason = "use bevy_math::ops::powf instead for libm determinism" },
+  { path = "f32::exp", reason = "use bevy_math::ops::exp instead for libm determinism" },
+  { path = "f32::exp2", reason = "use bevy_math::ops::exp2 instead for libm determinism" },
+  { path = "f32::ln", reason = "use bevy_math::ops::ln instead for libm determinism" },
+  { path = "f32::log2", reason = "use bevy_math::ops::log2 instead for libm determinism" },
+  { path = "f32::log10", reason = "use bevy_math::ops::log10 instead for libm determinism" },
+  { path = "f32::cbrt", reason = "use bevy_math::ops::cbrt instead for libm determinism" },
+  { path = "f32::hypot", reason = "use bevy_math::ops::hypot instead for libm determinism" },
+  { path = "f32::sin", reason = "use bevy_math::ops::sin instead for libm determinism" },
+  { path = "f32::cos", reason = "use bevy_math::ops::cos instead for libm determinism" },
+  { path = "f32::tan", reason = "use bevy_math::ops::tan instead for libm determinism" },
+  { path = "f32::asin", reason = "use bevy_math::ops::asin instead for libm determinism" },
+  { path = "f32::acos", reason = "use bevy_math::ops::acos instead for libm determinism" },
+  { path = "f32::atan", reason = "use bevy_math::ops::atan instead for libm determinism" },
+  { path = "f32::atan2", reason = "use bevy_math::ops::atan2 instead for libm determinism" },
+  { path = "f32::sin_cos", reason = "use bevy_math::ops::sin_cos instead for libm determinism" },
+  { path = "f32::exp_m1", reason = "use bevy_math::ops::exp_m1 instead for libm determinism" },
+  { path = "f32::ln_1p", reason = "use bevy_math::ops::ln_1p instead for libm determinism" },
+  { path = "f32::sinh", reason = "use bevy_math::ops::sinh instead for libm determinism" },
+  { path = "f32::cosh", reason = "use bevy_math::ops::cosh instead for libm determinism" },
+  { path = "f32::tanh", reason = "use bevy_math::ops::tanh instead for libm determinism" },
+  { path = "f32::asinh", reason = "use bevy_math::ops::asinh instead for libm determinism" },
+  { path = "f32::acosh", reason = "use bevy_math::ops::acosh instead for libm determinism" },
+  { path = "f32::atanh", reason = "use bevy_math::ops::atanh instead for libm determinism" },
+]
+
+# Require `bevy_ecs::children!` to use `[]` braces, instead of `()` or `{}`.
+standard-macro-braces = [{ name = "children", brace = "[" }]

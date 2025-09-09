@@ -1,9 +1,9 @@
 [package]
 name = "bevy_derive"
-version = "0.14.0-dev"
-edition = "2021"
+version = "0.17.0-dev"
+edition = "2024"
 description = "Provides derive implementations for Bevy Engine"
-homepage = "https://bevyengine.org"
+homepage = "https://bevy.org"
 repository = "https://github.com/bevyengine/bevy"
 license = "MIT OR Apache-2.0"
 keywords = ["bevy"]
@@ -12,7 +12,7 @@ keywords = ["bevy"]
 proc-macro = true
 
 [dependencies]
-bevy_macro_utils = { path = "../bevy_macro_utils", version = "0.14.0-dev" }
+bevy_macro_utils = { path = "../bevy_macro_utils", version = "0.17.0-dev" }
 
 quote = "1.0"
 syn = { version = "2.0", features = ["full"] }
@@ -21,5 +21,5 @@ syn = { version = "2.0", features = ["full"] }
 workspace = true
 
 [package.metadata.docs.rs]
-rustdoc-args = ["-Zunstable-options", "--cfg", "docsrs"]
+rustdoc-args = ["-Zunstable-options", "--generate-link-to-definition"]
 all-features = true

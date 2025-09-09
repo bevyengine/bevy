@@ -1,13 +1,17 @@
 //! The touch input functionality.
 
-use bevy_ecs::entity::Entity;
-use bevy_ecs::event::{Event, EventReader};
-use bevy_ecs::system::{ResMut, Resource};
+use bevy_ecs::{
+    entity::Entity,
+    event::{BufferedEvent, EventReader},
+    resource::Resource,
+    system::ResMut,
+};
 use bevy_math::Vec2;
+use bevy_platform::collections::HashMap;
+#[cfg(feature = "bevy_reflect")]
 use bevy_reflect::Reflect;
-use bevy_utils::HashMap;
 
-#[cfg(feature = "serialize")]
+#[cfg(all(feature = "serialize", feature = "bevy_reflect"))]
 use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 
 /// A touch input event.
@@ -33,11 +37,15 @@ use bevy_reflect::{ReflectDeserialize, ReflectSerialize};
 ///
 /// This event is the translated version of the `WindowEvent::Touch` from the `winit` crate.
 /// It is available to the end user and can be used for game logic.
-#[derive(Event, Debug, Clone, Copy, PartialEq, Reflect)]
-#[reflect(Debug, PartialEq)]
+#[derive(BufferedEvent, Debug, Clone, Copy, PartialEq)]
 #[cfg_attr(
-    feature = "serialize",
-    derive(serde::Serialize, serde::Deserialize),
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Debug, PartialEq, Clone)
+)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(
+    all(feature = "serialize", feature = "bevy_reflect"),
     reflect(Serialize, Deserialize)
 )]
 pub struct TouchInput {
@@ -57,11 +65,15 @@ pub struct TouchInput {
 }
 
 /// A force description of a [`Touch`] input.
-#[derive(Debug, Clone, Copy, PartialEq, Reflect)]
-#[reflect(Debug, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 #[cfg_attr(
-    feature = "serialize",
-    derive(serde::Serialize, serde::Deserialize),
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Debug, PartialEq, Clone)
+)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(
+    all(feature = "serialize", feature = "bevy_reflect"),
     reflect(Serialize, Deserialize)
 )]
 pub enum ForceTouch {
@@ -103,11 +115,15 @@ pub enum ForceTouch {
 /// This includes a phase that indicates that a touch input has started or ended,
 /// or that a finger has moved. There is also a canceled phase that indicates that
 /// the system canceled the tracking of the finger.
-#[derive(Debug, Hash, PartialEq, Eq, Clone, Copy, Reflect)]
-#[reflect(Debug, Hash, PartialEq)]
+#[derive(Debug, Hash, PartialEq, Eq, Clone, Copy)]
 #[cfg_attr(
-    feature = "serialize",
-    derive(serde::Serialize, serde::Deserialize),
+    feature = "bevy_reflect",
+    derive(Reflect),
+    reflect(Debug, Hash, PartialEq, Clone)
+)]
+#[cfg_attr(feature = "serialize", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(
+    all(feature = "serialize", feature = "bevy_reflect"),
     reflect(Serialize, Deserialize)
 )]
 pub enum TouchPhase {

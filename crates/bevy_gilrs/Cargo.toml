@@ -1,28 +1,31 @@
 [package]
 name = "bevy_gilrs"
-version = "0.14.0-dev"
-edition = "2021"
+version = "0.17.0-dev"
+edition = "2024"
 description = "Gamepad system made using Gilrs for Bevy Engine"
-homepage = "https://bevyengine.org"
+homepage = "https://bevy.org"
 repository = "https://github.com/bevyengine/bevy"
 license = "MIT OR Apache-2.0"
 keywords = ["bevy"]
 
 [dependencies]
 # bevy
-bevy_app = { path = "../bevy_app", version = "0.14.0-dev" }
-bevy_ecs = { path = "../bevy_ecs", version = "0.14.0-dev" }
-bevy_input = { path = "../bevy_input", version = "0.14.0-dev" }
-bevy_utils = { path = "../bevy_utils", version = "0.14.0-dev" }
-bevy_time = { path = "../bevy_time", version = "0.14.0-dev" }
+bevy_app = { path = "../bevy_app", version = "0.17.0-dev" }
+bevy_ecs = { path = "../bevy_ecs", version = "0.17.0-dev" }
+bevy_input = { path = "../bevy_input", version = "0.17.0-dev" }
+bevy_time = { path = "../bevy_time", version = "0.17.0-dev" }
+bevy_platform = { path = "../bevy_platform", version = "0.17.0-dev", default-features = false, features = [
+  "std",
+] }
 
 # other
-gilrs = "0.10.1"
-thiserror = "1.0"
+gilrs = "0.11.0"
+thiserror = { version = "2", default-features = false }
+tracing = { version = "0.1", default-features = false, features = ["std"] }
 
 [lints]
 workspace = true
 
 [package.metadata.docs.rs]
-rustdoc-args = ["-Zunstable-options", "--cfg", "docsrs"]
+rustdoc-args = ["-Zunstable-options", "--generate-link-to-definition"]
 all-features = true

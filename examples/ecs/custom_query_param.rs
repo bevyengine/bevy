@@ -66,7 +66,7 @@ fn print_components_read_only(
 ) {
     println!("Print components (read_only):");
     for e in &query {
-        println!("Entity: {:?}", e.entity);
+        println!("Entity: {}", e.entity);
         println!("A: {:?}", e.a);
         println!("B: {:?}", e.b);
         println!("Nested: {:?}", e.nested);
@@ -78,6 +78,7 @@ fn print_components_read_only(
 }
 
 /// If you are going to mutate the data in a query, you must mark it with the `mutable` attribute.
+///
 /// The [`QueryData`] derive macro will still create a read-only version, which will be have `ReadOnly`
 /// suffix.
 /// Note: if you want to use derive macros with read-only query variants, you need to pass them with
@@ -136,8 +137,8 @@ fn print_components_iter_mut(
     println!("Print components (iter_mut):");
     for e in &mut query {
         // Re-declaring the variable to illustrate the type of the actual iterator item.
-        let e: CustomQueryItem<'_, _, _> = e;
-        println!("Entity: {:?}", e.entity);
+        let e: CustomQueryItem<'_, '_, _, _> = e;
+        println!("Entity: {}", e.entity);
         println!("A: {:?}", e.a);
         println!("B: {:?}", e.b);
         println!("Optional nested: {:?}", e.optional_nested);
@@ -154,8 +155,8 @@ fn print_components_iter(
     println!("Print components (iter):");
     for e in &query {
         // Re-declaring the variable to illustrate the type of the actual iterator item.
-        let e: CustomQueryReadOnlyItem<'_, _, _> = e;
-        println!("Entity: {:?}", e.entity);
+        let e: CustomQueryReadOnlyItem<'_, '_, _, _> = e;
+        println!("Entity: {}", e.entity);
         println!("A: {:?}", e.a);
         println!("B: {:?}", e.b);
         println!("Nested: {:?}", e.nested);
@@ -185,7 +186,7 @@ fn print_components_tuple(
 ) {
     println!("Print components (tuple):");
     for (entity, a, b, nested, (generic_c, generic_d)) in &query {
-        println!("Entity: {entity:?}");
+        println!("Entity: {entity}");
         println!("A: {a:?}");
         println!("B: {b:?}");
         println!("Nested: {:?} {:?}", nested.0, nested.1);

@@ -1,0 +1,82 @@
+[package]
+name = "bevy_input_focus"
+version = "0.17.0-dev"
+edition = "2024"
+description = "Keyboard focus management"
+homepage = "https://bevy.org"
+repository = "https://github.com/bevyengine/bevy"
+license = "MIT OR Apache-2.0"
+keywords = ["bevy"]
+rust-version = "1.85.0"
+
+[features]
+default = ["std", "bevy_reflect", "bevy_ecs/async_executor"]
+
+# Functionality
+
+## Adds runtime reflection support using `bevy_reflect`.
+bevy_reflect = [
+  "dep:bevy_reflect",
+  "bevy_app/bevy_reflect",
+  "bevy_ecs/bevy_reflect",
+  "bevy_math/bevy_reflect",
+  "bevy_input/bevy_reflect",
+  "bevy_window/bevy_reflect",
+]
+
+## Adds serialization support through `serde`.
+serialize = [
+  "bevy_ecs/serialize",
+  "bevy_math/serialize",
+  "bevy_input/serialize",
+  "bevy_window/serialize",
+]
+
+# Platform Compatibility
+
+## Allows access to the `std` crate. Enabling this feature will prevent compilation
+## on `no_std` targets, but provides access to certain additional features on
+## supported platforms.
+std = [
+  "bevy_app/std",
+  "bevy_ecs/std",
+  "bevy_math/std",
+  "bevy_reflect/std",
+  "bevy_input/std",
+  "bevy_window/std",
+]
+
+## `critical-section` provides the building blocks for synchronization primitives
+## on all platforms, including `no_std`.
+critical-section = [
+  "bevy_app/critical-section",
+  "bevy_ecs/critical-section",
+  "bevy_reflect?/critical-section",
+  "bevy_input/critical-section",
+]
+
+## Uses the `libm` maths library instead of the one provided in `std` and `core`.
+libm = ["bevy_math/libm", "bevy_window/libm"]
+
+[dependencies]
+# bevy
+bevy_app = { path = "../bevy_app", version = "0.17.0-dev", default-features = false }
+bevy_ecs = { path = "../bevy_ecs", version = "0.17.0-dev", default-features = false }
+bevy_input = { path = "../bevy_input", version = "0.17.0-dev", default-features = false }
+bevy_math = { path = "../bevy_math", version = "0.17.0-dev", default-features = false }
+bevy_picking = { path = "../bevy_picking", version = "0.17.0-dev", default-features = false }
+bevy_window = { path = "../bevy_window", version = "0.17.0-dev", default-features = false }
+bevy_reflect = { path = "../bevy_reflect", version = "0.17.0-dev", features = [
+  "glam",
+], default-features = false, optional = true }
+
+# other
+thiserror = { version = "2", default-features = false }
+log = { version = "0.4", default-features = false }
+
+[lints]
+workspace = true
+
+[package.metadata.docs.rs]
+rustdoc-args = ["-Zunstable-options", "--generate-link-to-definition"]
+all-features = true

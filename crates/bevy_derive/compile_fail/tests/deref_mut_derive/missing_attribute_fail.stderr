@@ -1,0 +1,18 @@
+error: deriving DerefMut on multi-field structs requires one field to have the `#[deref]` attribute
+ --> tests/deref_mut_derive/missing_attribute_fail.rs:4:10
+  |
+4 | #[derive(DerefMut)]
+  |          ^^^^^^^^
+  |
+  = note: this error originates in the derive macro `DerefMut` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error: deriving DerefMut on multi-field structs requires one field to have the `#[deref]` attribute
+  --> tests/deref_mut_derive/missing_attribute_fail.rs:16:10
+   |
+16 | #[derive(DerefMut)]
+   |          ^^^^^^^^
+   |
+   = note: this error originates in the derive macro `DerefMut` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error: aborting due to 2 previous errors
+

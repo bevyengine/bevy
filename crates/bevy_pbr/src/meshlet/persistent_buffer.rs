@@ -5,8 +5,8 @@ use bevy_render::{
     },
     renderer::{RenderDevice, RenderQueue},
 };
+use core::{num::NonZero, ops::Range};
 use range_alloc::RangeAllocator;
-use std::{num::NonZeroU64, ops::Range};
 
 /// Wrapper for a GPU buffer holding a large amount of data that persists across frames.
 pub struct PersistentGpuBuffer<T: PersistentGpuBufferable> {
@@ -39,7 +39,7 @@ impl<T: PersistentGpuBufferable> PersistentGpuBuffer<T> {
     /// Queue an item of type T to be added to the buffer, returning the byte range within the buffer that it will be located at.
     pub fn queue_write(&mut self, data: T, metadata: T::Metadata) -> Range<BufferAddress> {
         let data_size = data.size_in_bytes() as u64;
-        debug_assert!(data_size % COPY_BUFFER_ALIGNMENT == 0);
+        debug_assert!(data_size.is_multiple_of(COPY_BUFFER_ALIGNMENT));
         if let Ok(buffer_slice) = self.allocation_planner.allocate_range(data_size) {
             self.write_queue
                 .push((data, metadata, buffer_slice.clone()));
@@ -66,11 +66,12 @@ impl<T: PersistentGpuBufferable> PersistentGpuBuffer<T> {
         let queue_count = self.write_queue.len();
 
         for (data, metadata, buffer_slice) in self.write_queue.drain(..) {
-            let buffer_slice_size = NonZeroU64::new(buffer_slice.end - buffer_slice.start).unwrap();
+            let buffer_slice_size =
+                NonZero::<u64>::new(buffer_slice.end - buffer_slice.start).unwrap();
             let mut buffer_view = render_queue
                 .write_buffer_with(&self.buffer, buffer_slice.start, buffer_slice_size)
                 .unwrap();
-            data.write_bytes_le(metadata, &mut buffer_view);
+            data.write_bytes_le(metadata, &mut buffer_view, buffer_slice.start);
         }
 
         let queue_saturation = queue_count as f32 / self.write_queue.capacity() as f32;
@@ -122,5 +123,10 @@ pub trait PersistentGpuBufferable {
 
     /// Convert `self` + `metadata` into bytes (little-endian), and write to the provided buffer slice.
     /// Any bytes not written to in the slice will be zeroed out when uploaded to the GPU.
-    fn write_bytes_le(&self, metadata: Self::Metadata, buffer_slice: &mut [u8]);
+    fn write_bytes_le(
+        &self,
+        metadata: Self::Metadata,
+        buffer_slice: &mut [u8],
+        buffer_offset: BufferAddress,
+    );
 }

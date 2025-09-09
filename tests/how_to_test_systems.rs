@@ -1,3 +1,4 @@
+#![expect(missing_docs, reason = "Not all docs are written yet, see #3492.")]
 use bevy::prelude::*;
 
 #[derive(Component, Default)]
@@ -6,7 +7,7 @@ struct Enemy {
     score_value: u32,
 }
 
-#[derive(Event)]
+#[derive(BufferedEvent)]
 struct EnemyDied(u32);
 
 #[derive(Resource)]
@@ -25,8 +26,8 @@ fn despawn_dead_enemies(
 ) {
     for (entity, enemy) in &enemies {
         if enemy.hit_points == 0 {
-            commands.entity(entity).despawn_recursive();
-            dead_enemies.send(EnemyDied(enemy.score_value));
+            commands.entity(entity).despawn();
+            dead_enemies.write(EnemyDied(enemy.score_value));
         }
     }
 }
@@ -108,7 +109,7 @@ fn did_despawn_enemy() {
 
     // Get `EnemyDied` event reader
     let enemy_died_events = app.world().resource::<Events<EnemyDied>>();
-    let mut enemy_died_reader = enemy_died_events.get_reader();
+    let mut enemy_died_reader = enemy_died_events.get_cursor();
     let enemy_died = enemy_died_reader.read(enemy_died_events).next().unwrap();
 
     // Check the event has been sent
@@ -160,10 +161,10 @@ fn update_score_on_event() {
     // Add our systems
     app.add_systems(Update, update_score);
 
-    // Send an `EnemyDied` event
+    // Write an `EnemyDied` event
     app.world_mut()
         .resource_mut::<Events<EnemyDied>>()
-        .send(EnemyDied(3));
+        .write(EnemyDied(3));
 
     // Run systems
     app.update();

@@ -1,8 +1,9 @@
 use crate::io::{AssetReader, AssetReaderError, PathStream, Reader};
+use alloc::{boxed::Box, sync::Arc};
 use async_channel::{Receiver, Sender};
-use bevy_utils::HashMap;
+use bevy_platform::collections::HashMap;
 use parking_lot::RwLock;
-use std::{path::Path, sync::Arc};
+use std::path::Path;
 
 /// A "gated" reader that will prevent asset reads from returning until
 /// a given path has been "opened" using [`GateOpener`].
@@ -44,7 +45,7 @@ impl<R: AssetReader> GatedReader<R> {
     /// Creates a new [`GatedReader`], which wraps the given `reader`. Also returns a [`GateOpener`] which
     /// can be used to open "path gates" for this [`GatedReader`].
     pub fn new(reader: R) -> (Self, GateOpener) {
-        let gates = Arc::new(RwLock::new(HashMap::new()));
+        let gates = Arc::new(RwLock::new(HashMap::default()));
         (
             Self {
                 reader,
@@ -56,7 +57,7 @@ impl<R: AssetReader> GatedReader<R> {
 }
 
 impl<R: AssetReader> AssetReader for GatedReader<R> {
-    async fn read<'a>(&'a self, path: &'a Path) -> Result<Box<Reader<'a>>, AssetReaderError> {
+    async fn read<'a>(&'a self, path: &'a Path) -> Result<impl Reader + 'a, AssetReaderError> {
         let receiver = {
             let mut gates = self.gates.write();
             let gates = gates
@@ -70,7 +71,7 @@ impl<R: AssetReader> AssetReader for GatedReader<R> {
         Ok(result)
     }
 
-    async fn read_meta<'a>(&'a self, path: &'a Path) -> Result<Box<Reader<'a>>, AssetReaderError> {
+    async fn read_meta<'a>(&'a self, path: &'a Path) -> Result<impl Reader + 'a, AssetReaderError> {
         self.reader.read_meta(path).await
     }
 

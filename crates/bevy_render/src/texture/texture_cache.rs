@@ -2,8 +2,8 @@ use crate::{
     render_resource::{Texture, TextureView},
     renderer::RenderDevice,
 };
-use bevy_ecs::{prelude::ResMut, system::Resource};
-use bevy_utils::{Entry, HashMap};
+use bevy_ecs::{prelude::ResMut, resource::Resource};
+use bevy_platform::collections::{hash_map::Entry, HashMap};
 use wgpu::{TextureDescriptor, TextureViewDescriptor};
 
 /// The internal representation of a [`CachedTexture`] used to track whether it was recently used
@@ -16,6 +16,7 @@ struct CachedTextureMeta {
 }
 
 /// A cached GPU [`Texture`] with corresponding [`TextureView`].
+///
 /// This is useful for textures that are created repeatedly (each frame) in the rendering process
 /// to reduce the amount of GPU memory allocations.
 #[derive(Clone)]
@@ -82,16 +83,22 @@ impl TextureCache {
         }
     }
 
+    /// Returns `true` if the texture cache contains no textures.
+    pub fn is_empty(&self) -> bool {
+        self.textures.is_empty()
+    }
+
     /// Updates the cache and only retains recently used textures.
     pub fn update(&mut self) {
-        for textures in self.textures.values_mut() {
+        self.textures.retain(|_, textures| {
             for texture in textures.iter_mut() {
                 texture.frames_since_last_use += 1;
                 texture.taken = false;
             }
 
             textures.retain(|texture| texture.frames_since_last_use < 3);
-        }
+            !textures.is_empty()
+        });
     }
 }
 

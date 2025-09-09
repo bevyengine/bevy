@@ -1,5 +1,7 @@
+#[cfg(feature = "bevy_reflect")]
 use bevy_reflect::Reflect;
-use bevy_utils::{tracing::debug, Duration};
+use core::time::Duration;
+use log::debug;
 
 use crate::{real::Real, time::Time};
 
@@ -67,7 +69,8 @@ use crate::{real::Real, time::Time};
 /// time. You should also consider how stable your FPS is, as the limit will
 /// also dictate how big of an FPS drop you can accept without losing time and
 /// falling behind real time.
-#[derive(Debug, Copy, Clone, Reflect)]
+#[derive(Debug, Copy, Clone)]
+#[cfg_attr(feature = "bevy_reflect", derive(Reflect), reflect(Clone))]
 pub struct Virtual {
     max_delta: Duration,
     paused: bool,

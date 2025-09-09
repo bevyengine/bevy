@@ -2,7 +2,7 @@
 
 use bevy::{
     input::gamepad::{
-        GamepadAxisChangedEvent, GamepadButtonChangedEvent, GamepadButtonInput,
+        GamepadAxisChangedEvent, GamepadButtonChangedEvent, GamepadButtonStateChangedEvent,
         GamepadConnectionEvent, GamepadEvent,
     },
     prelude::*,
@@ -17,31 +17,28 @@ fn main() {
 
 fn gamepad_events(
     mut connection_events: EventReader<GamepadConnectionEvent>,
+    // Handles the continuous measure of an axis, equivalent to GamepadAxes::get.
     mut axis_changed_events: EventReader<GamepadAxisChangedEvent>,
-    // Handles the continuous measure of how far a button has been pressed down, as measured
-    // by `Axis<GamepadButton>`. Whenever that value changes, this event is emitted.
+    // Handles the continuous measure of how far a button has been pressed down, equivalent to `GamepadButtons::get`.
     mut button_changed_events: EventReader<GamepadButtonChangedEvent>,
     // Handles the boolean measure of whether a button is considered pressed or unpressed, as
-    // defined by the thresholds in `GamepadSettings::button_settings` and measured by
-    // `Input<GamepadButton>`. When the threshold is crossed and the button state changes,
-    // this event is emitted.
-    mut button_input_events: EventReader<GamepadButtonInput>,
+    // defined by the thresholds in `GamepadSettings::button_settings`.
+    // When the threshold is crossed and the button state changes, this event is emitted.
+    mut button_input_events: EventReader<GamepadButtonStateChangedEvent>,
 ) {
     for connection_event in connection_events.read() {
         info!("{:?}", connection_event);
     }
     for axis_changed_event in axis_changed_events.read() {
         info!(
-            "{:?} of {:?} is changed to {}",
-            axis_changed_event.axis_type, axis_changed_event.gamepad, axis_changed_event.value
+            "{:?} of {} is changed to {}",
+            axis_changed_event.axis, axis_changed_event.entity, axis_changed_event.value
         );
     }
     for button_changed_event in button_changed_events.read() {
         info!(
-            "{:?} of {:?} is changed to {}",
-            button_changed_event.button_type,
-            button_changed_event.gamepad,
-            button_changed_event.value
+            "{:?} of {} is changed to {}",
+            button_changed_event.button, button_changed_event.entity, button_changed_event.value
         );
     }
     for button_input_event in button_input_events.read() {

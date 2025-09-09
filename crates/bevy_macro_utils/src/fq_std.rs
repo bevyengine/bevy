@@ -39,7 +39,7 @@
 use proc_macro2::TokenStream;
 use quote::{quote, ToTokens};
 
-/// Fully Qualified (FQ) short name for [`core::any::Any`]
+/// Fully Qualified (FQ) short name for [`std::any::Any`]
 pub struct FQAny;
 /// Fully Qualified (FQ) short name for [`Box`]
 pub struct FQBox;

@@ -1,4 +1,5 @@
-use crate::{FromType, Reflect};
+use crate::{FromType, PartialReflect, Reflect};
+use alloc::boxed::Box;
 
 /// A trait that enables types to be dynamically constructed from reflected data.
 ///
@@ -21,9 +22,13 @@ use crate::{FromType, Reflect};
 /// [derive macro]: bevy_reflect_derive::FromReflect
 /// [`DynamicStruct`]: crate::DynamicStruct
 /// [crate-level documentation]: crate
+#[diagnostic::on_unimplemented(
+    message = "`{Self}` does not implement `FromReflect` so cannot be created through reflection",
+    note = "consider annotating `{Self}` with `#[derive(Reflect)]`"
+)]
 pub trait FromReflect: Reflect + Sized {
     /// Constructs a concrete instance of `Self` from a reflected value.
-    fn from_reflect(reflect: &dyn Reflect) -> Option<Self>;
+    fn from_reflect(reflect: &dyn PartialReflect) -> Option<Self>;
 
     /// Attempts to downcast the given value to `Self` using,
     /// constructing the value using [`from_reflect`] if that fails.
@@ -35,8 +40,10 @@ pub trait FromReflect: Reflect + Sized {
     /// [`from_reflect`]: Self::from_reflect
     /// [`DynamicStruct`]: crate::DynamicStruct
     /// [`DynamicList`]: crate::DynamicList
-    fn take_from_reflect(reflect: Box<dyn Reflect>) -> Result<Self, Box<dyn Reflect>> {
-        match reflect.take::<Self>() {
+    fn take_from_reflect(
+        reflect: Box<dyn PartialReflect>,
+    ) -> Result<Self, Box<dyn PartialReflect>> {
+        match reflect.try_take::<Self>() {
             Ok(value) => Ok(value),
             Err(value) => match Self::from_reflect(value.as_ref()) {
                 None => Err(value),
@@ -97,7 +104,7 @@ pub trait FromReflect: Reflect + Sized {
 /// [`DynamicEnum`]: crate::DynamicEnum
 #[derive(Clone)]
 pub struct ReflectFromReflect {
-    from_reflect: fn(&dyn Reflect) -> Option<Box<dyn Reflect>>,
+    from_reflect: fn(&dyn PartialReflect) -> Option<Box<dyn Reflect>>,
 }
 
 impl ReflectFromReflect {
@@ -105,8 +112,7 @@ impl ReflectFromReflect {
     ///
     /// This will convert the object to a concrete type if it wasn't already, and return
     /// the value as `Box<dyn Reflect>`.
-    #[allow(clippy::wrong_self_convention)]
-    pub fn from_reflect(&self, reflect_value: &dyn Reflect) -> Option<Box<dyn Reflect>> {
+    pub fn from_reflect(&self, reflect_value: &dyn PartialReflect) -> Option<Box<dyn Reflect>> {
         (self.from_reflect)(reflect_value)
     }
 }

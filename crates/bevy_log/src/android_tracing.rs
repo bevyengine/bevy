@@ -1,11 +1,9 @@
-use bevy_utils::tracing::{
+use alloc::ffi::CString;
+use core::fmt::{Debug, Write};
+use tracing::{
     field::Field,
     span::{Attributes, Record},
     Event, Id, Level, Subscriber,
-};
-use std::{
-    ffi::CString,
-    fmt::{Debug, Write},
 };
 use tracing_subscriber::{field::Visit, layer::Context, registry::LookupSpan, Layer};
 
@@ -40,7 +38,7 @@ impl Visit for StringRecorder {
     }
 }
 
-impl core::default::Default for StringRecorder {
+impl Default for StringRecorder {
     fn default() -> Self {
         StringRecorder::new()
     }
@@ -69,7 +67,7 @@ impl<S: Subscriber + for<'a> LookupSpan<'a>> Layer<S> for AndroidLayer {
     #[allow(unsafe_code)]
     fn on_event(&self, event: &Event<'_>, _ctx: Context<'_, S>) {
         fn sanitize(string: &str) -> CString {
-            let mut bytes: Vec<u8> = string
+            let bytes: Vec<u8> = string
                 .as_bytes()
                 .into_iter()
                 .copied()

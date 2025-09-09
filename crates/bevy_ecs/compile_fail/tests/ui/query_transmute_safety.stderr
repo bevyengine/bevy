@@ -1,0 +1,25 @@
+error[E0499]: cannot borrow `query` as mutable more than once at a time
+  --> tests/ui/query_transmute_safety.rs:19:26
+   |
+18 |         let mut lens_a = query.transmute_lens::<&mut Foo>();
+   |                          ----- first mutable borrow occurs here
+19 |         let mut lens_b = query.transmute_lens::<&mut Foo>();
+   |                          ^^^^^ second mutable borrow occurs here
+...
+22 |         let mut query_a = lens_a.query();
+   |                           ------ first borrow later used here
+
+error[E0499]: cannot borrow `lens` as mutable more than once at a time
+  --> tests/ui/query_transmute_safety.rs:34:27
+   |
+33 |         let mut query_a = lens.query();
+   |                           ---- first mutable borrow occurs here
+34 |         let mut query_b = lens.query();
+   |                           ^^^^ second mutable borrow occurs here
+...
+37 |         let a = query_a.single_mut();
+   |                 ------- first borrow later used here
+
+error: aborting due to 2 previous errors
+
+For more information about this error, try `rustc --explain E0499`.

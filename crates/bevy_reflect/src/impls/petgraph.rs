@@ -1,15 +1,15 @@
-use crate::{
-    self as bevy_reflect, impl_reflect_value, prelude::ReflectDefault, ReflectDeserialize,
-    ReflectSerialize,
-};
+use crate::{impl_reflect_opaque, prelude::ReflectDefault, ReflectDeserialize, ReflectSerialize};
 
-impl_reflect_value!(::petgraph::graph::NodeIndex(
+impl_reflect_opaque!(::petgraph::graph::NodeIndex(
+    Clone,
     Default,
+    PartialEq,
+    Hash,
     Serialize,
     Deserialize
 ));
-impl_reflect_value!(::petgraph::graph::DiGraph<
-    N: ::std::clone::Clone,
-    E: ::std::clone::Clone,
+impl_reflect_opaque!(::petgraph::graph::DiGraph<
+    N: ::core::clone::Clone,
+    E: ::core::clone::Clone,
     Ix: ::petgraph::graph::IndexType
->());
+>(Clone));

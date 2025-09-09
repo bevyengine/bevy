@@ -4,7 +4,7 @@ use std::f32::consts::PI;
 
 use bevy::{
     color::palettes::basic::{BLUE, LIME, RED},
-    pbr::{CascadeShadowConfigBuilder, NotShadowCaster, NotShadowReceiver},
+    light::{CascadeShadowConfigBuilder, NotShadowCaster, NotShadowReceiver},
     prelude::*,
 };
 
@@ -40,84 +40,68 @@ fn setup(
     let sphere_handle = meshes.add(Sphere::new(sphere_radius));
 
     // sphere - initially a caster
-    commands.spawn(PbrBundle {
-        mesh: sphere_handle.clone(),
-        material: materials.add(Color::from(RED)),
-        transform: Transform::from_xyz(-1.0, spawn_height, 0.0),
-        ..default()
-    });
+    commands.spawn((
+        Mesh3d(sphere_handle.clone()),
+        MeshMaterial3d(materials.add(Color::from(RED))),
+        Transform::from_xyz(-1.0, spawn_height, 0.0),
+    ));
 
     // sphere - initially not a caster
     commands.spawn((
-        PbrBundle {
-            mesh: sphere_handle,
-            material: materials.add(Color::from(BLUE)),
-            transform: Transform::from_xyz(1.0, spawn_height, 0.0),
-            ..default()
-        },
+        Mesh3d(sphere_handle),
+        MeshMaterial3d(materials.add(Color::from(BLUE))),
+        Transform::from_xyz(1.0, spawn_height, 0.0),
         NotShadowCaster,
     ));
 
     // floating plane - initially not a shadow receiver and not a caster
     commands.spawn((
-        PbrBundle {
-            mesh: meshes.add(Plane3d::default().mesh().size(20.0, 20.0)),
-            material: materials.add(Color::from(LIME)),
-            transform: Transform::from_xyz(0.0, 1.0, -10.0),
-            ..default()
-        },
+        Mesh3d(meshes.add(Plane3d::default().mesh().size(20.0, 20.0))),
+        MeshMaterial3d(materials.add(Color::from(LIME))),
+        Transform::from_xyz(0.0, 1.0, -10.0),
         NotShadowCaster,
         NotShadowReceiver,
     ));
 
     // lower ground plane - initially a shadow receiver
-    commands.spawn(PbrBundle {
-        mesh: meshes.add(Plane3d::default().mesh().size(20.0, 20.0)),
-        material: white_handle,
-        ..default()
-    });
+    commands.spawn((
+        Mesh3d(meshes.add(Plane3d::default().mesh().size(20.0, 20.0))),
+        MeshMaterial3d(white_handle),
+    ));
 
     println!("Using DirectionalLight");
 
-    commands.spawn(PointLightBundle {
-        transform: Transform::from_xyz(5.0, 5.0, 0.0),
-        point_light: PointLight {
+    commands.spawn((
+        PointLight {
             intensity: 0.0,
             range: spawn_plane_depth,
             color: Color::WHITE,
             shadows_enabled: true,
             ..default()
         },
-        ..default()
-    });
+        Transform::from_xyz(5.0, 5.0, 0.0),
+    ));
 
-    commands.spawn(DirectionalLightBundle {
-        directional_light: DirectionalLight {
+    commands.spawn((
+        DirectionalLight {
             illuminance: light_consts::lux::OVERCAST_DAY,
             shadows_enabled: true,
             ..default()
         },
-        transform: Transform::from_rotation(Quat::from_euler(
-            EulerRot::ZYX,
-            0.0,
-            PI / 2.,
-            -PI / 4.,
-        )),
-        cascade_shadow_config: CascadeShadowConfigBuilder {
+        Transform::from_rotation(Quat::from_euler(EulerRot::ZYX, 0.0, PI / 2., -PI / 4.)),
+        CascadeShadowConfigBuilder {
             first_cascade_far_bound: 7.0,
             maximum_distance: 25.0,
             ..default()
         }
-        .into(),
-        ..default()
-    });
+        .build(),
+    ));
 
     // camera
-    commands.spawn(Camera3dBundle {
-        transform: Transform::from_xyz(-5.0, 5.0, 5.0)
-            .looking_at(Vec3::new(-1.0, 1.0, 0.0), Vec3::Y),
-        ..default()
-    });
+    commands.spawn((
+        Camera3d::default(),
+        Transform::from_xyz(-5.0, 5.0, 5.0).looking_at(Vec3::new(-1.0, 1.0, 0.0), Vec3::Y),
+    ));
 }
 
 fn toggle_light(
@@ -149,10 +133,10 @@ fn toggle_shadows(
     mut commands: Commands,
     input: Res<ButtonInput<KeyCode>>,
     mut queries: ParamSet<(
-        Query<Entity, (With<Handle<Mesh>>, With<NotShadowCaster>)>,
-        Query<Entity, (With<Handle<Mesh>>, With<NotShadowReceiver>)>,
-        Query<Entity, (With<Handle<Mesh>>, Without<NotShadowCaster>)>,
-        Query<Entity, (With<Handle<Mesh>>, Without<NotShadowReceiver>)>,
+        Query<Entity, (With<Mesh3d>, With<NotShadowCaster>)>,
+        Query<Entity, (With<Mesh3d>, With<NotShadowReceiver>)>,
+        Query<Entity, (With<Mesh3d>, Without<NotShadowCaster>)>,
+        Query<Entity, (With<Mesh3d>, Without<NotShadowReceiver>)>,
     )>,
 ) {
     if input.just_pressed(KeyCode::KeyC) {

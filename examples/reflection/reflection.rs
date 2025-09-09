@@ -8,7 +8,7 @@ use bevy::{
     prelude::*,
     reflect::{
         serde::{ReflectDeserializer, ReflectSerializer},
-        DynamicStruct,
+        DynamicStruct, PartialReflect,
     },
 };
 use serde::de::DeserializeSeed;
@@ -16,8 +16,6 @@ use serde::de::DeserializeSeed;
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        // Bar will be automatically registered as it's a dependency of Foo
-        .register_type::<Foo>()
         .add_systems(Startup, setup)
         .run();
 }
@@ -41,7 +39,7 @@ pub struct Foo {
     _ignored: NonReflectedValue,
 }
 
-/// This `Bar` type is used in the `nested` field on the `Test` type. We must derive `Reflect` here
+/// This `Bar` type is used in the `nested` field of the `Foo` type. We must derive `Reflect` here
 /// too (or ignore it)
 #[derive(Reflect)]
 pub struct Bar {
@@ -65,13 +63,20 @@ fn setup(type_registry: Res<AppTypeRegistry>) {
     assert_eq!(value.a, 2);
     assert_eq!(*value.get_field::<usize>("a").unwrap(), 2);
 
-    // You can also get the &dyn Reflect value of a field like this
+    // You can also get the `&dyn PartialReflect` value of a field like this
     let field = value.field("a").unwrap();
 
-    // you can downcast Reflect values like this:
-    assert_eq!(*field.downcast_ref::<usize>().unwrap(), 2);
+    // But values introspected via `PartialReflect` will not return `dyn Reflect` trait objects
+    // (even if the containing type does implement `Reflect`), so we need to convert them:
+    let fully_reflected_field = field.try_as_reflect().unwrap();
 
-    // DynamicStruct also implements the `Struct` and `Reflect` traits.
+    // Now, you can downcast your `Reflect` value like this:
+    assert_eq!(*fully_reflected_field.downcast_ref::<usize>().unwrap(), 2);
+
+    // For this specific case, we also support the shortcut `try_downcast_ref`:
+    assert_eq!(*field.try_downcast_ref::<usize>().unwrap(), 2);
+
+    // `DynamicStruct` also implements the `Struct` and `Reflect` traits.
     let mut patch = DynamicStruct::default();
     patch.insert("a", 4usize);
 
@@ -94,10 +99,14 @@ fn setup(type_registry: Res<AppTypeRegistry>) {
     let mut deserializer = ron::de::Deserializer::from_str(&ron_string).unwrap();
     let reflect_value = reflect_deserializer.deserialize(&mut deserializer).unwrap();
 
-    // Deserializing returns a Box<dyn Reflect> value. Generally, deserializing a value will return
-    // the "dynamic" variant of a type. For example, deserializing a struct will return the
-    // DynamicStruct type. "Value types" will be deserialized as themselves.
-    let _deserialized_struct = reflect_value.downcast_ref::<DynamicStruct>();
+    // Deserializing returns a `Box<dyn PartialReflect>` value.
+    // Generally, deserializing a value will return the "dynamic" variant of a type.
+    // For example, deserializing a struct will return the DynamicStruct type.
+    // "Opaque types" will be deserialized as themselves.
+    assert_eq!(
+        reflect_value.reflect_type_path(),
+        DynamicStruct::type_path(),
+    );
 
     // Reflect has its own `partial_eq` implementation, named `reflect_partial_eq`. This behaves
     // like normal `partial_eq`, but it treats "dynamic" and "non-dynamic" types the same. The

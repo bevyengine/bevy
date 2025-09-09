@@ -2,10 +2,14 @@ use crate::MainWorld;
 use bevy_ecs::{
     component::Tick,
     prelude::*,
-    system::{ReadOnlySystemParam, SystemMeta, SystemParam, SystemParamItem, SystemState},
+    query::FilteredAccessSet,
+    system::{
+        ReadOnlySystemParam, SystemMeta, SystemParam, SystemParamItem, SystemParamValidationError,
+        SystemState,
+    },
     world::unsafe_world_cell::UnsafeWorldCell,
 };
-use std::ops::{Deref, DerefMut};
+use core::ops::{Deref, DerefMut};
 
 /// A helper for accessing [`MainWorld`] content using a system parameter.
 ///
@@ -30,11 +34,13 @@ use std::ops::{Deref, DerefMut};
 /// ```
 /// use bevy_ecs::prelude::*;
 /// use bevy_render::Extract;
+/// use bevy_render::sync_world::RenderEntity;
 /// # #[derive(Component)]
+/// // Do make sure to sync the cloud entities before extracting them.
 /// # struct Cloud;
-/// fn extract_clouds(mut commands: Commands, clouds: Extract<Query<Entity, With<Cloud>>>) {
+/// fn extract_clouds(mut commands: Commands, clouds: Extract<Query<RenderEntity, With<Cloud>>>) {
 ///     for cloud in &clouds {
-///         commands.get_or_spawn(cloud).insert(Cloud);
+///         commands.entity(cloud).insert(Cloud);
 ///     }
 /// }
 /// ```
@@ -66,14 +72,53 @@ where
     type State = ExtractState<P>;
     type Item<'w, 's> = Extract<'w, 's, P>;
 
-    fn init_state(world: &mut World, system_meta: &mut SystemMeta) -> Self::State {
+    fn init_state(world: &mut World) -> Self::State {
         let mut main_world = world.resource_mut::<MainWorld>();
         ExtractState {
             state: SystemState::new(&mut main_world),
-            main_world_state: Res::<MainWorld>::init_state(world, system_meta),
+            main_world_state: Res::<MainWorld>::init_state(world),
         }
     }
 
+    fn init_access(
+        state: &Self::State,
+        system_meta: &mut SystemMeta,
+        component_access_set: &mut FilteredAccessSet,
+        world: &mut World,
+    ) {
+        Res::<MainWorld>::init_access(
+            &state.main_world_state,
+            system_meta,
+            component_access_set,
+            world,
+        );
+    }
+
+    #[inline]
+    unsafe fn validate_param(
+        state: &mut Self::State,
+        _system_meta: &SystemMeta,
+        world: UnsafeWorldCell,
+    ) -> Result<(), SystemParamValidationError> {
+        // SAFETY: Read-only access to world data registered in `init_state`.
+        let result = unsafe { world.get_resource_by_id(state.main_world_state) };
+        let Some(main_world) = result else {
+            return Err(SystemParamValidationError::invalid::<Self>(
+                "`MainWorld` resource does not exist",
+            ));
+        };
+        // SAFETY: Type is guaranteed by `SystemState`.
+        let main_world: &World = unsafe { main_world.deref() };
+        // SAFETY: We provide the main world on which this system state was initialized on.
+        unsafe {
+            SystemState::<P>::validate_param(
+                &mut state.state,
+                main_world.as_unsafe_world_cell_readonly(),
+            )
+        }
+    }
+
+    #[inline]
     unsafe fn get_param<'w, 's>(
         state: &'s mut Self::State,
         system_meta: &SystemMeta,

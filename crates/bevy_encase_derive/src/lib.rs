@@ -1,10 +1,9 @@
-// FIXME(3492): remove once docs are ready
-#![allow(missing_docs)]
+#![expect(missing_docs, reason = "Not all docs are written yet, see #3492.")]
 #![forbid(unsafe_code)]
 #![cfg_attr(docsrs, feature(doc_auto_cfg))]
 #![doc(
-    html_logo_url = "https://bevyengine.org/assets/icon.png",
-    html_favicon_url = "https://bevyengine.org/assets/icon.png"
+    html_logo_url = "https://bevy.org/assets/icon.png",
+    html_favicon_url = "https://bevy.org/assets/icon.png"
 )]
 
 use bevy_macro_utils::BevyManifest;
@@ -13,9 +12,9 @@ use encase_derive_impl::{implement, syn};
 const ENCASE: &str = "encase";
 
 fn bevy_encase_path() -> syn::Path {
-    let bevy_manifest = BevyManifest::default();
+    let bevy_manifest = BevyManifest::shared();
     bevy_manifest
-        .get_subcrate("render")
+        .maybe_get_path("bevy_render")
         .map(|bevy_render_path| {
             let mut segments = bevy_render_path.segments;
             segments.push(BevyManifest::parse_str("render_resource"));

@@ -2,7 +2,7 @@
 name: Performance Regression
 about: Bevy running slowly after upgrading? Report a performance regression.
 title: ''
-labels: C-Bug, C-Performance, C-Regression, S-Needs-Triage
+labels: C-Bug, C-Performance, P-Regression, S-Needs-Triage
 assignees: ''
 ---
 

@@ -3,7 +3,7 @@
 #[path = "../helpers/camera_controller.rs"]
 mod camera_controller;
 
-use bevy::{pbr::ShadowFilteringMethod, prelude::*};
+use bevy::{light::ShadowFilteringMethod, prelude::*};
 use camera_controller::{CameraController, CameraControllerPlugin};
 
 fn main() {
@@ -45,54 +45,38 @@ fn setup(
     let sphere_handle = meshes.add(Sphere::new(sphere_radius));
 
     let light_transform = Transform::from_xyz(5.0, 5.0, 0.0).looking_at(Vec3::ZERO, Vec3::Y);
-    commands
-        .spawn((
-            SpatialBundle {
-                transform: light_transform,
+    commands.spawn((
+        light_transform,
+        Visibility::default(),
+        Lights,
+        children![
+            (PointLight {
+                intensity: 0.0,
+                range: spawn_plane_depth,
+                color: Color::WHITE,
+                shadows_enabled: true,
                 ..default()
-            },
-            Lights,
-        ))
-        .with_children(|builder| {
-            builder.spawn(PointLightBundle {
-                point_light: PointLight {
-                    intensity: 0.0,
-                    range: spawn_plane_depth,
-                    color: Color::WHITE,
-                    shadow_depth_bias: 0.0,
-                    shadow_normal_bias: 0.0,
-                    shadows_enabled: true,
-                    ..default()
-                },
+            }),
+            (DirectionalLight {
+                shadows_enabled: true,
                 ..default()
-            });
-            builder.spawn(DirectionalLightBundle {
-                directional_light: DirectionalLight {
-                    shadow_depth_bias: 0.0,
-                    shadow_normal_bias: 0.0,
-                    shadows_enabled: true,
-                    ..default()
-                },
-                ..default()
-            });
-        });
+            })
+        ],
+    ));
 
     // camera
     commands.spawn((
-        Camera3dBundle {
-            transform: Transform::from_xyz(-1.0, 1.0, 1.0)
-                .looking_at(Vec3::new(-1.0, 1.0, 0.0), Vec3::Y),
-            ..default()
-        },
+        Camera3d::default(),
+        Transform::from_xyz(-1.0, 1.0, 1.0).looking_at(Vec3::new(-1.0, 1.0, 0.0), Vec3::Y),
         CameraController::default(),
         ShadowFilteringMethod::Hardware2x2,
     ));
 
     for z_i32 in (-spawn_plane_depth as i32..=0).step_by(2) {
-        commands.spawn(PbrBundle {
-            mesh: sphere_handle.clone(),
-            material: white_handle.clone(),
-            transform: Transform::from_xyz(
+        commands.spawn((
+            Mesh3d(sphere_handle.clone()),
+            MeshMaterial3d(white_handle.clone()),
+            Transform::from_xyz(
                 0.0,
                 if z_i32 % 4 == 0 {
                     spawn_height
@@ -101,104 +85,79 @@ fn setup(
                 },
                 z_i32 as f32,
             ),
-            ..default()
-        });
+        ));
     }
 
     // ground plane
     let plane_size = 2.0 * spawn_plane_depth;
-    commands.spawn(PbrBundle {
-        mesh: meshes.add(Plane3d::default().mesh().size(plane_size, plane_size)),
-        material: white_handle,
-        ..default()
-    });
+    commands.spawn((
+        Mesh3d(meshes.add(Plane3d::default().mesh().size(plane_size, plane_size))),
+        MeshMaterial3d(white_handle),
+    ));
 
-    let style = TextStyle {
-        font_size: 20.,
-        ..default()
-    };
-    commands
-        .spawn(NodeBundle {
-            style: Style {
-                position_type: PositionType::Absolute,
-                padding: UiRect::all(Val::Px(5.0)),
-                ..default()
-            },
-            z_index: ZIndex::Global(i32::MAX),
-            background_color: Color::BLACK.with_alpha(0.75).into(),
+    commands.spawn((
+        Node {
+            position_type: PositionType::Absolute,
+            padding: UiRect::all(px(5)),
             ..default()
-        })
-        .with_children(|c| {
-            c.spawn(TextBundle::from_sections([
-                TextSection::new("Controls:\n", style.clone()),
-                TextSection::new("R / Z - reset biases to default / zero\n", style.clone()),
-                TextSection::new(
-                    "L     - switch between directional and point lights [",
-                    style.clone(),
-                ),
-                TextSection::new("DirectionalLight", style.clone()),
-                TextSection::new("]\n", style.clone()),
-                TextSection::new(
-                    "F     - switch directional light filter methods [",
-                    style.clone(),
-                ),
-                TextSection::new("Hardware2x2", style.clone()),
-                TextSection::new("]\n", style.clone()),
-                TextSection::new("1/2   - change point light depth bias [", style.clone()),
-                TextSection::new("0.00", style.clone()),
-                TextSection::new("]\n", style.clone()),
-                TextSection::new("3/4   - change point light normal bias [", style.clone()),
-                TextSection::new("0.0", style.clone()),
-                TextSection::new("]\n", style.clone()),
-                TextSection::new("5/6   - change direction light depth bias [", style.clone()),
-                TextSection::new("0.00", style.clone()),
-                TextSection::new("]\n", style.clone()),
-                TextSection::new(
-                    "7/8   - change direction light normal bias [",
-                    style.clone(),
-                ),
-                TextSection::new("0.0", style.clone()),
-                TextSection::new("]\n", style.clone()),
-                TextSection::new(
+        },
+        BackgroundColor(Color::BLACK.with_alpha(0.75)),
+        GlobalZIndex(i32::MAX),
+        children![(
+            Text::default(),
+            children![
+                (TextSpan::new("Controls:\n")),
+                (TextSpan::new("R / Z - reset biases to default / zero\n")),
+                (TextSpan::new("L     - switch between directional and point lights [",)),
+                (TextSpan::new("DirectionalLight")),
+                (TextSpan::new("]\n")),
+                (TextSpan::new("F     - switch directional light filter methods [",)),
+                (TextSpan::new("Hardware2x2")),
+                (TextSpan::new("]\n")),
+                (TextSpan::new("1/2   - change point light depth bias [")),
+                (TextSpan::new("0.00")),
+                (TextSpan::new("]\n")),
+                (TextSpan::new("3/4   - change point light normal bias [")),
+                (TextSpan::new("0.0")),
+                (TextSpan::new("]\n")),
+                (TextSpan::new("5/6   - change direction light depth bias [")),
+                (TextSpan::new("0.00")),
+                (TextSpan::new("]\n")),
+                (TextSpan::new("7/8   - change direction light normal bias [",)),
+                (TextSpan::new("0.0")),
+                (TextSpan::new("]\n")),
+                (TextSpan::new(
                     "left/right/up/down/pgup/pgdown - adjust light position (looking at 0,0,0) [",
-                    style.clone(),
-                ),
-                TextSection::new(
-                    format!("{:.1},", light_transform.translation.x),
-                    style.clone(),
-                ),
-                TextSection::new(
-                    format!(" {:.1},", light_transform.translation.y),
-                    style.clone(),
-                ),
-                TextSection::new(
-                    format!(" {:.1}", light_transform.translation.z),
-                    style.clone(),
-                ),
-                TextSection::new("]\n", style.clone()),
-            ]));
-        });
+                )),
+                (TextSpan(format!("{:.1},", light_transform.translation.x))),
+                (TextSpan(format!(" {:.1},", light_transform.translation.y))),
+                (TextSpan(format!(" {:.1}", light_transform.translation.z))),
+                (TextSpan::new("]\n")),
+            ]
+        )],
+    ));
 }
 
 fn toggle_light(
     input: Res<ButtonInput<KeyCode>>,
     mut point_lights: Query<&mut PointLight>,
     mut directional_lights: Query<&mut DirectionalLight>,
-    mut example_text: Query<&mut Text>,
+    example_text: Single<Entity, With<Text>>,
+    mut writer: TextUiWriter,
 ) {
     if input.just_pressed(KeyCode::KeyL) {
         for mut light in &mut point_lights {
             light.intensity = if light.intensity == 0.0 {
-                example_text.single_mut().sections[3].value = "PointLight".to_string();
-                100000000.0
+                *writer.text(*example_text, 4) = "PointLight".to_string();
+                light_consts::lumens::VERY_LARGE_CINEMA_LIGHT
             } else {
                 0.0
             };
         }
         for mut light in &mut directional_lights {
             light.illuminance = if light.illuminance == 0.0 {
-                example_text.single_mut().sections[3].value = "DirectionalLight".to_string();
-                100000.0
+                *writer.text(*example_text, 4) = "DirectionalLight".to_string();
+                light_consts::lux::AMBIENT_DAYLIGHT
             } else {
                 0.0
             };
@@ -209,7 +168,8 @@ fn toggle_light(
 fn adjust_light_position(
     input: Res<ButtonInput<KeyCode>>,
     mut lights: Query<&mut Transform, With<Lights>>,
-    mut example_text: Query<&mut Text>,
+    example_text: Single<Entity, With<Text>>,
+    mut writer: TextUiWriter,
 ) {
     let mut offset = Vec3::ZERO;
     if input.just_pressed(KeyCode::ArrowLeft) {
@@ -231,13 +191,13 @@ fn adjust_light_position(
         offset.y += 1.0;
     }
     if offset != Vec3::ZERO {
-        let mut example_text = example_text.single_mut();
+        let example_text = *example_text;
         for mut light in &mut lights {
             light.translation += offset;
             light.look_at(Vec3::ZERO, Vec3::Y);
-            example_text.sections[21].value = format!("{:.1},", light.translation.x);
-            example_text.sections[22].value = format!(" {:.1},", light.translation.y);
-            example_text.sections[23].value = format!(" {:.1}", light.translation.z);
+            *writer.text(example_text, 22) = format!("{:.1},", light.translation.x);
+            *writer.text(example_text, 23) = format!(" {:.1},", light.translation.y);
+            *writer.text(example_text, 24) = format!(" {:.1}", light.translation.z);
         }
     }
 }
@@ -245,7 +205,8 @@ fn adjust_light_position(
 fn cycle_filter_methods(
     input: Res<ButtonInput<KeyCode>>,
     mut filter_methods: Query<&mut ShadowFilteringMethod>,
-    mut example_text: Query<&mut Text>,
+    example_text: Single<Entity, With<Text>>,
+    mut writer: TextUiWriter,
 ) {
     if input.just_pressed(KeyCode::KeyF) {
         for mut filter_method in &mut filter_methods {
@@ -264,7 +225,7 @@ fn cycle_filter_methods(
                     ShadowFilteringMethod::Hardware2x2
                 }
             };
-            example_text.single_mut().sections[6].value = filter_method_string;
+            *writer.text(*example_text, 7) = filter_method_string;
         }
     }
 }
@@ -272,7 +233,8 @@ fn cycle_filter_methods(
 fn adjust_point_light_biases(
     input: Res<ButtonInput<KeyCode>>,
     mut query: Query<&mut PointLight>,
-    mut example_text: Query<&mut Text>,
+    example_text: Single<Entity, With<Text>>,
+    mut writer: TextUiWriter,
 ) {
     let depth_bias_step_size = 0.01;
     let normal_bias_step_size = 0.1;
@@ -298,15 +260,16 @@ fn adjust_point_light_biases(
             light.shadow_normal_bias = 0.0;
         }
 
-        example_text.single_mut().sections[9].value = format!("{:.2}", light.shadow_depth_bias);
-        example_text.single_mut().sections[12].value = format!("{:.1}", light.shadow_normal_bias);
+        *writer.text(*example_text, 10) = format!("{:.2}", light.shadow_depth_bias);
+        *writer.text(*example_text, 13) = format!("{:.1}", light.shadow_normal_bias);
     }
 }
 
 fn adjust_directional_light_biases(
     input: Res<ButtonInput<KeyCode>>,
     mut query: Query<&mut DirectionalLight>,
-    mut example_text: Query<&mut Text>,
+    example_text: Single<Entity, With<Text>>,
+    mut writer: TextUiWriter,
 ) {
     let depth_bias_step_size = 0.01;
     let normal_bias_step_size = 0.1;
@@ -332,7 +295,7 @@ fn adjust_directional_light_biases(
             light.shadow_normal_bias = 0.0;
         }
 
-        example_text.single_mut().sections[15].value = format!("{:.2}", light.shadow_depth_bias);
-        example_text.single_mut().sections[18].value = format!("{:.1}", light.shadow_normal_bias);
+        *writer.text(*example_text, 16) = format!("{:.2}", light.shadow_depth_bias);
+        *writer.text(*example_text, 19) = format!("{:.1}", light.shadow_normal_bias);
     }
 }

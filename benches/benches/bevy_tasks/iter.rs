@@ -1,22 +1,24 @@
-use bevy_tasks::{ParallelIterator, TaskPoolBuilder};
-use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
+use core::hint::black_box;
 
-struct ParChunks<'a, T>(std::slice::Chunks<'a, T>);
-impl<'a, T> ParallelIterator<std::slice::Iter<'a, T>> for ParChunks<'a, T>
+use bevy_tasks::{ParallelIterator, TaskPoolBuilder};
+use criterion::{criterion_group, BenchmarkId, Criterion};
+
+struct ParChunks<'a, T>(core::slice::Chunks<'a, T>);
+impl<'a, T> ParallelIterator<core::slice::Iter<'a, T>> for ParChunks<'a, T>
 where
     T: 'a + Send + Sync,
 {
-    fn next_batch(&mut self) -> Option<std::slice::Iter<'a, T>> {
+    fn next_batch(&mut self) -> Option<core::slice::Iter<'a, T>> {
         self.0.next().map(|s| s.iter())
     }
 }
 
-struct ParChunksMut<'a, T>(std::slice::ChunksMut<'a, T>);
-impl<'a, T> ParallelIterator<std::slice::IterMut<'a, T>> for ParChunksMut<'a, T>
+struct ParChunksMut<'a, T>(core::slice::ChunksMut<'a, T>);
+impl<'a, T> ParallelIterator<core::slice::IterMut<'a, T>> for ParChunksMut<'a, T>
 where
     T: 'a + Send + Sync,
 {
-    fn next_batch(&mut self) -> Option<std::slice::IterMut<'a, T>> {
+    fn next_batch(&mut self) -> Option<core::slice::IterMut<'a, T>> {
         self.0.next().map(|s| s.iter_mut())
     }
 }
@@ -61,7 +63,7 @@ fn bench_for_each(c: &mut Criterion) {
         b.iter(|| {
             v.iter_mut().for_each(|x| {
                 busy_work(10000);
-                *x *= *x;
+                *x = x.wrapping_mul(*x);
             });
         });
     });
@@ -77,7 +79,7 @@ fn bench_for_each(c: &mut Criterion) {
                 b.iter(|| {
                     ParChunksMut(v.chunks_mut(100)).for_each(&pool, |x| {
                         busy_work(10000);
-                        *x *= *x;
+                        *x = x.wrapping_mul(*x);
                     });
                 });
             },
@@ -141,4 +143,3 @@ fn bench_many_maps(c: &mut Criterion) {
 }
 
 criterion_group!(benches, bench_overhead, bench_for_each, bench_many_maps);
-criterion_main!(benches);

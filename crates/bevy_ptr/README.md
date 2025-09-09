@@ -1,4 +1,4 @@
-# Bevy Ptr
+# Bevy Pointer
 
 [![License](https://img.shields.io/badge/license-MIT%2FApache-blue.svg)](https://github.com/bevyengine/bevy#license)
 [![Crates.io](https://img.shields.io/crates/v/bevy_ptr.svg)](https://crates.io/crates/bevy_ptr)
@@ -68,7 +68,7 @@ of type `T`. If you've ever worked with C++, `NonNull<T>` is very close to a C++
 untyped memory address. Pointing at the unit type (or some other zero-sized type) just happens to be the convention. The only way to reasonably use them is to
 cast back to a typed pointer. They show up occasionally when dealing with FFI and the rare occasion where dynamic dispatch is required, but a trait is too
 constraining of an interface to work with. A great example of this are the [RawWaker] APIs, where a singular trait (or set of traits) may be insufficient to capture
-all usage patterns. `*mut ()` should only be used to carry the mutability of the target, and as there is no way to to mutate an unknown type.
+all usage patterns. `*mut ()` should only be used to carry the mutability of the target, and as there is no way to mutate an unknown type.
 
 [RawWaker]: https://doc.rust-lang.org/std/task/struct.RawWaker.html
 
@@ -96,6 +96,7 @@ multiple instances to collectively own the data it points to, and as a result, f
 |---------------------|-----------|-------|--------------|-------|--------|----------------|------------------|
 |`ConstNonNull<T>`    |No         |No     |Yes           |No     |Yes     |No              |Yes               |
 |`ThinSlicePtr<'a, T>`|Yes        |No     |Yes           |Yes    |Yes     |Yes             |Yes               |
+|`MovingPtr<'a, T>`   |Yes        |Yes    |Yes           |Maybe  |Yes     |Yes             |Yes               |
 |`OwningPtr<'a>`      |Yes        |Yes    |No            |Maybe  |Yes     |Yes             |No                |
 |`Ptr<'a>`            |Yes        |No     |No            |Maybe  |Yes     |No              |No                |
 |`PtrMut<'a>`         |Yes        |Yes    |No            |Maybe  |Yes     |Yes             |No                |
@@ -109,3 +110,8 @@ accessing elements in the slice is `unsafe`. In debug builds, the length is incl
 `OwningPtr<'a>`, `Ptr<'a>`, and `PtrMut<'a>` act like `NonNull<()>`, but attempts to restore much of the safety guarantees of `Unique<T>`, `&T`, and `&mut T`.
 They allow working with heterogenous type erased storage (i.e. ECS tables, typemaps) without the overhead of dynamic dispatch in a manner that progressively
 translates back to safe borrows. These types also support optional alignment requirements at a type level, and will verify it on dereference in debug builds.
+
+`MovingPtr<'a, T>` is like a lifetimed-`Box<T>` or a typed `OwningPtr<'a>` made for cheaply moving potentially large values around in memory.
+It's a pointer that owns the value it points to but does not own the allocation. If dropped, it will drop the value it points to, just as
+if you dropped a value of the inner type but won't deallocate the allocation where the value lived in. It provides a number of methods for moving the value
+into another location in memory, including options for partial or deconstructive moves.

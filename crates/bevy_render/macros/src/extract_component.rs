@@ -5,7 +5,7 @@ use syn::{parse_macro_input, parse_quote, DeriveInput, Path};
 pub fn derive_extract_component(input: TokenStream) -> TokenStream {
     let mut ast = parse_macro_input!(input as DeriveInput);
     let bevy_render_path: Path = crate::bevy_render_path();
-    let bevy_ecs_path: Path = bevy_macro_utils::BevyManifest::default()
+    let bevy_ecs_path: Path = bevy_macro_utils::BevyManifest::shared()
         .maybe_get_path("bevy_ecs")
         .expect("bevy_ecs should be found in manifest");
 
@@ -43,7 +43,7 @@ pub fn derive_extract_component(input: TokenStream) -> TokenStream {
             type QueryFilter = #filter;
             type Out = Self;
 
-            fn extract_component(item: #bevy_ecs_path::query::QueryItem<'_, Self::QueryData>) -> Option<Self::Out> {
+            fn extract_component(item: #bevy_ecs_path::query::QueryItem<'_, '_, Self::QueryData>) -> Option<Self::Out> {
                 Some(item.clone())
             }
         }
