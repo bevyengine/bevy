@@ -203,7 +203,7 @@ impl Val {
     /// assert_eq!(ui_rect.bottom, Val::ZERO);
     /// ```
     pub fn right(self) -> UiRect {
-        UiRect::left(self)
+        UiRect::right(self)
     }
 
     /// Returns a [`UiRect`] with its `top` equal to this value,
