@@ -342,11 +342,8 @@ impl SpecializedRenderPipeline for TaaPipeline {
 }
 
 fn extract_taa_settings(mut commands: Commands, mut main_world: ResMut<MainWorld>) {
-    let mut cameras_3d = main_world.query::<(
-        RenderEntity,
-        &Camera,
-        Option<&mut TemporalAntiAliasing>,
-    )>();
+    let mut cameras_3d =
+        main_world.query::<(RenderEntity, &Camera, Option<&mut TemporalAntiAliasing>)>();
 
     for (entity, camera, taa_settings) in cameras_3d.iter_mut(&mut main_world) {
         let mut entity_commands = commands
