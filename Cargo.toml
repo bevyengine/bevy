@@ -4662,7 +4662,7 @@ name = "standard_widgets"
 path = "examples/ui/standard_widgets.rs"
 doc-scrape-examples = true
 
-[package.metadata.example.ui_widgets]
+[package.metadata.example.standard_widgets]
 name = "Standard Widgets"
 description = "Demonstrates use of core (headless) widgets in Bevy UI"
 category = "UI (User Interface)"
@@ -4673,7 +4673,7 @@ name = "standard_widgets_observers"
 path = "examples/ui/standard_widgets_observers.rs"
 doc-scrape-examples = true
 
-[package.metadata.example.ui_widgets_observers]
+[package.metadata.example.standard_widgets_observers]
 name = "Standard Widgets (w/Observers)"
 description = "Demonstrates use of core (headless) widgets in Bevy UI, with Observers"
 category = "UI (User Interface)"
