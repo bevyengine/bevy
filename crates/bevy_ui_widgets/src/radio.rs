@@ -35,7 +35,7 @@ use crate::{Activate, Callback, Notify};
 /// within the group, it should never be the case that more than one button is selected at a time.
 #[derive(Component, Debug)]
 #[require(AccessibilityNode(accesskit::Node::new(Role::RadioGroup)))]
-pub struct CoreRadioGroup {
+pub struct RadioGroupBehavior {
     /// Callback which is called when the selected radio button changes.
     pub on_change: Callback<In<Activate>>,
 }
@@ -50,16 +50,16 @@ pub struct CoreRadioGroup {
 #[require(AccessibilityNode(accesskit::Node::new(Role::RadioButton)), Checkable)]
 #[derive(Reflect)]
 #[reflect(Component)]
-pub struct CoreRadio;
+pub struct RadioButtonBehavior;
 
 fn radio_group_on_key_input(
     mut ev: On<FocusedInput<KeyboardInput>>,
-    q_group: Query<&CoreRadioGroup>,
-    q_radio: Query<(Has<Checked>, Has<InteractionDisabled>), With<CoreRadio>>,
+    q_group: Query<&RadioGroupBehavior>,
+    q_radio: Query<(Has<Checked>, Has<InteractionDisabled>), With<RadioButtonBehavior>>,
     q_children: Query<&Children>,
     mut commands: Commands,
 ) {
-    if let Ok(CoreRadioGroup { on_change }) = q_group.get(ev.focused_entity) {
+    if let Ok(RadioGroupBehavior { on_change }) = q_group.get(ev.focused_entity) {
         let event = &ev.event().input;
         if event.state == ButtonState::Pressed
             && !event.repeat
@@ -141,13 +141,13 @@ fn radio_group_on_key_input(
 
 fn radio_group_on_button_click(
     mut ev: On<Pointer<Click>>,
-    q_group: Query<&CoreRadioGroup>,
-    q_radio: Query<(Has<Checked>, Has<InteractionDisabled>), With<CoreRadio>>,
+    q_group: Query<&RadioGroupBehavior>,
+    q_radio: Query<(Has<Checked>, Has<InteractionDisabled>), With<RadioButtonBehavior>>,
     q_parents: Query<&ChildOf>,
     q_children: Query<&Children>,
     mut commands: Commands,
 ) {
-    if let Ok(CoreRadioGroup { on_change }) = q_group.get(ev.entity) {
+    if let Ok(RadioGroupBehavior { on_change }) = q_group.get(ev.entity) {
         // Starting with the original target, search upward for a radio button.
         let radio_id = if q_radio.contains(ev.original_event_target()) {
             ev.original_event_target()
@@ -207,9 +207,9 @@ fn radio_group_on_button_click(
 }
 
 /// Plugin that adds the observers for the [`CoreRadioGroup`] widget.
-pub struct CoreRadioGroupPlugin;
+pub struct RadioGroupBehaviorPlugin;
 
-impl Plugin for CoreRadioGroupPlugin {
+impl Plugin for RadioGroupBehaviorPlugin {
     fn build(&self, app: &mut App) {
         app.add_observer(radio_group_on_key_input)
             .add_observer(radio_group_on_button_click);

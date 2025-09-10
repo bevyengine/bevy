@@ -1,11 +1,7 @@
-//! This example illustrates how to create widgets using the `bevy_core_widgets` widget set.
+//! This example illustrates how to create widgets using the `bevy_ui_widgets` widget set.
 
 use bevy::{
     color::palettes::basic::*,
-    core_widgets::{
-        Activate, Callback, CoreButton, CoreCheckbox, CoreSlider, CoreSliderThumb,
-        CoreWidgetsPlugins, SliderRange, SliderValue, ValueChange,
-    },
     ecs::system::SystemId,
     input_focus::{
         tab_navigation::{TabGroup, TabIndex, TabNavigationPlugin},
@@ -14,6 +10,10 @@ use bevy::{
     picking::hover::Hovered,
     prelude::*,
     ui::{Checked, InteractionDisabled, Pressed},
+    ui_widgets::{
+        Activate, ButtonBehavior, Callback, CheckboxBehavior, SliderBehavior, SliderThumb,
+        CoreWidgetsPlugins, SliderRange, SliderValue, ValueChange,
+    },
 };
 
 fn main() {
@@ -136,7 +136,7 @@ fn button(asset_server: &AssetServer, on_click: Callback<In<Activate>>) -> impl 
             ..default()
         },
         DemoButton,
-        CoreButton {
+        ButtonBehavior {
             on_activate: on_click,
         },
         Hovered::default(),
@@ -369,7 +369,7 @@ fn slider(
         Name::new("Slider"),
         Hovered::default(),
         DemoSlider,
-        CoreSlider {
+        SliderBehavior {
             on_change,
             ..default()
         },
@@ -403,7 +403,7 @@ fn slider(
                 children![(
                     // Thumb
                     DemoSliderThumb,
-                    CoreSliderThumb,
+                    SliderThumb,
                     Node {
                         display: Display::Flex,
                         width: px(12),
@@ -534,7 +534,7 @@ fn checkbox(
         Name::new("Checkbox"),
         Hovered::default(),
         DemoCheckbox,
-        CoreCheckbox { on_change },
+        CheckboxBehavior { on_change },
         TabIndex(0),
         Children::spawn((
             Spawn((
@@ -736,7 +736,11 @@ fn toggle_disabled(
     input: Res<ButtonInput<KeyCode>>,
     mut interaction_query: Query<
         (Entity, Has<InteractionDisabled>),
-        Or<(With<CoreButton>, With<CoreSlider>, With<CoreCheckbox>)>,
+        Or<(
+            With<ButtonBehavior>,
+            With<SliderBehavior>,
+            With<CheckboxBehavior>,
+        )>,
     >,
     mut commands: Commands,
 ) {

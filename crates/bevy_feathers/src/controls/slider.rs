@@ -2,7 +2,6 @@ use core::f32::consts::PI;
 
 use bevy_app::{Plugin, PreUpdate};
 use bevy_color::Color;
-use bevy_core_widgets::{Callback, CoreSlider, SliderRange, SliderValue, TrackClick, ValueChange};
 use bevy_ecs::{
     bundle::Bundle,
     children,
@@ -23,6 +22,9 @@ use bevy_ui::{
     widget::Text, AlignItems, BackgroundGradient, ColorStop, Display, FlexDirection, Gradient,
     InteractionDisabled, InterpolationColorSpace, JustifyContent, LinearGradient, Node,
     PositionType, UiRect, Val,
+};
+use bevy_ui_widgets::{
+    Callback, SliderBehavior, SliderRange, SliderValue, TrackClick, ValueChange,
 };
 
 use crate::{
@@ -59,7 +61,7 @@ impl Default for SliderProps {
 }
 
 #[derive(Component, Default, Clone)]
-#[require(CoreSlider)]
+#[require(SliderBehavior)]
 #[derive(Reflect)]
 #[reflect(Component, Clone, Default)]
 struct SliderStyle;
@@ -85,7 +87,7 @@ pub fn slider<B: Bundle>(props: SliderProps, overrides: B) -> impl Bundle {
             flex_grow: 1.0,
             ..Default::default()
         },
-        CoreSlider {
+        SliderBehavior {
             on_change: props.on_change,
             track_click: TrackClick::Drag,
         },

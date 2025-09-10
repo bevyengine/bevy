@@ -1,12 +1,7 @@
-//! This example illustrates how to create widgets using the `bevy_core_widgets` widget set.
+//! This example illustrates how to create widgets using the `bevy_ui_widgets` widget set.
 
 use bevy::{
     color::palettes::basic::*,
-    core_widgets::{
-        Activate, Callback, CoreButton, CoreCheckbox, CoreRadio, CoreRadioGroup, CoreSlider,
-        CoreSliderDragState, CoreSliderThumb, CoreWidgetsPlugins, SliderRange, SliderValue,
-        TrackClick, ValueChange,
-    },
     input_focus::{
         tab_navigation::{TabGroup, TabIndex, TabNavigationPlugin},
         InputDispatchPlugin,
@@ -14,6 +9,11 @@ use bevy::{
     picking::hover::Hovered,
     prelude::*,
     ui::{Checked, InteractionDisabled, Pressed},
+    ui_widgets::{
+        Activate, ButtonBehavior, Callback, CheckboxBehavior, CoreSliderDragState,
+        CoreWidgetsPlugins, RadioButtonBehavior, RadioGroupBehavior, SliderBehavior, SliderRange,
+        SliderThumb, SliderValue, TrackClick, ValueChange,
+    },
 };
 
 fn main() {
@@ -90,7 +90,7 @@ struct DemoWidgetStates {
 /// Update the widget states based on the changing resource.
 fn update_widget_values(
     res: Res<DemoWidgetStates>,
-    mut sliders: Query<(Entity, &mut CoreSlider), With<DemoSlider>>,
+    mut sliders: Query<(Entity, &mut SliderBehavior), With<DemoSlider>>,
     radios: Query<(Entity, &DemoRadio, Has<Checked>)>,
     mut commands: Commands,
 ) {
@@ -189,7 +189,7 @@ fn button(asset_server: &AssetServer, on_click: Callback<In<Activate>>) -> impl 
             ..default()
         },
         DemoButton,
-        CoreButton {
+        ButtonBehavior {
             on_activate: on_click,
         },
         Hovered::default(),
@@ -342,7 +342,7 @@ fn slider(
         Name::new("Slider"),
         Hovered::default(),
         DemoSlider,
-        CoreSlider {
+        SliderBehavior {
             on_change,
             track_click: TrackClick::Snap,
         },
@@ -376,7 +376,7 @@ fn slider(
                 children![(
                     // Thumb
                     DemoSliderThumb,
-                    CoreSliderThumb,
+                    SliderThumb,
                     Node {
                         display: Display::Flex,
                         width: px(12),
@@ -486,7 +486,7 @@ fn checkbox(
         Name::new("Checkbox"),
         Hovered::default(),
         DemoCheckbox,
-        CoreCheckbox { on_change },
+        CheckboxBehavior { on_change },
         TabIndex(0),
         Children::spawn((
             Spawn((
@@ -674,7 +674,7 @@ fn radio_group(asset_server: &AssetServer, on_change: Callback<In<Activate>>) ->
             ..default()
         },
         Name::new("RadioGroup"),
-        CoreRadioGroup { on_change },
+        RadioGroupBehavior { on_change },
         TabIndex::default(),
         children![
             (radio(asset_server, TrackClick::Drag, "Slider Drag"),),
@@ -699,7 +699,7 @@ fn radio(asset_server: &AssetServer, value: TrackClick, caption: &str) -> impl B
         Name::new("RadioButton"),
         Hovered::default(),
         DemoRadio(value),
-        CoreRadio,
+        RadioButtonBehavior,
         Children::spawn((
             Spawn((
                 // Radio outer
@@ -746,10 +746,10 @@ fn toggle_disabled(
     mut interaction_query: Query<
         (Entity, Has<InteractionDisabled>),
         Or<(
-            With<CoreButton>,
-            With<CoreSlider>,
-            With<CoreCheckbox>,
-            With<CoreRadio>,
+            With<ButtonBehavior>,
+            With<SliderBehavior>,
+            With<CheckboxBehavior>,
+            With<RadioButtonBehavior>,
         )>,
     >,
     mut commands: Commands,

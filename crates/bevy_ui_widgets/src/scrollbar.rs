@@ -29,7 +29,7 @@ pub enum ControlOrientation {
 
 /// A headless scrollbar widget, which can be used to build custom scrollbars.
 ///
-/// Scrollbars operate differently than the other core widgets in a number of respects.
+/// Scrollbars operate differently than the other UI widgets in a number of respects.
 ///
 /// Unlike sliders, scrollbars don't have an [`AccessibilityNode`](bevy_a11y::AccessibilityNode)
 /// component, nor can they have keyboard focus. This is because scrollbars are usually used in
@@ -50,7 +50,7 @@ pub enum ControlOrientation {
 /// the content to make room for the scrollbars.
 #[derive(Component, Debug, Reflect)]
 #[reflect(Component)]
-pub struct CoreScrollbar {
+pub struct ScrollbarBehavior {
     /// Entity being scrolled.
     pub target: Entity,
     /// Whether the scrollbar is vertical or horizontal.
@@ -70,7 +70,7 @@ pub struct CoreScrollbar {
 #[reflect(Component)]
 pub struct CoreScrollbarThumb;
 
-impl CoreScrollbar {
+impl ScrollbarBehavior {
     /// Construct a new scrollbar.
     ///
     /// # Arguments
@@ -102,12 +102,12 @@ fn scrollbar_on_pointer_down(
     mut ev: On<Pointer<Press>>,
     q_thumb: Query<&ChildOf, With<CoreScrollbarThumb>>,
     mut q_scrollbar: Query<(
-        &CoreScrollbar,
+        &ScrollbarBehavior,
         &ComputedNode,
         &ComputedUiRenderTargetInfo,
         &UiGlobalTransform,
     )>,
-    mut q_scroll_pos: Query<(&mut ScrollPosition, &ComputedNode), Without<CoreScrollbar>>,
+    mut q_scroll_pos: Query<(&mut ScrollPosition, &ComputedNode), Without<ScrollbarBehavior>>,
     ui_scale: Res<UiScale>,
 ) {
     if q_thumb.contains(ev.entity) {
@@ -159,7 +159,7 @@ fn scrollbar_on_pointer_down(
 fn scrollbar_on_drag_start(
     mut ev: On<Pointer<DragStart>>,
     mut q_thumb: Query<(&ChildOf, &mut CoreScrollbarDragState), With<CoreScrollbarThumb>>,
-    q_scrollbar: Query<&CoreScrollbar>,
+    q_scrollbar: Query<&ScrollbarBehavior>,
     q_scroll_area: Query<&ScrollPosition>,
 ) {
     if let Ok((ChildOf(thumb_parent), mut drag)) = q_thumb.get_mut(ev.entity) {
@@ -179,8 +179,8 @@ fn scrollbar_on_drag_start(
 fn scrollbar_on_drag(
     mut ev: On<Pointer<Drag>>,
     mut q_thumb: Query<(&ChildOf, &mut CoreScrollbarDragState), With<CoreScrollbarThumb>>,
-    mut q_scrollbar: Query<(&ComputedNode, &CoreScrollbar)>,
-    mut q_scroll_pos: Query<(&mut ScrollPosition, &ComputedNode), Without<CoreScrollbar>>,
+    mut q_scrollbar: Query<(&ComputedNode, &ScrollbarBehavior)>,
+    mut q_scroll_pos: Query<(&mut ScrollPosition, &ComputedNode), Without<ScrollbarBehavior>>,
     ui_scale: Res<UiScale>,
 ) {
     if let Ok((ChildOf(thumb_parent), drag)) = q_thumb.get_mut(ev.entity)
@@ -241,7 +241,7 @@ fn scrollbar_on_drag_cancel(
 
 fn update_scrollbar_thumb(
     q_scroll_area: Query<(&ScrollPosition, &ComputedNode)>,
-    q_scrollbar: Query<(&CoreScrollbar, &ComputedNode, &Children)>,
+    q_scrollbar: Query<(&ScrollbarBehavior, &ComputedNode, &Children)>,
     mut q_thumb: Query<&mut Node, With<CoreScrollbarThumb>>,
 ) {
     for (scrollbar, scrollbar_node, children) in q_scrollbar.iter() {
@@ -320,9 +320,9 @@ fn update_scrollbar_thumb(
 }
 
 /// Plugin that adds the observers for the [`CoreScrollbar`] widget.
-pub struct CoreScrollbarPlugin;
+pub struct ScrollbarBehaviorPlugin;
 
-impl Plugin for CoreScrollbarPlugin {
+impl Plugin for ScrollbarBehaviorPlugin {
     fn build(&self, app: &mut App) {
         app.add_observer(scrollbar_on_pointer_down)
             .add_observer(scrollbar_on_drag_start)

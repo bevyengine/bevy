@@ -31,7 +31,7 @@ use bevy_ecs::entity::Entity;
 /// the `Switch` role instead of the `Checkbox` role.
 #[derive(Component, Debug, Default)]
 #[require(AccessibilityNode(accesskit::Node::new(Role::CheckBox)), Checkable)]
-pub struct CoreCheckbox {
+pub struct CheckboxBehavior {
     /// One-shot system that is run when the checkbox state needs to be changed. If this value is
     /// `Callback::Ignore`, then the checkbox will update it's own internal [`Checked`] state
     /// without notification.
@@ -40,7 +40,7 @@ pub struct CoreCheckbox {
 
 fn checkbox_on_key_input(
     mut ev: On<FocusedInput<KeyboardInput>>,
-    q_checkbox: Query<(&CoreCheckbox, Has<Checked>), Without<InteractionDisabled>>,
+    q_checkbox: Query<(&CheckboxBehavior, Has<Checked>), Without<InteractionDisabled>>,
     mut commands: Commands,
 ) {
     if let Ok((checkbox, is_checked)) = q_checkbox.get(ev.focused_entity) {
@@ -57,7 +57,7 @@ fn checkbox_on_key_input(
 
 fn checkbox_on_pointer_click(
     mut click: On<Pointer<Click>>,
-    q_checkbox: Query<(&CoreCheckbox, Has<Checked>, Has<InteractionDisabled>)>,
+    q_checkbox: Query<(&CheckboxBehavior, Has<Checked>, Has<InteractionDisabled>)>,
     focus: Option<ResMut<InputFocus>>,
     focus_visible: Option<ResMut<InputFocusVisible>>,
     mut commands: Commands,
@@ -86,7 +86,7 @@ fn checkbox_on_pointer_click(
 ///
 /// ```
 /// use bevy_ecs::system::Commands;
-/// use bevy_core_widgets::{CoreCheckbox, SetChecked};
+/// use bevy_ui_widgets::{CoreCheckbox, SetChecked};
 ///
 /// fn setup(mut commands: Commands) {
 ///     // Create a checkbox
@@ -113,7 +113,7 @@ pub struct SetChecked {
 ///
 /// ```
 /// use bevy_ecs::system::Commands;
-/// use bevy_core_widgets::{CoreCheckbox, ToggleChecked};
+/// use bevy_ui_widgets::{CoreCheckbox, ToggleChecked};
 ///
 /// fn setup(mut commands: Commands) {
 ///     // Create a checkbox
@@ -133,7 +133,7 @@ pub struct ToggleChecked {
 
 fn checkbox_on_set_checked(
     set_checked: On<SetChecked>,
-    q_checkbox: Query<(&CoreCheckbox, Has<Checked>, Has<InteractionDisabled>)>,
+    q_checkbox: Query<(&CheckboxBehavior, Has<Checked>, Has<InteractionDisabled>)>,
     mut commands: Commands,
 ) {
     if let Ok((checkbox, is_checked, disabled)) = q_checkbox.get(set_checked.entity) {
@@ -150,7 +150,7 @@ fn checkbox_on_set_checked(
 
 fn checkbox_on_toggle_checked(
     toggle_checked: On<ToggleChecked>,
-    q_checkbox: Query<(&CoreCheckbox, Has<Checked>, Has<InteractionDisabled>)>,
+    q_checkbox: Query<(&CheckboxBehavior, Has<Checked>, Has<InteractionDisabled>)>,
     mut commands: Commands,
 ) {
     if let Ok((checkbox, is_checked, disabled)) = q_checkbox.get(toggle_checked.entity) {
@@ -165,7 +165,7 @@ fn checkbox_on_toggle_checked(
 fn set_checkbox_state(
     commands: &mut Commands,
     entity: impl Into<Entity>,
-    checkbox: &CoreCheckbox,
+    checkbox: &CheckboxBehavior,
     new_state: bool,
 ) {
     if !matches!(checkbox.on_change, Callback::Ignore) {
@@ -184,9 +184,9 @@ fn set_checkbox_state(
 }
 
 /// Plugin that adds the observers for the [`CoreCheckbox`] widget.
-pub struct CoreCheckboxPlugin;
+pub struct CheckboxBehaviorPlugin;
 
-impl Plugin for CoreCheckboxPlugin {
+impl Plugin for CheckboxBehaviorPlugin {
     fn build(&self, app: &mut App) {
         app.add_observer(checkbox_on_key_input)
             .add_observer(checkbox_on_pointer_click)

@@ -2,10 +2,6 @@
 
 use bevy::{
     color::palettes,
-    core_widgets::{
-        Activate, Callback, CoreRadio, CoreRadioGroup, CoreWidgetsPlugins, SliderPrecision,
-        SliderStep, SliderValue, ValueChange,
-    },
     feathers::{
         controls::{
             button, checkbox, color_slider, color_swatch, radio, slider, toggle_switch,
@@ -23,6 +19,10 @@ use bevy::{
     },
     prelude::*,
     ui::{Checked, InteractionDisabled},
+    ui_widgets::{
+        Activate, Callback, CoreWidgetsPlugins, RadioButtonBehavior, RadioGroupBehavior,
+        SliderPrecision, SliderStep, SliderValue, ValueChange,
+    },
 };
 
 /// A struct to hold the state of various widgets shown in the demo.
@@ -67,7 +67,9 @@ fn setup(mut commands: Commands) {
 fn demo_root(commands: &mut Commands) -> impl Bundle {
     // Update radio button states based on notification from radio group.
     let radio_exclusion = commands.register_system(
-        |ent: In<Activate>, q_radio: Query<Entity, With<CoreRadio>>, mut commands: Commands| {
+        |ent: In<Activate>,
+         q_radio: Query<Entity, With<RadioButtonBehavior>>,
+         mut commands: Commands| {
             for radio in q_radio.iter() {
                 if radio == ent.0 .0 {
                     commands.entity(radio).insert(Checked);
@@ -284,7 +286,7 @@ fn demo_root(commands: &mut Commands) -> impl Bundle {
                         row_gap: px(4),
                         ..default()
                     },
-                    CoreRadioGroup {
+                    RadioGroupBehavior {
                         on_change: Callback::System(radio_exclusion),
                     },
                     children![

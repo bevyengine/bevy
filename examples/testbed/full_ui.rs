@@ -9,11 +9,11 @@ use bevy::{
         basic::LIME,
         css::{DARK_GRAY, NAVY},
     },
-    core_widgets::CoreScrollbar,
     input::mouse::{MouseScrollUnit, MouseWheel},
     picking::hover::HoverMap,
     prelude::*,
     ui::widget::NodeImageMode,
+    ui_widgets::ScrollbarBehavior,
 };
 
 fn main() {
@@ -438,7 +438,10 @@ fn toggle_debug_overlay(
 pub fn update_scroll_position(
     mut mouse_wheel_events: EventReader<MouseWheel>,
     hover_map: Res<HoverMap>,
-    mut scrolled_node_query: Query<(&mut ScrollPosition, &ComputedNode), Without<CoreScrollbar>>,
+    mut scrolled_node_query: Query<
+        (&mut ScrollPosition, &ComputedNode),
+        Without<ScrollbarBehavior>,
+    >,
     keyboard_input: Res<ButtonInput<KeyCode>>,
 ) {
     for mouse_wheel_event in mouse_wheel_events.read() {
