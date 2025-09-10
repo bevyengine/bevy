@@ -2,6 +2,12 @@
 
 ## Supported Versions
 
+Only the latest released minor version of Bevy is supported.
+
+<!---
+TODO: update when releasing a new version
+-->
+
 | Version | Supported          |
 | ------- | ------------------ |
 | 0.16.x  | :white_check_mark: |
