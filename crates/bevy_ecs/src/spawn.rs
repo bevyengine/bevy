@@ -357,7 +357,7 @@ unsafe impl<R: Relationship, L: SpawnableList<R>> DynamicBundle for SpawnRelated
         //  - The field names and types match with the type definition.
         entity.world_scope(|world: &mut World| unsafe {
             bevy_ptr::deconstruct_moving_ptr!(effect => { list, });
-            L::spawn(list.try_into().debug_checked_unwrap(), world, id)
+            L::spawn(list.try_into().debug_checked_unwrap(), world, id);
         });
     }
 }
