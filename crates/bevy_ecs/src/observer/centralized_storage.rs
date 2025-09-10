@@ -1,7 +1,7 @@
 //! Centralized storage for observers, allowing for efficient look-ups.
 //!
 //! This has multiple levels:
-//! - [`World::observers`] provides access to [`Observers`], which is a central storage for all observers.
+//! - [`World::observers`](crate::world::World::observers) provides access to [`Observers`], which is a central storage for all observers.
 //! - [`Observers`] contains multiple distinct caches in the form of [`CachedObservers`].
 //!     - Most observers are looked up by the [`ComponentId`] of the event they are observing
 //!     - Lifecycle observers have their own fields to save lookups.
@@ -22,7 +22,7 @@ use crate::{
 /// Some observer kinds (like [lifecycle](crate::lifecycle) observers) have a dedicated field,
 /// saving lookups for the most common triggers.
 ///
-/// This can be accessed via [`World::observers`].
+/// This can be accessed via [`World::observers`](crate::world::World::observers).
 #[derive(Default, Debug)]
 pub struct Observers {
     // Cached ECS observers to save a lookup for high-traffic built-in event types.
@@ -53,6 +53,12 @@ impl Observers {
     ///
     /// When accessing the observers for lifecycle events, such as [`Add`], [`Insert`], [`Replace`], [`Remove`], and [`Despawn`],
     /// use the [`EventKey`] constants from the [`lifecycle`](crate::lifecycle) module.
+    ///
+    /// [`Add`]: crate::lifecycle::Add
+    /// [`Insert`]: crate::lifecycle::Insert
+    /// [`Replace`]: crate::lifecycle::Replace
+    /// [`Remove`]: crate::lifecycle::Remove
+    /// [`Despawn`]: crate::lifecycle::Despawn
     pub fn try_get_observers(&self, event_key: EventKey) -> Option<&CachedObservers> {
         use crate::lifecycle::*;
 
@@ -106,7 +112,7 @@ impl Observers {
     }
 }
 
-/// Collection of [`ObserverRunner`] for [`Observer`] registered to a particular event.
+/// Collection of [`ObserverRunner`] for [`Observer`](crate::observer::Observer) registered to a particular event.
 ///
 /// This is stored inside of [`Observers`], specialized for each kind of observer.
 #[derive(Default, Debug)]
@@ -141,7 +147,7 @@ impl CachedObservers {
 /// Map between an observer entity and its [`ObserverRunner`]
 pub type ObserverMap = EntityHashMap<ObserverRunner>;
 
-/// Collection of [`ObserverRunner`] for [`Observer`] registered to a particular event targeted at a specific component.
+/// Collection of [`ObserverRunner`] for [`Observer`](crate::observer::Observer) registered to a particular event targeted at a specific component.
 ///
 /// This is stored inside of [`CachedObservers`].
 #[derive(Default, Debug)]

@@ -551,7 +551,7 @@ impl<'w> DeferredWorld<'w> {
     }
 
     /// Writes a batch of [`Message`]s from an iterator.
-    /// This method returns the [IDs](`EventId`) of the written `events`,
+    /// This method returns the [IDs](`MessageId`) of the written `events`,
     /// or [`None`] if the `event` could not be written.
     #[inline]
     pub fn write_message_batch<E: Message>(
@@ -569,7 +569,7 @@ impl<'w> DeferredWorld<'w> {
     }
 
     /// Writes a batch of [`Message`]s from an iterator.
-    /// This method returns the [IDs](`EventId`) of the written `events`,
+    /// This method returns the [IDs](`MessageId`) of the written `events`,
     /// or [`None`] if the `event` could not be written.
     #[inline]
     #[deprecated(

@@ -34,7 +34,7 @@ use core::{
 
 /// A buffered message for pull-based event handling.
 ///
-/// Messages can be written with [`MessageWriter`](crate::message::MessageWriter) and read using the [`MessageReader`](crate::message::MessageReader) system parameter.
+/// Messages can be written with [`MessageWriter`] and read using the [`MessageReader`] system parameter.
 /// Messages are stored in the [`Messages<M>`] resource, and require periodically polling the world for new messages,
 /// typically in a system that runs as part of a schedule.
 ///
@@ -88,8 +88,6 @@ use core::{
 /// ```
 /// [`Event`]: crate::event::Event
 /// [`Observer`]: crate::observer::Observer
-/// [`MessageReader`]: crate::message::MessageReader
-/// [`MessageWriter`]: crate::message::MessageWriter
 #[diagnostic::on_unimplemented(
     message = "`{Self}` is not an `Message`",
     label = "invalid `Message`",

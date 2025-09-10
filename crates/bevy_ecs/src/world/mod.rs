@@ -2663,7 +2663,7 @@ impl World {
     }
 
     /// Writes a batch of [`Message`]s from an iterator.
-    /// This method returns the [IDs](`EventId`) of the written `events`,
+    /// This method returns the [IDs](`MessageId`) of the written `events`,
     /// or [`None`] if the `event` could not be written.
     #[inline]
     #[deprecated(since = "0.17.0", note = "Use `World::write_message_batch` instead.")]

@@ -606,7 +606,7 @@ impl<'w, 's, T: Component> RemovedComponents<'w, 's, T> {
             .map(RemovedComponentEntity::into)
     }
 
-    /// Like [`read`](Self::read), except also returning the [`EventId`] of the events.
+    /// Like [`read`](Self::read), except also returning the [`MessageId`] of the events.
     pub fn read_with_id(&mut self) -> RemovedIterWithId<'_> {
         self.reader_mut_with_events()
             .map(|(reader, events)| reader.read_with_id(events))
