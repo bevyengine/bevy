@@ -11,8 +11,8 @@ use bevy::{
     prelude::*,
     ui::{Checked, InteractionDisabled, Pressed},
     ui_widgets::{
-        Activate, ButtonBehavior, Callback, CheckboxBehavior, WidgetBehaviorPlugins, SliderBehavior,
-        SliderRange, SliderThumb, SliderValue, ValueChange,
+        Activate, ButtonBehavior, Callback, CheckboxBehavior, SliderBehavior, SliderRange,
+        SliderThumb, SliderValue, ValueChange, WidgetBehaviorPlugins,
     },
 };
 

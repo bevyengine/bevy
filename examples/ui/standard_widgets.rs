@@ -11,8 +11,8 @@ use bevy::{
     ui::{Checked, InteractionDisabled, Pressed},
     ui_widgets::{
         Activate, ButtonBehavior, Callback, CheckboxBehavior, CoreSliderDragState,
-        WidgetBehaviorPlugins, RadioButtonBehavior, RadioGroupBehavior, SliderBehavior, SliderRange,
-        SliderThumb, SliderValue, TrackClick, ValueChange,
+        RadioButtonBehavior, RadioGroupBehavior, SliderBehavior, SliderRange, SliderThumb,
+        SliderValue, TrackClick, ValueChange, WidgetBehaviorPlugins,
     },
 };
 
