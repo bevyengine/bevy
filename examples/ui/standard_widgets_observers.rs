@@ -11,8 +11,8 @@ use bevy::{
     prelude::*,
     ui::{Checked, InteractionDisabled, Pressed},
     ui_widgets::{
-        Activate, ButtonBehavior, Callback, CheckboxBehavior, SliderBehavior, SliderRange,
-        SliderThumb, SliderValue, ValueChange, WidgetBehaviorPlugins,
+        Activate, Button, Callback, Checkbox, Slider, SliderRange, SliderThumb,
+        SliderValue, ValueChange, WidgetBehaviorPlugins,
     },
 };
 
@@ -136,7 +136,7 @@ fn button(asset_server: &AssetServer, on_click: Callback<In<Activate>>) -> impl 
             ..default()
         },
         DemoButton,
-        ButtonBehavior {
+        Button {
             on_activate: on_click,
         },
         Hovered::default(),
@@ -369,7 +369,7 @@ fn slider(
         Name::new("Slider"),
         Hovered::default(),
         DemoSlider,
-        SliderBehavior {
+        Slider {
             on_change,
             ..default()
         },
@@ -534,7 +534,7 @@ fn checkbox(
         Name::new("Checkbox"),
         Hovered::default(),
         DemoCheckbox,
-        CheckboxBehavior { on_change },
+        Checkbox { on_change },
         TabIndex(0),
         Children::spawn((
             Spawn((
@@ -736,11 +736,7 @@ fn toggle_disabled(
     input: Res<ButtonInput<KeyCode>>,
     mut interaction_query: Query<
         (Entity, Has<InteractionDisabled>),
-        Or<(
-            With<ButtonBehavior>,
-            With<SliderBehavior>,
-            With<CheckboxBehavior>,
-        )>,
+        Or<(With<Button>, With<Slider>, With<Checkbox>)>,
     >,
     mut commands: Commands,
 ) {

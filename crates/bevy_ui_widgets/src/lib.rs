@@ -34,11 +34,11 @@ pub struct WidgetBehaviorPlugins;
 impl PluginGroup for WidgetBehaviorPlugins {
     fn build(self) -> PluginGroupBuilder {
         PluginGroupBuilder::start::<Self>()
-            .add(ButtonBehaviorPlugin)
-            .add(CheckboxBehaviorPlugin)
-            .add(RadioGroupBehaviorPlugin)
-            .add(ScrollbarBehaviorPlugin)
-            .add(SliderBehaviorPlugin)
+            .add(ButtonPlugin)
+            .add(CheckboxPlugin)
+            .add(RadioGroupPlugin)
+            .add(ScrollbarPlugin)
+            .add(SliderPlugin)
     }
 }
 

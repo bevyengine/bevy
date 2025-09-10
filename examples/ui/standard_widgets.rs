@@ -10,9 +10,9 @@ use bevy::{
     prelude::*,
     ui::{Checked, InteractionDisabled, Pressed},
     ui_widgets::{
-        Activate, ButtonBehavior, Callback, CheckboxBehavior, CoreSliderDragState,
-        RadioButtonBehavior, RadioGroupBehavior, SliderBehavior, SliderRange, SliderThumb,
-        SliderValue, TrackClick, ValueChange, WidgetBehaviorPlugins,
+        Activate, Button, Callback, Checkbox, CoreSliderDragState, RadioButton, RadioGroup,
+        Slider, SliderRange, SliderThumb, SliderValue, TrackClick, ValueChange,
+        WidgetBehaviorPlugins,
     },
 };
 
@@ -90,7 +90,7 @@ struct DemoWidgetStates {
 /// Update the widget states based on the changing resource.
 fn update_widget_values(
     res: Res<DemoWidgetStates>,
-    mut sliders: Query<(Entity, &mut SliderBehavior), With<DemoSlider>>,
+    mut sliders: Query<(Entity, &mut Slider), With<DemoSlider>>,
     radios: Query<(Entity, &DemoRadio, Has<Checked>)>,
     mut commands: Commands,
 ) {
@@ -189,7 +189,7 @@ fn button(asset_server: &AssetServer, on_click: Callback<In<Activate>>) -> impl 
             ..default()
         },
         DemoButton,
-        ButtonBehavior {
+        Button {
             on_activate: on_click,
         },
         Hovered::default(),
@@ -342,7 +342,7 @@ fn slider(
         Name::new("Slider"),
         Hovered::default(),
         DemoSlider,
-        SliderBehavior {
+        Slider {
             on_change,
             track_click: TrackClick::Snap,
         },
@@ -486,7 +486,7 @@ fn checkbox(
         Name::new("Checkbox"),
         Hovered::default(),
         DemoCheckbox,
-        CheckboxBehavior { on_change },
+        Checkbox { on_change },
         TabIndex(0),
         Children::spawn((
             Spawn((
@@ -674,7 +674,7 @@ fn radio_group(asset_server: &AssetServer, on_change: Callback<In<Activate>>) ->
             ..default()
         },
         Name::new("RadioGroup"),
-        RadioGroupBehavior { on_change },
+        RadioGroup { on_change },
         TabIndex::default(),
         children![
             (radio(asset_server, TrackClick::Drag, "Slider Drag"),),
@@ -699,7 +699,7 @@ fn radio(asset_server: &AssetServer, value: TrackClick, caption: &str) -> impl B
         Name::new("RadioButton"),
         Hovered::default(),
         DemoRadio(value),
-        RadioButtonBehavior,
+        RadioButton,
         Children::spawn((
             Spawn((
                 // Radio outer
@@ -746,10 +746,10 @@ fn toggle_disabled(
     mut interaction_query: Query<
         (Entity, Has<InteractionDisabled>),
         Or<(
-            With<ButtonBehavior>,
-            With<SliderBehavior>,
-            With<CheckboxBehavior>,
-            With<RadioButtonBehavior>,
+            With<Button>,
+            With<Slider>,
+            With<Checkbox>,
+            With<RadioButton>,
         )>,
     >,
     mut commands: Commands,

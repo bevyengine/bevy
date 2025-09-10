@@ -80,7 +80,7 @@ pub enum TrackClick {
     SliderRange,
     SliderStep
 )]
-pub struct SliderBehavior {
+pub struct Slider {
     /// Callback which is called when the slider is dragged or the value is changed via other user
     /// interaction. If this value is `Callback::Ignore`, then the slider will update it's own
     /// internal [`SliderValue`] state without notification.
@@ -231,7 +231,7 @@ pub struct CoreSliderDragState {
 pub(crate) fn slider_on_pointer_down(
     mut press: On<Pointer<Press>>,
     q_slider: Query<(
-        &SliderBehavior,
+        &Slider,
         &SliderValue,
         &SliderRange,
         &SliderStep,
@@ -325,7 +325,7 @@ pub(crate) fn slider_on_drag_start(
             &mut CoreSliderDragState,
             Has<InteractionDisabled>,
         ),
-        With<SliderBehavior>,
+        With<Slider>,
     >,
 ) {
     if let Ok((value, mut drag, disabled)) = q_slider.get_mut(drag_start.entity) {
@@ -341,7 +341,7 @@ pub(crate) fn slider_on_drag(
     mut event: On<Pointer<Drag>>,
     mut q_slider: Query<(
         &ComputedNode,
-        &SliderBehavior,
+        &Slider,
         &SliderRange,
         Option<&SliderPrecision>,
         &UiGlobalTransform,
@@ -398,7 +398,7 @@ pub(crate) fn slider_on_drag(
 
 pub(crate) fn slider_on_drag_end(
     mut drag_end: On<Pointer<DragEnd>>,
-    mut q_slider: Query<(&SliderBehavior, &mut CoreSliderDragState)>,
+    mut q_slider: Query<(&Slider, &mut CoreSliderDragState)>,
 ) {
     if let Ok((_slider, mut drag)) = q_slider.get_mut(drag_end.entity) {
         drag_end.propagate(false);
@@ -411,7 +411,7 @@ pub(crate) fn slider_on_drag_end(
 fn slider_on_key_input(
     mut focused_input: On<FocusedInput<KeyboardInput>>,
     q_slider: Query<(
-        &SliderBehavior,
+        &Slider,
         &SliderValue,
         &SliderRange,
         &SliderStep,
@@ -449,7 +449,7 @@ fn slider_on_key_input(
     }
 }
 
-pub(crate) fn slider_on_insert(insert: On<Insert, SliderBehavior>, mut world: DeferredWorld) {
+pub(crate) fn slider_on_insert(insert: On<Insert, Slider>, mut world: DeferredWorld) {
     let mut entity = world.entity_mut(insert.entity);
     if let Some(mut accessibility) = entity.get_mut::<AccessibilityNode>() {
         accessibility.set_orientation(Orientation::Horizontal);
@@ -489,11 +489,11 @@ pub(crate) fn slider_on_insert_step(insert: On<Insert, SliderStep>, mut world: D
 ///
 /// ```
 /// # use bevy_ecs::system::Commands;
-/// # use bevy_ui_widgets::{SliderBehavior, SliderRange, SliderValue, SetSliderValue, SliderValueChange};
+/// # use bevy_ui_widgets::{Slider, SliderRange, SliderValue, SetSliderValue, SliderValueChange};
 /// fn setup(mut commands: Commands) {
 ///     // Create a slider
 ///     let entity = commands.spawn((
-///         SliderBehavior::default(),
+///         Slider::default(),
 ///         SliderValue(0.5),
 ///         SliderRange::new(0.0, 1.0),
 ///     )).id();
@@ -532,12 +532,7 @@ pub enum SliderValueChange {
 
 fn slider_on_set_value(
     set_slider_value: On<SetSliderValue>,
-    q_slider: Query<(
-        &SliderBehavior,
-        &SliderValue,
-        &SliderRange,
-        Option<&SliderStep>,
-    )>,
+    q_slider: Query<(&Slider, &SliderValue, &SliderRange, Option<&SliderStep>)>,
     mut commands: Commands,
 ) {
     if let Ok((slider, value, range, step)) = q_slider.get(set_slider_value.entity) {
@@ -564,10 +559,10 @@ fn slider_on_set_value(
     }
 }
 
-/// Plugin that adds the observers for the [`SliderBehavior`] widget.
-pub struct SliderBehaviorPlugin;
+/// Plugin that adds the observers for the [`Slider`] widget.
+pub struct SliderPlugin;
 
-impl Plugin for SliderBehaviorPlugin {
+impl Plugin for SliderPlugin {
     fn build(&self, app: &mut App) {
         app.add_observer(slider_on_pointer_down)
             .add_observer(slider_on_drag_start)

@@ -13,7 +13,7 @@ use bevy::{
     picking::hover::HoverMap,
     prelude::*,
     ui::widget::NodeImageMode,
-    ui_widgets::ScrollbarBehavior,
+    ui_widgets::Scrollbar,
 };
 
 fn main() {
@@ -438,10 +438,7 @@ fn toggle_debug_overlay(
 pub fn update_scroll_position(
     mut mouse_wheel_events: EventReader<MouseWheel>,
     hover_map: Res<HoverMap>,
-    mut scrolled_node_query: Query<
-        (&mut ScrollPosition, &ComputedNode),
-        Without<ScrollbarBehavior>,
-    >,
+    mut scrolled_node_query: Query<(&mut ScrollPosition, &ComputedNode), Without<Scrollbar>>,
     keyboard_input: Res<ButtonInput<KeyCode>>,
 ) {
     for mouse_wheel_event in mouse_wheel_events.read() {

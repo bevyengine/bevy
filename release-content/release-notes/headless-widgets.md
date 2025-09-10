@@ -32,11 +32,11 @@ future releases.
 The `bevy_ui_widgets` crate provides implementations of unstyled widgets, such as buttons,
 sliders, checkboxes and radio buttons.
 
-- `ButtonBehavior` is a push button. It emits an activation event when clicked.
-- `SliderBehavior` is a standard slider, which lets you edit an `f32` value in a given range.
-- `ScrollbarBehavior` can be used to implement scrollbars.
-- `CheckboxBehavior` can be used for checkboxes and toggle switches.
-- `RadioButtonBehavior` and `RadioGroupBehavior` can be used for radio buttons.
+- `ui_widgets::Button` is a push button. It emits an activation event when clicked.
+- `ui_widgets::Slider` is a standard slider, which lets you edit an `f32` value in a given range.
+- `ui_widgets::Scrollbar` can be used to implement scrollbars.
+- `ui_widgets::Checkbox` can be used for checkboxes and toggle switches.
+- `ui_widgets::RadioButton` and `ui_widgets::RadioGroup` can be used for radio buttons.
 
 ## Widget Interaction Marker Components
 

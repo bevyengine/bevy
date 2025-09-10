@@ -21,7 +21,7 @@ use bevy_ui::{
     AlignItems, BorderRadius, Checked, Display, FlexDirection, InteractionDisabled, JustifyContent,
     Node, PositionType, UiRect, UiTransform, Val,
 };
-use bevy_ui_widgets::{Callback, CheckboxBehavior, ValueChange};
+use bevy_ui_widgets::{Callback, Checkbox, ValueChange};
 
 use crate::{
     constants::{fonts, size},
@@ -74,7 +74,7 @@ pub fn checkbox<C: SpawnableList<ChildOf> + Send + Sync + 'static, B: Bundle>(
             column_gap: Val::Px(4.0),
             ..Default::default()
         },
-        CheckboxBehavior {
+        Checkbox {
             on_change: props.on_change,
         },
         CheckboxFrame,

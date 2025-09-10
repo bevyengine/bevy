@@ -9,8 +9,7 @@ use bevy::{
     picking::hover::Hovered,
     prelude::*,
     ui_widgets::{
-        ControlOrientation, CoreScrollbarDragState, CoreScrollbarThumb, ScrollbarBehavior,
-        ScrollbarBehaviorPlugin,
+        ControlOrientation, CoreScrollbarDragState, CoreScrollbarThumb, Scrollbar, ScrollbarPlugin,
     },
 };
 
@@ -18,7 +17,7 @@ fn main() {
     App::new()
         .add_plugins((
             DefaultPlugins,
-            ScrollbarBehaviorPlugin,
+            ScrollbarPlugin,
             InputDispatchPlugin,
             TabNavigationPlugin,
         ))
@@ -113,7 +112,7 @@ fn scroll_area_demo() -> impl Bundle {
                     grid_column: GridPlacement::start(2),
                     ..default()
                 },
-                ScrollbarBehavior {
+                Scrollbar {
                     orientation: ControlOrientation::Vertical,
                     target: scroll_area_id,
                     min_thumb_length: 8.0,
@@ -138,7 +137,7 @@ fn scroll_area_demo() -> impl Bundle {
                     grid_column: GridPlacement::start(1),
                     ..default()
                 },
-                ScrollbarBehavior {
+                Scrollbar {
                     orientation: ControlOrientation::Horizontal,
                     target: scroll_area_id,
                     min_thumb_length: 8.0,

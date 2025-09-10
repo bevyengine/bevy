@@ -24,7 +24,7 @@ use bevy_ui::{
 };
 use bevy_ui_render::ui_material::MaterialNode;
 use bevy_ui_widgets::{
-    Callback, SliderBehavior, SliderRange, SliderThumb, SliderValue, TrackClick, ValueChange,
+    Callback, Slider, SliderRange, SliderThumb, SliderValue, TrackClick, ValueChange,
 };
 
 use crate::{
@@ -164,7 +164,7 @@ impl Default for ColorSliderProps {
 
 /// A color slider widget.
 #[derive(Component, Default, Clone)]
-#[require(SliderBehavior, SliderBaseColor(Color::WHITE))]
+#[require(Slider, SliderBaseColor(Color::WHITE))]
 pub struct ColorSlider {
     /// Which channel is being edited by this slider.
     pub channel: ColorChannel,
@@ -194,7 +194,7 @@ pub fn color_slider<B: Bundle>(props: ColorSliderProps, overrides: B) -> impl Bu
             flex_grow: 1.0,
             ..Default::default()
         },
-        SliderBehavior {
+        Slider {
             on_change: props.on_change,
             track_click: TrackClick::Snap,
         },

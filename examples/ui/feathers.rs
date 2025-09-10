@@ -20,8 +20,8 @@ use bevy::{
     prelude::*,
     ui::{Checked, InteractionDisabled},
     ui_widgets::{
-        Activate, Callback, RadioButtonBehavior, RadioGroupBehavior, SliderPrecision, SliderStep,
-        SliderValue, ValueChange, WidgetBehaviorPlugins,
+        Activate, Callback, RadioButton, RadioGroup, SliderPrecision, SliderStep, SliderValue,
+        ValueChange, WidgetBehaviorPlugins,
     },
 };
 
@@ -67,9 +67,7 @@ fn setup(mut commands: Commands) {
 fn demo_root(commands: &mut Commands) -> impl Bundle {
     // Update radio button states based on notification from radio group.
     let radio_exclusion = commands.register_system(
-        |ent: In<Activate>,
-         q_radio: Query<Entity, With<RadioButtonBehavior>>,
-         mut commands: Commands| {
+        |ent: In<Activate>, q_radio: Query<Entity, With<RadioButton>>, mut commands: Commands| {
             for radio in q_radio.iter() {
                 if radio == ent.0 .0 {
                     commands.entity(radio).insert(Checked);
@@ -286,7 +284,7 @@ fn demo_root(commands: &mut Commands) -> impl Bundle {
                         row_gap: px(4),
                         ..default()
                     },
-                    RadioGroupBehavior {
+                    RadioGroup {
                         on_change: Callback::System(radio_exclusion),
                     },
                     children![

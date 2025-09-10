@@ -26,12 +26,12 @@ use bevy_ecs::entity::Entity;
 ///
 /// # Toggle switches
 ///
-/// The [`CheckboxBehavior`] component can be used to implement other kinds of toggle widgets. If you
+/// The [`Checkbox`] component can be used to implement other kinds of toggle widgets. If you
 /// are going to do a toggle switch, you should override the [`AccessibilityNode`] component with
 /// the `Switch` role instead of the `Checkbox` role.
 #[derive(Component, Debug, Default)]
 #[require(AccessibilityNode(accesskit::Node::new(Role::CheckBox)), Checkable)]
-pub struct CheckboxBehavior {
+pub struct Checkbox {
     /// One-shot system that is run when the checkbox state needs to be changed. If this value is
     /// `Callback::Ignore`, then the checkbox will update it's own internal [`Checked`] state
     /// without notification.
@@ -40,7 +40,7 @@ pub struct CheckboxBehavior {
 
 fn checkbox_on_key_input(
     mut ev: On<FocusedInput<KeyboardInput>>,
-    q_checkbox: Query<(&CheckboxBehavior, Has<Checked>), Without<InteractionDisabled>>,
+    q_checkbox: Query<(&Checkbox, Has<Checked>), Without<InteractionDisabled>>,
     mut commands: Commands,
 ) {
     if let Ok((checkbox, is_checked)) = q_checkbox.get(ev.focused_entity) {
@@ -57,7 +57,7 @@ fn checkbox_on_key_input(
 
 fn checkbox_on_pointer_click(
     mut click: On<Pointer<Click>>,
-    q_checkbox: Query<(&CheckboxBehavior, Has<Checked>, Has<InteractionDisabled>)>,
+    q_checkbox: Query<(&Checkbox, Has<Checked>, Has<InteractionDisabled>)>,
     focus: Option<ResMut<InputFocus>>,
     focus_visible: Option<ResMut<InputFocusVisible>>,
     mut commands: Commands,
@@ -86,12 +86,12 @@ fn checkbox_on_pointer_click(
 ///
 /// ```
 /// use bevy_ecs::system::Commands;
-/// use bevy_ui_widgets::{CheckboxBehavior, SetChecked};
+/// use bevy_ui_widgets::{Checkbox, SetChecked};
 ///
 /// fn setup(mut commands: Commands) {
 ///     // Create a checkbox
 ///     let entity = commands.spawn((
-///         CheckboxBehavior::default(),
+///         Checkbox::default(),
 ///     )).id();
 ///
 ///     // Set to checked
@@ -100,7 +100,7 @@ fn checkbox_on_pointer_click(
 /// ```
 #[derive(EntityEvent)]
 pub struct SetChecked {
-    /// The [`CheckboxBehavior`] entity to set the "checked" state on.
+    /// The [`Checkbox`] entity to set the "checked" state on.
     pub entity: Entity,
     /// Sets the `checked` state to `true` or `false`.
     pub checked: bool,
@@ -113,12 +113,12 @@ pub struct SetChecked {
 ///
 /// ```
 /// use bevy_ecs::system::Commands;
-/// use bevy_ui_widgets::{CheckboxBehavior, ToggleChecked};
+/// use bevy_ui_widgets::{Checkbox, ToggleChecked};
 ///
 /// fn setup(mut commands: Commands) {
 ///     // Create a checkbox
 ///     let entity = commands.spawn((
-///         CheckboxBehavior::default(),
+///         Checkbox::default(),
 ///     )).id();
 ///
 ///     // Set to checked
@@ -127,13 +127,13 @@ pub struct SetChecked {
 /// ```
 #[derive(EntityEvent)]
 pub struct ToggleChecked {
-    /// The [`Entity`] of the toggled [`CheckboxBehavior`]
+    /// The [`Entity`] of the toggled [`Checkbox`]
     pub entity: Entity,
 }
 
 fn checkbox_on_set_checked(
     set_checked: On<SetChecked>,
-    q_checkbox: Query<(&CheckboxBehavior, Has<Checked>, Has<InteractionDisabled>)>,
+    q_checkbox: Query<(&Checkbox, Has<Checked>, Has<InteractionDisabled>)>,
     mut commands: Commands,
 ) {
     if let Ok((checkbox, is_checked, disabled)) = q_checkbox.get(set_checked.entity) {
@@ -150,7 +150,7 @@ fn checkbox_on_set_checked(
 
 fn checkbox_on_toggle_checked(
     toggle_checked: On<ToggleChecked>,
-    q_checkbox: Query<(&CheckboxBehavior, Has<Checked>, Has<InteractionDisabled>)>,
+    q_checkbox: Query<(&Checkbox, Has<Checked>, Has<InteractionDisabled>)>,
     mut commands: Commands,
 ) {
     if let Ok((checkbox, is_checked, disabled)) = q_checkbox.get(toggle_checked.entity) {
@@ -165,7 +165,7 @@ fn checkbox_on_toggle_checked(
 fn set_checkbox_state(
     commands: &mut Commands,
     entity: impl Into<Entity>,
-    checkbox: &CheckboxBehavior,
+    checkbox: &Checkbox,
     new_state: bool,
 ) {
     if !matches!(checkbox.on_change, Callback::Ignore) {
@@ -183,10 +183,10 @@ fn set_checkbox_state(
     }
 }
 
-/// Plugin that adds the observers for the [`CheckboxBehavior`] widget.
-pub struct CheckboxBehaviorPlugin;
+/// Plugin that adds the observers for the [`Checkbox`] widget.
+pub struct CheckboxPlugin;
 
-impl Plugin for CheckboxBehaviorPlugin {
+impl Plugin for CheckboxPlugin {
     fn build(&self, app: &mut App) {
         app.add_observer(checkbox_on_key_input)
             .add_observer(checkbox_on_pointer_click)

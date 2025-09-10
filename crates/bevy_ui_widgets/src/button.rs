@@ -23,7 +23,7 @@ use crate::{Activate, Callback, Notify};
 /// event when the button is un-pressed.
 #[derive(Component, Default, Debug)]
 #[require(AccessibilityNode(accesskit::Node::new(Role::Button)))]
-pub struct ButtonBehavior {
+pub struct Button {
     /// Callback to invoke when the button is clicked, or when the `Enter` or `Space` key
     /// is pressed while the button is focused.
     pub on_activate: Callback<In<Activate>>,
@@ -31,7 +31,7 @@ pub struct ButtonBehavior {
 
 fn button_on_key_event(
     mut event: On<FocusedInput<KeyboardInput>>,
-    q_state: Query<(&ButtonBehavior, Has<InteractionDisabled>)>,
+    q_state: Query<(&Button, Has<InteractionDisabled>)>,
     mut commands: Commands,
 ) {
     if let Ok((bstate, disabled)) = q_state.get(event.focused_entity)
@@ -50,7 +50,7 @@ fn button_on_key_event(
 
 fn button_on_pointer_click(
     mut click: On<Pointer<Click>>,
-    mut q_state: Query<(&ButtonBehavior, Has<Pressed>, Has<InteractionDisabled>)>,
+    mut q_state: Query<(&Button, Has<Pressed>, Has<InteractionDisabled>)>,
     mut commands: Commands,
 ) {
     if let Ok((bstate, pressed, disabled)) = q_state.get_mut(click.entity) {
@@ -63,7 +63,7 @@ fn button_on_pointer_click(
 
 fn button_on_pointer_down(
     mut press: On<Pointer<Press>>,
-    mut q_state: Query<(Entity, Has<InteractionDisabled>, Has<Pressed>), With<ButtonBehavior>>,
+    mut q_state: Query<(Entity, Has<InteractionDisabled>, Has<Pressed>), With<Button>>,
     mut commands: Commands,
 ) {
     if let Ok((button, disabled, pressed)) = q_state.get_mut(press.entity) {
@@ -76,7 +76,7 @@ fn button_on_pointer_down(
 
 fn button_on_pointer_up(
     mut release: On<Pointer<Release>>,
-    mut q_state: Query<(Entity, Has<InteractionDisabled>, Has<Pressed>), With<ButtonBehavior>>,
+    mut q_state: Query<(Entity, Has<InteractionDisabled>, Has<Pressed>), With<Button>>,
     mut commands: Commands,
 ) {
     if let Ok((button, disabled, pressed)) = q_state.get_mut(release.entity) {
@@ -89,7 +89,7 @@ fn button_on_pointer_up(
 
 fn button_on_pointer_drag_end(
     mut drag_end: On<Pointer<DragEnd>>,
-    mut q_state: Query<(Entity, Has<InteractionDisabled>, Has<Pressed>), With<ButtonBehavior>>,
+    mut q_state: Query<(Entity, Has<InteractionDisabled>, Has<Pressed>), With<Button>>,
     mut commands: Commands,
 ) {
     if let Ok((button, disabled, pressed)) = q_state.get_mut(drag_end.entity) {
@@ -102,7 +102,7 @@ fn button_on_pointer_drag_end(
 
 fn button_on_pointer_cancel(
     mut cancel: On<Pointer<Cancel>>,
-    mut q_state: Query<(Entity, Has<InteractionDisabled>, Has<Pressed>), With<ButtonBehavior>>,
+    mut q_state: Query<(Entity, Has<InteractionDisabled>, Has<Pressed>), With<Button>>,
     mut commands: Commands,
 ) {
     if let Ok((button, disabled, pressed)) = q_state.get_mut(cancel.entity) {
@@ -113,10 +113,10 @@ fn button_on_pointer_cancel(
     }
 }
 
-/// Plugin that adds the observers for the [`ButtonBehavior`] widget.
-pub struct ButtonBehaviorPlugin;
+/// Plugin that adds the observers for the [`Button`] widget.
+pub struct ButtonPlugin;
 
-impl Plugin for ButtonBehaviorPlugin {
+impl Plugin for ButtonPlugin {
     fn build(&self, app: &mut App) {
         app.add_observer(button_on_key_event)
             .add_observer(button_on_pointer_down)

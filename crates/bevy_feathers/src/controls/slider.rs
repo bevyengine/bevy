@@ -23,9 +23,7 @@ use bevy_ui::{
     InteractionDisabled, InterpolationColorSpace, JustifyContent, LinearGradient, Node,
     PositionType, UiRect, Val,
 };
-use bevy_ui_widgets::{
-    Callback, SliderBehavior, SliderRange, SliderValue, TrackClick, ValueChange,
-};
+use bevy_ui_widgets::{Callback, Slider, SliderRange, SliderValue, TrackClick, ValueChange};
 
 use crate::{
     constants::{fonts, size},
@@ -61,7 +59,7 @@ impl Default for SliderProps {
 }
 
 #[derive(Component, Default, Clone)]
-#[require(SliderBehavior)]
+#[require(Slider)]
 #[derive(Reflect)]
 #[reflect(Component, Clone, Default)]
 struct SliderStyle;
@@ -87,7 +85,7 @@ pub fn slider<B: Bundle>(props: SliderProps, overrides: B) -> impl Bundle {
             flex_grow: 1.0,
             ..Default::default()
         },
-        SliderBehavior {
+        Slider {
             on_change: props.on_change,
             track_click: TrackClick::Drag,
         },
