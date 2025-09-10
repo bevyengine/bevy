@@ -2777,7 +2777,7 @@ pub struct SystemParamValidationError {
     /// Whether the system should be skipped.
     ///
     /// If `false`, the error should be handled.
-    /// By default, this will result in a panic. See [`crate::error`] for more information.
+    /// By default, this will result in a panic. See [`error`](`crate::error`) for more information.
     ///
     /// This is the default behavior, and is suitable for system params that should *always* be valid,
     /// either because sensible fallback behavior exists (like [`Query`]) or because
