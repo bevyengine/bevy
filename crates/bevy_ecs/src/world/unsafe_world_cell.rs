@@ -275,7 +275,7 @@ impl<'w> UnsafeWorldCell<'w> {
         &unsafe { self.world_metadata() }.components
     }
 
-    /// Retrieves this world's collection of [removed components](RemovedComponentEvents).
+    /// Retrieves this world's collection of [removed components](RemovedComponentMessages).
     pub fn removed_components(self) -> &'w RemovedComponentMessages {
         // SAFETY:
         // - we only access world metadata

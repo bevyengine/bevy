@@ -252,7 +252,7 @@ impl World {
         &self.bundles
     }
 
-    /// Retrieves this world's [`RemovedComponentEvents`] collection
+    /// Retrieves this world's [`RemovedComponentMessages`] collection
     #[inline]
     pub fn removed_components(&self) -> &RemovedComponentMessages {
         &self.removed_components
