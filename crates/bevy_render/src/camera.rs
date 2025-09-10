@@ -672,8 +672,8 @@ impl TemporalJitter {
 
         // orthographic
         if clip_from_view.w_axis.w == 1.0 {
-            jitter *= vec2(clip_from_view.x_axis.x, clip_from_view.y_axis.y) * 0.5
-        };
+            jitter *= vec2(clip_from_view.x_axis.x, clip_from_view.y_axis.y) * 0.5;
+        }
 
         clip_from_view.z_axis.x += jitter.x;
         clip_from_view.z_axis.y += jitter.y;
