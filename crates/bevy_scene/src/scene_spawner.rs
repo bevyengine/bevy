@@ -23,7 +23,7 @@ use bevy_ecs::{
     system::{Commands, Query},
 };
 
-/// Triggered on a scene's parent entity when [`crate::SceneInstance`] becomes ready to use.
+/// Triggered on a scene's parent entity when [`SceneInstance`](`crate::SceneInstance`) becomes ready to use.
 ///
 /// See also [`On`], [`SceneSpawner::instance_is_ready`].
 ///
