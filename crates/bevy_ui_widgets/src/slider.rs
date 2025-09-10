@@ -60,7 +60,7 @@ pub enum TrackClick {
 ///
 /// Typically a slider will contain entities representing the "track" and "thumb" elements. The core
 /// slider makes no assumptions about the hierarchical structure of these elements, but expects that
-/// the thumb will be marked with a [`CoreSliderThumb`] component.
+/// the thumb will be marked with a [`SliderThumb`] component.
 ///
 /// The core slider does not modify the visible position of the thumb: that is the responsibility of
 /// the stylist. This can be done either in percent or pixel units as desired. To prevent overhang
@@ -268,7 +268,7 @@ pub(crate) fn slider_on_pointer_down(
             return;
         }
 
-        // Find thumb size by searching descendants for the first entity with CoreSliderThumb
+        // Find thumb size by searching descendants for the first entity with SliderThumb
         let thumb_size = q_children
             .iter_descendants(press.entity)
             .find_map(|child_id| q_thumb.get(child_id).ok().map(|thumb| thumb.size().x))
@@ -361,7 +361,7 @@ pub(crate) fn slider_on_drag(
             let mut distance = event.distance / ui_scale.0;
             distance.y *= -1.;
             let distance = transform.transform_vector2(distance);
-            // Find thumb size by searching descendants for the first entity with CoreSliderThumb
+            // Find thumb size by searching descendants for the first entity with SliderThumb
             let thumb_size = q_children
                 .iter_descendants(event.entity)
                 .find_map(|child_id| q_thumb.get(child_id).ok().map(|thumb| thumb.size().x))
