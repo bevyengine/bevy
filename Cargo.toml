@@ -2186,9 +2186,9 @@ name = "message"
 path = "examples/ecs/message.rs"
 doc-scrape-examples = true
 
-[package.metadata.example.event]
-name = "Event"
-description = "Illustrates event creation, activation, and reception"
+[package.metadata.example.message]
+name = "Message"
+description = "Illustrates message creation, activation, and reception"
 category = "ECS (Entity Component System)"
 wasm = false
 
@@ -2197,9 +2197,9 @@ name = "send_and_receive_messages"
 path = "examples/ecs/send_and_receive_messages.rs"
 doc-scrape-examples = true
 
-[package.metadata.example.send_and_receive_events]
-name = "Send and receive events"
-description = "Demonstrates how to send and receive events of the same type in a single system"
+[package.metadata.example.send_and_receive_messages]
+name = "Send and receive messages"
+description = "Demonstrates how to send and receive messages of the same type in a single system"
 category = "ECS (Entity Component System)"
 wasm = false
 
