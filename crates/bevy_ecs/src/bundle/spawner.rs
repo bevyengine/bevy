@@ -6,9 +6,10 @@ use crate::{
     archetype::{Archetype, ArchetypeCreated, ArchetypeId, SpawnBundleStatus},
     bundle::{Bundle, BundleId, BundleInfo, DynamicBundle, InsertMode},
     change_detection::MaybeLocation,
-    component::{ComponentsRegistrator, Tick},
+    component::Tick,
     entity::{Entities, Entity, EntityLocation},
-    lifecycle::{ADD, INSERT},
+    event::EntityComponentsTrigger,
+    lifecycle::{Add, Insert, ADD, INSERT},
     relationship::RelationshipHookMode,
     storage::Table,
     world::{unsafe_world_cell::UnsafeWorldCell, World},
@@ -26,16 +27,8 @@ pub(crate) struct BundleSpawner<'w> {
 impl<'w> BundleSpawner<'w> {
     #[inline]
     pub fn new<T: Bundle>(world: &'w mut World, change_tick: Tick) -> Self {
-        // SAFETY: These come from the same world. `world.components_registrator` can't be used since we borrow other fields too.
-        let mut registrator =
-            unsafe { ComponentsRegistrator::new(&mut world.components, &mut world.component_ids) };
+        let bundle_id = world.register_bundle_info::<T>();
 
-        // SAFETY: `registrator`, `world.bundles`, and `world.storages` all come from the same world.
-        let bundle_id = unsafe {
-            world
-                .bundles
-                .register_info::<T>(&mut registrator, &mut world.storages)
-        };
         // SAFETY: we initialized this bundle_id in `init_info`
         unsafe { Self::new_with_id(world, bundle_id, change_tick) }
     }
@@ -139,10 +132,13 @@ impl<'w> BundleSpawner<'w> {
                 caller,
             );
             if archetype.has_add_observer() {
-                deferred_world.trigger_observers(
+                // SAFETY: the ADD event_key corresponds to the Add event's type
+                deferred_world.trigger_raw(
                     ADD,
-                    Some(entity),
-                    bundle_info.iter_contributed_components(),
+                    &mut Add { entity },
+                    &mut EntityComponentsTrigger {
+                        components: bundle_info.contributed_components(),
+                    },
                     caller,
                 );
             }
@@ -154,10 +150,13 @@ impl<'w> BundleSpawner<'w> {
                 RelationshipHookMode::Run,
             );
             if archetype.has_insert_observer() {
-                deferred_world.trigger_observers(
+                // SAFETY: the INSERT event_key corresponds to the Insert event's type
+                deferred_world.trigger_raw(
                     INSERT,
-                    Some(entity),
-                    bundle_info.iter_contributed_components(),
+                    &mut Insert { entity },
+                    &mut EntityComponentsTrigger {
+                        components: bundle_info.contributed_components(),
+                    },
                     caller,
                 );
             }

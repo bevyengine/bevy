@@ -73,7 +73,7 @@ impl Plugin for TemporalAntiAliasPlugin {
             .add_render_graph_edges(
                 Core3d,
                 (
-                    Node3d::EndMainPass,
+                    Node3d::StartMainPassPostProcessing,
                     Node3d::MotionBlur, // Running before TAA reduces edge artifacts and noise
                     Node3d::Taa,
                     Node3d::Bloom,

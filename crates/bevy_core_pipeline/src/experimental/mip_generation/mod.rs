@@ -95,7 +95,7 @@ impl Plugin for MipGenerationPlugin {
             .add_render_graph_edges(
                 Core3d,
                 (
-                    Node3d::EndMainPass,
+                    Node3d::StartMainPassPostProcessing,
                     Node3d::LateDownsampleDepth,
                     Node3d::EndMainPassPostProcessing,
                 ),
