@@ -21,21 +21,15 @@ mod core_radio;
 mod core_scrollbar;
 mod core_slider;
 
-use bevy_app::{PluginGroup, PluginGroupBuilder};
+pub use callback::*;
+pub use core_button::*;
+pub use core_checkbox::*;
+pub use core_radio::*;
+pub use core_scrollbar::*;
+pub use core_slider::*;
 
+use bevy_app::{PluginGroup, PluginGroupBuilder};
 use bevy_ecs::entity::Entity;
-pub use callback::{Callback, Notify};
-pub use core_button::{CoreButton, CoreButtonPlugin};
-pub use core_checkbox::{CoreCheckbox, CoreCheckboxPlugin, SetChecked, ToggleChecked};
-pub use core_radio::{CoreRadio, CoreRadioGroup, CoreRadioGroupPlugin};
-pub use core_scrollbar::{
-    ControlOrientation, CoreScrollbar, CoreScrollbarDragState, CoreScrollbarPlugin,
-    CoreScrollbarThumb,
-};
-pub use core_slider::{
-    CoreSlider, CoreSliderDragState, CoreSliderPlugin, CoreSliderThumb, SetSliderValue,
-    SliderPrecision, SliderRange, SliderStep, SliderValue, TrackClick,
-};
 
 /// A plugin group that registers the observers for all of the core widgets. If you don't want to
 /// use all of the widgets, you can import the individual widget plugins instead.

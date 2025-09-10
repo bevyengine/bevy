@@ -49,16 +49,16 @@ fn setup_scene(mut commands: Commands, asset_server: Res<AssetServer>) {
 }
 
 fn change_material(
-    event: On<SceneInstanceReady>,
+    scene_ready: On<SceneInstanceReady>,
     mut commands: Commands,
     children: Query<&Children>,
     color_override: Query<&ColorOverride>,
     mesh_materials: Query<(&MeshMaterial3d<StandardMaterial>, &GltfMaterialName)>,
     mut asset_materials: ResMut<Assets<StandardMaterial>>,
 ) {
-    info!("processing Scene Entity: {}", event.entity());
+    info!("processing Scene Entity: {}", scene_ready.entity);
     // Iterate over all children recursively
-    for descendant in children.iter_descendants(event.entity()) {
+    for descendant in children.iter_descendants(scene_ready.entity) {
         // Get the material id and name which were created from the glTF file information
         let Ok((id, material_name)) = mesh_materials.get(descendant) else {
             continue;
@@ -73,7 +73,7 @@ fn change_material(
             "LeatherPartsMat" => {
                 info!("editing LeatherPartsMat to use ColorOverride tint");
                 // Get the `ColorOverride` of the entity, if it does not have a color override, skip
-                let Ok(color_override) = color_override.get(event.entity()) else {
+                let Ok(color_override) = color_override.get(scene_ready.entity) else {
                     continue;
                 };
                 // Create a copy of the material and override base color

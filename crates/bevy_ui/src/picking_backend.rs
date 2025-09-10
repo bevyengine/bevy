@@ -14,7 +14,6 @@
 //!
 //! ## Implementation Notes
 //!
-//! - `bevy_ui` can only render to the primary window
 //! - `bevy_ui` can render on any camera with a flag, it is special, and is not tied to a particular
 //!   camera.
 //! - To correctly sort picks, the order of `bevy_ui` is set to be the camera order plus 0.5.

@@ -602,13 +602,14 @@ serde = { version = "1", features = ["derive"] }
 serde_json = "1.0.140"
 bytemuck = "1"
 # The following explicit dependencies are needed for proc macros to work inside of examples as they are part of the bevy crate itself.
-bevy_render = { path = "crates/bevy_render", version = "0.17.0-dev", default-features = false }
-bevy_ecs = { path = "crates/bevy_ecs", version = "0.17.0-dev", default-features = false }
-bevy_state = { path = "crates/bevy_state", version = "0.17.0-dev", default-features = false }
+bevy_animation = { path = "crates/bevy_animation", version = "0.17.0-dev", default-features = false }
 bevy_asset = { path = "crates/bevy_asset", version = "0.17.0-dev", default-features = false }
-bevy_reflect = { path = "crates/bevy_reflect", version = "0.17.0-dev", default-features = false }
-bevy_image = { path = "crates/bevy_image", version = "0.17.0-dev", default-features = false }
+bevy_ecs = { path = "crates/bevy_ecs", version = "0.17.0-dev", default-features = false }
 bevy_gizmos = { path = "crates/bevy_gizmos", version = "0.17.0-dev", default-features = false }
+bevy_image = { path = "crates/bevy_image", version = "0.17.0-dev", default-features = false }
+bevy_reflect = { path = "crates/bevy_reflect", version = "0.17.0-dev", default-features = false }
+bevy_render = { path = "crates/bevy_render", version = "0.17.0-dev", default-features = false }
+bevy_state = { path = "crates/bevy_state", version = "0.17.0-dev", default-features = false }
 # Needed to poll Task examples
 futures-lite = "2.0.1"
 futures-timer = { version = "3", features = ["wasm-bindgen", "gloo-timers"] }
@@ -2720,6 +2721,17 @@ category = "Reflection"
 wasm = false
 
 [[example]]
+name = "serialization"
+path = "examples/reflection/serialization.rs"
+doc-scrape-examples = true
+
+[package.metadata.example.serialization]
+name = "Serialization"
+description = "Demonstrates serialization and deserialization using reflection without serde's Serialize/Deserialize traits"
+category = "Reflection"
+wasm = false
+
+[[example]]
 name = "custom_attributes"
 path = "examples/reflection/custom_attributes.rs"
 doc-scrape-examples = true
@@ -3875,6 +3887,15 @@ path = "tests/window/minimizing.rs"
 doc-scrape-examples = true
 
 [package.metadata.example.minimizing]
+hidden = true
+
+[[example]]
+name = "desktop_request_redraw"
+path = "tests/window/desktop_request_redraw.rs"
+doc-scrape-examples = true
+required-features = ["bevy_dev_tools"]
+
+[package.metadata.example.desktop_request_redraw]
 hidden = true
 
 [[example]]

@@ -299,7 +299,7 @@ pub struct ThreadedAnimationGraph {
     ///
     /// The node indices here are stored in postorder. Siblings are stored in
     /// descending order. This is because the
-    /// [`crate::animation_curves::AnimationCurveEvaluator`] uses a stack for
+    /// [`AnimationCurveEvaluator`](`crate::animation_curves::AnimationCurveEvaluator`) uses a stack for
     /// evaluation. Consider this graph:
     ///
     /// ```text
