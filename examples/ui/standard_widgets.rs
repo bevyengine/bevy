@@ -10,9 +10,8 @@ use bevy::{
     prelude::*,
     ui::{Checked, InteractionDisabled, Pressed},
     ui_widgets::{
-        Activate, Button, Callback, Checkbox, CoreSliderDragState, RadioButton, RadioGroup,
-        Slider, SliderRange, SliderThumb, SliderValue, TrackClick, ValueChange,
-        WidgetBehaviorPlugins,
+        Activate, Button, Callback, Checkbox, CoreSliderDragState, RadioButton, RadioGroup, Slider,
+        SliderRange, SliderThumb, SliderValue, TrackClick, ValueChange, WidgetBehaviorPlugins,
     },
 };
 
