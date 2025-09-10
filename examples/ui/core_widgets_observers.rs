@@ -46,7 +46,7 @@ fn main() {
             (
                 update_widget_values,
                 toggle_disabled,
-                set_thumb_color_when_drag_ends,
+                update_thumb_color_when_drag_ends,
             ),
         )
         .run();
@@ -486,7 +486,7 @@ fn slider_on_change_hover(
     }
 }
 
-fn set_thumb_color_when_drag_ends(
+fn update_thumb_color_when_drag_ends(
     sliders: Query<
         (
             Entity,
