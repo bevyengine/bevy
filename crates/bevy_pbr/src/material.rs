@@ -1768,21 +1768,6 @@ where
     }
 }
 
-#[derive(Component, Clone, Copy, Default, PartialEq, Eq, Deref, DerefMut)]
-pub struct MaterialBindGroupId(pub Option<BindGroupId>);
-
-impl MaterialBindGroupId {
-    pub fn new(id: BindGroupId) -> Self {
-        Self(Some(id))
-    }
-}
-
-impl From<BindGroup> for MaterialBindGroupId {
-    fn from(value: BindGroup) -> Self {
-        Self::new(value.id())
-    }
-}
-
 /// Creates and/or recreates any bind groups that contain materials that were
 /// modified this frame.
 pub fn prepare_material_bind_groups(
