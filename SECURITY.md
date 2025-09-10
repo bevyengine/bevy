@@ -4,8 +4,8 @@
 
 Only the latest released minor version of Bevy is supported.
 
-<!---
-TODO: update when releasing a new version
+<!--
+NOTE: update when releasing a new version
 -->
 
 | Version | Supported          |
