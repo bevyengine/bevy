@@ -22,14 +22,14 @@
 
 @group(0) @binding(0) var screen_texture: texture_2d<f32>;
 @group(0) @binding(1) var texture_sampler: sampler;
-struct PostProcessSettings {
+struct FullScreenEffect {
     intensity: f32,
 #ifdef SIXTEEN_BYTE_ALIGNMENT
     // WebGL2 structs must be 16 byte aligned.
     _webgl2_padding: vec3<f32>
 #endif
 }
-@group(0) @binding(2) var<uniform> settings: PostProcessSettings;
+@group(0) @binding(2) var<uniform> settings: FullscreenEffect;
 
 @fragment
 fn fragment(in: FullscreenVertexOutput) -> @location(0) vec4<f32> {
