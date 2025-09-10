@@ -404,10 +404,7 @@ fn update_ui(
         ui,
         "Orthographic",
         'O',
-        match projection {
-            Projection::Perspective(_) => false,
-            _ => true,
-        },
+        !matches!(projection, Projection::Perspective(_)),
     );
 }
 
