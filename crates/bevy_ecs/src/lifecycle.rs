@@ -451,7 +451,7 @@ impl<T: Component> DerefMut for RemovedComponentReader<T> {
     }
 }
 /// Renamed to [`RemovedComponentMessages`].
-#[deprecated(since = "0.17", note = "Use `RemovedComponentMessages` instead.")]
+#[deprecated(since = "0.17.0", note = "Use `RemovedComponentMessages` instead.")]
 pub type RemovedComponentEvents = RemovedComponentMessages;
 
 /// Stores the [`RemovedComponents`] event buffers for all types of component in a given [`World`].
