@@ -102,6 +102,6 @@ fn update(time: Res<Time>, mut query: Query<&mut Transform, With<AnimationActive
 
 fn redraw(mut commands: Commands, query: Query<Entity, With<AnimationActive>>) {
     if query.iter().next().is_some() {
-        commands.write_event(RequestRedraw);
+        commands.write_message(RequestRedraw);
     }
 }

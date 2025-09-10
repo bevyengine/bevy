@@ -13,7 +13,7 @@ use bevy_asset::{
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
     component::Component,
-    event::EventReader,
+    message::MessageReader,
     reflect::ReflectComponent,
     resource::Resource,
     system::{Res, ResMut},
@@ -904,7 +904,7 @@ pub struct NonPathHandleError;
 pub(crate) fn thread_animation_graphs(
     mut threaded_animation_graphs: ResMut<ThreadedAnimationGraphs>,
     animation_graphs: Res<Assets<AnimationGraph>>,
-    mut animation_graph_asset_events: EventReader<AssetEvent<AnimationGraph>>,
+    mut animation_graph_asset_events: MessageReader<AssetEvent<AnimationGraph>>,
 ) {
     for animation_graph_asset_event in animation_graph_asset_events.read() {
         match *animation_graph_asset_event {

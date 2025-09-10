@@ -1,7 +1,7 @@
 use crate::{App, AppLabel, InternedAppLabel, Plugin, Plugins, PluginsState};
 use alloc::{boxed::Box, string::String, vec::Vec};
 use bevy_ecs::{
-    event::EventRegistry,
+    message::MessageRegistry,
     prelude::*,
     schedule::{InternedScheduleLabel, InternedSystemSet, ScheduleBuildSettings, ScheduleLabel},
     system::{ScheduleSystem, SystemId, SystemInput},
@@ -335,13 +335,22 @@ impl SubApp {
         self
     }
 
-    /// See [`App::add_event`].
+    /// See [`App::add_message`].
+    #[deprecated(since = "0.17.0", note = "Use `add_message` instead.")]
     pub fn add_event<T>(&mut self) -> &mut Self
     where
-        T: BufferedEvent,
+        T: Message,
     {
-        if !self.world.contains_resource::<Events<T>>() {
-            EventRegistry::register_event::<T>(self.world_mut());
+        self.add_message::<T>()
+    }
+
+    /// See [`App::add_message`].
+    pub fn add_message<T>(&mut self) -> &mut Self
+    where
+        T: Message,
+    {
+        if !self.world.contains_resource::<Messages<T>>() {
+            MessageRegistry::register_message::<T>(self.world_mut());
         }
 
         self

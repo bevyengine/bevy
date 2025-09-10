@@ -19,7 +19,7 @@ use bevy_asset::{embedded_asset, load_embedded_asset, AssetServer, Handle, Rende
 use bevy_camera::{ManualTextureViewHandle, NormalizedRenderTarget, RenderTarget};
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{
-    entity::EntityHashMap, event::event_update_system, prelude::*, system::SystemState,
+    entity::EntityHashMap, message::message_update_system, prelude::*, system::SystemState,
 };
 use bevy_image::{Image, TextureFormatPixelInfo, ToExtents};
 use bevy_platform::collections::HashSet;
@@ -404,7 +404,7 @@ impl Plugin for ScreenshotPlugin {
             .add_systems(
                 First,
                 clear_screenshots
-                    .after(event_update_system)
+                    .after(message_update_system)
                     .before(ApplyDeferred),
             )
             .add_systems(Update, trigger_screenshots);
