@@ -1458,6 +1458,7 @@ pub fn extract_meshes_for_gpu_building(
                 Changed<Lightmap>,
                 Changed<Aabb>,
                 Changed<Mesh3d>,
+                Changed<MeshTag>,
                 Changed<NoFrustumCulling>,
                 Changed<NotShadowReceiver>,
                 Changed<TransmittedShadowReceiver>,
