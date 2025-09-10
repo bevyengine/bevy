@@ -44,7 +44,7 @@ use crate::{
     entity::{Entities, Entity, EntityDoesNotExistError},
     entity_disabling::DefaultQueryFilters,
     error::{DefaultErrorHandler, ErrorHandler},
-    lifecycle::{ComponentHooks, RemovedComponentEvents, ADD, DESPAWN, INSERT, REMOVE, REPLACE},
+    lifecycle::{ComponentHooks, RemovedComponentMessages, ADD, DESPAWN, INSERT, REMOVE, REPLACE},
     message::{Message, MessageId, Messages, WriteBatchIds},
     observer::Observers,
     prelude::{Add, Despawn, Insert, Remove, Replace},
@@ -96,7 +96,7 @@ pub struct World {
     pub(crate) storages: Storages,
     pub(crate) bundles: Bundles,
     pub(crate) observers: Observers,
-    pub(crate) removed_components: RemovedComponentEvents,
+    pub(crate) removed_components: RemovedComponentMessages,
     pub(crate) change_tick: AtomicU32,
     pub(crate) last_change_tick: Tick,
     pub(crate) last_check_tick: Tick,
@@ -254,7 +254,7 @@ impl World {
 
     /// Retrieves this world's [`RemovedComponentEvents`] collection
     #[inline]
-    pub fn removed_components(&self) -> &RemovedComponentEvents {
+    pub fn removed_components(&self) -> &RemovedComponentMessages {
         &self.removed_components
     }
 
