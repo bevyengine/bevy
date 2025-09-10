@@ -3,9 +3,6 @@ use core::f32::consts::PI;
 use bevy_app::{Plugin, PreUpdate};
 use bevy_asset::Handle;
 use bevy_color::{Alpha, Color, Hsla};
-use bevy_core_widgets::{
-    Callback, CoreSlider, CoreSliderThumb, SliderRange, SliderValue, TrackClick, ValueChange,
-};
 use bevy_ecs::{
     bundle::Bundle,
     children,
@@ -26,6 +23,9 @@ use bevy_ui::{
     UiRect, UiTransform, Val, Val2, ZIndex,
 };
 use bevy_ui_render::ui_material::MaterialNode;
+use bevy_ui_widgets::{
+    Callback, Slider, SliderRange, SliderThumb, SliderValue, TrackClick, ValueChange,
+};
 
 use crate::{
     alpha_pattern::{AlphaPattern, AlphaPatternMaterial},
@@ -164,7 +164,7 @@ impl Default for ColorSliderProps {
 
 /// A color slider widget.
 #[derive(Component, Default, Clone)]
-#[require(CoreSlider, SliderBaseColor(Color::WHITE))]
+#[require(Slider, SliderBaseColor(Color::WHITE))]
 pub struct ColorSlider {
     /// Which channel is being edited by this slider.
     pub channel: ColorChannel,
@@ -194,7 +194,7 @@ pub fn color_slider<B: Bundle>(props: ColorSliderProps, overrides: B) -> impl Bu
             flex_grow: 1.0,
             ..Default::default()
         },
-        CoreSlider {
+        Slider {
             on_change: props.on_change,
             track_click: TrackClick::Snap,
         },
@@ -257,7 +257,7 @@ pub fn color_slider<B: Bundle>(props: ColorSliderProps, overrides: B) -> impl Bu
                                 border: UiRect::all(Val::Px(2.0)),
                                 ..Default::default()
                             },
-                            CoreSliderThumb,
+                            SliderThumb,
                             ColorSliderThumb,
                             BorderRadius::MAX,
                             BorderColor::all(palette::WHITE),

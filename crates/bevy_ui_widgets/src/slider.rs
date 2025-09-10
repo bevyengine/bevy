@@ -60,7 +60,7 @@ pub enum TrackClick {
 ///
 /// Typically a slider will contain entities representing the "track" and "thumb" elements. The core
 /// slider makes no assumptions about the hierarchical structure of these elements, but expects that
-/// the thumb will be marked with a [`CoreSliderThumb`] component.
+/// the thumb will be marked with a [`SliderThumb`] component.
 ///
 /// The core slider does not modify the visible position of the thumb: that is the responsibility of
 /// the stylist. This can be done either in percent or pixel units as desired. To prevent overhang
@@ -80,7 +80,7 @@ pub enum TrackClick {
     SliderRange,
     SliderStep
 )]
-pub struct CoreSlider {
+pub struct Slider {
     /// Callback which is called when the slider is dragged or the value is changed via other user
     /// interaction. If this value is `Callback::Ignore`, then the slider will update it's own
     /// internal [`SliderValue`] state without notification.
@@ -92,7 +92,7 @@ pub struct CoreSlider {
 
 /// Marker component that identifies which descendant element is the slider thumb.
 #[derive(Component, Debug, Default)]
-pub struct CoreSliderThumb;
+pub struct SliderThumb;
 
 /// A component which stores the current value of the slider.
 #[derive(Component, Debug, Default, PartialEq, Clone, Copy)]
@@ -231,7 +231,7 @@ pub struct CoreSliderDragState {
 pub(crate) fn slider_on_pointer_down(
     mut press: On<Pointer<Press>>,
     q_slider: Query<(
-        &CoreSlider,
+        &Slider,
         &SliderValue,
         &SliderRange,
         &SliderStep,
@@ -241,7 +241,7 @@ pub(crate) fn slider_on_pointer_down(
         &UiGlobalTransform,
         Has<InteractionDisabled>,
     )>,
-    q_thumb: Query<&ComputedNode, With<CoreSliderThumb>>,
+    q_thumb: Query<&ComputedNode, With<SliderThumb>>,
     q_children: Query<&Children>,
     mut commands: Commands,
     ui_scale: Res<UiScale>,
@@ -268,7 +268,7 @@ pub(crate) fn slider_on_pointer_down(
             return;
         }
 
-        // Find thumb size by searching descendants for the first entity with CoreSliderThumb
+        // Find thumb size by searching descendants for the first entity with SliderThumb
         let thumb_size = q_children
             .iter_descendants(press.entity)
             .find_map(|child_id| q_thumb.get(child_id).ok().map(|thumb| thumb.size().x))
@@ -325,7 +325,7 @@ pub(crate) fn slider_on_drag_start(
             &mut CoreSliderDragState,
             Has<InteractionDisabled>,
         ),
-        With<CoreSlider>,
+        With<Slider>,
     >,
 ) {
     if let Ok((value, mut drag, disabled)) = q_slider.get_mut(drag_start.entity) {
@@ -341,14 +341,14 @@ pub(crate) fn slider_on_drag(
     mut event: On<Pointer<Drag>>,
     mut q_slider: Query<(
         &ComputedNode,
-        &CoreSlider,
+        &Slider,
         &SliderRange,
         Option<&SliderPrecision>,
         &UiGlobalTransform,
         &mut CoreSliderDragState,
         Has<InteractionDisabled>,
     )>,
-    q_thumb: Query<&ComputedNode, With<CoreSliderThumb>>,
+    q_thumb: Query<&ComputedNode, With<SliderThumb>>,
     q_children: Query<&Children>,
     mut commands: Commands,
     ui_scale: Res<UiScale>,
@@ -361,7 +361,7 @@ pub(crate) fn slider_on_drag(
             let mut distance = event.distance / ui_scale.0;
             distance.y *= -1.;
             let distance = transform.transform_vector2(distance);
-            // Find thumb size by searching descendants for the first entity with CoreSliderThumb
+            // Find thumb size by searching descendants for the first entity with SliderThumb
             let thumb_size = q_children
                 .iter_descendants(event.entity)
                 .find_map(|child_id| q_thumb.get(child_id).ok().map(|thumb| thumb.size().x))
@@ -398,7 +398,7 @@ pub(crate) fn slider_on_drag(
 
 pub(crate) fn slider_on_drag_end(
     mut drag_end: On<Pointer<DragEnd>>,
-    mut q_slider: Query<(&CoreSlider, &mut CoreSliderDragState)>,
+    mut q_slider: Query<(&Slider, &mut CoreSliderDragState)>,
 ) {
     if let Ok((_slider, mut drag)) = q_slider.get_mut(drag_end.entity) {
         drag_end.propagate(false);
@@ -411,7 +411,7 @@ pub(crate) fn slider_on_drag_end(
 fn slider_on_key_input(
     mut focused_input: On<FocusedInput<KeyboardInput>>,
     q_slider: Query<(
-        &CoreSlider,
+        &Slider,
         &SliderValue,
         &SliderRange,
         &SliderStep,
@@ -449,7 +449,7 @@ fn slider_on_key_input(
     }
 }
 
-pub(crate) fn slider_on_insert(insert: On<Insert, CoreSlider>, mut world: DeferredWorld) {
+pub(crate) fn slider_on_insert(insert: On<Insert, Slider>, mut world: DeferredWorld) {
     let mut entity = world.entity_mut(insert.entity);
     if let Some(mut accessibility) = entity.get_mut::<AccessibilityNode>() {
         accessibility.set_orientation(Orientation::Horizontal);
@@ -489,11 +489,11 @@ pub(crate) fn slider_on_insert_step(insert: On<Insert, SliderStep>, mut world: D
 ///
 /// ```
 /// # use bevy_ecs::system::Commands;
-/// # use bevy_core_widgets::{CoreSlider, SliderRange, SliderValue, SetSliderValue, SliderValueChange};
+/// # use bevy_ui_widgets::{Slider, SliderRange, SliderValue, SetSliderValue, SliderValueChange};
 /// fn setup(mut commands: Commands) {
 ///     // Create a slider
 ///     let entity = commands.spawn((
-///         CoreSlider::default(),
+///         Slider::default(),
 ///         SliderValue(0.5),
 ///         SliderRange::new(0.0, 1.0),
 ///     )).id();
@@ -532,7 +532,7 @@ pub enum SliderValueChange {
 
 fn slider_on_set_value(
     set_slider_value: On<SetSliderValue>,
-    q_slider: Query<(&CoreSlider, &SliderValue, &SliderRange, Option<&SliderStep>)>,
+    q_slider: Query<(&Slider, &SliderValue, &SliderRange, Option<&SliderStep>)>,
     mut commands: Commands,
 ) {
     if let Ok((slider, value, range, step)) = q_slider.get(set_slider_value.entity) {
@@ -559,10 +559,10 @@ fn slider_on_set_value(
     }
 }
 
-/// Plugin that adds the observers for the [`CoreSlider`] widget.
-pub struct CoreSliderPlugin;
+/// Plugin that adds the observers for the [`Slider`] widget.
+pub struct SliderPlugin;
 
-impl Plugin for CoreSliderPlugin {
+impl Plugin for SliderPlugin {
     fn build(&self, app: &mut App) {
         app.add_observer(slider_on_pointer_down)
             .add_observer(slider_on_drag_start)

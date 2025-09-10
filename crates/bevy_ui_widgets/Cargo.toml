@@ -1,5 +1,5 @@
 [package]
-name = "bevy_core_widgets"
+name = "bevy_ui_widgets"
 version = "0.17.0-dev"
 edition = "2024"
 description = "Unstyled common widgets for Bevy Engine"
