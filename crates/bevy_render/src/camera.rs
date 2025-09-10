@@ -574,8 +574,8 @@ pub fn extract_cameras(
                 commands.remove::<RenderLayers>();
             }
 
-            if let Some(perspective) = projection {
-                commands.insert(perspective.clone());
+            if let Some(projection) = projection {
+                commands.insert(projection.clone());
             } else {
                 commands.remove::<Projection>();
             }
