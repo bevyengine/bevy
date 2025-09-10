@@ -1,4 +1,4 @@
-//! This crate provides the tools for positioning and rendering text in Bevy.
+//! This crate provides the tools for positioning, rendering and editing text in Bevy.
 //!
 //! # `Font`
 //!
@@ -28,6 +28,10 @@
 //!    retrieving glyphs from the cache, or rasterizing to a [`FontAtlas`] if necessary.
 //! 3. [`PositionedGlyph`]s are stored in a [`TextLayoutInfo`],
 //!    which contains all the information that downstream systems need for rendering.
+//!
+//! ## Text editing
+//!
+//! See the input module for more details on text editing support.
 
 extern crate alloc;
 
@@ -38,6 +42,7 @@ mod font_atlas;
 mod font_atlas_set;
 mod font_loader;
 mod glyph;
+mod input;
 mod pipeline;
 mod text;
 mod text_access;
@@ -49,6 +54,7 @@ pub use font_atlas::*;
 pub use font_atlas_set::*;
 pub use font_loader::*;
 pub use glyph::*;
+pub use input::*;
 pub use pipeline::*;
 pub use text::*;
 pub use text_access::*;
@@ -97,9 +103,27 @@ impl Plugin for TextPlugin {
             .init_resource::<TextIterScratch>()
             .add_systems(
                 PostUpdate,
-                remove_dropped_font_atlas_sets.before(AssetEventSystems),
+                remove_dropped_font_atlas_sets
+                    .before(AssetEventSystems)
+                    .ambiguous_with(update_placeholder_layouts)
+                    .ambiguous_with(update_text_input_layouts),
             )
             .add_systems(Last, trim_cosmic_cache);
+
+        app.init_resource::<TextCursorBlinkInterval>().add_systems(
+            PostUpdate,
+            (
+                update_text_input_buffers,
+                apply_text_edits,
+                update_password_masks,
+                update_text_input_layouts,
+                update_placeholder_layouts,
+            )
+                .chain()
+                .in_set(TextInputSystems)
+                .before(AssetEventSystems)
+                .ambiguous_with(Text2dUpdateSystems),
+        );
 
         #[cfg(feature = "default_font")]
         {
