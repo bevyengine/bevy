@@ -1293,11 +1293,9 @@ impl Image {
 
     /// Clears the content of the image with the given pixel. The image needs to be initialized on
     /// the cpu otherwise this is a noop.
+    ///
+    /// This does nothing if the image data is not already initialized
     pub fn clear(&mut self, pixel: &[u8]) {
-        if self.data.is_none() {
-            // We don't want to clear an image that doesn't have data already
-            return;
-        }
         if let Ok(pixel_size) = self.texture_descriptor.format.pixel_size()
             && pixel_size > 0
         {
@@ -1312,9 +1310,11 @@ impl Image {
                 pixel.len() <= byte_len,
                 "Clear data must fit within pixel buffer (expected {byte_len}B).",
             );
-
-            let data = pixel.iter().copied().cycle().take(byte_len).collect();
-            self.data = Some(data);
+            if let Some(data) = self.data.as_mut() {
+                for pixel_data in data.chunks_mut(pixel_size) {
+                    pixel_data.copy_from_slice(pixel);
+                }
+            }
         }
     }
 
