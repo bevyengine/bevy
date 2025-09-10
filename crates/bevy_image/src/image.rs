@@ -2164,4 +2164,25 @@ mod test {
             Ok(Color::LinearRgba(GROW_FILL))
         ));
     }
+
+    #[test]
+    fn image_clear() {
+        let mut image = Image::new_fill(
+            Extent3d {
+                width: 32,
+                height: 32,
+                depth_or_array_layers: 1,
+            },
+            TextureDimension::D2,
+            &[0; 4],
+            TextureFormat::Rgba8Snorm,
+            RenderAssetUsages::all(),
+        );
+
+        assert!(image.data.as_ref().unwrap().iter().all(|&p| p == 0));
+
+        image.clear(&[255; 4]);
+
+        assert!(image.data.as_ref().unwrap().iter().all(|&p| p == 255));
+    }
 }
