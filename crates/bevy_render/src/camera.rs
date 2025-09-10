@@ -658,10 +658,6 @@ pub fn sort_cameras(
 /// A subpixel offset to jitter a perspective camera's frustum by.
 ///
 /// Useful for temporal rendering techniques.
-///
-/// Do not use with [`OrthographicProjection`].
-///
-/// [`OrthographicProjection`]: bevy_camera::OrthographicProjection
 #[derive(Component, Clone, Default, Reflect)]
 #[reflect(Default, Component, Clone)]
 pub struct TemporalJitter {
@@ -672,9 +668,10 @@ pub struct TemporalJitter {
 impl TemporalJitter {
     pub fn jitter_projection(&self, clip_from_view: &mut Mat4, view_size: Vec2) {
         if clip_from_view.w_axis.w == 1.0 {
-            warn!(
-                "TemporalJitter not supported with OrthographicProjection. Use PerspectiveProjection instead."
-            );
+            let jitter = self.offset * vec2(1.0, -1.0) / view_size;
+
+            clip_from_view.z_axis.x += clip_from_view.x_axis.x * jitter.x;
+            clip_from_view.z_axis.y += clip_from_view.y_axis.y * jitter.y;
             return;
         }
 
