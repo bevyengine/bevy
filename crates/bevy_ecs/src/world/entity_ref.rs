@@ -4,16 +4,13 @@ use crate::{
         Bundle, BundleFromComponents, BundleInserter, BundleRemover, DynamicBundle, InsertMode,
     },
     change_detection::{MaybeLocation, MutUntyped},
-    component::{
-        Component, ComponentId, ComponentTicks, Components, ComponentsRegistrator, Mutable,
-        StorageType, Tick,
-    },
+    component::{Component, ComponentId, ComponentTicks, Components, Mutable, StorageType, Tick},
     entity::{
         ContainsEntity, Entity, EntityCloner, EntityClonerBuilder, EntityEquivalent,
         EntityIdLocation, EntityLocation, OptIn, OptOut,
     },
-    event::EntityEvent,
-    lifecycle::{DESPAWN, REMOVE, REPLACE},
+    event::{EntityComponentsTrigger, EntityEvent},
+    lifecycle::{Despawn, Remove, Replace, DESPAWN, REMOVE, REPLACE},
     observer::Observer,
     query::{Access, DebugCheckedUnwrap, ReadOnlyQueryData, ReleaseStateQueryData},
     relationship::RelationshipHookMode,
@@ -2309,16 +2306,7 @@ impl<'w> EntityWorldMut<'w> {
         caller: MaybeLocation,
     ) -> &mut Self {
         let location = self.location();
-        let storages = &mut self.world.storages;
-        let bundles = &mut self.world.bundles;
-        // SAFETY: These come from the same world.
-        let mut registrator = unsafe {
-            ComponentsRegistrator::new(&mut self.world.components, &mut self.world.component_ids)
-        };
-
-        // SAFETY: `storages`, `bundles` and `registrator` come from the same world.
-        let bundle_id =
-            unsafe { bundles.register_contributed_bundle_info::<T>(&mut registrator, storages) };
+        let bundle_id = self.world.register_contributed_bundle_info::<T>();
 
         // SAFETY: We just created the bundle, and the archetype is valid, since we are in it.
         let Some(mut remover) = (unsafe {
@@ -2358,33 +2346,23 @@ impl<'w> EntityWorldMut<'w> {
     #[inline]
     pub(crate) fn retain_with_caller<T: Bundle>(&mut self, caller: MaybeLocation) -> &mut Self {
         let old_location = self.location();
+        let retained_bundle = self.world.register_bundle_info::<T>();
         let archetypes = &mut self.world.archetypes;
-        let storages = &mut self.world.storages;
-        // SAFETY: These come from the same world.
-        let mut registrator = unsafe {
-            ComponentsRegistrator::new(&mut self.world.components, &mut self.world.component_ids)
-        };
 
-        // SAFETY: `storages`, `bundles` and `registrator` come from the same world.
-        let retained_bundle = unsafe {
-            self.world
-                .bundles
-                .register_info::<T>(&mut registrator, storages)
-        };
-
-        // SAFETY: `retained_bundle` exists as we just initialized it.
+        // SAFETY: `retained_bundle` exists as we just registered it.
         let retained_bundle_info = unsafe { self.world.bundles.get_unchecked(retained_bundle) };
         let old_archetype = &mut archetypes[old_location.archetype_id];
 
         // PERF: this could be stored in an Archetype Edge
         let to_remove = &old_archetype
-            .components()
+            .iter_components()
             .filter(|c| !retained_bundle_info.contributed_components().contains(c))
             .collect::<Vec<_>>();
-        let remove_bundle =
-            self.world
-                .bundles
-                .init_dynamic_info(&mut self.world.storages, &registrator, to_remove);
+        let remove_bundle = self.world.bundles.init_dynamic_info(
+            &mut self.world.storages,
+            &self.world.components,
+            to_remove,
+        );
 
         // SAFETY: We just created the bundle, and the archetype is valid, since we are in it.
         let Some(mut remover) = (unsafe {
@@ -2529,7 +2507,8 @@ impl<'w> EntityWorldMut<'w> {
     #[inline]
     pub(crate) fn clear_with_caller(&mut self, caller: MaybeLocation) -> &mut Self {
         let location = self.location();
-        let component_ids: Vec<ComponentId> = self.archetype().components().collect();
+        // PERF: this should not be necessary
+        let component_ids: Vec<ComponentId> = self.archetype().components().to_vec();
         let components = &mut self.world.components;
 
         let bundle_id = self.world.bundles.init_dynamic_info(
@@ -2593,51 +2572,66 @@ impl<'w> EntityWorldMut<'w> {
         // SAFETY: All components in the archetype exist in world
         unsafe {
             if archetype.has_despawn_observer() {
-                deferred_world.trigger_observers(
+                // SAFETY: the DESPAWN event_key corresponds to the Despawn event's type
+                deferred_world.trigger_raw(
                     DESPAWN,
-                    Some(self.entity),
-                    archetype.components(),
+                    &mut Despawn {
+                        entity: self.entity,
+                    },
+                    &mut EntityComponentsTrigger {
+                        components: archetype.components(),
+                    },
                     caller,
                 );
             }
             deferred_world.trigger_on_despawn(
                 archetype,
                 self.entity,
-                archetype.components(),
+                archetype.iter_components(),
                 caller,
             );
             if archetype.has_replace_observer() {
-                deferred_world.trigger_observers(
+                // SAFETY: the REPLACE event_key corresponds to the Replace event's type
+                deferred_world.trigger_raw(
                     REPLACE,
-                    Some(self.entity),
-                    archetype.components(),
+                    &mut Replace {
+                        entity: self.entity,
+                    },
+                    &mut EntityComponentsTrigger {
+                        components: archetype.components(),
+                    },
                     caller,
                 );
             }
             deferred_world.trigger_on_replace(
                 archetype,
                 self.entity,
-                archetype.components(),
+                archetype.iter_components(),
                 caller,
                 RelationshipHookMode::Run,
             );
             if archetype.has_remove_observer() {
-                deferred_world.trigger_observers(
+                // SAFETY: the REMOVE event_key corresponds to the Remove event's type
+                deferred_world.trigger_raw(
                     REMOVE,
-                    Some(self.entity),
-                    archetype.components(),
+                    &mut Remove {
+                        entity: self.entity,
+                    },
+                    &mut EntityComponentsTrigger {
+                        components: archetype.components(),
+                    },
                     caller,
                 );
             }
             deferred_world.trigger_on_remove(
                 archetype,
                 self.entity,
-                archetype.components(),
+                archetype.iter_components(),
                 caller,
             );
         }
 
-        for component_id in archetype.components() {
+        for component_id in archetype.iter_components() {
             world.removed_components.write(component_id, self.entity);
         }
 
@@ -2847,21 +2841,8 @@ impl<'w> EntityWorldMut<'w> {
         }
     }
 
-    /// Triggers the given `event` for this entity, which will run any observers watching for it.
-    ///
-    /// # Panics
-    ///
-    /// If the entity has been despawned while this `EntityWorldMut` is still alive.
-    pub fn trigger(&mut self, event: impl EntityEvent) -> &mut Self {
-        self.assert_not_despawned();
-        self.world.trigger_targets(event, self.entity);
-        self.world.flush();
-        self.update_location();
-        self
-    }
-
-    /// Creates an [`Observer`] listening for events of type `E` targeting this entity.
-    /// In order to trigger the callback the entity must also match the query when the event is fired.
+    /// Creates an [`Observer`] watching for an [`EntityEvent`] of type `E` whose [`EntityEvent::event_target`]
+    /// targets this entity.
     ///
     /// # Panics
     ///
@@ -5275,7 +5256,7 @@ mod tests {
         let ent = world.spawn((Marker::<1>, Marker::<2>, Marker::<3>)).id();
 
         world.entity_mut(ent).retain::<()>();
-        assert_eq!(world.entity(ent).archetype().components().next(), None);
+        assert_eq!(world.entity(ent).archetype().components().len(), 0);
     }
 
     // Test removing some components with `retain`, including components not on the entity.
@@ -5291,15 +5272,7 @@ mod tests {
         // Check that marker 2 was retained.
         assert!(world.entity(ent).get::<Marker<2>>().is_some());
         // Check that only marker 2 was retained.
-        assert_eq!(
-            world
-                .entity(ent)
-                .archetype()
-                .components()
-                .collect::<Vec<_>>()
-                .len(),
-            1
-        );
+        assert_eq!(world.entity(ent).archetype().components().len(), 1);
     }
 
     // regression test for https://github.com/bevyengine/bevy/pull/7805
@@ -6118,7 +6091,7 @@ mod tests {
     }
 
     #[derive(EntityEvent)]
-    struct TestEvent;
+    struct TestEvent(Entity);
 
     #[test]
     fn adding_observer_updates_location() {
@@ -6126,7 +6099,9 @@ mod tests {
         let entity = world
             .spawn_empty()
             .observe(|event: On<TestEvent>, mut commands: Commands| {
-                commands.entity(event.entity()).insert(TestComponent(0));
+                commands
+                    .entity(event.event_target())
+                    .insert(TestComponent(0));
             })
             .id();
 
@@ -6134,7 +6109,9 @@ mod tests {
         world.flush();
 
         let mut a = world.entity_mut(entity);
-        a.trigger(TestEvent); // this adds command to change entity archetype
+        // SAFETY: this _intentionally_ doesn't update the location, to ensure that we're actually testing
+        // that observe() updates location
+        unsafe { a.world_mut().trigger(TestEvent(entity)) }
         a.observe(|_: On<TestEvent>| {}); // this flushes commands implicitly by spawning
         let location = a.location();
         assert_eq!(world.entities().get(entity), Some(location));
@@ -6144,8 +6121,8 @@ mod tests {
     #[should_panic]
     fn location_on_despawned_entity_panics() {
         let mut world = World::new();
-        world.add_observer(|event: On<Add, TestComponent>, mut commands: Commands| {
-            commands.entity(event.entity()).despawn();
+        world.add_observer(|add: On<Add, TestComponent>, mut commands: Commands| {
+            commands.entity(add.entity).despawn();
         });
         let entity = world.spawn_empty().id();
         let mut a = world.entity_mut(entity);
@@ -6174,8 +6151,8 @@ mod tests {
         let entity = world.spawn_empty().id();
         assert_eq!(world.resource::<TestFlush>().0, 1);
         world.commands().queue(count_flush);
+        world.flush_commands();
         let mut a = world.entity_mut(entity);
-        a.trigger(TestEvent);
         assert_eq!(a.world().resource::<TestFlush>().0, 2);
         a.insert(TestComponent(0));
         assert_eq!(a.world().resource::<TestFlush>().0, 3);
