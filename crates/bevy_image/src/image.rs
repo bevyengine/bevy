@@ -1291,6 +1291,33 @@ impl Image {
         offset.map(|start| &mut data[start..(start + len)])
     }
 
+    /// Clears the content of the image with the given pixel. The image needs to be initialized on
+    /// the cpu otherwise this is a noop.
+    pub fn clear(&mut self, pixel: &[u8]) {
+        if self.data.is_none() {
+            // We don't want to clear an image that doesn't have data already
+            return;
+        }
+        if let Ok(pixel_size) = self.texture_descriptor.format.pixel_size()
+            && pixel_size > 0
+        {
+            let byte_len = pixel_size * self.texture_descriptor.size.volume();
+            debug_assert_eq!(
+                pixel.len() % pixel_size,
+                0,
+                "Must not have incomplete pixel data (pixel size is {}B).",
+                pixel_size,
+            );
+            debug_assert!(
+                pixel.len() <= byte_len,
+                "Clear data must fit within pixel buffer (expected {byte_len}B).",
+            );
+
+            let data = pixel.iter().copied().cycle().take(byte_len).collect();
+            self.data = Some(data);
+        }
+    }
+
     /// Read the color of a specific pixel (1D texture).
     ///
     /// See [`get_color_at`](Self::get_color_at) for more details.
