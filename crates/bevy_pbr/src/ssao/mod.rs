@@ -299,7 +299,8 @@ impl FromWorld for SsaoPipelines {
 
         // Detect the depth format support
         let render_adapter = world.resource::<RenderAdapter>();
-        let depth_format = if render_adapter
+        let detect_r16float_support = true;
+        let depth_format = if detect_r16float_support && render_adapter
             .get_texture_format_features(TextureFormat::R16Float)
             .allowed_usages
             .contains(TextureUsages::STORAGE_BINDING)
