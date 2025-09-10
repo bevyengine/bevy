@@ -667,13 +667,13 @@ pub struct TemporalJitter {
 
 impl TemporalJitter {
     pub fn jitter_projection(&self, clip_from_view: &mut Mat4, view_size: Vec2) {
-        let projection_pixel = if clip_from_view.w_axis.w == 1.0 {
-            vec2(clip_from_view.x_axis.x, clip_from_view.y_axis.y) * 0.5
-        } else {
-            Vec2::ONE
-        };
         // https://github.com/GPUOpen-LibrariesAndSDKs/FidelityFX-SDK/blob/d7531ae47d8b36a5d4025663e731a47a38be882f/docs/techniques/media/super-resolution-temporal/jitter-space.svg
-        let jitter = (projection_pixel * self.offset * vec2(2.0, -2.0)) / view_size;
+        let mut jitter = (self.offset * vec2(2.0, -2.0)) / view_size;
+
+        // orthographic
+        if clip_from_view.w_axis.w == 1.0 {
+            jitter *= vec2(clip_from_view.x_axis.x, clip_from_view.y_axis.y) * 0.5
+        };
 
         clip_from_view.z_axis.x += jitter.x;
         clip_from_view.z_axis.y += jitter.y;
