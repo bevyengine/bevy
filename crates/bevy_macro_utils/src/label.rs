@@ -77,7 +77,7 @@ pub fn derive_label(
         syn::parse2(quote! {
             Self: 'static + Send + Sync + Clone + Eq + ::core::fmt::Debug + ::core::hash::Hash
         })
-        .unwrap(),
+        .expect("invalid WherePredicate"),
     );
     quote! {
         // To ensure alloc is available, but also prevent its name from clashing, we place the implementation inside an anonymous constant

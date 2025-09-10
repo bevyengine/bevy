@@ -74,10 +74,7 @@ mod internal {
         pin::Pin,
         task::{Context, Poll},
     };
-    use std::sync::{
-        mpsc::{self, Receiver, Sender},
-        Arc,
-    };
+    use std::sync::mpsc::{self, Receiver, Sender};
 
     use alloc::{
         format,
@@ -87,7 +84,7 @@ mod internal {
     use bevy_app::{App, First, Startup, Update};
     use bevy_ecs::resource::Resource;
     use bevy_ecs::{prelude::ResMut, system::Commands};
-    use bevy_platform::{cell::SyncCell, time::Instant};
+    use bevy_platform::{cell::SyncCell, sync::Arc, time::Instant};
     use bevy_tasks::{AsyncComputeTaskPool, Task};
     use log::info;
     use sysinfo::{CpuRefreshKind, MemoryRefreshKind, RefreshKind, System};
@@ -216,7 +213,10 @@ mod internal {
                 self.last_refresh = Instant::now();
 
                 let sysinfo_refresh_data = SysinfoRefreshData::new(&mut self.system);
-                self.sender.send(sysinfo_refresh_data).unwrap();
+                if self.sender.send(sysinfo_refresh_data).is_err() {
+                    // The receiver has been dropped. Kill the task.
+                    return Poll::Ready(());
+                }
             }
 
             // Always reschedules

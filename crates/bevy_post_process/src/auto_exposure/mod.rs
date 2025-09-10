@@ -46,10 +46,11 @@ impl Plugin for AutoExposurePlugin {
         app.add_plugins(RenderAssetPlugin::<GpuAutoExposureCompensationCurve>::default())
             .init_asset::<AutoExposureCompensationCurve>()
             .register_asset_reflect::<AutoExposureCompensationCurve>();
-        app.world_mut()
+        // The default handle is always valid.
+        let _ = app
+            .world_mut()
             .resource_mut::<Assets<AutoExposureCompensationCurve>>()
-            .insert(&Handle::default(), AutoExposureCompensationCurve::default())
-            .unwrap();
+            .insert(&Handle::default(), AutoExposureCompensationCurve::default());
 
         app.add_plugins(ExtractComponentPlugin::<AutoExposure>::default());
 

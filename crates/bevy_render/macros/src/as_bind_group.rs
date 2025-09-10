@@ -374,7 +374,7 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
 
             let (binding_index, nested_meta_items) = get_binding_nested_attr(attr)?;
 
-            let field_name = field.ident.as_ref().unwrap();
+            let field_name = field.ident.as_ref().expect("Field has no name!");
             let required_len = binding_index as usize + 1;
             if required_len > binding_states.len() {
                 binding_states.resize(required_len, BindingState::Free);
@@ -447,7 +447,7 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
                     let visibility =
                         visibility.hygienic_quote(&quote! { #render_path::render_resource });
 
-                    let field_name = field.ident.as_ref().unwrap();
+                    let field_name = field.ident.as_ref().expect("Field has no name!");
 
                     if buffer {
                         binding_impls.push(quote! {
@@ -593,7 +593,7 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
                         sample_type,
                         multisampled,
                         visibility,
-                    } = tex_attrs.as_ref().unwrap();
+                    } = tex_attrs.as_ref().expect("No texture attributes found.");
 
                     let visibility =
                         visibility.hygienic_quote(&quote! { #render_path::render_resource });
@@ -813,7 +813,7 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
             // single field uniform bindings for a given index can use a straightforward binding
             if uniform_fields.len() == 1 {
                 let field = &uniform_fields[0];
-                let field_name = field.ident.as_ref().unwrap();
+                let field_name = field.ident.as_ref().expect("Field has no name!");
                 let field_ty = &field.ty;
                 binding_impls.push(quote! {{
                     let mut buffer = #render_path::render_resource::encase::UniformBuffer::new(Vec::new());
@@ -851,7 +851,7 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
                     Span::call_site(),
                 );
 
-                let field_name = uniform_fields.iter().map(|f| f.ident.as_ref().unwrap());
+                let field_name = uniform_fields.iter().flat_map(|f| f.ident.as_ref());
                 let field_type = uniform_fields.iter().map(|f| &f.ty);
                 field_struct_impls.push(quote! {
                     #[derive(#render_path::render_resource::ShaderType)]
@@ -860,7 +860,7 @@ pub fn derive_as_bind_group(ast: syn::DeriveInput) -> Result<TokenStream> {
                     }
                 });
 
-                let field_name = uniform_fields.iter().map(|f| f.ident.as_ref().unwrap());
+                let field_name = uniform_fields.iter().flat_map(|f| f.ident.as_ref());
                 binding_impls.push(quote! {{
                     let mut buffer = #render_path::render_resource::encase::UniformBuffer::new(Vec::new());
                     buffer.write(&#uniform_struct_name {
@@ -1585,7 +1585,6 @@ fn get_texture_attrs(metas: Vec<Meta>) -> Result<TextureAttrs> {
     let mut sample_type = Default::default();
     let mut multisampled = Default::default();
     let mut filterable = None;
-    let mut filterable_ident = None;
 
     let mut visibility = ShaderStageVisibility::vertex_fragment();
 
@@ -1608,8 +1607,7 @@ fn get_texture_attrs(metas: Vec<Meta>) -> Result<TextureAttrs> {
             }
             // Parse #[texture(0, filterable = "...")].
             NameValue(m) if m.path == FILTERABLE => {
-                filterable = get_lit_bool(FILTERABLE, &m.value)?.into();
-                filterable_ident = m.path.into();
+                filterable = Some((get_lit_bool(FILTERABLE, &m.value)?, m.path));
             }
             // Parse #[texture(0, visibility(...))].
             List(m) if m.path == VISIBILITY => {
@@ -1632,8 +1630,7 @@ fn get_texture_attrs(metas: Vec<Meta>) -> Result<TextureAttrs> {
 
     // Resolve `filterable` since the float
     // sample type is the one that contains the value.
-    if let Some(filterable) = filterable {
-        let path = filterable_ident.unwrap();
+    if let Some((filterable, path)) = filterable {
         match sample_type {
             BindingTextureSampleType::Float { filterable: _ } => {
                 sample_type = BindingTextureSampleType::Float { filterable }

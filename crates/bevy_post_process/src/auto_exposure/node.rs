@@ -14,6 +14,7 @@ use bevy_render::{
     globals::GlobalsBuffer,
     render_asset::RenderAssets,
     render_graph::*,
+    render_phase::DrawError,
     render_resource::*,
     renderer::RenderContext,
     texture::{FallbackImage, GpuImage},
@@ -58,7 +59,9 @@ impl Node for AutoExposureNode {
 
         let view_uniforms_resource = world.resource::<ViewUniforms>();
         let view_uniforms = &view_uniforms_resource.uniforms;
-        let view_uniforms_buffer = view_uniforms.buffer().unwrap();
+        let view_uniforms_buffer = view_uniforms
+            .buffer()
+            .ok_or(DrawError::ViewUniformsBufferNotFound)?;
 
         let globals_buffer = world.resource::<GlobalsBuffer>();
 

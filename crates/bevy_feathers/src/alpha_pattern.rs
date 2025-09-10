@@ -30,7 +30,7 @@ impl FromWorld for AlphaPatternResource {
     fn from_world(world: &mut bevy_ecs::world::World) -> Self {
         let mut ui_materials = world
             .get_resource_mut::<Assets<AlphaPatternMaterial>>()
-            .unwrap();
+            .expect("AlphaPatternMaterial assets missing!");
         Self(ui_materials.add(AlphaPatternMaterial::default()))
     }
 }

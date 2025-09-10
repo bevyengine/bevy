@@ -108,8 +108,8 @@ fn update_frame_time_values(
         .map(|x| *x as f32 / 1000.0)
         .collect::<Vec<_>>();
     for (_, material) in frame_time_graph_materials.iter_mut() {
-        let buffer = buffers.get_mut(&material.values).unwrap();
-
-        buffer.set_data(frame_times.clone());
+        if let Some(buffer) = buffers.get_mut(&material.values) {
+            buffer.set_data(frame_times.clone());
+        }
     }
 }

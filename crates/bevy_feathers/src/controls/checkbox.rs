@@ -156,8 +156,12 @@ fn update_checkbox_styles(
         else {
             continue;
         };
-        let (outline_bg, outline_border) = q_outline.get_mut(outline_ent).unwrap();
-        let mark_color = q_mark.get_mut(mark_ent).unwrap();
+        let Ok((outline_bg, outline_border)) = q_outline.get_mut(outline_ent) else {
+            continue;
+        };
+        let Ok(mark_color) = q_mark.get_mut(mark_ent) else {
+            continue;
+        };
         set_checkbox_styles(
             checkbox_ent,
             outline_ent,
@@ -211,8 +215,12 @@ fn update_checkbox_styles_remove(
                 else {
                     return;
                 };
-                let (outline_bg, outline_border) = q_outline.get_mut(outline_ent).unwrap();
-                let mark_color = q_mark.get_mut(mark_ent).unwrap();
+                let Ok((outline_bg, outline_border)) = q_outline.get_mut(outline_ent) else {
+                    return;
+                };
+                let Ok(mark_color) = q_mark.get_mut(mark_ent) else {
+                    return;
+                };
                 set_checkbox_styles(
                     checkbox_ent,
                     outline_ent,

@@ -47,6 +47,8 @@ pub enum DrawError {
     InvalidViewQuery,
     #[error("View entity not found")]
     ViewEntityNotFound,
+    #[error("View uniforms buffer not found")]
+    ViewUniformsBufferNotFound,
 }
 
 // TODO: make this generic?

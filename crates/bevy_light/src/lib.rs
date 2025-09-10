@@ -425,16 +425,14 @@ pub fn check_dir_light_mesh_visibility(
                 },
             );
             // collect entities from parallel queue
+            let view_entities = visible_entities
+                .entities
+                .get_mut(view)
+                .expect("view not present in visible_entities");
             for entities in view_visible_entities_queue.iter_mut() {
-                visible_entities
-                    .entities
-                    .get_mut(view)
-                    .unwrap()
-                    .iter_mut()
-                    .zip(entities.iter_mut())
-                    .for_each(|(dst, source)| {
-                        dst.append(source);
-                    });
+                for (dst, source) in view_entities.iter_mut().zip(entities.iter_mut()) {
+                    dst.append(source);
+                }
             }
         }
 

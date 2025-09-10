@@ -1,3 +1,9 @@
+// FIXME: Address the unwraps used in this crate. See https://github.com/bevyengine/bevy/issues/12660.
+#![expect(
+    clippy::unwrap_used,
+    reason = "Temporary hold until all unwraps in this crate can be addressed."
+)]
+
 //! This crate provides a set of core widgets for Bevy UI, such as buttons, checkboxes, and sliders.
 //! These widgets have no inherent styling, it's the responsibility of the user to add styling
 //! appropriate for their game or application.

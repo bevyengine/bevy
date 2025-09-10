@@ -514,7 +514,7 @@ use bevy_platform::collections::HashMap;
 use bevy_utils::prelude::default;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use std::sync::RwLock;
+use std::sync::{PoisonError, RwLock};
 
 pub mod builtin_methods;
 #[cfg(feature = "http")]
@@ -550,10 +550,13 @@ impl RemotePlugin {
         name: impl Into<String>,
         handler: impl IntoSystem<In<Option<Value>>, BrpResult, M>,
     ) -> Self {
-        self.methods.get_mut().unwrap().push((
-            name.into(),
-            RemoteMethodHandler::Instant(Box::new(IntoSystem::into_system(handler))),
-        ));
+        self.methods
+            .get_mut()
+            .unwrap_or_else(PoisonError::into_inner)
+            .push((
+                name.into(),
+                RemoteMethodHandler::Instant(Box::new(IntoSystem::into_system(handler))),
+            ));
         self
     }
 
@@ -564,10 +567,13 @@ impl RemotePlugin {
         name: impl Into<String>,
         handler: impl IntoSystem<In<Option<Value>>, BrpResult<Option<Value>>, M>,
     ) -> Self {
-        self.methods.get_mut().unwrap().push((
-            name.into(),
-            RemoteMethodHandler::Watching(Box::new(IntoSystem::into_system(handler))),
-        ));
+        self.methods
+            .get_mut()
+            .unwrap_or_else(PoisonError::into_inner)
+            .push((
+                name.into(),
+                RemoteMethodHandler::Watching(Box::new(IntoSystem::into_system(handler))),
+            ));
         self
     }
 }
@@ -654,7 +660,7 @@ impl Plugin for RemotePlugin {
     fn build(&self, app: &mut App) {
         let mut remote_methods = RemoteMethods::new();
 
-        let plugin_methods = &mut *self.methods.write().unwrap();
+        let plugin_methods = &mut *self.methods.write().unwrap_or_else(PoisonError::into_inner);
         for (name, handler) in plugin_methods.drain(..) {
             remote_methods.insert(
                 name,

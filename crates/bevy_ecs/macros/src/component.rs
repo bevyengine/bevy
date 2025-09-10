@@ -832,6 +832,7 @@ fn derive_relationship_target(
     }))
 }
 
+#[expect(clippy::unwrap_used, reason = "The invariant is already being checked")]
 /// Returns the field with the `#[relationship]` attribute, the only field if unnamed,
 /// or the only field in a [`Fields::Named`] with one field, otherwise `Err`.
 fn relationship_field<'a>(

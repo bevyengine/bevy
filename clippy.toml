@@ -13,6 +13,8 @@ doc-valid-idents = [
 
 check-private-items = true
 
+allow-unwrap-in-tests = true
+
 disallowed-methods = [
   { path = "f32::powi", reason = "use bevy_math::ops::FloatPow::squared, bevy_math::ops::FloatPow::cubed, or bevy_math::ops::powf instead for libm determinism" },
   { path = "f32::log", reason = "use bevy_math::ops::ln, bevy_math::ops::log2, or bevy_math::ops::log10 instead for libm determinism" },

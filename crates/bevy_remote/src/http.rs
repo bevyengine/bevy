@@ -19,7 +19,6 @@ use bevy_ecs::resource::Resource;
 use bevy_ecs::system::Res;
 use bevy_tasks::{futures_lite::StreamExt, IoTaskPool};
 use core::{
-    convert::Infallible,
     net::{IpAddr, Ipv4Addr},
     pin::Pin,
     task::{Context, Poll},
@@ -410,26 +409,21 @@ struct BrpStream {
 
 impl Body for BrpStream {
     type Data = Bytes;
-    type Error = Infallible;
+    type Error = serde_json::Error;
 
     fn poll_frame(
         mut self: Pin<&mut Self>,
         cx: &mut Context<'_>,
     ) -> Poll<Option<Result<Frame<Self::Data>, Self::Error>>> {
-        match self.as_mut().rx.poll_next(cx) {
-            Poll::Ready(result) => match result {
-                Some(result) => {
-                    let response = BrpResponse::new(self.id.clone(), result);
-                    let serialized = serde_json::to_string(&response).unwrap();
-                    let bytes =
-                        Bytes::from(format!("data: {serialized}\n\n").as_bytes().to_owned());
-                    let frame = Frame::data(bytes);
-                    Poll::Ready(Some(Ok(frame)))
-                }
-                None => Poll::Ready(None),
-            },
-            Poll::Pending => Poll::Pending,
-        }
+        self.as_mut().rx.poll_next(cx).map(|result| {
+            result.map(|result| {
+                let response = BrpResponse::new(self.id.clone(), result);
+                let serialized = serde_json::to_string(&response)?;
+                let bytes = Bytes::from(format!("data: {serialized}\n\n").as_bytes().to_owned());
+                let frame = Frame::data(bytes);
+                Ok(frame)
+            })
+        })
     }
 
     fn is_end_stream(&self) -> bool {
@@ -449,14 +443,16 @@ enum BrpHttpBody {
 
 impl Body for BrpHttpBody {
     type Data = Bytes;
-    type Error = Infallible;
+    type Error = serde_json::Error;
 
     fn poll_frame(
         self: Pin<&mut Self>,
         cx: &mut Context<'_>,
     ) -> Poll<Option<Result<Frame<Self::Data>, Self::Error>>> {
         match &mut *self.get_mut() {
-            BrpHttpBody::Complete(body) => Body::poll_frame(Pin::new(body), cx),
+            BrpHttpBody::Complete(body) => {
+                Body::poll_frame(Pin::new(body), cx).map(|poll| poll.map(|res| Ok(res.unwrap())))
+            }
             BrpHttpBody::Stream(body) => Body::poll_frame(Pin::new(body), cx),
         }
     }

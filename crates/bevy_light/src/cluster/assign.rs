@@ -641,11 +641,11 @@ pub(crate) fn assign_objects_to_clusters(
                 };
                 for z in min_cluster.z..=max_cluster.z {
                     let mut z_object = view_clusterable_object_sphere.clone();
-                    if z_center.is_none() || z != z_center.unwrap() {
+                    if z_center.is_none() || Some(z) != z_center {
                         // The z plane closer to the clusterable object has the
                         // larger radius circle where the light sphere
                         // intersects the z plane.
-                        let z_plane = if z_center.is_some() && z < z_center.unwrap() {
+                        let z_plane = if z_center.is_some() && Some(z) < z_center {
                             z_planes[(z + 1) as usize]
                         } else {
                             z_planes[z as usize]
@@ -660,11 +660,11 @@ pub(crate) fn assign_objects_to_clusters(
                     }
                     for y in min_cluster.y..=max_cluster.y {
                         let mut y_object = z_object.clone();
-                        if y_center.is_none() || y != y_center.unwrap() {
+                        if y_center.is_none() || Some(y) != y_center {
                             // The y plane closer to the clusterable object has
                             // the larger radius circle where the light sphere
                             // intersects the y plane.
-                            let y_plane = if y_center.is_some() && y < y_center.unwrap() {
+                            let y_plane = if y_center.is_some() && Some(y) < y_center {
                                 y_planes[(y + 1) as usize]
                             } else {
                                 y_planes[y as usize]
@@ -715,17 +715,17 @@ pub(crate) fn assign_objects_to_clusters(
 
                         match clusterable_object.object_type {
                             ClusterableObjectType::SpotLight { .. } => {
+                                #[expect(
+                                    clippy::unwrap_used,
+                                    reason = "If it's a spotlight, then this will never be None."
+                                )]
                                 let (view_light_direction, angle_sin, angle_cos) =
                                     spot_light_dir_sin_cos.unwrap();
                                 for x in min_x..=max_x {
                                     // further culling for spot lights
                                     // get or initialize cluster bounding sphere
-                                    let cluster_aabb_sphere =
-                                        &mut cluster_aabb_spheres[cluster_index];
-                                    let cluster_aabb_sphere =
-                                        if let Some(sphere) = cluster_aabb_sphere {
-                                            &*sphere
-                                        } else {
+                                    let cluster_aabb_sphere = cluster_aabb_spheres[cluster_index]
+                                        .get_or_insert_with(|| {
                                             let aabb = compute_aabb_for_cluster(
                                                 first_slice_depth,
                                                 far_z,
@@ -736,13 +736,12 @@ pub(crate) fn assign_objects_to_clusters(
                                                 clusters.dimensions,
                                                 UVec3::new(x, y, z),
                                             );
-                                            let sphere = Sphere {
+
+                                            Sphere {
                                                 center: aabb.center,
                                                 radius: aabb.half_extents.length(),
-                                            };
-                                            *cluster_aabb_sphere = Some(sphere);
-                                            cluster_aabb_sphere.as_ref().unwrap()
-                                        };
+                                            }
+                                        });
 
                                     // test -- based on https://bartwronski.com/2017/04/13/cull-that-cone/
                                     let spot_light_offset = Vec3::from(

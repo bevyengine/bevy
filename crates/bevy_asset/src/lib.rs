@@ -1,3 +1,9 @@
+// FIXME: Address the unwraps used in this crate. See https://github.com/bevyengine/bevy/issues/12660.
+#![expect(
+    clippy::unwrap_used,
+    reason = "Temporary hold until all unwraps in this crate can be addressed."
+)]
+
 //! In the context of game development, an "asset" is a piece of content that is loaded from disk and displayed in the game.
 //! Typically, these are authored by artists and designers (in contrast to code),
 //! are relatively large in size, and include everything from textures and models to sounds and music to levels and scripts.

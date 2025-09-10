@@ -31,7 +31,8 @@ impl Plugin for HotPatchPlugin {
         #[cfg(not(target_family = "wasm"))]
         connect_subsecond();
         subsecond::register_handler(Arc::new(move || {
-            sender.send(HotPatched).unwrap();
+            // If the channel is full or closed, ignore the error.
+            let _ = sender.try_send(HotPatched);
         }));
 
         // Adds a system that will read the channel for new `HotPatched` messages, send the message, and update change detection.
