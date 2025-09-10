@@ -26,7 +26,7 @@ use bevy_ecs::entity::Entity;
 ///
 /// # Toggle switches
 ///
-/// The [`CoreCheckbox`] component can be used to implement other kinds of toggle widgets. If you
+/// The [`CheckboxBehavior`] component can be used to implement other kinds of toggle widgets. If you
 /// are going to do a toggle switch, you should override the [`AccessibilityNode`] component with
 /// the `Switch` role instead of the `Checkbox` role.
 #[derive(Component, Debug, Default)]
@@ -86,12 +86,12 @@ fn checkbox_on_pointer_click(
 ///
 /// ```
 /// use bevy_ecs::system::Commands;
-/// use bevy_ui_widgets::{CoreCheckbox, SetChecked};
+/// use bevy_ui_widgets::{CheckboxBehavior, SetChecked};
 ///
 /// fn setup(mut commands: Commands) {
 ///     // Create a checkbox
 ///     let entity = commands.spawn((
-///         CoreCheckbox::default(),
+///         CheckboxBehavior::default(),
 ///     )).id();
 ///
 ///     // Set to checked
@@ -100,7 +100,7 @@ fn checkbox_on_pointer_click(
 /// ```
 #[derive(EntityEvent)]
 pub struct SetChecked {
-    /// The [`CoreCheckbox`] entity to set the "checked" state on.
+    /// The [`CheckboxBehavior`] entity to set the "checked" state on.
     pub entity: Entity,
     /// Sets the `checked` state to `true` or `false`.
     pub checked: bool,
@@ -113,12 +113,12 @@ pub struct SetChecked {
 ///
 /// ```
 /// use bevy_ecs::system::Commands;
-/// use bevy_ui_widgets::{CoreCheckbox, ToggleChecked};
+/// use bevy_ui_widgets::{CheckboxBehavior, ToggleChecked};
 ///
 /// fn setup(mut commands: Commands) {
 ///     // Create a checkbox
 ///     let entity = commands.spawn((
-///         CoreCheckbox::default(),
+///         CheckboxBehavior::default(),
 ///     )).id();
 ///
 ///     // Set to checked
@@ -127,7 +127,7 @@ pub struct SetChecked {
 /// ```
 #[derive(EntityEvent)]
 pub struct ToggleChecked {
-    /// The [`Entity`] of the toggled [`CoreCheckbox`]
+    /// The [`Entity`] of the toggled [`CheckboxBehavior`]
     pub entity: Entity,
 }
 
@@ -183,7 +183,7 @@ fn set_checkbox_state(
     }
 }
 
-/// Plugin that adds the observers for the [`CoreCheckbox`] widget.
+/// Plugin that adds the observers for the [`CheckboxBehavior`] widget.
 pub struct CheckboxBehaviorPlugin;
 
 impl Plugin for CheckboxBehaviorPlugin {

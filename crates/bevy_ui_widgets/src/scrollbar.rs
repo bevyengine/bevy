@@ -319,7 +319,7 @@ fn update_scrollbar_thumb(
     }
 }
 
-/// Plugin that adds the observers for the [`CoreScrollbar`] widget.
+/// Plugin that adds the observers for the [`ScrollbarBehavior`] widget.
 pub struct ScrollbarBehaviorPlugin;
 
 impl Plugin for ScrollbarBehaviorPlugin {

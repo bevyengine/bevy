@@ -489,11 +489,11 @@ pub(crate) fn slider_on_insert_step(insert: On<Insert, SliderStep>, mut world: D
 ///
 /// ```
 /// # use bevy_ecs::system::Commands;
-/// # use bevy_ui_widgets::{CoreSlider, SliderRange, SliderValue, SetSliderValue, SliderValueChange};
+/// # use bevy_ui_widgets::{SliderBehavior, SliderRange, SliderValue, SetSliderValue, SliderValueChange};
 /// fn setup(mut commands: Commands) {
 ///     // Create a slider
 ///     let entity = commands.spawn((
-///         CoreSlider::default(),
+///         SliderBehavior::default(),
 ///         SliderValue(0.5),
 ///         SliderRange::new(0.0, 1.0),
 ///     )).id();
@@ -564,7 +564,7 @@ fn slider_on_set_value(
     }
 }
 
-/// Plugin that adds the observers for the [`CoreSlider`] widget.
+/// Plugin that adds the observers for the [`SliderBehavior`] widget.
 pub struct SliderBehaviorPlugin;
 
 impl Plugin for SliderBehaviorPlugin {

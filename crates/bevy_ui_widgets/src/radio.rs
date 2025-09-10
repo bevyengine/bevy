@@ -19,16 +19,16 @@ use bevy_ui::{Checkable, Checked, InteractionDisabled};
 use crate::{Activate, Callback, Notify};
 
 /// Headless widget implementation for a "radio button group". This component is used to group
-/// multiple [`CoreRadio`] components together, allowing them to behave as a single unit. It
+/// multiple [`RadioButtonBehavior`] components together, allowing them to behave as a single unit. It
 /// implements the tab navigation logic and keyboard shortcuts for radio buttons.
 ///
-/// The [`CoreRadioGroup`] component does not have any state itself, and makes no assumptions about
+/// The [`RadioGroupBehavior`] component does not have any state itself, and makes no assumptions about
 /// what, if any, value is associated with each radio button, or what Rust type that value might be.
 /// Instead, the output of the group is the entity id of the selected button. The app can then
 /// derive the selected value from this using app-specific means, such as accessing a component on
 /// the individual buttons.
 ///
-/// The [`CoreRadioGroup`] doesn't actually set the [`Checked`] states directly, that is presumed to
+/// The [`RadioGroupBehavior`] doesn't actually set the [`Checked`] states directly, that is presumed to
 /// happen by the app or via some external data-binding scheme. Typically, each button would be
 /// associated with a particular constant value, and would be checked whenever that value is equal
 /// to the group's value. This also means that as long as each button's associated value is unique
@@ -41,7 +41,7 @@ pub struct RadioGroupBehavior {
 }
 
 /// Headless widget implementation for radio buttons. These should be enclosed within a
-/// [`CoreRadioGroup`] widget, which is responsible for the mutual exclusion logic.
+/// [`RadioGroupBehavior`] widget, which is responsible for the mutual exclusion logic.
 ///
 /// According to the WAI-ARIA best practices document, radio buttons should not be focusable,
 /// but rather the enclosing group should be focusable.
@@ -206,7 +206,7 @@ fn radio_group_on_button_click(
     }
 }
 
-/// Plugin that adds the observers for the [`CoreRadioGroup`] widget.
+/// Plugin that adds the observers for the [`RadioGroupBehavior`] widget.
 pub struct RadioGroupBehaviorPlugin;
 
 impl Plugin for RadioGroupBehaviorPlugin {
