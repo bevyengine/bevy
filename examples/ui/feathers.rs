@@ -20,8 +20,8 @@ use bevy::{
     prelude::*,
     ui::{Checked, InteractionDisabled},
     ui_widgets::{
-        Activate, Callback, CoreWidgetsPlugins, RadioButtonBehavior, RadioGroupBehavior,
-        SliderPrecision, SliderStep, SliderValue, ValueChange,
+        Activate, Callback, RadioButtonBehavior, RadioGroupBehavior, SliderPrecision, SliderStep,
+        SliderValue, ValueChange, WidgetBehaviorPlugins,
     },
 };
 
@@ -42,7 +42,7 @@ fn main() {
     App::new()
         .add_plugins((
             DefaultPlugins,
-            CoreWidgetsPlugins,
+            WidgetBehaviorPlugins,
             InputDispatchPlugin,
             TabNavigationPlugin,
             FeathersPlugin,

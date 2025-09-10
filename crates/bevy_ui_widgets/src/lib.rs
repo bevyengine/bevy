@@ -27,11 +27,11 @@ pub use slider::*;
 use bevy_app::{PluginGroup, PluginGroupBuilder};
 use bevy_ecs::entity::Entity;
 
-/// A plugin group that registers the observers for all of the s widgets. If you don't want to
+/// A plugin group that registers the observers for all of the widgets in this crate. If you don't want to
 /// use all of the widgets, you can import the individual widget plugins instead.
-pub struct CoreWidgetsPlugins;
+pub struct WidgetBehaviorPlugins;
 
-impl PluginGroup for CoreWidgetsPlugins {
+impl PluginGroup for WidgetBehaviorPlugins {
     fn build(self) -> PluginGroupBuilder {
         PluginGroupBuilder::start::<Self>()
             .add(ButtonBehaviorPlugin)
