@@ -150,8 +150,7 @@ macro_rules! tuple_impl {
                 // - If a field is `!NoBundleEffect`, it must be valid since a safe
                 //   implementation of `DynamicBundle` only moves the value out only
                 //   once between `get_components` and `apply_effect`.
-                $( let $alias = ptr.move_field(|ptr| &raw mut (*ptr).$index); )*
-                core::mem::forget(ptr);
+                bevy_ptr::deconstruct_moving_ptr!(ptr => ($($index => $alias,)*));
                 // SAFETY:
                 // - If `ptr` is aligned, then field_ptr is aligned properly. Rust tuples cannot be `repr(packed)`.
                 $( $name::get_components($alias.try_into().debug_checked_unwrap(), func); )*
@@ -170,8 +169,9 @@ macro_rules! tuple_impl {
                 // - If a field is `!NoBundleEffect`, it must be valid since a safe
                 //   implementation of `DynamicBundle` only moves the value out only
                 //   once between `get_components` and `apply_effect`.
-                $( let $alias = ptr.move_field(|ptr| (&raw mut (*ptr.cast::<Self>()).$index).cast::<MaybeUninit<$name>>());)*
-                core::mem::forget(ptr);
+                bevy_ptr::deconstruct_moving_ptr!(ptr: MaybeUninit<Self> => (
+                    $($index: $name => $alias,)*
+                ));
                 // SAFETY:
                 // - If `ptr` is aligned, then field_ptr is aligned properly. Rust tuples cannot be `repr(packed)`.
                 $( $name::apply_effect($alias.try_into().debug_checked_unwrap(), entity); )*

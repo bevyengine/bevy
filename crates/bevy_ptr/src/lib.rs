@@ -516,17 +516,22 @@ impl<'a, T, A: IsAligned> MovingPtr<'_, T, A> {
     /// // SAFETY:
     /// // - `field_a` and `field_b` are moved out of but never accessed after this.
     /// let (partial_parent, ()) = MovingPtr::partial_move(parent, |parent_ptr| unsafe {
-    ///   bevy_ptr::deconstruct_moving_ptr!(parent_ptr, Parent {
-    ///     field_a: FieldAType => { insert(field_a) },
-    ///     field_b: FieldBType => { insert(field_b) },
+    ///   bevy_ptr::deconstruct_moving_ptr!(parent_ptr => {
+    ///     field_a,
+    ///     field_b,
     ///   });
+    ///   
+    ///   insert(field_a);
+    ///   insert(field_b);
     /// });
     ///
+    /// // Move the rest of fields out of the parent.
     /// unsafe {
-    ///    // Move the rest of fields out of the parent.
-    ///    bevy_ptr::deconstruct_moving_ptr!(partial_parent, Parent {
-    ///       field_c: FieldBType => { insert(field_c) },
+    ///    bevy_ptr::deconstruct_moving_ptr!(partial_parent: MaybeUninit<Parent> => {
+    ///       field_c: FieldCType,
     ///    });
+    ///
+    ///    insert(field_c);
     /// }
     /// ```
     ///
@@ -1188,11 +1193,12 @@ macro_rules! move_as_ptr {
 ///
 /// # Safety
 /// This macro generates unsafe code and must be set up correctly to avoid undefined behavior.
-///  - The provided type must match the type of the value pointed to by the [`MovingPtr`].
 ///  - The type and name of the fields must match the type's definition. For tuples and tuple structs,
 ///    this would be the tuple indices.
 ///
-/// # Example
+/// # Examples
+///
+/// ## Structs
 ///
 /// ```
 /// use core::mem::{offset_of, MaybeUninit};
@@ -1202,11 +1208,11 @@ macro_rules! move_as_ptr {
 /// # struct FieldBType(usize);
 /// # struct FieldCType(usize);
 ///
-/// pub struct Parent {
-///   pub field_a: FieldAType,
-///   pub field_b: FieldBType,
-///   pub field_c: FieldCType,
-/// }
+/// # pub struct Parent {
+/// #   pub field_a: FieldAType,
+/// #  pub field_b: FieldBType,
+/// #  pub field_c: FieldCType,
+/// # }
 ///
 /// let parent = Parent {
 ///   field_a: FieldAType(11),
@@ -1221,14 +1227,66 @@ macro_rules! move_as_ptr {
 /// // Converts `parent` into a `MovingPtr`
 /// move_as_ptr!(parent);
 ///
+/// // The field names must match the name used in the type definition.
+/// // Each one will be a `MovingPtr` of the field's type.
 /// unsafe {
-///   bevy_ptr::deconstruct_moving_ptr!(parent, Parent {
-///      // The field name and type must match the name used in the type definition.
-///      // Each one will be a `MovingPtr` of the supplied type
-///      field_a: FieldAType => { field_a.assign_to(&mut target_a) },
-///      field_b: FieldBType => { field_b.assign_to(&mut target_b) },
-///      field_c: FieldCType => { field_c.assign_to(&mut target_c) },
+///   bevy_ptr::deconstruct_moving_ptr!(parent => {
+///      field_a,
+///      field_b,
+///      field_c,
 ///   });
+///
+///   field_a.assign_to(&mut target_a);
+///   field_b.assign_to(&mut target_b);
+///   field_c.assign_to(&mut target_c);
+/// }
+///
+/// assert_eq!(target_a.0, 11);
+/// assert_eq!(target_b.0, 22);
+/// assert_eq!(target_c.0, 33);
+/// ```
+///
+/// ## Tuples
+///
+/// ```
+/// use core::mem::{offset_of, MaybeUninit};
+/// use bevy_ptr::{MovingPtr, move_as_ptr};
+/// # use bevy_ptr::Unaligned;
+/// # struct FieldAType(usize);
+/// # struct FieldBType(usize);
+/// # struct FieldCType(usize);
+///
+/// # pub struct Parent {
+/// #   pub field_a: FieldAType,
+/// #  pub field_b: FieldBType,
+/// #  pub field_c: FieldCType,
+/// # }
+///
+/// let parent = (
+///   FieldAType(11),
+///   FieldBType(22),
+///   FieldCType(33),
+/// );
+///
+/// let mut target_a = FieldAType(101);
+/// let mut target_b = FieldBType(102);
+/// let mut target_c = FieldCType(103);
+///
+/// // Converts `parent` into a `MovingPtr`
+/// move_as_ptr!(parent);
+///
+/// // The field names must match the name used in the type definition.
+/// // Each one will be a `MovingPtr` of the field's type.
+/// unsafe {
+///   bevy_ptr::deconstruct_moving_ptr!(parent => (
+///      0 => field_a,
+///      1 => field_b,
+///      2 => field_c,
+///   ));
+///
+///   field_a.assign_to(&mut target_a);
+///   field_b.assign_to(&mut target_b);
+///   field_c.assign_to(&mut target_c);
 /// }
 ///
 /// assert_eq!(target_a.0, 11);
@@ -1239,11 +1297,24 @@ macro_rules! move_as_ptr {
 /// [`assign_to`]: MovingPtr::assign_to
 #[macro_export]
 macro_rules! deconstruct_moving_ptr {
-    ($ptr:ident, $self_type:tt {$($field_name:tt: $field_type:tt => $field_block:block,)*}) => {
-        $(let $field_name = $ptr.move_field(|f| &raw mut (*f.cast::<$self_type>()).$field_name);)*
-        // Each field block may panic! Ensure that `parent_ptr` cannot be dropped before
-        // calling them!
+    ($ptr:ident => {$($field_name:ident,)*}) => {
+        $(let $field_name = $ptr.move_field(|f| &raw mut (*f).$field_name);)*
         core::mem::forget($ptr);
-        $($field_block)*
+    };
+    ($ptr:ident => ($($field_index:tt => $field_alias:ident,)*)) => {
+        $(let $field_alias = $ptr.move_field(|f| &raw mut (*f).$field_index);)*
+        core::mem::forget($ptr);
+    };
+    ($ptr:ident: MaybeUninit<$self_type:ident> => {$($field_name:tt: $field_type:ident,)*}) => {
+        $(let $field_name = $ptr.move_field(|f|
+            (&raw mut (*f.cast::<$self_type>()).$field_name).cast::<core::mem::MaybeUninit<$field_type>>()
+        );)*
+        core::mem::forget($ptr);
+    };
+    ($ptr:ident: MaybeUninit<$self_type:ident> => ($($field_index:tt: $field_type:ident => $field_alias:ident,)*)) => {
+        $(let $field_alias = $ptr.move_field(|f|
+            (&raw mut (*f.cast::<$self_type>()).$field_index).cast::<core::mem::MaybeUninit<$field_type>>()
+        );)*
+        core::mem::forget($ptr);
     };
 }
