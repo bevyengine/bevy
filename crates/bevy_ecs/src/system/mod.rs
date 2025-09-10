@@ -1127,7 +1127,7 @@ mod tests {
             for entity in &query {
                 let location = entities.get(entity).unwrap();
                 let archetype = archetypes.get(location.archetype_id).unwrap();
-                let archetype_components = archetype.components().collect::<Vec<_>>();
+                let archetype_components = archetype.components();
                 let bundle_id = bundles
                     .get_id(TypeId::of::<(W<i32>, W<bool>)>())
                     .expect("Bundle used to spawn entity should exist");

@@ -59,11 +59,12 @@ pub trait AppExtStates {
 
     /// Enable state-scoped entity clearing for state `S`.
     ///
-    /// This is enabled by default. If you don't want this behavior, add the `#[states(scoped_entities = false)]`
-    /// attribute when deriving the [`States`] trait.
-    ///
-    /// For more information refer to [`crate::state_scoped`].
+    /// Since state scoped entities are enabled by default, this method does nothing anymore.
     #[doc(hidden)]
+    #[deprecated(
+        since = "0.17.0",
+        note = "State scoped entities are enabled by default. This method does nothing anymore, you can safely remove it."
+    )]
     fn enable_state_scoped_entities<S: States>(&mut self) -> &mut Self;
 
     #[cfg(feature = "bevy_reflect")]
@@ -111,9 +112,7 @@ impl AppExtStates for SubApp {
                 exited: None,
                 entered: Some(state),
             });
-            if S::SCOPED_ENTITIES_ENABLED {
-                self.enable_state_scoped_entities::<S>();
-            }
+            enable_state_scoped_entities::<S>(self);
         } else {
             let name = core::any::type_name::<S>();
             warn!("State {name} is already initialized.");
@@ -136,9 +135,7 @@ impl AppExtStates for SubApp {
                 exited: None,
                 entered: Some(state),
             });
-            if S::SCOPED_ENTITIES_ENABLED {
-                self.enable_state_scoped_entities::<S>();
-            }
+            enable_state_scoped_entities::<S>(self);
         } else {
             // Overwrite previous state and initial event
             self.insert_resource::<State<S>>(State::new(state.clone()));
@@ -173,9 +170,7 @@ impl AppExtStates for SubApp {
                 exited: None,
                 entered: state,
             });
-            if S::SCOPED_ENTITIES_ENABLED {
-                self.enable_state_scoped_entities::<S>();
-            }
+            enable_state_scoped_entities::<S>(self);
         } else {
             let name = core::any::type_name::<S>();
             warn!("Computed state {name} is already initialized.");
@@ -204,9 +199,7 @@ impl AppExtStates for SubApp {
                 exited: None,
                 entered: state,
             });
-            if S::SCOPED_ENTITIES_ENABLED {
-                self.enable_state_scoped_entities::<S>();
-            }
+            enable_state_scoped_entities::<S>(self);
         } else {
             let name = core::any::type_name::<S>();
             warn!("Sub state {name} is already initialized.");
@@ -217,28 +210,7 @@ impl AppExtStates for SubApp {
 
     #[doc(hidden)]
     fn enable_state_scoped_entities<S: States>(&mut self) -> &mut Self {
-        if !self
-            .world()
-            .contains_resource::<Events<StateTransitionEvent<S>>>()
-        {
-            let name = core::any::type_name::<S>();
-            warn!("State scoped entities are enabled for state `{name}`, but the state isn't installed in the app!");
-        }
-
-        // Note: We work with `StateTransition` in set
-        // `StateTransitionSystems::ExitSchedules` rather than `OnExit`, because
-        // `OnExit` only runs for one specific variant of the state.
-        self.add_systems(
-            StateTransition,
-            despawn_entities_on_exit_state::<S>.in_set(StateTransitionSystems::ExitSchedules),
-        )
-        // Note: We work with `StateTransition` in set
-        // `StateTransitionSystems::EnterSchedules` rather than `OnEnter`, because
-        // `OnEnter` only runs for one specific variant of the state.
-        .add_systems(
-            StateTransition,
-            despawn_entities_on_enter_state::<S>.in_set(StateTransitionSystems::EnterSchedules),
-        )
+        self
     }
 
     #[cfg(feature = "bevy_reflect")]
@@ -266,6 +238,31 @@ impl AppExtStates for SubApp {
     }
 }
 
+fn enable_state_scoped_entities<S: States>(app: &mut SubApp) {
+    if !app
+        .world()
+        .contains_resource::<Events<StateTransitionEvent<S>>>()
+    {
+        let name = core::any::type_name::<S>();
+        warn!("State scoped entities are enabled for state `{name}`, but the state wasn't initialized in the app!");
+    }
+
+    // Note: We work with `StateTransition` in set
+    // `StateTransitionSystems::ExitSchedules` rather than `OnExit`, because
+    // `OnExit` only runs for one specific variant of the state.
+    app.add_systems(
+        StateTransition,
+        despawn_entities_on_exit_state::<S>.in_set(StateTransitionSystems::ExitSchedules),
+    )
+    // Note: We work with `StateTransition` in set
+    // `StateTransitionSystems::EnterSchedules` rather than `OnEnter`, because
+    // `OnEnter` only runs for one specific variant of the state.
+    .add_systems(
+        StateTransition,
+        despawn_entities_on_enter_state::<S>.in_set(StateTransitionSystems::EnterSchedules),
+    );
+}
+
 impl AppExtStates for App {
     fn init_state<S: FreelyMutableState + FromWorld>(&mut self) -> &mut Self {
         self.main_mut().init_state::<S>();
@@ -289,7 +286,6 @@ impl AppExtStates for App {
 
     #[doc(hidden)]
     fn enable_state_scoped_entities<S: States>(&mut self) -> &mut Self {
-        self.main_mut().enable_state_scoped_entities::<S>();
         self
     }
 

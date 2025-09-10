@@ -208,20 +208,18 @@ fn spawn_gltf_scene(commands: &mut Commands, asset_server: &AssetServer) {
 
 /// Spawns all the buttons at the bottom of the screen.
 fn spawn_buttons(commands: &mut Commands) {
-    commands
-        .spawn(widgets::main_ui_node())
-        .with_children(|parent| {
-            widgets::spawn_option_buttons(
-                parent,
+    commands.spawn((
+        widgets::main_ui_node(),
+        children![
+            widgets::option_buttons(
                 "Light Type",
                 &[
                     (AppSetting::LightType(LightType::Directional), "Directional"),
                     (AppSetting::LightType(LightType::Point), "Point"),
                     (AppSetting::LightType(LightType::Spot), "Spot"),
                 ],
-            );
-            widgets::spawn_option_buttons(
-                parent,
+            ),
+            widgets::option_buttons(
                 "Shadow Filter",
                 &[
                     (AppSetting::ShadowFilter(ShadowFilter::Temporal), "Temporal"),
@@ -230,16 +228,16 @@ fn spawn_buttons(commands: &mut Commands) {
                         "Non-Temporal",
                     ),
                 ],
-            );
-            widgets::spawn_option_buttons(
-                parent,
+            ),
+            widgets::option_buttons(
                 "Soft Shadows",
                 &[
                     (AppSetting::SoftShadows(true), "On"),
                     (AppSetting::SoftShadows(false), "Off"),
                 ],
-            );
-        });
+            ),
+        ],
+    ));
 }
 
 /// Updates the style of the radio buttons that enable and disable soft shadows

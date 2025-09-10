@@ -574,8 +574,8 @@ pub fn extract_cameras(
                 commands.remove::<RenderLayers>();
             }
 
-            if let Some(perspective) = projection {
-                commands.insert(perspective.clone());
+            if let Some(projection) = projection {
+                commands.insert(projection.clone());
             } else {
                 commands.remove::<Projection>();
             }
@@ -658,10 +658,6 @@ pub fn sort_cameras(
 /// A subpixel offset to jitter a perspective camera's frustum by.
 ///
 /// Useful for temporal rendering techniques.
-///
-/// Do not use with [`OrthographicProjection`].
-///
-/// [`OrthographicProjection`]: bevy_camera::OrthographicProjection
 #[derive(Component, Clone, Default, Reflect)]
 #[reflect(Default, Component, Clone)]
 pub struct TemporalJitter {
@@ -671,15 +667,13 @@ pub struct TemporalJitter {
 
 impl TemporalJitter {
     pub fn jitter_projection(&self, clip_from_view: &mut Mat4, view_size: Vec2) {
-        if clip_from_view.w_axis.w == 1.0 {
-            warn!(
-                "TemporalJitter not supported with OrthographicProjection. Use PerspectiveProjection instead."
-            );
-            return;
-        }
-
         // https://github.com/GPUOpen-LibrariesAndSDKs/FidelityFX-SDK/blob/d7531ae47d8b36a5d4025663e731a47a38be882f/docs/techniques/media/super-resolution-temporal/jitter-space.svg
-        let jitter = (self.offset * vec2(2.0, -2.0)) / view_size;
+        let mut jitter = (self.offset * vec2(2.0, -2.0)) / view_size;
+
+        // orthographic
+        if clip_from_view.w_axis.w == 1.0 {
+            jitter *= vec2(clip_from_view.x_axis.x, clip_from_view.y_axis.y) * 0.5;
+        }
 
         clip_from_view.z_axis.x += jitter.x;
         clip_from_view.z_axis.y += jitter.y;

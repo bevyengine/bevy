@@ -65,6 +65,8 @@ fn setup(
         .spawn((
             Camera2d,
             Camera {
+                // render before the "main pass" camera
+                order: -1,
                 target: RenderTarget::Image(image_handle.clone().into()),
                 ..default()
             },
@@ -100,21 +102,21 @@ fn setup(
                     BackgroundColor(BLUE.into()),
                 ))
                 .observe(
-                    |pointer: On<Pointer<Drag>>, mut nodes: Query<(&mut Node, &ComputedNode)>| {
-                        let (mut node, computed) = nodes.get_mut(pointer.entity()).unwrap();
+                    |drag: On<Pointer<Drag>>, mut nodes: Query<(&mut Node, &ComputedNode)>| {
+                        let (mut node, computed) = nodes.get_mut(drag.entity).unwrap();
                         node.left =
-                            Val::Px(pointer.pointer_location.position.x - computed.size.x / 2.0);
-                        node.top = Val::Px(pointer.pointer_location.position.y - 50.0);
+                            Val::Px(drag.pointer_location.position.x - computed.size.x / 2.0);
+                        node.top = Val::Px(drag.pointer_location.position.y - 50.0);
                     },
                 )
                 .observe(
-                    |pointer: On<Pointer<Over>>, mut colors: Query<&mut BackgroundColor>| {
-                        colors.get_mut(pointer.entity()).unwrap().0 = RED.into();
+                    |over: On<Pointer<Over>>, mut colors: Query<&mut BackgroundColor>| {
+                        colors.get_mut(over.entity).unwrap().0 = RED.into();
                     },
                 )
                 .observe(
-                    |pointer: On<Pointer<Out>>, mut colors: Query<&mut BackgroundColor>| {
-                        colors.get_mut(pointer.entity()).unwrap().0 = BLUE.into();
+                    |out: On<Pointer<Out>>, mut colors: Query<&mut BackgroundColor>| {
+                        colors.get_mut(out.entity).unwrap().0 = BLUE.into();
                     },
                 )
                 .with_children(|parent| {

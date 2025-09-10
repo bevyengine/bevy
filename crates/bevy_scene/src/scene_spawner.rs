@@ -30,6 +30,8 @@ use bevy_ecs::{
 #[derive(Clone, Copy, Debug, Eq, PartialEq, EntityEvent, Reflect)]
 #[reflect(Debug, PartialEq, Clone)]
 pub struct SceneInstanceReady {
+    /// The entity whose scene instance is ready.
+    pub entity: Entity,
     /// Instance which has been spawned.
     pub instance_id: InstanceId,
 }
@@ -506,12 +508,18 @@ impl SceneSpawner {
         for (instance_id, parent) in self.instances_ready.drain(..) {
             if let Some(parent) = parent {
                 // Defer via commands otherwise SceneSpawner is not available in the observer.
-                world
-                    .commands()
-                    .trigger_targets(SceneInstanceReady { instance_id }, parent);
+                world.commands().trigger(SceneInstanceReady {
+                    instance_id,
+                    entity: parent,
+                });
             } else {
                 // Defer via commands otherwise SceneSpawner is not available in the observer.
-                world.commands().trigger(SceneInstanceReady { instance_id });
+                // TODO: triggering this for PLACEHOLDER is suboptimal, but this scene system is on
+                // its way out, so lets avoid breaking people by making a second event.
+                world.commands().trigger(SceneInstanceReady {
+                    instance_id,
+                    entity: Entity::PLACEHOLDER,
+                });
             }
         }
     }
@@ -889,7 +897,7 @@ mod tests {
                     "`SceneInstanceReady` contains the wrong `InstanceId`"
                 );
                 assert_eq!(
-                    event.entity(),
+                    event.event_target(),
                     scene_entity.unwrap_or(Entity::PLACEHOLDER),
                     "`SceneInstanceReady` triggered on the wrong parent entity"
                 );

@@ -17,13 +17,13 @@ struct RegisteredEvent {
     update: unsafe fn(MutUntyped),
 }
 
-/// A registry of all of the [`Events`] in the [`World`], used by [`event_update_system`](crate::event::update::event_update_system)
+/// A registry of all of the [`Events`] in the [`World`], used by [`event_update_system`](crate::event::event_update_system)
 /// to update all of the events.
 #[derive(Resource, Default)]
 pub struct EventRegistry {
     /// Should the events be updated?
     ///
-    /// This field is generally automatically updated by the [`signal_event_update_system`](crate::event::update::signal_event_update_system).
+    /// This field is generally automatically updated by the [`signal_event_update_system`](crate::event::signal_event_update_system).
     pub should_update: ShouldUpdateEvents,
     event_updates: Vec<RegisteredEvent>,
 }
