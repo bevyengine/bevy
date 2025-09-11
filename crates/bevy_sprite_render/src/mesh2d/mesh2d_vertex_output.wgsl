@@ -1,4 +1,4 @@
-#define_import_path bevy_sprite_render::mesh2d_vertex_output
+#define_import_path bevy_sprite::mesh2d_vertex_output
 
 struct VertexOutput {
     // this is `clip position` when the struct is used as a vertex stage output 

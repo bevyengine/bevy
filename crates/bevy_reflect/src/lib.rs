@@ -59,7 +59,7 @@
 //!   This means values implementing `PartialReflect` can be dynamically constructed and introspected.
 //! * The `Reflect` trait, however, ensures that the interface exposed by `PartialReflect`
 //!   on types which additionally implement `Reflect` mirrors the structure of a single Rust type.
-//! * This means `dyn Reflect` trait objects can be directly downcasted to concrete types,
+//! * This means `dyn Reflect` trait objects can be directly downcast to concrete types,
 //!   where `dyn PartialReflect` trait object cannot.
 //! * `Reflect`, since it provides a stronger type-correctness guarantee,
 //!   is the trait used to interact with [the type registry].
@@ -516,8 +516,8 @@
 //!
 //! | Default | Dependencies                      |
 //! | :-----: | :-------------------------------: |
-//! | ✅      | [`bevy_reflect_derive/auto_register_inventory`] |
-//! | ❌      | [`bevy_reflect_derive/auto_register_static`] |
+//! | ✅      | `bevy_reflect_derive/auto_register_inventory` |
+//! | ❌      | `bevy_reflect_derive/auto_register_static` |
 //!
 //! These features enable automatic registration of types that derive [`Reflect`].
 //!
@@ -3467,6 +3467,41 @@ bevy_reflect::tests::Test {
             },
             output
         );
+    }
+
+    // https://github.com/bevyengine/bevy/issues/19017
+    #[test]
+    fn should_serialize_opaque_remote_type() {
+        mod external_crate {
+            use serde::{Deserialize, Serialize};
+            #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+            pub struct Vector2<T>(pub [T; 2]);
+        }
+
+        #[reflect_remote(external_crate::Vector2<i32>)]
+        #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+        #[reflect(Serialize, Deserialize)]
+        #[reflect(opaque)]
+        struct Vector2Wrapper([i32; 2]);
+
+        #[derive(Reflect, Debug, PartialEq)]
+        struct Point(#[reflect(remote = Vector2Wrapper)] external_crate::Vector2<i32>);
+
+        let point = Point(external_crate::Vector2([1, 2]));
+
+        let mut registry = TypeRegistry::new();
+        registry.register::<Point>();
+        registry.register::<Vector2Wrapper>();
+
+        let serializer = ReflectSerializer::new(&point, &registry);
+        let serialized = ron::to_string(&serializer).unwrap();
+        assert_eq!(serialized, r#"{"bevy_reflect::tests::Point":((((1,2))))}"#);
+
+        let mut deserializer = Deserializer::from_str(&serialized).unwrap();
+        let reflect_deserializer = ReflectDeserializer::new(&registry);
+        let deserialized = reflect_deserializer.deserialize(&mut deserializer).unwrap();
+        let point = <Point as FromReflect>::from_reflect(&*deserialized).unwrap();
+        assert_eq!(point, Point(external_crate::Vector2([1, 2])));
     }
 
     #[cfg(feature = "auto_register")]

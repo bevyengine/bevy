@@ -548,7 +548,7 @@ pub(crate) fn bevy_ecs_path() -> syn::Path {
 }
 
 /// Implement the `Event` trait.
-#[proc_macro_derive(Event)]
+#[proc_macro_derive(Event, attributes(event))]
 pub fn derive_event(input: TokenStream) -> TokenStream {
     component::derive_event(input)
 }
@@ -558,13 +558,15 @@ pub fn derive_event(input: TokenStream) -> TokenStream {
 ///
 /// ```ignore
 /// #[derive(EntityEvent)]
-/// /// Traversal component
-/// #[entity_event(traversal = &'static ChildOf)]
+/// /// Enable propagation, which defaults to using the ChildOf component
+/// #[entity_event(propagate)]
+/// /// Enable propagation using the given Traversal implementation
+/// #[entity_event(propagate = &'static ChildOf)]
 /// /// Always propagate
 /// #[entity_event(auto_propagate)]
 /// struct MyEvent;
 /// ```
-#[proc_macro_derive(EntityEvent, attributes(entity_event))]
+#[proc_macro_derive(EntityEvent, attributes(entity_event, event_target))]
 pub fn derive_entity_event(input: TokenStream) -> TokenStream {
     component::derive_entity_event(input)
 }

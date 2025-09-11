@@ -6,7 +6,7 @@ use bevy_camera::{
 use bevy_color::Color;
 use bevy_ecs::prelude::*;
 use bevy_image::Image;
-use bevy_math::{Dir3, Mat3, Mat4, Vec3};
+use bevy_math::{Affine3A, Dir3, Mat3, Mat4, Vec3};
 use bevy_reflect::prelude::*;
 use bevy_transform::components::{GlobalTransform, Transform};
 
@@ -176,14 +176,12 @@ pub fn orthonormalize(z_basis: Dir3) -> Mat3 {
 /// Constructs a right-handed orthonormal basis with translation, using only the forward direction and translation of a given [`GlobalTransform`].
 ///
 /// This is a version of [`orthonormalize`] which also includes translation.
-pub fn spot_light_world_from_view(transform: &GlobalTransform) -> Mat4 {
+pub fn spot_light_world_from_view(transform: &GlobalTransform) -> Affine3A {
     // the matrix z_local (opposite of transform.forward())
     let fwd_dir = transform.back();
 
     let basis = orthonormalize(fwd_dir);
-    let mut mat = Mat4::from_mat3(basis);
-    mat.w_axis = transform.translation().extend(1.0);
-    mat
+    Affine3A::from_mat3_translation(basis, transform.translation())
 }
 
 pub fn spot_light_clip_from_view(angle: f32, near_z: f32) -> Mat4 {

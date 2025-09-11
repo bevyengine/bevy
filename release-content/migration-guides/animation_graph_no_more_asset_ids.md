@@ -1,6 +1,6 @@
 ---
 title: "`AnimationGraph` no longer supports raw AssetIds"
-pull_requests: []
+pull_requests: [19615]
 ---
 
 In previous versions of Bevy, `AnimationGraph` would serialize `Handle<AnimationClip>` as an asset

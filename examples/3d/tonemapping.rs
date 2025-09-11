@@ -89,8 +89,8 @@ fn setup(
         Text::default(),
         Node {
             position_type: PositionType::Absolute,
-            top: Val::Px(12.0),
-            left: Val::Px(12.0),
+            top: px(12),
+            left: px(12),
             ..default()
         },
     ));
@@ -184,7 +184,7 @@ fn setup_image_viewer_scene(
         TextLayout::new_with_justify(Justify::Center),
         Node {
             align_self: AlignSelf::Center,
-            margin: UiRect::all(Val::Auto),
+            margin: UiRect::all(auto()),
             ..default()
         },
         SceneNumber(3),
@@ -502,23 +502,23 @@ fn update_ui(
     if selected_parameter.value == 0 {
         text.push_str("> ");
     }
-    text.push_str(&format!("Exposure: {}\n", color_grading.global.exposure));
+    text.push_str(&format!("Exposure: {:.2}\n", color_grading.global.exposure));
     if selected_parameter.value == 1 {
         text.push_str("> ");
     }
-    text.push_str(&format!("Gamma: {}\n", color_grading.shadows.gamma));
+    text.push_str(&format!("Gamma: {:.2}\n", color_grading.shadows.gamma));
     if selected_parameter.value == 2 {
         text.push_str("> ");
     }
     text.push_str(&format!(
-        "PreSaturation: {}\n",
+        "PreSaturation: {:.2}\n",
         color_grading.shadows.saturation
     ));
     if selected_parameter.value == 3 {
         text.push_str("> ");
     }
     text.push_str(&format!(
-        "PostSaturation: {}\n",
+        "PostSaturation: {:.2}\n",
         color_grading.global.post_saturation
     ));
     text.push_str("(Space) Reset all to default\n");

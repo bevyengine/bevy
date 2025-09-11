@@ -242,7 +242,8 @@ pub fn despawn() -> impl EntityCommand {
 }
 
 /// An [`EntityCommand`] that creates an [`Observer`](crate::observer::Observer)
-/// listening for events of type `E` targeting an entity
+/// watching for an [`EntityEvent`] of type `E` whose [`EntityEvent::event_target`]
+/// targets this entity.
 #[track_caller]
 pub fn observe<E: EntityEvent, B: Bundle, M>(
     observer: impl IntoObserverSystem<E, B, M>,
@@ -250,20 +251,6 @@ pub fn observe<E: EntityEvent, B: Bundle, M>(
     let caller = MaybeLocation::caller();
     move |mut entity: EntityWorldMut| {
         entity.observe_with_caller(observer, caller);
-    }
-}
-
-/// An [`EntityCommand`] that sends an [`EntityEvent`] targeting an entity.
-///
-/// This will run any [`Observer`](crate::observer::Observer) of the given [`EntityEvent`] watching the entity.
-#[track_caller]
-pub fn trigger(event: impl EntityEvent) -> impl EntityCommand {
-    let caller = MaybeLocation::caller();
-    move |mut entity: EntityWorldMut| {
-        let id = entity.id();
-        entity.world_scope(|world| {
-            world.trigger_targets_with_caller(event, id, caller);
-        });
     }
 }
 

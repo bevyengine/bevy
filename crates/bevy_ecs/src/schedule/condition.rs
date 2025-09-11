@@ -1147,12 +1147,13 @@ where
     type In = In;
     type Out = bool;
 
-    fn combine(
+    fn combine<T>(
         input: <Self::In as SystemInput>::Inner<'_>,
-        a: impl FnOnce(SystemIn<'_, A>) -> Result<A::Out, RunSystemError>,
-        b: impl FnOnce(SystemIn<'_, A>) -> Result<B::Out, RunSystemError>,
+        data: &mut T,
+        a: impl FnOnce(SystemIn<'_, A>, &mut T) -> Result<A::Out, RunSystemError>,
+        b: impl FnOnce(SystemIn<'_, A>, &mut T) -> Result<B::Out, RunSystemError>,
     ) -> Result<Self::Out, RunSystemError> {
-        Ok(a(input)? && b(input)?)
+        Ok(a(input, data)? && b(input, data)?)
     }
 }
 
@@ -1168,12 +1169,13 @@ where
     type In = In;
     type Out = bool;
 
-    fn combine(
+    fn combine<T>(
         input: <Self::In as SystemInput>::Inner<'_>,
-        a: impl FnOnce(SystemIn<'_, A>) -> Result<A::Out, RunSystemError>,
-        b: impl FnOnce(SystemIn<'_, A>) -> Result<B::Out, RunSystemError>,
+        data: &mut T,
+        a: impl FnOnce(SystemIn<'_, A>, &mut T) -> Result<A::Out, RunSystemError>,
+        b: impl FnOnce(SystemIn<'_, A>, &mut T) -> Result<B::Out, RunSystemError>,
     ) -> Result<Self::Out, RunSystemError> {
-        Ok(!(a(input)? && b(input)?))
+        Ok(!(a(input, data)? && b(input, data)?))
     }
 }
 
@@ -1189,12 +1191,13 @@ where
     type In = In;
     type Out = bool;
 
-    fn combine(
+    fn combine<T>(
         input: <Self::In as SystemInput>::Inner<'_>,
-        a: impl FnOnce(SystemIn<'_, A>) -> Result<A::Out, RunSystemError>,
-        b: impl FnOnce(SystemIn<'_, A>) -> Result<B::Out, RunSystemError>,
+        data: &mut T,
+        a: impl FnOnce(SystemIn<'_, A>, &mut T) -> Result<A::Out, RunSystemError>,
+        b: impl FnOnce(SystemIn<'_, A>, &mut T) -> Result<B::Out, RunSystemError>,
     ) -> Result<Self::Out, RunSystemError> {
-        Ok(!(a(input)? || b(input)?))
+        Ok(!(a(input, data)? || b(input, data)?))
     }
 }
 
@@ -1210,12 +1213,13 @@ where
     type In = In;
     type Out = bool;
 
-    fn combine(
+    fn combine<T>(
         input: <Self::In as SystemInput>::Inner<'_>,
-        a: impl FnOnce(SystemIn<'_, A>) -> Result<A::Out, RunSystemError>,
-        b: impl FnOnce(SystemIn<'_, A>) -> Result<B::Out, RunSystemError>,
+        data: &mut T,
+        a: impl FnOnce(SystemIn<'_, A>, &mut T) -> Result<A::Out, RunSystemError>,
+        b: impl FnOnce(SystemIn<'_, A>, &mut T) -> Result<B::Out, RunSystemError>,
     ) -> Result<Self::Out, RunSystemError> {
-        Ok(a(input)? || b(input)?)
+        Ok(a(input, data)? || b(input, data)?)
     }
 }
 
@@ -1231,12 +1235,13 @@ where
     type In = In;
     type Out = bool;
 
-    fn combine(
+    fn combine<T>(
         input: <Self::In as SystemInput>::Inner<'_>,
-        a: impl FnOnce(SystemIn<'_, A>) -> Result<A::Out, RunSystemError>,
-        b: impl FnOnce(SystemIn<'_, A>) -> Result<B::Out, RunSystemError>,
+        data: &mut T,
+        a: impl FnOnce(SystemIn<'_, A>, &mut T) -> Result<A::Out, RunSystemError>,
+        b: impl FnOnce(SystemIn<'_, A>, &mut T) -> Result<B::Out, RunSystemError>,
     ) -> Result<Self::Out, RunSystemError> {
-        Ok(!(a(input)? ^ b(input)?))
+        Ok(!(a(input, data)? ^ b(input, data)?))
     }
 }
 
@@ -1252,12 +1257,13 @@ where
     type In = In;
     type Out = bool;
 
-    fn combine(
+    fn combine<T>(
         input: <Self::In as SystemInput>::Inner<'_>,
-        a: impl FnOnce(SystemIn<'_, A>) -> Result<A::Out, RunSystemError>,
-        b: impl FnOnce(SystemIn<'_, A>) -> Result<B::Out, RunSystemError>,
+        data: &mut T,
+        a: impl FnOnce(SystemIn<'_, A>, &mut T) -> Result<A::Out, RunSystemError>,
+        b: impl FnOnce(SystemIn<'_, A>, &mut T) -> Result<B::Out, RunSystemError>,
     ) -> Result<Self::Out, RunSystemError> {
-        Ok(a(input)? ^ b(input)?)
+        Ok(a(input, data)? ^ b(input, data)?)
     }
 }
 

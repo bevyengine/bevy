@@ -3,9 +3,10 @@
 use std::f32::consts::PI;
 
 use bevy::{
-    core_pipeline::{bloom::Bloom, tonemapping::Tonemapping},
+    core_pipeline::tonemapping::Tonemapping,
     input::mouse::{AccumulatedMouseMotion, AccumulatedMouseScroll, MouseButtonInput},
     math::prelude::*,
+    post_process::bloom::Bloom,
     prelude::*,
 };
 use rand::{seq::IndexedRandom, Rng, SeedableRng};
@@ -389,8 +390,8 @@ fn setup(
         ),
         Node {
             position_type: PositionType::Absolute,
-            top: Val::Px(12.0),
-            left: Val::Px(12.0),
+            top: px(12),
+            left: px(12),
             ..default()
         },
     ));

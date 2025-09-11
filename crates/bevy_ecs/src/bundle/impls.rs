@@ -148,11 +148,12 @@ all_tuples!(
 );
 
 macro_rules! after_effect_impl {
-    ($($after_effect: ident),*) => {
+    ($(#[$meta:meta])* $($after_effect: ident),*) => {
         #[expect(
             clippy::allow_attributes,
             reason = "This is a tuple-related macro; as such, the lints below may not always apply."
         )]
+        $(#[$meta])*
         impl<$($after_effect: BundleEffect),*> BundleEffect for ($($after_effect,)*) {
             #[allow(
                 clippy::unused_unit,
@@ -168,8 +169,15 @@ macro_rules! after_effect_impl {
             }
         }
 
+        $(#[$meta])*
         impl<$($after_effect: NoBundleEffect),*> NoBundleEffect for ($($after_effect,)*) { }
     }
 }
 
-all_tuples!(after_effect_impl, 0, 15, P);
+all_tuples!(
+    #[doc(fake_variadic)]
+    after_effect_impl,
+    0,
+    15,
+    P
+);

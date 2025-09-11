@@ -751,11 +751,6 @@ impl Tables {
         self.tables.get_mut(id.as_usize())
     }
 
-    pub(crate) fn empty(&self) -> &Table {
-        // SAFETY: The empty table is always present.
-        unsafe { self.tables.get_unchecked(TableId::empty().as_usize()) }
-    }
-
     pub(crate) fn empty_mut(&mut self) -> &mut Table {
         // SAFETY: The empty table is always present.
         unsafe { self.tables.get_unchecked_mut(TableId::empty().as_usize()) }
