@@ -18,7 +18,7 @@ use bevy::{
     ui::{Checked, InteractionDisabled},
     ui_widgets::{
         Activate, Callback, RadioButton, RadioGroup, SliderPrecision, SliderStep, SliderValue,
-        UiWidgetsPlugins, ValueChange,
+        ValueChange,
     },
 };
 
