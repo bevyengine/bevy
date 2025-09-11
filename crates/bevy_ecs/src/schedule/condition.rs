@@ -1312,16 +1312,13 @@ where
 mod tests {
     use super::{common_conditions::*, SystemCondition};
     use crate::error::{BevyError, DefaultErrorHandler, ErrorContext};
-    use crate::event::BufferedEvent;
-    use crate::query::With;
-    use crate::system::{IntoSystem, Res, System};
     use crate::{
         change_detection::ResMut,
         component::Component,
         message::Message,
         query::With,
         schedule::{IntoScheduleConfigs, Schedule},
-        system::Local,
+        system::{IntoSystem, Local, Res, System},
         world::World,
     };
     use bevy_ecs_macros::{Resource, SystemSet};
