@@ -10,7 +10,7 @@ use bevy::{
     color::palettes::basic::RED,
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
     prelude::*,
-    text::{LineBreak, TextBounds},
+    text::{FontFace, FontSize, LineBreak, TextBounds},
     window::{PresentMode, WindowResolution},
     winit::{UpdateMode, WinitSettings},
 };
@@ -64,15 +64,16 @@ fn main() {
     app.insert_resource(args).run();
 }
 
-fn setup(mut commands: Commands, args: Res<Args>) {
+fn setup(mut commands: Commands, args: Res<Args>, asset_server: Res<AssetServer>) {
     warn!(include_str!("warning_string.txt"));
 
     commands.spawn(Camera2d);
     let text_string = "0123456789".repeat(10_000);
-    let text_font = TextFont {
-        font_size: 4.,
-        ..Default::default()
-    };
+
+    let font_family = asset_server.load("FiraMono-Medium.ttf");
+
+    let font = commands.spawn((FontFace(font_family), FontSize(4.))).id();
+
     let text_block = TextLayout {
         justify: Justify::Left,
         linebreak: LineBreak::AnyCharacter,
@@ -92,14 +93,14 @@ fn setup(mut commands: Commands, args: Res<Args>) {
                         width: px(1000),
                         ..Default::default()
                     })
-                    .with_child((Text(text_string.clone()), text_font.clone(), text_block));
+                    .with_child((Text(text_string.clone()), TextFont(font), text_block));
             });
     }
 
     if !args.no_text2d {
         commands.spawn((
             Text2d::new(text_string),
-            text_font.clone(),
+            TextFont(font),
             TextColor(RED.into()),
             bevy::sprite::Anchor::CENTER,
             TextBounds::new_horizontal(1000.),
