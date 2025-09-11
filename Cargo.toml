@@ -294,8 +294,7 @@ bevy_log = ["bevy_internal/bevy_log"]
 # Enable input focus subsystem
 bevy_input_focus = ["bevy_internal/bevy_input_focus"]
 
-# Headless widget collection for Bevy UI.
-# Still experimental; expect rapid breaking changes.
+# Experimental headless widget collection for Bevy UI.
 experimental_bevy_ui_widgets = ["bevy_internal/bevy_ui_widgets"]
 
 # Feathers widget collection.

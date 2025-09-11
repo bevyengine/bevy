@@ -45,7 +45,6 @@ The default feature set enables most of the expected features of a game engine, 
 |bevy_ui|A custom ECS-driven UI framework|
 |bevy_ui_picking_backend|Provides an implementation for picking UI|
 |bevy_ui_render|Provides rendering functionality for bevy_ui|
-|bevy_ui_widgets|Headless widget collection for Bevy UI.|
 |bevy_window|Windowing layer|
 |bevy_winit|winit window and input backend|
 |custom_cursor|Enable winit custom cursor support|
@@ -93,6 +92,8 @@ The default feature set enables most of the expected features of a game engine, 
 |dynamic_linking|Force dynamic linking, which improves iterative compile times|
 |embedded_watcher|Enables watching in memory asset providers for Bevy Asset hot-reloading|
 |experimental_bevy_feathers|Feathers widget collection.|
+|experimental_bevy_ui_widgets|Headless widget collection for Bevy UI.
+# Still experimental; expect rapid breaking changes.|
 |experimental_pbr_pcss|Enable support for PCSS, at the risk of blowing past the global, per-shader sampler limit on older/lower-end GPUs|
 |exr|EXR image format support|
 |ff|Farbfeld image format support|
