@@ -9,7 +9,7 @@ use crate::theme::ThemeProps;
 pub fn create_dark_theme() -> ThemeProps {
     ThemeProps {
         color: HashMap::from([
-            (tokens::WINDOW_BG.into(), palette::GRAY_0),
+            (tokens::WINDOW_BG.clone(), palette::GRAY_0),
             // Button
             (tokens::BUTTON_BG.into(), palette::GRAY_3),
             (
