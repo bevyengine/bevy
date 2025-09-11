@@ -1165,18 +1165,14 @@ impl World {
         let change_tick = self.change_tick();
         let entity = self.entities.alloc();
         let mut bundle_spawner = BundleSpawner::new::<B>(self, change_tick);
-        // SAFETY:
-        // - Between `BundleSpawner::spawn_non_existent` and `B::apply_effect`, each field of `B` will be moved exactly once into
-        //   ECS storage. This means that the bundle must be entirely moved in `spawn_non_existent` and `B::apply_effect` must be a no-op,
-        //   or forgotten inside `spawn_non_existent` and thus f valid to be moved the rest out in `B::apply_effect`.
-        // - The above also means that the fields moved out of in `spawn_non_existent` will not be accessed in `B::apply_effect`.
         let (bundle, entity_location) = bundle.partial_move(|bundle| {
             // SAFETY:
             // - `B` matches `bundle_spawner`'s type
             // -  `entity` is allocated but non-existent
             // - `B::Effect` is unconstrained, and `B::apply_effect` is called exactly once on the bundle after this call.
-            // - The caller must ensure that the value pointed to by `bundle` must not be accessed for anything. The value
-            //   is otherwise only used to call `apply_effect` within this function.
+            // - This function ensures that the value pointed to by `bundle` must not be accessed for anything afterwards by consuming
+            //   the `MovingPtr`. The value is otherwise only used to call `apply_effect` within this function, and the safety invariants
+            //   of `DynamicBundle` ensure that only the elements that have not been moved out of by this call are accessed.
             unsafe { bundle_spawner.spawn_non_existent::<B>(entity, bundle, caller) }
         });
 
