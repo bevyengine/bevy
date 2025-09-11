@@ -64,24 +64,33 @@ pub struct Font {
 }
 
 impl Font {
-    /// Returns a new [`TextFont`] with the specified font size.
+    /// Returns a new [`Font`] with the specified font face and size.
+    pub fn new(font_face: Handle<FontFace>, font_size: f32) -> Font {
+        Self {
+            face: font_face,
+            size: font_size,
+            ..default()
+        }
+    }
+
+    /// Returns a new [`Font`] with the specified font size.
     pub fn from_font_size(font_size: f32) -> Self {
         Self::default().with_font_size(font_size)
     }
 
-    /// Returns this [`TextFont`] with the specified font face handle.
+    /// Returns this [`Font`] with the specified font face handle.
     pub fn with_font(mut self, font_face: Handle<FontFace>) -> Self {
         self.face = font_face;
         self
     }
 
-    /// Returns this [`TextFont`] with the specified font size.
+    /// Returns this [`Font`] with the specified font size.
     pub const fn with_font_size(mut self, font_size: f32) -> Self {
         self.size = font_size;
         self
     }
 
-    /// Returns this [`TextFont`] with the specified [`FontSmoothing`].
+    /// Returns this [`Font`] with the specified [`FontSmoothing`].
     pub const fn with_font_smoothing(mut self, font_smoothing: FontSmoothing) -> Self {
         self.smoothing = font_smoothing;
         self
