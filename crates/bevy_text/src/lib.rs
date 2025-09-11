@@ -86,6 +86,11 @@ pub struct Text2dUpdateSystems;
 #[deprecated(since = "0.17.0", note = "Renamed to `Text2dUpdateSystems`.")]
 pub type Update2dText = Text2dUpdateSystems;
 
+/// Marker component identifying the default text entity
+#[cfg(feature = "default_font")]
+#[derive(Component)]
+pub struct DefaultFont;
+
 impl Plugin for TextPlugin {
     fn build(&self, app: &mut App) {
         app.init_asset::<FontFamily>()
@@ -103,10 +108,13 @@ impl Plugin for TextPlugin {
 
         #[cfg(feature = "default_font")]
         {
-            use bevy_asset::{AssetId, Assets};
+            use bevy_asset::{AssetId, Assets, Handle};
             let mut assets = app.world_mut().resource_mut::<Assets<_>>();
             let asset = FontFamily::try_from_bytes(DEFAULT_FONT_DATA.to_vec()).unwrap();
             assets.insert(AssetId::default(), asset).unwrap();
+
+            app.world_mut()
+                .spawn((DefaultFont, FontFace(Handle::default())));
         };
     }
 }
