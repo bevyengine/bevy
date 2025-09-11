@@ -39,7 +39,7 @@ use bevy_render::{
 use bevy_shader::{load_shader_library, Shader, ShaderDefVal};
 use bevy_utils::prelude::default;
 use core::mem;
-use tracing::{error, info, warn};
+use tracing::{error, warn};
 
 /// Plugin for screen space ambient occlusion.
 pub struct ScreenSpaceAmbientOcclusionPlugin;
@@ -299,17 +299,13 @@ impl FromWorld for SsaoPipelines {
 
         // Detect the depth format support
         let render_adapter = world.resource::<RenderAdapter>();
-        let detect_r16float_support = true;
-        let depth_format = if detect_r16float_support && render_adapter
+        let depth_format = if render_adapter
             .get_texture_format_features(TextureFormat::R16Float)
             .allowed_usages
             .contains(TextureUsages::STORAGE_BINDING)
         {
             TextureFormat::R16Float
         } else {
-            info!(
-                "Using R32Float instead of R16Float for SSAO depth texture (WebGPU compatibility)"
-            );
             TextureFormat::R32Float
         };
 
