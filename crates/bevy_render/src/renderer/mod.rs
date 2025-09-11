@@ -19,8 +19,8 @@ use crate::{
 use alloc::sync::Arc;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{prelude::*, system::SystemState};
+use bevy_time::TimeEventQueue;
 use bevy_platform::time::Instant;
-use bevy_time::TimeSender;
 use bevy_window::RawHandleWrapperHolder;
 use tracing::{debug, error, info, info_span, warn};
 use wgpu::{
@@ -106,16 +106,10 @@ pub fn render_system(world: &mut World, state: &mut SystemState<Query<Entity, Wi
     crate::view::screenshot::collect_screenshots(world);
 
     // update the time and send it to the app world
-    let time_sender = world.resource::<TimeSender>();
-    if let Err(error) = time_sender.0.try_send(Instant::now()) {
-        match error {
-            bevy_time::TrySendError::Full(_) => {
-                panic!("The TimeSender channel should always be empty during render. You might need to add the bevy::core::time_system to your app.",);
-            }
-            bevy_time::TrySendError::Disconnected(_) => {
-                // ignore disconnected errors, the main world probably just got dropped during shutdown
-            }
-        }
+    let time_sender = world.resource::<TimeEventQueue>();
+    // ignore disconnected errors, the main world probably just got dropped during shutdown
+    if let Err(bevy_time::PushError::Full(_)) = time_sender.0.push(Instant::now()) {
+        panic!("The TimeEventQueue should always be empty during render. You might need to add the bevy::core::time_system to your app.",);
     }
 }
 

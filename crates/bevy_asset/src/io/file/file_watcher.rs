@@ -1,10 +1,10 @@
 use crate::{
     io::{AssetSourceEvent, AssetWatcher},
     path::normalize_path,
+    EventSender,
 };
 use alloc::borrow::ToOwned;
 use core::time::Duration;
-use crossbeam_channel::Sender;
 use notify_debouncer_full::{
     new_debouncer,
     notify::{
@@ -31,8 +31,8 @@ pub struct FileWatcher {
 impl FileWatcher {
     /// Creates a new [`FileWatcher`] that watches for changes to the asset files in the given `path`.
     pub fn new(
-        path: PathBuf,
-        sender: Sender<AssetSourceEvent>,
+        root: PathBuf,
+        sender: EventSender<AssetSourceEvent>,
         debounce_wait_time: Duration,
     ) -> Result<Self, notify::Error> {
         let root = normalize_path(&path).canonicalize()?;
@@ -252,7 +252,7 @@ pub(crate) fn new_asset_event_debouncer(
 }
 
 pub(crate) struct FileEventHandler {
-    sender: Sender<AssetSourceEvent>,
+    sender: EventSender<AssetSourceEvent>,
     root: PathBuf,
     last_event: Option<AssetSourceEvent>,
 }
@@ -269,7 +269,7 @@ impl FilesystemEventHandler for FileEventHandler {
     fn handle(&mut self, _absolute_paths: &[PathBuf], event: AssetSourceEvent) {
         if self.last_event.as_ref() != Some(&event) {
             self.last_event = Some(event.clone());
-            self.sender.send(event).unwrap();
+            self.sender.send(event);
         }
     }
 }
