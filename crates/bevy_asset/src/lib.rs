@@ -415,7 +415,7 @@ impl Plugin for AssetPlugin {
             .init_asset::<LoadedFolder>()
             .init_asset::<LoadedUntypedAsset>()
             .init_asset::<()>()
-            .add_event::<UntypedAssetLoadFailedEvent>()
+            .add_message::<UntypedAssetLoadFailedEvent>()
             .configure_sets(
                 PreUpdate,
                 AssetTrackingSystems.after(handle_internal_asset_events),
@@ -640,8 +640,8 @@ impl AssetApp for App {
         }
         self.insert_resource(assets)
             .allow_ambiguous_resource::<Assets<A>>()
-            .add_event::<AssetEvent<A>>()
-            .add_event::<AssetLoadFailedEvent<A>>()
+            .add_message::<AssetEvent<A>>()
+            .add_message::<AssetLoadFailedEvent<A>>()
             .register_type::<Handle<A>>()
             .add_systems(
                 PostUpdate,
@@ -688,9 +688,9 @@ pub struct AssetTrackingSystems;
 #[deprecated(since = "0.17.0", note = "Renamed to `AssetTrackingSystems`.")]
 pub type TrackAssets = AssetTrackingSystems;
 
-/// A system set where events accumulated in [`Assets`] are applied to the [`AssetEvent`] [`Events`] resource.
+/// A system set where events accumulated in [`Assets`] are applied to the [`AssetEvent`] [`Messages`] resource.
 ///
-/// [`Events`]: bevy_ecs::event::Events
+/// [`Messages`]: bevy_ecs::event::Events
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
 pub struct AssetEventSystems;
 
@@ -723,7 +723,7 @@ mod tests {
     };
     use bevy_app::{App, TaskPoolPlugin, Update};
     use bevy_ecs::{
-        event::EventCursor,
+        message::MessageCursor,
         prelude::*,
         schedule::{LogLevel, ScheduleBuildSettings},
     };
@@ -920,7 +920,7 @@ mod tests {
     struct StoredEvents(Vec<AssetEvent<CoolText>>);
 
     fn store_asset_events(
-        mut reader: EventReader<AssetEvent<CoolText>>,
+        mut reader: MessageReader<AssetEvent<CoolText>>,
         mut storage: ResMut<StoredEvents>,
     ) {
         storage.0.extend(reader.read().cloned());
@@ -1637,13 +1637,13 @@ mod tests {
         gate_opener.open(b_path);
         gate_opener.open(c_path);
 
-        let mut reader = EventCursor::default();
+        let mut cursor = MessageCursor::default();
         run_app_until(&mut app, |world| {
-            let events = world.resource::<Events<AssetEvent<LoadedFolder>>>();
+            let events = world.resource::<Messages<AssetEvent<LoadedFolder>>>();
             let asset_server = world.resource::<AssetServer>();
             let loaded_folders = world.resource::<Assets<LoadedFolder>>();
             let cool_texts = world.resource::<Assets<CoolText>>();
-            for event in reader.read(events) {
+            for event in cursor.read(events) {
                 if let AssetEvent::LoadedWithDependencies { id } = event
                     && *id == handle.id()
                 {
@@ -1693,7 +1693,7 @@ mod tests {
         }
 
         fn asset_event_handler(
-            mut events: EventReader<AssetEvent<CoolText>>,
+            mut events: MessageReader<AssetEvent<CoolText>>,
             mut tracker: ResMut<ErrorTracker>,
         ) {
             for event in events.read() {
@@ -1705,7 +1705,7 @@ mod tests {
 
         fn asset_load_error_event_handler(
             server: Res<AssetServer>,
-            mut errors: EventReader<AssetLoadFailedEvent<CoolText>>,
+            mut errors: MessageReader<AssetLoadFailedEvent<CoolText>>,
             mut tracker: ResMut<ErrorTracker>,
         ) {
             // In the real world, this would refer to time (not ticks)

@@ -56,7 +56,7 @@ fn update_winit(
     mode: Res<ExampleMode>,
     mut winit_config: ResMut<WinitSettings>,
     event_loop_proxy: Res<EventLoopProxyWrapper<WakeUp>>,
-    mut redraw_request_events: EventWriter<RequestRedraw>,
+    mut redraw_request_writer: MessageWriter<RequestRedraw>,
 ) {
     use ExampleMode::*;
     *winit_config = match *mode {
@@ -87,7 +87,7 @@ fn update_winit(
             // when there are no inputs, so you send redraw requests while the animation is playing.
             // Note that in this example the RequestRedraw winit event will make the app run in the same
             // way as continuous
-            redraw_request_events.write(RequestRedraw);
+            redraw_request_writer.write(RequestRedraw);
             WinitSettings::desktop_app()
         }
         ApplicationWithWakeUp => {
@@ -168,7 +168,7 @@ pub(crate) mod test_setup {
         mut commands: Commands,
         mut meshes: ResMut<Assets<Mesh>>,
         mut materials: ResMut<Assets<StandardMaterial>>,
-        mut event: EventWriter<RequestRedraw>,
+        mut request_redraw_writer: MessageWriter<RequestRedraw>,
     ) {
         commands.spawn((
             Mesh3d(meshes.add(Cuboid::new(0.5, 0.5, 0.5))),
@@ -184,7 +184,7 @@ pub(crate) mod test_setup {
             Camera3d::default(),
             Transform::from_xyz(-2.0, 2.0, 2.0).looking_at(Vec3::ZERO, Vec3::Y),
         ));
-        event.write(RequestRedraw);
+        request_redraw_writer.write(RequestRedraw);
         commands.spawn((
             Text::default(),
             Node {

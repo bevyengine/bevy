@@ -10,7 +10,7 @@ use bevy_reflect::{prelude::ReflectDefault, Reflect};
 /// Example:
 /// ```
 /// use bevy_app::App;
-/// use bevy_core_widgets::{Callback, Notify};
+/// use bevy_ui_widgets::{Callback, Notify};
 /// use bevy_ecs::system::{Commands, IntoSystem};
 ///
 /// let mut app = App::new();

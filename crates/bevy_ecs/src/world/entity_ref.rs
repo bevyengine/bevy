@@ -4372,7 +4372,7 @@ unsafe impl<B: Bundle> EntityEquivalent for EntityRefExcept<'_, '_, B> {}
 /// *all* components of an entity, while still allowing you to consult other
 /// queries that might match entities that this query also matches. If you don't
 /// need access to all components, prefer a standard query with a
-/// [`crate::query::Without`] filter.
+/// [`Without`](`crate::query::Without`) filter.
 pub struct EntityMutExcept<'w, 's, B>
 where
     B: Bundle,

@@ -1,5 +1,5 @@
 use bevy_asset::{AssetEvent, AssetId, Assets, RenderAssetUsages};
-use bevy_ecs::{event::EventReader, resource::Resource, system::ResMut};
+use bevy_ecs::{message::MessageReader, resource::Resource, system::ResMut};
 use bevy_image::prelude::*;
 use bevy_math::{IVec2, UVec2};
 use bevy_platform::collections::HashMap;

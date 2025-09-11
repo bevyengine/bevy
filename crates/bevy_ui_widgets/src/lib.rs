@@ -1,4 +1,4 @@
-//! This crate provides a set of core widgets for Bevy UI, such as buttons, checkboxes, and sliders.
+//! This crate provides a set of standard widgets for Bevy UI, such as buttons, checkboxes, and sliders.
 //! These widgets have no inherent styling, it's the responsibility of the user to add styling
 //! appropriate for their game or application.
 //!
@@ -10,39 +10,35 @@
 //! widget. The primary motivation for this is to avoid two-way data binding in scenarios where the
 //! user interface is showing a live view of dynamic data coming from deeper within the game engine.
 
-// Note on naming: the `Core` prefix is used on components that would normally be internal to the
-// styled/opinionated widgets that use them. Components which are directly exposed to users above
-// the widget level, like `SliderValue`, should not have the `Core` prefix.
-
+mod button;
 mod callback;
-mod core_button;
-mod core_checkbox;
-mod core_radio;
-mod core_scrollbar;
-mod core_slider;
+mod checkbox;
+mod radio;
+mod scrollbar;
+mod slider;
 
+pub use button::*;
 pub use callback::*;
-pub use core_button::*;
-pub use core_checkbox::*;
-pub use core_radio::*;
-pub use core_scrollbar::*;
-pub use core_slider::*;
+pub use checkbox::*;
+pub use radio::*;
+pub use scrollbar::*;
+pub use slider::*;
 
 use bevy_app::{PluginGroup, PluginGroupBuilder};
 use bevy_ecs::entity::Entity;
 
-/// A plugin group that registers the observers for all of the core widgets. If you don't want to
+/// A plugin group that registers the observers for all of the widgets in this crate. If you don't want to
 /// use all of the widgets, you can import the individual widget plugins instead.
-pub struct CoreWidgetsPlugins;
+pub struct WidgetBehaviorPlugins;
 
-impl PluginGroup for CoreWidgetsPlugins {
+impl PluginGroup for WidgetBehaviorPlugins {
     fn build(self) -> PluginGroupBuilder {
         PluginGroupBuilder::start::<Self>()
-            .add(CoreButtonPlugin)
-            .add(CoreCheckboxPlugin)
-            .add(CoreRadioGroupPlugin)
-            .add(CoreScrollbarPlugin)
-            .add(CoreSliderPlugin)
+            .add(ButtonPlugin)
+            .add(CheckboxPlugin)
+            .add(RadioGroupPlugin)
+            .add(ScrollbarPlugin)
+            .add(SliderPlugin)
     }
 }
 

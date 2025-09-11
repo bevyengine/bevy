@@ -1,9 +1,7 @@
-//! Event handling types.
-mod buffered_event;
+//! [`Event`] functionality.
 mod trigger;
 
-pub use bevy_ecs_macros::{BufferedEvent, EntityEvent, Event};
-pub use buffered_event::*;
+pub use bevy_ecs_macros::{EntityEvent, Event};
 pub use trigger::*;
 
 use crate::{
@@ -339,47 +337,67 @@ struct EventWrapperComponent<E: Event>(PhantomData<E>);
 #[derive(Debug, Copy, Clone, Hash, Ord, PartialOrd, Eq, PartialEq)]
 pub struct EventKey(pub(crate) ComponentId);
 
-impl EventKey {
-    /// Returns the internal [`ComponentId`].
-    #[inline]
-    pub(crate) fn component_id(&self) -> ComponentId {
-        self.0
-    }
-}
+/// This is deprecated. See [`MessageCursor`](crate::message::MessageCursor)
+#[deprecated(since = "0.17.0", note = "Renamed to `MessageCursor`.")]
+pub type EventCursor<E> = crate::message::MessageCursor<E>;
+
+/// This is deprecated. See [`MessageMutator`](crate::message::MessageMutator)
+#[deprecated(since = "0.17.0", note = "Renamed to `MessageMutator`.")]
+pub type EventMutator<'w, 's, E> = crate::message::MessageMutator<'w, 's, E>;
+
+/// This is deprecated. See [`MessageReader`](crate::message::MessageReader)
+#[deprecated(since = "0.17.0", note = "Renamed to `MessageReader`.")]
+pub type EventReader<'w, 's, E> = crate::message::MessageReader<'w, 's, E>;
+
+/// This is deprecated. See [`MessageWriter`](crate::message::MessageWriter)
+#[deprecated(since = "0.17.0", note = "Renamed to `MessageWriter`.")]
+pub type EventWriter<'w, E> = crate::message::MessageWriter<'w, E>;
+
+/// This is deprecated. See [`Messages`](crate::message::Messages)
+#[deprecated(since = "0.17.0", note = "Renamed to `Messages`.")]
+pub type Events<E> = crate::message::Messages<E>;
+
+/// This is deprecated. See [`MessageIterator`](crate::message::MessageIterator)
+#[deprecated(since = "0.17.0", note = "Renamed to `MessageIterator`.")]
+pub type EventIterator<'a, E> = crate::message::MessageIterator<'a, E>;
+
+/// This is deprecated. See [`MessageMutIterator`](crate::message::MessageMutIterator)
+#[deprecated(since = "0.17.0", note = "Renamed to `MessageIterator`.")]
+pub type EventMutIterator<'a, E> = crate::message::MessageMutIterator<'a, E>;
 
 #[cfg(test)]
 mod tests {
     use alloc::{vec, vec::Vec};
-    use bevy_ecs::{event::*, system::assert_is_read_only_system};
-    use bevy_ecs_macros::BufferedEvent;
+    use bevy_ecs::{message::*, system::assert_is_read_only_system};
+    use bevy_ecs_macros::Message;
 
-    #[derive(BufferedEvent, Copy, Clone, PartialEq, Eq, Debug)]
+    #[derive(Message, Copy, Clone, PartialEq, Eq, Debug)]
     struct TestEvent {
         i: usize,
     }
 
-    #[derive(BufferedEvent, Clone, PartialEq, Debug, Default)]
+    #[derive(Message, Clone, PartialEq, Debug, Default)]
     struct EmptyTestEvent;
 
-    fn get_events<E: BufferedEvent + Clone>(
-        events: &Events<E>,
-        cursor: &mut EventCursor<E>,
+    fn get_events<E: Message + Clone>(
+        events: &Messages<E>,
+        cursor: &mut MessageCursor<E>,
     ) -> Vec<E> {
         cursor.read(events).cloned().collect::<Vec<E>>()
     }
 
     #[test]
     fn test_events() {
-        let mut events = Events::<TestEvent>::default();
+        let mut events = Messages::<TestEvent>::default();
         let event_0 = TestEvent { i: 0 };
         let event_1 = TestEvent { i: 1 };
         let event_2 = TestEvent { i: 2 };
 
         // this reader will miss event_0 and event_1 because it wont read them over the course of
         // two updates
-        let mut reader_missed: EventCursor<TestEvent> = events.get_cursor();
+        let mut reader_missed: MessageCursor<TestEvent> = events.get_cursor();
 
-        let mut reader_a: EventCursor<TestEvent> = events.get_cursor();
+        let mut reader_a: MessageCursor<TestEvent> = events.get_cursor();
 
         events.write(event_0);
 
@@ -394,7 +412,7 @@ mod tests {
             "second iteration of reader_a created before event results in zero events"
         );
 
-        let mut reader_b: EventCursor<TestEvent> = events.get_cursor();
+        let mut reader_b: MessageCursor<TestEvent> = events.get_cursor();
 
         assert_eq!(
             get_events(&events, &mut reader_b),
@@ -460,8 +478,8 @@ mod tests {
     }
 
     // Events Collection
-    fn events_clear_and_read_impl(clear_func: impl FnOnce(&mut Events<TestEvent>)) {
-        let mut events = Events::<TestEvent>::default();
+    fn events_clear_and_read_impl(clear_func: impl FnOnce(&mut Messages<TestEvent>)) {
+        let mut events = Messages::<TestEvent>::default();
         let mut reader = events.get_cursor();
 
         assert!(reader.read(&events).next().is_none());
@@ -485,7 +503,7 @@ mod tests {
 
     #[test]
     fn test_events_clear_and_read() {
-        events_clear_and_read_impl(Events::clear);
+        events_clear_and_read_impl(Messages::clear);
     }
 
     #[test]
@@ -499,7 +517,7 @@ mod tests {
 
     #[test]
     fn test_events_write_default() {
-        let mut events = Events::<EmptyTestEvent>::default();
+        let mut events = Messages::<EmptyTestEvent>::default();
         events.write_default();
 
         let mut reader = events.get_cursor();
@@ -508,7 +526,7 @@ mod tests {
 
     #[test]
     fn test_write_events_ids() {
-        let mut events = Events::<TestEvent>::default();
+        let mut events = Messages::<TestEvent>::default();
         let event_0 = TestEvent { i: 0 };
         let event_1 = TestEvent { i: 1 };
         let event_2 = TestEvent { i: 2 };
@@ -516,7 +534,7 @@ mod tests {
         let event_0_id = events.write(event_0);
 
         assert_eq!(
-            events.get_event(event_0_id.id),
+            events.get_message(event_0_id.id),
             Some((&event_0, event_0_id)),
             "Getting a sent event by ID should return the original event"
         );
@@ -526,7 +544,7 @@ mod tests {
         let event_id = event_ids.next().expect("Event 1 must have been sent");
 
         assert_eq!(
-            events.get_event(event_id.id),
+            events.get_message(event_id.id),
             Some((&event_1, event_id)),
             "Getting a sent event by ID should return the original event"
         );
@@ -534,7 +552,7 @@ mod tests {
         let event_id = event_ids.next().expect("Event 2 must have been sent");
 
         assert_eq!(
-            events.get_event(event_id.id),
+            events.get_message(event_id.id),
             Some((&event_2, event_id)),
             "Getting a sent event by ID should return the original event"
         );
@@ -550,20 +568,20 @@ mod tests {
         use bevy_ecs::prelude::*;
 
         let mut world = World::new();
-        EventRegistry::register_event::<TestEvent>(&mut world);
+        MessageRegistry::register_message::<TestEvent>(&mut world);
 
-        let has_events = world.get_resource::<Events<TestEvent>>().is_some();
+        let has_events = world.get_resource::<Messages<TestEvent>>().is_some();
         assert!(has_events, "Should have the events resource");
 
-        EventRegistry::deregister_events::<TestEvent>(&mut world);
+        MessageRegistry::deregister_messages::<TestEvent>(&mut world);
 
-        let has_events = world.get_resource::<Events<TestEvent>>().is_some();
+        let has_events = world.get_resource::<Messages<TestEvent>>().is_some();
         assert!(!has_events, "Should not have the events resource");
     }
 
     #[test]
     fn test_events_update_drain() {
-        let mut events = Events::<TestEvent>::default();
+        let mut events = Messages::<TestEvent>::default();
         let mut reader = events.get_cursor();
 
         events.write(TestEvent { i: 0 });
@@ -588,7 +606,7 @@ mod tests {
 
     #[test]
     fn test_events_empty() {
-        let mut events = Events::<TestEvent>::default();
+        let mut events = Messages::<TestEvent>::default();
         assert!(events.is_empty());
 
         events.write(TestEvent { i: 0 });
@@ -605,7 +623,7 @@ mod tests {
 
     #[test]
     fn test_events_extend_impl() {
-        let mut events = Events::<TestEvent>::default();
+        let mut events = Messages::<TestEvent>::default();
         let mut reader = events.get_cursor();
 
         events.extend(vec![TestEvent { i: 0 }, TestEvent { i: 1 }]);
@@ -617,7 +635,7 @@ mod tests {
     // Cursor
     #[test]
     fn test_event_cursor_read() {
-        let mut events = Events::<TestEvent>::default();
+        let mut events = Messages::<TestEvent>::default();
         let mut cursor = events.get_cursor();
         assert!(cursor.read(&events).next().is_none());
 
@@ -637,7 +655,7 @@ mod tests {
 
     #[test]
     fn test_event_cursor_read_mut() {
-        let mut events = Events::<TestEvent>::default();
+        let mut events = Messages::<TestEvent>::default();
         let mut write_cursor = events.get_cursor();
         let mut read_cursor = events.get_cursor();
         assert!(write_cursor.read_mut(&mut events).next().is_none());
@@ -670,7 +688,7 @@ mod tests {
 
     #[test]
     fn test_event_cursor_clear() {
-        let mut events = Events::<TestEvent>::default();
+        let mut events = Messages::<TestEvent>::default();
         let mut reader = events.get_cursor();
 
         events.write(TestEvent { i: 0 });
@@ -681,7 +699,7 @@ mod tests {
 
     #[test]
     fn test_event_cursor_len_update() {
-        let mut events = Events::<TestEvent>::default();
+        let mut events = Messages::<TestEvent>::default();
         events.write(TestEvent { i: 0 });
         events.write(TestEvent { i: 0 });
         let reader = events.get_cursor();
@@ -697,7 +715,7 @@ mod tests {
 
     #[test]
     fn test_event_cursor_len_current() {
-        let mut events = Events::<TestEvent>::default();
+        let mut events = Messages::<TestEvent>::default();
         events.write(TestEvent { i: 0 });
         let reader = events.get_cursor_current();
         assert!(reader.is_empty(&events));
@@ -708,7 +726,7 @@ mod tests {
 
     #[test]
     fn test_event_cursor_iter_len_updated() {
-        let mut events = Events::<TestEvent>::default();
+        let mut events = Messages::<TestEvent>::default();
         events.write(TestEvent { i: 0 });
         events.write(TestEvent { i: 1 });
         events.write(TestEvent { i: 2 });
@@ -725,14 +743,14 @@ mod tests {
 
     #[test]
     fn test_event_cursor_len_empty() {
-        let events = Events::<TestEvent>::default();
+        let events = Messages::<TestEvent>::default();
         assert_eq!(events.get_cursor().len(&events), 0);
         assert!(events.get_cursor().is_empty(&events));
     }
 
     #[test]
     fn test_event_cursor_len_filled() {
-        let mut events = Events::<TestEvent>::default();
+        let mut events = Messages::<TestEvent>::default();
         events.write(TestEvent { i: 0 });
         assert_eq!(events.get_cursor().len(&events), 1);
         assert!(!events.get_cursor().is_empty(&events));
@@ -748,16 +766,16 @@ mod tests {
         struct Counter(AtomicUsize);
 
         let mut world = World::new();
-        world.init_resource::<Events<TestEvent>>();
+        world.init_resource::<Messages<TestEvent>>();
         for _ in 0..100 {
-            world.write_event(TestEvent { i: 1 });
+            world.write_message(TestEvent { i: 1 });
         }
 
         let mut schedule = Schedule::default();
 
         schedule.add_systems(
-            |mut cursor: Local<EventCursor<TestEvent>>,
-             events: Res<Events<TestEvent>>,
+            |mut cursor: Local<MessageCursor<TestEvent>>,
+             events: Res<Messages<TestEvent>>,
              counter: ResMut<Counter>| {
                 cursor.par_read(&events).for_each(|event| {
                     counter.0.fetch_add(event.i, Ordering::Relaxed);
@@ -790,14 +808,14 @@ mod tests {
         struct Counter(AtomicUsize);
 
         let mut world = World::new();
-        world.init_resource::<Events<TestEvent>>();
+        world.init_resource::<Messages<TestEvent>>();
         for _ in 0..100 {
-            world.write_event(TestEvent { i: 1 });
+            world.write_message(TestEvent { i: 1 });
         }
         let mut schedule = Schedule::default();
         schedule.add_systems(
-            |mut cursor: Local<EventCursor<TestEvent>>,
-             mut events: ResMut<Events<TestEvent>>,
+            |mut cursor: Local<MessageCursor<TestEvent>>,
+             mut events: ResMut<Messages<TestEvent>>,
              counter: ResMut<Counter>| {
                 cursor.par_read_mut(&mut events).for_each(|event| {
                     event.i += 1;
@@ -823,7 +841,7 @@ mod tests {
     // Reader & Mutator
     #[test]
     fn ensure_reader_readonly() {
-        fn reader_system(_: EventReader<EmptyTestEvent>) {}
+        fn reader_system(_: MessageReader<EmptyTestEvent>) {}
 
         assert_is_read_only_system(reader_system);
     }
@@ -833,29 +851,30 @@ mod tests {
         use bevy_ecs::prelude::*;
 
         let mut world = World::new();
-        world.init_resource::<Events<TestEvent>>();
+        world.init_resource::<Messages<TestEvent>>();
 
-        let mut reader =
-            IntoSystem::into_system(|mut events: EventReader<TestEvent>| -> Option<TestEvent> {
+        let mut reader = IntoSystem::into_system(
+            |mut events: MessageReader<TestEvent>| -> Option<TestEvent> {
                 events.read().last().copied()
-            });
+            },
+        );
         reader.initialize(&mut world);
 
         let last = reader.run((), &mut world).unwrap();
-        assert!(last.is_none(), "EventReader should be empty");
+        assert!(last.is_none(), "MessageReader should be empty");
 
-        world.write_event(TestEvent { i: 0 });
+        world.write_message(TestEvent { i: 0 });
         let last = reader.run((), &mut world).unwrap();
         assert_eq!(last, Some(TestEvent { i: 0 }));
 
-        world.write_event(TestEvent { i: 1 });
-        world.write_event(TestEvent { i: 2 });
-        world.write_event(TestEvent { i: 3 });
+        world.write_message(TestEvent { i: 1 });
+        world.write_message(TestEvent { i: 2 });
+        world.write_message(TestEvent { i: 3 });
         let last = reader.run((), &mut world).unwrap();
         assert_eq!(last, Some(TestEvent { i: 3 }));
 
         let last = reader.run((), &mut world).unwrap();
-        assert!(last.is_none(), "EventReader should be empty");
+        assert!(last.is_none(), "MessageReader should be empty");
     }
 
     #[test]
@@ -863,24 +882,25 @@ mod tests {
         use bevy_ecs::prelude::*;
 
         let mut world = World::new();
-        world.init_resource::<Events<TestEvent>>();
+        world.init_resource::<Messages<TestEvent>>();
 
-        let mut mutator =
-            IntoSystem::into_system(|mut events: EventMutator<TestEvent>| -> Option<TestEvent> {
+        let mut mutator = IntoSystem::into_system(
+            |mut events: MessageMutator<TestEvent>| -> Option<TestEvent> {
                 events.read().last().copied()
-            });
+            },
+        );
         mutator.initialize(&mut world);
 
         let last = mutator.run((), &mut world).unwrap();
         assert!(last.is_none(), "EventMutator should be empty");
 
-        world.write_event(TestEvent { i: 0 });
+        world.write_message(TestEvent { i: 0 });
         let last = mutator.run((), &mut world).unwrap();
         assert_eq!(last, Some(TestEvent { i: 0 }));
 
-        world.write_event(TestEvent { i: 1 });
-        world.write_event(TestEvent { i: 2 });
-        world.write_event(TestEvent { i: 3 });
+        world.write_message(TestEvent { i: 1 });
+        world.write_message(TestEvent { i: 2 });
+        world.write_message(TestEvent { i: 3 });
         let last = mutator.run((), &mut world).unwrap();
         assert_eq!(last, Some(TestEvent { i: 3 }));
 
@@ -893,16 +913,16 @@ mod tests {
         use bevy_ecs::prelude::*;
 
         let mut world = World::new();
-        world.init_resource::<Events<TestEvent>>();
+        world.init_resource::<Messages<TestEvent>>();
 
-        world.write_event(TestEvent { i: 0 });
-        world.write_event(TestEvent { i: 1 });
-        world.write_event(TestEvent { i: 2 });
-        world.write_event(TestEvent { i: 3 });
-        world.write_event(TestEvent { i: 4 });
+        world.write_message(TestEvent { i: 0 });
+        world.write_message(TestEvent { i: 1 });
+        world.write_message(TestEvent { i: 2 });
+        world.write_message(TestEvent { i: 3 });
+        world.write_message(TestEvent { i: 4 });
 
         let mut schedule = Schedule::default();
-        schedule.add_systems(|mut events: EventReader<TestEvent>| {
+        schedule.add_systems(|mut events: MessageReader<TestEvent>| {
             let mut iter = events.read();
 
             assert_eq!(iter.next(), Some(&TestEvent { i: 0 }));
@@ -919,16 +939,16 @@ mod tests {
         use bevy_ecs::prelude::*;
 
         let mut world = World::new();
-        world.init_resource::<Events<TestEvent>>();
+        world.init_resource::<Messages<TestEvent>>();
 
-        world.write_event(TestEvent { i: 0 });
-        world.write_event(TestEvent { i: 1 });
-        world.write_event(TestEvent { i: 2 });
-        world.write_event(TestEvent { i: 3 });
-        world.write_event(TestEvent { i: 4 });
+        world.write_message(TestEvent { i: 0 });
+        world.write_message(TestEvent { i: 1 });
+        world.write_message(TestEvent { i: 2 });
+        world.write_message(TestEvent { i: 3 });
+        world.write_message(TestEvent { i: 4 });
 
         let mut schedule = Schedule::default();
-        schedule.add_systems(|mut events: EventReader<TestEvent>| {
+        schedule.add_systems(|mut events: MessageReader<TestEvent>| {
             let mut iter = events.read();
 
             assert_eq!(iter.next(), Some(&TestEvent { i: 0 }));

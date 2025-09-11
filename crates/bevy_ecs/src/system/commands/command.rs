@@ -9,7 +9,8 @@ use crate::{
     change_detection::MaybeLocation,
     entity::Entity,
     error::Result,
-    event::{BufferedEvent, Event, Events},
+    event::Event,
+    message::{Message, Messages},
     resource::Resource,
     schedule::ScheduleLabel,
     system::{IntoSystem, SystemId, SystemInput},
@@ -237,19 +238,19 @@ pub fn trigger_with<E: Event<Trigger<'static>: Send + Sync>>(
     }
 }
 
-/// A [`Command`] that writes an arbitrary [`BufferedEvent`].
+/// A [`Command`] that writes an arbitrary [`Message`].
 #[track_caller]
-pub fn write_event<E: BufferedEvent>(event: E) -> impl Command {
+pub fn write_message<M: Message>(message: M) -> impl Command {
     let caller = MaybeLocation::caller();
     move |world: &mut World| {
-        let mut events = world.resource_mut::<Events<E>>();
-        events.write_with_caller(event, caller);
+        let mut messages = world.resource_mut::<Messages<M>>();
+        messages.write_with_caller(message, caller);
     }
 }
 
-/// A [`Command`] that writes an arbitrary [`BufferedEvent`].
+/// A [`Command`] that writes an arbitrary [`Message`].
 #[track_caller]
-#[deprecated(since = "0.17.0", note = "Use `write_event` instead.")]
-pub fn send_event<E: BufferedEvent>(event: E) -> impl Command {
-    write_event(event)
+#[deprecated(since = "0.17.0", note = "Use `write_message` instead.")]
+pub fn send_event<E: Message>(event: E) -> impl Command {
+    write_message(event)
 }

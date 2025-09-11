@@ -23,15 +23,15 @@ const LINE_HEIGHT: f32 = 21.;
 
 /// Injects scroll events into the UI hierarchy.
 fn send_scroll_events(
-    mut mouse_wheel_events: EventReader<MouseWheel>,
+    mut mouse_wheel_reader: MessageReader<MouseWheel>,
     hover_map: Res<HoverMap>,
     keyboard_input: Res<ButtonInput<KeyCode>>,
     mut commands: Commands,
 ) {
-    for event in mouse_wheel_events.read() {
-        let mut delta = -Vec2::new(event.x, event.y);
+    for mouse_wheel in mouse_wheel_reader.read() {
+        let mut delta = -Vec2::new(mouse_wheel.x, mouse_wheel.y);
 
-        if event.unit == MouseScrollUnit::Line {
+        if mouse_wheel.unit == MouseScrollUnit::Line {
             delta *= LINE_HEIGHT;
         }
 

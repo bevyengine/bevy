@@ -105,7 +105,7 @@ pub fn ui_picking(
     settings: Res<UiPickingSettings>,
     ui_stack: Res<UiStack>,
     node_query: Query<NodeQuery>,
-    mut output: EventWriter<PointerHits>,
+    mut output: MessageWriter<PointerHits>,
     clipping_query: Query<(&ComputedNode, &UiGlobalTransform, &Node)>,
     child_of_query: Query<&ChildOf, Without<OverrideClip>>,
 ) {

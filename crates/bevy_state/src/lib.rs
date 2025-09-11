@@ -76,7 +76,7 @@ pub mod reflect;
 pub mod prelude {
     #[cfg(feature = "bevy_app")]
     #[doc(hidden)]
-    pub use crate::{app::AppExtStates, state_scoped_events::StateScopedEventsAppExt};
+    pub use crate::{app::AppExtStates, state_scoped_events::StateScopedMessagesAppExt};
 
     #[cfg(feature = "bevy_reflect")]
     #[doc(hidden)]

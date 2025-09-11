@@ -2,20 +2,20 @@
 
 use bevy::{
     color::palettes::css::NAVY,
-    core_widgets::{Activate, CoreWidgetsPlugins},
     ecs::relationship::RelatedSpawnerCommands,
     feathers::{
         controls::virtual_keyboard, dark_theme::create_dark_theme, theme::UiTheme, FeathersPlugin,
     },
     input_focus::{tab_navigation::TabNavigationPlugin, InputDispatchPlugin},
     prelude::*,
+    ui_widgets::{Activate, WidgetBehaviorPlugins},
 };
 
 fn main() {
     App::new()
         .add_plugins((
             DefaultPlugins,
-            CoreWidgetsPlugins,
+            WidgetBehaviorPlugins,
             InputDispatchPlugin,
             TabNavigationPlugin,
             FeathersPlugin,
