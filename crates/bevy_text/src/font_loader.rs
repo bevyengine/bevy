@@ -26,17 +26,12 @@ impl AssetLoader for FontLoader {
         &self,
         reader: &mut dyn Reader,
         _settings: &(),
-        load_context: &mut LoadContext<'_>,
+        _load_context: &mut LoadContext<'_>,
     ) -> Result<FontFamily, Self::Error> {
-        let asset_path = load_context.asset_path();
-        if let Some(label) = asset_path.label() {
-            let mut bytes = Vec::new();
-            reader.read_to_end(&mut bytes).await?;
-            let font = FontFamily::try_from_bytes(bytes)?;
-            Ok(font)
-        } else {
-            return Err(std::io::Error::new(std::io::ErrorKind::Other, "font load failed").into());
-        }
+        let mut bytes = Vec::new();
+        reader.read_to_end(&mut bytes).await?;
+        let font = FontFamily::try_from_bytes(bytes)?;
+        Ok(font)
     }
 
     fn extensions(&self) -> &[&str] {
