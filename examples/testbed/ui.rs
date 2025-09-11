@@ -93,7 +93,7 @@ mod text {
 
     pub fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         let sans = asset_server.load("fonts/FiraSans-Bold.ttf");
-        let sans_200 = commands.spawn((Font::new(sans.clone(), 200.))).id();
+        let sans_200 = commands.spawn(Font::new(sans.clone(), 200.)).id();
         let sans_default_size = commands.spawn(Font::from(sans)).id();
 
         commands.spawn((Camera2d, DespawnOnExit(super::Scene::Text)));
