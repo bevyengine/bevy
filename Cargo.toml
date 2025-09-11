@@ -298,7 +298,10 @@ bevy_input_focus = ["bevy_internal/bevy_input_focus"]
 experimental_bevy_ui_widgets = ["bevy_internal/bevy_ui_widgets"]
 
 # Feathers widget collection.
-experimental_bevy_feathers = ["bevy_internal/bevy_feathers"]
+experimental_bevy_feathers = [
+  "bevy_internal/bevy_feathers",
+  "experimental_bevy_ui_widgets",
+]
 
 # Enable passthrough loading for SPIR-V shaders (Only supported on Vulkan, shader capabilities and extensions must agree with the platform implementation)
 spirv_shader_passthrough = ["bevy_internal/spirv_shader_passthrough"]
