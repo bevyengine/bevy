@@ -261,7 +261,7 @@ pub unsafe trait DynamicBundle: Sized {
     ///    [`BundleFromComponents::from_components`].
     ///  - If any part of `ptr` is to be accessed in `apply_effect`, it must *not* be dropped at any point in this
     ///    function. Calling [`bevy_ptr::deconstruct_moving_ptr`] in this function automatically ensures this.
-    /// 
+    ///
     /// [`Component`]: crate::component::Component
     unsafe fn get_components(
         ptr: MovingPtr<'_, Self>,
@@ -281,7 +281,7 @@ pub unsafe trait DynamicBundle: Sized {
     ///
     /// For implementors:
     ///  - If any part of `ptr` is to be accessed in this function, it must *not* be dropped at any point in
-    ///    `get_components`. Calling [`bevy_ptr::deconstruct_moving_ptr`] in `get_components` automatically 
+    ///    `get_components`. Calling [`bevy_ptr::deconstruct_moving_ptr`] in `get_components` automatically
     ///    ensures this is the case.
     ///
     /// [`World`]: crate::world::World
