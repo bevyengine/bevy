@@ -84,6 +84,7 @@ use core::any::TypeId;
     TextFont,
     TextColor,
     TextBounds,
+    LineHeight,
     Anchor,
     Visibility,
     VisibilityClass,
