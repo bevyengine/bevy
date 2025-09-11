@@ -159,6 +159,7 @@ impl<M: Message> ApplicationHandler<M> for WinitAppRunnerState<M> {
             } else {
                 self.app.finish();
                 self.app.cleanup();
+                self.app.startup();
             }
             self.redraw_requested = true;
         }
@@ -862,6 +863,7 @@ pub fn winit_runner<M: Message>(mut app: App, event_loop: EventLoop<M>) -> AppEx
     if app.plugins_state() == PluginsState::Ready {
         app.finish();
         app.cleanup();
+        app.startup();
     }
 
     app.world_mut()
