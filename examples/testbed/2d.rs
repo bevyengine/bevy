@@ -142,7 +142,6 @@ mod text {
     use bevy::color::palettes;
     use bevy::prelude::*;
     use bevy::sprite::Anchor;
-    use bevy::text::FontSize;
     use bevy::text::Font;
     use bevy::text::TextBounds;
 
@@ -178,7 +177,7 @@ mod text {
             );
         }
 
-        let font = commands.spawn(Font(sans)).id();
+        let font = commands.spawn(Font::from(sans)).id();
 
         const NUM_ITERATIONS: usize = 10;
         for i in 0..NUM_ITERATIONS {
@@ -209,7 +208,7 @@ mod text {
         justify: Justify,
         bounds: Option<TextBounds>,
     ) {
-        let font_14 = commands.spawn((Font(font_face), FontSize(14.))).id();
+        let font_14 = commands.spawn(Font::new(font_face, 14.)).id();
 
         commands.spawn((
             Sprite {

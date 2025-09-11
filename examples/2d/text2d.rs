@@ -10,7 +10,7 @@ use bevy::{
     math::ops,
     prelude::*,
     sprite::{Anchor, Text2dShadow},
-    text::{Font, FontSize, FontSmoothing, LineBreak, TextBounds},
+    text::{Font, FontSmoothing, LineBreak, TextBounds},
 };
 
 fn main() {
@@ -34,15 +34,11 @@ struct AnimateRotation;
 struct AnimateScale;
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
-    let font_family = asset_server.load("fonts/FiraSans-Bold.ttf");
-    let font = commands
-        .spawn((Font(font_family.clone()), FontSize(50.)))
-        .id();
-    let smaller_font = commands
-        .spawn((Font(font_family.clone()), FontSize(35.)))
-        .id();
+    let font_face = asset_server.load("fonts/FiraSans-Bold.ttf");
+    let font = commands.spawn(Font::new(font_face.clone(), 50.)).id();
+    let smaller_font = commands.spawn(Font::new(font_face.clone(), 35.)).id();
     let rough_font = commands
-        .spawn((Font(font_family), FontSize(35.), FontSmoothing::None))
+        .spawn(Font::new(font_face.clone(), 35.).with_font_smoothing(FontSmoothing::None))
         .id();
 
     let text_font = TextFont(font);

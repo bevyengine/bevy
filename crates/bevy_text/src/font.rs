@@ -65,10 +65,10 @@ pub struct Font {
 
 impl Font {
     /// Returns a new [`Font`] with the specified font face and size.
-    pub fn new(font_face: Handle<FontFace>, font_size: f32) -> Font {
+    pub fn new(face: Handle<FontFace>, size: f32) -> Font {
         Self {
-            face: font_face,
-            size: font_size,
+            face,
+            size,
             ..default()
         }
     }
