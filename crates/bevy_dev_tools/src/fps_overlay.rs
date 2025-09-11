@@ -16,7 +16,7 @@ use bevy_ecs::{
     system::{Commands, Query, Res, ResMut},
 };
 use bevy_render::storage::ShaderStorageBuffer;
-use bevy_text::{FontFamily, TextColor, TextFont, TextSpan};
+use bevy_text::{FontFace, FontFamily, FontSize, TextColor, TextFont, TextSpan};
 use bevy_time::Time;
 use bevy_ui::{
     widget::{Text, TextUiWriter},
@@ -79,7 +79,8 @@ impl Plugin for FpsOverlayPlugin {
 #[derive(Resource, Clone)]
 pub struct FpsOverlayConfig {
     /// Configuration of text in the overlay.
-    pub text_config: TextFont,
+    pub font: Handle<FontFamily>,
+    pub font_size: f32,
     /// Color of text in the overlay.
     pub text_color: Color,
     /// Displays the FPS overlay if true.
@@ -95,11 +96,9 @@ pub struct FpsOverlayConfig {
 impl Default for FpsOverlayConfig {
     fn default() -> Self {
         FpsOverlayConfig {
-            text_config: TextFont {
-                font: Handle::<FontFamily>::default(),
-                font_size: 32.0,
-                ..Default::default()
-            },
+            font: Handle::<FontFamily>::default(),
+            font_size: 32.0,
+
             text_color: Color::WHITE,
             enabled: true,
             refresh_interval: Duration::from_millis(100),
@@ -150,12 +149,22 @@ struct FpsText;
 #[derive(Component)]
 struct FrameTimeGraph;
 
+#[derive(Component)]
+struct OverlayFont;
+
 fn setup(
     mut commands: Commands,
     overlay_config: Res<FpsOverlayConfig>,
     mut frame_time_graph_materials: ResMut<Assets<FrametimeGraphMaterial>>,
     mut buffers: ResMut<Assets<ShaderStorageBuffer>>,
 ) {
+    let font = commands
+        .spawn((
+            FontFace(overlay_config.font.clone()),
+            FontSize(overlay_config.font_size),
+            OverlayFont,
+        ))
+        .id();
     commands
         .spawn((
             Node {
@@ -170,13 +179,13 @@ fn setup(
         .with_children(|p| {
             p.spawn((
                 Text::new("FPS: "),
-                overlay_config.text_config.clone(),
+                TextFont(font),
                 TextColor(overlay_config.text_color),
                 FpsText,
             ))
-            .with_child((TextSpan::default(), overlay_config.text_config.clone()));
+            .with_child((TextSpan::default(), TextFont(font)));
 
-            let font_size = overlay_config.text_config.font_size;
+            let font_size = overlay_config.font_size;
             p.spawn((
                 Node {
                     width: Val::Px(font_size * FRAME_TIME_GRAPH_WIDTH_SCALE),
@@ -229,15 +238,18 @@ fn update_text(
 }
 
 fn customize_overlay(
+    font_query: Query<Entity, With<OverlayFont>>,
     overlay_config: Res<FpsOverlayConfig>,
     query: Query<Entity, With<FpsText>>,
     mut writer: TextUiWriter,
 ) {
-    for entity in &query {
-        writer.for_each_font(entity, |mut font| {
-            *font = overlay_config.text_config.clone();
-        });
-        writer.for_each_color(entity, |mut color| color.0 = overlay_config.text_color);
+    if let Ok(font) = font_query.single() {
+        for entity in &query {
+            writer.for_each_font(entity, |mut text_font| {
+                text_font.0 = font;
+            });
+            writer.for_each_color(entity, |mut color| color.0 = overlay_config.text_color);
+        }
     }
 }
 
@@ -252,11 +264,10 @@ fn toggle_display(
             false => Visibility::Hidden,
         });
     }
-
     if let Ok(mut graph_style) = graph_style.single_mut() {
         if overlay_config.frame_time_graph_config.enabled {
             // Scale the frame time graph based on the font size of the overlay
-            let font_size = overlay_config.text_config.font_size;
+            let font_size = overlay_config.font_size;
             graph_style.width = Val::Px(font_size * FRAME_TIME_GRAPH_WIDTH_SCALE);
             graph_style.height = Val::Px(font_size * FRAME_TIME_GRAPH_HEIGHT_SCALE);
 

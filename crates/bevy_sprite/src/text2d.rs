@@ -20,9 +20,9 @@ use bevy_image::prelude::*;
 use bevy_math::{FloatOrd, Vec2, Vec3};
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_text::{
-    ComputedTextBlock, CosmicFontSystem, FontAtlasSets, FontFamily, LineBreak, SwashCache,
-    TextBounds, TextColor, TextError, TextFont, TextLayout, TextLayoutInfo, TextPipeline,
-    TextReader, TextRoot, TextSpanAccess, TextWriter,
+    ComputedTextBlock, CosmicFontSystem, FontAtlasSets, FontFace, FontFamily, FontSize,
+    FontSmoothing, LineBreak, LineHeight, SwashCache, TextBounds, TextColor, TextError, TextFont,
+    TextLayout, TextLayoutInfo, TextPipeline, TextReader, TextRoot, TextSpanAccess, TextWriter,
 };
 use bevy_transform::components::Transform;
 use core::any::TypeId;
@@ -176,6 +176,7 @@ pub fn update_text2d_layout(
         &mut TextLayoutInfo,
         &mut ComputedTextBlock,
     )>,
+    font_query: Query<(&FontFace, &FontSize, &LineHeight, &FontSmoothing)>,
     mut text_reader: Text2dReader,
     mut font_system: ResMut<CosmicFontSystem>,
     mut swash_cache: ResMut<SwashCache>,
@@ -237,6 +238,7 @@ pub fn update_text2d_layout(
             match text_pipeline.queue_text(
                 text_layout_info,
                 &fonts,
+                &font_query,
                 text_reader.iter(entity),
                 scale_factor as f64,
                 &block,

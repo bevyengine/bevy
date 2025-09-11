@@ -18,9 +18,10 @@ use bevy_image::prelude::*;
 use bevy_math::Vec2;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_text::{
-    ComputedTextBlock, CosmicFontSystem, FontAtlasSets, FontFamily, LineBreak, SwashCache,
-    TextBounds, TextColor, TextError, TextFont, TextLayout, TextLayoutInfo, TextMeasureInfo,
-    TextPipeline, TextReader, TextRoot, TextSpanAccess, TextWriter,
+    ComputedTextBlock, CosmicFontSystem, FontAtlasSets, FontFace, FontFamily, FontSize,
+    FontSmoothing, LineBreak, LineHeight, SwashCache, TextBounds, TextColor, TextError, TextFont,
+    TextLayout, TextLayoutInfo, TextMeasureInfo, TextPipeline, TextReader, TextRoot,
+    TextSpanAccess, TextWriter,
 };
 use taffy::style::AvailableSpace;
 use tracing::error;
@@ -226,6 +227,7 @@ impl Measure for TextMeasure {
 #[inline]
 fn create_text_measure<'a>(
     entity: Entity,
+    font_query: &Query<(&FontFace, &FontSize, &LineHeight, &FontSmoothing)>,
     fonts: &Assets<FontFamily>,
     scale_factor: f64,
     spans: impl Iterator<Item = (Entity, usize, &'a str, &'a TextFont, Color)>,
@@ -239,6 +241,7 @@ fn create_text_measure<'a>(
     match text_pipeline.create_text_measure(
         entity,
         fonts,
+        font_query,
         spans,
         scale_factor,
         &block,
@@ -290,6 +293,7 @@ pub fn measure_text_system(
         ),
         With<Node>,
     >,
+    font_query: Query<(&FontFace, &FontSize, &LineHeight, &FontSmoothing)>,
     mut text_reader: TextUiReader,
     mut text_pipeline: ResMut<TextPipeline>,
     mut font_system: ResMut<CosmicFontSystem>,
@@ -307,6 +311,7 @@ pub fn measure_text_system(
         {
             create_text_measure(
                 entity,
+                &font_query,
                 &fonts,
                 computed_target.scale_factor.into(),
                 text_reader.iter(entity),
@@ -325,6 +330,7 @@ pub fn measure_text_system(
 fn queue_text(
     entity: Entity,
     fonts: &Assets<FontFamily>,
+    font_query: &Query<(&FontFace, &FontSize, &LineHeight, &FontSmoothing)>,
     text_pipeline: &mut TextPipeline,
     font_atlas_sets: &mut FontAtlasSets,
     texture_atlases: &mut Assets<TextureAtlasLayout>,
@@ -357,6 +363,7 @@ fn queue_text(
     match text_pipeline.queue_text(
         text_layout_info,
         fonts,
+        font_query,
         text_reader.iter(entity),
         scale_factor.into(),
         block,
@@ -405,6 +412,7 @@ pub fn text_system(
         &mut TextNodeFlags,
         &mut ComputedTextBlock,
     )>,
+    font_query: Query<(&FontFace, &FontSize, &LineHeight, &FontSmoothing)>,
     mut text_reader: TextUiReader,
     mut font_system: ResMut<CosmicFontSystem>,
     mut swash_cache: ResMut<SwashCache>,
@@ -414,6 +422,7 @@ pub fn text_system(
             queue_text(
                 entity,
                 &fonts,
+                &font_query,
                 &mut text_pipeline,
                 &mut font_atlas_sets,
                 &mut texture_atlases,

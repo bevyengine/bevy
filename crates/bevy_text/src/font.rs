@@ -5,8 +5,6 @@ use bevy_ecs::component::Component;
 use bevy_ecs::{prelude::*, reflect::ReflectComponent};
 use bevy_reflect::prelude::*;
 use bevy_reflect::TypePath;
-use bevy_utils::{default, once};
-use cosmic_text::{Buffer, Metrics};
 use serde::{Deserialize, Serialize};
 
 /// An [`Asset`] that contains the data for a loaded font, if loaded as an asset.
@@ -41,13 +39,13 @@ impl FontFamily {
 }
 
 /// Atm fontfaces and families are the same thing.
-#[derive(Component, Clone, Debug, Reflect, PartialEq, Default)]
+#[derive(Component, Clone, Debug, Reflect, PartialEq, Default, Deref, DerefMut)]
 #[reflect(Component, Default, Debug, Clone)]
 pub struct FontFace(pub Handle<FontFamily>);
 
 /// Size of the font.
 /// Later may be changed to an responsive values.
-#[derive(Component, Clone, Debug, Reflect, PartialEq)]
+#[derive(Component, Clone, Debug, Reflect, PartialEq, Deref, DerefMut)]
 #[reflect(Component, Default, Debug, Clone)]
 pub struct FontSize(pub f32);
 

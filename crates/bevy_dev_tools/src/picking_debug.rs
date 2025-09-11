@@ -12,6 +12,7 @@ use bevy_picking::prelude::*;
 use bevy_picking::PickingSystems;
 use bevy_reflect::prelude::*;
 use bevy_text::prelude::*;
+use bevy_text::{FontFace, FontSize};
 use bevy_ui::prelude::*;
 use core::cmp::Ordering;
 use core::fmt::{Debug, Display, Formatter, Result};
@@ -269,6 +270,8 @@ pub fn debug_draw(
                 pointer_pos -= viewport.min;
             }
 
+            let font = commands.spawn((FontFace::default(), FontSize(12.))).id();
+
             commands
                 .entity(entity)
                 .despawn_related::<Children>()
@@ -284,7 +287,7 @@ pub fn debug_draw(
                     GlobalZIndex(i32::MAX),
                     Pickable::IGNORE,
                     UiTargetCamera(camera),
-                    children![(Text::new(text.clone()), TextFont::from_font_size(12.0))],
+                    children![(Text::new(text.clone()), TextFont(font))],
                 ));
         }
     }
