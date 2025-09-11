@@ -176,7 +176,7 @@ pub fn update_text2d_layout(
         &mut TextLayoutInfo,
         &mut ComputedTextBlock,
     )>,
-    font_query: Query<(&FontFace, &FontSize, &LineHeight, &FontSmoothing)>,
+    font_query: Query<(&FontFace, &FontSize, &FontSmoothing)>,
     mut text_reader: Text2dReader,
     mut font_system: ResMut<CosmicFontSystem>,
     mut swash_cache: ResMut<SwashCache>,

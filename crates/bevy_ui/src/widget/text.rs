@@ -227,10 +227,10 @@ impl Measure for TextMeasure {
 #[inline]
 fn create_text_measure<'a>(
     entity: Entity,
-    font_query: &Query<(&FontFace, &FontSize, &LineHeight, &FontSmoothing)>,
+    font_query: &Query<(&FontFace, &FontSize, &FontSmoothing)>,
     fonts: &Assets<FontFamily>,
     scale_factor: f64,
-    spans: impl Iterator<Item = (Entity, usize, &'a str, &'a TextFont, Color)>,
+    spans: impl Iterator<Item = (Entity, usize, &'a str, &'a TextFont, Color, &'a LineHeight)>,
     block: Ref<TextLayout>,
     text_pipeline: &mut TextPipeline,
     mut content_size: Mut<ContentSize>,
@@ -238,6 +238,7 @@ fn create_text_measure<'a>(
     mut computed: Mut<ComputedTextBlock>,
     font_system: &mut CosmicFontSystem,
 ) {
+    println!("\tcreate text measure");
     match text_pipeline.create_text_measure(
         entity,
         fonts,
@@ -249,6 +250,7 @@ fn create_text_measure<'a>(
         font_system,
     ) {
         Ok(measure) => {
+            println!("\t\tmeasure created");
             if block.linebreak == LineBreak::NoWrap {
                 content_size.set(NodeMeasure::Fixed(FixedMeasure { size: measure.max }));
             } else {
@@ -260,6 +262,7 @@ fn create_text_measure<'a>(
             text_flags.needs_recompute = true;
         }
         Err(TextError::NoSuchFont) => {
+            println!("\t\tno such font");
             // Try again next frame
             text_flags.needs_measure_fn = true;
         }
@@ -293,11 +296,12 @@ pub fn measure_text_system(
         ),
         With<Node>,
     >,
-    font_query: Query<(&FontFace, &FontSize, &LineHeight, &FontSmoothing)>,
+    font_query: Query<(&FontFace, &FontSize, &FontSmoothing)>,
     mut text_reader: TextUiReader,
     mut text_pipeline: ResMut<TextPipeline>,
     mut font_system: ResMut<CosmicFontSystem>,
 ) {
+    println!("measure texture system");
     for (entity, block, content_size, text_flags, computed, computed_target, computed_node) in
         &mut text_query
     {
@@ -330,7 +334,7 @@ pub fn measure_text_system(
 fn queue_text(
     entity: Entity,
     fonts: &Assets<FontFamily>,
-    font_query: &Query<(&FontFace, &FontSize, &LineHeight, &FontSmoothing)>,
+    font_query: &Query<(&FontFace, &FontSize, &FontSmoothing)>,
     text_pipeline: &mut TextPipeline,
     font_atlas_sets: &mut FontAtlasSets,
     texture_atlases: &mut Assets<TextureAtlasLayout>,
@@ -346,10 +350,12 @@ fn queue_text(
     font_system: &mut CosmicFontSystem,
     swash_cache: &mut SwashCache,
 ) {
-    // Skip the text node if it is waiting for a new measure func
-    if text_flags.needs_measure_fn {
-        return;
-    }
+    println!("\t\t bevy_ui::text::queue_text for {entity:?}");
+    // // Skip the text node if it is waiting for a new measure func
+    // if text_flags.needs_measure_fn {
+    //     println!("\t\t\tdon't need to measure");
+    //     return;
+    // }
 
     let physical_node_size = if block.linebreak == LineBreak::NoWrap {
         // With `NoWrap` set, no constraints are placed on the width of the text.
@@ -376,6 +382,7 @@ fn queue_text(
         swash_cache,
     ) {
         Err(TextError::NoSuchFont) => {
+            println!("\t\t\tno such font");
             // There was an error processing the text layout, try again next frame
             text_flags.needs_recompute = true;
         }
@@ -386,6 +393,7 @@ fn queue_text(
             text_layout_info.scale_factor = scale_factor;
             text_layout_info.size *= inverse_scale_factor;
             text_flags.needs_recompute = false;
+            println!("\t\t\tsuccess, size: {}", text_layout_info.size);
         }
     }
 }
@@ -412,13 +420,16 @@ pub fn text_system(
         &mut TextNodeFlags,
         &mut ComputedTextBlock,
     )>,
-    font_query: Query<(&FontFace, &FontSize, &LineHeight, &FontSmoothing)>,
+    font_query: Query<(&FontFace, &FontSize, &FontSmoothing)>,
     mut text_reader: TextUiReader,
     mut font_system: ResMut<CosmicFontSystem>,
     mut swash_cache: ResMut<SwashCache>,
 ) {
+    println!("text_system");
     for (entity, node, block, text_layout_info, text_flags, mut computed) in &mut text_query {
+        println!("\ttext entity -> {entity}");
         if node.is_changed() || text_flags.needs_recompute {
+            println!("\t\trecompute");
             queue_text(
                 entity,
                 &fonts,

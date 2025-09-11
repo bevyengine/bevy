@@ -41,6 +41,7 @@ impl FontFamily {
 /// Atm fontfaces and families are the same thing.
 #[derive(Component, Clone, Debug, Reflect, PartialEq, Default, Deref, DerefMut)]
 #[reflect(Component, Default, Debug, Clone)]
+#[require(FontSize, FontSmoothing)]
 pub struct FontFace(pub Handle<FontFamily>);
 
 /// Size of the font.

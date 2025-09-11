@@ -89,13 +89,8 @@ impl TextPipeline {
     pub fn update_buffer<'a>(
         &mut self,
         fonts: &Assets<FontFamily>,
-        font_query: &Query<(
-            &crate::FontFace,
-            &crate::FontSize,
-            &LineHeight,
-            &FontSmoothing,
-        )>,
-        text_spans: impl Iterator<Item = (Entity, usize, &'a str, &'a TextFont, Color)>,
+        font_query: &Query<(&crate::FontFace, &crate::FontSize, &FontSmoothing)>,
+        text_spans: impl Iterator<Item = (Entity, usize, &'a str, &'a TextFont, Color, &'a LineHeight)>,
         linebreak: LineBreak,
         justify: Justify,
         bounds: TextBounds,
@@ -103,21 +98,28 @@ impl TextPipeline {
         computed: &mut ComputedTextBlock,
         font_system: &mut CosmicFontSystem,
     ) -> Result<(), TextError> {
+        println!("\t\t -> TextPipeline::update buffer");
         let font_system = &mut font_system.0;
 
         // Collect span information into a vec. This is necessary because font loading requires mut access
         // to FontSystem, which the cosmic-text Buffer also needs.
         let mut max_font_size: f32 = 0.;
         let mut max_line_height: f32 = 0.0;
-        let mut spans: Vec<(usize, &str, &TextFont, FontFaceInfo, Color)> =
+        let mut spans: Vec<(usize, &str, &TextFont, FontFaceInfo, Color, &LineHeight)> =
             core::mem::take(&mut self.spans_buffer)
                 .into_iter()
-                .map(|_| -> (usize, &str, &TextFont, FontFaceInfo, Color) { unreachable!() })
+                .map(
+                    |_| -> (usize, &str, &TextFont, FontFaceInfo, Color, &LineHeight) {
+                        unreachable!()
+                    },
+                )
                 .collect();
 
         computed.entities.clear();
 
-        for (span_index, (entity, depth, span, text_font, color)) in text_spans.enumerate() {
+        for (span_index, (entity, depth, span, text_font, color, line_height)) in
+            text_spans.enumerate()
+        {
             // Save this span entity in the computed text block.
             computed.entities.push(TextEntity { entity, depth });
 
@@ -125,7 +127,8 @@ impl TextPipeline {
                 continue;
             }
 
-            let Ok((font_face, font_size, line_height, _)) = font_query.get(text_font.0) else {
+            let Ok((font_face, font_size, _)) = font_query.get(text_font.0) else {
+                println!("\t\t -> TextPipeline no such font!");
                 return Err(TextError::NoSuchFont);
             };
 
@@ -164,7 +167,7 @@ impl TextPipeline {
 
                 continue;
             }
-            spans.push((span_index, span, text_font, face_info, color));
+            spans.push((span_index, span, text_font, face_info, color, line_height));
         }
 
         let mut metrics = Metrics::new(max_font_size, max_line_height).scale(scale_factor as f32);
@@ -180,22 +183,22 @@ impl TextPipeline {
         // The section index is stored in the metadata of the spans, and could be used
         // to look up the section the span came from and is not used internally
         // in cosmic-text.
-        let spans_iter = spans
-            .iter()
-            .map(|(span_index, span, text_font, font_info, color)| {
-                let (_, font_size, line_height, _) = font_query.get(text_font.0).unwrap();
+        let spans_iter = spans.iter().map(
+            |(span_index, span, text_font, font_info, color, line_height)| {
+                let (_, font_size, _) = font_query.get(text_font.0).unwrap();
                 (
                     *span,
                     get_attrs(
                         *span_index,
                         font_size.0,
-                        *line_height,
+                        **line_height,
                         *color,
                         font_info,
                         scale_factor,
                     ),
                 )
-            });
+            },
+        );
 
         // Update the buffer.
         let buffer = &mut computed.buffer;
@@ -247,13 +250,8 @@ impl TextPipeline {
         &mut self,
         layout_info: &mut TextLayoutInfo,
         fonts: &Assets<FontFamily>,
-        font_query: &Query<(
-            &crate::FontFace,
-            &crate::FontSize,
-            &LineHeight,
-            &FontSmoothing,
-        )>,
-        text_spans: impl Iterator<Item = (Entity, usize, &'a str, &'a TextFont, Color)>,
+        font_query: &Query<(&crate::FontFace, &crate::FontSize, &FontSmoothing)>,
+        text_spans: impl Iterator<Item = (Entity, usize, &'a str, &'a TextFont, Color, &'a LineHeight)>,
         scale_factor: f64,
         layout: &TextLayout,
         bounds: TextBounds,
@@ -274,12 +272,12 @@ impl TextPipeline {
         // Extract font ids from the iterator while traversing it.
         let mut glyph_info = core::mem::take(&mut self.glyph_info);
         glyph_info.clear();
-        let text_spans = text_spans.inspect(|(_, _, _, text_font, _)| {
+        let text_spans = text_spans.inspect(|(_, _, _, text_font, _, _)| {
             glyph_info.push(
                 font_query
                     .get(text_font.0)
                     .ok()
-                    .map(|(font_face, _, _, font_smoothing)| (font_face.0.id(), *font_smoothing)),
+                    .map(|(font_face, _, font_smoothing)| (font_face.0.id(), *font_smoothing)),
             );
         });
 
@@ -427,13 +425,8 @@ impl TextPipeline {
         &mut self,
         entity: Entity,
         fonts: &Assets<FontFamily>,
-        font_query: &Query<(
-            &crate::FontFace,
-            &crate::FontSize,
-            &LineHeight,
-            &FontSmoothing,
-        )>,
-        text_spans: impl Iterator<Item = (Entity, usize, &'a str, &'a TextFont, Color)>,
+        font_query: &Query<(&crate::FontFace, &crate::FontSize, &FontSmoothing)>,
+        text_spans: impl Iterator<Item = (Entity, usize, &'a str, &'a TextFont, Color, &'a LineHeight)>,
         scale_factor: f64,
         layout: &TextLayout,
         computed: &mut ComputedTextBlock,
