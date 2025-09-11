@@ -31,7 +31,7 @@ impl FontAtlasSets {
 /// A system that cleans up [`FontAtlasSet`]s for removed [`Font`]s
 pub fn remove_dropped_font_atlas_sets(
     mut font_atlas_sets: ResMut<FontAtlasSets>,
-    mut font_events: EventReader<AssetEvent<FontFace>>,
+    mut font_events: MessageReader<AssetEvent<FontFace>>,
 ) {
     for event in font_events.read() {
         if let AssetEvent::Removed { id } = event {
