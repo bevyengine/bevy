@@ -245,24 +245,45 @@ pub unsafe trait DynamicBundle: Sized {
     /// An operation on the entity that happens _after_ inserting this bundle.
     type Effect;
 
-    // SAFETY:
-    // - Must be called exactly once before `apply_effect`
-    // - The `StorageType` argument passed into [`Bundle::get_components`] must be correct for the
-    //   component being fetched.
-    // - Calls `func` on each component value in the bundle, in the order of this bundle's [`Component`]s.
-    //   This passes ownership of the component values to `func`.
-    // - `apply_effect` must be called exactly once after this has been called if `Effect: !NoBundleEffect`
-    #[doc(hidden)]
+    /// Moves the components out of the bundle.
+    ///
+    /// # Safety
+    /// For callers:
+    /// - Must be called exactly once before `apply_effect`
+    /// - The `StorageType` argument passed into [`Bundle::get_components`] must be correct for the
+    ///   component being fetched.
+    /// - Calls `func` on each component value in the bundle, in the order of this bundle's [`Component`]s.
+    ///   This passes ownership of the component values to `func`.
+    /// - `apply_effect` must be called exactly once after this has been called if `Effect: !NoBundleEffect`
+    ///
+    /// For implementors:
+    ///  - Implementors of this function must convert `ptr` into pointers to individual components stored within
+    ///    `Self` and call `func` on each of them in exactly the same order as [`Bundle::get_component_ids`] and
+    ///    [`BundleFromComponents::from_components`].
+    ///  - If any part of `ptr` is to be accessed in `apply_effect`, it must *not* be dropped at any point in this
+    ///    function. Calling [`bevy_ptr::deconstruct_moving_ptr`] in this function automatically ensures this.
     unsafe fn get_components(
         ptr: MovingPtr<'_, Self>,
         func: &mut impl FnMut(StorageType, OwningPtr<'_>),
     );
 
-    // SAFETY:
-    // - Must be called exactly once after `get_components` has been called.
-    // - `ptr` must point to the instance of `Self` that `get_components` was called on,
-    //   all of fields that were moved out of in `get_components` will not be valid anymore.
-    #[doc(hidden)]
+    /// Applies the after-effects of spawning this bundle.
+    ///
+    /// This is applied after all residual changes to the [`World`], including flushing the internal command
+    /// queue.
+    ///
+    /// # Safety
+    /// For callers:
+    /// - Must be called exactly once after `get_components` has been called.
+    /// - `ptr` must point to the instance of `Self` that `get_components` was called on,
+    ///   all of fields that were moved out of in `get_components` will not be valid anymore.
+    ///
+    /// For implementors:
+    ///  - If any part of `ptr` is to be accessed in this function, it must *not* be dropped at any point in
+    ///   `get_components`. Calling [`bevy_ptr::deconstruct_moving_ptr`] in `get_components` automatically ensures
+    ///    this is the case.
+    ///
+    /// [`World`]: crate::world::World
     unsafe fn apply_effect(ptr: MovingPtr<'_, MaybeUninit<Self>>, entity: &mut EntityWorldMut);
 }
 

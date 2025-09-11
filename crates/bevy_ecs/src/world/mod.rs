@@ -1188,8 +1188,7 @@ impl World {
         let mut entity = unsafe { EntityWorldMut::new(self, entity, entity_location) };
         // SAFETY:
         // - This is called exactly once after `get_components` has been called in `spawn_non_existent`.
-        // - The caller must ensure that `ptr` points to a valid instance of `B`.
-        // - `B` and `MaybeUnnit<B>` have the same memory layout.
+        // - `bundle` had it's `get_components` function called exactly once inside `spawn_non_existent`.
         unsafe { B::apply_effect(bundle, &mut entity) };
         entity
     }
