@@ -20,9 +20,9 @@ use bevy_image::prelude::*;
 use bevy_math::{FloatOrd, Vec2, Vec3};
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_text::{
-    ComputedTextBlock, CosmicFontSystem, FontFamily, FontAtlasSets, LineBreak, SwashCache, TextBounds,
-    TextColor, TextError, TextFont, TextLayout, TextLayoutInfo, TextPipeline, TextReader, TextRoot,
-    TextSpanAccess, TextWriter,
+    ComputedTextBlock, CosmicFontSystem, FontAtlasSets, FontFamily, LineBreak, SwashCache,
+    TextBounds, TextColor, TextError, TextFont, TextLayout, TextLayoutInfo, TextPipeline,
+    TextReader, TextRoot, TextSpanAccess, TextWriter,
 };
 use bevy_transform::components::Transform;
 use core::any::TypeId;

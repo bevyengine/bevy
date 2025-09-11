@@ -1,10 +1,9 @@
-use crate::{FontFamily, TextLayoutInfo, TextSpanAccess, TextSpanComponent};
-use bevy_asset::Handle;
+use crate::{TextLayoutInfo, TextSpanAccess, TextSpanComponent};
 use bevy_color::Color;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::{prelude::*, reflect::ReflectComponent};
 use bevy_reflect::prelude::*;
-use bevy_utils::{default, once};
+use bevy_utils::once;
 use cosmic_text::{Buffer, Metrics};
 use serde::{Deserialize, Serialize};
 use smallvec::SmallVec;
@@ -172,7 +171,7 @@ impl TextLayout {
 /// but each node has its own [`TextFont`] and [`TextColor`].
 #[derive(Component, Debug, Default, Clone, Deref, DerefMut, Reflect)]
 #[reflect(Component, Default, Debug, Clone)]
-#[require(TextFont, TextColor)]
+#[require(TextFont, TextColor, LineHeight)]
 pub struct TextSpan(pub String);
 
 impl TextSpan {
@@ -246,93 +245,18 @@ impl From<Justify> for cosmic_text::Align {
 /// the font face, the font size, and the color.
 #[derive(Component, Clone, Debug, Reflect, PartialEq)]
 #[reflect(Component, Default, Debug, Clone)]
-pub struct TextFont {
-    /// The specific font face to use, as a `Handle` to a [`Font`] asset.
-    ///
-    /// If the `font` is not specified, then
-    /// * if `default_font` feature is enabled (enabled by default in `bevy` crate),
-    ///   `FiraMono-subset.ttf` compiled into the library is used.
-    /// * otherwise no text will be rendered, unless a custom font is loaded into the default font
-    ///   handle.
-    pub font: Handle<FontFamily>,
-    /// The vertical height of rasterized glyphs in the font atlas in pixels.
-    ///
-    /// This is multiplied by the window scale factor and `UiScale`, but not the text entity
-    /// transform or camera projection.
-    ///
-    /// A new font atlas is generated for every combination of font handle and scaled font size
-    /// which can have a strong performance impact.
-    pub font_size: f32,
-    /// The vertical height of a line of text, from the top of one line to the top of the
-    /// next.
-    ///
-    /// Defaults to `LineHeight::RelativeToFont(1.2)`
-    pub line_height: LineHeight,
-    /// The antialiasing method to use when rendering text.
-    pub font_smoothing: FontSmoothing,
-}
-
-impl TextFont {
-    /// Returns a new [`TextFont`] with the specified font size.
-    pub fn from_font_size(font_size: f32) -> Self {
-        Self::default().with_font_size(font_size)
-    }
-
-    /// Returns this [`TextFont`] with the specified font face handle.
-    pub fn with_font(mut self, font: Handle<FontFamily>) -> Self {
-        self.font = font;
-        self
-    }
-
-    /// Returns this [`TextFont`] with the specified font size.
-    pub const fn with_font_size(mut self, font_size: f32) -> Self {
-        self.font_size = font_size;
-        self
-    }
-
-    /// Returns this [`TextFont`] with the specified [`FontSmoothing`].
-    pub const fn with_font_smoothing(mut self, font_smoothing: FontSmoothing) -> Self {
-        self.font_smoothing = font_smoothing;
-        self
-    }
-
-    /// Returns this [`TextFont`] with the specified [`LineHeight`].
-    pub const fn with_line_height(mut self, line_height: LineHeight) -> Self {
-        self.line_height = line_height;
-        self
-    }
-}
-
-impl From<Handle<FontFamily>> for TextFont {
-    fn from(font: Handle<FontFamily>) -> Self {
-        Self { font, ..default() }
-    }
-}
-
-impl From<LineHeight> for TextFont {
-    fn from(line_height: LineHeight) -> Self {
-        Self {
-            line_height,
-            ..default()
-        }
-    }
-}
+pub struct TextFont(pub Entity);
 
 impl Default for TextFont {
     fn default() -> Self {
-        Self {
-            font: Default::default(),
-            font_size: 20.0,
-            line_height: LineHeight::default(),
-            font_smoothing: Default::default(),
-        }
+        Self(Entity::PLACEHOLDER)
     }
 }
 
 /// Specifies the height of each line of text for `Text` and `Text2d`
 ///
 /// Default is 1.2x the font size
-#[derive(Debug, Clone, Copy, PartialEq, Reflect)]
+#[derive(Component, Debug, Clone, Copy, PartialEq, Reflect)]
 #[reflect(Debug, Clone, PartialEq)]
 pub enum LineHeight {
     /// Set line height to a specific number of pixels
@@ -422,30 +346,6 @@ pub enum LineBreak {
     /// No soft wrapping, where text is automatically broken up into separate lines when it overflows a boundary, will ever occur.
     /// Hard wrapping, where text contains an explicit linebreak such as the escape sequence `\n`, is still enabled.
     NoWrap,
-}
-
-/// Determines which antialiasing method to use when rendering text. By default, text is
-/// rendered with grayscale antialiasing, but this can be changed to achieve a pixelated look.
-///
-/// **Note:** Subpixel antialiasing is not currently supported.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default, Reflect, Serialize, Deserialize)]
-#[reflect(Serialize, Deserialize, Clone, PartialEq, Hash, Default)]
-#[doc(alias = "antialiasing")]
-#[doc(alias = "pixelated")]
-pub enum FontSmoothing {
-    /// No antialiasing. Useful for when you want to render text with a pixel art aesthetic.
-    ///
-    /// Combine this with `UiAntiAlias::Off` and `Msaa::Off` on your 2D camera for a fully pixelated look.
-    ///
-    /// **Note:** Due to limitations of the underlying text rendering library,
-    /// this may require specially-crafted pixel fonts to look good, especially at small sizes.
-    None,
-    /// The default grayscale antialiasing. Produces text that looks smooth,
-    /// even at small font sizes and low resolutions with modern vector fonts.
-    #[default]
-    AntiAliased,
-    // TODO: Add subpixel antialias support
-    // SubpixelAntiAliased,
 }
 
 /// System that detects changes to text blocks and sets `ComputedTextBlock::should_rerender`.

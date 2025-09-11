@@ -18,9 +18,9 @@ use bevy_image::prelude::*;
 use bevy_math::Vec2;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_text::{
-    ComputedTextBlock, CosmicFontSystem, FontFamily, FontAtlasSets, LineBreak, SwashCache, TextBounds,
-    TextColor, TextError, TextFont, TextLayout, TextLayoutInfo, TextMeasureInfo, TextPipeline,
-    TextReader, TextRoot, TextSpanAccess, TextWriter,
+    ComputedTextBlock, CosmicFontSystem, FontAtlasSets, FontFamily, LineBreak, SwashCache,
+    TextBounds, TextColor, TextError, TextFont, TextLayout, TextLayoutInfo, TextMeasureInfo,
+    TextPipeline, TextReader, TextRoot, TextSpanAccess, TextWriter,
 };
 use taffy::style::AvailableSpace;
 use tracing::error;

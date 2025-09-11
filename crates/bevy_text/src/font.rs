@@ -1,8 +1,13 @@
 use alloc::sync::Arc;
-
-use bevy_asset::Asset;
-use bevy_asset::Handle;
+use bevy_asset::{Asset, Handle};
+use bevy_derive::{Deref, DerefMut};
+use bevy_ecs::component::Component;
+use bevy_ecs::{prelude::*, reflect::ReflectComponent};
+use bevy_reflect::prelude::*;
 use bevy_reflect::TypePath;
+use bevy_utils::{default, once};
+use cosmic_text::{Buffer, Metrics};
+use serde::{Deserialize, Serialize};
 
 /// An [`Asset`] that contains the data for a loaded font, if loaded as an asset.
 ///
@@ -33,4 +38,47 @@ impl FontFamily {
             data: Arc::new(font_data),
         })
     }
+}
+
+/// Atm fontfaces and families are the same thing.
+#[derive(Component, Clone, Debug, Reflect, PartialEq, Default)]
+#[reflect(Component, Default, Debug, Clone)]
+pub struct FontFace(pub Handle<FontFamily>);
+
+/// Size of the font.
+/// Later may be changed to an responsive values.
+#[derive(Component, Clone, Debug, Reflect, PartialEq)]
+#[reflect(Component, Default, Debug, Clone)]
+pub struct FontSize(pub f32);
+
+impl Default for FontSize {
+    fn default() -> Self {
+        Self(20.0)
+    }
+}
+
+/// Determines which antialiasing method to use when rendering text. By default, text is
+/// rendered with grayscale antialiasing, but this can be changed to achieve a pixelated look.
+///
+/// **Note:** Subpixel antialiasing is not currently supported.
+#[derive(
+    Component, Debug, Clone, Copy, PartialEq, Eq, Hash, Default, Reflect, Serialize, Deserialize,
+)]
+#[reflect(Serialize, Deserialize, Clone, PartialEq, Hash, Default)]
+#[doc(alias = "antialiasing")]
+#[doc(alias = "pixelated")]
+pub enum FontSmoothing {
+    /// No antialiasing. Useful for when you want to render text with a pixel art aesthetic.
+    ///
+    /// Combine this with `UiAntiAlias::Off` and `Msaa::Off` on your 2D camera for a fully pixelated look.
+    ///
+    /// **Note:** Due to limitations of the underlying text rendering library,
+    /// this may require specially-crafted pixel fonts to look good, especially at small sizes.
+    None,
+    /// The default grayscale antialiasing. Produces text that looks smooth,
+    /// even at small font sizes and low resolutions with modern vector fonts.
+    #[default]
+    AntiAliased,
+    // TODO: Add subpixel antialias support
+    // SubpixelAntiAliased,
 }
