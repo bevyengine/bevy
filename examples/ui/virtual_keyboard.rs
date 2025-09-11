@@ -8,14 +8,14 @@ use bevy::{
     },
     input_focus::{tab_navigation::TabNavigationPlugin, InputDispatchPlugin},
     prelude::*,
-    ui_widgets::{Activate, WidgetBehaviorPlugins},
+    ui_widgets::{Activate, UiWidgetsPlugins},
 };
 
 fn main() {
     App::new()
         .add_plugins((
             DefaultPlugins,
-            WidgetBehaviorPlugins,
+            UiWidgetsPlugins,
             InputDispatchPlugin,
             TabNavigationPlugin,
             FeathersPlugin,
