@@ -16,7 +16,7 @@ use bevy_ecs::{
     system::{Commands, Query, Res, ResMut},
 };
 use bevy_render::storage::ShaderStorageBuffer;
-use bevy_text::{FontFace, TextColor, TextFont, TextSpan};
+use bevy_text::{FontFamily, TextColor, TextFont, TextSpan};
 use bevy_time::Time;
 use bevy_ui::{
     widget::{Text, TextUiWriter},
@@ -96,7 +96,7 @@ impl Default for FpsOverlayConfig {
     fn default() -> Self {
         FpsOverlayConfig {
             text_config: TextFont {
-                font: Handle::<FontFace>::default(),
+                font: Handle::<FontFamily>::default(),
                 font_size: 32.0,
                 ..Default::default()
             },

@@ -54,7 +54,7 @@ struct Args {
 }
 
 #[derive(Resource)]
-struct FontHandle(Handle<FontFace>);
+struct FontHandle(Handle<FontFamily>);
 impl FromWorld for FontHandle {
     fn from_world(world: &mut World) -> Self {
         Self(world.load_asset("fonts/FiraSans-Bold.ttf"))
@@ -196,7 +196,7 @@ fn print_counts(
     );
 }
 
-fn random_text_font(rng: &mut ChaCha8Rng, args: &Args, font: Handle<FontFace>) -> TextFont {
+fn random_text_font(rng: &mut ChaCha8Rng, args: &Args, font: Handle<FontFamily>) -> TextFont {
     let font_size = if args.many_font_sizes {
         *[10.0, 20.0, 30.0, 40.0, 50.0, 60.0].choose(rng).unwrap()
     } else {

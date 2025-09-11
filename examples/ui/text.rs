@@ -37,7 +37,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         Text::new("hello\nbevy!"),
         TextFont {
             // This font is loaded and will be used instead of the default font.
-            font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+            font: asset_server.load("fonts/FiraSans-Bolda.ttf"),
             font_size: 67.0,
             ..default()
         },

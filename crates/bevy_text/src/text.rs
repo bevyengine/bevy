@@ -1,4 +1,4 @@
-use crate::{FontFace, TextLayoutInfo, TextSpanAccess, TextSpanComponent};
+use crate::{FontFamily, TextLayoutInfo, TextSpanAccess, TextSpanComponent};
 use bevy_asset::Handle;
 use bevy_color::Color;
 use bevy_derive::{Deref, DerefMut};
@@ -254,7 +254,7 @@ pub struct TextFont {
     ///   `FiraMono-subset.ttf` compiled into the library is used.
     /// * otherwise no text will be rendered, unless a custom font is loaded into the default font
     ///   handle.
-    pub font: Handle<FontFace>,
+    pub font: Handle<FontFamily>,
     /// The vertical height of rasterized glyphs in the font atlas in pixels.
     ///
     /// This is multiplied by the window scale factor and `UiScale`, but not the text entity
@@ -279,7 +279,7 @@ impl TextFont {
     }
 
     /// Returns this [`TextFont`] with the specified font face handle.
-    pub fn with_font(mut self, font: Handle<FontFace>) -> Self {
+    pub fn with_font(mut self, font: Handle<FontFamily>) -> Self {
         self.font = font;
         self
     }
@@ -303,8 +303,8 @@ impl TextFont {
     }
 }
 
-impl From<Handle<FontFace>> for TextFont {
-    fn from(font: Handle<FontFace>) -> Self {
+impl From<Handle<FontFamily>> for TextFont {
+    fn from(font: Handle<FontFamily>) -> Self {
         Self { font, ..default() }
     }
 }
