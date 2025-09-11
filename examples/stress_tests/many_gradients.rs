@@ -14,7 +14,7 @@ use bevy::{
         RepeatedGridTrack,
     },
     window::{PresentMode, WindowResolution},
-    winit::WinitSettings,
+    winit::{UpdateMode, WinitSettings},
 };
 
 const COLS: usize = 30;
