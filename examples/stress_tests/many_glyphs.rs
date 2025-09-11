@@ -64,7 +64,7 @@ fn main() {
     app.insert_resource(args).run();
 }
 
-fn setup(mut commands: Commands, args: Res<Args>, asset_server: Res<AssetServer>) {
+fn setup(mut commands: Commands, args: Res<Args>) {
     warn!(include_str!("warning_string.txt"));
 
     commands.spawn(Camera2d);
