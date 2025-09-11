@@ -88,7 +88,7 @@ fn create_button() -> impl Bundle {
     )
 }
 
-fn create_label(text: &str, font: Handle<Font>) -> (Text, TextFont, TextColor) {
+fn create_label(text: &str, font: Handle<FontFace>) -> (Text, TextFont, TextColor) {
     (
         Text::new(text),
         TextFont {

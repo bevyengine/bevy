@@ -9,7 +9,7 @@ use bevy_ecs::{
     system::{Commands, Query, Res},
 };
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
-use bevy_text::{Font, TextFont};
+use bevy_text::{FontFace, TextFont};
 
 use crate::handle_or_path::HandleOrPath;
 
@@ -19,14 +19,14 @@ use crate::handle_or_path::HandleOrPath;
 #[reflect(Component, Default)]
 pub struct InheritableFont {
     /// The font handle or path.
-    pub font: HandleOrPath<Font>,
+    pub font: HandleOrPath<FontFace>,
     /// The desired font size.
     pub font_size: f32,
 }
 
 impl InheritableFont {
     /// Create a new `InheritableFont` from a handle.
-    pub fn from_handle(handle: Handle<Font>) -> Self {
+    pub fn from_handle(handle: Handle<FontFace>) -> Self {
         Self {
             font: HandleOrPath::Handle(handle),
             font_size: 16.0,
@@ -53,7 +53,7 @@ pub(crate) fn on_changed_font(
     if let Ok(style) = font_style.get(insert.entity)
         && let Some(font) = match style.font {
             HandleOrPath::Handle(ref h) => Some(h.clone()),
-            HandleOrPath::Path(ref p) => Some(assets.load::<Font>(p)),
+            HandleOrPath::Path(ref p) => Some(assets.load::<FontFace>(p)),
         }
     {
         commands.entity(insert.entity).insert(Propagate(TextFont {

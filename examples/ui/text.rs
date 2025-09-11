@@ -13,7 +13,10 @@ fn main() {
     App::new()
         .add_plugins((DefaultPlugins, FrameTimeDiagnosticsPlugin::default()))
         .add_systems(Startup, setup)
-        .add_systems(Update, (text_update_system, text_color_system))
+        .add_systems(
+            Update,
+            (text_update_system, text_color_system, embiggen_font_system),
+        )
         .run();
 }
 
@@ -141,5 +144,11 @@ fn text_update_system(
             // Update the value of the second section
             **span = format!("{value:.2}");
         }
+    }
+}
+
+fn embiggen_font_system(mut query: Query<&mut TextFont>) {
+    for mut font in query.iter_mut() {
+        font.font_size *= 1.01;
     }
 }

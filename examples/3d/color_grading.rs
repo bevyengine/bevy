@@ -134,7 +134,7 @@ fn setup(
 }
 
 /// Adds all the buttons on the bottom of the scene.
-fn add_buttons(commands: &mut Commands, font: &Handle<Font>, color_grading: &ColorGrading) {
+fn add_buttons(commands: &mut Commands, font: &Handle<FontFace>, color_grading: &ColorGrading) {
     commands.spawn((
         // Spawn the parent node that contains all the buttons.
         Node {
@@ -158,7 +158,10 @@ fn add_buttons(commands: &mut Commands, font: &Handle<Font>, color_grading: &Col
 
 /// Adds the buttons for the global controls (those that control the scene as a
 /// whole as opposed to shadows, midtones, or highlights).
-fn buttons_for_global_controls(color_grading: &ColorGrading, font: &Handle<Font>) -> impl Bundle {
+fn buttons_for_global_controls(
+    color_grading: &ColorGrading,
+    font: &Handle<FontFace>,
+) -> impl Bundle {
     let make_button = |option: SelectedGlobalColorGradingOption| {
         button_for_value(
             SelectedColorGradingOption::Global(option),
@@ -188,7 +191,7 @@ fn buttons_for_global_controls(color_grading: &ColorGrading, font: &Handle<Font>
 fn buttons_for_section(
     section: SelectedColorGradingSection,
     color_grading: &ColorGrading,
-    font: &Handle<Font>,
+    font: &Handle<FontFace>,
 ) -> impl Bundle {
     let make_button = |option| {
         button_for_value(
@@ -227,7 +230,7 @@ fn buttons_for_section(
 fn button_for_value(
     option: SelectedColorGradingOption,
     color_grading: &ColorGrading,
-    font: &Handle<Font>,
+    font: &Handle<FontFace>,
 ) -> impl Bundle {
     let label = match option {
         SelectedColorGradingOption::Global(option) => option.to_string(),
@@ -286,7 +289,7 @@ fn button_for_value(
 /// Creates the help text at the top of the screen.
 fn add_help_text(
     commands: &mut Commands,
-    font: &Handle<Font>,
+    font: &Handle<FontFace>,
     currently_selected_option: &SelectedColorGradingOption,
 ) {
     commands.spawn((
@@ -306,7 +309,7 @@ fn add_help_text(
 }
 
 /// Adds some text to the scene.
-fn text(label: &str, font: &Handle<Font>, color: Color) -> impl Bundle + use<> {
+fn text(label: &str, font: &Handle<FontFace>, color: Color) -> impl Bundle + use<> {
     (
         Text::new(label),
         TextFont {

@@ -16,12 +16,12 @@ use bevy_reflect::TypePath;
 ///
 /// Bevy currently loads a single font face as a single `Font` asset.
 #[derive(Debug, TypePath, Clone, Asset)]
-pub struct Font {
+pub struct FontFace {
     /// Content of a font file as bytes
     pub data: Arc<Vec<u8>>,
 }
 
-impl Font {
+impl FontFace {
     /// Creates a [`Font`] from bytes
     pub fn try_from_bytes(
         font_data: Vec<u8>,

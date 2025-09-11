@@ -18,7 +18,7 @@ use bevy_image::prelude::*;
 use bevy_math::Vec2;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_text::{
-    ComputedTextBlock, CosmicFontSystem, Font, FontAtlasSets, LineBreak, SwashCache, TextBounds,
+    ComputedTextBlock, CosmicFontSystem, FontFace, FontAtlasSets, LineBreak, SwashCache, TextBounds,
     TextColor, TextError, TextFont, TextLayout, TextLayoutInfo, TextMeasureInfo, TextPipeline,
     TextReader, TextRoot, TextSpanAccess, TextWriter,
 };
@@ -218,7 +218,7 @@ impl Measure for TextMeasure {
 #[inline]
 fn create_text_measure<'a>(
     entity: Entity,
-    fonts: &Assets<Font>,
+    fonts: &Assets<FontFace>,
     scale_factor: f64,
     spans: impl Iterator<Item = (Entity, usize, &'a str, &'a TextFont, Color)>,
     block: Ref<TextLayout>,
@@ -269,7 +269,7 @@ fn create_text_measure<'a>(
 ///   color changes. This can be expensive, particularly for large blocks of text, and the [`bypass_change_detection`](bevy_ecs::change_detection::DetectChangesMut::bypass_change_detection)
 ///   method should be called when only changing the `Text`'s colors.
 pub fn measure_text_system(
-    fonts: Res<Assets<Font>>,
+    fonts: Res<Assets<FontFace>>,
     mut text_query: Query<
         (
             Entity,
@@ -316,7 +316,7 @@ pub fn measure_text_system(
 #[inline]
 fn queue_text(
     entity: Entity,
-    fonts: &Assets<Font>,
+    fonts: &Assets<FontFace>,
     text_pipeline: &mut TextPipeline,
     font_atlas_sets: &mut FontAtlasSets,
     texture_atlases: &mut Assets<TextureAtlasLayout>,
@@ -385,7 +385,7 @@ fn queue_text(
 /// It does not modify or observe existing ones. The exception is when adding new glyphs to a [`bevy_text::FontAtlas`].
 pub fn text_system(
     mut textures: ResMut<Assets<Image>>,
-    fonts: Res<Assets<Font>>,
+    fonts: Res<Assets<FontFace>>,
     mut texture_atlases: ResMut<Assets<TextureAtlasLayout>>,
     mut font_atlas_sets: ResMut<FontAtlasSets>,
     mut text_pipeline: ResMut<TextPipeline>,
