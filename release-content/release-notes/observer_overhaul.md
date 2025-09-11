@@ -1,6 +1,6 @@
 ---
 title: Event / Observer Overhaul
-authors: ["@cart", "@Jondolf", "@alice-i-cecile", "@hukasu", "oscar-benderstone", "Zeophlite", "gwafotapa"]
+authors: ["@cart", "@Jondolf", "@alice-i-cecile", "@hukasu", "@oscar-benderstone", "@Zeophlite", "@gwafotapa"]
 pull_requests: [20731, 19596, 19663, 19611, 19935, 20274]
 ---
 
