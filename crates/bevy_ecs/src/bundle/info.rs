@@ -76,6 +76,8 @@ pub struct BundleInfo {
 
     /// The list of constructors for all required components indirectly contributed by this bundle.
     pub(super) required_component_constructors: Box<[RequiredComponentConstructor]>,
+    /// The list of IDs for all required components indirectly contributed by this bundle.
+    pub(super) required_component_ids: Box<[ComponentId]>,
 }
 
 impl BundleInfo {
@@ -133,6 +135,7 @@ impl BundleInfo {
             storages.prepare_component(info);
         }
 
+        let mut required_component_ids = Vec::new();
         let required_components = depth_first_components
             .into_iter()
             .filter(|&(required_id, _)| !explicit_component_ids.contains(&required_id))
@@ -140,6 +143,7 @@ impl BundleInfo {
                 // SAFETY: These ids came out of the passed `components`, so they must be valid.
                 storages.prepare_component(unsafe { components.get_info_unchecked(required_id) });
                 component_ids.push(required_id);
+                required_component_ids.push(required_id);
             })
             .map(|(_, required_component)| required_component.constructor)
             .collect::<Box<_>>();
@@ -152,6 +156,7 @@ impl BundleInfo {
             id,
             contributed_component_ids: component_ids.into(),
             required_component_constructors: required_components,
+            required_component_ids: required_component_ids.into(),
         }
     }
 
@@ -237,13 +242,14 @@ impl BundleInfo {
         sparse_sets: &mut SparseSets,
         bundle_component_status: &S,
         required_components: impl Iterator<Item = &'a RequiredComponentConstructor>,
+        required_component_ids: impl Iterator<Item = &'a ComponentId>,
         entity: Entity,
         table_row: TableRow,
         change_tick: Tick,
         bundle: T,
         insert_mode: InsertMode,
         caller: MaybeLocation,
-    ) -> T::Effect {
+    ) -> (T::Effect, Vec<ComponentId>) {
         // NOTE: get_components calls this closure on each component in "bundle order".
         // bundle_info.component_ids are also in "bundle order"
         let mut bundle_component = 0;
@@ -293,18 +299,26 @@ impl BundleInfo {
             bundle_component += 1;
         });
 
-        for required_component in required_components {
-            required_component.initialize(
+        let mut failed_components = Vec::new();
+        for (required_component, &id) in required_components.zip(required_component_ids) {
+            match required_component.initialize(
                 table,
                 sparse_sets,
                 change_tick,
                 table_row,
                 entity,
                 caller,
-            );
+            ) {
+                Ok(_) => {}
+                Err(_payload) => {
+                    #[cfg(feature = "trace")]
+                    tracing::error!("panic while initializing required component");
+                    failed_components.push(id);
+                }
+            }
         }
 
-        after_effect
+        (after_effect, failed_components)
     }
 
     /// Internal method to initialize a required component from an [`OwningPtr`]. This should ultimately be called
@@ -578,6 +592,10 @@ impl Bundles {
 
 /// Asserts that all components are part of [`Components`]
 /// and initializes a [`BundleInfo`].
+///
+/// # Panics
+///
+/// Panics if any of the provided [`ComponentId`]s do not exist in `components`.
 fn initialize_dynamic_bundle(
     bundle_infos: &mut Vec<BundleInfo>,
     storages: &mut Storages,

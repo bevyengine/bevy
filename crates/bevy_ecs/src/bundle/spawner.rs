@@ -101,11 +101,12 @@ impl<'w> BundleSpawner<'w> {
             };
             let table_row = table.allocate(entity);
             let location = archetype.allocate(entity, table_row);
-            let after_effect = bundle_info.write_components(
+            let (after_effect, _failed_components) = bundle_info.write_components(
                 table,
                 sparse_sets,
                 &SpawnBundleStatus,
                 bundle_info.required_component_constructors.iter(),
+                bundle_info.required_component_ids.iter(),
                 entity,
                 table_row,
                 self.change_tick,

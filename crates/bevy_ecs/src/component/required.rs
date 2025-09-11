@@ -25,7 +25,16 @@ pub struct RequiredComponent {
 #[derive(Clone)]
 pub struct RequiredComponentConstructor(
     // Note: this function makes `unsafe` assumptions, so it cannot be public.
-    Arc<dyn Fn(&mut Table, &mut SparseSets, Tick, TableRow, Entity, MaybeLocation)>,
+    Arc<
+        dyn Fn(
+            &mut Table,
+            &mut SparseSets,
+            Tick,
+            TableRow,
+            Entity,
+            MaybeLocation,
+        ) -> Result<(), alloc::boxed::Box<dyn core::any::Any + Send + 'static>>,
+    >,
 );
 
 impl RequiredComponentConstructor {
@@ -52,7 +61,10 @@ impl RequiredComponentConstructor {
                 TableRow,
                 Entity,
                 MaybeLocation,
-            );
+            ) -> Result<
+                (),
+                alloc::boxed::Box<dyn core::any::Any + Send + 'static>,
+            >;
 
             #[cfg(not(target_has_atomic = "ptr"))]
             type Intermediate<T> = Box<T>;
@@ -62,7 +74,13 @@ impl RequiredComponentConstructor {
 
             let boxed: Intermediate<Constructor> = Intermediate::new(
                 move |table, sparse_sets, change_tick, table_row, entity, caller| {
-                    OwningPtr::make(constructor(), |ptr| {
+                    #[cfg(feature = "std")]
+                    let try_ctor =
+                        || std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| constructor()));
+                    #[cfg(not(feature = "std"))]
+                    let try_ctor = || Ok(constructor());
+
+                    OwningPtr::make(try_ctor()?, |ptr| {
                         // SAFETY: This will only be called in the context of `BundleInfo::write_components`, which will
                         // pass in a valid table_row and entity requiring a C constructor
                         // C::STORAGE_TYPE is the storage type associated with `component_id` / `C`
@@ -81,6 +99,8 @@ impl RequiredComponentConstructor {
                             );
                         }
                     });
+
+                    Ok(())
                 },
             );
 
@@ -105,8 +125,8 @@ impl RequiredComponentConstructor {
         table_row: TableRow,
         entity: Entity,
         caller: MaybeLocation,
-    ) {
-        (self.0)(table, sparse_sets, change_tick, table_row, entity, caller);
+    ) -> Result<(), alloc::boxed::Box<dyn core::any::Any + Send + 'static>> {
+        (self.0)(table, sparse_sets, change_tick, table_row, entity, caller)
     }
 }
 

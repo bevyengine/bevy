@@ -142,6 +142,8 @@ pub(crate) struct ArchetypeAfterBundleInsert {
     ///
     /// The initial values are determined based on the provided constructor, falling back to the `Default` trait if none is given.
     pub required_components: Box<[RequiredComponentConstructor]>,
+    /// The Ids of the required components that were added by this bundle.
+    pub required_component_ids: Box<[ComponentId]>,
     /// The components added by this bundle. This includes any Required Components that are inserted when adding this bundle.
     pub(crate) added: Box<[ComponentId]>,
     /// The components that were explicitly contributed by this bundle, but already existed in the archetype. This _does not_ include any
@@ -244,6 +246,7 @@ impl Edges {
         archetype_id: ArchetypeId,
         bundle_status: impl Into<Box<[ComponentStatus]>>,
         required_components: impl Into<Box<[RequiredComponentConstructor]>>,
+        required_component_ids: impl Into<Box<[ComponentId]>>,
         added: impl Into<Box<[ComponentId]>>,
         existing: impl Into<Box<[ComponentId]>>,
     ) {
@@ -253,6 +256,7 @@ impl Edges {
                 archetype_id,
                 bundle_status: bundle_status.into(),
                 required_components: required_components.into(),
+                required_component_ids: required_component_ids.into(),
                 added: added.into(),
                 existing: existing.into(),
             },
