@@ -142,9 +142,14 @@ mod text {
     use bevy::color::palettes;
     use bevy::prelude::*;
     use bevy::sprite::Anchor;
+    use bevy::text::FontFace;
+    use bevy::text::FontSize;
     use bevy::text::TextBounds;
 
     pub fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
+        let sans = asset_server.load("fonts/FiraSans-Bold.ttf");
+        let mono = asset_server.load("fonts/FiraMono-Medium.ttf");
+
         commands.spawn((Camera2d, DespawnOnExit(super::Scene::Text)));
 
         for (i, justify) in [
@@ -157,8 +162,15 @@ mod text {
         .enumerate()
         {
             let y = 230. - 150. * i as f32;
-            spawn_anchored_text(&mut commands, -300. * Vec3::X + y * Vec3::Y, justify, None);
             spawn_anchored_text(
+                mono.clone(),
+                &mut commands,
+                -300. * Vec3::X + y * Vec3::Y,
+                justify,
+                None,
+            );
+            spawn_anchored_text(
+                mono.clone(),
                 &mut commands,
                 300. * Vec3::X + y * Vec3::Y,
                 justify,
@@ -166,7 +178,7 @@ mod text {
             );
         }
 
-        let sans_serif = TextFont::from(asset_server.load("fonts/FiraSans-Bold.ttf"));
+        let font = commands.spawn(FontFace(sans)).id();
 
         const NUM_ITERATIONS: usize = 10;
         for i in 0..NUM_ITERATIONS {
@@ -174,7 +186,7 @@ mod text {
 
             commands.spawn((
                 Text2d::new("Bevy"),
-                sans_serif.clone(),
+                TextFont(font),
                 Transform::from_xyz(0.0, fraction * 200.0, i as f32)
                     .with_scale(1.0 + Vec2::splat(fraction).extend(1.))
                     .with_rotation(Quat::from_rotation_z(fraction * core::f32::consts::PI)),
@@ -191,11 +203,14 @@ mod text {
     }
 
     fn spawn_anchored_text(
+        font_face: Handle<FontFamily>,
         commands: &mut Commands,
         dest: Vec3,
         justify: Justify,
         bounds: Option<TextBounds>,
     ) {
+        let font_14 = commands.spawn((FontFace(font_face), FontSize(14.))).id();
+
         commands.spawn((
             Sprite {
                 color: palettes::css::YELLOW.into(),
@@ -224,12 +239,12 @@ mod text {
                 children![
                     (
                         TextSpan::new(format!("{}, {}\n", anchor.x, anchor.y)),
-                        TextFont::from_font_size(14.0),
+                        TextFont(font_14),
                         TextColor(palettes::tailwind::BLUE_400.into()),
                     ),
                     (
                         TextSpan::new(format!("{justify:?}")),
-                        TextFont::from_font_size(14.0),
+                        TextFont(font_14),
                         TextColor(palettes::tailwind::GREEN_400.into()),
                     ),
                 ],

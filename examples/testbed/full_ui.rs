@@ -32,6 +32,11 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     // Camera
     commands.spawn((Camera2d, IsDefaultUiCamera, BoxShadowSamples(6)));
 
+    let sans = asset_server.load("fonts/FiraSans-Bold.ttf");
+    let sans_20 = commands.spawn(FontFace(sans.clone())).id();
+    let sans_21 = commands.spawn((FontFace(sans.clone()), FontSize(21.))).id();
+    let sans_25 = commands.spawn((FontFace(sans.clone()), FontSize(25.))).id();
+
     // root node
     commands
         .spawn(Node {
@@ -70,11 +75,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                             // text
                             parent.spawn((
                                 Text::new("Text Example"),
-                                TextFont {
-                                    font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                                    font_size: 25.0,
-                                    ..default()
-                                },
+                                TextFont(sans_25),
                                 // Because this is a distinct label widget and
                                 // not button/list item text, this is necessary
                                 // for accessibility to treat the text accordingly.
@@ -86,49 +87,31 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                 // Debug overlay text
                                 parent.spawn((
                                     Text::new("Press Space to toggle debug outlines."),
-                                    TextFont {
-                                        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                                        ..default()
-                                    },
+                                    TextFont(sans_25),
                                     Label,
                                 ));
 
                                 parent.spawn((
                                     Text::new("V: toggle UI root's visibility"),
-                                    TextFont {
-                                        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                                        font_size: 12.,
-                                        ..default()
-                                    },
+                                    TextFont(sans_25),
                                     Label,
                                 ));
 
                                 parent.spawn((
                                     Text::new("S: toggle outlines for hidden nodes"),
-                                    TextFont {
-                                        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                                        font_size: 12.,
-                                        ..default()
-                                    },
+                                    TextFont(sans_25),
                                     Label,
                                 ));
                                 parent.spawn((
                                     Text::new("C: toggle outlines for clipped nodes"),
-                                    TextFont {
-                                        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                                        font_size: 12.,
-                                        ..default()
-                                    },
+                                    TextFont(sans_25),
                                     Label,
                                 ));
                             }
                             #[cfg(not(feature = "bevy_ui_debug"))]
                             parent.spawn((
                                 Text::new("Try enabling feature \"bevy_ui_debug\"."),
-                                TextFont {
-                                    font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                                    ..default()
-                                },
+                                TextFont(sans_20),
                                 Label,
                             ));
                         });
@@ -144,15 +127,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                 })
                 .with_children(|parent| {
                     // Title
-                    parent.spawn((
-                        Text::new("Scrolling list"),
-                        TextFont {
-                            font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                            font_size: 21.,
-                            ..default()
-                        },
-                        Label,
-                    ));
+                    parent.spawn((Text::new("Scrolling list"), TextFont(sans_21), Label));
                     // Scrolling list
                     parent
                         .spawn((
@@ -187,11 +162,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
                                         parent
                                             .spawn((
                                                 Text(format!("Item {i}")),
-                                                TextFont {
-                                                    font: asset_server
-                                                        .load("fonts/FiraSans-Bold.ttf"),
-                                                    ..default()
-                                                },
+                                                TextFont(sans_20),
                                                 Label,
                                                 AccessibilityNode(Accessible::new(Role::ListItem)),
                                             ))

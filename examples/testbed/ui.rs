@@ -92,14 +92,16 @@ mod text {
     use bevy::{color::palettes::css::*, prelude::*};
 
     pub fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
+        let sans = asset_server.load("fonts/FiraSans-Bold.ttf");
+        let sans_200 = commands
+            .spawn((FontFace(sans.clone()), FontSize(200.)))
+            .id();
+        let sans_default_size = commands.spawn(FontFace(sans)).id();
+
         commands.spawn((Camera2d, DespawnOnExit(super::Scene::Text)));
         commands.spawn((
             Text::new("Hello World."),
-            TextFont {
-                font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                font_size: 200.,
-                ..default()
-            },
+            TextFont(sans_200),
             DespawnOnExit(super::Scene::Text),
         ));
 
@@ -110,10 +112,7 @@ mod text {
                 ..Default::default()
             },
             Text::new("white "),
-            TextFont {
-                font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                ..default()
-            },
+            TextFont(sans_default_size),
             DespawnOnExit(super::Scene::Text),
             children![
                 (TextSpan::new("red "), TextColor(RED.into()),),
@@ -122,10 +121,7 @@ mod text {
                 (
                     TextSpan::new("black"),
                     TextColor(Color::BLACK),
-                    TextFont {
-                        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                        ..default()
-                    },
+                    TextFont(sans_default_size),
                     TextBackgroundColor(Color::WHITE)
                 ),
             ],
@@ -138,29 +134,17 @@ mod text {
                 ..Default::default()
             },
             Text::new(""),
-            TextFont {
-                font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                ..default()
-            },
+            TextFont(sans_default_size),
             DespawnOnExit(super::Scene::Text),
             children![
-                (
-                    TextSpan::new("white "),
-                    TextFont {
-                        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                        ..default()
-                    }
-                ),
+                (TextSpan::new("white "), TextFont(sans_default_size),),
                 (TextSpan::new("red "), TextColor(RED.into()),),
                 (TextSpan::new("green "), TextColor(GREEN.into()),),
                 (TextSpan::new("blue "), TextColor(BLUE.into()),),
                 (
                     TextSpan::new("black"),
                     TextColor(Color::BLACK),
-                    TextFont {
-                        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                        ..default()
-                    },
+                    TextFont(sans_default_size),
                     TextBackgroundColor(Color::WHITE)
                 ),
             ],
@@ -173,21 +157,12 @@ mod text {
                 ..Default::default()
             },
             Text::new(""),
-            TextFont {
-                font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                ..default()
-            },
+            TextFont(sans_default_size),
             DespawnOnExit(super::Scene::Text),
             children![
                 (TextSpan::new(""), TextColor(YELLOW.into()),),
                 TextSpan::new(""),
-                (
-                    TextSpan::new("white "),
-                    TextFont {
-                        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                        ..default()
-                    }
-                ),
+                (TextSpan::new("white "), TextFont(sans_default_size),),
                 TextSpan::new(""),
                 (TextSpan::new("red "), TextColor(RED.into()),),
                 TextSpan::new(""),
@@ -200,10 +175,7 @@ mod text {
                 (
                     TextSpan::new("black"),
                     TextColor(Color::BLACK),
-                    TextFont {
-                        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                        ..default()
-                    },
+                    TextFont(sans_default_size),
                     TextBackgroundColor(Color::WHITE)
                 ),
                 TextSpan::new(""),
@@ -670,6 +642,8 @@ mod linear_gradient {
     use bevy::color::Color;
     use bevy::ecs::prelude::*;
     use bevy::state::state_scoped::DespawnOnExit;
+    use bevy::text::FontFace;
+    use bevy::text::FontSize;
     use bevy::text::TextFont;
     use bevy::ui::AlignItems;
     use bevy::ui::BackgroundGradient;
@@ -684,6 +658,7 @@ mod linear_gradient {
 
     pub fn setup(mut commands: Commands) {
         commands.spawn((Camera2d, DespawnOnExit(super::Scene::LinearGradient)));
+        let font = commands.spawn((FontFace::default(), FontSize(10.))).id();
         commands
             .spawn((
                 Node {
@@ -776,7 +751,7 @@ mod linear_gradient {
                                                 position_type: PositionType::Absolute,
                                                 ..default()
                                             },
-                                            TextFont::from_font_size(10.),
+                                            TextFont(font),
                                             bevy::ui::widget::Text(format!("{color_space:?}")),
                                         ]
                                     )],
@@ -804,6 +779,8 @@ mod radial_gradient {
             ColorStop::new(Color::WHITE, percent(100)),
             ColorStop::auto(RED),
         ];
+
+        let font = commands.spawn((FontFace::default(), FontSize(9.))).id();
 
         commands.spawn((Camera2d, DespawnOnExit(super::Scene::RadialGradient)));
         commands
@@ -860,7 +837,7 @@ mod radial_gradient {
                                             ..default()
                                         },
                                         Text(format!("{shape_label}\n{position_label}")),
-                                        TextFont::from_font_size(9.),
+                                        TextFont(font),
                                     ));
                                     commands.spawn((
                                         Node {
