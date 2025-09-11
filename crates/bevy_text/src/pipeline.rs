@@ -288,9 +288,16 @@ impl TextPipeline {
         let mut glyph_info = core::mem::take(&mut self.glyph_info);
         glyph_info.clear();
         let text_spans = text_spans.inspect(|(_, _, _, text_font, _, _)| {
+            let font_entity = if text_font.0 == Entity::PLACEHOLDER
+                && let Some(default_font) = default_font
+            {
+                default_font
+            } else {
+                text_font.0
+            };
             glyph_info.push(
                 font_query
-                    .get(text_font.0)
+                    .get(font_entity)
                     .ok()
                     .map(|(font_face, _, font_smoothing)| (font_face.0.id(), *font_smoothing)),
             );
