@@ -8,6 +8,7 @@ use bevy_camera::Camera;
 use bevy_color::Color;
 use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::entity::EntityHashSet;
+use bevy_ecs::query::With;
 use bevy_ecs::{
     change_detection::{DetectChanges, Ref},
     component::Component,
@@ -20,9 +21,10 @@ use bevy_image::prelude::*;
 use bevy_math::{FloatOrd, Vec2, Vec3};
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_text::{
-    ComputedTextBlock, CosmicFontSystem, FontAtlasSets, FontFace, FontFamily, FontSize,
-    FontSmoothing, LineBreak, LineHeight, SwashCache, TextBounds, TextColor, TextError, TextFont,
-    TextLayout, TextLayoutInfo, TextPipeline, TextReader, TextRoot, TextSpanAccess, TextWriter,
+    ComputedTextBlock, CosmicFontSystem, DefaultFont, FontAtlasSets, FontFace, FontFamily,
+    FontSize, FontSmoothing, LineBreak, LineHeight, SwashCache, TextBounds, TextColor, TextError,
+    TextFont, TextLayout, TextLayoutInfo, TextPipeline, TextReader, TextRoot, TextSpanAccess,
+    TextWriter,
 };
 use bevy_transform::components::Transform;
 use core::any::TypeId;
@@ -176,11 +178,22 @@ pub fn update_text2d_layout(
         &mut TextLayoutInfo,
         &mut ComputedTextBlock,
     )>,
+    default_font_query: Query<
+        Entity,
+        (
+            With<DefaultFont>,
+            With<FontFace>,
+            With<FontSize>,
+            With<FontSmoothing>,
+        ),
+    >,
     font_query: Query<(&FontFace, &FontSize, &FontSmoothing)>,
     mut text_reader: Text2dReader,
     mut font_system: ResMut<CosmicFontSystem>,
     mut swash_cache: ResMut<SwashCache>,
 ) {
+    let default_font = default_font_query.single().ok();
+
     target_scale_factors.clear();
     target_scale_factors.extend(
         camera_query
@@ -238,6 +251,7 @@ pub fn update_text2d_layout(
             match text_pipeline.queue_text(
                 text_layout_info,
                 &fonts,
+                default_font,
                 &font_query,
                 text_reader.iter(entity),
                 scale_factor as f64,

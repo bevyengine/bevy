@@ -18,9 +18,9 @@ use bevy_image::prelude::*;
 use bevy_math::Vec2;
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use bevy_text::{
-    ComputedTextBlock, CosmicFontSystem, FontAtlasSets, FontFace, FontFamily, FontSize,
-    FontSmoothing, LineBreak, LineHeight, SwashCache, TextBounds, TextColor, TextError, TextFont,
-    TextLayout, TextLayoutInfo, TextMeasureInfo, TextPipeline, TextReader, TextRoot,
+    ComputedTextBlock, CosmicFontSystem, DefaultFont, FontAtlasSets, FontFace, FontFamily,
+    FontSize, FontSmoothing, LineBreak, LineHeight, SwashCache, TextBounds, TextColor, TextError,
+    TextFont, TextLayout, TextLayoutInfo, TextMeasureInfo, TextPipeline, TextReader, TextRoot,
     TextSpanAccess, TextWriter,
 };
 use taffy::style::AvailableSpace;
@@ -227,6 +227,7 @@ impl Measure for TextMeasure {
 #[inline]
 fn create_text_measure<'a>(
     entity: Entity,
+    default_font: Option<Entity>,
     font_query: &Query<(&FontFace, &FontSize, &FontSmoothing)>,
     fonts: &Assets<FontFamily>,
     scale_factor: f64,
@@ -242,6 +243,7 @@ fn create_text_measure<'a>(
     match text_pipeline.create_text_measure(
         entity,
         fonts,
+        default_font,
         font_query,
         spans,
         scale_factor,
@@ -296,11 +298,21 @@ pub fn measure_text_system(
         ),
         With<Node>,
     >,
+    default_font_query: Query<
+        Entity,
+        (
+            With<DefaultFont>,
+            With<FontFace>,
+            With<FontSize>,
+            With<FontSmoothing>,
+        ),
+    >,
     font_query: Query<(&FontFace, &FontSize, &FontSmoothing)>,
     mut text_reader: TextUiReader,
     mut text_pipeline: ResMut<TextPipeline>,
     mut font_system: ResMut<CosmicFontSystem>,
 ) {
+    let default_font = default_font_query.single().ok();
     println!("measure texture system");
     for (entity, block, content_size, text_flags, computed, computed_target, computed_node) in
         &mut text_query
@@ -315,6 +327,7 @@ pub fn measure_text_system(
         {
             create_text_measure(
                 entity,
+                default_font,
                 &font_query,
                 &fonts,
                 computed_target.scale_factor.into(),
@@ -334,6 +347,7 @@ pub fn measure_text_system(
 fn queue_text(
     entity: Entity,
     fonts: &Assets<FontFamily>,
+    default_font: Option<Entity>,
     font_query: &Query<(&FontFace, &FontSize, &FontSmoothing)>,
     text_pipeline: &mut TextPipeline,
     font_atlas_sets: &mut FontAtlasSets,
@@ -369,6 +383,7 @@ fn queue_text(
     match text_pipeline.queue_text(
         text_layout_info,
         fonts,
+        default_font,
         font_query,
         text_reader.iter(entity),
         scale_factor.into(),
@@ -420,12 +435,22 @@ pub fn text_system(
         &mut TextNodeFlags,
         &mut ComputedTextBlock,
     )>,
+    default_font_query: Query<
+        Entity,
+        (
+            With<DefaultFont>,
+            With<FontFace>,
+            With<FontSize>,
+            With<FontSmoothing>,
+        ),
+    >,
     font_query: Query<(&FontFace, &FontSize, &FontSmoothing)>,
     mut text_reader: TextUiReader,
     mut font_system: ResMut<CosmicFontSystem>,
     mut swash_cache: ResMut<SwashCache>,
 ) {
     println!("text_system");
+    let default_font = default_font_query.single().ok();
     for (entity, node, block, text_layout_info, text_flags, mut computed) in &mut text_query {
         println!("\ttext entity -> {entity}");
         if node.is_changed() || text_flags.needs_recompute {
@@ -433,6 +458,7 @@ pub fn text_system(
             queue_text(
                 entity,
                 &fonts,
+                default_font,
                 &font_query,
                 &mut text_pipeline,
                 &mut font_atlas_sets,

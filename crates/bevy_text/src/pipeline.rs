@@ -89,6 +89,7 @@ impl TextPipeline {
     pub fn update_buffer<'a>(
         &mut self,
         fonts: &Assets<FontFamily>,
+        default_font: Option<Entity>,
         font_query: &Query<(&crate::FontFace, &crate::FontSize, &FontSmoothing)>,
         text_spans: impl Iterator<Item = (Entity, usize, &'a str, &'a TextFont, Color, &'a LineHeight)>,
         linebreak: LineBreak,
@@ -250,6 +251,7 @@ impl TextPipeline {
         &mut self,
         layout_info: &mut TextLayoutInfo,
         fonts: &Assets<FontFamily>,
+        default_font: Option<Entity>,
         font_query: &Query<(&crate::FontFace, &crate::FontSize, &FontSmoothing)>,
         text_spans: impl Iterator<Item = (Entity, usize, &'a str, &'a TextFont, Color, &'a LineHeight)>,
         scale_factor: f64,
@@ -283,6 +285,7 @@ impl TextPipeline {
 
         let update_result = self.update_buffer(
             fonts,
+            default_font,
             font_query,
             text_spans,
             layout.linebreak,
@@ -425,6 +428,7 @@ impl TextPipeline {
         &mut self,
         entity: Entity,
         fonts: &Assets<FontFamily>,
+        default_font: Option<Entity>,
         font_query: &Query<(&crate::FontFace, &crate::FontSize, &FontSmoothing)>,
         text_spans: impl Iterator<Item = (Entity, usize, &'a str, &'a TextFont, Color, &'a LineHeight)>,
         scale_factor: f64,
@@ -440,6 +444,7 @@ impl TextPipeline {
 
         self.update_buffer(
             fonts,
+            default_font,
             font_query,
             text_spans,
             layout.linebreak,

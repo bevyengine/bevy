@@ -87,7 +87,6 @@ pub struct Text2dUpdateSystems;
 pub type Update2dText = Text2dUpdateSystems;
 
 /// Marker component identifying the default text entity
-#[cfg(feature = "default_font")]
 #[derive(Component)]
 pub struct DefaultFont;
 
