@@ -143,10 +143,10 @@ pub(crate) struct ArchetypeAfterBundleInsert {
     /// The initial values are determined based on the provided constructor, falling back to the `Default` trait if none is given.
     pub required_components: Box<[RequiredComponentConstructor]>,
     /// The components added by this bundle. This includes any Required Components that are inserted when adding this bundle.
-    added: Box<[ComponentId]>,
+    pub(crate) added: Box<[ComponentId]>,
     /// The components that were explicitly contributed by this bundle, but already existed in the archetype. This _does not_ include any
     /// Required Components.
-    existing: Box<[ComponentId]>,
+    pub(crate) existing: Box<[ComponentId]>,
 }
 
 impl ArchetypeAfterBundleInsert {
@@ -165,7 +165,7 @@ impl ArchetypeAfterBundleInsert {
 
 /// This trait is used to report the status of [`Bundle`](crate::bundle::Bundle) components
 /// being inserted into a given entity, relative to that entity's original archetype.
-/// See [`crate::bundle::BundleInfo::write_components`] for more info.
+/// See [`BundleInfo::write_components`](`crate::bundle::BundleInfo::write_components`) for more info.
 pub(crate) trait BundleComponentStatus {
     /// Returns the Bundle's component status for the given "bundle index".
     ///
@@ -524,12 +524,20 @@ impl Archetype {
             .map(|(id, _)| *id)
     }
 
+    /// Returns a slice of all of the components in the archetype.
+    ///
+    /// All of the IDs are unique.
+    #[inline]
+    pub fn components(&self) -> &[ComponentId] {
+        self.components.indices()
+    }
+
     /// Gets an iterator of all of the components in the archetype.
     ///
     /// All of the IDs are unique.
     #[inline]
-    pub fn components(&self) -> impl Iterator<Item = ComponentId> + Clone + '_ {
-        self.components.indices()
+    pub fn iter_components(&self) -> impl Iterator<Item = ComponentId> + Clone {
+        self.components.indices().iter().copied()
     }
 
     /// Returns the total number of components in the archetype

@@ -1,5 +1,5 @@
 ---
-title: Integrate `ObserverState` component into `Observer`.
+title: Unify `ObserverState` and `Observer` components
 pull_requests: [18728]
 ---
 
@@ -8,7 +8,7 @@ now you can use `Observer::with_dynamic_runner` to build custom Observe.
 
 ```rust
 let observe = unsafe {
-    Observer::with_dynamic_runner(|mut world, trigger, ptr, propagate| {
+    Observer::with_dynamic_runner(|world, trigger_context, event_ptr, trigger_ptr| {
         // do something
     })
     .with_event(event_a)

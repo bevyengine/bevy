@@ -76,7 +76,7 @@ pub mod reflect;
 pub mod prelude {
     #[cfg(feature = "bevy_app")]
     #[doc(hidden)]
-    pub use crate::{app::AppExtStates, state_scoped_events::StateScopedEventsAppExt};
+    pub use crate::{app::AppExtStates, state_scoped_events::StateScopedMessagesAppExt};
 
     #[cfg(feature = "bevy_reflect")]
     #[doc(hidden)]
@@ -91,7 +91,7 @@ pub mod prelude {
             OnExit, OnTransition, State, StateSet, StateTransition, StateTransitionEvent, States,
             SubStates, TransitionSchedules,
         },
-        state_scoped::{DespawnOnEnterState, DespawnOnExitState},
+        state_scoped::{DespawnOnEnter, DespawnOnExit},
     };
 }
 
@@ -122,6 +122,10 @@ mod tests {
         enum TestState {
             #[default]
             A,
+            #[expect(
+                dead_code,
+                reason = "This struct is used as a compilation test to test the derive macros, and as such is intentionally never constructed."
+            )]
             B,
         }
 

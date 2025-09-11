@@ -29,65 +29,65 @@ pub struct ComputedNode {
     /// The order of the node in the UI layout.
     /// Nodes with a higher stack index are drawn on top of and receive interactions before nodes with lower stack indices.
     ///
-    /// Automatically calculated in [`super::UiSystems::Stack`].
+    /// Automatically calculated in [`UiSystems::Stack`](`super::UiSystems::Stack`).
     pub stack_index: u32,
     /// The size of the node as width and height in physical pixels.
     ///
-    /// Automatically calculated by [`super::layout::ui_layout_system`].
+    /// Automatically calculated by [`ui_layout_system`](`super::layout::ui_layout_system`).
     pub size: Vec2,
     /// Size of this node's content.
     ///
-    /// Automatically calculated by [`super::layout::ui_layout_system`].
+    /// Automatically calculated by [`ui_layout_system`](`super::layout::ui_layout_system`).
     pub content_size: Vec2,
     /// Space allocated for scrollbars.
     ///
-    /// Automatically calculated by [`super::layout::ui_layout_system`].
+    /// Automatically calculated by [`ui_layout_system`](`super::layout::ui_layout_system`).
     pub scrollbar_size: Vec2,
     /// Resolved offset of scrolled content
     ///
-    /// Automatically calculated by [`super::layout::ui_layout_system`].
+    /// Automatically calculated by [`ui_layout_system`](`super::layout::ui_layout_system`).
     pub scroll_position: Vec2,
     /// The width of this node's outline.
     /// If this value is `Auto`, negative or `0.` then no outline will be rendered.
     /// Outline updates bypass change detection.
     ///
-    /// Automatically calculated by [`super::layout::ui_layout_system`].
+    /// Automatically calculated by [`ui_layout_system`](`super::layout::ui_layout_system`).
     pub outline_width: f32,
     /// The amount of space between the outline and the edge of the node.
     /// Outline updates bypass change detection.
     ///
-    /// Automatically calculated by [`super::layout::ui_layout_system`].
+    /// Automatically calculated by [`ui_layout_system`](`super::layout::ui_layout_system`).
     pub outline_offset: f32,
     /// The unrounded size of the node as width and height in physical pixels.
     ///
-    /// Automatically calculated by [`super::layout::ui_layout_system`].
+    /// Automatically calculated by [`ui_layout_system`](`super::layout::ui_layout_system`).
     pub unrounded_size: Vec2,
     /// Resolved border values in physical pixels.
     /// Border updates bypass change detection.
     ///
-    /// Automatically calculated by [`super::layout::ui_layout_system`].
+    /// Automatically calculated by [`ui_layout_system`](`super::layout::ui_layout_system`).
     pub border: BorderRect,
     /// Resolved border radius values in physical pixels.
     /// Border radius updates bypass change detection.
     ///
-    /// Automatically calculated by [`super::layout::ui_layout_system`].
+    /// Automatically calculated by [`ui_layout_system`](`super::layout::ui_layout_system`).
     pub border_radius: ResolvedBorderRadius,
     /// Resolved padding values in physical pixels.
     /// Padding updates bypass change detection.
     ///
-    /// Automatically calculated by [`super::layout::ui_layout_system`].
+    /// Automatically calculated by [`ui_layout_system`](`super::layout::ui_layout_system`).
     pub padding: BorderRect,
     /// Inverse scale factor for this Node.
     /// Multiply physical coordinates by the inverse scale factor to give logical coordinates.
     ///
-    /// Automatically calculated by [`super::layout::ui_layout_system`].
+    /// Automatically calculated by [`ui_layout_system`](`super::layout::ui_layout_system`).
     pub inverse_scale_factor: f32,
 }
 
 impl ComputedNode {
     /// The calculated node size as width and height in physical pixels.
     ///
-    /// Automatically calculated by [`super::layout::ui_layout_system`].
+    /// Automatically calculated by [`ui_layout_system`](`super::layout::ui_layout_system`).
     #[inline]
     pub const fn size(&self) -> Vec2 {
         self.size
@@ -95,7 +95,7 @@ impl ComputedNode {
 
     /// The calculated node content size as width and height in physical pixels.
     ///
-    /// Automatically calculated by [`super::layout::ui_layout_system`].
+    /// Automatically calculated by [`ui_layout_system`](`super::layout::ui_layout_system`).
     #[inline]
     pub const fn content_size(&self) -> Vec2 {
         self.content_size
@@ -111,14 +111,14 @@ impl ComputedNode {
     /// The order of the node in the UI layout.
     /// Nodes with a higher stack index are drawn on top of and receive interactions before nodes with lower stack indices.
     ///
-    /// Automatically calculated by [`super::layout::ui_layout_system`].
+    /// Automatically calculated in [`UiSystems::Stack`](super::UiSystems::Stack).
     pub const fn stack_index(&self) -> u32 {
         self.stack_index
     }
 
     /// The calculated node size as width and height in physical pixels before rounding.
     ///
-    /// Automatically calculated by [`super::layout::ui_layout_system`].
+    /// Automatically calculated by [`ui_layout_system`](`super::layout::ui_layout_system`).
     #[inline]
     pub const fn unrounded_size(&self) -> Vec2 {
         self.unrounded_size
@@ -127,7 +127,7 @@ impl ComputedNode {
     /// Returns the thickness of the UI node's outline in physical pixels.
     /// If this value is negative or `0.` then no outline will be rendered.
     ///
-    /// Automatically calculated by [`super::layout::ui_layout_system`].
+    /// Automatically calculated by [`ui_layout_system`](`super::layout::ui_layout_system`).
     #[inline]
     pub const fn outline_width(&self) -> f32 {
         self.outline_width
@@ -135,7 +135,7 @@ impl ComputedNode {
 
     /// Returns the amount of space between the outline and the edge of the node in physical pixels.
     ///
-    /// Automatically calculated by [`super::layout::ui_layout_system`].
+    /// Automatically calculated by [`ui_layout_system`](`super::layout::ui_layout_system`).
     #[inline]
     pub const fn outline_offset(&self) -> f32 {
         self.outline_offset
@@ -143,7 +143,7 @@ impl ComputedNode {
 
     /// Returns the size of the node when including its outline.
     ///
-    /// Automatically calculated by [`super::layout::ui_layout_system`].
+    /// Automatically calculated by [`ui_layout_system`](`super::layout::ui_layout_system`).
     #[inline]
     pub const fn outlined_node_size(&self) -> Vec2 {
         let offset = 2. * (self.outline_offset + self.outline_width);
@@ -154,7 +154,7 @@ impl ComputedNode {
     /// An outline's border radius is derived from the node's border-radius
     /// so that the outline wraps the border equally at all points.
     ///
-    /// Automatically calculated by [`super::layout::ui_layout_system`].
+    /// Automatically calculated by [`ui_layout_system`](`super::layout::ui_layout_system`).
     #[inline]
     pub const fn outline_radius(&self) -> ResolvedBorderRadius {
         let outer_distance = self.outline_width + self.outline_offset;
@@ -175,7 +175,7 @@ impl ComputedNode {
 
     /// Returns the thickness of the node's border on each edge in physical pixels.
     ///
-    /// Automatically calculated by [`super::layout::ui_layout_system`].
+    /// Automatically calculated by [`ui_layout_system`](`super::layout::ui_layout_system`).
     #[inline]
     pub const fn border(&self) -> BorderRect {
         self.border
@@ -183,7 +183,7 @@ impl ComputedNode {
 
     /// Returns the border radius for each of the node's corners in physical pixels.
     ///
-    /// Automatically calculated by [`super::layout::ui_layout_system`].
+    /// Automatically calculated by [`ui_layout_system`](`super::layout::ui_layout_system`).
     #[inline]
     pub const fn border_radius(&self) -> ResolvedBorderRadius {
         self.border_radius
@@ -213,7 +213,7 @@ impl ComputedNode {
 
     /// Returns the thickness of the node's padding on each edge in physical pixels.
     ///
-    /// Automatically calculated by [`super::layout::ui_layout_system`].
+    /// Automatically calculated by [`ui_layout_system`](`super::layout::ui_layout_system`).
     #[inline]
     pub const fn padding(&self) -> BorderRect {
         self.padding

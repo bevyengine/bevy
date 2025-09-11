@@ -2,7 +2,7 @@
 //!
 //! The picking system is built around the concept of a 'Pointer', which is an
 //! abstract representation of a user input with a specific screen location. The cursor
-//! and touch input is provided under [`crate::input`], but you can also implement
+//! and touch input is provided under [`input`](`crate::input`), but you can also implement
 //! your own custom pointers by supplying a unique ID.
 //!
 //! The purpose of this module is primarily to provide a common interface that can be
@@ -270,7 +270,7 @@ pub enum PointerAction {
 }
 
 /// An input event effecting a pointer.
-#[derive(BufferedEvent, Debug, Clone, Reflect)]
+#[derive(Message, Debug, Clone, Reflect)]
 #[reflect(Clone)]
 pub struct PointerInput {
     /// The id of the pointer.
@@ -315,7 +315,7 @@ impl PointerInput {
 
     /// Updates pointer entities according to the input events.
     pub fn receive(
-        mut events: EventReader<PointerInput>,
+        mut events: MessageReader<PointerInput>,
         mut pointers: Query<(&PointerId, &mut PointerLocation, &mut PointerPress)>,
     ) {
         for event in events.read() {

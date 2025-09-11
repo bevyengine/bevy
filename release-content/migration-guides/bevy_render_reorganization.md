@@ -1,6 +1,6 @@
 ---
 title: "`bevy_render` reorganization"
-pull_requests: [20485, 20330, 18703, 20587, 20502, 19997, 19991, 20000, 19949, 19943, 19953, 20498, 20496, 20493, 20492, 20491, 20488, 20487, 20486, 20483, 20480, 20479, 20478, 20477, 20473, 20472, 20471, 20470, 20392, 20390, 20388, 20345, 20344, 20051, 19985, 19973, 19965, 19963, 19962, 19960, 19959, 19958, 19957, 19956, 19955, 19954, 16620, 16619, 15700, 15666, 15650]
+pull_requests: [20485, 20330, 18703, 20587, 20502, 19997, 19991, 20000, 19949, 19943, 19953, 20498, 20496, 20493, 20492, 20491, 20488, 20487, 20486, 20483, 20480, 20479, 20478, 20477, 20473, 20472, 20471, 20470, 20392, 20390, 20388, 20345, 20344, 20051, 19985, 19973, 19965, 19963, 19962, 19960, 19959, 19958, 19957, 19956, 19955, 19954, 16620, 16619, 15700, 15666, 15650, 20778, 20857, 18323]
 ---
 
 You must now import `bevy_render::NormalizedRenderTargetExt` to use methods on `NormalizedRenderTarget`
@@ -32,3 +32,12 @@ Import them directly or from `bevy::sprite_render` now.
 
 `RenderAssetUsages` is no longer re-exported by `bevy_render`.
 Import it from `bevy_asset` or `bevy::asset` instead.
+
+`bevy_core_pipeline` used to be home to many non-core things, including post process effects.
+They have now been given a new home in `bevy_anti_alias` and `bevy_post_process`.
+
+If you were importing FxaaPlugin, SmaaPlugin, TemporalAntiAliasPlugin, or CasPlugin from `bevy_core_pipeline` or `bevy::core_pipeline`, you must now import them from `bevy_anti_alias` or `bevy::anti_alias`.
+
+If you were importing Bloom, AutoExposure, ChromaticAberration, DepthOfField, or MotionBlur from `bevy_core_pipeline` or `bevy::core_pipeline`, you must now import them from `bevy_post_process` or `bevy::post_process`.
+
+Additionally, you may now order rendering passes against the new `StartMainPassPostProcessing` node.

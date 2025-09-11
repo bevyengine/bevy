@@ -1,13 +1,12 @@
-use crate::WgpuWrapper;
 use crate::{
     render_resource::*,
-    renderer::{RenderAdapter, RenderDevice},
+    renderer::{RenderAdapter, RenderDevice, WgpuWrapper},
     Extract,
 };
 use alloc::{borrow::Cow, sync::Arc};
 use bevy_asset::{AssetEvent, AssetId, Assets, Handle};
 use bevy_ecs::{
-    event::EventReader,
+    message::MessageReader,
     resource::Resource,
     system::{Res, ResMut},
 };
@@ -728,7 +727,7 @@ impl PipelineCache {
     pub(crate) fn extract_shaders(
         mut cache: ResMut<Self>,
         shaders: Extract<Res<Assets<Shader>>>,
-        mut events: Extract<EventReader<AssetEvent<Shader>>>,
+        mut events: Extract<MessageReader<AssetEvent<Shader>>>,
     ) {
         for event in events.read() {
             #[expect(

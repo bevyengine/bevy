@@ -93,8 +93,8 @@
 //! - [`ResMut`] and `Option<ResMut>`
 //! - [`Commands`]
 //! - [`Local`]
-//! - [`EventReader`](crate::event::EventReader)
-//! - [`EventWriter`](crate::event::EventWriter)
+//! - [`MessageReader`](crate::message::MessageReader)
+//! - [`MessageWriter`](crate::message::MessageWriter)
 //! - [`NonSend`] and `Option<NonSend>`
 //! - [`NonSendMut`] and `Option<NonSendMut>`
 //! - [`RemovedComponents`](crate::lifecycle::RemovedComponents)
@@ -1127,7 +1127,7 @@ mod tests {
             for entity in &query {
                 let location = entities.get(entity).unwrap();
                 let archetype = archetypes.get(location.archetype_id).unwrap();
-                let archetype_components = archetype.components().collect::<Vec<_>>();
+                let archetype_components = archetype.components();
                 let bundle_id = bundles
                     .get_id(TypeId::of::<(W<i32>, W<bool>)>())
                     .expect("Bundle used to spawn entity should exist");
@@ -1907,14 +1907,14 @@ mod tests {
         schedule.add_systems(|_query: Query<&Name>| todo!());
         schedule.add_systems(|_query: Query<&Name>| -> () { todo!() });
 
-        fn obs(_trigger: On<Add, Name>) {
+        fn obs(_event: On<Add, Name>) {
             todo!()
         }
 
         world.add_observer(obs);
-        world.add_observer(|_trigger: On<Add, Name>| {});
-        world.add_observer(|_trigger: On<Add, Name>| todo!());
-        world.add_observer(|_trigger: On<Add, Name>| -> () { todo!() });
+        world.add_observer(|_event: On<Add, Name>| {});
+        world.add_observer(|_event: On<Add, Name>| todo!());
+        world.add_observer(|_event: On<Add, Name>| -> () { todo!() });
 
         fn my_command(_world: &mut World) {
             todo!()
