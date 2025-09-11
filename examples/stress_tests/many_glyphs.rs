@@ -10,7 +10,7 @@ use bevy::{
     color::palettes::basic::RED,
     diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
     prelude::*,
-    text::{Font, FontSize, LineBreak, TextBounds},
+    text::{Font, LineBreak, TextBounds},
     window::{PresentMode, WindowResolution},
     winit::{UpdateMode, WinitSettings},
 };
@@ -70,9 +70,7 @@ fn setup(mut commands: Commands, args: Res<Args>, asset_server: Res<AssetServer>
     commands.spawn(Camera2d);
     let text_string = "0123456789".repeat(10_000);
 
-    let font_family = asset_server.load("fonts/FiraMono-Medium.ttf");
-
-    let font = commands.spawn((Font(font_family), FontSize(4.))).id();
+    let font = commands.spawn(Font::from_size(4.)).id();
 
     let text_block = TextLayout {
         justify: Justify::Left,

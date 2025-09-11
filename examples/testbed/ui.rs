@@ -93,10 +93,8 @@ mod text {
 
     pub fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         let sans = asset_server.load("fonts/FiraSans-Bold.ttf");
-        let sans_200 = commands
-            .spawn((Font(sans.clone()), FontSize(200.)))
-            .id();
-        let sans_default_size = commands.spawn(Font(sans)).id();
+        let sans_200 = commands.spawn((Font::new(sans.clone(), 200.))).id();
+        let sans_default_size = commands.spawn(Font::from(sans)).id();
 
         commands.spawn((Camera2d, DespawnOnExit(super::Scene::Text)));
         commands.spawn((
@@ -643,7 +641,6 @@ mod linear_gradient {
     use bevy::ecs::prelude::*;
     use bevy::state::state_scoped::DespawnOnExit;
     use bevy::text::Font;
-    use bevy::text::FontSize;
     use bevy::text::TextFont;
     use bevy::ui::AlignItems;
     use bevy::ui::BackgroundGradient;
@@ -658,7 +655,7 @@ mod linear_gradient {
 
     pub fn setup(mut commands: Commands) {
         commands.spawn((Camera2d, DespawnOnExit(super::Scene::LinearGradient)));
-        let font = commands.spawn((Font::default(), FontSize(10.))).id();
+        let font = commands.spawn(Font::from_size(10.)).id();
         commands
             .spawn((
                 Node {

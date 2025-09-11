@@ -33,9 +33,9 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn((Camera2d, IsDefaultUiCamera, BoxShadowSamples(6)));
 
     let sans = asset_server.load("fonts/FiraSans-Bold.ttf");
-    let sans_20 = commands.spawn(Font(sans.clone())).id();
-    let sans_21 = commands.spawn((Font(sans.clone()), FontSize(21.))).id();
-    let sans_25 = commands.spawn((Font(sans.clone()), FontSize(25.))).id();
+    let sans_20 = commands.spawn(Font::from(sans.clone())).id();
+    let sans_21 = commands.spawn(Font::new(sans.clone(), 21.)).id();
+    let sans_25 = commands.spawn(Font::new(sans.clone(), 25.)).id();
 
     // root node
     commands
