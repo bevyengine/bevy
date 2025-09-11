@@ -74,25 +74,25 @@ impl Font {
     }
 
     /// Returns a new [`Font`] with the specified font size.
-    pub fn from_font_size(font_size: f32) -> Self {
-        Self::default().with_font_size(font_size)
+    pub fn from_size(font_size: f32) -> Self {
+        Self::default().with_size(font_size)
     }
 
     /// Returns this [`Font`] with the specified font face handle.
-    pub fn with_font(mut self, font_face: Handle<FontFace>) -> Self {
-        self.face = font_face;
+    pub fn with_face(mut self, face: Handle<FontFace>) -> Self {
+        self.face = face;
         self
     }
 
     /// Returns this [`Font`] with the specified font size.
-    pub const fn with_font_size(mut self, font_size: f32) -> Self {
-        self.size = font_size;
+    pub const fn with_size(mut self, size: f32) -> Self {
+        self.size = size;
         self
     }
 
     /// Returns this [`Font`] with the specified [`FontSmoothing`].
-    pub const fn with_font_smoothing(mut self, font_smoothing: FontSmoothing) -> Self {
-        self.smoothing = font_smoothing;
+    pub const fn with_smoothing(mut self, smoothing: FontSmoothing) -> Self {
+        self.smoothing = smoothing;
         self
     }
 }

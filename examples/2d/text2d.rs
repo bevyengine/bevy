@@ -38,7 +38,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     let font = commands.spawn(Font::new(font_face.clone(), 50.)).id();
     let smaller_font = commands.spawn(Font::new(font_face.clone(), 35.)).id();
     let rough_font = commands
-        .spawn(Font::new(font_face.clone(), 35.).with_font_smoothing(FontSmoothing::None))
+        .spawn(Font::new(font_face.clone(), 35.).with_smoothing(FontSmoothing::None))
         .id();
 
     let text_font = TextFont(font);
