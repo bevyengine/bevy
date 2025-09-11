@@ -7,6 +7,7 @@ use bevy::{
     color::palettes::css::GOLD,
     diagnostic::{DiagnosticsStore, FrameTimeDiagnosticsPlugin},
     prelude::*,
+    text::{FontFace, FontSize},
 };
 
 fn main() {
@@ -15,7 +16,7 @@ fn main() {
         .add_systems(Startup, setup)
         .add_systems(
             Update,
-            (text_update_system, text_color_system, embiggen_font_system),
+            (text_update_system, text_color_system), //, embiggen_font_system),
         )
         .run();
 }
@@ -31,16 +32,33 @@ struct AnimatedText;
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     // UI camera
     commands.spawn(Camera2d);
+
+    let font_67_bold = commands
+        .spawn((
+            FontFace(asset_server.load("fonts/FiraSans-Bold.ttf")),
+            FontSize(67.),
+        ))
+        .id();
+
+    let font_42_bold = commands
+        .spawn((
+            FontFace(asset_server.load("fonts/FiraSans-Bold.ttf")),
+            FontSize(42.),
+        ))
+        .id();
+
+    let font_33 = commands
+        .spawn((
+            FontFace(asset_server.load("fonts/FiraMono-Medium.ttf")),
+            FontSize(33.),
+        ))
+        .id();
+
     // Text with one section
     commands.spawn((
         // Accepts a `String` or any type that converts into a `String`, such as `&str`
         Text::new("hello\nbevy!"),
-        TextFont {
-            // This font is loaded and will be used instead of the default font.
-            font: asset_server.load("fonts/FiraSans-Bolda.ttf"),
-            font_size: 67.0,
-            ..default()
-        },
+        TextFont(font_67_bold),
         TextShadow::default(),
         // Set the justification of the Text
         TextLayout::new_with_justify(Justify::Center),
@@ -59,35 +77,15 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         .spawn((
             // Create a Text with multiple child spans.
             Text::new("FPS: "),
-            TextFont {
-                // This font is loaded and will be used instead of the default font.
-                font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                font_size: 42.0,
-                ..default()
-            },
+            TextFont(font_42_bold),
         ))
         .with_child((
             TextSpan::default(),
-            if cfg!(feature = "default_font") {
-                (
-                    TextFont {
-                        font_size: 33.0,
-                        // If no font is specified, the default font (a minimal subset of FiraMono) will be used.
-                        ..default()
-                    },
-                    TextColor(GOLD.into()),
-                )
-            } else {
-                (
-                    // "default_font" feature is unavailable, load a font to use instead.
-                    TextFont {
-                        font: asset_server.load("fonts/FiraMono-Medium.ttf"),
-                        font_size: 33.0,
-                        ..Default::default()
-                    },
-                    TextColor(GOLD.into()),
-                )
-            },
+            (
+                // "default_font" feature is unavailable, load a font to use instead.
+                TextFont(font_33),
+                TextColor(GOLD.into()),
+            ),
             FpsText,
         ));
 
@@ -147,8 +145,8 @@ fn text_update_system(
     }
 }
 
-fn embiggen_font_system(mut query: Query<&mut TextFont>) {
-    for mut font in query.iter_mut() {
-        font.font_size *= 1.01;
-    }
-}
+// fn embiggen_font_system(mut query: Query<&mut TextFont>) {
+//     for mut font in query.iter_mut() {
+//         font.font_size *= 1.01;
+//     }
+// }
