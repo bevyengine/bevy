@@ -1209,7 +1209,7 @@ macro_rules! move_as_ptr {
 /// # struct FieldCType(usize);
 ///
 /// # pub struct Parent {
-/// #   pub field_a: FieldAType,
+/// #  pub field_a: FieldAType,
 /// #  pub field_b: FieldBType,
 /// #  pub field_c: FieldCType,
 /// # }

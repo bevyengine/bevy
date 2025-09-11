@@ -174,6 +174,8 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
             // that this is a sound thing to do. See https://doc.rust-lang.org/error_codes/E0509.html
             // for more information.
             fn check_no_bundle_drop(self) {
+                // This has no effect, but we need to make sure the compiler doesn't optimize it out
+                // black_box is used to do this
                 #( core::hint::black_box(self.#active_field_tokens); )*
             }
         }
