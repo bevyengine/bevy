@@ -514,7 +514,7 @@ impl<'a, T, A: IsAligned> MovingPtr<'_, T, A> {
     /// move_as_ptr!(parent);
     ///
     /// // SAFETY:
-    /// // - `field_a` and `field_b` are moved out of but never accessed after this.
+    /// // - `field_a` and `field_b` are both unique.
     /// let (partial_parent, ()) = MovingPtr::partial_move(parent, |parent_ptr| unsafe {
     ///   bevy_ptr::deconstruct_moving_ptr!(parent_ptr => {
     ///     field_a,
@@ -526,6 +526,9 @@ impl<'a, T, A: IsAligned> MovingPtr<'_, T, A> {
     /// });
     ///
     /// // Move the rest of fields out of the parent.
+    /// // SAFETY:
+    /// // - `field_c` is by itself unique and does not conflict with the previous accesses
+    /// //   inside `partial_move`.
     /// unsafe {
     ///    bevy_ptr::deconstruct_moving_ptr!(partial_parent: MaybeUninit<Parent> => {
     ///       field_c: FieldCType,
@@ -1193,8 +1196,8 @@ macro_rules! move_as_ptr {
 ///
 /// # Safety
 /// This macro generates unsafe code and must be set up correctly to avoid undefined behavior.
-///  - The type and name of the fields must match the type's definition. For tuples and tuple structs,
-///    this would be the tuple indices.
+///  - Each field accessed must be unique, multiple of the same field cannot be listed.
+///  - For tuple and tuple structs, the field indicies and types must match the type definition.
 ///
 /// # Examples
 ///
