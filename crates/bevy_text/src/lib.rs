@@ -59,7 +59,7 @@ pub use text_access::*;
 pub mod prelude {
     #[doc(hidden)]
     pub use crate::{
-        FontFace, FontFamily, FontSize, FontSmoothing, Justify, LineBreak, LineHeight, TextColor,
+        FontFace, Font, FontSize, FontSmoothing, Justify, LineBreak, LineHeight, TextColor,
         TextError, TextFont, TextLayout, TextSpan,
     };
 }
@@ -93,7 +93,7 @@ pub struct DefaultFont;
 
 impl Plugin for TextPlugin {
     fn build(&self, app: &mut App) {
-        app.init_asset::<FontFamily>()
+        app.init_asset::<Font>()
             .init_asset_loader::<FontLoader>()
             .init_resource::<FontAtlasSets>()
             .init_resource::<TextPipeline>()
@@ -110,7 +110,7 @@ impl Plugin for TextPlugin {
         {
             use bevy_asset::{AssetId, Assets, Handle};
             let mut assets = app.world_mut().resource_mut::<Assets<_>>();
-            let asset = FontFamily::try_from_bytes(DEFAULT_FONT_DATA.to_vec()).unwrap();
+            let asset = Font::try_from_bytes(DEFAULT_FONT_DATA.to_vec()).unwrap();
             assets.insert(AssetId::default(), asset).unwrap();
 
             app.world_mut()

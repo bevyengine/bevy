@@ -1,4 +1,4 @@
-use crate::FontFamily;
+use crate::Font;
 use bevy_asset::{io::Reader, AssetLoader, LoadContext};
 use thiserror::Error;
 
@@ -19,7 +19,7 @@ pub enum FontLoaderError {
 }
 
 impl AssetLoader for FontLoader {
-    type Asset = FontFamily;
+    type Asset = Font;
     type Settings = ();
     type Error = FontLoaderError;
     async fn load(
@@ -27,10 +27,10 @@ impl AssetLoader for FontLoader {
         reader: &mut dyn Reader,
         _settings: &(),
         _load_context: &mut LoadContext<'_>,
-    ) -> Result<FontFamily, Self::Error> {
+    ) -> Result<Font, Self::Error> {
         let mut bytes = Vec::new();
         reader.read_to_end(&mut bytes).await?;
-        let font = FontFamily::try_from_bytes(bytes)?;
+        let font = Font::try_from_bytes(bytes)?;
         Ok(font)
     }
 

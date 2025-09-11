@@ -18,7 +18,7 @@ fn main() {
 #[derive(Resource)]
 struct State {
     atlas_count: u32,
-    handle: Handle<FontFamily>,
+    handle: Handle<Font>,
     timer: Timer,
 }
 

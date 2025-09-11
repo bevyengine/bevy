@@ -199,7 +199,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
         });
 }
 
-fn vertically_scrolling_list(font_handle: Handle<FontFamily>) -> impl Bundle {
+fn vertically_scrolling_list(font_handle: Handle<Font>) -> impl Bundle {
     (
         Node {
             flex_direction: FlexDirection::Column,
@@ -252,7 +252,7 @@ fn vertically_scrolling_list(font_handle: Handle<FontFamily>) -> impl Bundle {
     )
 }
 
-fn bidirectional_scrolling_list(font_handle: Handle<FontFamily>) -> impl Bundle {
+fn bidirectional_scrolling_list(font_handle: Handle<Font>) -> impl Bundle {
     (
         Node {
             flex_direction: FlexDirection::Column,
@@ -307,7 +307,7 @@ fn bidirectional_scrolling_list(font_handle: Handle<FontFamily>) -> impl Bundle 
     )
 }
 
-fn nested_scrolling_list(font_handle: Handle<FontFamily>) -> impl Bundle {
+fn nested_scrolling_list(font_handle: Handle<Font>) -> impl Bundle {
     (
         Node {
             flex_direction: FlexDirection::Column,

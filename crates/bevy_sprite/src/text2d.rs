@@ -21,7 +21,7 @@ use bevy_image::prelude::*;
 use bevy_math::{FloatOrd, Vec2, Vec3};
 use bevy_reflect::{prelude::ReflectDefault, Reflect};
 use bevy_text::{
-    ComputedTextBlock, CosmicFontSystem, DefaultFont, FontAtlasSets, FontFace, FontFamily,
+    ComputedTextBlock, CosmicFontSystem, DefaultFont, FontAtlasSets, FontFace, Font,
     FontSize, FontSmoothing, LineBreak, LineHeight, SwashCache, TextBounds, TextColor, TextError,
     TextFont, TextLayout, TextLayoutInfo, TextPipeline, TextReader, TextRoot, TextSpanAccess,
     TextWriter,
@@ -165,7 +165,7 @@ pub fn update_text2d_layout(
     // Text items which should be reprocessed again, generally when the font hasn't loaded yet.
     mut queue: Local<EntityHashSet>,
     mut textures: ResMut<Assets<Image>>,
-    fonts: Res<Assets<FontFamily>>,
+    fonts: Res<Assets<Font>>,
     camera_query: Query<(&Camera, &VisibleEntities, Option<&RenderLayers>)>,
     mut texture_atlases: ResMut<Assets<TextureAtlasLayout>>,
     mut font_atlas_sets: ResMut<FontAtlasSets>,
@@ -335,7 +335,7 @@ mod tests {
 
     fn setup() -> (App, Entity) {
         let mut app = App::new();
-        app.init_resource::<Assets<FontFamily>>()
+        app.init_resource::<Assets<Font>>()
             .init_resource::<Assets<Image>>()
             .init_resource::<Assets<TextureAtlasLayout>>()
             .init_resource::<FontAtlasSets>()
@@ -375,7 +375,7 @@ mod tests {
             app,
             Handle::default(),
             "../../bevy_text/src/FiraMono-subset.ttf",
-            |bytes: &[u8], _path: String| { FontFamily::try_from_bytes(bytes.to_vec()).unwrap() }
+            |bytes: &[u8], _path: String| { Font::try_from_bytes(bytes.to_vec()).unwrap() }
         );
 
         let entity = app.world_mut().spawn(Text2d::new(FIRST_TEXT)).id();

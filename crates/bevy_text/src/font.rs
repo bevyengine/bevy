@@ -20,12 +20,12 @@ use serde::{Deserialize, Serialize};
 ///
 /// Bevy currently loads a single font face as a single `Font` asset.
 #[derive(Debug, TypePath, Clone, Asset)]
-pub struct FontFamily {
+pub struct Font {
     /// Content of a font file as bytes
     pub data: Arc<Vec<u8>>,
 }
 
-impl FontFamily {
+impl Font {
     /// Creates a [`Font`] from bytes
     pub fn try_from_bytes(
         font_data: Vec<u8>,
@@ -38,11 +38,11 @@ impl FontFamily {
     }
 }
 
-/// Atm fontfaces and families are the same thing.
+/// The font face of the font.
 #[derive(Component, Clone, Debug, Reflect, PartialEq, Default, Deref, DerefMut)]
 #[reflect(Component, Default, Debug, Clone)]
 #[require(FontSize, FontSmoothing)]
-pub struct FontFace(pub Handle<FontFamily>);
+pub struct FontFace(pub Handle<Font>);
 
 /// Size of the font.
 /// Later may be changed to an responsive values.

@@ -203,7 +203,7 @@ mod text {
     }
 
     fn spawn_anchored_text(
-        font_face: Handle<FontFamily>,
+        font_face: Handle<Font>,
         commands: &mut Commands,
         dest: Vec3,
         justify: Justify,
