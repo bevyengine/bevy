@@ -2,7 +2,15 @@
 //! These widgets have no inherent styling, it's the responsibility of the user to add styling
 //! appropriate for their game or application.
 //!
-//! # State Management
+//! ## WARNING: EXPERIMENTAL
+//!
+//! This crate is currently experimental, even relative to the rest of Bevy. The API is likely to
+//! change in future releases, and there may be bugs or missing features.
+//!
+//! We are actively seeking feedback on the design and implementation of this crate, so please
+//! file issues or create PRs if you have any comments or suggestions.
+//!
+//! ## State Management
 //!
 //! Most of the widgets use external state management: this means that the widgets do not
 //! automatically update their own internal state, but instead rely on the app to update the widget
