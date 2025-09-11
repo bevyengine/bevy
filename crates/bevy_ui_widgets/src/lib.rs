@@ -29,9 +29,9 @@ use bevy_ecs::entity::Entity;
 
 /// A plugin group that registers the observers for all of the widgets in this crate. If you don't want to
 /// use all of the widgets, you can import the individual widget plugins instead.
-pub struct WidgetBehaviorPlugins;
+pub struct UiWidgetsPlugins;
 
-impl PluginGroup for WidgetBehaviorPlugins {
+impl PluginGroup for UiWidgetsPlugins {
     fn build(self) -> PluginGroupBuilder {
         PluginGroupBuilder::start::<Self>()
             .add(ButtonPlugin)

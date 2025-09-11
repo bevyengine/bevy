@@ -12,7 +12,7 @@ use bevy::{
     ui::{Checked, InteractionDisabled, Pressed},
     ui_widgets::{
         Activate, Button, Callback, Checkbox, Slider, SliderRange, SliderThumb, SliderValue,
-        ValueChange, WidgetBehaviorPlugins,
+        UiWidgetsPlugins, ValueChange,
     },
 };
 
@@ -20,7 +20,7 @@ fn main() {
     App::new()
         .add_plugins((
             DefaultPlugins,
-            WidgetBehaviorPlugins,
+            UiWidgetsPlugins,
             InputDispatchPlugin,
             TabNavigationPlugin,
         ))
