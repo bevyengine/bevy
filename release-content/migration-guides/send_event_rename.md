@@ -1,14 +1,14 @@
 ---
 title: Rename `send_event` and similar methods to `write_message`
-pull_requests: [20017]
+pull_requests: [20017, 20953]
 ---
 
 Following up on the `EventWriter::send` being renamed to `EventWriter::write` in 0.16, many similar methods have been renamed. Note that "buffered events" are now known as `Messages`, and the naming reflects that here.
 
 This includes both the `World` and `Commands` message methods. The old methods have been depreciated.
 
-| Old                                 | New                                  |
-|-------------------------------------|--------------------------------------|
+| Old                                 | New                                    |
+| ----------------------------------- | -------------------------------------- |
 | `World::send_event`                 | `World::write_message`                 |
 | `World::send_event_default`         | `World::write_message_default`         |
 | `World::send_event_batch`           | `World::write_message_batch`           |
@@ -19,6 +19,6 @@ This includes both the `World` and `Commands` message methods. The old methods h
 | `Events::send`                      | `Messages::write`                      |
 | `Events::send_default`              | `Messages::write_default`              |
 | `Events::send_batch`                | `Messages::write_batch`                |
-| `RemovedComponentEvents::send`      | `RemovedComponentEvents::write`      |
+| `RemovedComponentEvents::send`      | `RemovedComponentEvents::write`        |
 | `command::send_event`               | `command::write_message`               |
-| `SendBatchIds`                      | `WriteBatchIds`                      |
+| `SendBatchIds`                      | `WriteBatchIds`                        |

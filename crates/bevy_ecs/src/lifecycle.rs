@@ -412,14 +412,14 @@ pub type OnRemove = Remove;
 pub type OnDespawn = Despawn;
 
 /// Wrapper around [`Entity`] for [`RemovedComponents`].
-/// Internally, `RemovedComponents` uses these as an `Events<RemovedComponentEntity>`.
+/// Internally, `RemovedComponents` uses these as an [`Messages<RemovedComponentEntity>`].
 #[derive(Message, Debug, Clone, Into)]
 #[cfg_attr(feature = "bevy_reflect", derive(Reflect))]
 #[cfg_attr(feature = "bevy_reflect", reflect(Debug, Clone))]
 pub struct RemovedComponentEntity(Entity);
 
 /// Wrapper around a [`MessageCursor<RemovedComponentEntity>`] so that we
-/// can differentiate events between components.
+/// can differentiate messages between components.
 #[derive(Debug)]
 pub struct RemovedComponentReader<T>
 where
@@ -450,15 +450,18 @@ impl<T: Component> DerefMut for RemovedComponentReader<T> {
         &mut self.reader
     }
 }
+/// Renamed to [`RemovedComponentMessages`].
+#[deprecated(since = "0.17.0", note = "Use `RemovedComponentMessages` instead.")]
+pub type RemovedComponentEvents = RemovedComponentMessages;
 
 /// Stores the [`RemovedComponents`] event buffers for all types of component in a given [`World`].
 #[derive(Default, Debug)]
-pub struct RemovedComponentEvents {
+pub struct RemovedComponentMessages {
     event_sets: SparseSet<ComponentId, Messages<RemovedComponentEntity>>,
 }
 
-impl RemovedComponentEvents {
-    /// Creates an empty storage buffer for component removal events.
+impl RemovedComponentMessages {
+    /// Creates an empty storage buffer for component removal messages.
     pub fn new() -> Self {
         Self::default()
     }
@@ -466,12 +469,12 @@ impl RemovedComponentEvents {
     /// For each type of component, swaps the event buffers and clears the oldest event buffer.
     /// In general, this should be called once per frame/update.
     pub fn update(&mut self) {
-        for (_component_id, events) in self.event_sets.iter_mut() {
-            events.update();
+        for (_component_id, messages) in self.event_sets.iter_mut() {
+            messages.update();
         }
     }
 
-    /// Returns an iterator over components and their entity events.
+    /// Returns an iterator over components and their entity messages.
     pub fn iter(&self) -> impl Iterator<Item = (&ComponentId, &Messages<RemovedComponentEntity>)> {
         self.event_sets.iter()
     }
@@ -484,13 +487,16 @@ impl RemovedComponentEvents {
         self.event_sets.get(component_id.into())
     }
 
-    /// Sends a removal event for the specified component.
-    #[deprecated(since = "0.17.0", note = "Use `RemovedComponentEvents:write` instead.")]
+    /// Sends a removal message for the specified component.
+    #[deprecated(
+        since = "0.17.0",
+        note = "Use `RemovedComponentMessages:write` instead."
+    )]
     pub fn send(&mut self, component_id: impl Into<ComponentId>, entity: Entity) {
         self.write(component_id, entity);
     }
 
-    /// Writes a removal event for the specified component.
+    /// Writes a removal message for the specified component.
     pub fn write(&mut self, component_id: impl Into<ComponentId>, entity: Entity) {
         self.event_sets
             .get_or_insert_with(component_id.into(), Default::default)
@@ -534,7 +540,7 @@ impl RemovedComponentEvents {
 pub struct RemovedComponents<'w, 's, T: Component> {
     component_id: ComponentIdFor<'s, T>,
     reader: Local<'s, RemovedComponentReader<T>>,
-    event_sets: &'w RemovedComponentEvents,
+    message_sets: &'w RemovedComponentMessages,
 }
 
 /// Iterator over entities that had a specific component removed.
@@ -555,7 +561,7 @@ pub type RemovedIterWithId<'a> = iter::Map<
     ) -> (Entity, MessageId<RemovedComponentEntity>),
 >;
 
-fn map_id_events(
+fn map_id_messages(
     (entity, id): (&RemovedComponentEntity, MessageId<RemovedComponentEntity>),
 ) -> (Entity, MessageId<RemovedComponentEntity>) {
     (entity.clone().into(), id)
@@ -575,8 +581,14 @@ impl<'w, 's, T: Component> RemovedComponents<'w, 's, T> {
     }
 
     /// Fetch underlying [`Messages`].
+    #[deprecated(since = "0.17.0", note = "Renamed to `messages`.")]
     pub fn events(&self) -> Option<&Messages<RemovedComponentEntity>> {
-        self.event_sets.get(self.component_id.get())
+        self.messages()
+    }
+
+    /// Fetch underlying [`Messages`].
+    pub fn messages(&self) -> Option<&Messages<RemovedComponentEntity>> {
+        self.message_sets.get(self.component_id.get())
     }
 
     /// Destructures to get a mutable reference to the `MessageCursor`
@@ -584,68 +596,80 @@ impl<'w, 's, T: Component> RemovedComponents<'w, 's, T> {
     ///
     /// This is necessary since Rust can't detect destructuring through methods and most
     /// usecases of the reader uses the `Messages` as well.
+    pub fn reader_mut_with_messages(
+        &mut self,
+    ) -> Option<(
+        &mut RemovedComponentReader<T>,
+        &Messages<RemovedComponentEntity>,
+    )> {
+        self.message_sets
+            .get(self.component_id.get())
+            .map(|messages| (&mut *self.reader, messages))
+    }
+
+    /// Destructures to get a reference to the `MessageCursor`
+    /// and a reference to `Messages`.
+    #[deprecated(since = "0.17.0", note = "Renamed to `reader_mut_with_messages`.")]
     pub fn reader_mut_with_events(
         &mut self,
     ) -> Option<(
         &mut RemovedComponentReader<T>,
         &Messages<RemovedComponentEntity>,
     )> {
-        self.event_sets
-            .get(self.component_id.get())
-            .map(|events| (&mut *self.reader, events))
+        self.reader_mut_with_messages()
     }
 
-    /// Iterates over the events this [`RemovedComponents`] has not seen yet. This updates the
-    /// [`RemovedComponents`]'s event counter, which means subsequent event reads will not include events
+    /// Iterates over the messages this [`RemovedComponents`] has not seen yet. This updates the
+    /// [`RemovedComponents`]'s message counter, which means subsequent message reads will not include messages
     /// that happened before now.
     pub fn read(&mut self) -> RemovedIter<'_> {
-        self.reader_mut_with_events()
-            .map(|(reader, events)| reader.read(events).cloned())
+        self.reader_mut_with_messages()
+            .map(|(reader, messages)| reader.read(messages).cloned())
             .into_iter()
             .flatten()
             .map(RemovedComponentEntity::into)
     }
 
-    /// Like [`read`](Self::read), except also returning the [`MessageId`] of the events.
+    /// Like [`read`](Self::read), except also returning the [`MessageId`] of the messages.
     pub fn read_with_id(&mut self) -> RemovedIterWithId<'_> {
-        self.reader_mut_with_events()
-            .map(|(reader, events)| reader.read_with_id(events))
+        self.reader_mut_with_messages()
+            .map(|(reader, messages)| reader.read_with_id(messages))
             .into_iter()
             .flatten()
-            .map(map_id_events)
+            .map(map_id_messages)
     }
 
-    /// Determines the number of removal events available to be read from this [`RemovedComponents`] without consuming any.
+    /// Determines the number of removal messages available to be read from this [`RemovedComponents`] without consuming any.
     pub fn len(&self) -> usize {
-        self.events()
-            .map(|events| self.reader.len(events))
+        self.messages()
+            .map(|messages| self.reader.len(messages))
             .unwrap_or(0)
     }
 
-    /// Returns `true` if there are no events available to read.
+    /// Returns `true` if there are no messages available to read.
     pub fn is_empty(&self) -> bool {
-        self.events()
-            .is_none_or(|events| self.reader.is_empty(events))
+        self.messages()
+            .is_none_or(|messages| self.reader.is_empty(messages))
     }
 
-    /// Consumes all available events.
+    /// Consumes all available messages.
     ///
-    /// This means these events will not appear in calls to [`RemovedComponents::read()`] or
+    /// This means these messages will not appear in calls to [`RemovedComponents::read()`] or
     /// [`RemovedComponents::read_with_id()`] and [`RemovedComponents::is_empty()`] will return `true`.
     pub fn clear(&mut self) {
-        if let Some((reader, events)) = self.reader_mut_with_events() {
-            reader.clear(events);
+        if let Some((reader, messages)) = self.reader_mut_with_messages() {
+            reader.clear(messages);
         }
     }
 }
 
-// SAFETY: Only reads World removed component events
-unsafe impl<'a> ReadOnlySystemParam for &'a RemovedComponentEvents {}
+// SAFETY: Only reads World removed component messages
+unsafe impl<'a> ReadOnlySystemParam for &'a RemovedComponentMessages {}
 
 // SAFETY: no component value access.
-unsafe impl<'a> SystemParam for &'a RemovedComponentEvents {
+unsafe impl<'a> SystemParam for &'a RemovedComponentMessages {
     type State = ();
-    type Item<'w, 's> = &'w RemovedComponentEvents;
+    type Item<'w, 's> = &'w RemovedComponentMessages;
 
     fn init_state(_world: &mut World) -> Self::State {}
 
