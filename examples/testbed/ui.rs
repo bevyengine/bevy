@@ -777,7 +777,7 @@ mod radial_gradient {
             ColorStop::auto(RED),
         ];
 
-        let font = commands.spawn((Font::default(), FontSize(9.))).id();
+        let font = commands.spawn(Font::from_size(9.)).id();
 
         commands.spawn((Camera2d, DespawnOnExit(super::Scene::RadialGradient)));
         commands
