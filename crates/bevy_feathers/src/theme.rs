@@ -63,7 +63,7 @@ pub struct UiTheme(pub ThemeProps);
 impl UiTheme {
     /// Lookup a color by design token. If the theme does not have an entry for that token,
     /// logs a warning and returns an error color.
-    pub fn color<'a>(&self, token: &'a ThemeToken) -> Color {
+    pub fn color(&self, token: &ThemeToken) -> Color {
         let color = self.0.color.get(token);
         match color {
             Some(c) => *c,
