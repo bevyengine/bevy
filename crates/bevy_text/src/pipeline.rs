@@ -19,7 +19,7 @@ use bevy_reflect::{std_traits::ReflectDefault, Reflect};
 use cosmic_text::{Attrs, Buffer, Family, Metrics, Shaping, Wrap};
 
 use crate::{
-    error::TextError, ComputedTextBlock, FontAtlasSets, Font, FontSmoothing, Justify,
+    error::TextError, ComputedTextBlock, Font, FontAtlasSets, FontFace, FontSmoothing, Justify,
     LineBreak, LineHeight, PositionedGlyph, TextBounds, TextEntity, TextFont, TextLayout,
 };
 
@@ -73,13 +73,13 @@ pub struct FontFaceInfo {
 #[derive(Default, Resource)]
 pub struct TextPipeline {
     /// Identifies a font [`ID`](cosmic_text::fontdb::ID) by its [`Font`] [`Asset`](bevy_asset::Asset).
-    pub map_handle_to_font_id: HashMap<AssetId<Font>, (cosmic_text::fontdb::ID, Arc<str>)>,
+    pub map_handle_to_font_id: HashMap<AssetId<FontFace>, (cosmic_text::fontdb::ID, Arc<str>)>,
     /// Buffered vec for collecting spans.
     ///
     /// See [this dark magic](https://users.rust-lang.org/t/how-to-cache-a-vectors-capacity/94478/10).
     spans_buffer: Vec<(usize, &'static str, &'static TextFont, FontFaceInfo)>,
     /// Buffered vec for collecting info for glyph assembly.
-    glyph_info: Vec<Option<(AssetId<Font>, FontSmoothing)>>,
+    glyph_info: Vec<Option<Font>>,
 }
 
 impl TextPipeline {
@@ -88,9 +88,9 @@ impl TextPipeline {
     /// Negative or 0.0 font sizes will not be laid out.
     pub fn update_buffer<'a>(
         &mut self,
-        fonts: &Assets<Font>,
+        fonts: &Assets<FontFace>,
         default_font: Option<Entity>,
-        font_query: &Query<(&crate::FontFace, &crate::FontSize, &FontSmoothing)>,
+        font_query: &Query<&Font>,
         text_spans: impl Iterator<Item = (Entity, usize, &'a str, &'a TextFont, Color, &'a LineHeight)>,
         linebreak: LineBreak,
         justify: Justify,
@@ -135,12 +135,12 @@ impl TextPipeline {
                 text_font.0
             };
 
-            let Ok((font_face, font_size, _)) = font_query.get(font_entity) else {
+            let Ok(font) = font_query.get(font_entity) else {
                 return Err(TextError::NoSuchFont);
             };
 
             // Return early if a font is not loaded yet.
-            if !fonts.contains(font_face.id()) {
+            if !fonts.contains(font.face.id()) {
                 spans.clear();
                 self.spans_buffer = spans
                     .into_iter()
@@ -155,19 +155,19 @@ impl TextPipeline {
             }
 
             // Get max font size for use in cosmic Metrics.
-            max_font_size = max_font_size.max(font_size.0);
-            max_line_height = max_line_height.max(line_height.eval(font_size.0));
+            max_font_size = max_font_size.max(font.size);
+            max_line_height = max_line_height.max(line_height.eval(font.size));
 
             // Load Bevy fonts into cosmic-text's font system.
             let face_info = load_font_to_fontdb(
-                font_face.0.clone(),
+                font.face.clone(),
                 font_system,
                 &mut self.map_handle_to_font_id,
                 fonts,
             );
 
             // Save spans that aren't zero-sized.
-            if scale_factor <= 0.0 || font_size.0 <= 0.0 {
+            if scale_factor <= 0.0 || font.size <= 0.0 {
                 once!(warn!(
                     "Text span {entity} has a font size <= 0.0. Nothing will be displayed.",
                 ));
@@ -199,12 +199,12 @@ impl TextPipeline {
                 } else {
                     text_font.0
                 };
-                let (_, font_size, _) = font_query.get(font_entity).unwrap();
+                let font = font_query.get(font_entity).unwrap();
                 (
                     *span,
                     get_attrs(
                         *span_index,
-                        font_size.0,
+                        font.size,
                         **line_height,
                         *color,
                         font_info,
@@ -263,9 +263,9 @@ impl TextPipeline {
     pub fn queue_text<'a>(
         &mut self,
         layout_info: &mut TextLayoutInfo,
-        fonts: &Assets<Font>,
+        fonts: &Assets<FontFace>,
         default_font: Option<Entity>,
-        font_query: &Query<(&crate::FontFace, &crate::FontSize, &FontSmoothing)>,
+        font_query: &Query<&Font>,
         text_spans: impl Iterator<Item = (Entity, usize, &'a str, &'a TextFont, Color, &'a LineHeight)>,
         scale_factor: f64,
         layout: &TextLayout,
@@ -295,12 +295,7 @@ impl TextPipeline {
             } else {
                 text_font.0
             };
-            glyph_info.push(
-                font_query
-                    .get(font_entity)
-                    .ok()
-                    .map(|(font_face, _, font_smoothing)| (font_face.0.id(), *font_smoothing)),
-            );
+            glyph_info.push(font_query.get(font_entity).ok().cloned());
         });
 
         let update_result = self.update_buffer(
@@ -358,11 +353,11 @@ impl TextPipeline {
 
                     let mut temp_glyph;
                     let span_index = layout_glyph.metadata;
-                    let Some((font_id, font_smoothing)) = glyph_info[span_index] else {
+                    let Some(font) = glyph_info[span_index].clone() else {
                         return Err(TextError::NoSuchFont);
                     };
 
-                    let layout_glyph = if font_smoothing == FontSmoothing::None {
+                    let layout_glyph = if font.smoothing == FontSmoothing::None {
                         // If font smoothing is disabled, round the glyph positions and sizes,
                         // effectively discarding all subpixel layout.
                         temp_glyph = layout_glyph.clone();
@@ -378,12 +373,12 @@ impl TextPipeline {
                         layout_glyph
                     };
 
-                    let font_atlas_set = font_atlas_sets.sets.entry(font_id).or_default();
+                    let font_atlas_set = font_atlas_sets.sets.entry(font.face.id()).or_default();
 
                     let physical_glyph = layout_glyph.physical((0., 0.), 1.);
 
                     let atlas_info = font_atlas_set
-                        .get_glyph_atlas_info(physical_glyph.cache_key, font_smoothing)
+                        .get_glyph_atlas_info(physical_glyph.cache_key, font.smoothing)
                         .map(Ok)
                         .unwrap_or_else(|| {
                             font_atlas_set.add_glyph_to_atlas(
@@ -392,7 +387,7 @@ impl TextPipeline {
                                 &mut font_system.0,
                                 &mut swash_cache.0,
                                 layout_glyph,
-                                font_smoothing,
+                                font.smoothing,
                             )
                         })?;
 
@@ -449,9 +444,9 @@ impl TextPipeline {
     pub fn create_text_measure<'a>(
         &mut self,
         entity: Entity,
-        fonts: &Assets<Font>,
+        fonts: &Assets<FontFace>,
         default_font: Option<Entity>,
-        font_query: &Query<(&crate::FontFace, &crate::FontSize, &FontSmoothing)>,
+        font_query: &Query<&Font>,
         text_spans: impl Iterator<Item = (Entity, usize, &'a str, &'a TextFont, Color, &'a LineHeight)>,
         scale_factor: f64,
         layout: &TextLayout,
@@ -494,7 +489,7 @@ impl TextPipeline {
     }
 
     /// Returns the [`cosmic_text::fontdb::ID`] for a given [`Font`] asset.
-    pub fn get_font_id(&self, asset_id: AssetId<Font>) -> Option<cosmic_text::fontdb::ID> {
+    pub fn get_font_id(&self, asset_id: AssetId<FontFace>) -> Option<cosmic_text::fontdb::ID> {
         self.map_handle_to_font_id
             .get(&asset_id)
             .cloned()
@@ -552,10 +547,10 @@ impl TextMeasureInfo {
 
 /// Add the font to the cosmic text's `FontSystem`'s in-memory font database
 pub fn load_font_to_fontdb(
-    font_handle: Handle<Font>,
+    font_handle: Handle<FontFace>,
     font_system: &mut cosmic_text::FontSystem,
-    map_handle_to_font_id: &mut HashMap<AssetId<Font>, (cosmic_text::fontdb::ID, Arc<str>)>,
-    fonts: &Assets<Font>,
+    map_handle_to_font_id: &mut HashMap<AssetId<FontFace>, (cosmic_text::fontdb::ID, Arc<str>)>,
+    fonts: &Assets<FontFace>,
 ) -> FontFaceInfo {
     let (face_id, family_name) = map_handle_to_font_id
         .entry(font_handle.id())

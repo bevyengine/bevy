@@ -12,7 +12,7 @@ use bevy_picking::prelude::*;
 use bevy_picking::PickingSystems;
 use bevy_reflect::prelude::*;
 use bevy_text::prelude::*;
-use bevy_text::{FontFace, FontSize};
+use bevy_text::{Font, FontSize};
 use bevy_ui::prelude::*;
 use core::cmp::Ordering;
 use core::fmt::{Debug, Display, Formatter, Result};
@@ -270,7 +270,7 @@ pub fn debug_draw(
                 pointer_pos -= viewport.min;
             }
 
-            let font = commands.spawn((FontFace::default(), FontSize(12.))).id();
+            let font = commands.spawn((Font::default(), FontSize(12.))).id();
 
             commands
                 .entity(entity)

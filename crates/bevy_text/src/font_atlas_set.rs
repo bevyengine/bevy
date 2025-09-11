@@ -6,24 +6,24 @@ use bevy_platform::collections::HashMap;
 use bevy_reflect::TypePath;
 use wgpu_types::{Extent3d, TextureDimension, TextureFormat};
 
-use crate::{error::TextError, FontAtlas, Font, FontSmoothing, GlyphAtlasInfo};
+use crate::{error::TextError, FontAtlas, FontFace, FontSmoothing, GlyphAtlasInfo};
 
 /// A map of font faces to their corresponding [`FontAtlasSet`]s.
 #[derive(Debug, Default, Resource)]
 pub struct FontAtlasSets {
     // PERF: in theory this could be optimized with Assets storage ... consider making some fast "simple" AssetMap
-    pub(crate) sets: HashMap<AssetId<Font>, FontAtlasSet>,
+    pub(crate) sets: HashMap<AssetId<FontFace>, FontAtlasSet>,
 }
 
 impl FontAtlasSets {
     /// Get a reference to the [`FontAtlasSet`] with the given font asset id.
-    pub fn get(&self, id: impl Into<AssetId<Font>>) -> Option<&FontAtlasSet> {
-        let id: AssetId<Font> = id.into();
+    pub fn get(&self, id: impl Into<AssetId<FontFace>>) -> Option<&FontAtlasSet> {
+        let id: AssetId<FontFace> = id.into();
         self.sets.get(&id)
     }
     /// Get a mutable reference to the [`FontAtlasSet`] with the given font asset id.
-    pub fn get_mut(&mut self, id: impl Into<AssetId<Font>>) -> Option<&mut FontAtlasSet> {
-        let id: AssetId<Font> = id.into();
+    pub fn get_mut(&mut self, id: impl Into<AssetId<FontFace>>) -> Option<&mut FontAtlasSet> {
+        let id: AssetId<FontFace> = id.into();
         self.sets.get_mut(&id)
     }
 }
@@ -31,7 +31,7 @@ impl FontAtlasSets {
 /// A system that cleans up [`FontAtlasSet`]s for removed [`Font`]s
 pub fn remove_dropped_font_atlas_sets(
     mut font_atlas_sets: ResMut<FontAtlasSets>,
-    mut font_events: EventReader<AssetEvent<Font>>,
+    mut font_events: EventReader<AssetEvent<FontFace>>,
 ) {
     for event in font_events.read() {
         if let AssetEvent::Removed { id } = event {

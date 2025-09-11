@@ -1,10 +1,10 @@
 use alloc::sync::Arc;
 use bevy_asset::{Asset, Handle};
-use bevy_derive::{Deref, DerefMut};
 use bevy_ecs::component::Component;
 use bevy_ecs::{prelude::*, reflect::ReflectComponent};
 use bevy_reflect::prelude::*;
 use bevy_reflect::TypePath;
+use bevy_utils::default;
 use serde::{Deserialize, Serialize};
 
 /// An [`Asset`] that contains the data for a loaded font, if loaded as an asset.
@@ -20,12 +20,12 @@ use serde::{Deserialize, Serialize};
 ///
 /// Bevy currently loads a single font face as a single `Font` asset.
 #[derive(Debug, TypePath, Clone, Asset)]
-pub struct Font {
+pub struct FontFace {
     /// Content of a font file as bytes
     pub data: Arc<Vec<u8>>,
 }
 
-impl Font {
+impl FontFace {
     /// Creates a [`Font`] from bytes
     pub fn try_from_bytes(
         font_data: Vec<u8>,
@@ -38,21 +38,72 @@ impl Font {
     }
 }
 
-/// The font face of the font.
-#[derive(Component, Clone, Debug, Reflect, PartialEq, Default, Deref, DerefMut)]
+/// Determines the style of a text span within a [`ComputedTextBlock`](`crate::ComputedTextBlock`), specifically
+/// the font face, the font size, and antialiasing method.
+#[derive(Component, Clone, Debug, Reflect, PartialEq)]
 #[reflect(Component, Default, Debug, Clone)]
-#[require(FontSize, FontSmoothing)]
-pub struct FontFace(pub Handle<Font>);
+pub struct Font {
+    /// The specific font face to use, as a `Handle` to a [`Font`] asset.
+    ///
+    /// If the `font` is not specified, then
+    /// * if `default_font` feature is enabled (enabled by default in `bevy` crate),
+    ///   `FiraMono-subset.ttf` compiled into the library is used.
+    /// * otherwise no text will be rendered, unless a custom font is loaded into the default font
+    ///   handle.
+    pub face: Handle<FontFace>,
+    /// The vertical height of rasterized glyphs in the font atlas in pixels.
+    ///
+    /// This is multiplied by the window scale factor and `UiScale`, but not the text entity
+    /// transform or camera projection.
+    ///
+    /// A new font atlas is generated for every combination of font handle and scaled font size
+    /// which can have a strong performance impact.
+    pub size: f32,
+    /// The antialiasing method to use when rendering text.
+    pub smoothing: FontSmoothing,
+}
 
-/// Size of the font.
-/// Later may be changed to an responsive values.
-#[derive(Component, Clone, Debug, Reflect, PartialEq, Deref, DerefMut)]
-#[reflect(Component, Default, Debug, Clone)]
-pub struct FontSize(pub f32);
+impl Font {
+    /// Returns a new [`TextFont`] with the specified font size.
+    pub fn from_font_size(font_size: f32) -> Self {
+        Self::default().with_font_size(font_size)
+    }
 
-impl Default for FontSize {
+    /// Returns this [`TextFont`] with the specified font face handle.
+    pub fn with_font(mut self, font_face: Handle<FontFace>) -> Self {
+        self.face = font_face;
+        self
+    }
+
+    /// Returns this [`TextFont`] with the specified font size.
+    pub const fn with_font_size(mut self, font_size: f32) -> Self {
+        self.size = font_size;
+        self
+    }
+
+    /// Returns this [`TextFont`] with the specified [`FontSmoothing`].
+    pub const fn with_font_smoothing(mut self, font_smoothing: FontSmoothing) -> Self {
+        self.smoothing = font_smoothing;
+        self
+    }
+}
+
+impl From<Handle<FontFace>> for Font {
+    fn from(font_face: Handle<FontFace>) -> Self {
+        Self {
+            face: font_face,
+            ..default()
+        }
+    }
+}
+
+impl Default for Font {
     fn default() -> Self {
-        Self(20.0)
+        Self {
+            face: Default::default(),
+            size: 20.0,
+            smoothing: Default::default(),
+        }
     }
 }
 
@@ -60,9 +111,7 @@ impl Default for FontSize {
 /// rendered with grayscale antialiasing, but this can be changed to achieve a pixelated look.
 ///
 /// **Note:** Subpixel antialiasing is not currently supported.
-#[derive(
-    Component, Debug, Clone, Copy, PartialEq, Eq, Hash, Default, Reflect, Serialize, Deserialize,
-)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default, Reflect, Serialize, Deserialize)]
 #[reflect(Serialize, Deserialize, Clone, PartialEq, Hash, Default)]
 #[doc(alias = "antialiasing")]
 #[doc(alias = "pixelated")]

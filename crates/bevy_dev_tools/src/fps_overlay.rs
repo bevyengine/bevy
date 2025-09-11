@@ -16,7 +16,7 @@ use bevy_ecs::{
     system::{Commands, Query, Res, ResMut},
 };
 use bevy_render::storage::ShaderStorageBuffer;
-use bevy_text::{FontFace, Font, FontSize, TextColor, TextFont, TextSpan};
+use bevy_text::{Font, FontFace, FontSize, TextColor, TextFont, TextSpan};
 use bevy_time::Time;
 use bevy_ui::{
     widget::{Text, TextUiWriter},
@@ -79,7 +79,7 @@ impl Plugin for FpsOverlayPlugin {
 #[derive(Resource, Clone)]
 pub struct FpsOverlayConfig {
     /// Configuration of text in the overlay.
-    pub font: Handle<Font>,
+    pub font: Handle<FontFace>,
     pub font_size: f32,
     /// Color of text in the overlay.
     pub text_color: Color,
@@ -96,7 +96,7 @@ pub struct FpsOverlayConfig {
 impl Default for FpsOverlayConfig {
     fn default() -> Self {
         FpsOverlayConfig {
-            font: Handle::<Font>::default(),
+            font: Handle::<FontFace>::default(),
             font_size: 32.0,
 
             text_color: Color::WHITE,
@@ -160,7 +160,7 @@ fn setup(
 ) {
     let font = commands
         .spawn((
-            FontFace(overlay_config.font.clone()),
+            Font(overlay_config.font.clone()),
             FontSize(overlay_config.font_size),
             OverlayFont,
         ))

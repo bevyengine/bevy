@@ -7,7 +7,6 @@ use bevy::{
     color::palettes::css::GOLD,
     diagnostic::{DiagnosticsStore, FrameTimeDiagnosticsPlugin},
     prelude::*,
-    text::{FontFace, FontSize},
 };
 
 fn main() {
@@ -33,25 +32,31 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     // UI camera
     commands.spawn(Camera2d);
 
+    let sans = asset_server.load("fonts/FiraSans-Bold.ttf");
+    let mono = asset_server.load("fonts/FiraMono-Medium.ttf");
+
     let font_67_bold = commands
-        .spawn((
-            FontFace(asset_server.load("fonts/FiraSans-Bold.ttf")),
-            FontSize(67.),
-        ))
+        .spawn(Font {
+            face: sans.clone(),
+            size: 67.,
+            ..default()
+        })
         .id();
 
     let font_42_bold = commands
-        .spawn((
-            FontFace(asset_server.load("fonts/FiraSans-Bold.ttf")),
-            FontSize(42.),
-        ))
+        .spawn(Font {
+            face: sans,
+            size: 42.,
+            ..default()
+        })
         .id();
 
     let font_33 = commands
-        .spawn((
-            FontFace(asset_server.load("fonts/FiraMono-Medium.ttf")),
-            FontSize(33.),
-        ))
+        .spawn(Font {
+            face: mono,
+            size: 33.,
+            ..default()
+        })
         .id();
 
     // Text with one section
