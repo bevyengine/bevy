@@ -360,11 +360,10 @@ fn queue_text(
     font_system: &mut CosmicFontSystem,
     swash_cache: &mut SwashCache,
 ) {
-    // // Skip the text node if it is waiting for a new measure func
-    // if text_flags.needs_measure_fn {
-    //     println!("\t\t\tdon't need to measure");
-    //     return;
-    // }
+    // Skip the text node if it is waiting for a new measure func
+    if text_flags.needs_measure_fn {
+        return;
+    }
 
     let physical_node_size = if block.linebreak == LineBreak::NoWrap {
         // With `NoWrap` set, no constraints are placed on the width of the text.
