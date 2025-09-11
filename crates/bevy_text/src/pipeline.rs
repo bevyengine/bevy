@@ -99,7 +99,6 @@ impl TextPipeline {
         computed: &mut ComputedTextBlock,
         font_system: &mut CosmicFontSystem,
     ) -> Result<(), TextError> {
-        println!("\t\t -> TextPipeline::update buffer");
         let font_system = &mut font_system.0;
 
         // Collect span information into a vec. This is necessary because font loading requires mut access
@@ -128,8 +127,15 @@ impl TextPipeline {
                 continue;
             }
 
-            let Ok((font_face, font_size, _)) = font_query.get(text_font.0) else {
-                println!("\t\t -> TextPipeline no such font!");
+            let font_entity = if text_font.0 == Entity::PLACEHOLDER
+                && let Some(default_font) = default_font
+            {
+                default_font
+            } else {
+                text_font.0
+            };
+
+            let Ok((font_face, font_size, _)) = font_query.get(font_entity) else {
                 return Err(TextError::NoSuchFont);
             };
 
@@ -186,7 +192,14 @@ impl TextPipeline {
         // in cosmic-text.
         let spans_iter = spans.iter().map(
             |(span_index, span, text_font, font_info, color, line_height)| {
-                let (_, font_size, _) = font_query.get(text_font.0).unwrap();
+                let font_entity = if text_font.0 == Entity::PLACEHOLDER
+                    && let Some(default_font) = default_font
+                {
+                    default_font
+                } else {
+                    text_font.0
+                };
+                let (_, font_size, _) = font_query.get(font_entity).unwrap();
                 (
                     *span,
                     get_attrs(
@@ -338,7 +351,9 @@ impl TextPipeline {
 
                     let mut temp_glyph;
                     let span_index = layout_glyph.metadata;
-                    let (font_id, font_smoothing) = glyph_info[span_index].unwrap();
+                    let Some((font_id, font_smoothing)) = glyph_info[span_index] else {
+                        return Err(TextError::NoSuchFont);
+                    };
 
                     let layout_glyph = if font_smoothing == FontSmoothing::None {
                         // If font smoothing is disabled, round the glyph positions and sizes,

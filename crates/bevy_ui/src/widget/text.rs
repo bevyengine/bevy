@@ -239,7 +239,6 @@ fn create_text_measure<'a>(
     mut computed: Mut<ComputedTextBlock>,
     font_system: &mut CosmicFontSystem,
 ) {
-    println!("\tcreate text measure");
     match text_pipeline.create_text_measure(
         entity,
         fonts,
@@ -252,7 +251,6 @@ fn create_text_measure<'a>(
         font_system,
     ) {
         Ok(measure) => {
-            println!("\t\tmeasure created");
             if block.linebreak == LineBreak::NoWrap {
                 content_size.set(NodeMeasure::Fixed(FixedMeasure { size: measure.max }));
             } else {
@@ -264,7 +262,6 @@ fn create_text_measure<'a>(
             text_flags.needs_recompute = true;
         }
         Err(TextError::NoSuchFont) => {
-            println!("\t\tno such font");
             // Try again next frame
             text_flags.needs_measure_fn = true;
         }
@@ -313,7 +310,6 @@ pub fn measure_text_system(
     mut font_system: ResMut<CosmicFontSystem>,
 ) {
     let default_font = default_font_query.single().ok();
-    println!("measure texture system");
     for (entity, block, content_size, text_flags, computed, computed_target, computed_node) in
         &mut text_query
     {
@@ -364,7 +360,6 @@ fn queue_text(
     font_system: &mut CosmicFontSystem,
     swash_cache: &mut SwashCache,
 ) {
-    println!("\t\t bevy_ui::text::queue_text for {entity:?}");
     // // Skip the text node if it is waiting for a new measure func
     // if text_flags.needs_measure_fn {
     //     println!("\t\t\tdon't need to measure");
@@ -397,7 +392,6 @@ fn queue_text(
         swash_cache,
     ) {
         Err(TextError::NoSuchFont) => {
-            println!("\t\t\tno such font");
             // There was an error processing the text layout, try again next frame
             text_flags.needs_recompute = true;
         }
@@ -408,7 +402,6 @@ fn queue_text(
             text_layout_info.scale_factor = scale_factor;
             text_layout_info.size *= inverse_scale_factor;
             text_flags.needs_recompute = false;
-            println!("\t\t\tsuccess, size: {}", text_layout_info.size);
         }
     }
 }
@@ -449,12 +442,9 @@ pub fn text_system(
     mut font_system: ResMut<CosmicFontSystem>,
     mut swash_cache: ResMut<SwashCache>,
 ) {
-    println!("text_system");
     let default_font = default_font_query.single().ok();
     for (entity, node, block, text_layout_info, text_flags, mut computed) in &mut text_query {
-        println!("\ttext entity -> {entity}");
         if node.is_changed() || text_flags.needs_recompute {
-            println!("\t\trecompute");
             queue_text(
                 entity,
                 &fonts,
