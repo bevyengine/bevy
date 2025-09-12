@@ -1458,11 +1458,6 @@ fn build_registry_json_schema(
             .definitions
             .iter()
             .flat_map(|(id, schema)| {
-                if !schema.reflect_type_data.contains(&"Serialize".into())
-                    || !schema.reflect_type_data.contains(&"Deserialize".into())
-                {
-                    return None;
-                }
                 let schema = JsonSchemaBevyType {
                     properties: [(
                         schema.type_path.clone(),

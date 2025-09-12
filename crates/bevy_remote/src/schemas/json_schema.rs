@@ -496,6 +496,64 @@ mod tests {
     }
 
     #[test]
+    fn reflect_export_struct_no_serde() {
+        #[derive(Reflect, Resource)]
+        #[reflect(Resource)]
+        struct Foo {
+            a: f32,
+            #[reflect(@10..=15i16)]
+            b: Option<i16>,
+        }
+        let schema = export_type::<Foo>();
+
+        assert!(
+            !schema
+                .reflect_type_data
+                .contains(&Cow::Borrowed("Component")),
+            "Should not be a component"
+        );
+        assert!(
+            schema
+                .reflect_type_data
+                .contains(&Cow::Borrowed("Resource")),
+            "Should be a resource"
+        );
+
+        let _ = schema.properties.get("a").expect("Missing `a` field");
+        let _ = schema.properties.get("b").expect("Missing `b` field");
+        assert_eq!(schema.required.len(), 1, "One field should be required");
+        assert_eq!(schema.required[0], "a", "`a` should be required field.");
+    }
+    #[test]
+    fn reflect_export_struct_no_serde_default() {
+        #[derive(Reflect, Resource, Default)]
+        #[reflect(Resource, Default)]
+        struct Foo {
+            a: f32,
+            #[reflect(@10..=15i16)]
+            b: Option<i16>,
+        }
+        let schema = export_type::<Foo>();
+
+        assert!(
+            !schema
+                .reflect_type_data
+                .contains(&Cow::Borrowed("Component")),
+            "Should not be a component"
+        );
+        assert!(
+            schema
+                .reflect_type_data
+                .contains(&Cow::Borrowed("Resource")),
+            "Should be a resource"
+        );
+
+        let _ = schema.properties.get("a").expect("Missing `a` field");
+        let _ = schema.properties.get("b").expect("Missing `b` field");
+        assert_eq!(schema.required.len(), 0, "No field should be required");
+    }
+
+    #[test]
     fn reflect_export_struct() {
         #[derive(Reflect, Resource, Default, Deserialize, Serialize)]
         #[reflect(Resource, Default, Serialize, Deserialize)]
@@ -503,6 +561,8 @@ mod tests {
             a: f32,
             #[reflect(@10..=15i16)]
             b: Option<i16>,
+            #[reflect(skip_serializing)]
+            c: f32,
         }
         let schema = export_type::<Foo>();
 

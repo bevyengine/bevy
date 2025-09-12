@@ -10,9 +10,10 @@ use bevy_ecs::name::Name;
 use bevy_platform::collections::{HashMap, HashSet};
 use bevy_platform::sync::LazyLock;
 use bevy_reflect::attributes::CustomAttributes;
+use bevy_reflect::prelude::ReflectDefault;
 use bevy_reflect::{
-    EnumInfo, GenericInfo, NamedField, Reflect, Type, TypeInfo, TypePathTable, TypeRegistration,
-    TypeRegistry, UnnamedField, VariantInfo,
+    EnumInfo, GenericInfo, NamedField, Reflect, ReflectSerialize, Type, TypeInfo, TypePathTable,
+    TypeRegistration, TypeRegistry, UnnamedField, VariantInfo,
 };
 use bevy_utils::default;
 use core::any::TypeId;
@@ -1342,7 +1343,11 @@ pub(crate) fn variant_to_definition(
         SchemaEnumType::Fields(fields_information) => fields_information,
     };
     let mut subschema = JsonSchemaBevyType::default();
-    registry.update_schema_with_fields_info(&mut subschema, fields_info);
+    registry.update_schema_with_fields_info(
+        &mut subschema,
+        fields_info,
+        FieldsParseBehaviour::IncludeAll,
+    );
     schema.properties = [(name.into(), subschema.into())].into();
     schema
 }
@@ -1379,6 +1384,7 @@ pub(crate) trait TypeDefinitionBuilder {
         &self,
         schema: &mut JsonSchemaBevyType,
         info: &FieldsInformation,
+        fields_parse_behaviour: FieldsParseBehaviour,
     ) {
         if info.fields.is_empty() {
             return;
@@ -1390,12 +1396,19 @@ pub(crate) trait TypeDefinitionBuilder {
                 let schema_fields: Vec<(Cow<'static, str>, JsonSchemaBevyType)> = info
                     .fields
                     .iter()
-                    .map(|field| {
-                        (
-                            field.to_name(),
-                            self.build_schema_reference_for_type_id(field.type_id, Some(field))
-                                .unwrap_or_default(),
-                        )
+                    .flat_map(|field| {
+                        if field
+                            .index
+                            .is_some_and(|i| fields_parse_behaviour.should_skip(i))
+                        {
+                            None
+                        } else {
+                            Some((
+                                field.to_name(),
+                                self.build_schema_reference_for_type_id(field.type_id, Some(field))
+                                    .unwrap_or_default(),
+                            ))
+                        }
                     })
                     .collect();
                 schema.properties = schema_fields
@@ -1412,6 +1425,9 @@ pub(crate) trait TypeDefinitionBuilder {
                         if type_registry
                             .get(field.type_id)
                             .is_some_and(|s| s.try_get_optional().is_some())
+                            || field
+                                .index
+                                .is_some_and(|i| !fields_parse_behaviour.should_require(i))
                         {
                             None
                         } else {
@@ -1477,6 +1493,35 @@ pub(crate) trait TypeDefinitionBuilder {
     }
 }
 
+/// Specifies which fields should be skipped during schema generation.
+#[derive(Debug, Clone)]
+pub(crate) enum FieldsParseBehaviour {
+    /// Include all fields, all of them are required.
+    IncludeAll,
+    /// Include all fields, but marked them as not required.
+    IncludeAllNoRequiredOnes,
+    /// Skip fields at the specified indices.
+    SkipSome(Vec<usize>),
+}
+
+impl FieldsParseBehaviour {
+    fn should_require(&self, index: usize) -> bool {
+        match self {
+            FieldsParseBehaviour::IncludeAll => true,
+            FieldsParseBehaviour::SkipSome(skip_indices) => !skip_indices.contains(&index),
+            FieldsParseBehaviour::IncludeAllNoRequiredOnes => false,
+        }
+    }
+    fn should_skip(&self, index: usize) -> bool {
+        match self {
+            FieldsParseBehaviour::IncludeAll | FieldsParseBehaviour::IncludeAllNoRequiredOnes => {
+                false
+            }
+            FieldsParseBehaviour::SkipSome(skip_indices) => skip_indices.contains(&index),
+        }
+    }
+}
+
 impl TypeDefinitionBuilder for TypeRegistry {
     fn get_type_registry(&self) -> &TypeRegistry {
         self
@@ -1488,6 +1533,16 @@ impl TypeDefinitionBuilder for TypeRegistry {
         try_add_default_value: bool,
     ) -> Option<(Option<TypeReferenceId>, JsonSchemaBevyType)> {
         let type_reg = self.get(type_id)?;
+        let fields_parse_behaviour = if type_reg.data::<ReflectSerialize>().is_none()
+            && type_reg.data::<ReflectDefault>().is_some()
+        {
+            FieldsParseBehaviour::IncludeAllNoRequiredOnes
+        } else if let Some(fields) = type_reg.data::<bevy_reflect::serde::SerializationData>() {
+            FieldsParseBehaviour::SkipSome(fields.iter_skipped().map(|f| *f.0).collect())
+        } else {
+            FieldsParseBehaviour::IncludeAll
+        };
+
         let internal = InternalSchemaType::from_type_registration(type_reg, self);
 
         let mut id: Option<TypeReferenceId> = Some(type_reg.type_info().type_path().into());
@@ -1584,7 +1639,7 @@ impl TypeDefinitionBuilder for TypeRegistry {
                     .collect();
             }
             InternalSchemaType::FieldsHolder(fields) => {
-                self.update_schema_with_fields_info(&mut schema, &fields);
+                self.update_schema_with_fields_info(&mut schema, &fields, fields_parse_behaviour);
             }
             InternalSchemaType::Array {
                 element_ty,
