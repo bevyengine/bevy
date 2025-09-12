@@ -248,7 +248,6 @@ mod grid {
                 (
                     Node {
                         height: percent(100),
-                        aspect_ratio: Some(1.0),
                         display: Display::Grid,
                         grid_template_columns: RepeatedGridTrack::flex(3, 1.0),
                         grid_template_rows: RepeatedGridTrack::flex(2, 1.0),
@@ -256,6 +255,7 @@ mod grid {
                         column_gap: px(12),
                         ..default()
                     },
+                    AspectRatio(Some(1.0)),
                     BackgroundColor(Color::srgb(0.25, 0.25, 0.25)),
                     children![
                         (Node::default(), BackgroundColor(ORANGE.into())),

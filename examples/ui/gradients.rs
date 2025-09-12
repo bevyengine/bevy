@@ -110,7 +110,6 @@ fn setup(mut commands: Commands) {
                     commands.spawn(Node::default()).with_children(|commands| {
                         commands.spawn((
                             Node {
-                                aspect_ratio: Some(1.),
                                 height: percent(100),
                                 border: UiRect::all(px(b)),
                                 margin: UiRect::left(px(20)),
@@ -122,6 +121,7 @@ fn setup(mut commands: Commands) {
                                 stops: stops.clone(),
                                 ..default()
                             }),
+                            AspectRatio(Some(1.0)),
                             BorderGradient::from(LinearGradient {
                                 angle: 3. * TAU / 8.,
                                 stops: vec![YELLOW.into(), Color::WHITE.into(), ORANGE.into()],
@@ -132,13 +132,13 @@ fn setup(mut commands: Commands) {
 
                         commands.spawn((
                             Node {
-                                aspect_ratio: Some(1.),
                                 height: percent(100),
                                 border: UiRect::all(px(b)),
                                 margin: UiRect::left(px(20)),
                                 ..default()
                             },
                             BorderRadius::all(px(20)),
+                            AspectRatio(Some(1.0)),
                             BackgroundGradient::from(RadialGradient {
                                 stops: stops.clone(),
                                 shape: RadialGradientShape::ClosestSide,
@@ -154,12 +154,12 @@ fn setup(mut commands: Commands) {
                         ));
                         commands.spawn((
                             Node {
-                                aspect_ratio: Some(1.),
                                 height: percent(100),
                                 border: UiRect::all(px(b)),
                                 margin: UiRect::left(px(20)),
                                 ..default()
                             },
+                            AspectRatio(Some(1.0)),
                             BorderRadius::all(px(20)),
                             BackgroundGradient::from(ConicGradient {
                                 start: 0.,
