@@ -1334,7 +1334,7 @@ macro_rules! deconstruct_moving_ptr {
         $(let $field_alias = $ptr.move_field(|f| &raw mut (*f).$field_index);)*
         core::mem::forget($ptr);
     };
-    ($ptr:ident: MaybeUninit =>p {$($field_name:tt,)*}) => {
+    ($ptr:ident: MaybeUninit => {$($field_name:tt,)*}) => {
         $crate::deconstruct_moving_ptr!($ptr: MaybeUninit => ($($field_name => $field_name,)*))
     };
     ($ptr:ident: MaybeUninit => ($($field_index:tt => $field_alias:ident,)*)) => {
