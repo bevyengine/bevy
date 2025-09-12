@@ -1384,7 +1384,7 @@ pub(crate) trait TypeDefinitionBuilder {
         &self,
         schema: &mut JsonSchemaBevyType,
         info: &FieldsInformation,
-        fields_parse_behaviour: FieldsParseBehavior,
+        fields_parse_behavior: FieldsParseBehavior,
     ) {
         if info.fields.is_empty() {
             return;
@@ -1399,7 +1399,7 @@ pub(crate) trait TypeDefinitionBuilder {
                     .flat_map(|field| {
                         if field
                             .index
-                            .is_some_and(|i| fields_parse_behaviour.should_skip(i))
+                            .is_some_and(|i| fields_parse_behavior.should_skip(i))
                         {
                             None
                         } else {
@@ -1427,7 +1427,7 @@ pub(crate) trait TypeDefinitionBuilder {
                             .is_some_and(|s| s.try_get_optional().is_some())
                             || field
                                 .index
-                                .is_some_and(|i| !fields_parse_behaviour.should_require(i))
+                                .is_some_and(|i| !fields_parse_behavior.should_require(i))
                         {
                             None
                         } else {
@@ -1537,7 +1537,7 @@ impl TypeDefinitionBuilder for TypeRegistry {
         try_add_default_value: bool,
     ) -> Option<(Option<TypeReferenceId>, JsonSchemaBevyType)> {
         let type_reg = self.get(type_id)?;
-        let fields_parse_behaviour = if type_reg.data::<ReflectSerialize>().is_none()
+        let fields_parse_behavior = if type_reg.data::<ReflectSerialize>().is_none()
             && type_reg.data::<ReflectDefault>().is_some()
         {
             FieldsParseBehavior::IncludeAllNoRequiredOnes
@@ -1643,7 +1643,7 @@ impl TypeDefinitionBuilder for TypeRegistry {
                     .collect();
             }
             InternalSchemaType::FieldsHolder(fields) => {
-                self.update_schema_with_fields_info(&mut schema, &fields, fields_parse_behaviour);
+                self.update_schema_with_fields_info(&mut schema, &fields, fields_parse_behavior);
             }
             InternalSchemaType::Array {
                 element_ty,
