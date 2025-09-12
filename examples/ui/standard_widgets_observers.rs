@@ -1,4 +1,7 @@
-//! This example illustrates how to create widgets using the `bevy_ui_widgets` widget set.
+//! This experimental example illustrates how to create widgets using the `bevy_ui_widgets` widget set.
+//!
+//! The patterns shown here are likely to change substantially as the `bevy_ui_widgets` crate
+//! matures, so please exercise caution if you are using this as a reference for your own code.
 
 use bevy::{
     color::palettes::basic::*,

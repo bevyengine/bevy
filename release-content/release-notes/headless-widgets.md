@@ -27,6 +27,16 @@ which can be added to any UI Node to get widget-like behavior. The standard widg
 sliders, scrollbars, checkboxes, radio buttons, and more. This set will likely be expanded in
 future releases.
 
+While these widgets are usable today, and are a solid choice for creating your own widgets for your
+own game or application, they are still **experimental**.
+Expect breaking changes as we continue to iterate and improve on them!
+
+We're as excited as you are for first-party widgets,
+and we've decided to ship these now precisely so people can try them out:
+real-world user feedback is vital for building and improving products.
+
+If you've read this and are still excited to try them out, enable the `experimental_bevy_ui_widgets` feature.
+
 ## Standard Widgets
 
 The `bevy_ui_widgets` crate provides implementations of unstyled widgets, such as buttons,
