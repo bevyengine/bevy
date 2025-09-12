@@ -1661,10 +1661,10 @@ mod tests {
             register.register::<Player>();
         }
         let type_reg = atr.read();
-        let des = deserialize_components(&*type_reg, components).expect("FAIL");
+        let des = deserialize_components(&type_reg, components).expect("FAIL");
         let mut world = World::new();
         let e = world.spawn_empty();
-        insert_reflected_components(&*type_reg, e, des).expect("FAIL");
+        insert_reflected_components(&type_reg, e, des).expect("FAIL");
     }
 
     #[test]
