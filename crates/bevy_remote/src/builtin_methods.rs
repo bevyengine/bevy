@@ -1557,8 +1557,12 @@ fn insert_reflected_components(
     reflect_components: Vec<Box<dyn PartialReflect>>,
 ) -> AnyhowResult<()> {
     for reflected in reflect_components {
-        let reflect_component =
-            get_reflect_component(type_registry, reflected.reflect_type_path())?;
+        let type_path = if let Some(represented_type_info) = reflected.get_represented_type_info() {
+            represented_type_info.type_path() // Use the actual component type
+        } else {
+            reflected.reflect_type_path() // Fallback for non-dynamic types
+        };
+        let reflect_component = get_reflect_component(type_registry, type_path)?;
         reflect_component.insert(&mut entity_world_mut, &*reflected, type_registry);
     }
 
@@ -1635,6 +1639,33 @@ mod tests {
     }
 
     use super::*;
+
+    #[test]
+    fn insert_reflect_only_component() {
+        use bevy_ecs::prelude::Component;
+        use bevy_reflect::Reflect;
+        #[derive(Reflect, Component)]
+        #[reflect(Component)]
+        struct Player {
+            name: String,
+            health: u32,
+        }
+        let components: HashMap<String, Value> = [(
+            String::from("bevy_remote::builtin_methods::tests::Player"),
+            serde_json::json!({"name": "DSA", "health": 50}),
+        )]
+        .into();
+        let atr = AppTypeRegistry::default();
+        {
+            let mut register = atr.write();
+            register.register::<Player>();
+        }
+        let type_reg = atr.read();
+        let des = deserialize_components(&*type_reg, components).expect("FAIL");
+        let mut world = World::new();
+        let e = world.spawn_empty();
+        insert_reflected_components(&*type_reg, e, des).expect("FAIL");
+    }
 
     #[test]
     fn serialization_tests() {
