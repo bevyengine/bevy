@@ -132,6 +132,7 @@ pub mod __macro_exports {
     // Cannot directly use `alloc::vec::Vec` in macros, as a crate may not have
     // included `extern crate alloc;`. This re-export ensures we have access
     // to `Vec` in `no_std` and `std` contexts.
+    pub use crate::query::DebugCheckedUnwrap;
     pub use alloc::vec::Vec;
 }
 
@@ -1945,17 +1946,9 @@ mod tests {
     #[derive(Bundle)]
     struct Simple(ComponentA);
 
-    #[expect(
-        dead_code,
-        reason = "This struct is used as a compilation test to test the derive macros, and as such is intentionally never constructed."
-    )]
     #[derive(Bundle)]
     struct Tuple(Simple, ComponentB);
 
-    #[expect(
-        dead_code,
-        reason = "This struct is used as a compilation test to test the derive macros, and as such is intentionally never constructed."
-    )]
     #[derive(Bundle)]
     struct Record {
         field0: Simple,
