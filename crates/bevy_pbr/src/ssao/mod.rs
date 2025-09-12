@@ -405,7 +405,9 @@ impl FromWorld for SsaoPipelines {
 
         let mut shader_defs = Vec::new();
         if depth_format == TextureFormat::R16Float {
-            shader_defs.push("USE_R16FLOAT".into());
+            shader_defs.push(ShaderDefVal::UInt("SSAO_DEPTH_FORMAT".into(), 16));
+        } else {
+            shader_defs.push(ShaderDefVal::UInt("SSAO_DEPTH_FORMAT".into(), 32));
         }
 
         let preprocess_depth_pipeline =
@@ -476,7 +478,9 @@ impl SpecializedComputePipeline for SsaoPipelines {
         }
 
         if self.depth_format == TextureFormat::R16Float {
-            shader_defs.push("USE_R16FLOAT".into());
+            shader_defs.push(ShaderDefVal::UInt("SSAO_DEPTH_FORMAT".into(), 16));
+        } else {
+            shader_defs.push(ShaderDefVal::UInt("SSAO_DEPTH_FORMAT".into(), 32));
         }
 
         ComputePipelineDescriptor {
