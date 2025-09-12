@@ -123,43 +123,38 @@ fn setup(
     // Build the UI. We have a parent node that covers the whole screen and
     // contains the `AnimationPlayer`, as well as a child node that contains the
     // text to be animated.
-    commands
-        .spawn((
-            // Cover the whole screen, and center contents.
-            Node {
-                position_type: PositionType::Absolute,
-                top: px(0),
-                left: px(0),
-                right: px(0),
-                bottom: px(0),
-                justify_content: JustifyContent::Center,
-                align_items: AlignItems::Center,
-                ..default()
-            },
-            animation_player,
-            AnimationGraphHandle(animation_graph),
-        ))
-        .with_children(|builder| {
-            // Build the text node.
-            let player = builder.target_entity();
-            builder
-                .spawn((
-                    Text::new("Bevy"),
-                    TextFont {
-                        font: asset_server.load("fonts/FiraSans-Bold.ttf"),
-                        font_size: 24.0,
-                        ..default()
-                    },
-                    TextColor(Color::Srgba(Srgba::RED)),
-                    TextLayout::new_with_justify(Justify::Center),
-                ))
-                // Mark as an animation target.
-                .insert(AnimationTarget {
-                    id: animation_target_id,
-                    player,
-                })
-                .insert(animation_target_name);
-        });
+    let mut entity = commands.spawn((
+        // Cover the whole screen, and center contents.
+        Node {
+            position_type: PositionType::Absolute,
+            top: px(0),
+            left: px(0),
+            right: px(0),
+            bottom: px(0),
+            justify_content: JustifyContent::Center,
+            align_items: AlignItems::Center,
+            ..default()
+        },
+        animation_player,
+        AnimationGraphHandle(animation_graph),
+    ));
+
+    let player = entity.id();
+    entity.insert(children![(
+        Text::new("Bevy"),
+        TextFont {
+            font: asset_server.load("fonts/FiraSans-Bold.ttf"),
+            font_size: 24.0,
+            ..default()
+        },
+        TextColor(Color::Srgba(Srgba::RED)),
+        TextLayout::new_with_justify(Justify::Center),
+        AnimationTarget {
+            id: animation_target_id,
+            player,
+        },
+        animation_target_name,
+    )]);
 }
 
 // A type that represents the color of the first text section.

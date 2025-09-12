@@ -1,10 +1,9 @@
 ---
-title: Entities are now state scoped by default
-pull_requests: [19354]
+title: State-scoped entities are now always enabled implicitly
+pull_requests: [19354, 20883]
 ---
 
-State scoped entities is now enabled by default, and you don't need to call `app.enable_state_scoped_entities::<State>()` anymore.
+State scoped entities is now always enabled, and as a consequence, `app.enable_state_scoped_entities::<State>()` is no longer needed.
+It has been marked as deprecated and does nothing when called.
 
-If you were previously adding the `#[states(scoped_entities)]` attribute when deriving the `States` trait, you can remove it.
-
-If you want to keep the previous behavior, you must add the attribute `#[states(scoped_entities = false)]`.
+The attribute `#[states(scoped_entities)]` has been removed. You can safely remove it from your code without replacement.

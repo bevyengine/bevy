@@ -214,7 +214,7 @@ fn set_visibility_ranges(
 // Process the movement controls.
 fn move_camera(
     keyboard_input: Res<ButtonInput<KeyCode>>,
-    mut mouse_wheel_events: EventReader<MouseWheel>,
+    mut mouse_wheel_reader: MessageReader<MouseWheel>,
     mut cameras: Query<&mut Transform, With<Camera3d>>,
 ) {
     let (mut zoom_delta, mut theta_delta) = (0.0, 0.0);
@@ -234,8 +234,8 @@ fn move_camera(
     }
 
     // Process zoom in and out via the mouse wheel.
-    for event in mouse_wheel_events.read() {
-        zoom_delta -= event.y * CAMERA_MOUSE_MOVEMENT_SPEED;
+    for mouse_wheel in mouse_wheel_reader.read() {
+        zoom_delta -= mouse_wheel.y * CAMERA_MOUSE_MOVEMENT_SPEED;
     }
 
     // Update the camera transform.

@@ -2,6 +2,7 @@
 name = "no_std_library"
 version = "0.1.0"
 edition = "2024"
+publish = false
 
 # Normally we'd put all dependencies in [dependencies], but this syntax is easier to document
 [dependencies.bevy]

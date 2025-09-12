@@ -151,35 +151,29 @@ fn setup(
             player,
         ))
         .id();
-    commands
-        .entity(planet_entity)
-        .insert(AnimationTarget {
+    commands.entity(planet_entity).insert((
+        AnimationTarget {
             id: planet_animation_target_id,
             player: planet_entity,
-        })
-        .with_children(|p| {
-            // This entity is just used for animation, but doesn't display anything
-            p.spawn((
-                Transform::default(),
-                Visibility::default(),
-                orbit_controller,
+        },
+        children![(
+            Transform::default(),
+            Visibility::default(),
+            orbit_controller,
+            AnimationTarget {
+                id: orbit_controller_animation_target_id,
+                player: planet_entity,
+            },
+            children![(
+                Mesh3d(meshes.add(Cuboid::new(0.5, 0.5, 0.5))),
+                MeshMaterial3d(materials.add(Color::srgb(0.3, 0.9, 0.3))),
+                Transform::from_xyz(1.5, 0.0, 0.0),
                 AnimationTarget {
-                    id: orbit_controller_animation_target_id,
+                    id: satellite_animation_target_id,
                     player: planet_entity,
                 },
-            ))
-            .with_children(|p| {
-                // The satellite, placed at a distance of the planet
-                p.spawn((
-                    Mesh3d(meshes.add(Cuboid::new(0.5, 0.5, 0.5))),
-                    MeshMaterial3d(materials.add(Color::srgb(0.3, 0.9, 0.3))),
-                    Transform::from_xyz(1.5, 0.0, 0.0),
-                    AnimationTarget {
-                        id: satellite_animation_target_id,
-                        player: planet_entity,
-                    },
-                    satellite,
-                ));
-            });
-        });
+                satellite,
+            )],
+        )],
+    ));
 }

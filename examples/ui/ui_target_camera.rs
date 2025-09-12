@@ -7,7 +7,6 @@ use bevy::color::palettes::css::YELLOW;
 use bevy::log::LogPlugin;
 use bevy::log::DEFAULT_FILTER;
 use bevy::prelude::*;
-use bevy::winit::WinitSettings;
 
 fn main() {
     App::new()
@@ -16,7 +15,6 @@ fn main() {
             filter: format!("{DEFAULT_FILTER},bevy_render::camera=off"),
             ..Default::default()
         }))
-        .insert_resource(WinitSettings::desktop_app())
         .add_systems(Startup, setup)
         .run();
 }

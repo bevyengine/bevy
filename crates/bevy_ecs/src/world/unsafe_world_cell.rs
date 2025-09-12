@@ -8,7 +8,7 @@ use crate::{
     component::{ComponentId, ComponentTicks, Components, Mutable, StorageType, Tick, TickCells},
     entity::{ContainsEntity, Entities, Entity, EntityDoesNotExistError, EntityLocation},
     error::{DefaultErrorHandler, ErrorHandler},
-    lifecycle::RemovedComponentEvents,
+    lifecycle::RemovedComponentMessages,
     observer::Observers,
     prelude::Component,
     query::{DebugCheckedUnwrap, ReleaseStateQueryData},
@@ -275,8 +275,8 @@ impl<'w> UnsafeWorldCell<'w> {
         &unsafe { self.world_metadata() }.components
     }
 
-    /// Retrieves this world's collection of [removed components](RemovedComponentEvents).
-    pub fn removed_components(self) -> &'w RemovedComponentEvents {
+    /// Retrieves this world's collection of [removed components](RemovedComponentMessages).
+    pub fn removed_components(self) -> &'w RemovedComponentMessages {
         // SAFETY:
         // - we only access world metadata
         &unsafe { self.world_metadata() }.removed_components

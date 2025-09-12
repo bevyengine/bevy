@@ -57,7 +57,7 @@ fn setup(mut commands: Commands, assets: Res<AssetServer>) {
 
 fn update_tileset_image(
     chunk_query: Single<&TilemapChunk>,
-    mut events: EventReader<AssetEvent<Image>>,
+    mut events: MessageReader<AssetEvent<Image>>,
     mut images: ResMut<Assets<Image>>,
 ) {
     let chunk = *chunk_query;

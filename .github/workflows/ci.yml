@@ -305,7 +305,7 @@ jobs:
           # Full git history is needed to get a proper list of changed files within `super-linter`
           fetch-depth: 0
       - name: Run Markdown Lint
-        uses: super-linter/super-linter/slim@v8.0.0
+        uses: super-linter/super-linter/slim@v8.1.0
         env:
           MULTI_STATUS: false
           VALIDATE_ALL_CODEBASE: false
@@ -318,7 +318,7 @@ jobs:
     steps:
       - uses: actions/checkout@v5
       # Update in sync with BINSTALL_VERSION
-      - uses: cargo-bins/cargo-binstall@v1.14.1
+      - uses: cargo-bins/cargo-binstall@v1.15.4
       - name: Install taplo
         run: cargo binstall taplo-cli@0.9.3 --locked
       - name: Run Taplo

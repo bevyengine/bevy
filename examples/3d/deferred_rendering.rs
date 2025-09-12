@@ -3,7 +3,7 @@
 use std::f32::consts::*;
 
 use bevy::{
-    anti_aliasing::fxaa::Fxaa,
+    anti_alias::fxaa::Fxaa,
     core_pipeline::prepass::{DeferredPrepass, DepthPrepass, MotionVectorPrepass, NormalPrepass},
     image::ImageLoaderSettings,
     light::{

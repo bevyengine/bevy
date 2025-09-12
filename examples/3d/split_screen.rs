@@ -82,17 +82,15 @@ fn setup(
             .id();
 
         // Set up UI
-        commands
-            .spawn((
-                UiTargetCamera(camera),
-                Node {
-                    width: percent(100),
-                    height: percent(100),
-                    ..default()
-                },
-            ))
-            .with_children(|parent| {
-                parent.spawn((
+        commands.spawn((
+            UiTargetCamera(camera),
+            Node {
+                width: percent(100),
+                height: percent(100),
+                ..default()
+            },
+            children![
+                (
                     Text::new(*camera_name),
                     Node {
                         position_type: PositionType::Absolute,
@@ -100,14 +98,15 @@ fn setup(
                         left: px(12),
                         ..default()
                     },
-                ));
-                buttons_panel(parent);
-            });
+                ),
+                buttons_panel(),
+            ],
+        ));
     }
 
-    fn buttons_panel(parent: &mut ChildSpawnerCommands) {
-        parent
-            .spawn(Node {
+    fn buttons_panel() -> impl Bundle {
+        (
+            Node {
                 position_type: PositionType::Absolute,
                 width: percent(100),
                 height: percent(100),
@@ -117,32 +116,30 @@ fn setup(
                 align_items: AlignItems::Center,
                 padding: UiRect::all(px(20)),
                 ..default()
-            })
-            .with_children(|parent| {
-                rotate_button(parent, "<", Direction::Left);
-                rotate_button(parent, ">", Direction::Right);
-            });
+            },
+            children![
+                rotate_button("<", Direction::Left),
+                rotate_button(">", Direction::Right),
+            ],
+        )
     }
 
-    fn rotate_button(parent: &mut ChildSpawnerCommands, caption: &str, direction: Direction) {
-        parent
-            .spawn((
-                RotateCamera(direction),
-                Button,
-                Node {
-                    width: px(40),
-                    height: px(40),
-                    border: UiRect::all(px(2)),
-                    justify_content: JustifyContent::Center,
-                    align_items: AlignItems::Center,
-                    ..default()
-                },
-                BorderColor::all(Color::WHITE),
-                BackgroundColor(Color::srgb(0.25, 0.25, 0.25)),
-            ))
-            .with_children(|parent| {
-                parent.spawn(Text::new(caption));
-            });
+    fn rotate_button(caption: &str, direction: Direction) -> impl Bundle {
+        (
+            RotateCamera(direction),
+            Button,
+            Node {
+                width: px(40),
+                height: px(40),
+                border: UiRect::all(px(2)),
+                justify_content: JustifyContent::Center,
+                align_items: AlignItems::Center,
+                ..default()
+            },
+            BorderColor::all(Color::WHITE),
+            BackgroundColor(Color::srgb(0.25, 0.25, 0.25)),
+            children![Text::new(caption)],
+        )
     }
 }
 
@@ -161,14 +158,14 @@ enum Direction {
 
 fn set_camera_viewports(
     windows: Query<&Window>,
-    mut resize_events: EventReader<WindowResized>,
+    mut window_resized_reader: MessageReader<WindowResized>,
     mut query: Query<(&CameraPosition, &mut Camera)>,
 ) {
     // We need to dynamically resize the camera's viewports whenever the window size changes
     // so then each camera always takes up half the screen.
     // A resize_event is sent when the window is first created, allowing us to reuse this system for initial setup.
-    for resize_event in resize_events.read() {
-        let window = windows.get(resize_event.window).unwrap();
+    for window_resized in window_resized_reader.read() {
+        let window = windows.get(window_resized.window).unwrap();
         let size = window.physical_size() / 2;
 
         for (camera_position, mut camera) in &mut query {

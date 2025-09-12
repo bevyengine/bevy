@@ -1,7 +1,7 @@
 ---
 title: Headless Widgets
 authors: ["@viridia", "@ickshonpe", "@alice-i-cecile"]
-pull_requests: [19366, 19584, 19665, 19778, 19803, 20032, 20036, 20086]
+pull_requests: [19366, 19584, 19665, 19778, 19803, 20032, 20036, 20086, 20944]
 ---
 
 Bevy's `Button` and `Interaction` components have been around for a long time. Unfortunately
@@ -22,25 +22,35 @@ including integration with screen readers, but which are unstyled. It's the resp
 game developer to provide the visual style and animation for the widgets, which can fit the overall
 style of their game.
 
-With this release, Bevy introduces a collection of headless or "core" widgets. These are components
-which can be added to any UI Node to get widget-like behavior. The core widget set includes buttons,
+With this release, Bevy introduces a collection of headless widgets. These are components
+which can be added to any UI Node to get widget-like behavior. The standard widget set includes buttons,
 sliders, scrollbars, checkboxes, radio buttons, and more. This set will likely be expanded in
 future releases.
 
-## Core Widgets
+While these widgets are usable today, and are a solid choice for creating your own widgets for your
+own game or application, they are still **experimental**.
+Expect breaking changes as we continue to iterate and improve on them!
 
-The `bevy_core_widgets` crate provides implementations of unstyled widgets, such as buttons,
+We're as excited as you are for first-party widgets,
+and we've decided to ship these now precisely so people can try them out:
+real-world user feedback is vital for building and improving products.
+
+If you've read this and are still excited to try them out, enable the `experimental_bevy_ui_widgets` feature.
+
+## Standard Widgets
+
+The `bevy_ui_widgets` crate provides implementations of unstyled widgets, such as buttons,
 sliders, checkboxes and radio buttons.
 
-- `CoreButton` is a push button. It emits an activation event when clicked.
-- `CoreSlider` is a standard slider, which lets you edit an `f32` value in a given range.
-- `CoreScrollbar` can be used to implement scrollbars.
-- `CoreCheckbox` can be used for checkboxes and toggle switches.
-- `CoreRadio` and `CoreRadioGroup` can be used for radio buttons.
+- `ui_widgets::Button` is a push button. It emits an activation event when clicked.
+- `ui_widgets::Slider` is a standard slider, which lets you edit an `f32` value in a given range.
+- `ui_widgets::Scrollbar` can be used to implement scrollbars.
+- `ui_widgets::Checkbox` can be used for checkboxes and toggle switches.
+- `ui_widgets::RadioButton` and `ui_widgets::RadioGroup` can be used for radio buttons.
 
 ## Widget Interaction Marker Components
 
-Many of the core widgets will define supplementary ECS components that are used to store the widget's
+Many of the standard widgets will define supplementary ECS components that are used to store the widget's
 state, similar to how the old `Interaction` component worked, but in a way that is more flexible.
 These components include:
 
@@ -66,7 +76,7 @@ is using Bevy observers. This approach is useful in cases where you want the wid
 to bubble up the hierarchy.
 
 However, in UI work it's often desirable to send notifications "point-to-point" in ways that cut
-across the hierarchy. For these kinds of situations, the core widgets offer a different
+across the hierarchy. For these kinds of situations, the standard widgets offer a different
 approach: callbacks. The `Callback` enum allows different options for triggering a notification
 when a widget's state is updated. For example, you can pass in the `SystemId` of a registered
 one-shot system as a widget parameter when it is constructed. When the button subsequently
@@ -77,7 +87,7 @@ inject any additional parameters it needs to update the Bevy world in response t
 
 See the [Wikipedia Article on State Management](https://en.wikipedia.org/wiki/State_management).
 
-Most of the core widgets support "external state management" - something that is referred to in the
+Most of the standard widgets support "external state management" - something that is referred to in the
 React.js world as "controlled" widgets. This means that for widgets that edit a parameter value
 (such as checkboxes and sliders), the widget doesn't automatically update its own internal value,
 but only sends a notification to the app telling it that the value needs to change. It's the

@@ -12,7 +12,6 @@ mod set;
 mod stepping;
 
 pub use self::graph::GraphInfo;
-use self::graph::*;
 pub use self::{condition::*, config::*, error::*, executor::*, node::*, schedule::*, set::*};
 pub use pass::ScheduleBuildPass;
 
@@ -23,6 +22,8 @@ pub mod graph;
 pub mod passes {
     pub use crate::schedule::auto_insert_apply_deferred::*;
 }
+
+use self::graph::*;
 
 #[cfg(test)]
 mod tests {
@@ -791,7 +792,7 @@ mod tests {
         #[derive(Component)]
         struct B;
 
-        #[derive(BufferedEvent)]
+        #[derive(Message)]
         struct E;
 
         #[derive(Resource, Component)]
@@ -808,9 +809,9 @@ mod tests {
         fn without_filtered_component_system(_query: Query<&mut A, Without<B>>) {}
         fn entity_ref_system(_query: Query<EntityRef>) {}
         fn entity_mut_system(_query: Query<EntityMut>) {}
-        fn event_reader_system(_reader: EventReader<E>) {}
-        fn event_writer_system(_writer: EventWriter<E>) {}
-        fn event_resource_system(_events: ResMut<Events<E>>) {}
+        fn message_reader_system(_reader: MessageReader<E>) {}
+        fn message_writer_system(_writer: MessageWriter<E>) {}
+        fn message_resource_system(_events: ResMut<Messages<E>>) {}
         fn read_world_system(_world: &World) {}
         fn write_world_system(_world: &mut World) {}
 
@@ -821,12 +822,12 @@ mod tests {
             let mut world = World::new();
             world.insert_resource(R);
             world.spawn(A);
-            world.init_resource::<Events<E>>();
+            world.init_resource::<Messages<E>>();
 
             let mut schedule = Schedule::default();
             schedule
                 // nonsendmut system deliberately conflicts with resmut system
-                .add_systems((resmut_system, write_component_system, event_writer_system));
+                .add_systems((resmut_system, write_component_system, message_writer_system));
 
             let _ = schedule.initialize(&mut world);
 
@@ -838,7 +839,7 @@ mod tests {
             let mut world = World::new();
             world.insert_resource(R);
             world.spawn(A);
-            world.init_resource::<Events<E>>();
+            world.init_resource::<Messages<E>>();
 
             let mut schedule = Schedule::default();
             schedule.add_systems((
@@ -852,8 +853,8 @@ mod tests {
                 read_component_system,
                 entity_ref_system,
                 entity_ref_system,
-                event_reader_system,
-                event_reader_system,
+                message_reader_system,
+                message_reader_system,
                 read_world_system,
                 read_world_system,
             ));
@@ -868,13 +869,13 @@ mod tests {
             let mut world = World::new();
             world.insert_resource(R);
             world.spawn(A);
-            world.init_resource::<Events<E>>();
+            world.init_resource::<Messages<E>>();
 
             let mut schedule = Schedule::default();
             schedule.add_systems((
                 resmut_system,
                 write_component_system,
-                event_writer_system,
+                message_writer_system,
                 read_world_system,
             ));
 
@@ -941,14 +942,14 @@ mod tests {
         #[test]
         fn events() {
             let mut world = World::new();
-            world.init_resource::<Events<E>>();
+            world.init_resource::<Messages<E>>();
 
             let mut schedule = Schedule::default();
             schedule.add_systems((
                 // All of these systems clash
-                event_reader_system,
-                event_writer_system,
-                event_resource_system,
+                message_reader_system,
+                message_writer_system,
+                message_resource_system,
             ));
 
             let _ = schedule.initialize(&mut world);
@@ -1028,7 +1029,7 @@ mod tests {
             let mut world = World::new();
             world.insert_resource(R);
             world.spawn(A);
-            world.init_resource::<Events<E>>();
+            world.init_resource::<Messages<E>>();
 
             let mut schedule = Schedule::default();
             schedule.add_systems((
@@ -1047,13 +1048,13 @@ mod tests {
         #[test]
         fn before_and_after() {
             let mut world = World::new();
-            world.init_resource::<Events<E>>();
+            world.init_resource::<Messages<E>>();
 
             let mut schedule = Schedule::default();
             schedule.add_systems((
-                event_reader_system.before(event_writer_system),
-                event_writer_system,
-                event_resource_system.after(event_writer_system),
+                message_reader_system.before(message_writer_system),
+                message_writer_system,
+                message_resource_system.after(message_writer_system),
             ));
 
             let _ = schedule.initialize(&mut world);

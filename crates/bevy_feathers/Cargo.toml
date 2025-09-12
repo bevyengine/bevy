@@ -15,7 +15,7 @@ bevy_app = { path = "../bevy_app", version = "0.17.0-dev" }
 bevy_asset = { path = "../bevy_asset", version = "0.17.0-dev" }
 bevy_camera = { path = "../bevy_camera", version = "0.17.0-dev" }
 bevy_color = { path = "../bevy_color", version = "0.17.0-dev" }
-bevy_core_widgets = { path = "../bevy_core_widgets", version = "0.17.0-dev" }
+bevy_ui_widgets = { path = "../bevy_ui_widgets", version = "0.17.0-dev" }
 bevy_ecs = { path = "../bevy_ecs", version = "0.17.0-dev" }
 bevy_input_focus = { path = "../bevy_input_focus", version = "0.17.0-dev" }
 bevy_log = { path = "../bevy_log", version = "0.17.0-dev" }
@@ -31,6 +31,7 @@ bevy_ui = { path = "../bevy_ui", version = "0.17.0-dev", features = [
 ] }
 bevy_ui_render = { path = "../bevy_ui_render", version = "0.17.0-dev" }
 bevy_window = { path = "../bevy_window", version = "0.17.0-dev" }
+smol_str = { version = "0.2", default-features = false }
 
 # other
 accesskit = "0.21"
