@@ -46,6 +46,9 @@ pub struct Spawn<B: Bundle>(pub B);
 pub trait SpawnableList<R>: Sized {
     /// Spawn this list of changes in a given [`World`] and relative to a given [`Entity`]. This is generally used
     /// for spawning "related" entities, such as children.
+    // This function explciitly uses `MovingPtr` to avoid potentially large stack copies of the bundle
+    // when inserting into ECS storage. See https://github.com/bevyengine/bevy/issues/20571 for more
+    // information.
     fn spawn(this: MovingPtr<'_, Self>, world: &mut World, entity: Entity);
 
     /// Returns a size hint, which is used to reserve space for this list in a [`RelationshipTarget`]. This should be
