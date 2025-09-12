@@ -2041,7 +2041,7 @@ impl<'w> EntityWorldMut<'w> {
         // - `location` matches current entity and thus must currently exist in the source
         //   archetype for this inserter and its location within the archetype.
         // - `T` matches the type used to create the `BundleInserter`.
-        // - `apply_effect` is called exactly once after this fuction.
+        // - `apply_effect` is called exactly once after this function.
         // - The value pointed at by `bundle` is not accessed for anything other than `apply_effect`
         //   and the caller ensures that the value is not accessed or dropped after this function
         //   returns.
