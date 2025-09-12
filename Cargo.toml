@@ -4528,6 +4528,7 @@ hidden = true
 name = "testbed_full_ui"
 path = "examples/testbed/full_ui.rs"
 doc-scrape-examples = true
+required-features = ["experimental_bevy_ui_widgets"]
 
 [package.metadata.example.testbed_full_ui]
 hidden = true
