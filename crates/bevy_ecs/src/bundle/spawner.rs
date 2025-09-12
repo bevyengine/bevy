@@ -15,6 +15,8 @@ use crate::{
     world::{unsafe_world_cell::UnsafeWorldCell, World},
 };
 
+use super::BundleImpl;
+
 // SAFETY: We have exclusive world access so our pointers can't be invalidated externally
 pub(crate) struct BundleSpawner<'w> {
     world: UnsafeWorldCell<'w>,
@@ -26,7 +28,7 @@ pub(crate) struct BundleSpawner<'w> {
 
 impl<'w> BundleSpawner<'w> {
     #[inline]
-    pub fn new<T: Bundle>(world: &'w mut World, change_tick: Tick) -> Self {
+    pub fn new<T: BundleImpl>(world: &'w mut World, change_tick: Tick) -> Self {
         let bundle_id = world.register_bundle_info::<T>();
 
         // SAFETY: we initialized this bundle_id in `init_info`

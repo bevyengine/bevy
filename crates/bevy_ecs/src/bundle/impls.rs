@@ -5,15 +5,18 @@ use core::mem::MaybeUninit;
 use variadics_please::all_tuples_enumerated;
 
 use crate::{
-    bundle::{Bundle, BundleFromComponents, DynamicBundle, NoBundleEffect},
+    bundle::{BundleFromComponents, DynamicBundle, NoBundleEffect},
     component::{Component, ComponentId, Components, ComponentsRegistrator, StorageType},
     world::EntityWorldMut,
 };
 
+use super::BundleImpl;
+
+// note: `Component: 'static`, so `C: Bundle`.
 // SAFETY:
 // - `Bundle::component_ids` calls `ids` for C's component id (and nothing else)
 // - `Bundle::get_components` is called exactly once for C and passes the component's storage type based on its associated constant.
-unsafe impl<C: Component> Bundle for C {
+unsafe impl<C: Component> BundleImpl for C {
     type Name = C;
 
     fn component_ids(components: &mut ComponentsRegistrator, ids: &mut impl FnMut(ComponentId)) {
@@ -54,8 +57,8 @@ impl<C: Component> DynamicBundle for C {
     unsafe fn apply_effect(_ptr: MovingPtr<'_, MaybeUninit<Self>>, _entity: &mut EntityWorldMut) {}
 }
 
-unsafe impl<T: Bundle + 'static> Bundle for MovingPtr<'_, T> {
-    type Name = <T as Bundle>::Name;
+unsafe impl<T: BundleImpl> BundleImpl for MovingPtr<'_, T> {
+    type Name = <T as BundleImpl>::Name;
 
     fn component_ids(components: &mut ComponentsRegistrator, ids: &mut impl FnMut(ComponentId)) {
         T::component_ids(components, ids);
@@ -66,7 +69,7 @@ unsafe impl<T: Bundle + 'static> Bundle for MovingPtr<'_, T> {
     }
 }
 
-impl<T: Bundle> DynamicBundle for MovingPtr<'_, T> {
+impl<T: DynamicBundle> DynamicBundle for MovingPtr<'_, T> {
     type Effect = T::Effect;
 
     unsafe fn get_components(
@@ -106,14 +109,14 @@ macro_rules! tuple_impl {
         // - `Bundle::from_components` calls `func` exactly once for each `ComponentId` returned by `Bundle::component_ids`.
         // - `Bundle::get_components` is called exactly once for each member. Relies on the above implementation to pass the correct
         //   `StorageType` into the callback.
-        unsafe impl<$($name: Bundle),*> Bundle for ($($name,)*) {
-            type Name = ($(<$name as Bundle>::Name,)*);
+        unsafe impl<$($name: BundleImpl),*> BundleImpl for ($($name,)*) {
+            type Name = ($(<$name as BundleImpl>::Name,)*);
             fn component_ids(components: &mut ComponentsRegistrator,  ids: &mut impl FnMut(ComponentId)){
-                $(<$name as Bundle>::component_ids(components, ids);)*
+                $(<$name as BundleImpl>::component_ids(components, ids);)*
             }
 
             fn get_component_ids(components: &Components, ids: &mut impl FnMut(Option<ComponentId>)){
-                $(<$name as Bundle>::get_component_ids(components, ids);)*
+                $(<$name as BundleImpl>::get_component_ids(components, ids);)*
             }
         }
 
@@ -162,7 +165,7 @@ macro_rules! tuple_impl {
             reason = "Zero-length tuples won't use any of the parameters."
         )]
         $(#[$meta])*
-        impl<$($name: Bundle),*> DynamicBundle for ($($name,)*) {
+        impl<$($name: DynamicBundle),*> DynamicBundle for ($($name,)*) {
             type Effect = ($($name::Effect,)*);
             #[allow(
                 clippy::unused_unit,

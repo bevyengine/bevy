@@ -32,8 +32,8 @@ pub use spawn_batch::*;
 use crate::{
     archetype::{ArchetypeId, Archetypes},
     bundle::{
-        Bundle, BundleId, BundleInfo, BundleInserter, BundleSpawner, Bundles, InsertMode,
-        NoBundleEffect,
+        Bundle, BundleId, BundleImpl, BundleInfo, BundleInserter, BundleSpawner, Bundles,
+        InsertMode, NoBundleEffect,
     },
     change_detection::{MaybeLocation, MutUntyped, TicksMut},
     component::{
@@ -1156,7 +1156,7 @@ impl World {
         self.spawn_with_caller(bundle, MaybeLocation::caller())
     }
 
-    pub(crate) fn spawn_with_caller<B: Bundle>(
+    pub(crate) fn spawn_with_caller<B: BundleImpl>(
         &mut self,
         bundle: MovingPtr<'_, B>,
         caller: MaybeLocation,
@@ -3085,14 +3085,14 @@ impl World {
     /// This is largely equivalent to calling [`register_component`](Self::register_component) on each
     /// component in the bundle.
     #[inline]
-    pub fn register_bundle<B: Bundle>(&mut self) -> &BundleInfo {
+    pub fn register_bundle<B: BundleImpl>(&mut self) -> &BundleInfo {
         let id = self.register_bundle_info::<B>();
 
         // SAFETY: We just initialized the bundle so its id should definitely be valid.
         unsafe { self.bundles.get(id).debug_checked_unwrap() }
     }
 
-    pub(crate) fn register_bundle_info<B: Bundle>(&mut self) -> BundleId {
+    pub(crate) fn register_bundle_info<B: BundleImpl>(&mut self) -> BundleId {
         // SAFETY: These come from the same world. `Self.components_registrator` can't be used since we borrow other fields too.
         let mut registrator =
             unsafe { ComponentsRegistrator::new(&mut self.components, &mut self.component_ids) };

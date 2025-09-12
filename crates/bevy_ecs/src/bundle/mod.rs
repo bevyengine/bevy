@@ -197,7 +197,7 @@ use bevy_ptr::OwningPtr;
     label = "invalid `Bundle`",
     note = "consider annotating `{Self}` with `#[derive(Component)]` or `#[derive(Bundle)]`"
 )]
-pub unsafe trait Bundle: DynamicBundle + Send {
+pub unsafe trait BundleImpl: DynamicBundle + Send + Sync {
     type Name: 'static;
     /// Gets this [`Bundle`]'s component ids, in the order of this bundle's [`Component`]s
     #[doc(hidden)]
@@ -207,15 +207,15 @@ pub unsafe trait Bundle: DynamicBundle + Send {
     fn get_component_ids(components: &Components, ids: &mut impl FnMut(Option<ComponentId>));
 }
 
-pub const fn bundle_id_of<T: Bundle>() -> TypeId {
+pub const fn bundle_id_of<T: BundleImpl>() -> TypeId {
     TypeId::of::<T::Name>()
 }
-pub const fn bundle_id_of_val<T: Bundle>(_: &T) -> TypeId {
+pub const fn bundle_id_of_val<T: BundleImpl>(_: &T) -> TypeId {
     TypeId::of::<T::Name>()
 }
 
-pub trait StaticBundle: Bundle + 'static {}
-impl<T: Bundle + 'static> StaticBundle for T {}
+pub trait Bundle: BundleImpl + 'static {}
+impl<T: BundleImpl + 'static> Bundle for T {}
 
 /// Creates a [`Bundle`] by taking it from internal storage.
 ///
