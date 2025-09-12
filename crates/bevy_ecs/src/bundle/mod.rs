@@ -263,7 +263,7 @@ pub unsafe trait DynamicBundle: Sized {
     ///    function. Calling [`bevy_ptr::deconstruct_moving_ptr`] in this function automatically ensures this.
     ///
     /// [`Component`]: crate::component::Component
-    // This function explciitly uses `MovingPtr` to avoid potentially large stack copies of the bundle
+    // This function explicitly uses `MovingPtr` to avoid potentially large stack copies of the bundle
     // when inserting into ECS storage. See https://github.com/bevyengine/bevy/issues/20571 for more
     // information.
     unsafe fn get_components(
@@ -288,7 +288,7 @@ pub unsafe trait DynamicBundle: Sized {
     ///    ensures this is the case.
     ///
     /// [`World`]: crate::world::World
-    // This function explciitly uses `MovingPtr` to avoid potentially large stack copies of the bundle
+    // This function explicitly uses `MovingPtr` to avoid potentially large stack copies of the bundle
     // when inserting into ECS storage. See https://github.com/bevyengine/bevy/issues/20571 for more
     // information.
     unsafe fn apply_effect(ptr: MovingPtr<'_, MaybeUninit<Self>>, entity: &mut EntityWorldMut);
