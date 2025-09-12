@@ -68,6 +68,11 @@ impl Default for FontAtlasSet {
 }
 
 impl FontAtlasSet {
+    /// Clear all font atlases for this font face.
+    pub fn clear(&mut self) {
+        self.font_atlases.clear();
+    }
+
     /// Returns an iterator over the [`FontAtlas`]es in this set
     pub fn iter(&self) -> impl Iterator<Item = (&FontAtlasKey, &Vec<FontAtlas>)> {
         self.font_atlases.iter()
