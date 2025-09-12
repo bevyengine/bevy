@@ -151,6 +151,7 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
         //   the correct `StorageType` into the callback.
         #[allow(deprecated)]
         unsafe impl #impl_generics #ecs_path::bundle::Bundle for #struct_name #ty_generics #where_clause {
+            type Name = (#(<#active_field_types as #ecs_path::bundle::Bundle>::Name,)*);
             fn component_ids(
                 components: &mut #ecs_path::component::ComponentsRegistrator,
                 ids: &mut impl FnMut(#ecs_path::component::ComponentId)
