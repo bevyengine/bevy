@@ -7,6 +7,7 @@ pub trait Is {
     ///
     /// ```
     /// # use bevy_reflect::Is;
+    /// # use std::any::Any;
     /// fn greet_if_u32<T: Any>() {
     ///     if T::is::<u32>() {
     ///         println!("Hello");
