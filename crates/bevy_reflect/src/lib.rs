@@ -583,6 +583,7 @@ mod fields;
 mod from_reflect;
 #[cfg(feature = "functions")]
 pub mod func;
+mod is;
 mod kind;
 mod list;
 mod map;
@@ -655,6 +656,7 @@ pub use error::*;
 pub use fields::*;
 pub use from_reflect::*;
 pub use generics::*;
+pub use is::*;
 pub use kind::*;
 pub use list::*;
 pub use map::*;
