@@ -309,6 +309,7 @@ pub struct SpawnRelatedBundle<R: Relationship, L: SpawnableList<R>> {
 unsafe impl<R: Relationship, L: SpawnableList<R> + Send + Sync + 'static> Bundle
     for SpawnRelatedBundle<R, L>
 {
+    type Name = <R::RelationshipTarget as Bundle>::Name;
     fn component_ids(
         components: &mut crate::component::ComponentsRegistrator,
         ids: &mut impl FnMut(crate::component::ComponentId),
@@ -402,6 +403,7 @@ impl<R: Relationship, B: Bundle> DynamicBundle for SpawnOneRelated<R, B> {
 
 // SAFETY: This internally relies on the RelationshipTarget's Bundle implementation, which is sound.
 unsafe impl<R: Relationship, B: Bundle> Bundle for SpawnOneRelated<R, B> {
+    type Name = <R::RelationshipTarget as Bundle>::Name;
     fn component_ids(
         components: &mut crate::component::ComponentsRegistrator,
         ids: &mut impl FnMut(crate::component::ComponentId),

@@ -15,6 +15,8 @@ use crate::{
 // - `Bundle::component_ids` calls `ids` for C's component id (and nothing else)
 // - `Bundle::get_components` is called exactly once for C and passes the component's storage type based on its associated constant.
 unsafe impl<C: Component> Bundle for C {
+    type Name = C;
+
     fn component_ids(components: &mut ComponentsRegistrator, ids: &mut impl FnMut(ComponentId)) {
         ids(components.register_component::<C>());
     }
@@ -53,6 +55,40 @@ impl<C: Component> DynamicBundle for C {
     unsafe fn apply_effect(_ptr: MovingPtr<'_, MaybeUninit<Self>>, _entity: &mut EntityWorldMut) {}
 }
 
+unsafe impl<T: Bundle + 'static> Bundle for MovingPtr<'_, T> {
+    type Name = <T as Bundle>::Name;
+
+    fn component_ids(components: &mut ComponentsRegistrator, ids: &mut impl FnMut(ComponentId)) {
+        T::component_ids(components, ids);
+    }
+
+    fn get_component_ids(components: &Components, ids: &mut impl FnMut(Option<ComponentId>)) {
+        T::get_component_ids(components, ids);
+    }
+}
+
+impl<T: Bundle> DynamicBundle for MovingPtr<'_, T> {
+    type Effect = T::Effect;
+
+    unsafe fn get_components(
+        ptr: MovingPtr<'_, Self>,
+        func: &mut impl FnMut(StorageType, OwningPtr<'_>),
+    ) {
+        let this = ptr.read();
+
+        T::get_components(this, func);
+    }
+
+    unsafe fn apply_effect(ptr: MovingPtr<'_, MaybeUninit<Self>>, entity: &mut EntityWorldMut) {
+        let this = unsafe {
+            core::mem::transmute::<MaybeUninit<MovingPtr<'_, T>>, MovingPtr<'_, MaybeUninit<T>>>(
+                ptr.read(),
+            )
+        };
+        T::apply_effect(this, entity);
+    }
+}
+
 macro_rules! tuple_impl {
     ($(#[$meta:meta])* $(($index:tt, $name: ident, $alias: ident)),*) => {
         #[expect(
@@ -72,6 +108,7 @@ macro_rules! tuple_impl {
         // - `Bundle::get_components` is called exactly once for each member. Relies on the above implementation to pass the correct
         //   `StorageType` into the callback.
         unsafe impl<$($name: Bundle),*> Bundle for ($($name,)*) {
+            type Name = ($(<$name as Bundle>::Name,)*);
             fn component_ids(components: &mut ComponentsRegistrator,  ids: &mut impl FnMut(ComponentId)){
                 $(<$name as Bundle>::component_ids(components, ids);)*
             }
