@@ -82,7 +82,7 @@ impl<R: Relationship, B: Bundle> SpawnableList<R> for Spawn<B> {
             //  - if `this` is aligned, then its inner bundle must be as well.
             let bundle = unsafe {
                 bevy_ptr::deconstruct_moving_ptr!(this => (
-                    0 => bundle,
+                    0 => bundle
                 ));
                 bundle.try_into().debug_checked_unwrap()
             };
@@ -273,7 +273,7 @@ macro_rules! spawnable_list_impl {
                 //  - Rust tuples can never be `repr(packed)` so if `_this` is properly aligned, then all of the individual field
                 //    pointers must also be properly aligned.
                 unsafe {
-                    bevy_ptr::deconstruct_moving_ptr!(_this => ($($index => $alias,)*));
+                    bevy_ptr::deconstruct_moving_ptr!(_this => ($($index => $alias),*));
                     $( SpawnableList::<R>::spawn($alias.try_into().debug_checked_unwrap(), _world, _entity); )*
                 }
             }
@@ -355,7 +355,7 @@ impl<R: Relationship, L: SpawnableList<R>> DynamicBundle for SpawnRelatedBundle<
         //  - `ptr` points to an instance of type `Self`
         //  - The field names and types match with the type definition.
         entity.world_scope(|world: &mut World| unsafe {
-            bevy_ptr::deconstruct_moving_ptr!(effect => { list, });
+            bevy_ptr::deconstruct_moving_ptr!(effect => { list });
             L::spawn(list.try_into().debug_checked_unwrap(), world, id);
         });
     }

@@ -1326,17 +1326,17 @@ macro_rules! move_as_ptr {
 /// [`assign_to`]: MovingPtr::assign_to
 #[macro_export]
 macro_rules! deconstruct_moving_ptr {
-    ($ptr:ident => {$($field_name:ident,)*}) => {
+    ($ptr:ident => {$($field_name:ident),* $(,)?}) => {
         $crate::deconstruct_moving_ptr!($ptr => ($($field_name => $field_name,)*))
     };
-    ($ptr:ident => ($($field_index:tt => $field_alias:ident,)*)) => {
+    ($ptr:ident => ($($field_index:tt => $field_alias:ident),* $(,)?)) => {
         $(let $field_alias = $ptr.move_field(|f| &raw mut (*f).$field_index);)*
         core::mem::forget($ptr);
     };
-    ($ptr:ident: MaybeUninit => {$($field_name:tt,)*}) => {
+    ($ptr:ident: MaybeUninit => {$($field_name:tt),* $(,)?}) => {
         $crate::deconstruct_moving_ptr!($ptr: MaybeUninit => ($($field_name => $field_name,)*))
     };
-    ($ptr:ident: MaybeUninit => ($($field_index:tt => $field_alias:ident,)*)) => {
+    ($ptr:ident: MaybeUninit => ($($field_index:tt => $field_alias:ident),* $(,)?)) => {
         $(let $field_alias = $ptr.move_maybe_uninit_field(|f| &raw mut (*f).$field_index);)*
         core::mem::forget($ptr);
     };
