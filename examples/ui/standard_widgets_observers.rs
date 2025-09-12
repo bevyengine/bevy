@@ -20,7 +20,6 @@ use bevy::{
         UiWidgetsPlugins, ValueChange,
     },
 };
-use std::any::{Any, TypeId};
 
 fn main() {
     App::new()
