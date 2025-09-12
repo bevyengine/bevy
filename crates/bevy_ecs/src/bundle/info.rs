@@ -21,6 +21,8 @@ use crate::{
     storage::{SparseSetIndex, SparseSets, Storages, Table, TableRow},
 };
 
+use super::BundleImpl;
+
 /// For a specific [`World`], this stores a unique value identifying a type of a registered [`Bundle`].
 ///
 /// [`World`]: crate::world::World
@@ -430,7 +432,7 @@ impl Bundles {
     ///
     /// [`World`]: crate::world::World
     #[deny(unsafe_op_in_unsafe_fn)]
-    pub(crate) unsafe fn register_info<T: Bundle>(
+    pub(crate) unsafe fn register_info<T: BundleImpl>(
         &mut self,
         components: &mut ComponentsRegistrator,
         storages: &mut Storages,

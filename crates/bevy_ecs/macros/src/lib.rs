@@ -150,20 +150,20 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
         // - `Bundle::get_components` is exactly once for each member. Rely's on the Component -> Bundle implementation to properly pass
         //   the correct `StorageType` into the callback.
         #[allow(deprecated)]
-        unsafe impl #impl_generics #ecs_path::bundle::Bundle for #struct_name #ty_generics #where_clause {
-            type Name = (#(<#active_field_types as #ecs_path::bundle::Bundle>::Name,)*);
+        unsafe impl #impl_generics #ecs_path::bundle::BundleImpl for #struct_name #ty_generics #where_clause {
+            type Name = (#(<#active_field_types as #ecs_path::bundle::BundleImpl>::Name,)*);
             fn component_ids(
                 components: &mut #ecs_path::component::ComponentsRegistrator,
                 ids: &mut impl FnMut(#ecs_path::component::ComponentId)
             ) {
-                #(<#active_field_types as #ecs_path::bundle::Bundle>::component_ids(components, ids);)*
+                #(<#active_field_types as #ecs_path::bundle::BundleImpl>::component_ids(components, ids);)*
             }
 
             fn get_component_ids(
                 components: &#ecs_path::component::Components,
                 ids: &mut impl FnMut(Option<#ecs_path::component::ComponentId>)
             ) {
-                #(<#active_field_types as #ecs_path::bundle::Bundle>::get_component_ids(components, &mut *ids);)*
+                #(<#active_field_types as #ecs_path::bundle::BundleImpl>::get_component_ids(components, &mut *ids);)*
             }
         }
     };
