@@ -771,6 +771,27 @@ mod tests {
         }
 
         #[test]
+        fn empty_set_with_system() {
+            let mut world = World::new();
+            let mut schedule = Schedule::default();
+
+            schedule.set_build_settings(ScheduleBuildSettings {
+                empty_set_detection: true,
+                ..Default::default()
+            });
+
+            fn system() {}
+
+            // Add `A`.
+            schedule.add_systems(system.in_set(TestSystems::A));
+
+            _ = schedule.initialize(&mut world);
+            let warnings = schedule.warnings();
+
+            assert!(warnings.is_empty());
+        }
+
+        #[test]
         fn cross_dependency() {
             let mut world = World::new();
             let mut schedule = Schedule::default();
