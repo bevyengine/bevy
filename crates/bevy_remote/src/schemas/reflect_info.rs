@@ -1346,7 +1346,7 @@ pub(crate) fn variant_to_definition(
     registry.update_schema_with_fields_info(
         &mut subschema,
         fields_info,
-        FieldsParseBehaviour::IncludeAll,
+        FieldsParseBehavior::IncludeAll,
     );
     schema.properties = [(name.into(), subschema.into())].into();
     schema
@@ -1384,7 +1384,7 @@ pub(crate) trait TypeDefinitionBuilder {
         &self,
         schema: &mut JsonSchemaBevyType,
         info: &FieldsInformation,
-        fields_parse_behaviour: FieldsParseBehaviour,
+        fields_parse_behaviour: FieldsParseBehavior,
     ) {
         if info.fields.is_empty() {
             return;
@@ -1495,29 +1495,33 @@ pub(crate) trait TypeDefinitionBuilder {
 
 /// Specifies which fields should be skipped during schema generation.
 #[derive(Debug, Clone)]
-pub(crate) enum FieldsParseBehaviour {
+pub(crate) enum FieldsParseBehavior {
     /// Include all fields, all of them are required.
     IncludeAll,
     /// Include all fields, but marked them as not required.
     IncludeAllNoRequiredOnes,
     /// Skip fields at the specified indices.
-    SkipSome(Vec<usize>),
+    SkipFieldsAtIndicies(Vec<usize>),
 }
 
-impl FieldsParseBehaviour {
+impl FieldsParseBehavior {
     fn should_require(&self, index: usize) -> bool {
         match self {
-            FieldsParseBehaviour::IncludeAll => true,
-            FieldsParseBehaviour::SkipSome(skip_indices) => !skip_indices.contains(&index),
-            FieldsParseBehaviour::IncludeAllNoRequiredOnes => false,
+            FieldsParseBehavior::IncludeAll => true,
+            FieldsParseBehavior::SkipFieldsAtIndicies(skip_indices) => {
+                !skip_indices.contains(&index)
+            }
+            FieldsParseBehavior::IncludeAllNoRequiredOnes => false,
         }
     }
     fn should_skip(&self, index: usize) -> bool {
         match self {
-            FieldsParseBehaviour::IncludeAll | FieldsParseBehaviour::IncludeAllNoRequiredOnes => {
+            FieldsParseBehavior::IncludeAll | FieldsParseBehavior::IncludeAllNoRequiredOnes => {
                 false
             }
-            FieldsParseBehaviour::SkipSome(skip_indices) => skip_indices.contains(&index),
+            FieldsParseBehavior::SkipFieldsAtIndicies(skip_indices) => {
+                skip_indices.contains(&index)
+            }
         }
     }
 }
@@ -1536,11 +1540,11 @@ impl TypeDefinitionBuilder for TypeRegistry {
         let fields_parse_behaviour = if type_reg.data::<ReflectSerialize>().is_none()
             && type_reg.data::<ReflectDefault>().is_some()
         {
-            FieldsParseBehaviour::IncludeAllNoRequiredOnes
+            FieldsParseBehavior::IncludeAllNoRequiredOnes
         } else if let Some(fields) = type_reg.data::<bevy_reflect::serde::SerializationData>() {
-            FieldsParseBehaviour::SkipSome(fields.iter_skipped().map(|f| *f.0).collect())
+            FieldsParseBehavior::SkipFieldsAtIndicies(fields.iter_skipped().map(|f| *f.0).collect())
         } else {
-            FieldsParseBehaviour::IncludeAll
+            FieldsParseBehavior::IncludeAll
         };
 
         let internal = InternalSchemaType::from_type_registration(type_reg, self);
