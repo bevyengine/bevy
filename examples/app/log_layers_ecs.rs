@@ -6,9 +6,9 @@
 //! Inside the `custom_layer` function we will create a [`mpsc::Sender`] and a [`mpsc::Receiver`] from a
 //! [`mpsc::channel`]. The [`Sender`](mpsc::Sender) will go into the `AdvancedLayer` and the [`Receiver`](mpsc::Receiver) will
 //! go into a non-send resource called `LogEvents` (It has to be non-send because [`Receiver`](mpsc::Receiver) is [`!Sync`](Sync)).
-//! From there we will use `transfer_log_events` to transfer log events from `LogEvents` to an ECS event called `LogEvent`.
+//! From there we will use [`transfer_log_messages`] to transfer log messages from [`CapturedLogMessages`] to an ECS message called [`LogMessage`].
 //!
-//! Finally, after all that we can access the `LogEvent` event from our systems and use it.
+//! Finally, after all that we can access the [`LogMessage`] message from our systems and use it.
 //! In this example we build a simple log viewer.
 
 use std::sync::mpsc;
@@ -37,31 +37,31 @@ fn main() {
         .run();
 }
 
-/// A basic message. This is what we will be sending from the [`CaptureLayer`] to [`CapturedLogEvents`] non-send resource.
-#[derive(Debug, BufferedEvent)]
-struct LogEvent {
+/// A basic message. This is what we will be sending from the [`CaptureLayer`] to [`CapturedLogMessages`] non-send resource.
+#[derive(Debug, Message)]
+struct LogMessage {
     message: String,
     level: Level,
 }
 
-/// This non-send resource temporarily stores [`LogEvent`]s before they are
-/// written to [`Events<LogEvent>`] by [`transfer_log_events`].
+/// This non-send resource temporarily stores [`LogMessage`]s before they are
+/// written to [`Messages<LogEvent>`] by [`transfer_log_messages`].
 #[derive(Deref, DerefMut)]
-struct CapturedLogEvents(mpsc::Receiver<LogEvent>);
+struct CapturedLogMessages(mpsc::Receiver<LogMessage>);
 
-/// Transfers information from the `LogEvents` resource to [`Events<LogEvent>`](LogEvent).
-fn transfer_log_events(
-    receiver: NonSend<CapturedLogEvents>,
-    mut log_events: EventWriter<LogEvent>,
+/// Transfers information from the [`CapturedLogMessages`] resource to [`Messages<LogEvent>`](LogMessage).
+fn transfer_log_messages(
+    receiver: NonSend<CapturedLogMessages>,
+    mut message_writer: MessageWriter<LogMessage>,
 ) {
     // Make sure to use `try_iter()` and not `iter()` to prevent blocking.
-    log_events.write_batch(receiver.try_iter());
+    message_writer.write_batch(receiver.try_iter());
 }
 
-/// This is the [`Layer`] that we will use to capture log events and then send them to Bevy's
+/// This is the [`Layer`] that we will use to capture log messages and then send them to Bevy's
 /// ECS via its [`mpsc::Sender`].
 struct CaptureLayer {
-    sender: mpsc::Sender<LogEvent>,
+    sender: mpsc::Sender<LogMessage>,
 }
 
 impl<S: Subscriber> Layer<S> for CaptureLayer {
@@ -79,7 +79,7 @@ impl<S: Subscriber> Layer<S> for CaptureLayer {
             let metadata = event.metadata();
 
             self.sender
-                .send(LogEvent {
+                .send(LogMessage {
                     message,
                     level: *metadata.level(),
                 })
@@ -102,11 +102,11 @@ fn custom_layer(app: &mut App) -> Option<BoxedLayer> {
     let (sender, receiver) = mpsc::channel();
 
     let layer = CaptureLayer { sender };
-    let resource = CapturedLogEvents(receiver);
+    let resource = CapturedLogMessages(receiver);
 
     app.insert_non_send_resource(resource);
-    app.add_event::<LogEvent>();
-    app.add_systems(Update, transfer_log_events);
+    app.add_message::<LogMessage>();
+    app.add_systems(Update, transfer_log_messages);
 
     Some(layer.boxed())
 }
@@ -139,25 +139,25 @@ fn setup(mut commands: Commands) {
     ));
 }
 
-// This is how we can read our LogEvents.
-// In this example we are reading the LogEvents and inserting them as text into our log viewer.
+// This is how we can read our LogMessages.
+// In this example we are reading the LogMessages and inserting them as text into our log viewer.
 fn print_logs(
-    mut events: EventReader<LogEvent>,
+    mut log_message_reader: MessageReader<LogMessage>,
     mut commands: Commands,
     log_viewer_root: Single<Entity, With<LogViewerRoot>>,
 ) {
     let root_entity = *log_viewer_root;
 
     commands.entity(root_entity).with_children(|child| {
-        for event in events.read() {
+        for log_message in log_message_reader.read() {
             child.spawn((
                 Text::default(),
                 children![
                     (
-                        TextSpan::new(format!("{:5} ", event.level)),
-                        TextColor(level_color(&event.level)),
+                        TextSpan::new(format!("{:5} ", log_message.level)),
+                        TextColor(level_color(&log_message.level)),
                     ),
-                    TextSpan::new(&event.message),
+                    TextSpan::new(&log_message.message),
                 ],
             ));
         }

@@ -277,22 +277,22 @@ world.spawn(PlayerBundle {
 });
 ```
 
-### Buffered Events
+### Messages
 
-Buffered events offer a communication channel between one or more systems.
-They can be sent using the `EventWriter` system parameter and received with `EventReader`.
+Messages offer a communication channel between one or more systems.
+They can be sent using the `MessageWriter` system parameter and received with `MessageReader`.
 
 ```rust
 use bevy_ecs::prelude::*;
 
-#[derive(BufferedEvent)]
+#[derive(Message)]
 struct Message(String);
 
-fn writer(mut writer: EventWriter<Message>) {
+fn writer(mut writer: MessageWriter<Message>) {
     writer.write(Message("Hello!".to_string()));
 }
 
-fn reader(mut reader: EventReader<Message>) {
+fn reader(mut reader: MessageReader<Message>) {
     for Message(message) in reader.read() {
         println!("{}", message);
     }
@@ -322,7 +322,7 @@ world.trigger(Speak {
 });
 ```
 
-These differ from `EventReader` and `EventWriter` in that they are "reactive".
+These differ from `MessageReader` and `MessageWriter` in that they are "reactive".
 Rather than happening at a specific point in a schedule, they happen _immediately_ whenever a trigger happens.
 Triggers can trigger other triggers, and they all will be evaluated at the same time!
 

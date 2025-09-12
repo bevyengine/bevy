@@ -29,8 +29,8 @@ use bevy_ecs::{
     component::Component,
     entity::{ContainsEntity, Entity},
     error::BevyError,
-    event::EventReader,
     lifecycle::HookContext,
+    message::MessageReader,
     prelude::With,
     query::{Has, QueryItem},
     reflect::ReflectComponent,
@@ -303,10 +303,10 @@ pub enum MissingRenderTargetInfoError {
 /// [`OrthographicProjection`]: bevy_camera::OrthographicProjection
 /// [`PerspectiveProjection`]: bevy_camera::PerspectiveProjection
 pub fn camera_system(
-    mut window_resized_events: EventReader<WindowResized>,
-    mut window_created_events: EventReader<WindowCreated>,
-    mut window_scale_factor_changed_events: EventReader<WindowScaleFactorChanged>,
-    mut image_asset_events: EventReader<AssetEvent<Image>>,
+    mut window_resized_reader: MessageReader<WindowResized>,
+    mut window_created_reader: MessageReader<WindowCreated>,
+    mut window_scale_factor_changed_reader: MessageReader<WindowScaleFactorChanged>,
+    mut image_asset_event_reader: MessageReader<AssetEvent<Image>>,
     primary_window: Query<Entity, With<PrimaryWindow>>,
     windows: Query<(Entity, &Window)>,
     images: Res<Assets<Image>>,
@@ -316,15 +316,15 @@ pub fn camera_system(
     let primary_window = primary_window.iter().next();
 
     let mut changed_window_ids = <HashSet<_>>::default();
-    changed_window_ids.extend(window_created_events.read().map(|event| event.window));
-    changed_window_ids.extend(window_resized_events.read().map(|event| event.window));
-    let scale_factor_changed_window_ids: HashSet<_> = window_scale_factor_changed_events
+    changed_window_ids.extend(window_created_reader.read().map(|event| event.window));
+    changed_window_ids.extend(window_resized_reader.read().map(|event| event.window));
+    let scale_factor_changed_window_ids: HashSet<_> = window_scale_factor_changed_reader
         .read()
         .map(|event| event.window)
         .collect();
     changed_window_ids.extend(scale_factor_changed_window_ids.clone());
 
-    let changed_image_handles: HashSet<&AssetId<Image>> = image_asset_events
+    let changed_image_handles: HashSet<&AssetId<Image>> = image_asset_event_reader
         .read()
         .filter_map(|event| match event {
             AssetEvent::Modified { id } | AssetEvent::Added { id } => Some(id),
@@ -574,8 +574,8 @@ pub fn extract_cameras(
                 commands.remove::<RenderLayers>();
             }
 
-            if let Some(perspective) = projection {
-                commands.insert(perspective.clone());
+            if let Some(projection) = projection {
+                commands.insert(projection.clone());
             } else {
                 commands.remove::<Projection>();
             }
@@ -658,10 +658,6 @@ pub fn sort_cameras(
 /// A subpixel offset to jitter a perspective camera's frustum by.
 ///
 /// Useful for temporal rendering techniques.
-///
-/// Do not use with [`OrthographicProjection`].
-///
-/// [`OrthographicProjection`]: bevy_camera::OrthographicProjection
 #[derive(Component, Clone, Default, Reflect)]
 #[reflect(Default, Component, Clone)]
 pub struct TemporalJitter {
@@ -671,15 +667,13 @@ pub struct TemporalJitter {
 
 impl TemporalJitter {
     pub fn jitter_projection(&self, clip_from_view: &mut Mat4, view_size: Vec2) {
-        if clip_from_view.w_axis.w == 1.0 {
-            warn!(
-                "TemporalJitter not supported with OrthographicProjection. Use PerspectiveProjection instead."
-            );
-            return;
-        }
-
         // https://github.com/GPUOpen-LibrariesAndSDKs/FidelityFX-SDK/blob/d7531ae47d8b36a5d4025663e731a47a38be882f/docs/techniques/media/super-resolution-temporal/jitter-space.svg
-        let jitter = (self.offset * vec2(2.0, -2.0)) / view_size;
+        let mut jitter = (self.offset * vec2(2.0, -2.0)) / view_size;
+
+        // orthographic
+        if clip_from_view.w_axis.w == 1.0 {
+            jitter *= vec2(clip_from_view.x_axis.x, clip_from_view.y_axis.y) * 0.5;
+        }
 
         clip_from_view.z_axis.x += jitter.x;
         clip_from_view.z_axis.y += jitter.y;

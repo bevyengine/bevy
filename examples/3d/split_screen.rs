@@ -158,14 +158,14 @@ enum Direction {
 
 fn set_camera_viewports(
     windows: Query<&Window>,
-    mut resize_events: EventReader<WindowResized>,
+    mut window_resized_reader: MessageReader<WindowResized>,
     mut query: Query<(&CameraPosition, &mut Camera)>,
 ) {
     // We need to dynamically resize the camera's viewports whenever the window size changes
     // so then each camera always takes up half the screen.
     // A resize_event is sent when the window is first created, allowing us to reuse this system for initial setup.
-    for resize_event in resize_events.read() {
-        let window = windows.get(resize_event.window).unwrap();
+    for window_resized in window_resized_reader.read() {
+        let window = windows.get(window_resized.window).unwrap();
         let size = window.physical_size() / 2;
 
         for (camera_position, mut camera) in &mut query {

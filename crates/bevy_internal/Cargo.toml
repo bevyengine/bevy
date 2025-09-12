@@ -476,7 +476,7 @@ bevy_color = { path = "../bevy_color", optional = true, version = "0.17.0-dev", 
 ] }
 bevy_core_pipeline = { path = "../bevy_core_pipeline", optional = true, version = "0.17.0-dev" }
 bevy_post_process = { path = "../bevy_post_process", optional = true, version = "0.17.0-dev" }
-bevy_core_widgets = { path = "../bevy_core_widgets", optional = true, version = "0.17.0-dev" }
+bevy_ui_widgets = { path = "../bevy_ui_widgets", optional = true, version = "0.17.0-dev" }
 bevy_anti_alias = { path = "../bevy_anti_alias", optional = true, version = "0.17.0-dev" }
 bevy_dev_tools = { path = "../bevy_dev_tools", optional = true, version = "0.17.0-dev" }
 bevy_gilrs = { path = "../bevy_gilrs", optional = true, version = "0.17.0-dev" }

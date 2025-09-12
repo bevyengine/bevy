@@ -4,6 +4,7 @@ pub mod entity_command;
 #[cfg(feature = "std")]
 mod parallel_scope;
 
+use bevy_ptr::move_as_ptr;
 pub use command::Command;
 pub use entity_command::EntityCommand;
 
@@ -20,7 +21,8 @@ use crate::{
     component::{Component, ComponentId, Mutable},
     entity::{Entities, Entity, EntityClonerBuilder, EntityDoesNotExistError, OptIn, OptOut},
     error::{warn, BevyError, CommandWithEntity, ErrorContext, HandleError},
-    event::{BufferedEvent, EntityEvent, Event},
+    event::{EntityEvent, Event},
+    message::Message,
     observer::Observer,
     resource::Resource,
     schedule::ScheduleLabel,
@@ -396,6 +398,7 @@ impl<'w, 's> Commands<'w, 's> {
                 }
             });
 
+            move_as_ptr!(bundle);
             entity.insert_with_caller(
                 bundle,
                 InsertMode::Replace,
@@ -1135,28 +1138,28 @@ impl<'w, 's> Commands<'w, 's> {
         self.spawn(Observer::new(observer))
     }
 
-    /// Writes an arbitrary [`BufferedEvent`].
+    /// Writes an arbitrary [`Message`].
     ///
-    /// This is a convenience method for writing events
-    /// without requiring an [`EventWriter`](crate::event::EventWriter).
+    /// This is a convenience method for writing messages
+    /// without requiring a [`MessageWriter`](crate::message::MessageWriter).
     ///
     /// # Performance
     ///
     /// Since this is a command, exclusive world access is used, which means that it will not profit from
     /// system-level parallelism on supported platforms.
     ///
-    /// If these events are performance-critical or very frequently sent,
-    /// consider using a typed [`EventWriter`](crate::event::EventWriter) instead.
+    /// If these messages are performance-critical or very frequently sent,
+    /// consider using a [`MessageWriter`](crate::message::MessageWriter) instead.
     #[track_caller]
-    pub fn write_event<E: BufferedEvent>(&mut self, event: E) -> &mut Self {
-        self.queue(command::write_event(event));
+    pub fn write_message<M: Message>(&mut self, message: M) -> &mut Self {
+        self.queue(command::write_message(message));
         self
     }
 
-    /// Writes an arbitrary [`BufferedEvent`].
+    /// Writes an arbitrary [`Message`].
     ///
     /// This is a convenience method for writing events
-    /// without requiring an [`EventWriter`](crate::event::EventWriter).
+    /// without requiring a [`MessageWriter`](crate::message::MessageWriter).
     ///
     /// # Performance
     ///
@@ -1164,11 +1167,11 @@ impl<'w, 's> Commands<'w, 's> {
     /// system-level parallelism on supported platforms.
     ///
     /// If these events are performance-critical or very frequently sent,
-    /// consider using a typed [`EventWriter`](crate::event::EventWriter) instead.
+    /// consider using a typed [`MessageWriter`](crate::message::MessageWriter) instead.
     #[track_caller]
-    #[deprecated(since = "0.17.0", note = "Use `Commands::write_event` instead.")]
-    pub fn send_event<E: BufferedEvent>(&mut self, event: E) -> &mut Self {
-        self.write_event(event)
+    #[deprecated(since = "0.17.0", note = "Use `Commands::write_message` instead.")]
+    pub fn send_event<E: Message>(&mut self, event: E) -> &mut Self {
+        self.write_message(event)
     }
 
     /// Runs the schedule corresponding to the given [`ScheduleLabel`].

@@ -7,9 +7,9 @@ use anyhow::{anyhow, Result as AnyhowResult};
 use bevy_ecs::{
     component::ComponentId,
     entity::Entity,
-    event::EventCursor,
     hierarchy::ChildOf,
     lifecycle::RemovedComponentEntity,
+    message::MessageCursor,
     query::QueryBuilder,
     reflect::{AppTypeRegistry, ReflectComponent, ReflectResource},
     system::{In, Local},
@@ -601,7 +601,7 @@ pub fn process_remote_get_resources_request(
 pub fn process_remote_get_components_watching_request(
     In(params): In<Option<Value>>,
     world: &World,
-    mut removal_cursors: Local<HashMap<ComponentId, EventCursor<RemovedComponentEntity>>>,
+    mut removal_cursors: Local<HashMap<ComponentId, MessageCursor<RemovedComponentEntity>>>,
 ) -> BrpResult<Option<Value>> {
     let BrpGetComponentsParams {
         entity,
@@ -1365,7 +1365,7 @@ pub fn process_remote_list_resources_request(
 pub fn process_remote_list_components_watching_request(
     In(params): In<Option<Value>>,
     world: &World,
-    mut removal_cursors: Local<HashMap<ComponentId, EventCursor<RemovedComponentEntity>>>,
+    mut removal_cursors: Local<HashMap<ComponentId, MessageCursor<RemovedComponentEntity>>>,
 ) -> BrpResult<Option<Value>> {
     let BrpListComponentsParams { entity } = parse_some(params)?;
     let entity_ref = get_entity(world, entity)?;
