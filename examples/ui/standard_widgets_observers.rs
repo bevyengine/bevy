@@ -1,7 +1,8 @@
 //! This experimental example illustrates how to create widgets using the `bevy_ui_widgets` widget set.
 //!
 //! The patterns shown here are likely to change substantially as the `bevy_ui_widgets` crate
-//! matures, so please exercise caution if you are using this as a reference for your own code.
+//! matures, so please exercise caution if you are using this as a reference for your own code,
+//! and note that there are still "user experience" issues with this API.
 
 use bevy::{
     color::palettes::basic::*,
@@ -12,13 +13,13 @@ use bevy::{
     },
     picking::hover::Hovered,
     prelude::*,
+    reflect::Is,
     ui::{Checked, InteractionDisabled, Pressed},
     ui_widgets::{
         Activate, Button, Callback, Checkbox, Slider, SliderRange, SliderThumb, SliderValue,
         UiWidgetsPlugins, ValueChange,
     },
 };
-use std::any::{Any, TypeId};
 
 fn main() {
     App::new()
@@ -186,6 +187,8 @@ fn button_on_interaction<E: EntityEvent, C: Component>(
             return;
         };
         let hovered = hovered.get();
+        // These "removal event checks" exist because the `Remove` event is triggered _before_ the component is actually
+        // removed, meaning it still shows up in the query. We're investigating the best way to improve this scenario.
         let pressed = pressed && !(E::is::<Remove>() && C::is::<Pressed>());
         let disabled = disabled && !(E::is::<Remove>() && C::is::<InteractionDisabled>());
         match (disabled, hovered, pressed) {
@@ -300,6 +303,8 @@ fn slider_on_interaction<E: EntityEvent, C: Component>(
     mut thumbs: Query<(&mut BackgroundColor, Has<DemoSliderThumb>), Without<DemoSlider>>,
 ) {
     if let Ok((slider_ent, hovered, disabled)) = sliders.get(event.event_target()) {
+        // These "removal event checks" exist because the `Remove` event is triggered _before_ the component is actually
+        // removed, meaning it still shows up in the query. We're investigating the best way to improve this scenario.
         let disabled = disabled && !(E::is::<Remove>() && C::is::<InteractionDisabled>());
         for child in children.iter_descendants(slider_ent) {
             if let Ok((mut thumb_bg, is_thumb)) = thumbs.get_mut(child)
@@ -410,6 +415,8 @@ fn checkbox_on_interaction<E: EntityEvent, C: Component>(
 ) {
     if let Ok((hovered, disabled, checked, children)) = checkboxes.get(event.event_target()) {
         let hovered = hovered.get();
+        // These "removal event checks" exist because the `Remove` event is triggered _before_ the component is actually
+        // removed, meaning it still shows up in the query. We're investigating the best way to improve this scenario.
         let checked = checked && !(E::is::<Remove>() && C::is::<Checked>());
         let disabled = disabled && !(E::is::<Remove>() && C::is::<InteractionDisabled>());
 
@@ -491,16 +498,5 @@ fn toggle_disabled(
                 commands.entity(entity).insert(InteractionDisabled);
             }
         }
-    }
-}
-
-trait Is {
-    fn is<T: Any>() -> bool;
-}
-
-impl<A: Any> Is for A {
-    #[inline]
-    fn is<T: Any>() -> bool {
-        TypeId::of::<A>() == TypeId::of::<T>()
     }
 }
