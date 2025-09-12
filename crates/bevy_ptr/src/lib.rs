@@ -1224,7 +1224,6 @@ macro_rules! move_as_ptr {
 /// # Safety
 /// This macro generates unsafe code and must be set up correctly to avoid undefined behavior.
 ///  - Each field accessed must be unique, multiple of the same field cannot be listed.
-///  - For tuple and tuple structs, the field indices and types must match the type definition.
 ///
 /// # Examples
 ///

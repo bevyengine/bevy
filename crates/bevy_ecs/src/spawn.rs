@@ -80,7 +80,6 @@ impl<R: Relationship, B: Bundle> SpawnableList<R> for Spawn<B> {
             // SAFETY:
             //  - `Spawn<B>` has one field at index 0.
             //  - if `this` is aligned, then its inner bundle must be as well.
-            //  - `this` is forgotten and thus not accessed or dropped after this call.
             let bundle = unsafe {
                 bevy_ptr::deconstruct_moving_ptr!(this => (
                     0 => bundle,
@@ -270,7 +269,7 @@ macro_rules! spawnable_list_impl {
                 Self: Sized,
             {
                 // SAFETY:
-                //  - The indices and types match the type definition and thus must point to the right fields.
+                //  - The indices uniquely match the type definition and thus must point to the right fields.
                 //  - Rust tuples can never be `repr(packed)` so if `_this` is properly aligned, then all of the individual field
                 //    pointers must also be properly aligned.
                 unsafe {
