@@ -528,7 +528,7 @@ pub fn check_visibility(
         Entity,
         &InheritedVisibility,
         &mut ViewVisibility,
-        &VisibilityClass,
+        Option<&VisibilityClass>,
         Option<&RenderLayers>,
         Option<&Aabb>,
         &GlobalTransform,
@@ -611,10 +611,15 @@ pub fn check_visibility(
                     view_visibility.set();
                 }
 
-                // Add the entity to the queue for all visibility classes the
-                // entity is in.
-                for visibility_class_id in visibility_class.iter() {
-                    queue.entry(*visibility_class_id).or_default().push(entity);
+                // The visibility class may be None here because AABB gizmos can be enabled via
+                // config without a renderable component being added to the entity. This workaround
+                // allows view visibility to be set for entities without a renderable component but
+                // that still need to render gizmos.
+                if let Some(visibility_class) = visibility_class {
+                    // Add the entity to the queue for all visibility classes the entity is in.
+                    for visibility_class_id in visibility_class.iter() {
+                        queue.entry(*visibility_class_id).or_default().push(entity);
+                    }
                 }
             },
         );
