@@ -1764,7 +1764,7 @@ impl ScheduleBuildSettings {
         Self {
             ambiguity_detection: LogLevel::Ignore,
             hierarchy_detection: LogLevel::Warn,
-            empty_set_detection: true,
+            empty_set_detection: false,
             auto_insert_apply_deferred: true,
             use_shortnames: true,
             report_sets: true,

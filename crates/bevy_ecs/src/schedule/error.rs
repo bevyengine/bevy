@@ -70,8 +70,8 @@ pub enum ScheduleBuildWarning {
     Ambiguity(Vec<(SystemKey, SystemKey, Vec<ComponentId>)>),
     /// The system set contains no systems.
     ///
-    /// This warning is **enabled** by default, but can be disabled by setting
-    /// [`ScheduleBuildSettings::empty_set_detection`] to `false`].
+    /// This warning is **disabled** by default, but can be enabled by setting
+    /// [`ScheduleBuildSettings::empty_set_detection`] to `true`].
     ///
     /// [`ScheduleBuildSettings::empty_set_detection`]: crate::schedule::ScheduleBuildSettings::empty_set_detection
     #[error("The system set contains no systems: {0:?}")]
