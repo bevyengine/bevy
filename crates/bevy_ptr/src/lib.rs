@@ -492,11 +492,10 @@ impl<'a, T, A: IsAligned> MovingPtr<'a, T, A> {
     /// ```
     /// use core::mem::{offset_of, MaybeUninit};
     /// use bevy_ptr::{MovingPtr, move_as_ptr};
-    /// # use bevy_ptr::Unaligned;
     /// # struct FieldAType(usize);
     /// # struct FieldBType(usize);
     /// # struct FieldCType(usize);
-    /// # fn insert<T>(_ptr: MovingPtr<'_, T, Unaligned>) {}
+    /// # fn insert<T>(_ptr: MovingPtr<'_, T>) {}
     ///
     /// struct Parent {
     ///   field_a: FieldAType,
@@ -629,11 +628,10 @@ impl<'a, T, A: IsAligned> MovingPtr<'a, T, A> {
     /// ```
     /// use core::mem::offset_of;
     /// use bevy_ptr::{MovingPtr, move_as_ptr};
-    /// # use bevy_ptr::Unaligned;
     /// # struct FieldAType(usize);
     /// # struct FieldBType(usize);
     /// # struct FieldCType(usize);
-    /// # fn insert<T>(_ptr: MovingPtr<'_, T, Unaligned>) {}
+    /// # fn insert<T>(_ptr: MovingPtr<'_, T>) {}
     ///
     /// struct Parent {
     ///   field_a: FieldAType,
@@ -689,6 +687,9 @@ impl<'a, T, A: IsAligned> MovingPtr<'a, MaybeUninit<T>, A> {
     ///    Other fields that have not been moved out of may still be accessed or dropped separately.
     ///  - This function cannot alias the field with any other access, including other calls to [`move_field`]
     ///    for the same field, without first calling [`forget`] on it first.
+    ///
+    /// [`forget`]: core::mem::forget
+    /// [`move_field`]: Self::move_field
     #[inline(always)]
     pub unsafe fn move_maybe_uninit_field<U>(
         &self,
