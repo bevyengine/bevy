@@ -462,7 +462,7 @@ impl<'a, T> MovingPtr<'a, T, Aligned> {
     }
 }
 
-impl<'a, T, A: IsAligned> MovingPtr<'_, T, A> {
+impl<'a, T, A: IsAligned> MovingPtr<'a, T, A> {
     /// Creates a new instance from a raw pointer.
     ///
     /// For a safer alternative, it is strongly advised to use [`move_as_ptr`] where possible.
@@ -1301,8 +1301,7 @@ macro_rules! move_as_ptr {
 #[macro_export]
 macro_rules! deconstruct_moving_ptr {
     ($ptr:ident => {$($field_name:ident,)*}) => {
-        $(let $field_name = $ptr.move_field(|f| &raw mut (*f).$field_name);)*
-        core::mem::forget($ptr);
+        $crate::deconstruct_moving_ptr!($ptr => ($($field_name => $field_name,)*))
     };
     ($ptr:ident => ($($field_index:tt => $field_alias:ident,)*)) => {
         $(let $field_alias = $ptr.move_field(|f| &raw mut (*f).$field_index);)*

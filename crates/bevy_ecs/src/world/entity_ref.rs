@@ -2046,7 +2046,7 @@ impl<'w> EntityWorldMut<'w> {
         //   and the caller ensures that the value is not accessed or dropped after this function
         //   returns.
         let (bundle, location) = bundle.partial_move(|bundle| unsafe {
-            bundle_inserter.insert::<T>(
+            bundle_inserter.insert(
                 self.entity,
                 location,
                 bundle,
@@ -4640,11 +4640,10 @@ unsafe fn insert_dynamic_bundle<
     {
         type Effect = ();
         unsafe fn get_components(
-            ptr: MovingPtr<'_, Self>,
+            mut ptr: MovingPtr<'_, Self>,
             func: &mut impl FnMut(StorageType, OwningPtr<'_>),
         ) {
-            let bundle = ptr.read();
-            bundle.components.for_each(|(t, ptr)| func(t, ptr));
+            (&mut ptr.components).for_each(|(t, ptr)| func(t, ptr));
         }
 
         unsafe fn apply_effect(

@@ -129,8 +129,8 @@ pub struct SpawnIter<I>(pub I);
 impl<R: Relationship, I: Iterator<Item = B> + Send + Sync + 'static, B: Bundle> SpawnableList<R>
     for SpawnIter<I>
 {
-    fn spawn(this: MovingPtr<'_, Self>, world: &mut World, entity: Entity) {
-        for bundle in this.read().0 {
+    fn spawn(mut this: MovingPtr<'_, Self>, world: &mut World, entity: Entity) {
+        for bundle in &mut this.0 {
             world.spawn((R::from(entity), bundle));
         }
     }
@@ -210,8 +210,8 @@ impl<I> WithRelated<I> {
 }
 
 impl<R: Relationship, I: Iterator<Item = Entity>> SpawnableList<R> for WithRelated<I> {
-    fn spawn(this: MovingPtr<'_, Self>, world: &mut World, entity: Entity) {
-        let related = this.read().0.collect::<Vec<_>>();
+    fn spawn(mut this: MovingPtr<'_, Self>, world: &mut World, entity: Entity) {
+        let related = (&mut this.0).collect::<Vec<_>>();
         world.entity_mut(entity).add_related::<R>(&related);
     }
 
