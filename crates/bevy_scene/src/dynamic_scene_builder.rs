@@ -354,15 +354,15 @@ impl<'w> DynamicSceneBuilder<'w> {
 
         let type_registry = self.original_world.resource::<AppTypeRegistry>().read();
 
-        for (component_id, _) in self.original_world.storages().resources.iter() {
-            if Some(component_id) == original_world_dqf_id {
+        for (component_id, entity) in self.original_world.components().resource_entities.iter() {
+            if Some(*component_id) == original_world_dqf_id {
                 continue;
             }
             let mut extract_and_push = || {
                 let type_id = self
                     .original_world
                     .components()
-                    .get_info(component_id)?
+                    .get_info(*component_id)?
                     .type_id()?;
 
                 let is_denied = self.resource_filter.is_denied_by_id(type_id);
@@ -373,16 +373,15 @@ impl<'w> DynamicSceneBuilder<'w> {
                 }
 
                 let type_registration = type_registry.get(type_id)?;
+                let entity = self.original_world.get_entity(*entity).ok()?;
+                let component = type_registration
+                    .data::<ReflectComponent>()?
+                    .reflect(entity)?;
 
-                let resource = type_registration
-                    .data::<ReflectResource>()?
-                    .reflect(self.original_world)
-                    .ok()?;
+                let component =
+                    clone_reflect_value(component.as_partial_reflect(), type_registration);
 
-                let resource =
-                    clone_reflect_value(resource.as_partial_reflect(), type_registration);
-
-                self.extracted_resources.insert(component_id, resource);
+                self.extracted_resources.insert(*component_id, component);
                 Some(())
             };
             extract_and_push();
@@ -416,11 +415,11 @@ mod tests {
     struct ComponentB;
 
     #[derive(Resource, Reflect, Default, Eq, PartialEq, Debug)]
-    #[reflect(Resource)]
+    #[reflect(Resource, Component)]
     struct ResourceA;
 
     #[derive(Resource, Reflect, Default, Eq, PartialEq, Debug)]
-    #[reflect(Resource)]
+    #[reflect(Resource, Component)]
     struct ResourceB;
 
     #[test]
@@ -703,7 +702,7 @@ mod tests {
 
     #[test]
     fn should_use_from_reflect() {
-        #[derive(Resource, Component, Reflect)]
+        #[derive(Resource, Reflect)]
         #[reflect(Resource, Component)]
         struct SomeType(i32);
 
