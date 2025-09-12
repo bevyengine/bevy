@@ -71,12 +71,9 @@ pub enum ScheduleBuildWarning {
     /// The system set contains no systems.
     ///
     /// This warning is **enabled** by default, but can be disabled by setting
-    /// [`ScheduleBuildSettings::hierarchy_detection`] to [`LogLevel::Ignore`]
-    /// or upgraded to a [`ScheduleBuildError`] by setting it to [`LogLevel::Error`].
+    /// [`ScheduleBuildSettings::empty_set_detection`] to `false`].
     ///
-    /// [`ScheduleBuildSettings::hierarchy_detection`]: crate::schedule::ScheduleBuildSettings::hierarchy_detection
-    /// [`LogLevel::Ignore`]: crate::schedule::LogLevel::Ignore
-    /// [`LogLevel::Error`]: crate::schedule::LogLevel::Error
+    /// [`ScheduleBuildSettings::empty_set_detection`]: crate::schedule::ScheduleBuildSettings::empty_set_detection
     #[error("The system set contains no systems: {0:?}")]
     EmptySet(NodeId),
 }
