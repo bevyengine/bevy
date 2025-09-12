@@ -1,4 +1,4 @@
-//! This highly experimental example illustrates how to create widgets using the `bevy_ui_widgets` widget set.
+//! This experimental example illustrates how to create widgets using the `bevy_ui_widgets` widget set.
 //!
 //! These widgets have no inherent styling, so this example also shows how to implement custom styles.
 //!

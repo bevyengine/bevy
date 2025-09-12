@@ -2,10 +2,10 @@
 //! These widgets have no inherent styling, it's the responsibility of the user to add styling
 //! appropriate for their game or application.
 //!
-//! ## WARNING: EXPERIMENTAL
+//! ## Warning: Experimental
 //!
-//! This crate is currently experimental, even relative to the rest of Bevy. The API is likely to
-//! change in future releases, and there may be bugs or missing features.
+//! This crate is currently experimental and under active development.
+//! The API is likely to change substantially: be prepared to migrate your code.
 //!
 //! We are actively seeking feedback on the design and implementation of this crate, so please
 //! file issues or create PRs if you have any comments or suggestions.
