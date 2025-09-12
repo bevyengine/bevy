@@ -807,6 +807,9 @@ impl<T, A: IsAligned> Drop for MovingPtr<'_, T, A> {
     }
 }
 
+unsafe impl<T: Send, A: IsAligned> Send for MovingPtr<'_, T, A> {}
+unsafe impl<T: Sync, A: IsAligned> Sync for MovingPtr<'_, T, A> {}
+
 impl<'a, A: IsAligned> Ptr<'a, A> {
     /// Creates a new instance from a raw pointer.
     ///
