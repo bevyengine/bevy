@@ -228,8 +228,9 @@ impl BundleInfo {
     /// which removes the need to look up the [`ArchetypeAfterBundleInsert`](crate::archetype::ArchetypeAfterBundleInsert)
     /// in the archetype graph, which requires ownership of the entity's current archetype.
     ///
-    /// Regardless of how this is used, [`apply_effect`] should be called exactly once on `bundle` after this function is
-    /// called if `T::Effect: !NoBundleEffect`.
+    /// Regardless of how this is used, [`apply_effect`] must be called at most once on `bundle` after this function is
+    /// called if `T::Effect: !NoBundleEffect` before returning to user-space safe code before returning to user-space safe code.
+    /// This is currently only doable via use of [`MovingPtr::partial_move`].
     ///
     /// `table` must be the "new" table for `entity`. `table_row` must have space allocated for the
     /// `entity`, `bundle` must match this [`BundleInfo`]'s type

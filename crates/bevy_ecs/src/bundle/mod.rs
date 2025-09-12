@@ -236,12 +236,7 @@ pub unsafe trait BundleFromComponents {
 }
 
 /// The parts from [`Bundle`] that don't require statically knowing the components of the bundle.
-///
-/// # Safety
-/// - Each component can only be moved out of the `Bundle` exactly once between both implementations of
-///   `get_components` and `apply_effect`.
-/// - If `Effect: NoBundleEffect`, `apply_effect` must be a no-op.
-pub unsafe trait DynamicBundle: Sized {
+pub trait DynamicBundle: Sized {
     /// An operation on the entity that happens _after_ inserting this bundle.
     type Effect;
 
@@ -251,8 +246,6 @@ pub unsafe trait DynamicBundle: Sized {
     /// For callers:
     /// - Must be called exactly once before `apply_effect`
     /// - The `StorageType` argument passed into `func` must be correct for the component being fetched.
-    /// - Calls `func` on each component value in the bundle, in the order of this bundle's [`Component`]s.
-    ///   This passes ownership of the component values to `func`.
     /// - `apply_effect` must be called exactly once after this has been called if `Effect: !NoBundleEffect`
     ///
     /// For implementors:

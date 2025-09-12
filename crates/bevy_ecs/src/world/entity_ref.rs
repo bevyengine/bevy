@@ -2041,7 +2041,7 @@ impl<'w> EntityWorldMut<'w> {
         // - `location` matches current entity and thus must currently exist in the source
         //   archetype for this inserter and its location within the archetype.
         // - `T` matches the type used to create the `BundleInserter`.
-        // - `apply_effect` is called exactly once after this function.
+        // - `apply_effect` is called exactly once after this fuction.
         // - The value pointed at by `bundle` is not accessed for anything other than `apply_effect`
         //   and the caller ensures that the value is not accessed or dropped after this function
         //   returns.
@@ -4632,10 +4632,7 @@ unsafe fn insert_dynamic_bundle<
         components: I,
     }
 
-    // SAFETY:
-    // - The pointer only has its values moved out of in `get_components`.
-    // - `Effect = () : NoBundleEffect` so `apply_effect` is a no-op.
-    unsafe impl<'a, I: Iterator<Item = (StorageType, OwningPtr<'a>)>> DynamicBundle
+    impl<'a, I: Iterator<Item = (StorageType, OwningPtr<'a>)>> DynamicBundle
         for DynamicInsertBundle<'a, I>
     {
         type Effect = ();
@@ -4663,7 +4660,7 @@ unsafe fn insert_dynamic_bundle<
     // - `location` matches `entity`.  and thus must currently exist in the source
     //   archetype for this inserter and its location within the archetype.
     // - The caller must ensure that the iterators and storage types match up with the `BundleInserter`
-    // - `DynamicInsertBundle::Effect: NoBundleEffect` and thus `apply_effect` does not need to be called.
+    // - `apply_effect` is never called on this bundle.
     // - `bundle` is not used or dropped after this point.
     unsafe {
         bundle_inserter.insert(

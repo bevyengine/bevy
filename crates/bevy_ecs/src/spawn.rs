@@ -325,10 +325,7 @@ unsafe impl<R: Relationship, L: SpawnableList<R> + Send + Sync + 'static> Bundle
     }
 }
 
-// SAFETY:
-// -  The pointer is only moved out of in `apply_effect`.
-// - `Effect = Self : !NoBundleEffect` so `apply_effect` does not need to be a no-op.
-unsafe impl<R: Relationship, L: SpawnableList<R>> DynamicBundle for SpawnRelatedBundle<R, L> {
+impl<R: Relationship, L: SpawnableList<R>> DynamicBundle for SpawnRelatedBundle<R, L> {
     type Effect = Self;
 
     unsafe fn get_components(
@@ -375,10 +372,7 @@ pub struct SpawnOneRelated<R: Relationship, B: Bundle> {
     marker: PhantomData<R>,
 }
 
-// SAFETY:
-// -  The pointer is only moved out of in `apply_effect`.
-// - `Effect = Self : !NoBundleEffect` so `apply_effect` does not need to be a no-op.
-unsafe impl<R: Relationship, B: Bundle> DynamicBundle for SpawnOneRelated<R, B> {
+impl<R: Relationship, B: Bundle> DynamicBundle for SpawnOneRelated<R, B> {
     type Effect = Self;
 
     unsafe fn get_components(

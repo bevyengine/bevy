@@ -530,8 +530,8 @@ impl<'a, T, A: IsAligned> MovingPtr<'a, T, A> {
     /// // - `field_c` is by itself unique and does not conflict with the previous accesses
     /// //   inside `partial_move`.
     /// unsafe {
-    ///    bevy_ptr::deconstruct_moving_ptr!(partial_parent: MaybeUninit<Parent> => {
-    ///       field_c: FieldCType,
+    ///    bevy_ptr::deconstruct_moving_ptr!(partial_parent: MaybeUninit => {
+    ///       field_c,
     ///    });
     ///
     ///    insert(field_c);
@@ -677,6 +677,33 @@ impl<'a, T, A: IsAligned> MovingPtr<'a, T, A> {
             unsafe { NonNull::new_unchecked(f(self.0.as_ptr())) },
             PhantomData,
         )
+    }
+}
+
+impl<'a, T, A: IsAligned> MovingPtr<'a, MaybeUninit<T>, A> {
+    /// Creates a [`MovingPtr`] for a specific field within `self`.
+    ///
+    /// This function is explicitly made for deconstructive moves.
+    ///
+    /// The correct `byte_offset` for a field can be obtained via [`core::mem::offset_of`].
+    ///
+    /// The returned value will always be considered unaligned as `repr(packed)` types may result in
+    /// unaligned fields. The pointer is convertible back into an aligned one using the [`TryFrom`] impl.
+    ///
+    /// # Safety
+    ///  - `f` must return a non-null pointer to a valid field inside `T`
+    #[inline(always)]
+    pub unsafe fn move_maybe_uninit_field<U>(
+        &self,
+        f: impl Fn(*mut T) -> *mut U,
+    ) -> MovingPtr<'a, MaybeUninit<U>, Unaligned> {
+        let self_ptr = self.0.as_ptr().cast::<T>();
+        // SAFETY:
+        // - The caller must ensure that `U` is the correct type for the field at `byte_offset` and thus
+        //   cannot be null.
+        // - `MaybeUninit<T>` is `repr(transparent)` and thus must have the same memory layout as `T``
+        let field_ptr = unsafe { NonNull::new_unchecked(f(self_ptr)) };
+        MovingPtr(field_ptr.cast::<MaybeUninit<U>>(), PhantomData)
     }
 }
 
@@ -1307,16 +1334,11 @@ macro_rules! deconstruct_moving_ptr {
         $(let $field_alias = $ptr.move_field(|f| &raw mut (*f).$field_index);)*
         core::mem::forget($ptr);
     };
-    ($ptr:ident: MaybeUninit<$self_type:ident> => {$($field_name:tt: $field_type:ident,)*}) => {
-        $(let $field_name = $ptr.move_field(|f|
-            (&raw mut (*f.cast::<$self_type>()).$field_name).cast::<core::mem::MaybeUninit<$field_type>>()
-        );)*
-        core::mem::forget($ptr);
+    ($ptr:ident: MaybeUninit =>p {$($field_name:tt,)*}) => {
+        $crate::deconstruct_moving_ptr!($ptr: MaybeUninit => ($($field_name => $field_name,)*))
     };
-    ($ptr:ident: MaybeUninit<$self_type:ident> => ($($field_index:tt: $field_type:ident => $field_alias:ident,)*)) => {
-        $(let $field_alias = $ptr.move_field(|f|
-            (&raw mut (*f.cast::<$self_type>()).$field_index).cast::<core::mem::MaybeUninit<$field_type>>()
-        );)*
+    ($ptr:ident: MaybeUninit => ($($field_index:tt => $field_alias:ident,)*)) => {
+        $(let $field_alias = $ptr.move_maybe_uninit_field(|f| &raw mut (*f).$field_index);)*
         core::mem::forget($ptr);
     };
 }

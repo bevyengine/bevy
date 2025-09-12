@@ -2331,10 +2331,10 @@ impl World {
                 move_as_ptr!(first_bundle);
                 // SAFETY:
                 // - `entity` is valid, `location` matches entity, bundle matches inserter
-                // - The effect is `NoBundleEffect`, so calling `apply_effect` after this is a no-op.
+                // - `apply_effect` is never called on this bundle.
                 // - `first_bundle` is not be accessed or dropped after this.
                 unsafe {
-                    cache.inserter.insert::<B>(
+                    cache.inserter.insert(
                         first_entity,
                         first_location,
                         first_bundle,
@@ -2364,10 +2364,10 @@ impl World {
                         move_as_ptr!(bundle);
                         // SAFETY:
                         // - `entity` is valid, `location` matches entity, bundle matches inserter
-                        // - The effect is `NoBundleEffect`, so calling `apply_effect` after this is a no-op.
+                        // - `apply_effect` is never called on this bundle.
                         // - `bundle` is not be accessed or dropped after this.
                         unsafe {
-                            cache.inserter.insert::<B>(
+                            cache.inserter.insert(
                                 entity,
                                 location,
                                 bundle,
@@ -2486,10 +2486,10 @@ impl World {
                     move_as_ptr!(first_bundle);
                     // SAFETY:
                     // - `entity` is valid, `location` matches entity, bundle matches inserter
-                    // - The effect is `NoBundleEffect`, so calling `apply_effect` after this is a no-op.
+                    // - `apply_effect` is never called on this bundle.
                     // - `first_bundle` is not be accessed or dropped after this.
                     unsafe {
-                        cache.inserter.insert::<B>(
+                        cache.inserter.insert(
                             first_entity,
                             first_location,
                             first_bundle,
@@ -2528,10 +2528,10 @@ impl World {
                     move_as_ptr!(bundle);
                     // SAFETY:
                     // - `entity` is valid, `location` matches entity, bundle matches inserter
-                    // - The effect is `NoBundleEffect`, so calling `apply_effect` after this is a no-op.
+                    // - `apply_effect` is never called on this bundle.
                     // - `bundle` is not be accessed or dropped after this.
                     unsafe {
-                        cache.inserter.insert::<B>(
+                        cache.inserter.insert(
                             entity,
                             location,
                             bundle,

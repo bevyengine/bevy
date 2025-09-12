@@ -39,10 +39,7 @@ unsafe impl<C: Component> BundleFromComponents for C {
     }
 }
 
-// SAFETY:
-// - The pointer is only moved out of in `get_components`.
-// - `Effect = () : NoBundleEffect` so `apply_effect` is a no-op.
-unsafe impl<C: Component> DynamicBundle for C {
+impl<C: Component> DynamicBundle for C {
     type Effect = ();
     #[inline]
     unsafe fn get_components(
@@ -129,13 +126,7 @@ macro_rules! tuple_impl {
             reason = "Zero-length tuples won't use any of the parameters."
         )]
         $(#[$meta])*
-        // SAFETY:
-        // Assuming each of the fields' types implement `DynamicBundle` correctly:
-        // - Each of the implementations for each of the fields must move the components out of the `Bundle` exactly once between both
-        //   `get_components` and `apply_effect`.
-        // - If all of the individual tuple elements are `Effect: NoBundleEffect`, then the whole type's `Effect` will also be `NoBundleEffect`.
-        //   then the implementation of `apply_effect` must also be a no-op.
-        unsafe impl<$($name: Bundle),*> DynamicBundle for ($($name,)*) {
+        impl<$($name: Bundle),*> DynamicBundle for ($($name,)*) {
             type Effect = ($($name::Effect,)*);
             #[allow(
                 clippy::unused_unit,
@@ -169,8 +160,8 @@ macro_rules! tuple_impl {
                 // - If a field is `!NoBundleEffect`, it must be valid since a safe
                 //   implementation of `DynamicBundle` only moves the value out only
                 //   once between `get_components` and `apply_effect`.
-                bevy_ptr::deconstruct_moving_ptr!(ptr: MaybeUninit<Self> => (
-                    $($index: $name => $alias,)*
+                bevy_ptr::deconstruct_moving_ptr!(ptr: MaybeUninit => (
+                    $($index => $alias,)*
                 ));
                 // SAFETY:
                 // - If `ptr` is aligned, then field_ptr is aligned properly. Rust tuples cannot be `repr(packed)`.
