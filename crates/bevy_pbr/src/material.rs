@@ -804,9 +804,12 @@ pub fn extract_entities_needs_specialization<M>(
     // so that the `RenderMaterialInstances` bookkeeping has already been done, and we can check if the entity
     // still has a valid material instance.
     for entity in removed_mesh_material_components.read() {
-       if material_instances.instances.contains_key(&MainEntity::from(entity)) {
+        if material_instances
+            .instances
+            .contains_key(&MainEntity::from(entity))
+        {
             continue;
-       }
+        }
 
         entity_specialization_ticks.remove(&MainEntity::from(entity));
         for view in views {
