@@ -1652,7 +1652,7 @@ mod tests {
         }
         let components: HashMap<String, Value> = [(
             String::from("bevy_remote::builtin_methods::tests::Player"),
-            serde_json::json!({"name": "DSA", "health": 50}),
+            serde_json::json!({"name": "John", "health": 50}),
         )]
         .into();
         let atr = AppTypeRegistry::default();
