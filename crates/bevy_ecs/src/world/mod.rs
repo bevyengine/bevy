@@ -973,13 +973,15 @@ impl World {
                 .entities_with_location()
                 .map(|(entity, location)| {
                     // SAFETY: entity exists and location accurately specifies the archetype where the entity is stored.
-                    let cell = UnsafeEntityCell::new(
-                        self.as_unsafe_world_cell_readonly(),
-                        entity,
-                        location,
-                        self.last_change_tick,
-                        self.read_change_tick(),
-                    );
+                    let cell = unsafe {
+                        UnsafeEntityCell::new(
+                            self.as_unsafe_world_cell_readonly(),
+                            entity,
+                            location,
+                            self.last_change_tick,
+                            self.read_change_tick(),
+                        )
+                    };
                     // SAFETY: `&self` gives read access to the entire world.
                     unsafe { EntityRef::new(cell) }
                 })
@@ -997,13 +999,15 @@ impl World {
                 .entities_with_location()
                 .map(move |(entity, location)| {
                     // SAFETY: entity exists and location accurately specifies the archetype where the entity is stored.
-                    let cell = UnsafeEntityCell::new(
-                        world_cell,
-                        entity,
-                        location,
-                        last_change_tick,
-                        change_tick,
-                    );
+                    let cell = unsafe {
+                        UnsafeEntityCell::new(
+                            world_cell,
+                            entity,
+                            location,
+                            last_change_tick,
+                            change_tick,
+                        )
+                    };
                     // SAFETY: We have exclusive access to the entire world. We only create one borrow for each entity,
                     // so none will conflict with one another.
                     unsafe { EntityMut::new(cell) }
@@ -1202,7 +1206,8 @@ impl World {
     ) -> EntityWorldMut<'_> {
         let archetype = self.archetypes.empty_mut();
         // PERF: consider avoiding allocating entities in the empty archetype unless needed
-        let table_row = self.storages.tables[archetype.table_id()].allocate(entity);
+        let table = self.storages.tables.empty_mut();
+        let table_row = table.allocate(entity);
         // SAFETY: no components are allocated by archetype.allocate() because the archetype is
         // empty
         let location = unsafe { archetype.allocate(entity, table_row) };
@@ -2792,7 +2797,7 @@ impl World {
         let by = MaybeLocation::caller();
         let at = self.change_tick();
         let empty_archetype = self.archetypes.empty_mut();
-        let table = &mut self.storages.tables[empty_archetype.table_id()];
+        let table = self.storages.tables.empty_mut();
         // PERF: consider pre-allocating space for flushed entities
         // SAFETY: entity is set to a valid location
         unsafe {
