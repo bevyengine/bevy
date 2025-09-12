@@ -32,8 +32,8 @@ pub use spawn_batch::*;
 use crate::{
     archetype::{ArchetypeId, Archetypes},
     bundle::{
-        Bundle, BundleEffect, BundleId, BundleInfo, BundleInserter, BundleSpawner, Bundles,
-        InsertMode, NoBundleEffect,
+        Bundle, BundleId, BundleInfo, BundleInserter, BundleSpawner, Bundles, InsertMode,
+        NoBundleEffect,
     },
     change_detection::{MaybeLocation, MutUntyped, TicksMut},
     component::{
@@ -63,7 +63,7 @@ use crate::{
 };
 use alloc::{boxed::Box, vec::Vec};
 use bevy_platform::sync::atomic::{AtomicU32, Ordering};
-use bevy_ptr::{OwningPtr, Ptr, UnsafeCellDeref};
+use bevy_ptr::{move_as_ptr, MovingPtr, OwningPtr, Ptr, UnsafeCellDeref};
 use bevy_utils::prelude::DebugName;
 use core::{any::TypeId, fmt};
 use log::warn;
@@ -1152,21 +1152,29 @@ impl World {
     /// ```
     #[track_caller]
     pub fn spawn<B: Bundle>(&mut self, bundle: B) -> EntityWorldMut<'_> {
+        move_as_ptr!(bundle);
         self.spawn_with_caller(bundle, MaybeLocation::caller())
     }
 
     pub(crate) fn spawn_with_caller<B: Bundle>(
         &mut self,
-        bundle: B,
+        bundle: MovingPtr<'_, B>,
         caller: MaybeLocation,
     ) -> EntityWorldMut<'_> {
         self.flush();
         let change_tick = self.change_tick();
         let entity = self.entities.alloc();
         let mut bundle_spawner = BundleSpawner::new::<B>(self, change_tick);
-        // SAFETY: bundle's type matches `bundle_info`, entity is allocated but non-existent
-        let (entity_location, after_effect) =
-            unsafe { bundle_spawner.spawn_non_existent(entity, bundle, caller) };
+        let (bundle, entity_location) = bundle.partial_move(|bundle| {
+            // SAFETY:
+            // - `B` matches `bundle_spawner`'s type
+            // -  `entity` is allocated but non-existent
+            // - `B::Effect` is unconstrained, and `B::apply_effect` is called exactly once on the bundle after this call.
+            // - This function ensures that the value pointed to by `bundle` must not be accessed for anything afterwards by consuming
+            //   the `MovingPtr`. The value is otherwise only used to call `apply_effect` within this function, and the safety invariants
+            //   of `DynamicBundle` ensure that only the elements that have not been moved out of by this call are accessed.
+            unsafe { bundle_spawner.spawn_non_existent::<B>(entity, bundle, caller) }
+        });
 
         let mut entity_location = Some(entity_location);
 
@@ -1178,7 +1186,10 @@ impl World {
 
         // SAFETY: entity and location are valid, as they were just created above
         let mut entity = unsafe { EntityWorldMut::new(self, entity, entity_location) };
-        after_effect.apply(&mut entity);
+        // SAFETY:
+        // - This is called exactly once after `get_components` has been called in `spawn_non_existent`.
+        // - `bundle` had it's `get_components` function called exactly once inside `spawn_non_existent`.
+        unsafe { B::apply_effect(bundle, &mut entity) };
         entity
     }
 
@@ -2316,7 +2327,12 @@ impl World {
                     },
                     archetype_id: first_location.archetype_id,
                 };
-                // SAFETY: `entity` is valid, `location` matches entity, bundle matches inserter
+
+                move_as_ptr!(first_bundle);
+                // SAFETY:
+                // - `entity` is valid, `location` matches entity, bundle matches inserter
+                // - `apply_effect` is never called on this bundle.
+                // - `first_bundle` is not be accessed or dropped after this.
                 unsafe {
                     cache.inserter.insert(
                         first_entity,
@@ -2344,7 +2360,12 @@ impl World {
                                 archetype_id: location.archetype_id,
                             }
                         }
-                        // SAFETY: `entity` is valid, `location` matches entity, bundle matches inserter
+
+                        move_as_ptr!(bundle);
+                        // SAFETY:
+                        // - `entity` is valid, `location` matches entity, bundle matches inserter
+                        // - `apply_effect` is never called on this bundle.
+                        // - `bundle` is not be accessed or dropped after this.
                         unsafe {
                             cache.inserter.insert(
                                 entity,
@@ -2461,7 +2482,12 @@ impl World {
                         },
                         archetype_id: first_location.archetype_id,
                     };
-                    // SAFETY: `entity` is valid, `location` matches entity, bundle matches inserter
+
+                    move_as_ptr!(first_bundle);
+                    // SAFETY:
+                    // - `entity` is valid, `location` matches entity, bundle matches inserter
+                    // - `apply_effect` is never called on this bundle.
+                    // - `first_bundle` is not be accessed or dropped after this.
                     unsafe {
                         cache.inserter.insert(
                             first_entity,
@@ -2498,7 +2524,12 @@ impl World {
                             archetype_id: location.archetype_id,
                         }
                     }
-                    // SAFETY: `entity` is valid, `location` matches entity, bundle matches inserter
+
+                    move_as_ptr!(bundle);
+                    // SAFETY:
+                    // - `entity` is valid, `location` matches entity, bundle matches inserter
+                    // - `apply_effect` is never called on this bundle.
+                    // - `bundle` is not be accessed or dropped after this.
                     unsafe {
                         cache.inserter.insert(
                             entity,

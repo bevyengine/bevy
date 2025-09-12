@@ -172,12 +172,12 @@ fn set_slider_styles(
     gradient: &mut BackgroundGradient,
     commands: &mut Commands,
 ) {
-    let bar_color = theme.color(match disabled {
+    let bar_color = theme.color(&match disabled {
         true => tokens::SLIDER_BAR_DISABLED,
         false => tokens::SLIDER_BAR,
     });
 
-    let bg_color = theme.color(tokens::SLIDER_BG);
+    let bg_color = theme.color(&tokens::SLIDER_BG);
 
     let cursor_shape = match disabled {
         true => bevy_window::SystemCursorIcon::NotAllowed,

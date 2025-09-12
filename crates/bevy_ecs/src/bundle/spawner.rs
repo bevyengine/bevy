@@ -1,6 +1,6 @@
 use core::ptr::NonNull;
 
-use bevy_ptr::ConstNonNull;
+use bevy_ptr::{ConstNonNull, MovingPtr};
 
 use crate::{
     archetype::{Archetype, ArchetypeCreated, ArchetypeId, SpawnBundleStatus},
@@ -79,18 +79,25 @@ impl<'w> BundleSpawner<'w> {
     }
 
     /// # Safety
-    /// `entity` must be allocated (but non-existent), `T` must match this [`BundleInfo`]'s type
+    /// - `entity` must be allocated (but non-existent),
+    /// - `T` must match this [`BundleSpawner`]'s type
+    /// - If `T::Effect: !NoBundleEffect.`, then [`apply_effect`] must  be called exactly once on `bundle`
+    ///   after this function returns before returning to safe code.
+    /// - The value pointed to by `bundle` must not be accessed for anything other than [`apply_effect`]
+    ///   or dropped.
+    ///
+    /// [`apply_effect`]: crate::bundle::DynamicBundle::apply_effect
     #[inline]
     #[track_caller]
     pub unsafe fn spawn_non_existent<T: DynamicBundle>(
         &mut self,
         entity: Entity,
-        bundle: T,
+        bundle: MovingPtr<'_, T>,
         caller: MaybeLocation,
-    ) -> (EntityLocation, T::Effect) {
+    ) -> EntityLocation {
         // SAFETY: We do not make any structural changes to the archetype graph through self.world so these pointers always remain valid
         let bundle_info = self.bundle_info.as_ref();
-        let (location, after_effect) = {
+        let location = {
             let table = self.table.as_mut();
             let archetype = self.archetype.as_mut();
 
@@ -101,7 +108,7 @@ impl<'w> BundleSpawner<'w> {
             };
             let table_row = table.allocate(entity);
             let location = archetype.allocate(entity, table_row);
-            let after_effect = bundle_info.write_components(
+            bundle_info.write_components(
                 table,
                 sparse_sets,
                 &SpawnBundleStatus,
@@ -115,7 +122,7 @@ impl<'w> BundleSpawner<'w> {
             );
             entities.set(entity.index(), Some(location));
             entities.mark_spawn_despawn(entity.index(), caller, self.change_tick);
-            (location, after_effect)
+            location
         };
 
         // SAFETY: We have no outstanding mutable references to world as they were dropped
@@ -162,21 +169,33 @@ impl<'w> BundleSpawner<'w> {
             }
         };
 
-        (location, after_effect)
+        location
     }
 
     /// # Safety
-    /// `T` must match this [`BundleInfo`]'s type
+    /// - `T` must match this [`BundleSpawner`]'s type
+    /// - If `T::Effect: !NoBundleEffect.`, then [`apply_effect`] must  be called exactly once on `bundle`
+    ///   after this function returns before returning to safe code.
+    /// - The value pointed to by `bundle` must not be accessed for anything other than [`apply_effect`]
+    ///   or dropped.
+    ///
+    /// [`apply_effect`]: crate::bundle::DynamicBundle::apply_effect
     #[inline]
     pub unsafe fn spawn<T: Bundle>(
         &mut self,
-        bundle: T,
+        bundle: MovingPtr<'_, T>,
         caller: MaybeLocation,
-    ) -> (Entity, T::Effect) {
+    ) -> Entity {
         let entity = self.entities().alloc();
-        // SAFETY: entity is allocated (but non-existent), `T` matches this BundleInfo's type
-        let (_, after_effect) = unsafe { self.spawn_non_existent(entity, bundle, caller) };
-        (entity, after_effect)
+        // SAFETY:
+        // - `entity` is allocated above
+        // - The caller ensures that `T` matches this `BundleSpawner`'s type.
+        // - The caller ensures that if `T::Effect: !NoBundleEffect.`, then [`apply_effect`] must  be called exactly once on `bundle`
+        //   after this function returns before returning to safe code.
+        // - The caller ensures that the value pointed to by `bundle` must not be accessed for anything other than [`apply_effect`]
+        //   or dropped.
+        unsafe { self.spawn_non_existent::<T>(entity, bundle, caller) };
+        entity
     }
 
     #[inline]

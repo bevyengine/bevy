@@ -4,6 +4,7 @@ pub mod entity_command;
 #[cfg(feature = "std")]
 mod parallel_scope;
 
+use bevy_ptr::move_as_ptr;
 pub use command::Command;
 pub use entity_command::EntityCommand;
 
@@ -397,6 +398,7 @@ impl<'w, 's> Commands<'w, 's> {
                 }
             });
 
+            move_as_ptr!(bundle);
             entity.insert_with_caller(
                 bundle,
                 InsertMode::Replace,
