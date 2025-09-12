@@ -7,7 +7,6 @@ use variadics_please::all_tuples_enumerated;
 use crate::{
     bundle::{Bundle, BundleFromComponents, DynamicBundle, NoBundleEffect},
     component::{Component, ComponentId, Components, ComponentsRegistrator, StorageType},
-    query::DebugCheckedUnwrap,
     world::EntityWorldMut,
 };
 
@@ -134,17 +133,9 @@ macro_rules! tuple_impl {
             )]
             #[inline(always)]
             unsafe fn get_components(ptr: MovingPtr<'_, Self>, func: &mut impl FnMut(StorageType, OwningPtr<'_>)) {
-                // SAFETY:
-                // - All of the `move_field` calls all fetch distinct and valid fields within `Self`.
-                // - If a field is `NoBundleEffect`, it's `apply_effect` is a no-op
-                //   and cannot move any value out of an invalid instance after this call.
-                // - If a field is `!NoBundleEffect`, it must be valid since a safe
-                //   implementation of `DynamicBundle` only moves the value out only
-                //   once between `get_components` and `apply_effect`.
                 bevy_ptr::deconstruct_moving_ptr!(ptr => ($($index => $alias),*));
-                // SAFETY:
-                // - If `ptr` is aligned, then field_ptr is aligned properly. Rust tuples cannot be `repr(packed)`.
-                $( $name::get_components($alias.try_into().debug_checked_unwrap(), func); )*
+                // SAFETY: Caller ensures requirements for calling `get_components` are met.
+                $( $name::get_components($alias, func); )*
             }
 
             #[allow(
@@ -153,19 +144,11 @@ macro_rules! tuple_impl {
             )]
             #[inline(always)]
             unsafe fn apply_effect(ptr: MovingPtr<'_, MaybeUninit<Self>>, entity: &mut EntityWorldMut) {
-                // SAFETY:
-                // - All of the `move_field` calls all fetch distinct and valid fields within `Self`.
-                // - If a field is `NoBundleEffect`, it's `apply_effect` is a no-op
-                //   and cannot move any value out of an invalid instance.
-                // - If a field is `!NoBundleEffect`, it must be valid since a safe
-                //   implementation of `DynamicBundle` only moves the value out only
-                //   once between `get_components` and `apply_effect`.
                 bevy_ptr::deconstruct_moving_ptr!(ptr: MaybeUninit => (
                     $($index => $alias),*
                 ));
-                // SAFETY:
-                // - If `ptr` is aligned, then field_ptr is aligned properly. Rust tuples cannot be `repr(packed)`.
-                $( $name::apply_effect($alias.try_into().debug_checked_unwrap(), entity); )*
+                // SAFETY: Caller ensures requirements for calling `apply_effect` are met.
+                $( $name::apply_effect($alias, entity); )*
             }
         }
 
