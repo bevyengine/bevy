@@ -3159,6 +3159,20 @@ impl<'w> EntityWorldMut<'w> {
             })
         })
     }
+
+    /// Deprecated. Use [`World::trigger`] instead.
+    #[track_caller]
+    #[deprecated(
+        since = "0.17.0",
+        note = "Use World::trigger with an EntityEvent instead."
+    )]
+    pub fn trigger<'t>(&mut self, event: impl EntityEvent<Trigger<'t>: Default>) -> &mut Self {
+        log::warn!("EntityWorldMut::trigger is deprecated and no longer triggers the event for the current EntityWorldMut entity. Use World::trigger instead with an EntityEvent.");
+        self.world_scope(|world| {
+            world.trigger(event);
+        });
+        self
+    }
 }
 
 /// A view into a single entity and component in a world, which may either be vacant or occupied.
