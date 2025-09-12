@@ -844,7 +844,7 @@ mod tests {
     #[test]
     fn reflect_export_serialization_check() {
         #[derive(Reflect, Resource, Default, Deserialize, Serialize)]
-        #[reflect(Resource, Default)]
+        #[reflect(Resource, Default, Serialize, Deserialize)]
         struct Foo {
             /// Test doc
             a: f32,
@@ -860,8 +860,10 @@ mod tests {
           "modulePath": "bevy_remote::schemas::json_schema::tests",
           "crateName": "bevy_remote",
           "reflectTypeData": [
-            "Resource",
             "Default",
+            "Resource",
+            "Serialize",
+            "Deserialize"
           ],
           "default": {
             "a": 0.0,

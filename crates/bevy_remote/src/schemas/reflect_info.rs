@@ -1501,14 +1501,14 @@ pub(crate) enum FieldsParseBehavior {
     /// Include all fields, but marked them as not required.
     IncludeAllNoRequiredOnes,
     /// Skip fields at the specified indices.
-    SkipFieldsAtIndicies(Vec<usize>),
+    SkipFieldsAtIndices(Vec<usize>),
 }
 
 impl FieldsParseBehavior {
     fn should_require(&self, index: usize) -> bool {
         match self {
             FieldsParseBehavior::IncludeAll => true,
-            FieldsParseBehavior::SkipFieldsAtIndicies(skip_indices) => {
+            FieldsParseBehavior::SkipFieldsAtIndices(skip_indices) => {
                 !skip_indices.contains(&index)
             }
             FieldsParseBehavior::IncludeAllNoRequiredOnes => false,
@@ -1519,9 +1519,7 @@ impl FieldsParseBehavior {
             FieldsParseBehavior::IncludeAll | FieldsParseBehavior::IncludeAllNoRequiredOnes => {
                 false
             }
-            FieldsParseBehavior::SkipFieldsAtIndicies(skip_indices) => {
-                skip_indices.contains(&index)
-            }
+            FieldsParseBehavior::SkipFieldsAtIndices(skip_indices) => skip_indices.contains(&index),
         }
     }
 }
@@ -1542,7 +1540,7 @@ impl TypeDefinitionBuilder for TypeRegistry {
         {
             FieldsParseBehavior::IncludeAllNoRequiredOnes
         } else if let Some(fields) = type_reg.data::<bevy_reflect::serde::SerializationData>() {
-            FieldsParseBehavior::SkipFieldsAtIndicies(fields.iter_skipped().map(|f| *f.0).collect())
+            FieldsParseBehavior::SkipFieldsAtIndices(fields.iter_skipped().map(|f| *f.0).collect())
         } else {
             FieldsParseBehavior::IncludeAll
         };
