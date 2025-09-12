@@ -3,7 +3,8 @@
 //! These widgets have no inherent styling, so this example also shows how to implement custom styles.
 //!
 //! The patterns shown here are likely to change substantially as the `bevy_ui_widgets` crate
-//! matures, so please exercise caution if you are using this as a reference for your own code.
+//! matures, so please exercise caution if you are using this as a reference for your own code,
+//! and note that there are still "user experience" issues with this API.
 
 use bevy::{
     color::palettes::basic::*,
