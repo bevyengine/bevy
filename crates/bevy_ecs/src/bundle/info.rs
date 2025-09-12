@@ -414,7 +414,9 @@ impl Bundles {
     }
 
     /// Gets the value identifying a specific bundle.
-    /// You can use [`bundle_id_of`] or [`bundle_id_of_val`](super::bundle_id_of_val) to easily get a bundle's `TypeId`.
+    /// You can use [`bundle_id_of`] or
+    /// [`bundle_id_of_val`](super::bundle_id_of_val) to easily get a bundle's
+    /// [`TypeId`].
     /// Returns `None` if the bundle does not exist in the world,
     /// or if `type_id` does not correspond to a bundle.
     #[inline]
