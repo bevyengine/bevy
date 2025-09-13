@@ -4381,7 +4381,7 @@ mod tests {
             MaybeLocation::new(Some(Location::caller()))
         );
         assert_eq!(
-            world.entities.entity_get_spawned_or_despawned_at(entity),
+            world.entities.entity_get_spawn_or_despawn_tick(entity),
             Some(world.change_tick())
         );
         world.despawn(entity);
@@ -4390,7 +4390,7 @@ mod tests {
             MaybeLocation::new(Some(Location::caller()))
         );
         assert_eq!(
-            world.entities.entity_get_spawned_or_despawned_at(entity),
+            world.entities.entity_get_spawn_or_despawn_tick(entity),
             Some(world.change_tick())
         );
         let new = world.spawn_empty().id();
@@ -4400,7 +4400,7 @@ mod tests {
             MaybeLocation::new(None)
         );
         assert_eq!(
-            world.entities.entity_get_spawned_or_despawned_at(entity),
+            world.entities.entity_get_spawn_or_despawn_tick(entity),
             None
         );
         world.despawn(new);
@@ -4409,7 +4409,7 @@ mod tests {
             MaybeLocation::new(None)
         );
         assert_eq!(
-            world.entities.entity_get_spawned_or_despawned_at(entity),
+            world.entities.entity_get_spawn_or_despawn_tick(entity),
             None
         );
     }
