@@ -1,14 +1,16 @@
 use bevy_app::prelude::*;
 use bevy_asset::{
-    embedded_asset, load_embedded_asset, AssetServer, Assets, Handle, RenderAssetUsages,
+    embedded_asset, load_embedded_asset, uuid_handle, AssetServer, Assets, Handle,
+    RenderAssetUsages,
 };
 use bevy_camera::Camera;
 use bevy_ecs::prelude::*;
 use bevy_image::{CompressedImageFormats, Image, ImageSampler, ImageType};
 use bevy_reflect::{std_traits::ReflectDefault, Reflect};
+#[cfg(feature = "tonemapping_luts")]
+use bevy_render::extract_resource::{ExtractResource, ExtractResourcePlugin};
 use bevy_render::{
     extract_component::{ExtractComponent, ExtractComponentPlugin},
-    extract_resource::{ExtractResource, ExtractResourcePlugin},
     render_asset::RenderAssets,
     render_resource::{
         binding_types::{sampler, texture_2d, texture_3d, uniform_buffer},
@@ -21,7 +23,6 @@ use bevy_render::{
 };
 use bevy_shader::{load_shader_library, Shader, ShaderDefVal};
 use bitflags::bitflags;
-#[cfg(not(feature = "tonemapping_luts"))]
 use tracing::error;
 
 mod node;
@@ -31,8 +32,12 @@ pub use node::TonemappingNode;
 
 use crate::FullscreenShader;
 
-/// 3D LUT (look up table) textures used for tonemapping
+/// 1x1 image used for the Tonemapping methods that do not use LUTs
+const PLACEHOLDER_LUTS_IMAGE: Handle<Image> = uuid_handle!("39bd4241-aa05-401a-b5ad-4dd963254fff");
+
+/// 3D LUT (look up table) textures used for tonemapping.
 #[derive(Resource, Clone, ExtractResource)]
+#[cfg(feature = "tonemapping_luts")]
 pub struct TonemappingLuts {
     pub blender_filmic: Handle<Image>,
     pub agx: Handle<Image>,
@@ -48,40 +53,33 @@ impl Plugin for TonemappingPlugin {
 
         embedded_asset!(app, "tonemapping.wgsl");
 
+        #[cfg(feature = "tonemapping_luts")]
         if !app.world().is_resource_added::<TonemappingLuts>() {
             let mut images = app.world_mut().resource_mut::<Assets<Image>>();
-
-            #[cfg(feature = "tonemapping_luts")]
-            let tonemapping_luts = {
-                TonemappingLuts {
-                    blender_filmic: images.add(setup_tonemapping_lut_image(
-                        include_bytes!("luts/Blender_-11_12.ktx2"),
-                        ImageType::Extension("ktx2"),
-                    )),
-                    agx: images.add(setup_tonemapping_lut_image(
-                        include_bytes!("luts/AgX-default_contrast.ktx2"),
-                        ImageType::Extension("ktx2"),
-                    )),
-                    tony_mc_mapface: images.add(setup_tonemapping_lut_image(
-                        include_bytes!("luts/tony_mc_mapface.ktx2"),
-                        ImageType::Extension("ktx2"),
-                    )),
-                }
-            };
-
-            #[cfg(not(feature = "tonemapping_luts"))]
-            let tonemapping_luts = {
-                let placeholder = images.add(lut_placeholder());
-                TonemappingLuts {
-                    blender_filmic: placeholder.clone(),
-                    agx: placeholder.clone(),
-                    tony_mc_mapface: placeholder,
-                }
+            let tonemapping_luts = TonemappingLuts {
+                blender_filmic: images.add(setup_tonemapping_lut_image(
+                    include_bytes!("luts/Blender_-11_12.ktx2"),
+                    ImageType::Extension("ktx2"),
+                )),
+                agx: images.add(setup_tonemapping_lut_image(
+                    include_bytes!("luts/AgX-default_contrast.ktx2"),
+                    ImageType::Extension("ktx2"),
+                )),
+                tony_mc_mapface: images.add(setup_tonemapping_lut_image(
+                    include_bytes!("luts/tony_mc_mapface.ktx2"),
+                    ImageType::Extension("ktx2"),
+                )),
             };
 
             app.insert_resource(tonemapping_luts);
         }
 
+        let mut images = app.world_mut().resource_mut::<Assets<Image>>();
+        if let Err(err) = images.insert(PLACEHOLDER_LUTS_IMAGE.id(), lut_placeholder()) {
+            error!("Failed to create Placeholder LUTs due to '{err}'.");
+        }
+
+        #[cfg(feature = "tonemapping_luts")]
         app.add_plugins(ExtractResourcePlugin::<TonemappingLuts>::default());
 
         app.add_plugins((
@@ -111,6 +109,9 @@ pub struct TonemappingPipeline {
 }
 
 /// Optionally enables a tonemapping shader that attempts to map linear input stimulus into a perceptually uniform image for a given [`Camera`] entity.
+///
+/// The default when `tonemapping_luts` is enabled is [`TonyMcMapface`](Tonemapping::TonyMcMapface),
+/// otherwise it is [`None`](Tonemapping::None).
 #[derive(
     Component, Debug, Hash, Clone, Copy, Reflect, Default, ExtractComponent, PartialEq, Eq,
 )]
@@ -118,6 +119,9 @@ pub struct TonemappingPipeline {
 #[reflect(Component, Debug, Hash, Default, PartialEq)]
 pub enum Tonemapping {
     /// Bypass tonemapping.
+    ///
+    /// Default when `tonemapping_luts` is disabled.
+    #[cfg_attr(not(feature = "tonemapping_luts"), default)]
     None,
     /// Suffers from lots hue shifting, brights don't desaturate naturally.
     /// Bright primaries and secondaries don't desaturate at all.
@@ -134,7 +138,7 @@ pub enum Tonemapping {
     /// <https://github.com/sobotka/AgX>
     /// Very neutral. Image is somewhat desaturated when compared to other tonemappers.
     /// Little to no hue shifting. Subtle [Abney shifting](https://en.wikipedia.org/wiki/Abney_effect).
-    /// NOTE: Requires the `tonemapping_luts` cargo feature.
+    #[cfg(feature = "tonemapping_luts")]
     AgX,
     /// By Tomasz Stachowiak
     /// Has little hue shifting in the darks and mids, but lots in the brights. Brights desaturate across the spectrum.
@@ -153,12 +157,14 @@ pub enum Tonemapping {
     /// Brightness-equivalent luminance of the input stimulus is compressed. The non-linearity resembles Reinhard.
     /// Color hues are preserved during compression, except for a deliberate [Bezold–Brücke shift](https://en.wikipedia.org/wiki/Bezold%E2%80%93Br%C3%BCcke_shift).
     /// To avoid posterization, selective desaturation is employed, with care to avoid the [Abney effect](https://en.wikipedia.org/wiki/Abney_effect).
-    /// NOTE: Requires the `tonemapping_luts` cargo feature.
-    #[default]
+    ///
+    /// Default when `tonemapping_luts` is enabled.
+    #[cfg_attr(feature = "tonemapping_luts", default)]
+    #[cfg(feature = "tonemapping_luts")]
     TonyMcMapface,
     /// Default Filmic Display Transform from blender.
     /// Somewhat neutral. Suffers from hue shifting. Brights desaturate across the spectrum.
-    /// NOTE: Requires the `tonemapping_luts` cargo feature.
+    #[cfg(feature = "tonemapping_luts")]
     BlenderFilmic,
 }
 
@@ -234,34 +240,19 @@ impl SpecializedRenderPipeline for TonemappingPipeline {
                 shader_defs.push("TONEMAP_METHOD_REINHARD_LUMINANCE".into());
             }
             Tonemapping::AcesFitted => shader_defs.push("TONEMAP_METHOD_ACES_FITTED".into()),
+            #[cfg(feature = "tonemapping_luts")]
             Tonemapping::AgX => {
-                #[cfg(not(feature = "tonemapping_luts"))]
-                error!(
-                    "AgX tonemapping requires the `tonemapping_luts` feature.
-                    Either enable the `tonemapping_luts` feature for bevy in `Cargo.toml` (recommended),
-                    or use a different `Tonemapping` method for your `Camera2d`/`Camera3d`."
-                );
                 shader_defs.push("TONEMAP_METHOD_AGX".into());
             }
             Tonemapping::SomewhatBoringDisplayTransform => {
                 shader_defs.push("TONEMAP_METHOD_SOMEWHAT_BORING_DISPLAY_TRANSFORM".into());
             }
+            #[cfg(feature = "tonemapping_luts")]
             Tonemapping::TonyMcMapface => {
-                #[cfg(not(feature = "tonemapping_luts"))]
-                error!(
-                    "TonyMcMapFace tonemapping requires the `tonemapping_luts` feature.
-                    Either enable the `tonemapping_luts` feature for bevy in `Cargo.toml` (recommended),
-                    or use a different `Tonemapping` method for your `Camera2d`/`Camera3d`."
-                );
                 shader_defs.push("TONEMAP_METHOD_TONY_MC_MAPFACE".into());
             }
+            #[cfg(feature = "tonemapping_luts")]
             Tonemapping::BlenderFilmic => {
-                #[cfg(not(feature = "tonemapping_luts"))]
-                error!(
-                    "BlenderFilmic tonemapping requires the `tonemapping_luts` feature.
-                    Either enable the `tonemapping_luts` feature for bevy in `Cargo.toml` (recommended),
-                    or use a different `Tonemapping` method for your `Camera2d`/`Camera3d`."
-                );
                 shader_defs.push("TONEMAP_METHOD_BLENDER_FILMIC".into());
             }
         }
@@ -379,7 +370,7 @@ pub enum DebandDither {
 
 pub fn get_lut_bindings<'a>(
     images: &'a RenderAssets<GpuImage>,
-    tonemapping_luts: &'a TonemappingLuts,
+    #[cfg(feature = "tonemapping_luts")] tonemapping_luts: &'a TonemappingLuts,
     tonemapping: &Tonemapping,
     fallback_image: &'a FallbackImage,
 ) -> (&'a TextureView, &'a Sampler) {
@@ -389,9 +380,12 @@ pub fn get_lut_bindings<'a>(
         | Tonemapping::Reinhard
         | Tonemapping::ReinhardLuminance
         | Tonemapping::AcesFitted
-        | Tonemapping::AgX
-        | Tonemapping::SomewhatBoringDisplayTransform => &tonemapping_luts.agx,
+        | Tonemapping::SomewhatBoringDisplayTransform => &PLACEHOLDER_LUTS_IMAGE,
+        #[cfg(feature = "tonemapping_luts")]
+        Tonemapping::AgX => &tonemapping_luts.agx,
+        #[cfg(feature = "tonemapping_luts")]
         Tonemapping::TonyMcMapface => &tonemapping_luts.tony_mc_mapface,
+        #[cfg(feature = "tonemapping_luts")]
         Tonemapping::BlenderFilmic => &tonemapping_luts.blender_filmic,
     };
     let lut_image = images.get(image).unwrap_or(&fallback_image.d3);
