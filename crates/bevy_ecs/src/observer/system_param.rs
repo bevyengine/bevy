@@ -1,7 +1,7 @@
 //! System parameters for working with observers.
 
 use crate::{
-    bundle::Bundle,
+    bundle::StaticBundle,
     change_detection::MaybeLocation,
     event::{Event, EventKey, PropagateEntityTrigger},
     prelude::*,
@@ -31,7 +31,7 @@ use core::{
 // SAFETY WARNING!
 // this type must _never_ expose anything with the 'w lifetime
 // See the safety discussion on `Trigger` for more details.
-pub struct On<'w, 't, E: Event, B: Bundle = ()> {
+pub struct On<'w, 't, E: Event, B: StaticBundle = ()> {
     observer: Entity,
     // SAFETY WARNING: never expose this 'w lifetime
     event: &'w mut E,
@@ -46,7 +46,7 @@ pub struct On<'w, 't, E: Event, B: Bundle = ()> {
 #[deprecated(since = "0.17.0", note = "Renamed to `On`.")]
 pub type Trigger<'w, 't, E, B = ()> = On<'w, 't, E, B>;
 
-impl<'w, 't, E: Event, B: Bundle> On<'w, 't, E, B> {
+impl<'w, 't, E: Event, B: StaticBundle> On<'w, 't, E, B> {
     /// Creates a new instance of [`On`] for the given triggered event.
     pub fn new(
         event: &'w mut E,
@@ -130,7 +130,7 @@ impl<
         't,
         const AUTO_PROPAGATE: bool,
         E: EntityEvent + for<'a> Event<Trigger<'a> = PropagateEntityTrigger<AUTO_PROPAGATE, E, T>>,
-        B: Bundle,
+        B: StaticBundle,
         T: Traversal<E>,
     > On<'w, 't, E, B>
 {
@@ -178,7 +178,9 @@ impl<
     }
 }
 
-impl<'w, 't, E: for<'a> Event<Trigger<'a>: Debug> + Debug, B: Bundle> Debug for On<'w, 't, E, B> {
+impl<'w, 't, E: for<'a> Event<Trigger<'a>: Debug> + Debug, B: StaticBundle> Debug
+    for On<'w, 't, E, B>
+{
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         f.debug_struct("On")
             .field("event", &self.event)
@@ -188,7 +190,7 @@ impl<'w, 't, E: for<'a> Event<Trigger<'a>: Debug> + Debug, B: Bundle> Debug for 
     }
 }
 
-impl<'w, 't, E: Event, B: Bundle> Deref for On<'w, 't, E, B> {
+impl<'w, 't, E: Event, B: StaticBundle> Deref for On<'w, 't, E, B> {
     type Target = E;
 
     fn deref(&self) -> &Self::Target {
@@ -196,7 +198,7 @@ impl<'w, 't, E: Event, B: Bundle> Deref for On<'w, 't, E, B> {
     }
 }
 
-impl<'w, 't, E: Event, B: Bundle> DerefMut for On<'w, 't, E, B> {
+impl<'w, 't, E: Event, B: StaticBundle> DerefMut for On<'w, 't, E, B> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         self.event
     }

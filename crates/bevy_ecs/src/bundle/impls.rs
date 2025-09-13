@@ -5,22 +5,43 @@ use core::mem::MaybeUninit;
 use variadics_please::all_tuples_enumerated;
 
 use crate::{
-    bundle::{Bundle, BundleFromComponents, DynamicBundle, NoBundleEffect},
+    bundle::{Bundle, BundleFromComponents, DynamicBundle, NoBundleEffect, StaticBundle},
     component::{Component, ComponentId, Components, ComponentsRegistrator, StorageType},
     query::DebugCheckedUnwrap,
     world::EntityWorldMut,
 };
 
 // SAFETY:
-// - `Bundle::component_ids` calls `ids` for C's component id (and nothing else)
-// - `Bundle::get_components` is called exactly once for C and passes the component's storage type based on its associated constant.
-unsafe impl<C: Component> Bundle for C {
+// - `C` always represents the set of components containing just `C`
+// - `component_ids` and `get_component_ids` both call `ids` just once for C's component id (and nothing else).
+unsafe impl<C: Component> StaticBundle for C {
     fn component_ids(components: &mut ComponentsRegistrator, ids: &mut impl FnMut(ComponentId)) {
         ids(components.register_component::<C>());
     }
 
     fn get_component_ids(components: &Components, ids: &mut impl FnMut(Option<ComponentId>)) {
         ids(components.get_id(TypeId::of::<C>()));
+    }
+}
+
+// SAFETY:
+// - `component_ids` calls `ids` for C's component id (and nothing else)
+// - `get_components` is called exactly once for C and passes the component's storage type based on its associated constant.
+unsafe impl<C: Component> Bundle for C {
+    fn component_ids(
+        &self,
+        components: &mut ComponentsRegistrator,
+        ids: &mut impl FnMut(ComponentId),
+    ) {
+        <Self as StaticBundle>::component_ids(components, ids);
+    }
+
+    fn get_component_ids(
+        &self,
+        components: &Components,
+        ids: &mut impl FnMut(Option<ComponentId>),
+    ) {
+        <Self as StaticBundle>::get_component_ids(components, ids);
     }
 }
 
@@ -55,6 +76,30 @@ impl<C: Component> DynamicBundle for C {
 
 macro_rules! tuple_impl {
     ($(#[$meta:meta])* $(($index:tt, $name: ident, $alias: ident)),*) => {
+       #[expect(
+            clippy::allow_attributes,
+            reason = "This is a tuple-related macro; as such, the lints below may not always apply."
+        )]
+        #[allow(
+            unused_mut,
+            unused_variables,
+            reason = "Zero-length tuples won't use any of the parameters."
+        )]
+        $(#[$meta])*
+        // SAFETY:
+        // - all the sub-bundles are static, and hence their combination is static too;
+        // - `component_ids` and `get_component_ids` both delegate to the sub-bundle's methods
+        //   exactly once per sub-bundle, hence they are coherent.
+        unsafe impl<$($name: StaticBundle),*> StaticBundle for ($($name,)*) {
+            fn component_ids(components: &mut ComponentsRegistrator,  ids: &mut impl FnMut(ComponentId)){
+                $(<$name as StaticBundle>::component_ids(components, ids);)*
+            }
+
+            fn get_component_ids(components: &Components, ids: &mut impl FnMut(Option<ComponentId>)){
+                $(<$name as StaticBundle>::get_component_ids(components, ids);)*
+            }
+        }
+
         #[expect(
             clippy::allow_attributes,
             reason = "This is a tuple-related macro; as such, the lints below may not always apply."
@@ -72,12 +117,24 @@ macro_rules! tuple_impl {
         // - `Bundle::get_components` is called exactly once for each member. Relies on the above implementation to pass the correct
         //   `StorageType` into the callback.
         unsafe impl<$($name: Bundle),*> Bundle for ($($name,)*) {
-            fn component_ids(components: &mut ComponentsRegistrator,  ids: &mut impl FnMut(ComponentId)){
-                $(<$name as Bundle>::component_ids(components, ids);)*
+            fn component_ids(&self, components: &mut ComponentsRegistrator,  ids: &mut impl FnMut(ComponentId)){
+                #[allow(
+                    non_snake_case,
+                    reason = "The names of these variables are provided by the caller, not by us."
+                )]
+                let ($($name,)*) = self;
+
+                $(<$name as Bundle>::component_ids($name, components, ids);)*
             }
 
-            fn get_component_ids(components: &Components, ids: &mut impl FnMut(Option<ComponentId>)){
-                $(<$name as Bundle>::get_component_ids(components, ids);)*
+            fn get_component_ids(&self, components: &Components, ids: &mut impl FnMut(Option<ComponentId>)){
+                #[allow(
+                    non_snake_case,
+                    reason = "The names of these variables are provided by the caller, not by us."
+                )]
+                let ($($name,)*) = self;
+
+                $(<$name as Bundle>::get_component_ids($name, components, ids);)*
             }
         }
 

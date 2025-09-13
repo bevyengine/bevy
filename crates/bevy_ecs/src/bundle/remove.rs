@@ -4,7 +4,7 @@ use core::ptr::NonNull;
 
 use crate::{
     archetype::{Archetype, ArchetypeCreated, ArchetypeId, Archetypes},
-    bundle::{Bundle, BundleId, BundleInfo},
+    bundle::{BundleId, BundleInfo, StaticBundle},
     change_detection::MaybeLocation,
     component::{ComponentId, Components, StorageType},
     entity::{Entity, EntityLocation},
@@ -35,7 +35,7 @@ impl<'w> BundleRemover<'w> {
     /// Caller must ensure that `archetype_id` is valid
     #[inline]
     #[deny(unsafe_op_in_unsafe_fn)]
-    pub(crate) unsafe fn new<T: Bundle>(
+    pub(crate) unsafe fn new<T: StaticBundle>(
         world: &'w mut World,
         archetype_id: ArchetypeId,
         require_all: bool,

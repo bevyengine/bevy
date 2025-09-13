@@ -3,6 +3,7 @@
 use core::any::Any;
 
 use crate::{
+    bundle::StaticBundle,
     error::ErrorContext,
     event::Event,
     observer::TriggerContext,
@@ -32,7 +33,7 @@ pub type ObserverRunner =
 // NOTE: The way `Trigger` and `On` interact in this implementation is _subtle_ and _easily invalidated_
 // from a soundness perspective. Please read and understand the safety comments before making any changes,
 // either here or in `On`.
-pub(super) unsafe fn observer_system_runner<E: Event, B: Bundle, S: ObserverSystem<E, B>>(
+pub(super) unsafe fn observer_system_runner<E: Event, B: StaticBundle, S: ObserverSystem<E, B>>(
     mut world: DeferredWorld,
     observer: Entity,
     trigger_context: &TriggerContext,
