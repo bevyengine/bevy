@@ -15,8 +15,13 @@ pub const TRIGGER: &str = "trigger";
 pub const EVENT_TARGET: &str = "event_target";
 
 pub fn derive_event(input: TokenStream) -> TokenStream {
-    let ast = parse_macro_input!(input as DeriveInput);
+    let mut ast = parse_macro_input!(input as DeriveInput);
     let bevy_ecs_path: Path = crate::bevy_ecs_path();
+
+    ast.generics
+        .make_where_clause()
+        .predicates
+        .push(parse_quote! { Self: Send + Sync + 'static });
 
     let mut processed_attrs = Vec::new();
     let mut trigger: Option<Type> = None;
@@ -55,7 +60,13 @@ pub fn derive_event(input: TokenStream) -> TokenStream {
 }
 
 pub fn derive_entity_event(input: TokenStream) -> TokenStream {
-    let ast = parse_macro_input!(input as DeriveInput);
+    let mut ast = parse_macro_input!(input as DeriveInput);
+
+    ast.generics
+        .make_where_clause()
+        .predicates
+        .push(parse_quote! { Self: Send + Sync + 'static });
+
     let mut auto_propagate = false;
     let mut propagate = false;
     let mut traversal: Option<Type> = None;
