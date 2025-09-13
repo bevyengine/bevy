@@ -61,7 +61,6 @@ use bevy_render::{
     RenderSystems::{PrepareAssets, PrepareResources},
 };
 use bevy_utils::default;
-use core::marker::PhantomData;
 
 /// Sets up everything required to use the prepass pipeline.
 ///
@@ -180,16 +179,6 @@ impl Plugin for PrepassPlugin {
                 .before(queue_material_meshlet_meshes)
                 .run_if(resource_exists::<InstanceManager>),
         );
-    }
-}
-
-/// Marker resource for whether prepass is enabled globally for this material type
-#[derive(Resource, Debug)]
-pub struct PrepassEnabled<M: Material>(PhantomData<M>);
-
-impl<M: Material> Default for PrepassEnabled<M> {
-    fn default() -> Self {
-        PrepassEnabled(PhantomData)
     }
 }
 
