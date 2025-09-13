@@ -26,6 +26,17 @@ impl FontAtlasSets {
         let id: AssetId<Font> = id.into();
         self.sets.get_mut(&id)
     }
+
+    /// Clear all the `FontAtlasSet`s for every font face.
+    ///
+    /// This should be called when changing the scale factor to free the glyph textures generated for the previous scale.
+    /// All existing text entities must be reupdated after calling this function (changing the scale factor causes a
+    /// full reupdate of all text), otherwise it can cause a panic.
+    pub fn clear(&mut self) {
+        for (_, font_atlas_set) in self.sets.iter_mut() {
+            font_atlas_set.clear();
+        }
+    }
 }
 
 /// A system that cleans up [`FontAtlasSet`]s for removed [`Font`]s
@@ -68,6 +79,13 @@ impl Default for FontAtlasSet {
 }
 
 impl FontAtlasSet {
+    /// Clear all font atlases for this font face.
+    /// All text entities using this font must be reupdated after calling this function, otherwise
+    /// it can cause a panic.
+    pub fn clear(&mut self) {
+        self.font_atlases.clear();
+    }
+
     /// Returns an iterator over the [`FontAtlas`]es in this set
     pub fn iter(&self) -> impl Iterator<Item = (&FontAtlasKey, &Vec<FontAtlas>)> {
         self.font_atlases.iter()
