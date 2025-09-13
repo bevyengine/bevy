@@ -1336,7 +1336,7 @@ mod tests {
             SystemState::new(&mut world);
         {
             let query = system_state.get(&world);
-            assert_eq!(query.unwrap().spawned_at(), spawn_tick);
+            assert_eq!(query.unwrap().spawn_tick(), spawn_tick);
         }
 
         {

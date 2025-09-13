@@ -298,8 +298,8 @@ impl<'w> EntityRef<'w> {
     }
 
     /// Returns the [`Tick`] at which this entity has been spawned.
-    pub fn spawned_at(&self) -> Tick {
-        self.cell.spawned_at()
+    pub fn spawn_tick(&self) -> Tick {
+        self.cell.spawn_tick()
     }
 }
 
@@ -1065,8 +1065,8 @@ impl<'w> EntityMut<'w> {
     }
 
     /// Returns the [`Tick`] at which this entity has been spawned.
-    pub fn spawned_at(&self) -> Tick {
-        self.cell.spawned_at()
+    pub fn spawn_tick(&self) -> Tick {
+        self.cell.spawn_tick()
     }
 }
 
@@ -3132,7 +3132,7 @@ impl<'w> EntityWorldMut<'w> {
     }
 
     /// Returns the [`Tick`] at which this entity has last been spawned.
-    pub fn spawned_at(&self) -> Tick {
+    pub fn spawn_tick(&self) -> Tick {
         self.assert_not_despawned();
 
         // SAFETY: entity being alive was asserted
@@ -3693,8 +3693,8 @@ impl<'w, 's> FilteredEntityRef<'w, 's> {
     }
 
     /// Returns the [`Tick`] at which this entity has been spawned.
-    pub fn spawned_at(&self) -> Tick {
-        self.entity.spawned_at()
+    pub fn spawn_tick(&self) -> Tick {
+        self.entity.spawn_tick()
     }
 }
 
@@ -4055,8 +4055,8 @@ impl<'w, 's> FilteredEntityMut<'w, 's> {
     }
 
     /// Returns the [`Tick`] at which this entity has been spawned.
-    pub fn spawned_at(&self) -> Tick {
-        self.entity.spawned_at()
+    pub fn spawn_tick(&self) -> Tick {
+        self.entity.spawn_tick()
     }
 }
 
@@ -4239,8 +4239,8 @@ where
     }
 
     /// Returns the [`Tick`] at which this entity has been spawned.
-    pub fn spawned_at(&self) -> Tick {
-        self.entity.spawned_at()
+    pub fn spawn_tick(&self) -> Tick {
+        self.entity.spawn_tick()
     }
 
     /// Gets the component of the given [`ComponentId`] from the entity.
@@ -4494,8 +4494,8 @@ where
     }
 
     /// Returns the [`Tick`] at which this entity has been spawned.
-    pub fn spawned_at(&self) -> Tick {
-        self.entity.spawned_at()
+    pub fn spawn_tick(&self) -> Tick {
+        self.entity.spawn_tick()
     }
 
     /// Returns `true` if the current entity has a component of type `T`.
@@ -6413,7 +6413,7 @@ mod tests {
                     .map(|l| l.unwrap());
                 let at = world
                     .entities
-                    .entity_get_spawned_or_despawned_at(entity)
+                    .entity_get_spawn_or_despawn_tick(entity)
                     .unwrap();
                 (by, at)
             });
@@ -6453,7 +6453,7 @@ mod tests {
             despawn_tick,
             world
                 .entities()
-                .entity_get_spawned_or_despawned_at(entity)
+                .entity_get_spawn_or_despawn_tick(entity)
                 .unwrap()
         );
     }
