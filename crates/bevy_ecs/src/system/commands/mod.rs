@@ -2822,7 +2822,7 @@ mod tests {
         world.flush();
         assert_eq!(
             Some(expected),
-            world.entities().entity_get_spawned_or_despawned_at(id)
+            world.entities().entity_get_spawn_or_despawn_tick(id)
         );
     }
 }
