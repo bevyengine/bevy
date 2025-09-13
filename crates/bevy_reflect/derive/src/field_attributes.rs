@@ -7,7 +7,7 @@
 use crate::{custom_attributes::CustomAttributes, REFLECT_ATTRIBUTE_NAME};
 use bevy_macro_utils::terminated_parser;
 use quote::ToTokens;
-use syn::{parse::ParseStream, Attribute, LitStr, Meta, Token, Type};
+use syn::{parse::ParseStream, Attribute, LitStr, Token, Type};
 
 mod kw {
     syn::custom_keyword!(ignore);
@@ -105,10 +105,9 @@ impl FieldAttributes {
                     return None;
                 }
 
-                let Meta::List(meta) = &attr.meta else {
+                let Ok(meta) = &attr.meta.require_list() else {
                     return Some(syn::Error::new_spanned(attr, "expected meta list"));
                 };
-
                 // Parse all attributes inside the list, collecting any errors
                 meta.parse_args_with(terminated_parser(Token![,], |stream| {
                     args.parse_field_attribute(stream)

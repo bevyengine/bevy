@@ -21,7 +21,7 @@ use proc_macro2::{Ident, Span};
 use quote::{format_ident, quote, ToTokens};
 use syn::{
     parse_macro_input, parse_quote, punctuated::Punctuated, spanned::Spanned, token::Comma,
-    ConstParam, Data, DataStruct, DeriveInput, GenericParam, Index, TypeParam,
+    ConstParam, Data, DataStruct, DeriveInput, GenericParam, TypeParam,
 };
 
 enum BundleFieldKind {
@@ -107,7 +107,8 @@ pub fn derive_bundle(input: TokenStream) -> TokenStream {
 
     let field = named_fields
         .iter()
-        .map(|field| field.ident.as_ref())
+        .enumerate()
+        .map(|(index, field)| as_member(field.ident.as_ref(), index))
         .collect::<Vec<_>>();
 
     let field_type = named_fields
@@ -265,78 +266,70 @@ pub fn derive_map_entities(input: TokenStream) -> TokenStream {
         }
     })
 }
-
 /// Implement `SystemParam` to use a struct as a parameter in a system
 #[proc_macro_derive(SystemParam, attributes(system_param))]
 pub fn derive_system_param(input: TokenStream) -> TokenStream {
     let token_stream = input.clone();
     let ast = parse_macro_input!(input as DeriveInput);
-    let Data::Struct(DataStruct {
-        fields: field_definitions,
-        ..
-    }) = ast.data
-    else {
-        return syn::Error::new(
+    match derive_system_param_impl(token_stream, ast) {
+        Ok(t) => t,
+        Err(e) => e.into_compile_error().into(),
+    }
+}
+
+fn derive_system_param_impl(
+    token_stream: TokenStream,
+    ast: DeriveInput,
+) -> syn::Result<TokenStream> {
+    let Data::Struct(DataStruct { fields, .. }) = ast.data else {
+        return Err(syn::Error::new(
             ast.span(),
             "Invalid `SystemParam` type: expected a `struct`",
-        )
-        .into_compile_error()
-        .into();
+        ));
     };
     let path = bevy_ecs_path();
 
-    let mut field_locals = Vec::new();
-    let mut field_names = Vec::new();
-    let mut fields = Vec::new();
-    let mut field_types = Vec::new();
+    let field_locals = fields
+        .members()
+        .map(|m| format_ident!("__self{}", m))
+        .collect::<Vec<_>>();
+    let field_members = fields.members().collect::<Vec<_>>();
+    let field_types = fields.iter().map(|f| &f.ty).collect::<Vec<_>>();
+    let field_names = fields.members().map(|m| format!("::{}", quote! { #m }));
+
     let mut field_messages = Vec::new();
-    for (i, field) in field_definitions.iter().enumerate() {
-        field_locals.push(format_ident!("f{i}"));
-        let i = Index::from(i);
-        let field_value = field
-            .ident
-            .as_ref()
-            .map(|f| quote! { #f })
-            .unwrap_or_else(|| quote! { #i });
-        field_names.push(format!("::{field_value}"));
-        fields.push(field_value);
-        field_types.push(&field.ty);
+    for attr in fields
+        .iter()
+        .map(|f| f.attrs.iter().find(|a| a.path().is_ident("system_param")))
+    {
         let mut field_message = None;
-        for meta in field
-            .attrs
-            .iter()
-            .filter(|a| a.path().is_ident("system_param"))
-        {
-            if let Err(e) = meta.parse_nested_meta(|nested| {
+        if let Some(attr) = attr {
+            attr.parse_nested_meta(|nested| {
                 if nested.path.is_ident("validation_message") {
                     field_message = Some(nested.value()?.parse()?);
                     Ok(())
                 } else {
                     Err(nested.error("Unsupported attribute"))
                 }
-            }) {
-                return e.into_compile_error().into();
-            }
-        }
+            })?;
+        };
         field_messages.push(field_message.unwrap_or_else(|| quote! { err.message }));
     }
 
     let generics = ast.generics;
 
     // Emit an error if there's any unrecognized lifetime names.
+    let w = format_ident!("w");
+    let s = format_ident!("s");
     for lt in generics.lifetimes() {
         let ident = &lt.lifetime.ident;
-        let w = format_ident!("w");
-        let s = format_ident!("s");
         if ident != &w && ident != &s {
-            return syn::Error::new_spanned(
+            return Err(syn::Error::new_spanned(
                 lt,
                 r#"invalid lifetime name: expected `'w` or `'s`
  'w -- refers to data stored in the World.
  's -- refers to data stored in the SystemParam's state.'"#,
-            )
-            .into_compile_error()
-            .into();
+            ));
         }
     }
 
@@ -363,14 +356,14 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
         _ => unreachable!(),
     }));
 
-    let mut punctuated_generic_idents = Punctuated::<_, Comma>::new();
-    punctuated_generic_idents.extend(lifetimeless_generics.iter().map(|g| match g {
+    let mut generic_idents = Punctuated::<_, Comma>::new();
+    generic_idents.extend(lifetimeless_generics.iter().map(|g| match g {
         GenericParam::Type(g) => &g.ident,
         GenericParam::Const(g) => &g.ident,
         _ => unreachable!(),
     }));
 
-    let punctuated_generics_no_bounds: Punctuated<_, Comma> = lifetimeless_generics
+    let generics_without_bounds: Punctuated<_, Comma> = lifetimeless_generics
         .iter()
         .map(|&g| match g.clone() {
             GenericParam::Type(mut g) => {
@@ -418,16 +411,14 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
         .iter()
         .filter(|a| a.path().is_ident("system_param"))
     {
-        if let Err(e) = meta.parse_nested_meta(|nested| {
+        meta.parse_nested_meta(|nested| {
             if nested.path.is_ident("builder") {
                 builder_name = Some(format_ident!("{struct_name}Builder"));
                 Ok(())
             } else {
                 Err(nested.error("Unsupported attribute"))
             }
-        }) {
-            return e.into_compile_error().into();
-        }
+        })?;
     }
 
     let builder = builder_name.map(|builder_name| {
@@ -436,11 +427,11 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
         let builder_struct = quote! {
             #[doc = #builder_doc_comment]
             struct #builder_name<#(#builder_type_parameters,)*> {
-                #(#fields: #builder_type_parameters,)*
+                #(#field_members: #builder_type_parameters,)*
             }
         };
         let lifetimes: Vec<_> = generics.lifetimes().collect();
-        let generic_struct = quote!{ #struct_name <#(#lifetimes,)* #punctuated_generic_idents> };
+        let generic_struct = quote!{ #struct_name <#(#lifetimes,)* #generic_idents> };
         let builder_impl = quote!{
             // SAFETY: This delegates to the `SystemParamBuilder` for tuples.
             unsafe impl<
@@ -450,8 +441,8 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
             > #path::system::SystemParamBuilder<#generic_struct> for #builder_name<#(#builder_type_parameters,)*>
                 #where_clause
             {
-                fn build(self, world: &mut #path::world::World) -> <#generic_struct as #path::system::SystemParam>::State {
-                    let #builder_name { #(#fields: #field_locals,)* } = self;
+                fn build(self, world: &mut #path::world::World, meta: &mut #path::system::SystemMeta) -> <#generic_struct as #path::system::SystemParam>::State {
+                    let #builder_name { #(#field_members: #field_locals,)* } = self;
                     #state_struct_name {
                         state: #path::system::SystemParamBuilder::build((#(#tuple_patterns,)*), world)
                     }
@@ -462,24 +453,24 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
     });
     let (builder_struct, builder_impl) = builder.unzip();
 
-    TokenStream::from(quote! {
+    Ok(TokenStream::from(quote! {
         // We define the FetchState struct in an anonymous scope to avoid polluting the user namespace.
         // The struct can still be accessed via SystemParam::State, e.g. MessageReaderState can be accessed via
         // <MessageReader<'static, 'static, T> as SystemParam>::State
         const _: () = {
             // Allows rebinding the lifetimes of each field type.
-            type #fields_alias <'w, 's, #punctuated_generics_no_bounds> = (#(#tuple_types,)*);
+            type #fields_alias <'w, 's, #generics_without_bounds> = (#(#tuple_types,)*);
 
             #[doc(hidden)]
             #state_struct_visibility struct #state_struct_name <#(#lifetimeless_generics,)*>
             #where_clause {
-                state: <#fields_alias::<'static, 'static, #punctuated_generic_idents> as #path::system::SystemParam>::State,
+                state: <#fields_alias::<'static, 'static, #generic_idents> as #path::system::SystemParam>::State,
             }
 
             unsafe impl<#punctuated_generics> #path::system::SystemParam for
-                #struct_name <#(#shadowed_lifetimes,)* #punctuated_generic_idents> #where_clause
+                #struct_name <#(#shadowed_lifetimes,)* #generic_idents> #where_clause
             {
-                type State = #state_struct_name<#punctuated_generic_idents>;
+                type State = #state_struct_name<#generic_idents>;
                 type Item<'w, 's> = #struct_name #ty_generics;
 
                 fn init_state(world: &mut #path::world::World) -> Self::State {
@@ -493,11 +484,11 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
                 }
 
                 fn apply(state: &mut Self::State, system_meta: &#path::system::SystemMeta, world: &mut #path::world::World) {
-                    <#fields_alias::<'_, '_, #punctuated_generic_idents> as #path::system::SystemParam>::apply(&mut state.state, system_meta, world);
+                    <#fields_alias::<'_, '_, #generic_idents> as #path::system::SystemParam>::apply(&mut state.state, system_meta, world);
                 }
 
                 fn queue(state: &mut Self::State, system_meta: &#path::system::SystemMeta, world: #path::world::DeferredWorld) {
-                    <#fields_alias::<'_, '_, #punctuated_generic_idents> as #path::system::SystemParam>::queue(&mut state.state, system_meta, world);
+                    <#fields_alias::<'_, '_, #generic_idents> as #path::system::SystemParam>::queue(&mut state.state, system_meta, world);
                 }
 
                 #[inline]
@@ -525,7 +516,7 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
                         (#(#tuple_types,)*) as #path::system::SystemParam
                     >::get_param(&mut state.state, system_meta, world, change_tick);
                     #struct_name {
-                        #(#fields: #field_locals,)*
+                        #(#field_members: #field_locals,)*
                     }
                 }
             }
@@ -537,7 +528,7 @@ pub fn derive_system_param(input: TokenStream) -> TokenStream {
         };
 
         #builder_struct
-    })
+    }))
 }
 
 /// Implement `QueryData` to use a struct as a data parameter in a query
