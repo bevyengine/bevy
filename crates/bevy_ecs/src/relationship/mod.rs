@@ -501,7 +501,9 @@ impl RelationshipTargetCloneBehaviorHierarchy
 mod tests {
     use core::marker::PhantomData;
 
-    use crate::prelude::{ChildOf, Children};
+    use crate::prelude::{Add, ChildOf, Children, On};
+    use crate::spawn::SpawnRelated;
+    use crate::system::{Commands, Query};
     use crate::world::World;
     use crate::{component::Component, entity::Entity};
     use alloc::vec::Vec;
@@ -693,5 +695,18 @@ mod tests {
 
         assert!(world.get::<ChildOf>(child).is_some());
         assert!(world.get::<Children>(parent).is_some());
+    }
+
+    #[test]
+    fn target_disappears_before_hook_commands_apply() {
+        let mut world = World::new();
+        world.add_observer(
+            |add: On<Add, ChildOf>, q_child_of: Query<&ChildOf>, mut commands: Commands| {
+                let target = q_child_of.get(add.entity).unwrap().parent();
+                // Will run after the ChildOf on_insert hook but before its commands
+                commands.entity(target).despawn();
+            },
+        );
+        world.spawn(Children::spawn_one(()));
     }
 }
