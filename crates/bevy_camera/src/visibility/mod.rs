@@ -679,8 +679,14 @@ pub fn add_visibility_class<C>(
 ) where
     C: 'static,
 {
-    if let Some(mut visibility_class) = world.get_mut::<VisibilityClass>(entity) {
-        visibility_class.push(TypeId::of::<C>());
+    let Some(mut visibility_class) = world.get_mut::<VisibilityClass>(entity) else {
+        // potentially warn in this case?
+        return;
+    };
+
+    let type_id = TypeId::of::<C>();
+    if !visibility_class.contains(&type_id) {
+        visibility_class.push(type_id);
     }
 }
 
@@ -987,5 +993,28 @@ mod test {
     fn ensure_visibility_enum_size() {
         assert_eq!(1, size_of::<Visibility>());
         assert_eq!(1, size_of::<Option<Visibility>>());
+    }
+
+    #[derive(Component, Default, Clone, Reflect)]
+    #[require(VisibilityClass)]
+    #[reflect(Component, Default, Clone)]
+    #[component(on_add = add_visibility_class::<Self>)]
+    struct TestVisibilityClassHook;
+
+    #[test]
+    fn test_add_visibility_class_hook() {
+        let mut world = World::new();
+        let entity = world.spawn(TestVisibilityClassHook).id();
+        let entity_clone = world.spawn_empty().id();
+        world
+            .entity_mut(entity)
+            .clone_with_opt_out(entity_clone, |_| {});
+
+        let entity_visibility_class = world.entity(entity).get::<VisibilityClass>().unwrap();
+        assert_eq!(entity_visibility_class.len(), 1);
+
+        let entity_clone_visibility_class =
+            world.entity(entity_clone).get::<VisibilityClass>().unwrap();
+        assert_eq!(entity_clone_visibility_class.len(), 1);
     }
 }
