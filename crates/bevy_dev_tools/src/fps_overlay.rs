@@ -15,6 +15,7 @@ use bevy_ecs::{
     schedule::{common_conditions::resource_changed, IntoScheduleConfigs},
     system::{Commands, Query, Res, ResMut},
 };
+use bevy_picking::Pickable;
 use bevy_render::storage::ShaderStorageBuffer;
 use bevy_text::{Font, TextColor, TextFont, TextSpan};
 use bevy_time::Time;
@@ -166,6 +167,7 @@ fn setup(
             },
             // Render overlay on top of everything
             GlobalZIndex(FPS_OVERLAY_ZINDEX),
+            Pickable::IGNORE,
         ))
         .with_children(|p| {
             p.spawn((
@@ -173,6 +175,7 @@ fn setup(
                 overlay_config.text_config.clone(),
                 TextColor(overlay_config.text_color),
                 FpsText,
+                Pickable::IGNORE,
             ))
             .with_child((TextSpan::default(), overlay_config.text_config.clone()));
 
@@ -188,6 +191,7 @@ fn setup(
                     },
                     ..Default::default()
                 },
+                Pickable::IGNORE,
                 MaterialNode::from(frame_time_graph_materials.add(FrametimeGraphMaterial {
                     values: buffers.add(ShaderStorageBuffer {
                         // Initialize with dummy data because the default (`data: None`) will
