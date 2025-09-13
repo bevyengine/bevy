@@ -403,7 +403,7 @@ mod tests {
 
     use crate::{
         archetype::Archetypes,
-        bundle::Bundles,
+        bundle::{bundle_id_of, Bundles},
         change_detection::DetectChanges,
         component::{Component, Components},
         entity::{Entities, Entity},
@@ -1129,7 +1129,7 @@ mod tests {
                 let archetype = archetypes.get(location.archetype_id).unwrap();
                 let archetype_components = archetype.components();
                 let bundle_id = bundles
-                    .get_id(TypeId::of::<(W<i32>, W<bool>)>())
+                    .get_id(bundle_id_of::<(W<i32>, W<bool>)>())
                     .expect("Bundle used to spawn entity should exist");
                 let bundle_info = bundles.get(bundle_id).unwrap();
                 let mut bundle_components = bundle_info.contributed_components().to_vec();
