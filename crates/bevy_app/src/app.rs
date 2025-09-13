@@ -77,6 +77,7 @@ pub(crate) enum AppError {
 ///    println!("hello world");
 /// }
 /// ```
+#[must_use]
 pub struct App {
     pub(crate) sub_apps: SubApps,
     /// The function that will manage the app's lifecycle.
